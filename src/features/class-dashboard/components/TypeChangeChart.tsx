@@ -1,6 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Class, Student, StudentType } from '../../../shared/types';
+import type { Class, Student } from '../../../shared/types';
+import { LPA_PROFILE_DATA } from '../../../shared/data/lpaProfiles';
+import {
+  TYPE_ORDER,
+  TYPE_COLORS,
+  TYPE_GRADIENTS,
+  FLOW_GRADIENTS,
+  getChangeType,
+} from '../utils/typeUtils';
+
+// ============================================================
+// 타입 정의
+// ============================================================
 
 interface TypeChangeChartProps {
   classData: Class;
@@ -22,107 +34,116 @@ interface BarSegment {
   yEnd: number;
 }
 
-// 유형 순서 및 색상 정의 (아래부터: 미실시 → 자원소진형 → 안전균형형 → 몰입자원풍부형)
-const TYPE_ORDER = ['몰입자원풍부형', '안전균형형', '자원소진형', '미실시'];
-const TYPE_COLORS: Record<string, string> = {
-  '미실시': '#E5E7EB',
-  '자원소진형': '#FB923C',
-  '안전균형형': '#2DD4BF',
-  '몰입자원풍부형': '#60A5FA',
+// ============================================================
+// SVG 상수
+// ============================================================
+
+const SVG_CONFIG = {
+  width: 700,
+  height: 350,
+  barWidth: 100,
+  barGap: 280,
+  barX1: 90,
+  chartTop: 50,
+  chartHeight: 250,
+} as const;
+
+const SVG = {
+  ...SVG_CONFIG,
+  barX2: SVG_CONFIG.barX1 + SVG_CONFIG.barWidth + SVG_CONFIG.barGap,
 };
 
-// 그라디언트 색상 (더 현대적인 느낌)
-const TYPE_GRADIENTS: Record<string, { start: string; end: string }> = {
-  '미실시': { start: '#F3F4F6', end: '#D1D5DB' },
-  '자원소진형': { start: '#FDBA74', end: '#F97316' },
-  '안전균형형': { start: '#5EEAD4', end: '#14B8A6' },
-  '몰입자원풍부형': { start: '#93C5FD', end: '#3B82F6' },
+// ============================================================
+// 유틸리티 함수
+// ============================================================
+
+const yScale = (percentage: number) =>
+  SVG.chartTop + (SVG.chartHeight * percentage) / 100;
+
+const createFlowPath = (from: BarSegment, to: BarSegment): string => {
+  const x1 = SVG.barX1 + SVG.barWidth;
+  const x2 = SVG.barX2;
+  const controlX = (x1 + x2) / 2;
+
+  const y1Start = yScale(from.yStart);
+  const y1End = yScale(from.yEnd);
+  const y2Start = yScale(to.yStart);
+  const y2End = yScale(to.yEnd);
+
+  return `
+    M ${x1} ${y1Start}
+    C ${controlX} ${y1Start}, ${controlX} ${y2Start}, ${x2} ${y2Start}
+    L ${x2} ${y2End}
+    C ${controlX} ${y2End}, ${controlX} ${y1End}, ${x1} ${y1End}
+    Z
+  `;
 };
 
-// 변화 유형 결정
-const getChangeType = (from: string, to: string): 'improve' | 'maintain' | 'concern' | 'notAssessed' => {
-  if (to === '미실시') return 'notAssessed';
-  if (from === to) return 'maintain';
+const getFlowStyle = (
+  flow: FlowData,
+  isSelected: boolean
+): { opacity: number; strokeWidth: number; strokeColor: string; dashArray: string } => {
+  const { changeType } = flow;
 
-  const typeRank: Record<string, number> = {
-    '미실시': 0,
-    '자원소진형': 1,
-    '안전균형형': 2,
-    '몰입자원풍부형': 3,
-  };
+  if (isSelected) {
+    return { opacity: 0.9, strokeWidth: 3, strokeColor: '#1F2937', dashArray: 'none' };
+  }
 
-  const fromRank = typeRank[from] || 0;
-  const toRank = typeRank[to] || 0;
-
-  return toRank > fromRank ? 'improve' : 'concern';
+  if (changeType === 'improve') {
+    return { opacity: 0.7, strokeWidth: 2.5, strokeColor: '#059669', dashArray: '12,6' };
+  }
+  if (changeType === 'concern') {
+    return { opacity: 0.6, strokeWidth: 2.5, strokeColor: '#DC2626', dashArray: '12,6' };
+  }
+  if (changeType === 'notAssessed') {
+    return { opacity: 0.2, strokeWidth: 0, strokeColor: 'none', dashArray: '6,3' };
+  }
+  return { opacity: 0.2, strokeWidth: 0, strokeColor: 'none', dashArray: 'none' };
 };
 
-// 변화 유형별 색상 (더 현대적인 팔레트)
-const FLOW_COLORS: Record<string, string> = {
-  improve: '#10B981',      // 녹색 (개선)
-  maintain: '#94A3B8',     // 회색 (유지)
-  concern: '#F43F5E',      // 빨간색 (우려)
-  notAssessed: '#CBD5E1',  // 연한 회색 (미실시)
-};
-
-// 흐름선 그라디언트
-const FLOW_GRADIENTS: Record<string, { start: string; end: string }> = {
-  improve: { start: '#34D399', end: '#059669' },
-  maintain: { start: '#CBD5E1', end: '#64748B' },
-  concern: { start: '#FB7185', end: '#DC2626' },
-  notAssessed: { start: '#E2E8F0', end: '#94A3B8' },
-};
+// ============================================================
+// 메인 컴포넌트
+// ============================================================
 
 export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) => {
   const navigate = useNavigate();
   const [selectedFlow, setSelectedFlow] = useState<FlowData | null>(null);
+  const [selectedSegment, setSelectedSegment] = useState<{
+    round: 1 | 2;
+    type: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
-  // 1차 유형 분포 계산
-  const round1Distribution: Record<string, Student[]> = {
+  // 분포 계산
+  type Distribution = Record<string, Student[]>;
+
+  const createDistribution = (): Distribution => ({
     '미실시': [],
     '자원소진형': [],
     '안전균형형': [],
     '몰입자원풍부형': [],
-  };
+  });
+
+  const round1Distribution = createDistribution();
+  const round2Distribution = createDistribution();
+  const round2Completed = classData.stats?.round2Completed || false;
 
   classData.students.forEach(student => {
     const r1 = student.assessments.find(a => a.round === 1);
-    if (r1) {
-      round1Distribution[r1.predictedType].push(student);
+    const r2 = student.assessments.find(a => a.round === 2);
+
+    round1Distribution[r1?.predictedType || '미실시'].push(student);
+
+    if (round2Completed && r2) {
+      round2Distribution[r2.predictedType].push(student);
     } else {
-      round1Distribution['미실시'].push(student);
+      round2Distribution['미실시'].push(student);
     }
   });
 
-  // 2차 유형 분포 계산
-  const round2Distribution: Record<string, Student[]> = {
-    '미실시': [],
-    '자원소진형': [],
-    '안전균형형': [],
-    '몰입자원풍부형': [],
-  };
-
-  const round2Completed = classData.stats?.round2Completed || false;
-
-  if (round2Completed) {
-    classData.students.forEach(student => {
-      const r2 = student.assessments.find(a => a.round === 2);
-      if (r2) {
-        round2Distribution[r2.predictedType].push(student);
-      } else {
-        round2Distribution['미실시'].push(student);
-      }
-    });
-  } else {
-    // 2차 미진행 시 모든 학생 미실시
-    classData.students.forEach(student => {
-      round2Distribution['미실시'].push(student);
-    });
-  }
-
   // 흐름 데이터 계산
   const flows: FlowData[] = [];
-
   if (round2Completed) {
     TYPE_ORDER.forEach(fromType => {
       TYPE_ORDER.forEach(toType => {
@@ -144,102 +165,127 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
     });
   }
 
-  // 막대 세그먼트 계산 (하단부터 누적)
+  // 막대 세그먼트 계산
   const totalStudents = classData.stats?.totalStudents || 0;
 
-  const calculateBarSegments = (distribution: Record<string, Student[]>): BarSegment[] => {
+  const calculateSegments = (distribution: Record<string, Student[]>): BarSegment[] => {
     const segments: BarSegment[] = [];
     let currentY = 0;
 
     TYPE_ORDER.forEach(type => {
       const count = distribution[type].length;
       const percentage = totalStudents > 0 ? (count / totalStudents) * 100 : 0;
-
-      segments.push({
-        type,
-        count,
-        percentage,
-        yStart: currentY,
-        yEnd: currentY + percentage,
-      });
-
+      segments.push({ type, count, percentage, yStart: currentY, yEnd: currentY + percentage });
       currentY += percentage;
     });
 
     return segments;
   };
 
-  const round1Segments = calculateBarSegments(round1Distribution);
-  const round2Segments = calculateBarSegments(round2Distribution);
+  const round1Segments = calculateSegments(round1Distribution);
+  const round2Segments = calculateSegments(round2Distribution);
 
-  // SVG 크기 설정
-  const svgWidth = 700;
-  const svgHeight = 350;
-  const barWidth = 100;
-  const barGap = 280;
-  const barX1 = 90;
-  const barX2 = barX1 + barWidth + barGap;
-  const chartTop = 50;
-  const chartHeight = 250;
-
-  // Y 좌표 변환 (백분율 → 픽셀)
-  const yScale = (percentage: number) => chartTop + (chartHeight * percentage) / 100;
-
-  // 베지어 곡선 경로 생성
-  const createFlowPath = (fromSegment: BarSegment, toSegment: BarSegment): string => {
-    const x1 = barX1 + barWidth;
-    const x2 = barX2;
-    const y1Start = yScale(fromSegment.yStart);
-    const y1End = yScale(fromSegment.yEnd);
-    const y2Start = yScale(toSegment.yStart);
-    const y2End = yScale(toSegment.yEnd);
-
-    const controlX = (x1 + x2) / 2;
-
-    return `
-      M ${x1} ${y1Start}
-      C ${controlX} ${y1Start}, ${controlX} ${y2Start}, ${x2} ${y2Start}
-      L ${x2} ${y2End}
-      C ${controlX} ${y2End}, ${controlX} ${y1End}, ${x1} ${y1End}
-      Z
-    `;
-  };
-
-  // 변화량 계산
-  const getChangeSummary = () => {
-    const changes = {
-      improve: 0,
-      concern: 0,
-    };
-
-    flows.forEach(flow => {
-      if (flow.changeType === 'improve') {
-        changes.improve += flow.count;
-      } else if (flow.changeType === 'concern') {
-        changes.concern += flow.count;
-      }
-    });
-
-    return changes;
-  };
-
-  const changeSummary = getChangeSummary();
+  // 렌더링 헬퍼
+  const renderBarSegment = (
+    segment: BarSegment,
+    round: 1 | 2,
+    x: number,
+    isEnabled: boolean
+  ) => (
+    <g key={`r${round}-${segment.type}`}>
+      <rect
+        x={x}
+        y={yScale(segment.yStart)}
+        width={SVG.barWidth}
+        height={yScale(segment.yEnd) - yScale(segment.yStart)}
+        fill={TYPE_COLORS[segment.type]}
+        rx={8}
+        ry={8}
+        filter="url(#shadow)"
+        opacity={isEnabled ? 1 : 0.4}
+        className={`transition-all duration-300 ${isEnabled ? 'cursor-pointer hover:opacity-90' : ''}`}
+        onMouseEnter={(e) => {
+          if (isEnabled) {
+            setSelectedSegment({ round, type: segment.type, x: e.clientX, y: e.clientY });
+            setSelectedFlow(null);
+          }
+        }}
+        onClick={(e) => {
+          if (isEnabled) {
+            setSelectedSegment({ round, type: segment.type, x: e.clientX, y: e.clientY });
+            setSelectedFlow(null);
+          }
+        }}
+      />
+      {/* 광택 효과 */}
+      <rect
+        x={x}
+        y={yScale(segment.yStart)}
+        width={SVG.barWidth}
+        height={yScale(segment.yEnd) - yScale(segment.yStart)}
+        fill="url(#shine)"
+        rx={8}
+        ry={8}
+        opacity={isEnabled ? 0.3 : 0.15}
+        pointerEvents="none"
+      />
+      {segment.count > 0 && (
+        <>
+          <text
+            x={x + SVG.barWidth / 2}
+            y={yScale((segment.yStart + segment.yEnd) / 2)}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className={`text-xs font-semibold ${segment.type === '미실시' ? 'fill-gray-700' : 'fill-white'}`}
+            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
+            opacity={isEnabled ? 1 : 0.6}
+          >
+            {isEnabled ? segment.type.replace('형', '') : '미실시'}
+            <tspan x={x + SVG.barWidth / 2} dy="1.2em" className="text-sm font-bold">
+              {segment.count}명
+            </tspan>
+          </text>
+          {/* 퍼센트 배지 */}
+          <g opacity={isEnabled ? 1 : 0.6}>
+            <rect
+              x={round === 1 ? x - 55 : x + SVG.barWidth + 12}
+              y={yScale((segment.yStart + segment.yEnd) / 2) - 12}
+              width={46}
+              height={24}
+              rx={12}
+              fill="rgba(255, 255, 255, 0.95)"
+              stroke="#E5E7EB"
+              strokeWidth={1.5}
+              filter="drop-shadow(0 2px 4px rgba(0,0,0,0.06))"
+            />
+            <text
+              x={round === 1 ? x - 32 : x + SVG.barWidth + 35}
+              y={yScale((segment.yStart + segment.yEnd) / 2)}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="text-xs font-bold fill-gray-700"
+            >
+              {segment.percentage.toFixed(1)}%
+            </text>
+          </g>
+        </>
+      )}
+    </g>
+  );
 
   return (
     <div className="space-y-6">
-      {/* 차트 영역 */}
       <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-lg shadow-gray-100/50 hover:shadow-xl hover:shadow-gray-200/50 transition-shadow duration-300">
-        {/* 그래프 제목 - 좌측 상단 */}
         <div className="mb-4">
           <h2 className="text-xl font-bold text-gray-900">검사별 유형 분포</h2>
-          <p className="text-sm text-gray-500 mt-1">1차와 2차 검사 결과를 비교하여 학생들의 유형 변화를 확인하세요</p>
+          <p className="text-sm text-gray-500 mt-1">
+            1차와 2차 검사 결과를 비교하여 학생들의 유형 변화를 확인하세요
+          </p>
         </div>
 
         <div className="flex items-center justify-center">
-          <svg width={svgWidth} height={svgHeight} className="overflow-visible">
-            {/* 그림자 필터 및 그라디언트 정의 */}
+          <svg width={SVG.width} height={SVG.height} className="overflow-visible">
             <defs>
-              {/* 현대적인 그림자 효과 */}
               <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
                 <feOffset dx="0" dy="4" result="offsetblur"/>
@@ -252,18 +298,13 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
                 </feMerge>
               </filter>
 
-              {/* 유형별 그라디언트 */}
-              {TYPE_ORDER.map((type) => {
-                const gradient = TYPE_GRADIENTS[type];
-                return (
-                  <linearGradient key={type} id={`gradient-${type}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor={gradient.start} />
-                    <stop offset="100%" stopColor={gradient.end} />
-                  </linearGradient>
-                );
-              })}
+              {TYPE_ORDER.map(type => (
+                <linearGradient key={type} id={`gradient-${type}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor={TYPE_GRADIENTS[type].start} />
+                  <stop offset="100%" stopColor={TYPE_GRADIENTS[type].end} />
+                </linearGradient>
+              ))}
 
-              {/* 흐름선 그라디언트 */}
               {Object.entries(FLOW_GRADIENTS).map(([key, gradient]) => (
                 <linearGradient key={`flow-${key}`} id={`flow-gradient-${key}`} x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" stopColor={gradient.start} />
@@ -271,7 +312,6 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
                 </linearGradient>
               ))}
 
-              {/* 광택 효과 (선택적) */}
               <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="rgba(255,255,255,0)" />
                 <stop offset="50%" stopColor="rgba(255,255,255,0.2)" />
@@ -281,231 +321,63 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
 
             {/* 1차 막대 */}
             <g>
-              <text x={barX1 + barWidth / 2} y={chartTop - 15} textAnchor="middle" className="text-sm font-bold fill-gray-900">
+              <text x={SVG.barX1 + SVG.barWidth / 2} y={SVG.chartTop - 15} textAnchor="middle" className="text-sm font-bold fill-gray-900">
                 1차 검사
               </text>
-              {round1Segments.map((segment, idx) => (
-                <g key={`r1-${idx}`}>
-                  <rect
-                    x={barX1}
-                    y={yScale(segment.yStart)}
-                    width={barWidth}
-                    height={yScale(segment.yEnd) - yScale(segment.yStart)}
-                    fill={`url(#gradient-${segment.type})`}
-                    stroke="#fff"
-                    strokeWidth={3}
-                    rx={8}
-                    ry={8}
-                    filter="url(#shadow)"
-                    className="transition-all duration-300"
-                  />
-                  {/* 광택 효과 오버레이 */}
-                  <rect
-                    x={barX1}
-                    y={yScale(segment.yStart)}
-                    width={barWidth}
-                    height={yScale(segment.yEnd) - yScale(segment.yStart)}
-                    fill="url(#shine)"
-                    stroke="none"
-                    rx={8}
-                    ry={8}
-                    opacity={0.3}
-                    pointerEvents="none"
-                  />
-                  {segment.count > 0 && (
-                    <>
-                      <text
-                        x={barX1 + barWidth / 2}
-                        y={yScale((segment.yStart + segment.yEnd) / 2)}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        className="text-xs font-semibold fill-white"
-                        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
-                      >
-                        {segment.type.replace('형', '')}
-                        <tspan x={barX1 + barWidth / 2} dy="1.2em" className="text-sm font-bold">
-                          {segment.count}명
-                        </tspan>
-                      </text>
-                      <g className="transition-all duration-300">
-                        <rect
-                          x={barX1 - 55}
-                          y={yScale((segment.yStart + segment.yEnd) / 2) - 12}
-                          width={46}
-                          height={24}
-                          rx={12}
-                          fill="rgba(255, 255, 255, 0.95)"
-                          stroke="#E5E7EB"
-                          strokeWidth={1.5}
-                          filter="drop-shadow(0 2px 4px rgba(0,0,0,0.06))"
-                        />
-                        <text
-                          x={barX1 - 32}
-                          y={yScale((segment.yStart + segment.yEnd) / 2)}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          className="text-xs font-bold fill-gray-700"
-                        >
-                          {segment.percentage.toFixed(1)}%
-                        </text>
-                      </g>
-                    </>
-                  )}
-                </g>
-              ))}
+              {round1Segments.map(seg => renderBarSegment(seg, 1, SVG.barX1, true))}
             </g>
 
             {/* 2차 막대 */}
             <g>
-              <text x={barX2 + barWidth / 2} y={chartTop - 15} textAnchor="middle" className="text-sm font-bold fill-gray-900">
+              <text x={SVG.barX2 + SVG.barWidth / 2} y={SVG.chartTop - 15} textAnchor="middle" className="text-sm font-bold fill-gray-900">
                 2차 검사
               </text>
-              {round2Segments.map((segment, idx) => (
-                <g key={`r2-${idx}`}>
-                  <rect
-                    x={barX2}
-                    y={yScale(segment.yStart)}
-                    width={barWidth}
-                    height={yScale(segment.yEnd) - yScale(segment.yStart)}
-                    fill={`url(#gradient-${segment.type})`}
-                    stroke="#fff"
-                    strokeWidth={3}
-                    rx={8}
-                    ry={8}
-                    filter="url(#shadow)"
-                    opacity={round2Completed ? 1 : 0.4}
-                    className="transition-all duration-300"
-                  />
-                  {/* 광택 효과 오버레이 */}
-                  <rect
-                    x={barX2}
-                    y={yScale(segment.yStart)}
-                    width={barWidth}
-                    height={yScale(segment.yEnd) - yScale(segment.yStart)}
-                    fill="url(#shine)"
-                    stroke="none"
-                    rx={8}
-                    ry={8}
-                    opacity={round2Completed ? 0.3 : 0.15}
-                    pointerEvents="none"
-                  />
-                  {segment.count > 0 && (
-                    <>
-                      <text
-                        x={barX2 + barWidth / 2}
-                        y={yScale((segment.yStart + segment.yEnd) / 2)}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        className={`text-xs font-semibold ${segment.type === '미실시' ? 'fill-gray-700' : 'fill-white'}`}
-                        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
-                        opacity={round2Completed ? 1 : 0.6}
-                      >
-                        {round2Completed ? segment.type.replace('형', '') : '미실시'}
-                        <tspan x={barX2 + barWidth / 2} dy="1.2em" className="text-sm font-bold">
-                          {segment.count}명
-                        </tspan>
-                      </text>
-                      <g opacity={round2Completed ? 1 : 0.6} className="transition-all duration-300">
-                        <rect
-                          x={barX2 + barWidth + 12}
-                          y={yScale((segment.yStart + segment.yEnd) / 2) - 12}
-                          width={46}
-                          height={24}
-                          rx={12}
-                          fill="rgba(255, 255, 255, 0.95)"
-                          stroke="#E5E7EB"
-                          strokeWidth={1.5}
-                          filter="drop-shadow(0 2px 4px rgba(0,0,0,0.06))"
-                        />
-                        <text
-                          x={barX2 + barWidth + 35}
-                          y={yScale((segment.yStart + segment.yEnd) / 2)}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          className="text-xs font-bold fill-gray-700"
-                        >
-                          {segment.percentage.toFixed(1)}%
-                        </text>
-                      </g>
-                    </>
-                  )}
-                </g>
-              ))}
+              {round2Segments.map(seg => renderBarSegment(seg, 2, SVG.barX2, round2Completed))}
             </g>
 
-            {/* 흐름 선 (2차 완료 시에만 표시) */}
-            {/* 중요: maintain/notAssessed를 먼저 렌더링하고, improve/concern을 나중에 렌더링하여 위에 표시 */}
+            {/* 흐름선 */}
             {round2Completed && flows
               .sort((a, b) => {
-                // maintain과 notAssessed를 먼저 (0), improve와 concern을 나중에 (1)
-                const aOrder = (a.changeType === 'maintain' || a.changeType === 'notAssessed') ? 0 : 1;
-                const bOrder = (b.changeType === 'maintain' || b.changeType === 'notAssessed') ? 0 : 1;
-                return aOrder - bOrder;
+                const order = (c: FlowData) => (c.changeType === 'maintain' || c.changeType === 'notAssessed') ? 0 : 1;
+                return order(a) - order(b);
               })
               .map((flow, idx) => {
-              const fromSegment = round1Segments.find(s => s.type === flow.from);
-              const toSegment = round2Segments.find(s => s.type === flow.to);
+                const fromSeg = round1Segments.find(s => s.type === flow.from);
+                const toSeg = round2Segments.find(s => s.type === flow.to);
+                if (!fromSeg || !toSeg || flow.count === 0) return null;
 
-              if (!fromSegment || !toSegment || flow.count === 0) return null;
+                const fromHeight = (flow.count / fromSeg.count) * (fromSeg.yEnd - fromSeg.yStart);
+                const toHeight = (flow.count / toSeg.count) * (toSeg.yEnd - toSeg.yStart);
 
-              // 흐름의 비율만큼 세그먼트 내에서 위치 계산
-              const fromHeight = (flow.count / fromSegment.count) * (fromSegment.yEnd - fromSegment.yStart);
-              const toHeight = (flow.count / toSegment.count) * (toSegment.yEnd - toSegment.yStart);
+                const flowFrom: BarSegment = { ...fromSeg, yEnd: fromSeg.yStart + fromHeight };
+                const flowTo: BarSegment = { ...toSeg, yEnd: toSeg.yStart + toHeight };
 
-              const flowSegment: BarSegment = {
-                type: flow.from,
-                count: flow.count,
-                percentage: 0,
-                yStart: fromSegment.yStart,
-                yEnd: fromSegment.yStart + fromHeight,
-              };
+                const isSelected = selectedFlow?.from === flow.from && selectedFlow?.to === flow.to;
+                const style = getFlowStyle(flow, isSelected);
 
-              const flowToSegment: BarSegment = {
-                type: flow.to,
-                count: flow.count,
-                percentage: 0,
-                yStart: toSegment.yStart,
-                yEnd: toSegment.yStart + toHeight,
-              };
-
-              const path = createFlowPath(flowSegment, flowToSegment);
-              const isSelected = selectedFlow?.from === flow.from && selectedFlow?.to === flow.to;
-
-              // 변화 유형별로 다른 불투명도 적용 (긍정/부정 강조)
-              const getFlowOpacity = () => {
-                if (isSelected) return 0.9;
-                if (flow.changeType === 'improve' || flow.changeType === 'concern') {
-                  return 0.6; // 긍정/부정 변화는 더 진하게
-                }
-                return 0.25; // 유지/미실시는 더 투명하게
-              };
-
-              return (
-                <path
-                  key={`flow-${idx}`}
-                  d={path}
-                  fill={`url(#flow-gradient-${flow.changeType})`}
-                  opacity={getFlowOpacity()}
-                  stroke={isSelected ? '#1F2937' : 'none'}
-                  strokeWidth={isSelected ? 3 : 0}
-                  strokeDasharray={flow.changeType === 'notAssessed' ? '8,4' : 'none'}
-                  className="cursor-pointer transition-all duration-300 hover:opacity-80"
-                  style={{
-                    filter: isSelected
-                      ? 'drop-shadow(0 4px 10px rgba(0,0,0,0.2))'
-                      : (flow.changeType === 'improve' || flow.changeType === 'concern')
-                        ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.08))'
-                        : 'none'
-                  }}
-                  onClick={() => setSelectedFlow(flow)}
-                />
-              );
-            })}
-
+                return (
+                  <path
+                    key={`flow-${idx}`}
+                    d={createFlowPath(flowFrom, flowTo)}
+                    fill={`url(#flow-gradient-${flow.changeType})`}
+                    opacity={style.opacity}
+                    stroke={style.strokeColor}
+                    strokeWidth={style.strokeWidth}
+                    strokeDasharray={style.dashArray}
+                    className="cursor-pointer transition-all duration-300 hover:opacity-90"
+                    style={{
+                      filter: isSelected ? 'drop-shadow(0 4px 10px rgba(0,0,0,0.2))' :
+                        (flow.changeType === 'improve' || flow.changeType === 'concern')
+                          ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.12))' : 'none'
+                    }}
+                    onClick={() => setSelectedFlow(flow)}
+                  />
+                );
+              })}
           </svg>
         </div>
 
-        {/* 진행률 표시 (2차 미완료 시) */}
+        {/* 2차 미완료 표시 */}
         {!round2Completed && (
           <div className="mt-4 text-center">
             <p className="text-sm text-gray-500">2차 검사가 아직 진행되지 않았습니다.</p>
@@ -515,48 +387,114 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
           </div>
         )}
 
-        {/* 선택된 흐름의 학생 목록 (그래프 하단) */}
-        {round2Completed && (
-          <>
-            {selectedFlow ? (
-              <div className={`mt-3 border-2 rounded-xl p-3 shadow-md transition-all duration-300 ${
-                selectedFlow.changeType === 'concern'
-                  ? 'bg-gradient-to-br from-red-50 to-red-100/50 border-red-200'
-                  : selectedFlow.changeType === 'improve'
-                  ? 'bg-gradient-to-br from-green-50 to-green-100/50 border-green-200'
-                  : 'bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200'
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-gray-900 text-sm">
-                    {selectedFlow.from} -&gt; {selectedFlow.to} ({selectedFlow.count}명)
+        {/* 세그먼트 선택 툴팁 */}
+        {selectedSegment && (() => {
+          const typeData = LPA_PROFILE_DATA[classData.schoolLevel].types.find(t => t.name === selectedSegment.type);
+          const studentList = selectedSegment.round === 1
+            ? round1Distribution[selectedSegment.type]
+            : round2Distribution[selectedSegment.type];
+
+          return (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setSelectedSegment(null)} />
+              <div
+                className="fixed max-w-sm w-full border-2 rounded-lg p-4 shadow-xl bg-white z-50"
+                style={{
+                  left: `${selectedSegment.x + 20}px`,
+                  top: `${selectedSegment.y - 100}px`,
+                  borderColor: TYPE_COLORS[selectedSegment.type],
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900 text-sm">
+                    {selectedSegment.round}차 검사 - {selectedSegment.type} ({studentList.length}명)
                   </h3>
                   <button
-                    onClick={() => setSelectedFlow(null)}
-                    className="w-6 h-6 rounded-full bg-white/80 hover:bg-white border border-gray-200 flex items-center justify-center transition-all duration-200 text-gray-500 hover:text-gray-900 hover:scale-110 active:scale-95 text-sm shadow-sm"
+                    onClick={() => setSelectedSegment(null)}
+                    className="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700"
                   >
                     ✕
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedFlow.students.map(student => (
+
+                {typeData && selectedSegment.type !== '미실시' && (
+                  <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-xs text-gray-700 leading-relaxed">{typeData.description}</p>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
+                  {studentList.map(student => (
                     <button
                       key={student.id}
                       onClick={() => navigate(`/dashboard/class/${classData.id}/student/${student.id}`)}
-                      className="px-3 py-1.5 bg-white rounded-full text-xs font-semibold border border-gray-200 hover:border-gray-400 hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+                      className="px-2 py-1 bg-gray-50 rounded text-xs font-medium border border-gray-200 hover:border-gray-400 hover:bg-gray-100 cursor-pointer"
                     >
                       {student.number}. {student.name}
                     </button>
                   ))}
                 </div>
               </div>
-            ) : (
-              <div className="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
-                <p className="text-sm text-gray-600">
-                  💡 흐름선을 클릭하면 해당 유형 변화의 학생 목록을 확인할 수 있습니다
-                </p>
+            </>
+          );
+        })()}
+
+        {/* 흐름선 선택 상자 */}
+        {selectedFlow && round2Completed && (() => {
+          const isPositive = selectedFlow.changeType === 'improve';
+          const isNegative = selectedFlow.changeType === 'concern';
+          const boxColor = isPositive ? 'bg-lime-50 border-lime-300' :
+            isNegative ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-300';
+
+          return (
+            <div className={`mt-3 border-2 rounded-xl p-4 shadow-md ${boxColor}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  {isPositive && (
+                    <span className="px-2.5 py-0.5 bg-lime-500 text-white text-xs font-semibold rounded-full">
+                      긍정 변화
+                    </span>
+                  )}
+                  {isNegative && (
+                    <span className="px-2.5 py-0.5 bg-red-500 text-white text-xs font-semibold rounded-full">
+                      부정 변화
+                    </span>
+                  )}
+                  <h3 className="font-semibold text-gray-900 text-sm">
+                    {selectedFlow.from} → {selectedFlow.to} ({selectedFlow.count}명)
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedFlow(null)}
+                  className="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700"
+                >
+                  ✕
+                </button>
               </div>
-            )}
-          </>
+
+              <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
+                {selectedFlow.students.map(student => (
+                  <button
+                    key={student.id}
+                    onClick={() => navigate(`/dashboard/class/${classData.id}/student/${student.id}`)}
+                    className="px-2 py-1 bg-white rounded text-xs font-medium border border-gray-200 hover:border-gray-400 hover:bg-gray-100 cursor-pointer"
+                  >
+                    {student.number}. {student.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* 도움말 */}
+        {!selectedFlow && round2Completed && (
+          <div className="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
+            <p className="text-sm text-gray-600">
+              막대 또는 흐름선을 클릭하면 해당 유형의 학생 목록을 확인할 수 있습니다
+            </p>
+          </div>
         )}
       </div>
     </div>

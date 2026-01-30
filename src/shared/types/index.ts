@@ -180,3 +180,128 @@ export interface TypeChartData {
   type: StudentType;
   [key: string]: string | number;
 }
+
+// ============================================================
+// 인증 관련 타입
+// ============================================================
+
+export type MemberType = 'vivasam' | 'general';
+export type OAuthProvider = 'vivasam' | 'google' | 'kakao' | 'naver';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  memberType: MemberType;
+  provider: OAuthProvider;
+  schoolName?: string;
+  profileImage?: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+// ============================================================
+// 검사 관리 관련 타입
+// ============================================================
+
+export interface ManagedAssessment {
+  id: string;
+  name: string;
+  code: string;
+  grade: number;
+  classNumber: number;
+  studentCount: number;
+  completedCount: number;
+  round: 1 | 2;
+  startDate: Date;
+  endDate: Date;
+  createdAt: Date;
+  ownerId: string;
+}
+
+export interface CreateAssessmentInput {
+  name: string;
+  grade: number;
+  classNumber: number;
+  studentCount: number;
+  round: 1 | 2;
+}
+
+// ============================================================
+// 상담일정 관련 타입
+// ============================================================
+
+export type ScheduleType = 'regular' | 'urgent' | 'follow-up' | 'initial';
+export type CounselingArea = 'academic' | 'career' | 'peer' | 'family' | 'emotion' | 'behavior' | 'health' | 'other';
+export type CounselingMethod = 'face-to-face' | 'phone' | 'video' | 'group';
+
+export interface Schedule {
+  id: string;
+  students: ScheduleStudent[];
+  classId: string;
+  date: string; // 'YYYY-MM-DD'
+  time: string; // 'HH:mm'
+  type: ScheduleType;
+  area: CounselingArea;
+  method: CounselingMethod;
+  reason?: string;
+  createdAt: Date;
+}
+
+export interface ScheduleStudent {
+  id: string;
+  name: string;
+  number: number;
+  classId: string;
+}
+
+export interface CreateScheduleInput {
+  students: ScheduleStudent[];
+  classId: string;
+  date: string;
+  time: string;
+  type: ScheduleType;
+  area: CounselingArea;
+  method: CounselingMethod;
+  reason?: string;
+}
+
+// 상담유형 라벨
+export const SCHEDULE_TYPE_LABELS: Record<ScheduleType, string> = {
+  regular: '정기상담',
+  urgent: '긴급상담',
+  'follow-up': '후속상담',
+  initial: '초기상담',
+};
+
+// 상담영역 라벨
+export const COUNSELING_AREA_LABELS: Record<CounselingArea, string> = {
+  academic: '학업',
+  career: '진로',
+  peer: '교우관계',
+  family: '가정',
+  emotion: '정서·심리',
+  behavior: '행동',
+  health: '건강',
+  other: '기타',
+};
+
+// 상담방법 라벨
+export const COUNSELING_METHOD_LABELS: Record<CounselingMethod, string> = {
+  'face-to-face': '대면상담',
+  phone: '전화상담',
+  video: '화상상담',
+  group: '집단상담',
+};
+
+// 학급별 색상
+export const CLASS_COLORS: Record<string, string> = {
+  '2-3': '#3b82f6', // 파랑
+  '2-5': '#8b5cf6', // 보라
+  '3-1': '#10b981', // 초록
+  '3-4': '#f59e0b', // 주황
+};

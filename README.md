@@ -230,7 +230,13 @@ meta-dashboard/
 ```
 🚧 진행 중:
 - ClassDashboardPage.tsx                # 메인 페이지
-- TypeChangeChart.tsx                   # 차수별 변화 차트
+  ✅ 긍정/부정 변화 필터링 (lime/red 색상)
+  ✅ 학생 목록 행 배경색 (긍정=lime-50, 부정=red-50)
+- TypeChangeChart.tsx                   # 차수별 변화 차트 ✅
+  ✅ 막대 호버/클릭 시 툴팁 표시
+  ✅ 툴팁 테두리 색상 = 유형 색상
+  ✅ 흐름선 클릭 시 하단 박스 표시
+  ✅ [긍정 변화] [부정 변화] 배지 (lime-500/red-500)
 - ClassInsights.tsx                     # 반 인사이트 컴포넌트
 ```
 
