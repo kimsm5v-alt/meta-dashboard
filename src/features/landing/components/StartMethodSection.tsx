@@ -1,5 +1,5 @@
 import { BookOpen, User } from 'lucide-react';
-import { Card, Button } from '../../../shared/components';
+import { Card, Button } from '@/shared/components';
 
 interface StartMethodSectionProps {
   onVivasamClick: () => void;

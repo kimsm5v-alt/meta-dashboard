@@ -13,6 +13,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { MOCK_CLASSES } from '@/shared/data/mockData';
 
 interface LayoutProps {
   children: ReactNode;
@@ -120,18 +121,14 @@ const Sidebar = () => {
             담당 학급
           </h3>
           <ul className="mt-2 space-y-1">
-            {['6-2반', '6-3반', '6-5반'].map((name, idx) => (
-              <li key={name}>
+            {MOCK_CLASSES.map((cls) => (
+              <li key={cls.id}>
                 <button
-                  onClick={() =>
-                    navigate(
-                      `/dashboard/class/class-6-${idx === 0 ? 2 : idx === 1 ? 3 : 5}`
-                    )
-                  }
+                  onClick={() => navigate(`/dashboard/class/${cls.id}`)}
                   className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
                 >
                   <Users className="w-4 h-4" />
-                  <span>{name}</span>
+                  <span>{`${cls.grade}-${cls.classNumber}반`}</span>
                 </button>
               </li>
             ))}

@@ -1,6 +1,6 @@
-import type { Student } from '../../../shared/types';
-import { getTypeDeviations } from '../../../shared/utils/lpaClassifier';
-import { FACTOR_DEFINITIONS } from '../../../shared/data/factors';
+import type { Student } from '@/shared/types';
+import { getTypeDeviations } from '@/shared/utils/lpaClassifier';
+import { FACTOR_DEFINITIONS } from '@/shared/data/factors';
 
 // ============================================================
 // 타입 정의
@@ -45,6 +45,19 @@ export const FLOW_GRADIENTS: Record<string, { start: string; end: string }> = {
   concern: { start: '#FCA5A5', end: '#F87171' },
   notAssessed: { start: '#F1F5F9', end: '#CBD5E1' },
 };
+
+// 유형명 약칭 (테이블 표시용)
+const TYPE_ABBREVIATIONS: Record<string, string> = {
+  '자원소진형': '소진',
+  '안전균형형': '균형',
+  '몰입자원풍부형': '몰입',
+  '무기력형': '무기력',
+  '정서조절취약형': '정서취약',
+  '자기주도몰입형': '자기주도',
+};
+
+export const abbreviateType = (type: string): string =>
+  TYPE_ABBREVIATIONS[type] || type;
 
 // 유형 점수 (변화 판단용)
 export const TYPE_RANK: Record<string, number> = {

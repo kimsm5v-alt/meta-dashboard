@@ -1,5 +1,5 @@
 import { Upload, FileSpreadsheet, CheckCircle } from 'lucide-react';
-import { Card, Button } from '../../../shared/components';
+import { Card, Button } from '@/shared/components';
 
 export const UploadPage = () => {
   return (

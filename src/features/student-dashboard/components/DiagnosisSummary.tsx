@@ -22,8 +22,7 @@ export const DiagnosisSummary: React.FC<DiagnosisSummaryProps> = ({
         const subCategoryResults = getSubCategoryResults(tScores);
         const aiSummary = await generateAISummary(subCategoryResults, studentType);
         setSummary(aiSummary);
-      } catch (error) {
-        console.error('AI 총평 생성 실패:', error);
+      } catch {
         setSummary('총평을 생성하는 중 오류가 발생했습니다.');
       } finally {
         setLoading(false);

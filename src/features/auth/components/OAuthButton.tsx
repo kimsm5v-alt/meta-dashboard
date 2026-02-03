@@ -1,4 +1,4 @@
-import type { OAuthProvider } from '../../../shared/types';
+import type { OAuthProvider } from '@/shared/types';
 
 interface OAuthButtonProps {
   provider: OAuthProvider;

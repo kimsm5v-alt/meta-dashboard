@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
-import type { Class } from '../../../shared/types';
-import { calculateCategoryAverages, transformToCategoryChartData } from '../../../shared/utils/classComparisonUtils';
+import type { Class } from '@/shared/types';
+import { calculateCategoryAverages, transformToCategoryChartData } from '@/shared/utils/classComparisonUtils';
 
 interface CategoryComparisonChartProps {
   classes: Class[];

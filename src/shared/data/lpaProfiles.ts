@@ -2,7 +2,7 @@ import type { LPAProfileData } from '../types';
 
 // 38개 요인 목록
 export const FACTORS = [
-  '자기존중감', '자기효능감', '성장마인드셋',
+  '자아존중감', '자기효능감', '성장마인드셋',
   '자기정서인식', '자기정서조절', '타인정서인식', '타인공감능력',
   '계획능력', '점검능력', '조절능력',
   '공부환경', '시간관리', '수업태도', '노트하기', '시험준비',
@@ -54,7 +54,9 @@ export const CATEGORY_COLORS: Record<string, string> = {
 // LPA 프로파일 데이터
 export const LPA_PROFILE_DATA: LPAProfileData = {
   factors: [...FACTORS],
-  factorCategories: { ...FACTOR_CATEGORIES },
+  factorCategories: Object.fromEntries(
+    Object.entries(FACTOR_CATEGORIES).map(([k, v]) => [k, [...v]])
+  ) as Record<string, number[]>,
   
   '초등': {
     types: [

@@ -101,7 +101,6 @@ const callAnthropic = async (request: AIRequest): Promise<AIResponse> => {
   // const data = await response.json();
   // return { success: true, content: data.content[0].text };
   
-  console.log('[AI] Anthropic API 호출 (TODO)');
   return mockResponse(request);
 };
 
@@ -125,7 +124,6 @@ const callOpenAI = async (request: AIRequest): Promise<AIResponse> => {
   // const data = await response.json();
   // return { success: true, content: data.choices[0].message.content };
   
-  console.log('[AI] OpenAI API 호출 (TODO)');
   return mockResponse(request);
 };
 
@@ -141,14 +139,13 @@ const callCustomAPI = async (request: AIRequest): Promise<AIResponse> => {
   // });
   // return response.json();
   
-  console.log('[AI] Custom API 호출 (TODO)');
   return mockResponse(request);
 };
 
 /**
  * 목업 응답 (개발용)
  */
-const mockResponse = async (request: AIRequest): Promise<AIResponse> => {
+const mockResponse = async (_request: AIRequest): Promise<AIResponse> => {
   // 개발 중 테스트용 목업 응답
   await new Promise(resolve => setTimeout(resolve, 500)); // 지연 시뮬레이션
   

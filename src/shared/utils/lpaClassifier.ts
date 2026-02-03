@@ -1,5 +1,6 @@
 import type { SchoolLevel, StudentType } from '../types';
 import { LPA_PROFILE_DATA, FACTORS } from '../data/lpaProfiles';
+import { FACTOR_DEFINITIONS } from '../data/factors';
 
 interface ClassificationResult {
   schoolLevel: SchoolLevel;
@@ -81,15 +82,21 @@ export const getTypeDeviations = (studentScores: number[], typeName: string, sch
   const profile = schoolData?.types.find(t => t.name === typeName);
   if (!profile || profile.means.length !== 38) throw new Error(`'${typeName}' 유형 데이터를 찾을 수 없습니다.`);
   
-  const deviations = FACTORS.map((factor, i) => ({
-    index: i,
-    factor,
-    studentScore: studentScores[i],
-    typeMean: Math.round(profile.means[i] * 10) / 10,
-    diff: Math.round((studentScores[i] - profile.means[i]) * 10) / 10,
-    absDiff: Math.abs(studentScores[i] - profile.means[i]),
-    direction: (studentScores[i] > profile.means[i] ? 'positive' : 'negative') as 'positive' | 'negative',
-  }));
+  const deviations = FACTORS.map((factor, i) => {
+    const diff = studentScores[i] - profile.means[i];
+    const isPositive = FACTOR_DEFINITIONS[i]?.isPositive ?? true;
+    // 정적요인: ↑긍정 ↓부정, 부적요인: ↑부정 ↓긍정
+    const isGood = isPositive ? diff > 0 : diff < 0;
+    return {
+      index: i,
+      factor,
+      studentScore: studentScores[i],
+      typeMean: Math.round(profile.means[i] * 10) / 10,
+      diff: Math.round(diff * 10) / 10,
+      absDiff: Math.abs(diff),
+      direction: (isGood ? 'positive' : 'negative') as 'positive' | 'negative',
+    };
+  });
   
   return deviations.sort((a, b) => b.absDiff - a.absDiff).slice(0, topN);
 };

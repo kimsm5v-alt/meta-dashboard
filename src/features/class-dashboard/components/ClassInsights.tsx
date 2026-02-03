@@ -1,12 +1,12 @@
 import React from 'react';
 import { AlertCircle, CheckCircle, Lightbulb, ExternalLink } from 'lucide-react';
-import type { Class } from '../../../shared/types';
+import type { Class } from '@/shared/types';
 
 interface ClassInsightsProps {
   classData: Class;
 }
 
-export const ClassInsights: React.FC<ClassInsightsProps> = ({ classData }) => {
+export const ClassInsights: React.FC<ClassInsightsProps> = ({ classData: _classData }) => {
   // 학급 특성 분석 (간단한 예시 - 실제로는 학생 데이터 기반 계산)
   const characteristics = {
     warnings: [

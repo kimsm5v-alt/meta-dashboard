@@ -17,7 +17,7 @@ const variantClasses = {
 export const Badge: React.FC<BadgeProps> = ({ children, variant = 'default', type, className = '' }) => {
   const colorClass = type ? TYPE_COLOR_CLASSES[type] || variantClasses.default : variantClasses[variant];
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorClass} ${className}`}>
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${colorClass} ${className}`}>
       {children}
     </span>
   );

@@ -2,7 +2,7 @@ import type { Factor, FactorCategory } from '../types';
 
 // 38개 요인 상세 정의
 export const FACTOR_DEFINITIONS: Factor[] = [
-  { index: 0, name: '자기존중감', category: '자아강점', subCategory: '긍정적자아', isPositive: true },
+  { index: 0, name: '자아존중감', category: '자아강점', subCategory: '긍정적자아', isPositive: true },
   { index: 1, name: '자기효능감', category: '자아강점', subCategory: '긍정적자아', isPositive: true },
   { index: 2, name: '성장마인드셋', category: '자아강점', subCategory: '긍정적자아', isPositive: true },
   { index: 3, name: '자기정서인식', category: '자아강점', subCategory: '대인관계능력', isPositive: true },

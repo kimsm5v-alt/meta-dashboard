@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, CheckSquare, Square } from 'lucide-react';
-import { getTypeInfo } from '../../../shared/utils/lpaClassifier';
-import type { StudentType, SchoolLevel } from '../../../shared/types';
+import { getTypeInfo } from '@/shared/utils/lpaClassifier';
+import type { StudentType, SchoolLevel } from '@/shared/types';
 
 interface CoachingStrategyProps {
   predictedType: StudentType;

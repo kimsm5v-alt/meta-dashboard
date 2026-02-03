@@ -1,6 +1,9 @@
 import React, { useMemo } from 'react';
 import { ResponsiveBar } from '@nivo/bar';
-import type { Class } from '../../../shared/types';
+import type { BarCustomLayerProps, ComputedDatum } from '@nivo/bar';
+import type { Class } from '@/shared/types';
+
+type BarRecord = Record<string, string | number>;
 
 interface TypeDistributionChartProps {
   classes: Class[];
@@ -13,29 +16,40 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
   selectedClassId,
   onClassSelect,
 }) => {
+  const isMiddleSchool = classes.length > 0 && classes[0].schoolLevel === '중등';
+
+  const typeKeys = isMiddleSchool
+    ? ['자기주도몰입형', '정서조절취약형', '무기력형'] as const
+    : ['몰입자원풍부형', '안전균형형', '자원소진형'] as const;
+
+  const typeColors = isMiddleSchool
+    ? ['#60A5FA', '#2DD4BF', '#FB923C']
+    : ['#60A5FA', '#2DD4BF', '#FB923C'];
+
   const chartData = useMemo(() => {
     return classes.map(cls => {
-      const total = (cls.stats?.typeDistribution?.['자원소진형']?.count || 0) +
-                    (cls.stats?.typeDistribution?.['안전균형형']?.count || 0) +
-                    (cls.stats?.typeDistribution?.['몰입자원풍부형']?.count || 0);
-      return {
+      const total = typeKeys.reduce(
+        (sum, key) => sum + (cls.stats?.typeDistribution?.[key]?.count || 0), 0,
+      );
+      const row: BarRecord = {
         name: `${cls.grade}-${cls.classNumber}반`,
         label: `${cls.grade}-${cls.classNumber}반 (${total}명)`,
         classId: cls.id,
-        자원소진형: cls.stats?.typeDistribution?.['자원소진형']?.count || 0,
-        안전균형형: cls.stats?.typeDistribution?.['안전균형형']?.count || 0,
-        몰입자원풍부형: cls.stats?.typeDistribution?.['몰입자원풍부형']?.count || 0,
       };
+      for (const key of typeKeys) {
+        row[key] = cls.stats?.typeDistribution?.[key]?.count || 0;
+      }
+      return row;
     }).sort((a, b) => {
-      const aNum = parseInt(a.name.split('-')[1]);
-      const bNum = parseInt(b.name.split('-')[1]);
+      const aNum = parseInt((a.name as string).split('-')[1]);
+      const bNum = parseInt((b.name as string).split('-')[1]);
       return aNum - bNum;
     });
-  }, [classes]);
+  }, [classes, typeKeys]);
 
-  const handleBarClick = (data: any) => {
-    if (onClassSelect && data.data?.classId) {
-      const clickedClassId = data.data.classId;
+  const handleBarClick = (datum: ComputedDatum<BarRecord>) => {
+    if (onClassSelect && datum.data?.classId) {
+      const clickedClassId = datum.data.classId as string;
       if (selectedClassId === clickedClassId) {
         onClassSelect(null);
       } else {
@@ -44,18 +58,59 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
     }
   };
 
+  const CustomBarsLayer: React.FC<BarCustomLayerProps<BarRecord>> = ({ bars }) => (
+    <g>
+      {bars.map((bar) => {
+        const barClassId = bar.data.data?.classId;
+        const isSelected = barClassId === selectedClassId;
+        const hasSelection = selectedClassId !== null;
+        const opacity = isSelected ? 1 : hasSelection ? 0.3 : 1;
+
+        return (
+          <g key={bar.key} transform={`translate(${bar.x}, ${bar.y})`}>
+            <rect
+              width={bar.width}
+              height={bar.height}
+              fill={bar.color}
+              opacity={opacity}
+              rx={4}
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleBarClick(bar.data)}
+            />
+            {bar.width > 30 && (bar.data.value ?? 0) > 0 && (
+              <text
+                x={bar.width / 2}
+                y={bar.height / 2}
+                textAnchor="middle"
+                dominantBaseline="central"
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  fill: '#fff',
+                  pointerEvents: 'none',
+                }}
+              >
+                {bar.data.value}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </g>
+  );
+
   return (
     <div className="relative" style={{ height: 450 }}>
       <ResponsiveBar
         data={chartData}
-        keys={['자원소진형', '안전균형형', '몰입자원풍부형']}
+        keys={[...typeKeys]}
         indexBy="label"
         layout="horizontal"
         margin={{ top: 20, right: 130, bottom: 20, left: 100 }}
         padding={0.3}
         valueScale={{ type: 'linear' }}
         indexScale={{ type: 'band', round: true }}
-        colors={['#FB923C', '#2DD4BF', '#60A5FA']}
+        colors={typeColors}
         borderRadius={4}
         borderColor={{
           from: 'color',
@@ -66,10 +121,7 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
             ticks: {
               text: {
                 fontSize: 12,
-                fontWeight: selectedClassId ? (tick: any) => {
-                  const classData = chartData.find(d => d.label === tick);
-                  return classData?.classId === selectedClassId ? 600 : 400;
-                } : 400,
+                fontWeight: 400,
               },
             },
           },
@@ -92,44 +144,7 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
         layers={[
           'grid',
           'axes',
-          ({ bars }) => {
-            return bars.map((bar: any) => {
-              const barClassId = bar.data.data?.classId;
-              const isSelected = barClassId === selectedClassId;
-              const hasSelection = selectedClassId !== null;
-              const opacity = isSelected ? 1 : hasSelection ? 0.3 : 1;
-
-              return (
-                <g key={bar.key} transform={`translate(${bar.x}, ${bar.y})`}>
-                  <rect
-                    width={bar.width}
-                    height={bar.height}
-                    fill={bar.color}
-                    opacity={opacity}
-                    rx={4}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => handleBarClick(bar.data)}
-                  />
-                  {bar.width > 30 && bar.data.value > 0 && (
-                    <text
-                      x={bar.width / 2}
-                      y={bar.height / 2}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        fill: bar.labelColor,
-                        pointerEvents: 'none',
-                      }}
-                    >
-                      {bar.data.value}
-                    </text>
-                  )}
-                </g>
-              );
-            });
-          },
+          CustomBarsLayer,
           'markers',
           'legends',
           'annotations',

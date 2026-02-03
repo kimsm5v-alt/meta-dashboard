@@ -1,5 +1,5 @@
 import { BarChart3, Users, Brain } from 'lucide-react';
-import { Card } from '../../../shared/components';
+import { Card } from '@/shared/components';
 
 const FEATURES = [
   {

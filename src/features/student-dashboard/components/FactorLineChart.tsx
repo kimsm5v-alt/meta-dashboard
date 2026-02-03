@@ -1,6 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell, LabelList } from 'recharts';
-import { SUB_CATEGORIES, CATEGORY_COLORS } from '../../../shared/data/lpaProfiles';
-import { calculateSubCategoryScores } from '../../../shared/utils/summaryGenerator';
+import { SUB_CATEGORIES, CATEGORY_COLORS } from '@/shared/data/lpaProfiles';
+import { calculateSubCategoryScores } from '@/shared/utils/summaryGenerator';
 
 interface FactorLineChartProps {
   tScores: number[];

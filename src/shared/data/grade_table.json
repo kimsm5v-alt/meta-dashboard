@@ -1,0 +1,41 @@
+{
+  "description": "T점수 → 수준/백분위 변환표",
+  "levels": [
+    {
+      "level": "매우낮음",
+      "label": "매우 낮음",
+      "tScore_min": 0,
+      "tScore_max": 30,
+      "color": "#FF4444"
+    },
+    {
+      "level": "낮음",
+      "label": "낮음",
+      "tScore_min": 31,
+      "tScore_max": 40,
+      "color": "#FF8C00"
+    },
+    {
+      "level": "보통",
+      "label": "보통",
+      "tScore_min": 41,
+      "tScore_max": 60,
+      "color": "#4CAF50"
+    },
+    {
+      "level": "높음",
+      "label": "높음",
+      "tScore_min": 61,
+      "tScore_max": 70,
+      "color": "#2196F3"
+    },
+    {
+      "level": "매우높음",
+      "label": "매우 높음",
+      "tScore_min": 71,
+      "tScore_max": 100,
+      "color": "#1565C0"
+    }
+  ],
+  "note": "정적요인: 높을수록 좋음 / 부적요인: 높을수록 위험 (해석 방향 반대)"
+}

@@ -45,9 +45,9 @@
 | **초등** | 🟠 자원소진형 | 30.55% | 심리자원 낮음, 스트레스 높음 |
 | | 🔵 안전균형형 | 35.47% | 전반적 균형, 점검능력 약함 |
 | | 🔷 몰입자원풍부형 | 33.98% | 동기 높음, 시험전략 보완 필요 |
-| **중등** | 🟠 무기력형 | 35.4% | - |
-| | 🔵 정서조절취약형 | 38.0% | - |
-| | 🔷 자기주도몰입형 | 26.6% | - |
+| **중등** | 🟠 무기력형 | 35.4% | 동기 저하, 무력감, 목표 설정 어려움 |
+| | 🔵 정서조절취약형 | 38.0% | 스트레스 관리 미흡, 감정 기복, 불안 경향 |
+| | 🔷 자기주도몰입형 | 26.6% | 자율적 학습, 높은 성취동기, 효과적 시간관리 |
 
 ### 3단계 대시보드 구조
 
@@ -63,7 +63,7 @@ L1: 교사 전체 반 대시보드     → /dashboard
 
 | 분류 | 기술 |
 |------|------|
-| 프레임워크 | React 18 + TypeScript + Vite |
+| 프레임워크 | React 19 + TypeScript + Vite |
 | 스타일링 | TailwindCSS |
 | 차트 | Recharts (Line, Bar, Pie), @nivo/bar (Stacked Bar) |
 | 라우팅 | React Router v6 |
@@ -101,10 +101,12 @@ const TYPE_COLORS = {
 
 // 변화 상태 색상 (L2)
 const CHANGE_COLORS = {
-  positive: 'bg-lime-500',       // 긍정 변화 배지
-  positiveLight: 'bg-lime-50',   // 긍정 변화 배경
-  negative: 'bg-red-500',        // 부정 변화 배지
-  negativeLight: 'bg-red-50',    // 부정 변화 배경
+  positive: 'bg-emerald-500',       // 긍정 변화 배지
+  positiveLight: 'bg-emerald-50',   // 긍정 변화 배경
+  negative: 'bg-red-500',           // 부정 변화 배지
+  negativeLight: 'bg-red-50',       // 부정 변화 배경
+  reliabilityWarning: 'bg-red-500', // 신뢰도 주의 배지
+  needAttention: 'bg-amber-500',    // 관심 필요 배지
 } as const;
 
 // Primary 색상: bg-primary-500 (#3351A4), bg-primary-600 (#2A4490)
@@ -138,10 +140,32 @@ src/
 | 파일 | 역할 |
 |------|------|
 | `shared/utils/lpaClassifier.ts` | LPA 유형 분류 알고리즘 |
+| `shared/utils/attentionChecker.ts` | 관심 필요 학생 판별 (정적 T≤39, 부적 T≥60) |
 | `shared/data/lpaProfiles.ts` | 38개 요인, 유형별 중심값, 사전확률 |
 | `shared/data/factors.ts` | 요인 메타데이터 (대분류, 중분류, 긍정/부정) |
-| `shared/data/mockData.ts` | 샘플 학급 데이터 (4개 반, 각 28명) |
+| `shared/data/dataTransformer.ts` | JSON 원본 → Assessment 변환 (요인 매핑, LPA 분류기로 유형 결정, 교사명/날짜/학교급 JSON에서 동적 추출) |
+| `shared/data/mockData.ts` | 샘플 학급 데이터 (4개 반, 88명) |
 | `shared/utils/summaryGenerator.ts` | AI 총평 생성 로직 |
+| `shared/services/counselingService.ts` | 상담 기록 CRUD 서비스 |
+| `shared/services/memoService.ts` | 관찰 메모 CRUD 서비스 |
+| `shared/services/schoolRecordService.ts` | 생활기록부 AI 생성 서비스 |
+
+### 문서 폴더 구조
+
+```
+docs/
+├── meta-test/                    # META 검사 관련 문서
+│   ├── 01_검사개요.md
+│   ├── 02_검사구조.md
+│   ├── 03_점수체계.md
+│   ├── 04_문항정보.md
+│   ├── 05_결과해석.md
+│   ├── 06_LPA유형분류.md       # LPA 알고리즘 상세
+│   ├── 07_신뢰도지표.md
+│   └── 08_API데이터모델.md
+├── META_AI에이전트_기능정의서_v1.2.md
+└── dashboard-design.md
+```
 
 ---
 
@@ -164,9 +188,23 @@ interface Assessment {
   round: 1 | 2;
   assessedAt: Date;
   tScores: number[];           // 38개 T점수
-  predictedType: string;
+  predictedType: StudentType;
   typeConfidence: number;
   typeProbabilities: Record<string, number>;
+  deviations: FactorDeviation[];       // 유형 평균 대비 특이점 (상위 3개)
+  reliabilityWarnings: string[];       // 신뢰도 경고 ('사회적바람직성' | '반응일관성' | '연속동일반응')
+  attentionResult: AttentionResult;    // 관심 필요 판별 결과
+}
+
+interface AttentionResult {
+  needsAttention: boolean;
+  reasons: AttentionReason[];  // 대분류별 관심 필요 사유
+}
+
+interface AttentionReason {
+  category: FactorCategory;    // 5대 영역
+  factors: { name: string; score: number }[];
+  direction: 'low' | 'high';  // 정적 요인 낮음 / 부적 요인 높음
 }
 
 interface Class {
@@ -179,6 +217,31 @@ interface Class {
   stats?: ClassStats;
 }
 ```
+
+### 데이터 파이프라인
+
+```
+full_sample_data.json → dataTransformer.ts → mockData.ts → 컴포넌트
+```
+
+- `dataTransformer.ts`가 JSON 원본을 프론트엔드 타입으로 변환
+- **JSON 구조**: `examInfo` (메타), `classes` → `teacher` + `students` → `test1`/`test2` (`rawScores`, `tScores`, `type`, `reliability`, `date`)
+- 요인명 매핑: `normalizeName()` (공백/하이픈 제거) → FACTORS 인덱스 매핑
+- `predictedType`: `classifyStudent(tScores, schoolLevel)` 로 LPA 분류기 직접 실행
+- `typeProbabilities`: LPA 분류기의 `allProbabilities` 사용
+- `reliabilityWarnings`: JSON의 `reliability` 배열 직접 사용
+- `attentionResult`: 38개 T점수를 5대 영역별로 검사
+- `assessedAt`: JSON의 `testData.date` 필드에서 동적 추출
+- `schoolLevel`: `examInfo.grade`에서 자동 판별 (1~6: 초등, 7+: 중등)
+- `teacher.name`: 첫 번째 반의 `teacher` 필드에서 추출
+- 학생 번호: ID에서 추출 (`S0201` → 1번)
+
+### 관심 필요 판별 (Attention Check)
+
+| 요인 유형 | 기준 | 예시 |
+|-----------|------|------|
+| 정적 요인 (isPositive=true) | T ≤ 39 | 자아강점, 학습디딤돌, 긍정적공부마음 |
+| 부적 요인 (isPositive=false) | T ≥ 60 | 학습걸림돌, 부정적공부마음 |
 
 ---
 
@@ -235,6 +298,9 @@ const TypeBadge: React.FC<{ type: string }> = ({ type }) => (
 
 - `CategoryComparisonChart`: 5대 영역 LineChart (Recharts)
 - `TypeDistributionChart`: 유형 분포 Stacked Bar (Nivo)
+- 유형 분포 표시 순서 (클래스 카드 + Nivo 차트 공통):
+  - 초등: 자원소진형 → 안전균형형 → 몰입자원풍부형
+  - 중등: 무기력형 → 정서조절취약형 → 자기주도몰입형
 
 ### L2: 반 대시보드
 
@@ -256,11 +322,35 @@ const [selectedFlow, setSelectedFlow] = useState<FlowData | null>(null);
 - 막대 호버/클릭 → 학생 목록 툴팁 (테두리 색상 = 유형 색상)
 - 흐름선 클릭 → 하단 변화 박스 표시
 
-**필터 버튼 색상**:
+#### 학생 목록 테이블 (ClassDashboardPage)
+
+**필터 (ChangeFilterButtons)**:
 ```tsx
-// 활성화: bg-lime-500 text-white / bg-red-500 text-white
-// 비활성화: bg-lime-50 text-lime-700 / bg-red-50 text-red-700
+type ChangeFilter = 'all' | 'reliability-warning' | 'need-attention' | 'negative' | 'positive' | 'not-assessed';
+// 전체 | 신뢰도 주의 | 관심 필요 | 부정 변화 | 긍정 변화 | 2차 미실시
 ```
+
+**칼럼 구조 (7칼럼)**:
+```
+번호(w-16) | 이름(w-24) | 1차 유형(w-32) | 1차 상태(w-36) | 변화(w-16) | 2차 유형(w-32) | 2차 상태(w-36)
+```
+
+**상태 배지**:
+- 관심 필요: `bg-amber-50 text-amber-600 border-amber-200` + AlertTriangle 아이콘
+- 신뢰도 주의: `bg-red-50 text-red-600 border-red-200` + ShieldAlert 아이콘
+- 차수별 독립 표시 (1차/2차 각각)
+
+**변화 인디케이터**:
+- `+` 긍정: `bg-emerald-100 text-emerald-600` (w-8 h-8 원형)
+- `-` 부정: `bg-red-100 text-red-600`
+- `=` 동일: `bg-gray-100 text-gray-400`
+- `--` 2차 미실시: `text-gray-300`
+
+#### ClassInsights 컴포넌트
+
+**현재 상태**: 하드코딩 (실제 데이터 기반 로직 미구현)
+- 주의 항목, 양호 항목, 추천 학급 활동 3섹션
+- `classData` prop을 받지만 사용하지 않음
 
 ### L3: 학생 대시보드
 
@@ -268,16 +358,49 @@ const [selectedFlow, setSelectedFlow] = useState<FlowData | null>(null);
 
 ```
 StudentDashboardPage
-├── Header (학생 정보 + 네비게이션)
+├── Header (학생 정보 + 네비게이션 + 패널 버튼)
+│   └── PANEL_BUTTONS: [기록부, 상담, 관찰]
 ├── RoundSelector (1차/2차 선택)
 ├── Section 1: 진단결과 한눈에 보기
 │   ├── DiagnosisSummary (AI 총평)
 │   └── FactorLineChart (11개 중분류)
-└── Section 2: 학습 유형 알아보기
-    ├── TypeClassification (도넛 차트)
-    ├── TypeDeviations (특이점 3개)
-    └── CoachingStrategy (모달)
+├── Section 2: 학습 유형 알아보기
+│   ├── TypeClassification (도넛 차트)
+│   ├── TypeDeviations (특이점 3개)
+│   └── CoachingStrategy (모달)
+└── RightPanel (우측 슬라이드 패널)
+    ├── SchoolRecordPanel (생활기록부 AI 문구 생성)
+    ├── CounselingRecordPanel (상담 기록 CRUD)
+    └── ObservationMemoPanel (관찰 메모 + 태그)
 ```
+
+#### RightPanel (우측 슬라이드 패널)
+
+```tsx
+// 패널 탭 타입
+type PanelTab = 'schoolRecord' | 'counseling' | 'observation' | null;
+
+// 헤더 버튼 클릭 시 패널 열기
+const [panelTab, setPanelTab] = useState<PanelTab>(null);
+
+// 패널 컴포넌트
+<RightPanel
+  isOpen={panelTab !== null}
+  activeTab={panelTab}
+  onTabChange={setPanelTab}
+  onClose={() => setPanelTab(null)}
+  studentId={studentId}
+  classId={classId}
+  tScores={tScores}
+  predictedType={predictedType}
+/>
+```
+
+**패널 특징**:
+- `w-96` (384px) 고정 너비
+- 우측에서 슬라이드 인/아웃 애니메이션
+- ESC 키로 닫기 지원
+- 모바일: 오버레이 + 전체 너비
 
 #### 트렌디한 디자인 요소
 
@@ -468,5 +591,5 @@ const modeBadgeColors = {
 
 ---
 
-**Last Updated**: 2026-01-30
-**Version**: 1.5 (AI 어시스턴트 기능 추가)
+**Last Updated**: 2026-02-03
+**Version**: 2.0 (샘플 데이터 교체, LNB 동적화, dataTransformer 하드코딩 제거, 코드 리팩토링)

@@ -1,8 +1,8 @@
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Card } from '../../../shared/components';
+import { Card } from '@/shared/components';
 import { OAuthButton } from './OAuthButton';
-import type { OAuthProvider } from '../../../shared/types';
+import type { OAuthProvider } from '@/shared/types';
 
 interface LoginCardProps {
   onLogin: (provider: OAuthProvider) => void;

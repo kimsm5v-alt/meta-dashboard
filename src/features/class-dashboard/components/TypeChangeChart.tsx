@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Class, Student } from '../../../shared/types';
-import { LPA_PROFILE_DATA } from '../../../shared/data/lpaProfiles';
+import type { Class, Student } from '@/shared/types';
+import { LPA_PROFILE_DATA } from '@/shared/data/lpaProfiles';
 import {
   TYPE_ORDER,
   TYPE_COLORS,
@@ -444,7 +444,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
         {selectedFlow && round2Completed && (() => {
           const isPositive = selectedFlow.changeType === 'improve';
           const isNegative = selectedFlow.changeType === 'concern';
-          const boxColor = isPositive ? 'bg-lime-50 border-lime-300' :
+          const boxColor = isPositive ? 'bg-emerald-50 border-emerald-300' :
             isNegative ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-300';
 
           return (
@@ -452,7 +452,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   {isPositive && (
-                    <span className="px-2.5 py-0.5 bg-lime-500 text-white text-xs font-semibold rounded-full">
+                    <span className="px-2.5 py-0.5 bg-emerald-500 text-white text-xs font-semibold rounded-full">
                       긍정 변화
                     </span>
                   )}

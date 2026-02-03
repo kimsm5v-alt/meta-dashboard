@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search } from 'lucide-react';
-import { Card, Badge } from '../../../shared/components';
-import { getClassById } from '../../../shared/data/mockData';
-import type { Student } from '../../../shared/types';
+import { ArrowLeft, Search, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Card, Badge } from '@/shared/components';
+import { getClassById } from '@/shared/data/mockData';
+import type { Student, Assessment } from '@/shared/types';
 import {
   TypeChangeChart,
   ClassInsights,
-  KeywordBadges,
   SortableHeader,
   ChangeFilterButtons,
 } from '../components';
 import type { SortField, ChangeFilter } from '../components';
-import { getStudentKeywords, getTypeChangeScore } from '../utils/typeUtils';
+import { getTypeChangeScore } from '../utils/typeUtils';
+import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 
 export const ClassDashboardPage = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -39,7 +39,6 @@ export const ClassDashboardPage = () => {
   // 필터링 및 정렬
   const filteredAndSortedStudents = (() => {
     let filtered = classData.students.filter((s) => {
-      // 검색어 필터
       if (searchTerm && !s.name.includes(searchTerm) && !s.number.toString().includes(searchTerm)) {
         return false;
       }
@@ -48,16 +47,23 @@ export const ClassDashboardPage = () => {
       const r2 = s.assessments.find(a => a.round === 2);
       const typeChange = getTypeChangeScore(r1?.predictedType, r2?.predictedType);
 
-      // 변화 상태 필터
       if (changeFilter === 'positive' && typeChange !== 1) return false;
       if (changeFilter === 'negative' && typeChange !== -1) return false;
-      if (changeFilter === 'none' && (typeChange !== 0 || !r2)) return false;
       if (changeFilter === 'not-assessed' && r2) return false;
+
+      if (changeFilter === 'reliability-warning') {
+        const hasWarning = s.assessments.some(a => a.reliabilityWarnings.length > 0);
+        if (!hasWarning) return false;
+      }
+
+      if (changeFilter === 'need-attention') {
+        const hasAttention = s.assessments.some(a => a.attentionResult.needsAttention);
+        if (!hasAttention) return false;
+      }
 
       return true;
     });
 
-    // 정렬
     if (sortField) {
       filtered = [...filtered].sort((a, b) => {
         const getValue = (student: Student) => {
@@ -95,6 +101,67 @@ export const ClassDashboardPage = () => {
       setSortField(field);
       setSortDirection('asc');
     }
+  };
+
+  // 차수별 상태 배지 렌더링
+  const renderStatusBadges = (assessment: Assessment | undefined) => {
+    if (!assessment) return <span className="text-gray-300 text-xs">-</span>;
+
+    const hasReliability = assessment.reliabilityWarnings.length > 0;
+    const hasAttention = assessment.attentionResult.needsAttention;
+
+    if (!hasReliability && !hasAttention) {
+      return <span className="text-gray-400 text-xs">-</span>;
+    }
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {hasAttention && (
+          <span
+            className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-amber-50 text-amber-600 border-amber-200"
+            title={formatAttentionTooltip(assessment.attentionResult)}
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            관심
+          </span>
+        )}
+        {hasReliability && (
+          <span
+            className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-red-50 text-red-600 border-red-200"
+            title={`신뢰도 주의: ${assessment.reliabilityWarnings.join(', ')}`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            신뢰도
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  // 변화 인디케이터 렌더링
+  const renderChangeIndicator = (typeChange: number, hasRound2: boolean) => {
+    if (!hasRound2) {
+      return <span className="text-xs text-gray-300">--</span>;
+    }
+    if (typeChange === 1) {
+      return (
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 text-sm font-bold">
+          +
+        </span>
+      );
+    }
+    if (typeChange === -1) {
+      return (
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-600 text-sm font-bold">
+          -
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400 text-sm font-bold">
+        =
+      </span>
+    );
   };
 
   return (
@@ -139,7 +206,7 @@ export const ClassDashboardPage = () => {
         {/* Filters */}
         <div className="mb-4 pb-4 border-b">
           <div className="flex items-center gap-3">
-            <p className="text-sm text-gray-600 font-medium">변화 상태:</p>
+            <p className="text-sm text-gray-600 font-medium">필터:</p>
             <ChangeFilterButtons value={changeFilter} onChange={setChangeFilter} />
           </div>
 
@@ -166,7 +233,7 @@ export const ClassDashboardPage = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 text-gray-600 text-sm">
-                <th className="text-left py-3 px-4 w-24">
+                <th className="text-left py-3 px-3 w-16">
                   <SortableHeader
                     field="number"
                     label="번호"
@@ -175,7 +242,7 @@ export const ClassDashboardPage = () => {
                     onSort={handleSort}
                   />
                 </th>
-                <th className="text-left py-3 px-4 w-32">
+                <th className="text-left py-3 px-3 w-24">
                   <SortableHeader
                     field="name"
                     label="이름"
@@ -184,7 +251,7 @@ export const ClassDashboardPage = () => {
                     onSort={handleSort}
                   />
                 </th>
-                <th className="text-left py-3 px-4 w-32">
+                <th className="text-left py-3 px-3 w-32">
                   <SortableHeader
                     field="type1"
                     label="1차 유형"
@@ -193,8 +260,9 @@ export const ClassDashboardPage = () => {
                     onSort={handleSort}
                   />
                 </th>
-                <th className="text-left py-3 px-4">1차 주요 키워드</th>
-                <th className="text-left py-3 px-4 w-32">
+                <th className="text-left py-3 px-3 w-36">1차 상태</th>
+                <th className="text-center py-3 px-3 w-16">변화</th>
+                <th className="text-left py-3 px-3 w-32">
                   <SortableHeader
                     field="type2"
                     label="2차 유형"
@@ -203,46 +271,49 @@ export const ClassDashboardPage = () => {
                     onSort={handleSort}
                   />
                 </th>
-                <th className="text-left py-3 px-4">2차 주요 키워드</th>
+                <th className="text-left py-3 px-3 w-36">2차 상태</th>
               </tr>
             </thead>
             <tbody>
               {filteredAndSortedStudents.map((student) => {
                 const r1 = student.assessments.find(a => a.round === 1);
                 const r2 = student.assessments.find(a => a.round === 2);
-                const keywords1 = getStudentKeywords(student, 1);
-                const keywords2 = getStudentKeywords(student, 2);
                 const typeChange = getTypeChangeScore(r1?.predictedType, r2?.predictedType);
-
-                const rowBgClass = typeChange === 1
-                  ? 'bg-lime-50'
-                  : typeChange === -1
-                  ? 'bg-red-50'
-                  : '';
 
                 return (
                   <tr
                     key={student.id}
                     onClick={() => navigate(`/dashboard/class/${classId}/student/${student.id}`)}
-                    className={`border-b hover:bg-opacity-70 cursor-pointer ${rowBgClass}`}
+                    className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
                   >
-                    <td className="py-3 px-4">{student.number}</td>
-                    <td className="py-3 px-4 font-medium">{student.name}</td>
-                    <td className="py-3 px-4">
-                      {r1 && <Badge type={r1.predictedType}>{r1.predictedType}</Badge>}
+                    <td className="py-3.5 px-3">
+                      <span className="text-gray-500">{student.number}</span>
                     </td>
-                    <td className="py-3 px-4">
-                      <KeywordBadges keywords={keywords1} />
+                    <td className="py-3.5 px-3">
+                      <span className="font-medium text-gray-900">{student.name}</span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-3">
+                      {r1 ? (
+                        <Badge type={r1.predictedType}>{r1.predictedType}</Badge>
+                      ) : (
+                        <span className="text-gray-300 text-xs">-</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-3">
+                      {renderStatusBadges(r1)}
+                    </td>
+                    <td className="py-3.5 px-3 text-center">
+                      {renderChangeIndicator(typeChange, !!r2)}
+                    </td>
+                    <td className="py-3.5 px-3">
                       {r2 ? (
                         <Badge type={r2.predictedType}>{r2.predictedType}</Badge>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span className="text-gray-300 text-xs">-</span>
                       )}
                     </td>
-                    <td className="py-3 px-4">
-                      <KeywordBadges keywords={keywords2} />
+                    <td className="py-3.5 px-3">
+                      {renderStatusBadges(r2)}
                     </td>
                   </tr>
                 );

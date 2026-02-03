@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import type { User, MemberType, AuthState, OAuthProvider } from '../../../shared/types';
+import type { User, MemberType, AuthState, OAuthProvider } from '@/shared/types';
 
 // ============================================================
 // Context 타입 정의

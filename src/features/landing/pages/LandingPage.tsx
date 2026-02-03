@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/context/AuthContext';
-import { Button } from '../../../shared/components';
+import { Button } from '@/shared/components';
 import { HeroSection, FeaturesSection, StartMethodSection } from '../components';
 
 export const LandingPage = () => {

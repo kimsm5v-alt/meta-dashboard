@@ -18,8 +18,8 @@ export const TypeDeviations: React.FC<TypeDeviationsProps> = ({
 
   try {
     deviations = getTypeDeviations(tScores, predictedType, schoolLevel, 3);
-  } catch (error) {
-    console.error('유형 특이점 추출 실패:', error);
+  } catch {
+    // 유형 특이점 추출 실패 시 빈 배열 유지
   }
 
   if (deviations.length === 0) {

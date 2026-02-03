@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type ChangeFilter = 'all' | 'positive' | 'negative' | 'none' | 'not-assessed';
+export type ChangeFilter = 'all' | 'reliability-warning' | 'need-attention' | 'negative' | 'positive' | 'not-assessed';
 
 interface FilterOption {
   value: ChangeFilter;
@@ -17,10 +17,16 @@ const FILTER_OPTIONS: FilterOption[] = [
     inactiveClass: 'bg-gray-100 text-gray-600 hover:bg-gray-200',
   },
   {
-    value: 'positive',
-    label: '긍정 변화',
-    activeClass: 'bg-lime-500 text-white',
-    inactiveClass: 'bg-lime-50 text-lime-700 hover:bg-lime-100',
+    value: 'reliability-warning',
+    label: '신뢰도 주의',
+    activeClass: 'bg-red-500 text-white',
+    inactiveClass: 'bg-red-50 text-red-600 hover:bg-red-100',
+  },
+  {
+    value: 'need-attention',
+    label: '관심 필요',
+    activeClass: 'bg-amber-500 text-white',
+    inactiveClass: 'bg-amber-50 text-amber-600 hover:bg-amber-100',
   },
   {
     value: 'negative',
@@ -29,10 +35,10 @@ const FILTER_OPTIONS: FilterOption[] = [
     inactiveClass: 'bg-red-50 text-red-700 hover:bg-red-100',
   },
   {
-    value: 'none',
-    label: '변화 없음',
-    activeClass: 'bg-gray-600 text-white',
-    inactiveClass: 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+    value: 'positive',
+    label: '긍정 변화',
+    activeClass: 'bg-emerald-500 text-white',
+    inactiveClass: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
   },
   {
     value: 'not-assessed',

@@ -132,7 +132,7 @@ export const SchedulePage: React.FC = () => {
   // 스케줄 클릭
   const handleScheduleClick = (schedule: Schedule) => {
     // TODO: 상세 보기 또는 수정 모달
-    console.log('Schedule clicked:', schedule);
+    void schedule;
   };
 
   // 새 일정 등록

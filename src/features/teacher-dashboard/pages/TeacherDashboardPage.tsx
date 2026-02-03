@@ -1,10 +1,25 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, AlertTriangle, TrendingUp } from 'lucide-react';
-import { Card } from '../../../shared/components';
-import { MOCK_CLASSES, MOCK_TEACHER } from '../../../shared/data/mockData';
-import { TYPE_COLORS, TYPE_COLOR_CLASSES } from '../../../shared/data/lpaProfiles';
+import { Card } from '@/shared/components';
+import { MOCK_CLASSES, MOCK_TEACHER } from '@/shared/data/mockData';
+import { TYPE_COLORS, TYPE_COLOR_CLASSES } from '@/shared/data/lpaProfiles';
 import { CategoryComparisonChart, TypeDistributionChart } from '../components';
+import type { Class } from '@/shared/types';
+
+const TYPE_ORDER: Record<string, string[]> = {
+  '초등': ['자원소진형', '안전균형형', '몰입자원풍부형'],
+  '중등': ['무기력형', '정서조절취약형', '자기주도몰입형'],
+};
+
+const getSortedTypeDistribution = (cls: Class) => {
+  const dist = cls.stats?.typeDistribution;
+  if (!dist) return [];
+  const order = TYPE_ORDER[cls.schoolLevel] ?? [];
+  return order
+    .filter(t => dist[t])
+    .map(t => [t, dist[t]] as [string, { count: number; percentage: number }]);
+};
 
 export const TeacherDashboardPage = () => {
   const navigate = useNavigate();
@@ -252,18 +267,26 @@ export const TeacherDashboardPage = () => {
                 {/* Type Distribution Bar */}
                 <div className="mb-4">
                   <p className="text-xs font-medium text-gray-600 mb-2">유형 분포</p>
-                  <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
-                    {cls.stats?.typeDistribution && Object.entries(cls.stats.typeDistribution).map(([type, data]) => (
-                      <div key={type} className="h-full" style={{ width: `${data.percentage}%`, backgroundColor: TYPE_COLORS[type] }} />
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {cls.stats?.typeDistribution && Object.entries(cls.stats.typeDistribution).map(([type, data]) => (
-                      <span key={type} className={`text-xs px-2 py-0.5 rounded-full ${TYPE_COLOR_CLASSES[type]}`}>
-                        {type.replace('형', '')}: {data.count}명
-                      </span>
-                    ))}
-                  </div>
+                  {(() => {
+                    const sorted = getSortedTypeDistribution(cls);
+                    if (sorted.length === 0) return null;
+                    return (
+                      <>
+                        <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
+                          {sorted.map(([type, data]) => (
+                            <div key={type} className="h-full" style={{ width: `${data.percentage}%`, backgroundColor: TYPE_COLORS[type] }} />
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {sorted.map(([type, data]) => (
+                            <span key={type} className={`text-xs px-2 py-0.5 rounded-full ${TYPE_COLOR_CLASSES[type]}`}>
+                              {type.replace('형', '')}: {data.count}명
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Attention Badge */}

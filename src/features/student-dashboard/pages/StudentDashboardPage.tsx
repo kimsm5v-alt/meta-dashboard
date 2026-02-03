@@ -1,20 +1,31 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getClassById, getStudentById } from '../../../shared/data/mockData';
+import { ArrowLeft, ChevronLeft, ChevronRight, FileText, MessageSquare, Eye, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { getClassById, getStudentById } from '@/shared/data/mockData';
+import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 import {
   DiagnosisSummary,
   FactorLineChart,
   TypeClassification,
   TypeDeviations,
   CoachingStrategy,
+  RightPanel,
+  type PanelTab,
 } from '../components';
+
+// 헤더 버튼 설정
+const PANEL_BUTTONS = [
+  { key: 'schoolRecord' as const, label: '기록부', icon: FileText },
+  { key: 'counseling' as const, label: '상담', icon: MessageSquare },
+  { key: 'observation' as const, label: '관찰', icon: Eye },
+];
 
 export const StudentDashboardPage = () => {
   const { classId, studentId } = useParams<{ classId: string; studentId: string }>();
   const navigate = useNavigate();
   const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
+  const [panelTab, setPanelTab] = useState<PanelTab>(null);
 
   const classData = classId ? getClassById(classId) : undefined;
   const student = classId && studentId ? getStudentById(classId, studentId) : undefined;
@@ -55,34 +66,79 @@ export const StudentDashboardPage = () => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold">
-              {student.number}번 {student.name}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">
+                {student.number}번 {student.name}
+              </h1>
+              {current.reliabilityWarnings.length > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-red-50 text-red-600 border-red-200"
+                  title={`신뢰도 주의: ${current.reliabilityWarnings.join(', ')}`}
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  신뢰도 주의
+                </span>
+              )}
+              {current.attentionResult.needsAttention && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-amber-50 text-amber-600 border-amber-200"
+                  title={formatAttentionTooltip(current.attentionResult)}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  관심 필요
+                </span>
+              )}
+            </div>
             <p className="text-gray-500">
               {classData.grade}학년 {classData.classNumber}반
             </p>
           </div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => prev && navigate(`/dashboard/class/${classId}/student/${prev.id}`)}
-            disabled={!prev}
-            className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <span className="text-sm text-gray-500">
-            {currentIdx + 1} / {classData.students.length}
-          </span>
-          <button
-            onClick={() => next && navigate(`/dashboard/class/${classId}/student/${next.id}`)}
-            disabled={!next}
-            className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+        {/* Panel Buttons + Navigation */}
+        <div className="flex items-center gap-4">
+          {/* 패널 열기 버튼들 */}
+          <div className="flex gap-1.5">
+            {PANEL_BUTTONS.map(btn => {
+              const Icon = btn.icon;
+              const isActive = panelTab === btn.key;
+              return (
+                <button
+                  key={btn.key}
+                  onClick={() => setPanelTab(isActive ? null : btn.key)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {btn.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 학생 네비게이션 */}
+          <div className="flex items-center gap-2 pl-4 border-l border-gray-200">
+            <button
+              onClick={() => prev && navigate(`/dashboard/class/${classId}/student/${prev.id}`)}
+              disabled={!prev}
+              className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="text-sm text-gray-500">
+              {currentIdx + 1} / {classData.students.length}
+            </span>
+            <button
+              onClick={() => next && navigate(`/dashboard/class/${classId}/student/${next.id}`)}
+              disabled={!next}
+              className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -155,12 +211,24 @@ export const StudentDashboardPage = () => {
         </div>
       </section>
 
-      {/* 3. 코칭 전략 모달 */}
+      {/* 코칭 전략 모달 */}
       <CoachingStrategy
         predictedType={current.predictedType}
         schoolLevel={student.schoolLevel}
         isOpen={isCoachingOpen}
         onClose={() => setIsCoachingOpen(false)}
+      />
+
+      {/* 우측 슬라이드 패널 */}
+      <RightPanel
+        isOpen={panelTab !== null}
+        activeTab={panelTab}
+        onTabChange={setPanelTab}
+        onClose={() => setPanelTab(null)}
+        studentId={studentId!}
+        classId={classId!}
+        tScores={current.tScores}
+        predictedType={current.predictedType}
       />
     </div>
   );

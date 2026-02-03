@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { Button } from '../../../shared/components';
+import { Button } from '@/shared/components';
 
 interface HeroSectionProps {
   onGetStarted: () => void;

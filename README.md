@@ -120,13 +120,19 @@ meta-dashboard/
 │   │   │   ├── lpaProfiles.ts       # LPA 프로파일 데이터
 │   │   │   ├── factors.ts           # 38개 요인 정의
 │   │   │   ├── subCategoryScripts.ts # 중분류 스크립트
-│   │   │   └── mockData.ts          # 목업 데이터
+│   │   │   ├── dataTransformer.ts   # JSON → TypeScript 타입 변환
+│   │   │   ├── full_sample_data.json # 원본 검사 데이터 (4개 반)
+│   │   │   └── mockData.ts          # 목업 데이터 (dataTransformer 사용)
 │   │   ├── utils/                   # 유틸리티
 │   │   │   ├── lpaClassifier.ts     # LPA 분류 알고리즘
+│   │   │   ├── attentionChecker.ts  # 관심 필요 학생 판별
 │   │   │   ├── classComparisonUtils.ts  # 반 비교 유틸
 │   │   │   └── summaryGenerator.ts  # 요약 생성
 │   │   ├── services/                # 외부 서비스
-│   │   │   └── ai.ts                # AI 서비스
+│   │   │   ├── ai.ts                # AI 서비스
+│   │   │   ├── counselingService.ts # 상담 기록 CRUD
+│   │   │   ├── memoService.ts       # 관찰 메모 CRUD
+│   │   │   └── schoolRecordService.ts # 생활기록부 AI 생성
 │   │   └── types/                   # 타입 정의
 │   │       └── index.ts
 │   ├── styles/
@@ -134,9 +140,11 @@ meta-dashboard/
 │   ├── main.tsx
 │   └── vite-env.d.ts
 ├── docs/                            # 프로젝트 문서
+│   ├── meta-test/                   # META 검사 관련 문서
+│   │   ├── 01_검사개요.md ~ 08_API데이터모델.md
+│   │   └── 06_LPA유형분류.md        # LPA 알고리즘 상세 (초등/중등)
 │   ├── META_AI에이전트_기능정의서_v1.2.md
-│   ├── dashboard-design.md
-│   └── lpa_*.json, lpa_*.js
+│   └── dashboard-design.md
 ├── prompts/                         # AI 프롬프트
 │   ├── system-prompt.md
 │   └── preset-*.md
@@ -213,31 +221,34 @@ meta-dashboard/
 
 **주요 기능**
 1. **반 프로필**
-   - 유형별 학생 분포도 (파이차트)
    - 1차/2차 차수별 유형 변화 (TypeChangeChart)
-   - 반 전체 요인 프로필 (평균 T점수)
+   - 막대 호버/클릭 → 학생 목록 툴팁, 흐름선 클릭 → 변화 박스
 
 2. **학생 목록 테이블**
-   - 필터링 (유형, 차수, 관심 필요)
-   - 정렬 (번호, 이름, 유형)
+   - 필터 6종: 전체 / 신뢰도 주의 / 관심 필요 / 부정 변화 / 긍정 변화 / 2차 미실시
+   - 7칼럼: 번호, 이름, 1차 유형, 1차 상태, 변화, 2차 유형, 2차 상태
+   - 정렬 (번호, 이름, 1차 유형, 2차 유형)
+   - 상태 배지: 관심 필요(amber), 신뢰도 주의(red) — 차수별 독립 표시
+   - 변화 인디케이터: `+`(emerald) / `-`(red) / `=`(gray) 원형 배지
    - 클릭 시 L3 학생 대시보드 이동
 
 3. **반 인사이트 (ClassInsights)**
-   - 관심 필요 학생 알림
-   - 반 전체 강점/보완점
+   - 주의 항목 / 양호 항목 / 추천 학급 활동
+   - ⚠️ 현재 하드코딩 상태 — 실제 데이터 기반 로직 미구현
 
 **구현 현황**
 ```
 🚧 진행 중:
 - ClassDashboardPage.tsx                # 메인 페이지
-  ✅ 긍정/부정 변화 필터링 (lime/red 색상)
-  ✅ 학생 목록 행 배경색 (긍정=lime-50, 부정=red-50)
+  ✅ 학생 목록 테이블 (7칼럼, 필터 6종, 정렬)
+  ✅ 신뢰도 주의 / 관심 필요 상태 배지 (차수별)
+  ✅ 변화 인디케이터 (긍정/부정/동일/미실시)
 - TypeChangeChart.tsx                   # 차수별 변화 차트 ✅
   ✅ 막대 호버/클릭 시 툴팁 표시
-  ✅ 툴팁 테두리 색상 = 유형 색상
   ✅ 흐름선 클릭 시 하단 박스 표시
-  ✅ [긍정 변화] [부정 변화] 배지 (lime-500/red-500)
-- ClassInsights.tsx                     # 반 인사이트 컴포넌트
+- ChangeFilterButtons.tsx               # 필터 버튼 ✅
+- ClassInsights.tsx                     # 반 인사이트 (하드코딩)
+  ⬜ 실제 학생 데이터 기반 로직 필요
 ```
 
 ### Level 3: 특정 학생 대시보드 ✅
@@ -274,25 +285,49 @@ meta-dashboard/
    - 학생 이동 (이전/다음)
    - 반으로 돌아가기
 
+4. **학생 관리 (RightPanel)**
+   - **생활기록부** (SchoolRecordPanel)
+     - AI 기반 문구 자동 생성
+     - 복사/수정/다운로드 기능
+   - **상담 기록** (CounselingRecordPanel)
+     - 상담 내용 CRUD
+     - 음성 녹음 기록 지원 (향후)
+   - **관찰 메모** (ObservationMemoPanel)
+     - 11개 중분류 요인 태그 연결
+     - 타임라인 형태 메모 목록
+
 **구현 현황**
 ```
 ✅ 완료:
-- StudentDashboardPage.tsx              # 메인 페이지
+- StudentDashboardPage.tsx              # 메인 페이지 + 패널 버튼
 - DiagnosisSummary.tsx                  # AI 분석 총평
 - FactorLineChart.tsx                   # 중분류 요인 그래프
 - TypeClassification.tsx                # 학습 유형 분류 (도넛 차트)
 - TypeDeviations.tsx                    # 유형별 특이점
 - CoachingStrategy.tsx                  # 코칭 전략 모달
+- RightPanel.tsx                        # 우측 슬라이드 패널 컨테이너
+- SchoolRecordPanel.tsx                 # 생활기록부 AI 문구
+- CounselingRecordPanel.tsx             # 상담 기록 관리
+- ObservationMemoPanel.tsx              # 관찰 메모 관리
 - summaryGenerator.ts                   # AI 요약 생성 유틸
 ```
 
 ## 🔢 LPA 유형 분류
 
-### 알고리즘 (4단계)
-1. **로그 우도 계산**: 학생 38개 T점수와 각 유형 중심값 거리
+### 알고리즘 (4단계 베이지안 가우시안 분류)
+1. **로그 우도 계산**: 학생 38개 T점수와 각 유형 중심값(centroid) 거리 (분산=100)
 2. **사전확률 반영**: 베이즈 정리로 유형 빈도 고려
-3. **Log-Sum-Exp 정규화**: 확률 합 = 100%
+3. **Log-Sum-Exp 정규화**: 수치 안정성 확보 + 확률 합 = 100%
 4. **최대값 선택**: 가장 높은 확률 유형 선택
+
+### 데이터 흐름
+```
+full_sample_data.json → dataTransformer.ts → mockData.ts → 컴포넌트
+```
+- `dataTransformer.ts`가 JSON의 요인명을 정규화(`normalizeName`) 후 FACTORS 인덱스로 매핑
+- `predictedType`: `classifyStudent()`로 LPA 분류기 직접 실행하여 유형 결정
+- JSON 구조: `examInfo` → `classes` → `students` → `test1/test2` (`rawScores`, `tScores`, `type`, `reliability`)
+- 관련 파일: `lpaClassifier.ts` (알고리즘), `lpaProfiles.ts` (중심값/사전확률), `factors.ts` (요인 정의)
 
 ### 초등 유형 (데이터 확보 ✅)
 | 유형 | 비율 | 색상 |
@@ -368,8 +403,10 @@ AI 에이전트에 전송 시 **PII 마스킹** 적용:
 ## 📚 참고 문서
 
 - `CLAUDE.md`: AI 코딩 가이드 (바이브코딩용)
-- `src/data/lpaProfiles.ts`: LPA 프로파일 데이터
-- `src/utils/lpaClassifier.ts`: 분류 알고리즘 구현
+- `src/shared/data/lpaProfiles.ts`: LPA 프로파일 데이터
+- `src/shared/utils/lpaClassifier.ts`: 분류 알고리즘 구현
+- `src/shared/data/dataTransformer.ts`: JSON → TypeScript 변환 파이프라인
+- `src/shared/utils/attentionChecker.ts`: 관심 필요 판별 로직
 
 ## 🚧 개발 현황
 
@@ -379,31 +416,48 @@ AI 에이전트에 전송 시 **PII 마스킹** 적용:
 - [x] 타입 시스템 (TypeScript)
 - [x] 공통 컴포넌트 (Card, Badge, Button, Loading)
 - [x] 공통 데이터 (lpaProfiles, factors, mockData)
+- [x] **데이터 파이프라인** (full_sample_data.json → dataTransformer → mockData)
+  - [x] JSON 원본 → TypeScript 타입 자동 변환
+  - [x] 요인명 정규화 매핑, 학생 ID 추출, ClassStats 계산
+  - [x] predictedType: `classifyStudent()` LPA 분류기 직접 실행
+  - [x] 요인명 통일: 자아존중감 (프로젝트 전체 일치)
+  - [x] LPA centroid 교정: 안전균형형/몰입자원풍부형 means 값 수정
+- [x] **관심 필요 판별 시스템** (attentionChecker.ts)
+  - [x] 정적 요인 T≤39 / 부적 요인 T≥60 기준
+  - [x] 5대 영역(대분류) 단위 검사
+  - [x] 툴팁 포맷: `대분류↓: 요인(T=score)`
 - [x] **L1 대시보드** (교사 전체 반) - 완성도 95%
   - [x] TeacherDashboardPage
   - [x] 요약 카드 (전체 학생, 검사 완료, 관심 필요)
   - [x] 반별 5대 영역 비교 (CategoryComparisonChart - Recharts)
   - [x] 반별 유형 분포 비교 (TypeDistributionChart - Nivo)
   - [x] 인터랙티브 반 선택/하이라이트
-  - [x] 샘플 데이터 (4개 반, 각 28명)
+  - [x] 샘플 데이터 (4개 반, 각 22명)
   - [x] 반별 현황 카드 (유형 분포, 관심 필요 학생)
 
 ### 🚧 진행 중
-- [ ] **L2 대시보드** (특정 반) - 완성도 30%
-  - [x] ClassDashboardPage (기본 구조)
+- [ ] **L2 대시보드** (특정 반) - 완성도 70%
+  - [x] ClassDashboardPage (메인 페이지)
   - [x] TypeChangeChart (차수별 변화)
-  - [x] ClassInsights (반 인사이트)
-  - [ ] 학생 목록 테이블 (필터링/정렬)
-  - [ ] 유형별 학생 카드
+  - [x] 학생 목록 테이블 (7칼럼, 필터 6종, 정렬 4필드)
+  - [x] 신뢰도 주의 / 관심 필요 상태 배지 (차수별)
+  - [x] 변화 인디케이터 (긍정/부정/동일/미실시)
+  - [x] ChangeFilterButtons (전체/신뢰도/관심/부정/긍정/2차미실시)
+  - [ ] ClassInsights 로직 구현 (현재 하드코딩)
   - [ ] 반 전체 요인 프로필
-- [x] **L3 대시보드** (특정 학생) - 완성도 80%
-  - [x] StudentDashboardPage (메인 페이지)
+- [x] **L3 대시보드** (특정 학생) - 완성도 95%
+  - [x] StudentDashboardPage (메인 페이지 + 패널 버튼)
   - [x] DiagnosisSummary (AI 분석 총평)
   - [x] FactorLineChart (11개 중분류 차트)
   - [x] TypeClassification (유형 분류 도넛 차트)
   - [x] TypeDeviations (유형별 특이점)
   - [x] CoachingStrategy (코칭 전략 모달)
+  - [x] RightPanel (우측 슬라이드 패널)
+  - [x] SchoolRecordPanel (생활기록부 AI 문구)
+  - [x] CounselingRecordPanel (상담 기록 CRUD)
+  - [x] ObservationMemoPanel (관찰 메모 + 태그)
   - [x] AI 총평 생성 (Mock)
+  - [x] 신뢰도 주의 / 관심 필요 배지 (L3 헤더)
   - [ ] AI API 실제 연동
 - [ ] **AI 상담실** - 완성도 5%
   - [x] AIRoomPage (기본 구조)
@@ -419,7 +473,7 @@ AI 에이전트에 전송 시 **PII 마스킹** 적용:
 
 ### 📋 진행 예정
 - [ ] 지식그래프 연동 (Neo4j)
-- [ ] 생활기록부 문구 생성
+- [x] 생활기록부 문구 생성 (SchoolRecordPanel)
 - [ ] PDF 리포트 생성
 - [ ] 비바샘 SSO 연동
 - [ ] 반응형 최적화 (모바일)
@@ -440,7 +494,7 @@ AI 에이전트에 전송 시 **PII 마스킹** 적용:
 
 ---
 
-**Version**: 0.3.0-alpha (L1 완성, L3 구현 완료)
-**Last Updated**: 2026-01-30
+**Version**: 0.6.0-alpha (요인명 통일, JSON 구조 변경, LPA centroid 교정, 유형 분포 순서 고정)
+**Last Updated**: 2026-02-03
 **License**: Proprietary
 **Maintainer**: 천재교육 비바샘 팀

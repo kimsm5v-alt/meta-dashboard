@@ -55,7 +55,7 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
                   paddingAngle={2}
                   cornerRadius={4}
                 >
-                  {chartData.map((entry, index) => (
+                  {chartData.map((_, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={`url(#gradient-${index})`}
@@ -72,7 +72,7 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
                   layout="vertical"
                   verticalAlign="middle"
                   align="right"
-                  formatter={(value: string, entry: any) => `${value} ${entry.payload.value}%`}
+                  formatter={(value: string, entry) => `${value} ${(entry as { payload?: { value: number } }).payload?.value ?? 0}%`}
                   iconType="circle"
                   iconSize={10}
                   wrapperStyle={{ fontSize: '13px', paddingLeft: '0px', marginLeft: '-100px', lineHeight: '2' }}

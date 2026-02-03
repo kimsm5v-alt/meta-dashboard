@@ -70,6 +70,20 @@ export interface Assessment {
   typeConfidence: number;
   typeProbabilities: Record<string, number>;
   deviations: FactorDeviation[];
+  reliabilityWarnings: string[];
+  attentionResult: AttentionResult;
+}
+
+// 관심 필요 판별 결과
+export interface AttentionReason {
+  category: FactorCategory;
+  factors: { name: string; score: number }[];
+  direction: 'low' | 'high';
+}
+
+export interface AttentionResult {
+  needsAttention: boolean;
+  reasons: AttentionReason[];
 }
 
 // 요인
@@ -106,9 +120,10 @@ export interface FactorDeviation {
 
 // LPA 프로파일
 export interface LPAProfileData {
-  [schoolLevel: string]: SchoolProfileData;
   factors: string[];
   factorCategories: Record<string, number[]>;
+  '초등': SchoolProfileData;
+  '중등': SchoolProfileData;
 }
 
 export interface SchoolProfileData {
@@ -305,3 +320,136 @@ export const CLASS_COLORS: Record<string, string> = {
   '3-1': '#10b981', // 초록
   '3-4': '#f59e0b', // 주황
 };
+
+// ============================================================
+// 상담 기록 관련 타입
+// ============================================================
+
+export interface CounselingRecord {
+  id: string;
+  studentId: string;
+  classId: string;
+  scheduledAt: string;          // 'YYYY-MM-DD HH:mm'
+  duration: number;             // 상담 시간 (분)
+  type: ScheduleType;
+  area: CounselingArea;
+  method: CounselingMethod;
+  summary: string;              // 상담 내용 요약
+  nextSteps?: string;           // 후속 조치
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateCounselingRecordInput {
+  studentId: string;
+  classId: string;
+  scheduledAt: string;
+  duration: number;
+  type: ScheduleType;
+  area: CounselingArea;
+  method: CounselingMethod;
+  summary: string;
+  nextSteps?: string;
+}
+
+export interface UpdateCounselingRecordInput {
+  scheduledAt?: string;
+  duration?: number;
+  type?: ScheduleType;
+  area?: CounselingArea;
+  method?: CounselingMethod;
+  summary?: string;
+  nextSteps?: string;
+}
+
+// ============================================================
+// 관찰 메모 관련 타입
+// ============================================================
+
+export type MemoCategory = 'behavior' | 'academic' | 'social' | 'emotion' | 'other';
+
+export const MEMO_CATEGORY_LABELS: Record<MemoCategory, string> = {
+  behavior: '행동',
+  academic: '학습',
+  social: '교우관계',
+  emotion: '정서',
+  other: '기타',
+};
+
+export const MEMO_CATEGORY_COLORS: Record<MemoCategory, string> = {
+  behavior: 'bg-amber-100 text-amber-700',
+  academic: 'bg-blue-100 text-blue-700',
+  social: 'bg-green-100 text-green-700',
+  emotion: 'bg-purple-100 text-purple-700',
+  other: 'bg-gray-100 text-gray-700',
+};
+
+export interface ObservationMemo {
+  id: string;
+  studentId: string;
+  classId: string;
+  date: string;                 // 'YYYY-MM-DD'
+  category: MemoCategory;
+  content: string;
+  isImportant: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateObservationMemoInput {
+  studentId: string;
+  classId: string;
+  date: string;
+  category: MemoCategory;
+  content: string;
+  isImportant?: boolean;
+}
+
+export interface UpdateObservationMemoInput {
+  date?: string;
+  category?: MemoCategory;
+  content?: string;
+  isImportant?: boolean;
+}
+
+// ============================================================
+// 생활기록부 AI 문구 관련 타입
+// ============================================================
+
+export type SchoolRecordCategory =
+  | 'comprehensive'     // 종합 의견
+  | 'learning'          // 학습 태도
+  | 'personality'       // 성격 특성
+  | 'socialSkills'      // 대인관계
+  | 'selfManagement';   // 자기관리
+
+export const SCHOOL_RECORD_CATEGORY_LABELS: Record<SchoolRecordCategory, string> = {
+  comprehensive: '종합 의견',
+  learning: '학습 태도',
+  personality: '성격 특성',
+  socialSkills: '대인관계',
+  selfManagement: '자기관리',
+};
+
+export interface SchoolRecordRequest {
+  studentId: string;
+  tScores: number[];
+  predictedType: string;
+  category: SchoolRecordCategory;
+  customPrompt?: string;
+}
+
+export interface SchoolRecordResponse {
+  category: SchoolRecordCategory;
+  content: string;
+  generatedAt: Date;
+}
+
+export interface SavedSchoolRecord {
+  id: string;
+  studentId: string;
+  classId: string;
+  category: SchoolRecordCategory;
+  content: string;
+  createdAt: Date;
+}
