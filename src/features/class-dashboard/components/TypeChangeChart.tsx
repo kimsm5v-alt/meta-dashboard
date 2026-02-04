@@ -40,17 +40,13 @@ interface BarSegment {
 
 const SVG_CONFIG = {
   width: 700,
-  height: 350,
+  height: 460,
   barWidth: 100,
-  barGap: 280,
-  barX1: 90,
+  barGap: 240,
+  barX1: 128,
   chartTop: 50,
-  chartHeight: 250,
-} as const;
-
-const SVG = {
-  ...SVG_CONFIG,
-  barX2: SVG_CONFIG.barX1 + SVG_CONFIG.barWidth + SVG_CONFIG.barGap,
+  chartHeight: 360,
+  barX2: 128 + 100 + 240,
 };
 
 // ============================================================
@@ -58,11 +54,11 @@ const SVG = {
 // ============================================================
 
 const yScale = (percentage: number) =>
-  SVG.chartTop + (SVG.chartHeight * percentage) / 100;
+  SVG_CONFIG.chartTop + (SVG_CONFIG.chartHeight * percentage) / 100;
 
 const createFlowPath = (from: BarSegment, to: BarSegment): string => {
-  const x1 = SVG.barX1 + SVG.barWidth;
-  const x2 = SVG.barX2;
+  const x1 = SVG_CONFIG.barX1 + SVG_CONFIG.barWidth;
+  const x2 = SVG_CONFIG.barX2;
   const controlX = (x1 + x2) / 2;
 
   const y1Start = yScale(from.yStart);
@@ -106,6 +102,7 @@ const getFlowStyle = (
 // ============================================================
 
 export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) => {
+  const SVG = SVG_CONFIG;
   const navigate = useNavigate();
   const [selectedFlow, setSelectedFlow] = useState<FlowData | null>(null);
   const [selectedSegment, setSelectedSegment] = useState<{
@@ -207,13 +204,11 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
         onMouseEnter={(e) => {
           if (isEnabled) {
             setSelectedSegment({ round, type: segment.type, x: e.clientX, y: e.clientY });
-            setSelectedFlow(null);
           }
         }}
         onClick={(e) => {
           if (isEnabled) {
             setSelectedSegment({ round, type: segment.type, x: e.clientX, y: e.clientY });
-            setSelectedFlow(null);
           }
         }}
       />
@@ -274,17 +269,17 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
   );
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-lg shadow-gray-100/50 hover:shadow-xl hover:shadow-gray-200/50 transition-shadow duration-300">
-        <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-900">검사별 유형 분포</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            1차와 2차 검사 결과를 비교하여 학생들의 유형 변화를 확인하세요
-          </p>
-        </div>
+    <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-lg shadow-gray-100/50 hover:shadow-xl hover:shadow-gray-200/50 transition-shadow duration-300 h-full flex flex-col">
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-gray-900">검사별 유형 분포</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          1차와 2차 검사 결과를 비교하여 학생들의 유형 변화를 확인하세요
+        </p>
+      </div>
 
-        <div className="flex items-center justify-center">
-          <svg width={SVG.width} height={SVG.height} className="overflow-visible">
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex items-center justify-center flex-shrink-0">
+          <svg width={SVG.width} height={SVG.height} className="overflow-visible" onMouseLeave={() => setSelectedSegment(null)}>
             <defs>
               <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
@@ -387,7 +382,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
           </div>
         )}
 
-        {/* 세그먼트 선택 툴팁 */}
+        {/* 세그먼트 선택 툴팁 (fixed position — 카드 높이에 영향 없음) */}
         {selectedSegment && (() => {
           const typeData = LPA_PROFILE_DATA[classData.schoolLevel].types.find(t => t.name === selectedSegment.type);
           const studentList = selectedSegment.round === 1
@@ -395,28 +390,17 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
             : round2Distribution[selectedSegment.type];
 
           return (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setSelectedSegment(null)} />
               <div
-                className="fixed max-w-sm w-full border-2 rounded-lg p-4 shadow-xl bg-white z-50"
+                className="fixed max-w-sm w-full border-2 rounded-lg p-4 shadow-xl bg-white z-50 pointer-events-none"
                 style={{
                   left: `${selectedSegment.x + 20}px`,
                   top: `${selectedSegment.y - 100}px`,
                   borderColor: TYPE_COLORS[selectedSegment.type],
                 }}
-                onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900 text-sm">
-                    {selectedSegment.round}차 검사 - {selectedSegment.type} ({studentList.length}명)
-                  </h3>
-                  <button
-                    onClick={() => setSelectedSegment(null)}
-                    className="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700"
-                  >
-                    ✕
-                  </button>
-                </div>
+                <h3 className="font-semibold text-gray-900 text-sm mb-3">
+                  {selectedSegment.round}차 검사 - {selectedSegment.type} ({studentList.length}명)
+                </h3>
 
                 {typeData && selectedSegment.type !== '미실시' && (
                   <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
@@ -424,78 +408,75 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
+                <div className="flex flex-wrap gap-1.5">
                   {studentList.map(student => (
+                    <span
+                      key={student.id}
+                      className="px-2 py-1 bg-gray-50 rounded text-xs font-medium border border-gray-200"
+                    >
+                      {student.number}. {student.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+          );
+        })()}
+
+        {/* 하단 고정 영역: 흐름선 상세 / 도움말 */}
+        <div className="flex-shrink-0 mt-auto pt-3">
+          {selectedFlow && round2Completed ? (() => {
+            const isPositive = selectedFlow.changeType === 'improve';
+            const isNegative = selectedFlow.changeType === 'concern';
+            const boxColor = isPositive ? 'bg-emerald-50 border-emerald-300' :
+              isNegative ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-300';
+
+            return (
+              <div className={`border-2 rounded-xl p-4 shadow-md ${boxColor}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    {isPositive && (
+                      <span className="px-2.5 py-0.5 bg-emerald-500 text-white text-xs font-semibold rounded-full">
+                        긍정 변화
+                      </span>
+                    )}
+                    {isNegative && (
+                      <span className="px-2.5 py-0.5 bg-red-500 text-white text-xs font-semibold rounded-full">
+                        부정 변화
+                      </span>
+                    )}
+                    <h3 className="font-semibold text-gray-900 text-sm">
+                      {selectedFlow.from} → {selectedFlow.to} ({selectedFlow.count}명)
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setSelectedFlow(null)}
+                    className="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                  {selectedFlow.students.map(student => (
                     <button
                       key={student.id}
                       onClick={() => navigate(`/dashboard/class/${classData.id}/student/${student.id}`)}
-                      className="px-2 py-1 bg-gray-50 rounded text-xs font-medium border border-gray-200 hover:border-gray-400 hover:bg-gray-100 cursor-pointer"
+                      className="px-2 py-1 bg-white rounded text-xs font-medium border border-gray-200 hover:border-gray-400 hover:bg-gray-100 cursor-pointer"
                     >
                       {student.number}. {student.name}
                     </button>
                   ))}
                 </div>
               </div>
-            </>
-          );
-        })()}
-
-        {/* 흐름선 선택 상자 */}
-        {selectedFlow && round2Completed && (() => {
-          const isPositive = selectedFlow.changeType === 'improve';
-          const isNegative = selectedFlow.changeType === 'concern';
-          const boxColor = isPositive ? 'bg-emerald-50 border-emerald-300' :
-            isNegative ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-300';
-
-          return (
-            <div className={`mt-3 border-2 rounded-xl p-4 shadow-md ${boxColor}`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  {isPositive && (
-                    <span className="px-2.5 py-0.5 bg-emerald-500 text-white text-xs font-semibold rounded-full">
-                      긍정 변화
-                    </span>
-                  )}
-                  {isNegative && (
-                    <span className="px-2.5 py-0.5 bg-red-500 text-white text-xs font-semibold rounded-full">
-                      부정 변화
-                    </span>
-                  )}
-                  <h3 className="font-semibold text-gray-900 text-sm">
-                    {selectedFlow.from} → {selectedFlow.to} ({selectedFlow.count}명)
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setSelectedFlow(null)}
-                  className="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
-                {selectedFlow.students.map(student => (
-                  <button
-                    key={student.id}
-                    onClick={() => navigate(`/dashboard/class/${classData.id}/student/${student.id}`)}
-                    className="px-2 py-1 bg-white rounded text-xs font-medium border border-gray-200 hover:border-gray-400 hover:bg-gray-100 cursor-pointer"
-                  >
-                    {student.number}. {student.name}
-                  </button>
-                ))}
-              </div>
+            );
+          })() : round2Completed ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
+              <p className="text-sm text-gray-600">
+                막대 또는 흐름선을 클릭하면 해당 유형의 학생 목록을 확인할 수 있습니다
+              </p>
             </div>
-          );
-        })()}
-
-        {/* 도움말 */}
-        {!selectedFlow && round2Completed && (
-          <div className="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
-            <p className="text-sm text-gray-600">
-              막대 또는 흐름선을 클릭하면 해당 유형의 학생 목록을 확인할 수 있습니다
-            </p>
-          </div>
-        )}
+          ) : null}
+        </div>
       </div>
     </div>
   );

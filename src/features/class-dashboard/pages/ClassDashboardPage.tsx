@@ -21,7 +21,6 @@ export const ClassDashboardPage = () => {
   const [changeFilter, setChangeFilter] = useState<ChangeFilter>('all');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-
   const classData = classId ? getClassById(classId) : undefined;
 
   useEffect(() => {
@@ -171,7 +170,7 @@ export const ClassDashboardPage = () => {
         <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">
             {classData.grade}학년 {classData.classNumber}반
           </h1>
@@ -179,6 +178,7 @@ export const ClassDashboardPage = () => {
             학생 {classData.stats?.totalStudents}명 | 검사 완료 {classData.stats?.assessedStudents}명
           </p>
         </div>
+
       </div>
 
       {/* Charts */}
@@ -186,6 +186,9 @@ export const ClassDashboardPage = () => {
         <TypeChangeChart classData={classData} />
         <ClassInsights classData={classData} />
       </div>
+
+      {/* 학생 목록 */}
+      <div className="grid grid-cols-1 gap-6 items-start">
 
       {/* Student Table */}
       <Card>
@@ -322,6 +325,8 @@ export const ClassDashboardPage = () => {
           </table>
         </div>
       </Card>
+
+      </div>{/* grid wrapper 닫기 */}
     </div>
   );
 };

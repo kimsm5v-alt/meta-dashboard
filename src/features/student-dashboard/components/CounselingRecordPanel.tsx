@@ -22,6 +22,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     date: new Date().toISOString().split('T')[0],
     title: '',
@@ -194,30 +195,43 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
             <p className="text-sm">아직 상담 기록이 없습니다.</p>
           </div>
         ) : (
-          records.map(record => (
-            <div
-              key={record.id}
-              className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <span className="text-xs text-gray-400">
-                  {formatDate(record.scheduledAt)}
-                </span>
-                <button
-                  onClick={() => handleEdit(record)}
-                  className="text-xs text-gray-400 hover:text-primary-500 transition-colors"
-                >
-                  편집
-                </button>
+          records.map(record => {
+            const isExpanded = expandedId === record.id;
+            const [title, ...contentParts] = record.summary.split('\n\n');
+            const content = contentParts.join('\n\n');
+
+            return (
+              <div
+                key={record.id}
+                className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow cursor-pointer"
+                onClick={() => setExpandedId(isExpanded ? null : record.id)}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xs text-gray-400">
+                    {formatDate(record.scheduledAt)}
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleEdit(record); }}
+                    className="text-xs text-gray-400 hover:text-primary-500 transition-colors"
+                  >
+                    편집
+                  </button>
+                </div>
+                <h4 className="font-medium text-gray-900 text-sm mb-1">
+                  {isExpanded ? title : getTitle(record.summary)}
+                </h4>
+                {isExpanded ? (
+                  <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">
+                    {content || record.summary}
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500 line-clamp-2">
+                    {getPreview(record.summary)}
+                  </p>
+                )}
               </div>
-              <h4 className="font-medium text-gray-900 text-sm mb-1">
-                {getTitle(record.summary)}
-              </h4>
-              <p className="text-xs text-gray-500 line-clamp-2">
-                {getPreview(record.summary)}
-              </p>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
