@@ -5,6 +5,7 @@ import { MOCK_CLASSES } from '@/shared/data/mockData';
 import type { Class, Student } from '@/shared/types';
 import type { ContextMode, ChatMessage, StudentAliasMap } from '../types';
 import { StudentPickerModal, ChatArea, QuickPrompts } from '../components';
+import { callAssistant } from '../services/assistantService';
 
 // ============================================================================
 // Types
@@ -44,11 +45,6 @@ const createAliasMap = (students: Student[]): StudentAliasMap => {
   return map;
 };
 
-const getStudentType = (student: Student): string => {
-  const latest = student.assessments[student.assessments.length - 1];
-  return latest?.predictedType || '미실시';
-};
-
 const createNewConversation = (): Conversation => ({
   id: Date.now().toString(),
   title: '새 대화',
@@ -58,28 +54,6 @@ const createNewConversation = (): Conversation => ({
   contextLabel: '전체',
 });
 
-const generateMockResponse = (
-  mode: ContextMode,
-  cls: Class | null,
-  students: Student[],
-  question: string
-): string => {
-  if (mode === 'all') {
-    const totalStudents = MOCK_CLASSES.reduce((acc, c) => acc + (c.stats?.totalStudents || 0), 0);
-    return `전체 담당 학급 분석 결과입니다.\n\n담당 학급: ${MOCK_CLASSES.length}개\n총 학생 수: ${totalStudents}명\n\n${question}에 대한 상세 분석은 실제 AI 연동 후 제공됩니다.`;
-  }
-  if (mode === 'class' && cls) {
-    return `${cls.grade}학년 ${cls.classNumber}반 분석 결과입니다.\n\n학생 수: ${cls.stats?.totalStudents || 0}명\n검사 완료: ${cls.stats?.assessedStudents || 0}명\n\n${question}에 대한 상세 분석은 실제 AI 연동 후 제공됩니다.`;
-  }
-  if (mode === 'student' && students.length > 0) {
-    if (students.length === 1) {
-      return `student_A 학생의 분석 결과입니다.\n\n유형: ${getStudentType(students[0])}\n\n${question}에 대한 상세 분석은 실제 AI 연동 후 제공됩니다.`;
-    }
-    const aliases = students.map((_, i) => `student_${String.fromCharCode(65 + i)}`).join(', ');
-    return `선택된 ${students.length}명의 학생(${aliases}) 분석 결과입니다.\n\n${question}에 대한 상세 분석은 실제 AI 연동 후 제공됩니다.`;
-  }
-  return '분석할 대상을 선택해주세요.';
-};
 
 // ============================================================================
 // Component
@@ -219,7 +193,7 @@ export const AIRoomPage = () => {
   // ---------------------------------------------------------------------------
   // Handlers: 메시지
   // ---------------------------------------------------------------------------
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
     const userMessage: ChatMessage = {
@@ -229,20 +203,40 @@ export const AIRoomPage = () => {
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input;
     setInput('');
     setIsLoading(true);
 
-    // TODO: 실제 AI API 연동
-    setTimeout(() => {
+    try {
+      const response = await callAssistant({
+        mode,
+        classes: MOCK_CLASSES,
+        selectedClass,
+        selectedStudents,
+        messages: messages.filter((m) => m.id !== '1'), // 초기 안내 메시지 제외
+        userMessage: currentInput,
+      });
+
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: generateMockResponse(mode, selectedClass, selectedStudents, input),
+        content: response.success
+          ? response.content
+          : `오류가 발생했습니다: ${response.error || '알 수 없는 오류'}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiResponse]);
+    } catch (error) {
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'AI 응답 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleQuickPrompt = (prompt: string) => setInput(prompt);

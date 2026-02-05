@@ -1,15 +1,14 @@
 import { useState, useMemo } from 'react';
 import { Check, X, Search, Users } from 'lucide-react';
 import { Modal, Button } from '@/shared/components';
-import type { ScheduleStudent } from '@/shared/types';
-import { CLASS_COLORS } from '@/shared/types';
-import { SCHEDULE_CLASSES, SCHEDULE_STUDENTS } from '../data/mockSchedules';
+import type { CounselingStudent } from '@/shared/types';
+import { SCHEDULE_CLASSES, SCHEDULE_STUDENTS, CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
 
 interface ScheduleStudentPickerProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedStudents: ScheduleStudent[];
-  onConfirm: (students: ScheduleStudent[]) => void;
+  selectedStudents: CounselingStudent[];
+  onConfirm: (students: CounselingStudent[]) => void;
 }
 
 export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
@@ -20,7 +19,7 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState(SCHEDULE_CLASSES[0].id);
   const [searchQuery, setSearchQuery] = useState('');
-  const [localSelection, setLocalSelection] = useState<ScheduleStudent[]>(selectedStudents);
+  const [localSelection, setLocalSelection] = useState<CounselingStudent[]>(selectedStudents);
 
   const students = SCHEDULE_STUDENTS[activeTab] || [];
 
@@ -33,10 +32,10 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
     );
   }, [students, searchQuery]);
 
-  const isSelected = (student: ScheduleStudent) =>
+  const isSelected = (student: CounselingStudent) =>
     localSelection.some(s => s.id === student.id);
 
-  const toggleStudent = (student: ScheduleStudent) => {
+  const toggleStudent = (student: CounselingStudent) => {
     if (isSelected(student)) {
       setLocalSelection(prev => prev.filter(s => s.id !== student.id));
     } else {
@@ -60,7 +59,7 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
     if (!acc[key]) acc[key] = [];
     acc[key].push(student);
     return acc;
-  }, {} as Record<string, ScheduleStudent[]>);
+  }, {} as Record<string, CounselingStudent[]>);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="학생 선택" size="3xl">

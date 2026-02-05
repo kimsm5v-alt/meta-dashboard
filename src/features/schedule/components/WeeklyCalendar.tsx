@@ -1,16 +1,14 @@
 import { useMemo } from 'react';
 import { Plus, User, Users, Phone, Video, AlertCircle } from 'lucide-react';
-import type { Schedule } from '@/shared/types';
-import {
-  CLASS_COLORS,
-  COUNSELING_AREA_LABELS,
-} from '@/shared/types';
+import type { UnifiedCounselingRecord } from '@/shared/types';
+import { COUNSELING_AREA_LABELS } from '@/shared/types';
+import { CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
 
 interface WeeklyCalendarProps {
   currentDate: Date;
-  schedules: Schedule[];
+  schedules: UnifiedCounselingRecord[];
   onDateClick?: (date: Date) => void;
-  onScheduleClick: (schedule: Schedule) => void;
+  onScheduleClick: (schedule: UnifiedCounselingRecord) => void;
   onAddClick: (date: Date) => void;
 }
 
@@ -52,21 +50,25 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
 
   // 날짜별 스케줄 그룹화
   const schedulesByDate = useMemo(() => {
-    const map: Record<string, Schedule[]> = {};
+    const map: Record<string, UnifiedCounselingRecord[]> = {};
     weekDays.forEach(day => {
       map[formatDate(day)] = [];
     });
     schedules.forEach(schedule => {
-      if (map[schedule.date]) {
-        map[schedule.date].push(schedule);
+      const scheduleDate = schedule.scheduledAt.split(' ')[0];
+      if (map[scheduleDate]) {
+        map[scheduleDate].push(schedule);
       }
     });
     // 시간순 정렬
     Object.keys(map).forEach(date => {
-      map[date].sort((a, b) => a.time.localeCompare(b.time));
+      map[date].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
     });
     return map;
   }, [weekDays, schedules]);
+
+  // 시간 추출 헬퍼
+  const getTime = (scheduledAt: string) => scheduledAt.split(' ')[1] || '09:00';
 
   const getMethodIcon = (method: string) => {
     switch (method) {
@@ -135,9 +137,9 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
                     {/* 시간 + 긴급 표시 */}
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-medium text-gray-600">
-                        {schedule.time}
+                        {getTime(schedule.scheduledAt)}
                       </span>
-                      {schedule.type === 'urgent' && (
+                      {schedule.types.includes('urgent') && (
                         <AlertCircle className="w-3 h-3 text-red-500" />
                       )}
                     </div>
@@ -150,18 +152,24 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
                     </div>
 
                     {/* 상담 영역 + 방법 */}
-                    <div className="flex items-center gap-1 mt-1">
-                      <span
-                        className="px-1.5 py-0.5 text-[10px] font-medium rounded"
-                        style={{
-                          backgroundColor: `${CLASS_COLORS[schedule.classId]}20`,
-                          color: CLASS_COLORS[schedule.classId],
-                        }}
-                      >
-                        {COUNSELING_AREA_LABELS[schedule.area]}
-                      </span>
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      {schedule.areas.slice(0, 2).map((area, i) => (
+                        <span
+                          key={i}
+                          className="px-1.5 py-0.5 text-[10px] font-medium rounded"
+                          style={{
+                            backgroundColor: `${CLASS_COLORS[schedule.classId]}20`,
+                            color: CLASS_COLORS[schedule.classId],
+                          }}
+                        >
+                          {COUNSELING_AREA_LABELS[area]}
+                        </span>
+                      ))}
+                      {schedule.areas.length > 2 && (
+                        <span className="text-[10px] text-gray-400">+{schedule.areas.length - 2}</span>
+                      )}
                       <span className="text-gray-400">
-                        {getMethodIcon(schedule.method)}
+                        {getMethodIcon(schedule.methods[0])}
                       </span>
                     </div>
                   </button>

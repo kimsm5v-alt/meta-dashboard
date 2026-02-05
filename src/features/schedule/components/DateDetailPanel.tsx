@@ -1,19 +1,18 @@
 import { X, Plus, User, Users, Phone, Video, AlertCircle, Clock } from 'lucide-react';
-import type { Schedule } from '@/shared/types';
+import type { UnifiedCounselingRecord } from '@/shared/types';
 import {
-  CLASS_COLORS,
   COUNSELING_AREA_LABELS,
   COUNSELING_METHOD_LABELS,
 } from '@/shared/types';
 import { Button } from '@/shared/components';
-import { SCHEDULE_CLASSES } from '../data/mockSchedules';
+import { SCHEDULE_CLASSES, CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
 
 interface DateDetailPanelProps {
   date: Date;
-  schedules: Schedule[];
+  schedules: UnifiedCounselingRecord[];
   onClose: () => void;
   onAddClick: () => void;
-  onScheduleClick: (schedule: Schedule) => void;
+  onScheduleClick: (schedule: UnifiedCounselingRecord) => void;
 }
 
 const formatDate = (date: Date): string => {
@@ -80,8 +79,10 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
           </div>
         ) : (
           schedules
-            .sort((a, b) => a.time.localeCompare(b.time))
-            .map(schedule => (
+            .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
+            .map(schedule => {
+              const scheduleTime = schedule.scheduledAt.split(' ')[1] || '09:00';
+              return (
               <button
                 key={schedule.id}
                 onClick={() => onScheduleClick(schedule)}
@@ -91,9 +92,9 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-gray-900">
-                      {schedule.time}
+                      {scheduleTime}
                     </span>
-                    {schedule.type === 'urgent' && (
+                    {schedule.types.includes('urgent') && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-600 text-xs font-medium rounded-full">
                         <AlertCircle className="w-3 h-3" />
                         긴급
@@ -138,20 +139,23 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
                 </div>
 
                 {/* 상담 정보 */}
-                <div className="flex items-center gap-3 text-sm text-gray-500">
-                  <span
-                    className="px-2 py-0.5 rounded text-xs font-medium"
-                    style={{
-                      backgroundColor: `${CLASS_COLORS[schedule.classId]}15`,
-                      color: CLASS_COLORS[schedule.classId],
-                    }}
-                  >
-                    {COUNSELING_AREA_LABELS[schedule.area]}
-                  </span>
+                <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
+                  {schedule.areas.map((area, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-0.5 rounded text-xs font-medium"
+                      style={{
+                        backgroundColor: `${CLASS_COLORS[schedule.classId]}15`,
+                        color: CLASS_COLORS[schedule.classId],
+                      }}
+                    >
+                      {COUNSELING_AREA_LABELS[area]}
+                    </span>
+                  ))}
                   <span className="flex items-center gap-1">
-                    {getMethodIcon(schedule.method)}
+                    {getMethodIcon(schedule.methods[0])}
                     <span className="text-xs">
-                      {COUNSELING_METHOD_LABELS[schedule.method]}
+                      {schedule.methods.map(m => COUNSELING_METHOD_LABELS[m]).join(', ')}
                     </span>
                   </span>
                 </div>
@@ -163,7 +167,8 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
                   </p>
                 )}
               </button>
-            ))
+              );
+            })
         )}
       </div>
 

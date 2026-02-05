@@ -27,7 +27,7 @@ META 학습심리정서검사 결과를 기반으로 학생 진단 결과를 분
 - **LPA 유형 분류**: 38개 T점수 패턴 기반 3가지 유형 자동 분류
 - **차수별 비교**: 1차/2차 검사 결과 변화 추적 (개선/악화/유지)
 - **인터랙티브 시각화**: 반별 비교 차트, 유형 분포, 요인 프로필
-- **AI 상담 지원**: Claude 기반 학생 이해 및 코칭 전략 제안
+- **AI 상담 지원**: Gemini 2.0 Flash 기반 학생 이해 및 코칭 전략 제안
 - **지식그래프 기반 개입**: Neo4j 기반 맞춤형 개입 경로 추천 (향후)
 
 ## 🚀 빠른 시작
@@ -62,15 +62,29 @@ npm run preview
 3. L1 대시보드에서 반 선택 및 비교 기능 테스트
 4. 샘플 데이터로 4개 반 (초등 6학년) 데이터 확인 가능
 
-### 환경 변수 (선택)
+### 환경 변수
 
-현재는 Mock 데이터를 사용하므로 환경 변수 불필요. 향후 백엔드 연동 시 필요:
+AI 기능 사용을 위해 `.env` 파일 설정이 필요합니다:
+
+```bash
+# .env.example을 복사하여 .env 생성
+cp .env.example .env
+```
 
 ```env
-VITE_API_URL=<backend-api-url>
-VITE_AI_API_KEY=<claude-api-key>
-VITE_NEO4J_URL=<neo4j-url>
+# Google Gemini API (필수)
+# Google AI Studio에서 API Key 발급: https://aistudio.google.com/app/apikey
+VITE_GEMINI_API_KEY=your_gemini_api_key_here
+
+# Gemini 모델 설정 (선택, 기본값: gemini-2.0-flash)
+VITE_GEMINI_MODEL=gemini-2.0-flash
+
+# 향후 백엔드 연동 시 필요
+# VITE_API_URL=<backend-api-url>
+# VITE_NEO4J_URL=<neo4j-url>
 ```
+
+> ⚠️ `.env` 파일은 절대 Git에 커밋하지 마세요! (`.gitignore`에 포함됨)
 
 ## 📁 디렉터리 구조
 
@@ -120,6 +134,7 @@ meta-dashboard/
 │   │   │   ├── lpaProfiles.ts       # LPA 프로파일 데이터
 │   │   │   ├── factors.ts           # 38개 요인 정의
 │   │   │   ├── subCategoryScripts.ts # 중분류 스크립트
+│   │   │   ├── aiPrompts.ts         # AI 기능별 시스템 프롬프트
 │   │   │   ├── dataTransformer.ts   # JSON → TypeScript 타입 변환
 │   │   │   ├── full_sample_data.json # 원본 검사 데이터 (4개 반)
 │   │   │   └── mockData.ts          # 목업 데이터 (dataTransformer 사용)
@@ -127,9 +142,11 @@ meta-dashboard/
 │   │   │   ├── lpaClassifier.ts     # LPA 분류 알고리즘
 │   │   │   ├── attentionChecker.ts  # 관심 필요 학생 판별
 │   │   │   ├── classComparisonUtils.ts  # 반 비교 유틸
-│   │   │   └── summaryGenerator.ts  # 요약 생성
+│   │   │   ├── summaryGenerator.ts  # AI 총평 생성 (11개 중분류 → 3줄 요약)
+│   │   │   └── piiMasking.ts        # 개인정보 마스킹
 │   │   ├── services/                # 외부 서비스
-│   │   │   ├── ai.ts                # AI 서비스
+│   │   │   ├── ai.ts                # AI 서비스 추상화 레이어
+│   │   │   ├── gemini.ts            # Gemini API 호출 (v1beta)
 │   │   │   ├── counselingService.ts # 상담 기록 CRUD
 │   │   │   ├── memoService.ts       # 관찰 메모 CRUD
 │   │   │   └── schoolRecordService.ts # 생활기록부 AI 생성
@@ -391,8 +408,13 @@ AI 에이전트에 전송 시 **PII 마스킹** 적용:
 - **State Management**: React useState/useContext (향후 Zustand 고려)
 - **Routing**: React Router v6
 
-### AI & Backend (준비 중)
-- **AI Service**: Claude API (Anthropic)
+### AI Service ✅
+- **AI Model**: Google Gemini 2.0 Flash (v1beta 엔드포인트)
+- **아키텍처**: ai.ts (추상화) → gemini.ts (API 호출) → aiPrompts.ts (프롬프트)
+- **PII 마스킹**: 한글 이름, 학번, 생년월일, 학교명 자동 마스킹
+- **에러 처리**: 429 Rate Limit 자동 재시도 (최대 3회, 지수 백오프)
+
+### Backend (준비 중)
 - **Knowledge Graph**: Neo4j (향후)
 
 ### Development
@@ -407,6 +429,10 @@ AI 에이전트에 전송 시 **PII 마스킹** 적용:
 - `src/shared/utils/lpaClassifier.ts`: 분류 알고리즘 구현
 - `src/shared/data/dataTransformer.ts`: JSON → TypeScript 변환 파이프라인
 - `src/shared/utils/attentionChecker.ts`: 관심 필요 판별 로직
+- `src/shared/services/ai.ts`: AI 서비스 추상화 레이어
+- `src/shared/services/gemini.ts`: Gemini API 호출 서비스
+- `src/shared/data/aiPrompts.ts`: AI 기능별 시스템 프롬프트
+- `src/shared/utils/summaryGenerator.ts`: AI 총평 생성 로직
 
 ## 🚧 개발 현황
 
@@ -456,9 +482,9 @@ AI 에이전트에 전송 시 **PII 마스킹** 적용:
   - [x] SchoolRecordPanel (생활기록부 AI 문구)
   - [x] CounselingRecordPanel (상담 기록 CRUD)
   - [x] ObservationMemoPanel (관찰 메모 + 태그)
-  - [x] AI 총평 생성 (Mock)
+  - [x] AI 총평 생성 (Gemini 2.0 Flash 연동 완료)
   - [x] 신뢰도 주의 / 관심 필요 배지 (L3 헤더)
-  - [ ] AI API 실제 연동
+  - [x] AI API 실제 연동 (Gemini 2.0 Flash)
 - [ ] **AI 상담실** - 완성도 5%
   - [x] AIRoomPage (기본 구조)
   - [x] AI 서비스 연동 준비
@@ -494,7 +520,7 @@ AI 에이전트에 전송 시 **PII 마스킹** 적용:
 
 ---
 
-**Version**: 0.6.0-alpha (요인명 통일, JSON 구조 변경, LPA centroid 교정, 유형 분포 순서 고정)
-**Last Updated**: 2026-02-03
+**Version**: 0.7.0-alpha (Gemini 2.0 Flash AI 서비스 통합, 기능별 프롬프트 시스템, PII 마스킹)
+**Last Updated**: 2026-02-05
 **License**: Proprietary
 **Maintainer**: 천재교육 비바샘 팀

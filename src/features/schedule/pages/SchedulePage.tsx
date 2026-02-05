@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -6,8 +6,7 @@ import {
   Link2,
 } from 'lucide-react';
 import { Button } from '@/shared/components';
-import type { Schedule, CreateScheduleInput } from '@/shared/types';
-import { CLASS_COLORS } from '@/shared/types';
+import type { UnifiedCounselingRecord, CreateUnifiedCounselingInput } from '@/shared/types';
 import {
   WeeklyCalendar,
   MonthlyCalendar,
@@ -16,7 +15,8 @@ import {
   ClassSummaryCards,
   CalendarIntegrationModal,
 } from '../components';
-import { MOCK_SCHEDULES, SCHEDULE_CLASSES } from '../data/mockSchedules';
+import { SCHEDULE_CLASSES, CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
+import { unifiedCounselingService } from '@/shared/services/unifiedCounselingService';
 
 // ============================================================
 // Types
@@ -70,22 +70,43 @@ export const SchedulePage: React.FC = () => {
   const [showIntegrationModal, setShowIntegrationModal] = useState(false);
   const [modalInitialDate, setModalInitialDate] = useState<Date | undefined>();
 
-  // 상담 일정 데이터 (로컬 상태)
-  const [schedules, setSchedules] = useState<Schedule[]>(MOCK_SCHEDULES);
+  // 상담 일정 데이터 (통합 서비스에서 로드)
+  const [records, setRecords] = useState<UnifiedCounselingRecord[]>([]);
+  const [, setLoading] = useState(true);
+
+  // 데이터 로드
+  const loadRecords = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await unifiedCounselingService.getAll();
+      setRecords(data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRecords();
+  }, [loadRecords]);
+
+  // 예정된 상담만 필터 (캘린더에는 scheduled 상태만 표시)
+  const scheduledRecords = useMemo(() => {
+    return records.filter(r => r.status === 'scheduled');
+  }, [records]);
 
   // 필터된 스케줄
   const filteredSchedules = useMemo(() => {
-    if (!classFilter) return schedules;
-    return schedules.filter(s => s.classId === classFilter);
-  }, [schedules, classFilter]);
+    if (!classFilter) return scheduledRecords;
+    return scheduledRecords.filter(s => s.classId === classFilter);
+  }, [scheduledRecords, classFilter]);
 
   // 선택된 날짜의 스케줄 (월간 뷰 상세 패널)
   const selectedDateSchedules = useMemo(() => {
     if (!selectedDate) return [];
     const dateStr = selectedDate.toISOString().split('T')[0];
     return filteredSchedules
-      .filter(s => s.date === dateStr)
-      .sort((a, b) => a.time.localeCompare(b.time));
+      .filter(s => s.scheduledAt.startsWith(dateStr))
+      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
   }, [selectedDate, filteredSchedules]);
 
   // 이전/다음 네비게이션
@@ -130,19 +151,20 @@ export const SchedulePage: React.FC = () => {
   };
 
   // 스케줄 클릭
-  const handleScheduleClick = (schedule: Schedule) => {
+  const handleScheduleClick = (schedule: UnifiedCounselingRecord) => {
     // TODO: 상세 보기 또는 수정 모달
     void schedule;
   };
 
   // 새 일정 등록
-  const handleCreateSchedule = (input: CreateScheduleInput) => {
-    const newSchedule: Schedule = {
-      id: `sch-${Date.now()}`,
-      ...input,
-      createdAt: new Date(),
-    };
-    setSchedules(prev => [...prev, newSchedule]);
+  const handleCreateSchedule = async (input: CreateUnifiedCounselingInput) => {
+    try {
+      await unifiedCounselingService.create(input);
+      await loadRecords(); // 데이터 새로고침
+    } catch (error) {
+      // TODO: 에러 처리
+      void error;
+    }
   };
 
   // 반 필터 클릭
@@ -299,7 +321,7 @@ export const SchedulePage: React.FC = () => {
 
       {/* 학급별 요약 카드 */}
       <ClassSummaryCards
-        schedules={schedules}
+        schedules={scheduledRecords}
         onClassClick={handleClassFilterClick}
         selectedClassFilter={classFilter}
       />

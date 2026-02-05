@@ -68,6 +68,43 @@ L1: 교사 전체 반 대시보드     → /dashboard
 | 차트 | Recharts (Line, Bar, Pie), @nivo/bar (Stacked Bar) |
 | 라우팅 | React Router v6 |
 | 아이콘 | Lucide React |
+| **AI 모델** | **Google Gemini 2.0 Flash** |
+
+### AI 서비스 아키텍처
+
+```
+컴포넌트 → callAI() → ai.ts → gemini.ts → Gemini API
+                        ↓
+              aiPrompts.ts (기능별 시스템 프롬프트)
+                        ↓
+              piiMasking.ts (개인정보 마스킹)
+```
+
+### AI 서비스 규칙
+
+- **기본 모델**: `gemini-2.0-flash` (v1beta 엔드포인트)
+- **API Key**: `.env` 파일의 `VITE_GEMINI_API_KEY`에 설정
+- **429 에러 처리**: 자동 재시도 (최대 3회, 지수 백오프)
+- **PII 마스킹**: 모든 AI 호출 시 자동으로 개인정보 마스킹 적용
+- **시스템 프롬프트 변환**: Gemini는 system role 미지원 → user/model 쌍으로 변환
+
+### AI 관련 파일
+
+| 파일 | 역할 |
+|------|------|
+| `shared/services/ai.ts` | AI 서비스 추상화 레이어 (Provider 선택, 기능별 프롬프트 적용) |
+| `shared/services/gemini.ts` | Gemini API 호출 (재시도, PII 마스킹, 메시지 변환) |
+| `shared/data/aiPrompts.ts` | 기능별 시스템 프롬프트 관리 (analysis, record, assistant) |
+| `shared/utils/piiMasking.ts` | 개인정보 마스킹 유틸리티 |
+| `shared/utils/summaryGenerator.ts` | AI 총평 생성 (11개 중분류 → 3줄 요약) |
+
+### 기능별 프롬프트 (AIFeature)
+
+| feature | 사용처 | 상태 |
+|---------|--------|------|
+| `analysis` | L3 학생 대시보드 > AI 분석 총평 | ✅ 구현 완료 |
+| `record` | L3 학생 대시보드 > 생활기록부 문구 생성 | ⬜ TODO |
+| `assistant` | AI Room > 교사-AI 대화 | ⬜ TODO |
 
 ---
 
@@ -145,7 +182,11 @@ src/
 | `shared/data/factors.ts` | 요인 메타데이터 (대분류, 중분류, 긍정/부정) |
 | `shared/data/dataTransformer.ts` | JSON 원본 → Assessment 변환 (요인 매핑, LPA 분류기로 유형 결정, 교사명/날짜/학교급 JSON에서 동적 추출) |
 | `shared/data/mockData.ts` | 샘플 학급 데이터 (4개 반, 88명) |
-| `shared/utils/summaryGenerator.ts` | AI 총평 생성 로직 |
+| `shared/data/aiPrompts.ts` | AI 기능별 시스템 프롬프트 (analysis, record, assistant) |
+| `shared/services/ai.ts` | AI 서비스 추상화 레이어 (Provider 선택, 기능별 프롬프트 적용) |
+| `shared/services/gemini.ts` | Gemini API 호출 (v1beta, 429 재시도, PII 마스킹) |
+| `shared/utils/summaryGenerator.ts` | AI 총평 생성 로직 (11개 중분류 → 3줄 요약) |
+| `shared/utils/piiMasking.ts` | 개인정보 마스킹 (이름, 학번, 생년월일, 학교명) |
 | `shared/services/counselingService.ts` | 상담 기록 CRUD 서비스 |
 | `shared/services/memoService.ts` | 관찰 메모 CRUD 서비스 |
 | `shared/services/schoolRecordService.ts` | 생활기록부 AI 생성 서비스 |
@@ -591,5 +632,5 @@ const modeBadgeColors = {
 
 ---
 
-**Last Updated**: 2026-02-03
-**Version**: 2.0 (샘플 데이터 교체, LNB 동적화, dataTransformer 하드코딩 제거, 코드 리팩토링)
+**Last Updated**: 2026-02-05
+**Version**: 2.1 (Gemini 2.0 Flash 통합, AI 서비스 아키텍처 구축, 기능별 프롬프트 시스템)

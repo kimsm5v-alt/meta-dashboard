@@ -2,25 +2,24 @@ import { useState, useEffect } from 'react';
 import { Users, Calendar, Clock, X } from 'lucide-react';
 import { Modal, Button } from '@/shared/components';
 import type {
-  ScheduleStudent,
+  CounselingStudent,
   ScheduleType,
   CounselingArea,
   CounselingMethod,
-  CreateScheduleInput,
+  CreateUnifiedCounselingInput,
 } from '@/shared/types';
 import {
   SCHEDULE_TYPE_LABELS,
   COUNSELING_AREA_LABELS,
   COUNSELING_METHOD_LABELS,
-  CLASS_COLORS,
 } from '@/shared/types';
 import { ScheduleStudentPicker } from './ScheduleStudentPicker';
-import { SCHEDULE_CLASSES } from '../data/mockSchedules';
+import { SCHEDULE_CLASSES, CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
 
 interface ScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (input: CreateScheduleInput) => void;
+  onSubmit: (input: CreateUnifiedCounselingInput) => void;
   initialDate?: Date;
 }
 
@@ -52,12 +51,12 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   onSubmit,
   initialDate,
 }) => {
-  const [selectedStudents, setSelectedStudents] = useState<ScheduleStudent[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<CounselingStudent[]>([]);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('09:00');
-  const [scheduleType, setScheduleType] = useState<ScheduleType>('regular');
-  const [area, setArea] = useState<CounselingArea>('academic');
-  const [method, setMethod] = useState<CounselingMethod>('face-to-face');
+  const [scheduleTypes, setScheduleTypes] = useState<ScheduleType[]>(['regular']);
+  const [areas, setAreas] = useState<CounselingArea[]>(['academic']);
+  const [methods, setMethods] = useState<CounselingMethod[]>(['face-to-face']);
   const [reason, setReason] = useState('');
   const [showStudentPicker, setShowStudentPicker] = useState(false);
 
@@ -75,26 +74,26 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     if (!isOpen) {
       setSelectedStudents([]);
       setTime('09:00');
-      setScheduleType('regular');
-      setArea('academic');
-      setMethod('face-to-face');
+      setScheduleTypes(['regular']);
+      setAreas(['academic']);
+      setMethods(['face-to-face']);
       setReason('');
     }
   }, [isOpen]);
 
   const handleSubmit = () => {
-    if (selectedStudents.length === 0 || !date || !area) return;
+    if (selectedStudents.length === 0 || !date || areas.length === 0) return;
 
     const classId = selectedStudents[0].classId;
 
     onSubmit({
       students: selectedStudents,
       classId,
-      date,
-      time,
-      type: scheduleType,
-      area,
-      method,
+      scheduledAt: `${date} ${time}`,
+      types: scheduleTypes,
+      areas,
+      methods,
+      status: 'scheduled',
       reason: reason.trim() || undefined,
     });
 
@@ -105,7 +104,32 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     setSelectedStudents(prev => prev.filter(s => s.id !== studentId));
   };
 
-  const isValid = selectedStudents.length > 0 && date && area;
+  const isValid = selectedStudents.length > 0 && date && areas.length > 0;
+
+  // 토글 선택 헬퍼 함수
+  const toggleScheduleType = (type: ScheduleType) => {
+    setScheduleTypes(prev =>
+      prev.includes(type)
+        ? prev.filter(t => t !== type)
+        : [...prev, type]
+    );
+  };
+
+  const toggleArea = (area: CounselingArea) => {
+    setAreas(prev =>
+      prev.includes(area)
+        ? prev.filter(a => a !== area)
+        : [...prev, area]
+    );
+  };
+
+  const toggleMethod = (method: CounselingMethod) => {
+    setMethods(prev =>
+      prev.includes(method)
+        ? prev.filter(m => m !== method)
+        : [...prev, method]
+    );
+  };
 
   return (
     <>
@@ -192,18 +216,18 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             </div>
           </div>
 
-          {/* 상담 유형 */}
+          {/* 상담 유형 (복수 선택 가능) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              상담 유형
+              상담 유형 <span className="text-xs text-gray-400 font-normal">(복수 선택 가능)</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {SCHEDULE_TYPES.map(type => (
                 <button
                   key={type}
-                  onClick={() => setScheduleType(type)}
+                  onClick={() => toggleScheduleType(type)}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    scheduleType === type
+                    scheduleTypes.includes(type)
                       ? type === 'urgent'
                         ? 'bg-red-500 text-white'
                         : 'bg-primary-500 text-white'
@@ -216,18 +240,18 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             </div>
           </div>
 
-          {/* 상담 영역 */}
+          {/* 상담 영역 (복수 선택 가능) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              상담 영역 <span className="text-red-500">*</span>
+              상담 영역 <span className="text-red-500">*</span> <span className="text-xs text-gray-400 font-normal">(복수 선택 가능)</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {COUNSELING_AREAS.map(a => (
                 <button
                   key={a}
-                  onClick={() => setArea(a)}
+                  onClick={() => toggleArea(a)}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    area === a
+                    areas.includes(a)
                       ? 'bg-primary-500 text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
@@ -238,18 +262,18 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             </div>
           </div>
 
-          {/* 상담 방법 */}
+          {/* 상담 방법 (복수 선택 가능) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              상담 방법
+              상담 방법 <span className="text-xs text-gray-400 font-normal">(복수 선택 가능)</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {COUNSELING_METHODS.map(m => (
                 <button
                   key={m}
-                  onClick={() => setMethod(m)}
+                  onClick={() => toggleMethod(m)}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    method === m
+                    methods.includes(m)
                       ? 'bg-primary-500 text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}

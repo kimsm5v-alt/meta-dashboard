@@ -322,7 +322,71 @@ export const CLASS_COLORS: Record<string, string> = {
 };
 
 // ============================================================
-// 상담 기록 관련 타입
+// 통합 상담 기록 관련 타입 (상담 일정 + 학생 대시보드 연동)
+// ============================================================
+
+export type CounselingStatus = 'scheduled' | 'completed' | 'cancelled';
+
+export interface CounselingStudent {
+  id: string;
+  name: string;
+  number: number;
+  classId: string;
+}
+
+export interface UnifiedCounselingRecord {
+  id: string;
+  students: CounselingStudent[];     // 1명 이상
+  classId: string;
+  scheduledAt: string;               // 'YYYY-MM-DD HH:mm'
+  duration?: number;                 // 완료 시 기록 (분)
+  types: ScheduleType[];             // 복수 선택 가능
+  areas: CounselingArea[];           // 복수 선택 가능
+  methods: CounselingMethod[];       // 복수 선택 가능
+  status: CounselingStatus;
+  reason?: string;                   // 예정 시 메모 (사유)
+  summary?: string;                  // 완료 시 상담 내용
+  nextSteps?: string;                // 후속 조치
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateUnifiedCounselingInput {
+  students: CounselingStudent[];
+  classId: string;
+  scheduledAt: string;
+  duration?: number;
+  types: ScheduleType[];
+  areas: CounselingArea[];
+  methods: CounselingMethod[];
+  status: CounselingStatus;
+  reason?: string;
+  summary?: string;
+  nextSteps?: string;
+}
+
+export interface UpdateUnifiedCounselingInput {
+  students?: CounselingStudent[];
+  classId?: string;
+  scheduledAt?: string;
+  duration?: number;
+  types?: ScheduleType[];
+  areas?: CounselingArea[];
+  methods?: CounselingMethod[];
+  status?: CounselingStatus;
+  reason?: string;
+  summary?: string;
+  nextSteps?: string;
+}
+
+export interface CompleteUnifiedCounselingInput {
+  duration: number;
+  summary: string;
+  nextSteps?: string;
+}
+
+// ============================================================
+// 상담 기록 관련 타입 (레거시 - 호환성 유지용)
 // ============================================================
 
 export interface CounselingRecord {
@@ -331,9 +395,9 @@ export interface CounselingRecord {
   classId: string;
   scheduledAt: string;          // 'YYYY-MM-DD HH:mm'
   duration: number;             // 상담 시간 (분)
-  type: ScheduleType;
-  area: CounselingArea;
-  method: CounselingMethod;
+  types: ScheduleType[];        // 복수 선택 가능
+  areas: CounselingArea[];      // 복수 선택 가능
+  methods: CounselingMethod[];  // 복수 선택 가능
   summary: string;              // 상담 내용 요약
   nextSteps?: string;           // 후속 조치
   createdAt: Date;
@@ -345,9 +409,9 @@ export interface CreateCounselingRecordInput {
   classId: string;
   scheduledAt: string;
   duration: number;
-  type: ScheduleType;
-  area: CounselingArea;
-  method: CounselingMethod;
+  types: ScheduleType[];
+  areas: CounselingArea[];
+  methods: CounselingMethod[];
   summary: string;
   nextSteps?: string;
 }
@@ -355,9 +419,9 @@ export interface CreateCounselingRecordInput {
 export interface UpdateCounselingRecordInput {
   scheduledAt?: string;
   duration?: number;
-  type?: ScheduleType;
-  area?: CounselingArea;
-  method?: CounselingMethod;
+  types?: ScheduleType[];
+  areas?: CounselingArea[];
+  methods?: CounselingMethod[];
   summary?: string;
   nextSteps?: string;
 }

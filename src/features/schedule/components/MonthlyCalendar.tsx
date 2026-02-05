@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import { AlertCircle } from 'lucide-react';
-import type { Schedule } from '@/shared/types';
-import { CLASS_COLORS } from '@/shared/types';
+import type { UnifiedCounselingRecord } from '@/shared/types';
+import { CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
 
 interface MonthlyCalendarProps {
   currentDate: Date;
-  schedules: Schedule[];
+  schedules: UnifiedCounselingRecord[];
   selectedDate: Date | null;
   onDateClick: (date: Date) => void;
 }
@@ -14,7 +14,7 @@ interface CalendarDay {
   date: Date;
   isCurrentMonth: boolean;
   isToday: boolean;
-  schedules: Schedule[];
+  schedules: UnifiedCounselingRecord[];
 }
 
 // 월간 달력 날짜 배열 생성
@@ -90,8 +90,9 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
 
     // 스케줄 매핑
     schedules.forEach(schedule => {
+      const scheduleDate = schedule.scheduledAt.split(' ')[0];
       const dayIndex = days.findIndex(
-        d => formatDate(d.date) === schedule.date
+        d => formatDate(d.date) === scheduleDate
       );
       if (dayIndex !== -1) {
         days[dayIndex].schedules.push(schedule);
@@ -100,7 +101,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
 
     // 시간순 정렬
     days.forEach(day => {
-      day.schedules.sort((a, b) => a.time.localeCompare(b.time));
+      day.schedules.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
     });
 
     return days;
@@ -130,7 +131,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
           const isSelected = selectedDateStr === formatDate(day.date);
           const displaySchedules = day.schedules.slice(0, 2);
           const moreCount = day.schedules.length - 2;
-          const hasUrgent = day.schedules.some(s => s.type === 'urgent');
+          const hasUrgent = day.schedules.some(s => s.types.includes('urgent'));
 
           return (
             <button

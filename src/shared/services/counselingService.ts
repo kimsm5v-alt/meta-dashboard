@@ -1,91 +1,111 @@
 /**
- * 상담 기록 서비스
+ * 상담 기록 서비스 (레거시 호환용)
  *
- * API 연동 준비 형태로 구현
- * 현재는 mock 사용, 나중에 실제 API로 교체 가능
+ * @deprecated unifiedCounselingService를 사용하세요
+ *
+ * 이 서비스는 기존 코드와의 호환성을 위해 유지됩니다.
+ * 내부적으로 unifiedCounselingService를 사용합니다.
  */
 
 import type {
   CounselingRecord,
   CreateCounselingRecordInput,
   UpdateCounselingRecordInput,
+  UnifiedCounselingRecord,
 } from '@/shared/types';
-import { mockCounselingService } from '@/shared/data/mockStudentRecords';
+import { unifiedCounselingService } from './unifiedCounselingService';
 
-// API 베이스 URL (환경변수에서 설정)
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-
-// API 사용 여부 (환경변수로 제어)
-const USE_API = import.meta.env.VITE_USE_API === 'true';
+/**
+ * UnifiedCounselingRecord를 기존 CounselingRecord 형식으로 변환
+ */
+const toOldFormat = (record: UnifiedCounselingRecord): CounselingRecord => {
+  const student = record.students[0];
+  return {
+    id: record.id,
+    studentId: student?.id || '',
+    classId: record.classId,
+    scheduledAt: record.scheduledAt,
+    duration: record.duration || 30,
+    types: record.types,
+    areas: record.areas,
+    methods: record.methods,
+    summary: record.summary || record.reason || '',
+    nextSteps: record.nextSteps,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+};
 
 export const counselingService = {
   /**
    * 학생별 상담 기록 조회
+   * @deprecated unifiedCounselingService.getByStudentId()를 사용하세요
    */
   getByStudentId: async (studentId: string): Promise<CounselingRecord[]> => {
-    if (USE_API) {
-      const response = await fetch(`${API_BASE}/api/counseling/student/${studentId}`);
-      if (!response.ok) throw new Error('Failed to fetch counseling records');
-      return response.json();
-    }
-    return mockCounselingService.getByStudentId(studentId);
+    const records = await unifiedCounselingService.getByStudentId(studentId);
+    // 완료된 상담만 반환 (기존 동작 유지)
+    return records
+      .filter(r => r.status === 'completed')
+      .map(toOldFormat);
   },
 
   /**
    * 상담 기록 상세 조회
+   * @deprecated unifiedCounselingService.getById()를 사용하세요
    */
   getById: async (id: string): Promise<CounselingRecord | null> => {
-    if (USE_API) {
-      const response = await fetch(`${API_BASE}/api/counseling/${id}`);
-      if (!response.ok) return null;
-      return response.json();
-    }
-    return mockCounselingService.getById(id);
+    const record = await unifiedCounselingService.getById(id);
+    if (!record) return null;
+    return toOldFormat(record);
   },
 
   /**
    * 상담 기록 생성
+   * @deprecated unifiedCounselingService.create()를 사용하세요
    */
   create: async (input: CreateCounselingRecordInput): Promise<CounselingRecord> => {
-    if (USE_API) {
-      const response = await fetch(`${API_BASE}/api/counseling`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!response.ok) throw new Error('Failed to create counseling record');
-      return response.json();
-    }
-    return mockCounselingService.create(input);
+    const record = await unifiedCounselingService.create({
+      students: [{
+        id: input.studentId,
+        name: '',
+        number: 0,
+        classId: input.classId,
+      }],
+      classId: input.classId,
+      scheduledAt: input.scheduledAt,
+      duration: input.duration,
+      types: input.types,
+      areas: input.areas,
+      methods: input.methods,
+      status: 'completed', // 기존 방식은 바로 완료로 저장
+      summary: input.summary,
+      nextSteps: input.nextSteps,
+    });
+    return toOldFormat(record);
   },
 
   /**
    * 상담 기록 수정
+   * @deprecated unifiedCounselingService.update()를 사용하세요
    */
   update: async (id: string, input: UpdateCounselingRecordInput): Promise<CounselingRecord> => {
-    if (USE_API) {
-      const response = await fetch(`${API_BASE}/api/counseling/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!response.ok) throw new Error('Failed to update counseling record');
-      return response.json();
-    }
-    return mockCounselingService.update(id, input);
+    const record = await unifiedCounselingService.update(id, {
+      scheduledAt: input.scheduledAt,
+      duration: input.duration,
+      types: input.types,
+      areas: input.areas,
+      methods: input.methods,
+      summary: input.summary,
+      nextSteps: input.nextSteps,
+    });
+    return toOldFormat(record);
   },
 
   /**
    * 상담 기록 삭제
+   * @deprecated unifiedCounselingService.delete()를 사용하세요
    */
   delete: async (id: string): Promise<void> => {
-    if (USE_API) {
-      const response = await fetch(`${API_BASE}/api/counseling/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete counseling record');
-      return;
-    }
-    return mockCounselingService.delete(id);
+    return unifiedCounselingService.delete(id);
   },
 };

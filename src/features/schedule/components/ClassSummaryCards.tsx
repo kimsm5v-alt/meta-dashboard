@@ -1,10 +1,9 @@
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import type { Schedule } from '@/shared/types';
-import { CLASS_COLORS } from '@/shared/types';
-import { SCHEDULE_CLASSES } from '../data/mockSchedules';
+import type { UnifiedCounselingRecord } from '@/shared/types';
+import { SCHEDULE_CLASSES, CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
 
 interface ClassSummaryCardsProps {
-  schedules: Schedule[];
+  schedules: UnifiedCounselingRecord[];
   onClassClick?: (classId: string) => void;
   selectedClassFilter: string | null;
 }
@@ -17,8 +16,8 @@ export const ClassSummaryCards: React.FC<ClassSummaryCardsProps> = ({
   // 학급별 통계 계산
   const classStats = SCHEDULE_CLASSES.map(cls => {
     const classSchedules = schedules.filter(s => s.classId === cls.id);
-    const urgentCount = classSchedules.filter(s => s.type === 'urgent').length;
-    const followUpCount = classSchedules.filter(s => s.type === 'follow-up').length;
+    const urgentCount = classSchedules.filter(s => s.types.includes('urgent')).length;
+    const followUpCount = classSchedules.filter(s => s.types.includes('follow-up')).length;
 
     return {
       ...cls,
