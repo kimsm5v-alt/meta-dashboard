@@ -2,6 +2,9 @@
 // META 학습심리정서검사 - 타입 정의
 // ============================================================
 
+// API 타입 (향후 백엔드 연동용)
+export * from './api';
+
 // 학교급
 export type SchoolLevel = '초등' | '중등';
 
@@ -516,4 +519,43 @@ export interface SavedSchoolRecord {
   category: SchoolRecordCategory;
   content: string;
   createdAt: Date;
+}
+
+// ============================================================
+// 생활기록부 AI 문구 생성 파라미터 (recordGenerator용)
+// ============================================================
+
+export type SchoolLevelKr = '초등' | '중등' | '고등';
+
+export type RecordFactorType = 'positive' | 'negative';
+
+export interface RecordStrengthItem {
+  name: string;
+  tScore: number;
+  normalizedScore?: number;
+  level: string;
+  type: RecordFactorType;
+}
+
+export interface RecordChangeItem {
+  category: string;
+  from: number;
+  to: number;
+  change: string;
+  direction: 'positive' | 'negative';
+  interpretation: '개선' | '하락';
+}
+
+export interface RecordPromptParams {
+  schoolLevel: SchoolLevelKr;
+  grade: number;
+  topStrengths: RecordStrengthItem[];
+  hasChange: boolean;
+  changes: RecordChangeItem[];
+  typeChange?: {
+    from: string;
+    to: string;
+    changed: boolean;
+  };
+  selectedSentences?: string[];
 }

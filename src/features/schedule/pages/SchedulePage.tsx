@@ -6,7 +6,7 @@ import {
   Link2,
 } from 'lucide-react';
 import { Button } from '@/shared/components';
-import type { UnifiedCounselingRecord, CreateUnifiedCounselingInput } from '@/shared/types';
+import type { UnifiedCounselingRecord, CreateUnifiedCounselingInput, UpdateUnifiedCounselingInput } from '@/shared/types';
 import {
   WeeklyCalendar,
   MonthlyCalendar,
@@ -69,6 +69,7 @@ export const SchedulePage: React.FC = () => {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showIntegrationModal, setShowIntegrationModal] = useState(false);
   const [modalInitialDate, setModalInitialDate] = useState<Date | undefined>();
+  const [editingSchedule, setEditingSchedule] = useState<UnifiedCounselingRecord | null>(null);
 
   // 상담 일정 데이터 (통합 서비스에서 로드)
   const [records, setRecords] = useState<UnifiedCounselingRecord[]>([]);
@@ -146,23 +147,44 @@ export const SchedulePage: React.FC = () => {
 
   // 일정 추가 클릭
   const handleAddClick = (date?: Date) => {
+    setEditingSchedule(null);
     setModalInitialDate(date);
     setShowScheduleModal(true);
   };
 
-  // 스케줄 클릭
+  // 스케줄 클릭 (상세/수정)
   const handleScheduleClick = (schedule: UnifiedCounselingRecord) => {
-    // TODO: 상세 보기 또는 수정 모달
-    void schedule;
+    setEditingSchedule(schedule);
+    setModalInitialDate(undefined);
+    setShowScheduleModal(true);
   };
 
   // 새 일정 등록
   const handleCreateSchedule = async (input: CreateUnifiedCounselingInput) => {
     try {
       await unifiedCounselingService.create(input);
-      await loadRecords(); // 데이터 새로고침
+      await loadRecords();
     } catch (error) {
-      // TODO: 에러 처리
+      void error;
+    }
+  };
+
+  // 일정 수정
+  const handleUpdateSchedule = async (id: string, input: UpdateUnifiedCounselingInput) => {
+    try {
+      await unifiedCounselingService.update(id, input);
+      await loadRecords();
+    } catch (error) {
+      void error;
+    }
+  };
+
+  // 일정 삭제
+  const handleDeleteSchedule = async (id: string) => {
+    try {
+      await unifiedCounselingService.delete(id);
+      await loadRecords();
+    } catch (error) {
       void error;
     }
   };
@@ -337,15 +359,19 @@ export const SchedulePage: React.FC = () => {
         />
       )}
 
-      {/* 상담 일정 등록 모달 */}
+      {/* 상담 일정 등록/수정 모달 */}
       <ScheduleModal
         isOpen={showScheduleModal}
         onClose={() => {
           setShowScheduleModal(false);
           setModalInitialDate(undefined);
+          setEditingSchedule(null);
         }}
         onSubmit={handleCreateSchedule}
+        onUpdate={handleUpdateSchedule}
+        onDelete={handleDeleteSchedule}
         initialDate={modalInitialDate}
+        editingSchedule={editingSchedule}
       />
 
       {/* 캘린더 연동 모달 */}

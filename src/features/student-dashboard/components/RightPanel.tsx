@@ -3,6 +3,7 @@ import { X, FileText, MessageSquare, Eye } from 'lucide-react';
 import { SchoolRecordPanel } from './SchoolRecordPanel';
 import { CounselingRecordPanel } from './CounselingRecordPanel';
 import { ObservationMemoPanel } from './ObservationMemoPanel';
+import type { Student, Assessment } from '@/shared/types';
 
 export type PanelTab = 'schoolRecord' | 'counseling' | 'observation' | null;
 
@@ -13,8 +14,8 @@ interface RightPanelProps {
   onClose: () => void;
   studentId: string;
   classId: string;
-  tScores: number[];
-  predictedType: string;
+  student: Student;
+  assessment: Assessment;
 }
 
 const TABS = [
@@ -30,8 +31,8 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   onClose,
   studentId,
   classId,
-  tScores,
-  predictedType,
+  student,
+  assessment,
 }) => {
   // ESC 키로 패널 닫기
   useEffect(() => {
@@ -97,10 +98,8 @@ export const RightPanel: React.FC<RightPanelProps> = ({
         <div className="h-[calc(100%-60px)] overflow-y-auto">
           {activeTab === 'schoolRecord' && (
             <SchoolRecordPanel
-              studentId={studentId}
-              classId={classId}
-              tScores={tScores}
-              predictedType={predictedType}
+              student={student}
+              assessment={assessment}
             />
           )}
           {activeTab === 'counseling' && (

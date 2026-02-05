@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Calendar, Clock, X } from 'lucide-react';
+import { Users, Calendar, Clock, X, Trash2 } from 'lucide-react';
 import { Modal, Button } from '@/shared/components';
 import type {
   CounselingStudent,
@@ -7,6 +7,8 @@ import type {
   CounselingArea,
   CounselingMethod,
   CreateUnifiedCounselingInput,
+  UnifiedCounselingRecord,
+  UpdateUnifiedCounselingInput,
 } from '@/shared/types';
 import {
   SCHEDULE_TYPE_LABELS,
@@ -20,7 +22,10 @@ interface ScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (input: CreateUnifiedCounselingInput) => void;
+  onUpdate?: (id: string, input: UpdateUnifiedCounselingInput) => void;
+  onDelete?: (id: string) => void;
   initialDate?: Date;
+  editingSchedule?: UnifiedCounselingRecord | null;
 }
 
 // 시간 옵션 생성 (09:00 ~ 17:00, 30분 단위)
@@ -49,7 +54,10 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  onUpdate,
+  onDelete,
   initialDate,
+  editingSchedule,
 }) => {
   const [selectedStudents, setSelectedStudents] = useState<CounselingStudent[]>([]);
   const [date, setDate] = useState('');
@@ -59,15 +67,27 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const [methods, setMethods] = useState<CounselingMethod[]>(['face-to-face']);
   const [reason, setReason] = useState('');
   const [showStudentPicker, setShowStudentPicker] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // 초기 날짜 설정
+  const isEditMode = !!editingSchedule;
+
+  // 수정 모드일 때 기존 데이터 로드
   useEffect(() => {
-    if (initialDate) {
+    if (isOpen && editingSchedule) {
+      const [scheduleDate, scheduleTime] = editingSchedule.scheduledAt.split(' ');
+      setSelectedStudents(editingSchedule.students);
+      setDate(scheduleDate);
+      setTime(scheduleTime || '09:00');
+      setScheduleTypes(editingSchedule.types);
+      setAreas(editingSchedule.areas);
+      setMethods(editingSchedule.methods);
+      setReason(editingSchedule.reason || '');
+    } else if (isOpen && initialDate) {
       setDate(initialDate.toISOString().split('T')[0]);
-    } else {
+    } else if (isOpen) {
       setDate(new Date().toISOString().split('T')[0]);
     }
-  }, [initialDate, isOpen]);
+  }, [initialDate, isOpen, editingSchedule]);
 
   // 모달 닫힐 때 초기화
   useEffect(() => {
@@ -78,6 +98,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setAreas(['academic']);
       setMethods(['face-to-face']);
       setReason('');
+      setShowDeleteConfirm(false);
     }
   }, [isOpen]);
 
@@ -86,18 +107,37 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
     const classId = selectedStudents[0].classId;
 
-    onSubmit({
-      students: selectedStudents,
-      classId,
-      scheduledAt: `${date} ${time}`,
-      types: scheduleTypes,
-      areas,
-      methods,
-      status: 'scheduled',
-      reason: reason.trim() || undefined,
-    });
+    if (isEditMode && editingSchedule && onUpdate) {
+      onUpdate(editingSchedule.id, {
+        students: selectedStudents,
+        classId,
+        scheduledAt: `${date} ${time}`,
+        types: scheduleTypes,
+        areas,
+        methods,
+        reason: reason.trim() || undefined,
+      });
+    } else {
+      onSubmit({
+        students: selectedStudents,
+        classId,
+        scheduledAt: `${date} ${time}`,
+        types: scheduleTypes,
+        areas,
+        methods,
+        status: 'scheduled',
+        reason: reason.trim() || undefined,
+      });
+    }
 
     onClose();
+  };
+
+  const handleDelete = () => {
+    if (editingSchedule && onDelete) {
+      onDelete(editingSchedule.id);
+      onClose();
+    }
   };
 
   const removeStudent = (studentId: string) => {
@@ -133,7 +173,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title="상담 일정 등록" size="lg">
+      <Modal isOpen={isOpen} onClose={onClose} title={isEditMode ? '상담 일정 상세' : '상담 일정 등록'} size="lg">
         <div className="space-y-5">
           {/* 학생 선택 */}
           <div>
@@ -301,13 +341,38 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
         {/* 하단 버튼 */}
         <div className="flex gap-3 mt-6 pt-4 border-t">
+          {isEditMode && onDelete && (
+            <Button
+              variant="secondary"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-red-600 hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
           <Button variant="secondary" onClick={onClose} className="flex-1">
             취소
           </Button>
           <Button onClick={handleSubmit} disabled={!isValid} className="flex-1">
-            등록하기
+            {isEditMode ? '수정하기' : '등록하기'}
           </Button>
         </div>
+
+        {/* 삭제 확인 */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 bg-white rounded-lg flex flex-col items-center justify-center p-6">
+            <p className="text-lg font-medium text-gray-900 mb-2">일정을 삭제하시겠습니까?</p>
+            <p className="text-sm text-gray-500 mb-6">삭제된 일정은 복구할 수 없습니다.</p>
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
+                취소
+              </Button>
+              <Button onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+                삭제
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* 학생 선택 모달 (중첩) */}

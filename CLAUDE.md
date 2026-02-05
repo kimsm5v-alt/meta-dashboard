@@ -97,13 +97,15 @@ L1: 교사 전체 반 대시보드     → /dashboard
 | `shared/data/aiPrompts.ts` | 기능별 시스템 프롬프트 관리 (analysis, record, assistant) |
 | `shared/utils/piiMasking.ts` | 개인정보 마스킹 유틸리티 |
 | `shared/utils/summaryGenerator.ts` | AI 총평 생성 (11개 중분류 → 3줄 요약) |
+| `shared/utils/recordGenerator.ts` | 생활기록부 문구 생성 유틸리티 (강점 영역 추출, 변화 분석) |
+| `shared/data/schoolRecordSentences.ts` | 생활기록부 예시 문장 데이터 (11개 중분류 × 3 학교급 × 3문장 = 99개) |
 
 ### 기능별 프롬프트 (AIFeature)
 
 | feature | 사용처 | 상태 |
 |---------|--------|------|
 | `analysis` | L3 학생 대시보드 > AI 분석 총평 | ✅ 구현 완료 |
-| `record` | L3 학생 대시보드 > 생활기록부 문구 생성 | ⬜ TODO |
+| `record` | L3 학생 대시보드 > 생활기록부 문구 생성 | ✅ 구현 완료 |
 | `assistant` | AI Room > 교사-AI 대화 | ⬜ TODO |
 
 ---
@@ -203,7 +205,8 @@ docs/
 │   ├── 05_결과해석.md
 │   ├── 06_LPA유형분류.md       # LPA 알고리즘 상세
 │   ├── 07_신뢰도지표.md
-│   └── 08_API데이터모델.md
+│   ├── 08_API데이터모델.md
+│   └── 09_생활기록부_기재정책.md
 ├── META_AI에이전트_기능정의서_v1.2.md
 └── dashboard-design.md
 ```
@@ -633,4 +636,4 @@ const modeBadgeColors = {
 ---
 
 **Last Updated**: 2026-02-05
-**Version**: 2.1 (Gemini 2.0 Flash 통합, AI 서비스 아키텍처 구축, 기능별 프롬프트 시스템)
+**Version**: 2.2 (생활기록부 문구 생성 기능(record) 구현 완료)

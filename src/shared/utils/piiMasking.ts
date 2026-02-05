@@ -220,17 +220,6 @@ export const containsPII = (text: string): boolean => {
   return false;
 };
 
-/**
- * 마스킹 전후 비교 (디버깅용)
- */
-export const debugMasking = (text: string): void => {
-  console.group('[PII Masking Debug]');
-  console.log('원본:', text);
-  console.log('마스킹:', maskPII(text));
-  console.log('PII 포함 여부:', containsPII(text));
-  console.groupEnd();
-};
-
 export default {
   maskPII,
   createStudentAliases,
@@ -238,5 +227,4 @@ export default {
   restoreStudentNames,
   maskAll,
   containsPII,
-  debugMasking,
 };

@@ -227,8 +227,8 @@ export const StudentDashboardPage = () => {
         onClose={() => setPanelTab(null)}
         studentId={studentId!}
         classId={classId!}
-        tScores={current.tScores}
-        predictedType={current.predictedType}
+        student={student}
+        assessment={current}
       />
     </div>
   );
