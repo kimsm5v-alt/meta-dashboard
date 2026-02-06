@@ -1,4 +1,11 @@
 import type { LPAProfileData } from '../types';
+import {
+  STUDENT_GROUPS,
+  INTERVENTIONS,
+  MEDIATION_PATHS,
+  MODERATION_EFFECTS,
+  getInterventionSummary,
+} from './knowledgeGraph';
 
 // 38개 요인 목록
 export const FACTORS = [
@@ -160,12 +167,175 @@ export const LPA_PROFILE_DATA: LPAProfileData = {
   
   '중등': {
     types: [
-      { name: '무기력형', color: '#F97316', colorName: 'orange', means: [], description: '심리/정서 자원 부족', characteristics: [], interventions: [] },
-      { name: '정서조절취약형', color: '#14B8A6', colorName: 'teal', means: [], description: '정서 스트레스 높음', characteristics: [], interventions: [] },
-      { name: '자기주도몰입형', color: '#3351A4', colorName: 'blue', means: [], description: '모든 자원 우수', characteristics: [], interventions: [] },
+      {
+        name: '무기력형',
+        color: '#F97316',
+        colorName: 'orange',
+        means: [], // TODO: 실제 중심값 데이터 필요
+        description: '자기효능감과 정서조절이 모두 낮아 내적 동기가 부족하고, 학업 부담과 디지털 기기 의존도가 높습니다.',
+        characteristics: [
+          '자기효능감과 정서조절이 모두 낮아 내적 동기 부족',
+          '목표 설정·점검·조절 능력이 모두 취약해 전략 실행력 미흡',
+          '스마트폰·게임 사용이 잦아 학습 몰입 저해',
+        ],
+        interventions: [
+          {
+            x: '성장마인드셋', z: '유능성', y: '학업성취도',
+            effectType: '완전매개',
+            interpretation: '노력하면 발전한다는 신념이 나는 할 수 있다는 유능감으로 전환되어야 성취로 이어짐',
+            strategies: [
+              '정서지지 + 구체적 도움 결합: "괜찮아" + 즉시 실행 가능한 작은 과제 제시',
+              '과제 미세 분할: 전체 과제를 작은 단위로 나누고 "오늘은 여기까지만" 경계 설정',
+              '완료 시 즉시 인정: "이만큼 해냈네!" 과정 피드백 제공',
+            ],
+          },
+          {
+            x: '수업부담', z: '부모학업지지', y: '학업성취도',
+            effectType: '촉진',
+            interpretation: '수업부담이 높을 때 부모지지가 간섭으로 느껴져 역효과 가능 - 부모에게 압박 아닌 안전망 역할 안내',
+            strategies: [
+              '부모에게 "압박 아닌 안전망 역할" 안내',
+              '시간관리 루틴 강화: 작은 성공 축적',
+              '디지털 기기 사용 시간 관리 지원',
+            ],
+          },
+        ],
+      },
+      {
+        name: '정서조절취약형',
+        color: '#14B8A6',
+        colorName: 'teal',
+        means: [], // TODO: 실제 중심값 데이터 필요
+        description: '성적·부모·교사 압력에 따른 정서 스트레스가 높고, 정서조절이 부족하여 학습 만족과 몰입이 저하됩니다.',
+        characteristics: [
+          '성적·부모·교사 압력에 따른 정서 스트레스가 높음',
+          '자기·타인 정서인식은 양호하나, 정서조절은 부족',
+          '스마트폰 의존·냉소감 다소 높아 학습 만족과 몰입 저하',
+        ],
+        interventions: [
+          {
+            x: '수업태도/몰두/의미감', z: '노트하기', y: '학업성취도',
+            effectType: '완전매개',
+            interpretation: '집중/몰두/의미 인식이 노트 필기라는 구체적 행동으로 전환될 때 성취로 이어짐',
+            strategies: [
+              '노트 필기 양식 제공: 핵심 개념 / 예시 / 질문 칸 구분',
+              '실시간 안내: "이 부분은 꼭 기록하세요" 명시',
+              '필기 후 즉시 확인 및 긍정 피드백 제공',
+            ],
+          },
+          {
+            x: '수업태도', z: '자기정서인식', y: '학업성취도',
+            effectType: '긍정완충',
+            interpretation: '수업태도 좋고 정서인식 높으면 "왜 성적이 안 나오지?" 자책 증폭 가능',
+            strategies: [
+              '정서인식→행동전환 훈련: "지금 내가 불안하네" 인식 → "그럼 뭘 할까?" 행동',
+              '과정 피드백 강화: 결과가 아닌 노력 과정 인정',
+              '오늘 이해 안 된 부분 1개만 질문해보기 등 작은 행동 유도',
+            ],
+          },
+        ],
+      },
+      {
+        name: '자기주도몰입형',
+        color: '#3351A4',
+        colorName: 'blue',
+        means: [], // TODO: 실제 중심값 데이터 필요
+        description: '자원·전략·관계성이 모두 우수한 몰입형 학습자로, 심리적 회복탄력성이 높고 학습 몰입도와 성취 기대가 가장 높습니다.',
+        characteristics: [
+          '자원·전략·관계성이 모두 우수한 몰입형 학습자',
+          '자기정서조절과 시간관리가 안정적',
+          '부담과 소진이 낮아 심리적 회복탄력성 높음',
+        ],
+        interventions: [
+          {
+            x: '관계성', z: null, y: '학업성취도',
+            effectType: '직접효과',
+            interpretation: '관계성과 공감능력이 학업성취로 직접 연결됨 - 협력 학습 구조 활용',
+            strategies: [
+              '협력 학습 구조 설계: 2-3명 학습 팀 구성',
+              '서로 설명해주기, 함께 문제풀이 활동',
+              '관계 기반 동기 부여: "네가 이걸 잘하면 같은 팀 친구들도 도움받을 거야"',
+            ],
+          },
+          {
+            x: '도전과제', z: null, y: '성장',
+            effectType: '직접효과',
+            interpretation: '이미 우수한 자원을 최대한 활용하는 구조 제공',
+            strategies: [
+              '도전 과제 제공: 현재 수준보다 약간 높은 과제',
+              '리더십 역할 부여: 또래 멘토링, 학습 조장',
+              '교사-학생 관계 강화를 통한 심화 성장 지원',
+            ],
+          },
+        ],
+      },
     ],
     priors: { '무기력형': 0.354, '정서조절취약형': 0.380, '자기주도몰입형': 0.266 },
   },
+};
+
+// ============================================================================
+// 지식그래프 연동 유틸리티 (추가 개입 전략 조회용)
+// ============================================================================
+
+/**
+ * 지식그래프에서 유형별 개입 전략 요약 조회
+ */
+export const getKnowledgeGraphInterventions = (
+  schoolLevel: '초등' | '중등',
+  typeName: string
+): string[] => {
+  return getInterventionSummary(schoolLevel, typeName);
+};
+
+/**
+ * 지식그래프에서 유형별 상세 특성 조회
+ */
+export const getKnowledgeGraphGroupInfo = (
+  schoolLevel: '초등' | '중등',
+  typeName: string
+) => {
+  const group = STUDENT_GROUPS.find(
+    g => g.school === schoolLevel && g.label === typeName
+  );
+  return group?.properties || null;
+};
+
+/**
+ * 지식그래프에서 유형별 상세 개입 전략 노드 조회
+ */
+export const getKnowledgeGraphInterventionNodes = (
+  schoolLevel: '초등' | '중등',
+  typeName: string
+) => {
+  return INTERVENTIONS.filter(
+    int => int.school === schoolLevel && int.targetGroup === typeName
+  );
+};
+
+/**
+ * 지식그래프에서 유형별 매개경로 조회
+ */
+export const getKnowledgeGraphMediationPath = (
+  schoolLevel: '초등' | '중등',
+  typeName: string
+) => {
+  return MEDIATION_PATHS.find(
+    path => path.school === schoolLevel && path.group === typeName
+  );
+};
+
+/**
+ * 지식그래프에서 조절효과 조회
+ */
+export const getKnowledgeGraphModerationEffect = (
+  schoolLevel: '초등' | '중등',
+  typeName: string
+) => {
+  const groupId = STUDENT_GROUPS.find(
+    g => g.school === schoolLevel && g.label === typeName
+  )?.id;
+  return MODERATION_EFFECTS.find(effect => effect.source === groupId);
 };
 
 // 유형별 색상 클래스

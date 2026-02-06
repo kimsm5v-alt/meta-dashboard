@@ -1,6 +1,10 @@
 import { useState } from 'react';
-import { X, CheckSquare, Square } from 'lucide-react';
+import { X, CheckSquare, Square, Lightbulb, AlertTriangle } from 'lucide-react';
 import { getTypeInfo } from '@/shared/utils/lpaClassifier';
+import {
+  getKnowledgeGraphModerationEffect,
+  getKnowledgeGraphGroupInfo,
+} from '@/shared/data/lpaProfiles';
 import type { StudentType, SchoolLevel } from '@/shared/types';
 
 interface CoachingStrategyProps {
@@ -19,6 +23,10 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
   const typeInfo = getTypeInfo(predictedType, schoolLevel);
   const [selectedPaths, setSelectedPaths] = useState<number[]>([0]);
 
+  // 지식그래프에서 추가 정보 조회
+  const kgModerationEffect = getKnowledgeGraphModerationEffect(schoolLevel, predictedType);
+  const kgGroupInfo = getKnowledgeGraphGroupInfo(schoolLevel, predictedType);
+
   if (!isOpen) return null;
 
   const interventions = typeInfo?.interventions || [];
@@ -35,9 +43,9 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
           <h2 className="text-2xl font-bold text-gray-800">코칭 전략</h2>
           <button
             onClick={onClose}
@@ -47,8 +55,10 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Content */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
           {/* 좌측: 코칭 전략 목록 */}
           <div>
             <h3 className="text-lg font-semibold mb-4">추천 코칭 경로</h3>
@@ -137,8 +147,58 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
           </div>
         </div>
 
+        {/* 학생 특성 및 주의사항 */}
+        {(kgModerationEffect || kgGroupInfo) && (
+          <div className="px-6 pb-6 border-t pt-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-amber-500" />
+              학생 특성 및 주의사항
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 핵심 특성 */}
+              {kgGroupInfo && kgGroupInfo.핵심특성 && (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-sm font-semibold text-blue-800">이 유형 학생의 특성</span>
+                  </div>
+                  <ul className="space-y-2">
+                    {kgGroupInfo.핵심특성.map((trait: string, i: number) => (
+                      <li key={i} className="text-xs text-gray-700 flex items-start gap-2">
+                        <span className="text-blue-500 mt-0.5">•</span>
+                        <span>{trait}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* 조절효과 주의사항 */}
+              {kgModerationEffect && (
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 border border-amber-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm font-semibold text-amber-800">코칭 시 주의사항</span>
+                  </div>
+                  <p className="text-xs text-gray-700 mb-2">
+                    <span className="font-medium text-amber-700">{(kgModerationEffect.properties as { 독립변수?: string }).독립변수}</span>와{' '}
+                    <span className="font-medium text-amber-700">{(kgModerationEffect.properties as { 조절변수?: string }).조절변수}</span>을
+                    함께 다룰 때:
+                  </p>
+                  <p className="text-xs text-gray-600 mb-3">
+                    {(kgModerationEffect.properties as { 해석?: string }).해석}
+                  </p>
+                  <div className="px-3 py-2 bg-amber-100 rounded text-xs text-amber-800">
+                    <span className="font-medium">권장:</span> {(kgModerationEffect.properties as { 개입전략?: string }).개입전략}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        </div>
+
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
+        <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50 flex-shrink-0">
           <button
             onClick={onClose}
             className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors font-medium"

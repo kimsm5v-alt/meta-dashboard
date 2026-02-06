@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { UnifiedCounselingRecord } from '@/shared/types';
 import { CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
 
@@ -131,7 +131,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
           const isSelected = selectedDateStr === formatDate(day.date);
           const displaySchedules = day.schedules.slice(0, 2);
           const moreCount = day.schedules.length - 2;
-          const hasUrgent = day.schedules.some(s => s.types.includes('urgent'));
+          const hasUrgent = day.schedules.some(s => s.types.includes('urgent') && s.status !== 'completed');
 
           return (
             <button
@@ -161,16 +161,28 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
 
               {/* 스케줄 표시 */}
               <div className="space-y-0.5">
-                {displaySchedules.map(schedule => (
-                  <div
-                    key={schedule.id}
-                    className="text-[10px] px-1 py-0.5 rounded truncate text-white"
-                    style={{ backgroundColor: CLASS_COLORS[schedule.classId] || '#9CA3AF' }}
-                  >
-                    {schedule.students[0].name}
-                    {schedule.students.length > 1 && ` +${schedule.students.length - 1}`}
-                  </div>
-                ))}
+                {displaySchedules.map(schedule => {
+                  const isCompleted = schedule.status === 'completed';
+                  return (
+                    <div
+                      key={schedule.id}
+                      className={`text-[10px] px-1 py-0.5 rounded truncate flex items-center gap-0.5 ${
+                        isCompleted ? 'text-white/80' : 'text-white'
+                      }`}
+                      style={{
+                        backgroundColor: isCompleted
+                          ? `${CLASS_COLORS[schedule.classId] || '#9CA3AF'}99`
+                          : CLASS_COLORS[schedule.classId] || '#9CA3AF'
+                      }}
+                    >
+                      {isCompleted && <CheckCircle2 className="w-2.5 h-2.5 flex-shrink-0" />}
+                      <span className="truncate">
+                        {schedule.students[0].name}
+                        {schedule.students.length > 1 && ` +${schedule.students.length - 1}`}
+                      </span>
+                    </div>
+                  );
+                })}
                 {moreCount > 0 && (
                   <div className="text-[10px] text-gray-500 px-1">
                     +{moreCount}건

@@ -6,7 +6,8 @@
       "Read(//tmp/claude/c--Users-82107-Desktop-Workspace-meta-dashboard/tasks/**)",
       "Bash(npm run build:*)",
       "Bash(dir:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(find:*)"
     ]
   }
 }

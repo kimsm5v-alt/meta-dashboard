@@ -73,16 +73,14 @@ export const SchedulePage: React.FC = () => {
 
   // 상담 일정 데이터 (통합 서비스에서 로드)
   const [records, setRecords] = useState<UnifiedCounselingRecord[]>([]);
-  const [, setLoading] = useState(true);
 
   // 데이터 로드
   const loadRecords = useCallback(async () => {
-    setLoading(true);
     try {
       const data = await unifiedCounselingService.getAll();
       setRecords(data);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('[SchedulePage] 상담 일정 로드 실패:', error);
     }
   }, []);
 
@@ -90,16 +88,16 @@ export const SchedulePage: React.FC = () => {
     loadRecords();
   }, [loadRecords]);
 
-  // 예정된 상담만 필터 (캘린더에는 scheduled 상태만 표시)
-  const scheduledRecords = useMemo(() => {
-    return records.filter(r => r.status === 'scheduled');
+  // 취소되지 않은 모든 상담 (예정 + 완료)
+  const activeRecords = useMemo(() => {
+    return records.filter(r => r.status !== 'cancelled');
   }, [records]);
 
   // 필터된 스케줄
   const filteredSchedules = useMemo(() => {
-    if (!classFilter) return scheduledRecords;
-    return scheduledRecords.filter(s => s.classId === classFilter);
-  }, [scheduledRecords, classFilter]);
+    if (!classFilter) return activeRecords;
+    return activeRecords.filter(s => s.classId === classFilter);
+  }, [activeRecords, classFilter]);
 
   // 선택된 날짜의 스케줄 (월간 뷰 상세 패널)
   const selectedDateSchedules = useMemo(() => {
@@ -165,7 +163,7 @@ export const SchedulePage: React.FC = () => {
       await unifiedCounselingService.create(input);
       await loadRecords();
     } catch (error) {
-      void error;
+      console.error('[SchedulePage] 일정 등록 실패:', error);
     }
   };
 
@@ -175,7 +173,7 @@ export const SchedulePage: React.FC = () => {
       await unifiedCounselingService.update(id, input);
       await loadRecords();
     } catch (error) {
-      void error;
+      console.error('[SchedulePage] 일정 수정 실패:', error);
     }
   };
 
@@ -185,7 +183,7 @@ export const SchedulePage: React.FC = () => {
       await unifiedCounselingService.delete(id);
       await loadRecords();
     } catch (error) {
-      void error;
+      console.error('[SchedulePage] 일정 삭제 실패:', error);
     }
   };
 
@@ -343,7 +341,7 @@ export const SchedulePage: React.FC = () => {
 
       {/* 학급별 요약 카드 */}
       <ClassSummaryCards
-        schedules={scheduledRecords}
+        schedules={activeRecords}
         onClassClick={handleClassFilterClick}
         selectedClassFilter={classFilter}
       />

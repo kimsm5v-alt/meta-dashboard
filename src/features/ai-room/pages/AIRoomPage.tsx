@@ -86,7 +86,16 @@ export const AIRoomPage = () => {
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
   const classDropdownRef = useRef<HTMLDivElement>(null);
-  const aliasMap = useMemo(() => createAliasMap(selectedStudents), [selectedStudents]);
+
+  // 응답에서 반환된 aliasMap을 저장 (별칭 복원용)
+  const [responseAliasMap, setResponseAliasMap] = useState<StudentAliasMap>({});
+
+  // 선택된 학생 기반 aliasMap과 응답 aliasMap 병합
+  const localAliasMap = useMemo(() => createAliasMap(selectedStudents), [selectedStudents]);
+  const aliasMap = useMemo(() => ({
+    ...responseAliasMap,
+    ...localAliasMap,
+  }), [responseAliasMap, localAliasMap]);
 
   // ---------------------------------------------------------------------------
   // Computed
@@ -216,6 +225,11 @@ export const AIRoomPage = () => {
         messages: messages.filter((m) => m.id !== '1'), // 초기 안내 메시지 제외
         userMessage: currentInput,
       });
+
+      // 응답에서 반환된 aliasMap 저장 (별칭 복원용)
+      if (response.aliasMap && Object.keys(response.aliasMap).length > 0) {
+        setResponseAliasMap((prev) => ({ ...prev, ...response.aliasMap }));
+      }
 
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),

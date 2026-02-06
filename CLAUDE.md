@@ -13,7 +13,9 @@
 7. [UI 컴포넌트 가이드](#-ui-컴포넌트-가이드)
 8. [대시보드 구현 가이드](#-대시보드-구현-가이드)
 9. [개인정보 보호](#-개인정보-보호)
-10. [체크리스트](#-체크리스트)
+10. [AI 어시스턴트 구현 가이드](#-ai-어시스턴트-구현-가이드)
+11. [상담일정 기능 구현 가이드](#-상담일정-기능-구현-가이드)
+12. [체크리스트](#-체크리스트)
 
 ---
 
@@ -99,6 +101,8 @@ L1: 교사 전체 반 대시보드     → /dashboard
 | `shared/utils/summaryGenerator.ts` | AI 총평 생성 (11개 중분류 → 3줄 요약) |
 | `shared/utils/recordGenerator.ts` | 생활기록부 문구 생성 유틸리티 (강점 영역 추출, 변화 분석) |
 | `shared/data/schoolRecordSentences.ts` | 생활기록부 예시 문장 데이터 (11개 중분류 × 3 학교급 × 3문장 = 99개) |
+| `features/ai-room/services/assistantService.ts` | AI Room 대화 서비스 (RAG 컨텍스트 기반) |
+| `features/ai-room/services/contextBuilder.ts` | 컨텍스트 빌더 (모드별 RAG, 학생 별칭 시스템) |
 
 ### 기능별 프롬프트 (AIFeature)
 
@@ -106,7 +110,7 @@ L1: 교사 전체 반 대시보드     → /dashboard
 |---------|--------|------|
 | `analysis` | L3 학생 대시보드 > AI 분석 총평 | ✅ 구현 완료 |
 | `record` | L3 학생 대시보드 > 생활기록부 문구 생성 | ✅ 구현 완료 |
-| `assistant` | AI Room > 교사-AI 대화 | ⬜ TODO |
+| `assistant` | AI Room > 교사-AI 대화 | ✅ 구현 완료 |
 
 ---
 
@@ -189,9 +193,12 @@ src/
 | `shared/services/gemini.ts` | Gemini API 호출 (v1beta, 429 재시도, PII 마스킹) |
 | `shared/utils/summaryGenerator.ts` | AI 총평 생성 로직 (11개 중분류 → 3줄 요약) |
 | `shared/utils/piiMasking.ts` | 개인정보 마스킹 (이름, 학번, 생년월일, 학교명) |
-| `shared/services/counselingService.ts` | 상담 기록 CRUD 서비스 |
+| `shared/services/unifiedCounselingService.ts` | 통합 상담 서비스 (일정+기록 통합, 다중 학생 지원) |
+| `shared/services/counselingService.ts` | 상담 기록 서비스 (레거시, deprecated) |
 | `shared/services/memoService.ts` | 관찰 메모 CRUD 서비스 |
 | `shared/services/schoolRecordService.ts` | 생활기록부 AI 생성 서비스 |
+| `features/ai-room/services/assistantService.ts` | AI Room 대화 서비스 |
+| `features/ai-room/services/contextBuilder.ts` | AI 컨텍스트 빌더 (RAG, 별칭 시스템) |
 
 ### 문서 폴더 구조
 
@@ -592,6 +599,99 @@ const modeBadgeColors = {
 
 ---
 
+## 📅 상담일정 기능 구현 가이드
+
+### 개요
+
+상담일정은 교사가 학생 상담을 계획하고 관리하며, 완료된 상담을 기록하는 기능입니다.
+
+**경로**: `/schedule`
+
+### 컴포넌트 구조
+
+```
+src/features/schedule/
+├── pages/
+│   └── SchedulePage.tsx         # 메인 페이지 (주간/월간 캘린더)
+├── components/
+│   ├── WeeklyCalendar.tsx       # 주간 캘린더 뷰
+│   ├── MonthlyCalendar.tsx      # 월간 캘린더 뷰
+│   ├── ScheduleModal.tsx        # 일정 추가/수정/완료 모달
+│   ├── DateDetailPanel.tsx      # 날짜 상세 패널 (월간 뷰)
+│   ├── ClassSummaryCards.tsx    # 학급별 요약 카드
+│   ├── ScheduleStudentPicker.tsx # 학생 선택 컴포넌트
+│   └── CalendarIntegrationModal.tsx # 캘린더 연동 (TODO)
+└── index.ts
+```
+
+### 핵심 타입
+
+```typescript
+// 상담 상태
+type CounselingStatus = 'scheduled' | 'completed' | 'cancelled';
+
+// 통합 상담 기록
+interface UnifiedCounselingRecord {
+  id: string;
+  students: CounselingStudent[];     // 1명 이상 지원
+  classId: string;
+  scheduledAt: string;               // 'YYYY-MM-DD HH:mm'
+  duration?: number;                 // 상담 시간 (분)
+  types: ScheduleType[];             // regular, urgent, follow-up, initial
+  areas: CounselingArea[];           // academic, career, peer 등 8개
+  methods: CounselingMethod[];       // face-to-face, phone, video, group
+  status: CounselingStatus;
+  reason?: string;                   // 예정 시 메모
+  summary?: string;                  // 완료 시 상담 기록
+  nextSteps?: string;                // 후속 조치
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### 주요 기능
+
+1. **주간/월간 캘린더 뷰**
+   - 반별 필터링 (색상 코드)
+   - 완료된 상담 시각적 구분 (체크 아이콘, 회색 배경)
+   - 긴급 표시 (빨간 아이콘, 예정된 상담만)
+
+2. **상담 일정 CRUD**
+   - 복수 학생 선택
+   - 복수 상담 유형/영역/방법 선택
+   - 날짜/시간 선택
+
+3. **상담 완료 처리**
+   - 완료 버튼 → 상태 변경
+   - 상담 기록 작성
+   - L3 학생 대시보드 상담 탭과 동기화
+
+### 상태별 스타일
+
+```tsx
+// 완료된 상담
+<button className="bg-gray-50 text-gray-500">
+  <CheckCircle2 className="text-emerald-500" />
+</button>
+
+// 예정된 상담
+<button className="bg-white text-gray-900">
+  {isUrgent && <AlertCircle className="text-red-500" />}
+</button>
+```
+
+### 통합 상담 서비스
+
+```typescript
+// L3 상담 탭과 동일한 서비스 사용
+import { unifiedCounselingService } from '@/shared/services/unifiedCounselingService';
+
+// 모든 상담 조회 (취소 제외)
+const activeRecords = records.filter(r => r.status !== 'cancelled');
+```
+
+---
+
 ## 🚫 금지 사항
 
 1. 개인정보 AI 전송 (이름, 학번, 생년월일)
@@ -635,5 +735,5 @@ const modeBadgeColors = {
 
 ---
 
-**Last Updated**: 2026-02-05
-**Version**: 2.2 (생활기록부 문구 생성 기능(record) 구현 완료)
+**Last Updated**: 2026-02-06
+**Version**: 2.3 (AI Room, 상담일정 기능 구현 완료)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Calendar, Clock, X, Trash2 } from 'lucide-react';
+import { Users, Calendar, Clock, X, Trash2, CheckCircle2, FileText } from 'lucide-react';
 import { Modal, Button } from '@/shared/components';
 import type {
   CounselingStudent,
@@ -9,6 +9,7 @@ import type {
   CreateUnifiedCounselingInput,
   UnifiedCounselingRecord,
   UpdateUnifiedCounselingInput,
+  CounselingStatus,
 } from '@/shared/types';
 import {
   SCHEDULE_TYPE_LABELS,
@@ -66,10 +67,14 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const [areas, setAreas] = useState<CounselingArea[]>(['academic']);
   const [methods, setMethods] = useState<CounselingMethod[]>(['face-to-face']);
   const [reason, setReason] = useState('');
+  const [summary, setSummary] = useState('');
+  const [status, setStatus] = useState<CounselingStatus>('scheduled');
   const [showStudentPicker, setShowStudentPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
 
   const isEditMode = !!editingSchedule;
+  const isCompleted = status === 'completed';
 
   // 수정 모드일 때 기존 데이터 로드
   useEffect(() => {
@@ -82,10 +87,14 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setAreas(editingSchedule.areas);
       setMethods(editingSchedule.methods);
       setReason(editingSchedule.reason || '');
+      setSummary(editingSchedule.summary || '');
+      setStatus(editingSchedule.status);
     } else if (isOpen && initialDate) {
       setDate(initialDate.toISOString().split('T')[0]);
+      setStatus('scheduled');
     } else if (isOpen) {
       setDate(new Date().toISOString().split('T')[0]);
+      setStatus('scheduled');
     }
   }, [initialDate, isOpen, editingSchedule]);
 
@@ -98,7 +107,10 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setAreas(['academic']);
       setMethods(['face-to-face']);
       setReason('');
+      setSummary('');
+      setStatus('scheduled');
       setShowDeleteConfirm(false);
+      setShowCompleteConfirm(false);
     }
   }, [isOpen]);
 
@@ -116,6 +128,8 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
         areas,
         methods,
         reason: reason.trim() || undefined,
+        summary: summary.trim() || undefined,
+        status,
       });
     } else {
       onSubmit({
@@ -131,6 +145,16 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     }
 
     onClose();
+  };
+
+  const handleComplete = () => {
+    if (editingSchedule && onUpdate) {
+      onUpdate(editingSchedule.id, {
+        status: 'completed',
+        summary: summary.trim() || undefined,
+      });
+      onClose();
+    }
   };
 
   const handleDelete = () => {
@@ -337,6 +361,30 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
               className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
             />
           </div>
+
+          {/* 상담 기록 (수정 모드에서만 표시) */}
+          {isEditMode && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-gray-500" />
+                  <span>상담 기록</span>
+                  {isCompleted && (
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-600 text-xs font-medium rounded-full">
+                      완료됨
+                    </span>
+                  )}
+                </div>
+              </label>
+              <textarea
+                value={summary}
+                onChange={e => setSummary(e.target.value)}
+                placeholder="상담 후 기록을 작성하세요. 이 내용은 학생 상담 탭과 동기화됩니다."
+                rows={4}
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+              />
+            </div>
+          )}
         </div>
 
         {/* 하단 버튼 */}
@@ -353,6 +401,16 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
           <Button variant="secondary" onClick={onClose} className="flex-1">
             취소
           </Button>
+          {isEditMode && !isCompleted && (
+            <Button
+              variant="secondary"
+              onClick={() => setShowCompleteConfirm(true)}
+              className="flex-1 text-emerald-600 hover:bg-emerald-50 border-emerald-200"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-1" />
+              상담 완료
+            </Button>
+          )}
           <Button onClick={handleSubmit} disabled={!isValid} className="flex-1">
             {isEditMode ? '수정하기' : '등록하기'}
           </Button>
@@ -369,6 +427,28 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
               </Button>
               <Button onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
                 삭제
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* 완료 확인 */}
+        {showCompleteConfirm && (
+          <div className="absolute inset-0 bg-white rounded-lg flex flex-col items-center justify-center p-6">
+            <CheckCircle2 className="w-12 h-12 text-emerald-500 mb-4" />
+            <p className="text-lg font-medium text-gray-900 mb-2">상담을 완료 처리하시겠습니까?</p>
+            <p className="text-sm text-gray-500 mb-6 text-center">
+              완료된 상담은 캘린더에서 완료 표시로 나타납니다.
+              {summary.trim() && (
+                <><br />작성하신 상담 기록도 함께 저장됩니다.</>
+              )}
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={() => setShowCompleteConfirm(false)}>
+                취소
+              </Button>
+              <Button onClick={handleComplete} className="bg-emerald-500 hover:bg-emerald-600">
+                완료 처리
               </Button>
             </div>
           </div>

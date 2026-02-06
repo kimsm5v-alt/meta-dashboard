@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Plus, User, Users, Phone, Video, AlertCircle } from 'lucide-react';
+import { Plus, User, Users, Phone, Video, AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { UnifiedCounselingRecord } from '@/shared/types';
 import { COUNSELING_AREA_LABELS } from '@/shared/types';
 import { CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
@@ -127,25 +127,34 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
               }`}
             >
               <div className="space-y-2">
-                {daySchedules.map(schedule => (
+                {daySchedules.map(schedule => {
+                  const isCompleted = schedule.status === 'completed';
+                  return (
                   <button
                     key={schedule.id}
                     onClick={() => onScheduleClick(schedule)}
-                    className="w-full text-left p-2 rounded-lg border-l-4 bg-white shadow-sm hover:shadow-md transition-shadow"
+                    className={`w-full text-left p-2 rounded-lg border-l-4 shadow-sm hover:shadow-md transition-shadow ${
+                      isCompleted ? 'bg-gray-50' : 'bg-white'
+                    }`}
                     style={{ borderLeftColor: CLASS_COLORS[schedule.classId] || '#9CA3AF' }}
                   >
-                    {/* 시간 + 긴급 표시 */}
+                    {/* 시간 + 완료/긴급 표시 */}
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-gray-600">
+                      <span className={`text-xs font-medium ${isCompleted ? 'text-gray-400' : 'text-gray-600'}`}>
                         {getTime(schedule.scheduledAt)}
                       </span>
-                      {schedule.types.includes('urgent') && (
-                        <AlertCircle className="w-3 h-3 text-red-500" />
-                      )}
+                      <div className="flex items-center gap-1">
+                        {isCompleted && (
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                        )}
+                        {schedule.types.includes('urgent') && !isCompleted && (
+                          <AlertCircle className="w-3 h-3 text-red-500" />
+                        )}
+                      </div>
                     </div>
 
                     {/* 학생명 */}
-                    <div className="text-sm font-medium text-gray-900 truncate">
+                    <div className={`text-sm font-medium truncate ${isCompleted ? 'text-gray-500' : 'text-gray-900'}`}>
                       {schedule.students.length === 1
                         ? schedule.students[0].name
                         : `${schedule.students[0].name} 외 ${schedule.students.length - 1}명`}
@@ -173,7 +182,8 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
                       </span>
                     </div>
                   </button>
-                ))}
+                  );
+                })}
 
                 {/* 빈 날짜 추가 버튼 */}
                 {daySchedules.length === 0 && (

@@ -32,6 +32,7 @@ export interface AIRequest {
   maxTokens?: number;
   temperature?: number;
   feature?: AIFeature; // 기능별 프롬프트 자동 적용
+  maskPII?: boolean; // PII 마스킹 여부 (기본값: true)
 }
 
 export interface AIResponse {
@@ -134,11 +135,14 @@ const applyFeaturePrompt = (
  * Gemini Provider 호출
  */
 const callGeminiProvider = async (request: AIRequest): Promise<AIResponse> => {
-  const response = await callGemini({
-    messages: request.messages,
-    maxTokens: request.maxTokens,
-    temperature: request.temperature,
-  });
+  const response = await callGemini(
+    {
+      messages: request.messages,
+      maxTokens: request.maxTokens,
+      temperature: request.temperature,
+    },
+    { maskPII: request.maskPII ?? true }
+  );
 
   return {
     success: response.success,
