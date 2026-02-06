@@ -154,8 +154,9 @@ export interface Intervention {
   strategies: string[];
 }
 
-export type EffectType = 
+export type EffectType =
   | '직접효과'
+  | '완전매개'
   | '긍정강화'
   | '부정강화'
   | '긍정완충'
