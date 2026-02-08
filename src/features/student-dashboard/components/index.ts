@@ -10,3 +10,6 @@ export { RightPanel, type PanelTab } from './RightPanel';
 export { SchoolRecordPanel } from './SchoolRecordPanel';
 export { CounselingRecordPanel } from './CounselingRecordPanel';
 export { ObservationMemoPanel } from './ObservationMemoPanel';
+
+// 데이터 해석 도우미 (플로팅 챗봇)
+export { DataHelperChatbot } from './DataHelperChatbot';

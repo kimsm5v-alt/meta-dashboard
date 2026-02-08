@@ -1,7 +1,7 @@
 {
   "name": "meta-dashboard",
   "version": "0.1.0",
-  "description": "META 학습심리정서검사 AI 에이전트 대시보드",
+  "description": "비상교육 학습심리정서검사 AI 에이전트 대시보드",
   "type": "module",
   "scripts": {
     "dev": "vite",

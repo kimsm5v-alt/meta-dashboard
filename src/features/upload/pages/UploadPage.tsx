@@ -6,7 +6,7 @@ export const UploadPage = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">결과 가져오기</h1>
-        <p className="text-gray-500 mt-1">META 학습심리정서검사 결과 파일을 업로드하세요.</p>
+        <p className="text-gray-500 mt-1">학습심리정서검사 결과 파일을 업로드하세요.</p>
       </div>
 
       <Card className="border-2 border-dashed border-gray-300 hover:border-primary-500 transition-colors">

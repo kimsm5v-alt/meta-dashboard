@@ -27,9 +27,9 @@ export const LandingPage = () => {
           {/* 로고 */}
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-primary-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">M</span>
+              <span className="text-white font-bold">V</span>
             </div>
-            <span className="font-bold text-lg text-gray-900">META</span>
+            <span className="font-bold text-lg text-gray-900">비상교육</span>
           </div>
 
           {/* 네비게이션 */}
@@ -61,9 +61,9 @@ export const LandingPage = () => {
             {/* 로고 */}
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">M</span>
+                <span className="text-white font-bold text-sm">V</span>
               </div>
-              <span className="font-bold text-white">META</span>
+              <span className="font-bold text-white">비상교육</span>
             </div>
 
             {/* 링크 */}
@@ -75,7 +75,7 @@ export const LandingPage = () => {
 
             {/* 저작권 */}
             <p className="text-sm text-gray-500">
-              © 2026 META 학습심리정서검사
+              © 2026 비상교육 학습심리정서검사
             </p>
           </div>
         </div>

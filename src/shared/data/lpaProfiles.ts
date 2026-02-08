@@ -129,7 +129,7 @@ export const LPA_PROFILE_DATA: LPAProfileData = {
       },
       {
         name: '몰입자원풍부형',
-        color: '#3351A4',
+        color: '#3B82F6',
         colorName: 'blue',
         means: [
           55.82, 56.08, 54.19, 53.78, 53.71, 54.81, 53.79,
@@ -237,7 +237,7 @@ export const LPA_PROFILE_DATA: LPAProfileData = {
       },
       {
         name: '자기주도몰입형',
-        color: '#3351A4',
+        color: '#3B82F6',
         colorName: 'blue',
         means: [], // TODO: 실제 중심값 데이터 필요
         description: '자원·전략·관계성이 모두 우수한 몰입형 학습자로, 심리적 회복탄력성이 높고 학습 몰입도와 성취 기대가 가장 높습니다.',
@@ -352,10 +352,10 @@ export const TYPE_COLOR_CLASSES: Record<string, string> = {
 export const TYPE_COLORS: Record<string, string> = {
   '자원소진형': '#F97316',
   '안전균형형': '#14B8A6',
-  '몰입자원풍부형': '#3351A4',
+  '몰입자원풍부형': '#3B82F6',
   '무기력형': '#F97316',
   '정서조절취약형': '#14B8A6',
-  '자기주도몰입형': '#3351A4',
+  '자기주도몰입형': '#3B82F6',
 };
 
 export default LPA_PROFILE_DATA;

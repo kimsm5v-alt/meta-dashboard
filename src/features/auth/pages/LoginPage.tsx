@@ -39,7 +39,7 @@ export const LoginPage: React.FC = () => {
       {/* 로고 */}
       <div className="mb-8 text-center">
         <h1 className="text-3xl font-bold text-gray-900">
-          <span className="text-primary-500">META</span> 학습심리정서검사
+          <span className="text-primary-500">비상교육</span> 학습심리정서검사
         </h1>
         <p className="mt-2 text-gray-600">AI 기반 맞춤형 학습 코칭 시스템</p>
       </div>

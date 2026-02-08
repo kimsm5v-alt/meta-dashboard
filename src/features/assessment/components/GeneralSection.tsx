@@ -69,7 +69,7 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
           기존 결과 업로드
         </h4>
         <p className="text-sm text-gray-600 mb-4">
-          다른 곳에서 실시한 META 검사 결과가 있다면 PDF 파일을 업로드하여 분석할 수 있습니다.
+          다른 곳에서 실시한 학습심리정서검사 결과가 있다면 PDF 파일을 업로드하여 분석할 수 있습니다.
         </p>
         <Button
           variant="secondary"

@@ -44,12 +44,12 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
                 </defs>
                 <Pie
                   data={chartData}
-                  cx="60%"
+                  cx="50%"
                   cy="50%"
                   labelLine={false}
                   label={false}
-                  innerRadius={70}
-                  outerRadius={110}
+                  innerRadius="45%"
+                  outerRadius="75%"
                   fill="#8884d8"
                   dataKey="value"
                   paddingAngle={2}
@@ -69,13 +69,13 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
                   contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
                 />
                 <Legend
-                  layout="vertical"
-                  verticalAlign="middle"
-                  align="right"
+                  layout="horizontal"
+                  verticalAlign="bottom"
+                  align="center"
                   formatter={(value: string, entry) => `${value} ${(entry as { payload?: { value: number } }).payload?.value ?? 0}%`}
                   iconType="circle"
                   iconSize={10}
-                  wrapperStyle={{ fontSize: '13px', paddingLeft: '0px', marginLeft: '-100px', lineHeight: '2' }}
+                  wrapperStyle={{ fontSize: '12px', lineHeight: '1.8' }}
                 />
               </PieChart>
             </ResponsiveContainer>

@@ -134,7 +134,7 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
                       className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                       style={{
                         backgroundColor: selected
-                          ? '#3351A4'
+                          ? '#8b5cf6'
                           : CLASS_COLORS[student.classId] || '#9CA3AF',
                       }}
                     >

@@ -104,7 +104,7 @@ export const AssessmentPage: React.FC = () => {
         </div>
         <p className="text-gray-600">
           {isVivaSamMember
-            ? '비바샘에서 META 학습심리정서검사를 실시하고 결과를 확인하세요.'
+            ? '비바샘에서 학습심리정서검사를 실시하고 결과를 확인하세요.'
             : '검사 코드를 생성하여 학생들에게 배포하거나, 기존 결과를 업로드하세요.'}
         </p>
       </div>

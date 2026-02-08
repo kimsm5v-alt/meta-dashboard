@@ -28,7 +28,7 @@ const INITIAL_MESSAGE: ChatMessage = {
   id: '1',
   role: 'assistant',
   content:
-    '안녕하세요! META 학습심리정서검사 AI 어시스턴트입니다.\n\n상단에서 분석할 컨텍스트를 선택하고 질문을 입력해주세요.',
+    '안녕하세요! 비상교육 학습심리정서검사 AI 어시스턴트입니다.\n\n상단에서 분석할 컨텍스트를 선택하고 질문을 입력해주세요.',
   timestamp: new Date(),
 };
 
@@ -274,7 +274,7 @@ export const AIRoomPage = () => {
           </div>
           <div>
             <h1 className="text-lg font-bold leading-tight text-primary-600">AI 어시스턴트</h1>
-            <p className="text-xs text-gray-500">META 학습심리정서검사 분석</p>
+            <p className="text-xs text-gray-500">학습심리정서검사 분석</p>
           </div>
         </div>
 

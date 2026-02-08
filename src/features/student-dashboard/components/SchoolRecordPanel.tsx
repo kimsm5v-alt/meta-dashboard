@@ -44,7 +44,7 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
-  const [expandedStrength, setExpandedStrength] = useState<string | null>(null);
+  const [expandedStrengths, setExpandedStrengths] = useState<string[]>([]);
   const [validationResult, setValidationResult] = useState<{
     isValid: boolean;
     wordCountResult: { count: number; excess: number };
@@ -223,7 +223,7 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
   };
 
   return (
-    <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-180px)]">
+    <div className="p-4 space-y-4">
       {/* Step 1: 강점 영역 표시 */}
       <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
@@ -233,20 +233,20 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
           </h4>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {topStrengths.map((strength, index) => (
             <div
               key={strength.name}
-              className="flex items-center gap-2 bg-white/60 rounded-lg px-3 py-2"
+              className="flex items-center gap-2 bg-white/60 rounded-lg px-2.5 py-1.5"
             >
-              <span className="flex items-center justify-center w-6 h-6 bg-indigo-500 text-white text-xs font-bold rounded-full">
+              <span className="flex items-center justify-center w-5 h-5 bg-indigo-500 text-white text-[11px] font-bold rounded-full">
                 {index + 1}
               </span>
-              <span className="font-medium text-gray-800 flex-1">
+              <span className="text-[13px] font-medium text-gray-800 flex-1">
                 {strength.name}
               </span>
               <span
-                className={`text-xs px-2 py-0.5 rounded ${
+                className={`text-[11px] px-1.5 py-0.5 rounded ${
                   strength.type === 'positive'
                     ? 'bg-blue-100 text-blue-700'
                     : 'bg-green-100 text-green-700'
@@ -280,13 +280,17 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
         <div className="divide-y divide-gray-100">
           {topStrengths.map((strength) => {
             const sentences = getSentencesForStrength(strength.name);
-            const isExpanded = expandedStrength === strength.name;
+            const isExpanded = expandedStrengths.includes(strength.name);
 
             return (
               <div key={strength.name} className="p-3">
                 <button
                   onClick={() =>
-                    setExpandedStrength(isExpanded ? null : strength.name)
+                    setExpandedStrengths(
+                      isExpanded
+                        ? expandedStrengths.filter((s) => s !== strength.name)
+                        : [...expandedStrengths, strength.name]
+                    )
                   }
                   className="w-full flex items-center justify-between"
                 >

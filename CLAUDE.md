@@ -103,6 +103,7 @@ L1: 교사 전체 반 대시보드     → /dashboard
 | `shared/data/schoolRecordSentences.ts` | 생활기록부 예시 문장 데이터 (11개 중분류 × 3 학교급 × 3문장 = 99개) |
 | `features/ai-room/services/assistantService.ts` | AI Room 대화 서비스 (RAG 컨텍스트 기반) |
 | `features/ai-room/services/contextBuilder.ts` | 컨텍스트 빌더 (모드별 RAG, 학생 별칭 시스템) |
+| `features/student-dashboard/services/dataHelperService.ts` | 데이터 해석 도우미 AI 서비스 (7개 질문별 프롬프트) |
 
 ### 기능별 프롬프트 (AIFeature)
 
@@ -199,6 +200,7 @@ src/
 | `shared/services/schoolRecordService.ts` | 생활기록부 AI 생성 서비스 |
 | `features/ai-room/services/assistantService.ts` | AI Room 대화 서비스 |
 | `features/ai-room/services/contextBuilder.ts` | AI 컨텍스트 빌더 (RAG, 별칭 시스템) |
+| `features/student-dashboard/services/dataHelperService.ts` | 데이터 해석 도우미 AI 서비스 (7개 질문별 프롬프트) |
 
 ### 문서 폴더 구조
 
@@ -410,7 +412,7 @@ type ChangeFilter = 'all' | 'reliability-warning' | 'need-attention' | 'negative
 ```
 StudentDashboardPage
 ├── Header (학생 정보 + 네비게이션 + 패널 버튼)
-│   └── PANEL_BUTTONS: [기록부, 상담, 관찰]
+│   └── PANEL_BUTTONS: [생기부, 상담, 관찰]
 ├── RoundSelector (1차/2차 선택)
 ├── Section 1: 진단결과 한눈에 보기
 │   ├── DiagnosisSummary (AI 총평)
@@ -419,7 +421,10 @@ StudentDashboardPage
 │   ├── TypeClassification (도넛 차트)
 │   ├── TypeDeviations (특이점 3개)
 │   └── CoachingStrategy (모달)
-└── RightPanel (우측 슬라이드 패널)
+├── DataHelperChatbot (플로팅 데이터 해석 도우미)
+│   ├── DataHelperQuestions (2단 질문 목록)
+│   └── DataHelperAnswer (AI 답변 표시)
+└── RightPanel (우측 푸시 패널)
     ├── SchoolRecordPanel (생활기록부 AI 문구 생성)
     ├── CounselingRecordPanel (상담 기록 CRUD)
     └── ObservationMemoPanel (관찰 메모 + 태그)
@@ -448,10 +453,44 @@ const [panelTab, setPanelTab] = useState<PanelTab>(null);
 ```
 
 **패널 특징**:
-- `w-96` (384px) 고정 너비
-- 우측에서 슬라이드 인/아웃 애니메이션
+- `w-96` (384px) 고정 너비, 푸시 레이아웃 (flex 형제 요소)
 - ESC 키로 닫기 지원
-- 모바일: 오버레이 + 전체 너비
+- 패널 활성화 시 좌측 패널 버튼 숨김 (패널 헤더 탭으로 전환)
+- `self-stretch`로 좌측 콘텐츠와 동일 높이
+
+#### DataHelperChatbot (데이터 해석 도우미)
+
+L3 학생 대시보드에 플로팅 형태로 제공되는 AI 질문-답변 도우미입니다.
+
+```
+src/features/student-dashboard/
+├── components/
+│   ├── DataHelperChatbot.tsx      # 메인 컨테이너 (FAB + 챗봇 창)
+│   ├── DataHelperQuestions.tsx     # 2단 질문 목록 (진단 4 + 유형 3)
+│   └── DataHelperAnswer.tsx       # AI 답변 표시 (마크다운 렌더링)
+└── services/
+    └── dataHelperService.ts       # 질문별 AI 프롬프트 매핑 + 호출
+```
+
+**질문 구조 (7개)**:
+- 진단 해석: 총평 상세 / 11개 요인 / 강점 / 보완점
+- 유형 해석: 전체 유형 특징 / 유형 세부특성 / 개인별 특성
+
+**주요 특징**:
+- FAB 버튼: `fixed bottom-6 right-6`, indigo-purple 그라데이션
+- 챗봇 창: `fixed bottom-24 right-6`, w-[420px] h-[560px]
+- 답변 캐싱: 같은 질문 재클릭 시 API 호출 없음
+- 학생 변경 시 캐시 자동 초기화
+- 하단 "AI 어시스턴트로 이동하기" 버튼 → `/ai-room` 라우팅
+
+**데이터 흐름**:
+```
+DataHelperChatbot(props: tScores, predictedType, typeProbabilities, schoolLevel, deviations)
+  └── dataHelperService.getDataHelperAnswer(questionId, studentData)
+       ├── getSubCategoryResults(tScores) ← summaryGenerator.ts
+       ├── getTypeInfo(type, schoolLevel) ← lpaClassifier.ts
+       └── callAI({ messages, temperature: 0.4 }) ← ai.ts
+```
 
 #### 트렌디한 디자인 요소
 
@@ -735,5 +774,5 @@ const activeRecords = records.filter(r => r.status !== 'cancelled');
 
 ---
 
-**Last Updated**: 2026-02-06
-**Version**: 2.3 (AI Room, 상담일정 기능 구현 완료)
+**Last Updated**: 2026-02-08
+**Version**: 2.4 (데이터 해석 도우미, RightPanel 푸시 레이아웃)

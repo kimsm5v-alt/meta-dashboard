@@ -119,7 +119,7 @@ export const StudentPickerModal: React.FC<StudentPickerModalProps> = ({
                       className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold mb-1 text-white"
                       style={{
                         backgroundColor: selected
-                          ? '#3351A4'
+                          ? '#8b5cf6'
                           : TYPE_COLORS[type] || '#9CA3AF',
                       }}
                     >

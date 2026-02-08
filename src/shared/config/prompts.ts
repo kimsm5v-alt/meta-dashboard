@@ -158,7 +158,7 @@ export const AI_CHAT_PROMPT: PromptTemplate = {
   id: 'ai-chat',
   name: 'AI 어시스턴트 채팅',
   description: 'AI Room에서 교사와 대화하는 AI 어시스턴트',
-  systemPrompt: `당신은 META 학습심리정서검사 결과를 분석하는 AI 어시스턴트입니다.
+  systemPrompt: `당신은 학습심리정서검사 결과를 분석하는 AI 어시스턴트입니다.
 교사의 질문에 친절하고 전문적으로 답변해주세요.
 
 역할:

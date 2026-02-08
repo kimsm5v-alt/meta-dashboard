@@ -291,7 +291,7 @@ export const TeacherDashboardPage = () => {
 
                 {/* Attention Badge */}
                 {(cls.stats?.needAttentionCount || 0) > 0 && (
-                  <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
+                  <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
                     <AlertTriangle className="w-4 h-4" />
                     <span className="text-sm font-medium">관심 필요: {cls.stats?.needAttentionCount}명</span>
                   </div>

@@ -19,7 +19,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
 
           {/* 서브타이틀 */}
           <p className="text-lg md:text-xl text-gray-600 mb-10 leading-relaxed">
-            META 학습심리정서검사로 학생 개개인의 학습 유형을 파악하고,
+            비상교육 학습심리정서검사로 학생 개개인의 학습 유형을 파악하고,
             <br className="hidden md:block" />
             AI 기반 맞춤형 코칭 전략을 받아보세요.
           </p>

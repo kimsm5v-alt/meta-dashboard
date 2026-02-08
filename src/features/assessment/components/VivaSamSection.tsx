@@ -1,5 +1,6 @@
 import { ExternalLink, Upload, FileText, CheckCircle } from 'lucide-react';
 import { Button } from '@/shared/components';
+import vivasamLogo from '@/assets/vivasam_logo_symbol.svg';
 
 interface VivaSamSectionProps {
   onUploadClick: () => void;
@@ -9,17 +10,17 @@ export const VivaSamSection: React.FC<VivaSamSectionProps> = ({ onUploadClick })
   return (
     <div className="space-y-6">
       {/* 비바샘 검사 안내 */}
-      <div className="bg-gradient-to-br from-primary-50 to-blue-50 rounded-xl p-6 border border-primary-100">
+      <div className="bg-white rounded-xl p-6 border border-gray-200">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-full bg-primary-500 flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-lg">M</span>
+          <div className="w-12 h-12 rounded-full bg-white border-2 border-sky-200 flex items-center justify-center flex-shrink-0 p-2">
+            <img src={vivasamLogo} alt="비바샘" className="w-full h-full object-contain" />
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               비바샘 회원 전용 검사
             </h3>
             <p className="text-gray-600 text-sm mb-4">
-              비바샘 플랫폼에서 META 학습심리정서검사를 실시하고, 결과가 자동으로 연동됩니다.
+              비바샘 플랫폼에서 학습심리정서검사를 실시하고, 결과가 자동으로 연동됩니다.
               별도의 검사 코드 입력이나 결과 업로드가 필요 없습니다.
             </p>
             <div className="flex flex-wrap gap-3">

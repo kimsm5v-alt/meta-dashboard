@@ -10,12 +10,13 @@ import {
   TypeDeviations,
   CoachingStrategy,
   RightPanel,
+  DataHelperChatbot,
   type PanelTab,
 } from '../components';
 
 // 헤더 버튼 설정
 const PANEL_BUTTONS = [
-  { key: 'schoolRecord' as const, label: '기록부', icon: FileText },
+  { key: 'schoolRecord' as const, label: '생기부', icon: FileText },
   { key: 'counseling' as const, label: '상담', icon: MessageSquare },
   { key: 'observation' as const, label: '관찰', icon: Eye },
 ];
@@ -55,7 +56,9 @@ export const StudentDashboardPage = () => {
   const next = currentIdx < classData.students.length - 1 ? classData.students[currentIdx + 1] : null;
 
   return (
-    <div className="space-y-6">
+    <div className="flex gap-6">
+      {/* 메인 콘텐츠 */}
+      <div className={`flex-1 min-w-0 space-y-6 transition-all duration-300 ${panelTab ? 'pr-0' : ''}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -95,22 +98,62 @@ export const StudentDashboardPage = () => {
           </div>
         </div>
 
-        {/* Panel Buttons + Navigation */}
-        <div className="flex items-center gap-4">
-          {/* 패널 열기 버튼들 */}
+        {/* 학생 네비게이션 */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => prev && navigate(`/dashboard/class/${classId}/student/${prev.id}`)}
+            disabled={!prev}
+            className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <span className="text-sm text-gray-500">
+            {currentIdx + 1} / {classData.students.length}
+          </span>
+          <button
+            onClick={() => next && navigate(`/dashboard/class/${classId}/student/${next.id}`)}
+            disabled={!next}
+            className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Round Selector + Panel Buttons */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSelectedRound(1)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              selectedRound === 1
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            1차 검사
+          </button>
+          <button
+            onClick={() => setSelectedRound(2)}
+            disabled={!r2}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              selectedRound === 2
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            2차 검사
+          </button>
+        </div>
+        {!panelTab && (
           <div className="flex gap-1.5">
             {PANEL_BUTTONS.map(btn => {
               const Icon = btn.icon;
-              const isActive = panelTab === btn.key;
               return (
                 <button
                   key={btn.key}
-                  onClick={() => setPanelTab(isActive ? null : btn.key)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                  }`}
+                  onClick={() => setPanelTab(btn.key)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
                 >
                   <Icon className="w-4 h-4" />
                   {btn.label}
@@ -118,53 +161,7 @@ export const StudentDashboardPage = () => {
               );
             })}
           </div>
-
-          {/* 학생 네비게이션 */}
-          <div className="flex items-center gap-2 pl-4 border-l border-gray-200">
-            <button
-              onClick={() => prev && navigate(`/dashboard/class/${classId}/student/${prev.id}`)}
-              disabled={!prev}
-              className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <span className="text-sm text-gray-500">
-              {currentIdx + 1} / {classData.students.length}
-            </span>
-            <button
-              onClick={() => next && navigate(`/dashboard/class/${classId}/student/${next.id}`)}
-              disabled={!next}
-              className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Round Selector */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setSelectedRound(1)}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            selectedRound === 1
-              ? 'bg-primary-500 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          1차 검사
-        </button>
-        <button
-          onClick={() => setSelectedRound(2)}
-          disabled={!r2}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            selectedRound === 2
-              ? 'bg-primary-500 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          2차 검사
-        </button>
+        )}
       </div>
 
       {/* 1. 진단결과 한눈에 보기 */}
@@ -219,7 +216,18 @@ export const StudentDashboardPage = () => {
         onClose={() => setIsCoachingOpen(false)}
       />
 
-      {/* 우측 슬라이드 패널 */}
+      {/* 데이터 해석 도우미 (플로팅 챗봇) */}
+      <DataHelperChatbot
+        tScores={current.tScores}
+        predictedType={current.predictedType}
+        typeProbabilities={current.typeProbabilities}
+        schoolLevel={student.schoolLevel}
+        deviations={current.deviations}
+      />
+
+      </div>
+
+      {/* 우측 푸시 패널 */}
       <RightPanel
         isOpen={panelTab !== null}
         activeTab={panelTab}

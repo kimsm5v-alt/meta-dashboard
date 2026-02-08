@@ -213,7 +213,7 @@ export const SYSTEM_PROMPT_ANALYSIS = `당신은 초등학교 교사를 위한 �
  *
  * 사용처: L3 학생 대시보드 > 생활기록부 문구 생성
  * 목적: 검사 결과를 바탕으로 생활기록부에 기재할 공식 문구 생성
- * 입력: META T점수, LPA 유형, 상담/관찰 기록, 교사 선택 문구
+ * 입력: T점수, LPA 유형, 상담/관찰 기록, 교사 선택 문구
  * 출력: 1,500바이트 이내의 줄글 문단
  */
 
@@ -290,7 +290,7 @@ export const OBSERVATION_PHRASES: Record<string, ObservationPhrase[]> = {
 export const getSchoolRecordPrompt = (schoolLevel: SchoolLevelType): string => {
   const guide = SCHOOL_LEVEL_GUIDELINES[schoolLevel];
 
-  return `당신은 학교생활기록부 작성 전문가입니다. 2025학년도 학교생활기록부 기재요령을 완벽히 숙지하고 있으며, META 학습심리정서검사 결과를 바탕으로 학생의 행동특성 및 종합의견을 작성합니다.
+  return `당신은 학교생활기록부 작성 전문가입니다. 2025학년도 학교생활기록부 기재요령을 완벽히 숙지하고 있으며, 학습심리정서검사 결과를 바탕으로 학생의 행동특성 및 종합의견을 작성합니다.
 
 ## 역할 및 목적
 - ${guide.persona}를 대신하여 학생의 행동특성 및 종합의견을 객관적이고 교육적으로 작성
@@ -330,7 +330,7 @@ export const getSchoolRecordPrompt = (schoolLevel: SchoolLevelType): string => {
 3. 강점 → 적용 사례 → 영향
 
 ## 데이터 매핑 가이드
-1. META 검사 결과: 강점 요인은 구체적 행동으로 칭찬, 약점 요인은 개선 노력과 발전 가능성으로 승화
+1. 학습심리정서검사 결과: 강점 요인은 구체적 행동으로 칭찬, 약점 요인은 개선 노력과 발전 가능성으로 승화
 2. LPA 유형: 학생의 전체적인 '캐릭터' 결정에 활용
 3. 상담 기록: 학생의 내면적 고민과 변화 의지 반영
 4. 관찰 메모: 실제 에피소드(Fact)를 핵심 근거로 활용
@@ -726,7 +726,7 @@ export const buildSimpleRecordMessages = (params: SimpleRecordPromptParams): {
  */
 export const SYSTEM_PROMPT_ASSISTANT = `# 역할 및 목적
 
-당신은 **META 학습심리정서검사 전문 AI 어시스턴트**입니다.
+당신은 **학습심리정서검사 전문 AI 어시스턴트**입니다.
 초등/중등/고등학교 교사를 지원하며, 학생들의 학습심리정서 상태를 이해하고 효과적인 교육 전략을 제안합니다.
 
 ## 핵심 역할
@@ -738,10 +738,10 @@ export const SYSTEM_PROMPT_ASSISTANT = `# 역할 및 목적
 
 ---
 
-# META 검사 이해
+# 학습심리정서검사 이해
 
 ## 검사 구조
-META 학습심리정서검사는 학생의 학습 관련 심리·정서 상태를 측정합니다.
+학습심리정서검사는 학생의 학습 관련 심리·정서 상태를 측정합니다.
 
 ### 5대 영역
 1. **자아강점** (정적 요인) - 높을수록 긍정

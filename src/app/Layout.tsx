@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { MOCK_CLASSES } from '@/shared/data/mockData';
+import serviceLogo from '@/assets/logo.png';
 
 interface LayoutProps {
   children: ReactNode;
@@ -40,15 +41,9 @@ const Header = () => {
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50">
       <div className="flex items-center justify-between h-full px-6">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">M</span>
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900">META</h1>
-            <p className="text-xs text-gray-500">학습심리정서검사</p>
-          </div>
-        </div>
+        <button onClick={() => navigate('/')} className="flex items-center">
+          <img src={serviceLogo} alt="학습심리정서검사" className="h-5" />
+        </button>
         <div className="flex items-center gap-4">
           <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
             <Bell className="w-5 h-5" />

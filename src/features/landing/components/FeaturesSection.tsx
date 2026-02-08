@@ -35,7 +35,7 @@ export const FeaturesSection = () => {
             주요 기능
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            META 대시보드로 학생들의 학습심리정서를 체계적으로 분석하고 관리하세요.
+            비상교육 대시보드로 학생들의 학습심리정서를 체계적으로 분석하고 관리하세요.
           </p>
         </div>
 

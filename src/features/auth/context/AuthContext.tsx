@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import type { User, MemberType, AuthState, OAuthProvider } from '@/shared/types';
+import { MOCK_TEACHER } from '@/shared/data/mockData';
 
 // ============================================================
 // Context 타입 정의
@@ -19,7 +20,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const MOCK_USERS: Record<MemberType, User> = {
   vivasam: {
     id: 'user-vivasam-1',
-    name: '김교사',
+    name: MOCK_TEACHER.name,
     email: 'teacher@vivasam.com',
     memberType: 'vivasam',
     provider: 'vivasam',
@@ -27,7 +28,7 @@ const MOCK_USERS: Record<MemberType, User> = {
   },
   general: {
     id: 'user-general-1',
-    name: '이교사',
+    name: MOCK_TEACHER.name,
     email: 'teacher@gmail.com',
     memberType: 'general',
     provider: 'google',
