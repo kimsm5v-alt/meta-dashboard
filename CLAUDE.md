@@ -51,12 +51,13 @@
 | | 🔵 정서조절취약형 | 38.0% | 스트레스 관리 미흡, 감정 기복, 불안 경향 |
 | | 🔷 자기주도몰입형 | 26.6% | 자율적 학습, 높은 성취동기, 효과적 시간관리 |
 
-### 3단계 대시보드 구조
+### 대시보드 구조
 
 ```
-L1: 교사 전체 반 대시보드     → /dashboard
- └─ L2: 특정 반 대시보드      → /dashboard/class/:classId
-     └─ L3: 특정 학생 대시보드 → /dashboard/class/:classId/student/:studentId
+L1: 교사 전체 반 대시보드        → /dashboard
+ └─ L2: 특정 반 대시보드         → /dashboard/class/:classId
+     ├─ L2.5: 학급 특성 상세 분석 → /dashboard/class/:classId/analysis
+     └─ L3: 특정 학생 대시보드    → /dashboard/class/:classId/student/:studentId
 ```
 
 ---
@@ -96,7 +97,7 @@ L1: 교사 전체 반 대시보드     → /dashboard
 |------|------|
 | `shared/services/ai.ts` | AI 서비스 추상화 레이어 (Provider 선택, 기능별 프롬프트 적용) |
 | `shared/services/gemini.ts` | Gemini API 호출 (재시도, PII 마스킹, 메시지 변환) |
-| `shared/data/aiPrompts.ts` | 기능별 시스템 프롬프트 관리 (analysis, record, assistant) |
+| `shared/data/aiPrompts.ts` | 기능별 시스템 프롬프트 관리 (analysis, record, dataHelper, assistant, classAnalysis) |
 | `shared/utils/piiMasking.ts` | 개인정보 마스킹 유틸리티 |
 | `shared/utils/summaryGenerator.ts` | AI 총평 생성 (11개 중분류 → 3줄 요약) |
 | `shared/utils/recordGenerator.ts` | 생활기록부 문구 생성 유틸리티 (강점 영역 추출, 변화 분석) |
@@ -111,7 +112,9 @@ L1: 교사 전체 반 대시보드     → /dashboard
 |---------|--------|------|
 | `analysis` | L3 학생 대시보드 > AI 분석 총평 | ✅ 구현 완료 |
 | `record` | L3 학생 대시보드 > 생활기록부 문구 생성 | ✅ 구현 완료 |
+| `dataHelper` | L3 학생 대시보드 > 데이터 해석 도우미 (7개 질문) | ✅ 구현 완료 |
 | `assistant` | AI Room > 교사-AI 대화 | ✅ 구현 완료 |
+| `classAnalysis` | L2.5 학급 상세 분석 > AI 학급 분석 총평 (overall + keyPoint) | ✅ 구현 완료 |
 
 ---
 
@@ -189,7 +192,7 @@ src/
 | `shared/data/factors.ts` | 요인 메타데이터 (대분류, 중분류, 긍정/부정) |
 | `shared/data/dataTransformer.ts` | JSON 원본 → Assessment 변환 (요인 매핑, LPA 분류기로 유형 결정, 교사명/날짜/학교급 JSON에서 동적 추출) |
 | `shared/data/mockData.ts` | 샘플 학급 데이터 (4개 반, 88명) |
-| `shared/data/aiPrompts.ts` | AI 기능별 시스템 프롬프트 (analysis, record, assistant) |
+| `shared/data/aiPrompts.ts` | AI 기능별 시스템 프롬프트 (analysis, record, dataHelper, assistant, classAnalysis) |
 | `shared/services/ai.ts` | AI 서비스 추상화 레이어 (Provider 선택, 기능별 프롬프트 적용) |
 | `shared/services/gemini.ts` | Gemini API 호출 (v1beta, 429 재시도, PII 마스킹) |
 | `shared/utils/summaryGenerator.ts` | AI 총평 생성 로직 (11개 중분류 → 3줄 요약) |
@@ -201,6 +204,8 @@ src/
 | `features/ai-room/services/assistantService.ts` | AI Room 대화 서비스 |
 | `features/ai-room/services/contextBuilder.ts` | AI 컨텍스트 빌더 (RAG, 별칭 시스템) |
 | `features/student-dashboard/services/dataHelperService.ts` | 데이터 해석 도우미 AI 서비스 (7개 질문별 프롬프트) |
+| `features/class-dashboard/hooks/useClassProfile.ts` | 학급 프로필 (중분류 merit score → 강점/약점 TOP 3, 해설문) |
+| `features/class-dashboard/hooks/useClassDetailData.ts` | 학급 상세 데이터 (38개 요인 평균, 영역 계층, 위험군 분류) |
 
 ### 문서 폴더 구조
 
@@ -401,9 +406,42 @@ type ChangeFilter = 'all' | 'reliability-warning' | 'need-attention' | 'negative
 
 #### ClassInsights 컴포넌트
 
-**현재 상태**: 하드코딩 (실제 데이터 기반 로직 미구현)
-- 주의 항목, 양호 항목, 추천 학급 활동 3섹션
-- `classData` prop을 받지만 사용하지 않음
+- `useClassProfile` 훅으로 merit score 기반 강점 TOP 3 / 약점 TOP 3 산출
+- 강점: `accent="emerald"`, 약점: `accent="red"`로 `ProfileItem` 렌더링
+- 추천 학급 활동 3개 (하드코딩)
+- "상세 분석" 버튼 → `/dashboard/class/:classId/analysis` 라우팅
+
+### L2.5: 학급 특성 상세 분석
+
+**경로**: `/dashboard/class/:classId/analysis`
+
+#### 컴포넌트 구조
+
+```
+ClassDetailAnalysisPage
+├── Header (학년/반 + 뒤로가기)
+├── RoundSelector (1차/2차 선택)
+├── Section 1: 학급 종합 분석
+│   └── ClassSummarySection
+│       ├── AI 총평 (callAI, feature: 'classAnalysis' → overall + keyPoint)
+│       └── 강점/약점 카드 (useClassProfile 기반 → L2와 동일 데이터)
+├── Section 2: 38개 세부 요인 분석
+│   └── FactorHeatmapSection
+│       ├── 대분류별 그룹 (정적=emerald, 부적=rose)
+│       ├── 중분류 드롭다운 → 소분류 펼침
+│       └── FactorBar + LevelBadge
+├── Section 3: 관심 필요 학생
+│   └── RiskStudentsSection (긴급/관찰 2단 테이블)
+└── Section 4: 학급 맞춤 운영 전략
+    └── StrategySection (약점 기반 전략 카드 3개 + 체크리스트)
+```
+
+#### 핵심 훅
+
+| 훅 | 역할 |
+|------|------|
+| `useClassProfile` | 중분류 merit score → 강점 TOP 3 / 약점 TOP 3, T점수 구간별 해설문 |
+| `useClassDetailData` | 38개 요인 평균, 5대 영역 계층 구조, 위험군 학생 분류 |
 
 ### L3: 학생 대시보드
 
@@ -774,5 +812,5 @@ const activeRecords = records.filter(r => r.status !== 'cancelled');
 
 ---
 
-**Last Updated**: 2026-02-08
-**Version**: 2.4 (데이터 해석 도우미, RightPanel 푸시 레이아웃)
+**Last Updated**: 2026-02-09
+**Version**: 2.5 (학급 상세 분석 페이지, classAnalysis 프롬프트)

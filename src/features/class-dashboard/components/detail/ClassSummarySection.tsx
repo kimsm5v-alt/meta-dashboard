@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 import type { Class } from '@/shared/types';
 import type { ClassDetailData } from '../../hooks/useClassDetailData';
-import type { ClassProfile } from '../../hooks/useClassProfile';
+import type { ClassProfile, ClassProfileItem } from '../../hooks/useClassProfile';
 import { callAI } from '@/shared/services/ai';
 import { SUB_CATEGORY_SCRIPTS } from '@/shared/data/subCategoryScripts';
 
@@ -109,12 +109,35 @@ ${typeDistText ? `\n## 유형 분포\n${typeDistText}` : ''}
 // ============================================================
 
 function parseAIResponse(text: string): ClassSummaryResponse | null {
-  // ```json ... ``` 감싸진 경우 추출
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
-  const jsonText = jsonMatch ? jsonMatch[1] : text;
+  if (!text) return null;
 
+  // 1. ```json ... ``` 블록 추출
+  const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+  if (jsonBlockMatch) {
+    const result = tryParseJSON(jsonBlockMatch[1]);
+    if (result) return result;
+  }
+
+  // 2. ``` ... ``` 블록 추출 (언어 태그 없는 경우)
+  const codeBlockMatch = text.match(/```\s*([\s\S]*?)\s*```/);
+  if (codeBlockMatch) {
+    const result = tryParseJSON(codeBlockMatch[1]);
+    if (result) return result;
+  }
+
+  // 3. { ... } 직접 추출
+  const braceMatch = text.match(/\{[\s\S]*\}/);
+  if (braceMatch) {
+    const result = tryParseJSON(braceMatch[0]);
+    if (result) return result;
+  }
+
+  return null;
+}
+
+function tryParseJSON(text: string): ClassSummaryResponse | null {
   try {
-    const parsed = JSON.parse(jsonText.trim());
+    const parsed = JSON.parse(text.trim());
     if (parsed.overall && parsed.keyPoint) {
       return parsed as ClassSummaryResponse;
     }
@@ -128,13 +151,68 @@ function parseAIResponse(text: string): ClassSummaryResponse | null {
 // 유틸리티
 // ============================================================
 
-/** 중분류 표시명 (SUB_CATEGORY_SCRIPTS.name 사용) */
 function getCategoryDisplayName(category: string): string {
   return SUB_CATEGORY_SCRIPTS[category]?.name ?? category;
 }
 
 // ============================================================
-// 컴포넌트
+// 서브 컴포넌트: 강점/약점 카드
+// ============================================================
+
+const ACCENT_STYLES = {
+  emerald: {
+    card: 'bg-emerald-50/50 border-emerald-200',
+    header: 'text-emerald-800',
+    badgeBg: 'bg-emerald-200 text-emerald-700',
+    rank: 'text-emerald-500',
+    score: 'text-emerald-600',
+  },
+  red: {
+    card: 'bg-red-50/50 border-red-200',
+    header: 'text-red-800',
+    badgeBg: 'bg-red-200 text-red-700',
+    rank: 'text-red-500',
+    score: 'text-red-600',
+  },
+} as const;
+
+const ProfileListCard: React.FC<{
+  title: string;
+  badge: string;
+  items: ClassProfileItem[];
+  accent: 'emerald' | 'red';
+}> = ({ title, badge, items, accent }) => {
+  const s = ACCENT_STYLES[accent];
+  return (
+    <div className={`border p-5 rounded-lg ${s.card}`}>
+      <h3 className={`font-bold mb-3 flex items-center gap-1.5 ${s.header}`}>
+        <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${s.badgeBg}`}>
+          {badge}
+        </span>
+        {title}
+      </h3>
+      <ul className="space-y-3">
+        {items.map((item, idx) => (
+          <li key={item.category} className="flex items-start gap-2">
+            <span className={`text-xs font-bold mt-0.5 ${s.rank}`}>{idx + 1}</span>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">
+                {getCategoryDisplayName(item.category)}
+                <span className={`ml-1.5 text-xs font-normal ${s.score}`}>T {item.avgT}</span>
+              </p>
+              {item.categoryScript && (
+                <p className="text-xs text-gray-500 leading-relaxed mt-0.5">{item.categoryScript}</p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+// ============================================================
+// 메인 컴포넌트
 // ============================================================
 
 export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
@@ -163,10 +241,17 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
           temperature: 0.3,
         });
 
+        if (!response.success) {
+          console.error('[ClassSummary] AI 호출 실패:', response.error);
+          setError(true);
+          return;
+        }
+
         const parsed = parseAIResponse(response.content);
         if (parsed) {
           setResult(parsed);
         } else {
+          console.error('[ClassSummary] JSON 파싱 실패. 원본 응답:', response.content);
           setError(true);
         }
       } catch {
@@ -218,59 +303,8 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
       {/* 강점/약점 그리드 (useClassProfile 기반) */}
       {profile && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-emerald-50/50 border border-emerald-200 p-5 rounded-lg">
-            <h3 className="font-bold text-emerald-800 mb-3 flex items-center gap-1.5">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-200 text-emerald-700 text-xs font-bold">
-                +
-              </span>
-              주요 강점
-            </h3>
-            <ul className="space-y-3">
-              {profile.strengths.map((item, idx) => (
-                <li key={item.category} className="flex items-start gap-2">
-                  <span className="text-xs font-bold text-emerald-500 mt-0.5">{idx + 1}</span>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">
-                      {getCategoryDisplayName(item.category)}
-                      <span className="ml-1.5 text-xs font-normal text-emerald-600">
-                        T {item.avgT}
-                      </span>
-                    </p>
-                    {item.categoryScript && (
-                      <p className="text-xs text-gray-500 leading-relaxed mt-0.5">{item.categoryScript}</p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="bg-red-50/50 border border-red-200 p-5 rounded-lg">
-            <h3 className="font-bold text-red-800 mb-3 flex items-center gap-1.5">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-red-200 text-red-700 text-xs font-bold">
-                !
-              </span>
-              관심 필요 영역
-            </h3>
-            <ul className="space-y-3">
-              {profile.weaknesses.map((item, idx) => (
-                <li key={item.category} className="flex items-start gap-2">
-                  <span className="text-xs font-bold text-red-500 mt-0.5">{idx + 1}</span>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">
-                      {getCategoryDisplayName(item.category)}
-                      <span className="ml-1.5 text-xs font-normal text-red-600">
-                        T {item.avgT}
-                      </span>
-                    </p>
-                    {item.categoryScript && (
-                      <p className="text-xs text-gray-500 leading-relaxed mt-0.5">{item.categoryScript}</p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ProfileListCard title="주요 강점" badge="+" items={profile.strengths} accent="emerald" />
+          <ProfileListCard title="관심 필요 영역" badge="!" items={profile.weaknesses} accent="red" />
         </div>
       )}
 

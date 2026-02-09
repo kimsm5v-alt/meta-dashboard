@@ -53,7 +53,7 @@ export interface GeminiResponse {
 
 const getConfig = (): GeminiConfig => ({
   apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
-  model: import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash',
+  model: import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash',
   baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
 });
 
@@ -162,6 +162,12 @@ export const callGemini = async (
         maxOutputTokens: request.maxTokens || 1024,
         temperature: request.temperature ?? 0.7,
       },
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+      ],
     };
 
     // 3. API 호출
@@ -193,9 +199,23 @@ export const callGemini = async (
 
     // 5. 응답 파싱
     const data = await response.json();
+
+    // 안전 필터 등으로 응답이 차단된 경우
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
+      const blockReason = data.promptFeedback?.blockReason
+        || data.candidates?.[0]?.finishReason
+        || 'Empty response';
+      return {
+        success: false,
+        content: '',
+        error: `응답이 생성되지 않았습니다: ${blockReason}`,
+      };
+    }
+
     return {
       success: true,
-      content: data.candidates?.[0]?.content?.parts?.[0]?.text || '',
+      content: text,
       usage: data.usageMetadata
         ? {
             promptTokens: data.usageMetadata.promptTokenCount || 0,
