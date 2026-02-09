@@ -85,7 +85,7 @@ L1: 교사 전체 반 대시보드        → /dashboard
 
 ### AI 서비스 규칙
 
-- **기본 모델**: `gemini-2.0-flash` (v1beta 엔드포인트)
+- **기본 모델**: `gemini-2.5-flash` (v1beta 엔드포인트)
 - **API Key**: `.env` 파일의 `VITE_GEMINI_API_KEY`에 설정
 - **429 에러 처리**: 자동 재시도 (최대 3회, 지수 백오프)
 - **PII 마스킹**: 모든 AI 호출 시 자동으로 개인정보 마스킹 적용
@@ -196,6 +196,7 @@ src/
 | `shared/services/ai.ts` | AI 서비스 추상화 레이어 (Provider 선택, 기능별 프롬프트 적용) |
 | `shared/services/gemini.ts` | Gemini API 호출 (v1beta, 429 재시도, PII 마스킹) |
 | `shared/utils/summaryGenerator.ts` | AI 총평 생성 로직 (11개 중분류 → 3줄 요약) |
+| `shared/utils/calculate4StepDiagnosis.ts` | 4단계 진단 계산 (중분류 → Step 1~4, 8유형 판정, 코칭전략) |
 | `shared/utils/piiMasking.ts` | 개인정보 마스킹 (이름, 학번, 생년월일, 학교명) |
 | `shared/services/unifiedCounselingService.ts` | 통합 상담 서비스 (일정+기록 통합, 다중 학생 지원) |
 | `shared/services/counselingService.ts` | 상담 기록 서비스 (레거시, deprecated) |
@@ -452,9 +453,10 @@ StudentDashboardPage
 ├── Header (학생 정보 + 네비게이션 + 패널 버튼)
 │   └── PANEL_BUTTONS: [생기부, 상담, 관찰]
 ├── RoundSelector (1차/2차 선택)
-├── Section 1: 진단결과 한눈에 보기
+├── Section 1: 학생 진단 결과 해석 (A/B 토글: 중분류 요인 / 4단계 해석)
 │   ├── DiagnosisSummary (AI 총평)
-│   └── FactorLineChart (11개 중분류)
+│   ├── FactorLineChart (11개 중분류) — chartViewMode='midCategory'
+│   └── FourStepInterpretation (4단계 해석 가이드) — chartViewMode='fourStep'
 ├── Section 2: 학습 유형 알아보기
 │   ├── TypeClassification (도넛 차트)
 │   ├── TypeDeviations (특이점 3개)
@@ -495,6 +497,29 @@ const [panelTab, setPanelTab] = useState<PanelTab>(null);
 - ESC 키로 닫기 지원
 - 패널 활성화 시 좌측 패널 버튼 숨김 (패널 헤더 탭으로 전환)
 - `self-stretch`로 좌측 콘텐츠와 동일 높이
+
+#### FourStepInterpretation (4단계 해석 가이드)
+
+Section 1 "학생 진단 결과 해석"의 A/B 토글(`chartViewMode`)로 FactorLineChart와 전환 가능한 4단계 해석 컴포넌트.
+
+```
+FourStepInterpretation({ tScores, studentName })
+├── 가이드 헤더 ("4단계 해석 가이드")
+├── StepCard × 4 (아코디언)
+│   ├── Step 1: 공부 마음 (학업열의, 성장력, 학업소진)
+│   ├── Step 2: 공부 자원 (개인/환경/방해)
+│   ├── Step 3: 공부 기술 (학습 재설계/마음 재설계)
+│   └── Step 4: 학습 유형 (사분면 그래프 + 8유형 정보 카드)
+├── SubSection (중분류 그룹 + LevelBadge)
+└── BarItem (T점수 막대 + 하위 소분류 드롭다운)
+```
+
+**설계 규칙**:
+- T점수 범위: 20~80 기준 `(score - 20) / 60 * 100` (T=50이 정확히 50% 중앙)
+- 5단계 레벨: 매우높음(≥70), 높음(≥60), 보통(≥40), 낮음(≥30), 매우낮음(<30)
+- 막대 색상: 정적=`#22C55E`(green), 부적=`#F43F5E`(rose)
+- 사분면 dot: 공부기술 ≥50 → blue-600, <50 → red-500
+- 8유형: 사분면(마음×자원) × 기술(높/낮), `calculate4StepDiagnosis.ts`에서 계산
 
 #### DataHelperChatbot (데이터 해석 도우미)
 

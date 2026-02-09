@@ -140,7 +140,6 @@ ${lines.join('\n')}
       { role: 'system', content: SYSTEM_PROMPT_ANALYSIS },
       { role: 'user', content: userPrompt },
     ],
-    maxTokens: 200,
     temperature: 0.3, // 일관성 있는 출력
   });
 

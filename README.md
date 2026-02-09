@@ -76,8 +76,8 @@ cp .env.example .env
 # Google AI Studio에서 API Key 발급: https://aistudio.google.com/app/apikey
 VITE_GEMINI_API_KEY=your_gemini_api_key_here
 
-# Gemini 모델 설정 (선택, 기본값: gemini-2.0-flash)
-VITE_GEMINI_MODEL=gemini-2.0-flash
+# Gemini 모델 설정 (선택, 기본값: gemini-2.5-flash)
+VITE_GEMINI_MODEL=gemini-2.5-flash
 
 # 향후 백엔드 연동 시 필요
 # VITE_API_URL=<backend-api-url>

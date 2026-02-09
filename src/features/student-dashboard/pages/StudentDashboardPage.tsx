@@ -6,6 +6,7 @@ import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 import {
   DiagnosisSummary,
   FactorLineChart,
+  FourStepInterpretation,
   TypeClassification,
   TypeDeviations,
   CoachingStrategy,
@@ -27,6 +28,7 @@ export const StudentDashboardPage = () => {
   const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
+  const [chartViewMode, setChartViewMode] = useState<'midCategory' | 'fourStep'>('midCategory');
 
   const classData = classId ? getClassById(classId) : undefined;
   const student = classId && studentId ? getStudentById(classId, studentId) : undefined;
@@ -166,7 +168,31 @@ export const StudentDashboardPage = () => {
 
       {/* 1. 진단결과 한눈에 보기 */}
       <section>
-        <h2 className="text-xl font-bold mb-4">진단결과 한눈에 보기</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">학생 진단 결과 해석</h2>
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setChartViewMode('midCategory')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                chartViewMode === 'midCategory'
+                  ? 'bg-white text-primary-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              중분류 요인
+            </button>
+            <button
+              onClick={() => setChartViewMode('fourStep')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                chartViewMode === 'fourStep'
+                  ? 'bg-white text-primary-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              4단계 해석
+            </button>
+          </div>
+        </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           {/* 총평 */}
           <div className="p-6 border-b border-gray-200">
@@ -176,9 +202,13 @@ export const StudentDashboardPage = () => {
             />
           </div>
 
-          {/* 중분류 요인 그래프 */}
+          {/* 차트 영역: A/B 토글 */}
           <div className="p-6">
-            <FactorLineChart tScores={current.tScores} />
+            {chartViewMode === 'midCategory' ? (
+              <FactorLineChart tScores={current.tScores} />
+            ) : (
+              <FourStepInterpretation tScores={current.tScores} studentName={student.name} />
+            )}
           </div>
         </div>
       </section>

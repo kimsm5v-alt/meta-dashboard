@@ -237,7 +237,6 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
         const response = await callAI({
           feature: 'classAnalysis',
           messages: [{ role: 'user', content: userMessage }],
-          maxTokens: 800,
           temperature: 0.3,
         });
 

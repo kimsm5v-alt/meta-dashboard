@@ -159,7 +159,10 @@ export const callGemini = async (
     const requestBody = {
       contents,
       generationConfig: {
-        maxOutputTokens: request.maxTokens || 1024,
+        thinkingConfig: {
+          thinkingBudget: 0,
+        },
+        maxOutputTokens: request.maxTokens || 8192,
         temperature: request.temperature ?? 0.7,
       },
       safetySettings: [

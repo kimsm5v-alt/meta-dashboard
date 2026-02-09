@@ -85,7 +85,6 @@ ${customNote}
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      maxTokens: 500,
       temperature: 0.7,
     });
 

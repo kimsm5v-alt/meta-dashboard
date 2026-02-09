@@ -4,6 +4,7 @@ export { FactorLineChart } from './FactorLineChart';
 export { TypeClassification } from './TypeClassification';
 export { TypeDeviations } from './TypeDeviations';
 export { CoachingStrategy } from './CoachingStrategy';
+export { FourStepInterpretation } from './FourStepInterpretation';
 
 // 우측 슬라이드 패널 (학생 관리: 생기부/상담/관찰)
 export { RightPanel, type PanelTab } from './RightPanel';

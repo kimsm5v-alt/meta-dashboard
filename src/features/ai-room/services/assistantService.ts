@@ -95,7 +95,6 @@ export const callAssistant = async (
     // 6. AI 호출 (AI Room은 이미 별칭 처리했으므로 PII 마스킹 비활성화)
     const response = await callAI({
       messages: aiMessages,
-      maxTokens: 2048,
       temperature: 0.7,
       maskPII: false,
     });
