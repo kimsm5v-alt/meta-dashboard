@@ -1,5 +1,6 @@
-import { BookOpen, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { Card, Button } from '@/shared/components';
+import vivasamLogo from '@/assets/vivasam_logo_symbol.svg';
 
 interface StartMethodSectionProps {
   onVivasamClick: () => void;
@@ -31,8 +32,8 @@ export const StartMethodSection: React.FC<StartMethodSectionProps> = ({
           {/* 비바샘 회원 */}
           <Card className="p-8 border-2 border-primary-100 hover:border-primary-300 transition-colors">
             <div className="flex items-start gap-4">
-              <div className="w-14 h-14 bg-primary-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <BookOpen className="w-7 h-7 text-primary-600" />
+              <div className="w-14 h-14 bg-white rounded-xl border-2 border-sky-200 flex items-center justify-center flex-shrink-0">
+                <img src={vivasamLogo} alt="비바샘" className="w-8 h-8" />
               </div>
               <div className="flex-1">
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
@@ -42,7 +43,7 @@ export const StartMethodSection: React.FC<StartMethodSectionProps> = ({
                   비바샘에서 검사했다면 결과가 자동으로 연동됩니다.
                   기존 학급/학생 정보도 함께 가져옵니다.
                 </p>
-                <Button onClick={onVivasamClick}>
+                <Button onClick={onVivasamClick} className="!bg-blue-800 hover:!bg-blue-900 !border !border-sky-200">
                   비바샘으로 시작
                 </Button>
               </div>

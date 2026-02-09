@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { MOCK_CLASSES } from '@/shared/data/mockData';
-import serviceLogo from '@/assets/logo.png';
+import serviceLogo from '@/assets/logo_2.png';
 
 interface LayoutProps {
   children: ReactNode;

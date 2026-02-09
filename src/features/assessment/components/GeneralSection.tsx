@@ -72,7 +72,6 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
           다른 곳에서 실시한 학습심리정서검사 결과가 있다면 PDF 파일을 업로드하여 분석할 수 있습니다.
         </p>
         <Button
-          variant="secondary"
           onClick={onUploadClick}
           className="w-full justify-center"
         >

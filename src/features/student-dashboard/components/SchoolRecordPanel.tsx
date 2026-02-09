@@ -45,6 +45,7 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
   const [editContent, setEditContent] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
   const [expandedStrengths, setExpandedStrengths] = useState<string[]>([]);
+  const [teacherInput, setTeacherInput] = useState('');
   const [validationResult, setValidationResult] = useState<{
     isValid: boolean;
     wordCountResult: { count: number; excess: number };
@@ -142,6 +143,7 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
         })),
         typeChange: changeAnalysis.typeChange,
         selectedSentences,
+        teacherInput,
       };
 
       // 메시지 구성
@@ -224,66 +226,53 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
 
   return (
     <div className="p-4 space-y-4">
-      {/* Step 1: 강점 영역 표시 */}
-      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Star className="w-4 h-4 text-indigo-500" />
-          <h4 className="font-semibold text-gray-900 text-sm">
-            학생 강점 영역 (자동 분석)
-          </h4>
+      {/* 교사 직접 입력 */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Edit3 className="w-4 h-4 text-indigo-500" />
+          <h4 className="font-semibold text-gray-900 text-sm">교사 직접 입력</h4>
         </div>
-
-        <div className="space-y-1.5">
-          {topStrengths.map((strength, index) => (
-            <div
-              key={strength.name}
-              className="flex items-center gap-2 bg-white/60 rounded-lg px-2.5 py-1.5"
-            >
-              <span className="flex items-center justify-center w-5 h-5 bg-indigo-500 text-white text-[11px] font-bold rounded-full">
-                {index + 1}
-              </span>
-              <span className="text-[13px] font-medium text-gray-800 flex-1">
-                {strength.name}
-              </span>
-              <span
-                className={`text-[11px] px-1.5 py-0.5 rounded ${
-                  strength.type === 'positive'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-green-100 text-green-700'
-                }`}
-              >
-                {strength.type === 'positive' ? '높음' : '낮음'} ({strength.level})
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-3 flex items-start gap-2 text-xs text-gray-600 bg-white/40 rounded-lg p-2">
-          <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-          <span>
-            긍정적 요인은 점수가 높을수록, 부정적 요인은 낮을수록 강점입니다.
-          </span>
+        <p className="text-xs text-gray-500 mb-2">학생의 특성을 입력해주세요.</p>
+        <textarea
+          value={teacherInput}
+          onChange={(e) => setTeacherInput(e.target.value)}
+          placeholder="예: 수업 중 발표를 적극적으로 하며, 모둠 활동에서 리더 역할을 잘 수행함"
+          className="w-full h-24 p-3 border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm text-gray-700 placeholder:text-gray-400"
+          maxLength={500}
+        />
+        <div className="text-right mt-1">
+          <span className="text-xs text-gray-400">{teacherInput.length} / 500자</span>
         </div>
       </div>
 
-      {/* Step 2: 예시 문장 선택 */}
-      <div className="bg-white border border-gray-200 rounded-xl">
-        <div className="px-4 py-3 border-b border-gray-100">
-          <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-            💬 추천 예시 문장 (강점 기반)
-          </h4>
-          <p className="text-xs text-gray-500 mt-1">
-            선택: {selectedSentences.length}개 / 최대 5개 권장
-          </p>
+      {/* 강점 영역 및 추천 문장 */}
+      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Star className="w-4 h-4 text-indigo-500" />
+            <h4 className="font-semibold text-gray-900 text-sm">
+              강점 영역 및 추천 문장
+            </h4>
+          </div>
+          <span className="text-xs text-gray-500">
+            선택: {selectedSentences.length}개 / 최대 5개
+          </span>
         </div>
 
-        <div className="divide-y divide-gray-100">
-          {topStrengths.map((strength) => {
+        <div className="mx-2 mb-2 flex items-start gap-2 text-xs text-gray-600 bg-white/40 rounded-lg p-2">
+          <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <span>
+            긍정적 요인은 점수가 높을수록, 부정적 요인은 낮을수록 강점입니다. 영역을 펼쳐 예시 문장을 선택하세요.
+          </span>
+        </div>
+
+        <div className="divide-y divide-indigo-100/50">
+          {topStrengths.map((strength, index) => {
             const sentences = getSentencesForStrength(strength.name);
             const isExpanded = expandedStrengths.includes(strength.name);
 
             return (
-              <div key={strength.name} className="p-3">
+              <div key={strength.name} className="px-3 py-2">
                 <button
                   onClick={() =>
                     setExpandedStrengths(
@@ -295,17 +284,20 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
                   className="w-full flex items-center justify-between"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-gray-800">
-                      [{strength.name}]
+                    <span className="flex items-center justify-center w-5 h-5 bg-indigo-500 text-white text-[11px] font-bold rounded-full">
+                      {index + 1}
+                    </span>
+                    <span className="text-[13px] font-medium text-gray-800">
+                      {strength.name}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded text-xs ${
+                      className={`text-[11px] px-1.5 py-0.5 rounded ${
                         strength.type === 'positive'
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'bg-green-50 text-green-600'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-green-100 text-green-700'
                       }`}
                     >
-                      {strength.type === 'positive' ? '높음' : '낮음'}
+                      {strength.type === 'positive' ? '높음' : '낮음'} ({strength.level})
                     </span>
                   </div>
                   {isExpanded ? (
@@ -316,7 +308,7 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
                 </button>
 
                 {isExpanded && (
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-2 space-y-1.5 ml-7">
                     {sentences.map((sentence) => {
                       const isSelected = selectedSentences.includes(sentence.text);
                       const isDisabled =
@@ -327,10 +319,10 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
                           key={sentence.id}
                           className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
                             isSelected
-                              ? 'bg-indigo-50 border border-indigo-200'
+                              ? 'bg-indigo-100/80 border border-indigo-200'
                               : isDisabled
-                              ? 'bg-gray-50 opacity-50 cursor-not-allowed'
-                              : 'bg-gray-50 hover:bg-gray-100'
+                              ? 'bg-white/40 opacity-50 cursor-not-allowed'
+                              : 'bg-white/60 hover:bg-white/80'
                           }`}
                         >
                           <input

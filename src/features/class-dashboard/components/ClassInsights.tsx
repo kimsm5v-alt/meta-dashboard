@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Lightbulb, BookOpen } from 'lucide-react';
 import type { Class } from '@/shared/types';
 import { useClassProfile } from '../hooks/useClassProfile';
@@ -50,6 +51,7 @@ const RECOMMENDED_ACTIVITIES = [
 ];
 
 export const ClassInsights: React.FC<ClassInsightsProps> = ({ classData }) => {
+  const navigate = useNavigate();
   const hasRound2 = classData.students.some((s) =>
     s.assessments.some((a) => a.round === 2),
   );
@@ -68,7 +70,7 @@ export const ClassInsights: React.FC<ClassInsightsProps> = ({ classData }) => {
           </p>
         </div>
         <button
-          onClick={() => alert('상세 결과 페이지는 구현 예정입니다.')}
+          onClick={() => navigate(`/dashboard/class/${classData.id}/analysis`)}
           className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors group"
         >
           <span>상세 분석</span>

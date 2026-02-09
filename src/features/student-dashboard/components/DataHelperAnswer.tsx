@@ -38,7 +38,7 @@ const renderMarkdown = (content: string): React.ReactNode => {
     // ### 소제목
     if (trimmed.startsWith('### ')) {
       elements.push(
-        <h4 key={key} className="text-sm font-bold text-gray-900 mt-3 mb-1">
+        <h4 key={key} className="text-sm font-bold text-primary-600 mt-3 mb-1">
           {formatInline(trimmed.slice(4))}
         </h4>
       );
@@ -48,7 +48,7 @@ const renderMarkdown = (content: string): React.ReactNode => {
     // ## 소제목
     if (trimmed.startsWith('## ')) {
       elements.push(
-        <h3 key={key} className="text-sm font-bold text-gray-900 mt-4 mb-1.5">
+        <h3 key={key} className="text-[15px] font-bold text-primary-600 mt-4 mb-1.5">
           {formatInline(trimmed.slice(3))}
         </h3>
       );
@@ -60,7 +60,7 @@ const renderMarkdown = (content: string): React.ReactNode => {
     if (numMatch) {
       elements.push(
         <div key={key} className="flex gap-2 ml-1 my-0.5">
-          <span className="text-xs font-semibold text-indigo-500 mt-0.5 flex-shrink-0 w-4 text-right">{numMatch[1]}.</span>
+          <span className="text-xs font-semibold text-primary-500 mt-0.5 flex-shrink-0 w-4 text-right">{numMatch[1]}.</span>
           <span className="text-sm text-gray-700 leading-relaxed">{formatInline(numMatch[2])}</span>
         </div>
       );
@@ -74,7 +74,7 @@ const renderMarkdown = (content: string): React.ReactNode => {
       const text = trimmed.slice(2);
       elements.push(
         <div key={key} className="flex gap-2 my-0.5" style={{ marginLeft: `${level * 12}px` }}>
-          <span className="text-indigo-400 mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-400" />
+          <span className="mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary-400" />
           <span className="text-sm text-gray-700 leading-relaxed">{formatInline(text)}</span>
         </div>
       );
@@ -115,14 +115,14 @@ export const DataHelperAnswer: React.FC<DataHelperAnswerProps> = ({
       <div className="flex-1 overflow-y-auto pt-3">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full gap-3">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
             <p className="text-sm text-gray-500">AI가 분석 중입니다...</p>
           </div>
         ) : (
           <div>
             <div className="flex items-center gap-1 mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-              <span className="text-xs font-medium text-indigo-500">AI 분석</span>
+              <Sparkles className="w-3.5 h-3.5 text-primary-500" />
+              <span className="text-xs font-medium text-primary-500">AI 분석</span>
             </div>
             <div className="space-y-0">
               {renderMarkdown(answer)}

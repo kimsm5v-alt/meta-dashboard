@@ -7,7 +7,7 @@ import { useAuth } from '../features/auth/context/AuthContext';
 // Feature imports
 import { UploadPage } from '../features/upload';
 import { TeacherDashboardPage } from '../features/teacher-dashboard';
-import { ClassDashboardPage } from '../features/class-dashboard';
+import { ClassDashboardPage, ClassDetailAnalysisPage } from '../features/class-dashboard';
 import { StudentDashboardPage } from '../features/student-dashboard';
 import { AIRoomPage } from '../features/ai-room';
 import { LandingPage } from '../features/landing';
@@ -67,6 +67,7 @@ export const AppRoutes = () => (
       <Route path="/assessment" element={<AssessmentPage />} />
       <Route path="/dashboard" element={<TeacherDashboardPage />} />
       <Route path="/dashboard/class/:classId" element={<ClassDashboardPage />} />
+      <Route path="/dashboard/class/:classId/analysis" element={<ClassDetailAnalysisPage />} />
       <Route path="/dashboard/class/:classId/student/:studentId" element={<StudentDashboardPage />} />
       <Route path="/ai-room" element={<AIRoomPage />} />
       <Route path="/schedule" element={<SchedulePage />} />

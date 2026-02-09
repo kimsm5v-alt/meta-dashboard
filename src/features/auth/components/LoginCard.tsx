@@ -4,6 +4,7 @@ import { Card } from '@/shared/components';
 import { OAuthButton } from './OAuthButton';
 import type { OAuthProvider } from '@/shared/types';
 
+
 interface LoginCardProps {
   onLogin: (provider: OAuthProvider) => void;
   isLoading: boolean;
@@ -24,9 +25,6 @@ export const LoginCard: React.FC<LoginCardProps> = ({ onLogin, isLoading }) => {
 
       {/* 로고 */}
       <div className="text-center mb-8 pt-4">
-        <div className="w-16 h-16 bg-primary-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary-500/25">
-          <span className="text-white font-bold text-2xl">V</span>
-        </div>
         <h1 className="text-2xl font-bold text-gray-900">로그인</h1>
         <p className="text-gray-500 mt-1 text-sm">비상교육 학습심리정서검사 대시보드</p>
       </div>

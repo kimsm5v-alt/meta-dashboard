@@ -11,6 +11,7 @@
  */
 
 import { callAI } from '@/shared/services/ai';
+import { SYSTEM_PROMPT_DATA_HELPER } from '@/shared/data/aiPrompts';
 import { getSubCategoryResults, type SubCategoryResult } from '@/shared/utils/summaryGenerator';
 import { getTypeInfo } from '@/shared/utils/lpaClassifier';
 import { LPA_PROFILE_DATA } from '@/shared/data/lpaProfiles';
@@ -37,24 +38,7 @@ export type QuestionId =
   | 'type-2'
   | 'type-3';
 
-// ============================================================
-// 시스템 프롬프트
-// ============================================================
-
-const HELPER_SYSTEM_PROMPT = `당신은 학습심리정서검사 결과를 교사에게 쉽게 설명하는 AI 도우미입니다.
-
-## 응답 규칙
-1. 해요체를 사용하세요 ("~해요", "~이에요", "~편이에요")
-2. 검사 전문 용어를 쓰되, 괄호 안에 쉬운 설명을 추가하세요
-3. 구체적인 수치(T점수)를 인용하며 설명하세요
-4. 강점은 칭찬하듯, 약점은 "~을 더 키워주면 좋겠어요" 식으로 부드럽게 표현하세요
-5. 학생 이름을 언급하지 마세요. "이 학생은" 등으로 표현하세요
-6. 마크다운 볼드(**), 리스트(-), 소제목(###)을 활용하여 가독성을 높이세요
-
-## T점수 해석 기준
-- 정적 요인 (높을수록 좋음): 자아강점, 학습디딤돌, 긍정적공부마음
-- 부적 요인 (낮을수록 좋음): 학습걸림돌, 부정적공부마음
-- 70 이상: 매우 높음 / 60~69: 높음 / 40~59: 보통 / 30~39: 낮음 / 29 이하: 매우 낮음`;
+// 시스템 프롬프트: aiPrompts.ts에서 중앙 관리 (SYSTEM_PROMPT_DATA_HELPER)
 
 // ============================================================
 // 컨텍스트 빌더 유틸리티
@@ -98,11 +82,11 @@ const formatResultList = (results: SubCategoryResult[], fallback: string): strin
 // ============================================================
 
 const buildDiagnosisOverview = (subContext: string, data: StudentData): string =>
-  `아래는 학생의 학습심리검사 중분류 11개 결과입니다.
+  `아래는 학습심리검사 중분류 11개 결과입니다.
 
 ${subContext}
 
-학생 유형: ${data.predictedType} (확률 ${Math.round(data.typeProbabilities[data.predictedType] || 0)}%)
+분류된 유형: ${data.predictedType} (확률 ${Math.round(data.typeProbabilities[data.predictedType] || 0)}%)
 
 위 결과를 바탕으로 **상세한 총평**을 작성해 주세요.
 - 전반적인 학습심리정서 상태를 종합적으로 설명
@@ -126,7 +110,7 @@ const buildDiagnosisStrengths = (subResults: SubCategoryResult[], subContext: st
   const strengths = filterStrengths(subResults);
   const strengthContext = formatResultList(strengths, '뚜렷한 강점 영역이 없음 (모두 보통 수준)');
 
-  return `아래는 학생의 검사 결과 중 강점 영역입니다.
+  return `아래는 검사 결과 중 강점 영역입니다.
 
 ### 강점 중분류
 ${strengthContext}
@@ -134,9 +118,9 @@ ${strengthContext}
 ### 전체 11개 중분류 (참고)
 ${subContext}
 
-**이 학생의 강점을 구체적으로 분석**해 주세요.
+**강점을 구체적으로 분석**해 주세요.
 - 각 강점 영역별 의미와 장점 설명
-- 이 강점이 학교생활에서 어떻게 발휘될 수 있는지
+- 강점이 학교생활에서 어떻게 발휘될 수 있는지
 - 강점을 더 키울 수 있는 교사의 지원 방법
 - 강점 영역이 없으면 "보통 수준 중 상대적 강점"을 찾아서 설명`;
 };
@@ -145,7 +129,7 @@ const buildDiagnosisWeaknesses = (subResults: SubCategoryResult[], subContext: s
   const weaknesses = filterWeaknesses(subResults);
   const weaknessContext = formatResultList(weaknesses, '뚜렷한 보완 영역이 없음 (모두 보통 이상)');
 
-  return `아래는 학생의 검사 결과 중 보완이 필요한 영역입니다.
+  return `아래는 검사 결과 중 보완이 필요한 영역입니다.
 
 ### 보완 필요 중분류
 ${weaknessContext}
@@ -153,9 +137,9 @@ ${weaknessContext}
 ### 전체 11개 중분류 (참고)
 ${subContext}
 
-**이 학생의 보완점을 구체적으로 분석**해 주세요.
+**보완점을 구체적으로 분석**해 주세요.
 - 각 보완 영역별 의미와 현재 상태 설명
-- 이 약점이 학교생활에 미칠 수 있는 영향
+- 약점이 학교생활에 미칠 수 있는 영향
 - 교사가 교실에서 실천할 수 있는 구체적 지원 방법 (3가지 이상)
 - 부정적으로 표현하지 말고, "~을 더 키워주면 좋겠어요" 식으로 표현
 - 보완 영역이 없으면 "전반적으로 양호하며, 상대적으로 더 키울 수 있는 영역"을 안내`;
@@ -170,15 +154,15 @@ const buildTypeOverview = (data: StudentData): string => {
 - 특성: ${t.characteristics.join(', ')}`;
   }).join('\n\n');
 
-  return `이 학생은 ${data.schoolLevel} 학생입니다. 해당 학교급의 3가지 학습 유형에 대해 설명해 주세요.
+  return `학교급은 ${data.schoolLevel}입니다. 해당 학교급의 3가지 학습 유형에 대해 설명해 주세요.
 
 ${typesInfo}
 
 **위 3가지 유형 전체의 특징을 비교하며 설명**해 주세요.
 - 각 유형별 핵심 특성 요약
 - 유형 간 차이점 비교
-- 각 유형 학생에게 효과적인 교사 접근법
-- 이 학생의 유형(${data.predictedType})은 어떤 위치인지 마지막에 언급`;
+- 각 유형에 효과적인 교사 접근법
+- 분류된 유형(${data.predictedType})은 어떤 위치인지 마지막에 언급`;
 };
 
 const buildTypeDetail = (data: StudentData): string => {
@@ -188,7 +172,7 @@ const buildTypeDetail = (data: StudentData): string => {
     : `유형: ${data.predictedType}`;
   const typeProb = Math.round(data.typeProbabilities[data.predictedType] || 0);
 
-  return `이 학생의 분류 결과입니다.
+  return `분류 결과는 다음과 같습니다.
 
 ${typeDesc}
 유형 확률: ${typeProb}%
@@ -196,9 +180,9 @@ ${typeDesc}
 전체 유형 확률 분포:
 ${Object.entries(data.typeProbabilities).map(([t, p]) => `- ${t}: ${Math.round(p)}%`).join('\n')}
 
-**이 학생의 유형 세부특성을 상세히 설명**해 주세요.
+**유형 세부특성을 상세히 설명**해 주세요.
 - 유형의 전반적 특징 설명
-- 이 유형 학생들의 일반적인 학교생활 패턴
+- 이 유형의 일반적인 학교생활 패턴
 - 교사가 주의해야 할 점
 - 이 유형에 효과적인 교육적 개입 전략 3가지
 - 유형 확률이 편중/분산되어 있는 경우 그 의미도 설명`;
@@ -211,7 +195,7 @@ const buildTypeIndividual = (data: StudentData, subContext: string): string => {
     return `- ${d.factor}: 학생 T=${d.studentScore}, 유형 평균 T=${d.typeMean}, 차이=${sign}${d.diff} (${dirLabel})`;
   }).join('\n');
 
-  return `이 학생의 유형은 ${data.predictedType}이며, 유형 평균 대비 개인 특이점은 다음과 같습니다.
+  return `분류된 유형은 ${data.predictedType}이며, 유형 평균 대비 개인 특이점은 다음과 같습니다.
 
 ### 유형 평균 대비 편차 (상위 항목)
 ${deviationContext}
@@ -219,10 +203,10 @@ ${deviationContext}
 ### 전체 중분류 결과
 ${subContext}
 
-**이 학생의 "개인별 특성"을 분석**해 주세요.
+**개인별 특성을 분석**해 주세요.
 - 같은 유형 내에서도 개인차가 있다는 점을 설명
 - 유형 평균 대비 높은 요인과 낮은 요인의 의미
-- 이 학생만의 고유한 프로필 특징
+- 고유한 프로필 특징
 - 유형 해석 + 개인 편차를 종합한 맞춤형 지도 포인트`;
 };
 
@@ -264,11 +248,11 @@ export const getDataHelperAnswer = async (
 
   const response = await callAI({
     messages: [
-      { role: 'system', content: HELPER_SYSTEM_PROMPT },
+      { role: 'system', content: SYSTEM_PROMPT_DATA_HELPER },
       { role: 'user', content: userMessage },
     ],
     temperature: 0.4,
-    maskPII: true,
+    maskPII: false,
   });
 
   if (!response.success) {

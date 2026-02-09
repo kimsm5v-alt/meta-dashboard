@@ -20,7 +20,7 @@ export const VivaSamSection: React.FC<VivaSamSectionProps> = ({ onUploadClick })
               비바샘 회원 전용 검사
             </h3>
             <p className="text-gray-600 text-sm mb-4">
-              비바샘 플랫폼에서 학습심리정서검사를 실시하고, 결과가 자동으로 연동됩니다.
+              비바샘 플랫폼에서 학습심리정서검사를 실시하면 결과가 자동으로 연동됩니다.
               별도의 검사 코드 입력이나 결과 업로드가 필요 없습니다.
             </p>
             <div className="flex flex-wrap gap-3">
@@ -28,7 +28,7 @@ export const VivaSamSection: React.FC<VivaSamSectionProps> = ({ onUploadClick })
                 href="https://vivasam.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors font-medium"
               >
                 <span>비바샘에서 검사하기</span>
                 <ExternalLink className="w-4 h-4" />
@@ -70,7 +70,6 @@ export const VivaSamSection: React.FC<VivaSamSectionProps> = ({ onUploadClick })
           비바샘 외부에서 실시한 검사 결과가 있다면 PDF 파일을 업로드하여 분석할 수 있습니다.
         </p>
         <Button
-          variant="secondary"
           onClick={onUploadClick}
           className="w-full justify-center"
         >

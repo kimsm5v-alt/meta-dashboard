@@ -70,12 +70,12 @@ export const DataHelperQuestions: React.FC<DataHelperQuestionsProps> = ({
                     className={`w-full text-left px-4 py-3 rounded-xl border transition-all group ${
                       isAnswered
                         ? `${group.bgColor} ${group.borderColor}`
-                        : 'border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50'
+                        : 'border-gray-200 hover:border-primary-300 hover:bg-primary-50/50'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className={`text-sm font-medium ${
-                        isAnswered ? group.textColor : 'text-gray-700 group-hover:text-indigo-700'
+                        isAnswered ? group.textColor : 'text-gray-700 group-hover:text-primary-700'
                       }`}>
                         {q.label}
                       </span>
@@ -98,7 +98,7 @@ export const DataHelperQuestions: React.FC<DataHelperQuestionsProps> = ({
         </p>
         <button
           onClick={() => navigate('/ai-room')}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 border border-primary-200 transition-colors"
         >
           AI 어시스턴트로 이동하기
           <ArrowRight className="w-4 h-4" />

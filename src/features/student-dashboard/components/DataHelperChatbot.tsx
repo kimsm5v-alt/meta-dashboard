@@ -97,7 +97,7 @@ export const DataHelperChatbot: React.FC<DataHelperChatbotProps> = ({
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group ${
           isOpen
             ? 'bg-gray-600 hover:bg-gray-700'
-            : 'bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700'
+            : 'bg-primary-500 hover:bg-primary-600'
         }`}
         title="데이터 해석 도우미"
       >
@@ -115,7 +115,7 @@ export const DataHelperChatbot: React.FC<DataHelperChatbotProps> = ({
           className="fixed bottom-24 right-6 z-50 w-[420px] h-[560px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
         >
           {/* 헤더 */}
-          <div className="px-5 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex items-center justify-between flex-shrink-0">
+          <div className="px-5 py-4 bg-primary-500 text-white flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5" />
               <span className="font-semibold text-[15px]">데이터 해석 도우미</span>

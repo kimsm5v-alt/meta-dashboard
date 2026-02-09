@@ -58,7 +58,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (stored) {
       try {
         const user = JSON.parse(stored) as User;
-        setState({ user, isAuthenticated: true, isLoading: false });
+        // localStorage의 이름을 현재 MOCK_TEACHER 이름과 동기화
+        const synced: User = { ...user, name: MOCK_TEACHER.name };
+        if (synced.name !== user.name) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(synced));
+        }
+        setState({ user: synced, isAuthenticated: true, isLoading: false });
       } catch {
         localStorage.removeItem(STORAGE_KEY);
         setState({ user: null, isAuthenticated: false, isLoading: false });

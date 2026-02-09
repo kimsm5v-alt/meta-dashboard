@@ -1,19 +1,31 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell, LabelList } from 'recharts';
+import { useState } from 'react';
 import { SUB_CATEGORIES, CATEGORY_COLORS } from '@/shared/data/lpaProfiles';
 import { calculateSubCategoryScores } from '@/shared/utils/summaryGenerator';
+import { SUB_CATEGORY_FACTORS, FACTOR_DEFINITIONS } from '@/shared/data/factors';
+import { ChevronDown } from 'lucide-react';
+
+const lightenColor = (hex: string, amount: number = 0.35): string => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const nr = Math.round(r + (255 - r) * amount);
+  const ng = Math.round(g + (255 - g) * amount);
+  const nb = Math.round(b + (255 - b) * amount);
+  return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb.toString(16).padStart(2, '0')}`;
+};
+
+const getBarPercent = (score: number) => ((score - 20) / 60) * 100;
+const REF_LINE_POS = getBarPercent(50);
 
 interface FactorLineChartProps {
   tScores: number[];
 }
 
 export const FactorLineChart: React.FC<FactorLineChartProps> = ({ tScores }) => {
+  const [expanded, setExpanded] = useState<string | null>(null);
   const subCategoryScores = calculateSubCategoryScores(tScores);
 
-  const chartData = SUB_CATEGORIES.map(subCat => ({
-    name: subCat,
-    score: subCategoryScores[subCat] || 50,
-    color: CATEGORY_COLORS[subCat] || '#9CA3AF',
-  }));
+  const toggle = (name: string) => setExpanded(prev => (prev === name ? null : name));
 
   return (
     <div>
@@ -21,22 +33,120 @@ export const FactorLineChart: React.FC<FactorLineChartProps> = ({ tScores }) => 
         <h3 className="text-lg font-semibold">중분류 요인 그래프</h3>
         <span className="text-xs text-gray-500">점선(--): 전국 평균 T=50</span>
       </div>
-      <div className="h-[400px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 80, left: 120, bottom: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" domain={[20, 80]} ticks={[20, 30, 40, 50, 60, 70, 80]} hide />
-            <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12 }} />
-            <Tooltip formatter={(value: number) => [`T=${value}`, 'T점수']} />
-            <ReferenceLine x={50} stroke="#888" strokeDasharray="3 3" />
-            <Bar dataKey="score" radius={[0, 4, 4, 0]}>
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-              <LabelList dataKey="score" position="insideRight" style={{ fontSize: 12, fontWeight: 600, fill: 'white' }} formatter={(value: number) => `T=${value}`} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+
+      {/* Scale ticks */}
+      <div className="flex items-center mb-1">
+        <div className="w-[120px] shrink-0" />
+        <div className="flex-1 relative h-4">
+          {[20, 30, 40, 50, 60, 70, 80].map(tick => (
+            <span
+              key={tick}
+              className="absolute text-[10px] text-gray-400 -translate-x-1/2"
+              style={{ left: `${getBarPercent(tick)}%` }}
+            >
+              {tick}
+            </span>
+          ))}
+        </div>
+        <div className="w-[52px] shrink-0" />
+      </div>
+
+      <div className="space-y-0.5">
+        {SUB_CATEGORIES.map(subCat => {
+          const score = subCategoryScores[subCat] || 50;
+          const color = CATEGORY_COLORS[subCat] || '#9CA3AF';
+          const isOpen = expanded === subCat;
+          const indices = SUB_CATEGORY_FACTORS[subCat] || [];
+
+          return (
+            <div key={subCat}>
+              {/* Main bar row */}
+              <div
+                className="flex items-center cursor-pointer group hover:bg-gray-50 rounded-lg py-1.5 px-1 transition-colors"
+                onClick={() => toggle(subCat)}
+              >
+                <div className="w-[120px] shrink-0 text-[13px] text-gray-700 font-medium flex items-center gap-1">
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
+                  />
+                  <span>{subCat}</span>
+                </div>
+
+                <div className="flex-1 relative h-7 bg-gray-100 rounded">
+                  {/* Reference line T=50 */}
+                  <div
+                    className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-400 z-10"
+                    style={{ left: `${REF_LINE_POS}%` }}
+                  />
+                  {/* Bar */}
+                  <div
+                    className="h-full flex items-center justify-end pr-2"
+                    style={{
+                      width: `${getBarPercent(score)}%`,
+                      backgroundColor: color,
+                      borderRadius: '0 4px 4px 0',
+                    }}
+                  >
+                    <span className="text-[11px] font-semibold text-white whitespace-nowrap">
+                      T={score}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-[52px] shrink-0 text-right text-[13px] font-semibold text-gray-600">
+                  {score}
+                </div>
+              </div>
+
+              {/* Sub-factor dropdown */}
+              <div
+                className="overflow-hidden transition-all duration-300 ease-in-out"
+                style={{
+                  maxHeight: isOpen ? `${indices.length * 36 + 16}px` : '0px',
+                  opacity: isOpen ? 1 : 0,
+                }}
+              >
+                <div className="pl-[32px] pr-[52px] py-1.5 space-y-1">
+                  {indices.map(idx => {
+                    const factor = FACTOR_DEFINITIONS[idx];
+                    if (!factor) return null;
+                    const fScore = tScores[idx];
+                    return (
+                      <div key={idx} className="flex items-center">
+                        <div className="w-[88px] shrink-0 text-[11px] text-gray-500 text-right pr-2 truncate">
+                          {factor.name}
+                        </div>
+                        <div className="flex-1 relative h-5 bg-gray-50 rounded">
+                          <div
+                            className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-300 z-10"
+                            style={{ left: `${REF_LINE_POS}%` }}
+                          />
+                          <div
+                            className="h-full flex items-center justify-end pr-1.5"
+                            style={{
+                              width: `${getBarPercent(fScore)}%`,
+                              backgroundColor: lightenColor(color),
+                              borderRadius: '0 3px 3px 0',
+                            }}
+                          >
+                            {getBarPercent(fScore) > 25 && (
+                              <span className="text-[10px] font-medium text-white/90 whitespace-nowrap">
+                                {fScore}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="w-[36px] shrink-0 text-right text-[11px] text-gray-500 font-medium">
+                          {fScore}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

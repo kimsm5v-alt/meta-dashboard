@@ -5,7 +5,7 @@
  * - 정적 요인 7개: 높을수록 강점
  * - 부적 요인 4개: 낮을수록 강점
  *
- * 총 99개 문장 (11개 중분류 × 3 학교급 × 3 문장)
+ * 총 165개 문장 (11개 중분류 × 3 학교급 × 5 문장)
  */
 
 // ============================================================
@@ -69,12 +69,12 @@ export const ALL_SUB_CATEGORIES: SubCategory[] = [
 ];
 
 // ============================================================
-// 예시 문장 데이터 (99개)
+// 예시 문장 데이터 (165개)
 // ============================================================
 
 export const EXAMPLE_SENTENCES: ExampleSentence[] = [
   // ============================================================
-  // 1. 긍정적자아 (9개) - 정적 요인
+  // 1. 긍정적자아 (15개) - 정적 요인
   // ============================================================
 
   // 초등
@@ -99,6 +99,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '어려운 일에도 포기하지 않고 노력함',
   },
+  {
+    id: 'positive_self_elem_4',
+    subCategory: '긍정적자아',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '실수를 두려워하지 않고 다시 도전하는 용기가 있음',
+  },
+  {
+    id: 'positive_self_elem_5',
+    subCategory: '긍정적자아',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '자신이 할 수 있다는 믿음으로 새로운 활동에 적극 참여함',
+  },
 
   // 중등
   {
@@ -121,6 +135,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     schoolLevel: '중등',
     factorType: 'positive',
     text: '능력은 노력으로 향상될 수 있다는 성장 마인드를 지님',
+  },
+  {
+    id: 'positive_self_middle_4',
+    subCategory: '긍정적자아',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '자신의 강점과 약점을 객관적으로 파악하여 발전 방향을 설정함',
+  },
+  {
+    id: 'positive_self_middle_5',
+    subCategory: '긍정적자아',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '실패 경험을 성장의 밑거름으로 삼는 건강한 태도를 지님',
   },
 
   // 고등
@@ -145,9 +173,23 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '성장 마인드셋을 바탕으로 지속적 발전을 추구함',
   },
+  {
+    id: 'positive_self_high_4',
+    subCategory: '긍정적자아',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '자기 가치를 확고히 인식하며 주체적으로 진로를 탐색함',
+  },
+  {
+    id: 'positive_self_high_5',
+    subCategory: '긍정적자아',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '도전적 상황에서도 흔들리지 않는 심리적 안정감을 보임',
+  },
 
   // ============================================================
-  // 2. 대인관계능력 (9개) - 정적 요인
+  // 2. 대인관계능력 (15개) - 정적 요인
   // ============================================================
 
   // 초등
@@ -172,6 +214,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '친구들과 사이좋게 협력하며 지냄',
   },
+  {
+    id: 'interpersonal_elem_4',
+    subCategory: '대인관계능력',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '모둠 활동에서 친구들의 의견을 존중하며 함께 결정함',
+  },
+  {
+    id: 'interpersonal_elem_5',
+    subCategory: '대인관계능력',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '다툼이 생겼을 때 대화로 해결하려는 태도를 보임',
+  },
 
   // 중등
   {
@@ -194,6 +250,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     schoolLevel: '중등',
     factorType: 'positive',
     text: '갈등을 합리적으로 해결하는 성숙한 태도를 보임',
+  },
+  {
+    id: 'interpersonal_middle_4',
+    subCategory: '대인관계능력',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '다양한 성격의 친구들과 원활하게 소통하며 관계를 유지함',
+  },
+  {
+    id: 'interpersonal_middle_5',
+    subCategory: '대인관계능력',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '타인의 입장을 고려하여 배려 있는 언행을 실천함',
   },
 
   // 고등
@@ -218,9 +288,23 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '공동체 의식이 강하며 조화로운 관계를 형성함',
   },
+  {
+    id: 'interpersonal_high_4',
+    subCategory: '대인관계능력',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '갈등 상황에서 중재자 역할을 수행하며 합리적 해결을 이끌어냄',
+  },
+  {
+    id: 'interpersonal_high_5',
+    subCategory: '대인관계능력',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '다양한 관점을 수용하며 열린 자세로 소통함',
+  },
 
   // ============================================================
-  // 3. 메타인지 (9개) - 정적 요인
+  // 3. 메타인지 (15개) - 정적 요인
   // ============================================================
 
   // 초등
@@ -245,6 +329,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '학습 방법을 상황에 맞게 바꿀 수 있음',
   },
+  {
+    id: 'metacognition_elem_4',
+    subCategory: '메타인지',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '틀린 문제를 다시 풀어보며 부족한 부분을 보완함',
+  },
+  {
+    id: 'metacognition_elem_5',
+    subCategory: '메타인지',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '공부한 내용을 스스로 정리하고 되돌아보는 습관이 있음',
+  },
 
   // 중등
   {
@@ -267,6 +365,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     schoolLevel: '중등',
     factorType: 'positive',
     text: '학습 과정을 꾸준히 점검하는 능력이 뛰어남',
+  },
+  {
+    id: 'metacognition_middle_4',
+    subCategory: '메타인지',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '효과적인 학습 방법을 탐색하고 자신에게 맞는 전략을 선택함',
+  },
+  {
+    id: 'metacognition_middle_5',
+    subCategory: '메타인지',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '목표 달성 여부를 스스로 평가하며 개선점을 찾아냄',
   },
 
   // 고등
@@ -291,9 +403,23 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '메타인지적 조절 능력으로 학습 효율을 극대화함',
   },
+  {
+    id: 'metacognition_high_4',
+    subCategory: '메타인지',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '과목별 난이도에 따라 학습 시간과 전략을 유연하게 배분함',
+  },
+  {
+    id: 'metacognition_high_5',
+    subCategory: '메타인지',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '학습 결과를 분석하여 다음 단계의 목표를 구체적으로 설정함',
+  },
 
   // ============================================================
-  // 4. 학습기술 (9개) - 정적 요인
+  // 4. 학습기술 (15개) - 정적 요인
   // ============================================================
 
   // 초등
@@ -318,6 +444,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '시간을 잘 지키며 규칙적으로 학습함',
   },
+  {
+    id: 'study_skills_elem_4',
+    subCategory: '학습기술',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '준비물을 빠짐없이 챙기고 학습 환경을 깔끔하게 유지함',
+  },
+  {
+    id: 'study_skills_elem_5',
+    subCategory: '학습기술',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '선생님의 설명을 주의 깊게 듣고 핵심 내용을 메모함',
+  },
 
   // 중등
   {
@@ -340,6 +480,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     schoolLevel: '중등',
     factorType: 'positive',
     text: '오답을 분석하며 취약점을 보완함',
+  },
+  {
+    id: 'study_skills_middle_4',
+    subCategory: '학습기술',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '시험 대비 계획을 세워 체계적으로 준비하는 능력이 있음',
+  },
+  {
+    id: 'study_skills_middle_5',
+    subCategory: '학습기술',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '학습에 적합한 환경을 스스로 조성하고 집중력을 유지함',
   },
 
   // 고등
@@ -364,9 +518,23 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '과목별 특성에 맞는 학습 전략을 적용함',
   },
+  {
+    id: 'study_skills_high_4',
+    subCategory: '학습기술',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '핵심 개념을 중심으로 효율적인 복습 체계를 구축함',
+  },
+  {
+    id: 'study_skills_high_5',
+    subCategory: '학습기술',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '다양한 참고 자료를 활용하여 심화 학습을 수행함',
+  },
 
   // ============================================================
-  // 5. 지지적관계 (9개) - 정적 요인
+  // 5. 지지적관계 (15개) - 정적 요인
   // ============================================================
 
   // 초등
@@ -391,6 +559,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '친구들과 서로 가르쳐주며 함께 성장함',
   },
+  {
+    id: 'supportive_elem_4',
+    subCategory: '지지적관계',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '가족과 선생님의 격려를 힘으로 삼아 학습에 임함',
+  },
+  {
+    id: 'supportive_elem_5',
+    subCategory: '지지적관계',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '어려운 친구를 먼저 도와주며 함께하는 학습 분위기를 만듦',
+  },
 
   // 중등
   {
@@ -413,6 +595,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     schoolLevel: '중등',
     factorType: 'positive',
     text: '또래와 협력하며 함께 성장함',
+  },
+  {
+    id: 'supportive_middle_4',
+    subCategory: '지지적관계',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '주변의 조언을 열린 마음으로 수용하며 발전에 활용함',
+  },
+  {
+    id: 'supportive_middle_5',
+    subCategory: '지지적관계',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '친구들과 학습 내용을 공유하며 서로의 이해를 도움',
   },
 
   // 고등
@@ -437,9 +633,23 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '학습 공동체 의식이 강함',
   },
+  {
+    id: 'supportive_high_4',
+    subCategory: '지지적관계',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '또래 멘토링에 적극 참여하며 상호 성장을 도모함',
+  },
+  {
+    id: 'supportive_high_5',
+    subCategory: '지지적관계',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '신뢰를 바탕으로 교사와 원활하게 소통하며 학업 방향을 설정함',
+  },
 
   // ============================================================
-  // 6. 학업열의 (9개) - 정적 요인
+  // 6. 학업열의 (15개) - 정적 요인
   // ============================================================
 
   // 초등
@@ -464,6 +674,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '수업 시간 내내 집중하며 몰입함',
   },
+  {
+    id: 'engagement_elem_4',
+    subCategory: '학업열의',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '궁금한 것이 생기면 스스로 찾아보려는 탐구심이 강함',
+  },
+  {
+    id: 'engagement_elem_5',
+    subCategory: '학업열의',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '수업 활동에 열정적으로 참여하며 친구들에게 긍정적 영향을 줌',
+  },
 
   // 중등
   {
@@ -486,6 +710,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     schoolLevel: '중등',
     factorType: 'positive',
     text: '질문과 토론에 적극적으로 참여함',
+  },
+  {
+    id: 'engagement_middle_4',
+    subCategory: '학업열의',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '과제를 성실히 수행하며 결과물의 완성도가 높음',
+  },
+  {
+    id: 'engagement_middle_5',
+    subCategory: '학업열의',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '배운 내용을 깊이 이해하려는 지적 호기심이 뛰어남',
   },
 
   // 고등
@@ -510,9 +748,23 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '배움 그 자체에서 기쁨을 느낌',
   },
+  {
+    id: 'engagement_high_4',
+    subCategory: '학업열의',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '수업 시간에 깊이 있는 질문을 통해 사고를 확장함',
+  },
+  {
+    id: 'engagement_high_5',
+    subCategory: '학업열의',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '학업에 대한 끈기와 집중력으로 어려운 과제도 끝까지 완수함',
+  },
 
   // ============================================================
-  // 7. 성장력 (9개) - 정적 요인
+  // 7. 성장력 (15개) - 정적 요인
   // ============================================================
 
   // 초등
@@ -537,6 +789,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '공부를 잘 할 수 있다는 자신감이 있음',
   },
+  {
+    id: 'growth_elem_4',
+    subCategory: '성장력',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '스스로 목표를 정하고 달성하기 위해 꾸준히 노력함',
+  },
+  {
+    id: 'growth_elem_5',
+    subCategory: '성장력',
+    schoolLevel: '초등',
+    factorType: 'positive',
+    text: '알고 싶은 것이 많아 다양한 분야에 관심을 보이며 성장함',
+  },
 
   // 중등
   {
@@ -559,6 +825,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     schoolLevel: '중등',
     factorType: 'positive',
     text: '학습의 내적 가치를 중요하게 여김',
+  },
+  {
+    id: 'growth_middle_4',
+    subCategory: '성장력',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '자신의 성장 과정을 기록하고 돌아보며 발전 방향을 모색함',
+  },
+  {
+    id: 'growth_middle_5',
+    subCategory: '성장력',
+    schoolLevel: '중등',
+    factorType: 'positive',
+    text: '외부 보상 없이도 학습에 대한 흥미와 의욕을 유지함',
   },
 
   // 고등
@@ -583,9 +863,23 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'positive',
     text: '자율성을 바탕으로 학업 목표를 달성함',
   },
+  {
+    id: 'growth_high_4',
+    subCategory: '성장력',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '장기적 목표를 설정하고 단계적으로 실천하는 계획성이 뛰어남',
+  },
+  {
+    id: 'growth_high_5',
+    subCategory: '성장력',
+    schoolLevel: '고등',
+    factorType: 'positive',
+    text: '자신의 관심 분야를 깊이 탐구하며 전문성을 키워나감',
+  },
 
   // ============================================================
-  // 8. 학업스트레스 (9개) - 부적 요인 (낮을수록 강점)
+  // 8. 학업스트레스 (15개) - 부적 요인 (낮을수록 강점)
   // ============================================================
 
   // 초등
@@ -610,6 +904,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'negative',
     text: '공부에 대한 심리적 부담 없이 즐겁게 학습함',
   },
+  {
+    id: 'stress_elem_4',
+    subCategory: '학업스트레스',
+    schoolLevel: '초등',
+    factorType: 'negative',
+    text: '어려운 문제를 만나도 차분하게 해결하려는 태도를 보임',
+  },
+  {
+    id: 'stress_elem_5',
+    subCategory: '학업스트레스',
+    schoolLevel: '초등',
+    factorType: 'negative',
+    text: '공부 후 충분히 쉬며 스스로 컨디션을 조절함',
+  },
 
   // 중등
   {
@@ -632,6 +940,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     schoolLevel: '중등',
     factorType: 'negative',
     text: '학업과 휴식의 균형을 잘 맞추며 건강하게 생활함',
+  },
+  {
+    id: 'stress_middle_4',
+    subCategory: '학업스트레스',
+    schoolLevel: '중등',
+    factorType: 'negative',
+    text: '시험 기간에도 평소와 다름없이 안정된 모습을 유지함',
+  },
+  {
+    id: 'stress_middle_5',
+    subCategory: '학업스트레스',
+    schoolLevel: '중등',
+    factorType: 'negative',
+    text: '자신만의 스트레스 해소 방법을 갖추어 심리적 안정감을 유지함',
   },
 
   // 고등
@@ -656,9 +978,23 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'negative',
     text: '압박 상황에서도 침착하게 대처하는 자기관리 능력이 있음',
   },
+  {
+    id: 'stress_high_4',
+    subCategory: '학업스트레스',
+    schoolLevel: '고등',
+    factorType: 'negative',
+    text: '학업 압박을 성장의 동력으로 전환하는 긍정적 대처 능력을 보임',
+  },
+  {
+    id: 'stress_high_5',
+    subCategory: '학업스트레스',
+    schoolLevel: '고등',
+    factorType: 'negative',
+    text: '과중한 학습량에도 우선순위를 정하여 효율적으로 소화함',
+  },
 
   // ============================================================
-  // 9. 학업관계스트레스 (9개) - 부적 요인 (낮을수록 강점)
+  // 9. 학업관계스트레스 (15개) - 부적 요인 (낮을수록 강점)
   // ============================================================
 
   // 초등
@@ -683,6 +1019,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'negative',
     text: '주변의 관심을 격려로 받아들이며 긍정적으로 성장함',
   },
+  {
+    id: 'relation_stress_elem_4',
+    subCategory: '학업관계스트레스',
+    schoolLevel: '초등',
+    factorType: 'negative',
+    text: '친구와 비교하지 않고 자신의 성장에 집중함',
+  },
+  {
+    id: 'relation_stress_elem_5',
+    subCategory: '학업관계스트레스',
+    schoolLevel: '초등',
+    factorType: 'negative',
+    text: '부모님과 학교생활에 대해 편안하게 이야기를 나눔',
+  },
 
   // 중등
   {
@@ -705,6 +1055,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     schoolLevel: '중등',
     factorType: 'negative',
     text: '주변의 지지를 긍정적으로 수용하며 안정감을 느낌',
+  },
+  {
+    id: 'relation_stress_middle_4',
+    subCategory: '학업관계스트레스',
+    schoolLevel: '중등',
+    factorType: 'negative',
+    text: '성적에 대한 주변의 시선보다 자신의 학습 과정을 중시함',
+  },
+  {
+    id: 'relation_stress_middle_5',
+    subCategory: '학업관계스트레스',
+    schoolLevel: '중등',
+    factorType: 'negative',
+    text: '가정과 학교에서 심리적 안정감을 바탕으로 학업에 집중함',
   },
 
   // 고등
@@ -729,9 +1093,23 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'negative',
     text: '관계 속에서도 자기주도성을 잃지 않음',
   },
+  {
+    id: 'relation_stress_high_4',
+    subCategory: '학업관계스트레스',
+    schoolLevel: '고등',
+    factorType: 'negative',
+    text: '주변의 기대와 자신의 목표를 균형 있게 조율하는 성숙함을 보임',
+  },
+  {
+    id: 'relation_stress_high_5',
+    subCategory: '학업관계스트레스',
+    schoolLevel: '고등',
+    factorType: 'negative',
+    text: '경쟁적 환경에서도 심리적 안정을 유지하며 자신의 페이스로 학습함',
+  },
 
   // ============================================================
-  // 10. 학습방해물 (9개) - 부적 요인 (낮을수록 강점)
+  // 10. 학습방해물 (15개) - 부적 요인 (낮을수록 강점)
   // ============================================================
 
   // 초등
@@ -756,6 +1134,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'negative',
     text: '학습에 방해되는 것들을 스스로 조절할 수 있음',
   },
+  {
+    id: 'disturbance_elem_4',
+    subCategory: '학습방해물',
+    schoolLevel: '초등',
+    factorType: 'negative',
+    text: '공부할 때와 놀 때를 구분하여 집중력을 유지함',
+  },
+  {
+    id: 'disturbance_elem_5',
+    subCategory: '학습방해물',
+    schoolLevel: '초등',
+    factorType: 'negative',
+    text: '주변의 유혹에 흔들리지 않고 정해진 학습 시간을 지킴',
+  },
 
   // 중등
   {
@@ -778,6 +1170,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     schoolLevel: '중등',
     factorType: 'negative',
     text: '학습 환경에서 방해 요소를 효과적으로 제거함',
+  },
+  {
+    id: 'disturbance_middle_4',
+    subCategory: '학습방해물',
+    schoolLevel: '중등',
+    factorType: 'negative',
+    text: '미디어 사용을 절제하고 학업에 필요한 시간을 확보함',
+  },
+  {
+    id: 'disturbance_middle_5',
+    subCategory: '학습방해물',
+    schoolLevel: '중등',
+    factorType: 'negative',
+    text: '유혹적인 활동을 자제하며 목표 달성에 집중하는 의지가 강함',
   },
 
   // 고등
@@ -802,9 +1208,23 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'negative',
     text: '학업 집중을 위한 환경 관리 능력이 뛰어남',
   },
+  {
+    id: 'disturbance_high_4',
+    subCategory: '학습방해물',
+    schoolLevel: '고등',
+    factorType: 'negative',
+    text: '디지털 리터러시를 갖추어 기기를 생산적으로 활용함',
+  },
+  {
+    id: 'disturbance_high_5',
+    subCategory: '학습방해물',
+    schoolLevel: '고등',
+    factorType: 'negative',
+    text: '학습 시간과 여가 시간을 명확히 구분하여 효율성을 높임',
+  },
 
   // ============================================================
-  // 11. 학업소진 (9개) - 부적 요인 (낮을수록 강점)
+  // 11. 학업소진 (15개) - 부적 요인 (낮을수록 강점)
   // ============================================================
 
   // 초등
@@ -829,6 +1249,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'negative',
     text: '학습에 대한 의욕이 높고 긍정적인 태도를 유지함',
   },
+  {
+    id: 'burnout_elem_4',
+    subCategory: '학업소진',
+    schoolLevel: '초등',
+    factorType: 'negative',
+    text: '오랜 시간 공부해도 즐거움을 잃지 않고 집중함',
+  },
+  {
+    id: 'burnout_elem_5',
+    subCategory: '학업소진',
+    schoolLevel: '초등',
+    factorType: 'negative',
+    text: '매일의 학교생활에서 보람과 성취감을 느끼며 생활함',
+  },
 
   // 중등
   {
@@ -852,6 +1286,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     factorType: 'negative',
     text: '학습 과정에서 에너지를 얻고 성취감을 느낌',
   },
+  {
+    id: 'burnout_middle_4',
+    subCategory: '학업소진',
+    schoolLevel: '중등',
+    factorType: 'negative',
+    text: '반복되는 학업 일과 속에서도 새로운 의미를 찾으며 임함',
+  },
+  {
+    id: 'burnout_middle_5',
+    subCategory: '학업소진',
+    schoolLevel: '중등',
+    factorType: 'negative',
+    text: '적절한 휴식을 통해 학습 에너지를 재충전하는 습관이 있음',
+  },
 
   // 고등
   {
@@ -874,6 +1322,20 @@ export const EXAMPLE_SENTENCES: ExampleSentence[] = [
     schoolLevel: '고등',
     factorType: 'negative',
     text: '학업에 대한 긍정적 태도와 활력을 지속적으로 유지함',
+  },
+  {
+    id: 'burnout_high_4',
+    subCategory: '학업소진',
+    schoolLevel: '고등',
+    factorType: 'negative',
+    text: '학업과 개인 생활의 균형을 유지하며 소진을 예방함',
+  },
+  {
+    id: 'burnout_high_5',
+    subCategory: '학업소진',
+    schoolLevel: '고등',
+    factorType: 'negative',
+    text: '높은 학업 강도에도 회복탄력성을 발휘하여 꾸준히 성장함',
   },
 ];
 

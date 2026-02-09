@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/context/AuthContext';
 import { Button } from '@/shared/components';
 import { HeroSection, FeaturesSection, StartMethodSection } from '../components';
+import serviceLogo from '@/assets/logo_2.png';
 
 export const LandingPage = () => {
   const navigate = useNavigate();
@@ -25,11 +26,8 @@ export const LandingPage = () => {
       <header className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-b border-gray-100 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           {/* 로고 */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-primary-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">V</span>
-            </div>
-            <span className="font-bold text-lg text-gray-900">비상교육</span>
+          <div className="flex items-center">
+            <img src={serviceLogo} alt="학습심리정서검사" className="h-5" />
           </div>
 
           {/* 네비게이션 */}
@@ -59,11 +57,8 @@ export const LandingPage = () => {
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             {/* 로고 */}
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">V</span>
-              </div>
-              <span className="font-bold text-white">비상교육</span>
+            <div className="flex items-center">
+              <img src={serviceLogo} alt="학습심리정서검사" className="h-5 brightness-0 invert" />
             </div>
 
             {/* 링크 */}

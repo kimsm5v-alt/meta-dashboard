@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardList } from 'lucide-react';
+
 import { useAuth } from '@/features/auth';
 import type { ManagedAssessment } from '@/shared/types';
 import {
@@ -93,15 +93,10 @@ export const AssessmentPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="max-w-5xl">
       {/* 페이지 헤더 */}
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
-            <ClipboardList className="w-5 h-5 text-primary-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">검사하기</h1>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">검사하기</h1>
         <p className="text-gray-600">
           {isVivaSamMember
             ? '비바샘에서 학습심리정서검사를 실시하고 결과를 확인하세요.'

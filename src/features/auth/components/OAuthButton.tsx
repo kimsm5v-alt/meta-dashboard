@@ -1,4 +1,5 @@
 import type { OAuthProvider } from '@/shared/types';
+import vivasamLogo from '@/assets/vivasam_logo_symbol.svg';
 
 interface OAuthButtonProps {
   provider: OAuthProvider;
@@ -12,12 +13,14 @@ const PROVIDER_CONFIG: Record<OAuthProvider, {
   bgClass: string;
   iconBg: string;
   icon: string;
+  iconImage?: string;
 }> = {
   vivasam: {
     name: '비바샘 계정으로 로그인',
-    bgClass: 'bg-primary-500 hover:bg-primary-600 text-white',
-    iconBg: 'bg-primary-600',
-    icon: 'M',
+    bgClass: 'bg-blue-800 hover:bg-blue-900 text-white',
+    iconBg: 'bg-white',
+    icon: '',
+    iconImage: vivasamLogo,
   },
   google: {
     name: 'Google로 계속하기',
@@ -56,21 +59,26 @@ export const OAuthButton: React.FC<OAuthButtonProps> = ({
         transition-all duration-200
         ${config.bgClass}
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-        ${primary ? 'shadow-lg shadow-primary-500/25' : ''}
+        ${primary ? 'shadow-lg shadow-blue-800/25' : ''}
       `}
     >
       {/* 아이콘 */}
-      <span
-        className={`
-          w-6 h-6 rounded-md flex items-center justify-center text-sm font-bold
-          ${provider === 'vivasam' ? 'bg-white/20 text-white' : ''}
-          ${provider === 'google' ? 'text-red-500' : ''}
-          ${provider === 'kakao' ? 'text-[#191919]' : ''}
-          ${provider === 'naver' ? 'text-white' : ''}
-        `}
-      >
-        {config.icon}
-      </span>
+      {config.iconImage ? (
+        <span className="w-6 h-6 bg-white rounded-md flex items-center justify-center border border-sky-200">
+          <img src={config.iconImage} alt="" className="w-4 h-4" />
+        </span>
+      ) : (
+        <span
+          className={`
+            w-6 h-6 rounded-md flex items-center justify-center text-sm font-bold
+            ${provider === 'google' ? 'text-red-500' : ''}
+            ${provider === 'kakao' ? 'text-[#191919]' : ''}
+            ${provider === 'naver' ? 'text-white' : ''}
+          `}
+        >
+          {config.icon}
+        </span>
+      )}
       <span>{config.name}</span>
     </button>
   );
