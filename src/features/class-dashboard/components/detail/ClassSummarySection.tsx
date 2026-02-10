@@ -179,7 +179,11 @@ function parseAIResponse(text: string): ClassSummaryResponse | null {
     if (result) return result;
   }
 
-  return null;
+  // 4. Fallback: JSON 파싱 실패 시 원본 텍스트를 overall로 사용
+  return {
+    overall: text.trim(),
+    keyPoint: '강점/약점 카드를 참고하여 학급 운영 전략을 수립해 보세요.',
+  };
 }
 
 function tryParseJSON(text: string): ClassSummaryResponse | null {
@@ -298,14 +302,14 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
 }) => {
   const [result, setResult] = useState<ClassSummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
 
     const generate = async () => {
       setLoading(true);
-      setError(false);
+      setErrorMsg(null);
       try {
         const userMessage = isCompare && prevDetailData
           ? buildCompareUserMessage(classData, detailData, prevDetailData)
@@ -318,7 +322,7 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
         });
 
         if (!response.success) {
-          setError(true);
+          setErrorMsg(response.error || 'AI 호출 실패');
           return;
         }
 
@@ -326,10 +330,10 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
         if (parsed) {
           setResult(parsed);
         } else {
-          setError(true);
+          setErrorMsg('응답 파싱 실패');
         }
-      } catch {
-        setError(true);
+      } catch (e) {
+        setErrorMsg(e instanceof Error ? e.message : '알 수 없는 오류');
       } finally {
         setLoading(false);
       }
@@ -355,11 +359,12 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
               <p className="text-sm text-gray-500">AI가 분석 중입니다...</p>
             </div>
           </div>
-        ) : error ? (
+        ) : errorMsg ? (
           <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 text-center">
             <p className="text-sm text-gray-500">
               학급 분석을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.
             </p>
+            <p className="text-xs text-gray-400 mt-2">{errorMsg}</p>
           </div>
         ) : result ? (
           <div className="relative bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 rounded-xl p-6 border border-indigo-100 shadow-sm">
