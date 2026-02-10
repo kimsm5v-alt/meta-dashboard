@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Search, ShieldAlert, AlertTriangle, Clock } from 'lucide-react';
 import { Card, Badge } from '@/shared/components';
 import { getClassById } from '@/shared/data/mockData';
 import type { Student, Assessment } from '@/shared/types';
@@ -181,6 +181,20 @@ export const ClassDashboardPage = () => {
 
       </div>
 
+      {/* 2차 검사 진행중 배너 */}
+      {classData.stats?.examStatus?.round2 === '진행중' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
+          <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
+          <div>
+            <p className="font-semibold text-amber-800 text-sm">2차 검사 진행 중</p>
+            <p className="text-xs text-amber-600">
+              {classData.stats.round2SubmittedCount}/{classData.stats.totalStudents}명 제출 완료.
+              검사 종료 후 결과를 확인할 수 있습니다.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <TypeChangeChart classData={classData} />
@@ -311,6 +325,10 @@ export const ClassDashboardPage = () => {
                     <td className="py-3.5 px-3">
                       {r2 ? (
                         <Badge type={r2.predictedType}>{r2.predictedType}</Badge>
+                      ) : classData.stats?.examStatus?.round2 === '진행중' && student.round2Submitted ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-blue-50 text-blue-600 border-blue-200">
+                          제출 완료
+                        </span>
                       ) : (
                         <span className="text-gray-300 text-xs">-</span>
                       )}

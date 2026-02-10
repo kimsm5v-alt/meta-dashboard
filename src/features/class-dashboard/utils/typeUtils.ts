@@ -20,14 +20,14 @@ export const TYPE_ORDER = ['몰입자원풍부형', '안전균형형', '자원�
 
 export const TYPE_COLORS: Record<string, string> = {
   '미실시': '#E5E7EB',
-  '자원소진형': '#FB923C',
-  '안전균형형': '#2DD4BF',
-  '몰입자원풍부형': '#60A5FA',
+  '자원소진형': '#F97316',
+  '안전균형형': '#14B8A6',
+  '몰입자원풍부형': '#3B82F6',
 };
 
 export const TYPE_GRADIENTS: Record<string, { start: string; end: string }> = {
   '미실시': { start: '#E5E7EB', end: '#D1D5DB' },
-  '자원소진형': { start: '#FB923C', end: '#F97316' },
+  '자원소진형': { start: '#FDBA74', end: '#F97316' },
   '안전균형형': { start: '#5EEAD4', end: '#14B8A6' },
   '몰입자원풍부형': { start: '#93C5FD', end: '#3B82F6' },
 };

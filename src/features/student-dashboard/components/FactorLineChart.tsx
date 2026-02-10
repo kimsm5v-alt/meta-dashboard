@@ -14,16 +14,19 @@ const lightenColor = (hex: string, amount: number = 0.35): string => {
   return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb.toString(16).padStart(2, '0')}`;
 };
 
-const getBarPercent = (score: number) => ((score - 20) / 60) * 100;
+const getBarPercent = (score: number) => Math.max(0, Math.min(100, ((score - 20) / 60) * 100));
 const REF_LINE_POS = getBarPercent(50);
+const PREV_COLOR = '#9CA3AF'; // gray-400
 
 interface FactorLineChartProps {
   tScores: number[];
+  prevTScores?: number[];
 }
 
-export const FactorLineChart: React.FC<FactorLineChartProps> = ({ tScores }) => {
+export const FactorLineChart: React.FC<FactorLineChartProps> = ({ tScores, prevTScores }) => {
   const [expanded, setExpanded] = useState<string | null>(null);
   const subCategoryScores = calculateSubCategoryScores(tScores);
+  const prevSubCategoryScores = prevTScores ? calculateSubCategoryScores(prevTScores) : null;
 
   const toggle = (name: string) => setExpanded(prev => (prev === name ? null : name));
 
@@ -31,7 +34,20 @@ export const FactorLineChart: React.FC<FactorLineChartProps> = ({ tScores }) => 
     <div>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">중분류 요인 그래프</h3>
-        <span className="text-xs text-gray-500">점선(--): 전국 평균 T=50</span>
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          <span>점선: 전국 평균 T=50</span>
+          {prevTScores && (
+            <>
+              <span className="text-gray-300">|</span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-gray-400" /> 1차
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-indigo-400" /> 2차
+              </span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Scale ticks */}
@@ -57,6 +73,8 @@ export const FactorLineChart: React.FC<FactorLineChartProps> = ({ tScores }) => 
           const color = CATEGORY_COLORS[subCat] || '#9CA3AF';
           const isOpen = expanded === subCat;
           const indices = SUB_CATEGORY_FACTORS[subCat] || [];
+          const prevScore = prevSubCategoryScores ? (prevSubCategoryScores[subCat] || 50) : null;
+          const hasPrev = prevScore != null;
 
           return (
             <div key={subCat}>
@@ -72,25 +90,81 @@ export const FactorLineChart: React.FC<FactorLineChartProps> = ({ tScores }) => 
                   <span>{subCat}</span>
                 </div>
 
-                <div className="flex-1 relative h-7 bg-gray-100 rounded">
+                <div className="flex-1 relative h-7 bg-gray-100 rounded overflow-hidden">
                   {/* Reference line T=50 */}
                   <div
                     className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-400 z-10"
                     style={{ left: `${REF_LINE_POS}%` }}
                   />
-                  {/* Bar */}
-                  <div
-                    className="h-full flex items-center justify-end pr-2"
-                    style={{
-                      width: `${getBarPercent(score)}%`,
-                      backgroundColor: color,
-                      borderRadius: '0 4px 4px 0',
-                    }}
-                  >
-                    <span className="text-[11px] font-semibold text-white whitespace-nowrap">
-                      T={score}
-                    </span>
-                  </div>
+                  {hasPrev && prevScore !== score ? (
+                    prevScore > score ? (
+                      <>
+                        {/* CASE 1: 1차 > 2차 → 2차=색상(왼쪽), 나머지=회색(오른쪽) */}
+                        <div
+                          className="absolute top-0 left-0 h-full transition-all duration-300"
+                          style={{
+                            width: `${getBarPercent(score)}%`,
+                            backgroundColor: color,
+                            borderRadius: '0 0 0 0',
+                          }}
+                        />
+                        <div
+                          className="absolute top-0 h-full transition-all duration-300"
+                          style={{
+                            left: `${getBarPercent(score)}%`,
+                            width: `${getBarPercent(prevScore) - getBarPercent(score)}%`,
+                            backgroundColor: PREV_COLOR,
+                            borderRadius: '0 4px 4px 0',
+                          }}
+                        />
+                        <div className="absolute top-0 left-0 h-full flex items-center justify-end pr-2 z-20 pointer-events-none" style={{ width: `${getBarPercent(score)}%` }}>
+                          <span className="text-[11px] font-semibold text-white whitespace-nowrap">
+                            T={score}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* CASE 2: 1차 < 2차 → 1차=회색(왼쪽), 증가분=색상(오른쪽) */}
+                        <div
+                          className="absolute top-0 left-0 h-full transition-all duration-300"
+                          style={{
+                            width: `${getBarPercent(prevScore)}%`,
+                            backgroundColor: PREV_COLOR,
+                            borderRadius: '0 0 0 0',
+                          }}
+                        />
+                        <div
+                          className="absolute top-0 h-full transition-all duration-300"
+                          style={{
+                            left: `${getBarPercent(prevScore)}%`,
+                            width: `${getBarPercent(score) - getBarPercent(prevScore)}%`,
+                            backgroundColor: color,
+                            borderRadius: getBarPercent(prevScore) === 0 ? '0 4px 4px 0' : '0 4px 4px 0',
+                          }}
+                        />
+                        <div className="absolute top-0 left-0 h-full flex items-center justify-end pr-2 z-20 pointer-events-none" style={{ width: `${getBarPercent(score)}%` }}>
+                          <span className="text-[11px] font-semibold text-white whitespace-nowrap">
+                            T={score}
+                          </span>
+                        </div>
+                      </>
+                    )
+                  ) : (
+                    /* 단일 막대 (1차 없거나 CASE 3: 동일) */
+                    <div
+                      className="h-full flex items-center justify-end pr-2"
+                      style={{
+                        width: `${getBarPercent(score)}%`,
+                        backgroundColor: color,
+                        borderRadius: '0 4px 4px 0',
+                      }}
+                    >
+                      <span className="text-[11px] font-semibold text-white whitespace-nowrap">
+                        T={score}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="w-[52px] shrink-0 text-right text-[13px] font-semibold text-gray-600">
@@ -111,30 +185,75 @@ export const FactorLineChart: React.FC<FactorLineChartProps> = ({ tScores }) => 
                     const factor = FACTOR_DEFINITIONS[idx];
                     if (!factor) return null;
                     const fScore = tScores[idx];
+                    const prevFScore = prevTScores ? prevTScores[idx] : null;
+                    const hasPrevF = prevFScore != null;
+                    const lightColor = lightenColor(color);
                     return (
                       <div key={idx} className="flex items-center">
                         <div className="w-[88px] shrink-0 text-[11px] text-gray-500 text-right pr-2 truncate">
                           {factor.name}
                         </div>
-                        <div className="flex-1 relative h-5 bg-gray-50 rounded">
+                        <div className="flex-1 relative h-5 bg-gray-50 rounded overflow-hidden">
                           <div
                             className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-300 z-10"
                             style={{ left: `${REF_LINE_POS}%` }}
                           />
-                          <div
-                            className="h-full flex items-center justify-end pr-1.5"
-                            style={{
-                              width: `${getBarPercent(fScore)}%`,
-                              backgroundColor: lightenColor(color),
-                              borderRadius: '0 3px 3px 0',
-                            }}
-                          >
-                            {getBarPercent(fScore) > 25 && (
-                              <span className="text-[10px] font-medium text-white/90 whitespace-nowrap">
-                                {fScore}
-                              </span>
-                            )}
-                          </div>
+                          {hasPrevF && prevFScore !== fScore ? (
+                            prevFScore > fScore ? (
+                              <>
+                                <div
+                                  className="absolute top-0 left-0 h-full transition-all duration-300"
+                                  style={{
+                                    width: `${getBarPercent(fScore)}%`,
+                                    backgroundColor: lightColor,
+                                  }}
+                                />
+                                <div
+                                  className="absolute top-0 h-full transition-all duration-300"
+                                  style={{
+                                    left: `${getBarPercent(fScore)}%`,
+                                    width: `${getBarPercent(prevFScore) - getBarPercent(fScore)}%`,
+                                    backgroundColor: PREV_COLOR,
+                                    borderRadius: '0 3px 3px 0',
+                                  }}
+                                />
+                              </>
+                            ) : (
+                              <>
+                                <div
+                                  className="absolute top-0 left-0 h-full transition-all duration-300"
+                                  style={{
+                                    width: `${getBarPercent(prevFScore)}%`,
+                                    backgroundColor: PREV_COLOR,
+                                  }}
+                                />
+                                <div
+                                  className="absolute top-0 h-full transition-all duration-300"
+                                  style={{
+                                    left: `${getBarPercent(prevFScore)}%`,
+                                    width: `${getBarPercent(fScore) - getBarPercent(prevFScore)}%`,
+                                    backgroundColor: lightColor,
+                                    borderRadius: '0 3px 3px 0',
+                                  }}
+                                />
+                              </>
+                            )
+                          ) : (
+                            <div
+                              className="h-full flex items-center justify-end pr-1.5"
+                              style={{
+                                width: `${getBarPercent(fScore)}%`,
+                                backgroundColor: lightColor,
+                                borderRadius: '0 3px 3px 0',
+                              }}
+                            >
+                              {getBarPercent(fScore) > 25 && (
+                                <span className="text-[10px] font-medium text-white/90 whitespace-nowrap">
+                                  {fScore}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="w-[36px] shrink-0 text-right text-[11px] text-gray-500 font-medium">
                           {fScore}

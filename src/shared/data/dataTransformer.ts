@@ -13,6 +13,7 @@ import type {
   StudentType,
   FactorDeviation,
   SchoolLevel,
+  ExamStatus,
 } from '@/shared/types';
 import { FACTORS } from '@/shared/data/lpaProfiles';
 import { classifyStudent, getTypeDeviations } from '@/shared/utils/lpaClassifier';
@@ -40,6 +41,7 @@ interface RawStudent {
 
 interface RawClass {
   teacher: string;
+  examStatus?: { test1?: string; test2?: string };
   students: RawStudent[];
 }
 
@@ -194,16 +196,23 @@ const transformStudent = (
   grade: number,
   schoolLevel: SchoolLevel,
   factorMapping: Record<string, number>,
+  examStatus?: { test1?: string; test2?: string },
 ): Student => {
   const studentNumber = extractStudentNumber(raw.id);
   const studentId = toStudentId(classId, studentNumber);
   const assessments: Assessment[] = [];
 
-  const r1 = transformTestToAssessment(raw.test1, 1, studentId, factorMapping, schoolLevel);
-  if (r1) assessments.push(r1);
+  // Round 1: 진행중이면 Assessment 생성 skip
+  if (examStatus?.test1 !== '진행중') {
+    const r1 = transformTestToAssessment(raw.test1, 1, studentId, factorMapping, schoolLevel);
+    if (r1) assessments.push(r1);
+  }
 
-  const r2 = transformTestToAssessment(raw.test2, 2, studentId, factorMapping, schoolLevel);
-  if (r2) assessments.push(r2);
+  // Round 2: 진행중이면 Assessment 생성 skip (결과 비공개)
+  if (examStatus?.test2 !== '진행중') {
+    const r2 = transformTestToAssessment(raw.test2, 2, studentId, factorMapping, schoolLevel);
+    if (r2) assessments.push(r2);
+  }
 
   return {
     id: studentId,
@@ -213,6 +222,7 @@ const transformStudent = (
     schoolLevel,
     grade,
     assessments,
+    round2Submitted: hasValidTestData(raw.test2) || raw.test2.status === '제출완료',
   };
 };
 
@@ -220,7 +230,10 @@ const transformStudent = (
 // ClassStats 계산
 // ============================================================
 
-const computeClassStats = (students: Student[]): ClassStats => {
+const computeClassStats = (
+  students: Student[],
+  rawExamStatus?: { test1?: string; test2?: string },
+): ClassStats => {
   const assessed = students.filter(s => s.assessments.length > 0);
   const withRound2 = students.filter(s => s.assessments.some(a => a.round === 2));
 
@@ -251,6 +264,18 @@ const computeClassStats = (students: Student[]): ClassStats => {
   const round1Completed = assessed.length === students.length;
   const round2Completed = withRound2.length > 0 && withRound2.length === students.length;
 
+  // 제출 수: round2Submitted 기준
+  const round2SubmittedCount = students.filter(s => s.round2Submitted).length;
+
+  // 검사 상태 결정
+  const resolveStatus = (rawStatus?: string, fallbackCompleted?: boolean): ExamStatus => {
+    if (rawStatus === '진행중') return '진행중';
+    if (rawStatus === '종료') return '종료';
+    if (rawStatus === '시작전') return '시작전';
+    // JSON에 명시되지 않은 경우 데이터로 추론
+    return fallbackCompleted ? '종료' : '시작전';
+  };
+
   return {
     totalStudents: students.length,
     assessedStudents: assessed.length,
@@ -258,6 +283,11 @@ const computeClassStats = (students: Student[]): ClassStats => {
     needAttentionCount,
     round1Completed,
     round2Completed,
+    examStatus: {
+      round1: resolveStatus(rawExamStatus?.test1, round1Completed),
+      round2: resolveStatus(rawExamStatus?.test2, round2Completed),
+    },
+    round2SubmittedCount,
   };
 };
 
@@ -299,10 +329,10 @@ export const transformFullData = (rawData: RawData): TransformResult => {
     const classNumber = classMatch ? parseInt(classMatch[1]) : 0;
 
     const students = rawClass.students.map(raw =>
-      transformStudent(raw, classId, grade, schoolLevel, factorMapping!),
+      transformStudent(raw, classId, grade, schoolLevel, factorMapping!, rawClass.examStatus),
     );
 
-    const stats = computeClassStats(students);
+    const stats = computeClassStats(students, rawClass.examStatus);
 
     classes.push({
       id: classId,

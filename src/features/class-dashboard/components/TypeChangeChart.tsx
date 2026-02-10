@@ -124,7 +124,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
 
   const round1Distribution = createDistribution();
   const round2Distribution = createDistribution();
-  const round2Completed = classData.stats?.round2Completed || false;
+  const round2Available = classData.stats?.examStatus?.round2 === '종료';
 
   classData.students.forEach(student => {
     const r1 = student.assessments.find(a => a.round === 1);
@@ -132,7 +132,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
 
     round1Distribution[r1?.predictedType || '미실시'].push(student);
 
-    if (round2Completed && r2) {
+    if (round2Available && r2) {
       round2Distribution[r2.predictedType].push(student);
     } else {
       round2Distribution['미실시'].push(student);
@@ -141,7 +141,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
 
   // 흐름 데이터 계산
   const flows: FlowData[] = [];
-  if (round2Completed) {
+  if (round2Available) {
     TYPE_ORDER.forEach(fromType => {
       TYPE_ORDER.forEach(toType => {
         const students = round1Distribution[fromType].filter(student => {
@@ -327,11 +327,11 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
               <text x={SVG.barX2 + SVG.barWidth / 2} y={SVG.chartTop - 15} textAnchor="middle" className="text-sm font-bold fill-gray-900">
                 2차 검사
               </text>
-              {round2Segments.map(seg => renderBarSegment(seg, 2, SVG.barX2, round2Completed))}
+              {round2Segments.map(seg => renderBarSegment(seg, 2, SVG.barX2, round2Available))}
             </g>
 
             {/* 흐름선 */}
-            {round2Completed && flows
+            {round2Available && flows
               .sort((a, b) => {
                 const order = (c: FlowData) => (c.changeType === 'maintain' || c.changeType === 'notAssessed') ? 0 : 1;
                 return order(a) - order(b);
@@ -372,13 +372,22 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
           </svg>
         </div>
 
-        {/* 2차 미완료 표시 */}
-        {!round2Completed && (
+        {/* 2차 미완료/진행중 표시 */}
+        {!round2Available && (
           <div className="mt-4 text-center">
-            <p className="text-sm text-gray-500">2차 검사가 아직 진행되지 않았습니다.</p>
-            <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-gray-400 h-2 rounded-full" style={{ width: '0%' }} />
-            </div>
+            <p className="text-sm text-gray-500">
+              {classData.stats?.examStatus?.round2 === '진행중'
+                ? `2차 검사 진행 중 (${classData.stats?.round2SubmittedCount}/${classData.stats?.totalStudents}명 제출)`
+                : '2차 검사가 아직 진행되지 않았습니다.'}
+            </p>
+            {classData.stats?.examStatus?.round2 === '진행중' && (
+              <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-amber-400 h-2 rounded-full transition-all"
+                  style={{ width: `${((classData.stats?.round2SubmittedCount ?? 0) / (classData.stats?.totalStudents || 1)) * 100}%` }}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -424,7 +433,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
 
         {/* 하단 고정 영역: 흐름선 상세 / 도움말 */}
         <div className="flex-shrink-0 mt-auto pt-3">
-          {selectedFlow && round2Completed ? (() => {
+          {selectedFlow && round2Available ? (() => {
             const isPositive = selectedFlow.changeType === 'improve';
             const isNegative = selectedFlow.changeType === 'concern';
             const boxColor = isPositive ? 'bg-emerald-50 border-emerald-300' :
@@ -469,7 +478,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
                 </div>
               </div>
             );
-          })() : round2Completed ? (
+          })() : round2Available ? (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
               <p className="text-sm text-gray-600">
                 막대 또는 흐름선을 클릭하면 해당 유형의 학생 목록을 확인할 수 있습니다

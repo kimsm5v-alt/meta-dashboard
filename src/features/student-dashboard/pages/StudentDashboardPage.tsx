@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, FileText, MessageSquare, Eye, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, FileText, MessageSquare, Eye, ShieldAlert, AlertTriangle, Clock } from 'lucide-react';
 import { getClassById, getStudentById } from '@/shared/data/mockData';
 import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 import {
@@ -166,6 +166,16 @@ export const StudentDashboardPage = () => {
         )}
       </div>
 
+      {/* 2차 검사 진행중 안내 */}
+      {classData.stats?.examStatus?.round2 === '진행중' && student.round2Submitted && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2.5">
+          <Clock className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <p className="text-sm text-blue-700">
+            이 학생은 2차 검사를 제출했습니다. 검사 종료 후 결과가 공개됩니다.
+          </p>
+        </div>
+      )}
+
       {/* 1. 진단결과 한눈에 보기 */}
       <section>
         <div className="flex items-center justify-between mb-4">
@@ -205,9 +215,9 @@ export const StudentDashboardPage = () => {
           {/* 차트 영역: A/B 토글 */}
           <div className="p-6">
             {chartViewMode === 'midCategory' ? (
-              <FactorLineChart tScores={current.tScores} />
+              <FactorLineChart tScores={current.tScores} prevTScores={selectedRound === 2 && r1 ? r1.tScores : undefined} />
             ) : (
-              <FourStepInterpretation tScores={current.tScores} studentName={student.name} />
+              <FourStepInterpretation tScores={current.tScores} prevTScores={selectedRound === 2 && r1 ? r1.tScores : undefined} studentName={student.name} />
             )}
           </div>
         </div>

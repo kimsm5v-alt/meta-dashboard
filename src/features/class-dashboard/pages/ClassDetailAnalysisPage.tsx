@@ -21,6 +21,11 @@ export const ClassDetailAnalysisPage: React.FC = () => {
   const profile = useClassProfile(classData!, selectedRound);
   const detailData = useClassDetailData(classData!, selectedRound);
 
+  // 2차 선택 시 자동으로 1차 데이터 비교
+  const prevProfile = useClassProfile(classData!, 1);
+  const prevDetailData = useClassDetailData(classData!, 1);
+  const isCompare = selectedRound === 2 && hasRound2;
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -53,7 +58,7 @@ export const ClassDetailAnalysisPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Round Selector — L3와 동일한 패턴 */}
+      {/* Round Selector */}
       <div className="flex gap-2">
         <button
           onClick={() => setSelectedRound(1)}
@@ -88,6 +93,9 @@ export const ClassDetailAnalysisPage: React.FC = () => {
             profile={profile}
             classData={classData}
             round={selectedRound}
+            isCompare={isCompare}
+            prevProfile={isCompare ? prevProfile : undefined}
+            prevDetailData={isCompare ? prevDetailData : undefined}
           />
         </div>
       </section>
@@ -96,7 +104,10 @@ export const ClassDetailAnalysisPage: React.FC = () => {
       <section>
         <h2 className="text-xl font-bold mb-4">38개 세부 요인 분석</h2>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <FactorHeatmapSection domainData={detailData.domainData} />
+          <FactorHeatmapSection
+            domainData={detailData.domainData}
+            prevDomainData={isCompare ? prevDetailData.domainData : undefined}
+          />
         </div>
       </section>
 
@@ -108,6 +119,9 @@ export const ClassDetailAnalysisPage: React.FC = () => {
             criticalStudents={detailData.criticalStudents}
             watchListStudents={detailData.watchListStudents}
             classId={classData.id}
+            isCompare={isCompare}
+            prevCriticalStudents={isCompare ? prevDetailData.criticalStudents : undefined}
+            prevWatchListStudents={isCompare ? prevDetailData.watchListStudents : undefined}
           />
         </div>
       </section>
@@ -116,7 +130,7 @@ export const ClassDetailAnalysisPage: React.FC = () => {
       <section>
         <h2 className="text-xl font-bold mb-4">학급 맞춤 운영 전략</h2>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <StrategySection profile={profile} />
+          <StrategySection profile={profile} prevProfile={isCompare ? prevProfile : undefined} />
         </div>
       </section>
     </div>

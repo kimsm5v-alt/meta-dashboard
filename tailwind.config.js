@@ -101,10 +101,13 @@ export default {
           balance: '#14B8A6',   // 안전균형형/정서조절취약형
           excellent: '#3B82F6', // 몰입자원풍부형/자기주도몰입형
         },
-        // 요인 색상
-        factor: {
-          positive: '#3B82F6',
-          negative: '#EF4444',
+        // 대분류(영역) 색상
+        domain: {
+          self: '#00D282',       // 자아강점
+          stepping: '#4BC1FF',   // 학습디딤돌
+          positive: '#67A7FF',   // 긍정적공부마음
+          obstacle: '#FF849F',   // 학습걸림돌
+          negative: '#FF87D4',   // 부정적공부마음
         },
       },
       backgroundImage: {

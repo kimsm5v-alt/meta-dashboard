@@ -8,6 +8,7 @@
   "classes": {
     "6학년 2반": {
       "teacher": "김민지",
+      "examStatus": { "test1": "종료", "test2": "종료" },
       "students": [
         {
           "id": "S0201",
@@ -3537,6 +3538,7 @@
     },
     "6학년 3반": {
       "teacher": "이수정",
+      "examStatus": { "test1": "종료", "test2": "종료" },
       "students": [
         {
           "id": "S0301",
@@ -7418,6 +7420,7 @@
     },
     "6학년 4반": {
       "teacher": "박지원",
+      "examStatus": { "test1": "종료", "test2": "진행중" },
       "students": [
         {
           "id": "S0401",
@@ -10540,6 +10543,7 @@
     },
     "6학년 5반": {
       "teacher": "최영희",
+      "examStatus": { "test1": "종료", "test2": "시작전" },
       "students": [
         {
           "id": "S0501",

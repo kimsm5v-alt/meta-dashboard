@@ -13,6 +13,14 @@ export type ElementaryType = '자원소진형' | '안전균형형' | '몰입자�
 export type MiddleSchoolType = '무기력형' | '정서조절취약형' | '자기주도몰입형';
 export type StudentType = ElementaryType | MiddleSchoolType;
 
+// 검사 상태
+export type ExamStatus = '시작전' | '진행중' | '종료';
+
+export interface ExamPeriodStatus {
+  round1: ExamStatus;
+  round2: ExamStatus;
+}
+
 // 학급
 export interface Class {
   id: string;
@@ -31,6 +39,8 @@ export interface ClassStats {
   needAttentionCount: number;
   round1Completed: boolean;
   round2Completed: boolean;
+  examStatus: ExamPeriodStatus;
+  round2SubmittedCount: number;
 }
 
 export interface TypeDistribution {
@@ -49,6 +59,7 @@ export interface Student {
   schoolLevel: SchoolLevel;
   grade: number;
   assessments: Assessment[];
+  round2Submitted?: boolean;
 }
 
 // AI 전송용 (PII 제외)

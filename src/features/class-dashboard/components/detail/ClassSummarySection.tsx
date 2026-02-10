@@ -24,6 +24,9 @@ interface ClassSummarySectionProps {
   profile: ClassProfile | null;
   classData: Class;
   round: 1 | 2;
+  isCompare?: boolean;
+  prevProfile?: ClassProfile | null;
+  prevDetailData?: ClassDetailData;
 }
 
 // ============================================================
@@ -104,6 +107,50 @@ ${typeDistText ? `\n## 유형 분포\n${typeDistText}` : ''}
 위 데이터를 분석하여 JSON 형식으로 응답해주세요.`;
 }
 
+function buildCompareUserMessage(
+  classData: Class,
+  detailData: ClassDetailData,
+  prevDetailData: ClassDetailData,
+): string {
+  const { grade, classNumber } = classData;
+
+  const subCategories2 = detailData.domainData.flatMap((d) => d.subCategories);
+  const subCategories1 = prevDetailData.domainData.flatMap((d) => d.subCategories);
+
+  const prevMap: Record<string, number> = {};
+  for (const sc of subCategories1) {
+    prevMap[sc.name] = sc.avgTScore;
+  }
+
+  const changeLines = subCategories2
+    .map((sc) => {
+      const prev = prevMap[sc.name];
+      if (prev == null) return null;
+      const delta = Math.round((sc.avgTScore - prev) * 10) / 10;
+      const sign = delta > 0 ? '+' : '';
+      const arrow = delta > 0.5 ? '▲' : delta < -0.5 ? '▼' : '→';
+      return `- ${sc.displayName}: T ${prev} → ${sc.avgTScore} (${sign}${delta}) ${arrow}\n  ${sc.isPositive ? '[정적 요인]' : '[부적 요인]'}`;
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  return `# 학급 정보
+- 학년: ${grade}학년
+- 반: ${classNumber}반
+- 학생 수: ${detailData.totalStudentCount}명
+
+## 1→2차 중분류 변화
+${changeLines}
+
+## 위험군 변화
+- 1차: 긴급 ${prevDetailData.criticalStudents.length}명, 관찰 ${prevDetailData.watchListStudents.length}명
+- 2차: 긴급 ${detailData.criticalStudents.length}명, 관찰 ${detailData.watchListStudents.length}명
+
+위 1차→2차 변화 데이터를 분석하여, 학급의 전반적 변화 추이와 핵심 포인트를 JSON 형식({ "overall": "...", "keyPoint": "..." })으로 응답해주세요.
+- overall: 주요 개선점과 악화점을 중심으로 변화를 종합 분석 (3~4문장)
+- keyPoint: 교사에게 가장 중요한 조치 포인트 (1~2문장)`;
+}
+
 // ============================================================
 // JSON 파싱
 // ============================================================
@@ -181,8 +228,16 @@ const ProfileListCard: React.FC<{
   badge: string;
   items: ClassProfileItem[];
   accent: 'emerald' | 'red';
-}> = ({ title, badge, items, accent }) => {
+  prevItems?: ClassProfileItem[];
+}> = ({ title, badge, items, accent, prevItems }) => {
   const s = ACCENT_STYLES[accent];
+  const prevMap: Record<string, number> = {};
+  if (prevItems) {
+    for (const p of prevItems) {
+      prevMap[p.category] = p.avgT;
+    }
+  }
+
   return (
     <div className={`border p-5 rounded-lg ${s.card}`}>
       <h3 className={`font-bold mb-3 flex items-center gap-1.5 ${s.header}`}>
@@ -192,20 +247,37 @@ const ProfileListCard: React.FC<{
         {title}
       </h3>
       <ul className="space-y-3">
-        {items.map((item, idx) => (
-          <li key={item.category} className="flex items-start gap-2">
-            <span className={`text-xs font-bold mt-0.5 ${s.rank}`}>{idx + 1}</span>
-            <div>
-              <p className="text-sm font-semibold text-gray-800">
-                {getCategoryDisplayName(item.category)}
-                <span className={`ml-1.5 text-xs font-normal ${s.score}`}>T {item.avgT}</span>
-              </p>
-              {item.categoryScript && (
-                <p className="text-xs text-gray-500 leading-relaxed mt-0.5">{item.categoryScript}</p>
-              )}
-            </div>
-          </li>
-        ))}
+        {items.map((item, idx) => {
+          const prevT = prevMap[item.category];
+          const hasPrev = prevT != null;
+          const delta = hasPrev ? Math.round((item.avgT - prevT) * 10) / 10 : 0;
+
+          return (
+            <li key={item.category} className="flex items-start gap-2">
+              <span className={`text-xs font-bold mt-0.5 ${s.rank}`}>{idx + 1}</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 flex-wrap">
+                  {getCategoryDisplayName(item.category)}
+                  {hasPrev ? (
+                    <span className="text-xs font-normal text-gray-500">
+                      T {prevT} → {item.avgT}
+                      {delta !== 0 && (
+                        <span className={`ml-1 font-semibold ${delta > 0 ? (item.isPositive ? 'text-emerald-600' : 'text-red-500') : (item.isPositive ? 'text-red-500' : 'text-emerald-600')}`}>
+                          ({delta > 0 ? '+' : ''}{delta})
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className={`text-xs font-normal ${s.score}`}>T {item.avgT}</span>
+                  )}
+                </p>
+                {item.categoryScript && (
+                  <p className="text-xs text-gray-500 leading-relaxed mt-0.5">{item.categoryScript}</p>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -220,6 +292,9 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
   profile,
   classData,
   round,
+  isCompare = false,
+  prevProfile,
+  prevDetailData,
 }) => {
   const [result, setResult] = useState<ClassSummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -232,7 +307,9 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
       setLoading(true);
       setError(false);
       try {
-        const userMessage = buildUserMessage(classData, detailData, round);
+        const userMessage = isCompare && prevDetailData
+          ? buildCompareUserMessage(classData, detailData, prevDetailData)
+          : buildUserMessage(classData, detailData, round);
 
         const response = await callAI({
           feature: 'classAnalysis',
@@ -241,7 +318,6 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
         });
 
         if (!response.success) {
-          console.error('[ClassSummary] AI 호출 실패:', response.error);
           setError(true);
           return;
         }
@@ -250,7 +326,6 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
         if (parsed) {
           setResult(parsed);
         } else {
-          console.error('[ClassSummary] JSON 파싱 실패. 원본 응답:', response.content);
           setError(true);
         }
       } catch {
@@ -261,7 +336,7 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
     };
 
     generate();
-  }, [profile, detailData, classData, round]);
+  }, [profile, detailData, classData, round, isCompare, prevDetailData]);
 
   return (
     <div className="space-y-5">
@@ -269,7 +344,9 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-5 h-5 text-indigo-500" />
-          <h3 className="text-lg font-semibold text-gray-800">AI 학급 분석 총평</h3>
+          <h3 className="text-lg font-semibold text-gray-800">
+            {isCompare ? 'AI 학급 변화 분석' : 'AI 학급 분석 총평'}
+          </h3>
         </div>
         {loading ? (
           <div className="flex items-center justify-center h-32">
@@ -302,8 +379,20 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
       {/* 강점/약점 그리드 (useClassProfile 기반) */}
       {profile && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <ProfileListCard title="주요 강점" badge="+" items={profile.strengths} accent="emerald" />
-          <ProfileListCard title="관심 필요 영역" badge="!" items={profile.weaknesses} accent="red" />
+          <ProfileListCard
+            title={isCompare ? '주요 강점 (2차 기준)' : '주요 강점'}
+            badge="+"
+            items={profile.strengths}
+            accent="emerald"
+            prevItems={isCompare && prevProfile ? prevProfile.strengths.concat(prevProfile.weaknesses) : undefined}
+          />
+          <ProfileListCard
+            title={isCompare ? '관심 필요 영역 (2차 기준)' : '관심 필요 영역'}
+            badge="!"
+            items={profile.weaknesses}
+            accent="red"
+            prevItems={isCompare && prevProfile ? prevProfile.strengths.concat(prevProfile.weaknesses) : undefined}
+          />
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { calculate4StepDiagnosis, getLevel, type Level } from '@/shared/utils/calculate4StepDiagnosis';
 import { SUB_CATEGORY_FACTORS, FACTOR_DEFINITIONS } from '@/shared/data/factors';
+import { CATEGORY_COLORS } from '@/shared/data/lpaProfiles';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 
 // ============================================================
@@ -9,6 +10,7 @@ import { ChevronRight, ChevronDown } from 'lucide-react';
 
 interface FourStepInterpretationProps {
   tScores: number[];
+  prevTScores?: number[];
   studentName: string;
 }
 
@@ -18,8 +20,7 @@ interface FourStepInterpretationProps {
 
 const getBarPercent = (score: number) => ((score - 20) / 60) * 100;
 const T50_PERCENT = getBarPercent(50); // 50% — 정중앙
-const POSITIVE_COLOR = '#22C55E';
-const NEGATIVE_COLOR = '#F43F5E';
+const PREV_COLOR = '#9CA3AF'; // gray-400
 
 // LevelBadge.tsx와 동일한 5단계 배지 색상
 const COLORS_POSITIVE: Record<Level, string> = {
@@ -63,11 +64,16 @@ const lightenColor = (hex: string, amount: number = 0.35): string => {
 // 메인 컴포넌트
 // ============================================================
 
-export function FourStepInterpretation({ tScores, studentName }: FourStepInterpretationProps) {
+export function FourStepInterpretation({ tScores, prevTScores, studentName }: FourStepInterpretationProps) {
   const diagnosis = useMemo(
     () => calculate4StepDiagnosis(tScores),
     [tScores]
   );
+  const prevDiagnosis = useMemo(
+    () => prevTScores ? calculate4StepDiagnosis(prevTScores) : null,
+    [prevTScores]
+  );
+  const isCompare = !!prevDiagnosis;
 
   return (
     <div className="space-y-4">
@@ -88,13 +94,14 @@ export function FourStepInterpretation({ tScores, studentName }: FourStepInterpr
           </>
         }
         showBarLegend
+        isCompare={isCompare}
       >
         <SubSection
           title="긍정적 공부 마음"
           level={getLevel(diagnosis.step1.긍정.종합)}
         >
-          <BarItem label="학업열의" score={diagnosis.step1.긍정.학업열의} subCategoryKey="학업열의" tScores={tScores} />
-          <BarItem label="성장력" score={diagnosis.step1.긍정.성장력} subCategoryKey="성장력" tScores={tScores} />
+          <BarItem label="학업열의" score={diagnosis.step1.긍정.학업열의} prevScore={prevDiagnosis?.step1.긍정.학업열의} subCategoryKey="학업열의" tScores={tScores} prevTScores={prevTScores} />
+          <BarItem label="성장력" score={diagnosis.step1.긍정.성장력} prevScore={prevDiagnosis?.step1.긍정.성장력} subCategoryKey="성장력" tScores={tScores} prevTScores={prevTScores} />
         </SubSection>
 
         <SubSection
@@ -102,7 +109,7 @@ export function FourStepInterpretation({ tScores, studentName }: FourStepInterpr
           level={getLevel(diagnosis.step1.부정.학업소진)}
           isNegativeSection
         >
-          <BarItem label="학업소진" score={diagnosis.step1.부정.학업소진} isNegative subCategoryKey="학업소진" tScores={tScores} />
+          <BarItem label="학업소진" score={diagnosis.step1.부정.학업소진} prevScore={prevDiagnosis?.step1.부정.학업소진} isNegative subCategoryKey="학업소진" tScores={tScores} prevTScores={prevTScores} />
         </SubSection>
       </StepCard>
 
@@ -117,20 +124,21 @@ export function FourStepInterpretation({ tScores, studentName }: FourStepInterpr
           </>
         }
         showBarLegend
+        isCompare={isCompare}
       >
         <SubSection
           title="개인 자원"
           level={getLevel(diagnosis.step2.개인.종합)}
         >
-          <BarItem label="긍정적자아" score={diagnosis.step2.개인.긍정적자아} subCategoryKey="긍정적자아" tScores={tScores} />
-          <BarItem label="대인관계능력" score={diagnosis.step2.개인.대인관계능력} subCategoryKey="대인관계능력" tScores={tScores} />
+          <BarItem label="긍정적자아" score={diagnosis.step2.개인.긍정적자아} prevScore={prevDiagnosis?.step2.개인.긍정적자아} subCategoryKey="긍정적자아" tScores={tScores} prevTScores={prevTScores} />
+          <BarItem label="대인관계능력" score={diagnosis.step2.개인.대인관계능력} prevScore={prevDiagnosis?.step2.개인.대인관계능력} subCategoryKey="대인관계능력" tScores={tScores} prevTScores={prevTScores} />
         </SubSection>
 
         <SubSection
           title="환경 자원"
           level={getLevel(diagnosis.step2.환경.종합)}
         >
-          <BarItem label="지지적관계" score={diagnosis.step2.환경.지지적관계} subCategoryKey="지지적관계" tScores={tScores} />
+          <BarItem label="지지적관계" score={diagnosis.step2.환경.지지적관계} prevScore={prevDiagnosis?.step2.환경.지지적관계} subCategoryKey="지지적관계" tScores={tScores} prevTScores={prevTScores} />
         </SubSection>
 
         <SubSection
@@ -138,9 +146,9 @@ export function FourStepInterpretation({ tScores, studentName }: FourStepInterpr
           level={getLevel(diagnosis.step2.방해.학업스트레스)}
           isNegativeSection
         >
-          <BarItem label="학업스트레스" score={diagnosis.step2.방해.학업스트레스} isNegative subCategoryKey="학업스트레스" tScores={tScores} />
-          <BarItem label="학습방해물" score={diagnosis.step2.방해.학습방해물} isNegative subCategoryKey="학습방해물" tScores={tScores} />
-          <BarItem label="학업관계스트레스" score={diagnosis.step2.방해.학업관계스트레스} isNegative subCategoryKey="학업관계스트레스" tScores={tScores} />
+          <BarItem label="학업스트레스" score={diagnosis.step2.방해.학업스트레스} prevScore={prevDiagnosis?.step2.방해.학업스트레스} isNegative subCategoryKey="학업스트레스" tScores={tScores} prevTScores={prevTScores} />
+          <BarItem label="학습방해물" score={diagnosis.step2.방해.학습방해물} prevScore={prevDiagnosis?.step2.방해.학습방해물} isNegative subCategoryKey="학습방해물" tScores={tScores} prevTScores={prevTScores} />
+          <BarItem label="학업관계스트레스" score={diagnosis.step2.방해.학업관계스트레스} prevScore={prevDiagnosis?.step2.방해.학업관계스트레스} isNegative subCategoryKey="학업관계스트레스" tScores={tScores} prevTScores={prevTScores} />
         </SubSection>
       </StepCard>
 
@@ -155,22 +163,25 @@ export function FourStepInterpretation({ tScores, studentName }: FourStepInterpr
           </>
         }
         showBarLegend
+        isCompare={isCompare}
       >
         <SubSection
           title="학습 재설계"
           level={getLevel(diagnosis.step3.학습.종합)}
         >
-          <BarItem label="메타인지" score={diagnosis.step3.학습.메타인지} subCategoryKey="메타인지" tScores={tScores} />
-          <BarItem label="학습기술" score={diagnosis.step3.학습.학습기술} subCategoryKey="학습기술" tScores={tScores} />
+          <BarItem label="메타인지" score={diagnosis.step3.학습.메타인지} prevScore={prevDiagnosis?.step3.학습.메타인지} subCategoryKey="메타인지" tScores={tScores} prevTScores={prevTScores} />
+          <BarItem label="학습기술" score={diagnosis.step3.학습.학습기술} prevScore={prevDiagnosis?.step3.학습.학습기술} subCategoryKey="학습기술" tScores={tScores} prevTScores={prevTScores} />
         </SubSection>
 
         <SubSection
           title="마음 재설계"
           level={getLevel(diagnosis.step3.마음.종합)}
         >
-          <BarItem
+          <LeafFactorItem
             label="자기정서조절"
             score={diagnosis.step3.마음.자기정서조절}
+            prevScore={prevDiagnosis?.step3.마음.자기정서조절}
+            color={CATEGORY_COLORS['대인관계능력'] ?? '#9CA3AF'}
           />
         </SubSection>
       </StepCard>
@@ -190,13 +201,12 @@ export function FourStepInterpretation({ tScores, studentName }: FourStepInterpr
           {/* 사분면 그래프 */}
           <div className="col-span-2 border rounded-lg p-4 bg-gray-50">
             <div className="flex flex-col items-center">
-              {/* Y축 레이블 - 그래프 바깥 상단 중앙 */}
+              {/* Y축 레이블 */}
               <span className="text-xs font-semibold text-gray-600 mb-1">공부마음 ↑</span>
 
               <div className="flex items-center w-full">
-                {/* 그래프 */}
                 <div className="relative flex-1 aspect-[4/3] bg-white rounded border overflow-hidden">
-                  {/* 사분면 배경 - 4개 */}
+                  {/* 사분면 배경 */}
                   <div className="absolute inset-0">
                     <div className="absolute top-0 left-0 w-1/2 h-1/2 bg-blue-50 opacity-30 border-r border-b border-gray-600 flex items-center justify-center">
                       <span className="text-[9px] text-gray-400">2</span>
@@ -212,7 +222,36 @@ export function FourStepInterpretation({ tScores, studentName }: FourStepInterpr
                     </div>
                   </div>
 
-                  {/* 학생 위치 - 공부기술에 따라 색상 변경 */}
+                  {/* 1차 위치 (비교 모드) */}
+                  {prevDiagnosis && (
+                    <>
+                      {/* 1차→2차 연결선 */}
+                      <svg className="absolute inset-0 w-full h-full z-10 pointer-events-none">
+                        <line
+                          x1={`${clamp((prevDiagnosis.step4.공부자원 - 20) / 60 * 100)}%`}
+                          y1={`${clamp(100 - (prevDiagnosis.step4.공부마음 - 20) / 60 * 100)}%`}
+                          x2={`${clamp((diagnosis.step4.공부자원 - 20) / 60 * 100)}%`}
+                          y2={`${clamp(100 - (diagnosis.step4.공부마음 - 20) / 60 * 100)}%`}
+                          stroke="#9CA3AF"
+                          strokeWidth="1.5"
+                          strokeDasharray="4 4"
+                        />
+                      </svg>
+                      <div
+                        className="absolute w-5 h-5 rounded-full border-2 border-white shadow bg-gray-400 -translate-x-1/2 -translate-y-1/2 z-10 opacity-60"
+                        style={{
+                          left: `${clamp((prevDiagnosis.step4.공부자원 - 20) / 60 * 100)}%`,
+                          top: `${clamp(100 - (prevDiagnosis.step4.공부마음 - 20) / 60 * 100)}%`,
+                        }}
+                      >
+                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 px-1 py-0.5 rounded text-[8px] font-bold whitespace-nowrap bg-gray-400 text-white">
+                          1차
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* 2차(현재) 위치 */}
                   <div
                     className={`absolute w-7 h-7 rounded-full border-2 border-white shadow-lg -translate-x-1/2 -translate-y-1/2 z-20 ${
                       diagnosis.step4.공부기술 >= 50 ? 'bg-blue-600' : 'bg-red-500'
@@ -225,12 +264,11 @@ export function FourStepInterpretation({ tScores, studentName }: FourStepInterpr
                     <div className={`absolute -top-7 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap shadow-md ${
                       diagnosis.step4.공부기술 >= 50 ? 'bg-blue-600 text-white' : 'bg-red-500 text-white'
                     }`}>
-                      {studentName}
+                      {isCompare ? '2차' : studentName}
                     </div>
                   </div>
                 </div>
 
-                {/* X축 레이블 - 그래프 바깥 우측 중앙 */}
                 <span className="text-xs font-semibold text-gray-600 ml-1 [writing-mode:vertical-lr]">공부자원 ↑</span>
               </div>
 
@@ -245,6 +283,12 @@ export function FourStepInterpretation({ tScores, studentName }: FourStepInterpr
                   <div className="w-3 h-3 bg-red-500 rounded-full" />
                   <span className="font-medium">낮음(&lt;50)</span>
                 </div>
+                {isCompare && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-gray-400 rounded-full opacity-60" />
+                    <span className="font-medium">1차</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -258,6 +302,11 @@ export function FourStepInterpretation({ tScores, studentName }: FourStepInterpr
                   {diagnosis.step4.유형코드}
                 </span>
                 <h4 className="font-bold text-gray-900 text-base">{diagnosis.step4.유형명}</h4>
+                {isCompare && prevDiagnosis && prevDiagnosis.step4.유형코드 !== diagnosis.step4.유형코드 && (
+                  <span className="text-xs text-gray-400">
+                    (1차: {prevDiagnosis.step4.유형코드} {prevDiagnosis.step4.유형명})
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-600 mt-1.5 leading-relaxed">
                 {TYPE_DESCRIPTIONS[diagnosis.step4.유형코드] || ''}
@@ -268,23 +317,33 @@ export function FourStepInterpretation({ tScores, studentName }: FourStepInterpr
             <div className="px-4 py-3 border-b border-gray-100">
               <div className="grid grid-cols-3 gap-3">
                 {([
-                  { label: '공부 마음', value: diagnosis.step4.공부마음, color: '#3B82F6' },
-                  { label: '공부 자원', value: diagnosis.step4.공부자원, color: '#10B981' },
-                  { label: '공부 기술', value: diagnosis.step4.공부기술, color: '#8B5CF6' },
-                ] as const).map(item => (
-                  <div key={item.label} className="text-center">
-                    <div className="text-[11px] text-gray-500 mb-1">{item.label}</div>
-                    <div className="text-lg font-bold" style={{ color: item.color }}>
-                      {item.value.toFixed(0)}
+                  { label: '공부 마음', value: diagnosis.step4.공부마음, prev: prevDiagnosis?.step4.공부마음, color: '#3B82F6' },
+                  { label: '공부 자원', value: diagnosis.step4.공부자원, prev: prevDiagnosis?.step4.공부자원, color: '#10B981' },
+                  { label: '공부 기술', value: diagnosis.step4.공부기술, prev: prevDiagnosis?.step4.공부기술, color: '#8B5CF6' },
+                ] as const).map(item => {
+                  const delta = item.prev != null ? item.value - item.prev : null;
+                  return (
+                    <div key={item.label} className="text-center">
+                      <div className="text-[11px] text-gray-500 mb-1">{item.label}</div>
+                      <div className="flex items-center justify-center gap-1">
+                        <div className="text-lg font-bold" style={{ color: item.color }}>
+                          {item.value.toFixed(0)}
+                        </div>
+                        {delta != null && Math.abs(delta) >= 0.5 && (
+                          <span className={`text-[10px] font-semibold ${delta > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                            {delta > 0 ? '+' : ''}{delta.toFixed(1)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="h-1 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${clamp((item.value - 20) / 60 * 100)}%`, backgroundColor: item.color }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-1 bg-gray-100 rounded-full mt-1 overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${clamp((item.value - 20) / 60 * 100)}%`, backgroundColor: item.color }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -316,12 +375,14 @@ function StepCard({
   title,
   subtitle,
   showBarLegend = false,
+  isCompare = false,
   children,
 }: {
   step: number;
   title: string;
   subtitle: React.ReactNode;
   showBarLegend?: boolean;
+  isCompare?: boolean;
   children: React.ReactNode;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -340,7 +401,20 @@ function StepCard({
           <div className="text-sm text-gray-600">{subtitle}</div>
         </div>
         {showBarLegend && isExpanded && (
-          <span className="text-xs text-gray-500">점선(--): 전국 평균 T=50</span>
+          <div className="flex items-center gap-3 text-xs text-gray-500 shrink-0">
+            <span>점선: T=50</span>
+            {isCompare && (
+              <>
+                <span className="text-gray-300">|</span>
+                <span className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-gray-400" /> 1차
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-indigo-400" /> 2차
+                </span>
+              </>
+            )}
+          </div>
         )}
         <ChevronRight
           className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
@@ -367,7 +441,6 @@ function SubSection({
   isNegativeSection?: boolean;
   children: React.ReactNode;
 }) {
-  // LevelBadge와 동일한 색상 체계
   const badgeColor = isNegativeSection
     ? COLORS_NEGATIVE[level]
     : COLORS_POSITIVE[level];
@@ -391,25 +464,159 @@ function SubSection({
 }
 
 // ============================================================
-// BarItem
+// DualBar (이중 막대 렌더링 유틸)
+// ============================================================
+
+function DualBar({
+  score,
+  prevScore,
+  color,
+  height = 'h-7',
+  radius = '0 4px 4px 0',
+  showLabel = true,
+  labelSize = 'text-xs',
+}: {
+  score: number;
+  prevScore?: number;
+  color: string;
+  height?: string;
+  radius?: string;
+  showLabel?: boolean;
+  labelSize?: string;
+}) {
+  const curPct = Math.max(0, Math.min(getBarPercent(score), 100));
+  const hasPrev = prevScore != null;
+  const prevPct = hasPrev ? Math.max(0, Math.min(getBarPercent(prevScore), 100)) : 0;
+
+  return (
+    <div className={`flex-1 ${height} bg-gray-100 rounded overflow-hidden relative`}>
+      {/* T=50 기준선 */}
+      <div
+        className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-600 z-[1]"
+        style={{ left: `${T50_PERCENT}%` }}
+      />
+
+      {hasPrev && prevScore !== score ? (
+        prevPct > curPct ? (
+          <>
+            {/* 1차 > 2차: [0..2차]=색상, [2차..1차]=회색 */}
+            <div
+              className="absolute top-0 left-0 h-full transition-all duration-300"
+              style={{ width: `${curPct}%`, backgroundColor: color }}
+            />
+            <div
+              className="absolute top-0 h-full transition-all duration-300"
+              style={{
+                left: `${curPct}%`,
+                width: `${prevPct - curPct}%`,
+                backgroundColor: PREV_COLOR,
+                borderRadius: radius,
+              }}
+            />
+            {showLabel && curPct > 20 && (
+              <div className="absolute top-0 left-0 h-full flex items-center justify-end pr-2 z-20 pointer-events-none" style={{ width: `${curPct}%` }}>
+                <span className={`${labelSize} font-bold text-white whitespace-nowrap`}>
+                  T={score.toFixed(1)}
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* 1차 < 2차: [0..1차]=회색, [1차..2차]=색상 */}
+            <div
+              className="absolute top-0 left-0 h-full transition-all duration-300"
+              style={{ width: `${prevPct}%`, backgroundColor: PREV_COLOR }}
+            />
+            <div
+              className="absolute top-0 h-full transition-all duration-300"
+              style={{
+                left: `${prevPct}%`,
+                width: `${curPct - prevPct}%`,
+                backgroundColor: color,
+                borderRadius: radius,
+              }}
+            />
+            {showLabel && curPct > 20 && (
+              <div className="absolute top-0 left-0 h-full flex items-center justify-end pr-2 z-20 pointer-events-none" style={{ width: `${curPct}%` }}>
+                <span className={`${labelSize} font-bold text-white whitespace-nowrap`}>
+                  T={score.toFixed(1)}
+                </span>
+              </div>
+            )}
+          </>
+        )
+      ) : (
+        /* 단일 막대 (1차 없거나 동일) */
+        <div
+          className="h-full flex items-center justify-end pr-2 transition-all duration-300"
+          style={{
+            width: `${curPct}%`,
+            backgroundColor: color,
+            borderRadius: radius,
+          }}
+        >
+          {showLabel && curPct > 20 && (
+            <span className={`${labelSize} font-bold text-white whitespace-nowrap`}>
+              T={score.toFixed(1)}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// LeafFactorItem (3depth 소분류 단일 요인)
+// ============================================================
+
+function LeafFactorItem({ label, score, prevScore, color }: { label: string; score: number; prevScore?: number; color: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-40 pl-6 text-[11px] text-gray-500 flex-shrink-0 flex items-center gap-1">
+        <span className="text-gray-300">└</span>
+        {label}
+      </div>
+      <DualBar
+        score={score}
+        prevScore={prevScore}
+        color={lightenColor(color)}
+        height="h-5"
+        radius="0 3px 3px 0"
+        showLabel={false}
+        labelSize="text-[10px]"
+      />
+      <div className="w-12 text-right text-[11px] font-medium text-gray-500">
+        {score.toFixed(1)}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// BarItem (2depth 중분류)
 // ============================================================
 
 function BarItem({
   label,
   score,
+  prevScore,
   isNegative = false,
   subCategoryKey,
   tScores,
+  prevTScores,
 }: {
   label: string;
   score: number;
+  prevScore?: number;
   isNegative?: boolean;
   subCategoryKey?: string;
   tScores?: number[];
+  prevTScores?: number[];
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const barHex = isNegative ? NEGATIVE_COLOR : POSITIVE_COLOR;
-  const widthPercent = Math.max(0, Math.min(getBarPercent(score), 100));
+  const barHex = subCategoryKey ? (CATEGORY_COLORS[subCategoryKey] ?? '#9CA3AF') : '#9CA3AF';
 
   const subFactors = useMemo(() => {
     if (!subCategoryKey || !tScores) return [];
@@ -418,8 +625,9 @@ function BarItem({
     return indices.map(idx => ({
       name: FACTOR_DEFINITIONS[idx].name,
       score: tScores[idx],
+      prevScore: prevTScores ? prevTScores[idx] : undefined,
     }));
-  }, [subCategoryKey, tScores]);
+  }, [subCategoryKey, tScores, prevTScores]);
 
   const hasSubFactors = subFactors.length > 1;
 
@@ -440,27 +648,7 @@ function BarItem({
             <span className="text-[10px] text-red-500 font-normal">(부적)</span>
           )}
         </div>
-        <div className="flex-1 h-7 bg-gray-100 rounded overflow-hidden relative">
-          {/* T=50 기준선 */}
-          <div
-            className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-600 z-[1]"
-            style={{ left: `${T50_PERCENT}%` }}
-          />
-          <div
-            className="h-full flex items-center justify-end pr-2 transition-all"
-            style={{
-              width: `${widthPercent}%`,
-              backgroundColor: barHex,
-              borderRadius: '0 4px 4px 0',
-            }}
-          >
-            {widthPercent > 20 && (
-              <span className="text-xs font-bold text-white">
-                T={score.toFixed(1)}
-              </span>
-            )}
-          </div>
-        </div>
+        <DualBar score={score} prevScore={prevScore} color={barHex} />
         <div className="w-12 text-right text-xs font-semibold text-gray-600">
           {score.toFixed(1)}
         </div>
@@ -468,34 +656,27 @@ function BarItem({
 
       {/* 하위 요인 드롭다운 */}
       {isExpanded && hasSubFactors && (
-        <div className="ml-8 mt-1 space-y-1 border-l-2 border-gray-200 pl-3">
-          {subFactors.map(factor => {
-            const subWidth = Math.max(0, Math.min(getBarPercent(factor.score), 100));
-            return (
-              <div key={factor.name} className="flex items-center gap-2">
-                <div className="w-32 text-[11px] text-gray-500 flex-shrink-0">
-                  {factor.name}
-                </div>
-                <div className="flex-1 h-5 bg-gray-50 rounded overflow-hidden relative">
-                  <div
-                    className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-400 z-[1]"
-                    style={{ left: `${T50_PERCENT}%` }}
-                  />
-                  <div
-                    className="h-full transition-all"
-                    style={{
-                      width: `${subWidth}%`,
-                      backgroundColor: lightenColor(barHex),
-                      borderRadius: '0 3px 3px 0',
-                    }}
-                  />
-                </div>
-                <div className="w-10 text-right text-[11px] font-medium text-gray-500">
-                  {factor.score.toFixed(1)}
-                </div>
+        <div className="mt-1 space-y-1">
+          {subFactors.map(factor => (
+            <div key={factor.name} className="flex items-center gap-2">
+              <div className="w-40 pl-6 text-[11px] text-gray-500 flex-shrink-0 flex items-center gap-1">
+                <span className="text-gray-300">└</span>
+                {factor.name}
               </div>
-            );
-          })}
+              <DualBar
+                score={factor.score}
+                prevScore={factor.prevScore}
+                color={lightenColor(barHex)}
+                height="h-5"
+                radius="0 3px 3px 0"
+                showLabel={false}
+                labelSize="text-[10px]"
+              />
+              <div className="w-12 text-right text-[11px] font-medium text-gray-500">
+                {factor.score.toFixed(1)}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

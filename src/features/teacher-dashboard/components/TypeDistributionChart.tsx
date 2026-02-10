@@ -23,8 +23,8 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
     : ['자원소진형', '안전균형형', '몰입자원풍부형'] as const;
 
   const typeColors = isMiddleSchool
-    ? ['#FB923C', '#2DD4BF', '#60A5FA']
-    : ['#FB923C', '#2DD4BF', '#60A5FA'];
+    ? ['#F97316', '#14B8A6', '#3B82F6']
+    : ['#F97316', '#14B8A6', '#3B82F6'];
 
   const chartData = useMemo(() => {
     return classes.map(cls => {

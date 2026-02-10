@@ -4,6 +4,7 @@ import type { ClassProfile } from '../../hooks/useClassProfile';
 
 interface StrategySectionProps {
   profile: ClassProfile | null;
+  prevProfile?: ClassProfile | null;
 }
 
 interface StrategyTemplate {
@@ -137,8 +138,9 @@ const STRATEGY_TEMPLATES: Record<string, StrategyTemplate> = {
   },
 };
 
-export const StrategySection: React.FC<StrategySectionProps> = ({ profile }) => {
+export const StrategySection: React.FC<StrategySectionProps> = ({ profile, prevProfile }) => {
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  const isCompare = !!prevProfile;
 
   const toggleCheck = (key: string) => {
     setCheckedItems((prev) => {
@@ -149,12 +151,30 @@ export const StrategySection: React.FC<StrategySectionProps> = ({ profile }) => 
     });
   };
 
-  // 약점 TOP 3에 맞는 전략 가져오기
-  const strategies = (profile?.weaknesses ?? [])
-    .map((w) => STRATEGY_TEMPLATES[w.category])
-    .filter(Boolean);
+  // compare 모드: 1차 대비 악화된 영역(약점)을 우선 배치
+  const strategies: StrategyTemplate[] = [];
 
-  // 약점이 3개 미만이면 기본 전략 추가
+  if (isCompare && prevProfile && profile) {
+    // 1차→2차 약점 중 새로 진입하거나 merit 악화된 영역 우선
+    const prevWeakCats = new Set(prevProfile.weaknesses.map((w) => w.category));
+    const newWeaknesses = profile.weaknesses.filter((w) => !prevWeakCats.has(w.category));
+    const persistentWeaknesses = profile.weaknesses.filter((w) => prevWeakCats.has(w.category));
+
+    // 새로 약점이 된 영역을 먼저, 기존 지속 약점을 그 다음에
+    const orderedWeaknesses = [...newWeaknesses, ...persistentWeaknesses];
+    for (const w of orderedWeaknesses) {
+      const tmpl = STRATEGY_TEMPLATES[w.category];
+      if (tmpl && strategies.length < 3) strategies.push(tmpl);
+    }
+  } else {
+    // 기존 로직: 약점 TOP 3
+    const weakStrategies = (profile?.weaknesses ?? [])
+      .map((w) => STRATEGY_TEMPLATES[w.category])
+      .filter(Boolean);
+    strategies.push(...weakStrategies);
+  }
+
+  // 3개 미만이면 기본 전략 추가
   if (strategies.length < 3) {
     const fallbacks = ['학업스트레스', '메타인지', '학습기술'];
     const usedCategories = new Set(profile?.weaknesses?.map((w) => w.category) ?? []);

@@ -8,19 +8,24 @@ interface ObservationMemoPanelProps {
   classId: string;
 }
 
-// 11개 중분류 요인 태그
+// 11개 중분류 요인 태그 (대분류 색상 종속)
 const FACTOR_TAGS = [
-  { key: 'positive-self', label: '긍정적자아', color: 'bg-green-100 text-green-700' },
-  { key: 'interpersonal', label: '대인관계능력', color: 'bg-blue-100 text-blue-700' },
-  { key: 'metacognition', label: '메타인지', color: 'bg-purple-100 text-purple-700' },
-  { key: 'study-skills', label: '학습기술', color: 'bg-indigo-100 text-indigo-700' },
-  { key: 'supportive', label: '지지적관계', color: 'bg-teal-100 text-teal-700' },
-  { key: 'academic-enthusiasm', label: '학업열의', color: 'bg-orange-100 text-orange-700' },
-  { key: 'growth', label: '성장력', color: 'bg-lime-100 text-lime-700' },
-  { key: 'academic-stress', label: '학업스트레스', color: 'bg-red-100 text-red-700' },
-  { key: 'learning-obstacle', label: '학습방해요인', color: 'bg-amber-100 text-amber-700' },
-  { key: 'relationship-stress', label: '학업관계스트레스', color: 'bg-pink-100 text-pink-700' },
-  { key: 'burnout', label: '학업소진', color: 'bg-rose-100 text-rose-700' },
+  // 자아강점 (#00D282 계열)
+  { key: 'positive-self', label: '긍정적자아', color: 'bg-emerald-100 text-emerald-700' },
+  { key: 'interpersonal', label: '대인관계능력', color: 'bg-emerald-100 text-emerald-700' },
+  // 학습디딤돌 (#4BC1FF 계열)
+  { key: 'metacognition', label: '메타인지', color: 'bg-sky-100 text-sky-700' },
+  { key: 'study-skills', label: '학습기술', color: 'bg-sky-100 text-sky-700' },
+  { key: 'supportive', label: '지지적관계', color: 'bg-sky-100 text-sky-700' },
+  // 긍정적공부마음 (#67A7FF 계열)
+  { key: 'academic-enthusiasm', label: '학업열의', color: 'bg-blue-100 text-blue-700' },
+  { key: 'growth', label: '성장력', color: 'bg-blue-100 text-blue-700' },
+  // 학습걸림돌 (#FF849F 계열)
+  { key: 'academic-stress', label: '학업스트레스', color: 'bg-rose-100 text-rose-700' },
+  { key: 'learning-obstacle', label: '학습방해요인', color: 'bg-rose-100 text-rose-700' },
+  { key: 'relationship-stress', label: '학업관계스트레스', color: 'bg-rose-100 text-rose-700' },
+  // 부정적공부마음 (#FF87D4 계열)
+  { key: 'burnout', label: '학업소진', color: 'bg-pink-100 text-pink-700' },
 ] as const;
 
 interface FormData {
