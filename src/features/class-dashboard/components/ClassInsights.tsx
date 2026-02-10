@@ -5,6 +5,7 @@ import type { Class } from '@/shared/types';
 import { useClassProfile } from '../hooks/useClassProfile';
 import type { ClassProfileItem } from '../hooks/useClassProfile';
 import { SUB_CATEGORY_SCRIPTS } from '@/shared/data/subCategoryScripts';
+import { DOMAIN_COLORS } from '@/shared/data/lpaProfiles';
 
 interface ClassInsightsProps {
   classData: Class;
@@ -28,6 +29,14 @@ const ProfileItem: React.FC<{
 
   return (
     <div className={`p-3 rounded-lg border ${colors}`}>
+      {item.parentCategory && (
+        <span
+          className="text-[11px] font-semibold mb-1 inline-block"
+          style={{ color: DOMAIN_COLORS[item.parentCategory] ?? '#9CA3AF' }}
+        >
+          #{item.parentCategory}
+        </span>
+      )}
       <div className="flex items-center gap-1.5 mb-1">
         <span className={`text-xs font-bold ${rankColor}`}>{rank}</span>
         <p className="font-semibold text-sm text-gray-900">

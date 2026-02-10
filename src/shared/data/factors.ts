@@ -86,6 +86,20 @@ export const SUB_CATEGORY_FACTORS: Record<string, number[]> = {
 };
 
 /**
+ * 대분류별 중분류 그룹핑 (FACTOR_DEFINITIONS 기반 자동 생성)
+ */
+export const DOMAIN_GROUPS: Array<{ domain: FactorCategory; subCategories: string[] }> = (() => {
+  const groups: Array<{ domain: FactorCategory; subCategories: string[] }> = [];
+  for (const cat of MAIN_CATEGORIES) {
+    const subs = [...new Set(
+      FACTOR_DEFINITIONS.filter((f) => f.category === cat).map((f) => f.subCategory),
+    )];
+    groups.push({ domain: cat, subCategories: subs });
+  }
+  return groups;
+})();
+
+/**
  * 중분류별 요인 조회
  */
 export const getFactorsBySubCategory = (subCategory: string): Factor[] => {

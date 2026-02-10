@@ -5,6 +5,7 @@ import type { ClassDetailData } from '../../hooks/useClassDetailData';
 import type { ClassProfile, ClassProfileItem } from '../../hooks/useClassProfile';
 import { callAI } from '@/shared/services/ai';
 import { SUB_CATEGORY_SCRIPTS } from '@/shared/data/subCategoryScripts';
+import { DOMAIN_COLORS } from '@/shared/data/lpaProfiles';
 
 // ============================================================
 // AI 응답 타입
@@ -213,27 +214,22 @@ function getCategoryDisplayName(category: string): string {
 const ACCENT_STYLES = {
   emerald: {
     card: 'bg-emerald-50/50 border-emerald-200',
-    header: 'text-emerald-800',
-    badgeBg: 'bg-emerald-200 text-emerald-700',
     rank: 'text-emerald-500',
     score: 'text-emerald-600',
   },
   red: {
     card: 'bg-red-50/50 border-red-200',
-    header: 'text-red-800',
-    badgeBg: 'bg-red-200 text-red-700',
     rank: 'text-red-500',
     score: 'text-red-600',
   },
 } as const;
 
-const ProfileListCard: React.FC<{
-  title: string;
-  badge: string;
-  items: ClassProfileItem[];
+const ProfileCard: React.FC<{
+  item: ClassProfileItem;
+  idx: number;
   accent: 'emerald' | 'red';
   prevItems?: ClassProfileItem[];
-}> = ({ title, badge, items, accent, prevItems }) => {
+}> = ({ item, idx, accent, prevItems }) => {
   const s = ACCENT_STYLES[accent];
   const prevMap: Record<string, number> = {};
   if (prevItems) {
@@ -241,48 +237,41 @@ const ProfileListCard: React.FC<{
       prevMap[p.category] = p.avgT;
     }
   }
+  const prevT = prevMap[item.category];
+  const hasPrev = prevT != null;
+  const delta = hasPrev ? Math.round((item.avgT - prevT) * 10) / 10 : 0;
 
   return (
-    <div className={`border p-5 rounded-lg ${s.card}`}>
-      <h3 className={`font-bold mb-3 flex items-center gap-1.5 ${s.header}`}>
-        <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${s.badgeBg}`}>
-          {badge}
+    <div className={`flex-1 p-3 rounded-lg border ${s.card}`}>
+      {item.parentCategory && (
+        <span
+          className="text-[11px] font-semibold mb-1 inline-block"
+          style={{ color: DOMAIN_COLORS[item.parentCategory] ?? '#9CA3AF' }}
+        >
+          #{item.parentCategory}
         </span>
-        {title}
-      </h3>
-      <ul className="space-y-3">
-        {items.map((item, idx) => {
-          const prevT = prevMap[item.category];
-          const hasPrev = prevT != null;
-          const delta = hasPrev ? Math.round((item.avgT - prevT) * 10) / 10 : 0;
-
-          return (
-            <li key={item.category} className="flex items-start gap-2">
-              <span className={`text-xs font-bold mt-0.5 ${s.rank}`}>{idx + 1}</span>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 flex-wrap">
-                  {getCategoryDisplayName(item.category)}
-                  {hasPrev ? (
-                    <span className="text-xs font-normal text-gray-500">
-                      T {prevT} → {item.avgT}
-                      {delta !== 0 && (
-                        <span className={`ml-1 font-semibold ${delta > 0 ? (item.isPositive ? 'text-emerald-600' : 'text-red-500') : (item.isPositive ? 'text-red-500' : 'text-emerald-600')}`}>
-                          ({delta > 0 ? '+' : ''}{delta})
-                        </span>
-                      )}
-                    </span>
-                  ) : (
-                    <span className={`text-xs font-normal ${s.score}`}>T {item.avgT}</span>
-                  )}
-                </p>
-                {item.categoryScript && (
-                  <p className="text-xs text-gray-500 leading-relaxed mt-0.5">{item.categoryScript}</p>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      )}
+      <div className="flex items-center gap-1.5 mb-1">
+        <span className={`text-xs font-bold ${s.rank}`}>{idx + 1}</span>
+        <p className="text-sm font-semibold text-gray-800">
+          {getCategoryDisplayName(item.category)}
+        </p>
+      </div>
+      {hasPrev ? (
+        <p className="text-xs text-gray-500 mb-1">
+          T {prevT} → {item.avgT}
+          {delta !== 0 && (
+            <span className={`ml-1 font-semibold ${delta > 0 ? (item.isPositive ? 'text-emerald-600' : 'text-red-500') : (item.isPositive ? 'text-red-500' : 'text-emerald-600')}`}>
+              ({delta > 0 ? '+' : ''}{delta})
+            </span>
+          )}
+        </p>
+      ) : (
+        <p className={`text-xs mb-1 ${s.score}`}>T {item.avgT}</p>
+      )}
+      {item.categoryScript && (
+        <p className="text-xs text-gray-500 leading-relaxed">{item.categoryScript}</p>
+      )}
     </div>
   );
 };
@@ -381,23 +370,35 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
         ) : null}
       </div>
 
-      {/* 강점/약점 그리드 (useClassProfile 기반) */}
+      {/* 강점/약점 가로 배치 */}
       {profile && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <ProfileListCard
-            title={isCompare ? '주요 강점 (2차 기준)' : '주요 강점'}
-            badge="+"
-            items={profile.strengths}
-            accent="emerald"
-            prevItems={isCompare && prevProfile ? prevProfile.strengths.concat(prevProfile.weaknesses) : undefined}
-          />
-          <ProfileListCard
-            title={isCompare ? '관심 필요 영역 (2차 기준)' : '관심 필요 영역'}
-            badge="!"
-            items={profile.weaknesses}
-            accent="red"
-            prevItems={isCompare && prevProfile ? prevProfile.strengths.concat(prevProfile.weaknesses) : undefined}
-          />
+        <div className="flex gap-6">
+          {/* 강점 */}
+          <div className="flex-1">
+            <h3 className="text-sm font-bold mb-2 flex items-center gap-1.5 text-emerald-800">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-emerald-200 text-emerald-700">+</span>
+              {isCompare ? '주요 강점 (2차 기준)' : '주요 강점'}
+            </h3>
+            <div className="flex gap-2">
+              {profile.strengths.map((item, idx) => (
+                <ProfileCard key={item.category} item={item} idx={idx} accent="emerald" prevItems={isCompare && prevProfile ? prevProfile.strengths.concat(prevProfile.weaknesses) : undefined} />
+              ))}
+            </div>
+          </div>
+          {/* 구분선 */}
+          <div className="w-px bg-gray-200 self-stretch" />
+          {/* 약점 */}
+          <div className="flex-1">
+            <h3 className="text-sm font-bold mb-2 flex items-center gap-1.5 text-red-800">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-red-200 text-red-700">!</span>
+              {isCompare ? '관심 필요 영역 (2차 기준)' : '관심 필요 영역'}
+            </h3>
+            <div className="flex gap-2">
+              {profile.weaknesses.map((item, idx) => (
+                <ProfileCard key={item.category} item={item} idx={idx} accent="red" prevItems={isCompare && prevProfile ? prevProfile.strengths.concat(prevProfile.weaknesses) : undefined} />
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

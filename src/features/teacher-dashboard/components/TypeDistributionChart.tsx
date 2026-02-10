@@ -37,7 +37,9 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
         classId: cls.id,
       };
       for (const key of typeKeys) {
-        row[key] = cls.stats?.typeDistribution?.[key]?.count || 0;
+        const count = cls.stats?.typeDistribution?.[key]?.count || 0;
+        row[key] = count;
+        row[`${key}_pct`] = total > 0 ? Math.round((count / total) * 100) : 0;
       }
       return row;
     }).sort((a, b) => {
@@ -77,7 +79,7 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
               style={{ cursor: 'pointer' }}
               onClick={() => handleBarClick(bar.data)}
             />
-            {bar.width > 30 && (bar.data.value ?? 0) > 0 && (
+            {bar.width > 60 && (bar.data.value ?? 0) > 0 && (
               <text
                 x={bar.width / 2}
                 y={bar.height / 2}
@@ -90,7 +92,7 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
                   pointerEvents: 'none',
                 }}
               >
-                {bar.data.value}
+                {bar.data.value}명({bar.data.data[`${bar.data.id}_pct`]}%)
               </text>
             )}
           </g>

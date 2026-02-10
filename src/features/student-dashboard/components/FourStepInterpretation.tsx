@@ -3,6 +3,8 @@ import { calculate4StepDiagnosis, getLevel, type Level } from '@/shared/utils/ca
 import { SUB_CATEGORY_FACTORS, FACTOR_DEFINITIONS } from '@/shared/data/factors';
 import { CATEGORY_COLORS } from '@/shared/data/lpaProfiles';
 import { ChevronRight, ChevronDown } from 'lucide-react';
+import { getBarPercent, PREV_COLOR } from '@/shared/utils/chartUtils';
+import { lightenColor } from '@/shared/utils/colorUtils';
 
 // ============================================================
 // Props
@@ -18,9 +20,7 @@ interface FourStepInterpretationProps {
 // 상수
 // ============================================================
 
-const getBarPercent = (score: number) => ((score - 20) / 60) * 100;
 const T50_PERCENT = getBarPercent(50); // 50% — 정중앙
-const PREV_COLOR = '#9CA3AF'; // gray-400
 
 // LevelBadge.tsx와 동일한 5단계 배지 색상
 const COLORS_POSITIVE: Record<Level, string> = {
@@ -48,16 +48,6 @@ const TYPE_DESCRIPTIONS: Record<string, string> = {
   '3-2': '동기, 자원, 기술 모두 낮은 상태입니다. 단계적이고 종합적인 지원이 시급합니다.',
   '4-1': '자원은 있으나 학습 동기가 낮습니다. 공부 흥미 회복과 동기 부여가 필요합니다.',
   '4-2': '자원은 있으나 동기와 기술이 부족합니다. 학습 흥미 발견과 방법 지도가 필요합니다.',
-};
-
-const lightenColor = (hex: string, amount: number = 0.35): string => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const nr = Math.round(r + (255 - r) * amount);
-  const ng = Math.round(g + (255 - g) * amount);
-  const nb = Math.round(b + (255 - b) * amount);
-  return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb.toString(16).padStart(2, '0')}`;
 };
 
 // ============================================================

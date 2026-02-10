@@ -1,3 +1,5 @@
+import { getBarPercent, REF_LINE_POS, PREV_COLOR } from '@/shared/utils/chartUtils';
+
 interface FactorBarProps {
   score: number;
   color: string;
@@ -6,12 +8,8 @@ interface FactorBarProps {
   prevScore?: number;
 }
 
-const getBarPercent = (score: number) => Math.max(0, Math.min(100, ((score - 20) / 60) * 100));
-const REF_LINE_POS = getBarPercent(50);
-const PREV_COLOR = '#9CA3AF'; // gray-400
-
 export const FactorBar: React.FC<FactorBarProps> = ({ score, color, height = 'md', prevScore }) => {
-  const h = height === 'sm' ? 'h-[14px]' : 'h-5';
+  const h = height === 'sm' ? 'h-5' : 'h-7';
   const radius = height === 'sm' ? '0 3px 3px 0' : '0 4px 4px 0';
   const isCompare = prevScore != null;
 

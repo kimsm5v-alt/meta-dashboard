@@ -2,6 +2,14 @@ import { useMemo } from 'react';
 import type { Class } from '@/shared/types';
 import { FACTOR_DEFINITIONS } from '@/shared/data/factors';
 import { SUB_CATEGORY_SCRIPTS } from '@/shared/data/subCategoryScripts';
+
+// 중분류 → 대분류 매핑
+const SUB_TO_MAIN: Record<string, string> = {};
+for (const f of FACTOR_DEFINITIONS) {
+  if (!SUB_TO_MAIN[f.subCategory]) {
+    SUB_TO_MAIN[f.subCategory] = f.category;
+  }
+}
 import scriptsDepth2 from '@/shared/data/scripts_depth2.json';
 import scriptsDepth3 from '@/shared/data/scripts_depth3.json';
 
@@ -22,6 +30,7 @@ const SUB_CAT_FACTORS: Record<string, string[]> = {
 
 export interface ClassProfileItem {
   category: string;
+  parentCategory: string;
   avgT: number;
   isPositive: boolean;
   categoryScript: string;
@@ -155,6 +164,7 @@ export function useClassProfile(
       const top = pickTopFactor(item, type);
       return {
         category: item.category,
+        parentCategory: SUB_TO_MAIN[item.category] ?? '',
         avgT: Math.round(item.avgT * 10) / 10,
         isPositive: item.isPositive,
         categoryScript: findSummary(

@@ -3,6 +3,7 @@ import { ChevronDown, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import type { DomainData } from '../../hooks/useClassDetailData';
 import { LevelBadge } from './LevelBadge';
 import { FactorBar } from './FactorBar';
+import { lightenColor } from '@/shared/utils/colorUtils';
 
 // delta 배지 컴포넌트
 const DeltaBadge: React.FC<{ delta: number; isPositive: boolean }> = ({ delta, isPositive }) => {
@@ -45,16 +46,6 @@ interface FactorHeatmapSectionProps {
   domainData: DomainData[];
   prevDomainData?: DomainData[];
 }
-
-const lightenColor = (hex: string, amount: number = 0.35): string => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const nr = Math.round(r + (255 - r) * amount);
-  const ng = Math.round(g + (255 - g) * amount);
-  const nb = Math.round(b + (255 - b) * amount);
-  return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb.toString(16).padStart(2, '0')}`;
-};
 
 export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({ domainData, prevDomainData }) => {
   const [expandedSubCats, setExpandedSubCats] = useState<Set<string>>(new Set());
@@ -118,27 +109,16 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({ doma
         <div key={domain.category} className="overflow-hidden">
           {/* 대분류 헤더 */}
           <div
-            className={`flex items-center justify-between p-4 rounded-xl mb-3 border ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg mb-1 border ${
               domain.isPositive
                 ? 'bg-emerald-50/60 border-emerald-200'
                 : 'bg-rose-50/60 border-rose-200'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <span className="text-xl">{domain.icon}</span>
-              <h3 className="text-lg font-bold text-gray-800">{domain.category}</h3>
-              <span className="text-xs text-gray-500 ml-1">
-                {domain.isPositive ? '높을수록 좋아요' : '낮을수록 좋아요'}
-              </span>
-            </div>
-            <span
-              className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                domain.isPositive
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-red-100 text-red-700'
-              }`}
-            >
-              {domain.isPositive ? '정적 요인' : '부적 요인'}
+            <span className="text-sm">{domain.icon}</span>
+            <h3 className="text-sm font-bold text-gray-800">{domain.category}</h3>
+            <span className="text-xs text-gray-500">
+              {domain.isPositive ? '높을수록 좋아요' : '낮을수록 좋아요'}
             </span>
           </div>
 
@@ -193,7 +173,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({ doma
                   <div
                     className="overflow-hidden transition-all duration-300 ease-in-out"
                     style={{
-                      maxHeight: isOpen ? `${subCat.factors.length * 40 + 24}px` : '0px',
+                      maxHeight: isOpen ? `${subCat.factors.length * 46 + 24}px` : '0px',
                       opacity: isOpen ? 1 : 0,
                     }}
                   >

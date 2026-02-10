@@ -1,10 +1,8 @@
 import { useMemo } from 'react';
 import type { Class, Student, Assessment, AttentionReason, FactorCategory } from '@/shared/types';
-import { FACTOR_DEFINITIONS, MAIN_CATEGORIES } from '@/shared/data/factors';
-import { SUB_CATEGORY_FACTORS } from '@/shared/data/factors';
-import { CATEGORY_COLORS } from '@/shared/data/lpaProfiles';
-import { SUB_CATEGORY_SCRIPTS } from '@/shared/data/subCategoryScripts';
-import { getLevel } from '@/shared/data/subCategoryScripts';
+import { FACTOR_DEFINITIONS, MAIN_CATEGORIES, SUB_CATEGORY_FACTORS } from '@/shared/data/factors';
+import { CATEGORY_COLORS, DOMAIN_ICONS, POSITIVE_DOMAINS } from '@/shared/data/lpaProfiles';
+import { SUB_CATEGORY_SCRIPTS, getLevel } from '@/shared/data/subCategoryScripts';
 
 // ============================================================
 // 타입 정의
@@ -55,20 +53,6 @@ export interface ClassDetailData {
   validStudentCount: number;
   totalStudentCount: number;
 }
-
-// ============================================================
-// 대분류 아이콘
-// ============================================================
-
-const DOMAIN_ICONS: Record<string, string> = {
-  '자아강점': '🌟',
-  '학습디딤돌': '📚',
-  '긍정적공부마음': '💚',
-  '학습걸림돌': '⚠️',
-  '부정적공부마음': '💔',
-};
-
-const POSITIVE_DOMAINS = new Set(['자아강점', '학습디딤돌', '긍정적공부마음']);
 
 // ============================================================
 // Hook

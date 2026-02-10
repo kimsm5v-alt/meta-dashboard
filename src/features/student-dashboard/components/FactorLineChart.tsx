@@ -1,22 +1,10 @@
 import { useState } from 'react';
-import { SUB_CATEGORIES, CATEGORY_COLORS } from '@/shared/data/lpaProfiles';
+import { CATEGORY_COLORS, DOMAIN_ICONS, POSITIVE_DOMAINS } from '@/shared/data/lpaProfiles';
 import { calculateSubCategoryScores } from '@/shared/utils/summaryGenerator';
-import { SUB_CATEGORY_FACTORS, FACTOR_DEFINITIONS } from '@/shared/data/factors';
+import { SUB_CATEGORY_FACTORS, FACTOR_DEFINITIONS, DOMAIN_GROUPS } from '@/shared/data/factors';
 import { ChevronDown } from 'lucide-react';
-
-const lightenColor = (hex: string, amount: number = 0.35): string => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const nr = Math.round(r + (255 - r) * amount);
-  const ng = Math.round(g + (255 - g) * amount);
-  const nb = Math.round(b + (255 - b) * amount);
-  return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb.toString(16).padStart(2, '0')}`;
-};
-
-const getBarPercent = (score: number) => Math.max(0, Math.min(100, ((score - 20) / 60) * 100));
-const REF_LINE_POS = getBarPercent(50);
-const PREV_COLOR = '#9CA3AF'; // gray-400
+import { getBarPercent, REF_LINE_POS, PREV_COLOR } from '@/shared/utils/chartUtils';
+import { lightenColor } from '@/shared/utils/colorUtils';
 
 interface FactorLineChartProps {
   tScores: number[];
@@ -67,201 +55,223 @@ export const FactorLineChart: React.FC<FactorLineChartProps> = ({ tScores, prevT
         <div className="w-[52px] shrink-0" />
       </div>
 
-      <div className="space-y-0.5">
-        {SUB_CATEGORIES.map(subCat => {
-          const score = subCategoryScores[subCat] || 50;
-          const color = CATEGORY_COLORS[subCat] || '#9CA3AF';
-          const isOpen = expanded === subCat;
-          const indices = SUB_CATEGORY_FACTORS[subCat] || [];
-          const prevScore = prevSubCategoryScores ? (prevSubCategoryScores[subCat] || 50) : null;
-          const hasPrev = prevScore != null;
+      <div className="space-y-4">
+        {DOMAIN_GROUPS.map(group => {
+          const isPositive = POSITIVE_DOMAINS.has(group.domain);
+          const icon = DOMAIN_ICONS[group.domain] ?? '📊';
 
           return (
-            <div key={subCat}>
-              {/* Main bar row */}
+            <div key={group.domain}>
+              {/* 대분류 헤더 */}
               <div
-                className="flex items-center cursor-pointer group hover:bg-gray-50 rounded-lg py-1.5 px-1 transition-colors"
-                onClick={() => toggle(subCat)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg mb-1 border ${
+                  isPositive
+                    ? 'bg-emerald-50/60 border-emerald-200'
+                    : 'bg-rose-50/60 border-rose-200'
+                }`}
               >
-                <div className="w-[120px] shrink-0 text-[13px] text-gray-700 font-medium flex items-center gap-1">
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
-                  />
-                  <span>{subCat}</span>
-                </div>
-
-                <div className="flex-1 relative h-7 bg-gray-100 rounded overflow-hidden">
-                  {/* Reference line T=50 */}
-                  <div
-                    className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-400 z-10"
-                    style={{ left: `${REF_LINE_POS}%` }}
-                  />
-                  {hasPrev && prevScore !== score ? (
-                    prevScore > score ? (
-                      <>
-                        {/* CASE 1: 1차 > 2차 → 2차=색상(왼쪽), 나머지=회색(오른쪽) */}
-                        <div
-                          className="absolute top-0 left-0 h-full transition-all duration-300"
-                          style={{
-                            width: `${getBarPercent(score)}%`,
-                            backgroundColor: color,
-                            borderRadius: '0 0 0 0',
-                          }}
-                        />
-                        <div
-                          className="absolute top-0 h-full transition-all duration-300"
-                          style={{
-                            left: `${getBarPercent(score)}%`,
-                            width: `${getBarPercent(prevScore) - getBarPercent(score)}%`,
-                            backgroundColor: PREV_COLOR,
-                            borderRadius: '0 4px 4px 0',
-                          }}
-                        />
-                        <div className="absolute top-0 left-0 h-full flex items-center justify-end pr-2 z-20 pointer-events-none" style={{ width: `${getBarPercent(score)}%` }}>
-                          <span className="text-[11px] font-semibold text-white whitespace-nowrap">
-                            T={score}
-                          </span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        {/* CASE 2: 1차 < 2차 → 1차=회색(왼쪽), 증가분=색상(오른쪽) */}
-                        <div
-                          className="absolute top-0 left-0 h-full transition-all duration-300"
-                          style={{
-                            width: `${getBarPercent(prevScore)}%`,
-                            backgroundColor: PREV_COLOR,
-                            borderRadius: '0 0 0 0',
-                          }}
-                        />
-                        <div
-                          className="absolute top-0 h-full transition-all duration-300"
-                          style={{
-                            left: `${getBarPercent(prevScore)}%`,
-                            width: `${getBarPercent(score) - getBarPercent(prevScore)}%`,
-                            backgroundColor: color,
-                            borderRadius: getBarPercent(prevScore) === 0 ? '0 4px 4px 0' : '0 4px 4px 0',
-                          }}
-                        />
-                        <div className="absolute top-0 left-0 h-full flex items-center justify-end pr-2 z-20 pointer-events-none" style={{ width: `${getBarPercent(score)}%` }}>
-                          <span className="text-[11px] font-semibold text-white whitespace-nowrap">
-                            T={score}
-                          </span>
-                        </div>
-                      </>
-                    )
-                  ) : (
-                    /* 단일 막대 (1차 없거나 CASE 3: 동일) */
-                    <div
-                      className="h-full flex items-center justify-end pr-2"
-                      style={{
-                        width: `${getBarPercent(score)}%`,
-                        backgroundColor: color,
-                        borderRadius: '0 4px 4px 0',
-                      }}
-                    >
-                      <span className="text-[11px] font-semibold text-white whitespace-nowrap">
-                        T={score}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="w-[52px] shrink-0 text-right text-[13px] font-semibold text-gray-600">
-                  {score}
-                </div>
+                <span className="text-sm">{icon}</span>
+                <h4 className="text-sm font-bold text-gray-800">{group.domain}</h4>
+                <span className="text-xs text-gray-500">
+                  {isPositive ? '높을수록 좋아요' : '낮을수록 좋아요'}
+                </span>
               </div>
 
-              {/* Sub-factor dropdown */}
-              <div
-                className="overflow-hidden transition-all duration-300 ease-in-out"
-                style={{
-                  maxHeight: isOpen ? `${indices.length * 36 + 16}px` : '0px',
-                  opacity: isOpen ? 1 : 0,
-                }}
-              >
-                <div className="pl-[32px] pr-[52px] py-1.5 space-y-1">
-                  {indices.map(idx => {
-                    const factor = FACTOR_DEFINITIONS[idx];
-                    if (!factor) return null;
-                    const fScore = tScores[idx];
-                    const prevFScore = prevTScores ? prevTScores[idx] : null;
-                    const hasPrevF = prevFScore != null;
-                    const lightColor = lightenColor(color);
-                    return (
-                      <div key={idx} className="flex items-center">
-                        <div className="w-[88px] shrink-0 text-[11px] text-gray-500 text-right pr-2 truncate">
-                          {factor.name}
+              {/* 중분류 막대들 */}
+              <div className="space-y-0.5">
+                {group.subCategories.map(subCat => {
+                  const score = subCategoryScores[subCat] || 50;
+                  const color = CATEGORY_COLORS[subCat] || '#9CA3AF';
+                  const isOpen = expanded === subCat;
+                  const indices = SUB_CATEGORY_FACTORS[subCat] || [];
+                  const prevScore = prevSubCategoryScores ? (prevSubCategoryScores[subCat] || 50) : null;
+                  const hasPrev = prevScore != null;
+
+                  return (
+                    <div key={subCat}>
+                      {/* Main bar row */}
+                      <div
+                        className="flex items-center cursor-pointer group hover:bg-gray-50 rounded-lg py-1.5 px-1 transition-colors"
+                        onClick={() => toggle(subCat)}
+                      >
+                        <div className="w-[120px] shrink-0 text-[13px] text-gray-700 font-medium flex items-center gap-1">
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
+                          />
+                          <span>{subCat}</span>
                         </div>
-                        <div className="flex-1 relative h-5 bg-gray-50 rounded overflow-hidden">
+
+                        <div className="flex-1 relative h-7 bg-gray-100 rounded overflow-hidden">
+                          {/* Reference line T=50 */}
                           <div
-                            className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-300 z-10"
+                            className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-400 z-10"
                             style={{ left: `${REF_LINE_POS}%` }}
                           />
-                          {hasPrevF && prevFScore !== fScore ? (
-                            prevFScore > fScore ? (
+                          {hasPrev && prevScore !== score ? (
+                            prevScore > score ? (
                               <>
                                 <div
                                   className="absolute top-0 left-0 h-full transition-all duration-300"
                                   style={{
-                                    width: `${getBarPercent(fScore)}%`,
-                                    backgroundColor: lightColor,
+                                    width: `${getBarPercent(score)}%`,
+                                    backgroundColor: color,
                                   }}
                                 />
                                 <div
                                   className="absolute top-0 h-full transition-all duration-300"
                                   style={{
-                                    left: `${getBarPercent(fScore)}%`,
-                                    width: `${getBarPercent(prevFScore) - getBarPercent(fScore)}%`,
+                                    left: `${getBarPercent(score)}%`,
+                                    width: `${getBarPercent(prevScore) - getBarPercent(score)}%`,
                                     backgroundColor: PREV_COLOR,
-                                    borderRadius: '0 3px 3px 0',
+                                    borderRadius: '0 4px 4px 0',
                                   }}
                                 />
+                                <div className="absolute top-0 left-0 h-full flex items-center justify-end pr-2 z-20 pointer-events-none" style={{ width: `${getBarPercent(score)}%` }}>
+                                  <span className="text-[11px] font-semibold text-white whitespace-nowrap">
+                                    T={score}
+                                  </span>
+                                </div>
                               </>
                             ) : (
                               <>
                                 <div
                                   className="absolute top-0 left-0 h-full transition-all duration-300"
                                   style={{
-                                    width: `${getBarPercent(prevFScore)}%`,
+                                    width: `${getBarPercent(prevScore)}%`,
                                     backgroundColor: PREV_COLOR,
                                   }}
                                 />
                                 <div
                                   className="absolute top-0 h-full transition-all duration-300"
                                   style={{
-                                    left: `${getBarPercent(prevFScore)}%`,
-                                    width: `${getBarPercent(fScore) - getBarPercent(prevFScore)}%`,
-                                    backgroundColor: lightColor,
-                                    borderRadius: '0 3px 3px 0',
+                                    left: `${getBarPercent(prevScore)}%`,
+                                    width: `${getBarPercent(score) - getBarPercent(prevScore)}%`,
+                                    backgroundColor: color,
+                                    borderRadius: '0 4px 4px 0',
                                   }}
                                 />
+                                <div className="absolute top-0 left-0 h-full flex items-center justify-end pr-2 z-20 pointer-events-none" style={{ width: `${getBarPercent(score)}%` }}>
+                                  <span className="text-[11px] font-semibold text-white whitespace-nowrap">
+                                    T={score}
+                                  </span>
+                                </div>
                               </>
                             )
                           ) : (
                             <div
-                              className="h-full flex items-center justify-end pr-1.5"
+                              className="h-full flex items-center justify-end pr-2"
                               style={{
-                                width: `${getBarPercent(fScore)}%`,
-                                backgroundColor: lightColor,
-                                borderRadius: '0 3px 3px 0',
+                                width: `${getBarPercent(score)}%`,
+                                backgroundColor: color,
+                                borderRadius: '0 4px 4px 0',
                               }}
                             >
-                              {getBarPercent(fScore) > 25 && (
-                                <span className="text-[10px] font-medium text-white/90 whitespace-nowrap">
-                                  {fScore}
-                                </span>
-                              )}
+                              <span className="text-[11px] font-semibold text-white whitespace-nowrap">
+                                T={score}
+                              </span>
                             </div>
                           )}
                         </div>
-                        <div className="w-[36px] shrink-0 text-right text-[11px] text-gray-500 font-medium">
-                          {fScore}
+
+                        <div className="w-[52px] shrink-0 text-right text-[13px] font-semibold text-gray-600">
+                          {score}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      {/* Sub-factor dropdown */}
+                      <div
+                        className="overflow-hidden transition-all duration-300 ease-in-out"
+                        style={{
+                          maxHeight: isOpen ? `${indices.length * 36 + 16}px` : '0px',
+                          opacity: isOpen ? 1 : 0,
+                        }}
+                      >
+                        <div className="pl-[32px] pr-[52px] py-1.5 space-y-1">
+                          {indices.map(idx => {
+                            const factor = FACTOR_DEFINITIONS[idx];
+                            if (!factor) return null;
+                            const fScore = tScores[idx];
+                            const prevFScore = prevTScores ? prevTScores[idx] : null;
+                            const hasPrevF = prevFScore != null;
+                            const lightColor = lightenColor(color);
+                            return (
+                              <div key={idx} className="flex items-center">
+                                <div className="w-[88px] shrink-0 text-[11px] text-gray-500 text-right pr-2 truncate">
+                                  {factor.name}
+                                </div>
+                                <div className="flex-1 relative h-5 bg-gray-50 rounded overflow-hidden">
+                                  <div
+                                    className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-300 z-10"
+                                    style={{ left: `${REF_LINE_POS}%` }}
+                                  />
+                                  {hasPrevF && prevFScore !== fScore ? (
+                                    prevFScore > fScore ? (
+                                      <>
+                                        <div
+                                          className="absolute top-0 left-0 h-full transition-all duration-300"
+                                          style={{
+                                            width: `${getBarPercent(fScore)}%`,
+                                            backgroundColor: lightColor,
+                                          }}
+                                        />
+                                        <div
+                                          className="absolute top-0 h-full transition-all duration-300"
+                                          style={{
+                                            left: `${getBarPercent(fScore)}%`,
+                                            width: `${getBarPercent(prevFScore) - getBarPercent(fScore)}%`,
+                                            backgroundColor: PREV_COLOR,
+                                            borderRadius: '0 3px 3px 0',
+                                          }}
+                                        />
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div
+                                          className="absolute top-0 left-0 h-full transition-all duration-300"
+                                          style={{
+                                            width: `${getBarPercent(prevFScore)}%`,
+                                            backgroundColor: PREV_COLOR,
+                                          }}
+                                        />
+                                        <div
+                                          className="absolute top-0 h-full transition-all duration-300"
+                                          style={{
+                                            left: `${getBarPercent(prevFScore)}%`,
+                                            width: `${getBarPercent(fScore) - getBarPercent(prevFScore)}%`,
+                                            backgroundColor: lightColor,
+                                            borderRadius: '0 3px 3px 0',
+                                          }}
+                                        />
+                                      </>
+                                    )
+                                  ) : (
+                                    <div
+                                      className="h-full flex items-center justify-end pr-1.5"
+                                      style={{
+                                        width: `${getBarPercent(fScore)}%`,
+                                        backgroundColor: lightColor,
+                                        borderRadius: '0 3px 3px 0',
+                                      }}
+                                    >
+                                      {getBarPercent(fScore) > 25 && (
+                                        <span className="text-[10px] font-medium text-white/90 whitespace-nowrap">
+                                          {fScore}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="w-[36px] shrink-0 text-right text-[11px] text-gray-500 font-medium">
+                                  {fScore}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );

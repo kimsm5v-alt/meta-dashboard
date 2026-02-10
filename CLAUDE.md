@@ -188,8 +188,8 @@ src/
 |------|------|
 | `shared/utils/lpaClassifier.ts` | LPA 유형 분류 알고리즘 |
 | `shared/utils/attentionChecker.ts` | 관심 필요 학생 판별 (정적 T≤39, 부적 T≥60) |
-| `shared/data/lpaProfiles.ts` | 38개 요인, 유형별 중심값, 사전확률 |
-| `shared/data/factors.ts` | 요인 메타데이터 (대분류, 중분류, 긍정/부정) |
+| `shared/data/lpaProfiles.ts` | 38개 요인, 유형별 중심값, 사전확률, DOMAIN_COLORS, DOMAIN_ICONS, POSITIVE_DOMAINS |
+| `shared/data/factors.ts` | 요인 메타데이터 (대분류, 중분류, 긍정/부정), DOMAIN_GROUPS |
 | `shared/data/dataTransformer.ts` | JSON 원본 → Assessment 변환 (요인 매핑, LPA 분류기로 유형 결정, 교사명/날짜/학교급 JSON에서 동적 추출) |
 | `shared/data/mockData.ts` | 샘플 학급 데이터 (4개 반, 88명) |
 | `shared/data/aiPrompts.ts` | AI 기능별 시스템 프롬프트 (analysis, record, dataHelper, assistant, classAnalysis) |
@@ -198,8 +198,9 @@ src/
 | `shared/utils/summaryGenerator.ts` | AI 총평 생성 로직 (11개 중분류 → 3줄 요약) |
 | `shared/utils/calculate4StepDiagnosis.ts` | 4단계 진단 계산 (중분류 → Step 1~4, 8유형 판정, 코칭전략) |
 | `shared/utils/piiMasking.ts` | 개인정보 마스킹 (이름, 학번, 생년월일, 학교명) |
+| `shared/utils/chartUtils.ts` | 차트 공용 유틸리티 (getBarPercent, REF_LINE_POS, PREV_COLOR) |
+| `shared/utils/colorUtils.ts` | 색상 공용 유틸리티 (lightenColor) |
 | `shared/services/unifiedCounselingService.ts` | 통합 상담 서비스 (일정+기록 통합, 다중 학생 지원) |
-| `shared/services/counselingService.ts` | 상담 기록 서비스 (레거시, deprecated) |
 | `shared/services/memoService.ts` | 관찰 메모 CRUD 서비스 |
 | `shared/services/schoolRecordService.ts` | 생활기록부 AI 생성 서비스 |
 | `features/ai-room/services/assistantService.ts` | AI Room 대화 서비스 |
@@ -356,7 +357,7 @@ const TypeBadge: React.FC<{ type: string }> = ({ type }) => (
 ### L1: 교사 전체 반 대시보드
 
 - `CategoryComparisonChart`: 5대 영역 LineChart (Recharts)
-- `TypeDistributionChart`: 유형 분포 Stacked Bar (Nivo)
+- `TypeDistributionChart`: 유형 분포 Stacked Bar (Nivo), 막대 라벨 `N명(NN%)` 형식
 - 유형 분포 표시 순서 (클래스 카드 + Nivo 차트 공통):
   - 초등: 자원소진형 → 안전균형형 → 몰입자원풍부형
   - 중등: 무기력형 → 정서조절취약형 → 자기주도몰입형
@@ -408,6 +409,8 @@ type ChangeFilter = 'all' | 'reliability-warning' | 'need-attention' | 'negative
 #### ClassInsights 컴포넌트
 
 - `useClassProfile` 훅으로 merit score 기반 강점 TOP 3 / 약점 TOP 3 산출
+  - 각 중분류에 `#대분류` 해시태그 표시 (DOMAIN_COLORS 색상)
+  - `parentCategory` 필드로 대분류 소속 표시
 - 강점: `accent="emerald"`, 약점: `accent="red"`로 `ProfileItem` 렌더링
 - 추천 학급 활동 3개 (하드코딩)
 - "상세 분석" 버튼 → `/dashboard/class/:classId/analysis` 라우팅
@@ -425,12 +428,12 @@ ClassDetailAnalysisPage
 ├── Section 1: 학급 종합 분석
 │   └── ClassSummarySection
 │       ├── AI 총평 (callAI, feature: 'classAnalysis' → overall + keyPoint)
-│       └── 강점/약점 카드 (useClassProfile 기반 → L2와 동일 데이터)
+│       └── 강점/약점 카드 (useClassProfile 기반, #대분류 해시태그 포함)
 ├── Section 2: 38개 세부 요인 분석
 │   └── FactorHeatmapSection
-│       ├── 대분류별 그룹 (정적=emerald, 부적=rose)
+│       ├── 대분류 그룹 헤더 (정적=emerald, 부적=rose, 아이콘+명칭+'높을수록/낮을수록 좋아요')
 │       ├── 중분류 드롭다운 → 소분류 펼침
-│       └── FactorBar + LevelBadge
+│       └── FactorBar (md=h-7, sm=h-5) + LevelBadge
 ├── Section 3: 관심 필요 학생
 │   └── RiskStudentsSection (긴급/관찰 2단 테이블)
 └── Section 4: 학급 맞춤 운영 전략
@@ -441,7 +444,7 @@ ClassDetailAnalysisPage
 
 | 훅 | 역할 |
 |------|------|
-| `useClassProfile` | 중분류 merit score → 강점 TOP 3 / 약점 TOP 3, T점수 구간별 해설문 |
+| `useClassProfile` | 중분류 merit score → 강점 TOP 3 / 약점 TOP 3, T점수 구간별 해설문, parentCategory(대분류) 포함 |
 | `useClassDetailData` | 38개 요인 평균, 5대 영역 계층 구조, 위험군 학생 분류 |
 
 ### L3: 학생 대시보드
@@ -455,7 +458,7 @@ StudentDashboardPage
 ├── RoundSelector (1차/2차 선택)
 ├── Section 1: 학생 진단 결과 해석 (A/B 토글: 중분류 요인 / 4단계 해석)
 │   ├── DiagnosisSummary (AI 총평)
-│   ├── FactorLineChart (11개 중분류) — chartViewMode='midCategory'
+│   ├── FactorLineChart (11개 중분류, 대분류 그룹 헤더 포함) — chartViewMode='midCategory'
 │   └── FourStepInterpretation (4단계 해석 가이드) — chartViewMode='fourStep'
 ├── Section 2: 학습 유형 알아보기
 │   ├── TypeClassification (도넛 차트)
@@ -515,11 +518,16 @@ FourStepInterpretation({ tScores, studentName })
 ```
 
 **설계 규칙**:
-- T점수 범위: 20~80 기준 `(score - 20) / 60 * 100` (T=50이 정확히 50% 중앙)
+- T점수 범위: 20~80 기준 `getBarPercent()` → `(score - 20) / 60 * 100` (T=50이 정확히 50% 중앙)
 - 5단계 레벨: 매우높음(≥70), 높음(≥60), 보통(≥40), 낮음(≥30), 매우낮음(<30)
 - 막대 색상: 정적=`#22C55E`(green), 부적=`#F43F5E`(rose)
 - 사분면 dot: 공부기술 ≥50 → blue-600, <50 → red-500
 - 8유형: 사분면(마음×자원) × 기술(높/낮), `calculate4StepDiagnosis.ts`에서 계산
+
+**대분류 그룹 헤더** (L2.5/L3 공통):
+- 정적 영역: `bg-emerald-50/60 border-emerald-200` + '높을수록 좋아요'
+- 부적 영역: `bg-rose-50/60 border-rose-200` + '낮을수록 좋아요'
+- 아이콘: `DOMAIN_ICONS` (🌟📚💚⚠️💔), 대분류명 + 도움말 텍스트 인라인 배치
 
 #### DataHelperChatbot (데이터 해석 도우미)
 
@@ -837,5 +845,5 @@ const activeRecords = records.filter(r => r.status !== 'cancelled');
 
 ---
 
-**Last Updated**: 2026-02-09
-**Version**: 2.5 (학급 상세 분석 페이지, classAnalysis 프롬프트)
+**Last Updated**: 2026-02-10
+**Version**: 2.6 (대분류 그룹 헤더, 해시태그 대분류 표시, 공유 유틸리티 리팩토링)

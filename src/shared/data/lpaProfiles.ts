@@ -72,6 +72,18 @@ export const CATEGORY_COLORS: Record<string, string> = {
   학업소진: '#FF87D4',
 };
 
+// 대분류 아이콘
+export const DOMAIN_ICONS: Record<string, string> = {
+  '자아강점': '🌟',
+  '학습디딤돌': '📚',
+  '긍정적공부마음': '💚',
+  '학습걸림돌': '⚠️',
+  '부정적공부마음': '💔',
+};
+
+// 정적(긍정) 대분류 Set
+export const POSITIVE_DOMAINS = new Set(['자아강점', '학습디딤돌', '긍정적공부마음']);
+
 // LPA 프로파일 데이터
 export const LPA_PROFILE_DATA: LPAProfileData = {
   factors: [...FACTORS],
