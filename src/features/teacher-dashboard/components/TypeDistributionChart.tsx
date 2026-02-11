@@ -1,9 +1,18 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { ResponsiveBar } from '@nivo/bar';
 import type { BarCustomLayerProps, ComputedDatum } from '@nivo/bar';
 import type { Class } from '@/shared/types';
 
 type BarRecord = Record<string, string | number>;
+
+interface TooltipState {
+  x: number;
+  y: number;
+  type: string;
+  value: number;
+  pct: number;
+  color: string;
+}
 
 interface TypeDistributionChartProps {
   classes: Class[];
@@ -49,6 +58,8 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
     });
   }, [classes, typeKeys]);
 
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+
   const handleBarClick = (datum: ComputedDatum<BarRecord>) => {
     if (onClassSelect && datum.data?.classId) {
       const clickedClassId = datum.data.classId as string;
@@ -59,6 +70,25 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
       }
     }
   };
+
+  const showTooltip = useCallback((e: React.MouseEvent<SVGRectElement>, bar: { data: { id: string | number; value: number | undefined; data: BarRecord }; color: string }) => {
+    const svg = (e.target as SVGRectElement).closest('svg');
+    if (!svg) return;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const svgP = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+    setTooltip({
+      x: svgP.x,
+      y: svgP.y,
+      type: bar.data.id as string,
+      value: bar.data.value ?? 0,
+      pct: (bar.data.data[`${bar.data.id}_pct`] as number) ?? 0,
+      color: bar.color,
+    });
+  }, []);
+
+  const hideTooltip = useCallback(() => setTooltip(null), []);
 
   const CustomBarsLayer: React.FC<BarCustomLayerProps<BarRecord>> = ({ bars }) => (
     <g>
@@ -78,8 +108,10 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
               rx={4}
               style={{ cursor: 'pointer' }}
               onClick={() => handleBarClick(bar.data)}
+              onMouseMove={(e) => showTooltip(e, bar)}
+              onMouseLeave={hideTooltip}
             />
-            {bar.width > 60 && (bar.data.value ?? 0) > 0 && (
+            {(bar.data.value ?? 0) > 0 && bar.width > 28 && (
               <text
                 x={bar.width / 2}
                 y={bar.height / 2}
@@ -92,7 +124,9 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
                   pointerEvents: 'none',
                 }}
               >
-                {bar.data.value}명({bar.data.data[`${bar.data.id}_pct`]}%)
+                {bar.width > 60
+                  ? `${bar.data.value}명(${bar.data.data[`${bar.data.id}_pct`]}%)`
+                  : `${bar.data.value}명`}
               </text>
             )}
           </g>
@@ -178,6 +212,15 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
         role="application"
         ariaLabel="학생 유형 분포 비교"
       />
+      {tooltip && (
+        <div
+          className="absolute pointer-events-none bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap"
+          style={{ left: tooltip.x, top: tooltip.y - 40, transform: 'translateX(-50%)' }}
+        >
+          <span className="inline-block w-2.5 h-2.5 rounded-sm mr-1.5 align-middle" style={{ backgroundColor: tooltip.color }} />
+          {tooltip.type} {tooltip.value}명 ({tooltip.pct}%)
+        </div>
+      )}
     </div>
   );
 };

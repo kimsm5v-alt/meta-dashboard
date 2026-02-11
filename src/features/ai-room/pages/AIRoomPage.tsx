@@ -261,7 +261,7 @@ export const AIRoomPage = () => {
   return (
     <div className="h-[calc(100vh-7rem)] flex flex-col">
       {/* 헤더 */}
-      <div className="mb-4 flex items-center gap-4">
+      <div className="mb-4 flex items-center gap-4 relative z-10">
         {/* 로고 */}
         <div className="flex items-center gap-3">
           <div className="relative">
