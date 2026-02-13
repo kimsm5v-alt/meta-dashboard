@@ -71,7 +71,7 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
     }
   };
 
-  const showTooltip = useCallback((e: React.MouseEvent<SVGRectElement>, bar: { data: { id: string | number; value: number | undefined; data: BarRecord }; color: string }) => {
+  const showTooltip = useCallback((e: React.MouseEvent<SVGRectElement>, bar: { data: { id: string | number; value: number | null; data: BarRecord }; color: string }) => {
     const svg = (e.target as SVGRectElement).closest('svg');
     if (!svg) return;
     const pt = svg.createSVGPoint();
