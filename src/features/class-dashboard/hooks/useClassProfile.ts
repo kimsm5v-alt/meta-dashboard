@@ -79,14 +79,20 @@ export function useClassProfile(
   round: 1 | 2 = 1,
 ): ClassProfile | null {
   return useMemo(() => {
-    // 해당 라운드의 검사 결과가 있고, 신뢰도 경고가 없는 학생만 대상
-    const validStudents = classData.students.filter((s) => {
-      const assessment = s.assessments.find((a) => a.round === round);
-      if (!assessment) return false;
+    // 해당 라운드의 검사 결과가 있는 학생
+    const studentsWithAssessment = classData.students.filter((s) =>
+      s.assessments.some((a) => a.round === round),
+    );
+
+    if (studentsWithAssessment.length === 0) return null;
+
+    // 신뢰도 경고가 없는 학생 우선, 없으면 전체로 fallback
+    const reliableStudents = studentsWithAssessment.filter((s) => {
+      const assessment = s.assessments.find((a) => a.round === round)!;
       return assessment.reliabilityWarnings.length === 0;
     });
 
-    if (validStudents.length === 0) return null;
+    const validStudents = reliableStudents.length > 0 ? reliableStudents : studentsWithAssessment;
 
     // 소분류별 학급 평균 T점수 계산
     const factorAvgs: Record<string, number> = {};
