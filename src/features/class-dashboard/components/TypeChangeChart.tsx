@@ -260,7 +260,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
               dominantBaseline="middle"
               className="text-xs font-bold fill-gray-700"
             >
-              {segment.percentage.toFixed(1)}%
+              {segment.percentage.toFixed(0)}%
             </text>
           </g>
         </>

@@ -82,7 +82,7 @@ export function useClassDetailData(
           count++;
         }
       }
-      factorAvgMap[factor.index] = count > 0 ? Math.round((sum / count) * 10) / 10 : 50;
+      factorAvgMap[factor.index] = count > 0 ? Math.round(sum / count) : 50;
     }
 
     const factorAvgs: FactorAvgData[] = FACTOR_DEFINITIONS.map((f) => ({
@@ -100,7 +100,7 @@ export function useClassDetailData(
     for (const [subCat, indices] of Object.entries(SUB_CATEGORY_FACTORS)) {
       const scores = indices.map((i) => factorAvgMap[i]);
       const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-      subCategoryAvgs[subCat] = Math.round(avg * 10) / 10;
+      subCategoryAvgs[subCat] = Math.round(avg);
     }
 
     // 4. 5대분류 → 11중분류 → 38소분류 계층 구조

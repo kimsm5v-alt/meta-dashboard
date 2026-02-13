@@ -7,7 +7,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  AlertCircle,
   Lightbulb,
   Mic,
   Edit2,
@@ -28,6 +27,11 @@ import {
 } from '@/shared/types';
 import { unifiedCounselingService } from '@/shared/services/unifiedCounselingService';
 import { SCHEDULE_STUDENTS } from '@/shared/data/mockUnifiedCounseling';
+import { TIME_OPTIONS, SCHEDULE_TYPES, COUNSELING_AREAS, COUNSELING_METHODS } from '@/shared/data/counselingConstants';
+import { formatScheduleDateKr, extractTime } from '@/shared/utils/dateUtils';
+import { PanelLoading, MultiSelectButtonGroup } from '@/shared/components';
+import { ScheduledRecordCard } from './ScheduledRecordCard';
+import { CompletionModal } from './CompletionModal';
 
 interface CounselingRecordPanelProps {
   studentId: string;
@@ -35,21 +39,6 @@ interface CounselingRecordPanelProps {
   studentName?: string;
   studentNumber?: number;
 }
-
-// 시간 옵션 생성 (09:00 ~ 17:00, 30분 단위)
-const TIME_OPTIONS: string[] = [];
-for (let hour = 9; hour <= 17; hour++) {
-  TIME_OPTIONS.push(`${hour.toString().padStart(2, '0')}:00`);
-  if (hour < 17) {
-    TIME_OPTIONS.push(`${hour.toString().padStart(2, '0')}:30`);
-  }
-}
-
-const SCHEDULE_TYPES: ScheduleType[] = ['regular', 'urgent', 'follow-up', 'initial'];
-const COUNSELING_AREAS: CounselingArea[] = [
-  'academic', 'career', 'peer', 'family', 'emotion', 'behavior', 'health', 'other',
-];
-const COUNSELING_METHODS: CounselingMethod[] = ['face-to-face', 'phone', 'video', 'group'];
 
 export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
   studentId,
@@ -109,12 +98,10 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
 
   // 학생 정보 생성
   const getStudentInfo = (): CounselingStudent => {
-    // SCHEDULE_STUDENTS에서 찾기
     for (const students of Object.values(SCHEDULE_STUDENTS)) {
       const found = students.find(s => s.id === studentId);
       if (found) return found;
     }
-    // 못 찾으면 기본값
     return {
       id: studentId,
       name: studentName || '학생',
@@ -250,22 +237,8 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const [date] = dateStr.split(' ');
-    const d = new Date(date);
-    return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' });
-  };
-
-  const formatTime = (dateStr: string) => {
-    return dateStr.split(' ')[1] || '09:00';
-  };
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-40">
-        <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <PanelLoading />;
   }
 
   return (
@@ -322,73 +295,33 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
             </div>
           </div>
 
-          {/* 상담 유형 (복수 선택 가능) */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">
-              상담 유형 <span className="text-[10px] text-gray-400">(복수 선택)</span>
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {SCHEDULE_TYPES.map(type => (
-                <button
-                  key={type}
-                  onClick={() => toggleType(type)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                    formData.types.includes(type)
-                      ? type === 'urgent'
-                        ? 'bg-red-500 text-white'
-                        : 'bg-primary-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {SCHEDULE_TYPE_LABELS[type]}
-                </button>
-              ))}
-            </div>
-          </div>
+          <MultiSelectButtonGroup
+            label="상담 유형"
+            items={SCHEDULE_TYPES}
+            selected={formData.types}
+            onToggle={toggleType}
+            labelMap={SCHEDULE_TYPE_LABELS}
+            alertKey="urgent"
+            size="sm"
+          />
 
-          {/* 상담 영역 (복수 선택 가능) */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">
-              상담 영역 <span className="text-[10px] text-gray-400">(복수 선택)</span>
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {COUNSELING_AREAS.map(area => (
-                <button
-                  key={area}
-                  onClick={() => toggleArea(area)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                    formData.areas.includes(area)
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {COUNSELING_AREA_LABELS[area]}
-                </button>
-              ))}
-            </div>
-          </div>
+          <MultiSelectButtonGroup
+            label="상담 영역"
+            items={COUNSELING_AREAS}
+            selected={formData.areas}
+            onToggle={toggleArea}
+            labelMap={COUNSELING_AREA_LABELS}
+            size="sm"
+          />
 
-          {/* 상담 방법 (복수 선택 가능) */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">
-              상담 방법 <span className="text-[10px] text-gray-400">(복수 선택)</span>
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {COUNSELING_METHODS.map(method => (
-                <button
-                  key={method}
-                  onClick={() => toggleMethod(method)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                    formData.methods.includes(method)
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {COUNSELING_METHOD_LABELS[method]}
-                </button>
-              ))}
-            </div>
-          </div>
+          <MultiSelectButtonGroup
+            label="상담 방법"
+            items={COUNSELING_METHODS}
+            selected={formData.methods}
+            onToggle={toggleMethod}
+            labelMap={COUNSELING_METHOD_LABELS}
+            size="sm"
+          />
 
           {/* 상담 내용/사유 */}
           <div>
@@ -486,7 +419,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-xs text-gray-400">{formatDate(record.scheduledAt)}</span>
+                          <span className="text-xs text-gray-400">{formatScheduleDateKr(record.scheduledAt)}</span>
                           {record.areas.map((area, i) => (
                             <span key={i} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-medium rounded">
                               {COUNSELING_AREA_LABELS[area]}
@@ -514,7 +447,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
                     <div className="px-3 pb-3 border-t border-gray-100">
                       <div className="pt-3 space-y-2">
                         <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-                          <span>{formatTime(record.scheduledAt)}</span>
+                          <span>{extractTime(record.scheduledAt)}</span>
                           <span>|</span>
                           <span>{record.duration || 30}분</span>
                           <span>|</span>
@@ -573,224 +506,14 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
 
       {/* 완료 처리 모달 */}
       {completingRecord && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-md p-5 m-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">상담 완료 처리</h3>
-              <button
-                onClick={() => setCompletingRecord(null)}
-                className="p-1 text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* 상담 정보 */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-sm font-medium text-gray-900">
-                  {formatDate(completingRecord.scheduledAt)} {formatTime(completingRecord.scheduledAt)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {completingRecord.areas.map(a => COUNSELING_AREA_LABELS[a]).join(', ')} | {completingRecord.methods.map(m => COUNSELING_METHOD_LABELS[m]).join(', ')}
-                </p>
-              </div>
-
-              {/* 소요 시간 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  소요 시간 (분)
-                </label>
-                <input
-                  type="number"
-                  value={completionData.duration}
-                  onChange={e => setCompletionData({ ...completionData, duration: parseInt(e.target.value) || 30 })}
-                  min={5}
-                  max={180}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-
-              {/* 상담 내용 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  상담 내용 <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={completionData.summary}
-                  onChange={e => setCompletionData({ ...completionData, summary: e.target.value })}
-                  placeholder="상담 내용을 입력하세요"
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-
-              {/* 후속 조치 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  후속 조치 (선택)
-                </label>
-                <textarea
-                  value={completionData.nextSteps}
-                  onChange={e => setCompletionData({ ...completionData, nextSteps: e.target.value })}
-                  placeholder="후속 조치 사항을 입력하세요"
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-5">
-              <button
-                onClick={() => setCompletingRecord(null)}
-                className="flex-1 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleComplete}
-                disabled={!completionData.summary.trim()}
-                className="flex-1 px-4 py-2 text-sm bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50"
-              >
-                완료 처리
-              </button>
-            </div>
-          </div>
-        </div>
+        <CompletionModal
+          record={completingRecord}
+          data={completionData}
+          onChange={setCompletionData}
+          onComplete={handleComplete}
+          onClose={() => setCompletingRecord(null)}
+        />
       )}
-    </div>
-  );
-};
-
-// 예정된 상담 카드 컴포넌트
-interface ScheduledRecordCardProps {
-  record: UnifiedCounselingRecord;
-  onComplete: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onUpdateReason: (reason: string) => void;
-}
-
-const ScheduledRecordCard: React.FC<ScheduledRecordCardProps> = ({
-  record,
-  onComplete,
-  onEdit,
-  onDelete,
-  onUpdateReason,
-}) => {
-  const [isEditingReason, setIsEditingReason] = useState(false);
-  const [reasonText, setReasonText] = useState(record.reason || '');
-
-  const handleSaveReason = () => {
-    onUpdateReason(reasonText);
-    setIsEditingReason(false);
-  };
-
-  const formatDate = (dateStr: string) => {
-    const [date] = dateStr.split(' ');
-    const d = new Date(date);
-    return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' });
-  };
-
-  const formatTime = (dateStr: string) => {
-    return dateStr.split(' ')[1] || '09:00';
-  };
-
-  return (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-900">{formatDate(record.scheduledAt)}</span>
-          <span className="text-sm text-gray-600">{formatTime(record.scheduledAt)}</span>
-          {record.types.includes('urgent') && (
-            <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] font-medium rounded">
-              <AlertCircle className="w-3 h-3" />
-              긴급
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={onEdit}
-            className="p-1 text-gray-400 hover:text-primary-500 hover:bg-white rounded transition-colors"
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="p-1 text-gray-400 hover:text-red-500 hover:bg-white rounded transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-1.5 mb-2">
-        {record.areas.map((area, i) => (
-          <span key={`area-${i}`} className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-medium rounded">
-            {COUNSELING_AREA_LABELS[area]}
-          </span>
-        ))}
-        {record.types.map((type, i) => (
-          <span key={`type-${i}`} className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-medium rounded">
-            {SCHEDULE_TYPE_LABELS[type]}
-          </span>
-        ))}
-        {record.methods.map((method, i) => (
-          <span key={`method-${i}`} className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-medium rounded">
-            {COUNSELING_METHOD_LABELS[method]}
-          </span>
-        ))}
-      </div>
-
-      {/* 메모 영역 */}
-      {isEditingReason ? (
-        <div className="space-y-2">
-          <textarea
-            value={reasonText}
-            onChange={e => setReasonText(e.target.value)}
-            placeholder="상담 사유나 메모를 입력하세요"
-            rows={2}
-            className="w-full px-2 py-1.5 text-xs border border-amber-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
-            autoFocus
-          />
-          <div className="flex gap-1 justify-end">
-            <button
-              onClick={() => {
-                setReasonText(record.reason || '');
-                setIsEditingReason(false);
-              }}
-              className="px-2 py-1 text-xs text-gray-500 hover:bg-white rounded"
-            >
-              취소
-            </button>
-            <button
-              onClick={handleSaveReason}
-              className="px-2 py-1 text-xs bg-primary-500 text-white rounded hover:bg-primary-600"
-            >
-              저장
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={() => setIsEditingReason(true)}
-          className="w-full text-left text-xs text-gray-600 hover:bg-amber-100 rounded p-1.5 -m-1.5 transition-colors"
-        >
-          {record.reason || (
-            <span className="text-gray-400 italic">메모 추가...</span>
-          )}
-        </button>
-      )}
-
-      {/* 완료 버튼 */}
-      <button
-        onClick={onComplete}
-        className="w-full mt-2 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded-lg hover:bg-primary-600 transition-colors"
-      >
-        <Check className="w-3.5 h-3.5" />
-        완료 처리
-      </button>
     </div>
   );
 };

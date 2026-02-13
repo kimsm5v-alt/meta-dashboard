@@ -66,12 +66,12 @@ L1: 교사 전체 반 대시보드        → /dashboard
 
 | 분류 | 기술 |
 |------|------|
-| 프레임워크 | React 19 + TypeScript + Vite |
+| 프레임워크 | React 18 + TypeScript + Vite |
 | 스타일링 | TailwindCSS |
 | 차트 | Recharts (Line, Bar, Pie), @nivo/bar (Stacked Bar) |
 | 라우팅 | React Router v6 |
 | 아이콘 | Lucide React |
-| **AI 모델** | **Google Gemini 2.0 Flash** |
+| **AI 모델** | **Google Gemini 2.5 Flash** |
 
 ### AI 서비스 아키텍처
 

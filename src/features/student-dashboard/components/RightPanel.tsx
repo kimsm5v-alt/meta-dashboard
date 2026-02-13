@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { X, FileText, MessageSquare, Eye } from 'lucide-react';
 import { SchoolRecordPanel } from './SchoolRecordPanel';
-import { CounselingRecordPanel } from './CounselingRecordPanel';
+import { CounselingRecordPanel } from './counseling';
 import { ObservationMemoPanel } from './ObservationMemoPanel';
 import type { Student, Assessment } from '@/shared/types';
 

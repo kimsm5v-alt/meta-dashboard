@@ -15,7 +15,7 @@ import {
   type ExampleSentence,
   type FactorType,
 } from '@/shared/data/schoolRecordSentences';
-import { SUB_CATEGORY_FACTORS } from '@/shared/data/factors';
+import { calculateSubCategoryScores as calculateSubCategoryScoresBase } from '@/shared/utils/summaryGenerator';
 
 // ============================================================
 // 타입 정의
@@ -49,25 +49,13 @@ export interface AnalysisResult {
 }
 
 // ============================================================
-// 중분류 T점수 계산
+// 중분류 T점수 계산 (summaryGenerator.ts의 공용 함수 활용)
 // ============================================================
 
-/**
- * 38개 T점수 배열에서 11개 중분류 평균 T점수 계산
- */
-export const calculateSubCategoryScores = (
+const calculateSubCategoryScores = (
   tScores: number[]
 ): Record<SubCategory, number> => {
-  const result: Partial<Record<SubCategory, number>> = {};
-
-  // SUB_CATEGORY_FACTORS에서 각 중분류의 요인 인덱스를 가져와 평균 계산
-  for (const [subCategory, factorIndices] of Object.entries(SUB_CATEGORY_FACTORS)) {
-    const scores = factorIndices.map((idx: number) => tScores[idx] ?? 50);
-    const avg = scores.reduce((sum: number, s: number) => sum + s, 0) / scores.length;
-    result[subCategory as SubCategory] = Math.round(avg * 10) / 10;
-  }
-
-  return result as Record<SubCategory, number>;
+  return calculateSubCategoryScoresBase(tScores) as Record<SubCategory, number>;
 };
 
 /**
@@ -201,7 +189,7 @@ export const calculateCategoryScores = (
   for (const [category, subCategories] of Object.entries(CATEGORY_MAPPING)) {
     const scores = subCategories.map((sub) => subCategoryScores[sub as SubCategory] ?? 50);
     const avg = scores.reduce((sum, s) => sum + s, 0) / scores.length;
-    result[category as FactorCategory] = Math.round(avg * 10) / 10;
+    result[category as FactorCategory] = Math.round(avg);
   }
 
   return result as Record<FactorCategory, number>;
@@ -242,7 +230,7 @@ export const analyzeChanges = (student: Student): AnalysisResult => {
   for (const cat of categories) {
     const score1 = firstCategoryScores[cat] ?? 50;
     const score2 = secondCategoryScores[cat] ?? 50;
-    const diff = Math.round((score2 - score1) * 10) / 10;
+    const diff = Math.round(score2 - score1);
 
     if (Math.abs(diff) >= 5) {
       // 5점 이상 변화

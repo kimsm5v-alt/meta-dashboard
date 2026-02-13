@@ -79,8 +79,8 @@ export const SchedulePage: React.FC = () => {
     try {
       const data = await unifiedCounselingService.getAll();
       setRecords(data);
-    } catch (error) {
-      console.error('[SchedulePage] 상담 일정 로드 실패:', error);
+    } catch {
+      // 에러 시 빈 목록 유지
     }
   }, []);
 
@@ -162,8 +162,8 @@ export const SchedulePage: React.FC = () => {
     try {
       await unifiedCounselingService.create(input);
       await loadRecords();
-    } catch (error) {
-      console.error('[SchedulePage] 일정 등록 실패:', error);
+    } catch {
+      // 등록 실패 시 무시
     }
   };
 
@@ -172,8 +172,8 @@ export const SchedulePage: React.FC = () => {
     try {
       await unifiedCounselingService.update(id, input);
       await loadRecords();
-    } catch (error) {
-      console.error('[SchedulePage] 일정 수정 실패:', error);
+    } catch {
+      // 수정 실패 시 무시
     }
   };
 
@@ -182,8 +182,8 @@ export const SchedulePage: React.FC = () => {
     try {
       await unifiedCounselingService.delete(id);
       await loadRecords();
-    } catch (error) {
-      console.error('[SchedulePage] 일정 삭제 실패:', error);
+    } catch {
+      // 삭제 실패 시 무시
     }
   };
 

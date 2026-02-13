@@ -10,7 +10,7 @@ interface LevelBadgeProps {
  * 정적 요인: 높을수록 좋음 → 높음=초록, 낮음=빨강
  * 부적 요인: 낮을수록 좋음 → 높음=빨강, 낮음=초록 (색상 반전)
  */
-const COLORS_POSITIVE: Record<TLevel, string> = {
+export const COLORS_POSITIVE: Record<TLevel, string> = {
   '매우높음': 'bg-emerald-100 text-emerald-700',
   '높음': 'bg-emerald-50 text-emerald-600',
   '보통': 'bg-gray-100 text-gray-600',
@@ -18,7 +18,7 @@ const COLORS_POSITIVE: Record<TLevel, string> = {
   '매우낮음': 'bg-red-100 text-red-700',
 };
 
-const COLORS_NEGATIVE: Record<TLevel, string> = {
+export const COLORS_NEGATIVE: Record<TLevel, string> = {
   '매우높음': 'bg-red-100 text-red-700',
   '높음': 'bg-orange-50 text-orange-600',
   '보통': 'bg-gray-100 text-gray-600',

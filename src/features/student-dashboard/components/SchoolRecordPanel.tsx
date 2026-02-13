@@ -163,7 +163,6 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
         throw new Error(response.error || '생성 실패');
       }
     } catch (error) {
-      console.error('생성 실패:', error);
       setGeneratedText('생성에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsGenerating(false);

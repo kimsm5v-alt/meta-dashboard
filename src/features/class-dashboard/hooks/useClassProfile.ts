@@ -171,7 +171,7 @@ export function useClassProfile(
       return {
         category: item.category,
         parentCategory: SUB_TO_MAIN[item.category] ?? '',
-        avgT: Math.round(item.avgT * 10) / 10,
+        avgT: Math.round(item.avgT),
         isPositive: item.isPositive,
         categoryScript: findSummary(
           scriptsDepth2.scripts as Array<{
@@ -185,7 +185,7 @@ export function useClassProfile(
           item.avgT,
         ),
         topFactor: top.name,
-        topFactorT: Math.round(top.avgT * 10) / 10,
+        topFactorT: Math.round(top.avgT),
         topFactorScript: findSummary(
           scriptsDepth3.scripts as Array<{
             depth2_name?: string;

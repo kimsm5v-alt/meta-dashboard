@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Plus, X, Info } from 'lucide-react';
 import type { ObservationMemo, CreateObservationMemoInput } from '@/shared/types';
 import { memoService } from '@/shared/services/memoService';
+import { formatDateShort } from '@/shared/utils/dateUtils';
+import { PanelLoading } from '@/shared/components';
 
 interface ObservationMemoPanelProps {
   studentId: string;
@@ -125,10 +127,6 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
     setShowForm(true);
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
-  };
 
   const parseMemo = (content: string) => {
     const tagMatch = content.match(/#(\S+)$/);
@@ -150,11 +148,7 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-40">
-        <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <PanelLoading />;
   }
 
   return (
@@ -273,7 +267,7 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-gray-900">
-                      {formatDate(memo.date)}
+                      {formatDateShort(memo.date)}
                     </span>
                     {parsed.situation && (
                       <span className="text-xs text-gray-400">

@@ -508,7 +508,7 @@ export const buildSchoolRecordUserMessage = (input: SchoolRecordInput): string =
 
 # 검사 결과 요약
 ## 1차 검사
-- 유형: ${round1.predictedType} (신뢰도 ${round1.typeConfidence.toFixed(1)}%)
+- 유형: ${round1.predictedType} (신뢰도 ${round1.typeConfidence.toFixed(0)}%)
 - 5대 영역 수준:
   * 자아강점: ${round1.categoryScores.자아강점.level}
   * 학습디딤돌: ${round1.categoryScores.학습디딤돌.level}
@@ -523,7 +523,7 @@ export const buildSchoolRecordUserMessage = (input: SchoolRecordInput): string =
     message += `
 
 ## 2차 검사
-- 유형: ${round2.predictedType} (신뢰도 ${round2.typeConfidence.toFixed(1)}%)
+- 유형: ${round2.predictedType} (신뢰도 ${round2.typeConfidence.toFixed(0)}%)
 - 5대 영역 수준:
   * 자아강점: ${round2.categoryScores.자아강점.level}
   * 학습디딤돌: ${round2.categoryScores.학습디딤돌.level}

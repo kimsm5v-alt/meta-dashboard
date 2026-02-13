@@ -27,7 +27,7 @@ META 학습종합검사 결과를 기반으로 학생 진단 결과를 분석하
 - **LPA 유형 분류**: 38개 T점수 패턴 기반 3가지 유형 자동 분류
 - **차수별 비교**: 1차/2차 검사 결과 변화 추적 (개선/악화/유지)
 - **인터랙티브 시각화**: 반별 비교 차트, 유형 분포, 요인 프로필
-- **AI 상담 지원**: Gemini 2.0 Flash 기반 학생 이해 및 코칭 전략 제안
+- **AI 상담 지원**: Gemini 2.5 Flash 기반 학생 이해 및 코칭 전략 제안
 - **지식그래프 기반 개입**: Neo4j 기반 맞춤형 개입 경로 추천 (향후)
 
 ## 🚀 빠른 시작
@@ -412,7 +412,7 @@ AI 에이전트에 전송 시 **PII 마스킹** 적용:
 - **Routing**: React Router v6
 
 ### AI Service ✅
-- **AI Model**: Google Gemini 2.0 Flash (v1beta 엔드포인트)
+- **AI Model**: Google Gemini 2.5 Flash (v1beta 엔드포인트)
 - **아키텍처**: ai.ts (추상화) → gemini.ts (API 호출) → aiPrompts.ts (프롬프트)
 - **PII 마스킹**: 한글 이름, 학번, 생년월일, 학교명 자동 마스킹
 - **에러 처리**: 429 Rate Limit 자동 재시도 (최대 3회, 지수 백오프)
@@ -491,9 +491,9 @@ AI 에이전트에 전송 시 **PII 마스킹** 적용:
   - [x] SchoolRecordPanel (생활기록부 AI 문구)
   - [x] CounselingRecordPanel (상담 기록 CRUD)
   - [x] ObservationMemoPanel (관찰 메모 + 태그)
-  - [x] AI 총평 생성 (Gemini 2.0 Flash 연동 완료)
+  - [x] AI 총평 생성 (Gemini 2.5 Flash 연동 완료)
   - [x] 신뢰도 주의 / 관심 필요 배지 (L3 헤더)
-  - [x] AI API 실제 연동 (Gemini 2.0 Flash)
+  - [x] AI API 실제 연동 (Gemini 2.5 Flash)
 - [ ] **AI 상담실** - 완성도 5%
   - [x] AIRoomPage (기본 구조)
   - [x] AI 서비스 연동 준비

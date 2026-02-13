@@ -48,7 +48,7 @@ export const calculateCategoryAverages = (classData: Class): ClassCategoryAverag
       count++;
     });
 
-    categoryAverages[category as FactorCategory] = Math.round((sum / count) * 10) / 10;
+    categoryAverages[category as FactorCategory] = Math.round(sum / count);
   });
 
   return {

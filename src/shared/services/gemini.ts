@@ -1,7 +1,7 @@
 /**
  * Google Gemini API 서비스
  *
- * Gemini 2.0 Flash 모델을 사용한 AI 호출 서비스
+ * Gemini 2.5 Flash 모델을 사용한 AI 호출 서비스
  *
  * 주요 기능:
  * - 429 에러 시 자동 재시도 (최대 3회, 지수 백오프)

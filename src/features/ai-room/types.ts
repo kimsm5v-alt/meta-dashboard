@@ -52,3 +52,13 @@ export interface SelectionState {
 export interface StudentAliasMap {
   [alias: string]: string; // { "student_A": "김민준", "student_B": "이서연" }
 }
+
+// 대화 기록
+export interface Conversation {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: Date;
+  mode: ContextMode;
+  contextLabel?: string;
+}

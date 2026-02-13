@@ -49,7 +49,7 @@ const formatSubCategories = (results: SubCategoryResult[]): string => {
   return results.map(r => {
     const direction = r.isPositive ? '정적' : '부적';
     const alertTag = r.isAlert ? ' ⚠️주의' : '';
-    return `- ${r.displayName}(${direction}): T=${r.avgTScore.toFixed(1)}, ${r.level}${alertTag} → ${r.script}`;
+    return `- ${r.displayName}(${direction}): T=${r.avgTScore.toFixed(0)}, ${r.level}${alertTag} → ${r.script}`;
   }).join('\n');
 };
 
@@ -74,7 +74,7 @@ const filterWeaknesses = (results: SubCategoryResult[]): SubCategoryResult[] => 
 /** 중분류 리스트를 간단 텍스트로 포맷 */
 const formatResultList = (results: SubCategoryResult[], fallback: string): string => {
   if (results.length === 0) return `- ${fallback}`;
-  return results.map(r => `- ${r.displayName}: T=${r.avgTScore.toFixed(1)} (${r.level})`).join('\n');
+  return results.map(r => `- ${r.displayName}: T=${r.avgTScore.toFixed(0)} (${r.level})`).join('\n');
 };
 
 // ============================================================

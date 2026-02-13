@@ -66,7 +66,7 @@ export const calculateSubCategoryScores = (tScores: number[]): Record<string, nu
   for (const [subCategory, indices] of Object.entries(FACTOR_CATEGORIES)) {
     const scores = Array.from(indices).map(i => tScores[i]);
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-    result[subCategory] = Math.round(avg * 10) / 10;
+    result[subCategory] = Math.round(avg);
   }
 
   return result;
@@ -125,7 +125,7 @@ export const generateAISummary = async (
   // 사용자 프롬프트 구성 (명세 형식)
   const lines = subCategoryResults.map(r => {
     const direction = r.isPositive ? '정적' : '부적';
-    return `- ${r.displayName}(${direction}): T=${r.avgTScore.toFixed(1)} → ${r.script}`;
+    return `- ${r.displayName}(${direction}): T=${r.avgTScore.toFixed(0)} → ${r.script}`;
   });
 
   const userPrompt = `아래는 학생의 학습심리검사 중분류 11개 결과입니다.

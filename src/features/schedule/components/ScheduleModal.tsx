@@ -18,6 +18,8 @@ import {
 } from '@/shared/types';
 import { ScheduleStudentPicker } from './ScheduleStudentPicker';
 import { SCHEDULE_CLASSES, CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
+import { TIME_OPTIONS, SCHEDULE_TYPES, COUNSELING_AREAS, COUNSELING_METHODS } from '@/shared/data/counselingConstants';
+import { MultiSelectButtonGroup } from '@/shared/components';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -28,28 +30,6 @@ interface ScheduleModalProps {
   initialDate?: Date;
   editingSchedule?: UnifiedCounselingRecord | null;
 }
-
-// 시간 옵션 생성 (09:00 ~ 17:00, 30분 단위)
-const TIME_OPTIONS: string[] = [];
-for (let hour = 9; hour <= 17; hour++) {
-  TIME_OPTIONS.push(`${hour.toString().padStart(2, '0')}:00`);
-  if (hour < 17) {
-    TIME_OPTIONS.push(`${hour.toString().padStart(2, '0')}:30`);
-  }
-}
-
-const SCHEDULE_TYPES: ScheduleType[] = ['regular', 'urgent', 'follow-up', 'initial'];
-const COUNSELING_AREAS: CounselingArea[] = [
-  'academic',
-  'career',
-  'peer',
-  'family',
-  'emotion',
-  'behavior',
-  'health',
-  'other',
-];
-const COUNSELING_METHODS: CounselingMethod[] = ['face-to-face', 'phone', 'video', 'group'];
 
 export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   isOpen,
@@ -281,72 +261,33 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
           </div>
 
           {/* 상담 유형 (복수 선택 가능) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              상담 유형 <span className="text-xs text-gray-400 font-normal">(복수 선택 가능)</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {SCHEDULE_TYPES.map(type => (
-                <button
-                  key={type}
-                  onClick={() => toggleScheduleType(type)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    scheduleTypes.includes(type)
-                      ? type === 'urgent'
-                        ? 'bg-red-500 text-white'
-                        : 'bg-primary-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {SCHEDULE_TYPE_LABELS[type]}
-                </button>
-              ))}
-            </div>
-          </div>
+          <MultiSelectButtonGroup
+            label="상담 유형"
+            items={SCHEDULE_TYPES}
+            selected={scheduleTypes}
+            onToggle={toggleScheduleType}
+            labelMap={SCHEDULE_TYPE_LABELS}
+            alertKey="urgent"
+          />
 
           {/* 상담 영역 (복수 선택 가능) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              상담 영역 <span className="text-red-500">*</span> <span className="text-xs text-gray-400 font-normal">(복수 선택 가능)</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {COUNSELING_AREAS.map(a => (
-                <button
-                  key={a}
-                  onClick={() => toggleArea(a)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    areas.includes(a)
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {COUNSELING_AREA_LABELS[a]}
-                </button>
-              ))}
-            </div>
-          </div>
+          <MultiSelectButtonGroup
+            label="상담 영역"
+            required
+            items={COUNSELING_AREAS}
+            selected={areas}
+            onToggle={toggleArea}
+            labelMap={COUNSELING_AREA_LABELS}
+          />
 
           {/* 상담 방법 (복수 선택 가능) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              상담 방법 <span className="text-xs text-gray-400 font-normal">(복수 선택 가능)</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {COUNSELING_METHODS.map(m => (
-                <button
-                  key={m}
-                  onClick={() => toggleMethod(m)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    methods.includes(m)
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {COUNSELING_METHOD_LABELS[m]}
-                </button>
-              ))}
-            </div>
-          </div>
+          <MultiSelectButtonGroup
+            label="상담 방법"
+            items={COUNSELING_METHODS}
+            selected={methods}
+            onToggle={toggleMethod}
+            labelMap={COUNSELING_METHOD_LABELS}
+          />
 
           {/* 상담 내용/사유 */}
           <div>

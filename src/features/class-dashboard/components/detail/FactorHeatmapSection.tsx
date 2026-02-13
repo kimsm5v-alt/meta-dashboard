@@ -16,7 +16,7 @@ const DeltaBadge: React.FC<{ delta: number; isPositive: boolean }> = ({ delta, i
     return (
       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-400 shrink-0">
         <Minus className="w-2.5 h-2.5" />
-        {delta > 0 ? '+' : ''}{delta.toFixed(1)}
+        {delta > 0 ? '+' : ''}{delta.toFixed(0)}
       </span>
     );
   }
@@ -25,7 +25,7 @@ const DeltaBadge: React.FC<{ delta: number; isPositive: boolean }> = ({ delta, i
     return (
       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-600 shrink-0">
         <TrendingUp className="w-2.5 h-2.5" />
-        +{absDelta.toFixed(1)}
+        +{absDelta.toFixed(0)}
       </span>
     );
   }
@@ -34,7 +34,7 @@ const DeltaBadge: React.FC<{ delta: number; isPositive: boolean }> = ({ delta, i
     return (
       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-50 text-red-600 shrink-0">
         <TrendingDown className="w-2.5 h-2.5" />
-        -{absDelta.toFixed(1)}
+        -{absDelta.toFixed(0)}
       </span>
     );
   }
@@ -163,7 +163,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({ doma
                     />
                     {isCompare && prevLookup.subCat[subCat.name] != null && (
                       <DeltaBadge
-                        delta={Math.round((subCat.avgTScore - prevLookup.subCat[subCat.name]) * 10) / 10}
+                        delta={Math.round(subCat.avgTScore - prevLookup.subCat[subCat.name])}
                         isPositive={subCat.isPositive}
                       />
                     )}
@@ -203,7 +203,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({ doma
                           />
                           {isCompare && prevLookup.factor[factor.index] != null && (
                             <DeltaBadge
-                              delta={Math.round((factor.avgTScore - prevLookup.factor[factor.index]) * 10) / 10}
+                              delta={Math.round(factor.avgTScore - prevLookup.factor[factor.index])}
                               isPositive={factor.isPositive}
                             />
                           )}

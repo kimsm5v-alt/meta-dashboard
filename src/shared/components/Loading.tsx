@@ -20,3 +20,9 @@ export const PageLoading: React.FC<{ text?: string }> = ({ text = '로딩 중...
     <Loading size="lg" text={text} />
   </div>
 );
+
+export const PanelLoading: React.FC<{ height?: string }> = ({ height = 'h-40' }) => (
+  <div className={`flex items-center justify-center ${height}`}>
+    <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
