@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, AlertTriangle, TrendingUp } from 'lucide-react';
 import { Card } from '@/shared/components';
-import { MOCK_CLASSES, MOCK_TEACHER } from '@/shared/data/mockData';
+import { useData } from '@/shared/contexts/DataContext';
 import { TYPE_COLORS, TYPE_COLOR_CLASSES } from '@/shared/data/lpaProfiles';
 import { CategoryComparisonChart, TypeDistributionChart } from '../components';
 import type { Class } from '@/shared/types';
@@ -23,8 +23,7 @@ const getSortedTypeDistribution = (cls: Class) => {
 
 export const TeacherDashboardPage = () => {
   const navigate = useNavigate();
-  const classes = MOCK_CLASSES;
-  const teacher = MOCK_TEACHER;
+  const { classes, teacher } = useData();
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   const totalStats = {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { getClassById } from '@/shared/data/mockData';
+import { useData } from '@/shared/contexts/DataContext';
 import { useClassProfile } from '../hooks/useClassProfile';
 import { useClassDetailData } from '../hooks/useClassDetailData';
 import { ClassSummarySection } from '../components/detail/ClassSummarySection';
@@ -12,6 +12,7 @@ import { StrategySection } from '../components/detail/StrategySection';
 export const ClassDetailAnalysisPage: React.FC = () => {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
+  const { getClassById } = useData();
   const classData = classId ? getClassById(classId) : undefined;
 
   const hasRound2 =

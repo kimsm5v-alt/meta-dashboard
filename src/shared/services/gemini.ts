@@ -24,9 +24,27 @@ export interface GeminiConfig {
   baseUrl: string;
 }
 
+interface TextPart {
+  text: string;
+}
+
+interface InlineDataPart {
+  inlineData: {
+    mimeType: string;
+    data: string; // base64
+  };
+}
+
+export type GeminiPart = TextPart | InlineDataPart;
+
 export interface GeminiMessage {
   role: 'user' | 'model';
-  parts: { text: string }[];
+  parts: GeminiPart[];
+}
+
+export interface FileInput {
+  data: string; // base64-encoded file content
+  mimeType: string; // e.g. 'application/pdf'
 }
 
 export interface GeminiRequest {
@@ -295,8 +313,121 @@ export const getGeminiModelInfo = () => {
   };
 };
 
+// ============================================================
+// Multimodal API 호출 (PDF/이미지 입력 지원)
+// ============================================================
+
+/**
+ * Gemini Multimodal API 호출 (파일 + 텍스트)
+ *
+ * PDF 등 파일을 base64로 인코딩하여 텍스트 프롬프트와 함께 전송.
+ * PII 마스킹은 텍스트에만 적용 (바이너리 데이터는 불가).
+ *
+ * @param prompt - 텍스트 프롬프트 (추출 지시사항)
+ * @param file - base64 인코딩된 파일 데이터
+ * @param options - 옵션 (retryCount)
+ */
+export const callGeminiMultimodal = async (
+  prompt: string,
+  file: FileInput,
+  options: { retryCount?: number } = {},
+): Promise<GeminiResponse> => {
+  const config = getConfig();
+  const retryCount = options.retryCount || 0;
+
+  if (!config.apiKey) {
+    return {
+      success: false,
+      content: '',
+      error: 'API Key가 설정되지 않았습니다. .env 파일을 확인하세요.',
+    };
+  }
+
+  try {
+    const contents: GeminiMessage[] = [
+      {
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType: file.mimeType, data: file.data } },
+          { text: prompt },
+        ],
+      },
+    ];
+
+    const requestBody = {
+      contents,
+      generationConfig: {
+        thinkingConfig: { thinkingBudget: 0 },
+        maxOutputTokens: 16384,
+        temperature: 0,
+      },
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+      ],
+    };
+
+    const url = `${config.baseUrl}/models/${config.model}:generateContent?key=${config.apiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (response.status === 429 && retryCount < RETRY_CONFIG.maxRetries) {
+      const errorData = await response.json();
+      const retryDelay = extractRetryDelay(errorData);
+      const delay = retryDelay
+        ? Math.min(retryDelay, RETRY_CONFIG.maxDelayMs)
+        : Math.min(RETRY_CONFIG.baseDelayMs * Math.pow(2, retryCount), RETRY_CONFIG.maxDelayMs);
+      await sleep(delay);
+      return callGeminiMultimodal(prompt, file, { retryCount: retryCount + 1 });
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
+      const blockReason = data.promptFeedback?.blockReason
+        || data.candidates?.[0]?.finishReason
+        || 'Empty response';
+      return {
+        success: false,
+        content: '',
+        error: `응답이 생성되지 않았습니다: ${blockReason}`,
+      };
+    }
+
+    return {
+      success: true,
+      content: text,
+      usage: data.usageMetadata
+        ? {
+            promptTokens: data.usageMetadata.promptTokenCount || 0,
+            candidatesTokens: data.usageMetadata.candidatesTokenCount || 0,
+            totalTokens: data.usageMetadata.totalTokenCount || 0,
+          }
+        : undefined,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return {
+      success: false,
+      content: '',
+      error: errorMessage,
+    };
+  }
+};
+
 export default {
   callGemini,
+  callGeminiMultimodal,
   isGeminiConfigured,
   getGeminiModelInfo,
 };

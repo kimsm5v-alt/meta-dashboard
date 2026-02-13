@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, ShieldAlert, AlertTriangle, Clock } from 'lucide-react';
 import { Card, Badge } from '@/shared/components';
-import { getClassById } from '@/shared/data/mockData';
+import { useData } from '@/shared/contexts/DataContext';
 import type { Student, Assessment } from '@/shared/types';
 import {
   TypeChangeChart,
@@ -17,6 +17,7 @@ import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 export const ClassDashboardPage = () => {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
+  const { getClassById } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [changeFilter, setChangeFilter] = useState<ChangeFilter>('all');
   const [sortField, setSortField] = useState<SortField | null>(null);

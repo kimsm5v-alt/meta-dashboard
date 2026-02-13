@@ -15,7 +15,7 @@ import {
   PanelLeft,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
-import { MOCK_CLASSES } from '@/shared/data/mockData';
+import { useData } from '@/shared/contexts/DataContext';
 import serviceLogo from '@/assets/logo_2.png';
 
 interface LayoutProps {
@@ -91,6 +91,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { classes } = useData();
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
@@ -135,7 +136,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
               담당 학급
             </h3>
             <ul className="mt-2 space-y-1">
-              {MOCK_CLASSES.map((cls) => (
+              {classes.map((cls) => (
                 <li key={cls.id}>
                   <button
                     onClick={() => navigate(`/dashboard/class/${cls.id}`)}
@@ -151,7 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         ) : (
           <div className="mt-8 border-t border-gray-200 pt-4">
             <ul className="space-y-1">
-              {MOCK_CLASSES.map((cls) => (
+              {classes.map((cls) => (
                 <li key={cls.id}>
                   <button
                     onClick={() => navigate(`/dashboard/class/${cls.id}`)}

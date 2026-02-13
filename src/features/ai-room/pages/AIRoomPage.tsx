@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Send, Bot, X, Sparkles, MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { Card } from '@/shared/components';
-import { MOCK_CLASSES } from '@/shared/data/mockData';
+import { useData } from '@/shared/contexts/DataContext';
 import type { Class, Student } from '@/shared/types';
 import type { ContextMode, ChatMessage, StudentAliasMap } from '../types';
 import { StudentPickerModal, ChatArea, QuickPrompts } from '../components';
@@ -60,6 +60,7 @@ const createNewConversation = (): Conversation => ({
 // ============================================================================
 
 export const AIRoomPage = () => {
+  const { classes } = useData();
   // ---------------------------------------------------------------------------
   // State: 대화 기록
   // ---------------------------------------------------------------------------
@@ -219,7 +220,7 @@ export const AIRoomPage = () => {
     try {
       const response = await callAssistant({
         mode,
-        classes: MOCK_CLASSES,
+        classes: classes,
         selectedClass,
         selectedStudents,
         messages: messages.filter((m) => m.id !== '1'), // 초기 안내 메시지 제외
@@ -306,7 +307,7 @@ export const AIRoomPage = () => {
             </button>
             {isClassDropdownOpen && (
               <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
-                {MOCK_CLASSES.map((cls) => (
+                {classes.map((cls) => (
                   <button
                     key={cls.id}
                     onClick={() => handleClassSelect(cls)}
@@ -468,7 +469,7 @@ export const AIRoomPage = () => {
       <StudentPickerModal
         isOpen={isStudentModalOpen}
         onClose={() => setIsStudentModalOpen(false)}
-        classes={MOCK_CLASSES}
+        classes={classes}
         selectedStudents={selectedStudents}
         onConfirm={setSelectedStudents}
       />

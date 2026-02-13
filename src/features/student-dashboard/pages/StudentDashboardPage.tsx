@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, FileText, MessageSquare, Eye, ShieldAlert, AlertTriangle, Clock } from 'lucide-react';
-import { getClassById, getStudentById } from '@/shared/data/mockData';
+import { useData } from '@/shared/contexts/DataContext';
 import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 import {
   DiagnosisSummary,
@@ -29,6 +29,7 @@ export const StudentDashboardPage = () => {
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
   const [chartViewMode, setChartViewMode] = useState<'midCategory' | 'fourStep'>('midCategory');
+  const { getClassById, getStudentById } = useData();
 
   const classData = classId ? getClassById(classId) : undefined;
   const student = classId && studentId ? getStudentById(classId, studentId) : undefined;

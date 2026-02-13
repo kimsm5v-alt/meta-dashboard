@@ -7,6 +7,7 @@ import {
   GeneralSection,
   CreateAssessmentModal,
   AssessmentCodeModal,
+  PdfUploadModal,
   type AssessmentFormData,
 } from '../components';
 
@@ -57,6 +58,7 @@ export const AssessmentPage: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState<ManagedAssessment | null>(null);
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   const isVivaSamMember = user?.memberType === 'vivasam';
 
@@ -88,8 +90,7 @@ export const AssessmentPage: React.FC = () => {
   };
 
   const handleUploadClick = () => {
-    // TODO: PDF 업로드 기능 구현
-    alert('PDF 업로드 기능은 추후 구현 예정입니다.');
+    setIsUploadModalOpen(true);
   };
 
   return (
@@ -126,6 +127,10 @@ export const AssessmentPage: React.FC = () => {
         isOpen={isCodeModalOpen}
         onClose={() => setIsCodeModalOpen(false)}
         assessment={selectedAssessment}
+      />
+      <PdfUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
       />
     </div>
   );
