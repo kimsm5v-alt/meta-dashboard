@@ -103,7 +103,7 @@ L1: 교사 전체 반 대시보드        → /dashboard
 | `shared/utils/recordGenerator.ts` | 생활기록부 문구 생성 유틸리티 (강점 영역 추출, 변화 분석) |
 | `shared/data/schoolRecordSentences.ts` | 생활기록부 예시 문장 데이터 (11개 중분류 × 3 학교급 × 3문장 = 99개) |
 | `features/ai-room/services/assistantService.ts` | AI Room 대화 서비스 (RAG 컨텍스트 기반) |
-| `features/ai-room/services/contextBuilder.ts` | 컨텍스트 빌더 (모드별 RAG, 학생 별칭 시스템) |
+| `features/ai-room/services/contextBuilder.ts` | 컨텍스트 빌더 (모드별 RAG, 7개 데이터 소스, 별칭 시스템) |
 | `features/student-dashboard/services/dataHelperService.ts` | 데이터 해석 도우미 AI 서비스 (7개 질문별 프롬프트) |
 
 ### 기능별 프롬프트 (AIFeature)
@@ -204,9 +204,9 @@ src/
 | `shared/services/memoService.ts` | 관찰 메모 CRUD 서비스 |
 | `shared/services/schoolRecordService.ts` | 생활기록부 AI 생성 서비스 |
 | `features/ai-room/services/assistantService.ts` | AI Room 대화 서비스 |
-| `features/ai-room/services/contextBuilder.ts` | AI 컨텍스트 빌더 (RAG, 별칭 시스템) |
+| `features/ai-room/services/contextBuilder.ts` | AI 컨텍스트 빌더 (모드별 RAG, 7개 데이터 소스, 별칭 시스템) |
 | `features/student-dashboard/services/dataHelperService.ts` | 데이터 해석 도우미 AI 서비스 (7개 질문별 프롬프트) |
-| `features/class-dashboard/hooks/useClassProfile.ts` | 학급 프로필 (중분류 merit score → 강점/약점 TOP 3, 해설문) |
+| `features/class-dashboard/hooks/useClassProfile.ts` | 학급 프로필 (`computeClassProfile` 순수 함수 + `useClassProfile` 훅, 중분류 merit score → 강점/약점 TOP 3, 해설문) |
 | `features/class-dashboard/hooks/useClassDetailData.ts` | 학급 상세 데이터 (38개 요인 평균, 영역 계층, 위험군 분류) |
 
 ### 문서 폴더 구조
@@ -612,13 +612,20 @@ AI 어시스턴트는 교사가 학생 검사 결과를 AI와 대화하며 분�
 ```
 src/features/ai-room/
 ├── pages/
-│   └── AIRoomPage.tsx          # 메인 페이지
+│   └── AIRoomPage.tsx              # 메인 페이지
 ├── components/
-│   ├── ChatArea.tsx            # 채팅 메시지 영역
-│   ├── QuickPrompts.tsx        # 빠른 질문 사이드바
-│   ├── StudentPickerModal.tsx  # 학생 선택 모달
+│   ├── ChatArea.tsx                # 채팅 메시지 영역
+│   ├── ConversationSidebar.tsx     # 대화 목록 사이드바
+│   ├── QuickPrompts.tsx            # 빠른 질문 사이드바
+│   ├── StudentPickerModal.tsx      # 학생 선택 모달
 │   └── index.ts
-├── types.ts                    # 타입 정의
+├── hooks/
+│   ├── useConversations.ts         # 대화 CRUD 훅
+│   └── useContextMode.ts           # 컨텍스트 모드 관리 훅
+├── services/
+│   ├── assistantService.ts         # AI 호출 서비스 (async)
+│   └── contextBuilder.ts           # RAG 컨텍스트 빌더 (async, 7개 데이터 소스)
+├── types.ts                        # 타입 정의
 └── index.ts
 ```
 
@@ -672,6 +679,56 @@ interface StudentAliasMap {
 4. **학생 별칭 시스템**
    - AI 전송 시 학생 이름 마스킹 (student_A, student_B...)
    - UI 표시 시 실제 이름으로 변환
+
+### RAG 컨텍스트 데이터 소스
+
+`contextBuilder.ts`가 모드별로 수집하여 AI 시스템 프롬프트에 주입하는 데이터:
+
+#### Student 모드 (개별)
+
+| 데이터 | 소스 | 설명 |
+|--------|------|------|
+| 38개 T점수 전체 | `Assessment.tScores` | 5대 영역별 그룹으로 포맷팅 |
+| 1차→2차 변화 | `Assessment` (round 1,2) | T±5 이상 변화 요인만 추출 |
+| 4단계 진단 | `calculate4StepDiagnosis()` | 공부마음/자원/기술 + 8유형 + 코칭전략 |
+| 상담 기록 | `unifiedCounselingService` | 최근 5건 (상태, 유형, 영역, 방법, 요약) |
+| 관찰 메모 | `memoService` | 최근 5건 (카테고리, 중요도, 내용) |
+| 생활기록부 | `schoolRecordService` | 저장된 AI 생성 문구 (카테고리별) |
+| LPA 유형 | `Assessment.predictedType` | 유형 + 확신도 + 신뢰도/관심 배지 |
+
+#### Class 모드 (반별)
+
+| 데이터 | 소스 | 설명 |
+|--------|------|------|
+| 학급 프로필 | `computeClassProfile()` | 강점/약점 TOP 3 (해설문 + 대표 요인) |
+| 위험군 학생 | `AttentionResult` | 긴급 관심 / 관찰 필요 2단 분류 |
+| 상담 현황 | `unifiedCounselingService` | 완료/예정 건수 |
+| 유형 분포 | `Assessment.predictedType` | 유형별 인원수 |
+
+#### All 모드 (전체)
+
+| 데이터 | 소스 | 설명 |
+|--------|------|------|
+| 반별 프로필 요약 | `computeClassProfile()` | 각 반 강점/약점 + 유형 분포 |
+| 전체 상담 현황 | `unifiedCounselingService` | 완료/예정 건수 |
+| 관심 필요 학생 수 | `AttentionResult` | 전체 합산 |
+
+#### 컨텍스트 빌더 데이터 흐름
+
+```
+AIRoomPage → callAssistant(request)
+  → await buildRAGContext({ mode, classes, selectedClass, selectedStudents })
+    → 모드별 컨텍스트 빌더 (async)
+      ├── 검사 결과: Assessment.tScores, predictedType, reliabilityWarnings
+      ├── 4단계 진단: calculate4StepDiagnosis(tScores)
+      ├── 학급 프로필: computeClassProfile(classData, round)
+      ├── 상담 기록: await unifiedCounselingService.getByStudentId()
+      ├── 관찰 메모: await memoService.getByStudentId()
+      └── 생활기록부: await schoolRecordService.getSavedByStudentId()
+  → buildAssistantPrompt(ragContext)  // {RAG_CONTEXT} 치환
+  → callAI({ messages, maskPII: false })  // 별칭 처리 완료
+  → restoreNames(response, aliasMap)  // 별칭 → 실명 복원
+```
 
 ### 빠른 질문 카테고리
 
@@ -845,5 +902,5 @@ const activeRecords = records.filter(r => r.status !== 'cancelled');
 
 ---
 
-**Last Updated**: 2026-02-10
-**Version**: 2.6 (대분류 그룹 헤더, 해시태그 대분류 표시, 공유 유틸리티 리팩토링)
+**Last Updated**: 2026-02-20
+**Version**: 2.7 (RAG 컨텍스트 확장 — 7개 데이터 소스 통합, computeClassProfile 순수 함수 추출)

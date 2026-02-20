@@ -240,12 +240,26 @@ L1: 교사 전체 반 대시보드        → /dashboard
 |----|----------|----------|------|
 | F7-1 | 3가지 컨텍스트 모드 (전체/반별/개별) | P1 | ✅ 완료 |
 | F7-2 | 멀티턴 대화 (대화 기록 유지) | P1 | ✅ 완료 |
-| F7-3 | RAG 컨텍스트 기반 응답 (선택된 학생/학급 데이터 주입) | P1 | ✅ 완료 |
+| F7-3 | RAG 컨텍스트 기반 응답 (7개 데이터 소스 주입, 아래 상세) | P1 | ✅ 완료 |
 | F7-4 | 학생 별칭 시스템 (student_A, student_B...) | P1 | ✅ 완료 |
 | F7-5 | 모드별 빠른 질문 프롬프트 | P2 | ✅ 완료 |
 | F7-6 | 대화 기록 관리 (생성/삭제/전환) | P2 | ✅ 완료 |
 | F7-7 | 학생 선택 모달 (개별 모드) | P1 | ✅ 완료 |
 | F7-8 | 학급 선택 모달 (반별 모드) | P1 | ✅ 완료 |
+
+**F7-3 RAG 컨텍스트 데이터 소스:**
+
+| 데이터 | 소스 | 모드 |
+|--------|------|------|
+| 38개 T점수 전체 (5대 영역별 그룹) | Assessment.tScores | student |
+| 1차↔2차 변화 (T±5 이상) | Assessment (round 1 vs 2) | student |
+| 4단계 진단 (8유형 + 코칭전략) | calculate4StepDiagnosis() | student |
+| 상담 기록 (최근 5건) | unifiedCounselingService | student |
+| 관찰 메모 (최근 5건) | memoService | student |
+| 저장된 생활기록부 문구 | schoolRecordService | student |
+| 학급 프로필 (강점/약점 TOP 3 + 해설문) | computeClassProfile() | class, all |
+| 위험군 학생 (긴급/관찰 2단 분류) | attentionResult | class |
+| 상담 현황 (완료/예정 건수) | unifiedCounselingService | class, all |
 
 ---
 
@@ -286,7 +300,7 @@ L1: 교사 전체 반 대시보드        → /dashboard
 | `analysis` | 학생 AI 분석 총평 | L3 학생 대시보드 | 11개 중분류 결과를 3문장(강점/약점/코칭)으로 요약 |
 | `record` | 생활기록부 문구 생성 | L3 우측 패널 | 검사 결과 기반 생활기록부 기재 문구 자동 생성 (5개 카테고리) |
 | `dataHelper` | 데이터 해석 도우미 | L3 플로팅 챗봇 | 7개 사전 질문에 대한 맞춤형 AI 해석 제공 |
-| `assistant` | AI 어시스턴트 | AI Room | 교사와의 멀티턴 대화로 검사 결과 심층 분석 |
+| `assistant` | AI 어시스턴트 | AI Room | 교사와의 멀티턴 대화로 검사 결과 심층 분석 (7개 데이터 소스 RAG) |
 | `classAnalysis` | 학급 분석 총평 | L2.5 상세 분석 | 학급 전체 특성 요약(overall) + 핵심 포인트(keyPoint) |
 
 ### 5.3 AI 안전장치

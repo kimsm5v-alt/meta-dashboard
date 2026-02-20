@@ -64,7 +64,7 @@ export const callAssistant = async (
 
   try {
     // 1. RAG 컨텍스트 생성 (별칭 맵도 함께 반환)
-    const { context: ragContext, aliasMap } = buildRAGContext({
+    const { context: ragContext, aliasMap } = await buildRAGContext({
       mode,
       classes,
       selectedClass,

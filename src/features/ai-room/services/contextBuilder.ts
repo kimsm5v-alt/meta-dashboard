@@ -2,12 +2,24 @@
  * AI Room 컨텍스트 빌더
  *
  * 모드별(전체/반별/개별)로 AI 프롬프트에 주입할 RAG 컨텍스트를 생성합니다.
- * 소분류(38개 요인) 기준으로 학생별 강점/약점 분석 결과를 포함합니다.
+ * 검사 결과, 4단계 진단, 상담 기록, 관찰 메모, 생활기록부를 포함합니다.
  */
 
 import type { Class, Student, Assessment } from '@/shared/types';
+import {
+  SCHEDULE_TYPE_LABELS,
+  COUNSELING_AREA_LABELS,
+  COUNSELING_METHOD_LABELS,
+  MEMO_CATEGORY_LABELS,
+  SCHOOL_RECORD_CATEGORY_LABELS,
+} from '@/shared/types';
 import type { ContextMode, StudentAliasMap } from '../types';
 import { FACTOR_DEFINITIONS } from '@/shared/data/factors';
+import { calculate4StepDiagnosis } from '@/shared/utils/calculate4StepDiagnosis';
+import { unifiedCounselingService } from '@/shared/services/unifiedCounselingService';
+import { memoService } from '@/shared/services/memoService';
+import { schoolRecordService } from '@/shared/services/schoolRecordService';
+import { computeClassProfile } from '@/features/class-dashboard/hooks/useClassProfile';
 
 // ============================================================
 // 타입 정의
@@ -26,41 +38,21 @@ export interface ContextBuildResult {
   aliasMap: StudentAliasMap;
 }
 
-/** 소분류 강점/약점 분석 결과 */
-interface FactorScoreItem {
-  name: string;           // 소분류 요인명 (예: "자아존중감")
-  subCategory: string;    // 중분류 (예: "긍정적자아")
-  category: string;       // 대분류 (예: "자아강점")
-  tScore: number;         // T점수
-  normalizedScore: number; // 정규화 점수 (비교용)
-  level: string;          // 레벨 (매우높음/높음/보통/낮음/매우낮음)
-  isPositive: boolean;    // 정적 요인 여부
-  isStrength: boolean;    // 강점 여부 (정적≥60 또는 부적≤40)
-}
-
 // ============================================================
 // 별칭 생성 함수
 // ============================================================
 
-/**
- * 학생 이름으로 별칭 맵 생성
- * @param studentNames 학생 이름 배열
- * @returns 별칭 맵 { "student_A": "김민준", ... }
- */
 export const createAliasMap = (studentNames: string[]): StudentAliasMap => {
   const aliasMap: StudentAliasMap = {};
   studentNames.forEach((name, index) => {
     const letter = index < 26
-      ? String.fromCharCode(65 + index) // A-Z
-      : String.fromCharCode(65 + Math.floor(index / 26) - 1) + String.fromCharCode(65 + (index % 26)); // AA, AB, ...
+      ? String.fromCharCode(65 + index)
+      : String.fromCharCode(65 + Math.floor(index / 26) - 1) + String.fromCharCode(65 + (index % 26));
     aliasMap[`student_${letter}`] = name;
   });
   return aliasMap;
 };
 
-/**
- * 별칭 맵 역변환 (별칭 → 이름)
- */
 export const reverseAliasMap = (aliasMap: StudentAliasMap): Record<string, string> => {
   const reversed: Record<string, string> = {};
   Object.entries(aliasMap).forEach(([alias, name]) => {
@@ -69,9 +61,6 @@ export const reverseAliasMap = (aliasMap: StudentAliasMap): Record<string, strin
   return reversed;
 };
 
-/**
- * 텍스트에서 이름을 별칭으로 변환
- */
 export const applyAliases = (text: string, aliasMap: StudentAliasMap): string => {
   let result = text;
   const reversed = reverseAliasMap(aliasMap);
@@ -81,16 +70,10 @@ export const applyAliases = (text: string, aliasMap: StudentAliasMap): string =>
   return result;
 };
 
-/**
- * 텍스트에서 별칭을 이름으로 복원
- * AI가 마크다운 이스케이프로 student\_A 형태로 출력할 수 있어 두 패턴 모두 처리
- */
 export const restoreNames = (text: string, aliasMap: StudentAliasMap): string => {
   let result = text;
   Object.entries(aliasMap).forEach(([alias, name]) => {
-    // 일반 형태: student_A
     result = result.replace(new RegExp(alias, 'g'), name);
-    // 이스케이프된 형태: student\_A (마크다운에서 _ 이스케이프)
     const escapedAlias = alias.replace(/_/g, '\\_');
     result = result.replace(new RegExp(escapedAlias.replace(/\\/g, '\\\\'), 'g'), name);
   });
@@ -98,104 +81,19 @@ export const restoreNames = (text: string, aliasMap: StudentAliasMap): string =>
 };
 
 // ============================================================
-// 소분류(38개 요인) 기반 분석 함수
-// ============================================================
-
-/**
- * T점수를 레벨 문자열로 변환
- */
-const tScoreToLevel = (tScore: number): string => {
-  if (tScore >= 70) return '매우높음';
-  if (tScore >= 60) return '높음';
-  if (tScore >= 40) return '보통';
-  if (tScore >= 30) return '낮음';
-  return '매우낮음';
-};
-
-/**
- * 38개 T점수 배열을 FactorScoreItem 배열로 변환
- */
-const buildFactorScores = (tScores: number[]): FactorScoreItem[] => {
-  return FACTOR_DEFINITIONS.map((factor, index) => {
-    const tScore = tScores[index] ?? 50;
-    const level = tScoreToLevel(tScore);
-    const isPositive = factor.isPositive;
-
-    // 정규화 점수: 부적 요인은 역산 (100 - T점수)하여 비교 가능하게 함
-    const normalizedScore = isPositive ? tScore : (100 - tScore);
-
-    // 강점 판정: 정적 요인 ≥60 또는 부적 요인 ≤40
-    const isStrength = isPositive ? tScore >= 60 : tScore <= 40;
-
-    return {
-      name: factor.name,
-      subCategory: factor.subCategory,
-      category: factor.category,
-      tScore,
-      normalizedScore,
-      level,
-      isPositive,
-      isStrength,
-    };
-  });
-};
-
-/**
- * 강점 추출 (소분류 38개 요인 기준, 상위 3개)
- *
- * 강점 기준:
- * - 정적 요인: T점수 ≥ 60 (높을수록 강점)
- * - 부적 요인: T점수 ≤ 40 (낮을수록 강점)
- */
-const getTopStrengths = (tScores: number[]): FactorScoreItem[] => {
-  const factorScores = buildFactorScores(tScores);
-
-  // normalizedScore 높은 순 정렬 → 상위 3개
-  return factorScores
-    .filter(f => f.isStrength)
-    .sort((a, b) => b.normalizedScore - a.normalizedScore)
-    .slice(0, 3);
-};
-
-/**
- * 약점(관심 필요) 추출 (소분류 38개 요인 기준, 하위 3개)
- *
- * 약점 기준:
- * - 정적 요인: T점수 ≤ 40 (낮을수록 약점)
- * - 부적 요인: T점수 ≥ 60 (높을수록 약점)
- */
-const getWeaknesses = (tScores: number[]): FactorScoreItem[] => {
-  const factorScores = buildFactorScores(tScores);
-
-  // 약점: 정적 요인 낮음 OR 부적 요인 높음
-  const weaknesses = factorScores.filter(f => {
-    if (f.isPositive) return f.tScore <= 40; // 정적 요인: 낮을수록 약점
-    return f.tScore >= 60; // 부적 요인: 높을수록 약점
-  });
-
-  // 심각도 순 정렬 (normalizedScore 낮은 순)
-  return weaknesses
-    .sort((a, b) => a.normalizedScore - b.normalizedScore)
-    .slice(0, 3);
-};
-
-// ============================================================
 // 유틸리티 함수
 // ============================================================
 
-/**
- * 학생의 최신 Assessment 조회
- */
 const getLatestAssessment = (student: Student): Assessment | null => {
   if (!student.assessments || student.assessments.length === 0) return null;
-  // round 2가 있으면 2, 없으면 1 반환
   const round2 = student.assessments.find((a) => a.round === 2);
   return round2 || student.assessments.find((a) => a.round === 1) || null;
 };
 
-/**
- * 학급 유형 분포 계산
- */
+const getAssessmentByRound = (student: Student, round: 1 | 2): Assessment | null => {
+  return student.assessments.find((a) => a.round === round) || null;
+};
+
 const calculateTypeDistribution = (students: Student[]): Record<string, number> => {
   const distribution: Record<string, number> = {};
   students.forEach((student) => {
@@ -208,9 +106,6 @@ const calculateTypeDistribution = (students: Student[]): Record<string, number> 
   return distribution;
 };
 
-/**
- * 관심 필요 학생 필터링
- */
 const filterAttentionStudents = (students: Student[]): Student[] => {
   return students.filter((student) => {
     const assessment = getLatestAssessment(student);
@@ -218,9 +113,6 @@ const filterAttentionStudents = (students: Student[]): Student[] => {
   });
 };
 
-/**
- * 유형 분포 포맷팅
- */
 const formatTypeDistribution = (distribution: Record<string, number>): string => {
   return Object.entries(distribution)
     .map(([type, count]) => `- ${type}: ${count}명`)
@@ -228,80 +120,300 @@ const formatTypeDistribution = (distribution: Record<string, number>): string =>
 };
 
 // ============================================================
+// 38개 T점수 포맷팅 (5대 영역별 그룹)
+// ============================================================
+
+const formatAllTScores = (tScores: number[]): string => {
+  const groups: Record<string, string[]> = {};
+
+  for (const factor of FACTOR_DEFINITIONS) {
+    if (!groups[factor.category]) {
+      groups[factor.category] = [];
+    }
+    const t = tScores[factor.index] ?? 50;
+    groups[factor.category].push(`${factor.name} T=${t}`);
+  }
+
+  return Object.entries(groups)
+    .map(([category, factors]) => `- ${category}: ${factors.join(', ')}`)
+    .join('\n');
+};
+
+// ============================================================
+// 1차↔2차 변화 포맷팅
+// ============================================================
+
+const formatRoundChanges = (student: Student): string | null => {
+  const round1 = getAssessmentByRound(student, 1);
+  const round2 = getAssessmentByRound(student, 2);
+  if (!round1 || !round2) return null;
+
+  const changes: { name: string; diff: number; isPositive: boolean }[] = [];
+
+  for (const factor of FACTOR_DEFINITIONS) {
+    const t1 = round1.tScores[factor.index] ?? 50;
+    const t2 = round2.tScores[factor.index] ?? 50;
+    const diff = t2 - t1;
+    if (Math.abs(diff) >= 5) {
+      changes.push({ name: factor.name, diff, isPositive: factor.isPositive });
+    }
+  }
+
+  if (changes.length === 0) return '- 유의미한 변화 없음 (±5 미만)';
+
+  const positive = changes.filter((c) =>
+    (c.isPositive && c.diff > 0) || (!c.isPositive && c.diff < 0)
+  );
+  const negative = changes.filter((c) =>
+    (c.isPositive && c.diff < 0) || (!c.isPositive && c.diff > 0)
+  );
+
+  const lines: string[] = [];
+  if (positive.length > 0) {
+    lines.push(`- 긍정 변화: ${positive.map((c) => `${c.name}(${c.diff > 0 ? '+' : ''}${c.diff})`).join(', ')}`);
+  }
+  if (negative.length > 0) {
+    lines.push(`- 부정 변화: ${negative.map((c) => `${c.name}(${c.diff > 0 ? '+' : ''}${c.diff})`).join(', ')}`);
+  }
+  return lines.join('\n');
+};
+
+// ============================================================
+// 4단계 진단 포맷팅
+// ============================================================
+
+const format4StepDiagnosis = (tScores: number[]): string => {
+  const diagnosis = calculate4StepDiagnosis(tScores);
+  const { step1, step2, step3, step4 } = diagnosis;
+
+  return `- 공부마음: ${step1.레벨} (T=${Math.round(step1.총점)}) — 긍정: 학업열의 T=${Math.round(step1.긍정.학업열의)}, 성장력 T=${Math.round(step1.긍정.성장력)} / 부정: 학업소진 T=${Math.round(step1.부정.학업소진)}
+- 공부자원: ${step2.레벨} (T=${Math.round(step2.총점)}) — 개인 T=${Math.round(step2.개인.종합)}, 환경 T=${Math.round(step2.환경.종합)}, 방해 T=${Math.round(step2.방해.종합)}
+- 공부기술: ${step3.레벨} (T=${Math.round(step3.총점)}) — 학습재설계 T=${Math.round(step3.학습.종합)}, 마음재설계 T=${Math.round(step3.마음.종합)}
+- 학습유형: ${step4.유형코드} ${step4.유형명} (사분면 ${step4.사분면})
+- 코칭전략: ${step4.코칭전략.join(' / ')}`;
+};
+
+// ============================================================
+// 상담 기록 포맷팅
+// ============================================================
+
+const formatCounselingRecords = (
+  records: Awaited<ReturnType<typeof unifiedCounselingService.getByStudentId>>,
+  aliasMap: StudentAliasMap,
+): string => {
+  const active = records.filter((r) => r.status !== 'cancelled');
+  if (active.length === 0) return '- 상담 기록 없음';
+
+  return active
+    .sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt))
+    .slice(0, 5)
+    .map((r) => {
+      const date = r.scheduledAt.split(' ')[0];
+      const status = r.status === 'completed' ? '완료' : '예정';
+      const areas = r.areas.map((a) => COUNSELING_AREA_LABELS[a]).join('/');
+      const types = r.types.map((t) => SCHEDULE_TYPE_LABELS[t]).join('/');
+      const methods = r.methods.map((m) => COUNSELING_METHOD_LABELS[m]).join('/');
+      let line = `- ${date} [${status}] ${types} ${areas} (${methods})`;
+      if (r.summary) {
+        line += `: ${applyAliases(r.summary.slice(0, 100), aliasMap)}`;
+      }
+      if (r.nextSteps) {
+        line += ` → 후속: ${applyAliases(r.nextSteps.slice(0, 80), aliasMap)}`;
+      }
+      return line;
+    })
+    .join('\n');
+};
+
+// ============================================================
+// 관찰 메모 포맷팅
+// ============================================================
+
+const formatObservationMemos = (
+  memos: Awaited<ReturnType<typeof memoService.getByStudentId>>,
+  aliasMap: StudentAliasMap,
+): string => {
+  if (memos.length === 0) return '- 관찰 메모 없음';
+
+  return memos
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 5)
+    .map((m) => {
+      const category = MEMO_CATEGORY_LABELS[m.category];
+      const important = m.isImportant ? ' ★' : '';
+      const content = applyAliases(m.content.slice(0, 100), aliasMap);
+      return `- ${m.date} [${category}]${important} ${content}`;
+    })
+    .join('\n');
+};
+
+// ============================================================
+// 생활기록부 포맷팅
+// ============================================================
+
+const formatSchoolRecords = (
+  records: Awaited<ReturnType<typeof schoolRecordService.getSavedByStudentId>>,
+  aliasMap: StudentAliasMap,
+): string => {
+  if (records.length === 0) return '';
+
+  return records
+    .map((r) => {
+      const label = SCHOOL_RECORD_CATEGORY_LABELS[r.category];
+      const content = applyAliases(r.content.slice(0, 150), aliasMap);
+      return `- [${label}] ${content}`;
+    })
+    .join('\n');
+};
+
+// ============================================================
+// 학급 프로필 포맷팅
+// ============================================================
+
+const formatClassProfile = (classData: Class, round: 1 | 2 = 1): string => {
+  const profile = computeClassProfile(classData, round);
+  if (!profile) return '- 프로필 데이터 없음';
+
+  const formatItems = (items: typeof profile.strengths) =>
+    items
+      .map((item, i) => {
+        let line = `${i + 1}. ${item.category} [${item.parentCategory}] (평균 T=${item.avgT})`;
+        if (item.categoryScript) line += `: ${item.categoryScript}`;
+        line += `\n   - 대표 요인: ${item.topFactor} (T=${item.topFactorT})`;
+        if (item.topFactorScript) line += `: ${item.topFactorScript}`;
+        return line;
+      })
+      .join('\n');
+
+  return `### 강점 TOP 3
+${formatItems(profile.strengths)}
+
+### 약점 TOP 3
+${formatItems(profile.weaknesses)}`;
+};
+
+// ============================================================
+// 위험군 학생 포맷팅
+// ============================================================
+
+const formatRiskStudents = (
+  students: Student[],
+  aliasMap: StudentAliasMap,
+): string => {
+  const critical: string[] = [];
+  const watchList: string[] = [];
+  const reversed = reverseAliasMap(aliasMap);
+
+  for (const student of students) {
+    const assessment = getLatestAssessment(student);
+    if (!assessment?.attentionResult?.needsAttention) continue;
+
+    const alias = reversed[student.name] || student.name;
+    const reasons = assessment.attentionResult.reasons
+      .map((r) => `${r.category} ${r.direction === 'low' ? '낮음' : '높음'}`)
+      .join(', ');
+
+    const hasSevere = assessment.tScores.some((t, idx) => {
+      const factor = FACTOR_DEFINITIONS[idx];
+      return factor && ((factor.isPositive && t <= 29) || (!factor.isPositive && t >= 70));
+    });
+
+    const line = `- ${alias}: ${assessment.predictedType} — ${reasons}`;
+    if (assessment.attentionResult.reasons.length >= 2 || hasSevere) {
+      critical.push(line);
+    } else {
+      watchList.push(line);
+    }
+  }
+
+  const sections: string[] = [];
+  if (critical.length > 0) {
+    sections.push(`### 긴급 관심 (${critical.length}명)\n${critical.join('\n')}`);
+  }
+  if (watchList.length > 0) {
+    sections.push(`### 관찰 필요 (${watchList.length}명)\n${watchList.join('\n')}`);
+  }
+  return sections.length > 0 ? sections.join('\n\n') : '- 위험군 학생 없음';
+};
+
+// ============================================================
 // 모드별 컨텍스트 빌더
 // ============================================================
 
-/**
- * 전체 모드 컨텍스트 생성
- */
-const buildAllContext = (classes: Class[]): string => {
+const buildAllContext = async (classes: Class[]): Promise<string> => {
   const totalStudents = classes.reduce((sum, c) => sum + c.students.length, 0);
-
-  // 전체 유형 분포
   const allStudents = classes.flatMap((c) => c.students);
   const typeDistribution = calculateTypeDistribution(allStudents);
-
-  // 관심 필요 학생 수
   const attentionStudents = filterAttentionStudents(allStudents);
 
-  // 학급별 요약
-  const classSummaries = classes.map((cls) => {
+  const classProfiles = classes.map((cls) => {
     const distribution = calculateTypeDistribution(cls.students);
     const distributionText = Object.entries(distribution)
       .map(([type, count]) => `${type} ${count}명`)
       .join(', ');
-    return `- ${cls.grade}학년 ${cls.classNumber}반: ${cls.students.length}명 (${distributionText})`;
+
+    const profile = computeClassProfile(cls);
+    const strengths = profile
+      ? profile.strengths.map((s) => `${s.category}(T=${s.avgT})`).join(', ')
+      : '-';
+    const weaknesses = profile
+      ? profile.weaknesses.map((w) => `${w.category}(T=${w.avgT})`).join(', ')
+      : '-';
+
+    return `### ${cls.grade}학년 ${cls.classNumber}반 (${cls.students.length}명)
+- 유형 분포: ${distributionText}
+- 강점: ${strengths}
+- 약점: ${weaknesses}`;
   });
+
+  const allRecords = await unifiedCounselingService.getAll();
+  const activeRecords = allRecords.filter((r) => r.status !== 'cancelled');
+  const completedCount = activeRecords.filter((r) => r.status === 'completed').length;
+  const scheduledCount = activeRecords.filter((r) => r.status === 'scheduled').length;
 
   return `## 전체 현황
 - 담당 학급: ${classes.length}개
 - 총 학생 수: ${totalStudents}명
 - 관심 필요 학생: ${attentionStudents.length}명
+- 상담 현황: 완료 ${completedCount}건 / 예정 ${scheduledCount}건
 
 ## 전체 유형 분포
 ${formatTypeDistribution(typeDistribution)}
 
-## 학급별 요약
-${classSummaries.join('\n')}`;
+## 학급별 프로필
+${classProfiles.join('\n\n')}`;
 };
 
-/**
- * 반별 모드 컨텍스트 생성
- */
-const buildClassContext = (cls: Class): string => {
+const buildClassContext = async (
+  cls: Class,
+  aliasMap: StudentAliasMap,
+): Promise<string> => {
   const typeDistribution = calculateTypeDistribution(cls.students);
-  const attentionStudents = filterAttentionStudents(cls.students);
 
-  // 관심 필요 학생 목록 (별칭 사용)
-  const attentionList = attentionStudents
-    .slice(0, 5) // 최대 5명
-    .map((s, i) => {
-      const assessment = getLatestAssessment(s);
-      const alias = `student_${String.fromCharCode(65 + i)}`;
-      const reasons = assessment?.attentionResult?.reasons
-        ?.map((r) => r.category)
-        .join(', ') || '';
-      return `- ${alias}: ${assessment?.predictedType || '미분류'} (${reasons})`;
-    });
+  const classRecords = await unifiedCounselingService.getByClassId(cls.id);
+  const activeRecords = classRecords.filter((r) => r.status !== 'cancelled');
+  const completedCount = activeRecords.filter((r) => r.status === 'completed').length;
+  const scheduledCount = activeRecords.filter((r) => r.status === 'scheduled').length;
 
   return `## ${cls.grade}학년 ${cls.classNumber}반 현황
 - 학생 수: ${cls.students.length}명
 - 검사 완료: ${cls.stats?.assessedStudents || cls.students.filter((s) => getLatestAssessment(s)).length}명
+- 상담 현황: 완료 ${completedCount}건 / 예정 ${scheduledCount}건
 
 ## 유형 분포
 ${formatTypeDistribution(typeDistribution)}
 
-## 관심 필요 학생 (${attentionStudents.length}명)
-${attentionList.length > 0 ? attentionList.join('\n') : '- 없음'}`;
+## 학급 프로필
+${formatClassProfile(cls)}
+
+## 위험군 학생
+${formatRiskStudents(cls.students, aliasMap)}`;
 };
 
-/**
- * 개별 모드 컨텍스트 생성 (소분류 38개 요인 기반)
- */
-const buildStudentContext = (
+const buildStudentContext = async (
   students: Student[],
-  aliasMap: StudentAliasMap
-): string => {
+  aliasMap: StudentAliasMap,
+): Promise<string> => {
   if (students.length === 0) {
     return '선택된 학생이 없습니다.';
   }
@@ -309,51 +421,56 @@ const buildStudentContext = (
   const reversedMap = reverseAliasMap(aliasMap);
   const studentContexts: string[] = [];
 
-  students.forEach((student, index) => {
+  for (let index = 0; index < students.length; index++) {
+    const student = students[index];
     const assessment = getLatestAssessment(student);
-    if (!assessment) return;
+    if (!assessment) continue;
 
     const alias = reversedMap[student.name] || `student_${String.fromCharCode(65 + index)}`;
     const tScores = assessment.tScores;
 
-    // 강점 분석 (소분류 상위 3개)
-    const topStrengths = getTopStrengths(tScores);
-    const strengthsText = topStrengths.length > 0
-      ? topStrengths.map((s, i) => {
-          const icon = s.isStrength ? '✨' : '';
-          return `${i + 1}. **${s.name}** [${s.subCategory}] (T=${s.tScore}, ${s.level}) ${icon}`;
-        }).join('\n')
-      : '- 특별히 두드러진 강점 영역이 없습니다.';
-
-    // 약점 분석 (소분류 하위 3개)
-    const weaknesses = getWeaknesses(tScores);
-    const weaknessesText = weaknesses.length > 0
-      ? weaknesses.map((w, i) => {
-          return `${i + 1}. **${w.name}** [${w.subCategory}] (T=${w.tScore}, ${w.level}) ⚠️`;
-        }).join('\n')
-      : '- 특별히 관심이 필요한 영역이 없습니다.';
-
-    // 메타 정보
     const warnings = assessment.reliabilityWarnings.length > 0
       ? `신뢰도 주의: ${assessment.reliabilityWarnings.join(', ')}`
       : '';
-    const attention = assessment.attentionResult?.needsAttention
-      ? '관심 필요'
-      : '';
+    const attention = assessment.attentionResult?.needsAttention ? '관심 필요' : '';
     const badges = [warnings, attention].filter(Boolean).join(' | ');
     const badgeText = badges ? ` [${badges}]` : '';
 
-    const studentContext = `### ${alias}
+    const allScoresText = formatAllTScores(tScores);
+    const changesText = formatRoundChanges(student);
+    const diagnosisText = format4StepDiagnosis(tScores);
+
+    const counselingRecords = await unifiedCounselingService.getByStudentId(student.id);
+    const counselingText = formatCounselingRecords(counselingRecords, aliasMap);
+
+    const memos = await memoService.getByStudentId(student.id);
+    const memoText = formatObservationMemos(memos, aliasMap);
+
+    const schoolRecords = await schoolRecordService.getSavedByStudentId(student.id);
+    const schoolRecordText = formatSchoolRecords(schoolRecords, aliasMap);
+
+    let context = `### ${alias}
 - **유형**: ${assessment.predictedType} (확신도 ${(assessment.typeConfidence * 100).toFixed(0)}%)${badgeText}
 
-#### 강점 영역 (소분류 상위 3개)
-${strengthsText}
+#### 38개 요인 T점수 (5대 영역별)
+${allScoresText}`;
 
-#### 관심 필요 영역 (소분류 하위 3개)
-${weaknessesText}`;
+    if (changesText) {
+      context += `\n\n#### 1차→2차 변화 (T±5 이상)\n${changesText}`;
+    }
 
-    studentContexts.push(studentContext);
-  });
+    context += `\n\n#### 4단계 진단\n${diagnosisText}`;
+
+    context += `\n\n#### 상담 기록 (${counselingRecords.filter((r) => r.status !== 'cancelled').length}건)\n${counselingText}`;
+
+    context += `\n\n#### 관찰 메모 (${memos.length}건)\n${memoText}`;
+
+    if (schoolRecordText) {
+      context += `\n\n#### 저장된 생활기록부 문구\n${schoolRecordText}`;
+    }
+
+    studentContexts.push(context);
+  }
 
   return `## 선택된 학생 분석 (${students.length}명)
 
@@ -364,40 +481,37 @@ ${studentContexts.join('\n\n---\n\n')}`;
 // 메인 빌더 함수
 // ============================================================
 
-/**
- * 모드에 따른 RAG 컨텍스트 생성
- */
-export const buildRAGContext = (options: BuildContextOptions): ContextBuildResult => {
+export const buildRAGContext = async (
+  options: BuildContextOptions,
+): Promise<ContextBuildResult> => {
   const { mode, classes, selectedClass, selectedStudents } = options;
 
-  // 별칭 맵 생성
   let aliasMap: StudentAliasMap = options.aliasMap || {};
 
   if (mode === 'student' && selectedStudents.length > 0) {
     aliasMap = createAliasMap(selectedStudents.map((s) => s.name));
   } else if (mode === 'class' && selectedClass) {
-    // 반별 모드에서도 관심 필요 학생에 대한 별칭 생성
     const attentionStudents = filterAttentionStudents(selectedClass.students);
-    aliasMap = createAliasMap(attentionStudents.slice(0, 5).map((s) => s.name));
+    aliasMap = createAliasMap(attentionStudents.slice(0, 10).map((s) => s.name));
   }
 
   let context: string;
 
   switch (mode) {
     case 'all':
-      context = buildAllContext(classes);
+      context = await buildAllContext(classes);
       break;
 
     case 'class':
       if (!selectedClass) {
         context = '선택된 학급이 없습니다.';
       } else {
-        context = buildClassContext(selectedClass);
+        context = await buildClassContext(selectedClass, aliasMap);
       }
       break;
 
     case 'student':
-      context = buildStudentContext(selectedStudents, aliasMap);
+      context = await buildStudentContext(selectedStudents, aliasMap);
       break;
 
     default:

@@ -68,141 +68,132 @@ function findSummary(
   return match?.summary ?? '';
 }
 
+type ScriptEntry = {
+  depth2_name?: string;
+  depth3?: string;
+  tScore_lower: number | null;
+  tScore_upper: number;
+  summary?: string;
+};
+
+type CategoryDataItem = {
+  category: string;
+  avgT: number;
+  isPositive: boolean;
+  meritScore: number;
+  factors: Array<{ name: string; avgT: number }>;
+};
+
+function pickTopFactor(
+  item: CategoryDataItem,
+  type: 'strength' | 'weakness',
+): { name: string; avgT: number } {
+  const wantHighest =
+    (type === 'strength' && item.isPositive) ||
+    (type === 'weakness' && !item.isPositive);
+  const sorted = [...item.factors].sort((a, b) =>
+    wantHighest ? b.avgT - a.avgT : a.avgT - b.avgT,
+  );
+  return sorted[0];
+}
+
+function toProfileItem(
+  item: CategoryDataItem,
+  type: 'strength' | 'weakness',
+): ClassProfileItem {
+  const top = pickTopFactor(item, type);
+  return {
+    category: item.category,
+    parentCategory: SUB_TO_MAIN[item.category] ?? '',
+    avgT: Math.round(item.avgT),
+    isPositive: item.isPositive,
+    categoryScript: findSummary(
+      scriptsDepth2.scripts as ScriptEntry[],
+      SUB_CATEGORY_SCRIPTS[item.category]?.name ?? item.category,
+      item.avgT,
+    ),
+    topFactor: top.name,
+    topFactorT: Math.round(top.avgT),
+    topFactorScript: findSummary(
+      scriptsDepth3.scripts as ScriptEntry[],
+      top.name,
+      top.avgT,
+    ),
+  };
+}
+
 /**
- * 학급 특성 분석 훅
+ * 학급 특성 분석 순수 함수
  * - 중분류 11개 단위로 학급 평균 T점수를 산출
  * - merit score로 강점 TOP 3 / 약점 TOP 3 결정
  * - 신뢰도 주의(🔴) 학생은 평균 계산에서 제외
+ */
+export function computeClassProfile(
+  classData: Class,
+  round: 1 | 2 = 1,
+): ClassProfile | null {
+  const studentsWithAssessment = classData.students.filter((s) =>
+    s.assessments.some((a) => a.round === round),
+  );
+
+  if (studentsWithAssessment.length === 0) return null;
+
+  const reliableStudents = studentsWithAssessment.filter((s) => {
+    const assessment = s.assessments.find((a) => a.round === round)!;
+    return assessment.reliabilityWarnings.length === 0;
+  });
+
+  const validStudents = reliableStudents.length > 0 ? reliableStudents : studentsWithAssessment;
+
+  const factorAvgs: Record<string, number> = {};
+  for (const factor of FACTOR_DEFINITIONS) {
+    let sum = 0;
+    let count = 0;
+    for (const student of validStudents) {
+      const assessment = student.assessments.find((a) => a.round === round);
+      if (assessment && assessment.tScores[factor.index] != null) {
+        sum += assessment.tScores[factor.index];
+        count++;
+      }
+    }
+    factorAvgs[factor.name] = count > 0 ? sum / count : 50;
+  }
+
+  const categoryData: CategoryDataItem[] = [];
+
+  for (const [cat, factorNames] of Object.entries(SUB_CAT_FACTORS)) {
+    const catScript = SUB_CATEGORY_SCRIPTS[cat];
+    const isPositive = catScript?.isPositive ?? true;
+
+    const factorTs = factorNames.map((fn) => factorAvgs[fn] ?? 50);
+    const avgT = factorTs.reduce((a, b) => a + b, 0) / factorTs.length;
+    const meritScore = isPositive ? avgT : 100 - avgT;
+
+    const factors = factorNames.map((fn) => ({
+      name: fn,
+      avgT: factorAvgs[fn] ?? 50,
+    }));
+
+    categoryData.push({ category: cat, avgT, isPositive, meritScore, factors });
+  }
+
+  const sorted = [...categoryData].sort((a, b) => b.meritScore - a.meritScore);
+
+  const strengths = sorted.slice(0, 3);
+  const weaknesses = sorted.slice(-3).reverse();
+
+  return {
+    strengths: strengths.map((s) => toProfileItem(s, 'strength')),
+    weaknesses: weaknesses.map((w) => toProfileItem(w, 'weakness')),
+  };
+}
+
+/**
+ * 학급 특성 분석 훅 (computeClassProfile을 useMemo로 래핑)
  */
 export function useClassProfile(
   classData: Class,
   round: 1 | 2 = 1,
 ): ClassProfile | null {
-  return useMemo(() => {
-    // 해당 라운드의 검사 결과가 있는 학생
-    const studentsWithAssessment = classData.students.filter((s) =>
-      s.assessments.some((a) => a.round === round),
-    );
-
-    if (studentsWithAssessment.length === 0) return null;
-
-    // 신뢰도 경고가 없는 학생 우선, 없으면 전체로 fallback
-    const reliableStudents = studentsWithAssessment.filter((s) => {
-      const assessment = s.assessments.find((a) => a.round === round)!;
-      return assessment.reliabilityWarnings.length === 0;
-    });
-
-    const validStudents = reliableStudents.length > 0 ? reliableStudents : studentsWithAssessment;
-
-    // 소분류별 학급 평균 T점수 계산
-    const factorAvgs: Record<string, number> = {};
-    for (const factor of FACTOR_DEFINITIONS) {
-      let sum = 0;
-      let count = 0;
-      for (const student of validStudents) {
-        const assessment = student.assessments.find((a) => a.round === round);
-        if (assessment && assessment.tScores[factor.index] != null) {
-          sum += assessment.tScores[factor.index];
-          count++;
-        }
-      }
-      factorAvgs[factor.name] = count > 0 ? sum / count : 50;
-    }
-
-    // 중분류별 학급 평균 T점수 + merit score
-    const categoryData: Array<{
-      category: string;
-      avgT: number;
-      isPositive: boolean;
-      meritScore: number;
-      factors: Array<{ name: string; avgT: number }>;
-    }> = [];
-
-    for (const [cat, factorNames] of Object.entries(SUB_CAT_FACTORS)) {
-      const catScript = SUB_CATEGORY_SCRIPTS[cat];
-      const isPositive = catScript?.isPositive ?? true;
-
-      // 중분류 평균 = 소분류들의 학급 평균 T점수의 평균
-      const factorTs = factorNames.map((fn) => factorAvgs[fn] ?? 50);
-      const avgT = factorTs.reduce((a, b) => a + b, 0) / factorTs.length;
-
-      // merit score: 정적이면 그대로, 부적이면 100 - avgT
-      const meritScore = isPositive ? avgT : 100 - avgT;
-
-      const factors = factorNames.map((fn) => ({
-        name: fn,
-        avgT: factorAvgs[fn] ?? 50,
-      }));
-
-      categoryData.push({ category: cat, avgT, isPositive, meritScore, factors });
-    }
-
-    // merit score 내림차순 정렬
-    const sorted = [...categoryData].sort((a, b) => b.meritScore - a.meritScore);
-
-    const strengths = sorted.slice(0, 3);
-    const weaknesses = sorted.slice(-3).reverse(); // 하위 3개 (merit 오름차순)
-
-    /**
-     * 대표 소분류 선택 로직:
-     * - 강점 + 정적 → T 가장 높은 소분류
-     * - 강점 + 부적 → T 가장 낮은 소분류
-     * - 약점 + 정적 → T 가장 낮은 소분류
-     * - 약점 + 부적 → T 가장 높은 소분류
-     */
-    function pickTopFactor(
-      item: (typeof categoryData)[0],
-      type: 'strength' | 'weakness',
-    ): { name: string; avgT: number } {
-      const wantHighest =
-        (type === 'strength' && item.isPositive) ||
-        (type === 'weakness' && !item.isPositive);
-      const sorted = [...item.factors].sort((a, b) =>
-        wantHighest ? b.avgT - a.avgT : a.avgT - b.avgT,
-      );
-      return sorted[0];
-    }
-
-    function toProfileItem(
-      item: (typeof categoryData)[0],
-      type: 'strength' | 'weakness',
-    ): ClassProfileItem {
-      const top = pickTopFactor(item, type);
-      return {
-        category: item.category,
-        parentCategory: SUB_TO_MAIN[item.category] ?? '',
-        avgT: Math.round(item.avgT),
-        isPositive: item.isPositive,
-        categoryScript: findSummary(
-          scriptsDepth2.scripts as Array<{
-            depth2_name?: string;
-            depth3?: string;
-            tScore_lower: number | null;
-            tScore_upper: number;
-            summary?: string;
-          }>,
-          SUB_CATEGORY_SCRIPTS[item.category]?.name ?? item.category,
-          item.avgT,
-        ),
-        topFactor: top.name,
-        topFactorT: Math.round(top.avgT),
-        topFactorScript: findSummary(
-          scriptsDepth3.scripts as Array<{
-            depth2_name?: string;
-            depth3?: string;
-            tScore_lower: number | null;
-            tScore_upper: number;
-            summary?: string;
-          }>,
-          top.name,
-          top.avgT,
-        ),
-      };
-    }
-
-    return {
-      strengths: strengths.map((s) => toProfileItem(s, 'strength')),
-      weaknesses: weaknesses.map((w) => toProfileItem(w, 'weakness')),
-    };
-  }, [classData, round]);
+  return useMemo(() => computeClassProfile(classData, round), [classData, round]);
 }
