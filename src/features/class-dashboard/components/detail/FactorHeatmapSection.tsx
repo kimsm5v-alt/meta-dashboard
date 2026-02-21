@@ -151,7 +151,7 @@ const SubCatGroup: React.FC<{
       {/* 라벨 행 */}
       <div className="flex gap-12 mt-2">
         {/* D2 라벨 */}
-        <div className="flex flex-col items-center gap-0.5" style={{ width: colW }}>
+        <div className="flex flex-col items-center gap-1.5" style={{ width: colW }}>
           <span className="text-base font-bold text-center leading-tight break-keep" style={{ color }}>
             {subCat.displayName}
           </span>
@@ -213,7 +213,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({ doma
           <button
             key={d.category}
             onClick={() => setSelectedDomain(i)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+            className={`px-4 py-2 rounded-lg text-base font-semibold transition-colors ${
               selectedDomain === i
                 ? 'text-white shadow-sm'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
