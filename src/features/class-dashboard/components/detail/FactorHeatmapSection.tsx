@@ -1,222 +1,288 @@
 import { useState, useMemo } from 'react';
-import { ChevronDown, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import type { DomainData } from '../../hooks/useClassDetailData';
+import type { DomainData, SubCategoryData } from '../../hooks/useClassDetailData';
 import { LevelBadge } from './LevelBadge';
-import { FactorBar } from './FactorBar';
 import { lightenColor } from '@/shared/utils/colorUtils';
+import { PREV_COLOR } from '@/shared/utils/chartUtils';
 
-// delta 배지 컴포넌트
+// ============================================================
+// 상수
+// ============================================================
+
+const CHART_H = 240; // 차트 영역 높이 (px)
+const T_MIN = 20;
+const T_MAX = 80;
+const T_RANGE = T_MAX - T_MIN; // 60
+const BAR_W = 36;
+const BAR_W_CMP = 30;
+
+/** T점수 → 막대 높이(px) */
+const toH = (t: number) => Math.max(0, Math.min(CHART_H, ((t - T_MIN) / T_RANGE) * CHART_H));
+
+/** T=50 기준선의 bottom 위치(px) */
+const REF_BOTTOM = toH(50);
+
+// ============================================================
+// DeltaBadge
+// ============================================================
+
 const DeltaBadge: React.FC<{ delta: number; isPositive: boolean }> = ({ delta, isPositive }) => {
-  // isPositive: 정적 요인이면 delta 양수가 좋은 것, 부적 요인이면 delta 음수가 좋은 것
   const isGood = isPositive ? delta > 0 : delta < 0;
   const isBad = isPositive ? delta < 0 : delta > 0;
   const absDelta = Math.abs(delta);
 
   if (absDelta < 0.5) {
     return (
-      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-400 shrink-0">
-        <Minus className="w-2.5 h-2.5" />
-        {delta > 0 ? '+' : ''}{delta.toFixed(0)}
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-400">
+        0
       </span>
     );
   }
-
   if (isGood) {
     return (
-      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-600 shrink-0">
-        <TrendingUp className="w-2.5 h-2.5" />
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-600">
         +{absDelta.toFixed(0)}
       </span>
     );
   }
-
   if (isBad) {
     return (
-      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-50 text-red-600 shrink-0">
-        <TrendingDown className="w-2.5 h-2.5" />
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-600">
         -{absDelta.toFixed(0)}
       </span>
     );
   }
-
   return null;
 };
+
+// ============================================================
+// 단일 막대
+// ============================================================
+
+const SingleBar: React.FC<{
+  score: number;
+  color: string;
+  width: number;
+}> = ({ score, color, width }) => (
+  <div className="flex flex-col items-center justify-end" style={{ width, height: CHART_H }}>
+    <span className="text-xs font-bold text-gray-700 mb-0.5 shrink-0 relative z-10">{Math.round(score)}</span>
+    <div
+      className="rounded-t transition-all duration-300 ease-out shrink-0"
+      style={{ width, height: toH(score), backgroundColor: color }}
+    />
+  </div>
+);
+
+// ============================================================
+// 비교 쌍 막대 (1차 + 2차)
+// ============================================================
+
+/** D3용 연한 회색 (1차 막대) */
+const PREV_COLOR_LIGHT = '#D1D5DB';
+
+const CompareBar: React.FC<{
+  score: number;
+  prevScore: number;
+  color: string;
+  prevColor?: string;
+  isPositive: boolean;
+}> = ({ score, prevScore, color, prevColor = PREV_COLOR, isPositive }) => {
+  const delta = Math.round(score - prevScore);
+  return (
+    <div className="relative flex flex-col items-center justify-end" style={{ width: BAR_W_CMP * 2 + 4, height: CHART_H }}>
+      <div className="absolute top-0 left-0 right-0 flex justify-center z-10">
+        <DeltaBadge delta={delta} isPositive={isPositive} />
+      </div>
+      <div className="flex items-end gap-px shrink-0">
+        <div className="flex flex-col items-center">
+          <span className="text-xs font-semibold text-gray-400 mb-0.5 relative z-10">{Math.round(prevScore)}</span>
+          <div
+            className="rounded-t transition-all duration-300 ease-out"
+            style={{ width: BAR_W_CMP, height: toH(prevScore), backgroundColor: prevColor }}
+          />
+        </div>
+        <div className="flex flex-col items-center">
+          <span className="text-xs font-bold text-gray-700 mb-0.5 relative z-10">{Math.round(score)}</span>
+          <div
+            className="rounded-t transition-all duration-300 ease-out"
+            style={{ width: BAR_W_CMP, height: toH(score), backgroundColor: color }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// D2 그룹 (중분류 평균 + D3 요인들)
+// ============================================================
+
+const SubCatGroup: React.FC<{
+  subCat: SubCategoryData;
+  isCompare: boolean;
+  prevSubCatT?: number;
+  prevFactorLookup: Record<number, number>;
+}> = ({ subCat, isCompare, prevSubCatT, prevFactorLookup }) => {
+  const color = subCat.color;
+  const lightColor = lightenColor(color, 0.55);
+  const colW = isCompare ? BAR_W_CMP * 2 + 4 : BAR_W;
+
+  return (
+    <div className="flex flex-col">
+      {/* 막대 영역 */}
+      <div className="flex items-end gap-12">
+        {/* D2 평균 막대 */}
+        {isCompare && prevSubCatT != null ? (
+          <CompareBar score={subCat.avgTScore} prevScore={prevSubCatT} color={color} isPositive={subCat.isPositive} />
+        ) : (
+          <SingleBar score={subCat.avgTScore} color={color} width={BAR_W} />
+        )}
+
+        {/* D3 요인 막대들 */}
+        {subCat.factors.map((f) => {
+          const prevT = prevFactorLookup[f.index];
+          return isCompare && prevT != null ? (
+            <CompareBar key={f.index} score={f.avgTScore} prevScore={prevT} color={lightColor} prevColor={PREV_COLOR_LIGHT} isPositive={f.isPositive} />
+          ) : (
+            <SingleBar key={f.index} score={f.avgTScore} color={lightColor} width={BAR_W} />
+          );
+        })}
+      </div>
+
+      {/* 라벨 행 */}
+      <div className="flex gap-12 mt-2">
+        {/* D2 라벨 */}
+        <div className="flex flex-col items-center gap-0.5" style={{ width: colW }}>
+          <span className="text-base font-bold text-center leading-tight break-keep" style={{ color }}>
+            {subCat.displayName}
+          </span>
+          <LevelBadge level={subCat.level} isPositive={subCat.isPositive} size="sm" />
+        </div>
+
+        {/* D3 라벨 */}
+        {subCat.factors.map((f) => (
+          <div key={f.index} className="flex flex-col items-center" style={{ width: colW }}>
+            <span className="text-sm text-gray-600 text-center leading-tight break-keep">{f.name}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// Props
+// ============================================================
 
 interface FactorHeatmapSectionProps {
   domainData: DomainData[];
   prevDomainData?: DomainData[];
 }
 
+// ============================================================
+// 메인 컴포넌트
+// ============================================================
+
 export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({ domainData, prevDomainData }) => {
-  const [expandedSubCats, setExpandedSubCats] = useState<Set<string>>(new Set());
+  const [selectedDomain, setSelectedDomain] = useState(0);
   const isCompare = !!prevDomainData;
 
-  // 1차 데이터 lookup (중분류명 → avgTScore, 소분류 index → avgTScore)
-  const prevLookup = useMemo(() => {
-    if (!prevDomainData) return { subCat: {} as Record<string, number>, factor: {} as Record<number, number> };
-    const subCat: Record<string, number> = {};
-    const factor: Record<number, number> = {};
-    for (const domain of prevDomainData) {
-      for (const sc of domain.subCategories) {
-        subCat[sc.name] = sc.avgTScore;
-        for (const f of sc.factors) {
-          factor[f.index] = f.avgTScore;
-        }
-      }
-    }
-    return { subCat, factor };
+  const prevFactorLookup = useMemo(() => {
+    if (!prevDomainData) return {} as Record<number, number>;
+    const lookup: Record<number, number> = {};
+    for (const d of prevDomainData)
+      for (const sc of d.subCategories)
+        for (const f of sc.factors) lookup[f.index] = f.avgTScore;
+    return lookup;
   }, [prevDomainData]);
 
-  const toggleSubCat = (name: string) =>
-    setExpandedSubCats((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
+  const prevSubCatLookup = useMemo(() => {
+    if (!prevDomainData) return {} as Record<string, number>;
+    const lookup: Record<string, number> = {};
+    for (const d of prevDomainData)
+      for (const sc of d.subCategories) lookup[sc.name] = sc.avgTScore;
+    return lookup;
+  }, [prevDomainData]);
+
+  const domain = domainData[selectedDomain];
 
   return (
-    <div className="space-y-6">
-      {/* 범례 */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">
-          중분류를 클릭하면 세부 요인을 확인할 수 있습니다.
-        </p>
-        <div className="flex items-center gap-3 text-[10px] text-gray-500">
-          <span>점선: T=50 (전국 평균)</span>
-          {isCompare && (
-            <>
-              <span className="text-gray-400">|</span>
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-gray-400" /> 1차
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-indigo-400" /> 2차
-              </span>
-              <span className="text-gray-400">|</span>
-              <span className="flex items-center gap-1">
-                <TrendingUp className="w-3 h-3 text-emerald-500" /> 향상
-              </span>
-              <span className="flex items-center gap-1">
-                <TrendingDown className="w-3 h-3 text-red-500" /> 하락
-              </span>
-            </>
-          )}
-        </div>
+    <div className="space-y-4">
+      {/* ===== Depth 1 탭 ===== */}
+      <div className="flex gap-1.5 flex-wrap">
+        {domainData.map((d, i) => (
+          <button
+            key={d.category}
+            onClick={() => setSelectedDomain(i)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+              selectedDomain === i
+                ? 'text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            style={selectedDomain === i ? { backgroundColor: d.subCategories[0]?.color ?? '#6B7280' } : undefined}
+          >
+            {d.icon} {d.category}
+          </button>
+        ))}
       </div>
 
-      {domainData.map((domain) => (
-        <div key={domain.category} className="overflow-hidden">
-          {/* 대분류 헤더 */}
-          <div
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg mb-1 border ${
-              domain.isPositive
-                ? 'bg-emerald-50/60 border-emerald-200'
-                : 'bg-rose-50/60 border-rose-200'
-            }`}
-          >
-            <span className="text-sm">{domain.icon}</span>
-            <h3 className="text-sm font-bold text-gray-800">{domain.category}</h3>
-            <span className="text-xs text-gray-500">
-              {domain.isPositive ? '높을수록 좋아요' : '낮을수록 좋아요'}
+      {/* ===== 요인 유형 배지 ===== */}
+      <div
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${
+          domain.isPositive
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            : 'bg-rose-50 text-rose-700 border border-rose-200'
+        }`}
+      >
+        <span>{domain.isPositive ? '정적요인' : '부적요인'}</span>
+        <span className="text-gray-400">·</span>
+        <span className="font-normal">
+          {domain.isPositive ? '높을수록 긍정 영향' : '낮을수록 긍정 영향'}
+        </span>
+      </div>
+
+      {/* ===== 범례 ===== */}
+      <div className="flex items-center gap-3 text-xs text-gray-500">
+        <span>점선: T=50 (전국 평균)</span>
+        {isCompare && (
+          <>
+            <span className="text-gray-300">|</span>
+            <span className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded" style={{ backgroundColor: PREV_COLOR }} /> 1차
             </span>
-          </div>
+            <span className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded" style={{ backgroundColor: domain.subCategories[0]?.color }} /> 2차
+            </span>
+          </>
+        )}
+      </div>
 
-          {/* 중분류 카드들 */}
-          <div className="space-y-2 pl-2">
-            {domain.subCategories.map((subCat) => {
-              const isOpen = expandedSubCats.has(subCat.name);
+      {/* ===== 차트 영역 ===== */}
+      <div className="border border-gray-200 rounded-lg overflow-x-auto">
+        <div className="relative px-12 pt-6 pb-4">
+          {/* T=50 기준선 */}
+          <div
+            className="absolute left-4 right-4 border-t border-dashed border-gray-300 pointer-events-none"
+            style={{ top: `calc(1.5rem + ${CHART_H - REF_BOTTOM}px)` }}
+          />
 
-              return (
-                <div
-                  key={subCat.name}
-                  className="border border-gray-200 rounded-lg overflow-hidden"
-                >
-                  {/* 중분류 헤더 (클릭 가능) */}
-                  <div
-                    className="flex items-center gap-3 px-4 py-3 bg-gray-50/80 cursor-pointer hover:bg-gray-100/80 transition-colors"
-                    onClick={() => toggleSubCat(subCat.name)}
-                  >
-                    <ChevronDown
-                      className={`w-4 h-4 text-gray-400 transition-transform duration-200 shrink-0 ${
-                        isOpen ? '' : '-rotate-90'
-                      }`}
-                    />
-                    <span className="font-semibold text-gray-800 w-[120px] shrink-0">
-                      {subCat.displayName}
-                    </span>
-                    <FactorBar
-                      score={subCat.avgTScore}
-                      color={subCat.color}
-                      prevScore={isCompare ? prevLookup.subCat[subCat.name] : undefined}
-                    />
-                    <span
-                      className="text-sm font-bold shrink-0 w-[50px] text-right"
-                      style={{ color: subCat.color }}
-                    >
-                      T {subCat.avgTScore}
-                    </span>
-                    <LevelBadge
-                      level={subCat.level}
-                      isPositive={subCat.isPositive}
-                      size="sm"
-                    />
-                    {isCompare && prevLookup.subCat[subCat.name] != null && (
-                      <DeltaBadge
-                        delta={Math.round(subCat.avgTScore - prevLookup.subCat[subCat.name])}
-                        isPositive={subCat.isPositive}
-                      />
-                    )}
-                  </div>
-
-                  {/* 소분류 드롭다운 */}
-                  <div
-                    className="overflow-hidden transition-all duration-300 ease-in-out"
-                    style={{
-                      maxHeight: isOpen ? `${subCat.factors.length * 46 + 24}px` : '0px',
-                      opacity: isOpen ? 1 : 0,
-                    }}
-                  >
-                    <div className="px-4 py-3 space-y-1.5 bg-white border-t border-gray-100">
-                      {subCat.factors.map((factor) => (
-                        <div
-                          key={factor.index}
-                          className="flex items-center gap-3 py-1 hover:bg-gray-50 rounded px-2 -mx-2 transition-colors"
-                        >
-                          <span className="text-gray-300 text-xs shrink-0 w-4 text-center">└</span>
-                          <span className="text-sm text-gray-600 w-[120px] shrink-0">
-                            {factor.name}
-                          </span>
-                          <FactorBar
-                            score={factor.avgTScore}
-                            color={lightenColor(subCat.color)}
-                            height="sm"
-                            prevScore={isCompare ? prevLookup.factor[factor.index] : undefined}
-                          />
-                          <span className="text-xs font-semibold text-gray-500 w-[50px] text-right shrink-0">
-                            T {factor.avgTScore}
-                          </span>
-                          <LevelBadge
-                            level={factor.level}
-                            isPositive={factor.isPositive}
-                            size="sm"
-                          />
-                          {isCompare && prevLookup.factor[factor.index] != null && (
-                            <DeltaBadge
-                              delta={Math.round(factor.avgTScore - prevLookup.factor[factor.index])}
-                              isPositive={factor.isPositive}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          {/* 막대 그룹 */}
+          <div className="flex gap-10 min-w-max">
+            {domain.subCategories.map((sc, i) => (
+              <div key={sc.name} className="flex gap-10">
+                <SubCatGroup
+                  subCat={sc}
+                  isCompare={isCompare}
+                  prevSubCatT={prevSubCatLookup[sc.name]}
+                  prevFactorLookup={prevFactorLookup}
+                />
+                {i < domain.subCategories.length - 1 && (
+                  <div className="w-px bg-gray-200 self-stretch" />
+                )}
+              </div>
+            ))}
           </div>
         </div>
-      ))}
+      </div>
     </div>
   );
 };

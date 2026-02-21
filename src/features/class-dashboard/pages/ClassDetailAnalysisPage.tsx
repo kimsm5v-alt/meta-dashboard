@@ -17,15 +17,18 @@ export const ClassDetailAnalysisPage: React.FC = () => {
 
   const hasRound2 =
     classData?.students.some((s) => s.assessments.some((a) => a.round === 2)) ?? false;
-  const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
+
+  type ViewMode = 'round1' | 'round2' | 'compare';
+  const [viewMode, setViewMode] = useState<ViewMode>('round1');
+
+  const selectedRound: 1 | 2 = viewMode === 'round1' ? 1 : 2;
+  const isCompare = viewMode === 'compare';
 
   const profile = useClassProfile(classData!, selectedRound);
   const detailData = useClassDetailData(classData!, selectedRound);
 
-  // 2차 선택 시 자동으로 1차 데이터 비교
   const prevProfile = useClassProfile(classData!, 1);
   const prevDetailData = useClassDetailData(classData!, 1);
-  const isCompare = selectedRound === 2 && hasRound2;
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -59,30 +62,29 @@ export const ClassDetailAnalysisPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Round Selector */}
+      {/* View Mode Selector */}
       <div className="flex gap-2">
-        <button
-          onClick={() => setSelectedRound(1)}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            selectedRound === 1
-              ? 'bg-primary-500 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          1차 검사
-        </button>
-        {hasRound2 && (
+        {([
+          { mode: 'round1' as ViewMode, label: '1차 검사' },
+          ...(hasRound2
+            ? [
+                { mode: 'round2' as ViewMode, label: '2차 검사' },
+                { mode: 'compare' as ViewMode, label: '차수 변화' },
+              ]
+            : []),
+        ]).map(({ mode, label }) => (
           <button
-            onClick={() => setSelectedRound(2)}
+            key={mode}
+            onClick={() => setViewMode(mode)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              selectedRound === 2
+              viewMode === mode
                 ? 'bg-primary-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            2차 검사
+            {label}
           </button>
-        )}
+        ))}
       </div>
 
       {/* 1. 학급 종합 분석 */}
