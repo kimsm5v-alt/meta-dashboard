@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, FileText, MessageSquare, Eye, ShieldAlert, AlertTriangle, Clock } from 'lucide-react';
 import { useData } from '@/shared/contexts/DataContext';
 import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
+import { buildStudentDomainData } from '@/shared/utils/buildStudentDomainData';
+import { FactorHeatmapSection } from '@/features/class-dashboard/components/detail/FactorHeatmapSection';
 import {
   DiagnosisSummary,
-  FactorLineChart,
   FourStepInterpretation,
   TypeClassification,
   TypeDeviations,
@@ -22,10 +23,12 @@ const PANEL_BUTTONS = [
   { key: 'observation' as const, label: '관찰', icon: Eye },
 ];
 
+type ViewMode = 'round1' | 'round2' | 'compare';
+
 export const StudentDashboardPage = () => {
   const { classId, studentId } = useParams<{ classId: string; studentId: string }>();
   const navigate = useNavigate();
-  const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
+  const [viewMode, setViewMode] = useState<ViewMode>('round1');
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
   const [chartViewMode, setChartViewMode] = useState<'midCategory' | 'fourStep'>('midCategory');
@@ -42,6 +45,9 @@ export const StudentDashboardPage = () => {
     );
   }
 
+  const selectedRound: 1 | 2 = viewMode === 'round1' ? 1 : 2;
+  const isCompare = viewMode === 'compare';
+
   const r1 = student.assessments.find(a => a.round === 1);
   const r2 = student.assessments.find(a => a.round === 2);
   const current = selectedRound === 2 && r2 ? r2 : r1;
@@ -53,6 +59,12 @@ export const StudentDashboardPage = () => {
       </div>
     );
   }
+
+  const domainData = useMemo(() => buildStudentDomainData(current.tScores), [current.tScores]);
+  const prevDomainData = useMemo(
+    () => isCompare && r1 ? buildStudentDomainData(r1.tScores) : undefined,
+    [isCompare, r1],
+  );
 
   const currentIdx = classData.students.findIndex(s => s.id === studentId);
   const prev = currentIdx > 0 ? classData.students[currentIdx - 1] : null;
@@ -126,27 +138,27 @@ export const StudentDashboardPage = () => {
       {/* Round Selector + Panel Buttons */}
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
-          <button
-            onClick={() => setSelectedRound(1)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              selectedRound === 1
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            1차 검사
-          </button>
-          <button
-            onClick={() => setSelectedRound(2)}
-            disabled={!r2}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              selectedRound === 2
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            2차 검사
-          </button>
+          {([
+            { mode: 'round1' as ViewMode, label: '1차 검사' },
+            ...(r2
+              ? [
+                  { mode: 'round2' as ViewMode, label: '2차 검사' },
+                  { mode: 'compare' as ViewMode, label: '차수 변화' },
+                ]
+              : []),
+          ]).map(({ mode, label }) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                viewMode === mode
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         {!panelTab && (
           <div className="flex gap-1.5">
@@ -216,9 +228,9 @@ export const StudentDashboardPage = () => {
           {/* 차트 영역: A/B 토글 */}
           <div className="p-6">
             {chartViewMode === 'midCategory' ? (
-              <FactorLineChart tScores={current.tScores} prevTScores={selectedRound === 2 && r1 ? r1.tScores : undefined} />
+              <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
             ) : (
-              <FourStepInterpretation tScores={current.tScores} prevTScores={selectedRound === 2 && r1 ? r1.tScores : undefined} studentName={student.name} />
+              <FourStepInterpretation tScores={current.tScores} prevTScores={isCompare && r1 ? r1.tScores : undefined} studentName={student.name} />
             )}
           </div>
         </div>

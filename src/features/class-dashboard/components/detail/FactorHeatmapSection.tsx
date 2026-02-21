@@ -9,11 +9,9 @@ import { PREV_COLOR } from '@/shared/utils/chartUtils';
 // ============================================================
 
 const CHART_H = 240; // 차트 영역 높이 (px)
-const T_MIN = 20;
-const T_MAX = 80;
-const T_RANGE = T_MAX - T_MIN; // 60
-const BAR_W = 36;
-const BAR_W_CMP = 30;
+const T_MIN = 0;
+const T_MAX = 100;
+const T_RANGE = T_MAX - T_MIN; // 100
 
 /** T점수 → 막대 높이(px) */
 const toH = (t: number) => Math.max(0, Math.min(CHART_H, ((t - T_MIN) / T_RANGE) * CHART_H));
@@ -55,25 +53,51 @@ const DeltaBadge: React.FC<{ delta: number; isPositive: boolean }> = ({ delta, i
 };
 
 // ============================================================
-// 단일 막대
+// 6자 이상 요인명 2줄 포맷
+// ============================================================
+
+const KNOWN_PREFIXES = ['스마트폰', '학업관계', '대인관계', '학업', '부모', '친구', '교사', '자기', '타인', '성장', '자아', '게임'];
+
+/** 요인명을 의미 단위로 줄바꿈 (6자+: 항상 2줄, 4-5자: 좁을 때만) */
+const formatFactorLabel = (name: string): React.ReactNode => {
+  if (name.length < 4) return name;
+
+  let breakAt = -1;
+  for (const p of KNOWN_PREFIXES) {
+    if (name.startsWith(p)) {
+      breakAt = p.length;
+      break;
+    }
+  }
+  if (breakAt === -1) breakAt = Math.ceil(name.length / 2);
+
+  // 6자 이상: 항상 2줄
+  if (name.length >= 6) {
+    return <>{name.slice(0, breakAt)}<br />{name.slice(breakAt)}</>;
+  }
+  // 4-5자: 좁으면 줄바꿈 (zero-width space)
+  return <>{name.slice(0, breakAt)}{'\u200B'}{name.slice(breakAt)}</>;
+};
+
+// ============================================================
+// 단일 막대 (flex-1 컬럼 기반)
 // ============================================================
 
 const SingleBar: React.FC<{
   score: number;
   color: string;
-  width: number;
-}> = ({ score, color, width }) => (
-  <div className="flex flex-col items-center justify-end" style={{ width, height: CHART_H }}>
-    <span className="text-xs font-bold text-gray-700 mb-0.5 shrink-0 relative z-10">{Math.round(score)}</span>
+}> = ({ score, color }) => (
+  <div className="flex-1 min-w-0 flex flex-col items-center justify-end" style={{ height: CHART_H }}>
+    <span className="text-xs font-bold text-gray-700 mb-0.5 shrink-0 relative z-10 whitespace-nowrap">{Math.round(score)}</span>
     <div
-      className="rounded-t transition-all duration-300 ease-out shrink-0"
-      style={{ width, height: toH(score), backgroundColor: color }}
+      className="w-3/4 max-w-[36px] min-w-[12px] rounded-t transition-all duration-300 ease-out shrink-0 mx-auto"
+      style={{ height: toH(score), backgroundColor: color }}
     />
   </div>
 );
 
 // ============================================================
-// 비교 쌍 막대 (1차 + 2차)
+// 비교 쌍 막대 (1차 + 2차, flex-1 컬럼 기반)
 // ============================================================
 
 /** D3용 연한 회색 (1차 막대) */
@@ -88,23 +112,23 @@ const CompareBar: React.FC<{
 }> = ({ score, prevScore, color, prevColor = PREV_COLOR, isPositive }) => {
   const delta = Math.round(score - prevScore);
   return (
-    <div className="relative flex flex-col items-center justify-end" style={{ width: BAR_W_CMP * 2 + 4, height: CHART_H }}>
+    <div className="flex-1 min-w-0 relative flex flex-col items-center justify-end" style={{ height: CHART_H }}>
       <div className="absolute top-0 left-0 right-0 flex justify-center z-10">
         <DeltaBadge delta={delta} isPositive={isPositive} />
       </div>
-      <div className="flex items-end gap-px shrink-0">
-        <div className="flex flex-col items-center">
-          <span className="text-xs font-semibold text-gray-400 mb-0.5 relative z-10">{Math.round(prevScore)}</span>
+      <div className="flex items-end gap-px shrink-0 w-[85%] max-w-[64px] mx-auto">
+        <div className="flex flex-col items-center flex-1 min-w-0">
+          <span className="text-xs font-semibold text-gray-400 mb-0.5 relative z-10 whitespace-nowrap">{Math.round(prevScore)}</span>
           <div
-            className="rounded-t transition-all duration-300 ease-out"
-            style={{ width: BAR_W_CMP, height: toH(prevScore), backgroundColor: prevColor }}
+            className="w-full rounded-t transition-all duration-300 ease-out"
+            style={{ height: toH(prevScore), backgroundColor: prevColor }}
           />
         </div>
-        <div className="flex flex-col items-center">
-          <span className="text-xs font-bold text-gray-700 mb-0.5 relative z-10">{Math.round(score)}</span>
+        <div className="flex flex-col items-center flex-1 min-w-0">
+          <span className="text-xs font-bold text-gray-700 mb-0.5 relative z-10 whitespace-nowrap">{Math.round(score)}</span>
           <div
-            className="rounded-t transition-all duration-300 ease-out"
-            style={{ width: BAR_W_CMP, height: toH(score), backgroundColor: color }}
+            className="w-full rounded-t transition-all duration-300 ease-out"
+            style={{ height: toH(score), backgroundColor: color }}
           />
         </div>
       </div>
@@ -113,28 +137,28 @@ const CompareBar: React.FC<{
 };
 
 // ============================================================
-// D2 그룹 (중분류 평균 + D3 요인들)
+// D2 그룹 (중분류 평균 + D3 요인들) — flex-1 컬럼 기반
 // ============================================================
 
 const SubCatGroup: React.FC<{
   subCat: SubCategoryData;
   isCompare: boolean;
+  isCompact: boolean;
   prevSubCatT?: number;
   prevFactorLookup: Record<number, number>;
-}> = ({ subCat, isCompare, prevSubCatT, prevFactorLookup }) => {
+}> = ({ subCat, isCompare, isCompact, prevSubCatT, prevFactorLookup }) => {
   const color = subCat.color;
   const lightColor = lightenColor(color, 0.55);
-  const colW = isCompare ? BAR_W_CMP * 2 + 4 : BAR_W;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col flex-1 min-w-0">
       {/* 막대 영역 */}
-      <div className="flex items-end gap-12">
+      <div className="flex items-end">
         {/* D2 평균 막대 */}
         {isCompare && prevSubCatT != null ? (
           <CompareBar score={subCat.avgTScore} prevScore={prevSubCatT} color={color} isPositive={subCat.isPositive} />
         ) : (
-          <SingleBar score={subCat.avgTScore} color={color} width={BAR_W} />
+          <SingleBar score={subCat.avgTScore} color={color} />
         )}
 
         {/* D3 요인 막대들 */}
@@ -143,25 +167,25 @@ const SubCatGroup: React.FC<{
           return isCompare && prevT != null ? (
             <CompareBar key={f.index} score={f.avgTScore} prevScore={prevT} color={lightColor} prevColor={PREV_COLOR_LIGHT} isPositive={f.isPositive} />
           ) : (
-            <SingleBar key={f.index} score={f.avgTScore} color={lightColor} width={BAR_W} />
+            <SingleBar key={f.index} score={f.avgTScore} color={lightColor} />
           );
         })}
       </div>
 
       {/* 라벨 행 */}
-      <div className="flex gap-12 mt-2">
+      <div className="flex mt-2">
         {/* D2 라벨 */}
-        <div className="flex flex-col items-center gap-1.5" style={{ width: colW }}>
-          <span className="text-base font-bold text-center leading-tight break-keep" style={{ color }}>
-            {subCat.displayName}
+        <div className="flex-1 min-w-0 flex flex-col items-center gap-1.5 px-0.5">
+          <span className={`${isCompact ? 'text-sm' : 'text-base'} font-bold text-center leading-tight break-keep`} style={{ color }}>
+            {formatFactorLabel(subCat.displayName)}
           </span>
           <LevelBadge level={subCat.level} isPositive={subCat.isPositive} size="sm" />
         </div>
 
         {/* D3 라벨 */}
         {subCat.factors.map((f) => (
-          <div key={f.index} className="flex flex-col items-center" style={{ width: colW }}>
-            <span className="text-sm text-gray-600 text-center leading-tight break-keep">{f.name}</span>
+          <div key={f.index} className="flex-1 min-w-0 flex flex-col items-center px-0.5">
+            <span className={`${isCompact ? 'text-xs' : 'text-sm'} text-gray-600 text-center leading-tight break-keep`}>{formatFactorLabel(f.name)}</span>
           </div>
         ))}
       </div>
@@ -204,6 +228,10 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({ doma
   }, [prevDomainData]);
 
   const domain = domainData[selectedDomain];
+
+  // 총 막대 수 기반 밀집 모드 판단
+  const totalBars = domain.subCategories.reduce((sum, sc) => sum + 1 + sc.factors.length, 0);
+  const isCompact = totalBars > 10;
 
   return (
     <div className="space-y-4">
@@ -257,29 +285,35 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({ doma
       </div>
 
       {/* ===== 차트 영역 ===== */}
-      <div className="border border-gray-200 rounded-lg overflow-x-auto">
-        <div className="relative px-12 pt-6 pb-4">
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="relative px-4 pt-6 pb-4">
           {/* T=50 기준선 */}
           <div
-            className="absolute left-4 right-4 border-t border-dashed border-gray-300 pointer-events-none"
+            className="absolute left-2 right-2 border-t border-dashed border-gray-300 pointer-events-none"
             style={{ top: `calc(1.5rem + ${CHART_H - REF_BOTTOM}px)` }}
           />
 
-          {/* 막대 그룹 */}
-          <div className="flex gap-10 min-w-max">
-            {domain.subCategories.map((sc, i) => (
-              <div key={sc.name} className="flex gap-10">
-                <SubCatGroup
-                  subCat={sc}
-                  isCompare={isCompare}
-                  prevSubCatT={prevSubCatLookup[sc.name]}
-                  prevFactorLookup={prevFactorLookup}
-                />
-                {i < domain.subCategories.length - 1 && (
-                  <div className="w-px bg-gray-200 self-stretch" />
-                )}
-              </div>
-            ))}
+          {/* 막대 그룹 — 비례 flex 가중치 */}
+          <div className="flex w-full">
+            {domain.subCategories.map((sc, i) => {
+              const colCount = 1 + sc.factors.length;
+              return (
+                <div key={sc.name} className="contents">
+                  <div style={{ flex: colCount }} className="min-w-0">
+                    <SubCatGroup
+                      subCat={sc}
+                      isCompare={isCompare}
+                      isCompact={isCompact}
+                      prevSubCatT={prevSubCatLookup[sc.name]}
+                      prevFactorLookup={prevFactorLookup}
+                    />
+                  </div>
+                  {i < domain.subCategories.length - 1 && (
+                    <div className="w-px mx-2 bg-gray-200 self-stretch flex-shrink-0" />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
