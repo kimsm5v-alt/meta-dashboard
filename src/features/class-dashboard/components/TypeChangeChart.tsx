@@ -6,7 +6,6 @@ import {
   TYPE_ORDER,
   TYPE_COLORS,
   TYPE_GRADIENTS,
-  FLOW_GRADIENTS,
   getChangeType,
 } from '../utils/typeUtils';
 
@@ -23,7 +22,7 @@ interface FlowData {
   to: string;
   count: number;
   students: Student[];
-  changeType: 'improve' | 'maintain' | 'concern' | 'notAssessed';
+  changeType: 'change' | 'maintain' | 'notAssessed';
 }
 
 interface BarSegment {
@@ -75,26 +74,31 @@ const createFlowPath = (from: BarSegment, to: BarSegment): string => {
   `;
 };
 
+const FLOW_STROKE_COLORS: Record<string, string> = {
+  '자원소진형': '#EA580C',     // orange-600
+  '안전균형형': '#0D9488',     // teal-600
+  '몰입자원풍부형': '#2563EB', // blue-600
+};
+
 const getFlowStyle = (
   flow: FlowData,
   isSelected: boolean
 ): { opacity: number; strokeWidth: number; strokeColor: string; dashArray: string } => {
-  const { changeType } = flow;
+  const { changeType, to } = flow;
 
   if (isSelected) {
     return { opacity: 0.9, strokeWidth: 3, strokeColor: '#1F2937', dashArray: 'none' };
   }
 
-  if (changeType === 'improve') {
-    return { opacity: 0.7, strokeWidth: 2.5, strokeColor: '#059669', dashArray: '12,6' };
+  if (changeType === 'change') {
+    return {
+      opacity: 0.7,
+      strokeWidth: 2,
+      strokeColor: FLOW_STROKE_COLORS[to] || '#6B7280',
+      dashArray: '12,6',
+    };
   }
-  if (changeType === 'concern') {
-    return { opacity: 0.6, strokeWidth: 2.5, strokeColor: '#DC2626', dashArray: '12,6' };
-  }
-  if (changeType === 'notAssessed') {
-    return { opacity: 0.2, strokeWidth: 0, strokeColor: 'none', dashArray: '6,3' };
-  }
-  return { opacity: 0.2, strokeWidth: 0, strokeColor: 'none', dashArray: 'none' };
+  return { opacity: 0.25, strokeWidth: 0, strokeColor: 'none', dashArray: 'none' };
 };
 
 // ============================================================
@@ -300,12 +304,10 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
                 </linearGradient>
               ))}
 
-              {Object.entries(FLOW_GRADIENTS).map(([key, gradient]) => (
-                <linearGradient key={`flow-${key}`} id={`flow-gradient-${key}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor={gradient.start} />
-                  <stop offset="100%" stopColor={gradient.end} />
-                </linearGradient>
-              ))}
+              <linearGradient id="flow-maintain" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#E2E8F0" />
+                <stop offset="100%" stopColor="#94A3B8" />
+              </linearGradient>
 
               <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="rgba(255,255,255,0)" />
@@ -354,7 +356,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
                   <path
                     key={`flow-${idx}`}
                     d={createFlowPath(flowFrom, flowTo)}
-                    fill={`url(#flow-gradient-${flow.changeType})`}
+                    fill={flow.changeType === 'change' ? `url(#gradient-${flow.to})` : 'url(#flow-maintain)'}
                     opacity={style.opacity}
                     stroke={style.strokeColor}
                     strokeWidth={style.strokeWidth}
@@ -362,7 +364,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
                     className="cursor-pointer transition-all duration-300 hover:opacity-90"
                     style={{
                       filter: isSelected ? 'drop-shadow(0 4px 10px rgba(0,0,0,0.2))' :
-                        (flow.changeType === 'improve' || flow.changeType === 'concern')
+                        flow.changeType === 'change'
                           ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.12))' : 'none'
                     }}
                     onClick={() => setSelectedFlow(flow)}
@@ -434,23 +436,24 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
         {/* 하단 고정 영역: 흐름선 상세 / 도움말 */}
         <div className="flex-shrink-0 mt-auto pt-3">
           {selectedFlow && round2Available ? (() => {
-            const isPositive = selectedFlow.changeType === 'improve';
-            const isNegative = selectedFlow.changeType === 'concern';
-            const boxColor = isPositive ? 'bg-emerald-50 border-emerald-300' :
-              isNegative ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-300';
+            const isChange = selectedFlow.changeType === 'change';
+
+            const colorMap: Record<string, { bg: string; border: string; badge: string }> = {
+              '자원소진형': { bg: 'bg-orange-50', border: 'border-orange-300', badge: 'bg-orange-500' },
+              '안전균형형': { bg: 'bg-teal-50', border: 'border-teal-300', badge: 'bg-teal-500' },
+              '몰입자원풍부형': { bg: 'bg-blue-50', border: 'border-blue-300', badge: 'bg-blue-500' },
+            };
+            const colors = isChange
+              ? (colorMap[selectedFlow.to] || { bg: 'bg-gray-50', border: 'border-gray-300', badge: 'bg-gray-500' })
+              : { bg: 'bg-gray-50', border: 'border-gray-300', badge: 'bg-gray-500' };
 
             return (
-              <div className={`border-2 rounded-xl p-4 shadow-md ${boxColor}`}>
+              <div className={`border-2 rounded-xl p-4 shadow-md ${colors.bg} ${colors.border}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    {isPositive && (
-                      <span className="px-2.5 py-0.5 bg-emerald-500 text-white text-xs font-semibold rounded-full">
-                        긍정 변화
-                      </span>
-                    )}
-                    {isNegative && (
-                      <span className="px-2.5 py-0.5 bg-red-500 text-white text-xs font-semibold rounded-full">
-                        부정 변화
+                    {isChange && (
+                      <span className={`px-2.5 py-0.5 ${colors.badge} text-white text-xs font-semibold rounded-full`}>
+                        유형 변화
                       </span>
                     )}
                     <h3 className="font-semibold text-gray-900 text-sm">

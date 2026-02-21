@@ -32,20 +32,6 @@ export const TYPE_GRADIENTS: Record<string, { start: string; end: string }> = {
   '몰입자원풍부형': { start: '#93C5FD', end: '#3B82F6' },
 };
 
-export const FLOW_COLORS: Record<string, string> = {
-  improve: '#10B981',
-  maintain: '#94A3B8',
-  concern: '#F43F5E',
-  notAssessed: '#CBD5E1',
-};
-
-export const FLOW_GRADIENTS: Record<string, { start: string; end: string }> = {
-  improve: { start: '#6EE7B7', end: '#10B981' },
-  maintain: { start: '#E2E8F0', end: '#94A3B8' },
-  concern: { start: '#FCA5A5', end: '#F87171' },
-  notAssessed: { start: '#F1F5F9', end: '#CBD5E1' },
-};
-
 // 유형명 약칭 (테이블 표시용)
 const TYPE_ABBREVIATIONS: Record<string, string> = {
   '자원소진형': '소진',
@@ -77,14 +63,10 @@ export const TYPE_RANK: Record<string, number> = {
 export const getChangeType = (
   from: string,
   to: string
-): 'improve' | 'maintain' | 'concern' | 'notAssessed' => {
+): 'change' | 'maintain' | 'notAssessed' => {
   if (to === '미실시') return 'notAssessed';
   if (from === to) return 'maintain';
-
-  const fromRank = TYPE_RANK[from] || 0;
-  const toRank = TYPE_RANK[to] || 0;
-
-  return toRank > fromRank ? 'improve' : 'concern';
+  return 'change';
 };
 
 /**
