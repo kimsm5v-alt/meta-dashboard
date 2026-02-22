@@ -712,6 +712,86 @@ export const MODERATION_EFFECTS: KnowledgeGraphEdge[] = [
       개입전략: '과정 피드백 + 정서를 행동으로 전환',
     },
   },
+  // 중등 정서조절취약형: 촉진 (성장마인드셋 × 부모성적압력) — HF KG 추가
+  {
+    id: 'edge_mod_mid_g2_2',
+    source: 'mid_group2',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '촉진',
+    properties: {
+      독립변수: '성장마인드셋',
+      조절변수: '부모성적압력',
+      상호작용_β: 0.444,
+      상호작용_p: '< .05',
+      해석: '성장마인드셋이 높으면 부모 성적압력의 부정적 영향을 완충',
+      개입전략: '성장 관점 피드백 + 부모 상담 시 압력 대신 과정 격려 안내',
+    },
+  },
+  // 중등 무기력형: 촉진 (시간관리 × 공부부담) — HF KG 추가
+  {
+    id: 'edge_mod_mid_g1_2',
+    source: 'mid_group1',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '촉진',
+    properties: {
+      독립변수: '시간관리',
+      조절변수: '공부부담',
+      상호작용_β: 0.249,
+      상호작용_p: '< .05',
+      해석: '시간관리가 좋으면 공부부담 상황에서도 만족도 유지',
+      개입전략: '시험 전 위기 대응 시간관리 플랜 제공',
+    },
+  },
+  // 중등 무기력형: 촉진 (수업부담 × 교사정서지지) — HF KG 추가
+  {
+    id: 'edge_mod_mid_g1_3',
+    source: 'mid_group1',
+    target: 'achievement',
+    relation: 'moderated_effect',
+    moderatorType: '촉진',
+    properties: {
+      독립변수: '수업부담',
+      조절변수: '교사정서지지',
+      상호작용_β: 0.226,
+      상호작용_p: '< .05',
+      해석: '수업부담이 높을 때 교사의 정서적 지지가 성취 보호 요인',
+      개입전략: '수업 후 짧은 격려 + 단계별 과제로 부담 경감',
+    },
+  },
+  // 중등 자기주도몰입형: 긍정강화 (타인정서인식 × 활기) — HF KG 추가
+  {
+    id: 'edge_mod_mid_g3_1',
+    source: 'mid_group3',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정강화',
+    properties: {
+      독립변수: '타인정서인식',
+      조절변수: '활기',
+      상호작용_β: 0.479,
+      상호작용_p: '< .05',
+      해석: '타인의 감정을 잘 인식하는 능력과 학습 활기가 결합되면 성적만족 크게 상승',
+      개입전략: '또래 감정 읽기 활동 + 도전적 학습 기회 제공',
+    },
+  },
+  // 중등 자기주도몰입형: 긍정강화 (관계성 × 타인공감능력) — HF KG 추가
+  {
+    id: 'edge_mod_mid_g3_2',
+    source: 'mid_group3',
+    target: 'achievement',
+    relation: 'moderated_effect',
+    moderatorType: '긍정강화',
+    properties: {
+      독립변수: '관계성',
+      조절변수: '타인공감능력',
+      상호작용_β: 0.379,
+      상호작용_p: '< .05',
+      해석: '또래 관계와 공감능력이 결합되면 학업성취에 긍정적 시너지',
+      개입전략: '협력 학습 구조 설계 + 서로 설명해주기 활동',
+    },
+  },
 ];
 
 // 개입 요약 (유형별 빠른 참조용)
@@ -795,7 +875,7 @@ export function getMediationPathForType(
 }
 
 /**
- * 학생 유형에 따른 조절효과 조회
+ * 학생 유형에 따른 조절효과 조회 (단일 — 하위 호환용)
  */
 export function getModerationEffectForType(
   schoolLevel: SchoolLevel,
@@ -806,6 +886,20 @@ export function getModerationEffectForType(
   )?.id;
 
   return MODERATION_EFFECTS.find((effect) => effect.source === groupId);
+}
+
+/**
+ * 학생 유형에 따른 조절효과 전체 조회 (배열)
+ */
+export function getModerationEffectsForType(
+  schoolLevel: SchoolLevel,
+  typeName: string
+): KnowledgeGraphEdge[] {
+  const groupId = STUDENT_GROUPS.find(
+    (g) => g.school === schoolLevel && g.label === typeName
+  )?.id;
+
+  return MODERATION_EFFECTS.filter((effect) => effect.source === groupId);
 }
 
 /**
@@ -843,6 +937,7 @@ export default {
   getInterventionsForType,
   getMediationPathForType,
   getModerationEffectForType,
+  getModerationEffectsForType,
   getInterventionSummary,
   getStudentGroup,
 };

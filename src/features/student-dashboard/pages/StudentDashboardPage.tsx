@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, FileText, MessageSquare, Eye, ShieldAlert, AlertTriangle, Clock } from 'lucide-react';
 import { useData } from '@/shared/contexts/DataContext';
@@ -37,6 +37,8 @@ export const StudentDashboardPage = () => {
   const [chartViewMode, setChartViewMode] = useState<'midCategory' | 'fourStep'>('midCategory');
 
   const { getClassById, getStudentById } = useData();
+
+  useEffect(() => { window.scrollTo(0, 0); }, [studentId]);
 
   const classData = classId ? getClassById(classId) : undefined;
   const student = classId && studentId ? getStudentById(classId, studentId) : undefined;
@@ -271,6 +273,7 @@ export const StudentDashboardPage = () => {
       <CoachingStrategy
         predictedType={current.predictedType}
         schoolLevel={student.schoolLevel}
+        tScores={current.tScores}
         isOpen={isCoachingOpen}
         onClose={() => setIsCoachingOpen(false)}
       />

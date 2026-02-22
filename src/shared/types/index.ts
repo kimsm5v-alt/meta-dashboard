@@ -163,6 +163,8 @@ export interface Intervention {
   effectType: EffectType;
   interpretation: string;
   strategies: string[];
+  beta?: number;                                      // 효과크기 (|β|, 양수로 저장)
+  source?: 'KG' | 'KG_INTERVENTION' | 'INFERRED';    // 데이터 출처
 }
 
 export type EffectType =
@@ -174,6 +176,23 @@ export type EffectType =
   | '부정완충'
   | '촉진'
   | '억제';
+
+// 개인별 랭킹된 개입 전략
+export interface RankedIntervention {
+  intervention: Intervention;
+  relevanceScore: number;
+  relevanceReason: string;
+  involvedFactors: Array<{
+    name: string;
+    score: number;
+    typeMean: number | null;
+  }>;
+  scoreBreakdown?: {
+    needScore: number;
+    deviationScore: number;
+    betaBoost: number;
+  };
+}
 
 // 교사
 export interface Teacher {
