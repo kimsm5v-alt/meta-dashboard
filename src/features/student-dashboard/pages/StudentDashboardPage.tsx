@@ -16,6 +16,9 @@ import {
   type PanelTab,
 } from '../components';
 
+// TODO: 4단계 해석 탭을 다시 보이게 하려면 true로 변경
+const SHOW_FOUR_STEP = false;
+
 // 헤더 버튼 설정
 const PANEL_BUTTONS = [
   { key: 'schoolRecord' as const, label: '생기부', icon: FileText },
@@ -32,6 +35,7 @@ export const StudentDashboardPage = () => {
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
   const [chartViewMode, setChartViewMode] = useState<'midCategory' | 'fourStep'>('midCategory');
+
   const { getClassById, getStudentById } = useData();
 
   const classData = classId ? getClassById(classId) : undefined;
@@ -193,28 +197,30 @@ export const StudentDashboardPage = () => {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">학생 진단 결과 해석</h2>
-          <div className="flex bg-gray-100 rounded-lg p-0.5">
-            <button
-              onClick={() => setChartViewMode('midCategory')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                chartViewMode === 'midCategory'
-                  ? 'bg-white text-primary-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              중분류 요인
-            </button>
-            <button
-              onClick={() => setChartViewMode('fourStep')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                chartViewMode === 'fourStep'
-                  ? 'bg-white text-primary-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              4단계 해석
-            </button>
-          </div>
+          {SHOW_FOUR_STEP && (
+            <div className="flex bg-gray-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setChartViewMode('midCategory')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  chartViewMode === 'midCategory'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                중분류 요인
+              </button>
+              <button
+                onClick={() => setChartViewMode('fourStep')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  chartViewMode === 'fourStep'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                4단계 해석
+              </button>
+            </div>
+          )}
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           {/* 총평 */}
@@ -227,10 +233,10 @@ export const StudentDashboardPage = () => {
 
           {/* 차트 영역: A/B 토글 */}
           <div className="p-6">
-            {chartViewMode === 'midCategory' ? (
-              <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
-            ) : (
+            {SHOW_FOUR_STEP && chartViewMode === 'fourStep' ? (
               <FourStepInterpretation tScores={current.tScores} prevTScores={isCompare && r1 ? r1.tScores : undefined} studentName={student.name} />
+            ) : (
+              <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
             )}
           </div>
         </div>

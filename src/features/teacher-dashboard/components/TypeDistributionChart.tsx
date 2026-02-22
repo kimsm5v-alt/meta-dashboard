@@ -47,8 +47,9 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
       };
       for (const key of typeKeys) {
         const count = cls.stats?.typeDistribution?.[key]?.count || 0;
-        row[key] = count;
-        row[`${key}_pct`] = total > 0 ? Math.round((count / total) * 100) : 0;
+        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+        row[key] = pct;
+        row[`${key}_count`] = count;
       }
       return row;
     }).sort((a, b) => {
@@ -82,8 +83,8 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
       x: svgP.x,
       y: svgP.y,
       type: bar.data.id as string,
-      value: bar.data.value ?? 0,
-      pct: (bar.data.data[`${bar.data.id}_pct`] as number) ?? 0,
+      value: (bar.data.data[`${bar.data.id}_count`] as number) ?? 0,
+      pct: bar.data.value ?? 0,
       color: bar.color,
     });
   }, []);
@@ -125,8 +126,8 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
                 }}
               >
                 {bar.width > 60
-                  ? `${bar.data.value}명(${bar.data.data[`${bar.data.id}_pct`]}%)`
-                  : `${bar.data.value}명`}
+                  ? `${bar.data.data[`${bar.data.id}_count`]}명(${bar.data.value}%)`
+                  : `${bar.data.value}%`}
               </text>
             )}
           </g>
@@ -144,7 +145,7 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
         layout="horizontal"
         margin={{ top: 20, right: 130, bottom: 20, left: 100 }}
         padding={0.3}
-        valueScale={{ type: 'linear' }}
+        valueScale={{ type: 'linear', max: 100 }}
         indexScale={{ type: 'band', round: true }}
         colors={typeColors}
         borderRadius={4}
