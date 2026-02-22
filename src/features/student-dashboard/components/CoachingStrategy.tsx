@@ -28,12 +28,19 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
   onClose,
 }) => {
   const [selectedPaths, setSelectedPaths] = useState<number[]>([0]);
+  const [showAll, setShowAll] = useState(false);
 
   // 개인별 랭킹된 interventions
   const rankedInterventions = useMemo(
     () => rankInterventions(tScores, predictedType, schoolLevel),
     [tScores, predictedType, schoolLevel]
   );
+
+  const TOP_N = 5;
+  const displayedInterventions = showAll
+    ? rankedInterventions
+    : rankedInterventions.slice(0, TOP_N);
+  const hasMore = rankedInterventions.length > TOP_N;
 
   // 지식그래프에서 추가 정보 조회
   const kgModerationEffects = getKnowledgeGraphModerationEffects(schoolLevel, predictedType);
@@ -106,19 +113,29 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {rankedInterventions.map((ranked, idx) => {
+                {displayedInterventions.map((ranked, idx) => {
                   const inv = ranked.intervention;
                   const sourceLabel = inv.source ? SOURCE_LABELS[inv.source] : null;
+                  const isExtra = idx >= TOP_N;
                   return (
                     <div
                       key={idx}
                       onClick={() => togglePath(idx)}
                       className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        isExtra ? 'opacity-80 ' : ''
+                      }${
                         selectedPaths.includes(idx)
                           ? 'border-primary-500 bg-primary-50'
-                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                          : isExtra
+                            ? 'border-gray-100 hover:border-gray-200 bg-gray-50'
+                            : 'border-gray-200 hover:border-gray-300 bg-white'
                       }`}
                     >
+                      {isExtra && idx === TOP_N && (
+                        <div className="text-[10px] text-gray-400 font-medium mb-2 uppercase tracking-wider">
+                          추가 추천 경로
+                        </div>
+                      )}
                       <div className="flex items-start gap-3">
                         {selectedPaths.includes(idx) ? (
                           <CheckSquare className="w-5 h-5 text-primary-500 flex-shrink-0 mt-0.5" />
@@ -188,6 +205,17 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
                     </div>
                   );
                 })}
+                {/* 더보기/접기 버튼 */}
+                {hasMore && (
+                  <button
+                    onClick={() => setShowAll(!showAll)}
+                    className="w-full py-2.5 text-sm text-primary-500 hover:text-primary-700 border border-dashed border-gray-300 hover:border-primary-300 rounded-lg transition-colors"
+                  >
+                    {showAll
+                      ? '상위 5개만 보기'
+                      : `나머지 ${rankedInterventions.length - TOP_N}개 경로 더보기`}
+                  </button>
+                )}
               </div>
             )}
           </div>

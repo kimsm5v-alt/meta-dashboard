@@ -21,7 +21,8 @@ export type StudentGroupId =
 
 export type MediatorId =
   | 'growth_mindset' | 'self_esteem' | 'meaning' | 'note_taking'
-  | 'competence' | 'regulation_ability' | 'monitoring_ability' | 'parent_support';
+  | 'competence' | 'regulation_ability' | 'monitoring_ability' | 'parent_support'
+  | 'self_efficacy';
 
 export type OutcomeId = 'achievement' | 'satisfaction';
 
@@ -355,6 +356,15 @@ export const MEDIATORS: MediatorNode[] = [
       중요도: '높음',
     },
   },
+  {
+    id: 'self_efficacy',
+    type: '매개변수',
+    label: '자기효능감',
+    properties: {
+      정의: '어떤 과제를 성공적으로 수행할 수 있다는 자신감',
+      중요도: '매우 높음',
+    },
+  },
 ];
 
 // 결과변수 노드
@@ -644,6 +654,169 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '집중/몰두/의미 인식이 노트 필기라는 구체적 행동으로 전환될 때 성취',
     },
   },
+  // ────────────────────────────────────────────────────────────────
+  // HF KG 전면 통합: 매개경로 추가 (모델 단위 그룹화)
+  // ────────────────────────────────────────────────────────────────
+  // 초등 안전균형형: X → 성장마인드셋 → 성적만족도 (β=0.122)
+  {
+    id: 'edge_med_elem_g2_gm_sat',
+    source: 'growth_mindset',
+    target: 'satisfaction',
+    relation: 'mediates_to',
+    mediationType: '완전매개',
+    school: '초등',
+    group: '안전균형형',
+    properties: {
+      경로: '자기효능감/자아존중감/공부부담/유능성 → 성장마인드셋 → 성적만족도',
+      a경로_β: 0.220,
+      a경로_p: '< .05',
+      b경로_β: 0.555,
+      b경로_p: '< .001',
+      간접효과_β: 0.122,
+      간접효과_CI: [0.02, 0.27],
+      해석: '자기효능감 등 긍정적 자아 요인이 성장마인드셋을 매개로 성적만족도를 상승시킴',
+    },
+  },
+  // 초등 안전균형형: 점검능력/친구공부비교 → 조절능력 → 학업성취도 (β=0.117)
+  {
+    id: 'edge_med_elem_g2_reg_ach',
+    source: 'regulation_ability',
+    target: 'achievement',
+    relation: 'mediates_to',
+    mediationType: '완전매개',
+    school: '초등',
+    group: '안전균형형',
+    properties: {
+      경로: '점검능력/친구공부비교 → 조절능력 → 학업성취도',
+      a경로_β: 0.320,
+      a경로_p: '< .05',
+      b경로_β: 0.365,
+      b경로_p: '< .05',
+      간접효과_β: 0.117,
+      간접효과_CI: [0.01, 0.25],
+      해석: '점검능력 또는 친구공부비교가 조절능력으로 전환되어야 학업성취로 이어짐',
+    },
+  },
+  // 초등 안전균형형: 자기정서인식 → 의미감 → 성적만족도 (β=-0.033, 부정)
+  {
+    id: 'edge_med_elem_g2_meaning_sat',
+    source: 'meaning',
+    target: 'satisfaction',
+    relation: 'mediates_to',
+    mediationType: '완전매개',
+    school: '초등',
+    group: '안전균형형',
+    properties: {
+      경로: '자기정서인식 → 의미감 → 성적만족도',
+      a경로_β: 0.150,
+      a경로_p: '< .05',
+      b경로_β: -0.220,
+      b경로_p: '< .05',
+      간접효과_β: -0.033,
+      간접효과_CI: [-0.08, 0.00],
+      해석: '⚠ 부정적 간접효과: 자기정서인식이 의미감을 매개로 성적만족도를 미세하게 저하시킬 수 있음 — 과도한 자기 인식이 부담으로 전환되는 경로',
+    },
+  },
+  // 중등 무기력형: 부모공부부담 → 부모학업지지 → 성적만족도 (β=-0.077, 부정)
+  {
+    id: 'edge_med_mid_g1_ps_sat',
+    source: 'parent_support',
+    target: 'satisfaction',
+    relation: 'mediates_to',
+    mediationType: '완전매개',
+    school: '중등',
+    group: '무기력형',
+    properties: {
+      경로: '부모공부부담 → 부모학업지지 → 성적만족도',
+      a경로_β: -0.280,
+      a경로_p: '< .05',
+      b경로_β: 0.275,
+      b경로_p: '< .05',
+      간접효과_β: -0.077,
+      간접효과_CI: [-0.17, -0.01],
+      해석: '⚠ 부정적 간접효과: 부모공부부담이 부모학업지지를 약화시켜 성적만족도를 저하시킴 — 부모 부담 인식이 지지 수용을 방해',
+    },
+  },
+  // 중등 무기력형: 부모공부부담 → 자기효능감 → 성적만족도 (β=-0.047, 부정)
+  {
+    id: 'edge_med_mid_g1_se_sat',
+    source: 'self_efficacy',
+    target: 'satisfaction',
+    relation: 'mediates_to',
+    mediationType: '완전매개',
+    school: '중등',
+    group: '무기력형',
+    properties: {
+      경로: '부모공부부담 → 자기효능감 → 성적만족도',
+      a경로_β: -0.190,
+      a경로_p: '< .05',
+      b경로_β: 0.250,
+      b경로_p: '< .05',
+      간접효과_β: -0.047,
+      간접효과_CI: [-0.11, -0.00],
+      해석: '⚠ 부정적 간접효과: 부모공부부담이 자기효능감을 저해하여 성적만족도를 낮춤 — 부담 완화가 효능감 회복의 전제',
+    },
+  },
+  // 중등 무기력형: 점검능력/친구공부비교 → 조절능력 → 학업성취도 (β=0.117)
+  {
+    id: 'edge_med_mid_g1_reg_ach',
+    source: 'regulation_ability',
+    target: 'achievement',
+    relation: 'mediates_to',
+    mediationType: '완전매개',
+    school: '중등',
+    group: '무기력형',
+    properties: {
+      경로: '점검능력/친구공부비교 → 조절능력 → 학업성취도',
+      a경로_β: 0.320,
+      a경로_p: '< .05',
+      b경로_β: 0.365,
+      b경로_p: '< .05',
+      간접효과_β: 0.117,
+      간접효과_CI: [0.01, 0.25],
+      해석: '점검능력이나 친구공부비교가 조절능력으로 전환되어야 학업성취로 이어짐',
+    },
+  },
+  // 중등 정서조절취약형: X → 성장마인드셋 → 학업성취도 (β=0.045)
+  {
+    id: 'edge_med_mid_g2_gm_ach',
+    source: 'growth_mindset',
+    target: 'achievement',
+    relation: 'mediates_to',
+    mediationType: '완전매개',
+    school: '중등',
+    group: '정서조절취약형',
+    properties: {
+      경로: '자기효능감/자아존중감/공부부담/유능성 → 성장마인드셋 → 학업성취도',
+      a경로_β: 0.220,
+      a경로_p: '< .001',
+      b경로_β: 0.201,
+      b경로_p: '< .05',
+      간접효과_β: 0.045,
+      간접효과_CI: [0.01, 0.10],
+      해석: '자기효능감 등이 성장마인드셋으로 전환되어야 지속적 학업성취 — 학교급 수준 동일 모델',
+    },
+  },
+  // 중등 정서조절취약형: X → 성장마인드셋 → 성적만족도 (β=0.122)
+  {
+    id: 'edge_med_mid_g2_gm_sat',
+    source: 'growth_mindset',
+    target: 'satisfaction',
+    relation: 'mediates_to',
+    mediationType: '완전매개',
+    school: '중등',
+    group: '정서조절취약형',
+    properties: {
+      경로: '자기효능감/자아존중감/공부부담/유능성 → 성장마인드셋 → 성적만족도',
+      a경로_β: 0.220,
+      a경로_p: '< .05',
+      b경로_β: 0.555,
+      b경로_p: '< .001',
+      간접효과_β: 0.122,
+      간접효과_CI: [0.02, 0.27],
+      해석: '자기효능감 등이 성장마인드셋을 매개로 성적만족도 상승 — 학교급 수준 동일 모델',
+    },
+  },
 ];
 
 // 조절효과
@@ -792,6 +965,255 @@ export const MODERATION_EFFECTS: KnowledgeGraphEdge[] = [
       개입전략: '협력 학습 구조 설계 + 서로 설명해주기 활동',
     },
   },
+  // ────────────────────────────────────────────────────────────────
+  // HF KG 전면 통합: 교차 유형 교사정서지지 조절효과 (+16)
+  // ────────────────────────────────────────────────────────────────
+  // === 초등 자원소진형: 교사정서지지 조절효과 5개 ===
+  {
+    id: 'edge_mod_elem_g1_teach1',
+    source: 'elem_group1',
+    target: 'achievement',
+    relation: 'moderated_effect',
+    moderatorType: '촉진',
+    properties: {
+      독립변수: '수업부담',
+      조절변수: '교사정서지지',
+      상호작용_β: 0.226,
+      상호작용_p: '< .05',
+      해석: '수업부담이 높을 때 교사의 정서적 지지가 학업성취 보호 요인',
+      개입전략: '수업 후 짧은 격려 + 단계별 과제로 부담 경감',
+    },
+  },
+  {
+    id: 'edge_mod_elem_g1_teach2',
+    source: 'elem_group1',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '부모의사소통',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.188,
+      상호작용_p: '< .05',
+      해석: '교사 정서지지가 높으면 부모의사소통이 성적만족도에 미치는 영향이 완충됨',
+      개입전략: '교사-학부모 소통 채널 구축 + 학생 정서 안전망 다층화',
+    },
+  },
+  {
+    id: 'edge_mod_elem_g1_teach3',
+    source: 'elem_group1',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '조절능력',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.325,
+      상호작용_p: '< .05',
+      해석: '조절능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
+      개입전략: '자기조절 코칭 + 교사의 정서적 지지 병행',
+    },
+  },
+  {
+    id: 'edge_mod_elem_g1_teach4',
+    source: 'elem_group1',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '점검능력',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.341,
+      상호작용_p: '< .05',
+      해석: '점검능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
+      개입전략: '학습 점검 루틴 안내 + 교사의 개별 피드백 강화',
+    },
+  },
+  {
+    id: 'edge_mod_elem_g1_teach5',
+    source: 'elem_group1',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '계획능력',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.213,
+      상호작용_p: '< .05',
+      해석: '계획능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
+      개입전략: '계획 수립 지도 + 교사의 격려와 진행 확인',
+    },
+  },
+  // === 초등 안전균형형: 교사정서지지 조절효과 5개 + 계획능력 1개 ===
+  {
+    id: 'edge_mod_elem_g2_teach1',
+    source: 'elem_group2',
+    target: 'achievement',
+    relation: 'moderated_effect',
+    moderatorType: '촉진',
+    properties: {
+      독립변수: '수업부담',
+      조절변수: '교사정서지지',
+      상호작용_β: 0.226,
+      상호작용_p: '< .05',
+      해석: '수업부담이 높을 때 교사의 정서적 지지가 학업성취 보호 요인',
+      개입전략: '수업 후 짧은 격려 + 단계별 과제로 부담 경감',
+    },
+  },
+  {
+    id: 'edge_mod_elem_g2_teach2',
+    source: 'elem_group2',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '부모의사소통',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.188,
+      상호작용_p: '< .05',
+      해석: '교사 정서지지가 높으면 부모의사소통이 성적만족도에 미치는 영향이 완충됨',
+      개입전략: '교사-학부모 소통 채널 구축 + 학생 정서 안전망 다층화',
+    },
+  },
+  {
+    id: 'edge_mod_elem_g2_teach3',
+    source: 'elem_group2',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '조절능력',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.325,
+      상호작용_p: '< .05',
+      해석: '조절능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
+      개입전략: '자기조절 코칭 + 교사의 정서적 지지 병행',
+    },
+  },
+  {
+    id: 'edge_mod_elem_g2_teach4',
+    source: 'elem_group2',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '점검능력',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.341,
+      상호작용_p: '< .05',
+      해석: '점검능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
+      개입전략: '학습 점검 루틴 안내 + 교사의 개별 피드백 강화',
+    },
+  },
+  {
+    id: 'edge_mod_elem_g2_teach5',
+    source: 'elem_group2',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '계획능력',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.213,
+      상호작용_p: '< .05',
+      해석: '계획능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
+      개입전략: '계획 수립 지도 + 교사의 격려와 진행 확인',
+    },
+  },
+  // 초등 안전균형형: 시간관리 × 계획능력 → 성적만족도 (기존 학업성취도와 별도)
+  {
+    id: 'edge_mod_elem_g2_plan_sat',
+    source: 'elem_group2',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정강화',
+    properties: {
+      독립변수: '시간관리',
+      조절변수: '계획능력',
+      상호작용_β: 0.157,
+      상호작용_p: '< .01',
+      해석: '시간관리 × 계획능력 결합 시 성적만족도까지 극대화 (기존 학업성취도에 추가)',
+      개입전략: '플래너 활용 습관 + 실행 후 만족감 기록',
+    },
+  },
+  // === 중등 무기력형: 교사정서지지 조절효과 4개 + 공부부담 1개 ===
+  // (수업부담×교사정서지지→학업성취도는 기존 edge_mod_mid_g1_3에 존재)
+  {
+    id: 'edge_mod_mid_g1_teach2',
+    source: 'mid_group1',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '부모의사소통',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.188,
+      상호작용_p: '< .05',
+      해석: '교사 정서지지가 높으면 부모의사소통이 성적만족도에 미치는 영향이 완충됨',
+      개입전략: '교사-학부모 소통 채널 구축 + 학생 정서 안전망 다층화',
+    },
+  },
+  {
+    id: 'edge_mod_mid_g1_teach3',
+    source: 'mid_group1',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '조절능력',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.325,
+      상호작용_p: '< .05',
+      해석: '조절능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
+      개입전략: '자기조절 코칭 + 교사의 정서적 지지 병행',
+    },
+  },
+  {
+    id: 'edge_mod_mid_g1_teach4',
+    source: 'mid_group1',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '점검능력',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.341,
+      상호작용_p: '< .05',
+      해석: '점검능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
+      개입전략: '학습 점검 루틴 안내 + 교사의 개별 피드백 강화',
+    },
+  },
+  {
+    id: 'edge_mod_mid_g1_teach5',
+    source: 'mid_group1',
+    target: 'satisfaction',
+    relation: 'moderated_effect',
+    moderatorType: '긍정완충',
+    properties: {
+      독립변수: '계획능력',
+      조절변수: '교사정서지지',
+      상호작용_β: -0.213,
+      상호작용_p: '< .05',
+      해석: '계획능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
+      개입전략: '계획 수립 지도 + 교사의 격려와 진행 확인',
+    },
+  },
+  // 중등 무기력형: 시간관리 × 공부부담 → 학업성취도 (기존 성적만족도와 별도)
+  {
+    id: 'edge_mod_mid_g1_burden_ach',
+    source: 'mid_group1',
+    target: 'achievement',
+    relation: 'moderated_effect',
+    moderatorType: '촉진',
+    properties: {
+      독립변수: '시간관리',
+      조절변수: '공부부담',
+      상호작용_β: 0.249,
+      상호작용_p: '< .05',
+      해석: '시간관리가 좋으면 공부부담 상황에서도 학업성취도 유지 (기존 성적만족도에 추가)',
+      개입전략: '시험 전 위기 대응 시간관리 플랜 제공',
+    },
+  },
 ];
 
 // 개입 요약 (유형별 빠른 참조용)
@@ -863,13 +1285,25 @@ export function getInterventionsForType(
 }
 
 /**
- * 학생 유형에 따른 매개경로 조회
+ * 학생 유형에 따른 매개경로 조회 (단일 — 하위 호환용)
  */
 export function getMediationPathForType(
   schoolLevel: SchoolLevel,
   typeName: string
 ): KnowledgeGraphEdge | undefined {
   return MEDIATION_PATHS.find(
+    (path) => path.school === schoolLevel && path.group === typeName
+  );
+}
+
+/**
+ * 학생 유형에 따른 매개경로 전체 조회 (배열)
+ */
+export function getMediationPathsForType(
+  schoolLevel: SchoolLevel,
+  typeName: string
+): KnowledgeGraphEdge[] {
+  return MEDIATION_PATHS.filter(
     (path) => path.school === schoolLevel && path.group === typeName
   );
 }
@@ -936,6 +1370,7 @@ export default {
   KEY_FINDINGS,
   getInterventionsForType,
   getMediationPathForType,
+  getMediationPathsForType,
   getModerationEffectForType,
   getModerationEffectsForType,
   getInterventionSummary,
