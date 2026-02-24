@@ -264,7 +264,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({ doma
         <span>{domain.isPositive ? '정적요인' : '부적요인'}</span>
         <span className="text-gray-400">·</span>
         <span className="font-normal">
-          {domain.isPositive ? '높을수록 긍정 영향' : '낮을수록 긍정 영향'}
+          {domain.isPositive ? '점수가 높을수록 학습에 긍정적인 영향을 의미합니다.' : '점수가 낮을수록 학습에 긍정적인 영향을 의미합니다.'}
         </span>
       </div>
 

@@ -73,7 +73,7 @@ export const FactorLineChart: React.FC<FactorLineChartProps> = ({ tScores, prevT
                 <span className="text-sm">{icon}</span>
                 <h4 className="text-sm font-bold text-gray-800">{group.domain}</h4>
                 <span className="text-xs text-gray-500">
-                  {isPositive ? '높을수록 좋아요' : '낮을수록 좋아요'}
+                  {isPositive ? '점수가 높을수록 학습에 긍정적인 영향을 의미합니다.' : '점수가 낮을수록 학습에 긍정적인 영향을 의미합니다.'}
                 </span>
               </div>
 
