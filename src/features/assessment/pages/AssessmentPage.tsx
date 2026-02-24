@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useAuth } from '@/features/auth';
 import type { ManagedAssessment } from '@/shared/types';
 import {
-  VivaSamSection,
   GeneralSection,
   CreateAssessmentModal,
   AssessmentCodeModal,
@@ -11,45 +10,27 @@ import {
   type AssessmentFormData,
 } from '../components';
 
-// Mock 검사 데이터
-const MOCK_ASSESSMENTS: ManagedAssessment[] = [
-  {
-    id: '1',
-    name: '3학년 2반 1차 검사',
-    code: 'META-3201',
-    grade: 3,
-    classNumber: 2,
-    studentCount: 28,
-    completedCount: 25,
-    round: 1,
-    startDate: new Date('2026-01-15'),
-    endDate: new Date('2026-01-22'),
-    createdAt: new Date('2026-01-14'),
-    ownerId: 'user1',
-  },
-  {
-    id: '2',
-    name: '4학년 1반 1차 검사',
-    code: 'META-4101',
-    grade: 4,
-    classNumber: 1,
-    studentCount: 30,
-    completedCount: 30,
-    round: 1,
-    startDate: new Date('2026-01-10'),
-    endDate: new Date('2026-01-17'),
-    createdAt: new Date('2026-01-09'),
-    ownerId: 'user1',
-  },
-];
+// 검사 데이터 (빈 배열로 시작)
+const MOCK_ASSESSMENTS: ManagedAssessment[] = [];
 
-const generateCode = (): string => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = 'META-';
-  for (let i = 0; i < 4; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
+// Mock ID 생성기 (실제로는 백엔드에서 발급)
+let mockDgnssIdCounter = 1000;
+
+/**
+ * Mock 검사 ID 생성
+ * 실제로는 POST /etc/meta/tc/start API로 발급받아야 함
+ */
+const generateMockDgnssId = () => {
+  return mockDgnssIdCounter++;
+};
+
+/**
+ * QR 코드 생성
+ * 형식: {dgnssId}-{studentCount}
+ * 예: 1672-10
+ */
+const generateCode = (dgnssId: number, studentCount: number): string => {
+  return `${dgnssId}-${studentCount}`;
 };
 
 export const AssessmentPage: React.FC = () => {
@@ -60,13 +41,16 @@ export const AssessmentPage: React.FC = () => {
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  const isVivaSamMember = user?.memberType === 'vivasam';
-
   const handleCreateAssessment = (data: AssessmentFormData) => {
+    // Mock ID 생성 (실제로는 POST /etc/meta/tc/start API 호출)
+    const dgnssId = generateMockDgnssId();
+    const code = generateCode(dgnssId, data.studentCount);
+
     const newAssessment: ManagedAssessment = {
       id: `assessment-${Date.now()}`,
       name: data.name,
-      code: generateCode(),
+      code,
+      dgnssId,
       grade: data.grade,
       classNumber: data.classNumber,
       studentCount: data.studentCount,
@@ -99,23 +83,17 @@ export const AssessmentPage: React.FC = () => {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">검사하기</h1>
         <p className="text-gray-600">
-          {isVivaSamMember
-            ? '비바샘에서 학습심리정서검사를 실시하고 결과를 확인하세요.'
-            : '검사 코드를 생성하여 학생들에게 배포하거나, 기존 결과를 업로드하세요.'}
+          검사 코드를 생성하여 학생들에게 배포하거나, 기존 결과를 업로드하세요.
         </p>
       </div>
 
-      {/* 회원 유형에 따른 섹션 */}
-      {isVivaSamMember ? (
-        <VivaSamSection onUploadClick={handleUploadClick} />
-      ) : (
-        <GeneralSection
-          assessments={assessments}
-          onCreateClick={() => setIsCreateModalOpen(true)}
-          onUploadClick={handleUploadClick}
-          onViewCode={handleViewCode}
-        />
-      )}
+      {/* 검사 관리 섹션 */}
+      <GeneralSection
+        assessments={assessments}
+        onCreateClick={() => setIsCreateModalOpen(true)}
+        onUploadClick={handleUploadClick}
+        onViewCode={handleViewCode}
+      />
 
       {/* 모달 */}
       <CreateAssessmentModal

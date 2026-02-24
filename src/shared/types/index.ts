@@ -260,7 +260,8 @@ export interface AuthState {
 export interface ManagedAssessment {
   id: string;
   name: string;
-  code: string;
+  code: string;                 // QR 코드 값: {dgnssId}-{studentCount}
+  dgnssId: number;              // 검사 ID (학급 단위, /tc/start API에서 반환)
   grade: number;
   classNumber: number;
   studentCount: number;

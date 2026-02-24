@@ -1,5 +1,6 @@
-import { Copy, Check, QrCode } from 'lucide-react';
-import { useState } from 'react';
+import { Copy, Check, Download } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Modal, Button } from '@/shared/components';
 import type { ManagedAssessment } from '@/shared/types';
 
@@ -15,8 +16,13 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
   assessment,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
 
   if (!assessment) return null;
+
+  // 검사 URL 생성 (현재 도메인 기준)
+  const examUrl = `${window.location.origin}/exam/${assessment.code}`;
 
   const handleCopy = async () => {
     try {
@@ -34,6 +40,52 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(examUrl);
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = examUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
+    }
+  };
+
+  const handleDownloadQR = () => {
+    if (!qrRef.current) return;
+
+    const svg = qrRef.current.querySelector('svg');
+    if (!svg) return;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+
+    img.onload = () => {
+      canvas.width = 300;
+      canvas.height = 300;
+      if (ctx) {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, 300, 300);
+        const pngFile = canvas.toDataURL('image/png');
+        const downloadLink = document.createElement('a');
+        downloadLink.download = `검사코드_${assessment.code}.png`;
+        downloadLink.href = pngFile;
+        downloadLink.click();
+      }
+    };
+
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
   const formatDate = (date: Date): string => {
@@ -55,31 +107,63 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
           </p>
         </div>
 
-        {/* 코드 표시 */}
+        {/* QR 코드 */}
         <div className="bg-gradient-to-br from-primary-50 to-indigo-50 rounded-xl p-6 text-center border border-primary-100">
-          <div className="w-16 h-16 rounded-full bg-white shadow-md flex items-center justify-center mx-auto mb-4">
-            <QrCode className="w-8 h-8 text-primary-500" />
+          <div ref={qrRef} className="bg-white rounded-lg p-4 inline-block mb-4 shadow-sm">
+            <QRCodeSVG
+              value={examUrl}
+              size={180}
+              level="H"
+              includeMargin
+            />
           </div>
-          <p className="text-4xl font-mono font-bold text-primary-600 tracking-widest mb-4">
+          <p className="text-3xl font-mono font-bold text-primary-600 tracking-widest mb-2">
             {assessment.code}
           </p>
-          <Button
-            onClick={handleCopy}
-            variant={copied ? 'primary' : 'secondary'}
-            className="w-full justify-center"
-          >
-            {copied ? (
-              <>
-                <Check className="w-4 h-4 mr-2" />
-                복사됨!
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4 mr-2" />
-                코드 복사하기
-              </>
-            )}
-          </Button>
+          <p className="text-xs text-gray-500 mb-4 break-all">{examUrl}</p>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleCopy}
+              variant={copied ? 'primary' : 'secondary'}
+              className="flex-1 justify-center"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  복사됨!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 mr-2" />
+                  코드 복사
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleCopyUrl}
+              variant={copiedUrl ? 'primary' : 'secondary'}
+              className="flex-1 justify-center"
+            >
+              {copiedUrl ? (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  복사됨!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 mr-2" />
+                  URL 복사
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleDownloadQR}
+              variant="secondary"
+              className="justify-center"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         {/* 안내 */}
