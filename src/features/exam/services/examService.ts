@@ -1,41 +1,21 @@
-import type { ExamQuestion, ExamAPIResponse, QuestionsResponseData, SubmitResponseData } from '../types';
+/**
+ * 학생용 검사 응시 API 서비스
+ *
+ * API 문서: docs/api-endpoints.md
+ * 엔드포인트: /etc/meta/st/* (학생용)
+ */
+
+import { apiRequest, mockDelay, isApiMode } from '@/shared/services/apiClient';
+import type {
+  ExamQuestion,
+  QuestionsResponseData,
+  SubmitResponseData,
+  StudentExamItem,
+  StudentExamListResponse,
+} from '../types';
 
 // ============================================================
-// API 서비스 설정
-// ============================================================
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-const USE_API = import.meta.env.VITE_USE_API === 'true';
-
-/** API 요청 함수 (학생용 - 인증 불필요) */
-async function examApiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<ExamAPIResponse<T>> {
-  const url = `${API_BASE}${endpoint}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`API 요청 실패: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-
-  if (!data.success) {
-    throw new Error(data.resultMessage || 'API 요청 실패');
-  }
-
-  return data;
-}
-
-// ============================================================
-// Mock 데이터 (API 비활성화 시 사용)
+// Mock 데이터
 // ============================================================
 
 const MOCK_QUESTIONS: ExamQuestion[] = [
@@ -63,21 +43,16 @@ const MOCK_QUESTIONS: ExamQuestion[] = [
 
 /** 125문항 생성 (Mock) */
 const generateMockQuestions = (): ExamQuestion[] => {
-  const questions: ExamQuestion[] = [];
-  for (let i = 0; i < 125; i++) {
-    const templateIndex = i % MOCK_QUESTIONS.length;
-    questions.push({
-      ...MOCK_QUESTIONS[templateIndex],
-      NO: i + 1,
-    });
-  }
-  return questions;
+  return Array.from({ length: 125 }, (_, i) => ({
+    ...MOCK_QUESTIONS[i % MOCK_QUESTIONS.length],
+    NO: i + 1,
+  }));
 };
 
 const ALL_MOCK_QUESTIONS = generateMockQuestions();
 
 // ============================================================
-// API 함수
+// 학생 검사 API
 // ============================================================
 
 export interface FetchQuestionsResponse {
@@ -89,6 +64,42 @@ export interface FetchQuestionsResponse {
 }
 
 /**
+ * 학생 검사 목록 조회
+ * GET /etc/meta/st/info
+ */
+export async function fetchStudentExamList(
+  claId: string,
+  stdtId: string
+): Promise<StudentExamItem[]> {
+  if (!isApiMode()) {
+    await mockDelay(300);
+    return [{
+      dgnssId: 1000,
+      dgnssResultId: 100001,
+      paperIdx: '1',
+      ordNo: 1,
+      dgnssAt: 'Y',
+      submAt: 'N',
+      submDt: null,
+      eakAt: 'N',
+    }];
+  }
+
+  const response = await apiRequest<StudentExamListResponse>(
+    `/etc/meta/st/info?claId=${claId}&stdtId=${stdtId}`
+  );
+  return response.resultData;
+}
+
+/**
+ * 진행 중인 검사 찾기
+ * 진행 중(dgnssAt=Y)이고 미제출(submAt=N)인 검사
+ */
+export function findActiveExam(exams: StudentExamItem[]): StudentExamItem | null {
+  return exams.find(e => e.dgnssAt === 'Y' && e.submAt === 'N') ?? null;
+}
+
+/**
  * 문항 조회 (페이지네이션)
  * GET /etc/meta/stnt/start/update
  */
@@ -97,24 +108,21 @@ export async function fetchQuestions(
   page: number = 0,
   size: number = 20
 ): Promise<FetchQuestionsResponse> {
-  if (!USE_API) {
-    // Mock API 호출 시뮬레이션
-    await new Promise(resolve => setTimeout(resolve, 500));
-
+  if (!isApiMode()) {
+    await mockDelay(500);
     const start = page * size;
     const end = Math.min(start + size, ALL_MOCK_QUESTIONS.length);
-    const questions = ALL_MOCK_QUESTIONS.slice(start, end);
 
     return {
       omrIdx: 23503,
-      questions,
+      questions: ALL_MOCK_QUESTIONS.slice(start, end),
       totalPages: Math.ceil(ALL_MOCK_QUESTIONS.length / size),
       totalQuestions: ALL_MOCK_QUESTIONS.length,
       answeredCount: 0,
     };
   }
 
-  const response = await examApiRequest<QuestionsResponseData>(
+  const response = await apiRequest<QuestionsResponseData>(
     `/etc/meta/stnt/start/update?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
   );
 
@@ -136,21 +144,15 @@ export async function saveAnswer(
   questionNo: number,
   answer: string
 ): Promise<boolean> {
-  if (!USE_API) {
-    // Mock API 호출 시뮬레이션
-    await new Promise(resolve => setTimeout(resolve, 100));
-    console.log(`[Mock] Saved answer: omrIdx=${omrIdx}, no=${questionNo}, answer=${answer}`);
+  if (!isApiMode()) {
+    await mockDelay(100);
     return true;
   }
 
-  const response = await examApiRequest<null>(
-    '/etc/meta/stnt/answer/save',
-    {
-      method: 'POST',
-      body: JSON.stringify({ omrIdx, no: questionNo, answer }),
-    }
-  );
-
+  const response = await apiRequest<null>('/etc/meta/stnt/answer/save', {
+    method: 'POST',
+    body: JSON.stringify({ omrIdx, no: questionNo, answer }),
+  });
   return response.success;
 }
 
@@ -159,105 +161,156 @@ export async function saveAnswer(
  * POST /etc/meta/st/submit
  */
 export async function submitExam(
-  dgnssResultId: number
+  dgnssResultId: number,
+  paperIdx: string = '1'
 ): Promise<boolean> {
-  if (!USE_API) {
-    // Mock API 호출 시뮬레이션
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log(`[Mock] Submitted exam: dgnssResultId=${dgnssResultId}`);
+  if (!isApiMode()) {
+    await mockDelay(1000);
     return true;
   }
 
-  const response = await examApiRequest<SubmitResponseData>(
-    '/etc/meta/st/submit',
-    {
-      method: 'POST',
-      body: JSON.stringify({ dgnssResultId }),
-    }
-  );
-
+  const response = await apiRequest<SubmitResponseData>('/etc/meta/st/submit', {
+    method: 'POST',
+    body: JSON.stringify({ dgnssResultId, paperIdx }),
+  });
   return response.resultData.submit;
 }
 
 /**
- * QR 코드 형식: {dgnssId}-{studentCount}
- * 예: 1672-10
- * - dgnssId: 검사 ID (학급 단위, /tc/start API에서 반환)
- * - studentCount: 총 학생 수
- *
- * 학생이 번호를 입력하면 백엔드 API로 dgnssResultId를 조회
+ * 검사 새로하기 (답안 초기화)
+ * GET /etc/meta/st/new
  */
+export async function resetExam(
+  dgnssResultId: number,
+  page: number = 0,
+  size: number = 20
+): Promise<FetchQuestionsResponse> {
+  if (!isApiMode()) {
+    await mockDelay(500);
+    const start = page * size;
+    const end = Math.min(start + size, ALL_MOCK_QUESTIONS.length);
+
+    return {
+      omrIdx: 23504,
+      questions: ALL_MOCK_QUESTIONS.slice(start, end).map(q => ({ ...q, answer: '' })),
+      totalPages: Math.ceil(ALL_MOCK_QUESTIONS.length / size),
+      totalQuestions: ALL_MOCK_QUESTIONS.length,
+      answeredCount: 0,
+    };
+  }
+
+  const response = await apiRequest<QuestionsResponseData>(
+    `/etc/meta/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
+  );
+
+  return {
+    omrIdx: response.resultData.omrIdx,
+    questions: response.resultData.dgnssQuesList,
+    totalPages: response.resultData.page.totalPages,
+    totalQuestions: response.resultData.page.totalElements,
+    answeredCount: response.resultData.stAnsCnt,
+  };
+}
+
+// ============================================================
+// 검사 코드 매핑 (QR 코드 ↔ claId)
+// ============================================================
+
+const STORAGE_KEY = 'exam_code_map';
+const examCodeMap = new Map<string, string>();
+
+// localStorage에서 복원
+try {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    const entries = JSON.parse(stored) as [string, string][];
+    entries.forEach(([code, claId]) => examCodeMap.set(code, claId));
+  }
+} catch {
+  // ignore
+}
+
+function saveExamCodeMap(): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...examCodeMap.entries()]));
+  } catch {
+    // ignore
+  }
+}
+
+/** 검사 코드 등록 (교사용) */
+export function registerExamCode(numericCode: string, claId: string): void {
+  examCodeMap.set(numericCode, claId);
+  saveExamCodeMap();
+}
+
+/** 숫자 코드로 claId 조회 */
+export function getClaIdByCode(numericCode: string): string | null {
+  return examCodeMap.get(numericCode) ?? null;
+}
+
+// ============================================================
+// 검사 코드 검증
+// ============================================================
+
 export interface ExamCodeData {
-  dgnssId: number;
-  studentCount: number;
+  code: string;
+  claId?: string;
 }
 
-/**
- * QR 코드 파싱
- * 형식: {dgnssId}-{studentCount}
- */
+/** QR 코드 파싱 */
 export function parseExamCode(code: string): ExamCodeData | null {
-  const parts = code.split('-');
-  if (parts.length !== 2) return null;
+  const trimmed = code.trim();
 
-  const dgnssId = parseInt(parts[0], 10);
-  const studentCount = parseInt(parts[1], 10);
-
-  if (isNaN(dgnssId) || isNaN(studentCount)) {
+  // 숫자만 허용 (4자리 이상)
+  if (!/^\d{4,}$/.test(trimmed)) {
     return null;
   }
 
-  if (dgnssId <= 0 || studentCount <= 0) {
-    return null;
+  if (!isApiMode()) {
+    return { code: trimmed };
   }
 
-  return { dgnssId, studentCount };
+  const claId = getClaIdByCode(trimmed);
+  return claId ? { code: trimmed, claId } : null;
 }
 
-/**
- * 검사 코드 검증
- * QR 코드 형식: {dgnssId}-{studentCount}
- */
+/** 검사 코드 검증 */
 export async function validateExamCode(code: string): Promise<{
   valid: boolean;
   name?: string;
-  grade?: number;
-  classNumber?: number;
-  round?: number;
-  dgnssId?: number;
-  studentCount?: number;
+  examCode?: string;
+  claId?: string;
 }> {
-  // QR 코드 파싱
   const parsed = parseExamCode(code);
 
   if (!parsed) {
     return { valid: false };
   }
 
-  // 파싱 성공 시 유효
   return {
     valid: true,
     name: '학습심리정서검사',
-    dgnssId: parsed.dgnssId,
-    studentCount: parsed.studentCount,
+    examCode: parsed.code,
+    claId: parsed.claId,
   };
 }
 
-/**
- * 학생 번호로 dgnssResultId 조회
- * Mock: dgnssId * 100 + studentNumber
- */
-export async function getStudentDgnssResultId(
-  dgnssId: number,
-  studentCount: number,
-  studentNumber: number
-): Promise<{
-  dgnssResultId: number;
-} | null> {
-  if (studentNumber < 1 || studentNumber > studentCount) {
+/** 학생 검사 정보 조회 */
+export async function getStudentExamInfo(
+  claIdOrCode: string,
+  stdtId: string
+): Promise<{ dgnssResultId: number; dgnssId: number; ordNo: number } | null> {
+  const exams = await fetchStudentExamList(claIdOrCode, stdtId);
+  const activeExam = findActiveExam(exams);
+
+  if (!activeExam) {
     return null;
   }
 
-  // Mock: 간단한 계산으로 dgnssResultId 생성
-  return { dgnssResultId: dgnssId * 100 + studentNumber };
+  return {
+    dgnssResultId: activeExam.dgnssResultId,
+    dgnssId: activeExam.dgnssId,
+    ordNo: activeExam.ordNo,
+  };
 }
