@@ -268,9 +268,10 @@ export interface ManagedAssessment {
   completedCount: number;
   round: 1 | 2;
   startDate: Date;
-  endDate: Date;
+  endDate?: Date;               // 종료일 (API에서는 null일 수 있음)
   createdAt: Date;
   ownerId: string;
+  isActive?: boolean;           // 진행 중 여부 (dgnssAt === 'Y')
 }
 
 export interface CreateAssessmentInput {

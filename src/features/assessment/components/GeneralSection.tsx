@@ -8,6 +8,8 @@ interface GeneralSectionProps {
   onCreateClick: () => void;
   onUploadClick: () => void;
   onViewCode: (assessment: ManagedAssessment) => void;
+  onEndExam?: (assessment: ManagedAssessment) => void;
+  onCancelExam?: (assessment: ManagedAssessment) => void;
 }
 
 export const GeneralSection: React.FC<GeneralSectionProps> = ({
@@ -15,6 +17,8 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
   onCreateClick,
   onUploadClick,
   onViewCode,
+  onEndExam,
+  onCancelExam,
 }) => {
   return (
     <div className="space-y-6">
@@ -47,7 +51,12 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
           <span className="text-sm text-gray-500">{assessments.length}개</span>
         </div>
         {assessments.length > 0 ? (
-          <AssessmentList assessments={assessments} onViewCode={onViewCode} />
+          <AssessmentList
+            assessments={assessments}
+            onViewCode={onViewCode}
+            onEndExam={onEndExam}
+            onCancelExam={onCancelExam}
+          />
         ) : (
           <div className="p-8 text-center">
             <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">

@@ -7,10 +7,12 @@ import {
   fetchQuestions,
   saveAnswer,
   submitExam,
-  getStudentDgnssResultId,
+  getStudentExamInfo,
+  resetExam,
 } from '../services/examService';
 import {
-  NumberEntryStep,
+  StudentIdEntryStep,
+  ResumeChoiceStep,
   ExamGuideStep,
   ExamQuestionStep,
   ExamCompleteStep,
@@ -18,8 +20,8 @@ import {
 
 interface ExamInfo {
   name: string;
-  dgnssId: number;           // 검사 ID (학급 단위)
-  studentCount: number;      // 총 학생 수
+  examCode: string;  // 항상 숫자 코드
+  claId?: string;    // API 모드에서 사용
 }
 
 export const ExamPage: React.FC = () => {
@@ -31,6 +33,7 @@ export const ExamPage: React.FC = () => {
   const [examInfo, setExamInfo] = useState<ExamInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [savingQuestionNo, setSavingQuestionNo] = useState<number | null>(null);
+  const [pendingAnsweredCount, setPendingAnsweredCount] = useState(0);
 
   const {
     state,
@@ -45,8 +48,7 @@ export const ExamPage: React.FC = () => {
   } = useExamState();
 
   // QR 코드 검증
-  // 형식: {dgnssId}-{baseDgnssResultId}-{studentCount}
-  // 예: 1573-18176-28
+  // 형식: 4자리 숫자 코드 (내부적으로 claId 매핑)
   useEffect(() => {
     const validate = async () => {
       if (!code) {
@@ -56,12 +58,12 @@ export const ExamPage: React.FC = () => {
 
       try {
         const result = await validateExamCode(code);
-        if (result.valid && result.dgnssId && result.studentCount) {
+        if (result.valid && result.examCode) {
           setIsValid(true);
           setExamInfo({
             name: result.name || '학습심리정서검사',
-            dgnssId: result.dgnssId,
-            studentCount: result.studentCount,
+            examCode: result.examCode,
+            claId: result.claId,
           });
         } else {
           setIsValid(false);
@@ -76,23 +78,21 @@ export const ExamPage: React.FC = () => {
     validate();
   }, [code, navigate]);
 
-  // 번호 입력 후 dgnssResultId 조회 및 문항 로드
-  const handleNumberSubmit = useCallback(async (studentNumber: number) => {
+  // 학생 ID 입력 후 dgnssResultId 조회 및 문항 로드
+  const handleStudentIdSubmit = useCallback(async (stdtId: string) => {
     if (!examInfo) return;
 
     setIsLoading(true);
     try {
-      // 학생 번호로 dgnssResultId 조회 (백엔드 API 호출)
-      const studentResult = await getStudentDgnssResultId(
-        examInfo.dgnssId,
-        examInfo.studentCount,
-        studentNumber
-      );
-      if (!studentResult) {
-        throw new Error('유효하지 않은 학생 번호입니다.');
+      // 학생 ID로 검사 정보 조회 (/stnt/list API)
+      // API 모드: claId 사용, Mock 모드: 숫자 코드 사용
+      const claIdOrCode = examInfo.claId || examInfo.examCode;
+      const examResult = await getStudentExamInfo(claIdOrCode, stdtId);
+      if (!examResult) {
+        throw new Error('진행 중인 검사가 없습니다.');
       }
 
-      const { dgnssResultId } = studentResult;
+      const { dgnssResultId } = examResult;
       setDgnssResultId(dgnssResultId);
 
       // 문항 로드
@@ -108,12 +108,47 @@ export const ExamPage: React.FC = () => {
 
       loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
       loadExistingAnswers(existingAnswers);
+
+      // stdtId에서 번호 추출 (예: engreal51-s3 → 3)
+      const numberMatch = stdtId.match(/s(\d+)$/);
+      const studentNumber = numberMatch ? parseInt(numberMatch[1], 10) : 0;
       setStudentNumber(studentNumber);
-      setStep('guide');
+
+      // 기존 응답이 있으면 이어하기/새로하기 선택 화면으로
+      if (result.answeredCount > 0) {
+        setPendingAnsweredCount(result.answeredCount);
+        setStep('resume-choice');
+      } else {
+        setStep('guide');
+      }
     } finally {
       setIsLoading(false);
     }
   }, [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep]);
+
+  // 이어하기: 기존 응답 유지하고 검사 계속
+  const handleResume = useCallback(() => {
+    setStep('guide');
+  }, [setStep]);
+
+  // 새로하기: 기존 응답 초기화
+  const handleRestart = useCallback(async () => {
+    if (!state.dgnssResultId) return;
+
+    setIsLoading(true);
+    try {
+      // 답변 초기화 API 호출
+      const result = await resetExam(state.dgnssResultId, 0, 20);
+
+      // 초기화된 문항 로드
+      loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+      loadExistingAnswers({});
+      setPendingAnsweredCount(0);
+      setStep('guide');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [state.dgnssResultId, loadQuestions, loadExistingAnswers, setStep]);
 
   // 검사 시작 (안내 → 문항)
   const handleStartExam = useCallback(async () => {
@@ -269,10 +304,21 @@ export const ExamPage: React.FC = () => {
   switch (state.step) {
     case 'number':
       return (
-        <NumberEntryStep
+        <StudentIdEntryStep
           examName={examInfo.name}
-          maxStudentNumber={examInfo.studentCount}
-          onSubmit={handleNumberSubmit}
+          onSubmit={handleStudentIdSubmit}
+          isLoading={isLoading}
+        />
+      );
+
+    case 'resume-choice':
+      return (
+        <ResumeChoiceStep
+          examName={examInfo.name}
+          answeredCount={pendingAnsweredCount}
+          totalQuestions={state.totalQuestions}
+          onResume={handleResume}
+          onRestart={handleRestart}
           isLoading={isLoading}
         />
       );
