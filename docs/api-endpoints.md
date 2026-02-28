@@ -254,10 +254,13 @@ GET /etc/meta/tc/detail
 ### 1-7. 미제출 학생 목록
 
 ```
-GET /etc/meta/tc/notsubm/list
+GET /etc/meta/tc/notsubm
 ```
 
-> `/etc/meta/tc/notsubm`도 동일 동작하지만 `/etc/meta/tc/notsubm/list` 사용 권장
+> ⚠️ **실제 테스트 결과 (2026-03-01)**:
+> - `/etc/meta/tc/notsubm/list` → ❌ 404 에러
+> - `/etc/meta/tc/notsubm` → ✅ 동작
+> - **현재 사용 엔드포인트**: `/etc/meta/tc/notsubm`
 
 **Request (Query Params)**
 | 파라미터 | 타입 | 필수 | 설명 |
@@ -473,10 +476,13 @@ GET /etc/meta/stnt/list
 ### 2-2. 검사 시작 (문항 로드)
 
 ```
-GET /etc/meta/stnt/start/update
+GET /etc/meta/st/start
 ```
 
-> `/etc/meta/st/start`도 동일 동작하지만 `/etc/meta/stnt/start/update` 사용 권장
+> ⚠️ **실제 테스트 결과 (2026-02-28)**:
+> - `/etc/meta/stnt/start/update` → ❌ 404
+> - `/etc/meta/st/start` → ✅ 동작
+> - **현재 사용 엔드포인트**: `/etc/meta/st/start`
 
 **Request (Query Params)**
 | 파라미터 | 타입 | 필수 | 설명 |
@@ -532,10 +538,13 @@ GET /etc/meta/st/new
 ### 2-4. 답안 저장
 
 ```
-POST /etc/meta/stnt/answer/save
+POST /etc/meta/st/answer
 ```
 
-> `/etc/meta/st/answer`도 동일 동작하지만 `/etc/meta/stnt/answer/save` 사용 권장
+> ⚠️ **실제 테스트 결과 (2026-02-28)**:
+> - `/etc/meta/stnt/answer/save` → ❌ 404
+> - `/etc/meta/st/answer` → ✅ 동작
+> - **현재 사용 엔드포인트**: `/etc/meta/st/answer`
 
 **Request (Body - JSON)**
 ```json
@@ -739,18 +748,24 @@ POST /etc/meta/summary/pdf
 |-----------|----------|----------|----------|------|
 | `/etc/meta/tc/info` | 구버전 | ✅ 동작 | 교사용 JWT | **실제 사용** |
 | `/etc/meta/tc/list` | 신버전 | ❌ 404 | 교사용 JWT | 문서와 다름 |
+| `/etc/meta/tc/notsubm` | 구버전 | ✅ 동작 | 교사용 JWT | **실제 사용** |
+| `/etc/meta/tc/notsubm/list` | 신버전 | ❌ 404 | 교사용 JWT | 문서와 다름 |
 | `/etc/meta/stnt/list` | 신버전 | ❌ 404 | 교사용 JWT | 사용 불가 |
 | `/etc/meta/st/info` | 구버전 | ✅ 200 (빈 배열) | 교사용 JWT | **실제 사용**, 학생 할당 필요 |
+| `/etc/meta/stnt/start/update` | 신버전 | ❌ 404 | - | 사용 불가 |
+| `/etc/meta/st/start` | 구버전 | ✅ 동작 | - | **실제 사용** |
+| `/etc/meta/stnt/answer/save` | 신버전 | ❌ 404 | - | 사용 불가 |
+| `/etc/meta/st/answer` | 구버전 | ✅ 동작 | - | **실제 사용** |
 
 ### 문서 기준 매핑 (참고용)
 
-| 문서 권장 엔드포인트 | 구버전 | 비고 |
-|---------------------|------|------|
-| `/etc/meta/tc/list` | `/etc/meta/tc/info` | 교사 검사 목록 |
-| `/etc/meta/tc/notsubm/list` | `/etc/meta/tc/notsubm` | 미제출 목록 |
-| `/etc/meta/stnt/list` | `/etc/meta/st/info` | 학생 검사 목록 |
-| `/etc/meta/stnt/start/update` | `/etc/meta/st/start` | 학생 검사 시작 |
-| `/etc/meta/stnt/answer/save` | `/etc/meta/st/answer` | 답안 저장 |
+| 문서 권장 엔드포인트 | 구버전 | 실제 동작 | 비고 |
+|---------------------|------|----------|------|
+| `/etc/meta/tc/list` | `/etc/meta/tc/info` | ✅ 구버전 | 교사 검사 목록 |
+| `/etc/meta/tc/notsubm/list` | `/etc/meta/tc/notsubm` | ✅ 구버전 | 미제출 목록 |
+| `/etc/meta/stnt/list` | `/etc/meta/st/info` | ✅ 구버전 | 학생 검사 목록 |
+| `/etc/meta/stnt/start/update` | `/etc/meta/st/start` | ✅ 구버전 | 학생 검사 시작 |
+| `/etc/meta/stnt/answer/save` | `/etc/meta/st/answer` | ✅ 구버전 | 답안 저장 |
 
 ---
 
@@ -763,9 +778,9 @@ POST /etc/meta/summary/pdf
          ├→ [학생 목록 조회] /etc/meta/stnt/list
          │     └→ dgnssResultId (학생별 결과 ID) 획득
          │          │
-         │          ├→ [검사 시작] /etc/meta/stnt/start/update
+         │          ├→ [검사 시작] /etc/meta/st/start
          │          │     └→ omrIdx (OMR 인덱스) 발급
-         │          │          └→ [답안 저장] /etc/meta/stnt/answer/save  (omrIdx + no + answer)
+         │          │          └→ [답안 저장] /etc/meta/st/answer  (omrIdx + no + answer)
          │          │
          │          ├→ [제출] /etc/meta/st/submit  (dgnssResultId)
          │          │
@@ -922,8 +937,8 @@ DEPTH 5 = 소분류
 | 기능 | API |
 |------|-----|
 | 검사 목록 조회 (dgnssResultId 획득) | `GET /etc/meta/stnt/list` |
-| 문항 로드 | `GET /etc/meta/stnt/start/update` |
-| 답안 저장 | `POST /etc/meta/stnt/answer/save` |
+| 문항 로드 | `GET /etc/meta/st/start` |
+| 답안 저장 | `POST /etc/meta/st/answer` |
 | 답안 초기화 | `GET /etc/meta/st/new` |
 | 검사 제출 | `POST /etc/meta/st/submit` |
 

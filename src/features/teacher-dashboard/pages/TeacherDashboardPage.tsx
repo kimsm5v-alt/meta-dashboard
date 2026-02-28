@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Users, AlertTriangle, TrendingUp, Loader2 } from 'lucide-react';
 import { Card } from '@/shared/components';
 import { useData } from '@/shared/contexts/DataContext';
+import { useTeacherClasses, useApiConfig } from '@/shared/hooks/useApiData';
 import { TYPE_COLORS, TYPE_COLOR_CLASSES } from '@/shared/data/lpaProfiles';
 import { CategoryComparisonChart, TypeDistributionChart } from '../components';
 import type { Class } from '@/shared/types';
@@ -23,8 +24,75 @@ const getSortedTypeDistribution = (cls: Class) => {
 
 export const TeacherDashboardPage = () => {
   const navigate = useNavigate();
-  const { classes, teacher } = useData();
+  const { teacher } = useData();
+  const { isApiMode } = useApiConfig();
+  const { classes, isLoading, error, examStatus } = useTeacherClasses();
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+
+  // API 모드 로딩 상태
+  if (isApiMode && isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-primary-500 animate-spin mx-auto mb-2" />
+          <p className="text-gray-500">학급 데이터를 불러오는 중...</p>
+          <p className="text-gray-400 text-sm mt-1">API 연결 확인 중</p>
+        </div>
+      </div>
+    );
+  }
+
+  // API 에러 상태
+  if (isApiMode && error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+          <p className="text-gray-500">데이터 로드 실패: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // API 모드: 검사가 모두 진행중인 경우
+  if (isApiMode && examStatus === 'in-progress') {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Loader2 className="w-8 h-8 text-blue-500" />
+          </div>
+          <p className="text-lg font-medium text-gray-700 mb-2">검사가 진행 중이에요</p>
+          <p className="text-gray-500">검사가 종료된 후 결과를 확인할 수 있습니다.</p>
+          <p className="text-gray-400 text-sm mt-1">[검사하기] 메뉴에서 검사를 종료해 주세요.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // API 모드: 검사가 없는 경우
+  if (isApiMode && examStatus === 'no-exams') {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-gray-500">등록된 검사가 없습니다.</p>
+          <p className="text-gray-400 text-sm mt-1">[검사하기] 메뉴에서 검사를 생성해 주세요.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 데이터 없음 (Mock 모드)
+  if (classes.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-gray-500">등록된 학급이 없습니다.</p>
+          <p className="text-gray-400 text-sm mt-1">데이터를 업로드하거나 API 설정을 확인해주세요.</p>
+        </div>
+      </div>
+    );
+  }
 
   const totalStats = {
     totalStudents: classes.reduce((sum, c) => sum + (c.stats?.totalStudents || 0), 0),

@@ -34,6 +34,7 @@ export const ExamPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [savingQuestionNo, setSavingQuestionNo] = useState<number | null>(null);
   const [pendingAnsweredCount, setPendingAnsweredCount] = useState(0);
+  const [isRestartMode, setIsRestartMode] = useState(false);
 
   const {
     state,
@@ -41,10 +42,9 @@ export const ExamPage: React.FC = () => {
     setStudentNumber,
     setDgnssResultId,
     setAnswer,
+    setCurrentPage,
     loadQuestions,
     loadExistingAnswers,
-    nextPage,
-    prevPage,
   } = useExamState();
 
   // QR 코드 검증
@@ -128,27 +128,17 @@ export const ExamPage: React.FC = () => {
 
   // 이어하기: 기존 응답 유지하고 검사 계속
   const handleResume = useCallback(() => {
+    setIsRestartMode(false);
     setStep('guide');
   }, [setStep]);
 
-  // 새로하기: 기존 응답 초기화
-  const handleRestart = useCallback(async () => {
-    if (!state.dgnssResultId) return;
-
-    setIsLoading(true);
-    try {
-      // 답변 초기화 API 호출
-      const result = await resetExam(state.dgnssResultId, 0, 20);
-
-      // 초기화된 문항 로드
-      loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
-      loadExistingAnswers({});
-      setPendingAnsweredCount(0);
-      setStep('guide');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [state.dgnssResultId, loadQuestions, loadExistingAnswers, setStep]);
+  // 새로하기: 가이드 페이지로 이동 (실제 초기화는 검사 시작 시)
+  const handleRestart = useCallback(() => {
+    setIsRestartMode(true);
+    loadExistingAnswers({});
+    setPendingAnsweredCount(0);
+    setStep('guide');
+  }, [loadExistingAnswers, setStep]);
 
   // 검사 시작 (안내 → 문항)
   const handleStartExam = useCallback(async () => {
@@ -156,24 +146,31 @@ export const ExamPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // 첫 페이지 문항 로드
-      const result = await fetchQuestions(state.dgnssResultId, 0, 20);
+      // 새로하기 모드면 resetExam(/st/new), 아니면 fetchQuestions(/st/start)
+      const result = isRestartMode
+        ? await resetExam(state.dgnssResultId, 0, 20)
+        : await fetchQuestions(state.dgnssResultId, 0, 20);
+
       loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
 
-      // 기존 답변 로드
+      // 기존 답변 로드 (새로하기 모드면 빈 객체)
       const existingAnswers: Record<number, string> = {};
-      result.questions.forEach((q) => {
-        if (q.answer) {
-          existingAnswers[q.NO] = q.answer;
-        }
-      });
+      if (!isRestartMode) {
+        result.questions.forEach((q) => {
+          if (q.answer) {
+            existingAnswers[q.NO] = q.answer;
+          }
+        });
+      }
       loadExistingAnswers(existingAnswers);
 
+      // 새로하기 모드 초기화
+      setIsRestartMode(false);
       setStep('questions');
     } finally {
       setIsLoading(false);
     }
-  }, [state.dgnssResultId, loadQuestions, loadExistingAnswers, setStep]);
+  }, [state.dgnssResultId, isRestartMode, loadQuestions, loadExistingAnswers, setStep]);
 
   // 답변 저장
   const handleAnswer = useCallback(async (questionNo: number, answer: string) => {
@@ -212,12 +209,13 @@ export const ExamPage: React.FC = () => {
       });
       loadExistingAnswers(existingAnswers);
 
-      nextPage();
+      // currentPage를 nextPageIndex로 직접 설정
+      setCurrentPage(nextPageIndex);
       window.scrollTo(0, 0);
     } finally {
       setIsLoading(false);
     }
-  }, [state, loadQuestions, loadExistingAnswers, nextPage]);
+  }, [state, loadQuestions, loadExistingAnswers, setCurrentPage]);
 
   // 이전 페이지
   const handlePrevPage = useCallback(async () => {
@@ -231,12 +229,13 @@ export const ExamPage: React.FC = () => {
       const result = await fetchQuestions(state.dgnssResultId, prevPageIndex, 20);
       loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
 
-      prevPage();
+      // currentPage를 prevPageIndex로 직접 설정
+      setCurrentPage(prevPageIndex);
       window.scrollTo(0, 0);
     } finally {
       setIsLoading(false);
     }
-  }, [state.dgnssResultId, state.currentPage, loadQuestions, prevPage]);
+  }, [state.dgnssResultId, state.currentPage, loadQuestions, setCurrentPage]);
 
   // 검사 제출
   const handleSubmit = useCallback(async () => {
@@ -334,12 +333,14 @@ export const ExamPage: React.FC = () => {
       );
 
     case 'questions':
+      // 실제 응답 수 계산 (빈 문자열 제외)
+      const actualAnsweredCount = Object.values(state.answers).filter(v => v !== '').length;
       return (
         <ExamQuestionStep
           questions={state.questions}
           currentPage={state.currentPage}
           totalPages={state.totalPages}
-          answeredCount={Object.keys(state.answers).length}
+          answeredCount={actualAnsweredCount}
           totalQuestions={state.totalQuestions}
           answers={state.answers}
           savingQuestionNo={savingQuestionNo}

@@ -41,6 +41,11 @@ export interface ClassStats {
   round2Completed: boolean;
   examStatus: ExamPeriodStatus;
   round2SubmittedCount: number;
+  /** API 검사 ID (회차별) - L2 대시보드 API 호출에 필요 */
+  dgnssIds?: {
+    round1?: number;
+    round2?: number;
+  };
 }
 
 export interface TypeDistribution {

@@ -37,13 +37,13 @@ const MOCK_QUESTIONS: ExamQuestion[] = [
   { NO: 16, QESITM_NM: '나는 공부를 아무리 열심히 해도 성적이 안 나온다.', answer: '', fullCount: 125 },
   { NO: 17, QESITM_NM: '나는 부모님(보호자)이 공부를 많이 하는 다른 사람과 비교해서 우울하다.', answer: '', fullCount: 125 },
   { NO: 18, QESITM_NM: '나는 공부를 시작하면 바로 집중하는 편이다.', answer: '', fullCount: 125 },
-  { NO: 19, QESITM_NM: '나는 공부에 대한 부담 때문에 완전히 지쳐 있다.', answer: '', fullCount: 125 },
-  { NO: 20, QESITM_NM: '나는 내 자신에 대해 항상 정직하다.', answer: '', fullCount: 125 },
+  { NO: 19, QESITM_NM: '나는 공부에 대한 부담 때문에 완전히 지쳐 있다.', answer: '', fullCount: 124 },
+  { NO: 20, QESITM_NM: '나는 내 자신에 대해 항상 정직하다.', answer: '', fullCount: 124 },
 ];
 
-/** 125문항 생성 (Mock) */
+/** 124문항 생성 (Mock) */
 const generateMockQuestions = (): ExamQuestion[] => {
-  return Array.from({ length: 125 }, (_, i) => ({
+  return Array.from({ length: 124 }, (_, i) => ({
     ...MOCK_QUESTIONS[i % MOCK_QUESTIONS.length],
     NO: i + 1,
   }));
@@ -123,7 +123,7 @@ export async function fetchQuestions(
   }
 
   const response = await apiRequest<QuestionsResponseData>(
-    `/etc/meta/stnt/start/update?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
+    `/etc/meta/st/start?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
   );
 
   return {
@@ -137,7 +137,7 @@ export async function fetchQuestions(
 
 /**
  * 답변 저장
- * POST /etc/meta/stnt/answer/save
+ * POST /etc/meta/st/answer
  */
 export async function saveAnswer(
   omrIdx: number,
@@ -149,7 +149,7 @@ export async function saveAnswer(
     return true;
   }
 
-  const response = await apiRequest<null>('/etc/meta/stnt/answer/save', {
+  const response = await apiRequest<null>('/etc/meta/st/answer', {
     method: 'POST',
     body: JSON.stringify({ omrIdx, no: questionNo, answer }),
   });
@@ -203,12 +203,20 @@ export async function resetExam(
     `/etc/meta/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
   );
 
+  const questions = response.resultData.dgnssQuesList;
+  // /st/new 응답에는 page 객체가 없을 수 있음 - fullCount에서 총 문항 수 추출
+  const totalQuestions = response.resultData.page?.totalElements
+    ?? questions[0]?.fullCount
+    ?? 124;
+  const totalPages = response.resultData.page?.totalPages
+    ?? Math.ceil(totalQuestions / size);
+
   return {
     omrIdx: response.resultData.omrIdx,
-    questions: response.resultData.dgnssQuesList,
-    totalPages: response.resultData.page.totalPages,
-    totalQuestions: response.resultData.page.totalElements,
-    answeredCount: response.resultData.stAnsCnt,
+    questions,
+    totalPages,
+    totalQuestions,
+    answeredCount: response.resultData.stAnsCnt ?? 0,
   };
 }
 

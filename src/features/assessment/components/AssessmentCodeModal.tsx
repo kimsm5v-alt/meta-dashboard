@@ -88,7 +88,8 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
-  const formatDate = (date: Date): string => {
+  const formatDate = (date: Date | undefined): string => {
+    if (!date) return '미정';
     return new Intl.DateTimeFormat('ko-KR', {
       year: 'numeric',
       month: 'long',

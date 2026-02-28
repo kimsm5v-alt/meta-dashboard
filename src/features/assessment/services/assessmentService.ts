@@ -128,8 +128,17 @@ export async function fetchExamList(
     endpoint += `&paperIdx=${paperIdx}`;
   }
 
-  const response = await apiRequest<ExamListResponse>(endpoint, { debug: true });
-  return response.resultData.dgnssInfo ?? [];
+  const response = await apiRequest<ExamListResponse | ExamListItem[]>(endpoint, { debug: true });
+
+  // API 응답 구조 처리: resultData가 배열이거나 { dgnssInfo: [...] } 형태일 수 있음
+  const resultData = response.resultData;
+  if (Array.isArray(resultData)) {
+    return resultData;
+  }
+  if (resultData && Array.isArray(resultData.dgnssInfo)) {
+    return resultData.dgnssInfo;
+  }
+  return [];
 }
 
 /**
@@ -213,4 +222,32 @@ export async function restartExam(
     `/etc/meta/tc/restart?dgnssId=${dgnssId}&claId=${claId}&grade=${grade}`,
     { debug: true }
   );
+}
+
+/** 미제출 학생 항목 */
+export interface NotSubmittedStudent {
+  stdtId: string;
+}
+
+/**
+ * 미제출 학생 목록 조회
+ * GET /etc/meta/tc/notsubm
+ */
+export async function fetchNotSubmittedStudents(
+  dgnssId: number
+): Promise<NotSubmittedStudent[]> {
+  if (!isApiMode()) {
+    await mockDelay(300);
+    return [
+      { stdtId: 'student-1' },
+      { stdtId: 'student-2' },
+      { stdtId: 'student-3' },
+    ];
+  }
+
+  const response = await apiRequest<NotSubmittedStudent[]>(
+    `/etc/meta/tc/notsubm?dgnssId=${dgnssId}`,
+    { debug: true }
+  );
+  return response.resultData ?? [];
 }

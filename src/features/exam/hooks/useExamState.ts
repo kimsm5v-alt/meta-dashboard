@@ -7,11 +7,11 @@ const initialState: ExamState = {
   dgnssResultId: null,
   currentPage: 0,
   answers: {},
-  totalQuestions: 125,
+  totalQuestions: 124,
   omrIdx: null,
   isSubmitting: false,
   questions: [],
-  totalPages: 7,
+  totalPages: 7,  // 124 / 20 = 6.2 → 7 페이지
   answeredCount: 0,
 };
 
@@ -79,8 +79,9 @@ export function useExamState() {
     setState(prev => ({
       ...prev,
       questions,
-      totalPages,
-      totalQuestions,
+      // 이미 유효한 값이 설정되어 있으면 유지 (페이지 이동 시 덮어쓰기 방지)
+      totalPages: prev.totalPages > 0 && totalPages > 0 ? Math.max(prev.totalPages, totalPages) : totalPages || prev.totalPages,
+      totalQuestions: prev.totalQuestions > 0 && totalQuestions > 0 ? Math.max(prev.totalQuestions, totalQuestions) : totalQuestions || prev.totalQuestions,
       omrIdx,
     }));
   }, []);
