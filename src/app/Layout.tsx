@@ -13,9 +13,10 @@ import {
   Calendar,
   PanelLeftClose,
   PanelLeft,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
-import { useData } from '@/shared/contexts/DataContext';
+import { useTeacherClasses } from '@/shared/hooks/useApiData';
 import serviceLogo from '@/assets/logo_2.png';
 
 interface LayoutProps {
@@ -91,8 +92,76 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { classes } = useData();
+  const { classes, isLoading, examStatus } = useTeacherClasses();
   const isActive = (path: string) => location.pathname.startsWith(path);
+
+  // 담당 학급 섹션 렌더링
+  const renderClassList = () => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+          {!isCollapsed && <span className="ml-2 text-xs text-gray-400">로딩 중...</span>}
+        </div>
+      );
+    }
+
+    if (examStatus === 'no-exams') {
+      if (isCollapsed) return null;
+      return (
+        <p className="px-3 py-2 text-xs text-gray-400">
+          생성된 검사가 없습니다
+        </p>
+      );
+    }
+
+    if (examStatus === 'in-progress') {
+      if (isCollapsed) return null;
+      return (
+        <p className="px-3 py-2 text-xs text-gray-400">
+          진행 중인 검사만 있습니다
+        </p>
+      );
+    }
+
+    if (classes.length === 0) {
+      if (isCollapsed) return null;
+      return (
+        <p className="px-3 py-2 text-xs text-gray-400">
+          종료된 검사가 없습니다
+        </p>
+      );
+    }
+
+    return (
+      <ul className={isCollapsed ? 'space-y-1' : 'mt-2 space-y-1'}>
+        {classes.map((cls) => (
+          <li key={cls.id}>
+            <button
+              onClick={() => navigate(`/dashboard/class/${cls.id}`)}
+              className={
+                isCollapsed
+                  ? 'w-full flex items-center justify-center py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50'
+                  : 'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50'
+              }
+              title={`${cls.grade}-${cls.classNumber}반`}
+            >
+              {isCollapsed ? (
+                <span className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium">
+                  {cls.classNumber}
+                </span>
+              ) : (
+                <>
+                  <Users className="w-4 h-4" />
+                  <span>{`${cls.grade}-${cls.classNumber}반`}</span>
+                </>
+              )}
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
+  };
 
   return (
     <aside
@@ -135,37 +204,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
             <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase">
               담당 학급
             </h3>
-            <ul className="mt-2 space-y-1">
-              {classes.map((cls) => (
-                <li key={cls.id}>
-                  <button
-                    onClick={() => navigate(`/dashboard/class/${cls.id}`)}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
-                  >
-                    <Users className="w-4 h-4" />
-                    <span>{`${cls.grade}-${cls.classNumber}반`}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            {renderClassList()}
           </div>
         ) : (
           <div className="mt-8 border-t border-gray-200 pt-4">
-            <ul className="space-y-1">
-              {classes.map((cls) => (
-                <li key={cls.id}>
-                  <button
-                    onClick={() => navigate(`/dashboard/class/${cls.id}`)}
-                    className="w-full flex items-center justify-center py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
-                    title={`${cls.grade}-${cls.classNumber}반`}
-                  >
-                    <span className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium">
-                      {cls.classNumber}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            {renderClassList()}
           </div>
         )}
       </nav>
