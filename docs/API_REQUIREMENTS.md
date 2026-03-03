@@ -3,19 +3,20 @@
 > META 학습심리정서검사 대시보드 - 추가 API 연동 필요 영역 분석
 
 **작성일**: 2026-03-01
-**버전**: 1.0
+**버전**: 1.1
 
 ---
 
 ## 목차
 
 1. [개요](#1-개요)
-2. [Mock 데이터 → 실제 API 전환](#2-mock-데이터--실제-api-전환)
-3. [localStorage → 서버 API 전환](#3-localstorage--서버-api-전환)
-4. [하드코딩 데이터 → 동적 API 전환](#4-하드코딩-데이터--동적-api-전환)
-5. [기존 API (Mock 폴백 제거 필요)](#5-기존-api-mock-폴백-제거-필요)
-6. [API 엔드포인트 전체 목록](#6-api-엔드포인트-전체-목록)
-7. [마이그레이션 로드맵](#7-마이그레이션-로드맵)
+2. [핵심 데이터 API (신규)](#2-핵심-데이터-api-신규)
+3. [Mock 데이터 → 실제 API 전환](#3-mock-데이터--실제-api-전환)
+4. [localStorage → 서버 API 전환](#4-localstorage--서버-api-전환)
+5. [하드코딩 데이터 → 동적 API 전환](#5-하드코딩-데이터--동적-api-전환)
+6. [기존 API (Mock 폴백 제거 필요)](#6-기존-api-mock-폴백-제거-필요)
+7. [API 엔드포인트 전체 목록](#7-api-엔드포인트-전체-목록)
+8. [마이그레이션 로드맵](#8-마이그레이션-로드맵)
 
 ---
 
@@ -25,10 +26,11 @@
 
 | 구분 | 현재 상태 | 필요 엔드포인트 수 |
 |------|----------|-------------------|
+| 핵심 데이터 (신규) | 1개 서비스 | 5개 |
 | Mock 데이터 사용 | 3개 서비스 | 18개 |
 | localStorage 사용 | 4개 기능 | 12개 |
 | 하드코딩 데이터 | 2개 영역 | 5개 |
-| **합계** | **9개 영역** | **약 35개** |
+| **합계** | **10개 영역** | **약 40개** |
 
 ### 1.2 우선순위 기준
 
@@ -38,9 +40,86 @@
 
 ---
 
-## 2. Mock 데이터 → 실제 API 전환
+## 2. 핵심 데이터 API (신규)
 
-### 2.1 통합 상담 서비스 🔴
+### 2.1 학급/학생 데이터 조회 🔴
+
+**파일**: `src/shared/contexts/DataContext.tsx`
+**현재 구현**: `MOCK_CLASSES` (로컬 샘플) 또는 localStorage 복원
+**사용처**: 전체 대시보드, AI 어시스턴트, 상담일정
+
+> **핵심 문제**: AI 어시스턴트에서 [반별], [개별] 모드 선택 시 학급/학생 목록을 API에서 불러와야 함.
+> 현재는 Mock 데이터 또는 localStorage에 의존하여 실제 운영 환경에서 데이터가 없음.
+
+#### 데이터 모델
+
+```typescript
+interface Class {
+  id: string;
+  schoolLevel: '초등' | '중등';
+  grade: number;
+  classNumber: number;
+  teacherId: string;
+  students: Student[];
+  stats?: ClassStats;
+}
+
+interface Student {
+  id: string;
+  classId: string;
+  number: number;              // 출석번호
+  name: string;
+  schoolLevel: '초등' | '중등';
+  grade: number;
+  assessments: Assessment[];   // 검사 결과 (1차/2차)
+}
+
+interface Assessment {
+  id: string;
+  studentId: string;
+  round: 1 | 2;
+  assessedAt: Date;
+  tScores: number[];           // 38개 T점수
+  predictedType: StudentType;  // LPA 유형
+  typeConfidence: number;
+  typeProbabilities: Record<string, number>;
+  deviations: FactorDeviation[];
+  reliabilityWarnings: string[];
+  attentionResult: AttentionResult;
+}
+
+interface Teacher {
+  id: string;
+  name: string;
+  classes: Class[];
+}
+```
+
+#### API 엔드포인트
+
+| Method | Endpoint | 설명 | Request | Response |
+|--------|----------|------|---------|----------|
+| GET | `/api/teachers/me` | 현재 교사 정보 | - | `Teacher` |
+| GET | `/api/teachers/me/classes` | 담당 학급 목록 | - | `Class[]` |
+| GET | `/api/classes/:classId` | 학급 상세 (학생 포함) | - | `Class` |
+| GET | `/api/classes/:classId/students` | 학급 학생 목록 | - | `Student[]` |
+| GET | `/api/students/:studentId` | 학생 상세 (검사 결과 포함) | - | `Student` |
+
+#### 사용처 상세
+
+| 페이지 | 필요 데이터 | 현재 소스 |
+|--------|------------|----------|
+| L1 교사 대시보드 | 담당 학급 목록 + 통계 | `MOCK_CLASSES` |
+| L2 반 대시보드 | 학급 학생 목록 + 검사 결과 | `MOCK_CLASSES` |
+| L3 학생 대시보드 | 학생 상세 + 검사 결과 | `MOCK_CLASSES` |
+| AI 어시스턴트 | 반별/개별 선택 목록 | `useData().classes` |
+| 상담일정 | 학급/학생 선택 | `useData().classes` |
+
+---
+
+## 3. Mock 데이터 → 실제 API 전환
+
+### 3.1 통합 상담 서비스 🔴
 
 **파일**: `src/shared/services/unifiedCounselingService.ts`
 **Mock 데이터**: `src/shared/data/mockUnifiedCounseling.ts`
@@ -99,7 +178,7 @@ type CounselingArea =
 
 ---
 
-### 2.2 관찰 메모 서비스 🔴
+### 3.2 관찰 메모 서비스 🔴
 
 **파일**: `src/shared/services/memoService.ts`
 **Mock 데이터**: `src/shared/data/mockStudentRecords.ts`
@@ -138,7 +217,7 @@ type MemoCategory =
 
 ---
 
-### 2.3 생활기록부 서비스 🟡
+### 3.3 생활기록부 서비스 🟡
 
 **파일**: `src/shared/services/schoolRecordService.ts`
 **Mock 데이터**: `src/shared/data/mockStudentRecords.ts`
@@ -176,9 +255,9 @@ type RecordCategory =
 
 ---
 
-## 3. localStorage → 서버 API 전환
+## 4. localStorage → 서버 API 전환
 
-### 3.1 업로드 데이터 저장 🔴
+### 4.1 업로드 데이터 저장 🔴
 
 **파일**: `src/shared/services/storageService.ts`
 **localStorage 키**: `meta_dashboard_uploaded_data`
@@ -213,7 +292,7 @@ hasUploadedData(): boolean
 
 ---
 
-### 3.2 검사 코드 매핑 🟡
+### 4.2 검사 코드 매핑 🟡
 
 **파일**: `src/features/exam/services/examService.ts` (라인 214-240)
 **localStorage 키**: `exam_code_map`
@@ -245,7 +324,7 @@ validateExamCode(code): boolean
 
 ---
 
-### 3.3 사용자 인증 🟡
+### 4.3 사용자 인증 🟡
 
 **파일**: `src/features/auth/context/AuthContext.tsx`
 **localStorage 키**: `auth_user`, `jwt_token`
@@ -274,7 +353,7 @@ interface AuthUser {
 
 ---
 
-### 3.4 앱 모드 설정 🟢
+### 4.4 앱 모드 설정 🟢
 
 **파일**: `src/shared/contexts/AppModeContext.tsx`
 **localStorage 키**: `app_mode`
@@ -289,9 +368,9 @@ interface AuthUser {
 
 ---
 
-## 4. 하드코딩 데이터 → 동적 API 전환
+## 5. 하드코딩 데이터 → 동적 API 전환
 
-### 4.1 학급 운영 전략 템플릿 🟡
+### 5.1 학급 운영 전략 템플릿 🟡
 
 **파일**: `src/features/class-dashboard/components/detail/StrategySection.tsx`
 **사용처**: L2.5 학급 상세 분석 페이지
@@ -327,7 +406,7 @@ const STRATEGY_TEMPLATES: Record<string, StrategyTemplate> = {
 
 ---
 
-### 4.2 추천 학급 활동 🟢
+### 5.2 추천 학급 활동 🟢
 
 **파일**: `src/features/class-dashboard/components/ClassInsights.tsx` (라인 46-48)
 **사용처**: L2 반 대시보드 학급 인사이트
@@ -351,12 +430,12 @@ const RECOMMENDED_ACTIVITIES = [
 
 ---
 
-## 5. 기존 API (Mock 폴백 제거 필요)
+## 6. 기존 API (Mock 폴백 제거 필요)
 
 > 아래 서비스들은 API 설계가 완료되어 있으나, `VITE_USE_API=false` 시 Mock 응답을 반환합니다.
 > 백엔드 API 완성 후 Mock 폴백 코드 제거가 필요합니다.
 
-### 5.1 검사 실시 서비스
+### 6.1 검사 실시 서비스
 
 **파일**: `src/features/exam/services/examService.ts`
 
@@ -369,7 +448,7 @@ const RECOMMENDED_ACTIVITIES = [
 | `resetExam()` | 128-147 | 검사 초기화 |
 | `fetchNotSubmittedStudents()` | 188-195 | 미제출 학생 조회 |
 
-### 5.2 평가 관리 서비스
+### 6.2 평가 관리 서비스
 
 **파일**: `src/features/assessment/services/assessmentService.ts`
 
@@ -385,9 +464,19 @@ const RECOMMENDED_ACTIVITIES = [
 
 ---
 
-## 6. API 엔드포인트 전체 목록
+## 7. API 엔드포인트 전체 목록
 
-### 6.1 상담 관리 (10개)
+### 7.1 학급/학생 데이터 (5개)
+
+```
+GET    /api/teachers/me
+GET    /api/teachers/me/classes
+GET    /api/classes/:classId
+GET    /api/classes/:classId/students
+GET    /api/students/:studentId
+```
+
+### 7.2 상담 관리 (10개)
 
 ```
 GET    /api/counseling
@@ -401,7 +490,7 @@ POST   /api/counseling/:id/cancel
 DELETE /api/counseling/:id
 ```
 
-### 6.2 관찰 메모 (5개)
+### 7.3 관찰 메모 (5개)
 
 ```
 GET    /api/memos/student/:studentId
@@ -411,7 +500,7 @@ DELETE /api/memos/:id
 PATCH  /api/memos/:id/important
 ```
 
-### 6.3 생활기록부 (3개)
+### 7.4 생활기록부 (3개)
 
 ```
 GET    /api/school-records/student/:studentId
@@ -419,7 +508,7 @@ POST   /api/school-records
 DELETE /api/school-records/:id
 ```
 
-### 6.4 업로드 관리 (4개)
+### 7.5 업로드 관리 (4개)
 
 ```
 POST   /api/uploads
@@ -428,7 +517,7 @@ GET    /api/uploads/:uploadId
 DELETE /api/uploads/:uploadId
 ```
 
-### 6.5 검사 코드 (4개)
+### 7.6 검사 코드 (4개)
 
 ```
 POST   /api/exam-codes
@@ -437,7 +526,7 @@ PUT    /api/exam-codes/:code
 DELETE /api/exam-codes/:code
 ```
 
-### 6.6 인증 (4개)
+### 7.7 인증 (4개)
 
 ```
 POST   /api/auth/login
@@ -446,14 +535,14 @@ POST   /api/auth/refresh
 GET    /api/auth/me
 ```
 
-### 6.7 설정 (2개)
+### 7.8 설정 (2개)
 
 ```
 GET    /api/settings/app-mode
 PATCH  /api/settings/app-mode
 ```
 
-### 6.8 전략/활동 (5개)
+### 7.9 전략/활동 (5개)
 
 ```
 GET    /api/strategies/templates
@@ -465,31 +554,32 @@ GET    /api/activities/by-profile
 
 ---
 
-## 7. 마이그레이션 로드맵
+## 8. 마이그레이션 로드맵
 
 ### Phase 1: 핵심 데이터 API (우선순위 🔴)
 
 | 순서 | 서비스 | 엔드포인트 수 | 비고 |
 |:----:|--------|:------------:|------|
-| 1 | 통합 상담 | 10개 | L2/L3 대시보드 핵심 |
-| 2 | 관찰 메모 | 5개 | L3 학생 대시보드 |
-| 3 | 업로드 데이터 | 4개 | localStorage 제거 |
+| 1 | 학급/학생 데이터 | 5개 | 전체 대시보드 기반, AI 어시스턴트 |
+| 2 | 통합 상담 | 10개 | L2/L3 대시보드 핵심 |
+| 3 | 관찰 메모 | 5개 | L3 학생 대시보드 |
+| 4 | 업로드 데이터 | 4개 | localStorage 제거 |
 
 ### Phase 2: 보조 기능 API (우선순위 🟡)
 
 | 순서 | 서비스 | 엔드포인트 수 | 비고 |
 |:----:|--------|:------------:|------|
-| 4 | 생활기록부 | 3개 | 저장/조회 기능 |
-| 5 | 검사 코드 | 4개 | localStorage 제거 |
-| 6 | 학급 전략 | 3개 | 하드코딩 제거 |
-| 7 | 사용자 인증 | 4개 | 토큰 기반 인증 |
+| 5 | 생활기록부 | 3개 | 저장/조회 기능 |
+| 6 | 검사 코드 | 4개 | localStorage 제거 |
+| 7 | 학급 전략 | 3개 | 하드코딩 제거 |
+| 8 | 사용자 인증 | 4개 | 토큰 기반 인증 |
 
 ### Phase 3: 부가 기능 API (우선순위 🟢)
 
 | 순서 | 서비스 | 엔드포인트 수 | 비고 |
 |:----:|--------|:------------:|------|
-| 8 | 추천 활동 | 2개 | 동적 추천 |
-| 9 | 앱 설정 | 2개 | 모드 관리 |
+| 9 | 추천 활동 | 2개 | 동적 추천 |
+| 10 | 앱 설정 | 2개 | 모드 관리 |
 
 ### Phase 4: Mock 폴백 제거
 
