@@ -50,15 +50,30 @@ export interface APIResponse<T> {
   currentTime?: string;
 }
 
+/** API 에러 상세 정보 */
+export interface APIErrorDetail {
+  path?: string;
+  code?: string;
+  name?: string;
+  message?: string;
+}
+
 /** API 에러 */
 export class APIError extends Error {
   constructor(
     message: string,
     public statusCode?: number,
-    public resultCode?: number
+    public resultCode?: number,
+    public errorDetail?: APIErrorDetail
   ) {
     super(message);
     this.name = 'APIError';
+  }
+
+  /** DuplicateKeyException 여부 확인 */
+  isDuplicateKeyError(): boolean {
+    return this.errorDetail?.name === 'DuplicateKeyException' ||
+           this.errorDetail?.code === 'E001';
   }
 }
 
@@ -120,10 +135,21 @@ export async function apiRequest<T>(
   }
 
   if (!data.success) {
+    // resultData에서 에러 상세 정보 추출
+    const errorDetail: APIErrorDetail | undefined = data.resultData && typeof data.resultData === 'object'
+      ? {
+          path: data.resultData.path,
+          code: data.resultData.code,
+          name: data.resultData.name,
+          message: data.resultData.message,
+        }
+      : undefined;
+
     throw new APIError(
       data.resultMessage || 'API 요청 실패',
       response.status,
-      data.resultCode
+      data.resultCode,
+      errorDetail
     );
   }
 

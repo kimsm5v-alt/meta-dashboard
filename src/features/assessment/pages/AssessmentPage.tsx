@@ -11,6 +11,7 @@ import { Loader2, AlertCircle } from 'lucide-react';
 
 import { useAuth } from '@/features/auth';
 import type { ManagedAssessment } from '@/shared/types';
+import { AlertModal } from '@/shared/components';
 import {
   GeneralSection,
   CreateAssessmentModal,
@@ -26,10 +27,15 @@ import {
   cancelExam,
   type ExamListItem,
 } from '../services/assessmentService';
+import { APIError } from '@/shared/services/apiClient';
 import {
   generateShortCode,
   schoolLevelToGradeLevel,
 } from '../config';
+import {
+  saveAssessmentMeta,
+  getAssessmentMeta,
+} from '../services/assessmentMetaStorage';
 
 // ============================================================
 // 유틸리티
@@ -40,13 +46,16 @@ function convertExamListItem(item: ExamListItem): ManagedAssessment {
   const shortCode = String(item.dgnssId);
   registerExamCode(shortCode, item.claId);
 
+  // localStorage에서 학년/반 정보 조회
+  const meta = getAssessmentMeta(item.dgnssId);
+
   return {
     id: `assessment-${item.dgnssId}`,
     name: `${item.ordNo}차 검사`,
     code: shortCode,
     dgnssId: item.dgnssId,
-    grade: 0,
-    classNumber: 0,
+    grade: meta?.grade ?? 0,
+    classNumber: meta?.classNumber ?? 0,
     studentCount: item.stTotalCnt,
     completedCount: item.stSubmCnt,
     round: item.ordNo as 1 | 2,
@@ -82,6 +91,13 @@ export const AssessmentPage: React.FC = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState<ManagedAssessment | null>(null);
 
+  // 알럿 모달 상태
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({ isOpen: false, title: '', message: '' });
+
   // ============================================================
   // 데이터 로드
   // ============================================================
@@ -97,7 +113,7 @@ export const AssessmentPage: React.FC = () => {
 
     try {
       const items = await fetchExamList(claId, tcId, '1');
-      setAssessments(items.map(convertExamListItem));
+      setAssessments(items.map(item => convertExamListItem(item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : '검사 목록 조회에 실패했습니다.');
     } finally {
@@ -133,6 +149,12 @@ export const AssessmentPage: React.FC = () => {
       const shortCode = generateShortCode();
       registerExamCode(shortCode, result.claId);
 
+      // 학년/반 정보를 localStorage에 저장
+      saveAssessmentMeta(result.dgnssId, {
+        grade: data.grade,
+        classNumber: data.classNumber,
+      });
+
       const newAssessment: ManagedAssessment = {
         id: `assessment-${result.dgnssId}`,
         name: data.name,
@@ -154,11 +176,32 @@ export const AssessmentPage: React.FC = () => {
       setSelectedAssessment(newAssessment);
       setIsCodeModalOpen(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '검사 생성에 실패했습니다.');
+      if (err instanceof APIError && err.isDuplicateKeyError()) {
+        // 해당 차수의 기존 검사 찾기
+        const existingExam = assessments.find(a => a.round === data.round);
+        const isActive = existingExam?.isActive ?? false;
+        const examLabel = `${data.grade}학년 ${data.classNumber}반 ${data.round}차 검사`;
+
+        if (isActive) {
+          setAlertModal({
+            isOpen: true,
+            title: '진행 중인 검사',
+            message: `${examLabel}는 현재 진행 중이에요.\n재시작을 원한다면 검사를 [취소]하고 다시 시작해보세요.`,
+          });
+        } else {
+          setAlertModal({
+            isOpen: true,
+            title: '완료된 검사',
+            message: `${examLabel}는 이미 완료된 검사예요.\n재응시를 원한다면 검사를 [취소]하고 다시 시작해보세요.`,
+          });
+        }
+      } else {
+        setError(err instanceof Error ? err.message : '검사 생성에 실패했습니다.');
+      }
     } finally {
       setIsProcessing(false);
     }
-  }, [user?.id, hasCredentials, claId, tcId]);
+  }, [user?.id, hasCredentials, claId, tcId, assessments]);
 
   // ============================================================
   // 검사 종료
@@ -166,6 +209,17 @@ export const AssessmentPage: React.FC = () => {
 
   const handleEndExam = useCallback(async (assessment: ManagedAssessment) => {
     if (!assessment.dgnssId) return;
+
+    // 제출 인원이 0명이면 종료 불가
+    if (assessment.completedCount === 0) {
+      setAlertModal({
+        isOpen: true,
+        title: '검사 종료 불가',
+        message: `제출 인원이 ${assessment.completedCount}명입니다.\n검사 취소만 가능합니다.`,
+      });
+      return;
+    }
+
     if (!confirm(`"${assessment.name}" 검사를 종료하시겠습니까?`)) return;
 
     setIsProcessing(true);
@@ -288,6 +342,15 @@ export const AssessmentPage: React.FC = () => {
       <PdfUploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
+      />
+
+      {/* 알럿 모달 */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+        title={alertModal.title}
+        message={alertModal.message}
+        type="warning"
       />
     </div>
   );

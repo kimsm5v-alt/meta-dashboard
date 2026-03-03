@@ -4,3 +4,4 @@ export { Button } from './Button';
 export { Loading, PageLoading, PanelLoading } from './Loading';
 export { MultiSelectButtonGroup } from './MultiSelectButtonGroup';
 export { Modal } from './Modal';
+export { AlertModal } from './AlertModal';
