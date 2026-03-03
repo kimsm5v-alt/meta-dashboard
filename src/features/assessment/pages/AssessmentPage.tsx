@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 import { useAuth } from '@/features/auth';
 import type { ManagedAssessment } from '@/shared/types';
@@ -27,8 +27,6 @@ import {
   type ExamListItem,
 } from '../services/assessmentService';
 import {
-  TEST_TC_ID,
-  TEST_CLA_ID,
   generateShortCode,
   schoolLevelToGradeLevel,
 } from '../config';
@@ -65,7 +63,12 @@ function convertExamListItem(item: ExamListItem): ManagedAssessment {
 // ============================================================
 
 export const AssessmentPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, credentials } = useAuth();
+
+  // credentials에서 ID 추출
+  const tcId = credentials?.teacherId ?? '';
+  const claId = credentials?.classId ?? '';
+  const hasCredentials = !!credentials;
 
   // 상태
   const [assessments, setAssessments] = useState<ManagedAssessment[]>([]);
@@ -84,18 +87,23 @@ export const AssessmentPage: React.FC = () => {
   // ============================================================
 
   const loadExamList = useCallback(async () => {
+    if (!hasCredentials) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const items = await fetchExamList(TEST_CLA_ID, TEST_TC_ID, '1');
+      const items = await fetchExamList(claId, tcId, '1');
       setAssessments(items.map(convertExamListItem));
     } catch (err) {
       setError(err instanceof Error ? err.message : '검사 목록 조회에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [hasCredentials, claId, tcId]);
 
   useEffect(() => {
     loadExamList();
@@ -106,6 +114,8 @@ export const AssessmentPage: React.FC = () => {
   // ============================================================
 
   const handleCreateAssessment = useCallback(async (data: AssessmentFormData) => {
+    if (!hasCredentials) return;
+
     setIsProcessing(true);
     setError(null);
 
@@ -113,8 +123,8 @@ export const AssessmentPage: React.FC = () => {
       const gradeLevel = schoolLevelToGradeLevel(data.schoolLevel);
 
       const result = await startExam(
-        TEST_CLA_ID,
-        TEST_TC_ID,
+        claId,
+        tcId,
         data.round,
         gradeLevel,
         '1'
@@ -148,7 +158,7 @@ export const AssessmentPage: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, hasCredentials, claId, tcId]);
 
   // ============================================================
   // 검사 종료
@@ -236,8 +246,16 @@ export const AssessmentPage: React.FC = () => {
         </div>
       )}
 
+      {/* credentials 없음 경고 */}
+      {!hasCredentials && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3 text-amber-700">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <span>로그인 시 입력한 credentials가 없습니다. 다시 로그인해주세요.</span>
+        </div>
+      )}
+
       {/* 로딩 상태 */}
-      {isLoading && (
+      {isLoading && hasCredentials && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
           <span className="ml-3 text-gray-600">검사 목록을 불러오는 중...</span>
@@ -245,7 +263,7 @@ export const AssessmentPage: React.FC = () => {
       )}
 
       {/* 검사 관리 섹션 */}
-      {!isLoading && (
+      {!isLoading && hasCredentials && (
         <GeneralSection
           assessments={assessments}
           onCreateClick={() => setIsCreateModalOpen(true)}

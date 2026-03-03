@@ -8,19 +8,35 @@
 import { useState, useEffect, useCallback } from 'react';
 import { isApiMode, API_CONFIG } from '@/shared/services/apiClient';
 import {
-  fetchStudentFullAnalysis,
   fetchClassAnalysis,
   fetchClassAnalysisRaw,
   fetchTeacherExams,
   buildClassFromAPI,
-  convertToAssessment,
   fetchL2DashboardData,
   type AnalysisSectionItem,
   type L2DashboardData,
 } from '@/shared/services/dashboardService';
-import type { SchoolLevel, Student, Assessment, Class } from '@/shared/types';
+import type { SchoolLevel, Student, Class } from '@/shared/types';
 import { useData } from '@/shared/contexts/DataContext';
-import { TEST_TC_ID, TEST_CLA_ID, TEST_GRADE_LEVEL } from '@/features/assessment/config';
+import { useAuth } from '@/features/auth';
+
+// ============================================================
+// Credentials 헬퍼 훅
+// ============================================================
+
+/**
+ * AuthContext에서 credentials를 가져와서 사용할 수 있는 형태로 반환
+ */
+function useCredentials() {
+  const { credentials } = useAuth();
+
+  const tcId = credentials?.teacherId ?? '';
+  const claId = credentials?.classId ?? '';
+  const gradeLevel = credentials?.gradeLevel ?? 'mi';
+  const schoolLevel: SchoolLevel = gradeLevel === 'el' ? '초등' : '중등';
+
+  return { tcId, claId, gradeLevel, schoolLevel, hasCredentials: !!credentials };
+}
 
 // ============================================================
 // 학생 분석 데이터 훅
@@ -48,6 +64,7 @@ export function useStudentAnalysis(
   studentId: string | undefined
 ): UseStudentAnalysisResult {
   const { getStudentById, getClassById } = useData();
+  const { tcId, claId, schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
   const [apiStudent, setApiStudent] = useState<Student | undefined>(undefined);
   const [classStudents, setClassStudents] = useState<Student[]>([]);
   const [classInfo, setClassInfo] = useState<{ grade: number; classNumber: number; schoolLevel: SchoolLevel } | undefined>(undefined);
@@ -70,12 +87,25 @@ export function useStudentAnalysis(
       return;
     }
 
+    // API 모드인데 credentials가 없으면 fallback
+    if (!hasCredentials) {
+      const classData = getClassById(classId);
+      setClassStudents(classData?.students ?? []);
+      setClassInfo(classData ? {
+        grade: classData.grade,
+        classNumber: classData.classNumber,
+        schoolLevel: classData.schoolLevel,
+      } : undefined);
+      setApiStudent(getStudentById(classId, studentId));
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
       // 1. 먼저 검사 목록에서 dgnssId 조회 (L2와 동일)
-      const exams = await fetchTeacherExams(TEST_CLA_ID, TEST_TC_ID, '1');
+      const exams = await fetchTeacherExams(claId, tcId, '1');
 
       const completedRound1 = exams.find(
         exam => exam.dgnssAt === 'N' && exam.ordNo === 1
@@ -102,15 +132,11 @@ export function useStudentAnalysis(
       const grade = parseInt(parts[0], 10) || 1;
       const classNumber = parseInt(parts[1], 10) || 1;
 
-      // TEST_GRADE_LEVEL에서 학교급 결정 (el=초등, mi/hi=중등)
-      // TODO: 실제 운영 시 API 응답에서 학교급 정보 추출 필요
-      const schoolLevel: SchoolLevel = TEST_GRADE_LEVEL === 'el' ? '초등' : '중등';
-
       // 2. L2 대시보드 데이터 조회 (학급 전체 학생 포함)
-      const data = await fetchL2DashboardData(dgnssId, classId, schoolLevel, grade);
+      const data = await fetchL2DashboardData(dgnssId, classId, credSchoolLevel, grade);
 
       setClassStudents(data.students);
-      setClassInfo({ grade, classNumber, schoolLevel });
+      setClassInfo({ grade, classNumber, schoolLevel: credSchoolLevel });
 
       // 3. studentId에 해당하는 학생 찾기
       const foundStudent = data.students.find(s => s.id === studentId);
@@ -130,7 +156,7 @@ export function useStudentAnalysis(
     } finally {
       setIsLoading(false);
     }
-  }, [classId, studentId, getClassById, getStudentById]);
+  }, [classId, studentId, getClassById, getStudentById, tcId, claId, credSchoolLevel, hasCredentials]);
 
   useEffect(() => {
     fetchData();
@@ -142,9 +168,9 @@ export function useStudentAnalysis(
     : (classId && studentId ? getStudentById(classId, studentId) : undefined);
 
   // Mock 모드에서는 classStudents와 classInfo가 설정되어 있어야 함
-  const effectiveClassStudents = isApiMode() ? classStudents : (getClassById(classId)?.students ?? []);
+  const effectiveClassStudents = isApiMode() ? classStudents : (getClassById(classId!)?.students ?? []);
   const effectiveClassInfo = isApiMode() ? classInfo : (() => {
-    const classData = getClassById(classId);
+    const classData = getClassById(classId!);
     return classData ? {
       grade: classData.grade,
       classNumber: classData.classNumber,
@@ -282,6 +308,7 @@ export function useClassStudents(
   classId: string | undefined
 ): UseClassStudentsResult {
   const { getClassById } = useData();
+  const { tcId, claId, schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
   const [students, setStudents] = useState<import('@/shared/types').Student[]>([]);
   const [l2Data, setL2Data] = useState<L2DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -302,15 +329,20 @@ export function useClassStudents(
       return;
     }
 
-    // API 모드: L2 대시보드 데이터 조회
+    // API 모드인데 credentials가 없으면 fallback
     const classData = getClassById(classId);
+    if (!hasCredentials) {
+      setStudents(classData?.students ?? []);
+      setL2Data(null);
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
 
     try {
       // 1. 먼저 검사 목록에서 dgnssId 조회
-      const exams = await fetchTeacherExams(TEST_CLA_ID, TEST_TC_ID, '1');
+      const exams = await fetchTeacherExams(claId, tcId, '1');
 
       // 종료된 검사 중 1차 검사 찾기
       const completedRound1 = exams.find(
@@ -326,16 +358,13 @@ export function useClassStudents(
       }
 
       const dgnssId = completedRound1.dgnssId;
-      // TEST_GRADE_LEVEL에서 학교급 결정 (el=초등, mi/hi=중등)
-      // TODO: 실제 운영 시 API 응답에서 학교급 정보 추출 필요
-      const schoolLevel: SchoolLevel = TEST_GRADE_LEVEL === 'el' ? '초등' : '중등';
       const grade = classData?.grade ?? 1;
 
       // 2. L2 대시보드 데이터 조회
       const data = await fetchL2DashboardData(
         dgnssId,
         classId,
-        schoolLevel,
+        credSchoolLevel,
         grade
       );
 
@@ -349,7 +378,7 @@ export function useClassStudents(
     } finally {
       setIsLoading(false);
     }
-  }, [classId, getClassById]);
+  }, [classId, getClassById, tcId, claId, credSchoolLevel, hasCredentials]);
 
   useEffect(() => {
     fetchData();
@@ -426,6 +455,7 @@ interface UseTeacherClassesResult {
  */
 export function useTeacherClasses(): UseTeacherClassesResult {
   const { classes: mockClasses } = useData();
+  const { tcId, claId, schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
   const [apiClasses, setApiClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -440,6 +470,13 @@ export function useTeacherClasses(): UseTeacherClassesResult {
       return;
     }
 
+    // API 모드인데 credentials가 없으면 mock fallback
+    if (!hasCredentials) {
+      setApiClasses([]);
+      setExamStatus('completed');
+      return;
+    }
+
     // 이미 로드 완료된 경우 스킵
     if (hasFetched) {
       return;
@@ -449,10 +486,6 @@ export function useTeacherClasses(): UseTeacherClassesResult {
     setError(null);
 
     try {
-      // 테스트용 ID 사용 (config.ts에 정의됨)
-      const claId = TEST_CLA_ID;
-      const tcId = TEST_TC_ID;
-
       // 교사 검사 목록 조회 (paperIdx="1"로 필터링)
       const exams = await fetchTeacherExams(claId, tcId, '1');
 
@@ -503,25 +536,22 @@ export function useTeacherClasses(): UseTeacherClassesResult {
       }
 
       // 학급 데이터 병렬 구축
-      const classPromises = Array.from(classExamMap.entries()).map(async ([claId, dgnssIds]) => {
+      const classPromises = Array.from(classExamMap.entries()).map(async ([examClaId, dgnssIds]) => {
         // grade, classNumber 추출 (claId 형식에 따라 파싱 필요)
         // 예: "6-2" → grade=6, classNumber=2
-        const parts = claId.split('-');
+        const parts = examClaId.split('-');
         const grade = parseInt(parts[0], 10) || 1;
         const classNumber = parseInt(parts[1], 10) || 1;
-        // TEST_GRADE_LEVEL에서 학교급 결정 (el=초등, mi/hi=중등)
-        // TODO: 실제 운영 시 API 응답에서 학교급 정보 추출 필요
-        const schoolLevel: SchoolLevel = TEST_GRADE_LEVEL === 'el' ? '초등' : '중등';
 
         // 1차 검사 dgnssId가 있어야 학급 데이터 구축 가능
         const primaryDgnssId = dgnssIds.round1 ?? dgnssIds.round2;
         if (!primaryDgnssId) return null;
 
         return buildClassFromAPI(
-          claId,
+          examClaId,
           grade,
           classNumber,
-          schoolLevel,
+          credSchoolLevel,
           primaryDgnssId,
           dgnssIds.round2
         );
@@ -544,7 +574,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
     } finally {
       setIsLoading(false);
     }
-  }, [hasFetched]);
+  }, [hasFetched, tcId, claId, credSchoolLevel, hasCredentials]);
 
   useEffect(() => {
     fetchData();

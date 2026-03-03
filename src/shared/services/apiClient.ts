@@ -8,10 +8,29 @@
 // 환경 설정
 // ============================================================
 
+const CREDENTIALS_STORAGE_KEY = 'meta_test_credentials';
+
+/** 저장된 credentials에서 JWT 토큰 가져오기 */
+function getStoredJwtToken(): string {
+  try {
+    const stored = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
+    if (stored) {
+      const credentials = JSON.parse(stored);
+      return credentials.jwtToken || '';
+    }
+  } catch {
+    // ignore
+  }
+  return '';
+}
+
 export const API_CONFIG = {
   baseUrl: import.meta.env.VITE_API_BASE_URL || '',
   useApi: import.meta.env.VITE_USE_API === 'true',
-  jwtToken: import.meta.env.VITE_JWT_TOKEN || '',
+  /** JWT 토큰 (동적으로 localStorage에서 가져옴) */
+  get jwtToken(): string {
+    return getStoredJwtToken();
+  },
 } as const;
 
 // ============================================================
@@ -68,16 +87,17 @@ export async function apiRequest<T>(
     ...fetchOptions.headers,
   };
 
-  // JWT 토큰 추가
-  if (API_CONFIG.jwtToken) {
-    (headers as Record<string, string>)['Authorization'] = `Bearer ${API_CONFIG.jwtToken}`;
+  // JWT 토큰 추가 (동적으로 가져옴)
+  const jwtToken = API_CONFIG.jwtToken;
+  if (jwtToken) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${jwtToken}`;
   }
 
   if (debug) {
     console.log('[API Request]', {
       url,
       method: fetchOptions.method || 'GET',
-      hasJWT: !!API_CONFIG.jwtToken,
+      hasJWT: !!jwtToken,
     });
   }
 

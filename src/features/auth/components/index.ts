@@ -1,2 +1,2 @@
-export { OAuthButton } from './OAuthButton';
-export { LoginCard } from './LoginCard';
+export { TestLoginForm } from './TestLoginForm';
+export type { TestCredentials } from './TestLoginForm';
