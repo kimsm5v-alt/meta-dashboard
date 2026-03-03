@@ -26,7 +26,6 @@ function getStoredJwtToken(): string {
 
 export const API_CONFIG = {
   baseUrl: import.meta.env.VITE_API_BASE_URL || '',
-  useApi: import.meta.env.VITE_USE_API === 'true',
   /** JWT 토큰 (동적으로 localStorage에서 가져옴) */
   get jwtToken(): string {
     return getStoredJwtToken();
@@ -156,13 +155,3 @@ export async function apiRequest<T>(
   return data;
 }
 
-// ============================================================
-// 유틸리티
-// ============================================================
-
-/** Mock API 지연 시뮬레이션 */
-export const mockDelay = (ms: number = 300): Promise<void> =>
-  new Promise(resolve => setTimeout(resolve, ms));
-
-/** API 모드 여부 확인 */
-export const isApiMode = (): boolean => API_CONFIG.useApi;

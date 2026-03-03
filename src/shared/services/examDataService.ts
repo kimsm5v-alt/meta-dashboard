@@ -1,13 +1,11 @@
 /**
- * 검사 데이터 통합 서비스
+ * 검사 데이터 서비스
  *
- * VITE_USE_API 환경변수에 따라 Mock 데이터 또는 실제 API를 사용합니다.
- * 기존 mockData.ts와 동일한 인터페이스를 유지하면서 API 연동을 지원합니다.
+ * 실제 API를 통해 검사 데이터를 조회합니다.
  */
 
 import type { Class, Student, Assessment, SchoolLevel } from '@/shared/types';
-import { MOCK_CLASSES, getClassById as mockGetClassById, getStudentById as mockGetStudentById } from '@/shared/data/mockData';
-import { metaApi, isApiMode } from './metaApi';
+import { metaApi } from './metaApi';
 import {
   transformToAssessments,
   transformToClass,
@@ -15,13 +13,10 @@ import {
 } from './apiDataTransformer';
 
 // ============================================================
-// 통합 서비스 인터페이스
+// 서비스 인터페이스
 // ============================================================
 
 export interface ExamDataService {
-  /** API 모드 여부 */
-  isApiMode: () => boolean;
-
   /** 전체 학급 목록 조회 */
   getClasses: () => Promise<Class[]>;
 
@@ -31,7 +26,7 @@ export interface ExamDataService {
   /** 특정 학생 조회 */
   getStudentById: (classId: string, studentId: string) => Promise<Student | undefined>;
 
-  /** 학생 Assessment 조회 (API 모드에서 상세 데이터 로드) */
+  /** 학생 Assessment 조회 */
   getStudentAssessments: (
     studentId: string,
     dgnssId: number,
@@ -46,70 +41,17 @@ export interface ExamDataService {
 }
 
 // ============================================================
-// Mock 모드 구현
+// 캐시
 // ============================================================
 
-const mockService: ExamDataService = {
-  isApiMode: () => false,
-
-  getClasses: async () => {
-    return MOCK_CLASSES;
-  },
-
-  getClassById: async (classId: string) => {
-    return mockGetClassById(classId);
-  },
-
-  getStudentById: async (classId: string, studentId: string) => {
-    return mockGetStudentById(classId, studentId);
-  },
-
-  getStudentAssessments: async (studentId: string) => {
-    // Mock에서는 이미 Student에 Assessment가 포함되어 있음
-    for (const cls of MOCK_CLASSES) {
-      const student = cls.students.find((s) => s.id === studentId);
-      if (student) {
-        return student.assessments;
-      }
-    }
-    return [];
-  },
-
-  getClassAverageTScores: async (classId: string, _ordNo: number) => {
-    const cls = mockGetClassById(classId);
-    if (!cls) return [];
-
-    // Mock: 학생들 T점수 평균 계산
-    const studentsWithAssessments = cls.students.filter(
-      (s) => s.assessments.length > 0
-    );
-    if (studentsWithAssessments.length === 0) return new Array(38).fill(50);
-
-    const avgScores = new Array(38).fill(0);
-    for (const student of studentsWithAssessments) {
-      const assessment = student.assessments[0];
-      for (let i = 0; i < 38; i++) {
-        avgScores[i] += assessment.tScores[i] || 50;
-      }
-    }
-
-    return avgScores.map((sum) =>
-      Math.round((sum / studentsWithAssessments.length) * 10) / 10
-    );
-  },
-};
-
-// ============================================================
-// API 모드 구현
-// ============================================================
-
-// 캐시 (세션 동안 유지)
 const classCache = new Map<string, Class>();
 const studentCache = new Map<string, Student>();
 
-const apiService: ExamDataService = {
-  isApiMode: () => true,
+// ============================================================
+// API 서비스 구현
+// ============================================================
 
+export const examDataService: ExamDataService = {
   getClasses: async () => {
     try {
       const examList = await metaApi.getExamList();
@@ -160,8 +102,8 @@ const apiService: ExamDataService = {
 
       return classes;
     } catch (error) {
-      console.error('API getClasses 실패, Mock 데이터 사용:', error);
-      return MOCK_CLASSES;
+      console.error('API getClasses 실패:', error);
+      throw error;
     }
   },
 
@@ -172,7 +114,7 @@ const apiService: ExamDataService = {
     }
 
     // 전체 목록에서 찾기
-    const classes = await apiService.getClasses();
+    const classes = await examDataService.getClasses();
     return classes.find((c) => c.id === classId);
   },
 
@@ -183,7 +125,7 @@ const apiService: ExamDataService = {
       return studentCache.get(cacheKey);
     }
 
-    const cls = await apiService.getClassById(classId);
+    const cls = await examDataService.getClassById(classId);
     if (!cls) return undefined;
 
     const student = cls.students.find((s) => s.id === studentId);
@@ -229,23 +171,6 @@ const apiService: ExamDataService = {
     }
   },
 };
-
-// ============================================================
-// 서비스 Export
-// ============================================================
-
-/**
- * 환경변수에 따라 적절한 서비스 반환
- */
-export const examDataService: ExamDataService = isApiMode()
-  ? apiService
-  : mockService;
-
-/**
- * 강제로 특정 모드 서비스 가져오기 (테스트용)
- */
-export const getMockService = () => mockService;
-export const getApiService = () => apiService;
 
 /**
  * 캐시 초기화

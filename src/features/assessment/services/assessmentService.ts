@@ -5,7 +5,7 @@
  * 엔드포인트: /etc/meta/tc/* (교사용)
  */
 
-import { apiRequest, mockDelay, isApiMode } from '@/shared/services/apiClient';
+import { apiRequest } from '@/shared/services/apiClient';
 
 // ============================================================
 // 타입 정의
@@ -64,12 +64,6 @@ export interface ExamDetailResponse {
 }
 
 // ============================================================
-// Mock 데이터
-// ============================================================
-
-let mockDgnssIdCounter = 2000;
-
-// ============================================================
 // 교사용 검사 API
 // ============================================================
 
@@ -84,22 +78,6 @@ export async function startExam(
   grade: GradeLevel,
   paperIdx: string = '1'
 ): Promise<StartExamResponse> {
-  if (!isApiMode()) {
-    await mockDelay(500);
-    const dgnssId = mockDgnssIdCounter++;
-
-    return {
-      dgnssId,
-      claId,
-      ordNo,
-      dgnssAt: 'Y',
-      dgnssStDt: new Date().toISOString(),
-      dgnssEdDt: null,
-      stTotalCnt: 0,
-      stSubmCnt: 0,
-    };
-  }
-
   const response = await apiRequest<StartExamResponse>(
     `/etc/meta/tc/start?claId=${claId}&tcId=${tcId}&ordNo=${ordNo}&grade=${grade}&paperIdx=${paperIdx}`,
     { debug: true }
@@ -118,11 +96,6 @@ export async function fetchExamList(
   tcId: string,
   paperIdx?: string
 ): Promise<ExamListItem[]> {
-  if (!isApiMode()) {
-    await mockDelay(300);
-    return [];
-  }
-
   let endpoint = `/etc/meta/tc/info?claId=${claId}&tcId=${tcId}`;
   if (paperIdx) {
     endpoint += `&paperIdx=${paperIdx}`;
@@ -146,24 +119,6 @@ export async function fetchExamList(
  * GET /etc/meta/tc/detail
  */
 export async function fetchExamDetail(dgnssId: number): Promise<ExamDetailResponse> {
-  if (!isApiMode()) {
-    await mockDelay(300);
-    return {
-      dgnssId,
-      paperIdx: '1',
-      ordNo: 1,
-      num: 1,
-      dgnssAt: 'Y',
-      dgnssStDt: new Date().toISOString(),
-      dgnssEdDt: null,
-      stTotalCnt: 30,
-      stSubmCnt: 0,
-      dgnssText: null,
-      notSubmStdtId: '',
-      notSubmStdtName: '',
-    };
-  }
-
   const response = await apiRequest<ExamDetailResponse>(
     `/etc/meta/tc/detail?dgnssId=${dgnssId}`,
     { debug: true }
@@ -176,11 +131,6 @@ export async function fetchExamDetail(dgnssId: number): Promise<ExamDetailRespon
  * GET /etc/meta/tc/end
  */
 export async function endExam(dgnssId: number, paperIdx?: string): Promise<void> {
-  if (!isApiMode()) {
-    await mockDelay(300);
-    return;
-  }
-
   let endpoint = `/etc/meta/tc/end?dgnssId=${dgnssId}`;
   if (paperIdx) {
     endpoint += `&paperIdx=${paperIdx}`;
@@ -196,11 +146,6 @@ export async function endExam(dgnssId: number, paperIdx?: string): Promise<void>
  * 주의: 데이터가 삭제됨. 되돌릴 수 없음.
  */
 export async function cancelExam(dgnssId: number): Promise<void> {
-  if (!isApiMode()) {
-    await mockDelay(300);
-    return;
-  }
-
   await apiRequest<null>(`/etc/meta/tc/cancel?dgnssId=${dgnssId}`, { debug: true });
 }
 
@@ -213,11 +158,6 @@ export async function restartExam(
   claId: string,
   grade: GradeLevel
 ): Promise<void> {
-  if (!isApiMode()) {
-    await mockDelay(300);
-    return;
-  }
-
   await apiRequest<{ result: string }>(
     `/etc/meta/tc/restart?dgnssId=${dgnssId}&claId=${claId}&grade=${grade}`,
     { debug: true }
@@ -236,15 +176,6 @@ export interface NotSubmittedStudent {
 export async function fetchNotSubmittedStudents(
   dgnssId: number
 ): Promise<NotSubmittedStudent[]> {
-  if (!isApiMode()) {
-    await mockDelay(300);
-    return [
-      { stdtId: 'student-1' },
-      { stdtId: 'student-2' },
-      { stdtId: 'student-3' },
-    ];
-  }
-
   const response = await apiRequest<NotSubmittedStudent[]>(
     `/etc/meta/tc/notsubm?dgnssId=${dgnssId}`,
     { debug: true }

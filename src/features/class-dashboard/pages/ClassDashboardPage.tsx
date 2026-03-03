@@ -4,6 +4,8 @@ import { ArrowLeft, Search, ShieldAlert, AlertTriangle, Clock, Loader2 } from 'l
 import { Card, Badge } from '@/shared/components';
 import { useData } from '@/shared/contexts/DataContext';
 import { useClassStudents, useApiConfig } from '@/shared/hooks/useApiData';
+import { ApiTooltip } from '@/shared/components/api-tooltip';
+import { API_CLASS_STUDENTS } from '@/shared/data/apiDefinitions';
 import type { Student, Assessment, Class } from '@/shared/types';
 import {
   TypeChangeChart,
@@ -19,7 +21,7 @@ export const ClassDashboardPage = () => {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
   const { getClassById } = useData();
-  const { isApiMode } = useApiConfig();
+  const { hasJwtToken } = useApiConfig();
   // l2Data: 검사 상세 정보, 학급 평균 T점수 등 (향후 활용 가능)
   const { students: apiStudents, l2Data: _l2Data, isLoading, error } = useClassStudents(classId);
 
@@ -35,7 +37,7 @@ export const ClassDashboardPage = () => {
   // API 모드에서 학생 데이터가 있으면 classData 구성
   const classData: Class | undefined = useMemo(() => {
     // API 모드이고 학생 데이터가 있으면 API 데이터로 학급 구성
-    if (isApiMode && apiStudents.length > 0 && classId) {
+    if (hasJwtToken && apiStudents.length > 0 && classId) {
       // 첫 번째 학생에서 schoolLevel, grade 추출
       const firstStudent = apiStudents[0];
       const schoolLevel = firstStudent?.schoolLevel ?? '초등';
@@ -95,14 +97,14 @@ export const ClassDashboardPage = () => {
 
     // Mock 모드 또는 API 데이터 없음: DataContext 사용
     return baseClassData;
-  }, [baseClassData, isApiMode, apiStudents, classId]);
+  }, [baseClassData, hasJwtToken, apiStudents, classId]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
   // API 모드 로딩 상태
-  if (isApiMode && isLoading) {
+  if (hasJwtToken && isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -114,7 +116,7 @@ export const ClassDashboardPage = () => {
   }
 
   // API 에러 상태
-  if (isApiMode && error) {
+  if (hasJwtToken && error) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -335,7 +337,9 @@ export const ClassDashboardPage = () => {
       {/* Student Table */}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">학생 목록</h2>
+          <ApiTooltip {...API_CLASS_STUDENTS} position="top-left">
+            <h2 className="text-xl font-bold text-gray-900">학생 목록</h2>
+          </ApiTooltip>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input

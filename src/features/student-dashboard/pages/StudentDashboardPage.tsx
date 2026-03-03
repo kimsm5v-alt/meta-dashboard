@@ -5,6 +5,8 @@ import { useStudentAnalysis, useApiConfig } from '@/shared/hooks/useApiData';
 import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@/shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@/features/class-dashboard/components/detail/FactorHeatmapSection';
+import { ApiTooltip } from '@/shared/components/api-tooltip';
+import { API_STUDENT_DETAIL } from '@/shared/data/apiDefinitions';
 import {
   DiagnosisSummary,
   FourStepInterpretation,
@@ -15,7 +17,7 @@ import {
   DataHelperChatbot,
   type PanelTab,
 } from '../components';
-import type { Student, Assessment, SchoolLevel } from '@/shared/types';
+import type { Student, SchoolLevel } from '@/shared/types';
 
 // TODO: 4단계 해석 탭을 다시 보이게 하려면 true로 변경
 const SHOW_FOUR_STEP = false;
@@ -38,7 +40,7 @@ interface StudentDashboardContentProps {
   classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel };
   classId: string;
   studentId: string;
-  isApiMode: boolean;
+  hasJwtToken: boolean;
 }
 
 const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
@@ -47,7 +49,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   classInfo,
   classId,
   studentId,
-  isApiMode,
+  hasJwtToken,
 }) => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
@@ -102,9 +104,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">
-                {student.number}번 {student.name}
-              </h1>
+              <ApiTooltip {...API_STUDENT_DETAIL} position="top-right">
+                <h1 className="text-2xl font-bold">
+                  {student.number}번 {student.name}
+                </h1>
+              </ApiTooltip>
               {current.reliabilityWarnings.length > 0 && (
                 <span
                   className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-red-50 text-red-600 border-red-200"
@@ -197,7 +201,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
       </div>
 
       {/* 2차 검사 진행중 안내 (Mock 모드에서만 표시) */}
-      {!isApiMode && student.round2Submitted && (
+      {!hasJwtToken && student.round2Submitted && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2.5">
           <Clock className="w-4 h-4 text-blue-500 flex-shrink-0" />
           <p className="text-sm text-blue-700">
@@ -320,7 +324,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 // ============================================================
 export const StudentDashboardPage = () => {
   const { classId, studentId } = useParams<{ classId: string; studentId: string }>();
-  const { isApiMode } = useApiConfig();
+  const { hasJwtToken } = useApiConfig();
 
   // API 모드: API에서 학생 데이터 + 학급 학생 목록 로드
   // Mock 모드: DataContext에서 데이터 사용
@@ -333,7 +337,7 @@ export const StudentDashboardPage = () => {
   } = useStudentAnalysis(classId, studentId);
 
   // 로딩 상태
-  if (isApiMode && isLoading) {
+  if (hasJwtToken && isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -345,7 +349,7 @@ export const StudentDashboardPage = () => {
   }
 
   // 에러 상태
-  if (isApiMode && error) {
+  if (hasJwtToken && error) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -372,7 +376,7 @@ export const StudentDashboardPage = () => {
       classInfo={classInfo}
       classId={classId}
       studentId={studentId}
-      isApiMode={isApiMode}
+      hasJwtToken={hasJwtToken}
     />
   );
 };

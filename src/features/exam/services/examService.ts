@@ -5,7 +5,7 @@
  * 엔드포인트: /etc/meta/st/* (학생용)
  */
 
-import { apiRequest, mockDelay, isApiMode } from '@/shared/services/apiClient';
+import { apiRequest } from '@/shared/services/apiClient';
 import type {
   ExamQuestion,
   QuestionsResponseData,
@@ -13,43 +13,6 @@ import type {
   StudentExamItem,
   StudentExamListResponse,
 } from '../types';
-
-// ============================================================
-// Mock 데이터
-// ============================================================
-
-const MOCK_QUESTIONS: ExamQuestion[] = [
-  { NO: 1, QESITM_NM: '나는 배우는 내용에 따라 적절한 학습 방법을 선택한다.', answer: '', fullCount: 124 },
-  { NO: 2, QESITM_NM: '나는 중요한 문제를 부모님(보호자)과 의논한다.', answer: '', fullCount: 124 },
-  { NO: 3, QESITM_NM: '나는 공부하기 전에 쾌적한 환경에서 공부하기 위해 내 주변을 정돈한다.', answer: '', fullCount: 124 },
-  { NO: 4, QESITM_NM: '나는 성적 때문에 선생님께 꾸중을 들을 것 같아서 불안하다.', answer: '', fullCount: 124 },
-  { NO: 5, QESITM_NM: '나는 잘하는 것이 많다고 생각한다.', answer: '', fullCount: 124 },
-  { NO: 6, QESITM_NM: '나는 공부할 때 에너지가 생긴다.', answer: '', fullCount: 124 },
-  { NO: 7, QESITM_NM: '나는 공부하기 싫다.', answer: '', fullCount: 124 },
-  { NO: 8, QESITM_NM: '나는 공부에 필요한 것들을 잘 찾을 수 있도록 정리해두는 편이다.', answer: '', fullCount: 124 },
-  { NO: 9, QESITM_NM: '나는 친구와의 성적 경쟁에서 뒤처질까봐 불안하다.', answer: '', fullCount: 124 },
-  { NO: 10, QESITM_NM: '나는 공부할 때 재미있고 활기가 생긴다.', answer: '', fullCount: 124 },
-  { NO: 11, QESITM_NM: '나는 수업시간에 집중하는 편이다.', answer: '', fullCount: 124 },
-  { NO: 12, QESITM_NM: '나는 공부한 만큼 성적이 오르지 않아서 절망감을 느낀다.', answer: '', fullCount: 124 },
-  { NO: 13, QESITM_NM: '나는 무엇을 결정할 때 다른 사람의 간섭없이 원하는 대로 결정할 수 있다.', answer: '', fullCount: 124 },
-  { NO: 14, QESITM_NM: '친구가 기분이 좋지 않으면 왜 그런 감정을 느끼는지 잘 안다.', answer: '', fullCount: 124 },
-  { NO: 15, QESITM_NM: '나는 다른 사람들이 겪은 일들에 대해 잘 들어주려고 노력한다.', answer: '', fullCount: 124 },
-  { NO: 16, QESITM_NM: '나는 공부를 아무리 열심히 해도 성적이 안 나온다.', answer: '', fullCount: 124 },
-  { NO: 17, QESITM_NM: '나는 부모님(보호자)이 공부를 많이 하는 다른 사람과 비교해서 우울하다.', answer: '', fullCount: 124 },
-  { NO: 18, QESITM_NM: '나는 공부를 시작하면 바로 집중하는 편이다.', answer: '', fullCount: 124 },
-  { NO: 19, QESITM_NM: '나는 공부에 대한 부담 때문에 완전히 지쳐 있다.', answer: '', fullCount: 124 },
-  { NO: 20, QESITM_NM: '나는 내 자신에 대해 항상 정직하다.', answer: '', fullCount: 124 },
-];
-
-/** 124문항 생성 (Mock) */
-const generateMockQuestions = (): ExamQuestion[] => {
-  return Array.from({ length: 124 }, (_, i) => ({
-    ...MOCK_QUESTIONS[i % MOCK_QUESTIONS.length],
-    NO: i + 1,
-  }));
-};
-
-const ALL_MOCK_QUESTIONS = generateMockQuestions();
 
 // ============================================================
 // 학생 검사 API
@@ -71,20 +34,6 @@ export async function fetchStudentExamList(
   claId: string,
   stdtId: string
 ): Promise<StudentExamItem[]> {
-  if (!isApiMode()) {
-    await mockDelay(300);
-    return [{
-      dgnssId: 1000,
-      dgnssResultId: 100001,
-      paperIdx: '1',
-      ordNo: 1,
-      dgnssAt: 'Y',
-      submAt: 'N',
-      submDt: null,
-      eakAt: 'N',
-    }];
-  }
-
   const response = await apiRequest<StudentExamListResponse>(
     `/etc/meta/st/info?claId=${claId}&stdtId=${stdtId}`
   );
@@ -108,20 +57,6 @@ export async function fetchQuestions(
   page: number = 0,
   size: number = 20
 ): Promise<FetchQuestionsResponse> {
-  if (!isApiMode()) {
-    await mockDelay(500);
-    const start = page * size;
-    const end = Math.min(start + size, ALL_MOCK_QUESTIONS.length);
-
-    return {
-      omrIdx: 23503,
-      questions: ALL_MOCK_QUESTIONS.slice(start, end),
-      totalPages: Math.ceil(ALL_MOCK_QUESTIONS.length / size),
-      totalQuestions: ALL_MOCK_QUESTIONS.length,
-      answeredCount: 0,
-    };
-  }
-
   const response = await apiRequest<QuestionsResponseData>(
     `/etc/meta/st/start?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
   );
@@ -144,11 +79,6 @@ export async function saveAnswer(
   questionNo: number,
   answer: string
 ): Promise<boolean> {
-  if (!isApiMode()) {
-    await mockDelay(100);
-    return true;
-  }
-
   const response = await apiRequest<null>('/etc/meta/st/answer', {
     method: 'POST',
     body: JSON.stringify({ omrIdx, no: questionNo, answer }),
@@ -164,11 +94,6 @@ export async function submitExam(
   dgnssResultId: number,
   paperIdx: string = '1'
 ): Promise<boolean> {
-  if (!isApiMode()) {
-    await mockDelay(1000);
-    return true;
-  }
-
   const response = await apiRequest<SubmitResponseData>('/etc/meta/st/submit', {
     method: 'POST',
     body: JSON.stringify({ dgnssResultId, paperIdx }),
@@ -185,20 +110,6 @@ export async function resetExam(
   page: number = 0,
   size: number = 20
 ): Promise<FetchQuestionsResponse> {
-  if (!isApiMode()) {
-    await mockDelay(500);
-    const start = page * size;
-    const end = Math.min(start + size, ALL_MOCK_QUESTIONS.length);
-
-    return {
-      omrIdx: 23504,
-      questions: ALL_MOCK_QUESTIONS.slice(start, end).map(q => ({ ...q, answer: '' })),
-      totalPages: Math.ceil(ALL_MOCK_QUESTIONS.length / size),
-      totalQuestions: ALL_MOCK_QUESTIONS.length,
-      answeredCount: 0,
-    };
-  }
-
   const response = await apiRequest<QuestionsResponseData>(
     `/etc/meta/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
   );
@@ -275,12 +186,8 @@ export function parseExamCode(code: string): ExamCodeData | null {
     return null;
   }
 
-  if (!isApiMode()) {
-    return { code: trimmed };
-  }
-
   const claId = getClaIdByCode(trimmed);
-  return claId ? { code: trimmed, claId } : null;
+  return claId ? { code: trimmed, claId } : { code: trimmed };
 }
 
 /** 검사 코드 검증 */

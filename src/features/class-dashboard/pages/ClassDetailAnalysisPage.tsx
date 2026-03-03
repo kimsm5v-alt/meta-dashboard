@@ -162,7 +162,7 @@ const ClassDetailContent: React.FC<ClassDetailContentProps> = ({ classData, clas
 export const ClassDetailAnalysisPage: React.FC = () => {
   const { classId } = useParams<{ classId: string }>();
   const { getClassById } = useData();
-  const { isApiMode } = useApiConfig();
+  const { hasJwtToken } = useApiConfig();
 
   // L2와 동일하게 API에서 학생 데이터 가져오기
   const { students: apiStudents, isLoading, error } = useClassStudents(classId);
@@ -171,7 +171,7 @@ export const ClassDetailAnalysisPage: React.FC = () => {
 
   // API 모드에서 학생 데이터가 있으면 classData 구성 (L2와 동일한 로직)
   const classData: Class | undefined = useMemo(() => {
-    if (isApiMode && apiStudents.length > 0 && classId) {
+    if (hasJwtToken && apiStudents.length > 0 && classId) {
       const firstStudent = apiStudents[0];
       const schoolLevel = firstStudent?.schoolLevel ?? '초등';
       const grade = firstStudent?.grade ?? 1;
@@ -227,10 +227,10 @@ export const ClassDetailAnalysisPage: React.FC = () => {
     }
 
     return baseClassData;
-  }, [baseClassData, isApiMode, apiStudents, classId]);
+  }, [baseClassData, hasJwtToken, apiStudents, classId]);
 
   // API 모드 로딩 상태
-  if (isApiMode && isLoading) {
+  if (hasJwtToken && isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -242,7 +242,7 @@ export const ClassDetailAnalysisPage: React.FC = () => {
   }
 
   // API 에러 상태
-  if (isApiMode && error) {
+  if (hasJwtToken && error) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">

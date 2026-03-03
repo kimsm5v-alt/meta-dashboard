@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, AlertTriangle, TrendingUp, Loader2 } from 'lucide-react';
+import { Users, TrendingUp, Loader2, AlertTriangle } from 'lucide-react';
 import { Card } from '@/shared/components';
 import { useData } from '@/shared/contexts/DataContext';
 import { useTeacherClasses, useApiConfig } from '@/shared/hooks/useApiData';
 import { TYPE_COLORS, TYPE_COLOR_CLASSES } from '@/shared/data/lpaProfiles';
+import { ApiTooltip } from '@/shared/components/api-tooltip';
+import { API_TEACHER_DASHBOARD, API_UPLOAD_LATEST } from '@/shared/data/apiDefinitions';
 import { CategoryComparisonChart, TypeDistributionChart } from '../components';
 import type { Class } from '@/shared/types';
 
@@ -25,12 +27,12 @@ const getSortedTypeDistribution = (cls: Class) => {
 export const TeacherDashboardPage = () => {
   const navigate = useNavigate();
   const { teacher } = useData();
-  const { isApiMode } = useApiConfig();
+  const { hasJwtToken } = useApiConfig();
   const { classes, isLoading, error, examStatus } = useTeacherClasses();
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   // API 모드 로딩 상태
-  if (isApiMode && isLoading) {
+  if (hasJwtToken && isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -43,7 +45,7 @@ export const TeacherDashboardPage = () => {
   }
 
   // API 에러 상태
-  if (isApiMode && error) {
+  if (hasJwtToken && error) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -55,7 +57,7 @@ export const TeacherDashboardPage = () => {
   }
 
   // API 모드: 검사가 모두 진행중인 경우
-  if (isApiMode && examStatus === 'in-progress') {
+  if (hasJwtToken && examStatus === 'in-progress') {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -71,7 +73,7 @@ export const TeacherDashboardPage = () => {
   }
 
   // API 모드: 검사가 없는 경우
-  if (isApiMode && examStatus === 'no-exams') {
+  if (hasJwtToken && examStatus === 'no-exams') {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -97,22 +99,28 @@ export const TeacherDashboardPage = () => {
   const totalStats = {
     totalStudents: classes.reduce((sum, c) => sum + (c.stats?.totalStudents || 0), 0),
     assessedStudents: classes.reduce((sum, c) => sum + (c.stats?.assessedStudents || 0), 0),
-    needAttention: classes.reduce((sum, c) => sum + (c.stats?.needAttentionCount || 0), 0),
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">{teacher.name}님의 학급 현황</h1>
+        <div className="flex items-center gap-2">
+          <ApiTooltip {...API_TEACHER_DASHBOARD} position="bottom-left">
+            <h1 className="text-2xl font-bold text-gray-900">{teacher.name}님의 학급 현황</h1>
+          </ApiTooltip>
+          <ApiTooltip {...API_UPLOAD_LATEST} position="bottom-left">
+            <span className="text-xs text-gray-400 cursor-help">(PDF 업로드)</span>
+          </ApiTooltip>
+        </div>
         <p className="text-gray-500 mt-1">
-          담당 학급: {classes.length}개 반 | 총 학생: {totalStats.totalStudents}명 | 
+          담당 학급: {classes.length}개 반 | 총 학생: {totalStats.totalStudents}명 |
           검사 완료: {totalStats.assessedStudents}명 ({Math.round((totalStats.assessedStudents / totalStats.totalStudents) * 100)}%)
         </p>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -132,17 +140,6 @@ export const TeacherDashboardPage = () => {
             <div>
               <p className="text-sm text-gray-500">검사 완료</p>
               <p className="text-xl font-semibold">{totalStats.assessedStudents}명</p>
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">관심 필요</p>
-              <p className="text-xl font-semibold text-orange-600">{totalStats.needAttention}명</p>
             </div>
           </div>
         </Card>
@@ -363,13 +360,6 @@ export const TeacherDashboardPage = () => {
                   })()}
                 </div>
 
-                {/* Attention Badge */}
-                {(cls.stats?.needAttentionCount || 0) > 0 && (
-                  <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span className="text-sm font-medium">관심 필요: {cls.stats?.needAttentionCount}명</span>
-                  </div>
-                )}
               </Card>
             );
           })}

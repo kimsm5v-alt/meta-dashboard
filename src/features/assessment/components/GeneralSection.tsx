@@ -1,5 +1,7 @@
 import { Plus, Upload, FileText, QrCode } from 'lucide-react';
 import { Button } from '@/shared/components';
+import { ApiTooltip } from '@/shared/components/api-tooltip';
+import { API_UPLOAD_CREATE } from '@/shared/data/apiDefinitions';
 import type { ManagedAssessment } from '@/shared/types';
 import { AssessmentList } from './AssessmentList';
 
@@ -80,13 +82,15 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
         <p className="text-sm text-gray-600 mb-4">
           다른 곳에서 실시한 학습심리정서검사 결과가 있다면 PDF 파일을 업로드하여 분석할 수 있습니다.
         </p>
-        <Button
-          onClick={onUploadClick}
-          className="w-full justify-center"
-        >
-          <Upload className="w-4 h-4 mr-2" />
-          PDF 결과 파일 업로드
-        </Button>
+        <ApiTooltip {...API_UPLOAD_CREATE} position="top-right">
+          <Button
+            onClick={onUploadClick}
+            className="w-full justify-center"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            PDF 결과 파일 업로드
+          </Button>
+        </ApiTooltip>
       </div>
     </div>
   );
