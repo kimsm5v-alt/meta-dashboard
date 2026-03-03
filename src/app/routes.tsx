@@ -3,7 +3,6 @@ import { Layout } from './Layout';
 import { MinimalLayout } from './MinimalLayout';
 import { PageLoading } from '../shared/components';
 import { useAuth } from '../features/auth/context/AuthContext';
-import { useAppMode } from '../shared/contexts/AppModeContext';
 
 // Feature imports
 import { UploadPage } from '../features/upload';
@@ -16,7 +15,6 @@ import { LoginPage } from '../features/auth';
 import { AssessmentPage } from '../features/assessment';
 import { SchedulePage } from '../features/schedule';
 import { ExamCodeEntryPage, ExamPage } from '../features/exam';
-import { ModeSelectPage } from '../features/mode-select';
 
 // ============================================================
 // 레이아웃 래퍼
@@ -36,15 +34,9 @@ const PublicLayout = () => (
  */
 const ProtectedLayout = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const { mode } = useAppMode();
 
   if (isLoading) {
     return <PageLoading text="로딩 중..." />;
-  }
-
-  // 모드 미선택 시 모드 선택 페이지로
-  if (!mode) {
-    return <Navigate to="/mode-select" replace />;
   }
 
   if (!isAuthenticated) {
@@ -68,7 +60,6 @@ export const AppRoutes = () => (
     <Route element={<PublicLayout />}>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/mode-select" element={<ModeSelectPage />} />
       <Route path="/exam" element={<ExamCodeEntryPage />} />
       <Route path="/exam/:code" element={<ExamPage />} />
     </Route>
