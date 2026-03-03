@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/etc/meta/:path*", "destination": "https://t-vcloudapi.vsaidt.com/etc/meta/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
