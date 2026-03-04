@@ -40,3 +40,4 @@ coverage
 *.njsproj
 *.sln
 *.sw?
+.env*.local
