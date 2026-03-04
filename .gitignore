@@ -18,6 +18,9 @@ dist-ssr
 .env.*.local
 .env.production
 
+# Test accounts (contains JWT tokens)
+public/test-accounts.json
+
 # Build cache
 *.tsbuildinfo
 

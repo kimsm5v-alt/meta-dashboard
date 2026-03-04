@@ -41,6 +41,11 @@ export interface ClassStats {
   round2Completed: boolean;
   examStatus: ExamPeriodStatus;
   round2SubmittedCount: number;
+  /** API 검사 ID (회차별) - L2 대시보드 API 호출에 필요 */
+  dgnssIds?: {
+    round1?: number;
+    round2?: number;
+  };
 }
 
 export interface TypeDistribution {
@@ -268,9 +273,10 @@ export interface ManagedAssessment {
   completedCount: number;
   round: 1 | 2;
   startDate: Date;
-  endDate: Date;
+  endDate?: Date;               // 종료일 (API에서는 null일 수 있음)
   createdAt: Date;
   ownerId: string;
+  isActive?: boolean;           // 진행 중 여부 (dgnssAt === 'Y')
 }
 
 export interface CreateAssessmentInput {

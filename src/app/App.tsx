@@ -1,18 +1,20 @@
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from '../features/auth/context/AuthContext';
-import { AppModeProvider } from '@/shared/contexts/AppModeContext';
 import { DataProvider } from '@/shared/contexts/DataContext';
+import { ApiDevModeProvider } from '@/shared/contexts/ApiDevModeContext';
+import { ApiDevToggle } from '@/shared/components/api-tooltip';
 import { AppRoutes } from './routes';
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppModeProvider>
-          <DataProvider>
+        <DataProvider>
+          <ApiDevModeProvider>
             <AppRoutes />
-          </DataProvider>
-        </AppModeProvider>
+            <ApiDevToggle />
+          </ApiDevModeProvider>
+        </DataProvider>
       </AuthProvider>
     </BrowserRouter>
   );

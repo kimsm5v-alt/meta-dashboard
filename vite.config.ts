@@ -18,7 +18,31 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
     open: true,
+    proxy: {
+      '/etc/meta': {
+        target: 'https://t-vcloudapi.vsaidt.com',
+        changeOrigin: true,
+        secure: true,
+        headers: {
+          // 프록시 요청에 Origin 헤더 추가 (CORS 회피)
+          'Origin': 'https://t-vcloudapi.vsaidt.com',
+        },
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('[Proxy Request]', req.method, req.url, '→', proxyReq.path);
+            // 헤더 로깅
+            const authHeader = proxyReq.getHeader('Authorization');
+            console.log('[Proxy Auth]', authHeader ? 'Bearer token present' : 'No auth header');
+          });
+          proxy.on('proxyRes', (proxyRes, req) => {
+            console.log('[Proxy Response]', req.url, '→', proxyRes.statusCode);
+          });
+          proxy.on('error', (err) => {
+            console.error('[Proxy Error]', err.message);
+          });
+        },
+      },
+    },
   },
 })

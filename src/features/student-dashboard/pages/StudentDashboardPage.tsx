@@ -1,10 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, FileText, MessageSquare, Eye, ShieldAlert, AlertTriangle, Clock } from 'lucide-react';
-import { useData } from '@/shared/contexts/DataContext';
+import { ArrowLeft, ChevronLeft, ChevronRight, FileText, MessageSquare, Eye, ShieldAlert, AlertTriangle, Clock, Loader2 } from 'lucide-react';
+import { useStudentAnalysis, useApiConfig } from '@/shared/hooks/useApiData';
 import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@/shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@/features/class-dashboard/components/detail/FactorHeatmapSection';
+import { ApiTooltip } from '@/shared/components/api-tooltip';
+import { API_STUDENT_DETAIL } from '@/shared/data/apiDefinitions';
 import {
   DiagnosisSummary,
   FourStepInterpretation,
@@ -15,6 +17,7 @@ import {
   DataHelperChatbot,
   type PanelTab,
 } from '../components';
+import type { Student, SchoolLevel } from '@/shared/types';
 
 // TODO: 4단계 해석 탭을 다시 보이게 하려면 true로 변경
 const SHOW_FOUR_STEP = false;
@@ -28,36 +31,56 @@ const PANEL_BUTTONS = [
 
 type ViewMode = 'round1' | 'round2' | 'compare';
 
-export const StudentDashboardPage = () => {
-  const { classId, studentId } = useParams<{ classId: string; studentId: string }>();
+// ============================================================
+// 내부 컴포넌트: student, classInfo, current가 확정된 후에만 렌더링
+// ============================================================
+interface StudentDashboardContentProps {
+  student: Student;
+  classStudents: Student[];
+  classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel };
+  classId: string;
+  studentId: string;
+  hasJwtToken: boolean;
+}
+
+const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
+  student,
+  classStudents,
+  classInfo,
+  classId,
+  studentId,
+  hasJwtToken,
+}) => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
   const [chartViewMode, setChartViewMode] = useState<'midCategory' | 'fourStep'>('midCategory');
 
-  const { getClassById, getStudentById } = useData();
-
   useEffect(() => { window.scrollTo(0, 0); }, [studentId]);
-
-  const classData = classId ? getClassById(classId) : undefined;
-  const student = classId && studentId ? getStudentById(classId, studentId) : undefined;
-
-  if (!classData || !student) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">학생을 찾을 수 없습니다.</p>
-      </div>
-    );
-  }
 
   const selectedRound: 1 | 2 = viewMode === 'round1' ? 1 : 2;
   const isCompare = viewMode === 'compare';
 
-  const r1 = student.assessments.find(a => a.round === 1);
-  const r2 = student.assessments.find(a => a.round === 2);
+  const r1 = student.assessments.find((a) => a.round === 1);
+  const r2 = student.assessments.find((a) => a.round === 2);
   const current = selectedRound === 2 && r2 ? r2 : r1;
 
+  // useMemo는 항상 호출 (current가 없으면 빈 배열 사용)
+  const domainData = useMemo(
+    () => current ? buildStudentDomainData(current.tScores) : [],
+    [current]
+  );
+  const prevDomainData = useMemo(
+    () => isCompare && r1 ? buildStudentDomainData(r1.tScores) : undefined,
+    [isCompare, r1],
+  );
+
+  const currentIdx = classStudents.findIndex(s => s.id === studentId);
+  const prev = currentIdx > 0 ? classStudents[currentIdx - 1] : null;
+  const next = currentIdx < classStudents.length - 1 ? classStudents[currentIdx + 1] : null;
+
+  // current가 없으면 검사 결과 없음 표시
   if (!current) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -65,16 +88,6 @@ export const StudentDashboardPage = () => {
       </div>
     );
   }
-
-  const domainData = useMemo(() => buildStudentDomainData(current.tScores), [current.tScores]);
-  const prevDomainData = useMemo(
-    () => isCompare && r1 ? buildStudentDomainData(r1.tScores) : undefined,
-    [isCompare, r1],
-  );
-
-  const currentIdx = classData.students.findIndex(s => s.id === studentId);
-  const prev = currentIdx > 0 ? classData.students[currentIdx - 1] : null;
-  const next = currentIdx < classData.students.length - 1 ? classData.students[currentIdx + 1] : null;
 
   return (
     <div className="flex gap-6">
@@ -91,9 +104,11 @@ export const StudentDashboardPage = () => {
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">
-                {student.number}번 {student.name}
-              </h1>
+              <ApiTooltip {...API_STUDENT_DETAIL} position="top-right">
+                <h1 className="text-2xl font-bold">
+                  {student.number}번 {student.name}
+                </h1>
+              </ApiTooltip>
               {current.reliabilityWarnings.length > 0 && (
                 <span
                   className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-red-50 text-red-600 border-red-200"
@@ -114,7 +129,7 @@ export const StudentDashboardPage = () => {
               )}
             </div>
             <p className="text-gray-500">
-              {classData.grade}학년 {classData.classNumber}반
+              {classInfo.grade}학년 {classInfo.classNumber}반
             </p>
           </div>
         </div>
@@ -129,7 +144,7 @@ export const StudentDashboardPage = () => {
             <ChevronLeft className="w-5 h-5" />
           </button>
           <span className="text-sm text-gray-500">
-            {currentIdx + 1} / {classData.students.length}
+            {currentIdx + 1} / {classStudents.length}
           </span>
           <button
             onClick={() => next && navigate(`/dashboard/class/${classId}/student/${next.id}`)}
@@ -185,8 +200,8 @@ export const StudentDashboardPage = () => {
         )}
       </div>
 
-      {/* 2차 검사 진행중 안내 */}
-      {classData.stats?.examStatus?.round2 === '진행중' && student.round2Submitted && (
+      {/* 2차 검사 진행중 안내 (Mock 모드에서만 표시) */}
+      {!hasJwtToken && student.round2Submitted && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2.5">
           <Clock className="w-4 h-4 text-blue-500 flex-shrink-0" />
           <p className="text-sm text-blue-700">
@@ -295,12 +310,74 @@ export const StudentDashboardPage = () => {
         activeTab={panelTab}
         onTabChange={setPanelTab}
         onClose={() => setPanelTab(null)}
-        studentId={studentId!}
-        classId={classId!}
+        studentId={studentId}
+        classId={classId}
         student={student}
         assessment={current}
       />
     </div>
+  );
+};
+
+// ============================================================
+// 메인 컴포넌트: 로딩/에러/null 체크 후 StudentDashboardContent 렌더링
+// ============================================================
+export const StudentDashboardPage = () => {
+  const { classId, studentId } = useParams<{ classId: string; studentId: string }>();
+  const { hasJwtToken } = useApiConfig();
+
+  // API 모드: API에서 학생 데이터 + 학급 학생 목록 로드
+  // Mock 모드: DataContext에서 데이터 사용
+  const {
+    student,
+    classStudents,
+    classInfo,
+    isLoading,
+    error
+  } = useStudentAnalysis(classId, studentId);
+
+  // 로딩 상태
+  if (hasJwtToken && isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-primary-500 animate-spin mx-auto mb-2" />
+          <p className="text-gray-500">학생 데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 에러 상태
+  if (hasJwtToken && error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+          <p className="text-gray-500">데이터 로드 실패: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!student || !classInfo || !classId || !studentId) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500">학생을 찾을 수 없습니다.</p>
+      </div>
+    );
+  }
+
+  // student, classInfo가 확정된 후에만 StudentDashboardContent 렌더링
+  return (
+    <StudentDashboardContent
+      student={student}
+      classStudents={classStudents}
+      classInfo={classInfo}
+      classId={classId}
+      studentId={studentId}
+      hasJwtToken={hasJwtToken}
+    />
   );
 };
 

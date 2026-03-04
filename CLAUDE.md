@@ -10,12 +10,17 @@
 4. [코드 컨벤션](#-코드-컨벤션)
 5. [프로젝트 구조](#-프로젝트-구조)
 6. [데이터 타입](#-데이터-타입)
-7. [UI 컴포넌트 가이드](#-ui-컴포넌트-가이드)
-8. [대시보드 구현 가이드](#-대시보드-구현-가이드)
-9. [개인정보 보호](#-개인정보-보호)
-10. [AI 어시스턴트 구현 가이드](#-ai-어시스턴트-구현-가이드)
-11. [상담일정 기능 구현 가이드](#-상담일정-기능-구현-가이드)
-12. [체크리스트](#-체크리스트)
+7. [개인정보 보호](#-개인정보-보호)
+8. [체크리스트](#-체크리스트)
+
+### 기능별 문서 (별도 파일)
+
+| 기능 | 문서 위치 |
+|------|-----------|
+| 대시보드 설계 | `docs/dashboard-design.md` |
+| UI 컴포넌트 | `src/shared/components/COMPONENTS.md` |
+| AI 어시스턴트 | `src/features/ai-room/AI-ROOM.md` |
+| 상담일정 | `src/features/schedule/SCHEDULE.md` |
 
 ---
 
@@ -71,6 +76,9 @@ L1: 교사 전체 반 대시보드        → /dashboard
 | 차트 | Recharts (Line, Bar, Pie), @nivo/bar (Stacked Bar) |
 | 라우팅 | React Router v6 |
 | 아이콘 | Lucide React |
+| 날짜 | date-fns |
+| QR 코드 | qrcode.react |
+| 유틸리티 | clsx (조건부 클래스) |
 | **AI 모델** | **Google Gemini 2.5 Flash** |
 
 ### AI 서비스 아키텍처
@@ -166,12 +174,19 @@ const CHANGE_COLORS = {
 ```
 src/
 ├── features/                    # 기능별 모듈 (kebab-case)
-│   └── [feature-name]/
-│       ├── pages/               # PascalCase + Page suffix
-│       ├── components/          # PascalCase
-│       └── index.ts
+│   ├── ai-room/                 # AI 어시스턴트 (→ AI-ROOM.md)
+│   ├── assessment/              # 검사 관리 (생성, QR 코드)
+│   ├── auth/                    # 인증 (OAuth, 로그인/로그아웃)
+│   ├── class-dashboard/         # L2 반 대시보드
+│   ├── exam/                    # 검사 응시 (학생용)
+│   ├── landing/                 # 랜딩 페이지
+│   ├── schedule/                # 상담일정 (→ SCHEDULE.md)
+│   ├── student-dashboard/       # L3 학생 대시보드
+│   └── teacher-dashboard/       # L1 교사 대시보드
 ├── shared/
 │   ├── components/              # 공유 컴포넌트
+│   ├── contexts/                # React Context (DataContext, AuthContext, ApiDevModeContext)
+│   ├── hooks/                   # 공용 훅 (useApiData 등)
 │   ├── utils/                   # 유틸리티 함수 (camelCase)
 │   ├── data/                    # 데이터 파일
 │   ├── services/                # API 서비스
@@ -182,6 +197,20 @@ src/
     └── routes.tsx
 ```
 
+### Features 목록
+
+| Feature | 경로 | 설명 |
+|---------|------|------|
+| `landing` | `/` | 랜딩 페이지 (서비스 소개) |
+| `auth` | `/login` | OAuth 로그인 (비바샘, Google, Kakao, Naver) |
+| `teacher-dashboard` | `/dashboard` | L1 교사 전체 반 대시보드 |
+| `class-dashboard` | `/dashboard/class/:id` | L2 반별 대시보드, L2.5 상세 분석 |
+| `student-dashboard` | `/dashboard/class/:id/student/:id` | L3 학생 대시보드 |
+| `assessment` | `/assessment` | 검사 생성/관리, QR 코드 발급 |
+| `exam` | `/exam/:code` | 학생 검사 응시 페이지 |
+| `ai-room` | `/ai-room` | AI 어시스턴트 대화 |
+| `schedule` | `/schedule` | 상담일정 캘린더 |
+
 ### 주요 파일
 
 | 파일 | 역할 |
@@ -190,24 +219,37 @@ src/
 | `shared/utils/attentionChecker.ts` | 관심 필요 학생 판별 (정적 T≤39, 부적 T≥60) |
 | `shared/data/lpaProfiles.ts` | 38개 요인, 유형별 중심값, 사전확률, DOMAIN_COLORS, DOMAIN_ICONS, POSITIVE_DOMAINS |
 | `shared/data/factors.ts` | 요인 메타데이터 (대분류, 중분류, 긍정/부정), DOMAIN_GROUPS |
-| `shared/data/dataTransformer.ts` | JSON 원본 → Assessment 변환 (요인 매핑, LPA 분류기로 유형 결정, 교사명/날짜/학교급 JSON에서 동적 추출) |
+| `shared/data/dataTransformer.ts` | JSON 원본 → Assessment 변환 |
 | `shared/data/mockData.ts` | 샘플 학급 데이터 (4개 반, 88명) |
-| `shared/data/aiPrompts.ts` | AI 기능별 시스템 프롬프트 (analysis, record, dataHelper, assistant, classAnalysis) |
-| `shared/services/ai.ts` | AI 서비스 추상화 레이어 (Provider 선택, 기능별 프롬프트 적용) |
-| `shared/services/gemini.ts` | Gemini API 호출 (v1beta, 429 재시도, PII 마스킹) |
-| `shared/utils/summaryGenerator.ts` | AI 총평 생성 로직 (11개 중분류 → 3줄 요약) |
+| `shared/data/knowledgeGraph.ts` | 지식 그래프 데이터 (개입 전략, 효과 유형) |
+| `shared/data/apiDefinitions.ts` | API 요구사항 정의 (개발자 모드용) |
 | `shared/utils/calculate4StepDiagnosis.ts` | 4단계 진단 계산 (중분류 → Step 1~4, 8유형 판정, 코칭전략) |
 | `shared/utils/piiMasking.ts` | 개인정보 마스킹 (이름, 학번, 생년월일, 학교명) |
-| `shared/utils/chartUtils.ts` | 차트 공용 유틸리티 (getBarPercent, REF_LINE_POS, PREV_COLOR) |
-| `shared/utils/colorUtils.ts` | 색상 공용 유틸리티 (lightenColor) |
-| `shared/services/unifiedCounselingService.ts` | 통합 상담 서비스 (일정+기록 통합, 다중 학생 지원) |
+
+### API 서비스 파일
+
+| 파일 | 역할 |
+|------|------|
+| `shared/services/ai.ts` | AI 서비스 추상화 레이어 |
+| `shared/services/gemini.ts` | Gemini API 호출 (v1beta, 429 재시도, PII 마스킹) |
+| `shared/services/metaApi.ts` | META API 클라이언트 (검사 관리, 결과 조회) |
+| `shared/services/apiClient.ts` | 공통 API 클라이언트 (인증, 에러 처리) |
+| `shared/services/apiDataTransformer.ts` | API 응답 → 프론트엔드 타입 변환 |
+| `shared/services/dashboardService.ts` | 대시보드 데이터 서비스 (L1/L2/L3) |
+| `shared/services/examDataService.ts` | 검사 데이터 서비스 |
+| `shared/services/unifiedCounselingService.ts` | 통합 상담 서비스 (일정+기록 통합) |
 | `shared/services/memoService.ts` | 관찰 메모 CRUD 서비스 |
 | `shared/services/schoolRecordService.ts` | 생활기록부 AI 생성 서비스 |
-| `features/ai-room/services/assistantService.ts` | AI Room 대화 서비스 |
-| `features/ai-room/services/contextBuilder.ts` | AI 컨텍스트 빌더 (모드별 RAG, 7개 데이터 소스, 별칭 시스템) |
-| `features/student-dashboard/services/dataHelperService.ts` | 데이터 해석 도우미 AI 서비스 (7개 질문별 프롬프트) |
-| `features/class-dashboard/hooks/useClassProfile.ts` | 학급 프로필 (`computeClassProfile` 순수 함수 + `useClassProfile` 훅, 중분류 merit score → 강점/약점 TOP 3, 해설문) |
-| `features/class-dashboard/hooks/useClassDetailData.ts` | 학급 상세 데이터 (38개 요인 평균, 영역 계층, 위험군 분류) |
+| `features/assessment/services/assessmentService.ts` | 검사 생성/관리 서비스 |
+| `features/exam/services/examService.ts` | 검사 응시 서비스 |
+
+### Context 파일
+
+| 파일 | 역할 |
+|------|------|
+| `shared/contexts/DataContext.tsx` | 학급/학생 데이터 전역 상태 |
+| `features/auth/context/AuthContext.tsx` | 인증 상태 (로그인, 사용자 정보) |
+| `shared/contexts/ApiDevModeContext.tsx` | API 개발자 모드 토글 (API 요구사항 표시) |
 
 ### 문서 폴더 구조
 
@@ -276,6 +318,61 @@ interface Class {
   students: Student[];
   stats?: ClassStats;
 }
+
+interface ClassStats {
+  totalStudents: number;
+  assessedStudents: number;
+  typeDistribution: TypeDistribution;
+  needAttentionCount: number;
+  round1Completed: boolean;
+  round2Completed: boolean;
+  examStatus: ExamPeriodStatus;
+  round2SubmittedCount: number;
+  dgnssIds?: { round1?: number; round2?: number };  // API 검사 ID
+}
+
+// 검사 상태
+type ExamStatus = '시작전' | '진행중' | '종료';
+
+// 검사 관리 (생성, QR)
+interface ManagedAssessment {
+  id: string;
+  name: string;
+  code: string;               // QR 코드 값: {dgnssId}-{studentCount}
+  dgnssId: number;            // 검사 ID
+  grade: number;
+  classNumber: number;
+  studentCount: number;
+  completedCount: number;
+  round: 1 | 2;
+  startDate: Date;
+  endDate?: Date;
+  isActive?: boolean;
+}
+
+// 인증
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  memberType: 'vivasam' | 'general';
+  provider: 'vivasam' | 'google' | 'kakao' | 'naver';
+  schoolName?: string;
+  profileImage?: string;
+}
+
+// 개입 전략 (지식 그래프 기반)
+interface Intervention {
+  x: string;                  // 원인 요인
+  z: string | null;           // 매개 요인
+  y: string;                  // 결과 요인
+  effectType: EffectType;
+  interpretation: string;
+  strategies: string[];
+  beta?: number;              // 효과크기
+}
+
+type EffectType = '직접효과' | '완전매개' | '긍정강화' | '부정강화' | '긍정완충' | '부정완충' | '촉진' | '억제';
 ```
 
 ### 데이터 파이프라인
@@ -305,275 +402,6 @@ full_sample_data.json → dataTransformer.ts → mockData.ts → 컴포넌트
 
 ---
 
-## 🎨 UI 컴포넌트 가이드
-
-### 공통 디자인 패턴
-
-```tsx
-// 카드 기본 스타일
-<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-
-// 카드 내 섹션 분리
-<div className="border-b border-gray-200 pb-6 mb-6">
-
-// 그라데이션 배경 (AI Insight)
-<div className="bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 rounded-xl p-6">
-
-// 좌우 비율 레이아웃 (40:60)
-<div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-  <div className="md:col-span-2">{/* 40% */}</div>
-  <div className="md:col-span-3">{/* 60% */}</div>
-</div>
-```
-
-### 유형 배지
-
-```tsx
-const TypeBadge: React.FC<{ type: string }> = ({ type }) => (
-  <span className={`px-2 py-1 rounded-full text-xs font-medium ${TYPE_COLORS[type]}`}>
-    {type}
-  </span>
-);
-```
-
-### 차트 공통 설정
-
-```tsx
-// Recharts 공통
-<YAxis domain={[20, 80]} />
-<ReferenceLine y={50} stroke="#888" strokeDasharray="3 3" label="전국 평균" />
-
-// 막대 차트 둥근 모서리
-<Bar radius={[0, 4, 4, 0]} />
-
-// 도넛 차트
-<Pie innerRadius={70} outerRadius={110} paddingAngle={2} cornerRadius={4} />
-```
-
----
-
-## 📝 대시보드 구현 가이드
-
-### L1: 교사 전체 반 대시보드
-
-- `CategoryComparisonChart`: 5대 영역 LineChart (Recharts)
-- `TypeDistributionChart`: 유형 분포 Stacked Bar (Nivo), 막대 라벨 `N명(NN%)` 형식
-- 유형 분포 표시 순서 (클래스 카드 + Nivo 차트 공통):
-  - 초등: 자원소진형 → 안전균형형 → 몰입자원풍부형
-  - 중등: 무기력형 → 정서조절취약형 → 자기주도몰입형
-
-### L2: 반 대시보드
-
-#### TypeChangeChart 컴포넌트
-
-```typescript
-// 상태 관리
-const [selectedSegment, setSelectedSegment] = useState<{
-  round: 1 | 2;
-  type: string;
-  x: number;
-  y: number;
-} | null>(null);
-
-const [selectedFlow, setSelectedFlow] = useState<FlowData | null>(null);
-```
-
-**주요 기능**:
-- 막대 호버/클릭 → 학생 목록 툴팁 (테두리 색상 = 유형 색상)
-- 흐름선 클릭 → 하단 변화 박스 표시
-
-#### 학생 목록 테이블 (ClassDashboardPage)
-
-**필터 (ChangeFilterButtons)**:
-```tsx
-type ChangeFilter = 'all' | 'reliability-warning' | 'need-attention' | 'negative' | 'positive' | 'not-assessed';
-// 전체 | 신뢰도 주의 | 관심 필요 | 부정 변화 | 긍정 변화 | 2차 미실시
-```
-
-**칼럼 구조 (7칼럼)**:
-```
-번호(w-16) | 이름(w-24) | 1차 유형(w-32) | 1차 상태(w-36) | 변화(w-16) | 2차 유형(w-32) | 2차 상태(w-36)
-```
-
-**상태 배지**:
-- 관심 필요: `bg-amber-50 text-amber-600 border-amber-200` + AlertTriangle 아이콘
-- 신뢰도 주의: `bg-red-50 text-red-600 border-red-200` + ShieldAlert 아이콘
-- 차수별 독립 표시 (1차/2차 각각)
-
-**변화 인디케이터**:
-- `+` 긍정: `bg-emerald-100 text-emerald-600` (w-8 h-8 원형)
-- `-` 부정: `bg-red-100 text-red-600`
-- `=` 동일: `bg-gray-100 text-gray-400`
-- `--` 2차 미실시: `text-gray-300`
-
-#### ClassInsights 컴포넌트
-
-- `useClassProfile` 훅으로 merit score 기반 강점 TOP 3 / 약점 TOP 3 산출
-  - 각 중분류에 `#대분류` 해시태그 표시 (DOMAIN_COLORS 색상)
-  - `parentCategory` 필드로 대분류 소속 표시
-- 강점: `accent="emerald"`, 약점: `accent="red"`로 `ProfileItem` 렌더링
-- 추천 학급 활동 3개 (하드코딩)
-- "상세 분석" 버튼 → `/dashboard/class/:classId/analysis` 라우팅
-
-### L2.5: 학급 특성 상세 분석
-
-**경로**: `/dashboard/class/:classId/analysis`
-
-#### 컴포넌트 구조
-
-```
-ClassDetailAnalysisPage
-├── Header (학년/반 + 뒤로가기)
-├── RoundSelector (1차/2차 선택)
-├── Section 1: 학급 종합 분석
-│   └── ClassSummarySection
-│       ├── AI 총평 (callAI, feature: 'classAnalysis' → overall + keyPoint)
-│       └── 강점/약점 카드 (useClassProfile 기반, #대분류 해시태그 포함)
-├── Section 2: 38개 세부 요인 분석
-│   └── FactorHeatmapSection
-│       ├── 대분류 그룹 헤더 (정적=emerald, 부적=rose, 아이콘+명칭+'높을수록/낮을수록 좋아요')
-│       ├── 중분류 드롭다운 → 소분류 펼침
-│       └── FactorBar (md=h-7, sm=h-5) + LevelBadge
-├── Section 3: 관심 필요 학생
-│   └── RiskStudentsSection (긴급/관찰 2단 테이블)
-└── Section 4: 학급 맞춤 운영 전략
-    └── StrategySection (약점 기반 전략 카드 3개 + 체크리스트)
-```
-
-#### 핵심 훅
-
-| 훅 | 역할 |
-|------|------|
-| `useClassProfile` | 중분류 merit score → 강점 TOP 3 / 약점 TOP 3, T점수 구간별 해설문, parentCategory(대분류) 포함 |
-| `useClassDetailData` | 38개 요인 평균, 5대 영역 계층 구조, 위험군 학생 분류 |
-
-### L3: 학생 대시보드
-
-#### 컴포넌트 구조
-
-```
-StudentDashboardPage
-├── Header (학생 정보 + 네비게이션 + 패널 버튼)
-│   └── PANEL_BUTTONS: [생기부, 상담, 관찰]
-├── RoundSelector (1차/2차 선택)
-├── Section 1: 학생 진단 결과 해석 (A/B 토글: 중분류 요인 / 4단계 해석)
-│   ├── DiagnosisSummary (AI 총평)
-│   ├── FactorLineChart (11개 중분류, 대분류 그룹 헤더 포함) — chartViewMode='midCategory'
-│   └── FourStepInterpretation (4단계 해석 가이드) — chartViewMode='fourStep'
-├── Section 2: 학습 유형 알아보기
-│   ├── TypeClassification (도넛 차트)
-│   ├── TypeDeviations (특이점 3개)
-│   └── CoachingStrategy (모달)
-├── DataHelperChatbot (플로팅 데이터 해석 도우미)
-│   ├── DataHelperQuestions (2단 질문 목록)
-│   └── DataHelperAnswer (AI 답변 표시)
-└── RightPanel (우측 푸시 패널)
-    ├── SchoolRecordPanel (생활기록부 AI 문구 생성)
-    ├── CounselingRecordPanel (상담 기록 CRUD)
-    └── ObservationMemoPanel (관찰 메모 + 태그)
-```
-
-#### RightPanel (우측 슬라이드 패널)
-
-```tsx
-// 패널 탭 타입
-type PanelTab = 'schoolRecord' | 'counseling' | 'observation' | null;
-
-// 헤더 버튼 클릭 시 패널 열기
-const [panelTab, setPanelTab] = useState<PanelTab>(null);
-
-// 패널 컴포넌트
-<RightPanel
-  isOpen={panelTab !== null}
-  activeTab={panelTab}
-  onTabChange={setPanelTab}
-  onClose={() => setPanelTab(null)}
-  studentId={studentId}
-  classId={classId}
-  tScores={tScores}
-  predictedType={predictedType}
-/>
-```
-
-**패널 특징**:
-- `w-96` (384px) 고정 너비, 푸시 레이아웃 (flex 형제 요소)
-- ESC 키로 닫기 지원
-- 패널 활성화 시 좌측 패널 버튼 숨김 (패널 헤더 탭으로 전환)
-- `self-stretch`로 좌측 콘텐츠와 동일 높이
-
-#### FourStepInterpretation (4단계 해석 가이드)
-
-Section 1 "학생 진단 결과 해석"의 A/B 토글(`chartViewMode`)로 FactorLineChart와 전환 가능한 4단계 해석 컴포넌트.
-
-```
-FourStepInterpretation({ tScores, studentName })
-├── 가이드 헤더 ("4단계 해석 가이드")
-├── StepCard × 4 (아코디언)
-│   ├── Step 1: 공부 마음 (학업열의, 성장력, 학업소진)
-│   ├── Step 2: 공부 자원 (개인/환경/방해)
-│   ├── Step 3: 공부 기술 (학습 재설계/마음 재설계)
-│   └── Step 4: 학습 유형 (사분면 그래프 + 8유형 정보 카드)
-├── SubSection (중분류 그룹 + LevelBadge)
-└── BarItem (T점수 막대 + 하위 소분류 드롭다운)
-```
-
-**설계 규칙**:
-- T점수 범위: 20~80 기준 `getBarPercent()` → `(score - 20) / 60 * 100` (T=50이 정확히 50% 중앙)
-- 5단계 레벨: 매우높음(≥70), 높음(≥60), 보통(≥40), 낮음(≥30), 매우낮음(<30)
-- 막대 색상: 정적=`#22C55E`(green), 부적=`#F43F5E`(rose)
-- 사분면 dot: 공부기술 ≥50 → blue-600, <50 → red-500
-- 8유형: 사분면(마음×자원) × 기술(높/낮), `calculate4StepDiagnosis.ts`에서 계산
-
-**대분류 그룹 헤더** (L2.5/L3 공통):
-- 정적 영역: `bg-emerald-50/60 border-emerald-200` + '높을수록 좋아요'
-- 부적 영역: `bg-rose-50/60 border-rose-200` + '낮을수록 좋아요'
-- 아이콘: `DOMAIN_ICONS` (🌟📚💚⚠️💔), 대분류명 + 도움말 텍스트 인라인 배치
-
-#### DataHelperChatbot (데이터 해석 도우미)
-
-L3 학생 대시보드에 플로팅 형태로 제공되는 AI 질문-답변 도우미입니다.
-
-```
-src/features/student-dashboard/
-├── components/
-│   ├── DataHelperChatbot.tsx      # 메인 컨테이너 (FAB + 챗봇 창)
-│   ├── DataHelperQuestions.tsx     # 2단 질문 목록 (진단 4 + 유형 3)
-│   └── DataHelperAnswer.tsx       # AI 답변 표시 (마크다운 렌더링)
-└── services/
-    └── dataHelperService.ts       # 질문별 AI 프롬프트 매핑 + 호출
-```
-
-**질문 구조 (7개)**:
-- 진단 해석: 총평 상세 / 11개 요인 / 강점 / 보완점
-- 유형 해석: 전체 유형 특징 / 유형 세부특성 / 개인별 특성
-
-**주요 특징**:
-- FAB 버튼: `fixed bottom-6 right-6`, indigo-purple 그라데이션
-- 챗봇 창: `fixed bottom-24 right-6`, w-[420px] h-[560px]
-- 답변 캐싱: 같은 질문 재클릭 시 API 호출 없음
-- 학생 변경 시 캐시 자동 초기화
-- 하단 "AI 어시스턴트로 이동하기" 버튼 → `/ai-room` 라우팅
-
-**데이터 흐름**:
-```
-DataHelperChatbot(props: tScores, predictedType, typeProbabilities, schoolLevel, deviations)
-  └── dataHelperService.getDataHelperAnswer(questionId, studentData)
-       ├── getSubCategoryResults(tScores) ← summaryGenerator.ts
-       ├── getTypeInfo(type, schoolLevel) ← lpaClassifier.ts
-       └── callAI({ messages, temperature: 0.4 }) ← ai.ts
-```
-
-#### 트렌디한 디자인 요소
-
-| 요소 | 적용 |
-|------|------|
-| 그라데이션 | SVG linearGradient, `bg-gradient-to-br` |
-| 둥근 모서리 | `cornerRadius={4}`, `rounded-xl` |
-| 반투명 | `bg-white/60`, `backdrop-blur-sm` |
-| 그림자 | `shadow-sm`, `shadow-lg` |
-
----
-
 ## 🔐 개인정보 보호
 
 ### AI 전송 금지 정보
@@ -595,266 +423,6 @@ interface SafeData {
   tScores: number[];
   typeConfidence: number;
 }
-```
-
----
-
-## 🤖 AI 어시스턴트 구현 가이드
-
-### 개요
-
-AI 어시스턴트는 교사가 학생 검사 결과를 AI와 대화하며 분석할 수 있는 기능입니다.
-
-**경로**: `/ai-room`
-
-### 컴포넌트 구조
-
-```
-src/features/ai-room/
-├── pages/
-│   └── AIRoomPage.tsx              # 메인 페이지
-├── components/
-│   ├── ChatArea.tsx                # 채팅 메시지 영역
-│   ├── ConversationSidebar.tsx     # 대화 목록 사이드바
-│   ├── QuickPrompts.tsx            # 빠른 질문 사이드바
-│   ├── StudentPickerModal.tsx      # 학생 선택 모달
-│   └── index.ts
-├── hooks/
-│   ├── useConversations.ts         # 대화 CRUD 훅
-│   └── useContextMode.ts           # 컨텍스트 모드 관리 훅
-├── services/
-│   ├── assistantService.ts         # AI 호출 서비스 (async)
-│   └── contextBuilder.ts           # RAG 컨텍스트 빌더 (async, 7개 데이터 소스)
-├── types.ts                        # 타입 정의
-└── index.ts
-```
-
-### 핵심 타입
-
-```typescript
-// 컨텍스트 모드: 전체 / 반별 / 개별
-type ContextMode = 'all' | 'class' | 'student';
-
-// 채팅 메시지
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
-
-// 대화 기록
-interface Conversation {
-  id: string;
-  title: string;
-  messages: ChatMessage[];
-  createdAt: Date;
-  mode: ContextMode;
-  contextLabel?: string; // "6-2반", "학생 3명" 등
-}
-
-// 학생 별칭 맵 (개인정보 보호)
-interface StudentAliasMap {
-  [alias: string]: string; // student_A → 실제이름
-}
-```
-
-### 주요 기능
-
-1. **컨텍스트 모드 선택**
-   - 전체: 담당 학급 전체 분석
-   - 반별: 특정 반 선택 후 분석
-   - 개별: 1명 또는 다수 학생 선택
-
-2. **대화 기록 관리**
-   - 좌측 사이드바에 대화 목록 표시
-   - 새 대화 생성 / 삭제 / 전환
-   - 컨텍스트 라벨 배지로 모드 구분
-
-3. **빠른 질문**
-   - 모드별 맞춤 프롬프트 제공
-   - 각 항목에 설명문 포함
-   - 클릭 시 입력창에 자동 입력
-
-4. **학생 별칭 시스템**
-   - AI 전송 시 학생 이름 마스킹 (student_A, student_B...)
-   - UI 표시 시 실제 이름으로 변환
-
-### RAG 컨텍스트 데이터 소스
-
-`contextBuilder.ts`가 모드별로 수집하여 AI 시스템 프롬프트에 주입하는 데이터:
-
-#### Student 모드 (개별)
-
-| 데이터 | 소스 | 설명 |
-|--------|------|------|
-| 38개 T점수 전체 | `Assessment.tScores` | 5대 영역별 그룹으로 포맷팅 |
-| 1차→2차 변화 | `Assessment` (round 1,2) | T±5 이상 변화 요인만 추출 |
-| 4단계 진단 | `calculate4StepDiagnosis()` | 공부마음/자원/기술 + 8유형 + 코칭전략 |
-| 상담 기록 | `unifiedCounselingService` | 최근 5건 (상태, 유형, 영역, 방법, 요약) |
-| 관찰 메모 | `memoService` | 최근 5건 (카테고리, 중요도, 내용) |
-| 생활기록부 | `schoolRecordService` | 저장된 AI 생성 문구 (카테고리별) |
-| LPA 유형 | `Assessment.predictedType` | 유형 + 확신도 + 신뢰도/관심 배지 |
-
-#### Class 모드 (반별)
-
-| 데이터 | 소스 | 설명 |
-|--------|------|------|
-| 학급 프로필 | `computeClassProfile()` | 강점/약점 TOP 3 (해설문 + 대표 요인) |
-| 위험군 학생 | `AttentionResult` | 긴급 관심 / 관찰 필요 2단 분류 |
-| 상담 현황 | `unifiedCounselingService` | 완료/예정 건수 |
-| 유형 분포 | `Assessment.predictedType` | 유형별 인원수 |
-
-#### All 모드 (전체)
-
-| 데이터 | 소스 | 설명 |
-|--------|------|------|
-| 반별 프로필 요약 | `computeClassProfile()` | 각 반 강점/약점 + 유형 분포 |
-| 전체 상담 현황 | `unifiedCounselingService` | 완료/예정 건수 |
-| 관심 필요 학생 수 | `AttentionResult` | 전체 합산 |
-
-#### 컨텍스트 빌더 데이터 흐름
-
-```
-AIRoomPage → callAssistant(request)
-  → await buildRAGContext({ mode, classes, selectedClass, selectedStudents })
-    → 모드별 컨텍스트 빌더 (async)
-      ├── 검사 결과: Assessment.tScores, predictedType, reliabilityWarnings
-      ├── 4단계 진단: calculate4StepDiagnosis(tScores)
-      ├── 학급 프로필: computeClassProfile(classData, round)
-      ├── 상담 기록: await unifiedCounselingService.getByStudentId()
-      ├── 관찰 메모: await memoService.getByStudentId()
-      └── 생활기록부: await schoolRecordService.getSavedByStudentId()
-  → buildAssistantPrompt(ragContext)  // {RAG_CONTEXT} 치환
-  → callAI({ messages, maskPII: false })  // 별칭 처리 완료
-  → restoreNames(response, aliasMap)  // 별칭 → 실명 복원
-```
-
-### 빠른 질문 카테고리
-
-| 모드 | 프롬프트 예시 |
-|------|---------------|
-| **전체** | 전체 현황, 관심 학생, 반별 비교, 변화 추이 |
-| **반별** | 반 분석, 유형 분포, 좌석 배치, 또래 매칭 |
-| **개별(1명)** | 결과 요약, 상담 기법, 생기부 문구, 가정연계 |
-| **개별(다수)** | 관계성 분석, 결과 비교, 그룹 상담, 모둠 구성 |
-
-### 스타일 가이드
-
-```tsx
-// 대화 기록 배지 색상
-const modeBadgeColors = {
-  all: 'bg-gray-100 text-gray-600',
-  class: 'bg-blue-100 text-blue-600',
-  student: 'bg-green-100 text-green-600',
-};
-
-// AI 메시지 스타일
-<div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm p-4 shadow-sm">
-  <div className="flex items-center gap-1 mb-2 text-xs text-primary-500 font-medium">
-    <Sparkles className="w-3 h-3" />
-    <span>AI 분석</span>
-  </div>
-  {/* 메시지 내용 */}
-</div>
-
-// 사용자 메시지 스타일
-<div className="bg-primary-500 text-white rounded-2xl rounded-tr-sm p-4">
-  {/* 메시지 내용 */}
-</div>
-```
-
----
-
-## 📅 상담일정 기능 구현 가이드
-
-### 개요
-
-상담일정은 교사가 학생 상담을 계획하고 관리하며, 완료된 상담을 기록하는 기능입니다.
-
-**경로**: `/schedule`
-
-### 컴포넌트 구조
-
-```
-src/features/schedule/
-├── pages/
-│   └── SchedulePage.tsx         # 메인 페이지 (주간/월간 캘린더)
-├── components/
-│   ├── WeeklyCalendar.tsx       # 주간 캘린더 뷰
-│   ├── MonthlyCalendar.tsx      # 월간 캘린더 뷰
-│   ├── ScheduleModal.tsx        # 일정 추가/수정/완료 모달
-│   ├── DateDetailPanel.tsx      # 날짜 상세 패널 (월간 뷰)
-│   ├── ClassSummaryCards.tsx    # 학급별 요약 카드
-│   ├── ScheduleStudentPicker.tsx # 학생 선택 컴포넌트
-│   └── CalendarIntegrationModal.tsx # 캘린더 연동 (TODO)
-└── index.ts
-```
-
-### 핵심 타입
-
-```typescript
-// 상담 상태
-type CounselingStatus = 'scheduled' | 'completed' | 'cancelled';
-
-// 통합 상담 기록
-interface UnifiedCounselingRecord {
-  id: string;
-  students: CounselingStudent[];     // 1명 이상 지원
-  classId: string;
-  scheduledAt: string;               // 'YYYY-MM-DD HH:mm'
-  duration?: number;                 // 상담 시간 (분)
-  types: ScheduleType[];             // regular, urgent, follow-up, initial
-  areas: CounselingArea[];           // academic, career, peer 등 8개
-  methods: CounselingMethod[];       // face-to-face, phone, video, group
-  status: CounselingStatus;
-  reason?: string;                   // 예정 시 메모
-  summary?: string;                  // 완료 시 상담 기록
-  nextSteps?: string;                // 후속 조치
-  createdAt: Date;
-  updatedAt: Date;
-}
-```
-
-### 주요 기능
-
-1. **주간/월간 캘린더 뷰**
-   - 반별 필터링 (색상 코드)
-   - 완료된 상담 시각적 구분 (체크 아이콘, 회색 배경)
-   - 긴급 표시 (빨간 아이콘, 예정된 상담만)
-
-2. **상담 일정 CRUD**
-   - 복수 학생 선택
-   - 복수 상담 유형/영역/방법 선택
-   - 날짜/시간 선택
-
-3. **상담 완료 처리**
-   - 완료 버튼 → 상태 변경
-   - 상담 기록 작성
-   - L3 학생 대시보드 상담 탭과 동기화
-
-### 상태별 스타일
-
-```tsx
-// 완료된 상담
-<button className="bg-gray-50 text-gray-500">
-  <CheckCircle2 className="text-emerald-500" />
-</button>
-
-// 예정된 상담
-<button className="bg-white text-gray-900">
-  {isUrgent && <AlertCircle className="text-red-500" />}
-</button>
-```
-
-### 통합 상담 서비스
-
-```typescript
-// L3 상담 탭과 동일한 서비스 사용
-import { unifiedCounselingService } from '@/shared/services/unifiedCounselingService';
-
-// 모든 상담 조회 (취소 제외)
-const activeRecords = records.filter(r => r.status !== 'cancelled');
 ```
 
 ---
@@ -902,5 +470,5 @@ const activeRecords = records.filter(r => r.status !== 'cancelled');
 
 ---
 
-**Last Updated**: 2026-02-20
-**Version**: 2.7 (RAG 컨텍스트 확장 — 7개 데이터 소스 통합, computeClassProfile 순수 함수 추출)
+**Last Updated**: 2026-03-04
+**Version**: 3.0 (UI 컴포넌트 가이드 분리 → COMPONENTS.md)

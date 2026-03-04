@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Users } from 'lucide-react';
+import { Calendar, Users, GraduationCap } from 'lucide-react';
 import { Modal, Button } from '@/shared/components';
 
 interface CreateAssessmentModalProps {
@@ -8,8 +8,26 @@ interface CreateAssessmentModalProps {
   onCreate: (data: AssessmentFormData) => void;
 }
 
+/** 학교급 타입 */
+export type SchoolLevel = 'elementary' | 'middle' | 'high';
+
+/** 학교급별 학년 범위 */
+const GRADE_OPTIONS: Record<SchoolLevel, number[]> = {
+  elementary: [1, 2, 3, 4, 5, 6],
+  middle: [1, 2, 3],
+  high: [1, 2, 3],
+};
+
+/** 학교급 라벨 */
+const SCHOOL_LEVEL_LABELS: Record<SchoolLevel, string> = {
+  elementary: '초등학교',
+  middle: '중학교',
+  high: '고등학교',
+};
+
 export interface AssessmentFormData {
   name: string;
+  schoolLevel: SchoolLevel;
   grade: number;
   classNumber: number;
   studentCount: number;
@@ -37,6 +55,7 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
   const defaultDates = generateDefaultDates();
   const [formData, setFormData] = useState<AssessmentFormData>({
     name: '',
+    schoolLevel: 'elementary',
     grade: 1,
     classNumber: 1,
     studentCount: 30,
@@ -44,6 +63,15 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
     startDate: defaultDates.startDate,
     endDate: defaultDates.endDate,
   });
+
+  // 학교급 변경 시 학년 초기화
+  const handleSchoolLevelChange = (schoolLevel: SchoolLevel) => {
+    setFormData((prev) => ({
+      ...prev,
+      schoolLevel,
+      grade: 1, // 학교급 변경 시 1학년으로 초기화
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +101,30 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
           />
         </div>
 
+        {/* 학교급 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <GraduationCap className="w-4 h-4 inline mr-1" />
+            학교급
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {(Object.keys(SCHOOL_LEVEL_LABELS) as SchoolLevel[]).map((level) => (
+              <button
+                key={level}
+                type="button"
+                onClick={() => handleSchoolLevelChange(level)}
+                className={`px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
+                  formData.schoolLevel === level
+                    ? 'bg-primary-500 text-white border-primary-500'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {SCHOOL_LEVEL_LABELS[level]}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* 학년/반 */}
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -85,7 +137,7 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
               onChange={(e) => handleChange('grade', parseInt(e.target.value))}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
             >
-              {[1, 2, 3, 4, 5, 6].map((g) => (
+              {GRADE_OPTIONS[formData.schoolLevel].map((g) => (
                 <option key={g} value={g}>
                   {g}학년
                 </option>

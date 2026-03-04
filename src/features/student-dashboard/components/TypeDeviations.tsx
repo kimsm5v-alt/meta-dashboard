@@ -27,15 +27,38 @@ export const TypeDeviations: React.FC<TypeDeviationsProps> = ({
   }
 
   const generateDeviationText = () => {
-    const parts: string[] = [];
+    // 받침 유무에 따른 조사 선택 ('이/가')
+    const getSubjectParticle = (word: string) => {
+      const lastChar = word.charAt(word.length - 1);
+      const lastCharCode = lastChar.charCodeAt(0);
+      // 한글 유니코드 범위: 0xAC00 ~ 0xD7A3
+      if (lastCharCode >= 0xAC00 && lastCharCode <= 0xD7A3) {
+        // 받침 유무: (코드 - 0xAC00) % 28 === 0 이면 받침 없음
+        const hasFinalConsonant = (lastCharCode - 0xAC00) % 28 !== 0;
+        return hasFinalConsonant ? '이' : '가';
+      }
+      return '이'; // 한글이 아닌 경우 기본값
+    };
 
-    deviations.forEach((dev) => {
-      const direction = dev.diff > 0 ? '높고' : '낮으며';
+    const parts: string[] = [];
+    const lastIndex = deviations.length - 1;
+
+    deviations.forEach((dev, index) => {
+      const particle = getSubjectParticle(dev.factor);
       const sign = dev.diff > 0 ? '+' : '';
-      parts.push(`${dev.factor}이 특히 ${direction} (${sign}${dev.diff})`);
+
+      if (index === lastIndex) {
+        // 마지막 항목: "~입니다"로 종결
+        const direction = dev.diff > 0 ? '높습니다' : '낮습니다';
+        parts.push(`${dev.factor}${particle} 특히 ${direction} (${sign}${dev.diff})`);
+      } else {
+        // 중간 항목: "~고"로 연결
+        const direction = dev.diff > 0 ? '높고' : '낮고';
+        parts.push(`${dev.factor}${particle} 특히 ${direction} (${sign}${dev.diff})`);
+      }
     });
 
-    return `같은 ${predictedType} 학생들에 비해 ${parts.join(', ')} 합니다.`;
+    return `같은 ${predictedType} 학생들에 비해 ${parts.join(', ')}.`;
   };
 
   return (

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/context/AuthContext';
 import { Button } from '@/shared/components';
-import { HeroSection, FeaturesSection, StartMethodSection } from '../components';
+import { HeroSection, FeaturesSection } from '../components';
 import serviceLogo from '@/assets/logo_2.png';
 
 export const LandingPage = () => {
@@ -46,10 +46,6 @@ export const LandingPage = () => {
       <main className="pt-16">
         <HeroSection onGetStarted={handleGetStarted} />
         <FeaturesSection />
-        <StartMethodSection
-          onVivasamClick={() => navigate('/login')}
-          onSocialClick={() => navigate('/login')}
-        />
       </main>
 
       {/* 푸터 */}

@@ -101,7 +101,6 @@ export interface ClassAnalysisData {
 // ============================================================
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-const USE_API = import.meta.env.VITE_USE_API === 'true';
 
 /** JWT 토큰 가져오기 */
 const getAuthToken = (): string | null => {
@@ -127,10 +126,6 @@ async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<MetaAPIResponse<T>> {
-  if (!USE_API) {
-    throw new Error('API 모드가 비활성화되어 있습니다. VITE_USE_API=true로 설정하세요.');
-  }
-
   const url = `${API_BASE}${endpoint}`;
   const response = await fetch(url, {
     ...options,
@@ -324,13 +319,6 @@ export function buildReliabilityWarnings(item: {
   }
 
   return warnings;
-}
-
-/**
- * API 모드 확인
- */
-export function isApiMode(): boolean {
-  return USE_API;
 }
 
 export default metaApi;

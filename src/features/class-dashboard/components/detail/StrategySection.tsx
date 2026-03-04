@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import type { ClassProfile } from '../../hooks/useClassProfile';
+import { ApiTooltip } from '@/shared/components/api-tooltip';
+import { API_STRATEGIES_RECOMMENDATIONS } from '@/shared/data/apiDefinitions';
 
 interface StrategySectionProps {
   profile: ClassProfile | null;
@@ -187,18 +189,19 @@ export const StrategySection: React.FC<StrategySectionProps> = ({ profile, prevP
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-      {strategies.slice(0, 3).map((strategy, sIdx) => (
-        <div
-          key={strategy.title}
-          className="border border-gray-200 rounded-xl p-5 hover:border-primary-300 hover:shadow-md transition-all"
-        >
-          <div className="flex items-start gap-3 mb-3">
-            <span className="text-2xl">{strategy.icon}</span>
-            <h3 className="font-bold text-gray-800 text-[15px] leading-snug">
-              {strategy.title}
-            </h3>
-          </div>
+    <ApiTooltip {...API_STRATEGIES_RECOMMENDATIONS} position="top-left">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {strategies.slice(0, 3).map((strategy, sIdx) => (
+          <div
+            key={strategy.title}
+            className="border border-gray-200 rounded-xl p-5 hover:border-primary-300 hover:shadow-md transition-all"
+          >
+            <div className="flex items-start gap-3 mb-3">
+              <span className="text-2xl">{strategy.icon}</span>
+              <h3 className="font-bold text-gray-800 text-[15px] leading-snug">
+                {strategy.title}
+              </h3>
+            </div>
           <p className="text-sm text-gray-500 leading-relaxed mb-4">
             {strategy.description}
           </p>
@@ -234,6 +237,7 @@ export const StrategySection: React.FC<StrategySectionProps> = ({ profile, prevP
           </div>
         </div>
       ))}
-    </div>
+      </div>
+    </ApiTooltip>
   );
 };

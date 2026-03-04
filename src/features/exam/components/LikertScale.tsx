@@ -1,68 +1,57 @@
 interface LikertScaleProps {
+  questionId: string;
   selectedValue: string;
   onSelect: (value: string) => void;
   disabled?: boolean;
 }
 
 const LIKERT_OPTIONS = [
-  { value: '1', label: '전혀 그렇지 않다', shortLabel: '①' },
-  { value: '2', label: '그렇지 않다', shortLabel: '②' },
-  { value: '3', label: '보통이다', shortLabel: '③' },
-  { value: '4', label: '그렇다', shortLabel: '④' },
-  { value: '5', label: '매우 그렇다', shortLabel: '⑤' },
+  { value: '1', label: '전혀 그렇지 않다' },
+  { value: '2', label: '그렇지 않다' },
+  { value: '3', label: '보통이다' },
+  { value: '4', label: '그렇다' },
+  { value: '5', label: '매우 그렇다' },
 ];
 
 export const LikertScale: React.FC<LikertScaleProps> = ({
+  questionId,
   selectedValue,
   onSelect,
   disabled = false,
 }) => {
   return (
-    <div className="flex gap-1 md:gap-3">
+    <div className="flex">
       {LIKERT_OPTIONS.map((option) => {
         const isSelected = selectedValue === option.value;
+        const inputId = `${questionId}-${option.value}`;
         return (
-          <button
+          <label
             key={option.value}
-            type="button"
-            onClick={() => onSelect(option.value)}
-            disabled={disabled}
+            htmlFor={inputId}
             className={`
-              flex-1 flex flex-col items-center justify-center gap-1 py-2 px-1 md:px-3 rounded-lg transition-all
-              min-h-[60px] md:min-h-[72px]
-              ${isSelected
-                ? 'bg-primary-500 text-white shadow-md scale-105'
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-              }
-              ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+              w-16 md:w-20 flex flex-col items-center gap-1.5 cursor-pointer select-none
+              ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
             `}
-            aria-label={`${option.label} 선택`}
-            aria-pressed={isSelected}
           >
-            <span className="text-lg md:text-xl font-bold">{option.shortLabel}</span>
-            <span className="text-[10px] md:text-xs text-center leading-tight hidden sm:block whitespace-nowrap">
+            <input
+              type="radio"
+              id={inputId}
+              name={questionId}
+              value={option.value}
+              checked={isSelected}
+              onChange={() => onSelect(option.value)}
+              disabled={disabled}
+              className="w-5 h-5 md:w-6 md:h-6 text-primary-500 border-gray-300 focus:ring-primary-500 focus:ring-2 cursor-pointer"
+            />
+            <span className={`text-[10px] md:text-xs text-center leading-tight ${isSelected ? 'text-primary-600 font-medium' : 'text-gray-500'}`}>
               {option.label}
             </span>
-          </button>
+          </label>
         );
       })}
     </div>
   );
 };
 
-export const LikertHeader: React.FC = () => (
-  <div className="hidden md:flex gap-3 mb-2 px-4">
-    <div className="w-12" /> {/* 번호 자리 */}
-    <div className="flex-1" /> {/* 질문 자리 */}
-    <div className="flex gap-3">
-      {LIKERT_OPTIONS.map((option) => (
-        <div
-          key={option.value}
-          className="flex-1 min-w-[60px] text-center text-xs text-gray-500"
-        >
-          {option.label}
-        </div>
-      ))}
-    </div>
-  </div>
-);
+/** @deprecated 라디오 버튼 아래에 레이블이 포함되어 더 이상 필요 없음 */
+export const LikertHeader: React.FC = () => null;

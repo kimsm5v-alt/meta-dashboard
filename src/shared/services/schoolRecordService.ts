@@ -10,11 +10,8 @@ import type {
   SchoolRecordCategory,
 } from '@/shared/types';
 import { SCHOOL_RECORD_CATEGORY_LABELS } from '@/shared/types';
-import { mockSchoolRecordService } from '@/shared/data/mockStudentRecords';
 
-// API 베이스 URL
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-const USE_API = import.meta.env.VITE_USE_API === 'true';
 
 // ============================================================
 // 카테고리별 프롬프트 템플릿
@@ -104,41 +101,31 @@ ${customNote}
    * 저장된 문구 조회
    */
   getSavedByStudentId: async (studentId: string): Promise<SavedSchoolRecord[]> => {
-    if (USE_API) {
-      const response = await fetch(`${API_BASE}/api/school-records/student/${studentId}`);
-      if (!response.ok) throw new Error('Failed to fetch saved records');
-      return response.json();
-    }
-    return mockSchoolRecordService.getSavedByStudentId(studentId);
+    const response = await fetch(`${API_BASE}/api/school-records/student/${studentId}`);
+    if (!response.ok) throw new Error('Failed to fetch saved records');
+    return response.json();
   },
 
   /**
    * 생성된 문구 저장
    */
   save: async (input: Omit<SavedSchoolRecord, 'id' | 'createdAt'>): Promise<SavedSchoolRecord> => {
-    if (USE_API) {
-      const response = await fetch(`${API_BASE}/api/school-records`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!response.ok) throw new Error('Failed to save school record');
-      return response.json();
-    }
-    return mockSchoolRecordService.save(input);
+    const response = await fetch(`${API_BASE}/api/school-records`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) throw new Error('Failed to save school record');
+    return response.json();
   },
 
   /**
    * 저장된 문구 삭제
    */
   delete: async (id: string): Promise<void> => {
-    if (USE_API) {
-      const response = await fetch(`${API_BASE}/api/school-records/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete school record');
-      return;
-    }
-    return mockSchoolRecordService.delete(id);
+    const response = await fetch(`${API_BASE}/api/school-records/${id}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete school record');
   },
 };

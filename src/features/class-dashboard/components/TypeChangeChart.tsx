@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import type { Class, Student } from '@/shared/types';
 import { LPA_PROFILE_DATA } from '@/shared/data/lpaProfiles';
 import {
-  TYPE_ORDER,
+  TYPE_ORDER_ELEMENTARY,
+  TYPE_ORDER_MIDDLE,
   TYPE_COLORS,
   TYPE_GRADIENTS,
   getChangeType,
@@ -75,9 +76,14 @@ const createFlowPath = (from: BarSegment, to: BarSegment): string => {
 };
 
 const FLOW_STROKE_COLORS: Record<string, string> = {
+  // 초등 유형
   '자원소진형': '#EA580C',     // orange-600
   '안전균형형': '#0D9488',     // teal-600
   '몰입자원풍부형': '#2563EB', // blue-600
+  // 중등 유형
+  '무기력형': '#EA580C',       // orange-600
+  '정서조절취약형': '#0D9488', // teal-600
+  '자기주도몰입형': '#2563EB', // blue-600
 };
 
 const getFlowStyle = (
@@ -116,15 +122,20 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
     y: number;
   } | null>(null);
 
+  // 학교급에 따라 유형 순서 결정
+  const isMiddleSchool = classData.schoolLevel === '중등';
+  const TYPE_ORDER = isMiddleSchool ? TYPE_ORDER_MIDDLE : TYPE_ORDER_ELEMENTARY;
+
   // 분포 계산
   type Distribution = Record<string, Student[]>;
 
-  const createDistribution = (): Distribution => ({
-    '미실시': [],
-    '자원소진형': [],
-    '안전균형형': [],
-    '몰입자원풍부형': [],
-  });
+  const createDistribution = (): Distribution => {
+    const dist: Distribution = { '미실시': [] };
+    TYPE_ORDER.forEach(type => {
+      dist[type] = [];
+    });
+    return dist;
+  };
 
   const round1Distribution = createDistribution();
   const round2Distribution = createDistribution();
@@ -134,10 +145,19 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
     const r1 = student.assessments.find(a => a.round === 1);
     const r2 = student.assessments.find(a => a.round === 2);
 
-    round1Distribution[r1?.predictedType || '미실시'].push(student);
+    const r1Type = r1?.predictedType || '미실시';
+    // 키가 없으면 추가 (예: 중등 유형이 초등 분포에 추가되는 경우 방지)
+    if (!round1Distribution[r1Type]) {
+      round1Distribution[r1Type] = [];
+    }
+    round1Distribution[r1Type].push(student);
 
     if (round2Available && r2) {
-      round2Distribution[r2.predictedType].push(student);
+      const r2Type = r2.predictedType;
+      if (!round2Distribution[r2Type]) {
+        round2Distribution[r2Type] = [];
+      }
+      round2Distribution[r2Type].push(student);
     } else {
       round2Distribution['미실시'].push(student);
     }

@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, ShieldAlert, AlertTriangle, Clock } from 'lucide-react';
+import { ArrowLeft, Search, ShieldAlert, AlertTriangle, Clock, Loader2 } from 'lucide-react';
 import { Card, Badge } from '@/shared/components';
 import { useData } from '@/shared/contexts/DataContext';
-import type { Student, Assessment } from '@/shared/types';
+import { useClassStudents, useApiConfig } from '@/shared/hooks/useApiData';
+import { ApiTooltip } from '@/shared/components/api-tooltip';
+import { API_CLASS_STUDENTS } from '@/shared/data/apiDefinitions';
+import type { Student, Assessment, Class } from '@/shared/types';
 import {
   TypeChangeChart,
   ClassInsights,
@@ -18,15 +21,111 @@ export const ClassDashboardPage = () => {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
   const { getClassById } = useData();
+  const { hasJwtToken } = useApiConfig();
+  // l2Data: 검사 상세 정보, 학급 평균 T점수 등 (향후 활용 가능)
+  const { students: apiStudents, l2Data: _l2Data, isLoading, error } = useClassStudents(classId);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [changeFilter, setChangeFilter] = useState<ChangeFilter>('all');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const classData = classId ? getClassById(classId) : undefined;
+
+  // API 모드: useClassStudents에서 가져온 학생 데이터 사용
+  // Mock 모드: DataContext에서 가져온 데이터 사용
+  const baseClassData = classId ? getClassById(classId) : undefined;
+
+  // API 모드에서 학생 데이터가 있으면 classData 구성
+  const classData: Class | undefined = useMemo(() => {
+    // API 모드이고 학생 데이터가 있으면 API 데이터로 학급 구성
+    if (hasJwtToken && apiStudents.length > 0 && classId) {
+      // 첫 번째 학생에서 schoolLevel, grade 추출
+      const firstStudent = apiStudents[0];
+      const schoolLevel = firstStudent?.schoolLevel ?? '초등';
+      const grade = firstStudent?.grade ?? 1;
+
+      // classId에서 classNumber 추출 시도 (예: "6-2" → 2)
+      const parts = classId.split('-');
+      const classNumber = parseInt(parts[1], 10) || 1;
+
+      // 통계 계산
+      const assessedStudents = apiStudents.filter(s => s.assessments.length > 0).length;
+      const typeDistribution: Record<string, { count: number; percentage: number }> = {};
+
+      for (const student of apiStudents) {
+        const latestAssessment = student.assessments[student.assessments.length - 1];
+        if (latestAssessment) {
+          const type = latestAssessment.predictedType;
+          if (!typeDistribution[type]) {
+            typeDistribution[type] = { count: 0, percentage: 0 };
+          }
+          typeDistribution[type].count++;
+        }
+      }
+
+      for (const type of Object.keys(typeDistribution)) {
+        typeDistribution[type].percentage = assessedStudents > 0
+          ? Math.round((typeDistribution[type].count / assessedStudents) * 100)
+          : 0;
+      }
+
+      const needAttentionCount = apiStudents.filter(
+        s => s.assessments.some(a => a.attentionResult.needsAttention)
+      ).length;
+
+      return {
+        id: classId,
+        schoolLevel,
+        grade,
+        classNumber,
+        teacherId: '',
+        students: apiStudents,
+        stats: {
+          totalStudents: apiStudents.length,
+          assessedStudents,
+          typeDistribution,
+          needAttentionCount,
+          round1Completed: assessedStudents > 0,
+          round2Completed: apiStudents.some(s => s.assessments.some(a => a.round === 2)),
+          examStatus: {
+            round1: assessedStudents > 0 ? '종료' : '시작전',
+            round2: apiStudents.some(s => s.assessments.some(a => a.round === 2)) ? '종료' : '시작전',
+          },
+          round2SubmittedCount: apiStudents.filter(s => s.assessments.some(a => a.round === 2)).length,
+        },
+      };
+    }
+
+    // Mock 모드 또는 API 데이터 없음: DataContext 사용
+    return baseClassData;
+  }, [baseClassData, hasJwtToken, apiStudents, classId]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // API 모드 로딩 상태
+  if (hasJwtToken && isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-primary-500 animate-spin mx-auto mb-2" />
+          <p className="text-gray-500">학급 데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // API 에러 상태
+  if (hasJwtToken && error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+          <p className="text-gray-500">데이터 로드 실패: {error}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!classData) {
     return (
@@ -35,6 +134,20 @@ export const ClassDashboardPage = () => {
       </div>
     );
   }
+
+  // 신뢰도 경고 상태 계산
+  const reliabilityWarningOnly = (() => {
+    const studentsWithRound1 = classData.students.filter(s =>
+      s.assessments.some(a => a.round === 1)
+    );
+    if (studentsWithRound1.length === 0) return false;
+
+    const reliableStudents = studentsWithRound1.filter(s => {
+      const r1 = s.assessments.find(a => a.round === 1);
+      return r1 && r1.reliabilityWarnings.length === 0;
+    });
+    return reliableStudents.length === 0;
+  })();
 
   // 필터링 및 정렬
   const filteredAndSortedStudents = (() => {
@@ -196,6 +309,22 @@ export const ClassDashboardPage = () => {
         </div>
       )}
 
+      {/* 신뢰도 경고 배너 */}
+      {reliabilityWarningOnly && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+          <ShieldAlert className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">
+              모든 학생이 신뢰도 주의 상태입니다
+            </p>
+            <p className="text-sm text-amber-700 mt-1">
+              신뢰도 양호 학생이 없어 전체 학생 데이터를 기반으로 분석 결과를 표시합니다.
+              결과 해석에 주의가 필요합니다.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <TypeChangeChart classData={classData} />
@@ -208,7 +337,9 @@ export const ClassDashboardPage = () => {
       {/* Student Table */}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">학생 목록</h2>
+          <ApiTooltip {...API_CLASS_STUDENTS} position="top-left">
+            <h2 className="text-xl font-bold text-gray-900">학생 목록</h2>
+          </ApiTooltip>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input

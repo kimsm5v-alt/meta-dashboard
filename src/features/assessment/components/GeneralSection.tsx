@@ -1,5 +1,7 @@
 import { Plus, Upload, FileText, QrCode } from 'lucide-react';
 import { Button } from '@/shared/components';
+import { ApiTooltip } from '@/shared/components/api-tooltip';
+import { API_UPLOAD_CREATE } from '@/shared/data/apiDefinitions';
 import type { ManagedAssessment } from '@/shared/types';
 import { AssessmentList } from './AssessmentList';
 
@@ -8,6 +10,8 @@ interface GeneralSectionProps {
   onCreateClick: () => void;
   onUploadClick: () => void;
   onViewCode: (assessment: ManagedAssessment) => void;
+  onEndExam?: (assessment: ManagedAssessment) => void;
+  onCancelExam?: (assessment: ManagedAssessment) => void;
 }
 
 export const GeneralSection: React.FC<GeneralSectionProps> = ({
@@ -15,6 +19,8 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
   onCreateClick,
   onUploadClick,
   onViewCode,
+  onEndExam,
+  onCancelExam,
 }) => {
   return (
     <div className="space-y-6">
@@ -47,7 +53,12 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
           <span className="text-sm text-gray-500">{assessments.length}개</span>
         </div>
         {assessments.length > 0 ? (
-          <AssessmentList assessments={assessments} onViewCode={onViewCode} />
+          <AssessmentList
+            assessments={assessments}
+            onViewCode={onViewCode}
+            onEndExam={onEndExam}
+            onCancelExam={onCancelExam}
+          />
         ) : (
           <div className="p-8 text-center">
             <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
@@ -71,13 +82,15 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
         <p className="text-sm text-gray-600 mb-4">
           다른 곳에서 실시한 학습심리정서검사 결과가 있다면 PDF 파일을 업로드하여 분석할 수 있습니다.
         </p>
-        <Button
-          onClick={onUploadClick}
-          className="w-full justify-center"
-        >
-          <Upload className="w-4 h-4 mr-2" />
-          PDF 결과 파일 업로드
-        </Button>
+        <ApiTooltip {...API_UPLOAD_CREATE} position="top-right">
+          <Button
+            onClick={onUploadClick}
+            className="w-full justify-center"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            PDF 결과 파일 업로드
+          </Button>
+        </ApiTooltip>
       </div>
     </div>
   );

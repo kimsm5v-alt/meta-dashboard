@@ -52,6 +52,8 @@ export interface ClassDetailData {
   watchListStudents: RiskStudent[];
   validStudentCount: number;
   totalStudentCount: number;
+  /** 신뢰도 양호 학생이 0명이고 신뢰도 경고 학생만 있는 경우 true */
+  reliabilityWarningOnly: boolean;
 }
 
 // ============================================================
@@ -64,18 +66,36 @@ export function useClassDetailData(
 ): ClassDetailData {
   return useMemo(() => {
     // 1. 유효 학생 필터 (해당 차수 검사 있고, 신뢰도 경고 없는 학생)
-    const validStudents = classData.students.filter((s) => {
+    const studentsWithAssessment = classData.students.filter((s) =>
+      s.assessments.some((a) => a.round === round)
+    );
+
+    const validStudents = studentsWithAssessment.filter((s) => {
       const assessment = s.assessments.find((a) => a.round === round);
-      if (!assessment) return false;
-      return assessment.reliabilityWarnings.length === 0;
+      return assessment!.reliabilityWarnings.length === 0;
     });
+
+    // 신뢰도 경고 학생만 있을 경우 전체 학생 사용 (fallback)
+    const effectiveStudents = validStudents.length > 0 ? validStudents : studentsWithAssessment;
+
+    // DEBUG: 학생 데이터 확인
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useClassDetailData] 전체 학생:', classData.students.length);
+      console.log('[useClassDetailData] 검사 완료 학생:', studentsWithAssessment.length);
+      console.log('[useClassDetailData] 신뢰도 양호 학생:', validStudents.length);
+      console.log('[useClassDetailData] 실제 사용 학생:', effectiveStudents.length);
+      if (effectiveStudents.length > 0) {
+        const sample = effectiveStudents[0].assessments.find(a => a.round === round);
+        console.log('[useClassDetailData] 샘플 tScores:', sample?.tScores);
+      }
+    }
 
     // 2. 38개 요인별 학급 평균 T점수
     const factorAvgMap: Record<number, number> = {};
     for (const factor of FACTOR_DEFINITIONS) {
       let sum = 0;
       let count = 0;
-      for (const student of validStudents) {
+      for (const student of effectiveStudents) {
         const assessment = student.assessments.find((a) => a.round === round);
         if (assessment && assessment.tScores[factor.index] != null) {
           sum += assessment.tScores[factor.index];
@@ -172,14 +192,18 @@ export function useClassDetailData(
         b.severeFactors.length - a.severeFactors.length,
     );
 
+    // 신뢰도 양호 학생이 0명이고 검사 완료 학생이 있는 경우
+    const reliabilityWarningOnly = validStudents.length === 0 && studentsWithAssessment.length > 0;
+
     return {
       factorAvgs,
       subCategoryAvgs,
       domainData,
       criticalStudents,
       watchListStudents,
-      validStudentCount: validStudents.length,
+      validStudentCount: effectiveStudents.length,
       totalStudentCount: classData.students.length,
+      reliabilityWarningOnly,
     };
   }, [classData, round]);
 }

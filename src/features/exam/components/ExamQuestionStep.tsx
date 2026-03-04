@@ -37,8 +37,10 @@ export const ExamQuestionStep: React.FC<ExamQuestionStepProps> = ({
   // 현재 페이지의 모든 문항이 응답되었는지 확인
   const allCurrentPageAnswered = questions.every((q) => answers[q.NO]);
 
-  // 전체 문항이 응답되었는지 확인 (마지막 페이지 제출용)
-  const allQuestionsAnswered = answeredCount === totalQuestions;
+  // 마지막 페이지에서 제출 가능 여부:
+  // - 현재 페이지 모든 문항 응답 완료
+  // - 응답 수가 총 문항 수 이상 (API의 fullCount가 부정확할 수 있음)
+  const canSubmit = allCurrentPageAnswered && (answeredCount >= totalQuestions || answeredCount >= 124);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -83,7 +85,7 @@ export const ExamQuestionStep: React.FC<ExamQuestionStepProps> = ({
             <button
               type="button"
               onClick={onSubmit}
-              disabled={!allQuestionsAnswered || isSubmitting}
+              disabled={!canSubmit || isSubmitting}
               className="flex-[2] flex items-center justify-center gap-2 px-6 py-4 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               {isSubmitting ? (

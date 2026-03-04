@@ -1,6 +1,8 @@
 import { Send, Bot, X, Sparkles } from 'lucide-react';
 import { Card } from '@/shared/components';
 import { useData } from '@/shared/contexts/DataContext';
+import { ApiTooltip } from '@/shared/components/api-tooltip';
+import { API_TEACHER_DASHBOARD } from '@/shared/data/apiDefinitions';
 import { StudentPickerModal, ChatArea, QuickPrompts, ConversationSidebar } from '../components';
 import { useConversations } from '@/features/ai-room/hooks/useConversations';
 import { useContextMode } from '@/features/ai-room/hooks/useContextMode';
@@ -96,15 +98,16 @@ export const AIRoomPage = () => {
         <div className="h-10 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent" />
 
         {/* 컨텍스트 모드 버튼 */}
-        <div className="flex items-center gap-1.5 bg-gray-100/80 backdrop-blur-sm p-1.5 rounded-xl border border-gray-200/50">
-          <button
-            onClick={() => handleModeChange('all')}
-            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
-              mode === 'all' ? 'bg-primary-500 text-white shadow-md' : 'text-gray-600 hover:bg-white/80'
-            }`}
-          >
-            전체
-          </button>
+        <ApiTooltip {...API_TEACHER_DASHBOARD} position="bottom-left">
+          <div className="flex items-center gap-1.5 bg-gray-100/80 backdrop-blur-sm p-1.5 rounded-xl border border-gray-200/50">
+            <button
+              onClick={() => handleModeChange('all')}
+              className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                mode === 'all' ? 'bg-primary-500 text-white shadow-md' : 'text-gray-600 hover:bg-white/80'
+              }`}
+            >
+              전체
+            </button>
 
           <div className="relative" ref={classDropdownRef}>
             <button
@@ -145,7 +148,8 @@ export const AIRoomPage = () => {
           >
             {mode === 'student' && selectedStudents.length > 0 ? `${selectedStudents.length}명 선택` : '개별'}
           </button>
-        </div>
+          </div>
+        </ApiTooltip>
 
         {/* 선택된 학생 태그 */}
         {mode === 'student' && selectedStudents.length > 0 && (

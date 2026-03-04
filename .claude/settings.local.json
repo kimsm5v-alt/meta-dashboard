@@ -7,7 +7,16 @@
       "Bash(npm run build:*)",
       "Bash(dir:*)",
       "Bash(npx tsc:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(del \"C:\\\\Users\\\\82107\\\\.claude\\\\plans\\\\declarative-forging-lecun.md\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(cat:*)",
+      "Bash(rm:*)",
+      "Bash(cd:*)",
+      "Bash(npx vercel --prod --yes)",
+      "Bash(tree:*)"
     ]
   }
 }

@@ -15,6 +15,8 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   onSelect,
   isSaving = false,
 }) => {
+  const questionId = `question-${questionNo}`;
+
   return (
     <div
       className={`
@@ -32,6 +34,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           <p className="text-gray-800 text-sm leading-relaxed flex-1">{questionText}</p>
         </div>
         <LikertScale
+          questionId={`${questionId}-mobile`}
           selectedValue={selectedValue}
           onSelect={onSelect}
           disabled={isSaving}
@@ -44,8 +47,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           {questionNo}
         </span>
         <p className="flex-1 text-gray-800 leading-relaxed min-w-0">{questionText}</p>
-        <div className="flex-shrink-0 w-[400px]">
+        <div className="flex-shrink-0">
           <LikertScale
+            questionId={`${questionId}-desktop`}
             selectedValue={selectedValue}
             onSelect={onSelect}
             disabled={isSaving}

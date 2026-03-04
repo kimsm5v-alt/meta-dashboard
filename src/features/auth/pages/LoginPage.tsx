@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LoginCard } from '../components';
+import { TestLoginForm } from '../components';
 import { useAuth } from '../context/AuthContext';
-import type { OAuthProvider } from '@/shared/types';
+import type { TestCredentials } from '../components';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { isAuthenticated, isLoading, loginWithCredentials } = useAuth();
   const [loginLoading, setLoginLoading] = useState(false);
 
   // 이미 로그인된 경우 대시보드로 리다이렉트
@@ -16,10 +16,10 @@ export const LoginPage: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, navigate]);
 
-  const handleLogin = async (provider: OAuthProvider) => {
+  const handleLogin = async (credentials: TestCredentials) => {
     setLoginLoading(true);
     try {
-      await login(provider);
+      await loginWithCredentials(credentials);
       navigate('/dashboard', { replace: true });
     } finally {
       setLoginLoading(false);
@@ -44,20 +44,14 @@ export const LoginPage: React.FC = () => {
         <p className="mt-2 text-gray-600">AI 기반 맞춤형 학습 코칭 시스템</p>
       </div>
 
-      {/* 로그인 카드 */}
-      <LoginCard onLogin={handleLogin} isLoading={loginLoading} />
+      {/* 로그인 폼 */}
+      <TestLoginForm onLogin={handleLogin} isLoading={loginLoading} />
 
       {/* 하단 안내 */}
       <p className="mt-8 text-xs text-gray-500 text-center max-w-sm">
-        로그인 시{' '}
-        <a href="#" className="text-primary-600 hover:underline">
-          서비스 이용약관
-        </a>{' '}
-        및{' '}
-        <a href="#" className="text-primary-600 hover:underline">
-          개인정보 처리방침
-        </a>
-        에 동의하는 것으로 간주됩니다.
+        이 페이지는 API 테스트를 위한 임시 로그인 페이지입니다.
+        <br />
+        실제 서비스에서는 SSO 인증으로 대체됩니다.
       </p>
     </div>
   );
