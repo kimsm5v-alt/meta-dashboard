@@ -31,6 +31,12 @@ export const TeacherDashboardPage = () => {
   const { classes, isLoading, error, examStatus } = useTeacherClasses();
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
+  // Hooks must be called before any conditional returns (Rules of Hooks)
+  const totalStats = useMemo(() => ({
+    totalStudents: classes.reduce((sum, c) => sum + (c.stats?.totalStudents || 0), 0),
+    assessedStudents: classes.reduce((sum, c) => sum + (c.stats?.assessedStudents || 0), 0),
+  }), [classes]);
+
   // API 모드 로딩 상태
   if (hasJwtToken && isLoading) {
     return (
@@ -95,11 +101,6 @@ export const TeacherDashboardPage = () => {
       </div>
     );
   }
-
-  const totalStats = useMemo(() => ({
-    totalStudents: classes.reduce((sum, c) => sum + (c.stats?.totalStudents || 0), 0),
-    assessedStudents: classes.reduce((sum, c) => sum + (c.stats?.assessedStudents || 0), 0),
-  }), [classes]);
 
   return (
     <div className="space-y-6">
