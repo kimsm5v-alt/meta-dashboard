@@ -4,10 +4,50 @@
  * 백엔드 개발자가 참고할 수 있도록
  * 각 API의 상세 정보를 정의합니다.
  *
- * 이미 연동 준비 완료된 API는 제외:
- * - unifiedCounselingService (9개)
- * - memoService (5개)
- * - schoolRecordService (3개)
+ * ──────────────────────────────────────────
+ * 목차
+ * ──────────────────────────────────────────
+ *
+ * 1. 학급/학생 데이터 조회 (🔴 높음)
+ *    - API_TEACHER_ME         GET  /etc/meta/tc/me
+ *    - API_TEACHER_DASHBOARD  GET  /etc/meta/tc/dashboard?tcId={tcId}
+ *    - API_STUDENT_DETAIL     GET  /etc/meta/st/total/analysis?stdtId={stdtId}
+ *
+ * 2. 업로드 데이터 저장 (🔴 높음)
+ *    - API_UPLOAD_CREATE      POST /etc/meta/tc/upload
+ *    - API_UPLOAD_LATEST      GET  /etc/meta/tc/upload/latest?tcId={tcId}
+ *
+ * 3. 검사 코드 매핑 (🟡 중간)
+ *    - API_EXAM_CODE_CREATE   POST /api/exam-codes
+ *    - API_EXAM_CODE_GET      GET  /api/exam-codes/{claId}
+ *    - API_EXAM_CODE_UPDATE   PUT  /api/exam-codes/{id}
+ *    - API_EXAM_CODE_DELETE   DELETE /api/exam-codes/{id}
+ *
+ * 4. 학급 운영 전략 템플릿 (🟡 중간)
+ *    - API_STRATEGIES_RECOMMENDATIONS  GET /api/strategies/recommendations
+ *
+ * 5. 추천 학급 활동 (🟢 낮음)
+ *    - API_ACTIVITIES_RECOMMENDED  GET /api/activities/recommended
+ *    - API_ACTIVITIES_BY_PROFILE   GET /api/activities/by-profile
+ *
+ * 6. 상담일정 (🔴 높음)
+ *    - API_CLASS_ALL_STUDENTS  GET  /api/class/{claId}/students  (전체 학생, 검사 미제출 포함)
+ *    - API_COUNSELING_ALL      GET  /api/counseling?tcId={tcId}  (교사 전체 상담 목록)
+ *    - API_COUNSELING_CREATE   POST /api/counseling
+ *    - API_COUNSELING_COMPLETE POST /api/counseling/{id}/complete
+ *
+ * 7. L3 학생 패널 (🔴 높음)
+ *    - API_COUNSELING_LIST     GET  /api/counseling/student/{stdtId}  (학생별 상담)
+ *    - API_MEMO_LIST           GET  /api/memos/student/{stdtId}
+ *    - API_MEMO_CREATE         POST /api/memos
+ *    - API_SCHOOL_RECORD_LIST  GET  /api/school-records/student/{stdtId}
+ *    - API_SCHOOL_RECORD_SAVE  POST /api/school-records
+ *
+ * 8. API 그룹 (페이지별 사용)
+ *    - TEACHER_DASHBOARD_APIS, CLASS_DASHBOARD_APIS, CLASS_DETAIL_APIS
+ *    - SCHEDULE_APIS, STUDENT_DASHBOARD_APIS, UPLOAD_APIS, EXAM_APIS
+ *
+ * ──────────────────────────────────────────
  */
 
 import type { ApiTooltipProps } from '@/shared/components/api-tooltip';
@@ -503,13 +543,99 @@ export const API_ACTIVITIES_BY_PROFILE: ApiDefinition = {
 };
 
 // ============================================================
-// 6. L3 학생 패널 API (🔴 높음)
+// 6. 상담일정 API (🔴 높음)
 // ============================================================
 
 /**
- * 상담 기록 API
+ * 학급 전체 학생 목록 API (상담용)
  *
- * 학생 대시보드 상담 패널 + 상담일정 페이지에서 공유
+ * 검사 제출 여부와 무관하게 학급 소속 전체 학생 목록을 조회합니다.
+ * /etc/meta/tc/stinfolist는 검사 제출 학생만 반환하므로 상담 학생 선택에 부적합.
+ */
+export const API_CLASS_ALL_STUDENTS: ApiDefinition = {
+  method: 'GET',
+  endpoint: '/api/class/{claId}/students',
+  summary: '학급 전체 학생 목록 조회',
+  description: '검사 제출 여부와 무관하게 학급에 소속된 전체 학생 목록을 반환합니다. 상담 일정 등록 시 학생 선택에 사용.',
+  priority: 'high',
+  responseExample: [
+    {
+      stdtId: 'a1b2c3d4e5f6',
+      stdtNm: '김철수',
+      rowNum: 1,
+      gender: 'M',
+    },
+    {
+      stdtId: 'b2c3d4e5f6g7',
+      stdtNm: '이영희',
+      rowNum: 2,
+      gender: 'F',
+    },
+  ],
+  errorCases: [
+    { code: 401, message: '인증 토큰이 없거나 만료됨' },
+    { code: 404, message: '학급을 찾을 수 없음' },
+  ],
+  currentImpl: 'SCHEDULE_STUDENTS (mockUnifiedCounseling.ts)',
+  relatedFiles: [
+    'src/features/schedule/components/ScheduleStudentPicker.tsx',
+  ],
+};
+
+/**
+ * 교사 전체 상담 목록 API (상담일정 페이지용)
+ *
+ * 상담일정 캘린더에서 교사의 전체 상담 일정을 조회합니다.
+ */
+export const API_COUNSELING_ALL: ApiDefinition = {
+  method: 'GET',
+  endpoint: '/api/counseling?tcId={tcId}',
+  summary: '교사 전체 상담 목록 조회',
+  description: '교사가 등록한 모든 상담 일정(예정/완료/취소)을 조회합니다. 상담일정 캘린더 표시용.',
+  priority: 'high',
+  responseExample: [
+    {
+      id: 'counseling-001',
+      students: [{ id: 'student-01', name: '김철수', number: 1 }],
+      claId: 'class-6-2',
+      scheduledAt: '2026-03-15 14:00',
+      duration: 30,
+      types: ['regular'],
+      areas: ['academic'],
+      methods: ['face-to-face'],
+      status: 'scheduled',
+      reason: '학업 성취도 점검',
+    },
+    {
+      id: 'counseling-002',
+      students: [{ id: 'student-03', name: '박지민', number: 3 }],
+      claId: 'class-6-2',
+      scheduledAt: '2026-03-10 11:00',
+      types: ['follow-up'],
+      areas: ['emotion'],
+      methods: ['face-to-face'],
+      status: 'completed',
+      summary: '정서 안정 확인, 경과 양호',
+    },
+  ],
+  errorCases: [
+    { code: 401, message: '인증 토큰이 없거나 만료됨' },
+  ],
+  currentImpl: 'unifiedCounselingService.getAll() → /api/unified-counseling',
+  relatedFiles: [
+    'src/shared/services/unifiedCounselingService.ts',
+    'src/features/schedule/pages/SchedulePage.tsx',
+  ],
+};
+
+// ============================================================
+// 7. L3 학생 패널 API (🔴 높음)
+// ============================================================
+
+/**
+ * 학생별 상담 기록 API (L3 학생 대시보드용)
+ *
+ * 특정 학생의 상담 기록을 조회합니다.
  */
 export const API_COUNSELING_LIST: ApiDefinition = {
   method: 'GET',
@@ -705,7 +831,7 @@ export const API_SCHOOL_RECORD_SAVE: ApiDefinition = {
 };
 
 // ============================================================
-// API 그룹 (페이지별 사용)
+// 8. API 그룹 (페이지별 사용)
 // ============================================================
 
 /** L1 교사 대시보드에서 사용하는 API */
@@ -722,6 +848,15 @@ export const CLASS_DASHBOARD_APIS = {
 /** L2.5 학급 상세 분석에서 사용하는 API */
 export const CLASS_DETAIL_APIS = {
   strategiesRecommendations: API_STRATEGIES_RECOMMENDATIONS,
+};
+
+/** 상담일정 페이지에서 사용하는 API */
+export const SCHEDULE_APIS = {
+  counselingAll: API_COUNSELING_ALL,
+  counselingCreate: API_COUNSELING_CREATE,
+  counselingComplete: API_COUNSELING_COMPLETE,
+  classAllStudents: API_CLASS_ALL_STUDENTS,
+  teacherDashboard: API_TEACHER_DASHBOARD,
 };
 
 /** L3 학생 대시보드에서 사용하는 API */

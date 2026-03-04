@@ -159,7 +159,46 @@ const handleComplete = () => {
 
 ---
 
-## 통합 상담 서비스
+## 필요 API 목록
+
+상담일정 페이지에서 사용하는 API 흐름:
+
+```
+1) 교사가 [상담일정] 메뉴 진입
+   → GET /api/counseling?tcId={tcId}  (교사 전체 상담 목록 조회)
+
+2) 교사가 [상담 일정 등록] 클릭 → 팝업 오픈
+
+3) 팝업에서 학생 선택
+   → GET /api/class/{claId}/students  (학급 전체 학생 목록, 검사 미제출 포함)
+
+4) 날짜/유형/영역/내용 입력 후 [등록하기] 클릭
+   → POST /api/counseling  (상담 일정 생성)
+
+5) 기존 상담을 [상담 완료] 처리
+   → POST /api/counseling/{id}/complete  (상담 완료 처리)
+```
+
+| API 정의 | 메서드 | 엔드포인트 | 용도 | 비고 |
+|----------|--------|-----------|------|------|
+| `API_COUNSELING_ALL` | GET | `/api/counseling?tcId={tcId}` | 교사 전체 상담 목록 | 캘린더 표시용 |
+| `API_CLASS_ALL_STUDENTS` | GET | `/api/class/{claId}/students` | 학급 전체 학생 목록 | `/etc/meta/tc/stinfolist`는 검사 제출자만 반환하므로 부적합 |
+| `API_COUNSELING_CREATE` | POST | `/api/counseling` | 상담 일정 생성 | 복수 학생 지원 |
+| `API_COUNSELING_COMPLETE` | POST | `/api/counseling/{id}/complete` | 상담 완료 처리 | 상담 기록(summary) 포함 |
+| `API_TEACHER_DASHBOARD` | GET | `/etc/meta/tc/dashboard?tcId={tcId}` | 반별 필터 학급 목록 | L1과 공유 |
+
+> **참고**: L3 학생 대시보드에서는 `API_COUNSELING_LIST` (`GET /api/counseling/student/{stdtId}`)로 특정 학생의 상담 기록을 별도 조회합니다.
+
+**ApiTooltip 위치** (`apiDefinitions.ts` 참조):
+- 페이지 제목 "상담일정" → `API_COUNSELING_ALL`
+- "상담 일정 등록" 버튼 → `API_COUNSELING_CREATE`
+- 반별 필터 영역 → `API_TEACHER_DASHBOARD`
+- 학생 선택 모달 반 탭 → `API_CLASS_ALL_STUDENTS`
+- ScheduleModal "상담 완료" 버튼 → `API_COUNSELING_COMPLETE`
+
+---
+
+## 통합 상담 서비스 (현재 구현)
 
 `@/shared/services/unifiedCounselingService.ts`
 
@@ -331,4 +370,4 @@ export const unifiedCounselingService = {
 
 ---
 
-**Last Updated**: 2026-03-03
+**Last Updated**: 2026-03-04

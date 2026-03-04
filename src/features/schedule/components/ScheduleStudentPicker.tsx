@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Check, X, Search, Users } from 'lucide-react';
 import { Modal, Button } from '@/shared/components';
 import type { CounselingStudent } from '@/shared/types';
 import { SCHEDULE_CLASSES, SCHEDULE_STUDENTS, CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
+import { ApiTooltip } from '@/shared/components/api-tooltip';
+import { API_CLASS_ALL_STUDENTS } from '@/shared/data/apiDefinitions';
 
 interface ScheduleStudentPickerProps {
   isOpen: boolean;
@@ -20,6 +22,13 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
   const [activeTab, setActiveTab] = useState(SCHEDULE_CLASSES[0].id);
   const [searchQuery, setSearchQuery] = useState('');
   const [localSelection, setLocalSelection] = useState<CounselingStudent[]>(selectedStudents);
+
+  // Re-sync localSelection when modal opens with new selectedStudents
+  useEffect(() => {
+    if (isOpen) {
+      setLocalSelection(selectedStudents);
+    }
+  }, [isOpen, selectedStudents]);
 
   const students = SCHEDULE_STUDENTS[activeTab] || [];
 
@@ -53,13 +62,15 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
   };
 
   // 선택된 학생들을 반별로 그룹화
-  const selectionByClass = localSelection.reduce((acc, student) => {
-    const cls = SCHEDULE_CLASSES.find(c => c.id === student.classId);
-    const key = cls ? cls.label : '기타';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(student);
-    return acc;
-  }, {} as Record<string, CounselingStudent[]>);
+  const selectionByClass = useMemo(() => {
+    return localSelection.reduce((acc, student) => {
+      const cls = SCHEDULE_CLASSES.find(c => c.id === student.classId);
+      const key = cls ? cls.label : '기타';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(student);
+      return acc;
+    }, {} as Record<string, CounselingStudent[]>);
+  }, [localSelection]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="학생 선택" size="3xl">
@@ -67,6 +78,7 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
         {/* 좌측: 반별 탭 + 검색 + 학생 그리드 */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* 반 탭 */}
+          <ApiTooltip {...API_CLASS_ALL_STUDENTS} position="bottom-left">
           <div className="flex gap-1 mb-3 border-b border-gray-200">
             {SCHEDULE_CLASSES.map(cls => {
               const isActive = activeTab === cls.id;
@@ -97,6 +109,7 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
               );
             })}
           </div>
+          </ApiTooltip>
 
           {/* 검색 */}
           <div className="relative mb-3">

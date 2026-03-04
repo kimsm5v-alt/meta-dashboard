@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, TrendingUp, Loader2, AlertTriangle } from 'lucide-react';
 import { Card } from '@/shared/components';
@@ -96,10 +96,10 @@ export const TeacherDashboardPage = () => {
     );
   }
 
-  const totalStats = {
+  const totalStats = useMemo(() => ({
     totalStudents: classes.reduce((sum, c) => sum + (c.stats?.totalStudents || 0), 0),
     assessedStudents: classes.reduce((sum, c) => sum + (c.stats?.assessedStudents || 0), 0),
-  };
+  }), [classes]);
 
   return (
     <div className="space-y-6">
@@ -110,7 +110,7 @@ export const TeacherDashboardPage = () => {
             <h1 className="text-2xl font-bold text-gray-900">{teacher.name}님의 학급 현황</h1>
           </ApiTooltip>
           <ApiTooltip {...API_UPLOAD_LATEST} position="bottom-left">
-            <span className="text-xs text-gray-400 cursor-help">(PDF 업로드)</span>
+            <span />
           </ApiTooltip>
         </div>
         <p className="text-gray-500 mt-1">

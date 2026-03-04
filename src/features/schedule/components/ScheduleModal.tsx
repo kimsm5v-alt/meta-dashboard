@@ -17,9 +17,12 @@ import {
   COUNSELING_METHOD_LABELS,
 } from '@/shared/types';
 import { ScheduleStudentPicker } from './ScheduleStudentPicker';
+import { formatDateISO } from '@/shared/utils/dateUtils';
 import { SCHEDULE_CLASSES, CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
 import { TIME_OPTIONS, SCHEDULE_TYPES, COUNSELING_AREAS, COUNSELING_METHODS } from '@/shared/data/counselingConstants';
 import { MultiSelectButtonGroup } from '@/shared/components';
+import { ApiTooltip } from '@/shared/components/api-tooltip';
+import { API_COUNSELING_COMPLETE } from '@/shared/data/apiDefinitions';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -70,10 +73,10 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setSummary(editingSchedule.summary || '');
       setStatus(editingSchedule.status);
     } else if (isOpen && initialDate) {
-      setDate(initialDate.toISOString().split('T')[0]);
+      setDate(formatDateISO(initialDate));
       setStatus('scheduled');
     } else if (isOpen) {
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(formatDateISO(new Date()));
       setStatus('scheduled');
     }
   }, [initialDate, isOpen, editingSchedule]);
@@ -150,30 +153,9 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   const isValid = selectedStudents.length > 0 && date && areas.length > 0;
 
-  // 토글 선택 헬퍼 함수
-  const toggleScheduleType = (type: ScheduleType) => {
-    setScheduleTypes(prev =>
-      prev.includes(type)
-        ? prev.filter(t => t !== type)
-        : [...prev, type]
-    );
-  };
-
-  const toggleArea = (area: CounselingArea) => {
-    setAreas(prev =>
-      prev.includes(area)
-        ? prev.filter(a => a !== area)
-        : [...prev, area]
-    );
-  };
-
-  const toggleMethod = (method: CounselingMethod) => {
-    setMethods(prev =>
-      prev.includes(method)
-        ? prev.filter(m => m !== method)
-        : [...prev, method]
-    );
-  };
+  // Generic array toggle helper
+  const createToggle = <T,>(setter: React.Dispatch<React.SetStateAction<T[]>>) =>
+    (item: T) => setter(prev => prev.includes(item) ? prev.filter(v => v !== item) : [...prev, item]);
 
   return (
     <>
@@ -265,7 +247,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             label="상담 유형"
             items={SCHEDULE_TYPES}
             selected={scheduleTypes}
-            onToggle={toggleScheduleType}
+            onToggle={createToggle(setScheduleTypes)}
             labelMap={SCHEDULE_TYPE_LABELS}
             alertKey="urgent"
           />
@@ -276,7 +258,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             required
             items={COUNSELING_AREAS}
             selected={areas}
-            onToggle={toggleArea}
+            onToggle={createToggle(setAreas)}
             labelMap={COUNSELING_AREA_LABELS}
           />
 
@@ -285,7 +267,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             label="상담 방법"
             items={COUNSELING_METHODS}
             selected={methods}
-            onToggle={toggleMethod}
+            onToggle={createToggle(setMethods)}
             labelMap={COUNSELING_METHOD_LABELS}
           />
 
@@ -343,14 +325,16 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             취소
           </Button>
           {isEditMode && !isCompleted && (
-            <Button
-              variant="secondary"
-              onClick={() => setShowCompleteConfirm(true)}
-              className="flex-1 text-emerald-600 hover:bg-emerald-50 border-emerald-200"
-            >
-              <CheckCircle2 className="w-4 h-4 mr-1" />
-              상담 완료
-            </Button>
+            <ApiTooltip {...API_COUNSELING_COMPLETE} position="top-right">
+              <Button
+                variant="secondary"
+                onClick={() => setShowCompleteConfirm(true)}
+                className="flex-1 text-emerald-600 hover:bg-emerald-50 border-emerald-200"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-1" />
+                상담 완료
+              </Button>
+            </ApiTooltip>
           )}
           <Button onClick={handleSubmit} disabled={!isValid} className="flex-1">
             {isEditMode ? '수정하기' : '등록하기'}
