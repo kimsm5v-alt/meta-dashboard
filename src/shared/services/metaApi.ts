@@ -104,7 +104,24 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 /** JWT 토큰 가져오기 */
 const getAuthToken = (): string | null => {
-  return import.meta.env.VITE_JWT_TOKEN || localStorage.getItem('jwt_token');
+  // 환경변수 우선
+  if (import.meta.env.VITE_JWT_TOKEN) {
+    console.log('[DEBUG] Using VITE_JWT_TOKEN from env');
+    return import.meta.env.VITE_JWT_TOKEN;
+  }
+  // localStorage의 credentials에서 가져오기
+  try {
+    const stored = localStorage.getItem('meta_test_credentials');
+    console.log('[DEBUG] stored credentials:', stored ? 'found' : 'not found');
+    if (stored) {
+      const credentials = JSON.parse(stored);
+      console.log('[DEBUG] jwtToken exists:', !!credentials.jwtToken);
+      return credentials.jwtToken || null;
+    }
+  } catch (e) {
+    console.error('[DEBUG] Error parsing credentials:', e);
+  }
+  return null;
 };
 
 /** API 요청 헤더 생성 */
