@@ -14,6 +14,10 @@ import {
   PanelLeftClose,
   PanelLeft,
   Loader2,
+  BarChart3,
+  BookOpen,
+  Bot,
+  type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { useTeacherClasses } from '@/shared/hooks/useApiData';
@@ -25,11 +29,46 @@ interface LayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
-  { icon: ClipboardList, label: '검사하기', path: '/assessment' },
-  { icon: LayoutDashboard, label: '대시보드', path: '/dashboard' },
-  { icon: Calendar, label: '상담일정', path: '/schedule' },
-  { icon: MessageSquare, label: 'AI 어시스턴트', path: '/ai-room' },
+interface NavItem {
+  icon: LucideIcon;
+  label: string;
+  path: string;
+}
+
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    title: '검사',
+    items: [
+      { icon: Users, label: '그룹 관리', path: '/groups' },
+      { icon: ClipboardList, label: '검사하기', path: '/assessment' },
+      { icon: LayoutDashboard, label: '대시보드', path: '/dashboard' },
+    ],
+  },
+  {
+    title: '상담',
+    items: [
+      { icon: Calendar, label: '상담일정', path: '/schedule' },
+      { icon: BarChart3, label: '상담 대시보드', path: '/counseling-dashboard' },
+    ],
+  },
+  {
+    title: '콘텐츠',
+    items: [
+      { icon: BookOpen, label: '교육 자료실', path: '/resources' },
+      { icon: MessageSquare, label: '교사 커뮤니티', path: '/community' },
+    ],
+  },
+  {
+    title: 'AI',
+    items: [
+      { icon: Bot, label: 'AI 어시스턴트', path: '/ai-room' },
+    ],
+  },
 ];
 
 const Header = () => {
@@ -169,44 +208,60 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       }`}
     >
       <nav className={`flex-1 overflow-y-auto p-4 ${isCollapsed ? 'px-2' : ''}`}>
-        <ul className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            return (
-              <li key={item.path}>
-                <button
-                  onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    active
-                      ? 'bg-primary-50 text-primary-600'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  } ${isCollapsed ? 'justify-center px-0' : ''}`}
-                  title={isCollapsed ? item.label : undefined}
-                >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && (
-                    <>
-                      <span className="flex-1 text-left">{item.label}</span>
-                      {active && <ChevronRight className="w-4 h-4" />}
-                    </>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        {navGroups.map((group, groupIndex) => (
+          <div key={group.title} className={groupIndex > 0 ? 'mt-4' : ''}>
+            {/* 그룹 구분선 (첫 번째 그룹 제외) */}
+            {groupIndex > 0 && (
+              <div className={`border-t border-gray-200 ${isCollapsed ? 'mx-1' : 'mx-2'} mb-4`} />
+            )}
+
+            {/* 그룹 제목 (Collapsed 상태에서는 숨김) */}
+            {!isCollapsed && (
+              <h3 className="px-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                {group.title}
+              </h3>
+            )}
+
+            <ul className="space-y-1">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+                return (
+                  <li key={item.path}>
+                    <button
+                      onClick={() => navigate(item.path)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                        active
+                          ? 'bg-primary-50 text-primary-600'
+                          : 'text-gray-600 hover:bg-gray-50'
+                      } ${isCollapsed ? 'justify-center px-0' : ''}`}
+                      title={isCollapsed ? item.label : undefined}
+                    >
+                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1 text-left">{item.label}</span>
+                          {active && <ChevronRight className="w-4 h-4" />}
+                        </>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
 
         {/* 담당 학급 섹션 */}
         {!isCollapsed ? (
-          <div className="mt-8">
-            <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase">
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
               담당 학급
             </h3>
             {renderClassList()}
           </div>
         ) : (
-          <div className="mt-8 border-t border-gray-200 pt-4">
+          <div className="mt-4 border-t border-gray-200 pt-4">
             {renderClassList()}
           </div>
         )}
