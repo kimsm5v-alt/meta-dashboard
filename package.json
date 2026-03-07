@@ -12,6 +12,10 @@
   "dependencies": {
     "@nivo/bar": "^0.99.0",
     "@nivo/core": "^0.99.0",
+    "@tiptap/extension-link": "^3.20.1",
+    "@tiptap/extension-placeholder": "^3.20.1",
+    "@tiptap/react": "^3.20.1",
+    "@tiptap/starter-kit": "^3.20.1",
     "clsx": "^2.1.0",
     "date-fns": "^3.3.0",
     "lucide-react": "^0.312.0",

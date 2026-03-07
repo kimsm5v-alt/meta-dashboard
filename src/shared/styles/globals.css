@@ -131,6 +131,51 @@
   }
 }
 
+/* Tiptap 에디터 스타일 */
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #9ca3af;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror h2 {
+  @apply text-xl font-bold text-gray-900 mt-6 mb-3;
+}
+
+.ProseMirror h3 {
+  @apply text-lg font-semibold text-gray-900 mt-4 mb-2;
+}
+
+.ProseMirror p {
+  @apply text-gray-600 leading-relaxed mb-4;
+}
+
+.ProseMirror ul {
+  @apply list-disc list-inside mb-4 space-y-1 text-gray-600;
+}
+
+.ProseMirror ol {
+  @apply list-decimal list-inside mb-4 space-y-1 text-gray-600;
+}
+
+.ProseMirror a {
+  @apply text-primary-600 underline;
+}
+
+.ProseMirror strong {
+  @apply font-semibold text-gray-900;
+}
+
+.ProseMirror em {
+  @apply italic;
+}
+
 /* 커스텀 유틸리티 */
 @layer utilities {
   /* 스크롤바 숨김 */
