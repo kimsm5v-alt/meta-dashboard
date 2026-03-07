@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/shared/components';
 import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_COUNSELING_ALL, API_COUNSELING_CREATE, API_COUNSELING_COMPLETE, API_TEACHER_DASHBOARD } from '@/shared/data/apiDefinitions';
+import { API_COUNSELING_ALL, API_COUNSELING_CREATE, API_TEACHER_DASHBOARD } from '@/shared/data/apiDefinitions';
 import { formatDateISO } from '@/shared/utils/dateUtils';
 import type { UnifiedCounselingRecord, CreateUnifiedCounselingInput, UpdateUnifiedCounselingInput } from '@/shared/types';
 import {
