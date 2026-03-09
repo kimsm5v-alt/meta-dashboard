@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Building2 } from 'lucide-react';
 import { Modal, Button } from '@/shared/components';
+import type { SchoolLevelCode } from '@/shared/types';
 
 interface CreateGroupModalProps {
   isOpen: boolean;
@@ -8,18 +9,15 @@ interface CreateGroupModalProps {
   onCreate: (data: GroupFormData) => void;
 }
 
-/** 학교급 타입 */
-export type SchoolLevel = 'elementary' | 'middle' | 'high';
-
 /** 학교급별 학년 범위 */
-const GRADE_OPTIONS: Record<SchoolLevel, number[]> = {
+const GRADE_OPTIONS: Record<SchoolLevelCode, number[]> = {
   elementary: [1, 2, 3, 4, 5, 6],
   middle: [1, 2, 3],
   high: [1, 2, 3],
 };
 
 /** 학교급 라벨 */
-const SCHOOL_LEVEL_LABELS: Record<SchoolLevel, string> = {
+const SCHOOL_LEVEL_LABELS: Record<SchoolLevelCode, string> = {
   elementary: '초등학교',
   middle: '중학교',
   high: '고등학교',
@@ -27,10 +25,11 @@ const SCHOOL_LEVEL_LABELS: Record<SchoolLevel, string> = {
 
 export interface GroupFormData {
   name: string;
-  schoolLevel: SchoolLevel;
+  schoolLevel: SchoolLevelCode;
   grade: number;
   classNumber: number;
   description: string;
+  schoolName: string;
 }
 
 export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
@@ -44,10 +43,11 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     grade: 1,
     classNumber: 1,
     description: '',
+    schoolName: '',
   });
 
   // 학교급 변경 시 학년 초기화
-  const handleSchoolLevelChange = (schoolLevel: SchoolLevel) => {
+  const handleSchoolLevelChange = (schoolLevel: SchoolLevelCode) => {
     setFormData((prev) => ({
       ...prev,
       schoolLevel,
@@ -78,6 +78,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       grade: 1,
       classNumber: 1,
       description: '',
+      schoolName: '',
     });
     onClose();
   };
@@ -96,7 +97,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             학교급
           </label>
           <div className="grid grid-cols-3 gap-2">
-            {(Object.keys(SCHOOL_LEVEL_LABELS) as SchoolLevel[]).map((level) => (
+            {(Object.keys(SCHOOL_LEVEL_LABELS) as SchoolLevelCode[]).map((level) => (
               <button
                 key={level}
                 type="button"
@@ -175,6 +176,21 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             placeholder="예: 2024학년도 6학년 2반"
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors resize-none"
             rows={2}
+          />
+        </div>
+
+        {/* 학교명 (선택) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <Building2 className="w-4 h-4 inline mr-1" />
+            학교명 <span className="text-gray-400 font-normal">(선택)</span>
+          </label>
+          <input
+            type="text"
+            value={formData.schoolName}
+            onChange={(e) => handleChange('schoolName', e.target.value)}
+            placeholder="예: 서울초등학교"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
           />
         </div>
 
