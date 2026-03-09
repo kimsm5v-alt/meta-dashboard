@@ -1,4 +1,4 @@
-import type { TLevel } from '../../hooks/useClassDetailData';
+import type { TLevel } from '@/shared/types';
 
 interface LevelBadgeProps {
   level: TLevel;

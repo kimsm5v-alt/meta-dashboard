@@ -597,3 +597,198 @@ export interface RecordPromptParams {
   };
   selectedSentences?: string[];
 }
+
+// ============================================================
+// 그룹 관련 타입 (통합 로그인 연동)
+// ============================================================
+
+/** 그룹 내 역할 */
+export type GroupRole = 'owner' | 'member';
+
+/** 그룹 멤버 유형 */
+export type GroupMemberType = 'member' | 'guest';
+
+/** 그룹 멤버 상태 */
+export type GroupMemberStatus = 'active' | 'left';
+
+/** 학교급 (영문) - API 통신용 */
+export type SchoolLevelCode = 'elementary' | 'middle' | 'high';
+
+/** 학교급 한/영 변환 */
+export const SCHOOL_LEVEL_MAP: Record<SchoolLevelCode, SchoolLevel> = {
+  elementary: '초등',
+  middle: '중등',
+  high: '중등', // 고등도 중등으로 처리 (검사 기준)
+};
+
+export const SCHOOL_LEVEL_REVERSE_MAP: Record<SchoolLevel, SchoolLevelCode> = {
+  '초등': 'elementary',
+  '중등': 'middle',
+};
+
+/** 학교급 라벨 */
+export const SCHOOL_LEVEL_LABELS: Record<SchoolLevelCode, string> = {
+  elementary: '초등학교',
+  middle: '중학교',
+  high: '고등학교',
+};
+
+/** 그룹 (방) */
+export interface Group {
+  id: string;
+  name: string;
+  schoolLevel: SchoolLevelCode;
+  grade: number;
+  classNumber: number;
+  description?: string;
+  schoolName?: string;
+  inviteCode: string;
+
+  // API 매핑
+  claId: string;
+
+  // 관계
+  ownerId: string;
+  ownerName: string;
+  ownerTcId: string;
+  memberCount: number;
+
+  // 현재 사용자 역할 정보
+  myRole: GroupRole;
+  myTcId?: string;   // 방장인 경우
+  myStdtId?: string; // 멤버인 경우
+
+  // 상태
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** 그룹 멤버 */
+export interface GroupMember {
+  id: string;
+  groupId: string;
+  userId: string | null; // 게스트면 null
+  stdtId: string;
+
+  name: string;
+  email?: string;
+  studentNumber?: number;
+
+  memberType: GroupMemberType;
+  status: GroupMemberStatus;
+
+  // 검사 상태
+  examStatus?: {
+    round1Completed: boolean;
+    round2Completed: boolean;
+  };
+
+  joinedAt: Date;
+  leftAt?: Date;
+}
+
+/** 그룹 생성 요청 */
+export interface CreateGroupInput {
+  name: string;
+  schoolLevel: SchoolLevelCode;
+  grade: number;
+  classNumber: number;
+  description?: string;
+  schoolName?: string;
+}
+
+/** 그룹 수정 요청 */
+export interface UpdateGroupInput {
+  name?: string;
+  description?: string;
+  schoolName?: string;
+}
+
+/** 그룹 가입 요청 (회원) */
+export interface JoinGroupInput {
+  studentNumber?: number;
+}
+
+/** 그룹 가입 요청 (게스트) */
+export interface GuestJoinGroupInput {
+  email: string;
+  name: string;
+  studentNumber?: number;
+}
+
+/** 초대 코드로 조회한 그룹 정보 */
+export interface GroupInviteInfo {
+  id: string;
+  name: string;
+  schoolLevel: SchoolLevelCode;
+  grade: number;
+  classNumber: number;
+  ownerName: string;
+  memberCount: number;
+  alreadyJoined?: boolean;
+}
+
+/** 게스트 기록 (회원 전환 시) */
+export interface GuestRecord {
+  guestId: string;
+  email: string;
+  groupName: string;
+  examResults: Array<{
+    round: 1 | 2;
+    completedAt: string;
+  }>;
+}
+
+/** 이메일 초대 상태 */
+export type EmailInvitationStatus = 'pending' | 'sent' | 'accepted' | 'expired';
+
+/** 이메일 초대 */
+export interface EmailInvitation {
+  id: string;
+  groupId: string;
+  email: string;
+  invitedBy: string; // userId
+  status: EmailInvitationStatus;
+  sentAt: Date;
+  expiresAt: Date;
+  acceptedAt?: Date;
+}
+
+/** 이메일 초대 요청 */
+export interface SendEmailInvitationInput {
+  groupId: string;
+  email: string;
+}
+
+// ============================================================
+// 차트 관련 타입 (FactorHeatmapSection 등에서 사용)
+// ============================================================
+
+export type TLevel = '매우낮음' | '낮음' | '보통' | '높음' | '매우높음';
+
+export interface FactorAvgData {
+  index: number;
+  name: string;
+  category: FactorCategory;
+  subCategory: string;
+  isPositive: boolean;
+  avgTScore: number;
+  level: TLevel;
+}
+
+export interface SubCategoryData {
+  name: string;
+  displayName: string;
+  isPositive: boolean;
+  avgTScore: number;
+  level: TLevel;
+  color: string;
+  factors: FactorAvgData[];
+}
+
+export interface DomainData {
+  category: FactorCategory;
+  icon: string;
+  isPositive: boolean;
+  subCategories: SubCategoryData[];
+}

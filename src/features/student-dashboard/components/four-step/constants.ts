@@ -1,5 +1,5 @@
 import { getBarPercent } from '@/shared/utils/chartUtils';
-export { COLORS_POSITIVE, COLORS_NEGATIVE } from '@/features/class-dashboard/components/detail/LevelBadge';
+export { COLORS_POSITIVE, COLORS_NEGATIVE } from '@/shared/components/LevelBadge';
 
 // ============================================================
 // T=50 기준선 위치

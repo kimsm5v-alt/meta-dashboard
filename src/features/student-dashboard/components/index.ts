@@ -1,6 +1,5 @@
 // 진단결과 및 학습유형 컴포넌트
 export { DiagnosisSummary } from './DiagnosisSummary';
-export { FactorLineChart } from './FactorLineChart';
 export { TypeClassification } from './TypeClassification';
 export { TypeDeviations } from './TypeDeviations';
 export { CoachingStrategy } from './CoachingStrategy';

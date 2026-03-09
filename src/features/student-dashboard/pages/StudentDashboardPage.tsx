@@ -4,7 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, FileText, MessageSquare, Eye, Shi
 import { useStudentAnalysis, useApiConfig } from '@/shared/hooks/useApiData';
 import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@/shared/utils/buildStudentDomainData';
-import { FactorHeatmapSection } from '@/features/class-dashboard/components/detail/FactorHeatmapSection';
+import { FactorHeatmapSection } from '@/shared/components/FactorHeatmapSection';
 import { ApiTooltip } from '@/shared/components/api-tooltip';
 import { API_STUDENT_DETAIL } from '@/shared/data/apiDefinitions';
 import {

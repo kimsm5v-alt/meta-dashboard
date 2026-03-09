@@ -6,7 +6,7 @@ import { useClassProfile } from '../hooks/useClassProfile';
 import { useClassDetailData } from '../hooks/useClassDetailData';
 import { useClassStudents, useApiConfig } from '@/shared/hooks/useApiData';
 import { ClassSummarySection } from '../components/detail/ClassSummarySection';
-import { FactorHeatmapSection } from '../components/detail/FactorHeatmapSection';
+import { FactorHeatmapSection } from '@/shared/components/FactorHeatmapSection';
 import { RiskStudentsSection } from '../components/detail/RiskStudentsSection';
 import { StrategySection } from '../components/detail/StrategySection';
 import type { Class } from '@/shared/types';

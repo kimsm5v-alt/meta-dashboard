@@ -1,41 +1,24 @@
 import { useMemo } from 'react';
-import type { Class, Student, Assessment, AttentionReason, FactorCategory } from '@/shared/types';
+import type {
+  Class,
+  Student,
+  Assessment,
+  AttentionReason,
+  TLevel,
+  FactorAvgData,
+  SubCategoryData,
+  DomainData,
+} from '@/shared/types';
 import { FACTOR_DEFINITIONS, MAIN_CATEGORIES, SUB_CATEGORY_FACTORS } from '@/shared/data/factors';
 import { CATEGORY_COLORS, DOMAIN_ICONS, POSITIVE_DOMAINS } from '@/shared/data/lpaProfiles';
 import { SUB_CATEGORY_SCRIPTS, getLevel } from '@/shared/data/subCategoryScripts';
 
+// 타입 re-export (하위 호환성)
+export type { TLevel, FactorAvgData, SubCategoryData, DomainData };
+
 // ============================================================
 // 타입 정의
 // ============================================================
-
-export type TLevel = '매우낮음' | '낮음' | '보통' | '높음' | '매우높음';
-
-export interface FactorAvgData {
-  index: number;
-  name: string;
-  category: FactorCategory;
-  subCategory: string;
-  isPositive: boolean;
-  avgTScore: number;
-  level: TLevel;
-}
-
-export interface SubCategoryData {
-  name: string;
-  displayName: string;
-  isPositive: boolean;
-  avgTScore: number;
-  level: TLevel;
-  color: string;
-  factors: FactorAvgData[];
-}
-
-export interface DomainData {
-  category: FactorCategory;
-  icon: string;
-  isPositive: boolean;
-  subCategories: SubCategoryData[];
-}
 
 export interface RiskStudent {
   student: Student;

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import type { DomainData, SubCategoryData } from '../../hooks/useClassDetailData';
+import type { DomainData, SubCategoryData } from '@/shared/types';
 import { LevelBadge } from './LevelBadge';
 import { lightenColor } from '@/shared/utils/colorUtils';
 import { PREV_COLOR } from '@/shared/utils/chartUtils';
