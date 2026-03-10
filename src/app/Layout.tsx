@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -23,6 +23,7 @@ import { useAuth } from '@/features/auth';
 import { useTeacherClasses } from '@/shared/hooks/useApiData';
 import { ApiTooltip } from '@/shared/components/api-tooltip';
 import { API_TEACHER_ME } from '@/shared/data/apiDefinitions';
+import { FEATURES, type FeatureKey } from '@/shared/config/features';
 import serviceLogo from '@/assets/logo_2.png';
 
 interface LayoutProps {
@@ -33,6 +34,7 @@ interface NavItem {
   icon: LucideIcon;
   label: string;
   path: string;
+  feature?: FeatureKey; // Feature Flag 연동
 }
 
 interface NavGroup {
@@ -44,29 +46,29 @@ const navGroups: NavGroup[] = [
   {
     title: '검사',
     items: [
-      { icon: Users, label: '그룹 관리', path: '/groups' },
-      { icon: ClipboardList, label: '검사하기', path: '/assessment' },
-      { icon: LayoutDashboard, label: '대시보드', path: '/dashboard' },
+      { icon: Users, label: '그룹 관리', path: '/groups', feature: 'GROUPS' },
+      { icon: ClipboardList, label: '검사하기', path: '/assessment', feature: 'ASSESSMENT' },
+      { icon: LayoutDashboard, label: '대시보드', path: '/dashboard', feature: 'DASHBOARD' },
     ],
   },
   {
     title: '상담',
     items: [
-      { icon: Calendar, label: '상담일정', path: '/schedule' },
-      { icon: BarChart3, label: '상담 대시보드', path: '/counseling-dashboard' },
+      { icon: Calendar, label: '상담일정', path: '/schedule', feature: 'SCHEDULE' },
+      { icon: BarChart3, label: '상담 대시보드', path: '/counseling-dashboard', feature: 'COUNSELING_DASHBOARD' },
     ],
   },
   {
     title: '콘텐츠',
     items: [
-      { icon: BookOpen, label: '교육 자료실', path: '/resources' },
-      { icon: MessageSquare, label: '교사 커뮤니티', path: '/community' },
+      { icon: BookOpen, label: '교육 자료실', path: '/resources', feature: 'RESOURCES' },
+      { icon: MessageSquare, label: '교사 커뮤니티', path: '/community', feature: 'COMMUNITY' },
     ],
   },
   {
     title: 'AI',
     items: [
-      { icon: Bot, label: 'AI 어시스턴트', path: '/ai-room' },
+      { icon: Bot, label: 'AI 어시스턴트', path: '/ai-room', feature: 'AI_ROOM' },
     ],
   },
 ];
@@ -132,6 +134,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const navigate = useNavigate();
   const { classes, isLoading, examStatus } = useTeacherClasses();
   const isActive = (path: string) => location.pathname.startsWith(path);
+
+  // Feature Flag에 따라 네비게이션 필터링
+  const filteredNavGroups = useMemo(() => {
+    return navGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !item.feature || FEATURES[item.feature]),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, []);
 
   // 담당 학급 섹션 렌더링
   const renderClassList = () => {
@@ -208,7 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       }`}
     >
       <nav className={`flex-1 overflow-y-auto p-4 ${isCollapsed ? 'px-2' : ''}`}>
-        {navGroups.map((group, groupIndex) => (
+        {filteredNavGroups.map((group, groupIndex) => (
           <div key={group.title} className={groupIndex > 0 ? 'mt-4' : ''}>
             {/* 그룹 구분선 (첫 번째 그룹 제외) */}
             {groupIndex > 0 && (

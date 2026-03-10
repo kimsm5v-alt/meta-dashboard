@@ -3,6 +3,7 @@ import { Layout } from './Layout';
 import { MinimalLayout } from './MinimalLayout';
 import { PageLoading } from '../shared/components';
 import { useAuth } from '../features/auth/context/AuthContext';
+import { FEATURES } from '../shared/config/features';
 
 // Feature imports
 import { TeacherDashboardPage } from '../features/teacher-dashboard';
@@ -83,14 +84,24 @@ export const AppRoutes = () => (
 
       {/* 상담 영역 */}
       <Route path="/schedule" element={<SchedulePage />} />
-      <Route path="/counseling-dashboard" element={<CounselingDashboardPage />} />
+      {FEATURES.COUNSELING_DASHBOARD && (
+        <Route path="/counseling-dashboard" element={<CounselingDashboardPage />} />
+      )}
 
       {/* 콘텐츠 영역 */}
-      <Route path="/resources" element={<ResourceListPage />} />
-      <Route path="/resources/:resourceId" element={<ResourceDetailPage />} />
-      <Route path="/community" element={<CommunityListPage />} />
-      <Route path="/community/write" element={<CommunityWritePage />} />
-      <Route path="/community/:postId" element={<CommunityDetailPage />} />
+      {FEATURES.RESOURCES && (
+        <>
+          <Route path="/resources" element={<ResourceListPage />} />
+          <Route path="/resources/:resourceId" element={<ResourceDetailPage />} />
+        </>
+      )}
+      {FEATURES.COMMUNITY && (
+        <>
+          <Route path="/community" element={<CommunityListPage />} />
+          <Route path="/community/write" element={<CommunityWritePage />} />
+          <Route path="/community/:postId" element={<CommunityDetailPage />} />
+        </>
+      )}
 
       {/* AI */}
       <Route path="/ai-room" element={<AIRoomPage />} />
