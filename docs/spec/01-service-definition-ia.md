@@ -115,9 +115,9 @@ META 학습심리정서검사 대시보드
     │   └── /counseling-dashboard                상담 대시보드
     │
     ├── 📚 콘텐츠
-    │   ├── /resources                           교육 자료실
+    │   ├── /resources                           교육 자료실  **구현 예정
     │   │   └── /resources/:resourceId           └─ 자료 상세
-    │   └── /community                           교사 커뮤니티
+    │   └── /community                           교사 커뮤니티  **구현 예정
     │       ├── /community/write                 └─ 글 작성
     │       └── /community/:postId               └─ 글 상세
     │
