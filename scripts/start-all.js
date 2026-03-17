@@ -20,7 +20,7 @@ setTimeout(() => {
     stdio: 'inherit',
     shell: true
   });
-}, 20000);
+}, 10000);
 
 // 3. 프로세스 종료 관리 (Ctrl+C 등)
 const cleanup = () => {

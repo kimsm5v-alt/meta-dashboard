@@ -12,6 +12,10 @@
     "test": "nx run-many -t test",
     "lint": "nx run-many -t lint"
   },
+  "workspaces": [
+    "frontend",
+    "prototype"
+  ],
   "devDependencies": {
     "nx": "latest",
     "@nx/workspace": "latest"
