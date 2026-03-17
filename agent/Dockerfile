@@ -2,7 +2,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # 기본 의존성 설치
-COPY requirements.txt .
+COPY agent/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 애플리케이션 코드 복사
