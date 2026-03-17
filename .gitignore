@@ -7,40 +7,60 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+.pnp
+.pnp.js
+
+# Build and Outputs
 dist
 dist-ssr
-*.local
+build
+out
+bin
+*.tsbuildinfo
 
-# Environment variables
+# Nx
+.nx/cache
+.nx/workspace-data
+
+# Java / Gradle
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**
+!**/src/test/**
+
+# Python
+.venv
+venv
+ENV
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.python-version
+
+# Claude Code
+.claude/
+!.claude/config.json
+
+# IDE / Editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# Environment / Secret
 .env
 .env.local
 .env.*.local
 .env.production
-
-# Test accounts (contains JWT tokens)
 public/test-accounts.json
 
-# Build cache
-*.tsbuildinfo
-
-# Test coverage
-coverage
-
-# Deployment
-.vercel
-
-# Claude Code
-.claude/settings.local.json
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-.env*.local
+# Others
+*.local

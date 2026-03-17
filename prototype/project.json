@@ -1,0 +1,26 @@
+{
+  "name": "prototype",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "prototype/src",
+  "targets": {
+    "build": {
+      "command": "npm run build",
+      "options": {
+        "cwd": "prototype"
+      }
+    },
+    "serve": {
+      "command": "npm run dev",
+      "options": {
+        "cwd": "prototype"
+      }
+    },
+    "lint": {
+      "command": "npm run lint",
+      "options": {
+        "cwd": "prototype"
+      }
+    }
+  }
+}
