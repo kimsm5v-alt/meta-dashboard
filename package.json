@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node scripts/start-all.js",
     "prototype": "nx serve prototype",
+    "frontend": "nx serve frontend",
     "backend": "nx serve backend",
     "agent": "nx serve agent",
     "build": "nx run-many -t build",

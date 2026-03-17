@@ -7,7 +7,7 @@ const path = require('path');
  */
 
 // 1. Nx 실행 (병렬 모드)
-const nxProcess = spawn('npx', ['nx', 'run-many', '-t', 'serve', '-p', 'prototype', 'agent', 'backend', '--parallel'], {
+const nxProcess = spawn('npx', ['nx', 'run-many', '-t', 'serve', '-p', 'frontend', 'prototype', 'agent', 'backend', '--parallel', '4'], {
   stdio: 'inherit',
   shell: true
 });
@@ -16,11 +16,11 @@ const nxProcess = spawn('npx', ['nx', 'run-many', '-t', 'serve', '-p', 'prototyp
 const openBrowserScript = path.join(__dirname, 'open-browser.js');
 setTimeout(() => {
   console.log('\n[System] Opening service pages in browser...');
-  spawn('node', [openBrowserScript, 'http://localhost:8081', 'http://localhost:8000'], {
+  spawn('node', [openBrowserScript, 'http://localhost:5173', 'http://localhost:8081', 'http://localhost:8000'], {
     stdio: 'inherit',
     shell: true
   });
-}, 5000);
+}, 20000);
 
 // 3. 프로세스 종료 관리 (Ctrl+C 등)
 const cleanup = () => {

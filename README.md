@@ -1,6 +1,6 @@
 # Meta Dashboard Monorepo
 
-비상교육 학습심리정서검사 AI 에이전트 대시보드 프로젝트입니다.
+비상교육 학습심리정서검사 AI 프로젝트입니다.
 이 프로젝트는 **폴리글랏 모노레포(Polyglot Monorepo)** 구조로 설계되어 있으며, Nx를 통해 통합 관리됩니다.
 
 ## 프로젝트 구조
@@ -9,7 +9,8 @@
 
 | 모듈명 | 기술 스택 | 설명 | 핵심 디자인 패턴 |
 | :--- | :--- | :--- | :--- |
-| **prototype** | React, TypeScript, Vite | 대시보드 UI/UX 프로토타입 및 프론트엔드 | Repository Pattern, Feature-based |
+| **frontend** | React, TypeScript, Vite | 실제 프로덕션 대응을 위한 신규 프론트엔드 | Component-based, Hooks |
+| **prototype** | React, TypeScript, Vite | 대시보드 UI/UX 프로토타입 (사전 테스트 및 참고용) | Repository Pattern, Feature-based |
 | **backend** | Java, Spring Boot 3.x | 핵심 비즈니스 로직 및 API | Layered Architecture (DDD Lite) |
 | **agent** | Python 3.11+, FastAPI | AI 에이전트 및 모델 연동 | Strategy Pattern, Pipeline Pattern |
 
@@ -83,18 +84,19 @@ npm install
 등록된 프로젝트 목록을 확인합니다.
 ```bash
 npx nx show projects
-# 출력: prototype, backend, agent
+# 출력: frontend, prototype, backend, agent
 ```
 
 ### 4. 모듈별 실행
 루트 디렉토리에서 `npm run` 명령어로 각 모듈을 실행할 수 있습니다.
 
 ```bash
-# 프로토타입(프론트엔드) + 에이전트 + 백엔드 동시 실행
+# 프론트엔드 + 에이전트 + 백엔드 + 프로토타입 동시 실행
 # 개발 시 전체 시스템(Full-stack)이 필요한 경우 사용합니다.
 npm run start
 
 # 개별 모듈 실행
+npm run frontend
 npm run prototype
 npm run backend
 npm run agent
