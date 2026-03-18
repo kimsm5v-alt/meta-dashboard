@@ -21,6 +21,18 @@
       "options": {
         "cwd": "frontend"
       }
+    },
+    "type-check": {
+      "command": "tsc --noEmit",
+      "options": {
+        "cwd": "frontend"
+      }
+    },
+    "preview": {
+      "command": "npm run preview",
+      "options": {
+        "cwd": "frontend"
+      }
     }
   }
 }
