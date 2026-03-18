@@ -7,9 +7,20 @@ import type { TestCredentials } from '../components';
 // Context 타입 정의
 // ============================================================
 
+interface SignUpData {
+  name: string;
+  email: string;
+  password: string;
+  schoolName?: string;
+}
+
 interface AuthContextType extends AuthState {
   /** 테스트 로그인 (credentials 저장) */
   loginWithCredentials: (credentials: TestCredentials) => Promise<void>;
+  /** 이메일/비밀번호 로그인 */
+  loginWithEmail: (email: string, password: string) => Promise<void>;
+  /** 회원가입 */
+  signUp: (data: SignUpData) => Promise<void>;
   /** 로그아웃 */
   logout: () => void;
   /** 테스트용 credentials (API 호출 시 사용) */
@@ -94,6 +105,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setState({ user, isAuthenticated: true, isLoading: false });
   }, []);
 
+  // 이메일/비밀번호 로그인
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const loginWithEmail = useCallback(async (email: string, _password: string) => {
+    setState(prev => ({ ...prev, isLoading: true }));
+
+    // TODO: 실제 API 호출로 교체
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const user: User = {
+      id: `user-${Date.now()}`,
+      name: email.split('@')[0],
+      email,
+      memberType: 'general',
+      provider: 'vivasam',
+    };
+
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    setState({ user, isAuthenticated: true, isLoading: false });
+  }, []);
+
+  // 회원가입
+  const signUp = useCallback(async (data: SignUpData) => {
+    setState(prev => ({ ...prev, isLoading: true }));
+
+    // TODO: 실제 API 호출로 교체
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const user: User = {
+      id: `user-${Date.now()}`,
+      name: data.name,
+      email: data.email,
+      memberType: 'general',
+      provider: 'vivasam',
+      schoolName: data.schoolName,
+    };
+
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    setState({ user, isAuthenticated: true, isLoading: false });
+  }, []);
+
   // 로그아웃
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -103,7 +154,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, loginWithCredentials, logout, credentials }}>
+    <AuthContext.Provider value={{ ...state, loginWithCredentials, loginWithEmail, signUp, logout, credentials }}>
       {children}
     </AuthContext.Provider>
   );

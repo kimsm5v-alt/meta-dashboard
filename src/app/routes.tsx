@@ -11,7 +11,7 @@ import { ClassDashboardPage, ClassDetailAnalysisPage } from '../features/class-d
 import { StudentDashboardPage } from '../features/student-dashboard';
 import { AIRoomPage } from '../features/ai-room';
 import { LandingPage } from '../features/landing';
-import { LoginPage } from '../features/auth';
+import { LoginPage, SignUpPage, ForgotPasswordPage } from '../features/auth';
 import { AssessmentPage } from '../features/assessment';
 import { SchedulePage } from '../features/schedule';
 import { ExamCodeEntryPage, ExamPage } from '../features/exam';
@@ -66,6 +66,8 @@ export const AppRoutes = () => (
     <Route element={<PublicLayout />}>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignUpPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/exam" element={<ExamCodeEntryPage />} />
       <Route path="/exam/:code" element={<ExamPage />} />
       <Route path="/join/:code" element={<JoinGroupPage />} />
