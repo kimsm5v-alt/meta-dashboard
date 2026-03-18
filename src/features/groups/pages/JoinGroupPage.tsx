@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Users, ArrowRight, Loader2, CheckCircle, AlertCircle, LogIn, UserPlus } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Users, ArrowRight, Loader2, CheckCircle, AlertCircle, UserPlus, Mail, User } from 'lucide-react';
 import { Button } from '@/shared/components';
+import { LoginForm } from '@/features/auth/components/LoginForm';
 import { groupService } from '../services/groupService';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import type { GroupInviteInfo, SchoolLevelCode } from '@/shared/types';
@@ -18,19 +19,16 @@ const SCHOOL_LEVEL_LABELS: Record<SchoolLevelCode, string> = {
 export const JoinGroupPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, loginWithEmail } = useAuth();
 
   const [step, setStep] = useState<PageStep>('loading');
   const [groupInfo, setGroupInfo] = useState<GroupInviteInfo | null>(null);
   const [error, setError] = useState('');
-
-  // 회원 가입 폼
-  const [studentNumber, setStudentNumber] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
 
   // 게스트 가입 폼
+  const [guestNickname, setGuestNickname] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
-  const [guestName, setGuestName] = useState('');
-  const [guestStudentNumber, setGuestStudentNumber] = useState('');
 
   // 그룹 정보 로드
   useEffect(() => {
@@ -64,6 +62,25 @@ export const JoinGroupPage: React.FC = () => {
     loadGroupInfo();
   }, [code, user?.id, authLoading]);
 
+  // 로그인 처리 (로그인 성공 후 자동 가입)
+  const handleLogin = async (email: string, password: string) => {
+    setLoginLoading(true);
+    try {
+      await loginWithEmail(email, password);
+      // 로그인 성공 → useEffect에서 isAuthenticated 변경 감지 → 자동 가입 처리
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  // 로그인 후 자동 가입
+  useEffect(() => {
+    if (isAuthenticated && user && groupInfo && step === 'info') {
+      handleMemberJoin();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user, groupInfo]);
+
   // 회원 가입 처리
   const handleMemberJoin = async () => {
     if (!groupInfo || !user) return;
@@ -72,7 +89,7 @@ export const JoinGroupPage: React.FC = () => {
     try {
       await groupService.joinGroup(
         groupInfo.id,
-        { studentNumber: studentNumber ? parseInt(studentNumber) : undefined },
+        {},
         user.id,
         user.name
       );
@@ -88,19 +105,18 @@ export const JoinGroupPage: React.FC = () => {
     }
   };
 
-  // 게스트 가입 처리
+  // 게스트 가입 처리 (닉네임 + 이메일)
   const handleGuestJoin = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!groupInfo) return;
 
-    // 유효성 검사
-    if (!guestEmail.trim()) {
-      setError('이메일을 입력해주세요.');
+    if (!guestNickname.trim() || guestNickname.trim().length < 2) {
+      setError('닉네임을 2자 이상 입력해주세요.');
       return;
     }
-    if (!guestName.trim() || guestName.trim().length < 2) {
-      setError('이름을 2자 이상 입력해주세요.');
+    if (!guestEmail.trim()) {
+      setError('이메일을 입력해주세요.');
       return;
     }
 
@@ -110,8 +126,7 @@ export const JoinGroupPage: React.FC = () => {
     try {
       await groupService.joinGroupAsGuest(groupInfo.id, {
         email: guestEmail.trim(),
-        name: guestName.trim(),
-        studentNumber: guestStudentNumber ? parseInt(guestStudentNumber) : undefined,
+        name: guestNickname.trim(),
       });
       setStep('success');
     } catch {
@@ -120,7 +135,7 @@ export const JoinGroupPage: React.FC = () => {
     }
   };
 
-  // 로딩
+  // ── 로딩 ──
   if (step === 'loading') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-indigo-50 flex items-center justify-center p-4">
@@ -132,7 +147,7 @@ export const JoinGroupPage: React.FC = () => {
     );
   }
 
-  // 에러
+  // ── 에러 ──
   if (step === 'error') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-indigo-50 flex items-center justify-center p-4">
@@ -163,7 +178,7 @@ export const JoinGroupPage: React.FC = () => {
     );
   }
 
-  // 가입 성공
+  // ── 가입 성공 ──
   if (step === 'success') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-indigo-50 flex items-center justify-center p-4">
@@ -182,9 +197,12 @@ export const JoinGroupPage: React.FC = () => {
             </Button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-gray-500">
-                방장이 검사를 시작하면 알림을 받게 됩니다.
-              </p>
+              <div className="bg-blue-50 rounded-xl p-4">
+                <p className="text-sm text-blue-700">
+                  선생님이 검사를 시작하면 <span className="font-semibold">{guestEmail}</span>으로
+                  검사 응시 안내 메일이 발송됩니다.
+                </p>
+              </div>
               <Button variant="secondary" onClick={() => navigate('/login')} className="w-full justify-center">
                 로그인하고 결과 확인하기
               </Button>
@@ -195,7 +213,7 @@ export const JoinGroupPage: React.FC = () => {
     );
   }
 
-  // 가입 중
+  // ── 가입 중 ──
   if (step === 'joining') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-indigo-50 flex items-center justify-center p-4">
@@ -207,18 +225,18 @@ export const JoinGroupPage: React.FC = () => {
     );
   }
 
-  // 게스트 폼
+  // ── 게스트 폼 (닉네임 + 이메일) ──
   if (step === 'guest-form' && groupInfo) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-indigo-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          {/* 헤더 */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-4">
-              <UserPlus className="w-10 h-10 text-gray-600" />
+          {/* 그룹 정보 헤더 */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-3">
+              <UserPlus className="w-8 h-8 text-gray-600" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">게스트로 참가</h1>
-            <p className="text-gray-600">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">게스트 로그인</h1>
+            <p className="text-gray-500 text-sm">
               <span className="font-semibold text-primary-600">{groupInfo.name}</span>
               {' '}({groupInfo.ownerName})
             </p>
@@ -227,58 +245,45 @@ export const JoinGroupPage: React.FC = () => {
           {/* 폼 */}
           <form onSubmit={handleGuestJoin} className="bg-white rounded-2xl shadow-lg p-8">
             <div className="space-y-4 mb-6">
+              {/* 닉네임 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  닉네임 <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={guestNickname}
+                    onChange={(e) => { setGuestNickname(e.target.value); setError(''); }}
+                    placeholder="닉네임을 입력하세요"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
+                    required
+                    minLength={2}
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {/* 이메일 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   이메일 <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="email"
-                  value={guestEmail}
-                  onChange={(e) => {
-                    setGuestEmail(e.target.value);
-                    setError('');
-                  }}
-                  placeholder="example@email.com"
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
-                  required
-                  autoFocus
-                />
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="email"
+                    value={guestEmail}
+                    onChange={(e) => { setGuestEmail(e.target.value); setError(''); }}
+                    placeholder="example@email.com"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
+                    required
+                  />
+                </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  나중에 회원가입 시 검사 기록을 연동할 수 있습니다.
+                  검사 응시 안내 메일이 이 주소로 발송됩니다.
                 </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  이름 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={guestName}
-                  onChange={(e) => {
-                    setGuestName(e.target.value);
-                    setError('');
-                  }}
-                  placeholder="이름을 입력하세요"
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
-                  required
-                  minLength={2}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  출석번호 <span className="text-gray-400 font-normal">(선택)</span>
-                </label>
-                <input
-                  type="number"
-                  value={guestStudentNumber}
-                  onChange={(e) => setGuestStudentNumber(e.target.value)}
-                  placeholder="출석번호"
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
-                  min={1}
-                  max={50}
-                />
               </div>
             </div>
 
@@ -308,7 +313,7 @@ export const JoinGroupPage: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => setStep('info')}
+                onClick={() => { setStep('info'); setError(''); }}
                 className="w-full px-6 py-3 text-gray-600 font-medium hover:text-gray-900 transition-colors"
               >
                 뒤로
@@ -320,28 +325,28 @@ export const JoinGroupPage: React.FC = () => {
     );
   }
 
-  // 그룹 정보 표시 (로그인/비로그인 분기)
+  // ── 메인: 그룹 정보 + 로그인 폼 (비로그인) / 가입 버튼 (로그인) ──
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-indigo-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* 로고 영역 */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary-100 mb-4">
-            <Users className="w-10 h-10 text-primary-600" />
+        {/* 그룹 정보 헤더 */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 mb-3">
+            <Users className="w-8 h-8 text-primary-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">그룹 가입</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">그룹 가입</h1>
           {groupInfo && (
-            <p className="text-gray-600">
+            <p className="text-gray-500 text-sm">
               <span className="font-semibold text-primary-600">{groupInfo.name}</span>
               {' '}({groupInfo.ownerName})
             </p>
           )}
         </div>
 
-        {/* 그룹 정보 카드 */}
         {groupInfo && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
-            <div className="text-center mb-6">
+          <div className="bg-white rounded-2xl shadow-lg p-8 mb-4">
+            {/* 그룹 정보 요약 */}
+            <div className="text-center mb-6 pb-6 border-b border-gray-100">
               <p className="text-sm text-gray-500 mb-1">
                 {SCHOOL_LEVEL_LABELS[groupInfo.schoolLevel]} {groupInfo.grade}학년 {groupInfo.classNumber}반
               </p>
@@ -350,29 +355,13 @@ export const JoinGroupPage: React.FC = () => {
               </p>
             </div>
 
-            {/* 로그인 상태에 따른 UI */}
             {isAuthenticated && user ? (
-              // 로그인 상태: 바로 가입
+              // ── 로그인 상태: 바로 가입 ──
               <div className="space-y-4">
                 <div className="bg-blue-50 rounded-lg p-4 text-center">
                   <p className="text-sm text-blue-700">
                     <span className="font-semibold">{user.name}</span>님으로 가입합니다.
                   </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    출석번호 <span className="text-gray-400 font-normal">(선택)</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={studentNumber}
-                    onChange={(e) => setStudentNumber(e.target.value)}
-                    placeholder="출석번호를 입력하세요"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
-                    min={1}
-                    max={50}
-                  />
                 </div>
 
                 <button
@@ -384,36 +373,17 @@ export const JoinGroupPage: React.FC = () => {
                 </button>
               </div>
             ) : (
-              // 비로그인 상태: 로그인 유도 + 게스트 옵션
-              <div className="space-y-4">
-                <Link
-                  to={`/login?redirect=/join/${code}`}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors"
-                >
-                  <LogIn className="w-5 h-5" />
-                  로그인하고 가입하기
-                </Link>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-200" />
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-4 bg-white text-gray-500">또는</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setStep('guest-form')}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  <UserPlus className="w-5 h-5" />
-                  게스트로 참가하기
-                </button>
-
-                <p className="text-xs text-center text-gray-500">
-                  게스트로 참가하면 이 기기에서만 결과를 확인할 수 있습니다.
+              // ── 비로그인 상태: 로그인 폼 바로 표시 ──
+              <div>
+                <p className="text-center text-sm text-gray-600 mb-4">
+                  그룹에 가입하려면 로그인해주세요
                 </p>
+                <LoginForm
+                  onLogin={handleLogin}
+                  isLoading={loginLoading}
+                  onGuestLogin={() => setStep('guest-form')}
+                  redirectPath={`/join/${code}`}
+                />
               </div>
             )}
           </div>

@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { ExamState, ExamStep, ExamQuestion } from '../types';
 
 const initialState: ExamState = {
-  step: 'number',
+  step: 'auth',
   studentNumber: null,
   dgnssResultId: null,
   currentPage: 0,
