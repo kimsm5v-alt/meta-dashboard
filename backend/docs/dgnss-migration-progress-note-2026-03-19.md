@@ -240,24 +240,24 @@ PDF/상세조회 쿼리의 이름/성별/번호 매핑 정리
 
 ---
 
-## 9. 2026-03-19 �߰� ���� ��Ȳ
+## 9. 2026-03-19 �߰� ���� ��Ȳ
 
-�̹� �۾����� DgnssMapper.xml ���� ���Ž� DB ���� ���� ���Ÿ� �Ϸ��ߴ�.
+�̹� �۾����� DgnssMapper.xml ���� ���Ž� DB ���� ���� ���Ÿ� �Ϸ��ߴ�.
 
-### 9.1 �Ϸ�� �۾�
+### 9.1 �Ϸ�� �۾�
 
-- DgnssMapper.xml �� idt_lms, idt_diagnosis, iva_meta ��Ű�� prefix ����
-- �л�/����/�б� ��ȸ�� ���� ���� �������� ��ȯ
-- �л� �̸�: group_member.nickname
-- �л� ��ȣ: group_member.member_no
-- �л� ����: group_member.gender
-- ���� �̸�: group_info.host_user_no -> user.user_no -> user.nickname
-- �б޸� ǥ�ð�: group_info.group_nm
-- �б��� ǥ�ð�: group_info.school_level
-- FN_GET_MEM_UNDER_TSCORE�� group_member.member_no �������� ����
-- PC_DGNSS_MARK�� ���Ž� ȸ�� ���̺� ������ ���� ���� �������� Ȯ��
+- DgnssMapper.xml �� idt_lms, idt_diagnosis, iva_meta ��Ű�� prefix ����
+- �л�/����/�б� ��ȸ�� ���� ���� �������� ��ȯ
+- �л� �̸�: group_member.nickname
+- �л� ��ȣ: group_member.member_no
+- �л� ����: group_member.gender
+- ���� �̸�: group_info.host_user_no -> user.user_no -> user.nickname
+- �б޸� ǥ�ð�: group_info.group_nm
+- �б��� ǥ�ð�: group_info.school_level
+- FN_GET_MEM_UNDER_TSCORE�� group_member.member_no �������� ����
+- PC_DGNSS_MARK�� ���Ž� ȸ�� ���̺� ������ ���� ���� �������� Ȯ��
 
-### 9.2 1�� �ٽ� ���� ��ȯ �Ϸ�
+### 9.2 1�� �ٽ� ���� ��ȯ �Ϸ�
 
 - selectAllStdtList
 - selectActvStdtCnt
@@ -266,7 +266,7 @@ PDF/상세조회 쿼리의 이름/성별/번호 매핑 정리
 - selectTcDgnssInfo
 - selectStInfo
 
-### 9.3 �ֿ� ����Ʈ/�� ���� ��ȯ �Ϸ�
+### 9.3 �ֿ� ����Ʈ/�� ���� ��ȯ �Ϸ�
 
 - selectTcId
 - selectTcDgnssInfoOne
@@ -298,17 +298,132 @@ PDF/상세조회 쿼리의 이름/성별/번호 매핑 정리
 - selectStTotalReport
 - selectMakePdfTargetList
 
-### 9.4 ���� ���� �۾�
+### 9.4 ���� ���� �۾�
 
-�ڵ� ���� �������δ� SQL/�Լ�/���ν��� ���̱׷��̼��� ���� ������, ���� ���� �ٽ� �۾��� ���� �����̴�.
+�ڵ� ���� �������δ� SQL/�Լ�/���ν��� ���̱׷��̼��� ���� ������, ���� ���� �ٽ� �۾��� ���� �����̴�.
 
-- �л� ��� ��ȸ API ����
-- ���� �˻� ���/�� ����
-- �˻� ����/���� ����
-- �л� PDF/���� PDF ����
-- Java/PDF �������� ���� �ִ� dead branch ���� ���� ����
+- �л� ��� ��ȸ API ����
+- ���� �˻� ���/�� ����
+- �˻� ����/���� ����
+- �л� PDF/���� PDF ����
+- Java/PDF �������� ���� �ִ� dead branch ���� ���� ����
 
-### 9.5 ����
+### 9.5 비고
 
-- clsTypeCode�� VivaClass ����� ���� ������ ��Ȱ��ȭ�ߴ�.
-- ptnId�� �� �̻� ������� �����Ƿ� DGNSS ���� �����ߴ�.
+- clsTypeCode는 VivaClass 연동시 사용 예정이어서 비활성화했다.
+- ptnId는 더 이상 사용되지 않으므로 DGNSS 쪽을 삭제했다.
+
+---
+
+## 10. 2026-03-19 추가 작업 - Admin API 테스트 페이지 개편
+
+### 10.1 작업 배경
+
+DgnssController에 개발된 API들을 Admin 페이지에서 테스트할 수 있도록 api-test.html을 개편했다.
+
+### 10.2 구조 변경
+
+기존 단일 탭 구조에서 **2단계 탭 구조**로 변경:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  [ADMIN 호출]  [심리검사]                    ← 메인 탭    │
+├─────────────────────────────────────────────────────────┤
+│  ADMIN 호출 선택 시: 기존 10개 탭                         │
+│  심리검사 선택 시: DGNSS API 21개 탭                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 10.3 ADMIN 호출 탭 (기존 유지)
+
+1. 회원가입
+2. 로그인
+3. 회원조회
+4. 그룹생성
+5. 그룹참가
+6. 게스트참가
+7. 그룹목록
+8. 그룹상세
+9. 관찰메모
+10. 상담관리
+
+### 10.4 심리검사 탭 (신규 추가)
+
+#### 교사용 API (11개)
+
+| 탭 | API | 설명 |
+|---|-----|------|
+| 목록조회 | GET /api/dgnss/tc/info | 검사 목록 |
+| 검사시작 | POST /api/dgnss/tc/start | 학생 데이터 생성 |
+| 검사종료 | POST /api/dgnss/tc/end | 검사 종료 처리 |
+| 검사취소 | POST /api/dgnss/tc/cancel | 데이터 삭제 |
+| 재시작 | POST /api/dgnss/tc/restart | 신규 학생 추가 배부 |
+| 상세조회 | GET /api/dgnss/tc/detail | 검사 상세 정보 |
+| 미제출목록 | GET /api/dgnss/tc/notsubm | 미제출 학생 |
+| 종합분석 | GET /api/dgnss/tc/analysis | 대시보드 종합 |
+| 학생목록 | GET /api/dgnss/tc/stinfolist | 대시보드 학생 |
+| 상담필요 | GET /api/dgnss/tc/need | 상담 필요 학생 |
+| 텍스트저장 | POST /api/dgnss/tc/text/save | 코멘트 저장 |
+
+#### 학생용 API (6개)
+
+| 탭 | API | 설명 |
+|---|-----|------|
+| 목록조회 | GET /api/dgnss/st/info | 참여 가능 검사 |
+| 검사시작 | POST /api/dgnss/st/start | 문제목록 반환 |
+| 새로하기 | GET /api/dgnss/st/new | 새 OMR 발급 |
+| 답입력 | POST /api/dgnss/st/answer | 문제 답 저장 |
+| 제출 | POST /api/dgnss/st/submit | 검사 제출 |
+| 결과보기 | GET /api/dgnss/st/analysis | 결과 조회 |
+
+#### PDF/공통 API (4개)
+
+| 탭 | API | 설명 |
+|---|-----|------|
+| PDF다운로드 | POST /api/dgnss/pdf | 개별 다운로드 |
+| PDF대상조회 | GET /api/dgnss/pdf/search | 일괄 대상 조회 |
+| 일괄다운로드 | GET /api/dgnss/dgnss-download-all | ZIP 다운로드 |
+| 요약본업로드 | POST /api/dgnss/summary/pdf | CDN 업로드 |
+
+### 10.5 관리자 모드 - 테스트 ID 설정 패널
+
+로그인 후 심리검사 탭에서 사용 가능한 관리자 전용 패널 추가:
+
+- 학급 ID(claId) 입력 → 멤버 조회
+- 교사/학생 드롭다운에서 선택
+- 선택한 ID가 각 API 입력 필드에 자동 반영
+
+자동 반영 필드:
+
+| 선택 | 반영 필드 |
+|------|----------|
+| claId | 모든 교사/학생 목록조회, 검사시작, 재시작, 종합분석 |
+| tcId | 교사 목록조회, 검사시작 |
+| stdtId | 학생 목록조회, 결과보기, PDF다운로드(userId) |
+
+### 10.6 JWT 토큰 연동
+
+- 로그인 시 발급받은 accessToken이 모든 API 호출에 자동 적용
+- Authorization: Bearer 헤더 자동 추가
+
+### 10.7 수정 파일
+
+- `src/main/resources/templates/admin/api-test.html`
+
+---
+
+## 11. group_info 테이블 collation 변경
+
+### 11.1 DDL
+
+```sql
+-- 테이블 + 모든 컬럼 collation 일괄 변경
+ALTER TABLE group_info CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+```
+
+### 11.2 변경 후 확인
+
+```sql
+SHOW TABLE STATUS LIKE 'group_info';
+SHOW FULL COLUMNS FROM group_info;
+```
