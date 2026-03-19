@@ -31,7 +31,7 @@ public class MemberController {
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(examples = {
                     @ExampleObject(name = "회원가입", value =
-                            "{\"password\":\"Test1234!@\", \"email\":\"test@test.com\", \"nickname\":\"테스터\"}")
+                            "{\"password\":\"Test1234!@\", \"email\":\"test@test.com\", \"nickname\":\"테스터\", \"gender\":\"M\"}")
             }))
     public ResponseDTO<CustomBody> signup(
             @RequestBody Map<String, Object> paramData

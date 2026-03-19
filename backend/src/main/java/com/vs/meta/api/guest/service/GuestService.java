@@ -66,9 +66,17 @@ public class GuestService {
             if (user.getStdtId() == null) {
                 String guestStdtId = (String) paramData.get("guestStdtId");
                 user.assignStdtId(guestStdtId);
-                userMapper.updateUser(user);
             }
 
+            // 게스트의 gender를 user에 반영 (user에 gender가 없는 경우)
+            if (user.getGender() == null) {
+                String guestGender = (String) paramData.get("gender");
+                if (guestGender != null && !guestGender.isBlank()) {
+                    user.setGender(guestGender);
+                }
+            }
+
+            userMapper.updateUser(user);
             groupMemberMapper.updateGuestToStudent(email, userNo);
         }
 

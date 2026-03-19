@@ -83,12 +83,13 @@ public class AdminController {
     public String createUser(@RequestParam String email,
                              @RequestParam String password,
                              @RequestParam String nickname,
+                             @RequestParam String gender,
                              @RequestParam String roleCode,
                              Authentication auth,
                              RedirectAttributes ra) {
         try {
             Long adminUserNo = adminUserService.resolveAdminUserNo(auth.getName());
-            adminUserService.createUserByAdmin(password, email, nickname, roleCode, adminUserNo);
+            adminUserService.createUserByAdmin(password, email, nickname, gender, roleCode, adminUserNo);
             ra.addFlashAttribute("success", "계정 등록 완료: " + email);
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());

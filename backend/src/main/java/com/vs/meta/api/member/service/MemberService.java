@@ -57,6 +57,14 @@ public class MemberService {
             throw new IllegalArgumentException("닉네임은 필수입니다.");
         }
 
+        String gender = (String) paramData.get("gender");
+        if (gender == null || gender.isBlank()) {
+            throw new IllegalArgumentException("성별은 필수입니다.");
+        }
+        if (!"M".equals(gender) && !"F".equals(gender)) {
+            throw new IllegalArgumentException("성별은 M 또는 F만 허용됩니다.");
+        }
+
         // 이메일 중복 체크
         User existingByEmail = userMapper.findByEmail(email);
         if (existingByEmail != null) {
@@ -83,6 +91,7 @@ public class MemberService {
                 .password(passwordEncoder.encode(rawPassword))
                 .email(email)
                 .nickname(nickname)
+                .gender(gender)
                 .roleCode(roleCode)
                 .tcId(tcId)
                 .stdtId(stdtId)
@@ -99,6 +108,7 @@ public class MemberService {
         result.put("userNo", user.getUserNo());
         result.put("email", email);
         result.put("nickname", nickname);
+        result.put("gender", gender);
         result.put("roleCode", roleCode);
         return result;
     }
@@ -138,6 +148,7 @@ public class MemberService {
         result.put("userNo", user.getUserNo());
         result.put("email", user.getEmail());
         result.put("nickname", user.getNickname());
+        result.put("gender", user.getGender());
         result.put("roleCode", user.getRoleCode());
         result.put("tcId", user.getTcId());
         result.put("stdtId", user.getStdtId());
@@ -160,6 +171,7 @@ public class MemberService {
         result.put("userNo", user.getUserNo());
         result.put("email", user.getEmail());
         result.put("nickname", user.getNickname());
+        result.put("gender", user.getGender());
         result.put("roleCode", user.getRoleCode());
         result.put("tcId", user.getTcId());
         result.put("stdtId", user.getStdtId());

@@ -74,7 +74,7 @@ public class AdminUserService {
      */
     @Transactional
     public void createUserByAdmin(String password, String email,
-                                   String nickname, String roleCode, Long adminUserNo) {
+                                   String nickname, String gender, String roleCode, Long adminUserNo) {
         if (userMapper.findByEmail(email) != null) {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다: " + email);
         }
@@ -91,6 +91,7 @@ public class AdminUserService {
                 .password(passwordEncoder.encode(password))
                 .email(email)
                 .nickname(nickname)
+                .gender(gender)
                 .roleCode(roleCode)
                 .tcId(tcId)
                 .stdtId(stdtId)

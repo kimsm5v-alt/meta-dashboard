@@ -69,7 +69,7 @@
             <!-- Config -->
             <div class="config-bar">
                 <label>API Base URL:</label>
-                <input id="baseUrl" value="http://localhost:15000" />
+                <input id="baseUrl" value="http://localhost:8081" />
                 <span id="statusDot" class="status-dot pending"></span>
             </div>
 
@@ -115,6 +115,10 @@
                 </div>
                 <div class="api-row">
                     <div class="api-field"><label>nickname</label><input id="signup_nickname" value="TestUser" /></div>
+                    <div class="api-field">
+                        <label>gender</label>
+                        <select id="signup_gender"><option value="M">남 (M)</option><option value="F">여 (F)</option></select>
+                    </div>
                     <div class="api-field">
                         <label>역할 선택</label>
                         <select id="signup_roleCode"><option value="TEACHER">교사 (TEACHER)</option><option value="STUDENT">학생 (STUDENT)</option></select>
@@ -204,6 +208,10 @@
                 <div class="api-row">
                     <div class="api-field"><label>inviteCode (초대코드)</label><input id="gjg_inviteCode" placeholder="ABC123" /></div>
                     <div class="api-field"><label>nickname</label><input id="gjg_nickname" value="GuestUser" /></div>
+                    <div class="api-field">
+                        <label>gender</label>
+                        <select id="gjg_gender"><option value="M">남 (M)</option><option value="F">여 (F)</option></select>
+                    </div>
                     <div class="api-field">
                         <label>email</label>
                         <div style="display:flex;gap:6px;align-items:center">
@@ -330,12 +338,12 @@
     async function doSendCode(prefix) { const email = document.getElementById(prefix + '_email').value.trim(); if (!email) { alert('이메일을 입력하세요.'); return; } const statusEl = document.getElementById(prefix + '_emailStatus'); const btn = document.getElementById(prefix + '_sendCodeBtn'); statusEl.textContent = '발송 중...'; statusEl.style.color = '#6c757d'; btn.disabled = true; document.getElementById(prefix + '_codeGroup').style.display = ''; document.getElementById(prefix + '_code').value = ''; emailVerified[prefix] = false; try { const res = await apiCall('POST', '/member/send-code', { email }, null); if (res && res.success === true) { statusEl.textContent = '인증코드가 발송되었습니다.'; statusEl.style.color = '#007bff'; document.getElementById(prefix + '_code').focus(); startCooldown(prefix, btn); } else { statusEl.textContent = (res && res.resultMessage) || '발송 실패'; statusEl.style.color = '#dc3545'; btn.disabled = false; } } catch (e) { statusEl.textContent = '발송 중 오류 발생'; statusEl.style.color = '#dc3545'; btn.disabled = false; } }
     function startCooldown(prefix, btn) { let remaining = 60; btn.textContent = `재발송 (${remaining}s)`; if (cooldownTimers[prefix]) clearInterval(cooldownTimers[prefix]); cooldownTimers[prefix] = setInterval(() => { remaining--; if (remaining <= 0) { clearInterval(cooldownTimers[prefix]); btn.textContent = '인증코드 발송'; btn.disabled = false; } else btn.textContent = `재발송 (${remaining}s)`; }, 1000); }
     async function doVerifyCode(prefix) { const email = document.getElementById(prefix + '_email').value.trim(); const code = document.getElementById(prefix + '_code').value.trim(); if (!code) { alert('인증코드를 입력하세요.'); return; } const statusEl = document.getElementById(prefix + '_codeStatus'); statusEl.textContent = '확인 중...'; statusEl.style.color = '#6c757d'; try { const res = await apiCall('POST', '/member/verify-code', { email, code }, null); if (res && res.success === true) { statusEl.innerHTML = '<b style="color:#28a745">인증완료</b>'; emailVerified[prefix] = true; document.getElementById(prefix + '_code').disabled = true; document.getElementById(prefix + '_verifyBtn').disabled = true; document.getElementById(prefix + '_email').disabled = true; const sendBtn = document.getElementById(prefix + '_sendCodeBtn'); sendBtn.disabled = true; if (cooldownTimers[prefix]) clearInterval(cooldownTimers[prefix]); sendBtn.textContent = '인증완료'; } else { statusEl.textContent = (res && res.resultMessage) || '인증 실패'; statusEl.style.color = '#dc3545'; } } catch (e) { statusEl.textContent = '인증 확인 중 오류'; statusEl.style.color = '#dc3545'; } }
-    async function doSignup() { if (!emailVerified['signup']) { alert('이메일 인증을 먼저 완료하세요.'); return; } const body = { password: document.getElementById('signup_password').value, email: document.getElementById('signup_email').value, nickname: document.getElementById('signup_nickname').value, roleCode: document.getElementById('signup_roleCode').value }; const res = await apiCall('POST', '/member/signup', body, 'resp-signup'); if (res && res.resultData) { updateState('email', res.resultData.email); updateState('userNo', res.resultData.userNo); } }
+    async function doSignup() { if (!emailVerified['signup']) { alert('이메일 인증을 먼저 완료하세요.'); return; } const body = { password: document.getElementById('signup_password').value, email: document.getElementById('signup_email').value, nickname: document.getElementById('signup_nickname').value, gender: document.getElementById('signup_gender').value, roleCode: document.getElementById('signup_roleCode').value }; const res = await apiCall('POST', '/member/signup', body, 'resp-signup'); if (res && res.resultData) { updateState('email', res.resultData.email); updateState('userNo', res.resultData.userNo); } }
     async function doLogin() { const body = { email: document.getElementById('login_email').value, password: document.getElementById('login_password').value }; const res = await apiCall('POST', '/member/login', body, 'resp-login'); if (res && res.resultData) { const d = res.resultData; updateState('email', d.email); updateState('userNo', d.userNo); updateState('tcId', d.tcId); updateState('stdtId', d.stdtId); updateState('accessToken', d.accessToken); ['info_userNo','gc_userNo','gj_userNo','gl_userNo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = d.userNo; }); } }
     async function doMemberInfo() { const res = await apiCall('GET', '/member/info', null, 'resp-memberInfo'); if (res && res.resultData) { const d = res.resultData; updateState('email', d.email); updateState('userNo', d.userNo); updateState('tcId', d.tcId); updateState('stdtId', d.stdtId); } }
     async function doGroupCreate() { const body = { groupNm: document.getElementById('gc_groupNm').value, grade: document.getElementById('gc_grade').value || '3', groupDesc: document.getElementById('gc_groupDesc').value || undefined, maxMemberCount: parseInt(document.getElementById('gc_maxCount').value) || undefined, schoolLevel: document.getElementById('gc_schoolLevel').value || undefined, classNumber: parseInt(document.getElementById('gc_classNumber').value) || undefined, schoolName: document.getElementById('gc_schoolName').value || undefined, schoolCode: document.getElementById('gc_schoolCode').value || undefined }; const res = await apiCall('POST', '/group/create', body, 'resp-groupCreate'); if (res && res.resultData) { const d = res.resultData; updateState('claId', d.claId); updateState('inviteCode', d.inviteCode); const af = { 'gj_inviteCode': d.inviteCode, 'gjg_inviteCode': d.inviteCode, 'gd_claId': d.claId, 'mm_classId': d.claId, 'cm_classId': d.claId }; Object.entries(af).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val || ''; }); } }
     async function doGroupJoin() { const body = { inviteCode: document.getElementById('gj_inviteCode').value }; const res = await apiCall('POST', '/group/join', body, 'resp-groupJoin'); if (res && res.resultData) updateState('stdtId', res.resultData.stdtId); }
-    async function doGroupJoinGuest() { if (!emailVerified['gjg']) { alert('이메일 인증을 먼저 완료하세요.'); return; } const body = { inviteCode: document.getElementById('gjg_inviteCode').value, nickname: document.getElementById('gjg_nickname').value, email: document.getElementById('gjg_email').value }; await apiCall('POST', '/group/join-guest', body, 'resp-groupJoinGuest'); }
+    async function doGroupJoinGuest() { if (!emailVerified['gjg']) { alert('이메일 인증을 먼저 완료하세요.'); return; } const body = { inviteCode: document.getElementById('gjg_inviteCode').value, nickname: document.getElementById('gjg_nickname').value, gender: document.getElementById('gjg_gender').value, email: document.getElementById('gjg_email').value }; await apiCall('POST', '/group/join-guest', body, 'resp-groupJoinGuest'); }
     async function doGroupList() { await apiCall('GET', '/group/list', null, 'resp-groupList'); }
     async function doGroupDetail() { const claId = document.getElementById('gd_claId').value; await apiCall('GET', `/group/detail?claId=${encodeURIComponent(claId)}`, null, 'resp-groupDetail'); }
     async function doMemoList() { const studentId = document.getElementById('mm_studentId').value; await apiCall('GET', `/api/memos/student/${encodeURIComponent(studentId)}`, null, 'resp-memoManage'); }

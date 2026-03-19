@@ -16,6 +16,7 @@ public class User {
     private String email;
     private String password;
     private String nickname;
+    private String gender;
     private String roleCode;
     private String tcId;
     private String stdtId;

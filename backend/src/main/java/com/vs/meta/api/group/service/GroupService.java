@@ -183,6 +183,14 @@ public class GroupService {
             throw new IllegalStateException("그룹 최대 인원(" + groupInfo.getMaxMemberCount() + "명)을 초과할 수 없습니다.");
         }
 
+        String gender = (String) paramData.get("gender");
+        if (gender == null || gender.isBlank()) {
+            throw new IllegalArgumentException("성별은 필수입니다.");
+        }
+        if (!"M".equals(gender) && !"F".equals(gender)) {
+            throw new IllegalArgumentException("성별은 M 또는 F만 허용됩니다.");
+        }
+
         String stdtId = memberService.generateStdtId();
 
         GroupMember member = GroupMember.builder()
@@ -190,6 +198,7 @@ public class GroupService {
                 .userNo(null)
                 .stdtId(stdtId)
                 .nickname((String) paramData.get("nickname"))
+                .gender(gender)
                 .email((String) paramData.get("email"))
                 .memberType(MemberType.GUEST)
                 .status(MemberStatus.ACTIVE)

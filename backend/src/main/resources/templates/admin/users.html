@@ -51,6 +51,14 @@
                             </div>
                             <div class="row">
                                 <div class="col-md-4 form-group">
+                                    <label>성별</label>
+                                    <select name="gender" class="form-control form-control-sm" required>
+                                        <option value="">선택</option>
+                                        <option value="M">남</option>
+                                        <option value="F">여</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 form-group">
                                     <label>역할</label>
                                     <select name="roleCode" class="form-control form-control-sm">
                                         <option th:each="role : ${roles}" th:value="${role.roleCode}"
@@ -111,11 +119,13 @@
                                     <th>USER_NO</th>
                                     <th>이메일</th>
                                     <th>닉네임</th>
+                                    <th>성별</th>
                                     <th>역할</th>
                                     <th>상태</th>
                                     <th>마지막 로그인</th>
                                     <th>역할 변경</th>
                                     <th>상태 변경</th>
+                                    <th>학교 매핑</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -123,6 +133,7 @@
                                     <td th:text="${user.userNo}"></td>
                                     <td th:text="${user.email}"></td>
                                     <td th:text="${user.nickname}"></td>
+                                    <td><span th:text="${user.gender == 'M' ? '남' : (user.gender == 'F' ? '여' : '-')}"></span></td>
                                     <td><span class="badge badge-info" th:text="${user.roleCode}"></span></td>
                                     <td>
                                         <span class="badge"
@@ -152,9 +163,15 @@
                                             <button type="submit" class="btn btn-danger btn-xs">변경</button>
                                         </form>
                                     </td>
+                                    <td>
+                                        <a th:href="@{/admin/school-map(userNo=${user.userNo})}"
+                                           class="btn btn-outline-info btn-xs">
+                                            <i class="fas fa-school mr-1"></i>매핑
+                                        </a>
+                                    </td>
                                 </tr>
                                 <tr th:if="${#lists.isEmpty(users)}">
-                                    <td colspan="8" class="text-center text-muted py-4">검색 결과가 없습니다</td>
+                                    <td colspan="10" class="text-center text-muted py-4">검색 결과가 없습니다</td>
                                 </tr>
                             </tbody>
                         </table>
