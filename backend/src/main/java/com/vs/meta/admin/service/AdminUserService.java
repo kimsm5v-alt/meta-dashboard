@@ -15,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
 
 import java.time.LocalDateTime;
@@ -81,10 +82,10 @@ public class AdminUserService {
 
         String tcId = null;
         String stdtId = null;
-        if ("TEACHER".equals(roleCode) || "PRINCIPAL".equals(roleCode) || "SUPERINTENDENT".equals(roleCode) || "ADMIN".equals(roleCode)) {
-            tcId = "viva-t-" + UUID.randomUUID().toString().substring(0, 8);
+        if (IdGenerator.isTeacherRole(roleCode)) {
+            tcId = IdGenerator.generateTcId();
         } else if ("STUDENT".equals(roleCode)) {
-            stdtId = "viva-s-" + UUID.randomUUID().toString().substring(0, 8);
+            stdtId = IdGenerator.generateStdtId();
         }
 
         User user = User.builder()

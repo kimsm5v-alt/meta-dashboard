@@ -93,6 +93,12 @@ ncp:
     secret-key: ${NCP_MAIL_SECRET_KEY}
     sender: ${NCP_MAIL_SENDER:noreply@vsaidt.com}
 
+# 로그인 Rate Limiting
+login:
+  rate-limit:
+    max-attempts: ${LOGIN_RATE_LIMIT_MAX_ATTEMPTS:5}
+    block-minutes: ${LOGIN_RATE_LIMIT_BLOCK_MINUTES:5}
+
 key:
   salt:
     main: ${KEY_SALT_MAIN:}

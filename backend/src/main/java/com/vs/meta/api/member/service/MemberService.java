@@ -5,6 +5,8 @@ import com.vs.meta.common.exception.JwtExpiredException;
 import com.vs.meta.common.security.JwtUtil;
 import com.vs.meta.api.member.mapper.RefreshTokenMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
+import com.vs.meta.common.utils.IdGenerator;
+import com.vs.meta.common.utils.LoginRateLimiter;
 import com.vs.meta.common.utils.PasswordValidator;
 import com.vs.meta.domain.RefreshToken;
 import com.vs.meta.domain.User;
@@ -36,6 +38,7 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EmailVerificationService emailVerificationService;
+    private final LoginRateLimiter loginRateLimiter;
 
     @Value("${META_API_JWT_REFRESH_EXPIRATION_MS:1209600000}")
     private long refreshExpirationMs;
@@ -81,10 +84,10 @@ public class MemberService {
 
         String tcId = null;
         String stdtId = null;
-        if ("TEACHER".equals(roleCode) || "PRINCIPAL".equals(roleCode) || "SUPERINTENDENT".equals(roleCode) || "ADMIN".equals(roleCode)) {
-            tcId = generateTcId();
+        if (IdGenerator.isTeacherRole(roleCode)) {
+            tcId = IdGenerator.generateTcId();
         } else if ("STUDENT".equals(roleCode)) {
-            stdtId = generateStdtId();
+            stdtId = IdGenerator.generateStdtId();
         }
 
         User user = User.builder()
@@ -123,15 +126,22 @@ public class MemberService {
             throw new IllegalArgumentException("비밀번호는 필수입니다.");
         }
 
+        if (loginRateLimiter.isBlocked(ipAddress, email)) {
+            throw new IllegalArgumentException("로그인 시도 횟수를 초과했습니다. " + loginRateLimiter.getBlockMinutes() + "분 후 다시 시도해주세요.");
+        }
+
         User user = userMapper.findByEmailAndStatus(email, UserStatus.ACTIVE.name());
         if (user == null) {
+            loginRateLimiter.recordFailure(ipAddress, email);
             throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
 
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+            loginRateLimiter.recordFailure(ipAddress, email);
             throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
 
+        loginRateLimiter.clearAttempts(ipAddress, email);
         user.updateLastLogin();
         userMapper.updateUser(user);
 
@@ -197,7 +207,12 @@ public class MemberService {
             if (userNoObj == null) {
                 throw new AuthFailedException("유효하지 않은 토큰입니다.");
             }
-            Long userNo = Long.valueOf(String.valueOf(userNoObj));
+            Long userNo;
+            try {
+                userNo = Long.valueOf(String.valueOf(userNoObj));
+            } catch (NumberFormatException e) {
+                throw new AuthFailedException("유효하지 않은 토큰입니다: userNo 형식 오류");
+            }
 
             // DB에 존재하는지 확인 (계정 정지 시 삭제되어 없음)
             String tokenHash = hashToken(refreshToken);
@@ -225,7 +240,9 @@ public class MemberService {
             try {
                 String tokenHash = hashToken(refreshToken);
                 refreshTokenMapper.deleteByTokenHash(tokenHash);
-            } catch (Exception ignored) {}
+            } catch (Exception ex) {
+                log.warn("만료 토큰 정리 실패: {}", ex.getMessage());
+            }
             throw new AuthFailedException("refreshToken이 만료되었습니다. 다시 로그인해주세요.");
         } catch (AuthFailedException e) {
             throw e;
@@ -286,15 +303,18 @@ public class MemberService {
         return userMapper.findByEmailAndStatus(email, UserStatus.ACTIVE.name());
     }
 
+    /** @deprecated IdGenerator.generateTcId() 사용 권장 */
     public String generateTcId() {
-        return "viva-t-" + UUID.randomUUID().toString().substring(0, 8);
+        return IdGenerator.generateTcId();
     }
 
+    /** @deprecated IdGenerator.generateStdtId() 사용 권장 */
     public String generateStdtId() {
-        return "viva-s-" + UUID.randomUUID().toString().substring(0, 8);
+        return IdGenerator.generateStdtId();
     }
 
+    /** @deprecated IdGenerator.generateClaId() 사용 권장 */
     public String generateClaId() {
-        return UUID.randomUUID().toString().replace("-", "");
+        return IdGenerator.generateClaId();
     }
 }

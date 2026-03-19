@@ -201,7 +201,12 @@
                 <p>관리자 콘솔에 로그인하세요</p>
             </div>
 
-            <div th:if="${param.error}" class="alert alert-danger">
+            <div th:if="${param.error != null && param.error[0] == 'blocked'}" class="alert alert-danger">
+                <i class="fas fa-ban"></i>
+                <span>로그인 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.</span>
+                <button type="button" class="close-btn" onclick="this.parentElement.remove()">&times;</button>
+            </div>
+            <div th:if="${param.error != null && param.error[0] != 'blocked'}" class="alert alert-danger">
                 <i class="fas fa-exclamation-circle"></i>
                 <span>이메일 또는 비밀번호가 올바르지 않습니다.</span>
                 <button type="button" class="close-btn" onclick="this.parentElement.remove()">&times;</button>

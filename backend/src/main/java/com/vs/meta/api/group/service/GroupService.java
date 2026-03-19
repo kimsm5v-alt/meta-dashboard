@@ -6,6 +6,8 @@ import com.vs.meta.api.group.mapper.GroupQueryMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.member.service.EmailVerificationService;
 import com.vs.meta.api.member.service.MemberService;
+import com.vs.meta.common.utils.ConvertUtils;
+import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
 import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.GroupMember;
@@ -37,7 +39,7 @@ public class GroupService {
 
     @Transactional
     public Object createGroup(Map<String, Object> paramData) throws Exception {
-        Long userNo = toLong(paramData.get("userNo"));
+        Long userNo = ConvertUtils.toLong(paramData.get("userNo"));
         if (userNo == null) {
             throw new IllegalArgumentException("userNo는 필수입니다.");
         }
@@ -63,13 +65,13 @@ public class GroupService {
 
         boolean isFirstCreate = (user.getTcId() == null);
         if (isFirstCreate) {
-            String tcId = memberService.generateTcId();
+            String tcId = IdGenerator.generateTcId();
             user.assignTcId(tcId);
             userMapper.updateUser(user);
         }
 
-        String claId = memberService.generateClaId();
-        String inviteCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        String claId = IdGenerator.generateClaId();
+        String inviteCode = IdGenerator.generateInviteCode();
 
         Integer maxMemberCount = paramData.get("maxMemberCount") != null
                 ? Integer.valueOf(paramData.get("maxMemberCount").toString()) : null;
@@ -99,12 +101,13 @@ public class GroupService {
         paramData.put("claId", claId);
         paramData.put("inviteCode", inviteCode);
 
+        log.info("그룹 생성: groupId={}, claId={}, inviteCode={}, hostUserNo={}", groupInfo.getGroupId(), claId, inviteCode, userNo);
         return paramData;
     }
 
     @Transactional
     public Object joinGroupAsPlayer(Map<String, Object> paramData) throws Exception {
-        Long userNo = toLong(paramData.get("userNo"));
+        Long userNo = ConvertUtils.toLong(paramData.get("userNo"));
         if (userNo == null) {
             throw new IllegalArgumentException("userNo는 필수입니다.");
         }
@@ -131,7 +134,7 @@ public class GroupService {
 
         boolean isFirstJoin = (user.getStdtId() == null);
         if (isFirstJoin) {
-            String stdtId = memberService.generateStdtId();
+            String stdtId = IdGenerator.generateStdtId();
             user.assignStdtId(stdtId);
             userMapper.updateUser(user);
         }
@@ -158,6 +161,7 @@ public class GroupService {
         paramData.put("stdtId", user.getStdtId());
         paramData.put("memberId", member.getId());
 
+        log.info("회원 그룹 참가: groupId={}, userNo={}, memberNo={}", groupId, userNo, memberNo);
         return paramData;
     }
 
@@ -195,7 +199,7 @@ public class GroupService {
             throw new IllegalArgumentException("성별은 M 또는 F만 허용됩니다.");
         }
 
-        String stdtId = memberService.generateStdtId();
+        String stdtId = IdGenerator.generateStdtId();
 
         Integer maxNo = groupMemberMapper.findMaxMemberNoByGroupId(groupId);
         int memberNo = (maxNo != null ? maxNo : 0) + 1;
@@ -223,18 +227,19 @@ public class GroupService {
 
         emailVerificationService.consumeVerification(email);
 
+        log.info("게스트 그룹 참가: groupId={}, email={}, memberNo={}", groupId, email, memberNo);
         return paramData;
     }
 
     @Transactional(readOnly = true)
     public Object findGroupList(Map<String, Object> paramData) throws Exception {
-        Long userNo = toLong(paramData.get("userNo"));
+        Long userNo = ConvertUtils.toLong(paramData.get("userNo"));
         return groupQueryMapper.findGroupList(userNo);
     }
 
     @Transactional(readOnly = true)
     public Object findGroupDetail(Map<String, Object> paramData, int page, int size) throws Exception {
-        Long userNo = toLong(paramData.get("userNo"));
+        Long userNo = ConvertUtils.toLong(paramData.get("userNo"));
         String claId = (String) paramData.get("claId");
         if (claId == null || claId.isBlank()) {
             throw new IllegalArgumentException("claId는 필수입니다.");
@@ -266,7 +271,7 @@ public class GroupService {
 
     @Transactional
     public Object leaveGroup(Map<String, Object> paramData) throws Exception {
-        Long userNo = toLong(paramData.get("userNo"));
+        Long userNo = ConvertUtils.toLong(paramData.get("userNo"));
         if (userNo == null) {
             throw new IllegalArgumentException("userNo는 필수입니다.");
         }
@@ -286,12 +291,13 @@ public class GroupService {
         member.updateStatus(MemberStatus.LEFT);
         member.setUpdatedBy(userNo);
         groupMemberMapper.updateGroupMember(member);
+        log.info("그룹 멤버 탈퇴: memberId={}, userNo={}", memberId, userNo);
         return paramData;
     }
 
     @Transactional
     public Object kickMember(Map<String, Object> paramData) throws Exception {
-        Long hostUserNo = toLong(paramData.get("hostUserNo"));
+        Long hostUserNo = ConvertUtils.toLong(paramData.get("hostUserNo"));
         if (hostUserNo == null) {
             throw new IllegalArgumentException("hostUserNo는 필수입니다.");
         }
@@ -315,6 +321,7 @@ public class GroupService {
         member.updateStatus(MemberStatus.KICKED);
         member.setUpdatedBy(hostUserNo);
         groupMemberMapper.updateGroupMember(member);
+        log.info("그룹 멤버 강퇴: memberId={}, by={}", memberId, hostUserNo);
         return paramData;
     }
 
@@ -336,7 +343,7 @@ public class GroupService {
         long memberCount = groupMemberMapper.countByGroupIdAndStatus(groupInfo.getGroupId(), MemberStatus.ACTIVE.name());
 
         boolean alreadyJoined = false;
-        Long userNo = toLong(paramData.get("userNo"));
+        Long userNo = ConvertUtils.toLong(paramData.get("userNo"));
         if (userNo != null) {
             alreadyJoined = groupMemberMapper.existsByGroupIdAndUserNoAndStatus(groupInfo.getGroupId(), userNo, MemberStatus.ACTIVE.name());
         }
@@ -356,7 +363,7 @@ public class GroupService {
 
     @Transactional
     public Object updateGroup(Map<String, Object> paramData) throws Exception {
-        Long userNo = toLong(paramData.get("userNo"));
+        Long userNo = ConvertUtils.toLong(paramData.get("userNo"));
         if (userNo == null) {
             throw new IllegalArgumentException("userNo는 필수입니다.");
         }
@@ -382,13 +389,14 @@ public class GroupService {
         groupInfo.setUpdatedBy(userNo);
         groupInfoMapper.updateGroupInfo(groupInfo);
 
+        log.info("그룹 수정: claId={}, by={}", claId, userNo);
         paramData.put("updatedAt", groupInfo.getUpdatedAt());
         return paramData;
     }
 
     @Transactional
     public Object deleteGroup(Map<String, Object> paramData) throws Exception {
-        Long userNo = toLong(paramData.get("userNo"));
+        Long userNo = ConvertUtils.toLong(paramData.get("userNo"));
         if (userNo == null) {
             throw new IllegalArgumentException("userNo는 필수입니다.");
         }
@@ -408,17 +416,8 @@ public class GroupService {
         groupInfo.deactivate();
         groupInfo.setUpdatedBy(userNo);
         groupInfoMapper.updateGroupInfo(groupInfo);
+        log.info("그룹 삭제: claId={}, by={}", claId, userNo);
         return paramData;
     }
 
-    private Long toLong(Object value) {
-        if (value == null) return null;
-        if (value instanceof Long) return (Long) value;
-        if (value instanceof Number) return ((Number) value).longValue();
-        try {
-            return Long.valueOf(value.toString());
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
 }

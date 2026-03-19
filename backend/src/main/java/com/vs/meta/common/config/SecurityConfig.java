@@ -36,12 +36,15 @@ public class SecurityConfig {
 
         private final com.vs.meta.admin.service.AdminUserDetailsService adminUserDetailsService;
         private final PasswordEncoder passwordEncoder;
+        private final com.vs.meta.common.utils.LoginRateLimiter loginRateLimiter;
 
         public AdminSecurityConfig(
                 com.vs.meta.admin.service.AdminUserDetailsService adminUserDetailsService,
-                PasswordEncoder passwordEncoder) {
+                PasswordEncoder passwordEncoder,
+                com.vs.meta.common.utils.LoginRateLimiter loginRateLimiter) {
             this.adminUserDetailsService = adminUserDetailsService;
             this.passwordEncoder = passwordEncoder;
+            this.loginRateLimiter = loginRateLimiter;
         }
 
         @Override
@@ -53,7 +56,8 @@ public class SecurityConfig {
         protected void configure(HttpSecurity http) throws Exception {
             http
                 .antMatcher("/admin/**")
-                .csrf().disable()
+                .csrf().ignoringAntMatchers("/admin/login")
+                .and()
                 .headers().frameOptions().disable()
                 .and()
                 .authorizeRequests()
@@ -64,10 +68,24 @@ public class SecurityConfig {
                 .formLogin()
                     .loginPage("/admin/login")
                     .loginProcessingUrl("/admin/login")
-                    .defaultSuccessUrl("/admin/dashboard", true)
-                    .failureUrl("/admin/login?error=true")
                     .usernameParameter("email")
                     .passwordParameter("password")
+                    .successHandler((request, response, authentication) -> {
+                        String ip = request.getRemoteAddr();
+                        String email = request.getParameter("email");
+                        loginRateLimiter.clearAttempts(ip, email);
+                        response.sendRedirect("/admin/dashboard");
+                    })
+                    .failureHandler((request, response, exception) -> {
+                        String ip = request.getRemoteAddr();
+                        String email = request.getParameter("email");
+                        loginRateLimiter.recordFailure(ip, email);
+                        if (loginRateLimiter.isBlocked(ip, email)) {
+                            response.sendRedirect("/admin/login?error=blocked");
+                        } else {
+                            response.sendRedirect("/admin/login?error=true");
+                        }
+                    })
                 .and()
                 .logout()
                     .logoutUrl("/admin/logout")

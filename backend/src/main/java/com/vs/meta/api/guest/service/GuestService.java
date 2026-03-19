@@ -1,5 +1,6 @@
 package com.vs.meta.api.guest.service;
 
+import com.vs.meta.common.utils.ConvertUtils;
 import com.vs.meta.domain.enums.UserStatus;
 import com.vs.meta.api.group.mapper.GroupMemberMapper;
 import com.vs.meta.api.group.mapper.GroupQueryMapper;
@@ -43,7 +44,7 @@ public class GuestService {
 
     @Transactional
     public Object convertGuestToMember(Map<String, Object> paramData) throws Exception {
-        Long userNo = toLong(paramData.get("userNo"));
+        Long userNo = ConvertUtils.toLong(paramData.get("userNo"));
         String email = (String) paramData.get("email");
         String mergeYn = (String) paramData.get("mergeYn");
 
@@ -89,17 +90,8 @@ public class GuestService {
                 .build();
         guestConversionLogMapper.insertConversionLog(conversionLog);
 
+        log.info("게스트→회원 전환: userNo={}, email={}, mergeYn={}", userNo, email, mergeYn);
         return paramData;
     }
 
-    private Long toLong(Object value) {
-        if (value == null) return null;
-        if (value instanceof Long) return (Long) value;
-        if (value instanceof Number) return ((Number) value).longValue();
-        try {
-            return Long.valueOf(value.toString());
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
 }
