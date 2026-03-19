@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
@@ -619,109 +620,30 @@ public class DgnssService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> selectStAnalysis(Map<String, Object> param) throws JsonProcessingException {
-        Map<String, Object> resultMap = new HashMap<>();
-        String paperIdx = MapUtils.getString(param, "paperIdx", "");
-        String ordNo = MapUtils.getString(param, "ordNo", "");
-        Map<String, Object> stUserInfo = dgnssMapper.selectStInfo(param);
-        if (stUserInfo == null) {
-            return new HashMap<>();
-        }
-        if (StringUtils.equals(paperIdx, "1")) {
-            // 학습 종합 검사
-            if (StringUtils.equals(ordNo, "1")) {
-                stUserInfo.put("1", dgnssMapper.selectStLernAnalysis(param));
-            } else if (StringUtils.equals(ordNo, "2")) {
-                Map<String, Object> paramMap = new HashMap<>();
-                paramMap.put("paperIdx", paperIdx);
-                paramMap.put("stdtId", MapUtils.getString(stUserInfo, "stdtId", ""));
-                paramMap.put("dgnssResultId", dgnssMapper.selectFirstDgnssResultId(paramMap));
-                stUserInfo.put("1", dgnssMapper.selectStLernAnalysis(paramMap));
-                stUserInfo.put("2", dgnssMapper.selectStLernAnalysis(param));
+        return selectUnifiedStAnalysis(param);
+    }
+
+    private Map<String, List<Map<String, Object>>> splitStudentAnalysisByOrd(List<Map<String, Object>> stInfoList, String ordNo) {
+        List<Map<String, Object>> ord1List = new ArrayList<>();
+        List<Map<String, Object>> ord2List = new ArrayList<>();
+
+        for (Map<String, Object> map : stInfoList) {
+            int ordNoInt = MapUtils.getInteger(map, "ord_no", 0);
+            if (ordNoInt == 1) {
+                ord1List.add(map);
+            } else if (ordNoInt == 2) {
+                ord2List.add(map);
             }
-        } else {
-            // META 자기조절학습검사
-            String stAnalysisInfoJson = dgnssMapper.selectStAnalysis(param);
-
-            if (stAnalysisInfoJson == null || stAnalysisInfoJson.isEmpty()) {
-                // 검사 결과가 없는 경우 빈 맵 반환
-                return new HashMap<>();
-            }
-
-            Map<String, Object> analysisMap = mapper.readValue(stAnalysisInfoJson, Map.class);
-            List<String> allSessionList = putSession(0);
-
-            Map<String, String> motivateCodeMap = putSessionMap(1);
-            Map<String, String> recognitionCodeMap = putSessionMap(2);
-            Map<String, String> behaviorCodeMap = putSessionMap(3);
-
-            Map<String, Object> tempAnalysisMap = new HashMap<>();
-            Map<String, Object> motivate = new HashMap<>();
-            Map<String, Object> recognition = new HashMap<>();
-            Map<String, Object> behavior = new HashMap<>();
-
-            for (String sessionId : allSessionList) {
-                Map<String, Object> tmp = new HashMap<>();
-
-                String totalInfo = MapUtils.getString(analysisMap, sessionId, "");
-                // 미응답의 경우 아예 데이터가 없는 경우가 있음(실 운영에서는 없음)
-                if (StringUtils.isEmpty(totalInfo)) {
-                    tmp.put("score", 0);
-                    tmp.put("rank", 0);
-                    tempAnalysisMap.put(sessionId, tmp);
-                    continue;
-                }
-                String[] totalSplit = totalInfo.split("_");
-
-                String scoreStr = totalSplit[0];
-                String rankStr = totalSplit[1];
-
-                double score = Double.parseDouble(scoreStr);
-                double rank = Double.parseDouble(rankStr);
-
-                tmp.put("score", score);
-                tmp.put("rank", rank);
-                tempAnalysisMap.put(sessionId, tmp);
-            }
-
-            for (String sessionId : allSessionList) {
-                if (StringUtils.isNotEmpty(MapUtils.getString(motivateCodeMap, sessionId))) {
-                    motivate.put(MapUtils.getString(motivateCodeMap, sessionId, ""), tempAnalysisMap.get(sessionId));
-                } else if (StringUtils.isNotEmpty(MapUtils.getString(recognitionCodeMap, sessionId))) {
-                    recognition.put(MapUtils.getString(recognitionCodeMap, sessionId, ""), tempAnalysisMap.get(sessionId));
-                } else if (StringUtils.isNotEmpty(MapUtils.getString(behaviorCodeMap, sessionId))) {
-                    behavior.put(MapUtils.getString(behaviorCodeMap, sessionId, ""), tempAnalysisMap.get(sessionId));
-                }
-            }
-
-            Map<String, Object> targetMap = new HashMap<>();
-            targetMap.put("stdtId", MapUtils.getString(param, "stdtId", ""));
-            targetMap.put("paperIdx", MapUtils.getInteger(param, "paperIdx", 0));
-            targetMap.put("ordNo", MapUtils.getInteger(param, "ordNo", 0));
-            for (int i = 1; i < 4; i++) {
-                List<String> sessionList = putSession(i);
-                targetMap.put("sessionList", sessionList);
-                List<String> strFactor = dgnssMapper.selectStrFactor(targetMap);
-                List<String> weakFactor = dgnssMapper.selectWeakFactor(targetMap);
-
-                if (i == 1) {
-                    motivate.put("strFactor", strFactor);
-                    motivate.put("weakFactor", weakFactor);
-                } else if (i == 2) {
-                    recognition.put("strFactor", strFactor);
-                    recognition.put("weakFactor", weakFactor);
-                } else {
-                    behavior.put("strFactor", strFactor);
-                    behavior.put("weakFactor", weakFactor);
-                }
-            }
-
-            stUserInfo.put("motivateInfo", motivate);
-            stUserInfo.put("recognitionInfo", recognition);
-            stUserInfo.put("behaviorInfo", behavior);
         }
 
-        resultMap.put("stUserInfo", stUserInfo);
-        return resultMap;
+        Map<String, List<Map<String, Object>>> result = new LinkedHashMap<>();
+        if (CollectionUtils.isNotEmpty(ord1List)) {
+            result.put("1", ord1List);
+        }
+        if (CollectionUtils.isNotEmpty(ord2List)) {
+            result.put("2", ord2List);
+        }
+        return result;
     }
 
     public List<String> putSession(int type) {
@@ -878,67 +800,61 @@ public class DgnssService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> selectStTotalAnalysis(Map<String, Object> param) throws JsonProcessingException {
-        Map<String, Object> resultMap = new HashMap<>();
-        if (StringUtils.isEmpty(MapUtils.getString(param, "paperIdx", ""))) {
-            param.put("paperIdx", "2");
-        }
-        String paperIdx = MapUtils.getString(param, "paperIdx", "2");
+    private Map<String, Object> selectUnifiedStAnalysis(Map<String, Object> param) {
+        Map<String, Object> stInfoParam = new HashMap<>();
+        String dgnssResultId = MapUtils.getString(param, "dgnssResultId", "");
+        boolean hasDgnssResultId = StringUtils.isNotEmpty(dgnssResultId);
 
-        // 조회하고자 하는 회차
-        String ordNo = MapUtils.getString(param, "ordNo", "");
-        Map<String, Object> paramMap = new HashMap<>();
-        paramMap.put("notExistsYn", "N");
-        paramMap.put("stdtId", MapUtils.getString(param, "stdtId", ""));
-        paramMap.put("paperIdx", MapUtils.getString(param, "paperIdx", ""));
-        paramMap.put("ordNo", ordNo);
-
-        resultMap.put("stUserInfo", dgnssMapper.selectStInfo(paramMap));
-
-        // META자기조절학습검사
-        if (StringUtils.equals(paperIdx, "2")) {
-            List<String> sessionList = putSession(0);
-            Map<String, String> sessionCodeMap = putSessionMap(0);
-
-            ObjectMapper mapper = new ObjectMapper();
-
-            List<Map<String, Object>> stInfoList = dgnssMapper.selectStTotalReport(param);
-            Map<String, Double> sessionTotalMap = new HashMap<>();
-
-            if (CollectionUtils.isNotEmpty(stInfoList)) {
-                for (Map<String, Object> map : stInfoList) {
-                    // 조회한 회차는 1회차만 조회하였으나 2회차 데이터의 경우 패스
-                    if (StringUtils.equals(ordNo, "1") && StringUtils.equals("2", MapUtils.getString(map, "ord_no", ""))) {
-                        continue;
-                    }
-                    Map<String, Object> score = mapper.readValue(MapUtils.getString(map, "json", ""), Map.class);
-                    Map<String, String> resultAvgMap = new HashMap<>();
-                    for (String sessionId : sessionList) {
-                        resultAvgMap.put(MapUtils.getString(sessionCodeMap, sessionId, ""), MapUtils.getString(score, sessionId, ""));
-                    }
-                    resultAvgMap.put("reaction", MapUtils.getString(map, "reaction", ""));
-                    resultAvgMap.put("desirable", MapUtils.getString(map, "desirable", ""));
-                    resultAvgMap.put("repeatResponse", MapUtils.getString(map, "repeatResponse", ""));
-                    resultMap.put(MapUtils.getString(map, "ord_no", ""), resultAvgMap);
-                }
-            }
-        } else if (StringUtils.equals(paperIdx, "1")) {
-            List<Map<String, Object>> stInfoList = dgnssMapper.selectStLernAnalysis(paramMap);
-
-            List<Map<String, Object>> ord1List = new ArrayList<>();
-            List<Map<String, Object>> ord2List = new ArrayList<>();
-            for (Map<String, Object> map : stInfoList) {
-                int ordNoInt = MapUtils.getInteger(map, "ord_no", 0);
-                if (ordNoInt == 1) {
-                    ord1List.add(map);
-                } else if (ordNoInt == 2 && StringUtils.equals(ordNo, "2")) {
-                    ord2List.add(map);
-                }
-            }
-            resultMap.put("1", ord1List);
-            resultMap.put("2", ord2List);
+        if (hasDgnssResultId) {
+            stInfoParam.put("dgnssResultId", dgnssResultId);
+        } else {
+            stInfoParam.put("stdtId", MapUtils.getString(param, "stdtId", ""));
+            stInfoParam.put("paperIdx", MapUtils.getString(param, "paperIdx", "2"));
+            stInfoParam.put("ordNo", MapUtils.getString(param, "ordNo", "1"));
         }
 
+        Map<String, Object> stUserInfo = dgnssMapper.selectStInfo(stInfoParam);
+        if (stUserInfo == null) {
+            return new HashMap<>();
+        }
+
+        String resolvedPaperIdx = MapUtils.getString(stUserInfo, "paperIdx",
+                MapUtils.getString(param, "paperIdx", "2"));
+        String stdtId = MapUtils.getString(stUserInfo, "stdtId", "");
+        String resolvedOrdNo = MapUtils.getString(stUserInfo, "ordNo",
+                MapUtils.getString(param, "ordNo", ""));
+
+        if (StringUtils.isAnyEmpty(resolvedPaperIdx, stdtId)) {
+            return new HashMap<>();
+        }
+
+        Map<String, Object> analysisParam = new HashMap<>();
+        analysisParam.put("paperIdx", resolvedPaperIdx);
+        analysisParam.put("stdtId", stdtId);
+
+        List<Map<String, Object>> stAnalysisList = dgnssMapper.selectStLernAnalysis(analysisParam);
+        if (CollectionUtils.isEmpty(stAnalysisList)) {
+            return new HashMap<>();
+        }
+
+        if (hasDgnssResultId) {
+            int targetOrdNo = NumberUtils.toInt(resolvedOrdNo, 0);
+            if (targetOrdNo > 0) {
+                stAnalysisList = stAnalysisList.stream()
+                        .filter(map -> MapUtils.getInteger(map, "ord_no", 0) == targetOrdNo)
+                        .collect(Collectors.toList());
+            }
+            if (CollectionUtils.isEmpty(stAnalysisList)) {
+                return new HashMap<>();
+            }
+        }
+
+        Map<String, Object> resultMap = new LinkedHashMap<>();
+        resultMap.put("stUserInfo", stUserInfo);
+        resultMap.putAll(splitStudentAnalysisByOrd(
+                stAnalysisList,
+                hasDgnssResultId ? resolvedOrdNo : MapUtils.getString(param, "ordNo", "")
+        ));
         return resultMap;
     }
 

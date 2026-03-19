@@ -1,6 +1,6 @@
 # 학습심리정서검사 API 연동 규격서
 
-> 최종 수정일: 2026-03-18
+> 최종 수정일: 2026-03-19
 
 ## 개요
 
@@ -1082,7 +1082,13 @@ GET /api/dgnss/st/new?dgnssResultId=1717&paperIdx=1&page=0&size=20
 
 ### 17. 학습심리정서검사 결과보기
 
-학생의 개별 심리검사 결과를 조회합니다.
+학생의 심리검사 결과를 조회합니다.
+
+- `dgnssResultId` 전달 시: 해당 결과가 속한 단일 회차만 조회
+- `stdtId` 전달 시: 학생 기준으로 진행된 회차를 모두 조회
+- 응답은 `stUserInfo`와 회차별 키 `"1"`, `"2"` 구조로 반환
+- 2회차가 없으면 `"2"`는 내려가지 않을 수 있음
+- `paperIdx`는 연동 시 `1` 또는 `2`를 반드시 명시해서 전달
 
 | 항목 | 값 |
 |------|-----|
@@ -1093,10 +1099,14 @@ GET /api/dgnss/st/new?dgnssResultId=1717&paperIdx=1&page=0&size=20
 
 | NO | 파라미터 | 타입 | 필수 | 설명 | 비고 |
 |----|----------|------|------|------|------|
-| 1 | dgnssResultId | String | O | 심리검사 상세 ID | |
-| 2 | paperIdx | String | N | 심리검사 종류 | 기본값: 2 |
-| 3 | ordNo | String | N | 현재 조회하는 회차 | 기본값: 1 |
-| 4 | stdtId | String | N | 학생 ID | |
+| 1 | dgnssResultId | String | X | 심리검사 상세 ID | 있으면 해당 회차만 조회 |
+| 2 | stdtId | String | X | 학생 ID | 학생 기준 회차 조회 시 사용 |
+| 3 | paperIdx | String | X | 심리검사 종류 | 연동 시 `1` 또는 `2`를 반드시 명시 전달 |
+| 4 | ordNo | String | X | 기준 회차 | `stdtId` 기준 조회 시 메타 정보 조회용, 기본값: 1 |
+
+> `dgnssResultId` 또는 (`stdtId` + `paperIdx`)를 전달해야 합니다.
+> `paperIdx`는 구현 히스토리상 기본값이 존재하더라도, 연동 규격상 필수값으로 간주합니다.
+> `ordNo`는 선택값입니다.
 
 #### Request Example
 
@@ -1104,51 +1114,90 @@ GET /api/dgnss/st/new?dgnssResultId=1717&paperIdx=1&page=0&size=20
 GET /api/dgnss/st/analysis?dgnssResultId=1717&paperIdx=1
 ```
 
+```
+GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2
+```
+
 #### Response Fields (resultData)
 
 | NO | 필드 | 타입 | 설명 | 비고 |
 |----|------|------|------|------|
 | 1 | stUserInfo | Object | 학생 정보 | |
-| 2 | lernAnalysisInfo | Array | 검사 결과 정보 | |
+| 2 | `"1"` | Array | 1회차 검사 결과 정보 | 없을 수 있음 |
+| 3 | `"2"` | Array | 2회차 검사 결과 정보 | 없을 수 있음 |
 
-#### Response Fields (resultData.lernAnalysisInfo[])
+#### Response Fields (resultData.stUserInfo)
 
 | NO | 필드 | 타입 | 설명 | 비고 |
 |----|------|------|------|------|
-| 1 | SECTION_ID | String | 섹션 ID | |
-| 2 | SECTION_NM | String | 섹션 이름 | |
-| 3 | tScore | Number | 점수 | |
+| 1 | stdtId | String | 학생 ID | |
+| 2 | eakStDt | String | 제출 일시 | |
+| 3 | ordNo | Integer | 기준 회차 | `dgnssResultId` 조회 시 해당 회차 |
+| 4 | paperIdx | Integer | 심리검사 종류 | |
+| 5 | gender | String | 성별 | |
+| 6 | grade | String | 학년 정보 | |
+| 7 | classCd | String | 반 정보 | |
+| 8 | dgnssResultId | Integer | 심리검사 상세 ID | |
 
----
+#### Response Fields (resultData."1"[], resultData."2"[])
 
-### 18. 학습심리정서검사 종합분석
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | dgnssResultId | Integer | 심리검사 상세 ID | |
+| 2 | SECTION_ID | String | 섹션 ID | |
+| 3 | SECTION_NM | String | 섹션 이름 | |
+| 4 | DEPTH | Integer | 섹션 깊이 | |
+| 5 | tScore | Number | 점수 | |
+| 6 | ord_no | Integer | 회차 | |
+| 7 | reaction | String | 반응성 | |
+| 8 | desirable | String | 바람직성 | |
+| 9 | repeatResponse | String | 반복응답 여부 | |
 
-학생의 심리검사 종합 분석 결과를 조회합니다.
+#### Response Example
 
-| 항목 | 값 |
-|------|-----|
-| URL | `/api/dgnss/st/total/analysis` |
-| Method | `GET` |
-
-#### Request Parameters (Query String)
-
-| NO | 파라미터 | 타입 | 필수 | 설명 | 비고 |
-|----|----------|------|------|------|------|
-| 1 | stdtId | String | O | 학생 ID | |
-| 2 | paperIdx | String | N | 심리검사 종류 | 기본값: 2 |
-| 3 | ordNo | String | N | 조회한 회차 | 기본값: 1 |
-
-#### Request Example
-
-```
-GET /api/dgnss/st/total/analysis?stdtId=rrmath016-s1&paperIdx=2&ordNo=1
+```json
+{
+  "success": true,
+  "resultMessage": "(학생)학습심리정서검사 결과보기",
+  "resultCode": 200,
+  "paramData": {
+    "stdtId": "rrmath016-s1",
+    "paperIdx": "1"
+  },
+  "resultData": {
+    "stUserInfo": {
+      "stdtId": "rrmath016-s1",
+      "eakStDt": "2026-03-18 10:00:00",
+      "ordNo": 1,
+      "paperIdx": 1,
+      "gender": "남자",
+      "grade": "중1",
+      "classCd": "1반",
+      "dgnssResultId": 12509
+    },
+    "1": [
+      {
+        "dgnssResultId": 12509,
+        "SECTION_ID": "10-22-01-01-01-0",
+        "SECTION_NM": "자아존중감",
+        "DEPTH": 5,
+        "tScore": 55,
+        "ord_no": 1,
+        "reaction": null,
+        "desirable": null,
+        "repeatResponse": "N"
+      }
+    ]
+  },
+  "currentTime": "2026-03-19 10:00:00"
+}
 ```
 
 ---
 
 ## 공통 API
 
-### 19. PDF 다운로드
+### 18. PDF 다운로드
 
 심리검사 결과 PDF를 다운로드합니다.
 
@@ -1181,7 +1230,7 @@ GET /api/dgnss/st/total/analysis?stdtId=rrmath016-s1&paperIdx=2&ordNo=1
 
 ---
 
-### 20. 일괄다운로드 전 학생 조회
+### 19. 일괄다운로드 전 학생 조회
 
 PDF 일괄 다운로드 전 대상 학생 목록을 조회합니다.
 
@@ -1249,7 +1298,7 @@ GET /api/dgnss/pdf/search?dgnssId=28
 
 ---
 
-### 21. 일괄 다운로드
+### 20. 일괄 다운로드
 
 심리검사 결과 PDF를 일괄 다운로드합니다. 새 창으로 호출하면 ZIP 파일이 다운로드됩니다.
 
@@ -1277,7 +1326,7 @@ GET /api/dgnss/dgnss-download-all?jwtToken=xxxxx&dgnssId=184&type=1
 
 ---
 
-### 22. 심리검사 요약본 PDF 업로드
+### 21. 심리검사 요약본 PDF 업로드
 
 심리검사 요약본 PDF를 생성하고 CDN에 업로드 후 URL을 전달합니다.
 
@@ -1342,3 +1391,4 @@ GET /api/dgnss/dgnss-download-all?jwtToken=xxxxx&dgnssId=184&type=1
 | 2026-03-18 | 1.1 | Response Example 추가 |
 | 2026-03-18 | 1.2 | 패키지/클래스명 etc→dgnss 변경, 엔드포인트 /api/meta→/api/dgnss 변경 |
 | 2026-03-18 | 1.3 | xlsx 파일 기준 파라미터 상세 설명 추가 |
+| 2026-03-19 | 1.4 | 학생 결과 조회 API를 `/api/dgnss/st/analysis` 단일 엔드포인트로 통합, `dgnssResultId`/`stdtId` 기준 조회 규칙 및 응답 구조 반영 |

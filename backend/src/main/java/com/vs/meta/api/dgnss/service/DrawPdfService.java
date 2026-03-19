@@ -4104,7 +4104,7 @@ public class DrawPdfService {
 
     public void drawSummaryHeader(PioPdfVO pioPdf, Map<String, Object> userInfo, int paperIdx) throws IOException {
 
-        boolean isVivaClass = StringUtils.isNotEmpty(MapUtils.getString(userInfo, "clsTypeCode"));
+        boolean isVivaClass = false;
 
         if (paperIdx == 1) {
             // 종합검사

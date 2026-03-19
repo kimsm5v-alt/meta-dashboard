@@ -279,3 +279,89 @@ WHERE user_id = #{stdtId}
 
 - [dgnss-api-spec.md](./dgnss-api-spec.md) â€” í•™ìŠµì‹¬ë¦¬ì •ì„œê²€ì‚¬ API ì—°ë™ ê·œê²©ì„œ
 - [meta_api_ddl_v3.sql](./meta_api_ddl_v3.sql) â€” viva_meta ë°ì´í„°ë² ì´ìŠ¤ DDL
+
+---
+
+## 10. 2026-03-19 DGNSS ¸¶ÀÌ±×·¹ÀÌ¼Ç ¹İ¿µ »çÇ×
+
+### 10.1 ÇöÀç È®Á¤µÈ ±âÁØ
+
+- ÇĞ»ı ÀÌ¸§: group_member.nickname
+- ÇĞ»ı ¹øÈ£: group_member.member_no
+- ÇĞ»ı ¼ºº°: group_member.gender
+- ±³»ç ÀÌ¸§: group_info.host_user_no -> user.user_no -> user.nickname
+- ÇĞ±Ş¸í: group_info.group_nm
+- ÇĞ±³±Ş: group_info.school_level
+
+### 10.2 ÇĞ»ı/±³»ç ÀÌ¸§ Á¤Ã¥ È®Á¤
+
+±âÁ¸ ¹®¼­¿¡¼­ ´ë±â »óÅÂ¿´´ø ÀÌ¸§ Á¤Ã¥Àº ¾Æ·¡¿Í °°ÀÌ È®Á¤ÇÑ´Ù.
+
+- stdt_reg_info.flnm -> group_member.nickname
+- 	c_reg_info.flnm -> user.nickname
+
+Áï ÇĞ»ı Ç¥½Ã¸íÀº group_member, ±³»ç Ç¥½Ã¸íÀº user ±âÁØÀ¸·Î ºĞ¸®ÇÑ´Ù.
+
+### 10.3 ¼ºº° Á¤Ã¥ È®Á¤
+
+±âÁ¸ ¹®¼­¿¡¼­ ¹ÌÁ¤ÀÌ¾ú´ø ¼ºº° Á¤Ã¥Àº ¾Æ·¡¿Í °°ÀÌ È®Á¤ÇÑ´Ù.
+
+- »ç¿ë ÄÃ·³: group_member.gender
+- ÄÚµå Ã¼°è: M/F
+- Ç¥½Ã º¯È¯:
+
+`sql
+CASE
+  WHEN gm.gender = 'M' THEN '³²ÀÚ'
+  WHEN gm.gender = 'F' THEN '¿©ÀÚ'
+  ELSE ''
+END
+`
+
+CASE WHEN sex = 'M' THEN '³²ÀÚ' ELSE '¿©ÀÚ' END ÇüÅÂ´Â »ç¿ëÇÏÁö ¾Ê´Â´Ù.
+
+### 10.4 DGNSS µ¥ÀÌÅÍ ÀúÀå¼Ò ¹æÇâ È®Á¤
+
+±âÁ¸ ¹®¼­ÀÇ "idt_diagnosis º°µµ À¯Áö" °¡Á¤Àº ´õ ÀÌ»ó »ç¿ëÇÏÁö ¾Ê´Â´Ù.
+
+- DGNSS Å×ÀÌºíµµ µ¿ÀÏ DB ±âÁØÀ¸·Î »ç¿ë
+- DgnssMapper.xml ³» ½ºÅ°¸¶ prefix Á¦°Å ¿Ï·á
+- ÇÔ¼ö/ÇÁ·Î½ÃÀú È£Ãâµµ µ¿ÀÏ DB ±âÁØÀ¸·Î »ç¿ë
+
+### 10.5 DGNSS ¹İ¿µ ÇöÈ²
+
+¾Æ·¡ Ç×¸ñÀº ÇöÀç ÄÚµå¿¡ ¹İ¿µ ¿Ï·áÇß´Ù.
+
+- DgnssMapper.xml ³» ·¹°Å½Ã DB prefix Á¦°Å
+- È¸¿ø/ÇĞ±Ş Á¶ÀÎ ÀüÈ¯
+- FN_GET_MEM_UNDER_TSCORE ÀüÈ¯
+- PC_DGNSS_MARK À¯Áö °¡´É È®ÀÎ
+
+ÇöÀç ³²Àº ÇÙ½É ´Ü°è´Â SQL º¯°æÀÌ ¾Æ´Ï¶ó ½ÇÇà °ËÁõÀÌ´Ù.
+
+- ÇĞ»ı °á°ú API
+- ±³»ç °Ë»ç ¸ñ·Ï/»ó¼¼
+- °Ë»ç ½ÃÀÛ/Á¾·á
+- ÇĞ»ı PDF/±³»ç PDF
+
+### 10.6 Á¤Á¤ ¸Ş¸ğ
+
+¾Æ·¡ ±âÁØÀ» ÃÖÁ¾ ±âÁØÀ¸·Î º»´Ù.
+
+- 	c_reg_info.flnm -> user.nickname
+- »ç¿ë ÄÃ·³: group_member.gender
+- ÄÚµå Ã¼°è: M/F
+
+`sql
+CASE
+  WHEN gm.gender = 'M' THEN '³²ÀÚ'
+  WHEN gm.gender = 'F' THEN '¿©ÀÚ'
+  ELSE ''
+END
+`
+
+- CASE WHEN sex = 'M' THEN '³²ÀÚ' ELSE '¿©ÀÚ' END ÇüÅÂ´Â »ç¿ëÇÏÁö ¾Ê´Â´Ù.
+- ±âÁ¸ ¹®¼­ÀÇ "idt_diagnosis º°µµ À¯Áö" °¡Á¤Àº ´õ ÀÌ»ó »ç¿ëÇÏÁö ¾Ê´Â´Ù.
+- DgnssMapper.xml ³» ·¹°Å½Ã DB prefix Á¦°Å ¿Ï·á
+- FN_GET_MEM_UNDER_TSCORE ÀüÈ¯ ¿Ï·á
+- PC_DGNSS_MARK À¯Áö °¡´É È®ÀÎ

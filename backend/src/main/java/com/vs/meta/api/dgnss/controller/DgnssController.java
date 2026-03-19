@@ -283,37 +283,10 @@ public class DgnssController {
             @RequestParam(name = "dgnssResultId", required = false) String dgnssResultId,
             @RequestParam(name = "paperIdx", required = false, defaultValue = "2") String paperIdx,
             @RequestParam(name = "ordNo", required = false, defaultValue = "1") String ordNo,
-            @RequestParam(name = "stdtId", required = false, defaultValue = "1") String stdtId,
+            @RequestParam(name = "stdtId", required = false) String stdtId,
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
     ) throws Exception {
         Map<String, Object> result = dgnssService.selectStAnalysis(paramData);
-        String resultMessage = "(학생) 학습심리정서검사 결과보기";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
-    @RequestMapping(value = "/api/dgnss/st/total/analysis", method = {RequestMethod.GET})
-    @Operation(summary = "(학생) 학습심리정서검사 종합분석", description = "")
-    @Parameter(name = "stdtId", description = "학생 ID",
-            examples = {
-                    @ExampleObject(name = "math", value = "rrmath016-s1", description = "수학 환경"),
-                    @ExampleObject(name = "engl", value = "appleeng19-s2", description = "영어 환경")
-            })
-    @Parameter(name = "paperIdx", description = "심리검사 종류",
-            examples = {
-                    @ExampleObject(name = "math", value = "2", description = "수학 환경"),
-                    @ExampleObject(name = "engl", value = "1", description = "영어 환경")
-            })
-    @Parameter(name = "ordNo", description = "조회한 회차",
-            examples = {
-                    @ExampleObject(name = "both", value = "1", description = "수학/영어 환경")
-            })
-    public ResponseDTO<CustomBody> stTotalAnalysis(
-            @RequestParam(name = "stdtId", required = false) String stdtId,
-            @RequestParam(name = "paperIdx", required = false, defaultValue = "2") String paperIdx,
-            @RequestParam(name = "ordNo", required = false, defaultValue = "1") String ordNo,
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        Map<String, Object> result = dgnssService.selectStTotalAnalysis(paramData);
         String resultMessage = "(학생) 학습심리정서검사 결과보기";
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }

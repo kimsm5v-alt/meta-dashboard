@@ -1,28 +1,30 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!-- mapper DTD 선언 -->
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!-- mapper DTD ?좎뼵 -->
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.vs.meta.api.dgnss.mapper.DgnssMapper">
 	<select id="selectAllStdtList" parameterType="map" resultType="string">
 		/* DgnssMapper.selectAllStdtList */
-		SELECT stdt_id
-		FROM   aidt_lms.tc_cla_mb_info
-		WHERE  cla_id = #{claId}
-		       AND actvtn_at = 'Y'
+		SELECT gm.stdt_id
+		FROM group_info gi
+			INNER JOIN group_member gm
+				ON gi.group_id = gm.group_id
+		WHERE gi.cla_id = #{claId}
+		  AND gm.status = 'ACTIVE'
 	</select>
 
 	<select id="selectDgnssStdtList" parameterType="map" resultType="string">
 		/* DgnssMapper.selectDgnssStdtList */
 		SELECT tdri.stdt_id
-		FROM aidt_diagnosis.tb_dgnss_info tdi
-		INNER JOIN aidt_diagnosis.tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
+		FROM tb_dgnss_info tdi
+		INNER JOIN tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
 		WHERE tdi.cla_id = #{claId}
 		GROUP BY tdri.stdt_id
 	</select>
 
 	<delete id="deleteTargetStListResultInfo" parameterType="java.util.List">
 		/* etcMapper.deleteTargetStListResultInfo */
-		DELETE FROM aidt_diagnosis.tb_dgnss_result_info
+		DELETE FROM tb_dgnss_result_info
 		WHERE stdt_id in (
 		<foreach item="item" collection="list" separator=",">
 			#{item}
@@ -31,7 +33,7 @@
 
 	<delete id="deleteTargetStListAnswer" parameterType="java.util.List">
 		/* etcMapper.deleteTargetStListAnswer */
-		DELETE FROM aidt_diagnosis.tb_dgnss_answer
+		DELETE FROM tb_dgnss_answer
 		WHERE MEM_ID in (
 		<foreach item="item" collection="list" separator=",">
 			#{item}
@@ -40,74 +42,87 @@
 
 	<select id="selectTcDgnssInfo" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcDgnssInfo */
-		SELECT     a1.`id`                                    AS dgnssId, 
-		           a1.ord_no                                  AS ordNo, 
-		           a1.cla_id                                  AS claId, 
-		           a1.dgnss_at                                AS dgnssAt, 
-		           a1.paper_idx                               AS paperIdx, 
-		           Date_format(a1.dgnss_st_dt, "%Y. %m. %d.") AS dgnssStDt, 
-		           Date_format(a1.dgnss_ed_dt, "%Y. %m. %d.") AS dgnssEdDt, 
-		           Count(DISTINCT
-		           CASE
-		                      WHEN b1.subm_at = 'Y'
-		                      AND        c1.actvtn_at = 'Y' THEN b1.stdt_id
-		           END) AS stSubmCnt, 
-		           (
-		                  SELECT Count(DISTINCT c2.stdt_id)
-		                  FROM   aidt_lms.tc_cla_mb_info c2
-		                  WHERE  c2.cla_id = a1.cla_id
-		                  AND    c2.actvtn_at = 'Y' ) AS stTotalCnt, 
-		           (
-		                  SELECT Count(DISTINCT c2.stdt_id)
-		                  FROM   aidt_lms.tc_cla_mb_info c2
-		                  WHERE  c2.cla_id = a1.cla_id
-		                  AND    c2.actvtn_at = 'Y'
-		                  AND    NOT EXISTS
-		                         (
-		                                SELECT 1
-		                                FROM   aidt_diagnosis.tb_dgnss_result_info b2
-		                                WHERE  b2.stdt_id = c2.stdt_id
-		                                AND    b2.dgnss_id = a1.id ) ) AS notDgnssStartCnt, 
-		           (
-		                  SELECT Group_concat(DISTINCT c2.stdt_id)
-		                  FROM   aidt_lms.tc_cla_mb_info c2
-		                  WHERE  c2.cla_id = a1.cla_id
-		                  AND    c2.actvtn_at = 'Y'
-		                  AND    NOT EXISTS
-		                         (
-		                                SELECT 1
-		                                FROM   aidt_diagnosis.tb_dgnss_result_info b2
-		                                WHERE  b2.stdt_id = c2.stdt_id
-		                                AND    b2.dgnss_id = a1.id ) ) AS notDgnssStartList,
-		           a1.tc_id                                            AS tcId
-		FROM       `aidt_diagnosis`.`tb_dgnss_info` a1
-		INNER JOIN aidt_diagnosis.tb_dgnss_result_info b1
-		ON         a1.id = b1.dgnss_id
-		INNER JOIN aidt_lms.tc_cla_mb_info c1
-		ON         a1.cla_id = c1.cla_id
-		AND        b1.stdt_id = c1.stdt_id
-		AND        c1.actvtn_at = 'Y'
-		WHERE      a1.cla_id = #{claId}
-		GROUP BY   a1.id
+		SELECT a1.id AS dgnssId
+		     , a1.ord_no AS ordNo
+		     , a1.cla_id AS claId
+		     , a1.dgnss_at AS dgnssAt
+		     , a1.paper_idx AS paperIdx
+		     , DATE_FORMAT(a1.dgnss_st_dt, '%Y. %m. %d.') AS dgnssStDt
+		     , DATE_FORMAT(a1.dgnss_ed_dt, '%Y. %m. %d.') AS dgnssEdDt
+		     , COUNT(
+		        DISTINCT CASE
+		                     WHEN b1.subm_at = 'Y' AND gm.status = 'ACTIVE' THEN b1.stdt_id
+		                 END
+		       ) AS stSubmCnt
+		     , (
+		        SELECT COUNT(DISTINCT gm2.stdt_id)
+		        FROM group_info gi2
+		        	INNER JOIN group_member gm2
+		        		ON gi2.group_id = gm2.group_id
+		        WHERE gi2.cla_id = a1.cla_id
+		          AND gm2.status = 'ACTIVE'
+		       ) AS stTotalCnt
+		     , (
+		        SELECT COUNT(DISTINCT gm2.stdt_id)
+		        FROM group_info gi2
+		        	INNER JOIN group_member gm2
+		        		ON gi2.group_id = gm2.group_id
+		        WHERE gi2.cla_id = a1.cla_id
+		          AND gm2.status = 'ACTIVE'
+		          AND NOT EXISTS (
+		          	SELECT 1
+		          	FROM tb_dgnss_result_info b2
+		          	WHERE b2.stdt_id = gm2.stdt_id
+		          	  AND b2.dgnss_id = a1.id
+		          )
+		       ) AS notDgnssStartCnt
+		     , (
+		        SELECT GROUP_CONCAT(DISTINCT gm2.stdt_id)
+		        FROM group_info gi2
+		        	INNER JOIN group_member gm2
+		        		ON gi2.group_id = gm2.group_id
+		        WHERE gi2.cla_id = a1.cla_id
+		          AND gm2.status = 'ACTIVE'
+		          AND NOT EXISTS (
+		          	SELECT 1
+		          	FROM tb_dgnss_result_info b2
+		          	WHERE b2.stdt_id = gm2.stdt_id
+		          	  AND b2.dgnss_id = a1.id
+		          )
+		       ) AS notDgnssStartList
+		     , a1.tc_id AS tcId
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1
+				ON a1.id = b1.dgnss_id
+			INNER JOIN group_info gi
+				ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm
+				ON gi.group_id = gm.group_id
+				AND b1.stdt_id = gm.stdt_id
+				AND gm.status = 'ACTIVE'
+		WHERE a1.cla_id = #{claId}
+		GROUP BY a1.id
 	</select>
 
 	<select id="selectActvStdtCnt" parameterType="map" resultType="int">
 		/* DgnssMapper.selectActvStdtCnt */
 		SELECT COUNT(*)
-		FROM aidt_lms.tc_cla_mb_info tcmi
-		WHERE tcmi.cla_id = #{claId}
-		AND tcmi.actvtn_at = 'Y'
+		FROM group_info gi
+			INNER JOIN group_member gm
+				ON gi.group_id = gm.group_id
+		WHERE gi.cla_id = #{claId}
+		  AND gm.status = 'ACTIVE'
 	</select>
 
 	<insert id="insertDgnssInfo" parameterType="map" useGeneratedKeys="true" keyProperty="id">
 		/* DgnssMapper.insertDgnssInfo */
-		INSERT INTO `aidt_diagnosis`.tb_dgnss_info
+		INSERT INTO tb_dgnss_info
         (
             cla_id, 
             tc_id, 
             ord_no
-			<if test='paperIdx > 0 and paperIdx == 1'>, 
-                paper_idx
+			<if test='paperIdx > 0 and paperIdx == 1'>
+                , paper_idx
 			</if>
         )
         VALUES
@@ -115,8 +130,8 @@
             #{claId}, 
             #{tcId}, 
             #{ordNo}
-			<if test='paperIdx > 0 and paperIdx == 1'>, 
-                #{paperIdx}
+			<if test='paperIdx > 0 and paperIdx == 1'>
+                , #{paperIdx}
 			</if>
         )
 	</insert>
@@ -124,7 +139,7 @@
 	<select id="selectExistsDgnssInfo" parameterType="map" resultType="int">
 		/* DgnssMapper.selectExistsDgnssInfo */
 		SELECT COUNT(*)
-		FROM `aidt_diagnosis`.`tb_dgnss_info`
+		FROM tb_dgnss_info
 		WHERE cla_id = #{claId}
 		  AND tc_id = #{tcId}
 		  AND ord_no = #{ordNo}
@@ -133,45 +148,47 @@
 
 	<select id="selectTargetStList" parameterType="map" resultType="String">
 		/* DgnssMapper.selectTargetStList */
-		SELECT     sri.user_id
-		FROM       `aidt_lms`.`tc_cla_mb_info` a1
-		INNER JOIN aidt_lms.stdt_reg_info sri
-		ON         a1.stdt_id = sri.user_id
-		WHERE      a1.cla_id = #{claId}
-		AND        a1.actvtn_at = 'Y'
-		ORDER BY   sri.num
+		SELECT gm.stdt_id
+		FROM group_info gi
+			INNER JOIN group_member gm
+				ON gi.group_id = gm.group_id
+		WHERE gi.cla_id = #{claId}
+		  AND gm.status = 'ACTIVE'
+		ORDER BY gm.member_no
 	</select>
 
 	<select id="selectTcId" parameterType="map" resultType="String">
 		/* DgnssMapper.selectTcId */
-		SELECT user_id
-		FROM `aidt_lms`.tc_cla_info
-		WHERE cla_id = #{claId}
+		SELECT u.tc_id
+		FROM group_info gi
+			INNER JOIN `user` u
+				ON gi.host_user_no = u.user_no
+		WHERE gi.cla_id = #{claId}
 	</select>
 
 	<insert id="insertDgnssOmr" parameterType="map" useGeneratedKeys="true" keyProperty="omrIdx">
 		/* DgnssMapper.insertDgnssResult */
-		INSERT INTO `aidt_diagnosis`.`tb_dgnss_omr`
+		INSERT INTO tb_dgnss_omr
         (
             MEM_ID, 
             CLASS_NO
-			<if test='paperIdx != null and paperIdx == 1'>, 
-                PAPER_IDX
+			<if test='paperIdx != null and paperIdx == 1'>
+                , PAPER_IDX
 			</if>
         )
         VALUES
         (
 	        #{stdtId}, 
 	        #{claId}
-			<if test='paperIdx != null and paperIdx == 1'>, 
-	            '5'
+			<if test='paperIdx != null and paperIdx == 1'>
+	            , '5'
 			</if>
         )
 	</insert>
 
 	<insert id="insertDgnssResult" parameterType="map" useGeneratedKeys="true" keyProperty="dgnssResultId">
 		/* DgnssMapper.insertDgnssResult */
-		INSERT INTO `aidt_diagnosis`.tb_dgnss_result_info
+		INSERT INTO tb_dgnss_result_info
         (
             dgnss_id, 
             stdt_id, 
@@ -187,16 +204,16 @@
 
 	<insert id="insertDgnssAnswer" parameterType="map">
 		/* DgnssMapper.insertDgnssAnswer */
-		INSERT INTO `aidt_diagnosis`.`tb_dgnss_answer`
+		INSERT INTO tb_dgnss_answer
         (
             MEM_ID, 
             DGNSS_RESULT_ID, 
             DGNSS_ORD, 
             SCH_GRADE, 
             TEST_IDX
-			<if test='paperIdx != 0 and paperIdx == 1'>, 
-                DGNSS_ID, 
-                PAPER_IDX
+			<if test='paperIdx != 0 and paperIdx == 1'>
+                , DGNSS_ID
+                , PAPER_IDX
 			</if>
         )
         VALUES
@@ -206,33 +223,32 @@
             #{ordNo}, 
             #{schGrade}, 
             #{dgnssId}
-			<if test='paperIdx != 0 and paperIdx == 1'>, 
-                'DGNSS_10', 
-                '5'
+			<if test='paperIdx != 0 and paperIdx == 1'>
+                , 'DGNSS_10'
+                , '5'
 			</if>
         )
 	</insert>
 
 	<select id="selectTcDgnssInfoOne" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcDgnssInfoOne */
-		SELECT     a1.id                                         AS dgnssId, 
-		           a1.ord_no                                     AS ordNo, 
-		           a1.cla_id                                     AS claId, 
-		           a1.dgnss_at                                   AS dgnssAt, 
-		           Date_format(dgnss_st_dt, "%Y-%m-%d %H:%i:%s") AS dgnssStDt, 
-		           Date_format(dgnss_ed_dt, "%Y-%m-%d %H:%i:%s") AS dgnssEdDt, 
-		           Count(DISTINCT
-		           CASE
-		                      WHEN b1.subm_at = 'Y' THEN b1.stdt_id
-		           END) AS stSubmCnt
-		FROM       `aidt_diagnosis`.`tb_dgnss_info`a1
-		INNER JOIN aidt_diagnosis.tb_dgnss_result_info b1
-		ON         a1.id = b1.dgnss_id
-		INNER JOIN aidt_lms.tc_cla_mb_info c1
-		ON         a1.cla_id = c1.cla_id
-		AND        b1.stdt_id = c1.stdt_id
-		AND        c1.actvtn_at = 'Y'
-		WHERE      a1.cla_id = #{claId}
+		SELECT a1.id AS dgnssId
+		     , a1.ord_no AS ordNo
+		     , a1.cla_id AS claId
+		     , a1.dgnss_at AS dgnssAt
+		     , DATE_FORMAT(dgnss_st_dt, '%Y-%m-%d %H:%i:%s') AS dgnssStDt
+		     , DATE_FORMAT(dgnss_ed_dt, '%Y-%m-%d %H:%i:%s') AS dgnssEdDt
+		     , COUNT(DISTINCT CASE WHEN b1.subm_at = 'Y' THEN b1.stdt_id END) AS stSubmCnt
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1
+				ON a1.id = b1.dgnss_id
+			INNER JOIN group_info gi
+				ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm
+				ON gi.group_id = gm.group_id
+				AND b1.stdt_id = gm.stdt_id
+				AND gm.status = 'ACTIVE'
+		WHERE a1.cla_id = #{claId}
 		<choose>
 			<when test='paperIdx != "" and paperIdx == "1"'>
 		AND        a1.paper_idx = '1'
@@ -242,14 +258,14 @@
 			</otherwise>
 		</choose>
 		AND        a1.ord_no = #{ordNo}
-		GROUP BY   a1.id
-		ORDER BY   a1.id DESC
-		LIMIT      1
+		GROUP BY a1.id
+		ORDER BY a1.id DESC
+		LIMIT 1
 	</select>
 
 	<update id="updateDgnssInfo" parameterType="map">
 		/* DgnssMapper.updateDgnssInfo */
-		UPDATE `aidt_diagnosis`.`tb_dgnss_info`
+		UPDATE tb_dgnss_info
 		SET    dgnss_at = 'N',
 		       dgnss_ed_dt = NOW()
 		WHERE  id = #{dgnssId}
@@ -257,27 +273,26 @@
 
 	<select id="selectTcDgnssInfoOneWithDgnssId" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcDgnssInfoOneWithDgnssId */
-		SELECT     a1.id                                         AS dgnssId, 
-		           a1.ord_no                                     AS ordNo, 
-		           a1.cla_id                                     AS claId, 
-		           a1.tc_id                                      AS tcId, 
-		           a1.dgnss_at                                   AS dgnssAt, 
-		           a1.paper_idx                                  AS paperIdx, 
-		           Date_format(dgnss_st_dt, "%Y-%m-%d %H:%i:%s") AS dgnssStDt, 
-		           Date_format(dgnss_ed_dt, "%Y-%m-%d %H:%i:%s") AS dgnssEdDt, 
-		           Count(DISTINCT
-		           CASE
-		                      WHEN b1.subm_at = 'Y' THEN b1.stdt_id
-		           END) AS stSubmCnt
-		FROM       `aidt_diagnosis`.`tb_dgnss_info` a1
-		INNER JOIN aidt_diagnosis.tb_dgnss_result_info b1
-		ON         a1.id = b1.dgnss_id
-		INNER JOIN aidt_lms.tc_cla_mb_info c1
-		ON         a1.cla_id = c1.cla_id
-		AND        b1.stdt_id = c1.stdt_id
-		AND        c1.actvtn_at = 'Y'
-		WHERE      a1.id = #{dgnssId}
-		GROUP BY   a1.id
+		SELECT a1.id AS dgnssId
+		     , a1.ord_no AS ordNo
+		     , a1.cla_id AS claId
+		     , a1.tc_id AS tcId
+		     , a1.dgnss_at AS dgnssAt
+		     , a1.paper_idx AS paperIdx
+		     , DATE_FORMAT(dgnss_st_dt, '%Y-%m-%d %H:%i:%s') AS dgnssStDt
+		     , DATE_FORMAT(dgnss_ed_dt, '%Y-%m-%d %H:%i:%s') AS dgnssEdDt
+		     , COUNT(DISTINCT CASE WHEN b1.subm_at = 'Y' THEN b1.stdt_id END) AS stSubmCnt
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1
+				ON a1.id = b1.dgnss_id
+			INNER JOIN group_info gi
+				ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm
+				ON gi.group_id = gm.group_id
+				AND b1.stdt_id = gm.stdt_id
+				AND gm.status = 'ACTIVE'
+		WHERE a1.id = #{dgnssId}
+		GROUP BY a1.id
 	</select>
 
 	<select id="selectStOmrInfo" parameterType="map" resultType="java.util.LinkedHashMap">
@@ -310,8 +325,8 @@
 				`121`, `122`, `123`, `124`
 			</when>
 		</choose>
-		FROM `aidt_diagnosis`.`tb_dgnss_result_info` a1
-		INNER JOIN `aidt_diagnosis`.`tb_dgnss_omr` b1 ON a1.omr_id = b1.OMR_IDX
+		FROM tb_dgnss_result_info a1
+		INNER JOIN tb_dgnss_omr b1 ON a1.omr_id = b1.OMR_IDX
 		WHERE a1.dgnss_id = #{dgnssId}
 		AND a1.subm_at = 'N'
 	</select>
@@ -319,23 +334,24 @@
 	<select id="selectStdtIdFromDgnssResultId" parameterType="int" resultType="string">
 		/* DgnssMapper.selectStdtIdFromDgnssResultId */
 		SELECT stdt_id
-		FROM aidt_diagnosis.tb_dgnss_result_info
+		FROM tb_dgnss_result_info
 		WHERE id = #{dgnssResultId}
 	</select>
 
 	<select id="selectSubmitStList" parameterType="map" resultType="string">
 		/* DgnssMapper.selectSubmitStList */
 		SELECT b1.stdt_id as stdtId
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN aidt_lms.tc_cla_mb_info c1 ON a1.cla_id = c1.cla_id AND b1.stdt_id = c1.stdt_id AND c1.actvtn_at = 'Y'
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 		AND b1.subm_at = 'Y'
 	</select>
 
 	<update id="updateStSubmit" parameterType="int">
 		/* DgnssMapper.updateStSubmit */
-		UPDATE `aidt_diagnosis`.`tb_dgnss_result_info`
+		UPDATE tb_dgnss_result_info
 		SET    eak_stts_cd = 3, 
 		       subm_at = 'Y', 
 		       subm_dt = NOW(), 
@@ -345,136 +361,136 @@
 
 	<update id="updateDgnssAnswerJson">
 		/* DgnssMapper.updateDgnssAnswerJson */
-		UPDATE `aidt_diagnosis`.`tb_dgnss_answer` aa
+		UPDATE tb_dgnss_answer aa
 		SET aa.ANSWERS = (
 			SELECT CONCAT('['
-				,  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 1, OMR.1)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 2,  OMR.2)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 3,  OMR.3)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 4,  OMR.4)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 5,  OMR.5)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 6,  OMR.6)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 7,  OMR.7)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 8,  OMR.8)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 9,  OMR.9)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 10,  OMR.10)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 11,  OMR.11)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 12,  OMR.12)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 13,  OMR.13)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 14,  OMR.14)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 15,  OMR.15)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 16,  OMR.16)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 17,  OMR.17)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 18,  OMR.18)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 19,  OMR.19)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 20,  OMR.20)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 21,  OMR.21)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 22,  OMR.22)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 23,  OMR.23)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 24,  OMR.24)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 25,  OMR.25)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 26,  OMR.26)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 27,  OMR.27)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 28,  OMR.28)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 29,  OMR.29)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 30,  OMR.30)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 31,  OMR.31)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 32,  OMR.32)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 33,  OMR.33)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 34,  OMR.34)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 35,  OMR.35)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 36,  OMR.36)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 37,  OMR.37)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 38,  OMR.38)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 39,  OMR.39)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 40,  OMR.40)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 41,  OMR.41)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 42,  OMR.42)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 43,  OMR.43)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 44,  OMR.44)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 45,  OMR.45)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 46,  OMR.46)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 47,  OMR.47)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 48,  OMR.48)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 49,  OMR.49)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 50,  OMR.50)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 51,  OMR.51)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 52,  OMR.52)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 53,  OMR.53)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 54,  OMR.54)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 55,  OMR.55)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 56,  OMR.56)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 57,  OMR.57)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 58,  OMR.58)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 59,  OMR.59)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 60,  OMR.60)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 61,  OMR.61)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 62,  OMR.62)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 63,  OMR.63)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 64,  OMR.64)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 65,  OMR.65)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 66,  OMR.66)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 67,  OMR.67)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 68,  OMR.68)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 69,  OMR.69)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 70,  OMR.70)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 71,  OMR.71)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 72,  OMR.72)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 73,  OMR.73)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 74,  OMR.74)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 75,  OMR.75)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 76,  OMR.76)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 77,  OMR.77)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 78,  OMR.78)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 79,  OMR.79)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 80,  OMR.80)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 81,  OMR.81)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 82,  OMR.82)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 83,  OMR.83)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 84,  OMR.84)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 85,  OMR.85)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 86,  OMR.86)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 87,  OMR.87)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 88,  OMR.88)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 89,  OMR.89)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 90,  OMR.90)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 91,  OMR.91)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 92,  OMR.92)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 93,  OMR.93)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 94,  OMR.94)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 95,  OMR.95)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 96,  OMR.96)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 97,  OMR.97)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 98,  OMR.98)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 99,  OMR.99)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 100,  OMR.100)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 101,  OMR.101)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 102,  OMR.102)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 103,  OMR.103)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 104,  OMR.104)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 105,  OMR.105)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 106,  OMR.106)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 107,  OMR.107)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 108,  OMR.108)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 109,  OMR.109)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 110,  OMR.110)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 111,  OMR.111)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 112,  OMR.112)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 113,  OMR.113)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 114,  OMR.114)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 115,  OMR.115)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 116,  OMR.116)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 117,  OMR.117)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 118,  OMR.118)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 119,  OMR.119)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 120,  OMR.120)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 121,  OMR.121)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 122,  OMR.122)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 123,  OMR.123)
-				,  ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 124,  OMR.124)
+				,  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 1, OMR.1)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 2,  OMR.2)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 3,  OMR.3)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 4,  OMR.4)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 5,  OMR.5)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 6,  OMR.6)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 7,  OMR.7)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 8,  OMR.8)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 9,  OMR.9)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 10,  OMR.10)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 11,  OMR.11)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 12,  OMR.12)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 13,  OMR.13)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 14,  OMR.14)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 15,  OMR.15)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 16,  OMR.16)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 17,  OMR.17)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 18,  OMR.18)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 19,  OMR.19)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 20,  OMR.20)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 21,  OMR.21)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 22,  OMR.22)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 23,  OMR.23)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 24,  OMR.24)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 25,  OMR.25)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 26,  OMR.26)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 27,  OMR.27)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 28,  OMR.28)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 29,  OMR.29)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 30,  OMR.30)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 31,  OMR.31)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 32,  OMR.32)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 33,  OMR.33)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 34,  OMR.34)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 35,  OMR.35)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 36,  OMR.36)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 37,  OMR.37)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 38,  OMR.38)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 39,  OMR.39)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 40,  OMR.40)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 41,  OMR.41)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 42,  OMR.42)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 43,  OMR.43)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 44,  OMR.44)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 45,  OMR.45)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 46,  OMR.46)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 47,  OMR.47)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 48,  OMR.48)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 49,  OMR.49)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 50,  OMR.50)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 51,  OMR.51)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 52,  OMR.52)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 53,  OMR.53)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 54,  OMR.54)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 55,  OMR.55)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 56,  OMR.56)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 57,  OMR.57)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 58,  OMR.58)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 59,  OMR.59)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 60,  OMR.60)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 61,  OMR.61)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 62,  OMR.62)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 63,  OMR.63)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 64,  OMR.64)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 65,  OMR.65)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 66,  OMR.66)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 67,  OMR.67)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 68,  OMR.68)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 69,  OMR.69)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 70,  OMR.70)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 71,  OMR.71)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 72,  OMR.72)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 73,  OMR.73)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 74,  OMR.74)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 75,  OMR.75)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 76,  OMR.76)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 77,  OMR.77)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 78,  OMR.78)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 79,  OMR.79)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 80,  OMR.80)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 81,  OMR.81)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 82,  OMR.82)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 83,  OMR.83)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 84,  OMR.84)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 85,  OMR.85)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 86,  OMR.86)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 87,  OMR.87)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 88,  OMR.88)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 89,  OMR.89)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 90,  OMR.90)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 91,  OMR.91)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 92,  OMR.92)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 93,  OMR.93)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 94,  OMR.94)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 95,  OMR.95)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 96,  OMR.96)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 97,  OMR.97)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 98,  OMR.98)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 99,  OMR.99)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 100,  OMR.100)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 101,  OMR.101)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 102,  OMR.102)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 103,  OMR.103)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 104,  OMR.104)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 105,  OMR.105)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 106,  OMR.106)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 107,  OMR.107)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 108,  OMR.108)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 109,  OMR.109)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 110,  OMR.110)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 111,  OMR.111)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 112,  OMR.112)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 113,  OMR.113)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 114,  OMR.114)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 115,  OMR.115)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 116,  OMR.116)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 117,  OMR.117)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 118,  OMR.118)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 119,  OMR.119)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 120,  OMR.120)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 121,  OMR.121)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 122,  OMR.122)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 123,  OMR.123)
+				,  ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 124,  OMR.124)
 				, ']') AS ANSWERS
-			FROM `aidt_diagnosis`.`tb_dgnss_result_info` a1
-				INNER JOIN `aidt_diagnosis`.`tb_dgnss_omr` OMR ON a1.omr_id = OMR.OMR_IDX
+			FROM tb_dgnss_result_info a1
+				INNER JOIN tb_dgnss_omr OMR ON a1.omr_id = OMR.OMR_IDX
 			WHERE a1.id = #{dgnssResultId}
 		)
 		<if test='sameAnswerCheck'>
@@ -485,136 +501,136 @@
 
 	<update id="updateDgnssAnswerJsonLearn">
 		/* DgnssMapper.updateDgnssAnswerJson */
-		UPDATE `aidt_diagnosis`.`tb_dgnss_answer` aa
+		UPDATE tb_dgnss_answer aa
 		SET aa.ANSWERS = (
 		SELECT CONCAT('['
-		, `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 1, OMR.1)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 2,  OMR.2)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 3,  OMR.3)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 4,  OMR.4)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 5,  OMR.5)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 6,  OMR.6)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 7,  OMR.7)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 8,  OMR.8)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 9,  OMR.9)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 10,  OMR.10)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 11,  OMR.11)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 12,  OMR.12)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 13,  OMR.13)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 14,  OMR.14)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 15,  OMR.15)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 16,  OMR.16)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 17,  OMR.17)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 18,  OMR.18)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 19,  OMR.19)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 20,  OMR.20)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 21,  OMR.21)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 22,  OMR.22)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 23,  OMR.23)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 24,  OMR.24)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 25,  OMR.25)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 26,  OMR.26)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 27,  OMR.27)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 28,  OMR.28)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 29,  OMR.29)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 30,  OMR.30)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 31,  OMR.31)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 32,  OMR.32)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 33,  OMR.33)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 34,  OMR.34)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 35,  OMR.35)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 36,  OMR.36)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 37,  OMR.37)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 38,  OMR.38)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 39,  OMR.39)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 40,  OMR.40)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 41,  OMR.41)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 42,  OMR.42)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 43,  OMR.43)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 44,  OMR.44)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 45,  OMR.45)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 46,  OMR.46)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 47,  OMR.47)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 48,  OMR.48)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 49,  OMR.49)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 50,  OMR.50)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 51,  OMR.51)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 52,  OMR.52)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 53,  OMR.53)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 54,  OMR.54)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 55,  OMR.55)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 56,  OMR.56)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 57,  OMR.57)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 58,  OMR.58)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 59,  OMR.59)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 60,  OMR.60)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 61,  OMR.61)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 62,  OMR.62)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 63,  OMR.63)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 64,  OMR.64)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 65,  OMR.65)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 66,  OMR.66)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 67,  OMR.67)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 68,  OMR.68)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 69,  OMR.69)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 70,  OMR.70)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 71,  OMR.71)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 72,  OMR.72)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 73,  OMR.73)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 74,  OMR.74)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 75,  OMR.75)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 76,  OMR.76)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 77,  OMR.77)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 78,  OMR.78)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 79,  OMR.79)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 80,  OMR.80)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 81,  OMR.81)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 82,  OMR.82)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 83,  OMR.83)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 84,  OMR.84)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 85,  OMR.85)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 86,  OMR.86)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 87,  OMR.87)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 88,  OMR.88)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 89,  OMR.89)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 90,  OMR.90)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 91,  OMR.91)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 92,  OMR.92)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 93,  OMR.93)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 94,  OMR.94)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 95,  OMR.95)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 96,  OMR.96)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 97,  OMR.97)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 98,  OMR.98)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 99,  OMR.99)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 100,  OMR.100)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 101,  OMR.101)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 102,  OMR.102)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 103,  OMR.103)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 104,  OMR.104)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 105,  OMR.105)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 106,  OMR.106)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 107,  OMR.107)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 108,  OMR.108)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 109,  OMR.109)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 110,  OMR.110)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 111,  OMR.111)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 112,  OMR.112)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 113,  OMR.113)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 114,  OMR.114)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 115,  OMR.115)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 116,  OMR.116)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 117,  OMR.117)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 118,  OMR.118)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 119,  OMR.119)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 120,  OMR.120)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 121,  OMR.121)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 122,  OMR.122)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 123,  OMR.123)
-		, ', ',  `aidt_diagnosis`.FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 124,  OMR.124)
+		, FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 1, OMR.1)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 2,  OMR.2)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 3,  OMR.3)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 4,  OMR.4)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 5,  OMR.5)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 6,  OMR.6)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 7,  OMR.7)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 8,  OMR.8)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 9,  OMR.9)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 10,  OMR.10)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 11,  OMR.11)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 12,  OMR.12)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 13,  OMR.13)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 14,  OMR.14)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 15,  OMR.15)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 16,  OMR.16)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 17,  OMR.17)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 18,  OMR.18)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 19,  OMR.19)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 20,  OMR.20)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 21,  OMR.21)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 22,  OMR.22)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 23,  OMR.23)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 24,  OMR.24)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 25,  OMR.25)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 26,  OMR.26)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 27,  OMR.27)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 28,  OMR.28)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 29,  OMR.29)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 30,  OMR.30)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 31,  OMR.31)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 32,  OMR.32)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 33,  OMR.33)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 34,  OMR.34)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 35,  OMR.35)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 36,  OMR.36)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 37,  OMR.37)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 38,  OMR.38)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 39,  OMR.39)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 40,  OMR.40)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 41,  OMR.41)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 42,  OMR.42)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 43,  OMR.43)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 44,  OMR.44)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 45,  OMR.45)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 46,  OMR.46)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 47,  OMR.47)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 48,  OMR.48)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 49,  OMR.49)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 50,  OMR.50)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 51,  OMR.51)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 52,  OMR.52)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 53,  OMR.53)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 54,  OMR.54)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 55,  OMR.55)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 56,  OMR.56)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 57,  OMR.57)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 58,  OMR.58)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 59,  OMR.59)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 60,  OMR.60)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 61,  OMR.61)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 62,  OMR.62)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 63,  OMR.63)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 64,  OMR.64)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 65,  OMR.65)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 66,  OMR.66)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 67,  OMR.67)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 68,  OMR.68)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 69,  OMR.69)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 70,  OMR.70)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 71,  OMR.71)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 72,  OMR.72)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 73,  OMR.73)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 74,  OMR.74)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 75,  OMR.75)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 76,  OMR.76)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 77,  OMR.77)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 78,  OMR.78)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 79,  OMR.79)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 80,  OMR.80)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 81,  OMR.81)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 82,  OMR.82)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 83,  OMR.83)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 84,  OMR.84)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 85,  OMR.85)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 86,  OMR.86)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 87,  OMR.87)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 88,  OMR.88)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 89,  OMR.89)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 90,  OMR.90)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 91,  OMR.91)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 92,  OMR.92)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 93,  OMR.93)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 94,  OMR.94)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 95,  OMR.95)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 96,  OMR.96)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 97,  OMR.97)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 98,  OMR.98)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 99,  OMR.99)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 100,  OMR.100)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 101,  OMR.101)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 102,  OMR.102)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 103,  OMR.103)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 104,  OMR.104)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 105,  OMR.105)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 106,  OMR.106)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 107,  OMR.107)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 108,  OMR.108)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 109,  OMR.109)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 110,  OMR.110)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 111,  OMR.111)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 112,  OMR.112)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 113,  OMR.113)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 114,  OMR.114)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 115,  OMR.115)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 116,  OMR.116)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 117,  OMR.117)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 118,  OMR.118)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 119,  OMR.119)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 120,  OMR.120)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 121,  OMR.121)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 122,  OMR.122)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 123,  OMR.123)
+		, ', ',  FN_GET_SCORE_BY_ANSWER(OMR.PAPER_IDX, 124,  OMR.124)
 		,']') AS ANSWERS
-		FROM `aidt_diagnosis`.`tb_dgnss_result_info` a1
-		INNER JOIN `aidt_diagnosis`.`tb_dgnss_omr` OMR ON a1.omr_id = OMR.OMR_IDX
+		FROM tb_dgnss_result_info a1
+		INNER JOIN tb_dgnss_omr OMR ON a1.omr_id = OMR.OMR_IDX
 		WHERE a1.id = #{dgnssResultId}
 		)
 		<if test='sameAnswerCheck'>
@@ -626,47 +642,57 @@
 	<select id="selectAnswerIdx" parameterType="int" resultType="int">
 		/* DgnssMapper.selectAnswerIdx */
 		SELECT ANSWER_IDX
-		FROM `aidt_diagnosis`.`tb_dgnss_answer`
+		FROM tb_dgnss_answer
 		WHERE DGNSS_RESULT_ID = #{dgnssResultId}
 	</select>
 
 	<select id="callProcMark" parameterType="int">
-		call `aidt_diagnosis`.`PC_DGNSS_MARK`(#{answerIdx})
+		CALL PC_DGNSS_MARK(#{answerIdx})
 	</select>
 
 	<select id="selectTcUserInfo" parameterType="map">
-        /* DgnssMapper.selectTcUserInfo */
-        SELECT a1.id AS TEST_IDX
-             , DATE_FORMAT(a1.dgnss_ed_dt, '%Y-%m-%d') AS TEST_DT
-             , DATE_FORMAT(a1.dgnss_ed_dt, '%Y년 %m월 %d일') AS TEST_DT_KO
-             , b1.DGNSS_ID
-             , CASE
-                   WHEN b1.DGNSS_ID = 'DGNSS_20' THEN '자기조절학습검사'
-                   ELSE '학습심리종합검사'
-            END TEST_NM
-             , CASE
-                   WHEN c1.grade_cd LIKE '%학년' THEN c1.grade_cd
-                   WHEN c1.grade_cd IS NULL THEN ''
-                   ELSE CONCAT(c1.grade_cd, '학년')
-            END MEM_GRADE_NM
-            , CASE
-                   WHEN c1.cla_nm LIKE '%반' THEN c1.cla_nm
-                   WHEN c1.cla_nm IS NULL THEN '-'
-                   ELSE CONCAT(c1.cla_nm, '반')
-            END AS CLASS_NM
-             , IFNULL(c1.schl_nm, '') AS SCH_NM
-             , a1.ord_no AS TEST_ORD
-             , (SELECT DATE_FORMAT(d1.dgnss_ed_dt , '%Y-%m-%d') FROM aidt_diagnosis.tb_dgnss_info d1 WHERE d1.cla_id = a1.cla_id AND d1.paper_idx = a1.paper_idx  AND d1.ord_no = 1) AS TEST_DT_FIRST
-             , (SELECT d1.ord_no FROM aidt_diagnosis.tb_dgnss_info d1 WHERE d1.cla_id = a1.cla_id AND d1.paper_idx = a1.paper_idx  AND d1.ord_no = 1)  AS TEST_ORD_FIRST
-             , e1.ptn_id AS ptnId
-             , a1.file_url AS fileUrl
-             , a1.cla_id AS claId
-        FROM aidt_diagnosis.tb_dgnss_info a1
-                 INNER JOIN aidt_diagnosis.tb_dgnss_paper b1 ON a1.paper_idx = b1.PAPER_IDX
-                 INNER JOIN aidt_lms.tc_cla_info c1 ON a1.cla_id = c1.cla_id
-                 INNER JOIN aidt_lms.user e1 ON a1.tc_id = e1.user_id
-        WHERE a1.id = #{dgnssId}
-    </select>
+		/* DgnssMapper.selectTcUserInfo */
+		SELECT a1.id AS TEST_IDX
+		     , DATE_FORMAT(a1.dgnss_ed_dt, '%Y-%m-%d') AS TEST_DT
+		     , DATE_FORMAT(a1.dgnss_ed_dt, '%Y년 %m월 %d일') AS TEST_DT_KO
+		     , b1.DGNSS_ID
+		     , CASE
+		           WHEN b1.DGNSS_ID = 'DGNSS_20' THEN '자기조절학습검사'
+		           ELSE '학습심리종합검사'
+		       END AS TEST_NM
+		     , CASE
+		           WHEN gi.school_level = 'elementary' THEN '초등'
+		           WHEN gi.school_level = 'middle' THEN '중등'
+		           WHEN gi.school_level = 'high' THEN '고등'
+		           ELSE ''
+		       END AS MEM_GRADE_NM
+		     , CASE
+		           WHEN gi.group_nm IS NULL THEN '-'
+		           ELSE gi.group_nm
+		       END AS CLASS_NM
+		     , IFNULL(gi.school_name, '') AS SCH_NM
+		     , a1.ord_no AS TEST_ORD
+		     , (
+		        SELECT DATE_FORMAT(d1.dgnss_ed_dt, '%Y-%m-%d')
+		        FROM tb_dgnss_info d1
+		        WHERE d1.cla_id = a1.cla_id
+		          AND d1.paper_idx = a1.paper_idx
+		          AND d1.ord_no = 1
+		       ) AS TEST_DT_FIRST
+		     , (
+		        SELECT d1.ord_no
+		        FROM tb_dgnss_info d1
+		        WHERE d1.cla_id = a1.cla_id
+		          AND d1.paper_idx = a1.paper_idx
+		          AND d1.ord_no = 1
+		       ) AS TEST_ORD_FIRST
+		     , a1.file_url AS fileUrl
+		     , a1.cla_id AS claId
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_paper b1 ON a1.paper_idx = b1.PAPER_IDX
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+		WHERE a1.id = #{dgnssId}
+	</select>
 
 	<select id="getDgnssReport" parameterType="map" resultType="map">
 		/* DgnssMapper.getDgnssReport */
@@ -681,12 +707,12 @@
              , IFNULL(DAR_FIRST.T_SCRIPT, '') AS T_SCRIPT_FIRST
              , IFNULL(ROUND(DAR_FIRST.P_RANK, 0), 0) AS P_RANK_FIRST
              , (CASE WHEN DAR.T_SCORE IS NULL THEN - 1 ELSE (ROUND(DAR.T_SCORE,0) - IFNULL(ROUND(DAR_FIRST.T_SCORE,0), 0)) END) AS T_SCORE_GAP
-        FROM aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR
-                 INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA ON DAR.ANSWER_IDX = DA.ANSWER_IDX
-                 INNER JOIN aidt_diagnosis.TB_DGNSS_SECTION DS ON DAR.SECTION_ID = DS.SECTION_ID
-                 LEFT JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA_FIRST
+        FROM TB_DGNSS_ANSWER_REPORT DAR
+                 INNER JOIN TB_DGNSS_ANSWER DA ON DAR.ANSWER_IDX = DA.ANSWER_IDX
+                 INNER JOIN TB_DGNSS_SECTION DS ON DAR.SECTION_ID = DS.SECTION_ID
+                 LEFT JOIN TB_DGNSS_ANSWER DA_FIRST
                            ON DA.MEM_ID = DA_FIRST.MEM_ID AND DA.DGNSS_ID = DA_FIRST.DGNSS_ID AND DA.DGNSS_ORD <![CDATA[<>]]> DA_FIRST.DGNSS_ORD AND DA_FIRST.DGNSS_ORD = 1
-                 LEFT JOIN aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR_FIRST ON DA_FIRST.ANSWER_IDX = DAR_FIRST.ANSWER_IDX AND DAR.SECTION_ID = DAR_FIRST.SECTION_ID
+                 LEFT JOIN TB_DGNSS_ANSWER_REPORT DAR_FIRST ON DA_FIRST.ANSWER_IDX = DAR_FIRST.ANSWER_IDX AND DAR.SECTION_ID = DAR_FIRST.SECTION_ID
         WHERE DAR.ANSWER_IDX = #{ANSWER_IDX} AND DAR.DEPTH = #{DEPTH}
     </select>
 
@@ -697,9 +723,9 @@
 			, DS.SECTION_NM
 			, IF(ROUND(IFNULL(DAR.T_SCORE, -1), 0) <![CDATA[<]]> 0, 0, ROUND(IFNULL(DAR.T_SCORE, -1), 0)) AS T_SCORE
 			, IFNULL(DAR.T_RANK, '') AS T_RANK
-		FROM aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR
-			INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA ON DAR.ANSWER_IDX = DA.ANSWER_IDX
-			INNER JOIN aidt_diagnosis.TB_DGNSS_SECTION DS ON DAR.SECTION_ID = DS.SECTION_ID
+		FROM TB_DGNSS_ANSWER_REPORT DAR
+			INNER JOIN TB_DGNSS_ANSWER DA ON DAR.ANSWER_IDX = DA.ANSWER_IDX
+			INNER JOIN TB_DGNSS_SECTION DS ON DAR.SECTION_ID = DS.SECTION_ID
 		WHERE DAR.ANSWER_IDX = #{ANSWER_IDX}
 			AND DAR.DEPTH = 5
 			AND DS.FACTOR = 'PER'
@@ -712,9 +738,9 @@
 			, DS.SECTION_NM
 			, IF(ROUND(IFNULL(DAR.T_SCORE, -1), 0) <![CDATA[<]]> 0, 0, ROUND(IFNULL(DAR.T_SCORE, -1), 0)) AS T_SCORE
 			, IFNULL(DAR.T_RANK, '') AS T_RANK
-		FROM aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR
-			INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA ON DAR.ANSWER_IDX = DA.ANSWER_IDX
-			INNER JOIN aidt_diagnosis.TB_DGNSS_SECTION DS ON DAR.SECTION_ID = DS.SECTION_ID
+		FROM TB_DGNSS_ANSWER_REPORT DAR
+			INNER JOIN TB_DGNSS_ANSWER DA ON DAR.ANSWER_IDX = DA.ANSWER_IDX
+			INNER JOIN TB_DGNSS_SECTION DS ON DAR.SECTION_ID = DS.SECTION_ID
 		WHERE DAR.ANSWER_IDX = #{ANSWER_IDX}
 		AND DAR.DEPTH = 5
 		AND DS.FACTOR = 'PER'
@@ -727,9 +753,9 @@
 			, DS.SECTION_NM
 			, IF(ROUND(IFNULL(DAR.T_SCORE, -1), 0) <![CDATA[<]]> 0, 0, ROUND(IFNULL(DAR.T_SCORE, -1), 0)) AS T_SCORE
 			, IFNULL(DAR.T_RANK, '') AS T_RANK
-		FROM aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR
-			INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA ON DAR.ANSWER_IDX = DA.ANSWER_IDX
-			INNER JOIN aidt_diagnosis.TB_DGNSS_SECTION DS ON DAR.SECTION_ID = DS.SECTION_ID
+		FROM TB_DGNSS_ANSWER_REPORT DAR
+			INNER JOIN TB_DGNSS_ANSWER DA ON DAR.ANSWER_IDX = DA.ANSWER_IDX
+			INNER JOIN TB_DGNSS_SECTION DS ON DAR.SECTION_ID = DS.SECTION_ID
 		WHERE DAR.ANSWER_IDX = #{ANSWER_IDX}
 			AND DAR.DEPTH = 5
 			AND DS.FACTOR = 'ENV'
@@ -742,9 +768,9 @@
 			, DS.SECTION_NM
 			, IF(ROUND(IFNULL(DAR.T_SCORE, -1), 0) <![CDATA[<]]> 0, 0, ROUND(IFNULL(DAR.T_SCORE, -1), 0)) AS T_SCORE
 			, IFNULL(DAR.T_RANK, '') AS T_RANK
-		FROM aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR
-			INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA ON DAR.ANSWER_IDX = DA.ANSWER_IDX
-			INNER JOIN aidt_diagnosis.TB_DGNSS_SECTION DS ON DAR.SECTION_ID = DS.SECTION_ID
+		FROM TB_DGNSS_ANSWER_REPORT DAR
+			INNER JOIN TB_DGNSS_ANSWER DA ON DAR.ANSWER_IDX = DA.ANSWER_IDX
+			INNER JOIN TB_DGNSS_SECTION DS ON DAR.SECTION_ID = DS.SECTION_ID
 		WHERE DAR.ANSWER_IDX = #{ANSWER_IDX}
 			AND DAR.DEPTH = 5
 			AND DS.FACTOR = 'ENV'
@@ -755,17 +781,18 @@
 	<select id="getDgnssReportLS" parameterType="map" resultType="map">
 		/* DgnssMapper.getDgnssReportLS */
 		SELECT DM.stdt_id,
-		       sri.num                                 AS CLASS_NO,
-		       sri.flnm                                AS MEM_NM,
-		       u.sex                                   AS MEM_GENDER,
+		       gm.member_no                            AS CLASS_NO,
+		       gm.nickname                             AS MEM_NM,
+		       gm.gender                               AS MEM_GENDER,
 		       CASE
-		         WHEN u.sex = 'M' THEN '남'
-		         ELSE '여'
-		       END                                     MEM_GENDER_NM,
+		         WHEN gm.gender = 'M' THEN '남자'
+		         WHEN gm.gender = 'F' THEN '여자'
+		         ELSE ''
+		       END                                     AS MEM_GENDER_NM,
 		       CASE
 		         WHEN DA.repeated_response_yn = 'Y' THEN '주의'
 		         ELSE '양호'
-		       END                                     REPEATED_RESPONSE_YN,
+		       END                                     AS REPEATED_RESPONSE_YN,
 		       IFNULL(DA.coch_dgnss_qesitm01_mark, '') AS COCH_DGNSS_QESITM01_MARK,
 		       IFNULL(DA.coch_dgnss_qesitm02_mark, '') AS COCH_DGNSS_QESITM02_MARK,
 		       IFNULL(DA.no_ans_cnt, 0)                AS NO_ANS_CNT,
@@ -774,32 +801,32 @@
 		       IFNULL(ls_ans03, '')                    AS LS_ANS03,
 		       IFNULL(ls_ans04, '')                    AS LS_ANS04,
 		       IFNULL(ls_ans05, '')                    AS LS_ANS05
-		FROM   aidt_diagnosis.tb_dgnss_answer DA
-		       INNER JOIN aidt_diagnosis.tb_dgnss_result_info DM
-		               ON DA.mem_id = DM.stdt_id
-		                  AND DA.dgnss_result_id = DM.id
-		       INNER JOIN aidt_diagnosis.tb_dgnss_info tdi
-		               ON DM.dgnss_id = tdi.id
-		       INNER JOIN aidt_lms.tc_cla_mb_info tcmi
-		               ON DM.stdt_id = tcmi.stdt_id
-		                  AND tdi.cla_id = tcmi.cla_id
-		                  AND tcmi.actvtn_at = 'Y'
-		       INNER JOIN aidt_lms.stdt_reg_info sri
-		               ON DM.stdt_id = sri.user_id
-		       INNER JOIN aidt_lms.USER u
-		               ON sri.user_id = u.user_id
-		WHERE  DM.dgnss_id = #{TEST_IDX}
-		       AND EXISTS (SELECT 1
-		                   FROM   aidt_diagnosis.tb_dgnss_answer_report tdar
-		                   WHERE  tdar.answer_idx = DA.answer_idx)
-		ORDER  BY sri.num
+		FROM tb_dgnss_answer DA
+			INNER JOIN tb_dgnss_result_info DM
+				ON DA.mem_id = DM.stdt_id
+				AND DA.dgnss_result_id = DM.id
+			INNER JOIN tb_dgnss_info tdi
+				ON DM.dgnss_id = tdi.id
+			INNER JOIN group_info gi
+				ON tdi.cla_id = gi.cla_id
+			INNER JOIN group_member gm
+				ON gi.group_id = gm.group_id
+				AND DM.stdt_id = gm.stdt_id
+				AND gm.status = 'ACTIVE'
+		WHERE DM.dgnss_id = #{TEST_IDX}
+			AND EXISTS (
+				SELECT 1
+				FROM tb_dgnss_answer_report tdar
+				WHERE tdar.answer_idx = DA.answer_idx
+			)
+		ORDER BY gm.member_no
 	</select>
 
 	<select id="getDgnssReportSection" parameterType="map" resultType="map">
 		/* DgnssMapper.getDgnssReportSection */
 		<if test='DGNSS_ID != null and DGNSS_ID == "DGNSS_10"'>
 			SELECT     A1.MEM_ID, 
-			         sri.num                        AS CLASS_NO, 
+			         A1.num                         AS CLASS_NO, 
 			         IFNULL(B.T_SCORE_01_01, -1)    AS T_SCORE_01_01, 
 			         IFNULL(B.T_SCORE_01_02, -1)    AS T_SCORE_01_02, 
 			         IFNULL(B.T_SCORE_02_01, -1)    AS T_SCORE_02_01, 
@@ -851,22 +878,22 @@
 			         IFNULL(C.T_SCORE_05_01_03, -1) AS T_SCORE_05_01_03
 			FROM       (
 			                    SELECT     a1_1.id, 
-			                               a1_2.num, 
+			                               gm.member_no AS num, 
 			                               a1_1.stdt_id AS MEM_ID
-			                    FROM       aidt_diagnosis.tb_dgnss_result_info a1_1
-			                    INNER JOIN aidt_lms.stdt_reg_info a1_2
-			                    ON         a1_1.stdt_id = a1_2.user_id
-			                    INNER JOIN aidt_diagnosis.tb_dgnss_info tdi
-			                    ON         a1_1.dgnss_id = tdi.id
-			                    INNER JOIN aidt_lms.tc_cla_mb_info tcmi
-			                    ON         a1_1.stdt_id = tcmi.stdt_id
-			                    AND        tdi.cla_id = tcmi.cla_id
-			                    AND        tcmi.actvtn_at = 'Y'
+			                    FROM       tb_dgnss_result_info a1_1
+			                               INNER JOIN tb_dgnss_info tdi
+			                                       ON a1_1.dgnss_id = tdi.id
+			                               INNER JOIN group_info gi
+			                                       ON tdi.cla_id = gi.cla_id
+			                               INNER JOIN group_member gm
+			                                       ON gi.group_id = gm.group_id
+			                                      AND a1_1.stdt_id = gm.stdt_id
+			                                      AND gm.status = 'ACTIVE'
 			                    WHERE      a1_1.dgnss_id = #{TEST_IDX}
 			                    AND        EXISTS
 			                               (
 			                                      SELECT 1
-			                                      FROM   aidt_diagnosis.tb_dgnss_answer_report tdar
+			                                      FROM   tb_dgnss_answer_report tdar
 			                                      WHERE  tdar.ANSWER_IDX = a1_1.id ) ) A1
 			LEFT JOIN
 			         (
@@ -926,10 +953,10 @@
 			                                          WHEN DS.CLASS3 = '05'
 			                                          AND        DS.CLASS4 = '01' THEN IF(ROUND(DAR.T_SCORE, 0) <![CDATA[<]]> 0, 0, ROUND(DAR.T_SCORE, 0))
 			                               END) AS T_SCORE_05_01
-			                    FROM       aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR
-			                    INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA
+			                    FROM       TB_DGNSS_ANSWER_REPORT DAR
+			                    INNER JOIN TB_DGNSS_ANSWER DA
 			                    ON         DAR.ANSWER_IDX = DA.ANSWER_IDX
-			                    INNER JOIN aidt_diagnosis.TB_DGNSS_SECTION DS
+			                    INNER JOIN TB_DGNSS_SECTION DS
 			                    ON         DAR.SECTION_ID = DS.SECTION_ID
 			                    WHERE      DA.TEST_IDX = #{TEST_IDX}
 			                    AND        DAR.DEPTH = 4
@@ -1166,22 +1193,20 @@
 			                                          AND        DS.CLASS4 = '01'
 			                                          AND        DS.CLASS5 = '03' THEN IF(ROUND(DAR.T_SCORE, 0) <![CDATA[<]]> 0, 0, ROUND(DAR.T_SCORE, 0))
 			                               END) AS T_SCORE_05_01_03
-			                    FROM       aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR
-			                    INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA
+			                    FROM       TB_DGNSS_ANSWER_REPORT DAR
+			                    INNER JOIN TB_DGNSS_ANSWER DA
 			                    ON         DAR.ANSWER_IDX = DA.ANSWER_IDX
-			                    INNER JOIN aidt_diagnosis.TB_DGNSS_SECTION DS
+			                    INNER JOIN TB_DGNSS_SECTION DS
 			                    ON         DAR.SECTION_ID = DS.SECTION_ID
 			                    WHERE      DA.TEST_IDX = #{TEST_IDX}
 			                    AND        DAR.DEPTH = 5
 			                    GROUP BY   DA.MEM_ID ) C
 			ON         B.MEM_ID = C.MEM_ID
-			INNER JOIN aidt_lms.stdt_reg_info sri
-			ON         A1.MEM_ID = sri.user_id
 			ORDER BY   A1.num;
 		</if>
 	    <if test='DGNSS_ID != null and DGNSS_ID == "DGNSS_20"'>
 			SELECT     A1.MEM_ID, 
-			         sri.num                        AS CLASS_NO, 
+			         A1.num                         AS CLASS_NO, 
 			         IFNULL(A.T_SCORE_01, -1)       AS T_SCORE_01,
 			         IFNULL(A.T_SCORE_02, -1)       AS T_SCORE_02,
 			         IFNULL(A.T_SCORE_03, -1)       AS T_SCORE_03, 
@@ -1213,22 +1238,22 @@
 			         IFNULL(C.T_SCORE_03_02_05, -1) AS T_SCORE_03_02_05
 			FROM       (
 			                    SELECT     a1_1.id, 
-			                               a1_2.num, 
+			                               gm.member_no AS num, 
 			                               a1_1.stdt_id AS MEM_ID
-			                    FROM       aidt_diagnosis.tb_dgnss_result_info a1_1
-			                    INNER JOIN aidt_lms.stdt_reg_info a1_2
-			                    ON         a1_1.stdt_id = a1_2.user_id
-			                    INNER JOIN aidt_diagnosis.tb_dgnss_info tdi
-			                    ON         a1_1.dgnss_id = tdi.id
-			                    INNER JOIN aidt_lms.tc_cla_mb_info tcmi
-			                    ON         a1_1.stdt_id = tcmi.stdt_id
-			                    AND        tdi.cla_id = tcmi.cla_id
-			                    AND        tcmi.actvtn_at = 'Y'
+			                    FROM       tb_dgnss_result_info a1_1
+			                               INNER JOIN tb_dgnss_info tdi
+			                                       ON a1_1.dgnss_id = tdi.id
+			                               INNER JOIN group_info gi
+			                                       ON tdi.cla_id = gi.cla_id
+			                               INNER JOIN group_member gm
+			                                       ON gi.group_id = gm.group_id
+			                                      AND a1_1.stdt_id = gm.stdt_id
+			                                      AND gm.status = 'ACTIVE'
 			                    WHERE      a1_1.dgnss_id = #{TEST_IDX}
 			                    AND        EXISTS
 			                               (
 			                                      SELECT 1
-			                                      FROM   aidt_diagnosis.tb_dgnss_answer_report tdar
+			                                      FROM   tb_dgnss_answer_report tdar
 			                                      WHERE  tdar.ANSWER_IDX = a1_1.id ) ) A1
 			LEFT JOIN
 			         (
@@ -1245,10 +1270,10 @@
 			                             CASE
 			                                       WHEN DS.CLASS3 = '03' THEN IF(ROUND(DAR.T_SCORE, 0) <![CDATA[<]]> 0, 0, ROUND(DAR.T_SCORE,  0))
 			                             END), NULL) AS T_SCORE_03
-			                   FROM      aidt_diagnosis.TB_DGNSS_ANSWER DA
-			                   LEFT JOIN aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR
+			                   FROM      TB_DGNSS_ANSWER DA
+			                   LEFT JOIN TB_DGNSS_ANSWER_REPORT DAR
 			                   ON        DAR.ANSWER_IDX = DA.ANSWER_IDX
-			                   LEFT JOIN aidt_diagnosis.TB_DGNSS_SECTION DS
+			                   LEFT JOIN TB_DGNSS_SECTION DS
 			                   ON        DAR.SECTION_ID = DS.SECTION_ID
 			                   WHERE     DA.TEST_IDX = #{TEST_IDX}
 			                   AND       DAR.DEPTH = 3
@@ -1287,10 +1312,10 @@
 			                                          WHEN DS.CLASS3 = '03'
 			                                          AND        DS.CLASS4 = '02' THEN IF(ROUND(DAR.T_SCORE, 0) <![CDATA[<]]> 0, 0, ROUND(DAR.T_SCORE, 0))
 			                               END) AS T_SCORE_03_02
-			                    FROM       aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR
-			                    INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA
+			                    FROM       TB_DGNSS_ANSWER_REPORT DAR
+			                    INNER JOIN TB_DGNSS_ANSWER DA
 			                    ON         DAR.ANSWER_IDX = DA.ANSWER_IDX
-			                    INNER JOIN aidt_diagnosis.TB_DGNSS_SECTION DS
+			                    INNER JOIN TB_DGNSS_SECTION DS
 			                    ON         DAR.SECTION_ID = DS.SECTION_ID
 			                    WHERE      DA.TEST_IDX = #{TEST_IDX}
 			                    AND        DAR.DEPTH = 4
@@ -1419,26 +1444,24 @@
 			                                          AND        DS.CLASS4 = '02'
 			                                          AND        DS.CLASS5 = '05' THEN IF(ROUND(DAR.T_SCORE, 0) <![CDATA[<]]> 0, 0, ROUND(DAR.T_SCORE, 0))
 			                               END) AS T_SCORE_03_02_05
-			                    FROM       aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR
-			                    INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA
+			                    FROM       TB_DGNSS_ANSWER_REPORT DAR
+			                    INNER JOIN TB_DGNSS_ANSWER DA
 			                    ON         DAR.ANSWER_IDX = DA.ANSWER_IDX
-			                    INNER JOIN aidt_diagnosis.TB_DGNSS_SECTION DS
+			                    INNER JOIN TB_DGNSS_SECTION DS
 			                    ON         DAR.SECTION_ID = DS.SECTION_ID
 			                    WHERE      DA.TEST_IDX = #{TEST_IDX}
 			                    AND        DAR.DEPTH = 5
 			                    GROUP BY   DA.MEM_ID ) C
 			ON         A.MEM_ID = C.MEM_ID
-			INNER JOIN aidt_lms.stdt_reg_info sri
-			ON         A1.MEM_ID = sri.user_id
 			ORDER BY   A1.num
 	    </if>
 	</select>
 
 	<select id="getDgnssReportValidity" parameterType="map" resultType="map">
 		/* DgnssMapper.getDgnssReportValidity */
-		SELECT DM.stdt_id AS MEM_NM
+		SELECT gm.nickname AS MEM_NM
 		  ,  DM.stdt_id AS MEM_ID
-		  ,  u.sex AS MEM_GENDER
+		  ,  gm.gender AS MEM_GENDER
 		  ,  DM.id
 		  ,  DA.COCH_DGNSS_QESITM01_MARK
 		  ,  DA.COCH_DGNSS_QESITM02_MARK
@@ -1448,14 +1471,13 @@
 		  ,  LS_ANS03
 		  ,  LS_ANS04
 		  ,  LS_ANS05
-		FROM aidt_diagnosis.TB_DGNSS_ANSWER DA
-		   INNER JOIN aidt_diagnosis.tb_dgnss_result_info DM ON DA.DGNSS_RESULT_ID = DM.id
-		   INNER JOIN aidt_lms.user u ON DM.stdt_id = u.user_id
-		   INNER JOIN aidt_lms.stdt_reg_info sri ON u.user_id = sri.user_id
-		   INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-		   INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON sri.user_id = tcmi.stdt_id AND tcmi.actvtn_at = 'Y' AND tdi.cla_id = tcmi.cla_id
+		FROM TB_DGNSS_ANSWER DA
+			INNER JOIN tb_dgnss_result_info DM ON DA.DGNSS_RESULT_ID = DM.id
+			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
+			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE DA.TEST_IDX = #{TEST_IDX}
-		ORDER BY sri.num
+		ORDER BY gm.member_no
 	</select>
 
 	<select id="getDgnssReportMem" parameterType="map" resultType="map">
@@ -1463,144 +1485,138 @@
 		<if test='DGNSS_ID != null and DGNSS_ID == "DGNSS_10"'>
 			SELECT
 			IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			sri.flnm
-			, '(', IFNULL(sri.num, '?'), ')') ORDER BY DM.id SEPARATOR ', ') AS QESITM02_MEM
-			FROM aidt_diagnosis.TB_DGNSS_ANSWER DA
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON tdi.cla_id = tcmi.cla_id AND DM.stdt_id = tcmi.stdt_id AND
-			tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON DM.stdt_id = sri.user_id
+			gm.nickname
+			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM02_MEM
+			FROM TB_DGNSS_ANSWER DA
+			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
+			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
+			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM02_MARK = '주의'
-			ORDER BY sri.num), '') AS QESITM02_MEM
+			ORDER BY gm.member_no), '') AS QESITM02_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			sri.flnm
-			, '(',IFNULL(sri.num, '?'), ')') ORDER BY DM.id SEPARATOR ', ') AS QESITM01_MEM
-			FROM aidt_diagnosis.TB_DGNSS_ANSWER DA
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON tdi.cla_id = tcmi.cla_id AND DM.stdt_id = tcmi.stdt_id AND
-			tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON DM.stdt_id = sri.user_id
+			gm.nickname
+			, '(',IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM01_MEM
+			FROM TB_DGNSS_ANSWER DA
+			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
+			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
+			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM01_MARK = '주의'
-			ORDER BY sri.num), '') AS QESITM01_MEM
+			ORDER BY gm.member_no), '') AS QESITM01_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			sri.flnm
-			, '(', IFNULL(sri.num, '?'), ')') ORDER BY DM.id SEPARATOR ', ') AS REPEATED_RESPONSE_YN
-			FROM aidt_diagnosis.TB_DGNSS_ANSWER DA
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON tdi.cla_id = tcmi.cla_id AND DM.stdt_id = tcmi.stdt_id AND
-			tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON DM.stdt_id = sri.user_id
+			gm.nickname
+			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS REPEATED_RESPONSE_YN
+			FROM TB_DGNSS_ANSWER DA
+			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
+			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
+			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.REPEATED_RESPONSE_YN = 'Y'
-			ORDER BY sri.num), '') AS REPEATED_RESPONSE_YN
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-01-0') AS SECTION_MEM_01_01_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-02-0') AS SECTION_MEM_01_01_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-03-0') AS SECTION_MEM_01_01_03
+			ORDER BY gm.member_no), '') AS REPEATED_RESPONSE_YN
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-01-0') AS SECTION_MEM_01_01_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-02-0') AS SECTION_MEM_01_01_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-03-0') AS SECTION_MEM_01_01_03
 
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-01-0') AS SECTION_MEM_01_02_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-02-0') AS SECTION_MEM_01_02_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-03-0') AS SECTION_MEM_01_02_03
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-04-0') AS SECTION_MEM_01_02_04
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-01-0') AS SECTION_MEM_01_02_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-02-0') AS SECTION_MEM_01_02_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-03-0') AS SECTION_MEM_01_02_03
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-04-0') AS SECTION_MEM_01_02_04
 
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-01-01-0') AS SECTION_MEM_02_01_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-01-02-0') AS SECTION_MEM_02_01_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-01-03-0') AS SECTION_MEM_02_01_03
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-01-01-0') AS SECTION_MEM_02_01_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-01-02-0') AS SECTION_MEM_02_01_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-01-03-0') AS SECTION_MEM_02_01_03
 
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-01-0') AS SECTION_MEM_02_02_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-02-0') AS SECTION_MEM_02_02_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-03-0') AS SECTION_MEM_02_02_03
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-04-0') AS SECTION_MEM_02_02_04
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-05-0') AS SECTION_MEM_02_02_05
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-01-0') AS SECTION_MEM_02_02_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-02-0') AS SECTION_MEM_02_02_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-03-0') AS SECTION_MEM_02_02_03
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-04-0') AS SECTION_MEM_02_02_04
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-05-0') AS SECTION_MEM_02_02_05
 
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-01-0') AS SECTION_MEM_02_03_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-02-0') AS SECTION_MEM_02_03_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-03-0') AS SECTION_MEM_02_03_03
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-04-0') AS SECTION_MEM_02_03_04
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-01-0') AS SECTION_MEM_02_03_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-02-0') AS SECTION_MEM_02_03_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-03-0') AS SECTION_MEM_02_03_03
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-04-0') AS SECTION_MEM_02_03_04
 
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-01-01-0') AS SECTION_MEM_03_01_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-01-02-0') AS SECTION_MEM_03_01_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-01-03-0') AS SECTION_MEM_03_01_03
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-01-01-0') AS SECTION_MEM_03_01_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-01-02-0') AS SECTION_MEM_03_01_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-01-03-0') AS SECTION_MEM_03_01_03
 
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-01-0') AS SECTION_MEM_03_02_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-02-0') AS SECTION_MEM_03_02_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-03-0') AS SECTION_MEM_03_02_03
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-04-0') AS SECTION_MEM_03_02_04
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-05-0') AS SECTION_MEM_03_02_05
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-01-0') AS SECTION_MEM_03_02_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-02-0') AS SECTION_MEM_03_02_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-03-0') AS SECTION_MEM_03_02_03
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-04-0') AS SECTION_MEM_03_02_04
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-05-0') AS SECTION_MEM_03_02_05
 
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-03-01-0') AS SECTION_MEM_03_03_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-03-02-0') AS SECTION_MEM_03_03_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-03-01-0') AS SECTION_MEM_03_03_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-03-02-0') AS SECTION_MEM_03_03_02
 
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-01-01-0') AS SECTION_MEM_04_01_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-01-02-0') AS SECTION_MEM_04_01_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-01-03-0') AS SECTION_MEM_04_01_03
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-01-01-0') AS SECTION_MEM_04_01_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-01-02-0') AS SECTION_MEM_04_01_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-01-03-0') AS SECTION_MEM_04_01_03
 
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-02-01-0') AS SECTION_MEM_04_02_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-02-02-0') AS SECTION_MEM_04_02_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-02-03-0') AS SECTION_MEM_04_02_03
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-02-01-0') AS SECTION_MEM_04_02_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-02-02-0') AS SECTION_MEM_04_02_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-02-03-0') AS SECTION_MEM_04_02_03
 
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-05-01-01-0') AS SECTION_MEM_05_01_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-05-01-02-0') AS SECTION_MEM_05_01_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-05-01-03-0') AS SECTION_MEM_05_01_03
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-05-01-01-0') AS SECTION_MEM_05_01_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-05-01-02-0') AS SECTION_MEM_05_01_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-05-01-03-0') AS SECTION_MEM_05_01_03
 
 		</if>
 		<if test='DGNSS_ID != null and DGNSS_ID == "DGNSS_20"'>
 			SELECT
 			IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			sri.flnm
-			, '(', IFNULL(sri.num, '?'), ')') ORDER BY DM.id SEPARATOR ', ') AS QESITM02_MEM
-			FROM aidt_diagnosis.TB_DGNSS_ANSWER DA
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON tdi.cla_id = tcmi.cla_id AND DM.stdt_id = tcmi.stdt_id AND
-			tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON DM.stdt_id = sri.user_id
+			gm.nickname
+			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM02_MEM
+			FROM TB_DGNSS_ANSWER DA
+			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
+			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
+			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM02_MARK = '주의'
-			ORDER BY sri.num), '') AS QESITM02_MEM
+			ORDER BY gm.member_no), '') AS QESITM02_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			sri.flnm
-			, '(',IFNULL(sri.num, '?'), ')') ORDER BY DM.id SEPARATOR ', ') AS QESITM01_MEM
-			FROM aidt_diagnosis.TB_DGNSS_ANSWER DA
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON tdi.cla_id = tcmi.cla_id AND DM.stdt_id = tcmi.stdt_id AND
-			tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON DM.stdt_id = sri.user_id
+			gm.nickname
+			, '(',IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM01_MEM
+			FROM TB_DGNSS_ANSWER DA
+			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
+			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
+			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM01_MARK = '주의'
-			ORDER BY sri.num), '') AS QESITM01_MEM
+			ORDER BY gm.member_no), '') AS QESITM01_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			sri.flnm
-			, '(', IFNULL(sri.num, '?'), ')') ORDER BY DM.id SEPARATOR ', ') AS REPEATED_RESPONSE_YN
-			FROM aidt_diagnosis.TB_DGNSS_ANSWER DA
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON tdi.cla_id = tcmi.cla_id AND DM.stdt_id = tcmi.stdt_id AND
-			tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON DM.stdt_id = sri.user_id
+			gm.nickname
+			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS REPEATED_RESPONSE_YN
+			FROM TB_DGNSS_ANSWER DA
+			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
+			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
+			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.REPEATED_RESPONSE_YN = 'Y'
-			ORDER BY sri.num), '') AS REPEATED_RESPONSE_YN
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-01-01-0-0') AS SECTION_MEM_01_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-01-02-0-0') AS SECTION_MEM_01_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-02-01-0-0') AS SECTION_MEM_02_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-02-02-0-0') AS SECTION_MEM_02_02
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-03-01-0-0') AS SECTION_MEM_03_01
-			, aidt_diagnosis.FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-03-02-0-0') AS SECTION_MEM_03_02
+			ORDER BY gm.member_no), '') AS REPEATED_RESPONSE_YN
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-01-01-0-0') AS SECTION_MEM_01_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-01-02-0-0') AS SECTION_MEM_01_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-02-01-0-0') AS SECTION_MEM_02_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-02-02-0-0') AS SECTION_MEM_02_02
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-03-01-0-0') AS SECTION_MEM_03_01
+			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-03-02-0-0') AS SECTION_MEM_03_02
 		</if>
 	</select>
 
 	<select id="getDgnssFirstTest" parameterType="map" resultType="string">
 		/* DgnssMapper.getDgnssFirstTest */
 		SELECT tdi.id
-		FROM aidt_diagnosis.tb_dgnss_info tdi
+		FROM tb_dgnss_info tdi
 		WHERE tdi.tc_id = (
 			SELECT tc_id
-			FROM aidt_diagnosis.tb_dgnss_info tdi2
+			FROM tb_dgnss_info tdi2
 			WHERE tdi2.id = #{TEST_IDX}
 		)
 		AND tdi.paper_idx = (
 			SELECT paper_idx
-			FROM aidt_diagnosis.tb_dgnss_info tdi2
+			FROM tb_dgnss_info tdi2
 			WHERE tdi2.id = #{TEST_IDX}
 		)
 		AND tdi.cla_id = #{claId}
@@ -1616,11 +1632,12 @@
 		, ROUND(STAT.T_SCORE, 0) - IFNULL(ROUND(STAT_FIRST.T_SCORE, 0), ROUND(STAT.T_SCORE, 0)) AS T_SCORE_GAP
 		FROM (
 		SELECT DAR.SECTION_ID, IF(ROUND(AVG(DAR.T_SCORE), 2) <![CDATA[<]]> 0, 0, ROUND(AVG(DAR.T_SCORE))) AS T_SCORE
-		FROM aidt_diagnosis.tb_dgnss_info DT
-		INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA ON DT.id = DA.TEST_IDX
-		INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR ON DA.ANSWER_IDX = DAR.ANSWER_IDX
-		INNER JOIN aidt_diagnosis.tb_dgnss_result_info tdri ON DT.id = tdri.dgnss_id
-		INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON DT.cla_id = tcmi.cla_id AND tdri.stdt_id = tcmi.stdt_id AND tcmi.actvtn_at = 'Y'
+			FROM tb_dgnss_info DT
+				 INNER JOIN TB_DGNSS_ANSWER DA ON DT.id = DA.TEST_IDX
+				 INNER JOIN TB_DGNSS_ANSWER_REPORT DAR ON DA.ANSWER_IDX = DAR.ANSWER_IDX
+				 INNER JOIN tb_dgnss_result_info tdri ON DT.id = tdri.dgnss_id
+				 INNER JOIN group_info gi ON DT.cla_id = gi.cla_id
+				 INNER JOIN group_member gm ON gi.group_id = gm.group_id AND tdri.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE DA.TEST_IDX = #{TEST_IDX} AND DAR.DEPTH = #{DEPTH}
 		<if test='notExists != null and notExists == "N"'>
 		   AND DA.COCH_DGNSS_QESITM01_MARK <![CDATA[<>]]> '주의' AND DA.COCH_DGNSS_QESITM02_MARK <![CDATA[<>]]> '주의' AND DA.REPEATED_RESPONSE_YN <![CDATA[<>]]> 'Y'
@@ -1628,114 +1645,115 @@
 		GROUP BY DAR.SECTION_ID) STAT
 		LEFT JOIN
 		(SELECT DAR.SECTION_ID, IF(ROUND(AVG(DAR.T_SCORE), 2) <![CDATA[<]]> 0, 0, ROUND(AVG(DAR.T_SCORE))) AS T_SCORE
-		FROM aidt_diagnosis.tb_dgnss_info DT
-		INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER DA ON DT.id = DA.TEST_IDX
-		INNER JOIN aidt_diagnosis.TB_DGNSS_ANSWER_REPORT DAR ON DA.ANSWER_IDX = DAR.ANSWER_IDX
-		INNER JOIN aidt_diagnosis.tb_dgnss_result_info tdri ON DT.id = tdri.dgnss_id
-		INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON DT.cla_id = tcmi.cla_id AND tdri.stdt_id = tcmi.stdt_id AND tcmi.actvtn_at = 'Y'
+			FROM tb_dgnss_info DT
+				 INNER JOIN TB_DGNSS_ANSWER DA ON DT.id = DA.TEST_IDX
+				 INNER JOIN TB_DGNSS_ANSWER_REPORT DAR ON DA.ANSWER_IDX = DAR.ANSWER_IDX
+				 INNER JOIN tb_dgnss_result_info tdri ON DT.id = tdri.dgnss_id
+				 INNER JOIN group_info gi ON DT.cla_id = gi.cla_id
+				 INNER JOIN group_member gm ON gi.group_id = gm.group_id AND tdri.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE DA.TEST_IDX = #{FIRST_IDX}
 		AND DAR.DEPTH = #{DEPTH}
 		<if test='firstCancel != null and firstCancel == "N"'>
 		   AND DA.COCH_DGNSS_QESITM01_MARK <![CDATA[<>]]> '주의' AND DA.COCH_DGNSS_QESITM02_MARK <![CDATA[<>]]> '주의' AND DA.REPEATED_RESPONSE_YN <![CDATA[<>]]> 'Y'
 		</if>
 		GROUP BY DAR.SECTION_ID) STAT_FIRST  ON STAT.SECTION_ID = STAT_FIRST.SECTION_ID
-		INNER JOIN aidt_diagnosis.TB_DGNSS_SECTION DS ON STAT.SECTION_ID = DS.SECTION_ID
+		INNER JOIN TB_DGNSS_SECTION DS ON STAT.SECTION_ID = DS.SECTION_ID
 		ORDER BY STAT.SECTION_ID
 	</select>
 
 	<select id="selectStUserInfo" parameterType="map" resultType="map">
 		/* DgnssMapper.selectStUserInfo */
-        SELECT DA.ANSWER_IDX
-             , DA.DGNSS_ID
-             , DA.DGNSS_ORD
-             , DA.PAPER_IDX
-             , DA.GRP_IDX
-             , DA.ASIGN_DT
-             , DATE_FORMAT(DRI.subm_dt, '%Y. %m. %d') AS RSPNS_DT
-             , DATE_FORMAT(DRI.subm_dt, '%Y년 %m월 %d일') AS RSPNS_DT_KO
-             , DA.ANSWERS
-             , DA.LS_ANS01,DA.LS_ANS02, DA.LS_ANS03, DA.LS_ANS04, DA.LS_ANS05
-             , DA.TOTAL_NO
-             , DA.COCH_DGNSS_QESITM01_SCORE, DA.COCH_DGNSS_QESITM01_MARK
-             , DA.COCH_DGNSS_QESITM02_SCORE, DA.COCH_DGNSS_QESITM02_MARK
-             , DA.COCH_DGNSS_QESITM03_SCORE, DA.COCH_DGNSS_QESITM03_MARK
-             , DA.COCH_DGNSS_QESITM04_SCORE, DA.COCH_DGNSS_QESITM04_MARK
-             , DRI.stdt_id AS MEM_ID
-             , IFNULL(DA.SCH_GRADE,'') AS SCH_GRADE
-             , IFNULL(sri.schl_nm, '') AS SCH_NM
-             , IFNULL(sri.grade_cd, '') AS MEM_GRADE
-             , CASE
-                   WHEN sri.grade_cd LIKE '%학년' THEN sri.grade_cd
-                   WHEN sri.grade_cd IS NULL THEN ''
-                   ELSE CONCAT(sri.grade_cd, '학년')
-            END MEM_GRADE_NM
-             , CASE
-                   WHEN DA.REPEATED_RESPONSE_YN  = 'Y' THEN '주의'
-                   ELSE '양호'
-            END REPEATED_RESPONSE_YN
-             , IFNULL(sri.flnm, '') AS MEM_NM
-             , IFNULL(sri.num, '') AS CLASS_NO
-             , (SELECT IFNULL(ord_no, 0) FROM aidt_diagnosis.tb_dgnss_info tdi WHERE tdi.tc_id  = tci.user_id AND tdi.paper_idx = tdi2.paper_idx LIMIT 1) AS DGNSS_ORD_FIRST
-             , U.ptn_id  AS ptnId
-             , (SELECT
-                    IFNULL(DRI.subm_dt, '')
-                FROM aidt_diagnosis.tb_dgnss_result_info dri
-                INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON dri.dgnss_id = tdi.id
-                WHERE tdi.tc_id  = tci.user_id
-                AND tdi.paper_idx = tdi2.paper_idx
-                AND dri.stdt_id = DA.MEM_ID
-                LIMIT 1
-                ) AS RSPNS_DT_FIRST
-             , DRI.file_url AS fileURL
-             , DRI.id AS dgnssResultId
-             , CASE
-                   WHEN tci.cla_nm LIKE '%반' THEN tci.cla_nm
-                   WHEN tci.cla_nm IS NULL THEN '-'
-                   ELSE CONCAT(tci.cla_nm, '반')
-                END AS CLASS_NM
-             , tdi2.cla_id AS claId
-             , tdi2.paper_idx AS paperIdx
-             , tri.flnm AS tcNm
-             , tdi2.tc_id AS tcId
-             , api.ptn_id AS ptnId
-             , DRI.summary_file_url AS summaryFileURL
-             , CASE
-                   WHEN tcmi.grade_cd LIKE '%학년' THEN tcmi.grade_cd
-                   WHEN tcmi.grade_cd IS NULL THEN ''
-                   ELSE CONCAT(tcmi.grade_cd, '학년')
-               END AS stdtGrade
-             , CASE
-                   WHEN tcmi.cla_nm LIKE '%반' THEN tcmi.cla_nm
-                   WHEN tcmi.cla_nm IS NULL THEN ''
-                   ELSE CONCAT(tcmi.cla_nm, '반')
-               END AS stdtClassNm
-             , CASE
-                   WHEN sri.num LIKE '%번' THEN sri.num
-                   WHEN sri.num IS NULL THEN ''
-                   ELSE CONCAT(sri.num, '번')
-               END AS stdtNo
-        FROM aidt_diagnosis.TB_DGNSS_ANSWER DA
-            INNER JOIN aidt_diagnosis.TB_DGNSS_RESULT_INFO DRI ON DA.DGNSS_RESULT_ID  = DRI.id
-            INNER JOIN aidt_diagnosis.tb_dgnss_info tdi2 ON DRI.dgnss_id = tdi2.id
-            INNER JOIN aidt_lms.USER U ON DRI.stdt_id = U.user_id
-            INNER JOIN aidt_lms.stdt_reg_info sri ON U.user_id = sri.user_id
-            INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON sri.user_id = tcmi.stdt_id AND tdi2.cla_id = tcmi.cla_id AND tcmi.actvtn_at = 'Y'
-            INNER JOIN aidt_lms.tc_cla_info tci ON tdi2.cla_id = tci.cla_id
-            INNER JOIN aidt_lms.tc_reg_info tri ON tci.user_id = tri.user_id
-            LEFT JOIN aidt_lms.aidt_ptn_info api ON U.ptn_id = api.ptn_id
-        WHERE DA.ANSWER_IDX = #{answerIdx}
+		SELECT DA.ANSWER_IDX
+		     , DA.DGNSS_ID
+		     , DA.DGNSS_ORD
+		     , DA.PAPER_IDX
+		     , DA.GRP_IDX
+		     , DA.ASIGN_DT
+		     , DATE_FORMAT(DRI.subm_dt, '%Y. %m. %d') AS RSPNS_DT
+		     , DATE_FORMAT(DRI.subm_dt, '%Y년 %m월 %d일') AS RSPNS_DT_KO
+		     , DA.ANSWERS
+		     , DA.LS_ANS01, DA.LS_ANS02, DA.LS_ANS03, DA.LS_ANS04, DA.LS_ANS05
+		     , DA.TOTAL_NO
+		     , DA.COCH_DGNSS_QESITM01_SCORE, DA.COCH_DGNSS_QESITM01_MARK
+		     , DA.COCH_DGNSS_QESITM02_SCORE, DA.COCH_DGNSS_QESITM02_MARK
+		     , DA.COCH_DGNSS_QESITM03_SCORE, DA.COCH_DGNSS_QESITM03_MARK
+		     , DA.COCH_DGNSS_QESITM04_SCORE, DA.COCH_DGNSS_QESITM04_MARK
+		     , DRI.stdt_id AS MEM_ID
+		     , IFNULL(DA.SCH_GRADE, '') AS SCH_GRADE
+		     , IFNULL(gi.school_name, '') AS SCH_NM
+		     , IFNULL(gi.school_level, '') AS MEM_GRADE
+		     , CASE
+		           WHEN gi.school_level = 'elementary' THEN '초등'
+		           WHEN gi.school_level = 'middle' THEN '중등'
+		           WHEN gi.school_level = 'high' THEN '고등'
+		           ELSE ''
+		       END AS MEM_GRADE_NM
+		     , CASE
+		           WHEN DA.REPEATED_RESPONSE_YN = 'Y' THEN '주의'
+		           ELSE '양호'
+		       END AS REPEATED_RESPONSE_YN
+		     , IFNULL(gm.nickname, '') AS MEM_NM
+		     , IFNULL(gm.member_no, '') AS CLASS_NO
+		     , (
+		        SELECT IFNULL(ord_no, 0)
+		        FROM tb_dgnss_info tdi
+		        WHERE tdi.tc_id = tdi2.tc_id
+		          AND tdi.paper_idx = tdi2.paper_idx
+		        LIMIT 1
+		       ) AS DGNSS_ORD_FIRST
+		     , (
+		        SELECT IFNULL(dri.subm_dt, '')
+		        FROM tb_dgnss_result_info dri
+		        	INNER JOIN tb_dgnss_info tdi ON dri.dgnss_id = tdi.id
+		        WHERE tdi.tc_id = tdi2.tc_id
+		          AND tdi.paper_idx = tdi2.paper_idx
+		          AND dri.stdt_id = DA.MEM_ID
+		        LIMIT 1
+		       ) AS RSPNS_DT_FIRST
+		     , DRI.file_url AS fileURL
+		     , DRI.id AS dgnssResultId
+		     , CASE
+		           WHEN gi.group_nm IS NULL THEN '-'
+		           ELSE gi.group_nm
+		       END AS CLASS_NM
+		     , tdi2.cla_id AS claId
+		     , tdi2.paper_idx AS paperIdx
+		     , tu.nickname AS tcNm
+		     , tdi2.tc_id AS tcId
+		     , DRI.summary_file_url AS summaryFileURL
+		     , CASE
+		           WHEN gi.school_level = 'elementary' THEN '초등'
+		           WHEN gi.school_level = 'middle' THEN '중등'
+		           WHEN gi.school_level = 'high' THEN '고등'
+		           ELSE ''
+		       END AS stdtGrade
+		     , CASE
+		           WHEN gi.group_nm IS NULL THEN ''
+		           ELSE gi.group_nm
+		       END AS stdtClassNm
+		     , CASE
+		           WHEN gm.member_no IS NULL THEN ''
+		           ELSE CONCAT(gm.member_no, '번')
+		       END AS stdtNo
+		FROM TB_DGNSS_ANSWER DA
+			INNER JOIN TB_DGNSS_RESULT_INFO DRI ON DA.DGNSS_RESULT_ID = DRI.id
+			INNER JOIN tb_dgnss_info tdi2 ON DRI.dgnss_id = tdi2.id
+			INNER JOIN group_info gi ON tdi2.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DRI.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN user tu ON gi.host_user_no = tu.user_no
+		WHERE DA.ANSWER_IDX = #{answerIdx}
 	</select>
 
 	<update id="updateFileUrl" parameterType="map">
 		/* DgnssMapper.updateFileUrl */
-		UPDATE aidt_diagnosis.tb_dgnss_result_info
+		UPDATE tb_dgnss_result_info
 		SET file_url = #{fileUrl}
 		WHERE id = #{dgnssResultId}
 	</update>
 
 	<update id="updateFileUrlTch" parameterType="map">
 		/* DgnssMapper.updateFileUrlTch */
-		UPDATE aidt_diagnosis.tb_dgnss_info
+		UPDATE tb_dgnss_info
 		SET file_url = #{fileUrl}
 		WHERE id = #{dgnssId}
 	</update>
@@ -1743,10 +1761,10 @@
 	<select id="selectOmrIdxList" parameterType="map" resultType="int">
 		/* DgnssMapper.selectOmrIdxList */
 		SELECT     c1.OMR_IDX
-		FROM       `aidt_diagnosis`.tb_dgnss_info a1
-		INNER JOIN `aidt_diagnosis`.tb_dgnss_result_info b1
+		FROM       tb_dgnss_info a1
+		INNER JOIN tb_dgnss_result_info b1
 		ON         a1.id = b1.dgnss_id
-		INNER JOIN `aidt_diagnosis`.tb_dgnss_omr c1
+		INNER JOIN tb_dgnss_omr c1
 		ON         b1.omr_id = c1.OMR_IDX
 		WHERE      a1.id = #{dgnssId}
 	</select>
@@ -1754,41 +1772,41 @@
 	<delete id="deleteDgnssOmrIdx" parameterType="int">
 		/* DgnssMapper.deleteDgnssOmrIdx */
 		DELETE
-		FROM   `aidt_diagnosis`.`tb_dgnss_omr`
+		FROM   tb_dgnss_omr
 		WHERE  OMR_IDX = #{omrIdx}
 	</delete>
 
 	<delete id="deleteTcDgnssResultInfo" parameterType="map">
 		/* DgnssMapper.deleteTcDgnssResultInfo */
 		DELETE
-		FROM   `aidt_diagnosis`.`tb_dgnss_result_info`
+		FROM   tb_dgnss_result_info
 		WHERE  dgnss_id = #{dgnssId}
 	</delete>
 
 	<delete id="deleteTcDgnssAnswer" parameterType="map">
 		/* DgnssMapper.deleteTcDgnssAnswer */
 		DELETE
-		FROM   `aidt_diagnosis`.`tb_dgnss_answer`
+		FROM   tb_dgnss_answer
 		WHERE  TEST_IDX = #{dgnssId}
 	</delete>
 
 	<delete id="deleteTcDgnssInfo" parameterType="map">
 		/* DgnssMapper.deleteTcDgnssInfo */
 		DELETE
-		FROM   `aidt_diagnosis`.`tb_dgnss_info`
+		FROM   tb_dgnss_info
 		WHERE  id = #{dgnssId}
 	</delete>
 
 	<select id="selectDgnssStdtListFromDgnssId" parameterType="map" resultType="string">
 		/* DgnssMapper.selectDgnssStdtListFromDgnssId */
 		SELECT stdt_id
-		FROM   aidt_diagnosis.tb_dgnss_result_info
+		FROM   tb_dgnss_result_info
 		WHERE  dgnss_id = #{dgnssId}
 	</select>
 
 	<update id="updateDgnssStatus" parameterType="map">
 		/* DgnssMapper.updateDgnssStatus */
-		UPDATE aidt_diagnosis.tb_dgnss_info
+		UPDATE tb_dgnss_info
 		SET dgnss_at = 'Y'
 		, file_url = ''
 		WHERE id = #{dgnssId}
@@ -1797,7 +1815,7 @@
 	<select id="selectMetaStartYn" parameterType="map" resultType="string">
 		/* DgnssMapper.selectMetaStartYn */
 		SELECT MAX(dgnss_at)
-		FROM aidt_diagnosis.tb_dgnss_info
+		FROM tb_dgnss_info
 		WHERE cla_id = #{claId}
 	</select>
 
@@ -1806,21 +1824,21 @@
 		SELECT a1.omr_id AS pastOmrIdx
 			, b1.MEM_ID AS stdtId
 			, b1.CLASS_NO AS claId
-		FROM `aidt_diagnosis`.`tb_dgnss_result_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_omr` b1 ON a1.omr_id = b1.OMR_IDX
+		FROM tb_dgnss_result_info a1
+			INNER JOIN tb_dgnss_omr b1 ON a1.omr_id = b1.OMR_IDX
 		WHERE id = #{dgnssResultId}
 	</select>
 
 	<update id="updateDgnssResult" parameterType="map">
 		/* DgnssMapper.updateDgnssResult */
-		UPDATE `aidt_diagnosis`.`tb_dgnss_result_info`
+		UPDATE tb_dgnss_result_info
 		SET omr_id = #{omrIdx}
 		WHERE id = #{dgnssResultId}
 	</update>
 
 	<delete id="deleteDgnssOmr" parameterType="map">
 		/* DgnssMapper.deleteDgnssOmr */
-		DELETE FROM `aidt_diagnosis`.`tb_dgnss_omr`
+		DELETE FROM tb_dgnss_omr
 		WHERE OMR_IDX = #{pastOmrIdx}
 	</delete>
 
@@ -1831,9 +1849,9 @@
 			SELECT b1.`NO`
 				, c1.QESITM_NM
 				, COUNT(*) OVER () AS fullCount
-			FROM `aidt_diagnosis`.`tb_dgnss_paper` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_paper_detail` b1 ON a1.PAPER_IDX = b1.PAPER_IDX
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_problem` c1 ON b1.PROBLEM_IDX = c1.PROBLEM_IDX
+			FROM tb_dgnss_paper` a1
+			INNER JOIN tb_dgnss_paper_detail` b1 ON a1.PAPER_IDX = b1.PAPER_IDX
+			INNER JOIN tb_dgnss_problem` c1 ON b1.PROBLEM_IDX = c1.PROBLEM_IDX
 			WHERE 1=1
 			<choose>
 				<when test='param.paperIdx != null and param.paperIdx == 1'>
@@ -1854,9 +1872,9 @@
 		/* DgnssMapper.selectStQuesListOrigin */
 		SELECT b1.`NO`
 			, c1.QESITM_NM
-		FROM `aidt_diagnosis`.`tb_dgnss_paper` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_paper_detail` b1 ON a1.PAPER_IDX = b1.PAPER_IDX
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_problem` c1 ON b1.PROBLEM_IDX = c1.PROBLEM_IDX
+		FROM tb_dgnss_paper` a1
+			INNER JOIN tb_dgnss_paper_detail` b1 ON a1.PAPER_IDX = b1.PAPER_IDX
+			INNER JOIN tb_dgnss_problem` c1 ON b1.PROBLEM_IDX = c1.PROBLEM_IDX
 		WHERE 1=1
 			AND a1.PAPER_IDX = 6
 		ORDER BY b1.`no`
@@ -1864,7 +1882,7 @@
 
 	<update id="updateStStart" parameterType="map">
 		/* DgnssMapper.updateStStart */
-		UPDATE `aidt_diagnosis`.`tb_dgnss_result_info`
+		UPDATE tb_dgnss_result_info
 		SET eak_stts_cd = 2
 			, eak_at = 'Y'
 			, eak_st_dt = NOW()
@@ -1874,8 +1892,8 @@
 	<select id="selectPaperIdxFromResultId" parameterType="map" resultType="string">
 		/* DgnssMapper.selectPaperIdxFromResultId */
 		SELECT a1.paper_idx
-		FROM aidt_diagnosis.tb_dgnss_info a1
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 		WHERE b1.id = #{dgnssResultId}
 	</select>
 
@@ -1910,14 +1928,14 @@
 				`71`, `72`, `73`, `74`, `75`, `76`, `77`
 			</otherwise>
 		</choose>
-		FROM `aidt_diagnosis`.`tb_dgnss_result_info` a1
-			LEFT JOIN `aidt_diagnosis`.`tb_dgnss_omr` b1 ON a1.omr_id = b1.omr_idx
+		FROM tb_dgnss_result_info a1
+			LEFT JOIN tb_dgnss_omr b1 ON a1.omr_id = b1.omr_idx
 		WHERE id = #{dgnssResultId}
 	</select>
 
 	<select id="selectDgnssAnswerReliability" parameterType="map" resultType="map">
 		/* DgnssMapper.selectDgnssAnswerReliability */
-		SELECT ROW_NUMBER() OVER(ORDER BY sri.num) AS rowNum
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
@@ -1934,13 +1952,13 @@
 				WHEN c1.LS_ANS02 = 4 THEN '높음'
 				WHEN c1.LS_ANS02 = 5 THEN '매우 높음'
 			END satisPer
-			, CASE WHEN c1.LS_ANS03 = 1 THEN '흥미를 느껴서'
+			, CASE WHEN c1.LS_ANS03 = 1 THEN '친구를 사귀려고'
 				WHEN c1.LS_ANS03 = 2 THEN '미래를 위해서'
 				WHEN c1.LS_ANS03 = 3 THEN '대학 진학'
 				WHEN c1.LS_ANS03 = 4 THEN '주변 기대 때문에'
 				WHEN c1.LS_ANS03 = 5 THEN '모르겠음'
 			END reason
-			, CASE WHEN c1.LS_ANS04 = 1 THEN '전혀 안함'
+			, CASE WHEN c1.LS_ANS04 = 1 THEN '거의 안함'
 				WHEN c1.LS_ANS04 = 2 THEN '1시간 미만'
 				WHEN c1.LS_ANS04 = 3 THEN '1~2시간'
 				WHEN c1.LS_ANS04 = 4 THEN '2~3시간'
@@ -1952,242 +1970,266 @@
 				WHEN c1.LS_ANS05 = 4 THEN '상담 전문가'
 				WHEN c1.LS_ANS05 = 5 THEN '기타'
 			END cnsl
-			, (SELECT CASE WHEN d1.sex = 'M' THEN '남자' ELSE '여자' END FROM `aidt_lms`.`user` d1 WHERE user_id = b1.stdt_id) AS gender
+			, CASE
+				WHEN gm.gender = 'M' THEN '남자'
+				WHEN gm.gender = 'F' THEN '여자'
+				ELSE ''
+			END AS gender
 			, c1.ANSWER_IDX AS answerIdx
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON a1.cla_id = tcmi.cla_id AND b1.stdt_id = tcmi.stdt_id AND tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON b1.stdt_id = sri.user_id
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
-		ORDER BY sri.num
+		ORDER BY gm.member_no
 	</select>
 
 	<select id="selectLernType2" resultType="map" parameterType="map">
 		/* DgnssMapper.selectLernType2 */
-		SELECT ROW_NUMBER() OVER(ORDER BY sri.num) AS rowNum
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, (SELECT IF(ROUND(b1_1.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_1.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-01-01-0-0') AS '10-22-01-01-0-0'
-			, (SELECT IF(ROUND(b1_2.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_2.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-01-01-01-0') AS '10-22-01-01-01-0'
-			, (SELECT IF(ROUND(b1_3.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_3.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-01-01-02-0') AS '10-22-01-01-02-0'
-			, (SELECT IF(ROUND(b1_4.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_4.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-01-01-03-0') AS '10-22-01-01-03-0'
-			, (SELECT IF(ROUND(b1_5.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_5.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-01-02-0-0') AS '10-22-01-02-0-0'
-			, (SELECT IF(ROUND(b1_6.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_6.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-01-02-01-0') AS '10-22-01-02-01-0'
-			, (SELECT IF(ROUND(b1_7.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_7.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-01-02-02-0') AS '10-22-01-02-02-0'
-			, (SELECT IF(ROUND(b1_8.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_8.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-01-02-03-0') AS '10-22-01-02-03-0'
-			, (SELECT IF(ROUND(b1_9.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_9.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-01-02-04-0') AS '10-22-01-02-04-0'
-			, (SELECT CASE WHEN d1.sex = 'M' THEN '남자' ELSE '여자' END FROM `aidt_lms`.`user` d1 WHERE user_id = b1.stdt_id) AS gender
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_lms.stdt_reg_info sri ON b1.stdt_id = sri.user_id
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-01-01-0-0') AS '10-22-01-01-0-0'
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-01-01-01-0') AS '10-22-01-01-01-0'
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-01-01-02-0') AS '10-22-01-01-02-0'
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-01-01-03-0') AS '10-22-01-01-03-0'
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-01-02-0-0') AS '10-22-01-02-0-0'
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-01-02-01-0') AS '10-22-01-02-01-0'
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-01-02-02-0') AS '10-22-01-02-02-0'
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-01-02-03-0') AS '10-22-01-02-03-0'
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-01-02-04-0') AS '10-22-01-02-04-0'
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
+		ORDER BY gm.member_no
+		]]>
 	</select>
 
 	<select id="selectLernType3" resultType="map" parameterType="map">
 		/* DgnssMapper.selectLernType3 */
-		SELECT ROW_NUMBER() OVER(ORDER BY sri.num) AS rowNum
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, (SELECT IF(ROUND(b1_1.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_1.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-02-01-0-0') AS '10-22-02-01-0-0'
-			, (SELECT IF(ROUND(b1_2.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_2.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-02-01-01-0') AS '10-22-02-01-01-0'
-			, (SELECT IF(ROUND(b1_3.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_3.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-02-01-02-0') AS '10-22-02-01-02-0'
-			, (SELECT IF(ROUND(b1_4.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_4.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-02-01-03-0') AS '10-22-02-01-03-0'
-			, (SELECT IF(ROUND(b1_5.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_5.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-02-02-0-0') AS '10-22-02-02-0-0'
-			, (SELECT IF(ROUND(b1_6.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_6.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-02-02-01-0') AS '10-22-02-02-01-0'
-			, (SELECT IF(ROUND(b1_7.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_7.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-02-02-02-0') AS '10-22-02-02-02-0'
-			, (SELECT IF(ROUND(b1_8.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_8.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-02-02-03-0') AS '10-22-02-02-03-0'
-			, (SELECT IF(ROUND(b1_9.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_9.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-02-02-04-0') AS '10-22-02-02-04-0'
-			, (SELECT IF(ROUND(b1_10.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_10.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-02-02-05-0') AS '10-22-02-02-05-0'
-			, (SELECT CASE WHEN d1.sex = 'M' THEN '남자' ELSE '여자' END FROM `aidt_lms`.`user` d1 WHERE user_id = b1.stdt_id) AS gender
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_lms.stdt_reg_info sri ON b1.stdt_id = sri.user_id
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-02-01-0-0') AS '10-22-02-01-0-0'
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-02-01-01-0') AS '10-22-02-01-01-0'
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-02-01-02-0') AS '10-22-02-01-02-0'
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-02-01-03-0') AS '10-22-02-01-03-0'
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-02-02-0-0') AS '10-22-02-02-0-0'
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-02-02-01-0') AS '10-22-02-02-01-0'
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-02-02-02-0') AS '10-22-02-02-02-0'
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-02-02-03-0') AS '10-22-02-02-03-0'
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-02-02-04-0') AS '10-22-02-02-04-0'
+			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-02-02-05-0') AS '10-22-02-02-05-0'
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
+		ORDER BY gm.member_no
+		]]>
 	</select>
 
 	<select id="selectLernType4" resultType="map" parameterType="map">
 		/* DgnssMapper.selectLernType4 */
-		SELECT ROW_NUMBER() OVER(ORDER BY sri.num) AS rowNum
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, (SELECT IF(ROUND(b1_1.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_1.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-02-03-0-0') AS '10-22-02-03-0-0'
-			, (SELECT IF(ROUND(b1_2.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_2.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-02-03-01-0') AS '10-22-02-03-01-0'
-			, (SELECT IF(ROUND(b1_3.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_3.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-02-03-02-0') AS '10-22-02-03-02-0'
-			, (SELECT IF(ROUND(b1_4.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_4.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-02-03-03-0') AS '10-22-02-03-03-0'
-			, (SELECT IF(ROUND(b1_5.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_5.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-02-03-04-0') AS '10-22-02-03-04-0'
-			, (SELECT IF(ROUND(b1_6.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_6.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-04-01-0-0') AS '10-22-04-01-0-0'
-			, (SELECT IF(ROUND(b1_7.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_7.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-04-01-01-0') AS '10-22-04-01-01-0'
-			, (SELECT IF(ROUND(b1_8.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_8.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-04-01-02-0') AS '10-22-04-01-02-0'
-			, (SELECT IF(ROUND(b1_9.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_9.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-04-01-03-0') AS '10-22-04-01-03-0'
-			, (SELECT IF(ROUND(b1_10.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_10.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-04-02-0-0') AS '10-22-04-02-0-0'
-			, (SELECT IF(ROUND(b1_11.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_11.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '10-22-04-02-01-0') AS '10-22-04-02-01-0'
-			, (SELECT IF(ROUND(b1_12.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_12.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_12 WHERE b1_12.ANSWER_IDX = c1.ANSWER_IDX AND b1_12.SECTION_ID = '10-22-04-02-02-0') AS '10-22-04-02-02-0'
-			, (SELECT IF(ROUND(b1_13.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_13.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_13 WHERE b1_13.ANSWER_IDX = c1.ANSWER_IDX AND b1_13.SECTION_ID = '10-22-04-02-03-0') AS '10-22-04-02-03-0'
-			, (SELECT CASE WHEN d1.sex = 'M' THEN '남자' ELSE '여자' END FROM `aidt_lms`.`user` d1 WHERE user_id = b1.stdt_id) AS gender
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_lms.stdt_reg_info sri ON b1.stdt_id = sri.user_id
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-02-03-0-0') AS '10-22-02-03-0-0'
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-02-03-01-0') AS '10-22-02-03-01-0'
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-02-03-02-0') AS '10-22-02-03-02-0'
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-02-03-03-0') AS '10-22-02-03-03-0'
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-02-03-04-0') AS '10-22-02-03-04-0'
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-04-01-0-0') AS '10-22-04-01-0-0'
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-04-01-01-0') AS '10-22-04-01-01-0'
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-04-01-02-0') AS '10-22-04-01-02-0'
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-04-01-03-0') AS '10-22-04-01-03-0'
+			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-04-02-0-0') AS '10-22-04-02-0-0'
+			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '10-22-04-02-01-0') AS '10-22-04-02-01-0'
+			, (SELECT IF(ROUND(b1_12.T_SCORE) < 0, 0, ROUND(b1_12.T_SCORE)) FROM tb_dgnss_answer_report b1_12 WHERE b1_12.ANSWER_IDX = c1.ANSWER_IDX AND b1_12.SECTION_ID = '10-22-04-02-02-0') AS '10-22-04-02-02-0'
+			, (SELECT IF(ROUND(b1_13.T_SCORE) < 0, 0, ROUND(b1_13.T_SCORE)) FROM tb_dgnss_answer_report b1_13 WHERE b1_13.ANSWER_IDX = c1.ANSWER_IDX AND b1_13.SECTION_ID = '10-22-04-02-03-0') AS '10-22-04-02-03-0'
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
+		ORDER BY gm.member_no
+		]]>
 	</select>
 
 	<select id="selectLernType5" resultType="map" parameterType="map">
 		/* DgnssMapper.selectLernType5 */
-		SELECT ROW_NUMBER() OVER(ORDER BY sri.num) AS rowNum
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, (SELECT IF(ROUND(b1_1.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_1.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-03-01-0-0') AS '10-22-03-01-0-0'
-			, (SELECT IF(ROUND(b1_2.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_2.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-03-01-01-0') AS '10-22-03-01-01-0'
-			, (SELECT IF(ROUND(b1_3.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_3.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-03-01-02-0') AS '10-22-03-01-02-0'
-			, (SELECT IF(ROUND(b1_4.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_4.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-03-01-03-0') AS '10-22-03-01-03-0'
-			, (SELECT IF(ROUND(b1_5.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_5.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-03-03-0-0') AS '10-22-03-03-0-0'
-			, (SELECT IF(ROUND(b1_6.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_6.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-03-03-01-0') AS '10-22-03-03-01-0'
-			, (SELECT IF(ROUND(b1_7.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_7.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-03-03-02-0') AS '10-22-03-03-02-0'
-			, (SELECT CASE WHEN d1.sex = 'M' THEN '남자' ELSE '여자' END FROM `aidt_lms`.`user` d1 WHERE user_id = b1.stdt_id) AS gender
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_lms.stdt_reg_info sri ON b1.stdt_id = sri.user_id
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-03-01-0-0') AS '10-22-03-01-0-0'
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-03-01-01-0') AS '10-22-03-01-01-0'
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-03-01-02-0') AS '10-22-03-01-02-0'
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-03-01-03-0') AS '10-22-03-01-03-0'
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-03-03-0-0') AS '10-22-03-03-0-0'
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-03-03-01-0') AS '10-22-03-03-01-0'
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-03-03-02-0') AS '10-22-03-03-02-0'
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
+		ORDER BY gm.member_no
+		]]>
 	</select>
 
 	<select id="selectLernType6" resultType="map" parameterType="map">
 		/* DgnssMapper.selectLernType6 */
-		SELECT ROW_NUMBER() OVER(ORDER BY sri.num) AS rowNum
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, (SELECT IF(ROUND(b1_1.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_1.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-03-02-0-0') AS '10-22-03-02-0-0'
-			, (SELECT IF(ROUND(b1_2.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_2.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-03-02-01-0') AS '10-22-03-02-01-0'
-			, (SELECT IF(ROUND(b1_3.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_3.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-03-02-02-0') AS '10-22-03-02-02-0'
-			, (SELECT IF(ROUND(b1_4.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_4.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-03-02-03-0') AS '10-22-03-02-03-0'
-			, (SELECT IF(ROUND(b1_5.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_5.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-03-02-04-0') AS '10-22-03-02-04-0'
-			, (SELECT IF(ROUND(b1_6.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_6.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-03-02-05-0') AS '10-22-03-02-05-0'
-			, (SELECT IF(ROUND(b1_7.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_7.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-05-01-0-0') AS '10-22-05-01-0-0'
-			, (SELECT IF(ROUND(b1_8.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_8.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-05-01-01-0') AS '10-22-05-01-01-0'
-			, (SELECT IF(ROUND(b1_9.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_9.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-05-01-02-0') AS '10-22-05-01-02-0'
-			, (SELECT IF(ROUND(b1_10.T_SCORE) <![CDATA[<]]> 0, 0, ROUND(b1_10.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-05-01-03-0') AS '10-22-05-01-03-0'
-			, (SELECT CASE WHEN d1.sex = 'M' THEN '남자' ELSE '여자' END FROM `aidt_lms`.`user` d1 WHERE user_id = b1.stdt_id) AS gender
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_lms.stdt_reg_info sri ON b1.stdt_id = sri.user_id
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-03-02-0-0') AS '10-22-03-02-0-0'
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-03-02-01-0') AS '10-22-03-02-01-0'
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-03-02-02-0') AS '10-22-03-02-02-0'
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-03-02-03-0') AS '10-22-03-02-03-0'
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-03-02-04-0') AS '10-22-03-02-04-0'
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-03-02-05-0') AS '10-22-03-02-05-0'
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-05-01-0-0') AS '10-22-05-01-0-0'
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-05-01-01-0') AS '10-22-05-01-01-0'
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-05-01-02-0') AS '10-22-05-01-02-0'
+			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-05-01-03-0') AS '10-22-05-01-03-0'
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
+		ORDER BY gm.member_no
+		]]>
 	</select>
 
 	<select id="selectDgnssAnswerReportMotivate" parameterType="map" resultType="map">
 		/* DgnssMapper.selectDgnssAnswerReportMotivate */
 		<![CDATA[
-		SELECT ROW_NUMBER() OVER(ORDER BY sri.num) AS rowNum
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-01-0-0-0') AS total
-			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-01-01-0-0') AS learningEg
-			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-01-01-01-0') AS mindSet
-			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '20-22-01-01-02-0') AS efficacy
-			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '20-22-01-01-03-0') AS motivation
-			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '20-22-01-02-0-0') AS emotionCtrl
-			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-01-02-01-0') AS gradeLvl
-			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-01-02-02-0') AS styLvl
-			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-01-02-03-0') AS failLvl
-			, (SELECT CASE WHEN d1.sex = 'M' THEN '남자' ELSE '여자' END FROM `aidt_lms`.`user` d1 WHERE user_id = b1.stdt_id) AS gender
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON a1.cla_id = tcmi.cla_id AND b1.stdt_id = tcmi.stdt_id AND tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON b1.stdt_id = sri.user_id
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-01-0-0-0') AS total
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-01-01-0-0') AS learningEg
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-01-01-01-0') AS mindSet
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '20-22-01-01-02-0') AS efficacy
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '20-22-01-01-03-0') AS motivation
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '20-22-01-02-0-0') AS emotionCtrl
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-01-02-01-0') AS gradeLvl
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-01-02-02-0') AS styLvl
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-01-02-03-0') AS failLvl
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
-		ORDER BY sri.num
+		ORDER BY gm.member_no
 		]]>
 	</select>
 
 	<select id="selectDgnssAnswerReportRecognition" parameterType="map" resultType="map">
 		/* DgnssMapper.selectDgnssAnswerReportRecognition */
 		<![CDATA[
-		SELECT ROW_NUMBER() OVER(ORDER BY sri.num) AS rowNum
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-02-0-0-0') AS total
-			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-02-01-0-0') AS metaCog
-			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-02-01-01-0') AS planAbil
-			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '20-22-02-01-02-0') AS inspecAbil
-			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '20-22-02-01-03-0') AS contrlAbil
-			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '20-22-02-02-0-0') AS cogLrnSkil
-			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-02-02-01-0') AS compreSkil
-			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-02-02-02-0') AS intenSkil
-			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-02-02-03-0') AS memrySkil
-			, (SELECT case when d1.sex = 'M' then '남자' else '여자' end FROM `aidt_lms`.`user` d1 WHERE user_id = b1.stdt_id) AS gender
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON a1.cla_id = tcmi.cla_id AND b1.stdt_id = tcmi.stdt_id AND tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON b1.stdt_id = sri.user_id
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-02-0-0-0') AS total
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-02-01-0-0') AS metaCog
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-02-01-01-0') AS planAbil
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '20-22-02-01-02-0') AS inspecAbil
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '20-22-02-01-03-0') AS contrlAbil
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '20-22-02-02-0-0') AS cogLrnSkil
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-02-02-01-0') AS compreSkil
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-02-02-02-0') AS intenSkil
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-02-02-03-0') AS memrySkil
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
-		ORDER BY sri.num
+		ORDER BY gm.member_no
 		]]>
 	</select>
 
 	<select id="selectDgnssAnswerReportBehavior" parameterType="map" resultType="map">
 		/* DgnssMapper.selectDgnssAnswerReportBehavior */
 		<![CDATA[
-		SELECT ROW_NUMBER() OVER(ORDER BY sri.num) AS rowNum
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-03-0-0-0') AS total
-			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-03-01-0-0') AS behvCtrl
-			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-03-01-01-0') AS selfPraise
-			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '20-22-03-01-02-0') AS help
-			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '20-22-03-01-03-0') AS lrnConti
-			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '20-22-03-02-0-0') AS behvLrnSkil
-			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-03-02-01-0') AS styEnvi
-			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-03-02-02-0') AS timeCtrl
-			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-03-02-03-0') AS styAtti
-			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '20-22-03-02-04-0') AS note
-			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM `aidt_diagnosis`.`tb_dgnss_answer_report` b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '20-22-03-02-05-0') AS test
-			, (SELECT CASE WHEN d1.sex = 'M' THEN '남자' ELSE '여자' END FROM `aidt_lms`.`user` d1 WHERE user_id = b1.stdt_id) AS gender
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON a1.cla_id = tcmi.cla_id AND b1.stdt_id = tcmi.stdt_id AND tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON b1.stdt_id = sri.user_id
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-03-0-0-0') AS total
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-03-01-0-0') AS behvCtrl
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-03-01-01-0') AS selfPraise
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '20-22-03-01-02-0') AS help
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '20-22-03-01-03-0') AS lrnConti
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '20-22-03-02-0-0') AS behvLrnSkil
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-03-02-01-0') AS styEnvi
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-03-02-02-0') AS timeCtrl
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-03-02-03-0') AS styAtti
+			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '20-22-03-02-04-0') AS note
+			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '20-22-03-02-05-0') AS test
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
-		ORDER BY sri.num
+		ORDER BY gm.member_no
 		]]>
 	</select>
 
@@ -2201,9 +2243,9 @@
 			, a1.dgnss_text AS dgnssText
 			, DATE_FORMAT(a1.dgnss_st_dt, "%Y. %m. %d.") AS dgnssStDt
 			, DATE_FORMAT(a1.dgnss_ed_dt, "%Y. %m. %d.") AS dgnssEdDt
-			, sri.num AS num
+			, MAX(gm.member_no) AS num
 			, GROUP_CONCAT(
-				CASE WHEN b1.subm_at = 'N' THEN CONCAT(sri.num, '번 ', sri.flnm) END
+				CASE WHEN b1.subm_at = 'N' THEN CONCAT(gm.member_no, '번', gm.nickname) END
 					SEPARATOR ', '
 				) AS notSubmStdtName
 			, GROUP_CONCAT(
@@ -2211,11 +2253,11 @@
 					SEPARATOR ', '
 				) AS notSubmStdtId
 			, COUNT(DISTINCT CASE WHEN b1.subm_at = 'Y' THEN b1.stdt_id END) AS stSubmCnt
-			, COUNT(DISTINCT c1.stdt_id) AS stTotalCnt
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
-			INNER JOIN aidt_lms.tc_cla_mb_info c1 ON a1.cla_id = c1.cla_id AND b1.stdt_id = c1.stdt_id AND c1.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON c1.stdt_id = sri.user_id
+			, COUNT(DISTINCT gm.stdt_id) AS stTotalCnt
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 		GROUP BY a1.id
 	</select>
@@ -2225,19 +2267,25 @@
 		SELECT a1.stdt_id AS stdtId
 			, DATE_FORMAT(a1.subm_dt,'%Y-%m-%d %H:%i:%s') AS eakStDt
 			, b1.DGNSS_ORD AS ordNo
-			, CASE WHEN c1.sex = 'M' THEN '남자' ELSE '여자' END gender
-			, `aidt_lms`.F_CODE_NM('grade_cd', e1.grade_cd) AS grade
+			, a1_1.paper_idx AS paperIdx
 			, CASE
-				WHEN e1.cla_nm LIKE '%반' THEN e1.cla_nm
-				WHEN e1.cla_nm IS NULL THEN '-'
-				ELSE CONCAT(e1.cla_nm, '반')
-			END AS classCd
+				WHEN gm.gender = 'M' THEN '남자'
+				WHEN gm.gender = 'F' THEN '여자'
+				ELSE ''
+			END AS gender
+			, CASE
+				WHEN gi.school_level = 'elementary' THEN '초등'
+				WHEN gi.school_level = 'middle' THEN '중등'
+				WHEN gi.school_level = 'high' THEN '고등'
+				ELSE ''
+			END AS grade
+			, gi.group_nm AS classCd
 			, a1.id AS dgnssResultId
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1_1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` a1 ON a1_1.id = a1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` b1 ON a1.id = b1.DGNSS_RESULT_ID
-			INNER JOIN `aidt_lms`.`user` c1 ON a1.stdt_id = c1.user_id
-			INNER JOIN aidt_lms.stdt_reg_info e1 ON c1.user_id = e1.user_id
+		FROM tb_dgnss_info a1_1
+			INNER JOIN tb_dgnss_result_info a1 ON a1_1.id = a1.dgnss_id
+			INNER JOIN tb_dgnss_answer b1 ON a1.id = b1.DGNSS_RESULT_ID
+			INNER JOIN group_info gi ON a1_1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND a1.stdt_id = gm.stdt_id
 		WHERE 1=1
 		<choose>
 			<when test='stdtId != null and stdtId != ""'>
@@ -2262,11 +2310,11 @@
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-		FROM aidt_diagnosis.tb_dgnss_info a1
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
-			INNER JOIN aidt_diagnosis.tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_diagnosis.tb_dgnss_answer_report d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
-			INNER JOIN aidt_diagnosis.tb_dgnss_section e1 ON d1.SECTION_ID = e1.SECTION_ID
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN tb_dgnss_answer_report d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
+			INNER JOIN tb_dgnss_section e1 ON d1.SECTION_ID = e1.SECTION_ID
 		WHERE a1.paper_idx = #{paperIdx}
 			AND b1.stdt_id = #{stdtId}
 			AND b1.subm_at = 'Y'
@@ -2275,8 +2323,8 @@
 	<select id="selectFirstDgnssResultId" parameterType="map" resultType="string">
 		/* DgnssMapper.selectFirstDgnssResultId */
 		SELECT b1.id
-		FROM aidt_diagnosis.tb_dgnss_info a1
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 		WHERE a1.ord_no = 1
 			AND b1.stdt_id = #{stdtId}
 			AND a1.paper_idx = #{paperIdx}
@@ -2286,10 +2334,10 @@
 		/* DgnssMapper.selectStAnalysis */
 		SELECT CONCAT('{', GROUP_CONCAT(
 			CONCAT('"', b1.SECTION_ID, '"', ' : "', IF(b1.T_SCORE <![CDATA[<]]> 0, 0, b1.T_SCORE), '_', b1.P_RANK, '"')), '}')
-		FROM aidt_diagnosis.tb_dgnss_info tdi
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` a1 ON tdri.id = a1.DGNSS_RESULT_ID
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer_report` b1 ON a1.ANSWER_IDX = b1.ANSWER_IDX
+		FROM tb_dgnss_info tdi
+			INNER JOIN tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
+			INNER JOIN tb_dgnss_answer a1 ON tdri.id = a1.DGNSS_RESULT_ID
+			INNER JOIN tb_dgnss_answer_report b1 ON a1.ANSWER_IDX = b1.ANSWER_IDX
 		WHERE tdi.paper_idx = #{paperIdx}
 			AND tdi.ord_no = #{ordNo}
 			AND tdri.stdt_id = #{stdtId}
@@ -2298,11 +2346,11 @@
 	<select id="selectStrFactor" parameterType="map" resultType="string">
 		/* DgnssMapper.selectStrFactor */
 		SELECT c1.SECTION_NM as strFactor
-		FROM aidt_diagnosis.tb_dgnss_info tdi
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` a1 ON tdri.id = a1.DGNSS_RESULT_ID
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer_report` b1 ON a1.ANSWER_IDX = b1.ANSWER_IDX
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_section` c1 ON b1.SECTION_ID = c1.SECTION_ID
+		FROM tb_dgnss_info tdi
+			INNER JOIN tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
+			INNER JOIN tb_dgnss_answer a1 ON tdri.id = a1.DGNSS_RESULT_ID
+			INNER JOIN tb_dgnss_answer_report b1 ON a1.ANSWER_IDX = b1.ANSWER_IDX
+			INNER JOIN tb_dgnss_section` c1 ON b1.SECTION_ID = c1.SECTION_ID
 		WHERE tdi.paper_idx = #{paperIdx}
 			AND tdi.ord_no = #{ordNo}
 			AND tdri.stdt_id = #{stdtId}
@@ -2315,11 +2363,11 @@
 	<select id="selectWeakFactor" parameterType="map" resultType="string">
 		/* DgnssMapper.selectWeakFactor */
 		SELECT c1.SECTION_NM AS weakFactor
-		FROM aidt_diagnosis.tb_dgnss_info tdi
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` a1 ON tdri.id = a1.DGNSS_RESULT_ID
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer_report` b1 ON a1.ANSWER_IDX = b1.ANSWER_IDX
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_section` c1 ON b1.SECTION_ID = c1.SECTION_ID
+		FROM tb_dgnss_info tdi
+			INNER JOIN tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
+			INNER JOIN tb_dgnss_answer a1 ON tdri.id = a1.DGNSS_RESULT_ID
+			INNER JOIN tb_dgnss_answer_report b1 ON a1.ANSWER_IDX = b1.ANSWER_IDX
+			INNER JOIN tb_dgnss_section c1 ON b1.SECTION_ID = c1.SECTION_ID
 		WHERE tdi.paper_idx = #{paperIdx}
 			AND tdi.ord_no = #{ordNo}
 			AND tdri.stdt_id = #{stdtId}
@@ -2339,10 +2387,10 @@
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer_report` d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN tb_dgnss_answer_report d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
 		WHERE a1.paper_idx = #{paperIdx}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2353,16 +2401,17 @@
 	<select id="selectTcDgnssNotSubmStList" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcDgnssNotSubmStList */
 		SELECT a1.stdt_id AS stdtId
-		FROM `aidt_diagnosis`.`tb_dgnss_result_info` a1
-			INNER JOIN aidt_diagnosis.tb_dgnss_info b1 ON a1.dgnss_id = b1.id
-			INNER JOIN aidt_lms.tc_cla_mb_info c1 ON a1.stdt_id = c1.stdt_id AND b1.cla_id = c1.cla_id AND c1.actvtn_at = 'Y'
+		FROM tb_dgnss_result_info a1
+			INNER JOIN tb_dgnss_info b1 ON a1.dgnss_id = b1.id
+			INNER JOIN group_info gi ON b1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND a1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.dgnss_id = #{dgnssId}
 			AND a1.subm_at = 'N'
 	</select>
 
 	<update id="saveDgnssTextSave" parameterType="map">
 		/* DgnssMapper.saveDgnssTextSave */
-		UPDATE aidt_diagnosis.tb_dgnss_info
+		UPDATE tb_dgnss_info
 		SET dgnss_text = #{dgnssText}
 		WHERE id = #{dgnssId}
 	</update>
@@ -2370,18 +2419,16 @@
 	<select id="selectTcTrustInfoList" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcTrustInfoList */
 		WITH base AS (
-			SELECT sri.num
-				, c1.MEM_ID AS stdtId
+			SELECT gm.member_no AS num
+				, b1.stdt_id AS stdtId
 				, c1.COCH_DGNSS_QESITM01_SCORE AS q01
 				, c1.REPEATED_RESPONSE_YN      AS repYn
 				, c1.COCH_DGNSS_QESITM02_SCORE AS q02
-			FROM aidt_diagnosis.tb_dgnss_info a1
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
-			INNER JOIN aidt_diagnosis.tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON a1.cla_id = tcmi.cla_id
-				AND b1.stdt_id = tcmi.stdt_id
-				AND tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON b1.stdt_id = sri.user_id
+			FROM tb_dgnss_info a1
+				INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+				INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+				INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+				INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 			WHERE a1.id = #{dgnssId}
 				AND a1.dgnss_at = 'N'
 				AND b1.subm_at = 'Y'
@@ -2405,15 +2452,16 @@
 	<select id="selectLernEtcInfoList" parameterType="map" resultType="map">
 		/* DgnssMapper.selectLernEtcInfoList */
 		WITH base AS (
-				SELECT sri.num
-					, c1.MEM_ID AS stdtId
+				SELECT gm.member_no AS num
+					, b1.stdt_id AS stdtId
 					, r.SECTION_ID AS sectionId
 					, r.T_SCORE
-				FROM aidt_diagnosis.tb_dgnss_info a1
-					INNER JOIN aidt_diagnosis.tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
-					INNER JOIN aidt_diagnosis.tb_dgnss_answer c1      ON b1.id = c1.DGNSS_RESULT_ID
-					INNER JOIN aidt_diagnosis.tb_dgnss_answer_report r ON r.ANSWER_IDX = c1.ANSWER_IDX
-					INNER JOIN aidt_lms.stdt_reg_info sri              ON b1.stdt_id = sri.user_id
+				FROM tb_dgnss_info a1
+					INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+					INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+					INNER JOIN tb_dgnss_answer_report r ON r.ANSWER_IDX = c1.ANSWER_IDX
+					INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+					INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 				WHERE a1.id = #{dgnssId}
 					AND a1.dgnss_at = 'N'
 					AND b1.subm_at = 'Y'
@@ -2446,43 +2494,41 @@
 
 	<select id="selectTcEtcInfoList" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcEtcInfoList */
-		SELECT sri.num
-			, c1.MEM_ID AS stdtId
+		SELECT gm.member_no AS num
+			, b1.stdt_id AS stdtId
 			, CASE WHEN ROUND(r1.T_SCORE) <![CDATA[<]]> 40 THEN 'Y' ELSE 'N' END AS learningEg
 			, CASE WHEN ROUND(r2.T_SCORE) <![CDATA[<]]> 40 THEN 'Y' ELSE 'N' END AS emotionCtrl
 			, CASE WHEN ROUND(r3.T_SCORE) <![CDATA[<]]> 40 THEN 'Y' ELSE 'N' END AS metaCog
 			, CASE WHEN ROUND(r4.T_SCORE) <![CDATA[<]]> 40 THEN 'Y' ELSE 'N' END AS cogLrnSkil
 			, CASE WHEN ROUND(r5.T_SCORE) <![CDATA[<]]> 40 THEN 'Y' ELSE 'N' END AS behvCtrl
 			, CASE WHEN ROUND(r6.T_SCORE) <![CDATA[<]]> 40 THEN 'Y' ELSE 'N' END AS behvLrnSkil
-		FROM aidt_diagnosis.tb_dgnss_info a1
-			INNER JOIN aidt_diagnosis.tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
-			INNER JOIN aidt_diagnosis.tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON a1.cla_id = tcmi.cla_id
-				AND b1.stdt_id = tcmi.stdt_id
-				AND tcmi.actvtn_at = 'Y'
-			INNER JOIN aidt_lms.stdt_reg_info sri ON b1.stdt_id = sri.user_id
-			LEFT JOIN aidt_diagnosis.tb_dgnss_answer_report r1
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			LEFT JOIN tb_dgnss_answer_report r1
 				ON r1.ANSWER_IDX = c1.ANSWER_IDX AND r1.SECTION_ID = '20-22-01-01-0-0'
-			LEFT JOIN aidt_diagnosis.tb_dgnss_answer_report r2
-			    ON r2.ANSWER_IDX = c1.ANSWER_IDX AND r2.SECTION_ID = '20-22-01-02-0-0'
-			LEFT JOIN aidt_diagnosis.tb_dgnss_answer_report r3
-			    ON r3.ANSWER_IDX = c1.ANSWER_IDX AND r3.SECTION_ID = '20-22-02-01-0-0'
-			LEFT JOIN aidt_diagnosis.tb_dgnss_answer_report r4
-			    ON r4.ANSWER_IDX = c1.ANSWER_IDX AND r4.SECTION_ID = '20-22-02-02-0-0'
-			LEFT JOIN aidt_diagnosis.tb_dgnss_answer_report r5
-			    ON r5.ANSWER_IDX = c1.ANSWER_IDX AND r5.SECTION_ID = '20-22-03-01-0-0'
-			LEFT JOIN aidt_diagnosis.tb_dgnss_answer_report r6
-			    ON r6.ANSWER_IDX = c1.ANSWER_IDX AND r6.SECTION_ID = '20-22-03-02-0-0'
+			LEFT JOIN tb_dgnss_answer_report r2
+				ON r2.ANSWER_IDX = c1.ANSWER_IDX AND r2.SECTION_ID = '20-22-01-02-0-0'
+			LEFT JOIN tb_dgnss_answer_report r3
+				ON r3.ANSWER_IDX = c1.ANSWER_IDX AND r3.SECTION_ID = '20-22-02-01-0-0'
+			LEFT JOIN tb_dgnss_answer_report r4
+				ON r4.ANSWER_IDX = c1.ANSWER_IDX AND r4.SECTION_ID = '20-22-02-02-0-0'
+			LEFT JOIN tb_dgnss_answer_report r5
+				ON r5.ANSWER_IDX = c1.ANSWER_IDX AND r5.SECTION_ID = '20-22-03-01-0-0'
+			LEFT JOIN tb_dgnss_answer_report r6
+				ON r6.ANSWER_IDX = c1.ANSWER_IDX AND r6.SECTION_ID = '20-22-03-02-0-0'
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
-		ORDER BY sri.num
+		ORDER BY gm.member_no
 	</select>
 
 	<select id="selectDgnssIdxList" parameterType="map" resultType="int">
 		/* DgnssMapper.selectDgnssIdxList */
 		SELECT id
-		FROM `aidt_diagnosis`.`tb_dgnss_info`
+		FROM tb_dgnss_info
 		WHERE cla_id = #{claId}
 			AND paper_idx = #{paperIdx}
 			AND dgnss_at = 'N'
@@ -2495,11 +2541,12 @@
 		, a1.ord_no
 		, CONCAT('{', GROUP_CONCAT(
 		CONCAT('"', d1.SECTION_ID, '"', ' : ', d1.T_SCORE)), '}') AS json
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer_report` d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
-			INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON a1.cla_id = tcmi.cla_id AND b1.stdt_id = tcmi.stdt_id AND tcmi.actvtn_at = 'Y'
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN tb_dgnss_answer_report d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
 		AND a1.dgnss_at = 'N'
 		AND b1.subm_at = 'Y'
@@ -2518,12 +2565,12 @@
 		, d1.`DEPTH`
 		, e1.SECTION_NM
 		, IF(ROUND(avg(d1.T_SCORE)) <![CDATA[<]]> 0, 0, ROUND(avg(d1.T_SCORE))) AS tScore
-		FROM `aidt_diagnosis`.`tb_dgnss_info` a1
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_result_info` b1 ON a1.id = b1.dgnss_id
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer` c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_answer_report` d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
-			INNER JOIN `aidt_diagnosis`.`tb_dgnss_section` e1 ON d1.SECTION_ID = e1.SECTION_ID
-		where a1.cla_id  = #{claId}
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			INNER JOIN tb_dgnss_answer_report d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
+			INNER JOIN tb_dgnss_section e1 ON d1.SECTION_ID = e1.SECTION_ID
+		WHERE a1.cla_id = #{claId}
 		AND a1.paper_idx = '1'
 		AND a1.dgnss_at = 'N'
 		AND b1.subm_at = 'Y'
@@ -2536,8 +2583,8 @@
 
     <update id="updateStntAnswer" parameterType="map">
         /* DgnssMapper.updateStntAnswer */
-        update `aidt_diagnosis`.`tb_dgnss_omr` a1
-        set
+        UPDATE tb_dgnss_omr a1
+        SET
         <choose>
             <when test='no > 0 and no == 1'>`1` = #{answer}</when>
             <when test='no > 0 and no == 2'>`2` = #{answer}</when>
@@ -2664,28 +2711,28 @@
             <when test='no > 0 and no == 123'>`123` = #{answer}</when>
             <when test='no > 0 and no == 124'>`124` = #{answer}</when>
         </choose>
-        where OMR_IDX = #{omrIdx}
+        WHERE OMR_IDX = #{omrIdx}
     </update>
 
     <select id="selectStntDgnssList" parameterType="map" resultType="map">
         /* DgnssMapper.selectStntDgnssList */
-        select a1.id as dgnssId
-             , a1.paper_idx as paperIdx
-             , b1.id as dgnssResultId
-             , a1.ord_no as ordNo
-             , a1.dgnss_at as dgnssAt
-             , b1.subm_at as submAt
-             , b1.eak_at as eakAt
-             , DATE_FORMAT(b1.subm_dt, "%Y. %m. %d.") as submDt
-        from `aidt_diagnosis`.`tb_dgnss_info` a1
-                 inner join `aidt_diagnosis`.`tb_dgnss_result_info` b1 on a1.id = b1.dgnss_id
-        where a1.cla_id = #{claId}
-          and b1.stdt_id = #{stdtId}
+        SELECT a1.id AS dgnssId
+             , a1.paper_idx AS paperIdx
+             , b1.id AS dgnssResultId
+             , a1.ord_no AS ordNo
+             , a1.dgnss_at AS dgnssAt
+             , b1.subm_at AS submAt
+             , b1.eak_at AS eakAt
+             , DATE_FORMAT(b1.subm_dt, "%Y. %m. %d.") AS submDt
+        FROM tb_dgnss_info a1
+            INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+        WHERE a1.cla_id = #{claId}
+          AND b1.stdt_id = #{stdtId}
     </select>
 
     <update id="updateSummaryFileUrl" parameterType="map">
         /* DgnssMapper.updateSummaryFileUrl */
-        UPDATE aidt_diagnosis.tb_dgnss_result_info
+        UPDATE tb_dgnss_result_info
         SET summary_file_url = #{fileUrl}
         WHERE id = #{dgnssResultId}
     </update>
@@ -2695,11 +2742,12 @@
         SELECT tdri.id AS answerIdx
             , tdri.stdt_id AS userId
             , 'S' AS userType
-        FROM aidt_diagnosis.tb_dgnss_result_info tdri
-            INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
-            INNER JOIN aidt_lms.tc_cla_mb_info tcmi ON tdri.stdt_id = tcmi.stdt_id
-                                                     AND tdi.cla_id = tcmi.cla_id
-                                                     AND tcmi.actvtn_at = 'Y'
+        FROM tb_dgnss_result_info tdri
+            INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
+            INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+            INNER JOIN group_member gm ON gi.group_id = gm.group_id
+                                       AND tdri.stdt_id = gm.stdt_id
+                                       AND gm.status = 'ACTIVE'
         WHERE tdri.dgnss_id = #{dgnssId}
             AND tdri.subm_at = 'Y'
             <choose>
@@ -2712,3 +2760,5 @@
             </choose>
     </select>
 </mapper>
+
+
