@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.counseling.mapper.CounselingInfoMapper">
+
+    <resultMap id="counselingInfoResultMap" type="com.vs.meta.domain.CounselingInfo">
+        <id property="id" column="id"/>
+        <result property="claId" column="cla_id"/>
+        <result property="tcId" column="tc_id"/>
+        <result property="scheduledAt" column="scheduled_at"/>
+        <result property="duration" column="duration"/>
+        <result property="types" column="types"/>
+        <result property="areas" column="areas"/>
+        <result property="methods" column="methods"/>
+        <result property="status" column="status"/>
+        <result property="reason" column="reason"/>
+        <result property="summary" column="summary"/>
+        <result property="nextSteps" column="next_steps"/>
+        <result property="useYn" column="use_yn"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="counselingInfoColumns">
+        id, cla_id, tc_id, scheduled_at, duration,
+        types, areas, methods, status, reason,
+        summary, next_steps, use_yn, created_by, updated_by, created_at, updated_at
+    </sql>
+
+    <select id="findAllCounselings" resultMap="counselingInfoResultMap">
+        /* CounselingInfoMapper.findAllCounselings */
+        SELECT <include refid="counselingInfoColumns"/>
+        FROM counseling_info
+        WHERE use_yn = 'Y'
+        ORDER BY scheduled_at DESC
+    </select>
+
+    <select id="findCounselingById" resultMap="counselingInfoResultMap">
+        /* CounselingInfoMapper.findCounselingById */
+        SELECT <include refid="counselingInfoColumns"/>
+        FROM counseling_info
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByClaIdOrderByScheduledAtDesc" resultMap="counselingInfoResultMap">
+        /* CounselingInfoMapper.findByClaIdOrderByScheduledAtDesc */
+        SELECT <include refid="counselingInfoColumns"/>
+        FROM counseling_info
+        WHERE cla_id = #{claId} AND use_yn = 'Y'
+        ORDER BY scheduled_at DESC
+    </select>
+
+    <select id="findByStatusOrderByScheduledAtDesc" resultMap="counselingInfoResultMap">
+        /* CounselingInfoMapper.findByStatusOrderByScheduledAtDesc */
+        SELECT <include refid="counselingInfoColumns"/>
+        FROM counseling_info
+        WHERE status = #{status} AND use_yn = 'Y'
+        ORDER BY scheduled_at DESC
+    </select>
+
+    <select id="findCounselingsByIds" resultMap="counselingInfoResultMap">
+        /* CounselingInfoMapper.findCounselingsByIds */
+        SELECT <include refid="counselingInfoColumns"/>
+        FROM counseling_info
+        WHERE id IN
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <insert id="insertCounseling" parameterType="com.vs.meta.domain.CounselingInfo" useGeneratedKeys="true" keyProperty="id">
+        /* CounselingInfoMapper.insertCounseling */
+        INSERT INTO counseling_info (cla_id, tc_id, scheduled_at, duration, types, areas, methods, status, reason, summary, next_steps, use_yn, created_by, updated_by, created_at, updated_at)
+        VALUES (#{claId}, #{tcId}, #{scheduledAt}, #{duration}, #{types}, #{areas}, #{methods}, #{status}, #{reason}, #{summary}, #{nextSteps}, 'Y', #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="updateCounseling" parameterType="com.vs.meta.domain.CounselingInfo">
+        /* CounselingInfoMapper.updateCounseling */
+        UPDATE counseling_info
+        SET cla_id = #{claId},
+            tc_id = #{tcId},
+            scheduled_at = #{scheduledAt},
+            duration = #{duration},
+            types = #{types},
+            areas = #{areas},
+            methods = #{methods},
+            status = #{status},
+            reason = #{reason},
+            summary = #{summary},
+            next_steps = #{nextSteps},
+            use_yn = #{useYn},
+            updated_by = #{updatedBy},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="deactivateCounselingById">
+        /* CounselingInfoMapper.deactivateCounselingById */
+        UPDATE counseling_info SET use_yn = 'N', updated_by = #{updatedBy}, updated_at = NOW() WHERE id = #{id}
+    </update>
+
+</mapper>

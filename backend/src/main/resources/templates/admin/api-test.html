@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 기능 테스트 - Meta Admin</title>
+    <th:block th:replace="admin/fragments :: css" />
+    <style>
+        /* 메인 탭 스타일 */
+        .main-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
+        .main-tab { padding: 12px 28px; background: #f8fafc; border: 1px solid #e2e8f0; border-bottom: none; border-radius: 12px 12px 0 0;
+                    cursor: pointer; font-size: .9375rem; font-weight: 700; color: #64748b; transition: all 0.15s; margin-right: 4px; }
+        .main-tab:hover { background: #f1f5f9; color: #0f172a; }
+        .main-tab.active { background: linear-gradient(135deg, #1e40af, #3b82f6); color: #fff; border-color: #1e40af; }
+        .main-section { display: none; }
+        .main-section.active { display: block; }
+
+        /* 서브 탭 스타일 */
+        .api-tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+        .api-tab { padding: 7px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px 8px 0 0;
+                   cursor: pointer; font-size: .8125rem; font-weight: 600; color: #64748b; transition: all 0.15s; }
+        .api-tab:hover { background: #f1f5f9; color: #0f172a; }
+        .api-tab.active { background: linear-gradient(135deg, #3b82f6, #6366f1); color: #fff; border-color: transparent; }
+        .api-panel { display: none; }
+        .api-panel.active { display: block; }
+        .api-panel h2 { font-size: .875rem; font-weight: 700; color: #2563eb; margin-bottom: 4px; font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        .api-panel .desc { font-size: .8125rem; color: #64748b; margin-bottom: 16px; }
+        .api-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+        .api-row > .api-field { flex: 1; min-width: 180px; }
+        .api-field label { display: block; font-size: .75rem; font-weight: 600; color: #475569 !important; margin-bottom: 4px; }
+        .api-field input, .api-field select, .api-field textarea {
+            width: 100%; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 8px;
+            font-family: inherit; font-size: .8125rem; color: #1e293b; background: #fff; }
+        .api-field input:focus, .api-field select:focus, .api-field textarea:focus {
+            outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .api-field input:disabled { background: #f8fafc; color: #94a3b8; }
+        .api-field textarea { height: 70px; font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace; resize: vertical; }
+        .api-field .hint { font-size: .75rem; color: #94a3b8; margin-top: 2px; }
+        .api-field select option { background: #fff; color: #1e293b; }
+        .config-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; padding: 12px 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
+        .config-bar label { font-size: .8125rem; font-weight: 600; color: #475569; white-space: nowrap; }
+        .config-bar input { padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit; font-size: .8125rem; color: #1e293b; background: #fff; flex: 1; min-width: 250px; }
+        .config-bar input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .status-dot.ok { background: #22c55e; }
+        .status-dot.err { background: #ef4444; }
+        .status-dot.pending { background: #f59e0b; }
+        .state-bar { display: flex; gap: 16px; flex-wrap: wrap; padding: 10px 16px; margin-bottom: 16px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; font-size: .8125rem; }
+        .state-bar .item { display: flex; gap: 4px; }
+        .state-bar .item .label { font-weight: 700; color: #d97706; }
+        .state-bar .item .value { color: #2563eb; font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .response-area { margin-top: 16px; }
+        .response-area h3 { font-size: .8125rem; color: #64748b; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+        .response-area h3 .status-code { padding: 2px 8px; border-radius: 6px; font-size: .75rem; color: #fff; font-weight: 600; }
+        .response-area h3 .status-code.s2xx { background: #16a34a; }
+        .response-area h3 .status-code.s4xx { background: #d97706; }
+        .response-area h3 .status-code.s5xx { background: #dc2626; }
+        .response-area pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 12px; border: 1px solid #1e293b;
+                             font-size: .8125rem; overflow-x: auto; max-height: 350px; overflow-y: auto; white-space: pre-wrap; line-height: 1.5; }
+        .api-btn-group { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+        /* 심리검사 탭 그룹 스타일 */
+        .dgnss-tab-group { margin-bottom: 8px; }
+        .dgnss-tab-group-title { font-size: .75rem; font-weight: 700; color: #64748b; margin-bottom: 6px; padding-left: 4px; }
+    </style>
+</head>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
+    <nav th:replace="admin/fragments :: navbar"></nav>
+    <aside th:replace="admin/fragments :: sidebar(menu='api-test')"></aside>
+
+    <div class="content-wrapper">
+        <section class="content-header">
+            <div class="container-fluid">
+                <h1>API 기능 테스트</h1>
+            </div>
+        </section>
+        <section class="content">
+            <div class="container-fluid">
+                <div class="card">
+                    <div class="card-body">
+
+        <!-- Config -->
+        <div class="config-bar">
+            <label>API Base URL:</label>
+            <input id="baseUrl" value="http://localhost:8081" />
+            <span id="statusDot" class="status-dot pending"></span>
+        </div>
+
+        <!-- Shared state -->
+        <div class="state-bar" id="stateBar">
+            <div class="item"><span class="label">email:</span><span class="value" id="st_email">-</span></div>
+            <div class="item"><span class="label">userNo:</span><span class="value" id="st_userNo">-</span></div>
+            <div class="item"><span class="label">claId:</span><span class="value" id="st_claId">-</span></div>
+            <div class="item"><span class="label">tcId:</span><span class="value" id="st_tcId">-</span></div>
+            <div class="item"><span class="label">stdtId:</span><span class="value" id="st_stdtId">-</span></div>
+            <div class="item"><span class="label">inviteCode:</span><span class="value" id="st_inviteCode">-</span></div>
+            <div class="item"><span class="label">accessToken:</span><span class="value" id="st_accessToken" style="max-width:300px">-</span></div>
+        </div>
+
+        <!-- 메인 탭 -->
+        <div class="main-tabs">
+            <div class="main-tab active" data-main="admin">ADMIN 호출</div>
+            <div class="main-tab" data-main="dgnss">심리검사</div>
+        </div>
+
+        <!-- ==================== ADMIN 섹션 ==================== -->
+        <div class="main-section active" id="section-admin">
+            <!-- Tabs -->
+            <div class="api-tabs">
+                <div class="api-tab active" data-tab="signup">1. 회원가입</div>
+                <div class="api-tab" data-tab="login">2. 로그인</div>
+                <div class="api-tab" data-tab="memberInfo">3. 회원조회</div>
+                <div class="api-tab" data-tab="groupCreate">4. 그룹생성</div>
+                <div class="api-tab" data-tab="groupJoin">5. 그룹참가</div>
+                <div class="api-tab" data-tab="groupJoinGuest">6. 게스트참가</div>
+                <div class="api-tab" data-tab="groupList">7. 그룹목록</div>
+                <div class="api-tab" data-tab="groupDetail">8. 그룹상세</div>
+                <div class="api-tab" data-tab="memoManage">9. 관찰메모</div>
+                <div class="api-tab" data-tab="counselManage">10. 상담관리</div>
+            </div>
+
+            <!-- 1. 회원가입 -->
+            <div class="api-panel active" id="panel-signup">
+                <h2>POST /member/signup</h2>
+                <p class="desc">통합 로그인 회원 → 플랫폼 user 생성</p>
+                <div class="api-row">
+                    <div class="api-field">
+                        <label>email</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input id="signup_email" value="test@example.com" style="flex:1" />
+                            <button class="btn btn-sm btn-default" id="signup_sendCodeBtn" onclick="doSendCode('signup')">인증코드 발송</button>
+                        </div>
+                        <div id="signup_emailStatus" class="hint" style="margin-top:4px"></div>
+                    </div>
+                    <div class="api-field"><label>password</label><input id="signup_password" type="password" placeholder="비밀번호 입력" /></div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field"><label>nickname</label><input id="signup_nickname" value="TestUser" /></div>
+                    <div class="api-field">
+                        <label>gender</label>
+                        <select id="signup_gender"><option value="M">남 (M)</option><option value="F">여 (F)</option></select>
+                    </div>
+                    <div class="api-field">
+                        <label>역할 선택</label>
+                        <select id="signup_roleCode"><option value="TEACHER">교사 (TEACHER)</option><option value="STUDENT">학생 (STUDENT)</option></select>
+                    </div>
+                </div>
+                <div id="signup_codeGroup" style="display:none;margin-top:10px">
+                    <div class="api-field" style="max-width:300px">
+                        <label>인증코드 (6자리)</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input id="signup_code" maxlength="6" placeholder="000000" style="flex:1" />
+                            <button class="btn btn-sm btn-default" id="signup_verifyBtn" onclick="doVerifyCode('signup')">인증확인</button>
+                        </div>
+                        <div id="signup_codeStatus" class="hint" style="margin-top:4px"></div>
+                    </div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doSignup()">회원가입</button></div>
+                <div class="response-area" id="resp-signup"></div>
+            </div>
+
+            <!-- 2. 로그인 -->
+            <div class="api-panel" id="panel-login">
+                <h2>POST /member/login</h2>
+                <p class="desc">비밀번호 확인 후 accessToken 반환</p>
+                <div class="api-row">
+                    <div class="api-field"><label>email</label><input id="login_email" value="test@example.com" /></div>
+                    <div class="api-field"><label>password</label><input id="login_password" type="password" placeholder="비밀번호 입력" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doLogin()">로그인</button></div>
+                <div class="response-area" id="resp-login"></div>
+            </div>
+
+            <!-- 3. 회원조회 -->
+            <div class="api-panel" id="panel-memberInfo">
+                <h2>GET /member/info</h2>
+                <p class="desc">회원 정보 조회 (tcId, stdtId 등 확인)</p>
+                <div class="api-field" style="max-width:300px">
+                    <label>userNo</label><input id="info_userNo" disabled placeholder="로그인 후 자동 설정" />
+                    <div class="hint">JWT 토큰에서 자동 설정됩니다</div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doMemberInfo()">조회</button></div>
+                <div class="response-area" id="resp-memberInfo"></div>
+            </div>
+
+            <!-- 4. 그룹생성 -->
+            <div class="api-panel" id="panel-groupCreate">
+                <h2>POST /group/create</h2>
+                <p class="desc">그룹 생성 (방장 역할, tc_id lazy 채번)</p>
+                <div class="api-row">
+                    <div class="api-field"><label>userNo (방장)</label><input id="gc_userNo" disabled placeholder="로그인 후 자동 설정" /><div class="hint">JWT 토큰에서 자동 설정됩니다</div></div>
+                    <div class="api-field"><label>groupNm</label><input id="gc_groupNm" value="Test Group" /></div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field"><label>grade (학년 숫자)</label><input id="gc_grade" type="number" min="1" max="12" value="3" /><div class="hint">초등 1~6, 중등 1~3, 고등 1~3</div></div>
+                    <div class="api-field"><label>groupDesc (선택)</label><input id="gc_groupDesc" placeholder="그룹 설명" /></div>
+                    <div class="api-field"><label>maxMemberCount</label><input id="gc_maxCount" type="number" value="40" /></div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field"><label>schoolLevel</label><select id="gc_schoolLevel"><option value="elementary">elementary (초등)</option><option value="middle">middle (중등)</option><option value="high">high (고등)</option></select></div>
+                    <div class="api-field"><label>classNumber</label><input id="gc_classNumber" type="number" value="1" min="1" /></div>
+                    <div class="api-field" style="position:relative">
+                        <label>schoolName (선택)</label>
+                        <input id="gc_schoolName" placeholder="학교명 입력 시 자동완성" autocomplete="off" />
+                        <div id="gc_schoolAC" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:999;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:0 0 8px 8px;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
+                    </div>
+                    <div class="api-field"><label>schoolCode (선택)</label><input id="gc_schoolCode" placeholder="자동 설정" readonly style="background:#f8fafc" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doGroupCreate()">그룹 생성</button></div>
+                <div class="response-area" id="resp-groupCreate"></div>
+            </div>
+
+            <!-- 5. 그룹참가 (회원) -->
+            <div class="api-panel" id="panel-groupJoin">
+                <h2>POST /group/join</h2>
+                <p class="desc">회원(STUDENT) 그룹 참가 (stdt_id lazy 채번)</p>
+                <div class="api-row">
+                    <div class="api-field"><label>userNo</label><input id="gj_userNo" disabled placeholder="로그인 후 자동 설정" /><div class="hint">JWT 토큰에서 자동 설정됩니다</div></div>
+                    <div class="api-field"><label>inviteCode (초대코드)</label><input id="gj_inviteCode" placeholder="ABC123" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doGroupJoin()">참가</button></div>
+                <div class="response-area" id="resp-groupJoin"></div>
+            </div>
+
+            <!-- 6. 게스트참가 -->
+            <div class="api-panel" id="panel-groupJoinGuest">
+                <h2>POST /group/join-guest</h2>
+                <p class="desc">게스트(GUEST) 그룹 참가 (매번 새 stdt_id)</p>
+                <div class="api-row">
+                    <div class="api-field"><label>inviteCode (초대코드)</label><input id="gjg_inviteCode" placeholder="ABC123" /></div>
+                    <div class="api-field"><label>nickname</label><input id="gjg_nickname" value="GuestUser" /></div>
+                    <div class="api-field">
+                        <label>gender</label>
+                        <select id="gjg_gender"><option value="M">남 (M)</option><option value="F">여 (F)</option></select>
+                    </div>
+                    <div class="api-field">
+                        <label>email</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input id="gjg_email" value="guest@example.com" style="flex:1" />
+                            <button class="btn btn-sm btn-default" id="gjg_sendCodeBtn" onclick="doSendCode('gjg')">인증코드 발송</button>
+                        </div>
+                        <div id="gjg_emailStatus" class="hint" style="margin-top:4px"></div>
+                    </div>
+                </div>
+                <div id="gjg_codeGroup" style="display:none;margin-top:10px">
+                    <div class="api-field" style="max-width:300px">
+                        <label>인증코드 (6자리)</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input id="gjg_code" maxlength="6" placeholder="000000" style="flex:1" />
+                            <button class="btn btn-sm btn-default" id="gjg_verifyBtn" onclick="doVerifyCode('gjg')">인증확인</button>
+                        </div>
+                        <div id="gjg_codeStatus" class="hint" style="margin-top:4px"></div>
+                    </div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doGroupJoinGuest()">게스트 참가</button></div>
+                <div class="response-area" id="resp-groupJoinGuest"></div>
+            </div>
+
+            <!-- 7. 그룹목록 -->
+            <div class="api-panel" id="panel-groupList">
+                <h2>GET /group/list</h2>
+                <p class="desc">내 그룹 목록 조회 (전체 반환, 페이징 없음)</p>
+                <div class="api-row">
+                    <div class="api-field"><label>userNo</label><input id="gl_userNo" disabled placeholder="로그인 후 자동 설정" /><div class="hint">JWT 토큰에서 자동 설정됩니다</div></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doGroupList()">조회</button></div>
+                <div class="response-area" id="resp-groupList"></div>
+            </div>
+
+            <!-- 8. 그룹상세 -->
+            <div class="api-panel" id="panel-groupDetail">
+                <h2>GET /group/detail</h2>
+                <p class="desc">그룹 상세 + 멤버 목록</p>
+                <div class="api-field" style="max-width:400px"><label>claId (학급 ID)</label><input id="gd_claId" placeholder="학급 UUID" /></div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doGroupDetail()">조회</button></div>
+                <div class="response-area" id="resp-groupDetail"></div>
+            </div>
+
+            <!-- 9. 관찰 메모 -->
+            <div class="api-panel" id="panel-memoManage">
+                <h2>관찰 메모 CRUD</h2>
+                <p class="desc">학생 관찰 메모 생성/조회/수정/삭제</p>
+                <div class="api-row">
+                    <div class="api-field"><label>studentId (학생 stdt_id)</label><input id="mm_studentId" placeholder="viva-s-00000001" /></div>
+                    <div class="api-field"><label>classId (학급 cla_id)</label><input id="mm_classId" placeholder="학급 ID" /></div>
+                    <div class="api-field"><label>tcId (서버 자동 설정)</label><input id="mm_tcId" disabled placeholder="JWT 토큰에서 자동 추출" /><div class="hint">로그인 토큰 기반으로 서버에서 자동 설정됩니다</div></div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field"><label>date (YYYY-MM-DD)</label><input id="mm_date" value="2026-03-12" /></div>
+                    <div class="api-field"><label>category</label><select id="mm_category"><option value="behavior">behavior</option><option value="academic">academic</option><option value="social">social</option><option value="emotion">emotion</option><option value="other">other</option></select></div>
+                    <div class="api-field"><label>isImportant</label><select id="mm_isImportant"><option value="false">false</option><option value="true">true</option></select></div>
+                </div>
+                <div class="api-field"><label>content</label><textarea id="mm_content" placeholder="관찰 메모 내용 입력"></textarea></div>
+                <div class="api-field" style="max-width:300px;margin-top:8px"><label>memoId (수정/삭제용)</label><input id="mm_memoId" placeholder="메모 ID" /></div>
+                <div class="api-btn-group">
+                    <button class="btn btn-primary btn-sm" onclick="doMemoList()">목록조회</button>
+                    <button class="btn btn-primary btn-sm" onclick="doMemoCreate()">생성</button>
+                    <button class="btn btn-default btn-sm" onclick="doMemoUpdate()">수정</button>
+                    <button class="btn btn-danger btn-sm" onclick="doMemoDelete()">삭제</button>
+                </div>
+                <div class="response-area" id="resp-memoManage"></div>
+            </div>
+
+            <!-- 10. 상담 관리 -->
+            <div class="api-panel" id="panel-counselManage">
+                <h2>상담 CRUD + 상태 관리</h2>
+                <p class="desc">상담 생성/조회/수정/완료/취소/삭제</p>
+                <div class="api-row">
+                    <div class="api-field"><label>classId (학급 cla_id)</label><input id="cm_classId" placeholder="학급 ID" /></div>
+                    <div class="api-field"><label>tcId (서버 자동 설정)</label><input id="cm_tcId" disabled placeholder="JWT 토큰에서 자동 추출" /><div class="hint">로그인 토큰 기반으로 서버에서 자동 설정됩니다</div></div>
+                    <div class="api-field"><label>scheduledAt (YYYY-MM-DD HH:mm)</label><input id="cm_scheduledAt" value="2026-03-12 14:30" /></div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field"><label>types (콤마 구분)</label><input id="cm_types" value="regular" /></div>
+                    <div class="api-field"><label>areas (콤마 구분)</label><input id="cm_areas" value="academic,emotion" /></div>
+                    <div class="api-field"><label>methods (콤마 구분)</label><input id="cm_methods" value="face-to-face" /></div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field"><label>studentId</label><input id="cm_stdtId" placeholder="viva-s-00000001" /></div>
+                    <div class="api-field"><label>studentName</label><input id="cm_stdtName" value="학생1" /></div>
+                    <div class="api-field"><label>studentNumber</label><input id="cm_stdtNumber" type="number" value="1" /></div>
+                </div>
+                <div class="api-field"><label>reason</label><input id="cm_reason" placeholder="상담 사유" /></div>
+                <div class="api-row" style="margin-top:8px">
+                    <div class="api-field"><label>counselingId (조회/수정/완료/취소/삭제용)</label><input id="cm_counselingId" placeholder="상담 ID" /></div>
+                    <div class="api-field"><label>duration (완료 시, 분)</label><input id="cm_duration" type="number" value="30" /></div>
+                </div>
+                <div class="api-field" style="margin-top:8px"><label>summary (완료 시 상담 내용)</label><input id="cm_summary" placeholder="상담 내용 요약" /></div>
+                <div class="api-field" style="margin-top:8px"><label>nextSteps (후속 조치)</label><input id="cm_nextSteps" placeholder="후속 조치" /></div>
+                <div class="api-btn-group">
+                    <button class="btn btn-primary btn-sm" onclick="doCounselGetAll()">전체조회</button>
+                    <button class="btn btn-primary btn-sm" onclick="doCounselCreate()">생성</button>
+                    <button class="btn btn-default btn-sm" onclick="doCounselGetById()">상세조회</button>
+                    <button class="btn btn-default btn-sm" onclick="doCounselUpdate()">수정</button>
+                    <button class="btn btn-primary btn-sm" onclick="doCounselComplete()">완료처리</button>
+                    <button class="btn btn-danger btn-sm" onclick="doCounselCancel()">취소</button>
+                    <button class="btn btn-danger btn-sm" onclick="doCounselDelete()">삭제</button>
+                </div>
+                <div class="response-area" id="resp-counselManage"></div>
+            </div>
+        </div><!-- /section-admin -->
+
+        <!-- ==================== 심리검사 섹션 ==================== -->
+        <div class="main-section" id="section-dgnss">
+            <!-- 심리검사 상태 바 -->
+            <div class="state-bar" style="background:#f0fdf4;border-color:#86efac;margin-bottom:16px">
+                <div class="item"><span class="label" style="color:#16a34a">dgnssId:</span><span class="value" id="st_dgnssId">-</span></div>
+                <div class="item"><span class="label" style="color:#16a34a">dgnssResultId:</span><span class="value" id="st_dgnssResultId">-</span></div>
+                <div class="item"><span class="label" style="color:#16a34a">omrIdx:</span><span class="value" id="st_omrIdx">-</span></div>
+                <div class="item"><span class="label" style="color:#16a34a">paperIdx:</span><span class="value" id="st_paperIdx">-</span></div>
+            </div>
+
+            <!-- 관리자용 테스트 ID 설정 패널 -->
+            <div id="dgnss-admin-panel" class="card" style="margin-bottom:16px;border:2px solid #8b5cf6;display:none">
+                <div class="card-header" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;padding:10px 16px">
+                    <h5 style="margin:0;font-size:.875rem;font-weight:700">관리자 모드 - 테스트 ID 설정</h5>
+                </div>
+                <div class="card-body" style="padding:16px">
+                    <div class="api-row">
+                        <div class="api-field">
+                            <label>학급 ID (claId)</label>
+                            <div style="display:flex;gap:6px">
+                                <input id="admin_claId" placeholder="학급 UUID 입력" style="flex:1" />
+                                <button class="btn btn-sm btn-primary" onclick="doAdminLoadMembers()">멤버 조회</button>
+                            </div>
+                        </div>
+                        <div class="api-field">
+                            <label>교사 선택 (tcId)</label>
+                            <select id="admin_tcId" onchange="doAdminApplyTcId()">
+                                <option value="">-- 교사 선택 --</option>
+                            </select>
+                        </div>
+                        <div class="api-field">
+                            <label>학생 선택 (stdtId)</label>
+                            <select id="admin_stdtId" onchange="doAdminApplyStdtId()">
+                                <option value="">-- 학생 선택 --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="admin_memberStatus" class="hint" style="margin-top:8px"></div>
+                </div>
+            </div>
+
+            <!-- 교사용 탭 -->
+            <div class="dgnss-tab-group">
+                <div class="dgnss-tab-group-title">교사용 API</div>
+                <div class="api-tabs" id="dgnss-tc-tabs">
+                    <div class="api-tab active" data-tab="dgnss-tc-list">목록조회</div>
+                    <div class="api-tab" data-tab="dgnss-tc-start">검사시작</div>
+                    <div class="api-tab" data-tab="dgnss-tc-end">검사종료</div>
+                    <div class="api-tab" data-tab="dgnss-tc-cancel">검사취소</div>
+                    <div class="api-tab" data-tab="dgnss-tc-restart">재시작</div>
+                    <div class="api-tab" data-tab="dgnss-tc-detail">상세조회</div>
+                    <div class="api-tab" data-tab="dgnss-tc-notsubm">미제출목록</div>
+                    <div class="api-tab" data-tab="dgnss-tc-analysis">종합분석</div>
+                    <div class="api-tab" data-tab="dgnss-tc-stlist">학생목록</div>
+                    <div class="api-tab" data-tab="dgnss-tc-need">상담필요</div>
+                    <div class="api-tab" data-tab="dgnss-tc-text">텍스트저장</div>
+                </div>
+            </div>
+
+            <!-- 학생용 탭 -->
+            <div class="dgnss-tab-group">
+                <div class="dgnss-tab-group-title">학생용 API</div>
+                <div class="api-tabs" id="dgnss-st-tabs">
+                    <div class="api-tab" data-tab="dgnss-st-list">목록조회</div>
+                    <div class="api-tab" data-tab="dgnss-st-start">검사시작</div>
+                    <div class="api-tab" data-tab="dgnss-st-new">새로하기</div>
+                    <div class="api-tab" data-tab="dgnss-st-answer">답입력</div>
+                    <div class="api-tab" data-tab="dgnss-st-submit">제출</div>
+                    <div class="api-tab" data-tab="dgnss-st-analysis">결과보기</div>
+                </div>
+            </div>
+
+            <!-- PDF/공통 탭 -->
+            <div class="dgnss-tab-group">
+                <div class="dgnss-tab-group-title">PDF/공통 API</div>
+                <div class="api-tabs" id="dgnss-pdf-tabs">
+                    <div class="api-tab" data-tab="dgnss-pdf-download">PDF다운로드</div>
+                    <div class="api-tab" data-tab="dgnss-pdf-search">PDF대상조회</div>
+                    <div class="api-tab" data-tab="dgnss-pdf-all">일괄다운로드</div>
+                    <div class="api-tab" data-tab="dgnss-summary">요약본업로드</div>
+                </div>
+            </div>
+
+            <!-- ===== 교사용 패널 ===== -->
+            <!-- 교사: 목록조회 -->
+            <div class="api-panel active" id="panel-dgnss-tc-list">
+                <h2>GET /api/dgnss/tc/info</h2>
+                <p class="desc">교사 - 학습심리정서검사 목록 조회</p>
+                <div class="api-row">
+                    <div class="api-field"><label>claId (학급 ID)</label><input id="dtl_claId" placeholder="eb1460dce8fc42889862e9a460beb4a0" /></div>
+                    <div class="api-field"><label>tcId (교사 ID)</label><input id="dtl_tcId" placeholder="rrmath016-t" /></div>
+                    <div class="api-field">
+                        <label>paperIdx (검사종류)</label>
+                        <select id="dtl_paperIdx">
+                            <option value="1">1 - 학습종합검사</option>
+                            <option value="2">2 - META 자기조절학습검사</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcList()">조회</button></div>
+                <div class="response-area" id="resp-dgnss-tc-list"></div>
+            </div>
+
+            <!-- 교사: 검사시작 -->
+            <div class="api-panel" id="panel-dgnss-tc-start">
+                <h2>POST /api/dgnss/tc/start</h2>
+                <p class="desc">교사 - 학습심리정서검사 시작 (학생 데이터 생성)</p>
+                <div class="api-row">
+                    <div class="api-field"><label>claId</label><input id="dts_claId" placeholder="eb1460dce8fc42889862e9a460beb4a0" /></div>
+                    <div class="api-field"><label>tcId</label><input id="dts_tcId" placeholder="rrmath016-t" /></div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field">
+                        <label>ordNo (회차)</label>
+                        <select id="dts_ordNo"><option value="1">1회차</option><option value="2">2회차</option></select>
+                    </div>
+                    <div class="api-field">
+                        <label>grade (학년정보)</label>
+                        <select id="dts_grade"><option value="el">el (초등)</option><option value="mi">mi (중등)</option><option value="hi">hi (고등)</option></select>
+                    </div>
+                    <div class="api-field">
+                        <label>paperIdx</label>
+                        <select id="dts_paperIdx"><option value="1">1 - 학습종합검사</option><option value="2">2 - META</option></select>
+                    </div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcStart()">검사 시작</button></div>
+                <div class="response-area" id="resp-dgnss-tc-start"></div>
+            </div>
+
+            <!-- 교사: 검사종료 -->
+            <div class="api-panel" id="panel-dgnss-tc-end">
+                <h2>POST /api/dgnss/tc/end</h2>
+                <p class="desc">교사 - 학습심리정서검사 종료</p>
+                <div class="api-row">
+                    <div class="api-field" style="max-width:300px"><label>dgnssId (심리검사 ID)</label><input id="dte_dgnssId" placeholder="1088" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcEnd()">검사 종료</button></div>
+                <div class="response-area" id="resp-dgnss-tc-end"></div>
+            </div>
+
+            <!-- 교사: 검사취소 -->
+            <div class="api-panel" id="panel-dgnss-tc-cancel">
+                <h2>POST /api/dgnss/tc/cancel</h2>
+                <p class="desc">교사 - 학습심리정서검사 취소 (데이터 삭제)</p>
+                <div class="api-row">
+                    <div class="api-field" style="max-width:300px"><label>dgnssId</label><input id="dtc_dgnssId" placeholder="1084" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-danger btn-sm" onclick="doDgnssTcCancel()">검사 취소</button></div>
+                <div class="response-area" id="resp-dgnss-tc-cancel"></div>
+            </div>
+
+            <!-- 교사: 재시작 -->
+            <div class="api-panel" id="panel-dgnss-tc-restart">
+                <h2>POST /api/dgnss/tc/restart</h2>
+                <p class="desc">교사 - 종료된 검사 재시작 (신규 학생 추가 배부)</p>
+                <div class="api-row">
+                    <div class="api-field"><label>dgnssId</label><input id="dtr_dgnssId" placeholder="1084" /></div>
+                    <div class="api-field"><label>claId</label><input id="dtr_claId" placeholder="eb1460dce8fc42889862e9a460beb4a0" /></div>
+                    <div class="api-field">
+                        <label>grade</label>
+                        <select id="dtr_grade"><option value="el">el</option><option value="mi">mi</option><option value="hi">hi</option></select>
+                    </div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcRestart()">재시작</button></div>
+                <div class="response-area" id="resp-dgnss-tc-restart"></div>
+            </div>
+
+            <!-- 교사: 상세조회 -->
+            <div class="api-panel" id="panel-dgnss-tc-detail">
+                <h2>GET /api/dgnss/tc/detail</h2>
+                <p class="desc">교사 - 심리검사 상세 정보</p>
+                <div class="api-row">
+                    <div class="api-field" style="max-width:300px"><label>dgnssId</label><input id="dtd_dgnssId" placeholder="882" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcDetail()">조회</button></div>
+                <div class="response-area" id="resp-dgnss-tc-detail"></div>
+            </div>
+
+            <!-- 교사: 미제출목록 -->
+            <div class="api-panel" id="panel-dgnss-tc-notsubm">
+                <h2>GET /api/dgnss/tc/notsubm</h2>
+                <p class="desc">교사 - 미제출 학생 목록</p>
+                <div class="api-row">
+                    <div class="api-field" style="max-width:300px"><label>dgnssId</label><input id="dtn_dgnssId" placeholder="883" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcNotsubm()">조회</button></div>
+                <div class="response-area" id="resp-dgnss-tc-notsubm"></div>
+            </div>
+
+            <!-- 교사: 종합분석 -->
+            <div class="api-panel" id="panel-dgnss-tc-analysis">
+                <h2>GET /api/dgnss/tc/analysis</h2>
+                <p class="desc">교사 - 대시보드 종합 분석</p>
+                <div class="api-row">
+                    <div class="api-field"><label>claId</label><input id="dta_claId" placeholder="eb1460dce8fc42889862e9a460beb4a0" /></div>
+                    <div class="api-field">
+                        <label>paperIdx</label>
+                        <select id="dta_paperIdx"><option value="1">1</option><option value="2">2</option></select>
+                    </div>
+                    <div class="api-field">
+                        <label>ordNo</label>
+                        <select id="dta_ordNo"><option value="1">1회차</option><option value="2">2회차</option></select>
+                    </div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcAnalysis()">조회</button></div>
+                <div class="response-area" id="resp-dgnss-tc-analysis"></div>
+            </div>
+
+            <!-- 교사: 학생목록 -->
+            <div class="api-panel" id="panel-dgnss-tc-stlist">
+                <h2>GET /api/dgnss/tc/stinfolist</h2>
+                <p class="desc">교사 - 대시보드 학생 목록</p>
+                <div class="api-row">
+                    <div class="api-field"><label>dgnssId</label><input id="dtst_dgnssId" placeholder="882" /></div>
+                    <div class="api-field">
+                        <label>paperIdx</label>
+                        <select id="dtst_paperIdx"><option value="1">1</option><option value="2">2</option></select>
+                    </div>
+                    <div class="api-field">
+                        <label>type</label>
+                        <select id="dtst_type">
+                            <option value="1">1 - 신뢰도</option>
+                            <option value="2">2 - 동기/긍정적자아</option>
+                            <option value="3">3 - 인지/메타인지</option>
+                            <option value="4">4 - 행동/지지적관계</option>
+                            <option value="5">5 - 학업스트레스</option>
+                            <option value="6">6 - 학업관계스트레스</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcStlist()">조회</button></div>
+                <div class="response-area" id="resp-dgnss-tc-stlist"></div>
+            </div>
+
+            <!-- 교사: 상담필요학생 -->
+            <div class="api-panel" id="panel-dgnss-tc-need">
+                <h2>GET /api/dgnss/tc/need</h2>
+                <p class="desc">교사 - 상담 및 지도가 필요한 학생</p>
+                <div class="api-row">
+                    <div class="api-field"><label>dgnssId</label><input id="dtneed_dgnssId" placeholder="1088" /></div>
+                    <div class="api-field">
+                        <label>paperIdx</label>
+                        <select id="dtneed_paperIdx"><option value="1">1</option><option value="2">2</option></select>
+                    </div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcNeed()">조회</button></div>
+                <div class="response-area" id="resp-dgnss-tc-need"></div>
+            </div>
+
+            <!-- 교사: 텍스트저장 -->
+            <div class="api-panel" id="panel-dgnss-tc-text">
+                <h2>POST /api/dgnss/tc/text/save</h2>
+                <p class="desc">교사 - 심리검사 코멘트 저장</p>
+                <div class="api-row">
+                    <div class="api-field"><label>dgnssId</label><input id="dttxt_dgnssId" placeholder="882" /></div>
+                </div>
+                <div class="api-field"><label>dgnssText (최대 500자)</label><textarea id="dttxt_text" placeholder="텍스트 내용"></textarea></div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcText()">저장</button></div>
+                <div class="response-area" id="resp-dgnss-tc-text"></div>
+            </div>
+
+            <!-- ===== 학생용 패널 ===== -->
+            <!-- 학생: 목록조회 -->
+            <div class="api-panel" id="panel-dgnss-st-list">
+                <h2>GET /api/dgnss/st/info</h2>
+                <p class="desc">학생 - 참여 가능한 심리검사 목록</p>
+                <div class="api-row">
+                    <div class="api-field"><label>claId</label><input id="dsl_claId" placeholder="eb1460dce8fc42889862e9a460beb4a0" /></div>
+                    <div class="api-field"><label>stdtId</label><input id="dsl_stdtId" placeholder="rrmath016-s1" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssStList()">조회</button></div>
+                <div class="response-area" id="resp-dgnss-st-list"></div>
+            </div>
+
+            <!-- 학생: 검사시작 -->
+            <div class="api-panel" id="panel-dgnss-st-start">
+                <h2>POST /api/dgnss/st/start</h2>
+                <p class="desc">학생 - 심리검사 시작 (문제목록 반환)</p>
+                <div class="api-row">
+                    <div class="api-field"><label>dgnssResultId</label><input id="dss_dgnssResultId" placeholder="12509" /></div>
+                    <div class="api-field">
+                        <label>paperIdx</label>
+                        <select id="dss_paperIdx"><option value="1">1</option><option value="2">2</option></select>
+                    </div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field"><label>page (0부터)</label><input id="dss_page" type="number" value="0" min="0" /></div>
+                    <div class="api-field"><label>size</label><input id="dss_size" type="number" value="20" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssStStart()">시작</button></div>
+                <div class="response-area" id="resp-dgnss-st-start"></div>
+            </div>
+
+            <!-- 학생: 새로하기 -->
+            <div class="api-panel" id="panel-dgnss-st-new">
+                <h2>GET /api/dgnss/st/new</h2>
+                <p class="desc">학생 - 심리검사 새로하기 (새 OMR 발급)</p>
+                <div class="api-row">
+                    <div class="api-field"><label>dgnssResultId</label><input id="dsn_dgnssResultId" placeholder="12509" /></div>
+                    <div class="api-field">
+                        <label>paperIdx</label>
+                        <select id="dsn_paperIdx"><option value="1">1</option><option value="2">2</option></select>
+                    </div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field"><label>page</label><input id="dsn_page" type="number" value="0" min="0" /></div>
+                    <div class="api-field"><label>size</label><input id="dsn_size" type="number" value="20" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssStNew()">새로하기</button></div>
+                <div class="response-area" id="resp-dgnss-st-new"></div>
+            </div>
+
+            <!-- 학생: 답입력 -->
+            <div class="api-panel" id="panel-dgnss-st-answer">
+                <h2>POST /api/dgnss/st/answer</h2>
+                <p class="desc">학생 - 문제 답 입력</p>
+                <div class="api-row">
+                    <div class="api-field"><label>omrIdx</label><input id="dsa_omrIdx" placeholder="1" /></div>
+                    <div class="api-field"><label>no (문항번호)</label><input id="dsa_no" type="number" value="1" min="1" /></div>
+                    <div class="api-field"><label>answer (1~5)</label><input id="dsa_answer" type="number" value="1" min="1" max="5" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssStAnswer()">답 저장</button></div>
+                <div class="response-area" id="resp-dgnss-st-answer"></div>
+            </div>
+
+            <!-- 학생: 제출 -->
+            <div class="api-panel" id="panel-dgnss-st-submit">
+                <h2>POST /api/dgnss/st/submit</h2>
+                <p class="desc">학생 - 심리검사 제출</p>
+                <div class="api-row">
+                    <div class="api-field" style="max-width:300px"><label>dgnssResultId</label><input id="dsub_dgnssResultId" placeholder="1717" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssStSubmit()">제출</button></div>
+                <div class="response-area" id="resp-dgnss-st-submit"></div>
+            </div>
+
+            <!-- 학생: 결과보기 -->
+            <div class="api-panel" id="panel-dgnss-st-analysis">
+                <h2>GET /api/dgnss/st/analysis</h2>
+                <p class="desc">학생 - 심리검사 결과 조회</p>
+                <div class="api-row">
+                    <div class="api-field"><label>stdtId (학생ID 기준 조회)</label><input id="dsan_stdtId" placeholder="rrmath016-s1" /></div>
+                    <div class="api-field"><label>dgnssResultId (특정 결과 조회)</label><input id="dsan_dgnssResultId" placeholder="12509" /></div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field">
+                        <label>paperIdx</label>
+                        <select id="dsan_paperIdx"><option value="1">1</option><option value="2">2</option></select>
+                    </div>
+                    <div class="api-field">
+                        <label>ordNo</label>
+                        <select id="dsan_ordNo"><option value="1">1회차</option><option value="2">2회차</option></select>
+                    </div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssStAnalysis()">조회</button></div>
+                <div class="response-area" id="resp-dgnss-st-analysis"></div>
+            </div>
+
+            <!-- ===== PDF 패널 ===== -->
+            <!-- PDF: 다운로드 -->
+            <div class="api-panel" id="panel-dgnss-pdf-download">
+                <h2>POST /api/dgnss/pdf</h2>
+                <p class="desc">PDF 다운로드 (개별)</p>
+                <div class="api-row">
+                    <div class="api-field"><label>userId (학생/교사 ID)</label><input id="dpd_userId" placeholder="mathbe2-s1" /></div>
+                    <div class="api-field">
+                        <label>userType</label>
+                        <select id="dpd_userType"><option value="S">S (학생)</option><option value="T">T (교사)</option></select>
+                    </div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field"><label>dgnssId</label><input id="dpd_dgnssId" placeholder="184" /></div>
+                    <div class="api-field"><label>answerIdx</label><input id="dpd_answerIdx" placeholder="1161" /></div>
+                    <div class="api-field">
+                        <label>ordNo</label>
+                        <select id="dpd_ordNo"><option value="1">1</option><option value="2">2</option></select>
+                    </div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssPdfDownload()">다운로드</button></div>
+                <div class="response-area" id="resp-dgnss-pdf-download"></div>
+            </div>
+
+            <!-- PDF: 대상조회 -->
+            <div class="api-panel" id="panel-dgnss-pdf-search">
+                <h2>GET /api/dgnss/pdf/search</h2>
+                <p class="desc">일괄다운로드 전 학생 목록 조회</p>
+                <div class="api-row">
+                    <div class="api-field"><label>dgnssId</label><input id="dps_dgnssId" placeholder="28" /></div>
+                    <div class="api-field">
+                        <label>type</label>
+                        <select id="dps_type"><option value="1">1 - 기존 PDF</option><option value="2">2 - 요약본 PDF</option></select>
+                    </div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssPdfSearch()">조회</button></div>
+                <div class="response-area" id="resp-dgnss-pdf-search"></div>
+            </div>
+
+            <!-- PDF: 일괄다운로드 -->
+            <div class="api-panel" id="panel-dgnss-pdf-all">
+                <h2>GET /api/dgnss/dgnss-download-all</h2>
+                <p class="desc">심리검사 PDF 일괄 다운로드 (ZIP)</p>
+                <div class="api-row">
+                    <div class="api-field"><label>dgnssId</label><input id="dpa_dgnssId" placeholder="184" /></div>
+                    <div class="api-field">
+                        <label>type</label>
+                        <select id="dpa_type"><option value="1">1 - 기존</option><option value="2">2 - 요약본</option></select>
+                    </div>
+                </div>
+                <div class="hint" style="margin:8px 0;color:#d97706">* 일괄다운로드는 새 창에서 ZIP 파일로 받습니다. accessToken이 필요합니다.</div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssPdfAll()">일괄 다운로드</button></div>
+                <div class="response-area" id="resp-dgnss-pdf-all"></div>
+            </div>
+
+            <!-- PDF: 요약본업로드 -->
+            <div class="api-panel" id="panel-dgnss-summary">
+                <h2>POST /api/dgnss/summary/pdf</h2>
+                <p class="desc">심리검사 요약본 PDF 생성 및 CDN 업로드</p>
+                <div class="api-row">
+                    <div class="api-field" style="max-width:300px"><label>answerIdx</label><input id="dsum_answerIdx" placeholder="12679" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssSummary()">업로드</button></div>
+                <div class="response-area" id="resp-dgnss-summary"></div>
+            </div>
+
+        </div><!-- /section-dgnss -->
+
+                    </div><!-- /card-body -->
+                </div><!-- /card -->
+            </div>
+        </section>
+    </div>
+</div>
+<th:block th:replace="admin/fragments :: js" />
+<script>
+    const state = {};
+    function updateState(key, value) {
+        if (value != null && value !== '') {
+            state[key] = value;
+            const el = document.getElementById('st_' + key);
+            if (el) el.textContent = value;
+        }
+    }
+
+    // 메인 탭 전환
+    document.querySelectorAll('.main-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.main-section').forEach(s => s.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('section-' + tab.dataset.main).classList.add('active');
+        });
+    });
+
+    // ADMIN 섹션 서브 탭 전환
+    document.querySelectorAll('#section-admin .api-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#section-admin .api-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#section-admin .api-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        });
+    });
+
+    // 심리검사 섹션 서브 탭 전환
+    document.querySelectorAll('#section-dgnss .api-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#section-dgnss .api-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#section-dgnss .api-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        });
+    });
+
+    function baseUrl() { return document.getElementById('baseUrl').value.replace(/\/$/, ''); }
+    function showResponse(containerId, status, data, elapsed) {
+        const dot = document.getElementById('statusDot');
+        dot.className = 'status-dot ' + (status < 300 ? 'ok' : 'err');
+        if (!containerId) return;
+        const container = document.getElementById(containerId);
+        const statusClass = status < 300 ? 's2xx' : status < 500 ? 's4xx' : 's5xx';
+        let json;
+        try { json = typeof data === 'string' ? data : JSON.stringify(data, null, 2); } catch { json = String(data); }
+        container.innerHTML = `<h3>응답 <span class="status-code ${statusClass}">${status}</span> <span class="hint">${elapsed}ms</span></h3><pre>${escapeHtml(json)}</pre>`;
+    }
+    function showError(containerId, err) {
+        document.getElementById('statusDot').className = 'status-dot err';
+        if (!containerId) return;
+        document.getElementById(containerId).innerHTML = `<h3>오류</h3><pre style="color:#f87171">${escapeHtml(err.message || String(err))}</pre>`;
+    }
+    function escapeHtml(str) { return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    async function apiCall(method, path, body, respId) {
+        const url = baseUrl() + path;
+        const h = { 'Content-Type': 'application/json' };
+        if (state.accessToken) h['Authorization'] = 'Bearer ' + state.accessToken;
+        const opts = { method, headers: h };
+        if (body && method !== 'GET') opts.body = JSON.stringify(body);
+        const t0 = Date.now();
+        try {
+            const res = await fetch(url, opts);
+            const elapsed = Date.now() - t0;
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch { data = text; }
+            showResponse(respId, res.status, data, elapsed);
+            return data;
+        } catch (e) {
+            showError(respId, e);
+            return null;
+        }
+    }
+
+    // ========== ADMIN 기존 함수들 ==========
+    const emailVerified = {}; const cooldownTimers = {};
+    async function doSendCode(prefix) { const email = document.getElementById(prefix + '_email').value.trim(); if (!email) { alert('이메일을 입력하세요.'); return; } const statusEl = document.getElementById(prefix + '_emailStatus'); const btn = document.getElementById(prefix + '_sendCodeBtn'); statusEl.textContent = '발송 중...'; statusEl.style.color = '#6c757d'; btn.disabled = true; document.getElementById(prefix + '_codeGroup').style.display = ''; document.getElementById(prefix + '_code').value = ''; emailVerified[prefix] = false; try { const res = await apiCall('POST', '/member/send-code', { email }, null); if (res && res.success === true) { statusEl.textContent = '인증코드가 발송되었습니다.'; statusEl.style.color = '#007bff'; document.getElementById(prefix + '_code').focus(); startCooldown(prefix, btn); } else { statusEl.textContent = (res && res.resultMessage) || '발송 실패'; statusEl.style.color = '#dc3545'; btn.disabled = false; } } catch (e) { statusEl.textContent = '발송 중 오류 발생'; statusEl.style.color = '#dc3545'; btn.disabled = false; } }
+    function startCooldown(prefix, btn) { let remaining = 60; btn.textContent = `재발송 (${remaining}s)`; if (cooldownTimers[prefix]) clearInterval(cooldownTimers[prefix]); cooldownTimers[prefix] = setInterval(() => { remaining--; if (remaining <= 0) { clearInterval(cooldownTimers[prefix]); btn.textContent = '인증코드 발송'; btn.disabled = false; } else btn.textContent = `재발송 (${remaining}s)`; }, 1000); }
+    async function doVerifyCode(prefix) { const email = document.getElementById(prefix + '_email').value.trim(); const code = document.getElementById(prefix + '_code').value.trim(); if (!code) { alert('인증코드를 입력하세요.'); return; } const statusEl = document.getElementById(prefix + '_codeStatus'); statusEl.textContent = '확인 중...'; statusEl.style.color = '#6c757d'; try { const res = await apiCall('POST', '/member/verify-code', { email, code }, null); if (res && res.success === true) { statusEl.innerHTML = '<b style="color:#28a745">인증완료</b>'; emailVerified[prefix] = true; document.getElementById(prefix + '_code').disabled = true; document.getElementById(prefix + '_verifyBtn').disabled = true; document.getElementById(prefix + '_email').disabled = true; const sendBtn = document.getElementById(prefix + '_sendCodeBtn'); sendBtn.disabled = true; if (cooldownTimers[prefix]) clearInterval(cooldownTimers[prefix]); sendBtn.textContent = '인증완료'; } else { statusEl.textContent = (res && res.resultMessage) || '인증 실패'; statusEl.style.color = '#dc3545'; } } catch (e) { statusEl.textContent = '인증 확인 중 오류'; statusEl.style.color = '#dc3545'; } }
+    async function doSignup() { if (!emailVerified['signup']) { alert('이메일 인증을 먼저 완료하세요.'); return; } const body = { password: document.getElementById('signup_password').value, email: document.getElementById('signup_email').value, nickname: document.getElementById('signup_nickname').value, gender: document.getElementById('signup_gender').value, roleCode: document.getElementById('signup_roleCode').value }; const res = await apiCall('POST', '/member/signup', body, 'resp-signup'); if (res && res.resultData) { updateState('email', res.resultData.email); updateState('userNo', res.resultData.userNo); } }
+    async function doLogin() { const body = { email: document.getElementById('login_email').value, password: document.getElementById('login_password').value }; const res = await apiCall('POST', '/member/login', body, 'resp-login'); if (res && res.resultData) { const d = res.resultData; updateState('email', d.email); updateState('userNo', d.userNo); updateState('tcId', d.tcId); updateState('stdtId', d.stdtId); updateState('accessToken', d.accessToken); updateState('roleCode', d.roleCode); ['info_userNo','gc_userNo','gj_userNo','gl_userNo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = d.userNo; }); checkAdminMode(); } }
+    // 관리자 모드 체크 및 패널 표시
+    function checkAdminMode() {
+        const adminPanel = document.getElementById('dgnss-admin-panel');
+        // 관리자 페이지에 로그인했으므로 관리자 권한으로 간주 (또는 roleCode 체크)
+        if (state.accessToken) {
+            adminPanel.style.display = 'block';
+        }
+    }
+    // 그룹 멤버 조회
+    async function doAdminLoadMembers() {
+        const claId = document.getElementById('admin_claId').value.trim();
+        if (!claId) { alert('학급 ID를 입력하세요.'); return; }
+        const statusEl = document.getElementById('admin_memberStatus');
+        statusEl.textContent = '멤버 조회 중...';
+        statusEl.style.color = '#6c757d';
+        const res = await apiCall('GET', `/group/detail?claId=${encodeURIComponent(claId)}`, null, null);
+        if (res && res.resultData) {
+            const members = res.resultData.members || [];
+            const tcSelect = document.getElementById('admin_tcId');
+            const stSelect = document.getElementById('admin_stdtId');
+            // 교사 목록
+            tcSelect.innerHTML = '<option value="">-- 교사 선택 --</option>';
+            members.filter(m => m.tcId).forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.tcId;
+                opt.textContent = `${m.nickname || m.tcId} (${m.tcId})`;
+                tcSelect.appendChild(opt);
+            });
+            // 학생 목록
+            stSelect.innerHTML = '<option value="">-- 학생 선택 --</option>';
+            members.filter(m => m.stdtId).forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.stdtId;
+                opt.textContent = `${m.nickname || m.stdtId} (${m.stdtId})`;
+                stSelect.appendChild(opt);
+            });
+            // claId를 모든 관련 필드에 반영
+            applyDgnssClaId(claId);
+            statusEl.innerHTML = `<span style="color:#16a34a">조회 완료: 교사 ${tcSelect.options.length - 1}명, 학생 ${stSelect.options.length - 1}명</span>`;
+        } else {
+            statusEl.textContent = '멤버 조회 실패';
+            statusEl.style.color = '#dc3545';
+        }
+    }
+    // claId를 모든 심리검사 관련 필드에 반영
+    function applyDgnssClaId(claId) {
+        const fields = ['dtl_claId','dts_claId','dtr_claId','dta_claId','dsl_claId'];
+        fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = claId; });
+        updateState('claId', claId);
+    }
+    // 교사 ID 선택 시 모든 tcId 필드에 반영
+    function doAdminApplyTcId() {
+        const tcId = document.getElementById('admin_tcId').value;
+        if (!tcId) return;
+        const fields = ['dtl_tcId','dts_tcId'];
+        fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = tcId; });
+        updateState('tcId', tcId);
+    }
+    // 학생 ID 선택 시 모든 stdtId 필드에 반영
+    function doAdminApplyStdtId() {
+        const stdtId = document.getElementById('admin_stdtId').value;
+        if (!stdtId) return;
+        const fields = ['dsl_stdtId','dsan_stdtId','dpd_userId'];
+        fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = stdtId; });
+        updateState('stdtId', stdtId);
+    }
+    async function doMemberInfo() { const res = await apiCall('GET', '/member/info', null, 'resp-memberInfo'); if (res && res.resultData) { const d = res.resultData; updateState('email', d.email); updateState('userNo', d.userNo); updateState('tcId', d.tcId); updateState('stdtId', d.stdtId); } }
+    async function doGroupCreate() { const body = { groupNm: document.getElementById('gc_groupNm').value, grade: document.getElementById('gc_grade').value || '3', groupDesc: document.getElementById('gc_groupDesc').value || undefined, maxMemberCount: parseInt(document.getElementById('gc_maxCount').value) || undefined, schoolLevel: document.getElementById('gc_schoolLevel').value || undefined, classNumber: parseInt(document.getElementById('gc_classNumber').value) || undefined, schoolName: document.getElementById('gc_schoolName').value || undefined, schoolCode: document.getElementById('gc_schoolCode').value || undefined }; const res = await apiCall('POST', '/group/create', body, 'resp-groupCreate'); if (res && res.resultData) { const d = res.resultData; updateState('claId', d.claId); updateState('inviteCode', d.inviteCode); const af = { 'gj_inviteCode': d.inviteCode, 'gjg_inviteCode': d.inviteCode, 'gd_claId': d.claId, 'mm_classId': d.claId, 'cm_classId': d.claId, 'dtl_claId': d.claId, 'dts_claId': d.claId, 'dtr_claId': d.claId, 'dta_claId': d.claId, 'dsl_claId': d.claId, 'admin_claId': d.claId }; Object.entries(af).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val || ''; }); } }
+    async function doGroupJoin() { const body = { inviteCode: document.getElementById('gj_inviteCode').value }; const res = await apiCall('POST', '/group/join', body, 'resp-groupJoin'); if (res && res.resultData) updateState('stdtId', res.resultData.stdtId); }
+    async function doGroupJoinGuest() { if (!emailVerified['gjg']) { alert('이메일 인증을 먼저 완료하세요.'); return; } const body = { inviteCode: document.getElementById('gjg_inviteCode').value, nickname: document.getElementById('gjg_nickname').value, gender: document.getElementById('gjg_gender').value, email: document.getElementById('gjg_email').value }; await apiCall('POST', '/group/join-guest', body, 'resp-groupJoinGuest'); }
+    async function doGroupList() { await apiCall('GET', '/group/list', null, 'resp-groupList'); }
+    async function doGroupDetail() { const claId = document.getElementById('gd_claId').value; await apiCall('GET', `/group/detail?claId=${encodeURIComponent(claId)}`, null, 'resp-groupDetail'); }
+    async function doMemoList() { const studentId = document.getElementById('mm_studentId').value; await apiCall('GET', `/api/memos/student/${encodeURIComponent(studentId)}`, null, 'resp-memoManage'); }
+    async function doMemoCreate() { const body = { studentId: document.getElementById('mm_studentId').value, classId: document.getElementById('mm_classId').value, date: document.getElementById('mm_date').value, category: document.getElementById('mm_category').value, content: document.getElementById('mm_content').value, isImportant: document.getElementById('mm_isImportant').value === 'true' }; const res = await apiCall('POST', '/api/memos', body, 'resp-memoManage'); if (res && res.resultData && res.resultData.id) document.getElementById('mm_memoId').value = res.resultData.id; }
+    async function doMemoUpdate() { const memoId = document.getElementById('mm_memoId').value; if (!memoId) { alert('memoId를 입력하세요'); return; } const body = {}; const date = document.getElementById('mm_date').value; const category = document.getElementById('mm_category').value; const content = document.getElementById('mm_content').value; const isImportant = document.getElementById('mm_isImportant').value; if (date) body.date = date; if (category) body.category = category; if (content) body.content = content; body.isImportant = isImportant === 'true'; await apiCall('PATCH', `/api/memos/${memoId}`, body, 'resp-memoManage'); }
+    async function doMemoDelete() { const memoId = document.getElementById('mm_memoId').value; if (!memoId) { alert('memoId를 입력하세요'); return; } if (!confirm('메모를 삭제하시겠습니까?')) return; await apiCall('DELETE', `/api/memos/${memoId}`, null, 'resp-memoManage'); }
+    async function doCounselGetAll() { await apiCall('GET', '/api/counseling', null, 'resp-counselManage'); }
+    async function doCounselGetById() { const id = document.getElementById('cm_counselingId').value; if (!id) { alert('counselingId를 입력하세요'); return; } await apiCall('GET', `/api/counseling/${id}`, null, 'resp-counselManage'); }
+    async function doCounselCreate() { const body = { classId: document.getElementById('cm_classId').value, scheduledAt: document.getElementById('cm_scheduledAt').value, types: document.getElementById('cm_types').value.split(',').map(s => s.trim()).filter(Boolean), areas: document.getElementById('cm_areas').value.split(',').map(s => s.trim()).filter(Boolean), methods: document.getElementById('cm_methods').value.split(',').map(s => s.trim()).filter(Boolean), status: 'scheduled', reason: document.getElementById('cm_reason').value || undefined, students: [{ id: document.getElementById('cm_stdtId').value, name: document.getElementById('cm_stdtName').value, number: parseInt(document.getElementById('cm_stdtNumber').value) || 1, classId: document.getElementById('cm_classId').value }] }; const res = await apiCall('POST', '/api/counseling', body, 'resp-counselManage'); if (res && res.resultData && res.resultData.id) document.getElementById('cm_counselingId').value = res.resultData.id; }
+    async function doCounselUpdate() { const id = document.getElementById('cm_counselingId').value; if (!id) { alert('counselingId를 입력하세요'); return; } const body = { scheduledAt: document.getElementById('cm_scheduledAt').value || undefined, types: document.getElementById('cm_types').value.split(',').map(s => s.trim()).filter(Boolean), areas: document.getElementById('cm_areas').value.split(',').map(s => s.trim()).filter(Boolean), methods: document.getElementById('cm_methods').value.split(',').map(s => s.trim()).filter(Boolean), reason: document.getElementById('cm_reason').value || undefined }; await apiCall('PATCH', `/api/counseling/${id}`, body, 'resp-counselManage'); }
+    async function doCounselComplete() { const id = document.getElementById('cm_counselingId').value; if (!id) { alert('counselingId를 입력하세요'); return; } const body = { duration: parseInt(document.getElementById('cm_duration').value) || 30, summary: document.getElementById('cm_summary').value, nextSteps: document.getElementById('cm_nextSteps').value || undefined }; await apiCall('POST', `/api/counseling/${id}/complete`, body, 'resp-counselManage'); }
+    async function doCounselCancel() { const id = document.getElementById('cm_counselingId').value; if (!id) { alert('counselingId를 입력하세요'); return; } if (!confirm('상담을 취소하시겠습니까?')) return; await apiCall('POST', `/api/counseling/${id}/cancel`, {}, 'resp-counselManage'); }
+    async function doCounselDelete() { const id = document.getElementById('cm_counselingId').value; if (!id) { alert('counselingId를 입력하세요'); return; } if (!confirm('상담을 삭제하시겠습니까?')) return; await apiCall('DELETE', `/api/counseling/${id}`, null, 'resp-counselManage'); }
+    // 학교명 자동완성
+    (function() {
+        const input = document.getElementById('gc_schoolName');
+        const acBox = document.getElementById('gc_schoolAC');
+        const codeInput = document.getElementById('gc_schoolCode');
+        let timer = null;
+        input.addEventListener('input', function() {
+            clearTimeout(timer);
+            const q = this.value.trim();
+            if (q.length < 2) { acBox.style.display = 'none'; return; }
+            timer = setTimeout(async () => {
+                const level = document.getElementById('gc_schoolLevel').value || '';
+                try {
+                    const res = await fetch('/admin/schools/search?keyword=' + encodeURIComponent(q) + (level ? '&schoolLevel=' + level : ''));
+                    const list = await res.json();
+                    if (!list.length) { acBox.style.display = 'none'; return; }
+                    acBox.innerHTML = list.map(s =>
+                        `<div style="padding:8px 12px;cursor:pointer;font-size:.8125rem;border-bottom:1px solid #f1f5f9" data-code="${escapeHtml(s.schoolCode)}" data-name="${escapeHtml(s.schoolName)}">`
+                        + `<b>${escapeHtml(s.schoolName)}</b> <span style="color:#94a3b8;font-size:.75rem">${escapeHtml(s.region)} · ${escapeHtml(s.schoolCode)}</span></div>`
+                    ).join('');
+                    acBox.style.display = 'block';
+                    acBox.querySelectorAll('div').forEach(div => {
+                        div.addEventListener('mouseenter', () => div.style.background = '#f1f5f9');
+                        div.addEventListener('mouseleave', () => div.style.background = '#fff');
+                        div.addEventListener('click', () => {
+                            input.value = div.dataset.name;
+                            codeInput.value = div.dataset.code;
+                            acBox.style.display = 'none';
+                        });
+                    });
+                } catch(e) { acBox.style.display = 'none'; }
+            }, 300);
+        });
+        document.addEventListener('click', (e) => { if (!input.contains(e.target) && !acBox.contains(e.target)) acBox.style.display = 'none'; });
+    })();
+
+    // ========== 심리검사 (DGNSS) 함수들 ==========
+    // 교사용
+    async function doDgnssTcList() {
+        const claId = document.getElementById('dtl_claId').value;
+        const tcId = document.getElementById('dtl_tcId').value;
+        const paperIdx = document.getElementById('dtl_paperIdx').value;
+        const res = await apiCall('GET', `/api/dgnss/tc/info?claId=${encodeURIComponent(claId)}&tcId=${encodeURIComponent(tcId)}&paperIdx=${paperIdx}`, null, 'resp-dgnss-tc-list');
+        if (res && res.resultData && res.resultData.dgnssInfo && res.resultData.dgnssInfo.length > 0) {
+            const d = res.resultData.dgnssInfo[0];
+            updateState('dgnssId', d.dgnssId);
+            updateState('paperIdx', d.paperIdx);
+        }
+    }
+    async function doDgnssTcStart() {
+        const body = {
+            claId: document.getElementById('dts_claId').value,
+            tcId: document.getElementById('dts_tcId').value,
+            ordNo: parseInt(document.getElementById('dts_ordNo').value),
+            grade: document.getElementById('dts_grade').value,
+            paperIdx: parseInt(document.getElementById('dts_paperIdx').value)
+        };
+        const res = await apiCall('POST', '/api/dgnss/tc/start', body, 'resp-dgnss-tc-start');
+        if (res && res.resultData) {
+            updateState('dgnssId', res.resultData.dgnssId);
+        }
+    }
+    async function doDgnssTcEnd() {
+        const body = { dgnssId: parseInt(document.getElementById('dte_dgnssId').value) };
+        await apiCall('POST', '/api/dgnss/tc/end', body, 'resp-dgnss-tc-end');
+    }
+    async function doDgnssTcCancel() {
+        if (!confirm('검사를 취소하시겠습니까? 관련 데이터가 삭제됩니다.')) return;
+        const body = { dgnssId: parseInt(document.getElementById('dtc_dgnssId').value) };
+        await apiCall('POST', '/api/dgnss/tc/cancel', body, 'resp-dgnss-tc-cancel');
+    }
+    async function doDgnssTcRestart() {
+        const body = {
+            dgnssId: parseInt(document.getElementById('dtr_dgnssId').value),
+            claId: document.getElementById('dtr_claId').value,
+            grade: document.getElementById('dtr_grade').value
+        };
+        await apiCall('POST', '/api/dgnss/tc/restart', body, 'resp-dgnss-tc-restart');
+    }
+    async function doDgnssTcDetail() {
+        const dgnssId = document.getElementById('dtd_dgnssId').value;
+        await apiCall('GET', `/api/dgnss/tc/detail?dgnssId=${dgnssId}`, null, 'resp-dgnss-tc-detail');
+    }
+    async function doDgnssTcNotsubm() {
+        const dgnssId = document.getElementById('dtn_dgnssId').value;
+        await apiCall('GET', `/api/dgnss/tc/notsubm?dgnssId=${dgnssId}`, null, 'resp-dgnss-tc-notsubm');
+    }
+    async function doDgnssTcAnalysis() {
+        const claId = document.getElementById('dta_claId').value;
+        const paperIdx = document.getElementById('dta_paperIdx').value;
+        const ordNo = document.getElementById('dta_ordNo').value;
+        await apiCall('GET', `/api/dgnss/tc/analysis?claId=${encodeURIComponent(claId)}&paperIdx=${paperIdx}&ordNo=${ordNo}`, null, 'resp-dgnss-tc-analysis');
+    }
+    async function doDgnssTcStlist() {
+        const dgnssId = document.getElementById('dtst_dgnssId').value;
+        const paperIdx = document.getElementById('dtst_paperIdx').value;
+        const type = document.getElementById('dtst_type').value;
+        await apiCall('GET', `/api/dgnss/tc/stinfolist?dgnssId=${dgnssId}&paperIdx=${paperIdx}&type=${type}`, null, 'resp-dgnss-tc-stlist');
+    }
+    async function doDgnssTcNeed() {
+        const dgnssId = document.getElementById('dtneed_dgnssId').value;
+        const paperIdx = document.getElementById('dtneed_paperIdx').value;
+        await apiCall('GET', `/api/dgnss/tc/need?dgnssId=${dgnssId}&paperIdx=${paperIdx}`, null, 'resp-dgnss-tc-need');
+    }
+    async function doDgnssTcText() {
+        const body = {
+            dgnssId: parseInt(document.getElementById('dttxt_dgnssId').value),
+            dgnssText: document.getElementById('dttxt_text').value
+        };
+        await apiCall('POST', '/api/dgnss/tc/text/save', body, 'resp-dgnss-tc-text');
+    }
+
+    // 학생용
+    async function doDgnssStList() {
+        const claId = document.getElementById('dsl_claId').value;
+        const stdtId = document.getElementById('dsl_stdtId').value;
+        const res = await apiCall('GET', `/api/dgnss/st/info?claId=${encodeURIComponent(claId)}&stdtId=${encodeURIComponent(stdtId)}`, null, 'resp-dgnss-st-list');
+        if (res && res.resultData && res.resultData.dgnssInfo && res.resultData.dgnssInfo.length > 0) {
+            const d = res.resultData.dgnssInfo[0];
+            updateState('dgnssId', d.dgnssId);
+            updateState('dgnssResultId', d.dgnssResultId);
+            updateState('paperIdx', d.paperIdx);
+        }
+    }
+    async function doDgnssStStart() {
+        const body = {
+            dgnssResultId: parseInt(document.getElementById('dss_dgnssResultId').value),
+            paperIdx: parseInt(document.getElementById('dss_paperIdx').value),
+            page: parseInt(document.getElementById('dss_page').value),
+            size: parseInt(document.getElementById('dss_size').value)
+        };
+        const res = await apiCall('POST', '/api/dgnss/st/start', body, 'resp-dgnss-st-start');
+        if (res && res.resultData) {
+            updateState('omrIdx', res.resultData.omrIdx);
+        }
+    }
+    async function doDgnssStNew() {
+        const dgnssResultId = document.getElementById('dsn_dgnssResultId').value;
+        const paperIdx = document.getElementById('dsn_paperIdx').value;
+        const page = document.getElementById('dsn_page').value;
+        const size = document.getElementById('dsn_size').value;
+        const res = await apiCall('GET', `/api/dgnss/st/new?dgnssResultId=${dgnssResultId}&paperIdx=${paperIdx}&page=${page}&size=${size}`, null, 'resp-dgnss-st-new');
+        if (res && res.resultData) {
+            updateState('omrIdx', res.resultData.omrIdx);
+        }
+    }
+    async function doDgnssStAnswer() {
+        const body = {
+            omrIdx: parseInt(document.getElementById('dsa_omrIdx').value),
+            no: parseInt(document.getElementById('dsa_no').value),
+            answer: parseInt(document.getElementById('dsa_answer').value)
+        };
+        await apiCall('POST', '/api/dgnss/st/answer', body, 'resp-dgnss-st-answer');
+    }
+    async function doDgnssStSubmit() {
+        const body = { dgnssResultId: parseInt(document.getElementById('dsub_dgnssResultId').value) };
+        await apiCall('POST', '/api/dgnss/st/submit', body, 'resp-dgnss-st-submit');
+    }
+    async function doDgnssStAnalysis() {
+        const stdtId = document.getElementById('dsan_stdtId').value;
+        const dgnssResultId = document.getElementById('dsan_dgnssResultId').value;
+        const paperIdx = document.getElementById('dsan_paperIdx').value;
+        const ordNo = document.getElementById('dsan_ordNo').value;
+        let url = '/api/dgnss/st/analysis?paperIdx=' + paperIdx + '&ordNo=' + ordNo;
+        if (stdtId) url += '&stdtId=' + encodeURIComponent(stdtId);
+        if (dgnssResultId) url += '&dgnssResultId=' + dgnssResultId;
+        await apiCall('GET', url, null, 'resp-dgnss-st-analysis');
+    }
+
+    // PDF
+    async function doDgnssPdfDownload() {
+        const body = {
+            userId: document.getElementById('dpd_userId').value,
+            userType: document.getElementById('dpd_userType').value,
+            dgnssId: parseInt(document.getElementById('dpd_dgnssId').value),
+            answerIdx: parseInt(document.getElementById('dpd_answerIdx').value),
+            ordNo: parseInt(document.getElementById('dpd_ordNo').value)
+        };
+        await apiCall('POST', '/api/dgnss/pdf', body, 'resp-dgnss-pdf-download');
+    }
+    async function doDgnssPdfSearch() {
+        const dgnssId = document.getElementById('dps_dgnssId').value;
+        const type = document.getElementById('dps_type').value;
+        await apiCall('GET', `/api/dgnss/pdf/search?dgnssId=${dgnssId}&type=${type}`, null, 'resp-dgnss-pdf-search');
+    }
+    async function doDgnssPdfAll() {
+        if (!state.accessToken) { alert('로그인 후 accessToken이 필요합니다.'); return; }
+        const dgnssId = document.getElementById('dpa_dgnssId').value;
+        const type = document.getElementById('dpa_type').value;
+        const url = baseUrl() + `/api/dgnss/dgnss-download-all?jwtToken=${encodeURIComponent(state.accessToken)}&dgnssId=${dgnssId}&type=${type}`;
+        window.open(url, '_blank');
+        document.getElementById('resp-dgnss-pdf-all').innerHTML = '<h3>응답</h3><pre>새 창에서 ZIP 다운로드가 시작됩니다.</pre>';
+    }
+    async function doDgnssSummary() {
+        const body = { answerIdx: parseInt(document.getElementById('dsum_answerIdx').value) };
+        await apiCall('POST', '/api/dgnss/summary/pdf', body, 'resp-dgnss-summary');
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.school.mapper.SchoolInfoMapper">
+
+    <resultMap id="schoolInfoResultMap" type="com.vs.meta.domain.SchoolInfo">
+        <id property="schoolCode" column="school_code"/>
+        <result property="schoolName" column="school_name"/>
+        <result property="schoolLevel" column="school_level"/>
+        <result property="region" column="region"/>
+        <result property="district" column="district"/>
+        <result property="status" column="status"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="upsertSchoolBatch">
+        /* SchoolInfoMapper.upsertSchoolBatch */
+        INSERT INTO school_info (
+            school_code, school_name, school_level, region, district, status,
+            created_by, updated_by, created_at, updated_at
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.schoolCode}, #{item.schoolName}, #{item.schoolLevel}, #{item.region}, #{item.district}, #{item.status},
+             #{item.createdBy}, #{item.updatedBy}, #{item.createdAt}, #{item.updatedAt})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            school_name = VALUES(school_name),
+            school_level = VALUES(school_level),
+            region = VALUES(region),
+            district = VALUES(district),
+            status = VALUES(status),
+            updated_by = VALUES(updated_by),
+            updated_at = VALUES(updated_at)
+    </insert>
+
+    <select id="countSchools" resultType="long">
+        /* SchoolInfoMapper.countSchools */
+        SELECT COUNT(*)
+        FROM school_info
+    </select>
+
+    <select id="findByKeyword" resultMap="schoolInfoResultMap">
+        /* SchoolInfoMapper.findByKeyword */
+        SELECT school_code, school_name, school_level, region, district, status,
+               created_by, updated_by, created_at, updated_at
+        FROM school_info
+        WHERE (#{keyword} IS NULL OR school_name LIKE CONCAT('%', #{keyword}, '%'))
+          AND (#{schoolLevel} IS NULL OR school_level = #{schoolLevel})
+        ORDER BY school_name ASC
+    </select>
+
+    <select id="findSchoolsPaged" resultMap="schoolInfoResultMap">
+        /* SchoolInfoMapper.findSchoolsPaged */
+        SELECT school_code, school_name, school_level, region, district, status,
+               created_by, updated_by, created_at, updated_at
+        FROM school_info
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (school_name LIKE CONCAT('%',#{keyword},'%') OR school_code LIKE CONCAT('%',#{keyword},'%'))
+            </if>
+            <if test="schoolLevel != null and schoolLevel != ''">
+                AND school_level = #{schoolLevel}
+            </if>
+            <if test="region != null and region != ''">
+                AND region LIKE CONCAT('%',#{region},'%')
+            </if>
+        </where>
+        ORDER BY school_name ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <update id="closeSchoolsNotIn">
+        /* SchoolInfoMapper.closeSchoolsNotIn */
+        UPDATE school_info
+        SET status = 'CLOSED',
+            updated_by = 0,
+            updated_at = NOW()
+        WHERE status = 'ACTIVE'
+          AND school_code NOT IN
+        <foreach collection="schoolCodes" item="code" open="(" separator="," close=")">
+            #{code}
+        </foreach>
+    </update>
+
+    <select id="countSchoolsPaged" resultType="long">
+        /* SchoolInfoMapper.countSchoolsPaged */
+        SELECT COUNT(*)
+        FROM school_info
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (school_name LIKE CONCAT('%',#{keyword},'%') OR school_code LIKE CONCAT('%',#{keyword},'%'))
+            </if>
+            <if test="schoolLevel != null and schoolLevel != ''">
+                AND school_level = #{schoolLevel}
+            </if>
+            <if test="region != null and region != ''">
+                AND region LIKE CONCAT('%',#{region},'%')
+            </if>
+        </where>
+    </select>
+
+    <select id="existsBySchoolCode" resultType="boolean">
+        /* SchoolInfoMapper.existsBySchoolCode */
+        SELECT COUNT(*) > 0
+        FROM school_info
+        WHERE school_code = #{schoolCode}
+    </select>
+
+</mapper>

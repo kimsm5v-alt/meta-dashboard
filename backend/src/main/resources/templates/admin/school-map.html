@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>학교 매핑 - Meta Admin</title>
+    <th:block th:replace="admin/fragments :: css" />
+</head>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
+    <nav th:replace="admin/fragments :: navbar"></nav>
+    <aside th:replace="admin/fragments :: sidebar(menu='school-map')"></aside>
+
+    <div class="content-wrapper">
+        <section class="content-header">
+            <div class="container-fluid">
+                <h1>학교 매핑</h1>
+            </div>
+        </section>
+        <section class="content">
+            <div class="container-fluid">
+                <!-- 알림 -->
+                <div th:if="${success}" class="alert alert-success alert-dismissible">
+                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                    <span th:text="${success}"></span>
+                </div>
+                <div th:if="${error}" class="alert alert-danger alert-dismissible">
+                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                    <span th:text="${error}"></span>
+                </div>
+
+                <!-- 사용자 검색 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">사용자 검색</h3>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/admin/school-map}" method="get" class="form-inline">
+                            <div class="form-group mr-2">
+                                <label class="mr-2">사용자 번호 (userNo)</label>
+                                <input name="userNo" th:value="${searchUserNo}" class="form-control form-control-sm" required placeholder="userNo" type="number" />
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm">검색</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 사용자 없음 -->
+                <div th:if="${searchUserNo != null && targetUser == null}" class="alert alert-danger">
+                    사용자를 찾을 수 없습니다: <span th:text="${searchUserNo}"></span>
+                </div>
+
+                <!-- 2단 레이아웃 (사용자 검색 후) -->
+                <div th:if="${targetUser != null}" class="row">
+
+                    <!-- 좌측: 사용자 정보 + 현재 매핑 -->
+                    <div class="col-lg-5">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-user mr-1"></i>
+                                    <span th:text="${targetUser.email}"></span>
+                                    <span class="badge badge-info ml-2" th:text="${targetUser.roleCode}"></span>
+                                </h3>
+                                <div class="card-tools">
+                                    <form th:action="@{/admin/school-map/revoke}" method="post" style="display:inline;">
+                                        <input type="hidden" name="userNo" th:value="${targetUser.userNo}" />
+                                        <button type="submit" class="btn btn-danger btn-xs"
+                                                onclick="return confirm('모든 매핑을 해제하시겠습니까?')">
+                                            <i class="fas fa-times-circle"></i> 전체 해제
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted small mb-3"
+                                   th:text="'No.' + ${targetUser.userNo} + ' / ' + ${targetUser.nickname}"></p>
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-sm">
+                                        <thead class="thead-light">
+                                            <tr>
+                                                <th>학교명</th>
+                                                <th>학교코드</th>
+                                                <th>부여자</th>
+                                                <th>등록일</th>
+                                                <th style="width:50px;">해제</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="m : ${mappings}">
+                                                <td th:text="${m.schoolName}"></td>
+                                                <td class="code-cell" th:text="${m.schoolCode}"></td>
+                                                <td class="text-muted" th:text="${m.grantedBy}"></td>
+                                                <td class="text-muted"
+                                                    th:text="${m.createdAt != null} ? ${#temporals.format(m.createdAt, 'yyyy-MM-dd HH:mm')} : '-'"></td>
+                                                <td>
+                                                    <form th:action="@{/admin/school-map/revoke-one}" method="post" style="display:inline;">
+                                                        <input type="hidden" name="userNo" th:value="${targetUser.userNo}" />
+                                                        <input type="hidden" name="schoolCode" th:value="${m.schoolCode}" />
+                                                        <button type="submit" class="btn btn-danger btn-xs"
+                                                                onclick="return confirm('이 학교 매핑을 해제하시겠습니까?')">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                            <tr th:if="${#lists.isEmpty(mappings)}">
+                                                <td colspan="5" class="text-center text-muted py-4">매핑된 학교가 없습니다</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="card-footer text-muted small"
+                                 th:text="'매핑 ' + ${#lists.size(mappings)} + '건'"></div>
+                        </div>
+                    </div>
+
+                    <!-- 우측: 학교 목록 + 체크박스 -->
+                    <div class="col-lg-7">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-school mr-1"></i> 학교 목록
+                                    <small class="text-muted" th:text="'(총 ' + ${total} + '개)'"></small>
+                                </h3>
+                            </div>
+                            <div class="card-body">
+                                <!-- 필터 -->
+                                <form th:action="@{/admin/school-map}" method="get" class="filter-bar">
+                                    <input type="hidden" name="userNo" th:value="${targetUser.userNo}" />
+                                    <div class="form-group">
+                                        <label>검색어</label>
+                                        <input name="schoolKeyword" th:value="${schoolKeyword}" class="form-control form-control-sm" placeholder="학교명/코드" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>학교급</label>
+                                        <select name="schoolLevel" class="form-control form-control-sm">
+                                            <option value="">전체</option>
+                                            <option value="elementary" th:selected="${schoolLevel == 'elementary'}">초등학교</option>
+                                            <option value="middle" th:selected="${schoolLevel == 'middle'}">중학교</option>
+                                            <option value="high" th:selected="${schoolLevel == 'high'}">고등학교</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>지역</label>
+                                        <input name="schoolRegion" th:value="${schoolRegion}" class="form-control form-control-sm" placeholder="시/도" />
+                                    </div>
+                                    <div class="form-group" style="align-self:flex-end;">
+                                        <button type="submit" class="btn btn-primary btn-sm">검색</button>
+                                        <a th:href="@{/admin/school-map(userNo=${targetUser.userNo})}" class="btn btn-default btn-sm">초기화</a>
+                                    </div>
+                                </form>
+
+                                <!-- 학교 테이블 + 체크박스 -->
+                                <form th:action="@{/admin/school-map/assign}" method="post" id="assignForm">
+                                    <input type="hidden" name="userNo" th:value="${targetUser.userNo}" />
+                                    <div class="table-responsive">
+                                        <table class="table table-hover table-sm">
+                                            <thead class="thead-light">
+                                                <tr>
+                                                    <th style="width:40px;text-align:center;">
+                                                        <input type="checkbox" id="checkAll" title="전체 선택" />
+                                                    </th>
+                                                    <th>학교명</th>
+                                                    <th>학교코드</th>
+                                                    <th>학교급</th>
+                                                    <th>지역</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr th:each="school : ${schools}"
+                                                    th:classappend="${#lists.contains(mappedSchoolCodes, school.schoolCode)} ? 'table-active'">
+                                                    <td class="text-center">
+                                                        <input type="checkbox" name="schoolCodes"
+                                                               th:value="${school.schoolCode}"
+                                                               th:checked="${#lists.contains(mappedSchoolCodes, school.schoolCode)}"
+                                                               th:disabled="${#lists.contains(mappedSchoolCodes, school.schoolCode)}"
+                                                               class="school-cb" />
+                                                    </td>
+                                                    <td th:text="${school.schoolName}"></td>
+                                                    <td class="code-cell" th:text="${school.schoolCode}"></td>
+                                                    <td>
+                                                        <span class="badge"
+                                                              th:classappend="${school.schoolLevel == 'elementary'} ? 'badge-success' : (${school.schoolLevel == 'middle'} ? 'badge-info' : 'badge-warning')"
+                                                              th:text="${school.schoolLevel == 'elementary' ? '초등' : (school.schoolLevel == 'middle' ? '중학' : '고등')}"></span>
+                                                    </td>
+                                                    <td class="text-muted" th:text="${school.region}"></td>
+                                                </tr>
+                                                <tr th:if="${#lists.isEmpty(schools)}">
+                                                    <td colspan="5" class="text-center text-muted py-4">검색 결과가 없습니다</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="mt-2">
+                                        <button type="submit" class="btn btn-primary btn-sm" id="assignBtn" disabled>
+                                            <i class="fas fa-link"></i> 선택 매핑
+                                            <span class="badge badge-light ml-1" id="selectedCount">0</span>
+                                        </button>
+                                    </div>
+                                </form>
+
+                                <!-- 페이징 -->
+                                <th:block th:replace="admin/fragments :: pagination('/admin/school-map',
+                                    ${(searchUserNo != null ? '&amp;userNo=' + searchUserNo : '')
+                                    + (schoolKeyword != null ? '&amp;schoolKeyword=' + schoolKeyword : '')
+                                    + (schoolLevel != null ? '&amp;schoolLevel=' + schoolLevel : '')
+                                    + (schoolRegion != null ? '&amp;schoolRegion=' + schoolRegion : '')})" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 사용자 미선택 시 학교 목록만 표시 -->
+                <div th:if="${targetUser == null}" class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-school mr-1"></i> 학교 목록
+                            <small class="text-muted" th:text="'(총 ' + ${total} + '개)'"></small>
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/admin/school-map}" method="get" class="filter-bar">
+                            <div class="form-group">
+                                <label>검색어</label>
+                                <input name="schoolKeyword" th:value="${schoolKeyword}" class="form-control form-control-sm" placeholder="학교명/코드" />
+                            </div>
+                            <div class="form-group">
+                                <label>학교급</label>
+                                <select name="schoolLevel" class="form-control form-control-sm">
+                                    <option value="">전체</option>
+                                    <option value="elementary" th:selected="${schoolLevel == 'elementary'}">초등학교</option>
+                                    <option value="middle" th:selected="${schoolLevel == 'middle'}">중학교</option>
+                                    <option value="high" th:selected="${schoolLevel == 'high'}">고등학교</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>지역</label>
+                                <input name="schoolRegion" th:value="${schoolRegion}" class="form-control form-control-sm" placeholder="시/도" />
+                            </div>
+                            <div class="form-group" style="align-self:flex-end;">
+                                <button type="submit" class="btn btn-primary btn-sm">검색</button>
+                                <a href="/admin/school-map" class="btn btn-default btn-sm">초기화</a>
+                            </div>
+                        </form>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>학교명</th>
+                                        <th>학교코드</th>
+                                        <th>학교급</th>
+                                        <th>지역</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="school : ${schools}">
+                                        <td th:text="${school.schoolName}"></td>
+                                        <td class="code-cell" th:text="${school.schoolCode}"></td>
+                                        <td>
+                                            <span class="badge"
+                                                  th:classappend="${school.schoolLevel == 'elementary'} ? 'badge-success' : (${school.schoolLevel == 'middle'} ? 'badge-info' : 'badge-warning')"
+                                                  th:text="${school.schoolLevel == 'elementary' ? '초등' : (school.schoolLevel == 'middle' ? '중학' : '고등')}"></span>
+                                        </td>
+                                        <td class="text-muted" th:text="${school.region}"></td>
+                                    </tr>
+                                    <tr th:if="${#lists.isEmpty(schools)}">
+                                        <td colspan="4" class="text-center text-muted py-4">검색 결과가 없습니다</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <th:block th:replace="admin/fragments :: pagination('/admin/school-map',
+                            ${(schoolKeyword != null ? '&amp;schoolKeyword=' + schoolKeyword : '')
+                            + (schoolLevel != null ? '&amp;schoolLevel=' + schoolLevel : '')
+                            + (schoolRegion != null ? '&amp;schoolRegion=' + schoolRegion : '')})" />
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+<th:block th:replace="admin/fragments :: js" />
+<script th:if="${targetUser != null}">
+$(function(){
+    function updateCount(){
+        var c = $('.school-cb:checked:not(:disabled)').length;
+        $('#selectedCount').text(c);
+        $('#assignBtn').prop('disabled', c === 0);
+    }
+    $('#checkAll').on('change', function(){
+        $('.school-cb:not(:disabled)').prop('checked', this.checked);
+        updateCount();
+    });
+    $(document).on('change', '.school-cb', function(){
+        if(!this.checked) $('#checkAll').prop('checked', false);
+        updateCount();
+    });
+    $('#assignForm').on('submit', function(e){
+        if($('.school-cb:checked:not(:disabled)').length === 0){
+            e.preventDefault();
+            alert('매핑할 학교를 선택해주세요.');
+        }
+    });
+    updateCount();
+});
+</script>
+</body>
+</html>

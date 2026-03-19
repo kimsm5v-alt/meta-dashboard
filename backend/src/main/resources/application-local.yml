@@ -1,0 +1,38 @@
+spring:
+  thymeleaf:
+    cache: false
+  datasource:
+    hikari:
+      master:
+        driver-class-name: net.sf.log4jdbc.sql.jdbcapi.DriverSpy
+        jdbc-url: jdbc:log4jdbc:mysql://localhost:5006/viva_meta?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+        username: vsncp2dba
+        password: Qltkdelql!12
+      slave:
+        driver-class-name: net.sf.log4jdbc.sql.jdbcapi.DriverSpy
+        jdbc-url: jdbc:log4jdbc:mysql://localhost:5006/viva_meta?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+        username: vsncp2dba
+        password: Qltkdelql!12
+
+# JWT (local)
+META_API_JWT_SECRET: "Qltkdtjqj!12Uu8H#N$er@4Lj6!z3Pf&Bxz7r8yQ#2M8&cH$"
+
+# NCP Cloud Outbound Mailer (local)
+ncp:
+  mail:
+    access-key: FCC43769EA1650D91C31
+    secret-key: 9CBCBB14C0D5592A38FB5FF83243BDF5CCE9DA72
+
+logging:
+  level:
+    root: INFO
+    com.vs.meta: DEBUG
+    jdbc: OFF
+    jdbc.sqltiming: DEBUG
+    jdbc.sqlonly: OFF
+
+# NCP Object Storage (S3)
+cloud:
+  aws:
+    nas:
+      path: ${VLMSAPI_CLOUD_AWS_NAS_PATH:/files/nas/engl/}

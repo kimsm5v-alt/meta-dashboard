@@ -1,203 +1,119 @@
-# META 학습심리정서검사 AI 에이전트 대시보드
+# Meta Dashboard Monorepo
 
-> 교사용 학생 진단 결과 분석 및 맞춤형 코칭 전략 제공 시스템
-
-## 프로젝트 개요
-
-META 학습종합검사 결과를 기반으로 학생 진단 결과를 분석하고, 교사가 학생 상담 및 학급 운영에 효과적으로 활용할 수 있도록 지원하는 AI 기반 교사 지원 시스템입니다.
-
-### META 학습종합검사
-
-| 항목 | 내용 |
-|------|------|
-| 대상 | 초등학생, 중학생 |
-| 측정 | 38개 학습심리정서 요인 (T점수) |
-| 구조 | 5대 영역 → 11개 중분류 → 38개 요인 |
-| 차수 | 연 2회 (1차: 3월, 2차: 9월) |
-
-### 핵심 기능
-
-| 기능 | 설명 |
-|------|------|
-| **그룹 관리** | 학급 그룹 생성, 초대 코드/QR로 학생 초대, 회원/게스트 지원 |
-| **검사 관리** | 검사 세션 생성, QR 코드 발급, 진행률 추적 |
-| **3단계 대시보드** | 전체 반(L1) → 특정 반(L2) → 특정 학생(L3) 계층적 탐색 |
-| **LPA 유형 분류** | 38개 T점수 패턴 기반 3가지 유형 자동 분류 |
-| **차수별 비교** | 1차/2차 검사 결과 변화 추적 |
-| **AI 분석** | Gemini 2.5 Flash 기반 학생 분석, 학급 분석, 코칭 전략 |
-| **AI 어시스턴트** | 멀티턴 대화, 7개 RAG 데이터 소스, 컨텍스트 모드 지원 |
-| **상담 일정** | 주간/월간 캘린더, 상담 기록 CRUD |
-| **생활기록부** | 카테고리별 AI 문구 자동 생성 |
-
-## 빠른 시작
-
-### 설치 및 실행
-
-```bash
-# 저장소 클론
-git clone <repository-url>
-cd meta-dashboard
-
-# 의존성 설치
-npm install
-
-# 개발 서버 실행 (http://localhost:5173)
-npm run dev
-
-# 프로덕션 빌드
-npm run build
-```
-
-### 환경 변수 설정
-
-```bash
-# .env.example을 복사하여 .env 생성
-cp .env.example .env
-```
-
-```env
-# Google Gemini API (필수)
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
-
-# 백엔드 API
-VITE_API_BASE_URL=https://t-vcloudapi.vsaidt.com
-```
-
-## 기술 스택
-
-| 분류 | 기술 |
-|------|------|
-| Framework | React 18 + TypeScript + Vite |
-| Styling | TailwindCSS |
-| Charts | Recharts, @nivo/bar |
-| Routing | React Router v6 |
-| AI | Google Gemini 2.5 Flash |
-| Icons | Lucide React |
-| Date | date-fns |
+비상교육 학습심리정서검사 AI 프로젝트입니다.
+이 프로젝트는 **폴리글랏 모노레포(Polyglot Monorepo)** 구조로 설계되어 있으며, Nx를 통해 통합 관리됩니다.
 
 ## 프로젝트 구조
 
-```
-src/
-├── app/                          # 앱 설정
-│   ├── App.tsx
-│   ├── Layout.tsx
-│   ├── MinimalLayout.tsx
-│   └── routes.tsx
-├── features/                     # 기능별 모듈
-│   ├── ai-room/                  # AI 어시스턴트
-│   ├── assessment/               # 검사 관리
-│   ├── auth/                     # 인증
-│   ├── class-dashboard/          # L2/L2.5 학급 대시보드
-│   ├── exam/                     # 학생 검사 응시
-│   ├── groups/                   # 그룹 관리
-│   ├── landing/                  # 랜딩 페이지
-│   ├── schedule/                 # 상담일정
-│   ├── student-dashboard/        # L3 학생 대시보드
-│   └── teacher-dashboard/        # L1 교사 대시보드
-└── shared/                       # 공유 리소스
-    ├── components/               # 공통 컴포넌트
-    ├── config/                   # 설정 (Feature Flags 등)
-    ├── contexts/                 # React Context
-    ├── data/                     # 데이터 및 상수
-    ├── hooks/                    # 공통 훅
-    ├── services/                 # API 서비스
-    ├── styles/                   # 전역 스타일
-    ├── types/                    # 타입 정의
-    └── utils/                    # 유틸리티
-```
+프로젝트는 서비스 성격에 따라 주요 모듈로 구성되어 있습니다. 각 모듈은 독립적인 기술 스택을 가지며 Nx를 통해 연결됩니다.
 
-## 라우트 구조
-
-### 공개 영역 (사이드바 없음)
-
-| 경로 | 설명 |
-|------|------|
-| `/` | 랜딩 페이지 |
-| `/login` | 로그인 |
-| `/exam` | 검사 코드 입력 |
-| `/exam/:code` | 학생 검사 응시 |
-| `/join/:code` | 그룹 가입 (초대 코드) |
-
-### 보호 영역 (사이드바 있음, 로그인 필요)
-
-| 경로 | 설명 |
-|------|------|
-| `/groups` | 그룹 관리 (목록) |
-| `/groups/:groupId` | 그룹 상세 (멤버 관리) |
-| `/assessment` | 검사하기 (검사 생성/관리) |
-| `/dashboard` | L1: 교사 전체 반 대시보드 |
-| `/dashboard/class/:classId` | L2: 반별 대시보드 |
-| `/dashboard/class/:classId/analysis` | L2.5: 학급 상세 분석 |
-| `/dashboard/class/:classId/student/:studentId` | L3: 학생 대시보드 |
-| `/schedule` | 상담일정 (캘린더) |
-| `/ai-room` | AI 어시스턴트 |
-
-## LPA 유형 분류
-
-### 초등
-
-| 유형 | 비율 | 특징 |
-|------|------|------|
-| 자원소진형 | 30.55% | 심리자원 낮음, 스트레스 높음 |
-| 안전균형형 | 35.47% | 전반적 균형, 점검능력 약함 |
-| 몰입자원풍부형 | 33.98% | 동기 높음, 시험전략 보완 필요 |
-
-### 중등
-
-| 유형 | 비율 | 특징 |
-|------|------|------|
-| 무기력형 | 35.4% | 동기 저하, 목표 설정 어려움 |
-| 정서조절취약형 | 38.0% | 스트레스 관리 미흡, 불안 경향 |
-| 자기주도몰입형 | 26.6% | 자율적 학습, 높은 성취동기 |
-
-## AI 기능
-
-| Feature | 사용처 | 설명 |
-|---------|--------|------|
-| `analysis` | L3 학생 대시보드 | 11개 중분류 → 3문장 요약 |
-| `record` | L3 우측 패널 | 생활기록부 문구 생성 (5개 카테고리) |
-| `dataHelper` | L3 플로팅 챗봇 | 7개 사전 정의 질문 해석 |
-| `assistant` | AI Room | 멀티턴 대화, 7개 RAG 데이터 소스 |
-| `classAnalysis` | L2.5 상세 분석 | 학급 전체 특성 요약 |
-
-## 개인정보 보호
-
-AI 에이전트 전송 시 PII 마스킹 적용:
-
-| 데이터 | AI 전송 |
-|--------|:-------:|
-| 이름, 학번, 생년월일, 학교명 | 마스킹 |
-| 학교급, 학년, 유형, T점수 | 허용 |
-
-## Feature Flags
-
-`src/shared/config/features.ts`에서 기능별 활성화/비활성화 관리:
-
-```typescript
-export const FEATURES = {
-  DASHBOARD: true,
-  AI_ROOM: true,
-  SCHEDULE: true,
-  GROUPS: true,
-  ASSESSMENT: true,
-  COUNSELING_DASHBOARD: false,  // 추후 구현
-  RESOURCES: false,              // 추후 구현
-  COMMUNITY: false,              // 추후 구현
-} as const;
-```
-
-## 문서
-
-| 문서 | 설명 |
-|------|------|
-| [CLAUDE.md](CLAUDE.md) | AI 코딩 가이드 |
-| [docs/PRD.md](docs/PRD.md) | 제품 요구사항 문서 |
-| [docs/IA.md](docs/IA.md) | 정보 구조 |
-| [docs/api-endpoints.md](docs/api-endpoints.md) | API 명세 |
+| 모듈명 | 기술 스택 | 설명 | 핵심 디자인 패턴 |
+| :--- | :--- | :--- | :--- |
+| **frontend** | React, TypeScript, Vite | 실제 프로덕션 대응을 위한 신규 프론트엔드 | Component-based, Hooks |
+| **prototype** | React, TypeScript, Vite | 대시보드 UI/UX 프로토타입 (사전 테스트 및 참고용) | Repository Pattern, Feature-based |
+| **backend** | Java, Spring Boot 3.x | 핵심 비즈니스 로직 및 API | Layered Architecture (DDD Lite) |
+| **agent** | Python 3.11+, FastAPI | AI 에이전트 및 모델 연동 | Strategy Pattern, Pipeline Pattern |
 
 ---
 
-**Version**: 2.0.0
-**Last Updated**: 2026-03-10
-**License**: Proprietary
+## 실행 및 빌드 방법
+
+프로젝트의 모든 제어는 **프로젝트 루트 디렉토리**에서## 1. 사전 요구사항 (Prerequisites)
+
+이 프로젝트를 실행하기 위해 각 운영체제별로 다음 도구들이 설치되어 있어야 합니다.
+
+### 공통 필수 사항
+- **Node.js**: v18 이상 추천 ([설치 페이지](https://nodejs.org/))
+- **Git**: 코드 클론 및 관리용
+
+---
+
+### Mac (macOS)
+1. **Homebrew 설치** (기본 패키지 관리자):
+   ```bash
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
+2. **Python & pyenv**:
+   ```bash
+   brew install pyenv
+   pyenv install 3.11.9
+   pyenv global 3.11.9
+   ```
+3. **Java (JDK 17)**:
+   ```bash
+   brew install openjdk@17
+   # 환경 변수 설정
+   sudo ln -sfn /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-17.jdk
+   echo 'export PATH="/opt/homebrew/opt/openjdk@17/bin:$PATH"' >> ~/.zshrc
+   source ~/.zshrc
+   ```
+
+### Windows
+1. **Python**: [Official Python Downloads](https://www.python.org/downloads/windows/)에서 3.10 이상 설치 (설치 시 'Add Python to PATH' 반드시 체크)
+2. **Java (JDK 17)**: [Adoptium (Temurin)](https://adoptium.net/temurin/releases/?version=17)에서 `.msi` 파일 다운로드하여 설치
+3. **Git Bash**: 윈도우용 Git 설치 시 함께 포함되는 Git Bash 사용을 권장합니다.
+
+### Linux (Ubuntu/Debian 기준)
+1. **기본 빌드 도구**:
+   ```bash
+   sudo apt update && sudo apt install -y build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python3-openssl git
+   ```
+2. **pyenv & Python**:
+   ```bash
+   curl https://pyenv.run | bash
+   # ~/.bashrc 등에 안내된 환경변수 추가 후 실행
+   pyenv install 3.11.9
+   pyenv global 3.11.9
+   ```
+3. **Java (JDK 17)**:
+   ```bash
+   sudo apt install openjdk-17-jdk
+   ```
+
+---
+
+## 2. 의존성 설치
+반드시 루트 디렉토리에서 실행하여 전체 워크스페이스의 의존성을 설치해야 합니다.
+```bash
+npm install
+```
+> [!NOTE]
+> 에이전트(agent) 모듈은 실행 시 `pyenv`와 `venv`를 자동으로 확인하여 가상환경을 구성하고 의존성을 설치합니다.
+
+### 3. 프로젝트 확인
+등록된 프로젝트 목록을 확인합니다.
+```bash
+npx nx show projects
+# 출력: frontend, prototype, backend, agent
+```
+
+### 4. 모듈별 실행
+루트 디렉토리에서 `npm run` 명령어로 각 모듈을 실행할 수 있습니다.
+
+```bash
+# 프론트엔드 + 에이전트 + 백엔드 + 프로토타입 동시 실행
+# 개발 시 전체 시스템(Full-stack)이 필요한 경우 사용합니다.
+npm run start
+
+# 개별 모듈 실행
+npm run frontend
+npm run prototype
+npm run backend
+npm run agent
+```
+
+### 5. 전체 빌드
+```bash
+npm run build  # 또는 npx nx run-many -t build
+```
+
+---
+
+## 아키텍처 가이드라인
+
+유지보수 비용을 최소화하기 위해 다음 규칙을 준수합니다.
+
+1. **클린 코드**: 가독성이 높고 모듈화된 코드를 지향합니다.
+2. **인터페이스 기반 설계**: 백엔드와 에이전트는 인터페이스와 구현체를 분리하여 결합도를 낮춥니다.
+3. **계약 중심 통신**: 모둘 간 통신은 OpenAPI 명세를 기준으로 정합성을 유지합니다.
+4. **Emoji 지양**: 주석 및 소스코드에 이모지를 사용하지 않습니다.

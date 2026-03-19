@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="180" height="180" viewBox="0 0 180 180">
+    <defs>
+        <linearGradient id="sa9bqhvsxb" x1="1.294" y1=".906" x2="-.329" y2=".9" gradientUnits="objectBoundingBox">
+            <stop offset="0" stop-color="#702bf7"/>
+            <stop offset="1" stop-color="#702bf7" stop-opacity=".239"/>
+        </linearGradient>
+        <linearGradient id="r936on3wka" x1="1.189" y1=".884" x2="0" y2=".888" gradientUnits="objectBoundingBox">
+            <stop offset="0" stop-color="#3bcabc"/>
+            <stop offset="1" stop-color="#3bcabc" stop-opacity=".349"/>
+        </linearGradient>
+        <linearGradient id="z01lmow55c" x1=".983" y1="0" x2=".038" y2="1" xlink:href="#r936on3wka"/>
+        <linearGradient id="byitsb743d" x1=".5" y1="1.245" x2=".5" y2="-.125" gradientUnits="objectBoundingBox">
+            <stop offset="0" stop-color="#e6e6e6"/>
+            <stop offset="1" stop-color="#9b9b9b"/>
+        </linearGradient>
+    </defs>
+    <g data-name="그룹 2655">
+        <path data-name="사각형 1518" transform="translate(1.047 133.363)" style="fill:url(#sa9bqhvsxb)" d="M0 0h56.6v33.191H0z"/>
+        <path data-name="사각형 1520" transform="translate(57.645 106.223)" style="fill:url(#r936on3wka)" d="M0 0h56.602v60.332H0z"/>
+        <path data-name="사각형 1522" transform="translate(114.247 69.221)" style="fill:url(#sa9bqhvsxb)" d="M0 0h56.6v97.333H0z"/>
+        <path data-name="패스 2587" d="M677.276 846.407v25.981h35.972l-6.892-12.99 6.892-12.992z" transform="translate(-533.288 -827.193)" style="fill:url(#z01lmow55c)"/>
+        <path data-name="사각형 1524" d="M2.97 0a2.97 2.97 0 0 1 2.97 2.97v52.647H0V2.97A2.97 2.97 0 0 1 2.97 0z" transform="translate(139.578 13.605)" style="fill:url(#byitsb743d)"/>
+    </g>
+</svg>
