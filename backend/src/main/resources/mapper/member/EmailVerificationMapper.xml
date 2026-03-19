@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.member.mapper.EmailVerificationMapper">
+
+    <resultMap id="emailVerificationResultMap" type="com.vs.meta.domain.EmailVerification">
+        <id property="id" column="id"/>
+        <result property="email" column="email"/>
+        <result property="code" column="code"/>
+        <result property="verified" column="verified"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <select id="findLatestByEmail" resultMap="emailVerificationResultMap">
+        /* EmailVerificationMapper.findLatestByEmail */
+        SELECT id, email, code, verified, expires_at, created_at
+        FROM email_verification
+        WHERE email = #{email}
+        ORDER BY created_at DESC
+        LIMIT 1
+    </select>
+
+    <insert id="insertVerification" parameterType="com.vs.meta.domain.EmailVerification" useGeneratedKeys="true" keyProperty="id">
+        /* EmailVerificationMapper.insertVerification */
+        INSERT INTO email_verification (email, code, verified, expires_at, created_at)
+        VALUES (#{email}, #{code}, #{verified}, #{expiresAt}, #{createdAt})
+    </insert>
+
+    <update id="markVerified">
+        /* EmailVerificationMapper.markVerified */
+        UPDATE email_verification
+        SET verified = 1
+        WHERE email = #{email} AND verified = 0
+        ORDER BY created_at DESC
+        LIMIT 1
+    </update>
+
+    <delete id="deleteByEmail">
+        /* EmailVerificationMapper.deleteByEmail */
+        DELETE FROM email_verification
+        WHERE email = #{email}
+    </delete>
+
+</mapper>

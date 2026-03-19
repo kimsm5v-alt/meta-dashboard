@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- mapper DTD 선언 -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.common.mapper.FileMapper">
+	<insert id="insertUploadFile" parameterType="com.vs.meta.common.vo.FileVO">
+        INSERT INTO file (
+            file_name
+            , save_file_name
+            , file_path
+            , file_extension
+            , file_size
+            , rgtr
+            , request_source
+            , checksum
+            , prsinfo_yn
+        ) VALUES (
+            #{fileName}
+            , #{saveFileName}
+            , #{filePath}
+            , #{fileExtension}
+            , #{fileSize}
+            , #{rgtr}
+            , #{requestSource}
+            , #{checksum}
+            , #{prsInfoYn}
+        )
+    </insert>
+
+    <select id="selectFileDgnssFileList" parameterType="map" resultType="map">
+        /* File.selectFileDgnssFileList */
+        SELECT a1.`id` AS fileIdx
+            , a1.file_name AS fileName
+            , a1.save_file_name AS saveFileName
+            , a1.file_path AS filePath
+            , a1.file_extension AS fileExtension
+            , a1.file_size AS fileSize
+            , a1.rgtr
+            , a1.reg_dt AS regDt
+            , a1.request_source AS requestSource
+            , a1.checksum AS checksum
+            , a1.del_yn AS delYn
+            , a1.prsinfo_yn AS prsInfoYn
+            , tdri.stdt_id AS userId
+            , sri.flnm AS userNm
+            , tdri.file_url AS fileUrl
+            , tdi.paper_idx AS paperIdx
+            , tdi.ord_no AS ordNo
+            <choose>
+                <when test='rgtr != null and rgtr != ""'>
+                    , CASE
+                    WHEN a1.rgtr = #{rgtr} OR (
+                    EXISTS(/*본인이 올린 파일 또는 같은 반 학생이 올린 파일을 교사가 보는 경우*/
+                    SELECT 1
+                    FROM  tc_cla_mb_info a2_1
+                    WHERE a2_1.user_id = #{rgtr}
+                    AND   a2_1.stdt_id = a1.rgtr
+                    AND   a2_1.actvtn_at = 'Y'
+                    )
+                    ) OR (
+                    a1.rgtr = (
+                    SELECT a3_1.user_id
+                    FROM tc_cla_mb_info a3_1
+                    WHERE a3_1.stdt_id = #{rgtr}
+                    AND   a3_1.actvtn_at = 'Y'
+                    )
+                    ) THEN 'Y'
+                    ELSE 'N'
+                    END downloadAuthYn
+                </when>
+                <otherwise>
+                    , 'Y' AS downloadAuthYn
+                </otherwise>
+            </choose>
+        FROM file a1
+             INNER JOIN aidt_diagnosis.tb_dgnss_result_info tdri ON a1.file_name = SUBSTRING_INDEX(tdri.file_url, '/', -1)
+                    AND a1.file_path = CONCAT(SUBSTRING_INDEX(tdri.file_url, '/', LENGTH(tdri.file_url) - LENGTH(REPLACE(tdri.file_url, '/', ''))), '/')
+                    AND tdri.file_url IS NOT NULL
+                    AND tdri.file_url != ''
+            INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
+                    INNER JOIN aidt_lms.stdt_reg_info sri ON tdri.stdt_id = sri.user_id
+        WHERE tdi.id = #{dgnssId}
+          AND a1.file_extension = 'pdf'
+    </select>
+
+    <insert id="insertDownloadLog" parameterType="com.vs.meta.common.vo.FileLogVO">
+        INSERT INTO file_download_log (
+            file_idx
+            , file_name
+            , user_id
+            , access_ip
+            , request_source
+        ) VALUES (
+            #{fileIdx}
+            , #{fileName}
+            , #{userId}
+            , #{accessIp}
+            , #{requestSource}
+        );
+    </insert>
+
+    <select id="selectFileInfoList" resultType="com.vs.meta.common.vo.FileVO">
+        SELECT af.id AS fileIdx
+             , CONCAT(af.file_path, af.save_file_name) AS filePath
+        FROM file af
+        WHERE af.prsinfo_yn = 'Y'
+          AND af.del_yn = 'N'
+    </select>
+
+    <update id="updateFileInfoList" parameterType="list">
+        UPDATE file
+        SET del_yn = CASE id
+            <foreach collection="fileVOList" item="item">
+                WHEN #{item.fileIdx} THEN #{item.delYn}
+            </foreach>
+            END,
+            del_dt = CASE id
+            <foreach collection="fileVOList" item="item">
+                WHEN #{item.fileIdx} THEN #{item.delDt}
+            </foreach>
+            END
+        WHERE id IN
+        <foreach collection="fileVOList" item="item" open="(" separator="," close=")">
+            #{item.fileIdx}
+        </foreach>
+    </update>
+
+    <select id="selectTcDgnssInfoWithId" parameterType="map" resultType="map">
+		/* FileMapper.selectTcDgnssInfoWithId */
+		SELECT tdi.cla_id AS claId
+            , tdi.paper_idx AS paperIdx
+            , tdi.ord_no AS ordNo
+            , tdi.tc_id AS tcId
+            , CASE
+                WHEN tci.cla_nm LIKE '%반' THEN tci.cla_nm
+                ELSE CONCAT(tci.cla_nm, '반')
+              END AS claNm
+            , u.ptn_id AS ptnId
+        FROM aidt_diagnosis.tb_dgnss_info tdi
+        LEFT JOIN aidt_lms.tc_cla_info tci ON tdi.cla_id = tci.cla_id
+        LEFT JOIN aidt_lms.USER u ON tdi.tc_id = u.user_id
+        WHERE tdi.id = #{dgnssId}
+    </select>
+
+    <select id="selectFileDgnssSummaryList" parameterType="map" resultType="map">
+        /* File.selectFileDgnssSummaryList */
+        SELECT a1.`id` as fileIdx
+             , a1.file_name as fileName
+             , a1.save_file_name as saveFileName
+             , a1.file_path as filePath
+             , a1.file_extension as fileExtension
+             , a1.file_size as fileSize
+             , a1.rgtr
+             , a1.reg_dt as regDt
+             , a1.request_source as requestSource
+             , a1.checksum as checksum
+             , a1.del_yn as delYn
+             , a1.prsinfo_yn as prsInfoYn
+             , tdri.stdt_id AS userId
+             , sri.flnm AS userNm
+             , tdri.summary_file_url AS fileUrl
+             , tdi.paper_idx AS paperIdx
+             , tdi.ord_no AS ordNo
+                <choose>
+                    <when test='rgtr != null and rgtr != ""'>
+                        , case
+                        when a1.rgtr = #{rgtr} or (
+                        exists(/*본인이 올린 파일 또는 같은 반 학생이 올린 파일을 교사가 보는 경우*/
+                        select 1
+                        from  tc_cla_mb_info a2_1
+                        where a2_1.user_id = #{rgtr}
+                        and   a2_1.stdt_id = a1.rgtr
+                        and   a2_1.actvtn_at = 'Y'
+                        )
+                        ) or (
+                        a1.rgtr = (
+                        select a3_1.user_id
+                        from tc_cla_mb_info a3_1
+                        where a3_1.stdt_id = #{rgtr}
+                        and   a3_1.actvtn_at = 'Y'
+                        )
+                        )then 'Y'
+                        else 'N'
+                        end downloadAuthYn
+                    </when>
+                    <otherwise>
+                        , 'Y' as downloadAuthYn
+                    </otherwise>
+                </choose>
+        FROM file a1
+             INNER JOIN aidt_diagnosis.tb_dgnss_result_info tdri ON a1.file_name = SUBSTRING_INDEX(tdri.summary_file_url, '/', -1)
+                    AND a1.file_path = CONCAT(SUBSTRING_INDEX(tdri.summary_file_url, '/', LENGTH(tdri.summary_file_url) - LENGTH(REPLACE(tdri.summary_file_url, '/', ''))), '/')
+                    AND tdri.summary_file_url IS NOT NULL
+                    AND tdri.summary_file_url != ''
+            INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
+                    INNER JOIN aidt_lms.stdt_reg_info sri ON tdri.stdt_id = sri.user_id
+        WHERE tdi.id = #{dgnssId}
+          AND a1.file_extension = 'pdf'
+    </select>
+
+    <!-- pfile-download 관련 쿼리 -->
+    <select id="selectFileInfo" parameterType="com.vs.meta.common.vo.FileVO" resultType="com.vs.meta.common.vo.FileVO">
+        /* FileMapper.selectFileInfo */
+        SELECT
+            a1.`id` AS fileIdx
+            , a1.file_name AS fileName
+            , a1.save_file_name AS saveFileName
+            , a1.file_path AS filePath
+            , a1.file_extension AS fileExtension
+            , a1.file_size AS fileSize
+            , a1.rgtr
+            , a1.reg_dt AS regDt
+            , a1.request_source AS requestSource
+            , a1.checksum AS checksum
+            , a1.del_yn AS delYn
+            , a1.prsinfo_yn AS prsInfoYn
+        <choose>
+            <when test='rgtr != null and rgtr != ""'>
+                , CASE
+                    WHEN rgtr = #{rgtr} OR (
+                        EXISTS(
+                            SELECT 1
+                            FROM tc_cla_mb_info a2_1
+                            WHERE 1=1
+                            AND a2_1.stdt_id = a1.rgtr
+                            AND a2_1.actvtn_at = 'Y'
+                        )
+                    ) THEN 'Y'
+                    ELSE 'N'
+                  END downloadAuthYn
+            </when>
+            <otherwise>
+                , 'Y' AS downloadAuthYn
+            </otherwise>
+        </choose>
+        FROM file a1
+        WHERE 1=1
+        <choose>
+            <when test="fileIdx != null and fileIdx > 0">
+                AND file_idx = #{fileIdx}
+            </when>
+            <otherwise>
+                AND file_path = #{filePath}
+                AND file_name = #{fileName}
+                ORDER BY `id` DESC
+                LIMIT 1
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectFileInfoWithPionada" parameterType="com.vs.meta.common.vo.FileVO" resultType="com.vs.meta.common.vo.FileVO">
+        /* FileMapper.selectFileInfoWithPionada */
+        SELECT
+            a1.`id` AS fileIdx
+            , a1.file_name AS fileName
+            , a1.save_file_name AS saveFileName
+            , a1.file_path AS filePath
+            , a1.file_extension AS fileExtension
+            , a1.file_size AS fileSize
+            , a1.rgtr
+            , a1.reg_dt AS regDt
+            , a1.request_source AS requestSource
+            , a1.checksum AS checksum
+            , a1.del_yn AS delYn
+            , a1.prsinfo_yn AS prsInfoYn
+        FROM file a1
+        WHERE 1=1
+        <choose>
+            <when test="fileIdx != null and fileIdx > 0">
+                AND file_idx = #{fileIdx}
+            </when>
+            <otherwise>
+                AND file_path = #{filePath}
+                AND file_name = #{fileName}
+                ORDER BY `id` DESC
+                LIMIT 1
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectFileInfoWithPartnerActivity" parameterType="com.vs.meta.common.vo.FileVO" resultType="com.vs.meta.common.vo.FileVO">
+        /* FileMapper.selectFileInfoWithPartnerActivity */
+        SELECT
+            a1.`id` AS fileIdx
+            , a1.file_name AS fileName
+            , a1.save_file_name AS saveFileName
+            , a1.file_path AS filePath
+            , a1.file_extension AS fileExtension
+            , a1.file_size AS fileSize
+            , a1.rgtr
+            , a1.reg_dt AS regDt
+            , a1.request_source AS requestSource
+            , a1.checksum AS checksum
+            , a1.del_yn AS delYn
+            , a1.prsinfo_yn AS prsInfoYn
+        <choose>
+            <when test='rgtr != null and rgtr != ""'>
+                , CASE
+                    WHEN rgtr = #{rgtr} OR (
+                        EXISTS(
+                            SELECT 1
+                            FROM tc_cla_mb_info a2_1
+                            WHERE a2_1.cla_id = (SELECT cla_id FROM tc_cla_mb_info WHERE stdt_id = a1.rgtr AND actvtn_at = 'Y')
+                            AND a2_1.stdt_id = #{rgtr}
+                            AND a2_1.actvtn_at = 'Y'
+                        )
+                    ) THEN 'Y'
+                    ELSE 'N'
+                  END downloadAuthYn
+            </when>
+            <otherwise>
+                , 'Y' AS downloadAuthYn
+            </otherwise>
+        </choose>
+        FROM file a1
+        WHERE 1=1
+        <choose>
+            <when test="fileIdx != null and fileIdx > 0">
+                AND file_idx = #{fileIdx}
+            </when>
+            <otherwise>
+                AND file_path = #{filePath}
+                AND file_name = #{fileName}
+                ORDER BY `id` DESC
+                LIMIT 1
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectTcListFromCreator" parameterType="map" resultType="string">
+        /* FileMapper.selectTcListFromCreator */
+        SELECT tcui.user_id
+        FROM aidt_lms.tc_cla_mb_info tcmi
+             INNER JOIN aidt_lms.tc_cla_user_info tcui ON tcmi.cla_id = tcui.cla_id
+        WHERE tcmi.stdt_id = #{creator}
+          AND tcmi.actvtn_at = 'Y'
+    </select>
+
+    <select id="selectFileAuthStudent" parameterType="map" resultType="string">
+        /* FileMapper.selectFileAuthStudent */
+        SELECT stdt_id
+        FROM aidt_lms.tc_cla_mb_info
+        WHERE user_id = #{creator}
+          AND stdt_id = #{reader}
+          AND actvtn_at = 'Y'
+    </select>
+</mapper>

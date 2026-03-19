@@ -1,0 +1,104 @@
+# Global Settings
+application:
+  title: Meta API
+  version: 1.0.0
+
+service:
+  name: ${META_API_SERVICE_NAME:meta-api}
+
+# 서버 설정
+server:
+  shutdown: graceful
+  port: '8081'
+  tomcat:
+    max-swallow-size: -1
+    connection-timeout: 300s
+    mbeanregistry:
+      enabled: true
+
+spring:
+  profiles:
+    active: local
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Seoul
+  # 데이터베이스 설정
+  datasource:
+    hikari:
+      auto-commit: false
+      connection-test-query: "SELECT 1"
+      pool-name: hikari-cp
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 0
+      master:
+        driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME}
+        jdbc-url: ${META_API_DATASOURCE_MASTER_URL}
+        username: ${META_API_DATASOURCE_MASTER_USERNAME}
+        password: ${META_API_DATASOURCE_MASTER_PASSWORD}
+        pool-name: hikari-cp
+        maximum-pool-size: 50
+        minimum-idle: 10
+      slave:
+        driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME}
+        jdbc-url: ${META_API_DATASOURCE_SLAVE_URL}
+        username: ${META_API_DATASOURCE_SLAVE_USERNAME}
+        password: ${META_API_DATASOURCE_SLAVE_PASSWORD}
+        pool-name: hikari-cp
+        maximum-pool-size: 50
+        minimum-idle: 10
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    cache: false
+    encoding: UTF-8
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  aop:
+    auto: true
+
+# MyBatis 설정
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+# 로깅 설정
+logging:
+  level:
+    root: INFO
+    com.vs.meta: INFO
+    jdbc: OFF
+    jdbc.sqltiming: OFF
+    jdbc.sqlonly: OFF
+    jdbc.audit: OFF
+    jdbc.resultset: OFF
+    jdbc.connection: OFF
+    jdbc.resultsettable: OFF
+    com.zaxxer.hikari: OFF
+  pattern:
+    console: "[%date{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%level] [%c{0}:%L] : %msg %n"
+    file: "[%date{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%level] [%c{0}:%L] : %msg %n"
+
+# NCP Cloud Outbound Mailer
+ncp:
+  mail:
+    url: ${NCP_MAIL_URL:https://mail.apigw.ntruss.com}
+    access-key: ${NCP_MAIL_ACCESS_KEY}
+    secret-key: ${NCP_MAIL_SECRET_KEY}
+    sender: ${NCP_MAIL_SENDER:noreply@vsaidt.com}
+
+key:
+  salt:
+    main: ${KEY_SALT_MAIN:}
+
+# File Storage (NAS)
+cloud:
+  aws:
+    nas:
+      path: ${CLOUD_AWS_NAS_PATH:/files/nas}

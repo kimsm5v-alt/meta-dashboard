@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사용자 관리 - Meta Admin</title>
+    <th:block th:replace="admin/fragments :: css" />
+</head>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
+    <nav th:replace="admin/fragments :: navbar"></nav>
+    <aside th:replace="admin/fragments :: sidebar(menu='users')"></aside>
+
+    <div class="content-wrapper">
+        <section class="content-header">
+            <div class="container-fluid">
+                <h1>사용자 관리</h1>
+            </div>
+        </section>
+        <section class="content">
+            <div class="container-fluid">
+                <div th:if="${success}" class="alert alert-success alert-dismissible">
+                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                    <span th:text="${success}"></span>
+                </div>
+                <div th:if="${error}" class="alert alert-danger alert-dismissible">
+                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                    <span th:text="${error}"></span>
+                </div>
+
+                <!-- 계정 등록 -->
+                <div class="card card-primary card-outline">
+                    <div class="card-header">
+                        <h3 class="card-title">계정 등록</h3>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/admin/users/create}" method="post">
+                            <div class="row">
+                                <div class="col-md-4 form-group">
+                                    <label>이메일</label>
+                                    <input name="email" type="email" class="form-control form-control-sm" required placeholder="user@example.com" />
+                                </div>
+                                <div class="col-md-4 form-group">
+                                    <label>비밀번호</label>
+                                    <input name="password" type="password" class="form-control form-control-sm" required />
+                                </div>
+                                <div class="col-md-4 form-group">
+                                    <label>닉네임</label>
+                                    <input name="nickname" class="form-control form-control-sm" required />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 form-group">
+                                    <label>역할</label>
+                                    <select name="roleCode" class="form-control form-control-sm">
+                                        <option th:each="role : ${roles}" th:value="${role.roleCode}"
+                                                th:text="${role.roleName + ' (' + role.roleCode + ')'}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 form-group d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary btn-sm">등록</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 사용자 목록 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">사용자 목록 <small class="text-muted" th:text="'(총 ' + ${total} + '명)'"></small></h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- 검색 필터 -->
+                        <form th:action="@{/admin/users}" method="get" class="filter-bar">
+                            <div class="form-group">
+                                <label class="small">검색어</label>
+                                <input name="keyword" th:value="${keyword}" class="form-control form-control-sm" placeholder="이메일/닉네임" />
+                            </div>
+                            <div class="form-group">
+                                <label class="small">역할</label>
+                                <select name="roleCode" class="form-control form-control-sm">
+                                    <option value="">전체</option>
+                                    <option th:each="role : ${roles}" th:value="${role.roleCode}"
+                                            th:text="|${role.roleName} (${role.roleCode})|"
+                                            th:selected="${role.roleCode == roleCode}"></option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="small">상태</label>
+                                <select name="status" class="form-control form-control-sm">
+                                    <option value="">전체</option>
+                                    <option value="ACTIVE" th:selected="${status == 'ACTIVE'}">활성</option>
+                                    <option value="WITHDRAWN" th:selected="${status == 'WITHDRAWN'}">탈퇴</option>
+                                    <option value="SUSPENDED" th:selected="${status == 'SUSPENDED'}">정지</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="small">&nbsp;</label>
+                                <div>
+                                    <button type="submit" class="btn btn-primary btn-sm">검색</button>
+                                    <a href="/admin/users" class="btn btn-default btn-sm">초기화</a>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>USER_NO</th>
+                                    <th>이메일</th>
+                                    <th>닉네임</th>
+                                    <th>역할</th>
+                                    <th>상태</th>
+                                    <th>마지막 로그인</th>
+                                    <th>역할 변경</th>
+                                    <th>상태 변경</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="user : ${users}">
+                                    <td th:text="${user.userNo}"></td>
+                                    <td th:text="${user.email}"></td>
+                                    <td th:text="${user.nickname}"></td>
+                                    <td><span class="badge badge-info" th:text="${user.roleCode}"></span></td>
+                                    <td>
+                                        <span class="badge"
+                                              th:classappend="${user.status?.name() == 'ACTIVE'} ? 'badge-success' : (${user.status?.name() == 'SUSPENDED'} ? 'badge-danger' : 'badge-secondary')"
+                                              th:text="${user.status}"></span>
+                                    </td>
+                                    <td class="text-muted" th:text="${user.lastLoginAt != null} ? ${#temporals.format(user.lastLoginAt, 'yyyy-MM-dd HH:mm')} : '-'"></td>
+                                    <td>
+                                        <form th:action="@{/admin/users/role}" method="post" class="inline-form">
+                                            <input type="hidden" name="userNo" th:value="${user.userNo}" />
+                                            <select name="roleCode" class="form-control form-control-sm" style="width:auto;display:inline-block;">
+                                                <option th:each="role : ${roles}" th:value="${role.roleCode}"
+                                                        th:text="${role.roleCode}"
+                                                        th:selected="${role.roleCode == user.roleCode}"></option>
+                                            </select>
+                                            <button type="submit" class="btn btn-primary btn-xs">변경</button>
+                                        </form>
+                                    </td>
+                                    <td>
+                                        <form th:action="@{/admin/users/status}" method="post" class="inline-form">
+                                            <input type="hidden" name="userNo" th:value="${user.userNo}" />
+                                            <select name="status" class="form-control form-control-sm" style="width:auto;display:inline-block;">
+                                                <option value="ACTIVE" th:selected="${user.status?.name() == 'ACTIVE'}">활성</option>
+                                                <option value="WITHDRAWN" th:selected="${user.status?.name() == 'WITHDRAWN'}">탈퇴</option>
+                                                <option value="SUSPENDED" th:selected="${user.status?.name() == 'SUSPENDED'}">정지</option>
+                                            </select>
+                                            <button type="submit" class="btn btn-danger btn-xs">변경</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(users)}">
+                                    <td colspan="8" class="text-center text-muted py-4">검색 결과가 없습니다</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        </div>
+
+                        <!-- 페이징 -->
+                        <th:block th:replace="admin/fragments :: pagination('/admin/users', ${(keyword != null ? '&amp;keyword=' + keyword : '') + (roleCode != null ? '&amp;roleCode=' + roleCode : '') + (status != null ? '&amp;status=' + status : '')})" />
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+<th:block th:replace="admin/fragments :: js" />
+</body>
+</html>

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.group.mapper.GroupInfoMapper">
+
+    <resultMap id="groupInfoResultMap" type="com.vs.meta.domain.GroupInfo">
+        <id property="groupId" column="group_id"/>
+        <result property="claId" column="cla_id"/>
+        <result property="hostUserNo" column="host_user_no"/>
+        <result property="groupNm" column="group_nm"/>
+        <result property="groupDesc" column="group_desc"/>
+        <result property="schoolLevel" column="school_level"/>
+        <result property="grade" column="grade"/>
+        <result property="classNumber" column="class_number"/>
+        <result property="schoolCode" column="school_code"/>
+        <result property="schoolName" column="school_name"/>
+        <result property="inviteCode" column="invite_code"/>
+        <result property="inviteLinkToken" column="invite_link_token"/>
+        <result property="maxMemberCount" column="max_member_count"/>
+        <result property="useYn" column="use_yn"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="groupInfoColumns">
+        group_id, cla_id, host_user_no, group_nm, group_desc,
+        school_level, grade, class_number, school_code, school_name,
+        invite_code, invite_link_token, max_member_count,
+        use_yn, created_by, updated_by, created_at, updated_at
+    </sql>
+
+    <select id="findByInviteCodeAndUseYn" resultMap="groupInfoResultMap">
+        /* GroupInfoMapper.findByInviteCodeAndUseYn */
+        SELECT <include refid="groupInfoColumns"/>
+        FROM group_info
+        WHERE invite_code = #{inviteCode} AND use_yn = #{useYn}
+    </select>
+
+    <select id="findByInviteCodeAndUseYnForUpdate" resultMap="groupInfoResultMap">
+        /* GroupInfoMapper.findByInviteCodeAndUseYnForUpdate */
+        SELECT <include refid="groupInfoColumns"/>
+        FROM group_info
+        WHERE invite_code = #{inviteCode} AND use_yn = #{useYn}
+        FOR UPDATE
+    </select>
+
+    <select id="findByClaId" resultMap="groupInfoResultMap">
+        /* GroupInfoMapper.findByClaId */
+        SELECT <include refid="groupInfoColumns"/>
+        FROM group_info
+        WHERE cla_id = #{claId}
+    </select>
+
+    <select id="findGroupInfoById" resultMap="groupInfoResultMap">
+        /* GroupInfoMapper.findGroupInfoById */
+        SELECT <include refid="groupInfoColumns"/>
+        FROM group_info
+        WHERE group_id = #{groupId}
+    </select>
+
+    <insert id="insertGroupInfo" parameterType="com.vs.meta.domain.GroupInfo" useGeneratedKeys="true" keyProperty="groupId">
+        /* GroupInfoMapper.insertGroupInfo */
+        INSERT INTO group_info (cla_id, host_user_no, group_nm, group_desc, school_level, grade, class_number, school_code, school_name, invite_code, invite_link_token, max_member_count, use_yn, created_by, updated_by, created_at, updated_at)
+        VALUES (#{claId}, #{hostUserNo}, #{groupNm}, #{groupDesc}, #{schoolLevel}, #{grade}, #{classNumber}, #{schoolCode}, #{schoolName}, #{inviteCode}, #{inviteLinkToken}, #{maxMemberCount}, #{useYn}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="updateGroupInfo" parameterType="com.vs.meta.domain.GroupInfo">
+        /* GroupInfoMapper.updateGroupInfo */
+        UPDATE group_info
+        SET group_nm = #{groupNm},
+            group_desc = #{groupDesc},
+            school_level = #{schoolLevel},
+            grade = #{grade},
+            class_number = #{classNumber},
+            school_code = #{schoolCode},
+            school_name = #{schoolName},
+            invite_code = #{inviteCode},
+            invite_link_token = #{inviteLinkToken},
+            max_member_count = #{maxMemberCount},
+            use_yn = #{useYn},
+            updated_by = #{updatedBy},
+            updated_at = #{updatedAt}
+        WHERE group_id = #{groupId}
+    </update>
+
+    <select id="countActiveGroups" resultType="long">
+        /* GroupInfoMapper.countActiveGroups */
+        SELECT COUNT(*) FROM group_info WHERE use_yn = 'Y'
+    </select>
+
+</mapper>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.member.mapper.RefreshTokenMapper">
+
+    <resultMap id="refreshTokenResultMap" type="com.vs.meta.domain.RefreshToken">
+        <id property="id" column="id"/>
+        <result property="userNo" column="user_no"/>
+        <result property="tokenHash" column="token_hash"/>
+        <result property="deviceInfo" column="device_info"/>
+        <result property="ipAddress" column="ip_address"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insertRefreshToken" parameterType="com.vs.meta.domain.RefreshToken" useGeneratedKeys="true" keyProperty="id">
+        /* RefreshTokenMapper.insertRefreshToken */
+        INSERT INTO refresh_token (user_no, token_hash, device_info, ip_address, expires_at, created_at)
+        VALUES (#{userNo}, #{tokenHash}, #{deviceInfo}, #{ipAddress}, #{expiresAt}, #{createdAt})
+    </insert>
+
+    <select id="findByTokenHash" resultMap="refreshTokenResultMap">
+        /* RefreshTokenMapper.findByTokenHash */
+        SELECT id, user_no, token_hash, device_info, ip_address, expires_at, created_at
+        FROM refresh_token
+        WHERE token_hash = #{tokenHash}
+          AND expires_at > NOW()
+    </select>
+
+    <delete id="deleteByTokenHash">
+        /* RefreshTokenMapper.deleteByTokenHash */
+        DELETE FROM refresh_token
+        WHERE token_hash = #{tokenHash}
+    </delete>
+
+    <delete id="deleteByUserNo">
+        /* RefreshTokenMapper.deleteByUserNo */
+        DELETE FROM refresh_token
+        WHERE user_no = #{userNo}
+    </delete>
+
+    <delete id="deleteExpired">
+        /* RefreshTokenMapper.deleteExpired */
+        DELETE FROM refresh_token
+        WHERE expires_at &lt; NOW()
+    </delete>
+
+</mapper>
