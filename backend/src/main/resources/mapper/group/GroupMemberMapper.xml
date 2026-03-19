@@ -78,6 +78,12 @@
         WHERE id = #{id}
     </update>
 
+    <select id="findMaxMemberNoByGroupId" resultType="java.lang.Integer">
+        /* GroupMemberMapper.findMaxMemberNoByGroupId */
+        SELECT MAX(member_no) FROM group_member
+        WHERE group_id = #{groupId}
+    </select>
+
     <update id="updateGuestToStudent">
         /* GroupMemberMapper.updateGuestToStudent */
         UPDATE group_member

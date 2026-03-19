@@ -136,11 +136,15 @@ public class GroupService {
             userMapper.updateUser(user);
         }
 
+        Integer maxNo = groupMemberMapper.findMaxMemberNoByGroupId(groupId);
+        int memberNo = (maxNo != null ? maxNo : 0) + 1;
+
         GroupMember member = GroupMember.builder()
                 .groupId(groupId)
                 .userNo(userNo)
                 .stdtId(user.getStdtId())
                 .nickname(user.getNickname())
+                .memberNo(memberNo)
                 .memberType(MemberType.STUDENT)
                 .status(MemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
@@ -193,6 +197,9 @@ public class GroupService {
 
         String stdtId = memberService.generateStdtId();
 
+        Integer maxNo = groupMemberMapper.findMaxMemberNoByGroupId(groupId);
+        int memberNo = (maxNo != null ? maxNo : 0) + 1;
+
         GroupMember member = GroupMember.builder()
                 .groupId(groupId)
                 .userNo(null)
@@ -200,6 +207,7 @@ public class GroupService {
                 .nickname((String) paramData.get("nickname"))
                 .gender(gender)
                 .email((String) paramData.get("email"))
+                .memberNo(memberNo)
                 .memberType(MemberType.GUEST)
                 .status(MemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())

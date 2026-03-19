@@ -121,6 +121,9 @@ KEY_SALT_MAIN
 - **CI/CD**: GitLab 4-stage pipeline (build → test → docker → deploy)
 - **develop** → auto deploy dev, **main** → manual deploy prod
 
+## Git Commit Rules
+- 커밋 메시지에 `Co-Authored-By` 라인을 포함하지 않는다.
+
 ## Code Patterns to Follow
 1. 새 기능 추가 시: Controller → Service → Mapper(Java) → Mapper(XML) → Domain 순서
 2. Mapper XML 추가 시: 반드시 기존 도메인 서브디렉토리에 배치

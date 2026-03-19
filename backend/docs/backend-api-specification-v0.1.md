@@ -194,6 +194,7 @@
 | `email` | String | O | 로그인 식별자 | `"test@test.com"` | UNIQUE, 이메일 인증 완료 필요 |
 | `password` | String | O | 비밀번호 | `"Test1234!@"` | 10~64자, 영문대소+숫자+특수 중 2종 이상, 동일문자 4회 연속 금지 |
 | `nickname` | String | O | 닉네임 | `"테스터"` | |
+| `gender` | String | O | 성별 | `"M"` | `M` \| `F` |
 | `roleCode` | String | X | 역할 코드 | `"TEACHER"` | 기본값 `TEACHER`. 허용값: `TEACHER` \| `STUDENT` |
 
 **Response resultData**
@@ -203,14 +204,15 @@
 | `userNo` | Long | 회원 PK | `123` | AUTO_INCREMENT |
 | `email` | String | 이메일 | `"test@test.com"` | |
 | `nickname` | String | 닉네임 | `"테스터"` | |
+| `gender` | String | 성별 | `"M"` | `M` \| `F` |
 | `roleCode` | String | 역할 코드 | `"TEACHER"` | |
 
 ```json
 // Request
-{ "email": "test@test.com", "password": "Test1234!@", "nickname": "테스터", "roleCode": "TEACHER" }
+{ "email": "test@test.com", "password": "Test1234!@", "nickname": "테스터", "gender": "M", "roleCode": "TEACHER" }
 
 // Response resultData
-{ "userNo": 123, "email": "test@test.com", "nickname": "테스터", "roleCode": "TEACHER" }
+{ "userNo": 123, "email": "test@test.com", "nickname": "테스터", "gender": "M", "roleCode": "TEACHER" }
 ```
 
 ---
@@ -232,6 +234,7 @@
 | `userNo` | Long | 회원 PK | `123` | |
 | `email` | String | 이메일 | `"test@test.com"` | |
 | `nickname` | String | 닉네임 | `"테스터"` | |
+| `gender` | String | 성별 | `"M"` | `M` \| `F`, 미등록 시 `null` |
 | `roleCode` | String | 역할 코드 | `"TEACHER"` | |
 | `tcId` | String | 교사 ID | `"viva-t-a3f2b1c4"` | 교사 역할만. `viva-t-` + UUID 8자리 |
 | `stdtId` | String | 학생 ID | `null` | 학생 역할만. `viva-s-` + UUID 8자리 |
@@ -244,7 +247,7 @@
 
 // Response resultData
 {
-  "userNo": 123, "email": "test@test.com", "nickname": "테스터",
+  "userNo": 123, "email": "test@test.com", "nickname": "테스터", "gender": "M",
   "roleCode": "TEACHER", "tcId": "viva-t-a3f2b1c4", "stdtId": null,
   "accessToken": "eyJ...", "refreshToken": "eyJ..."
 }
@@ -317,6 +320,7 @@
 | `userNo` | Long | 회원 PK | `123` | |
 | `email` | String | 이메일 | `"test@test.com"` | |
 | `nickname` | String | 닉네임 | `"테스터"` | |
+| `gender` | String | 성별 | `"M"` | `M` \| `F`, 미등록 시 `null` |
 | `roleCode` | String | 역할 코드 | `"TEACHER"` | |
 | `tcId` | String | 교사 ID | `"viva-t-a3f2b1c4"` | 교사만 |
 | `stdtId` | String | 학생 ID | `null` | 학생만 |
@@ -332,6 +336,7 @@
     "userNo": 123,
     "email": "test@test.com",
     "nickname": "테스터",
+    "gender": "M",
     "roleCode": "TEACHER",
     "tcId": "viva-t-a3f2b1c4",
     "stdtId": null,
@@ -917,6 +922,7 @@
 |---------|------|------|------|------|------|
 | `inviteCode` | String | O | 초대코드 | `"ABC123"` | |
 | `nickname` | String | O | 게스트 이름 | `"게스트이름"` | |
+| `gender` | String | O | 성별 | `"M"` | `M` \| `F` |
 | `email` | String | X | 이메일 | `"guest@test.com"` | |
 
 **Response resultData**
@@ -1013,6 +1019,7 @@
 | `userNo` | Long | 회원 PK | `456` | 게스트는 null |
 | `stdtId` | String | 학생 ID | `"viva-s-00000001"` | 학생별 API 호출에 사용 |
 | `nickname` | String | 닉네임 | `"학생1"` | |
+| `gender` | String | 성별 | `"M"` | `M` \| `F` |
 | `email` | String | 이메일 | `"student@test.com"` | |
 | `memberNo` | Integer | 출석번호 | `1` | |
 | `memberType` | String | 멤버 유형 | `"STUDENT"` | `STUDENT` \| `GUEST` |
@@ -1030,6 +1037,7 @@
         "userNo": 456,
         "stdtId": "viva-s-00000001",
         "nickname": "학생1",
+        "gender": "M",
         "email": "student@test.com",
         "memberNo": 1,
         "memberType": "STUDENT",
@@ -1197,6 +1205,7 @@
 | `claId` | String | 학급 ID | `"a1b2c3d4..."` | |
 | `stdtId` | String | 게스트 학생 ID | `"viva-s-00000002"` | |
 | `nickname` | String | 게스트 닉네임 | `"게스트이름"` | |
+| `gender` | String | 성별 | `"M"` | `M` \| `F` |
 | `email` | String | 이메일 | `"guest@test.com"` | |
 | `groupNm` | String | 그룹명 | `"6학년 2반"` | |
 | `grade` | String | 학년 | `"6"` | |
@@ -1213,6 +1222,7 @@
       "claId": "a1b2c3d4...",
       "stdtId": "viva-s-00000002",
       "nickname": "게스트이름",
+      "gender": "M",
       "email": "guest@test.com",
       "groupNm": "6학년 2반",
       "grade": "6",

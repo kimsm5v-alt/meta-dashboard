@@ -39,7 +39,7 @@
             gm.joined_at     AS joinedAt
         FROM group_member gm
         WHERE gm.group_id = #{groupId}
-        ORDER BY gm.joined_at ASC
+        ORDER BY gm.member_no ASC
         LIMIT #{limit} OFFSET #{offset}
     </select>
 

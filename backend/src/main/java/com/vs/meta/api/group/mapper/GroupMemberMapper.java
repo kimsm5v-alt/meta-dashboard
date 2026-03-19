@@ -22,4 +22,6 @@ public interface GroupMemberMapper {
     void updateGroupMember(GroupMember groupMember);
 
     int updateGuestToStudent(@Param("email") String email, @Param("userNo") Long userNo);
+
+    Integer findMaxMemberNoByGroupId(@Param("groupId") Long groupId);
 }

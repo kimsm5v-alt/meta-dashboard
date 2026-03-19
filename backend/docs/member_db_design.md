@@ -1,6 +1,6 @@
 # 신규 학습심리정서검사 플랫폼 - 회원 DB 설계서 v3
 
-> **최종 수정일**: 2026-03-17
+> **최종 수정일**: 2026-03-19
 > **기반 문서**: member-final-db.md (v1, 2026-03-09) → member-final-db_v2.md (v2, 2026-03-16)
 > **주요 변경**: userId(VARCHAR PK) 제거, user_no(BIGINT AUTO_INCREMENT) PK 도입, email 로그인 식별자, FK user_id→user_no, audit 컬럼 BIGINT(0=system)
 > **상태**: 구현 완료 (aidt_lms 동기화 제외)
@@ -16,6 +16,7 @@
 | v2.1 | 2026-03-15 | **현행화** — 구현 완료 내용 반영, email_verification 테이블 추가, 비밀번호 정책/JWT 상세 추가, 관리자 사이트 구현 완료 반영 |
 | v2.2 | 2026-03-16 | **refresh_token 테이블 추가** — refreshToken DB 관리, accessToken 30분 단축, 로그아웃/계정정지 시 즉시 차단 |
 | v3 | 2026-03-17 | **userId→user_no 마이그레이션** — userId(VARCHAR PK) 제거, user_no(BIGINT AUTO_INCREMENT) PK 도입, email 로그인 식별자, FK user_id→user_no, audit 컬럼 BIGINT(0=system) |
+| v3.1 | 2026-03-19 | **gender 컬럼 추가** — user, group_member 테이블에 gender(M/F) 추가. 회원가입/게스트참가/Admin계정등록 시 필수값. member_no 자동 채번 구현. Admin UI 개선(성별 컬럼, 학교매핑 버튼, CSV 출처 안내) |
 
 ### v1 → v2 변경 요약
 
@@ -348,6 +349,7 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 │ email (UK, 로그인 식별자) │
 │ password (BCrypt)        │
 │ nickname                 │
+│ gender                   │  ← M / F
 │ role_code (FK)           │  ← TEACHER / STUDENT (가입 시 선택)
 │ tc_id (UK, NULL)         │  ← TEACHER: 가입 시 즉시 채번
 │ stdt_id (UK, NULL)       │  ← STUDENT: 가입 시 즉시 채번
@@ -369,15 +371,15 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 │ group_nm                 │   │ user_no (FK, NULL)       │  ← 게스트는 NULL
 │ group_desc               │   │ stdt_id (IDX)            │  ← STUDENT: user에서 복사
 │ school_level             │   │ nickname                 │     GUEST: 참가마다 새 채번
-│ grade                    │   │ email                    │
-│ class_number             │   │ member_type (enum)       │  ← STUDENT / GUEST
-│ school_code (FK, NULL)   │   │ member_no               │
-│ school_name              │   │ status (enum)            │  ← ACTIVE/LEFT/KICKED/ARCHIVED
-│ invite_code (UK)         │   │ joined_at / left_at      │
-│ invite_link_token        │   │ created_by / updated_by  │
-│ max_member_count (40)    │   │ created_at / updated_at  │
-│ use_yn (Y/N)             │   └──────────┬───────────────┘
-│ created_by / updated_by  │              │
+│ grade                    │   │ gender                   │  ← M / F
+│ class_number             │   │ email                    │
+│ school_code (FK, NULL)   │   │ member_type (enum)       │  ← STUDENT / GUEST
+│ school_name              │   │ member_no               │
+│ invite_code (UK)         │   │ status (enum)            │  ← ACTIVE/LEFT/KICKED/ARCHIVED
+│ invite_link_token        │   │ joined_at / left_at      │
+│ max_member_count (40)    │   │ created_by / updated_by  │
+│ use_yn (Y/N)             │   │ created_at / updated_at  │
+│ created_by / updated_by  │   └──────────┬───────────────┘
 │ created_at / updated_at  │              │
 └──────────┬───────────────┘              │
            │ FK                           │
@@ -532,6 +534,7 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 | `email` | VARCHAR(100) | NOT NULL | - | 이메일 (UK, 로그인 식별자) |
 | `password` | VARCHAR(255) | NOT NULL | - | 비밀번호 (BCrypt 암호화) |
 | `nickname` | VARCHAR(50) | NOT NULL | - | 닉네임 |
+| `gender` | VARCHAR(10) | NULL | NULL | 성별 (M/F) |
 | `role_code` | VARCHAR(20) | NOT NULL | - | 권한 코드 (FK → role_group) |
 | `tc_id` | VARCHAR(64) | NULL | NULL | 교사 ID (UK) — 가입 시 즉시 채번 |
 | `stdt_id` | VARCHAR(64) | NULL | NULL | 학생 ID (UK) — 가입 시 즉시 채번 |
@@ -628,6 +631,7 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 | `user_no` | BIGINT | NULL | NULL | 회원 번호 (FK → user.user_no, 게스트는 NULL) |
 | `stdt_id` | VARCHAR(64) | NOT NULL | - | 기존 API용 학생 ID |
 | `nickname` | VARCHAR(50) | NOT NULL | - | 닉네임 |
+| `gender` | VARCHAR(10) | NULL | NULL | 성별 (M/F) |
 | `email` | VARCHAR(255) | NULL | NULL | 게스트 이메일 |
 | `member_type` | VARCHAR(10) | NOT NULL | - | STUDENT / GUEST |
 | `member_no` | INT | NULL | NULL | 순번 |
@@ -851,7 +855,7 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
         └─ 인증 완료 (verified = true)
 
 [2] 통합 로그인 회원가입
-    ├─ POST /member/signup {password, email, nickname, roleCode}
+    ├─ POST /member/signup {password, email, nickname, gender, roleCode}
     ├─ 이메일 인증 완료 확인
     ├─ 비밀번호 정책 검증 (10~64자, 2종 조합, 연속4자 금지 등)
     ├─ BCrypt 암호화
@@ -887,7 +891,7 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
     └─ 응답: {stdtId, ...}
 
 [5-G] 그룹 참가 — 게스트(GUEST)
-    ├─ POST /group/join-guest {inviteCode, nickname, email} (이메일 인증 필수)
+    ├─ POST /group/join-guest {inviteCode, nickname, gender, email} (이메일 인증 필수)
     ├─ 최대 인원 체크
     ├─ INSERT INTO group_member (stdt_id=새로채번, user_no=NULL, member_type='GUEST')
     └─ 이메일 인증 레코드 소비 (DELETE)
@@ -1182,5 +1186,13 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 | 템플릿 엔진 | Thymeleaf 3.0 + thymeleaf-extras-springsecurity5 |
 | 메일 발송 | NCP Cloud Outbound Mailer |
 | 패스워드 | BCrypt (Spring Security PasswordEncoder) |
-| 서버 포트 | 15000 |
+| 서버 포트 | 8081 |
 | 패키지 루트 | com.vs.meta |
+
+---
+
+## 수정내역
+
+| 날짜 | 수정자 | 변경 내용 |
+|------|--------|----------|
+| 2026-03-19 | - | `user`, `group_member` 테이블에 `gender VARCHAR(10) NULL` 컬럼 추가 (M/F). 회원가입/게스트참가/Admin계정등록 시 gender 필수값 검증. 로그인/회원조회/그룹멤버목록 등 모든 API 응답에 gender 포함. 게스트→회원 전환 시 gender 반영. `member_no` 자동 채번 로직 구현 (그룹 참가 시 MAX+1). 그룹 멤버 목록 정렬 기준 `joined_at` → `member_no`로 변경. Admin 사용자목록에 성별 컬럼 및 학교매핑 바로가기 버튼 추가. Admin 학교등록에 나이스 데이터 출처 안내 추가. API 테스트 페이지 Base URL 포트 8081 변경. |
