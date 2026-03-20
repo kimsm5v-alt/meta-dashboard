@@ -61,9 +61,9 @@
 | 60 | 생기부 | POST | `/api/school-records` | 생기부 저장 | ❌ | 1차 오픈 범위 아님 | [이동](#api-60) |
 | 61 | 생기부 | DELETE | `/api/school-records/{id}` | 생기부 삭제 | ❌ | 1차 오픈 범위 아님 | [이동](#api-61) |
 | | **이메일 초대** | | | | | *프론트: Mock, 백엔드 미구현* | |
-| 62 | 초대 | POST | `/group/invite/email` | 이메일 초대 발송 | ❌ | | [이동](#api-62) |
-| 63 | 초대 | GET | `/group/invite/list` | 초대 목록 조회 | ❌ | ?groupId=xxx | [이동](#api-63) |
-| 64 | 초대 | DELETE | `/group/invite/{invitationId}` | 초대 취소 | ❌ | | [이동](#api-64) |
+| 62 | 초대 | POST | `/group/invite/email` | 이메일 초대 발송 | ✅ | 방장 전용 | [이동](#api-62) |
+| 63 | 초대 | GET | `/group/invite/list` | 초대 목록 조회 | ✅ | ?claId=xxx | [이동](#api-63) |
+| 64 | 초대 | DELETE | `/group/invite/{invitationId}` | 초대 취소 | ✅ | 방장 전용 | [이동](#api-64) |
 
 ---
 
@@ -1351,23 +1351,24 @@
 <a id="api-62"></a>
 ### POST `/group/invite/email` (JWT) — 초대 발송
 
+> 방장 전용. 같은 그룹+이메일로 SENT 상태의 초대가 이미 있으면 중복 발송 불가.
+
 **Request Body**
 
 | 파라미터 | 타입 | 필수 | 설명 | 샘플 | 비고 |
 |---------|------|------|------|------|------|
-| `groupId` | String | O | 그룹 ID | `"group-001"` | |
-| `email` | String | O | 초대 대상 이메일 | `"invitee@test.com"` | |
+| `claId` | String | O | 학급 ID (UUID) | `"a1b2c3d4e5f67890abcdef1234567890"` | |
+| `email` | String | O | 초대 대상 이메일 | `"student@test.com"` | |
 
 **Response resultData**
 
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
-| `invitationId` | String | 초대 PK | `"inv-001"` | |
-| `groupId` | String | 그룹 ID | `"group-001"` | |
-| `email` | String | 초대 이메일 | `"invitee@test.com"` | |
-| `status` | String | 상태 | `"sent"` | 발송 즉시 `sent` |
-| `sentAt` | String | 발송일시 | `"2026-03-17 10:00:00"` | |
-| `expiresAt` | String | 만료일시 | `"2026-03-24 10:00:00"` | 7일 |
+| `invitationId` | Long | 초대 PK | `1` | AUTO_INCREMENT |
+| `groupId` | Long | 그룹 ID | `1` | 내부 PK |
+| `email` | String | 초대 이메일 | `"student@test.com"` | |
+| `status` | String | 상태 | `"SENT"` | 발송 즉시 `SENT` |
+| `sentAt` | String | 발송일시 | `"2026-03-20 10:00:00"` | |
 
 ```json
 {
@@ -1375,12 +1376,11 @@
   "resultCode": 200,
   "resultMessage": "초대 발송 완료",
   "resultData": {
-    "invitationId": "inv-001",
-    "groupId": "group-001",
-    "email": "invitee@test.com",
-    "status": "sent",
-    "sentAt": "2026-03-17 10:00:00",
-    "expiresAt": "2026-03-24 10:00:00"
+    "invitationId": 1,
+    "groupId": 1,
+    "email": "student@test.com",
+    "status": "SENT",
+    "sentAt": "2026-03-20 10:00:00"
   }
 }
 ```
@@ -1390,36 +1390,36 @@
 <a id="api-63"></a>
 ### GET `/group/invite/list` (JWT) — 초대 목록
 
+> 방장 전용.
+
 **Query Parameter**
 
 | 파라미터 | 타입 | 필수 | 설명 | 샘플 | 비고 |
 |---------|------|------|------|------|------|
-| `groupId` | String | O | 그룹 ID | `"group-001"` | |
+| `claId` | String | O | 학급 ID (UUID) | `"a1b2c3d4e5f67890abcdef1234567890"` | |
 
 **Response resultData** — `Array`
 
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
-| `id` | String | 초대 PK | `"inv-001"` | |
-| `groupId` | String | 그룹 ID | `"group-001"` | |
-| `email` | String | 초대 이메일 | `"invitee@test.com"` | |
-| `status` | String | 상태 | `"pending"` | `pending` \| `sent` \| `accepted` \| `expired` |
-| `sentAt` | String | 발송일시 | `"2026-03-17 10:00:00"` | |
-| `expiresAt` | String | 만료일시 | `"2026-03-24 10:00:00"` | 7일 |
+| `id` | Long | 초대 PK | `1` | |
+| `groupId` | Long | 그룹 ID | `1` | |
+| `email` | String | 초대 이메일 | `"student@test.com"` | |
+| `status` | String | 상태 | `"SENT"` | `SENT` \| `ACCEPTED` \| `CANCELLED` |
+| `sentAt` | String | 발송일시 | `"2026-03-20 10:00:00"` | |
 
 ```json
 {
   "success": true,
   "resultCode": 200,
-  "resultMessage": "조회 완료",
+  "resultMessage": "초대 목록 조회",
   "resultData": [
     {
-      "id": "inv-001",
-      "groupId": "group-001",
-      "email": "invitee@test.com",
-      "status": "sent",
-      "sentAt": "2026-03-17 10:00:00",
-      "expiresAt": "2026-03-24 10:00:00"
+      "id": 1,
+      "groupId": 1,
+      "email": "student@test.com",
+      "status": "SENT",
+      "sentAt": "2026-03-20 10:00:00"
     }
   ]
 }
@@ -1430,11 +1430,13 @@
 <a id="api-64"></a>
 ### DELETE `/group/invite/{invitationId}` (JWT) — 초대 취소
 
+> 방장 전용. SENT 상태의 초대만 취소 가능.
+
 **Path Parameter**
 
 | 파라미터 | 타입 | 설명 | 샘플 | 비고 |
 |---------|------|------|------|------|
-| `invitationId` | String | 초대 PK | `"inv-001"` | |
+| `invitationId` | Long | 초대 PK | `1` | |
 
 **Response**: resultData 없음 (성공 메시지만 반환)
 

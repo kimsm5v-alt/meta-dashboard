@@ -16,11 +16,12 @@
 --   5. auth_school_map     — 직책별 학교 접근 매핑
 --   6. group_member        — 그룹 멤버
 --   7. guest_conversion_log — 게스트 회원전환 이력
---   8. email_verification  — 이메일 인증코드
---   9. memo_info           — 관찰 메모
---  10. counseling_info     — 상담 정보
---  11. counseling_student  — 상담-학생 매핑
---  12. refresh_token       — Refresh Token 관리
+--   8. group_invitation    — 그룹 이메일 초대
+--   9. email_verification  — 이메일 인증코드
+--  10. memo_info           — 관찰 메모
+--  11. counseling_info     — 상담 정보
+--  12. counseling_student  — 상담-학생 매핑
+--  13. refresh_token       — Refresh Token 관리
 -- ============================================================
 -- v2 → v3 변경 요약:
 --   - user 테이블: user_id(VARCHAR PK) 제거 → user_no(BIGINT AUTO_INCREMENT PK)
@@ -47,6 +48,7 @@ DROP TABLE IF EXISTS counseling_student;
 DROP TABLE IF EXISTS counseling_info;
 DROP TABLE IF EXISTS memo_info;
 DROP TABLE IF EXISTS email_verification;
+DROP TABLE IF EXISTS group_invitation;
 DROP TABLE IF EXISTS guest_conversion_log;
 DROP TABLE IF EXISTS group_member;
 DROP TABLE IF EXISTS auth_school_map;
@@ -237,7 +239,31 @@ CREATE TABLE guest_conversion_log (
   COMMENT='게스트 회원전환 이력';
 
 -- ============================================================
--- 8. 이메일 인증코드 테이블
+-- 8. 그룹 이메일 초대 테이블
+-- ============================================================
+CREATE TABLE group_invitation (
+    id              BIGINT          NOT NULL    AUTO_INCREMENT,
+    group_id        BIGINT          NOT NULL    COMMENT '그룹 ID (FK → group_info)',
+    email           VARCHAR(255)    NOT NULL    COMMENT '초대 대상 이메일',
+    invite_code     VARCHAR(20)     NOT NULL    COMMENT '그룹 초대코드 (group_info.invite_code 복사)',
+    status          VARCHAR(20)     NOT NULL    DEFAULT 'SENT'  COMMENT 'SENT/ACCEPTED/CANCELLED/EXPIRED',
+    sent_by         BIGINT          NOT NULL    COMMENT '발송자 (user_no)',
+    sent_at         DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    expires_at      DATETIME        NOT NULL    COMMENT '만료 일시 (발송 후 7일)',
+    created_by      BIGINT          NOT NULL    DEFAULT 0       COMMENT '등록자 (user_no)',
+    updated_by      BIGINT          NOT NULL    DEFAULT 0       COMMENT '수정자 (user_no)',
+    created_at      DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_gi_group (group_id),
+    INDEX idx_gi_email (email),
+    CONSTRAINT fk_gi_group FOREIGN KEY (group_id) REFERENCES group_info (group_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_gi_sent_by FOREIGN KEY (sent_by) REFERENCES `user` (user_no) ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+  COMMENT='그룹 이메일 초대';
+
+-- ============================================================
+-- 9. 이메일 인증코드 테이블
 -- ============================================================
 CREATE TABLE email_verification (
     id              BIGINT          NOT NULL    AUTO_INCREMENT,
