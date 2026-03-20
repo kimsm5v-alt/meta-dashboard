@@ -40,7 +40,7 @@ public class CounselingController {
     @GetMapping(value = "/api/counseling/student/{studentId}")
     @Operation(summary = "학생별 상담 기록 조회", description = "특정 학생의 상담 기록을 조회")
     @Parameter(name = "studentId", description = "학생 ID (stdt_id)", required = true,
-            examples = @ExampleObject(value = "viva-s-00000001"))
+            examples = @ExampleObject(value = "a1b2c3d4e5f67890abcdef1234567890"))
     public ResponseDTO<CustomBody> getByStudentId(
             @PathVariable String studentId
     ) throws Exception {
@@ -88,7 +88,7 @@ public class CounselingController {
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(examples = {
                     @ExampleObject(name = "상담생성", value =
-                            "{\"classId\":\"abcd1234\", \"scheduledAt\":\"2026-03-12 14:30\", \"types\":[\"regular\"], \"areas\":[\"academic\",\"emotion\"], \"methods\":[\"face-to-face\"], \"status\":\"scheduled\", \"reason\":\"학업 부진 상담\", \"students\":[{\"id\":\"viva-s-00000001\",\"name\":\"학생1\",\"number\":1,\"classId\":\"abcd1234\"}]}")
+                            "{\"classId\":\"abcd1234\", \"scheduledAt\":\"2026-03-12 14:30\", \"types\":[\"regular\"], \"areas\":[\"academic\",\"emotion\"], \"methods\":[\"face-to-face\"], \"status\":\"scheduled\", \"reason\":\"학업 부진 상담\", \"students\":[{\"id\":\"a1b2c3d4e5f67890abcdef1234567890\",\"name\":\"학생1\",\"number\":1,\"classId\":\"abcd1234\"}]}")
             }))
     public ResponseDTO<CustomBody> create(
             @RequestBody Map<String, Object> paramData

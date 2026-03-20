@@ -72,8 +72,6 @@ class GroupServiceTest {
                 .build();
 
         when(userMapper.findByUserNo(1L)).thenReturn(host);
-        when(memberService.generateTcId()).thenReturn("viva-t-12345678");
-        when(memberService.generateClaId()).thenReturn("class-id-001");
 
         Object result = groupService.createGroup(paramData);
 
@@ -85,8 +83,8 @@ class GroupServiceTest {
         User updatedHost = userCaptor.getValue();
         GroupInfo savedGroup = groupCaptor.getValue();
 
-        assertThat(updatedHost.getTcId()).isEqualTo("viva-t-12345678");
-        assertThat(savedGroup.getClaId()).isEqualTo("class-id-001");
+        assertThat(updatedHost.getTcId()).hasSize(32).matches("[a-f0-9]{32}");
+        assertThat(savedGroup.getClaId()).hasSize(32).matches("[a-f0-9]{32}");
         assertThat(savedGroup.getHostUserNo()).isEqualTo(1L);
         assertThat(savedGroup.getUseYn()).isEqualTo("Y");
         assertThat(savedGroup.getMaxMemberCount()).isEqualTo(40);
@@ -95,9 +93,7 @@ class GroupServiceTest {
 
         @SuppressWarnings("unchecked")
         Map<String, Object> resultMap = (Map<String, Object>) result;
-        assertThat(resultMap)
-                .containsEntry("claId", "class-id-001")
-                .containsKey("inviteCode");
+        assertThat(resultMap).containsKey("claId").containsKey("inviteCode");
     }
 
     @Test
@@ -122,7 +118,7 @@ class GroupServiceTest {
         when(userMapper.findByUserNo(2L)).thenReturn(player);
         when(groupInfoMapper.findByInviteCodeAndUseYnForUpdate("ABC123", "Y")).thenReturn(groupInfo);
         when(groupMemberMapper.countByGroupIdAndStatus(10L, MemberStatus.ACTIVE.name())).thenReturn(5L);
-        when(memberService.generateStdtId()).thenReturn("viva-s-12345678");
+        when(groupMemberMapper.findMaxMemberNoByGroupId(10L)).thenReturn(5);
         doAnswer(invocation -> {
             GroupMember member = invocation.getArgument(0);
             member.setId(77L);
@@ -136,18 +132,17 @@ class GroupServiceTest {
         verify(userMapper).updateUser(userCaptor.capture());
         verify(groupMemberMapper).insertGroupMember(memberCaptor.capture());
 
-        assertThat(userCaptor.getValue().getStdtId()).isEqualTo("viva-s-12345678");
+        assertThat(userCaptor.getValue().getStdtId()).hasSize(32).matches("[a-f0-9]{32}");
         assertThat(memberCaptor.getValue().getMemberType()).isEqualTo(MemberType.STUDENT);
         assertThat(memberCaptor.getValue().getStatus()).isEqualTo(MemberStatus.ACTIVE);
         assertThat(memberCaptor.getValue().getUserNo()).isEqualTo(2L);
-        assertThat(memberCaptor.getValue().getStdtId()).isEqualTo("viva-s-12345678");
+        assertThat(memberCaptor.getValue().getStdtId()).hasSize(32).matches("[a-f0-9]{32}");
+        assertThat(memberCaptor.getValue().getMemberNo()).isEqualTo(6);
         assertThat(memberCaptor.getValue().getCreatedBy()).isEqualTo(2L);
 
         @SuppressWarnings("unchecked")
         Map<String, Object> resultMap = (Map<String, Object>) result;
-        assertThat(resultMap)
-                .containsEntry("stdtId", "viva-s-12345678")
-                .containsEntry("memberId", 77L);
+        assertThat(resultMap).containsKey("stdtId").containsEntry("memberId", 77L);
     }
 
     @Test
@@ -184,6 +179,7 @@ class GroupServiceTest {
         paramData.put("email", "guest@test.com");
         paramData.put("inviteCode", "abc123");
         paramData.put("nickname", "Guest");
+        paramData.put("gender", "M");
 
         GroupInfo groupInfo = GroupInfo.builder()
                 .groupId(10L)
@@ -195,7 +191,7 @@ class GroupServiceTest {
         when(emailVerificationService.isVerified("guest@test.com")).thenReturn(true);
         when(groupInfoMapper.findByInviteCodeAndUseYnForUpdate("ABC123", "Y")).thenReturn(groupInfo);
         when(groupMemberMapper.countByGroupIdAndStatus(10L, MemberStatus.ACTIVE.name())).thenReturn(4L);
-        when(memberService.generateStdtId()).thenReturn("viva-s-guest01");
+        when(groupMemberMapper.findMaxMemberNoByGroupId(10L)).thenReturn(4);
         doAnswer(invocation -> {
             GroupMember member = invocation.getArgument(0);
             member.setId(88L);
@@ -213,12 +209,13 @@ class GroupServiceTest {
         assertThat(savedMember.getStatus()).isEqualTo(MemberStatus.ACTIVE);
         assertThat(savedMember.getUserNo()).isNull();
         assertThat(savedMember.getEmail()).isEqualTo("guest@test.com");
+        assertThat(savedMember.getGender()).isEqualTo("M");
+        assertThat(savedMember.getStdtId()).hasSize(32).matches("[a-f0-9]{32}");
+        assertThat(savedMember.getMemberNo()).isEqualTo(5);
         assertThat(savedMember.getCreatedBy()).isEqualTo(0L);
 
         @SuppressWarnings("unchecked")
         Map<String, Object> resultMap = (Map<String, Object>) result;
-        assertThat(resultMap)
-                .containsEntry("stdtId", "viva-s-guest01")
-                .containsEntry("memberId", 88L);
+        assertThat(resultMap).containsKey("stdtId").containsEntry("memberId", 88L);
     }
 }

@@ -35,7 +35,7 @@
 -- ------------------------------------------------------------
 CREATE DATABASE IF NOT EXISTS viva_meta
     DEFAULT CHARACTER SET utf8mb4
-    DEFAULT COLLATE utf8mb4_unicode_ci;
+    DEFAULT COLLATE utf8mb4_general_ci;
 
 USE viva_meta;
 
@@ -67,7 +67,7 @@ CREATE TABLE role_group (
     created_at      DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (role_code),
     UNIQUE KEY uk_role_level (level)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='권한 그룹 마스터';
 
 -- 초기 데이터
@@ -95,7 +95,7 @@ CREATE TABLE school_info (
     PRIMARY KEY (school_code),
     INDEX idx_school_name (school_name),
     INDEX idx_school_region (region)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='학교 마스터';
 
 -- ============================================================
@@ -104,8 +104,8 @@ CREATE TABLE school_info (
 -- PK      : user_no (BIGINT AUTO_INCREMENT) — 내부 식별자
 -- 로그인   : email (UNIQUE) — 로그인 식별자
 -- user_id : 제거 (기존 계정명 개념 폐지)
--- tc_id   : TEACHER/PRINCIPAL/SUPERINTENDENT/ADMIN 가입 시 즉시 채번 (viva-t-xxxxxxxx)
--- stdt_id : STUDENT 가입 시 즉시 채번 (viva-s-xxxxxxxx)
+-- tc_id   : TEACHER/PRINCIPAL/SUPERINTENDENT/ADMIN 가입 시 즉시 채번 (UUID 32자리, 하이픈 제거)
+-- stdt_id : STUDENT 가입 시 즉시 채번 (UUID 32자리, 하이픈 제거)
 -- password: BCrypt 암호화 저장
 -- 비밀번호 정책: 10~64자, 2종류 이상 문자조합, 동일문자 4연속 금지, email 포함 금지
 -- ============================================================
@@ -130,7 +130,7 @@ CREATE TABLE `user` (
     UNIQUE KEY uk_user_stdt_id (stdt_id),
     INDEX idx_user_role (role_code),
     CONSTRAINT fk_user_role FOREIGN KEY (role_code) REFERENCES role_group (role_code) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='통합 회원';
 
 -- ============================================================
@@ -162,7 +162,7 @@ CREATE TABLE group_info (
     INDEX idx_group_school (school_code),
     CONSTRAINT fk_group_host FOREIGN KEY (host_user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE,
     CONSTRAINT fk_group_school FOREIGN KEY (school_code) REFERENCES school_info (school_code) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='그룹(방/학급)';
 
 -- ============================================================
@@ -183,7 +183,7 @@ CREATE TABLE auth_school_map (
     INDEX idx_asm_school (school_code),
     CONSTRAINT fk_asm_user FOREIGN KEY (user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE,
     CONSTRAINT fk_asm_school FOREIGN KEY (school_code) REFERENCES school_info (school_code) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='직책별 학교 접근 매핑';
 
 -- ============================================================
@@ -216,7 +216,7 @@ CREATE TABLE group_member (
     INDEX idx_gm_user (user_no),
     CONSTRAINT fk_gm_group FOREIGN KEY (group_id) REFERENCES group_info (group_id) ON UPDATE CASCADE,
     CONSTRAINT fk_gm_user FOREIGN KEY (user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='그룹 멤버';
 
 -- ============================================================
@@ -233,7 +233,7 @@ CREATE TABLE guest_conversion_log (
     INDEX idx_gcl_member (member_id),
     CONSTRAINT fk_gcl_member FOREIGN KEY (member_id) REFERENCES group_member (id) ON UPDATE CASCADE,
     CONSTRAINT fk_gcl_user FOREIGN KEY (converted_user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='게스트 회원전환 이력';
 
 -- ============================================================
@@ -249,7 +249,7 @@ CREATE TABLE email_verification (
     PRIMARY KEY (id),
     INDEX idx_ev_email (email),
     INDEX idx_ev_expires (expires_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='이메일 인증코드';
 
 -- ============================================================
@@ -274,7 +274,7 @@ CREATE TABLE memo_info (
     INDEX idx_memo_cla (cla_id),
     INDEX idx_memo_tc (tc_id),
     INDEX idx_memo_date (memo_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='관찰 메모';
 
 -- ============================================================
@@ -303,7 +303,7 @@ CREATE TABLE counseling_info (
     INDEX idx_counsel_tc (tc_id),
     INDEX idx_counsel_status (status),
     INDEX idx_counsel_scheduled (scheduled_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='상담 정보';
 
 -- ============================================================
@@ -321,7 +321,7 @@ CREATE TABLE counseling_student (
     INDEX idx_cs_counseling (counseling_id),
     INDEX idx_cs_stdt (stdt_id),
     CONSTRAINT fk_cs_counseling FOREIGN KEY (counseling_id) REFERENCES counseling_info (id) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='상담-학생 매핑';
 
 -- ============================================================
@@ -340,7 +340,7 @@ CREATE TABLE refresh_token (
     INDEX idx_rt_user (user_no),
     INDEX idx_rt_expires (expires_at),
     CONSTRAINT fk_rt_user FOREIGN KEY (user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='Refresh Token 관리';
 
 -- ============================================================

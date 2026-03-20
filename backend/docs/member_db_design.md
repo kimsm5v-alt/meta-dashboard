@@ -307,8 +307,8 @@ ADMIN (level 99)
 ### 4.2 ID 채번 규칙
 
 ```
-tcId   : "viva-t-{UUID 8자리}"     예) viva-t-a1b2c3d4
-stdtId : "viva-s-{UUID 8자리}"     예) viva-s-e5f6g7h8
+tcId   : UUID 32자리 (하이픈 제거)   예) a1b2c3d4e5f67890abcdef1234567890
+stdtId : UUID 32자리 (하이픈 제거)   예) f9e8d7c6b5a43210fedcba0987654321
 claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 ```
 
@@ -860,10 +860,10 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
     ├─ 비밀번호 정책 검증 (10~64자, 2종 조합, 연속4자 금지 등)
     ├─ BCrypt 암호화
     ├─ 교사(TEACHER) 선택 시:
-    │   INSERT INTO user (..., role_code='TEACHER', tc_id='viva-t-xxxxxxxx')
+    │   INSERT INTO user (..., role_code='TEACHER', tc_id='{UUID 32자리}')
     │
     ├─ 학생(STUDENT) 선택 시:
-    │   INSERT INTO user (..., role_code='STUDENT', stdt_id='viva-s-xxxxxxxx')
+    │   INSERT INTO user (..., role_code='STUDENT', stdt_id='{UUID 32자리}')
     │
     └─ 이메일 인증 레코드 소비 (DELETE)
 
@@ -927,7 +927,7 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 ```
 [A] 게스트로 검사 응시
     ├─ group_member: user_no = NULL, email = "abc@gmail.com", member_type = 'GUEST'
-    ├─ stdt_id = "viva-s-xxxxxxxx" (새로 채번됨)
+    ├─ stdt_id = "{UUID 32자리}" (새로 채번됨)
     └─ 기존 API로 검사 완료 (결과 데이터 존재)
 
 [B] 동일 이메일로 통합 회원가입 (학생 역할 선택)
