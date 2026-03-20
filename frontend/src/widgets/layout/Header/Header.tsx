@@ -1,8 +1,8 @@
-import styled from '@emotion/styled'
-import { Menu, Bell, User } from 'lucide-react'
+import styled from '@emotion/styled';
+import { Menu, Bell, User } from 'lucide-react';
 
 interface HeaderProps {
-  onMenuClick?: () => void
+  onMenuClick?: () => void;
 }
 
 const StyledHeader = styled.header`
@@ -17,13 +17,13 @@ const StyledHeader = styled.header`
   position: sticky;
   top: 0;
   z-index: ${({ theme }) => theme.zIndex.sticky};
-`
+`;
 
 const LeftSection = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};
-`
+`;
 
 const MenuButton = styled.button`
   display: flex;
@@ -43,7 +43,7 @@ const MenuButton = styled.button`
   @media (min-width: ${({ theme }) => theme.breakpoints.lg}) {
     display: none;
   }
-`
+`;
 
 const Logo = styled.h1`
   font-size: ${({ theme }) => theme.typography.fontSize.xl};
@@ -52,13 +52,13 @@ const Logo = styled.h1`
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-`
+`;
 
 const RightSection = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.sm};
-`
+`;
 
 const IconButton = styled.button`
   display: flex;
@@ -74,7 +74,7 @@ const IconButton = styled.button`
     background: ${({ theme }) => theme.colors.glass.hover};
     color: ${({ theme }) => theme.colors.text.primary};
   }
-`
+`;
 
 const UserButton = styled(IconButton)`
   background: ${({ theme }) => theme.colors.primary[600]};
@@ -83,25 +83,25 @@ const UserButton = styled(IconButton)`
   &:hover {
     background: ${({ theme }) => theme.colors.primary[500]};
   }
-`
+`;
 
 export const Header = ({ onMenuClick }: HeaderProps) => {
   return (
     <StyledHeader>
       <LeftSection>
-        <MenuButton onClick={onMenuClick} aria-label="메뉴 열기">
+        <MenuButton onClick={onMenuClick} aria-label='메뉴 열기'>
           <Menu size={24} />
         </MenuButton>
         <Logo>META Dashboard</Logo>
       </LeftSection>
       <RightSection>
-        <IconButton aria-label="알림">
+        <IconButton aria-label='알림'>
           <Bell size={20} />
         </IconButton>
-        <UserButton aria-label="사용자 메뉴">
+        <UserButton aria-label='사용자 메뉴'>
           <User size={20} />
         </UserButton>
       </RightSection>
     </StyledHeader>
-  )
-}
+  );
+};

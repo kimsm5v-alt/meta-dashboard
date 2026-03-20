@@ -1,8 +1,8 @@
-import { Global, css } from '@emotion/react'
-import type { Theme } from './theme'
+import { Global, css } from '@emotion/react';
+import type { Theme } from './theme';
 
 interface GlobalStylesProps {
-  theme: Theme
+  theme: Theme;
 }
 
 export const GlobalStyles = ({ theme }: GlobalStylesProps) => (
@@ -19,7 +19,7 @@ export const GlobalStyles = ({ theme }: GlobalStylesProps) => (
 
       /* Root */
       :root {
-        color-scheme: dark;
+        color-scheme: light;
       }
 
       /* HTML & Body */
@@ -41,12 +41,12 @@ export const GlobalStyles = ({ theme }: GlobalStylesProps) => (
 
       /* Links */
       a {
-        color: ${theme.colors.primary[400]};
+        color: ${theme.colors.primary[600]};
         text-decoration: none;
         transition: color ${theme.transitions.fast};
 
         &:hover {
-          color: ${theme.colors.primary[300]};
+          color: ${theme.colors.primary[700]};
         }
       }
 
@@ -86,15 +86,15 @@ export const GlobalStyles = ({ theme }: GlobalStylesProps) => (
       }
 
       ::-webkit-scrollbar-track {
-        background: ${theme.colors.gray[800]};
+        background: ${theme.colors.gray[100]};
       }
 
       ::-webkit-scrollbar-thumb {
-        background: ${theme.colors.gray[600]};
+        background: ${theme.colors.gray[300]};
         border-radius: ${theme.radius.full};
 
         &:hover {
-          background: ${theme.colors.gray[500]};
+          background: ${theme.colors.gray[400]};
         }
       }
 
@@ -124,4 +124,4 @@ export const GlobalStyles = ({ theme }: GlobalStylesProps) => (
       }
     `}
   />
-)
+);

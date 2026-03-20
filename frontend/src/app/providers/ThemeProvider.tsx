@@ -1,9 +1,9 @@
-import { ThemeProvider as EmotionThemeProvider } from '@emotion/react'
-import type { ReactNode } from 'react'
-import { theme, GlobalStyles } from '@app/styles'
+import { ThemeProvider as EmotionThemeProvider } from '@emotion/react';
+import type { ReactNode } from 'react';
+import { theme, GlobalStyles } from '@app/styles';
 
 interface ThemeProviderProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export const ThemeProvider = ({ children }: ThemeProviderProps) => {
@@ -12,5 +12,5 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
       <GlobalStyles theme={theme} />
       {children}
     </EmotionThemeProvider>
-  )
-}
+  );
+};

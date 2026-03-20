@@ -1,5 +1,5 @@
-import styled from '@emotion/styled'
-import { NavLink } from 'react-router-dom'
+import styled from '@emotion/styled';
+import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -9,11 +9,11 @@ import {
   BookOpen,
   Bot,
   X,
-} from 'lucide-react'
+} from 'lucide-react';
 
 interface SidebarProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 const Overlay = styled.div<{ $isOpen: boolean }>`
@@ -28,7 +28,7 @@ const Overlay = styled.div<{ $isOpen: boolean }>`
   @media (min-width: ${({ theme }) => theme.breakpoints.lg}) {
     display: none;
   }
-`
+`;
 
 const StyledSidebar = styled.aside<{ $isOpen: boolean }>`
   position: fixed;
@@ -37,7 +37,7 @@ const StyledSidebar = styled.aside<{ $isOpen: boolean }>`
   width: 260px;
   height: 100vh;
   background: ${({ theme }) => theme.colors.background.paper};
-  border-right: 1px solid ${({ theme }) => theme.colors.gray[700]};
+  border-right: 1px solid ${({ theme }) => theme.colors.gray[200]};
   z-index: ${({ theme }) => theme.zIndex.modal};
   transform: translateX(${({ $isOpen }) => ($isOpen ? '0' : '-100%')});
   transition: transform ${({ theme }) => theme.transitions.normal};
@@ -47,7 +47,7 @@ const StyledSidebar = styled.aside<{ $isOpen: boolean }>`
     top: 0;
     transform: none;
   }
-`
+`;
 
 const SidebarHeader = styled.div`
   height: 64px;
@@ -55,14 +55,14 @@ const SidebarHeader = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 0 ${({ theme }) => theme.spacing.lg};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[700]};
-`
+  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[200]};
+`;
 
 const Logo = styled.span`
   font-size: ${({ theme }) => theme.typography.fontSize.lg};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
   color: ${({ theme }) => theme.colors.text.primary};
-`
+`;
 
 const CloseButton = styled.button`
   display: flex;
@@ -81,18 +81,18 @@ const CloseButton = styled.button`
   @media (min-width: ${({ theme }) => theme.breakpoints.lg}) {
     display: none;
   }
-`
+`;
 
 const Nav = styled.nav`
   padding: ${({ theme }) => theme.spacing.md};
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing.xs};
-`
+`;
 
 const NavSection = styled.div`
   margin-bottom: ${({ theme }) => theme.spacing.md};
-`
+`;
 
 const NavSectionTitle = styled.span`
   display: block;
@@ -102,7 +102,7 @@ const NavSectionTitle = styled.span`
   color: ${({ theme }) => theme.colors.text.secondary};
   text-transform: uppercase;
   letter-spacing: 0.05em;
-`
+`;
 
 const StyledNavLink = styled(NavLink)`
   display: flex;
@@ -124,7 +124,7 @@ const StyledNavLink = styled(NavLink)`
     background: ${({ theme }) => theme.colors.primary[600]}20;
     color: ${({ theme }) => theme.colors.primary[400]};
   }
-`
+`;
 
 const navItems = [
   {
@@ -155,7 +155,7 @@ const navItems = [
       { to: '/ai-room', icon: Bot, label: 'AI 어시스턴트' },
     ],
   },
-]
+];
 
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   return (
@@ -164,7 +164,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       <StyledSidebar $isOpen={isOpen}>
         <SidebarHeader>
           <Logo>META</Logo>
-          <CloseButton onClick={onClose} aria-label="사이드바 닫기">
+          <CloseButton onClick={onClose} aria-label='사이드바 닫기'>
             <X size={20} />
           </CloseButton>
         </SidebarHeader>
@@ -173,11 +173,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             <NavSection key={section.section}>
               <NavSectionTitle>{section.section}</NavSectionTitle>
               {section.items.map((item) => (
-                <StyledNavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={onClose}
-                >
+                <StyledNavLink key={item.to} to={item.to} onClick={onClose}>
                   <item.icon size={20} />
                   {item.label}
                 </StyledNavLink>
@@ -187,5 +183,5 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         </Nav>
       </StyledSidebar>
     </>
-  )
-}
+  );
+};

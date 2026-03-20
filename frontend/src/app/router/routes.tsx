@@ -1,6 +1,6 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { PageLayout } from '@widgets/layout'
-import { TeacherDashboardPage, LoginPage } from '@pages/index'
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { PageLayout } from '@widgets/layout';
+import { TeacherDashboardPage, LoginPage } from '@pages/index';
 
 export const router = createBrowserRouter([
   // Public routes
@@ -55,10 +55,10 @@ export const router = createBrowserRouter([
   // Redirects
   {
     path: '/',
-    element: <Navigate to="/login" replace />,
+    element: <Navigate to='/login' replace />,
   },
   {
     path: '*',
-    element: <Navigate to="/login" replace />,
+    element: <Navigate to='/login' replace />,
   },
-])
+]);

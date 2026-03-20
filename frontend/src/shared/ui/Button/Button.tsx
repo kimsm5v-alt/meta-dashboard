@@ -1,20 +1,20 @@
-import styled from '@emotion/styled'
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import styled from '@emotion/styled';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost'
-type ButtonSize = 'sm' | 'md' | 'lg'
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
+type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant
-  size?: ButtonSize
-  fullWidth?: boolean
-  children: ReactNode
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  fullWidth?: boolean;
+  children: ReactNode;
 }
 
 const StyledButton = styled.button<{
-  $variant: ButtonVariant
-  $size: ButtonSize
-  $fullWidth: boolean
+  $variant: ButtonVariant;
+  $size: ButtonSize;
+  $fullWidth: boolean;
 }>`
   display: inline-flex;
   align-items: center;
@@ -33,17 +33,17 @@ const StyledButton = styled.button<{
         return `
           padding: ${theme.spacing.xs} ${theme.spacing.md};
           font-size: ${theme.typography.fontSize.sm};
-        `
+        `;
       case 'lg':
         return `
           padding: ${theme.spacing.md} ${theme.spacing.xl};
           font-size: ${theme.typography.fontSize.lg};
-        `
+        `;
       default:
         return `
           padding: ${theme.spacing.sm} ${theme.spacing.lg};
           font-size: ${theme.typography.fontSize.base};
-        `
+        `;
     }
   }}
 
@@ -52,21 +52,21 @@ const StyledButton = styled.button<{
     switch ($variant) {
       case 'secondary':
         return `
-          background: ${theme.colors.gray[700]};
+          background: ${theme.colors.gray[100]};
           color: ${theme.colors.text.primary};
           &:hover:not(:disabled) {
-            background: ${theme.colors.gray[600]};
+            background: ${theme.colors.gray[200]};
           }
-        `
+        `;
       case 'outline':
         return `
           background: transparent;
-          color: ${theme.colors.primary[400]};
-          border: 1px solid ${theme.colors.primary[400]};
+          color: ${theme.colors.primary[600]};
+          border: 1px solid ${theme.colors.primary[600]};
           &:hover:not(:disabled) {
-            background: ${theme.colors.primary[400]}20;
+            background: ${theme.colors.primary[50]};
           }
-        `
+        `;
       case 'ghost':
         return `
           background: transparent;
@@ -75,7 +75,7 @@ const StyledButton = styled.button<{
             background: ${theme.colors.glass.hover};
             color: ${theme.colors.text.primary};
           }
-        `
+        `;
       default:
         return `
           background: ${theme.colors.primary[600]};
@@ -84,7 +84,7 @@ const StyledButton = styled.button<{
             background: ${theme.colors.primary[500]};
             transform: translateY(-1px);
           }
-        `
+        `;
     }
   }}
 
@@ -96,7 +96,7 @@ const StyledButton = styled.button<{
   &:active:not(:disabled) {
     transform: translateY(0);
   }
-`
+`;
 
 export const Button = ({
   variant = 'primary',
@@ -106,13 +106,8 @@ export const Button = ({
   ...props
 }: ButtonProps) => {
   return (
-    <StyledButton
-      $variant={variant}
-      $size={size}
-      $fullWidth={fullWidth}
-      {...props}
-    >
+    <StyledButton $variant={variant} $size={size} $fullWidth={fullWidth} {...props}>
       {children}
     </StyledButton>
-  )
-}
+  );
+};

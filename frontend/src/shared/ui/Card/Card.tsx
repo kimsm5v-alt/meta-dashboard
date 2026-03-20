@@ -1,15 +1,15 @@
-import styled from '@emotion/styled'
-import type { HTMLAttributes, ReactNode } from 'react'
+import styled from '@emotion/styled';
+import type { HTMLAttributes, ReactNode } from 'react';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'glass'
-  hover?: boolean
-  children: ReactNode
+  variant?: 'default' | 'glass';
+  hover?: boolean;
+  children: ReactNode;
 }
 
 const StyledCard = styled.div<{
-  $variant: 'default' | 'glass'
-  $hover: boolean
+  $variant: 'default' | 'glass';
+  $hover: boolean;
 }>`
   border-radius: ${({ theme }) => theme.radius.xl};
   transition: all ${({ theme }) => theme.transitions.normal};
@@ -24,7 +24,7 @@ const StyledCard = styled.div<{
       `
       : `
         background: ${theme.colors.background.paper};
-        border: 1px solid ${theme.colors.gray[700]};
+        border: 1px solid ${theme.colors.gray[200]};
         box-shadow: ${theme.shadows.lg};
       `}
 
@@ -38,35 +38,30 @@ const StyledCard = styled.div<{
       box-shadow: ${theme.shadows['2xl']};
     }
   `}
-`
+`;
 
 const CardHeader = styled.div`
   padding: ${({ theme }) => `${theme.spacing.lg} ${theme.spacing.lg} 0`};
-`
+`;
 
 const CardContent = styled.div`
   padding: ${({ theme }) => theme.spacing.lg};
-`
+`;
 
 const CardFooter = styled.div`
   padding: ${({ theme }) => `0 ${theme.spacing.lg} ${theme.spacing.lg}`};
   display: flex;
   gap: ${({ theme }) => theme.spacing.sm};
-`
+`;
 
-export const Card = ({
-  variant = 'default',
-  hover = false,
-  children,
-  ...props
-}: CardProps) => {
+export const Card = ({ variant = 'default', hover = false, children, ...props }: CardProps) => {
   return (
     <StyledCard $variant={variant} $hover={hover} {...props}>
       {children}
     </StyledCard>
-  )
-}
+  );
+};
 
-Card.Header = CardHeader
-Card.Content = CardContent
-Card.Footer = CardFooter
+Card.Header = CardHeader;
+Card.Content = CardContent;
+Card.Footer = CardFooter;
