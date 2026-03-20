@@ -209,6 +209,9 @@
 <a id="api-3"></a>
 ### POST `/member/token/refresh` — 토큰 갱신 (Public)
 
+> **Refresh Token Rotation 방식**: 갱신 시 기존 refreshToken은 폐기되고 새 refreshToken이 발급됩니다.
+> 프론트에서 응답의 새 refreshToken을 반드시 저장해야 합니다.
+
 **Request Body**
 
 | 파라미터 | 타입 | 필수 | 설명 | 샘플 | 비고 |
@@ -220,6 +223,9 @@
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
 | `accessToken` | String | 새 Access Token | `"eyJ..."` | |
+| `refreshToken` | String | 새 Refresh Token | `"eyJ..."` | 기존 토큰은 폐기됨, 반드시 교체 저장 |
+
+> **Grace Period**: 동시 요청 대응을 위해 교체된 토큰으로 10초 이내 재요청 시 동일 결과를 반환합니다.
 
 ```json
 // Request
@@ -231,7 +237,8 @@
   "resultCode": 200,
   "resultMessage": "토큰 갱신 성공",
   "resultData": {
-    "accessToken": "eyJ..."
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ..."
   }
 }
 ```
