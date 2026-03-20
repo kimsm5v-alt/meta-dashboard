@@ -7,7 +7,7 @@ import { AppRoutes } from './routes';
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_relativeSplatPath: true }}>
       <AuthProvider>
         <DataProvider>
           <ApiDevModeProvider>

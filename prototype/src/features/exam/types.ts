@@ -9,7 +9,7 @@
 // ============================================================
 
 /** 검사 단계 */
-export type ExamStep = 'number' | 'resume-choice' | 'guide' | 'questions' | 'complete';
+export type ExamStep = 'auth' | 'guest-entry' | 'number' | 'resume-choice' | 'guide' | 'questions' | 'complete';
 
 /** 검사 응시 상태 */
 export interface ExamState {

@@ -23,11 +23,11 @@ export const FEATURES = {
   /** 그룹 관리 */
   GROUPS: true,
 
-  /** 커뮤니티 - 3월 배포 제외 */
-  COMMUNITY: false,
+  /** 커뮤니티 */
+  COMMUNITY: true,
 
-  /** 자료실 - 3월 배포 제외 */
-  RESOURCES: false,
+  /** 자료실 */
+  RESOURCES: true,
 } as const;
 
 export type FeatureKey = keyof typeof FEATURES;

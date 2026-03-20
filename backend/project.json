@@ -10,7 +10,7 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "node -e \"const cp = require('child_process'); const cmd = process.platform === 'win32' ? 'gradlew.bat' : './gradlew'; cp.spawn(cmd, ['bootRun'], { stdio: 'inherit', shell: true });\""
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\backend\\run-backend.ps1"
       }
     }
   }

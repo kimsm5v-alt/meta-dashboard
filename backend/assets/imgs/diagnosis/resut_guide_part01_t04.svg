@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="92" height="92" viewBox="0 0 92 92">
+    <defs>
+        <linearGradient id="a2g4ufupga" x1="1" y1=".528" x2="0" y2=".085" gradientUnits="objectBoundingBox">
+            <stop offset="0" stop-color="#3bcabc"/>
+            <stop offset="1" stop-color="#3bcabc" stop-opacity=".349"/>
+        </linearGradient>
+        <linearGradient id="cx8906yvpb" y1="-.047" x2="1.043" y2="1.037" gradientUnits="objectBoundingBox">
+            <stop offset="0" stop-color="#702bf7"/>
+            <stop offset="1" stop-color="#702bf7" stop-opacity=".349"/>
+        </linearGradient>
+        <linearGradient id="w0kzgrkrvd" x1=".147" y1="-.019" x2=".944" y2=".91" gradientUnits="objectBoundingBox">
+            <stop offset="0" stop-color="#f6f4fd"/>
+            <stop offset=".591" stop-color="#eef9ff"/>
+            <stop offset="1" stop-color="#bbe3e6" stop-opacity=".902"/>
+        </linearGradient>
+        <filter id="8aysfs9oyc" x="27.302" y="14.534" width="46.151" height="55.739" filterUnits="userSpaceOnUse">
+            <feOffset dx="4" dy="3"/>
+            <feGaussianBlur stdDeviation="4" result="blur"/>
+            <feFlood flood-color="#503c94" flood-opacity=".251"/>
+            <feComposite operator="in" in2="blur"/>
+            <feComposite in="SourceGraphic"/>
+        </filter>
+    </defs>
+    <g data-name="그룹 2714">
+        <path data-name="패스 2736" d="M1188.288 482.521v27.136a9.546 9.546 0 0 0 9.546 9.547h23.547l7.4 12.817a2.825 2.825 0 0 0 4.929-.046l7.374-12.771h23.548a9.547 9.547 0 0 0 9.547-9.547V497.1c-8.312-.53-18.1-2.766-29.312-7.907-24.748-11.339-44.582-9.783-56.579-6.672z" transform="translate(-1185.079 -446.314)" style="fill:url(#a2g4ufupga)"/>
+        <path data-name="패스 2737" d="M1264.642 447.227h-66.816a9.537 9.537 0 0 0-9.538 9.538v21.322c12-3.112 31.831-4.667 56.58 6.677 11.217 5.141 21 7.377 29.312 7.907v-35.906a9.539 9.539 0 0 0-9.538-9.538z" transform="translate(-1185.079 -441.878)" style="fill:url(#cx8906yvpb)"/>
+        <g style="filter:url(#8aysfs9oyc)">
+            <path data-name="패스 2738" d="M12.812-25.549c5.988 0 11.264-4.062 11.264-11.054 0-6.741-4.438-9.84-9.714-9.84a7.9 7.9 0 0 0-3.224.628l.461-5.276h11.1v-6.2H5.191L4.4-41.879l3.266 2.135c1.842-1.172 2.68-1.507 4.4-1.507 2.68 0 4.564 1.675 4.564 4.815 0 3.224-1.884 4.857-4.9 4.857a9.482 9.482 0 0 1-6.406-2.973l-3.392 4.69a14.844 14.844 0 0 0 10.88 4.313z" transform="translate(33.379 80.819)" style="fill:url(#w0kzgrkrvd)"/>
+        </g>
+    </g>
+</svg>

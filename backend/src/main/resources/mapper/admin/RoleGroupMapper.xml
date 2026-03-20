@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.admin.mapper.RoleGroupMapper">
+
+    <resultMap id="roleGroupResultMap" type="com.vs.meta.domain.RoleGroup">
+        <id property="roleCode" column="role_code"/>
+        <result property="roleName" column="role_name"/>
+        <result property="level" column="level"/>
+        <result property="description" column="description"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <select id="findAllOrderByLevelDesc" resultMap="roleGroupResultMap">
+        /* RoleGroupMapper.findAllOrderByLevelDesc */
+        SELECT role_code, role_name, level, description, created_by, created_at
+        FROM role_group
+        ORDER BY level DESC
+    </select>
+
+    <select id="findByRoleCode" resultMap="roleGroupResultMap">
+        /* RoleGroupMapper.findByRoleCode */
+        SELECT role_code, role_name, level, description, created_by, created_at
+        FROM role_group
+        WHERE role_code = #{roleCode}
+    </select>
+
+    <select id="findLevelByRoleCode" resultType="int">
+        /* RoleGroupMapper.findLevelByRoleCode */
+        SELECT level
+        FROM role_group
+        WHERE role_code = #{roleCode}
+    </select>
+
+    <insert id="upsertRole" parameterType="com.vs.meta.domain.RoleGroup">
+        /* RoleGroupMapper.upsertRole */
+        INSERT INTO role_group (
+            role_code, role_name, level, description, created_by, created_at
+        )
+        VALUES (
+            #{roleCode}, #{roleName}, #{level}, #{description}, #{createdBy}, #{createdAt}
+        )
+        ON DUPLICATE KEY UPDATE
+            role_name = VALUES(role_name),
+            level = VALUES(level),
+            description = VALUES(description)
+    </insert>
+
+    <select id="findRolesPaged" resultMap="roleGroupResultMap">
+        /* RoleGroupMapper.findRolesPaged */
+        SELECT role_code, role_name, level, description, created_by, created_at
+        FROM role_group
+        ORDER BY level DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countRoles" resultType="long">
+        /* RoleGroupMapper.countRoles */
+        SELECT COUNT(*) FROM role_group
+    </select>
+
+</mapper>

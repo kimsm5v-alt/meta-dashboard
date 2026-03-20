@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.memo.mapper.MemoInfoMapper">
+
+    <resultMap id="memoInfoResultMap" type="com.vs.meta.domain.MemoInfo">
+        <id property="id" column="id"/>
+        <result property="stdtId" column="stdt_id"/>
+        <result property="claId" column="cla_id"/>
+        <result property="tcId" column="tc_id"/>
+        <result property="memoDate" column="memo_date"/>
+        <result property="category" column="category"/>
+        <result property="content" column="content"/>
+        <result property="isImportant" column="is_important"/>
+        <result property="useYn" column="use_yn"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="memoInfoColumns">
+        id, stdt_id, cla_id, tc_id, memo_date, category,
+        content, is_important, use_yn, created_by, updated_by, created_at, updated_at
+    </sql>
+
+    <select id="findByStdtIdOrderByMemoDateDesc" resultMap="memoInfoResultMap">
+        /* MemoInfoMapper.findByStdtIdOrderByMemoDateDesc */
+        SELECT <include refid="memoInfoColumns"/>
+        FROM memo_info
+        WHERE stdt_id = #{stdtId} AND use_yn = 'Y'
+        ORDER BY memo_date DESC
+    </select>
+
+    <select id="findMemoById" resultMap="memoInfoResultMap">
+        /* MemoInfoMapper.findMemoById */
+        SELECT <include refid="memoInfoColumns"/>
+        FROM memo_info
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insertMemo" parameterType="com.vs.meta.domain.MemoInfo" useGeneratedKeys="true" keyProperty="id">
+        /* MemoInfoMapper.insertMemo */
+        INSERT INTO memo_info (stdt_id, cla_id, tc_id, memo_date, category, content, is_important, use_yn, created_by, updated_by, created_at, updated_at)
+        VALUES (#{stdtId}, #{claId}, #{tcId}, #{memoDate}, #{category}, #{content}, #{isImportant}, 'Y', #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="updateMemo" parameterType="com.vs.meta.domain.MemoInfo">
+        /* MemoInfoMapper.updateMemo */
+        UPDATE memo_info
+        SET stdt_id = #{stdtId},
+            cla_id = #{claId},
+            tc_id = #{tcId},
+            memo_date = #{memoDate},
+            category = #{category},
+            content = #{content},
+            is_important = #{isImportant},
+            use_yn = #{useYn},
+            updated_by = #{updatedBy},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="deactivateMemoById">
+        /* MemoInfoMapper.deactivateMemoById */
+        UPDATE memo_info SET use_yn = 'N', updated_by = #{updatedBy}, updated_at = NOW() WHERE id = #{id}
+    </update>
+
+</mapper>

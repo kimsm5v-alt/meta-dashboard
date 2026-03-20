@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="65" height="430" viewBox="0 0 65 430">
+    <defs>
+        <clipPath id="1zkyjvrgqa">
+            <path style="fill:none" d="M0 0h24v348H0z"/>
+        </clipPath>
+    </defs>
+    <text data-name="10" transform="translate(54 392)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em;fill:#5c5c5c"><tspan x="0" y="0">10</tspan></text>
+    <text data-name="30" transform="translate(54 305)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em;fill:#5c5c5c"><tspan x="0" y="0">30</tspan></text>
+    <text data-name="45" transform="translate(54 241)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em;fill:#5c5c5c"><tspan x="0" y="0">45</tspan></text>
+    <text data-name="55" transform="translate(54 199)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em;fill:#5c5c5c"><tspan x="0" y="0">55</tspan></text>
+    <text data-name="50" transform="translate(54 220)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em;fill:#5c5c5c"><tspan x="0" y="0">50</tspan></text>
+    <text data-name="70" transform="translate(54 133)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em;fill:#5c5c5c"><tspan x="0" y="0">70</tspan></text>
+    <text data-name="90" transform="translate(54 48)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em;fill:#5c5c5c"><tspan x="0" y="0">90</tspan></text>
+    <g>
+        <g data-name="그룹 3021">
+            <path data-name="사각형 1176" transform="rotate(-90 217 213)" style="fill:#999" d="M0 0h1v10H0z"/>
+            <path data-name="사각형 1178" transform="matrix(0 -1 1 0 4 301.5)" style="fill:#999" d="M0 0h1v10H0z"/>
+            <path data-name="사각형 1184" transform="matrix(0 -1 1 0 4 237)" style="fill:#999" d="M0 0h1v10H0z"/>
+            <path data-name="사각형 1191" transform="rotate(-90 99 95)" style="fill:#999" d="M0 0h1v10H0z"/>
+            <path data-name="사각형 1196" transform="rotate(-90 66.75 62.75)" style="fill:#999" d="M0 0h1v10H0z"/>
+            <path data-name="사각형 1197" transform="rotate(180 5 61)" style="fill:#999" d="M0 0h1v19H0z"/>
+            <path data-name="패스 2822" d="M0 0h1v37.391H0z" transform="rotate(180 5 18.695)" style="fill:#999"/>
+            <path data-name="사각형 1200" transform="rotate(180 5 71.5)" style="fill:#999" d="M0 0h1v51H0z"/>
+            <path data-name="사각형 1183" transform="rotate(180 5 169)" style="fill:#999" d="M0 0h1v51H0z"/>
+            <path data-name="사각형 1193" transform="rotate(180 5 99)" style="fill:#999" d="M0 0h1v17H0z"/>
+            <path data-name="사각형 1192" transform="rotate(180 5 124.5)" style="fill:#999" d="M0 0h1v17H0z"/>
+            <path data-name="사각형 1177" transform="rotate(180 5 214.5)" style="fill:#999" d="M0 0h1v36H0z"/>
+            <path data-name="사각형 1198" transform="rotate(-90 2.5 -1.5)" style="fill:#999" d="M0 0h1v10H0z"/>
+        </g>
+        <text transform="translate(0 166)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em"><tspan x="0" y="0">높음</tspan></text>
+        <text data-name="매우 높음" transform="translate(9 61)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em"><tspan x="-8.96" y="0">매우</tspan><tspan x="-8.96" y="16">높음</tspan></text>
+        <text transform="translate(0 273)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em"><tspan x="0" y="0">낮음</tspan></text>
+        <text transform="translate(0 220)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em"><tspan x="0" y="0">보통</tspan></text>
+        <text data-name="매우 낮음" transform="translate(9 362)" style="font-size:10px;font-family:NotoSansCJKkr-Regular,Noto Sans CJK KR;letter-spacing:-.048em"><tspan x="-8.96" y="0">매우</tspan><tspan x="-8.96" y="16">낮음</tspan></text>
+    </g>
+    <g data-name="그룹 3022">
+        <path data-name="사각형 1700" transform="rotate(-90 33.5 9.5)" style="opacity:.35;fill:#3bcabc" d="M0 0h43v24H0z"/>
+        <path data-name="사각형 1700" transform="rotate(-90 55 31)" style="opacity:.35;fill:#3bcabc" d="M0 0h43v24H0z"/>
+        <path data-name="사각형 1700" transform="rotate(-90 76.5 52.5)" style="opacity:.35;fill:#3bcabc" d="M0 0h43v24H0z"/>
+        <path data-name="사각형 1700" transform="rotate(-90 98 74)" style="opacity:.6;fill:#3bcabc" d="M0 0h43v24H0z"/>
+        <path data-name="사각형 1703" transform="rotate(-90 130.25 106.25)" style="fill:#3bcabc" d="M0 0h43v24H0z"/>
+        <path data-name="사각형 1700" transform="rotate(-90 162.5 138.5)" style="opacity:.6;fill:#3bcabc" d="M0 0h43v24H0z"/>
+        <path data-name="사각형 1700" transform="rotate(-90 184 160)" style="opacity:.35;fill:#3bcabc" d="M0 0h43v24H0z"/>
+        <path data-name="사각형 1700" transform="rotate(-90 205.5 181.5)" style="opacity:.35;fill:#3bcabc" d="M0 0h43v24H0z"/>
+        <path data-name="사각형 1700" transform="rotate(-90 227 203)" style="opacity:.35;fill:#3bcabc" d="M0 0h43v24H0z"/>
+        <path data-name="사각형 1701" transform="rotate(-90 109.25 85.25)" style="opacity:.6;fill:#3bcabc" d="M0 0h22.5v24H0z"/>
+        <path data-name="사각형 1702" transform="rotate(-90 141 117)" style="opacity:.6;fill:#3bcabc" d="M0 0h22.5v24H0z"/>
+        <g data-name="반복 그리드 33" transform="translate(24 42)" style="clip-path:url(#1zkyjvrgqa)">
+            <path data-name="패스 3007" d="M0 0v24" transform="rotate(-90 .5 .5)" style="stroke-dasharray:4 3;stroke:#fff;stroke-width:2px;fill:#3bcabc"/>
+            <path data-name="패스 3007" d="M0 0v24" transform="rotate(-90 22 22)" style="stroke-dasharray:4 3;stroke:#fff;stroke-width:2px;fill:#3bcabc"/>
+            <path data-name="패스 3007" d="M0 0v24" transform="rotate(-90 43.5 43.5)" style="stroke-dasharray:4 3;stroke:#fff;stroke-width:2px;fill:#3bcabc"/>
+            <path data-name="패스 3007" d="M0 0v24" transform="rotate(-90 65 65)" style="stroke-dasharray:4 3;stroke:#fff;stroke-width:2px;fill:#3bcabc"/>
+            <path data-name="패스 3007" d="M0 0v24" transform="rotate(-90 86.5 86.5)" style="stroke-dasharray:4 3;stroke:#fff;stroke-width:2px;fill:#3bcabc"/>
+            <path data-name="패스 3007" d="M0 0v24" transform="rotate(-90 108 108)" style="stroke-dasharray:4 3;stroke:#fff;stroke-width:2px;fill:#3bcabc"/>
+            <path data-name="패스 3007" d="M0 0v24" transform="matrix(0 -1 1 0 0 259)" style="stroke-dasharray:4 3;stroke:#fff;stroke-width:2px;fill:#3bcabc"/>
+            <path data-name="패스 3007" d="M0 0v24" transform="rotate(-90 151 151)" style="stroke-dasharray:4 3;stroke:#fff;stroke-width:2px;fill:#3bcabc"/>
+            <path data-name="패스 3007" d="M0 0v24" transform="matrix(0 -1 1 0 0 345)" style="stroke-dasharray:4 3;stroke:#fff;stroke-width:2px;fill:#3bcabc"/>
+        </g>
+        <path data-name="패스 3008" d="M0 0v23.889" transform="rotate(-90 130.25 106.25)" style="stroke:#fff;stroke-width:2px;fill:#3bcabc"/>
+        <path data-name="패스 3009" d="M0 0v24" transform="rotate(-90 108.75 84.75)" style="stroke:#fff;stroke-width:2px;fill:#3bcabc"/>
+    </g>
+</svg>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useExamState } from '../hooks/useExamState';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import {
   validateExamCode,
   fetchQuestions,
@@ -12,6 +13,8 @@ import {
 } from '../services/examService';
 import {
   StudentIdEntryStep,
+  ExamAuthStep,
+  GuestExamEntryStep,
   ResumeChoiceStep,
   ExamGuideStep,
   ExamQuestionStep,
@@ -27,6 +30,7 @@ interface ExamInfo {
 export const ExamPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [isValidating, setIsValidating] = useState(true);
   const [isValid, setIsValid] = useState(false);
@@ -48,7 +52,6 @@ export const ExamPage: React.FC = () => {
   } = useExamState();
 
   // QR 코드 검증
-  // 형식: 4자리 숫자 코드 (내부적으로 claId 매핑)
   useEffect(() => {
     const validate = async () => {
       if (!code) {
@@ -78,27 +81,42 @@ export const ExamPage: React.FC = () => {
     validate();
   }, [code, navigate]);
 
-  // 학생 ID 입력 후 dgnssResultId 조회 및 문항 로드
-  const handleStudentIdSubmit = useCallback(async (stdtId: string) => {
+  // 인증 상태에 따라 초기 step 결정
+  useEffect(() => {
+    if (isValidating || authLoading || !isValid) return;
+
+    if (isAuthenticated) {
+      // 로그인 상태 → stdtId 입력 단계
+      if (state.step === 'auth' || state.step === 'guest-entry') {
+        setStep('number');
+      }
+    } else {
+      // 비로그인 상태 → 인증 선택 단계
+      if (state.step === 'number') {
+        setStep('auth');
+      }
+    }
+  }, [isAuthenticated, authLoading, isValidating, isValid, state.step, setStep]);
+
+  // 게스트 검사 시작 (닉네임만 입력)
+  const handleGuestSubmit = useCallback(async (nickname: string) => {
     if (!examInfo) return;
 
     setIsLoading(true);
     try {
-      // 학생 ID로 검사 정보 조회 (/stnt/list API)
-      // API 모드: claId 사용, Mock 모드: 숫자 코드 사용
       const claIdOrCode = examInfo.claId || examInfo.examCode;
+      // TODO: 게스트 전용 API 호출로 교체 (닉네임 기반 매칭)
+      const stdtId = `guest-${nickname}`;
       const examResult = await getStudentExamInfo(claIdOrCode, stdtId);
       if (!examResult) {
-        throw new Error('진행 중인 검사가 없습니다.');
+        throw new Error('진행 중인 검사가 없습니다. 선생님께 문의하세요.');
       }
 
       const { dgnssResultId } = examResult;
       setDgnssResultId(dgnssResultId);
 
-      // 문항 로드
       const result = await fetchQuestions(dgnssResultId, 0, 20);
 
-      // 기존 답변 로드
       const existingAnswers: Record<number, string> = {};
       result.questions.forEach((q) => {
         if (q.answer) {
@@ -108,13 +126,8 @@ export const ExamPage: React.FC = () => {
 
       loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
       loadExistingAnswers(existingAnswers);
+      setStudentNumber(0);
 
-      // stdtId에서 번호 추출 (예: engreal51-s3 → 3)
-      const numberMatch = stdtId.match(/s(\d+)$/);
-      const studentNumber = numberMatch ? parseInt(numberMatch[1], 10) : 0;
-      setStudentNumber(studentNumber);
-
-      // 기존 응답이 있으면 이어하기/새로하기 선택 화면으로
       if (result.answeredCount > 0) {
         setPendingAnsweredCount(result.answeredCount);
         setStep('resume-choice');
@@ -126,13 +139,55 @@ export const ExamPage: React.FC = () => {
     }
   }, [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep]);
 
-  // 이어하기: 기존 응답 유지하고 검사 계속
+  // 학생 ID 입력 후 dgnssResultId 조회 및 문항 로드
+  const handleStudentIdSubmit = useCallback(async (stdtId: string) => {
+    if (!examInfo) return;
+
+    setIsLoading(true);
+    try {
+      const claIdOrCode = examInfo.claId || examInfo.examCode;
+      const examResult = await getStudentExamInfo(claIdOrCode, stdtId);
+      if (!examResult) {
+        throw new Error('진행 중인 검사가 없습니다.');
+      }
+
+      const { dgnssResultId } = examResult;
+      setDgnssResultId(dgnssResultId);
+
+      const result = await fetchQuestions(dgnssResultId, 0, 20);
+
+      const existingAnswers: Record<number, string> = {};
+      result.questions.forEach((q) => {
+        if (q.answer) {
+          existingAnswers[q.NO] = q.answer;
+        }
+      });
+
+      loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+      loadExistingAnswers(existingAnswers);
+
+      const numberMatch = stdtId.match(/s(\d+)$/);
+      const studentNumber = numberMatch ? parseInt(numberMatch[1], 10) : 0;
+      setStudentNumber(studentNumber);
+
+      if (result.answeredCount > 0) {
+        setPendingAnsweredCount(result.answeredCount);
+        setStep('resume-choice');
+      } else {
+        setStep('guide');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep]);
+
+  // 이어하기
   const handleResume = useCallback(() => {
     setIsRestartMode(false);
     setStep('guide');
   }, [setStep]);
 
-  // 새로하기: 가이드 페이지로 이동 (실제 초기화는 검사 시작 시)
+  // 새로하기
   const handleRestart = useCallback(() => {
     setIsRestartMode(true);
     loadExistingAnswers({});
@@ -140,20 +195,18 @@ export const ExamPage: React.FC = () => {
     setStep('guide');
   }, [loadExistingAnswers, setStep]);
 
-  // 검사 시작 (안내 → 문항)
+  // 검사 시작
   const handleStartExam = useCallback(async () => {
     if (!state.dgnssResultId) return;
 
     setIsLoading(true);
     try {
-      // 새로하기 모드면 resetExam(/st/new), 아니면 fetchQuestions(/st/start)
       const result = isRestartMode
         ? await resetExam(state.dgnssResultId, 0, 20)
         : await fetchQuestions(state.dgnssResultId, 0, 20);
 
       loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
 
-      // 기존 답변 로드 (새로하기 모드면 빈 객체)
       const existingAnswers: Record<number, string> = {};
       if (!isRestartMode) {
         result.questions.forEach((q) => {
@@ -164,7 +217,6 @@ export const ExamPage: React.FC = () => {
       }
       loadExistingAnswers(existingAnswers);
 
-      // 새로하기 모드 초기화
       setIsRestartMode(false);
       setStep('questions');
     } finally {
@@ -176,10 +228,8 @@ export const ExamPage: React.FC = () => {
   const handleAnswer = useCallback(async (questionNo: number, answer: string) => {
     if (!state.omrIdx) return;
 
-    // 즉시 UI 업데이트
     setAnswer(questionNo, answer);
 
-    // API 저장
     setSavingQuestionNo(questionNo);
     try {
       await saveAnswer(state.omrIdx, questionNo, answer);
@@ -200,7 +250,6 @@ export const ExamPage: React.FC = () => {
       const result = await fetchQuestions(state.dgnssResultId, nextPageIndex, 20);
       loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
 
-      // 기존 답변 병합
       const existingAnswers: Record<number, string> = { ...state.answers };
       result.questions.forEach((q) => {
         if (q.answer) {
@@ -209,7 +258,6 @@ export const ExamPage: React.FC = () => {
       });
       loadExistingAnswers(existingAnswers);
 
-      // currentPage를 nextPageIndex로 직접 설정
       setCurrentPage(nextPageIndex);
       window.scrollTo(0, 0);
     } finally {
@@ -229,7 +277,6 @@ export const ExamPage: React.FC = () => {
       const result = await fetchQuestions(state.dgnssResultId, prevPageIndex, 20);
       loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
 
-      // currentPage를 prevPageIndex로 직접 설정
       setCurrentPage(prevPageIndex);
       window.scrollTo(0, 0);
     } finally {
@@ -250,12 +297,10 @@ export const ExamPage: React.FC = () => {
     }
   }, [state.dgnssResultId, setStep]);
 
-  // 이메일 제출 (현재는 제출 완료 상태에서만 호출)
+  // 이메일 제출
   const handleEmailSubmit = useCallback(async (_email: string) => {
-    // TODO: 이메일 전송 API 구현 필요
     setIsLoading(true);
     try {
-      // 이메일 전송 로직
       await new Promise(resolve => setTimeout(resolve, 500));
     } finally {
       setIsLoading(false);
@@ -263,7 +308,7 @@ export const ExamPage: React.FC = () => {
   }, []);
 
   // 로딩 화면
-  if (isValidating) {
+  if (isValidating || authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-indigo-50 flex items-center justify-center">
         <div className="text-center">
@@ -301,6 +346,25 @@ export const ExamPage: React.FC = () => {
 
   // Step별 렌더링
   switch (state.step) {
+    case 'auth':
+      return (
+        <ExamAuthStep
+          examName={examInfo.name}
+          examCode={code || ''}
+          onGuestStart={() => setStep('guest-entry')}
+        />
+      );
+
+    case 'guest-entry':
+      return (
+        <GuestExamEntryStep
+          examName={examInfo.name}
+          onSubmit={handleGuestSubmit}
+          onBack={() => setStep('auth')}
+          isLoading={isLoading}
+        />
+      );
+
     case 'number':
       return (
         <StudentIdEntryStep

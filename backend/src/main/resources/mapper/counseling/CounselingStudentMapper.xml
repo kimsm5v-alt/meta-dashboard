@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.counseling.mapper.CounselingStudentMapper">
+
+    <resultMap id="counselingStudentResultMap" type="com.vs.meta.domain.CounselingStudent">
+        <id property="id" column="id"/>
+        <result property="counselingId" column="counseling_id"/>
+        <result property="stdtId" column="stdt_id"/>
+        <result property="stdtName" column="stdt_name"/>
+        <result property="stdtNumber" column="stdt_number"/>
+        <result property="claId" column="cla_id"/>
+        <result property="useYn" column="use_yn"/>
+    </resultMap>
+
+    <sql id="counselingStudentColumns">
+        id, counseling_id, stdt_id, stdt_name, stdt_number, cla_id, use_yn
+    </sql>
+
+    <select id="findCounselingIdsByStdtId" resultType="long">
+        /* CounselingStudentMapper.findCounselingIdsByStdtId */
+        SELECT counseling_id FROM counseling_student
+        WHERE stdt_id = #{stdtId} AND use_yn = 'Y'
+    </select>
+
+    <select id="findByCounselingId" resultMap="counselingStudentResultMap">
+        /* CounselingStudentMapper.findByCounselingId */
+        SELECT <include refid="counselingStudentColumns"/>
+        FROM counseling_student
+        WHERE counseling_id = #{counselingId} AND use_yn = 'Y'
+    </select>
+
+    <select id="findByCounselingIds" resultMap="counselingStudentResultMap">
+        /* CounselingStudentMapper.findByCounselingIds */
+        SELECT <include refid="counselingStudentColumns"/>
+        FROM counseling_student
+        WHERE use_yn = 'Y' AND counseling_id IN
+        <foreach item="id" collection="counselingIds" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <insert id="insertCounselingStudents" parameterType="list">
+        /* CounselingStudentMapper.insertCounselingStudents */
+        INSERT INTO counseling_student (counseling_id, stdt_id, stdt_name, stdt_number, cla_id, use_yn)
+        VALUES
+        <foreach item="item" collection="list" separator=",">
+            (#{item.counselingId}, #{item.stdtId}, #{item.stdtName}, #{item.stdtNumber}, #{item.claId}, 'Y')
+        </foreach>
+    </insert>
+
+    <update id="deactivateByCounselingId">
+        /* CounselingStudentMapper.deactivateByCounselingId */
+        UPDATE counseling_student SET use_yn = 'N' WHERE counseling_id = #{counselingId}
+    </update>
+
+</mapper>
