@@ -2,12 +2,12 @@
  * 대시보드 API 서비스
  *
  * 엔드포인트:
- * - /etc/meta/tc/info: 교사 검사 목록
- * - /etc/meta/tc/detail: 검사 상세
- * - /etc/meta/tc/stinfolist: 학생 목록 + 신뢰도
- * - /etc/meta/tc/analysis: 학급 평균 T점수
- * - /etc/meta/tc/need: 관심 필요 학생
- * - /etc/meta/st/total/analysis: 학생 개별 T점수
+ * - /api/dgnss/tc/info: 교사 검사 목록
+ * - /api/dgnss/tc/detail: 검사 상세
+ * - /api/dgnss/tc/stinfolist: 학생 목록 + 신뢰도
+ * - /api/dgnss/tc/analysis: 학급 평균 T점수
+ * - /api/dgnss/tc/need: 관심 필요 학생
+ * - /api/dgnss/st/total/analysis: 학생 개별 T점수
  */
 
 import { apiRequest } from './apiClient';
@@ -180,7 +180,7 @@ export async function fetchTeacherExams(
   tcId: string,
   paperIdx?: string
 ): Promise<DgnssInfoItem[]> {
-  let url = `/etc/meta/tc/info?claId=${claId}&tcId=${tcId}`;
+  let url = `/api/dgnss/tc/info?claId=${claId}&tcId=${tcId}`;
   if (paperIdx) {
     url += `&paperIdx=${paperIdx}`;
   }
@@ -193,7 +193,7 @@ export async function fetchExamDetail(
   dgnssId: number
 ): Promise<DgnssDetailResponse | null> {
   const response = await apiRequest<DgnssDetailResponse>(
-    `/etc/meta/tc/detail?dgnssId=${dgnssId}`
+    `/api/dgnss/tc/detail?dgnssId=${dgnssId}`
   );
   return response.resultData;
 }
@@ -204,7 +204,7 @@ export async function fetchStudentInfoList(
   type: number = 1
 ): Promise<StudentInfoItem[]> {
   const response = await apiRequest<StudentInfoListResponse>(
-    `/etc/meta/tc/stinfolist?dgnssId=${dgnssId}&paperIdx=${paperIdx}&type=${type}`
+    `/api/dgnss/tc/stinfolist?dgnssId=${dgnssId}&paperIdx=${paperIdx}&type=${type}`
   );
   return response.resultData.stInfoList ?? [];
 }
@@ -214,7 +214,7 @@ export async function fetchNeedAttentionStudents(
   paperIdx: string = '1'
 ): Promise<NeedStudentsResponse> {
   const response = await apiRequest<NeedStudentsResponse>(
-    `/etc/meta/tc/need?dgnssId=${dgnssId}&paperIdx=${paperIdx}`
+    `/api/dgnss/tc/need?dgnssId=${dgnssId}&paperIdx=${paperIdx}`
   );
   return response.resultData;
 }
@@ -225,7 +225,7 @@ export async function fetchClassAnalysis(
   ordNo: number = 1
 ): Promise<number[]> {
   const response = await apiRequest<AnalysisResponse>(
-    `/etc/meta/tc/analysis?claId=${claId}&paperIdx=${paperIdx}&ordNo=${ordNo}`
+    `/api/dgnss/tc/analysis?claId=${claId}&paperIdx=${paperIdx}&ordNo=${ordNo}`
   );
 
   const roundData = response.resultData[String(ordNo)];
@@ -242,7 +242,7 @@ export async function fetchClassAnalysisRaw(
   ordNo: number = 1
 ): Promise<AnalysisSectionItem[]> {
   const response = await apiRequest<AnalysisResponse>(
-    `/etc/meta/tc/analysis?claId=${claId}&paperIdx=${paperIdx}&ordNo=${ordNo}`
+    `/api/dgnss/tc/analysis?claId=${claId}&paperIdx=${paperIdx}&ordNo=${ordNo}`
   );
 
   return response.resultData[String(ordNo)] ?? [];
@@ -258,7 +258,7 @@ export async function fetchStudentAnalysis(
   sections: AnalysisSectionItem[];
 }> {
   const response = await apiRequest<AnalysisResponse>(
-    `/etc/meta/st/total/analysis?stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`
+    `/api/dgnss/st/total/analysis?stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`
   );
 
   const roundData = response.resultData[String(ordNo)];

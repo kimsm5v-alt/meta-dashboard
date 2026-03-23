@@ -2,7 +2,7 @@
  * 학생용 검사 응시 API 서비스
  *
  * API 문서: docs/api-endpoints.md
- * 엔드포인트: /etc/meta/st/* (학생용)
+ * 엔드포인트: /api/dgnss/st/* (학생용)
  */
 
 import { apiRequest } from '@/shared/services/apiClient';
@@ -28,14 +28,14 @@ export interface FetchQuestionsResponse {
 
 /**
  * 학생 검사 목록 조회
- * GET /etc/meta/st/info
+ * GET /api/dgnss/st/info
  */
 export async function fetchStudentExamList(
   claId: string,
   stdtId: string
 ): Promise<StudentExamItem[]> {
   const response = await apiRequest<StudentExamListResponse>(
-    `/etc/meta/st/info?claId=${claId}&stdtId=${stdtId}`
+    `/api/dgnss/st/info?claId=${claId}&stdtId=${stdtId}`
   );
   return response.resultData;
 }
@@ -50,7 +50,7 @@ export function findActiveExam(exams: StudentExamItem[]): StudentExamItem | null
 
 /**
  * 문항 조회 (페이지네이션)
- * GET /etc/meta/stnt/start/update
+ * GET /api/dgnss/st/start
  */
 export async function fetchQuestions(
   dgnssResultId: number,
@@ -58,7 +58,7 @@ export async function fetchQuestions(
   size: number = 20
 ): Promise<FetchQuestionsResponse> {
   const response = await apiRequest<QuestionsResponseData>(
-    `/etc/meta/st/start?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
+    `/api/dgnss/st/start?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
   );
 
   return {
@@ -72,14 +72,14 @@ export async function fetchQuestions(
 
 /**
  * 답변 저장
- * POST /etc/meta/st/answer
+ * POST /api/dgnss/st/answer
  */
 export async function saveAnswer(
   omrIdx: number,
   questionNo: number,
   answer: string
 ): Promise<boolean> {
-  const response = await apiRequest<null>('/etc/meta/st/answer', {
+  const response = await apiRequest<null>('/api/dgnss/st/answer', {
     method: 'POST',
     body: JSON.stringify({ omrIdx, no: questionNo, answer }),
   });
@@ -88,13 +88,13 @@ export async function saveAnswer(
 
 /**
  * 검사 제출
- * POST /etc/meta/st/submit
+ * POST /api/dgnss/st/submit
  */
 export async function submitExam(
   dgnssResultId: number,
   paperIdx: string = '1'
 ): Promise<boolean> {
-  const response = await apiRequest<SubmitResponseData>('/etc/meta/st/submit', {
+  const response = await apiRequest<SubmitResponseData>('/api/dgnss/st/submit', {
     method: 'POST',
     body: JSON.stringify({ dgnssResultId, paperIdx }),
   });
@@ -103,7 +103,7 @@ export async function submitExam(
 
 /**
  * 검사 새로하기 (답안 초기화)
- * GET /etc/meta/st/new
+ * GET /api/dgnss/st/new
  */
 export async function resetExam(
   dgnssResultId: number,
@@ -111,7 +111,7 @@ export async function resetExam(
   size: number = 20
 ): Promise<FetchQuestionsResponse> {
   const response = await apiRequest<QuestionsResponseData>(
-    `/etc/meta/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
+    `/api/dgnss/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
   );
 
   const questions = response.resultData.dgnssQuesList;

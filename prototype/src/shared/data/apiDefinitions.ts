@@ -9,13 +9,13 @@
  * ──────────────────────────────────────────
  *
  * 1. 학급/학생 데이터 조회 (🔴 높음)
- *    - API_TEACHER_ME         GET  /etc/meta/tc/me
- *    - API_TEACHER_DASHBOARD  GET  /etc/meta/tc/dashboard?tcId={tcId}
- *    - API_STUDENT_DETAIL     GET  /etc/meta/st/total/analysis?stdtId={stdtId}
+ *    - API_TEACHER_ME         GET  /api/dgnss/tc/me
+ *    - API_TEACHER_DASHBOARD  GET  /api/dgnss/tc/dashboard?tcId={tcId}
+ *    - API_STUDENT_DETAIL     GET  /api/dgnss/st/total/analysis?stdtId={stdtId}
  *
  * 2. 업로드 데이터 저장 (🔴 높음)
- *    - API_UPLOAD_CREATE      POST /etc/meta/tc/upload
- *    - API_UPLOAD_LATEST      GET  /etc/meta/tc/upload/latest?tcId={tcId}
+ *    - API_UPLOAD_CREATE      POST /api/dgnss/tc/upload
+ *    - API_UPLOAD_LATEST      GET  /api/dgnss/tc/upload/latest?tcId={tcId}
  *
  * 3. 검사 코드 매핑 (🟡 중간)
  *    - API_EXAM_CODE_CREATE   POST /api/exam-codes
@@ -60,7 +60,7 @@ type ApiDefinition = Omit<ApiTooltipProps, 'children' | 'position'>;
 
 export const API_TEACHER_ME: ApiDefinition = {
   method: 'GET',
-  endpoint: '/etc/meta/tc/me',
+  endpoint: '/api/dgnss/tc/me',
   summary: '사용자 정보 조회',
   description: '현재 로그인한 사용자의 정보를 조회합니다.',
   priority: 'high',
@@ -84,7 +84,7 @@ export const API_TEACHER_ME: ApiDefinition = {
  */
 export const API_TEACHER_DASHBOARD: ApiDefinition = {
   method: 'GET',
-  endpoint: '/etc/meta/tc/dashboard?tcId={tcId}',
+  endpoint: '/api/dgnss/tc/dashboard?tcId={tcId}',
   summary: 'L1 교사 대시보드 데이터',
   description: '교사의 담당 학급 목록과 각 학급별 집계 통계를 반환합니다. 프론트엔드에서 추가 계산 없이 바로 렌더링 가능.',
   priority: 'high',
@@ -165,35 +165,35 @@ export const API_TEACHER_DASHBOARD: ApiDefinition = {
  * 🔴 핵심 개선: LPA 유형 분류를 백엔드에서 수행하여 API 호출 2N번 → 1번 감소
  *
  * 현재 문제:
- * - 학생 N명 × 2회차 = 2N번 API 호출 (/etc/meta/st/total/analysis)
+ * - 학생 N명 × 2회차 = 2N번 API 호출 (/api/dgnss/st/total/analysis)
  * - 프론트에서 38개 T점수 받아서 LPA 분류 수행
  *
  * 개선 옵션:
- * - 옵션 1: 기존 /etc/meta/tc/stinfolist 응답에 LPA 필드 추가
- * - 옵션 2: 신규 /etc/meta/tc/stinfolist/lpa API 생성
+ * - 옵션 1: 기존 /api/dgnss/tc/stinfolist 응답에 LPA 필드 추가
+ * - 옵션 2: 신규 /api/dgnss/tc/stinfolist/lpa API 생성
  */
 export const API_CLASS_STUDENTS: ApiDefinition = {
   method: 'GET',
-  endpoint: '/etc/meta/tc/stinfolist?dgnssId={dgnssId}',
+  endpoint: '/api/dgnss/tc/stinfolist?dgnssId={dgnssId}',
   summary: 'L2 학생 목록 + LPA 유형 조회',
   description:
     '학급 학생 목록과 회차별 LPA 유형 분류 결과를 조회합니다. 백엔드에서 LPA 분류를 수행하여 프론트 API 호출 2N번 → 1번으로 감소.',
   options: [
     {
       label: '기존 API 확장 (권장)',
-      endpoint: '/etc/meta/tc/stinfolist?dgnssId={dgnssId}',
+      endpoint: '/api/dgnss/tc/stinfolist?dgnssId={dgnssId}',
       description: '기존 학생 목록 API 응답에 round1, round2 LPA 필드 추가',
     },
     {
       label: '신규 API 생성',
-      endpoint: '/etc/meta/tc/stinfolist/lpa?dgnssId={dgnssId}',
+      endpoint: '/api/dgnss/tc/stinfolist/lpa?dgnssId={dgnssId}',
       description: '별도 엔드포인트로 LPA 유형 정보만 반환하는 API 신규 생성',
     },
   ],
   priority: 'high',
   responseExample: {
-    // 옵션 1: 기존 API 확장 시 - /etc/meta/tc/stinfolist 응답에 추가
-    // 옵션 2: 신규 API 시 - /etc/meta/tc/stinfolist/lpa 응답
+    // 옵션 1: 기존 API 확장 시 - /api/dgnss/tc/stinfolist 응답에 추가
+    // 옵션 2: 신규 API 시 - /api/dgnss/tc/stinfolist/lpa 응답
     stInfoList: [
       {
         stdtId: 'a1b2c3d4e5f6',
@@ -252,7 +252,7 @@ export const API_CLASS_STUDENTS: ApiDefinition = {
     { code: 404, message: '검사(dgnssId)를 찾을 수 없음' },
   ],
   currentImpl:
-    '현재 /etc/meta/tc/stinfolist 호출 후, 학생별 /etc/meta/st/total/analysis를 N×2번 호출하여 프론트에서 LPA 분류 수행 중. [옵션 1] 기존 API 확장 또는 [옵션 2] 신규 API 생성 필요.',
+    '현재 /api/dgnss/tc/stinfolist 호출 후, 학생별 /api/dgnss/st/total/analysis를 N×2번 호출하여 프론트에서 LPA 분류 수행 중. [옵션 1] 기존 API 확장 또는 [옵션 2] 신규 API 생성 필요.',
   relatedFiles: [
     'src/shared/services/dashboardService.ts',
     'src/shared/utils/lpaClassifier.ts',
@@ -265,7 +265,7 @@ export const API_CLASS_STUDENTS: ApiDefinition = {
  */
 export const API_STUDENT_DETAIL: ApiDefinition = {
   method: 'GET',
-  endpoint: '/etc/meta/st/total/analysis?stdtId={stdtId}&paperIdx={paperIdx}&ordNo={ordNo}',
+  endpoint: '/api/dgnss/st/total/analysis?stdtId={stdtId}&paperIdx={paperIdx}&ordNo={ordNo}',
   summary: 'L3 학생 상세 분석 데이터',
   description: '특정 학생의 38개 T점수와 LPA 유형 분류 결과를 조회합니다.',
   priority: 'high',
@@ -297,7 +297,7 @@ export const API_STUDENT_DETAIL: ApiDefinition = {
 
 export const API_UPLOAD_CREATE: ApiDefinition = {
   method: 'POST',
-  endpoint: '/etc/meta/tc/upload',
+  endpoint: '/api/dgnss/tc/upload',
   summary: '검사 결과 업로드',
   description: '검사 결과 데이터를 업로드합니다. JSON 파일 또는 PDF 파싱 결과.',
   priority: 'high',
@@ -333,7 +333,7 @@ export const API_UPLOAD_CREATE: ApiDefinition = {
 
 export const API_UPLOAD_LATEST: ApiDefinition = {
   method: 'GET',
-  endpoint: '/etc/meta/tc/upload/latest',
+  endpoint: '/api/dgnss/tc/upload/latest',
   summary: 'PDF 업로드 데이터 조회',
   description: '교사가 업로드한 PDF 검사 결과지 데이터를 조회합니다. AIDT/비바샘에서 받은 PDF 파일을 업로드하면 파싱된 학생 검사 결과가 저장됩니다.',
   priority: 'high',
@@ -380,7 +380,7 @@ export const API_UPLOAD_LATEST: ApiDefinition = {
 
 export const API_EXAM_CODE_CREATE: ApiDefinition = {
   method: 'POST',
-  endpoint: '/etc/meta/tc/examcode',
+  endpoint: '/api/dgnss/tc/examcode',
   summary: '검사 코드 등록',
   description: '검사 실시용 QR 코드를 등록합니다. 학급 ID와 매핑.',
   priority: 'medium',
@@ -406,7 +406,7 @@ export const API_EXAM_CODE_CREATE: ApiDefinition = {
 
 export const API_EXAM_CODE_GET: ApiDefinition = {
   method: 'GET',
-  endpoint: '/etc/meta/tc/examcode?code={code}',
+  endpoint: '/api/dgnss/tc/examcode?code={code}',
   summary: '검사 코드 조회',
   description: 'QR 코드로 학급 정보를 조회합니다.',
   priority: 'medium',
@@ -425,7 +425,7 @@ export const API_EXAM_CODE_GET: ApiDefinition = {
 
 export const API_EXAM_CODE_UPDATE: ApiDefinition = {
   method: 'PUT',
-  endpoint: '/etc/meta/tc/examcode?code={code}',
+  endpoint: '/api/dgnss/tc/examcode?code={code}',
   summary: '검사 코드 수정',
   description: '검사 코드 정보를 업데이트합니다.',
   priority: 'low',
@@ -445,7 +445,7 @@ export const API_EXAM_CODE_UPDATE: ApiDefinition = {
 
 export const API_EXAM_CODE_DELETE: ApiDefinition = {
   method: 'DELETE',
-  endpoint: '/etc/meta/tc/examcode?code={code}',
+  endpoint: '/api/dgnss/tc/examcode?code={code}',
   summary: '검사 코드 삭제',
   description: '검사 코드를 삭제합니다.',
   priority: 'low',
@@ -465,7 +465,7 @@ export const API_EXAM_CODE_DELETE: ApiDefinition = {
 
 export const API_STRATEGIES_RECOMMENDATIONS: ApiDefinition = {
   method: 'GET',
-  endpoint: '/etc/meta/tc/strategies/recommend',
+  endpoint: '/api/dgnss/tc/strategies/recommend',
   summary: '맞춤 전략 추천',
   description: '학급 프로필(약점 영역)을 기반으로 맞춤 전략을 추천합니다.',
   priority: 'medium',
@@ -497,7 +497,7 @@ export const API_STRATEGIES_RECOMMENDATIONS: ApiDefinition = {
 
 export const API_ACTIVITIES_RECOMMENDED: ApiDefinition = {
   method: 'GET',
-  endpoint: '/etc/meta/tc/activities',
+  endpoint: '/api/dgnss/tc/activities',
   summary: '추천 활동 목록 조회',
   description: '일반 추천 학급 활동 목록을 조회합니다.',
   priority: 'low',
@@ -520,7 +520,7 @@ export const API_ACTIVITIES_RECOMMENDED: ApiDefinition = {
 
 export const API_ACTIVITIES_BY_PROFILE: ApiDefinition = {
   method: 'GET',
-  endpoint: '/etc/meta/tc/activities/recommend',
+  endpoint: '/api/dgnss/tc/activities/recommend',
   summary: '프로필 기반 활동 추천',
   description: '학급 프로필(강점/약점)을 기반으로 맞춤 활동을 추천합니다.',
   priority: 'low',
@@ -550,7 +550,7 @@ export const API_ACTIVITIES_BY_PROFILE: ApiDefinition = {
  * 학급 전체 학생 목록 API (상담용)
  *
  * 검사 제출 여부와 무관하게 학급 소속 전체 학생 목록을 조회합니다.
- * /etc/meta/tc/stinfolist는 검사 제출 학생만 반환하므로 상담 학생 선택에 부적합.
+ * /api/dgnss/tc/stinfolist는 검사 제출 학생만 반환하므로 상담 학생 선택에 부적합.
  */
 export const API_CLASS_ALL_STUDENTS: ApiDefinition = {
   method: 'GET',

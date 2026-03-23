@@ -175,29 +175,29 @@ async function apiRequest<T>(
 export const metaApi = {
   /**
    * 검사 목록 조회
-   * GET /etc/meta/tc/list
+   * GET /api/dgnss/tc/list
    */
   getExamList: async (): Promise<ExamListItem[]> => {
     const response = await apiRequest<{ list: ExamListItem[] }>(
-      '/etc/meta/tc/list'
+      '/api/dgnss/tc/list'
     );
     return response.resultData.list || [];
   },
 
   /**
    * 검사 상세 정보 조회
-   * GET /etc/meta/tc/detail
+   * GET /api/dgnss/tc/detail
    */
   getExamDetail: async (dgnssId: number): Promise<ExamDetail> => {
     const response = await apiRequest<ExamDetail>(
-      `/etc/meta/tc/detail?dgnssId=${dgnssId}`
+      `/api/dgnss/tc/detail?dgnssId=${dgnssId}`
     );
     return response.resultData;
   },
 
   /**
    * 학생 목록 조회
-   * GET /etc/meta/tc/stinfolist
+   * GET /api/dgnss/tc/stinfolist
    */
   getStudentList: async (
     dgnssId: number,
@@ -212,14 +212,14 @@ export const metaApi = {
     });
 
     const response = await apiRequest<{ type: number; stInfoList: StudentListItem[] }>(
-      `/etc/meta/tc/stinfolist?${params}`
+      `/api/dgnss/tc/stinfolist?${params}`
     );
     return response.resultData.stInfoList || [];
   },
 
   /**
    * 개별 학생 T점수 조회
-   * GET /etc/meta/st/analysis
+   * GET /api/dgnss/st/analysis
    */
   getStudentAnalysis: async (
     dgnssResultId: number,
@@ -235,14 +235,14 @@ export const metaApi = {
     });
 
     const response = await apiRequest<{ stUserInfo: StudentAnalysisData }>(
-      `/etc/meta/st/analysis?${params}`
+      `/api/dgnss/st/analysis?${params}`
     );
     return response.resultData.stUserInfo;
   },
 
   /**
    * 학급 평균 T점수 조회
-   * GET /etc/meta/tc/analysis
+   * GET /api/dgnss/tc/analysis
    */
   getClassAnalysis: async (
     claId: string,
@@ -256,29 +256,29 @@ export const metaApi = {
     });
 
     const response = await apiRequest<ClassAnalysisData>(
-      `/etc/meta/tc/analysis?${params}`
+      `/api/dgnss/tc/analysis?${params}`
     );
     return response.resultData['1'] || [];
   },
 
   /**
    * 관심 필요 학생 조회
-   * GET /etc/meta/tc/need
+   * GET /api/dgnss/tc/need
    */
   getNeedAttentionStudents: async (dgnssId: number): Promise<unknown> => {
     const response = await apiRequest<unknown>(
-      `/etc/meta/tc/need?dgnssId=${dgnssId}`
+      `/api/dgnss/tc/need?dgnssId=${dgnssId}`
     );
     return response.resultData;
   },
 
   /**
    * 미제출 학생 목록 조회
-   * GET /etc/meta/tc/notsubm/list
+   * GET /api/dgnss/tc/notsubm/list
    */
   getNotSubmittedStudents: async (dgnssId: number): Promise<unknown> => {
     const response = await apiRequest<unknown>(
-      `/etc/meta/tc/notsubm/list?dgnssId=${dgnssId}`
+      `/api/dgnss/tc/notsubm/list?dgnssId=${dgnssId}`
     );
     return response.resultData;
   },

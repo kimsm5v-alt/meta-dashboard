@@ -951,23 +951,27 @@ Query:
 
 ---
 
-## 5. 기존 AIDT API 참조
+## 5. DGNSS API 참조
 
 > 상세 스펙: `api-endpoints.md`
+>
+> **변경사항 (2026-03-19)**: 기존 `/etc/meta/*` 엔드포인트가 `/api/dgnss/*`로 마이그레이션됨
 
-| # | 엔드포인트 | 용도 |
-|---|-----------|------|
-| 1 | `GET /etc/meta/tc/info` | 교사 검사 목록 |
-| 2 | `GET /etc/meta/tc/start` | 검사 생성 |
-| 3 | `GET /etc/meta/tc/end` | 검사 종료 |
-| 4 | `GET /etc/meta/tc/detail` | 검사 상세 |
-| 5 | `GET /etc/meta/tc/stinfolist` | 학생 목록 + 신뢰도 |
-| 6 | `GET /etc/meta/tc/need` | 관심 필요 학생 |
-| 7 | `GET /etc/meta/tc/analysis` | 학급 평균 T점수 |
-| 8 | `GET /etc/meta/st/total/analysis` | 학생 개인 T점수 |
-| 9 | `GET /etc/meta/st/start` | 학생 검사 시작 |
-| 10 | `POST /etc/meta/st/answer` | 답안 저장 |
-| 11 | `POST /etc/meta/st/submit` | 검사 제출 |
+| # | 메서드 | 엔드포인트 | 용도 |
+|---|--------|-----------|------|
+| 1 | GET | `/api/dgnss/tc/info` | 교사 검사 목록 |
+| 2 | POST | `/api/dgnss/tc/start` | 검사 생성 |
+| 3 | POST | `/api/dgnss/tc/end` | 검사 종료 |
+| 4 | GET | `/api/dgnss/tc/detail` | 검사 상세 |
+| 5 | GET | `/api/dgnss/tc/stinfolist` | 학생 목록 + 신뢰도 |
+| 6 | GET | `/api/dgnss/tc/need` | 관심 필요 학생 |
+| 7 | GET | `/api/dgnss/tc/analysis` | 학급 평균 T점수 |
+| 8 | GET | `/api/dgnss/st/analysis` | 학생 개인 T점수 (통합 API) |
+| 9 | POST | `/api/dgnss/st/start` | 학생 검사 시작 |
+| 10 | POST | `/api/dgnss/st/answer` | 답안 저장 |
+| 11 | POST | `/api/dgnss/st/submit` | 검사 제출 |
+
+> **Note**: 기존 `/api/dgnss/st/total/analysis`는 `/api/dgnss/st/analysis`로 통합됨
 
 ---
 
@@ -987,3 +991,4 @@ Query:
 |------|------|----------|
 | 2026-03-11 | 1.0 | 초안 — DB 테이블 9개, 신규 API 25개 |
 | 2026-03-12 | 1.1 | 현행화 — 상담 API unified-counseling으로 통일, PUT→PATCH, cancelled 상태 제거, 그룹 멤버/초대 API 추가, 메모 isImportant 추가, 생기부 PUT 제거, API 33개로 확장 |
+| 2026-03-23 | 1.2 | DGNSS API 참조 섹션 업데이트 — 엔드포인트 `/etc/meta/*` → `/api/dgnss/*` 변경, HTTP Method 반영, 학생 결과 API 통합 반영 |

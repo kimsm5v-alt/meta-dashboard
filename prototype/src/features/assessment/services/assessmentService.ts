@@ -2,7 +2,7 @@
  * 교사용 검사 관리 API 서비스
  *
  * API 문서: docs/api-endpoints.md
- * 엔드포인트: /etc/meta/tc/* (교사용)
+ * 엔드포인트: /api/dgnss/tc/* (교사용)
  */
 
 import { apiRequest } from '@/shared/services/apiClient';
@@ -69,7 +69,7 @@ export interface ExamDetailResponse {
 
 /**
  * 검사 시작 (생성)
- * GET /etc/meta/tc/start
+ * GET /api/dgnss/tc/start
  */
 export async function startExam(
   claId: string,
@@ -79,7 +79,7 @@ export async function startExam(
   paperIdx: string = '1'
 ): Promise<StartExamResponse> {
   const response = await apiRequest<StartExamResponse>(
-    `/etc/meta/tc/start?claId=${claId}&tcId=${tcId}&ordNo=${ordNo}&grade=${grade}&paperIdx=${paperIdx}`,
+    `/api/dgnss/tc/start?claId=${claId}&tcId=${tcId}&ordNo=${ordNo}&grade=${grade}&paperIdx=${paperIdx}`,
     { debug: true }
   );
   return response.resultData;
@@ -87,7 +87,7 @@ export async function startExam(
 
 /**
  * 검사 목록 조회
- * GET /etc/meta/tc/info
+ * GET /api/dgnss/tc/info
  *
  * 참고: /tc/list는 404 반환, /tc/info 사용
  */
@@ -96,7 +96,7 @@ export async function fetchExamList(
   tcId: string,
   paperIdx?: string
 ): Promise<ExamListItem[]> {
-  let endpoint = `/etc/meta/tc/info?claId=${claId}&tcId=${tcId}`;
+  let endpoint = `/api/dgnss/tc/info?claId=${claId}&tcId=${tcId}`;
   if (paperIdx) {
     endpoint += `&paperIdx=${paperIdx}`;
   }
@@ -116,11 +116,11 @@ export async function fetchExamList(
 
 /**
  * 검사 상세 조회
- * GET /etc/meta/tc/detail
+ * GET /api/dgnss/tc/detail
  */
 export async function fetchExamDetail(dgnssId: number): Promise<ExamDetailResponse> {
   const response = await apiRequest<ExamDetailResponse>(
-    `/etc/meta/tc/detail?dgnssId=${dgnssId}`,
+    `/api/dgnss/tc/detail?dgnssId=${dgnssId}`,
     { debug: true }
   );
   return response.resultData;
@@ -128,10 +128,10 @@ export async function fetchExamDetail(dgnssId: number): Promise<ExamDetailRespon
 
 /**
  * 검사 종료
- * GET /etc/meta/tc/end
+ * GET /api/dgnss/tc/end
  */
 export async function endExam(dgnssId: number, paperIdx?: string): Promise<void> {
-  let endpoint = `/etc/meta/tc/end?dgnssId=${dgnssId}`;
+  let endpoint = `/api/dgnss/tc/end?dgnssId=${dgnssId}`;
   if (paperIdx) {
     endpoint += `&paperIdx=${paperIdx}`;
   }
@@ -141,17 +141,17 @@ export async function endExam(dgnssId: number, paperIdx?: string): Promise<void>
 
 /**
  * 검사 취소
- * GET /etc/meta/tc/cancel
+ * GET /api/dgnss/tc/cancel
  *
  * 주의: 데이터가 삭제됨. 되돌릴 수 없음.
  */
 export async function cancelExam(dgnssId: number): Promise<void> {
-  await apiRequest<null>(`/etc/meta/tc/cancel?dgnssId=${dgnssId}`, { debug: true });
+  await apiRequest<null>(`/api/dgnss/tc/cancel?dgnssId=${dgnssId}`, { debug: true });
 }
 
 /**
  * 검사 재시작
- * GET /etc/meta/tc/restart
+ * GET /api/dgnss/tc/restart
  */
 export async function restartExam(
   dgnssId: number,
@@ -159,7 +159,7 @@ export async function restartExam(
   grade: GradeLevel
 ): Promise<void> {
   await apiRequest<{ result: string }>(
-    `/etc/meta/tc/restart?dgnssId=${dgnssId}&claId=${claId}&grade=${grade}`,
+    `/api/dgnss/tc/restart?dgnssId=${dgnssId}&claId=${claId}&grade=${grade}`,
     { debug: true }
   );
 }
@@ -171,13 +171,13 @@ export interface NotSubmittedStudent {
 
 /**
  * 미제출 학생 목록 조회
- * GET /etc/meta/tc/notsubm
+ * GET /api/dgnss/tc/notsubm
  */
 export async function fetchNotSubmittedStudents(
   dgnssId: number
 ): Promise<NotSubmittedStudent[]> {
   const response = await apiRequest<NotSubmittedStudent[]>(
-    `/etc/meta/tc/notsubm?dgnssId=${dgnssId}`,
+    `/api/dgnss/tc/notsubm?dgnssId=${dgnssId}`,
     { debug: true }
   );
   return response.resultData ?? [];
