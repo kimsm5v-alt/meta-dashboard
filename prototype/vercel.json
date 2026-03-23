@@ -1,7 +1,7 @@
 {
   "headers": [
     {
-      "source": "/etc/meta/(.*)",
+      "source": "/api/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Credentials", "value": "true" },
         { "key": "Access-Control-Allow-Origin", "value": "*" },
@@ -11,7 +11,11 @@
     }
   ],
   "rewrites": [
-    { "source": "/etc/meta/:path*", "destination": "https://t-vcloudapi.vsaidt.com/etc/meta/:path*" },
+    { "source": "/api/dgnss/:path*", "destination": "https://t-vcloudapi.vsaidt.com/api/dgnss/:path*" },
+    { "source": "/api/counseling/:path*", "destination": "https://t-vcloudapi.vsaidt.com/api/counseling/:path*" },
+    { "source": "/api/memos/:path*", "destination": "https://t-vcloudapi.vsaidt.com/api/memos/:path*" },
+    { "source": "/member/:path*", "destination": "https://t-vcloudapi.vsaidt.com/member/:path*" },
+    { "source": "/group/:path*", "destination": "https://t-vcloudapi.vsaidt.com/group/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

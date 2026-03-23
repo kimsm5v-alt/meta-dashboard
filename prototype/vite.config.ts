@@ -5,6 +5,8 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // 모노레포 루트의 .env 파일 사용
+  envDir: path.resolve(__dirname, '..'),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -20,18 +22,14 @@ export default defineConfig({
   server: {
     open: true,
     proxy: {
-      '/etc/meta': {
-        target: 'https://t-vcloudapi.vsaidt.com',
+      // DGNSS (심리검사) API
+      '/api/dgnss': {
+        target: 'http://localhost:8081',
         changeOrigin: true,
-        secure: true,
-        headers: {
-          // 프록시 요청에 Origin 헤더 추가 (CORS 회피)
-          'Origin': 'https://t-vcloudapi.vsaidt.com',
-        },
+        secure: false,
         configure: (proxy) => {
           proxy.on('proxyReq', (proxyReq, req) => {
             console.log('[Proxy Request]', req.method, req.url, '→', proxyReq.path);
-            // 헤더 로깅
             const authHeader = proxyReq.getHeader('Authorization');
             console.log('[Proxy Auth]', authHeader ? 'Bearer token present' : 'No auth header');
           });
@@ -42,6 +40,30 @@ export default defineConfig({
             console.error('[Proxy Error]', err.message);
           });
         },
+      },
+      // 상담 API
+      '/api/counseling': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        secure: false,
+      },
+      // 메모 API
+      '/api/memos': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        secure: false,
+      },
+      // 회원 API (로컬 백엔드 - DB 설정 필요)
+      '/member': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        secure: false,
+      },
+      // 그룹 API
+      '/group': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        secure: false,
       },
     },
   },
