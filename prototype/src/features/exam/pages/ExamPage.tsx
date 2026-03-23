@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useExamState } from '../hooks/useExamState';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -19,7 +19,14 @@ import {
   ExamGuideStep,
   ExamQuestionStep,
   ExamCompleteStep,
+  GuestCompleteStep,
 } from '../components';
+
+interface GuestInfo {
+  isGuest: boolean;
+  nickname: string;
+  email: string;
+}
 
 interface ExamInfo {
   name: string;
@@ -30,7 +37,11 @@ interface ExamInfo {
 export const ExamPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // 게스트 정보 (ExamCodeEntryPage에서 전달됨)
+  const guestInfo = (location.state as GuestInfo) || null;
 
   const [isValidating, setIsValidating] = useState(true);
   const [isValid, setIsValid] = useState(false);
@@ -85,6 +96,15 @@ export const ExamPage: React.FC = () => {
   useEffect(() => {
     if (isValidating || authLoading || !isValid) return;
 
+    // 게스트 정보가 있으면 바로 검사 시작
+    if (guestInfo?.isGuest) {
+      if (state.step === 'auth' || state.step === 'guest-entry') {
+        // 게스트 정보로 검사 시작
+        handleGuestStart(guestInfo.nickname, guestInfo.email);
+      }
+      return;
+    }
+
     if (isAuthenticated) {
       // 로그인 상태 → stdtId 입력 단계
       if (state.step === 'auth' || state.step === 'guest-entry') {
@@ -96,16 +116,16 @@ export const ExamPage: React.FC = () => {
         setStep('auth');
       }
     }
-  }, [isAuthenticated, authLoading, isValidating, isValid, state.step, setStep]);
+  }, [isAuthenticated, authLoading, isValidating, isValid, state.step, setStep, guestInfo]);
 
-  // 게스트 검사 시작 (닉네임만 입력)
-  const handleGuestSubmit = useCallback(async (nickname: string) => {
+  // 게스트 검사 시작 (닉네임 + 이메일)
+  const handleGuestStart = useCallback(async (nickname: string, _email: string) => {
     if (!examInfo) return;
 
     setIsLoading(true);
     try {
       const claIdOrCode = examInfo.claId || examInfo.examCode;
-      // TODO: 게스트 전용 API 호출로 교체 (닉네임 기반 매칭)
+      // TODO: 게스트 전용 API 호출로 교체 (닉네임 + 이메일 기반)
       const stdtId = `guest-${nickname}`;
       const examResult = await getStudentExamInfo(claIdOrCode, stdtId);
       if (!examResult) {
@@ -138,6 +158,12 @@ export const ExamPage: React.FC = () => {
       setIsLoading(false);
     }
   }, [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep]);
+
+  // 기존 게스트 진입 단계용 (auth → guest-entry 흐름에서 사용)
+  const handleGuestSubmit = useCallback(async (nickname: string) => {
+    // 이메일 없이 닉네임만으로 시작 (기존 흐름 유지)
+    await handleGuestStart(nickname, '');
+  }, [handleGuestStart]);
 
   // 학생 ID 입력 후 dgnssResultId 조회 및 문항 로드
   const handleStudentIdSubmit = useCallback(async (stdtId: string) => {
@@ -418,6 +444,18 @@ export const ExamPage: React.FC = () => {
       );
 
     case 'complete':
+      // 게스트인 경우 GuestCompleteStep 표시
+      if (guestInfo?.isGuest) {
+        return (
+          <GuestCompleteStep
+            email={guestInfo.email}
+            nickname={guestInfo.nickname}
+            onConvertToMember={() => navigate('/signup', { state: { email: guestInfo.email } })}
+            onClose={() => navigate('/')}
+          />
+        );
+      }
+      // 로그인 사용자인 경우 기존 ExamCompleteStep 표시
       return (
         <ExamCompleteStep
           studentNumber={state.studentNumber!}
