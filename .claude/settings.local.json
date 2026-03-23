@@ -17,7 +17,14 @@
       "Bash(cd:*)",
       "Bash(npx vercel --prod --yes)",
       "Bash(tree:*)",
-      "Bash(git restore:*)"
+      "Bash(git pull:*)",
+      "Bash(powershell -Command \"[System.Text.Encoding]::GetEncoding\\(''utf-8''\\).GetString\\([System.IO.File]::ReadAllBytes\\(''c:\\\\Users\\\\82107\\\\Downloads\\\\\\(비바샘\\)학습종합검사_검사로직정의서 2\\(목록\\).csv''\\)\\)\")",
+      "Bash(powershell -Command \"[System.Text.Encoding]::GetEncoding\\(''euc-kr''\\).GetString\\([System.IO.File]::ReadAllBytes\\(''c:\\\\Users\\\\82107\\\\Downloads\\\\\\(비바샘\\)학습종합검사_검사로직정의서 2\\(스크립트\\(중분류\\)\\).csv''\\)\\)\")",
+      "Bash(ls:*)",
+      "Bash(java -version:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(tasklist:*)"
     ]
   }
 }
