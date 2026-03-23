@@ -1849,9 +1849,9 @@
 			SELECT b1.`NO`
 				, c1.QESITM_NM
 				, COUNT(*) OVER () AS fullCount
-			FROM tb_dgnss_paper` a1
-			INNER JOIN tb_dgnss_paper_detail` b1 ON a1.PAPER_IDX = b1.PAPER_IDX
-			INNER JOIN tb_dgnss_problem` c1 ON b1.PROBLEM_IDX = c1.PROBLEM_IDX
+			FROM tb_dgnss_paper a1
+			INNER JOIN tb_dgnss_paper_detail b1 ON a1.PAPER_IDX = b1.PAPER_IDX
+			INNER JOIN tb_dgnss_problem c1 ON b1.PROBLEM_IDX = c1.PROBLEM_IDX
 			WHERE 1=1
 			<choose>
 				<when test='param.paperIdx != null and param.paperIdx == 1'>
@@ -1872,9 +1872,9 @@
 		/* DgnssMapper.selectStQuesListOrigin */
 		SELECT b1.`NO`
 			, c1.QESITM_NM
-		FROM tb_dgnss_paper` a1
-			INNER JOIN tb_dgnss_paper_detail` b1 ON a1.PAPER_IDX = b1.PAPER_IDX
-			INNER JOIN tb_dgnss_problem` c1 ON b1.PROBLEM_IDX = c1.PROBLEM_IDX
+		FROM tb_dgnss_paper a1
+			INNER JOIN tb_dgnss_paper_detail b1 ON a1.PAPER_IDX = b1.PAPER_IDX
+			INNER JOIN tb_dgnss_problem c1 ON b1.PROBLEM_IDX = c1.PROBLEM_IDX
 		WHERE 1=1
 			AND a1.PAPER_IDX = 6
 		ORDER BY b1.`no`
@@ -2350,7 +2350,7 @@
 			INNER JOIN tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
 			INNER JOIN tb_dgnss_answer a1 ON tdri.id = a1.DGNSS_RESULT_ID
 			INNER JOIN tb_dgnss_answer_report b1 ON a1.ANSWER_IDX = b1.ANSWER_IDX
-			INNER JOIN tb_dgnss_section` c1 ON b1.SECTION_ID = c1.SECTION_ID
+			INNER JOIN tb_dgnss_section c1 ON b1.SECTION_ID = c1.SECTION_ID
 		WHERE tdi.paper_idx = #{paperIdx}
 			AND tdi.ord_no = #{ordNo}
 			AND tdri.stdt_id = #{stdtId}
