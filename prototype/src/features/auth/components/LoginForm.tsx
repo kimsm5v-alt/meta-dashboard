@@ -9,24 +9,29 @@ interface LoginFormProps {
   onGuestLogin?: () => void;
   /** redirect 경로 (비밀번호찾기/회원가입 링크에 쿼리파라미터로 전달) */
   redirectPath?: string;
+  /** 외부에서 전달받은 에러 메시지 (API 에러 등) */
+  error?: string | null;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, isLoading, onGuestLogin, redirectPath }) => {
+export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, isLoading, onGuestLogin, redirectPath, error: externalError }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [localError, setLocalError] = useState('');
+
+  // 외부 에러 또는 로컬 에러 표시
+  const error = externalError || localError;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setLocalError('');
 
     if (!email.trim()) {
-      setError('이메일을 입력해주세요.');
+      setLocalError('이메일을 입력해주세요.');
       return;
     }
     if (!password.trim()) {
-      setError('비밀번호를 입력해주세요.');
+      setLocalError('비밀번호를 입력해주세요.');
       return;
     }
 

@@ -13,9 +13,14 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/dashboard';
-  const { isAuthenticated, isLoading, loginWithCredentials, loginWithEmail } = useAuth();
+  const { isAuthenticated, isLoading, loginWithCredentials, loginWithEmail, loginError, clearLoginError } = useAuth();
   const [loginLoading, setLoginLoading] = useState(false);
   const [mode, setMode] = useState<LoginMode>('select');
+
+  // 모드 변경 시 에러 초기화
+  useEffect(() => {
+    clearLoginError();
+  }, [mode, clearLoginError]);
 
   // 이미 로그인된 경우 리다이렉트
   useEffect(() => {
@@ -39,6 +44,8 @@ export const LoginPage: React.FC = () => {
     try {
       await loginWithEmail(email, password);
       navigate(redirectTo, { replace: true });
+    } catch {
+      // 에러는 AuthContext에서 처리됨 (loginError로 전달)
     } finally {
       setLoginLoading(false);
     }
@@ -125,7 +132,7 @@ export const LoginPage: React.FC = () => {
             <p className="text-gray-500 mt-1 text-sm">이메일과 비밀번호를 입력하세요</p>
           </div>
 
-          <LoginForm onLogin={handleEmailLogin} isLoading={loginLoading} />
+          <LoginForm onLogin={handleEmailLogin} isLoading={loginLoading} error={loginError} />
         </Card>
       )}
 
@@ -134,10 +141,16 @@ export const LoginPage: React.FC = () => {
         <TestLoginForm onLogin={handleTestLogin} isLoading={loginLoading} />
       )}
 
-      {/* 하단 안내 */}
+      {/* 하단 안내 - 회원가입 링크 */}
       {mode === 'select' && (
-        <p className="mt-8 text-xs text-gray-500 text-center max-w-sm">
-          계정이 없으시면 회원가입 후 이용해주세요.
+        <p className="mt-8 text-sm text-gray-500 text-center">
+          계정이 없으신가요?{' '}
+          <button
+            onClick={() => navigate('/signup')}
+            className="text-primary-500 hover:text-primary-600 font-medium transition-colors"
+          >
+            회원가입
+          </button>
         </p>
       )}
     </div>
