@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Layout } from './Layout';
+import { StudentLayout } from './StudentLayout';
 import { MinimalLayout } from './MinimalLayout';
 import { PageLoading } from '../shared/components';
 import { useAuth } from '../features/auth/context/AuthContext';
@@ -22,6 +23,9 @@ import { CounselingDashboardPage } from '../features/counseling-dashboard';
 import { ResourceListPage, ResourceDetailPage } from '../features/resources';
 import { CommunityListPage, CommunityDetailPage, CommunityWritePage } from '../features/community';
 
+// 학생용 Feature imports
+import { MyExamListPage, MyResultPage } from '../features/student-exam';
+
 // ============================================================
 // 레이아웃 래퍼
 // ============================================================
@@ -36,7 +40,7 @@ const PublicLayout = () => (
 );
 
 /**
- * 보호 라우트 래퍼 (인증 필요 + 사이드바)
+ * 보호 라우트 래퍼 - 교사용 (인증 필요 + 교사 사이드바)
  */
 const ProtectedLayout = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -53,6 +57,27 @@ const ProtectedLayout = () => {
     <Layout>
       <Outlet />
     </Layout>
+  );
+};
+
+/**
+ * 보호 라우트 래퍼 - 학생용 (인증 필요 + 학생 사이드바)
+ */
+const StudentProtectedLayout = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <PageLoading text="로딩 중..." />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <StudentLayout>
+      <Outlet />
+    </StudentLayout>
   );
 };
 
@@ -107,6 +132,13 @@ export const AppRoutes = () => (
 
       {/* AI */}
       <Route path="/ai-room" element={<AIRoomPage />} />
+    </Route>
+
+    {/* 학생용 보호 라우트 - 학생 사이드바 */}
+    <Route element={<StudentProtectedLayout />}>
+      <Route path="/student/exams" element={<MyExamListPage />} />
+      <Route path="/student/result" element={<MyResultPage />} />
+      <Route path="/student/result/:resultId" element={<MyResultPage />} />
     </Route>
 
     {/* Fallback */}
