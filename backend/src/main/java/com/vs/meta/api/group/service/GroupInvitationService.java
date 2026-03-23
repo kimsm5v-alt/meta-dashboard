@@ -2,7 +2,7 @@ package com.vs.meta.api.group.service;
 
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupInvitationMapper;
-import com.vs.meta.api.member.service.NcpMailSender;
+import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.GroupInvitation;
 import lombok.RequiredArgsConstructor;
