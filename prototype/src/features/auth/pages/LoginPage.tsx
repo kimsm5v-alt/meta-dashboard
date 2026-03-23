@@ -6,14 +6,30 @@ import { TestLoginForm } from '../components';
 import { LoginForm } from '../components/LoginForm';
 import { useAuth } from '../context/AuthContext';
 import type { TestCredentials } from '../components';
+import type { User as UserType } from '@/shared/types';
 
 type LoginMode = 'select' | 'normal' | 'test';
+
+/** 역할에 따른 리다이렉트 경로 결정 */
+function getRedirectPathByRole(user: UserType | null, defaultPath: string): string {
+  if (!user?.roleCode) return defaultPath;
+
+  switch (user.roleCode) {
+    case 'STUDENT':
+      return '/student/exams';
+    case 'TEACHER':
+    case 'ADMIN':
+      return '/dashboard';
+    default:
+      return defaultPath;
+  }
+}
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/dashboard';
-  const { isAuthenticated, isLoading, loginWithCredentials, loginWithEmail, loginError, clearLoginError } = useAuth();
+  const { user, isAuthenticated, isLoading, loginWithCredentials, loginWithEmail, loginError, clearLoginError } = useAuth();
   const [loginLoading, setLoginLoading] = useState(false);
   const [mode, setMode] = useState<LoginMode>('select');
 
@@ -22,18 +38,19 @@ export const LoginPage: React.FC = () => {
     clearLoginError();
   }, [mode, clearLoginError]);
 
-  // 이미 로그인된 경우 리다이렉트
+  // 이미 로그인된 경우 역할 기반 리다이렉트
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      navigate(redirectTo, { replace: true });
+    if (isAuthenticated && !isLoading && user) {
+      const targetPath = getRedirectPathByRole(user, redirectTo);
+      navigate(targetPath, { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate, redirectTo]);
+  }, [isAuthenticated, isLoading, user, navigate, redirectTo]);
 
   const handleTestLogin = async (credentials: TestCredentials) => {
     setLoginLoading(true);
     try {
       await loginWithCredentials(credentials);
-      navigate(redirectTo, { replace: true });
+      // 테스트 로그인 성공 시 useEffect에서 리다이렉트 처리 (테스트 계정은 교사로 간주)
     } finally {
       setLoginLoading(false);
     }
@@ -43,7 +60,7 @@ export const LoginPage: React.FC = () => {
     setLoginLoading(true);
     try {
       await loginWithEmail(email, password);
-      navigate(redirectTo, { replace: true });
+      // 로그인 성공 시 useEffect에서 역할 기반 리다이렉트 처리
     } catch {
       // 에러는 AuthContext에서 처리됨 (loginError로 전달)
     } finally {

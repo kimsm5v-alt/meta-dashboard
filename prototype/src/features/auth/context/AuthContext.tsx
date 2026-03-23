@@ -68,6 +68,9 @@ function mapLoginResponseToUser(data: LoginResponseData): User {
     email: data.email,
     memberType: 'general',
     provider: 'vivasam',
+    roleCode: data.roleCode as User['roleCode'],
+    tcId: data.tcId ?? undefined,
+    stdtId: data.stdtId ?? undefined,
   };
 }
 

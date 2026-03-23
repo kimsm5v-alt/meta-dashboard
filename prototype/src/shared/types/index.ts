@@ -241,6 +241,7 @@ export interface TypeChartData {
 
 export type MemberType = 'vivasam' | 'general';
 export type OAuthProvider = 'vivasam' | 'google' | 'kakao' | 'naver';
+export type UserRole = 'TEACHER' | 'STUDENT' | 'ADMIN';
 
 export interface User {
   id: string;
@@ -250,6 +251,14 @@ export interface User {
   provider: OAuthProvider;
   schoolName?: string;
   profileImage?: string;
+  /** 사용자 역할 (TEACHER/STUDENT/ADMIN) */
+  roleCode?: UserRole;
+  /** 교사 ID (교사인 경우) */
+  tcId?: string;
+  /** 학생 ID (학생인 경우) */
+  stdtId?: string;
+  /** 학급 ID (학생인 경우) */
+  classId?: string;
 }
 
 export interface AuthState {
