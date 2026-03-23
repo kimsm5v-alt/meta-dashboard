@@ -59,6 +59,15 @@
         WHERE group_id = #{groupId}
     </select>
 
+    <select id="findActiveGroupsByHostUserNo" resultMap="groupInfoResultMap">
+        /* GroupInfoMapper.findActiveGroupsByHostUserNo */
+        SELECT <include refid="groupInfoColumns"/>
+        FROM group_info
+        WHERE host_user_no = #{hostUserNo}
+          AND use_yn = 'Y'
+        ORDER BY created_at DESC
+    </select>
+
     <insert id="insertGroupInfo" parameterType="com.vs.meta.domain.GroupInfo" useGeneratedKeys="true" keyProperty="groupId">
         /* GroupInfoMapper.insertGroupInfo */
         INSERT INTO group_info (cla_id, host_user_no, group_nm, group_desc, school_level, grade, class_number, school_code, school_name, invite_code, invite_link_token, max_member_count, use_yn, created_by, updated_by, created_at, updated_at)

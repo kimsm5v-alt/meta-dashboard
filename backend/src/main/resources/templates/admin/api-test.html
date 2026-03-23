@@ -358,20 +358,19 @@
                 <div class="card-body" style="padding:16px">
                     <div class="api-row">
                         <div class="api-field">
-                            <label>학급 ID (claId)</label>
-                            <div style="display:flex;gap:6px">
-                                <input id="admin_claId" placeholder="학급 UUID 입력" style="flex:1" />
-                                <button class="btn btn-sm btn-primary" onclick="doAdminLoadMembers()">멤버 조회</button>
-                            </div>
-                        </div>
-                        <div class="api-field">
-                            <label>교사 선택 (tcId)</label>
-                            <select id="admin_tcId" onchange="doAdminApplyTcId()">
+                            <label>교사 선택</label>
+                            <select id="admin_teacherUserNo" onchange="doAdminSelectTeacher()">
                                 <option value="">-- 교사 선택 --</option>
                             </select>
                         </div>
                         <div class="api-field">
-                            <label>학생 선택 (stdtId)</label>
+                            <label>학급 선택</label>
+                            <select id="admin_groupClaId" onchange="doAdminSelectGroup()">
+                                <option value="">-- 학급 선택 --</option>
+                            </select>
+                        </div>
+                        <div class="api-field">
+                            <label>학생 선택</label>
                             <select id="admin_stdtId" onchange="doAdminApplyStdtId()">
                                 <option value="">-- 학생 선택 --</option>
                             </select>
@@ -661,7 +660,17 @@
                     <div class="api-field"><label>no (문항번호)</label><input id="dsa_no" type="number" value="1" min="1" /></div>
                     <div class="api-field"><label>answer (1~5)</label><input id="dsa_answer" type="number" value="1" min="1" max="5" /></div>
                 </div>
-                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssStAnswer()">답 저장</button></div>
+                <div class="api-row">
+                    <div class="api-field" style="max-width:220px">
+                        <label>random paperIdx</label>
+                        <select id="dsa_paperIdx"><option value="1">1</option><option value="2">2</option></select>
+                        <div class="hint">1이면 124문항, 2이면 77문항을 무작위 1~5로 입력합니다</div>
+                    </div>
+                </div>
+                <div class="api-btn-group">
+                    <button class="btn btn-primary btn-sm" onclick="doDgnssStAnswer()">답 저장</button>
+                    <button class="btn btn-default btn-sm" onclick="doDgnssStRandomAnswer()">랜덤 답안 입력</button>
+                </div>
                 <div class="response-area" id="resp-dgnss-st-answer"></div>
             </div>
 
@@ -851,6 +860,27 @@
             return null;
         }
     }
+    async function adminApiCall(method, path, body, respId) {
+        const opts = {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin'
+        };
+        if (body && method !== 'GET') opts.body = JSON.stringify(body);
+        const t0 = Date.now();
+        try {
+            const res = await fetch(path, opts);
+            const elapsed = Date.now() - t0;
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch { data = text; }
+            if (respId) showResponse(respId, res.status, data, elapsed);
+            return data;
+        } catch (e) {
+            if (respId) showError(respId, e);
+            return null;
+        }
+    }
 
     // ========== ADMIN 기존 함수들 ==========
     const emailVerified = {}; const cooldownTimers = {};
@@ -858,48 +888,136 @@
     function startCooldown(prefix, btn) { let remaining = 60; btn.textContent = `재발송 (${remaining}s)`; if (cooldownTimers[prefix]) clearInterval(cooldownTimers[prefix]); cooldownTimers[prefix] = setInterval(() => { remaining--; if (remaining <= 0) { clearInterval(cooldownTimers[prefix]); btn.textContent = '인증코드 발송'; btn.disabled = false; } else btn.textContent = `재발송 (${remaining}s)`; }, 1000); }
     async function doVerifyCode(prefix) { const email = document.getElementById(prefix + '_email').value.trim(); const code = document.getElementById(prefix + '_code').value.trim(); if (!code) { alert('인증코드를 입력하세요.'); return; } const statusEl = document.getElementById(prefix + '_codeStatus'); statusEl.textContent = '확인 중...'; statusEl.style.color = '#6c757d'; try { const res = await apiCall('POST', '/member/verify-code', { email, code }, null); if (res && res.success === true) { statusEl.innerHTML = '<b style="color:#28a745">인증완료</b>'; emailVerified[prefix] = true; document.getElementById(prefix + '_code').disabled = true; document.getElementById(prefix + '_verifyBtn').disabled = true; document.getElementById(prefix + '_email').disabled = true; const sendBtn = document.getElementById(prefix + '_sendCodeBtn'); sendBtn.disabled = true; if (cooldownTimers[prefix]) clearInterval(cooldownTimers[prefix]); sendBtn.textContent = '인증완료'; } else { statusEl.textContent = (res && res.resultMessage) || '인증 실패'; statusEl.style.color = '#dc3545'; } } catch (e) { statusEl.textContent = '인증 확인 중 오류'; statusEl.style.color = '#dc3545'; } }
     async function doSignup() { if (!emailVerified['signup']) { alert('이메일 인증을 먼저 완료하세요.'); return; } const body = { password: document.getElementById('signup_password').value, email: document.getElementById('signup_email').value, nickname: document.getElementById('signup_nickname').value, gender: document.getElementById('signup_gender').value, roleCode: document.getElementById('signup_roleCode').value }; const res = await apiCall('POST', '/member/signup', body, 'resp-signup'); if (res && res.resultData) { updateState('email', res.resultData.email); updateState('userNo', res.resultData.userNo); } }
-    async function doLogin() { const body = { email: document.getElementById('login_email').value, password: document.getElementById('login_password').value }; const res = await apiCall('POST', '/member/login', body, 'resp-login'); if (res && res.resultData) { const d = res.resultData; updateState('email', d.email); updateState('userNo', d.userNo); updateState('tcId', d.tcId); updateState('stdtId', d.stdtId); updateState('accessToken', d.accessToken); updateState('roleCode', d.roleCode); ['info_userNo','gc_userNo','gj_userNo','gl_userNo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = d.userNo; }); checkAdminMode(); } }
-    // 관리자 모드 체크 및 패널 표시
+    async function doLogin() { const body = { email: document.getElementById('login_email').value, password: document.getElementById('login_password').value }; const res = await apiCall('POST', '/member/login', body, 'resp-login'); if (res && res.resultData) { const d = res.resultData; updateState('email', d.email); updateState('userNo', d.userNo); updateState('tcId', d.tcId); updateState('stdtId', d.stdtId); updateState('accessToken', d.accessToken); updateState('roleCode', d.roleCode); ['info_userNo','gc_userNo','gj_userNo','gl_userNo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = d.userNo; }); } }
     function checkAdminMode() {
-        const adminPanel = document.getElementById('dgnss-admin-panel');
-        // 관리자 페이지에 로그인했으므로 관리자 권한으로 간주 (또는 roleCode 체크)
-        if (state.accessToken) {
-            adminPanel.style.display = 'block';
+        document.getElementById('dgnss-admin-panel').style.display = 'block';
+    }
+    function resetSelect(selectId, placeholder) {
+        const el = document.getElementById(selectId);
+        if (!el) return;
+        el.innerHTML = `<option value="">${placeholder}</option>`;
+    }
+    function selectedOption(selectId) {
+        const el = document.getElementById(selectId);
+        return el ? el.options[el.selectedIndex] : null;
+    }
+    function applyTeacherToDgnssFields(tcId) {
+        if (!tcId) return;
+        ['dtl_tcId','dts_tcId'].forEach(id => { const el = document.getElementById(id); if (el) el.value = tcId; });
+        updateState('tcId', tcId);
+    }
+    async function loadAdminDgnssBootstrap() {
+        const statusEl = document.getElementById('admin_memberStatus');
+        try {
+            statusEl.textContent = '관리자 테스트 데이터 로딩 중...';
+            statusEl.style.color = '#6c757d';
+            const data = await adminApiCall('GET', '/admin/api-test/bootstrap');
+            if (!data || data.success === false) throw new Error((data && data.message) || 'bootstrap 로딩 실패');
+            if (data.admin) {
+                updateState('email', data.admin.email);
+                updateState('userNo', data.admin.userNo);
+            }
+            if (data.accessToken) {
+                updateState('accessToken', data.accessToken);
+            }
+            populateAdminTeachers(data.teachers || []);
+            checkAdminMode();
+            statusEl.textContent = `교사 ${ (data.teachers || []).length }명을 불러왔습니다.`;
+            statusEl.style.color = '#16a34a';
+        } catch (e) {
+            statusEl.textContent = `관리자 테스트 데이터 로딩 실패: ${e.message || e}`;
+            statusEl.style.color = '#dc3545';
         }
     }
-    // 그룹 멤버 조회
-    async function doAdminLoadMembers() {
-        const claId = document.getElementById('admin_claId').value.trim();
-        if (!claId) { alert('학급 ID를 입력하세요.'); return; }
+    function populateAdminTeachers(teachers) {
+        const teacherSelect = document.getElementById('admin_teacherUserNo');
+        teacherSelect.innerHTML = '<option value="">-- 교사 선택 --</option>';
+        teachers.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.userNo;
+            opt.dataset.tcId = t.tcId || '';
+            opt.textContent = `${t.nickname || t.email} (${t.tcId || '-'})`;
+            teacherSelect.appendChild(opt);
+        });
+        resetSelect('admin_groupClaId', '-- 학급 선택 --');
+        resetSelect('admin_stdtId', '-- 학생 선택 --');
+        if (teachers.length > 0) {
+            teacherSelect.value = String(teachers[0].userNo);
+            doAdminSelectTeacher();
+        }
+    }
+    async function doAdminSelectTeacher() {
+        const teacherOpt = selectedOption('admin_teacherUserNo');
+        const teacherUserNo = teacherOpt ? teacherOpt.value : '';
+        const tcId = teacherOpt ? teacherOpt.dataset.tcId : '';
         const statusEl = document.getElementById('admin_memberStatus');
-        statusEl.textContent = '멤버 조회 중...';
+        resetSelect('admin_groupClaId', '-- 학급 선택 --');
+        resetSelect('admin_stdtId', '-- 학생 선택 --');
+        if (!teacherUserNo) {
+            statusEl.textContent = '교사를 선택하세요.';
+            statusEl.style.color = '#6c757d';
+            return;
+        }
+        applyTeacherToDgnssFields(tcId);
+        statusEl.textContent = '학급 목록 조회 중...';
         statusEl.style.color = '#6c757d';
-        const res = await apiCall('GET', `/group/detail?claId=${encodeURIComponent(claId)}`, null, null);
-        if (res && res.resultData) {
-            const members = res.resultData.members || [];
-            const tcSelect = document.getElementById('admin_tcId');
-            const stSelect = document.getElementById('admin_stdtId');
-            // 교사 목록
-            tcSelect.innerHTML = '<option value="">-- 교사 선택 --</option>';
-            members.filter(m => m.tcId).forEach(m => {
+        try {
+            const res = await fetch('/admin/api-test/teacher-groups?teacherUserNo=' + encodeURIComponent(teacherUserNo));
+            const groups = await res.json();
+            if (!res.ok) throw new Error(groups.message || '학급 목록 조회 실패');
+            const groupSelect = document.getElementById('admin_groupClaId');
+            groups.forEach(g => {
                 const opt = document.createElement('option');
-                opt.value = m.tcId;
-                opt.textContent = `${m.nickname || m.tcId} (${m.tcId})`;
-                tcSelect.appendChild(opt);
+                opt.value = g.claId;
+                opt.textContent = `${g.groupNm || g.claId} (${g.schoolName || '-'} / ${g.grade || '-'}-${g.classNumber || '-'})`;
+                groupSelect.appendChild(opt);
             });
-            // 학생 목록
-            stSelect.innerHTML = '<option value="">-- 학생 선택 --</option>';
-            members.filter(m => m.stdtId).forEach(m => {
+            statusEl.textContent = `학급 ${groups.length}개를 불러왔습니다.`;
+            statusEl.style.color = '#16a34a';
+            if (groups.length > 0) {
+                groupSelect.value = groups[0].claId;
+                doAdminSelectGroup();
+            }
+        } catch (e) {
+            statusEl.textContent = `학급 목록 조회 실패: ${e.message || e}`;
+            statusEl.style.color = '#dc3545';
+        }
+    }
+    async function doAdminSelectGroup() {
+        const claId = document.getElementById('admin_groupClaId').value;
+        const statusEl = document.getElementById('admin_memberStatus');
+        resetSelect('admin_stdtId', '-- 학생 선택 --');
+        if (!claId) {
+            statusEl.textContent = '학급을 선택하세요.';
+            statusEl.style.color = '#6c757d';
+            return;
+        }
+        applyDgnssClaId(claId);
+        statusEl.textContent = '학생 목록 조회 중...';
+        statusEl.style.color = '#6c757d';
+        try {
+            const res = await fetch('/admin/api-test/group-members?claId=' + encodeURIComponent(claId));
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || '학생 목록 조회 실패');
+            if (data.teacher && data.teacher.tcId) {
+                applyTeacherToDgnssFields(data.teacher.tcId);
+            }
+            const studentSelect = document.getElementById('admin_stdtId');
+            const students = data.students || [];
+            students.forEach(s => {
                 const opt = document.createElement('option');
-                opt.value = m.stdtId;
-                opt.textContent = `${m.nickname || m.stdtId} (${m.stdtId})`;
-                stSelect.appendChild(opt);
+                opt.value = s.stdtId || '';
+                opt.textContent = `${s.nickname || s.stdtId} (${s.stdtId || '-'} / ${s.memberNo || '-'})`;
+                studentSelect.appendChild(opt);
             });
-            // claId를 모든 관련 필드에 반영
-            applyDgnssClaId(claId);
-            statusEl.innerHTML = `<span style="color:#16a34a">조회 완료: 교사 ${tcSelect.options.length - 1}명, 학생 ${stSelect.options.length - 1}명</span>`;
-        } else {
-            statusEl.textContent = '멤버 조회 실패';
+            statusEl.textContent = `학생 ${students.length}명을 불러왔습니다.`;
+            statusEl.style.color = '#16a34a';
+            if (students.length > 0) {
+                studentSelect.value = students[0].stdtId;
+                doAdminApplyStdtId();
+            }
+        } catch (e) {
+            statusEl.textContent = `학생 목록 조회 실패: ${e.message || e}`;
             statusEl.style.color = '#dc3545';
         }
     }
@@ -908,14 +1026,6 @@
         const fields = ['dtl_claId','dts_claId','dtr_claId','dta_claId','dsl_claId'];
         fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = claId; });
         updateState('claId', claId);
-    }
-    // 교사 ID 선택 시 모든 tcId 필드에 반영
-    function doAdminApplyTcId() {
-        const tcId = document.getElementById('admin_tcId').value;
-        if (!tcId) return;
-        const fields = ['dtl_tcId','dts_tcId'];
-        fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = tcId; });
-        updateState('tcId', tcId);
     }
     // 학생 ID 선택 시 모든 stdtId 필드에 반영
     function doAdminApplyStdtId() {
@@ -926,7 +1036,7 @@
         updateState('stdtId', stdtId);
     }
     async function doMemberInfo() { const res = await apiCall('GET', '/member/info', null, 'resp-memberInfo'); if (res && res.resultData) { const d = res.resultData; updateState('email', d.email); updateState('userNo', d.userNo); updateState('tcId', d.tcId); updateState('stdtId', d.stdtId); } }
-    async function doGroupCreate() { const body = { groupNm: document.getElementById('gc_groupNm').value, grade: document.getElementById('gc_grade').value || '3', groupDesc: document.getElementById('gc_groupDesc').value || undefined, maxMemberCount: parseInt(document.getElementById('gc_maxCount').value) || undefined, schoolLevel: document.getElementById('gc_schoolLevel').value || undefined, classNumber: parseInt(document.getElementById('gc_classNumber').value) || undefined, schoolName: document.getElementById('gc_schoolName').value || undefined, schoolCode: document.getElementById('gc_schoolCode').value || undefined }; const res = await apiCall('POST', '/group/create', body, 'resp-groupCreate'); if (res && res.resultData) { const d = res.resultData; updateState('claId', d.claId); updateState('inviteCode', d.inviteCode); const af = { 'gj_inviteCode': d.inviteCode, 'gjg_inviteCode': d.inviteCode, 'gd_claId': d.claId, 'mm_classId': d.claId, 'cm_classId': d.claId, 'dtl_claId': d.claId, 'dts_claId': d.claId, 'dtr_claId': d.claId, 'dta_claId': d.claId, 'dsl_claId': d.claId, 'admin_claId': d.claId }; Object.entries(af).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val || ''; }); } }
+    async function doGroupCreate() { const body = { groupNm: document.getElementById('gc_groupNm').value, grade: document.getElementById('gc_grade').value || '3', groupDesc: document.getElementById('gc_groupDesc').value || undefined, maxMemberCount: parseInt(document.getElementById('gc_maxCount').value) || undefined, schoolLevel: document.getElementById('gc_schoolLevel').value || undefined, classNumber: parseInt(document.getElementById('gc_classNumber').value) || undefined, schoolName: document.getElementById('gc_schoolName').value || undefined, schoolCode: document.getElementById('gc_schoolCode').value || undefined }; const res = await apiCall('POST', '/group/create', body, 'resp-groupCreate'); if (res && res.resultData) { const d = res.resultData; updateState('claId', d.claId); updateState('inviteCode', d.inviteCode); const af = { 'gj_inviteCode': d.inviteCode, 'gjg_inviteCode': d.inviteCode, 'gd_claId': d.claId, 'mm_classId': d.claId, 'cm_classId': d.claId, 'dtl_claId': d.claId, 'dts_claId': d.claId, 'dtr_claId': d.claId, 'dta_claId': d.claId, 'dsl_claId': d.claId, 'admin_groupClaId': d.claId }; Object.entries(af).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val || ''; }); } }
     async function doGroupJoin() { const body = { inviteCode: document.getElementById('gj_inviteCode').value }; const res = await apiCall('POST', '/group/join', body, 'resp-groupJoin'); if (res && res.resultData) updateState('stdtId', res.resultData.stdtId); }
     async function doGroupJoinGuest() { if (!emailVerified['gjg']) { alert('이메일 인증을 먼저 완료하세요.'); return; } const body = { inviteCode: document.getElementById('gjg_inviteCode').value, nickname: document.getElementById('gjg_nickname').value, gender: document.getElementById('gjg_gender').value, email: document.getElementById('gjg_email').value }; await apiCall('POST', '/group/join-guest', body, 'resp-groupJoinGuest'); }
     async function doGroupList() { await apiCall('GET', '/group/list', null, 'resp-groupList'); }
@@ -1064,6 +1174,14 @@
             updateState('dgnssId', d.dgnssId);
             updateState('dgnssResultId', d.dgnssResultId);
             updateState('paperIdx', d.paperIdx);
+            ['dss_dgnssResultId','dsn_dgnssResultId','dsub_dgnssResultId'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = d.dgnssResultId || '';
+            });
+            ['dss_paperIdx','dsn_paperIdx','dsa_paperIdx','dsan_paperIdx'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && d.paperIdx != null) el.value = String(d.paperIdx);
+            });
         }
     }
     async function doDgnssStStart() {
@@ -1076,6 +1194,14 @@
         const res = await apiCall('POST', '/api/dgnss/st/start', body, 'resp-dgnss-st-start');
         if (res && res.resultData) {
             updateState('omrIdx', res.resultData.omrIdx);
+            const omrIdxEl = document.getElementById('dsa_omrIdx');
+            if (omrIdxEl) omrIdxEl.value = res.resultData.omrIdx || '';
+            const submitEl = document.getElementById('dsub_dgnssResultId');
+            if (submitEl) submitEl.value = body.dgnssResultId || '';
+            ['dsa_paperIdx','dsan_paperIdx'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = String(body.paperIdx);
+            });
         }
     }
     async function doDgnssStNew() {
@@ -1086,6 +1212,12 @@
         const res = await apiCall('GET', `/api/dgnss/st/new?dgnssResultId=${dgnssResultId}&paperIdx=${paperIdx}&page=${page}&size=${size}`, null, 'resp-dgnss-st-new');
         if (res && res.resultData) {
             updateState('omrIdx', res.resultData.omrIdx);
+            const omrIdxEl = document.getElementById('dsa_omrIdx');
+            if (omrIdxEl) omrIdxEl.value = res.resultData.omrIdx || '';
+            ['dsa_paperIdx','dsan_paperIdx'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = String(paperIdx);
+            });
         }
     }
     async function doDgnssStAnswer() {
@@ -1095,6 +1227,13 @@
             answer: parseInt(document.getElementById('dsa_answer').value)
         };
         await apiCall('POST', '/api/dgnss/st/answer', body, 'resp-dgnss-st-answer');
+    }
+    async function doDgnssStRandomAnswer() {
+        const body = {
+            omrIdx: parseInt(document.getElementById('dsa_omrIdx').value),
+            paperIdx: parseInt(document.getElementById('dsa_paperIdx').value)
+        };
+        await apiCall('POST', '/api/dgnss/st/answer/random', body, 'resp-dgnss-st-answer');
     }
     async function doDgnssStSubmit() {
         const body = { dgnssResultId: parseInt(document.getElementById('dsub_dgnssResultId').value) };
@@ -1139,6 +1278,7 @@
         const body = { answerIdx: parseInt(document.getElementById('dsum_answerIdx').value) };
         await apiCall('POST', '/api/dgnss/summary/pdf', body, 'resp-dgnss-summary');
     }
+    loadAdminDgnssBootstrap();
 </script>
 </body>
 </html>

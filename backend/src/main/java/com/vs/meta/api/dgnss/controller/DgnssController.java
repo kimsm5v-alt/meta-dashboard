@@ -424,6 +424,25 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
+    @PostMapping(value = "/api/dgnss/st/answer/random")
+    @Operation(summary = "(학생)답안 무작위 일괄 입력", description = "")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(examples = {
+                    @ExampleObject(name = "파라미터", value = """
+                            {
+                                "omrIdx": 1,
+                                "paperIdx": 1
+                            }
+                            """)
+            }))
+    public ResponseDTO<CustomBody> fillRandomAnswers(
+            @RequestBody Map<String, Object> paramData
+    ) throws Exception {
+        Map<String, Object> result = dgnssService.fillRandomAnswers(paramData);
+        String resultMessage = "(학생)답안 무작위 일괄 입력";
+        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
     @GetMapping(value = {"/api/dgnss/st/info", "/api/dgnss/stnt/list"})
     @Operation(summary = "(학생)학습심리정서검사 목록 조회", description = "")
     @Parameter(name = "claId", description = "클래스 ID",
