@@ -5,6 +5,8 @@ import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.school.mapper.SchoolInfoMapper;
 import com.vs.meta.api.school.service.SchoolSyncService;
 import com.vs.meta.api.school.service.SchoolSyncService.SchoolImportResult;
+import com.vs.meta.common.security.JwtUtil;
+import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
 import com.vs.meta.domain.AuthSchoolMap;
 import com.vs.meta.domain.RoleGroup;
@@ -19,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +37,10 @@ public class AdminController {
     private final SchoolInfoMapper schoolInfoMapper;
     private final SchoolSyncService schoolSyncService;
     private final GroupInfoMapper groupInfoMapper;
+    private final JwtUtil jwtUtil;
 
     private static final int PAGE_SIZE = 20;
+    private static final DateTimeFormatter API_TOKEN_TS_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
     // ===== 로그인 =====
 
@@ -259,6 +264,58 @@ public class AdminController {
     @GetMapping("/api-test")
     public String apiTest() {
         return "admin/api-test";
+    }
+
+    @GetMapping("/api-test/bootstrap")
+    @ResponseBody
+    public Map<String, Object> apiTestBootstrap(Authentication auth) {
+        Long adminUserNo = adminUserService.resolveAdminUserNo(auth.getName());
+        User admin = adminUserService.findUserByUserNo(adminUserNo);
+        if (admin == null) {
+            throw new IllegalArgumentException("관리자 계정을 찾을 수 없습니다.");
+        }
+
+        String userSeCd = IdGenerator.isTeacherRole(admin.getRoleCode()) ? "T" : "S";
+        String accessToken = jwtUtil.generateAccessToken(
+                admin.getUserNo(),
+                admin.getEmail(),
+                userSeCd,
+                LocalDateTime.now().format(API_TOKEN_TS_FORMAT)
+        );
+
+        Map<String, Object> adminInfo = new LinkedHashMap<>();
+        adminInfo.put("userNo", admin.getUserNo());
+        adminInfo.put("email", admin.getEmail());
+        adminInfo.put("nickname", admin.getNickname());
+        adminInfo.put("roleCode", admin.getRoleCode());
+        adminInfo.put("tcId", admin.getTcId());
+        adminInfo.put("stdtId", admin.getStdtId());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("admin", adminInfo);
+        result.put("accessToken", accessToken);
+        result.put("teachers", adminUserService.findApiTestTeachers());
+        return result;
+    }
+
+    @GetMapping("/api-test/teacher-groups")
+    @ResponseBody
+    public List<Map<String, Object>> apiTestTeacherGroups(@RequestParam Long teacherUserNo) {
+        return adminUserService.findApiTestGroupsByTeacher(teacherUserNo);
+    }
+
+    @GetMapping("/api-test/group-members")
+    @ResponseBody
+    public Map<String, Object> apiTestGroupMembers(@RequestParam String claId) {
+        return adminUserService.findApiTestGroupMembers(claId);
+    }
+
+    @PostMapping("/api-test/dgnss/random-answer")
+    @ResponseBody
+    public Map<String, Object> apiTestRandomDgnssAnswer(@RequestBody Map<String, Object> paramData) {
+        int omrIdx = paramData.get("omrIdx") instanceof Number ? ((Number) paramData.get("omrIdx")).intValue() : 0;
+        int paperIdx = paramData.get("paperIdx") instanceof Number ? ((Number) paramData.get("paperIdx")).intValue() : 0;
+        return adminUserService.fillRandomDgnssAnswers(omrIdx, paperIdx);
     }
 
     /**

@@ -12,7 +12,7 @@ INSERT INTO `user` (
     'admin@visang.com',
     '관리자',
     'ADMIN',
-    CONCAT('viva-t-', LEFT(REPLACE(UUID(), '-', ''), 8)),
+    REPLACE(UUID(), '-', ''),
     NULL,
     'ACTIVE',
     0, 0, NOW(), NOW()

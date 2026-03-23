@@ -17,7 +17,13 @@
       "Bash(cd:*)",
       "Bash(npx vercel --prod --yes)",
       "Bash(tree:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(xxd \"C:/Users/ADMIN/IdeaProjects/meta-dashboard/backend/docs/dgnss-migration-progress-note-2026-03-19.md\")",
+      "Bash(xxd)",
+      "Bash(python:*)",
+      "Bash(ls /c/Python*)",
+      "Read(//c/Users/ADMIN/AppData/Local/Programs/**)",
+      "Bash(node:*)"
     ]
   }
 }

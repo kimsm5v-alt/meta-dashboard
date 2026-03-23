@@ -1,6 +1,7 @@
 package com.vs.meta.api.member.service;
 
 import com.vs.meta.api.member.mapper.EmailVerificationMapper;
+import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.domain.EmailVerification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

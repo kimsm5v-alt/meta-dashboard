@@ -61,9 +61,9 @@
 | 60 | 생기부 | POST | `/api/school-records` | 생기부 저장 | ❌ | 1차 오픈 범위 아님 | [이동](#api-60) |
 | 61 | 생기부 | DELETE | `/api/school-records/{id}` | 생기부 삭제 | ❌ | 1차 오픈 범위 아님 | [이동](#api-61) |
 | | **이메일 초대** | | | | | *프론트: Mock, 백엔드 미구현* | |
-| 62 | 초대 | POST | `/group/invite/email` | 이메일 초대 발송 | ❌ | | [이동](#api-62) |
-| 63 | 초대 | GET | `/group/invite/list` | 초대 목록 조회 | ❌ | ?groupId=xxx | [이동](#api-63) |
-| 64 | 초대 | DELETE | `/group/invite/{invitationId}` | 초대 취소 | ❌ | | [이동](#api-64) |
+| 62 | 초대 | POST | `/group/invite/email` | 이메일 초대 발송 | ✅ | 방장 전용 | [이동](#api-62) |
+| 63 | 초대 | GET | `/group/invite/list` | 초대 목록 조회 | ✅ | ?claId=xxx | [이동](#api-63) |
+| 64 | 초대 | DELETE | `/group/invite/{invitationId}` | 초대 취소 | ✅ | 방장 전용 | [이동](#api-64) |
 
 ---
 
@@ -184,8 +184,8 @@
 | `nickname` | String | 닉네임 | `"테스터"` | |
 | `gender` | String | 성별 | `"M"` | `M` \| `F`, 미등록 시 `null` |
 | `roleCode` | String | 역할 코드 | `"TEACHER"` | |
-| `tcId` | String | 교사 ID | `"viva-t-a3f2b1c4"` | 교사 역할만. `viva-t-` + UUID 8자리 |
-| `stdtId` | String | 학생 ID | `null` | 학생 역할만. `viva-s-` + UUID 8자리 |
+| `tcId` | String | 교사 ID | `"a1b2c3d4e5f67890abcdef1234567890"` | 교사 역할만. UUID 32자리 |
+| `stdtId` | String | 학생 ID | `null` | 학생 역할만. UUID 32자리 |
 | `accessToken` | String | JWT Access Token | `"eyJ..."` | 단기 만료 |
 | `refreshToken` | String | JWT Refresh Token | `"eyJ..."` | 14일 만료 |
 
@@ -196,15 +196,21 @@
 // Response resultData
 {
   "userNo": 123, "email": "test@test.com", "nickname": "테스터", "gender": "M",
-  "roleCode": "TEACHER", "tcId": "viva-t-a3f2b1c4", "stdtId": null,
+  "roleCode": "TEACHER", "tcId": "a1b2c3d4e5f67890abcdef1234567890", "stdtId": null,
   "accessToken": "eyJ...", "refreshToken": "eyJ..."
 }
+
+// Error — Rate Limiting (5회 실패 시 5분 차단, application.yml에서 설정 가능)
+{ "success": false, "resultCode": 400, "resultMessage": "로그인 시도 횟수를 초과했습니다. 5분 후 다시 시도해주세요." }
 ```
 
 ---
 
 <a id="api-3"></a>
 ### POST `/member/token/refresh` — 토큰 갱신 (Public)
+
+> **Refresh Token Rotation 방식**: 갱신 시 기존 refreshToken은 폐기되고 새 refreshToken이 발급됩니다.
+> 프론트에서 응답의 새 refreshToken을 반드시 저장해야 합니다.
 
 **Request Body**
 
@@ -217,6 +223,9 @@
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
 | `accessToken` | String | 새 Access Token | `"eyJ..."` | |
+| `refreshToken` | String | 새 Refresh Token | `"eyJ..."` | 기존 토큰은 폐기됨, 반드시 교체 저장 |
+
+> **Grace Period**: 동시 요청 대응을 위해 교체된 토큰으로 10초 이내 재요청 시 동일 결과를 반환합니다.
 
 ```json
 // Request
@@ -228,7 +237,8 @@
   "resultCode": 200,
   "resultMessage": "토큰 갱신 성공",
   "resultData": {
-    "accessToken": "eyJ..."
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ..."
   }
 }
 ```
@@ -270,7 +280,7 @@
 | `nickname` | String | 닉네임 | `"테스터"` | |
 | `gender` | String | 성별 | `"M"` | `M` \| `F`, 미등록 시 `null` |
 | `roleCode` | String | 역할 코드 | `"TEACHER"` | |
-| `tcId` | String | 교사 ID | `"viva-t-a3f2b1c4"` | 교사만 |
+| `tcId` | String | 교사 ID | `"a1b2c3d4e5f67890abcdef1234567890"` | 교사만 |
 | `stdtId` | String | 학생 ID | `null` | 학생만 |
 | `status` | String | 계정 상태 | `"ACTIVE"` | `ACTIVE` \| `WITHDRAWN` \| `SUSPENDED` |
 | `lastLoginAt` | String | 최근 로그인 | `"2026-03-17 14:30:00"` | |
@@ -286,7 +296,7 @@
     "nickname": "테스터",
     "gender": "M",
     "roleCode": "TEACHER",
-    "tcId": "viva-t-a3f2b1c4",
+    "tcId": "a1b2c3d4e5f67890abcdef1234567890",
     "stdtId": null,
     "status": "ACTIVE",
     "lastLoginAt": "2026-03-17 14:30:00"
@@ -352,14 +362,14 @@
 
 | 파라미터 | 타입 | 설명 | 샘플 | 비고 |
 |---------|------|------|------|------|
-| `studentId` | String | 학생 ID | `"viva-s-00000001"` | `/group/detail` 멤버 목록에서 획득 |
+| `studentId` | String | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | `/group/detail` 멤버 목록에서 획득 |
 
 **Response resultData** — `Array`
 
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
 | `id` | String | 메모 PK | `"1"` | |
-| `studentId` | String | 학생 ID | `"viva-s-00000001"` | |
+| `studentId` | String | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | |
 | `classId` | String | 학급 ID | `"abcd1234"` | claId |
 | `date` | String | 관찰 날짜 | `"2026-03-11"` | yyyy-MM-dd |
 | `category` | String | 카테고리 | `"behavior"` | `behavior` \| `academic` \| `social` \| `emotion` \| `other` |
@@ -376,7 +386,7 @@
   "resultData": [
     {
       "id": "1",
-      "studentId": "viva-s-00000001",
+      "studentId": "f9e8d7c6b5a43210fedcba0987654321",
       "classId": "abcd1234",
       "date": "2026-03-11",
       "category": "behavior",
@@ -398,7 +408,7 @@
 
 | 파라미터 | 타입 | 필수 | 설명 | 샘플 | 비고 |
 |---------|------|------|------|------|------|
-| `studentId` | String | O | 학생 ID | `"viva-s-00000001"` | |
+| `studentId` | String | O | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | |
 | `classId` | String | O | 학급 ID | `"abcd1234"` | |
 | `date` | String | O | 관찰 날짜 | `"2026-03-11"` | yyyy-MM-dd |
 | `category` | String | O | 카테고리 | `"behavior"` | `behavior` \| `academic` \| `social` \| `emotion` \| `other` |
@@ -410,7 +420,7 @@
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
 | `id` | String | 메모 PK | `"2"` | 생성된 메모 ID |
-| `studentId` | String | 학생 ID | `"viva-s-00000001"` | |
+| `studentId` | String | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | |
 | `classId` | String | 학급 ID | `"abcd1234"` | |
 | `date` | String | 관찰 날짜 | `"2026-03-11"` | |
 | `category` | String | 카테고리 | `"behavior"` | |
@@ -425,7 +435,7 @@
   "resultMessage": "메모 생성 완료",
   "resultData": {
     "id": "2",
-    "studentId": "viva-s-00000001",
+    "studentId": "f9e8d7c6b5a43210fedcba0987654321",
     "classId": "abcd1234",
     "date": "2026-03-11",
     "category": "behavior",
@@ -524,7 +534,7 @@
       "createdAt": "2026-03-11 09:00:00",
       "updatedAt": "2026-03-11 09:00:00",
       "students": [
-        { "id": "viva-s-00000001", "name": "학생1", "number": 1, "classId": "abcd1234" }
+        { "id": "f9e8d7c6b5a43210fedcba0987654321", "name": "학생1", "number": 1, "classId": "abcd1234" }
       ]
     }
   ]
@@ -553,7 +563,7 @@
 
 | 파라미터 | 타입 | 설명 | 샘플 | 비고 |
 |---------|------|------|------|------|
-| `studentId` | String | 학생 ID | `"viva-s-00000001"` | |
+| `studentId` | String | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | |
 
 **Response resultData** — `Array` (공통 응답 구조)
 
@@ -608,7 +618,7 @@
 
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
-| `id` | String | 학생 ID | `"viva-s-00000001"` | stdtId |
+| `id` | String | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | stdtId |
 | `name` | String | 학생명 | `"학생1"` | |
 | `number` | Integer | 출석번호 | `1` | |
 | `classId` | String | 학급 ID | `"abcd1234"` | |
@@ -653,7 +663,7 @@
     "createdAt": "2026-03-11 09:00:00",
     "updatedAt": "2026-03-11 09:00:00",
     "students": [
-      { "id": "viva-s-00000001", "name": "학생1", "number": 1, "classId": "abcd1234" }
+      { "id": "f9e8d7c6b5a43210fedcba0987654321", "name": "학생1", "number": 1, "classId": "abcd1234" }
     ]
   }
 }
@@ -839,6 +849,7 @@
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
 | `memberId` | Long | 멤버 PK | `8` | group_member.id |
+| `memberNo` | Integer | 출석번호 | `3` | 그룹 내 자동 채번 (MAX+1) |
 | `groupId` | Long | 그룹 PK | `1` | |
 | `claId` | String | 학급 ID | `"a1b2c3d4..."` | |
 | `groupNm` | String | 그룹명 | `"6학년 2반"` | |
@@ -851,6 +862,7 @@
   "resultMessage": "그룹 참가 완료",
   "resultData": {
     "memberId": 8,
+    "memberNo": 3,
     "groupId": 1,
     "claId": "a1b2c3d4...",
     "groupNm": "6학년 2반",
@@ -878,10 +890,11 @@
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
 | `memberId` | Long | 멤버 PK | `9` | group_member.id |
+| `memberNo` | Integer | 출석번호 | `4` | 그룹 내 자동 채번 (MAX+1) |
 | `groupId` | Long | 그룹 PK | `1` | |
 | `claId` | String | 학급 ID | `"a1b2c3d4..."` | |
 | `groupNm` | String | 그룹명 | `"6학년 2반"` | |
-| `stdtId` | String | 게스트 학생 ID | `"viva-s-00000002"` | 자동 생성 |
+| `stdtId` | String | 게스트 학생 ID | `"b2c3d4e5f6a78901bcdef23456789abc"` | 자동 생성 |
 | `accessToken` | String | 임시 JWT | `"eyJ..."` | 게스트용 토큰 |
 | `refreshToken` | String | Refresh Token | `"eyJ..."` | |
 
@@ -892,10 +905,11 @@
   "resultMessage": "게스트 참가 완료",
   "resultData": {
     "memberId": 9,
+    "memberNo": 4,
     "groupId": 1,
     "claId": "a1b2c3d4...",
     "groupNm": "6학년 2반",
-    "stdtId": "viva-s-00000002",
+    "stdtId": "b2c3d4e5f6a78901bcdef23456789abc",
     "accessToken": "eyJ...",
     "refreshToken": "eyJ..."
   }
@@ -965,7 +979,7 @@
 |------|------|------|------|------|
 | `id` | Long | 멤버 PK | `1` | 강퇴/탈퇴 시 사용 |
 | `userNo` | Long | 회원 PK | `456` | 게스트는 null |
-| `stdtId` | String | 학생 ID | `"viva-s-00000001"` | 학생별 API 호출에 사용 |
+| `stdtId` | String | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | 학생별 API 호출에 사용 |
 | `nickname` | String | 닉네임 | `"학생1"` | |
 | `gender` | String | 성별 | `"M"` | `M` \| `F` |
 | `email` | String | 이메일 | `"student@test.com"` | |
@@ -983,7 +997,7 @@
       {
         "id": 1,
         "userNo": 456,
-        "stdtId": "viva-s-00000001",
+        "stdtId": "f9e8d7c6b5a43210fedcba0987654321",
         "nickname": "학생1",
         "gender": "M",
         "email": "student@test.com",
@@ -1151,7 +1165,7 @@
 |------|------|------|------|------|
 | `memberId` | Long | 멤버 PK | `8` | 전환 시 사용 |
 | `claId` | String | 학급 ID | `"a1b2c3d4..."` | |
-| `stdtId` | String | 게스트 학생 ID | `"viva-s-00000002"` | |
+| `stdtId` | String | 게스트 학생 ID | `"b2c3d4e5f6a78901bcdef23456789abc"` | |
 | `nickname` | String | 게스트 닉네임 | `"게스트이름"` | |
 | `gender` | String | 성별 | `"M"` | `M` \| `F` |
 | `email` | String | 이메일 | `"guest@test.com"` | |
@@ -1168,7 +1182,7 @@
     {
       "memberId": 8,
       "claId": "a1b2c3d4...",
-      "stdtId": "viva-s-00000002",
+      "stdtId": "b2c3d4e5f6a78901bcdef23456789abc",
       "nickname": "게스트이름",
       "gender": "M",
       "email": "guest@test.com",
@@ -1192,7 +1206,7 @@
 | `memberId` | Long | O | 멤버 PK | `8` | `/guest/check`에서 획득 |
 | `mergeYn` | String | O | 검사 결과 합산 여부 | `"Y"` | `Y`: 합산, `N`: 합산 안함 |
 | `email` | String | O | 이메일 | `"guest@test.com"` | |
-| `guestStdtId` | String | O | 게스트 학생 ID | `"viva-s-00000002"` | |
+| `guestStdtId` | String | O | 게스트 학생 ID | `"b2c3d4e5f6a78901bcdef23456789abc"` | |
 
 **Response resultData**
 
@@ -1200,7 +1214,7 @@
 |------|------|------|------|------|
 | `userNo` | Long | 회원 PK | `456` | 전환 후 정식 회원 PK |
 | `email` | String | 이메일 | `"guest@test.com"` | |
-| `stdtId` | String | 학생 ID | `"viva-s-00000001"` | 기존 회원의 stdtId로 통합 |
+| `stdtId` | String | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | 기존 회원의 stdtId로 통합 |
 | `mergedCount` | Integer | 합산된 검사 수 | `2` | mergeYn=Y일 때만 |
 
 ```json
@@ -1211,7 +1225,7 @@
   "resultData": {
     "userNo": 456,
     "email": "guest@test.com",
-    "stdtId": "viva-s-00000001",
+    "stdtId": "f9e8d7c6b5a43210fedcba0987654321",
     "mergedCount": 2
   }
 }
@@ -1238,14 +1252,14 @@
 
 | 파라미터 | 타입 | 설명 | 샘플 | 비고 |
 |---------|------|------|------|------|
-| `studentId` | String | 학생 ID | `"viva-s-00000001"` | |
+| `studentId` | String | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | |
 
 **Response resultData** — `Array`
 
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
 | `id` | String | 생기부 PK | `"1"` | |
-| `studentId` | String | 학생 ID | `"viva-s-00000001"` | |
+| `studentId` | String | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | |
 | `classId` | String | 학급 ID | `"abcd1234"` | |
 | `category` | String | 카테고리 | `"comprehensive"` | `comprehensive` \| `learning` \| `personality` \| `socialSkills` \| `selfManagement` |
 | `content` | String | 생기부 문구 | `"AI 생성 문구..."` | |
@@ -1259,7 +1273,7 @@
   "resultData": [
     {
       "id": "1",
-      "studentId": "viva-s-00000001",
+      "studentId": "f9e8d7c6b5a43210fedcba0987654321",
       "classId": "abcd1234",
       "category": "comprehensive",
       "content": "AI 생성 문구...",
@@ -1278,7 +1292,7 @@
 
 | 파라미터 | 타입 | 필수 | 설명 | 샘플 | 비고 |
 |---------|------|------|------|------|------|
-| `stdtId` | String | O | 학생 ID | `"viva-s-00000001"` | |
+| `stdtId` | String | O | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | |
 | `category` | String | O | 카테고리 | `"comprehensive"` | 위 허용값 참고 |
 | `content` | String | O | 문구 내용 | `"AI 생성 문구..."` | |
 
@@ -1287,7 +1301,7 @@
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
 | `id` | String | 생기부 PK | `"1"` | 생성된 레코드 ID |
-| `stdtId` | String | 학생 ID | `"viva-s-00000001"` | |
+| `stdtId` | String | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | |
 | `category` | String | 카테고리 | `"comprehensive"` | |
 | `content` | String | 저장된 문구 | `"AI 생성 문구..."` | |
 | `createdAt` | String | 생성일시 | `"2026-03-17 10:00:00"` | |
@@ -1299,7 +1313,7 @@
   "resultMessage": "생기부 저장 완료",
   "resultData": {
     "id": "1",
-    "stdtId": "viva-s-00000001",
+    "stdtId": "f9e8d7c6b5a43210fedcba0987654321",
     "category": "comprehensive",
     "content": "AI 생성 문구...",
     "createdAt": "2026-03-17 10:00:00"
@@ -1337,23 +1351,24 @@
 <a id="api-62"></a>
 ### POST `/group/invite/email` (JWT) — 초대 발송
 
+> 방장 전용. 같은 그룹+이메일로 SENT 상태의 초대가 이미 있으면 중복 발송 불가.
+
 **Request Body**
 
 | 파라미터 | 타입 | 필수 | 설명 | 샘플 | 비고 |
 |---------|------|------|------|------|------|
-| `groupId` | String | O | 그룹 ID | `"group-001"` | |
-| `email` | String | O | 초대 대상 이메일 | `"invitee@test.com"` | |
+| `claId` | String | O | 학급 ID (UUID) | `"a1b2c3d4e5f67890abcdef1234567890"` | |
+| `email` | String | O | 초대 대상 이메일 | `"student@test.com"` | |
 
 **Response resultData**
 
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
-| `invitationId` | String | 초대 PK | `"inv-001"` | |
-| `groupId` | String | 그룹 ID | `"group-001"` | |
-| `email` | String | 초대 이메일 | `"invitee@test.com"` | |
-| `status` | String | 상태 | `"sent"` | 발송 즉시 `sent` |
-| `sentAt` | String | 발송일시 | `"2026-03-17 10:00:00"` | |
-| `expiresAt` | String | 만료일시 | `"2026-03-24 10:00:00"` | 7일 |
+| `invitationId` | Long | 초대 PK | `1` | AUTO_INCREMENT |
+| `groupId` | Long | 그룹 ID | `1` | 내부 PK |
+| `email` | String | 초대 이메일 | `"student@test.com"` | |
+| `status` | String | 상태 | `"SENT"` | 발송 즉시 `SENT` |
+| `sentAt` | String | 발송일시 | `"2026-03-20 10:00:00"` | |
 
 ```json
 {
@@ -1361,12 +1376,11 @@
   "resultCode": 200,
   "resultMessage": "초대 발송 완료",
   "resultData": {
-    "invitationId": "inv-001",
-    "groupId": "group-001",
-    "email": "invitee@test.com",
-    "status": "sent",
-    "sentAt": "2026-03-17 10:00:00",
-    "expiresAt": "2026-03-24 10:00:00"
+    "invitationId": 1,
+    "groupId": 1,
+    "email": "student@test.com",
+    "status": "SENT",
+    "sentAt": "2026-03-20 10:00:00"
   }
 }
 ```
@@ -1376,36 +1390,36 @@
 <a id="api-63"></a>
 ### GET `/group/invite/list` (JWT) — 초대 목록
 
+> 방장 전용.
+
 **Query Parameter**
 
 | 파라미터 | 타입 | 필수 | 설명 | 샘플 | 비고 |
 |---------|------|------|------|------|------|
-| `groupId` | String | O | 그룹 ID | `"group-001"` | |
+| `claId` | String | O | 학급 ID (UUID) | `"a1b2c3d4e5f67890abcdef1234567890"` | |
 
 **Response resultData** — `Array`
 
 | 필드 | 타입 | 설명 | 샘플 | 비고 |
 |------|------|------|------|------|
-| `id` | String | 초대 PK | `"inv-001"` | |
-| `groupId` | String | 그룹 ID | `"group-001"` | |
-| `email` | String | 초대 이메일 | `"invitee@test.com"` | |
-| `status` | String | 상태 | `"pending"` | `pending` \| `sent` \| `accepted` \| `expired` |
-| `sentAt` | String | 발송일시 | `"2026-03-17 10:00:00"` | |
-| `expiresAt` | String | 만료일시 | `"2026-03-24 10:00:00"` | 7일 |
+| `id` | Long | 초대 PK | `1` | |
+| `groupId` | Long | 그룹 ID | `1` | |
+| `email` | String | 초대 이메일 | `"student@test.com"` | |
+| `status` | String | 상태 | `"SENT"` | `SENT` \| `ACCEPTED` \| `CANCELLED` |
+| `sentAt` | String | 발송일시 | `"2026-03-20 10:00:00"` | |
 
 ```json
 {
   "success": true,
   "resultCode": 200,
-  "resultMessage": "조회 완료",
+  "resultMessage": "초대 목록 조회",
   "resultData": [
     {
-      "id": "inv-001",
-      "groupId": "group-001",
-      "email": "invitee@test.com",
-      "status": "sent",
-      "sentAt": "2026-03-17 10:00:00",
-      "expiresAt": "2026-03-24 10:00:00"
+      "id": 1,
+      "groupId": 1,
+      "email": "student@test.com",
+      "status": "SENT",
+      "sentAt": "2026-03-20 10:00:00"
     }
   ]
 }
@@ -1416,11 +1430,13 @@
 <a id="api-64"></a>
 ### DELETE `/group/invite/{invitationId}` (JWT) — 초대 취소
 
+> 방장 전용. SENT 상태의 초대만 취소 가능.
+
 **Path Parameter**
 
 | 파라미터 | 타입 | 설명 | 샘플 | 비고 |
 |---------|------|------|------|------|
-| `invitationId` | String | 초대 PK | `"inv-001"` | |
+| `invitationId` | Long | 초대 PK | `1` | |
 
 **Response**: resultData 없음 (성공 메시지만 반환)
 

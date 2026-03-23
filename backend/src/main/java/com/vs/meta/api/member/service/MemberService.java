@@ -5,6 +5,8 @@ import com.vs.meta.common.exception.JwtExpiredException;
 import com.vs.meta.common.security.JwtUtil;
 import com.vs.meta.api.member.mapper.RefreshTokenMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.LoginRateLimiter;
 import com.vs.meta.common.utils.PasswordValidator;
@@ -26,7 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.UUID;
+
 
 @Slf4j
 @Service
@@ -42,6 +44,12 @@ public class MemberService {
 
     @Value("${META_API_JWT_REFRESH_EXPIRATION_MS:1209600000}")
     private long refreshExpirationMs;
+
+    /** Rotation Grace Period: 최근 교체된 refreshToken → 새 토큰 매핑 (10초 TTL) */
+    private final Cache<String, Map<String, Object>> rotationCache = Caffeine.newBuilder()
+            .expireAfterWrite(java.time.Duration.ofSeconds(10))
+            .maximumSize(1_000)
+            .build();
 
     private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
@@ -199,6 +207,13 @@ public class MemberService {
         }
 
         try {
+            // Grace Period: 최근 교체된 토큰이면 캐시된 결과 반환
+            String tokenHash = hashToken(refreshToken);
+            Map<String, Object> cached = rotationCache.getIfPresent(tokenHash);
+            if (cached != null) {
+                return cached;
+            }
+
             // JWT 서명/만료 검증
             Claims claims = jwtUtil.getAllClaimsFromToken(refreshToken);
             Object userNoObj = claims.get("userNo");
@@ -215,7 +230,6 @@ public class MemberService {
             }
 
             // DB에 존재하는지 확인 (계정 정지 시 삭제되어 없음)
-            String tokenHash = hashToken(refreshToken);
             RefreshToken stored = refreshTokenMapper.findByTokenHash(tokenHash);
             if (stored == null) {
                 throw new AuthFailedException("유효하지 않은 refreshToken입니다. 다시 로그인해주세요.");
@@ -227,12 +241,24 @@ public class MemberService {
                 throw new AuthFailedException("사용자를 찾을 수 없습니다.");
             }
 
+            // 기존 refreshToken 폐기
+            refreshTokenMapper.deleteByTokenHash(tokenHash);
+
+            // 새 토큰 발급 (Rotation)
             String timestamp = LocalDateTime.now().format(TS_FORMAT);
             String newAccessToken = jwtUtil.generateAccessToken(userNo, user.getEmail(), userSeCd, timestamp);
+            String newRefreshToken = jwtUtil.generateRefreshToken(userNo, user.getEmail(), userSeCd, timestamp);
+
+            // 새 refreshToken DB 저장
+            saveRefreshToken(userNo, newRefreshToken, stored.getDeviceInfo(), stored.getIpAddress());
 
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("accessToken", newAccessToken);
-            result.put("userNo", userNo);
+            result.put("refreshToken", newRefreshToken);
+
+            // Grace Period 캐시에 저장 (10초간 동일 토큰 재요청 시 같은 결과 반환)
+            rotationCache.put(tokenHash, result);
+
             return result;
 
         } catch (JwtExpiredException e) {
@@ -303,18 +329,4 @@ public class MemberService {
         return userMapper.findByEmailAndStatus(email, UserStatus.ACTIVE.name());
     }
 
-    /** @deprecated IdGenerator.generateTcId() 사용 권장 */
-    public String generateTcId() {
-        return IdGenerator.generateTcId();
-    }
-
-    /** @deprecated IdGenerator.generateStdtId() 사용 권장 */
-    public String generateStdtId() {
-        return IdGenerator.generateStdtId();
-    }
-
-    /** @deprecated IdGenerator.generateClaId() 사용 권장 */
-    public String generateClaId() {
-        return IdGenerator.generateClaId();
-    }
 }

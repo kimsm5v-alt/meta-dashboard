@@ -71,6 +71,16 @@
         WHERE gi.group_id = #{groupId}
     </select>
 
+    <select id="findActiveDgnssId" parameterType="string" resultType="java.lang.Integer">
+        /* GroupQueryMapper.findActiveDgnssId */
+        SELECT id
+        FROM tb_dgnss_info
+        WHERE cla_id = #{claId}
+          AND dgnss_at = 'Y'
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
     <select id="findGuestMembersByEmail" resultType="java.util.LinkedHashMap">
         /* GroupQueryMapper.findGuestMembersByEmail */
         SELECT

@@ -117,6 +117,14 @@ dependencyManagement {
     }
 }
 
+sourceSets {
+    test {
+        java {
+            srcDirs = ['src/test']
+        }
+    }
+}
+
 tasks.named('test') {
     useJUnitPlatform()
 }

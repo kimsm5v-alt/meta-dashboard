@@ -42,7 +42,7 @@ public class GuestController {
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(examples = {
                     @ExampleObject(name = "게스트전환", value =
-                            "{\"memberId\":1, \"mergeYn\":\"Y\", \"email\":\"guest@test.com\", \"guestStdtId\":\"viva-s-00000001\"}")
+                            "{\"memberId\":1, \"mergeYn\":\"Y\", \"email\":\"guest@test.com\", \"guestStdtId\":\"a1b2c3d4e5f67890abcdef1234567890\"}")
             }))
     public ResponseDTO<CustomBody> convertGuest(
             @RequestBody Map<String, Object> paramData

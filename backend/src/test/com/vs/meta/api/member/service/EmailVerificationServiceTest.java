@@ -1,6 +1,7 @@
 package com.vs.meta.api.member.service;
 
 import com.vs.meta.api.member.mapper.EmailVerificationMapper;
+import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.domain.EmailVerification;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

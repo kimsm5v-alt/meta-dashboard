@@ -2,12 +2,18 @@ package com.vs.meta.admin.service;
 
 import com.vs.meta.admin.mapper.AuthSchoolMapMapper;
 import com.vs.meta.admin.mapper.RoleGroupMapper;
+import com.vs.meta.api.dgnss.mapper.DgnssMapper;
+import com.vs.meta.api.group.mapper.GroupInfoMapper;
+import com.vs.meta.api.group.mapper.GroupQueryMapper;
 import com.vs.meta.api.member.mapper.RefreshTokenMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.school.mapper.SchoolInfoMapper;
+import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.domain.AuthSchoolMap;
+import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.RoleGroup;
 import com.vs.meta.domain.User;
+import com.vs.meta.domain.enums.MemberType;
 import com.vs.meta.domain.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,8 +25,12 @@ import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -33,6 +43,9 @@ public class AdminUserService {
     private final SchoolInfoMapper schoolInfoMapper;
     private final RefreshTokenMapper refreshTokenMapper;
     private final PasswordEncoder passwordEncoder;
+    private final GroupInfoMapper groupInfoMapper;
+    private final GroupQueryMapper groupQueryMapper;
+    private final DgnssMapper dgnssMapper;
 
     // ===== 사용자 관리 =====
 
@@ -228,5 +241,108 @@ public class AdminUserService {
     public void revokeSchoolMapping(Long userNo, String schoolCode, Long adminUserNo) {
         authSchoolMapMapper.revokeByUserNoAndSchoolCode(userNo, schoolCode, adminUserNo);
         log.info("학교 매핑 개별 해제: userNo={}, schoolCode={}, by={}", userNo, schoolCode, adminUserNo);
+    }
+
+    // ===== API 테스트 보조 =====
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> findApiTestTeachers() {
+        return userMapper.findAllUsers().stream()
+                .filter(user -> user.getStatus() == UserStatus.ACTIVE)
+                .filter(user -> IdGenerator.isTeacherRole(user.getRoleCode()))
+                .filter(user -> user.getTcId() != null && !user.getTcId().isBlank())
+                .map(user -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("userNo", user.getUserNo());
+                    item.put("email", user.getEmail());
+                    item.put("nickname", user.getNickname());
+                    item.put("roleCode", user.getRoleCode());
+                    item.put("tcId", user.getTcId());
+                    return item;
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> findApiTestGroupsByTeacher(Long teacherUserNo) {
+        return groupInfoMapper.findActiveGroupsByHostUserNo(teacherUserNo).stream()
+                .map(group -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("groupId", group.getGroupId());
+                    item.put("claId", group.getClaId());
+                    item.put("groupNm", group.getGroupNm());
+                    item.put("schoolName", group.getSchoolName());
+                    item.put("schoolLevel", group.getSchoolLevel());
+                    item.put("grade", group.getGrade());
+                    item.put("classNumber", group.getClassNumber());
+                    item.put("inviteCode", group.getInviteCode());
+                    return item;
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> findApiTestGroupMembers(String claId) {
+        GroupInfo groupInfo = groupInfoMapper.findByClaId(claId);
+        if (groupInfo == null) {
+            throw new IllegalArgumentException("그룹을 찾을 수 없습니다: " + claId);
+        }
+
+        User teacher = userMapper.findByUserNo(groupInfo.getHostUserNo());
+        List<Map<String, Object>> students = groupQueryMapper.findGroupMemberList(groupInfo.getGroupId(), 0, 500).stream()
+                .filter(member -> member.get("stdtId") != null)
+                .filter(member -> "ACTIVE".equals(member.get("status")))
+                .filter(member -> MemberType.STUDENT.name().equals(member.get("memberType")) || MemberType.GUEST.name().equals(member.get("memberType")))
+                .collect(Collectors.toList());
+
+        Map<String, Object> teacherInfo = new LinkedHashMap<>();
+        teacherInfo.put("userNo", groupInfo.getHostUserNo());
+        teacherInfo.put("nickname", teacher != null ? teacher.getNickname() : null);
+        teacherInfo.put("tcId", teacher != null ? teacher.getTcId() : null);
+        teacherInfo.put("roleCode", teacher != null ? teacher.getRoleCode() : null);
+
+        Map<String, Object> groupData = new LinkedHashMap<>();
+        groupData.put("groupId", groupInfo.getGroupId());
+        groupData.put("claId", groupInfo.getClaId());
+        groupData.put("groupNm", groupInfo.getGroupNm());
+        groupData.put("schoolName", groupInfo.getSchoolName());
+        groupData.put("schoolLevel", groupInfo.getSchoolLevel());
+        groupData.put("grade", groupInfo.getGrade());
+        groupData.put("classNumber", groupInfo.getClassNumber());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("teacher", teacherInfo);
+        result.put("group", groupData);
+        result.put("students", students);
+        return result;
+    }
+
+    @Transactional
+    public Map<String, Object> fillRandomDgnssAnswers(int omrIdx, int paperIdx) {
+        if (omrIdx <= 0) {
+            throw new IllegalArgumentException("omrIdx가 올바르지 않습니다.");
+        }
+        if (paperIdx != 1 && paperIdx != 2) {
+            throw new IllegalArgumentException("paperIdx는 1 또는 2만 가능합니다.");
+        }
+
+        int maxQuestionNo = paperIdx == 1 ? 124 : 77;
+        int updatedCount = 0;
+
+        for (int no = 1; no <= maxQuestionNo; no++) {
+            Map<String, Object> param = new HashMap<>();
+            param.put("omrIdx", omrIdx);
+            param.put("no", no);
+            param.put("answer", ThreadLocalRandom.current().nextInt(1, 6));
+            updatedCount += dgnssMapper.updateStntAnswer(param);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("omrIdx", omrIdx);
+        result.put("paperIdx", paperIdx);
+        result.put("questionCount", maxQuestionNo);
+        result.put("updatedCount", updatedCount);
+        result.put("success", updatedCount == maxQuestionNo ? "success" : "partial");
+        return result;
     }
 }
