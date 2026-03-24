@@ -103,6 +103,9 @@ login:
     max-attempts: ${LOGIN_RATE_LIMIT_MAX_ATTEMPTS:5}
     block-minutes: ${LOGIN_RATE_LIMIT_BLOCK_MINUTES:5}
 
+# JWT
+META_API_JWT_SECRET: ${META_API_JWT_SECRET}
+
 key:
   salt:
     main: ${KEY_SALT_MAIN:}
