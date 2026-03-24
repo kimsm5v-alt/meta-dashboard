@@ -1664,6 +1664,7 @@
 	<select id="selectStUserInfo" parameterType="map" resultType="map">
 		/* DgnssMapper.selectStUserInfo */
 		SELECT DA.ANSWER_IDX
+		     , DA.TEST_IDX
 		     , DA.DGNSS_ID
 		     , DA.DGNSS_ORD
 		     , DA.PAPER_IDX
@@ -2759,6 +2760,81 @@
                 </otherwise>
             </choose>
     </select>
+
+	<select id="selectLpaFactorScores" parameterType="int" resultType="map">
+		/* DgnssMapper.selectLpaFactorScores */
+		<![CDATA[
+		SELECT SECTION_ID
+		     , IF(ROUND(T_SCORE) < 0, 0, ROUND(T_SCORE)) AS T_SCORE
+		FROM tb_dgnss_answer_report
+		WHERE ANSWER_IDX = #{answerIdx}
+		  AND SECTION_ID IN (
+		      '10-22-01-01-01-0', '10-22-01-01-02-0', '10-22-01-01-03-0',
+		      '10-22-01-02-01-0', '10-22-01-02-02-0', '10-22-01-02-03-0', '10-22-01-02-04-0',
+		      '10-22-02-01-01-0', '10-22-02-01-02-0', '10-22-02-01-03-0',
+		      '10-22-02-02-01-0', '10-22-02-02-02-0', '10-22-02-02-03-0', '10-22-02-02-04-0', '10-22-02-02-05-0',
+		      '10-22-02-03-01-0', '10-22-02-03-02-0', '10-22-02-03-03-0', '10-22-02-03-04-0',
+		      '10-22-03-01-01-0', '10-22-03-01-02-0', '10-22-03-01-03-0',
+		      '10-22-03-02-01-0', '10-22-03-02-02-0', '10-22-03-02-03-0', '10-22-03-02-04-0', '10-22-03-02-05-0',
+		      '10-22-03-03-01-0', '10-22-03-03-02-0',
+		      '10-22-04-01-01-0', '10-22-04-01-02-0', '10-22-04-01-03-0',
+		      '10-22-04-02-01-0', '10-22-04-02-02-0', '10-22-04-02-03-0',
+		      '10-22-05-01-01-0', '10-22-05-01-02-0', '10-22-05-01-03-0'
+		  )
+		]]>
+	</select>
+
+	<insert id="upsertDgnssLpaResult" parameterType="map">
+		/* DgnssMapper.upsertDgnssLpaResult */
+		<![CDATA[
+		INSERT INTO tb_dgnss_lpa_result
+		(
+			answer_idx,
+			dgnss_result_id,
+			test_idx,
+			mem_id,
+			school_level,
+			class_id,
+			type_name,
+			confidence,
+			model_version,
+			profile_version,
+			input_scores_json,
+			probabilities_json,
+			status
+		)
+		VALUES
+		(
+			#{answerIdx},
+			#{dgnssResultId},
+			#{testIdx},
+			#{memId},
+			#{schoolLevel},
+			#{classId},
+			#{typeName},
+			#{confidence},
+			#{modelVersion},
+			#{profileVersion},
+			#{inputScoresJson},
+			#{probabilitiesJson},
+			#{status}
+		)
+		ON DUPLICATE KEY UPDATE
+			dgnss_result_id = VALUES(dgnss_result_id),
+			test_idx = VALUES(test_idx),
+			mem_id = VALUES(mem_id),
+			school_level = VALUES(school_level),
+			class_id = VALUES(class_id),
+			type_name = VALUES(type_name),
+			confidence = VALUES(confidence),
+			model_version = VALUES(model_version),
+			profile_version = VALUES(profile_version),
+			input_scores_json = VALUES(input_scores_json),
+			probabilities_json = VALUES(probabilities_json),
+			status = VALUES(status),
+			updated_at = CURRENT_TIMESTAMP
+		]]>
+	</insert>
 </mapper>
 
 

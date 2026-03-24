@@ -16,9 +16,8 @@ public class IndexController {
 
     @Hidden
     @RequestMapping("/")
-    @ResponseBody
     public String index() {
-        return "200OK";
+        return "redirect:/swagger-ui/index.html";
     }
 
     @Hidden

@@ -38,6 +38,7 @@ import static java.util.stream.Collectors.toCollection;
 public class DgnssService {
     private final ObjectMapper mapper;
     private final DgnssMapper dgnssMapper;
+    private final DgnssLpaService dgnssLpaService;
     private final PdfService pdfService;
     private final FileService fileService;
 
@@ -301,6 +302,7 @@ public class DgnssService {
         }
         int answerIdx = dgnssMapper.selectAnswerIdx(dgnssResultId);
         dgnssMapper.callProcMark(answerIdx);
+        dgnssLpaService.processAndSave(answerIdx);
     }
 
     public Map<String, Object> pdfDownload(Map<String, Object> paramData, HttpServletRequest request) throws Exception {
