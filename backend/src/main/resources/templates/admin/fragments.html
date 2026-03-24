@@ -295,7 +295,9 @@
             <span class="nav-link" th:text="'관리자: ' + ${#authentication.name}"></span>
         </li>
         <li class="nav-item">
-            <a class="nav-link" href="/admin/logout" style="color:#f87171 !important"><i class="fas fa-sign-out-alt"></i> 로그아웃</a>
+            <form th:action="@{/admin/logout}" method="post" style="display:inline">
+                <button type="submit" class="nav-link btn btn-link" style="color:#f87171 !important; border:none; cursor:pointer;"><i class="fas fa-sign-out-alt"></i> 로그아웃</button>
+            </form>
         </li>
     </ul>
 </nav>
