@@ -469,6 +469,21 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 │ cla_id                   │
 │ use_yn (Y/N)             │
 └──────────────────────────┘
+
+┌──────────────────────────┐
+│ school_record_info       │
+│ (생기부/생활기록부)        │
+├──────────────────────────┤
+│ id (PK, AUTO)            │
+│ stdt_id (학생 ID, IDX)   │
+│ cla_id (학급 ID, IDX)    │
+│ tc_id (교사 ID, IDX)     │
+│ category (카테고리, enum) │  ← 종합/학습/성격/대인관계/자기관리
+│ content (내용, TEXT)      │
+│ use_yn (사용여부, Y/N)    │
+│ created_by / updated_by  │
+│ created_at / updated_at  │
+└──────────────────────────┘
 ```
 
 **테이블 수: 14개** (v1 7개 + role_group, school_info, auth_school_map, email_verification, refresh_token, school_record_info)
@@ -667,7 +682,36 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 
 ---
 
-#### 5.2.8 `email_verification` — 이메일 인증코드
+#### 5.2.8 `group_invitation` — 그룹 이메일 초대
+
+| 컬럼명 | 타입 | NULL | 기본값 | 설명 |
+|-------|------|------|-------|------|
+| `id` | BIGINT | NOT NULL | AUTO_INCREMENT | PK |
+| `group_id` | BIGINT | NOT NULL | - | 그룹 ID (FK → group_info.group_id) |
+| `email` | VARCHAR(255) | NOT NULL | - | 초대 대상 이메일 |
+| `invite_code` | VARCHAR(20) | NOT NULL | - | 그룹 초대코드 (group_info.invite_code 복사) |
+| `status` | VARCHAR(20) | NOT NULL | 'SENT' | 초대 상태 (SENT/ACCEPTED/CANCELLED/EXPIRED) |
+| `sent_by` | BIGINT | NOT NULL | - | 발송자 (user_no) |
+| `sent_at` | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 발송 일시 |
+| `expires_at` | DATETIME | NOT NULL | - | 만료 일시 (발송 후 7일) |
+| `created_by` | BIGINT | NOT NULL | 0 | 등록자 (user_no) |
+| `updated_by` | BIGINT | NOT NULL | 0 | 수정자 (user_no) |
+| `created_at` | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 생성 일시 |
+| `updated_at` | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 수정 일시 |
+
+- **PK**: `id`
+- **IDX**: `group_id` (idx_gi_group), `email` (idx_gi_email)
+- **FK**: `group_id` → `group_info.group_id` (ON UPDATE CASCADE), `sent_by` → `user.user_no` (ON UPDATE CASCADE)
+
+**운영 시나리오:**
+- 방장이 이메일 초대 발송 → SENT 상태로 INSERT (같은 그룹+이메일 SENT 중복 불가)
+- 초대받은 사용자가 그룹 참가 → ACCEPTED로 변경
+- 방장이 초대 취소 → CANCELLED로 변경 (SENT 상태만 취소 가능)
+- 만료 처리 → expires_at 경과 시 EXPIRED로 변경
+
+---
+
+#### 5.2.9 `email_verification` — 이메일 인증코드
 
 | 컬럼명 | 타입 | NULL | 기본값 | 설명 |
 |-------|------|------|-------|------|
@@ -684,7 +728,7 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 
 ---
 
-#### 5.2.9 `refresh_token` — Refresh Token 관리
+#### 5.2.10 `refresh_token` — Refresh Token 관리
 
 | 컬럼명 | 타입 | NULL | 기본값 | 설명 |
 |-------|------|------|-------|------|
@@ -710,7 +754,7 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 
 ---
 
-#### 5.2.10 `memo_info` — 관찰 메모
+#### 5.2.11 `memo_info` — 관찰 메모
 
 | 컬럼명 | 타입 | NULL | 기본값 | 설명 |
 |-------|------|------|-------|------|
@@ -735,7 +779,7 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 
 ---
 
-#### 5.2.11 `counseling_info` — 상담 정보
+#### 5.2.12 `counseling_info` — 상담 정보
 
 | 컬럼명 | 타입 | NULL | 기본값 | 설명 |
 |-------|------|------|-------|------|
@@ -771,7 +815,7 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 
 ---
 
-#### 5.2.12 `counseling_student` — 상담-학생 매핑
+#### 5.2.13 `counseling_student` — 상담-학생 매핑
 
 | 컬럼명 | 타입 | NULL | 기본값 | 설명 |
 |-------|------|------|-------|------|
@@ -787,7 +831,7 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 - **IDX**: `counseling_id` (idx_cs_counseling), `stdt_id` (idx_cs_stdt)
 - **FK**: `counseling_id` → `counseling_info.id` (ON UPDATE CASCADE)
 
-#### 5.2.13 `school_record_info` — 생기부 (생활기록부)
+#### 5.2.14 `school_record_info` — 생기부 (생활기록부)
 
 | 컬럼명 | 타입 | NULL | 기본값 | 설명 |
 |-------|------|------|-------|------|
@@ -795,7 +839,7 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 | `stdt_id` | VARCHAR(64) | NOT NULL | - | 대상 학생 ID |
 | `cla_id` | VARCHAR(64) | NOT NULL | - | 학급 ID |
 | `tc_id` | VARCHAR(64) | NOT NULL | - | 교사 ID (user.tc_id) |
-| `category` | VARCHAR(20) | NOT NULL | - | comprehensive/learning/personality/socialSkills/selfManagement |
+| `category` | VARCHAR(50) | NOT NULL | - | comprehensive/learning/personality/socialSkills/selfManagement |
 | `content` | TEXT | NOT NULL | - | 생기부 내용 |
 | `use_yn` | CHAR(1) | NOT NULL | 'Y' | 사용 여부 (Y/N, 소프트 삭제) |
 | `created_by` | BIGINT | NOT NULL | 0 | 등록자 (user_no, 0=system) |
@@ -857,7 +901,16 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 | `completed` | 완료 |
 | `cancelled` | 취소 |
 
-### 6.6 SchoolRecordCategory (생기부 카테고리)
+### 6.6 InvitationStatus (초대 상태)
+
+| 값 | 설명 |
+|----|------|
+| `SENT` | 이메일 발송 완료 |
+| `ACCEPTED` | 초대 수락 (가입/참가 완료) |
+| `CANCELLED` | 초대 취소 (방장이 취소) |
+| `EXPIRED` | 유효기간 만료 (7일) |
+
+### 6.7 SchoolRecordCategory (생기부 카테고리)
 
 | 값 | 설명 |
 |----|------|
@@ -867,7 +920,7 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 | `socialSkills` | 대인관계 |
 | `selfManagement` | 자기관리 |
 
-### 6.7 SchoolLevel (학교급)
+### 6.8 SchoolLevel (학교급)
 
 | Enum | code | 기존 API grade | 기존 sync gradeCd | 학년 범위 |
 |------|------|:---:|:---:|:---:|
@@ -1230,3 +1283,4 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 | 날짜 | 수정자 | 변경 내용 |
 |------|--------|----------|
 | 2026-03-19 | - | `user`, `group_member` 테이블에 `gender VARCHAR(10) NULL` 컬럼 추가 (M/F). 회원가입/게스트참가/Admin계정등록 시 gender 필수값 검증. 로그인/회원조회/그룹멤버목록 등 모든 API 응답에 gender 포함. 게스트→회원 전환 시 gender 반영. `member_no` 자동 채번 로직 구현 (그룹 참가 시 MAX+1). 그룹 멤버 목록 정렬 기준 `joined_at` → `member_no`로 변경. Admin 사용자목록에 성별 컬럼 및 학교매핑 바로가기 버튼 추가. Admin 학교등록에 나이스 데이터 출처 안내 추가. API 테스트 페이지 Base URL 포트 8081 변경. |
+| 2026-03-25 | - | `school_record_info` 테이블 추가 (생기부 CRUD). SchoolRecordCategory enum 추가 (comprehensive/learning/personality/socialSkills/selfManagement). 테이블 수 13→14개. |

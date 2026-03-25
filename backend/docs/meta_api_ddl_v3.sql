@@ -378,7 +378,7 @@ CREATE TABLE school_record_info (
     stdt_id             VARCHAR(64)     NOT NULL    COMMENT '대상 학생 ID',
     cla_id              VARCHAR(64)     NOT NULL    COMMENT '학급 ID',
     tc_id               VARCHAR(64)     NOT NULL    COMMENT '교사 ID (user.tc_id)',
-    category            VARCHAR(20)     NOT NULL    COMMENT 'comprehensive/learning/personality/socialSkills/selfManagement',
+    category            VARCHAR(50)     NOT NULL    COMMENT 'comprehensive/learning/personality/socialSkills/selfManagement',
     content             TEXT            NOT NULL    COMMENT '생기부 내용',
     use_yn              CHAR(1)         NOT NULL    DEFAULT 'Y'     COMMENT '사용 여부 (Y/N, 삭제 시 N)',
     created_by          BIGINT          NOT NULL    DEFAULT 0       COMMENT '등록자 (user_no)',
@@ -406,4 +406,5 @@ CREATE TABLE school_record_info (
 -- user (1) ←── (N) guest_conversion_log  : guest_conversion_log.converted_user_no → user.user_no
 -- counseling_info (1) ←── (N) counseling_student : counseling_student.counseling_id → counseling_info.id
 -- user (1) ←── (N) refresh_token         : refresh_token.user_no → user.user_no (CASCADE DELETE)
+-- school_record_info                     : stdt_id, cla_id, tc_id 기반 (FK 없음, 논리적 참조)
 -- ============================================================
