@@ -20,7 +20,7 @@ export const unifiedCounselingService = {
    * 모든 상담 기록 조회 (상담 일정 페이지용)
    */
   getAll: async (): Promise<UnifiedCounselingRecord[]> => {
-    const response = await fetch(`${API_BASE}/api/unified-counseling`);
+    const response = await fetch(`${API_BASE}/api/counseling`);
     if (!response.ok) throw new Error('Failed to fetch records');
     return response.json();
   },
@@ -30,7 +30,7 @@ export const unifiedCounselingService = {
    * @param studentId 학생 ID (class-6-2-student-01 또는 2-3-01 형식 모두 지원)
    */
   getByStudentId: async (studentId: string): Promise<UnifiedCounselingRecord[]> => {
-    const response = await fetch(`${API_BASE}/api/unified-counseling/student/${studentId}`);
+    const response = await fetch(`${API_BASE}/api/counseling/student/${studentId}`);
     if (!response.ok) throw new Error('Failed to fetch records');
     return response.json();
   },
@@ -39,7 +39,7 @@ export const unifiedCounselingService = {
    * 학급별 상담 기록 조회
    */
   getByClassId: async (classId: string): Promise<UnifiedCounselingRecord[]> => {
-    const response = await fetch(`${API_BASE}/api/unified-counseling/class/${classId}`);
+    const response = await fetch(`${API_BASE}/api/counseling/class/${classId}`);
     if (!response.ok) throw new Error('Failed to fetch records');
     return response.json();
   },
@@ -48,7 +48,7 @@ export const unifiedCounselingService = {
    * 상태별 상담 기록 조회
    */
   getByStatus: async (status: CounselingStatus): Promise<UnifiedCounselingRecord[]> => {
-    const response = await fetch(`${API_BASE}/api/unified-counseling/status/${status}`);
+    const response = await fetch(`${API_BASE}/api/counseling/status/${status}`);
     if (!response.ok) throw new Error('Failed to fetch records');
     return response.json();
   },
@@ -57,7 +57,7 @@ export const unifiedCounselingService = {
    * 단일 상담 기록 조회
    */
   getById: async (id: string): Promise<UnifiedCounselingRecord | null> => {
-    const response = await fetch(`${API_BASE}/api/unified-counseling/${id}`);
+    const response = await fetch(`${API_BASE}/api/counseling/${id}`);
     if (!response.ok) {
       if (response.status === 404) return null;
       throw new Error('Failed to fetch record');
@@ -69,7 +69,7 @@ export const unifiedCounselingService = {
    * 상담 기록 생성
    */
   create: async (input: CreateUnifiedCounselingInput): Promise<UnifiedCounselingRecord> => {
-    const response = await fetch(`${API_BASE}/api/unified-counseling`, {
+    const response = await fetch(`${API_BASE}/api/counseling`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
@@ -82,7 +82,7 @@ export const unifiedCounselingService = {
    * 상담 기록 수정
    */
   update: async (id: string, input: UpdateUnifiedCounselingInput): Promise<UnifiedCounselingRecord> => {
-    const response = await fetch(`${API_BASE}/api/unified-counseling/${id}`, {
+    const response = await fetch(`${API_BASE}/api/counseling/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
@@ -95,7 +95,7 @@ export const unifiedCounselingService = {
    * 예정 상담을 완료 처리
    */
   complete: async (id: string, data: CompleteUnifiedCounselingInput): Promise<UnifiedCounselingRecord> => {
-    const response = await fetch(`${API_BASE}/api/unified-counseling/${id}/complete`, {
+    const response = await fetch(`${API_BASE}/api/counseling/${id}/complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -108,7 +108,7 @@ export const unifiedCounselingService = {
    * 상담 취소
    */
   cancel: async (id: string): Promise<void> => {
-    const response = await fetch(`${API_BASE}/api/unified-counseling/${id}/cancel`, {
+    const response = await fetch(`${API_BASE}/api/counseling/${id}/cancel`, {
       method: 'POST',
     });
     if (!response.ok) throw new Error('Failed to cancel record');
@@ -118,7 +118,7 @@ export const unifiedCounselingService = {
    * 상담 기록 삭제
    */
   delete: async (id: string): Promise<void> => {
-    const response = await fetch(`${API_BASE}/api/unified-counseling/${id}`, {
+    const response = await fetch(`${API_BASE}/api/counseling/${id}`, {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete record');
