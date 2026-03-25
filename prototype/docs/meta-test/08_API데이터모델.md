@@ -249,7 +249,10 @@ interface TestResult {
 
 ## 4. API 엔드포인트 설계
 
-### 4.1 검사 관리
+> **주의**: 아래 엔드포인트는 초기 기획안입니다. 실제 백엔드에서는 DGNSS 기반 API(`/api/dgnss/*`)로 구현되었습니다.
+> 실제 API 스펙은 `docs/guide/api-endpoints.md`를 참조하세요.
+
+### 4.1 검사 관리 (기획안 — 미구현)
 
 ```
 POST   /api/tests                    # 검사 응답 제출
@@ -258,7 +261,7 @@ GET    /api/tests/{testId}/report    # 결과 보고서 조회
 DELETE /api/tests/{testId}           # 검사 결과 삭제
 ```
 
-### 4.2 학생/학급 관리
+### 4.2 학생/학급 관리 (기획안 — 미구현)
 
 ```
 GET    /api/students/{studentId}/tests     # 학생별 검사 이력
@@ -266,13 +269,22 @@ GET    /api/classes/{classId}/tests        # 학급별 검사 결과
 GET    /api/classes/{classId}/average      # 학급 평균 (신뢰도 미달 제외)
 ```
 
-### 4.3 기준 데이터
+### 4.3 기준 데이터 (기획안 — 미구현)
 
 ```
 GET    /api/norms/{schoolLevel}            # 학교급별 기준 데이터
 GET    /api/lpa-profiles/{schoolLevel}     # LPA 프로파일 데이터
 GET    /api/interpretation-scripts         # 해석 스크립트 목록
 ```
+
+### 4.4 실제 구현된 API (참조)
+
+| 기능 | 실제 엔드포인트 | 상세 |
+|------|----------------|------|
+| 교사 검사 목록 | `GET /api/dgnss/tc/info` | `api-endpoints.md` 참조 |
+| 학생 결과 조회 | `GET /api/dgnss/st/analysis` | 통합 API |
+| 학급 평균 T점수 | `GET /api/dgnss/tc/analysis` | |
+| 학생 목록 + 신뢰도 | `GET /api/dgnss/tc/stinfolist` | |
 
 ---
 
@@ -389,7 +401,11 @@ function calculateLogLikelihood(
 
 ## 6. 데이터베이스 스키마 (참고)
 
-### 6.1 핵심 테이블
+> **주의**: 아래 스키마는 초기 기획안입니다. 실제 검사 데이터는 `aidt_diagnosis` DB의
+> `tb_dgnss_info`, `tb_dgnss_result_info`, `tb_dgnss_answer`, `tb_dgnss_answer_report` 테이블에 저장됩니다.
+> 실제 DB 스키마는 `docs/guide/backend-api-guide.md` 섹션 1을 참조하세요.
+
+### 6.1 핵심 테이블 (기획안 — 미구현)
 
 ```sql
 -- 검사 결과
@@ -473,17 +489,22 @@ CREATE TABLE question_responses (
 
 ## 8. 구현 체크리스트
 
+> 실제 백엔드 구현 기준으로 갱신 (2026-03-25)
+
 ```
-□ 기준 데이터 (Norm) 관리 API
-□ 문항 데이터 관리 API
-□ 검사 응답 제출 API
-□ T점수 계산 로직
-□ 등급 판정 로직
-□ 신뢰도 지표 계산 로직
-□ LPA 분류 알고리즘
-□ 해석 스크립트 조회 로직
-□ 결과 보고서 생성 로직
-□ 학급 평균 계산 로직 (신뢰도 미달 제외)
-□ PDF 결과지 생성
-□ 데이터 내보내기 (Excel)
+■ DGNSS 검사 관리 API (교사: 시작/종료/취소/재시작)     — ✅ 백엔드 구현 완료
+■ DGNSS 학생 검사 응시 API (시작/답안저장/제출)          — ✅ 백엔드 구현 완료
+■ T점수 계산 로직 (기존 AIDT DB에서 처리)                — ✅ 기존 시스템
+■ 신뢰도 지표 (반응일관성/사회적바람직성/연속동일반응)     — ✅ 기존 시스템
+■ 학급 평균 T점수 조회 API                               — ✅ 백엔드 구현 완료
+■ PDF 결과지 생성                                         — ✅ 백엔드 구현 완료
+■ 상담 기록 CRUD API                                      — ✅ 백엔드 구현 완료
+■ 관찰 메모 CRUD API                                      — ✅ 백엔드 구현 완료
+■ 회원 인증/그룹 관리 API                                  — ✅ 백엔드 구현 완료
+□ LPA 분류 알고리즘 (백엔드)                               — ❌ 프론트엔드에서만 계산
+□ 기준 데이터 (Norm) 관리 API                              — ❌ 미구현
+□ 해석 스크립트 조회 로직                                   — ❌ 미구현
+□ 생활기록부 문구 저장 API                                  — ❌ 미구현
+□ AI 캐시 API                                              — ❌ 미구현
+□ 데이터 내보내기 (Excel)                                   — ❌ 미구현
 ```
