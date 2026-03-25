@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="180" height="180" viewBox="0 0 180 180">
+    <defs>
+        <linearGradient id="i7vsf0b41a" x1=".5" y1=".049" x2=".5" y2="1.051" gradientUnits="objectBoundingBox">
+            <stop offset="0" stop-color="#702bf7"/>
+            <stop offset="1" stop-color="#702bf7" stop-opacity=".349"/>
+        </linearGradient>
+        <linearGradient id="3juoz1b4zb" x1=".5" x2=".5" y2="1.045" gradientUnits="objectBoundingBox">
+            <stop offset="0" stop-color="#3bcabc"/>
+            <stop offset="1" stop-color="#3bcabc" stop-opacity=".349"/>
+        </linearGradient>
+        <linearGradient id="92imndazuc" x1=".5" y1=".083" x2=".5" y2="1.067" xlink:href="#i7vsf0b41a"/>
+        <linearGradient id="w6blp8hp9d" x1=".29" y1=".068" x2=".813" y2="1" xlink:href="#3juoz1b4zb"/>
+    </defs>
+    <g data-name="그룹 2388" transform="translate(8.388 1.048)">
+        <rect data-name="사각형 1097" width="45.474" height="165.833" rx="12" transform="translate(0 12.408)" style="fill:url(#i7vsf0b41a)"/>
+        <rect data-name="사각형 1098" width="46.556" height="128.981" rx="12" transform="translate(58.715 49.261)" style="fill:url(#3juoz1b4zb)"/>
+        <rect data-name="사각형 1099" width="45.474" height="95.584" rx="12" transform="translate(118.478 82.657)" style="fill:url(#92imndazuc)"/>
+        <path data-name="패스 2097" d="m1365.622 2132.842 3.514 7.121a3.68 3.68 0 0 0 2.771 2.013l7.858 1.142a3.681 3.681 0 0 1 2.04 6.278l-5.686 5.542a3.68 3.68 0 0 0-1.058 3.258l1.342 7.826a3.681 3.681 0 0 1-5.341 3.88l-7.028-3.7a3.682 3.682 0 0 0-3.426 0l-7.028 3.7a3.681 3.681 0 0 1-5.34-3.88l1.343-7.826a3.683 3.683 0 0 0-1.059-3.258l-5.686-5.542a3.681 3.681 0 0 1 2.04-6.278l7.858-1.142a3.68 3.68 0 0 0 2.771-2.013l3.514-7.121a3.681 3.681 0 0 1 6.601 0z" transform="translate(-1280.911 -2130.79)" style="fill:url(#w6blp8hp9d)"/>
+    </g>
+</svg>

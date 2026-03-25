@@ -1,0 +1,14 @@
+node_modules
+.nx
+.gradle
+.venv
+dist
+build
+bin
+out
+*.log
+.DS_Store
+.vscode
+.idea
+.claude
+.git

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.member.mapper.UserMapper">
+
+    <resultMap id="userResultMap" type="com.vs.meta.domain.User">
+        <id property="userNo" column="user_no"/>
+        <result property="email" column="email"/>
+        <result property="password" column="password"/>
+        <result property="nickname" column="nickname"/>
+        <result property="gender" column="gender"/>
+        <result property="roleCode" column="role_code"/>
+        <result property="tcId" column="tc_id"/>
+        <result property="stdtId" column="stdt_id"/>
+        <result property="status" column="status"/>
+        <result property="lastLoginAt" column="last_login_at"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="userColumns">
+        user_no, email, password, nickname, gender, role_code, tc_id, stdt_id,
+        status, last_login_at, created_by, updated_by, created_at, updated_at
+    </sql>
+
+    <select id="findByEmailAndStatus" resultMap="userResultMap">
+        /* UserMapper.findByEmailAndStatus */
+        SELECT <include refid="userColumns"/>
+        FROM `user`
+        WHERE email = #{email} AND status = #{status}
+    </select>
+
+    <select id="findByEmail" resultMap="userResultMap">
+        /* UserMapper.findByEmail */
+        SELECT <include refid="userColumns"/>
+        FROM `user`
+        WHERE email = #{email}
+        LIMIT 1
+    </select>
+
+    <select id="findByUserNo" resultMap="userResultMap">
+        /* UserMapper.findByUserNo */
+        SELECT <include refid="userColumns"/>
+        FROM `user`
+        WHERE user_no = #{userNo}
+    </select>
+
+    <select id="findAllUsers" resultMap="userResultMap">
+        /* UserMapper.findAllUsers */
+        SELECT <include refid="userColumns"/>
+        FROM `user`
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findUsersPaged" resultMap="userResultMap">
+        /* UserMapper.findUsersPaged */
+        SELECT <include refid="userColumns"/>
+        FROM `user`
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (email LIKE CONCAT('%',#{keyword},'%') OR nickname LIKE CONCAT('%',#{keyword},'%'))
+            </if>
+            <if test="roleCode != null and roleCode != ''">
+                AND role_code = #{roleCode}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countUsersPaged" resultType="long">
+        /* UserMapper.countUsersPaged */
+        SELECT COUNT(*)
+        FROM `user`
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (email LIKE CONCAT('%',#{keyword},'%') OR nickname LIKE CONCAT('%',#{keyword},'%'))
+            </if>
+            <if test="roleCode != null and roleCode != ''">
+                AND role_code = #{roleCode}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertUser" parameterType="com.vs.meta.domain.User" useGeneratedKeys="true" keyProperty="userNo">
+        /* UserMapper.insertUser */
+        INSERT INTO `user` (email, password, nickname, gender, role_code, tc_id, stdt_id, status, last_login_at, created_by, updated_by, created_at, updated_at)
+        VALUES (#{email}, #{password}, #{nickname}, #{gender}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="updateUser" parameterType="com.vs.meta.domain.User">
+        /* UserMapper.updateUser */
+        UPDATE `user`
+        SET password = #{password},
+            email = #{email},
+            nickname = #{nickname},
+            gender = #{gender},
+            role_code = #{roleCode},
+            tc_id = #{tcId},
+            stdt_id = #{stdtId},
+            status = #{status},
+            last_login_at = #{lastLoginAt},
+            updated_by = #{updatedBy},
+            updated_at = #{updatedAt}
+        WHERE user_no = #{userNo}
+    </update>
+
+</mapper>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대시보드 - Meta Admin</title>
+    <th:block th:replace="admin/fragments :: css" />
+    <style>
+        .small-box .small-box-footer { color: rgba(255,255,255,.8); background: rgba(0,0,0,.1); }
+        .small-box:hover .small-box-footer { color: #fff; background: rgba(0,0,0,.15); }
+    </style>
+</head>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
+    <nav th:replace="admin/fragments :: navbar"></nav>
+    <aside th:replace="admin/fragments :: sidebar(menu='dashboard')"></aside>
+
+    <div class="content-wrapper">
+        <section class="content-header">
+            <div class="container-fluid">
+                <h1>대시보드</h1>
+            </div>
+        </section>
+        <section class="content">
+            <div class="container-fluid">
+                <!-- Info Boxes -->
+                <div class="row">
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box bg-info">
+                            <div class="inner">
+                                <h3 th:text="${#numbers.formatInteger(userCount, 1, 'COMMA')}">0</h3>
+                                <p>전체 사용자</p>
+                            </div>
+                            <div class="icon"><i class="fas fa-users"></i></div>
+                            <a href="/admin/users" class="small-box-footer">상세보기 <i class="fas fa-arrow-circle-right"></i></a>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box bg-success">
+                            <div class="inner">
+                                <h3 th:text="${#numbers.formatInteger(roleCount, 1, 'COMMA')}">0</h3>
+                                <p>역할 수</p>
+                            </div>
+                            <div class="icon"><i class="fas fa-user-shield"></i></div>
+                            <a href="/admin/roles" class="small-box-footer">상세보기 <i class="fas fa-arrow-circle-right"></i></a>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box bg-warning">
+                            <div class="inner">
+                                <h3 th:text="${#numbers.formatInteger(schoolCount, 1, 'COMMA')}">0</h3>
+                                <p>등록 학교</p>
+                            </div>
+                            <div class="icon"><i class="fas fa-school"></i></div>
+                            <a href="/admin/schools" class="small-box-footer">상세보기 <i class="fas fa-arrow-circle-right"></i></a>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-6">
+                        <div class="small-box bg-danger">
+                            <div class="inner">
+                                <h3 th:text="${#numbers.formatInteger(groupCount, 1, 'COMMA')}">0</h3>
+                                <p>활성 그룹</p>
+                            </div>
+                            <div class="icon"><i class="fas fa-layer-group"></i></div>
+                            <a href="#" class="small-box-footer">&nbsp;</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Links -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">바로가기</h3>
+                    </div>
+                    <div class="card-body">
+                        <a href="/admin/users" class="btn btn-primary mr-1">사용자 관리</a>
+                        <a href="/admin/roles" class="btn btn-default mr-1">권한 관리</a>
+                        <a href="/admin/school-map" class="btn btn-default mr-1">학교 매핑</a>
+                        <a href="/admin/schools" class="btn btn-default mr-1">학교 목록</a>
+                        <a href="/admin/school-import" class="btn btn-default mr-1">학교 등록</a>
+                        <a href="/admin/api-test" class="btn btn-default">API 테스트</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+<th:block th:replace="admin/fragments :: js" />
+</body>
+</html>

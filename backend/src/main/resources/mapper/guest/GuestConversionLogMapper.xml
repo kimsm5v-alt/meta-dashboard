@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.guest.mapper.GuestConversionLogMapper">
+
+    <insert id="insertConversionLog" parameterType="com.vs.meta.domain.GuestConversionLog" useGeneratedKeys="true" keyProperty="id">
+        /* GuestConversionLogMapper.insertConversionLog */
+        INSERT INTO guest_conversion_log (member_id, guest_email, converted_user_no, merge_yn, converted_at)
+        VALUES (#{memberId}, #{guestEmail}, #{convertedUserNo}, #{mergeYn}, #{convertedAt})
+    </insert>
+
+</mapper>
