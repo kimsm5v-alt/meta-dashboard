@@ -118,6 +118,7 @@
                 <div class="api-tab" data-tab="memoManage">9. 관찰메모</div>
                 <div class="api-tab" data-tab="counselManage">10. 상담관리</div>
                 <div class="api-tab" data-tab="inviteManage">11. 이메일초대</div>
+                <div class="api-tab" data-tab="schoolRecordManage">12. 생기부</div>
             </div>
 
             <!-- 1. 회원가입 -->
@@ -356,6 +357,37 @@
                 </div>
                 <div class="response-area" id="resp-inviteManage"></div>
             </div>
+            <!-- 12. 생기부 -->
+            <div class="api-panel" id="panel-schoolRecordManage">
+                <h2>생기부 CRUD</h2>
+                <p class="desc">생활기록부 저장/조회/삭제</p>
+                <div class="api-row">
+                    <div class="api-field"><label>studentId (학생 stdt_id)</label><input id="sr_studentId" placeholder="viva-s-00000001" /></div>
+                    <div class="api-field"><label>classId (학급 cla_id)</label><input id="sr_classId" placeholder="학급 ID" /></div>
+                    <div class="api-field"><label>tcId (서버 자동 설정)</label><input id="sr_tcId" disabled placeholder="JWT 토큰에서 자동 추출" /><div class="hint">로그인 토큰 기반으로 서버에서 자동 설정됩니다</div></div>
+                </div>
+                <div class="api-row">
+                    <div class="api-field">
+                        <label>category</label>
+                        <select id="sr_category">
+                            <option value="comprehensive">comprehensive (종합)</option>
+                            <option value="learning">learning (학습)</option>
+                            <option value="personality">personality (성격)</option>
+                            <option value="socialSkills">socialSkills (대인관계)</option>
+                            <option value="selfManagement">selfManagement (자기관리)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="api-field"><label>content</label><textarea id="sr_content" placeholder="생기부 내용 입력"></textarea></div>
+                <div class="api-field" style="max-width:300px;margin-top:8px"><label>recordId (삭제용)</label><input id="sr_recordId" placeholder="생기부 ID" /></div>
+                <div class="api-btn-group">
+                    <button class="btn btn-primary btn-sm" onclick="doSchoolRecordList()">목록조회</button>
+                    <button class="btn btn-primary btn-sm" onclick="doSchoolRecordCreate()">저장</button>
+                    <button class="btn btn-danger btn-sm" onclick="doSchoolRecordDelete()">삭제</button>
+                </div>
+                <div class="response-area" id="resp-schoolRecordManage"></div>
+            </div>
+
         </div><!-- /section-admin -->
 
         <!-- ==================== 심리검사 섹션 ==================== -->
@@ -1054,7 +1086,7 @@
         updateState('stdtId', stdtId);
     }
     async function doMemberInfo() { const res = await apiCall('GET', '/member/info', null, 'resp-memberInfo'); if (res && res.resultData) { const d = res.resultData; updateState('email', d.email); updateState('userNo', d.userNo); updateState('tcId', d.tcId); updateState('stdtId', d.stdtId); } }
-    async function doGroupCreate() { const body = { groupNm: document.getElementById('gc_groupNm').value, grade: document.getElementById('gc_grade').value || '3', groupDesc: document.getElementById('gc_groupDesc').value || undefined, maxMemberCount: parseInt(document.getElementById('gc_maxCount').value) || undefined, schoolLevel: document.getElementById('gc_schoolLevel').value || undefined, classNumber: parseInt(document.getElementById('gc_classNumber').value) || undefined, schoolName: document.getElementById('gc_schoolName').value || undefined, schoolCode: document.getElementById('gc_schoolCode').value || undefined }; const res = await apiCall('POST', '/group/create', body, 'resp-groupCreate'); if (res && res.resultData) { const d = res.resultData; updateState('claId', d.claId); updateState('inviteCode', d.inviteCode); const af = { 'gj_inviteCode': d.inviteCode, 'gjg_inviteCode': d.inviteCode, 'gd_claId': d.claId, 'mm_classId': d.claId, 'cm_classId': d.claId, 'dtl_claId': d.claId, 'dts_claId': d.claId, 'dtr_claId': d.claId, 'dta_claId': d.claId, 'dsl_claId': d.claId, 'admin_groupClaId': d.claId }; Object.entries(af).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val || ''; }); } }
+    async function doGroupCreate() { const body = { groupNm: document.getElementById('gc_groupNm').value, grade: document.getElementById('gc_grade').value || '3', groupDesc: document.getElementById('gc_groupDesc').value || undefined, maxMemberCount: parseInt(document.getElementById('gc_maxCount').value) || undefined, schoolLevel: document.getElementById('gc_schoolLevel').value || undefined, classNumber: parseInt(document.getElementById('gc_classNumber').value) || undefined, schoolName: document.getElementById('gc_schoolName').value || undefined, schoolCode: document.getElementById('gc_schoolCode').value || undefined }; const res = await apiCall('POST', '/group/create', body, 'resp-groupCreate'); if (res && res.resultData) { const d = res.resultData; updateState('claId', d.claId); updateState('inviteCode', d.inviteCode); const af = { 'gj_inviteCode': d.inviteCode, 'gjg_inviteCode': d.inviteCode, 'gd_claId': d.claId, 'mm_classId': d.claId, 'cm_classId': d.claId, 'dtl_claId': d.claId, 'dts_claId': d.claId, 'dtr_claId': d.claId, 'dta_claId': d.claId, 'dsl_claId': d.claId, 'admin_groupClaId': d.claId, 'sr_classId': d.claId }; Object.entries(af).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val || ''; }); } }
     async function doGroupJoin() { const body = { inviteCode: document.getElementById('gj_inviteCode').value }; const res = await apiCall('POST', '/group/join', body, 'resp-groupJoin'); if (res && res.resultData) updateState('stdtId', res.resultData.stdtId); }
     async function doGroupJoinGuest() { if (!emailVerified['gjg']) { alert('이메일 인증을 먼저 완료하세요.'); return; } const body = { inviteCode: document.getElementById('gjg_inviteCode').value, nickname: document.getElementById('gjg_nickname').value, gender: document.getElementById('gjg_gender').value, email: document.getElementById('gjg_email').value }; await apiCall('POST', '/group/join-guest', body, 'resp-groupJoinGuest'); }
     async function doGroupList() { await apiCall('GET', '/group/list', null, 'resp-groupList'); }
@@ -1074,6 +1106,10 @@
     async function doInviteSend() { const claId = document.getElementById('inv_claId').value; const email = document.getElementById('inv_email').value; if (!claId || !email) { alert('claId와 email을 입력하세요'); return; } const body = { claId, email }; const res = await apiCall('POST', '/group/invite/email', body, 'resp-inviteManage'); if (res && res.resultData && res.resultData.invitationId) document.getElementById('inv_invitationId').value = res.resultData.invitationId; }
     async function doInviteList() { const claId = document.getElementById('inv_claId').value; if (!claId) { alert('claId를 입력하세요'); return; } await apiCall('GET', `/group/invite/list?claId=${encodeURIComponent(claId)}`, null, 'resp-inviteManage'); }
     async function doInviteCancel() { const id = document.getElementById('inv_invitationId').value; if (!id) { alert('invitationId를 입력하세요'); return; } if (!confirm('초대를 취소하시겠습니까?')) return; await apiCall('DELETE', `/group/invite/${id}`, null, 'resp-inviteManage'); }
+    // 생기부
+    async function doSchoolRecordList() { const studentId = document.getElementById('sr_studentId').value; if (!studentId) { alert('studentId를 입력하세요'); return; } await apiCall('GET', `/api/school-records/student/${encodeURIComponent(studentId)}`, null, 'resp-schoolRecordManage'); }
+    async function doSchoolRecordCreate() { const body = { studentId: document.getElementById('sr_studentId').value, classId: document.getElementById('sr_classId').value, category: document.getElementById('sr_category').value, content: document.getElementById('sr_content').value }; const res = await apiCall('POST', '/api/school-records', body, 'resp-schoolRecordManage'); if (res && res.resultData && res.resultData.id) document.getElementById('sr_recordId').value = res.resultData.id; }
+    async function doSchoolRecordDelete() { const id = document.getElementById('sr_recordId').value; if (!id) { alert('recordId를 입력하세요'); return; } if (!confirm('생기부를 삭제하시겠습니까?')) return; await apiCall('DELETE', `/api/school-records/${id}`, null, 'resp-schoolRecordManage'); }
     // 학교명 자동완성
     (function() {
         const input = document.getElementById('gc_schoolName');

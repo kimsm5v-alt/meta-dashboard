@@ -3,8 +3,8 @@
 -- 학습심리정서검사 플랫폼 회원 DB
 -- 설계 방식: user_id(계정명) 제거, user_no(BIGINT PK) + email(로그인 식별자)
 -- 변경 사유: 기존 userId(계정명) 폐지, email을 로그인 식별자로 전환
--- 테이블 수: 12개
--- 최종 업데이트: 2026-03-17
+-- 테이블 수: 14개
+-- 최종 업데이트: 2026-03-25
 -- 상태: 설계 검토 중
 -- 기술 스택: Spring Boot 2.7.17, MyBatis 3.5.13, MySQL 8.3.0
 -- ============================================================
@@ -22,6 +22,7 @@
 --  11. counseling_info     — 상담 정보
 --  12. counseling_student  — 상담-학생 매핑
 --  13. refresh_token       — Refresh Token 관리
+--  14. school_record_info  — 생기부 (생활기록부)
 -- ============================================================
 -- v2 → v3 변경 요약:
 --   - user 테이블: user_id(VARCHAR PK) 제거 → user_no(BIGINT AUTO_INCREMENT PK)
@@ -368,6 +369,28 @@ CREATE TABLE refresh_token (
     CONSTRAINT fk_rt_user FOREIGN KEY (user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='Refresh Token 관리';
+
+-- ============================================================
+-- 14. 생기부 (생활기록부) 테이블
+-- ============================================================
+CREATE TABLE school_record_info (
+    id                  BIGINT          NOT NULL    AUTO_INCREMENT,
+    stdt_id             VARCHAR(64)     NOT NULL    COMMENT '대상 학생 ID',
+    cla_id              VARCHAR(64)     NOT NULL    COMMENT '학급 ID',
+    tc_id               VARCHAR(64)     NOT NULL    COMMENT '교사 ID (user.tc_id)',
+    category            VARCHAR(20)     NOT NULL    COMMENT 'comprehensive/learning/personality/socialSkills/selfManagement',
+    content             TEXT            NOT NULL    COMMENT '생기부 내용',
+    use_yn              CHAR(1)         NOT NULL    DEFAULT 'Y'     COMMENT '사용 여부 (Y/N, 삭제 시 N)',
+    created_by          BIGINT          NOT NULL    DEFAULT 0       COMMENT '등록자 (user_no)',
+    updated_by          BIGINT          NOT NULL    DEFAULT 0       COMMENT '수정자 (user_no)',
+    created_at          DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_sr_stdt (stdt_id),
+    INDEX idx_sr_cla (cla_id),
+    INDEX idx_sr_tc (tc_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+  COMMENT='생기부 (생활기록부)';
 
 -- ============================================================
 -- ERD 관계 요약

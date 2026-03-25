@@ -56,10 +56,10 @@
 | | **학교 관리** | | | | | | |
 | 34 | 학교 | POST | `/school/import` | 학교 CSV 업로드 | — | Admin 전용 | — |
 | | **심리검사 (#35~#58)** | | | | | *별도 문서로 분리: `dgnss-api-spec.md` 참고* | |
-| | **생기부 (School Record)** | | | | | *1차 오픈 범위 아님 · 프론트: API 코드 완료, 백엔드 미구현* | |
-| 59 | 생기부 | GET | `/api/school-records/student/{studentId}` | 저장된 생기부 조회 | ❌ | 1차 오픈 범위 아님 | [이동](#api-59) |
-| 60 | 생기부 | POST | `/api/school-records` | 생기부 저장 | ❌ | 1차 오픈 범위 아님 | [이동](#api-60) |
-| 61 | 생기부 | DELETE | `/api/school-records/{id}` | 생기부 삭제 | ❌ | 1차 오픈 범위 아님 | [이동](#api-61) |
+| | **생기부 (School Record)** | | | | | *백엔드 구현 완료* | |
+| 59 | 생기부 | GET | `/api/school-records/student/{studentId}` | 저장된 생기부 조회 | ✅ | JWT 인증 | [이동](#api-59) |
+| 60 | 생기부 | POST | `/api/school-records` | 생기부 저장 | ✅ | JWT 인증 | [이동](#api-60) |
+| 61 | 생기부 | DELETE | `/api/school-records/{id}` | 생기부 삭제 | ✅ | JWT 인증, 본인 건만 | [이동](#api-61) |
 | | **이메일 초대** | | | | | *프론트: Mock, 백엔드 미구현* | |
 | 62 | 초대 | POST | `/group/invite/email` | 이메일 초대 발송 | ✅ | 방장 전용 | [이동](#api-62) |
 | 63 | 초대 | GET | `/group/invite/list` | 초대 목록 조회 | ✅ | ?claId=xxx | [이동](#api-63) |
@@ -1240,10 +1240,10 @@
 
 ---
 
-## 12. 생기부 (School Record) ❌ 신규 개발 예정 — 1차 오픈 범위 아님
+## 12. 생기부 (School Record) ✅ 구현 완료
 
-> 프론트: `schoolRecordService.ts` — API 코드 작성 완료
-> **1차 오픈 범위에 포함되지 않음. 추후 개발 예정.**
+> 테이블: `school_record_info` | 패키지: `com.vs.meta.api.schoolrecord`
+> AI 생성은 프론트에서 처리, 백엔드는 저장/조회/삭제 CRUD 담당
 
 <a id="api-59"></a>
 ### GET `/api/school-records/student/{studentId}` (JWT) — 조회
