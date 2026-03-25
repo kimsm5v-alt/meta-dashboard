@@ -951,30 +951,33 @@ category 허용 값: `academic`, `behavior`, `emotion`, `social`, `other`
 
 | # | 데이터 소스 | 모드 | API | 구분 |
 |---|-----------|------|-----|------|
-| 1 | 38개 T점수 전체 (5대 영역별 그룹) | student | `GET /etc/meta/st/total/analysis` | 🔵 기존 |
+| 1 | 38개 T점수 전체 (5대 영역별 그룹) | student | `GET /api/dgnss/tc/stinfolist` | 🔵 기존 |
 | 2 | 1차↔2차 변화 (T±5 이상) | student | 위 API 결과에서 프론트 계산 | 🔵 기존 |
-| 3 | LPA 분류 결과 + 중분류 평균 | student | `GET /api/lpa/students/:studentId` | 🟢 신규 |
+| 3 | LPA 분류 결과 | student | `GET /api/dgnss/tc/stinfolist` 응답에 포함 | 🔵 기존 (LPA 필드 추가) |
 | 4 | 4단계 진단 결과 (공부마음/자원/기술/학습유형) | student | 프론트 계산 (calculate4StepDiagnosis) | — |
-| 5 | 상담 기록 (최근 5건) | student | `GET /api/unified-counseling/student/:studentId` | 🟢 신규 |
-| 6 | 관찰 메모 (최근 5건) | student | `GET /api/memos/student/:studentId` | 🟢 신규 |
-| 7 | 저장된 생활기록부 문구 | student | `GET /api/school-records/student/:studentId` | 🟢 신규 |
-| 8 | 학급 프로필 (강점/약점 TOP3) | class, all | `GET /etc/meta/tc/analysis` | 🔵 기존 |
-| 9 | 관심 필요 학생 (긴급/관찰) | class | `GET /etc/meta/tc/need` | 🔵 기존 |
-| 10 | 상담 현황 (완료/예정) | class, all | `GET /api/unified-counseling/class/:classId` | 🟢 신규 |
+| 5 | 상담 기록 (최근 5건) | student | `GET /api/counseling/student/:studentId` | ✅ 구현 완료 |
+| 6 | 관찰 메모 (최근 5건) | student | `GET /api/memos/student/:studentId` | ✅ 구현 완료 |
+| 7 | 저장된 생활기록부 문구 | student | `GET /api/school-records/student/:studentId` | ❌ 백엔드 미구현 (1차 오픈 범위 아님) |
+| 8 | 학급 프로필 (강점/약점 TOP3) | class, all | `GET /api/dgnss/tc/analysis` | 🔵 기존 |
+| 9 | 관심 필요 학생 (긴급/관찰) | class | `GET /api/dgnss/tc/need` | 🔵 기존 |
+| 10 | 상담 현황 (완료/예정) | class, all | `GET /api/counseling/class/:classId` | ✅ 구현 완료 |
+| 11 | 전체 학생 목록 (검사 무관) | all, class, student | `GET /group/detail?claId=` | 🔵 기존 |
+| 12 | 검사 ID 조회 (dgnssId) | all, class, student | `GET /api/dgnss/tc/info?claId=&tcId=&paperIdx=` | 🔵 기존 |
 
 #### API
 
 | # | 메서드 | 엔드포인트 | 구분 | 설명 |
 |---|--------|-----------|------|------|
 | 1 | — | Gemini 2.5 Flash API | 🟡 AI | 대화 응답 (현재 프론트 직접 호출 → 백엔드 변경 필요, PII 마스킹) |
-| 2 | GET | `/etc/meta/st/total/analysis` | 🔵 기존 | 학생 T점수 (RAG) |
-| 3 | GET | `/api/lpa/students/:studentId` | 🟢 신규 | LPA 결과 (RAG) |
-| 4 | GET | `/api/unified-counseling/student/:studentId` | 🟢 신규 | 상담 기록 (RAG) |
-| 5 | GET | `/api/memos/student/:studentId` | 🟢 신규 | 관찰 메모 (RAG) |
-| 6 | GET | `/api/school-records/student/:studentId` | 🟢 신규 | 생활기록부 문구 (RAG) |
-| 7 | GET | `/etc/meta/tc/analysis` | 🔵 기존 | 학급 프로필 (RAG) |
-| 8 | GET | `/etc/meta/tc/need` | 🔵 기존 | 관심 필요 학생 (RAG) |
-| 9 | GET | `/api/unified-counseling/class/:classId` | 🟢 신규 | 상담 현황 (RAG) |
+| 2 | GET | `/api/dgnss/tc/stinfolist` | 🔵 기존 | 학생 T점수 + LPA 결과 (RAG) |
+| 3 | GET | `/api/counseling/student/:studentId` | ✅ 구현 완료 | 상담 기록 (RAG) |
+| 4 | GET | `/api/memos/student/:studentId` | ✅ 구현 완료 | 관찰 메모 (RAG) |
+| 5 | GET | `/api/school-records/student/:studentId` | ❌ 미구현 | 생활기록부 문구 (RAG, 1차 오픈 범위 아님) |
+| 6 | GET | `/api/dgnss/tc/analysis` | 🔵 기존 | 학급 프로필 (RAG) |
+| 7 | GET | `/api/dgnss/tc/need` | 🔵 기존 | 관심 필요 학생 (RAG) |
+| 8 | GET | `/api/counseling/class/:classId` | ✅ 구현 완료 | 상담 현황 (RAG) |
+| 9 | GET | `/group/detail?claId=` | 🔵 기존 | 전체 학생 목록 (학생 선택 모달) |
+| 10 | GET | `/api/dgnss/tc/info` | 🔵 기존 | 검사 ID 조회 (dgnssId 획득) |
 
 
 ---
