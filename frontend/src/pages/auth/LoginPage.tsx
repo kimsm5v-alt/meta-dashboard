@@ -1,131 +1,299 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, FlaskConical, User } from 'lucide-react';
 import styled from '@emotion/styled';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useNavigate } from 'react-router-dom';
-import { Card, Button, Input, FormField } from '@shared/ui';
+import { keyframes } from '@emotion/react';
+import { Card } from '@shared/components';
+import { TestLoginForm, LoginForm } from '@features/auth/ui';
+import { useAuth } from '@features/auth/model/AuthContext';
+import type { TestCredentials } from '@features/auth/ui';
 
-const loginSchema = z.object({
-  email: z.string().email('올바른 이메일을 입력하세요'),
-  password: z.string().min(6, '비밀번호는 6자 이상이어야 합니다'),
-});
+type LoginMode = 'select' | 'normal' | 'test';
 
-type LoginFormData = z.infer<typeof loginSchema>;
+const spin = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
 
-const PageWrapper = styled.div`
+const LoadingContainer = styled.div`
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: ${({ theme }) => theme.spacing.lg};
+  background-color: ${({ theme }) => theme.colors.gray[50]};
 `;
 
-const LoginCard = styled(Card)`
-  width: 100%;
-  max-width: 400px;
-  padding: ${({ theme }) => theme.spacing['2xl']};
+const Spinner = styled.div`
+  animation: ${spin} 1s linear infinite;
+  border-radius: 50%;
+  height: 32px;
+  width: 32px;
+  border-bottom: 2px solid ${({ theme }) => theme.colors.primary[500]};
 `;
 
-const Logo = styled.h1`
-  font-size: ${({ theme }) => theme.typography.fontSize['4xl']};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  background: ${({ theme }) => theme.gradients.primary};
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-align: center;
-  margin-bottom: ${({ theme }) => theme.spacing.sm};
-`;
-
-const Subtitle = styled.p`
-  color: ${({ theme }) => theme.colors.text.secondary};
-  text-align: center;
-  margin-bottom: ${({ theme }) => theme.spacing.xl};
-`;
-
-const Form = styled.form`
+const PageContainer = styled.div`
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    to bottom right,
+    ${({ theme }) => theme.colors.gray[50]},
+    ${({ theme }) => theme.colors.gray[100]}
+  );
+  padding: 0 ${({ theme }) => theme.spacing.md};
 `;
 
-const Divider = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.md};
-  margin: ${({ theme }) => theme.spacing.lg} 0;
+const LogoSection = styled.div`
+  margin-bottom: ${({ theme }) => theme.spacing.xl};
+  text-align: center;
+`;
 
-  &::before,
-  &::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: ${({ theme }) => theme.colors.gray[200]};
+const LogoTitle = styled.h1`
+  font-size: ${({ theme }) => theme.typography.fontSize['3xl']};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  color: ${({ theme }) => theme.colors.gray[900]};
+`;
+
+const BrandText = styled.span`
+  color: ${({ theme }) => theme.colors.primary[500]};
+`;
+
+const LogoSubtitle = styled.p`
+  margin-top: ${({ theme }) => theme.spacing.sm};
+  color: ${({ theme }) => theme.colors.gray[600]};
+`;
+
+const StyledCard = styled(Card)`
+  width: 100%;
+  max-width: 448px;
+  padding: ${({ theme }) => theme.spacing.xl};
+`;
+
+const BackButton = styled.button`
+  position: absolute;
+  top: ${({ theme }) => theme.spacing.lg};
+  left: ${({ theme }) => theme.spacing.lg};
+  padding: ${({ theme }) => theme.spacing.sm};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.gray[100]};
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    color: ${({ theme }) => theme.colors.gray[500]};
   }
 `;
 
-const DividerText = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.text.disabled};
+const HeaderSection = styled.div`
+  text-align: center;
+  margin-bottom: ${({ theme }) => theme.spacing.xl};
+  padding-top: ${({ theme }) => theme.spacing.md};
 `;
 
-export const LoginPage = () => {
+const HeaderTitle = styled.h2`
+  font-size: ${({ theme }) => theme.typography.fontSize['2xl']};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  color: ${({ theme }) => theme.colors.gray[900]};
+`;
+
+const HeaderSubtitle = styled.p`
+  color: ${({ theme }) => theme.colors.gray[500]};
+  margin-top: ${({ theme }) => theme.spacing.xs};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+`;
+
+const ButtonGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const ModeButton = styled.button<{ $colorScheme: 'primary' | 'amber' }>`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => theme.spacing.md} 20px;
+  border-radius: ${({ theme }) => theme.radius.xl};
+  border: 2px solid ${({ theme }) => theme.colors.gray[200]};
+  background-color: white;
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    border-color: ${({ theme, $colorScheme }) =>
+      $colorScheme === 'primary' ? theme.colors.primary[500] : '#fbbf24'};
+    background-color: ${({ theme, $colorScheme }) =>
+      $colorScheme === 'primary' ? theme.colors.primary[50] : '#fffbeb'};
+  }
+`;
+
+const IconWrapper = styled.div<{ $colorScheme: 'primary' | 'amber' }>`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: ${({ $colorScheme }) => ($colorScheme === 'primary' ? '#f3e8ff' : '#fef3c7')};
+  transition: background-color ${({ theme }) => theme.transitions.fast};
+
+  ${ModeButton}:hover & {
+    background-color: ${({ $colorScheme }) => ($colorScheme === 'primary' ? '#e9d5ff' : '#fde68a')};
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    color: ${({ theme, $colorScheme }) =>
+      $colorScheme === 'primary' ? theme.colors.primary[600] : '#d97706'};
+  }
+`;
+
+const ButtonTextWrapper = styled.div`
+  text-align: left;
+`;
+
+const ButtonTitle = styled.p`
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  color: ${({ theme }) => theme.colors.gray[900]};
+`;
+
+const ButtonDescription = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.gray[500]};
+`;
+
+const BottomInfo = styled.p`
+  margin-top: ${({ theme }) => theme.spacing.xl};
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.gray[500]};
+  text-align: center;
+  max-width: 384px;
+`;
+
+export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  });
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const { isAuthenticated, isLoading, loginWithCredentials, loginWithEmail } = useAuth();
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [mode, setMode] = useState<LoginMode>('select');
 
-  const onSubmit = async (_data: LoginFormData) => {
-    // TODO: 실제 로그인 API 연동
-    navigate('/dashboard');
+  // 이미 로그인된 경우 리다이렉트
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      navigate(redirectTo, { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate, redirectTo]);
+
+  const handleTestLogin = async (credentials: TestCredentials) => {
+    setLoginLoading(true);
+    try {
+      await loginWithCredentials(credentials);
+      navigate(redirectTo, { replace: true });
+    } finally {
+      setLoginLoading(false);
+    }
   };
 
-  const handleDemoLogin = () => {
-    navigate('/dashboard');
+  const handleEmailLogin = async (email: string, password: string) => {
+    setLoginLoading(true);
+    try {
+      await loginWithEmail(email, password);
+      navigate(redirectTo, { replace: true });
+    } finally {
+      setLoginLoading(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <LoadingContainer>
+        <Spinner />
+      </LoadingContainer>
+    );
+  }
 
   return (
-    <PageWrapper>
-      <LoginCard variant='glass'>
-        <Logo>META</Logo>
-        <Subtitle>학습 진단 대시보드에 로그인하세요</Subtitle>
+    <PageContainer>
+      {/* 로고 */}
+      <LogoSection>
+        <LogoTitle>
+          <BrandText>비상교육</BrandText> 학습심리정서검사
+        </LogoTitle>
+        <LogoSubtitle>AI 기반 맞춤형 학습 코칭 시스템</LogoSubtitle>
+      </LogoSection>
 
-        <Form onSubmit={handleSubmit(onSubmit)}>
-          <FormField label='이메일' htmlFor='email'>
-            <Input
-              id='email'
-              type='email'
-              placeholder='teacher@school.ac.kr'
-              error={errors.email?.message}
-              {...register('email')}
-            />
-          </FormField>
-          <FormField label='비밀번호' htmlFor='password'>
-            <Input
-              id='password'
-              type='password'
-              placeholder='비밀번호를 입력하세요'
-              error={errors.password?.message}
-              {...register('password')}
-            />
-          </FormField>
-          <Button type='submit' fullWidth disabled={isSubmitting}>
-            {isSubmitting ? '로그인 중...' : '로그인'}
-          </Button>
-        </Form>
+      {/* 모드 선택 화면 */}
+      {mode === 'select' && (
+        <StyledCard>
+          {/* 뒤로가기 */}
+          <BackButton onClick={() => navigate('/')}>
+            <ArrowLeft />
+          </BackButton>
 
-        <Divider>
-          <DividerText>또는</DividerText>
-        </Divider>
+          <HeaderSection>
+            <HeaderTitle>로그인</HeaderTitle>
+            <HeaderSubtitle>로그인 방식을 선택해주세요</HeaderSubtitle>
+          </HeaderSection>
 
-        <Button variant='outline' fullWidth onClick={handleDemoLogin}>
-          데모 계정으로 체험하기
-        </Button>
-      </LoginCard>
-    </PageWrapper>
+          <ButtonGroup>
+            {/* 일반 로그인 */}
+            <ModeButton $colorScheme='primary' onClick={() => setMode('normal')}>
+              <IconWrapper $colorScheme='primary'>
+                <User />
+              </IconWrapper>
+              <ButtonTextWrapper>
+                <ButtonTitle>로그인</ButtonTitle>
+                <ButtonDescription>이메일과 비밀번호로 로그인</ButtonDescription>
+              </ButtonTextWrapper>
+            </ModeButton>
+
+            {/* 테스트 계정 로그인 */}
+            <ModeButton $colorScheme='amber' onClick={() => setMode('test')}>
+              <IconWrapper $colorScheme='amber'>
+                <FlaskConical />
+              </IconWrapper>
+              <ButtonTextWrapper>
+                <ButtonTitle>테스트 계정 로그인</ButtonTitle>
+                <ButtonDescription>API 테스트용 임시 로그인</ButtonDescription>
+              </ButtonTextWrapper>
+            </ModeButton>
+          </ButtonGroup>
+        </StyledCard>
+      )}
+
+      {/* 일반 로그인 폼 */}
+      {mode === 'normal' && (
+        <StyledCard>
+          <BackButton onClick={() => setMode('select')}>
+            <ArrowLeft />
+          </BackButton>
+
+          <HeaderSection>
+            <HeaderTitle>로그인</HeaderTitle>
+            <HeaderSubtitle>이메일과 비밀번호를 입력하세요</HeaderSubtitle>
+          </HeaderSection>
+
+          <LoginForm onLogin={handleEmailLogin} isLoading={loginLoading} />
+        </StyledCard>
+      )}
+
+      {/* 테스트 로그인 폼 */}
+      {mode === 'test' && <TestLoginForm onLogin={handleTestLogin} isLoading={loginLoading} />}
+
+      {/* 하단 안내 */}
+      {mode === 'select' && <BottomInfo>계정이 없으시면 회원가입 후 이용해주세요.</BottomInfo>}
+    </PageContainer>
   );
 };

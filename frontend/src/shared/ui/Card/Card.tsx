@@ -4,6 +4,8 @@ import type { HTMLAttributes, ReactNode } from 'react';
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'glass';
   hover?: boolean;
+  /** Alias for hover */
+  hoverable?: boolean;
   children: ReactNode;
 }
 
@@ -12,6 +14,7 @@ const StyledCard = styled.div<{
   $hover: boolean;
 }>`
   border-radius: ${({ theme }) => theme.radius.xl};
+  padding: ${({ theme }) => theme.spacing.lg};
   transition: all ${({ theme }) => theme.transitions.normal};
 
   ${({ $variant, theme }) =>
@@ -54,9 +57,15 @@ const CardFooter = styled.div`
   gap: ${({ theme }) => theme.spacing.sm};
 `;
 
-export const Card = ({ variant = 'default', hover = false, children, ...props }: CardProps) => {
+export const Card = ({
+  variant = 'default',
+  hover = false,
+  hoverable,
+  children,
+  ...props
+}: CardProps) => {
   return (
-    <StyledCard $variant={variant} $hover={hover} {...props}>
+    <StyledCard $variant={variant} $hover={hover || hoverable || false} {...props}>
       {children}
     </StyledCard>
   );

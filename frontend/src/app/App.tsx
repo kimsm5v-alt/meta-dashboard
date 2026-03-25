@@ -1,11 +1,13 @@
-import { RouterProvider } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import { AppProviders } from './providers';
-import { router } from './router';
+import { AppRoutes } from './router/routes';
 
 export const App = () => {
   return (
     <AppProviders>
-      <RouterProvider router={router} />
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
     </AppProviders>
   );
 };

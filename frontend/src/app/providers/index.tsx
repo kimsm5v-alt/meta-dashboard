@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 import { ThemeProvider } from './ThemeProvider';
 import { QueryProvider } from './QueryProvider';
+import { AuthProvider } from '@features/auth/model/AuthContext';
+import { DataProvider } from '@shared/contexts/DataContext';
+import { ApiDevModeProvider } from '@shared/contexts/ApiDevModeContext';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -9,7 +12,13 @@ interface AppProvidersProps {
 export const AppProviders = ({ children }: AppProvidersProps) => {
   return (
     <QueryProvider>
-      <ThemeProvider>{children}</ThemeProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <DataProvider>
+            <ApiDevModeProvider>{children}</ApiDevModeProvider>
+          </DataProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryProvider>
   );
 };
