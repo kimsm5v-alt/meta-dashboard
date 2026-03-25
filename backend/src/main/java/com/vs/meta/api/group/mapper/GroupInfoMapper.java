@@ -4,6 +4,8 @@ import com.vs.meta.domain.GroupInfo;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface GroupInfoMapper {
 
@@ -14,6 +16,8 @@ public interface GroupInfoMapper {
     GroupInfo findByClaId(@Param("claId") String claId);
 
     GroupInfo findGroupInfoById(@Param("groupId") Long groupId);
+
+    List<GroupInfo> findActiveGroupsByHostUserNo(@Param("hostUserNo") Long hostUserNo);
 
     void insertGroupInfo(GroupInfo groupInfo);
 

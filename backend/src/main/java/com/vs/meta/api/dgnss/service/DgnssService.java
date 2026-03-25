@@ -27,6 +27,7 @@ import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toCollection;
@@ -37,6 +38,7 @@ import static java.util.stream.Collectors.toCollection;
 public class DgnssService {
     private final ObjectMapper mapper;
     private final DgnssMapper dgnssMapper;
+    private final DgnssLpaService dgnssLpaService;
     private final PdfService pdfService;
     private final FileService fileService;
 
@@ -300,6 +302,7 @@ public class DgnssService {
         }
         int answerIdx = dgnssMapper.selectAnswerIdx(dgnssResultId);
         dgnssMapper.callProcMark(answerIdx);
+        dgnssLpaService.processAndSave(answerIdx);
     }
 
     public Map<String, Object> pdfDownload(Map<String, Object> paramData, HttpServletRequest request) throws Exception {
@@ -1084,6 +1087,38 @@ public class DgnssService {
         return dgnssMapper.updateStntAnswer(param);
     }
 
+    @Transactional
+    public Map<String, Object> fillRandomAnswers(Map<String, Object> param) {
+        int omrIdx = MapUtils.getInteger(param, "omrIdx", 0);
+        int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
+
+        if (omrIdx <= 0) {
+            throw new IllegalArgumentException("omrIdx가 올바르지 않습니다.");
+        }
+        if (paperIdx != 1 && paperIdx != 2) {
+            throw new IllegalArgumentException("paperIdx는 1 또는 2만 가능합니다.");
+        }
+
+        int maxQuestionNo = paperIdx == 1 ? 124 : 77;
+        int updatedCount = 0;
+
+        for (int no = 1; no <= maxQuestionNo; no++) {
+            Map<String, Object> answerParam = new HashMap<>();
+            answerParam.put("omrIdx", omrIdx);
+            answerParam.put("no", no);
+            answerParam.put("answer", ThreadLocalRandom.current().nextInt(1, 6));
+            updatedCount += dgnssMapper.updateStntAnswer(answerParam);
+        }
+
+        Map<String, Object> resultMap = new HashMap<>();
+        resultMap.put("omrIdx", omrIdx);
+        resultMap.put("paperIdx", paperIdx);
+        resultMap.put("questionCount", maxQuestionNo);
+        resultMap.put("updatedCount", updatedCount);
+        resultMap.put("success", updatedCount == maxQuestionNo ? "success" : "partial");
+        return resultMap;
+    }
+
     @Transactional(readOnly = true)
     public List<Map<String, Object>> selectStntDgnssList(Map<String, Object> param) {
         return dgnssMapper.selectStntDgnssList(param);
@@ -1108,6 +1143,10 @@ public class DgnssService {
             PagingInfo page = AidtCommonUtil.ofPageInfo(dgnssQuesList, pageable, total);
 
             Map<String, Object> omrInfo = dgnssMapper.selectStDgnssOmr(param);
+            if (MapUtils.isEmpty(omrInfo)) {
+                resultMap.put("success", "error");
+                return resultMap;
+            }
 
             // 학생이 답안 입력한 개수 반환
             long stAnsCnt = omrInfo.values().stream()
@@ -1151,6 +1190,10 @@ public class DgnssService {
         } else {
             List<Map<String, Object>> dgnssQuesList = dgnssMapper.selectStQuesListOrigin(param);
             Map<String, Object> omrInfo = dgnssMapper.selectStDgnssOmr(param);
+            if (MapUtils.isEmpty(omrInfo)) {
+                resultMap.put("success", "error");
+                return resultMap;
+            }
             eakAt = MapUtils.getString(omrInfo, "eakAt", "N");
 
             for (Map<String, Object> map : dgnssQuesList) {

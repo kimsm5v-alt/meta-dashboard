@@ -121,4 +121,8 @@ public interface DgnssMapper {
     void updateSummaryFileUrl(Map<String, Object> param) throws Exception;
 
     List<Map<String, Object>> selectMakePdfTargetList(Map<String, Object> param);
+
+    List<Map<String, Object>> selectLpaFactorScores(@Param("answerIdx") int answerIdx);
+
+    void upsertDgnssLpaResult(Map<String, Object> param);
 }

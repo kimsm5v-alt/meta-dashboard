@@ -1,28 +1,22 @@
 # ===== Build Stage =====
-FROM gradle:8.5-jdk17 AS build
+FROM ncp-vsaidt-registry.ncr.gov-ntruss.com/openjdk:17.0.1-jdk-slim AS builder
 
-WORKDIR /app
-COPY settings.gradle ./
-COPY backend/build.gradle ./backend/
-COPY gradle ./gradle
+COPY . /tmp
+WORKDIR /tmp
 
-# 의존성 캐시 레이어 (소스 변경 시 재다운로드 방지)
-RUN gradle :backend:dependencies --no-daemon || true
-
-COPY backend/src ./backend/src
-RUN gradle :backend:bootJar --no-daemon -x test
+RUN sed -i 's/\r$//' ./gradlew
+RUN chmod +x ./gradlew
+RUN ./gradlew :backend:clean
+RUN ./gradlew :backend:bootJar -x test
 
 # ===== Runtime Stage =====
-FROM eclipse-temurin:17-jre-alpine
+FROM ncp-vsaidt-registry.ncr.gov-ntruss.com/openjdk:17.0.1-jdk-slim
 
-WORKDIR /app
+COPY --from=builder /tmp/backend/build/libs/*.jar app.jar
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-COPY --from=build /app/backend/build/libs/*.jar app.jar
-
-RUN chown -R appuser:appgroup /app
-USER appuser
+# CSAP 조치
+RUN useradd -m -s /bin/bash visang
+USER visang
 
 EXPOSE 8081
 
@@ -39,7 +33,4 @@ EXPOSE 8081
 # KEY_SALT_MAIN
 # SPRING_PROFILES_ACTIVE (default: local)
 
-ENTRYPOINT ["java", \
-  "-Djava.security.egd=file:/dev/./urandom", \
-  "-Dserver.port=8081", \
-  "-jar", "app.jar"]
+CMD ["java", "-jar", "app.jar"]

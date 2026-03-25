@@ -18,4 +18,6 @@ public interface GroupQueryMapper {
     Map<String, Object> findGroupDetail(@Param("groupId") Long groupId);
 
     List<Map<String, Object>> findGuestMembersByEmail(@Param("email") String email);
+
+    Integer findActiveDgnssId(@Param("claId") String claId);
 }

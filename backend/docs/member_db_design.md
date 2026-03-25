@@ -307,8 +307,8 @@ ADMIN (level 99)
 ### 4.2 ID 채번 규칙
 
 ```
-tcId   : "viva-t-{UUID 8자리}"     예) viva-t-a1b2c3d4
-stdtId : "viva-s-{UUID 8자리}"     예) viva-s-e5f6g7h8
+tcId   : UUID 32자리 (하이픈 제거)   예) a1b2c3d4e5f67890abcdef1234567890
+stdtId : UUID 32자리 (하이픈 제거)   예) f9e8d7c6b5a43210fedcba0987654321
 claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 ```
 
@@ -471,7 +471,7 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 └──────────────────────────┘
 ```
 
-**테이블 수: 12개** (v1 7개 + role_group, school_info, auth_school_map, email_verification, refresh_token)
+**테이블 수: 14개** (v1 7개 + role_group, school_info, auth_school_map, email_verification, refresh_token, school_record_info)
 
 ---
 
@@ -787,6 +787,30 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 - **IDX**: `counseling_id` (idx_cs_counseling), `stdt_id` (idx_cs_stdt)
 - **FK**: `counseling_id` → `counseling_info.id` (ON UPDATE CASCADE)
 
+#### 5.2.13 `school_record_info` — 생기부 (생활기록부)
+
+| 컬럼명 | 타입 | NULL | 기본값 | 설명 |
+|-------|------|------|-------|------|
+| `id` | BIGINT | NOT NULL | AUTO_INCREMENT | PK |
+| `stdt_id` | VARCHAR(64) | NOT NULL | - | 대상 학생 ID |
+| `cla_id` | VARCHAR(64) | NOT NULL | - | 학급 ID |
+| `tc_id` | VARCHAR(64) | NOT NULL | - | 교사 ID (user.tc_id) |
+| `category` | VARCHAR(20) | NOT NULL | - | comprehensive/learning/personality/socialSkills/selfManagement |
+| `content` | TEXT | NOT NULL | - | 생기부 내용 |
+| `use_yn` | CHAR(1) | NOT NULL | 'Y' | 사용 여부 (Y/N, 소프트 삭제) |
+| `created_by` | BIGINT | NOT NULL | 0 | 등록자 (user_no, 0=system) |
+| `updated_by` | BIGINT | NOT NULL | 0 | 수정자 (user_no, 0=system) |
+| `created_at` | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 생성 일시 |
+| `updated_at` | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 수정 일시 |
+
+- **PK**: `id`
+- **IDX**: `stdt_id` (idx_sr_stdt), `cla_id` (idx_sr_cla), `tc_id` (idx_sr_tc)
+
+**운영 시나리오:**
+- AI 생성 텍스트는 프론트에서 Gemini API로 직접 생성, 백엔드는 저장/조회/삭제만 담당
+- 교사가 생기부 저장 시 `tc_id`로 소유자 기록, 삭제 시 본인 건만 삭제 가능
+- 삭제 시 `use_yn = 'N'`으로 소프트 삭제
+
 ---
 
 ## 6. Enum 정의
@@ -833,7 +857,17 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 | `completed` | 완료 |
 | `cancelled` | 취소 |
 
-### 6.6 SchoolLevel (학교급)
+### 6.6 SchoolRecordCategory (생기부 카테고리)
+
+| 값 | 설명 |
+|----|------|
+| `comprehensive` | 종합 의견 |
+| `learning` | 학습 태도 |
+| `personality` | 성격 특성 |
+| `socialSkills` | 대인관계 |
+| `selfManagement` | 자기관리 |
+
+### 6.7 SchoolLevel (학교급)
 
 | Enum | code | 기존 API grade | 기존 sync gradeCd | 학년 범위 |
 |------|------|:---:|:---:|:---:|
@@ -860,10 +894,10 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
     ├─ 비밀번호 정책 검증 (10~64자, 2종 조합, 연속4자 금지 등)
     ├─ BCrypt 암호화
     ├─ 교사(TEACHER) 선택 시:
-    │   INSERT INTO user (..., role_code='TEACHER', tc_id='viva-t-xxxxxxxx')
+    │   INSERT INTO user (..., role_code='TEACHER', tc_id='{UUID 32자리}')
     │
     ├─ 학생(STUDENT) 선택 시:
-    │   INSERT INTO user (..., role_code='STUDENT', stdt_id='viva-s-xxxxxxxx')
+    │   INSERT INTO user (..., role_code='STUDENT', stdt_id='{UUID 32자리}')
     │
     └─ 이메일 인증 레코드 소비 (DELETE)
 
@@ -927,7 +961,7 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 ```
 [A] 게스트로 검사 응시
     ├─ group_member: user_no = NULL, email = "abc@gmail.com", member_type = 'GUEST'
-    ├─ stdt_id = "viva-s-xxxxxxxx" (새로 채번됨)
+    ├─ stdt_id = "{UUID 32자리}" (새로 채번됨)
     └─ 기존 API로 검사 완료 (결과 데이터 존재)
 
 [B] 동일 이메일로 통합 회원가입 (학생 역할 선택)
