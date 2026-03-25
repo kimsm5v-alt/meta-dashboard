@@ -286,6 +286,8 @@ export interface ManagedAssessment {
   createdAt: Date;
   ownerId: string;
   isActive?: boolean;           // 진행 중 여부 (dgnssAt === 'Y')
+  groupName?: string;           // 소속 그룹명
+  claId?: string;               // 소속 그룹 claId
 }
 
 export interface CreateAssessmentInput {
@@ -715,13 +717,16 @@ export interface UpdateGroupInput {
 
 /** 그룹 가입 요청 (회원) */
 export interface JoinGroupInput {
+  inviteCode: string;
   studentNumber?: number;
 }
 
 /** 그룹 가입 요청 (게스트) */
 export interface GuestJoinGroupInput {
+  inviteCode: string;
   email: string;
   name: string;
+  gender?: 'M' | 'F';
   studentNumber?: number;
 }
 

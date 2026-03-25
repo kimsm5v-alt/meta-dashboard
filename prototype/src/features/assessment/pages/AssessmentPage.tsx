@@ -1,7 +1,8 @@
 /**
  * 검사 관리 페이지 (교사용)
  *
- * - 검사 생성/조회/종료/취소
+ * - 그룹(학급) 선택 후 검사 생성
+ * - 검사 조회/종료/취소
  * - QR 코드 생성 및 표시
  * - PDF 결과 업로드
  */
@@ -10,7 +11,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 import { useAuth } from '@/features/auth';
-import type { ManagedAssessment } from '@/shared/types';
+import type { ManagedAssessment, Group } from '@/shared/types';
 import { AlertModal } from '@/shared/components';
 import {
   GeneralSection,
@@ -27,6 +28,7 @@ import {
   cancelExam,
   type ExamListItem,
 } from '../services/assessmentService';
+import { getMyGroups } from '@/features/groups/services/groupService';
 import { APIError } from '@/shared/services/apiClient';
 import {
   generateShortCode,
@@ -42,16 +44,19 @@ import {
 // ============================================================
 
 /** API 검사 목록 → ManagedAssessment 변환 */
-function convertExamListItem(item: ExamListItem): ManagedAssessment {
+function convertExamListItem(item: ExamListItem, groups: Group[]): ManagedAssessment {
   const shortCode = String(item.dgnssId);
   registerExamCode(shortCode, item.claId);
 
-  // localStorage에서 학년/반 정보 조회
+  // localStorage에서 학년/반/그룹 정보 조회
   const meta = getAssessmentMeta(item.dgnssId);
+
+  // 그룹명: meta에 저장된 것 또는 groups에서 claId로 찾기
+  const groupName = meta?.groupName || groups.find(g => g.claId === item.claId)?.name;
 
   return {
     id: `assessment-${item.dgnssId}`,
-    name: `${item.ordNo}차 검사`,
+    name: meta?.groupName ? `${meta.groupName} ${item.ordNo}차 검사` : `${item.ordNo}차 검사`,
     code: shortCode,
     dgnssId: item.dgnssId,
     grade: meta?.grade ?? 0,
@@ -64,6 +69,8 @@ function convertExamListItem(item: ExamListItem): ManagedAssessment {
     createdAt: new Date(item.dgnssStDt),
     ownerId: item.tcId,
     isActive: item.dgnssAt === 'Y',
+    groupName,
+    claId: item.claId,
   };
 }
 
@@ -75,13 +82,14 @@ export const AssessmentPage: React.FC = () => {
   const { user, credentials } = useAuth();
 
   // credentials에서 ID 추출
-  const tcId = credentials?.teacherId ?? '';
-  const claId = credentials?.classId ?? '';
-  const hasCredentials = !!credentials;
+  const tcId = credentials?.teacherId ?? user?.tcId ?? '';
+  const hasCredentials = !!(credentials || user?.tcId);
 
   // 상태
   const [assessments, setAssessments] = useState<ManagedAssessment[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,7 +107,29 @@ export const AssessmentPage: React.FC = () => {
   }>({ isOpen: false, title: '', message: '' });
 
   // ============================================================
-  // 데이터 로드
+  // 그룹 로드
+  // ============================================================
+
+  useEffect(() => {
+    const loadGroups = async () => {
+      if (!user) return;
+      setIsLoadingGroups(true);
+      try {
+        const userId = user.id;
+        const result = await getMyGroups(userId);
+        // 교사가 소유한 그룹만 (myRole === 'owner')
+        setGroups(result.filter(g => g.myRole === 'owner'));
+      } catch {
+        // 그룹 로드 실패 시 빈 목록
+      } finally {
+        setIsLoadingGroups(false);
+      }
+    };
+    loadGroups();
+  }, [user]);
+
+  // ============================================================
+  // 검사 목록 로드 (모든 그룹)
   // ============================================================
 
   const loadExamList = useCallback(async () => {
@@ -108,18 +138,35 @@ export const AssessmentPage: React.FC = () => {
       return;
     }
 
+    // 그룹이 아직 로딩 중이면 대기
+    if (isLoadingGroups) return;
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const items = await fetchExamList(claId, tcId, '1');
-      setAssessments(items.map(item => convertExamListItem(item)));
+      // 그룹이 있으면 각 그룹의 claId로 검사 목록 조회
+      const claIds = groups.length > 0
+        ? groups.map(g => g.claId)
+        : credentials?.classId ? [credentials.classId] : [];
+
+      const allItems: ExamListItem[] = [];
+      for (const cId of claIds) {
+        try {
+          const items = await fetchExamList(cId, tcId, '1');
+          allItems.push(...items);
+        } catch {
+          // 개별 그룹 에러는 무시
+        }
+      }
+
+      setAssessments(allItems.map(item => convertExamListItem(item, groups)));
     } catch (err) {
       setError(err instanceof Error ? err.message : '검사 목록 조회에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
-  }, [hasCredentials, claId, tcId]);
+  }, [hasCredentials, groups, isLoadingGroups, tcId, credentials?.classId]);
 
   useEffect(() => {
     loadExamList();
@@ -138,8 +185,9 @@ export const AssessmentPage: React.FC = () => {
     try {
       const gradeLevel = schoolLevelToGradeLevel(data.schoolLevel);
 
+      // 선택된 그룹의 claId 사용
       const result = await startExam(
-        claId,
+        data.claId,
         tcId,
         data.round,
         gradeLevel,
@@ -147,12 +195,17 @@ export const AssessmentPage: React.FC = () => {
       );
 
       const shortCode = generateShortCode();
-      registerExamCode(shortCode, result.claId);
+      registerExamCode(shortCode, data.claId);
 
-      // 학년/반 정보를 localStorage에 저장
+      // 그룹명 조회
+      const groupName = groups.find(g => g.id === data.groupId)?.name;
+
+      // 학년/반/그룹 정보를 localStorage에 저장
       saveAssessmentMeta(result.dgnssId, {
         grade: data.grade,
         classNumber: data.classNumber,
+        groupName,
+        claId: data.claId,
       });
 
       const newAssessment: ManagedAssessment = {
@@ -170,6 +223,8 @@ export const AssessmentPage: React.FC = () => {
         createdAt: new Date(),
         ownerId: user?.id ?? '',
         isActive: true,
+        groupName,
+        claId: data.claId,
       };
 
       setAssessments(prev => [newAssessment, ...prev]);
@@ -177,8 +232,7 @@ export const AssessmentPage: React.FC = () => {
       setIsCodeModalOpen(true);
     } catch (err) {
       if (err instanceof APIError && err.isDuplicateKeyError()) {
-        // 해당 차수의 기존 검사 찾기
-        const existingExam = assessments.find(a => a.round === data.round);
+        const existingExam = assessments.find(a => a.round === data.round && a.claId === data.claId);
         const isActive = existingExam?.isActive ?? false;
         const examLabel = `${data.grade}학년 ${data.classNumber}반 ${data.round}차 검사`;
 
@@ -201,7 +255,7 @@ export const AssessmentPage: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [user?.id, hasCredentials, claId, tcId, assessments]);
+  }, [user?.id, hasCredentials, tcId, groups, assessments]);
 
   // ============================================================
   // 검사 종료
@@ -210,7 +264,6 @@ export const AssessmentPage: React.FC = () => {
   const handleEndExam = useCallback(async (assessment: ManagedAssessment) => {
     if (!assessment.dgnssId) return;
 
-    // 제출 인원이 0명이면 종료 불가
     if (assessment.completedCount === 0) {
       setAlertModal({
         isOpen: true,
@@ -279,7 +332,7 @@ export const AssessmentPage: React.FC = () => {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">검사하기</h1>
         <p className="text-gray-600">
-          검사 코드를 생성하여 학생들에게 배포하거나, 기존 결과를 업로드하세요.
+          그룹을 선택하여 검사 코드를 생성하고, 학생들에게 배포하세요.
         </p>
       </div>
 
@@ -333,6 +386,8 @@ export const AssessmentPage: React.FC = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreate={handleCreateAssessment}
+        groups={groups}
+        isLoadingGroups={isLoadingGroups}
       />
       <AssessmentCodeModal
         isOpen={isCodeModalOpen}
