@@ -1,6 +1,6 @@
-import { Send, Bot, X, Sparkles } from 'lucide-react';
+import { Send, Bot, X, Sparkles, Loader2 } from 'lucide-react';
 import { Card } from '@/shared/components';
-import { useData } from '@/shared/contexts/DataContext';
+import { useTeacherClasses } from '@/shared/hooks/useApiData';
 import { ApiTooltip } from '@/shared/components/api-tooltip';
 import { API_TEACHER_DASHBOARD } from '@/shared/data/apiDefinitions';
 import { StudentPickerModal, ChatArea, QuickPrompts, ConversationSidebar } from '../components';
@@ -12,7 +12,7 @@ import { useContextMode } from '@/features/ai-room/hooks/useContextMode';
 // ============================================================================
 
 export const AIRoomPage = () => {
-  const { classes } = useData();
+  const { classes, isLoading: isClassesLoading, error: classesError } = useTeacherClasses();
 
   // ---------------------------------------------------------------------------
   // Hooks
@@ -75,6 +75,28 @@ export const AIRoomPage = () => {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+  if (isClassesLoading) {
+    return (
+      <div className="h-[calc(100vh-7rem)] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-500">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>학급 데이터를 불러오는 중...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (classesError) {
+    return (
+      <div className="h-[calc(100vh-7rem)] flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <p className="text-sm">데이터를 불러오지 못했습니다.</p>
+          <p className="text-xs mt-1 text-gray-400">{classesError}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-[calc(100vh-7rem)] flex flex-col">
       {/* 헤더 */}
