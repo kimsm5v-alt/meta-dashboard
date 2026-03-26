@@ -7,11 +7,12 @@
  * - 학생 정보 표시
  */
 
-import { ReactNode, useState, useMemo } from 'react';
+import { ReactNode, useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
   BarChart3,
+  Users,
   Bell,
   Settings,
   User,
@@ -23,6 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { getMyGroups } from '@/features/groups/services/groupService';
 import serviceLogo from '@/assets/logo_2.png';
 
 interface StudentLayoutProps {
@@ -36,6 +38,7 @@ interface NavItem {
 }
 
 const studentNavItems: NavItem[] = [
+  { icon: Users, label: '나의 그룹', path: '/student/groups' },
   { icon: ClipboardList, label: '검사하기', path: '/student/exams' },
   { icon: BarChart3, label: '대시보드', path: '/student/result' },
 ];
@@ -188,6 +191,28 @@ const StudentSidebar: React.FC<StudentSidebarProps> = ({ isCollapsed, onToggle }
 
 export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { user, updateUser } = useAuth();
+
+  // 학생 그룹 정보 로드 (classId 설정)
+  useEffect(() => {
+    const loadStudentGroup = async () => {
+      // 학생이고 classId가 없는 경우에만 그룹 조회
+      if (user?.roleCode === 'STUDENT' && user?.stdtId && !user?.classId) {
+        try {
+          const groups = await getMyGroups();
+          if (groups.length > 0) {
+            // 첫 번째 그룹의 claId를 사용자 정보에 저장
+            updateUser({ classId: groups[0].claId });
+            console.info('[StudentLayout] 학생 그룹 정보 로드 완료:', groups[0].claId);
+          }
+        } catch (error) {
+          console.error('[StudentLayout] 학생 그룹 정보 로드 실패:', error);
+        }
+      }
+    };
+
+    loadStudentGroup();
+  }, [user?.roleCode, user?.stdtId, user?.classId, updateUser]);
 
   const handleToggle = () => {
     setIsCollapsed((prev) => !prev);
