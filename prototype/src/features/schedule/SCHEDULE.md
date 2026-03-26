@@ -189,13 +189,6 @@ const handleComplete = () => {
 
 > **참고**: L3 학생 대시보드에서는 `API_COUNSELING_LIST` (`GET /api/counseling/student/{stdtId}`)로 특정 학생의 상담 기록을 별도 조회합니다.
 
-**ApiTooltip 위치** (`apiDefinitions.ts` 참조):
-- 페이지 제목 "상담일정" → `API_COUNSELING_ALL`
-- "상담 일정 등록" 버튼 → `API_COUNSELING_CREATE`
-- 반별 필터 영역 → `API_TEACHER_DASHBOARD`
-- 학생 선택 모달 반 탭 → `API_CLASS_ALL_STUDENTS`
-- ScheduleModal "상담 완료" 버튼 → `API_COUNSELING_COMPLETE`
-
 ---
 
 ## 통합 상담 서비스 (현재 구현)

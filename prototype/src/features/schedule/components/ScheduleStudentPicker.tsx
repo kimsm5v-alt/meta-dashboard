@@ -3,8 +3,6 @@ import { Check, X, Search, Users } from 'lucide-react';
 import { Modal, Button } from '@/shared/components';
 import type { CounselingStudent } from '@/shared/types';
 import { SCHEDULE_CLASSES, SCHEDULE_STUDENTS, CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_CLASS_ALL_STUDENTS } from '@/shared/data/apiDefinitions';
 
 interface ScheduleStudentPickerProps {
   isOpen: boolean;
@@ -78,7 +76,6 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
         {/* 좌측: 반별 탭 + 검색 + 학생 그리드 */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* 반 탭 */}
-          <ApiTooltip {...API_CLASS_ALL_STUDENTS} position="bottom-left">
           <div className="flex gap-1 mb-3 border-b border-gray-200">
             {SCHEDULE_CLASSES.map(cls => {
               const isActive = activeTab === cls.id;
@@ -109,7 +106,6 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
               );
             })}
           </div>
-          </ApiTooltip>
 
           {/* 검색 */}
           <div className="relative mb-3">
