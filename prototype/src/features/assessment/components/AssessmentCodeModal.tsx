@@ -104,7 +104,7 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
         <div className="text-center">
           <h4 className="font-medium text-gray-900 mb-1">{assessment.name}</h4>
           <p className="text-sm text-gray-500">
-            {assessment.grade}학년 {assessment.classNumber}반 · {assessment.round}차 검사
+            {assessment.groupName || `${assessment.grade}학년 ${assessment.classNumber}반`} · {assessment.round}차 검사
           </p>
         </div>
 

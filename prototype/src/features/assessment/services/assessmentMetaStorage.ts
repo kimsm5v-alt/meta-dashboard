@@ -9,6 +9,8 @@ const STORAGE_KEY = 'meta_assessment_meta';
 export interface AssessmentMeta {
   grade: number;
   classNumber: number;
+  groupName?: string;
+  claId?: string;
 }
 
 type AssessmentMetaMap = Record<number, AssessmentMeta>; // dgnssId → meta

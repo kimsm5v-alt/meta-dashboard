@@ -2,17 +2,20 @@
 
 > **용도**: 프론트엔드 API 연동 가이드
 > **기준**: DGNSS 마이그레이션 완료 기준 (2026-03-19)
-> **Last Updated**: 2026-03-23
+> **Last Updated**: 2026-03-25
 
 ---
 
 ## 서버 정보
 
-| 환경 | Base URL |
-|------|----------|
-| 로컬 백엔드 | `http://localhost:8081` |
-| 테스트 | `https://t-vcloudapi.vsaidt.com` |
-| 운영 | `https://vcloudapi.vsaidt.com` |
+| 환경 | Base URL | 비고 |
+|------|----------|------|
+| 로컬 백엔드 | `http://localhost:8081` | DGNSS + 신규 API 전체 |
+| 테스트 (레거시) | `https://t-vcloudapi.vsaidt.com` | 기존 `/etc/meta/*` 전용. **신규 `/api/dgnss/*` 미배포** |
+| 운영 (레거시) | `https://vcloudapi.vsaidt.com` | 기존 `/etc/meta/*` 전용. **신규 `/api/dgnss/*` 미배포** |
+
+> **주의**: 신규 `/api/dgnss/*` 엔드포인트는 현재 **로컬 백엔드에서만** 사용 가능합니다.
+> 테스트 서버 배포 완료 시 이 섹션을 업데이트할 예정입니다.
 
 ### 인증
 
@@ -921,7 +924,32 @@ DEPTH 5 = 소분류
 
 ```typescript
 proxy: {
+  // DGNSS (심리검사) API
   '/api/dgnss': {
+    target: 'http://localhost:8081',
+    changeOrigin: true,
+    secure: false,
+  },
+  // 상담 API
+  '/api/counseling': {
+    target: 'http://localhost:8081',
+    changeOrigin: true,
+    secure: false,
+  },
+  // 메모 API
+  '/api/memos': {
+    target: 'http://localhost:8081',
+    changeOrigin: true,
+    secure: false,
+  },
+  // 회원 API
+  '/member': {
+    target: 'http://localhost:8081',
+    changeOrigin: true,
+    secure: false,
+  },
+  // 그룹 API
+  '/group': {
     target: 'http://localhost:8081',
     changeOrigin: true,
     secure: false,
@@ -933,9 +961,62 @@ proxy: {
 
 | 파일 | 역할 | 사용 엔드포인트 |
 |------|------|----------------|
-| `metaApi.ts` | 공통 API | `/api/dgnss/*` |
+| `apiClient.ts` | 공통 API 클라이언트 | 모든 API (JWT 인증, 에러 처리) |
+| `metaApi.ts` | DGNSS 공통 API | `/api/dgnss/*` |
 | `assessmentService.ts` | 교사용 검사 관리 | `/api/dgnss/tc/*` |
 | `examService.ts` | 학생용 검사 응시 | `/api/dgnss/st/*` |
+| `dashboardService.ts` | 대시보드 데이터 서비스 | `/api/dgnss/tc/*`, `/api/dgnss/st/*` |
+| `unifiedCounselingService.ts` | 상담 관리 | `/api/counseling/*` |
+| `memoService.ts` | 관찰 메모 | `/api/memos/*` |
+| `schoolRecordService.ts` | 생활기록부 | `/api/dgnss/tc/text/save` |
+
+---
+
+## 4. AI-ROOM 사용 API
+
+> AI 어시스턴트(`/ai-room`)에서 RAG 컨텍스트를 구성하기 위해 호출하는 API 목록입니다.
+
+### 4-1. 데이터 흐름
+
+```
+1. /group/detail?claId=              → 전체 학생 목록 (검사 무관)
+2. /api/dgnss/tc/info?claId=&tcId=&paperIdx=  → dgnssId 획득
+3. /api/dgnss/tc/stinfolist?dgnssId=&...       → T점수 + LPA 결과
+4. /api/counseling/student/:studentId          → 상담 기록 (최근 5건)
+5. /api/memos/student/:studentId               → 관찰 메모 (최근 5건)
+6. /api/dgnss/tc/analysis?claId=&...           → 학급 프로필 (반별/전체 모드)
+7. /api/dgnss/tc/need?dgnssId=&...             → 관심 필요 학생 (반별 모드)
+8. /api/counseling/class/:classId              → 학급별 상담 현황
+```
+
+### 4-2. 모드별 호출 API
+
+| API | student 모드 | class 모드 | all 모드 |
+|-----|:-----------:|:----------:|:--------:|
+| `/group/detail` (학생 목록) | ✅ | ✅ | ✅ |
+| `/api/dgnss/tc/info` (검사 ID) | ✅ | ✅ | ✅ |
+| `/api/dgnss/tc/stinfolist` (T점수+LPA) | ✅ | — | — |
+| `/api/counseling/student/:id` (상담 기록) | ✅ | — | — |
+| `/api/memos/student/:id` (관찰 메모) | ✅ | — | — |
+| `/api/dgnss/tc/analysis` (학급 프로필) | — | ✅ | ✅ |
+| `/api/dgnss/tc/need` (관심 필요 학생) | — | ✅ | — |
+| `/api/counseling/class/:id` (상담 현황) | — | ✅ | ✅ |
+
+### 4-3. 관련 서비스 파일
+
+| 파일 | 역할 |
+|------|------|
+| `features/ai-room/services/contextBuilder.ts` | 모드별 RAG 컨텍스트 생성, 별칭 시스템 |
+| `features/ai-room/services/assistantService.ts` | AI 호출 오케스트레이션 |
+| `shared/services/unifiedCounselingService.ts` | 상담 데이터 조회 (`/api/counseling/*`) |
+| `shared/services/memoService.ts` | 관찰 메모 조회 (`/api/memos/*`) |
+| `shared/hooks/useApiData.ts` → `useTeacherClasses()` | 학급/학생 데이터 로드 (API + mock fallback) |
+
+### 4-4. 미구현 (1차 오픈 범위 아님)
+
+| API | 설명 | 비고 |
+|-----|------|------|
+| `/api/school-records/student/:studentId` | 생활기록부 문구 조회 | 백엔드 미구현 |
 
 ---
 
@@ -945,6 +1026,8 @@ proxy: {
 |------|------|----------|
 | 2026-02-27 | 1.0 | 최초 작성 |
 | 2026-03-23 | 2.0 | DGNSS 마이그레이션 반영 - 엔드포인트 `/etc/meta/*` → `/api/dgnss/*` 변경, 학생 결과 API 통합 |
+| 2026-03-25 | 2.1 | 서버 정보에 신규 API 배포 상태 명시, Vite 프록시에 counseling/memos/member/group 추가, 서비스 파일 현황 갱신 |
+| 2026-03-25 | 2.2 | AI-ROOM 사용 API 섹션 추가, LPA 결과 stinfolist 포함 반영 |
 
 ---
 

@@ -17,35 +17,29 @@
  *    - API_UPLOAD_CREATE      POST /api/dgnss/tc/upload
  *    - API_UPLOAD_LATEST      GET  /api/dgnss/tc/upload/latest?tcId={tcId}
  *
- * 3. 검사 코드 매핑 (🟡 중간)
- *    - API_EXAM_CODE_CREATE   POST /api/exam-codes
- *    - API_EXAM_CODE_GET      GET  /api/exam-codes/{claId}
- *    - API_EXAM_CODE_UPDATE   PUT  /api/exam-codes/{id}
- *    - API_EXAM_CODE_DELETE   DELETE /api/exam-codes/{id}
- *
- * 4. 학급 운영 전략 템플릿 (🟡 중간)
+ * 3. 학급 운영 전략 템플릿 (🟡 중간)
  *    - API_STRATEGIES_RECOMMENDATIONS  GET /api/strategies/recommendations
  *
- * 5. 추천 학급 활동 (🟢 낮음)
+ * 4. 추천 학급 활동 (🟢 낮음)
  *    - API_ACTIVITIES_RECOMMENDED  GET /api/activities/recommended
  *    - API_ACTIVITIES_BY_PROFILE   GET /api/activities/by-profile
  *
- * 6. 상담일정 (🔴 높음)
- *    - API_CLASS_ALL_STUDENTS  GET  /api/class/{claId}/students  (전체 학생, 검사 미제출 포함)
+ * 5. 상담일정 (🔴 높음)
+ *    - API_CLASS_ALL_STUDENTS  GET  /group/detail?claId={claId}  (전체 학생, 검사 미제출 포함)
  *    - API_COUNSELING_ALL      GET  /api/counseling?tcId={tcId}  (교사 전체 상담 목록)
  *    - API_COUNSELING_CREATE   POST /api/counseling
  *    - API_COUNSELING_COMPLETE POST /api/counseling/{id}/complete
  *
- * 7. L3 학생 패널 (🔴 높음)
+ * 6. L3 학생 패널 (🔴 높음)
  *    - API_COUNSELING_LIST     GET  /api/counseling/student/{stdtId}  (학생별 상담)
  *    - API_MEMO_LIST           GET  /api/memos/student/{stdtId}
  *    - API_MEMO_CREATE         POST /api/memos
  *    - API_SCHOOL_RECORD_LIST  GET  /api/school-records/student/{stdtId}
  *    - API_SCHOOL_RECORD_SAVE  POST /api/school-records
  *
- * 8. API 그룹 (페이지별 사용)
+ * 7. API 그룹 (페이지별 사용)
  *    - TEACHER_DASHBOARD_APIS, CLASS_DASHBOARD_APIS, CLASS_DETAIL_APIS
- *    - SCHEDULE_APIS, STUDENT_DASHBOARD_APIS, UPLOAD_APIS, EXAM_APIS
+ *    - ASSESSMENT_APIS, SCHEDULE_APIS, STUDENT_DASHBOARD_APIS, UPLOAD_APIS
  *
  * ──────────────────────────────────────────
  */
@@ -165,35 +159,20 @@ export const API_TEACHER_DASHBOARD: ApiDefinition = {
  * 🔴 핵심 개선: LPA 유형 분류를 백엔드에서 수행하여 API 호출 2N번 → 1번 감소
  *
  * 현재 문제:
- * - 학생 N명 × 2회차 = 2N번 API 호출 (/api/dgnss/st/total/analysis)
+ * - 학생 N명 × 2회차 = 2N번 API 호출 (/api/dgnss/st/analysis)
  * - 프론트에서 38개 T점수 받아서 LPA 분류 수행
  *
- * 개선 옵션:
- * - 옵션 1: 기존 /api/dgnss/tc/stinfolist 응답에 LPA 필드 추가
- * - 옵션 2: 신규 /api/dgnss/tc/stinfolist/lpa API 생성
+ * 확정: 기존 /api/dgnss/tc/stinfolist 응답에 LPA 필드 추가
+ * (백엔드에서 LPA 유형 저장 로직 개발 완료 확인)
  */
 export const API_CLASS_STUDENTS: ApiDefinition = {
   method: 'GET',
   endpoint: '/api/dgnss/tc/stinfolist?dgnssId={dgnssId}',
   summary: 'L2 학생 목록 + LPA 유형 조회',
   description:
-    '학급 학생 목록과 회차별 LPA 유형 분류 결과를 조회합니다. 백엔드에서 LPA 분류를 수행하여 프론트 API 호출 2N번 → 1번으로 감소.',
-  options: [
-    {
-      label: '기존 API 확장 (권장)',
-      endpoint: '/api/dgnss/tc/stinfolist?dgnssId={dgnssId}',
-      description: '기존 학생 목록 API 응답에 round1, round2 LPA 필드 추가',
-    },
-    {
-      label: '신규 API 생성',
-      endpoint: '/api/dgnss/tc/stinfolist/lpa?dgnssId={dgnssId}',
-      description: '별도 엔드포인트로 LPA 유형 정보만 반환하는 API 신규 생성',
-    },
-  ],
+    '학급 학생 목록과 회차별 LPA 유형 분류 결과를 조회합니다. 기존 stinfolist API 응답에 round1/round2 LPA 필드를 추가. 프론트 API 호출 2N번 → 1번으로 감소.',
   priority: 'high',
   responseExample: {
-    // 옵션 1: 기존 API 확장 시 - /api/dgnss/tc/stinfolist 응답에 추가
-    // 옵션 2: 신규 API 시 - /api/dgnss/tc/stinfolist/lpa 응답
     stInfoList: [
       {
         stdtId: 'a1b2c3d4e5f6',
@@ -252,7 +231,7 @@ export const API_CLASS_STUDENTS: ApiDefinition = {
     { code: 404, message: '검사(dgnssId)를 찾을 수 없음' },
   ],
   currentImpl:
-    '현재 /api/dgnss/tc/stinfolist 호출 후, 학생별 /api/dgnss/st/total/analysis를 N×2번 호출하여 프론트에서 LPA 분류 수행 중. [옵션 1] 기존 API 확장 또는 [옵션 2] 신규 API 생성 필요.',
+    '현재 /api/dgnss/tc/stinfolist 호출 후, 학생별 /api/dgnss/st/analysis를 N×2번 호출하여 프론트에서 LPA 분류 수행 중. 기존 stinfolist 응답에 round1/round2 LPA 필드 추가 확정.',
   relatedFiles: [
     'src/shared/services/dashboardService.ts',
     'src/shared/utils/lpaClassifier.ts',
@@ -262,31 +241,66 @@ export const API_CLASS_STUDENTS: ApiDefinition = {
 
 /**
  * L3 학생 상세 분석 API
+ *
+ * 변경사항 (dgnss-api-spec.md v1.4, 2026-03-19):
+ * - /api/dgnss/st/total/analysis 삭제 → /api/dgnss/st/analysis로 통합
+ * - dgnssResultId 전달 시: 해당 회차만 조회
+ * - stdtId + paperIdx 전달 시: 학생 기준 전체 회차 조회 (1차/2차 모두)
+ * - paperIdx=1/2 모두 SECTION_ID, SECTION_NM, tScore 리스트 형식으로 통일
+ *   (기존 paperIdx=2의 motivateInfo/cognitionInfo/behaviorInfo 구조 삭제)
  */
 export const API_STUDENT_DETAIL: ApiDefinition = {
   method: 'GET',
-  endpoint: '/api/dgnss/st/total/analysis?stdtId={stdtId}&paperIdx={paperIdx}&ordNo={ordNo}',
+  endpoint: '/api/dgnss/st/analysis?stdtId={stdtId}&paperIdx={paperIdx}',
   summary: 'L3 학생 상세 분석 데이터',
-  description: '특정 학생의 38개 T점수와 LPA 유형 분류 결과를 조회합니다.',
+  description: '특정 학생의 38개 T점수와 LPA 유형 분류 결과를 조회합니다. st/total/analysis가 st/analysis로 통합됨. stdtId 전달 시 전체 회차 조회.',
   priority: 'high',
   responseExample: {
-    stdtId: 'student-01',
-    tScores: [52, 48, 55 /* ... 38개 */],
-    predictedType: '안전균형형',
-    typeConfidence: 0.85,
-    typeProbabilities: {
-      '자원소진형': 0.10,
-      '안전균형형': 0.85,
-      '몰입자원풍부형': 0.05,
+    stUserInfo: {
+      stdtId: 'viva-s-00000001',
+      eakStDt: '2026-03-18 10:00:00',
+      ordNo: 1,
+      paperIdx: 1,
+      gender: '남자',
+      grade: '중1',
+      classCd: '1반',
+      dgnssResultId: 12509,
     },
+    '1': [
+      {
+        dgnssResultId: 12509,
+        SECTION_ID: '10-22-01-01-0-0',
+        SECTION_NM: '긍정적 자아',
+        DEPTH: 3,
+        tScore: 55,
+        ord_no: 1,
+        reaction: null,
+        desirable: null,
+        repeatResponse: 'N',
+      },
+    ],
+    '2': [
+      {
+        dgnssResultId: 12510,
+        SECTION_ID: '10-22-01-01-0-0',
+        SECTION_NM: '긍정적 자아',
+        DEPTH: 3,
+        tScore: 58,
+        ord_no: 2,
+        reaction: null,
+        desirable: null,
+        repeatResponse: 'N',
+      },
+    ],
   },
   errorCases: [
     { code: 401, message: '인증 토큰이 없거나 만료됨' },
     { code: 404, message: '학생 검사 결과를 찾을 수 없음' },
   ],
-  currentImpl: '현재 API 연동 완료',
+  currentImpl: '현재 API 연동 완료 (endpoint 변경 필요: st/total/analysis → st/analysis)',
   relatedFiles: [
     'src/shared/services/dashboardService.ts',
+    'src/shared/services/apiDataTransformer.ts',
     'src/features/student-dashboard/pages/StudentDashboardPage.tsx',
   ],
 };
@@ -375,92 +389,7 @@ export const API_UPLOAD_LATEST: ApiDefinition = {
 };
 
 // ============================================================
-// 3. 검사 코드 매핑 API (🟡 중간)
-// ============================================================
-
-export const API_EXAM_CODE_CREATE: ApiDefinition = {
-  method: 'POST',
-  endpoint: '/api/dgnss/tc/examcode',
-  summary: '검사 코드 등록',
-  description: '검사 실시용 QR 코드를 등록합니다. 학급 ID와 매핑.',
-  priority: 'medium',
-  requestBody: {
-    code: 'E6201-20260301',
-    claId: 'CLA0602',
-    dgnssId: 2001,
-  },
-  responseExample: {
-    success: true,
-    code: 'E6201-20260301',
-    claId: 'CLA0602',
-    dgnssId: 2001,
-    createdAt: '2026-03-01T10:00:00Z',
-  },
-  errorCases: [
-    { code: 400, message: '잘못된 코드 형식' },
-    { code: 409, message: '이미 등록된 코드' },
-  ],
-  currentImpl: 'localStorage (exam_code_map) 사용 중',
-  relatedFiles: ['src/features/exam/services/examService.ts'],
-};
-
-export const API_EXAM_CODE_GET: ApiDefinition = {
-  method: 'GET',
-  endpoint: '/api/dgnss/tc/examcode?code={code}',
-  summary: '검사 코드 조회',
-  description: 'QR 코드로 학급 정보를 조회합니다.',
-  priority: 'medium',
-  responseExample: {
-    code: 'E6201-20260301',
-    claId: 'CLA0602',
-    dgnssId: 2001,
-    createdAt: '2026-03-01T10:00:00Z',
-  },
-  errorCases: [
-    { code: 404, message: '등록되지 않은 코드' },
-  ],
-  currentImpl: 'localStorage (exam_code_map) 사용 중',
-  relatedFiles: ['src/features/exam/services/examService.ts'],
-};
-
-export const API_EXAM_CODE_UPDATE: ApiDefinition = {
-  method: 'PUT',
-  endpoint: '/api/dgnss/tc/examcode?code={code}',
-  summary: '검사 코드 수정',
-  description: '검사 코드 정보를 업데이트합니다.',
-  priority: 'low',
-  requestBody: {
-    claId: 'CLA0603',
-    dgnssId: 2002,
-  },
-  responseExample: {
-    success: true,
-  },
-  errorCases: [
-    { code: 404, message: '등록되지 않은 코드' },
-  ],
-  currentImpl: 'localStorage 사용 중',
-  relatedFiles: ['src/features/exam/services/examService.ts'],
-};
-
-export const API_EXAM_CODE_DELETE: ApiDefinition = {
-  method: 'DELETE',
-  endpoint: '/api/dgnss/tc/examcode?code={code}',
-  summary: '검사 코드 삭제',
-  description: '검사 코드를 삭제합니다.',
-  priority: 'low',
-  responseExample: {
-    success: true,
-  },
-  errorCases: [
-    { code: 404, message: '등록되지 않은 코드' },
-  ],
-  currentImpl: 'localStorage 사용 중',
-  relatedFiles: ['src/features/exam/services/examService.ts'],
-};
-
-// ============================================================
-// 4. 학급 운영 전략 템플릿 API (🟡 중간)
+// 3. 학급 운영 전략 템플릿 API (🟡 중간)
 // ============================================================
 
 export const API_STRATEGIES_RECOMMENDATIONS: ApiDefinition = {
@@ -492,7 +421,7 @@ export const API_STRATEGIES_RECOMMENDATIONS: ApiDefinition = {
 };
 
 // ============================================================
-// 5. 추천 학급 활동 API (🟢 낮음)
+// 4. 추천 학급 활동 API (🟢 낮음)
 // ============================================================
 
 export const API_ACTIVITIES_RECOMMENDED: ApiDefinition = {
@@ -543,38 +472,51 @@ export const API_ACTIVITIES_BY_PROFILE: ApiDefinition = {
 };
 
 // ============================================================
-// 6. 상담일정 API (🔴 높음)
+// 5. 상담일정 API (🔴 높음)
 // ============================================================
 
 /**
  * 학급 전체 학생 목록 API (상담용)
  *
  * 검사 제출 여부와 무관하게 학급 소속 전체 학생 목록을 조회합니다.
- * /api/dgnss/tc/stinfolist는 검사 제출 학생만 반환하므로 상담 학생 선택에 부적합.
+ * 기존 /group/detail API가 멤버 목록을 반환하므로 신규 API 불필요.
+ * (backend-api-specification-v0.1.md #26 참고)
  */
 export const API_CLASS_ALL_STUDENTS: ApiDefinition = {
   method: 'GET',
-  endpoint: '/api/class/{claId}/students',
-  summary: '학급 전체 학생 목록 조회',
-  description: '검사 제출 여부와 무관하게 학급에 소속된 전체 학생 목록을 반환합니다. 상담 일정 등록 시 학생 선택에 사용.',
+  endpoint: '/group/detail?claId={claId}',
+  summary: '학급 전체 학생 목록 조회 (그룹 상세)',
+  description: '검사 제출 여부와 무관하게 학급에 소속된 전체 학생 목록을 반환합니다. 기존 /group/detail API 활용. 상담 일정 등록 시 학생 선택에 사용.',
   priority: 'high',
-  responseExample: [
-    {
-      stdtId: 'a1b2c3d4e5f6',
-      stdtNm: '김철수',
-      rowNum: 1,
-      gender: 'M',
-    },
-    {
-      stdtId: 'b2c3d4e5f6g7',
-      stdtNm: '이영희',
-      rowNum: 2,
-      gender: 'F',
-    },
-  ],
+  responseExample: {
+    members: [
+      {
+        id: 1,
+        userNo: 456,
+        stdtId: 'viva-s-00000001',
+        nickname: '학생1',
+        gender: 'M',
+        email: 'student@test.com',
+        memberNo: 1,
+        memberType: 'STUDENT',
+        status: 'ACTIVE',
+      },
+      {
+        id: 2,
+        userNo: 789,
+        stdtId: 'viva-s-00000002',
+        nickname: '학생2',
+        gender: 'F',
+        email: 'student2@test.com',
+        memberNo: 2,
+        memberType: 'STUDENT',
+        status: 'ACTIVE',
+      },
+    ],
+  },
   errorCases: [
     { code: 401, message: '인증 토큰이 없거나 만료됨' },
-    { code: 404, message: '학급을 찾을 수 없음' },
+    { code: 404, message: '학급(그룹)을 찾을 수 없음' },
   ],
   currentImpl: 'SCHEDULE_STUDENTS (mockUnifiedCounseling.ts)',
   relatedFiles: [
@@ -621,7 +563,7 @@ export const API_COUNSELING_ALL: ApiDefinition = {
   errorCases: [
     { code: 401, message: '인증 토큰이 없거나 만료됨' },
   ],
-  currentImpl: 'unifiedCounselingService.getAll() → /api/unified-counseling',
+  currentImpl: 'unifiedCounselingService.getAll() → /api/counseling',
   relatedFiles: [
     'src/shared/services/unifiedCounselingService.ts',
     'src/features/schedule/pages/SchedulePage.tsx',
@@ -629,7 +571,7 @@ export const API_COUNSELING_ALL: ApiDefinition = {
 };
 
 // ============================================================
-// 7. L3 학생 패널 API (🔴 높음)
+// 6. L3 학생 패널 API (🔴 높음)
 // ============================================================
 
 /**
@@ -831,7 +773,7 @@ export const API_SCHOOL_RECORD_SAVE: ApiDefinition = {
 };
 
 // ============================================================
-// 8. API 그룹 (페이지별 사용)
+// 7. API 그룹 (페이지별 사용)
 // ============================================================
 
 /** L1 교사 대시보드에서 사용하는 API */
@@ -870,14 +812,57 @@ export const STUDENT_DASHBOARD_APIS = {
   schoolRecordSave: API_SCHOOL_RECORD_SAVE,
 };
 
+/**
+ * 검사 관리 페이지 (/assessment) 에서 사용하는 API
+ *
+ * 흐름: 그룹 목록 조회 → 그룹 선택(필수) → 검사 생성 → QR 배포
+ *
+ * 기존 API (dgnss-api-spec.md 참고):
+ *  - GET  /group/list                    → 교사 소유 그룹 목록 (claId 획득)
+ *  - GET  /api/dgnss/tc/info             → 그룹별 검사 목록 조회 (claId, tcId, paperIdx)
+ *  - POST /api/dgnss/tc/start            → 검사 생성 (claId from 선택된 그룹)
+ *  - POST /api/dgnss/tc/end              → 검사 종료 (dgnssId)
+ *  - POST /api/dgnss/tc/cancel           → 검사 취소 (dgnssId)
+ *  - GET  /api/dgnss/tc/detail           → 검사 상세 (dgnssId)
+ *  - GET  /api/dgnss/tc/notsubm          → 미제출 학생 목록 (dgnssId)
+ */
+export const ASSESSMENT_APIS = {
+  // 그룹 목록 (검사 대상 그룹 선택용)
+  groupList: { method: 'GET', endpoint: '/group/list', summary: '교사 소유 그룹 목록' },
+  // 검사 CRUD (기존 dgnss API)
+  examList: { method: 'GET', endpoint: '/api/dgnss/tc/info', summary: '그룹별 검사 목록 조회' },
+  examStart: { method: 'POST', endpoint: '/api/dgnss/tc/start', summary: '검사 생성 (그룹 claId 사용)' },
+  examEnd: { method: 'POST', endpoint: '/api/dgnss/tc/end', summary: '검사 종료' },
+  examCancel: { method: 'POST', endpoint: '/api/dgnss/tc/cancel', summary: '검사 취소' },
+  examDetail: { method: 'GET', endpoint: '/api/dgnss/tc/detail', summary: '검사 상세' },
+  notSubmitted: { method: 'GET', endpoint: '/api/dgnss/tc/notsubm', summary: '미제출 학생 목록' },
+};
+
 /** 업로드 페이지에서 사용하는 API */
 export const UPLOAD_APIS = {
   uploadCreate: API_UPLOAD_CREATE,
   uploadLatest: API_UPLOAD_LATEST,
 };
 
-/** 검사 실시 페이지에서 사용하는 API */
+/**
+ * 검사 실시 페이지 (/exam) 에서 사용하는 API (학생용)
+ *
+ * 흐름: 그룹 초대코드(QR) → 로그인/게스트 → /st/info로 활성 검사 조회
+ *       → /tc/restart로 새 학생 OMR 발급 → /st/start로 문제 로드
+ *
+ * 기존 API (dgnss-api-spec.md 참고):
+ *  - GET  /group/invite?code={inviteCode}  → 그룹 정보 조회
+ *  - GET  /api/dgnss/st/info               → 학생 활성 검사 조회
+ *  - POST /api/dgnss/tc/restart            → 새 학생 OMR 발급
+ *  - POST /api/dgnss/st/start              → 문제 목록 반환
+ *  - POST /api/dgnss/st/answer             → 답안 저장
+ *  - POST /api/dgnss/st/submit             → 검사 제출
+ */
 export const EXAM_APIS = {
-  examCodeCreate: API_EXAM_CODE_CREATE,
-  examCodeGet: API_EXAM_CODE_GET,
+  groupInvite: { method: 'GET', endpoint: '/group/invite?code={inviteCode}', summary: '초대코드로 그룹 조회' },
+  studentInfo: { method: 'GET', endpoint: '/api/dgnss/st/info', summary: '학생 활성 검사 조회' },
+  restart: { method: 'POST', endpoint: '/api/dgnss/tc/restart', summary: '새 학생 OMR 발급' },
+  studentStart: { method: 'POST', endpoint: '/api/dgnss/st/start', summary: '문제 목록 반환' },
+  studentAnswer: { method: 'POST', endpoint: '/api/dgnss/st/answer', summary: '답안 저장' },
+  studentSubmit: { method: 'POST', endpoint: '/api/dgnss/st/submit', summary: '검사 제출' },
 };

@@ -89,7 +89,7 @@ export const JoinGroupPage: React.FC = () => {
     try {
       await groupService.joinGroup(
         groupInfo.id,
-        {},
+        { inviteCode: code! },
         user.id,
         user.name
       );
@@ -125,6 +125,7 @@ export const JoinGroupPage: React.FC = () => {
 
     try {
       await groupService.joinGroupAsGuest(groupInfo.id, {
+        inviteCode: code!,
         email: guestEmail.trim(),
         name: guestNickname.trim(),
       });

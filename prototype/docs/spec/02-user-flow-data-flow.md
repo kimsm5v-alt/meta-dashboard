@@ -289,10 +289,10 @@ scheduled (예정) ──┬──▶ completed (완료)
 
 | 화면 | 용도 | API |
 |------|------|-----|
-| `/schedule` | 캘린더, CRUD | GET /api/unified-counseling |
-| L3 학생 대시보드 우측 패널 | 학생별 이력 | GET /api/unified-counseling/student/:id |
-| `/ai-room` | RAG 컨텍스트 (최근 5건) | GET /api/unified-counseling/student/:id |
-| `/counseling-dashboard` (Phase 2) | 통계 | GET /api/unified-counseling |
+| `/schedule` | 캘린더, CRUD | GET /api/counseling |
+| L3 학생 대시보드 우측 패널 | 학생별 이력 | GET /api/counseling/student/:id |
+| `/ai-room` | RAG 컨텍스트 (최근 5건) | GET /api/counseling/student/:id |
+| `/counseling-dashboard` (Phase 2) | 통계 | GET /api/counseling |
 
 **상담 타입 참고:**
 

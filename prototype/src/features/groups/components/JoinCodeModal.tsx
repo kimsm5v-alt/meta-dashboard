@@ -89,7 +89,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({
     try {
       await groupService.joinGroup(
         groupInfo.id,
-        { studentNumber: studentNumber ? parseInt(studentNumber) : undefined },
+        { inviteCode: code, studentNumber: studentNumber ? parseInt(studentNumber) : undefined },
         user.id,
         user.name
       );

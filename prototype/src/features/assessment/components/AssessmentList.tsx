@@ -130,7 +130,7 @@ const AssessmentItem: React.FC<{
       <div className="flex items-center gap-4 text-sm text-gray-500">
         <span className="flex items-center gap-1">
           <Users className="w-4 h-4" />
-          {assessment.grade}학년 {assessment.classNumber}반
+          {assessment.groupName || `${assessment.grade}학년 ${assessment.classNumber}반`}
         </span>
         <button
           onClick={handleToggleNotSubmitted}

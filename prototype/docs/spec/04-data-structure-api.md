@@ -1,7 +1,10 @@
 # 4. 데이터 구조 & API 정의
 
-> 신규 DB 테이블 정의 + 신규 API 엔드포인트 스펙  
-> 최종 수정일: 2026-03-11
+> 신규 DB 테이블 정의 + 신규 API 엔드포인트 스펙
+> 최종 수정일: 2026-03-25
+>
+> **Note**: 이 문서는 초기 기획 스펙을 기반으로 하며, 실제 백엔드 구현과의 차이를 반영하여 갱신되었습니다.
+> 테이블명/컬럼명/API URL은 **실제 백엔드 구현 기준**으로 표기합니다.
 
 ---
 
@@ -11,8 +14,8 @@
 
 | 구분 | 내용 |
 |------|------|
-| 이 문서에서 다루는 것 | 신규 DB 테이블 9개, 신규 API 44개 (Phase 2 포함) |
-| 이 문서에서 다루지 않는 것 | 기존 AIDT API/DB (별도 `api-endpoints.md` 참조) |
+| 이 문서에서 다루는 것 | 신규 DB 테이블 (`viva_meta` DB), 신규 API 엔드포인트 |
+| 이 문서에서 다루지 않는 것 | DGNSS 검사 API/DB (별도 `api-endpoints.md` 참조) |
 
 ### 공통 응답 형식
 
@@ -35,90 +38,106 @@ JWT Bearer Token (기존 AIDT 인증 체계 활용). teacherId는 JWT에서 추�
 
 ## 2. 데이터 구조
 
-### 2.1 엔티티 관계도
+### 2.1 엔티티 관계도 (실제 백엔드 기준)
 
 ```
                     ┌──────────────┐
-                    │   teachers   │ (기존 AIDT 또는 자체)
+                    │     user     │ (user_no PK, email 로그인)
                     └──────┬───────┘
-                           │ 1:N
+                           │ host_user_no (1:N)
                     ┌──────▼───────┐         ┌──────────────────┐
-                    │    groups    │ 1:N     │  group_students  │
-                    │              │────────▶│                  │
-                    └──────┬───────┘         └──────────────────┘
-                           │ 1:N
-              ┌────────────┼────────────┐
+                    │  group_info  │ 1:N     │  group_member    │
+                    │              │────────▶│  (nickname,      │
+                    └──────┬───────┘         │   member_no,     │
+                           │ 1:N             │   gender)        │
+              ┌────────────┼────────────┐    └──────────────────┘
               ▼            ▼            ▼
 ┌──────────────────┐ ┌────────────┐ ┌──────────────────┐
-│counseling_records│ │observation │ │  school_records   │
-│                  │ │  _memos    │ │                   │
+│counseling_info   │ │ memo_info  │ │  school_records   │
+│  (✅ 구현)        │ │ (✅ 구현)   │ │  (❌ 미구현)       │
 └────────┬─────────┘ └────────────┘ └──────────────────┘
          │ 1:N
-    ┌────┴────┐
-    ▼         ▼
-┌────────────────┐ ┌────────────────┐
-│counseling      │ │counseling      │
-│  _students     │ │  _tags         │
-└────────────────┘ └────────────────┘
+         ▼
+┌────────────────┐
+│counseling      │
+│  _student      │
+│  (✅ 구현)      │
+└────────────────┘
 
 
-독립 테이블 (AIDT 연결):
+미구현 테이블:
 
-┌───────────────────────┐     ┌───────────────────┐
-│  lpa_classifications  │     │  ai_summary_cache  │
-│  (student_id +        │     │  (target_id +      │
-│   dgnss_id로 연결)     │     │   dgnss_id로 연결)  │
-└───────────────────────┘     └───────────────────┘
+┌───────────────────────┐     ┌───────────────────┐     ┌────────────────┐
+│  lpa_classifications  │     │  ai_summary_cache  │     │ counseling_tags │
+│  (❌ 미구현)            │     │  (❌ 미구현)         │     │ (❌ 미구현)      │
+└───────────────────────┘     └───────────────────┘     └────────────────┘
 ```
+
+> **기획 스펙 → 실제 구현 테이블명 매핑:**
+>
+> | 기획 스펙 테이블명 | 실제 백엔드 테이블명 | 상태 |
+> |-------------------|---------------------|------|
+> | `groups` | `group_info` | ✅ 구현 |
+> | `group_students` | `group_member` | ✅ 구현 |
+> | `counseling_records` | `counseling_info` | ✅ 구현 |
+> | `counseling_students` | `counseling_student` | ✅ 구현 |
+> | `counseling_tags` | — | ❌ 미구현 |
+> | `observation_memos` | `memo_info` | ✅ 구현 |
+> | `school_records` | — | ❌ 미구현 |
+> | `lpa_classifications` | — | ❌ 미구현 |
+> | `ai_summary_cache` | — | ❌ 미구현 |
 
 ---
 
-### 2.2 groups
+### 2.2 group_info (실제 테이블명)
+
+> 기획 스펙: `groups` → 실제: `group_info`
 
 교사가 학급을 관리하기 위한 그룹.
 
 | 컬럼 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| id | UUID (PK) | Y | 그룹 고유 ID |
-| teacher_id | VARCHAR(50) | Y | 교사 ID |
-| name | VARCHAR(100) | Y | 그룹 표시명 (예: "6학년 2반") |
-| school_level | ENUM('elementary','middle','high') | Y | 학교급 |
-| grade | TINYINT | Y | 학년 (1~6) |
-| class_number | TINYINT | Y | 반 번호 |
-| description | VARCHAR(200) | N | 그룹 설명 |
-| school_name | VARCHAR(100) | N | 학교명 |
-| invite_code | VARCHAR(20) UNIQUE | Y | 초대 코드 (서버 자동 생성, 6자리 영숫자) |
+| group_id | VARCHAR(36) PK | Y | 그룹 고유 ID |
 | cla_id | VARCHAR(50) | N | AIDT 학급 ID (연동 시) |
-| owner_name | VARCHAR(50) | Y | 교사(그룹장) 이름 |
-| owner_tc_id | VARCHAR(50) | N | 교사 AIDT tcId |
+| host_user_no | BIGINT FK → user | Y | 그룹장(교사) user_no |
+| group_nm | VARCHAR(100) | Y | 그룹 표시명 (예: "6학년 2반") |
+| school_level | VARCHAR(20) | Y | 학교급 |
+| grade | INT | Y | 학년 |
+| class_number | INT | Y | 반 번호 |
+| invite_code | VARCHAR(20) UNIQUE | Y | 초대 코드 (서버 자동 생성) |
+| status | VARCHAR(20) | Y | 그룹 상태 |
 | created_at | DATETIME | Y | |
 | updated_at | DATETIME | Y | |
 
-인덱스: `teacher_id`, `invite_code` (UNIQUE)
+인덱스: `host_user_no`, `invite_code` (UNIQUE)
 
 ---
 
-### 2.3 group_students
+### 2.3 group_member (실제 테이블명)
+
+> 기획 스펙: `group_students` → 실제: `group_member`
 
 | 컬럼 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | id | BIGINT (PK, AUTO) | Y | |
-| group_id | UUID (FK → groups) | Y | |
-| user_id | VARCHAR(50) | N | 회원 사용자 ID (게스트는 null) |
+| group_id | VARCHAR(36) FK → group_info | Y | |
+| user_no | BIGINT FK → user | N | 회원 user_no (게스트는 null) |
 | stdt_id | VARCHAR(50) | Y | 학생 ID (AIDT용, 자동 생성) |
-| name | VARCHAR(50) | Y | 이름 |
-| email | VARCHAR(100) | N | 이메일 (게스트 초대 시) |
-| student_number | TINYINT | N | 출석번호 |
-| member_type | ENUM('member','guest') | Y | 가입 유형 |
-| status | ENUM('active','left') | Y | 상태 (기본: active) |
-| joined_at | DATETIME | Y | |
-| left_at | DATETIME | N | 탈퇴/강퇴 일시 |
+| nickname | VARCHAR(50) | Y | 표시 이름 (레거시 flnm 대체) |
+| member_no | INT | N | 출석번호 (레거시 num 대체) |
+| gender | CHAR(1) | N | 성별 (`M`=남자, `F`=여자) |
+| member_type | VARCHAR(20) | Y | 가입 유형 (STUDENT/GUEST) |
+| status | VARCHAR(20) | Y | 상태 (ACTIVE/LEFT/KICKED/ARCHIVED) |
+| created_at | DATETIME | Y | |
+| updated_at | DATETIME | Y | |
 
-UNIQUE: `(group_id, user_id)` (user_id가 non-null인 경우)
+UNIQUE: `(group_id, user_no)` (user_no가 non-null인 경우)
 
 ---
 
-### 2.4 lpa_classifications
+### 2.4 lpa_classifications (❌ 미구현)
+
+> 백엔드 미구현. 현재 프론트엔드 `lpaClassifier.ts`에서 매번 계산.
 
 검사 제출 시점에 1회 계산하여 저장 (compute once, query many).
 
@@ -163,19 +182,23 @@ UNIQUE: `(student_id, dgnss_id, round)`
 
 ---
 
-### 2.5 counseling_records
+### 2.5 counseling_info (실제 테이블명)
+
+> 기획 스펙: `counseling_records` → 실제: `counseling_info`
 
 | 컬럼 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | id | UUID (PK) | Y | |
-| teacher_id | VARCHAR(50) | Y | |
-| class_id | UUID (FK → groups) | Y | |
+| teacher_id | VARCHAR(50) | Y | JWT에서 `AuthTcIdResolver`로 추출 |
+| class_id | VARCHAR(50) | Y | 학급 ID |
 | scheduled_at | DATETIME | Y | 상담 예정 일시 |
 | duration | SMALLINT | N | 상담 시간(분), 기본 30 |
-| status | ENUM('scheduled','completed') | Y | 취소 시 레코드 삭제 (DELETE) |
+| status | ENUM('scheduled','completed','cancelled') | Y | 상태 |
 | reason | TEXT | N | 예정 시 메모 |
 | summary | TEXT | N | 완료 시 기록 |
 | next_steps | TEXT | N | 후속 조치 |
+| created_by | BIGINT | Y | 생성자 user_no |
+| updated_by | BIGINT | Y | 수정자 user_no |
 | created_at | DATETIME | Y | |
 | updated_at | DATETIME | Y | |
 
@@ -183,24 +206,26 @@ UNIQUE: `(student_id, dgnss_id, round)`
 
 ---
 
-### 2.6 counseling_students
+### 2.6 counseling_student (실제 테이블명)
+
+> 기획 스펙: `counseling_students` → 실제: `counseling_student`
 
 복수 학생 동시 상담 지원.
 
 | 컬럼 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | id | BIGINT (PK, AUTO) | Y | |
-| counseling_id | UUID (FK → counseling_records) | Y | |
+| counseling_id | UUID (FK → counseling_info) | Y | |
 | student_id | VARCHAR(50) | Y | |
 | student_name | VARCHAR(50) | Y | |
-| student_number | TINYINT | N | 출석번호 |
-| class_id | UUID | N | 소속 그룹 ID |
+| student_number | INT | N | 출석번호 |
+| class_id | VARCHAR(50) | N | 소속 학급 ID |
 
 UNIQUE: `(counseling_id, student_id)`
 
 ---
 
-### 2.7 counseling_tags
+### 2.7 counseling_tags (❌ 미구현)
 
 | 컬럼 | 타입 | 필수 | 설명 |
 |------|------|------|------|
@@ -219,23 +244,28 @@ UNIQUE: `(counseling_id, student_id)`
 
 ---
 
-### 2.8 observation_memos
+### 2.8 memo_info (실제 테이블명)
+
+> 기획 스펙: `observation_memos` → 실제: `memo_info`
 
 | 컬럼 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | id | UUID (PK) | Y | |
-| teacher_id | VARCHAR(50) | Y | |
+| teacher_id | VARCHAR(50) | Y | JWT에서 `AuthTcIdResolver`로 추출 |
 | student_id | VARCHAR(50) | Y | |
-| class_id | UUID (FK → groups) | Y | |
-| category | ENUM('academic','behavior','emotion','social','other') | Y | |
+| class_id | VARCHAR(50) | Y | 학급 ID |
+| category | VARCHAR(20) | Y | academic/behavior/emotion/social/other |
 | content | TEXT | Y | |
 | is_important | BOOLEAN | Y | 중요 표시 (기본: false) |
+| memo_date | DATE | N | 관찰 일자 |
+| created_by | BIGINT | Y | 생성자 user_no |
+| updated_by | BIGINT | Y | 수정자 user_no |
 | created_at | DATETIME | Y | |
 | updated_at | DATETIME | Y | |
 
 ---
 
-### 2.9 school_records
+### 2.9 school_records (❌ 미구현)
 
 | 컬럼 | 타입 | 필수 | 설명 |
 |------|------|------|------|
@@ -254,7 +284,7 @@ category 허용 값: `self-development`, `academic`, `behavior`, `career`, `comp
 
 ---
 
-### 2.10 ai_summary_cache (선택)
+### 2.10 ai_summary_cache (❌ 미구현, 선택)
 
 | 컬럼 | 타입 | 필수 | 설명 |
 |------|------|------|------|
@@ -350,14 +380,18 @@ UNIQUE: `(post_id, teacher_id)`
 
 ## 3. 신규 API 정의
 
-### 3.1 그룹 관리
+> **주의**: 기획 스펙과 실제 백엔드 엔드포인트가 다릅니다. 아래는 **실제 백엔드 구현 기준**입니다.
 
-#### POST /api/groups — 그룹 생성
+### 3.1 그룹 관리 (✅ 구현 완료)
+
+> 기획 스펙: `/api/groups/*` → 실제: `/group/*`
+
+#### POST /group/create — 그룹 생성
 
 요청:
 ```json
 {
-  "name": "6학년 2반",
+  "groupNm": "6학년 2반",
   "schoolLevel": "초등",
   "grade": 6,
   "classNumber": 2,
@@ -365,38 +399,23 @@ UNIQUE: `(post_id, teacher_id)`
 }
 ```
 
-응답:
-```json
-{
-  "id": "uuid-...",
-  "name": "6학년 2반",
-  "schoolLevel": "초등",
-  "grade": 6,
-  "classNumber": 2,
-  "inviteCode": "ABC123",      // 서버 자동 생성 (6자리 영숫자, UNIQUE)
-  "createdAt": "2026-03-11T09:00:00"
-}
-```
-
-규칙: teacherId는 JWT에서 추출.
+규칙: host_user_no는 JWT에서 추출. `tc_id`는 lazy 생성.
 
 ---
 
-#### GET /api/groups — 그룹 목록 조회
+#### GET /group/list — 그룹 목록 조회
 
-Query: `search` (선택, 그룹명 검색)
-
-응답: 배열
+응답: 내 그룹 배열
 ```json
 [
   {
-    "id": "uuid-...",
-    "name": "6학년 2반",
+    "groupId": "uuid-...",
+    "groupNm": "6학년 2반",
     "schoolLevel": "초등",
     "grade": 6,
     "classNumber": 2,
     "inviteCode": "ABC123",
-    "studentCount": 28,
+    "memberCount": 28,
     "createdAt": "2026-03-11T09:00:00"
   }
 ]
@@ -404,123 +423,80 @@ Query: `search` (선택, 그룹명 검색)
 
 ---
 
-#### GET /api/groups/:groupId — 그룹 상세
+#### GET /group/detail — 그룹 상세
 
-응답:
-```json
-{
-  "id": "uuid-...",
-  "name": "6학년 2반",
-  "schoolLevel": "초등",
-  "grade": 6,
-  "classNumber": 2,
-  "inviteCode": "ABC123",
-  "ownerName": "김선생",
-  "memberCount": 28
-}
-```
+Query: `groupId` (필수)
+
+응답: 그룹 정보 + 멤버 목록 포함
 
 ---
 
-#### POST /api/groups/join — 초대 코드로 가입
+#### GET /group/invite — 초대 코드로 그룹 조회
 
-요청 (회원):
+Query: `inviteCode` (필수)
+
+---
+
+#### POST /group/join — 초대 코드로 가입 (회원)
+
+요청:
 ```json
 {
   "inviteCode": "ABC123"
 }
 ```
 
-요청 (게스트):
+규칙: JWT에서 user_no 추출, `stdt_id` lazy 생성
+
+---
+
+#### POST /group/join-guest — 게스트 참가
+
+요청:
 ```json
 {
   "inviteCode": "ABC123",
-  "isGuest": true
+  "nickname": "김민준"
 }
 ```
 
-응답:
+규칙: 게스트용 user 자동 생성, member_type = 'GUEST'
+
+---
+
+#### PUT /group/update — 그룹 수정
+
+요청:
 ```json
 {
   "groupId": "uuid-...",
-  "groupName": "6학년 2반",
-  "studentId": "auto-generated"
+  "groupNm": "6학년 2반 (수정)"
 }
 ```
 
-규칙:
-- 회원 → JWT에서 userId 추출, 기존 회원 정보 연동
-- 게스트 → studentId 서버 자동 생성, memberType = 'guest'
+규칙: 그룹장(host)만 수정 가능.
+
+#### DELETE /group/delete — 그룹 삭제
+
+Query: `groupId` (필수). 규칙: 그룹장만 삭제 가능.
 
 ---
 
-#### PATCH /api/groups/:groupId — 그룹 수정
-
-요청:
-```json
-{
-  "name": "6학년 2반 (수정)",
-  "description": "설명 변경"
-}
-```
-
-규칙: 교사(그룹장)만 수정 가능.
-
-#### DELETE /api/groups/:groupId — 그룹 삭제
-
-규칙: 교사(그룹장)만 삭제 가능. 검사 데이터 있으면 soft delete 권장.
-
----
-
-#### GET /api/groups/:groupId/members — 멤버 목록
-
-응답: 배열
-```json
-[
-  {
-    "id": "member-id",
-    "name": "김민준",
-    "email": "min@example.com",
-    "studentNumber": 1,
-    "memberType": "member",
-    "status": "active",
-    "joinedAt": "2026-03-11T09:30:00"
-  }
-]
-```
-
-#### DELETE /api/groups/:groupId/members/:memberId — 멤버 강퇴
-
-규칙: 교사만 가능. 검사 기록은 유지 (status → 'left').
-
-#### POST /api/groups/:groupId/leave — 그룹 탈퇴
+#### POST /group/member/leave — 그룹 탈퇴
 
 규칙: 멤버만 가능 (교사는 탈퇴 불가).
 
----
+#### POST /group/member/kick — 멤버 강퇴
 
-#### POST /api/groups/:groupId/invitations — 이메일 초대 발송
-
-요청:
-```json
-{
-  "email": "student@example.com"
-}
-```
-
-규칙: 교사만 가능. 중복 초대 방지. 7일 후 만료.
-
-#### GET /api/groups/:groupId/invitations — 대기 중 초대 목록
-
-규칙: 교사만 조회 가능.
-
-#### DELETE /api/groups/:groupId/invitations/:invitationId — 초대 취소
+규칙: 그룹장만 가능. 검사 기록 유지 (status → 'KICKED').
 
 ---
 
-### 3.2 LPA 유형 분류
+### 3.2 LPA 유형 분류 (❌ 미구현)
 
-#### POST /api/lpa/classify — 개별 분류
+> 백엔드 미구현. 현재 프론트엔드 `lpaClassifier.ts`에서 계산.
+
+#### POST /api/lpa/classify — 개별 분류 (기획안)
 
 요청:
 ```json
@@ -595,7 +571,7 @@ Query: `search` (선택, 그룹명 검색)
 
 ---
 
-#### POST /api/lpa/classify-batch — 학급 일괄 분류
+#### POST /api/lpa/classify-batch — 학급 일괄 분류 (기획안)
 
 요청:
 ```json
@@ -623,7 +599,7 @@ Query: `search` (선택, 그룹명 검색)
 
 ---
 
-#### GET /api/lpa/students/:studentId — 학생별 결과 조회
+#### GET /api/lpa/students/:studentId — 학생별 결과 조회 (기획안)
 
 Query: `dgnssId` (선택), `round` (선택)
 
@@ -644,7 +620,7 @@ Query: `dgnssId` (선택), `round` (선택)
 
 ---
 
-#### GET /api/lpa/classes/:groupId — 학급별 결과 조회
+#### GET /api/lpa/classes/:groupId — 학급별 결과 조회 (기획안)
 
 Query: `dgnssId` (필수), `round` (선택)
 
@@ -676,9 +652,11 @@ Query: `dgnssId` (필수), `round` (선택)
 
 ---
 
-### 3.3 상담 기록
+### 3.3 상담 기록 (✅ 구현 완료)
 
-#### POST /api/unified-counseling — 상담 생성
+> 기획 스펙: `/api/unified-counseling/*` → 실제: `/api/counseling/*`
+
+#### POST /api/counseling — 상담 생성
 
 요청:
 ```json
@@ -700,17 +678,23 @@ Query: `dgnssId` (필수), `round` (선택)
 
 ---
 
-#### GET /api/unified-counseling — 전체 상담 목록 조회
+#### GET /api/counseling — 전체 상담 목록 조회
 
-응답: 배열 (상담 기록 + students + tags)
+응답: 배열 (상담 기록 + students)
 
-#### GET /api/unified-counseling/class/:classId — 반별 상담 조회
+#### GET /api/counseling/class/:classId — 반별 상담 조회
 
-#### GET /api/unified-counseling/:id — 단일 상담 상세 조회
+#### GET /api/counseling/student/:studentId — 학생별 상담 조회
+
+#### GET /api/counseling/status/:status — 상태별 상담 조회
+
+Query: status = `scheduled` / `completed` / `cancelled`
+
+#### GET /api/counseling/:id — 단일 상담 상세 조회
 
 ---
 
-#### PATCH /api/unified-counseling/:id — 상담 수정 (부분 업데이트)
+#### PATCH /api/counseling/:id — 상담 수정 (부분 업데이트)
 
 요청: 변경할 필드만 전송
 ```json
@@ -723,7 +707,7 @@ Query: `dgnssId` (필수), `round` (선택)
 
 ---
 
-#### POST /api/unified-counseling/:id/complete — 상담 완료 처리
+#### POST /api/counseling/:id/complete — 상담 완료 처리
 
 요청:
 ```json
@@ -738,17 +722,15 @@ Query: `dgnssId` (필수), `round` (선택)
 
 ---
 
-#### DELETE /api/unified-counseling/:id — 상담 삭제 (취소 = 삭제)
+#### POST /api/counseling/:id/cancel — 상담 취소
+
+#### DELETE /api/counseling/:id — 상담 삭제
 
 ---
 
-#### GET /api/unified-counseling/student/:studentId — 학생별 이력
+### 3.4 관찰 메모 (✅ 구현 완료)
 
-응답: 해당 학생 포함 상담 기록 (최신순)
-
----
-
-### 3.4 관찰 메모
+> 엔드포인트: `/api/memos/*` (기획 스펙과 동일)
 
 #### POST /api/memos — 메모 생성
 
@@ -788,9 +770,11 @@ Query: `classId` (선택), `category` (선택)
 
 ---
 
-### 3.5 생활기록부 문구
+### 3.5 생활기록부 문구 (❌ 미구현)
 
-#### POST /api/school-records — 문구 저장
+> 백엔드 미구현. 현재 프론트엔드에서 `/api/dgnss/tc/text/save`로 교사 메모만 저장.
+
+#### POST /api/school-records — 문구 저장 (기획안)
 
 요청:
 ```json
@@ -858,7 +842,7 @@ Query: `tags` (선택), `sort` (선택: latest, popular)
 
 ---
 
-### 3.8 AI 캐시 (선택)
+### 3.8 AI 캐시 (❌ 미구현, 선택)
 
 #### GET /api/ai-cache — 캐시 조회
 
@@ -894,60 +878,74 @@ Query:
 
 ## 4. 신규 API 종합 목록
 
-| # | 메서드 | 엔드포인트 | 설명 |
-|---|--------|-----------|------|
-| | **그룹 관리** | | |
-| 1 | POST | `/api/groups` | 그룹 생성 |
-| 2 | GET | `/api/groups` | 그룹 목록 |
-| 3 | GET | `/api/groups/:groupId` | 그룹 상세 |
-| 4 | PATCH | `/api/groups/:groupId` | 그룹 수정 (교사만) |
-| 5 | DELETE | `/api/groups/:groupId` | 그룹 삭제 (교사만) |
-| 6 | POST | `/api/groups/join` | 초대 코드로 가입 |
-| 7 | GET | `/api/groups/:groupId/members` | 멤버 목록 |
-| 8 | DELETE | `/api/groups/:groupId/members/:memberId` | 멤버 강퇴 (교사만) |
-| 9 | POST | `/api/groups/:groupId/leave` | 그룹 탈퇴 |
-| 10 | POST | `/api/groups/:groupId/invitations` | 이메일 초대 발송 |
-| 11 | GET | `/api/groups/:groupId/invitations` | 대기 중 초대 목록 |
-| 12 | DELETE | `/api/groups/:groupId/invitations/:invitationId` | 초대 취소 |
-| | **LPA 분류** | | |
-| 13 | POST | `/api/lpa/classify` | 개별 LPA 분류 |
-| 14 | POST | `/api/lpa/classify-batch` | 학급 일괄 LPA 분류 |
-| 15 | GET | `/api/lpa/students/:studentId` | 학생별 LPA 결과 |
-| 16 | GET | `/api/lpa/classes/:groupId` | 학급별 LPA 결과 |
-| | **상담** | | |
-| 17 | POST | `/api/unified-counseling` | 상담 생성 |
-| 18 | GET | `/api/unified-counseling` | 전체 상담 목록 |
-| 19 | GET | `/api/unified-counseling/:id` | 단일 상담 상세 |
-| 20 | GET | `/api/unified-counseling/class/:classId` | 반별 상담 조회 |
-| 21 | GET | `/api/unified-counseling/student/:studentId` | 학생별 상담 이력 |
-| 22 | PATCH | `/api/unified-counseling/:id` | 상담 수정 (부분 업데이트) |
-| 23 | POST | `/api/unified-counseling/:id/complete` | 상담 완료 처리 |
-| 24 | DELETE | `/api/unified-counseling/:id` | 상담 삭제 (취소 = 삭제) |
-| | **관찰 메모** | | |
-| 25 | POST | `/api/memos` | 메모 생성 |
-| 26 | GET | `/api/memos/student/:studentId` | 학생별 메모 |
-| 27 | PATCH | `/api/memos/:id` | 메모 수정 (내용, 중요 표시) |
-| 28 | DELETE | `/api/memos/:id` | 메모 삭제 |
-| | **생활기록부** | | |
-| 29 | POST | `/api/school-records` | 문구 저장 |
-| 30 | GET | `/api/school-records/student/:studentId` | 학생별 문구 |
-| 31 | DELETE | `/api/school-records/:recordId` | 문구 삭제 |
-| | **AI 캐시** | | |
-| 32 | GET | `/api/ai-cache` | 캐시 조회 |
-| 33 | POST | `/api/ai-cache` | 캐시 저장 |
-| | **교육 자료실 (Phase 2)** | | |
-| 34 | GET | `/api/resources` | 자료 목록 |
-| 35 | GET | `/api/resources/:resourceId` | 자료 상세 |
-| 36 | POST | `/api/resources` | 자료 등록 (관리자) |
-| 37 | DELETE | `/api/resources/:resourceId` | 자료 삭제 (관리자) |
-| | **교사 커뮤니티 (Phase 2)** | | |
-| 38 | GET | `/api/community/posts` | 게시글 목록 |
-| 39 | GET | `/api/community/posts/:postId` | 게시글 상세 |
-| 40 | POST | `/api/community/posts` | 게시글 작성 |
-| 41 | PUT | `/api/community/posts/:postId` | 게시글 수정 |
-| 42 | DELETE | `/api/community/posts/:postId` | 게시글 삭제 |
-| 43 | POST | `/api/community/posts/:postId/comments` | 댓글 작성 |
-| 44 | POST | `/api/community/posts/:postId/like` | 좋아요 토글 |
+> ✅ = 백엔드 구현 완료, ❌ = 미구현 (기획안)
+
+| # | 상태 | 메서드 | 실제 엔드포인트 | 설명 |
+|---|------|--------|----------------|------|
+| | | **회원 인증** | | |
+| 1 | ✅ | POST | `/member/signup` | 회원가입 |
+| 2 | ✅ | POST | `/member/login` | 로그인 (JWT 발급) |
+| 3 | ✅ | POST | `/member/token/refresh` | 토큰 갱신 |
+| 4 | ✅ | POST | `/member/logout` | 로그아웃 |
+| 5 | ✅ | GET | `/member/info` | 회원 정보 조회 |
+| | | **이메일 인증** | | |
+| 6 | ✅ | POST | `/member/send-code` | 인증 코드 발송 |
+| 7 | ✅ | POST | `/member/verify-code` | 인증 코드 확인 |
+| | | **그룹 관리** | | |
+| 8 | ✅ | POST | `/group/create` | 그룹 생성 |
+| 9 | ✅ | GET | `/group/list` | 그룹 목록 |
+| 10 | ✅ | GET | `/group/detail` | 그룹 상세 (멤버 포함) |
+| 11 | ✅ | GET | `/group/invite` | 초대 코드로 그룹 조회 |
+| 12 | ✅ | POST | `/group/join` | 초대 코드로 가입 (회원) |
+| 13 | ✅ | POST | `/group/join-guest` | 게스트 참가 |
+| 14 | ✅ | PUT | `/group/update` | 그룹 수정 (그룹장만) |
+| 15 | ✅ | DELETE | `/group/delete` | 그룹 삭제 (그룹장만) |
+| 16 | ✅ | POST | `/group/member/leave` | 그룹 탈퇴 |
+| 17 | ✅ | POST | `/group/member/kick` | 멤버 강퇴 (그룹장만) |
+| | | **게스트 전환** | | |
+| 18 | ✅ | GET | `/guest/check` | 게스트 기록 확인 |
+| 19 | ✅ | POST | `/guest/convert` | 게스트→회원 전환 |
+| | | **상담** | | |
+| 20 | ✅ | POST | `/api/counseling` | 상담 생성 |
+| 21 | ✅ | GET | `/api/counseling` | 전체 상담 목록 |
+| 22 | ✅ | GET | `/api/counseling/:id` | 단일 상담 상세 |
+| 23 | ✅ | GET | `/api/counseling/class/:classId` | 반별 상담 조회 |
+| 24 | ✅ | GET | `/api/counseling/student/:studentId` | 학생별 상담 이력 |
+| 25 | ✅ | GET | `/api/counseling/status/:status` | 상태별 상담 조회 |
+| 26 | ✅ | PATCH | `/api/counseling/:id` | 상담 수정 |
+| 27 | ✅ | POST | `/api/counseling/:id/complete` | 상담 완료 처리 |
+| 28 | ✅ | POST | `/api/counseling/:id/cancel` | 상담 취소 |
+| 29 | ✅ | DELETE | `/api/counseling/:id` | 상담 삭제 |
+| | | **관찰 메모** | | |
+| 30 | ✅ | POST | `/api/memos` | 메모 생성 |
+| 31 | ✅ | GET | `/api/memos/student/:studentId` | 학생별 메모 |
+| 32 | ✅ | PATCH | `/api/memos/:id` | 메모 수정 |
+| 33 | ✅ | DELETE | `/api/memos/:id` | 메모 삭제 |
+| | | **LPA 분류** | | |
+| 34 | ❌ | POST | `/api/lpa/classify` | 개별 LPA 분류 |
+| 35 | ❌ | POST | `/api/lpa/classify-batch` | 학급 일괄 LPA 분류 |
+| 36 | ❌ | GET | `/api/lpa/students/:studentId` | 학생별 LPA 결과 |
+| 37 | ❌ | GET | `/api/lpa/classes/:groupId` | 학급별 LPA 결과 |
+| | | **생활기록부** | | |
+| 38 | ❌ | POST | `/api/school-records` | 문구 저장 |
+| 39 | ❌ | GET | `/api/school-records/student/:studentId` | 학생별 문구 |
+| 40 | ❌ | DELETE | `/api/school-records/:recordId` | 문구 삭제 |
+| | | **AI 캐시** | | |
+| 41 | ❌ | GET | `/api/ai-cache` | 캐시 조회 |
+| 42 | ❌ | POST | `/api/ai-cache` | 캐시 저장 |
+| | | **교육 자료실 (Phase 2)** | | |
+| 43 | ❌ | GET | `/api/resources` | 자료 목록 |
+| 44 | ❌ | GET | `/api/resources/:resourceId` | 자료 상세 |
+| 45 | ❌ | POST | `/api/resources` | 자료 등록 (관리자) |
+| 46 | ❌ | DELETE | `/api/resources/:resourceId` | 자료 삭제 (관리자) |
+| | | **교사 커뮤니티 (Phase 2)** | | |
+| 47 | ❌ | GET | `/api/community/posts` | 게시글 목록 |
+| 48 | ❌ | GET | `/api/community/posts/:postId` | 게시글 상세 |
+| 49 | ❌ | POST | `/api/community/posts` | 게시글 작성 |
+| 50 | ❌ | PUT | `/api/community/posts/:postId` | 게시글 수정 |
+| 51 | ❌ | DELETE | `/api/community/posts/:postId` | 게시글 삭제 |
+| 52 | ❌ | POST | `/api/community/posts/:postId/comments` | 댓글 작성 |
+| 53 | ❌ | POST | `/api/community/posts/:postId/like` | 좋아요 토글 |
 
 ---
 
@@ -992,3 +990,4 @@ Query:
 | 2026-03-11 | 1.0 | 초안 — DB 테이블 9개, 신규 API 25개 |
 | 2026-03-12 | 1.1 | 현행화 — 상담 API unified-counseling으로 통일, PUT→PATCH, cancelled 상태 제거, 그룹 멤버/초대 API 추가, 메모 isImportant 추가, 생기부 PUT 제거, API 33개로 확장 |
 | 2026-03-23 | 1.2 | DGNSS API 참조 섹션 업데이트 — 엔드포인트 `/etc/meta/*` → `/api/dgnss/*` 변경, HTTP Method 반영, 학생 결과 API 통합 반영 |
+| 2026-03-25 | 2.0 | 실제 백엔드 구현 기준으로 전면 갱신 — 테이블명(group_info/group_member/counseling_info/memo_info), API URL(/group/*/api/counseling), 구현 상태(✅/❌) 표기, 회원/게스트 API 추가 |
