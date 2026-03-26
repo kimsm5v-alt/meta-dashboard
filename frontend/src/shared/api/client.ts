@@ -59,7 +59,15 @@ axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 // 응답 인터셉터 — 에러 정규화
 axiosInstance.interceptors.response.use(
-  (response: AxiosResponse) => response,
+  (response: AxiosResponse) => {
+    // HTTP 200이지만 success: false인 경우
+    const data = response.data as APIResponse<unknown>;
+    if (data && data.success === false) {
+      const message = data.resultMessage ?? 'API Error';
+      return Promise.reject(new ApiError(response.status, message, data.resultCode));
+    }
+    return response;
+  },
   (error) => {
     const status = error.response?.status ?? 0;
     const message = error.response?.data?.resultMessage ?? error.message ?? 'API Error';

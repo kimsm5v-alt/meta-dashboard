@@ -6,6 +6,7 @@ import { useAuth } from '@features/auth/model/AuthContext';
 import { FEATURES } from '@shared/config/features';
 
 // Page imports from pages layer
+import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
 import {
   LandingPage,
   LoginPage,
@@ -120,6 +121,9 @@ export const AppRoutes = () => (
       {/* AI */}
       <Route path='/ai-room' element={<AIRoomPage />} />
     </Route>
+
+    {/* 개발용 — 프로덕션 빌드에서도 접근 가능하지만 링크 미노출 */}
+    <Route path='/dev/errors' element={<ErrorTestPage />} />
 
     {/* Fallback */}
     <Route path='*' element={<Navigate to='/' replace />} />
