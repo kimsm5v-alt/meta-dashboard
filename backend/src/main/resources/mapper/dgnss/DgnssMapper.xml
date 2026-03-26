@@ -1941,6 +1941,11 @@
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, CASE WHEN c1.LS_ANS01 = 1 THEN '매우 낮음'
 				WHEN c1.LS_ANS01 = 2 THEN '낮음'
 				WHEN c1.LS_ANS01 = 3 THEN '보통'
@@ -1980,6 +1985,7 @@
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
@@ -1996,6 +2002,11 @@
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-01-01-0-0') AS '10-22-01-01-0-0'
 			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-01-01-01-0') AS '10-22-01-01-01-0'
 			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-01-01-02-0') AS '10-22-01-01-02-0'
@@ -2009,6 +2020,7 @@
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
@@ -2026,6 +2038,11 @@
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-02-01-0-0') AS '10-22-02-01-0-0'
 			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-02-01-01-0') AS '10-22-02-01-01-0'
 			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-02-01-02-0') AS '10-22-02-01-02-0'
@@ -2040,6 +2057,7 @@
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
@@ -2057,6 +2075,11 @@
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-02-03-0-0') AS '10-22-02-03-0-0'
 			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-02-03-01-0') AS '10-22-02-03-01-0'
 			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-02-03-02-0') AS '10-22-02-03-02-0'
@@ -2074,6 +2097,7 @@
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
@@ -2091,6 +2115,11 @@
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-03-01-0-0') AS '10-22-03-01-0-0'
 			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-03-01-01-0') AS '10-22-03-01-01-0'
 			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-03-01-02-0') AS '10-22-03-01-02-0'
@@ -2102,6 +2131,7 @@
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
@@ -2119,6 +2149,11 @@
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-03-02-0-0') AS '10-22-03-02-0-0'
 			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-03-02-01-0') AS '10-22-03-02-01-0'
 			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-03-02-02-0') AS '10-22-03-02-02-0'
@@ -2133,6 +2168,7 @@
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
@@ -2150,6 +2186,11 @@
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-01-0-0-0') AS total
 			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-01-01-0-0') AS learningEg
 			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-01-01-01-0') AS mindSet
@@ -2163,6 +2204,7 @@
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
@@ -2180,6 +2222,11 @@
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-02-0-0-0') AS total
 			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-02-01-0-0') AS metaCog
 			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-02-01-01-0') AS planAbil
@@ -2193,6 +2240,7 @@
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
@@ -2210,6 +2258,11 @@
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-03-0-0-0') AS total
 			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-03-01-0-0') AS behvCtrl
 			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-03-01-01-0') AS selfPraise
@@ -2225,6 +2278,7 @@
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
 		WHERE a1.id = #{dgnssId}
@@ -2311,9 +2365,15 @@
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN tb_dgnss_answer_report d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
 			INNER JOIN tb_dgnss_section e1 ON d1.SECTION_ID = e1.SECTION_ID
 		WHERE a1.paper_idx = #{paperIdx}
@@ -2836,5 +2896,8 @@
 		]]>
 	</insert>
 </mapper>
+
+
+
 
 

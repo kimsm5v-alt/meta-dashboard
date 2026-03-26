@@ -200,15 +200,48 @@ public class NcpMailSender {
      * @param pdfData PDF 바이트 배열
      */
     public void sendExamResultPdf(String toEmail, String studentName, byte[] pdfData) {
-        String fileId = uploadFile(pdfData, "학습심리검사_결과_" + studentName + ".pdf");
-        String htmlBody = buildExamResultHtml(studentName);
-        sendMailWithAttachment(toEmail, "[학습심리검사] 검사 결과 안내 - " + studentName, htmlBody, List.of(fileId));
+        sendExamResultPdf(toEmail, studentName, "학습심리검사", pdfData);
     }
 
-    private String buildExamResultHtml(String studentName) {
+    public void sendExamResultPdf(String toEmail, String studentName, String examTypeName, byte[] pdfData) {
+        String fileId = null;
+        try {
+            fileId = uploadFile(pdfData, "학습심리검사_결과_" + studentName + ".pdf");
+            String htmlBody = buildExamResultHtml(studentName, examTypeName);
+            sendMailWithAttachment(toEmail, "[학습심리검사] " + examTypeName + " 결과 안내 - " + studentName, htmlBody, List.of(fileId));
+        } finally {
+            if (fileId != null) {
+                try {
+                    deleteFile(fileId);
+                } catch (Exception e) {
+                    log.error("NCP 첨부 파일 삭제 실패: fileId={}", fileId, e);
+                }
+            }
+        }
+    }
+
+    public void deleteFile(String fileId) {
+        String fileApiPath = FILE_API_PATH + "/" + fileId;
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String signature = makeSignature("DELETE", fileApiPath, timestamp);
+
+        WebClient.create(mailUrl)
+                .delete()
+                .uri(fileApiPath)
+                .header("x-ncp-apigw-timestamp", timestamp)
+                .header("x-ncp-iam-access-key", accessKey)
+                .header("x-ncp-apigw-signature-v2", signature)
+                .retrieve()
+                .bodyToMono(String.class)
+                .doOnSuccess(res -> log.info("NCP 파일 삭제 성공: fileId={}", fileId))
+                .doOnError(err -> log.error("NCP 파일 삭제 실패: fileId={}", fileId, err))
+                .block();
+    }
+
+    private String buildExamResultHtml(String studentName, String examTypeName) {
         return "<div style='padding:20px;font-family:sans-serif'>"
-                + "<h2>[학습심리검사] 검사 결과 안내</h2>"
-                + "<p><strong>" + studentName + "</strong>님의 학습심리검사 결과를 첨부파일로 보내드립니다.</p>"
+                + "<h2>[학습심리검사] " + examTypeName + "</h2>"
+                + "<p><strong>" + studentName + "</strong>님의 " + examTypeName + " 결과를 첨부파일로 보내드립니다.</p>"
                 + "<p>첨부된 PDF 파일을 확인해 주세요.</p>"
                 + "<p style='color:#999;margin-top:20px'>본 메일은 자동 발송되었습니다.</p>"
                 + "</div>";

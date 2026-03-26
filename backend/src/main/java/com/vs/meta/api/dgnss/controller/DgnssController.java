@@ -182,10 +182,31 @@ public class DgnssController {
                             """)
             }))
     public ResponseDTO<CustomBody> stMetaSubmit(
-            @RequestBody Map<String, Object> paramData
+            @RequestBody Map<String, Object> paramData,
+            HttpServletRequest request
     ) throws Exception {
-        Map<String, Object> result = dgnssService.updateStSubmit(paramData);
+        Map<String, Object> result = dgnssService.updateStSubmit(paramData, request);
         String resultMessage = "심리검사 제출";
+        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
+    @RequestMapping(value = "/api/dgnss/mail/test", method = {RequestMethod.POST})
+    @Operation(summary = "학습심리검사 결과 메일 발송 테스트", description = "")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(examples = {
+                    @ExampleObject(name = "파라미터", value = """
+                            {
+                                "dgnssResultId": 1,
+                                "toEmail": "tester@example.com"
+                            }
+                            """)
+            }))
+    public ResponseDTO<CustomBody> sendStudentResultMailTest(
+            @RequestBody Map<String, Object> paramData,
+            HttpServletRequest request
+    ) throws Exception {
+        Map<String, Object> result = dgnssService.sendStudentResultMailTest(paramData, request);
+        String resultMessage = "학습심리검사 결과 메일 발송 테스트";
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
