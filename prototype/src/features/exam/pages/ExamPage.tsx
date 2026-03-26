@@ -8,24 +8,26 @@ import {
   fetchQuestions,
   saveAnswer,
   submitExam,
-  getStudentExamInfo,
   resetExam,
 } from '../services/examService';
+import { saveStudentInfo } from '../services/studentInfoService';
 import {
-  StudentIdEntryStep,
   ExamAuthStep,
-  GuestExamEntryStep,
+  StudentInfoStep,
   ResumeChoiceStep,
   ExamGuideStep,
   ExamQuestionStep,
   ExamCompleteStep,
-  GuestCompleteStep,
 } from '../components';
+import type { StudentInfo } from '../components/StudentInfoStep';
 
-interface GuestInfo {
-  isGuest: boolean;
-  nickname: string;
-  email: string;
+interface StudentExamInfo {
+  dgnssResultId: number;
+  dgnssId: number;
+  ordNo: number;
+  examName: string;
+  resume?: boolean;   // 이어하기 플래그 (안내 페이지 스킵)
+  restart?: boolean;  // 새로하기 플래그
 }
 
 interface ExamInfo {
@@ -38,10 +40,10 @@ export const ExamPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
 
-  // 게스트 정보 (ExamCodeEntryPage에서 전달됨)
-  const guestInfo = (location.state as GuestInfo) || null;
+  // 학생용 검사 정보 (MyExamListPage에서 전달됨)
+  const studentExamInfo = (location.state as StudentExamInfo) || null;
 
   const [isValidating, setIsValidating] = useState(true);
   const [isValid, setIsValid] = useState(false);
@@ -50,6 +52,7 @@ export const ExamPage: React.FC = () => {
   const [savingQuestionNo, setSavingQuestionNo] = useState<number | null>(null);
   const [pendingAnsweredCount, setPendingAnsweredCount] = useState(0);
   const [isRestartMode, setIsRestartMode] = useState(false);
+  const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
 
   const {
     state,
@@ -62,9 +65,22 @@ export const ExamPage: React.FC = () => {
     loadExistingAnswers,
   } = useExamState();
 
-  // QR 코드 검증
+  // QR 코드 검증 또는 학생 검사 정보 처리
   useEffect(() => {
     const validate = async () => {
+      // 학생용 state-based 검사 시작 (코드 검증 불필요)
+      if (studentExamInfo && isAuthenticated && user) {
+        setIsValid(true);
+        setExamInfo({
+          name: studentExamInfo.examName,
+          examCode: String(studentExamInfo.dgnssId), // dgnssId를 코드로 사용
+          claId: user.classId,
+        });
+        setIsValidating(false);
+        return;
+      }
+
+      // QR 코드 검증 (기존 흐름)
       if (!code) {
         navigate('/exam');
         return;
@@ -90,122 +106,110 @@ export const ExamPage: React.FC = () => {
     };
 
     validate();
-  }, [code, navigate]);
+  }, [code, navigate, studentExamInfo, isAuthenticated, user]);
 
   // 인증 상태에 따라 초기 step 결정
   useEffect(() => {
     if (isValidating || authLoading || !isValid) return;
 
-    // 게스트 정보가 있으면 바로 검사 시작
-    if (guestInfo?.isGuest) {
-      if (state.step === 'auth' || state.step === 'guest-entry') {
-        // 게스트 정보로 검사 시작
-        handleGuestStart(guestInfo.nickname, guestInfo.email);
+    // 학생용 검사 시작 (state 기반 - MyExamListPage에서 전달)
+    if (studentExamInfo && isAuthenticated && user?.stdtId) {
+      if (state.step === 'auth' || state.step === 'number') {
+        // dgnssResultId를 바로 사용하여 검사 시작
+        handleStudentExamStart(studentExamInfo);
       }
       return;
     }
 
-    if (isAuthenticated) {
-      // 로그인 상태 → stdtId 입력 단계
-      if (state.step === 'auth' || state.step === 'guest-entry') {
-        setStep('number');
-      }
-    } else {
-      // 비로그인 상태 → 인증 선택 단계
-      if (state.step === 'number') {
+    // URL 직접 접속 시: 로그인 여부에 따라 분기
+    if (!isAuthenticated) {
+      // 비로그인 → auth 단계 (로그인 필요)
+      if (state.step !== 'auth') {
         setStep('auth');
       }
+    } else {
+      // 로그인 완료 → 검사 목록으로 리다이렉트 (검사 선택 필요)
+      // 또는 auth 단계에서 로그인 성공 시 학생 검사 목록으로 이동
+      if (state.step === 'auth') {
+        // 로그인 성공 후 학생 검사 목록으로 이동
+        navigate('/student/exams');
+      }
     }
-  }, [isAuthenticated, authLoading, isValidating, isValid, state.step, setStep, guestInfo]);
+  }, [isAuthenticated, authLoading, isValidating, isValid, state.step, setStep, studentExamInfo, user, navigate]);
 
-  // 게스트 검사 시작 (닉네임 + 이메일)
-  const handleGuestStart = useCallback(async (nickname: string, _email: string) => {
-    if (!examInfo) return;
-
+  // 학생용 검사 시작 (state 기반)
+  const handleStudentExamStart = useCallback(async (info: StudentExamInfo) => {
     setIsLoading(true);
     try {
-      const claIdOrCode = examInfo.claId || examInfo.examCode;
-      // TODO: 게스트 전용 API 호출로 교체 (닉네임 + 이메일 기반)
-      const stdtId = `guest-${nickname}`;
-      const examResult = await getStudentExamInfo(claIdOrCode, stdtId);
-      if (!examResult) {
-        throw new Error('진행 중인 검사가 없습니다. 선생님께 문의하세요.');
-      }
+      setDgnssResultId(info.dgnssResultId);
 
-      const { dgnssResultId } = examResult;
-      setDgnssResultId(dgnssResultId);
-
-      const result = await fetchQuestions(dgnssResultId, 0, 20);
+      // 새로하기인 경우 resetExam 호출
+      const result = info.restart
+        ? await resetExam(info.dgnssResultId, 0, 20)
+        : await fetchQuestions(info.dgnssResultId, 0, 20);
 
       const existingAnswers: Record<number, string> = {};
-      result.questions.forEach((q) => {
-        if (q.answer) {
-          existingAnswers[q.NO] = q.answer;
-        }
-      });
+      if (!info.restart) {
+        result.questions.forEach((q) => {
+          if (q.answer) {
+            existingAnswers[q.NO] = q.answer;
+          }
+        });
+      }
 
       loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
       loadExistingAnswers(existingAnswers);
       setStudentNumber(0);
 
-      if (result.answeredCount > 0) {
-        setPendingAnsweredCount(result.answeredCount);
-        setStep('resume-choice');
-      } else {
-        setStep('guide');
+      // 이어하기인 경우 바로 문항 페이지로 이동 (안내 페이지 스킵)
+      if (info.resume) {
+        setStep('questions');
+        return;
       }
+
+      // answeredCount 저장
+      setPendingAnsweredCount(result.answeredCount);
+
+      // 학생 정보 입력 단계로 이동
+      setStep('student-info');
+    } catch (error) {
+      console.error('[ExamPage] 학생 검사 시작 실패:', error);
+      alert('검사를 불러올 수 없습니다. 다시 시도해주세요.');
+      navigate('/student/exams');
     } finally {
       setIsLoading(false);
     }
-  }, [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep]);
+  }, [loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep, navigate]);
 
-  // 기존 게스트 진입 단계용 (auth → guest-entry 흐름에서 사용)
-  const handleGuestSubmit = useCallback(async (nickname: string) => {
-    // 이메일 없이 닉네임만으로 시작 (기존 흐름 유지)
-    await handleGuestStart(nickname, '');
-  }, [handleGuestStart]);
 
-  // 학생 ID 입력 후 dgnssResultId 조회 및 문항 로드
-  const handleStudentIdSubmit = useCallback(async (stdtId: string) => {
-    if (!examInfo) return;
+  // 학생 정보 입력 완료
+  const handleStudentInfoSubmit = useCallback(async (info: StudentInfo) => {
+    if (!state.dgnssResultId) {
+      console.error('[ExamPage] dgnssResultId가 없습니다');
+      return;
+    }
+
+    setStudentInfo(info);
 
     setIsLoading(true);
     try {
-      const claIdOrCode = examInfo.claId || examInfo.examCode;
-      const examResult = await getStudentExamInfo(claIdOrCode, stdtId);
-      if (!examResult) {
-        throw new Error('진행 중인 검사가 없습니다.');
-      }
+      // 학생 정보 저장 (임시로 localStorage, 추후 백엔드 API 연결)
+      await saveStudentInfo(state.dgnssResultId, info);
+      console.log('[ExamPage] 학생 정보 저장 완료:', info);
 
-      const { dgnssResultId } = examResult;
-      setDgnssResultId(dgnssResultId);
-
-      const result = await fetchQuestions(dgnssResultId, 0, 20);
-
-      const existingAnswers: Record<number, string> = {};
-      result.questions.forEach((q) => {
-        if (q.answer) {
-          existingAnswers[q.NO] = q.answer;
-        }
-      });
-
-      loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
-      loadExistingAnswers(existingAnswers);
-
-      const numberMatch = stdtId.match(/s(\d+)$/);
-      const studentNumber = numberMatch ? parseInt(numberMatch[1], 10) : 0;
-      setStudentNumber(studentNumber);
-
-      if (result.answeredCount > 0) {
-        setPendingAnsweredCount(result.answeredCount);
+      // 이미 로드된 answeredCount 확인
+      if (pendingAnsweredCount > 0) {
         setStep('resume-choice');
       } else {
         setStep('guide');
       }
+    } catch (error) {
+      console.error('[ExamPage] 학생 정보 저장 실패:', error);
+      alert('학생 정보 저장에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
     }
-  }, [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep]);
+  }, [state.dgnssResultId, pendingAnsweredCount, setStep]);
 
   // 이어하기
   const handleResume = useCallback(() => {
@@ -377,25 +381,16 @@ export const ExamPage: React.FC = () => {
         <ExamAuthStep
           examName={examInfo.name}
           examCode={code || ''}
-          onGuestStart={() => setStep('guest-entry')}
         />
       );
 
-    case 'guest-entry':
+    case 'student-info':
       return (
-        <GuestExamEntryStep
+        <StudentInfoStep
           examName={examInfo.name}
-          onSubmit={handleGuestSubmit}
-          onBack={() => setStep('auth')}
-          isLoading={isLoading}
-        />
-      );
-
-    case 'number':
-      return (
-        <StudentIdEntryStep
-          examName={examInfo.name}
-          onSubmit={handleStudentIdSubmit}
+          initialData={studentInfo || undefined}
+          onSubmit={handleStudentInfoSubmit}
+          onBack={() => setStep('number')}
           isLoading={isLoading}
         />
       );
@@ -415,7 +410,6 @@ export const ExamPage: React.FC = () => {
     case 'guide':
       return (
         <ExamGuideStep
-          studentNumber={state.studentNumber || 0}
           onStart={handleStartExam}
           onBack={() => setStep('number')}
           isLoading={isLoading}
@@ -444,18 +438,6 @@ export const ExamPage: React.FC = () => {
       );
 
     case 'complete':
-      // 게스트인 경우 GuestCompleteStep 표시
-      if (guestInfo?.isGuest) {
-        return (
-          <GuestCompleteStep
-            email={guestInfo.email}
-            nickname={guestInfo.nickname}
-            onConvertToMember={() => navigate('/signup', { state: { email: guestInfo.email } })}
-            onClose={() => navigate('/')}
-          />
-        );
-      }
-      // 로그인 사용자인 경우 기존 ExamCompleteStep 표시
       return (
         <ExamCompleteStep
           studentNumber={state.studentNumber!}

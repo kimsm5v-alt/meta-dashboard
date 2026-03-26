@@ -50,7 +50,7 @@ export function findActiveExam(exams: StudentExamItem[]): StudentExamItem | null
 
 /**
  * 문항 조회 (페이지네이션)
- * GET /api/dgnss/st/start
+ * POST /api/dgnss/st/start
  */
 export async function fetchQuestions(
   dgnssResultId: number,
@@ -58,7 +58,16 @@ export async function fetchQuestions(
   size: number = 20
 ): Promise<FetchQuestionsResponse> {
   const response = await apiRequest<QuestionsResponseData>(
-    `/api/dgnss/st/start?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`
+    `/api/dgnss/st/start`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        dgnssResultId,
+        paperIdx: 1,
+        page,
+        size,
+      }),
+    }
   );
 
   return {
@@ -179,10 +188,15 @@ export interface ExamCodeData {
 
 /** QR 코드 파싱 */
 export function parseExamCode(code: string): ExamCodeData | null {
-  const trimmed = code.trim();
+  let trimmed = code.trim().toUpperCase();
 
-  // 숫자만 허용 (4자리 이상)
-  if (!/^\d{4,}$/.test(trimmed)) {
+  // META- 접두어 제거
+  if (trimmed.startsWith('META-')) {
+    trimmed = trimmed.replace('META-', '');
+  }
+
+  // 숫자만 허용 (4자리)
+  if (!/^\d{4}$/.test(trimmed)) {
     return null;
   }
 
@@ -229,3 +243,4 @@ export async function getStudentExamInfo(
     ordNo: activeExam.ordNo,
   };
 }
+
