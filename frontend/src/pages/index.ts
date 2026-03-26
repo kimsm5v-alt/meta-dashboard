@@ -1,2 +1,47 @@
-export { TeacherDashboardPage } from './dashboard/TeacherDashboardPage';
+// Landing
+export { LandingPage } from './landing/LandingPage';
+
+// Auth
 export { LoginPage } from './auth/LoginPage';
+export { SignUpPage } from './auth/SignUpPage';
+export { ForgotPasswordPage } from './auth/ForgotPasswordPage';
+
+// Teacher Dashboard
+export { TeacherDashboardPage } from './teacher-dashboard/TeacherDashboardPage';
+
+// Class Dashboard
+export { ClassDashboardPage } from './class-dashboard/ClassDashboardPage';
+export { ClassDetailAnalysisPage } from './class-dashboard/ClassDetailAnalysisPage';
+
+// Student Dashboard
+export { StudentDashboardPage } from './student-dashboard/StudentDashboardPage';
+
+// AI Room
+export { AIRoomPage } from './ai-room/AIRoomPage';
+
+// Assessment
+export { AssessmentPage } from './assessment/AssessmentPage';
+
+// Exam
+export { ExamCodeEntryPage } from './exam/ExamCodeEntryPage';
+export { ExamPage } from './exam/ExamPage';
+
+// Schedule
+export { SchedulePage } from './schedule/SchedulePage';
+
+// Groups
+export { GroupListPage } from './groups/GroupListPage';
+export { GroupDetailPage } from './groups/GroupDetailPage';
+export { JoinGroupPage } from './groups/JoinGroupPage';
+
+// Counseling Dashboard
+export { CounselingDashboardPage } from './counseling-dashboard/CounselingDashboardPage';
+
+// Resources
+export { ResourceListPage } from './resources/ResourceListPage';
+export { ResourceDetailPage } from './resources/ResourceDetailPage';
+
+// Community
+export { CommunityListPage } from './community/CommunityListPage';
+export { CommunityDetailPage } from './community/CommunityDetailPage';
+export { CommunityWritePage } from './community/CommunityWritePage';

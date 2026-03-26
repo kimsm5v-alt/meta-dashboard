@@ -5,3 +5,4 @@ export { FormField } from './FormField';
 export { Badge } from './Badge';
 export { Skeleton } from './Skeleton';
 export { PageTitle } from './PageTitle';
+export { TypeBadge } from './TypeBadge';

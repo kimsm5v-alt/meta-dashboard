@@ -1,38 +1,92 @@
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
+import axios from 'axios';
+import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 
-class ApiError extends Error {
+// ============================================================
+// 공통 응답 타입
+// ============================================================
+
+/** 백엔드 공통 응답 구조 */
+export interface APIResponse<T> {
+  success: boolean;
+  resultCode: number;
+  resultMessage: string;
+  resultData: T;
+  paramData?: Record<string, string>;
+  currentTime?: string;
+}
+
+// ============================================================
+// 에러 클래스
+// ============================================================
+
+export class ApiError extends Error {
   statusCode: number;
-  constructor(statusCode: number, message: string) {
+  resultCode?: number;
+  errorDetail?: { name?: string; code?: string };
+  constructor(statusCode: number, message: string, resultCode?: number) {
     super(message);
     this.name = 'ApiError';
     this.statusCode = statusCode;
+    this.resultCode = resultCode;
+  }
+  isDuplicateKeyError(): boolean {
+    return (
+      this.errorDetail?.name === 'DuplicateKeyException' || this.errorDetail?.code === 'E001'
+    );
   }
 }
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+// ============================================================
+// Axios 인스턴스
+// ============================================================
+
+export const axiosInstance: AxiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8081',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000,
+});
+
+// 요청 인터셉터 — JWT 자동 주입
+axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('auth_token');
-
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    throw new ApiError(response.status, `API Error: ${response.status}`);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
+  return config;
+});
 
-  return response.json() as Promise<T>;
-}
+// 응답 인터셉터 — 에러 정규화
+axiosInstance.interceptors.response.use(
+  (response: AxiosResponse) => {
+    // HTTP 200이지만 success: false인 경우
+    const data = response.data as APIResponse<unknown>;
+    if (data && data.success === false) {
+      const message = data.resultMessage ?? 'API Error';
+      return Promise.reject(new ApiError(response.status, message, data.resultCode));
+    }
+    return response;
+  },
+  (error) => {
+    const status = error.response?.status ?? 0;
+    const message = error.response?.data?.resultMessage ?? error.message ?? 'API Error';
+    const resultCode = error.response?.data?.resultCode;
+    return Promise.reject(new ApiError(status, message, resultCode));
+  },
+);
+
+// ============================================================
+// API 클라이언트
+// ============================================================
 
 export const apiClient = {
-  get: <T>(endpoint: string) => request<T>(endpoint),
-  post: <T>(endpoint: string, body: unknown) =>
-    request<T>(endpoint, { method: 'POST', body: JSON.stringify(body) }),
-  put: <T>(endpoint: string, body: unknown) =>
-    request<T>(endpoint, { method: 'PUT', body: JSON.stringify(body) }),
-  delete: <T>(endpoint: string) => request<T>(endpoint, { method: 'DELETE' }),
+  get: <T>(endpoint: string) =>
+    axiosInstance.get<APIResponse<T>>(endpoint).then((res) => res.data),
+  post: <T>(endpoint: string, body?: unknown) =>
+    axiosInstance.post<APIResponse<T>>(endpoint, body).then((res) => res.data),
+  put: <T>(endpoint: string, body?: unknown) =>
+    axiosInstance.put<APIResponse<T>>(endpoint, body).then((res) => res.data),
+  delete: <T>(endpoint: string) =>
+    axiosInstance.delete<APIResponse<T>>(endpoint).then((res) => res.data),
 };

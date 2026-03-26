@@ -1,0 +1,1318 @@
+{
+  "description": "학습종합검사 124문항 → 요인 매핑",
+  "totalItems": 124,
+  "items": [
+    {
+      "questionNumber": 60,
+      "questionKey": "Q60",
+      "depth1": "자아 강점",
+      "depth2": "긍정적 자아",
+      "depth3": "자아존중감",
+      "direction": "정적요인",
+      "questionText": "나에게는 좋은 점이 많다."
+    },
+    {
+      "questionNumber": 92,
+      "questionKey": "Q92",
+      "depth1": "자아 강점",
+      "depth2": "긍정적 자아",
+      "depth3": "자아존중감",
+      "direction": "정적요인",
+      "questionText": "나는 가치 있는 사람이다."
+    },
+    {
+      "questionNumber": 108,
+      "questionKey": "Q108",
+      "depth1": "자아 강점",
+      "depth2": "긍정적 자아",
+      "depth3": "자아존중감",
+      "direction": "정적요인",
+      "questionText": "나는 나 자신에 대해 대체로 만족한다."
+    },
+    {
+      "questionNumber": 23,
+      "questionKey": "Q23",
+      "depth1": "자아 강점",
+      "depth2": "긍정적 자아",
+      "depth3": "자기효능감",
+      "direction": "정적요인",
+      "questionText": "나는 나의 능력을 믿는다."
+    },
+    {
+      "questionNumber": 58,
+      "questionKey": "Q58",
+      "depth1": "자아 강점",
+      "depth2": "긍정적 자아",
+      "depth3": "자기효능감",
+      "direction": "정적요인",
+      "questionText": "나는 잘할 수 있는 일들이 많다."
+    },
+    {
+      "questionNumber": 100,
+      "questionKey": "Q100",
+      "depth1": "자아 강점",
+      "depth2": "긍정적 자아",
+      "depth3": "자기효능감",
+      "direction": "정적요인",
+      "questionText": "나는 어려운 상황을 극복할 수 있는 능력이 있다."
+    },
+    {
+      "questionNumber": 50,
+      "questionKey": "Q50",
+      "depth1": "자아 강점",
+      "depth2": "긍정적 자아",
+      "depth3": "성장마인드셋",
+      "direction": "정적요인",
+      "questionText": "열심히 노력하면 내 능력이 향상될 수 있다."
+    },
+    {
+      "questionNumber": 84,
+      "questionKey": "Q84",
+      "depth1": "자아 강점",
+      "depth2": "긍정적 자아",
+      "depth3": "성장마인드셋",
+      "direction": "정적요인",
+      "questionText": "나의 지능은 노력에 의해 변할 수 있다."
+    },
+    {
+      "questionNumber": 87,
+      "questionKey": "Q87",
+      "depth1": "자아 강점",
+      "depth2": "긍정적 자아",
+      "depth3": "성장마인드셋",
+      "direction": "정적요인",
+      "questionText": "나의 재능은 향상될 수 있다."
+    },
+    {
+      "questionNumber": 67,
+      "questionKey": "Q67",
+      "depth1": "자아 강점",
+      "depth2": "대인관계 능력",
+      "depth3": "자기정서인식",
+      "direction": "정적요인",
+      "questionText": "나는 내 감정 상태가 어떤지 잘 아는 편이다."
+    },
+    {
+      "questionNumber": 94,
+      "questionKey": "Q94",
+      "depth1": "자아 강점",
+      "depth2": "대인관계 능력",
+      "depth3": "자기정서인식",
+      "direction": "정적요인",
+      "questionText": "내가 어떤 감정을 느끼면, 왜 그런 감정을 느끼는지 잘 안다."
+    },
+    {
+      "questionNumber": 119,
+      "questionKey": "Q119",
+      "depth1": "자아 강점",
+      "depth2": "대인관계 능력",
+      "depth3": "자기정서인식",
+      "direction": "정적요인",
+      "questionText": "나는 내가 행복한지 그렇지 않은지 알 수 있다."
+    },
+    {
+      "questionNumber": 47,
+      "questionKey": "Q47",
+      "depth1": "자아 강점",
+      "depth2": "대인관계 능력",
+      "depth3": "자기정서조절",
+      "direction": "정적요인",
+      "questionText": "나는 감정에 휩쓸리지 않고 공부에 집중할 수 있다."
+    },
+    {
+      "questionNumber": 66,
+      "questionKey": "Q66",
+      "depth1": "자아 강점",
+      "depth2": "대인관계 능력",
+      "depth3": "자기정서조절",
+      "direction": "정적요인",
+      "questionText": "나는 내 감정을 잘 조절할 수 있다."
+    },
+    {
+      "questionNumber": 103,
+      "questionKey": "Q103",
+      "depth1": "자아 강점",
+      "depth2": "대인관계 능력",
+      "depth3": "자기정서조절",
+      "direction": "정적요인",
+      "questionText": "나는 화가 나거나 기분이 나쁠 때에도 참을 수 있다."
+    },
+    {
+      "questionNumber": 14,
+      "questionKey": "Q14",
+      "depth1": "자아 강점",
+      "depth2": "대인관계 능력",
+      "depth3": "타인정서인식",
+      "direction": "정적요인",
+      "questionText": "친구가 기분이 좋지 않으면 왜 그런 감정을 느끼는지 잘 안다."
+    },
+    {
+      "questionNumber": 32,
+      "questionKey": "Q32",
+      "depth1": "자아 강점",
+      "depth2": "대인관계 능력",
+      "depth3": "타인정서인식",
+      "direction": "정적요인",
+      "questionText": "나는 친구들의 감정 상태가 어떤지 잘 아는 편이다."
+    },
+    {
+      "questionNumber": 38,
+      "questionKey": "Q38",
+      "depth1": "자아 강점",
+      "depth2": "대인관계 능력",
+      "depth3": "타인공감능력",
+      "direction": "정적요인",
+      "questionText": "주변 사람들이 마음 아파하면 나도 마음이 아프다."
+    },
+    {
+      "questionNumber": 15,
+      "questionKey": "Q15",
+      "depth1": "자아 강점",
+      "depth2": "대인관계 능력",
+      "depth3": "타인공감능력",
+      "direction": "정적요인",
+      "questionText": "나는 다른 사람들이 겪은 일들에 대해 잘 들어주려고 노력한다."
+    },
+    {
+      "questionNumber": 118,
+      "questionKey": "Q118",
+      "depth1": "자아 강점",
+      "depth2": "대인관계 능력",
+      "depth3": "타인공감능력",
+      "direction": "정적요인",
+      "questionText": "나는 다른 사람들의 마음을 잘 이해하는 편이다."
+    },
+    {
+      "questionNumber": 35,
+      "questionKey": "Q35",
+      "depth1": "학습 디딤돌",
+      "depth2": "메타인지",
+      "depth3": "계획능력",
+      "direction": "정적요인",
+      "questionText": "나는 내가 잘할 수 있는 것을 고려해서 계획을 세운다."
+    },
+    {
+      "questionNumber": 83,
+      "questionKey": "Q83",
+      "depth1": "학습 디딤돌",
+      "depth2": "메타인지",
+      "depth3": "계획능력",
+      "direction": "정적요인",
+      "questionText": "나는 무엇부터 공부할지 순서를 정한 후에 시작한다."
+    },
+    {
+      "questionNumber": 101,
+      "questionKey": "Q101",
+      "depth1": "학습 디딤돌",
+      "depth2": "메타인지",
+      "depth3": "계획능력",
+      "direction": "정적요인",
+      "questionText": "나는 나만의 공부 목표를 미리 세운다."
+    },
+    {
+      "questionNumber": 30,
+      "questionKey": "Q30",
+      "depth1": "학습 디딤돌",
+      "depth2": "메타인지",
+      "depth3": "점검능력",
+      "direction": "정적요인",
+      "questionText": "나는 공부를 끝낸 후 내 공부 방법이 적절했는지 확인하고 다음에 더 잘할 수 있는 방법을 생각해본다."
+    },
+    {
+      "questionNumber": 85,
+      "questionKey": "Q85",
+      "depth1": "학습 디딤돌",
+      "depth2": "메타인지",
+      "depth3": "점검능력",
+      "direction": "정적요인",
+      "questionText": "나는 공부하면서 어려움이 생기면, 문제점이 무엇인지 파악하려고 한다."
+    },
+    {
+      "questionNumber": 111,
+      "questionKey": "Q111",
+      "depth1": "학습 디딤돌",
+      "depth2": "메타인지",
+      "depth3": "점검능력",
+      "direction": "정적요인",
+      "questionText": "나는 공부하면서 내가 세운 공부 목표를 잘 달성했는지 스스로 확인해본다."
+    },
+    {
+      "questionNumber": 1,
+      "questionKey": "Q1",
+      "depth1": "학습 디딤돌",
+      "depth2": "메타인지",
+      "depth3": "조절능력",
+      "direction": "정적요인",
+      "questionText": "나는 배우는 내용에 따라 적절한 학습 방법을 선택한다."
+    },
+    {
+      "questionNumber": 21,
+      "questionKey": "Q21",
+      "depth1": "학습 디딤돌",
+      "depth2": "메타인지",
+      "depth3": "조절능력",
+      "direction": "정적요인",
+      "questionText": "나는 현재 진행상황을 보고 공부 목표와 계획을 다시 조정한다."
+    },
+    {
+      "questionNumber": 110,
+      "questionKey": "Q110",
+      "depth1": "학습 디딤돌",
+      "depth2": "메타인지",
+      "depth3": "조절능력",
+      "direction": "정적요인",
+      "questionText": "나는 공부 습관 중 나쁜 습관을 스스로 바꾸려고 노력한다."
+    },
+    {
+      "questionNumber": 3,
+      "questionKey": "Q3",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "공부환경",
+      "direction": "정적요인",
+      "questionText": "나는 공부하기 전에 쾌적한 환경에서 공부하기 위해 내 주변을 정돈한다."
+    },
+    {
+      "questionNumber": 8,
+      "questionKey": "Q8",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "공부환경",
+      "direction": "정적요인",
+      "questionText": "나는 공부에 필요한 것들을 잘 찾을 수 있도록 정리해두는 편이다."
+    },
+    {
+      "questionNumber": 61,
+      "questionKey": "Q61",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "공부환경",
+      "direction": "정적요인",
+      "questionText": "나는 공부에 집중할 수 있는 주변 환경을 만들어둔다."
+    },
+    {
+      "questionNumber": 33,
+      "questionKey": "Q33",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "시간관리",
+      "direction": "정적요인",
+      "questionText": "나는 매일 공부 시간을 일정하게 정해둔다."
+    },
+    {
+      "questionNumber": 45,
+      "questionKey": "Q45",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "시간관리",
+      "direction": "정적요인",
+      "questionText": "나는 시간 계획에 따라 규칙적으로 공부한다."
+    },
+    {
+      "questionNumber": 113,
+      "questionKey": "Q113",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "시간관리",
+      "direction": "정적요인",
+      "questionText": "나는 효율적으로 공부하기 위해 시간 계획을 세워서 공부한다."
+    },
+    {
+      "questionNumber": 41,
+      "questionKey": "Q41",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "수업태도",
+      "direction": "정적요인",
+      "questionText": "나는 이미 아는 내용이라도 수업 시간에 집중해서 듣는다."
+    },
+    {
+      "questionNumber": 76,
+      "questionKey": "Q76",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "수업태도",
+      "direction": "정적요인",
+      "questionText": "나는 수업에 필요한 물건을 빠뜨리지 않고 미리 챙긴다."
+    },
+    {
+      "questionNumber": 88,
+      "questionKey": "Q88",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "수업태도",
+      "direction": "정적요인",
+      "questionText": "나는 수업 시간에 선생님 말씀에 집중한다."
+    },
+    {
+      "questionNumber": 22,
+      "questionKey": "Q22",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "노트하기",
+      "direction": "정적요인",
+      "questionText": "나는 필기할 때, 그대로 받아 적기보다는 요점이나 이해한 내용 위주로 적는다."
+    },
+    {
+      "questionNumber": 70,
+      "questionKey": "Q70",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "노트하기",
+      "direction": "정적요인",
+      "questionText": "나는 시험 공부를 할 때, 필기 노트를 적극적으로 활용한다."
+    },
+    {
+      "questionNumber": 86,
+      "questionKey": "Q86",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "노트하기",
+      "direction": "정적요인",
+      "questionText": "내 노트는 무엇이 중요한지 알아보기 쉽게 정리되어 있다."
+    },
+    {
+      "questionNumber": 36,
+      "questionKey": "Q36",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "시험준비",
+      "direction": "정적요인",
+      "questionText": "나는 수업 시간에 선생님이 중요하다고 강조하는 것을 꼭 적어둔다."
+    },
+    {
+      "questionNumber": 51,
+      "questionKey": "Q51",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "시험준비",
+      "direction": "정적요인",
+      "questionText": "나는 지시문을 주의 깊게 읽으면서 시험 문제를 정확하게 이해한다."
+    },
+    {
+      "questionNumber": 98,
+      "questionKey": "Q98",
+      "depth1": "학습 디딤돌",
+      "depth2": "학습기술",
+      "depth3": "시험준비",
+      "direction": "정적요인",
+      "questionText": "나는 시험 공부를 하다가 시간이 부족하면 중요한 내용 중심으로 공부한다."
+    },
+    {
+      "questionNumber": 2,
+      "questionKey": "Q2",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "부모 의사소통",
+      "direction": "정적요인",
+      "questionText": "나는 중요한 문제를 부모님(보호자)과 의논한다."
+    },
+    {
+      "questionNumber": 54,
+      "questionKey": "Q54",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "부모 의사소통",
+      "direction": "정적요인",
+      "questionText": "나는 부모님(보호자)과 학교생활에 대해 자주 이야기한다."
+    },
+    {
+      "questionNumber": 90,
+      "questionKey": "Q90",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "부모 의사소통",
+      "direction": "정적요인",
+      "questionText": "나는 부모님(보호자)과 친구들과 잘 지내는지 이야기한다."
+    },
+    {
+      "questionNumber": 81,
+      "questionKey": "Q81",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "부모 학업지지",
+      "direction": "정적요인",
+      "questionText": "부모님(보호자)은 내가 공부하면서 얼마나 애쓰는지 알아주신다."
+    },
+    {
+      "questionNumber": 115,
+      "questionKey": "Q115",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "부모 학업지지",
+      "direction": "정적요인",
+      "questionText": "부모님(보호자)은 공부에 대한 내 생각을 존중해주신다."
+    },
+    {
+      "questionNumber": 116,
+      "questionKey": "Q116",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "부모 학업지지",
+      "direction": "정적요인",
+      "questionText": "부모님(보호자)은 내가 하고 싶은 공부를 할 수 있게 해주신다."
+    },
+    {
+      "questionNumber": 26,
+      "questionKey": "Q26",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "친구 정서지지",
+      "direction": "정적요인",
+      "questionText": "친구들은 내 의견을 잘 들어주고 존중해준다."
+    },
+    {
+      "questionNumber": 48,
+      "questionKey": "Q48",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "친구 정서지지",
+      "direction": "정적요인",
+      "questionText": "친구들은 나의 일에 관심을 갖고 걱정해준다."
+    },
+    {
+      "questionNumber": 104,
+      "questionKey": "Q104",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "친구 정서지지",
+      "direction": "정적요인",
+      "questionText": "친구들은 내가 기분이 안 좋으면 나를 이해하고 기분을 풀어주려고 한다."
+    },
+    {
+      "questionNumber": 69,
+      "questionKey": "Q69",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "교사 정서지지",
+      "direction": "정적요인",
+      "questionText": "선생님은 내가 어려움에 처했을 때 격려하고 용기를 주신다."
+    },
+    {
+      "questionNumber": 75,
+      "questionKey": "Q75",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "교사 정서지지",
+      "direction": "정적요인",
+      "questionText": "선생님은 내 의견을 잘 들어주고 존중해 주신다."
+    },
+    {
+      "questionNumber": 79,
+      "questionKey": "Q79",
+      "depth1": "학습 디딤돌",
+      "depth2": "지지적 관계",
+      "depth3": "교사 정서지지",
+      "direction": "정적요인",
+      "questionText": "선생님은 내가 고민을 이야기하면 잘 들어주신다."
+    },
+    {
+      "questionNumber": 6,
+      "questionKey": "Q6",
+      "depth1": "긍정적  공부마음",
+      "depth2": "학업열의",
+      "depth3": "활기",
+      "direction": "정적요인",
+      "questionText": "나는 공부할 때 에너지가 생긴다."
+    },
+    {
+      "questionNumber": 10,
+      "questionKey": "Q10",
+      "depth1": "긍정적  공부마음",
+      "depth2": "학업열의",
+      "depth3": "활기",
+      "direction": "정적요인",
+      "questionText": "나는 공부할 때 재미있고 활기가 생긴다."
+    },
+    {
+      "questionNumber": 63,
+      "questionKey": "Q63",
+      "depth1": "긍정적  공부마음",
+      "depth2": "학업열의",
+      "depth3": "활기",
+      "direction": "정적요인",
+      "questionText": "나는 새로운 내용을 배우는 것이 즐겁다."
+    },
+    {
+      "questionNumber": 11,
+      "questionKey": "Q11",
+      "depth1": "긍정적  공부마음",
+      "depth2": "학업열의",
+      "depth3": "몰두",
+      "direction": "정적요인",
+      "questionText": "나는 수업시간에 집중하는 편이다."
+    },
+    {
+      "questionNumber": 18,
+      "questionKey": "Q18",
+      "depth1": "긍정적  공부마음",
+      "depth2": "학업열의",
+      "depth3": "몰두",
+      "direction": "정적요인",
+      "questionText": "나는 공부를 시작하면 바로 집중하는 편이다."
+    },
+    {
+      "questionNumber": 39,
+      "questionKey": "Q39",
+      "depth1": "긍정적  공부마음",
+      "depth2": "학업열의",
+      "depth3": "몰두",
+      "direction": "정적요인",
+      "questionText": "나는 장소에 상관없이 공부에 집중할 수 있다."
+    },
+    {
+      "questionNumber": 29,
+      "questionKey": "Q29",
+      "depth1": "긍정적  공부마음",
+      "depth2": "학업열의",
+      "depth3": "의미감",
+      "direction": "정적요인",
+      "questionText": "나는 공부의 의미와 목적을 잘 알고 있다."
+    },
+    {
+      "questionNumber": 37,
+      "questionKey": "Q37",
+      "depth1": "긍정적  공부마음",
+      "depth2": "학업열의",
+      "depth3": "의미감",
+      "direction": "정적요인",
+      "questionText": "나는 공부를 하고 나면 보람이 느껴진다."
+    },
+    {
+      "questionNumber": 89,
+      "questionKey": "Q89",
+      "depth1": "긍정적  공부마음",
+      "depth2": "학업열의",
+      "depth3": "의미감",
+      "direction": "정적요인",
+      "questionText": "나는 공부가 도전해볼 만한 것이라고 생각한다."
+    },
+    {
+      "questionNumber": 13,
+      "questionKey": "Q13",
+      "depth1": "긍정적  공부마음",
+      "depth2": "성장력",
+      "depth3": "자율성",
+      "direction": "정적요인",
+      "questionText": "나는 무엇을 결정할 때 다른 사람의 간섭없이 원하는 대로 결정할 수 있다."
+    },
+    {
+      "questionNumber": 52,
+      "questionKey": "Q52",
+      "depth1": "긍정적  공부마음",
+      "depth2": "성장력",
+      "depth3": "자율성",
+      "direction": "정적요인",
+      "questionText": "나는 내 생각과 의견을 자유롭게 표현할 수 있다."
+    },
+    {
+      "questionNumber": 107,
+      "questionKey": "Q107",
+      "depth1": "긍정적  공부마음",
+      "depth2": "성장력",
+      "depth3": "자율성",
+      "direction": "정적요인",
+      "questionText": "나는 내가 어떻게 생활할지 스스로 결정할 수 있다."
+    },
+    {
+      "questionNumber": 5,
+      "questionKey": "Q5",
+      "depth1": "긍정적  공부마음",
+      "depth2": "성장력",
+      "depth3": "유능성",
+      "direction": "정적요인",
+      "questionText": "나는 잘하는 것이 많다고 생각한다."
+    },
+    {
+      "questionNumber": 25,
+      "questionKey": "Q25",
+      "depth1": "긍정적  공부마음",
+      "depth2": "성장력",
+      "depth3": "유능성",
+      "direction": "정적요인",
+      "questionText": "나는 내게 주어진 일을 잘 해낼 것이라는 자신감이 있다."
+    },
+    {
+      "questionNumber": 31,
+      "questionKey": "Q31",
+      "depth1": "긍정적  공부마음",
+      "depth2": "성장력",
+      "depth3": "유능성",
+      "direction": "정적요인",
+      "questionText": "나는 내가 하는 일들을 통해 성취감을 느낀다."
+    },
+    {
+      "questionNumber": 44,
+      "questionKey": "Q44",
+      "depth1": "긍정적  공부마음",
+      "depth2": "성장력",
+      "depth3": "관계성",
+      "direction": "정적요인",
+      "questionText": "주변 사람들은 나를 따뜻하게 대해준다."
+    },
+    {
+      "questionNumber": 53,
+      "questionKey": "Q53",
+      "depth1": "긍정적  공부마음",
+      "depth2": "성장력",
+      "depth3": "관계성",
+      "direction": "정적요인",
+      "questionText": "나는 친구들과 서로 도움을 잘 주고받는다."
+    },
+    {
+      "questionNumber": 55,
+      "questionKey": "Q55",
+      "depth1": "긍정적  공부마음",
+      "depth2": "성장력",
+      "depth3": "관계성",
+      "direction": "정적요인",
+      "questionText": "나는 내가 만나는 사람들과 잘 지낸다."
+    },
+    {
+      "questionNumber": 34,
+      "questionKey": "Q34",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업스트레스",
+      "depth3": "성적부담",
+      "direction": "부적요인",
+      "questionText": "나는 열심히 공부를 해도 성적이 오르지 않아서 힘들다."
+    },
+    {
+      "questionNumber": 68,
+      "questionKey": "Q68",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업스트레스",
+      "depth3": "성적부담",
+      "direction": "부적요인",
+      "questionText": "나는 성적이 떨어질 것 같아 불안하다."
+    },
+    {
+      "questionNumber": 77,
+      "questionKey": "Q77",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업스트레스",
+      "depth3": "성적부담",
+      "direction": "부적요인",
+      "questionText": "내가 생각하는 목표는 높은데 내 성적이 너무 낮아서 우울하다."
+    },
+    {
+      "questionNumber": 49,
+      "questionKey": "Q49",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업스트레스",
+      "depth3": "공부부담",
+      "direction": "부적요인",
+      "questionText": "나는 효과적인 공부 방법을 잘 몰라서 힘들다."
+    },
+    {
+      "questionNumber": 96,
+      "questionKey": "Q96",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업스트레스",
+      "depth3": "공부부담",
+      "direction": "부적요인",
+      "questionText": "나는 공부가 점점 어려워져서 힘들다."
+    },
+    {
+      "questionNumber": 97,
+      "questionKey": "Q97",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업스트레스",
+      "depth3": "공부부담",
+      "direction": "부적요인",
+      "questionText": "나는 공부를 해야 할 필요성을 못 느껴서 답답하다."
+    },
+    {
+      "questionNumber": 65,
+      "questionKey": "Q65",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업스트레스",
+      "depth3": "수업부담",
+      "direction": "부적요인",
+      "questionText": "나는 수업 시간이 재미없고 지루하다."
+    },
+    {
+      "questionNumber": 74,
+      "questionKey": "Q74",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업스트레스",
+      "depth3": "수업부담",
+      "direction": "부적요인",
+      "questionText": "나는 수업 시간이 되면 가슴이 답답하다."
+    },
+    {
+      "questionNumber": 93,
+      "questionKey": "Q93",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업스트레스",
+      "depth3": "수업부담",
+      "direction": "부적요인",
+      "questionText": "나는 수업 내용을 제대로 이해하기 어려워서 힘들다."
+    },
+    {
+      "questionNumber": 57,
+      "questionKey": "Q57",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "부모 성적압력",
+      "direction": "부적요인",
+      "questionText": "나는 부모님(보호자)이 내 성적에 큰 기대를 해서 부담스럽다."
+    },
+    {
+      "questionNumber": 99,
+      "questionKey": "Q99",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "부모 성적압력",
+      "direction": "부적요인",
+      "questionText": "나는 시험 결과가 나쁘면, 부모님(보호자)께 꾸중을 들을까봐 걱정된다."
+    },
+    {
+      "questionNumber": 106,
+      "questionKey": "Q106",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "부모 성적압력",
+      "direction": "부적요인",
+      "questionText": "나는 성적 때문에 부모님(보호자)께 혼날까봐 두렵다."
+    },
+    {
+      "questionNumber": 17,
+      "questionKey": "Q17",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "부모 공부부담",
+      "direction": "부적요인",
+      "questionText": "나는 부모님(보호자)이 공부를 많이 하는 다른 사람과 비교해서 우울하다."
+    },
+    {
+      "questionNumber": 59,
+      "questionKey": "Q59",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "부모 공부부담",
+      "direction": "부적요인",
+      "questionText": "나는 부모님(보호자)이 공부를 열심히 하라고 해서 짜증난다."
+    },
+    {
+      "questionNumber": 64,
+      "questionKey": "Q64",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "부모 공부부담",
+      "direction": "부적요인",
+      "questionText": "나는 '공부해'라고 하는 부모님(보호자)의 모습이 자꾸 떠올라서 스트레스 받는다."
+    },
+    {
+      "questionNumber": 9,
+      "questionKey": "Q9",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "친구 공부비교",
+      "direction": "부적요인",
+      "questionText": "나는 친구와의 성적 경쟁에서 뒤처질까봐 불안하다."
+    },
+    {
+      "questionNumber": 73,
+      "questionKey": "Q73",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "친구 공부비교",
+      "direction": "부적요인",
+      "questionText": "나는 친구보다 공부를 잘하지 못하는 내 자신이 미울 때가 있다."
+    },
+    {
+      "questionNumber": 80,
+      "questionKey": "Q80",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "친구 공부비교",
+      "direction": "부적요인",
+      "questionText": "나는 나보다 공부를 잘하는 친구를 보면 속상하다."
+    },
+    {
+      "questionNumber": 4,
+      "questionKey": "Q4",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "교사 성적압력",
+      "direction": "부적요인",
+      "questionText": "나는 성적 때문에 선생님께 꾸중을 들을 것 같아서 불안하다."
+    },
+    {
+      "questionNumber": 28,
+      "questionKey": "Q28",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "교사 성적압력",
+      "direction": "부적요인",
+      "questionText": "나는 선생님이 나와 다른 친구의 성적을 비교해서 우울하다."
+    },
+    {
+      "questionNumber": 71,
+      "questionKey": "Q71",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "교사 성적압력",
+      "direction": "부적요인",
+      "questionText": "나는 선생님의 기대만큼 성적이 오르지 않아서 고민이다."
+    },
+    {
+      "questionNumber": 46,
+      "questionKey": "Q46",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "교사 수업부담",
+      "direction": "부적요인",
+      "questionText": "나는 선생님의 설명을 이해하지 못해서 답답하다."
+    },
+    {
+      "questionNumber": 56,
+      "questionKey": "Q56",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "교사 수업부담",
+      "direction": "부적요인",
+      "questionText": "나는 선생님이 질문하면 틀리게 답할까봐 불안하다."
+    },
+    {
+      "questionNumber": 72,
+      "questionKey": "Q72",
+      "depth1": "학습 걸림돌",
+      "depth2": "학업관계 스트레스",
+      "depth3": "교사 수업부담",
+      "direction": "부적요인",
+      "questionText": "나는 선생님이 모르는 문제를 질문할까봐 걱정된다."
+    },
+    {
+      "questionNumber": 27,
+      "questionKey": "Q27",
+      "depth1": "학습 걸림돌",
+      "depth2": "학습방해물",
+      "depth3": "스마트폰 의존",
+      "direction": "부적요인",
+      "questionText": "나는 스마트폰 이용시간을 줄이려고 노력하지만 잘 안된다."
+    },
+    {
+      "questionNumber": 40,
+      "questionKey": "Q40",
+      "depth1": "학습 걸림돌",
+      "depth2": "학습방해물",
+      "depth3": "스마트폰 의존",
+      "direction": "부적요인",
+      "questionText": "나는 적절한 스마트폰 이용시간을 지키는 것이 어렵다."
+    },
+    {
+      "questionNumber": 78,
+      "questionKey": "Q78",
+      "depth1": "학습 걸림돌",
+      "depth2": "학습방해물",
+      "depth3": "스마트폰 의존",
+      "direction": "부적요인",
+      "questionText": "나는 스마트폰을 이용하고 싶은 충동을 강하게 느낀다."
+    },
+    {
+      "questionNumber": 24,
+      "questionKey": "Q24",
+      "depth1": "학습 걸림돌",
+      "depth2": "학습방해물",
+      "depth3": "게임 과몰입",
+      "direction": "부적요인",
+      "questionText": "나는 인터넷 게임을 하느라 충분히 잠을 자지 못한다."
+    },
+    {
+      "questionNumber": 91,
+      "questionKey": "Q91",
+      "depth1": "학습 걸림돌",
+      "depth2": "학습방해물",
+      "depth3": "게임 과몰입",
+      "direction": "부적요인",
+      "questionText": "나는 인터넷 게임을 하지 않으면 안절부절못한다."
+    },
+    {
+      "questionNumber": 102,
+      "questionKey": "Q102",
+      "depth1": "학습 걸림돌",
+      "depth2": "학습방해물",
+      "depth3": "게임 과몰입",
+      "direction": "부적요인",
+      "questionText": "나는 인터넷 게임 시간을 줄이려고 노력하지만 잘 안된다."
+    },
+    {
+      "questionNumber": 19,
+      "questionKey": "Q19",
+      "depth1": "부정적 공부마음",
+      "depth2": "학업소진",
+      "depth3": "고갈",
+      "direction": "부적요인",
+      "questionText": "나는 공부에 대한 부담 때문에 완전히 지쳐 있다."
+    },
+    {
+      "questionNumber": 42,
+      "questionKey": "Q42",
+      "depth1": "부정적 공부마음",
+      "depth2": "학업소진",
+      "depth3": "고갈",
+      "direction": "부적요인",
+      "questionText": "나는 수업(학교, 학원)이 다 끝나고 나면 피곤하다."
+    },
+    {
+      "questionNumber": 112,
+      "questionKey": "Q112",
+      "depth1": "부정적 공부마음",
+      "depth2": "학업소진",
+      "depth3": "고갈",
+      "direction": "부적요인",
+      "questionText": "나는 아침에 일어나 학교에 가서 공부해야 한다고 생각하면 힘들다."
+    },
+    {
+      "questionNumber": 12,
+      "questionKey": "Q12",
+      "depth1": "부정적 공부마음",
+      "depth2": "학업소진",
+      "depth3": "무능감",
+      "direction": "부적요인",
+      "questionText": "나는 공부한 만큼 성적이 오르지 않아서 절망감을 느낀다."
+    },
+    {
+      "questionNumber": 16,
+      "questionKey": "Q16",
+      "depth1": "부정적 공부마음",
+      "depth2": "학업소진",
+      "depth3": "무능감",
+      "direction": "부적요인",
+      "questionText": "나는 공부를 아무리 열심히 해도 성적이 안 나온다."
+    },
+    {
+      "questionNumber": 117,
+      "questionKey": "Q117",
+      "depth1": "부정적 공부마음",
+      "depth2": "학업소진",
+      "depth3": "무능감",
+      "direction": "부적요인",
+      "questionText": "나는 공부를 이 정도밖에 못하나 하고 괴롭다."
+    },
+    {
+      "questionNumber": 7,
+      "questionKey": "Q7",
+      "depth1": "부정적 공부마음",
+      "depth2": "학업소진",
+      "depth3": "반감-냉소",
+      "direction": "부적요인",
+      "questionText": "나는 공부하기 싫다."
+    },
+    {
+      "questionNumber": 62,
+      "questionKey": "Q62",
+      "depth1": "부정적 공부마음",
+      "depth2": "학업소진",
+      "depth3": "반감-냉소",
+      "direction": "부적요인",
+      "questionText": "나는 공부 때문에 짜증이 난다."
+    },
+    {
+      "questionNumber": 95,
+      "questionKey": "Q95",
+      "depth1": "부정적 공부마음",
+      "depth2": "학업소진",
+      "depth3": "반감-냉소",
+      "direction": "부적요인",
+      "questionText": "나는 갈수록 공부에 대한 흥미가 줄어드는 것 같다."
+    },
+    {
+      "questionNumber": 120,
+      "questionKey": "Q120",
+      "depth1": "학습 진단",
+      "depth2": "개인학습현황",
+      "depth3": "학업성취도",
+      "direction": null,
+      "questionText": "내 학업 성적은 어느 정도인지 체크해보세요."
+    },
+    {
+      "questionNumber": 121,
+      "questionKey": "Q121",
+      "depth1": "학습 진단",
+      "depth2": "개인학습현황",
+      "depth3": "성적만족도",
+      "direction": null,
+      "questionText": "나의 성적에 어느 정도 만족하는지 체크해 보세요."
+    },
+    {
+      "questionNumber": 122,
+      "questionKey": "Q122",
+      "depth1": "학습 진단",
+      "depth2": "개인학습현황",
+      "depth3": "학습동기",
+      "direction": null,
+      "questionText": "다음 중 내가 공부하는 가장 중요한 이유에 해당하는 것에 체크해 주세요."
+    },
+    {
+      "questionNumber": 123,
+      "questionKey": "Q123",
+      "depth1": "학습 진단",
+      "depth2": "개인학습현황",
+      "depth3": "혼공시간",
+      "direction": null,
+      "questionText": "학교 다닐 때, 혼자 공부하는 시간(온라인 학습 제외)이 하루 평균 어느 정도인지 체크해 보세요."
+    },
+    {
+      "questionNumber": 124,
+      "questionKey": "Q124",
+      "depth1": "학습 진단",
+      "depth2": "개인학습현황",
+      "depth3": "학습고민상담사",
+      "direction": null,
+      "questionText": "공부와 관련된 고민이 있을 때, 누구와 가장 많이  상담하는지 체크해 주세요."
+    },
+    {
+      "questionNumber": 20,
+      "questionKey": "Q20",
+      "depth1": "신뢰도 지표",
+      "depth2": "사회적 바람직성",
+      "depth3": "사회적 바람직성",
+      "direction": null,
+      "questionText": "나는 내 자신에 대해 항상 정직하다."
+    },
+    {
+      "questionNumber": 82,
+      "questionKey": "Q82",
+      "depth1": "신뢰도 지표",
+      "depth2": "사회적 바람직성",
+      "depth3": "사회적 바람직성",
+      "direction": null,
+      "questionText": "나는 어떤 일이 있더라도 다른 사람과의 약속을 꼭 지킨다."
+    },
+    {
+      "questionNumber": 114,
+      "questionKey": "Q114",
+      "depth1": "신뢰도 지표",
+      "depth2": "사회적 바람직성",
+      "depth3": "사회적 바람직성",
+      "direction": null,
+      "questionText": "나는 어떤 결정을 내릴 때 실수가 없는 편이다."
+    },
+    {
+      "questionNumber": 43,
+      "questionKey": "Q43",
+      "depth1": "신뢰도 지표",
+      "depth2": "반응일관성",
+      "depth3": "반응 일관성",
+      "direction": null,
+      "questionText": "나는 공부를 아무리 열심히 해도 성적이 안 나온다."
+    },
+    {
+      "questionNumber": 105,
+      "questionKey": "Q105",
+      "depth1": "신뢰도 지표",
+      "depth2": "반응일관성",
+      "depth3": "반응 일관성",
+      "direction": null,
+      "questionText": "나는 시간 계획에 따라 규칙적으로 공부한다."
+    },
+    {
+      "questionNumber": 109,
+      "questionKey": "Q109",
+      "depth1": "신뢰도 지표",
+      "depth2": "반응일관성",
+      "depth3": "반응 일관성",
+      "direction": null,
+      "questionText": "나는 수업 시간이 재미없고 지루하다."
+    }
+  ],
+  "factorGroups": {
+    "자아존중감": [
+      60,
+      92,
+      108
+    ],
+    "자기효능감": [
+      23,
+      58,
+      100
+    ],
+    "성장마인드셋": [
+      50,
+      84,
+      87
+    ],
+    "자기정서인식": [
+      67,
+      94,
+      119
+    ],
+    "자기정서조절": [
+      47,
+      66,
+      103
+    ],
+    "타인정서인식": [
+      14,
+      32
+    ],
+    "타인공감능력": [
+      38,
+      15,
+      118
+    ],
+    "계획능력": [
+      35,
+      83,
+      101
+    ],
+    "점검능력": [
+      30,
+      85,
+      111
+    ],
+    "조절능력": [
+      1,
+      21,
+      110
+    ],
+    "공부환경": [
+      3,
+      8,
+      61
+    ],
+    "시간관리": [
+      33,
+      45,
+      113
+    ],
+    "수업태도": [
+      41,
+      76,
+      88
+    ],
+    "노트하기": [
+      22,
+      70,
+      86
+    ],
+    "시험준비": [
+      36,
+      51,
+      98
+    ],
+    "부모 의사소통": [
+      2,
+      54,
+      90
+    ],
+    "부모 학업지지": [
+      81,
+      115,
+      116
+    ],
+    "친구 정서지지": [
+      26,
+      48,
+      104
+    ],
+    "교사 정서지지": [
+      69,
+      75,
+      79
+    ],
+    "활기": [
+      6,
+      10,
+      63
+    ],
+    "몰두": [
+      11,
+      18,
+      39
+    ],
+    "의미감": [
+      29,
+      37,
+      89
+    ],
+    "자율성": [
+      13,
+      52,
+      107
+    ],
+    "유능성": [
+      5,
+      25,
+      31
+    ],
+    "관계성": [
+      44,
+      53,
+      55
+    ],
+    "성적부담": [
+      34,
+      68,
+      77
+    ],
+    "공부부담": [
+      49,
+      96,
+      97
+    ],
+    "수업부담": [
+      65,
+      74,
+      93
+    ],
+    "부모 성적압력": [
+      57,
+      99,
+      106
+    ],
+    "부모 공부부담": [
+      17,
+      59,
+      64
+    ],
+    "친구 공부비교": [
+      9,
+      73,
+      80
+    ],
+    "교사 성적압력": [
+      4,
+      28,
+      71
+    ],
+    "교사 수업부담": [
+      46,
+      56,
+      72
+    ],
+    "스마트폰 의존": [
+      27,
+      40,
+      78
+    ],
+    "게임 과몰입": [
+      24,
+      91,
+      102
+    ],
+    "고갈": [
+      19,
+      42,
+      112
+    ],
+    "무능감": [
+      12,
+      16,
+      117
+    ],
+    "반감-냉소": [
+      7,
+      62,
+      95
+    ]
+  },
+  "categories": {
+    "측정문항_count": 113,
+    "학습진단_count": 5,
+    "신뢰도지표_count": 6
+  }
+}
