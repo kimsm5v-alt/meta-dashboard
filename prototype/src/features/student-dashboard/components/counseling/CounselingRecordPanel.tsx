@@ -30,8 +30,6 @@ import { SCHEDULE_STUDENTS } from '@/shared/data/mockUnifiedCounseling';
 import { TIME_OPTIONS, SCHEDULE_TYPES, COUNSELING_AREAS, COUNSELING_METHODS } from '@/shared/data/counselingConstants';
 import { formatScheduleDateKr, extractTime } from '@/shared/utils/dateUtils';
 import { PanelLoading, MultiSelectButtonGroup } from '@/shared/components';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_COUNSELING_LIST, API_COUNSELING_CREATE } from '@/shared/data/apiDefinitions';
 import { ScheduledRecordCard } from './ScheduledRecordCard';
 import { CompletionModal } from './CompletionModal';
 
@@ -247,21 +245,17 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
     <div className="p-4 space-y-4">
       {/* 헤더 */}
       <div className="flex items-center justify-between">
-        <ApiTooltip {...API_COUNSELING_LIST} position="bottom-left">
-          <h3 className="font-semibold text-gray-900">상담 기록</h3>
-        </ApiTooltip>
-        <ApiTooltip {...API_COUNSELING_CREATE} position="bottom-right">
-          <button
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            새 기록
-          </button>
-        </ApiTooltip>
+        <h3 className="font-semibold text-gray-900">상담 기록</h3>
+        <button
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          새 기록
+        </button>
       </div>
 
       {/* 작성 폼 */}

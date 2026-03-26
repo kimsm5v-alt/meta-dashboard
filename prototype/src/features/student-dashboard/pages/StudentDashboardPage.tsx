@@ -5,8 +5,6 @@ import { useStudentAnalysis, useApiConfig } from '@/shared/hooks/useApiData';
 import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@/shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@/shared/components/FactorHeatmapSection';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_STUDENT_DETAIL } from '@/shared/data/apiDefinitions';
 import {
   DiagnosisSummary,
   FourStepInterpretation,
@@ -104,11 +102,9 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <ApiTooltip {...API_STUDENT_DETAIL} position="top-right">
-                <h1 className="text-2xl font-bold">
-                  {student.number}번 {student.name}
-                </h1>
-              </ApiTooltip>
+              <h1 className="text-2xl font-bold">
+                {student.number}번 {student.name}
+              </h1>
               {current.reliabilityWarnings.length > 0 && (
                 <span
                   className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-red-50 text-red-600 border-red-200"
