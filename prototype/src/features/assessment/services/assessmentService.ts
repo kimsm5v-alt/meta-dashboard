@@ -69,7 +69,7 @@ export interface ExamDetailResponse {
 
 /**
  * 검사 시작 (생성)
- * GET /api/dgnss/tc/start
+ * POST /api/dgnss/tc/start
  */
 export async function startExam(
   claId: string,
@@ -79,8 +79,18 @@ export async function startExam(
   paperIdx: string = '1'
 ): Promise<StartExamResponse> {
   const response = await apiRequest<StartExamResponse>(
-    `/api/dgnss/tc/start?claId=${claId}&tcId=${tcId}&ordNo=${ordNo}&grade=${grade}&paperIdx=${paperIdx}`,
-    { debug: true }
+    `/api/dgnss/tc/start`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        claId,
+        tcId,
+        ordNo,
+        grade,
+        paperIdx,
+      }),
+      debug: true,
+    }
   );
   return response.resultData;
 }
@@ -128,30 +138,38 @@ export async function fetchExamDetail(dgnssId: number): Promise<ExamDetailRespon
 
 /**
  * 검사 종료
- * GET /api/dgnss/tc/end
+ * POST /api/dgnss/tc/end
  */
 export async function endExam(dgnssId: number, paperIdx?: string): Promise<void> {
-  let endpoint = `/api/dgnss/tc/end?dgnssId=${dgnssId}`;
+  const body: { dgnssId: number; paperIdx?: string } = { dgnssId };
   if (paperIdx) {
-    endpoint += `&paperIdx=${paperIdx}`;
+    body.paperIdx = paperIdx;
   }
 
-  await apiRequest<unknown>(endpoint, { debug: true });
+  await apiRequest<unknown>(`/api/dgnss/tc/end`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    debug: true,
+  });
 }
 
 /**
  * 검사 취소
- * GET /api/dgnss/tc/cancel
+ * POST /api/dgnss/tc/cancel
  *
  * 주의: 데이터가 삭제됨. 되돌릴 수 없음.
  */
 export async function cancelExam(dgnssId: number): Promise<void> {
-  await apiRequest<null>(`/api/dgnss/tc/cancel?dgnssId=${dgnssId}`, { debug: true });
+  await apiRequest<null>(`/api/dgnss/tc/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ dgnssId }),
+    debug: true,
+  });
 }
 
 /**
  * 검사 재시작
- * GET /api/dgnss/tc/restart
+ * POST /api/dgnss/tc/restart
  */
 export async function restartExam(
   dgnssId: number,
@@ -159,8 +177,12 @@ export async function restartExam(
   grade: GradeLevel
 ): Promise<void> {
   await apiRequest<{ result: string }>(
-    `/api/dgnss/tc/restart?dgnssId=${dgnssId}&claId=${claId}&grade=${grade}`,
-    { debug: true }
+    `/api/dgnss/tc/restart`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ dgnssId, claId, grade }),
+      debug: true,
+    }
   );
 }
 

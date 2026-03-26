@@ -31,7 +31,7 @@ import {
 import { getMyGroups } from '@/features/groups/services/groupService';
 import { APIError } from '@/shared/services/apiClient';
 import {
-  generateShortCode,
+  generateExamCode,
   schoolLevelToGradeLevel,
 } from '../config';
 import {
@@ -45,7 +45,7 @@ import {
 
 /** API 검사 목록 → ManagedAssessment 변환 */
 function convertExamListItem(item: ExamListItem, groups: Group[]): ManagedAssessment {
-  const shortCode = String(item.dgnssId);
+  const shortCode = generateExamCode(item.claId, item.dgnssId);
   registerExamCode(shortCode, item.claId);
 
   // localStorage에서 학년/반/그룹 정보 조회
@@ -194,7 +194,8 @@ export const AssessmentPage: React.FC = () => {
         '1'
       );
 
-      const shortCode = generateShortCode();
+      // 검사 코드 생성: claId + dgnssId 기반
+      const shortCode = generateExamCode(data.claId, result.dgnssId);
       registerExamCode(shortCode, data.claId);
 
       // 그룹명 조회
