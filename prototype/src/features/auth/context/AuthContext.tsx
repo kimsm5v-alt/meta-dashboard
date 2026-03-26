@@ -24,6 +24,7 @@ interface SignUpData {
   password: string;
   nickname: string;
   gender: 'M' | 'F';
+  roleCode: 'TEACHER' | 'STUDENT';
 }
 
 interface AuthContextType extends AuthState {
@@ -35,6 +36,8 @@ interface AuthContextType extends AuthState {
   signUp: (data: SignUpData) => Promise<void>;
   /** 로그아웃 */
   logout: () => void;
+  /** 사용자 정보 업데이트 */
+  updateUser: (updates: Partial<User>) => void;
   /** 테스트용 credentials (API 호출 시 사용) */
   credentials: TestCredentials | null;
   /** 로그인 에러 메시지 */
@@ -90,26 +93,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const storedCredentials = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
       const authTokens = getAuthTokens();
 
-      // 1. 실제 로그인 토큰이 있는 경우 - 토큰 갱신 시도
-      if (storedUser && authTokens?.refreshToken) {
+      // 1. 실제 로그인 토큰이 있는 경우
+      if (storedUser && authTokens?.accessToken) {
         try {
           const user = JSON.parse(storedUser) as User;
 
-          // 토큰 갱신 시도 (액세스 토큰 만료 대비)
-          try {
-            const refreshResponse = await refreshTokenApi(authTokens.refreshToken);
-            saveAuthTokens({
-              accessToken: refreshResponse.resultData.accessToken,
-              refreshToken: authTokens.refreshToken,
-            });
-          } catch {
-            // 리프레시 토큰도 만료된 경우 - 로그아웃 처리
-            clearAuthTokens();
-            localStorage.removeItem(AUTH_STORAGE_KEY);
-            setState({ user: null, isAuthenticated: false, isLoading: false });
-            return;
-          }
-
+          // 새로고침 시에는 토큰 갱신을 시도하지 않고, 기존 토큰 사용
+          // 실제 API 요청 시 401 에러가 발생하면 그때 리프레시 시도
           setState({ user, isAuthenticated: true, isLoading: false });
           return;
         } catch {
@@ -144,6 +134,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     initAuth();
   }, []);
+
+  // 토큰 감시 - 토큰이 삭제되면 자동 로그아웃
+  useEffect(() => {
+    const checkTokens = () => {
+      if (state.isAuthenticated && !getAuthTokens()?.accessToken) {
+        // 토큰이 삭제되었으면 로그아웃 처리
+        console.warn('Tokens cleared, logging out...');
+        setState({ user: null, isAuthenticated: false, isLoading: false });
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
+    };
+
+    // 주기적으로 토큰 체크 (1초마다)
+    const interval = setInterval(checkTokens, 1000);
+    return () => clearInterval(interval);
+  }, [state.isAuthenticated]);
 
   // 로그인 에러 초기화
   const clearLoginError = useCallback(() => {
@@ -224,6 +230,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password: data.password,
         nickname: data.nickname,
         gender: data.gender,
+        roleCode: data.roleCode,
       };
 
       await signupApi(signupData);
@@ -255,6 +262,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
+  // 사용자 정보 업데이트
+  const updateUser = useCallback((updates: Partial<User>) => {
+    setState(prev => {
+      if (!prev.user) return prev;
+
+      const updatedUser = { ...prev.user, ...updates };
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+
+      return { ...prev, user: updatedUser };
+    });
+  }, []);
+
   // 로그아웃
   const logout = useCallback(async () => {
     // 서버에 로그아웃 요청 (토큰 무효화)
@@ -279,6 +298,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       loginWithEmail,
       signUp,
       logout,
+      updateUser,
       credentials,
       loginError,
       clearLoginError,

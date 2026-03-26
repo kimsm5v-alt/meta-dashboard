@@ -9,7 +9,7 @@
 // ============================================================
 
 /** 검사 단계 */
-export type ExamStep = 'auth' | 'guest-entry' | 'number' | 'resume-choice' | 'guide' | 'questions' | 'complete';
+export type ExamStep = 'auth' | 'guest-entry' | 'number' | 'student-info' | 'resume-choice' | 'guide' | 'questions' | 'complete';
 
 /** 검사 응시 상태 */
 export interface ExamState {
@@ -75,14 +75,14 @@ export interface StudentExamItem {
   dgnssResultId: number;
   paperIdx: string;
   ordNo: number;
-  /** 검사 진행 상태 */
+  /** 검사 진행 상태 (Y: 평가중, N: 평가 종료) */
   dgnssAt: 'Y' | 'N';
   /** 제출 여부 */
   submAt: 'Y' | 'N';
   /** 제출일 */
   submDt: string | null;
-  /** 결과 생성 완료 여부 */
-  eakAt: 'Y' | 'N';
+  /** 제출 상태 (1:응시전, 2:응시중, 3:제출완료, 4:채점중, 5:채점완료) */
+  eakAt: number;
 }
 
 /** 학생 검사 목록 API 응답 */

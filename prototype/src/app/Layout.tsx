@@ -21,8 +21,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { useTeacherClasses } from '@/shared/hooks/useApiData';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_TEACHER_ME } from '@/shared/data/apiDefinitions';
 import { FEATURES, type FeatureKey } from '@/shared/config/features';
 import serviceLogo from '@/assets/logo_2.png';
 
@@ -96,9 +94,7 @@ const Header = () => {
             <Settings className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-            <ApiTooltip {...API_TEACHER_ME} position="bottom-right">
-              <p className="text-sm font-medium text-gray-900">{user?.name || '사용자'}</p>
-            </ApiTooltip>
+            <p className="text-sm font-medium text-gray-900">{user?.name || '사용자'}</p>
             {user?.profileImage ? (
               <img
                 src={user.profileImage}

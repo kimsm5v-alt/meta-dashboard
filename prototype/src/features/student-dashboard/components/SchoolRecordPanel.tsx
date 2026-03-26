@@ -15,8 +15,6 @@ import {
 } from 'lucide-react';
 import type { Student, Assessment } from '@/shared/types';
 import { schoolRecordService } from '@/shared/services/schoolRecordService';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_SCHOOL_RECORD_SAVE } from '@/shared/data/apiDefinitions';
 import {
   getTopStrengths,
   getRecommendedSentences,
@@ -447,15 +445,13 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({
           {/* 액션 버튼들 */}
           {!isEditing && (
             <div className="px-4 pb-4 flex flex-wrap gap-2">
-              <ApiTooltip {...API_SCHOOL_RECORD_SAVE} position="top-left">
-                <button
-                  onClick={handleSave}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500 text-white text-sm rounded-lg hover:bg-indigo-600 transition-colors"
-                >
-                  <Check className="w-4 h-4" />
-                  저장
-                </button>
-              </ApiTooltip>
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500 text-white text-sm rounded-lg hover:bg-indigo-600 transition-colors"
+              >
+                <Check className="w-4 h-4" />
+                저장
+              </button>
               <button
                 onClick={handleCopy}
                 className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"

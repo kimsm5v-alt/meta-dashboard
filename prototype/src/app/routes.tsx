@@ -24,7 +24,7 @@ import { ResourceListPage, ResourceDetailPage } from '../features/resources';
 import { CommunityListPage, CommunityDetailPage, CommunityWritePage } from '../features/community';
 
 // 학생용 Feature imports
-import { MyExamListPage, MyResultPage } from '../features/student-exam';
+import { MyExamListPage, MyResultPage, StudentGroupsPage } from '../features/student-exam';
 
 // ============================================================
 // 레이아웃 래퍼
@@ -136,9 +136,11 @@ export const AppRoutes = () => (
 
     {/* 학생용 보호 라우트 - 학생 사이드바 */}
     <Route element={<StudentProtectedLayout />}>
+      <Route path="/student/groups" element={<StudentGroupsPage />} />
       <Route path="/student/exams" element={<MyExamListPage />} />
       <Route path="/student/result" element={<MyResultPage />} />
       <Route path="/student/result/:resultId" element={<MyResultPage />} />
+      <Route path="/exam/student" element={<ExamPage />} />
     </Route>
 
     {/* Fallback */}

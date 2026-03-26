@@ -4,8 +4,6 @@ import { ArrowLeft, Search, ShieldAlert, AlertTriangle, Clock, Loader2 } from 'l
 import { Card, Badge } from '@/shared/components';
 import { useData } from '@/shared/contexts/DataContext';
 import { useClassStudents, useApiConfig } from '@/shared/hooks/useApiData';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_CLASS_STUDENTS } from '@/shared/data/apiDefinitions';
 import type { Student, Assessment, Class } from '@/shared/types';
 import {
   TypeChangeChart,
@@ -337,9 +335,7 @@ export const ClassDashboardPage = () => {
       {/* Student Table */}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <ApiTooltip {...API_CLASS_STUDENTS} position="top-left">
-            <h2 className="text-xl font-bold text-gray-900">학생 목록</h2>
-          </ApiTooltip>
+          <h2 className="text-xl font-bold text-gray-900">학생 목록</h2>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input

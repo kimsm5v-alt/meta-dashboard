@@ -7,46 +7,6 @@ import type { StudentExamItem } from '@/features/exam/types';
 import type { StudentExamListItem } from '../types';
 import { mapExamStatus } from '../types';
 
-// Mock 데이터 (API 연동 전)
-const MOCK_EXAMS: StudentExamListItem[] = [
-  {
-    dgnssId: 1,
-    dgnssResultId: 101,
-    ordNo: 1,
-    name: '1차 학습심리정서검사',
-    status: 'result_ready',
-    progress: 100,
-    answeredCount: 124,
-    totalQuestions: 124,
-    submittedAt: '2026-03-15',
-    hasResult: true,
-  },
-  {
-    dgnssId: 2,
-    dgnssResultId: 102,
-    ordNo: 2,
-    name: '2차 학습심리정서검사',
-    status: 'in_progress',
-    progress: 36,
-    answeredCount: 45,
-    totalQuestions: 124,
-    submittedAt: null,
-    hasResult: false,
-  },
-  {
-    dgnssId: 3,
-    dgnssResultId: 103,
-    ordNo: 3,
-    name: '3차 학습심리정서검사',
-    status: 'waiting',
-    progress: 0,
-    answeredCount: 0,
-    totalQuestions: 124,
-    submittedAt: null,
-    hasResult: false,
-  },
-];
-
 /**
  * API 응답을 UI 타입으로 변환
  */
@@ -54,18 +14,18 @@ function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListIte
   const status = mapExamStatus(item.dgnssAt, item.submAt, item.eakAt);
   const totalQuestions = 124; // 고정값 (실제 API에서 받아올 수 있음)
 
-  // 진행률 계산 (실제로는 API에서 answeredCount를 받아야 함)
+  // 진행률 계산
+  // 주의: 실제 답변 개수는 /api/dgnss/st/start API에서만 제공됨 (stAnsCnt)
+  // 목록 API에서는 제공되지 않으므로, 완료된 검사만 100%로 표시
   let progress = 0;
   let answeredCount = 0;
 
   if (status === 'completed' || status === 'result_ready') {
+    // 제출 완료한 검사만 100% 진행률 표시
     progress = 100;
     answeredCount = totalQuestions;
-  } else if (status === 'in_progress') {
-    // 임시로 랜덤 진행률 (실제로는 API에서 받아야 함)
-    answeredCount = Math.floor(Math.random() * 100) + 20;
-    progress = Math.round((answeredCount / totalQuestions) * 100);
   }
+  // waiting, in_progress 상태는 진행률 0% (실제 답변 개수를 알 수 없음)
 
   return {
     dgnssId: item.dgnssId,
@@ -86,17 +46,8 @@ function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListIte
  */
 export async function getStudentExamList(
   claId: string,
-  stdtId: string,
-  useMock: boolean = true
+  stdtId: string
 ): Promise<StudentExamListItem[]> {
-  if (useMock) {
-    // Mock 모드
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(MOCK_EXAMS), 500);
-    });
-  }
-
-  // API 모드
   const items = await fetchStudentExamList(claId, stdtId);
   return items.map((item, index) => mapToListItem(item, index + 1));
 }

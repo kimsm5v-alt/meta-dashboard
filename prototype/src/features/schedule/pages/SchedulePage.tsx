@@ -6,8 +6,6 @@ import {
   Link2,
 } from 'lucide-react';
 import { Button } from '@/shared/components';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_COUNSELING_ALL, API_COUNSELING_CREATE, API_TEACHER_DASHBOARD } from '@/shared/data/apiDefinitions';
 import { formatDateISO } from '@/shared/utils/dateUtils';
 import type { UnifiedCounselingRecord, CreateUnifiedCounselingInput, UpdateUnifiedCounselingInput } from '@/shared/types';
 import {
@@ -200,9 +198,7 @@ export const SchedulePage: React.FC = () => {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div>
-          <ApiTooltip {...API_COUNSELING_ALL} position="bottom-left">
-            <h1 className="text-2xl font-bold text-gray-900">상담일정</h1>
-          </ApiTooltip>
+          <h1 className="text-2xl font-bold text-gray-900">상담일정</h1>
           <p className="text-sm text-gray-500 mt-1">
             학생 상담 일정을 관리하고 캘린더에서 확인하세요
           </p>
@@ -215,12 +211,10 @@ export const SchedulePage: React.FC = () => {
             <Link2 className="w-4 h-4 mr-2" />
             캘린더 연동
           </Button>
-          <ApiTooltip {...API_COUNSELING_CREATE} position="bottom-right">
-            <Button onClick={() => handleAddClick()}>
-              <Plus className="w-4 h-4 mr-2" />
-              상담 일정 등록
-            </Button>
-          </ApiTooltip>
+          <Button onClick={() => handleAddClick()}>
+            <Plus className="w-4 h-4 mr-2" />
+            상담 일정 등록
+          </Button>
         </div>
       </div>
 
@@ -286,7 +280,6 @@ export const SchedulePage: React.FC = () => {
         </div>
 
         {/* 우측: 반별 필터 */}
-        <ApiTooltip {...API_TEACHER_DASHBOARD} position="bottom-right">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setClassFilter(null)}
@@ -325,7 +318,6 @@ export const SchedulePage: React.FC = () => {
             </button>
           ))}
         </div>
-        </ApiTooltip>
       </div>
 
       {/* 캘린더 뷰 */}

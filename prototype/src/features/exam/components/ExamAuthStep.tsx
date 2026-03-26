@@ -1,18 +1,20 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LoginForm } from '@/features/auth/components/LoginForm';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
 interface ExamAuthStepProps {
   examName: string;
   examCode: string;
-  onGuestStart: () => void;
+  onGuestLogin?: () => void;
 }
 
 export const ExamAuthStep: React.FC<ExamAuthStepProps> = ({
   examName,
   examCode,
-  onGuestStart,
+  onGuestLogin,
 }) => {
+  const navigate = useNavigate();
   const { loginWithEmail } = useAuth();
   const [loginLoading, setLoginLoading] = useState(false);
 
@@ -20,9 +22,22 @@ export const ExamAuthStep: React.FC<ExamAuthStepProps> = ({
     setLoginLoading(true);
     try {
       await loginWithEmail(email, password);
-      // 로그인 성공 → ExamPage의 useEffect가 isAuthenticated 변경 감지 → 'number' step으로 이동
+      // 로그인 성공 → 학생 검사 목록으로 이동
+      navigate('/student/exams');
     } finally {
       setLoginLoading(false);
+    }
+  };
+
+  const handleGuestLogin = () => {
+    if (onGuestLogin) {
+      onGuestLogin();
+    } else {
+      // 게스트는 먼저 그룹 가입이 필요함
+      // 그룹 가입 시 토큰을 받고, 이후 검사 목록에서 검사 응시 가능
+      // 임시: 그룹 가입 안내 알림 후 홈으로 이동
+      alert('게스트로 검사에 응시하려면 먼저 그룹에 가입해야 합니다.\n선생님께 초대 링크를 받아 그룹에 가입해주세요.');
+      navigate('/');
     }
   };
 
@@ -43,7 +58,7 @@ export const ExamAuthStep: React.FC<ExamAuthStepProps> = ({
           <LoginForm
             onLogin={handleLogin}
             isLoading={loginLoading}
-            onGuestLogin={onGuestStart}
+            onGuestLogin={handleGuestLogin}
             redirectPath={`/exam/${examCode}`}
           />
         </div>

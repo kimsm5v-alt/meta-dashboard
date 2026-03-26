@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LogIn, AlertCircle, Eye, EyeOff, Mail, Lock, UserPlus } from 'lucide-react';
+import { LogIn, AlertCircle, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => void;
   isLoading: boolean;
-  /** 게스트 로그인 콜백 (있으면 게스트 로그인 버튼 표시) */
-  onGuestLogin?: () => void;
   /** redirect 경로 (비밀번호찾기/회원가입 링크에 쿼리파라미터로 전달) */
   redirectPath?: string;
   /** 외부에서 전달받은 에러 메시지 (API 에러 등) */
   error?: string | null;
+  /** 게스트 로그인 버튼 클릭 핸들러 (선택적) */
+  onGuestLogin?: () => void;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, isLoading, onGuestLogin, redirectPath, error: externalError }) => {
+export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, isLoading, redirectPath, error: externalError, onGuestLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -124,34 +124,32 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, isLoading, onGues
         )}
       </button>
 
-      {/* 비밀번호 찾기 / 회원가입 / 게스트 로그인 */}
-      <div className={`flex items-center text-sm pt-1 ${onGuestLogin ? 'justify-center gap-3' : 'justify-between'}`}>
+      {/* 게스트 로그인 버튼 (선택적) */}
+      {onGuestLogin && (
+        <button
+          type="button"
+          onClick={onGuestLogin}
+          disabled={isLoading}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl font-medium bg-white border-2 border-gray-300 text-gray-700 hover:border-primary-500 hover:bg-primary-50 hover:text-primary-600 transition-all duration-200"
+        >
+          게스트로 참가하기
+        </button>
+      )}
+
+      {/* 비밀번호 찾기 / 회원가입 */}
+      <div className="flex items-center justify-between text-sm pt-1">
         <Link
           to={forgotPasswordUrl}
           className="text-gray-500 hover:text-primary-500 transition-colors"
         >
           비밀번호 찾기
         </Link>
-        {onGuestLogin && <span className="text-gray-300">|</span>}
         <Link
           to={signupUrl}
           className="text-primary-500 hover:text-primary-600 font-medium transition-colors"
         >
           회원가입
         </Link>
-        {onGuestLogin && (
-          <>
-            <span className="text-gray-300">|</span>
-            <button
-              type="button"
-              onClick={onGuestLogin}
-              className="text-gray-500 hover:text-primary-500 transition-colors flex items-center gap-1"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              게스트 로그인
-            </button>
-          </>
-        )}
       </div>
     </form>
   );

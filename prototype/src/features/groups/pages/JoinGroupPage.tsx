@@ -5,16 +5,9 @@ import { Button } from '@/shared/components';
 import { LoginForm } from '@/features/auth/components/LoginForm';
 import { groupService } from '../services/groupService';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import type { GroupInviteInfo, SchoolLevelCode } from '@/shared/types';
+import { APIError } from '@/shared/services/apiClient';
 
 type PageStep = 'loading' | 'info' | 'guest-form' | 'joining' | 'success' | 'error';
-
-/** 학교급 라벨 */
-const SCHOOL_LEVEL_LABELS: Record<SchoolLevelCode, string> = {
-  elementary: '초등',
-  middle: '중등',
-  high: '고등',
-};
 
 export const JoinGroupPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -22,45 +15,21 @@ export const JoinGroupPage: React.FC = () => {
   const { user, isAuthenticated, isLoading: authLoading, loginWithEmail } = useAuth();
 
   const [step, setStep] = useState<PageStep>('loading');
-  const [groupInfo, setGroupInfo] = useState<GroupInviteInfo | null>(null);
   const [error, setError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
   // 게스트 가입 폼
   const [guestNickname, setGuestNickname] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
 
-  // 그룹 정보 로드
+  // 초기화
   useEffect(() => {
-    const loadGroupInfo = async () => {
-      if (!code || authLoading) return;
-
-      setStep('loading');
-      try {
-        const info = await groupService.getGroupByInviteCode(code, user?.id);
-
-        if (!info) {
-          setError('유효하지 않은 초대 코드입니다. 코드를 확인해주세요.');
-          setStep('error');
-          return;
-        }
-
-        if (info.alreadyJoined) {
-          setError('이미 가입된 그룹입니다.');
-          setStep('error');
-          return;
-        }
-
-        setGroupInfo(info);
-        setStep('info');
-      } catch {
-        setError('그룹 정보를 불러오는데 실패했습니다.');
-        setStep('error');
-      }
-    };
-
-    loadGroupInfo();
-  }, [code, user?.id, authLoading]);
+    if (!code || authLoading) return;
+    setStep('info');
+  }, [code, authLoading]);
 
   // 로그인 처리 (로그인 성공 후 자동 가입)
   const handleLogin = async (email: string, password: string) => {
@@ -73,35 +42,82 @@ export const JoinGroupPage: React.FC = () => {
     }
   };
 
-  // 로그인 후 자동 가입
+  // 로그인 후 자동 가입 (한 번만 실행)
   useEffect(() => {
-    if (isAuthenticated && user && groupInfo && step === 'info') {
+    if (isAuthenticated && user && step === 'info') {
       handleMemberJoin();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user, groupInfo]);
+  }, [isAuthenticated, user, step]);
 
   // 회원 가입 처리
   const handleMemberJoin = async () => {
-    if (!groupInfo || !user) return;
+    if (!user || !code) {
+      console.warn('[JoinGroupPage] user 또는 code 없음:', { user, code });
+      return;
+    }
 
     setStep('joining');
     try {
+      // 초대 코드로 가입 (그룹 ID는 백엔드가 초대 코드로 찾음)
       await groupService.joinGroup(
-        groupInfo.id,
-        { inviteCode: code! },
+        '', // 그룹 ID는 사용되지 않음
+        { inviteCode: code },
         user.id,
         user.name
       );
       setStep('success');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '';
-      if (errorMessage === 'ALREADY_JOINED') {
-        setError('이미 가입된 그룹입니다.');
-      } else {
-        setError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
+      console.error('[JoinGroupPage] 그룹 가입 실패:', err);
+
+      // 중복 가입 에러 처리 (이미 가입된 경우 성공으로 간주)
+      if (err instanceof APIError && err.isDuplicateKeyError()) {
+        setStep('success');
+        return;
       }
+
+      setError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
       setStep('error');
+    }
+  };
+
+  // 이메일 인증 코드 발송
+  const handleSendCode = async () => {
+    if (!guestEmail.trim()) {
+      setError('이메일을 입력해주세요.');
+      return;
+    }
+
+    setIsSendingCode(true);
+    setError('');
+
+    try {
+      const { sendVerificationCode } = await import('@/shared/services/apiClient');
+      await sendVerificationCode(guestEmail.trim());
+      setError('');
+    } catch (err) {
+      setError('인증코드 발송에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
+  // 이메일 인증 코드 확인
+  const handleVerifyCode = async () => {
+    if (!verificationCode.trim()) {
+      setError('인증코드를 입력해주세요.');
+      return;
+    }
+
+    setError('');
+
+    try {
+      const { verifyEmailCode } = await import('@/shared/services/apiClient');
+      await verifyEmailCode(guestEmail.trim(), verificationCode.trim());
+      setIsEmailVerified(true);
+      setError('');
+    } catch (err) {
+      setError('인증코드가 올바르지 않습니다.');
     }
   };
 
@@ -109,7 +125,7 @@ export const JoinGroupPage: React.FC = () => {
   const handleGuestJoin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!groupInfo) return;
+    if (!code) return;
 
     if (!guestNickname.trim() || guestNickname.trim().length < 2) {
       setError('닉네임을 2자 이상 입력해주세요.');
@@ -119,13 +135,17 @@ export const JoinGroupPage: React.FC = () => {
       setError('이메일을 입력해주세요.');
       return;
     }
+    if (!isEmailVerified) {
+      setError('이메일 인증을 완료해주세요.');
+      return;
+    }
 
     setError('');
     setStep('joining');
 
     try {
-      await groupService.joinGroupAsGuest(groupInfo.id, {
-        inviteCode: code!,
+      await groupService.joinGroupAsGuest('', {
+        inviteCode: code,
         email: guestEmail.trim(),
         name: guestNickname.trim(),
       });
@@ -189,11 +209,11 @@ export const JoinGroupPage: React.FC = () => {
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">가입 완료!</h1>
           <p className="text-gray-600 mb-6">
-            <span className="font-semibold">{groupInfo?.name}</span>에 성공적으로 가입되었습니다.
+            그룹에 성공적으로 가입되었습니다.
           </p>
           {isAuthenticated ? (
-            <Button onClick={() => navigate(`/groups/${groupInfo?.id}`)} className="w-full justify-center">
-              그룹 보기
+            <Button onClick={() => navigate('/groups')} className="w-full justify-center">
+              그룹 목록 보기
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
@@ -227,20 +247,16 @@ export const JoinGroupPage: React.FC = () => {
   }
 
   // ── 게스트 폼 (닉네임 + 이메일) ──
-  if (step === 'guest-form' && groupInfo) {
+  if (step === 'guest-form') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-indigo-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          {/* 그룹 정보 헤더 */}
+          {/* 헤더 */}
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-3">
               <UserPlus className="w-8 h-8 text-gray-600" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">게스트 로그인</h1>
-            <p className="text-gray-500 text-sm">
-              <span className="font-semibold text-primary-600">{groupInfo.name}</span>
-              {' '}({groupInfo.ownerName})
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">게스트로 참가</h1>
           </div>
 
           {/* 폼 */}
@@ -271,21 +287,71 @@ export const JoinGroupPage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   이메일 <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="email"
-                    value={guestEmail}
-                    onChange={(e) => { setGuestEmail(e.target.value); setError(''); }}
-                    placeholder="example@email.com"
-                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
-                    required
-                  />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="email"
+                      value={guestEmail}
+                      onChange={(e) => {
+                        setGuestEmail(e.target.value);
+                        setError('');
+                        setIsEmailVerified(false);
+                        setVerificationCode('');
+                      }}
+                      placeholder="example@email.com"
+                      className={`w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all ${
+                        isEmailVerified ? 'border-green-500 bg-green-50' : 'border-gray-300'
+                      }`}
+                      required
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSendCode}
+                    disabled={isSendingCode || !guestEmail.trim()}
+                    className={`px-4 py-3 rounded-xl font-medium text-sm whitespace-nowrap transition-all ${
+                      isEmailVerified
+                        ? 'bg-green-500 text-white'
+                        : isSendingCode
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-primary-500 hover:bg-primary-600 text-white'
+                    }`}
+                  >
+                    {isEmailVerified ? '인증완료' : isSendingCode ? '발송중...' : '인증코드'}
+                  </button>
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
                   검사 응시 안내 메일이 이 주소로 발송됩니다.
                 </p>
               </div>
+
+              {/* 인증 코드 */}
+              {!isEmailVerified && guestEmail && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    인증 코드 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={verificationCode}
+                      onChange={(e) => { setVerificationCode(e.target.value); setError(''); }}
+                      placeholder="6자리 인증코드"
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
+                      maxLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyCode}
+                      disabled={!verificationCode.trim()}
+                      className="px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-medium text-sm whitespace-nowrap transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                      확인
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {error && (
@@ -296,10 +362,9 @@ export const JoinGroupPage: React.FC = () => {
             )}
 
             {/* 안내 */}
-            <div className="bg-amber-50 rounded-lg p-4 mb-6">
-              <p className="text-sm text-amber-700">
-                게스트로 참가하면 이 기기에서만 검사 결과를 확인할 수 있습니다.
-                회원가입하면 모든 기기에서 결과를 확인할 수 있습니다.
+            <div className="bg-blue-50 rounded-lg p-4 mb-6">
+              <p className="text-sm text-blue-700">
+                게스트로 참가하시면 검사 종료 후 입력하신 이메일로 결과지(PDF)가 발송됩니다.
               </p>
             </div>
 
@@ -326,69 +391,52 @@ export const JoinGroupPage: React.FC = () => {
     );
   }
 
-  // ── 메인: 그룹 정보 + 로그인 폼 (비로그인) / 가입 버튼 (로그인) ──
+  // ── 메인: 로그인 폼 (비로그인) / 가입 버튼 (로그인) ──
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-indigo-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* 그룹 정보 헤더 */}
+        {/* 헤더 */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 mb-3">
             <Users className="w-8 h-8 text-primary-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">그룹 가입</h1>
-          {groupInfo && (
-            <p className="text-gray-500 text-sm">
-              <span className="font-semibold text-primary-600">{groupInfo.name}</span>
-              {' '}({groupInfo.ownerName})
-            </p>
-          )}
         </div>
 
-        {groupInfo && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-4">
-            {/* 그룹 정보 요약 */}
-            <div className="text-center mb-6 pb-6 border-b border-gray-100">
-              <p className="text-sm text-gray-500 mb-1">
-                {SCHOOL_LEVEL_LABELS[groupInfo.schoolLevel]} {groupInfo.grade}학년 {groupInfo.classNumber}반
-              </p>
-              <p className="text-sm text-gray-500">
-                현재 멤버 {groupInfo.memberCount}명
-              </p>
-            </div>
+        <div className="bg-white rounded-2xl shadow-lg p-8 mb-4">
 
-            {isAuthenticated && user ? (
-              // ── 로그인 상태: 바로 가입 ──
-              <div className="space-y-4">
-                <div className="bg-blue-50 rounded-lg p-4 text-center">
-                  <p className="text-sm text-blue-700">
-                    <span className="font-semibold">{user.name}</span>님으로 가입합니다.
-                  </p>
-                </div>
-
-                <button
-                  onClick={handleMemberJoin}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors"
-                >
-                  그룹 가입하기
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </div>
-            ) : (
-              // ── 비로그인 상태: 로그인 폼 바로 표시 ──
-              <div>
-                <p className="text-center text-sm text-gray-600 mb-4">
-                  그룹에 가입하려면 로그인해주세요
+          {isAuthenticated && user ? (
+            // ── 로그인 상태: 바로 가입 ──
+            <div className="space-y-4">
+              <div className="bg-blue-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-blue-700">
+                  <span className="font-semibold">{user.name}</span>님으로 가입합니다.
                 </p>
-                <LoginForm
-                  onLogin={handleLogin}
-                  isLoading={loginLoading}
-                  onGuestLogin={() => setStep('guest-form')}
-                  redirectPath={`/join/${code}`}
-                />
               </div>
-            )}
-          </div>
-        )}
+
+              <button
+                onClick={handleMemberJoin}
+                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors"
+              >
+                그룹 가입하기
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+          ) : (
+            // ── 비로그인 상태: 로그인 폼 바로 표시 ──
+            <div>
+              <p className="text-center text-sm text-gray-600 mb-4">
+                그룹에 가입하려면 로그인하거나 게스트로 참가하세요
+              </p>
+              <LoginForm
+                onLogin={handleLogin}
+                isLoading={loginLoading}
+                onGuestLogin={() => setStep('guest-form')}
+                redirectPath={`/join/${code}`}
+              />
+            </div>
+          )}
+        </div>
 
         {/* 초대 코드 표시 */}
         <div className="text-center">

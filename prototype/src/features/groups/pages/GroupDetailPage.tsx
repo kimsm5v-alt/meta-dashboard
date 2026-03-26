@@ -163,6 +163,11 @@ export const GroupDetailPage: React.FC = () => {
           }
         }
       } catch (err) {
+        // 401 인증 에러인 경우 로그인 페이지로 리다이렉트
+        if (err instanceof Error && err.message.includes('401')) {
+          navigate('/login');
+          return;
+        }
         setError('데이터를 불러오는데 실패했습니다.');
       } finally {
         setIsLoading(false);
@@ -170,7 +175,7 @@ export const GroupDetailPage: React.FC = () => {
     };
 
     loadData();
-  }, [groupId, user]);
+  }, [groupId, user, navigate]);
 
   // 멤버 강퇴
   const handleKickMember = async () => {
