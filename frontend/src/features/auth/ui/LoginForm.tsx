@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { LogIn, AlertCircle, Eye, EyeOff, Mail, Lock, UserPlus } from 'lucide-react';
 
 interface LoginFormProps {
-  onLogin: (email: string, password: string) => void;
+  onLogin: (email: string, password: string) => Promise<void>;
   isLoading: boolean;
   /** 게스트 로그인 콜백 (있으면 게스트 로그인 버튼 표시) */
   onGuestLogin?: () => void;
@@ -237,7 +237,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -250,7 +250,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       return;
     }
 
-    onLogin(email.trim(), password.trim());
+    try {
+      await onLogin(email.trim(), password.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
+    }
   };
 
   const forgotPasswordUrl = redirectPath

@@ -250,6 +250,8 @@ export interface User {
   provider: OAuthProvider;
   schoolName?: string;
   profileImage?: string;
+  tcId?: string;
+  stdtId?: string;
 }
 
 export interface AuthState {

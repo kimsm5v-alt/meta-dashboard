@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import type { User, AuthState } from '@shared/types';
 import { MOCK_TEACHER } from '@shared/data/mockData';
+import { apiClient } from '@shared/api/client';
 import type { TestCredentials } from '../ui';
 
 // ============================================================
@@ -12,7 +13,7 @@ interface SignUpData {
   name: string;
   email: string;
   password: string;
-  schoolName?: string;
+  gender?: 'M' | 'F';
 }
 
 interface AuthContextType extends AuthState {
@@ -20,6 +21,10 @@ interface AuthContextType extends AuthState {
   loginWithCredentials: (credentials: TestCredentials) => Promise<void>;
   /** 이메일/비밀번호 로그인 */
   loginWithEmail: (email: string, password: string) => Promise<void>;
+  /** 이메일 인증코드 발송 */
+  sendCode: (email: string) => Promise<void>;
+  /** 이메일 인증코드 확인 */
+  verifyCode: (email: string, code: string) => Promise<void>;
   /** 회원가입 */
   signUp: (data: SignUpData) => Promise<void>;
   /** 로그아웃 */
@@ -85,10 +90,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const loginWithCredentials = useCallback(async (creds: TestCredentials) => {
     setState((prev) => ({ ...prev, isLoading: true }));
 
-    // 로그인 딜레이 시뮬레이션
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // 테스트 사용자 생성
     const user: User = {
       id: `test-${creds.teacherId}`,
       name: MOCK_TEACHER.name,
@@ -98,7 +101,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       schoolName: '테스트 학교',
     };
 
-    // 저장
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
     localStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(creds));
 
@@ -107,56 +109,95 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   // 이메일/비밀번호 로그인
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const loginWithEmail = useCallback(async (email: string, _password: string) => {
+  const loginWithEmail = useCallback(async (email: string, password: string) => {
     setState((prev) => ({ ...prev, isLoading: true }));
 
-    // TODO: 실제 API 호출로 교체
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const res = await apiClient.post<{
+        userNo: number;
+        email: string;
+        nickname: string;
+        gender: string;
+        roleCode: string;
+        tcId: string | null;
+        stdtId: string | null;
+        accessToken: string;
+        refreshToken: string;
+      }>('/member/login', { email, password });
 
-    const user: User = {
-      id: `user-${Date.now()}`,
-      name: email.split('@')[0],
-      email,
-      memberType: 'general',
-      provider: 'vivasam',
-    };
+      const data = res.resultData;
 
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-    setState({ user, isAuthenticated: true, isLoading: false });
+      localStorage.setItem('auth_token', data.accessToken);
+      localStorage.setItem('refresh_token', data.refreshToken);
+
+      const user: User = {
+        id: String(data.userNo),
+        name: data.nickname,
+        email: data.email,
+        memberType: 'general',
+        provider: 'vivasam',
+        ...(data.tcId ? { tcId: data.tcId } : {}),
+        ...(data.stdtId ? { stdtId: data.stdtId } : {}),
+      };
+
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+      setState({ user, isAuthenticated: true, isLoading: false });
+    } catch (err) {
+      setState((prev) => ({ ...prev, isLoading: false }));
+      throw err;
+    }
+  }, []);
+
+  // 이메일 인증코드 발송
+  const sendCode = useCallback(async (email: string) => {
+    await apiClient.post('/member/send-code', { email });
+  }, []);
+
+  // 이메일 인증코드 확인
+  const verifyCode = useCallback(async (email: string, code: string) => {
+    await apiClient.post('/member/verify-code', { email, code });
   }, []);
 
   // 회원가입
   const signUp = useCallback(async (data: SignUpData) => {
     setState((prev) => ({ ...prev, isLoading: true }));
 
-    // TODO: 실제 API 호출로 교체
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      await apiClient.post('/member/signup', {
+        email: data.email,
+        password: data.password,
+        nickname: data.name,
+        gender: data.gender,
+      });
 
-    const user: User = {
-      id: `user-${Date.now()}`,
-      name: data.name,
-      email: data.email,
-      memberType: 'general',
-      provider: 'vivasam',
-      schoolName: data.schoolName,
-    };
-
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-    setState({ user, isAuthenticated: true, isLoading: false });
+      // 가입 완료 후 로그인 상태로 전환하지 않음 — 로그인 페이지로 이동
+    } finally {
+      setState((prev) => ({ ...prev, isLoading: false }));
+    }
   }, []);
 
   // 로그아웃
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('refresh_token');
     setCredentials(null);
     setState({ user: null, isAuthenticated: false, isLoading: false });
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ ...state, loginWithCredentials, loginWithEmail, signUp, logout, credentials }}
+      value={{
+        ...state,
+        loginWithCredentials,
+        loginWithEmail,
+        sendCode,
+        verifyCode,
+        signUp,
+        logout,
+        credentials,
+      }}
     >
       {children}
     </AuthContext.Provider>

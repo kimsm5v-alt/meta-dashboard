@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { ArrowLeft, FlaskConical, User } from 'lucide-react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
@@ -200,6 +201,7 @@ export const LoginPage: React.FC = () => {
     setLoginLoading(true);
     try {
       await loginWithCredentials(credentials);
+      toast.success('로그인되었습니다.');
       navigate(redirectTo, { replace: true });
     } finally {
       setLoginLoading(false);
@@ -210,7 +212,10 @@ export const LoginPage: React.FC = () => {
     setLoginLoading(true);
     try {
       await loginWithEmail(email, password);
+      toast.success('로그인되었습니다.');
       navigate(redirectTo, { replace: true });
+    } catch (err) {
+      throw err;
     } finally {
       setLoginLoading(false);
     }
