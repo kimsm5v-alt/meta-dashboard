@@ -82,7 +82,7 @@
         <!-- Config -->
         <div class="config-bar">
             <label>API Base URL:</label>
-            <input id="baseUrl" value="http://localhost:8081" />
+            <input id="baseUrl" th:value="${apiTestBaseUrl}" value="http://localhost:8081" />
             <span id="statusDot" class="status-dot pending"></span>
         </div>
 

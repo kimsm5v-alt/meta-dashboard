@@ -13,6 +13,7 @@ import com.vs.meta.domain.RoleGroup;
 import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -41,6 +42,9 @@ public class AdminController {
 
     private static final int PAGE_SIZE = 20;
     private static final DateTimeFormatter API_TOKEN_TS_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+
+    @Value("${spring.profiles.active:local}")
+    private String activeProfile;
 
     // ===== 로그인 =====
 
@@ -262,7 +266,8 @@ public class AdminController {
     // ===== API 기능 테스트 =====
 
     @GetMapping("/api-test")
-    public String apiTest() {
+    public String apiTest(Model model) {
+        model.addAttribute("apiTestBaseUrl", resolveApiTestBaseUrl(activeProfile));
         return "admin/api-test";
     }
 
@@ -316,6 +321,16 @@ public class AdminController {
         int omrIdx = paramData.get("omrIdx") instanceof Number ? ((Number) paramData.get("omrIdx")).intValue() : 0;
         int paperIdx = paramData.get("paperIdx") instanceof Number ? ((Number) paramData.get("paperIdx")).intValue() : 0;
         return adminUserService.fillRandomDgnssAnswers(omrIdx, paperIdx);
+    }
+
+    private String resolveApiTestBaseUrl(String profile) {
+        if ("vs-dev".equals(profile)) {
+            return "https://t-meta-api.vsaidt.com";
+        }
+        if ("vs-prod".equals(profile)) {
+            return "https://meta-api.vsaidt.com";
+        }
+        return "http://localhost:8081";
     }
 
     /**
