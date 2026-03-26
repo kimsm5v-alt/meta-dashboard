@@ -7,144 +7,48 @@
  * - /api/dgnss/tc/stinfolist: 학생 목록 + 신뢰도
  * - /api/dgnss/tc/analysis: 학급 평균 T점수
  * - /api/dgnss/tc/need: 관심 필요 학생
- * - /api/dgnss/st/total/analysis: 학생 개별 T점수
+ * - /api/dgnss/st/analysis: 학생 개별 T점수
  */
 
 import { apiRequest } from './apiClient';
 import type { SchoolLevel, StudentType } from '@/shared/types';
+import type {
+  DgnssInfoItem,
+  DgnssInfoResponse,
+  DgnssDetailResponse,
+  StudentInfoItem,
+  StudentInfoListResponse,
+  NeedStudentsResponse,
+  AnalysisSectionItem,
+  AnalysisResponse,
+} from '@/shared/types/api';
 import { classifyStudent, getTypeDeviations } from '@/shared/utils/lpaClassifier';
 import { checkAttention } from '@/shared/utils/attentionChecker';
+import {
+  T_SCORE_LENGTH,
+  createDefaultTScores,
+  SECTION_ID_TO_INDEX,
+  ReliabilityWarningType,
+  ReliabilityApiValue,
+  FACTOR_DEPTH,
+  DEFAULT_PAPER_IDX,
+} from '@/shared/constants';
 
-// ============================================================
-// API 응답 타입
-// ============================================================
-
-export interface DgnssInfoItem {
-  dgnssId: number;
-  paperIdx: string;
-  ordNo: number;
-  claId: string;
-  tcId: string;
-  dgnssAt: 'Y' | 'N';
-  dgnssStDt: string;
-  dgnssEdDt: string | null;
-  stTotalCnt: number;
-  stSubmCnt: number;
-  notDgnssStartCnt: number;
-  notDgnssStartList: string | null;
-}
-
-export interface DgnssInfoResponse {
-  dgnssInfo: DgnssInfoItem[];
-}
-
-export interface DgnssDetailResponse {
-  dgnssId: number;
-  paperIdx: string;
-  ordNo: number;
-  num: number;
-  dgnssAt: 'Y' | 'N';
-  dgnssStDt: string;
-  dgnssEdDt: string | null;
-  stTotalCnt: number;
-  stSubmCnt: number;
-  dgnssText: string | null;
-  notSubmStdtId: string | null;
-  notSubmStdtName: string | null;
-}
-
-export interface StudentInfoItem {
-  stdtId: string;
-  answerIdx: number;
-  rowNum: number;
-  gender: string;
-  reason: string;
-  reaction: string;
-  repeatResponse: 'Y' | 'N';
-  desirable: string;
-  styTime: string;
-  styPer: string;
-  satisPer: string;
-  cnsl: string;
-}
-
-export interface StudentInfoListResponse {
-  type: number;
-  stInfoList: StudentInfoItem[];
-}
-
-export interface NeedStudentsResponse {
-  reaction: Array<{ num: number; stdtId: string }>;
-  repeatResponse: Array<{ num: number; stdtId: string }>;
-  desirable: Array<{ num: number; stdtId: string }>;
-  etcInfo: Record<string, Array<{ num: number; stdtId: string }>>;
-}
-
-export interface AnalysisSectionItem {
-  ord_no: number;
-  SECTION_ID: string;
-  SECTION_NM: string;
-  DEPTH: number;
-  tScore: number;
-  id?: number;
-  dgnssResultId?: number;
-  reaction?: string;
-  repeatResponse?: string;
-  desirable?: string;
-}
-
-export type AnalysisResponse = Record<string, AnalysisSectionItem[]>;
-
-// ============================================================
-// SECTION_ID → 요인 인덱스 매핑
-// ============================================================
-
-const SECTION_ID_TO_INDEX: Record<string, number> = {
-  '10-22-01-01-01-0': 0,  // 자아존중감
-  '10-22-01-01-02-0': 1,  // 자기효능감
-  '10-22-01-01-03-0': 2,  // 성장마인드셋
-  '10-22-01-02-01-0': 3,  // 자기정서인식
-  '10-22-01-02-02-0': 4,  // 자기정서조절
-  '10-22-01-02-03-0': 5,  // 타인정서인식
-  '10-22-01-02-04-0': 6,  // 타인공감능력
-  '10-22-02-01-01-0': 7,  // 계획능력
-  '10-22-02-01-02-0': 8,  // 점검능력
-  '10-22-02-01-03-0': 9,  // 조절능력
-  '10-22-02-02-01-0': 10, // 공부환경
-  '10-22-02-02-02-0': 11, // 시간관리
-  '10-22-02-02-03-0': 12, // 수업태도
-  '10-22-02-02-04-0': 13, // 노트하기
-  '10-22-02-02-05-0': 14, // 시험준비
-  '10-22-02-03-01-0': 15, // 부모 의사소통
-  '10-22-02-03-02-0': 16, // 부모 학업지지
-  '10-22-02-03-03-0': 17, // 친구 정서지지
-  '10-22-02-03-04-0': 18, // 교사 정서지지
-  '10-22-03-01-01-0': 19, // 성적부담
-  '10-22-03-01-02-0': 20, // 공부부담
-  '10-22-03-01-03-0': 21, // 수업부담
-  '10-22-03-02-01-0': 22, // 부모 성적압력
-  '10-22-03-02-02-0': 23, // 부모 공부부담
-  '10-22-03-02-03-0': 24, // 친구 공부비교
-  '10-22-03-02-04-0': 25, // 교사 성적압력
-  '10-22-03-02-05-0': 26, // 교사 수업부담
-  '10-22-03-03-01-0': 27, // 스마트폰 의존
-  '10-22-03-03-02-0': 28, // 게임 과몰입
-  '10-22-04-01-01-0': 29, // 활기
-  '10-22-04-01-02-0': 30, // 몰두
-  '10-22-04-01-03-0': 31, // 의미감
-  '10-22-04-02-01-0': 32, // 자율성
-  '10-22-04-02-02-0': 33, // 유능성
-  '10-22-04-02-03-0': 34, // 관계성
-  '10-22-05-01-01-0': 35, // 고갈
-  '10-22-05-01-02-0': 36, // 무능감
-  '10-22-05-01-03-0': 37, // 반감-냉소
+// 타입 re-export (기존 사용처 호환성 유지)
+export type {
+  DgnssInfoItem,
+  DgnssDetailResponse,
+  StudentInfoItem,
+  NeedStudentsResponse,
+  AnalysisSectionItem,
+  AnalysisResponse,
 };
 
 function convertSectionsToTScores(sections: AnalysisSectionItem[]): number[] {
-  const tScores: number[] = new Array(38).fill(50);
+  const tScores = createDefaultTScores();
 
   for (const section of sections) {
-    if (section.DEPTH !== 5) continue;
+    if (section.DEPTH !== FACTOR_DEPTH) continue;
 
     const index = SECTION_ID_TO_INDEX[section.SECTION_ID];
     if (index !== undefined) {
@@ -158,14 +62,14 @@ function convertSectionsToTScores(sections: AnalysisSectionItem[]): number[] {
 function getReliabilityWarnings(info: StudentInfoItem | AnalysisSectionItem): string[] {
   const warnings: string[] = [];
 
-  if ('reaction' in info && info.reaction === '주의') {
-    warnings.push('반응일관성');
+  if ('reaction' in info && info.reaction === ReliabilityApiValue.CAUTION) {
+    warnings.push(ReliabilityWarningType.REACTION_CONSISTENCY);
   }
-  if ('desirable' in info && info.desirable === '주의') {
-    warnings.push('사회적바람직성');
+  if ('desirable' in info && info.desirable === ReliabilityApiValue.CAUTION) {
+    warnings.push(ReliabilityWarningType.SOCIAL_DESIRABILITY);
   }
-  if ('repeatResponse' in info && info.repeatResponse === 'Y') {
-    warnings.push('연속동일반응');
+  if ('repeatResponse' in info && info.repeatResponse === ReliabilityApiValue.REPEAT_YES) {
+    warnings.push(ReliabilityWarningType.REPEAT_RESPONSE);
   }
 
   return warnings;
@@ -200,7 +104,7 @@ export async function fetchExamDetail(
 
 export async function fetchStudentInfoList(
   dgnssId: number,
-  paperIdx: string = '1',
+  paperIdx: string = DEFAULT_PAPER_IDX,
   type: number = 1
 ): Promise<StudentInfoItem[]> {
   const response = await apiRequest<StudentInfoListResponse>(
@@ -211,7 +115,7 @@ export async function fetchStudentInfoList(
 
 export async function fetchNeedAttentionStudents(
   dgnssId: number,
-  paperIdx: string = '1'
+  paperIdx: string = DEFAULT_PAPER_IDX
 ): Promise<NeedStudentsResponse> {
   const response = await apiRequest<NeedStudentsResponse>(
     `/api/dgnss/tc/need?dgnssId=${dgnssId}&paperIdx=${paperIdx}`
@@ -221,7 +125,7 @@ export async function fetchNeedAttentionStudents(
 
 export async function fetchClassAnalysis(
   claId: string,
-  paperIdx: string = '1',
+  paperIdx: string = DEFAULT_PAPER_IDX,
   ordNo: number = 1
 ): Promise<number[]> {
   const response = await apiRequest<AnalysisResponse>(
@@ -230,7 +134,7 @@ export async function fetchClassAnalysis(
 
   const roundData = response.resultData[String(ordNo)];
   if (!roundData) {
-    return new Array(38).fill(50);
+    return createDefaultTScores();
   }
 
   return convertSectionsToTScores(roundData);
@@ -238,7 +142,7 @@ export async function fetchClassAnalysis(
 
 export async function fetchClassAnalysisRaw(
   claId: string,
-  paperIdx: string = '1',
+  paperIdx: string = DEFAULT_PAPER_IDX,
   ordNo: number = 1
 ): Promise<AnalysisSectionItem[]> {
   const response = await apiRequest<AnalysisResponse>(
@@ -250,7 +154,7 @@ export async function fetchClassAnalysisRaw(
 
 export async function fetchStudentAnalysis(
   stdtId: string,
-  paperIdx: string = '1',
+  paperIdx: string = DEFAULT_PAPER_IDX,
   ordNo: number = 1
 ): Promise<{
   tScores: number[];
@@ -258,13 +162,13 @@ export async function fetchStudentAnalysis(
   sections: AnalysisSectionItem[];
 }> {
   const response = await apiRequest<AnalysisResponse>(
-    `/api/dgnss/st/total/analysis?stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`
+    `/api/dgnss/st/analysis?stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`
   );
 
   const roundData = response.resultData[String(ordNo)];
   if (!roundData || roundData.length === 0) {
     return {
-      tScores: new Array(38).fill(50),
+      tScores: createDefaultTScores(),
       reliabilityWarnings: [],
       sections: [],
     };
@@ -282,7 +186,7 @@ export async function fetchStudentAnalysis(
 
 export async function fetchStudentFullAnalysis(
   stdtId: string,
-  paperIdx: string = '1'
+  paperIdx: string = DEFAULT_PAPER_IDX
 ): Promise<{
   round1: { tScores: number[]; reliabilityWarnings: string[] } | null;
   round2: { tScores: number[]; reliabilityWarnings: string[] } | null;
@@ -328,9 +232,9 @@ export function convertToAssessment(
   const tScores = data?.tScores;
   const reliabilityWarnings = data?.reliabilityWarnings ?? [];
 
-  const safeTScores = tScores && Array.isArray(tScores) && tScores.length === 38
+  const safeTScores = tScores && Array.isArray(tScores) && tScores.length === T_SCORE_LENGTH
     ? tScores
-    : new Array(38).fill(50);
+    : createDefaultTScores();
 
   const classification = classifyStudent(safeTScores, schoolLevel);
   const deviations = getTypeDeviations(safeTScores, classification.predictedType, schoolLevel, 3);

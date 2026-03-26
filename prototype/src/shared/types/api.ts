@@ -196,3 +196,104 @@ export interface UnusedAPIFields {
   COCH_DGNSS_QESITM04_SCORE: number | null;
   eak_stts_cd: EakStatusCode;
 }
+
+// ============================================================
+// 대시보드 API 응답 타입 (dashboardService용)
+// ============================================================
+
+/** 검사 목록 아이템 (GET /api/dgnss/tc/info) */
+export interface DgnssInfoItem {
+  dgnssId: number;
+  paperIdx: string;
+  ordNo: number;
+  claId: string;
+  tcId: string;
+  dgnssAt: 'Y' | 'N';
+  dgnssStDt: string;
+  dgnssEdDt: string | null;
+  stTotalCnt: number;
+  stSubmCnt: number;
+  notDgnssStartCnt: number;
+  notDgnssStartList: string | null;
+}
+
+/** 검사 목록 응답 */
+export interface DgnssInfoResponse {
+  dgnssInfo: DgnssInfoItem[];
+}
+
+/** 검사 상세 응답 (GET /api/dgnss/tc/detail) */
+export interface DgnssDetailResponse {
+  dgnssId: number;
+  paperIdx: string;
+  ordNo: number;
+  num: number;
+  dgnssAt: 'Y' | 'N';
+  dgnssStDt: string;
+  dgnssEdDt: string | null;
+  stTotalCnt: number;
+  stSubmCnt: number;
+  dgnssText: string | null;
+  notSubmStdtId: string | null;
+  notSubmStdtName: string | null;
+}
+
+/** 학생 정보 아이템 (GET /api/dgnss/tc/stinfolist) */
+export interface StudentInfoItem {
+  stdtId: string;
+  answerIdx: number;
+  rowNum: number;
+  gender: string;
+  reason: string;
+  reaction: string;
+  repeatResponse: 'Y' | 'N';
+  desirable: string;
+  styTime: string;
+  styPer: string;
+  satisPer: string;
+  cnsl: string;
+}
+
+/** 학생 정보 목록 응답 */
+export interface StudentInfoListResponse {
+  type: number;
+  stInfoList: StudentInfoItem[];
+}
+
+/** 관심 필요 학생 응답 (GET /api/dgnss/tc/need) */
+export interface NeedStudentsResponse {
+  reaction: Array<{ num: number; stdtId: string }>;
+  repeatResponse: Array<{ num: number; stdtId: string }>;
+  desirable: Array<{ num: number; stdtId: string }>;
+  etcInfo: Record<string, Array<{ num: number; stdtId: string }>>;
+}
+
+/** 분석 섹션 아이템 (GET /api/dgnss/tc/analysis, /api/dgnss/st/analysis) */
+export interface AnalysisSectionItem {
+  ord_no: number;
+  SECTION_ID: string;
+  SECTION_NM: string;
+  DEPTH: number;
+  tScore: number;
+  id?: number;
+  dgnssResultId?: number;
+  reaction?: string;
+  repeatResponse?: string;
+  desirable?: string;
+}
+
+/** 분석 응답 (회차별 데이터) */
+export type AnalysisResponse = Record<string, AnalysisSectionItem[]>;
+
+/** 학생 분석 결과 */
+export interface StudentAnalysisResult {
+  tScores: number[];
+  reliabilityWarnings: string[];
+  sections: AnalysisSectionItem[];
+}
+
+/** 학생 전체 분석 결과 (1회차 + 2회차) */
+export interface StudentFullAnalysisResult {
+  round1: { tScores: number[]; reliabilityWarnings: string[] } | null;
+  round2: { tScores: number[]; reliabilityWarnings: string[] } | null;
+}
