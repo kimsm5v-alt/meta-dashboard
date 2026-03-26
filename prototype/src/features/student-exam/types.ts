@@ -31,10 +31,20 @@ export interface StudentExamListItem {
 export function mapExamStatus(
   dgnssAt: 'Y' | 'N',
   submAt: 'Y' | 'N',
-  eakAt: 'Y' | 'N'
+  eakAt: number
 ): ExamStatus {
-  if (submAt === 'Y' && eakAt === 'Y') return 'result_ready';
-  if (submAt === 'Y') return 'completed';
-  if (dgnssAt === 'Y') return 'in_progress';
+  // eakAt 상태: 1:응시전, 2:응시중, 3:제출완료, 4:채점중, 5:채점완료
+
+  // 채점 완료 (결과 확인 가능)
+  if (eakAt === 5) return 'result_ready';
+
+  // 제출 완료 또는 채점 중 (결과 준비 중)
+  if (eakAt === 3 || eakAt === 4 || submAt === 'Y') return 'completed';
+
+  // 응시 중 (학생이 답변 시작함)
+  if (eakAt === 2) return 'in_progress';
+
+  // 응시 전 (교사가 검사 배부했지만 학생이 아직 시작 안 함)
+  // dgnssAt='Y': 검사 배부됨, eakAt=1: 응시 전
   return 'waiting';
 }
