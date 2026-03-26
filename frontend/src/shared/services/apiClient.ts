@@ -1,160 +1,56 @@
 /**
- * API 클라이언트 - 공통 HTTP 요청 처리
- *
- * 교사용/학생용 API 서비스에서 공통으로 사용하는 API 설정 및 요청 함수
+ * 하위 호환 re-export
+ * shared/api/client.ts로 통합됨. 기존 import 경로 유지용.
  */
+export type { APIResponse } from '@shared/api/client';
+export { ApiError as APIError, apiClient, axiosInstance } from '@shared/api/client';
+
+import { axiosInstance } from '@shared/api/client';
+import type { APIResponse } from '@shared/api/client';
 
 // ============================================================
-// 환경 설정
+// 하위 호환: API_CONFIG
 // ============================================================
-
-const CREDENTIALS_STORAGE_KEY = 'meta_test_credentials';
-
-/** 저장된 credentials에서 JWT 토큰 가져오기 */
-function getStoredJwtToken(): string {
-  try {
-    const stored = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
-    if (stored) {
-      const credentials = JSON.parse(stored);
-      return credentials.jwtToken || '';
-    }
-  } catch {
-    // ignore
-  }
-  return '';
-}
 
 export const API_CONFIG = {
-  baseUrl: import.meta.env.VITE_API_BASE_URL || '',
-  /** JWT 토큰 (동적으로 localStorage에서 가져옴) */
+  get baseUrl(): string {
+    return (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8081';
+  },
   get jwtToken(): string {
-    return getStoredJwtToken();
+    return localStorage.getItem('auth_token') ?? '';
   },
 } as const;
 
 // ============================================================
-// 공통 타입
+// 하위 호환: apiRequest (fetch 스타일 옵션 → axios)
 // ============================================================
 
-/** API 응답 공통 구조 */
-export interface APIResponse<T> {
-  success: boolean;
-  resultCode: number;
-  resultMessage: string;
-  resultData: T;
-  paramData?: Record<string, string>;
-  sTime?: string;
-  eTime?: string;
-  hash?: string;
-  currentTime?: string;
-}
-
-/** API 에러 상세 정보 */
-export interface APIErrorDetail {
-  path?: string;
-  code?: string;
-  name?: string;
-  message?: string;
-}
-
-/** API 에러 */
-export class APIError extends Error {
-  statusCode?: number;
-  resultCode?: number;
-  errorDetail?: APIErrorDetail;
-
-  constructor(
-    message: string,
-    statusCode?: number,
-    resultCode?: number,
-    errorDetail?: APIErrorDetail,
-  ) {
-    super(message);
-    this.name = 'APIError';
-    this.statusCode = statusCode;
-    this.resultCode = resultCode;
-    this.errorDetail = errorDetail;
-  }
-
-  /** DuplicateKeyException 여부 확인 */
-  isDuplicateKeyError(): boolean {
-    return this.errorDetail?.name === 'DuplicateKeyException' || this.errorDetail?.code === 'E001';
-  }
-}
-
-// ============================================================
-// API 요청 함수
-// ============================================================
-
-interface RequestOptions extends RequestInit {
-  /** 디버그 로깅 활성화 (기본: false) */
+interface LegacyRequestOptions {
+  method?: string;
+  body?: string;
+  headers?: Record<string, string>;
   debug?: boolean;
 }
 
-/**
- * 공통 API 요청 함수
- * JWT 토큰 자동 추가, 에러 처리 포함
- */
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestOptions = {},
+  options: LegacyRequestOptions = {},
 ): Promise<APIResponse<T>> {
-  const { debug = false, ...fetchOptions } = options;
-  const url = `${API_CONFIG.baseUrl}${endpoint}`;
-
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...fetchOptions.headers,
-  };
-
-  // JWT 토큰 추가 (동적으로 가져옴)
-  const jwtToken = API_CONFIG.jwtToken;
-  if (jwtToken) {
-    (headers as Record<string, string>)['Authorization'] = `Bearer ${jwtToken}`;
-  }
+  const { method = 'GET', body, debug = false } = options;
 
   if (debug) {
-    console.log('[API Request]', {
-      url,
-      method: fetchOptions.method || 'GET',
-      hasJWT: !!jwtToken,
-    });
+    console.log('[API Request]', { endpoint, method });
   }
 
-  const response = await fetch(url, {
-    ...fetchOptions,
-    headers,
+  const response = await axiosInstance.request<APIResponse<T>>({
+    url: endpoint,
+    method,
+    data: body ? (JSON.parse(body) as unknown) : undefined,
   });
 
-  if (!response.ok) {
-    throw new APIError(`API 요청 실패: ${response.status} ${response.statusText}`, response.status);
-  }
-
-  const data = await response.json();
-
   if (debug) {
-    console.log('[API Response]', endpoint, data);
+    console.log('[API Response]', endpoint, response.data);
   }
 
-  if (!data.success) {
-    // resultData에서 에러 상세 정보 추출
-    const errorDetail: APIErrorDetail | undefined =
-      data.resultData && typeof data.resultData === 'object'
-        ? {
-            path: data.resultData.path,
-            code: data.resultData.code,
-            name: data.resultData.name,
-            message: data.resultData.message,
-          }
-        : undefined;
-
-    throw new APIError(
-      data.resultMessage || 'API 요청 실패',
-      response.status,
-      data.resultCode,
-      errorDetail,
-    );
-  }
-
-  return data;
+  return response.data;
 }
