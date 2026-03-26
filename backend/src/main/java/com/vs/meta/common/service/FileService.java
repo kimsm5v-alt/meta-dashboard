@@ -368,6 +368,29 @@ public class FileService {
         }
     }
 
+    public byte[] loadFileBytesForMail(String url) throws Exception {
+        FileVO fileVO = resolveFileInfoByUrl(url);
+        if (fileVO == null) {
+            if ("local".equals(serverEnv)) {
+                Path localPath = Paths.get(url).toAbsolutePath().normalize();
+                if (!Files.exists(localPath)) {
+                    throw new FileNotFoundException("로컬 메일 첨부 파일을 찾을 수 없습니다: " + url);
+                }
+                return Files.readAllBytes(localPath);
+            }
+            throw new FileNotFoundException("메일 첨부용 파일 정보를 찾을 수 없습니다.");
+        }
+        if ("Y".equals(fileVO.getDelYn()) && "Y".equals(fileVO.getPrsInfoYn())) {
+            throw new FileNotFoundException("개인정보 처리방침에 의해 삭제된 파일입니다.");
+        }
+
+        String filePath = fileVO.getFilePath() + fileVO.getSaveFileName();
+        Path safePath = resolveSafePath(filePath);
+        validateChecksum(fileVO, safePath.toString());
+
+        return Files.readAllBytes(safePath);
+    }
+
     public Map<String, Object> deleteFiles() {
         Map<String, Object> resultMap = new HashMap<>();
         List<FileVO> deletedFiles = new ArrayList<>();
@@ -784,5 +807,28 @@ public class FileService {
         }
 
         return resolved;
+    }
+
+    private FileVO resolveFileInfoByUrl(String url) {
+        String fileUrl = StringUtils.substringBeforeLast(url, "/");
+        String fileName = StringUtils.substringAfterLast(url, "/");
+
+        FileVO paramFileVO = new FileVO();
+        paramFileVO.setFilePath(fileUrl + "/");
+        paramFileVO.setFileName(fileName);
+
+        return fileMapper.selectFileInfo(paramFileVO);
+    }
+
+    private void validateChecksum(FileVO fileVO, String filePath) throws Exception {
+        String checksum = fileVO.getChecksum();
+        if (StringUtils.isEmpty(checksum)) {
+            throw new IOException("파일 checksum 정보가 누락되었습니다.");
+        }
+
+        String fileChecksum = FileUtil.getHmacSHA256Checksum(filePath, keySaltMain);
+        if (!StringUtils.equals(checksum, fileChecksum)) {
+            throw new IOException("파일 checksum 검증에 실패했습니다.");
+        }
     }
 }

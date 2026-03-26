@@ -696,6 +696,18 @@ GET /api/dgnss/tc/stinfolist?dgnssId=294&paperIdx=1&type=6
 | 3 | desirable | String | 사회적 바람직성 | |
 | 4 | reaction | String | 반응 일관성 | |
 | 5 | {SECTION_ID} | Number | 영역별 T점수 | KEY: SECTION_ID, VALUE: T_SCORE |
+| 6 | lpaClassId | String | LPA 클래스 ID | 예: Class1~Class6 |
+| 7 | lpaTypeName | String | LPA 유형명 | |
+| 8 | lpaConfidence | Number | LPA 신뢰도(%) | 소수점 가능 |
+| 9 | lpaStatus | String | LPA 처리 상태 | COMPLETED / UNSUPPORTED / null |
+| 10 | lpaTop1TypeName | String | LPA 1순위 유형명 | |
+| 11 | lpaTop1Probability | Number | LPA 1순위 확률(%) | 소수점 1자리 |
+| 12 | lpaTop2TypeName | String | LPA 2순위 유형명 | |
+| 13 | lpaTop2Probability | Number | LPA 2순위 확률(%) | 소수점 1자리 |
+| 14 | lpaTop3TypeName | String | LPA 3순위 유형명 | |
+| 15 | lpaTop3Probability | Number | LPA 3순위 확률(%) | 소수점 1자리 |
+
+> `lpaTop1Probability + lpaTop2Probability + lpaTop3Probability = 100.0`
 
 #### Response Example
 
@@ -718,6 +730,16 @@ GET /api/dgnss/tc/stinfolist?dgnssId=294&paperIdx=1&type=6
         "reaction": "주의",
         "gender": "남자",
         "desirable": "양호",
+        "lpaClassId": "Class2",
+        "lpaTypeName": "안전균형형",
+        "lpaConfidence": 78.45,
+        "lpaStatus": "COMPLETED",
+        "lpaTop1TypeName": "안전균형형",
+        "lpaTop1Probability": 78.5,
+        "lpaTop2TypeName": "자원소진형",
+        "lpaTop2Probability": 15.1,
+        "lpaTop3TypeName": "몰입자원풍부형",
+        "lpaTop3Probability": 6.4,
         "10-22-05-01-03-0": 44.4,
         "10-22-05-01-0-0": 41.5,
         "10-22-05-01-02-0": 56,
@@ -1152,6 +1174,18 @@ GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2
 | 7 | reaction | String | 반응성 | |
 | 8 | desirable | String | 바람직성 | |
 | 9 | repeatResponse | String | 반복응답 여부 | |
+| 10 | lpaClassId | String | LPA 클래스 ID | 예: Class1~Class6 |
+| 11 | lpaTypeName | String | LPA 유형명 | |
+| 12 | lpaConfidence | Number | LPA 신뢰도(%) | 소수점 가능 |
+| 13 | lpaStatus | String | LPA 처리 상태 | COMPLETED / UNSUPPORTED / null |
+| 14 | lpaTop1TypeName | String | LPA 1순위 유형명 | |
+| 15 | lpaTop1Probability | Number | LPA 1순위 확률(%) | 소수점 1자리 |
+| 16 | lpaTop2TypeName | String | LPA 2순위 유형명 | |
+| 17 | lpaTop2Probability | Number | LPA 2순위 확률(%) | 소수점 1자리 |
+| 18 | lpaTop3TypeName | String | LPA 3순위 유형명 | |
+| 19 | lpaTop3Probability | Number | LPA 3순위 확률(%) | 소수점 1자리 |
+
+> `lpaTop1Probability + lpaTop2Probability + lpaTop3Probability = 100.0`
 
 #### Response Example
 
@@ -1185,7 +1219,17 @@ GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2
         "ord_no": 1,
         "reaction": null,
         "desirable": null,
-        "repeatResponse": "N"
+        "repeatResponse": "N",
+        "lpaClassId": "Class2",
+        "lpaTypeName": "안전균형형",
+        "lpaConfidence": 78.45,
+        "lpaStatus": "COMPLETED",
+        "lpaTop1TypeName": "안전균형형",
+        "lpaTop1Probability": 78.5,
+        "lpaTop2TypeName": "자원소진형",
+        "lpaTop2Probability": 15.1,
+        "lpaTop3TypeName": "몰입자원풍부형",
+        "lpaTop3Probability": 6.4
       }
     ]
   },

@@ -213,8 +213,10 @@ public class PdfService {
                     throw new RuntimeException(e);
                 }
             }
-            // 로컬로 파일 저장할때 사용
-            //pioPdfVO.saveDoc(file);
+            if ("local".equals(activeProfile)) {
+                return savePdfToLocal(pioPdfVO, file);
+            }
+
             byte[] pdfBytes;
 
             // 초기 버퍼 크기 2MB - 버퍼 재할당 최소화
@@ -321,8 +323,10 @@ public class PdfService {
             }
 
         }
-        // 로컬로 파일 저장할때 사용
-        //PioPdfVO.saveDoc(file);
+        if ("local".equals(activeProfile)) {
+            return savePdfToLocal(pioPdfVO, file);
+        }
+
         byte[] pdfBytes;
 
         // 초기 버퍼 크기 2MB - 버퍼 재할당 최소화
@@ -430,11 +434,10 @@ public class PdfService {
                 throw new RuntimeException(e);
             }
         }
+        if ("local".equals(activeProfile)) {
+            return savePdfToLocal(pioPdf, file);
+        }
 
-
-
-        // 로컬로 파일 저장할때 사용
-//        pioPdf.saveDoc(file);
         byte[] pdfBytes;
 
         // 초기 버퍼 크기 1MB - 요약본은 1페이지
@@ -463,5 +466,17 @@ public class PdfService {
 
     public byte[] getCachedFont(String fontPath) {
         return fontCache.get(fontPath);
+    }
+
+    private String savePdfToLocal(PioPdfVO pioPdfVO, File file) throws Exception {
+        File localFile = file.getAbsoluteFile();
+        File parentDir = localFile.getParentFile();
+        if (parentDir != null && !parentDir.exists() && !parentDir.mkdirs()) {
+            throw new IOException("로컬 PDF 저장 디렉터리를 생성할 수 없습니다: " + parentDir.getAbsolutePath());
+        }
+
+        pioPdfVO.saveDoc(localFile);
+        log.info("PDF 로컬 저장 완료: {}", localFile.getAbsolutePath());
+        return localFile.getAbsolutePath().replace("\\", "/");
     }
 }

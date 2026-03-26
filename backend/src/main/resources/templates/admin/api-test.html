@@ -469,6 +469,7 @@
                     <div class="api-tab" data-tab="dgnss-pdf-search">PDF대상조회</div>
                     <div class="api-tab" data-tab="dgnss-pdf-all">일괄다운로드</div>
                     <div class="api-tab" data-tab="dgnss-summary">요약본업로드</div>
+                    <div class="api-tab" data-tab="dgnss-mail-test">메일테스트</div>
                 </div>
             </div>
 
@@ -821,6 +822,18 @@
                 </div>
                 <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssSummary()">업로드</button></div>
                 <div class="response-area" id="resp-dgnss-summary"></div>
+            </div>
+
+            <div class="api-panel" id="panel-dgnss-mail-test">
+                <h2>POST /api/dgnss/mail/test</h2>
+                <p class="desc">학생 결과 PDF 메일 발송 테스트</p>
+                <div class="api-row">
+                    <div class="api-field"><label>dgnssResultId</label><input id="dmt_dgnssResultId" placeholder="1717" /></div>
+                    <div class="api-field"><label>toEmail (선택)</label><input id="dmt_toEmail" placeholder="tester@example.com" /></div>
+                </div>
+                <div class="hint" style="margin:8px 0;color:#475569">* toEmail을 비우면 학생 `group_member.email`로 발송합니다.</div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssMailTest()">발송</button></div>
+                <div class="response-area" id="resp-dgnss-mail-test"></div>
             </div>
 
         </div><!-- /section-dgnss -->
@@ -1335,6 +1348,13 @@
     async function doDgnssSummary() {
         const body = { answerIdx: parseInt(document.getElementById('dsum_answerIdx').value) };
         await apiCall('POST', '/api/dgnss/summary/pdf', body, 'resp-dgnss-summary');
+    }
+    async function doDgnssMailTest() {
+        const dgnssResultId = parseInt(document.getElementById('dmt_dgnssResultId').value);
+        const toEmail = document.getElementById('dmt_toEmail').value.trim();
+        const body = { dgnssResultId };
+        if (toEmail) body.toEmail = toEmail;
+        await apiCall('POST', '/api/dgnss/mail/test', body, 'resp-dgnss-mail-test');
     }
     loadAdminDgnssBootstrap();
 </script>

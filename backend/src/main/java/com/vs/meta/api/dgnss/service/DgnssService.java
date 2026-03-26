@@ -1,10 +1,12 @@
 package com.vs.meta.api.dgnss.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.vs.meta.common.service.FileService;
-import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.exception.IllegalStateException;
+import com.vs.meta.common.response.AidtCommonUtil;
+import com.vs.meta.common.service.FileService;
+import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.common.utils.PagingInfo;
 import com.vs.meta.common.utils.PagingParam;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
@@ -15,6 +17,7 @@ import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -22,8 +25,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -36,14 +41,38 @@ import static java.util.stream.Collectors.toCollection;
 @RequiredArgsConstructor
 @Slf4j
 public class DgnssService {
+    private static final String LPA_TYPES_RESOURCE_PATH = "data/lpa-types.json";
+
     private final ObjectMapper mapper;
     private final DgnssMapper dgnssMapper;
     private final DgnssLpaService dgnssLpaService;
     private final PdfService pdfService;
     private final FileService fileService;
+    private final NcpMailSender ncpMailSender;
+    private Map<String, String> lpaTypeNameByClassId = Collections.emptyMap();
 
     @Value("${spring.profiles.active}")
     private String serverEnv;
+
+    @PostConstruct
+    void loadLpaTypes() {
+        try {
+            ClassPathResource resource = new ClassPathResource(LPA_TYPES_RESOURCE_PATH);
+            Map<String, Map<String, Object>> raw = mapper.readValue(
+                    resource.getInputStream(),
+                    new TypeReference<Map<String, Map<String, Object>>>() { }
+            );
+
+            Map<String, String> typeNameMap = new LinkedHashMap<>();
+            for (Map.Entry<String, Map<String, Object>> entry : raw.entrySet()) {
+                typeNameMap.put(entry.getKey(), MapUtils.getString(entry.getValue(), "typeName", entry.getKey()));
+            }
+            lpaTypeNameByClassId = typeNameMap;
+        } catch (IOException e) {
+            log.warn("Failed to load LPA type metadata. top3 type names will fallback to classId.", e);
+            lpaTypeNameByClassId = Collections.emptyMap();
+        }
+    }
 
     public Map<String, Object> selectTcDgnssInfo(Map<String, Object> paramMap) {
         Map<String, Object> resultMap = new HashMap<>();
@@ -190,7 +219,7 @@ public class DgnssService {
         // 제출 처리(프로시저 실행)
         if (CollectionUtils.isNotEmpty(dgnssResultIdList)) {
             for (int dgnssResultId : dgnssResultIdList) {
-                stSubmit(dgnssResultId, paperIdx, MapUtils.getBoolean(sameAnswerMap, dgnssResultId, false));
+                stSubmit(dgnssResultId, paperIdx, MapUtils.getBoolean(sameAnswerMap, dgnssResultId, false), request);
             }
         }
         List<String> submStdtIdList = dgnssMapper.selectSubmitStList(paramMap);
@@ -292,7 +321,7 @@ public class DgnssService {
         return null;
     }
 
-    public void stSubmit(int dgnssResultId, String paperType, boolean sameAnswerCheck) {
+    public void stSubmit(int dgnssResultId, String paperType, boolean sameAnswerCheck, HttpServletRequest request) {
         // tb_dgnss_result_info에서 subm_at = Y 처리
         dgnssMapper.updateStSubmit(dgnssResultId);
         if (StringUtils.equals(paperType, "1")) {
@@ -303,6 +332,12 @@ public class DgnssService {
         int answerIdx = dgnssMapper.selectAnswerIdx(dgnssResultId);
         dgnssMapper.callProcMark(answerIdx);
         dgnssLpaService.processAndSave(answerIdx);
+
+        try {
+            sendStudentResultMail(dgnssResultId, answerIdx, null, request);
+        } catch (Exception e) {
+            log.error("학생 결과 메일 발송 실패: dgnssResultId={}, answerIdx={}", dgnssResultId, answerIdx, e);
+        }
     }
 
     public Map<String, Object> pdfDownload(Map<String, Object> paramData, HttpServletRequest request) throws Exception {
@@ -520,7 +555,7 @@ public class DgnssService {
         return resultMap;
     }
 
-    public Map<String, Object> updateStSubmit(Map<String, Object> param) {
+    public Map<String, Object> updateStSubmit(Map<String, Object> param, HttpServletRequest request) {
         Map<String, Object> resultMap = new HashMap<>();
         String paperType = dgnssMapper.selectPaperIdxFromResultId(param);
         param.put("paperIdx", paperType);
@@ -534,11 +569,33 @@ public class DgnssService {
             answersOnly.remove("omrIdx");
             boolean sameAnswerCheck = answerCheck(answersOnly.values(), 10);
 
-             stSubmit(MapUtils.getInteger(param, "dgnssResultId", 0), paperType, sameAnswerCheck);
+             stSubmit(MapUtils.getInteger(param, "dgnssResultId", 0), paperType, sameAnswerCheck, request);
             resultMap.put("submit", true);
         } else {
             resultMap.put("submit", false);
         }
+
+        return resultMap;
+    }
+
+    public Map<String, Object> sendStudentResultMailTest(Map<String, Object> param, HttpServletRequest request) throws Exception {
+        int dgnssResultId = MapUtils.getInteger(param, "dgnssResultId", 0);
+        if (dgnssResultId <= 0) {
+            throw new IllegalArgumentException("dgnssResultId는 필수입니다.");
+        }
+
+        int answerIdx = dgnssMapper.selectAnswerIdx(dgnssResultId);
+        String overrideEmail = StringUtils.trimToNull(MapUtils.getString(param, "toEmail", ""));
+        sendStudentResultMail(dgnssResultId, answerIdx, overrideEmail, request);
+
+        Map<String, Object> studentInfo = dgnssMapper.selectStUserInfo(Collections.singletonMap("answerIdx", answerIdx));
+        Map<String, Object> resultMap = new HashMap<>();
+        resultMap.put("dgnssResultId", dgnssResultId);
+        resultMap.put("answerIdx", answerIdx);
+        resultMap.put("studentName", MapUtils.getString(studentInfo, "MEM_NM", ""));
+        resultMap.put("toEmail", ObjectUtils.defaultIfNull(overrideEmail, MapUtils.getString(studentInfo, "email", "")));
+        resultMap.put("fileUrl", ensureStudentPdfUrl(answerIdx, request));
+        resultMap.put("sent", true);
 
         return resultMap;
     }
@@ -595,6 +652,7 @@ public class DgnssService {
             resultMap.put("type", type);
         }
 
+        enrichLpaTop3(stInfoList);
         return resultMap;
     }
 
@@ -851,6 +909,7 @@ public class DgnssService {
                 return new HashMap<>();
             }
         }
+        enrichLpaTop3(stAnalysisList);
 
         Map<String, Object> resultMap = new LinkedHashMap<>();
         resultMap.put("stUserInfo", stUserInfo);
@@ -1255,6 +1314,209 @@ public class DgnssService {
 
         result.put("summaryUrl", url);
         return result;
+    }
+
+    private void sendStudentResultMail(int dgnssResultId, int answerIdx, String overrideEmail, HttpServletRequest request) throws Exception {
+        Map<String, Object> studentInfo = dgnssMapper.selectStUserInfo(Collections.singletonMap("answerIdx", answerIdx));
+        if (MapUtils.isEmpty(studentInfo)) {
+            throw new IllegalStateException("학생 결과 메일 발송 대상 정보를 찾을 수 없습니다.");
+        }
+
+        String toEmail = StringUtils.defaultIfBlank(overrideEmail, MapUtils.getString(studentInfo, "email", ""));
+        if (StringUtils.isBlank(toEmail)) {
+            throw new IllegalStateException("학생 이메일 정보가 없습니다.");
+        }
+
+        String fileUrl = ensureStudentPdfUrl(answerIdx, request);
+        byte[] pdfData = fileService.loadFileBytesForMail(fileUrl);
+        String studentName = MapUtils.getString(studentInfo, "MEM_NM", "");
+        String examTypeName = resolveExamTypeName(MapUtils.getString(studentInfo, "DGNSS_ID", ""));
+
+        ncpMailSender.sendExamResultPdf(toEmail, studentName, examTypeName, pdfData);
+        log.info("학생 결과 메일 발송 완료: dgnssResultId={}, answerIdx={}, toEmail={}", dgnssResultId, answerIdx, toEmail);
+    }
+
+    private String ensureStudentPdfUrl(int answerIdx, HttpServletRequest request) throws Exception {
+        Map<String, Object> stUserInfo = dgnssMapper.selectStUserInfo(Collections.singletonMap("answerIdx", answerIdx));
+        if (MapUtils.isEmpty(stUserInfo)) {
+            throw new IllegalStateException("학생 PDF 생성 대상 정보를 찾을 수 없습니다.");
+        }
+
+        String fileUrl = MapUtils.getString(stUserInfo, "fileURL", "");
+        if (StringUtils.isNotBlank(fileUrl)) {
+            return fileUrl;
+        }
+
+        Map<String, Object> paramData = new HashMap<>();
+        paramData.put("answerIdx", answerIdx);
+        return makeStPdf(paramData, stUserInfo, buildStudentPdfFileName(stUserInfo), request);
+    }
+
+    private String buildStudentPdfFileName(Map<String, Object> stUserInfo) {
+        LocalDateTime currentTime = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+        String formattedTime = currentTime.format(formatter);
+        return MapUtils.getString(stUserInfo, "MEM_ID", "student") + "_" + formattedTime + ".pdf";
+    }
+
+    private String resolveExamTypeName(String dgnssId) {
+        if (StringUtils.equals(dgnssId, "DGNSS_10")) {
+            return "학습종합검사";
+        }
+        if (StringUtils.equals(dgnssId, "DGNSS_20")) {
+            return "자기조절학습검사";
+        }
+        return "학습심리검사";
+    }
+
+    private void enrichLpaTop3(List<Map<String, Object>> rows) {
+        if (CollectionUtils.isEmpty(rows)) {
+            return;
+        }
+        for (Map<String, Object> row : rows) {
+            enrichLpaTop3(row);
+        }
+    }
+
+    private void enrichLpaTop3(Map<String, Object> row) {
+        String probabilitiesJson = MapUtils.getString(row, "lpaProbabilitiesJson", "");
+        if (StringUtils.isBlank(probabilitiesJson) || StringUtils.equals(probabilitiesJson, "{}")) {
+            putEmptyLpaTop3(row);
+            return;
+        }
+
+        try {
+            Map<String, Double> probabilities = mapper.readValue(
+                    probabilitiesJson,
+                    new TypeReference<Map<String, Double>>() { }
+            );
+            if (MapUtils.isEmpty(probabilities)) {
+                putEmptyLpaTop3(row);
+                return;
+            }
+
+            List<Map.Entry<String, Double>> sorted = probabilities.entrySet().stream()
+                    .sorted((a, b) -> Double.compare(
+                            ObjectUtils.defaultIfNull(b.getValue(), 0D),
+                            ObjectUtils.defaultIfNull(a.getValue(), 0D)
+                    ))
+                    .limit(3)
+                    .collect(Collectors.toList());
+
+            List<Double> top3Probabilities = normalizeTop3ProbabilitiesOneDecimal(sorted);
+
+            for (int i = 0; i < 3; i++) {
+                String rankPrefix = "lpaTop" + (i + 1);
+                if (i < sorted.size()) {
+                    Map.Entry<String, Double> entry = sorted.get(i);
+                    String classId = entry.getKey();
+                    row.put(rankPrefix + "ClassId", classId);
+                    row.put(rankPrefix + "TypeName", resolveLpaTypeName(classId));
+                    row.put(rankPrefix + "Probability", top3Probabilities.get(i));
+                } else {
+                    row.put(rankPrefix + "ClassId", null);
+                    row.put(rankPrefix + "TypeName", null);
+                    row.put(rankPrefix + "Probability", null);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse lpaProbabilitiesJson. value={}", probabilitiesJson, e);
+            putEmptyLpaTop3(row);
+        }
+    }
+
+    private void putEmptyLpaTop3(Map<String, Object> row) {
+        for (int i = 1; i <= 3; i++) {
+            row.put("lpaTop" + i + "ClassId", null);
+            row.put("lpaTop" + i + "TypeName", null);
+            row.put("lpaTop" + i + "Probability", null);
+        }
+    }
+
+    private String resolveLpaTypeName(String classId) {
+        if (StringUtils.isBlank(classId)) {
+            return null;
+        }
+        return MapUtils.getString(lpaTypeNameByClassId, classId, classId);
+    }
+
+    private List<Double> normalizeTop3ProbabilitiesOneDecimal(List<Map.Entry<String, Double>> sortedTop3) {
+        if (CollectionUtils.isEmpty(sortedTop3)) {
+            return Collections.emptyList();
+        }
+
+        List<Double> raw = sortedTop3.stream()
+                .map(entry -> Math.max(0D, ObjectUtils.defaultIfNull(entry.getValue(), 0D)))
+                .collect(Collectors.toList());
+
+        double sumRaw = raw.stream().mapToDouble(Double::doubleValue).sum();
+        if (sumRaw <= 0D) {
+            List<Double> zeros = new ArrayList<>();
+            for (int i = 0; i < raw.size(); i++) {
+                zeros.add(0D);
+            }
+            return zeros;
+        }
+
+        List<Double> normalized = raw.stream()
+                .map(value -> (value * 100D) / sumRaw)
+                .collect(Collectors.toList());
+
+        List<Integer> baseTenths = new ArrayList<>();
+        List<Double> remainders = new ArrayList<>();
+        int sumBaseTenths = 0;
+        for (double value : normalized) {
+            double scaled = value * 10D;
+            int base = (int) Math.floor(scaled + 1e-9);
+            baseTenths.add(base);
+            remainders.add(scaled - base);
+            sumBaseTenths += base;
+        }
+
+        int targetTenths = 1000; // 100.0%
+        int diff = targetTenths - sumBaseTenths;
+
+        if (diff > 0) {
+            List<Integer> order = orderIndexesByRemainder(remainders, true);
+            for (int i = 0; i < diff; i++) {
+                int idx = order.get(i % order.size());
+                baseTenths.set(idx, baseTenths.get(idx) + 1);
+            }
+        } else if (diff < 0) {
+            List<Integer> order = orderIndexesByRemainder(remainders, false);
+            int needReduce = -diff;
+            int pointer = 0;
+            while (needReduce > 0 && !order.isEmpty()) {
+                int idx = order.get(pointer % order.size());
+                if (baseTenths.get(idx) > 0) {
+                    baseTenths.set(idx, baseTenths.get(idx) - 1);
+                    needReduce--;
+                }
+                pointer++;
+            }
+        }
+
+        List<Double> result = new ArrayList<>();
+        for (Integer tenths : baseTenths) {
+            result.add(tenths / 10D);
+        }
+        return result;
+    }
+
+    private List<Integer> orderIndexesByRemainder(List<Double> remainders, boolean desc) {
+        List<Integer> indexes = new ArrayList<>();
+        for (int i = 0; i < remainders.size(); i++) {
+            indexes.add(i);
+        }
+        indexes.sort((a, b) -> {
+            int compared = Double.compare(remainders.get(a), remainders.get(b));
+            return desc ? -compared : compared;
+        });
+        return indexes;
+    }
+
+    private double roundToTwoDecimals(double value) {
+        return Math.round(value * 100D) / 100D;
     }
 
 
