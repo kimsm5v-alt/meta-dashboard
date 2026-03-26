@@ -13,6 +13,8 @@ RUN ./gradlew :backend:bootJar -x test
 FROM ncp-vsaidt-registry.ncr.gov-ntruss.com/openjdk:17.0.1-jdk-slim
 
 COPY --from=builder /tmp/backend/build/libs/*.jar app.jar
+# 심리검사 파일
+COPY --from=builder /tmp/backend/assets ./assets
 
 # CSAP 조치
 RUN useradd -m -s /bin/bash visang
