@@ -185,7 +185,7 @@ src/
 │   └── teacher-dashboard/       # L1 교사 대시보드
 ├── shared/
 │   ├── components/              # 공유 컴포넌트
-│   ├── contexts/                # React Context (DataContext, AuthContext, ApiDevModeContext)
+│   ├── contexts/                # React Context (DataContext, AuthContext)
 │   ├── hooks/                   # 공용 훅 (useApiData 등)
 │   ├── utils/                   # 유틸리티 함수 (camelCase)
 │   ├── data/                    # 데이터 파일
@@ -249,7 +249,6 @@ src/
 |------|------|
 | `shared/contexts/DataContext.tsx` | 학급/학생 데이터 전역 상태 |
 | `features/auth/context/AuthContext.tsx` | 인증 상태 (로그인, 사용자 정보) |
-| `shared/contexts/ApiDevModeContext.tsx` | API 개발자 모드 토글 (API 요구사항 표시) |
 
 ### 문서 폴더 구조
 

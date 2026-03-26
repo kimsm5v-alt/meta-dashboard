@@ -682,7 +682,6 @@ src/
 │       └── pages/
 ├── shared/
 │   ├── components/              # 공유 UI 컴포넌트
-│   │   └── api-tooltip/
 │   ├── contexts/                # React Context (DataContext 등)
 │   ├── data/                    # 요인 데이터, 프롬프트, Mock 데이터
 │   ├── hooks/                   # 공용 훅
