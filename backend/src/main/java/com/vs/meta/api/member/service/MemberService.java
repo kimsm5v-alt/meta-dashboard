@@ -216,45 +216,64 @@ public class MemberService {
 
             // JWT 서명/만료 검증
             Claims claims = jwtUtil.getAllClaimsFromToken(refreshToken);
-            Object userNoObj = claims.get("userNo");
-            String userSeCd = claims.get("userSeCd", String.class);
+            String tokenType = claims.get("tokenType", String.class);
 
-            if (userNoObj == null) {
-                throw new AuthFailedException("유효하지 않은 토큰입니다.");
-            }
-            Long userNo;
-            try {
-                userNo = Long.valueOf(String.valueOf(userNoObj));
-            } catch (NumberFormatException e) {
-                throw new AuthFailedException("유효하지 않은 토큰입니다: userNo 형식 오류");
-            }
-
-            // DB에 존재하는지 확인 (계정 정지 시 삭제되어 없음)
+            // DB에 존재하는지 확인
             RefreshToken stored = refreshTokenMapper.findByTokenHash(tokenHash);
             if (stored == null) {
                 throw new AuthFailedException("유효하지 않은 refreshToken입니다. 다시 로그인해주세요.");
             }
 
-            User user = userMapper.findByUserNo(userNo);
-            if (user == null || user.getStatus() != UserStatus.ACTIVE) {
-                refreshTokenMapper.deleteByUserNo(userNo);
-                throw new AuthFailedException("사용자를 찾을 수 없습니다.");
-            }
-
             // 기존 refreshToken 폐기
             refreshTokenMapper.deleteByTokenHash(tokenHash);
 
-            // 새 토큰 발급 (Rotation)
+            Map<String, Object> result;
             String timestamp = LocalDateTime.now().format(TS_FORMAT);
-            String newAccessToken = jwtUtil.generateAccessToken(userNo, user.getEmail(), userSeCd, timestamp);
-            String newRefreshToken = jwtUtil.generateRefreshToken(userNo, user.getEmail(), userSeCd, timestamp);
 
-            // 새 refreshToken DB 저장
-            saveRefreshToken(userNo, newRefreshToken, stored.getDeviceInfo(), stored.getIpAddress());
+            if ("GUEST".equals(tokenType)) {
+                // 게스트 토큰 갱신
+                String stdtId = claims.get("stdtId", String.class);
+                String claId = claims.get("claId", String.class);
+                String email = claims.get("email", String.class);
 
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("accessToken", newAccessToken);
-            result.put("refreshToken", newRefreshToken);
+                String newAccessToken = jwtUtil.generateGuestAccessToken(stdtId, claId, email, timestamp);
+                String newRefreshToken = jwtUtil.generateGuestRefreshToken(stdtId, claId, email, timestamp);
+
+                saveGuestRefreshToken(stdtId, newRefreshToken, stored.getDeviceInfo(), stored.getIpAddress());
+
+                result = new LinkedHashMap<>();
+                result.put("accessToken", newAccessToken);
+                result.put("refreshToken", newRefreshToken);
+            } else {
+                // 회원 토큰 갱신
+                Object userNoObj = claims.get("userNo");
+                String userSeCd = claims.get("userSeCd", String.class);
+
+                if (userNoObj == null) {
+                    throw new AuthFailedException("유효하지 않은 토큰입니다.");
+                }
+                Long userNo;
+                try {
+                    userNo = Long.valueOf(String.valueOf(userNoObj));
+                } catch (NumberFormatException e) {
+                    throw new AuthFailedException("유효하지 않은 토큰입니다: userNo 형식 오류");
+                }
+
+                User user = userMapper.findByUserNo(userNo);
+                if (user == null || user.getStatus() != UserStatus.ACTIVE) {
+                    refreshTokenMapper.deleteByUserNo(userNo);
+                    throw new AuthFailedException("사용자를 찾을 수 없습니다.");
+                }
+
+                String newAccessToken = jwtUtil.generateAccessToken(userNo, user.getEmail(), userSeCd, timestamp);
+                String newRefreshToken = jwtUtil.generateRefreshToken(userNo, user.getEmail(), userSeCd, timestamp);
+
+                saveRefreshToken(userNo, newRefreshToken, stored.getDeviceInfo(), stored.getIpAddress());
+
+                result = new LinkedHashMap<>();
+                result.put("accessToken", newAccessToken);
+                result.put("refreshToken", newRefreshToken);
+            }
 
             // Grace Period 캐시에 저장 (10초간 동일 토큰 재요청 시 같은 결과 반환)
             rotationCache.put(tokenHash, result);
@@ -300,6 +319,23 @@ public class MemberService {
 
         RefreshToken entity = RefreshToken.builder()
                 .userNo(userNo)
+                .tokenHash(tokenHash)
+                .deviceInfo(deviceInfo)
+                .ipAddress(ipAddress)
+                .expiresAt(expiresAt)
+                .createdAt(LocalDateTime.now())
+                .build();
+        refreshTokenMapper.insertRefreshToken(entity);
+    }
+
+    private void saveGuestRefreshToken(String stdtId, String refreshToken,
+                                        String deviceInfo, String ipAddress) {
+        String tokenHash = hashToken(refreshToken);
+        LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(refreshExpirationMs / 1000);
+
+        RefreshToken entity = RefreshToken.builder()
+                .userNo(null)
+                .stdtId(stdtId)
                 .tokenHash(tokenHash)
                 .deviceInfo(deviceInfo)
                 .ipAddress(ipAddress)

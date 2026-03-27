@@ -50,9 +50,11 @@
 | 29 | 그룹 | POST | `/group/member/leave` | 그룹 탈퇴 | ⚠️ | | [이동](#api-29) |
 | 30 | 그룹 | POST | `/group/member/kick` | 멤버 강퇴 (방장) | ⚠️ | | [이동](#api-30) |
 | 31 | 그룹 | DELETE | `/group/delete` | 그룹 삭제 (방장) | ⚠️ | ?claId=xxx | [이동](#api-31) |
-| | **게스트 전환** | | | | | | |
-| 32 | 게스트 | GET | `/guest/check` | 게스트 기록 조회 | 🔲 | ?email=xxx | [이동](#api-32) |
-| 33 | 게스트 | POST | `/guest/convert` | 게스트→회원 전환 | 🔲 | | [이동](#api-33) |
+| | **게스트 인증/전환** | | | | | *게스트 검사 응시 프로세스: `guest-process.md` 참고* | |
+| 32 | 게스트 | GET | `/guest/check` | 게스트 기록 조회 | 🔲 | JWT 필요, ?email=xxx | [이동](#api-32) |
+| 33 | 게스트 | POST | `/guest/convert` | 게스트→회원 전환 | 🔲 | JWT 필요 | [이동](#api-33) |
+| 65 | 게스트 | GET | `/guest/exists` | 게스트 참가 여부 확인 | ✅ | 토큰 불필요, ?inviteCode=&email= | [이동](#api-65) |
+| 66 | 게스트 | POST | `/guest/auth` | 게스트 재인증 (토큰 발급) | ✅ | 토큰 불필요, 이메일 인증 필요 | [이동](#api-66) |
 | | **학교 관리** | | | | | | |
 | 34 | 학교 | POST | `/school/import` | 학교 CSV 업로드 | — | Admin 전용 | — |
 | | **심리검사 (#35~#58)** | | | | | *별도 문서로 분리: `dgnss-api-spec.md` 참고* | |
@@ -883,7 +885,7 @@
 | `inviteCode` | String | O | 초대코드 | `"ABC123"` | |
 | `nickname` | String | O | 게스트 이름 | `"게스트이름"` | |
 | `gender` | String | O | 성별 | `"M"` | `M` \| `F` |
-| `email` | String | X | 이메일 | `"guest@test.com"` | |
+| `email` | String | O | 이메일 | `"guest@test.com"` | 이메일 인증 완료 상태 |
 
 **Response resultData**
 
@@ -895,8 +897,8 @@
 | `claId` | String | 학급 ID | `"a1b2c3d4..."` | |
 | `groupNm` | String | 그룹명 | `"6학년 2반"` | |
 | `stdtId` | String | 게스트 학생 ID | `"b2c3d4e5f6a78901bcdef23456789abc"` | 자동 생성 |
-| `accessToken` | String | 임시 JWT | `"eyJ..."` | 게스트용 토큰 |
-| `refreshToken` | String | Refresh Token | `"eyJ..."` | |
+| `accessToken` | String | Access Token | `"eyJ..."` | 게스트용 JWT (30분) |
+| `refreshToken` | String | Refresh Token | `"eyJ..."` | 14일 유효 |
 
 ```json
 {
@@ -1227,6 +1229,83 @@
     "email": "guest@test.com",
     "stdtId": "f9e8d7c6b5a43210fedcba0987654321",
     "mergedCount": 2
+  }
+}
+```
+
+---
+
+<a id="api-65"></a>
+### GET `/guest/exists` (Public) — 게스트 참가 여부 확인
+
+> 해당 그룹에 이 이메일로 참가한 게스트가 있는지 확인. 토큰 불필요.
+
+**Query Parameter**
+
+| 파라미터 | 타입 | 필수 | 설명 | 샘플 | 비고 |
+|---------|------|------|------|------|------|
+| `inviteCode` | String | O | 그룹 초대코드 | `"ABC123"` | 6자리 |
+| `email` | String | O | 게스트 이메일 | `"guest@test.com"` | |
+
+**Response resultData**
+
+| 필드 | 타입 | 설명 | 샘플 | 비고 |
+|------|------|------|------|------|
+| `exists` | Boolean | 참가 여부 | `true` | |
+| `groupNm` | String | 그룹명 | `"6학년 2반"` | |
+| `claId` | String | 학급 ID | `"a1b2c3d4..."` | |
+
+```json
+{
+  "success": true,
+  "resultCode": 200,
+  "resultMessage": "게스트 참가 여부 확인",
+  "resultData": {
+    "exists": true,
+    "groupNm": "6학년 2반",
+    "claId": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
+  }
+}
+```
+
+---
+
+<a id="api-66"></a>
+### POST `/guest/auth` (Public) — 게스트 재인증 (토큰 발급)
+
+> 기존 게스트가 토큰 만료 후 재접속 시 사용. 이메일 인증 완료 후 호출. 토큰 불필요.
+> 상세 프로세스: **[guest-process.md](guest-process.md)** 참고
+
+**Request Body**
+
+| 파라미터 | 타입 | 필수 | 설명 | 샘플 | 비고 |
+|---------|------|------|------|------|------|
+| `inviteCode` | String | O | 그룹 초대코드 | `"ABC123"` | |
+| `email` | String | O | 게스트 이메일 | `"guest@test.com"` | 이메일 인증 완료 상태 |
+
+**Response resultData**
+
+| 필드 | 타입 | 설명 | 샘플 | 비고 |
+|------|------|------|------|------|
+| `stdtId` | String | 게스트 학생 ID | `"viva-s-02adfd05"` | |
+| `claId` | String | 학급 ID | `"a1b2c3d4..."` | |
+| `groupNm` | String | 그룹명 | `"6학년 2반"` | |
+| `email` | String | 이메일 | `"guest@test.com"` | |
+| `accessToken` | String | Access Token | `"eyJ..."` | 게스트용 JWT (30분) |
+| `refreshToken` | String | Refresh Token | `"eyJ..."` | 14일 유효 |
+
+```json
+{
+  "success": true,
+  "resultCode": 200,
+  "resultMessage": "게스트 재인증 완료",
+  "resultData": {
+    "stdtId": "viva-s-02adfd05",
+    "claId": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+    "groupNm": "6학년 2반",
+    "email": "guest@test.com",
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ..."
   }
 }
 ```

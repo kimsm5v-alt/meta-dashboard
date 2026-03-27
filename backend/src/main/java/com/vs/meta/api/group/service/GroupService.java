@@ -4,6 +4,7 @@ import com.vs.meta.api.dgnss.service.DgnssService;
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupMemberMapper;
 import com.vs.meta.api.group.mapper.GroupQueryMapper;
+import com.vs.meta.api.guest.service.GuestAuthService;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.member.service.EmailVerificationService;
 import com.vs.meta.api.member.service.MemberService;
@@ -38,6 +39,7 @@ public class GroupService {
     private final MemberService memberService;
     private final EmailVerificationService emailVerificationService;
     private final DgnssService dgnssService;
+    private final GuestAuthService guestAuthService;
 
     @Transactional
     public Object createGroup(Map<String, Object> paramData) throws Exception {
@@ -241,6 +243,11 @@ public class GroupService {
         }
 
         emailVerificationService.consumeVerification(email);
+
+        // 게스트 토큰 발급
+        Map<String, Object> tokens = guestAuthService.issueGuestTokens(stdtId, groupInfo.getClaId(), email, null, null);
+        paramData.put("accessToken", tokens.get("accessToken"));
+        paramData.put("refreshToken", tokens.get("refreshToken"));
 
         log.info("게스트 그룹 참가: groupId={}, email={}, memberNo={}", groupId, email, memberNo);
         return paramData;

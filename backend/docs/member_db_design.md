@@ -733,7 +733,8 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 | 컬럼명 | 타입 | NULL | 기본값 | 설명 |
 |-------|------|------|-------|------|
 | `id` | BIGINT | NOT NULL | AUTO_INCREMENT | PK |
-| `user_no` | BIGINT | NOT NULL | - | 회원 번호 (FK → user.user_no) |
+| `user_no` | BIGINT | NULL | NULL | 회원 번호 (회원 토큰 시 사용, 게스트는 NULL) |
+| `stdt_id` | VARCHAR(64) | NULL | NULL | 게스트 학생 ID (게스트 토큰 시 사용) |
 | `token_hash` | VARCHAR(128) | NOT NULL | - | refreshToken SHA-256 해시 |
 | `device_info` | VARCHAR(200) | NULL | NULL | 기기 정보 (User-Agent 요약) |
 | `ip_address` | VARCHAR(45) | NULL | NULL | 발급 시 IP |
@@ -742,12 +743,13 @@ claId  : "{UUID 32자리}"           예) eb1460dce8fc42889862e9a460beb4a0
 
 - **PK**: `id`
 - **UK**: `token_hash` (uk_rt_token_hash)
-- **IDX**: `user_no` (idx_rt_user), `expires_at` (idx_rt_expires)
-- **FK**: `user_no` → `user.user_no` (ON DELETE CASCADE)
+- **IDX**: `user_no` (idx_rt_user), `stdt_id` (idx_rt_stdt), `expires_at` (idx_rt_expires)
+- **저장 규칙**: 회원 → `user_no` 채움 / 게스트 → `stdt_id` 채움 (둘 중 하나만 NOT NULL)
 
 **운영 시나리오:**
-- 로그인 시 refreshToken 발급 → SHA-256 해시하여 INSERT
-- 토큰 갱신 시 token_hash로 조회 → 존재하면 새 accessToken 발급
+- 회원 로그인 시 refreshToken 발급 → user_no + SHA-256 해시하여 INSERT
+- 게스트 참가/재인증 시 refreshToken 발급 → stdt_id + SHA-256 해시하여 INSERT
+- 토큰 갱신 시 token_hash로 조회 → tokenType(MEMBER/GUEST)에 따라 분기 처리
 - 로그아웃 시 해당 token_hash 행 DELETE
 - 계정 정지/탈퇴 시 user_no 기준 전체 DELETE → 30분 내 강제 로그아웃
 - 만료 토큰 정리: `DELETE FROM refresh_token WHERE expires_at < NOW()`
@@ -1284,3 +1286,4 @@ scheduled → cancelled  (POST /api/counseling/{id}/cancel)
 |------|--------|----------|
 | 2026-03-19 | - | `user`, `group_member` 테이블에 `gender VARCHAR(10) NULL` 컬럼 추가 (M/F). 회원가입/게스트참가/Admin계정등록 시 gender 필수값 검증. 로그인/회원조회/그룹멤버목록 등 모든 API 응답에 gender 포함. 게스트→회원 전환 시 gender 반영. `member_no` 자동 채번 로직 구현 (그룹 참가 시 MAX+1). 그룹 멤버 목록 정렬 기준 `joined_at` → `member_no`로 변경. Admin 사용자목록에 성별 컬럼 및 학교매핑 바로가기 버튼 추가. Admin 학교등록에 나이스 데이터 출처 안내 추가. API 테스트 페이지 Base URL 포트 8081 변경. |
 | 2026-03-25 | - | `school_record_info` 테이블 추가 (생기부 CRUD). SchoolRecordCategory enum 추가 (comprehensive/learning/personality/socialSkills/selfManagement). 테이블 수 13→14개. |
+| 2026-03-27 | - | `refresh_token` 테이블 변경: user_no NULL 허용, stdt_id 컬럼 추가 (게스트 토큰 지원). FK(fk_rt_user) 제거. 게스트 인증 API 추가 (`/guest/exists`, `/guest/auth`). 게스트 JWT 이중 모드(MEMBER/GUEST) 구현. |

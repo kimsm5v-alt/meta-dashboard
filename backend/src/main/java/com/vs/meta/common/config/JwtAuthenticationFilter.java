@@ -50,16 +50,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             Claims claims = jwtUtil.getAllClaimsFromToken(token);
-            Object userNoObj = claims.get("userNo");
+            String tokenType = claims.get("tokenType", String.class);
 
-            if (userNoObj != null) {
-                String userNoStr = String.valueOf(userNoObj);
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userNoStr, null, Collections.emptyList());
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                // 컨트롤러에서 사용자 번호 접근용
-                request.setAttribute("auth.userNo", Long.valueOf(userNoStr));
+            if ("GUEST".equals(tokenType)) {
+                String stdtId = claims.get("stdtId", String.class);
+                String claId = claims.get("claId", String.class);
+                if (stdtId != null) {
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken("GUEST:" + stdtId, null, Collections.emptyList());
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    request.setAttribute("auth.stdtId", stdtId);
+                    request.setAttribute("auth.claId", claId);
+                    request.setAttribute("auth.tokenType", "GUEST");
+                    request.setAttribute("auth.email", claims.get("email", String.class));
+                }
+            } else {
+                Object userNoObj = claims.get("userNo");
+                if (userNoObj != null) {
+                    String userNoStr = String.valueOf(userNoObj);
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(userNoStr, null, Collections.emptyList());
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    request.setAttribute("auth.userNo", Long.valueOf(userNoStr));
+                    request.setAttribute("auth.tokenType", "MEMBER");
+                }
             }
 
             filterChain.doFilter(request, response);

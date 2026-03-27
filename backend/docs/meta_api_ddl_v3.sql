@@ -356,7 +356,8 @@ CREATE TABLE counseling_student (
 -- ============================================================
 CREATE TABLE refresh_token (
     id              BIGINT          NOT NULL    AUTO_INCREMENT,
-    user_no         BIGINT          NOT NULL    COMMENT '회원 번호 (FK → user.user_no)',
+    user_no         BIGINT          NULL        COMMENT '회원 번호 (회원 토큰 시 사용, 게스트는 NULL)',
+    stdt_id         VARCHAR(64)     NULL        COMMENT '게스트 학생 ID (게스트 토큰 시 사용)',
     token_hash      VARCHAR(128)    NOT NULL    COMMENT 'refreshToken SHA-256 해시',
     device_info     VARCHAR(200)    NULL        COMMENT '기기 정보 (User-Agent 요약)',
     ip_address      VARCHAR(45)     NULL        COMMENT '발급 시 IP',
@@ -365,8 +366,8 @@ CREATE TABLE refresh_token (
     PRIMARY KEY (id),
     UNIQUE KEY uk_rt_token_hash (token_hash),
     INDEX idx_rt_user (user_no),
-    INDEX idx_rt_expires (expires_at),
-    CONSTRAINT fk_rt_user FOREIGN KEY (user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE ON DELETE CASCADE
+    INDEX idx_rt_stdt (stdt_id),
+    INDEX idx_rt_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='Refresh Token 관리';
 
