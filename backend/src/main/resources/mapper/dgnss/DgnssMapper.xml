@@ -2461,7 +2461,7 @@
 
 	<select id="selectTcDgnssNotSubmStList" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcDgnssNotSubmStList */
-		SELECT a1.stdt_id AS stdtId
+		SELECT gm.nickname AS nickname
 		FROM tb_dgnss_result_info a1
 			INNER JOIN tb_dgnss_info b1 ON a1.dgnss_id = b1.id
 			INNER JOIN group_info gi ON b1.cla_id = gi.cla_id

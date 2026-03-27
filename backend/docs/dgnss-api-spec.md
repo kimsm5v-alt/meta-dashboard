@@ -1,4 +1,4 @@
-# 학습심리정서검사 API 연동 규격서
+﻿# 학습심리정서검사 API 연동 규격서
 
 > 최종 수정일: 2026-03-19
 
@@ -420,7 +420,7 @@ GET /api/dgnss/tc/notsubm?dgnssId=294
 
 | NO | 필드 | 타입 | 설명 | 비고 |
 |----|------|------|------|------|
-| 1 | stdtId | String | 학생 ID | |
+| 1 | nickname | String | 학생 닉네임 | |
 
 #### Response Example
 
@@ -433,11 +433,11 @@ GET /api/dgnss/tc/notsubm?dgnssId=294
     "dgnssId": "294"
   },
   "resultData": [
-    { "stdtId": "mathbe2-s2" },
-    { "stdtId": "mathbe2-s3" },
-    { "stdtId": "mathbe2-s4" },
-    { "stdtId": "mathbe2-s5" },
-    { "stdtId": "mathbe2-s6" }
+    { "nickname": "mathbe2-s2" },
+    { "nickname": "mathbe2-s3" },
+    { "nickname": "mathbe2-s4" },
+    { "nickname": "mathbe2-s5" },
+    { "nickname": "mathbe2-s6" }
   ],
   "currentTime": "2025-04-14 13:25:20"
 }
