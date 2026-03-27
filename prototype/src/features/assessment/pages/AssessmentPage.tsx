@@ -51,8 +51,10 @@ function convertExamListItem(item: ExamListItem, groups: Group[]): ManagedAssess
   // localStorage에서 학년/반/그룹 정보 조회
   const meta = getAssessmentMeta(item.dgnssId);
 
-  // 그룹명: meta에 저장된 것 또는 groups에서 claId로 찾기
-  const groupName = meta?.groupName || groups.find(g => g.claId === item.claId)?.name;
+  // 그룹에서 claId로 찾기
+  const group = groups.find(g => g.claId === item.claId);
+  const groupName = meta?.groupName || group?.name;
+  const inviteCode = group?.inviteCode;
 
   return {
     id: `assessment-${item.dgnssId}`,
@@ -71,6 +73,7 @@ function convertExamListItem(item: ExamListItem, groups: Group[]): ManagedAssess
     isActive: item.dgnssAt === 'Y',
     groupName,
     claId: item.claId,
+    inviteCode,
   };
 }
 
@@ -219,8 +222,7 @@ export const AssessmentPage: React.FC = () => {
         studentCount: data.studentCount,
         completedCount: 0,
         round: data.round,
-        startDate: new Date(data.startDate),
-        endDate: new Date(data.endDate),
+        startDate: new Date(),
         createdAt: new Date(),
         ownerId: user?.id ?? '',
         isActive: true,

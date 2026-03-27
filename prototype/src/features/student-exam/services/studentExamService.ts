@@ -65,6 +65,8 @@ export function getStatusLabel(status: StudentExamListItem['status']): string {
       return '완료';
     case 'result_ready':
       return '결과 확인 가능';
+    case 'not_submitted':
+      return '미응시';
     default:
       return '알 수 없음';
   }
@@ -80,13 +82,15 @@ export function getStatusColor(status: StudentExamListItem['status']): {
 } {
   switch (status) {
     case 'waiting':
-      return { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
+      return { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' };
     case 'in_progress':
       return { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' };
     case 'completed':
-      return { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' };
+      return { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
     case 'result_ready':
       return { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' };
+    case 'not_submitted':
+      return { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' };
     default:
       return { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
   }

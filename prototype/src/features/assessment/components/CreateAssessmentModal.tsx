@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Users, GraduationCap, AlertCircle } from 'lucide-react';
+import { Users, GraduationCap, AlertCircle } from 'lucide-react';
 import { Modal, Button } from '@/shared/components';
 import type { Group } from '@/shared/types';
 
@@ -37,20 +37,7 @@ export interface AssessmentFormData {
   classNumber: number;
   studentCount: number;
   round: 1 | 2;
-  startDate: string;
-  endDate: string;
 }
-
-const generateDefaultDates = () => {
-  const today = new Date();
-  const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + 7);
-
-  return {
-    startDate: today.toISOString().split('T')[0],
-    endDate: endDate.toISOString().split('T')[0],
-  };
-};
 
 export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
   isOpen,
@@ -59,7 +46,6 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
   groups,
   isLoadingGroups,
 }) => {
-  const defaultDates = generateDefaultDates();
   const [formData, setFormData] = useState<AssessmentFormData>({
     name: '',
     groupId: '',
@@ -69,8 +55,6 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
     classNumber: 1,
     studentCount: 30,
     round: 1,
-    startDate: defaultDates.startDate,
-    endDate: defaultDates.endDate,
   });
 
   // 그룹 선택 시 학교급, 학년, 반, 학생 수 자동 설정
@@ -259,29 +243,6 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
               <option value={1}>1차 검사</option>
               <option value={2}>2차 검사</option>
             </select>
-          </div>
-        </div>
-
-        {/* 검사 기간 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            <Calendar className="w-4 h-4 inline mr-1" />
-            검사 기간
-          </label>
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="date"
-              value={formData.startDate}
-              onChange={(e) => handleChange('startDate', e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
-            />
-            <input
-              type="date"
-              value={formData.endDate}
-              onChange={(e) => handleChange('endDate', e.target.value)}
-              min={formData.startDate}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
-            />
           </div>
         </div>
 

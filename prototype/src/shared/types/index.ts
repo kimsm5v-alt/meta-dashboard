@@ -239,9 +239,9 @@ export interface TypeChartData {
 // 인증 관련 타입
 // ============================================================
 
-export type MemberType = 'vivasam' | 'general';
+export type MemberType = 'vivasam' | 'general' | 'guest';
 export type OAuthProvider = 'vivasam' | 'google' | 'kakao' | 'naver';
-export type UserRole = 'TEACHER' | 'STUDENT' | 'ADMIN';
+export type UserRole = 'TEACHER' | 'STUDENT' | 'GUEST' | 'ADMIN';
 
 export interface User {
   id: string;
@@ -274,7 +274,7 @@ export interface AuthState {
 export interface ManagedAssessment {
   id: string;
   name: string;
-  code: string;                 // QR 코드 값: {dgnssId}-{studentCount}
+  code: string;                 // QR 코드 값: {dgnssId}-{studentCount} (레거시, 사용하지 않음)
   dgnssId: number;              // 검사 ID (학급 단위, /tc/start API에서 반환)
   grade: number;
   classNumber: number;
@@ -288,6 +288,7 @@ export interface ManagedAssessment {
   isActive?: boolean;           // 진행 중 여부 (dgnssAt === 'Y')
   groupName?: string;           // 소속 그룹명
   claId?: string;               // 소속 그룹 claId
+  inviteCode?: string;          // 소속 그룹 초대 코드 (학생 참가용)
 }
 
 export interface CreateAssessmentInput {

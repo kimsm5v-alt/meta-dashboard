@@ -3,7 +3,12 @@
  */
 
 /** 검사 상태 */
-export type ExamStatus = 'waiting' | 'in_progress' | 'completed' | 'result_ready';
+export type ExamStatus =
+  | 'waiting'        // 시작 전 (eakAt=N, submAt=N, dgnssAt=Y)
+  | 'in_progress'    // 응시 중 (eakAt=Y, submAt=N, dgnssAt=Y)
+  | 'completed'      // 제출 완료 (eakAt=Y, submAt=Y, dgnssAt=Y)
+  | 'result_ready'   // 검사 종료 (eakAt=Y, submAt=Y, dgnssAt=N)
+  | 'not_submitted'; // 미제출 (eakAt=N, submAt=N, dgnssAt=N)
 
 /** 학생 검사 목록 아이템 (UI용) */
 export interface StudentExamListItem {
@@ -31,20 +36,24 @@ export interface StudentExamListItem {
 export function mapExamStatus(
   dgnssAt: 'Y' | 'N',
   submAt: 'Y' | 'N',
-  eakAt: number
+  eakAt: 'Y' | 'N'
 ): ExamStatus {
-  // eakAt 상태: 1:응시전, 2:응시중, 3:제출완료, 4:채점중, 5:채점완료
+  // 1. 검사 종료 여부 먼저 확인
+  if (dgnssAt === 'N') {
+    if (submAt === 'Y') {
+      return 'result_ready';  // 검사 종료 (결과보기)
+    }
+    return 'not_submitted';   // 미제출
+  }
 
-  // 채점 완료 (결과 확인 가능)
-  if (eakAt === 5) return 'result_ready';
+  // 2. 응시 여부 확인 (dgnssAt === 'Y')
+  if (eakAt === 'Y') {
+    if (submAt === 'Y') {
+      return 'completed';     // 제출 완료 (결과 대기)
+    }
+    return 'in_progress';     // 응시 중
+  }
 
-  // 제출 완료 또는 채점 중 (결과 준비 중)
-  if (eakAt === 3 || eakAt === 4 || submAt === 'Y') return 'completed';
-
-  // 응시 중 (학생이 답변 시작함)
-  if (eakAt === 2) return 'in_progress';
-
-  // 응시 전 (교사가 검사 배부했지만 학생이 아직 시작 안 함)
-  // dgnssAt='Y': 검사 배부됨, eakAt=1: 응시 전
+  // 3. 나머지 → 시작 전
   return 'waiting';
 }

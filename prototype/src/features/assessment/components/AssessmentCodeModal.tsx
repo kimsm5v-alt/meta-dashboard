@@ -21,18 +21,19 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
 
   if (!assessment) return null;
 
-  // 검사 URL 생성 (현재 도메인 기준)
-  const examUrl = `${window.location.origin}/exam/${assessment.code}`;
+  // 검사 URL 생성 (현재 도메인 기준) - inviteCode 사용
+  const joinCode = assessment.inviteCode || assessment.code;
+  const examUrl = `${window.location.origin}/join/${joinCode}`;
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(assessment.code);
+      await navigator.clipboard.writeText(joinCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
-      textArea.value = assessment.code;
+      textArea.value = joinCode;
       document.body.appendChild(textArea);
       textArea.select();
       document.execCommand('copy');
@@ -79,7 +80,7 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
         ctx.drawImage(img, 0, 0, 300, 300);
         const pngFile = canvas.toDataURL('image/png');
         const downloadLink = document.createElement('a');
-        downloadLink.download = `검사코드_${assessment.code}.png`;
+        downloadLink.download = `초대코드_${joinCode}.png`;
         downloadLink.href = pngFile;
         downloadLink.click();
       }
@@ -98,7 +99,7 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="검사 코드" size="2xl">
+    <Modal isOpen={isOpen} onClose={onClose} title="초대 코드" size="2xl">
       <div className="space-y-6">
         {/* 검사 정보 */}
         <div className="text-center">
@@ -119,7 +120,7 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
             />
           </div>
           <p className="text-3xl font-mono font-bold text-primary-600 tracking-widest mb-2">
-            {assessment.code}
+            {joinCode}
           </p>
           <p className="text-xs text-gray-500 mb-4 break-all">{examUrl}</p>
           <div className="flex gap-2">
@@ -171,18 +172,10 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
         <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
           <p className="font-medium text-gray-900 mb-2">학생 안내 방법</p>
           <ol className="list-decimal list-inside space-y-1">
-            <li>학생들에게 검사 코드를 알려주세요</li>
-            <li>학생은 검사 페이지에서 코드를 입력합니다</li>
+            <li>학생들에게 초대 코드 또는 QR 코드를 공유하세요</li>
+            <li>학생은 링크 접속 후 로그인/게스트 가입합니다</li>
             <li>검사 완료 후 결과가 자동으로 집계됩니다</li>
           </ol>
-        </div>
-
-        {/* 검사 기간 */}
-        <div className="text-center text-sm text-gray-500">
-          <p>검사 기간</p>
-          <p className="font-medium text-gray-700">
-            {formatDate(assessment.startDate)} ~ {formatDate(assessment.endDate)}
-          </p>
         </div>
 
         {/* 닫기 버튼 */}

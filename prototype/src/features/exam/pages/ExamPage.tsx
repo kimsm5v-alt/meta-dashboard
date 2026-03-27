@@ -18,6 +18,8 @@ import {
   ExamGuideStep,
   ExamQuestionStep,
   ExamCompleteStep,
+  MemberCompleteStep,
+  GuestCompleteStep,
 } from '../components';
 import type { StudentInfo } from '../components/StudentInfoStep';
 
@@ -67,8 +69,11 @@ export const ExamPage: React.FC = () => {
 
   // QR 코드 검증 또는 학생 검사 정보 처리
   useEffect(() => {
+    // 인증 로딩 중에는 대기
+    if (authLoading) return;
+
     const validate = async () => {
-      // 학생용 state-based 검사 시작 (코드 검증 불필요)
+      // 학생/게스트용 state-based 검사 시작 (코드 검증 불필요)
       if (studentExamInfo && isAuthenticated && user) {
         setIsValid(true);
         setExamInfo({
@@ -77,6 +82,13 @@ export const ExamPage: React.FC = () => {
           claId: user.classId,
         });
         setIsValidating(false);
+        return;
+      }
+
+      // state 없이 직접 URL 접근 시 (새로고침 등) → 검사 목록으로 리다이렉트
+      if (!studentExamInfo && isAuthenticated && user) {
+        const redirectPath = user.memberType === 'guest' ? '/guest/exams' : '/student/exams';
+        navigate(redirectPath, { replace: true });
         return;
       }
 
@@ -106,7 +118,7 @@ export const ExamPage: React.FC = () => {
     };
 
     validate();
-  }, [code, navigate, studentExamInfo, isAuthenticated, user]);
+  }, [code, navigate, studentExamInfo, isAuthenticated, user, authLoading]);
 
   // 인증 상태에 따라 초기 step 결정
   useEffect(() => {
@@ -129,10 +141,10 @@ export const ExamPage: React.FC = () => {
       }
     } else {
       // 로그인 완료 → 검사 목록으로 리다이렉트 (검사 선택 필요)
-      // 또는 auth 단계에서 로그인 성공 시 학생 검사 목록으로 이동
+      // 또는 auth 단계에서 로그인 성공 시 검사 목록으로 이동
       if (state.step === 'auth') {
-        // 로그인 성공 후 학생 검사 목록으로 이동
-        navigate('/student/exams');
+        const redirectPath = user?.memberType === 'guest' ? '/guest/exams' : '/student/exams';
+        navigate(redirectPath);
       }
     }
   }, [isAuthenticated, authLoading, isValidating, isValid, state.step, setStep, studentExamInfo, user, navigate]);
@@ -438,6 +450,24 @@ export const ExamPage: React.FC = () => {
       );
 
     case 'complete':
+      // 회원: 바로 완료 화면
+      if (user && user.memberType !== 'guest') {
+        return (
+          <MemberCompleteStep
+            userName={user.name}
+          />
+        );
+      }
+      // 게스트: PDF 발송 안내 + 회원 전환 유도
+      if (user && user.memberType === 'guest') {
+        return (
+          <GuestCompleteStep
+            email={user.email}
+            userName={user.name}
+          />
+        );
+      }
+      // 비로그인 (QR 코드 직접 응시): 이메일 입력
       return (
         <ExamCompleteStep
           studentNumber={state.studentNumber!}

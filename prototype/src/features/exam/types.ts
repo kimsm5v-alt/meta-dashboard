@@ -81,8 +81,8 @@ export interface StudentExamItem {
   submAt: 'Y' | 'N';
   /** 제출일 */
   submDt: string | null;
-  /** 제출 상태 (1:응시전, 2:응시중, 3:제출완료, 4:채점중, 5:채점완료) */
-  eakAt: number;
+  /** 검사 시작 여부 (Y: 응시 시작, N: 응시 전) */
+  eakAt: 'Y' | 'N';
 }
 
 /** 학생 검사 목록 API 응답 */

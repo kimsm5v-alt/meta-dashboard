@@ -16,6 +16,18 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
 }) => {
   const typeInfo = getTypeInfo(predictedType, schoolLevel);
 
+  // typeProbabilities가 없을 경우 빈 배열 반환
+  if (!typeProbabilities) {
+    return (
+      <div>
+        <h3 className="text-lg font-semibold mb-4">학습 유형 분류</h3>
+        <div className="text-center text-gray-500 py-8">
+          유형 분류 데이터를 불러오는 중입니다...
+        </div>
+      </div>
+    );
+  }
+
   const chartData = Object.entries(typeProbabilities)
     .map(([type, prob]) => ({
       name: type,

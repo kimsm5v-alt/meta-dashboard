@@ -569,6 +569,71 @@ export const generateInviteLink = (inviteCode: string): string => {
 };
 
 // ============================================================
+// 게스트 인증 API (실제 백엔드 연동)
+// ============================================================
+
+/** 게스트 존재 확인 응답 */
+interface GuestExistsResponse {
+  exists: boolean;
+  groupNm: string;
+  claId: string;
+}
+
+/** 게스트 재인증 응답 */
+interface GuestAuthResponse {
+  stdtId: string;
+  claId: string;
+  groupNm: string;
+  email: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
+/**
+ * 게스트 존재 여부 확인
+ * 해당 그룹에 이 이메일로 참가한 게스트가 있는지 확인
+ */
+export const checkGuestExists = async (
+  inviteCode: string,
+  email: string
+): Promise<GuestExistsResponse> => {
+  const response = await apiRequest<GuestExistsResponse>(
+    `/guest/exists?inviteCode=${encodeURIComponent(inviteCode)}&email=${encodeURIComponent(email)}`
+  );
+  return response.resultData;
+};
+
+/**
+ * 게스트 재인증 (토큰 만료 시)
+ * 이메일 인증 완료 후 호출하여 토큰 재발급
+ */
+export const guestAuth = async (
+  inviteCode: string,
+  email: string
+): Promise<GuestAuthResponse> => {
+  const response = await apiRequest<GuestAuthResponse>('/guest/auth', {
+    method: 'POST',
+    body: JSON.stringify({
+      inviteCode,
+      email,
+    }),
+  });
+
+  const data = response.resultData;
+
+  // 토큰 저장
+  if (data.accessToken) {
+    const { saveAuthTokens } = await import('@/shared/services/apiClient');
+    saveAuthTokens({
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+    });
+  }
+
+  return data;
+};
+
+// ============================================================
 // 게스트 전환 API (실제 백엔드 연동)
 // ============================================================
 
@@ -663,6 +728,10 @@ export const groupService = {
   getGroupInvitations,
   cancelEmailInvitation,
   generateInviteLink,
+
+  // 게스트 인증
+  checkGuestExists,
+  guestAuth,
 
   // 게스트 전환
   getGuestRecords,
