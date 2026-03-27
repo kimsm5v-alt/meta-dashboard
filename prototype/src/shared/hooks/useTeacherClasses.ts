@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAuthTokens } from '@/shared/services/apiClient';
 import { fetchTeacherExams, buildClassFromAPI } from '@/shared/services/dashboardService';
+import { getMyGroups } from '@/features/groups/services/groupService';
 import type { Class } from '@/shared/types';
 import { useData } from '@/shared/contexts/DataContext';
 import { useAuth } from '@/features/auth';
@@ -36,6 +37,15 @@ export function useTeacherClasses(): UseTeacherClassesResult {
   const [hasFetched, setHasFetched] = useState(false);
 
   const fetchData = useCallback(async () => {
+    // Mock 모드면 API 호출 스킵 (VITE_USE_API=false 또는 VITE_USE_MOCK_DATA=true)
+    const useApi = import.meta.env.VITE_USE_API !== 'false';
+    const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+    if (!useApi || useMockData) {
+      setApiClasses([]);
+      setExamStatus('completed');
+      return;
+    }
+
     const authTokens = getAuthTokens();
     const isApiMode = hasCredentials || !!authTokens?.accessToken;
 
@@ -65,9 +75,34 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         return;
       }
 
-      const effectiveClaId = claId || ''; // claId는 검사 목록에서 가져옴
+      // 1. 교사의 그룹 목록을 먼저 조회하여 claId 목록 확보
+      let claIds: string[] = [];
+      if (claId) {
+        // useCredentials에서 claId가 있으면 그것 사용
+        claIds = [claId];
+      } else {
+        // 그룹 목록에서 claId 목록 가져오기
+        try {
+          const groups = await getMyGroups(effectiveTcId);
+          claIds = groups.map(g => g.claId);
+        } catch (err) {
+          console.warn('Failed to fetch groups, trying without claId:', err);
+          claIds = ['']; // fallback
+        }
+      }
 
-      const exams = await fetchTeacherExams(effectiveClaId, effectiveTcId, '1');
+      // 2. 각 claId에 대해 검사 목록 조회 후 병합
+      const allExams: Awaited<ReturnType<typeof fetchTeacherExams>> = [];
+      for (const cId of claIds) {
+        try {
+          const exams = await fetchTeacherExams(cId, effectiveTcId, '1');
+          allExams.push(...exams);
+        } catch (err) {
+          console.warn(`Failed to fetch exams for claId ${cId}:`, err);
+        }
+      }
+
+      const exams = allExams;
 
       if (exams.length === 0) {
         setApiClasses([]);

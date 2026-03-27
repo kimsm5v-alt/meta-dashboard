@@ -10,8 +10,10 @@ import {
   fetchL2DashboardData,
   type L2DashboardData,
 } from '@/shared/services/dashboardService';
+import { getAuthTokens } from '@/shared/services/apiClient';
 import type { Student } from '@/shared/types';
 import { useData } from '@/shared/contexts/DataContext';
+import { useAuth } from '@/features/auth';
 import { useCredentials } from './useCredentials';
 
 export interface UseClassStudentsResult {
@@ -27,7 +29,8 @@ export interface UseClassStudentsResult {
  */
 export function useClassStudents(classId: string | undefined): UseClassStudentsResult {
   const { getClassById } = useData();
-  const { tcId, claId, schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
+  const { user } = useAuth();
+  const { tcId, schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
   const [students, setStudents] = useState<Student[]>([]);
   const [l2Data, setL2Data] = useState<L2DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,8 +45,12 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
 
     const classData = getClassById(classId);
 
-    // credentials 없으면 DataContext fallback
-    if (!hasCredentials) {
+    // JWT 토큰 또는 credentials 확인
+    const authTokens = getAuthTokens();
+    const isApiMode = hasCredentials || !!authTokens?.accessToken;
+
+    // API 모드가 아니면 DataContext fallback
+    if (!isApiMode) {
       setStudents(classData?.students ?? []);
       setL2Data(null);
       return;
@@ -53,7 +60,11 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
     setError(null);
 
     try {
-      const exams = await fetchTeacherExams(claId, tcId, '1');
+      // tcId: credentials에서 가져오거나 user에서 가져오기
+      const effectiveTcId = tcId || user?.tcId || '';
+      // classId 파라미터를 claId로 사용 (URL에서 전달된 학급 ID)
+      const effectiveClaId = classId;
+      const exams = await fetchTeacherExams(effectiveClaId, effectiveTcId, '1');
       const completedRound1 = exams.find(
         exam => exam.dgnssAt === 'N' && exam.ordNo === 1
       );
@@ -84,7 +95,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
     } finally {
       setIsLoading(false);
     }
-  }, [classId, getClassById, tcId, claId, credSchoolLevel, hasCredentials]);
+  }, [classId, getClassById, tcId, credSchoolLevel, hasCredentials, user]);
 
   useEffect(() => {
     fetchData();

@@ -27,11 +27,23 @@ interface SignUpData {
   roleCode: 'TEACHER' | 'STUDENT';
 }
 
+/** 게스트 로그인 정보 */
+interface GuestLoginInfo {
+  stdtId: string;
+  claId: string;
+  groupNm: string;
+  email: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
 interface AuthContextType extends AuthState {
   /** 테스트 로그인 (credentials 저장) */
   loginWithCredentials: (credentials: TestCredentials) => Promise<void>;
   /** 이메일/비밀번호 로그인 (백엔드 API 연동) */
   loginWithEmail: (email: string, password: string) => Promise<void>;
+  /** 게스트 로그인 (토큰 기반) */
+  loginAsGuest: (info: GuestLoginInfo) => void;
   /** 회원가입 */
   signUp: (data: SignUpData) => Promise<void>;
   /** 로그아웃 */
@@ -262,6 +274,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
+  // 게스트 로그인 (토큰 기반)
+  const loginAsGuest = useCallback((info: GuestLoginInfo) => {
+    // 토큰 저장
+    saveAuthTokens({
+      accessToken: info.accessToken,
+      refreshToken: info.refreshToken,
+    });
+
+    // 게스트 User 객체 생성
+    const user: User = {
+      id: info.stdtId,
+      name: info.email.split('@')[0], // 이메일 앞부분을 이름으로 사용
+      email: info.email,
+      memberType: 'guest',
+      provider: 'vivasam',
+      roleCode: 'GUEST',
+      stdtId: info.stdtId,
+      classId: info.claId,
+    };
+
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+
+    // 테스트 credentials 삭제
+    localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
+    setCredentials(null);
+
+    setState({ user, isAuthenticated: true, isLoading: false });
+  }, []);
+
   // 사용자 정보 업데이트
   const updateUser = useCallback((updates: Partial<User>) => {
     setState(prev => {
@@ -296,6 +337,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       ...state,
       loginWithCredentials,
       loginWithEmail,
+      loginAsGuest,
       signUp,
       logout,
       updateUser,

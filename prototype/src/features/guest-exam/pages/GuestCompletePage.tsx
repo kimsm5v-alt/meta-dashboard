@@ -1,31 +1,35 @@
 /**
- * 게스트용 검사 완료 화면
- * PDF 발송 안내 + 회원 전환 유도
+ * 게스트 검사 완료 페이지
+ *
+ * 검사 완료 후 PDF 발송 안내 및 회원 전환 유도
  */
 
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Mail, UserPlus, ClipboardList } from 'lucide-react';
+import { CheckCircle2, Mail, UserPlus, Home } from 'lucide-react';
+import { useAuth } from '@/features/auth/context/AuthContext';
 
-interface GuestCompleteStepProps {
-  email: string;
-  userName: string;
-}
-
-export const GuestCompleteStep: React.FC<GuestCompleteStepProps> = ({
-  email,
-  userName,
-}) => {
+export const GuestCompletePage: React.FC = () => {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
+  // 회원 전환
   const handleConvertToMember = () => {
+    // TODO: 회원 전환 페이지로 이동 (이메일 기반 회원가입)
     navigate('/signup', {
       state: {
-        email,
+        email: user?.email,
         fromGuest: true,
       },
     });
   };
 
+  // 종료
+  const handleClose = () => {
+    logout();
+    navigate('/');
+  };
+
+  // 검사 목록으로
   const handleBackToList = () => {
     navigate('/guest/exams');
   };
@@ -40,7 +44,7 @@ export const GuestCompleteStep: React.FC<GuestCompleteStepProps> = ({
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">검사 완료!</h1>
           <p className="text-gray-600">
-            {userName}님, 수고하셨습니다.
+            {user?.name || '게스트'}님, 수고하셨습니다.
           </p>
         </div>
 
@@ -58,7 +62,7 @@ export const GuestCompleteStep: React.FC<GuestCompleteStepProps> = ({
               </p>
               <div className="bg-gray-50 rounded-lg px-4 py-2">
                 <p className="text-sm text-gray-500">발송 이메일</p>
-                <p className="font-medium text-gray-900">{email}</p>
+                <p className="font-medium text-gray-900">{user?.email || '-'}</p>
               </div>
             </div>
           </div>
@@ -86,14 +90,23 @@ export const GuestCompleteStep: React.FC<GuestCompleteStepProps> = ({
           </div>
         </div>
 
-        {/* 검사 목록 버튼 */}
-        <button
-          onClick={handleBackToList}
-          className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-700 font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
-        >
-          <ClipboardList className="w-5 h-5" />
-          검사 목록으로
-        </button>
+        {/* 버튼 영역 */}
+        <div className="space-y-3">
+          <button
+            onClick={handleBackToList}
+            className="w-full px-6 py-4 bg-white text-gray-700 font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            검사 목록으로 돌아가기
+          </button>
+
+          <button
+            onClick={handleClose}
+            className="w-full flex items-center justify-center gap-2 px-6 py-4 text-gray-500 font-medium hover:text-gray-700 transition-colors"
+          >
+            <Home className="w-4 h-4" />
+            종료
+          </button>
+        </div>
 
         {/* 안내 문구 */}
         <p className="text-center text-xs text-gray-400 mt-6">

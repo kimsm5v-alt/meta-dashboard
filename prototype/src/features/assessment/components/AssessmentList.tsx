@@ -18,38 +18,10 @@ const formatDate = (date: Date): string => {
 };
 
 const getStatusBadge = (assessment: ManagedAssessment) => {
-  // isActive 필드가 있으면 우선 사용 (API 응답 기준)
   if (assessment.isActive === false) {
     return (
       <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
         종료됨
-      </span>
-    );
-  }
-  if (assessment.isActive === true) {
-    return (
-      <span className="px-2 py-0.5 bg-green-100 text-green-600 text-xs rounded-full">
-        진행중
-      </span>
-    );
-  }
-
-  // isActive가 없으면 날짜로 판단 (레거시)
-  const now = new Date();
-  const endDate = assessment.endDate ? new Date(assessment.endDate) : null;
-  const startDate = new Date(assessment.startDate);
-
-  if (endDate && now > endDate) {
-    return (
-      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
-        종료됨
-      </span>
-    );
-  }
-  if (now < startDate) {
-    return (
-      <span className="px-2 py-0.5 bg-blue-100 text-blue-600 text-xs rounded-full">
-        예정
       </span>
     );
   }
@@ -149,7 +121,6 @@ const AssessmentItem: React.FC<{
         <span className="flex items-center gap-1">
           <Calendar className="w-4 h-4" />
           {formatDate(assessment.startDate)}
-          {assessment.endDate ? ` ~ ${formatDate(assessment.endDate)}` : ' ~'}
         </span>
       </div>
 
