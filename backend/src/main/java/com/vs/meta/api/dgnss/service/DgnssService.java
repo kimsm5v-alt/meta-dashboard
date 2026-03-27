@@ -20,6 +20,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -1184,6 +1185,7 @@ public class DgnssService {
     }
 
     public Map<String, Object> selectStDgnssStart(Map<String, Object> param, Pageable pageable) {
+        pageable = resolvePageable(param, pageable);
         Map<String, Object> resultMap = new HashMap<>();
         int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
         String eakAt = "";
@@ -1275,6 +1277,19 @@ public class DgnssService {
 
 
         return resultMap;
+    }
+
+    private Pageable resolvePageable(Map<String, Object> param, Pageable pageable) {
+        int defaultPage = pageable != null ? pageable.getPageNumber() : 0;
+        int defaultSize = pageable != null ? pageable.getPageSize() : 20;
+
+        int page = Math.max(MapUtils.getInteger(param, "page", defaultPage), 0);
+        int size = MapUtils.getInteger(param, "size", defaultSize);
+        if (size <= 0) {
+            size = defaultSize > 0 ? defaultSize : 20;
+        }
+
+        return PageRequest.of(page, size);
     }
 
     public Map<String, Object> summaryPdfUpload(Map<String, Object> paramData, HttpServletRequest request) throws Exception {
