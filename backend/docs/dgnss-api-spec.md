@@ -815,8 +815,8 @@ GET /api/dgnss/st/info?claId=lectureTest&stdtId=mathbe2-s1
 | 2 | dgnssResultId | Integer | 심리검사 상세 ID | |
 | 3 | paperIdx | String | 심리검사 종류 | |
 | 4 | ordNo | Integer | 회차 | |
-| 5 | eakAt | Integer | 제출 상태 | 1:응시전, 2:응시중, 3:제출완료, 4:채점중, 5:채점완료 |
-| 6 | submAt | String | 검사 제출 여부 | |
+| 5 | eakAt | String | 검사 시작 여부 | Y: 응시 시작, N: 응시 전 |
+| 6 | submAt | String | 검사 제출 여부 | Y: 제출 완료, N: 미제출 |
 | 7 | submDt | String | 제출한 날짜 | |
 | 8 | dgnssStDt | String | 검사 시작 일시 | |
 | 9 | dgnssEdDt | String | 응시 종료 일시 | |
@@ -839,11 +839,11 @@ GET /api/dgnss/st/info?claId=lectureTest&stdtId=mathbe2-s1
         "dgnssId": 294,
         "dgnssResultId": 1717,
         "paperIdx": "1",
-        "stSubmCnt": 0,
         "ordNo": 1,
-        "claId": "lectureTest",
+        "eakAt": "Y",
+        "submAt": "N",
+        "submDt": null,
         "dgnssStDt": "2024. 12. 16.",
-        "stTotalCnt": 5,
         "dgnssAt": "Y",
         "dgnssEdDt": null
       }
