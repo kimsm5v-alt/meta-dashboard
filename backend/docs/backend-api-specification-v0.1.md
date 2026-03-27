@@ -60,7 +60,7 @@
 | 59 | 생기부 | GET | `/api/school-records/student/{studentId}` | 저장된 생기부 조회 | ✅ | JWT 인증 | [이동](#api-59) |
 | 60 | 생기부 | POST | `/api/school-records` | 생기부 저장 | ✅ | JWT 인증 | [이동](#api-60) |
 | 61 | 생기부 | DELETE | `/api/school-records/{id}` | 생기부 삭제 | ✅ | JWT 인증, 본인 건만 | [이동](#api-61) |
-| | **이메일 초대** | | | | | *프론트: Mock, 백엔드 미구현* | |
+| | **이메일 초대** | | | | | *백엔드 구현 완료* | |
 | 62 | 초대 | POST | `/group/invite/email` | 이메일 초대 발송 | ✅ | 방장 전용 | [이동](#api-62) |
 | 63 | 초대 | GET | `/group/invite/list` | 초대 목록 조회 | ✅ | ?claId=xxx | [이동](#api-63) |
 | 64 | 초대 | DELETE | `/group/invite/{invitationId}` | 초대 취소 | ✅ | 방장 전용 | [이동](#api-64) |
@@ -982,7 +982,7 @@
 | `stdtId` | String | 학생 ID | `"f9e8d7c6b5a43210fedcba0987654321"` | 학생별 API 호출에 사용 |
 | `nickname` | String | 닉네임 | `"학생1"` | |
 | `gender` | String | 성별 | `"M"` | `M` \| `F` |
-| `email` | String | 이메일 | `"student@test.com"` | |
+| `email` | String | 이메일 | `"student@test.com"` | STUDENT: user.email, GUEST: 참가 시 입력 이메일 |
 | `memberNo` | Integer | 출석번호 | `1` | |
 | `memberType` | String | 멤버 유형 | `"STUDENT"` | `STUDENT` \| `GUEST` |
 | `status` | String | 상태 | `"ACTIVE"` | `ACTIVE` \| `LEFT` \| `KICKED` \| `ARCHIVED` |
@@ -1344,9 +1344,9 @@
 
 ---
 
-## 13. 이메일 초대 ❌ 신규 개발 예정
+## 13. 이메일 초대 ✅ 구현 완료
 
-> 프론트: `groupService.ts` (Mock)
+> 테이블: `group_invitation` | 서비스: `GroupInvitationService`
 
 <a id="api-62"></a>
 ### POST `/group/invite/email` (JWT) — 초대 발송
