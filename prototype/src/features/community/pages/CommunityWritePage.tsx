@@ -5,8 +5,8 @@ import { Card, Button } from '@/shared/components';
 import { RichTextEditor } from '../components';
 
 const availableTags = [
-  '자원소진형', '안전균형형', '몰입자원풍부형',
-  '무기력형', '정서조절취약형', '자기주도몰입형',
+  '자원소진형', '안전 균형형', '몰입자원 풍부형',
+  '냉소적 무기력형', '정서조절 취약형', '자기주도 몰입형',
   '수업지도', '상담', '학부모', '학급운영',
   '초등', '중등',
 ];
