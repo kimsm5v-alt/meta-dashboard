@@ -41,12 +41,13 @@ const Title = styled.h4`
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
 `;
 
-const Badge = styled.span<{ $badgeColor: string }>`
+const Badge = styled.span<{ $bg: string; $text: string }>`
   padding: 2px ${({ theme }) => theme.spacing.sm};
   border-radius: ${({ theme }) => theme.radius.full};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  ${({ $badgeColor }) => $badgeColor}
+  background: ${({ $bg }) => $bg};
+  color: ${({ $text }) => $text};
 `;
 
 const HintText = styled.span`
@@ -71,7 +72,7 @@ export function SubSection({ title, level, isNegativeSection = false, children }
     <Container>
       <Header>
         <Title>{title}</Title>
-        <Badge $badgeColor={badgeColor}>{level}</Badge>
+        <Badge $bg={badgeColor.bg} $text={badgeColor.text}>{level}</Badge>
         {isNegativeSection && <HintText>↓ 낮을수록 좋아요</HintText>}
       </Header>
       <Content>{children}</Content>

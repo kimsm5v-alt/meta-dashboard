@@ -54,7 +54,7 @@ const SpinnerIcon = styled(Loader2)`
 const WarningIcon = styled(AlertTriangle)`
   width: 2rem;
   height: 2rem;
-  color: ${({ theme }) => theme.colors.status.warning};
+  color: #f59e0b;
   margin: 0 auto 0.5rem;
 `;
 
@@ -105,8 +105,8 @@ const PageSubtitle = styled.p`
 
 // Banner Components
 const BannerContainer = styled.div<{ $variant: 'warning' | 'info' }>`
-  background: ${({ theme }) => theme.colors.status.warningBg};
-  border: 1px solid ${({ theme }) => theme.colors.status.warningBorder};
+  background: #fffbeb;
+  border: 1px solid #fde68a;
   border-radius: 0.5rem;
   padding: 1rem;
   display: flex;
@@ -122,7 +122,7 @@ const BannerIconWrapper = styled.div<{ $marginTop?: boolean }>`
 const BannerIcon = styled.div`
   width: 1.25rem;
   height: 1.25rem;
-  color: ${({ theme }) => theme.colors.status.warning};
+  color: #f59e0b;
 `;
 
 const BannerTitle = styled.p`

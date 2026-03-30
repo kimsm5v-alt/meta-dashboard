@@ -166,12 +166,12 @@ const Badge = styled.span<{ $variant: 'owner' | 'member' | 'guest' | 'left' | 'b
   ${({ $variant, theme }) => {
     switch ($variant) {
       case 'owner':
-        return `background: ${theme.colors.amber?.[100] || '#fef3c7'}; color: ${theme.colors.amber?.[700] || '#b45309'};`;
+        return `background: #fef3c7; color: #b45309;`;
       case 'member':
       case 'blue':
-        return `background: ${theme.colors.blue?.[100] || '#dbeafe'}; color: ${theme.colors.blue?.[700] || '#1d4ed8'};`;
+        return `background: #dbeafe; color: #1d4ed8;`;
       case 'guest':
-        return `background: ${theme.colors.amber?.[100] || '#fef3c7'}; color: ${theme.colors.amber?.[700] || '#b45309'};`;
+        return `background: #fef3c7; color: #b45309;`;
       case 'left':
         return `background: ${theme.colors.gray[100]}; color: ${theme.colors.gray[500]};`;
       default:

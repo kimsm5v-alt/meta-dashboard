@@ -156,7 +156,7 @@ const DeleteButton = styled.button`
 
 interface ConversationSidebarProps {
   conversations: Conversation[];
-  activeConversationId: string;
+  activeConversationId: string | null;
   onSelect: (convId: string) => void;
   onNew: () => void;
   onDelete: (convId: string) => void;

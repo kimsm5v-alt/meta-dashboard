@@ -115,7 +115,7 @@ export const useContextMode = (): UseContextModeReturn => {
     setIsClassDropdownOpen,
     isStudentModalOpen,
     setIsStudentModalOpen,
-    classDropdownRef,
+    classDropdownRef: classDropdownRef as React.RefObject<HTMLDivElement>,
     handleModeChange,
     handleClassSelect,
     removeStudent,

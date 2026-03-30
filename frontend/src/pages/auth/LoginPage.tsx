@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, FlaskConical, User } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import type { User as UserType } from '@shared/types';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { Card } from '@shared/components';
-import { TestLoginForm, LoginForm } from '@features/auth/ui';
+import { LoginForm } from '@features/auth/ui';
 import { useAuth } from '@features/auth/model/AuthContext';
-import type { TestCredentials } from '@features/auth/ui';
-
-type LoginMode = 'select' | 'normal' | 'test';
 
 const spin = keyframes`
   from { transform: rotate(0deg); }
@@ -110,75 +107,6 @@ const HeaderSubtitle = styled.p`
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
 `;
 
-const ButtonGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.sm};
-`;
-
-const ModeButton = styled.button<{ $colorScheme: 'primary' | 'amber' }>`
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.md};
-  padding: ${({ theme }) => theme.spacing.md} 20px;
-  border-radius: ${({ theme }) => theme.radius.xl};
-  border: 2px solid ${({ theme }) => theme.colors.gray[200]};
-  background-color: white;
-  cursor: pointer;
-  transition: all ${({ theme }) => theme.transitions.fast};
-
-  &:hover {
-    border-color: ${({ theme, $colorScheme }) =>
-      $colorScheme === 'primary' ? theme.colors.primary[500] : '#fbbf24'};
-    background-color: ${({ theme, $colorScheme }) =>
-      $colorScheme === 'primary' ? theme.colors.primary[50] : '#fffbeb'};
-  }
-`;
-
-const IconWrapper = styled.div<{ $colorScheme: 'primary' | 'amber' }>`
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: ${({ $colorScheme }) => ($colorScheme === 'primary' ? '#f3e8ff' : '#fef3c7')};
-  transition: background-color ${({ theme }) => theme.transitions.fast};
-
-  ${ModeButton}:hover & {
-    background-color: ${({ $colorScheme }) => ($colorScheme === 'primary' ? '#e9d5ff' : '#fde68a')};
-  }
-
-  svg {
-    width: 20px;
-    height: 20px;
-    color: ${({ theme, $colorScheme }) =>
-      $colorScheme === 'primary' ? theme.colors.primary[600] : '#d97706'};
-  }
-`;
-
-const ButtonTextWrapper = styled.div`
-  text-align: left;
-`;
-
-const ButtonTitle = styled.p`
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ theme }) => theme.colors.gray[900]};
-`;
-
-const ButtonDescription = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[500]};
-`;
-
-const BottomInfo = styled.p`
-  margin-top: ${({ theme }) => theme.spacing.xl};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[500]};
-  text-align: center;
-  max-width: 384px;
-`;
 
 const getRedirectPathByRole = (user: UserType, explicitRedirect: string | null): string => {
   if (explicitRedirect) return explicitRedirect;
@@ -190,7 +118,7 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect');
-  const { isAuthenticated, isLoading, user, loginWithCredentials, loginWithEmail } = useAuth();
+  const { isAuthenticated, isLoading, user, loginWithEmail } = useAuth();
   const [loginLoading, setLoginLoading] = useState(false);
   // const [mode, setMode] = useState<LoginMode>('select');
 
@@ -200,16 +128,6 @@ export const LoginPage: React.FC = () => {
       navigate(getRedirectPathByRole(user, redirectTo), { replace: true });
     }
   }, [isAuthenticated, isLoading, user, navigate, redirectTo]);
-
-  const handleTestLogin = async (credentials: TestCredentials) => {
-    setLoginLoading(true);
-    try {
-      await loginWithCredentials(credentials);
-      toast.success('로그인되었습니다.');
-    } finally {
-      setLoginLoading(false);
-    }
-  };
 
   const handleEmailLogin = async (email: string, password: string) => {
     setLoginLoading(true);

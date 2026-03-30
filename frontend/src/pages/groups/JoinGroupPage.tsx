@@ -46,7 +46,7 @@ const PageContainer = styled.div`
     to bottom right,
     ${({ theme }) => theme.colors.primary[50]},
     white,
-    ${({ theme }) => theme.colors.indigo?.[50] || '#eef2ff'}
+    #eef2ff
   );
   display: flex;
   align-items: center;
@@ -88,9 +88,9 @@ const IconCircle = styled.div<{ $variant: 'error' | 'success' | 'primary' | 'gra
   ${({ $variant, theme }) => {
     switch ($variant) {
       case 'error':
-        return `background: ${theme.colors.red?.[100] || '#fee2e2'};`;
+        return `background: #fee2e2;`;
       case 'success':
-        return `background: ${theme.colors.green?.[100] || '#dcfce7'};`;
+        return `background: #dcfce7;`;
       case 'primary':
         return `background: ${theme.colors.primary[100]};`;
       case 'gray':
@@ -121,13 +121,13 @@ const SmallIconCircle = styled.div<{ $variant: 'primary' | 'gray' }>`
 const ErrorIcon = styled(AlertCircle)`
   width: 2.5rem;
   height: 2.5rem;
-  color: ${({ theme }) => theme.colors.red?.[600] || '#dc2626'};
+  color: #dc2626;
 `;
 
 const SuccessIcon = styled(CheckCircle)`
   width: 2.5rem;
   height: 2.5rem;
-  color: ${({ theme }) => theme.colors.green?.[600] || '#16a34a'};
+  color: #16a34a;
 `;
 
 const UsersIcon = styled(Users)`
@@ -240,7 +240,7 @@ const Label = styled.label`
 `;
 
 const Required = styled.span`
-  color: ${({ theme }) => theme.colors.red?.[500] || '#ef4444'};
+  color: #ef4444;
 `;
 
 const InputWrapper = styled.div`
@@ -280,7 +280,7 @@ const HelpText = styled.p`
 const ErrorText = styled.p`
   margin-bottom: 1rem;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.red?.[600] || '#dc2626'};
+  color: #dc2626;
   display: flex;
   align-items: center;
   gap: 0.25rem;
