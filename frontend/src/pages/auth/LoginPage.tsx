@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import type { User as UserType } from '@shared/types';
 import styled from '@emotion/styled';
