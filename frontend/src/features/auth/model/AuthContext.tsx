@@ -14,6 +14,17 @@ interface SignUpData {
   email: string;
   password: string;
   gender?: 'M' | 'F';
+  roleCode: 'TEACHER' | 'STUDENT';
+}
+
+/** 게스트 로그인 정보 */
+interface GuestLoginInfo {
+  stdtId: string;
+  claId: string;
+  groupNm: string;
+  email: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 interface AuthContextType extends AuthState {
@@ -21,6 +32,10 @@ interface AuthContextType extends AuthState {
   loginWithCredentials: (credentials: TestCredentials) => Promise<void>;
   /** 이메일/비밀번호 로그인 */
   loginWithEmail: (email: string, password: string) => Promise<void>;
+  /** 게스트 로그인 (토큰 기반) */
+  loginAsGuest: (info: GuestLoginInfo) => void;
+  /** 사용자 정보 부분 업데이트 */
+  updateUser: (updates: Partial<User>) => void;
   /** 이메일 인증코드 발송 */
   sendCode: (email: string) => Promise<void>;
   /** 이메일 인증코드 확인 */
@@ -108,6 +123,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setState({ user, isAuthenticated: true, isLoading: false });
   }, []);
 
+  // 게스트 로그인 (토큰 기반)
+  const loginAsGuest = useCallback((info: GuestLoginInfo) => {
+    localStorage.setItem('auth_token', info.accessToken);
+    localStorage.setItem('refresh_token', info.refreshToken);
+
+    const user: User = {
+      id: info.stdtId,
+      name: info.email.split('@')[0],
+      email: info.email,
+      memberType: 'guest',
+      provider: 'vivasam',
+      roleCode: 'GUEST',
+      stdtId: info.stdtId,
+      classId: info.claId,
+    };
+
+    localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    setCredentials(null);
+    setState({ user, isAuthenticated: true, isLoading: false });
+  }, []);
+
   // 이메일/비밀번호 로그인
   const loginWithEmail = useCallback(async (email: string, password: string) => {
     setState((prev) => ({ ...prev, isLoading: true }));
@@ -136,6 +173,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         email: data.email,
         memberType: 'general',
         provider: 'vivasam',
+        roleCode: data.roleCode,
         ...(data.tcId ? { tcId: data.tcId } : {}),
         ...(data.stdtId ? { stdtId: data.stdtId } : {}),
       };
@@ -158,7 +196,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await apiClient.post('/member/verify-code', { email, code });
   }, []);
 
-  // 회원가입
+  // 회원가입 (가입 완료 후 자동 로그인)
   const signUp = useCallback(async (data: SignUpData) => {
     setState((prev) => ({ ...prev, isLoading: true }));
 
@@ -168,12 +206,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password: data.password,
         nickname: data.name,
         gender: data.gender,
+        roleCode: data.roleCode,
       });
-
-      // 가입 완료 후 로그인 상태로 전환하지 않음 — 로그인 페이지로 이동
-    } finally {
+      await loginWithEmail(data.email, data.password);
+    } catch (err) {
       setState((prev) => ({ ...prev, isLoading: false }));
+      throw err;
     }
+  }, [loginWithEmail]);
+
+  // 사용자 정보 업데이트
+  const updateUser = useCallback((updates: Partial<User>) => {
+    setState((prev) => {
+      if (!prev.user) return prev;
+      const updatedUser = { ...prev.user, ...updates };
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+      return { ...prev, user: updatedUser };
+    });
   }, []);
 
   // 로그아웃
@@ -192,6 +241,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         ...state,
         loginWithCredentials,
         loginWithEmail,
+        loginAsGuest,
+        updateUser,
         sendCode,
         verifyCode,
         signUp,
