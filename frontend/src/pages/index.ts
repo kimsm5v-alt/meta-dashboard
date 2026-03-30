@@ -45,3 +45,12 @@ export { ResourceDetailPage } from './resources/ResourceDetailPage';
 export { CommunityListPage } from './community/CommunityListPage';
 export { CommunityDetailPage } from './community/CommunityDetailPage';
 export { CommunityWritePage } from './community/CommunityWritePage';
+
+// Guest Exam
+export { GuestExamListPage } from './guest-exam/GuestExamListPage';
+export { GuestCompletePage } from './guest-exam/GuestCompletePage';
+
+// Student Exam
+export { StudentGroupsPage } from './student-exam/StudentGroupsPage';
+export { MyExamListPage } from './student-exam/MyExamListPage';
+export { MyResultPage } from './student-exam/MyResultPage';
