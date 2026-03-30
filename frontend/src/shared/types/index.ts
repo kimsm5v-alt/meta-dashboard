@@ -239,7 +239,7 @@ export interface TypeChartData {
 // 인증 관련 타입
 // ============================================================
 
-export type MemberType = 'vivasam' | 'general';
+export type MemberType = 'vivasam' | 'general' | 'guest';
 export type OAuthProvider = 'vivasam' | 'google' | 'kakao' | 'naver';
 
 export interface User {
@@ -252,6 +252,8 @@ export interface User {
   profileImage?: string;
   tcId?: string;
   stdtId?: string;
+  roleCode?: string;
+  classId?: string;
 }
 
 export interface AuthState {
