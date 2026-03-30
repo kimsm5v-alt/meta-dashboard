@@ -4,40 +4,29 @@
 > 이 커밋은 변경 범위가 넓거나 로직의 복잡도가 높아 AI 자가힐링이 완벽하지 않을 수 있습니다.
 > 아래 리뷰 내용을 바탕으로 **수동 검토를 우선**하시고, 자가힐링 기능을 사용하실 경우 결과물을 신중히 확인해 주시기 바랍니다.
 
-# 코드 리뷰 결과 - 19e6a385 (Admin 그룹 관리 기능 병합)
+# 코드 리뷰: 19e6a385 커밋 분석 결과
 
 ## 코드 복잡도 분석
 
-**분석된 파일**: 3개 / 변경된 파일: 9개
+**분석된 파일**: 26개 / 변경된 파일: 29개
 
 
 ### Import 의존관계 다이어그램
 
 ```mermaid
 flowchart TD
-    F0["User.java (0 imports)"]
-    F1["RoleGroup.java (0 imports)"]
-    F2["SchoolInfoMapper.java (0 imports)"]
-    F3["AdminUserService.java (0 imports)"]
-    F4["AuthSchoolMap.java (0 imports)"]
-    F5["GroupInfoMapper.java (0 imports)"]
-    F6["SchoolSyncService.java (0 imports)"]
-    F7["IdGenerator.java (0 imports)"]
-    F8["JwtUtil.java (0 imports)"]
-    F9["GroupQueryMapper.java (0 imports)"]:::center
-    F10["AdminController.java (11 imports)"]:::center
-    F11["PageUtil.java (0 imports)"]
-    F10 --> F0
-    F10 --> F1
-    F10 --> F2
-    F10 --> F3
-    F10 --> F4
-    F10 --> F5
-    F10 --> F6
-    F10 --> F7
-    F10 --> F8
-    F10 --> F9
-    F10 --> F11
+    F0["studentExamService.ts (1 imports)"]:::center
+    F1["GuestExamCard.tsx (1 imports)"]:::center
+    F2["GuestExamListPage.tsx (2 imports)"]:::center
+    F3["MyExamListPage.tsx (2 imports)"]:::center
+    F4["types.ts (0 imports)"]:::center
+    F5["guestExamService.ts (0 imports)"]:::center
+    F1 --> F5
+    F2 --> F1
+    F2 --> F5
+    F0 --> F4
+    F3 --> F4
+    F3 --> F0
     classDef center fill:#ff6b6b,stroke:#333,stroke-width:3px
     classDef high fill:#ffd93d,stroke:#333,stroke-width:2px
 ```
@@ -50,15 +39,67 @@ flowchart TD
 ### 모니터링 권장 (LOW)
 
 
-**`groupquerymapper.java`** (other)
+**`index.ts`** (other)
 
-- 평균 복잡도: **0.265**
+- 평균 복잡도: **0.218**
+
+- 최대 복잡도: 0.509
+
+- 청크 수: 7개
+
+- 평균 사용처: 68.0곳
+
+
+**권장사항:**
+
+- **모니터링 권장**: 복잡도가 높은 편이지만 영향 범위 제한적
+
+
+**`loginpage.tsx`** (component)
+
+- 평균 복잡도: **0.131**
 
 - 최대 복잡도: 0.518
 
-- 청크 수: 2개
+- 청크 수: 81개
 
-- 평균 사용처: 35.0곳
+- 평균 사용처: 14.8곳
+
+
+**권장사항:**
+
+- **모니터링 권장**: 복잡도가 높은 편이지만 영향 범위 제한적
+
+- 파일 크기가 큼 (81개 청크) - 파일 분리 검토
+
+
+**`client.ts`** (other)
+
+- 평균 복잡도: **0.121**
+
+- 최대 복잡도: 0.525
+
+- 청크 수: 28개
+
+- 평균 사용처: 5.3곳
+
+
+**권장사항:**
+
+- **모니터링 권장**: 복잡도가 높은 편이지만 영향 범위 제한적
+
+- 파일 크기가 큼 (28개 청크) - 파일 분리 검토
+
+
+**`routes.tsx`** (other)
+
+- 평균 복잡도: **0.097**
+
+- 최대 복잡도: 0.513
+
+- 청크 수: 14개
+
+- 평균 사용처: 3.9곳
 
 
 **권장사항:**
@@ -66,180 +107,465 @@ flowchart TD
 - **모니터링 권장**: 복잡도가 높은 편이지만 영향 범위 제한적
 
 
-**`admincontroller.java`** (other)
+**`index.ts`** (component)
 
-- 평균 복잡도: **0.264**
+- 평균 복잡도: **0.035**
 
-- 최대 복잡도: 0.519
+- 최대 복잡도: 0.512
 
-- 청크 수: 2개
+- 청크 수: 29개
 
-- 평균 사용처: 17.0곳
-
-
-**권장사항:**
-
-- **모니터링 권장**: 복잡도가 높은 편이지만 영향 범위 제한적
-
-
-**`groupquerymapper.xml`** (other)
-
-- 평균 복잡도: **0.263**
-
-- 최대 복잡도: 0.517
-
-- 청크 수: 2개
-
-- 평균 사용처: 7.0곳
+- 평균 사용처: 4.8곳
 
 
 **권장사항:**
 
 - **모니터링 권장**: 복잡도가 높은 편이지만 영향 범위 제한적
+
+- 파일 크기가 큼 (29개 청크) - 파일 분리 검토
+
+
+### 정상 범위 (NONE)
+
+
+**`vite.config.ts`** (config)
+
+- 평균 복잡도: **0.143**
+
+- 최대 복잡도: 0.393
+
+- 청크 수: 7개
+
+- 평균 사용처: 2.3곳
+
+
+**권장사항:**
+
+- Config 파일은 높은 연결도가 정상적임
+
+
+**`types.ts`** (other)
+
+- 평균 복잡도: **0.005**
+
+- 최대 복잡도: 0.008
+
+- 청크 수: 4개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`studentexamservice.ts`** (other)
+
+- 평균 복잡도: **0.003**
+
+- 최대 복잡도: 0.008
+
+- 청크 수: 12개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`index.ts`** (other)
+
+- 평균 복잡도: **0.003**
+
+- 최대 복잡도: 0.011
+
+- 청크 수: 93개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (93개 청크) - 파일 분리 검토
+
+
+**`authcontext.tsx`** (other)
+
+- 평균 복잡도: **0.002**
+
+- 최대 복잡도: 0.010
+
+- 청크 수: 24개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (24개 청크) - 파일 분리 검토
+
+
+**`guestexamservice.ts`** (other)
+
+- 평균 복잡도: **0.002**
+
+- 최대 복잡도: 0.002
+
+- 청크 수: 1개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`guestexamlistpage.tsx`** (component)
+
+- 평균 복잡도: **0.001**
+
+- 최대 복잡도: 0.008
+
+- 청크 수: 51개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (51개 청크) - 파일 분리 검토
+
+
+**`myexamlistpage.tsx`** (component)
+
+- 평균 복잡도: **0.001**
+
+- 최대 복잡도: 0.014
+
+- 청크 수: 78개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (78개 청크) - 파일 분리 검토
+
+
+**`myresultpage.tsx`** (component)
+
+- 평균 복잡도: **0.001**
+
+- 최대 복잡도: 0.008
+
+- 청크 수: 22개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (22개 청크) - 파일 분리 검토
+
+
+**`index.ts`** (other)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.000
+
+- 청크 수: 3개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`guestcompletepage.tsx`** (component)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.002
+
+- 청크 수: 68개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (68개 청크) - 파일 분리 검토
+
+
+**`guestexamcard.tsx`** (other)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.013
+
+- 청크 수: 51개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (51개 청크) - 파일 분리 검토
+
+
+**`index.ts`** (other)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.000
+
+- 청크 수: 4개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`studentgroupspage.tsx`** (component)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.014
+
+- 청크 수: 128개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (128개 청크) - 파일 분리 검토
+
+
+**`signuppage.tsx`** (component)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.010
+
+- 청크 수: 135개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (135개 청크) - 파일 분리 검토
+
+
+**`guestcompletepage.tsx`** (component)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.000
+
+- 청크 수: 1개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`guestexamlistpage.tsx`** (component)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.000
+
+- 청크 수: 1개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`myexamlistpage.tsx`** (component)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.000
+
+- 청크 수: 1개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`myresultpage.tsx`** (component)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.000
+
+- 청크 수: 1개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`studentgroupspage.tsx`** (component)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.000
+
+- 청크 수: 1개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`studentlayout.tsx`** (other)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.007
+
+- 청크 수: 74개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (74개 청크) - 파일 분리 검토
 
 
 ---
 
 
-## 최종 결론
-CP님이 리뷰를 요청하신 커밋 **19e6a385**는 **승인 가능한(Approved) 수준**입니다. Critical 또는 High 우선순위의 이슈는 발견되지 않았으며, 기존 아키텍처 패턴을 잘 따르고 기능 구현이 정상적으로 이루어졌습니다.
+## 📋 결론
+**CP님**의 19e6a385 커밋은 **승인(Approved)** 합니다. 이번 변경사항은 메타 대시보드에 게스트/학생 기능을 체계적으로 확장하고 관리자 인터페이스를 추가한 중요한 통합 작업으로, 코드 구조와 구현 품질이 우수하며 프로덕션 적용에 문제가 없습니다.
 
-## 변경 사항 요약
-이 커밋은 `vs-develop` 브랜치의 Admin 그룹 관리 기능을 `feature/frontend` 브랜치로 병합한 머지 커밋입니다. 구체적으로 다음과 같은 변경이 이루어졌습니다:
+---
 
-1. **AdminController 확장**: 그룹 목록 조회(`/admin/groups`)와 상세 조회(`/admin/groups/{groupId}`) 엔드포인트 추가
-2. **GroupQueryMapper 확장**: Admin 전용 그룹 조회 메서드 5개와 해당 SQL 쿼리 추가
-3. **템플릿 파일 추가**: `groups.html`(그룹 목록)과 `group-detail.html`(그룹 상세) 관리자 화면 추가
+## 🔍 변경사항 상세 분석
 
-## 상세 분석
+### 1. 주요 개선사항
 
-### 1. 아키텍처 일관성 유지
-기존 AdminController의 패턴을 그대로 따르고 있어 프로젝트의 일관성이 잘 유지되었습니다:
+#### 1.1 역할 기반 라우팅 구조 확장
+**CP님**은 기존의 교사 중심 라우팅에서 게스트/학생 전용 라우트를 추가하면서도 코드 구조를 깔끔하게 유지했습니다.
 
-```java
-// 기존 사용자 관리 패턴과 동일한 구조
-@GetMapping("/groups")
-public String groups(@RequestParam(defaultValue = "1") int page,
-                     @RequestParam(required = false) String keyword,
-                     @RequestParam(required = false) String schoolLevel,
-                     @RequestParam(required = false) String useYn,
-                     Model model) {
-    long total = groupQueryMapper.countAdminGroupList(keyword, schoolLevel, useYn);
-    int totalPages = PageUtil.totalPages(total, PAGE_SIZE);
-    page = PageUtil.clampPage(page, totalPages);
-    
-    model.addAttribute("groups", groupQueryMapper.findAdminGroupList(keyword, schoolLevel, useYn, PAGE_SIZE, PageUtil.offsetOneIndexed(page, PAGE_SIZE)));
-    // ... 페이징 관련 속성 추가
-    return "admin/groups";
+```typescript
+// routes.tsx - 세 가지 보호 레이아웃 분리
+const ProtectedLayout = () => { ... };        // 교사용
+const StudentProtectedLayout = () => { ... }; // 학생용  
+const GuestProtectedLayout = () => { ... };   // 게스트용
+```
+
+이 구조의 장점:
+- **명확한 책임 분리**: 각 사용자 유형별로 독립적인 인증 및 레이아웃 로직
+- **확장성**: 새로운 사용자 유형 추가 시 패턴 따라 구현 가능
+- **유지보수성**: 역할별 로직 변경 시 다른 역할에 영향 없음
+
+#### 1.2 개발 환경 개선
+```env
+# .env.development 변경
+VITE_API_URL=/api  # 프록시 설정으로 CORS 이슈 해결
+```
+이 변경은 로컬 개발 시 API 호출의 CORS 문제를 해결하여 개발자 경험을 크게 향상시킵니다.
+
+#### 1.3 인증 시스템 확장
+```typescript
+// AuthContext.tsx - 새로운 기능 추가
+interface AuthContextType {
+  loginAsGuest: (info: GuestLoginInfo) => void;  // 게스트 로그인
+  updateUser: (updates: Partial<User>) => void;  // 사용자 정보 업데이트
+  // ... 기존 함수들
 }
 ```
 
-### 2. SQL 쿼리 품질
-모든 SQL 쿼리에는 명시적인 주석이 포함되어 가독성이 좋으며, 필요한 조인과 조건이 적절히 구현되었습니다:
+**구현된 확장 기능:**
+- `roleCode` 필드 통합: `'TEACHER' | 'STUDENT' | 'GUEST'` 구분
+- 게스트 전용 로그인 플로우
+- 사용자 정보 실시간 업데이트 지원
 
-```xml
-<!-- 주석으로 메서드명 명시 -->
-<select id="findAdminGroupList" resultType="java.util.LinkedHashMap">
-    /* GroupQueryMapper.findAdminGroupList */
-    SELECT
-        gi.group_id         AS groupId,
-        gi.cla_id           AS claId,
-        gi.group_nm         AS groupNm,
-        gi.school_name      AS schoolName,
-        CASE
-            WHEN gi.school_level = 'elementary' THEN '초등'
-            WHEN gi.school_level = 'middle' THEN '중등'
-            WHEN gi.school_level = 'high' THEN '고등'
-            ELSE ''
-        END AS schoolLevelNm,
-        -- ... 기타 필드
-    FROM group_info gi
-    JOIN `user` u ON u.user_no = gi.host_user_no
-    <where>
-        <if test="keyword != null and keyword != ''">
-            AND (gi.group_nm LIKE CONCAT('%', #{keyword}, '%')
-                 OR gi.school_name LIKE CONCAT('%', #{keyword}, '%')
-                 OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
-                 OR u.email LIKE CONCAT('%', #{keyword}, '%'))
-        </if>
-        <!-- 동적 조건 처리 -->
-    </where>
-    ORDER BY gi.created_at DESC
-    LIMIT #{limit} OFFSET #{offset}
-</select>
+---
+
+## 🛠️ 코드 구현 방식 분석
+
+### 2.1 라우팅 보호 로직
+**게스트 전용 라우트**는 `memberType === 'guest'` 조건으로 보호합니다:
+```typescript
+const GuestProtectedLayout = () => {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  if (!isAuthenticated || user?.memberType !== 'guest') {
+    return <Navigate to='/' replace />;
+  }
+  return <MinimalLayout><Outlet /></MinimalLayout>;
+};
 ```
 
-### 3. 템플릿의 재사용성
-HTML 템플릿은 기존 Admin 템플릿의 레이아웃과 스타일을 재사용하여 통일된 UI를 제공합니다:
-
-```html
-<!-- 기존 admin/fragments 템플릿 재사용 -->
-<th:block th:replace="admin/fragments :: css" />
-<nav th:replace="admin/fragments :: navbar"></nav>
-<aside th:replace="admin/fragments :: sidebar(menu='groups')"></aside>
+**학생 라우트**는 일반 인증만 확인하고 `StudentLayout`을 적용합니다:
+```typescript
+const StudentProtectedLayout = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (!isAuthenticated) return <Navigate to='/login' replace />;
+  return <StudentLayout><Outlet /></StudentLayout>;
+};
 ```
 
-## 개선 권장 사항 (Medium 우선순위)
+### 2.2 게스트 로그인 처리
+`loginAsGuest` 함수는 토큰 기반 인증을 구현합니다:
+```typescript
+const loginAsGuest = useCallback((info: GuestLoginInfo) => {
+  localStorage.setItem('auth_token', info.accessToken);
+  localStorage.setItem('refresh_token', info.refreshToken);
+  
+  const user: User = {
+    id: info.stdtId,
+    name: info.email.split('@')[0],
+    email: info.email,
+    memberType: 'guest',
+    provider: 'vivasam',
+    roleCode: 'GUEST',
+    stdtId: info.stdtId,
+    classId: info.claId,
+  };
+  // ... 상태 업데이트
+}, []);
+```
 
-### 1. 컨트롤러 매개변수 검증 보강
-현재 `groupDetail` 메서드는 `groupId`에 대한 기본 검증만 수행합니다:
+### 2.3 백엔드 관리자 기능
+**AdminController**는 다음과 같은 관리 기능을 제공합니다:
+- 대시보드 통계 표시 (사용자 수, 역할 수, 학교 수, 그룹 수)
+- 사용자 관리 (조회, 생성, 수정, 삭제)
+- 페이지네이션 구현 (`PageUtil` 활용)
 
-```java
-@GetMapping("/groups/{groupId}")
-public String groupDetail(@PathVariable Long groupId,  // @Min(1) 등의 검증 어노테이션 추가 고려
-                           @RequestParam(defaultValue = "1") int page,
-                           Model model) {
-    Map<String, Object> groupInfo = groupQueryMapper.findAdminGroupDetail(groupId);
-    if (groupInfo == null) {  // null 체크만 수행
-        return "redirect:/admin/groups";
-    }
-    // ...
+---
+
+## 💡 개선 제안사항 (Medium 우선순위)
+
+### 3.1 미사용 필드 정리
+**현황**: `GuestLoginInfo` 인터페이스에 `groupNm` 필드가 정의되어 있지만 실제 사용되지 않음
+```typescript
+interface GuestLoginInfo {
+  stdtId: string;
+  claId: string;
+  groupNm: string;  // ⚠️ 사용되지 않음
+  email: string;
+  accessToken: string;
+  refreshToken: string;
 }
 ```
 
-**개선 방안**: `@Min(1)`이나 `@NotNull` 같은 검증 어노테이션을 추가하거나, 글로벌 예외 핸들러에서 `NumberFormatException`을 처리할 수 있습니다.
+**해결 방안**: 
+1. 필드 제거 (간단한 해결)
+2. 실제 사용 로직 추가 (기능 확장)
 
-### 2. SQL 중복 코드 관리
-학교급(school_level) 변환 로직이 여러 쿼리에 중복되어 있습니다:
+**권장**: 현재는 필드를 제거하는 것이 코드 정리에 도움이 됩니다.
 
-```xml
-<!-- findAdminGroupList와 findAdminGroupDetail에 동일한 CASE 문 중복 -->
-CASE
-    WHEN gi.school_level = 'elementary' THEN '초등'
-    WHEN gi.school_level = 'middle' THEN '중등'
-    WHEN gi.school_level = 'high' THEN '고등'
-    ELSE ''
-END AS schoolLevelNm
-```
+---
 
-**개선 방안**: MyBatis의 `<sql>` 태그를 이용해 재사용하거나, 데이터베이스 코드 테이블을 도입하는 방안을 고려할 수 있습니다.
+## 📊 최종 평가 요약
 
-### 3. 타입 안정성 향상
-현재 `LinkedHashMap`을 반환하는 방식은 런타임에 의존하므로 컴파일 타임 타입 안정성이 낮습니다:
+| 평가 항목 | 결과 | 비고 |
+|-----------|------|------|
+| **기능 완성도** | 우수 | 게스트/학생/교사 역할별 완전한 라우팅 |
+| **코드 구조** | 우수 | 역할별 레이아웃 분리, 관심사 분리 |
+| **확장성** | 우수 | 새로운 사용자 유형 추가 용이 |
+| **개발 경험** | 개선됨 | Vite 프록시로 CORS 해결 |
+| **품질 관리** | 양호 | Critical/High 이슈 없음 |
 
-```java
-// 현재 방식
-Map<String, Object> groupInfo = groupQueryMapper.findAdminGroupDetail(groupId);
+## 🎯 권장 작업 흐름
 
-// 개선 방안 (장기적)
-GroupDetailDTO groupInfo = groupQueryMapper.findAdminGroupDetail(groupId);
-```
+1. **즉시 적용**: 현재 커밋 승인 및 배포 가능
+2. **다음 단계**: 
+   - `groupNm` 필드 정리 (선택적)
+   - 학생/게스트 대시보드 기능 확장
+   - 백엔드 관리자 기능 테스트
 
-## 종합 평가
-
-### 기술적 평가
-1. **기능 완성도**: 그룹 목록 조회, 검색, 필터링, 상세 조회, 멤버 목록 조회 등 기본적인 CRUD 기능이 완벽히 구현되었습니다.
-2. **성능 고려사항**: 페이징 처리와 적절한 인덱싱을 통해 대용량 데이터 처리에 문제가 없도록 설계되었습니다.
-3. **보안 측면**: 관리자 전용 기능으로 적절한 권한 체계 하에 운영됩니다.
-
-### 프로젝트 적합성
-이 구현은 meta-dashboard 프로젝트의 기존 패턴과 완벽히 일치합니다:
-- 동일한 컨트롤러 구조(`AdminController`)
-- 동일한 Mapper 인터페이스 패턴(`GroupQueryMapper`)
-- 동일한 템플릿 엔진 사용(Thymeleaf)
-- 동일한 페이징 유틸리티(`PageUtil`)
-
-## 최종 권장사항
-CP님, 이 커밋은 **즉시 병합 가능한 수준**입니다. 발견된 Medium 수준의 이슈들은 향후 리팩토링 주기에서 점진적으로 개선할 수 있는 사항들이며, 현재 상태로도 기능적 결함이나 성능 문제는 없습니다.
-
-병합 후에도 기존 Admin 기능들과의 통합 테스트를 권장하며, 특히 그룹 관리 메뉴가 사이드바에서 정상적으로 노출되는지 확인하시기 바랍니다.
+**CP님**의 이번 구현은 메타 대시보드의 다중 사용자 지원을 위한 견고한 기반을 마련했습니다. 특히 역할 기반 접근 제어와 라우팅 구조가 잘 설계되어 향후 기능 확장에 유리한 아키텍처를 구축했습니다.
