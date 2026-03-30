@@ -28,12 +28,12 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
   const isMiddleSchool = classes.length > 0 && classes[0].schoolLevel === '중등';
 
   const typeKeys = isMiddleSchool
-    ? ['무기력형', '정서조절취약형', '자기주도몰입형'] as const
-    : ['자원소진형', '안전균형형', '몰입자원풍부형'] as const;
+    ? ['냉소적 무기력형', '정서조절 취약형', '자기주도 몰입형'] as const
+    : ['자원소진형', '안전 균형형', '몰입자원 풍부형'] as const;
 
   const typeColors = isMiddleSchool
-    ? ['#F97316', '#14B8A6', '#3B82F6']
-    : ['#F97316', '#14B8A6', '#3B82F6'];
+    ? ['#E74C3C', '#F39C12', '#2ECC71']  // 중등: red, orange, green
+    : ['#E74C3C', '#3498DB', '#2ECC71']; // 초등: red, blue, green
 
   const chartData = useMemo(() => {
     return classes.map(cls => {
