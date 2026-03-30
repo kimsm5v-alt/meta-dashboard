@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>그룹 관리 - Meta Admin</title>
+    <th:block th:replace="admin/fragments :: css" />
+</head>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
+    <nav th:replace="admin/fragments :: navbar"></nav>
+    <aside th:replace="admin/fragments :: sidebar(menu='groups')"></aside>
+
+    <div class="content-wrapper">
+        <section class="content-header">
+            <div class="container-fluid">
+                <h1>그룹 관리</h1>
+            </div>
+        </section>
+        <section class="content">
+            <div class="container-fluid">
+
+                <!-- 검색 필터 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">그룹 검색</h3>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/admin/groups}" method="get" class="filter-bar">
+                            <div class="form-group mr-2">
+                                <label class="small">검색어 (그룹명/학교명/방장/이메일)</label>
+                                <input name="keyword" th:value="${keyword}" class="form-control form-control-sm" placeholder="검색어 입력" />
+                            </div>
+                            <div class="form-group mr-2">
+                                <label class="small">학교급</label>
+                                <select name="schoolLevel" class="form-control form-control-sm">
+                                    <option value="">전체</option>
+                                    <option value="elementary" th:selected="${schoolLevel == 'elementary'}">초등</option>
+                                    <option value="middle" th:selected="${schoolLevel == 'middle'}">중등</option>
+                                    <option value="high" th:selected="${schoolLevel == 'high'}">고등</option>
+                                </select>
+                            </div>
+                            <div class="form-group mr-2">
+                                <label class="small">상태</label>
+                                <select name="useYn" class="form-control form-control-sm">
+                                    <option value="">전체</option>
+                                    <option value="Y" th:selected="${useYn == 'Y'}">활성</option>
+                                    <option value="N" th:selected="${useYn == 'N'}">비활성</option>
+                                </select>
+                            </div>
+                            <div class="form-group d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary btn-sm mr-1">검색</button>
+                                <a href="/admin/groups" class="btn btn-default btn-sm">초기화</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 그룹 목록 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">그룹 목록 <small class="text-muted" th:text="'(총 ' + ${total} + '개)'"></small></h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>그룹명</th>
+                                    <th>학교명</th>
+                                    <th>학교급</th>
+                                    <th>학년/반</th>
+                                    <th>방장</th>
+                                    <th>방장 이메일</th>
+                                    <th>초대코드</th>
+                                    <th>멤버</th>
+                                    <th>상태</th>
+                                    <th>생성일</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="g : ${groups}">
+                                    <td th:text="${g.groupId}"></td>
+                                    <td th:text="${g.groupNm}"></td>
+                                    <td th:text="${g.schoolName ?: '-'}"></td>
+                                    <td th:text="${g.schoolLevelNm}"></td>
+                                    <td th:text="${(g.grade != null ? g.grade + '학년' : '') + (g.classNumber != null ? ' ' + g.classNumber + '반' : '')}"></td>
+                                    <td th:text="${g.hostNickname}"></td>
+                                    <td><small class="text-muted" th:text="${g.hostEmail}"></small></td>
+                                    <td><code th:text="${g.inviteCode}"></code></td>
+                                    <td th:text="${g.memberCount} + '명'"></td>
+                                    <td>
+                                        <span th:if="${g.useYn == 'Y'}" class="badge badge-success">활성</span>
+                                        <span th:if="${g.useYn == 'N'}" class="badge badge-danger">비활성</span>
+                                    </td>
+                                    <td><small class="text-muted" th:text="${#temporals.format(g.createdAt, 'yyyy-MM-dd')}"></small></td>
+                                    <td><a th:href="@{/admin/groups/{id}(id=${g.groupId})}" class="btn btn-default btn-xs">상세</a></td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(groups)}">
+                                    <td colspan="12" class="text-center text-muted py-4">검색 결과가 없습니다</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        </div>
+
+                        <th:block th:replace="admin/fragments :: pagination('/admin/groups', ${(keyword != null ? '&amp;keyword=' + keyword : '') + (schoolLevel != null ? '&amp;schoolLevel=' + schoolLevel : '') + (useYn != null ? '&amp;useYn=' + useYn : '')})" />
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+<th:block th:replace="admin/fragments :: js" />
+</body>
+</html>

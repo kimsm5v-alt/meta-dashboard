@@ -31,7 +31,7 @@
             gm.user_no      AS userNo,
             gm.stdt_id      AS stdtId,
             gm.nickname      AS nickname,
-            gm.gender        AS gender,
+            COALESCE(u.gender, gm.gender) AS gender,
             COALESCE(u.email, gm.email) AS email,
             gm.member_type   AS memberType,
             gm.member_no     AS memberNo,
@@ -100,6 +100,122 @@
           AND gm.user_no IS NULL
           AND gm.member_type = 'GUEST'
           AND gm.status = 'ACTIVE'
+    </select>
+
+    <!-- Admin 그룹 관리 -->
+    <select id="findAdminGroupList" resultType="java.util.LinkedHashMap">
+        /* GroupQueryMapper.findAdminGroupList */
+        SELECT
+            gi.group_id         AS groupId,
+            gi.cla_id           AS claId,
+            gi.group_nm         AS groupNm,
+            gi.school_name      AS schoolName,
+            CASE
+                WHEN gi.school_level = 'elementary' THEN '초등'
+                WHEN gi.school_level = 'middle' THEN '중등'
+                WHEN gi.school_level = 'high' THEN '고등'
+                ELSE ''
+            END AS schoolLevelNm,
+            gi.grade            AS grade,
+            gi.class_number     AS classNumber,
+            gi.invite_code      AS inviteCode,
+            gi.use_yn           AS useYn,
+            gi.created_at       AS createdAt,
+            u.nickname          AS hostNickname,
+            u.email             AS hostEmail,
+            (SELECT COUNT(*) FROM group_member gm WHERE gm.group_id = gi.group_id AND gm.status = 'ACTIVE') AS memberCount
+        FROM group_info gi
+        JOIN `user` u ON u.user_no = gi.host_user_no
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (gi.group_nm LIKE CONCAT('%', #{keyword}, '%')
+                     OR gi.school_name LIKE CONCAT('%', #{keyword}, '%')
+                     OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
+                     OR u.email LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="schoolLevel != null and schoolLevel != ''">
+                AND gi.school_level = #{schoolLevel}
+            </if>
+            <if test="useYn != null and useYn != ''">
+                AND gi.use_yn = #{useYn}
+            </if>
+        </where>
+        ORDER BY gi.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAdminGroupList" resultType="long">
+        /* GroupQueryMapper.countAdminGroupList */
+        SELECT COUNT(*)
+        FROM group_info gi
+        JOIN `user` u ON u.user_no = gi.host_user_no
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (gi.group_nm LIKE CONCAT('%', #{keyword}, '%')
+                     OR gi.school_name LIKE CONCAT('%', #{keyword}, '%')
+                     OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
+                     OR u.email LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="schoolLevel != null and schoolLevel != ''">
+                AND gi.school_level = #{schoolLevel}
+            </if>
+            <if test="useYn != null and useYn != ''">
+                AND gi.use_yn = #{useYn}
+            </if>
+        </where>
+    </select>
+
+    <select id="findAdminGroupDetail" resultType="java.util.LinkedHashMap">
+        /* GroupQueryMapper.findAdminGroupDetail */
+        SELECT
+            gi.group_id         AS groupId,
+            gi.cla_id           AS claId,
+            gi.group_nm         AS groupNm,
+            gi.group_desc       AS groupDesc,
+            gi.school_name      AS schoolName,
+            CASE
+                WHEN gi.school_level = 'elementary' THEN '초등'
+                WHEN gi.school_level = 'middle' THEN '중등'
+                WHEN gi.school_level = 'high' THEN '고등'
+                ELSE ''
+            END AS schoolLevelNm,
+            gi.grade            AS grade,
+            gi.class_number     AS classNumber,
+            gi.invite_code      AS inviteCode,
+            gi.max_member_count AS maxMemberCount,
+            gi.use_yn           AS useYn,
+            gi.created_at       AS createdAt,
+            u.nickname          AS hostNickname,
+            u.email             AS hostEmail,
+            (SELECT COUNT(*) FROM group_member gm WHERE gm.group_id = gi.group_id AND gm.status = 'ACTIVE') AS activeMemberCount,
+            (SELECT COUNT(*) FROM group_member gm WHERE gm.group_id = gi.group_id) AS totalMemberCount
+        FROM group_info gi
+        JOIN `user` u ON u.user_no = gi.host_user_no
+        WHERE gi.group_id = #{groupId}
+    </select>
+
+    <select id="findAdminGroupMemberList" resultType="java.util.LinkedHashMap">
+        /* GroupQueryMapper.findAdminGroupMemberList */
+        SELECT
+            gm.id           AS id,
+            gm.stdt_id      AS stdtId,
+            gm.nickname      AS nickname,
+            COALESCE(u.gender, gm.gender) AS gender,
+            COALESCE(u.email, gm.email) AS email,
+            gm.member_type   AS memberType,
+            gm.member_no     AS memberNo,
+            gm.status        AS status,
+            gm.joined_at     AS joinedAt
+        FROM group_member gm
+        LEFT JOIN `user` u ON u.user_no = gm.user_no
+        WHERE gm.group_id = #{groupId}
+        ORDER BY gm.member_no ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAdminGroupMemberList" resultType="long">
+        /* GroupQueryMapper.countAdminGroupMemberList */
+        SELECT COUNT(*) FROM group_member WHERE group_id = #{groupId}
     </select>
 
 </mapper>

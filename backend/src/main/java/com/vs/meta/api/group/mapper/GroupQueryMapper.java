@@ -20,4 +20,23 @@ public interface GroupQueryMapper {
     List<Map<String, Object>> findGuestMembersByEmail(@Param("email") String email);
 
     Integer findActiveDgnssId(@Param("claId") String claId);
+
+    // Admin 그룹 관리
+    List<Map<String, Object>> findAdminGroupList(@Param("keyword") String keyword,
+                                                   @Param("schoolLevel") String schoolLevel,
+                                                   @Param("useYn") String useYn,
+                                                   @Param("limit") int limit,
+                                                   @Param("offset") int offset);
+
+    long countAdminGroupList(@Param("keyword") String keyword,
+                              @Param("schoolLevel") String schoolLevel,
+                              @Param("useYn") String useYn);
+
+    Map<String, Object> findAdminGroupDetail(@Param("groupId") Long groupId);
+
+    List<Map<String, Object>> findAdminGroupMemberList(@Param("groupId") Long groupId,
+                                                         @Param("limit") int limit,
+                                                         @Param("offset") int offset);
+
+    long countAdminGroupMemberList(@Param("groupId") Long groupId);
 }
