@@ -2,6 +2,7 @@ package com.vs.meta.admin.controller;
 
 import com.vs.meta.admin.service.AdminUserService;
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
+import com.vs.meta.api.group.mapper.GroupQueryMapper;
 import com.vs.meta.api.school.mapper.SchoolInfoMapper;
 import com.vs.meta.api.school.service.SchoolSyncService;
 import com.vs.meta.api.school.service.SchoolSyncService.SchoolImportResult;
@@ -38,6 +39,7 @@ public class AdminController {
     private final SchoolInfoMapper schoolInfoMapper;
     private final SchoolSyncService schoolSyncService;
     private final GroupInfoMapper groupInfoMapper;
+    private final GroupQueryMapper groupQueryMapper;
     private final JwtUtil jwtUtil;
 
     private static final int PAGE_SIZE = 20;
@@ -396,5 +398,49 @@ public class AdminController {
             ra.addFlashAttribute("error", "업로드 실패: " + e.getMessage());
         }
         return "redirect:/admin/school-import";
+    }
+
+    // ===== 그룹 관리 =====
+
+    @GetMapping("/groups")
+    public String groups(@RequestParam(defaultValue = "1") int page,
+                         @RequestParam(required = false) String keyword,
+                         @RequestParam(required = false) String schoolLevel,
+                         @RequestParam(required = false) String useYn,
+                         Model model) {
+        long total = groupQueryMapper.countAdminGroupList(keyword, schoolLevel, useYn);
+        int totalPages = PageUtil.totalPages(total, PAGE_SIZE);
+        page = PageUtil.clampPage(page, totalPages);
+
+        model.addAttribute("groups", groupQueryMapper.findAdminGroupList(keyword, schoolLevel, useYn, PAGE_SIZE, PageUtil.offsetOneIndexed(page, PAGE_SIZE)));
+        model.addAttribute("page", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("total", total);
+        model.addAttribute("keyword", keyword);
+        model.addAttribute("schoolLevel", schoolLevel);
+        model.addAttribute("useYn", useYn);
+        return "admin/groups";
+    }
+
+    @GetMapping("/groups/{groupId}")
+    public String groupDetail(@PathVariable Long groupId,
+                               @RequestParam(defaultValue = "1") int page,
+                               Model model) {
+        Map<String, Object> groupInfo = groupQueryMapper.findAdminGroupDetail(groupId);
+        if (groupInfo == null) {
+            return "redirect:/admin/groups";
+        }
+
+        long total = groupQueryMapper.countAdminGroupMemberList(groupId);
+        int totalPages = PageUtil.totalPages(total, PAGE_SIZE);
+        page = PageUtil.clampPage(page, totalPages);
+
+        model.addAttribute("groupInfo", groupInfo);
+        model.addAttribute("members", groupQueryMapper.findAdminGroupMemberList(groupId, PAGE_SIZE, PageUtil.offsetOneIndexed(page, PAGE_SIZE)));
+        model.addAttribute("page", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("total", total);
+        model.addAttribute("groupId", groupId);
+        return "admin/group-detail";
     }
 }
