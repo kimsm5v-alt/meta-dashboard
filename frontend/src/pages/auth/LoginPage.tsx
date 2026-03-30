@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, FlaskConical, User } from 'lucide-react';
+import type { User as UserType } from '@shared/types';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { Card } from '@shared/components';
@@ -73,9 +74,6 @@ const StyledCard = styled(Card)`
 `;
 
 const BackButton = styled.button`
-  position: absolute;
-  top: ${({ theme }) => theme.spacing.lg};
-  left: ${({ theme }) => theme.spacing.lg};
   padding: ${({ theme }) => theme.spacing.sm};
   border-radius: ${({ theme }) => theme.radius.lg};
   border: none;
@@ -182,27 +180,32 @@ const BottomInfo = styled.p`
   max-width: 384px;
 `;
 
+const getRedirectPathByRole = (user: UserType, explicitRedirect: string | null): string => {
+  if (explicitRedirect) return explicitRedirect;
+  if (user.roleCode === 'STUDENT') return '/student/exams';
+  return '/dashboard';
+};
+
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
-  const { isAuthenticated, isLoading, loginWithCredentials, loginWithEmail } = useAuth();
+  const redirectTo = searchParams.get('redirect');
+  const { isAuthenticated, isLoading, user, loginWithCredentials, loginWithEmail } = useAuth();
   const [loginLoading, setLoginLoading] = useState(false);
-  const [mode, setMode] = useState<LoginMode>('select');
+  // const [mode, setMode] = useState<LoginMode>('select');
 
-  // 이미 로그인된 경우 리다이렉트
+  // 로그인 완료(또는 이미 로그인) 시 역할 기반 리다이렉트
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      navigate(redirectTo, { replace: true });
+    if (isAuthenticated && !isLoading && user) {
+      navigate(getRedirectPathByRole(user, redirectTo), { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate, redirectTo]);
+  }, [isAuthenticated, isLoading, user, navigate, redirectTo]);
 
   const handleTestLogin = async (credentials: TestCredentials) => {
     setLoginLoading(true);
     try {
       await loginWithCredentials(credentials);
       toast.success('로그인되었습니다.');
-      navigate(redirectTo, { replace: true });
     } finally {
       setLoginLoading(false);
     }
@@ -212,8 +215,7 @@ export const LoginPage: React.FC = () => {
     setLoginLoading(true);
     try {
       await loginWithEmail(email, password);
-      toast.success('로그인되었습니다.');
-      navigate(redirectTo, { replace: true });
+      // 리다이렉트는 useEffect가 처리
     } catch (err) {
       throw err;
     } finally {
@@ -240,9 +242,7 @@ export const LoginPage: React.FC = () => {
       </LogoSection>
 
       {/* 모드 선택 화면 */}
-      {mode === 'select' && (
-        <StyledCard>
-          {/* 뒤로가기 */}
+        {/* <StyledCard>
           <BackButton onClick={() => navigate('/')}>
             <ArrowLeft />
           </BackButton>
@@ -253,7 +253,6 @@ export const LoginPage: React.FC = () => {
           </HeaderSection>
 
           <ButtonGroup>
-            {/* 일반 로그인 */}
             <ModeButton $colorScheme='primary' onClick={() => setMode('normal')}>
               <IconWrapper $colorScheme='primary'>
                 <User />
@@ -264,7 +263,6 @@ export const LoginPage: React.FC = () => {
               </ButtonTextWrapper>
             </ModeButton>
 
-            {/* 테스트 계정 로그인 */}
             <ModeButton $colorScheme='amber' onClick={() => setMode('test')}>
               <IconWrapper $colorScheme='amber'>
                 <FlaskConical />
@@ -275,13 +273,12 @@ export const LoginPage: React.FC = () => {
               </ButtonTextWrapper>
             </ModeButton>
           </ButtonGroup>
-        </StyledCard>
-      )}
+        </StyledCard> */}
+      
 
       {/* 일반 로그인 폼 */}
-      {mode === 'normal' && (
         <StyledCard>
-          <BackButton onClick={() => setMode('select')}>
+          <BackButton onClick={() => navigate('/')}>
             <ArrowLeft />
           </BackButton>
 
@@ -292,13 +289,13 @@ export const LoginPage: React.FC = () => {
 
           <LoginForm onLogin={handleEmailLogin} isLoading={loginLoading} />
         </StyledCard>
-      )}
+      
 
       {/* 테스트 로그인 폼 */}
-      {mode === 'test' && <TestLoginForm onLogin={handleTestLogin} isLoading={loginLoading} />}
+      {/* {mode === 'test' && <TestLoginForm onLogin={handleTestLogin} isLoading={loginLoading} />} */}
 
       {/* 하단 안내 */}
-      {mode === 'select' && <BottomInfo>계정이 없으시면 회원가입 후 이용해주세요.</BottomInfo>}
+      {/* {mode === 'select' && <BottomInfo>계정이 없으시면 회원가입 후 이용해주세요.</BottomInfo>} */}
     </PageContainer>
   );
 };
