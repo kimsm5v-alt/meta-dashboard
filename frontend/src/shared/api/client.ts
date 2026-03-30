@@ -48,11 +48,17 @@ export const axiosInstance: AxiosInstance = axios.create({
   timeout: 10000,
 });
 
+// 인증 불필요 엔드포인트 (토큰 전송 제외)
+const PUBLIC_ENDPOINTS = ['/member/login', '/member/signup', '/member/send-code', '/member/verify-code'];
+
 // 요청 인터셉터 — JWT 자동 주입
 axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = localStorage.getItem('auth_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const isPublic = PUBLIC_ENDPOINTS.some((ep) => config.url?.includes(ep));
+  if (!isPublic) {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
