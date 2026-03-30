@@ -1,5 +1,5 @@
 import type { SchoolLevel, StudentType } from '../types';
-import { LPA_PROFILE_DATA, FACTORS } from '../data/lpaProfiles';
+import { LPA_PROFILE_DATA, FACTORS, LPA_VARIANCES } from '../data/lpaProfiles';
 import { FACTOR_DEFINITIONS } from '../data/factors';
 
 interface ClassificationResult {
@@ -10,14 +10,17 @@ interface ClassificationResult {
   rank: Array<{ typeName: string; probability: number }>;
 }
 
-// Step 1: 로그 우도 계산
-const calculateLogLikelihood = (studentScores: number[], profileMeans: number[]): number => {
+// Step 1: 로그 우도 계산 (요인별 분산 적용)
+const calculateLogLikelihood = (
+  studentScores: number[],
+  profileMeans: number[],
+  variances: readonly number[]
+): number => {
   let logLikelihood = 0;
-  const variance = 100;
-  const logConstant = Math.log(2 * Math.PI * variance);
   for (let i = 0; i < 38; i++) {
+    const variance = variances[i];
     const diff = studentScores[i] - profileMeans[i];
-    logLikelihood += -0.5 * ((diff * diff) / variance + logConstant);
+    logLikelihood += -0.5 * ((diff * diff) / variance + Math.log(2 * Math.PI * variance));
   }
   return logLikelihood;
 };
@@ -52,7 +55,7 @@ export const classifyStudent = (studentScores: number[], schoolLevel: SchoolLeve
   if (!studentScores || !Array.isArray(studentScores) || studentScores.length !== 38) {
     console.warn(`[classifyStudent] 유효하지 않은 T점수 배열:`, studentScores?.length);
     // 기본값 반환
-    const defaultType = schoolLevel === '초등' ? '안전균형형' : '정서조절취약형';
+    const defaultType = schoolLevel === '초등' ? '안전 균형형' : '정서조절 취약형';
     return {
       schoolLevel,
       predictedType: defaultType as StudentType,
@@ -63,15 +66,17 @@ export const classifyStudent = (studentScores: number[], schoolLevel: SchoolLeve
   }
 
   let schoolData = LPA_PROFILE_DATA[schoolLevel];
+  let variances = LPA_VARIANCES[schoolLevel];
 
   // 방어: 학교급 데이터가 없거나 means가 비어있으면 초등 데이터 사용
   const hasValidMeans = schoolData?.types.some(t => t.means.length === 38);
   if (!schoolData || !hasValidMeans) {
     console.warn(`[classifyStudent] '${schoolLevel}' 학교급에 유효한 means 데이터 없음, 초등 데이터 사용`);
     schoolData = LPA_PROFILE_DATA['초등'];
+    variances = LPA_VARIANCES['초등'];
     if (!schoolData) {
       // 최후의 fallback
-      const defaultType = schoolLevel === '초등' ? '안전균형형' : '정서조절취약형';
+      const defaultType = schoolLevel === '초등' ? '안전 균형형' : '정서조절 취약형';
       return {
         schoolLevel,
         predictedType: defaultType as StudentType,
@@ -85,14 +90,14 @@ export const classifyStudent = (studentScores: number[], schoolLevel: SchoolLeve
   const logLikelihoods: Record<string, number> = {};
   for (const profile of schoolData.types) {
     if (profile.means.length === 38) {
-      logLikelihoods[profile.name] = calculateLogLikelihood(studentScores, profile.means);
+      logLikelihoods[profile.name] = calculateLogLikelihood(studentScores, profile.means, variances);
     }
   }
 
   // 방어: 유효한 유형이 없으면 기본값 반환
   if (Object.keys(logLikelihoods).length === 0) {
     console.warn(`[classifyStudent] 유효한 LPA 유형 데이터 없음`);
-    const defaultType = schoolLevel === '초등' ? '안전균형형' : '정서조절취약형';
+    const defaultType = schoolLevel === '초등' ? '안전 균형형' : '정서조절 취약형';
     return {
       schoolLevel,
       predictedType: defaultType as StudentType,
@@ -110,7 +115,7 @@ export const classifyStudent = (studentScores: number[], schoolLevel: SchoolLeve
   // 방어: sorted가 비어있으면 기본값 반환
   if (sorted.length === 0) {
     console.warn(`[classifyStudent] 확률 계산 결과 없음`);
-    const defaultType = schoolLevel === '초등' ? '안전균형형' : '정서조절취약형';
+    const defaultType = schoolLevel === '초등' ? '안전 균형형' : '정서조절 취약형';
     return {
       schoolLevel,
       predictedType: defaultType as StudentType,

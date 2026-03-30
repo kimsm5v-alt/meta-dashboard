@@ -1,20 +1,36 @@
 import { useState, useMemo } from 'react';
 import { X } from 'lucide-react';
-import {
-  getKnowledgeGraphGroupInfo,
-  EFFECT_TYPE_COLORS,
-  TYPE_COLORS,
-} from '@/shared/data/lpaProfiles';
-import { rankInterventions } from '@/shared/utils/interventionRanker';
-import type { StudentType, SchoolLevel, RankedIntervention } from '@/shared/types';
+import { TYPE_COLORS, EFFECT_TYPE_COLORS } from '@/shared/data/lpaProfiles';
 
-interface CoachingStrategyProps {
-  predictedType: StudentType;
-  schoolLevel: SchoolLevel;
-  tScores: number[];
+// ============================================================================
+// 타입 정의
+// ============================================================================
+
+export interface CoachingPath {
+  x: string;           // 주요 요인
+  z: string;           // 조절 요인
+  y: string;           // 결과 변수
+  effectType: string;  // '조합' | '매개'
+  relevance: number;   // 관련도 점수
+  source: 'KG';
+  interpretation: string;
+  strategies: string[];  // 문자열 배열 그대로 표시
+  xScore?: { t: number; avg: number };
+  zScore?: { t: number; avg: number };
+}
+
+export interface CoachingStrategyModalProps {
   isOpen: boolean;
   onClose: () => void;
+  typeName: string;       // 예: '정서조절 취약형'
+  description: string;    // 유형 설명 텍스트
+  typeColor?: string;     // 유형별 정의된 색상 (미전달 시 TYPE_COLORS에서 조회)
+  paths: CoachingPath[];
 }
+
+// ============================================================================
+// 유틸 함수
+// ============================================================================
 
 /**
  * 관련도 점수에 따른 프로그레스 바 색상 반환
@@ -25,41 +41,32 @@ function getRelevanceBarColor(relevance: number): string {
   return 'bg-gray-400';
 }
 
-export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
-  predictedType,
-  schoolLevel,
-  tScores,
+// ============================================================================
+// 메인 컴포넌트
+// ============================================================================
+
+export const CoachingStrategyModal: React.FC<CoachingStrategyModalProps> = ({
   isOpen,
   onClose,
+  typeName,
+  description,
+  typeColor,
+  paths,
 }) => {
   // 선택된 경로 인덱스 (기본: 첫 번째)
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // 개인별 랭킹된 interventions
-  const rankedInterventions = useMemo(
-    () => rankInterventions(tScores, predictedType, schoolLevel),
-    [tScores, predictedType, schoolLevel]
-  );
-
   // 최대 5개까지만 표시
-  const displayPaths = useMemo(
-    () => rankedInterventions.slice(0, 5),
-    [rankedInterventions]
-  );
+  const displayPaths = useMemo(() => paths.slice(0, 5), [paths]);
 
   // 최대 관련도 (프로그레스 바 상대 너비 계산용)
   const maxRelevance = useMemo(() => {
     if (displayPaths.length === 0) return 1;
-    return Math.max(...displayPaths.map(p => p.relevanceScore), 1);
+    return Math.max(...displayPaths.map(p => p.relevance), 1);
   }, [displayPaths]);
 
   // 현재 선택된 경로
-  const selectedRanked: RankedIntervention | null = displayPaths[selectedIndex] || null;
-
-  // 지식그래프에서 유형 정보 조회
-  const kgGroupInfo = getKnowledgeGraphGroupInfo(schoolLevel, predictedType);
-  const typeDescription = kgGroupInfo?.description || '';
-  const typeColor = TYPE_COLORS[predictedType] || '#6B7280';
+  const selectedPath = displayPaths[selectedIndex] || null;
 
   if (!isOpen) return null;
 
@@ -86,14 +93,14 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
           {/* 유형 배지 */}
           <span
             className="px-3 py-1.5 rounded-full text-sm font-semibold text-white flex-shrink-0"
-            style={{ backgroundColor: typeColor }}
+            style={{ backgroundColor: typeColor || TYPE_COLORS[typeName] || '#6B7280' }}
           >
-            {predictedType}
+            {typeName}
           </span>
           {/* 세로 구분선 */}
           <div className="w-px h-6 bg-gray-300" />
           {/* 유형 설명 */}
-          <p className="text-sm text-gray-600 line-clamp-2">{typeDescription}</p>
+          <p className="text-sm text-gray-600 line-clamp-2">{description}</p>
         </div>
 
         {/* ============================================
@@ -121,10 +128,9 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
                   추천 경로가 없습니다.
                 </div>
               ) : (
-                displayPaths.map((ranked, idx) => {
-                  const inv = ranked.intervention;
+                displayPaths.map((path, idx) => {
                   const isSelected = idx === selectedIndex;
-                  const barWidth = (ranked.relevanceScore / maxRelevance) * 100;
+                  const barWidth = (path.relevance / maxRelevance) * 100;
 
                   return (
                     <div
@@ -151,15 +157,11 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
                           #{idx + 1}
                         </span>
                         <span className="text-sm text-gray-700">
-                          <span className="font-bold text-gray-900">{inv.x}</span>
-                          {inv.z && (
-                            <>
-                              {' × '}
-                              <span className="font-bold text-gray-900">{inv.z}</span>
-                            </>
-                          )}
+                          <span className="font-bold text-gray-900">{path.x}</span>
+                          {' × '}
+                          <span className="font-bold text-gray-900">{path.z}</span>
                           {' → '}
-                          <span className="font-semibold text-primary-600">{inv.y}</span>
+                          <span className="font-semibold text-primary-600">{path.y}</span>
                         </span>
                       </div>
 
@@ -168,34 +170,31 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
                         <span className="text-xs text-gray-500 flex-shrink-0">관련도</span>
                         <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${getRelevanceBarColor(ranked.relevanceScore)}`}
+                            className={`h-full rounded-full transition-all ${getRelevanceBarColor(path.relevance)}`}
                             style={{ width: `${barWidth}%` }}
                           />
                         </div>
                         <span className={`text-xs font-medium flex-shrink-0 ${
-                          ranked.relevanceScore >= 40 ? 'text-red-600' :
-                          ranked.relevanceScore >= 20 ? 'text-amber-600' : 'text-gray-500'
+                          path.relevance >= 40 ? 'text-red-600' :
+                          path.relevance >= 20 ? 'text-amber-600' : 'text-gray-500'
                         }`}>
-                          {ranked.relevanceScore}
+                          {path.relevance}
                         </span>
                       </div>
 
                       {/* 3행: 점수 칩 */}
-                      {ranked.involvedFactors.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {ranked.involvedFactors.map((f, fi) => (
-                            <span
-                              key={fi}
-                              className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded"
-                            >
-                              {f.name} T={f.score}
-                              {f.typeMean !== null && (
-                                <span className="text-gray-400 ml-0.5">(평균 {f.typeMean})</span>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {path.xScore && (
+                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                            {path.x} T={path.xScore.t} (평균 {path.xScore.avg})
+                          </span>
+                        )}
+                        {path.zScore && (
+                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                            {path.z} T={path.zScore.t} (평균 {path.zScore.avg})
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 })
@@ -207,7 +206,7 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
               우측 패널: 상세 정보 (독립 스크롤)
           ---------------------------------------- */}
           <div className="flex-1 overflow-y-auto bg-white">
-            {selectedRanked ? (
+            {selectedPath ? (
               <div className="p-6 space-y-6">
                 {/* 헤더: 경로 N 배지 + 공식 + 태그들 */}
                 <div>
@@ -217,31 +216,27 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
                       경로 {selectedIndex + 1}
                     </span>
                     {/* 효과 유형 태그 */}
-                    <span className={`px-2 py-0.5 text-xs rounded ${EFFECT_TYPE_COLORS[selectedRanked.intervention.effectType] || 'bg-gray-100 text-gray-600'}`}>
-                      {selectedRanked.intervention.effectType}
+                    <span className={`px-2 py-0.5 text-xs rounded ${EFFECT_TYPE_COLORS[selectedPath.effectType] || 'bg-gray-100 text-gray-600'}`}>
+                      {selectedPath.effectType}
                     </span>
                     {/* 관련도 태그 */}
                     <span className={`px-2 py-0.5 text-xs rounded font-medium ${
-                      selectedRanked.relevanceScore >= 40
+                      selectedPath.relevance >= 40
                         ? 'bg-red-100 text-red-700'
-                        : selectedRanked.relevanceScore >= 20
+                        : selectedPath.relevance >= 20
                           ? 'bg-amber-100 text-amber-700'
                           : 'bg-gray-100 text-gray-600'
                     }`}>
-                      관련도 {selectedRanked.relevanceScore}
+                      관련도 {selectedPath.relevance}
                     </span>
                   </div>
                   {/* 경로 공식 (큰 글씨) */}
                   <h3 className="text-lg font-bold text-gray-900">
-                    <span className="text-gray-800">{selectedRanked.intervention.x}</span>
-                    {selectedRanked.intervention.z && (
-                      <>
-                        {' × '}
-                        <span className="text-gray-800">{selectedRanked.intervention.z}</span>
-                      </>
-                    )}
+                    <span className="text-gray-800">{selectedPath.x}</span>
+                    {' × '}
+                    <span className="text-gray-800">{selectedPath.z}</span>
                     {' → '}
-                    <span className="text-primary-600">{selectedRanked.intervention.y}</span>
+                    <span className="text-primary-600">{selectedPath.y}</span>
                   </h3>
                 </div>
 
@@ -252,7 +247,7 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
                   </h4>
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                     <p className="text-sm text-gray-700 leading-relaxed">
-                      {selectedRanked.intervention.interpretation}
+                      {selectedPath.interpretation}
                     </p>
                   </div>
                 </div>
@@ -264,11 +259,11 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
                       구체적 실행 전략
                     </h4>
                     <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs rounded-full">
-                      {selectedRanked.intervention.strategies.length}개
+                      {selectedPath.strategies.length}개
                     </span>
                   </div>
                   <div className="space-y-3">
-                    {selectedRanked.intervention.strategies.map((strategy, i) => (
+                    {selectedPath.strategies.map((strategy, i) => (
                       <div
                         key={i}
                         className="p-4 bg-gray-50 border border-gray-200 rounded-lg"
@@ -298,4 +293,4 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
   );
 };
 
-export default CoachingStrategy;
+export default CoachingStrategyModal;

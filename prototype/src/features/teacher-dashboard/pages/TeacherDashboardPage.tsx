@@ -9,8 +9,8 @@ import { CategoryComparisonChart, TypeDistributionChart } from '../components';
 import type { Class } from '@/shared/types';
 
 const TYPE_ORDER: Record<string, string[]> = {
-  '초등': ['자원소진형', '안전균형형', '몰입자원풍부형'],
-  '중등': ['무기력형', '정서조절취약형', '자기주도몰입형'],
+  '초등': ['자원소진형', '안전 균형형', '몰입자원 풍부형'],
+  '중등': ['냉소적 무기력형', '정서조절 취약형', '자기주도 몰입형'],
 };
 
 const getSortedTypeDistribution = (cls: Class) => {
