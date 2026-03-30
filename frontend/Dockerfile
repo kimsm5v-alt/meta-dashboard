@@ -3,7 +3,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 COPY . .
-RUN npm install
+RUN npm install && npm install @rollup/rollup-linux-x64-musl --optional
 RUN npm run build --workspace=frontend
 
 # Production stage
