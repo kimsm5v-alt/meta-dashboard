@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { fetchStudentFullAnalysis, convertToAssessment } from '@/shared/services/dashboardService';
+import { getAuthTokens } from '@/shared/services/apiClient';
 import type { SchoolLevel, Student, Assessment } from '@/shared/types';
 import { useData } from '@/shared/contexts/DataContext';
 import { useCredentials } from './useCredentials';
@@ -43,8 +44,12 @@ export function useStudentAnalysis(
     const grade = parseInt(parts[0], 10) || 1;
     const classNumber = parseInt(parts[1], 10) || 1;
 
-    // credentials 없으면 DataContext fallback
-    if (!hasCredentials) {
+    // JWT 토큰 또는 credentials 확인
+    const authTokens = getAuthTokens();
+    const isApiMode = hasCredentials || !!authTokens?.accessToken;
+
+    // API 모드가 아니면 DataContext fallback
+    if (!isApiMode) {
       const classData = getClassById(classId);
       setClassStudents(classData?.students ?? []);
       setClassInfo(classData ? {
@@ -119,7 +124,7 @@ export function useStudentAnalysis(
     } finally {
       setIsLoading(false);
     }
-  }, [classId, studentId, getClassById, getStudentById, credSchoolLevel, hasCredentials]);
+  }, [classId, studentId, getClassById, getStudentById, credSchoolLevel, hasCredentials]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchData();
