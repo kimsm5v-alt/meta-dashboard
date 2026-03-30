@@ -16,7 +16,7 @@ interface UseContextModeReturn {
   setIsClassDropdownOpen: (open: boolean) => void;
   isStudentModalOpen: boolean;
   setIsStudentModalOpen: (open: boolean) => void;
-  classDropdownRef: React.RefObject<HTMLDivElement | null>;
+  classDropdownRef: React.RefObject<HTMLDivElement>;
   handleModeChange: (newMode: ContextMode) => void;
   handleClassSelect: (cls: Class) => void;
   removeStudent: (studentId: string) => void;

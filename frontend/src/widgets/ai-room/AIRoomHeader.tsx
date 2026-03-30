@@ -4,7 +4,7 @@ import { Bot, X, Sparkles } from 'lucide-react';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_TEACHER_DASHBOARD } from '@shared/data/apiDefinitions';
 import type { Class, Student } from '@shared/types';
-import type { ContextMode } from '@features/ai-room/model/useContextMode';
+import type { ContextMode } from '@features/ai-room/types';
 
 const Header = styled.div`
   margin-bottom: ${({ theme }) => theme.spacing.md};

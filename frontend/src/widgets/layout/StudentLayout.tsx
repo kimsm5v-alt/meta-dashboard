@@ -225,7 +225,7 @@ const NavItemButton = styled.button<{ $active: boolean; $collapsed: boolean }>`
   padding: 10px ${({ theme }) => theme.spacing.sm};
   border-radius: ${({ theme }) => theme.radius.lg};
   border: none;
-  background: ${({ $active, theme }) => ($active ? '#eff6ff' : 'transparent')};
+  background: ${({ $active }) => ($active ? '#eff6ff' : 'transparent')};
   color: ${({ $active, theme }) => ($active ? '#2563eb' : theme.colors.text.secondary)};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
