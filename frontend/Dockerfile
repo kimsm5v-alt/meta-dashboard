@@ -2,10 +2,8 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package*.json ./
-COPY frontend/ ./frontend/
-RUN npm install && \
-    (npm install @rollup/rollup-linux-x64-musl --optional || \
-     echo "Warning: Optional rollup package installation failed - Alpine compatibility may be affected")
+COPY . .
+RUN npm install && npm install @rollup/rollup-linux-x64-musl --optional
 RUN npm run build --workspace=frontend
 
 # Production stage
