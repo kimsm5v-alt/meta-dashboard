@@ -295,7 +295,9 @@
             <span class="nav-link" th:text="'관리자: ' + ${#authentication.name}"></span>
         </li>
         <li class="nav-item">
-            <a class="nav-link" href="/admin/logout" style="color:#f87171 !important"><i class="fas fa-sign-out-alt"></i> 로그아웃</a>
+            <form th:action="@{/admin/logout}" method="post" style="display:inline">
+                <button type="submit" class="nav-link btn btn-link" style="color:#f87171 !important; border:none; cursor:pointer;"><i class="fas fa-sign-out-alt"></i> 로그아웃</button>
+            </form>
         </li>
     </ul>
 </nav>
@@ -313,14 +315,27 @@
                         <i class="nav-icon fas fa-tachometer-alt"></i><p>대시보드</p>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a href="/admin/users" class="nav-link" th:classappend="${menu == 'users'} ? 'active'">
-                        <i class="nav-icon fas fa-users"></i><p>사용자 관리</p>
+                <li class="nav-item" th:classappend="${menu == 'users' || menu == 'roles'} ? 'menu-is-opening menu-open'">
+                    <a href="#" class="nav-link" th:classappend="${menu == 'users' || menu == 'roles'} ? 'active'">
+                        <i class="nav-icon fas fa-users"></i>
+                        <p>사용자 관리<i class="right fas fa-angle-left"></i></p>
                     </a>
+                    <ul class="nav nav-treeview" th:classappend="${menu == 'users' || menu == 'roles'} ? 'force-open'">
+                        <li class="nav-item">
+                            <a href="/admin/users" class="nav-link" th:classappend="${menu == 'users'} ? 'active'">
+                                <i class="far fa-circle nav-icon"></i><p>사용자 목록</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/admin/roles" class="nav-link" th:classappend="${menu == 'roles'} ? 'active'">
+                                <i class="far fa-circle nav-icon"></i><p>권한 관리</p>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
                 <li class="nav-item">
-                    <a href="/admin/roles" class="nav-link" th:classappend="${menu == 'roles'} ? 'active'">
-                        <i class="nav-icon fas fa-user-shield"></i><p>권한 관리</p>
+                    <a href="/admin/groups" class="nav-link" th:classappend="${menu == 'groups'} ? 'active'">
+                        <i class="nav-icon fas fa-layer-group"></i><p>그룹 관리</p>
                     </a>
                 </li>
                 <li class="nav-item" th:classappend="${menu == 'schools' || menu == 'school-map' || menu == 'school-import'} ? 'menu-is-opening menu-open'">

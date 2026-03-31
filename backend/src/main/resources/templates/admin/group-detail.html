@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>그룹 상세 - Meta Admin</title>
+    <th:block th:replace="admin/fragments :: css" />
+</head>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
+    <nav th:replace="admin/fragments :: navbar"></nav>
+    <aside th:replace="admin/fragments :: sidebar(menu='groups')"></aside>
+
+    <div class="content-wrapper">
+        <section class="content-header">
+            <div class="container-fluid">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h1>그룹 상세</h1>
+                    <a href="/admin/groups" class="btn btn-default btn-sm"><i class="fas fa-arrow-left"></i> 목록으로</a>
+                </div>
+            </div>
+        </section>
+        <section class="content">
+            <div class="container-fluid">
+
+                <!-- 그룹 정보 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">그룹 정보</h3>
+                        <span class="float-right">
+                            <span th:if="${groupInfo.useYn == 'Y'}" class="badge badge-success">활성</span>
+                            <span th:if="${groupInfo.useYn == 'N'}" class="badge badge-danger">비활성</span>
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr><th style="width:120px" class="text-muted">그룹명</th><td th:text="${groupInfo.groupNm}"></td></tr>
+                                    <tr><th class="text-muted">학교명</th><td th:text="${groupInfo.schoolName ?: '-'}"></td></tr>
+                                    <tr><th class="text-muted">학교급</th><td th:text="${groupInfo.schoolLevelNm}"></td></tr>
+                                    <tr><th class="text-muted">학년/반</th><td th:text="${(groupInfo.grade != null ? groupInfo.grade + '학년' : '') + (groupInfo.classNumber != null ? ' ' + groupInfo.classNumber + '반' : '')}"></td></tr>
+                                    <tr th:if="${groupInfo.groupDesc != null}"><th class="text-muted">설명</th><td th:text="${groupInfo.groupDesc}"></td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr><th style="width:120px" class="text-muted">방장</th><td th:text="${groupInfo.hostNickname}"></td></tr>
+                                    <tr><th class="text-muted">방장 이메일</th><td th:text="${groupInfo.hostEmail}"></td></tr>
+                                    <tr><th class="text-muted">초대코드</th><td><code th:text="${groupInfo.inviteCode}"></code></td></tr>
+                                    <tr><th class="text-muted">최대 인원</th><td th:text="${groupInfo.maxMemberCount != null ? groupInfo.maxMemberCount + '명' : '제한 없음'}"></td></tr>
+                                    <tr><th class="text-muted">멤버 수</th><td th:text="${groupInfo.activeMemberCount + '명 (활성) / ' + groupInfo.totalMemberCount + '명 (전체)'}"></td></tr>
+                                    <tr><th class="text-muted">생성일</th><td th:text="${#temporals.format(groupInfo.createdAt, 'yyyy-MM-dd HH:mm')}"></td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 멤버 목록 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">멤버 목록 <small class="text-muted" th:text="'(총 ' + ${total} + '명)'"></small></h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>번호</th>
+                                    <th>닉네임</th>
+                                    <th>이메일</th>
+                                    <th>성별</th>
+                                    <th>유형</th>
+                                    <th>상태</th>
+                                    <th>참가일</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="m : ${members}">
+                                    <td th:text="${m.memberNo}"></td>
+                                    <td th:text="${m.nickname}"></td>
+                                    <td><small class="text-muted" th:text="${m.email ?: '-'}"></small></td>
+                                    <td>
+                                        <span th:if="${m['gender'] == 'M'}">남</span>
+                                        <span th:if="${m['gender'] == 'F'}">여</span>
+                                    </td>
+                                    <td>
+                                        <span th:if="${m['memberType'] == 'STUDENT'}" class="badge badge-info">회원</span>
+                                        <span th:if="${m['memberType'] == 'GUEST'}" class="badge badge-secondary">게스트</span>
+                                    </td>
+                                    <td>
+                                        <span th:if="${m['status'] == 'ACTIVE'}" class="badge badge-success">활성</span>
+                                        <span th:if="${m['status'] == 'LEFT'}" class="badge badge-warning">탈퇴</span>
+                                        <span th:if="${m['status'] == 'KICKED'}" class="badge badge-danger">강퇴</span>
+                                        <span th:if="${m['status'] == 'ARCHIVED'}" class="badge badge-secondary">아카이브</span>
+                                    </td>
+                                    <td><small class="text-muted" th:text="${#temporals.format(m.joinedAt, 'yyyy-MM-dd HH:mm')}"></small></td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(members)}">
+                                    <td colspan="7" class="text-center text-muted py-4">멤버가 없습니다</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        </div>
+
+                        <th:block th:replace="admin/fragments :: pagination('/admin/groups/' + ${groupId}, '')" />
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+<th:block th:replace="admin/fragments :: js" />
+</body>
+</html>

@@ -4,8 +4,6 @@ import type { ObservationMemo, CreateObservationMemoInput } from '@/shared/types
 import { memoService } from '@/shared/services/memoService';
 import { formatDateShort } from '@/shared/utils/dateUtils';
 import { PanelLoading } from '@/shared/components';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_MEMO_LIST, API_MEMO_CREATE } from '@/shared/data/apiDefinitions';
 
 interface ObservationMemoPanelProps {
   studentId: string;
@@ -157,21 +155,17 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
     <div className="p-4 space-y-4">
       {/* 헤더 */}
       <div className="flex items-center justify-between">
-        <ApiTooltip {...API_MEMO_LIST} position="bottom-left">
-          <h3 className="font-semibold text-gray-900">관찰 메모</h3>
-        </ApiTooltip>
-        <ApiTooltip {...API_MEMO_CREATE} position="bottom-right">
-          <button
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            메모 추가
-          </button>
-        </ApiTooltip>
+        <h3 className="font-semibold text-gray-900">관찰 메모</h3>
+        <button
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          메모 추가
+        </button>
       </div>
 
       {/* 작성 폼 */}

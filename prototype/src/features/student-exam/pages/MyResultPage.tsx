@@ -12,7 +12,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShieldAlert, AlertTriangle, Clock, Loader2, Download } from 'lucide-react';
 import { Button } from '@/shared/components';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
+import { formatAttentionTooltip, checkAttention } from '@/shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@/shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@/shared/components/FactorHeatmapSection';
 import {
@@ -21,39 +21,9 @@ import {
   TypeDeviations,
   DataHelperChatbot,
 } from '@/features/student-dashboard/components';
+import { fetchStudentAnalysis } from '@/shared/services/dashboardService';
+import { classifyStudent, getTypeDeviations } from '@/shared/utils/lpaClassifier';
 import type { Student, SchoolLevel, Assessment } from '@/shared/types';
-
-// Mock 데이터 (API 연동 전)
-const MOCK_STUDENT: Student = {
-  id: 'mock-student-1',
-  name: '김학생',
-  number: 15,
-  gender: 'M',
-  schoolLevel: 'middle',
-  round2Submitted: false,
-  assessments: [
-    {
-      round: 1,
-      completedAt: '2026-03-15',
-      predictedType: '안전균형형',
-      typeProbabilities: {
-        '몰입자원풍부형': 0.15,
-        '안전균형형': 0.65,
-        '자기주도몰입형': 0.10,
-        '정서조절취약형': 0.05,
-        '자원소진형': 0.03,
-        '무기력형': 0.02,
-      },
-      tScores: [55, 52, 48, 45, 50, 53, 47, 51, 49, 54, 46, 52, 50, 48],
-      reliabilityWarnings: [],
-      attentionResult: {
-        needsAttention: false,
-        flags: [],
-      },
-      deviations: [],
-    },
-  ],
-};
 
 type ViewMode = 'round1' | 'round2' | 'compare';
 
@@ -149,22 +119,71 @@ export const MyResultPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Mock 데이터 로드 (실제로는 API 호출)
     const loadResult = async () => {
+      if (!user?.stdtId) {
+        setError('학생 정보를 찾을 수 없습니다.');
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       try {
-        // TODO: GET /api/dgnss/st/analysis API 호출
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        setStudent(MOCK_STUDENT);
+        // 그룹 미가입 체크
+        if (!user.classId) {
+          setError('아직 시행한 검사 결과가 없습니다.');
+          setIsLoading(false);
+          return;
+        }
+
+        // API 호출: GET /api/dgnss/st/analysis
+        const { tScores, reliabilityWarnings } = await fetchStudentAnalysis(user.stdtId, '1', 1);
+
+        // 학교급 결정 (user 정보에서 가져오거나 기본값)
+        const schoolLevel: SchoolLevel = (user.schoolLevel as SchoolLevel) || '중등';
+
+        // LPA 분류
+        const { predictedType, typeProbabilities } = classifyStudent(tScores, schoolLevel);
+
+        // 유형별 편차
+        const deviations = getTypeDeviations(tScores, schoolLevel, predictedType);
+
+        // 관심 필요 판별
+        const attentionResult = checkAttention(tScores, schoolLevel);
+
+        // Assessment 생성
+        const assessment: Assessment = {
+          round: 1,
+          completedAt: new Date().toISOString().split('T')[0],
+          predictedType,
+          typeProbabilities,
+          tScores,
+          reliabilityWarnings,
+          attentionResult,
+          deviations,
+        };
+
+        // Student 객체 생성
+        const studentData: Student = {
+          id: user.stdtId,
+          name: user.name,
+          number: 0, // API에서 제공하지 않음
+          gender: user.gender || 'M',
+          schoolLevel,
+          round2Submitted: false,
+          assessments: [assessment],
+        };
+
+        setStudent(studentData);
       } catch (err) {
-        setError('결과를 불러오는데 실패했습니다.');
+        console.error('[MyResultPage] 결과 로드 실패:', err);
+        setError('아직 시행한 검사 결과가 없습니다.');
       } finally {
         setIsLoading(false);
       }
     };
 
     loadResult();
-  }, [resultId]);
+  }, [resultId, user]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -188,9 +207,9 @@ export const MyResultPage: React.FC = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-          <p className="text-gray-500">{error}</p>
-          <Button variant="secondary" onClick={() => navigate(-1)} className="mt-4">
-            돌아가기
+          <p className="text-gray-500 mb-4">{error}</p>
+          <Button variant="secondary" onClick={() => navigate('/student/exams')}>
+            검사 목록으로
           </Button>
         </div>
       </div>

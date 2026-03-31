@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import type { ClassProfile } from '../../hooks/useClassProfile';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_STRATEGIES_RECOMMENDATIONS } from '@/shared/data/apiDefinitions';
 
 interface StrategySectionProps {
   profile: ClassProfile | null;
@@ -189,55 +187,53 @@ export const StrategySection: React.FC<StrategySectionProps> = ({ profile, prevP
   }
 
   return (
-    <ApiTooltip {...API_STRATEGIES_RECOMMENDATIONS} position="top-left">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {strategies.slice(0, 3).map((strategy, sIdx) => (
-          <div
-            key={strategy.title}
-            className="border border-gray-200 rounded-xl p-5 hover:border-primary-300 hover:shadow-md transition-all"
-          >
-            <div className="flex items-start gap-3 mb-3">
-              <span className="text-2xl">{strategy.icon}</span>
-              <h3 className="font-bold text-gray-800 text-[15px] leading-snug">
-                {strategy.title}
-              </h3>
-            </div>
-          <p className="text-sm text-gray-500 leading-relaxed mb-4">
-            {strategy.description}
-          </p>
-          <div className="border-t border-gray-100 pt-3 space-y-2.5">
-            {strategy.actions.map((action, aIdx) => {
-              const key = `${sIdx}-${aIdx}`;
-              const isChecked = checkedItems.has(key);
-              return (
-                <label
-                  key={key}
-                  className="flex items-start gap-2.5 cursor-pointer group"
-                >
-                  <button
-                    onClick={() => toggleCheck(key)}
-                    className={`w-4.5 h-4.5 mt-0.5 rounded border shrink-0 flex items-center justify-center transition-colors ${
-                      isChecked
-                        ? 'bg-primary-500 border-primary-500'
-                        : 'border-gray-300 group-hover:border-primary-400'
-                    }`}
-                  >
-                    {isChecked && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                  </button>
-                  <span
-                    className={`text-sm leading-relaxed ${
-                      isChecked ? 'text-gray-400 line-through' : 'text-gray-600'
-                    }`}
-                  >
-                    {action}
-                  </span>
-                </label>
-              );
-            })}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {strategies.slice(0, 3).map((strategy, sIdx) => (
+        <div
+          key={strategy.title}
+          className="border border-gray-200 rounded-xl p-5 hover:border-primary-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-start gap-3 mb-3">
+            <span className="text-2xl">{strategy.icon}</span>
+            <h3 className="font-bold text-gray-800 text-[15px] leading-snug">
+              {strategy.title}
+            </h3>
           </div>
+        <p className="text-sm text-gray-500 leading-relaxed mb-4">
+          {strategy.description}
+        </p>
+        <div className="border-t border-gray-100 pt-3 space-y-2.5">
+          {strategy.actions.map((action, aIdx) => {
+            const key = `${sIdx}-${aIdx}`;
+            const isChecked = checkedItems.has(key);
+            return (
+              <label
+                key={key}
+                className="flex items-start gap-2.5 cursor-pointer group"
+              >
+                <button
+                  onClick={() => toggleCheck(key)}
+                  className={`w-4.5 h-4.5 mt-0.5 rounded border shrink-0 flex items-center justify-center transition-colors ${
+                    isChecked
+                      ? 'bg-primary-500 border-primary-500'
+                      : 'border-gray-300 group-hover:border-primary-400'
+                  }`}
+                >
+                  {isChecked && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                </button>
+                <span
+                  className={`text-sm leading-relaxed ${
+                    isChecked ? 'text-gray-400 line-through' : 'text-gray-600'
+                  }`}
+                >
+                  {action}
+                </span>
+              </label>
+            );
+          })}
         </div>
-      ))}
       </div>
-    </ApiTooltip>
+    ))}
+    </div>
   );
 };

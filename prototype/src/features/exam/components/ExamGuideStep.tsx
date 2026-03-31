@@ -2,14 +2,12 @@ import { useState } from 'react';
 import { CheckCircle2, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 
 interface ExamGuideStepProps {
-  studentNumber: number;
   onStart: () => void;
   onBack?: () => void;  // optional: 직접 모드에서는 뒤로가기 없음
   isLoading: boolean;
 }
 
 export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
-  studentNumber,
   onStart,
   onBack,
   isLoading,
@@ -31,9 +29,6 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
       <div className="max-w-2xl mx-auto">
         {/* 헤더 */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-primary-100 text-primary-600 text-sm font-medium mb-4">
-            {studentNumber}번 학생
-          </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">검사 안내</h1>
           <p className="text-gray-600">검사를 시작하기 전에 아래 내용을 읽어주세요</p>
         </div>

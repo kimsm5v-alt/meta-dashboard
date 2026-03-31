@@ -94,4 +94,18 @@
         WHERE email = #{email} AND user_no IS NULL AND member_type = 'GUEST'
     </update>
 
+    <select id="findActiveGuestByGroupIdAndEmail" resultMap="groupMemberResultMap">
+        /* GroupMemberMapper.findActiveGuestByGroupIdAndEmail */
+        SELECT id, group_id, user_no, stdt_id, nickname, gender, email,
+               member_type, member_no, status, joined_at, left_at,
+               created_by, updated_by, created_at, updated_at
+        FROM group_member
+        WHERE group_id = #{groupId}
+          AND email = #{email}
+          AND user_no IS NULL
+          AND member_type = 'GUEST'
+          AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
 </mapper>

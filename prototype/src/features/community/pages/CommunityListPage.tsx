@@ -44,7 +44,7 @@ const mockPosts: Post[] = [
     createdAt: '2024-03-13',
     likeCount: 31,
     commentCount: 12,
-    tags: ['정서조절취약형', '그룹활동', '중등'],
+    tags: ['정서조절 취약형', '그룹활동', '중등'],
   },
 ];
 

@@ -31,7 +31,7 @@ import {
 import { getMyGroups } from '@/features/groups/services/groupService';
 import { APIError } from '@/shared/services/apiClient';
 import {
-  generateShortCode,
+  generateExamCode,
   schoolLevelToGradeLevel,
 } from '../config';
 import {
@@ -45,14 +45,16 @@ import {
 
 /** API 검사 목록 → ManagedAssessment 변환 */
 function convertExamListItem(item: ExamListItem, groups: Group[]): ManagedAssessment {
-  const shortCode = String(item.dgnssId);
+  const shortCode = generateExamCode(item.claId, item.dgnssId);
   registerExamCode(shortCode, item.claId);
 
   // localStorage에서 학년/반/그룹 정보 조회
   const meta = getAssessmentMeta(item.dgnssId);
 
-  // 그룹명: meta에 저장된 것 또는 groups에서 claId로 찾기
-  const groupName = meta?.groupName || groups.find(g => g.claId === item.claId)?.name;
+  // 그룹에서 claId로 찾기
+  const group = groups.find(g => g.claId === item.claId);
+  const groupName = meta?.groupName || group?.name;
+  const inviteCode = group?.inviteCode;
 
   return {
     id: `assessment-${item.dgnssId}`,
@@ -71,6 +73,7 @@ function convertExamListItem(item: ExamListItem, groups: Group[]): ManagedAssess
     isActive: item.dgnssAt === 'Y',
     groupName,
     claId: item.claId,
+    inviteCode,
   };
 }
 
@@ -194,7 +197,8 @@ export const AssessmentPage: React.FC = () => {
         '1'
       );
 
-      const shortCode = generateShortCode();
+      // 검사 코드 생성: claId + dgnssId 기반
+      const shortCode = generateExamCode(data.claId, result.dgnssId);
       registerExamCode(shortCode, data.claId);
 
       // 그룹명 조회
@@ -218,8 +222,7 @@ export const AssessmentPage: React.FC = () => {
         studentCount: data.studentCount,
         completedCount: 0,
         round: data.round,
-        startDate: new Date(data.startDate),
-        endDate: new Date(data.endDate),
+        startDate: new Date(),
         createdAt: new Date(),
         ownerId: user?.id ?? '',
         isActive: true,

@@ -3,8 +3,8 @@
 -- 학습심리정서검사 플랫폼 회원 DB
 -- 설계 방식: user_id(계정명) 제거, user_no(BIGINT PK) + email(로그인 식별자)
 -- 변경 사유: 기존 userId(계정명) 폐지, email을 로그인 식별자로 전환
--- 테이블 수: 12개
--- 최종 업데이트: 2026-03-17
+-- 테이블 수: 14개
+-- 최종 업데이트: 2026-03-25
 -- 상태: 설계 검토 중
 -- 기술 스택: Spring Boot 2.7.17, MyBatis 3.5.13, MySQL 8.3.0
 -- ============================================================
@@ -16,11 +16,13 @@
 --   5. auth_school_map     — 직책별 학교 접근 매핑
 --   6. group_member        — 그룹 멤버
 --   7. guest_conversion_log — 게스트 회원전환 이력
---   8. email_verification  — 이메일 인증코드
---   9. memo_info           — 관찰 메모
---  10. counseling_info     — 상담 정보
---  11. counseling_student  — 상담-학생 매핑
---  12. refresh_token       — Refresh Token 관리
+--   8. group_invitation    — 그룹 이메일 초대
+--   9. email_verification  — 이메일 인증코드
+--  10. memo_info           — 관찰 메모
+--  11. counseling_info     — 상담 정보
+--  12. counseling_student  — 상담-학생 매핑
+--  13. refresh_token       — Refresh Token 관리
+--  14. school_record_info  — 생기부 (생활기록부)
 -- ============================================================
 -- v2 → v3 변경 요약:
 --   - user 테이블: user_id(VARCHAR PK) 제거 → user_no(BIGINT AUTO_INCREMENT PK)
@@ -35,7 +37,7 @@
 -- ------------------------------------------------------------
 CREATE DATABASE IF NOT EXISTS viva_meta
     DEFAULT CHARACTER SET utf8mb4
-    DEFAULT COLLATE utf8mb4_unicode_ci;
+    DEFAULT COLLATE utf8mb4_general_ci;
 
 USE viva_meta;
 
@@ -47,6 +49,7 @@ DROP TABLE IF EXISTS counseling_student;
 DROP TABLE IF EXISTS counseling_info;
 DROP TABLE IF EXISTS memo_info;
 DROP TABLE IF EXISTS email_verification;
+DROP TABLE IF EXISTS group_invitation;
 DROP TABLE IF EXISTS guest_conversion_log;
 DROP TABLE IF EXISTS group_member;
 DROP TABLE IF EXISTS auth_school_map;
@@ -67,7 +70,7 @@ CREATE TABLE role_group (
     created_at      DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (role_code),
     UNIQUE KEY uk_role_level (level)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='권한 그룹 마스터';
 
 -- 초기 데이터
@@ -95,7 +98,7 @@ CREATE TABLE school_info (
     PRIMARY KEY (school_code),
     INDEX idx_school_name (school_name),
     INDEX idx_school_region (region)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='학교 마스터';
 
 -- ============================================================
@@ -104,8 +107,8 @@ CREATE TABLE school_info (
 -- PK      : user_no (BIGINT AUTO_INCREMENT) — 내부 식별자
 -- 로그인   : email (UNIQUE) — 로그인 식별자
 -- user_id : 제거 (기존 계정명 개념 폐지)
--- tc_id   : TEACHER/PRINCIPAL/SUPERINTENDENT/ADMIN 가입 시 즉시 채번 (viva-t-xxxxxxxx)
--- stdt_id : STUDENT 가입 시 즉시 채번 (viva-s-xxxxxxxx)
+-- tc_id   : TEACHER/PRINCIPAL/SUPERINTENDENT/ADMIN 가입 시 즉시 채번 (UUID 32자리, 하이픈 제거)
+-- stdt_id : STUDENT 가입 시 즉시 채번 (UUID 32자리, 하이픈 제거)
 -- password: BCrypt 암호화 저장
 -- 비밀번호 정책: 10~64자, 2종류 이상 문자조합, 동일문자 4연속 금지, email 포함 금지
 -- ============================================================
@@ -130,7 +133,7 @@ CREATE TABLE `user` (
     UNIQUE KEY uk_user_stdt_id (stdt_id),
     INDEX idx_user_role (role_code),
     CONSTRAINT fk_user_role FOREIGN KEY (role_code) REFERENCES role_group (role_code) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='통합 회원';
 
 -- ============================================================
@@ -162,7 +165,7 @@ CREATE TABLE group_info (
     INDEX idx_group_school (school_code),
     CONSTRAINT fk_group_host FOREIGN KEY (host_user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE,
     CONSTRAINT fk_group_school FOREIGN KEY (school_code) REFERENCES school_info (school_code) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='그룹(방/학급)';
 
 -- ============================================================
@@ -183,7 +186,7 @@ CREATE TABLE auth_school_map (
     INDEX idx_asm_school (school_code),
     CONSTRAINT fk_asm_user FOREIGN KEY (user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE,
     CONSTRAINT fk_asm_school FOREIGN KEY (school_code) REFERENCES school_info (school_code) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='직책별 학교 접근 매핑';
 
 -- ============================================================
@@ -216,7 +219,7 @@ CREATE TABLE group_member (
     INDEX idx_gm_user (user_no),
     CONSTRAINT fk_gm_group FOREIGN KEY (group_id) REFERENCES group_info (group_id) ON UPDATE CASCADE,
     CONSTRAINT fk_gm_user FOREIGN KEY (user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='그룹 멤버';
 
 -- ============================================================
@@ -233,11 +236,35 @@ CREATE TABLE guest_conversion_log (
     INDEX idx_gcl_member (member_id),
     CONSTRAINT fk_gcl_member FOREIGN KEY (member_id) REFERENCES group_member (id) ON UPDATE CASCADE,
     CONSTRAINT fk_gcl_user FOREIGN KEY (converted_user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='게스트 회원전환 이력';
 
 -- ============================================================
--- 8. 이메일 인증코드 테이블
+-- 8. 그룹 이메일 초대 테이블
+-- ============================================================
+CREATE TABLE group_invitation (
+    id              BIGINT          NOT NULL    AUTO_INCREMENT,
+    group_id        BIGINT          NOT NULL    COMMENT '그룹 ID (FK → group_info)',
+    email           VARCHAR(255)    NOT NULL    COMMENT '초대 대상 이메일',
+    invite_code     VARCHAR(20)     NOT NULL    COMMENT '그룹 초대코드 (group_info.invite_code 복사)',
+    status          VARCHAR(20)     NOT NULL    DEFAULT 'SENT'  COMMENT 'SENT/ACCEPTED/CANCELLED/EXPIRED',
+    sent_by         BIGINT          NOT NULL    COMMENT '발송자 (user_no)',
+    sent_at         DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    expires_at      DATETIME        NOT NULL    COMMENT '만료 일시 (발송 후 7일)',
+    created_by      BIGINT          NOT NULL    DEFAULT 0       COMMENT '등록자 (user_no)',
+    updated_by      BIGINT          NOT NULL    DEFAULT 0       COMMENT '수정자 (user_no)',
+    created_at      DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_gi_group (group_id),
+    INDEX idx_gi_email (email),
+    CONSTRAINT fk_gi_group FOREIGN KEY (group_id) REFERENCES group_info (group_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_gi_sent_by FOREIGN KEY (sent_by) REFERENCES `user` (user_no) ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+  COMMENT='그룹 이메일 초대';
+
+-- ============================================================
+-- 9. 이메일 인증코드 테이블
 -- ============================================================
 CREATE TABLE email_verification (
     id              BIGINT          NOT NULL    AUTO_INCREMENT,
@@ -249,7 +276,7 @@ CREATE TABLE email_verification (
     PRIMARY KEY (id),
     INDEX idx_ev_email (email),
     INDEX idx_ev_expires (expires_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='이메일 인증코드';
 
 -- ============================================================
@@ -274,7 +301,7 @@ CREATE TABLE memo_info (
     INDEX idx_memo_cla (cla_id),
     INDEX idx_memo_tc (tc_id),
     INDEX idx_memo_date (memo_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='관찰 메모';
 
 -- ============================================================
@@ -303,7 +330,7 @@ CREATE TABLE counseling_info (
     INDEX idx_counsel_tc (tc_id),
     INDEX idx_counsel_status (status),
     INDEX idx_counsel_scheduled (scheduled_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='상담 정보';
 
 -- ============================================================
@@ -321,7 +348,7 @@ CREATE TABLE counseling_student (
     INDEX idx_cs_counseling (counseling_id),
     INDEX idx_cs_stdt (stdt_id),
     CONSTRAINT fk_cs_counseling FOREIGN KEY (counseling_id) REFERENCES counseling_info (id) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='상담-학생 매핑';
 
 -- ============================================================
@@ -329,7 +356,8 @@ CREATE TABLE counseling_student (
 -- ============================================================
 CREATE TABLE refresh_token (
     id              BIGINT          NOT NULL    AUTO_INCREMENT,
-    user_no         BIGINT          NOT NULL    COMMENT '회원 번호 (FK → user.user_no)',
+    user_no         BIGINT          NULL        COMMENT '회원 번호 (회원 토큰 시 사용, 게스트는 NULL)',
+    stdt_id         VARCHAR(64)     NULL        COMMENT '게스트 학생 ID (게스트 토큰 시 사용)',
     token_hash      VARCHAR(128)    NOT NULL    COMMENT 'refreshToken SHA-256 해시',
     device_info     VARCHAR(200)    NULL        COMMENT '기기 정보 (User-Agent 요약)',
     ip_address      VARCHAR(45)     NULL        COMMENT '발급 시 IP',
@@ -338,10 +366,32 @@ CREATE TABLE refresh_token (
     PRIMARY KEY (id),
     UNIQUE KEY uk_rt_token_hash (token_hash),
     INDEX idx_rt_user (user_no),
-    INDEX idx_rt_expires (expires_at),
-    CONSTRAINT fk_rt_user FOREIGN KEY (user_no) REFERENCES `user` (user_no) ON UPDATE CASCADE ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    INDEX idx_rt_stdt (stdt_id),
+    INDEX idx_rt_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='Refresh Token 관리';
+
+-- ============================================================
+-- 14. 생기부 (생활기록부) 테이블
+-- ============================================================
+CREATE TABLE school_record_info (
+    id                  BIGINT          NOT NULL    AUTO_INCREMENT,
+    stdt_id             VARCHAR(64)     NOT NULL    COMMENT '대상 학생 ID',
+    cla_id              VARCHAR(64)     NOT NULL    COMMENT '학급 ID',
+    tc_id               VARCHAR(64)     NOT NULL    COMMENT '교사 ID (user.tc_id)',
+    category            VARCHAR(50)     NOT NULL    COMMENT 'comprehensive/learning/personality/socialSkills/selfManagement',
+    content             TEXT            NOT NULL    COMMENT '생기부 내용',
+    use_yn              CHAR(1)         NOT NULL    DEFAULT 'Y'     COMMENT '사용 여부 (Y/N, 삭제 시 N)',
+    created_by          BIGINT          NOT NULL    DEFAULT 0       COMMENT '등록자 (user_no)',
+    updated_by          BIGINT          NOT NULL    DEFAULT 0       COMMENT '수정자 (user_no)',
+    created_at          DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_sr_stdt (stdt_id),
+    INDEX idx_sr_cla (cla_id),
+    INDEX idx_sr_tc (tc_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+  COMMENT='생기부 (생활기록부)';
 
 -- ============================================================
 -- ERD 관계 요약
@@ -357,4 +407,5 @@ CREATE TABLE refresh_token (
 -- user (1) ←── (N) guest_conversion_log  : guest_conversion_log.converted_user_no → user.user_no
 -- counseling_info (1) ←── (N) counseling_student : counseling_student.counseling_id → counseling_info.id
 -- user (1) ←── (N) refresh_token         : refresh_token.user_no → user.user_no (CASCADE DELETE)
+-- school_record_info                     : stdt_id, cla_id, tc_id 기반 (FK 없음, 논리적 참조)
 -- ============================================================

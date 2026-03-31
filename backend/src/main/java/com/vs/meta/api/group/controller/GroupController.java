@@ -1,5 +1,6 @@
 package com.vs.meta.api.group.controller;
 
+import com.vs.meta.api.group.service.GroupInvitationService;
 import com.vs.meta.api.group.service.GroupService;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.CustomBody;
@@ -23,6 +24,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.web.bind.annotation.PathVariable;
+
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -33,6 +37,7 @@ import java.util.Map;
 public class GroupController {
 
     private final GroupService groupService;
+    private final GroupInvitationService groupInvitationService;
 
     @PostMapping(value = "/group/create")
     @Operation(summary = "그룹 생성", description = "방장 역할, tc_id lazy 채번")
@@ -148,5 +153,41 @@ public class GroupController {
         paramData.put("userNo", SecurityUtil.requireCurrentUserNo());
         Object resultData = groupService.deleteGroup(paramData);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "그룹 삭제 완료");
+    }
+
+    // ===== 이메일 초대 =====
+
+    @PostMapping(value = "/group/invite/email")
+    @Operation(summary = "이메일 초대 발송", description = "방장 전용, 7일 유효")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(examples = {
+                    @ExampleObject(name = "초대발송", value =
+                            "{\"claId\":\"a1b2c3d4e5f67890abcdef1234567890\", \"email\":\"student@test.com\"}")
+            }))
+    public ResponseDTO<CustomBody> sendInvitation(@RequestBody Map<String, Object> paramData) throws Exception {
+        Long userNo = SecurityUtil.requireCurrentUserNo();
+        String claId = (String) paramData.get("claId");
+        String email = (String) paramData.get("email");
+        Object resultData = groupInvitationService.sendInvitation(claId, email, userNo);
+        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "초대 발송 완료");
+    }
+
+    @GetMapping(value = "/group/invite/list")
+    @Operation(summary = "초대 목록 조회", description = "방장 전용")
+    @Parameter(name = "claId", description = "학급 ID (UUID)", required = true, examples = @ExampleObject(value = "a1b2c3d4e5f67890abcdef1234567890"))
+    public ResponseDTO<CustomBody> getInvitationList(@RequestParam String claId) throws Exception {
+        Long userNo = SecurityUtil.requireCurrentUserNo();
+        List<Map<String, Object>> resultData = groupInvitationService.getInvitationList(claId, userNo);
+        Map<String, Object> paramData = Map.of("claId", claId);
+        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "초대 목록 조회");
+    }
+
+    @DeleteMapping(value = "/group/invite/{invitationId}")
+    @Operation(summary = "초대 취소", description = "방장 전용")
+    public ResponseDTO<CustomBody> cancelInvitation(@PathVariable Long invitationId) throws Exception {
+        Long userNo = SecurityUtil.requireCurrentUserNo();
+        groupInvitationService.cancelInvitation(invitationId, userNo);
+        Map<String, Object> paramData = Map.of("invitationId", invitationId);
+        return AidtCommonUtil.makeResultSuccess(paramData, null, "초대 취소 완료");
     }
 }

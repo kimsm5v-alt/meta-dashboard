@@ -124,12 +124,14 @@ public class SecurityConfig {
                 .authorizeRequests()
                     .antMatchers("/member/login", "/member/signup", "/member/token/refresh",
                             "/member/logout", "/member/send-code", "/member/verify-code",
-                            "/group/join-guest").permitAll()
+                            "/group/join-guest",
+                            "/guest/exists", "/guest/auth").permitAll()
                     .antMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     .antMatchers("/viva/metric/prometheus").permitAll()
+                    .antMatchers("/actuator/health").permitAll()
                     .antMatchers("/", "/robots.txt", "/favicon.ico").permitAll()
                     .antMatchers("/static/**").permitAll()
-                    .antMatchers("/school/**").permitAll()
+                    // /school/** 제거 — 인증 없이 school import 불가하도록 차단 (Admin UI로 대체)
                     .anyRequest().authenticated()
                 .and()
                 .exceptionHandling()

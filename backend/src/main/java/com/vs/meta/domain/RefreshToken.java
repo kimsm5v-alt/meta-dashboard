@@ -17,6 +17,7 @@ public class RefreshToken {
 
     private Long id;
     private Long userNo;
+    private String stdtId;
     private String tokenHash;
     private String deviceInfo;
     private String ipAddress;

@@ -1,1 +1,1 @@
-export { router } from './routes';
+export { AppRoutes } from './routes';

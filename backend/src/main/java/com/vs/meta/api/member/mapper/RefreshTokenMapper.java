@@ -15,5 +15,7 @@ public interface RefreshTokenMapper {
 
     void deleteByUserNo(@Param("userNo") Long userNo);
 
+    void deleteByStdtId(@Param("stdtId") String stdtId);
+
     void deleteExpired();
 }

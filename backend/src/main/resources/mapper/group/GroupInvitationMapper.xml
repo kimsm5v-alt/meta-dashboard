@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.group.mapper.GroupInvitationMapper">
+
+    <resultMap id="invitationResultMap" type="com.vs.meta.domain.GroupInvitation">
+        <id property="id" column="id"/>
+        <result property="groupId" column="group_id"/>
+        <result property="email" column="email"/>
+        <result property="inviteCode" column="invite_code"/>
+        <result property="status" column="status"/>
+        <result property="sentBy" column="sent_by"/>
+        <result property="sentAt" column="sent_at"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insertInvitation" parameterType="com.vs.meta.domain.GroupInvitation" useGeneratedKeys="true" keyProperty="id">
+        /* GroupInvitationMapper.insertInvitation */
+        INSERT INTO group_invitation (group_id, email, invite_code, status, sent_by, sent_at, expires_at,
+                                      created_by, updated_by, created_at, updated_at)
+        VALUES (#{groupId}, #{email}, #{inviteCode}, #{status}, #{sentBy}, #{sentAt}, #{expiresAt},
+                #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="findByGroupId" resultMap="invitationResultMap">
+        /* GroupInvitationMapper.findByGroupId */
+        SELECT * FROM group_invitation
+        WHERE group_id = #{groupId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findById" resultMap="invitationResultMap">
+        /* GroupInvitationMapper.findById */
+        SELECT * FROM group_invitation
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByGroupIdAndEmailAndStatus" resultMap="invitationResultMap">
+        /* GroupInvitationMapper.findByGroupIdAndEmailAndStatus */
+        SELECT * FROM group_invitation
+        WHERE group_id = #{groupId} AND email = #{email} AND status = #{status}
+        LIMIT 1
+    </select>
+
+    <update id="updateStatus">
+        /* GroupInvitationMapper.updateStatus */
+        UPDATE group_invitation
+        SET status = #{status},
+            updated_by = #{updatedBy},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="expireOverdue">
+        /* GroupInvitationMapper.expireOverdue */
+        UPDATE group_invitation
+        SET status = 'EXPIRED',
+            updated_at = NOW()
+        WHERE status = 'SENT' AND expires_at &lt; NOW()
+    </update>
+
+</mapper>

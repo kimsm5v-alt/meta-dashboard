@@ -13,6 +13,14 @@ import { SCHOOL_RECORD_CATEGORY_LABELS } from '@/shared/types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
+// Mock 모드 체크 (VITE_USE_MOCK_DATA=true 또는 VITE_USE_API=false 일 때 Mock 모드)
+const isMockMode = () =>
+  import.meta.env.VITE_USE_MOCK_DATA === 'true' ||
+  import.meta.env.VITE_USE_API === 'false';
+
+// Mock 인메모리 스토어
+let mockSavedRecords: SavedSchoolRecord[] = [];
+
 // ============================================================
 // 카테고리별 프롬프트 템플릿
 // ============================================================
@@ -101,6 +109,9 @@ ${customNote}
    * 저장된 문구 조회
    */
   getSavedByStudentId: async (studentId: string): Promise<SavedSchoolRecord[]> => {
+    if (isMockMode()) {
+      return mockSavedRecords.filter(r => r.studentId === studentId);
+    }
     const response = await fetch(`${API_BASE}/api/school-records/student/${studentId}`);
     if (!response.ok) throw new Error('Failed to fetch saved records');
     return response.json();
@@ -110,6 +121,15 @@ ${customNote}
    * 생성된 문구 저장
    */
   save: async (input: Omit<SavedSchoolRecord, 'id' | 'createdAt'>): Promise<SavedSchoolRecord> => {
+    if (isMockMode()) {
+      const newRecord: SavedSchoolRecord = {
+        ...input,
+        id: `sr-${Date.now()}`,
+        createdAt: new Date(),
+      };
+      mockSavedRecords.push(newRecord);
+      return newRecord;
+    }
     const response = await fetch(`${API_BASE}/api/school-records`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -123,6 +143,10 @@ ${customNote}
    * 저장된 문구 삭제
    */
   delete: async (id: string): Promise<void> => {
+    if (isMockMode()) {
+      mockSavedRecords = mockSavedRecords.filter(r => r.id !== id);
+      return;
+    }
     const response = await fetch(`${API_BASE}/api/school-records/${id}`, {
       method: 'DELETE',
     });

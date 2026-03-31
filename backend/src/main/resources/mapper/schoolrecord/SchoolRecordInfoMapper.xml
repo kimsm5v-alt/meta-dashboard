@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.schoolrecord.mapper.SchoolRecordInfoMapper">
+
+    <resultMap id="schoolRecordInfoResultMap" type="com.vs.meta.domain.SchoolRecordInfo">
+        <id property="id" column="id"/>
+        <result property="stdtId" column="stdt_id"/>
+        <result property="claId" column="cla_id"/>
+        <result property="tcId" column="tc_id"/>
+        <result property="category" column="category"/>
+        <result property="content" column="content"/>
+        <result property="useYn" column="use_yn"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="schoolRecordInfoColumns">
+        id, stdt_id, cla_id, tc_id, category,
+        content, use_yn, created_by, updated_by, created_at, updated_at
+    </sql>
+
+    <select id="findByStdtIdOrderByCreatedAtDesc" resultMap="schoolRecordInfoResultMap">
+        /* SchoolRecordInfoMapper.findByStdtIdOrderByCreatedAtDesc */
+        SELECT <include refid="schoolRecordInfoColumns"/>
+        FROM school_record_info
+        WHERE stdt_id = #{stdtId} AND use_yn = 'Y'
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findSchoolRecordById" resultMap="schoolRecordInfoResultMap">
+        /* SchoolRecordInfoMapper.findSchoolRecordById */
+        SELECT <include refid="schoolRecordInfoColumns"/>
+        FROM school_record_info
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insertSchoolRecord" parameterType="com.vs.meta.domain.SchoolRecordInfo" useGeneratedKeys="true" keyProperty="id">
+        /* SchoolRecordInfoMapper.insertSchoolRecord */
+        INSERT INTO school_record_info (stdt_id, cla_id, tc_id, category, content, use_yn, created_by, updated_by, created_at, updated_at)
+        VALUES (#{stdtId}, #{claId}, #{tcId}, #{category}, #{content}, 'Y', #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="deactivateSchoolRecordById">
+        /* SchoolRecordInfoMapper.deactivateSchoolRecordById */
+        UPDATE school_record_info SET use_yn = 'N', updated_by = #{updatedBy}, updated_at = NOW() WHERE id = #{id}
+    </update>
+
+</mapper>

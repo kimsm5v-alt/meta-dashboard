@@ -50,14 +50,16 @@ interface BackendGroupCreateResponse {
 /** 필드 매핑: 백엔드 그룹 상세 멤버 */
 interface BackendGroupMember {
   id: number;
+  groupId: number;
   userNo: number | null;
   stdtId: string;
   nickname: string;
-  gender: string;
+  gender?: string;
   email?: string;
   memberNo?: number;
   memberType: 'STUDENT' | 'GUEST';
   status: 'ACTIVE' | 'LEFT' | 'KICKED' | 'ARCHIVED';
+  joinedAt?: string;
 }
 
 /** 백엔드 참가 응답 */
@@ -95,6 +97,30 @@ interface BackendGroupUpdateResponse {
   groupNm: string;
   groupDesc?: string;
   schoolName?: string;
+}
+
+/** 백엔드 그룹 상세 응답 */
+interface BackendGroupDetailResponse {
+  groupInfo: {
+    groupId: number;
+    claId: string;
+    groupNm: string;
+    groupDesc?: string;
+    schoolLevel: string;
+    grade: string;
+    classNumber: number;
+    schoolName?: string;
+    inviteCode: string;
+    hostUserNo: number;
+    hostNickname: string;
+  };
+  memberList: BackendGroupMember[];
+  page?: {
+    page: number;
+    size: number;
+    totalCount: number;
+    totalPages: number;
+  };
 }
 
 /** 역할 변환: 백엔드 → 프론트 */
@@ -146,7 +172,7 @@ function mapGroupMember(item: BackendGroupMember, groupId: string): GroupMember 
     studentNumber: item.memberNo,
     memberType: mapMemberType(item.memberType),
     status: mapMemberStatus(item.status),
-    joinedAt: new Date(),
+    joinedAt: item.joinedAt ? new Date(item.joinedAt) : new Date(),
   };
 }
 
@@ -239,24 +265,31 @@ export const getMyGroups = async (_userId: string): Promise<Group[]> => {
  */
 export const getGroupById = async (groupId: string, _userId: string): Promise<Group | null> => {
   try {
-    const response = await apiRequest<{ members: BackendGroupMember[] }>(
+    const response = await apiRequest<BackendGroupDetailResponse>(
       `/group/detail?claId=${groupId}`
     );
-    // 그룹 상세는 멤버 목록만 반환하므로, 그룹 기본 정보는 목록에서 가져와야 함
-    // 여기서는 멤버 수만 업데이트하는 용도로 사용
-    const members = response.resultData.members || [];
-    const activeMembers = members.filter(m => m.status === 'ACTIVE');
 
-    // 목록에서 그룹 정보를 가져오기 위해 list API도 호출
-    const listResponse = await apiRequest<BackendGroupListItem[]>('/group/list');
-    const groupInfo = listResponse.resultData.find(g => g.claId === groupId);
+    const { groupInfo, memberList } = response.resultData;
+    const activeMembers = (memberList || []).filter(m => m.status === 'ACTIVE');
 
-    if (!groupInfo) return null;
-
-    const group = mapGroupListItem(groupInfo);
-    group.memberCount = activeMembers.length;
-
-    return group;
+    return {
+      id: groupInfo.claId,
+      name: groupInfo.groupNm,
+      schoolLevel: groupInfo.schoolLevel as Group['schoolLevel'],
+      grade: Number(groupInfo.grade),
+      classNumber: Number(groupInfo.classNumber),
+      description: groupInfo.groupDesc,
+      schoolName: groupInfo.schoolName,
+      inviteCode: groupInfo.inviteCode,
+      claId: groupInfo.claId,
+      ownerId: String(groupInfo.hostUserNo),
+      ownerName: groupInfo.hostNickname,
+      ownerTcId: '',
+      memberCount: activeMembers.length,
+      myRole: _userId === String(groupInfo.hostUserNo) ? 'owner' : 'member',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
   } catch {
     return null;
   }
@@ -426,11 +459,11 @@ export const getGroupMembers = async (
   groupId: string,
   _userId: string
 ): Promise<GroupMember[]> => {
-  const response = await apiRequest<{ members: BackendGroupMember[] }>(
+  const response = await apiRequest<BackendGroupDetailResponse>(
     `/group/detail?claId=${groupId}`
   );
 
-  return (response.resultData.members || []).map(m => mapGroupMember(m, groupId));
+  return (response.resultData.memberList || []).map(m => mapGroupMember(m, groupId));
 };
 
 /**
@@ -536,6 +569,71 @@ export const generateInviteLink = (inviteCode: string): string => {
 };
 
 // ============================================================
+// 게스트 인증 API (실제 백엔드 연동)
+// ============================================================
+
+/** 게스트 존재 확인 응답 */
+interface GuestExistsResponse {
+  exists: boolean;
+  groupNm: string;
+  claId: string;
+}
+
+/** 게스트 재인증 응답 */
+interface GuestAuthResponse {
+  stdtId: string;
+  claId: string;
+  groupNm: string;
+  email: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
+/**
+ * 게스트 존재 여부 확인
+ * 해당 그룹에 이 이메일로 참가한 게스트가 있는지 확인
+ */
+export const checkGuestExists = async (
+  inviteCode: string,
+  email: string
+): Promise<GuestExistsResponse> => {
+  const response = await apiRequest<GuestExistsResponse>(
+    `/guest/exists?inviteCode=${encodeURIComponent(inviteCode)}&email=${encodeURIComponent(email)}`
+  );
+  return response.resultData;
+};
+
+/**
+ * 게스트 재인증 (토큰 만료 시)
+ * 이메일 인증 완료 후 호출하여 토큰 재발급
+ */
+export const guestAuth = async (
+  inviteCode: string,
+  email: string
+): Promise<GuestAuthResponse> => {
+  const response = await apiRequest<GuestAuthResponse>('/guest/auth', {
+    method: 'POST',
+    body: JSON.stringify({
+      inviteCode,
+      email,
+    }),
+  });
+
+  const data = response.resultData;
+
+  // 토큰 저장
+  if (data.accessToken) {
+    const { saveAuthTokens } = await import('@/shared/services/apiClient');
+    saveAuthTokens({
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+    });
+  }
+
+  return data;
+};
+
+// ============================================================
 // 게스트 전환 API (실제 백엔드 연동)
 // ============================================================
 
@@ -630,6 +728,10 @@ export const groupService = {
   getGroupInvitations,
   cancelEmailInvitation,
   generateInviteLink,
+
+  // 게스트 인증
+  checkGuestExists,
+  guestAuth,
 
   // 게스트 전환
   getGuestRecords,

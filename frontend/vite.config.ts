@@ -4,13 +4,26 @@ import path from 'path';
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://t-meta-api.vsaidt.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
   plugins: [
     react({
       jsxImportSource: '@emotion/react',
+      babel: {
+        plugins: ['@emotion/babel-plugin'],
+      },
     }),
   ],
   resolve: {
     alias: {
+      '@': path.resolve(__dirname, 'src'),
       '@app': path.resolve(__dirname, 'src/app'),
       '@pages': path.resolve(__dirname, 'src/pages'),
       '@widgets': path.resolve(__dirname, 'src/widgets'),

@@ -21,8 +21,6 @@ import { formatDateISO } from '@/shared/utils/dateUtils';
 import { SCHEDULE_CLASSES, CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
 import { TIME_OPTIONS, SCHEDULE_TYPES, COUNSELING_AREAS, COUNSELING_METHODS } from '@/shared/data/counselingConstants';
 import { MultiSelectButtonGroup } from '@/shared/components';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_COUNSELING_COMPLETE } from '@/shared/data/apiDefinitions';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -325,16 +323,14 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             취소
           </Button>
           {isEditMode && !isCompleted && (
-            <ApiTooltip {...API_COUNSELING_COMPLETE} position="top-right">
-              <Button
-                variant="secondary"
-                onClick={() => setShowCompleteConfirm(true)}
-                className="flex-1 text-emerald-600 hover:bg-emerald-50 border-emerald-200"
-              >
-                <CheckCircle2 className="w-4 h-4 mr-1" />
-                상담 완료
-              </Button>
-            </ApiTooltip>
+            <Button
+              variant="secondary"
+              onClick={() => setShowCompleteConfirm(true)}
+              className="flex-1 text-emerald-600 hover:bg-emerald-50 border-emerald-200"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-1" />
+              상담 완료
+            </Button>
           )}
           <Button onClick={handleSubmit} disabled={!isValid} className="flex-1">
             {isEditMode ? '수정하기' : '등록하기'}

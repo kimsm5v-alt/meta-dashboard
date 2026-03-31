@@ -17,44 +17,44 @@ export interface Keyword {
 // ============================================================
 
 // 초등 유형 순서
-export const TYPE_ORDER_ELEMENTARY = ['몰입자원풍부형', '안전균형형', '자원소진형', '미실시'] as const;
+export const TYPE_ORDER_ELEMENTARY = ['몰입자원 풍부형', '안전 균형형', '자원소진형', '미실시'] as const;
 // 중등 유형 순서
-export const TYPE_ORDER_MIDDLE = ['자기주도몰입형', '정서조절취약형', '무기력형', '미실시'] as const;
+export const TYPE_ORDER_MIDDLE = ['자기주도 몰입형', '정서조절 취약형', '냉소적 무기력형', '미실시'] as const;
 // 기본값 (초등)
 export const TYPE_ORDER = TYPE_ORDER_ELEMENTARY;
 
 export const TYPE_COLORS: Record<string, string> = {
   '미실시': '#E5E7EB',
-  // 초등 유형
-  '자원소진형': '#F97316',
-  '안전균형형': '#14B8A6',
-  '몰입자원풍부형': '#3B82F6',
-  // 중등 유형 (초등과 동일한 색상 체계)
-  '무기력형': '#F97316',        // orange (자원소진형과 동일)
-  '정서조절취약형': '#14B8A6',   // teal (안전균형형과 동일)
-  '자기주도몰입형': '#3B82F6',   // blue (몰입자원풍부형과 동일)
+  // 초등 유형 (JSON 원본 기준)
+  '자원소진형': '#E74C3C',        // red
+  '안전 균형형': '#3498DB',       // blue
+  '몰입자원 풍부형': '#2ECC71',   // green
+  // 중등 유형 (JSON 원본 기준)
+  '냉소적 무기력형': '#E74C3C',   // red
+  '정서조절 취약형': '#F39C12',   // orange
+  '자기주도 몰입형': '#2ECC71',   // green
 };
 
 export const TYPE_GRADIENTS: Record<string, { start: string; end: string }> = {
   '미실시': { start: '#E5E7EB', end: '#D1D5DB' },
-  // 초등 유형
-  '자원소진형': { start: '#FDBA74', end: '#F97316' },
-  '안전균형형': { start: '#5EEAD4', end: '#14B8A6' },
-  '몰입자원풍부형': { start: '#93C5FD', end: '#3B82F6' },
-  // 중등 유형
-  '무기력형': { start: '#FDBA74', end: '#F97316' },
-  '정서조절취약형': { start: '#5EEAD4', end: '#14B8A6' },
-  '자기주도몰입형': { start: '#93C5FD', end: '#3B82F6' },
+  // 초등 유형 (JSON 원본 기준)
+  '자원소진형': { start: '#F1948A', end: '#E74C3C' },        // red gradient
+  '안전 균형형': { start: '#85C1E9', end: '#3498DB' },       // blue gradient
+  '몰입자원 풍부형': { start: '#82E0AA', end: '#2ECC71' },   // green gradient
+  // 중등 유형 (JSON 원본 기준)
+  '냉소적 무기력형': { start: '#F1948A', end: '#E74C3C' },   // red gradient
+  '정서조절 취약형': { start: '#F8C471', end: '#F39C12' },   // orange gradient
+  '자기주도 몰입형': { start: '#82E0AA', end: '#2ECC71' },   // green gradient
 };
 
 // 유형명 약칭 (테이블 표시용)
 const TYPE_ABBREVIATIONS: Record<string, string> = {
   '자원소진형': '소진',
-  '안전균형형': '균형',
-  '몰입자원풍부형': '몰입',
-  '무기력형': '무기력',
-  '정서조절취약형': '정서취약',
-  '자기주도몰입형': '자기주도',
+  '안전 균형형': '균형',
+  '몰입자원 풍부형': '몰입',
+  '냉소적 무기력형': '무기력',
+  '정서조절 취약형': '정서취약',
+  '자기주도 몰입형': '자기주도',
 };
 
 export const abbreviateType = (type: string): string =>
@@ -65,12 +65,12 @@ export const TYPE_RANK: Record<string, number> = {
   '미실시': 0,
   // 초등 유형
   '자원소진형': 1,
-  '안전균형형': 2,
-  '몰입자원풍부형': 3,
+  '안전 균형형': 2,
+  '몰입자원 풍부형': 3,
   // 중등 유형 (동일한 순위 체계)
-  '무기력형': 1,
-  '정서조절취약형': 2,
-  '자기주도몰입형': 3,
+  '냉소적 무기력형': 1,
+  '정서조절 취약형': 2,
+  '자기주도 몰입형': 3,
 };
 
 // ============================================================

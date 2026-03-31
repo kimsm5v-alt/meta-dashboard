@@ -31,14 +31,24 @@ export const MyExamListPage: React.FC = () => {
     }
 
     try {
-      // TODO: 실제 claId, stdtId를 user 정보에서 가져와야 함
-      const claId = user.classId || 'mock-class';
-      const stdtId = user.stdtId || 'mock-student';
-      const data = await getStudentExamList(claId, stdtId, true); // Mock 모드
+      if (!user.stdtId) {
+        console.warn('[MyExamListPage] stdtId가 없습니다:', user);
+        setExams([]);
+        return;
+      }
+
+      // classId가 없으면 그룹 미가입 상태 (빈 배열 반환)
+      if (!user.classId) {
+        console.info('[MyExamListPage] 그룹 미가입 상태');
+        setExams([]);
+        return;
+      }
+
+      const data = await getStudentExamList(user.classId, user.stdtId);
       setExams(data);
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to load exams:', error);
+      console.error('[MyExamListPage] 검사 목록 로드 실패:', error);
+      setExams([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -51,14 +61,42 @@ export const MyExamListPage: React.FC = () => {
 
   // 검사 응시 시작
   const handleStartExam = (exam: StudentExamListItem) => {
-    // TODO: 실제 검사 시작 로직
-    // 현재는 검사 응시 페이지로 이동
-    navigate(`/exam/META-${exam.dgnssId}`);
+    // 로그인된 학생은 dgnssResultId를 state로 전달
+    navigate(`/exam/student`, {
+      state: {
+        dgnssResultId: exam.dgnssResultId,
+        dgnssId: exam.dgnssId,
+        ordNo: exam.ordNo,
+        examName: exam.name,
+      }
+    });
   };
 
   // 검사 이어하기
   const handleResumeExam = (exam: StudentExamListItem) => {
-    navigate(`/exam/META-${exam.dgnssId}`);
+    navigate(`/exam/student`, {
+      state: {
+        dgnssResultId: exam.dgnssResultId,
+        dgnssId: exam.dgnssId,
+        ordNo: exam.ordNo,
+        examName: exam.name,
+        resume: true, // 이어하기 플래그 - 안내 페이지 스킵
+      }
+    });
+  };
+
+  // 검사 새로하기 (처음부터 다시)
+  const handleRestartExam = (exam: StudentExamListItem) => {
+    // TODO: 새로 시작 확인 모달 추가 필요
+    navigate(`/exam/student`, {
+      state: {
+        dgnssResultId: exam.dgnssResultId,
+        dgnssId: exam.dgnssId,
+        ordNo: exam.ordNo,
+        examName: exam.name,
+        restart: true, // 새로 시작 플래그
+      }
+    });
   };
 
   // 결과 보기
@@ -129,6 +167,7 @@ export const MyExamListPage: React.FC = () => {
               exam={exam}
               onStartExam={handleStartExam}
               onResumeExam={handleResumeExam}
+              onRestartExam={handleRestartExam}
               onViewResult={handleViewResult}
             />
           ))}

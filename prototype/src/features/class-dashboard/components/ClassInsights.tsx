@@ -6,8 +6,6 @@ import { useClassProfile } from '../hooks/useClassProfile';
 import type { ClassProfileItem } from '../hooks/useClassProfile';
 import { SUB_CATEGORY_SCRIPTS } from '@/shared/data/subCategoryScripts';
 import { DOMAIN_COLORS } from '@/shared/data/lpaProfiles';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_ACTIVITIES_BY_PROFILE } from '@/shared/data/apiDefinitions';
 
 interface ClassInsightsProps {
   classData: Class;
@@ -156,9 +154,7 @@ export const ClassInsights: React.FC<ClassInsightsProps> = ({ classData }) => {
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Lightbulb className="w-5 h-5 text-primary-500" />
-                  <ApiTooltip {...API_ACTIVITIES_BY_PROFILE} position="top-right">
-                    <h3 className="text-base font-bold text-gray-900">추천 학급 활동</h3>
-                  </ApiTooltip>
+                  <h3 className="text-base font-bold text-gray-900">추천 학급 활동</h3>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {RECOMMENDED_ACTIVITIES.map((activity) => (

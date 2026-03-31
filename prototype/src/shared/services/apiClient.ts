@@ -111,7 +111,9 @@ export class APIError extends Error {
   /** DuplicateKeyException 여부 확인 */
   isDuplicateKeyError(): boolean {
     return this.errorDetail?.name === 'DuplicateKeyException' ||
-           this.errorDetail?.code === 'E001';
+           this.errorDetail?.name === 'DataIntegrityViolation' ||
+           this.errorDetail?.code === 'E001' ||
+           this.errorDetail?.code === 409;
   }
 }
 
@@ -126,7 +128,7 @@ interface RequestOptions extends RequestInit {
 
 /**
  * 공통 API 요청 함수
- * JWT 토큰 자동 추가, 에러 처리 포함
+ * JWT 토큰 자동 추가, 에러 처리 포함, 401 에러 시 자동 토큰 갱신
  */
 export async function apiRequest<T>(
   endpoint: string,
@@ -135,29 +137,58 @@ export async function apiRequest<T>(
   const { debug = false, ...fetchOptions } = options;
   const url = `${API_CONFIG.baseUrl}${endpoint}`;
 
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...fetchOptions.headers,
+  const makeRequest = async (token?: string): Promise<Response> => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...fetchOptions.headers,
+    };
+
+    // JWT 토큰 추가
+    const jwtToken = token || API_CONFIG.jwtToken;
+    if (jwtToken) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${jwtToken}`;
+    }
+
+    if (debug) {
+      console.log('[API Request]', {
+        url,
+        method: fetchOptions.method || 'GET',
+        hasJWT: !!jwtToken,
+      });
+    }
+
+    return fetch(url, {
+      ...fetchOptions,
+      headers,
+    });
   };
 
-  // JWT 토큰 추가 (동적으로 가져옴)
-  const jwtToken = API_CONFIG.jwtToken;
-  if (jwtToken) {
-    (headers as Record<string, string>)['Authorization'] = `Bearer ${jwtToken}`;
-  }
+  let response = await makeRequest();
 
-  if (debug) {
-    console.log('[API Request]', {
-      url,
-      method: fetchOptions.method || 'GET',
-      hasJWT: !!jwtToken,
-    });
-  }
+  // 401 에러 시 토큰 갱신 시도
+  if (response.status === 401) {
+    const authTokens = getAuthTokens();
+    if (authTokens?.refreshToken) {
+      try {
+        const refreshResponse = await refreshTokenApi(authTokens.refreshToken);
+        const newAccessToken = refreshResponse.resultData.accessToken;
 
-  const response = await fetch(url, {
-    ...fetchOptions,
-    headers,
-  });
+        // 새 토큰 저장
+        saveAuthTokens({
+          accessToken: newAccessToken,
+          refreshToken: authTokens.refreshToken,
+        });
+
+        // 새 토큰으로 재시도
+        response = await makeRequest(newAccessToken);
+      } catch (refreshError) {
+        // 리프레시 실패 시 토큰 삭제 (로그아웃 처리)
+        console.error('Token refresh failed, clearing tokens:', refreshError);
+        clearAuthTokens();
+        // 401 에러 그대로 진행하여 상위에서 처리하도록
+      }
+    }
+  }
 
   if (!response.ok) {
     throw new APIError(
@@ -307,6 +338,7 @@ export interface SignupRequestData {
   password: string;
   nickname: string;
   gender: 'M' | 'F';
+  roleCode: 'TEACHER' | 'STUDENT';
 }
 
 /** 회원가입 응답 데이터 */

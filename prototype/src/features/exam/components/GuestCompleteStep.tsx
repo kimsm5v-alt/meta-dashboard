@@ -1,18 +1,35 @@
-import { CheckCircle2, Mail, UserPlus } from 'lucide-react';
+/**
+ * 게스트용 검사 완료 화면
+ * PDF 발송 안내 + 회원 전환 유도
+ */
+
+import { useNavigate } from 'react-router-dom';
+import { CheckCircle2, Mail, UserPlus, ClipboardList } from 'lucide-react';
 
 interface GuestCompleteStepProps {
   email: string;
-  nickname: string;
-  onConvertToMember?: () => void;
-  onClose: () => void;
+  userName: string;
 }
 
 export const GuestCompleteStep: React.FC<GuestCompleteStepProps> = ({
   email,
-  nickname,
-  onConvertToMember,
-  onClose,
+  userName,
 }) => {
+  const navigate = useNavigate();
+
+  const handleConvertToMember = () => {
+    navigate('/signup', {
+      state: {
+        email,
+        fromGuest: true,
+      },
+    });
+  };
+
+  const handleBackToList = () => {
+    navigate('/guest/exams');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -23,7 +40,7 @@ export const GuestCompleteStep: React.FC<GuestCompleteStepProps> = ({
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">검사 완료!</h1>
           <p className="text-gray-600">
-            {nickname}님, 수고하셨습니다.
+            {userName}님, 수고하셨습니다.
           </p>
         </div>
 
@@ -59,29 +76,28 @@ export const GuestCompleteStep: React.FC<GuestCompleteStepProps> = ({
                 회원이 되면 결과를 웹에서 바로 확인하고,<br />
                 언제든 다시 볼 수 있어요.
               </p>
-              {onConvertToMember && (
-                <button
-                  onClick={onConvertToMember}
-                  className="w-full px-4 py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors"
-                >
-                  회원으로 전환하기
-                </button>
-              )}
+              <button
+                onClick={handleConvertToMember}
+                className="w-full px-4 py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors"
+              >
+                회원으로 전환하기
+              </button>
             </div>
           </div>
         </div>
 
-        {/* 종료 버튼 */}
+        {/* 검사 목록 버튼 */}
         <button
-          onClick={onClose}
-          className="w-full px-6 py-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
+          onClick={handleBackToList}
+          className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-700 font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
         >
-          종료
+          <ClipboardList className="w-5 h-5" />
+          검사 목록으로
         </button>
 
         {/* 안내 문구 */}
         <p className="text-center text-xs text-gray-400 mt-6">
-          ※ 메일이 도착하지 않으면 스팸함을 확인해주세요.
+          메일이 도착하지 않으면 스팸함을 확인해주세요.
         </p>
       </div>
     </div>

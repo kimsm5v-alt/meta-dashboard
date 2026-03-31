@@ -52,9 +52,9 @@
 | **초등** | 🟠 자원소진형 | 30.55% | 심리자원 낮음, 스트레스 높음 |
 | | 🔵 안전균형형 | 35.47% | 전반적 균형, 점검능력 약함 |
 | | 🔷 몰입자원풍부형 | 33.98% | 동기 높음, 시험전략 보완 필요 |
-| **중등** | 🟠 무기력형 | 35.4% | 동기 저하, 무력감, 목표 설정 어려움 |
-| | 🔵 정서조절취약형 | 38.0% | 스트레스 관리 미흡, 감정 기복, 불안 경향 |
-| | 🔷 자기주도몰입형 | 26.6% | 자율적 학습, 높은 성취동기, 효과적 시간관리 |
+| **중등** | 🟠 냉소적무기력형 | 35.4% | 동기 저하, 무력감, 목표 설정 어려움 |
+| | 🔵 정서조절취약형 | 26.6% | 스트레스 관리 미흡, 감정 기복, 불안 경향 |
+| | 🔷 자기주도몰입형 | 38.1% | 자율적 학습, 높은 성취동기, 효과적 시간관리 |
 
 ### 대시보드 구조
 
@@ -185,7 +185,7 @@ src/
 │   └── teacher-dashboard/       # L1 교사 대시보드
 ├── shared/
 │   ├── components/              # 공유 컴포넌트
-│   ├── contexts/                # React Context (DataContext, AuthContext, ApiDevModeContext)
+│   ├── contexts/                # React Context (DataContext, AuthContext)
 │   ├── hooks/                   # 공용 훅 (useApiData 등)
 │   ├── utils/                   # 유틸리티 함수 (camelCase)
 │   ├── data/                    # 데이터 파일
@@ -249,7 +249,6 @@ src/
 |------|------|
 | `shared/contexts/DataContext.tsx` | 학급/학생 데이터 전역 상태 |
 | `features/auth/context/AuthContext.tsx` | 인증 상태 (로그인, 사용자 정보) |
-| `shared/contexts/ApiDevModeContext.tsx` | API 개발자 모드 토글 (API 요구사항 표시) |
 
 ### 문서 폴더 구조
 

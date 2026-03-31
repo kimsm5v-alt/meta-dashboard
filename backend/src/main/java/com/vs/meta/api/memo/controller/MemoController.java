@@ -31,7 +31,7 @@ public class MemoController {
     @GetMapping(value = "/api/memos/student/{studentId}")
     @Operation(summary = "학생별 메모 조회", description = "특정 학생의 관찰 메모 목록을 최신순으로 조회")
     @Parameter(name = "studentId", description = "학생 ID (stdt_id)", required = true,
-            examples = @ExampleObject(value = "viva-s-00000001"))
+            examples = @ExampleObject(value = "a1b2c3d4e5f67890abcdef1234567890"))
     public ResponseDTO<CustomBody> getMemosByStudent(
             @PathVariable String studentId
     ) throws Exception {
@@ -46,7 +46,7 @@ public class MemoController {
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(examples = {
                     @ExampleObject(name = "메모생성", value =
-                            "{\"studentId\":\"viva-s-00000001\", \"classId\":\"abcd1234\", \"date\":\"2026-03-11\", \"category\":\"behavior\", \"content\":\"수업 시간에 집중력이 좋았음\", \"isImportant\":false}")
+                            "{\"studentId\":\"a1b2c3d4e5f67890abcdef1234567890\", \"classId\":\"abcd1234\", \"date\":\"2026-03-11\", \"category\":\"behavior\", \"content\":\"수업 시간에 집중력이 좋았음\", \"isImportant\":false}")
             }))
     public ResponseDTO<CustomBody> createMemo(
             @RequestBody Map<String, Object> paramData

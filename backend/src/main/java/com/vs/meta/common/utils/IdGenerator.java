@@ -12,14 +12,14 @@ public final class IdGenerator {
 
     private IdGenerator() {}
 
-    /** 교사 ID: viva-t-{UUID 8자리} */
+    /** 교사 ID: UUID 32자리 (하이픈 제거) */
     public static String generateTcId() {
-        return "viva-t-" + UUID.randomUUID().toString().substring(0, 8);
+        return UUID.randomUUID().toString().replace("-", "");
     }
 
-    /** 학생 ID: viva-s-{UUID 8자리} */
+    /** 학생 ID: UUID 32자리 (하이픈 제거) */
     public static String generateStdtId() {
-        return "viva-s-" + UUID.randomUUID().toString().substring(0, 8);
+        return UUID.randomUUID().toString().replace("-", "");
     }
 
     /** 학급 ID: UUID 32자리 (하이픈 제거) */

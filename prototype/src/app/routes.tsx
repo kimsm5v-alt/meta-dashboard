@@ -1,10 +1,19 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { Layout } from './Layout';
 import { StudentLayout } from './StudentLayout';
 import { MinimalLayout } from './MinimalLayout';
 import { PageLoading } from '../shared/components';
 import { useAuth } from '../features/auth/context/AuthContext';
 import { FEATURES } from '../shared/config/features';
+
+/**
+ * /exam/:code → /join/:code 리다이렉트 컴포넌트
+ * 기존 4자리 검사코드 URL을 새로운 inviteCode 기반 URL로 리다이렉트
+ */
+const ExamToJoinRedirect = () => {
+  const { code } = useParams<{ code: string }>();
+  return <Navigate to={`/join/${code}`} replace />;
+};
 
 // Feature imports
 import { TeacherDashboardPage } from '../features/teacher-dashboard';
@@ -15,7 +24,7 @@ import { LandingPage } from '../features/landing';
 import { LoginPage, SignUpPage, ForgotPasswordPage } from '../features/auth';
 import { AssessmentPage } from '../features/assessment';
 import { SchedulePage } from '../features/schedule';
-import { ExamCodeEntryPage, ExamPage } from '../features/exam';
+import { ExamPage } from '../features/exam';
 
 // 신규 Feature imports
 import { GroupListPage, GroupDetailPage, JoinGroupPage } from '../features/groups';
@@ -24,7 +33,10 @@ import { ResourceListPage, ResourceDetailPage } from '../features/resources';
 import { CommunityListPage, CommunityDetailPage, CommunityWritePage } from '../features/community';
 
 // 학생용 Feature imports
-import { MyExamListPage, MyResultPage } from '../features/student-exam';
+import { MyExamListPage, MyResultPage, StudentGroupsPage } from '../features/student-exam';
+
+// 게스트용 Feature imports
+import { GuestExamListPage, GuestCompletePage } from '../features/guest-exam';
 
 // ============================================================
 // 레이아웃 래퍼
@@ -81,6 +93,28 @@ const StudentProtectedLayout = () => {
   );
 };
 
+/**
+ * 보호 라우트 래퍼 - 게스트용 (게스트 인증 필요 + 사이드바 없음)
+ */
+const GuestProtectedLayout = () => {
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return <PageLoading text="로딩 중..." />;
+  }
+
+  // 게스트 인증 체크
+  if (!isAuthenticated || user?.memberType !== 'guest') {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <MinimalLayout>
+      <Outlet />
+    </MinimalLayout>
+  );
+};
+
 // ============================================================
 // 라우트 정의
 // ============================================================
@@ -93,8 +127,8 @@ export const AppRoutes = () => (
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/exam" element={<ExamCodeEntryPage />} />
-      <Route path="/exam/:code" element={<ExamPage />} />
+      {/* /exam/:code는 폐기 - /join/:code로 리다이렉트 */}
+      <Route path="/exam/:code" element={<ExamToJoinRedirect />} />
       <Route path="/join/:code" element={<JoinGroupPage />} />
     </Route>
 
@@ -136,9 +170,18 @@ export const AppRoutes = () => (
 
     {/* 학생용 보호 라우트 - 학생 사이드바 */}
     <Route element={<StudentProtectedLayout />}>
+      <Route path="/student/groups" element={<StudentGroupsPage />} />
       <Route path="/student/exams" element={<MyExamListPage />} />
       <Route path="/student/result" element={<MyResultPage />} />
       <Route path="/student/result/:resultId" element={<MyResultPage />} />
+      <Route path="/exam/student" element={<ExamPage />} />
+    </Route>
+
+    {/* 게스트용 보호 라우트 - 사이드바 없음 */}
+    <Route element={<GuestProtectedLayout />}>
+      <Route path="/guest/exams" element={<GuestExamListPage />} />
+      <Route path="/guest/exam" element={<ExamPage />} />
+      <Route path="/guest/complete" element={<GuestCompletePage />} />
     </Route>
 
     {/* Fallback */}

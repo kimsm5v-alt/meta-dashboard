@@ -1,8 +1,10 @@
 package com.vs.meta.api.group.service;
 
+import com.vs.meta.api.dgnss.service.DgnssService;
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupMemberMapper;
 import com.vs.meta.api.group.mapper.GroupQueryMapper;
+import com.vs.meta.api.guest.service.GuestAuthService;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.member.service.EmailVerificationService;
 import com.vs.meta.api.member.service.MemberService;
@@ -36,6 +38,8 @@ public class GroupService {
     private final UserMapper userMapper;
     private final MemberService memberService;
     private final EmailVerificationService emailVerificationService;
+    private final DgnssService dgnssService;
+    private final GuestAuthService guestAuthService;
 
     @Transactional
     public Object createGroup(Map<String, Object> paramData) throws Exception {
@@ -225,7 +229,25 @@ public class GroupService {
         paramData.put("stdtId", stdtId);
         paramData.put("memberId", member.getId());
 
+        // 진행중인 검사가 있으면 restart 호출하여 게스트 검사 레코드 자동 생성
+        Integer activeDgnssId = groupQueryMapper.findActiveDgnssId(groupInfo.getClaId());
+        if (activeDgnssId != null) {
+            String legacyGrade = SchoolLevel.fromCode(groupInfo.getSchoolLevel()).getLegacyGrade();
+            Map<String, Object> restartParam = new HashMap<>();
+            restartParam.put("dgnssId", activeDgnssId);
+            restartParam.put("claId", groupInfo.getClaId());
+            restartParam.put("grade", legacyGrade);
+            dgnssService.tcDgnssRestart(restartParam);
+            paramData.put("dgnssId", activeDgnssId);
+            log.info("게스트 검사 자동 등록: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
+        }
+
         emailVerificationService.consumeVerification(email);
+
+        // 게스트 토큰 발급
+        Map<String, Object> tokens = guestAuthService.issueGuestTokens(stdtId, groupInfo.getClaId(), email, null, null);
+        paramData.put("accessToken", tokens.get("accessToken"));
+        paramData.put("refreshToken", tokens.get("refreshToken"));
 
         log.info("게스트 그룹 참가: groupId={}, email={}, memberNo={}", groupId, email, memberNo);
         return paramData;

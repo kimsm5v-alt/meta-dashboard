@@ -38,4 +38,29 @@ public class SecurityUtil {
         }
         return userNo;
     }
+
+    /**
+     * 게스트 인증 여부 확인 (principal이 "GUEST:" 접두어)
+     */
+    public static boolean isGuestAuthenticated() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof String) {
+            return ((String) auth.getPrincipal()).startsWith("GUEST:");
+        }
+        return false;
+    }
+
+    /**
+     * 게스트 학생 ID 추출
+     */
+    public static String getCurrentStdtId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof String) {
+            String principal = (String) auth.getPrincipal();
+            if (principal.startsWith("GUEST:")) {
+                return principal.substring("GUEST:".length());
+            }
+        }
+        return null;
+    }
 }

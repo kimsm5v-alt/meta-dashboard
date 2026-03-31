@@ -9,8 +9,8 @@ export * from './api';
 export type SchoolLevel = '초등' | '중등';
 
 // LPA 유형
-export type ElementaryType = '자원소진형' | '안전균형형' | '몰입자원풍부형';
-export type MiddleSchoolType = '무기력형' | '정서조절취약형' | '자기주도몰입형';
+export type ElementaryType = '자원소진형' | '안전 균형형' | '몰입자원 풍부형';
+export type MiddleSchoolType = '냉소적 무기력형' | '정서조절 취약형' | '자기주도 몰입형';
 export type StudentType = ElementaryType | MiddleSchoolType;
 
 // 검사 상태
@@ -169,7 +169,7 @@ export interface Intervention {
   interpretation: string;
   strategies: string[];
   beta?: number;                                      // 효과크기 (|β|, 양수로 저장)
-  source?: 'KG' | 'KG_INTERVENTION' | 'INFERRED';    // 데이터 출처
+  source?: 'KG' | 'KG_INTERVENTION';                 // 데이터 출처
 }
 
 export type EffectType =
@@ -180,7 +180,8 @@ export type EffectType =
   | '긍정완충'
   | '부정완충'
   | '촉진'
-  | '억제';
+  | '억제'
+  | '조합';
 
 // 개인별 랭킹된 개입 전략
 export interface RankedIntervention {
@@ -239,9 +240,9 @@ export interface TypeChartData {
 // 인증 관련 타입
 // ============================================================
 
-export type MemberType = 'vivasam' | 'general';
+export type MemberType = 'vivasam' | 'general' | 'guest';
 export type OAuthProvider = 'vivasam' | 'google' | 'kakao' | 'naver';
-export type UserRole = 'TEACHER' | 'STUDENT' | 'ADMIN';
+export type UserRole = 'TEACHER' | 'STUDENT' | 'GUEST' | 'ADMIN';
 
 export interface User {
   id: string;
@@ -274,7 +275,7 @@ export interface AuthState {
 export interface ManagedAssessment {
   id: string;
   name: string;
-  code: string;                 // QR 코드 값: {dgnssId}-{studentCount}
+  code: string;                 // QR 코드 값: {dgnssId}-{studentCount} (레거시, 사용하지 않음)
   dgnssId: number;              // 검사 ID (학급 단위, /tc/start API에서 반환)
   grade: number;
   classNumber: number;
@@ -288,6 +289,7 @@ export interface ManagedAssessment {
   isActive?: boolean;           // 진행 중 여부 (dgnssAt === 'Y')
   groupName?: string;           // 소속 그룹명
   claId?: string;               // 소속 그룹 claId
+  inviteCode?: string;          // 소속 그룹 초대 코드 (학생 참가용)
 }
 
 export interface CreateAssessmentInput {

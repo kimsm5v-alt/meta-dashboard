@@ -5,14 +5,12 @@ import { Card } from '@/shared/components';
 import { useData } from '@/shared/contexts/DataContext';
 import { useTeacherClasses, useApiConfig } from '@/shared/hooks/useApiData';
 import { TYPE_COLORS, TYPE_COLOR_CLASSES } from '@/shared/data/lpaProfiles';
-import { ApiTooltip } from '@/shared/components/api-tooltip';
-import { API_TEACHER_DASHBOARD, API_UPLOAD_LATEST } from '@/shared/data/apiDefinitions';
 import { CategoryComparisonChart, TypeDistributionChart } from '../components';
 import type { Class } from '@/shared/types';
 
 const TYPE_ORDER: Record<string, string[]> = {
-  '초등': ['자원소진형', '안전균형형', '몰입자원풍부형'],
-  '중등': ['무기력형', '정서조절취약형', '자기주도몰입형'],
+  '초등': ['자원소진형', '안전 균형형', '몰입자원 풍부형'],
+  '중등': ['냉소적 무기력형', '정서조절 취약형', '자기주도 몰입형'],
 };
 
 const getSortedTypeDistribution = (cls: Class) => {
@@ -106,14 +104,7 @@ export const TeacherDashboardPage = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2">
-          <ApiTooltip {...API_TEACHER_DASHBOARD} position="bottom-left">
-            <h1 className="text-2xl font-bold text-gray-900">{teacher.name}님의 학급 현황</h1>
-          </ApiTooltip>
-          <ApiTooltip {...API_UPLOAD_LATEST} position="bottom-left">
-            <span />
-          </ApiTooltip>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900">{teacher.name}님의 학급 현황</h1>
         <p className="text-gray-500 mt-1">
           담당 학급: {classes.length}개 반 | 총 학생: {totalStats.totalStudents}명 |
           검사 완료: {totalStats.assessedStudents}명 ({Math.round((totalStats.assessedStudents / totalStats.totalStudents) * 100)}%)

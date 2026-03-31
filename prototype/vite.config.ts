@@ -4,7 +4,32 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'spa-fallback',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = req.url || '';
+
+          // Vite 내부 요청, 정적 파일, API 요청은 그대로 통과
+          const isViteInternal = url.startsWith('/@') || url.startsWith('/__');
+          const isStaticFile = /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)(\?.*)?$/.test(url);
+          // 게스트 API 경로만 API로 처리 (/guest/exists, /guest/auth, /guest/check, /guest/convert)
+          // /guest/exams, /guest/exam 등 프론트엔드 라우트는 SPA로 처리
+          const isGuestApi = url.startsWith('/guest/exists') || url.startsWith('/guest/auth') || url.startsWith('/guest/check') || url.startsWith('/guest/convert');
+          const isApiRequest = url.startsWith('/api/') || url.startsWith('/group/') || url.startsWith('/member') || isGuestApi;
+
+          // SPA 라우팅이 필요한 경우만 index.html로 리다이렉트
+          if (!isViteInternal && !isStaticFile && !isApiRequest && !url.includes('.')) {
+            req.url = '/index.html';
+          }
+
+          next();
+        });
+      },
+    },
+  ],
   // 모노레포 루트의 .env 파일 사용
   envDir: path.resolve(__dirname, '..'),
   resolve: {
@@ -24,7 +49,7 @@ export default defineConfig({
     proxy: {
       // DGNSS (심리검사) API
       '/api/dgnss': {
-        target: 'http://localhost:8081',
+        target: 'https://t-meta-api.vsaidt.com',
         changeOrigin: true,
         secure: false,
         configure: (proxy) => {
@@ -43,25 +68,46 @@ export default defineConfig({
       },
       // 상담 API
       '/api/counseling': {
-        target: 'http://localhost:8081',
+        target: 'https://t-meta-api.vsaidt.com',
         changeOrigin: true,
         secure: false,
       },
       // 메모 API
       '/api/memos': {
-        target: 'http://localhost:8081',
+        target: 'https://t-meta-api.vsaidt.com',
         changeOrigin: true,
         secure: false,
       },
-      // 회원 API (로컬 백엔드 - DB 설정 필요)
+      // 회원 API
       '/member': {
-        target: 'http://localhost:8081',
+        target: 'https://t-meta-api.vsaidt.com',
         changeOrigin: true,
         secure: false,
       },
-      // 그룹 API
-      '/group': {
-        target: 'http://localhost:8081',
+      // 그룹 API (정확히 /group으로 시작하는 것만 매칭)
+      '^/group/': {
+        target: 'https://t-meta-api.vsaidt.com',
+        changeOrigin: true,
+        secure: false,
+      },
+      // 게스트 API (특정 엔드포인트만, 프론트엔드 /guest/exams 등과 구분)
+      '/guest/exists': {
+        target: 'https://t-meta-api.vsaidt.com',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/guest/auth': {
+        target: 'https://t-meta-api.vsaidt.com',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/guest/check': {
+        target: 'https://t-meta-api.vsaidt.com',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/guest/convert': {
+        target: 'https://t-meta-api.vsaidt.com',
         changeOrigin: true,
         secure: false,
       },

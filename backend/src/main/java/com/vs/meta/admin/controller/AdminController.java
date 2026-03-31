@@ -2,15 +2,19 @@ package com.vs.meta.admin.controller;
 
 import com.vs.meta.admin.service.AdminUserService;
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
+import com.vs.meta.api.group.mapper.GroupQueryMapper;
 import com.vs.meta.api.school.mapper.SchoolInfoMapper;
 import com.vs.meta.api.school.service.SchoolSyncService;
 import com.vs.meta.api.school.service.SchoolSyncService.SchoolImportResult;
+import com.vs.meta.common.security.JwtUtil;
+import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
 import com.vs.meta.domain.AuthSchoolMap;
 import com.vs.meta.domain.RoleGroup;
 import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -19,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +39,14 @@ public class AdminController {
     private final SchoolInfoMapper schoolInfoMapper;
     private final SchoolSyncService schoolSyncService;
     private final GroupInfoMapper groupInfoMapper;
+    private final GroupQueryMapper groupQueryMapper;
+    private final JwtUtil jwtUtil;
 
     private static final int PAGE_SIZE = 20;
+    private static final DateTimeFormatter API_TOKEN_TS_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+
+    @Value("${spring.profiles.active:local}")
+    private String activeProfile;
 
     // ===== 로그인 =====
 
@@ -257,8 +268,71 @@ public class AdminController {
     // ===== API 기능 테스트 =====
 
     @GetMapping("/api-test")
-    public String apiTest() {
+    public String apiTest(Model model) {
+        model.addAttribute("apiTestBaseUrl", resolveApiTestBaseUrl(activeProfile));
         return "admin/api-test";
+    }
+
+    @GetMapping("/api-test/bootstrap")
+    @ResponseBody
+    public Map<String, Object> apiTestBootstrap(Authentication auth) {
+        Long adminUserNo = adminUserService.resolveAdminUserNo(auth.getName());
+        User admin = adminUserService.findUserByUserNo(adminUserNo);
+        if (admin == null) {
+            throw new IllegalArgumentException("관리자 계정을 찾을 수 없습니다.");
+        }
+
+        String userSeCd = IdGenerator.isTeacherRole(admin.getRoleCode()) ? "T" : "S";
+        String accessToken = jwtUtil.generateAccessToken(
+                admin.getUserNo(),
+                admin.getEmail(),
+                userSeCd,
+                LocalDateTime.now().format(API_TOKEN_TS_FORMAT)
+        );
+
+        Map<String, Object> adminInfo = new LinkedHashMap<>();
+        adminInfo.put("userNo", admin.getUserNo());
+        adminInfo.put("email", admin.getEmail());
+        adminInfo.put("nickname", admin.getNickname());
+        adminInfo.put("roleCode", admin.getRoleCode());
+        adminInfo.put("tcId", admin.getTcId());
+        adminInfo.put("stdtId", admin.getStdtId());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("admin", adminInfo);
+        result.put("accessToken", accessToken);
+        result.put("teachers", adminUserService.findApiTestTeachers());
+        return result;
+    }
+
+    @GetMapping("/api-test/teacher-groups")
+    @ResponseBody
+    public List<Map<String, Object>> apiTestTeacherGroups(@RequestParam Long teacherUserNo) {
+        return adminUserService.findApiTestGroupsByTeacher(teacherUserNo);
+    }
+
+    @GetMapping("/api-test/group-members")
+    @ResponseBody
+    public Map<String, Object> apiTestGroupMembers(@RequestParam String claId) {
+        return adminUserService.findApiTestGroupMembers(claId);
+    }
+
+    @PostMapping("/api-test/dgnss/random-answer")
+    @ResponseBody
+    public Map<String, Object> apiTestRandomDgnssAnswer(@RequestBody Map<String, Object> paramData) {
+        int omrIdx = paramData.get("omrIdx") instanceof Number ? ((Number) paramData.get("omrIdx")).intValue() : 0;
+        int paperIdx = paramData.get("paperIdx") instanceof Number ? ((Number) paramData.get("paperIdx")).intValue() : 0;
+        return adminUserService.fillRandomDgnssAnswers(omrIdx, paperIdx);
+    }
+
+    private String resolveApiTestBaseUrl(String profile) {
+        if ("vs-dev".equals(profile)) {
+            return "https://t-meta-api.vsaidt.com";
+        }
+        if ("vs-prod".equals(profile)) {
+            return "https://meta-api.vsaidt.com";
+        }
+        return "http://localhost:8081";
     }
 
     /**
@@ -324,5 +398,49 @@ public class AdminController {
             ra.addFlashAttribute("error", "업로드 실패: " + e.getMessage());
         }
         return "redirect:/admin/school-import";
+    }
+
+    // ===== 그룹 관리 =====
+
+    @GetMapping("/groups")
+    public String groups(@RequestParam(defaultValue = "1") int page,
+                         @RequestParam(required = false) String keyword,
+                         @RequestParam(required = false) String schoolLevel,
+                         @RequestParam(required = false) String useYn,
+                         Model model) {
+        long total = groupQueryMapper.countAdminGroupList(keyword, schoolLevel, useYn);
+        int totalPages = PageUtil.totalPages(total, PAGE_SIZE);
+        page = PageUtil.clampPage(page, totalPages);
+
+        model.addAttribute("groups", groupQueryMapper.findAdminGroupList(keyword, schoolLevel, useYn, PAGE_SIZE, PageUtil.offsetOneIndexed(page, PAGE_SIZE)));
+        model.addAttribute("page", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("total", total);
+        model.addAttribute("keyword", keyword);
+        model.addAttribute("schoolLevel", schoolLevel);
+        model.addAttribute("useYn", useYn);
+        return "admin/groups";
+    }
+
+    @GetMapping("/groups/{groupId}")
+    public String groupDetail(@PathVariable Long groupId,
+                               @RequestParam(defaultValue = "1") int page,
+                               Model model) {
+        Map<String, Object> groupInfo = groupQueryMapper.findAdminGroupDetail(groupId);
+        if (groupInfo == null) {
+            return "redirect:/admin/groups";
+        }
+
+        long total = groupQueryMapper.countAdminGroupMemberList(groupId);
+        int totalPages = PageUtil.totalPages(total, PAGE_SIZE);
+        page = PageUtil.clampPage(page, totalPages);
+
+        model.addAttribute("groupInfo", groupInfo);
+        model.addAttribute("members", groupQueryMapper.findAdminGroupMemberList(groupId, PAGE_SIZE, PageUtil.offsetOneIndexed(page, PAGE_SIZE)));
+        model.addAttribute("page", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("total", total);
+        model.addAttribute("groupId", groupId);
+        return "admin/group-detail";
     }
 }

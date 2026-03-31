@@ -62,11 +62,20 @@ public class JwtUtil {
         }
     }
 
+    public String generateGuestAccessToken(String stdtId, String claId, String email, String timestamp) {
+        return generateGuestToken(stdtId, claId, email, timestamp, accessExpirationMs);
+    }
+
+    public String generateGuestRefreshToken(String stdtId, String claId, String email, String timestamp) {
+        return generateGuestToken(stdtId, claId, email, timestamp, refreshExpirationMs);
+    }
+
     private String generateToken(Long userNo, String email, String userSeCd, String timestamp, long expirationMs) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
         Map<String, Object> claims = new LinkedHashMap<>();
+        claims.put("tokenType", "MEMBER");
         claims.put("userNo", userNo);
         claims.put("email", email);
         claims.put("userSeCd", userSeCd);
@@ -75,6 +84,26 @@ public class JwtUtil {
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(String.valueOf(userNo))
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .signWith(signingKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    private String generateGuestToken(String stdtId, String claId, String email, String timestamp, long expirationMs) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + expirationMs);
+
+        Map<String, Object> claims = new LinkedHashMap<>();
+        claims.put("tokenType", "GUEST");
+        claims.put("stdtId", stdtId);
+        claims.put("claId", claId);
+        claims.put("email", email);
+        claims.put("timestamp", timestamp);
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(stdtId)
                 .setIssuedAt(now)
                 .setExpiration(expiry)
                 .signWith(signingKey, SignatureAlgorithm.HS256)
