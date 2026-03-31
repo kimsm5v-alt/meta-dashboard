@@ -19,6 +19,19 @@ RUN npm run build --workspace=frontend
 
 # Production stage
 FROM nginx:stable-alpine
+
+# non-root(UID 1000) 실행을 위한 권한 설정
+RUN mkdir -p /tmp/client_temp /tmp/proxy_temp /tmp/fastcgi_temp /tmp/uwsgi_temp /tmp/scgi_temp \
+    && chown -R 1000:1000 /tmp \
+    && chown -R 1000:1000 /var/log/nginx \
+    && chown -R 1000:1000 /etc/nginx/conf.d \
+    && touch /tmp/nginx.pid \
+    && chown 1000:1000 /tmp/nginx.pid
+
+COPY nginx.conf /etc/nginx/nginx.conf
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
-EXPOSE 80
+RUN chown -R 1000:1000 /usr/share/nginx/html
+
+USER 1000
+EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
