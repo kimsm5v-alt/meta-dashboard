@@ -58,16 +58,26 @@
 
 `.env` 파일에 다음과 같이 여러 개의 키를 설정하여 성능을 확장할 수 있습니다.
 
-```bash
-# 기본 키
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=AIza...
-ANTHROPIC_API_KEY=sk-ant-...
+현재 **Gemini 단일 프로바이더 + 10개 키** 구성으로 운영됩니다. 상용 배포 시 각 키를 서로 다른 값으로 교체하면 10배의 Quota 확장 효과를 얻을 수 있습니다.
 
-# 추가 키 (자동 로드밸런싱 활성화)
-OPENAI_API_KEY_2=sk-...
+```bash
+# 사용 모델 설정
+GEMINI_MODEL=gemini-2.5-flash
+
+# Gemini API 키 (현재 동일 키 10개 설정 / 상용 배포 시 각각 다른 키로 교체)
+GEMINI_API_KEY=AIza...
 GEMINI_API_KEY_2=AIza...
+GEMINI_API_KEY_3=AIza...
+GEMINI_API_KEY_4=AIza...
+GEMINI_API_KEY_5=AIza...
+GEMINI_API_KEY_6=AIza...
+GEMINI_API_KEY_7=AIza...
+GEMINI_API_KEY_8=AIza...
+GEMINI_API_KEY_9=AIza...
+GEMINI_API_KEY_10=AIza...
 ```
+
+> `_2`, `_3` ... `_N` 접미사 키는 `llm_router.py`의 `get_api_keys()` 함수가 자동으로 탐색하여 LiteLLM Router에 등록합니다. 키 추가 시 코드 수정 없이 환경 변수만 설정하면 됩니다.
 
 ## 5. 로컬 실행 가이드
 
@@ -75,4 +85,76 @@ GEMINI_API_KEY_2=AIza...
    ```bash
    npm run agent
    ```
-2. **테스트**: `agent/tests/test_api_integration.py`를 통해 API 작동 여부와 로드밸런싱 구 구조를 검증할 수 있습니다.
+2. **테스트**: `agent/tests/test_api_integration.py`를 통해 API 작동 여부와 로드밸런싱 구조를 검증할 수 있습니다.
+
+### 5.1 Quick Test (cURL)
+
+서버 실행 후, 아래 명령어를 복사하여 터미널에서 즉시 API를 테스트할 수 있습니다.
+
+**1. 상태 확인 (Health Check)**
+```bash
+curl -s -X GET http://localhost:8000/ | python3 -m json.tool
+```
+
+**2. 에이전트 대화 (Context 주입)**
+```bash
+curl -s -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "이 학생의 성적을 바탕으로 분석해줘.",
+    "session_id": "test_session_001",
+    "context_data": {
+      "name": "홍길동",
+      "scores": {"math": 95, "science": 88},
+      "recent_comment": "수학에 매우 흥미를 보임"
+    }
+  }' | python3 -m json.tool
+```
+
+**3. 메모리 기반 후속 질문 (이전 대화 문맥 유지 확인)**
+```bash
+curl -s -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "내가 방금 물어본 학생의 수학 점수가 몇 점이었지?",
+    "session_id": "test_session_001"
+  }' | python3 -m json.tool
+```
+
+**4. 세션 초기화**
+```bash
+curl -s -X DELETE http://localhost:8000/chat/test_session_001 | python3 -m json.tool
+```
+
+
+## 6. 컨테이너 배포 (Docker)
+
+모노레포 구조를 지원하기 위해 프로젝트 루트 디렉토리에서 빌드를 수행해야 합니다.
+
+**이미지 빌드 (모노레포 루트 기준)**
+```bash
+# 프로젝트의 최상위 디렉토리(meta-dashboard)에서 실행
+docker build -t meta-agent-service -f agent/Dockerfile .
+```
+
+**컨테이너 실행**
+```bash
+docker run -d -p 8000:8000 --env-file agent/.env --name meta-agent meta-agent-service
+```
+
+### 6.1 API 키 주입 방식 (보안 원칙)
+
+`.dockerignore`에 의해 `.env` 파일은 이미지에 포함되지 않습니다. API 키는 **컨테이너 실행 시점에 외부에서 주입**하는 것이 보안 원칙입니다.
+
+| 방법 | 명령 / 설정 | 사용 시나리오 |
+|---|---|---|
+| `--env-file` | `docker run --env-file agent/.env ...` | 단일 서버 직접 배포 |
+| `-e` 플래그 | `docker run -e GEMINI_API_KEY=AIza... ...` | 개별 키 주입 |
+| Docker Compose | `env_file: [agent/.env]` | Compose 기반 배포 |
+| AWS Secrets Manager / GCP Secret Manager | 클라우드 SDK 연동 | 클라우드 배포 |
+| Kubernetes Secret | `envFrom.secretRef` | K8s 배포 |
+
+> **핵심 원칙**: API 키를 이미지에 굽지 않고 실행 환경에서 주입합니다. `.env` 파일은 배포 서버에만 존재하며 Git 및 이미지에는 포함되지 않습니다.
+
+
+
