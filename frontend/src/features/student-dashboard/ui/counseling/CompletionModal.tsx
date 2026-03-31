@@ -88,7 +88,7 @@ const RequiredMark = styled.span`
 
 const Input = styled.input`
   width: 100%;
-  padding: ${({ theme }) => `0.5rem 0.75rem`};
+  padding: 0.5rem 0.75rem;
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   border-radius: ${({ theme }) => theme.radius.lg};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
@@ -103,7 +103,7 @@ const Input = styled.input`
 
 const Textarea = styled.textarea`
   width: 100%;
-  padding: ${({ theme }) => `0.5rem 0.75rem`};
+  padding: 0.5rem 0.75rem;
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   border-radius: ${({ theme }) => theme.radius.lg};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};

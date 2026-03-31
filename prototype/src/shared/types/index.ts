@@ -9,8 +9,8 @@ export * from './api';
 export type SchoolLevel = '초등' | '중등';
 
 // LPA 유형
-export type ElementaryType = '자원소진형' | '안전균형형' | '몰입자원풍부형';
-export type MiddleSchoolType = '무기력형' | '정서조절취약형' | '자기주도몰입형';
+export type ElementaryType = '자원소진형' | '안전 균형형' | '몰입자원 풍부형';
+export type MiddleSchoolType = '냉소적 무기력형' | '정서조절 취약형' | '자기주도 몰입형';
 export type StudentType = ElementaryType | MiddleSchoolType;
 
 // 검사 상태
@@ -169,7 +169,7 @@ export interface Intervention {
   interpretation: string;
   strategies: string[];
   beta?: number;                                      // 효과크기 (|β|, 양수로 저장)
-  source?: 'KG' | 'KG_INTERVENTION' | 'INFERRED';    // 데이터 출처
+  source?: 'KG' | 'KG_INTERVENTION';                 // 데이터 출처
 }
 
 export type EffectType =
@@ -180,7 +180,8 @@ export type EffectType =
   | '긍정완충'
   | '부정완충'
   | '촉진'
-  | '억제';
+  | '억제'
+  | '조합';
 
 // 개인별 랭킹된 개입 전략
 export interface RankedIntervention {

@@ -526,7 +526,7 @@ export const StudentGroupsPage: React.FC = () => {
         return;
       }
 
-      await joinGroup(groupInfo.id, { inviteCode: inviteCode.trim().toUpperCase() }, user.id, user.name);
+      await joinGroup(groupInfo.id, {}, user.id, user.name);
       setShowJoinModal(false);
       setInviteCode('');
       loadGroups(true);

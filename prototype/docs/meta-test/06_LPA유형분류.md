@@ -1,532 +1,639 @@
-# LPA 유형 분류 알고리즘
+# LPA 유형 분류 서비스 — 개발 가이드
 
-## 1. 개요
-
-### 1.1 LPA란?
-**LPA (Latent Profile Analysis)**는 잠재 프로파일 분석으로, 학생들의 38개 T점수 패턴을 분석하여 유사한 특성을 가진 그룹(유형)으로 분류하는 통계적 방법입니다.
-
-### 1.2 분류 목적
-- 학생의 심리·학습 특성 패턴을 종합적으로 파악
-- 유형별 맞춤 개입 전략 수립
-- 개인화된 학습 코칭 제공
+> **버전**: 1.0
+> **최종 수정**: 2026-03-23
+> **연구 기반**: Mplus 8.11 LPA 3-class 모델 (초등 n=671, 중등 n=387)
+> **검증**: Mplus 분류 결과와 100% 일치 확인 완료
 
 ---
 
-## 2. 유형 정의 (초등학생)
+## 1. 서비스 개요
 
-### 2.1 3가지 유형
+### 1.1 이 서비스가 하는 일
 
-| 유형 | 명칭 | 표본 수 | 비율 | 핵심 특징 |
-|------|------|---------|------|-----------|
-| Class 1 | **자원소진형** | 205명 | 30.6% | 자기효능감·정서조절 모두 낮아 내적 동기 부족 |
-| Class 2 | **안전균형형** | 238명 | 35.5% | 자기효능감·자아존중감 양호, 정서조절 안정적 |
-| Class 3 | **몰입자원풍부형** | 228명 | 34.0% | 자기효능감, 자아존중감, 의미감 등 내적 동기 모두 높음 |
+META 학습종합검사의 **38개 학습심리요인 T점수**를 기반으로, 학생을 **3가지 학습 프로파일 유형** 중 하나로 자동 분류합니다. 분류 결과는 그래프DB에서 해당 유형에 맞는 코칭 콘텐츠를 조회하는 데 사용됩니다.
 
-### 2.2 사전확률 (Prior Probability) - 초등
+**초등 유형:**
+- **자원소진형**: 학습소진·부담이 높고, 자아존중감·자기효능감이 낮은 유형
+- **안전 균형형**: 전반적으로 평균 수준의 균형잡힌 유형
+- **몰입자원 풍부형**: 학습몰입·자원이 풍부하고, 소진이 낮은 유형
+
+**중등 유형:**
+- **냉소적 무기력형**: 학습소진·부담이 높고, 자아존중감·자기효능감이 낮은 유형
+- **정서조절 취약형**: 전반적으로 평균 수준이나 정서조절에 취약한 유형
+- **자기주도 몰입형**: 학습몰입·자원이 풍부하고, 소진이 낮은 유형
+
+### 1.2 전체 서비스 흐름
+
+```
+학생 검사 응답 (124문항)
+    │
+    ▼
+[기존 서비스] 38개 요인 평균 계산 → T점수 변환
+    │
+    ▼
+[이 문서의 범위] T점수 38개 + school_type → LPA 유형 분류
+    │
+    ├── predicted_type  (예: 초등 "자원소진형", 중등 "냉소적 무기력형")
+    ├── probabilities   (각 유형별 사후확률)
+    └── school_type     (예: "elementary")
+    │
+    ▼
+[그래프DB 조회] school_type + predicted_type으로 해당 유형의 코칭 콘텐츠 조회
+    │
+    ▼
+학생에게 맞춤 결과 제공
+```
+
+> T점수 변환과 그래프DB 조회는 이미 구현되어 있으므로, **이 문서는 T점수 입력 → LPA 유형 분류 부분만** 다룹니다.
+
+---
+
+## 2. 입출력 스펙
+
+### 2.1 입력 (Request)
 
 ```json
 {
-  "자원소진형": 0.30552,
-  "안전균형형": 0.35469,
-  "몰입자원풍부형": 0.33979
+  "school_type": "elementary",
+  "scores": {
+    "자아존중감": 52.01,
+    "자기효능감": 50.91,
+    "성장마인드셋": 50.68,
+    "자기정서인식": 49.57,
+    "자기정서조절": 47.60,
+    "타인정서인식": 49.36,
+    "타인공감능력": 46.98,
+    "계획능력": 46.77,
+    "점검능력": 45.49,
+    "조절능력": 47.50,
+    "공부환경": 47.44,
+    "시간관리": 46.13,
+    "수업태도": 48.09,
+    "노트하기": 47.11,
+    "시험준비": 50.14,
+    "부모 의사소통": 49.36,
+    "부모 학업지지": 50.02,
+    "친구 정서지지": 49.43,
+    "교사 정서지지": 49.19,
+    "활기": 46.38,
+    "몰두": 46.84,
+    "의미감": 47.15,
+    "자율성": 47.46,
+    "유능성": 49.60,
+    "관계성": 50.75,
+    "성적부담": 49.28,
+    "공부부담": 51.10,
+    "수업부담": 50.50,
+    "스마트폰 의존": 50.21,
+    "게임 과몰입": 49.11,
+    "부모 성적압력": 49.65,
+    "부모 공부부담": 49.82,
+    "친구 공부비교": 48.79,
+    "교사 성적압력": 48.18,
+    "교사 수업부담": 49.37,
+    "고갈": 51.03,
+    "무능감": 48.01,
+    "반감-냉소": 51.73
+  }
 }
 ```
 
----
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| school_type | string | O | `"elementary"` (초등) 또는 `"middle"` (중등) |
+| scores | object | O | 38개 요인명을 key, T점수를 value로 하는 객체 |
 
-## 3. 유형 정의 (중학생)
-
-### 3.1 3가지 유형
-
-| 유형 | 명칭 | 비율 | 핵심 특징 |
-|------|------|------|-----------|
-| Class 1 | **무기력형** | 35.4% | 전반적인 동기 저하, 학업에 대한 의욕과 에너지 부족 |
-| Class 2 | **정서조절 취약형** | 38.0% | 자기효능감은 있으나 정서조절에 어려움, 스트레스에 민감 |
-| Class 3 | **자기주도 몰입형** | 26.6% | 자기주도적 학습 능력 높음, 내재적 동기와 몰입도 우수 |
-
-### 3.2 사전확률 (Prior Probability) - 중등
+### 2.2 출력 (Response)
 
 ```json
 {
-  "무기력형": 0.354,
-  "정서조절취약형": 0.380,
-  "자기주도몰입형": 0.266
-}
-```
-
-### 3.3 유형별 특성 요약
-
-#### 무기력형 (Class 1)
-```
-긍정적 요인: 전반적으로 낮음
-부정적 요인: 높음
-특징: 학업 의욕 저하, 무력감, 목표 설정 어려움
-```
-
-#### 정서조절 취약형
-```
-긍정적 요인: 평균 수준
-부정적 요인: 평균~높음
-특징: 스트레스 관리 미흡, 감정 기복, 불안 경향
-```
-
-#### 자기주도 몰입형
-```
-긍정적 요인: 높음
-부정적 요인: 낮음
-특징: 자율적 학습, 높은 성취동기, 효과적 시간관리
-```
-
----
-
-## 4. 유형별 프로파일 (38개 T점수 평균) - 초등
-
-### 4.1 자원소진형 (Class 1)
-
-```
-긍정적 요인: 전반적으로 낮음 (38~46)
-부정적 요인: 높음 (56~63)
-학업소진: 높음 (56~58)
-```
-
-| No | 변인명 | T점수 평균 |
-|----|--------|-----------|
-| 1 | 자아존중감 | 38.14 |
-| 2 | 자기효능감 | 37.90 |
-| 3 | 성장마인드셋 | 37.23 |
-| 4 | 자기정서인식 | 41.69 |
-| 5 | 자기정서조절 | 42.93 |
-| 6 | 타인정서인식 | 43.90 |
-| 7 | 타인공감능력 | 41.06 |
-| 8 | 계획능력 | 45.10 |
-| 9 | 점검능력 | 44.32 |
-| 10 | 조절능력 | 44.49 |
-| 11 | 공부환경 | 45.41 |
-| 12 | 시간관리 | 46.20 |
-| 13 | 수업태도 | 41.72 |
-| 14 | 노트하기 | 45.68 |
-| 15 | 시험준비 | 49.34 |
-| 16 | 부모의사소통 | 42.81 |
-| 17 | 부모학업지지 | 42.46 |
-| 18 | 친구정서지지 | 42.50 |
-| 19 | 교사정서지지 | 43.11 |
-| 20 | 활기 | 52.71 |
-| 21 | 몰두 | 52.01 |
-| 22 | 의미감 | 58.82 |
-| 23 | 자율성 | 53.31 |
-| 24 | 유능성 | 59.82 |
-| 25 | 관계성 | 58.07 |
-| 26 | 성적부담 | 56.97 |
-| 27 | 공부부담 | 60.13 |
-| 28 | 수업부담 | 63.02 |
-| 29 | 스마트폰의존 | 57.45 |
-| 30 | 게임과몰입 | 41.53 |
-| 31 | 부모성적압력 | 49.96 |
-| 32 | 부모공부부담 | 44.27 |
-| 33 | 친구공부비교 | 42.98 |
-| 34 | 교사성적압력 | 35.82 |
-| 35 | 교사수업부담 | 38.66 |
-| 36 | 고갈 | 56.18 |
-| 37 | 무능감 | 58.68 |
-| 38 | 반감냉소 | 57.10 |
-
-### 4.2 안전균형형 (Class 2)
-
-```
-긍정적 요인: 평균 수준 (47~52)
-부정적 요인: 평균~약간 높음 (47~54)
-학업소진: 평균 수준 (48~52)
-```
-
-### 4.3 몰입자원풍부형 (Class 3)
-
-```
-긍정적 요인: 높음 (54~76)
-부정적 요인: 낮음 (44~47)
-학업소진: 낮음 (43~45)
-```
-
----
-
-## 5. 분류 알고리즘
-
-### 5.1 전체 흐름
-
-```
-입력: 학생 38개 T점수
-  ↓
-Step 1: 로그 우도 계산 (각 유형과의 통계적 거리)
-  ↓
-Step 2: 사전확률 반영 (베이즈 정리)
-  ↓
-Step 3: 정규화 (Log-Sum-Exp)
-  ↓
-Step 4: 최대값 선택
-  ↓
-출력: 예측 유형 + 신뢰도(%)
-```
-
-### 5.2 입출력 명세
-
-```typescript
-// 입력
-interface LPAInput {
-  scores: number[];  // 정확히 38개 T점수 (20~80 범위)
-}
-
-// 출력
-interface LPAOutput {
-  predictedType: string;  // "자원소진형" | "안전균형형" | "몰입자원풍부형"
-  confidence: number;     // 해당 유형의 확률 (0-100%)
-}
-```
-
-### 5.3 Step 1: 로그 우도 계산
-
-**목적**: 학생 데이터가 각 유형에서 나올 통계적 확률 계산
-
-**공식**:
-```
-log L(유형|학생) = Σ[i=1 to 38] -0.5 × [(학생[i] - 유형평균[i])² / 100 + log(2π×100)]
-```
-
-**구현**:
-```javascript
-function calculateLogLikelihood(studentScores, profileMeans) {
-  let logLikelihood = 0;
-  const variance = 100;  // T점수 분산 (SD=10)
-  const logConstant = Math.log(2 * Math.PI * variance);
-  
-  for (let i = 0; i < 38; i++) {
-    const diff = studentScores[i] - profileMeans[i];
-    const squaredError = (diff * diff) / variance;
-    logLikelihood += -0.5 * (squaredError + logConstant);
-  }
-  
-  return logLikelihood;
-}
-```
-
-### 5.4 Step 2: 사전확률 반영
-
-**목적**: 유형별 빈도 정보 반영 (희귀 유형 과진단 방지)
-
-**공식**:
-```
-log P(유형|학생) = log L(학생|유형) + log P(유형)
-```
-
-**구현**:
-```javascript
-function applyPrior(logLikelihoods, priors) {
-  const logPosteriors = {};
-  
-  for (const [typeName, logLikelihood] of Object.entries(logLikelihoods)) {
-    logPosteriors[typeName] = logLikelihood + Math.log(priors[typeName]);
-  }
-  
-  return logPosteriors;
-}
-```
-
-### 5.5 Step 3: 정규화 (Log-Sum-Exp)
-
-**목적**: 수치 안정성 확보 + 확률 합 = 100%
-
-**공식**:
-```
-1. max = max(모든 log_posterior)
-2. exp_values[i] = exp(log_posterior[i] - max)
-3. sum = Σ exp_values
-4. probability[i] = (exp_values[i] / sum) × 100
-```
-
-**구현**:
-```javascript
-function normalize(logPosteriors) {
-  const maxLogPosterior = Math.max(...Object.values(logPosteriors));
-  
-  const expPosteriors = {};
-  for (const [typeName, logPost] of Object.entries(logPosteriors)) {
-    expPosteriors[typeName] = Math.exp(logPost - maxLogPosterior);
-  }
-  
-  const sumExp = Object.values(expPosteriors).reduce((a, b) => a + b, 0);
-  
-  const probabilities = {};
-  for (const [typeName, expPost] of Object.entries(expPosteriors)) {
-    probabilities[typeName] = (expPost / sumExp) * 100;
-  }
-  
-  return probabilities;
-}
-```
-
-### 5.6 Step 4: 최대값 선택
-
-```javascript
-function selectPredictedType(probabilities) {
-  const sorted = Object.entries(probabilities)
-    .sort((a, b) => b[1] - a[1]);
-  
-  return {
-    predictedType: sorted[0][0],
-    confidence: sorted[0][1]
-  };
-}
-```
-
----
-
-## 6. 전체 구현 코드
-
-```javascript
-// 프로파일 데이터 구조
-const profileData = {
-  profiles: [
-    {
-      name: "자원소진형",
-      means: [38.14, 37.90, 37.23, /* ... 38개 */]
+  "success": true,
+  "data": {
+    "predicted_type": "안전 균형형",
+    "probabilities": {
+      "자원소진형": 0.000036,
+      "안전 균형형": 0.999961,
+      "몰입자원 풍부형": 0.000003
     },
-    {
-      name: "안전균형형",
-      means: [52.01, 50.91, 50.68, /* ... 38개 */]
-    },
-    {
-      name: "몰입자원풍부형",
-      means: [55.82, 56.08, 54.19, /* ... 38개 */]
-    }
-  ],
-  priors: {
-    "자원소진형": 0.30552,
-    "안전균형형": 0.35469,
-    "몰입자원풍부형": 0.33979
+    "school_type": "elementary"
   }
-};
-
-// 메인 분류 함수
-function classifyStudent(studentScores, profileData) {
-  // 입력 검증
-  if (studentScores.length !== 38) {
-    throw new Error('38개 T점수가 필요합니다.');
-  }
-  
-  // Step 1: 로그 우도 계산
-  const logLikelihoods = {};
-  for (const profile of profileData.profiles) {
-    logLikelihoods[profile.name] = 
-      calculateLogLikelihood(studentScores, profile.means);
-  }
-  
-  // Step 2: 사전확률 반영
-  const logPosteriors = applyPrior(logLikelihoods, profileData.priors);
-  
-  // Step 3: 정규화
-  const probabilities = normalize(logPosteriors);
-  
-  // Step 4: 최대값 선택
-  const result = selectPredictedType(probabilities);
-  
-  return result;
 }
-
-// 사용 예시
-const studentScores = [
-  35, 41, 38, 37, 41, 49, 34, 44, 48, 41,
-  43, 46, 46, 44, 48, 42, 49, 50, 46, 54,
-  54, 63, 50, 64, 54, 55, 63, 59, 57, 39,
-  49, 36, 38, 34, 42, 55, 59, 59
-];
-
-const result = classifyStudent(studentScores, profileData);
-console.log(result);
-// { predictedType: "자원소진형", confidence: 99.0 }
 ```
 
----
-
-## 7. 유형별 특성 및 개입 전략 (초등)
-
-### 7.1 자원소진형
-
-**특성**:
-- 자기효능감·정서조절 모두 낮아 내적 동기 부족
-- 학습 목표 설정·전략 실행력 미흡 → 계획 실행의 어려움
-- 학습 의지는 있으나 시간관리 효율성 낮음
-
-**개입 전략**:
-1. **순차적 개입**: 자기효능감과 자아존중감을 동시에 높이지 말고, 먼저 작은 성공 경험 제공
-2. **과정 피드백**: 결과(점수)가 아닌 노력 과정을 구체적으로 인정
-3. **자기비교 유도**: 또래 비교가 아닌 "한 달 전 나"와의 비교
-
-### 7.2 안전균형형
-
-**특성**:
-- 자기효능감·자아존중감 양호, 정서조절 안정적
-- 전반적으로 균형 잡힌 상태
-- 추가적인 성장 가능성 있음
-
-**개입 전략**:
-1. 현재 강점 유지 및 강화
-2. 약한 영역 점진적 개선
-3. 목표 설정을 통한 동기 부여
-
-### 7.3 몰입자원풍부형
-
-**특성**:
-- 자기효능감, 자아존중감, 의미감 등 내적 동기 모두 높음
-- 학습 자원이 풍부함
-- 높은 학업 성취 가능성
-
-**개입 전략**:
-1. 자율적 학습 환경 제공
-2. 심화 학습 기회 제공
-3. 리더십 역할 부여
-
----
-
-## 8. 유형별 특성 및 개입 전략 (중등)
-
-### 7.1 무기력형
-
-**특성**:
-- 학업에 대한 전반적인 동기와 의욕 저하
-- 목표 설정 및 계획 수립 능력 부족
-- 학습된 무기력 상태 가능성
-- 자기효능감과 자아존중감 모두 낮음
-
-**개입 전략**:
-1. **관계 형성 우선**: 신뢰 관계 구축 후 학습 개입
-2. **아주 작은 목표부터**: 달성 가능한 미니 목표 설정으로 성공 경험 축적
-3. **무조건적 지지**: 결과와 관계없이 노력 자체를 인정
-4. **선택권 부여**: 학습 내용/방법에 대한 자율성 제공으로 주인의식 회복
-
-### 7.2 정서조절 취약형
-
-**특성**:
-- 기본적인 능력은 있으나 정서적 안정성 부족
-- 스트레스 상황에서 감정 조절 어려움
-- 시험 불안, 성적 압박에 민감
-- 감정 기복이 학습에 영향
-
-**개입 전략**:
-1. **정서 조절 기술 훈련**: 호흡법, 마인드풀니스 등 구체적 기법 안내
-2. **스트레스 원인 파악**: 학업관계스트레스 원인 탐색 및 해소
-3. **안전한 표현 기회**: 감정을 표현할 수 있는 안전한 공간 마련
-4. **단계적 노출**: 스트레스 상황에 점진적으로 적응할 수 있도록 지원
-
-### 7.3 자기주도 몰입형
-
-**특성**:
-- 내재적 동기와 자기 주도성이 높음
-- 효과적인 학습 전략 보유
-- 시간 관리 및 계획 능력 우수
-- 학업 성취도 높음
-
-**개입 전략**:
-1. **자율성 극대화**: 학습 방향과 속도를 스스로 결정하도록 지원
-2. **심화 과제 제공**: 도전적인 과제로 성장 기회 제공
-3. **멘토링 역할**: 또래 멘토로서의 역할 부여
-4. **진로 탐색 지원**: 관심 분야에 대한 심층 탐구 기회 제공
-
----
-
-## 9. 학교급별 유형 비교
-
-| 구분 | 초등 | 중등 |
+| 필드 | 타입 | 설명 |
 |------|------|------|
-| 유형 1 | 자원소진형 (30.6%) | 무기력형 (35.4%) |
-| 유형 2 | 안전균형형 (35.5%) | 정서조절 취약형 (38.0%) |
-| 유형 3 | 몰입자원풍부형 (34.0%) | 자기주도 몰입형 (26.6%) |
-| **특징** | 심리적 자원의 소진 정도에 초점 | 동기 및 정서조절 능력에 초점 |
+| predicted_type | string | 가장 확률이 높은 유형명 |
+| probabilities | object | 각 유형에 속할 사후확률 (합 = 1.0) |
 
----
+### 2.3 유형 정의
 
-## 10. API 데이터 모델
+| 학교급 | 유형명 | 사전확률 |
+|--------|--------|----------|
+| 초등 | 자원소진형 | 30.5% |
+| 초등 | 안전 균형형 | 35.4% |
+| 초등 | 몰입자원 풍부형 | 34.1% |
+| 중등 | 냉소적 무기력형 | 35.4% |
+| 중등 | 정서조절 취약형 | 26.6% |
+| 중등 | 자기주도 몰입형 | 38.1% |
 
-### 10.1 프로파일 데이터 (JSON)
+### 2.4 에러 응답
 
 ```json
 {
-  "version": "1.0",
-  "schoolLevel": "elementary",
-  "profiles": [
-    {
-      "name": "자원소진형",
-      "code": "CLASS1",
-      "sampleSize": 205,
-      "proportion": 0.30552,
-      "means": [38.14, 37.90, 37.23, ...]
+  "success": false,
+  "error": {
+    "code": "INVALID_SCHOOL_TYPE",
+    "message": "school_type은 'elementary' 또는 'middle'이어야 합니다."
+  }
+}
+```
+
+| 에러 코드 | 조건 |
+|-----------|------|
+| INVALID_SCHOOL_TYPE | school_type이 "elementary" / "middle"이 아님 |
+| MISSING_SCORES | scores 필드 누락 |
+| INVALID_SCORE_COUNT | scores의 key가 38개가 아님 |
+| UNKNOWN_SCORE_KEY | 알 수 없는 요인명이 포함됨 |
+| INVALID_SCORE_VALUE | 값이 숫자가 아님 |
+
+---
+
+## 3. 38개 요인 키 목록
+
+scores 객체에 반드시 아래 38개 key가 모두 포함되어야 합니다.
+
+```
+자아존중감, 자기효능감, 성장마인드셋,
+자기정서인식, 자기정서조절, 타인정서인식, 타인공감능력,
+계획능력, 점검능력, 조절능력,
+공부환경, 시간관리, 수업태도, 노트하기, 시험준비,
+부모 의사소통, 부모 학업지지, 친구 정서지지, 교사 정서지지,
+활기, 몰두, 의미감,
+자율성, 유능성, 관계성,
+성적부담, 공부부담, 수업부담,
+스마트폰 의존, 게임 과몰입,
+부모 성적압력, 부모 공부부담, 친구 공부비교, 교사 성적압력, 교사 수업부담,
+고갈, 무능감, 반감-냉소
+```
+
+> JSON 파라미터 파일(`lpa_model_params.json`)의 `feature_order` 배열이 내부 처리 순서를 정의합니다. key-value 입력을 이 순서대로 배열로 변환한 뒤 알고리즘을 적용합니다.
+
+---
+
+## 4. 분류 알고리즘
+
+Gaussian Mixture Model(GMM) 사후확률 계산입니다. Mplus LPA와 수학적으로 동일한 결과를 냅니다.
+
+### 4.1 처리 흐름
+
+```
+① key-value 입력을 feature_order 순서대로 배열 [38]으로 변환
+② 각 유형(3개)의 로그우도 계산
+③ 사전확률을 더해 로그 사후확률 계산
+④ Log-Sum-Exp로 정규화하여 확률로 변환
+⑤ 가장 높은 확률의 유형 = 예측 결과
+```
+
+### 4.2 수학 공식
+
+**Step 1 — 각 유형(k)의 로그우도:**
+
+```
+log_likelihood[k] = Σ(i=0~37) [ -0.5 × ( (score[i] - mean[k][i])² / variance[i] + ln(2π × variance[i]) ) ]
+```
+
+- `score[i]` : 학생의 i번째 요인 T점수
+- `mean[k][i]` : 유형 k의 i번째 요인 평균 ← JSON에서 로드
+- `variance[i]` : i번째 요인의 분산 ← JSON에서 로드, **모든 유형 공통**
+
+**Step 2 — 로그 사후확률:**
+
+```
+log_posterior[k] = log_likelihood[k] + ln(prior[k])
+```
+
+**Step 3 — Log-Sum-Exp 정규화:**
+
+```
+max_val = max(log_posterior[0], log_posterior[1], log_posterior[2])
+probability[k] = exp(log_posterior[k] - max_val) / Σ(j=0~2) exp(log_posterior[j] - max_val)
+```
+
+> ⚠️ **반드시 max_val을 빼고 exp를 취하세요.** 안 하면 exp() 언더플로우로 결과가 전부 0이 됩니다.
+
+**Step 4 — 분류:**
+
+```
+predicted_type = argmax(probability)
+```
+
+### 4.3 의사코드 (Pseudocode)
+
+```
+function classify(scores_map, school_type):
+    params = load_json("lpa_model_params.json")
+    p = params[school_type]
+    feature_order = params["feature_order"]  // string[38]
+
+    // ① key-value → 배열 변환
+    scores = []
+    for name in feature_order:
+        scores.push(scores_map[name])
+
+    // ② ~ ③ 로그 사후확률 계산
+    class_names = keys(p["means"])  // 초등: ["자원소진형","안전 균형형","몰입자원 풍부형"] / 중등: ["냉소적 무기력형","정서조절 취약형","자기주도 몰입형"]
+    variances = p["variances"]      // float[38]
+    log_posteriors = []
+
+    for each class_name in class_names:
+        means = p["means"][class_name]  // float[38]
+        prior = p["priors"][class_name] // float
+
+        log_lik = 0.0
+        for i = 0 to 37:
+            diff = scores[i] - means[i]
+            log_lik += -0.5 * (diff * diff / variances[i] + ln(2 * PI * variances[i]))
+
+        log_posteriors.push(log_lik + ln(prior))
+
+    // ④ Log-Sum-Exp 정규화
+    max_val = max(log_posteriors)
+    exp_vals = [exp(lp - max_val) for lp in log_posteriors]
+    sum_exp = sum(exp_vals)
+    probabilities = [ev / sum_exp for ev in exp_vals]
+
+    // ⑤ 분류
+    best_idx = argmax(probabilities)
+
+    return {
+        predicted_type: class_names[best_idx],
+        probabilities: { class_names[i]: probabilities[i] for i in 0..2 }
+    }
+```
+
+---
+
+## 5. 파라미터 파일 (`lpa_model_params.json`)
+
+모든 모델 파라미터는 별도 JSON 파일에 저장합니다. **코드에 하드코딩하지 않습니다.**
+
+### 5.1 구조
+
+```json
+{
+  "elementary": {
+    "means": {
+      "자원소진형": [38.144, 37.897, ...],       // float[38]
+      "안전 균형형": [52.013, 50.911, ...],       // float[38]
+      "몰입자원 풍부형": [55.825, 56.081, ...]    // float[38]
     },
     ...
-  ],
-  "variableOrder": [
-    "자아존중감", "자기효능감", "성장마인드셋", ...
-  ]
+  },
+  "middle": {
+    "means": {
+      "냉소적 무기력형": [...],
+      "정서조절 취약형": [...],
+      "자기주도 몰입형": [...]
+    },
+    "variances": [52.54, 48.15, ...],            // float[38], 유형 공통
+    "priors": {
+      "냉소적 무기력형": 0.3535,
+      "자기주도 몰입형": 0.38088,
+      "정서조절 취약형": 0.26562
+    }
+  },
+  "feature_order": ["자아존중감", "자기효능감", ...]  // string[38]
 }
 ```
 
-### 10.2 분류 결과 (TypeScript)
+- `means[유형명][i]` : 해당 유형의 i번째 요인 T점수 평균
+- `variances[i]` : i번째 요인의 T점수 분산 (3개 유형 모두 동일)
+- `priors[유형명]` : 해당 유형의 사전확률 (연구 표본에서의 비율)
+- `feature_order[i]` : i번째 인덱스에 해당하는 요인명
+
+> 실제 파라미터 값: 함께 첨부된 `lpa_model_params.json` 참조
+
+### 5.2 학교급 추가 시
+
+추후 고등 등 새 학교급을 추가하려면 JSON에 키를 추가하면 됩니다:
+
+```json
+{
+  "elementary": { ... },
+  "middle": { ... },
+  "high": {
+    "means": { ... },
+    "variances": [ ... ],
+    "priors": { ... }
+  }
+}
+```
+
+코드 수정 없이 파라미터 파일만 추가하면 새 학교급이 자동 지원됩니다.
+
+---
+
+## 6. 구현 예시
+
+### 6.1 Python
+
+```python
+import json, math
+
+def classify_student(scores_map: dict, school_type: str) -> dict:
+    with open("lpa_model_params.json", "r", encoding="utf-8") as f:
+        params = json.load(f)
+
+    p = params[school_type]
+    feature_order = params["feature_order"]
+
+    # key-value → 배열
+    scores = [scores_map[name] for name in feature_order]
+
+    class_names = list(p["means"].keys())
+    variances = p["variances"]
+
+    log_posteriors = []
+    for cls in class_names:
+        means = p["means"][cls]
+        prior = p["priors"][cls]
+        log_lik = sum(
+            -0.5 * ((scores[i] - means[i])**2 / variances[i] + math.log(2 * math.pi * variances[i]))
+            for i in range(38)
+        )
+        log_posteriors.append(log_lik + math.log(prior))
+
+    # Log-Sum-Exp
+    max_val = max(log_posteriors)
+    exp_vals = [math.exp(lp - max_val) for lp in log_posteriors]
+    sum_exp = sum(exp_vals)
+    probs = [ev / sum_exp for ev in exp_vals]
+
+    best_idx = probs.index(max(probs))
+    return {
+        "predicted_type": class_names[best_idx],
+        "probabilities": {class_names[i]: round(probs[i], 6) for i in range(3)},
+    }
+```
+
+### 6.2 TypeScript
 
 ```typescript
-interface LPAClassificationResult {
-  studentId: string;
+interface ClassifyResult {
   predictedType: string;
-  predictedTypeCode: string;
-  confidence: number;
-  allProbabilities: {
-    [typeName: string]: number;
-  };
-  rank: Array<{
-    typeName: string;
-    probability: number;
-  }>;
-  timestamp: string;
+  probabilities: Record<string, number>;
+}
+
+function classifyStudent(scoresMap: Record<string, number>, schoolType: string, params: any): ClassifyResult {
+  const p = params[schoolType];
+  const featureOrder: string[] = params.feature_order;
+
+  // key-value → 배열
+  const scores = featureOrder.map(name => scoresMap[name]);
+
+  const classNames = Object.keys(p.means);
+  const variances: number[] = p.variances;
+
+  const logPosteriors: number[] = [];
+
+  for (const cls of classNames) {
+    const means: number[] = p.means[cls];
+    const prior: number = p.priors[cls];
+
+    let logLik = 0;
+    for (let i = 0; i < 38; i++) {
+      const diff = scores[i] - means[i];
+      logLik += -0.5 * (diff * diff / variances[i] + Math.log(2 * Math.PI * variances[i]));
+    }
+    logPosteriors.push(logLik + Math.log(prior));
+  }
+
+  // Log-Sum-Exp
+  const maxVal = Math.max(...logPosteriors);
+  const expVals = logPosteriors.map(lp => Math.exp(lp - maxVal));
+  const sumExp = expVals.reduce((a, b) => a + b, 0);
+  const probs = expVals.map(ev => ev / sumExp);
+
+  const bestIdx = probs.indexOf(Math.max(...probs));
+
+  const probabilities: Record<string, number> = {};
+  classNames.forEach((name, i) => { probabilities[name] = Math.round(probs[i] * 1e6) / 1e6; });
+
+  return { predictedType: classNames[bestIdx], probabilities };
+}
+```
+
+### 6.3 Java
+
+```java
+public Map<String, Object> classifyStudent(Map<String, Double> scoresMap, String schoolType) {
+    // params = JSON 파싱 결과
+    String[] featureOrder = getFeatureOrder();
+    double[] scores = new double[38];
+    for (int i = 0; i < 38; i++) {
+        scores[i] = scoresMap.get(featureOrder[i]);
+    }
+
+    String[] classNames = getClassNames(schoolType);
+    double[][] means = getMeans(schoolType);      // [3][38]
+    double[] variances = getVariances(schoolType); // [38]
+    double[] priors = getPriors(schoolType);       // [3]
+
+    double[] logPosteriors = new double[3];
+    for (int k = 0; k < 3; k++) {
+        double logLik = 0.0;
+        for (int i = 0; i < 38; i++) {
+            double diff = scores[i] - means[k][i];
+            logLik += -0.5 * (diff * diff / variances[i] + Math.log(2 * Math.PI * variances[i]));
+        }
+        logPosteriors[k] = logLik + Math.log(priors[k]);
+    }
+
+    // Log-Sum-Exp
+    double maxVal = Arrays.stream(logPosteriors).max().orElse(0);
+    double[] expVals = Arrays.stream(logPosteriors).map(lp -> Math.exp(lp - maxVal)).toArray();
+    double sumExp = Arrays.stream(expVals).sum();
+    double[] probs = Arrays.stream(expVals).map(ev -> ev / sumExp).toArray();
+
+    int bestIdx = IntStream.range(0, 3)
+        .reduce((a, b) -> probs[a] > probs[b] ? a : b).orElse(0);
+
+    // return result
 }
 ```
 
 ---
 
-## 11. 성능 참고
+## 7. 중요 주의사항
 
-```
-시간 복잡도: O(N × M)
-- N = 요인 개수 (38)
-- M = 유형 개수 (3)
-→ O(114) = 상수 시간
+### 7.1 분산(variance)은 변수마다 다릅니다
 
-예상 실행 시간:
-- 학생 1명: 0.1-0.5ms
-- 학생 1000명: 100-500ms
-```
+T점수 분산은 모든 변수가 동일하지 않습니다.
+
+실제 T점수 분산 범위:
+- 초등: **47.9 ~ 89.2** (변수에 따라 다름)
+- 중등: **59.7 ~ 88.0** (시험준비 제외)
+
+반드시 `lpa_model_params.json`의 변수별 분산을 사용하세요.
+
+### 7.2 분산은 모든 유형에서 동일
+
+같은 요인의 분산은 3개 유형 모두 동일합니다 (Mplus LPA 기본 설정). 따라서 `variances`는 유형별이 아닌 요인별로 38개만 있으면 됩니다.
+
+### 7.3 중등 "시험준비" 분산 특이값
+
+중등 모델에서 "시험준비"의 분산이 **10,000**으로 설정되어 있습니다. 이는 연구 데이터에서 해당 변수의 유형 간 차이가 거의 없어, 분류에 실질적으로 기여하지 않음을 의미합니다. 의도된 값이며 수정하면 안 됩니다.
+
+### 7.4 Log-Sum-Exp 필수
+
+38개 변수의 로그우도 합이 -200 ~ -400 범위가 됩니다. exp()를 직접 적용하면 언더플로우가 발생하므로, **반드시 max_val을 빼고 exp를 취해야** 합니다.
+
+### 7.5 key 이름 정확히 일치해야 함
+
+scores 객체의 key 이름이 `lpa_model_params.json`의 `feature_order`와 정확히 일치해야 합니다. 공백, 띄어쓰기 차이도 오류를 일으킵니다.
 
 ---
 
-## 12. 유형별 조절효과 (개입 전략의 핵심)
+## 8. 테스트 케이스
 
-### 12.1 자원소진형 → 긍정완충 효과
+### 8.1 초등 — 자원소진형
 
-```
-자기효능감 × 자아존중감 → 학업성취도
-효과: 긍정완충 (둘 다 높이면 오히려 효과 감소)
-전략: 순차적 개입 - 효능감 먼저, 자존감은 나중에
-이유: 동시 강화 시 심리적 부하 증가
+```json
+{
+  "school_type": "elementary",
+  "scores": {
+    "자아존중감": 38, "자기효능감": 38, "성장마인드셋": 37,
+    "자기정서인식": 42, "자기정서조절": 43, "타인정서인식": 44, "타인공감능력": 41,
+    "계획능력": 45, "점검능력": 44, "조절능력": 44,
+    "공부환경": 45, "시간관리": 46, "수업태도": 42, "노트하기": 46, "시험준비": 49,
+    "부모 의사소통": 43, "부모 학업지지": 42, "친구 정서지지": 43, "교사 정서지지": 43,
+    "활기": 41, "몰두": 43, "의미감": 40,
+    "자율성": 42, "유능성": 39, "관계성": 41,
+    "성적부담": 59, "공부부담": 58, "수업부담": 59,
+    "스마트폰 의존": 54, "게임 과몰입": 56,
+    "부모 성적압력": 59, "부모 공부부담": 58, "친구 공부비교": 58, "교사 성적압력": 60, "교사 수업부담": 57,
+    "고갈": 56, "무능감": 59, "반감-냉소": 57
+  }
+}
 ```
 
-### 12.2 안전균형형 → 긍정강화 효과
+**기대 결과**: 자원소진형 (확률 ≈ 1.0)
 
-```
-시간관리 × 계획능력 → 학업성취도
-효과: 긍정강화 (둘 다 높이면 시너지)
-전략: 동시 개입 - 플래너 활용, 시간 블록 설계
-이유: 계획과 시간관리가 결합되면 실행력 극대화
+### 8.2 초등 — 안전 균형형
+
+```json
+{
+  "school_type": "elementary",
+  "scores": {
+    "자아존중감": 52, "자기효능감": 51, "성장마인드셋": 51,
+    "자기정서인식": 50, "자기정서조절": 48, "타인정서인식": 49, "타인공감능력": 47,
+    "계획능력": 47, "점검능력": 45, "조절능력": 48,
+    "공부환경": 47, "시간관리": 46, "수업태도": 48, "노트하기": 47, "시험준비": 50,
+    "부모 의사소통": 49, "부모 학업지지": 50, "친구 정서지지": 49, "교사 정서지지": 49,
+    "활기": 46, "몰두": 47, "의미감": 47,
+    "자율성": 47, "유능성": 50, "관계성": 51,
+    "성적부담": 49, "공부부담": 51, "수업부담": 51,
+    "스마트폰 의존": 50, "게임 과몰입": 49,
+    "부모 성적압력": 50, "부모 공부부담": 50, "친구 공부비교": 49, "교사 성적압력": 48, "교사 수업부담": 49,
+    "고갈": 51, "무능감": 48, "반감-냉소": 52
+  }
+}
 ```
 
-### 12.3 몰입자원풍부형 → 직접효과
+**기대 결과**: 안전 균형형 (확률 ≈ 0.999)
 
+### 8.3 중등 — 자기주도 몰입형
+
+```json
+{
+  "school_type": "middle",
+  "scores": {
+    "자아존중감": 57, "자기효능감": 57, "성장마인드셋": 56,
+    "자기정서인식": 56, "자기정서조절": 53, "타인정서인식": 52, "타인공감능력": 53,
+    "계획능력": 54, "점검능력": 54, "조절능력": 55,
+    "공부환경": 54, "시간관리": 53, "수업태도": 58, "노트하기": 55, "시험준비": 50,
+    "부모 의사소통": 56, "부모 학업지지": 57, "친구 정서지지": 53, "교사 정서지지": 57,
+    "활기": 58, "몰두": 57, "의미감": 57,
+    "자율성": 55, "유능성": 57, "관계성": 55,
+    "성적부담": 40, "공부부담": 39, "수업부담": 39,
+    "스마트폰 의존": 45, "게임 과몰입": 44,
+    "부모 성적압력": 44, "부모 공부부담": 44, "친구 공부비교": 44, "교사 성적압력": 43, "교사 수업부담": 42,
+    "고갈": 43, "무능감": 40, "반감-냉소": 40
+  }
+}
 ```
-시험준비 → 학업성취도
-효과: 직접효과 (조절변수 없이 직접 영향)
-전략: 시험 전략 명시적 지도, 도전과제 제공
-이유: 내적 동기는 높은데 시험 기술만 부족
+
+**기대 결과**: 자기주도 몰입형 (확률 ≈ 1.0)
+
+### 8.4 중등 — 냉소적 무기력형
+
+```json
+{
+  "school_type": "middle",
+  "scores": {
+    "자아존중감": 44, "자기효능감": 42, "성장마인드셋": 44,
+    "자기정서인식": 45, "자기정서조절": 44, "타인정서인식": 42, "타인공감능력": 43,
+    "계획능력": 43, "점검능력": 42, "조절능력": 42,
+    "공부환경": 42, "시간관리": 45, "수업태도": 44, "노트하기": 44, "시험준비": 50,
+    "부모 의사소통": 44, "부모 학업지지": 43, "친구 정서지지": 41, "교사 정서지지": 46,
+    "활기": 45, "몰두": 46, "의미감": 42,
+    "자율성": 43, "유능성": 43, "관계성": 42,
+    "성적부담": 48, "공부부담": 50, "수업부담": 51,
+    "스마트폰 의존": 51, "게임 과몰입": 51,
+    "부모 성적압력": 51, "부모 공부부담": 53, "친구 공부비교": 48, "교사 성적압력": 50, "교사 수업부담": 50,
+    "고갈": 49, "무능감": 49, "반감-냉소": 52
+  }
+}
 ```
+
+**기대 결과**: 냉소적 무기력형 (확률 ≈ 0.999)
+
+### 8.5 중등 — 정서조절 취약형
+
+```json
+{
+  "school_type": "middle",
+  "scores": {
+    "자아존중감": 51, "자기효능감": 51, "성장마인드셋": 52,
+    "자기정서인식": 53, "자기정서조절": 49, "타인정서인식": 51, "타인공감능력": 53,
+    "계획능력": 51, "점검능력": 51, "조절능력": 52,
+    "공부환경": 50, "시간관리": 51, "수업태도": 53, "노트하기": 51, "시험준비": 50,
+    "부모 의사소통": 51, "부모 학업지지": 50, "친구 정서지지": 51, "교사 정서지지": 53,
+    "활기": 52, "몰두": 52, "의미감": 51,
+    "자율성": 49, "유능성": 50, "관계성": 52,
+    "성적부담": 55, "공부부담": 53, "수업부담": 49,
+    "스마트폰 의존": 54, "게임 과몰입": 50,
+    "부모 성적압력": 58, "부모 공부부담": 56, "친구 공부비교": 56, "교사 성적압력": 53, "교사 수업부담": 53,
+    "고갈": 54, "무능감": 55, "반감-냉소": 52
+  }
+}
+```
+
+**기대 결과**: 정서조절 취약형 (확률 ≈ 0.999)
+
+---
+
+## 9. 첨부 파일
+
+| 파일명 | 용도 |
+|--------|------|
+| `lpa_model_params.json` | **핵심** — 모든 모델 파라미터 |
+| `lpa_service_final.py` | Python 레퍼런스 구현 |
+| `lpa_classifier.ts` | TypeScript 레퍼런스 구현 |
+
+---
+
+## 10. FAQ
+
+**Q: 성능은?**
+38개 변수에 대한 단순 사칙연산이므로 1회 분류에 1ms 미만. 배치 처리도 문제없습니다.
+
+**Q: 새 학교급 추가는?**
+Mplus로 LPA 분석 → 동일 형식으로 JSON에 키 추가. 코드 변경 불필요.
+
+**Q: 분류 정확도는?**
+초등 Entropy=0.943, 중등 Entropy=0.935. (1.0이 완벽 분류)
+
+**Q: 분산이 왜 변수마다 다른가요?**
+T점수는 원점수의 선형 변환이므로, 원래 모델의 within-class variance가 T점수 공간에서도 변수별로 다른 값을 가집니다. `lpa_model_params.json`에 포함된 변수별 분산값을 그대로 사용하면 됩니다.

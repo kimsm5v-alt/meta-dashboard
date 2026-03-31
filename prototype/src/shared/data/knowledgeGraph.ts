@@ -35,7 +35,18 @@ export type RelationType =
   | 'has_strength'         // 강점 보유
   | 'moderated_effect';    // 조절 효과
 
-export type ModeratorType = '긍정강화' | '긍정완충' | '촉진' | '억제';
+export type ModeratorType =
+  | '완전매개'
+  | '촉진'
+  | '억제'
+  | '긍정 완충'
+  | '부정 완충'
+  | '긍정 강화'
+  | '부정 강화'
+  | '조합'
+  // 하위호환용
+  | '긍정강화'
+  | '긍정완충';
 
 export type PsychologicalState = '소진' | '안정' | '몰입' | '무기력' | '불안정' | '최적';
 
@@ -47,10 +58,12 @@ export interface StudentGroupNode {
   type: '학생집단';
   school: SchoolLevel;
   label: string;
+  color: string;
+  classNum: number;
+  description: string;
   properties: {
     비율: number;
     인원: number;
-    핵심특성: string[];
     우선개입: string;
     심리상태: PsychologicalState;
     자원수준: ResourceLevel;
@@ -163,16 +176,12 @@ export const STUDENT_GROUPS: StudentGroupNode[] = [
     type: '학생집단',
     school: '초등',
     label: '자원소진형',
+    color: '#E74C3C',
+    classNum: 1,
+    description: '학습에 필요한 심리 및 정서적 자원이 전반적으로 낮고, 부모 및 교사의 성적 기대와 비교 압력이 높으며, 디지털 기기 의존 위험도 있습니다. 결과적으로 학습 동기와 특히 시간관리 전략 실행력 보완이 필요합니다.',
     properties: {
       비율: 30.5,
       인원: 205,
-      핵심특성: [
-        '자기효능감·정서조절 모두 낮아 내적 동기 부족',
-        '학습 목표 설정·전략 실행력 미흡',
-        '학습 의지는 있으나 시간관리 효율성 낮음',
-        '부모·교사 기대와 비교로 부담·불안 증가',
-        '스마트폰·게임 몰입 위험, 정서적 균형 회복 필요',
-      ],
       우선개입: '학습 동기 강화와 시간관리 전략',
       심리상태: '소진',
       자원수준: '낮음',
@@ -182,17 +191,13 @@ export const STUDENT_GROUPS: StudentGroupNode[] = [
     id: 'elem_group2',
     type: '학생집단',
     school: '초등',
-    label: '안전균형형',
+    label: '안전 균형형',
+    color: '#3498DB',
+    classNum: 2,
+    description: '긍정적 자원과 부정적 요인이 모두 평균 수준에 분포하여 전반적으로 균형이 잡혀 있습니다. 그러나 점검(모니터링) 능력이 상대적으로 취약해 학습 준비 완성도가 떨어질 수 있습니다.',
     properties: {
       비율: 35.4,
       인원: 238,
-      핵심특성: [
-        '자기효능감·자아존중감 양호, 정서조절 안정적',
-        '학습 동기 요인은 긍정적이지만 점검·모니터링 역량 약함',
-        '전략 실행의 완결성이 떨어져 세밀한 피드백 필요',
-        '학습 태도는 성실하나 시간관리의 어려움 존재',
-        '디지털 유혹이나 스트레스 요인은 낮음',
-      ],
       우선개입: '메타인지 전략 지원',
       심리상태: '안정',
       자원수준: '중간',
@@ -202,17 +207,13 @@ export const STUDENT_GROUPS: StudentGroupNode[] = [
     id: 'elem_group3',
     type: '학생집단',
     school: '초등',
-    label: '몰입자원풍부형',
+    label: '몰입자원 풍부형',
+    color: '#2ECC71',
+    classNum: 3,
+    description: '긍정 자원이 풍부하고, 정서적 부담이 낮으며, 학업 몰입과 열의가 높습니다. 다만 시험준비 전략이 메타인지 수준에 비해 다소 낮아 보완이 필요합니다.',
     properties: {
       비율: 34.1,
       인원: 229,
-      핵심특성: [
-        '자기효능감, 자아존중감, 의미감 등 내적 동기 모두 높음',
-        '정서 안정과 협력·몰입형 학습태도',
-        '계획·점검·조절(메타인지) 우수',
-        '반감·냉소 수준이 낮아 학습 만족도와 몰입도 우수',
-        '시험전략 체계화 전략 보완 필요',
-      ],
       우선개입: '시험 준비 기술 보완',
       심리상태: '몰입',
       자원수준: '높음',
@@ -222,17 +223,13 @@ export const STUDENT_GROUPS: StudentGroupNode[] = [
     id: 'mid_group1',
     type: '학생집단',
     school: '중등',
-    label: '무기력형',
+    label: '냉소적 무기력형',
+    color: '#E74C3C',
+    classNum: 1,
+    description: '학습에 필요한 심리 정서적 자원이 전반적으로 낮고 성적과 공부 부담이 높습니다. 디지털 의존도도 강해 학습 실행력이 부족합니다.',
     properties: {
       비율: 35.4,
       인원: 137,
-      핵심특성: [
-        '자기효능감과 정서조절이 모두 낮아 내적 동기 부족',
-        '목표 설정·점검·조절 능력이 모두 취약해 전략 실행력 미흡',
-        '학업 부담이 높고 부담 과잉',
-        '스마트폰·게임 사용이 잦아 학습 몰입 저해',
-        '시간관리 루틴 강화가 필요',
-      ],
       우선개입: '시간관리 루틴 강화 및 기본 효능감 구축',
       심리상태: '무기력',
       자원수준: '매우 낮음',
@@ -242,17 +239,13 @@ export const STUDENT_GROUPS: StudentGroupNode[] = [
     id: 'mid_group2',
     type: '학생집단',
     school: '중등',
-    label: '정서조절취약형',
+    label: '정서조절 취약형',
+    color: '#F39C12',
+    classNum: 2,
+    description: '긍정자원은 중간 수준이나 성적 부모 압력 냉소 소진이 높은 편에 속합니다. 타인관련 정서 인식은 강점이나 정서조절은 취약하여 스트레스 관리가 어려운 편입니다.',
     properties: {
-      비율: 38.0,
-      인원: 147,
-      핵심특성: [
-        '성적·부모·교사 압력에 따른 정서 스트레스가 높음',
-        '자기·타인 정서인식은 양호하나, 정서조절은 부족',
-        '메타인지 전략은 평균 수준',
-        '스마트폰 의존·냉소감 다소 높아 학습 만족과 몰입 저하',
-        '정서 압력 완화 및 부모·교사 협력 개입 필요',
-      ],
+      비율: 26.6,
+      인원: 103,
       우선개입: '정서조절 전략 및 압력 완화',
       심리상태: '불안정',
       자원수준: '중간',
@@ -262,16 +255,13 @@ export const STUDENT_GROUPS: StudentGroupNode[] = [
     id: 'mid_group3',
     type: '학생집단',
     school: '중등',
-    label: '자기주도몰입형',
+    label: '자기주도 몰입형',
+    color: '#2ECC71',
+    classNum: 3,
+    description: '심리 정서적 자원이 풍부하고 메타인지 전략도 가장 우수하며 부담과 소진 수준은 가장 낮습니다. 학습 몰입과 성취 기대가 가장 높습니다.',
     properties: {
-      비율: 26.6,
-      인원: 103,
-      핵심특성: [
-        '자원·전략·관계성이 모두 우수한 몰입형 학습자',
-        '자기정서조절과 시간관리가 안정적',
-        '부담과 소진이 낮아 심리적 회복탄력성 높음',
-        '학습 몰입도와 성취 기대 가장 높음',
-      ],
+      비율: 38.1,
+      인원: 147,
       우선개입: '도전 과제 제공 및 리더십 역할',
       심리상태: '최적',
       자원수준: '매우 높음',
@@ -421,12 +411,12 @@ export const INTERVENTIONS: InterventionNode[] = [
       원칙: '결과(점수)가 아닌 노력 과정을 구체적으로 인정',
     },
   },
-  // 초등 안전균형형
+  // 초등 안전 균형형
   {
     id: 'int_elem_g2_1',
     type: '개입전략',
     school: '초등',
-    targetGroup: '안전균형형',
+    targetGroup: '안전 균형형',
     label: '플래너 활용 전략',
     properties: {
       도구: '주간 학습 계획표',
@@ -438,7 +428,7 @@ export const INTERVENTIONS: InterventionNode[] = [
     id: 'int_elem_g2_2',
     type: '개입전략',
     school: '초등',
-    targetGroup: '안전균형형',
+    targetGroup: '안전 균형형',
     label: '시간 설계 코칭',
     properties: {
       방법: '구체적 활동별 시간 배분 안내',
@@ -446,12 +436,12 @@ export const INTERVENTIONS: InterventionNode[] = [
       사후: '실행 후 피드백 제공',
     },
   },
-  // 초등 몰입자원풍부형
+  // 초등 몰입자원 풍부형
   {
     id: 'int_elem_g3_1',
     type: '개입전략',
     school: '초등',
-    targetGroup: '몰입자원풍부형',
+    targetGroup: '몰입자원 풍부형',
     label: '도전 과제 제공',
     properties: {
       방법: '현재 수준보다 약간 높은 과제',
@@ -463,7 +453,7 @@ export const INTERVENTIONS: InterventionNode[] = [
     id: 'int_elem_g3_2',
     type: '개입전략',
     school: '초등',
-    targetGroup: '몰입자원풍부형',
+    targetGroup: '몰입자원 풍부형',
     label: '타인 시선 분리 연습',
     properties: {
       질문: '다른 사람이 어떻게 생각할까 → 나는 어떻게 생각해?',
@@ -471,12 +461,12 @@ export const INTERVENTIONS: InterventionNode[] = [
       방법: '수업 중 네 의견은? 질문 자주 던지기',
     },
   },
-  // 중등 무기력형
+  // 중등 냉소적 무기력형
   {
     id: 'int_mid_g1_1',
     type: '개입전략',
     school: '중등',
-    targetGroup: '무기력형',
+    targetGroup: '냉소적 무기력형',
     label: '정서지지 + 구체적 도움 결합',
     properties: {
       방법: '괜찮아 + 즉시 실행 가능한 도움',
@@ -488,7 +478,7 @@ export const INTERVENTIONS: InterventionNode[] = [
     id: 'int_mid_g1_2',
     type: '개입전략',
     school: '중등',
-    targetGroup: '무기력형',
+    targetGroup: '냉소적 무기력형',
     label: '과제 미세 분할',
     properties: {
       방법: '전체 과제를 작은 단위로 분할',
@@ -496,12 +486,12 @@ export const INTERVENTIONS: InterventionNode[] = [
       피드백: '완료 시 이만큼 해냈네! 인정',
     },
   },
-  // 중등 정서조절취약형
+  // 중등 정서조절 취약형
   {
     id: 'int_mid_g2_1',
     type: '개입전략',
     school: '중등',
-    targetGroup: '정서조절취약형',
+    targetGroup: '정서조절 취약형',
     label: '노트 필기 양식 제공',
     properties: {
       구조: '핵심 개념 / 예시 / 질문 칸 구분',
@@ -513,7 +503,7 @@ export const INTERVENTIONS: InterventionNode[] = [
     id: 'int_mid_g2_2',
     type: '개입전략',
     school: '중등',
-    targetGroup: '정서조절취약형',
+    targetGroup: '정서조절 취약형',
     label: '정서인식→행동전환 훈련',
     properties: {
       방법: '지금 내가 불안하네 인식 → 그럼 뭘 할까? 행동',
@@ -521,12 +511,12 @@ export const INTERVENTIONS: InterventionNode[] = [
       목적: '정서 인식이 자책이 아닌 문제해결로',
     },
   },
-  // 중등 자기주도몰입형
+  // 중등 자기주도 몰입형
   {
     id: 'int_mid_g3_1',
     type: '개입전략',
     school: '중등',
-    targetGroup: '자기주도몰입형',
+    targetGroup: '자기주도 몰입형',
     label: '협력 학습 구조 설계',
     properties: {
       구성: '2-3명 학습 팀',
@@ -538,7 +528,7 @@ export const INTERVENTIONS: InterventionNode[] = [
     id: 'int_mid_g3_2',
     type: '개입전략',
     school: '중등',
-    targetGroup: '자기주도몰입형',
+    targetGroup: '자기주도 몰입형',
     label: '관계 기반 동기 부여',
     properties: {
       메시지: '네가 이걸 잘하면 같은 팀 친구들도 도움받을 거야',
@@ -572,7 +562,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '할 수 있다는 신념이 나는 가치있는 사람이라는 평가로 확장될 때 성적만족 형성',
     },
   },
-  // 초등 안전균형형: 유능성 → 성장마인드셋 → 학업성취도
+  // 초등 안전 균형형: 유능성 → 성장마인드셋 → 학업성취도
   {
     id: 'edge_med2_outcome2',
     source: 'growth_mindset',
@@ -580,7 +570,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '초등',
-    group: '안전균형형',
+    group: '안전 균형형',
     properties: {
       경로: '유능성 → 성장마인드셋 → 학업성취도',
       a경로_β: 0.220,
@@ -594,7 +584,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '할 수 있다는 신념이 노력으로 발전한다는 신념으로 전환되어야 지속적 성취',
     },
   },
-  // 초등 몰입자원풍부형: 유능성 → 성장마인드셋 → 학업성취도
+  // 초등 몰입자원 풍부형: 유능성 → 성장마인드셋 → 학업성취도
   {
     id: 'edge_med3_outcome3',
     source: 'growth_mindset',
@@ -602,7 +592,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '초등',
-    group: '몰입자원풍부형',
+    group: '몰입자원 풍부형',
     properties: {
       경로: '유능성 → 성장마인드셋 → 학업성취도',
       a경로_β: 0.261,
@@ -614,7 +604,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '유능감이 더 어려운 것도 할 수 있다는 신념으로 확장될 때 성취 가속화',
     },
   },
-  // 중등 무기력형: 성장마인드셋 → 유능성 → 학업성취도
+  // 중등 냉소적 무기력형: 성장마인드셋 → 유능성 → 학업성취도
   {
     id: 'edge_med4_outcome4',
     source: 'competence',
@@ -622,7 +612,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '중등',
-    group: '무기력형',
+    group: '냉소적 무기력형',
     properties: {
       경로: '성장마인드셋 → 유능성 → 학업성취도',
       a경로_β: 0.266,
@@ -634,7 +624,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '노력하면 발전한다는 신념이 나는 할 수 있다는 유능감으로',
     },
   },
-  // 중등 정서조절취약형: 수업태도/몰두/의미감 → 노트하기 → 학업성취도
+  // 중등 정서조절 취약형: 수업태도/몰두/의미감 → 노트하기 → 학업성취도
   {
     id: 'edge_med5_outcome5',
     source: 'note_taking',
@@ -642,7 +632,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '중등',
-    group: '정서조절취약형',
+    group: '정서조절 취약형',
     properties: {
       경로: '수업태도/몰두/의미감 → 노트하기 → 학업성취도',
       a경로_β: 0.092, // 수업태도 기준
@@ -657,7 +647,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
   // ────────────────────────────────────────────────────────────────
   // HF KG 전면 통합: 매개경로 추가 (모델 단위 그룹화)
   // ────────────────────────────────────────────────────────────────
-  // 초등 안전균형형: X → 성장마인드셋 → 성적만족도 (β=0.122)
+  // 초등 안전 균형형: X → 성장마인드셋 → 성적만족도 (β=0.122)
   {
     id: 'edge_med_elem_g2_gm_sat',
     source: 'growth_mindset',
@@ -665,7 +655,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '초등',
-    group: '안전균형형',
+    group: '안전 균형형',
     properties: {
       경로: '자기효능감/자아존중감/공부부담/유능성 → 성장마인드셋 → 성적만족도',
       a경로_β: 0.220,
@@ -677,7 +667,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '자기효능감 등 긍정적 자아 요인이 성장마인드셋을 매개로 성적만족도를 상승시킴',
     },
   },
-  // 초등 안전균형형: 점검능력/친구공부비교 → 조절능력 → 학업성취도 (β=0.117)
+  // 초등 안전 균형형: 점검능력/친구공부비교 → 조절능력 → 학업성취도 (β=0.117)
   {
     id: 'edge_med_elem_g2_reg_ach',
     source: 'regulation_ability',
@@ -685,7 +675,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '초등',
-    group: '안전균형형',
+    group: '안전 균형형',
     properties: {
       경로: '점검능력/친구공부비교 → 조절능력 → 학업성취도',
       a경로_β: 0.320,
@@ -697,7 +687,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '점검능력 또는 친구공부비교가 조절능력으로 전환되어야 학업성취로 이어짐',
     },
   },
-  // 초등 안전균형형: 자기정서인식 → 의미감 → 성적만족도 (β=-0.033, 부정)
+  // 초등 안전 균형형: 자기정서인식 → 의미감 → 성적만족도 (β=-0.033, 부정)
   {
     id: 'edge_med_elem_g2_meaning_sat',
     source: 'meaning',
@@ -705,7 +695,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '초등',
-    group: '안전균형형',
+    group: '안전 균형형',
     properties: {
       경로: '자기정서인식 → 의미감 → 성적만족도',
       a경로_β: 0.150,
@@ -717,7 +707,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '⚠ 부정적 간접효과: 자기정서인식이 의미감을 매개로 성적만족도를 미세하게 저하시킬 수 있음 — 과도한 자기 인식이 부담으로 전환되는 경로',
     },
   },
-  // 중등 무기력형: 부모공부부담 → 부모학업지지 → 성적만족도 (β=-0.077, 부정)
+  // 중등 냉소적 무기력형: 부모공부부담 → 부모학업지지 → 성적만족도 (β=-0.077, 부정)
   {
     id: 'edge_med_mid_g1_ps_sat',
     source: 'parent_support',
@@ -725,7 +715,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '중등',
-    group: '무기력형',
+    group: '냉소적 무기력형',
     properties: {
       경로: '부모공부부담 → 부모학업지지 → 성적만족도',
       a경로_β: -0.280,
@@ -737,7 +727,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '⚠ 부정적 간접효과: 부모공부부담이 부모학업지지를 약화시켜 성적만족도를 저하시킴 — 부모 부담 인식이 지지 수용을 방해',
     },
   },
-  // 중등 무기력형: 부모공부부담 → 자기효능감 → 성적만족도 (β=-0.047, 부정)
+  // 중등 냉소적 무기력형: 부모공부부담 → 자기효능감 → 성적만족도 (β=-0.047, 부정)
   {
     id: 'edge_med_mid_g1_se_sat',
     source: 'self_efficacy',
@@ -745,7 +735,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '중등',
-    group: '무기력형',
+    group: '냉소적 무기력형',
     properties: {
       경로: '부모공부부담 → 자기효능감 → 성적만족도',
       a경로_β: -0.190,
@@ -757,7 +747,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '⚠ 부정적 간접효과: 부모공부부담이 자기효능감을 저해하여 성적만족도를 낮춤 — 부담 완화가 효능감 회복의 전제',
     },
   },
-  // 중등 무기력형: 점검능력/친구공부비교 → 조절능력 → 학업성취도 (β=0.117)
+  // 중등 냉소적 무기력형: 점검능력/친구공부비교 → 조절능력 → 학업성취도 (β=0.117)
   {
     id: 'edge_med_mid_g1_reg_ach',
     source: 'regulation_ability',
@@ -765,7 +755,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '중등',
-    group: '무기력형',
+    group: '냉소적 무기력형',
     properties: {
       경로: '점검능력/친구공부비교 → 조절능력 → 학업성취도',
       a경로_β: 0.320,
@@ -777,7 +767,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '점검능력이나 친구공부비교가 조절능력으로 전환되어야 학업성취로 이어짐',
     },
   },
-  // 중등 정서조절취약형: X → 성장마인드셋 → 학업성취도 (β=0.045)
+  // 중등 정서조절 취약형: X → 성장마인드셋 → 학업성취도 (β=0.045)
   {
     id: 'edge_med_mid_g2_gm_ach',
     source: 'growth_mindset',
@@ -785,7 +775,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '중등',
-    group: '정서조절취약형',
+    group: '정서조절 취약형',
     properties: {
       경로: '자기효능감/자아존중감/공부부담/유능성 → 성장마인드셋 → 학업성취도',
       a경로_β: 0.220,
@@ -797,7 +787,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
       해석: '자기효능감 등이 성장마인드셋으로 전환되어야 지속적 학업성취 — 학교급 수준 동일 모델',
     },
   },
-  // 중등 정서조절취약형: X → 성장마인드셋 → 성적만족도 (β=0.122)
+  // 중등 정서조절 취약형: X → 성장마인드셋 → 성적만족도 (β=0.122)
   {
     id: 'edge_med_mid_g2_gm_sat',
     source: 'growth_mindset',
@@ -805,7 +795,7 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
     relation: 'mediates_to',
     mediationType: '완전매개',
     school: '중등',
-    group: '정서조절취약형',
+    group: '정서조절 취약형',
     properties: {
       경로: '자기효능감/자아존중감/공부부담/유능성 → 성장마인드셋 → 성적만족도',
       a경로_β: 0.220,
@@ -819,431 +809,40 @@ export const MEDIATION_PATHS: KnowledgeGraphEdge[] = [
   },
 ];
 
-// 조절효과
-export const MODERATION_EFFECTS: KnowledgeGraphEdge[] = [
-  // 초등 자원소진형: 긍정완충 (효능감 × 자존감)
-  {
-    id: 'edge_mod_elem_g1_1',
-    source: 'elem_group1',
-    target: 'achievement',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '자기효능감',
-      조절변수: '자아존중감',
-      상호작용_β: -0.173,
-      상호작용_p: '< .05',
-      해석: '효능감과 자존감을 동시에 높이면 압박 증가로 효과 상쇄',
-      개입전략: '순차적 개입 필요',
-    },
-  },
-  // 초등 안전균형형: 긍정강화 (시간관리 × 계획능력)
-  {
-    id: 'edge_mod_elem_g2_1',
-    source: 'elem_group2',
-    target: 'achievement',
-    relation: 'moderated_effect',
-    moderatorType: '긍정강화',
-    properties: {
-      독립변수: '시간관리',
-      조절변수: '계획능력',
-      상호작용_β: 0.157,
-      상호작용_p: '< .01',
-      해석: '시간관리 × 계획능력 결합 시 실행력 극대화',
-      개입전략: '플래너로 무엇+언제 결합',
-    },
-  },
-  // 중등 무기력형: 촉진 (수업부담 × 부모학업지지)
-  {
-    id: 'edge_mod_mid_g1_1',
-    source: 'mid_group1',
-    target: 'achievement',
-    relation: 'moderated_effect',
-    moderatorType: '촉진',
-    properties: {
-      독립변수: '수업부담',
-      조절변수: '부모학업지지',
-      상호작용_β: 0.199,
-      상호작용_p: '< .05',
-      해석: '수업부담 높을 때 부모지지가 간섭으로 느껴져 역효과 가능',
-      개입전략: '부모에게 압박 아닌 안전망 역할 안내',
-    },
-  },
-  // 중등 정서조절취약형: 긍정완충 (수업태도 × 자기정서인식)
-  {
-    id: 'edge_mod_mid_g2_1',
-    source: 'mid_group2',
-    target: 'achievement',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '수업태도',
-      조절변수: '자기정서인식',
-      상호작용_β: -0.320,
-      상호작용_p: '< .05',
-      해석: '수업태도 좋고 정서인식 높으면 왜 성적이 안 나오지? 자책 증폭',
-      개입전략: '과정 피드백 + 정서를 행동으로 전환',
-    },
-  },
-  // 중등 정서조절취약형: 촉진 (성장마인드셋 × 부모성적압력) — HF KG 추가
-  {
-    id: 'edge_mod_mid_g2_2',
-    source: 'mid_group2',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '촉진',
-    properties: {
-      독립변수: '성장마인드셋',
-      조절변수: '부모성적압력',
-      상호작용_β: 0.444,
-      상호작용_p: '< .05',
-      해석: '성장마인드셋이 높으면 부모 성적압력의 부정적 영향을 완충',
-      개입전략: '성장 관점 피드백 + 부모 상담 시 압력 대신 과정 격려 안내',
-    },
-  },
-  // 중등 무기력형: 촉진 (시간관리 × 공부부담) — HF KG 추가
-  {
-    id: 'edge_mod_mid_g1_2',
-    source: 'mid_group1',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '촉진',
-    properties: {
-      독립변수: '시간관리',
-      조절변수: '공부부담',
-      상호작용_β: 0.249,
-      상호작용_p: '< .05',
-      해석: '시간관리가 좋으면 공부부담 상황에서도 만족도 유지',
-      개입전략: '시험 전 위기 대응 시간관리 플랜 제공',
-    },
-  },
-  // 중등 무기력형: 촉진 (수업부담 × 교사정서지지) — HF KG 추가
-  {
-    id: 'edge_mod_mid_g1_3',
-    source: 'mid_group1',
-    target: 'achievement',
-    relation: 'moderated_effect',
-    moderatorType: '촉진',
-    properties: {
-      독립변수: '수업부담',
-      조절변수: '교사정서지지',
-      상호작용_β: 0.226,
-      상호작용_p: '< .05',
-      해석: '수업부담이 높을 때 교사의 정서적 지지가 성취 보호 요인',
-      개입전략: '수업 후 짧은 격려 + 단계별 과제로 부담 경감',
-    },
-  },
-  // 중등 자기주도몰입형: 긍정강화 (타인정서인식 × 활기) — HF KG 추가
-  {
-    id: 'edge_mod_mid_g3_1',
-    source: 'mid_group3',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정강화',
-    properties: {
-      독립변수: '타인정서인식',
-      조절변수: '활기',
-      상호작용_β: 0.479,
-      상호작용_p: '< .05',
-      해석: '타인의 감정을 잘 인식하는 능력과 학습 활기가 결합되면 성적만족 크게 상승',
-      개입전략: '또래 감정 읽기 활동 + 도전적 학습 기회 제공',
-    },
-  },
-  // 중등 자기주도몰입형: 긍정강화 (관계성 × 타인공감능력) — HF KG 추가
-  {
-    id: 'edge_mod_mid_g3_2',
-    source: 'mid_group3',
-    target: 'achievement',
-    relation: 'moderated_effect',
-    moderatorType: '긍정강화',
-    properties: {
-      독립변수: '관계성',
-      조절변수: '타인공감능력',
-      상호작용_β: 0.379,
-      상호작용_p: '< .05',
-      해석: '또래 관계와 공감능력이 결합되면 학업성취에 긍정적 시너지',
-      개입전략: '협력 학습 구조 설계 + 서로 설명해주기 활동',
-    },
-  },
-  // ────────────────────────────────────────────────────────────────
-  // HF KG 전면 통합: 교차 유형 교사정서지지 조절효과 (+16)
-  // ────────────────────────────────────────────────────────────────
-  // === 초등 자원소진형: 교사정서지지 조절효과 5개 ===
-  {
-    id: 'edge_mod_elem_g1_teach1',
-    source: 'elem_group1',
-    target: 'achievement',
-    relation: 'moderated_effect',
-    moderatorType: '촉진',
-    properties: {
-      독립변수: '수업부담',
-      조절변수: '교사정서지지',
-      상호작용_β: 0.226,
-      상호작용_p: '< .05',
-      해석: '수업부담이 높을 때 교사의 정서적 지지가 학업성취 보호 요인',
-      개입전략: '수업 후 짧은 격려 + 단계별 과제로 부담 경감',
-    },
-  },
-  {
-    id: 'edge_mod_elem_g1_teach2',
-    source: 'elem_group1',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '부모의사소통',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.188,
-      상호작용_p: '< .05',
-      해석: '교사 정서지지가 높으면 부모의사소통이 성적만족도에 미치는 영향이 완충됨',
-      개입전략: '교사-학부모 소통 채널 구축 + 학생 정서 안전망 다층화',
-    },
-  },
-  {
-    id: 'edge_mod_elem_g1_teach3',
-    source: 'elem_group1',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '조절능력',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.325,
-      상호작용_p: '< .05',
-      해석: '조절능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
-      개입전략: '자기조절 코칭 + 교사의 정서적 지지 병행',
-    },
-  },
-  {
-    id: 'edge_mod_elem_g1_teach4',
-    source: 'elem_group1',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '점검능력',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.341,
-      상호작용_p: '< .05',
-      해석: '점검능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
-      개입전략: '학습 점검 루틴 안내 + 교사의 개별 피드백 강화',
-    },
-  },
-  {
-    id: 'edge_mod_elem_g1_teach5',
-    source: 'elem_group1',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '계획능력',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.213,
-      상호작용_p: '< .05',
-      해석: '계획능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
-      개입전략: '계획 수립 지도 + 교사의 격려와 진행 확인',
-    },
-  },
-  // === 초등 안전균형형: 교사정서지지 조절효과 5개 + 계획능력 1개 ===
-  {
-    id: 'edge_mod_elem_g2_teach1',
-    source: 'elem_group2',
-    target: 'achievement',
-    relation: 'moderated_effect',
-    moderatorType: '촉진',
-    properties: {
-      독립변수: '수업부담',
-      조절변수: '교사정서지지',
-      상호작용_β: 0.226,
-      상호작용_p: '< .05',
-      해석: '수업부담이 높을 때 교사의 정서적 지지가 학업성취 보호 요인',
-      개입전략: '수업 후 짧은 격려 + 단계별 과제로 부담 경감',
-    },
-  },
-  {
-    id: 'edge_mod_elem_g2_teach2',
-    source: 'elem_group2',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '부모의사소통',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.188,
-      상호작용_p: '< .05',
-      해석: '교사 정서지지가 높으면 부모의사소통이 성적만족도에 미치는 영향이 완충됨',
-      개입전략: '교사-학부모 소통 채널 구축 + 학생 정서 안전망 다층화',
-    },
-  },
-  {
-    id: 'edge_mod_elem_g2_teach3',
-    source: 'elem_group2',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '조절능력',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.325,
-      상호작용_p: '< .05',
-      해석: '조절능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
-      개입전략: '자기조절 코칭 + 교사의 정서적 지지 병행',
-    },
-  },
-  {
-    id: 'edge_mod_elem_g2_teach4',
-    source: 'elem_group2',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '점검능력',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.341,
-      상호작용_p: '< .05',
-      해석: '점검능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
-      개입전략: '학습 점검 루틴 안내 + 교사의 개별 피드백 강화',
-    },
-  },
-  {
-    id: 'edge_mod_elem_g2_teach5',
-    source: 'elem_group2',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '계획능력',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.213,
-      상호작용_p: '< .05',
-      해석: '계획능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
-      개입전략: '계획 수립 지도 + 교사의 격려와 진행 확인',
-    },
-  },
-  // 초등 안전균형형: 시간관리 × 계획능력 → 성적만족도 (기존 학업성취도와 별도)
-  {
-    id: 'edge_mod_elem_g2_plan_sat',
-    source: 'elem_group2',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정강화',
-    properties: {
-      독립변수: '시간관리',
-      조절변수: '계획능력',
-      상호작용_β: 0.157,
-      상호작용_p: '< .01',
-      해석: '시간관리 × 계획능력 결합 시 성적만족도까지 극대화 (기존 학업성취도에 추가)',
-      개입전략: '플래너 활용 습관 + 실행 후 만족감 기록',
-    },
-  },
-  // === 중등 무기력형: 교사정서지지 조절효과 4개 + 공부부담 1개 ===
-  // (수업부담×교사정서지지→학업성취도는 기존 edge_mod_mid_g1_3에 존재)
-  {
-    id: 'edge_mod_mid_g1_teach2',
-    source: 'mid_group1',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '부모의사소통',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.188,
-      상호작용_p: '< .05',
-      해석: '교사 정서지지가 높으면 부모의사소통이 성적만족도에 미치는 영향이 완충됨',
-      개입전략: '교사-학부모 소통 채널 구축 + 학생 정서 안전망 다층화',
-    },
-  },
-  {
-    id: 'edge_mod_mid_g1_teach3',
-    source: 'mid_group1',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '조절능력',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.325,
-      상호작용_p: '< .05',
-      해석: '조절능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
-      개입전략: '자기조절 코칭 + 교사의 정서적 지지 병행',
-    },
-  },
-  {
-    id: 'edge_mod_mid_g1_teach4',
-    source: 'mid_group1',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '점검능력',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.341,
-      상호작용_p: '< .05',
-      해석: '점검능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
-      개입전략: '학습 점검 루틴 안내 + 교사의 개별 피드백 강화',
-    },
-  },
-  {
-    id: 'edge_mod_mid_g1_teach5',
-    source: 'mid_group1',
-    target: 'satisfaction',
-    relation: 'moderated_effect',
-    moderatorType: '긍정완충',
-    properties: {
-      독립변수: '계획능력',
-      조절변수: '교사정서지지',
-      상호작용_β: -0.213,
-      상호작용_p: '< .05',
-      해석: '계획능력이 부족해도 교사 정서지지가 높으면 성적만족도 하락이 완충됨',
-      개입전략: '계획 수립 지도 + 교사의 격려와 진행 확인',
-    },
-  },
-  // 중등 무기력형: 시간관리 × 공부부담 → 학업성취도 (기존 성적만족도와 별도)
-  {
-    id: 'edge_mod_mid_g1_burden_ach',
-    source: 'mid_group1',
-    target: 'achievement',
-    relation: 'moderated_effect',
-    moderatorType: '촉진',
-    properties: {
-      독립변수: '시간관리',
-      조절변수: '공부부담',
-      상호작용_β: 0.249,
-      상호작용_p: '< .05',
-      해석: '시간관리가 좋으면 공부부담 상황에서도 학업성취도 유지 (기존 성적만족도에 추가)',
-      개입전략: '시험 전 위기 대응 시간관리 플랜 제공',
-    },
-  },
-];
+// 조절효과 (새 interventions 데이터로 대체됨 - 빈 배열 유지)
+export const MODERATION_EFFECTS: KnowledgeGraphEdge[] = [];
+
 
 // 개입 요약 (유형별 빠른 참조용)
 export const INTERVENTION_SUMMARY: Record<string, string[]> = {
+  // 초등
   '초등_자원소진형': [
     '순차적 자원 구축 (효능감→자존감)',
     '과정 피드백 중심',
     '자기비교 유도 (또래 비교 회피)',
   ],
-  '초등_안전균형형': [
+  '초등_안전 균형형': [
     '플래너 활용 (무엇+언제)',
     '시간 설계 코칭',
     '성공 패턴 시각화',
   ],
-  '초등_몰입자원풍부형': [
+  '초등_몰입자원 풍부형': [
     '도전 과제 제공',
     '실패→학습기회 재해석',
     '타인 시선 분리 연습',
   ],
-  '중등_무기력형': [
+  // 중등
+  '중등_냉소적 무기력형': [
     '정서지지 + 구체적 도움 결합',
     '과제 미세 분할',
     '작은 성공 축적',
   ],
-  '중등_정서조절취약형': [
+  '중등_정서조절 취약형': [
     '노트 필기 양식 제공',
     '정서인식→행동전환 훈련',
     '학습 전략 점검',
   ],
-  '중등_자기주도몰입형': [
+  '중등_자기주도 몰입형': [
     '협력 학습 구조',
     '관계 기반 동기 부여',
     '교사-학생 관계 강화',

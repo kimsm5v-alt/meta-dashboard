@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
-import { keyframes } from '@emotion/react';
 import {
   calculate4StepDiagnosis,
   getLevel,
@@ -317,7 +316,7 @@ const TreeBranch = styled.span`
 
 const NegativeLabel = styled.span`
   font-size: 10px;
-  color: ${({ theme }) => theme.colors.red[500]};
+  color: #ef4444;
   font-weight: ${({ theme }) => theme.typography.fontWeight.normal};
 `;
 

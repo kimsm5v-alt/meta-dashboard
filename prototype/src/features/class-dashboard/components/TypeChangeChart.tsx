@@ -76,14 +76,14 @@ const createFlowPath = (from: BarSegment, to: BarSegment): string => {
 };
 
 const FLOW_STROKE_COLORS: Record<string, string> = {
-  // 초등 유형
-  '자원소진형': '#EA580C',     // orange-600
-  '안전균형형': '#0D9488',     // teal-600
-  '몰입자원풍부형': '#2563EB', // blue-600
-  // 중등 유형
-  '무기력형': '#EA580C',       // orange-600
-  '정서조절취약형': '#0D9488', // teal-600
-  '자기주도몰입형': '#2563EB', // blue-600
+  // 초등 유형 (JSON 원본 기준)
+  '자원소진형': '#E74C3C',        // red
+  '안전 균형형': '#3498DB',       // blue
+  '몰입자원 풍부형': '#2ECC71',   // green
+  // 중등 유형 (JSON 원본 기준)
+  '냉소적 무기력형': '#E74C3C',   // red
+  '정서조절 취약형': '#F39C12',   // orange
+  '자기주도 몰입형': '#2ECC71',   // green
 };
 
 const getFlowStyle = (
@@ -459,9 +459,14 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
             const isChange = selectedFlow.changeType === 'change';
 
             const colorMap: Record<string, { bg: string; border: string; badge: string }> = {
-              '자원소진형': { bg: 'bg-orange-50', border: 'border-orange-300', badge: 'bg-orange-500' },
-              '안전균형형': { bg: 'bg-teal-50', border: 'border-teal-300', badge: 'bg-teal-500' },
-              '몰입자원풍부형': { bg: 'bg-blue-50', border: 'border-blue-300', badge: 'bg-blue-500' },
+              // 초등 유형 (JSON 원본 기준)
+              '자원소진형': { bg: 'bg-red-50', border: 'border-red-300', badge: 'bg-red-500' },
+              '안전 균형형': { bg: 'bg-blue-50', border: 'border-blue-300', badge: 'bg-blue-500' },
+              '몰입자원 풍부형': { bg: 'bg-emerald-50', border: 'border-emerald-300', badge: 'bg-emerald-500' },
+              // 중등 유형 (JSON 원본 기준)
+              '냉소적 무기력형': { bg: 'bg-red-50', border: 'border-red-300', badge: 'bg-red-500' },
+              '정서조절 취약형': { bg: 'bg-amber-50', border: 'border-amber-300', badge: 'bg-amber-500' },
+              '자기주도 몰입형': { bg: 'bg-emerald-50', border: 'border-emerald-300', badge: 'bg-emerald-500' },
             };
             const colors = isChange
               ? (colorMap[selectedFlow.to] || { bg: 'bg-gray-50', border: 'border-gray-300', badge: 'bg-gray-500' })
