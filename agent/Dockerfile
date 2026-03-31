@@ -50,7 +50,8 @@ USER appuser
 # API 포트 노출 (FastAPI 기본 포트)
 EXPOSE 8000
 
-# 컨테이너 실행 명령 (Uvicorn을 사용한 비동기서버 실행)
-# --proxy-headers: 로드밸런서 뒤에서 실행될 때 클라이언트 IP 식별 지원
-# --forwarded-allow-ips='*': 프록시 헤더 신뢰 설정
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# 컨테이너 실행 명령 (Gunicorn + UvicornWorker를 사용한 프로덕션 서버 실행)
+# --workers: CPU 코어 수에 맞춘 워커 프로세스 생성 (병렬 처리 향상)
+# --worker-class: 비동기 처리를 위한 UvicornWorker 지정
+# --keep-alive: 연결 유지 시간 최적화
+CMD ["gunicorn", "main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "--keep-alive", "65", "--proxy-protocol", "--forwarded-allow-ips", "*"]
