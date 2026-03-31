@@ -1,6 +1,6 @@
 package com.vs.meta.api.dgnss.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import lombok.RequiredArgsConstructor;
@@ -26,44 +26,39 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Slf4j
 public class DgnssLpaService {
-    private static final String PROFILE_RESOURCE_PATH = "data/lpa-profile-data.json";
-    private static final String TYPES_RESOURCE_PATH = "data/lpa-types.json";
-    private static final String MODEL_VERSION = "lpa-bayes-v1";
-    private static final String PROFILE_VERSION = "2026-03-20";
-    private static final double VARIANCE = 100D;
+    private static final String MODEL_PARAMS_RESOURCE_PATH = "data/lpa-model-params.json";
+    private static final String MODEL_VERSION = "lpa-bayes-v2";
+    private static final String PROFILE_VERSION = "2026-03-23";
 
-    private static final List<String> ELEMENTARY_CLASS_IDS = Arrays.asList("Class1", "Class2", "Class3");
-    private static final List<String> MIDDLE_CLASS_IDS = Arrays.asList("Class4", "Class5", "Class6");
+    private static final List<LpaClassInfo> ELEMENTARY_CLASSES = Arrays.asList(
+            new LpaClassInfo("Class1", "자원소진형"),
+            new LpaClassInfo("Class2", "안전 균형형"),
+            new LpaClassInfo("Class3", "몰입자원 풍부형")
+    );
 
-    private static final String[] FACTOR_SECTION_ORDER = {
-            "10-22-01-01-01-0", "10-22-01-01-02-0", "10-22-01-01-03-0",
-            "10-22-01-02-01-0", "10-22-01-02-02-0", "10-22-01-02-03-0", "10-22-01-02-04-0",
-            "10-22-02-01-01-0", "10-22-02-01-02-0", "10-22-02-01-03-0",
-            "10-22-02-02-01-0", "10-22-02-02-02-0", "10-22-02-02-03-0", "10-22-02-02-04-0", "10-22-02-02-05-0",
-            "10-22-02-03-01-0", "10-22-02-03-02-0", "10-22-02-03-03-0", "10-22-02-03-04-0",
-            "10-22-03-01-01-0", "10-22-03-01-02-0", "10-22-03-01-03-0",
-            "10-22-03-02-01-0", "10-22-03-02-02-0", "10-22-03-02-03-0", "10-22-03-02-04-0", "10-22-03-02-05-0",
-            "10-22-03-03-01-0", "10-22-03-03-02-0",
-            "10-22-04-01-01-0", "10-22-04-01-02-0", "10-22-04-01-03-0",
-            "10-22-04-02-01-0", "10-22-04-02-02-0", "10-22-04-02-03-0",
-            "10-22-05-01-01-0", "10-22-05-01-02-0", "10-22-05-01-03-0"
-    };
+    private static final List<LpaClassInfo> MIDDLE_CLASSES = Arrays.asList(
+            new LpaClassInfo("Class4", "냉소적 무기력형"),
+            new LpaClassInfo("Class5", "정서조절 취약형"),
+            new LpaClassInfo("Class6", "자기주도 몰입형")
+    );
 
-    private static final Set<String> FACTOR_SECTION_IDS = new LinkedHashSet<>(Arrays.asList(FACTOR_SECTION_ORDER));
+    private static final Map<String, String> FEATURE_TO_SECTION_ID = createFeatureSectionMap();
+    private static final Set<String> FACTOR_SECTION_IDS = new LinkedHashSet<>(FEATURE_TO_SECTION_ID.values());
 
     private final ObjectMapper objectMapper;
     private final DgnssMapper dgnssMapper;
 
-    private Map<String, List<Double>> profileMeansByClassId = Collections.emptyMap();
-    private Map<String, LpaTypeMeta> typeMetaByClassId = Collections.emptyMap();
+    private List<String> featureOrder = Collections.emptyList();
+    private Map<String, SchoolModel> schoolModelByKey = Collections.emptyMap();
+    private Map<String, LpaClassInfo> classInfoById = Collections.emptyMap();
 
     @PostConstruct
     void loadLpaResources() {
         try {
-            profileMeansByClassId = loadProfileMeans();
-            typeMetaByClassId = loadTypeMetadata();
+            loadModelParams();
+            loadClassInfos();
         } catch (IOException e) {
-            throw new java.lang.IllegalStateException("Failed to load LPA resource files.", e);
+            throw new java.lang.IllegalStateException("Failed to load LPA model resource file.", e);
         }
     }
 
@@ -75,8 +70,11 @@ public class DgnssLpaService {
         }
 
         String storedSchoolLevel = resolveStoredSchoolLevel(MapUtils.getString(studentInfo, "SCH_GRADE", ""));
-        List<String> targetClassIds = resolveTargetClassIds(storedSchoolLevel);
-        if (targetClassIds.isEmpty()) {
+        String modelSchoolLevel = resolveModelSchoolLevel(storedSchoolLevel);
+        List<LpaClassInfo> targetClasses = resolveTargetClasses(modelSchoolLevel);
+        SchoolModel schoolModel = schoolModelByKey.get(modelSchoolLevel);
+
+        if (targetClasses.isEmpty() || schoolModel == null) {
             upsertUnsupportedResult(studentInfo, storedSchoolLevel, "UNSUPPORTED");
             return;
         }
@@ -99,17 +97,8 @@ public class DgnssLpaService {
             return;
         }
 
-        List<Integer> orderedScores = new ArrayList<>(FACTOR_SECTION_ORDER.length);
-        for (String sectionId : FACTOR_SECTION_ORDER) {
-            orderedScores.add(scoreBySectionId.get(sectionId));
-        }
-
-        ClassificationResult classificationResult = classify(orderedScores, targetClassIds);
-        LpaTypeMeta typeMeta = typeMetaByClassId.get(classificationResult.classId);
-        if (typeMeta == null) {
-            log.warn("Skipping LPA classification because type metadata was not found. classId={}", classificationResult.classId);
-            return;
-        }
+        List<Double> orderedScores = buildOrderedScores(scoreBySectionId);
+        ClassificationResult classificationResult = classify(orderedScores, schoolModel, targetClasses);
 
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("answerIdx", MapUtils.getInteger(studentInfo, "ANSWER_IDX"));
@@ -118,7 +107,7 @@ public class DgnssLpaService {
         params.put("memId", MapUtils.getString(studentInfo, "MEM_ID", ""));
         params.put("schoolLevel", storedSchoolLevel);
         params.put("classId", classificationResult.classId);
-        params.put("typeName", typeMeta.typeName);
+        params.put("typeName", classificationResult.typeName);
         params.put("confidence", roundToTwoDecimals(classificationResult.confidence));
         params.put("modelVersion", MODEL_VERSION);
         params.put("profileVersion", PROFILE_VERSION);
@@ -146,18 +135,34 @@ public class DgnssLpaService {
         dgnssMapper.upsertDgnssLpaResult(params);
     }
 
-    private ClassificationResult classify(List<Integer> orderedScores, List<String> targetClassIds) {
+    private List<Double> buildOrderedScores(Map<String, Integer> scoreBySectionId) {
+        List<Double> orderedScores = new ArrayList<>(featureOrder.size());
+        for (String featureName : featureOrder) {
+            String sectionId = FEATURE_TO_SECTION_ID.get(featureName);
+            if (StringUtils.isBlank(sectionId)) {
+                throw new java.lang.IllegalStateException("Unknown feature in feature_order: " + featureName);
+            }
+            Integer score = scoreBySectionId.get(sectionId);
+            if (score == null) {
+                throw new java.lang.IllegalStateException("Missing score for sectionId=" + sectionId + ", feature=" + featureName);
+            }
+            orderedScores.add(score.doubleValue());
+        }
+        return orderedScores;
+    }
+
+    private ClassificationResult classify(List<Double> orderedScores, SchoolModel schoolModel, List<LpaClassInfo> targetClasses) {
         Map<String, Double> logPosteriors = new LinkedHashMap<>();
-        for (String classId : targetClassIds) {
-            List<Double> means = profileMeansByClassId.get(classId);
-            LpaTypeMeta meta = typeMetaByClassId.get(classId);
-            if (means == null || meta == null) {
+
+        for (LpaClassInfo classInfo : targetClasses) {
+            List<Double> means = schoolModel.meansByTypeName.get(classInfo.typeName);
+            Double prior = schoolModel.priorsByTypeName.get(classInfo.typeName);
+            if (means == null || prior == null || prior <= 0D) {
                 continue;
             }
 
-            double logLikelihood = calculateLogLikelihood(orderedScores, means);
-            double prior = meta.proportion / 100D;
-            logPosteriors.put(classId, logLikelihood + Math.log(prior));
+            double logLikelihood = calculateLogLikelihood(orderedScores, means, schoolModel.variances);
+            logPosteriors.put(classInfo.classId, logLikelihood + Math.log(prior));
         }
 
         if (logPosteriors.isEmpty()) {
@@ -180,27 +185,99 @@ public class DgnssLpaService {
                 .max(Map.Entry.comparingByValue())
                 .orElseThrow();
 
-        return new ClassificationResult(topEntry.getKey(), topEntry.getValue(), probabilities);
+        LpaClassInfo selectedClass = classInfoById.getOrDefault(topEntry.getKey(), new LpaClassInfo(topEntry.getKey(), topEntry.getKey()));
+
+        return new ClassificationResult(
+                selectedClass.classId,
+                selectedClass.typeName,
+                topEntry.getValue(),
+                probabilities
+        );
     }
 
-    private double calculateLogLikelihood(List<Integer> orderedScores, List<Double> means) {
+    private double calculateLogLikelihood(List<Double> orderedScores, List<Double> means, List<Double> variances) {
+        if (orderedScores.size() != means.size() || orderedScores.size() != variances.size()) {
+            throw new java.lang.IllegalStateException("LPA score/mean/variance vector size mismatch.");
+        }
+
         double logLikelihood = 0D;
-        double logConstant = Math.log(2D * Math.PI * VARIANCE);
-        for (int i = 0; i < FACTOR_SECTION_ORDER.length; i++) {
+        for (int i = 0; i < orderedScores.size(); i++) {
+            double variance = variances.get(i);
+            if (variance <= 0D) {
+                throw new java.lang.IllegalStateException("Invalid variance value at index=" + i + ": " + variance);
+            }
+
             double diff = orderedScores.get(i) - means.get(i);
-            logLikelihood += -0.5D * (((diff * diff) / VARIANCE) + logConstant);
+            logLikelihood += -0.5D * (((diff * diff) / variance) + Math.log(2D * Math.PI * variance));
         }
         return logLikelihood;
     }
 
-    private List<String> resolveTargetClassIds(String storedSchoolLevel) {
-        if (StringUtils.equals(storedSchoolLevel, "elementary")) {
-            return ELEMENTARY_CLASS_IDS;
+    private void loadModelParams() throws IOException {
+        try (InputStream inputStream = new ClassPathResource(MODEL_PARAMS_RESOURCE_PATH).getInputStream()) {
+            JsonNode root = objectMapper.readTree(inputStream);
+
+            List<String> loadedFeatureOrder = readTextArray(root.path("feature_order"));
+            if (loadedFeatureOrder.size() != FEATURE_TO_SECTION_ID.size()) {
+                throw new java.lang.IllegalStateException("feature_order count is invalid: " + loadedFeatureOrder.size());
+            }
+
+            SchoolModel elementaryModel = parseSchoolModel(root.path("elementary"));
+            SchoolModel middleModel = parseSchoolModel(root.path("middle"));
+
+            Map<String, SchoolModel> schoolMap = new LinkedHashMap<>();
+            schoolMap.put("elementary", elementaryModel);
+            schoolMap.put("middle", middleModel);
+
+            this.featureOrder = Collections.unmodifiableList(loadedFeatureOrder);
+            this.schoolModelByKey = Collections.unmodifiableMap(schoolMap);
         }
-        if (StringUtils.equals(storedSchoolLevel, "middle") || StringUtils.equals(storedSchoolLevel, "high")) {
-            return MIDDLE_CLASS_IDS;
+    }
+
+    private SchoolModel parseSchoolModel(JsonNode schoolNode) {
+        if (schoolNode.isMissingNode() || schoolNode.isNull()) {
+            throw new java.lang.IllegalStateException("LPA school model node is missing.");
+        }
+
+        Map<String, List<Double>> meansByTypeName = new LinkedHashMap<>();
+        JsonNode meansNode = schoolNode.path("means");
+        meansNode.fields().forEachRemaining(entry -> meansByTypeName.put(entry.getKey(), readDoubleArray(entry.getValue())));
+
+        List<Double> variances = readDoubleArray(schoolNode.path("variances"));
+        Map<String, Double> priorsByTypeName = readDoubleMap(schoolNode.path("priors"));
+
+        return new SchoolModel(meansByTypeName, variances, priorsByTypeName);
+    }
+
+    private void loadClassInfos() {
+        Map<String, LpaClassInfo> result = new LinkedHashMap<>();
+        for (LpaClassInfo info : ELEMENTARY_CLASSES) {
+            result.put(info.classId, info);
+        }
+        for (LpaClassInfo info : MIDDLE_CLASSES) {
+            result.put(info.classId, info);
+        }
+        this.classInfoById = Collections.unmodifiableMap(result);
+    }
+
+    private List<LpaClassInfo> resolveTargetClasses(String modelSchoolLevel) {
+        if (StringUtils.equals(modelSchoolLevel, "elementary")) {
+            return ELEMENTARY_CLASSES;
+        }
+        if (StringUtils.equals(modelSchoolLevel, "middle")) {
+            return MIDDLE_CLASSES;
         }
         return Collections.emptyList();
+    }
+
+    private String resolveModelSchoolLevel(String storedSchoolLevel) {
+        if (StringUtils.equals(storedSchoolLevel, "elementary")) {
+            return "elementary";
+        }
+        if (StringUtils.equals(storedSchoolLevel, "middle") || StringUtils.equals(storedSchoolLevel, "high")) {
+            return "middle";
+        }
+        return "";
     }
 
     private String resolveStoredSchoolLevel(String schGrade) {
@@ -216,40 +293,38 @@ public class DgnssLpaService {
         return "";
     }
 
-    private Map<String, List<Double>> loadProfileMeans() throws IOException {
-        try (InputStream inputStream = new ClassPathResource(PROFILE_RESOURCE_PATH).getInputStream()) {
-            Map<String, LinkedHashMap<String, Double>> raw = objectMapper.readValue(
-                    inputStream,
-                    new TypeReference<Map<String, LinkedHashMap<String, Double>>>() { }
-            );
-
-            Map<String, List<Double>> result = new LinkedHashMap<>();
-            for (Map.Entry<String, LinkedHashMap<String, Double>> entry : raw.entrySet()) {
-                result.put(entry.getKey(), new ArrayList<>(entry.getValue().values()));
-            }
+    private List<String> readTextArray(JsonNode arrayNode) {
+        List<String> result = new ArrayList<>();
+        if (arrayNode == null || !arrayNode.isArray()) {
             return result;
         }
+
+        for (JsonNode node : arrayNode) {
+            result.add(node.asText(""));
+        }
+        return result;
     }
 
-    private Map<String, LpaTypeMeta> loadTypeMetadata() throws IOException {
-        try (InputStream inputStream = new ClassPathResource(TYPES_RESOURCE_PATH).getInputStream()) {
-            Map<String, Map<String, Object>> raw = objectMapper.readValue(
-                    inputStream,
-                    new TypeReference<Map<String, Map<String, Object>>>() { }
-            );
-
-            Map<String, LpaTypeMeta> result = new LinkedHashMap<>();
-            for (Map.Entry<String, Map<String, Object>> entry : raw.entrySet()) {
-                result.put(
-                        entry.getKey(),
-                        new LpaTypeMeta(
-                                MapUtils.getString(entry.getValue(), "typeName", ""),
-                                MapUtils.getDoubleValue(entry.getValue(), "proportion", 0D)
-                        )
-                );
-            }
+    private List<Double> readDoubleArray(JsonNode arrayNode) {
+        List<Double> result = new ArrayList<>();
+        if (arrayNode == null || !arrayNode.isArray()) {
             return result;
         }
+
+        for (JsonNode node : arrayNode) {
+            result.add(node.asDouble(0D));
+        }
+        return result;
+    }
+
+    private Map<String, Double> readDoubleMap(JsonNode objectNode) {
+        Map<String, Double> result = new LinkedHashMap<>();
+        if (objectNode == null || !objectNode.isObject()) {
+            return result;
+        }
+
+        objectNode.fields().forEachRemaining(entry -> result.put(entry.getKey(), entry.getValue().asDouble(0D)));
+        return result;
     }
 
     private String writeJson(Object value) {
@@ -264,23 +339,80 @@ public class DgnssLpaService {
         return Math.round(value * 100D) / 100D;
     }
 
-    private static final class LpaTypeMeta {
-        private final String typeName;
-        private final double proportion;
+    private static Map<String, String> createFeatureSectionMap() {
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("자아존중감", "10-22-01-01-01-0");
+        map.put("자기효능감", "10-22-01-01-02-0");
+        map.put("성장마인드셋", "10-22-01-01-03-0");
+        map.put("자기정서인식", "10-22-01-02-01-0");
+        map.put("자기정서조절", "10-22-01-02-02-0");
+        map.put("타인정서인식", "10-22-01-02-03-0");
+        map.put("타인공감능력", "10-22-01-02-04-0");
+        map.put("계획능력", "10-22-02-01-01-0");
+        map.put("점검능력", "10-22-02-01-02-0");
+        map.put("조절능력", "10-22-02-01-03-0");
+        map.put("공부환경", "10-22-02-02-01-0");
+        map.put("시간관리", "10-22-02-02-02-0");
+        map.put("수업태도", "10-22-02-02-03-0");
+        map.put("노트하기", "10-22-02-02-04-0");
+        map.put("시험준비", "10-22-02-02-05-0");
+        map.put("부모 의사소통", "10-22-02-03-01-0");
+        map.put("부모 학업지지", "10-22-02-03-02-0");
+        map.put("친구 정서지지", "10-22-02-03-03-0");
+        map.put("교사 정서지지", "10-22-02-03-04-0");
+        map.put("활기", "10-22-04-01-01-0");
+        map.put("몰두", "10-22-04-01-02-0");
+        map.put("의미감", "10-22-04-01-03-0");
+        map.put("자율성", "10-22-04-02-01-0");
+        map.put("유능성", "10-22-04-02-02-0");
+        map.put("관계성", "10-22-04-02-03-0");
+        map.put("성적부담", "10-22-03-01-01-0");
+        map.put("공부부담", "10-22-03-01-02-0");
+        map.put("수업부담", "10-22-03-01-03-0");
+        map.put("부모 성적압력", "10-22-03-02-01-0");
+        map.put("부모 공부부담", "10-22-03-02-02-0");
+        map.put("친구 공부비교", "10-22-03-02-03-0");
+        map.put("교사 성적압력", "10-22-03-02-04-0");
+        map.put("교사 수업부담", "10-22-03-02-05-0");
+        map.put("스마트폰 의존", "10-22-03-03-01-0");
+        map.put("게임 과몰입", "10-22-03-03-02-0");
+        map.put("고갈", "10-22-05-01-01-0");
+        map.put("무능감", "10-22-05-01-02-0");
+        map.put("반감-냉소", "10-22-05-01-03-0");
+        return Collections.unmodifiableMap(map);
+    }
 
-        private LpaTypeMeta(String typeName, double proportion) {
+    private static final class SchoolModel {
+        private final Map<String, List<Double>> meansByTypeName;
+        private final List<Double> variances;
+        private final Map<String, Double> priorsByTypeName;
+
+        private SchoolModel(Map<String, List<Double>> meansByTypeName, List<Double> variances, Map<String, Double> priorsByTypeName) {
+            this.meansByTypeName = meansByTypeName;
+            this.variances = variances;
+            this.priorsByTypeName = priorsByTypeName;
+        }
+    }
+
+    private static final class LpaClassInfo {
+        private final String classId;
+        private final String typeName;
+
+        private LpaClassInfo(String classId, String typeName) {
+            this.classId = classId;
             this.typeName = typeName;
-            this.proportion = proportion;
         }
     }
 
     private static final class ClassificationResult {
         private final String classId;
+        private final String typeName;
         private final double confidence;
         private final Map<String, Double> probabilities;
 
-        private ClassificationResult(String classId, double confidence, Map<String, Double> probabilities) {
+        private ClassificationResult(String classId, String typeName, double confidence, Map<String, Double> probabilities) {
             this.classId = classId;
+            this.typeName = typeName;
             this.confidence = confidence;
             this.probabilities = probabilities;
         }

@@ -399,6 +399,29 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
+    @RequestMapping(value = "/api/dgnss/tc/class-factor-avg", method = {RequestMethod.GET})
+    @Operation(summary = "(교사) 학급별 요인 평균 및 제출/신뢰도 집계", description = "")
+    @Parameter(name = "tcId", description = "교사 ID", required = true)
+    @Parameter(name = "paperIdx", description = "심리검사 종류", required = true,
+            examples = {
+                    @ExampleObject(name = "learn", value = "1", description = "학습종합검사"),
+                    @ExampleObject(name = "meta", value = "2", description = "META자기조절학습검사")
+            })
+    @Parameter(name = "claId", description = "학급 ID(선택, 미입력 시 전체 학급)")
+    public ResponseDTO<CustomBody> tcClassFactorAvg(
+            @RequestParam(name = "tcId", required = false) String tcId,
+            @RequestParam(name = "paperIdx", required = false, defaultValue = "2") String paperIdx,
+            @RequestParam(name = "claId", required = false) String claId,
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        if (StringUtils.isBlank(tcId)) {
+            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
+        }
+        Map<String, Object> result = dgnssService.selectTcClassFactorAvg(paramData);
+        String resultMessage = "(교사) 학급별 요인 평균 및 제출/신뢰도 집계";
+        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
     @GetMapping(path = "/api/dgnss/dgnss-download-all", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     @Operation(summary = "학습심리정서검사 일괄다운로드", description = "")
     @ResponseBody

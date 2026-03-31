@@ -654,6 +654,7 @@ public class DgnssService {
         }
 
         enrichLpaTop3(stInfoList);
+        moveSectionScoresToScoresMap(stInfoList);
         return resultMap;
     }
 
@@ -911,9 +912,12 @@ public class DgnssService {
             }
         }
         enrichLpaTop3(stAnalysisList);
+        Map<String, Map<String, Object>> lpaTopByOrd = extractLpaTopByOrd(stAnalysisList);
+        removeLpaTopFromRows(stAnalysisList);
 
         Map<String, Object> resultMap = new LinkedHashMap<>();
         resultMap.put("stUserInfo", stUserInfo);
+        resultMap.put("lpaTop", lpaTopByOrd);
         resultMap.putAll(splitStudentAnalysisByOrd(
                 stAnalysisList,
                 hasDgnssResultId ? resolvedOrdNo : MapUtils.getString(param, "ordNo", "")
@@ -996,6 +1000,77 @@ public class DgnssService {
                 result.put(item, list);
             }
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> selectTcClassFactorAvg(Map<String, Object> param) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        List<Map<String, Object>> classStats = dgnssMapper.selectTcClassMetaStats(param);
+        List<Map<String, Object>> factorAverages = dgnssMapper.selectTcClassFactorAverages(param);
+
+        Map<String, Map<String, Object>> classMap = new LinkedHashMap<>();
+        for (Map<String, Object> stat : classStats) {
+            String claId = MapUtils.getString(stat, "claId", "");
+            Map<String, Object> classRow = new LinkedHashMap<>();
+            classRow.put("claId", claId);
+            classRow.put("classNm", MapUtils.getString(stat, "classNm", "-"));
+            classRow.put("totalStudentCount", MapUtils.getInteger(stat, "totalStudentCount", 0));
+            classRow.put("submittedStudentCount", MapUtils.getInteger(stat, "submittedStudentCount", 0));
+            classRow.put("reliabilityAlertCount", MapUtils.getInteger(stat, "reliabilityAlertCount", 0));
+            classRow.put("factorScoresByDepth", createEmptyFactorScoresByDepth());
+            classMap.put(claId, classRow);
+        }
+
+        for (Map<String, Object> avg : factorAverages) {
+            String claId = MapUtils.getString(avg, "claId", "");
+            int depth = MapUtils.getInteger(avg, "depth", 0);
+            String sectionId = MapUtils.getString(avg, "sectionId", "");
+            Object avgTScore = avg.get("avgTScore");
+
+            Map<String, Object> classRow = classMap.get(claId);
+            if (classRow == null) {
+                classRow = new LinkedHashMap<>();
+                classRow.put("claId", claId);
+                classRow.put("classNm", "-");
+                classRow.put("totalStudentCount", 0);
+                classRow.put("submittedStudentCount", 0);
+                classRow.put("reliabilityAlertCount", 0);
+                classRow.put("factorScoresByDepth", createEmptyFactorScoresByDepth());
+                classMap.put(claId, classRow);
+            }
+
+            Map<String, Object> factorScoresByDepth = (Map<String, Object>) classRow.get("factorScoresByDepth");
+            String depthKey = toDepthKey(depth);
+            if (depthKey == null) {
+                continue;
+            }
+            Map<String, Object> factorScores = (Map<String, Object>) factorScoresByDepth.get(depthKey);
+            factorScores.put(sectionId, avgTScore);
+        }
+
+        result.put("classList", new ArrayList<>(classMap.values()));
+        return result;
+    }
+
+    private Map<String, Object> createEmptyFactorScoresByDepth() {
+        Map<String, Object> byDepth = new LinkedHashMap<>();
+        byDepth.put("depth3", new LinkedHashMap<String, Object>());
+        byDepth.put("depth4", new LinkedHashMap<String, Object>());
+        byDepth.put("depth5", new LinkedHashMap<String, Object>());
+        return byDepth;
+    }
+
+    private String toDepthKey(int depth) {
+        if (depth == 3) {
+            return "depth3";
+        }
+        if (depth == 4) {
+            return "depth4";
+        }
+        if (depth == 5) {
+            return "depth5";
+        }
+        return null;
     }
 
     @Transactional(readOnly = true)
@@ -1453,6 +1528,81 @@ public class DgnssService {
             return null;
         }
         return MapUtils.getString(lpaTypeNameByClassId, classId, classId);
+    }
+
+    private void moveSectionScoresToScoresMap(List<Map<String, Object>> rows) {
+        if (CollectionUtils.isEmpty(rows)) {
+            return;
+        }
+
+        for (Map<String, Object> row : rows) {
+            Map<String, Object> scores = new LinkedHashMap<>();
+            List<String> keysToRemove = new ArrayList<>();
+
+            for (Map.Entry<String, Object> entry : row.entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
+                if (isSectionIdKey(key) && value instanceof Number) {
+                    scores.put(key, value);
+                    keysToRemove.add(key);
+                }
+            }
+
+            for (String keyToRemove : keysToRemove) {
+                row.remove(keyToRemove);
+            }
+            row.put("scores", scores);
+        }
+    }
+
+    private boolean isSectionIdKey(String key) {
+        return key != null && key.matches("^\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d$");
+    }
+
+    private Map<String, Map<String, Object>> extractLpaTopByOrd(List<Map<String, Object>> rows) {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String ordKey = Integer.toString(MapUtils.getInteger(row, "ord_no", 0));
+            if (!"1".equals(ordKey) && !"2".equals(ordKey)) {
+                continue;
+            }
+            if (result.containsKey(ordKey)) {
+                continue;
+            }
+
+            Map<String, Object> lpaTop = new LinkedHashMap<>();
+            lpaTop.put("lpaClassId", row.get("lpaClassId"));
+            lpaTop.put("lpaTypeName", row.get("lpaTypeName"));
+            lpaTop.put("lpaConfidence", row.get("lpaConfidence"));
+            lpaTop.put("lpaStatus", row.get("lpaStatus"));
+            lpaTop.put("lpaTop1TypeName", row.get("lpaTop1TypeName"));
+            lpaTop.put("lpaTop1Probability", row.get("lpaTop1Probability"));
+            lpaTop.put("lpaTop2TypeName", row.get("lpaTop2TypeName"));
+            lpaTop.put("lpaTop2Probability", row.get("lpaTop2Probability"));
+            lpaTop.put("lpaTop3TypeName", row.get("lpaTop3TypeName"));
+            lpaTop.put("lpaTop3Probability", row.get("lpaTop3Probability"));
+            result.put(ordKey, lpaTop);
+        }
+        return result;
+    }
+
+    private void removeLpaTopFromRows(List<Map<String, Object>> rows) {
+        for (Map<String, Object> row : rows) {
+            row.remove("lpaClassId");
+            row.remove("lpaTypeName");
+            row.remove("lpaConfidence");
+            row.remove("lpaStatus");
+            row.remove("lpaProbabilitiesJson");
+            row.remove("lpaTop1ClassId");
+            row.remove("lpaTop1TypeName");
+            row.remove("lpaTop1Probability");
+            row.remove("lpaTop2ClassId");
+            row.remove("lpaTop2TypeName");
+            row.remove("lpaTop2Probability");
+            row.remove("lpaTop3ClassId");
+            row.remove("lpaTop3TypeName");
+            row.remove("lpaTop3Probability");
+        }
     }
 
     private List<Double> normalizeTop3ProbabilitiesOneDecimal(List<Map.Entry<String, Double>> sortedTop3) {
