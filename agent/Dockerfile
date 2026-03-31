@@ -54,4 +54,6 @@ EXPOSE 8000
 # --workers: CPU 코어 수에 맞춘 워커 프로세스 생성 (병렬 처리 향상)
 # --worker-class: 비동기 처리를 위한 UvicornWorker 지정
 # --keep-alive: 연결 유지 시간 최적화
-CMD ["gunicorn", "main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "--keep-alive", "65", "--proxy-protocol", "--forwarded-allow-ips", "*"]
+# 주의: 세션 메모리가 인메모리(dict) 기반이므로 워커는 1개로 고정
+# 멀티 워커(-w N)가 필요하면 Redis 등 외부 세션 저장소 도입 후 변경할 것
+CMD ["gunicorn", "main:app", "-w", "1", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "--keep-alive", "65", "--forwarded-allow-ips", "*"]
