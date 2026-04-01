@@ -14,7 +14,7 @@ export interface CoachingPath {
   relevance: number;   // 관련도 점수
   source: 'KG';
   interpretation: string;
-  strategies: string[];  // 문자열 배열 그대로 표시
+  strategy: string;      // 원본 전략 문자열 (문장 단위로 표시)
   xScore?: { t: number; avg: number };
   zScore?: { t: number; avg: number };
 }
@@ -254,30 +254,17 @@ export const CoachingStrategyModal: React.FC<CoachingStrategyModalProps> = ({
 
                 {/* 실행 전략 섹션 */}
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <h4 className="text-sm font-semibold text-gray-700">
-                      구체적 실행 전략
-                    </h4>
-                    <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs rounded-full">
-                      {selectedPath.strategies.length}개
-                    </span>
-                  </div>
-                  <div className="space-y-3">
-                    {selectedPath.strategies.map((strategy, i) => (
-                      <div
-                        key={i}
-                        className="p-4 bg-gray-50 border border-gray-200 rounded-lg"
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-primary-500 text-white text-xs font-bold rounded-full">
-                            {i + 1}
-                          </span>
-                          <p className="text-sm text-gray-700 leading-relaxed">
-                            {strategy}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                    구체적 실행 전략
+                  </h4>
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="space-y-2">
+                      {selectedPath.strategy.split(/(?<=\.) /).map((sentence, i) => (
+                        <p key={i} className="text-sm text-gray-700 leading-relaxed">
+                          {sentence}
+                        </p>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>

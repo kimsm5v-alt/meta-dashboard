@@ -167,7 +167,7 @@ export interface Intervention {
   y: string;
   effectType: EffectType;
   interpretation: string;
-  strategies: string[];
+  strategy: string;
   beta?: number;                                      // 효과크기 (|β|, 양수로 저장)
   source?: 'KG' | 'KG_INTERVENTION';                 // 데이터 출처
 }
