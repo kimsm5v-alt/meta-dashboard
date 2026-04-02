@@ -201,8 +201,9 @@ export const AssessmentPage: React.FC = () => {
       const shortCode = generateExamCode(data.claId, result.dgnssId);
       registerExamCode(shortCode, data.claId);
 
-      // 그룹명 조회
-      const groupName = groups.find(g => g.id === data.groupId)?.name;
+      // 그룹 조회 (이름 + 초대코드)
+      const group = groups.find(g => g.id === data.groupId);
+      const groupName = group?.name;
 
       // 학년/반/그룹 정보를 localStorage에 저장
       saveAssessmentMeta(result.dgnssId, {
@@ -228,6 +229,7 @@ export const AssessmentPage: React.FC = () => {
         isActive: true,
         groupName,
         claId: data.claId,
+        inviteCode: group?.inviteCode,
       };
 
       setAssessments(prev => [newAssessment, ...prev]);
