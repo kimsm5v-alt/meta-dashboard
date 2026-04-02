@@ -3,11 +3,13 @@ package com.vs.meta.api.guest.service;
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupMemberMapper;
 import com.vs.meta.api.member.mapper.RefreshTokenMapper;
+import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.member.service.EmailVerificationService;
 import com.vs.meta.common.security.JwtUtil;
 import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.GroupMember;
 import com.vs.meta.domain.RefreshToken;
+import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +32,7 @@ public class GuestAuthService {
     private final GroupInfoMapper groupInfoMapper;
     private final GroupMemberMapper groupMemberMapper;
     private final RefreshTokenMapper refreshTokenMapper;
+    private final UserMapper userMapper;
     private final EmailVerificationService emailVerificationService;
     private final JwtUtil jwtUtil;
 
@@ -45,6 +48,11 @@ public class GuestAuthService {
         }
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("email은 필수입니다.");
+        }
+
+        User existingUser = userMapper.findByEmail(email);
+        if (existingUser != null) {
+            throw new IllegalArgumentException("이미 가입된 회원 이메일입니다. 회원으로 로그인하여 그룹에 참가해주세요.");
         }
 
         GroupInfo group = groupInfoMapper.findByInviteCodeAndUseYn(inviteCode.toUpperCase(), "Y");
