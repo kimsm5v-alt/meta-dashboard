@@ -1,8 +1,10 @@
 package com.vs.meta.api.member.service;
 
 import com.vs.meta.api.member.mapper.EmailVerificationMapper;
+import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.domain.EmailVerification;
+import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,14 +20,22 @@ public class EmailVerificationService {
 
     private final NcpMailSender ncpMailSender;
     private final EmailVerificationMapper verificationMapper;
+    private final UserMapper userMapper;
 
     private static final int CODE_TTL_MINUTES = 5;
     private static final int RESEND_COOLDOWN_SECONDS = 60;
 
     @Transactional
-    public void sendCode(String email) {
+    public void sendCode(String email, String purpose) {
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("이메일은 필수입니다.");
+        }
+
+        if ("GUEST".equalsIgnoreCase(purpose)) {
+            User existingUser = userMapper.findByEmail(email);
+            if (existingUser != null) {
+                throw new IllegalArgumentException("이미 가입된 회원 이메일입니다. 회원으로 로그인하여 그룹에 참가해주세요.");
+            }
         }
 
         // 재발송 쿨다운 체크
