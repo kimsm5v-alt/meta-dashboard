@@ -41,6 +41,11 @@ with st.sidebar:
 
     st.divider()
     
+    st.subheader("🚀 에이전트 설정")
+    use_streaming = st.checkbox("실시간 스트리밍 활성화", value=True, help="채팅 응답을 실시간으로 타이핑되는 느낌으로 수신합니다.")
+    
+    st.divider()
+
     st.subheader("📊 콘텍스트 데이터 (JSON)")
     context_input = st.text_area(
         "에이전트에게 전달할 추가 데이터",
@@ -53,10 +58,6 @@ with st.sidebar:
     except json.JSONDecodeError:
         st.error("올바른 JSON 형식이 아닙니다.")
         context_data = None
-
-    st.divider()
-    st.subheader("🚀 실험 공간")
-    use_streaming = st.checkbox("실시간 스트리밍 사용", value=True)
 
 # 메인 화면
 st.title("🤖 Meta Dashboard AI Agent")
