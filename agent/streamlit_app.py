@@ -54,6 +54,10 @@ with st.sidebar:
         st.error("올바른 JSON 형식이 아닙니다.")
         context_data = None
 
+    st.divider()
+    st.subheader("🚀 실험 공간")
+    use_streaming = st.checkbox("실시간 스트리밍 사용", value=True)
+
 # 메인 화면
 st.title("🤖 Meta Dashboard AI Agent")
 st.markdown("---")
@@ -73,7 +77,6 @@ if prompt := st.chat_input("질문을 입력하세요..."):
     # API 호출 및 응답 표시
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
-        message_placeholder.markdown("⏳ 생각 중...")
         
         try:
             payload = {
@@ -82,20 +85,57 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                 "context_data": context_data
             }
             
-            response = requests.post(
-                f"{api_base_url}/chat",
-                json=payload,
-                timeout=60
-            )
-            
-            if response.status_code == 200:
-                full_response = response.json().get("response", "응답을 받지 못했습니다.")
-                message_placeholder.markdown(full_response)
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-            else:
-                error_msg = f"API 오류 ({response.status_code}): {response.text}"
-                message_placeholder.markdown(f"❌ {error_msg}")
+            if use_streaming:
+                # 1. 스트리밍 모드 호출
+                full_response = ""
+                response = requests.post(
+                    f"{api_base_url}/chat/stream",
+                    json=payload,
+                    stream=True,
+                    timeout=60
+                )
                 
+                if response.status_code == 200:
+                    for line in response.iter_lines():
+                        if line:
+                            # SSE 데이터 추출 (data: {json})
+                            decoded_line = line.decode('utf-8')
+                            if decoded_line.startswith("data: "):
+                                json_str = decoded_line.replace("data: ", "")
+                                try:
+                                    chunk = json.loads(json_str)
+                                    if "text" in chunk:
+                                        full_response += chunk["text"]
+                                        # 실시간 타이핑 효과를 위해 커서 표시
+                                        message_placeholder.markdown(full_response + "▌")
+                                    elif "error" in chunk:
+                                        st.error(f"에러: {chunk['error']}")
+                                except json.JSONDecodeError:
+                                    continue
+                    
+                    # 최종 결과 표시 및 저장
+                    message_placeholder.markdown(full_response)
+                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                else:
+                    st.error(f"API 오류 ({response.status_code}): {response.text}")
+
+            else:
+                # 2. 일반 모드(하위 호환) 호출
+                message_placeholder.markdown("⏳ 생각 중...")
+                response = requests.post(
+                    f"{api_base_url}/chat",
+                    json=payload,
+                    timeout=60
+                )
+                
+                if response.status_code == 200:
+                    full_response = response.json().get("response", "응답을 받지 못했습니다.")
+                    message_placeholder.markdown(full_response)
+                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                else:
+                    error_msg = f"API 오류 ({response.status_code}): {response.text}"
+                    message_placeholder.markdown(f"❌ {error_msg}")
+                    
         except Exception as e:
             error_msg = f"연결 오류: {str(e)}"
             message_placeholder.markdown(f"❌ {error_msg}")
