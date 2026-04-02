@@ -81,11 +81,54 @@ GEMINI_API_KEY_10=AIza...
 
 ## 5. 로컬 실행 가이드
 
-1. **설치 및 실행**:
+### 5.1 사전 준비 (Python 환경 설정)
+
+이 프로젝트는 Python 3.11.9 버전을 권장하며, `pyenv`와 `venv`를 사용하여 환경을 격리하는 것을 권장합니다.
+
+1. **Python 버전 설치 (pyenv)**:
+   ```bash
+   # .python-version 파일에 명시된 버전 설치
+   pyenv install 3.11.9
+   pyenv local 3.11.9
+   ```
+
+2. **가상환경 생성 및 활성화**:
+   ```bash
+   # 가상환경 생성
+   python -m venv .venv
+
+   # 가상환경 활성화 (macOS/Linux)
+   source .venv/bin/activate
+   ```
+
+3. **의존성 패키지 설치**:
+   ```bash
+   pip install --upgrade pip
+   pip install -r requirements.txt
+   ```
+
+### 5.2 서비스 실행
+
+1. **기동 명령어**:
    ```bash
    npm run agent
    ```
-2. **테스트**: `agent/tests/test_api_integration.py`를 통해 API 작동 여부와 로드밸런싱 구조를 검증할 수 있습니다.
+   *(참고: 루트 디렉토리의 package.json에 정의된 스크립트로, `cd agent && python main.py`를 수행합니다.)*
+2. **테스트 (Testing)**:
+   서비스의 정상 작동 여부와 보안 필터링 기능을 검증하기 위해 제공되는 테스트 스크립트를 실행할 수 있습니다. 상세한 내용은 [tests/README.md](file:///Users/jay/github/work/meta-dashboard/agent/tests/README.md)를 참고하세요.
+
+   - **전체 테스트 실행**:
+     ```bash
+     pytest agent/tests/
+     ```
+   - **API 통합 테스트**: 에이전트 서버가 실행 중인 상태에서 별도의 터미널을 통해 실행합니다.
+     ```bash
+     python agent/tests/test_api_integration.py
+     ```
+   - **보안(PII) 필터 단위 테스트**: LLM 연동 없이 내부 로직을 즉시 검증합니다.
+     ```bash
+     pytest agent/tests/test_pii_filter.py
+     ```
 
 ### 5.1 Quick Test (cURL)
 
