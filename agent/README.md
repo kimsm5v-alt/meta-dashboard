@@ -114,7 +114,21 @@ GEMINI_API_KEY_10=AIza...
    npm run agent
    ```
    *(참고: 루트 디렉토리의 package.json에 정의된 스크립트로, `cd agent && python main.py`를 수행합니다.)*
-2. **테스트 (Testing)**:
+### 5.3 채팅 프론트엔드 실행 (Streamlit)
+
+웹 브라우저를 통해 AI 에이전트와 대화할 수 있는 인터페이스를 제공합니다.
+
+1. **프론트엔드 기동**:
+   ```bash
+   # agent 디렉토리에서 실행
+   streamlit run streamlit_app.py
+   ```
+2. **사용 방법**:
+   - 접속 주소: `http://localhost:8501`
+   - 사이드바에서 API 서버 주소 및 콘텍스트 데이터(JSON)를 설정할 수 있습니다.
+   - 세션 초기화 버튼을 통해 대화 내역을 리셋할 수 있습니다.
+
+### 5.4 테스트 (Testing)
    서비스의 정상 작동 여부와 보안 필터링 기능을 검증하기 위해 제공되는 테스트 스크립트를 실행할 수 있습니다. 상세한 내용은 [tests/README.md](file:///Users/jay/github/work/meta-dashboard/agent/tests/README.md)를 참고하세요.
 
    - **전체 테스트 실행**:
