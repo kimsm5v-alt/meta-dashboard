@@ -3,227 +3,250 @@
 >
 > AI 자가힐링 결과물이 실제 의도와 다를 수 있으므로, **상세 리뷰 내용에 기반한 수동 점검**을 우선해 주시기 바랍니다. 자가힐링 기능을 활용하실 경우 최종 결과물을 신중하게 확인해 주세요.
 
-# 코드 리뷰 결과 - b64e1ab8 (승인)
+# 코드 리뷰 - b64e1ab8
 
 ## 코드 복잡도 분석
 
-**분석된 파일**: 3개 / 변경된 파일: 4개
-
-
-### Import 의존관계 다이어그램
-
-```mermaid
-flowchart TD
-    F0["GroupQueryMapper.java (0 imports)"]
-    F1["GroupInfoMapper.java (0 imports)"]
-    F2["User.java (0 imports)"]
-    F3["SchoolLevel.java (0 imports)"]
-    F4["GroupService.java (17 imports)"]:::center
-    F5["MemberService.java (0 imports)"]
-    F6["ConvertUtils.java (0 imports)"]
-    F7["GroupInfo.java (0 imports)"]
-    F8["MemberType.java (0 imports)"]
-    F9["EmailVerificationService.java (0 imports)"]
-    F10["UserStatus.java (0 imports)"]
-    F11["MemberStatus.java (0 imports)"]
-    F12["GroupMemberMapper.java (1 imports)"]:::center
-    F13["UserMapper.java (0 imports)"]
-    F14["IdGenerator.java (0 imports)"]
-    F15["GroupMember.java (0 imports)"]
-    F16["PageUtil.java (0 imports)"]
-    F17["DgnssService.java (0 imports)"]
-    F12 --> F15
-    F4 --> F0
-    F4 --> F1
-    F4 --> F2
-    F4 --> F3
-    F4 --> F5
-    F4 --> F6
-    F4 --> F7
-    F4 --> F8
-    F4 --> F9
-    F4 --> F10
-    F4 --> F11
-    F4 --> F12
-    F4 --> F13
-    F4 --> F14
-    F4 --> F15
-    F4 --> F16
-    F4 --> F17
-    classDef center fill:#ff6b6b,stroke:#333,stroke-width:3px
-    classDef high fill:#ffd93d,stroke:#333,stroke-width:2px
-```
-
-**범례**: 중심 파일 (변경됨) | 많은 import (10개 이상)
-
-
+**분석된 파일**: 10개 / 변경된 파일: 16개
 
 
 ### 모니터링 권장 (LOW)
 
 
-**`groupmembermapper.java`** (other)
+**`card.tsx`** (other)
 
-- 평균 복잡도: **0.266**
+- 평균 복잡도: **0.245**
 
 - 최대 복잡도: 0.520
 
-- 청크 수: 2개
+- 청크 수: 25개
 
-- 평균 사용처: 34.0곳
-
-
-**권장사항:**
-
-- **모니터링 권장**: 복잡도가 높은 편이지만 영향 범위 제한적
-
-
-**`groupservice.java`** (other)
-
-- 평균 복잡도: **0.264**
-
-- 최대 복잡도: 0.518
-
-- 청크 수: 2개
-
-- 평균 사용처: 15.0곳
+- 평균 사용처: 18.0곳
 
 
 **권장사항:**
 
 - **모니터링 권장**: 복잡도가 높은 편이지만 영향 범위 제한적
 
+- 파일 크기가 큼 (25개 청크) - 파일 분리 검토
 
-**`groupmembermapper.xml`** (other)
 
-- 평균 복잡도: **0.262**
+### 정상 범위 (NONE)
 
-- 최대 복잡도: 0.516
 
-- 청크 수: 2개
+**`vite.config.ts`** (config)
 
-- 평균 사용처: 7.0곳
+- 평균 복잡도: **0.111**
+
+- 최대 복잡도: 0.393
+
+- 청크 수: 9개
+
+- 평균 사용처: 1.8곳
 
 
 **권장사항:**
 
-- **모니터링 권장**: 복잡도가 높은 편이지만 영향 범위 제한적
+- Config 파일은 높은 연결도가 정상적임
+
+
+**`groupservice.ts`** (other)
+
+- 평균 복잡도: **0.005**
+
+- 최대 복잡도: 0.014
+
+- 청크 수: 44개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (44개 청크) - 파일 분리 검토
+
+
+**`examservice.ts`** (other)
+
+- 평균 복잡도: **0.004**
+
+- 최대 복잡도: 0.008
+
+- 청크 수: 29개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (29개 청크) - 파일 분리 검토
+
+
+**`assessmentservice.ts`** (other)
+
+- 평균 복잡도: **0.003**
+
+- 최대 복잡도: 0.008
+
+- 청크 수: 20개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`dgnssservice.ts`** (other)
+
+- 평균 복잡도: **0.003**
+
+- 최대 복잡도: 0.005
+
+- 청크 수: 18개
+
+
+**권장사항:**
+
+- 복잡도 정상 범위
+
+
+**`dashboardservice.ts`** (other)
+
+- 평균 복잡도: **0.003**
+
+- 최대 복잡도: 0.012
+
+- 청크 수: 46개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (46개 청크) - 파일 분리 검토
+
+
+**`useapidata.ts`** (other)
+
+- 평균 복잡도: **0.001**
+
+- 최대 복잡도: 0.008
+
+- 청크 수: 30개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (30개 청크) - 파일 분리 검토
+
+
+**`groupdetailpage.tsx`** (component)
+
+- 평균 복잡도: **0.001**
+
+- 최대 복잡도: 0.014
+
+- 청크 수: 221개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (221개 청크) - 파일 분리 검토
+
+
+**`studentgroupspage.tsx`** (component)
+
+- 평균 복잡도: **0.000**
+
+- 최대 복잡도: 0.014
+
+- 청크 수: 127개
+
+
+**권장사항:**
+
+- 파일 크기가 큼 (127개 청크) - 파일 분리 검토
 
 
 ---
 
 
-## 📋 결론: 승인 (Approved)
+## [GOOD] 잘된 점
+**CP님**이 작업하신 커밋에서 몇 가지 긍정적인 개선 사항을 확인했습니다:
 
-CP님의 커밋은 **그룹 자진탈퇴(LEFT) 학생의 재가입 허용 기능**을 명확하게 구현하여 비즈니스 요구사항을 잘 반영하고 있습니다. 코드 구조가 명확하고 데이터 일관성을 유지하는 방식이 적절하며, Critical이나 High 수준의 문제는 없어 **승인(Approved)** 합니다.
+1. **아키텍처 개선**: 기존의 단일 API 호출(`fetchTeacherExams`)에서 그룹 중심의 모듈화된 접근(`groupService`, `dgnssService`)으로 전환하여 관심사 분리가 잘 이루어졌습니다.
+2. **병렬 처리 최적화**: `Promise.all`을 활용하여 그룹별 진단 목록을 병렬로 조회하여 성능을 개선했습니다.
+3. **상태 관리 개선**: 검사 상태(`examStatus`)를 'in-progress', 'completed', 'no-exams'로 명확하게 구분하여 UI 표현이 용이해졌습니다.
 
----
-
-## 🔍 변경사항 상세 분석
-
-### 1. 변경 요약
-이 커밋은 `vs-develop` 브랜치를 `feature/frontend`에 병합한 Merge 커밋으로, 실제 코드 변경은 그룹 가입 로직의 확장입니다:
-
-| 파일 | 변경 내용 |
-|------|-----------|
-| `GroupMemberMapper.java` | `findByGroupIdAndUserNo()` 메서드 추가 |
-| `GroupService.java` | 기존 멤버 상태 확인 및 재가입 처리 로직 추가 |
-| `GroupMemberMapper.xml` | `findByGroupIdAndUserNo` 쿼리 추가 |
-
-### 2. 구현된 로직의 작동 방식
-
-**핵심 로직 순서 (GroupService.java):**
-
-```java
-1. 기존 멤버 조회 (findByGroupIdAndUserNo)
-2. 기존 멤버가 존재하는 경우:
-   - ACTIVE 상태: "이미 해당 그룹에 가입되어 있습니다." 예외 발생
-   - KICKED 상태: "강퇴된 그룹에는 재가입할 수 없습니다." 예외 발생  
-   - LEFT 상태: 기존 row 재활성화 (status → ACTIVE, joinedAt 갱신)
-3. 기존 멤버가 없는 경우: 새 멤버 생성
-```
-
-### 3. 코드 구현 품질 평가
-
-**👍 우수한 점:**
-- **비즈니스 로직 명확성**: ACTIVE/KICKED/LEFT 상태별 처리가 명확하게 구분되었습니다.
-- **데이터 일관성**: LEFT 상태 멤버의 경우 기존 row를 재활성화하여 데이터 무결성을 유지합니다.
-- **로그 추적성**: `log.info("회원 그룹 재가입: groupId={}, userNo={}, memberId={}")`를 통해 운영 추적이 용이합니다.
-- **트랜잭션 관리**: `@Transactional` 어노테이션으로 데이터 정합성이 보장됩니다.
-
-**⚠️ 개선 제안 사항 (Medium 수준):**
-
-1. **Null-safety 보완**
-   ```java
-   // 현재: null 체크 없이 getStatus() 직접 사용
-   if (existing.getStatus() == MemberStatus.ACTIVE)
-   
-   // 제안: null 체크 추가
-   MemberStatus status = existing.getStatus();
-   if (status == null) {
-       throw new IllegalStateException("회원 상태 정보가 유효하지 않습니다.");
-   }
-   ```
-
-2. **동시성 고려**
-   - 현재 로직은 조회-업데이트 패턴으로, 동일 사용자가 동시에 재가입 요청할 경우 중복 처리 가능성 존재
-   - 해결 방안: `@Transactional(isolation = Isolation.SERIALIZABLE)` 적용 또는 낙관적 락 고려
-
-3. **예외 메시지 개선**
-   - 현재: "이미 해당 그룹에 가입되어 있습니다."
-   - 제안: "이미 해당 그룹의 활성 멤버입니다. 중복 가입이 불가능합니다."
-
-### 4. SQL 쿼리 분석
-
-**추가된 매퍼 메서드:**
-```xml
-<select id="findByGroupIdAndUserNo" resultMap="groupMemberResultMap">
-    SELECT id, group_id, user_no, stdt_id, nickname, /* ... */
-    FROM group_member
-    WHERE group_id = #{groupId} AND user_no = #{userNo}
-    LIMIT 1
-</select>
-```
-- **장점**: 단일 쿼리로 특정 그룹의 사용자 정보 조회 가능
-- **성능**: `LIMIT 1`과 인덱스 활용 가능성으로 효율적
+## 변경사항 요약
+이 커밋은 `feature/frontend` 브랜치에 `vs-develop` 브랜치를 병합한 내용으로, 주로 프론트엔드 환경 설정과 데이터 fetching 로직을 개선했습니다. 개발 환경 API URL을 절대 경로로 변경하고, `useTeacherClasses` 훅을 사용자 인증 기반의 그룹 중심 아키텍처로 재구성했습니다.
 
 ---
 
-## 📊 아키텍처적 고려사항
+## [ISSUE] 개선이 필요한 부분
 
-### 1. 상태 관리 패턴
-CP님의 구현은 **상태 기반 전이(State-based Transition)** 패턴을 잘 적용했습니다:
-- **ACTIVE → (유지)**: 중복 방지
-- **KICKED → (차단)**: 영구적 제한  
-- **LEFT → ACTIVE**: 조건부 재활성화
+### Critical (즉시 수정 필요)
+없음
 
-### 2. 확장성 고려
-현재 구현은 향후 추가될 상태(예: `PAUSED`, `INACTIVE`)에 대비하여 `if-else` 체인으로 구성되었습니다. 상태가 많아질 경우 **전략 패턴(Strategy Pattern)** 도입을 고려할 수 있습니다.
+### High (우선 수정 권장)
+없음
 
-### 3. 데이터 모델 영향도
-- **기존 스키마 변경 없음**: 단순 조회 메서드 추가로 기존 구조에 영향 없음
-- **역호환성 유지**: 새 로직은 기존 데이터와 완전 호환
+### Medium (개선 권장)
+1. **사용되지 않는 변수 정리**: `credSchoolLevel`이 `useCredentials`에서 가져오지만, 실제로는 그룹 데이터의 `schoolLevel`을 사용하고 있어 불필요한 종속성이 있습니다.
+2. **에러 처리 보완**: 개별 그룹의 진단 목록 조회 실패 시 빈 배열을 반환하지만, 사용자에게 부분적 실패를 알릴 수 있는 메커니즘이 부족합니다.
+3. **로딩 상태 최적화**: `hasFetched` 상태 관리가 있지만, 데이터 갱신 요구사항(예: 새로고침)을 고려한 설계가 추가되면 좋을 것입니다.
 
 ---
 
-## ✅ 최종 평가 기준
+## 주요 파일 분석
 
-| 평가 항목 | 결과 | 근거 |
-|-----------|------|------|
-| **기능 정확성** | ✅ 통과 | 상태별 비즈니스 규칙 정확 구현 |
-| **코드 품질** | ✅ 통과 | 가독성 좋은 코드, 적절한 예외 처리 |
-| **성능** | ✅ 통과 | 효율적인 쿼리, 불필요한 연산 없음 |
-| **보안** | ✅ 통과 | 권한 체크 등 보안 이슈 없음 |
-| **유지보수성** | ✅ 통과 | 로깅, 주석, 일관된 패턴 |
+### frontend/src/features/api/useApiData.ts
+**변경 내용:**
+`useTeacherClasses` 훅을 자격 증명 기반에서 사용자 인증 및 그룹 기반 아키텍처로 전면 재구성
+
+**개선 제안:**
+1. **사용되지 않는 임포트 정리**
+   - **위치 (라인 번호)**: 361-362
+   - **기존 코드**: 
+     ```typescript
+     const { tcId, claId, schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
+     ```
+   - **해결 방안 (수정 코드)**:
+     ```typescript
+     const { schoolLevel: credSchoolLevel } = useCredentials();
+     ```
+     *이유: `tcId`, `claId`, `hasCredentials`는 더 이상 사용되지 않으므로 제거하여 코드 정리를 권장합니다.*
+
+2. **에러 처리 개선**
+   - **위치 (라인 번호)**: 390-396 (Promise.all 내부 catch 블록)
+   - **기존 코드**: 
+     ```typescript
+     try {
+       const dgnssList = await dgnssService.getDgnssList(group.claId);
+       return { group, dgnssList };
+     } catch {
+       return { group, dgnssList: [] };
+     }
+     ```
+   - **해결 방안 (수정 코드)**:
+     ```typescript
+     try {
+       const dgnssList = await dgnssService.getDgnssList(group.claId);
+       return { group, dgnssList, error: null };
+     } catch (error) {
+       console.warn(`그룹 ${group.claId}의 진단 목록 조회 실패:`, error);
+       return { group, dgnssList: [], error: error.message };
+     }
+     ```
+     *이유: 조용한 실패 대신 오류 정보를 보존하여 디버깅과 사용자 알림에 활용할 수 있습니다.*
+
+### frontend/.env.development
+**변경 내용:**
+개발 환경 API URL을 상대 경로(`/api`)에서 절대 URL(`https://t-meta-api.vsaidt.com`)로 변경
+
+**의견:**
+이 변경은 개발 환경의 실제 API 서버와의 통합 테스트를 용이하게 합니다. 다만, 환경별 설정 파일(`.env.production`, `.env.local`)의 동기화 상태를 확인할 필요가 있습니다.
 
 ---
 
-## 💡 종합 의견
+## 최종 평가
 
-CP님의 구현은 **그룹 멤버십 상태 관리**라는 복잡한 비즈니스 요구사항을 단순하면서도 효과적으로 해결했습니다. 특히 다음과 같은 점이 인상적입니다:
+**결론**: 
+- [x] [OK] **승인 (Approved)** - Critical/High 이슈 없음
 
-1. **데이터 중심 설계**: 기존 row 재활성화를 통해 불필요한 데이터 증식을 방지하고 일관성 유지
-2. **점진적 개선**: 기존 가입 로직을 확장하여 호환성을 깨지 않는 방식으로 기능 추가
-3. **운영 친화성**: 상세한 로깅을 통해 문제 발생 시 빠른 디버깅 가능
-
-Medium 수준의 개선 제안은 코드 품질을 한 단계 더 높일 수 있는 선택적 사항이며, 현재 상태로도 프로덕션 배포에 문제가 없습니다. **승인(Approved)** 을 권장합니다.
+**종합 의견:**
+**CP님**이 구현하신 아키텍처 전환은 기존 모노리식 데이터 fetching에서 그룹 중심의 모듈화된 접근으로의 발전을 잘 보여줍니다. 특히 병렬 처리와 상태 관리의 개선은 실제 사용자 경험에 긍정적인 영향을 미칠 것입니다. Medium 수준의 개선 사항은 차기 작업에서 고려하시면 될 것으로 판단됩니다.
