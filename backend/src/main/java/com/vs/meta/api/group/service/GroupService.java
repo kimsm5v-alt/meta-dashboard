@@ -143,6 +143,30 @@ public class GroupService {
             userMapper.updateUser(user);
         }
 
+        // 기존 멤버 조회 (탈퇴/강퇴 이력 확인)
+        GroupMember existing = groupMemberMapper.findByGroupIdAndUserNo(groupId, userNo);
+        if (existing != null) {
+            if (existing.getStatus() == MemberStatus.ACTIVE) {
+                throw new IllegalStateException("이미 해당 그룹에 가입되어 있습니다.");
+            }
+            if (existing.getStatus() == MemberStatus.KICKED) {
+                throw new IllegalStateException("강퇴된 그룹에는 재가입할 수 없습니다.");
+            }
+            // LEFT 상태: 재가입 허용 (기존 row 재활성화)
+            existing.updateStatus(MemberStatus.ACTIVE);
+            existing.setNickname(user.getNickname());
+            existing.setJoinedAt(LocalDateTime.now());
+            existing.setLeftAt(null);
+            existing.setUpdatedBy(userNo);
+            groupMemberMapper.updateGroupMember(existing);
+
+            paramData.put("stdtId", existing.getStdtId());
+            paramData.put("memberId", existing.getId());
+
+            log.info("회원 그룹 재가입: groupId={}, userNo={}, memberId={}", groupId, userNo, existing.getId());
+            return paramData;
+        }
+
         Integer maxNo = groupMemberMapper.findMaxMemberNoByGroupId(groupId);
         int memberNo = (maxNo != null ? maxNo : 0) + 1;
 
