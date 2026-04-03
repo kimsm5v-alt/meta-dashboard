@@ -179,6 +179,11 @@ public class GroupService {
             throw new IllegalArgumentException("이메일 인증이 필요합니다.");
         }
 
+        User existingUser = userMapper.findByEmail(email);
+        if (existingUser != null) {
+            throw new IllegalArgumentException("이미 가입된 회원 이메일입니다. 회원으로 로그인하여 그룹에 참가해주세요.");
+        }
+
         String inviteCode = (String) paramData.get("inviteCode");
         if (inviteCode == null || inviteCode.isBlank()) {
             throw new IllegalArgumentException("inviteCode는 필수입니다.");

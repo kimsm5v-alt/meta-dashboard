@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# 가상환경
+.venv/
+venv/
+
+# 환경 변수 (민감 정보)
+.env
+.env.*
+!.env.example
+
+# 테스트
+tests/
+
+# 개발 도구
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/

@@ -81,6 +81,6 @@ llm_router = Router(
     model_list=model_list,
     routing_strategy="least-busy", # 향후 확장성을 고려해 기본 전략 유지
     num_retries=3,
-    set_verbose=True
+    set_verbose=False
 )
 

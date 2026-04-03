@@ -28,7 +28,7 @@ RUN mkdir -p /tmp/client_temp /tmp/proxy_temp /tmp/fastcgi_temp /tmp/uwsgi_temp 
     && touch /tmp/nginx.pid \
     && chown 1000:1000 /tmp/nginx.pid
 
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY frontend/nginx.conf /etc/nginx/nginx.conf
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 RUN chown -R 1000:1000 /usr/share/nginx/html
 

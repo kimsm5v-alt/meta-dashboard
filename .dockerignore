@@ -12,3 +12,14 @@ out
 .idea
 .claude
 .git
+
+# agent 민감 파일 및 불필요 파일
+agent/.env
+agent/.env.*
+!agent/.env.example
+agent/__pycache__/
+agent/**/__pycache__/
+agent/**/*.pyc
+agent/**/*.pyo
+agent/.pytest_cache/
+agent/tests/
