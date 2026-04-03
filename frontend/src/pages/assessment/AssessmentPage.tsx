@@ -9,10 +9,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, ChevronDown } from 'lucide-react';
 
 import { useAuth } from '@features/auth';
-import type { ManagedAssessment } from '@shared/types';
+import type { ManagedAssessment, Group } from '@shared/types';
 import { AlertModal } from '@shared/components';
 import {
   GeneralSection,
@@ -35,6 +35,7 @@ import {
   saveAssessmentMeta,
   getAssessmentMeta,
 } from '@features/assessment/api/assessmentMetaStorage';
+import { groupService } from '@features/groups/api/groupService';
 
 const PageContainer = styled.div`
   max-width: 80rem;
@@ -140,6 +141,53 @@ const LoadingText = styled.span`
   color: ${({ theme }) => theme.colors.gray[600]};
 `;
 
+const GroupSelectWrapper = styled.div`
+  margin-bottom: 1.5rem;
+`;
+
+const GroupSelectLabel = styled.label`
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.gray[700]};
+  margin-bottom: 0.5rem;
+`;
+
+const GroupSelectContainer = styled.div`
+  position: relative;
+  display: inline-block;
+  min-width: 16rem;
+`;
+
+const GroupSelect = styled.select`
+  width: 100%;
+  padding: 0.5rem 2.5rem 0.5rem 0.875rem;
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: ${({ theme }) => theme.colors.gray[900]};
+  background: white;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+
+  &:focus {
+    border-color: ${({ theme }) => theme.colors.primary[500]};
+    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.primary[100]};
+  }
+`;
+
+const GroupSelectIcon = styled(ChevronDown)`
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: ${({ theme }) => theme.colors.gray[400]};
+  pointer-events: none;
+`;
+
 // ============================================================
 // 유틸리티
 // ============================================================
@@ -175,16 +223,18 @@ function convertExamListItem(item: ExamListItem): ManagedAssessment {
 // ============================================================
 
 export const AssessmentPage: React.FC = () => {
-  const { user, credentials } = useAuth();
+  const { user } = useAuth();
 
-  // credentials에서 ID 추출
-  const tcId = credentials?.teacherId ?? '';
-  const claId = credentials?.classId ?? '';
-  const hasCredentials = !!credentials;
+  const tcId = user?.id ?? '';
+
+  // 그룹 목록
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [selectedClaId, setSelectedClaId] = useState('');
+  const [isGroupsLoading, setIsGroupsLoading] = useState(true);
 
   // 상태
   const [assessments, setAssessments] = useState<ManagedAssessment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,24 +255,35 @@ export const AssessmentPage: React.FC = () => {
   // 데이터 로드
   // ============================================================
 
+  // 그룹 목록 초기 로드
+  useEffect(() => {
+    if (!user) return;
+    setIsGroupsLoading(true);
+    groupService
+      .getMyGroups(user.id)
+      .then((g) => {
+        setGroups(g);
+        if (g.length > 0) setSelectedClaId(g[0].claId);
+      })
+      .catch(() => {})
+      .finally(() => setIsGroupsLoading(false));
+  }, [user]);
+
   const loadExamList = useCallback(async () => {
-    if (!hasCredentials) {
-      setIsLoading(false);
-      return;
-    }
+    if (!selectedClaId) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const items = await fetchExamList(claId, tcId, '1');
+      const items = await fetchExamList(selectedClaId, tcId, '1');
       setAssessments(items.map((item) => convertExamListItem(item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : '검사 목록 조회에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
-  }, [hasCredentials, claId, tcId]);
+  }, [selectedClaId, tcId]);
 
   useEffect(() => {
     loadExamList();
@@ -234,7 +295,7 @@ export const AssessmentPage: React.FC = () => {
 
   const handleCreateAssessment = useCallback(
     async (data: AssessmentFormData) => {
-      if (!hasCredentials) return;
+      if (!selectedClaId) return;
 
       setIsProcessing(true);
       setError(null);
@@ -242,7 +303,7 @@ export const AssessmentPage: React.FC = () => {
       try {
         const gradeLevel = schoolLevelToGradeLevel(data.schoolLevel);
 
-        const result = await startExam(claId, tcId, data.round, gradeLevel, '1');
+        const result = await startExam(selectedClaId, tcId, data.round, gradeLevel, '1');
 
         const shortCode = generateShortCode();
         registerExamCode(shortCode, result.claId);
@@ -300,7 +361,7 @@ export const AssessmentPage: React.FC = () => {
         setIsProcessing(false);
       }
     },
-    [user?.id, hasCredentials, claId, tcId, assessments],
+    [user?.id, selectedClaId, tcId, assessments],
   );
 
   // ============================================================
@@ -402,24 +463,44 @@ export const AssessmentPage: React.FC = () => {
         </ProcessingOverlay>
       )}
 
-      {/* credentials 없음 경고 */}
-      {!hasCredentials && (
+      {/* 그룹 선택 */}
+      {!isGroupsLoading && groups.length > 0 && (
+        <GroupSelectWrapper>
+          <GroupSelectLabel>학급 선택</GroupSelectLabel>
+          <GroupSelectContainer>
+            <GroupSelect
+              value={selectedClaId}
+              onChange={(e) => setSelectedClaId(e.target.value)}
+            >
+              {groups.map((g) => (
+                <option key={g.claId} value={g.claId}>
+                  {g.name} ({g.grade}학년 {g.classNumber}반)
+                </option>
+              ))}
+            </GroupSelect>
+            <GroupSelectIcon />
+          </GroupSelectContainer>
+        </GroupSelectWrapper>
+      )}
+
+      {/* 그룹 없음 경고 */}
+      {!isGroupsLoading && groups.length === 0 && (
         <WarningBanner>
           <WarningIcon />
-          <span>로그인 시 입력한 credentials가 없습니다. 다시 로그인해주세요.</span>
+          <span>등록된 학급이 없습니다. 먼저 그룹을 생성해주세요.</span>
         </WarningBanner>
       )}
 
       {/* 로딩 상태 */}
-      {isLoading && hasCredentials && (
+      {(isGroupsLoading || isLoading) && (
         <LoadingContainer>
           <LoadingSpinner />
-          <LoadingText>검사 목록을 불러오는 중...</LoadingText>
+          <LoadingText>불러오는 중...</LoadingText>
         </LoadingContainer>
       )}
 
       {/* 검사 관리 섹션 */}
-      {!isLoading && hasCredentials && (
+      {!isLoading && selectedClaId && (
         <GeneralSection
           assessments={assessments}
           onCreateClick={() => setIsCreateModalOpen(true)}
