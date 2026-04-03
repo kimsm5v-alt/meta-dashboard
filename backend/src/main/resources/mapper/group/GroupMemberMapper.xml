@@ -108,4 +108,12 @@
         LIMIT 1
     </select>
 
+    <select id="findByGroupIdAndUserNo" resultMap="groupMemberResultMap">
+        /* GroupMemberMapper.findByGroupIdAndUserNo */
+        SELECT <include refid="groupMemberColumns"/>
+        FROM group_member
+        WHERE group_id = #{groupId} AND user_no = #{userNo}
+        LIMIT 1
+    </select>
+
 </mapper>
