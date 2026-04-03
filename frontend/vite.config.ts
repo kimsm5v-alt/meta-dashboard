@@ -10,6 +10,11 @@ export default defineConfig({
         target: 'https://t-meta-api.vsaidt.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.setHeader('Origin', 'https://t-meta-api.vsaidt.com');
+          });
+        },
       },
     },
   },

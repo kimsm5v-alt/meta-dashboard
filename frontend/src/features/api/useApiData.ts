@@ -9,7 +9,6 @@ import { API_CONFIG } from '@shared/services/apiClient';
 import {
   fetchClassAnalysis,
   fetchClassAnalysisRaw,
-  fetchTeacherExams,
   buildClassFromAPI,
   fetchL2DashboardData,
   fetchStudentFullAnalysis,
@@ -20,6 +19,8 @@ import {
 import type { SchoolLevel, Student, Class, Assessment } from '@shared/types';
 import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth';
+import { groupService } from '@features/groups/api/groupService';
+import { dgnssService } from '@features/groups/api/dgnssService';
 
 // ============================================================
 // Credentials 헬퍼 훅
@@ -360,7 +361,8 @@ interface UseTeacherClassesResult {
  */
 export function useTeacherClasses(): UseTeacherClassesResult {
   const { classes: mockClasses } = useData();
-  const { tcId, claId, schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
+  const { user } = useAuth();
+  const { schoolLevel: credSchoolLevel } = useCredentials();
   const [apiClasses, setApiClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -368,73 +370,100 @@ export function useTeacherClasses(): UseTeacherClassesResult {
   const [hasFetched, setHasFetched] = useState(false);
 
   const fetchData = useCallback(async () => {
-    // credentials 없으면 DataContext fallback
-    if (!hasCredentials) {
-      setApiClasses([]);
-      setExamStatus('completed');
-      return;
-    }
-
+    if (!user) return;
     if (hasFetched) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const exams = await fetchTeacherExams(claId, tcId, '1');
+      // 그룹 목록 조회
+      const groups = await groupService.getMyGroups(user.id);
 
-      if (exams.length === 0) {
+      if (groups.length === 0) {
         setApiClasses([]);
         setExamStatus('no-exams');
         setHasFetched(true);
         return;
       }
 
-      const completedExams = exams.filter((exam) => exam.dgnssAt === 'N');
-
-      if (completedExams.length === 0) {
-        setApiClasses([]);
-        setExamStatus('in-progress');
-        setHasFetched(true);
-        return;
-      }
-
-      setExamStatus('completed');
-
-      // claId별로 회차별 dgnssId 그룹화
-      const classExamMap = new Map<string, { round1?: number; round2?: number }>();
-      for (const exam of completedExams) {
-        if (!classExamMap.has(exam.claId)) {
-          classExamMap.set(exam.claId, {});
-        }
-        const entry = classExamMap.get(exam.claId)!;
-        if (exam.ordNo === 1) {
-          entry.round1 = exam.dgnssId;
-        } else if (exam.ordNo === 2) {
-          entry.round2 = exam.dgnssId;
-        }
-      }
-
-      // 학급 데이터 병렬 구축
-      const classPromises = Array.from(classExamMap.entries()).map(
-        async ([examClaId, dgnssIds]) => {
-          const parts = examClaId.split('-');
-          const grade = parseInt(parts[0], 10) || 1;
-          const classNumber = parseInt(parts[1], 10) || 1;
-
-          const primaryDgnssId = dgnssIds.round1 ?? dgnssIds.round2;
-          if (!primaryDgnssId) return null;
-
-          return buildClassFromAPI(
-            examClaId,
-            grade,
-            classNumber,
-            credSchoolLevel,
-            primaryDgnssId,
-            dgnssIds.round2,
-          );
-        },
+      // 각 그룹의 검사 목록 병렬 조회
+      const groupDgnssResults = await Promise.all(
+        groups.map(async (group) => {
+          try {
+            const dgnssList = await dgnssService.getDgnssList(group.claId);
+            return { group, dgnssList };
+          } catch {
+            return { group, dgnssList: [] };
+          }
+        }),
       );
+
+      // 진행 중인 검사 여부 확인
+      const hasActive = groupDgnssResults.some((r) => r.dgnssList.some((d) => d.dgnssAt === 'Y'));
+      const hasCompleted = groupDgnssResults.some((r) =>
+        r.dgnssList.some((d) => d.dgnssAt === 'N'),
+      );
+
+      if (hasActive && !hasCompleted) {
+        setExamStatus('in-progress');
+      } else if (hasCompleted) {
+        setExamStatus('completed');
+      } else {
+        setExamStatus('no-exams');
+      }
+
+      // 그룹 → Class 변환 (완료된 검사 기준)
+      const classPromises = groupDgnssResults.map(async ({ group, dgnssList }) => {
+        const completedExams = dgnssList.filter((d) => d.dgnssAt === 'N');
+        const round1 = completedExams.find((d) => d.ordNo === 1);
+        const round2 = completedExams.find((d) => d.ordNo === 2);
+        const primaryDgnssId = round1?.dgnssId ?? round2?.dgnssId;
+
+        const schoolLevel: SchoolLevel =
+          group.schoolLevel === 'elementary'
+            ? '초등'
+            : group.schoolLevel === 'middle'
+              ? '중등'
+              : '고등';
+
+        if (primaryDgnssId) {
+          // 완료된 검사가 있으면 상세 분석 데이터 구축
+          const built = await buildClassFromAPI(
+            group.claId,
+            group.grade,
+            group.classNumber,
+            schoolLevel,
+            primaryDgnssId,
+            round2?.dgnssId,
+          );
+          return built;
+        }
+
+        // 완료된 검사 없으면 기본 Class 구조 반환
+        const activeExam = dgnssList.find((d) => d.dgnssAt === 'Y');
+        const simpleClass: Class = {
+          id: group.claId,
+          schoolLevel: schoolLevel ?? (credSchoolLevel as SchoolLevel),
+          grade: group.grade,
+          classNumber: group.classNumber,
+          teacherId: user.id,
+          students: [],
+          stats: activeExam
+            ? {
+                totalStudents: activeExam.stTotalCnt,
+                assessedStudents: activeExam.stSubmCnt,
+                typeDistribution: {},
+                needAttentionCount: 0,
+                round1Completed: false,
+                round2Completed: false,
+                examStatus: 'in-progress',
+                round2SubmittedCount: 0,
+              }
+            : undefined,
+        };
+        return simpleClass;
+      });
 
       const classResults = await Promise.all(classPromises);
       const validClasses = classResults.filter((c): c is Class => c !== null);
@@ -447,14 +476,15 @@ export function useTeacherClasses(): UseTeacherClassesResult {
     } finally {
       setIsLoading(false);
     }
-  }, [hasFetched, tcId, claId, credSchoolLevel, hasCredentials]);
+  }, [hasFetched, user, credSchoolLevel]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // API 데이터가 있으면 사용, 없으면 mockClasses fallback
-  const classes = apiClasses.length > 0 ? apiClasses : mockClasses;
+  // JWT 있으면 API 데이터, 없으면 mockClasses fallback
+  const hasJwt = !!API_CONFIG.jwtToken;
+  const classes = hasJwt && apiClasses.length > 0 ? apiClasses : mockClasses;
 
   return {
     classes,

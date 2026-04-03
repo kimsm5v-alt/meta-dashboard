@@ -27,8 +27,8 @@ const StyledCard = styled.div<{
       `
       : `
         background: ${theme.colors.background.paper};
-        border: 1px solid ${theme.colors.gray[200]};
-        box-shadow: ${theme.shadows.lg};
+        border: 1px solid ${theme.colors.gray[100]};
+        box-shadow: ${theme.shadows.sm};
       `}
 
   ${({ $hover, theme }) =>
@@ -36,9 +36,8 @@ const StyledCard = styled.div<{
     `
     cursor: pointer;
     &:hover {
-      transform: translateY(-4px);
-      border-color: ${theme.colors.primary[500]}50;
-      box-shadow: ${theme.shadows['2xl']};
+      border-color: ${theme.colors.gray[200]};
+      box-shadow: ${theme.shadows.md};
     }
   `}
 `;

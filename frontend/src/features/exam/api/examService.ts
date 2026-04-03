@@ -1,11 +1,10 @@
 /**
  * 학생용 검사 응시 API 서비스
  *
- * API 문서: docs/api-endpoints.md
- * 엔드포인트: /etc/meta/st/* (학생용)
+ * 엔드포인트: /api/dgnss/st/* (학생용)
  */
 
-import { apiRequest } from '@shared/services/apiClient';
+import { apiClient } from '@shared/api';
 import type {
   ExamQuestion,
   QuestionsResponseData,
@@ -28,16 +27,16 @@ export interface FetchQuestionsResponse {
 
 /**
  * 학생 검사 목록 조회
- * GET /etc/meta/st/info
+ * GET /api/dgnss/st/info
  */
 export async function fetchStudentExamList(
   claId: string,
   stdtId: string,
 ): Promise<StudentExamItem[]> {
-  const response = await apiRequest<StudentExamListResponse>(
-    `/etc/meta/st/info?claId=${claId}&stdtId=${stdtId}`,
+  const res = await apiClient.get<StudentExamListResponse>(
+    `/api/dgnss/st/info?claId=${claId}&stdtId=${stdtId}`,
   );
-  return response.resultData;
+  return res.resultData as unknown as StudentExamItem[];
 }
 
 /**
@@ -50,78 +49,74 @@ export function findActiveExam(exams: StudentExamItem[]): StudentExamItem | null
 
 /**
  * 문항 조회 (페이지네이션)
- * GET /etc/meta/stnt/start/update
+ * GET /api/dgnss/st/start
  */
 export async function fetchQuestions(
   dgnssResultId: number,
   page: number = 0,
   size: number = 20,
 ): Promise<FetchQuestionsResponse> {
-  const response = await apiRequest<QuestionsResponseData>(
-    `/etc/meta/st/start?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`,
+  const res = await apiClient.get<QuestionsResponseData>(
+    `/api/dgnss/st/start?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`,
   );
 
   return {
-    omrIdx: response.resultData.omrIdx,
-    questions: response.resultData.dgnssQuesList,
-    totalPages: response.resultData.page.totalPages,
-    totalQuestions: response.resultData.page.totalElements,
-    answeredCount: response.resultData.stAnsCnt,
+    omrIdx: res.resultData.omrIdx,
+    questions: res.resultData.dgnssQuesList,
+    totalPages: res.resultData.page.totalPages,
+    totalQuestions: res.resultData.page.totalElements,
+    answeredCount: res.resultData.stAnsCnt,
   };
 }
 
 /**
  * 답변 저장
- * POST /etc/meta/st/answer
+ * POST /api/dgnss/st/answer
  */
 export async function saveAnswer(
   omrIdx: number,
   questionNo: number,
   answer: string,
 ): Promise<boolean> {
-  const response = await apiRequest<null>('/etc/meta/st/answer', {
-    method: 'POST',
-    body: JSON.stringify({ omrIdx, no: questionNo, answer }),
-  });
-  return response.success;
+  await apiClient.post<null>('/api/dgnss/st/answer', { omrIdx, no: questionNo, answer });
+  return true;
 }
 
 /**
  * 검사 제출
- * POST /etc/meta/st/submit
+ * POST /api/dgnss/st/submit
  */
 export async function submitExam(dgnssResultId: number, paperIdx: string = '1'): Promise<boolean> {
-  const response = await apiRequest<SubmitResponseData>('/etc/meta/st/submit', {
-    method: 'POST',
-    body: JSON.stringify({ dgnssResultId, paperIdx }),
+  const res = await apiClient.post<SubmitResponseData>('/api/dgnss/st/submit', {
+    dgnssResultId,
+    paperIdx,
   });
-  return response.resultData.submit;
+  return res.resultData.submit;
 }
 
 /**
  * 검사 새로하기 (답안 초기화)
- * GET /etc/meta/st/new
+ * GET /api/dgnss/st/new
  */
 export async function resetExam(
   dgnssResultId: number,
   page: number = 0,
   size: number = 20,
 ): Promise<FetchQuestionsResponse> {
-  const response = await apiRequest<QuestionsResponseData>(
-    `/etc/meta/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`,
+  const res = await apiClient.get<QuestionsResponseData>(
+    `/api/dgnss/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`,
   );
 
-  const questions = response.resultData.dgnssQuesList;
-  // /st/new 응답에는 page 객체가 없을 수 있음 - fullCount에서 총 문항 수 추출
-  const totalQuestions = response.resultData.page?.totalElements ?? questions[0]?.fullCount ?? 124;
-  const totalPages = response.resultData.page?.totalPages ?? Math.ceil(totalQuestions / size);
+  const questions = res.resultData.dgnssQuesList;
+  const totalQuestions = res.resultData.page?.totalElements ?? questions[0]?.fullCount ?? 124;
+  const totalPages = res.resultData.page?.totalPages ?? Math.ceil(totalQuestions / size);
 
   return {
-    omrIdx: response.resultData.omrIdx,
+    omrIdx: res.resultData.omrIdx,
     questions,
     totalPages,
     totalQuestions,
-    answeredCount: response.resultData.stAnsCnt ?? 0,
+    answeredCount: res.resultData.stAnsCnt ?? 0,
   };
 }
 

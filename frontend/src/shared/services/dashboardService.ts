@@ -177,20 +177,23 @@ function getReliabilityWarnings(info: StudentInfoItem | AnalysisSectionItem): st
 
 export async function fetchTeacherExams(
   claId: string,
-  tcId: string,
+  _tcId: string,
   paperIdx?: string,
 ): Promise<DgnssInfoItem[]> {
-  let url = `/etc/meta/tc/info?claId=${claId}&tcId=${tcId}`;
+  let url = `/api/dgnss/tc/info?claId=${claId}`;
   if (paperIdx) {
     url += `&paperIdx=${paperIdx}`;
   }
 
   const response = await apiRequest<DgnssInfoResponse>(url);
-  return response.resultData.dgnssInfo ?? [];
+  // 응답이 배열인 경우와 { dgnssInfo: [...] } 형태 모두 처리
+  const data = response.resultData;
+  if (Array.isArray(data)) return data;
+  return (data as DgnssInfoResponse).dgnssInfo ?? [];
 }
 
 export async function fetchExamDetail(dgnssId: number): Promise<DgnssDetailResponse | null> {
-  const response = await apiRequest<DgnssDetailResponse>(`/etc/meta/tc/detail?dgnssId=${dgnssId}`);
+  const response = await apiRequest<DgnssDetailResponse>(`/api/dgnss/tc/detail?dgnssId=${dgnssId}`);
   return response.resultData;
 }
 
@@ -200,9 +203,11 @@ export async function fetchStudentInfoList(
   type: number = 1,
 ): Promise<StudentInfoItem[]> {
   const response = await apiRequest<StudentInfoListResponse>(
-    `/etc/meta/tc/stinfolist?dgnssId=${dgnssId}&paperIdx=${paperIdx}&type=${type}`,
+    `/api/dgnss/tc/stinfolist?dgnssId=${dgnssId}&paperIdx=${paperIdx}&type=${type}`,
   );
-  return response.resultData.stInfoList ?? [];
+  const data = response.resultData;
+  if (Array.isArray(data)) return data as unknown as StudentInfoItem[];
+  return (data as StudentInfoListResponse).stInfoList ?? [];
 }
 
 export async function fetchNeedAttentionStudents(
@@ -210,7 +215,7 @@ export async function fetchNeedAttentionStudents(
   paperIdx: string = '1',
 ): Promise<NeedStudentsResponse> {
   const response = await apiRequest<NeedStudentsResponse>(
-    `/etc/meta/tc/need?dgnssId=${dgnssId}&paperIdx=${paperIdx}`,
+    `/api/dgnss/tc/need?dgnssId=${dgnssId}&paperIdx=${paperIdx}`,
   );
   return response.resultData;
 }
@@ -221,7 +226,7 @@ export async function fetchClassAnalysis(
   ordNo: number = 1,
 ): Promise<number[]> {
   const response = await apiRequest<AnalysisResponse>(
-    `/etc/meta/tc/analysis?claId=${claId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
+    `/api/dgnss/tc/analysis?claId=${claId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
   );
 
   const roundData = response.resultData[String(ordNo)];
@@ -238,7 +243,7 @@ export async function fetchClassAnalysisRaw(
   ordNo: number = 1,
 ): Promise<AnalysisSectionItem[]> {
   const response = await apiRequest<AnalysisResponse>(
-    `/etc/meta/tc/analysis?claId=${claId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
+    `/api/dgnss/tc/analysis?claId=${claId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
   );
 
   return response.resultData[String(ordNo)] ?? [];
@@ -254,7 +259,7 @@ export async function fetchStudentAnalysis(
   sections: AnalysisSectionItem[];
 }> {
   const response = await apiRequest<AnalysisResponse>(
-    `/etc/meta/st/total/analysis?stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
+    `/api/dgnss/st/analysis?stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
   );
 
   const roundData = response.resultData[String(ordNo)];

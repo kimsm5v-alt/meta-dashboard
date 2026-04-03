@@ -49,9 +49,10 @@ interface BackendGroupMember {
   leftAt?: string;
 }
 
-interface BackendGroupInfo extends BackendGroupListItem {
+interface BackendGroupInfo extends Omit<BackendGroupListItem, 'myRole'> {
   groupId: number;
   groupDesc?: string;
+  myRole?: 'HOST' | 'STUDENT';
 }
 
 interface BackendGroupDetail {
@@ -197,12 +198,36 @@ export const getMyGroups = async (_userId: string): Promise<Group[]> => {
 };
 
 /**
- * 그룹 상세 조회
+ * 그룹 상세 (그룹 정보 + 멤버 목록 한 번에) — API 1회 호출
  */
-export const getGroupById = async (groupId: string, _userId: string): Promise<Group | null> => {
-  const res = await apiClient.get<BackendGroupDetail>(`/group/detail?claId=${groupId}`);
+export const getGroupDetail = async (
+  groupId: string,
+  userId: string,
+): Promise<{ group: Group; members: GroupMember[] } | null> => {
+  const res = await apiClient.get<BackendGroupDetail>(
+    `/group/detail?claId=${groupId}&page=0&size=200`,
+  );
   if (!res.resultData) return null;
-  return toFrontendGroupFromDetail(res.resultData.groupInfo);
+
+  const group = toFrontendGroupFromDetail(res.resultData.groupInfo);
+  // myRole이 백엔드 응답에 없을 경우 hostUserNo와 현재 userId로 직접 판단
+  if (!res.resultData.groupInfo.myRole) {
+    const hostUserNo = res.resultData.groupInfo.hostUserNo;
+    group.myRole = String(hostUserNo) === String(userId) ? 'owner' : 'member';
+  }
+
+  return {
+    group,
+    members: (res.resultData.memberList ?? []).map(toFrontendMember),
+  };
+};
+
+/**
+ * 그룹 상세 조회 (그룹 정보만)
+ */
+export const getGroupById = async (groupId: string, userId: string): Promise<Group | null> => {
+  const result = await getGroupDetail(groupId, userId);
+  return result?.group ?? null;
 };
 
 /**
@@ -261,11 +286,9 @@ export const getGroupByInviteCode = async (
 /**
  * 그룹 멤버 목록 조회
  */
-export const getGroupMembers = async (groupId: string, _userId: string): Promise<GroupMember[]> => {
-  const res = await apiClient.get<BackendGroupDetail>(
-    `/group/detail?claId=${groupId}&page=0&size=200`,
-  );
-  return (res.resultData?.memberList ?? []).map(toFrontendMember);
+export const getGroupMembers = async (groupId: string, userId: string): Promise<GroupMember[]> => {
+  const result = await getGroupDetail(groupId, userId);
+  return result?.members ?? [];
 };
 
 /**
@@ -333,9 +356,12 @@ export const joinGroupAsGuest = async (
 export const kickMember = async (
   _groupId: string,
   memberId: string,
-  _userId: string,
+  userId: string,
 ): Promise<boolean> => {
-  await apiClient.post('/group/member/kick', { memberId: parseInt(memberId, 10) });
+  await apiClient.post('/group/member/kick', {
+    memberId: parseInt(memberId, 10),
+    hostUserNo: parseInt(userId, 10),
+  });
   return true;
 };
 
@@ -344,6 +370,7 @@ export const kickMember = async (
  */
 export const leaveGroup = async (groupId: string, userId: string): Promise<boolean> => {
   const members = await getGroupMembers(groupId, userId);
+  console.log('Members for leaveGroup:', members, groupId, userId);
   const myMember = members.find((m) => m.userId === userId && m.status === 'active');
   if (!myMember) throw new Error('MEMBER_NOT_FOUND');
 
@@ -386,9 +413,7 @@ export const getGroupInvitations = async (
   groupId: string,
   _userId: string,
 ): Promise<EmailInvitation[]> => {
-  const res = await apiClient.get<BackendEmailInvitation[]>(
-    `/group/invite/list?claId=${groupId}`,
-  );
+  const res = await apiClient.get<BackendEmailInvitation[]>(`/group/invite/list?claId=${groupId}`);
 
   return (res.resultData ?? []).map((inv) => ({
     id: String(inv.id),
@@ -443,6 +468,7 @@ export const linkGuestRecords = async (
 export const groupService = {
   createGroup,
   getMyGroups,
+  getGroupDetail,
   getGroupById,
   updateGroup,
   deleteGroup,

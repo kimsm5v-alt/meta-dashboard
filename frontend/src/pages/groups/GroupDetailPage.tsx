@@ -25,6 +25,8 @@ import {
 import { Card, Button, Modal } from '@shared/components';
 import { GroupInviteModal } from '@features/groups/ui';
 import { groupService } from '@features/groups/api/groupService';
+import { dgnssService } from '@features/groups/api/dgnssService';
+import type { DgnssInfo } from '@features/groups/api/dgnssService';
 import { useAuth } from '@features/auth/model/AuthContext';
 import type {
   Group,
@@ -675,6 +677,115 @@ const Spinner = styled(Loader2)`
   animation: ${spinAnimation} 1s linear infinite;
 `;
 
+// 검사 섹션
+const ExamStatusRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.md};
+  flex-wrap: wrap;
+`;
+
+const ExamProgressBar = styled.div`
+  margin: ${({ theme }) => theme.spacing.md} 0;
+`;
+
+const ExamProgressLabel = styled.div`
+  display: flex;
+  justify-content: space-between;
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  color: ${({ theme }) => theme.colors.gray[600]};
+  margin-bottom: ${({ theme }) => theme.spacing.xs};
+`;
+
+const ProgressTrack = styled.div`
+  width: 100%;
+  height: 0.5rem;
+  background: ${({ theme }) => theme.colors.gray[200]};
+  border-radius: 9999px;
+  overflow: hidden;
+`;
+
+const ProgressFill = styled.div<{ $percent: number }>`
+  height: 100%;
+  width: ${({ $percent }) => $percent}%;
+  background: ${({ theme }) => theme.colors.primary[500]};
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+`;
+
+const ExamButtonRow = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.sm};
+  margin-top: ${({ theme }) => theme.spacing.md};
+`;
+
+const ExamHistoryList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.sm};
+  margin-top: ${({ theme }) => theme.spacing.md};
+`;
+
+const ExamHistoryItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  background: ${({ theme }) => theme.colors.gray[50]};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+`;
+
+const ExamHistoryLeft = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+`;
+
+const ExamHistoryTitle = styled.span`
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  color: ${({ theme }) => theme.colors.gray[900]};
+`;
+
+const ExamHistoryDate = styled.span`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.gray[400]};
+`;
+
+const ExamHistoryRight = styled.span`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.gray[500]};
+`;
+
+const ActiveBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  background: #dcfce7;
+  color: #16a34a;
+`;
+
+const EndedBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  background: ${({ theme }) => theme.colors.gray[100]};
+  color: ${({ theme }) => theme.colors.gray[500]};
+`;
+
+const ExamEmptyText = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  color: ${({ theme }) => theme.colors.gray[500]};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+`;
+
 // ============================================================
 // Constants & Helpers
 // ============================================================
@@ -755,6 +866,8 @@ export const GroupDetailPage: React.FC = () => {
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [invitations, setInvitations] = useState<EmailInvitation[]>([]);
+  const [dgnssList, setDgnssList] = useState<DgnssInfo[]>([]);
+  const [isDgnssProcessing, setIsDgnssProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -778,25 +891,27 @@ export const GroupDetailPage: React.FC = () => {
 
       setIsLoading(true);
       try {
-        const [groupData, membersData] = await Promise.all([
-          groupService.getGroupById(groupId, user.id),
-          groupService.getGroupMembers(groupId, user.id),
-        ]);
+        const detail = await groupService.getGroupDetail(groupId, user.id);
 
-        if (!groupData) {
+        if (!detail) {
           setError('그룹을 찾을 수 없거나 접근 권한이 없습니다.');
           return;
         }
 
+        const { group: groupData, members: membersData } = detail;
         setGroup(groupData);
         setMembers(membersData);
 
         if (groupData.myRole === 'owner') {
           try {
-            const invitationsData = await groupService.getGroupInvitations(groupId, user.id);
+            const [invitationsData, dgnssData] = await Promise.all([
+              groupService.getGroupInvitations(groupId, user.id),
+              dgnssService.getDgnssList(groupId),
+            ]);
             setInvitations(invitationsData);
+            setDgnssList(dgnssData);
           } catch {
-            // 초대 목록 로드 실패는 무시
+            // 목록 로드 실패는 무시
           }
         }
       } catch {
@@ -901,6 +1016,58 @@ export const GroupDetailPage: React.FC = () => {
       setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
     } catch {
       // 에러 처리
+    }
+  };
+
+  const handleStartDgnss = async () => {
+    if (!group || !user) return;
+    setIsDgnssProcessing(true);
+    try {
+      const nextOrdNo = dgnssList.length + 1;
+      const gradeStr = String(group.grade);
+      await dgnssService.startDgnss({
+        claId: group.claId,
+        tcId: user.id,
+        ordNo: nextOrdNo,
+        grade: gradeStr,
+        paperIdx: 1,
+      });
+      const updated = await dgnssService.getDgnssList(group.claId);
+      setDgnssList(updated);
+    } catch {
+      // 에러 처리
+    } finally {
+      setIsDgnssProcessing(false);
+    }
+  };
+
+  const handleEndDgnss = async (dgnssId: number) => {
+    setIsDgnssProcessing(true);
+    try {
+      await dgnssService.endDgnss(dgnssId);
+      if (group) {
+        const updated = await dgnssService.getDgnssList(group.claId);
+        setDgnssList(updated);
+      }
+    } catch {
+      // 에러 처리
+    } finally {
+      setIsDgnssProcessing(false);
+    }
+  };
+
+  const handleCancelDgnss = async (dgnssId: number) => {
+    setIsDgnssProcessing(true);
+    try {
+      await dgnssService.cancelDgnss(dgnssId);
+      if (group) {
+        const updated = await dgnssService.getDgnssList(group.claId);
+        setDgnssList(updated);
+      }
+    } catch {
+      // 에러 처리
+    } finally {
+      setIsDgnssProcessing(false);
     }
   };
 
@@ -1049,6 +1216,111 @@ export const GroupDetailPage: React.FC = () => {
           </SummaryCard>
         </Card>
       </SummaryGrid>
+
+      {/* 방장 전용: 검사 관리 섹션 */}
+      {isOwner && (
+        <Card>
+          <SectionTitle>검사 관리</SectionTitle>
+
+          {(() => {
+            const activeDgnss = dgnssList.find((d) => d.dgnssAt === 'Y');
+            const endedList = dgnssList.filter((d) => d.dgnssAt === 'N');
+
+            if (activeDgnss) {
+              const percent =
+                activeDgnss.stTotalCnt > 0
+                  ? Math.round((activeDgnss.stSubmCnt / activeDgnss.stTotalCnt) * 100)
+                  : 0;
+              return (
+                <>
+                  <ExamStatusRow>
+                    <div>
+                      <ActiveBadge>진행 중</ActiveBadge>
+                      <span
+                        style={{
+                          marginLeft: '0.5rem',
+                          fontSize: '0.875rem',
+                          color: '#374151',
+                          fontWeight: 500,
+                        }}
+                      >
+                        {activeDgnss.ordNo}회차 검사
+                      </span>
+                    </div>
+                  </ExamStatusRow>
+                  <ExamProgressBar>
+                    <ExamProgressLabel>
+                      <span>제출 현황</span>
+                      <span>
+                        {activeDgnss.stSubmCnt} / {activeDgnss.stTotalCnt}명 ({percent}%)
+                      </span>
+                    </ExamProgressLabel>
+                    <ProgressTrack>
+                      <ProgressFill $percent={percent} />
+                    </ProgressTrack>
+                  </ExamProgressBar>
+                  <ExamButtonRow>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleEndDgnss(activeDgnss.dgnssId)}
+                      disabled={isDgnssProcessing}
+                    >
+                      {isDgnssProcessing ? (
+                        <Spinner style={{ width: '0.875rem', height: '0.875rem' }} />
+                      ) : (
+                        '검사 종료'
+                      )}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleCancelDgnss(activeDgnss.dgnssId)}
+                      disabled={isDgnssProcessing}
+                      style={{ color: '#dc2626' }}
+                    >
+                      취소
+                    </Button>
+                  </ExamButtonRow>
+                </>
+              );
+            }
+
+            return (
+              <>
+                <ExamEmptyText>현재 진행 중인 검사가 없습니다.</ExamEmptyText>
+                <Button size="sm" onClick={handleStartDgnss} disabled={isDgnssProcessing}>
+                  {isDgnssProcessing ? (
+                    <Spinner style={{ width: '0.875rem', height: '0.875rem', marginRight: '0.5rem' }} />
+                  ) : (
+                    <UserPlus style={{ width: '0.875rem', height: '0.875rem', marginRight: '0.5rem' }} />
+                  )}
+                  검사 시작
+                </Button>
+
+                {endedList.length > 0 && (
+                  <ExamHistoryList>
+                    {endedList.slice(0, 5).map((d) => (
+                      <ExamHistoryItem key={d.dgnssId}>
+                        <ExamHistoryLeft>
+                          <ExamHistoryTitle>{d.ordNo}회차 검사</ExamHistoryTitle>
+                          <ExamHistoryDate>{d.dgnssStDt} ~ {d.dgnssEdDt ?? '-'}</ExamHistoryDate>
+                        </ExamHistoryLeft>
+                        <ExamHistoryRight>
+                          <EndedBadge>종료</EndedBadge>
+                          <span style={{ marginLeft: '0.5rem' }}>
+                            {d.stSubmCnt}/{d.stTotalCnt}명 제출
+                          </span>
+                        </ExamHistoryRight>
+                      </ExamHistoryItem>
+                    ))}
+                  </ExamHistoryList>
+                )}
+              </>
+            );
+          })()}
+        </Card>
+      )}
 
       {/* 방장 전용: 이메일 초대 섹션 */}
       {isOwner && (

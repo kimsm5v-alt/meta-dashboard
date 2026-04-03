@@ -456,10 +456,14 @@ const ModalFormStack = styled.div`
 
 const getSchoolLevelLabel = (level: string | undefined): string => {
   switch (level?.toLowerCase()) {
-    case 'elementary': return '초등학교';
-    case 'middle': return '중학교';
-    case 'high': return '고등학교';
-    default: return level ?? '';
+    case 'elementary':
+      return '초등학교';
+    case 'middle':
+      return '중학교';
+    case 'high':
+      return '고등학교';
+    default:
+      return level ?? '';
   }
 };
 
@@ -477,25 +481,28 @@ export const StudentGroupsPage: React.FC = () => {
   const [joinError, setJoinError] = useState('');
   const [isJoining, setIsJoining] = useState(false);
 
-  const loadGroups = useCallback(async (showRefreshIndicator = false) => {
-    if (!user?.id) return;
+  const loadGroups = useCallback(
+    async (showRefreshIndicator = false) => {
+      if (!user?.id) return;
 
-    if (showRefreshIndicator) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
+      if (showRefreshIndicator) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
 
-    try {
-      const data = await getMyGroups(user.id);
-      setGroups(data.filter((g) => g.myRole === 'member'));
-    } catch {
-      setGroups([]);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [user?.id]);
+      try {
+        const data = await getMyGroups(user.id);
+        setGroups(data.filter((g) => g.myRole === 'member'));
+      } catch {
+        setGroups([]);
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [user?.id],
+  );
 
   useEffect(() => {
     loadGroups();
@@ -526,7 +533,7 @@ export const StudentGroupsPage: React.FC = () => {
         return;
       }
 
-      await joinGroup(groupInfo.id, {}, user.id, user.name);
+      await joinGroup(groupInfo.id, { inviteCode }, user.id, user.name);
       setShowJoinModal(false);
       setInviteCode('');
       loadGroups(true);
@@ -567,7 +574,9 @@ export const StudentGroupsPage: React.FC = () => {
           </HeaderLeft>
         </PageHeader>
         <SkeletonGrid>
-          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+          {[1, 2, 3].map((i) => (
+            <SkeletonCard key={i} />
+          ))}
         </SkeletonGrid>
       </PageRoot>
     );
@@ -577,7 +586,9 @@ export const StudentGroupsPage: React.FC = () => {
     <PageRoot>
       <PageHeader>
         <HeaderLeft>
-          <HeaderIconBox><Users /></HeaderIconBox>
+          <HeaderIconBox>
+            <Users />
+          </HeaderIconBox>
           <div>
             <PageTitle>나의 그룹</PageTitle>
             <PageSubtitle>가입한 그룹을 확인하세요</PageSubtitle>
@@ -585,7 +596,9 @@ export const StudentGroupsPage: React.FC = () => {
         </HeaderLeft>
         <HeaderButtons>
           <GhostButton onClick={() => loadGroups(true)} disabled={isRefreshing}>
-            <RefreshCw style={isRefreshing ? { animation: 'spin 1s linear infinite' } : undefined} />
+            <RefreshCw
+              style={isRefreshing ? { animation: 'spin 1s linear infinite' } : undefined}
+            />
             새로고침
           </GhostButton>
           <PrimaryButton onClick={() => setShowJoinModal(true)}>
@@ -597,7 +610,9 @@ export const StudentGroupsPage: React.FC = () => {
 
       {groups.length === 0 ? (
         <EmptyState>
-          <EmptyIconCircle><Users /></EmptyIconCircle>
+          <EmptyIconCircle>
+            <Users />
+          </EmptyIconCircle>
           <EmptyTitle>가입한 그룹이 없습니다</EmptyTitle>
           <EmptyDesc>초대 코드를 입력하여 그룹에 참여하세요</EmptyDesc>
           <EmptyButton onClick={() => setShowJoinModal(true)}>
@@ -611,12 +626,15 @@ export const StudentGroupsPage: React.FC = () => {
             <GroupCard key={group.id}>
               <GroupCardHeader>
                 <GroupCardLeft>
-                  <GroupIconBox><Users /></GroupIconBox>
+                  <GroupIconBox>
+                    <Users />
+                  </GroupIconBox>
                   <div>
                     <GroupName>{group.name}</GroupName>
                     <GroupMeta>
                       {group.schoolName && `${group.schoolName} • `}
-                      {getSchoolLevelLabel(group.schoolLevel)} {group.grade}학년 {group.classNumber}반
+                      {getSchoolLevelLabel(group.schoolLevel)} {group.grade}학년 {group.classNumber}
+                      반
                     </GroupMeta>
                   </div>
                 </GroupCardLeft>
@@ -642,7 +660,9 @@ export const StudentGroupsPage: React.FC = () => {
         <Overlay>
           <ModalCard>
             <ModalHeader>
-              <ModalIconBox><UserPlus /></ModalIconBox>
+              <ModalIconBox>
+                <UserPlus />
+              </ModalIconBox>
               <div>
                 <ModalTitle>그룹 가입</ModalTitle>
                 <ModalSubtitle>초대 코드를 입력하세요</ModalSubtitle>
@@ -672,12 +692,12 @@ export const StudentGroupsPage: React.FC = () => {
                 </ErrorBox>
               )}
 
-              <HintBox>
-                선생님이 공유한 초대 코드를 입력하면 그룹에 참여할 수 있습니다.
-              </HintBox>
+              <HintBox>선생님이 공유한 초대 코드를 입력하면 그룹에 참여할 수 있습니다.</HintBox>
 
               <ModalFooter>
-                <OutlineButton onClick={closeModal} disabled={isJoining}>취소</OutlineButton>
+                <OutlineButton onClick={closeModal} disabled={isJoining}>
+                  취소
+                </OutlineButton>
                 <JoinButton onClick={handleJoinGroup} disabled={isJoining || !inviteCode.trim()}>
                   {isJoining ? '가입 중...' : '가입하기'}
                 </JoinButton>
