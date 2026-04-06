@@ -16,6 +16,7 @@ import {
   type AnalysisSectionItem,
   type L2DashboardData,
 } from '@shared/services/dashboardService';
+import { SCHOOL_LEVEL_MAP } from '@shared/types';
 import type { SchoolLevel, Student, Class, Assessment } from '@shared/types';
 import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth';
@@ -275,7 +276,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
     setError(null);
 
     try {
-      const exams = await fetchTeacherExams(claId, tcId, '1');
+      const exams = await dgnssService.getDgnssList(claId);
       const completedRound1 = exams.find((exam) => exam.dgnssAt === 'N' && exam.ordNo === 1);
 
       if (!completedRound1) {
@@ -420,12 +421,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         const round2 = completedExams.find((d) => d.ordNo === 2);
         const primaryDgnssId = round1?.dgnssId ?? round2?.dgnssId;
 
-        const schoolLevel: SchoolLevel =
-          group.schoolLevel === 'elementary'
-            ? '초등'
-            : group.schoolLevel === 'middle'
-              ? '중등'
-              : '고등';
+        const schoolLevel: SchoolLevel = SCHOOL_LEVEL_MAP[group.schoolLevel];
 
         if (primaryDgnssId) {
           // 완료된 검사가 있으면 상세 분석 데이터 구축
@@ -457,7 +453,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
                 needAttentionCount: 0,
                 round1Completed: false,
                 round2Completed: false,
-                examStatus: 'in-progress',
+                examStatus: { round1: '진행중', round2: '시작전' },
                 round2SubmittedCount: 0,
               }
             : undefined,

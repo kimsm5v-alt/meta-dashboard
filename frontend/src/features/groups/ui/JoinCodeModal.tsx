@@ -122,51 +122,6 @@ const GroupMeta = styled.p`
   margin-bottom: 12px;
 `;
 
-const GroupOwnerInfo = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: ${({ theme }) => theme.spacing.md};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.gray[500]};
-`;
-
-const InputContainer = styled.div`
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
-
-const SmallLabel = styled.label`
-  display: block;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  color: ${({ theme }) => theme.colors.gray[700]};
-  margin-bottom: 6px;
-`;
-
-const OptionalText = styled.span`
-  color: ${({ theme }) => theme.colors.gray[400]};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.normal};
-`;
-
-const NumberInput = styled.input`
-  width: 100%;
-  padding: 10px 16px;
-  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  outline: none;
-  transition: all ${({ theme }) => theme.transitions.fast};
-
-  &:focus {
-    border-color: ${({ theme }) => theme.colors.primary[500]};
-    box-shadow: 0 0 0 3px ${({ theme }) => theme.colors.primary[200]};
-  }
-`;
-
-const HelperText = styled.p`
-  margin-top: ${({ theme }) => theme.spacing.xs};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[500]};
-`;
 
 const InfoBox = styled.div<{ $variant: 'blue' | 'amber' }>`
   background: ${({ $variant }) => ($variant === 'blue' ? '#eff6ff' : '#fffbeb')};
