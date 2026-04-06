@@ -621,7 +621,7 @@ export type GroupRole = 'owner' | 'member';
 export type GroupMemberType = 'member' | 'guest';
 
 /** 그룹 멤버 상태 */
-export type GroupMemberStatus = 'active' | 'left';
+export type GroupMemberStatus = 'active' | 'left' | 'kicked' | 'archived';
 
 /** 학교급 (영문) - API 통신용 */
 export type SchoolLevelCode = 'elementary' | 'middle' | 'high';
@@ -662,17 +662,13 @@ export interface Group {
   // 관계
   ownerId: string;
   ownerName: string;
-  ownerTcId: string;
   memberCount: number;
 
   // 현재 사용자 역할 정보
   myRole: GroupRole;
-  myTcId?: string; // 방장인 경우
-  myStdtId?: string; // 멤버인 경우
 
   // 상태
   createdAt: Date;
-  updatedAt: Date;
 }
 
 /** 그룹 멤버 */
@@ -684,16 +680,11 @@ export interface GroupMember {
 
   name: string;
   email?: string;
-  studentNumber?: number;
+  gender?: 'M' | 'F';
+  memberNo?: number; // 출석번호 (그룹 내 자동 채번)
 
   memberType: GroupMemberType;
   status: GroupMemberStatus;
-
-  // 검사 상태
-  examStatus?: {
-    round1Completed: boolean;
-    round2Completed: boolean;
-  };
 
   joinedAt: Date;
   leftAt?: Date;
@@ -718,26 +709,23 @@ export interface UpdateGroupInput {
 
 /** 그룹 가입 요청 (회원) */
 export interface JoinGroupInput {
-  studentNumber?: number;
+  inviteCode: string;
 }
 
 /** 그룹 가입 요청 (게스트) */
 export interface GuestJoinGroupInput {
+  inviteCode: string;
+  nickname: string;
   email: string;
-  name: string;
-  studentNumber?: number;
+  gender: 'M' | 'F';
 }
 
-/** 초대 코드로 조회한 그룹 정보 */
+/** 초대 코드로 조회한 그룹 정보 (/group/invite?code=) */
 export interface GroupInviteInfo {
-  id: string;
+  groupId: string;
+  claId: string;
   name: string;
-  schoolLevel: SchoolLevelCode;
-  grade: number;
-  classNumber: number;
-  ownerName: string;
-  memberCount: number;
-  alreadyJoined?: boolean;
+  inviteCode: string;
 }
 
 /** 게스트 기록 (회원 전환 시) */
@@ -752,7 +740,7 @@ export interface GuestRecord {
 }
 
 /** 이메일 초대 상태 */
-export type EmailInvitationStatus = 'pending' | 'sent' | 'accepted' | 'expired';
+export type EmailInvitationStatus = 'pending' | 'sent' | 'accepted' | 'expired' | 'cancelled';
 
 /** 이메일 초대 */
 export interface EmailInvitation {

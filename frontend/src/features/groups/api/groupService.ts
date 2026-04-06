@@ -21,6 +21,7 @@ import type {
 // 백엔드 응답 전용 타입 (내부 사용)
 // ============================================================
 
+/** GET /group/list 응답 배열 항목 */
 interface BackendGroupListItem {
   claId: string;
   groupNm: string;
@@ -32,27 +33,38 @@ interface BackendGroupListItem {
   myRole: 'HOST' | 'STUDENT';
   memberCount: number;
   createdAt: string;
-  hostUserNo: number;
-  hostNickname: string;
 }
 
+/** GET /group/detail 응답의 groupInfo 필드 (SQL 쿼리 반환값) */
+interface BackendGroupInfo {
+  groupId: number;
+  claId: string;
+  hostUserNo: number;
+  groupNm: string;
+  groupDesc?: string;
+  schoolLevel: SchoolLevelCode;
+  grade: string;
+  classNumber: number;
+  schoolName?: string;
+  inviteCode: string;
+  createdAt: string;
+  hostNickname: string;
+  myRole?: 'HOST' | 'STUDENT';
+}
+
+/** GET /group/detail 응답의 memberList 배열 항목 */
 interface BackendGroupMember {
   id: number;
-  groupId: number;
   userNo: number | null;
   stdtId: string;
   nickname: string;
+  gender?: string;
   email?: string;
+  memberNo?: number;
   memberType: 'STUDENT' | 'GUEST';
   status: 'ACTIVE' | 'LEFT' | 'KICKED' | 'ARCHIVED';
-  joinedAt: string;
+  joinedAt?: string;
   leftAt?: string;
-}
-
-interface BackendGroupInfo extends Omit<BackendGroupListItem, 'myRole'> {
-  groupId: number;
-  groupDesc?: string;
-  myRole?: 'HOST' | 'STUDENT';
 }
 
 interface BackendGroupDetail {
@@ -61,26 +73,22 @@ interface BackendGroupDetail {
   page: { page: number; size: number; totalElements: number; totalPages: number };
 }
 
+/** POST /group/create 응답 */
 interface BackendCreateGroupResult {
+  groupId: number;
   claId: string;
-  inviteCode: string;
   groupNm: string;
-  schoolLevel: SchoolLevelCode;
-  grade: string;
-  classNumber: number;
-  schoolName?: string;
-  userNo: number;
+  inviteCode: string;
+  hostUserNo: number;
+  hostNickname: string;
 }
 
+/** GET /group/invite?code= 응답 */
 interface BackendInviteInfo {
+  groupId: number;
   claId: string;
   groupNm: string;
-  schoolLevel: SchoolLevelCode;
-  grade: string;
-  classNumber: number;
-  hostNickname: string;
-  memberCount: number;
-  alreadyJoined?: boolean;
+  inviteCode: string;
 }
 
 interface BackendEmailInvitation {
@@ -103,16 +111,13 @@ const toFrontendGroup = (item: BackendGroupListItem): Group => ({
   schoolLevel: item.schoolLevel,
   grade: parseInt(item.grade, 10),
   classNumber: item.classNumber,
-  description: undefined,
   schoolName: item.schoolName,
   inviteCode: item.inviteCode,
-  ownerId: String(item.hostUserNo),
-  ownerName: item.hostNickname,
-  ownerTcId: '',
+  ownerId: '',
+  ownerName: '',
   memberCount: item.memberCount,
   myRole: item.myRole === 'HOST' ? 'owner' : 'member',
   createdAt: new Date(item.createdAt),
-  updatedAt: new Date(item.createdAt),
 });
 
 const toFrontendGroupFromDetail = (info: BackendGroupInfo): Group => ({
@@ -127,23 +132,30 @@ const toFrontendGroupFromDetail = (info: BackendGroupInfo): Group => ({
   inviteCode: info.inviteCode,
   ownerId: String(info.hostUserNo),
   ownerName: info.hostNickname,
-  ownerTcId: '',
-  memberCount: info.memberCount,
+  memberCount: 0,
   myRole: info.myRole === 'HOST' ? 'owner' : 'member',
   createdAt: new Date(info.createdAt),
-  updatedAt: new Date(info.createdAt),
 });
 
 const toFrontendMember = (m: BackendGroupMember): GroupMember => ({
   id: String(m.id),
-  groupId: String(m.groupId),
+  groupId: '',
   userId: m.userNo != null ? String(m.userNo) : null,
   stdtId: m.stdtId,
   name: m.nickname,
   email: m.email,
+  gender: (m.gender === 'M' || m.gender === 'F') ? m.gender : undefined,
+  memberNo: m.memberNo,
   memberType: m.memberType === 'GUEST' ? 'guest' : 'member',
-  status: m.status === 'ACTIVE' ? 'active' : 'left',
-  joinedAt: new Date(m.joinedAt),
+  status: (() => {
+    switch (m.status) {
+      case 'ACTIVE': return 'active';
+      case 'LEFT': return 'left';
+      case 'KICKED': return 'kicked';
+      case 'ARCHIVED': return 'archived';
+    }
+  })(),
+  joinedAt: m.joinedAt ? new Date(m.joinedAt) : new Date(),
   leftAt: m.leftAt ? new Date(m.leftAt) : undefined,
 });
 
@@ -174,18 +186,16 @@ export const createGroup = async (
     id: data.claId,
     claId: data.claId,
     name: data.groupNm,
-    schoolLevel: data.schoolLevel,
-    grade: parseInt(data.grade, 10),
-    classNumber: data.classNumber,
-    schoolName: data.schoolName,
+    schoolLevel: input.schoolLevel,
+    grade: input.grade,
+    classNumber: input.classNumber,
+    schoolName: input.schoolName,
     inviteCode: data.inviteCode,
-    ownerId: String(data.userNo),
-    ownerName: _userName,
-    ownerTcId: '',
+    ownerId: String(data.hostUserNo),
+    ownerName: data.hostNickname,
     memberCount: 0,
     myRole: 'owner',
     createdAt: new Date(),
-    updatedAt: new Date(),
   };
 };
 
@@ -268,14 +278,10 @@ export const getGroupByInviteCode = async (
 
   const data = res.resultData;
   return {
-    id: data.claId,
+    groupId: String(data.groupId),
+    claId: data.claId,
     name: data.groupNm,
-    schoolLevel: data.schoolLevel,
-    grade: parseInt(data.grade, 10),
-    classNumber: data.classNumber,
-    ownerName: data.hostNickname,
-    memberCount: data.memberCount,
-    alreadyJoined: data.alreadyJoined ?? false,
+    inviteCode: data.inviteCode,
   };
 };
 
@@ -295,21 +301,20 @@ export const getGroupMembers = async (groupId: string, userId: string): Promise<
  * 그룹 가입 (회원)
  */
 export const joinGroup = async (
-  _groupId: string,
-  input: JoinGroupInput & { inviteCode: string },
+  input: JoinGroupInput,
   _userId: string,
   _userName: string,
 ): Promise<GroupMember> => {
-  const res = await apiClient.post<{ stdtId: string; memberId: number }>('/group/join', {
+  const res = await apiClient.post<{ claId: string; memberId: number; stdtId?: string }>('/group/join', {
     inviteCode: input.inviteCode,
   });
 
   const data = res.resultData;
   return {
     id: String(data.memberId),
-    groupId: _groupId,
+    groupId: data.claId,
     userId: _userId,
-    stdtId: data.stdtId,
+    stdtId: data.stdtId ?? '',
     name: _userName,
     memberType: 'member',
     status: 'active',
@@ -321,32 +326,35 @@ export const joinGroup = async (
  * 그룹 가입 (게스트)
  */
 export const joinGroupAsGuest = async (
-  _groupId: string,
-  input: GuestJoinGroupInput & { inviteCode: string },
-): Promise<GroupMember> => {
+  input: GuestJoinGroupInput,
+): Promise<GroupMember & { accessToken: string; refreshToken: string }> => {
   const res = await apiClient.post<{
+    claId: string;
     stdtId: string;
     memberId: number;
     accessToken: string;
     refreshToken: string;
   }>('/group/join-guest', {
     inviteCode: input.inviteCode,
-    nickname: input.name,
+    nickname: input.nickname,
     email: input.email,
-    gender: 'M',
+    gender: input.gender,
   });
 
   const data = res.resultData;
   return {
     id: String(data.memberId),
-    groupId: _groupId,
+    groupId: data.claId,
     userId: null,
     stdtId: data.stdtId,
-    name: input.name,
+    name: input.nickname,
     email: input.email,
+    gender: input.gender,
     memberType: 'guest',
     status: 'active',
     joinedAt: new Date(),
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
   };
 };
 

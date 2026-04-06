@@ -50,18 +50,21 @@ const InputIcon = styled.span`
   }
 `;
 
-const Input = styled.input`
+const Input = styled.input<{ $hasError?: boolean }>`
   width: 100%;
   padding: 0.75rem 1rem 0.75rem 3rem;
-  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
+  border: 1px solid
+    ${({ theme, $hasError }) => ($hasError ? '#dc2626' : theme.colors.gray[300])};
   border-radius: 0.75rem;
   outline: none;
   transition: all 0.15s ease;
 
   &:focus {
-    outline: 2px solid ${({ theme }) => theme.colors.primary[500]};
+    outline: 2px solid
+      ${({ theme, $hasError }) => ($hasError ? '#dc2626' : theme.colors.primary[500])};
     outline-offset: 2px;
-    border-color: ${({ theme }) => theme.colors.primary[500]};
+    border-color: ${({ theme, $hasError }) =>
+      $hasError ? '#dc2626' : theme.colors.primary[500]};
   }
 
   &:disabled {
@@ -236,10 +239,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  // 서버 인증 실패 시 두 필드 모두 강조
+  const [authFailed, setAuthFailed] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setAuthFailed(false);
 
     if (!email.trim()) {
       setError('이메일을 입력해주세요.');
@@ -253,7 +259,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     try {
       await onLogin(email.trim(), password.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
+      const message = err instanceof Error ? err.message : '로그인에 실패했습니다.';
+      setError(message);
+      setAuthFailed(true);
     }
   };
 
@@ -277,10 +285,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             id='email'
             type='email'
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); setAuthFailed(false); setError(''); }}
             placeholder='example@email.com'
             disabled={isLoading}
             autoComplete='email'
+            $hasError={authFailed}
           />
         </InputWrapper>
       </FormGroup>
@@ -296,10 +305,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             id='password'
             type={showPassword ? 'text' : 'password'}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); setAuthFailed(false); setError(''); }}
             placeholder='비밀번호를 입력하세요'
             disabled={isLoading}
             autoComplete='current-password'
+            $hasError={authFailed}
           />
           <PasswordToggle type='button' onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
             {showPassword ? <EyeOff /> : <Eye />}

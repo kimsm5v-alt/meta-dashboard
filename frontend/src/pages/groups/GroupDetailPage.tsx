@@ -675,7 +675,6 @@ const Spinner = styled(Loader2)`
   animation: ${spinAnimation} 1s linear infinite;
 `;
 
-
 // ============================================================
 // Constants & Helpers
 // ============================================================
@@ -712,34 +711,34 @@ const MemberStatusBadge: React.FC<{ type: GroupMemberType; status: GroupMemberSt
   status,
 }) => {
   if (status === 'left') {
-    return <Badge $variant="left">탈퇴</Badge>;
+    return <Badge $variant='left'>탈퇴</Badge>;
   }
 
   if (type === 'guest') {
-    return <Badge $variant="guest">게스트</Badge>;
+    return <Badge $variant='guest'>게스트</Badge>;
   }
 
-  return <Badge $variant="member">회원</Badge>;
+  return <Badge $variant='member'>회원</Badge>;
 };
 
 const DetailSkeleton: React.FC = () => (
   <SkeletonContainer>
     <SkeletonHeader>
-      <SkeletonBox $width="2.5rem" $height="2.5rem" />
+      <SkeletonBox $width='2.5rem' $height='2.5rem' />
       <div>
-        <SkeletonBox $width="8rem" $height="1.75rem" $mb="0.5rem" />
-        <SkeletonBox $width="12rem" $height="1.25rem" />
+        <SkeletonBox $width='8rem' $height='1.75rem' $mb='0.5rem' />
+        <SkeletonBox $width='12rem' $height='1.25rem' />
       </div>
     </SkeletonHeader>
     <SkeletonGrid>
       {[1, 2, 3].map((i) => (
         <Card key={i}>
-          <SkeletonBox $height="4rem" />
+          <SkeletonBox $height='4rem' />
         </Card>
       ))}
     </SkeletonGrid>
     <Card>
-      <SkeletonBox $height="16rem" />
+      <SkeletonBox $height='16rem' />
     </Card>
   </SkeletonContainer>
 );
@@ -972,12 +971,12 @@ export const GroupDetailPage: React.FC = () => {
             <TitleRow>
               <Title>{group.name}</Title>
               {isOwner ? (
-                <Badge $variant="owner">
+                <Badge $variant='owner'>
                   <Crown />
                   방장
                 </Badge>
               ) : (
-                <Badge $variant="blue">
+                <Badge $variant='blue'>
                   <User />
                   참가자
                 </Badge>
@@ -992,17 +991,17 @@ export const GroupDetailPage: React.FC = () => {
         <HeaderActions>
           {isOwner ? (
             <>
-              <Button variant="secondary" onClick={() => setIsInviteModalOpen(true)}>
+              <Button variant='secondary' onClick={() => setIsInviteModalOpen(true)}>
                 <QrCode style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
                 초대 코드
               </Button>
-              <Button variant="secondary" onClick={() => setIsDeleteModalOpen(true)}>
+              <Button variant='secondary' onClick={() => setIsDeleteModalOpen(true)}>
                 <Settings style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
                 설정
               </Button>
             </>
           ) : (
-            <Button variant="secondary" onClick={() => setIsLeaveModalOpen(true)}>
+            <Button variant='secondary' onClick={() => setIsLeaveModalOpen(true)}>
               <LogOut style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
               탈퇴
             </Button>
@@ -1014,7 +1013,7 @@ export const GroupDetailPage: React.FC = () => {
       <SummaryGrid>
         <Card>
           <SummaryCard>
-            <SummaryIcon $color="blue">
+            <SummaryIcon $color='blue'>
               <Users />
             </SummaryIcon>
             <SummaryInfo>
@@ -1025,7 +1024,7 @@ export const GroupDetailPage: React.FC = () => {
         </Card>
         <Card>
           <SummaryCard>
-            <SummaryIcon $color="green">
+            <SummaryIcon $color='green'>
               <QrCode />
             </SummaryIcon>
             <SummaryInfo>
@@ -1038,7 +1037,7 @@ export const GroupDetailPage: React.FC = () => {
         </Card>
         <Card>
           <SummaryCard>
-            <SummaryIcon $color="purple">
+            <SummaryIcon $color='purple'>
               <Crown />
             </SummaryIcon>
             <SummaryInfo>
@@ -1062,8 +1061,8 @@ export const GroupDetailPage: React.FC = () => {
             <InputRow>
               <InputWrapper>
                 <Input
-                  type="email"
-                  placeholder="이메일 주소 입력"
+                  type='email'
+                  placeholder='이메일 주소 입력'
                   value={inviteEmail}
                   onChange={(e) => {
                     setInviteEmail(e.target.value);
@@ -1098,11 +1097,11 @@ export const GroupDetailPage: React.FC = () => {
             </FormLabel>
             <InputRow>
               <ReadOnlyInput
-                type="text"
+                type='text'
                 readOnly
                 value={group ? groupService.generateInviteLink(group.inviteCode) : ''}
               />
-              <Button variant="secondary" onClick={handleCopyInviteLink}>
+              <Button variant='secondary' onClick={handleCopyInviteLink}>
                 {copiedLink ? (
                   <>
                     <Check
@@ -1137,7 +1136,7 @@ export const GroupDetailPage: React.FC = () => {
                       <InvitationEmail>{inv.email}</InvitationEmail>
                       <InvitationTime>{formatRelativeTime(inv.sentAt)}</InvitationTime>
                     </InvitationInfo>
-                    <IconButton onClick={() => handleCancelInvitation(inv.id)} title="초대 취소">
+                    <IconButton onClick={() => handleCancelInvitation(inv.id)} title='초대 취소'>
                       <X />
                     </IconButton>
                   </InvitationItem>
@@ -1153,7 +1152,7 @@ export const GroupDetailPage: React.FC = () => {
         <MemberHeader>
           <SectionTitle style={{ marginBottom: 0 }}>멤버 목록</SectionTitle>
           {isOwner && (
-            <Button size="sm" onClick={() => setIsInviteModalOpen(true)}>
+            <Button size='sm' onClick={() => setIsInviteModalOpen(true)}>
               <QrCode style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
               QR 코드
             </Button>
@@ -1163,8 +1162,8 @@ export const GroupDetailPage: React.FC = () => {
         <SearchWrapper>
           <SearchIcon />
           <SearchInput
-            type="text"
-            placeholder="이름 또는 이메일로 검색..."
+            type='text'
+            placeholder='이름 또는 이메일로 검색...'
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -1202,13 +1201,13 @@ export const GroupDetailPage: React.FC = () => {
                   <TableHeader>이메일</TableHeader>
                   <TableHeader>상태</TableHeader>
                   <TableHeader>가입일</TableHeader>
-                  {isOwner && <TableHeader $align="right">관리</TableHeader>}
+                  {isOwner && <TableHeader $align='right'>관리</TableHeader>}
                 </tr>
               </TableHead>
               <TableBody>
                 {filteredMembers.map((member) => (
                   <tr key={member.id}>
-                    <TableCell>{member.studentNumber ?? '-'}</TableCell>
+                    <TableCell>{member.memberNo ?? '-'}</TableCell>
                     <TableCellBold>{member.name}</TableCellBold>
                     <TableCellMuted>{member.email || '-'}</TableCellMuted>
                     <TableCell>
@@ -1216,13 +1215,13 @@ export const GroupDetailPage: React.FC = () => {
                     </TableCell>
                     <TableCellMuted>{formatRelativeTime(member.joinedAt)}</TableCellMuted>
                     {isOwner && (
-                      <TableCell $align="right">
+                      <TableCell $align='right'>
                         <ActionButton
                           onClick={() => {
                             setSelectedMember(member);
                             setIsKickModalOpen(true);
                           }}
-                          title="멤버 삭제"
+                          title='멤버 삭제'
                         >
                           <Trash2 />
                         </ActionButton>
@@ -1273,11 +1272,11 @@ export const GroupDetailPage: React.FC = () => {
           setIsKickModalOpen(false);
           setSelectedMember(null);
         }}
-        title="멤버 강퇴"
-        size="sm"
+        title='멤버 강퇴'
+        size='sm'
       >
         <ModalContent>
-          <ModalHighlight $variant="danger">
+          <ModalHighlight $variant='danger'>
             <UserX />
             <ModalHighlightText>
               <ModalHighlightTitle>{selectedMember?.name}</ModalHighlightTitle>
@@ -1289,7 +1288,7 @@ export const GroupDetailPage: React.FC = () => {
           </ModalDescription>
           <ModalActions>
             <FlexButton
-              variant="secondary"
+              variant='secondary'
               onClick={() => {
                 setIsKickModalOpen(false);
                 setSelectedMember(null);
@@ -1299,11 +1298,7 @@ export const GroupDetailPage: React.FC = () => {
               취소
             </FlexButton>
             <DangerButton onClick={handleKickMember} disabled={isProcessing}>
-              {isProcessing ? (
-                <Spinner style={{ width: '1rem', height: '1rem' }} />
-              ) : (
-                '강퇴하기'
-              )}
+              {isProcessing ? <Spinner style={{ width: '1rem', height: '1rem' }} /> : '강퇴하기'}
             </DangerButton>
           </ModalActions>
         </ModalContent>
@@ -1313,11 +1308,11 @@ export const GroupDetailPage: React.FC = () => {
       <Modal
         isOpen={isLeaveModalOpen}
         onClose={() => setIsLeaveModalOpen(false)}
-        title="그룹 탈퇴"
-        size="sm"
+        title='그룹 탈퇴'
+        size='sm'
       >
         <ModalContent>
-          <ModalHighlight $variant="warning">
+          <ModalHighlight $variant='warning'>
             <LogOut />
             <ModalHighlightText>
               <ModalHighlightTitle>{group.name}</ModalHighlightTitle>
@@ -1329,18 +1324,14 @@ export const GroupDetailPage: React.FC = () => {
           </ModalDescription>
           <ModalActions>
             <FlexButton
-              variant="secondary"
+              variant='secondary'
               onClick={() => setIsLeaveModalOpen(false)}
               disabled={isProcessing}
             >
               취소
             </FlexButton>
             <WarningButton onClick={handleLeaveGroup} disabled={isProcessing}>
-              {isProcessing ? (
-                <Spinner style={{ width: '1rem', height: '1rem' }} />
-              ) : (
-                '탈퇴하기'
-              )}
+              {isProcessing ? <Spinner style={{ width: '1rem', height: '1rem' }} /> : '탈퇴하기'}
             </WarningButton>
           </ModalActions>
         </ModalContent>
@@ -1350,8 +1341,8 @@ export const GroupDetailPage: React.FC = () => {
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        title="그룹 설정"
-        size="sm"
+        title='그룹 설정'
+        size='sm'
       >
         <SettingsSection>
           <SettingsBlock>
