@@ -78,19 +78,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
     const storedCredentials = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
 
-    if (storedUser && storedCredentials) {
+    if (storedUser) {
       try {
         const user = JSON.parse(storedUser) as User;
-        const creds = JSON.parse(storedCredentials) as TestCredentials;
+        const creds = storedCredentials ? (JSON.parse(storedCredentials) as TestCredentials) : null;
 
-        // localStorage의 이름을 현재 MOCK_TEACHER 이름과 동기화
-        const synced: User = { ...user, name: MOCK_TEACHER.name };
-        if (synced.name !== user.name) {
-          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(synced));
+        // localStorage의 이름을 현재 MOCK_TEACHER 이름과 동기화 (테스트 로그인 케이스)
+        if (creds) {
+          const synced: User = { ...user, name: MOCK_TEACHER.name };
+          if (synced.name !== user.name) {
+            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(synced));
+          }
+          setState({ user: synced, isAuthenticated: true, isLoading: false });
+          setCredentials(creds);
+        } else {
+          setState({ user, isAuthenticated: true, isLoading: false });
         }
-
-        setState({ user: synced, isAuthenticated: true, isLoading: false });
-        setCredentials(creds);
       } catch {
         localStorage.removeItem(AUTH_STORAGE_KEY);
         localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
@@ -99,6 +102,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } else {
       setState((prev) => ({ ...prev, isLoading: false }));
     }
+  }, []);
+
+  // client.ts에서 refresh 실패 시 발생하는 이벤트 + 다른 탭 로그아웃 동기화
+  useEffect(() => {
+    const handleForceLogout = () => {
+      setCredentials(null);
+      setState({ user: null, isAuthenticated: false, isLoading: false });
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      // 다른 탭에서 auth_token이 제거되면 (로그아웃) 현재 탭도 로그아웃
+      if (e.key === 'auth_token' && !e.newValue) {
+        handleForceLogout();
+      }
+    };
+
+    window.addEventListener('auth:logout', handleForceLogout);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('auth:logout', handleForceLogout);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   // 테스트 로그인
@@ -145,45 +171,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setState({ user, isAuthenticated: true, isLoading: false });
   }, []);
 
-  // 이메일/비밀번호 로그인
+  // 이메일/비밀번호 로그인 — isLoading을 건드리지 않음 (로딩은 호출자가 관리)
   const loginWithEmail = useCallback(async (email: string, password: string) => {
-    setState((prev) => ({ ...prev, isLoading: true }));
+    const res = await apiClient.post<{
+      userNo: number;
+      email: string;
+      nickname: string;
+      gender: string;
+      roleCode: string;
+      tcId: string | null;
+      stdtId: string | null;
+      accessToken: string;
+      refreshToken: string;
+    }>('/member/login', { email, password });
 
-    try {
-      const res = await apiClient.post<{
-        userNo: number;
-        email: string;
-        nickname: string;
-        gender: string;
-        roleCode: string;
-        tcId: string | null;
-        stdtId: string | null;
-        accessToken: string;
-        refreshToken: string;
-      }>('/member/login', { email, password });
+    const data = res.resultData;
 
-      const data = res.resultData;
+    localStorage.setItem('auth_token', data.accessToken);
+    localStorage.setItem('refresh_token', data.refreshToken);
 
-      localStorage.setItem('auth_token', data.accessToken);
-      localStorage.setItem('refresh_token', data.refreshToken);
+    const user: User = {
+      id: String(data.userNo),
+      name: data.nickname,
+      email: data.email,
+      memberType: 'general',
+      provider: 'vivasam',
+      roleCode: data.roleCode,
+      ...(data.tcId ? { tcId: data.tcId } : {}),
+      ...(data.stdtId ? { stdtId: data.stdtId } : {}),
+    };
 
-      const user: User = {
-        id: String(data.userNo),
-        name: data.nickname,
-        email: data.email,
-        memberType: 'general',
-        provider: 'vivasam',
-        roleCode: data.roleCode,
-        ...(data.tcId ? { tcId: data.tcId } : {}),
-        ...(data.stdtId ? { stdtId: data.stdtId } : {}),
-      };
-
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-      setState({ user, isAuthenticated: true, isLoading: false });
-    } catch (err) {
-      setState((prev) => ({ ...prev, isLoading: false }));
-      throw err;
-    }
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    setState({ user, isAuthenticated: true, isLoading: false });
   }, []);
 
   // 이메일 인증코드 발송
@@ -227,6 +246,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // 로그아웃
   const logout = useCallback(() => {
+    const refreshToken = localStorage.getItem('refresh_token');
+
+    // 백엔드 로그아웃 (refreshToken 무효화) — 실패해도 클라이언트는 로그아웃
+    if (refreshToken) {
+      apiClient.post('/member/logout', { refreshToken }).catch(() => {});
+    }
+
     localStorage.removeItem(AUTH_STORAGE_KEY);
     localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
     localStorage.removeItem('auth_token');

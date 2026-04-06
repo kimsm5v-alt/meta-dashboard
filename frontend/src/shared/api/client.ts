@@ -40,8 +40,10 @@ export class ApiError extends Error {
 // Axios 인스턴스
 // ============================================================
 
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8081';
+
 export const axiosInstance: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8081',
+  baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -49,9 +51,58 @@ export const axiosInstance: AxiosInstance = axios.create({
 });
 
 // 인증 불필요 엔드포인트 (토큰 전송 제외)
-const PUBLIC_ENDPOINTS = ['/member/login', '/member/signup', '/member/send-code', '/member/verify-code'];
+const PUBLIC_ENDPOINTS = [
+  '/member/login',
+  '/member/signup',
+  '/member/send-code',
+  '/member/verify-code',
+  '/member/token/refresh',
+];
 
+// ============================================================
+// Silent Refresh — 동시 요청 큐
+// ============================================================
+
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (err: unknown) => void;
+}> = [];
+
+const processQueue = (error: unknown, token: string | null) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) reject(error);
+    else resolve(token!);
+  });
+  failedQueue = [];
+};
+
+const tryRefreshToken = async (): Promise<string> => {
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) throw new Error('NO_REFRESH_TOKEN');
+
+  // axiosInstance를 거치지 않는 순수 axios 호출 (인터셉터 루프 방지)
+  const res = await axios.post<APIResponse<{ accessToken: string; refreshToken?: string }>>(
+    `${BASE_URL}/member/token/refresh`,
+    { refreshToken },
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+
+  const data = res.data.resultData;
+  if (!data?.accessToken) throw new Error('REFRESH_FAILED');
+
+  localStorage.setItem('auth_token', data.accessToken);
+  if (data.refreshToken) {
+    localStorage.setItem('refresh_token', data.refreshToken);
+  }
+
+  return data.accessToken;
+};
+
+// ============================================================
 // 요청 인터셉터 — JWT 자동 주입
+// ============================================================
+
 axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const isPublic = PUBLIC_ENDPOINTS.some((ep) => config.url?.includes(ep));
   if (!isPublic) {
@@ -63,10 +114,12 @@ axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// 응답 인터셉터 — 에러 정규화
+// ============================================================
+// 응답 인터셉터 — 에러 정규화 + Silent Refresh
+// ============================================================
+
 axiosInstance.interceptors.response.use(
   (response: AxiosResponse) => {
-    // HTTP 200이지만 success: false인 경우
     const data = response.data as APIResponse<unknown>;
     if (data && data.success === false) {
       const message = data.resultMessage ?? 'API Error';
@@ -74,8 +127,44 @@ axiosInstance.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     const status = error.response?.status ?? 0;
+
+    // 401이고 재시도 아직 안 한 경우 → refresh 시도
+    if (status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      if (isRefreshing) {
+        // 이미 refresh 중이면 큐에 대기
+        return new Promise<string>((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return axiosInstance(originalRequest);
+        });
+      }
+
+      isRefreshing = true;
+
+      try {
+        const newToken = await tryRefreshToken();
+        processQueue(null, newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return axiosInstance(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        // refresh 실패 → 강제 로그아웃
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('meta_auth_user');
+        window.dispatchEvent(new Event('auth:logout'));
+        return Promise.reject(new ApiError(401, 'SESSION_EXPIRED'));
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
     const message = error.response?.data?.resultMessage ?? error.message ?? 'API Error';
     const resultCode = error.response?.data?.resultCode;
     return Promise.reject(new ApiError(status, message, resultCode));
