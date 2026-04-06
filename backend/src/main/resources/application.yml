@@ -97,7 +97,7 @@ ncp:
 app:
   frontend-url: ${APP_FRONTEND_URL:https://t-meta-service.vsaidt.com}
   cors:
-    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:https://t-meta-service.vsaidt.com,http://localhost:5173}
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:https://t-meta-service.vsaidt.com,http://localhost:5173,http://localhost:5174}
 
 # 로그인 Rate Limiting
 login:
