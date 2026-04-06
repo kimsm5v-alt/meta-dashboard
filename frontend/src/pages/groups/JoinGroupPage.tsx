@@ -16,16 +16,9 @@ import { Button } from '@shared/components';
 import { LoginForm } from '@features/auth/ui/LoginForm';
 import { groupService } from '@features/groups/api/groupService';
 import { useAuth } from '@features/auth/model/AuthContext';
-import type { GroupInviteInfo, SchoolLevelCode } from '@shared/types';
+import type { GroupInviteInfo } from '@shared/types';
 
 type PageStep = 'loading' | 'info' | 'guest-form' | 'joining' | 'success' | 'error';
-
-/** 학교급 라벨 */
-const SCHOOL_LEVEL_LABELS: Record<SchoolLevelCode, string> = {
-  elementary: '초등',
-  middle: '중등',
-  high: '고등',
-};
 
 // ============================================================
 // Animations
@@ -434,12 +427,6 @@ export const JoinGroupPage: React.FC = () => {
           return;
         }
 
-        if (info.alreadyJoined) {
-          setError('이미 가입된 그룹입니다.');
-          setStep('error');
-          return;
-        }
-
         setGroupInfo(info);
         setStep('info');
       } catch {
@@ -476,7 +463,7 @@ export const JoinGroupPage: React.FC = () => {
 
     setStep('joining');
     try {
-      await groupService.joinGroup(groupInfo.id, {}, user.id, user.name);
+      await groupService.joinGroup({ inviteCode: groupInfo.inviteCode }, user.id, user.name);
       setStep('success');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '';
@@ -508,9 +495,11 @@ export const JoinGroupPage: React.FC = () => {
     setStep('joining');
 
     try {
-      await groupService.joinGroupAsGuest(groupInfo.id, {
+      await groupService.joinGroupAsGuest({
+        inviteCode: groupInfo.inviteCode,
+        nickname: guestNickname.trim(),
         email: guestEmail.trim(),
-        name: guestNickname.trim(),
+        gender: 'M',
       });
       setStep('success');
     } catch {
@@ -576,7 +565,7 @@ export const JoinGroupPage: React.FC = () => {
           </Subtitle>
           {isAuthenticated ? (
             <Button
-              onClick={() => navigate(`/groups/${groupInfo?.id}`)}
+              onClick={() => navigate(`/groups/${groupInfo?.claId}`)}
               className="w-full justify-center"
             >
               그룹 보기
@@ -628,7 +617,7 @@ export const JoinGroupPage: React.FC = () => {
             </SmallIconCircle>
             <SmallTitle>게스트 로그인</SmallTitle>
             <GroupInfoText>
-              <PrimaryName>{groupInfo.name}</PrimaryName> ({groupInfo.ownerName})
+              <PrimaryName>{groupInfo.name}</PrimaryName>
             </GroupInfoText>
           </HeaderSection>
 
@@ -732,7 +721,7 @@ export const JoinGroupPage: React.FC = () => {
           <SmallTitle>그룹 가입</SmallTitle>
           {groupInfo && (
             <GroupInfoText>
-              <PrimaryName>{groupInfo.name}</PrimaryName> ({groupInfo.ownerName})
+              <PrimaryName>{groupInfo.name}</PrimaryName>
             </GroupInfoText>
           )}
         </HeaderSection>
@@ -741,11 +730,7 @@ export const JoinGroupPage: React.FC = () => {
           <MainCard>
             {/* 그룹 정보 요약 */}
             <GroupSummary>
-              <SummaryText>
-                {SCHOOL_LEVEL_LABELS[groupInfo.schoolLevel]} {groupInfo.grade}학년{' '}
-                {groupInfo.classNumber}반
-              </SummaryText>
-              <SummaryText>현재 멤버 {groupInfo.memberCount}명</SummaryText>
+              <SummaryText>초대코드: {groupInfo.inviteCode}</SummaryText>
             </GroupSummary>
 
             {isAuthenticated && user ? (

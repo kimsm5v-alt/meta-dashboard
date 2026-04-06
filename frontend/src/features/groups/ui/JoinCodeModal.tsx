@@ -5,20 +5,13 @@ import { QrCode, Search, Loader2, AlertCircle, Users, CheckCircle } from 'lucide
 import { Modal, Button } from '@shared/components';
 import { groupService } from '../api/groupService';
 import { useAuth } from '@features/auth/model/AuthContext';
-import type { GroupInviteInfo, SchoolLevelCode } from '@shared/types';
+import type { GroupInviteInfo } from '@shared/types';
 
 interface JoinCodeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onJoinSuccess?: (groupId: string) => void;
 }
-
-/** 학교급 라벨 */
-const SCHOOL_LEVEL_LABELS: Record<SchoolLevelCode, string> = {
-  elementary: '초등',
-  middle: '중등',
-  high: '고등',
-};
 
 type Step = 'input' | 'preview' | 'joining' | 'success' | 'error';
 
@@ -263,14 +256,12 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
   const [code, setCode] = useState('');
   const [step, setStep] = useState<Step>('input');
   const [groupInfo, setGroupInfo] = useState<GroupInviteInfo | null>(null);
-  const [studentNumber, setStudentNumber] = useState<string>('');
   const [error, setError] = useState('');
 
   const resetState = () => {
     setCode('');
     setStep('input');
     setGroupInfo(null);
-    setStudentNumber('');
     setError('');
   };
 
@@ -298,7 +289,8 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
         return;
       }
 
-      if (info.alreadyJoined) {
+      if (false) {
+        // alreadyJoined 필드 제거됨 — 서버에서 이미 가입된 경우 에러 응답
         setError('이미 가입된 그룹입니다.');
         setStep('error');
         return;
@@ -320,8 +312,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
 
     try {
       await groupService.joinGroup(
-        groupInfo.id,
-        { studentNumber: studentNumber ? parseInt(studentNumber) : undefined },
+        { inviteCode: groupInfo.inviteCode },
         user.id,
         user.name,
       );
@@ -332,7 +323,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
       setTimeout(() => {
         handleClose();
         if (onJoinSuccess) {
-          onJoinSuccess(groupInfo.id);
+          onJoinSuccess(groupInfo.claId);
         }
       }, 2000);
     } catch (err) {
@@ -411,33 +402,8 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
               <Users size={32} color='#7c3aed' />
             </IconWrapper>
             <GroupTitle>{groupInfo.name}</GroupTitle>
-            <GroupMeta>
-              {SCHOOL_LEVEL_LABELS[groupInfo.schoolLevel]} {groupInfo.grade}학년{' '}
-              {groupInfo.classNumber}반
-            </GroupMeta>
-            <GroupOwnerInfo>
-              <span>방장: {groupInfo.ownerName}</span>
-              <span>멤버 {groupInfo.memberCount}명</span>
-            </GroupOwnerInfo>
+            <GroupMeta>초대코드: {groupInfo.inviteCode}</GroupMeta>
           </GroupPreview>
-
-          {/* 출석번호 입력 (선택) */}
-          {user && (
-            <InputContainer>
-              <SmallLabel>
-                출석번호 <OptionalText>(선택)</OptionalText>
-              </SmallLabel>
-              <NumberInput
-                type='number'
-                value={studentNumber}
-                onChange={(e) => setStudentNumber(e.target.value)}
-                placeholder='출석번호를 입력하세요'
-                min={1}
-                max={50}
-              />
-              <HelperText>나중에 방장이 수정할 수 있습니다.</HelperText>
-            </InputContainer>
-          )}
 
           {/* 안내 문구 */}
           {user ? (

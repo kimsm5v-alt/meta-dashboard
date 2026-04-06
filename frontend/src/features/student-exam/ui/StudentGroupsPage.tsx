@@ -528,12 +528,8 @@ export const StudentGroupsPage: React.FC = () => {
         setJoinError('유효하지 않은 초대 코드입니다.');
         return;
       }
-      if (groupInfo.alreadyJoined) {
-        setJoinError('이미 가입한 그룹입니다.');
-        return;
-      }
 
-      await joinGroup(groupInfo.id, { inviteCode }, user.id, user.name);
+      await joinGroup({ inviteCode: groupInfo.inviteCode }, user.id, user.name);
       setShowJoinModal(false);
       setInviteCode('');
       loadGroups(true);
