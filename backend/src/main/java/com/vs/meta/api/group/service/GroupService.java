@@ -125,6 +125,10 @@ public class GroupService {
             throw new IllegalArgumentException("사용자를 찾을 수 없습니다: userNo=" + userNo);
         }
 
+        if ("TEACHER".equals(user.getRoleCode())) {
+            throw new IllegalStateException("교사 계정은 다른 교사의 그룹에 참여할 수 없습니다. 직접 그룹을 생성해주세요.");
+        }
+
         GroupInfo groupInfo = groupInfoMapper.findByInviteCodeAndUseYnForUpdate(inviteCode.toUpperCase(), "Y");
         if (groupInfo == null) {
             throw new IllegalArgumentException("유효한 초대코드가 아닙니다: " + inviteCode);
