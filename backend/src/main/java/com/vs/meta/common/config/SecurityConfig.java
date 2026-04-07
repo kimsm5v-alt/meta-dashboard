@@ -126,7 +126,7 @@ public class SecurityConfig {
                 .authorizeRequests()
                     .antMatchers("/member/login", "/member/signup", "/member/token/refresh",
                             "/member/logout", "/member/send-code", "/member/verify-code",
-                            "/group/join-guest",
+                            "/group/invite", "/group/join-guest",
                             "/guest/exists", "/guest/auth").permitAll()
                     .antMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     .antMatchers("/viva/metric/prometheus").permitAll()
