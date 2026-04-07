@@ -10,3 +10,6 @@ pydantic
 sqlalchemy
 psycopg2-binary
 tiktoken
+streamlit
+requests
+pytest

@@ -81,11 +81,68 @@ GEMINI_API_KEY_10=AIza...
 
 ## 5. 로컬 실행 가이드
 
-1. **설치 및 실행**:
+### 5.1 사전 준비 (Python 환경 설정)
+
+이 프로젝트는 Python 3.11.9 버전을 권장하며, `pyenv`와 `venv`를 사용하여 환경을 격리하는 것을 권장합니다.
+
+1. **Python 버전 설치 (pyenv)**:
+   ```bash
+   # .python-version 파일에 명시된 버전 설치
+   pyenv install 3.11.9
+   pyenv local 3.11.9
+   ```
+
+2. **가상환경 생성 및 활성화**:
+   ```bash
+   # 가상환경 생성
+   python -m venv .venv
+
+   # 가상환경 활성화 (macOS/Linux)
+   source .venv/bin/activate
+   ```
+
+3. **의존성 패키지 설치**:
+   ```bash
+   pip install --upgrade pip
+   pip install -r requirements.txt
+   ```
+
+### 5.2 서비스 실행
+
+1. **기동 명령어**:
    ```bash
    npm run agent
    ```
-2. **테스트**: `agent/tests/test_api_integration.py`를 통해 API 작동 여부와 로드밸런싱 구조를 검증할 수 있습니다.
+   *(참고: 루트 디렉토리의 package.json에 정의된 스크립트로, `cd agent && python main.py`를 수행합니다.)*
+### 5.3 채팅 프론트엔드 실행 (Streamlit)
+
+웹 브라우저를 통해 AI 에이전트와 대화할 수 있는 인터페이스를 제공합니다.
+
+1. **프론트엔드 기동**:
+   ```bash
+   # agent 디렉토리에서 실행
+   streamlit run streamlit_app.py
+   ```
+2. **사용 방법**:
+   - 접속 주소: `http://localhost:8501`
+   - 사이드바에서 API 서버 주소 및 콘텍스트 데이터(JSON)를 설정할 수 있습니다.
+   - 세션 초기화 버튼을 통해 대화 내역을 리셋할 수 있습니다.
+
+### 5.4 테스트 (Testing)
+   서비스의 정상 작동 여부와 보안 필터링 기능을 검증하기 위해 제공되는 테스트 스크립트를 실행할 수 있습니다. 상세한 내용은 [tests/README.md](file:///Users/jay/github/work/meta-dashboard/agent/tests/README.md)를 참고하세요.
+
+   - **전체 테스트 실행**:
+     ```bash
+     pytest agent/tests/
+     ```
+   - **API 통합 테스트**: 에이전트 서버가 실행 중인 상태에서 별도의 터미널을 통해 실행합니다.
+     ```bash
+     python agent/tests/test_api_integration.py
+     ```
+   - **보안(PII) 필터 단위 테스트**: LLM 연동 없이 내부 로직을 즉시 검증합니다.
+     ```bash
+     pytest agent/tests/test_pii_filter.py
+     ```
 
 ### 5.1 Quick Test (cURL)
 
@@ -121,7 +178,18 @@ curl -s -X POST http://localhost:8000/chat \
   }' | python3 -m json.tool
 ```
 
-**4. 세션 초기화**
+**4. 실시간 스트리밍 대화 (SSE)**
+버퍼링을 방지하기 위해 `-N` (또는 `--no-buffer`) 옵션을 사용하여 실시간으로 생성되는 텍스트 청크를 확인할 수 있습니다.
+```bash
+curl -N -s -X POST http://localhost:8000/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "실시간 응답 테스트를 해줘",
+    "session_id": "test_session_002"
+  }'
+```
+
+**5. 세션 초기화**
 ```bash
 curl -s -X DELETE http://localhost:8000/chat/test_session_001 | python3 -m json.tool
 ```
@@ -157,4 +225,70 @@ docker run -d -p 8000:8000 --env-file agent/.env --name meta-agent meta-agent-se
 > **핵심 원칙**: API 키를 이미지에 굽지 않고 실행 환경에서 주입합니다. `.env` 파일은 배포 서버에만 존재하며 Git 및 이미지에는 포함되지 않습니다.
 
 
+## 7. Kubernetes 배포 가이드 (Argo CD & Jenkins)
 
+Kubernetes(K8s) 환경에서 본 서비스를 배포할 때는 GitOps 원칙에 따라 환경 변수를 **ConfigMap**과 **Secret**으로 분리하여 주입하는 것이 권장됩니다.
+
+### 7.1 환경 변수 리소스 정의
+
+일반 설정은 `ConfigMap`에, API 키와 같은 민감 정보는 `Secret`에 정의합니다.
+
+**ConfigMap 예시 (`agent-config.yaml`):**
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-config
+  namespace: meta-dashboard
+data:
+  GEMINI_MODEL: "gemini-2.5-flash"
+  LOG_LEVEL: "INFO"
+```
+
+**Secret 예시 (`agent-secret.yaml`):**
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: agent-secret
+  namespace: meta-dashboard
+type: Opaque
+stringData:
+  # 현실적으로는 Sealed Secrets나 External Secrets를 통해 암호화 관리 권장
+  GEMINI_API_KEY: "AIza..."
+  GEMINI_API_KEY_2: "AIza..."
+  # ... 필요한 만큼 추가
+```
+
+### 7.2 Deployment 적용 방식 (`envFrom`)
+
+개별 변수를 하나씩 매핑하는 대신, `envFrom`을 사용하여 ConfigMap과 Secret의 모든 필드를 한 번에 주입하는 방식이 유지보수에 유리합니다.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meta-agent-deployment
+spec:
+  template:
+    spec:
+      containers:
+      - name: meta-agent
+        image: meta-agent-service:latest
+        ports:
+        - containerPort: 8000
+        # 환경 변수 일괄 주입
+        envFrom:
+        - configMapRef:
+            name: agent-config
+        - secretRef:
+            name: agent-secret
+```
+
+### 7.3 CI/CD 파이프라인 (Jenkins + Argo CD)
+
+1.  **Jenkins**: 애플리케이션 코드를 빌드하고 Docker 이미지를 Push한 뒤, K8s 매니페스트 레포지토리의 이미지 태그만 업데이트합니다.
+2.  **Argo CD**: 매니페스트 레포지토리의 변경을 감지하여 클러스터에 배포합니다. 이때 위에서 정의한 `ConfigMap/Secret`이 함께 동기화됩니다.
+3.  **동작 원리**: 컨테이너가 시작될 때 K8s가 환경 변수를 주입하면, 애플리케이션 내부의 `load_dotenv()`가 시스템 환경 변수를 인식하여 별도의 `.env` 파일 없이도 정상 동작하게 됩니다.
+
+> **주의**: API 키를 추가할 경우, `ConfigMap/Secret` 리소스를 업데이트하고 Argo CD에서 `Sync`를 수행하면 자동으로 반영됩니다. (단, 환경 변수 변경은 Pod 재시작이 필요할 수 있습니다.)
