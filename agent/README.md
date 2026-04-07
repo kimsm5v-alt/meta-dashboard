@@ -178,7 +178,18 @@ curl -s -X POST http://localhost:8000/chat \
   }' | python3 -m json.tool
 ```
 
-**4. 세션 초기화**
+**4. 실시간 스트리밍 대화 (SSE)**
+버퍼링을 방지하기 위해 `-N` (또는 `--no-buffer`) 옵션을 사용하여 실시간으로 생성되는 텍스트 청크를 확인할 수 있습니다.
+```bash
+curl -N -s -X POST http://localhost:8000/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "실시간 응답 테스트를 해줘",
+    "session_id": "test_session_002"
+  }'
+```
+
+**5. 세션 초기화**
 ```bash
 curl -s -X DELETE http://localhost:8000/chat/test_session_001 | python3 -m json.tool
 ```
