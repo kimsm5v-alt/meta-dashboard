@@ -57,6 +57,8 @@ const PUBLIC_ENDPOINTS = [
   '/member/send-code',
   '/member/verify-code',
   '/member/token/refresh',
+  '/group/invite', // 초대 링크 접근 (비로그인 허용)
+  '/group/join-guest', // 게스트 가입 (비로그인 허용)
 ];
 
 // ============================================================
