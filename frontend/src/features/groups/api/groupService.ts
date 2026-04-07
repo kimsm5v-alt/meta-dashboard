@@ -144,15 +144,19 @@ const toFrontendMember = (m: BackendGroupMember): GroupMember => ({
   stdtId: m.stdtId,
   name: m.nickname,
   email: m.email,
-  gender: (m.gender === 'M' || m.gender === 'F') ? m.gender : undefined,
+  gender: m.gender === 'M' || m.gender === 'F' ? m.gender : undefined,
   memberNo: m.memberNo,
   memberType: m.memberType === 'GUEST' ? 'guest' : 'member',
   status: (() => {
     switch (m.status) {
-      case 'ACTIVE': return 'active';
-      case 'LEFT': return 'left';
-      case 'KICKED': return 'kicked';
-      case 'ARCHIVED': return 'archived';
+      case 'ACTIVE':
+        return 'active';
+      case 'LEFT':
+        return 'left';
+      case 'KICKED':
+        return 'kicked';
+      case 'ARCHIVED':
+        return 'archived';
     }
   })(),
   joinedAt: m.joinedAt ? new Date(m.joinedAt) : new Date(),
@@ -267,7 +271,8 @@ export const deleteGroup = async (groupId: string, _userId: string): Promise<boo
 };
 
 /**
- * 초대 코드로 그룹 조회
+ * 초대 코드로 그룹 조회 (인증 필요 - 레거시)
+ * @deprecated 비회원 사용자는 getGuestGroupInfo 사용 권장
  */
 export const getGroupByInviteCode = async (
   code: string,
@@ -283,6 +288,28 @@ export const getGroupByInviteCode = async (
     name: data.groupNm,
     inviteCode: data.inviteCode,
   };
+};
+
+/**
+ * 게스트 그룹 정보 조회 (인증 불필요, Public API)
+ * - 백엔드 spec: GET /guest/exists?inviteCode=xxx&email=xxx
+ * - 게스트 프로세스 기반
+ */
+export interface GuestGroupInfoResponse {
+  exists: boolean; // 해당 이메일로 이미 참가했는지 여부
+  groupNm: string; // 그룹명
+  claId: string; // 학급 ID
+}
+
+export const getGuestGroupInfo = async (
+  inviteCode: string,
+  email: string,
+): Promise<GuestGroupInfoResponse | null> => {
+  const res = await apiClient.get<GuestGroupInfoResponse>(
+    `/guest/exists?inviteCode=${inviteCode}&email=${email}`,
+  );
+  if (!res.resultData) return null;
+  return res.resultData;
 };
 
 // ============================================================
@@ -305,9 +332,12 @@ export const joinGroup = async (
   _userId: string,
   _userName: string,
 ): Promise<GroupMember> => {
-  const res = await apiClient.post<{ claId: string; memberId: number; stdtId?: string }>('/group/join', {
-    inviteCode: input.inviteCode,
-  });
+  const res = await apiClient.post<{ claId: string; memberId: number; stdtId?: string }>(
+    '/group/join',
+    {
+      inviteCode: input.inviteCode,
+    },
+  );
 
   const data = res.resultData;
   return {
@@ -481,6 +511,7 @@ export const groupService = {
   updateGroup,
   deleteGroup,
   getGroupByInviteCode,
+  getGuestGroupInfo,
   joinGroup,
   joinGroupAsGuest,
   getGroupMembers,
