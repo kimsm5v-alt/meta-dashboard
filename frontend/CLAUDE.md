@@ -309,7 +309,7 @@ box-shadow: ${({ theme }) => theme.shadows.glass};
 
 ## API 클라이언트
 
-`shared/api/client.ts` — fetch 기반 래퍼.
+`shared/api/client.ts` — **Axios 기반** (fetch에서 교체됨). Silent Refresh 구현 포함.
 
 ```ts
 import { apiClient } from '@shared/api';
@@ -322,7 +322,18 @@ await apiClient.delete('/memo/5');
 ```
 
 - `localStorage`의 `auth_token` 키에서 JWT 자동 읽어 `Authorization: Bearer` 헤더 주입
-- 4xx/5xx 응답 시 `ApiError(statusCode, message)` throw
+- **Silent Refresh**: 401 응답 시 `POST /member/token/refresh` 호출 후 원본 요청 재시도
+- **동시 요청 큐**: 여러 요청이 동시에 401 받으면 하나만 refresh 시도, 나머지는 큐에서 대기
+- Refresh 실패 시 localStorage 초기화 + `window.dispatchEvent(new Event('auth:logout'))` 발행
+- `PUBLIC_ENDPOINTS` 목록 (`/member/login`, `/member/token/refresh` 등)은 interceptor 제외
+
+### localStorage 키
+
+| 키 | 내용 |
+|---|---|
+| `auth_token` | Access Token (JWT) |
+| `refresh_token` | Refresh Token |
+| `auth_user` | 사용자 정보 (JSON) |
 
 ---
 
@@ -409,29 +420,31 @@ npx prettier --write "src/**/*.{ts,tsx}"  # prettier만 실행
 
 - [x] app/ — providers, router, theme, GlobalStyles
 - [x] shared/ui — Button, Card, Input, FormField, Badge, Skeleton, PageTitle
-- [x] shared/api — apiClient (HTTP 래퍼)
+- [x] shared/api — apiClient (Axios + Silent Refresh + 동시 요청 큐)
 - [x] widgets/layout — Header, Sidebar, PageLayout
 - [x] widgets/dashboard — StatsOverview, ClassList
-- [x] features/auth — useAuthStore (Zustand persist)
+- [x] features/auth — AuthContext (로그인/로그아웃/세션 복원/강제 로그아웃 이벤트/크로스탭 동기화)
+- [x] features/auth/ui — LoginForm (비밀번호 오류 시 빨간 테두리 + 에러 메시지)
 - [x] features/dashboard — useTeacherStats, useTeacherClasses (mock 데이터)
-- [x] pages/auth — LoginPage (react-hook-form + zod)
-- [x] pages/dashboard — TeacherDashboardPage (슬림 조합형)
+- [x] features/groups — 그룹 참여 (inviteCode 기반), JoinCodeModal, GroupListPage
+- [x] features/student-exam — StudentGroupsPage (학생 그룹 참여 플로우)
+- [x] pages/auth — LoginPage
+- [x] pages/dashboard — TeacherDashboardPage
+- [x] pages/groups — GroupListPage, JoinGroupPage (claId 기반 라우팅)
 - [x] ESLint v9 flat config + Prettier 통합
 
-### 미구현 (작업 예정)
+### 미구현 (작업 예정 — MVP 우선순위 순)
 
-- [ ] 라우터 가드 — 인증 여부에 따른 리다이렉트
-- [ ] features/auth — 로그인 API 연동
-- [ ] features/class-dashboard — 학급 상세 (L2)
-- [ ] features/student-dashboard — 학생 상세 (L3)
+- [ ] **[Phase 1]** 학생 시험 코드 입력 플로우 검증 — `inviteCode` 기반 백엔드 연동 확인 (`StudentGroupsPage.tsx`)
+- [ ] **[Phase 3]** L1 교사 대시보드 실제 API 데이터 연동 (`useApiData.ts`)
+- [ ] **[Phase 4]** L2 학급 대시보드 실제 API 데이터 연동
+- [ ] **[Phase 5]** L3 학생 대시보드 실제 API 데이터 연동
+- [ ] AI 채팅 기능 — `features/ai-room/` + `agent/` FastAPI 연동
+- [ ] 에러 바운더리
 - [ ] features/assessment — 검사 관리
-- [ ] features/ai-room — AI 어시스턴트 채팅
 - [ ] features/schedule — 상담 일정
 - [ ] features/counseling — 상담 기록
 - [ ] features/resources — 학습 자료
-- [ ] Backend API 연동 (mock → apiClient 교체)
-- [ ] 에러 바운더리
-- [ ] 로딩/에러 상태 공통 처리
 
 ---
 
@@ -443,3 +456,8 @@ npx prettier --write "src/**/*.{ts,tsx}"  # prettier만 실행
 4. **`any` 사용 금지** — ESLint error로 차단됨
 5. **타입 import는 `import type`** — `verbatimModuleSyntax` 강제
 6. **새 feature 추가 시** `model/types.ts` → `api/queries.ts` → `index.ts` 순서로 작성
+7. **TypeScript 빌드 확인**: `tsc --noEmit` 대신 **`tsc -b`** 사용 — `noUnusedLocals`, `noUnusedParameters` 적용됨
+8. **`SchoolLevel` 타입**: `'초등' | '중등'` 만 허용. `'고등'` 없음. `SCHOOL_LEVEL_MAP['high']` → `'중등'`
+9. **`ExamPeriodStatus`**: `string`이 아닌 `{ round1: ExamStatus; round2: ExamStatus }` 인터페이스
+10. **그룹 ID**: `groupInfo.id`가 아닌 `groupInfo.claId` 사용
+11. **`AuthContext.isLoading`**: 초기 세션 체크 전용. `loginWithEmail`에서 isLoading 변경하면 LoginForm 언마운트됨 — 절대 건드리지 말 것
