@@ -1,0 +1,4 @@
+app:
+  frontend-url: https://t-meta-service.vsaidt.com
+  cors:
+    allowed-origins: https://t-meta-service.vsaidt.com,http://localhost:5173,http://localhost:5174

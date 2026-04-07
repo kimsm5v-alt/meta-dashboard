@@ -1,0 +1,4 @@
+app:
+  frontend-url: https://meta-service.vsaidt.com
+  cors:
+    allowed-origins: https://meta-service.vsaidt.com
