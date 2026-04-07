@@ -18,7 +18,14 @@ import { groupService } from '@features/groups/api/groupService';
 import { useAuth } from '@features/auth/model/AuthContext';
 import type { GroupInviteInfo } from '@shared/types';
 
-type PageStep = 'loading' | 'info' | 'guest-form' | 'joining' | 'success' | 'error';
+type PageStep =
+  | 'email-input' // 이메일 입력 단계 (비로그인 사용자)
+  | 'loading'
+  | 'info'
+  | 'guest-form'
+  | 'joining'
+  | 'success'
+  | 'error';
 
 // ============================================================
 // Animations
@@ -403,19 +410,20 @@ export const JoinGroupPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading: authLoading, loginWithEmail } = useAuth();
 
-  const [step, setStep] = useState<PageStep>('loading');
+  const [step, setStep] = useState<PageStep>(isAuthenticated ? 'loading' : 'email-input');
   const [groupInfo, setGroupInfo] = useState<GroupInviteInfo | null>(null);
   const [error, setError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [alreadyJoined, setAlreadyJoined] = useState(false);
 
   // 게스트 가입 폼
   const [guestNickname, setGuestNickname] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
 
-  // 그룹 정보 로드
+  // 그룹 정보 로드 (인증된 사용자만)
   useEffect(() => {
     const loadGroupInfo = async () => {
-      if (!code || authLoading) return;
+      if (!code || authLoading || !isAuthenticated) return;
 
       setStep('loading');
       try {
@@ -436,7 +444,39 @@ export const JoinGroupPage: React.FC = () => {
     };
 
     loadGroupInfo();
-  }, [code, user?.id, authLoading]);
+  }, [code, user?.id, authLoading, isAuthenticated]);
+
+  // 이메일 제출 처리 (비로그인 사용자)
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code || !guestEmail.trim()) return;
+
+    setStep('loading');
+    setError('');
+
+    try {
+      const info = await groupService.getGuestGroupInfo(code, guestEmail.trim());
+
+      if (!info) {
+        setError('유효하지 않은 초대 코드입니다. 코드를 확인해주세요.');
+        setStep('error');
+        return;
+      }
+
+      setGroupInfo({
+        groupId: '',
+        claId: info.claId,
+        name: info.groupNm,
+        inviteCode: code,
+      });
+
+      setAlreadyJoined(info.exists);
+      setStep('info');
+    } catch {
+      setError('그룹 정보를 불러오는데 실패했습니다.');
+      setStep('error');
+    }
+  };
 
   // 로그인 처리 (로그인 성공 후 자동 가입)
   const handleLogin = async (email: string, password: string) => {
@@ -508,6 +548,64 @@ export const JoinGroupPage: React.FC = () => {
     }
   };
 
+  // ── 이메일 입력 (비로그인 사용자) ──
+  if (step === 'email-input' && !isAuthenticated) {
+    return (
+      <PageContainer>
+        <ContentWrapper>
+          <FormCard as='form' onSubmit={handleEmailSubmit}>
+            <HeaderSection>
+              <SmallIconCircle $variant='gray'>
+                <UserPlusIcon />
+              </SmallIconCircle>
+              <SmallTitle>그룹 초대</SmallTitle>
+              <Subtitle>이메일을 입력하여 그룹 정보를 확인하세요</Subtitle>
+            </HeaderSection>
+
+            <FormFields>
+              <FormGroup>
+                <Label>
+                  이메일 <Required>*</Required>
+                </Label>
+                <InputWrapper>
+                  <InputIcon>
+                    <Mail size={20} />
+                  </InputIcon>
+                  <Input
+                    type='email'
+                    value={guestEmail}
+                    onChange={(e) => {
+                      setGuestEmail(e.target.value);
+                      setError('');
+                    }}
+                    placeholder='example@email.com'
+                    required
+                    autoFocus
+                  />
+                </InputWrapper>
+                <HelpText>그룹 참가 확인을 위해 이메일이 필요합니다.</HelpText>
+              </FormGroup>
+            </FormFields>
+
+            {error && (
+              <ErrorText>
+                <ErrorSmallIcon />
+                {error}
+              </ErrorText>
+            )}
+
+            <ButtonGroup>
+              <Button type='submit' className='w-full justify-center'>
+                다음
+                <SmallArrowIcon />
+              </Button>
+            </ButtonGroup>
+          </FormCard>
+        </ContentWrapper>
+      </PageContainer>
+    );
+  }
+
   // ── 로딩 ──
   if (step === 'loading') {
     return (
@@ -525,23 +623,23 @@ export const JoinGroupPage: React.FC = () => {
     return (
       <PageContainer>
         <ContentWrapper>
-          <IconCircle $variant="error">
+          <IconCircle $variant='error'>
             <ErrorIcon />
           </IconCircle>
           <Title>오류 발생</Title>
           <Subtitle>{error}</Subtitle>
           <ButtonGroup>
-            <Button onClick={() => navigate('/groups')} className="w-full justify-center">
+            <Button onClick={() => navigate('/groups')} className='w-full justify-center'>
               그룹 목록으로
             </Button>
             <Button
-              variant="secondary"
+              variant='secondary'
               onClick={() => {
                 setError('');
                 setStep('loading');
                 window.location.reload();
               }}
-              className="w-full justify-center"
+              className='w-full justify-center'
             >
               다시 시도
             </Button>
@@ -556,7 +654,7 @@ export const JoinGroupPage: React.FC = () => {
     return (
       <PageContainer>
         <ContentWrapper>
-          <IconCircle $variant="success">
+          <IconCircle $variant='success'>
             <SuccessIcon />
           </IconCircle>
           <Title>가입 완료!</Title>
@@ -566,23 +664,23 @@ export const JoinGroupPage: React.FC = () => {
           {isAuthenticated ? (
             <Button
               onClick={() => navigate(`/groups/${groupInfo?.claId}`)}
-              className="w-full justify-center"
+              className='w-full justify-center'
             >
               그룹 보기
               <SmallArrowIcon />
             </Button>
           ) : (
             <ButtonGroup>
-              <InfoBox $variant="blue">
-                <InfoText $variant="blue">
+              <InfoBox $variant='blue'>
+                <InfoText $variant='blue'>
                   선생님이 검사를 시작하면 <InfoEmail>{guestEmail}</InfoEmail>으로 검사 응시 안내
                   메일이 발송됩니다.
                 </InfoText>
               </InfoBox>
               <Button
-                variant="secondary"
+                variant='secondary'
                 onClick={() => navigate('/login')}
-                className="w-full justify-center"
+                className='w-full justify-center'
               >
                 로그인하고 결과 확인하기
               </Button>
@@ -612,7 +710,7 @@ export const JoinGroupPage: React.FC = () => {
         <ContentWrapper>
           {/* 그룹 정보 헤더 */}
           <HeaderSection>
-            <SmallIconCircle $variant="gray">
+            <SmallIconCircle $variant='gray'>
               <UserPlusIcon />
             </SmallIconCircle>
             <SmallTitle>게스트 로그인</SmallTitle>
@@ -634,13 +732,13 @@ export const JoinGroupPage: React.FC = () => {
                     <User size={20} />
                   </InputIcon>
                   <Input
-                    type="text"
+                    type='text'
                     value={guestNickname}
                     onChange={(e) => {
                       setGuestNickname(e.target.value);
                       setError('');
                     }}
-                    placeholder="닉네임을 입력하세요"
+                    placeholder='닉네임을 입력하세요'
                     required
                     minLength={2}
                     autoFocus
@@ -658,14 +756,10 @@ export const JoinGroupPage: React.FC = () => {
                     <Mail size={20} />
                   </InputIcon>
                   <Input
-                    type="email"
+                    type='email'
                     value={guestEmail}
-                    onChange={(e) => {
-                      setGuestEmail(e.target.value);
-                      setError('');
-                    }}
-                    placeholder="example@email.com"
-                    required
+                    disabled
+                    style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
                   />
                 </InputWrapper>
                 <HelpText>검사 응시 안내 메일이 이 주소로 발송됩니다.</HelpText>
@@ -680,21 +774,21 @@ export const JoinGroupPage: React.FC = () => {
             )}
 
             {/* 안내 */}
-            <InfoBox $variant="amber" style={{ marginBottom: '1.5rem' }}>
-              <InfoText $variant="amber">
+            <InfoBox $variant='amber' style={{ marginBottom: '1.5rem' }}>
+              <InfoText $variant='amber'>
                 게스트로 참가하면 이 기기에서만 검사 결과를 확인할 수 있습니다. 회원가입하면 모든
                 기기에서 결과를 확인할 수 있습니다.
               </InfoText>
             </InfoBox>
 
             <FormButtonGroup>
-              <SubmitButton type="submit">
+              <SubmitButton type='submit'>
                 게스트로 참가하기
                 <ArrowIcon />
               </SubmitButton>
 
               <BackButton
-                type="button"
+                type='button'
                 onClick={() => {
                   setStep('info');
                   setError('');
@@ -715,7 +809,7 @@ export const JoinGroupPage: React.FC = () => {
       <ContentWrapper>
         {/* 그룹 정보 헤더 */}
         <HeaderSection>
-          <SmallIconCircle $variant="primary">
+          <SmallIconCircle $variant='primary'>
             <UsersIcon />
           </SmallIconCircle>
           <SmallTitle>그룹 가입</SmallTitle>
@@ -733,6 +827,16 @@ export const JoinGroupPage: React.FC = () => {
               <SummaryText>초대코드: {groupInfo.inviteCode}</SummaryText>
             </GroupSummary>
 
+            {/* 이미 참가한 경우 경고 */}
+            {alreadyJoined && (
+              <InfoBox $variant='amber' style={{ marginBottom: '1.5rem' }}>
+                <InfoText $variant='amber'>
+                  이 이메일로 이미 그룹에 참가하셨습니다. 다시 가입하면 기존 데이터가 초기화될 수
+                  있습니다.
+                </InfoText>
+              </InfoBox>
+            )}
+
             {isAuthenticated && user ? (
               // ── 로그인 상태: 바로 가입 ──
               <AuthSection>
@@ -742,7 +846,7 @@ export const JoinGroupPage: React.FC = () => {
                   </UserInfoText>
                 </UserInfoBox>
 
-                <SubmitButton onClick={handleMemberJoin} type="button">
+                <SubmitButton onClick={handleMemberJoin} type='button'>
                   그룹 가입하기
                   <ArrowIcon />
                 </SubmitButton>
