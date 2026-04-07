@@ -214,4 +214,70 @@ docker run -d -p 8000:8000 --env-file agent/.env --name meta-agent meta-agent-se
 > **핵심 원칙**: API 키를 이미지에 굽지 않고 실행 환경에서 주입합니다. `.env` 파일은 배포 서버에만 존재하며 Git 및 이미지에는 포함되지 않습니다.
 
 
+## 7. Kubernetes 배포 가이드 (Argo CD & Jenkins)
 
+Kubernetes(K8s) 환경에서 본 서비스를 배포할 때는 GitOps 원칙에 따라 환경 변수를 **ConfigMap**과 **Secret**으로 분리하여 주입하는 것이 권장됩니다.
+
+### 7.1 환경 변수 리소스 정의
+
+일반 설정은 `ConfigMap`에, API 키와 같은 민감 정보는 `Secret`에 정의합니다.
+
+**ConfigMap 예시 (`agent-config.yaml`):**
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-config
+  namespace: meta-dashboard
+data:
+  GEMINI_MODEL: "gemini-2.5-flash"
+  LOG_LEVEL: "INFO"
+```
+
+**Secret 예시 (`agent-secret.yaml`):**
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: agent-secret
+  namespace: meta-dashboard
+type: Opaque
+stringData:
+  # 현실적으로는 Sealed Secrets나 External Secrets를 통해 암호화 관리 권장
+  GEMINI_API_KEY: "AIza..."
+  GEMINI_API_KEY_2: "AIza..."
+  # ... 필요한 만큼 추가
+```
+
+### 7.2 Deployment 적용 방식 (`envFrom`)
+
+개별 변수를 하나씩 매핑하는 대신, `envFrom`을 사용하여 ConfigMap과 Secret의 모든 필드를 한 번에 주입하는 방식이 유지보수에 유리합니다.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meta-agent-deployment
+spec:
+  template:
+    spec:
+      containers:
+      - name: meta-agent
+        image: meta-agent-service:latest
+        ports:
+        - containerPort: 8000
+        # 환경 변수 일괄 주입
+        envFrom:
+        - configMapRef:
+            name: agent-config
+        - secretRef:
+            name: agent-secret
+```
+
+### 7.3 CI/CD 파이프라인 (Jenkins + Argo CD)
+
+1.  **Jenkins**: 애플리케이션 코드를 빌드하고 Docker 이미지를 Push한 뒤, K8s 매니페스트 레포지토리의 이미지 태그만 업데이트합니다.
+2.  **Argo CD**: 매니페스트 레포지토리의 변경을 감지하여 클러스터에 배포합니다. 이때 위에서 정의한 `ConfigMap/Secret`이 함께 동기화됩니다.
+3.  **동작 원리**: 컨테이너가 시작될 때 K8s가 환경 변수를 주입하면, 애플리케이션 내부의 `load_dotenv()`가 시스템 환경 변수를 인식하여 별도의 `.env` 파일 없이도 정상 동작하게 됩니다.
+
+> **주의**: API 키를 추가할 경우, `ConfigMap/Secret` 리소스를 업데이트하고 Argo CD에서 `Sync`를 수행하면 자동으로 반영됩니다. (단, 환경 변수 변경은 Pod 재시작이 필요할 수 있습니다.)
