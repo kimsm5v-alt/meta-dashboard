@@ -267,7 +267,8 @@ export const deleteGroup = async (groupId: string, _userId: string): Promise<boo
 };
 
 /**
- * 초대 코드로 그룹 조회
+ * 초대 코드로 그룹 조회 (인증 필요 - 레거시)
+ * @deprecated 비회원 사용자는 getGuestGroupInfo 사용 권장
  */
 export const getGroupByInviteCode = async (
   code: string,
@@ -283,6 +284,28 @@ export const getGroupByInviteCode = async (
     name: data.groupNm,
     inviteCode: data.inviteCode,
   };
+};
+
+/**
+ * 게스트 그룹 정보 조회 (인증 불필요, Public API)
+ * - 백엔드 spec: GET /guest/exists?inviteCode=xxx&email=xxx
+ * - 게스트 프로세스(guest-process.md) 기반
+ */
+export interface GuestGroupInfoResponse {
+  exists: boolean; // 해당 이메일로 이미 참가했는지 여부
+  groupNm: string; // 그룹명
+  claId: string; // 학급 ID
+}
+
+export const getGuestGroupInfo = async (
+  inviteCode: string,
+  email: string,
+): Promise<GuestGroupInfoResponse | null> => {
+  const res = await apiClient.get<GuestGroupInfoResponse>(
+    `/guest/exists?inviteCode=${inviteCode}&email=${email}`,
+  );
+  if (!res.resultData) return null;
+  return res.resultData;
 };
 
 // ============================================================

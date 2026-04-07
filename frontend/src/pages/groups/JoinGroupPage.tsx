@@ -18,7 +18,14 @@ import { groupService } from '@features/groups/api/groupService';
 import { useAuth } from '@features/auth/model/AuthContext';
 import type { GroupInviteInfo } from '@shared/types';
 
-type PageStep = 'loading' | 'info' | 'guest-form' | 'joining' | 'success' | 'error';
+type PageStep =
+  | 'email-input'
+  | 'loading'
+  | 'info'
+  | 'guest-form'
+  | 'joining'
+  | 'success'
+  | 'error';
 
 // ============================================================
 // Animations
@@ -403,8 +410,9 @@ export const JoinGroupPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading: authLoading, loginWithEmail } = useAuth();
 
-  const [step, setStep] = useState<PageStep>('loading');
+  const [step, setStep] = useState<PageStep>('email-input');
   const [groupInfo, setGroupInfo] = useState<GroupInviteInfo | null>(null);
+  const [alreadyJoined, setAlreadyJoined] = useState(false);
   const [error, setError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
@@ -412,31 +420,67 @@ export const JoinGroupPage: React.FC = () => {
   const [guestNickname, setGuestNickname] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
 
-  // 그룹 정보 로드
+  // 이메일 제출 핸들러 (비로그인 사용자용)
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code || !guestEmail.trim()) return;
+
+    setStep('loading');
+    setError('');
+
+    try {
+      const info = await groupService.getGuestGroupInfo(code, guestEmail.trim());
+
+      if (!info) {
+        setError('유효하지 않은 초대 코드입니다. 코드를 확인해주세요.');
+        setStep('error');
+        return;
+      }
+
+      // 그룹 정보 저장
+      setGroupInfo({
+        groupId: '', // API 응답에 없음 (필요 시 빈 문자열)
+        claId: info.claId,
+        name: info.groupNm,
+        inviteCode: code,
+      });
+
+      setAlreadyJoined(info.exists);
+      setStep('info');
+    } catch {
+      setError('그룹 정보를 불러오는데 실패했습니다.');
+      setStep('error');
+    }
+  };
+
+  // 그룹 정보 로드 (로그인 사용자용, 이메일 입력 불필요)
   useEffect(() => {
-    const loadGroupInfo = async () => {
+    const loadGroupInfoForAuthUser = async () => {
       if (!code || authLoading) return;
 
-      setStep('loading');
-      try {
-        const info = await groupService.getGroupByInviteCode(code, user?.id);
+      // 이미 로그인된 사용자는 바로 그룹 정보 로드
+      if (isAuthenticated && user) {
+        setStep('loading');
+        try {
+          const info = await groupService.getGroupByInviteCode(code, user.id);
 
-        if (!info) {
-          setError('유효하지 않은 초대 코드입니다. 코드를 확인해주세요.');
+          if (!info) {
+            setError('유효하지 않은 초대 코드입니다. 코드를 확인해주세요.');
+            setStep('error');
+            return;
+          }
+
+          setGroupInfo(info);
+          setStep('info');
+        } catch {
+          setError('그룹 정보를 불러오는데 실패했습니다.');
           setStep('error');
-          return;
         }
-
-        setGroupInfo(info);
-        setStep('info');
-      } catch {
-        setError('그룹 정보를 불러오는데 실패했습니다.');
-        setStep('error');
       }
     };
 
-    loadGroupInfo();
-  }, [code, user?.id, authLoading]);
+    loadGroupInfoForAuthUser();
+  }, [code, user, isAuthenticated, authLoading]);
 
   // 로그인 처리 (로그인 성공 후 자동 가입)
   const handleLogin = async (email: string, password: string) => {
@@ -507,6 +551,69 @@ export const JoinGroupPage: React.FC = () => {
       setStep('error');
     }
   };
+
+  // ── 이메일 입력 (비로그인 사용자) ──
+  if (step === 'email-input' && !isAuthenticated) {
+    return (
+      <PageContainer>
+        <ContentWrapper>
+          <HeaderSection>
+            <SmallIconCircle $variant="primary">
+              <Mail size={32} />
+            </SmallIconCircle>
+            <SmallTitle>그룹 가입</SmallTitle>
+            <GroupInfoText>이메일을 입력하여 그룹 정보를 확인하세요</GroupInfoText>
+          </HeaderSection>
+
+          <FormCard as="form" onSubmit={handleEmailSubmit}>
+            <FormFields>
+              <FormGroup>
+                <Label>
+                  이메일 <Required>*</Required>
+                </Label>
+                <InputWrapper>
+                  <InputIcon>
+                    <Mail size={20} />
+                  </InputIcon>
+                  <Input
+                    type="email"
+                    value={guestEmail}
+                    onChange={(e) => {
+                      setGuestEmail(e.target.value);
+                      setError('');
+                    }}
+                    placeholder="example@email.com"
+                    required
+                    autoFocus
+                  />
+                </InputWrapper>
+                <HelpText>그룹 정보를 확인하고 가입하려면 이메일이 필요합니다.</HelpText>
+              </FormGroup>
+            </FormFields>
+
+            {error && (
+              <ErrorText>
+                <ErrorSmallIcon />
+                {error}
+              </ErrorText>
+            )}
+
+            <SubmitButton type="submit">
+              다음
+              <ArrowIcon />
+            </SubmitButton>
+          </FormCard>
+
+          {/* 초대 코드 표시 */}
+          <CenterContent>
+            <InviteCodeText>
+              초대 코드: <InviteCode>{code}</InviteCode>
+            </InviteCodeText>
+          </CenterContent>
+        </ContentWrapper>
+      </PageContainer>
+    );
+  }
 
   // ── 로딩 ──
   if (step === 'loading') {
@@ -666,6 +773,8 @@ export const JoinGroupPage: React.FC = () => {
                     }}
                     placeholder="example@email.com"
                     required
+                    disabled
+                    style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
                   />
                 </InputWrapper>
                 <HelpText>검사 응시 안내 메일이 이 주소로 발송됩니다.</HelpText>
@@ -732,6 +841,16 @@ export const JoinGroupPage: React.FC = () => {
             <GroupSummary>
               <SummaryText>초대코드: {groupInfo.inviteCode}</SummaryText>
             </GroupSummary>
+
+            {/* 이미 가입한 경우 경고 표시 */}
+            {alreadyJoined && (
+              <InfoBox $variant="amber" style={{ marginBottom: '1rem' }}>
+                <InfoText $variant="amber">
+                  이미 <InfoEmail>{guestEmail}</InfoEmail>으로 이 그룹에 참가한 기록이 있습니다.
+                  로그인하여 계속 진행하세요.
+                </InfoText>
+              </InfoBox>
+            )}
 
             {isAuthenticated && user ? (
               // ── 로그인 상태: 바로 가입 ──
