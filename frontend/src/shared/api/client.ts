@@ -30,9 +30,7 @@ export class ApiError extends Error {
     this.resultCode = resultCode;
   }
   isDuplicateKeyError(): boolean {
-    return (
-      this.errorDetail?.name === 'DuplicateKeyException' || this.errorDetail?.code === 'E001'
-    );
+    return this.errorDetail?.name === 'DuplicateKeyException' || this.errorDetail?.code === 'E001';
   }
 }
 
@@ -180,8 +178,7 @@ axiosInstance.interceptors.response.use(
 // ============================================================
 
 export const apiClient = {
-  get: <T>(endpoint: string) =>
-    axiosInstance.get<APIResponse<T>>(endpoint).then((res) => res.data),
+  get: <T>(endpoint: string) => axiosInstance.get<APIResponse<T>>(endpoint).then((res) => res.data),
   post: <T>(endpoint: string, body?: unknown) =>
     axiosInstance.post<APIResponse<T>>(endpoint, body).then((res) => res.data),
   put: <T>(endpoint: string, body?: unknown) =>

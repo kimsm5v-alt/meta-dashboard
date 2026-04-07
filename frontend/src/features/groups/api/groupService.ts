@@ -144,15 +144,19 @@ const toFrontendMember = (m: BackendGroupMember): GroupMember => ({
   stdtId: m.stdtId,
   name: m.nickname,
   email: m.email,
-  gender: (m.gender === 'M' || m.gender === 'F') ? m.gender : undefined,
+  gender: m.gender === 'M' || m.gender === 'F' ? m.gender : undefined,
   memberNo: m.memberNo,
   memberType: m.memberType === 'GUEST' ? 'guest' : 'member',
   status: (() => {
     switch (m.status) {
-      case 'ACTIVE': return 'active';
-      case 'LEFT': return 'left';
-      case 'KICKED': return 'kicked';
-      case 'ARCHIVED': return 'archived';
+      case 'ACTIVE':
+        return 'active';
+      case 'LEFT':
+        return 'left';
+      case 'KICKED':
+        return 'kicked';
+      case 'ARCHIVED':
+        return 'archived';
     }
   })(),
   joinedAt: m.joinedAt ? new Date(m.joinedAt) : new Date(),
@@ -289,7 +293,7 @@ export const getGroupByInviteCode = async (
 /**
  * 게스트 그룹 정보 조회 (인증 불필요, Public API)
  * - 백엔드 spec: GET /guest/exists?inviteCode=xxx&email=xxx
- * - 게스트 프로세스(guest-process.md) 기반
+ * - 게스트 프로세스 기반
  */
 export interface GuestGroupInfoResponse {
   exists: boolean; // 해당 이메일로 이미 참가했는지 여부
@@ -328,9 +332,12 @@ export const joinGroup = async (
   _userId: string,
   _userName: string,
 ): Promise<GroupMember> => {
-  const res = await apiClient.post<{ claId: string; memberId: number; stdtId?: string }>('/group/join', {
-    inviteCode: input.inviteCode,
-  });
+  const res = await apiClient.post<{ claId: string; memberId: number; stdtId?: string }>(
+    '/group/join',
+    {
+      inviteCode: input.inviteCode,
+    },
+  );
 
   const data = res.resultData;
   return {
@@ -504,6 +511,7 @@ export const groupService = {
   updateGroup,
   deleteGroup,
   getGroupByInviteCode,
+  getGuestGroupInfo,
   joinGroup,
   joinGroupAsGuest,
   getGroupMembers,
