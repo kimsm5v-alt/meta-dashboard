@@ -11,6 +11,8 @@ import type { APIResponse } from '@shared/api/client';
 // ============================================================
 // 하위 호환: API_CONFIG
 // ============================================================
+const AUTH_TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
 
 export const API_CONFIG = {
   get baseUrl(): string {
@@ -20,6 +22,20 @@ export const API_CONFIG = {
     return localStorage.getItem('auth_token') ?? '';
   },
 } as const;
+
+export function getAuthTokens(): { authToken: string | null; refreshToken: string | null } | null {
+  try {
+    const authToken = localStorage.getItem(AUTH_TOKEN_KEY);
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    
+    if (authToken || refreshToken) {
+      return { authToken, refreshToken };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
 
 // ============================================================
 // 하위 호환: apiRequest (fetch 스타일 옵션 → axios)

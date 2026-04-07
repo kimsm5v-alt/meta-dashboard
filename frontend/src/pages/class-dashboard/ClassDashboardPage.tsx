@@ -600,7 +600,7 @@ export const ClassDashboardPage = () => {
 
   // 차수별 상태 배지 렌더링
   const renderStatusBadges = (assessment: Assessment | undefined) => {
-    if (!assessment) return <DashPlaceholder $variant="light">-</DashPlaceholder>;
+    if (!assessment) return <DashPlaceholder $variant='light'>-</DashPlaceholder>;
 
     const hasReliability = assessment.reliabilityWarnings.length > 0;
     const hasAttention = assessment.attentionResult.needsAttention;
@@ -612,7 +612,10 @@ export const ClassDashboardPage = () => {
     return (
       <StatusBadgeWrapper>
         {hasAttention && (
-          <StatusBadge $variant="attention" title={formatAttentionTooltip(assessment.attentionResult)}>
+          <StatusBadge
+            $variant='attention'
+            title={formatAttentionTooltip(assessment.attentionResult)}
+          >
             <BadgeIcon>
               <AlertTriangle size={14} />
             </BadgeIcon>
@@ -621,7 +624,7 @@ export const ClassDashboardPage = () => {
         )}
         {hasReliability && (
           <StatusBadge
-            $variant="reliability"
+            $variant='reliability'
             title={`신뢰도 주의: ${assessment.reliabilityWarnings.join(', ')}`}
           >
             <BadgeIcon>
@@ -640,12 +643,12 @@ export const ClassDashboardPage = () => {
       return <NoChangeText>--</NoChangeText>;
     }
     if (typeChange === 1) {
-      return <ChangeIndicator $variant="positive">+</ChangeIndicator>;
+      return <ChangeIndicator $variant='positive'>+</ChangeIndicator>;
     }
     if (typeChange === -1) {
-      return <ChangeIndicator $variant="negative">-</ChangeIndicator>;
+      return <ChangeIndicator $variant='negative'>-</ChangeIndicator>;
     }
-    return <ChangeIndicator $variant="neutral">=</ChangeIndicator>;
+    return <ChangeIndicator $variant='neutral'>=</ChangeIndicator>;
   };
 
   return (
@@ -668,7 +671,7 @@ export const ClassDashboardPage = () => {
 
       {/* 2차 검사 진행중 배너 */}
       {classData.stats?.examStatus?.round2 === '진행중' && (
-        <BannerContainer $variant="warning">
+        <BannerContainer $variant='warning'>
           <BannerIcon as={Clock} />
           <div>
             <BannerTitle>2차 검사 진행 중</BannerTitle>
@@ -682,7 +685,7 @@ export const ClassDashboardPage = () => {
 
       {/* 신뢰도 경고 배너 */}
       {reliabilityWarningOnly && (
-        <BannerContainer $variant="info">
+        <BannerContainer $variant='info'>
           <BannerIconWrapper $marginTop>
             <BannerIcon as={ShieldAlert} />
           </BannerIconWrapper>
@@ -707,14 +710,14 @@ export const ClassDashboardPage = () => {
         {/* Student Table */}
         <Card>
           <CardHeaderRow>
-            <ApiTooltip {...API_CLASS_STUDENTS} position="top-left">
+            <ApiTooltip {...API_CLASS_STUDENTS} position='top-left'>
               <CardTitle>학생 목록</CardTitle>
             </ApiTooltip>
             <SearchWrapper>
               <SearchIcon />
               <SearchInput
-                type="text"
-                placeholder="이름/번호 검색"
+                type='text'
+                placeholder='이름/번호 검색'
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -748,47 +751,47 @@ export const ClassDashboardPage = () => {
             <Table>
               <TableHead>
                 <TableHeaderRow>
-                  <TableHeaderCell $width="4rem">
+                  <TableHeaderCell $width='4rem'>
                     <SortableHeader
-                      field="number"
-                      label="번호"
+                      field='number'
+                      label='번호'
                       currentField={sortField}
                       direction={sortDirection}
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
-                  <TableHeaderCell $width="6rem">
+                  <TableHeaderCell $width='6rem'>
                     <SortableHeader
-                      field="name"
-                      label="이름"
+                      field='name'
+                      label='이름'
                       currentField={sortField}
                       direction={sortDirection}
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
-                  <TableHeaderCell $width="8rem">
+                  <TableHeaderCell $width='8rem'>
                     <SortableHeader
-                      field="type1"
-                      label="1차 유형"
+                      field='type1'
+                      label='1차 유형'
                       currentField={sortField}
                       direction={sortDirection}
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
-                  <TableHeaderCell $width="9rem">1차 상태</TableHeaderCell>
-                  <TableHeaderCell $width="4rem" $align="center">
+                  <TableHeaderCell $width='9rem'>1차 상태</TableHeaderCell>
+                  <TableHeaderCell $width='4rem' $align='center'>
                     변화
                   </TableHeaderCell>
-                  <TableHeaderCell $width="8rem">
+                  <TableHeaderCell $width='8rem'>
                     <SortableHeader
-                      field="type2"
-                      label="2차 유형"
+                      field='type2'
+                      label='2차 유형'
                       currentField={sortField}
                       direction={sortDirection}
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
-                  <TableHeaderCell $width="9rem">2차 상태</TableHeaderCell>
+                  <TableHeaderCell $width='9rem'>2차 상태</TableHeaderCell>
                 </TableHeaderRow>
               </TableHead>
               <TableBody>
@@ -812,11 +815,11 @@ export const ClassDashboardPage = () => {
                         {r1 ? (
                           <Badge type={r1.predictedType}>{r1.predictedType}</Badge>
                         ) : (
-                          <DashPlaceholder $variant="light">-</DashPlaceholder>
+                          <DashPlaceholder $variant='light'>-</DashPlaceholder>
                         )}
                       </TableCell>
                       <TableCell>{renderStatusBadges(r1)}</TableCell>
-                      <TableCell $align="center">
+                      <TableCell $align='center'>
                         {renderChangeIndicator(typeChange, !!r2)}
                       </TableCell>
                       <TableCell>
@@ -824,9 +827,9 @@ export const ClassDashboardPage = () => {
                           <Badge type={r2.predictedType}>{r2.predictedType}</Badge>
                         ) : classData.stats?.examStatus?.round2 === '진행중' &&
                           student.round2Submitted ? (
-                          <StatusBadge $variant="submitted">제출 완료</StatusBadge>
+                          <StatusBadge $variant='submitted'>제출 완료</StatusBadge>
                         ) : (
-                          <DashPlaceholder $variant="light">-</DashPlaceholder>
+                          <DashPlaceholder $variant='light'>-</DashPlaceholder>
                         )}
                       </TableCell>
                       <TableCell>{renderStatusBadges(r2)}</TableCell>

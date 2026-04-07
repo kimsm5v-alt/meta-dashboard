@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { API_CONFIG } from '@shared/services/apiClient';
+import { API_CONFIG, getAuthTokens } from '@shared/services/apiClient';
 import {
   fetchClassAnalysis,
   fetchClassAnalysisRaw,
@@ -15,6 +15,7 @@ import {
   convertToAssessment,
   type AnalysisSectionItem,
   type L2DashboardData,
+  fetchTeacherExams,
 } from '@shared/services/dashboardService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
 import type { SchoolLevel, Student, Class, Assessment } from '@shared/types';
@@ -29,7 +30,6 @@ import { dgnssService } from '@features/groups/api/dgnssService';
 
 function useCredentials() {
   const { credentials } = useAuth();
-
   const tcId = credentials?.teacherId ?? '';
   const claId = credentials?.classId ?? '';
   const gradeLevel = credentials?.gradeLevel ?? 'mi';
@@ -75,8 +75,10 @@ export function useStudentAnalysis(
     const grade = parseInt(parts[0], 10) || 1;
     const classNumber = parseInt(parts[1], 10) || 1;
 
-    // credentials 없으면 DataContext fallback
-    if (!hasCredentials) {
+    const authTokens = getAuthTokens();
+    const isApiMode = authTokens?.accessToken || !!authTokens?.refreshToken;
+
+    if (!isApiMode) {
       const classData = getClassById(classId);
       setClassStudents(classData?.students ?? []);
       setClassInfo(
@@ -250,6 +252,7 @@ interface UseClassStudentsResult {
  */
 export function useClassStudents(classId: string | undefined): UseClassStudentsResult {
   const { getClassById } = useData();
+  const { user } = useAuth();
   const { tcId, claId, schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
   const [students, setStudents] = useState<Student[]>([]);
   const [l2Data, setL2Data] = useState<L2DashboardData | null>(null);
@@ -265,8 +268,11 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
 
     const classData = getClassById(classId);
 
-    // credentials 없으면 DataContext fallback
-    if (!hasCredentials) {
+    const authTokens = getAuthTokens();
+    const isApiMode = !!authTokens?.authToken || !!authTokens?.refreshToken;
+
+    // API 모드가 아니면 DataContext fallback
+    if (!isApiMode) {
       setStudents(classData?.students ?? []);
       setL2Data(null);
       return;
@@ -276,7 +282,10 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
     setError(null);
 
     try {
-      const exams = await dgnssService.getDgnssList(claId);
+      const effectiveTcId = tcId || user?.tcId || '';
+      // classId 파라미터를 claId로 사용 (URL에서 전달된 학급 ID)
+      const effectiveClaId = classId;
+      const exams = await fetchTeacherExams(effectiveClaId, effectiveTcId, '1');
       const completedRound1 = exams.find((exam) => exam.dgnssAt === 'N' && exam.ordNo === 1);
 
       if (!completedRound1) {
