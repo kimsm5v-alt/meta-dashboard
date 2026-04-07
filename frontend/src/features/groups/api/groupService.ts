@@ -458,7 +458,20 @@ export const getGroupInvitations = async (
     groupId: String(inv.groupId),
     email: inv.email,
     invitedBy: '',
-    status: inv.status === 'SENT' ? 'sent' : inv.status === 'ACCEPTED' ? 'accepted' : 'cancelled',
+    status: (() => {
+      switch (inv.status) {
+        case 'SENT':
+          return 'sent' as const;
+        case 'ACCEPTED':
+          return 'accepted' as const;
+        case 'EXPIRED':
+          return 'expired' as const;
+        case 'CANCELLED':
+          return 'cancelled' as const;
+        default:
+          return 'sent' as const;
+      }
+    })(),
     sentAt: new Date(inv.sentAt),
     expiresAt: inv.expiresAt ? new Date(inv.expiresAt) : new Date(),
   }));
@@ -504,6 +517,7 @@ export const linkGuestRecords = async (
 // ============================================================
 
 export const groupService = {
+  apiClient, // API 클라이언트 직접 접근용 (이메일 인증 등)
   createGroup,
   getMyGroups,
   getGroupDetail,

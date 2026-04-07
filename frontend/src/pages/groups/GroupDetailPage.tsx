@@ -764,6 +764,7 @@ export const GroupDetailPage: React.FC = () => {
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [cancelError, setCancelError] = useState('');
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isKickModalOpen, setIsKickModalOpen] = useState(false);
@@ -793,8 +794,9 @@ export const GroupDetailPage: React.FC = () => {
           try {
             const invitationsData = await groupService.getGroupInvitations(groupId, user.id);
             setInvitations(invitationsData);
-          } catch {
-            // 목록 로드 실패는 무시
+          } catch (err) {
+            console.error('[GroupDetailPage] 초대 목록 로드 실패:', err);
+            // 목록 로드 실패는 무시하고 빈 배열 유지
           }
         }
       } catch {
@@ -894,11 +896,14 @@ export const GroupDetailPage: React.FC = () => {
   const handleCancelInvitation = async (invitationId: string) => {
     if (!user) return;
 
+    setCancelError('');
     try {
       await groupService.cancelEmailInvitation(invitationId, user.id);
       setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
-    } catch {
-      // 에러 처리
+    } catch (err) {
+      console.error('[GroupDetailPage] 초대 취소 실패:', err);
+      setCancelError('초대 취소에 실패했습니다. 다시 시도해주세요.');
+      setTimeout(() => setCancelError(''), 3000);
     }
   };
 
@@ -936,8 +941,7 @@ export const GroupDetailPage: React.FC = () => {
   });
 
   const pendingInvitations = invitations.filter(
-    (inv) =>
-      (inv.status === 'pending' || inv.status === 'sent') && new Date(inv.expiresAt) > new Date(),
+    (inv) => inv.status !== 'expired' && inv.status !== 'cancelled',
   );
 
   if (isLoading) {
@@ -1142,6 +1146,7 @@ export const GroupDetailPage: React.FC = () => {
                   </InvitationItem>
                 ))}
               </InvitationList>
+              {cancelError && <FormError>{cancelError}</FormError>}
             </div>
           )}
         </Card>

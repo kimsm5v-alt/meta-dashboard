@@ -20,6 +20,7 @@ import type { GroupInviteInfo } from '@shared/types';
 
 type PageStep =
   | 'email-input' // 이메일 입력 단계 (비로그인 사용자)
+  | 'email-verification' // 이메일 인증 단계 (신규 게스트)
   | 'loading'
   | 'info'
   | 'guest-form'
@@ -401,6 +402,31 @@ const SmallArrowIcon = styled(ArrowRight)`
   margin-left: 0.5rem;
 `;
 
+const GenderButtonGroup = styled.div`
+  display: flex;
+  gap: 0.75rem;
+`;
+
+const GenderButton = styled.button<{ $isSelected: boolean }>`
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: 2px solid
+    ${({ $isSelected, theme }) =>
+      $isSelected ? theme.colors.primary[500] : theme.colors.gray[300]};
+  background: ${({ $isSelected, theme }) =>
+    $isSelected ? theme.colors.primary[50] : 'white'};
+  color: ${({ $isSelected, theme }) =>
+    $isSelected ? theme.colors.primary[600] : theme.colors.gray[700]};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: ${({ $isSelected, theme }) =>
+      $isSelected ? theme.colors.primary[500] : theme.colors.gray[400]};
+  }
+`;
+
 // ============================================================
 // Component
 // ============================================================
@@ -408,25 +434,41 @@ const SmallArrowIcon = styled(ArrowRight)`
 export const JoinGroupPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { user, isAuthenticated, isLoading: authLoading, loginWithEmail } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, loginWithEmail, loginAsGuest } = useAuth();
 
-  const [step, setStep] = useState<PageStep>(isAuthenticated ? 'loading' : 'email-input');
+  const [step, setStep] = useState<PageStep>(isAuthenticated ? 'loading' : 'info');
   const [groupInfo, setGroupInfo] = useState<GroupInviteInfo | null>(null);
   const [alreadyJoined, setAlreadyJoined] = useState(false);
   const [error, setError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
-  const [alreadyJoined, setAlreadyJoined] = useState(false);
 
   // 게스트 가입 폼
   const [guestNickname, setGuestNickname] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
+  const [guestGender, setGuestGender] = useState<'M' | 'F' | ''>('');
+
+  // 이메일 인증 관련 상태
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [codeSentMessage, setCodeSentMessage] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // 재발송 쿨다운 타이머
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
 
   // 그룹 정보 로드 (인증된 사용자만)
   useEffect(() => {
     const loadGroupInfo = async () => {
-      if (!code || authLoading || !isAuthenticated) return;
+      if (!code || authLoading) return;
 
-      // 이미 로그인된 사용자는 바로 그룹 정보 로드
+      // 로그인된 사용자만 그룹 정보 로드
       if (isAuthenticated && user) {
         setStep('loading');
         try {
@@ -455,6 +497,13 @@ export const JoinGroupPage: React.FC = () => {
     e.preventDefault();
     if (!code || !guestEmail.trim()) return;
 
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(guestEmail)) {
+      setError('올바른 이메일 형식이 아닙니다.');
+      return;
+    }
+
     setStep('loading');
     setError('');
 
@@ -475,10 +524,67 @@ export const JoinGroupPage: React.FC = () => {
       });
 
       setAlreadyJoined(info.exists);
-      setStep('info');
+
+      // 신규/기존 상관없이 이메일 인증 필요
+      setStep('email-verification');
     } catch {
       setError('그룹 정보를 불러오는데 실패했습니다.');
       setStep('error');
+    }
+  };
+
+  // 인증코드 발송
+  const handleSendCode = async () => {
+    if (!guestEmail.trim()) {
+      setError('이메일을 입력해주세요.');
+      return;
+    }
+
+    setIsSendingCode(true);
+    setError('');
+    setCodeSentMessage('');
+
+    try {
+      await groupService.apiClient.post('/member/send-code', { email: guestEmail.trim() });
+      setCodeSentMessage('인증코드가 발송되었습니다. 이메일을 확인해주세요.');
+      setResendCooldown(60); // 1분 재발송 제한
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '인증코드 발송에 실패했습니다.');
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
+  // 인증코드 확인
+  const handleVerifyCode = async () => {
+    if (!verificationCode.trim()) {
+      setError('인증코드를 입력해주세요.');
+      return;
+    }
+
+    setIsVerifyingCode(true);
+    setError('');
+
+    try {
+      await groupService.apiClient.post('/member/verify-code', {
+        email: guestEmail.trim(),
+        code: verificationCode.trim(),
+      });
+      setIsEmailVerified(true);
+      setCodeSentMessage('');
+
+      // 신규 게스트는 닉네임/성별 입력, 기존 게스트는 바로 가입
+      if (alreadyJoined) {
+        // 기존 게스트 - 재인증 후 바로 가입
+        handleExistingGuestJoin();
+      } else {
+        // 신규 게스트 - 닉네임/성별 입력 폼으로
+        setStep('guest-form');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '인증코드 확인에 실패했습니다.');
+    } finally {
+      setIsVerifyingCode(false);
     }
   };
 
@@ -520,11 +626,51 @@ export const JoinGroupPage: React.FC = () => {
     }
   };
 
-  // 게스트 가입 처리 (닉네임 + 이메일)
+  // 기존 게스트 재인증 후 가입
+  const handleExistingGuestJoin = async () => {
+    if (!groupInfo || !code) return;
+
+    setStep('joining');
+    try {
+      const result = await groupService.apiClient.post<{
+        claId: string;
+        stdtId: string;
+        groupNm: string;
+        email: string;
+        accessToken: string;
+        refreshToken: string;
+      }>('/guest/auth', {
+        inviteCode: code,
+        email: guestEmail.trim(),
+      });
+
+      if (!result.resultData) {
+        throw new Error('재인증 실패');
+      }
+
+      // AuthContext에 게스트 로그인 상태 반영
+      loginAsGuest({
+        stdtId: result.resultData.stdtId,
+        claId: result.resultData.claId,
+        groupNm: result.resultData.groupNm || groupInfo.name,
+        email: result.resultData.email,
+        accessToken: result.resultData.accessToken,
+        refreshToken: result.resultData.refreshToken,
+      });
+
+      // 게스트 검사 목록으로 이동
+      navigate('/guest/exams');
+    } catch {
+      setError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
+      setStep('error');
+    }
+  };
+
+  // 게스트 가입 처리 (닉네임 + 이메일 + 성별)
   const handleGuestJoin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!groupInfo) return;
+    if (!groupInfo || !code) return;
 
     if (!guestNickname.trim() || guestNickname.trim().length < 2) {
       setError('닉네임을 2자 이상 입력해주세요.');
@@ -534,18 +680,34 @@ export const JoinGroupPage: React.FC = () => {
       setError('이메일을 입력해주세요.');
       return;
     }
+    if (!guestGender) {
+      setError('성별을 선택해주세요.');
+      return;
+    }
 
     setError('');
     setStep('joining');
 
     try {
-      await groupService.joinGroupAsGuest({
+      const result = await groupService.joinGroupAsGuest({
         inviteCode: groupInfo.inviteCode,
         nickname: guestNickname.trim(),
         email: guestEmail.trim(),
-        gender: 'M',
+        gender: guestGender,
       });
-      setStep('success');
+
+      // AuthContext에 게스트 로그인 상태 반영
+      loginAsGuest({
+        stdtId: result.stdtId,
+        claId: result.groupId,
+        groupNm: groupInfo.name,
+        email: guestEmail.trim(),
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      });
+
+      // 게스트 검사 목록으로 이동
+      navigate('/guest/exams');
     } catch {
       setError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
       setStep('error');
@@ -602,6 +764,189 @@ export const JoinGroupPage: React.FC = () => {
               <Button type='submit' className='justify-center w-full'>
                 다음
                 <SmallArrowIcon />
+              </Button>
+            </ButtonGroup>
+          </FormCard>
+        </ContentWrapper>
+      </PageContainer>
+    );
+  }
+
+  // ── 이메일 인증 (신규 게스트) ──
+  if (step === 'email-verification' && !isAuthenticated) {
+    return (
+      <PageContainer>
+        <ContentWrapper>
+          <FormCard as='form' onSubmit={(e) => e.preventDefault()}>
+            <HeaderSection>
+              <SmallIconCircle $variant='gray'>
+                <Mail size={32} />
+              </SmallIconCircle>
+              <SmallTitle>이메일 인증</SmallTitle>
+              <Subtitle>
+                {groupInfo?.name}에 참가하려면
+                <br />
+                이메일 인증이 필요합니다
+              </Subtitle>
+            </HeaderSection>
+
+            <FormFields>
+              {/* 이메일 (읽기 전용) */}
+              <FormGroup>
+                <Label>
+                  이메일 <Required>*</Required>
+                  {isEmailVerified && (
+                    <span
+                      style={{
+                        marginLeft: '0.5rem',
+                        color: '#16a34a',
+                        fontSize: '0.75rem',
+                        fontWeight: 'normal',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                      }}
+                    >
+                      <CheckCircle size={14} />
+                      인증완료
+                    </span>
+                  )}
+                </Label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <InputWrapper style={{ flex: 1 }}>
+                    <InputIcon>
+                      <Mail size={20} />
+                    </InputIcon>
+                    <Input
+                      type='email'
+                      value={guestEmail}
+                      disabled
+                      style={{
+                        backgroundColor: isEmailVerified ? '#dcfce7' : '#f3f4f6',
+                        borderColor: isEmailVerified ? '#16a34a' : '#d1d5db',
+                        cursor: 'not-allowed',
+                      }}
+                    />
+                  </InputWrapper>
+                  <Button
+                    type='button'
+                    onClick={handleSendCode}
+                    disabled={isSendingCode || resendCooldown > 0 || isEmailVerified}
+                    style={{
+                      minWidth: '5rem',
+                      backgroundColor: isEmailVerified
+                        ? '#16a34a'
+                        : isSendingCode || resendCooldown > 0
+                        ? '#f3f4f6'
+                        : undefined,
+                      color: isEmailVerified
+                        ? 'white'
+                        : isSendingCode || resendCooldown > 0
+                        ? '#9ca3af'
+                        : undefined,
+                      cursor:
+                        isSendingCode || resendCooldown > 0 || isEmailVerified
+                          ? 'not-allowed'
+                          : 'pointer',
+                    }}
+                  >
+                    {isEmailVerified ? (
+                      <CheckCircle size={20} />
+                    ) : isSendingCode ? (
+                      <Loader2
+                        size={20}
+                        style={{ animation: 'spin 1s linear infinite' }}
+                      />
+                    ) : resendCooldown > 0 ? (
+                      `${resendCooldown}초`
+                    ) : (
+                      '인증'
+                    )}
+                  </Button>
+                </div>
+
+                {/* 인증코드 발송 성공 메시지 */}
+                {codeSentMessage && !isEmailVerified && (
+                  <HelpText style={{ color: '#16a34a', marginTop: '0.5rem' }}>
+                    {codeSentMessage}
+                  </HelpText>
+                )}
+
+                {/* 인증코드 입력 필드 */}
+                {codeSentMessage && !isEmailVerified && (
+                  <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+                    <Input
+                      type='text'
+                      value={verificationCode}
+                      onChange={(e) =>
+                        setVerificationCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))
+                      }
+                      placeholder='6자리 인증코드 입력'
+                      style={{
+                        flex: 1,
+                        textAlign: 'center',
+                        letterSpacing: '0.1em',
+                        fontFamily: 'monospace',
+                      }}
+                      maxLength={6}
+                      disabled={isVerifyingCode}
+                      autoFocus
+                    />
+                    <Button
+                      type='button'
+                      onClick={handleVerifyCode}
+                      disabled={verificationCode.length !== 6 || isVerifyingCode}
+                      style={{
+                        minWidth: '4rem',
+                        backgroundColor:
+                          verificationCode.length !== 6 || isVerifyingCode ? '#f3f4f6' : undefined,
+                        color:
+                          verificationCode.length !== 6 || isVerifyingCode ? '#9ca3af' : undefined,
+                        cursor:
+                          verificationCode.length !== 6 || isVerifyingCode
+                            ? 'not-allowed'
+                            : 'pointer',
+                      }}
+                    >
+                      {isVerifyingCode ? (
+                        <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+                      ) : (
+                        '확인'
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* 인증코드 안내 */}
+                {codeSentMessage && !isEmailVerified && (
+                  <HelpText style={{ marginTop: '0.5rem' }}>
+                    인증코드는 5분간 유효합니다.
+                  </HelpText>
+                )}
+              </FormGroup>
+            </FormFields>
+
+            {error && (
+              <ErrorText>
+                <ErrorSmallIcon />
+                {error}
+              </ErrorText>
+            )}
+
+            <ButtonGroup>
+              <Button
+                type='button'
+                variant='secondary'
+                onClick={() => {
+                  setStep('email-input');
+                  setError('');
+                  setVerificationCode('');
+                  setCodeSentMessage('');
+                  setResendCooldown(0);
+                }}
+                className='justify-center w-full'
+              >
+                뒤로
               </Button>
             </ButtonGroup>
           </FormCard>
@@ -768,6 +1113,35 @@ export const JoinGroupPage: React.FC = () => {
                 </InputWrapper>
                 <HelpText>검사 응시 안내 메일이 이 주소로 발송됩니다.</HelpText>
               </FormGroup>
+
+              {/* 성별 */}
+              <FormGroup>
+                <Label>
+                  성별 <Required>*</Required>
+                </Label>
+                <GenderButtonGroup>
+                  <GenderButton
+                    type='button'
+                    $isSelected={guestGender === 'M'}
+                    onClick={() => {
+                      setGuestGender('M');
+                      setError('');
+                    }}
+                  >
+                    남성
+                  </GenderButton>
+                  <GenderButton
+                    type='button'
+                    $isSelected={guestGender === 'F'}
+                    onClick={() => {
+                      setGuestGender('F');
+                      setError('');
+                    }}
+                  >
+                    여성
+                  </GenderButton>
+                </GenderButtonGroup>
+              </FormGroup>
             </FormFields>
 
             {error && (
@@ -794,8 +1168,10 @@ export const JoinGroupPage: React.FC = () => {
               <BackButton
                 type='button'
                 onClick={() => {
-                  setStep('info');
+                  setStep('email-input');
                   setError('');
+                  setGuestNickname('');
+                  setGuestGender('');
                 }}
               >
                 뒤로
@@ -824,51 +1200,51 @@ export const JoinGroupPage: React.FC = () => {
           )}
         </HeaderSection>
 
-        {groupInfo && (
-          <MainCard>
-            {/* 그룹 정보 요약 */}
+        <MainCard>
+          {/* 그룹 정보 요약 (로그인 사용자만) */}
+          {groupInfo && (
             <GroupSummary>
               <SummaryText>초대코드: {groupInfo.inviteCode}</SummaryText>
             </GroupSummary>
+          )}
 
-            {/* 이미 참가한 경우 경고 */}
-            {alreadyJoined && (
-              <InfoBox $variant='amber' style={{ marginBottom: '1.5rem' }}>
-                <InfoText $variant='amber'>
-                  이 이메일로 이미 그룹에 참가하셨습니다. 다시 가입하면 기존 데이터가 초기화될 수
-                  있습니다.
-                </InfoText>
-              </InfoBox>
-            )}
+          {/* 이미 참가한 경우 경고 */}
+          {alreadyJoined && (
+            <InfoBox $variant='amber' style={{ marginBottom: '1.5rem' }}>
+              <InfoText $variant='amber'>
+                이 이메일로 이미 그룹에 참가하셨습니다. 다시 가입하면 기존 데이터가 초기화될 수
+                있습니다.
+              </InfoText>
+            </InfoBox>
+          )}
 
-            {isAuthenticated && user ? (
-              // ── 로그인 상태: 바로 가입 ──
-              <AuthSection>
-                <UserInfoBox>
-                  <UserInfoText>
-                    <UserName>{user.name}</UserName>님으로 가입합니다.
-                  </UserInfoText>
-                </UserInfoBox>
+          {isAuthenticated && user ? (
+            // ── 로그인 상태: 바로 가입 ──
+            <AuthSection>
+              <UserInfoBox>
+                <UserInfoText>
+                  <UserName>{user.name}</UserName>님으로 가입합니다.
+                </UserInfoText>
+              </UserInfoBox>
 
-                <SubmitButton onClick={handleMemberJoin} type='button'>
-                  그룹 가입하기
-                  <ArrowIcon />
-                </SubmitButton>
-              </AuthSection>
-            ) : (
-              // ── 비로그인 상태: 로그인 폼 바로 표시 ──
-              <div>
-                <LoginPrompt>그룹에 가입하려면 로그인해주세요</LoginPrompt>
-                <LoginForm
-                  onLogin={handleLogin}
-                  isLoading={loginLoading}
-                  onGuestLogin={() => setStep('guest-form')}
-                  redirectPath={`/join/${code}`}
-                />
-              </div>
-            )}
-          </MainCard>
-        )}
+              <SubmitButton onClick={handleMemberJoin} type='button'>
+                그룹 가입하기
+                <ArrowIcon />
+              </SubmitButton>
+            </AuthSection>
+          ) : (
+            // ── 비로그인 상태: 로그인 폼 바로 표시 ──
+            <div>
+              <LoginPrompt>그룹에 가입하려면 로그인해주세요</LoginPrompt>
+              <LoginForm
+                onLogin={handleLogin}
+                isLoading={loginLoading}
+                onGuestLogin={() => setStep('email-input')}
+                redirectPath={`/join/${code}`}
+              />
+            </div>
+          )}
+        </MainCard>
 
         {/* 초대 코드 표시 */}
         <CenterContent>

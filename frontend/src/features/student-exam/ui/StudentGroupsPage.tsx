@@ -529,7 +529,7 @@ export const StudentGroupsPage: React.FC = () => {
         return;
       }
 
-      await joinGroup({ inviteCode: groupInfo.inviteCode }, user.id, user.name);
+      await joinGroup({ inviteCode }, user.id, user.name);
       setShowJoinModal(false);
       setInviteCode('');
       loadGroups(true);
