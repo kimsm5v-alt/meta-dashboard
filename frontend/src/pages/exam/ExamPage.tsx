@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { AlertCircle, Loader2 } from 'lucide-react';
@@ -13,8 +13,10 @@ import {
   getStudentExamInfo,
   resetExam,
 } from '@features/exam/api/examService';
+import { saveStudentInfo } from '@features/exam/api/studentInfoService';
 import {
   StudentIdEntryStep,
+  StudentInfoStep,
   ExamAuthStep,
   GuestExamEntryStep,
   ResumeChoiceStep,
@@ -22,11 +24,21 @@ import {
   ExamQuestionStep,
   ExamCompleteStep,
 } from '@features/exam/ui';
+import type { StudentInfo } from '@features/exam/ui/StudentInfoStep';
 
 interface ExamInfo {
   name: string;
   examCode: string; // 항상 숫자 코드
   claId?: string; // API 모드에서 사용
+}
+
+interface StudentExamLocationState {
+  dgnssResultId: number;
+  dgnssId: number;
+  ordNo: number;
+  examName: string;
+  resume?: boolean;
+  restart?: boolean;
 }
 
 const LoadingContainer = styled.div`
@@ -129,15 +141,21 @@ const RetryButton = styled.button`
 export const ExamPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const location = useLocation();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
 
-  const [isValidating, setIsValidating] = useState(true);
-  const [isValid, setIsValid] = useState(false);
+  // 학생(회원) 플로우 여부 확인
+  const studentExamState = location.state as StudentExamLocationState | undefined;
+  const isStudentFlow = !code && !!studentExamState?.dgnssResultId;
+
+  const [isValidating, setIsValidating] = useState(!isStudentFlow);
+  const [isValid, setIsValid] = useState(isStudentFlow);
   const [examInfo, setExamInfo] = useState<ExamInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [savingQuestionNo, setSavingQuestionNo] = useState<number | null>(null);
   const [pendingAnsweredCount, setPendingAnsweredCount] = useState(0);
   const [isRestartMode, setIsRestartMode] = useState(false);
+  const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
 
   const {
     state,
@@ -150,8 +168,70 @@ export const ExamPage: React.FC = () => {
     loadExistingAnswers,
   } = useExamState();
 
+  // 학생(회원) 플로우 초기화
+  useEffect(() => {
+    if (!isStudentFlow || !studentExamState) return;
+
+    const init = async () => {
+      setExamInfo({
+        name: studentExamState.examName,
+        examCode: '', // 학생용은 코드 없음
+      });
+      setDgnssResultId(studentExamState.dgnssResultId);
+
+      // user의 studentNumber 추출 (stdtId에서)
+      if (user?.stdtId) {
+        const numberMatch = user.stdtId.match(/s(\d+)$/);
+        const studentNumber = numberMatch ? parseInt(numberMatch[1], 10) : 0;
+        setStudentNumber(studentNumber);
+      }
+
+      // resume/restart 처리
+      if (studentExamState.resume || studentExamState.restart) {
+        setIsLoading(true);
+        try {
+          if (studentExamState.restart) {
+            setIsRestartMode(true);
+          }
+
+          const result = studentExamState.restart
+            ? await resetExam(studentExamState.dgnssResultId, 0, 20)
+            : await fetchQuestions(studentExamState.dgnssResultId, 0, 20);
+
+          const existingAnswers: Record<number, string> = {};
+          if (!studentExamState.restart) {
+            result.questions.forEach((q) => {
+              if (q.answer) {
+                existingAnswers[q.NO] = q.answer;
+              }
+            });
+          }
+
+          loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+          loadExistingAnswers(existingAnswers);
+
+          if (!studentExamState.restart && result.answeredCount > 0) {
+            setPendingAnsweredCount(result.answeredCount);
+            setStep('resume-choice');
+          } else {
+            setStep('guide');
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        // 새로 시작 → student-info 단계로
+        setStep('student-info');
+      }
+    };
+
+    init();
+  }, [isStudentFlow, studentExamState, user, setDgnssResultId, setStudentNumber, loadQuestions, loadExistingAnswers, setStep]);
+
   // QR 코드 검증
   useEffect(() => {
+    if (isStudentFlow) return; // 학생 플로우면 스킵
+
     const validate = async () => {
       if (!code) {
         navigate('/exam');
@@ -178,10 +258,11 @@ export const ExamPage: React.FC = () => {
     };
 
     validate();
-  }, [code, navigate]);
+  }, [code, navigate, isStudentFlow]);
 
-  // 인증 상태에 따라 초기 step 결정
+  // 인증 상태에 따라 초기 step 결정 (QR 코드 플로우만)
   useEffect(() => {
+    if (isStudentFlow) return; // 학생 플로우는 스킵
     if (isValidating || authLoading || !isValid) return;
 
     if (isAuthenticated) {
@@ -195,7 +276,7 @@ export const ExamPage: React.FC = () => {
         setStep('auth');
       }
     }
-  }, [isAuthenticated, authLoading, isValidating, isValid, state.step, setStep]);
+  }, [isAuthenticated, authLoading, isValidating, isValid, state.step, setStep, isStudentFlow]);
 
   // 게스트 검사 시작 (닉네임만 입력)
   const handleGuestSubmit = useCallback(
@@ -241,7 +322,7 @@ export const ExamPage: React.FC = () => {
     [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep],
   );
 
-  // 학생 ID 입력 후 dgnssResultId 조회 및 문항 로드
+  // 학생 ID 입력 후 dgnssResultId 조회
   const handleStudentIdSubmit = useCallback(
     async (stdtId: string) => {
       if (!examInfo) return;
@@ -257,7 +338,32 @@ export const ExamPage: React.FC = () => {
         const { dgnssResultId } = examResult;
         setDgnssResultId(dgnssResultId);
 
-        const result = await fetchQuestions(dgnssResultId, 0, 20);
+        const numberMatch = stdtId.match(/s(\d+)$/);
+        const studentNumber = numberMatch ? parseInt(numberMatch[1], 10) : 0;
+        setStudentNumber(studentNumber);
+
+        // 학생 정보 입력 단계로 이동
+        setStep('student-info');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [examInfo, setStudentNumber, setDgnssResultId, setStep],
+  );
+
+  // 학생 정보 입력 후 문항 로드
+  const handleStudentInfoSubmit = useCallback(
+    async (info: StudentInfo) => {
+      if (!state.dgnssResultId) return;
+
+      setIsLoading(true);
+      try {
+        // 학생 정보 저장 (localStorage)
+        await saveStudentInfo(state.dgnssResultId, info);
+        setStudentInfo(info);
+
+        // 문항 로드
+        const result = await fetchQuestions(state.dgnssResultId, 0, 20);
 
         const existingAnswers: Record<number, string> = {};
         result.questions.forEach((q) => {
@@ -269,10 +375,6 @@ export const ExamPage: React.FC = () => {
         loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
         loadExistingAnswers(existingAnswers);
 
-        const numberMatch = stdtId.match(/s(\d+)$/);
-        const studentNumber = numberMatch ? parseInt(numberMatch[1], 10) : 0;
-        setStudentNumber(studentNumber);
-
         if (result.answeredCount > 0) {
           setPendingAnsweredCount(result.answeredCount);
           setStep('resume-choice');
@@ -283,7 +385,7 @@ export const ExamPage: React.FC = () => {
         setIsLoading(false);
       }
     },
-    [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep],
+    [state.dgnssResultId, loadQuestions, loadExistingAnswers, setStep],
   );
 
   // 이어하기
@@ -416,7 +518,7 @@ export const ExamPage: React.FC = () => {
   }, []);
 
   // 로딩 화면
-  if (isValidating || authLoading) {
+  if ((!isStudentFlow && isValidating) || authLoading) {
     return (
       <LoadingContainer>
         <LoadingContent>
@@ -427,8 +529,8 @@ export const ExamPage: React.FC = () => {
     );
   }
 
-  // 유효하지 않은 코드
-  if (!isValid || !examInfo) {
+  // 유효하지 않은 코드 (QR 코드 플로우만)
+  if (!isStudentFlow && (!isValid || !examInfo)) {
     return (
       <ErrorContainer>
         <ErrorContent>
@@ -445,6 +547,23 @@ export const ExamPage: React.FC = () => {
         </ErrorContent>
       </ErrorContainer>
     );
+  }
+
+  // 학생 플로우인데 examInfo가 없으면 초기화 대기
+  if (isStudentFlow && !examInfo) {
+    return (
+      <LoadingContainer>
+        <LoadingContent>
+          <LoadingSpinner />
+          <LoadingText>검사 준비 중...</LoadingText>
+        </LoadingContent>
+      </LoadingContainer>
+    );
+  }
+
+  // examInfo가 없으면 렌더링하지 않음 (위에서 모든 케이스 처리됨)
+  if (!examInfo) {
+    return null;
   }
 
   // Step별 렌더링
@@ -473,6 +592,16 @@ export const ExamPage: React.FC = () => {
         <StudentIdEntryStep
           examName={examInfo.name}
           onSubmit={handleStudentIdSubmit}
+          isLoading={isLoading}
+        />
+      );
+
+    case 'student-info':
+      return (
+        <StudentInfoStep
+          examName={examInfo.name}
+          initialData={studentInfo || undefined}
+          onSubmit={handleStudentInfoSubmit}
           isLoading={isLoading}
         />
       );

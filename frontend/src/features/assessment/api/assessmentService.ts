@@ -154,7 +154,7 @@ export async function restartExam(
 
 /** 미제출 학생 항목 */
 export interface NotSubmittedStudent {
-  stdtId: string;
+  nickname: string;
 }
 
 /**

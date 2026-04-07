@@ -56,8 +56,9 @@ export async function fetchQuestions(
   page: number = 0,
   size: number = 20,
 ): Promise<FetchQuestionsResponse> {
-  const res = await apiClient.get<QuestionsResponseData>(
-    `/api/dgnss/st/start?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`,
+  const res = await apiClient.post<QuestionsResponseData>(
+    '/api/dgnss/st/start',
+    { dgnssResultId, paperIdx: 1, page, size } //나중에 수정 
   );
 
   return {

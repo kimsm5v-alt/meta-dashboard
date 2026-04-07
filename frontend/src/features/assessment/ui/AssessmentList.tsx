@@ -314,8 +314,8 @@ const AssessmentItem: React.FC<{
             <LoadingText>불러오는 중...</LoadingText>
           ) : notSubmittedStudents.length > 0 ? (
             <StudentList>
-              {notSubmittedStudents.map((student) => (
-                <StudentBadge key={student.stdtId}>{student.stdtId}</StudentBadge>
+              {notSubmittedStudents.map((student, idx) => (
+                <StudentBadge key={idx}>{student.nickname}</StudentBadge>
               ))}
             </StudentList>
           ) : (

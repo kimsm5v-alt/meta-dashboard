@@ -13,6 +13,7 @@ export type ExamStep =
   | 'auth'
   | 'guest-entry'
   | 'number'
+  | 'student-info'
   | 'resume-choice'
   | 'guide'
   | 'questions'

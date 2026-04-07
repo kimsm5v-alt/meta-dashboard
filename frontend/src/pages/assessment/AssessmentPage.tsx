@@ -464,7 +464,7 @@ export const AssessmentPage: React.FC = () => {
       )}
 
       {/* 그룹 선택 */}
-      {!isGroupsLoading && groups.length > 0 && (
+      {/* {!isGroupsLoading && groups.length > 0 && (
         <GroupSelectWrapper>
           <GroupSelectLabel>학급 선택</GroupSelectLabel>
           <GroupSelectContainer>
@@ -481,7 +481,7 @@ export const AssessmentPage: React.FC = () => {
             <GroupSelectIcon />
           </GroupSelectContainer>
         </GroupSelectWrapper>
-      )}
+      )} */}
 
       {/* 그룹 없음 경고 */}
       {!isGroupsLoading && groups.length === 0 && (
@@ -516,6 +516,7 @@ export const AssessmentPage: React.FC = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreate={handleCreateAssessment}
+        groups={groups}
       />
       <AssessmentCodeModal
         isOpen={isCodeModalOpen}

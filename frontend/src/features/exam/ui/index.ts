@@ -1,5 +1,6 @@
 export { NumberEntryStep } from './NumberEntryStep';
 export { StudentIdEntryStep } from './StudentIdEntryStep';
+export { StudentInfoStep } from './StudentInfoStep';
 export { ExamAuthStep } from './ExamAuthStep';
 export { GuestExamEntryStep } from './GuestExamEntryStep';
 export { ResumeChoiceStep } from './ResumeChoiceStep';
