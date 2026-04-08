@@ -16,6 +16,9 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Adds timing and hash metadata to controller responses.
@@ -29,6 +32,8 @@ public class ApiResponseAspect {
 
     @Around("execution(* com.vs.meta..api..controller..*.*(..))")
     public Object enrichResponse(ProceedingJoinPoint joinPoint) throws Throwable {
+        logDgnssParamData(joinPoint);
+
         String sTime = LocalDateTime.now().format(DATE_FORMATTER);
 
         Object result = joinPoint.proceed();
@@ -64,6 +69,27 @@ public class ApiResponseAspect {
         }
 
         return result;
+    }
+
+    private void logDgnssParamData(ProceedingJoinPoint joinPoint) {
+        String declaringTypeName = joinPoint.getSignature().getDeclaringTypeName();
+        if (!"com.vs.meta.api.dgnss.controller.DgnssController".equals(declaringTypeName)) {
+            return;
+        }
+
+        List<Map<?, ?>> mapArgs = new ArrayList<>();
+        for (Object arg : joinPoint.getArgs()) {
+            if (arg instanceof Map<?, ?> map) {
+                mapArgs.add(map);
+            }
+        }
+
+        if (mapArgs.isEmpty()) {
+            return;
+        }
+
+        log.info("DgnssController call: method={}, paramData={}",
+                joinPoint.getSignature().getName(), mapArgs);
     }
 
     private String sha256(String value) {

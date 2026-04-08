@@ -253,8 +253,6 @@ public class NcpMailSender {
                 + "<a href='" + signupUrl + "' target='_blank' style='display:inline-block;padding:12px 24px;background:#4A90D9;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold'>회원가입하고 자세히 보기</a>"
                 + "</div>"
                 + "<p style='margin-top:24px'>여러분의 밝은 미래와 건강한 마음을 언제나 응원합니다.<br>감사합니다.</p>"
-                + "<hr style='margin:24px 0;border:none;border-top:1px solid #ddd'>"
-                + "<p style='color:#666;font-size:14px'><strong>첨부파일:</strong> 학습심리검사_결과_" + studentName + ".pdf</p>"
                 + "</div>";
     }
 
