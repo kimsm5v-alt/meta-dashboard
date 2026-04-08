@@ -1412,17 +1412,23 @@ public class DgnssService {
             throw new IllegalStateException("학생 결과 메일 발송 대상 정보를 찾을 수 없습니다.");
         }
 
+        String memberType = MapUtils.getString(studentInfo, "memberType", "");
+        if (!StringUtils.equals(memberType, "GUEST")) {
+            log.info("게스트 회원이 아니므로 메일 발송 생략: dgnssResultId={}, answerIdx={}, memberType={}", dgnssResultId, answerIdx, memberType);
+            return;
+        }
+
         String toEmail = StringUtils.defaultIfBlank(overrideEmail, MapUtils.getString(studentInfo, "email", ""));
         if (StringUtils.isBlank(toEmail)) {
-            throw new IllegalStateException("학생 이메일 정보가 없습니다.");
+            log.warn("게스트 회원이지만 이메일 정보가 없어 발송 생략: dgnssResultId={}, answerIdx={}", dgnssResultId, answerIdx);
+            return;
         }
 
         String fileUrl = ensureStudentPdfUrl(answerIdx, request);
         byte[] pdfData = fileService.loadFileBytesForMail(fileUrl);
         String studentName = MapUtils.getString(studentInfo, "MEM_NM", "");
-        String examTypeName = resolveExamTypeName(MapUtils.getString(studentInfo, "DGNSS_ID", ""));
 
-        ncpMailSender.sendExamResultPdf(toEmail, studentName, examTypeName, pdfData);
+        ncpMailSender.sendExamResultPdf(toEmail, studentName, pdfData);
         log.info("학생 결과 메일 발송 완료: dgnssResultId={}, answerIdx={}, toEmail={}", dgnssResultId, answerIdx, toEmail);
     }
 

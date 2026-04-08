@@ -1736,6 +1736,8 @@
 		           WHEN gm.member_no IS NULL THEN ''
 		           ELSE CONCAT(gm.member_no, '번')
 		       END AS stdtNo
+		     , gm.email AS email
+		     , gm.member_type AS memberType
 		FROM TB_DGNSS_ANSWER DA
 			INNER JOIN TB_DGNSS_RESULT_INFO DRI ON DA.DGNSS_RESULT_ID = DRI.id
 			INNER JOIN tb_dgnss_info tdi2 ON DRI.dgnss_id = tdi2.id
