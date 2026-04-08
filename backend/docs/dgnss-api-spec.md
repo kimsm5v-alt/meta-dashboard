@@ -695,7 +695,7 @@ GET /api/dgnss/tc/stinfolist?dgnssId=294&paperIdx=1&type=6
 | 2 | gender | String | 성별 | |
 | 3 | desirable | String | 사회적 바람직성 | |
 | 4 | reaction | String | 반응 일관성 | |
-| 5 | {SECTION_ID} | Number | 영역별 T점수 | KEY: SECTION_ID, VALUE: T_SCORE |
+| 5 | scores | Object | 영역별 T점수 맵 | KEY: SECTION_ID, VALUE: T_SCORE |
 | 6 | lpaClassId | String | LPA 클래스 ID | 예: Class1~Class6 |
 | 7 | lpaTypeName | String | LPA 유형명 | |
 | 8 | lpaConfidence | Number | LPA 신뢰도(%) | 소수점 가능 |
@@ -725,7 +725,6 @@ GET /api/dgnss/tc/stinfolist?dgnssId=294&paperIdx=1&type=6
     "type": 6,
     "stInfoList": [
       {
-        "10-22-05-01-01-0": 26.7,
         "stdtId": "mathbe2-s1",
         "reaction": "주의",
         "gender": "남자",
@@ -740,16 +739,19 @@ GET /api/dgnss/tc/stinfolist?dgnssId=294&paperIdx=1&type=6
         "lpaTop2Probability": 15.1,
         "lpaTop3TypeName": "몰입자원풍부형",
         "lpaTop3Probability": 6.4,
-        "10-22-05-01-03-0": 44.4,
-        "10-22-05-01-0-0": 41.5,
-        "10-22-05-01-02-0": 56,
-        "10-22-03-02-04-0": 63.9,
-        "10-22-03-02-03-0": 49,
-        "10-22-03-02-02-0": 61.1,
         "rowNum": 1,
-        "10-22-03-02-01-0": 41.8,
-        "10-22-03-02-0-0": 55.7,
-        "10-22-03-02-05-0": 57.5
+        "scores": {
+          "10-22-05-01-01-0": 26.7,
+          "10-22-05-01-03-0": 44.4,
+          "10-22-05-01-0-0": 41.5,
+          "10-22-05-01-02-0": 56.0,
+          "10-22-03-02-04-0": 63.9,
+          "10-22-03-02-03-0": 49.0,
+          "10-22-03-02-02-0": 61.1,
+          "10-22-03-02-01-0": 41.8,
+          "10-22-03-02-0-0": 55.7,
+          "10-22-03-02-05-0": 57.5
+        }
       }
     ]
   },
@@ -779,6 +781,102 @@ GET /api/dgnss/tc/stinfolist?dgnssId=294&paperIdx=1&type=6
 
 ```
 GET /api/dgnss/tc/need?dgnssId=1088&paperIdx=1
+```
+
+---
+
+### 11-1. 교사 학급별 요인 평균 및 제출/신뢰도 집계
+
+교사가 보유한 학급별로 요인 평균 점수와 학생 집계 정보를 조회합니다.
+
+- 평균 대상: `subm_at = 'Y'` 학생만
+- 회차 기준: `ord_no IN (1, 2)` 데이터를 통합 평균
+- 신뢰도 주의 집계 기준:
+  - `COCH_DGNSS_QESITM01_MARK = '주의'` 또는
+  - `COCH_DGNSS_QESITM02_MARK = '주의'` 또는
+  - `REPEATED_RESPONSE_YN = 'Y'`
+
+| 항목 | 값 |
+|------|-----|
+| URL | `/api/dgnss/tc/class-factor-avg` |
+| Method | `GET` |
+
+#### Request Parameters (Query String)
+
+| NO | 파라미터 | 타입 | 필수 | 설명 | 비고 |
+|----|----------|------|------|------|------|
+| 1 | tcId | String | O | 교사 ID | |
+| 2 | paperIdx | String | O | 심리검사 종류 | `1` 또는 `2` |
+| 3 | claId | String | X | 학급 ID | 미입력 시 전체 학급 |
+
+#### Request Example
+
+```
+GET /api/dgnss/tc/class-factor-avg?tcId=rrmath016-t&paperIdx=1
+```
+
+#### Response Fields (resultData)
+
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | classList | Array | 학급별 집계 목록 | |
+
+#### Response Fields (resultData.classList[])
+
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | claId | String | 학급 ID | |
+| 2 | classNm | String | 학급명 | |
+| 3 | totalStudentCount | Integer | 전체 학급 인원수 | `group_member.status='ACTIVE'` |
+| 4 | submittedStudentCount | Integer | 제출 학생 수 | `subm_at='Y'` |
+| 5 | reliabilityAlertCount | Integer | 신뢰도 주의 학생 수 | 위 기준 참조 |
+| 6 | factorScoresByDepth | Object | depth별 요인 평균 점수 맵 | depth3/depth4/depth5 |
+
+#### Response Fields (resultData.classList[].factorScoresByDepth)
+
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | depth3 | Object | depth=3 요인 평균 점수 맵 | KEY: SECTION_ID, VALUE: 평균 T_SCORE |
+| 2 | depth4 | Object | depth=4 요인 평균 점수 맵 | KEY: SECTION_ID, VALUE: 평균 T_SCORE |
+| 3 | depth5 | Object | depth=5 요인 평균 점수 맵 | KEY: SECTION_ID, VALUE: 평균 T_SCORE |
+
+#### Response Example
+
+```json
+{
+  "success": true,
+  "resultMessage": "(교사) 학급별 요인 평균 및 제출/신뢰도 집계",
+  "resultCode": 200,
+  "paramData": {
+    "tcId": "rrmath016-t",
+    "paperIdx": "1"
+  },
+  "resultData": {
+    "classList": [
+      {
+        "claId": "eb1460dce8fc42889862e9a460beb4a0",
+        "classNm": "1반",
+        "totalStudentCount": 28,
+        "submittedStudentCount": 24,
+        "reliabilityAlertCount": 3,
+        "factorScoresByDepth": {
+          "depth3": {
+            "10-22-01-0-0-0": 51.4
+          },
+          "depth4": {
+            "10-22-01-01-0-0": 50.2
+          },
+          "depth5": {
+            "10-22-01-01-01-0": 52.3,
+            "10-22-01-01-02-0": 49.8,
+            "10-22-01-01-03-0": 50.1
+          }
+        }
+      }
+    ]
+  },
+  "currentTime": "2026-03-26 17:00:00"
+}
 ```
 
 ---
@@ -1145,8 +1243,9 @@ GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2
 | NO | 필드 | 타입 | 설명 | 비고 |
 |----|------|------|------|------|
 | 1 | stUserInfo | Object | 학생 정보 | |
-| 2 | `"1"` | Array | 1회차 검사 결과 정보 | 없을 수 있음 |
-| 3 | `"2"` | Array | 2회차 검사 결과 정보 | 없을 수 있음 |
+| 2 | lpaTop | Object | 회차별 LPA 요약 정보 | 키: `"1"`, `"2"` |
+| 3 | `"1"` | Array | 1회차 검사 결과 정보 | 없을 수 있음 |
+| 4 | `"2"` | Array | 2회차 검사 결과 정보 | 없을 수 있음 |
 
 #### Response Fields (resultData.stUserInfo)
 
@@ -1161,6 +1260,23 @@ GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2
 | 7 | classCd | String | 반 정보 | |
 | 8 | dgnssResultId | Integer | 심리검사 상세 ID | |
 
+#### Response Fields (resultData.lpaTop."1", resultData.lpaTop."2")
+
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | lpaClassId | String | LPA 클래스 ID | 예: Class1~Class6 |
+| 2 | lpaTypeName | String | LPA 유형명 | |
+| 3 | lpaConfidence | Number | LPA 신뢰도(%) | 소수점 가능 |
+| 4 | lpaStatus | String | LPA 처리 상태 | COMPLETED / UNSUPPORTED / null |
+| 5 | lpaTop1TypeName | String | LPA 1순위 유형명 | |
+| 6 | lpaTop1Probability | Number | LPA 1순위 확률(%) | 소수점 1자리 |
+| 7 | lpaTop2TypeName | String | LPA 2순위 유형명 | |
+| 8 | lpaTop2Probability | Number | LPA 2순위 확률(%) | 소수점 1자리 |
+| 9 | lpaTop3TypeName | String | LPA 3순위 유형명 | |
+| 10 | lpaTop3Probability | Number | LPA 3순위 확률(%) | 소수점 1자리 |
+
+> `lpaTop1Probability + lpaTop2Probability + lpaTop3Probability = 100.0`
+
 #### Response Fields (resultData."1"[], resultData."2"[])
 
 | NO | 필드 | 타입 | 설명 | 비고 |
@@ -1174,18 +1290,6 @@ GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2
 | 7 | reaction | String | 반응성 | |
 | 8 | desirable | String | 바람직성 | |
 | 9 | repeatResponse | String | 반복응답 여부 | |
-| 10 | lpaClassId | String | LPA 클래스 ID | 예: Class1~Class6 |
-| 11 | lpaTypeName | String | LPA 유형명 | |
-| 12 | lpaConfidence | Number | LPA 신뢰도(%) | 소수점 가능 |
-| 13 | lpaStatus | String | LPA 처리 상태 | COMPLETED / UNSUPPORTED / null |
-| 14 | lpaTop1TypeName | String | LPA 1순위 유형명 | |
-| 15 | lpaTop1Probability | Number | LPA 1순위 확률(%) | 소수점 1자리 |
-| 16 | lpaTop2TypeName | String | LPA 2순위 유형명 | |
-| 17 | lpaTop2Probability | Number | LPA 2순위 확률(%) | 소수점 1자리 |
-| 18 | lpaTop3TypeName | String | LPA 3순위 유형명 | |
-| 19 | lpaTop3Probability | Number | LPA 3순위 확률(%) | 소수점 1자리 |
-
-> `lpaTop1Probability + lpaTop2Probability + lpaTop3Probability = 100.0`
 
 #### Response Example
 
@@ -1209,17 +1313,8 @@ GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2
       "classCd": "1반",
       "dgnssResultId": 12509
     },
-    "1": [
-      {
-        "dgnssResultId": 12509,
-        "SECTION_ID": "10-22-01-01-01-0",
-        "SECTION_NM": "자아존중감",
-        "DEPTH": 5,
-        "tScore": 55,
-        "ord_no": 1,
-        "reaction": null,
-        "desirable": null,
-        "repeatResponse": "N",
+    "lpaTop": {
+      "1": {
         "lpaClassId": "Class2",
         "lpaTypeName": "안전균형형",
         "lpaConfidence": 78.45,
@@ -1230,6 +1325,19 @@ GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2
         "lpaTop2Probability": 15.1,
         "lpaTop3TypeName": "몰입자원풍부형",
         "lpaTop3Probability": 6.4
+      }
+    },
+    "1": [
+      {
+        "dgnssResultId": 12509,
+        "SECTION_ID": "10-22-01-01-01-0",
+        "SECTION_NM": "자아존중감",
+        "DEPTH": 5,
+        "tScore": 55,
+        "ord_no": 1,
+        "reaction": null,
+        "desirable": null,
+        "repeatResponse": "N"
       }
     ]
   },

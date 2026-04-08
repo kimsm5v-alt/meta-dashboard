@@ -475,6 +475,7 @@
                     <div class="api-tab" data-tab="dgnss-tc-detail">상세조회</div>
                     <div class="api-tab" data-tab="dgnss-tc-notsubm">미제출목록</div>
                     <div class="api-tab" data-tab="dgnss-tc-analysis">종합분석</div>
+                    <div class="api-tab" data-tab="dgnss-tc-class-factor-avg">학급별요인평균</div>
                     <div class="api-tab" data-tab="dgnss-tc-stlist">학생목록</div>
                     <div class="api-tab" data-tab="dgnss-tc-need">상담필요</div>
                     <div class="api-tab" data-tab="dgnss-tc-text">텍스트저장</div>
@@ -629,6 +630,22 @@
                 </div>
                 <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcAnalysis()">조회</button></div>
                 <div class="response-area" id="resp-dgnss-tc-analysis"></div>
+            </div>
+
+            <!-- 교사: 학급별 요인 평균 -->
+            <div class="api-panel" id="panel-dgnss-tc-class-factor-avg">
+                <h2>GET /api/dgnss/tc/class-factor-avg</h2>
+                <p class="desc">교사 - 학급별 요인 평균 및 제출/신뢰도 집계</p>
+                <div class="api-row">
+                    <div class="api-field"><label>tcId</label><input id="dtcfa_tcId" placeholder="rrmath016-t" /></div>
+                    <div class="api-field">
+                        <label>paperIdx</label>
+                        <select id="dtcfa_paperIdx"><option value="1">1</option><option value="2">2</option></select>
+                    </div>
+                    <div class="api-field"><label>claId (선택)</label><input id="dtcfa_claId" placeholder="미입력 시 전체 학급" /></div>
+                </div>
+                <div class="api-btn-group"><button class="btn btn-primary btn-sm" onclick="doDgnssTcClassFactorAvg()">조회</button></div>
+                <div class="response-area" id="resp-dgnss-tc-class-factor-avg"></div>
             </div>
 
             <!-- 교사: 학생목록 -->
@@ -1254,6 +1271,16 @@
         const paperIdx = document.getElementById('dta_paperIdx').value;
         const ordNo = document.getElementById('dta_ordNo').value;
         await apiCall('GET', `/api/dgnss/tc/analysis?claId=${encodeURIComponent(claId)}&paperIdx=${paperIdx}&ordNo=${ordNo}`, null, 'resp-dgnss-tc-analysis');
+    }
+    async function doDgnssTcClassFactorAvg() {
+        const tcIdInput = document.getElementById('dtcfa_tcId').value.trim();
+        const tcId = tcIdInput || state.tcId || '';
+        const paperIdx = document.getElementById('dtcfa_paperIdx').value;
+        const claId = document.getElementById('dtcfa_claId').value.trim();
+        if (!tcId) { alert('tcId를 입력하세요.'); return; }
+        let url = `/api/dgnss/tc/class-factor-avg?tcId=${encodeURIComponent(tcId)}&paperIdx=${paperIdx}`;
+        if (claId) url += `&claId=${encodeURIComponent(claId)}`;
+        await apiCall('GET', url, null, 'resp-dgnss-tc-class-factor-avg');
     }
     async function doDgnssTcStlist() {
         const dgnssId = document.getElementById('dtst_dgnssId').value;

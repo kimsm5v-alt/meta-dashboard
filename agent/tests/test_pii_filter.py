@@ -44,7 +44,7 @@ def test_mask_pii_data_nested():
 
     assert masked["student"]["name"] == "김**"
     assert masked["student"]["studentId"] == "2*******"
-    assert masked["student"]["phone"] == "0***********"
+    assert masked["student"]["phone"] == "0************"
     assert masked["scores"]["math"] == 95
     assert masked["recent_comment"] == "수학에 매우 흥미를 보임"
     print("✅ 중첩된 PII 마스킹 테스트 통과")

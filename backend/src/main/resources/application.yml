@@ -95,9 +95,9 @@ ncp:
 
 # 프론트엔드 URL (초대 메일 링크 등에 사용)
 app:
-  frontend-url: ${APP_FRONTEND_URL:https://t-meta-service.vsaidt.com}
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
   cors:
-    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:https://t-meta-service.vsaidt.com,http://localhost:5173,http://localhost:5174}
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}
 
 # 로그인 Rate Limiting
 login:

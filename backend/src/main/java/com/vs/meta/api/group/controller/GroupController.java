@@ -104,7 +104,7 @@ public class GroupController {
     @Operation(summary = "초대코드로 그룹 조회", description = "참가 전 그룹 정보를 미리 조회")
     @Parameter(name = "code", description = "초대 코드 (6자리)", required = true, examples = @ExampleObject(value = "ABC123"))
     public ResponseDTO<CustomBody> findGroupByInviteCode(@Parameter(hidden = true) @RequestParam Map<String, Object> paramData) throws Exception {
-        paramData.put("userNo", SecurityUtil.requireCurrentUserNo());
+        paramData.put("userNo", SecurityUtil.getCurrentUserNo());
         Object resultData = groupService.findGroupByInviteCode(paramData);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "초대코드 그룹 조회");
     }

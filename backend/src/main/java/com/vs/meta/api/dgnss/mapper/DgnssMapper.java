@@ -125,4 +125,8 @@ public interface DgnssMapper {
     List<Map<String, Object>> selectLpaFactorScores(@Param("answerIdx") int answerIdx);
 
     void upsertDgnssLpaResult(Map<String, Object> param);
+
+    List<Map<String, Object>> selectTcClassMetaStats(Map<String, Object> param);
+
+    List<Map<String, Object>> selectTcClassFactorAverages(Map<String, Object> param);
 }

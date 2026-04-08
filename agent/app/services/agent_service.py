@@ -91,4 +91,47 @@ class MetaAgentService:
             "history_count": len(history.messages)
         }
 
+    async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+        """
+        LiteLLM Router를 통해 에이전트를 실시간 스트리밍 모드로 실행합니다.
+        - 각 청크(Chunk)를 비동기식으로 반환(Yield)합니다.
+        - 스트림이 완료되면 누적된 텍스트를 대화 이력에 저장합니다.
+        """
+        # 1. 세션 이력 및 메시지 구성 (기존 run_agent 로직 공유)
+        history = get_session_history(session_id)
+        masked_context = mask_pii_data(context_data)
+        context_str = str(masked_context) if masked_context else "No additional context provided."
+        system_prompt = f"귀하는 Meta Dashboard의 AI 에이전트입니다. 전달받은 context_data를 참고하여 답변하십시오.\nContext: {context_str}"
+        
+        messages = [{"role": "system", "content": system_prompt}]
+        for msg in history.messages:
+            if isinstance(msg, HumanMessage):
+                messages.append({"role": "user", "content": msg.content})
+            elif isinstance(msg, AIMessage):
+                messages.append({"role": "assistant", "content": msg.content})
+        messages.append({"role": "user", "content": text})
+
+        full_response = ""
+        try:
+            # 2. LiteLLM Router 스트리밍 호출
+            response = await self.router.acompletion(
+                model="meta-agent-service",
+                messages=messages,
+                stream=True
+            )
+            
+            async for chunk in response:
+                content = chunk.choices[0].delta.content or ""
+                if content:
+                    full_response += content
+                    yield content # 생성된 텍스트 조각 반환
+            
+            # 3. 스트림 환료 후 이력 업데이트
+            history.add_user_message(text)
+            history.add_ai_message(full_response)
+            
+        except Exception as e:
+            logger.error(f"Streaming error in agent service: {str(e)}", exc_info=True)
+            yield f"Error: {str(e)}"
+
 meta_agent_service = MetaAgentService()
