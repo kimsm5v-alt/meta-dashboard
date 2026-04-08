@@ -863,7 +863,7 @@ public class DgnssService {
     }
 
     @Transactional(readOnly = true)
-    private Map<String, Object> selectUnifiedStAnalysis(Map<String, Object> param) {
+    public Map<String, Object> selectUnifiedStAnalysis(Map<String, Object> param) {
         Map<String, Object> stInfoParam = new HashMap<>();
         String dgnssResultId = MapUtils.getString(param, "dgnssResultId", "");
         boolean hasDgnssResultId = StringUtils.isNotEmpty(dgnssResultId);
@@ -871,9 +871,14 @@ public class DgnssService {
         if (hasDgnssResultId) {
             stInfoParam.put("dgnssResultId", dgnssResultId);
         } else {
+            String claId = MapUtils.getString(param, "claId", "");
+            if (StringUtils.isBlank(claId)) {
+                return new HashMap<>();
+            }
             stInfoParam.put("stdtId", MapUtils.getString(param, "stdtId", ""));
             stInfoParam.put("paperIdx", MapUtils.getString(param, "paperIdx", "2"));
             stInfoParam.put("ordNo", MapUtils.getString(param, "ordNo", "1"));
+            stInfoParam.put("claId", claId);
         }
 
         Map<String, Object> stUserInfo = dgnssMapper.selectStInfo(stInfoParam);
@@ -1013,7 +1018,7 @@ public class DgnssService {
             String claId = MapUtils.getString(stat, "claId", "");
             Map<String, Object> classRow = new LinkedHashMap<>();
             classRow.put("claId", claId);
-            classRow.put("classNm", MapUtils.getString(stat, "classNm", "-"));
+            classRow.put("groupNm", MapUtils.getString(stat, "groupNm", "-"));
             classRow.put("totalStudentCount", MapUtils.getInteger(stat, "totalStudentCount", 0));
             classRow.put("submittedStudentCount", MapUtils.getInteger(stat, "submittedStudentCount", 0));
             classRow.put("reliabilityAlertCount", MapUtils.getInteger(stat, "reliabilityAlertCount", 0));
@@ -1031,7 +1036,7 @@ public class DgnssService {
             if (classRow == null) {
                 classRow = new LinkedHashMap<>();
                 classRow.put("claId", claId);
-                classRow.put("classNm", "-");
+                classRow.put("groupNm", "-");
                 classRow.put("totalStudentCount", 0);
                 classRow.put("submittedStudentCount", 0);
                 classRow.put("reliabilityAlertCount", 0);

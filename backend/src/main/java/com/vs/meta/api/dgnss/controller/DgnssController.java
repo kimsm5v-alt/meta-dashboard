@@ -305,6 +305,7 @@ public class DgnssController {
             @RequestParam(name = "paperIdx", required = false, defaultValue = "2") String paperIdx,
             @RequestParam(name = "ordNo", required = false, defaultValue = "1") String ordNo,
             @RequestParam(name = "stdtId", required = false) String stdtId,
+            @RequestParam(name = "claId", required = false) String claId,
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
     ) throws Exception {
         Map<String, Object> result = dgnssService.selectStAnalysis(paramData);
