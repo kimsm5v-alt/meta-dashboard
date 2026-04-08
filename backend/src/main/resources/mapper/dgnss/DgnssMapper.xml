@@ -1736,6 +1736,8 @@
 		           WHEN gm.member_no IS NULL THEN ''
 		           ELSE CONCAT(gm.member_no, '번')
 		       END AS stdtNo
+		     , gm.email AS email
+		     , gm.member_type AS memberType
 		FROM TB_DGNSS_ANSWER DA
 			INNER JOIN TB_DGNSS_RESULT_INFO DRI ON DA.DGNSS_RESULT_ID = DRI.id
 			INNER JOIN tb_dgnss_info tdi2 ON DRI.dgnss_id = tdi2.id
@@ -2895,6 +2897,64 @@
 			updated_at = CURRENT_TIMESTAMP
 		]]>
 	</insert>
+
+	<select id="selectTcClassMetaStats" parameterType="map" resultType="map">
+		/* DgnssMapper.selectTcClassMetaStats */
+		SELECT gi.cla_id AS claId
+		     , IFNULL(gi.group_nm, '-') AS classNm
+		     , COUNT(DISTINCT gm.stdt_id) AS totalStudentCount
+		     , COUNT(DISTINCT CASE WHEN tdri.subm_at = 'Y' THEN tdri.stdt_id END) AS submittedStudentCount
+		     , COUNT(
+		        DISTINCT CASE
+		                     WHEN tdri.subm_at = 'Y'
+		                      AND (
+		                        da.COCH_DGNSS_QESITM01_MARK = '주의'
+		                        OR da.COCH_DGNSS_QESITM02_MARK = '주의'
+		                        OR da.REPEATED_RESPONSE_YN = 'Y'
+		                      )
+		                     THEN tdri.stdt_id
+		                 END
+		       ) AS reliabilityAlertCount
+		FROM group_info gi
+			INNER JOIN user u ON gi.host_user_no = u.user_no
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND gm.status = 'ACTIVE'
+			LEFT JOIN tb_dgnss_info tdi ON tdi.cla_id = gi.cla_id
+				AND tdi.paper_idx = #{paperIdx}
+				AND tdi.ord_no IN (1, 2)
+			LEFT JOIN tb_dgnss_result_info tdri ON tdri.dgnss_id = tdi.id
+				AND tdri.stdt_id = gm.stdt_id
+			LEFT JOIN tb_dgnss_answer da ON da.DGNSS_RESULT_ID = tdri.id
+		WHERE u.tc_id = #{tcId}
+		<if test='claId != null and claId != ""'>
+			AND gi.cla_id = #{claId}
+		</if>
+		GROUP BY gi.cla_id, gi.group_nm
+		ORDER BY gi.group_nm
+	</select>
+
+	<select id="selectTcClassFactorAverages" parameterType="map" resultType="map">
+		/* DgnssMapper.selectTcClassFactorAverages */
+		SELECT gi.cla_id AS claId
+		     , dar.DEPTH AS depth
+		     , dar.SECTION_ID AS sectionId
+		     , ROUND(AVG(IF(dar.T_SCORE <![CDATA[<]]> 0, 0, dar.T_SCORE)), 1) AS avgTScore
+		FROM group_info gi
+			INNER JOIN user u ON gi.host_user_no = u.user_no
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND gm.status = 'ACTIVE'
+			INNER JOIN tb_dgnss_info tdi ON tdi.cla_id = gi.cla_id
+				AND tdi.paper_idx = #{paperIdx}
+				AND tdi.ord_no IN (1, 2)
+			INNER JOIN tb_dgnss_result_info tdri ON tdri.dgnss_id = tdi.id
+				AND tdri.stdt_id = gm.stdt_id
+				AND tdri.subm_at = 'Y'
+			INNER JOIN tb_dgnss_answer da ON da.DGNSS_RESULT_ID = tdri.id
+			INNER JOIN tb_dgnss_answer_report dar ON dar.ANSWER_IDX = da.ANSWER_IDX
+		WHERE u.tc_id = #{tcId}
+		<if test='claId != null and claId != ""'>
+			AND gi.cla_id = #{claId}
+		</if>
+		GROUP BY gi.cla_id, dar.DEPTH, dar.SECTION_ID
+	</select>
 </mapper>
 
 
