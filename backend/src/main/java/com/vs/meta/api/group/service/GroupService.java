@@ -159,6 +159,8 @@ public class GroupService {
             // LEFT 상태: 재가입 허용 (기존 row 재활성화)
             existing.updateStatus(MemberStatus.ACTIVE);
             existing.setNickname(user.getNickname());
+            existing.setGender(user.getGender());
+            existing.setEmail(user.getEmail());
             existing.setJoinedAt(LocalDateTime.now());
             existing.setLeftAt(null);
             existing.setUpdatedBy(userNo);
@@ -179,6 +181,8 @@ public class GroupService {
                 .userNo(userNo)
                 .stdtId(user.getStdtId())
                 .nickname(user.getNickname())
+                .gender(user.getGender())
+                .email(user.getEmail())
                 .memberNo(memberNo)
                 .memberType(MemberType.STUDENT)
                 .status(MemberStatus.ACTIVE)
