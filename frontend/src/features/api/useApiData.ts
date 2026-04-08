@@ -18,7 +18,7 @@ import {
   fetchTeacherExams,
 } from '@shared/services/dashboardService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
-import type { SchoolLevel, Student, Class, Assessment } from '@shared/types';
+import type { SchoolLevel, Student, Class, Assessment, User } from '@shared/types';
 import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth';
 import { groupService } from '@features/groups/api/groupService';
@@ -76,7 +76,7 @@ export function useStudentAnalysis(
     const classNumber = parseInt(parts[1], 10) || 1;
 
     const authTokens = getAuthTokens();
-    const isApiMode = authTokens?.accessToken || !!authTokens?.refreshToken;
+    const isApiMode = !!authTokens?.authToken && !!authTokens?.refreshToken;
 
     if (!isApiMode) {
       const classData = getClassById(classId);
@@ -269,7 +269,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
     const classData = getClassById(classId);
 
     const authTokens = getAuthTokens();
-    const isApiMode = !!authTokens?.authToken || !!authTokens?.refreshToken;
+    const isApiMode = !!authTokens?.authToken && !!authTokens?.refreshToken;
 
     // API 모드가 아니면 DataContext fallback
     if (!isApiMode) {
@@ -363,6 +363,7 @@ interface UseTeacherClassesResult {
   isLoading: boolean;
   error: string | null;
   examStatus: ExamStatus;
+  user: User | null;
   refetch: () => void;
 }
 
@@ -489,13 +490,14 @@ export function useTeacherClasses(): UseTeacherClassesResult {
 
   // JWT 있으면 API 데이터, 없으면 mockClasses fallback
   const hasJwt = !!API_CONFIG.jwtToken;
-  const classes = hasJwt && apiClasses.length > 0 ? apiClasses : mockClasses;
+  const classes = hasJwt && apiClasses.length > 0 ? apiClasses : mockClasses
 
   return {
     classes,
     isLoading,
     error,
     examStatus,
+    user,
     refetch: () => {
       setHasFetched(false);
       fetchData();

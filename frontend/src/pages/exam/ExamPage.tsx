@@ -17,6 +17,7 @@ import { saveStudentInfo } from '@features/exam/api/studentInfoService';
 import {
   StudentIdEntryStep,
   StudentInfoStep,
+  MemberCompleteStep,
   ExamAuthStep,
   GuestExamEntryStep,
   ResumeChoiceStep,
@@ -650,6 +651,10 @@ export const ExamPage: React.FC = () => {
       );
 
     case 'complete':
+      // 회원/게스트 분기
+      if (user && user.memberType !== 'guest') {
+        return <MemberCompleteStep userName={user.name} />;
+      }
       return (
         <ExamCompleteStep
           studentNumber={state.studentNumber!}

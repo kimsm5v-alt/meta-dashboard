@@ -182,6 +182,7 @@ export const AppRoutes = () => (
       <Route path='/student/groups' element={<StudentGroupsPage />} />
       <Route path='/student/exams' element={<MyExamListPage />} />
       <Route path='/student/result' element={<MyResultPage />} />
+      <Route path='/student/result/:resultId' element={<MyResultPage />} />
       <Route path='/exam/student' element={<ExamPage />} />
     </Route>
 

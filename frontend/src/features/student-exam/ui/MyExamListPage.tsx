@@ -5,7 +5,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, RefreshCw, Play, RotateCcw, RefreshCw as Restart, CheckCircle2, Clock } from 'lucide-react';
+import {
+  ClipboardList,
+  RefreshCw,
+  Play,
+  RotateCcw,
+  RefreshCw as Restart,
+  CheckCircle2,
+  Clock,
+} from 'lucide-react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { useAuth } from '@features/auth/model/AuthContext';
@@ -166,8 +174,11 @@ const ExamIconBox = styled.div<{ $status: string }>`
   height: 48px;
   border-radius: ${({ theme }) => theme.radius.xl};
   background: ${({ $status }) =>
-    $status === 'completed' || $status === 'result_ready' ? '#dcfce7' :
-    $status === 'in_progress' ? '#fef3c7' : '#ede9fe'};
+    $status === 'completed' || $status === 'result_ready'
+      ? '#dcfce7'
+      : $status === 'in_progress'
+        ? '#fef3c7'
+        : '#ede9fe'};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -177,8 +188,11 @@ const ExamIconBox = styled.div<{ $status: string }>`
     width: 24px;
     height: 24px;
     color: ${({ $status }) =>
-      $status === 'completed' || $status === 'result_ready' ? '#16a34a' :
-      $status === 'in_progress' ? '#d97706' : '#7c3aed'};
+      $status === 'completed' || $status === 'result_ready'
+        ? '#16a34a'
+        : $status === 'in_progress'
+          ? '#d97706'
+          : '#7c3aed'};
   }
 `;
 
@@ -233,19 +247,25 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'succe
   transition: all ${({ theme }) => theme.transitions.fast};
   border: none;
   background: ${({ $variant, theme }) =>
-    $variant === 'success' ? '#dcfce7' :
-    $variant === 'secondary' ? theme.colors.gray[100] :
-    theme.colors.primary[600]};
+    $variant === 'success'
+      ? '#dcfce7'
+      : $variant === 'secondary'
+        ? theme.colors.gray[100]
+        : theme.colors.primary[600]};
   color: ${({ $variant, theme }) =>
-    $variant === 'success' ? '#15803d' :
-    $variant === 'secondary' ? theme.colors.gray[700] :
-    'white'};
+    $variant === 'success'
+      ? '#15803d'
+      : $variant === 'secondary'
+        ? theme.colors.gray[700]
+        : 'white'};
 
   &:hover {
     background: ${({ $variant, theme }) =>
-      $variant === 'success' ? '#bbf7d0' :
-      $variant === 'secondary' ? theme.colors.gray[200] :
-      theme.colors.primary[700]};
+      $variant === 'success'
+        ? '#bbf7d0'
+        : $variant === 'secondary'
+          ? theme.colors.gray[200]
+          : theme.colors.primary[700]};
   }
 
   svg {
@@ -287,11 +307,15 @@ const ExamCard: React.FC<ExamCardProps> = ({
 
   const renderStatusIcon = () => {
     switch (exam.status) {
-      case 'waiting': return <Clock />;
-      case 'in_progress': return <RotateCcw />;
+      case 'waiting':
+        return <Clock />;
+      case 'in_progress':
+        return <RotateCcw />;
       case 'completed':
-      case 'result_ready': return <CheckCircle2 />;
-      default: return null;
+      case 'result_ready':
+        return <CheckCircle2 />;
+      default:
+        return null;
     }
   };
 
@@ -300,17 +324,20 @@ const ExamCard: React.FC<ExamCardProps> = ({
       case 'waiting':
         return (
           <ActionButton onClick={() => onStartExam(exam)}>
-            <Play />검사 시작
+            <Play />
+            검사 시작
           </ActionButton>
         );
       case 'in_progress':
         return (
           <>
             <ActionButton onClick={() => onResumeExam(exam)}>
-              <RotateCcw />이어하기
+              <RotateCcw />
+              이어하기
             </ActionButton>
             <ActionButton $variant='secondary' onClick={() => onRestartExam(exam)}>
-              <Restart />새로하기
+              <Restart />
+              새로하기
             </ActionButton>
           </>
         );
@@ -322,8 +349,14 @@ const ExamCard: React.FC<ExamCardProps> = ({
         );
       case 'result_ready':
         return (
-          <ActionButton $variant='success' onClick={() => onViewResult(exam)}>
-            <CheckCircle2 />결과 보기
+          <ActionButton
+            $variant='success'
+            onClick={() => {
+              onViewResult(exam);
+            }}
+          >
+            <CheckCircle2 />
+            결과 보기
           </ActionButton>
         );
       default:
@@ -361,29 +394,32 @@ export const MyExamListPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const loadExams = useCallback(async (showRefreshIndicator = false) => {
-    if (!user) return;
+  const loadExams = useCallback(
+    async (showRefreshIndicator = false) => {
+      if (!user) return;
 
-    if (showRefreshIndicator) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
-
-    try {
-      if (!user.stdtId || !user.classId) {
-        setExams([]);
-        return;
+      if (showRefreshIndicator) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
       }
-      const data = await getStudentExamList(user.classId, user.stdtId);
-      setExams(data);
-    } catch {
-      setExams([]);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [user]);
+
+      try {
+        if (!user.stdtId || !user.classId) {
+          setExams([]);
+          return;
+        }
+        const data = await getStudentExamList(user.classId, user.stdtId);
+        setExams(data);
+      } catch {
+        setExams([]);
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [user],
+  );
 
   useEffect(() => {
     loadExams();
@@ -411,7 +447,9 @@ export const MyExamListPage: React.FC = () => {
           </div>
         </PageHeader>
         <SkeletonStack>
-          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+          {[1, 2, 3].map((i) => (
+            <SkeletonCard key={i} />
+          ))}
         </SkeletonStack>
       </PageRoot>
     );
@@ -421,7 +459,9 @@ export const MyExamListPage: React.FC = () => {
     <PageRoot>
       <PageHeader>
         <HeaderLeft>
-          <HeaderIconBox><ClipboardList /></HeaderIconBox>
+          <HeaderIconBox>
+            <ClipboardList />
+          </HeaderIconBox>
           <div>
             <PageTitle>나의 검사</PageTitle>
             <PageSubtitle>검사 현황을 확인하고 응시하세요</PageSubtitle>
@@ -435,7 +475,9 @@ export const MyExamListPage: React.FC = () => {
 
       {exams.length === 0 ? (
         <EmptyState>
-          <EmptyIconCircle><ClipboardList /></EmptyIconCircle>
+          <EmptyIconCircle>
+            <ClipboardList />
+          </EmptyIconCircle>
           <EmptyTitle>현재 응시할 검사가 없습니다</EmptyTitle>
           <EmptyDesc>선생님이 검사를 시작하면 여기에 표시됩니다.</EmptyDesc>
         </EmptyState>
@@ -455,8 +497,8 @@ export const MyExamListPage: React.FC = () => {
       )}
 
       <HintBox>
-        <strong>안내:</strong> 검사는 중간에 저장되므로, 나중에 이어서 응시할 수 있습니다.
-        모든 문항에 응답한 후 제출하면 결과를 확인할 수 있습니다.
+        <strong>안내:</strong> 검사는 중간에 저장되므로, 나중에 이어서 응시할 수 있습니다. 모든
+        문항에 응답한 후 제출하면 결과를 확인할 수 있습니다.
       </HintBox>
     </PageRoot>
   );
