@@ -2,13 +2,13 @@
  * 학생별 상담 기록 및 관찰 메모 Mock 데이터
  */
 
-import type { CounselingRecord, ObservationMemo, SavedSchoolRecord } from '@shared/types';
+import type { LegacyCounselingRecord, ObservationMemo, SavedSchoolRecord } from '@shared/types';
 
 // ============================================================
 // 상담 기록 Mock 데이터
 // ============================================================
 
-export const mockCounselingRecords: CounselingRecord[] = [
+export const mockCounselingRecords: LegacyCounselingRecord[] = [
   // class-6-2 학생 1번 (김민준)
   {
     id: 'cr-1',
@@ -264,23 +264,23 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // ============================================================
 
 export const mockCounselingService = {
-  getByStudentId: async (studentId: string): Promise<CounselingRecord[]> => {
+  getByStudentId: async (studentId: string): Promise<LegacyCounselingRecord[]> => {
     await delay(300);
     return counselingRecords
       .filter((r) => r.studentId === studentId)
       .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
   },
 
-  getById: async (id: string): Promise<CounselingRecord | null> => {
+  getById: async (id: string): Promise<LegacyCounselingRecord | null> => {
     await delay(200);
     return counselingRecords.find((r) => r.id === id) || null;
   },
 
   create: async (
-    input: Omit<CounselingRecord, 'id' | 'createdAt' | 'updatedAt'>,
-  ): Promise<CounselingRecord> => {
+    input: Omit<LegacyCounselingRecord, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<LegacyCounselingRecord> => {
     await delay(300);
-    const newRecord: CounselingRecord = {
+    const newRecord: LegacyCounselingRecord = {
       ...input,
       id: generateId('cr'),
       createdAt: new Date(),
@@ -290,7 +290,10 @@ export const mockCounselingService = {
     return newRecord;
   },
 
-  update: async (id: string, input: Partial<CounselingRecord>): Promise<CounselingRecord> => {
+  update: async (
+    id: string,
+    input: Partial<LegacyCounselingRecord>,
+  ): Promise<LegacyCounselingRecord> => {
     await delay(300);
     const index = counselingRecords.findIndex((r) => r.id === id);
     if (index === -1) throw new Error('Record not found');

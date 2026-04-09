@@ -381,6 +381,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
   const [chartViewMode, setChartViewMode] = useState<'midCategory' | 'fourStep'>('midCategory');
+  console.log('StudentDashboardContent 렌더링:', student, viewMode, panelTab, chartViewMode);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -490,7 +491,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                   ]
                 : []),
             ].map(({ mode, label }) => (
-              <RoundButton key={mode} $isActive={viewMode === mode} onClick={() => setViewMode(mode)}>
+              <RoundButton
+                key={mode}
+                $isActive={viewMode === mode}
+                onClick={() => setViewMode(mode)}
+              >
                 {label}
               </RoundButton>
             ))}

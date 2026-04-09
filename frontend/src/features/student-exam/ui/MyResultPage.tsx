@@ -8,12 +8,12 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { ArrowLeft, ShieldAlert, AlertTriangle, Clock, Loader2, Download } from 'lucide-react';
-import { useAuthStore } from '@features/auth/model/useAuthStore';
-import { formatAttentionTooltip, checkAttention } from '@shared/utils/attentionChecker';
+import { useAuth } from '@features/auth/model/AuthContext';
+import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
 import {
@@ -22,8 +22,13 @@ import {
   TypeDeviations,
   DataHelperChatbot,
 } from '@features/student-dashboard';
-import { fetchStudentResult } from '../api/studentExamService';
-import { classifyStudent, getTypeDeviations } from '@shared/utils/lpaClassifier';
+import { getMyGroups } from '@features/groups/api/groupService';
+import {
+  fetchStudentFullAnalysis,
+  convertToAssessment,
+} from '@shared/services/dashboardService';
+import { getStudentExamList } from '../api/studentExamService';
+import { SCHOOL_LEVEL_MAP } from '@shared/types';
 import type { Student, SchoolLevel, Assessment } from '@shared/types';
 
 type ViewMode = 'round1' | 'round2' | 'compare';
@@ -361,7 +366,8 @@ const ErrorButton = styled.button`
 
 export const MyResultPage: React.FC = () => {
   const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
+  const { resultId: _resultId } = useParams<{ resultId: string }>();
+  const { user } = useAuth();
 
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
   const [student, setStudent] = useState<Student | null>(null);
@@ -370,57 +376,69 @@ export const MyResultPage: React.FC = () => {
 
   useEffect(() => {
     const loadResult = async () => {
-      // TODO: 실제 학생 로그인 구현 후 user 정보에서 가져오기
-      // 현재는 Mock 데이터 사용
-      const mockStudentId = 's001';
-      const mockStudentName = user?.name || '홍길동';
-      const mockSchoolLevel: SchoolLevel = '중등';
-
       setIsLoading(true);
+      setError(null);
+
       try {
-        // Mock API 호출
-        const { tScores, reliabilityWarnings } = await fetchStudentResult(mockStudentId, '1');
+        if (!user?.stdtId) {
+          setError('아직 시행한 검사 결과가 없습니다.');
+          return;
+        }
 
-        // LPA 분류
-        const { predictedType, confidence, allProbabilities } = classifyStudent(tScores, mockSchoolLevel);
+        // classId 확인: user에 있으면 사용, 없으면 그룹 조회
+        let claId = user.classId ?? '';
+        let schoolLevel: SchoolLevel = '중등';
 
-        // 유형별 편차
-        const deviations = getTypeDeviations(tScores, predictedType, mockSchoolLevel);
+        if (!claId) {
+          const groups = await getMyGroups(user.id);
+          const memberGroup = groups.find((g) => g.myRole === 'member');
+          if (!memberGroup) {
+            setError('아직 시행한 검사 결과가 없습니다.');
+            return;
+          }
+          claId = memberGroup.claId;
+          schoolLevel = SCHOOL_LEVEL_MAP[memberGroup.schoolLevel] ?? '중등';
+        }
 
-        // 관심 필요 판별
-        const attentionResult = checkAttention(tScores);
+        // 결과 확인 가능한 검사가 있는지 먼저 체크
+        const examList = await getStudentExamList(claId, user.stdtId);
+        const hasReadyResults = examList.some((e) => e.status === 'result_ready');
 
-        // Assessment 생성
-        const assessment: Assessment = {
-          id: `assessment-${Date.now()}`,
-          studentId: mockStudentId,
-          round: 1,
-          assessedAt: new Date(),
-          predictedType,
-          typeConfidence: confidence,
-          typeProbabilities: allProbabilities,
-          tScores,
-          reliabilityWarnings,
-          attentionResult,
-          deviations,
-        };
+        if (!hasReadyResults) {
+          setError('아직 시행한 검사 결과가 없습니다.');
+          return;
+        }
 
-        // Student 객체 생성
+        // 실제 분석 데이터 조회
+        const fullAnalysis = await fetchStudentFullAnalysis(claId, user.stdtId, '1');
+
+        if (!fullAnalysis.round1 && !fullAnalysis.round2) {
+          setError('아직 시행한 검사 결과가 없습니다.');
+          return;
+        }
+
+        const assessments: Assessment[] = [];
+        if (fullAnalysis.round1) {
+          assessments.push(convertToAssessment(user.stdtId, 1, fullAnalysis.round1, schoolLevel));
+        }
+        if (fullAnalysis.round2) {
+          assessments.push(convertToAssessment(user.stdtId, 2, fullAnalysis.round2, schoolLevel));
+        }
+
         const studentData: Student = {
-          id: mockStudentId,
-          classId: 'class-001',
-          name: mockStudentName,
-          number: 1,
-          schoolLevel: mockSchoolLevel,
-          grade: 2,
-          round2Submitted: false,
-          assessments: [assessment],
+          id: user.stdtId,
+          classId: claId,
+          name: user.name ?? '학생',
+          number: 0,
+          schoolLevel,
+          grade: 0,
+          assessments,
         };
 
         setStudent(studentData);
       } catch (err) {
         console.error('[MyResultPage] 결과 로드 실패:', err);
-        setError('아직 시행한 검사 결과가 없습니다.');
+        setError('결과를 불러오는데 실패했습니다.');
       } finally {
         setIsLoading(false);
       }
