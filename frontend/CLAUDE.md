@@ -16,18 +16,18 @@ META AI 학습심리정서검사 대시보드의 프론트엔드 프로젝트입
 
 ## 기술 스택
 
-| 역할 | 라이브러리 | 버전 |
-|------|-----------|------|
-| UI 프레임워크 | React | 19.x |
-| 언어 | TypeScript | ~5.9 |
-| 번들러 | Vite | 5.x |
-| 스타일 | Emotion (CSS-in-JS) | 11.x |
-| 서버 상태 | TanStack React Query | v5 |
-| 클라이언트 상태 | Zustand | v5 |
-| 라우팅 | React Router | v7 |
-| 폼 | React Hook Form + Zod | - |
-| 차트 | Recharts | v3 |
-| 아이콘 | Lucide React | - |
+| 역할            | 라이브러리            | 버전 |
+| --------------- | --------------------- | ---- |
+| UI 프레임워크   | React                 | 19.x |
+| 언어            | TypeScript            | ~5.9 |
+| 번들러          | Vite                  | 5.x  |
+| 스타일          | Emotion (CSS-in-JS)   | 11.x |
+| 서버 상태       | TanStack React Query  | v5   |
+| 클라이언트 상태 | Zustand               | v5   |
+| 라우팅          | React Router          | v7   |
+| 폼              | React Hook Form + Zod | -    |
+| 차트            | Recharts              | v3   |
+| 아이콘          | Lucide React          | -    |
 
 ---
 
@@ -84,7 +84,7 @@ widgets와 features를 조합하는 역할만.
 // ✅ 올바른 페이지
 export const TeacherDashboardPage = () => (
   <div>
-    <PageTitle title="대시보드" subtitle="전체 학급 현황을 한눈에 확인하세요" />
+    <PageTitle title='대시보드' subtitle='전체 학급 현황을 한눈에 확인하세요' />
     <StatsOverview />
     <ClassList />
   </div>
@@ -163,11 +163,11 @@ shared/
 
 ## 상태 관리 전략
 
-| 상태 종류 | 도구 | 위치 |
-|----------|------|------|
-| 서버 데이터 (API 응답) | TanStack React Query | `features/*/api/queries.ts` |
-| 인증 상태 (user, token) | Zustand + persist | `features/auth/model/useAuthStore.ts` |
-| UI 상태 (모달, 사이드바 등) | useState / useReducer | 각 컴포넌트 로컬 |
+| 상태 종류                   | 도구                  | 위치                                  |
+| --------------------------- | --------------------- | ------------------------------------- |
+| 서버 데이터 (API 응답)      | TanStack React Query  | `features/*/api/queries.ts`           |
+| 인증 상태 (user, token)     | Zustand + persist     | `features/auth/model/useAuthStore.ts` |
+| UI 상태 (모달, 사이드바 등) | useState / useReducer | 각 컴포넌트 로컬                      |
 
 - Redux 사용 안 함
 - Zustand는 인증 등 진짜 전역 클라이언트 상태에만 사용
@@ -213,10 +213,12 @@ Card.Content = CardContent;
 Card.Footer = CardFooter;
 
 // 사용
-<Card variant="glass">
+<Card variant='glass'>
   <Card.Content>내용</Card.Content>
-  <Card.Footer><Button>버튼</Button></Card.Footer>
-</Card>
+  <Card.Footer>
+    <Button>버튼</Button>
+  </Card.Footer>
+</Card>;
 ```
 
 ### 데이터 패칭 패턴
@@ -226,11 +228,13 @@ Card.Footer = CardFooter;
 export const ClassList = () => {
   const { data: classes, isLoading } = useTeacherClasses();
 
-  if (isLoading) return <Skeleton height="160px" />;
+  if (isLoading) return <Skeleton height='160px' />;
 
   return (
     <Grid>
-      {classes?.map((cls) => <ClassCard key={cls.id} {...cls} />)}
+      {classes?.map((cls) => (
+        <ClassCard key={cls.id} {...cls} />
+      ))}
     </Grid>
   );
 };
@@ -246,7 +250,11 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+const {
+  register,
+  handleSubmit,
+  formState: { errors },
+} = useForm<FormData>({
   resolver: zodResolver(schema),
 });
 ```
@@ -257,14 +265,14 @@ const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
 
 `vite.config.ts`와 `tsconfig.app.json`에 동일하게 설정되어 있음.
 
-| Alias | 실제 경로 |
-|-------|----------|
-| `@app/*` | `src/app/*` |
-| `@pages/*` | `src/pages/*` |
-| `@widgets/*` | `src/widgets/*` |
+| Alias         | 실제 경로        |
+| ------------- | ---------------- |
+| `@app/*`      | `src/app/*`      |
+| `@pages/*`    | `src/pages/*`    |
+| `@widgets/*`  | `src/widgets/*`  |
 | `@features/*` | `src/features/*` |
 | `@entities/*` | `src/entities/*` |
-| `@shared/*` | `src/shared/*` |
+| `@shared/*`   | `src/shared/*`   |
 
 레이어 간 import 시 반드시 alias 사용. 상대경로(`../../`)는 같은 슬라이스 내부에서만 허용.
 
@@ -278,19 +286,19 @@ prototype의 화이트/라이트 디자인을 기준으로 함.
 ### 핵심 색상
 
 ```ts
-theme.colors.primary[500]       // #8b5cf6 — 브랜드 보라
-theme.colors.secondary[500]     // #06b6d4 — 보조 청록
-theme.colors.background.default // #f8fafc — 최하단 배경 (밝은 회백색)
-theme.colors.background.paper   // #ffffff — 카드 배경 (흰색)
-theme.colors.background.elevated // #f1f5f9 — 강조 영역 배경
-theme.colors.text.primary       // #0f172a — 본문 텍스트
-theme.colors.glass.background   // rgba(255,255,255,0.8) — 글래스 배경
-theme.colors.glass.border       // rgba(0,0,0,0.08) — 글래스 테두리
+theme.colors.primary[500]; // #8b5cf6 — 브랜드 보라
+theme.colors.secondary[500]; // #06b6d4 — 보조 청록
+theme.colors.background.default; // #f8fafc — 최하단 배경 (밝은 회백색)
+theme.colors.background.paper; // #ffffff — 카드 배경 (흰색)
+theme.colors.background.elevated; // #f1f5f9 — 강조 영역 배경
+theme.colors.text.primary; // #0f172a — 본문 텍스트
+theme.colors.glass.background; // rgba(255,255,255,0.8) — 글래스 배경
+theme.colors.glass.border; // rgba(0,0,0,0.08) — 글래스 테두리
 
 // LPA 학생 유형 색상
-theme.colors.type.warning   // #ea580c — 자원소진형/무기력형
-theme.colors.type.balance   // #0d9488 — 안전균형형
-theme.colors.type.excellent // #2563eb — 몰입자원풍부형
+theme.colors.type.warning; // #ea580c — 자원소진형/무기력형
+theme.colors.type.balance; // #0d9488 — 안전균형형
+theme.colors.type.excellent; // #2563eb — 몰입자원풍부형
 ```
 
 ### 글래스모피즘 카드 (라이트 모드)
@@ -329,11 +337,11 @@ await apiClient.delete('/memo/5');
 
 ### localStorage 키
 
-| 키 | 내용 |
-|---|---|
-| `auth_token` | Access Token (JWT) |
-| `refresh_token` | Refresh Token |
-| `auth_user` | 사용자 정보 (JSON) |
+| 키              | 내용               |
+| --------------- | ------------------ |
+| `auth_token`    | Access Token (JWT) |
+| `refresh_token` | Refresh Token      |
+| `auth_user`     | 사용자 정보 (JSON) |
 
 ---
 
@@ -360,12 +368,12 @@ await apiClient.delete('/memo/5');
 
 ### ESLint 주요 규칙
 
-| 규칙 | 설정 | 이유 |
-|------|------|------|
-| `@typescript-eslint/no-explicit-any` | error | any 타입 전면 금지 |
-| `@typescript-eslint/no-unused-vars` | error | `_` prefix는 허용 |
+| 규칙                                         | 설정  | 이유                                           |
+| -------------------------------------------- | ----- | ---------------------------------------------- |
+| `@typescript-eslint/no-explicit-any`         | error | any 타입 전면 금지                             |
+| `@typescript-eslint/no-unused-vars`          | error | `_` prefix는 허용                              |
 | `@typescript-eslint/consistent-type-imports` | error | `import type` 강제 (verbatimModuleSyntax 대응) |
-| `@typescript-eslint/no-empty-function` | off | 이벤트 핸들러 stub 허용 |
+| `@typescript-eslint/no-empty-function`       | off   | 이벤트 핸들러 stub 허용                        |
 
 ### 명령어
 
@@ -402,15 +410,15 @@ npx prettier --write "src/**/*.{ts,tsx}"  # prettier만 실행
 
 ## 네이밍 규칙
 
-| 대상 | 규칙 | 예시 |
-|------|------|------|
-| 컴포넌트 파일 | PascalCase | `ClassCard.tsx` |
-| 훅 파일 | camelCase | `useTeacherClasses.ts` |
-| 유틸/상수 파일 | camelCase | `dateUtils.ts` |
-| Styled component | PascalCase | `StyledButton`, `CardWrapper` |
-| Transient prop | `$` prefix | `$variant`, `$isOpen` |
-| 미사용 변수 | `_` prefix | `_unusedParam` |
-| 상수 | UPPER_SNAKE_CASE | `MAX_RETRY_COUNT` |
+| 대상             | 규칙             | 예시                          |
+| ---------------- | ---------------- | ----------------------------- |
+| 컴포넌트 파일    | PascalCase       | `ClassCard.tsx`               |
+| 훅 파일          | camelCase        | `useTeacherClasses.ts`        |
+| 유틸/상수 파일   | camelCase        | `dateUtils.ts`                |
+| Styled component | PascalCase       | `StyledButton`, `CardWrapper` |
+| Transient prop   | `$` prefix       | `$variant`, `$isOpen`         |
+| 미사용 변수      | `_` prefix       | `_unusedParam`                |
+| 상수             | UPPER_SNAKE_CASE | `MAX_RETRY_COUNT`             |
 
 ---
 
@@ -433,18 +441,146 @@ npx prettier --write "src/**/*.{ts,tsx}"  # prettier만 실행
 - [x] pages/groups — GroupListPage, JoinGroupPage (claId 기반 라우팅)
 - [x] ESLint v9 flat config + Prettier 통합
 
+#### 최근 완료 (2026-04-09)
+
+**AI 어시스턴트 에이전트 API 연동**
+
+- [x] features/ai-room/api/agentApiService.ts — META 에이전트 API 래퍼 신규 작성
+  - `agentChat` (POST /chat), `agentChatStream` (POST /chat/stream SSE), `agentResetSession` (DELETE /chat/{id})
+- [x] features/ai-room/api/assistantService.ts — Gemini callAI → 에이전트 API로 전환
+  - RAG 컨텍스트를 `context_data`로 전달, session_id = 대화 ID
+  - 스트리밍 응답 지원 (`callAssistantStream`)
+- [x] features/ai-room/model/useConversations.ts — 스트리밍 + 세션 초기화 연동
+  - `streamingContent` 상태 추가, `handleDeleteConversation` 시 서버 세션 초기화
+- [x] features/ai-room/ui/ChatArea.tsx — 스트리밍 실시간 텍스트 표시 지원
+- [x] widgets/ai-room/AIRoomChatArea.tsx — `streamingContent` prop 연결
+- [x] `.env.development` — `VITE_AGENT_API_URL` 설정 완료
+
+**생기부 패널 복원 및 Gemini 연동**
+
+- [x] features/student-dashboard/ui/SchoolRecordPanel.tsx — prototype 기능 동등 복원
+  - Emotion styled-components 전환 (TailwindCSS 제거)
+  - `buildSimpleRecordMessages` + `callAI` 정상 연동
+  - 강점 영역 토글 + 예시 문장 선택 (최대 5개)
+  - 편집/저장/복사/다운로드/재생성 액션 전부 구현
+  - 글자수 및 금지어 실시간 검증
+- [x] `.env.development` — `VITE_GEMINI_API_KEY` 설정 완료
+- [x] shared/services/schoolRecordService.ts — API 경로 `/api/` prefix 수정 (3곳)
+
+**L1/L2/L3 실제 API 데이터 연동 완료**
+
+- [x] features/api/useApiData.ts — `useTeacherClasses`, `useClassStudents`, `useStudentAnalysis` 실 API 연동
+
+**MyResultPage 마이그레이션 (Phase 1)**
+
+- [x] pages/student/MyResultPage.tsx (578 lines)
+  - Tailwind → Emotion styled-components 전환
+  - 대시보드 위젯 5개 통합 (ExamSummary, RecentExamResults, ProgressTracking, NextExam, PerformanceComparison)
+  - 2차 검사 결과 표시, 빈 상태 처리, 로딩 스켈레톤
+  - 브라우저 테스트 완료
+
+**선생님 대시보드 API 연결**
+
+- [x] shared/services/memoService.ts — fetch → apiClient 전환 (관찰 메모 API)
+- [x] shared/services/schoolRecordService.ts — apiClient 전환 (생활기록부 API)
+- [x] shared/services/unifiedCounselingService.ts — 10개 엔드포인트 전부 apiClient 전환 (통합 상담 API)
+  - Bearer 토큰 자동 주입, 401 시 자동 토큰 갱신, APIResponse<T> 타입 래핑 적용
+
+**검사 완료 화면 (Phase 3)**
+
+- [x] features/exam/ui/MemberCompleteStep.tsx (168 lines)
+  - 회원용 검사 완료 화면 (이메일 입력 없음)
+  - pages/exam/ExamPage.tsx에 회원/게스트 분기 로직 통합
+  - `user.memberType !== 'guest'` 조건으로 화면 분기
+
+#### 최근 완료 (2026-04-10)
+
+**교사 대시보드 버그 수정 — Mock 데이터 → 실 API 전환**
+
+- [x] widgets/teacher-dashboard/ClassCardsSection.tsx
+  - `getRound1Status()` 버그 수정: `cls.stats === undefined`일 때 항상 'in-progress' 반환하던 문제
+  - 배지 텍스트 '진행중'/'시작전' 분기 수정
+
+- [x] shared/services/dashboardService.ts
+  - `StudentInfoItem` 인터페이스에 `stdtNm?`, `nickname?` 필드 추가
+  - `buildClassFromAPI`: 학생 이름 `stdtNm ?? nickname ?? \`학생${rowNum}\`` 순으로 폴백
+  - `fetchL2DashboardData`: `fetchStudentFullAnalysis(info.stdtId, '1')` → `fetchStudentFullAnalysis(claId, info.stdtId, '1')` 인자 순서 수정
+
+- [x] pages/class-dashboard/ClassDashboardPage.tsx
+  - `totalStudents` / `assessedStudents`: 필터된 학생 수 → `l2Data.examDetail.stTotalCnt` / `stSubmCnt` 실 API 값 사용
+
+- [x] features/api/useApiData.ts (`useStudentAnalysis`)
+  - `classId.split('-')` 로 학년/반 파싱하던 로직 제거 (claId는 UUID 형식)
+  - `groupService.getMyGroups` → `g.claId === classId` 매칭으로 학년/반/schoolLevel 조회
+  - `fetchStudentInfoList` 호출로 학생 이름/번호 조회
+  - `useAuthStore` → `useAuth()` (AuthContext) 교체 — `stdtId`, `classId` 필드 접근
+
+**학생 결과 페이지 빈 상태 처리**
+
+- [x] features/student-exam/ui/MyResultPage.tsx
+  - `useAuthStore` → `useAuth()` 교체
+  - mock `fetchStudentResult` 제거 → `getStudentExamList` + `fetchStudentFullAnalysis` 실 API 연동
+  - 신규 학생(검사 미수행) 가드: `stdtId 없음 → claId 없음 → result_ready 없음` 단계별 빈 상태 표시
+
+**상담 일정 페이지 실 데이터 연동**
+
+- [x] pages/schedule/SchedulePage.tsx
+  - `SCHEDULE_CLASSES`, `CLASS_COLORS` mock 제거
+  - `groupService.getMyGroups` (owner 그룹만) → `ScheduleClass[]` 변환
+  - `groupService.getGroupMembers` → 활성 멤버 `CounselingStudent[]` 변환
+  - 반별 필터, `ClassSummaryCards`, `ScheduleModal`에 실 데이터 props 전달
+
+- [x] features/schedule/ui/ClassSummaryCards.tsx — `classes`, `classColors` props 수신 (mock import 제거)
+- [x] features/schedule/ui/ScheduleModal.tsx — `classes`, `studentsMap`, `classColors` props 수신 및 하위 전달
+- [x] features/schedule/ui/ScheduleStudentPicker.tsx — `classes`, `studentsMap`, `classColors` props 수신 (mock import 전면 제거)
+  - 초기 탭 `SCHEDULE_CLASSES[0].id` → `classes[0]?.id ?? ''` 안전하게 처리
+  - 학생 목록 API: `dgnssService.getDgnssStudentList` (검사 컨텍스트 필요) → `groupService.getGroupMembers` (그룹 전체 멤버)
+
 ### 미구현 (작업 예정 — MVP 우선순위 순)
 
+**UI 마이그레이션 작업**
+
+- [ ] **[Phase 2]** student-exam 컴포넌트 분리 — FSD 아키텍처 준수
+  - ExamCard → widgets/ExamCard 분리
+  - EmptyExamList → widgets/EmptyExamList 분리
+  - ExamCardSkeleton → widgets/ExamCardSkeleton 분리
+  - StudentExamsPage 의존성 업데이트
+
+- [ ] **[Phase 4]** MyResultPage 추가 기능
+  - 1차/2차 비교 모드 구현
+  - 차트 인터랙션 개선
+
+**백엔드 연동**
+
 - [ ] **[Phase 1]** 학생 시험 코드 입력 플로우 검증 — `inviteCode` 기반 백엔드 연동 확인 (`StudentGroupsPage.tsx`)
-- [ ] **[Phase 3]** L1 교사 대시보드 실제 API 데이터 연동 (`useApiData.ts`)
-- [ ] **[Phase 4]** L2 학급 대시보드 실제 API 데이터 연동
-- [ ] **[Phase 5]** L3 학생 대시보드 실제 API 데이터 연동
-- [ ] AI 채팅 기능 — `features/ai-room/` + `agent/` FastAPI 연동
+
+**기타 기능**
+
 - [ ] 에러 바운더리
-- [ ] features/assessment — 검사 관리
-- [ ] features/schedule — 상담 일정
 - [ ] features/counseling — 상담 기록
 - [ ] features/resources — 학습 자료
+
+---
+
+## 🐛 알려진 이슈 (비치명적)
+
+**런타임 경고**:
+
+- `MyResultPage.tsx` — Recharts width/height NaN 경고 (시각적 영향 없음, ResponsiveContainer가 처리)
+- Vite 빌드 — chunk 2,371 kB 경고 (기능 영향 없음, 코드 스플리팅으로 해결 가능)
+
+---
+
+## 📊 UI 마이그레이션 진행률
+
+```
+Phase 1: MyResultPage          ████████████ 100%
+Phase 2: 컴포넌트 분리          ░░░░░░░░░░░░   0%
+Phase 3: MemberCompleteStep    ████████████ 100%
+Phase 4: 추가 기능              ░░░░░░░░░░░░   0%
+
+전체 진행률: 50%
+```
 
 ---
 
@@ -461,3 +597,12 @@ npx prettier --write "src/**/*.{ts,tsx}"  # prettier만 실행
 9. **`ExamPeriodStatus`**: `string`이 아닌 `{ round1: ExamStatus; round2: ExamStatus }` 인터페이스
 10. **그룹 ID**: `groupInfo.id`가 아닌 `groupInfo.claId` 사용
 11. **`AuthContext.isLoading`**: 초기 세션 체크 전용. `loginWithEmail`에서 isLoading 변경하면 LoginForm 언마운트됨 — 절대 건드리지 말 것
+12. **User 타입**: `user.role`이 아닌 `user.memberType` 사용 (`'vivasam' | 'general' | 'guest'`)
+13. **classId는 UUID**: `claId`를 `split('-')`으로 학년/반 파싱하면 안 됨 — `groupService.getMyGroups`로 매칭
+14. **상담 학생 목록**: `dgnssService.getDgnssStudentList`는 검사 컨텍스트 필요 — 그룹 전체 멤버 조회는 `groupService.getGroupMembers` 사용
+15. **useAuthStore vs useAuth()**: `useAuthStore`의 `User`는 `id/name/email/role`만 있음. `stdtId`, `classId`, `memberType` 접근 시 반드시 `useAuth()` (AuthContext) 사용
+
+---
+
+**최종 업데이트**: 2026-04-10
+**다음 작업 우선순위**: Phase 2 - student-exam 컴포넌트 분리 (FSD 아키텍처 준수)

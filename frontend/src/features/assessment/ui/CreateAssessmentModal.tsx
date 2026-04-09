@@ -1,6 +1,6 @@
 import styled from '@emotion/styled';
 import { useState, useMemo } from 'react';
-import { Calendar, Users, GraduationCap } from 'lucide-react';
+import { Users, GraduationCap } from 'lucide-react';
 import { Modal, Button } from '@shared/components';
 import type { Group } from '@shared/types';
 
