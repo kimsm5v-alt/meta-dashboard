@@ -3,11 +3,7 @@ import styled from '@emotion/styled';
 import { Check, X, Search, Users } from 'lucide-react';
 import { Modal, Button } from '@shared/components';
 import type { CounselingStudent } from '@shared/types';
-import {
-  SCHEDULE_CLASSES,
-  SCHEDULE_STUDENTS,
-  CLASS_COLORS,
-} from '@shared/data/mockUnifiedCounseling';
+import type { ScheduleClass } from '@shared/data/mockUnifiedCounseling';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_CLASS_ALL_STUDENTS } from '@shared/data/apiDefinitions';
 
@@ -16,6 +12,9 @@ interface ScheduleStudentPickerProps {
   onClose: () => void;
   selectedStudents: CounselingStudent[];
   onConfirm: (students: CounselingStudent[]) => void;
+  classes: ScheduleClass[];
+  studentsMap: Record<string, CounselingStudent[]>;
+  classColors: Record<string, string>;
 }
 
 // ============================================================
@@ -337,8 +336,11 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
   onClose,
   selectedStudents,
   onConfirm,
+  classes,
+  studentsMap,
+  classColors,
 }) => {
-  const [activeTab, setActiveTab] = useState(SCHEDULE_CLASSES[0].id);
+  const [activeTab, setActiveTab] = useState(classes[0]?.id ?? '');
   const [searchQuery, setSearchQuery] = useState('');
   const [localSelection, setLocalSelection] = useState<CounselingStudent[]>(selectedStudents);
 
@@ -346,10 +348,13 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
   useEffect(() => {
     if (isOpen) {
       setLocalSelection(selectedStudents);
+      if (!activeTab && classes[0]?.id) {
+        setActiveTab(classes[0].id);
+      }
     }
-  }, [isOpen, selectedStudents]);
+  }, [isOpen, selectedStudents, classes, activeTab]);
 
-  const students = SCHEDULE_STUDENTS[activeTab] || [];
+  const students = studentsMap[activeTab] || [];
 
   // 검색 필터링
   const filteredStudents = useMemo(() => {
@@ -384,7 +389,7 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
   const selectionByClass = useMemo(() => {
     return localSelection.reduce(
       (acc, student) => {
-        const cls = SCHEDULE_CLASSES.find((c) => c.id === student.classId);
+        const cls = classes.find((c) => c.id === student.classId);
         const key = cls ? cls.label : '기타';
         if (!acc[key]) acc[key] = [];
         acc[key].push(student);
@@ -392,7 +397,7 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
       },
       {} as Record<string, CounselingStudent[]>,
     );
-  }, [localSelection]);
+  }, [localSelection, classes]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title='학생 선택' size='3xl'>
@@ -402,14 +407,14 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
           {/* 반 탭 */}
           <ApiTooltip {...API_CLASS_ALL_STUDENTS} position='bottom-left'>
             <TabContainer>
-              {SCHEDULE_CLASSES.map((cls) => {
+              {classes.map((cls) => {
                 const isActive = activeTab === cls.id;
                 const classSelectedCount = localSelection.filter(
                   (s) => s.classId === cls.id,
                 ).length;
                 return (
                   <TabButton key={cls.id} onClick={() => setActiveTab(cls.id)} $isActive={isActive}>
-                    <ColorDot $color={CLASS_COLORS[cls.id]} />
+                    <ColorDot $color={classColors[cls.id] ?? '#9CA3AF'} />
                     <span>{cls.label}</span>
                     {classSelectedCount > 0 && (
                       <SelectedCountBadge>{classSelectedCount}</SelectedCountBadge>
@@ -448,7 +453,7 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
                       </SelectedCheck>
                     )}
                     <StudentAvatar
-                      $color={selected ? '#8b5cf6' : CLASS_COLORS[student.classId] || '#9CA3AF'}
+                      $color={selected ? '#8b5cf6' : classColors[student.classId] ?? '#9CA3AF'}
                     >
                       {student.number}
                     </StudentAvatar>

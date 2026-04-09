@@ -9,7 +9,12 @@ import {
   API_TEACHER_DASHBOARD,
 } from '@shared/data/apiDefinitions';
 import { formatDateISO } from '@shared/utils/dateUtils';
-import type { CounselingRecord, CreateCounselingInput, UpdateCounselingInput } from '@shared/types';
+import type {
+  CounselingRecord,
+  CounselingStudent,
+  CreateCounselingInput,
+  UpdateCounselingInput,
+} from '@shared/types';
 import {
   WeeklyCalendar,
   MonthlyCalendar,
@@ -18,8 +23,12 @@ import {
   ClassSummaryCards,
   CalendarIntegrationModal,
 } from '@features/schedule/ui';
-import { SCHEDULE_CLASSES, CLASS_COLORS } from '@shared/data/mockUnifiedCounseling';
+import type { ScheduleClass } from '@shared/data/mockUnifiedCounseling';
 import { counselingService } from '@shared/services/counselingService';
+import { useAuth } from '@features/auth/model/AuthContext';
+import { groupService } from '@features/groups/api/groupService';
+
+const CLASS_COLOR_PALETTE = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4'];
 
 // ============================================================
 // Types
@@ -237,6 +246,56 @@ const formatWeekRange = (date: Date): string => {
 // ============================================================
 
 export const SchedulePage: React.FC = () => {
+  const { user } = useAuth();
+
+  // 반 및 학생 데이터
+  const [scheduleClasses, setScheduleClasses] = useState<ScheduleClass[]>([]);
+  const [studentsMap, setStudentsMap] = useState<Record<string, CounselingStudent[]>>({});
+  const [classColors, setClassColors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      try {
+        const groups = await groupService.getMyGroups(user.id);
+        const ownerGroups = groups.filter((g) => g.myRole === 'owner');
+
+        const classes: ScheduleClass[] = ownerGroups.map((g) => ({
+          id: g.claId,
+          grade: g.grade,
+          classNumber: g.classNumber,
+          label: `${g.grade}학년 ${g.classNumber}반`,
+        }));
+
+        const colors: Record<string, string> = {};
+        classes.forEach((cls, i) => {
+          colors[cls.id] = CLASS_COLOR_PALETTE[i % CLASS_COLOR_PALETTE.length];
+        });
+
+        const studentEntries = await Promise.all(
+          ownerGroups.map(async (g) => {
+            const members = await groupService.getGroupMembers(g.claId, user.id);
+            const students: CounselingStudent[] = members
+              .filter((m) => m.status === 'active')
+              .map((m, idx) => ({
+                id: m.stdtId || m.id,
+                name: m.name,
+                number: m.memberNo ?? idx + 1,
+                classId: g.claId,
+              }));
+            return [g.claId, students] as [string, CounselingStudent[]];
+          }),
+        );
+
+        setScheduleClasses(classes);
+        setClassColors(colors);
+        setStudentsMap(Object.fromEntries(studentEntries));
+      } catch {
+        // 에러 시 빈 목록 유지
+      }
+    })();
+  }, [user]);
+
   // 뷰 모드
   const [viewMode, setViewMode] = useState<ViewMode>('weekly');
 
@@ -450,14 +509,14 @@ export const SchedulePage: React.FC = () => {
             <FilterButton $isActive={classFilter === null} onClick={() => setClassFilter(null)}>
               전체
             </FilterButton>
-            {SCHEDULE_CLASSES.map((cls) => (
+            {scheduleClasses.map((cls) => (
               <FilterButton
                 key={cls.id}
                 $isActive={classFilter === cls.id}
-                $activeColor={CLASS_COLORS[cls.id]}
+                $activeColor={classColors[cls.id]}
                 onClick={() => handleClassFilterClick(cls.id)}
               >
-                <FilterDot $color={CLASS_COLORS[cls.id]} $isActive={classFilter === cls.id} />
+                <FilterDot $color={classColors[cls.id] ?? '#9CA3AF'} $isActive={classFilter === cls.id} />
                 {cls.label}
               </FilterButton>
             ))}
@@ -490,6 +549,8 @@ export const SchedulePage: React.FC = () => {
         schedules={activeRecords}
         onClassClick={handleClassFilterClick}
         selectedClassFilter={classFilter}
+        classes={scheduleClasses}
+        classColors={classColors}
       />
 
       {/* 날짜 상세 패널 (월간 뷰) */}
@@ -516,6 +577,9 @@ export const SchedulePage: React.FC = () => {
         onDelete={handleDeleteSchedule}
         initialDate={modalInitialDate}
         editingSchedule={editingSchedule}
+        classes={scheduleClasses}
+        studentsMap={studentsMap}
+        classColors={classColors}
       />
 
       {/* 캘린더 연동 모달 */}

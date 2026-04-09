@@ -19,7 +19,7 @@ import {
 } from '@shared/types';
 import { ScheduleStudentPicker } from './ScheduleStudentPicker';
 import { formatDateISO } from '@shared/utils/dateUtils';
-import { SCHEDULE_CLASSES, CLASS_COLORS } from '@shared/data/mockUnifiedCounseling';
+import type { ScheduleClass } from '@shared/data/mockUnifiedCounseling';
 import {
   TIME_OPTIONS,
   SCHEDULE_TYPES,
@@ -38,6 +38,9 @@ interface ScheduleModalProps {
   onDelete?: (id: string) => void;
   initialDate?: Date;
   editingSchedule?: CounselingRecord | null;
+  classes: ScheduleClass[];
+  studentsMap: Record<string, CounselingStudent[]>;
+  classColors: Record<string, string>;
 }
 
 const FormContainer = styled.div`
@@ -311,6 +314,9 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   onDelete,
   initialDate,
   editingSchedule,
+  classes,
+  studentsMap,
+  classColors,
 }) => {
   const [selectedStudents, setSelectedStudents] = useState<CounselingStudent[]>([]);
   const [date, setDate] = useState('');
@@ -457,11 +463,11 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             {selectedStudents.length > 0 && (
               <StudentChipsContainer>
                 {selectedStudents.map((student) => {
-                  const cls = SCHEDULE_CLASSES.find((c) => c.id === student.classId);
+                  const cls = classes.find((c) => c.id === student.classId);
                   return (
                     <StudentChip
                       key={student.id}
-                      $bgColor={CLASS_COLORS[student.classId] || '#9CA3AF'}
+                      $bgColor={classColors[student.classId] ?? '#9CA3AF'}
                     >
                       {cls?.label} {student.name}
                       <RemoveChipButton onClick={() => removeStudent(student.id)}>
@@ -629,6 +635,9 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
         onClose={() => setShowStudentPicker(false)}
         selectedStudents={selectedStudents}
         onConfirm={setSelectedStudents}
+        classes={classes}
+        studentsMap={studentsMap}
+        classColors={classColors}
       />
     </>
   );
