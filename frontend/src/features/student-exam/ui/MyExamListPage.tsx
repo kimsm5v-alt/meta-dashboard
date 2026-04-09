@@ -17,6 +17,7 @@ import {
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { useAuth } from '@features/auth/model/AuthContext';
+import { getMyGroups } from '@features/groups/api/groupService';
 import { getStudentExamList, getStatusLabel, getStatusColor } from '../api/studentExamService';
 import type { StudentExamListItem } from '../types';
 
@@ -405,12 +406,31 @@ export const MyExamListPage: React.FC = () => {
       }
 
       try {
-        if (!user.stdtId || !user.classId) {
+        if (!user.stdtId) {
           setExams([]);
           return;
         }
-        const data = await getStudentExamList(user.classId, user.stdtId);
-        setExams(data);
+
+        const groups = await getMyGroups(user.id);
+        const memberGroups = groups.filter((g) => g.myRole === 'member');
+
+        if (memberGroups.length === 0) {
+          setExams([]);
+          return;
+        }
+
+        const results = await Promise.all(
+          memberGroups.map((g) => getStudentExamList(g.claId, user.stdtId!)),
+        );
+
+        // 중복 제거 (dgnssResultId 기준)
+        const seen = new Set<number>();
+        const flat = results.flat().filter((e) => {
+          if (seen.has(e.dgnssResultId)) return false;
+          seen.add(e.dgnssResultId);
+          return true;
+        });
+        setExams(flat);
       } catch {
         setExams([]);
       } finally {

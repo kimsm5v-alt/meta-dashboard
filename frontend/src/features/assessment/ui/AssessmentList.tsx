@@ -59,7 +59,8 @@ const StatusBadge = styled.span<{ $color: 'gray' | 'green' | 'blue' }>`
   border-radius: ${({ theme }) => theme.radius.full};
   background: ${({ $color }) =>
     $color === 'gray' ? '#f3f4f6' : $color === 'green' ? '#dcfce7' : '#dbeafe'};
-  color: ${({ $color }) => ($color === 'gray' ? '#4b5563' : $color === 'green' ? '#16a34a' : '#2563eb')};
+  color: ${({ $color }) =>
+    $color === 'gray' ? '#4b5563' : $color === 'green' ? '#16a34a' : '#2563eb'};
 `;
 
 const RoundBadge = styled.span`
@@ -229,6 +230,7 @@ const AssessmentItem: React.FC<{
   const [loading, setLoading] = useState(false);
 
   const notSubmittedCount = assessment.studentCount - assessment.completedCount;
+  console.log(assessment, 'sss');
 
   useEffect(() => {
     if (showNotSubmitted && notSubmittedStudents.length === 0 && notSubmittedCount > 0) {

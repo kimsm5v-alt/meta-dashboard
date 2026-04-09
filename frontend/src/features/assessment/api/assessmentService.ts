@@ -97,9 +97,9 @@ export async function fetchExamList(
   paperIdx?: string,
 ): Promise<ExamListItem[]> {
   let endpoint = `/api/dgnss/tc/info?claId=${claId}`;
-  if (paperIdx) {
-    endpoint += `&paperIdx=${paperIdx}`;
-  }
+  // if (paperIdx) {
+  //   endpoint += `&paperIdx=${paperIdx}`;
+  // }
 
   const res = await apiClient.get<ExamListResponse | ExamListItem[]>(endpoint);
   const resultData = res.resultData;
