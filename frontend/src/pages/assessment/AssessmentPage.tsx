@@ -169,6 +169,7 @@ function convertExamListItem(item: ExamListItem, groups: Group[]): ManagedAssess
     createdAt: new Date(item.dgnssStDt),
     ownerId: item.tcId,
     isActive: item.dgnssAt === 'Y',
+    inviteCode: group?.inviteCode,
   };
 }
 
@@ -282,6 +283,9 @@ export const AssessmentPage: React.FC = () => {
           classNumber: data.classNumber,
         });
 
+        // 해당 그룹의 inviteCode 찾기
+        const group = groups.find((g) => g.claId === claId);
+
         const newAssessment: ManagedAssessment = {
           id: `assessment-${result.dgnssId}`,
           name: data.name,
@@ -297,6 +301,7 @@ export const AssessmentPage: React.FC = () => {
           createdAt: new Date(),
           ownerId: user?.id ?? '',
           isActive: true,
+          inviteCode: group?.inviteCode,
         };
 
         setAssessments((prev) => [newAssessment, ...prev]);

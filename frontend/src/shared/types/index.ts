@@ -269,7 +269,7 @@ export interface AuthState {
 export interface ManagedAssessment {
   id: string;
   name: string;
-  code: string; // QR 코드 값: {dgnssId}-{studentCount}
+  code: string;
   dgnssId: number; // 검사 ID (학급 단위, /tc/start API에서 반환)
   grade: number;
   classNumber: number;
@@ -281,6 +281,7 @@ export interface ManagedAssessment {
   createdAt: Date;
   ownerId: string;
   isActive?: boolean; // 진행 중 여부 (dgnssAt === 'Y')
+  inviteCode?: string; // 그룹 초대 코드 (학생 초대 URL 생성용)
 }
 
 export interface CreateAssessmentInput {

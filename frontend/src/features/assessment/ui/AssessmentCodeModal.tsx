@@ -115,18 +115,19 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
 
   if (!assessment) return null;
 
-  // 검사 URL 생성 (현재 도메인 기준)
-  const examUrl = `${window.location.origin}/exam/${assessment.code}`;
+  // 검사 URL 생성 (현재 도메인 기준) - 그룹의 inviteCode 사용
+  const examUrl = `${window.location.origin}/join/${assessment.inviteCode}`;
 
   const handleCopy = async () => {
+    if (!assessment.inviteCode) return;
     try {
-      await navigator.clipboard.writeText(assessment.code);
+      await navigator.clipboard.writeText(assessment.inviteCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
-      textArea.value = assessment.code;
+      textArea.value = assessment.inviteCode;
       document.body.appendChild(textArea);
       textArea.select();
       document.execCommand('copy');
@@ -207,13 +208,13 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
           <QRWrapper ref={qrRef}>
             <QRCodeSVG value={examUrl} size={180} level='H' includeMargin />
           </QRWrapper>
-          <CodeDisplay>{assessment.code}</CodeDisplay>
+          <CodeDisplay>{assessment.inviteCode}</CodeDisplay>
           <UrlDisplay>{examUrl}</UrlDisplay>
           <ButtonGroup>
             <Button
               onClick={handleCopy}
               variant={copied ? 'primary' : 'secondary'}
-              className='flex-1 justify-center'
+              className='justify-center flex-1'
             >
               {copied ? (
                 <>
@@ -230,7 +231,7 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
             <Button
               onClick={handleCopyUrl}
               variant={copiedUrl ? 'primary' : 'secondary'}
-              className='flex-1 justify-center'
+              className='justify-center flex-1'
             >
               {copiedUrl ? (
                 <>
@@ -254,8 +255,8 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
         <InstructionBox>
           <InstructionTitle>학생 안내 방법</InstructionTitle>
           <InstructionList>
-            <li>학생들에게 검사 코드를 알려주세요</li>
-            <li>학생은 검사 페이지에서 코드를 입력합니다</li>
+            <li>학생들에게 초대 코드 또는 QR 코드를 공유하세요.</li>
+            <li>학생은 링크 접속 후 로그인/게스트 가입합니다.</li>
             <li>검사 완료 후 결과가 자동으로 집계됩니다</li>
           </InstructionList>
         </InstructionBox>
@@ -269,7 +270,7 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
         </DateSection>
 
         {/* 닫기 버튼 */}
-        <Button variant='secondary' onClick={onClose} className='w-full justify-center'>
+        <Button variant='secondary' onClick={onClose} className='justify-center w-full'>
           닫기
         </Button>
       </Container>

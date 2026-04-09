@@ -1,7 +1,8 @@
 import styled from '@emotion/styled';
 import { useState, useEffect } from 'react';
 import { Plus, X, Info } from 'lucide-react';
-import type { ObservationMemo, CreateObservationMemoInput } from '@shared/types';
+import type { ObservationMemo, CreateObservationMemoInput, MemoCategory } from '@shared/types';
+import { MEMO_CATEGORY_LABELS } from '@shared/types';
 import { memoService } from '@shared/services/memoService';
 import { formatDateShort } from '@shared/utils/dateUtils';
 import { PanelLoading } from '@shared/components';
@@ -113,6 +114,45 @@ const Textarea = styled.textarea`
   }
 `;
 
+const CategorySection = styled.div``;
+
+const CategoryLabel = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.gray[500]};
+  margin-bottom: 0.5rem;
+`;
+
+const CategoryGrid = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+`;
+
+const CategoryButton = styled.button<{ $isActive: boolean }>`
+  padding: 0.375rem 0.75rem;
+  border-radius: ${({ theme }) => theme.radius.lg};
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  cursor: pointer;
+  transition: all 0.15s ease;
+  ${({ $isActive, theme }) =>
+    $isActive
+      ? `
+    background: ${theme.colors.primary[500]};
+    color: white;
+    border-color: ${theme.colors.primary[500]};
+  `
+      : `
+    background: transparent;
+    color: ${theme.colors.gray[600]};
+    &:hover {
+      background: ${theme.colors.gray[50]};
+      border-color: ${theme.colors.primary[500]};
+    }
+  `}
+`;
+
 const TagSection = styled.div``;
 
 const TagLabel = styled.p`
@@ -138,7 +178,10 @@ const TagButton = styled.button<{ $isActive: boolean; $color: string }>`
   ${({ $isActive, $color }) =>
     $isActive
       ? `
-    ${$color.split(' ').map(c => `${c.split('-')[0]}: var(--${c});`).join(' ')}
+    ${$color
+      .split(' ')
+      .map((c) => `${c.split('-')[0]}: var(--${c});`)
+      .join(' ')}
     outline: 2px solid rgba(156, 163, 175, 0.4);
     outline-offset: 1px;
   `
@@ -244,6 +287,12 @@ const MemoSituation = styled.span`
   color: ${({ theme }) => theme.colors.gray[400]};
 `;
 
+const ButtonGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+`;
+
 const EditButton = styled.button`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   color: ${({ theme }) => theme.colors.gray[400]};
@@ -254,6 +303,18 @@ const EditButton = styled.button`
 
   &:hover {
     color: ${({ theme }) => theme.colors.primary[500]};
+  }
+`;
+const DeleteButton = styled.button`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.gray[400]};
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.error.main};
   }
 `;
 
@@ -273,7 +334,11 @@ const MemoTag = styled.span<{ $color: string }>`
   border-radius: ${({ theme }) => theme.radius.sm};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  ${({ $color }) => $color.split(' ').map(c => `${c.split('-')[0]}: var(--${c});`).join(' ')}
+  ${({ $color }) =>
+    $color
+      .split(' ')
+      .map((c) => `${c.split('-')[0]}: var(--${c});`)
+      .join(' ')}
 `;
 
 const InfoBox = styled.div`
@@ -319,6 +384,7 @@ interface FormData {
   date: string;
   situation: string;
   content: string;
+  category: MemoCategory;
   tag: string;
 }
 
@@ -334,6 +400,7 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
     date: new Date().toISOString().split('T')[0],
     situation: '',
     content: '',
+    category: 'behavior',
     tag: '',
   });
 
@@ -356,6 +423,7 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
       date: new Date().toISOString().split('T')[0],
       situation: '',
       content: '',
+      category: 'behavior',
       tag: '',
     });
     setShowForm(false);
@@ -374,13 +442,13 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
       studentId,
       classId,
       date: formData.date,
-      category: 'behavior',
+      category: formData.category,
       content: fullContent,
       isImportant: false,
     };
 
     if (editingId) {
-      await memoService.update(editingId, { content: fullContent, date: formData.date });
+      await memoService.update(editingId, { content: fullContent, category: formData.category });
     } else {
       await memoService.create(input);
     }
@@ -406,10 +474,16 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
       date: memo.date,
       situation,
       content: mainContent,
+      category: memo.category,
       tag,
     });
     setEditingId(memo.id);
     setShowForm(true);
+  };
+
+  const handleDelete = async (memo: ObservationMemo) => {
+    await memoService.delete(memo.id);
+    loadMemos();
   };
 
   const parseMemo = (content: string) => {
@@ -470,6 +544,7 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
               type='date'
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              disabled={!!editingId} // 수정 시 날짜 변경 불가
             />
             <Input
               type='text'
@@ -485,6 +560,22 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
             onChange={(e) => setFormData({ ...formData, content: e.target.value })}
             rows={3}
           />
+
+          {/* 카테고리 선택 */}
+          <CategorySection>
+            <CategoryLabel>카테고리</CategoryLabel>
+            <CategoryGrid>
+              {(Object.keys(MEMO_CATEGORY_LABELS) as MemoCategory[]).map((cat) => (
+                <CategoryButton
+                  key={cat}
+                  onClick={() => setFormData({ ...formData, category: cat })}
+                  $isActive={formData.category === cat}
+                >
+                  {MEMO_CATEGORY_LABELS[cat]}
+                </CategoryButton>
+              ))}
+            </CategoryGrid>
+          </CategorySection>
 
           {/* 태그 선택 */}
           <TagSection>
@@ -533,7 +624,10 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
                     <MemoDate>{formatDateShort(memo.date)}</MemoDate>
                     {parsed.situation && <MemoSituation>{parsed.situation}</MemoSituation>}
                   </MemoMeta>
-                  <EditButton onClick={() => handleEdit(memo)}>편집</EditButton>
+                  <ButtonGroup>
+                    <EditButton onClick={() => handleEdit(memo)}>편집</EditButton>
+                    <DeleteButton onClick={() => handleDelete(memo)}>삭제</DeleteButton>
+                  </ButtonGroup>
                 </MemoHeader>
                 <MemoContent>{parsed.content}</MemoContent>
                 {parsed.tag && <MemoTag $color={getTagColor(parsed.tag)}>#{parsed.tag}</MemoTag>}
