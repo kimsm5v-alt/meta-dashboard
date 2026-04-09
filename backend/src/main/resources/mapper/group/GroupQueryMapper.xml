@@ -31,14 +31,13 @@
             gm.user_no      AS userNo,
             gm.stdt_id      AS stdtId,
             gm.nickname      AS nickname,
-            COALESCE(u.gender, gm.gender) AS gender,
-            COALESCE(u.email, gm.email) AS email,
+            gm.gender        AS gender,
+            gm.email         AS email,
             gm.member_type   AS memberType,
             gm.member_no     AS memberNo,
             gm.status        AS status,
             gm.joined_at     AS joinedAt
         FROM group_member gm
-        LEFT JOIN `user` u ON u.user_no = gm.user_no
         WHERE gm.group_id = #{groupId}
         ORDER BY gm.member_no ASC
         LIMIT #{limit} OFFSET #{offset}
@@ -200,14 +199,13 @@
             gm.id           AS id,
             gm.stdt_id      AS stdtId,
             gm.nickname      AS nickname,
-            COALESCE(u.gender, gm.gender) AS gender,
-            COALESCE(u.email, gm.email) AS email,
+            gm.gender        AS gender,
+            gm.email         AS email,
             gm.member_type   AS memberType,
             gm.member_no     AS memberNo,
             gm.status        AS status,
             gm.joined_at     AS joinedAt
         FROM group_member gm
-        LEFT JOIN `user` u ON u.user_no = gm.user_no
         WHERE gm.group_id = #{groupId}
         ORDER BY gm.member_no ASC
         LIMIT #{limit} OFFSET #{offset}
