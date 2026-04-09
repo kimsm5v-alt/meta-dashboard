@@ -14,8 +14,8 @@ import {
 } from 'lucide-react';
 import styled from '@emotion/styled';
 import type {
-  UnifiedCounselingRecord,
-  CreateUnifiedCounselingInput,
+  CounselingRecord,
+  CreateCounselingInput,
   ScheduleType,
   CounselingArea,
   CounselingMethod,
@@ -26,7 +26,7 @@ import {
   COUNSELING_AREA_LABELS,
   COUNSELING_METHOD_LABELS,
 } from '@shared/types';
-import { unifiedCounselingService } from '@shared/services/unifiedCounselingService';
+import { counselingService } from '@shared/services/counselingService';
 import { SCHEDULE_STUDENTS } from '@shared/data/mockUnifiedCounseling';
 import {
   TIME_OPTIONS,
@@ -494,14 +494,14 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
   studentName = '',
   studentNumber = 0,
 }) => {
-  const [records, setRecords] = useState<UnifiedCounselingRecord[]>([]);
+  const [records, setRecords] = useState<CounselingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // 완료 처리 모달 상태
-  const [completingRecord, setCompletingRecord] = useState<UnifiedCounselingRecord | null>(null);
+  const [completingRecord, setCompletingRecord] = useState<CounselingRecord | null>(null);
   const [completionData, setCompletionData] = useState({
     duration: 30,
     summary: '',
@@ -527,7 +527,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
   const loadRecords = async () => {
     setLoading(true);
     try {
-      const data = await unifiedCounselingService.getByStudentId(studentId);
+      const data = await counselingService.getByStudentId(studentId);
       setRecords(data);
     } finally {
       setLoading(false);
@@ -553,7 +553,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
     return {
       id: studentId,
       name: studentName || '학생',
-      number: studentNumber || 0,
+      number: studentNumber || 1,
       classId,
     };
   };
@@ -603,7 +603,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
   const handleSubmit = async () => {
     const student = getStudentInfo();
 
-    const input: CreateUnifiedCounselingInput = {
+    const input: CreateCounselingInput = {
       students: [student],
       classId,
       scheduledAt: `${formData.date} ${formData.time}`,
@@ -617,7 +617,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
 
     try {
       if (editingId) {
-        await unifiedCounselingService.update(editingId, {
+        await counselingService.update(editingId, {
           scheduledAt: input.scheduledAt,
           types: input.types,
           areas: input.areas,
@@ -625,7 +625,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
           reason: input.reason,
         });
       } else {
-        await unifiedCounselingService.create(input);
+        await counselingService.create(input);
       }
       resetForm();
       await loadRecords();
@@ -634,7 +634,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
     }
   };
 
-  const handleEdit = (record: UnifiedCounselingRecord) => {
+  const handleEdit = (record: CounselingRecord) => {
     const [date, time] = record.scheduledAt.split(' ');
     setFormData({
       date,
@@ -652,7 +652,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
   const handleDelete = async (id: string) => {
     if (!confirm('이 상담 기록을 삭제하시겠습니까?')) return;
     try {
-      await unifiedCounselingService.delete(id);
+      await counselingService.delete(id);
       await loadRecords();
     } catch {
       // 에러 처리
@@ -663,7 +663,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
     if (!completingRecord) return;
 
     try {
-      await unifiedCounselingService.complete(completingRecord.id, {
+      await counselingService.complete(completingRecord.id, {
         duration: completionData.duration,
         summary: completionData.summary,
         nextSteps: completionData.nextSteps || undefined,
@@ -676,9 +676,9 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
     }
   };
 
-  const handleUpdateReason = async (record: UnifiedCounselingRecord, newReason: string) => {
+  const handleUpdateReason = async (record: CounselingRecord, newReason: string) => {
     try {
-      await unifiedCounselingService.update(record.id, { reason: newReason });
+      await counselingService.update(record.id, { reason: newReason });
       await loadRecords();
     } catch {
       // 에러 처리
@@ -693,10 +693,10 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
     <PanelContainer>
       {/* 헤더 */}
       <HeaderRow>
-        <ApiTooltip {...API_COUNSELING_LIST} position="bottom-left">
+        <ApiTooltip {...API_COUNSELING_LIST} position='bottom-left'>
           <HeaderTitle>상담 기록</HeaderTitle>
         </ApiTooltip>
-        <ApiTooltip {...API_COUNSELING_CREATE} position="bottom-right">
+        <ApiTooltip {...API_COUNSELING_CREATE} position='bottom-right'>
           <AddButton
             onClick={() => {
               resetForm();
@@ -725,7 +725,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
                 <Calendar size={16} />
               </InputIcon>
               <DateInput
-                type="date"
+                type='date'
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               />
@@ -748,38 +748,36 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
           </FormGrid>
 
           <MultiSelectButtonGroup
-            label="상담 유형"
+            label='상담 유형'
             items={SCHEDULE_TYPES}
             selected={formData.types}
             onToggle={toggleType}
             labelMap={SCHEDULE_TYPE_LABELS}
-            alertKey="urgent"
-            size="sm"
+            alertKey='urgent'
+            size='sm'
           />
 
           <MultiSelectButtonGroup
-            label="상담 영역"
+            label='상담 영역'
             items={COUNSELING_AREAS}
             selected={formData.areas}
             onToggle={toggleArea}
             labelMap={COUNSELING_AREA_LABELS}
-            size="sm"
+            size='sm'
           />
 
           <MultiSelectButtonGroup
-            label="상담 방법"
+            label='상담 방법'
             items={COUNSELING_METHODS}
             selected={formData.methods}
             onToggle={toggleMethod}
             labelMap={COUNSELING_METHOD_LABELS}
-            size="sm"
+            size='sm'
           />
 
           {/* 상담 내용/사유 */}
           <div>
-            <FormLabel>
-              {formData.saveAsCompleted ? '상담 내용' : '상담 사유/메모'}
-            </FormLabel>
+            <FormLabel>{formData.saveAsCompleted ? '상담 내용' : '상담 사유/메모'}</FormLabel>
             <TextArea
               placeholder={
                 formData.saveAsCompleted
@@ -796,7 +794,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
           {!editingId && (
             <CheckboxLabel>
               <Checkbox
-                type="checkbox"
+                type='checkbox'
                 checked={formData.saveAsCompleted}
                 onChange={(e) => setFormData({ ...formData, saveAsCompleted: e.target.checked })}
               />
@@ -894,10 +892,10 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
                           </NextStepsBox>
                         )}
                         <ActionButtons>
-                          <IconButton $variant="edit" onClick={() => handleEdit(record)}>
+                          <IconButton $variant='edit' onClick={() => handleEdit(record)}>
                             <Edit2 size={14} />
                           </IconButton>
-                          <IconButton $variant="delete" onClick={() => handleDelete(record.id)}>
+                          <IconButton $variant='delete' onClick={() => handleDelete(record.id)}>
                             <Trash2 size={14} />
                           </IconButton>
                         </ActionButtons>

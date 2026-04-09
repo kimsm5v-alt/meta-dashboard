@@ -1,7 +1,7 @@
 import styled from '@emotion/styled';
 import { useState } from 'react';
 import { AlertCircle, Check, Edit2, Trash2 } from 'lucide-react';
-import type { UnifiedCounselingRecord } from '@shared/types';
+import type { CounselingRecord } from '@shared/types';
 import {
   SCHEDULE_TYPE_LABELS,
   COUNSELING_AREA_LABELS,
@@ -192,7 +192,7 @@ const CompleteButton = styled.button`
 `;
 
 interface ScheduledRecordCardProps {
-  record: UnifiedCounselingRecord;
+  record: CounselingRecord;
   onComplete: () => void;
   onEdit: () => void;
   onDelete: () => void;

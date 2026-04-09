@@ -1,6 +1,6 @@
 import styled from '@emotion/styled';
 import { X } from 'lucide-react';
-import type { UnifiedCounselingRecord } from '@shared/types';
+import type { CounselingRecord } from '@shared/types';
 import { COUNSELING_AREA_LABELS, COUNSELING_METHOD_LABELS } from '@shared/types';
 import { formatScheduleDateKr, extractTime } from '@shared/utils/dateUtils';
 
@@ -171,7 +171,7 @@ interface CompletionData {
 }
 
 interface CompletionModalProps {
-  record: UnifiedCounselingRecord;
+  record: CounselingRecord;
   data: CompletionData;
   onChange: (data: CompletionData) => void;
   onComplete: () => void;
