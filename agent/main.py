@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 from app.models.schemas import AgentQuery, AgentResponse
 from app.services.agent_service import meta_agent_service
 import logging
@@ -19,6 +20,21 @@ app = FastAPI(
     title="Meta Dashboard AI Agent", 
     version="1.0.0",
     debug=DEBUG
+)
+
+# CORS 설정: 지정된 도메인으로부터의 요청을 허용함
+origins = [
+    "https://meta-service.vsaidt.com",
+    "https://t-meta-service.vsaidt.com",
+    "http://localhost:5173"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # 로깅 설정 (DEBUG 모드에 따른 레벨 조정)
