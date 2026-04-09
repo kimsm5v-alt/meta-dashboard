@@ -102,7 +102,7 @@ ${customNote}
    */
   getSavedByStudentId: async (studentId: string): Promise<SavedSchoolRecord[]> => {
     const response = await apiClient.get<SavedSchoolRecord[]>(
-      `/school-records/student/${studentId}`,
+      `/api/school-records/student/${studentId}`,
     );
     return response.resultData;
   },
@@ -111,7 +111,7 @@ ${customNote}
    * 생성된 문구 저장
    */
   save: async (input: Omit<SavedSchoolRecord, 'id' | 'createdAt'>): Promise<SavedSchoolRecord> => {
-    const response = await apiClient.post<SavedSchoolRecord>('/school-records', input);
+    const response = await apiClient.post<SavedSchoolRecord>('/api/school-records', input);
     return response.resultData;
   },
 
@@ -119,6 +119,6 @@ ${customNote}
    * 저장된 문구 삭제
    */
   delete: async (id: string): Promise<void> => {
-    await apiClient.delete(`/school-records/${id}`);
+    await apiClient.delete(`/api/school-records/${id}`);
   },
 };

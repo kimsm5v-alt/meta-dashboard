@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import styled from '@emotion/styled';
 import {
   Sparkles,
   Edit3,
@@ -12,13 +13,12 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  Trash2,
+  FolderOpen,
 } from 'lucide-react';
-import styled from '@emotion/styled';
-import { keyframes } from '@emotion/react';
+import type { SavedSchoolRecord } from '@shared/types';
 import type { Student, Assessment } from '@shared/types';
 import { schoolRecordService } from '@shared/services/schoolRecordService';
-import { ApiTooltip } from '@shared/components/api-tooltip';
-import { API_SCHOOL_RECORD_SAVE } from '@shared/data/apiDefinitions';
 import {
   getTopStrengths,
   getRecommendedSentences,
@@ -29,232 +29,163 @@ import type { ExampleSentence } from '@shared/data/schoolRecordSentences';
 import { buildSimpleRecordMessages, validateSchoolRecordOutput } from '@shared/data/aiPrompts';
 import { callAI } from '@shared/services/ai';
 
-// Animations
-const spin = keyframes`
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-`;
+// ============================================================
+// Styled Components
+// ============================================================
 
-// Layout Components
-const PanelContainer = styled.div`
+const Container = styled.div`
   padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 `;
 
-// Section Card Components
-const SectionCard = styled.div<{ $variant?: 'white' | 'gradient' }>`
+const SectionBox = styled.div`
+  background: white;
+  border: 1px solid #e5e7eb;
   border-radius: 0.75rem;
-  overflow: hidden;
-
-  ${({ $variant }) => {
-    if ($variant === 'gradient') {
-      return `
-        background: linear-gradient(to bottom right, #eef2ff, #f3e8ff);
-      `;
-    }
-    return `
-      background: white;
-      border: 1px solid #e5e7eb;
-    `;
-  }}
-`;
-
-const SectionCardInner = styled.div`
   padding: 1rem;
 `;
 
-const SectionHeader = styled.div<{ $withBorder?: boolean }>`
+const SectionTitle = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
-
-  ${({ $withBorder }) =>
-    $withBorder &&
-    `
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid #f3f4f6;
-    margin-bottom: 0;
-  `}
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
 `;
 
-const SectionHeaderBetween = styled.div`
-  padding: 0.75rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-`;
-
-const SectionIcon = styled.span<{ $color?: string }>`
-  width: 1rem;
-  height: 1rem;
-  color: ${({ $color }) => $color || '#6366f1'};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
-const SectionTitle = styled.h4`
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ theme }) => theme.colors.gray[900]};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-`;
-
-const SectionSubtitle = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[500]};
+const HintText = styled.p`
+  font-size: 0.75rem;
+  color: #6b7280;
   margin-bottom: 0.5rem;
 `;
 
-// Input Components
 const TextArea = styled.textarea`
   width: 100%;
   height: 6rem;
   padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border: 1px solid #d1d5db;
   border-radius: 0.5rem;
   resize: none;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.gray[700]};
+  font-size: 0.875rem;
+  color: #374151;
+  box-sizing: border-box;
 
   &::placeholder {
-    color: ${({ theme }) => theme.colors.gray[400]};
+    color: #9ca3af;
   }
 
   &:focus {
     outline: none;
-    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.primary[500]};
-    border-color: ${({ theme }) => theme.colors.primary[500]};
-  }
-`;
-
-const EditTextArea = styled.textarea`
-  width: 100%;
-  height: 12rem;
-  padding: 0.75rem;
-  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
-  border-radius: 0.5rem;
-  resize: none;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.primary[500]};
-    border-color: ${({ theme }) => theme.colors.primary[500]};
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
   }
 `;
 
 const CharCount = styled.div`
   text-align: right;
   margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #9ca3af;
 `;
 
-const CharCountText = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[400]};
+// 강점 영역 섹션
+const StrengthsBox = styled.div`
+  background: linear-gradient(to bottom right, #eef2ff, #f5f3ff);
+  border-radius: 0.75rem;
+  overflow: hidden;
 `;
 
-// Strength Section Components
-const SelectionCount = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[500]};
+const StrengthsHeader = styled.div`
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 `;
 
-const InfoBox = styled.div`
+const StrengthsHeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+`;
+
+const StrengthsCount = styled.span`
+  font-size: 0.75rem;
+  color: #6b7280;
+`;
+
+const InfoBanner = styled.div`
   margin: 0 0.5rem 0.5rem;
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[600]};
+  font-size: 0.75rem;
+  color: #4b5563;
   background: rgba(255, 255, 255, 0.4);
   border-radius: 0.5rem;
   padding: 0.5rem;
 `;
 
-const InfoIcon = styled.span`
-  width: 0.875rem;
-  height: 0.875rem;
-  flex-shrink: 0;
-  margin-top: 0.125rem;
+const StrengthDivider = styled.div`
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid rgba(199, 210, 254, 0.5);
 `;
 
-const StrengthList = styled.div`
-  & > div:not(:last-child) {
-    border-bottom: 1px solid rgba(199, 210, 254, 0.5);
-  }
-`;
-
-const StrengthItem = styled.div`
+const StrengthRow = styled.div`
   padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(199, 210, 254, 0.3);
 `;
 
-const StrengthButton = styled.button`
+const StrengthToggleBtn = styled.button`
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: transparent;
+  background: none;
   border: none;
   cursor: pointer;
+  padding: 0;
 `;
 
-const StrengthInfo = styled.div`
+const StrengthLeft = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
 `;
 
-const StrengthNumber = styled.span`
+const StrengthIndex = styled.span`
   display: flex;
   align-items: center;
   justify-content: center;
   width: 1.25rem;
   height: 1.25rem;
-  background: ${({ theme }) => theme.colors.primary[500]};
+  background: #6366f1;
   color: white;
-  font-size: 11px;
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  font-size: 0.6875rem;
+  font-weight: 700;
   border-radius: 9999px;
 `;
 
 const StrengthName = styled.span`
-  font-size: 13px;
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  color: ${({ theme }) => theme.colors.gray[800]};
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #1f2937;
 `;
 
-const StrengthBadge = styled.span<{ $variant: 'positive' | 'negative' }>`
-  font-size: 11px;
+const StrengthBadge = styled.span<{ $type: 'positive' | 'negative' }>`
+  font-size: 0.6875rem;
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-
-  ${({ $variant }) => {
-    if ($variant === 'positive') {
-      return `
-        background: #dbeafe;
-        color: #1d4ed8;
-      `;
-    }
-    return `
-      background: #dcfce7;
-      color: #15803d;
-    `;
-  }}
-`;
-
-const ChevronIcon = styled.span`
-  width: 1rem;
-  height: 1rem;
-  color: ${({ theme }) => theme.colors.gray[400]};
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: ${({ $type }) => ($type === 'positive' ? '#dbeafe' : '#d1fae5')};
+  color: ${({ $type }) => ($type === 'positive' ? '#1d4ed8' : '#065f46')};
 `;
 
 const SentenceList = styled.div`
@@ -265,55 +196,39 @@ const SentenceList = styled.div`
   gap: 0.375rem;
 `;
 
-const SentenceLabel = styled.label<{ $isSelected: boolean; $isDisabled: boolean }>`
+const SentenceLabel = styled.label<{ $selected: boolean; $disabled: boolean }>`
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.5rem;
   border-radius: 0.5rem;
-  cursor: ${({ $isDisabled }) => ($isDisabled ? 'not-allowed' : 'pointer')};
-  transition: background-color 0.15s ease;
+  cursor: ${({ $disabled }) => ($disabled ? 'not-allowed' : 'pointer')};
+  opacity: ${({ $disabled }) => ($disabled ? 0.5 : 1)};
+  transition: background 0.15s ease;
+  background: ${({ $selected }) =>
+    $selected ? 'rgba(199, 210, 254, 0.8)' : 'rgba(255, 255, 255, 0.6)'};
+  border: 1px solid ${({ $selected }) => ($selected ? '#a5b4fc' : 'transparent')};
 
-  ${({ $isSelected, $isDisabled }) => {
-    if ($isSelected) {
-      return `
-        background: rgba(199, 210, 254, 0.8);
-        border: 1px solid #c7d2fe;
-      `;
-    }
-    if ($isDisabled) {
-      return `
-        background: rgba(255, 255, 255, 0.4);
-        opacity: 0.5;
-      `;
-    }
-    return `
-      background: rgba(255, 255, 255, 0.6);
-      &:hover {
-        background: rgba(255, 255, 255, 0.8);
-      }
-    `;
-  }}
-`;
-
-const Checkbox = styled.input`
-  margin-top: 0.25rem;
-  border-radius: 0.25rem;
-  border-color: ${({ theme }) => theme.colors.gray[300]};
-  color: ${({ theme }) => theme.colors.primary[500]};
-
-  &:focus {
-    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.primary[500]};
+  &:hover {
+    background: ${({ $selected, $disabled }) =>
+      $disabled ? undefined : $selected ? 'rgba(199, 210, 254, 0.8)' : 'rgba(255, 255, 255, 0.8)'};
   }
 `;
 
+const SentenceCheckbox = styled.input`
+  margin-top: 0.125rem;
+  border-radius: 0.25rem;
+  border-color: #d1d5db;
+  accent-color: #6366f1;
+`;
+
 const SentenceText = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.gray[700]};
+  font-size: 0.875rem;
+  color: #374151;
   line-height: 1.6;
 `;
 
-// Generate Button
+// 생성 버튼
 const GenerateButton = styled.button`
   width: 100%;
   display: flex;
@@ -321,16 +236,16 @@ const GenerateButton = styled.button`
   justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  background: linear-gradient(to right, #6366f1, #a855f7);
+  background: linear-gradient(to right, #6366f1, #7c3aed);
   color: white;
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  font-weight: 500;
   border-radius: 0.75rem;
   border: none;
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover:not(:disabled) {
-    background: linear-gradient(to right, #4f46e5, #9333ea);
+    background: linear-gradient(to right, #4f46e5, #6d28d9);
   }
 
   &:disabled {
@@ -339,242 +254,262 @@ const GenerateButton = styled.button`
   }
 `;
 
-const SpinnerIcon = styled(Loader2)`
-  width: 1.25rem;
-  height: 1.25rem;
-  animation: ${spin} 1s linear infinite;
+// 결과 영역
+const ResultBox = styled.div`
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  overflow: hidden;
 `;
 
-const SparkleIcon = styled(Sparkles)`
-  width: 1.25rem;
-  height: 1.25rem;
-`;
-
-// Result Section Components
 const ResultHeader = styled.div`
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[100]};
+  border-bottom: 1px solid #f3f4f6;
   display: flex;
   align-items: center;
   justify-content: space-between;
 `;
 
 const ResultTitle = styled.h4`
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ theme }) => theme.colors.gray[900]};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
 `;
 
-const WordCountBadge = styled.span<{ $isExceeded: boolean }>`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+const WordCountBadge = styled.span<{ $ok: boolean }>`
+  font-size: 0.75rem;
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
-
-  ${({ $isExceeded }) => {
-    if ($isExceeded) {
-      return `
-        background: #fef2f2;
-        color: #dc2626;
-      `;
-    }
-    return `
-      background: #f0fdf4;
-      color: #16a34a;
-    `;
-  }}
+  background: ${({ $ok }) => ($ok ? '#f0fdf4' : '#fef2f2')};
+  color: ${({ $ok }) => ($ok ? '#16a34a' : '#dc2626')};
 `;
 
-const ResultContent = styled.div`
+const ResultBody = styled.div`
   padding: 1rem;
 `;
 
-const ResultText = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.gray[700]};
-  line-height: 1.6;
-  white-space: pre-wrap;
+const EditTextArea = styled.textarea`
+  width: 100%;
+  height: 12rem;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  resize: none;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  }
+`;
+
+const EditFooter = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+`;
+
+const EditCharCount = styled.span`
+  font-size: 0.75rem;
+  color: #6b7280;
 `;
 
 const EditActions = styled.div`
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-`;
-
-const EditActionsRow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-`;
-
-const EditCountText = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[500]};
-`;
-
-const EditButtonGroup = styled.div`
-  display: flex;
   gap: 0.5rem;
 `;
 
-const CancelButton = styled.button`
+const TextButton = styled.button`
   padding: 0.375rem 0.75rem;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.gray[600]};
-  background: transparent;
+  font-size: 0.875rem;
+  color: #4b5563;
+  background: none;
   border: none;
   border-radius: 0.5rem;
   cursor: pointer;
-  transition: background-color 0.15s ease;
 
   &:hover {
-    background: ${({ theme }) => theme.colors.gray[100]};
+    background: #f3f4f6;
   }
 `;
 
 const ApplyButton = styled.button`
   padding: 0.375rem 0.75rem;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  background: ${({ theme }) => theme.colors.primary[500]};
+  font-size: 0.875rem;
+  background: #6366f1;
   color: white;
   border: none;
   border-radius: 0.5rem;
   cursor: pointer;
-  transition: background-color 0.15s ease;
 
   &:hover {
-    background: ${({ theme }) => theme.colors.primary[600]};
+    background: #4f46e5;
   }
 `;
 
-// Validation Warning Components
-const ValidationWarnings = styled.div`
-  padding: 0 1rem 1rem;
+const ResultText = styled.p`
+  font-size: 0.875rem;
+  color: #374151;
+  line-height: 1.6;
+  white-space: pre-wrap;
 `;
 
-const WarningBox = styled.div<{ $variant: 'amber' | 'red' }>`
+const ValidationWarning = styled.div`
+  padding: 0 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+`;
+
+const WarningItem = styled.div<{ $variant: 'amber' | 'red' }>`
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.5rem;
   border-radius: 0.5rem;
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  margin-top: ${({ $variant }) => ($variant === 'red' ? '0.5rem' : '0')};
-
-  ${({ $variant }) => {
-    if ($variant === 'amber') {
-      return `
-        background: #fffbeb;
-        color: #b45309;
-      `;
-    }
-    return `
-      background: #fef2f2;
-      color: #b91c1c;
-    `;
-  }}
+  font-size: 0.75rem;
+  background: ${({ $variant }) => ($variant === 'amber' ? '#fffbeb' : '#fef2f2')};
+  color: ${({ $variant }) => ($variant === 'amber' ? '#b45309' : '#b91c1c')};
 `;
 
-const WarningIcon = styled.span`
-  width: 0.875rem;
-  height: 0.875rem;
-  flex-shrink: 0;
-  margin-top: 0.125rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
-// Action Buttons
-const ActionButtonsContainer = styled.div`
+const ActionButtons = styled.div`
   padding: 0 1rem 1rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 `;
 
-const ActionButton = styled.button<{ $variant: 'primary' | 'secondary' }>`
+const ActionBtn = styled.button<{ $primary?: boolean }>`
   display: flex;
   align-items: center;
   gap: 0.375rem;
   padding: 0.5rem 0.75rem;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  border-radius: 0.5rem;
+  font-size: 0.875rem;
   border: none;
+  border-radius: 0.5rem;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background 0.15s ease;
+  background: ${({ $primary }) => ($primary ? '#6366f1' : '#f3f4f6')};
+  color: ${({ $primary }) => ($primary ? 'white' : '#374151')};
 
-  ${({ $variant, theme }) => {
-    if ($variant === 'primary') {
-      return `
-        background: ${theme.colors.primary[500]};
-        color: white;
-        &:hover {
-          background: ${theme.colors.primary[600]};
-        }
-      `;
-    }
-    return `
-      background: ${theme.colors.gray[100]};
-      color: ${theme.colors.gray[700]};
-      &:hover {
-        background: ${theme.colors.gray[200]};
-      }
-      &:disabled {
-        opacity: 0.5;
-      }
-    `;
-  }}
+  &:hover:not(:disabled) {
+    background: ${({ $primary }) => ($primary ? '#4f46e5' : '#e5e7eb')};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 `;
 
-const ButtonIcon = styled.span<{ $spin?: boolean }>`
-  width: 1rem;
-  height: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  ${({ $spin }) =>
-    $spin &&
-    `
-    animation: ${spin} 1s linear infinite;
-  `}
-`;
-
-// Bottom Warning
-const BottomWarning = styled.div`
+const DisclaimerBox = styled.div`
   display: flex;
   gap: 0.5rem;
   padding: 0.75rem;
   background: #fffbeb;
-  border: 1px solid #fef3c7;
+  border: 1px solid #fde68a;
   border-radius: 0.5rem;
 `;
 
-const BottomWarningIcon = styled.span`
-  width: 1rem;
-  height: 1rem;
-  color: #f59e0b;
-  flex-shrink: 0;
-  margin-top: 0.125rem;
+// 저장된 문구 목록
+const SavedListHeader = styled.div`
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
 `;
 
-const BottomWarningText = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+const SavedListTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+`;
+
+const SavedCount = styled.span`
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 400;
+`;
+
+const SavedCard = styled.div`
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #f9fafb;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+`;
+
+const SavedCardBody = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const SavedCardDate = styled.span`
+  font-size: 0.6875rem;
+  color: #9ca3af;
+  display: block;
+  margin-bottom: 0.25rem;
+`;
+
+const SavedCardPreview = styled.p`
+  font-size: 0.8125rem;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const SavedCardActions = styled.div`
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+`;
+
+const IconBtn = styled.button<{ $variant?: 'danger' }>`
+  padding: 0.25rem;
+  border: none;
+  background: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  color: ${({ $variant }) => ($variant === 'danger' ? '#ef4444' : '#6b7280')};
+  transition: background 0.1s ease;
+
+  &:hover {
+    background: ${({ $variant }) => ($variant === 'danger' ? '#fee2e2' : '#e5e7eb')};
+  }
+`;
+
+const DisclaimerText = styled.p`
+  font-size: 0.75rem;
   color: #b45309;
   line-height: 1.6;
 `;
+
+// ============================================================
+// 컴포넌트
+// ============================================================
 
 interface SchoolRecordPanelProps {
   student: Student;
   assessment: Assessment;
 }
 
+interface ValidationResult {
+  isValid: boolean;
+  wordCountResult: { count: number; excess: number };
+  prohibitedResult: { violations: string[] };
+}
+
 export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, assessment }) => {
-  // 상태
   const [selectedSentences, setSelectedSentences] = useState<string[]>([]);
   const [generatedText, setGeneratedText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -583,36 +518,27 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
   const [copySuccess, setCopySuccess] = useState(false);
   const [expandedStrengths, setExpandedStrengths] = useState<string[]>([]);
   const [teacherInput, setTeacherInput] = useState('');
-  const [validationResult, setValidationResult] = useState<{
-    isValid: boolean;
-    wordCountResult: { count: number; excess: number };
-    prohibitedResult: { violations: string[] };
-  } | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [savedRecords, setSavedRecords] = useState<SavedSchoolRecord[]>([]);
 
-  // 학교급 변환
   const schoolLevelKr = useMemo(
     () => toSchoolLevelKr(student.schoolLevel, student.grade),
     [student.schoolLevel, student.grade],
   );
 
-  // 강점 분석
   const topStrengths = useMemo(() => getTopStrengths(assessment), [assessment]);
 
-  // 추천 문장
   const recommendedSentences = useMemo(
     () => getRecommendedSentences(topStrengths, schoolLevelKr),
     [topStrengths, schoolLevelKr],
   );
 
-  // 변화 분석
   const changeAnalysis = useMemo(() => analyzeChanges(student), [student]);
 
-  // 초기 로드 시 저장된 문구 가져오기
   useEffect(() => {
     loadSavedContent();
   }, [student.id]);
 
-  // 문구 변경 시 검증
   useEffect(() => {
     if (generatedText) {
       const result = validateSchoolRecordOutput(generatedText);
@@ -634,7 +560,9 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
   const loadSavedContent = async () => {
     try {
       const saved = await schoolRecordService.getSavedByStudentId(student.id);
-      if (saved.length > 0) {
+      setSavedRecords(saved);
+      // 현재 편집 중인 내용이 없을 때만 최신 저장본 자동 로드
+      if (saved.length > 0 && !generatedText) {
         setGeneratedText(saved[0].content);
       }
     } catch {
@@ -642,7 +570,28 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
     }
   };
 
-  // 문장 선택/해제 핸들러
+  const handleLoadRecord = (record: SavedSchoolRecord) => {
+    setGeneratedText(record.content);
+    setIsEditing(false);
+  };
+
+  const handleDeleteRecord = async (id: string) => {
+    if (!confirm('저장된 문구를 삭제하시겠습니까?')) return;
+    try {
+      await schoolRecordService.delete(id);
+      const updated = savedRecords.filter((r) => r.id !== id);
+      setSavedRecords(updated);
+      // 현재 표시 중인 문구가 삭제된 것이면 다음 최신본으로 교체
+      if (updated.length > 0) {
+        setGeneratedText(updated[0].content);
+      } else {
+        setGeneratedText('');
+      }
+    } catch {
+      alert('삭제에 실패했습니다.');
+    }
+  };
+
   const handleSentenceToggle = (text: string) => {
     if (selectedSentences.includes(text)) {
       setSelectedSentences(selectedSentences.filter((s) => s !== text));
@@ -651,12 +600,9 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
     }
   };
 
-  // AI 문구 생성
   const handleGenerate = async () => {
     setIsGenerating(true);
-
     try {
-      // 프롬프트 파라미터 구성
       const params = {
         schoolLevel: schoolLevelKr,
         grade: student.grade,
@@ -677,10 +623,8 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
         teacherInput,
       };
 
-      // 메시지 구성
       const { systemPrompt, userMessage } = buildSimpleRecordMessages(params);
 
-      // AI 호출 (시스템 프롬프트를 메시지로 전달)
       const response = await callAI({
         messages: [
           { role: 'system', content: systemPrompt },
@@ -691,16 +635,15 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
       if (response.success) {
         setGeneratedText(response.content);
       } else {
-        throw new Error(response.error || '생성 실패');
+        throw new Error(response.error ?? '생성 실패');
       }
-    } catch (error) {
+    } catch {
       setGeneratedText('생성에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // 편집 핸들러
   const handleEdit = () => {
     setEditContent(generatedText);
     setIsEditing(true);
@@ -716,29 +659,27 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
     setEditContent('');
   };
 
-  // 저장 핸들러
   const handleSave = async () => {
     try {
-      await schoolRecordService.save({
+      const newRecord = await schoolRecordService.save({
         studentId: student.id,
         classId: student.classId,
         category: 'comprehensive',
         content: generatedText,
       });
+      setSavedRecords((prev) => [newRecord, ...prev]);
       alert('저장되었습니다.');
     } catch {
       alert('저장에 실패했습니다.');
     }
   };
 
-  // 복사 핸들러
   const handleCopy = async () => {
     await navigator.clipboard.writeText(generatedText);
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2000);
   };
 
-  // 다운로드 핸들러
   const handleDownload = () => {
     const blob = new Blob([generatedText], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -749,65 +690,87 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
     URL.revokeObjectURL(url);
   };
 
-  // 강점별 문장 그룹화
-  const getSentencesForStrength = (strengthName: string): ExampleSentence[] => {
-    return recommendedSentences.filter((s) => s.subCategory === strengthName);
+  const getSentencesForStrength = (strengthName: string): ExampleSentence[] =>
+    recommendedSentences.filter((s) => s.subCategory === strengthName);
+
+  const formatSavedDate = (createdAt: Date | string) => {
+    const d = new Date(createdAt);
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   };
 
   return (
-    <PanelContainer>
+    <Container>
+      {/* 저장된 문구 목록 */}
+      {savedRecords.length > 0 && (
+        <SectionBox>
+          <SavedListHeader>
+            <SavedListTitle>
+              <FolderOpen size={15} color='#6366f1' />
+              저장된 문구
+              <SavedCount>({savedRecords.length}개)</SavedCount>
+            </SavedListTitle>
+          </SavedListHeader>
+          {savedRecords.map((record) => (
+            <SavedCard key={record.id}>
+              <SavedCardBody>
+                <SavedCardDate>{formatSavedDate(record.createdAt)}</SavedCardDate>
+                <SavedCardPreview>{record.content}</SavedCardPreview>
+              </SavedCardBody>
+              <SavedCardActions>
+                <IconBtn title='불러오기' onClick={() => handleLoadRecord(record)}>
+                  <FolderOpen size={14} />
+                </IconBtn>
+                <IconBtn $variant='danger' title='삭제' onClick={() => handleDeleteRecord(record.id)}>
+                  <Trash2 size={14} />
+                </IconBtn>
+              </SavedCardActions>
+            </SavedCard>
+          ))}
+        </SectionBox>
+      )}
+
       {/* 교사 직접 입력 */}
-      <SectionCard>
-        <SectionCardInner>
-          <SectionHeader>
-            <SectionIcon>
-              <Edit3 size={16} />
-            </SectionIcon>
-            <SectionTitle>교사 직접 입력</SectionTitle>
-          </SectionHeader>
-          <SectionSubtitle>학생의 특성을 입력해주세요.</SectionSubtitle>
-          <TextArea
-            value={teacherInput}
-            onChange={(e) => setTeacherInput(e.target.value)}
-            placeholder="예: 수업 중 발표를 적극적으로 하며, 모둠 활동에서 리더 역할을 잘 수행함"
-            maxLength={500}
-          />
-          <CharCount>
-            <CharCountText>{teacherInput.length} / 500자</CharCountText>
-          </CharCount>
-        </SectionCardInner>
-      </SectionCard>
+      <SectionBox>
+        <SectionTitle>
+          <Edit3 size={16} color='#6366f1' />
+          교사 직접 입력
+        </SectionTitle>
+        <HintText>학생의 특성을 입력해주세요.</HintText>
+        <TextArea
+          value={teacherInput}
+          onChange={(e) => setTeacherInput(e.target.value)}
+          placeholder='예: 수업 중 발표를 적극적으로 하며, 모둠 활동에서 리더 역할을 잘 수행함'
+          maxLength={500}
+        />
+        <CharCount>{teacherInput.length} / 500자</CharCount>
+      </SectionBox>
 
       {/* 강점 영역 및 추천 문장 */}
-      <SectionCard $variant="gradient">
-        <SectionHeaderBetween>
-          <SectionHeader style={{ marginBottom: 0 }}>
-            <SectionIcon>
-              <Star size={16} />
-            </SectionIcon>
-            <SectionTitle>강점 영역 및 추천 문장</SectionTitle>
-          </SectionHeader>
-          <SelectionCount>선택: {selectedSentences.length}개 / 최대 5개</SelectionCount>
-        </SectionHeaderBetween>
+      <StrengthsBox>
+        <StrengthsHeader>
+          <StrengthsHeaderLeft>
+            <Star size={16} color='#6366f1' />
+            강점 영역 및 추천 문장
+          </StrengthsHeaderLeft>
+          <StrengthsCount>선택: {selectedSentences.length}개 / 최대 5개</StrengthsCount>
+        </StrengthsHeader>
 
-        <InfoBox>
-          <InfoIcon>
-            <Info size={14} />
-          </InfoIcon>
+        <InfoBanner>
+          <Info size={14} style={{ flexShrink: 0, marginTop: 2 }} />
           <span>
             긍정적 요인은 점수가 높을수록, 부정적 요인은 낮을수록 강점입니다. 영역을 펼쳐 예시
             문장을 선택하세요.
           </span>
-        </InfoBox>
+        </InfoBanner>
 
-        <StrengthList>
+        <StrengthDivider>
           {topStrengths.map((strength, index) => {
             const sentences = getSentencesForStrength(strength.name);
             const isExpanded = expandedStrengths.includes(strength.name);
 
             return (
-              <StrengthItem key={strength.name}>
-                <StrengthButton
+              <StrengthRow key={strength.name}>
+                <StrengthToggleBtn
                   onClick={() =>
                     setExpandedStrengths(
                       isExpanded
@@ -816,17 +779,15 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
                     )
                   }
                 >
-                  <StrengthInfo>
-                    <StrengthNumber>{index + 1}</StrengthNumber>
+                  <StrengthLeft>
+                    <StrengthIndex>{index + 1}</StrengthIndex>
                     <StrengthName>{strength.name}</StrengthName>
-                    <StrengthBadge $variant={strength.type === 'positive' ? 'positive' : 'negative'}>
+                    <StrengthBadge $type={strength.type}>
                       {strength.type === 'positive' ? '높음' : '낮음'} ({strength.level})
                     </StrengthBadge>
-                  </StrengthInfo>
-                  <ChevronIcon>
-                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                  </ChevronIcon>
-                </StrengthButton>
+                  </StrengthLeft>
+                  {isExpanded ? <ChevronUp size={16} color='#9ca3af' /> : <ChevronDown size={16} color='#9ca3af' />}
+                </StrengthToggleBtn>
 
                 {isExpanded && (
                   <SentenceList>
@@ -837,11 +798,11 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
                       return (
                         <SentenceLabel
                           key={sentence.id}
-                          $isSelected={isSelected}
-                          $isDisabled={isDisabled}
+                          $selected={isSelected}
+                          $disabled={isDisabled}
                         >
-                          <Checkbox
-                            type="checkbox"
+                          <SentenceCheckbox
+                            type='checkbox'
                             checked={isSelected}
                             onChange={() => handleSentenceToggle(sentence.text)}
                             disabled={isDisabled}
@@ -852,145 +813,123 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
                     })}
                   </SentenceList>
                 )}
-              </StrengthItem>
+              </StrengthRow>
             );
           })}
-        </StrengthList>
-      </SectionCard>
+        </StrengthDivider>
+      </StrengthsBox>
 
-      {/* Step 3: AI 생성 버튼 */}
+      {/* AI 생성 버튼 */}
       <GenerateButton onClick={handleGenerate} disabled={isGenerating}>
         {isGenerating ? (
           <>
-            <SpinnerIcon />
+            <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
             생성 중...
           </>
         ) : (
           <>
-            <SparkleIcon />
+            <Sparkles size={20} />
             AI 문구 생성
           </>
         )}
       </GenerateButton>
 
-      {/* Step 4: 생성 결과 */}
+      {/* 생성 결과 */}
       {generatedText && (
-        <SectionCard>
+        <ResultBox>
           <ResultHeader>
             <ResultTitle>생성된 문구 {isEditing && '(편집 중)'}</ResultTitle>
             {validationResult && (
-              <WordCountBadge $isExceeded={validationResult.wordCountResult.count > 500}>
+              <WordCountBadge $ok={validationResult.wordCountResult.count <= 500}>
                 {validationResult.wordCountResult.count} / 500자
               </WordCountBadge>
             )}
           </ResultHeader>
 
-          <ResultContent>
+          <ResultBody>
             {isEditing ? (
-              <EditActions>
+              <>
                 <EditTextArea
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
                   maxLength={600}
                 />
-                <EditActionsRow>
-                  <EditCountText>{editContent.length} / 500자</EditCountText>
-                  <EditButtonGroup>
-                    <CancelButton onClick={handleCancelEdit}>취소</CancelButton>
+                <EditFooter>
+                  <EditCharCount>{editContent.length} / 500자</EditCharCount>
+                  <EditActions>
+                    <TextButton onClick={handleCancelEdit}>취소</TextButton>
                     <ApplyButton onClick={handleSaveEdit}>적용</ApplyButton>
-                  </EditButtonGroup>
-                </EditActionsRow>
-              </EditActions>
+                  </EditActions>
+                </EditFooter>
+              </>
             ) : (
               <ResultText>{generatedText}</ResultText>
             )}
-          </ResultContent>
+          </ResultBody>
 
           {/* 검증 경고 */}
           {validationResult && !validationResult.isValid && !isEditing && (
-            <ValidationWarnings>
+            <ValidationWarning>
               {validationResult.wordCountResult.excess > 0 && (
-                <WarningBox $variant="amber">
-                  <WarningIcon>
-                    <AlertTriangle size={14} />
-                  </WarningIcon>
-                  <span>글자수 초과: {validationResult.wordCountResult.excess}자 초과</span>
-                </WarningBox>
+                <WarningItem $variant='amber'>
+                  <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+                  글자수 초과: {validationResult.wordCountResult.excess}자 초과
+                </WarningItem>
               )}
               {validationResult.prohibitedResult.violations.length > 0 && (
-                <WarningBox $variant="red">
-                  <WarningIcon>
-                    <AlertTriangle size={14} />
-                  </WarningIcon>
-                  <span>
-                    금지 키워드 포함: {validationResult.prohibitedResult.violations.join(', ')}
-                  </span>
-                </WarningBox>
+                <WarningItem $variant='red'>
+                  <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+                  금지 키워드 포함: {validationResult.prohibitedResult.violations.join(', ')}
+                </WarningItem>
               )}
-            </ValidationWarnings>
+            </ValidationWarning>
           )}
 
-          {/* 액션 버튼들 */}
+          {/* 액션 버튼 */}
           {!isEditing && (
-            <ActionButtonsContainer>
-              <ApiTooltip {...API_SCHOOL_RECORD_SAVE} position="top-left">
-                <ActionButton $variant="primary" onClick={handleSave}>
-                  <ButtonIcon>
-                    <Check size={16} />
-                  </ButtonIcon>
-                  저장
-                </ActionButton>
-              </ApiTooltip>
-              <ActionButton $variant="secondary" onClick={handleCopy}>
+            <ActionButtons>
+              <ActionBtn $primary onClick={handleSave}>
+                <Check size={16} />
+                저장
+              </ActionBtn>
+              <ActionBtn onClick={handleCopy}>
                 {copySuccess ? (
                   <>
-                    <ButtonIcon style={{ color: '#22c55e' }}>
-                      <Check size={16} />
-                    </ButtonIcon>
+                    <Check size={16} color='#16a34a' />
                     복사됨
                   </>
                 ) : (
                   <>
-                    <ButtonIcon>
-                      <Copy size={16} />
-                    </ButtonIcon>
+                    <Copy size={16} />
                     복사
                   </>
                 )}
-              </ActionButton>
-              <ActionButton $variant="secondary" onClick={handleEdit}>
-                <ButtonIcon>
-                  <Edit3 size={16} />
-                </ButtonIcon>
+              </ActionBtn>
+              <ActionBtn onClick={handleEdit}>
+                <Edit3 size={16} />
                 수정
-              </ActionButton>
-              <ActionButton $variant="secondary" onClick={handleDownload}>
-                <ButtonIcon>
-                  <Download size={16} />
-                </ButtonIcon>
+              </ActionBtn>
+              <ActionBtn onClick={handleDownload}>
+                <Download size={16} />
                 다운로드
-              </ActionButton>
-              <ActionButton $variant="secondary" onClick={handleGenerate} disabled={isGenerating}>
-                <ButtonIcon $spin={isGenerating}>
-                  <RefreshCw size={16} />
-                </ButtonIcon>
+              </ActionBtn>
+              <ActionBtn onClick={handleGenerate} disabled={isGenerating}>
+                <RefreshCw size={16} style={isGenerating ? { animation: 'spin 1s linear infinite' } : undefined} />
                 재생성
-              </ActionButton>
-            </ActionButtonsContainer>
+              </ActionBtn>
+            </ActionButtons>
           )}
-        </SectionCard>
+        </ResultBox>
       )}
 
-      {/* 경고 메시지 */}
-      <BottomWarning>
-        <BottomWarningIcon>
-          <AlertTriangle size={16} />
-        </BottomWarningIcon>
-        <BottomWarningText>
+      {/* 주의 문구 */}
+      <DisclaimerBox>
+        <AlertTriangle size={16} color='#d97706' style={{ flexShrink: 0, marginTop: 2 }} />
+        <DisclaimerText>
           심리·정서 검사 관련 용어는 대학에서 선호하지 않을 수 있습니다. 필요시 일반적인 표현으로
           수정하여 사용하세요.
-        </BottomWarningText>
-      </BottomWarning>
-    </PanelContainer>
+        </DisclaimerText>
+      </DisclaimerBox>
+    </Container>
   );
 };
