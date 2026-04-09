@@ -12,10 +12,11 @@ import {
   buildClassFromAPI,
   fetchL2DashboardData,
   fetchStudentFullAnalysis,
+  fetchStudentInfoList,
+  fetchTeacherExams,
   convertToAssessment,
   type AnalysisSectionItem,
   type L2DashboardData,
-  fetchTeacherExams,
 } from '@shared/services/dashboardService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
 import type { SchoolLevel, Student, Class, Assessment, User } from '@shared/types';
@@ -62,6 +63,7 @@ export function useStudentAnalysis(
 ): UseStudentAnalysisResult {
   const { getStudentById, getClassById } = useData();
   const { schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
+  const { user } = useAuth();
   const [apiStudent, setApiStudent] = useState<Student | undefined>(undefined);
   const [classStudents, setClassStudents] = useState<Student[]>([]);
   const [classInfo, setClassInfo] = useState<UseStudentAnalysisResult['classInfo']>(undefined);
@@ -70,10 +72,6 @@ export function useStudentAnalysis(
 
   const fetchData = useCallback(async () => {
     if (!studentId || !classId) return;
-
-    const parts = classId.split('-');
-    const grade = parseInt(parts[0], 10) || 1;
-    const classNumber = parseInt(parts[1], 10) || 1;
 
     const authTokens = getAuthTokens();
     const isApiMode = !!authTokens?.authToken && !!authTokens?.refreshToken;
@@ -98,22 +96,50 @@ export function useStudentAnalysis(
     setError(null);
 
     try {
-      const fullAnalysis = await fetchStudentFullAnalysis(studentId, '1');
+      // 분석 데이터 + 그룹 정보 + 검사 목록 병렬 조회
+      const [fullAnalysis, groups, exams] = await Promise.all([
+        fetchStudentFullAnalysis(classId, studentId, '1'),
+        user ? groupService.getMyGroups(user.id) : Promise.resolve([]),
+        fetchTeacherExams(classId, '', '1'),
+      ]);
 
-      // 유효한 데이터가 없으면 DataContext fallback
+      // 그룹에서 학년/반 정보 조회
+      const group = groups.find((g) => g.claId === classId);
+      const grade = group?.grade ?? 1;
+      const classNumber = group?.classNumber ?? 1;
+      const schoolLevel: SchoolLevel = group
+        ? (({ el: '초등' as const, mi: '중등' as const })[group.schoolLevel as string] ??
+          credSchoolLevel)
+        : credSchoolLevel;
+
+      // 완료된 1차 검사의 stinfolist에서 이름/번호 조회
+      let studentName = '학생';
+      let studentNumber = 0;
+      const completedR1 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 1);
+      if (completedR1) {
+        try {
+          const infoList = await fetchStudentInfoList(completedR1.dgnssId, '1', 1);
+          const info = infoList.find((s) => s.stdtId === studentId);
+          if (info) {
+            studentName = info.stdtNm ?? info.nickname ?? `학생${info.rowNum}`;
+            studentNumber = info.rowNum;
+          }
+        } catch {
+          // 이름 조회 실패 시 fallback 유지
+        }
+      }
+
+      // 유효한 분석 데이터가 없으면 DataContext fallback
       if (!fullAnalysis.round1 && !fullAnalysis.round2) {
         const classData = getClassById(classId);
         setClassStudents(classData?.students ?? []);
-        setClassInfo(
-          classData
-            ? {
-                grade: classData.grade,
-                classNumber: classData.classNumber,
-                schoolLevel: classData.schoolLevel,
-              }
+        setClassInfo({ grade, classNumber, schoolLevel });
+        const fallbackStudent = getStudentById(classId, studentId);
+        setApiStudent(
+          fallbackStudent
+            ? { ...fallbackStudent, name: studentName || fallbackStudent.name }
             : undefined,
         );
-        setApiStudent(getStudentById(classId, studentId));
         setIsLoading(false);
         return;
       }
@@ -121,25 +147,25 @@ export function useStudentAnalysis(
       const assessments: Assessment[] = [];
 
       if (fullAnalysis.round1) {
-        assessments.push(convertToAssessment(studentId, 1, fullAnalysis.round1, credSchoolLevel));
+        assessments.push(convertToAssessment(studentId, 1, fullAnalysis.round1, schoolLevel));
       }
 
       if (fullAnalysis.round2) {
-        assessments.push(convertToAssessment(studentId, 2, fullAnalysis.round2, credSchoolLevel));
+        assessments.push(convertToAssessment(studentId, 2, fullAnalysis.round2, schoolLevel));
       }
 
       const student: Student = {
         id: studentId,
         classId,
-        number: 0,
-        name: '학생',
-        schoolLevel: credSchoolLevel,
+        number: studentNumber,
+        name: studentName,
+        schoolLevel,
         grade,
         assessments,
       };
 
       setApiStudent(student);
-      setClassInfo({ grade, classNumber, schoolLevel: credSchoolLevel });
+      setClassInfo({ grade, classNumber, schoolLevel });
 
       const classData = getClassById(classId);
       setClassStudents(classData?.students ?? []);
@@ -148,19 +174,14 @@ export function useStudentAnalysis(
       setError(err instanceof Error ? err.message : 'API 호출 실패');
       const classData = getClassById(classId);
       setClassStudents(classData?.students ?? []);
-      setClassInfo(
-        classData
-          ? {
-              grade: classData.grade,
-              classNumber: classData.classNumber,
-              schoolLevel: classData.schoolLevel,
-            }
-          : undefined,
-      );
+      const group = classData
+        ? { grade: classData.grade, classNumber: classData.classNumber, schoolLevel: classData.schoolLevel }
+        : undefined;
+      setClassInfo(group);
     } finally {
       setIsLoading(false);
     }
-  }, [classId, studentId, getClassById, getStudentById, credSchoolLevel, hasCredentials]);
+  }, [classId, studentId, getClassById, getStudentById, credSchoolLevel, hasCredentials, user]);
 
   useEffect(() => {
     fetchData();
@@ -490,7 +511,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
 
   // JWT 있으면 API 데이터, 없으면 mockClasses fallback
   const hasJwt = !!API_CONFIG.jwtToken;
-  const classes = hasJwt && apiClasses.length > 0 ? apiClasses : mockClasses
+  const classes = hasJwt && apiClasses.length > 0 ? apiClasses : mockClasses;
 
   return {
     classes,

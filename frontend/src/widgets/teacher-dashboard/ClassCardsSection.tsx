@@ -240,8 +240,10 @@ export const ClassCardsSection = ({ classes }: ClassCardsSectionProps) => {
           const totalStudents = cls.stats?.totalStudents || 0;
 
           const getRound1Status = (): 'completed' | 'in-progress' | 'not-started' => {
-            if (cls.stats?.round1Completed) return 'completed';
-            return 'in-progress';
+            if (!cls.stats) return 'not-started';
+            if (cls.stats.round1Completed) return 'completed';
+            if (cls.stats.examStatus?.round1 === '진행중') return 'in-progress';
+            return 'not-started';
           };
 
           const getRound2Status = (): 'completed' | 'in-progress' | 'not-started' => {
@@ -251,6 +253,7 @@ export const ClassCardsSection = ({ classes }: ClassCardsSectionProps) => {
           };
 
           const sorted = getSortedTypeDistribution(cls);
+          console.log(cls, '이거 뭐냐');
 
           return (
             <Card key={cls.id} hoverable>
@@ -309,7 +312,11 @@ export const ClassCardsSection = ({ classes }: ClassCardsSectionProps) => {
                       {round1Count}/{totalStudents}명
                     </RoundCount>
                     <StatusBadge $status={getRound1Status()}>
-                      {cls.stats?.round1Completed ? '완료' : '진행중'}
+                      {cls.stats?.round1Completed
+                        ? '완료'
+                        : cls.stats?.examStatus?.round1 === '진행중'
+                          ? '진행중'
+                          : '시작전'}
                     </StatusBadge>
                   </RoundColumn>
 

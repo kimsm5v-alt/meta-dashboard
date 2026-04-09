@@ -396,8 +396,7 @@ export const ClassDashboardPage = () => {
   const navigate = useNavigate();
   const { getClassById } = useData();
   const { hasJwtToken } = useApiConfig();
-  // l2Data: 검사 상세 정보, 학급 평균 T점수 등 (향후 활용 가능)
-  const { students: apiStudents, l2Data: _l2Data, isLoading, error } = useClassStudents(classId);
+  const { students: apiStudents, l2Data, isLoading, error } = useClassStudents(classId);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [changeFilter, setChangeFilter] = useState<ChangeFilter>('all');
@@ -422,6 +421,7 @@ export const ClassDashboardPage = () => {
       const classNumber = parseInt(parts[1], 10) || 1;
 
       // 통계 계산
+      console.log('Calculating stats with apiStudents:', apiStudents);
       const assessedStudents = apiStudents.filter((s) => s.assessments.length > 0).length;
       const typeDistribution: Record<string, { count: number; percentage: number }> = {};
 
@@ -447,6 +447,9 @@ export const ClassDashboardPage = () => {
         s.assessments.some((a) => a.attentionResult.needsAttention),
       ).length;
 
+      const totalStudents = l2Data?.examDetail?.stTotalCnt ?? apiStudents.length;
+      const submittedCount = l2Data?.examDetail?.stSubmCnt ?? apiStudents.length;
+
       return {
         id: classId,
         schoolLevel,
@@ -455,14 +458,14 @@ export const ClassDashboardPage = () => {
         teacherId: '',
         students: apiStudents,
         stats: {
-          totalStudents: apiStudents.length,
-          assessedStudents,
+          totalStudents,
+          assessedStudents: submittedCount,
           typeDistribution,
           needAttentionCount,
-          round1Completed: assessedStudents > 0,
+          round1Completed: submittedCount > 0,
           round2Completed: apiStudents.some((s) => s.assessments.some((a) => a.round === 2)),
           examStatus: {
-            round1: assessedStudents > 0 ? '종료' : '시작전',
+            round1: submittedCount > 0 ? '종료' : '시작전',
             round2: apiStudents.some((s) => s.assessments.some((a) => a.round === 2))
               ? '종료'
               : '시작전',
@@ -475,7 +478,7 @@ export const ClassDashboardPage = () => {
 
     // Mock 모드 또는 API 데이터 없음: DataContext 사용
     return baseClassData;
-  }, [baseClassData, hasJwtToken, apiStudents, classId]);
+  }, [baseClassData, hasJwtToken, apiStudents, classId, l2Data]);
 
   useEffect(() => {
     window.scrollTo(0, 0);

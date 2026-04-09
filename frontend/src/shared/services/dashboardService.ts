@@ -55,6 +55,8 @@ export interface DgnssDetailResponse {
 
 export interface StudentInfoItem {
   stdtId: string;
+  stdtNm?: string;
+  nickname?: string;
   answerIdx: number;
   rowNum: number;
   gender: string;
@@ -250,6 +252,7 @@ export async function fetchClassAnalysisRaw(
 }
 
 export async function fetchStudentAnalysis(
+  classId: string,
   stdtId: string,
   paperIdx: string = '1',
   ordNo: number = 1,
@@ -259,7 +262,7 @@ export async function fetchStudentAnalysis(
   sections: AnalysisSectionItem[];
 }> {
   const response = await apiRequest<AnalysisResponse>(
-    `/api/dgnss/st/analysis?stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
+    `/api/dgnss/st/analysis?claId=${classId}&stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
   );
 
   const roundData = response.resultData[String(ordNo)];
@@ -282,6 +285,7 @@ export async function fetchStudentAnalysis(
 }
 
 export async function fetchStudentFullAnalysis(
+  classId: string,
   stdtId: string,
   paperIdx: string = '1',
 ): Promise<{
@@ -289,8 +293,8 @@ export async function fetchStudentFullAnalysis(
   round2: { tScores: number[]; reliabilityWarnings: string[] } | null;
 }> {
   const [r1Result, r2Result] = await Promise.allSettled([
-    fetchStudentAnalysis(stdtId, paperIdx, 1),
-    fetchStudentAnalysis(stdtId, paperIdx, 2),
+    fetchStudentAnalysis(classId, stdtId, paperIdx, 1),
+    fetchStudentAnalysis(classId, stdtId, paperIdx, 2),
   ]);
 
   const hasValidR1 =
@@ -379,7 +383,7 @@ export async function buildClassFromAPI(
     }
 
     const studentPromises = studentInfoList.map(async (info) => {
-      const fullAnalysis = await fetchStudentFullAnalysis(info.stdtId, '1');
+      const fullAnalysis = await fetchStudentFullAnalysis(claId, info.stdtId, '1');
       return { info, fullAnalysis };
     });
 
@@ -408,7 +412,7 @@ export async function buildClassFromAPI(
           id: info.stdtId,
           classId: claId,
           number: info.rowNum,
-          name: `학생${info.rowNum}`,
+          name: info.stdtNm ?? info.nickname ?? `학생${info.rowNum}`,
           schoolLevel,
           grade,
           assessments,
@@ -499,7 +503,7 @@ export async function fetchL2DashboardData(
   ]);
 
   const studentAnalysisPromises = studentInfoList.map(async (info) => {
-    const fullAnalysis = await fetchStudentFullAnalysis(info.stdtId, '1');
+    const fullAnalysis = await fetchStudentFullAnalysis(claId, info.stdtId, '1');
     return { info, fullAnalysis };
   });
 
@@ -527,7 +531,7 @@ export async function fetchL2DashboardData(
         id: info.stdtId,
         classId: claId,
         number: info.rowNum,
-        name: `학생${info.rowNum}`,
+        name: info.stdtNm ?? info.nickname ?? `학생${info.rowNum}`,
         schoolLevel,
         grade,
         assessments,
