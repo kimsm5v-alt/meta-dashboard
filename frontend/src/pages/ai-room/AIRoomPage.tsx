@@ -1,9 +1,9 @@
 import styled from '@emotion/styled';
-import { useData } from '@shared/contexts/DataContext';
 import { StudentPickerModal } from '@features/ai-room/ui';
 import { useConversations } from '@features/ai-room/model/useConversations';
 import { useContextMode } from '@features/ai-room/model/useContextMode';
 import { AIRoomHeader, AIRoomChatArea } from '@widgets/ai-room';
+import { useTeacherClasses } from '@features/api';
 
 const PageContainer = styled.div`
   height: calc(100vh - 7rem);
@@ -12,7 +12,7 @@ const PageContainer = styled.div`
 `;
 
 export const AIRoomPage = () => {
-  const { classes } = useData();
+  const { classes } = useTeacherClasses();
 
   // Context mode hook
   const contextMode = useContextMode();
