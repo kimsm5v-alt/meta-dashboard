@@ -1,6 +1,6 @@
 import styled from '@emotion/styled';
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import type { UnifiedCounselingRecord } from '@shared/types';
+import type { CounselingRecord } from '@shared/types';
 import { SCHEDULE_CLASSES, CLASS_COLORS } from '@shared/data/mockUnifiedCounseling';
 
 const Grid = styled.div`
@@ -15,7 +15,8 @@ const ClassCard = styled.button<{ $isSelected: boolean }>`
   background: ${({ theme }) => theme.colors.background.paper};
   border-radius: ${({ theme }) => theme.radius.xl};
   border: 2px solid
-    ${({ $isSelected, theme }) => ($isSelected ? theme.colors.primary[500] : theme.colors.gray[200])};
+    ${({ $isSelected, theme }) =>
+      $isSelected ? theme.colors.primary[500] : theme.colors.gray[200]};
   box-shadow: ${({ $isSelected, theme }) => ($isSelected ? theme.shadows.md : 'none')};
   text-align: left;
   cursor: pointer;
@@ -94,7 +95,7 @@ const SelectionDot = styled.div`
 `;
 
 interface ClassSummaryCardsProps {
-  schedules: UnifiedCounselingRecord[];
+  schedules: CounselingRecord[];
   onClassClick?: (classId: string) => void;
   selectedClassFilter: string | null;
 }

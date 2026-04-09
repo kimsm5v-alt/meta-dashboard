@@ -387,7 +387,7 @@ export interface CounselingStudent {
   classId: string;
 }
 
-export interface UnifiedCounselingRecord {
+export interface CounselingRecord {
   id: string;
   students: CounselingStudent[]; // 1명 이상
   classId: string;
@@ -404,7 +404,7 @@ export interface UnifiedCounselingRecord {
   updatedAt: Date;
 }
 
-export interface CreateUnifiedCounselingInput {
+export interface CreateCounselingInput {
   students: CounselingStudent[];
   classId: string;
   scheduledAt: string;
@@ -418,7 +418,7 @@ export interface CreateUnifiedCounselingInput {
   nextSteps?: string;
 }
 
-export interface UpdateUnifiedCounselingInput {
+export interface UpdateCounselingInput {
   students?: CounselingStudent[];
   classId?: string;
   scheduledAt?: string;
@@ -432,7 +432,7 @@ export interface UpdateUnifiedCounselingInput {
   nextSteps?: string;
 }
 
-export interface CompleteUnifiedCounselingInput {
+export interface CompleteCounselingInput {
   duration: number;
   summary: string;
   nextSteps?: string;
@@ -442,7 +442,7 @@ export interface CompleteUnifiedCounselingInput {
 // 상담 기록 관련 타입 (레거시 - 호환성 유지용)
 // ============================================================
 
-export interface CounselingRecord {
+export interface LegacyCounselingRecord {
   id: string;
   studentId: string;
   classId: string;

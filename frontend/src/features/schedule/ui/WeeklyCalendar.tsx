@@ -1,7 +1,7 @@
 import styled from '@emotion/styled';
 import { useMemo } from 'react';
 import { Plus, User, Users, Phone, Video, AlertCircle, CheckCircle2 } from 'lucide-react';
-import type { UnifiedCounselingRecord } from '@shared/types';
+import type { CounselingRecord } from '@shared/types';
 import { COUNSELING_AREA_LABELS } from '@shared/types';
 import { CLASS_COLORS } from '@shared/data/mockUnifiedCounseling';
 
@@ -98,7 +98,8 @@ const TimeRow = styled.div`
 const TimeText = styled.span<{ $isCompleted: boolean }>`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  color: ${({ $isCompleted, theme }) => ($isCompleted ? theme.colors.gray[400] : theme.colors.gray[600])};
+  color: ${({ $isCompleted, theme }) =>
+    $isCompleted ? theme.colors.gray[400] : theme.colors.gray[600]};
 `;
 
 const StatusIcons = styled.div`
@@ -110,7 +111,8 @@ const StatusIcons = styled.div`
 const StudentName = styled.div<{ $isCompleted: boolean }>`
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  color: ${({ $isCompleted, theme }) => ($isCompleted ? theme.colors.gray[500] : theme.colors.gray[900])};
+  color: ${({ $isCompleted, theme }) =>
+    $isCompleted ? theme.colors.gray[500] : theme.colors.gray[900]};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -186,9 +188,9 @@ const AddMoreButton = styled.button`
 
 interface WeeklyCalendarProps {
   currentDate: Date;
-  schedules: UnifiedCounselingRecord[];
+  schedules: CounselingRecord[];
   onDateClick?: (date: Date) => void;
-  onScheduleClick: (schedule: UnifiedCounselingRecord) => void;
+  onScheduleClick: (schedule: CounselingRecord) => void;
   onAddClick: (date: Date) => void;
 }
 
@@ -230,7 +232,7 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
 
   // 날짜별 스케줄 그룹화
   const schedulesByDate = useMemo(() => {
-    const map: Record<string, UnifiedCounselingRecord[]> = {};
+    const map: Record<string, CounselingRecord[]> = {};
     weekDays.forEach((day) => {
       map[formatDate(day)] = [];
     });

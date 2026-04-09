@@ -10,10 +10,10 @@
  */
 
 import type {
-  UnifiedCounselingRecord,
-  CreateUnifiedCounselingInput,
-  UpdateUnifiedCounselingInput,
-  CompleteUnifiedCounselingInput,
+  CounselingRecord,
+  CreateCounselingInput,
+  UpdateCounselingInput,
+  CompleteCounselingInput,
   CounselingStudent,
 } from '@shared/types';
 import { MOCK_CLASSES } from '@shared/data/mockData';
@@ -94,8 +94,8 @@ const fourthClassId = SCHEDULE_CLASSES[3]?.id || firstClassId;
 // 초기 통합 상담 기록 데이터
 // ============================================================
 
-const createInitialRecords = (): UnifiedCounselingRecord[] => {
-  const records: UnifiedCounselingRecord[] = [];
+const createInitialRecords = (): CounselingRecord[] => {
+  const records: CounselingRecord[] = [];
 
   // ========== 예정된 상담 (scheduled) ==========
 
@@ -499,7 +499,7 @@ export const mockUnifiedCounselingService = {
   /**
    * 모든 상담 기록 조회 (상담 일정 페이지용)
    */
-  getAll: async (): Promise<UnifiedCounselingRecord[]> => {
+  getAll: async (): Promise<CounselingRecord[]> => {
     await delay(200);
     return [...unifiedRecords].sort(
       (a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime(),
@@ -510,7 +510,7 @@ export const mockUnifiedCounselingService = {
    * 학생별 상담 기록 조회 (학생 대시보드용)
    * @param studentId 학생 ID (class-6-2-student-01 형식)
    */
-  getByStudentId: async (studentId: string): Promise<UnifiedCounselingRecord[]> => {
+  getByStudentId: async (studentId: string): Promise<CounselingRecord[]> => {
     await delay(200);
     return unifiedRecords
       .filter((r) => r.students.some((s) => s.id === studentId))
@@ -520,7 +520,7 @@ export const mockUnifiedCounselingService = {
   /**
    * 학급별 상담 기록 조회
    */
-  getByClassId: async (classId: string): Promise<UnifiedCounselingRecord[]> => {
+  getByClassId: async (classId: string): Promise<CounselingRecord[]> => {
     await delay(200);
     return unifiedRecords
       .filter((r) => r.classId === classId)
@@ -532,7 +532,7 @@ export const mockUnifiedCounselingService = {
    */
   getByStatus: async (
     status: 'scheduled' | 'completed' | 'cancelled',
-  ): Promise<UnifiedCounselingRecord[]> => {
+  ): Promise<CounselingRecord[]> => {
     await delay(200);
     return unifiedRecords
       .filter((r) => r.status === status)
@@ -542,7 +542,7 @@ export const mockUnifiedCounselingService = {
   /**
    * 단일 상담 기록 조회
    */
-  getById: async (id: string): Promise<UnifiedCounselingRecord | null> => {
+  getById: async (id: string): Promise<CounselingRecord | null> => {
     await delay(150);
     return unifiedRecords.find((r) => r.id === id) || null;
   },
@@ -550,9 +550,9 @@ export const mockUnifiedCounselingService = {
   /**
    * 상담 기록 생성
    */
-  create: async (input: CreateUnifiedCounselingInput): Promise<UnifiedCounselingRecord> => {
+  create: async (input: CreateCounselingInput): Promise<CounselingRecord> => {
     await delay(300);
-    const newRecord: UnifiedCounselingRecord = {
+    const newRecord: CounselingRecord = {
       ...input,
       id: generateId('ucr'),
       createdAt: new Date(),
@@ -565,10 +565,7 @@ export const mockUnifiedCounselingService = {
   /**
    * 상담 기록 수정
    */
-  update: async (
-    id: string,
-    input: UpdateUnifiedCounselingInput,
-  ): Promise<UnifiedCounselingRecord> => {
+  update: async (id: string, input: UpdateCounselingInput): Promise<CounselingRecord> => {
     await delay(300);
     const index = unifiedRecords.findIndex((r) => r.id === id);
     if (index === -1) throw new Error('Record not found');
@@ -584,10 +581,7 @@ export const mockUnifiedCounselingService = {
   /**
    * 예정 상담을 완료 처리
    */
-  complete: async (
-    id: string,
-    data: CompleteUnifiedCounselingInput,
-  ): Promise<UnifiedCounselingRecord> => {
+  complete: async (id: string, data: CompleteCounselingInput): Promise<CounselingRecord> => {
     await delay(300);
     const index = unifiedRecords.findIndex((r) => r.id === id);
     if (index === -1) throw new Error('Record not found');
@@ -631,7 +625,7 @@ export const mockUnifiedCounselingService = {
 // 학급별 상담 통계 계산
 // ============================================================
 
-export const getClassScheduleStats = (records: UnifiedCounselingRecord[]) => {
+export const getClassScheduleStats = (records: CounselingRecord[]) => {
   const stats: Record<string, { total: number; urgent: number; followUp: number }> = {};
 
   SCHEDULE_CLASSES.forEach((cls) => {

@@ -9,11 +9,7 @@ import {
   API_TEACHER_DASHBOARD,
 } from '@shared/data/apiDefinitions';
 import { formatDateISO } from '@shared/utils/dateUtils';
-import type {
-  UnifiedCounselingRecord,
-  CreateUnifiedCounselingInput,
-  UpdateUnifiedCounselingInput,
-} from '@shared/types';
+import type { CounselingRecord, CreateCounselingInput, UpdateCounselingInput } from '@shared/types';
 import {
   WeeklyCalendar,
   MonthlyCalendar,
@@ -23,7 +19,7 @@ import {
   CalendarIntegrationModal,
 } from '@features/schedule/ui';
 import { SCHEDULE_CLASSES, CLASS_COLORS } from '@shared/data/mockUnifiedCounseling';
-import { unifiedCounselingService } from '@shared/services/unifiedCounselingService';
+import { counselingService } from '@shared/services/counselingService';
 
 // ============================================================
 // Types
@@ -257,15 +253,15 @@ export const SchedulePage: React.FC = () => {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showIntegrationModal, setShowIntegrationModal] = useState(false);
   const [modalInitialDate, setModalInitialDate] = useState<Date | undefined>();
-  const [editingSchedule, setEditingSchedule] = useState<UnifiedCounselingRecord | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<CounselingRecord | null>(null);
 
   // 상담 일정 데이터 (통합 서비스에서 로드)
-  const [records, setRecords] = useState<UnifiedCounselingRecord[]>([]);
+  const [records, setRecords] = useState<CounselingRecord[]>([]);
 
   // 데이터 로드
   const loadRecords = useCallback(async () => {
     try {
-      const data = await unifiedCounselingService.getAll();
+      const data = await counselingService.getAll();
       setRecords(data);
     } catch {
       // 에러 시 빈 목록 유지
@@ -339,16 +335,16 @@ export const SchedulePage: React.FC = () => {
   };
 
   // 스케줄 클릭 (상세/수정)
-  const handleScheduleClick = (schedule: UnifiedCounselingRecord) => {
+  const handleScheduleClick = (schedule: CounselingRecord) => {
     setEditingSchedule(schedule);
     setModalInitialDate(undefined);
     setShowScheduleModal(true);
   };
 
   // 새 일정 등록
-  const handleCreateSchedule = async (input: CreateUnifiedCounselingInput) => {
+  const handleCreateSchedule = async (input: CreateCounselingInput) => {
     try {
-      await unifiedCounselingService.create(input);
+      await counselingService.create(input);
       await loadRecords();
     } catch {
       // 등록 실패 시 무시
@@ -356,9 +352,9 @@ export const SchedulePage: React.FC = () => {
   };
 
   // 일정 수정
-  const handleUpdateSchedule = async (id: string, input: UpdateUnifiedCounselingInput) => {
+  const handleUpdateSchedule = async (id: string, input: UpdateCounselingInput) => {
     try {
-      await unifiedCounselingService.update(id, input);
+      await counselingService.update(id, input);
       await loadRecords();
     } catch {
       // 수정 실패 시 무시
@@ -368,7 +364,7 @@ export const SchedulePage: React.FC = () => {
   // 일정 삭제
   const handleDeleteSchedule = async (id: string) => {
     try {
-      await unifiedCounselingService.delete(id);
+      await counselingService.delete(id);
       await loadRecords();
     } catch {
       // 삭제 실패 시 무시

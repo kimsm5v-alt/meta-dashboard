@@ -38,7 +38,7 @@ export interface DgnssStudentInfo {
 /**
  * (교사) 학급의 검사 목록 조회
  */
-export const getDgnssList = async (claId: string, paperIdx: number = 0): Promise<DgnssInfo[]> => {
+export const getDgnssList = async (claId: string, paperIdx: number = 1): Promise<DgnssInfo[]> => {
   const res = await apiClient.get<DgnssInfo[] | { dgnssInfo: DgnssInfo[] }>(
     `/api/dgnss/tc/info?claId=${claId}&paperIdx=${paperIdx}`,
   );

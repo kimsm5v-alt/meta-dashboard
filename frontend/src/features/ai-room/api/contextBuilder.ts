@@ -16,7 +16,7 @@ import {
 import type { ContextMode, StudentAliasMap } from '../types';
 import { FACTOR_DEFINITIONS } from '@shared/data/factors';
 import { calculate4StepDiagnosis } from '@shared/utils/calculate4StepDiagnosis';
-import { unifiedCounselingService } from '@shared/services/unifiedCounselingService';
+import { counselingService } from '@shared/services/counselingService';
 import { memoService } from '@shared/services/memoService';
 import { schoolRecordService } from '@shared/services/schoolRecordService';
 import { computeClassProfile } from '@features/class-dashboard/model/useClassProfile';
@@ -204,7 +204,7 @@ const format4StepDiagnosis = (tScores: number[]): string => {
 // ============================================================
 
 const formatCounselingRecords = (
-  records: Awaited<ReturnType<typeof unifiedCounselingService.getByStudentId>>,
+  records: Awaited<ReturnType<typeof counselingService.getByStudentId>>,
   aliasMap: StudentAliasMap,
 ): string => {
   const active = records.filter((r) => r.status !== 'cancelled');
@@ -369,7 +369,7 @@ const buildAllContext = async (classes: Class[]): Promise<string> => {
 - 약점: ${weaknesses}`;
   });
 
-  const allRecords = await unifiedCounselingService.getAll();
+  const allRecords = await counselingService.getAll();
   const activeRecords = allRecords.filter((r) => r.status !== 'cancelled');
   const completedCount = activeRecords.filter((r) => r.status === 'completed').length;
   const scheduledCount = activeRecords.filter((r) => r.status === 'scheduled').length;
@@ -390,7 +390,7 @@ ${classProfiles.join('\n\n')}`;
 const buildClassContext = async (cls: Class, aliasMap: StudentAliasMap): Promise<string> => {
   const typeDistribution = calculateTypeDistribution(cls.students);
 
-  const classRecords = await unifiedCounselingService.getByClassId(cls.id);
+  const classRecords = await counselingService.getByClassId(cls.id);
   const activeRecords = classRecords.filter((r) => r.status !== 'cancelled');
   const completedCount = activeRecords.filter((r) => r.status === 'completed').length;
   const scheduledCount = activeRecords.filter((r) => r.status === 'scheduled').length;
@@ -441,7 +441,7 @@ const buildStudentContext = async (
     const changesText = formatRoundChanges(student);
     const diagnosisText = format4StepDiagnosis(tScores);
 
-    const counselingRecords = await unifiedCounselingService.getByStudentId(student.id);
+    const counselingRecords = await counselingService.getByStudentId(student.id);
     const counselingText = formatCounselingRecords(counselingRecords, aliasMap);
 
     const memos = await memoService.getByStudentId(student.id);

@@ -7,9 +7,9 @@ import type {
   ScheduleType,
   CounselingArea,
   CounselingMethod,
-  CreateUnifiedCounselingInput,
-  UnifiedCounselingRecord,
-  UpdateUnifiedCounselingInput,
+  CreateCounselingInput,
+  CounselingRecord,
+  UpdateCounselingInput,
   CounselingStatus,
 } from '@shared/types';
 import {
@@ -33,11 +33,11 @@ import { API_COUNSELING_COMPLETE } from '@shared/data/apiDefinitions';
 interface ScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (input: CreateUnifiedCounselingInput) => void;
-  onUpdate?: (id: string, input: UpdateUnifiedCounselingInput) => void;
+  onSubmit: (input: CreateCounselingInput) => void;
+  onUpdate?: (id: string, input: UpdateCounselingInput) => void;
   onDelete?: (id: string) => void;
   initialDate?: Date;
-  editingSchedule?: UnifiedCounselingRecord | null;
+  editingSchedule?: CounselingRecord | null;
 }
 
 const FormContainer = styled.div`
@@ -482,11 +482,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
               </FormLabel>
               <InputWrapper>
                 <InputIcon as={Calendar} />
-                <DateInput
-                  type='date'
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
+                <DateInput type='date' value={date} onChange={(e) => setDate(e.target.value)} />
               </InputWrapper>
             </FormGroup>
             <FormGroup>
