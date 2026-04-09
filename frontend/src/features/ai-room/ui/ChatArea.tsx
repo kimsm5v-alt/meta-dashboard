@@ -206,6 +206,8 @@ interface ChatAreaProps {
   messages: ChatMessage[];
   aliasMap: StudentAliasMap;
   isLoading?: boolean;
+  /** 스트리밍 중인 누적 텍스트. 값이 있으면 로딩 점 대신 실시간 텍스트 표시 */
+  streamingContent?: string;
 }
 
 // student_A, student_B 등을 실제 이름으로 치환
@@ -455,14 +457,20 @@ const renderMarkdown = (content: string): React.ReactNode => {
   return elements;
 };
 
-export const ChatArea: React.FC<ChatAreaProps> = ({ messages, aliasMap, isLoading }) => {
+export const ChatArea: React.FC<ChatAreaProps> = ({
+  messages,
+  aliasMap,
+  isLoading,
+  streamingContent,
+}) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // 메시지 또는 스트리밍 콘텐츠 변경 시 자동 스크롤
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, streamingContent]);
 
   return (
     <ChatContainer ref={scrollRef}>
@@ -472,7 +480,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ messages, aliasMap, isLoadin
 
         return (
           <MessageRow key={msg.id} $isUser={msg.role === 'user'}>
-            {/* 아바타 */}
             <AvatarWrapper>
               {msg.role === 'user' ? (
                 <UserAvatar>
@@ -485,7 +492,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ messages, aliasMap, isLoadin
               )}
             </AvatarWrapper>
 
-            {/* 메시지 */}
             <MessageBubble $isUser={msg.role === 'user'}>
               {msg.role === 'assistant' && (
                 <AIBadge>
@@ -503,7 +509,24 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ messages, aliasMap, isLoadin
         );
       })}
 
-      {isLoading && (
+      {/* 스트리밍 중: 텍스트 실시간 표시 */}
+      {isLoading && streamingContent && (
+        <LoadingRow>
+          <BotAvatar>
+            <Bot className='w-4 h-4 text-white' />
+          </BotAvatar>
+          <MessageBubble $isUser={false}>
+            <AIBadge>
+              <Sparkles className='w-3 h-3' />
+              <span>AI 분석</span>
+            </AIBadge>
+            <MarkdownWrapper>{renderMarkdown(replaceAliases(streamingContent, aliasMap))}</MarkdownWrapper>
+          </MessageBubble>
+        </LoadingRow>
+      )}
+
+      {/* 스트리밍 대기 중 (아직 첫 청크 미수신): 점 로딩 표시 */}
+      {isLoading && !streamingContent && (
         <LoadingRow>
           <BotAvatar>
             <Bot className='w-4 h-4 text-white' />

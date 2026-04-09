@@ -39,6 +39,7 @@ export const AIRoomPage = () => {
     conversations,
     activeConversationId,
     messages,
+    streamingContent,
     input,
     setInput,
     isLoading,
@@ -93,6 +94,7 @@ export const AIRoomPage = () => {
         input={input}
         setInput={setInput}
         isLoading={isLoading}
+        streamingContent={streamingContent}
         mode={mode}
         selectedStudentCount={selectedStudents.length}
         isPromptDisabled={isPromptDisabled}
