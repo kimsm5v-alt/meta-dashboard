@@ -249,7 +249,7 @@ export const ExamPage: React.FC = () => {
     init();
   }, [isStudentFlow, studentExamState, user, setDgnssResultId, setStudentNumber, loadQuestions, loadExistingAnswers, setStep]);
 
-  // QR 코드 검증
+  // QR 코드 검증 + 게스트 세션 복원
   useEffect(() => {
     if (isStudentFlow) return; // 학생 플로우면 스킵
 
@@ -268,6 +268,74 @@ export const ExamPage: React.FC = () => {
             examCode: result.examCode,
             claId: result.claId,
           });
+
+          // ✅ 게스트 세션 복원 (새로고침 후)
+          try {
+            const stored = localStorage.getItem('exam_guest_session');
+            if (stored) {
+              const session = JSON.parse(stored) as {
+                examCode: string;
+                nickname: string;
+                dgnssResultId: number;
+                timestamp: number;
+              };
+
+              // 같은 검사 코드인 경우만 복원 (다른 검사로 접속하면 초기화)
+              if (session.examCode === result.examCode) {
+                console.log('🔄 게스트 세션 복원:', session);
+                setDgnssResultId(session.dgnssResultId);
+
+                // 첫 페이지 로드
+                setIsLoading(true);
+                try {
+                  const initialResult = await fetchQuestions(session.dgnssResultId, 0, 20);
+
+                  // 이어하기인 경우 마지막 답변 페이지 계산
+                  let startPage = 0;
+                  if (initialResult.answeredCount > 0) {
+                    startPage = Math.floor((initialResult.answeredCount - 1) / 20);
+                  }
+
+                  // 시작 페이지 로드
+                  const result = startPage === 0
+                    ? initialResult
+                    : await fetchQuestions(session.dgnssResultId, startPage, 20);
+
+                  const existingAnswers: Record<number, string> = {};
+                  result.questions.forEach((q) => {
+                    if (q.answer) {
+                      existingAnswers[q.NO] = q.answer;
+                    }
+                  });
+
+                  loadQuestions(
+                    result.questions,
+                    result.totalPages,
+                    result.totalQuestions,
+                    result.omrIdx,
+                    result.answeredCount,
+                  );
+                  loadExistingAnswers(existingAnswers);
+                  setCurrentPage(startPage);
+
+                  if (result.answeredCount > 0) {
+                    setPendingAnsweredCount(result.answeredCount);
+                    setStep('resume-choice');
+                  } else {
+                    setStep('guide');
+                  }
+                } finally {
+                  setIsLoading(false);
+                }
+              } else {
+                // 다른 검사 코드 → 게스트 세션 초기화
+                localStorage.removeItem('exam_guest_session');
+              }
+            }
+          } catch (err) {
+            console.warn('게스트 세션 복원 실패:', err);
+            localStorage.removeItem('exam_guest_session');
+          }
         } else {
           setIsValid(false);
         }
@@ -279,7 +347,7 @@ export const ExamPage: React.FC = () => {
     };
 
     validate();
-  }, [code, navigate, isStudentFlow]);
+  }, [code, navigate, isStudentFlow, loadQuestions, loadExistingAnswers, setCurrentPage, setStep, setDgnssResultId]);
 
   // 인증 상태에 따라 초기 step 결정 (QR 코드 플로우만)
   useEffect(() => {
@@ -316,6 +384,14 @@ export const ExamPage: React.FC = () => {
 
         const { dgnssResultId } = examResult;
         setDgnssResultId(dgnssResultId);
+
+        // ✅ 게스트 세션 저장 (새로고침 후 복원용)
+        localStorage.setItem('exam_guest_session', JSON.stringify({
+          examCode: examInfo.examCode,
+          nickname,
+          dgnssResultId,
+          timestamp: Date.now(),
+        }));
 
         // 먼저 첫 페이지 로드해서 answeredCount 확인
         const initialResult = await fetchQuestions(dgnssResultId, 0, 20);
