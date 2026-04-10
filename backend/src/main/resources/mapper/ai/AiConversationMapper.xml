@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.ai.mapper.AiConversationMapper">
+
+    <resultMap id="aiConversationResultMap" type="com.vs.meta.domain.AiConversation">
+        <id property="id" column="id"/>
+        <result property="ownerUserNo" column="owner_user_no"/>
+        <result property="title" column="title"/>
+        <result property="mode" column="mode"/>
+        <result property="contextLabel" column="context_label"/>
+        <result property="useYn" column="use_yn"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="lastMessageAt" column="last_message_at"/>
+    </resultMap>
+
+    <resultMap id="aiMessageResultMap" type="com.vs.meta.domain.AiMessage">
+        <id property="id" column="id"/>
+        <result property="conversationId" column="conversation_id"/>
+        <result property="role" column="role"/>
+        <result property="content" column="content"/>
+        <result property="messageAt" column="message_at"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insertConversation" parameterType="com.vs.meta.domain.AiConversation"
+            useGeneratedKeys="true" keyProperty="id">
+        /* AiConversationMapper.insertConversation */
+        INSERT INTO ai_conversation (
+            owner_user_no, title, mode, context_label, use_yn,
+            created_by, updated_by, created_at, updated_at, last_message_at
+        ) VALUES (
+            #{ownerUserNo}, #{title}, #{mode}, #{contextLabel}, 'Y',
+            #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt}, #{lastMessageAt}
+        )
+    </insert>
+
+    <select id="findConversationByIdAndOwner" resultMap="aiConversationResultMap">
+        /* AiConversationMapper.findConversationByIdAndOwner */
+        SELECT id, owner_user_no, title, mode, context_label, use_yn,
+               created_by, updated_by, created_at, updated_at, last_message_at
+        FROM ai_conversation
+        WHERE id = #{id}
+          AND owner_user_no = #{ownerUserNo}
+          AND use_yn = 'Y'
+    </select>
+
+    <select id="findConversationsByOwner" resultMap="aiConversationResultMap">
+        /* AiConversationMapper.findConversationsByOwner */
+        SELECT id, owner_user_no, title, mode, context_label, use_yn,
+               created_by, updated_by, created_at, updated_at, last_message_at
+        FROM ai_conversation
+        WHERE owner_user_no = #{ownerUserNo}
+          AND use_yn = 'Y'
+        ORDER BY COALESCE(last_message_at, created_at) DESC, id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countConversationsByOwner" resultType="long">
+        /* AiConversationMapper.countConversationsByOwner */
+        SELECT COUNT(1)
+        FROM ai_conversation
+        WHERE owner_user_no = #{ownerUserNo}
+          AND use_yn = 'Y'
+    </select>
+
+    <insert id="insertMessage" parameterType="com.vs.meta.domain.AiMessage"
+            useGeneratedKeys="true" keyProperty="id">
+        /* AiConversationMapper.insertMessage */
+        INSERT INTO ai_message (
+            conversation_id, role, content, message_at, created_by, created_at
+        ) VALUES (
+            #{conversationId}, #{role}, #{content}, #{messageAt}, #{createdBy}, #{createdAt}
+        )
+    </insert>
+
+    <select id="findMessagesByConversation" resultMap="aiMessageResultMap">
+        /* AiConversationMapper.findMessagesByConversation */
+        SELECT id, conversation_id, role, content, message_at, created_by, created_at
+        FROM ai_message
+        WHERE conversation_id = #{conversationId}
+        <if test="beforeMessageId != null">
+            AND id &lt; #{beforeMessageId}
+        </if>
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countMessagesByConversation" resultType="long">
+        /* AiConversationMapper.countMessagesByConversation */
+        SELECT COUNT(1) FROM ai_message WHERE conversation_id = #{conversationId}
+    </select>
+
+    <update id="updateConversationLastMessageAt">
+        /* AiConversationMapper.updateConversationLastMessageAt */
+        UPDATE ai_conversation
+        SET last_message_at = #{lastMessageAt},
+            updated_by = #{updatedBy},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateConversationTitle">
+        /* AiConversationMapper.updateConversationTitle */
+        UPDATE ai_conversation
+        SET title = #{title},
+            updated_by = #{updatedBy},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>
