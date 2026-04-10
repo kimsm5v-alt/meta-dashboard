@@ -195,9 +195,22 @@ export const ExamPage: React.FC = () => {
             setIsRestartMode(true);
           }
 
+          // 이어하기: 마지막 답변 페이지 계산
+          // 새로하기: 0페이지부터 시작
+          let startPage = 0;
+          if (!studentExamState.restart && studentExamState.resume) {
+            // 첫 페이지 로드해서 answeredCount 확인
+            const initialResult = await fetchQuestions(studentExamState.dgnssResultId, 0, 20);
+            if (initialResult.answeredCount > 0) {
+              // 마지막 답변 페이지 계산 (0-based)
+              // 예: answeredCount=63 → page=3 (61-80번)
+              startPage = Math.floor((initialResult.answeredCount - 1) / 20);
+            }
+          }
+
           const result = studentExamState.restart
             ? await resetExam(studentExamState.dgnssResultId, 0, 20)
-            : await fetchQuestions(studentExamState.dgnssResultId, 0, 20);
+            : await fetchQuestions(studentExamState.dgnssResultId, startPage, 20);
 
           const existingAnswers: Record<number, string> = {};
           if (!studentExamState.restart) {
@@ -208,8 +221,15 @@ export const ExamPage: React.FC = () => {
             });
           }
 
-          loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+          loadQuestions(
+            result.questions,
+            result.totalPages,
+            result.totalQuestions,
+            result.omrIdx,
+            result.answeredCount,
+          );
           loadExistingAnswers(existingAnswers);
+          setCurrentPage(startPage); // 계산된 페이지로 설정
 
           if (!studentExamState.restart && result.answeredCount > 0) {
             setPendingAnsweredCount(result.answeredCount);
@@ -297,7 +317,19 @@ export const ExamPage: React.FC = () => {
         const { dgnssResultId } = examResult;
         setDgnssResultId(dgnssResultId);
 
-        const result = await fetchQuestions(dgnssResultId, 0, 20);
+        // 먼저 첫 페이지 로드해서 answeredCount 확인
+        const initialResult = await fetchQuestions(dgnssResultId, 0, 20);
+
+        // 이어하기인 경우 마지막 답변 페이지 계산
+        let startPage = 0;
+        if (initialResult.answeredCount > 0) {
+          startPage = Math.floor((initialResult.answeredCount - 1) / 20);
+        }
+
+        // 시작 페이지 로드
+        const result = startPage === 0
+          ? initialResult
+          : await fetchQuestions(dgnssResultId, startPage, 20);
 
         const existingAnswers: Record<number, string> = {};
         result.questions.forEach((q) => {
@@ -306,9 +338,16 @@ export const ExamPage: React.FC = () => {
           }
         });
 
-        loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+        loadQuestions(
+          result.questions,
+          result.totalPages,
+          result.totalQuestions,
+          result.omrIdx,
+          result.answeredCount,
+        );
         loadExistingAnswers(existingAnswers);
         setStudentNumber(0);
+        setCurrentPage(startPage);
 
         if (result.answeredCount > 0) {
           setPendingAnsweredCount(result.answeredCount);
@@ -320,7 +359,7 @@ export const ExamPage: React.FC = () => {
         setIsLoading(false);
       }
     },
-    [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep],
+    [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setCurrentPage, setStep],
   );
 
   // 학생 ID 입력 후 dgnssResultId 조회
@@ -363,8 +402,19 @@ export const ExamPage: React.FC = () => {
         await saveStudentInfo(state.dgnssResultId, info);
         setStudentInfo(info);
 
-        // 문항 로드
-        const result = await fetchQuestions(state.dgnssResultId, 0, 20);
+        // 먼저 첫 페이지 로드해서 answeredCount 확인
+        const initialResult = await fetchQuestions(state.dgnssResultId, 0, 20);
+
+        // 이어하기인 경우 마지막 답변 페이지 계산
+        let startPage = 0;
+        if (initialResult.answeredCount > 0) {
+          startPage = Math.floor((initialResult.answeredCount - 1) / 20);
+        }
+
+        // 시작 페이지 로드
+        const result = startPage === 0
+          ? initialResult
+          : await fetchQuestions(state.dgnssResultId, startPage, 20);
 
         const existingAnswers: Record<number, string> = {};
         result.questions.forEach((q) => {
@@ -373,8 +423,15 @@ export const ExamPage: React.FC = () => {
           }
         });
 
-        loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+        loadQuestions(
+          result.questions,
+          result.totalPages,
+          result.totalQuestions,
+          result.omrIdx,
+          result.answeredCount,
+        );
         loadExistingAnswers(existingAnswers);
+        setCurrentPage(startPage);
 
         if (result.answeredCount > 0) {
           setPendingAnsweredCount(result.answeredCount);
@@ -386,13 +443,13 @@ export const ExamPage: React.FC = () => {
         setIsLoading(false);
       }
     },
-    [state.dgnssResultId, loadQuestions, loadExistingAnswers, setStep],
+    [state.dgnssResultId, loadQuestions, loadExistingAnswers, setCurrentPage, setStep],
   );
 
-  // 이어하기
+  // 이어하기 (guide 건너뛰고 바로 문항으로)
   const handleResume = useCallback(() => {
     setIsRestartMode(false);
-    setStep('guide');
+    setStep('questions');
   }, [setStep]);
 
   // 새로하기
@@ -413,7 +470,13 @@ export const ExamPage: React.FC = () => {
         ? await resetExam(state.dgnssResultId, 0, 20)
         : await fetchQuestions(state.dgnssResultId, 0, 20);
 
-      loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+      loadQuestions(
+        result.questions,
+        result.totalPages,
+        result.totalQuestions,
+        result.omrIdx,
+        result.answeredCount,
+      );
 
       const existingAnswers: Record<number, string> = {};
       if (!isRestartMode) {
@@ -459,7 +522,13 @@ export const ExamPage: React.FC = () => {
     setIsLoading(true);
     try {
       const result = await fetchQuestions(state.dgnssResultId, nextPageIndex, 20);
-      loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+      loadQuestions(
+        result.questions,
+        result.totalPages,
+        result.totalQuestions,
+        result.omrIdx,
+        result.answeredCount,
+      );
 
       const existingAnswers: Record<number, string> = { ...state.answers };
       result.questions.forEach((q) => {
@@ -486,14 +555,29 @@ export const ExamPage: React.FC = () => {
     setIsLoading(true);
     try {
       const result = await fetchQuestions(state.dgnssResultId, prevPageIndex, 20);
-      loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+      loadQuestions(
+        result.questions,
+        result.totalPages,
+        result.totalQuestions,
+        result.omrIdx,
+        result.answeredCount,
+      );
+
+      // 기존 답변 유지 + 새로 로드한 페이지의 답변 병합
+      const existingAnswers: Record<number, string> = { ...state.answers };
+      result.questions.forEach((q) => {
+        if (q.answer) {
+          existingAnswers[q.NO] = q.answer;
+        }
+      });
+      loadExistingAnswers(existingAnswers);
 
       setCurrentPage(prevPageIndex);
       window.scrollTo(0, 0);
     } finally {
       setIsLoading(false);
     }
-  }, [state.dgnssResultId, state.currentPage, loadQuestions, setCurrentPage]);
+  }, [state, loadQuestions, loadExistingAnswers, setCurrentPage]);
 
   // 검사 제출
   const handleSubmit = useCallback(async () => {
@@ -630,14 +714,12 @@ export const ExamPage: React.FC = () => {
       );
 
     case 'questions':
-      // 실제 응답 수 계산 (빈 문자열 제외)
-      const actualAnsweredCount = Object.values(state.answers).filter((v) => v !== '').length;
       return (
         <ExamQuestionStep
           questions={state.questions}
           currentPage={state.currentPage}
           totalPages={state.totalPages}
-          answeredCount={actualAnsweredCount}
+          answeredCount={state.answeredCount}
           totalQuestions={state.totalQuestions}
           answers={state.answers}
           savingQuestionNo={savingQuestionNo}

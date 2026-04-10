@@ -6,6 +6,7 @@ interface LikertScaleProps {
   selectedValue: string;
   onSelect: (value: string) => void;
   disabled?: boolean;
+  customChoices?: string[]; // 커스텀 선택지 (120-124번 문항용)
 }
 
 const LIKERT_OPTIONS = [
@@ -72,10 +73,16 @@ export const LikertScale: React.FC<LikertScaleProps> = ({
   selectedValue,
   onSelect,
   disabled = false,
+  customChoices,
 }) => {
+  // 커스텀 선택지가 있으면 사용, 없으면 기본 Likert 척도 사용
+  const options = customChoices
+    ? customChoices.map((label, idx) => ({ value: String(idx + 1), label }))
+    : LIKERT_OPTIONS;
+
   return (
     <Container>
-      {LIKERT_OPTIONS.map((option) => {
+      {options.map((option) => {
         const isSelected = selectedValue === option.value;
         const inputId = `${questionId}-${option.value}`;
         return (

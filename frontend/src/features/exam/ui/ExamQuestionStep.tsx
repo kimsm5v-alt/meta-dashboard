@@ -182,6 +182,7 @@ export const ExamQuestionStep: React.FC<ExamQuestionStepProps> = ({
               selectedValue={answers[question.NO] || ''}
               onSelect={(value) => onAnswer(question.NO, value)}
               isSaving={savingQuestionNo === question.NO}
+              choices={question.choices}
             />
           ))}
         </QuestionListInner>
