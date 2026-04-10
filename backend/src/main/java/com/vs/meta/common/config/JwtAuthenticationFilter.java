@@ -7,6 +7,7 @@ import com.vs.meta.common.security.JwtUtil;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,6 +20,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -30,18 +32,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String AUTH_HEADER = "Authorization";
+    private static final String DEV_USER_NO_HEADER = "X-DEV-USER-NO";
 
     private final JwtUtil jwtUtil;
+    private final Environment env;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
+        boolean isLocalProfile = isLocalProfileActive();
         String authHeader = request.getHeader(AUTH_HEADER);
 
-        // Authorization 헤더 없으면 그냥 통과 (SecurityConfig에서 permitAll/authenticated 판단)
+        // Authorization header missing: pass through. In local profile, inject dev auth.
         if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+            if (isLocalProfile) {
+                applyLocalBypassAuthentication(request);
+            }
             filterChain.doFilter(request, response);
             return;
         }
@@ -79,15 +87,57 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
 
         } catch (JwtExpiredException e) {
+            if (isLocalProfile) {
+                log.warn("local profile: expired JWT ignored, using dev auth context");
+                applyLocalBypassAuthentication(request);
+                filterChain.doFilter(request, response);
+                return;
+            }
             log.warn("JWT 만료: {}", e.getMessage());
-            sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "토큰이 만료되었습니다. 다시 로그인해주세요.");
+            sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "토큰이 만료되었습니다. 다시 로그인해 주세요.");
         } catch (AuthFailedException e) {
+            if (isLocalProfile) {
+                log.warn("local profile: invalid JWT ignored, using dev auth context");
+                applyLocalBypassAuthentication(request);
+                filterChain.doFilter(request, response);
+                return;
+            }
             log.warn("JWT 인증 실패: {}", e.getMessage());
             sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "AUTH_FAILED", "유효하지 않은 토큰입니다.");
         } catch (Exception e) {
+            if (isLocalProfile) {
+                log.warn("local profile: JWT processing error ignored, using dev auth context");
+                applyLocalBypassAuthentication(request);
+                filterChain.doFilter(request, response);
+                return;
+            }
             log.error("JWT 처리 중 오류: {}", e.getMessage());
             sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "AUTH_ERROR", "인증 처리 중 오류가 발생했습니다.");
         }
+    }
+
+    private boolean isLocalProfileActive() {
+        return Arrays.asList(env.getActiveProfiles()).contains("local");
+    }
+
+    private void applyLocalBypassAuthentication(HttpServletRequest request) {
+        String userNoStr = request.getHeader(DEV_USER_NO_HEADER);
+        if (userNoStr == null || userNoStr.isBlank()) {
+            userNoStr = "1";
+        }
+
+        try {
+            Long.parseLong(userNoStr);
+        } catch (NumberFormatException e) {
+            userNoStr = "1";
+        }
+
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(userNoStr, null, Collections.emptyList());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        request.setAttribute("auth.userNo", Long.valueOf(userNoStr));
+        request.setAttribute("auth.tokenType", "MEMBER");
+        request.setAttribute("auth.localBypass", true);
     }
 
     private void sendErrorResponse(HttpServletResponse response, HttpStatus status,
