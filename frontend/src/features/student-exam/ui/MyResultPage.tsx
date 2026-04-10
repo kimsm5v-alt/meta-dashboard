@@ -23,10 +23,7 @@ import {
   DataHelperChatbot,
 } from '@features/student-dashboard';
 import { getMyGroups } from '@features/groups/api/groupService';
-import {
-  fetchStudentFullAnalysis,
-  convertToAssessment,
-} from '@shared/services/dashboardService';
+import { fetchStudentFullAnalysis, convertToAssessment } from '@shared/services/dashboardService';
 import { getStudentExamList } from '../api/studentExamService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
 import type { Student, SchoolLevel, Assessment } from '@shared/types';
@@ -86,7 +83,8 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
   );
 
   const prevDomainData = useMemo(
-    () => (isCompare && prevAssessment ? buildStudentDomainData(prevAssessment.tScores) : undefined),
+    () =>
+      isCompare && prevAssessment ? buildStudentDomainData(prevAssessment.tScores) : undefined,
     [isCompare, prevAssessment],
   );
 
@@ -97,10 +95,7 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
         <SectionTitle>나의 진단 결과</SectionTitle>
         <SectionCard>
           <SectionContent>
-            <DiagnosisSummary
-              tScores={assessment.tScores}
-              studentType={assessment.predictedType}
-            />
+            <DiagnosisSummary tScores={assessment.tScores} studentType={assessment.predictedType} />
           </SectionContent>
           <SectionDivider />
           <SectionContent>
@@ -266,8 +261,7 @@ const TabButton = styled.button<{ $isActive: boolean }>`
   transition: all ${({ theme }) => theme.transitions.fast};
   background: ${({ theme, $isActive }) =>
     $isActive ? theme.colors.primary[500] : theme.colors.gray[100]};
-  color: ${({ theme, $isActive }) =>
-    $isActive ? '#ffffff' : theme.colors.gray[600]};
+  color: ${({ theme, $isActive }) => ($isActive ? '#ffffff' : theme.colors.gray[600])};
 
   &:hover {
     background: ${({ theme, $isActive }) =>
@@ -385,37 +379,59 @@ export const MyResultPage: React.FC = () => {
           return;
         }
 
-        // classId 확인: user에 있으면 사용, 없으면 그룹 조회
-        let claId = user.classId ?? '';
-        let schoolLevel: SchoolLevel = '중등';
+        // 속한 모든 그룹 조회 (학생은 여러 그룹에 속할 수 있음)
+        // MyExamListPage와 동일한 패턴 사용
+        const groups = await getMyGroups(user.id);
+        const memberGroups = groups.filter((g) => g.myRole === 'member');
 
-        if (!claId) {
-          const groups = await getMyGroups(user.id);
-          const memberGroup = groups.find((g) => g.myRole === 'member');
-          if (!memberGroup) {
-            setError('아직 시행한 검사 결과가 없습니다.');
-            return;
+        if (memberGroups.length === 0) {
+          setError('아직 시행한 검사 결과가 없습니다.');
+          return;
+        }
+
+        const groupsToCheck = memberGroups.map((g) => ({
+          claId: g.claId,
+          schoolLevel: SCHOOL_LEVEL_MAP[g.schoolLevel] ?? '중등',
+        }));
+
+        // 모든 그룹에서 검사 목록 조회
+        let hasAnyResults = false;
+        const allAnalyses: Array<{
+          claId: string;
+          analysis: Awaited<ReturnType<typeof fetchStudentFullAnalysis>>;
+          schoolLevel: SchoolLevel;
+        }> = [];
+
+        for (const group of groupsToCheck) {
+          try {
+            const examList = await getStudentExamList(group.claId, user.stdtId);
+            const hasResults = examList.some((e) => e.hasResult === true);
+
+            if (hasResults) {
+              hasAnyResults = true;
+              const fullAnalysis = await fetchStudentFullAnalysis(group.claId, user.stdtId, '1');
+              if (fullAnalysis.round1 || fullAnalysis.round2) {
+                allAnalyses.push({
+                  claId: group.claId,
+                  analysis: fullAnalysis,
+                  schoolLevel: group.schoolLevel,
+                });
+              }
+            }
+          } catch (err) {
+            // 특정 그룹 조회 실패는 무시하고 다른 그룹 계속 시도
+            console.warn(`[MyResultPage] 그룹 ${group.claId} 조회 실패:`, err);
           }
-          claId = memberGroup.claId;
-          schoolLevel = SCHOOL_LEVEL_MAP[memberGroup.schoolLevel] ?? '중등';
         }
 
-        // 결과 확인 가능한 검사가 있는지 먼저 체크
-        const examList = await getStudentExamList(claId, user.stdtId);
-        const hasReadyResults = examList.some((e) => e.status === 'result_ready');
-
-        if (!hasReadyResults) {
+        if (!hasAnyResults || allAnalyses.length === 0) {
           setError('아직 시행한 검사 결과가 없습니다.');
           return;
         }
 
-        // 실제 분석 데이터 조회
-        const fullAnalysis = await fetchStudentFullAnalysis(claId, user.stdtId, '1');
-
-        if (!fullAnalysis.round1 && !fullAnalysis.round2) {
-          setError('아직 시행한 검사 결과가 없습니다.');
-          return;
-        }
+        // 첫 번째 그룹의 데이터 사용 (여러 그룹이 있으면 첫 번째 선택)
+        const selectedGroup = allAnalyses[0];
+        const { analysis: fullAnalysis, schoolLevel } = selectedGroup;
 
         const assessments: Assessment[] = [];
         if (fullAnalysis.round1) {
@@ -427,7 +443,7 @@ export const MyResultPage: React.FC = () => {
 
         const studentData: Student = {
           id: user.stdtId,
-          classId: claId,
+          classId: selectedGroup.claId,
           name: user.name ?? '학생',
           number: 0,
           schoolLevel,
@@ -470,9 +486,7 @@ export const MyResultPage: React.FC = () => {
         <ErrorContent>
           <ErrorIcon />
           <ErrorText>{error}</ErrorText>
-          <ErrorButton onClick={() => navigate('/student/exams')}>
-            검사 목록으로
-          </ErrorButton>
+          <ErrorButton onClick={() => navigate('/student/exams')}>검사 목록으로</ErrorButton>
         </ErrorContent>
       </ErrorContainer>
     );
@@ -517,8 +531,8 @@ export const MyResultPage: React.FC = () => {
               <PageTitle>나의 검사 결과</PageTitle>
               {current.reliabilityWarnings.length > 0 && (
                 <Badge
-                  $bg="#fef2f2"
-                  $text="#dc2626"
+                  $bg='#fef2f2'
+                  $text='#dc2626'
                   title={`신뢰도 주의: ${current.reliabilityWarnings.join(', ')}`}
                 >
                   <ShieldAlert />
@@ -527,8 +541,8 @@ export const MyResultPage: React.FC = () => {
               )}
               {current.attentionResult.needsAttention && (
                 <Badge
-                  $bg="#fef3c7"
-                  $text="#d97706"
+                  $bg='#fef3c7'
+                  $text='#d97706'
                   title={formatAttentionTooltip(current.attentionResult)}
                 >
                   <AlertTriangle />
@@ -550,7 +564,7 @@ export const MyResultPage: React.FC = () => {
       {/* 차수 선택 */}
       <ViewModeContainer>
         <TabGroup>
-          {([
+          {[
             { mode: 'round1' as ViewMode, label: '1차 검사' },
             ...(r2
               ? [
@@ -558,12 +572,8 @@ export const MyResultPage: React.FC = () => {
                   { mode: 'compare' as ViewMode, label: '차수 변화' },
                 ]
               : []),
-          ]).map(({ mode, label }) => (
-            <TabButton
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              $isActive={viewMode === mode}
-            >
+          ].map(({ mode, label }) => (
+            <TabButton key={mode} onClick={() => setViewMode(mode)} $isActive={viewMode === mode}>
               {label}
             </TabButton>
           ))}

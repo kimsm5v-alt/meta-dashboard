@@ -562,6 +562,66 @@ npx prettier --write "src/**/*.{ts,tsx}"  # prettier만 실행
 
 ---
 
+## 🐛 최근 버그 수정 (2026-04-10)
+
+### Bug #1: MyResultPage 결과 감지 로직
+**증상**: 1차 검사 결과는 있고 2차 검사 결과는 대기 중일 때 대시보드에 "아직 시행한 검사가 없습니다" 표시
+
+**원인**: Line 405에서 `status === 'result_ready'` 조건만 확인
+- `result_ready` 상태는 검사가 완전히 종료되었을 때만 발생 (dgnssAt === 'N')
+- 실제 결과 데이터는 `hasResult === true` (eakAt === 'Y')로 감지해야 함
+
+**해결**:
+```typescript
+// Before
+const hasReadyResults = examList.some((e) => e.status === 'result_ready');
+
+// After
+const hasReadyResults = examList.some((e) => e.hasResult === true);
+```
+
+**파일**: `features/student-exam/ui/MyResultPage.tsx` (line 405)
+
+**빌드 결과**: ✅ 7.80s (성공)
+
+---
+
+### Bug #2: MyResultPage 단일 그룹만 조회
+**증상**: 학생이 여러 그룹에 속할 때 첫 번째 그룹만 조회하여 다른 그룹의 결과 누락
+
+**원인**: Lines 388-401에서 `groups.find()` 사용 (첫 번째 그룹만 반환)
+- 학생이 3개 그룹에 속할 경우, 그룹 B/C의 결과는 확인하지 않음
+
+**해결**:
+```typescript
+// 모든 memberGroups 순회 + 결과 수집
+for (const group of groupsToCheck) {
+  try {
+    const examList = await getStudentExamList(group.claId, user.stdtId);
+    const hasResults = examList.some((e) => e.hasResult === true);
+
+    if (hasResults) {
+      hasAnyResults = true;
+      const fullAnalysis = await fetchStudentFullAnalysis(group.claId, user.stdtId, '1');
+      allAnalyses.push({ claId: group.claId, analysis: fullAnalysis, ... });
+    }
+  } catch (err) {
+    console.warn(`그룹 ${group.claId} 조회 실패`);
+  }
+}
+
+// 결과 있는 첫 번째 그룹으로 디스플레이
+const selectedGroup = allAnalyses[0];
+```
+
+**패턴 출처**: `MyExamListPage.tsx` (422-424) — 이미 올바르게 구현되어 있는 multi-group 쿼리 패턴
+
+**파일**: `features/student-exam/ui/MyResultPage.tsx` (lines 377-449)
+
+**빌드 결과**: ✅ 9.06s (성공)
+
+---
+
 ## 🐛 알려진 이슈 (비치명적)
 
 **런타임 경고**:
@@ -604,5 +664,25 @@ Phase 4: 추가 기능              ░░░░░░░░░░░░   0%
 
 ---
 
-**최종 업데이트**: 2026-04-10
-**다음 작업 우선순위**: Phase 2 - student-exam 컴포넌트 분리 (FSD 아키텍처 준수)
+## 📋 다음 작업 체크리스트
+
+**우선순위 1 - 컴포넌트 분리 (FSD 아키텍처 개선)**:
+- [ ] Phase 2: student-exam 컴포넌트 분리
+  - ExamCard → widgets/student-exam/ExamCard
+  - EmptyExamList → widgets/student-exam/EmptyExamList
+  - ExamCardSkeleton → widgets/student-exam/ExamCardSkeleton
+  - MyExamListPage 간소화 (현재 463줄 → 목표 150줄)
+
+**우선순위 2 - 기능 개선**:
+- [ ] MyResultPage 1차/2차 비교 모드 (Phase 4)
+- [ ] 더 자세한 차트 인터랙션
+
+**우선순위 3 - 선택 사항**:
+- [ ] 에러 바운더리
+- [ ] features/counseling — 상담 기록
+- [ ] features/resources — 학습 자료
+
+---
+
+**최종 업데이트**: 2026-04-10 (Bug fixes #1, #2 완료 및 검증)
+**빌드 상태**: ✅ Production ready (tsc -b && vite build: 9.06s)
