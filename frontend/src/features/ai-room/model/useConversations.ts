@@ -189,6 +189,9 @@ export const useConversations = ({
       // 세션 캐시 조회 — 있으면 API 재호출 없이 재사용
       const cachedContext = contextCacheRef.current.get(activeConversationId) ?? null;
 
+      // 스트리밍 완료 여부 추적
+      let streamingCompleted = false;
+
       const result = await callAssistantStream(
         {
           sessionId: activeConversationId,
@@ -204,6 +207,7 @@ export const useConversations = ({
           setStreamingContent(accumulated);
           if (isFinal) {
             // 스트리밍 완료 → 메시지 목록에 추가하고 스트리밍 초기화
+            streamingCompleted = true;
             const aiMsg: ChatMessage = {
               id: (Date.now() + 1).toString(),
               role: 'assistant',
@@ -225,7 +229,7 @@ export const useConversations = ({
         setResponseAliasMap((prev) => ({ ...prev, ...result.aliasMap }));
       }
 
-      // 스트리밍이 is_final을 보내지 않고 끝난 경우 fallback
+      // 스트리밍이 is_final을 보내지 않고 끝난 경우에만 fallback
       if (!result.success) {
         const errorMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -235,8 +239,8 @@ export const useConversations = ({
         };
         setMessages((prev) => [...prev, errorMsg]);
         setStreamingContent('');
-      } else if (result.content && streamingContent === '') {
-        // 스트리밍 없이 content가 반환된 경우 (fallback)
+      } else if (result.content && !streamingCompleted) {
+        // 스트리밍이 완료되지 않았고 content가 있는 경우에만 fallback
         const aiMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
