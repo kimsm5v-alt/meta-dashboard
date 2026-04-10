@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import type { Class, Student } from '@shared/types';
 import type {
   ContextMode,
@@ -13,6 +13,9 @@ import { agentResetSession } from '@features/ai-room/api/agentApiService';
 // ============================================================================
 // Constants
 // ============================================================================
+
+const STORAGE_KEY_CONVERSATIONS = 'ai_room_conversations';
+const STORAGE_KEY_ACTIVE_ID = 'ai_room_active_conversation_id';
 
 const INITIAL_MESSAGE: ChatMessage = {
   id: '1',
@@ -43,6 +46,58 @@ const createNewConversation = (): Conversation => ({
   mode: 'all',
   contextLabel: '전체',
 });
+
+// localStorage에서 대화 기록 불러오기
+const loadConversations = (): Conversation[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_CONVERSATIONS);
+    if (!stored) return [createNewConversation()];
+
+    const parsed = JSON.parse(stored) as Conversation[];
+    // Date 객체 복원
+    return parsed.map((conv) => ({
+      ...conv,
+      createdAt: new Date(conv.createdAt),
+      messages: conv.messages.map((msg) => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp),
+      })),
+    }));
+  } catch {
+    return [createNewConversation()];
+  }
+};
+
+// localStorage에 대화 기록 저장
+const saveConversations = (conversations: Conversation[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
+  } catch {
+    // 저장 실패 무시 (quota 초과 등)
+  }
+};
+
+// localStorage에서 activeConversationId 불러오기
+const loadActiveConversationId = (conversations: Conversation[]): string => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_ACTIVE_ID);
+    if (stored && conversations.find((c) => c.id === stored)) {
+      return stored;
+    }
+  } catch {
+    // ignore
+  }
+  return conversations[0]?.id ?? '';
+};
+
+// localStorage에 activeConversationId 저장
+const saveActiveConversationId = (id: string) => {
+  try {
+    localStorage.setItem(STORAGE_KEY_ACTIVE_ID, id);
+  } catch {
+    // ignore
+  }
+};
 
 // ============================================================================
 // Hook Interface
@@ -86,14 +141,26 @@ export const useConversations = ({
   getContextLabel,
 }: UseConversationsParams): UseConversationsReturn => {
   // ---------------------------------------------------------------------------
-  // State
+  // State (with localStorage persistence)
   // ---------------------------------------------------------------------------
-  const [conversations, setConversations] = useState<Conversation[]>([createNewConversation()]);
-  const [activeConversationId, setActiveConversationId] = useState<string>(conversations[0].id);
+  const [conversations, setConversations] = useState<Conversation[]>(() => loadConversations());
+  const [activeConversationId, setActiveConversationId] = useState<string>(() =>
+    loadActiveConversationId(loadConversations()),
+  );
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [responseAliasMap, setResponseAliasMap] = useState<StudentAliasMap>({});
+
+  // localStorage에 대화 기록 저장 (TODO: 백엔드 API 연동 시 POST /ai-room/conversations로 교체)
+  useEffect(() => {
+    saveConversations(conversations);
+  }, [conversations]);
+
+  // localStorage에 activeConversationId 저장 (TODO: 백엔드 세션 저장으로 교체)
+  useEffect(() => {
+    saveActiveConversationId(activeConversationId);
+  }, [activeConversationId]);
 
   /**
    * 세션별 RAG 컨텍스트 캐시
@@ -189,9 +256,6 @@ export const useConversations = ({
       // 세션 캐시 조회 — 있으면 API 재호출 없이 재사용
       const cachedContext = contextCacheRef.current.get(activeConversationId) ?? null;
 
-      // 스트리밍 완료 여부 추적
-      let streamingCompleted = false;
-
       const result = await callAssistantStream(
         {
           sessionId: activeConversationId,
@@ -207,7 +271,6 @@ export const useConversations = ({
           setStreamingContent(accumulated);
           if (isFinal) {
             // 스트리밍 완료 → 메시지 목록에 추가하고 스트리밍 초기화
-            streamingCompleted = true;
             const aiMsg: ChatMessage = {
               id: (Date.now() + 1).toString(),
               role: 'assistant',
@@ -229,7 +292,7 @@ export const useConversations = ({
         setResponseAliasMap((prev) => ({ ...prev, ...result.aliasMap }));
       }
 
-      // 스트리밍이 is_final을 보내지 않고 끝난 경우에만 fallback
+      // 에러 발생 시에만 에러 메시지 추가
       if (!result.success) {
         const errorMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -239,16 +302,8 @@ export const useConversations = ({
         };
         setMessages((prev) => [...prev, errorMsg]);
         setStreamingContent('');
-      } else if (result.content && !streamingCompleted) {
-        // 스트리밍이 완료되지 않았고 content가 있는 경우에만 fallback
-        const aiMsg: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: result.content,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, aiMsg]);
       }
+      // fallback 로직 완전 제거 - isFinal 콜백에서만 메시지 추가
     } catch {
       const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
