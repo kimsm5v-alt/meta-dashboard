@@ -21,6 +21,7 @@ import {
   TypeClassification,
   TypeDeviations,
   DataHelperChatbot,
+  CoachingStrategy,
 } from '@features/student-dashboard';
 import { getMyGroups } from '@features/groups/api/groupService';
 import { fetchStudentFullAnalysis, convertToAssessment } from '@shared/services/dashboardService';
@@ -77,6 +78,8 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
   prevAssessment,
   isCompare,
 }) => {
+  const [isCoachingOpen, setIsCoachingOpen] = useState(false);
+
   const domainData = useMemo(
     () => buildStudentDomainData(assessment.tScores),
     [assessment.tScores],
@@ -121,6 +124,7 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
               tScores={assessment.tScores}
               predictedType={assessment.predictedType}
               schoolLevel={student.schoolLevel}
+              onCoachingClick={() => setIsCoachingOpen(true)}
             />
           </SectionContent>
         </SectionCard>
@@ -133,6 +137,15 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
         typeProbabilities={assessment.typeProbabilities}
         schoolLevel={student.schoolLevel}
         deviations={assessment.deviations}
+      />
+
+      {/* 코칭 전략 모달 */}
+      <CoachingStrategy
+        predictedType={assessment.predictedType}
+        schoolLevel={student.schoolLevel}
+        tScores={assessment.tScores}
+        isOpen={isCoachingOpen}
+        onClose={() => setIsCoachingOpen(false)}
       />
     </ContentRoot>
   );
