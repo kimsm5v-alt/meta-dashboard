@@ -65,7 +65,7 @@ export function useStudentAnalysis(
     setError(null);
 
     try {
-      const fullAnalysis = await fetchStudentFullAnalysis(studentId, '1');
+      const fullAnalysis = await fetchStudentFullAnalysis(studentId, '1', classId);
 
       // 유효한 데이터가 없으면 DataContext fallback
       if (!fullAnalysis.round1 && !fullAnalysis.round2) {
