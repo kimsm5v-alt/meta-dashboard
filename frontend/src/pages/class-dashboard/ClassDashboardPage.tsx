@@ -396,7 +396,7 @@ export const ClassDashboardPage = () => {
   const navigate = useNavigate();
   const { getClassById } = useData();
   const { hasJwtToken } = useApiConfig();
-  const { students: apiStudents, l2Data, isLoading, error } = useClassStudents(classId);
+  const { students: apiStudents, l2Data, classInfo: apiClassInfo, isLoading, error } = useClassStudents(classId);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [changeFilter, setChangeFilter] = useState<ChangeFilter>('all');
@@ -411,14 +411,10 @@ export const ClassDashboardPage = () => {
   const classData: Class | undefined = useMemo(() => {
     // API 모드이고 학생 데이터가 있으면 API 데이터로 학급 구성
     if (hasJwtToken && apiStudents.length > 0 && classId) {
-      // 첫 번째 학생에서 schoolLevel, grade 추출
-      const firstStudent = apiStudents[0];
-      const schoolLevel = firstStudent?.schoolLevel ?? '초등';
-      const grade = firstStudent?.grade ?? 1;
-
-      // classId에서 classNumber 추출 시도 (예: "6-2" → 2)
-      const parts = classId.split('-');
-      const classNumber = parseInt(parts[1], 10) || 1;
+      // 그룹 정보에서 schoolLevel/grade/classNumber 추출 (apiClassInfo 우선, fallback: 첫 학생)
+      const schoolLevel = apiClassInfo?.schoolLevel ?? apiStudents[0]?.schoolLevel ?? '초등';
+      const grade = apiClassInfo?.grade ?? apiStudents[0]?.grade ?? 1;
+      const classNumber = apiClassInfo?.classNumber ?? 1;
 
       // 통계 계산
       console.log('Calculating stats with apiStudents:', apiStudents);
@@ -447,8 +443,8 @@ export const ClassDashboardPage = () => {
         s.assessments.some((a) => a.attentionResult.needsAttention),
       ).length;
 
-      const totalStudents = l2Data?.examDetail?.stTotalCnt ?? apiStudents.length;
-      const submittedCount = l2Data?.examDetail?.stSubmCnt ?? apiStudents.length;
+      const totalStudents = l2Data?.examDetail?.stTotalCnt || apiStudents.length;
+      const submittedCount = l2Data?.examDetail?.stSubmCnt || apiStudents.length;
 
       return {
         id: classId,
@@ -478,7 +474,7 @@ export const ClassDashboardPage = () => {
 
     // Mock 모드 또는 API 데이터 없음: DataContext 사용
     return baseClassData;
-  }, [baseClassData, hasJwtToken, apiStudents, classId, l2Data]);
+  }, [baseClassData, hasJwtToken, apiStudents, classId, l2Data, apiClassInfo]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -802,6 +798,16 @@ export const ClassDashboardPage = () => {
                   const r1 = student.assessments.find((a) => a.round === 1);
                   const r2 = student.assessments.find((a) => a.round === 2);
                   const typeChange = getTypeChangeScore(r1?.predictedType, r2?.predictedType);
+                  console.log(
+                    'Rendering student:',
+                    student.name,
+                    'R1:',
+                    r1?.predictedType,
+                    'R2:',
+                    r2?.predictedType,
+                    'TypeChange:',
+                    typeChange,
+                  );
 
                   return (
                     <TableRow

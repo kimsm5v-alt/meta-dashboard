@@ -108,8 +108,7 @@ export function useStudentAnalysis(
       const grade = group?.grade ?? 1;
       const classNumber = group?.classNumber ?? 1;
       const schoolLevel: SchoolLevel = group
-        ? (({ el: '초등' as const, mi: '중등' as const })[group.schoolLevel as string] ??
-          credSchoolLevel)
+        ? (SCHOOL_LEVEL_MAP[group.schoolLevel] ?? credSchoolLevel)
         : credSchoolLevel;
 
       // 완료된 1차 검사의 stinfolist에서 이름/번호 조회
@@ -263,6 +262,7 @@ export function useClassAnalysis(
 interface UseClassStudentsResult {
   students: Student[];
   l2Data: L2DashboardData | null;
+  classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel } | undefined;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -277,6 +277,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
   const { tcId, claId, schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
   const [students, setStudents] = useState<Student[]>([]);
   const [l2Data, setL2Data] = useState<L2DashboardData | null>(null);
+  const [classInfo, setClassInfo] = useState<UseClassStudentsResult['classInfo']>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -296,6 +297,13 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
     if (!isApiMode) {
       setStudents(classData?.students ?? []);
       setL2Data(null);
+      if (classData) {
+        setClassInfo({
+          grade: classData.grade,
+          classNumber: classData.classNumber,
+          schoolLevel: classData.schoolLevel,
+        });
+      }
       return;
     }
 
@@ -304,8 +312,26 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
 
     try {
       const effectiveTcId = tcId || user?.tcId || '';
-      // classId 파라미터를 claId로 사용 (URL에서 전달된 학급 ID)
       const effectiveClaId = classId;
+
+      // 해당 학급의 실제 schoolLevel/grade/classNumber 조회
+      let classSchoolLevel: SchoolLevel = credSchoolLevel;
+      let grade = classData?.grade ?? 1;
+      let classNumber = classData?.classNumber ?? 1;
+      try {
+        const groups = await groupService.getMyGroups(user?.id ?? '');
+        const matchedGroup = groups.find((g) => g.claId === classId);
+        if (matchedGroup) {
+          classSchoolLevel = SCHOOL_LEVEL_MAP[matchedGroup.schoolLevel] ?? credSchoolLevel;
+          grade = matchedGroup.grade;
+          classNumber = matchedGroup.classNumber;
+        }
+      } catch (_err) {
+        // 그룹 조회 실패 시 fallback 유지
+      }
+
+      setClassInfo({ grade, classNumber, schoolLevel: classSchoolLevel });
+
       const exams = await fetchTeacherExams(effectiveClaId, effectiveTcId, '1');
       const completedRound1 = exams.find((exam) => exam.dgnssAt === 'N' && exam.ordNo === 1);
 
@@ -317,9 +343,8 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
       }
 
       const dgnssId = completedRound1.dgnssId;
-      const grade = classData?.grade ?? 1;
 
-      const data = await fetchL2DashboardData(dgnssId, classId, credSchoolLevel, grade);
+      const data = await fetchL2DashboardData(dgnssId, classId, classSchoolLevel, grade);
 
       setL2Data(data);
       setStudents(data.students);
@@ -339,6 +364,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
   return {
     students,
     l2Data,
+    classInfo,
     isLoading,
     error,
     refetch: fetchData,
