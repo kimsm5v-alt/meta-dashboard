@@ -155,18 +155,29 @@ export async function fetchClassAnalysisRaw(
 export async function fetchStudentAnalysis(
   stdtId: string,
   paperIdx: string = DEFAULT_PAPER_IDX,
-  ordNo: number = 1
+  ordNo: number = 1,
+  claId?: string
 ): Promise<{
   tScores: number[];
   reliabilityWarnings: string[];
   sections: AnalysisSectionItem[];
 }> {
+  const claIdParam = claId ? `&claId=${claId}` : '';
   const response = await apiRequest<AnalysisResponse>(
-    `/api/dgnss/st/analysis?stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`
+    `/api/dgnss/st/analysis?stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}${claIdParam}`,
+    { debug: true }
   );
 
+  console.log('[fetchStudentAnalysis] stdtId:', stdtId, 'ordNo:', ordNo);
+  console.log('[fetchStudentAnalysis] Full response:', JSON.stringify(response, null, 2));
+  console.log('[fetchStudentAnalysis] resultData keys:', Object.keys(response.resultData));
+  console.log('[fetchStudentAnalysis] resultData:', response.resultData);
+
   const roundData = response.resultData[String(ordNo)];
+  console.log('[fetchStudentAnalysis] roundData for ordNo', ordNo, ':', roundData);
+
   if (!roundData || roundData.length === 0) {
+    console.warn('[fetchStudentAnalysis] No data found for ordNo:', ordNo, '- returning default T-scores');
     return {
       tScores: createDefaultTScores(),
       reliabilityWarnings: [],
@@ -186,14 +197,15 @@ export async function fetchStudentAnalysis(
 
 export async function fetchStudentFullAnalysis(
   stdtId: string,
-  paperIdx: string = DEFAULT_PAPER_IDX
+  paperIdx: string = DEFAULT_PAPER_IDX,
+  claId?: string
 ): Promise<{
   round1: { tScores: number[]; reliabilityWarnings: string[] } | null;
   round2: { tScores: number[]; reliabilityWarnings: string[] } | null;
 }> {
   const [r1Result, r2Result] = await Promise.allSettled([
-    fetchStudentAnalysis(stdtId, paperIdx, 1),
-    fetchStudentAnalysis(stdtId, paperIdx, 2),
+    fetchStudentAnalysis(stdtId, paperIdx, 1, claId),
+    fetchStudentAnalysis(stdtId, paperIdx, 2, claId),
   ]);
 
   const hasValidR1 = r1Result.status === 'fulfilled'
@@ -227,7 +239,8 @@ export function convertToAssessment(
     tScores: number[];
     reliabilityWarnings: string[];
   } | null | undefined,
-  schoolLevel: SchoolLevel
+  schoolLevel: SchoolLevel,
+  backendLpaTypeName?: string
 ): import('@/shared/types').Assessment {
   const tScores = data?.tScores;
   const reliabilityWarnings = data?.reliabilityWarnings ?? [];
@@ -236,8 +249,25 @@ export function convertToAssessment(
     ? tScores
     : createDefaultTScores();
 
-  const classification = classifyStudent(safeTScores, schoolLevel);
-  const deviations = getTypeDeviations(safeTScores, classification.predictedType, schoolLevel, 3);
+  // 백엔드에서 lpaTypeName이 있으면 그것을 사용, 없으면 프론트엔드에서 분류
+  let predictedType: StudentType;
+  let typeConfidence: number;
+  let typeProbabilities: Record<string, number>;
+
+  if (backendLpaTypeName) {
+    // 백엔드 LPA 유형 사용
+    predictedType = backendLpaTypeName as StudentType;
+    typeConfidence = 100;
+    typeProbabilities = { [backendLpaTypeName]: 100 };
+  } else {
+    // 프론트엔드 분류
+    const classification = classifyStudent(safeTScores, schoolLevel);
+    predictedType = classification.predictedType as StudentType;
+    typeConfidence = classification.confidence;
+    typeProbabilities = classification.allProbabilities;
+  }
+
+  const deviations = getTypeDeviations(safeTScores, predictedType, schoolLevel, 3);
   const attentionResult = checkAttention(safeTScores);
 
   return {
@@ -246,9 +276,9 @@ export function convertToAssessment(
     round,
     assessedAt: new Date(),
     tScores: safeTScores,
-    predictedType: classification.predictedType as StudentType,
-    typeConfidence: classification.confidence,
-    typeProbabilities: classification.allProbabilities,
+    predictedType,
+    typeConfidence,
+    typeProbabilities,
     deviations,
     reliabilityWarnings,
     attentionResult,
@@ -270,7 +300,7 @@ export async function buildClassFromAPI(
     }
 
     const studentPromises = studentInfoList.map(async (info) => {
-      const fullAnalysis = await fetchStudentFullAnalysis(info.stdtId, '1');
+      const fullAnalysis = await fetchStudentFullAnalysis(info.stdtId, '1', claId);
       return { info, fullAnalysis };
     });
 
@@ -287,13 +317,13 @@ export async function buildClassFromAPI(
 
         if (fullAnalysis.round1?.tScores) {
           assessments.push(
-            convertToAssessment(info.stdtId, 1, fullAnalysis.round1, schoolLevel)
+            convertToAssessment(info.stdtId, 1, fullAnalysis.round1, schoolLevel, info.lpaTypeName)
           );
         }
 
         if (fullAnalysis.round2?.tScores) {
           assessments.push(
-            convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel)
+            convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel, info.lpaTypeName)
           );
         }
 
@@ -391,7 +421,7 @@ export async function fetchL2DashboardData(
   ]);
 
   const studentAnalysisPromises = studentInfoList.map(async (info) => {
-    const fullAnalysis = await fetchStudentFullAnalysis(info.stdtId, '1');
+    const fullAnalysis = await fetchStudentFullAnalysis(info.stdtId, '1', claId);
     return { info, fullAnalysis };
   });
 
@@ -403,13 +433,13 @@ export async function fetchL2DashboardData(
 
       if (fullAnalysis.round1?.tScores) {
         assessments.push(
-          convertToAssessment(info.stdtId, 1, fullAnalysis.round1, schoolLevel)
+          convertToAssessment(info.stdtId, 1, fullAnalysis.round1, schoolLevel, info.lpaTypeName)
         );
       }
 
       if (fullAnalysis.round2?.tScores) {
         assessments.push(
-          convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel)
+          convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel, info.lpaTypeName)
         );
       }
 

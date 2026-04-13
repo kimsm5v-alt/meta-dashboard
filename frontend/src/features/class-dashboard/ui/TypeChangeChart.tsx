@@ -410,7 +410,9 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
   }
 
   // 막대 세그먼트 계산
-  const totalStudents = classData.stats?.totalStudents || 0;
+  // classData.students.length를 분모로 사용: 실제 로드된 학생 기준으로 100% 채움
+  // (stats.totalStudents = stTotalCnt는 미제출 포함 전체 수라 0이 될 수 있음)
+  const chartStudentCount = classData.students.length || classData.stats?.totalStudents || 0;
 
   const calculateSegments = (distribution: Record<string, Student[]>): BarSegment[] => {
     const segments: BarSegment[] = [];
@@ -418,7 +420,7 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
 
     TYPE_ORDER.forEach((type) => {
       const count = distribution[type].length;
-      const percentage = totalStudents > 0 ? (count / totalStudents) * 100 : 0;
+      const percentage = chartStudentCount > 0 ? (count / chartStudentCount) * 100 : 0;
       segments.push({ type, count, percentage, yStart: currentY, yEnd: currentY + percentage });
       currentY += percentage;
     });

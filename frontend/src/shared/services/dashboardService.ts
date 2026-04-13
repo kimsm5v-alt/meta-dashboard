@@ -95,7 +95,37 @@ export interface AnalysisSectionItem {
   desirable?: string;
 }
 
+export interface LpaTopData {
+  lpaClassId?: string | null;
+  lpaTypeName?: string | null;
+  lpaConfidence?: number | null;
+  lpaStatus?: string | null;
+}
+
 export type AnalysisResponse = Record<string, AnalysisSectionItem[]>;
+
+// 백엔드 lpaTypeName → 프론트엔드 StudentType 정규화 매핑
+// 백엔드는 공백 포함 또는 긴 이름(냉소적 무기력형)으로 반환하므로 정규화 필요
+const LPA_TYPE_NAME_MAP: Record<string, string> = {
+  // 초등
+  자원소진형: '자원소진형',
+  '안전 균형형': '안전균형형',
+  안전균형형: '안전균형형',
+  '몰입자원 풍부형': '몰입자원풍부형',
+  몰입자원풍부형: '몰입자원풍부형',
+  // 중등
+  '냉소적 무기력형': '무기력형',
+  무기력형: '무기력형',
+  '정서조절 취약형': '정서조절취약형',
+  정서조절취약형: '정서조절취약형',
+  '자기주도 몰입형': '자기주도몰입형',
+  자기주도몰입형: '자기주도몰입형',
+};
+
+const normalizeLpaTypeName = (typeName: string | null | undefined): string | null => {
+  if (!typeName) return null;
+  return LPA_TYPE_NAME_MAP[typeName] ?? null;
+};
 
 // ============================================================
 // SECTION_ID → 요인 인덱스 매핑
@@ -260,10 +290,18 @@ export async function fetchStudentAnalysis(
   tScores: number[];
   reliabilityWarnings: string[];
   sections: AnalysisSectionItem[];
+  lpaTypeName: string | null;
 }> {
   const response = await apiRequest<AnalysisResponse>(
     `/api/dgnss/st/analysis?claId=${classId}&stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
   );
+
+  // lpaTop에서 백엔드가 계산한 유형명 추출 (타입 우회 필요: lpaTop은 AnalysisSectionItem[]가 아님)
+  const rawResultData = response.resultData as Record<string, unknown>;
+  const lpaTopMap = rawResultData['lpaTop'] as Record<string, LpaTopData> | undefined;
+  const rawLpaTypeName = lpaTopMap?.[String(ordNo)]?.lpaTypeName ?? null;
+  // 백엔드 타입명 → 프론트엔드 StudentType 정규화 (공백 제거, 약칭 매핑)
+  const lpaTypeName = normalizeLpaTypeName(rawLpaTypeName);
 
   const roundData = response.resultData[String(ordNo)];
   if (!roundData || roundData.length === 0) {
@@ -271,6 +309,7 @@ export async function fetchStudentAnalysis(
       tScores: new Array(38).fill(50),
       reliabilityWarnings: [],
       sections: [],
+      lpaTypeName,
     };
   }
 
@@ -281,6 +320,7 @@ export async function fetchStudentAnalysis(
     tScores,
     reliabilityWarnings,
     sections: roundData,
+    lpaTypeName,
   };
 }
 
@@ -289,8 +329,8 @@ export async function fetchStudentFullAnalysis(
   stdtId: string,
   paperIdx: string = '1',
 ): Promise<{
-  round1: { tScores: number[]; reliabilityWarnings: string[] } | null;
-  round2: { tScores: number[]; reliabilityWarnings: string[] } | null;
+  round1: { tScores: number[]; reliabilityWarnings: string[]; lpaTypeName: string | null } | null;
+  round2: { tScores: number[]; reliabilityWarnings: string[]; lpaTypeName: string | null } | null;
 }> {
   const [r1Result, r2Result] = await Promise.allSettled([
     fetchStudentAnalysis(classId, stdtId, paperIdx, 1),
@@ -315,6 +355,7 @@ export async function fetchStudentFullAnalysis(
         ? {
             tScores: r1Result.value.tScores,
             reliabilityWarnings: r1Result.value.reliabilityWarnings,
+            lpaTypeName: r1Result.value.lpaTypeName,
           }
         : null,
     round2:
@@ -322,6 +363,7 @@ export async function fetchStudentFullAnalysis(
         ? {
             tScores: r2Result.value.tScores,
             reliabilityWarnings: r2Result.value.reliabilityWarnings,
+            lpaTypeName: r2Result.value.lpaTypeName,
           }
         : null,
   };
@@ -338,6 +380,7 @@ export function convertToAssessment(
     | {
         tScores: number[];
         reliabilityWarnings: string[];
+        lpaTypeName?: string | null;
       }
     | null
     | undefined,
@@ -350,7 +393,9 @@ export function convertToAssessment(
     tScores && Array.isArray(tScores) && tScores.length === 38 ? tScores : new Array(38).fill(50);
 
   const classification = classifyStudent(safeTScores, schoolLevel);
-  const deviations = getTypeDeviations(safeTScores, classification.predictedType, schoolLevel, 3);
+  // 백엔드가 계산한 유형명이 있으면 우선 사용, 없으면 프론트엔드 재계산 결과 사용
+  const predictedType = (data?.lpaTypeName ?? classification.predictedType) as StudentType;
+  const deviations = getTypeDeviations(safeTScores, predictedType, schoolLevel, 3);
   const attentionResult = checkAttention(safeTScores);
 
   return {
@@ -359,7 +404,7 @@ export function convertToAssessment(
     round,
     assessedAt: new Date(),
     tScores: safeTScores,
-    predictedType: classification.predictedType as StudentType,
+    predictedType,
     typeConfidence: classification.confidence,
     typeProbabilities: classification.allProbabilities,
     deviations,

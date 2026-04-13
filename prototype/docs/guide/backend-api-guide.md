@@ -2,7 +2,7 @@
 
 > META 학습심리정서검사 AI 에이전트 대시보드 — 기존 DB 스키마 참조 문서
 >
-> **Last Updated**: 2026-03-25
+> **Last Updated**: 2026-04-10
 
 ---
 
@@ -127,14 +127,20 @@ tb_dgnss_info (검사 마스터)
 |------|------|------------------|
 | **상담 기록** | ✅ 구현 완료 | `/api/counseling/*` — CRUD + 완료/취소 + 학생별/반별/상태별 조회 |
 | **관찰 메모** | ✅ 구현 완료 | `/api/memos/*` — 학생별 CRUD, 카테고리/중요도 지원 |
+| **생활기록부** | ✅ 구현 완료 | `/api/school-records/*` — 학생별 CRUD, 카테고리별 저장 |
 | **회원 인증** | ✅ 구현 완료 | `/member/*` — 회원가입, 로그인(JWT), 토큰 갱신, 로그아웃 |
-| **그룹/학급 관리** | ✅ 구현 완료 | `/group/*` — 생성, 가입(초대코드), 게스트 참가, 멤버 관리 |
-| **게스트 전환** | ✅ 구현 완료 | `/guest/*` — 게스트→회원 전환, 검사 결과 병합 |
+| **이메일 인증** | ✅ 구현 완료 | `/member/send-code`, `/member/verify-code` — 6자리 인증코드 발송/확인 |
+| **그룹/학급 관리** | ✅ 구현 완료 | `/group/*` — 생성, 가입(초대코드), 게스트 참가, 멤버 관리, 이메일 초대 |
+| **게스트 인증** | ✅ 구현 완료 | `/guest/*` — 게스트 존재 확인, 재인증, 회원 전환 |
+| **학교 정보** | ✅ 구현 완료 | `/school/import`, `/admin/schools/*` — CSV 업로드, 학교 검색/조회 |
+| **DGNSS 검사** | ✅ 구현 완료 | `/api/dgnss/tc/*`, `/api/dgnss/st/*` — 교사/학생 검사 관리 전체 |
+| **학급별 요인 평균** | ✅ 구현 완료 | `/api/dgnss/tc/class-factor-avg` — 학급별 요인 평균 및 제출/신뢰도 집계 |
 | **LPA 유형 분류 결과** | ✅ 구현 완료 | 백엔드에서 저장, `/api/dgnss/tc/stinfolist` 응답에 포함 |
-| **관심 필요 판별** | ❌ 미구현 | 정적 요인 T≤39, 부적 요인 T≥60 기준 (프론트엔드 계산) |
-| **생활기록부 문구** | ❌ 미구현 | AI 생성 텍스트 저장용 테이블/API 미개발 |
-| **AI Room 대화** | ❌ 미구현 | 현재 메모리에만 존재, 새로고침하면 소실 |
-| **AI 사용량 로그** | ❌ 미구현 | 토큰/비용 추적 |
+| **관심 필요 판별** | ✅ 구현 완료 | `/api/dgnss/tc/need` — 상담 필요 학생 조회 (정적 T≤39, 부적 T≥60 기준) |
+| **AI Room 대화** | ✅ 구현 완료 | `/api/ai/conversations/*` — 대화방 CRUD, 메시지 저장/조회 ([상세 스펙](../../../backend/docs/ai-chat-api-spec.md)) |
+| **AI 에이전트 (Python)** | ✅ 구현 완료 | `POST /chat`, `POST /chat/stream`, `DELETE /chat/{id}` — FastAPI 기반 SSE 스트리밍 |
+| **AI 사용량 로그** | ❌ 미구현 | 토큰/비용 추적 테이블/API 미개발 |
+| **학생 정보 저장** | ❌ 미구현 | 검사 시작 시 학교/학년/반/번호 저장 API (현재 localStorage) |
 
 ### 학생 정보 매핑 (해결됨)
 
@@ -150,6 +156,19 @@ tb_dgnss_info (검사 마스터)
 | 학교급 | — | `group_info.school_level` |
 
 > **참고**: 신규 테이블 상세는 `backend/docs/legacy-table-migration.md` 참조
+
+### Frontend 연동 현황
+
+| 기능 | 상태 | 연동 방식 | 비고 |
+|------|------|----------|------|
+| **AI 에이전트 채팅** | ✅ 실제 API | `agentApiService.ts` | FastAPI SSE 스트리밍 |
+| **상담 기록 CRUD** | ✅ 실제 API | `counselingService.ts` | `/api/counseling/*` |
+| **관찰 메모 CRUD** | ✅ 실제 API | `memoService.ts` | `/api/memos/*` |
+| **생활기록부 CRUD** | ✅ 실제 API | `schoolRecordService.ts` | `/api/school-records/*` + Gemini AI |
+| **검사 목록/상세** | ✅ 실제 API | `dashboardService.ts` | `/api/dgnss/tc/*` |
+| **학생 검사 응시** | ✅ 실제 API | `examService.ts` | `/api/dgnss/st/*` |
+| **학생 정보 입력** | ⚠️ Mock | `studentInfoService.ts` | localStorage 저장 (백엔드 미개발) |
+| **AI 대화 저장** | ✅ 실제 API | `useConversations.ts` | `/api/ai/conversations/*` |
 
 ---
 
@@ -220,3 +239,6 @@ tb_dgnss_info (검사 마스터)
 | 2026-03-03 | 1.0 | 최초 작성 |
 | 2026-03-23 | 2.0 | DGNSS 마이그레이션 안내 섹션 추가 |
 | 2026-03-25 | 2.1 | 백엔드 구현 현황 갱신 (상담/메모/회원/그룹/게스트 구현 완료 반영), 학생 정보 매핑 해결 반영 |
+| 2026-04-10 | 2.2 | 백엔드 현행화: 생활기록부/이메일 인증/학교 정보/DGNSS API 구현 완료 반영, 관심 필요 판별 부분 구현 상태 갱신 |
+| 2026-04-10 | 2.3 | AI Room 대화 저장 API 구현 완료 반영 (`/api/ai/conversations/*`) |
+| 2026-04-10 | 2.4 | 전면 현행화: 학급별 요인 평균 API 추가, AI 에이전트(FastAPI) 연동 반영, Frontend 연동 현황 섹션 추가, 미구현 항목(학생 정보 저장) 추가 |
