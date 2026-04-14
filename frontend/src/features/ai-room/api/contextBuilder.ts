@@ -42,17 +42,9 @@ export interface ContextBuildResult {
 // 별칭 생성 함수
 // ============================================================
 
-export const createAliasMap = (studentNames: string[]): StudentAliasMap => {
-  const aliasMap: StudentAliasMap = {};
-  studentNames.forEach((name, index) => {
-    const letter =
-      index < 26
-        ? String.fromCharCode(65 + index)
-        : String.fromCharCode(65 + Math.floor(index / 26) - 1) +
-          String.fromCharCode(65 + (index % 26));
-    aliasMap[`student_${letter}`] = name;
-  });
-  return aliasMap;
+export const createAliasMap = (_studentNames: string[]): StudentAliasMap => {
+  // 마스킹 비활성화: 빈 객체 반환 (학생 이름 그대로 노출)
+  return {};
 };
 
 export const reverseAliasMap = (aliasMap: StudentAliasMap): Record<string, string> => {
@@ -75,9 +67,20 @@ export const applyAliases = (text: string, aliasMap: StudentAliasMap): string =>
 export const restoreNames = (text: string, aliasMap: StudentAliasMap): string => {
   let result = text;
   Object.entries(aliasMap).forEach(([alias, name]) => {
-    result = result.replace(new RegExp(alias, 'g'), name);
+    // 일반 형태: student_A (대소문자 무시)
+    result = result.replace(new RegExp(alias, 'gi'), name);
+
+    // 대문자 버전: Student_A
+    const capitalizedAlias = alias.charAt(0).toUpperCase() + alias.slice(1);
+    result = result.replace(new RegExp(capitalizedAlias, 'g'), name);
+
+    // 이스케이프된 형태: student\_A (마크다운에서 _ 이스케이프)
     const escapedAlias = alias.replace(/_/g, '\\_');
-    result = result.replace(new RegExp(escapedAlias.replace(/\\/g, '\\\\'), 'g'), name);
+    result = result.replace(new RegExp(escapedAlias.replace(/\\/g, '\\\\'), 'gi'), name);
+
+    // 이스케이프된 대문자 형태: Student\_A
+    const escapedCapitalizedAlias = capitalizedAlias.replace(/_/g, '\\_');
+    result = result.replace(new RegExp(escapedCapitalizedAlias.replace(/\\/g, '\\\\'), 'g'), name);
   });
   return result;
 };

@@ -202,6 +202,34 @@ const Paragraph = styled.p`
   line-height: 1.6;
 `;
 
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+`;
+
+const TableHeader = styled.th`
+  padding: 0.5rem;
+  text-align: left;
+  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
+  background: ${({ theme }) => theme.colors.primary[50]};
+  color: ${({ theme }) => theme.colors.primary[700]};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+`;
+
+const TableCell = styled.td`
+  padding: 0.5rem;
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  color: ${({ theme }) => theme.colors.gray[700]};
+`;
+
+const TableRow = styled.tr`
+  &:nth-of-type(even) {
+    background: ${({ theme }) => theme.colors.gray[50]};
+  }
+`;
+
 interface ChatAreaProps {
   messages: ChatMessage[];
   aliasMap: StudentAliasMap;
@@ -212,14 +240,24 @@ interface ChatAreaProps {
 
 // student_A, student_B 등을 실제 이름으로 치환
 // AI가 마크다운 이스케이프로 student\_A 형태로 출력할 수 있어 두 패턴 모두 처리
+// 대소문자 구분 없이 매칭 (백엔드가 Student_A로 반환할 수 있음)
 const replaceAliases = (content: string, aliasMap: StudentAliasMap): string => {
   let result = content;
   Object.entries(aliasMap).forEach(([alias, name]) => {
-    // 일반 형태: student_A
-    result = result.replace(new RegExp(alias, 'g'), name);
+    // 일반 형태: student_A (대소문자 무시)
+    result = result.replace(new RegExp(alias, 'gi'), name);
+
+    // 대문자 버전: Student_A
+    const capitalizedAlias = alias.charAt(0).toUpperCase() + alias.slice(1);
+    result = result.replace(new RegExp(capitalizedAlias, 'g'), name);
+
     // 이스케이프된 형태: student\_A (마크다운에서 _ 이스케이프)
     const escapedAlias = alias.replace(/_/g, '\\_');
-    result = result.replace(new RegExp(escapedAlias.replace(/\\/g, '\\\\'), 'g'), name);
+    result = result.replace(new RegExp(escapedAlias.replace(/\\/g, '\\\\'), 'gi'), name);
+
+    // 이스케이프된 대문자 형태: Student\_A
+    const escapedCapitalizedAlias = capitalizedAlias.replace(/_/g, '\\_');
+    result = result.replace(new RegExp(escapedCapitalizedAlias.replace(/\\/g, '\\\\'), 'g'), name);
   });
   return result;
 };
@@ -246,8 +284,11 @@ const renderMarkdown = (content: string): React.ReactNode => {
   };
 
   const formatInlineText = (text: string): React.ReactNode => {
+    // <br>, <br/>, <br /> 태그를 실제 줄바꿈으로 변환
+    let processedText = text.replace(/<br\s*\/?>/gi, '\n');
+
     // **볼드** 처리
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    const parts = processedText.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return (
@@ -255,6 +296,15 @@ const renderMarkdown = (content: string): React.ReactNode => {
             {part.slice(2, -2)}
           </BoldText>
         );
+      }
+      // 줄바꿈 처리 (\n을 <br/>로)
+      if (part.includes('\n')) {
+        return part.split('\n').map((line, j) => (
+          <span key={`${i}-${j}`}>
+            {line}
+            {j < part.split('\n').length - 1 && <br />}
+          </span>
+        ));
       }
       return part;
     });
@@ -354,50 +404,117 @@ const renderMarkdown = (content: string): React.ReactNode => {
     );
   };
 
-  lines.forEach((line, idx) => {
+  // 테이블 블록 감지 및 렌더링
+  const isTableLine = (line: string): boolean => {
+    const trimmed = line.trim();
+    return trimmed.startsWith('|') && trimmed.endsWith('|');
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
     const trimmedLine = line.trim();
     const indentLevel = getIndentLevel(line);
+
+    // 테이블 블록 감지
+    if (isTableLine(trimmedLine)) {
+      const tableLines: string[] = [];
+      let j = i;
+      while (j < lines.length && isTableLine(lines[j].trim())) {
+        tableLines.push(lines[j].trim());
+        j++;
+      }
+
+      if (tableLines.length >= 2) {
+        // 첫 번째 줄: 헤더
+        const headers = tableLines[0]
+          .split('|')
+          .map((cell) => cell.trim())
+          .filter((cell) => cell !== '');
+
+        // 두 번째 줄: 구분선 (skip)
+        const isValidTable = tableLines[1].includes('-');
+
+        if (isValidTable) {
+          // 데이터 행들
+          const dataRows = tableLines.slice(2).map((row) =>
+            row
+              .split('|')
+              .map((cell) => cell.trim())
+              .filter((cell) => cell !== ''),
+          );
+
+          elements.push(
+            <Table key={`table-${keyIndex++}`}>
+              <thead>
+                <TableRow>
+                  {headers.map((header, hIdx) => (
+                    <TableHeader key={`th-${hIdx}`}>{formatInlineText(header)}</TableHeader>
+                  ))}
+                </TableRow>
+              </thead>
+              <tbody>
+                {dataRows.map((row, rIdx) => (
+                  <TableRow key={`tr-${rIdx}`}>
+                    {row.map((cell, cIdx) => (
+                      <TableCell key={`td-${cIdx}`}>{formatInlineText(cell)}</TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </tbody>
+            </Table>,
+          );
+          i = j;
+          continue;
+        }
+      }
+    }
 
     // 빈 줄
     if (trimmedLine === '') {
       elements.push(<Spacing key={`space-${keyIndex++}`} />);
-      return;
+      i++;
+      continue;
     }
 
     // --- 구분선
     if (trimmedLine === '---') {
       elements.push(<Divider key={`hr-${keyIndex++}`} />);
-      return;
+      i++;
+      continue;
     }
 
     // # 대제목 (H1)
     if (trimmedLine.startsWith('# ')) {
       elements.push(
-        <H1 key={`h1-${idx}`}>
+        <H1 key={`h1-${i}`}>
           {formatInlineText(trimmedLine.slice(2))}
         </H1>,
       );
-      return;
+      i++;
+      continue;
     }
 
     // ## 중제목 (H2)
     if (trimmedLine.startsWith('## ')) {
       elements.push(
-        <H2 key={`h2-${idx}`}>
+        <H2 key={`h2-${i}`}>
           {formatInlineText(trimmedLine.slice(3))}
         </H2>,
       );
-      return;
+      i++;
+      continue;
     }
 
     // ### 소제목 (H3)
     if (trimmedLine.startsWith('### ')) {
       elements.push(
-        <H3 key={`h3-${idx}`}>
+        <H3 key={`h3-${i}`}>
           {formatInlineText(trimmedLine.slice(4))}
         </H3>,
       );
-      return;
+      i++;
+      continue;
     }
 
     // 【섹션 헤더】
@@ -405,27 +522,30 @@ const renderMarkdown = (content: string): React.ReactNode => {
       const headerText = trimmedLine.match(/【(.+?)】/)?.[1] || '';
       const restText = trimmedLine.replace(/【.+?】/, '').trim();
       elements.push(
-        <SectionHeaderWrapper key={`section-${idx}`}>
+        <SectionHeaderWrapper key={`section-${i}`}>
           <SectionHeaderBadge>
             {headerText}
           </SectionHeaderBadge>
           {restText && <SectionHeaderText>{formatInlineText(restText)}</SectionHeaderText>}
         </SectionHeaderWrapper>,
       );
-      return;
+      i++;
+      continue;
     }
 
     // 숫자. 번호 리스트 (중첩 지원)
     const numberedMatch = trimmedLine.match(/^(\d+)\.\s+(.+)$/);
     if (numberedMatch) {
-      elements.push(renderListItem(numberedMatch[2], indentLevel, idx, true, numberedMatch[1]));
-      return;
+      elements.push(renderListItem(numberedMatch[2], indentLevel, i, true, numberedMatch[1]));
+      i++;
+      continue;
     }
 
     // - 또는 * 불릿 리스트 (중첩 지원)
     if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
-      elements.push(renderListItem(trimmedLine.slice(2), indentLevel, idx, false));
-      return;
+      elements.push(renderListItem(trimmedLine.slice(2), indentLevel, i, false));
+      i++;
+      continue;
     }
 
     // 제목처럼 보이는 줄 감지 (짧고, 마침표/쉼표 없이 끝나는 줄)
@@ -435,24 +555,26 @@ const renderMarkdown = (content: string): React.ReactNode => {
       !trimmedLine.endsWith(',') &&
       !trimmedLine.endsWith(':') &&
       !trimmedLine.includes('：') &&
-      idx > 0; // 첫 줄이 아닌 경우
+      i > 0; // 첫 줄이 아닌 경우
 
     if (isLikelyHeader) {
       elements.push(
-        <HeaderLikeParagraph key={`header-${idx}`}>
+        <HeaderLikeParagraph key={`header-${i}`}>
           {formatInlineText(trimmedLine)}
         </HeaderLikeParagraph>,
       );
-      return;
+      i++;
+      continue;
     }
 
     // 일반 텍스트
     elements.push(
-      <Paragraph key={`p-${idx}`}>
+      <Paragraph key={`p-${i}`}>
         {formatInlineText(trimmedLine)}
       </Paragraph>,
     );
-  });
+    i++;
+  }
 
   return elements;
 };
