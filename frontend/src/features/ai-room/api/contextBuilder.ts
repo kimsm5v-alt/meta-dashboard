@@ -305,16 +305,16 @@ ${formatItems(profile.weaknesses)}`;
 // 위험군 학생 포맷팅
 // ============================================================
 
-const formatRiskStudents = (students: Student[], aliasMap: StudentAliasMap): string => {
+const formatRiskStudents = (students: Student[], _aliasMap: StudentAliasMap): string => {
   const critical: string[] = [];
   const watchList: string[] = [];
-  const reversed = reverseAliasMap(aliasMap);
 
   for (const student of students) {
     const assessment = getLatestAssessment(student);
     if (!assessment?.attentionResult?.needsAttention) continue;
 
-    const alias = reversed[student.name] || student.name;
+    // 마스킹 비활성화: 항상 실제 학생 이름 사용
+    const alias = student.name;
     const reasons = assessment.attentionResult.reasons
       .map((r) => `${r.category} ${r.direction === 'low' ? '낮음' : '높음'}`)
       .join(', ');
@@ -421,7 +421,6 @@ const buildStudentContext = async (
     return '선택된 학생이 없습니다.';
   }
 
-  const reversedMap = reverseAliasMap(aliasMap);
   const studentContexts: string[] = [];
 
   for (let index = 0; index < students.length; index++) {
@@ -429,7 +428,8 @@ const buildStudentContext = async (
     const assessment = getLatestAssessment(student);
     if (!assessment) continue;
 
-    const alias = reversedMap[student.name] || `student_${String.fromCharCode(65 + index)}`;
+    // 마스킹 비활성화: 항상 실제 학생 이름 사용
+    const alias = student.name;
     const tScores = assessment.tScores;
 
     const warnings =

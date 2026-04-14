@@ -29,13 +29,9 @@ const INITIAL_MESSAGE: ChatMessage = {
 // Utils
 // ============================================================================
 
-const createAliasMap = (students: Student[]): StudentAliasMap => {
-  const map: StudentAliasMap = {};
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  students.forEach((student, idx) => {
-    map[`student_${alphabet[idx] || idx + 1}`] = student.name;
-  });
-  return map;
+const createAliasMap = (_students: Student[]): StudentAliasMap => {
+  // 마스킹 비활성화: 빈 객체 반환 (학생 이름 그대로 노출)
+  return {};
 };
 
 const createNewConversation = (): Conversation => ({
