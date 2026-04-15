@@ -9,13 +9,18 @@ import type {
 import type { AssistantResponse } from '@features/ai-room/api/assistantService';
 import { callAssistantStream } from '@features/ai-room/api/assistantService';
 import { agentResetSession } from '@features/ai-room/api/agentApiService';
+import {
+  createConversation as createConversationApi,
+  addMessage as addMessageApi,
+  getConversations as getConversationsApi,
+  getMessages as getMessagesApi,
+  deleteConversation as deleteConversationApi,
+} from '@features/ai-room/api/chatApiService';
+import type { Message, Conversation as ServerConversation } from '@features/ai-room/api/chatApiService';
 
 // ============================================================================
 // Constants
 // ============================================================================
-
-const STORAGE_KEY_CONVERSATIONS = 'ai_room_conversations';
-const STORAGE_KEY_ACTIVE_ID = 'ai_room_active_conversation_id';
 
 const INITIAL_MESSAGE: ChatMessage = {
   id: '1',
@@ -34,8 +39,8 @@ const createAliasMap = (_students: Student[]): StudentAliasMap => {
   return {};
 };
 
-const createNewConversation = (): Conversation => ({
-  id: Date.now().toString(),
+const createNewConversation = (serverId?: number): Conversation => ({
+  id: serverId ? serverId.toString() : `temp-${Date.now()}`,
   title: '새 대화',
   messages: [INITIAL_MESSAGE],
   createdAt: new Date(),
@@ -43,57 +48,47 @@ const createNewConversation = (): Conversation => ({
   contextLabel: '전체',
 });
 
-// localStorage에서 대화 기록 불러오기
-const loadConversations = (): Conversation[] => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY_CONVERSATIONS);
-    if (!stored) return [createNewConversation()];
-
-    const parsed = JSON.parse(stored) as Conversation[];
-    // Date 객체 복원
-    return parsed.map((conv) => ({
-      ...conv,
-      createdAt: new Date(conv.createdAt),
-      messages: conv.messages.map((msg) => ({
-        ...msg,
-        timestamp: new Date(msg.timestamp),
-      })),
-    }));
-  } catch {
-    return [createNewConversation()];
-  }
+/**
+ * 서버 타임스탬프 문자열 → Date 객체
+ */
+const parseServerTimestamp = (timestamp: string): Date => {
+  // yyyy-MM-dd HH:mm:ss → Date
+  const [date, time] = timestamp.split(' ');
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute, second] = time.split(':').map(Number);
+  return new Date(year, month - 1, day, hour, minute, second);
 };
 
-// localStorage에 대화 기록 저장
-const saveConversations = (conversations: Conversation[]) => {
-  try {
-    localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
-  } catch {
-    // 저장 실패 무시 (quota 초과 등)
-  }
+/**
+ * 서버 Message → ChatMessage 변환
+ */
+const convertMessage = (msg: Message): ChatMessage => ({
+  id: msg.id.toString(),
+  role: msg.role,
+  content: msg.content,
+  timestamp: parseServerTimestamp(msg.timestamp),
+});
+
+/**
+ * 서버 메시지 배열에 INITIAL_MESSAGE 추가
+ * - INITIAL_MESSAGE는 서버에 저장하지 않고 프론트에서만 표시
+ */
+const prependInitialMessage = (messages: ChatMessage[]): ChatMessage[] => {
+  return [INITIAL_MESSAGE, ...messages];
 };
 
-// localStorage에서 activeConversationId 불러오기
-const loadActiveConversationId = (conversations: Conversation[]): string => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY_ACTIVE_ID);
-    if (stored && conversations.find((c) => c.id === stored)) {
-      return stored;
-    }
-  } catch {
-    // ignore
-  }
-  return conversations[0]?.id ?? '';
-};
+/**
+ * 서버 Conversation → 프론트 Conversation 변환 (메시지 제외)
+ */
+const convertConversation = (serverConv: ServerConversation): Conversation => ({
+  id: serverConv.id.toString(),
+  title: serverConv.title,
+  mode: serverConv.mode,
+  contextLabel: serverConv.contextLabel,
+  createdAt: parseServerTimestamp(serverConv.createdAt),
+  messages: [INITIAL_MESSAGE], // 초기값, 나중에 getMessages로 채움
+});
 
-// localStorage에 activeConversationId 저장
-const saveActiveConversationId = (id: string) => {
-  try {
-    localStorage.setItem(STORAGE_KEY_ACTIVE_ID, id);
-  } catch {
-    // ignore
-  }
-};
 
 // ============================================================================
 // Hook Interface
@@ -137,26 +132,14 @@ export const useConversations = ({
   getContextLabel,
 }: UseConversationsParams): UseConversationsReturn => {
   // ---------------------------------------------------------------------------
-  // State (with localStorage persistence)
+  // State (서버 중심)
   // ---------------------------------------------------------------------------
-  const [conversations, setConversations] = useState<Conversation[]>(() => loadConversations());
-  const [activeConversationId, setActiveConversationId] = useState<string>(() =>
-    loadActiveConversationId(loadConversations()),
-  );
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string>('');
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [responseAliasMap, setResponseAliasMap] = useState<StudentAliasMap>({});
-
-  // localStorage에 대화 기록 저장 (TODO: 백엔드 API 연동 시 POST /ai-room/conversations로 교체)
-  useEffect(() => {
-    saveConversations(conversations);
-  }, [conversations]);
-
-  // localStorage에 activeConversationId 저장 (TODO: 백엔드 세션 저장으로 교체)
-  useEffect(() => {
-    saveActiveConversationId(activeConversationId);
-  }, [activeConversationId]);
 
   /**
    * 세션별 RAG 컨텍스트 캐시
@@ -171,8 +154,10 @@ export const useConversations = ({
   // Computed
   // ---------------------------------------------------------------------------
   const activeConversation =
-    conversations.find((c) => c.id === activeConversationId) || conversations[0];
-  const messages = activeConversation.messages;
+    conversations.find((c) => c.id === activeConversationId) ||
+    conversations[0] ||
+    createNewConversation();
+  const messages = activeConversation?.messages || [INITIAL_MESSAGE];
 
   const localAliasMap = useMemo(() => createAliasMap(selectedStudents), [selectedStudents]);
   const aliasMap = useMemo(
@@ -199,6 +184,58 @@ export const useConversations = ({
   };
 
   // ---------------------------------------------------------------------------
+  // 초기 로드: 서버에서 대화 목록 불러오기
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const loadConversations = async () => {
+      try {
+        console.log('📥 대화 목록 불러오기 시작...');
+        const result = await getConversationsApi(0, 50);
+
+        if (result.items.length === 0) {
+          // 서버에 대화가 없으면 새 대화 생성
+          console.log('💬 저장된 대화 없음, 새 대화 생성');
+          const newConv = createNewConversation();
+          setConversations([newConv]);
+          setActiveConversationId(newConv.id);
+        } else {
+          // 서버 대화를 프론트 형식으로 변환
+          const converted = result.items.map(convertConversation);
+          setConversations(converted);
+
+          // 첫 번째 대화 자동 선택 후 메시지 로드
+          const firstConvId = converted[0].id;
+          setActiveConversationId(firstConvId);
+
+          console.log(`✅ 대화 ${result.items.length}개 로드, 첫 대화 선택: ${firstConvId}`);
+
+          // 첫 대화의 메시지 로드
+          const messagesResult = await getMessagesApi(parseInt(firstConvId, 10));
+          const convertedMessages = messagesResult.messages.map(convertMessage);
+          // INITIAL_MESSAGE를 앞에 추가 (서버에는 저장 안 함)
+          const messagesWithInitial = prependInitialMessage(convertedMessages);
+
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === firstConvId ? { ...c, messages: messagesWithInitial } : c,
+            ),
+          );
+
+          console.log(`✅ 메시지 ${messagesWithInitial.length}개 로드 완료 (INITIAL 포함)`);
+        }
+      } catch (err) {
+        console.error('❌ 대화 목록 로드 실패:', err);
+        // 실패 시 새 대화 생성
+        const newConv = createNewConversation();
+        setConversations([newConv]);
+        setActiveConversationId(newConv.id);
+      }
+    };
+
+    loadConversations();
+  }, []); // 마운트 시 1회만 실행
+
+  // ---------------------------------------------------------------------------
   // Handlers
   // ---------------------------------------------------------------------------
   const handleNewConversation = () => {
@@ -208,9 +245,16 @@ export const useConversations = ({
   };
 
   const handleDeleteConversation = (convId: string) => {
-    // 에이전트 서버 세션 + 로컬 컨텍스트 캐시 모두 정리
+    // 에이전트 서버 세션 + 로컬 컨텍스트 캐시 정리
     agentResetSession(convId).catch(() => {});
     contextCacheRef.current.delete(convId);
+
+    // 백엔드 대화방 soft delete (임시 대화는 제외)
+    if (!convId.startsWith('temp-')) {
+      deleteConversationApi(parseInt(convId, 10)).catch((err) => {
+        console.error('❌ 대화 삭제 실패:', err);
+      });
+    }
 
     if (conversations.length === 1) {
       const newConv = createNewConversation();
@@ -225,13 +269,87 @@ export const useConversations = ({
     }
   };
 
-  const handleSelectConversation = (convId: string) => {
+  const handleSelectConversation = async (convId: string) => {
     setActiveConversationId(convId);
+
+    // temp- ID는 아직 서버에 없으므로 메시지 로드 스킵
+    if (convId.startsWith('temp-')) {
+      console.log('🆕 임시 대화 선택, 메시지 로드 스킵:', convId);
+      return;
+    }
+
+    // 이미 메시지가 로드된 대화인지 확인
+    const targetConv = conversations.find((c) => c.id === convId);
+    if (targetConv && targetConv.messages.length > 1) {
+      // INITIAL_MESSAGE(id='1') 외에 다른 메시지가 있으면 이미 로드된 것
+      console.log('✅ 메시지 이미 로드됨, 스킵:', convId);
+      return;
+    }
+
+    try {
+      console.log('📥 메시지 로드 시작:', convId);
+      const result = await getMessagesApi(parseInt(convId, 10));
+      const convertedMessages = result.messages.map(convertMessage);
+      // INITIAL_MESSAGE를 앞에 추가 (서버에는 저장 안 함)
+      const messagesWithInitial = prependInitialMessage(convertedMessages);
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === convId ? { ...c, messages: messagesWithInitial } : c,
+        ),
+      );
+
+      console.log(`✅ 메시지 ${messagesWithInitial.length}개 로드 완료 (INITIAL 포함)`);
+    } catch (err) {
+      console.error('❌ 메시지 로드 실패:', err);
+    }
   };
 
   const getConversationMode = (convId: string): ContextMode | undefined => {
     return conversations.find((c) => c.id === convId)?.mode;
   };
+
+  /**
+   * 새 대화 생성 시 서버에 저장하고 ID 교체
+   */
+  useEffect(() => {
+    const syncNewConversations = async () => {
+      for (const conv of conversations) {
+        // 임시 ID(temp-로 시작)인 경우만 처리
+        if (!conv.id.startsWith('temp-')) continue;
+
+        try {
+          console.log('💾 대화 생성:', conv.id);
+          // INITIAL_MESSAGE는 서버에 저장하지 않음 (프론트에서만 표시)
+          const result = await createConversationApi(
+            conv.mode,
+            conv.contextLabel || '전체',
+            conv.title,
+            [], // 빈 배열 - INITIAL_MESSAGE 제외
+          );
+
+          // 임시 ID를 서버 ID로 교체
+          const serverId = result.conversation.id.toString();
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === conv.id ? { ...c, id: serverId } : c,
+            ),
+          );
+
+          // 활성 대화가 방금 생성된 대화면 ID 업데이트
+          if (activeConversationId === conv.id) {
+            setActiveConversationId(serverId);
+          }
+
+          console.log('✅ 대화 생성 완료:', serverId);
+        } catch (err) {
+          console.error('❌ 대화 생성 실패:', err);
+        }
+      }
+    };
+
+    syncNewConversations();
+  }, [conversations, activeConversationId]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -249,6 +367,15 @@ export const useConversations = ({
     setStreamingContent('');
 
     try {
+      // ✅ 사용자 메시지를 서버에 저장 (비동기)
+      const convId = activeConversationId;
+      if (!convId.startsWith('temp-')) {
+        // 서버 ID(숫자)면 저장
+        addMessageApi(parseInt(convId, 10), 'user', currentInput).catch((err) => {
+          console.warn('사용자 메시지 저장 실패:', err);
+        });
+      }
+
       // 세션 캐시 조회 — 있으면 API 재호출 없이 재사용
       const cachedContext = contextCacheRef.current.get(activeConversationId) ?? null;
 
@@ -275,6 +402,13 @@ export const useConversations = ({
             };
             setMessages((prev) => [...prev, aiMsg]);
             setStreamingContent('');
+
+            // ✅ AI 응답을 서버에 저장 (비동기)
+            if (!convId.startsWith('temp-')) {
+              addMessageApi(parseInt(convId, 10), 'assistant', accumulated).catch((err) => {
+                console.warn('AI 응답 저장 실패:', err);
+              });
+            }
           }
         },
       );
@@ -299,7 +433,6 @@ export const useConversations = ({
         setMessages((prev) => [...prev, errorMsg]);
         setStreamingContent('');
       }
-      // fallback 로직 완전 제거 - isFinal 콜백에서만 메시지 추가
     } catch {
       const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
