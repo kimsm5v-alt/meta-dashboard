@@ -10,7 +10,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,22 +24,22 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@Tag(name = "AI Conversation API", description = "AI 어시스턴트 대화 저장/조회")
+@Tag(name = "AI Conversation API", description = "AI conversation save and query")
 @RequestMapping(produces = MediaType.APPLICATION_JSON_VALUE)
 public class AiConversationController {
 
     private final AiConversationService aiConversationService;
 
     @PostMapping("/api/ai/conversations")
-    @Operation(summary = "AI 대화방 생성", description = "mode/contextLabel 기반 대화방 생성 및 초기 메시지 저장")
+    @Operation(summary = "Create AI conversation", description = "Create conversation and optionally save initial messages")
     public ResponseDTO<CustomBody> createConversation(@RequestBody Map<String, Object> paramData) {
         Long userNo = SecurityUtil.requireCurrentUserNo();
         Object resultData = aiConversationService.createConversation(paramData, userNo);
-        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "AI 대화방 생성 완료");
+        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "AI conversation created");
     }
 
     @GetMapping("/api/ai/conversations")
-    @Operation(summary = "AI 대화방 목록 조회", description = "현재 로그인 사용자의 대화방 목록 조회")
+    @Operation(summary = "List AI conversations", description = "List conversations owned by current user")
     public ResponseDTO<CustomBody> getConversations(
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size
@@ -44,11 +50,11 @@ public class AiConversationController {
         paramData.put("size", size);
 
         Object resultData = aiConversationService.getConversations(userNo, page, size);
-        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "AI 대화방 목록 조회");
+        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "AI conversation list");
     }
 
     @GetMapping("/api/ai/conversations/{conversationId}/messages")
-    @Operation(summary = "AI 메시지 조회", description = "대화방 메시지 조회 (beforeMessageId 기반 페이징)")
+    @Operation(summary = "Get AI messages", description = "Load conversation messages with cursor pagination")
     public ResponseDTO<CustomBody> getConversationMessages(
             @PathVariable Long conversationId,
             @RequestParam(value = "beforeMessageId", required = false) Long beforeMessageId,
@@ -61,11 +67,11 @@ public class AiConversationController {
         paramData.put("size", size);
 
         Object resultData = aiConversationService.getConversationMessages(conversationId, userNo, beforeMessageId, size);
-        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "AI 메시지 조회");
+        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "AI message list");
     }
 
     @PostMapping("/api/ai/conversations/{conversationId}/messages")
-    @Operation(summary = "AI 메시지 저장", description = "단건 또는 배열(messages) 형태로 메시지 저장")
+    @Operation(summary = "Save AI messages", description = "Save single message or array payload")
     public ResponseDTO<CustomBody> addMessages(
             @PathVariable Long conversationId,
             @RequestBody Map<String, Object> paramData
@@ -75,6 +81,17 @@ public class AiConversationController {
         enriched.put("conversationId", conversationId);
 
         Object resultData = aiConversationService.addMessages(conversationId, paramData, userNo);
-        return AidtCommonUtil.makeResultSuccess(enriched, resultData, "AI 메시지 저장 완료");
+        return AidtCommonUtil.makeResultSuccess(enriched, resultData, "AI messages saved");
+    }
+
+    @PostMapping("/api/ai/conversations/{conversationId}/delete")
+    @Operation(summary = "Delete AI conversation", description = "Soft delete conversation by setting useYn to N")
+    public ResponseDTO<CustomBody> deleteConversation(@PathVariable Long conversationId) {
+        Long userNo = SecurityUtil.requireCurrentUserNo();
+        Map<String, Object> paramData = new HashMap<>();
+        paramData.put("conversationId", conversationId);
+
+        Object resultData = aiConversationService.deleteConversation(conversationId, userNo);
+        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "AI conversation deleted");
     }
 }

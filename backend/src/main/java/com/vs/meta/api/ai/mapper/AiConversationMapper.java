@@ -27,8 +27,6 @@ public interface AiConversationMapper {
                                                @Param("beforeMessageId") Long beforeMessageId,
                                                @Param("limit") int limit);
 
-    long countMessagesByConversation(@Param("conversationId") Long conversationId);
-
     void updateConversationLastMessageAt(@Param("id") Long id,
                                          @Param("updatedBy") Long updatedBy,
                                          @Param("lastMessageAt") LocalDateTime lastMessageAt);
@@ -36,4 +34,7 @@ public interface AiConversationMapper {
     void updateConversationTitle(@Param("id") Long id,
                                  @Param("updatedBy") Long updatedBy,
                                  @Param("title") String title);
+
+    int softDeleteConversation(@Param("id") Long id,
+                               @Param("updatedBy") Long updatedBy);
 }

@@ -79,7 +79,7 @@ public class AiConversationService {
         List<Map<String, Object>> items = new ArrayList<>();
         for (AiConversation conversation : conversations) {
             Map<String, Object> item = toConversationMap(conversation);
-            item.put("messageCount", aiConversationMapper.countMessagesByConversation(conversation.getId()));
+            item.put("messageCount", conversation.getMessageCount() == null ? 0L : conversation.getMessageCount());
             items.add(item);
         }
 
@@ -132,6 +132,22 @@ public class AiConversationService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("conversation", toConversationMap(conversation));
         result.put("messages", insertedMessages);
+        return result;
+    }
+
+    @Transactional
+    public Object deleteConversation(Long conversationId, Long userNo) {
+        AiConversation conversation = requireOwnedConversation(conversationId, userNo);
+
+        int affected = aiConversationMapper.softDeleteConversation(conversation.getId(), userNo);
+        if (affected <= 0) {
+            throw new IllegalStateException("conversation not found or already deleted. id=" + conversationId);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("conversationId", conversationId);
+        result.put("useYn", "N");
+        result.put("deleted", true);
         return result;
     }
 
