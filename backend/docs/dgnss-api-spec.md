@@ -1,6 +1,6 @@
 ﻿# 학습심리정서검사 API 연동 규격서
 
-> 최종 수정일: 2026-03-19
+> 최종 수정일: 2026-04-08
 
 ## 개요
 
@@ -692,20 +692,22 @@ GET /api/dgnss/tc/stinfolist?dgnssId=294&paperIdx=1&type=6
 | NO | 필드 | 타입 | 설명 | 비고 |
 |----|------|------|------|------|
 | 1 | stdtId | String | 학생 ID | |
-| 2 | gender | String | 성별 | |
-| 3 | desirable | String | 사회적 바람직성 | |
-| 4 | reaction | String | 반응 일관성 | |
-| 5 | scores | Object | 영역별 T점수 맵 | KEY: SECTION_ID, VALUE: T_SCORE |
-| 6 | lpaClassId | String | LPA 클래스 ID | 예: Class1~Class6 |
-| 7 | lpaTypeName | String | LPA 유형명 | |
-| 8 | lpaConfidence | Number | LPA 신뢰도(%) | 소수점 가능 |
-| 9 | lpaStatus | String | LPA 처리 상태 | COMPLETED / UNSUPPORTED / null |
-| 10 | lpaTop1TypeName | String | LPA 1순위 유형명 | |
-| 11 | lpaTop1Probability | Number | LPA 1순위 확률(%) | 소수점 1자리 |
-| 12 | lpaTop2TypeName | String | LPA 2순위 유형명 | |
-| 13 | lpaTop2Probability | Number | LPA 2순위 확률(%) | 소수점 1자리 |
-| 14 | lpaTop3TypeName | String | LPA 3순위 유형명 | |
-| 15 | lpaTop3Probability | Number | LPA 3순위 확률(%) | 소수점 1자리 |
+| 2 | nickname | String | 학생 이름(닉네임) | `group_member.nickname` |
+| 3 | memberNo | Integer | 학생 번호 | `group_member.member_no` |
+| 4 | gender | String | 성별 | |
+| 5 | desirable | String | 사회적 바람직성 | |
+| 6 | reaction | String | 반응 일관성 | |
+| 7 | scores | Object | 영역별 T점수 맵 | KEY: SECTION_ID, VALUE: T_SCORE |
+| 8 | lpaClassId | String | LPA 클래스 ID | 예: Class1~Class6 |
+| 9 | lpaTypeName | String | LPA 유형명 | |
+| 10 | lpaConfidence | Number | LPA 신뢰도(%) | 소수점 가능 |
+| 11 | lpaStatus | String | LPA 처리 상태 | COMPLETED / UNSUPPORTED / null |
+| 12 | lpaTop1TypeName | String | LPA 1순위 유형명 | |
+| 13 | lpaTop1Probability | Number | LPA 1순위 확률(%) | 소수점 1자리 |
+| 14 | lpaTop2TypeName | String | LPA 2순위 유형명 | |
+| 15 | lpaTop2Probability | Number | LPA 2순위 확률(%) | 소수점 1자리 |
+| 16 | lpaTop3TypeName | String | LPA 3순위 유형명 | |
+| 17 | lpaTop3Probability | Number | LPA 3순위 확률(%) | 소수점 1자리 |
 
 > `lpaTop1Probability + lpaTop2Probability + lpaTop3Probability = 100.0`
 
@@ -726,6 +728,8 @@ GET /api/dgnss/tc/stinfolist?dgnssId=294&paperIdx=1&type=6
     "stInfoList": [
       {
         "stdtId": "mathbe2-s1",
+        "nickname": "홍길동",
+        "memberNo": 1,
         "reaction": "주의",
         "gender": "남자",
         "desirable": "양호",
@@ -826,7 +830,7 @@ GET /api/dgnss/tc/class-factor-avg?tcId=rrmath016-t&paperIdx=1
 | NO | 필드 | 타입 | 설명 | 비고 |
 |----|------|------|------|------|
 | 1 | claId | String | 학급 ID | |
-| 2 | classNm | String | 학급명 | |
+| 2 | groupNm | String | 학급명 | |
 | 3 | totalStudentCount | Integer | 전체 학급 인원수 | `group_member.status='ACTIVE'` |
 | 4 | submittedStudentCount | Integer | 제출 학생 수 | `subm_at='Y'` |
 | 5 | reliabilityAlertCount | Integer | 신뢰도 주의 학생 수 | 위 기준 참조 |
@@ -855,7 +859,7 @@ GET /api/dgnss/tc/class-factor-avg?tcId=rrmath016-t&paperIdx=1
     "classList": [
       {
         "claId": "eb1460dce8fc42889862e9a460beb4a0",
-        "classNm": "1반",
+        "groupNm": "1반",
         "totalStudentCount": 28,
         "submittedStudentCount": 24,
         "reliabilityAlertCount": 3,
@@ -1209,6 +1213,7 @@ GET /api/dgnss/st/new?dgnssResultId=1717&paperIdx=1&page=0&size=20
 - 응답은 `stUserInfo`와 회차별 키 `"1"`, `"2"` 구조로 반환
 - 2회차가 없으면 `"2"`는 내려가지 않을 수 있음
 - `paperIdx`는 연동 시 `1` 또는 `2`를 반드시 명시해서 전달
+- `dgnssResultId` 없이 조회할 때는 `claId`가 필요
 
 | 항목 | 값 |
 |------|-----|
@@ -1223,8 +1228,9 @@ GET /api/dgnss/st/new?dgnssResultId=1717&paperIdx=1&page=0&size=20
 | 2 | stdtId | String | X | 학생 ID | 학생 기준 회차 조회 시 사용 |
 | 3 | paperIdx | String | X | 심리검사 종류 | 연동 시 `1` 또는 `2`를 반드시 명시 전달 |
 | 4 | ordNo | String | X | 기준 회차 | `stdtId` 기준 조회 시 메타 정보 조회용, 기본값: 1 |
+| 5 | claId | String | X | 학급 ID | `dgnssResultId` 없이 조회 시 필수 |
 
-> `dgnssResultId` 또는 (`stdtId` + `paperIdx`)를 전달해야 합니다.
+> `dgnssResultId` 또는 (`stdtId` + `paperIdx` + `claId`)를 전달해야 합니다.
 > `paperIdx`는 구현 히스토리상 기본값이 존재하더라도, 연동 규격상 필수값으로 간주합니다.
 > `ordNo`는 선택값입니다.
 
@@ -1235,7 +1241,7 @@ GET /api/dgnss/st/analysis?dgnssResultId=1717&paperIdx=1
 ```
 
 ```
-GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2
+GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2&claId=lectureTest
 ```
 
 #### Response Fields (resultData)
@@ -1257,8 +1263,11 @@ GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2
 | 4 | paperIdx | Integer | 심리검사 종류 | |
 | 5 | gender | String | 성별 | |
 | 6 | grade | String | 학년 정보 | |
-| 7 | classCd | String | 반 정보 | |
-| 8 | dgnssResultId | Integer | 심리검사 상세 ID | |
+| 7 | classCd | String | 반 정보(기존 키) | |
+| 8 | groupNm | String | 반 정보 | `group_info.group_nm` |
+| 9 | nickname | String | 학생 이름(닉네임) | `group_member.nickname` |
+| 10 | memberNo | Integer | 학생 번호 | `group_member.member_no` |
+| 11 | dgnssResultId | Integer | 심리검사 상세 ID | |
 
 #### Response Fields (resultData.lpaTop."1", resultData.lpaTop."2")
 
@@ -1300,17 +1309,21 @@ GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2
   "resultCode": 200,
   "paramData": {
     "stdtId": "rrmath016-s1",
-    "paperIdx": "1"
+    "paperIdx": "1",
+    "claId": "lectureTest"
   },
   "resultData": {
     "stUserInfo": {
       "stdtId": "rrmath016-s1",
+      "nickname": "홍길동",
+      "memberNo": 1,
       "eakStDt": "2026-03-18 10:00:00",
       "ordNo": 1,
       "paperIdx": 1,
       "gender": "남자",
       "grade": "중1",
       "classCd": "1반",
+      "groupNm": "1반",
       "dgnssResultId": 12509
     },
     "lpaTop": {
@@ -1526,6 +1539,56 @@ GET /api/dgnss/dgnss-download-all?jwtToken=xxxxx&dgnssId=184&type=1
 
 ---
 
+### 22. AI 채팅 대화 삭제 (Soft Delete)
+
+AI 채팅 대화를 물리 삭제하지 않고 `use_yn = 'N'`으로 변경합니다.
+
+| 항목 | 값 |
+|------|-----|
+| URL | `/api/ai/conversations/{conversationId}/delete` |
+| Method | `POST` |
+
+#### Request Parameters (Path)
+
+| NO | 파라미터 | 타입 | 필수 | 설명 | 비고 |
+|----|----------|------|------|------|------|
+| 1 | conversationId | Long | O | 대화방 ID | |
+
+#### Request Example
+
+```
+POST /api/ai/conversations/101/delete
+```
+
+#### Response Fields (resultData)
+
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | conversationId | Long | 삭제 처리된 대화방 ID | |
+| 2 | useYn | String | 삭제 플래그 | `"N"` |
+| 3 | deleted | Boolean | 삭제 처리 여부 | `true` |
+
+#### Response Example
+
+```json
+{
+  "success": true,
+  "resultMessage": "AI conversation deleted",
+  "resultCode": 200,
+  "paramData": {
+    "conversationId": 101
+  },
+  "resultData": {
+    "conversationId": 101,
+    "useYn": "N",
+    "deleted": true
+  },
+  "currentTime": "2026-04-15 17:30:00"
+}
+```
+
+---
+
 ## 에러 코드
 
 | 코드 | 설명 |
@@ -1544,3 +1607,5 @@ GET /api/dgnss/dgnss-download-all?jwtToken=xxxxx&dgnssId=184&type=1
 | 2026-03-18 | 1.2 | 패키지/클래스명 etc→dgnss 변경, 엔드포인트 /api/meta→/api/dgnss 변경 |
 | 2026-03-18 | 1.3 | xlsx 파일 기준 파라미터 상세 설명 추가 |
 | 2026-03-19 | 1.4 | 학생 결과 조회 API를 `/api/dgnss/st/analysis` 단일 엔드포인트로 통합, `dgnssResultId`/`stdtId` 기준 조회 규칙 및 응답 구조 반영 |
+| 2026-04-08 | 1.5 | `tc/stinfolist` 응답에 `nickname`/`memberNo` 추가, `st/analysis`의 `stdtId` 조회 시 `claId` 규칙 추가 및 `stUserInfo`에 `groupNm`/`nickname`/`memberNo` 반영, `tc/class-factor-avg`의 학급명 키를 `classNm`→`groupNm`으로 변경 |
+| 2026-04-15 | 1.6 | AI 채팅 대화 Soft Delete API (`POST /api/ai/conversations/{conversationId}/delete`) 연계 스펙 추가 |

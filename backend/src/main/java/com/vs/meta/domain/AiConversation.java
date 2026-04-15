@@ -21,4 +21,5 @@ public class AiConversation {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime lastMessageAt;
+    private Long messageCount;
 }

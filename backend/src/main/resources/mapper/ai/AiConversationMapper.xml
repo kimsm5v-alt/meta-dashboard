@@ -14,6 +14,7 @@
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
         <result property="lastMessageAt" column="last_message_at"/>
+        <result property="messageCount" column="message_count"/>
     </resultMap>
 
     <resultMap id="aiMessageResultMap" type="com.vs.meta.domain.AiMessage">
@@ -50,13 +51,40 @@
 
     <select id="findConversationsByOwner" resultMap="aiConversationResultMap">
         /* AiConversationMapper.findConversationsByOwner */
-        SELECT id, owner_user_no, title, mode, context_label, use_yn,
-               created_by, updated_by, created_at, updated_at, last_message_at
-        FROM ai_conversation
-        WHERE owner_user_no = #{ownerUserNo}
-          AND use_yn = 'Y'
-        ORDER BY COALESCE(last_message_at, created_at) DESC, id DESC
-        LIMIT #{limit} OFFSET #{offset}
+        SELECT c.id,
+               c.owner_user_no,
+               c.title,
+               c.mode,
+               c.context_label,
+               c.use_yn,
+               c.created_by,
+               c.updated_by,
+               c.created_at,
+               c.updated_at,
+               c.last_message_at,
+               COUNT(m.id) AS message_count
+        FROM (
+            SELECT id, owner_user_no, title, mode, context_label, use_yn,
+                   created_by, updated_by, created_at, updated_at, last_message_at
+            FROM ai_conversation
+            WHERE owner_user_no = #{ownerUserNo}
+              AND use_yn = 'Y'
+            ORDER BY COALESCE(last_message_at, created_at) DESC, id DESC
+            LIMIT #{limit} OFFSET #{offset}
+        ) c
+        LEFT JOIN ai_message m ON m.conversation_id = c.id
+        GROUP BY c.id,
+                 c.owner_user_no,
+                 c.title,
+                 c.mode,
+                 c.context_label,
+                 c.use_yn,
+                 c.created_by,
+                 c.updated_by,
+                 c.created_at,
+                 c.updated_at,
+                 c.last_message_at
+        ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC
     </select>
 
     <select id="countConversationsByOwner" resultType="long">
@@ -89,11 +117,6 @@
         LIMIT #{limit}
     </select>
 
-    <select id="countMessagesByConversation" resultType="long">
-        /* AiConversationMapper.countMessagesByConversation */
-        SELECT COUNT(1) FROM ai_message WHERE conversation_id = #{conversationId}
-    </select>
-
     <update id="updateConversationLastMessageAt">
         /* AiConversationMapper.updateConversationLastMessageAt */
         UPDATE ai_conversation
@@ -110,6 +133,16 @@
             updated_by = #{updatedBy},
             updated_at = NOW()
         WHERE id = #{id}
+    </update>
+
+    <update id="softDeleteConversation">
+        /* AiConversationMapper.softDeleteConversation */
+        UPDATE ai_conversation
+        SET use_yn = 'N',
+            updated_by = #{updatedBy},
+            updated_at = NOW()
+        WHERE id = #{id}
+          AND use_yn = 'Y'
     </update>
 
 </mapper>
