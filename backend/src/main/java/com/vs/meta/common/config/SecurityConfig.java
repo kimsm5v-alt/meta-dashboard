@@ -1,22 +1,28 @@
 package com.vs.meta.common.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vs.meta.common.security.SpAuthenticatedUser;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.convert.converter.Converter;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @EnableWebSecurity
@@ -99,18 +105,16 @@ public class SecurityConfig {
     }
 
     /**
-     * API 영역: JWT 기반 Stateless (기존)
+     * API 영역: SuperPlatform SSO JWT (RS256, JWKS 공개키 검증)
      */
     @Configuration
     @Order(2)
     public static class ApiSecurityConfig extends WebSecurityConfigurerAdapter {
 
         private final Environment env;
-        private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-        public ApiSecurityConfig(Environment env, JwtAuthenticationFilter jwtAuthenticationFilter) {
+        public ApiSecurityConfig(Environment env) {
             this.env = env;
-            this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         }
 
         @Override
@@ -124,16 +128,22 @@ public class SecurityConfig {
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
                 .authorizeRequests()
-                    .antMatchers("/member/login", "/member/signup", "/member/token/refresh",
-                            "/member/logout", "/member/send-code", "/member/verify-code",
-                            "/group/invite", "/group/join-guest",
-                            "/guest/exists", "/guest/auth").permitAll()
+                    // SSO Auth 프록시 (public — SDK가 호출)
+                    .antMatchers("/api/v1/auth/**").permitAll()
+                    // 게스트 관련 (public)
+                    .antMatchers("/guest/exists", "/guest/auth").permitAll()
+                    // 그룹 초대/참가 (public)
+                    .antMatchers("/group/invite", "/group/join-guest").permitAll()
+                    // 게스트 이메일 인증 (학심정 자체 유지)
+                    .antMatchers("/member/send-code", "/member/verify-code").permitAll()
+                    // Swagger, health, static
                     .antMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     .antMatchers("/viva/metric/prometheus").permitAll()
                     .antMatchers("/actuator/health").permitAll()
                     .antMatchers("/", "/robots.txt", "/favicon.ico").permitAll()
                     .antMatchers("/static/**").permitAll()
-                    // /school/** 제거 — 인증 없이 school import 불가하도록 차단 (Admin UI로 대체)
+                    // 추가 정보 입력 API (JWT 필요하지만 user 미생성 상태에서 호출)
+                    .antMatchers("/api/v1/user/complete-profile").authenticated()
                     .anyRequest().authenticated()
                 .and()
                 .exceptionHandling()
@@ -164,11 +174,34 @@ public class SecurityConfig {
                         new ObjectMapper().writeValue(response.getOutputStream(), body);
                     })
                 .and()
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // RS256 JWT 검증 (JWKS 공개키 자동 페칭)
+                .oauth2ResourceServer()
+                    .jwt()
+                        .jwtAuthenticationConverter(jwtAuthenticationConverter());
 
             if (isRealProfileActive()) {
                 configureHsts(http);
             }
+        }
+
+        /**
+         * SP JWT Claims → SpAuthenticatedUser 변환.
+         * SecurityContext의 principal로 SpAuthenticatedUser가 설정된다.
+         */
+        private Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter() {
+            return jwt -> {
+                String spUserId = jwt.getSubject();
+                String email = jwt.getClaimAsString("email");
+                String name = jwt.getClaimAsString("name");
+                String userType = jwt.getClaimAsString("userType");
+
+                var user = new SpAuthenticatedUser(spUserId, email, name, userType);
+
+                String role = (userType != null) ? userType : "USER";
+                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+
+                return new UsernamePasswordAuthenticationToken(user, null, authorities);
+            };
         }
 
         private void configureHsts(HttpSecurity http) throws Exception {

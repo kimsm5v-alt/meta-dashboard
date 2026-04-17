@@ -13,8 +13,10 @@ import java.time.LocalDateTime;
 public class User {
 
     private Long userNo;
+    private String spUserId;      // 슈퍼플랫폼 publicUserId (UUID)
+    private String authProvider;  // 인증 제공자 (SSO)
     private String email;
-    private String password;
+    private String password;      // Step 3에서 제거 예정 (SSO 전환 완료 시)
     private String nickname;
     private String gender;
     private String roleCode;
