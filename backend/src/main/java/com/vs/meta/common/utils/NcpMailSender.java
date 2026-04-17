@@ -85,6 +85,35 @@ public class NcpMailSender {
         }
     }
 
+    public void sendTempPassword(String toEmail, String tempPassword) {
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String signature = makeSignature("POST", MAIL_API_PATH, timestamp);
+
+        Map<String, Object> body = Map.of(
+                "senderAddress", senderAddress,
+                "senderName", "[학습심리검사]",
+                "title", "[학습심리검사] 비밀번호가 초기화되었습니다",
+                "body", buildTempPasswordHtml(tempPassword),
+                "recipients", List.of(Map.of("address", toEmail, "type", "R")),
+                "individual", true,
+                "advertising", false
+        );
+
+        WebClient.create(mailUrl)
+                .post()
+                .uri(MAIL_API_PATH)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("x-ncp-apigw-timestamp", timestamp)
+                .header("x-ncp-iam-access-key", accessKey)
+                .header("x-ncp-apigw-signature-v2", signature)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(String.class)
+                .doOnSuccess(res -> log.info("임시 비밀번호 메일 발송 성공: to={}", toEmail))
+                .doOnError(err -> log.error("임시 비밀번호 메일 발송 실패: to={}", toEmail, err))
+                .block();
+    }
+
     public void sendGroupInvitation(String toEmail, String groupName, String inviteCode) {
         String timestamp = String.valueOf(System.currentTimeMillis());
         String signature = makeSignature("POST", MAIL_API_PATH, timestamp);
@@ -262,6 +291,19 @@ public class NcpMailSender {
                 + "<p>아래 인증코드를 입력해 주세요.</p>"
                 + "<h1 style='color:#4A90D9;letter-spacing:8px'>" + code + "</h1>"
                 + "<p style='color:#999'>이 코드는 5분간 유효합니다.</p>"
+                + "</div>";
+    }
+
+    private String buildTempPasswordHtml(String tempPassword) {
+        return "<div style='padding:20px;font-family:sans-serif;line-height:1.8'>"
+                + "<h2>[학습심리검사] 비밀번호 초기화 안내</h2>"
+                + "<p>안녕하세요.</p>"
+                + "<p>관리자에 의해 비밀번호가 초기화되었습니다.</p>"
+                + "<div style='margin:20px 0;padding:16px;background:#f5f5f5;border-radius:8px'>"
+                + "<p style='margin:0 0 8px 0;color:#666'>임시 비밀번호</p>"
+                + "<h1 style='margin:0;color:#4A90D9;letter-spacing:4px'>" + tempPassword + "</h1>"
+                + "</div>"
+                + "<p>위 비밀번호로 로그인해주세요.</p>"
                 + "</div>";
     }
 

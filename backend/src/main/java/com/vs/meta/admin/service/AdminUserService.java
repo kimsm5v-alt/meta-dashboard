@@ -9,6 +9,7 @@ import com.vs.meta.api.member.mapper.RefreshTokenMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.school.mapper.SchoolInfoMapper;
 import com.vs.meta.common.utils.IdGenerator;
+import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.domain.AuthSchoolMap;
 import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.RoleGroup;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -46,6 +48,7 @@ public class AdminUserService {
     private final GroupInfoMapper groupInfoMapper;
     private final GroupQueryMapper groupQueryMapper;
     private final DgnssMapper dgnssMapper;
+    private final NcpMailSender ncpMailSender;
 
     // ===== 사용자 관리 =====
 
@@ -155,6 +158,71 @@ public class AdminUserService {
             log.info("계정 정지/탈퇴로 refreshToken 전체 삭제: userNo={}", userNo);
         }
         log.info("상태 변경: userNo={}, newStatus={}, by={}", userNo, newStatus, adminUserNo);
+    }
+
+    // ===== 비밀번호 초기화 =====
+
+    /**
+     * 비밀번호 초기화: 랜덤 임시 비밀번호 생성 → BCrypt 저장 → refresh_token 삭제
+     * @return 임시 비밀번호 (평문, 화면 표시용)
+     */
+    @Transactional
+    public String resetPassword(Long userNo, Long adminUserNo) {
+        User user = userMapper.findByUserNo(userNo);
+        if (user == null) {
+            throw new IllegalArgumentException("존재하지 않는 사용자입니다.");
+        }
+
+        String tempPassword = generateTempPassword();
+        String encoded = passwordEncoder.encode(tempPassword);
+
+        userMapper.updatePassword(userNo, encoded, adminUserNo);
+        refreshTokenMapper.deleteByUserNo(userNo);
+
+        log.info("비밀번호 초기화: userNo={}, adminUserNo={}", userNo, adminUserNo);
+        return tempPassword;
+    }
+
+    /**
+     * 임시 비밀번호 이메일 발송
+     */
+    public void sendTempPasswordEmail(Long userNo, String tempPassword) {
+        User user = userMapper.findByUserNo(userNo);
+        if (user == null) {
+            throw new IllegalArgumentException("존재하지 않는 사용자입니다.");
+        }
+        if (user.getEmail() == null || user.getEmail().isBlank()) {
+            throw new IllegalArgumentException("이메일이 등록되지 않은 사용자입니다.");
+        }
+
+        ncpMailSender.sendTempPassword(user.getEmail(), tempPassword);
+        log.info("임시 비밀번호 이메일 발송: userNo={}, email={}", userNo, user.getEmail());
+    }
+
+    /**
+     * 랜덤 임시 비밀번호 생성 (10자: 대문자2 + 소문자4 + 숫자2 + 특수문자2)
+     */
+    private String generateTempPassword() {
+        SecureRandom random = new SecureRandom();
+        String upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        String lower = "abcdefghjkmnpqrstuvwxyz";
+        String digits = "23456789";
+        String special = "!@#$%&*";
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 2; i++) sb.append(upper.charAt(random.nextInt(upper.length())));
+        for (int i = 0; i < 4; i++) sb.append(lower.charAt(random.nextInt(lower.length())));
+        for (int i = 0; i < 2; i++) sb.append(digits.charAt(random.nextInt(digits.length())));
+        for (int i = 0; i < 2; i++) sb.append(special.charAt(random.nextInt(special.length())));
+
+        char[] chars = sb.toString().toCharArray();
+        for (int i = chars.length - 1; i > 0; i--) {
+            int j = random.nextInt(i + 1);
+            char tmp = chars[i];
+            chars[i] = chars[j];
+            chars[j] = tmp;
+        }
+        return new String(chars);
     }
 
     // ===== 역할 관리 =====

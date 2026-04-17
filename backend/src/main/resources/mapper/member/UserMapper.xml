@@ -112,4 +112,13 @@
         WHERE user_no = #{userNo}
     </update>
 
+    <update id="updatePassword">
+        /* UserMapper.updatePassword */
+        UPDATE `user`
+        SET password   = #{password},
+            updated_by = #{updatedBy},
+            updated_at = NOW()
+        WHERE user_no = #{userNo}
+    </update>
+
 </mapper>

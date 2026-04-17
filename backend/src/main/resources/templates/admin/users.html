@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
     <title>사용자 관리 - Meta Admin</title>
     <th:block th:replace="admin/fragments :: css" />
 </head>
@@ -126,6 +128,7 @@
                                     <th>역할 변경</th>
                                     <th>상태 변경</th>
                                     <th>학교 매핑</th>
+                                    <th>비밀번호</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -169,9 +172,18 @@
                                             <i class="fas fa-school mr-1"></i>매핑
                                         </a>
                                     </td>
+                                    <td>
+                                        <button type="button" class="btn btn-outline-warning btn-xs"
+                                                th:data-user-no="${user.userNo}"
+                                                th:data-email="${user.email}"
+                                                th:data-nickname="${user.nickname}"
+                                                onclick="confirmResetPassword(this)">
+                                            <i class="fas fa-key mr-1"></i>비밀번호 초기화
+                                        </button>
+                                    </td>
                                 </tr>
                                 <tr th:if="${#lists.isEmpty(users)}">
-                                    <td colspan="10" class="text-center text-muted py-4">검색 결과가 없습니다</td>
+                                    <td colspan="11" class="text-center text-muted py-4">검색 결과가 없습니다</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -185,6 +197,90 @@
         </section>
     </div>
 </div>
+<!-- 비밀번호 초기화 결과 모달 -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">비밀번호 초기화 완료</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="mb-2">임시 비밀번호</p>
+                <h3 id="tempPasswordDisplay" class="text-primary" style="letter-spacing:2px;user-select:all"></h3>
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="copyTempPassword()">
+                    <i class="fas fa-copy mr-1"></i>복사
+                </button>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-info btn-sm" id="sendEmailBtn" onclick="sendTempPasswordEmail()">
+                    <i class="fas fa-envelope mr-1"></i>이메일로 발송
+                </button>
+                <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <th:block th:replace="admin/fragments :: js" />
+<script>
+var _csrfToken = $('meta[name="_csrf"]').attr('content');
+var _csrfHeader = $('meta[name="_csrf_header"]').attr('content');
+$.ajaxSetup({ beforeSend: function(xhr) { xhr.setRequestHeader(_csrfHeader, _csrfToken); } });
+
+var _resetUserNo = null;
+var _tempPassword = null;
+
+function confirmResetPassword(btn) {
+    var userNo = btn.getAttribute('data-user-no');
+    var email = btn.getAttribute('data-email');
+    var nickname = btn.getAttribute('data-nickname');
+    if (!confirm(nickname + '(' + email + ') 비밀번호를 초기화하시겠습니까?')) return;
+
+    _resetUserNo = userNo;
+    $.post('/admin/users/reset-password', { userNo: userNo }, function(res) {
+        if (res.success) {
+            _tempPassword = res.tempPassword;
+            $('#tempPasswordDisplay').text(res.tempPassword);
+            $('#sendEmailBtn').prop('disabled', false)
+                .removeClass('btn-success').addClass('btn-info')
+                .html('<i class="fas fa-envelope mr-1"></i>이메일로 발송');
+            $('#resetPasswordModal').modal('show');
+        } else {
+            alert('실패: ' + res.message);
+        }
+    }).fail(function() {
+        alert('서버 오류가 발생했습니다.');
+    });
+}
+
+function copyTempPassword() {
+    if (!_tempPassword) return;
+    navigator.clipboard.writeText(_tempPassword).then(function() {
+        alert('복사되었습니다.');
+    });
+}
+
+function sendTempPasswordEmail() {
+    if (!_resetUserNo || !_tempPassword) return;
+    var btn = $('#sendEmailBtn');
+    btn.prop('disabled', true).text('발송 중...');
+
+    $.post('/admin/users/send-temp-password', {
+        userNo: _resetUserNo,
+        tempPassword: _tempPassword
+    }, function(res) {
+        if (res.success) {
+            btn.text('발송 완료').removeClass('btn-info').addClass('btn-success');
+        } else {
+            alert('발송 실패: ' + res.message);
+            btn.prop('disabled', false).html('<i class="fas fa-envelope mr-1"></i>이메일로 발송');
+        }
+    }).fail(function() {
+        alert('서버 오류가 발생했습니다.');
+        btn.prop('disabled', false).html('<i class="fas fa-envelope mr-1"></i>이메일로 발송');
+    });
+}
+</script>
 </body>
 </html>

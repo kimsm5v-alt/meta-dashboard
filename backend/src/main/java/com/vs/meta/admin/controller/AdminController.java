@@ -138,6 +138,40 @@ public class AdminController {
         return "redirect:/admin/users";
     }
 
+    @PostMapping("/users/reset-password")
+    @ResponseBody
+    public Map<String, Object> resetPassword(@RequestParam Long userNo,
+                                              Authentication auth) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        try {
+            Long adminUserNo = adminUserService.resolveAdminUserNo(auth.getName());
+            String tempPassword = adminUserService.resetPassword(userNo, adminUserNo);
+            result.put("success", true);
+            result.put("tempPassword", tempPassword);
+            result.put("message", "비밀번호가 초기화되었습니다.");
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    @PostMapping("/users/send-temp-password")
+    @ResponseBody
+    public Map<String, Object> sendTempPasswordEmail(@RequestParam Long userNo,
+                                                      @RequestParam String tempPassword) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        try {
+            adminUserService.sendTempPasswordEmail(userNo, tempPassword);
+            result.put("success", true);
+            result.put("message", "이메일이 발송되었습니다.");
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
     // ===== 역할 관리 =====
 
     @GetMapping("/roles")
