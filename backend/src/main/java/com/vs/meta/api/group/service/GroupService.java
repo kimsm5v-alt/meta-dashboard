@@ -281,10 +281,11 @@ public class GroupService {
 
         emailVerificationService.consumeVerification(email);
 
-        // 게스트 토큰 발급
-        Map<String, Object> tokens = guestAuthService.issueGuestTokens(stdtId, groupInfo.getClaId(), email, null, null);
-        paramData.put("accessToken", tokens.get("accessToken"));
-        paramData.put("refreshToken", tokens.get("refreshToken"));
+        // 게스트 토큰 발급 — Auth 서버 게스트 토큰 사용 (RT 없음)
+        Map<String, Object> guestToken = guestAuthService.authenticateGuest(
+                groupInfo.getInviteCode(), email, null, null);
+        paramData.put("accessToken", guestToken.get("accessToken"));
+        paramData.put("guestId", guestToken.get("guestId"));
 
         log.info("게스트 그룹 참가: groupId={}, email={}, memberNo={}", groupId, email, memberNo);
         return paramData;
