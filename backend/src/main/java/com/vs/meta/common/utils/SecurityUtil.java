@@ -1,12 +1,20 @@
 package com.vs.meta.common.utils;
 
+import com.vs.meta.common.config.SpUserMappingFilter;
 import com.vs.meta.common.security.SpAuthenticatedUser;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * SecurityContext에서 인증된 사용자 정보를 추출하는 유틸.
  * SSO 전환 후 SpAuthenticatedUser (SP JWT Claims 기반)를 사용한다.
+ *
+ * <p>spUserId → userNo 매핑은 {@link SpUserMappingFilter}에서 수행하고
+ * request attribute에 캐싱한다. 이 클래스는 그 캐시를 읽는다.
  */
 public class SecurityUtil {
 
@@ -33,36 +41,44 @@ public class SecurityUtil {
 
     /**
      * 현재 인증된 사용자 번호(userNo)를 가져온다.
-     * SpAuthenticatedUser → spUserId → UserMapper.findBySpUserId() → userNo
      *
-     * 주의: 이 메서드는 DB 조회가 필요하므로 빈번한 호출 시 캐시 고려.
-     *       현재는 request scope에서 1회 호출 후 request attribute에 저장하는 패턴 권장.
-     *
-     * TODO: SsoUserService 연동 후 spUserId → userNo 매핑 캐시 적용
+     * <p>SP JWT 인증: SpUserMappingFilter가 request attribute에 캐싱한 userNo를 읽는다.
+     * <p>Admin 세션: principal(String)에서 직접 파싱한다.
      */
     public static Long getCurrentUserNo() {
-        // 기존 호환: principal이 String(userNo)인 경우 (Admin 세션 등)
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated()) {
-            Object principal = auth.getPrincipal();
+        if (auth == null || !auth.isAuthenticated()) return null;
 
-            // SP JWT 인증 (SpAuthenticatedUser)
-            if (principal instanceof SpAuthenticatedUser) {
-                // spUserId → userNo 매핑은 SsoUserService에서 처리
-                // 여기서는 request attribute에 캐싱된 userNo를 반환
-                // TODO: 매핑 구현 후 연동
-                return null;
-            }
+        Object principal = auth.getPrincipal();
 
-            // 기존 Admin 세션 (String principal)
-            if (principal instanceof String) {
-                try {
-                    return Long.valueOf((String) principal);
-                } catch (NumberFormatException e) {
-                    return null;
+        // SP JWT 인증 → request attribute에서 매핑된 userNo 읽기
+        if (principal instanceof SpAuthenticatedUser) {
+            HttpServletRequest request = getCurrentRequest();
+            if (request != null) {
+                Object userNo = request.getAttribute(SpUserMappingFilter.ATTR_USER_NO);
+                if (userNo instanceof Long) {
+                    return (Long) userNo;
                 }
             }
+            return null;
         }
+
+        // Admin 세션 (Spring Security UserDetails — username이 email)
+        if (principal instanceof org.springframework.security.core.userdetails.User) {
+            // Admin은 userNo가 아닌 email로 인증하므로 여기서는 null
+            // Admin 전용 컨트롤러에서 resolveAdminUserNo()를 사용
+            return null;
+        }
+
+        // 기타 String principal (레거시 호환)
+        if (principal instanceof String) {
+            try {
+                return Long.valueOf((String) principal);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+
         return null;
     }
 
@@ -92,6 +108,17 @@ public class SecurityUtil {
         SpAuthenticatedUser user = getCurrentSpUser();
         if (user != null && "GUEST".equals(user.userType())) {
             return user.spUserId();
+        }
+        return null;
+    }
+
+    /**
+     * 현재 HttpServletRequest를 가져온다 (RequestContextHolder 경유).
+     */
+    private static HttpServletRequest getCurrentRequest() {
+        var attrs = RequestContextHolder.getRequestAttributes();
+        if (attrs instanceof ServletRequestAttributes) {
+            return ((ServletRequestAttributes) attrs).getRequest();
         }
         return null;
     }

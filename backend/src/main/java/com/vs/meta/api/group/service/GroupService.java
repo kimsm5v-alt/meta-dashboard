@@ -409,8 +409,10 @@ public class GroupService {
         }
 
         var result = new LinkedHashMap<String, Object>();
+        result.put("groupId", groupInfo.getGroupId());
         result.put("claId", groupInfo.getClaId());
         result.put("groupNm", groupInfo.getGroupNm());
+        result.put("inviteCode", groupInfo.getInviteCode());
         result.put("schoolLevel", groupInfo.getSchoolLevel());
         result.put("grade", groupInfo.getGrade());
         result.put("classNumber", groupInfo.getClassNumber());

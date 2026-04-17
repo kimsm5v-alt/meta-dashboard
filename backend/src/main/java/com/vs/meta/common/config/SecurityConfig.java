@@ -112,9 +112,11 @@ public class SecurityConfig {
     public static class ApiSecurityConfig extends WebSecurityConfigurerAdapter {
 
         private final Environment env;
+        private final SpUserMappingFilter spUserMappingFilter;
 
-        public ApiSecurityConfig(Environment env) {
+        public ApiSecurityConfig(Environment env, SpUserMappingFilter spUserMappingFilter) {
             this.env = env;
+            this.spUserMappingFilter = spUserMappingFilter;
         }
 
         @Override
@@ -178,6 +180,10 @@ public class SecurityConfig {
                 .oauth2ResourceServer()
                     .jwt()
                         .jwtAuthenticationConverter(jwtAuthenticationConverter());
+
+            // JWT 검증 후 spUserId → userNo 매핑 필터
+            http.addFilterAfter(spUserMappingFilter,
+                    org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationFilter.class);
 
             if (isRealProfileActive()) {
                 configureHsts(http);
