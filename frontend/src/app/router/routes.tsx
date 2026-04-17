@@ -8,6 +8,7 @@ import { FEATURES } from '@shared/config/features';
 
 // Page imports from pages layer
 import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
+import { CompleteProfilePage } from '@pages/auth/CompleteProfilePage';
 import {
   LandingPage,
   LoginPage,
@@ -122,7 +123,7 @@ export const AppRoutes = () => (
     <Route element={<PublicLayout />}>
       <Route path='/' element={<LandingPage />} />
       <Route path='/login' element={<LoginPage />} />
-      {/* /signup, /forgot-password 제거 — Auth 서버에서 처리 */}
+      <Route path='/auth/complete-profile' element={<CompleteProfilePage />} />
       <Route path='/exam' element={<ExamCodeEntryPage />} />
       <Route path='/exam/:code' element={<ExamPage />} />
       <Route path='/join/:code' element={<JoinGroupPage />} />
