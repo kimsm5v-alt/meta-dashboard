@@ -11,8 +11,6 @@ import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
 import {
   LandingPage,
   LoginPage,
-  SignUpPage,
-  ForgotPasswordPage,
   TeacherDashboardPage,
   ClassDashboardPage,
   ClassDetailAnalysisPage,
@@ -124,8 +122,7 @@ export const AppRoutes = () => (
     <Route element={<PublicLayout />}>
       <Route path='/' element={<LandingPage />} />
       <Route path='/login' element={<LoginPage />} />
-      <Route path='/signup' element={<SignUpPage />} />
-      <Route path='/forgot-password' element={<ForgotPasswordPage />} />
+      {/* /signup, /forgot-password 제거 — Auth 서버에서 처리 */}
       <Route path='/exam' element={<ExamCodeEntryPage />} />
       <Route path='/exam/:code' element={<ExamPage />} />
       <Route path='/join/:code' element={<JoinGroupPage />} />

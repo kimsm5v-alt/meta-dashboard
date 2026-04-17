@@ -2,7 +2,6 @@ import type React from 'react';
 import { useState } from 'react';
 import styled from '@emotion/styled';
 import { LoginForm } from '@features/auth/ui/LoginForm';
-import { useAuth } from '@features/auth/model/AuthContext';
 
 interface ExamAuthStepProps {
   examName: string;
@@ -66,17 +65,13 @@ const FormCard = styled.div`
 `;
 
 export const ExamAuthStep: React.FC<ExamAuthStepProps> = ({ examName, examCode, onGuestStart }) => {
-  const { loginWithEmail } = useAuth();
-  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginLoading] = useState(false);
 
-  const handleLogin = async (email: string, password: string) => {
-    setLoginLoading(true);
-    try {
-      await loginWithEmail(email, password);
-      // 로그인 성공 → ExamPage의 useEffect가 isAuthenticated 변경 감지 → 'number' step으로 이동
-    } finally {
-      setLoginLoading(false);
-    }
+  const handleLogin = async () => {
+    // SSO 전환: Auth 서버로 리다이렉트
+    const { getAuth } = await import('@shared/lib/authClient');
+    const auth = getAuth();
+    await auth.login({ redirectPath: window.location.pathname });
   };
 
   return (

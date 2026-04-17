@@ -434,13 +434,13 @@ const GenderButton = styled.button<{ $isSelected: boolean }>`
 export const JoinGroupPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { user, isAuthenticated, isLoading: authLoading, loginWithEmail, loginAsGuest } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, loginAsGuest } = useAuth();
 
   const [step, setStep] = useState<PageStep>(isAuthenticated ? 'loading' : 'info');
   const [groupInfo, setGroupInfo] = useState<GroupInviteInfo | null>(null);
   const [alreadyJoined, setAlreadyJoined] = useState(false);
   const [error, setError] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginLoading] = useState(false);
 
   // 게스트 가입 폼
   const [guestNickname, setGuestNickname] = useState('');
@@ -588,15 +588,11 @@ export const JoinGroupPage: React.FC = () => {
     }
   };
 
-  // 로그인 처리 (로그인 성공 후 자동 가입)
-  const handleLogin = async (email: string, password: string) => {
-    setLoginLoading(true);
-    try {
-      await loginWithEmail(email, password);
-      // 로그인 성공 → useEffect에서 isAuthenticated 변경 감지 → 자동 가입 처리
-    } finally {
-      setLoginLoading(false);
-    }
+  // SSO 로그인 처리 (Auth 서버로 리다이렉트)
+  const handleLogin = async () => {
+    const { getAuth } = await import('@shared/lib/authClient');
+    const auth = getAuth();
+    await auth.login({ redirectPath: `/join/${code}` });
   };
 
   // 로그인 후 자동 가입
@@ -638,7 +634,7 @@ export const JoinGroupPage: React.FC = () => {
         groupNm: string;
         email: string;
         accessToken: string;
-        refreshToken: string;
+        guestId?: string;
       }>('/guest/auth', {
         inviteCode: code,
         email: guestEmail.trim(),
@@ -655,7 +651,7 @@ export const JoinGroupPage: React.FC = () => {
         groupNm: result.resultData.groupNm || groupInfo.name,
         email: result.resultData.email,
         accessToken: result.resultData.accessToken,
-        refreshToken: result.resultData.refreshToken,
+        guestId: result.resultData.guestId,
       });
 
       // 게스트 검사 목록으로 이동
@@ -703,7 +699,7 @@ export const JoinGroupPage: React.FC = () => {
         groupNm: groupInfo.name,
         email: guestEmail.trim(),
         accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
+        guestId: result.guestId,
       });
 
       // 게스트 검사 목록으로 이동

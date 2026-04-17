@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import { getAuth } from '@shared/lib/authClient';
 
 // ============================================================
 // 공통 응답 타입
@@ -50,74 +51,37 @@ export const axiosInstance: AxiosInstance = axios.create({
 
 // 인증 불필요 엔드포인트 (토큰 전송 제외)
 const PUBLIC_ENDPOINTS = [
-  '/member/login',
-  '/member/signup',
-  '/member/send-code',
-  '/member/verify-code',
-  '/member/token/refresh',
-  '/guest/exists', // 게스트 그룹 정보 조회 (비로그인 허용)
-  '/guest/auth', // 게스트 재인증 (비로그인 허용)
-  '/group/invite', // 초대 링크 접근 (비로그인 허용)
-  '/group/join-guest', // 게스트 가입 (비로그인 허용)
+  '/api/v1/auth/',          // SSO 프록시
+  '/guest/exists',
+  '/guest/auth',
+  '/member/send-code',      // 게스트 이메일 인증 (유지)
+  '/member/verify-code',    // 게스트 이메일 인증 (유지)
+  '/group/invite',
+  '/group/join-guest',
 ];
 
 // ============================================================
-// Silent Refresh — 동시 요청 큐
-// ============================================================
-
-let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (token: string) => void;
-  reject: (err: unknown) => void;
-}> = [];
-
-const processQueue = (error: unknown, token: string | null) => {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) reject(error);
-    else resolve(token!);
-  });
-  failedQueue = [];
-};
-
-const tryRefreshToken = async (): Promise<string> => {
-  const refreshToken = localStorage.getItem('refresh_token');
-  if (!refreshToken) throw new Error('NO_REFRESH_TOKEN');
-
-  // axiosInstance를 거치지 않는 순수 axios 호출 (인터셉터 루프 방지)
-  const res = await axios.post<APIResponse<{ accessToken: string; refreshToken?: string }>>(
-    `${BASE_URL}/member/token/refresh`,
-    { refreshToken },
-    { headers: { 'Content-Type': 'application/json' } },
-  );
-
-  const data = res.data.resultData;
-  if (!data?.accessToken) throw new Error('REFRESH_FAILED');
-
-  localStorage.setItem('auth_token', data.accessToken);
-  if (data.refreshToken) {
-    localStorage.setItem('refresh_token', data.refreshToken);
-  }
-
-  return data.accessToken;
-};
-
-// ============================================================
-// 요청 인터셉터 — JWT 자동 주입
+// 요청 인터셉터 — SDK에서 AT 가져와서 주입
 // ============================================================
 
 axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const isPublic = PUBLIC_ENDPOINTS.some((ep) => config.url?.includes(ep));
   if (!isPublic) {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const auth = getAuth();
+      const token = auth.getAccessToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch {
+      // SDK 미초기화 시 토큰 없이 진행
     }
   }
   return config;
 });
 
 // ============================================================
-// 응답 인터셉터 — 에러 정규화 + Silent Refresh
+// 응답 인터셉터 — 에러 정규화 + SDK refresh
 // ============================================================
 
 axiosInstance.interceptors.response.use(
@@ -133,37 +97,19 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     const status = error.response?.status ?? 0;
 
-    // 401이고 재시도 아직 안 한 경우 → refresh 시도
+    // 401이고 재시도 아직 안 한 경우 → SDK refresh 시도
     if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      if (isRefreshing) {
-        // 이미 refresh 중이면 큐에 대기
-        return new Promise<string>((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        }).then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return axiosInstance(originalRequest);
-        });
-      }
-
-      isRefreshing = true;
-
       try {
-        const newToken = await tryRefreshToken();
-        processQueue(null, newToken);
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        return axiosInstance(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        // refresh 실패 → 강제 로그아웃
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('meta_auth_user');
-        window.dispatchEvent(new Event('auth:logout'));
-        return Promise.reject(new ApiError(401, 'SESSION_EXPIRED'));
-      } finally {
-        isRefreshing = false;
+        const auth = getAuth();
+        const newToken = await auth.refreshAccessToken();
+        if (newToken) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return axiosInstance(originalRequest);
+        }
+      } catch {
+        // refresh 실패 → SDK가 자동으로 clearTokens + 로그아웃 처리
       }
     }
 
