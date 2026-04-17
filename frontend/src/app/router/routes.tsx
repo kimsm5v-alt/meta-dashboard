@@ -4,6 +4,7 @@ import { MinimalLayout } from '@widgets/layout/MinimalLayout';
 import { StudentLayout } from '@widgets/layout/StudentLayout';
 import { PageLoading } from '@shared/ui/Loading';
 import { useAuth } from '@features/auth/model/AuthContext';
+import { useProfileCheck } from '@shared/hooks/useProfileCheck';
 import { FEATURES } from '@shared/config/features';
 
 // Page imports from pages layer
@@ -55,13 +56,18 @@ const PublicLayout = () => (
  */
 const ProtectedLayout = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
 
-  if (isLoading) {
+  if (isLoading || isChecking) {
     return <PageLoading text='로딩 중...' />;
   }
 
   if (!isAuthenticated) {
     return <Navigate to='/login' replace />;
+  }
+
+  if (needsProfile) {
+    return <Navigate to='/auth/complete-profile' replace />;
   }
 
   return (
@@ -76,13 +82,18 @@ const ProtectedLayout = () => {
  */
 const StudentProtectedLayout = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
 
-  if (isLoading) {
+  if (isLoading || isChecking) {
     return <PageLoading text='로딩 중...' />;
   }
 
   if (!isAuthenticated) {
     return <Navigate to='/login' replace />;
+  }
+
+  if (needsProfile) {
+    return <Navigate to='/auth/complete-profile' replace />;
   }
 
   return (
