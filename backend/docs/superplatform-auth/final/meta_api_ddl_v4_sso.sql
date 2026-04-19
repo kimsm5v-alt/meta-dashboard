@@ -30,8 +30,9 @@
 --  13.  school_record_info  — 생기부 (생활기록부)
 -- ============================================================
 -- 삭제된 테이블 (v3 대비):
---   - email_verification   — Auth 서버가 이메일 인증 처리
 --   - refresh_token        — Auth 서버가 토큰 관리
+-- 유지된 테이블 (v3에서 유지):
+--   - email_verification   — 게스트 이메일 인증용으로 유지
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -170,7 +171,23 @@ VALUES (
 );
 
 -- ============================================================
--- 5. 그룹(방/학급) 테이블
+-- 5. 이메일 인증코드 테이블 (게스트용 유지)
+-- ============================================================
+CREATE TABLE email_verification (
+    id              BIGINT          NOT NULL    AUTO_INCREMENT,
+    email           VARCHAR(255)    NOT NULL    COMMENT '이메일',
+    code            VARCHAR(6)      NOT NULL    COMMENT '인증코드 (6자리)',
+    verified        TINYINT(1)      NOT NULL    DEFAULT 0   COMMENT '인증완료 여부 (0=미인증, 1=인증완료)',
+    expires_at      DATETIME        NOT NULL    COMMENT '만료 일시 (발송 후 5분)',
+    created_at      DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_ev_email (email),
+    INDEX idx_ev_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+  COMMENT='이메일 인증코드 (게스트 이메일 인증용)';
+
+-- ============================================================
+-- 6. 그룹(방/학급) 테이블
 -- ============================================================
 CREATE TABLE group_info (
     group_id            BIGINT          NOT NULL    AUTO_INCREMENT,
