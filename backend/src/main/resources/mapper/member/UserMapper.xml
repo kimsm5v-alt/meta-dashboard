@@ -7,7 +7,6 @@
         <result property="spUserId" column="sp_user_id"/>
         <result property="authProvider" column="auth_provider"/>
         <result property="email" column="email"/>
-        <result property="password" column="password"/>
         <result property="nickname" column="nickname"/>
         <result property="gender" column="gender"/>
         <result property="roleCode" column="role_code"/>
@@ -22,7 +21,7 @@
     </resultMap>
 
     <sql id="userColumns">
-        user_no, sp_user_id, auth_provider, email, password, nickname, gender, role_code, tc_id, stdt_id,
+        user_no, sp_user_id, auth_provider, email, nickname, gender, role_code, tc_id, stdt_id,
         status, last_login_at, created_by, updated_by, created_at, updated_at
     </sql>
 
@@ -100,15 +99,14 @@
 
     <insert id="insertUser" parameterType="com.vs.meta.domain.User" useGeneratedKeys="true" keyProperty="userNo">
         /* UserMapper.insertUser */
-        INSERT INTO `user` (sp_user_id, auth_provider, email, password, nickname, gender, role_code, tc_id, stdt_id, status, last_login_at, created_by, updated_by, created_at, updated_at)
-        VALUES (#{spUserId}, #{authProvider}, #{email}, #{password}, #{nickname}, #{gender}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+        INSERT INTO `user` (sp_user_id, auth_provider, email, nickname, gender, role_code, tc_id, stdt_id, status, last_login_at, created_by, updated_by, created_at, updated_at)
+        VALUES (#{spUserId}, #{authProvider}, #{email}, #{nickname}, #{gender}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="updateUser" parameterType="com.vs.meta.domain.User">
         /* UserMapper.updateUser */
         UPDATE `user`
-        SET password = #{password},
-            email = #{email},
+        SET email = #{email},
             nickname = #{nickname},
             gender = #{gender},
             role_code = #{roleCode},
@@ -121,13 +119,6 @@
         WHERE user_no = #{userNo}
     </update>
 
-    <update id="updatePassword">
-        /* UserMapper.updatePassword */
-        UPDATE `user`
-        SET password   = #{password},
-            updated_by = #{updatedBy},
-            updated_at = NOW()
-        WHERE user_no = #{userNo}
-    </update>
+    <!-- updatePassword 제거 — SSO 전환 후 password 컬럼 없음 -->
 
 </mapper>

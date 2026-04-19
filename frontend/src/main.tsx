@@ -13,11 +13,10 @@ async function bootstrap() {
   const result = await auth.handleRedirectResult();
 
   if (result.type === 'callback') {
+    // 콜백 URL(?code=...)을 정리하고 적절한 페이지로 이동
     if (result.authenticated) {
-      // 콜백 성공 → returnPath 또는 홈으로 replaceState
-      window.history.replaceState(null, '', result.returnPath || '/');
-    } else if (result.error === 'consent_denied') {
-      window.history.replaceState(null, '', '/login');
+      const returnPath = result.returnPath || '/dashboard';
+      window.history.replaceState(null, '', returnPath);
     } else {
       window.history.replaceState(null, '', '/login');
     }
