@@ -36,6 +36,22 @@ public class SsoUserService {
     @Transactional
     public User findAndSyncUser(SpAuthenticatedUser spUser) {
         User user = userMapper.findBySpUserId(spUser.spUserId());
+
+        // sp_user_id로 못 찾으면 email로 기존 회원 매칭 (마이그레이션 회원: sp_user_id가 NULL)
+        if (user == null && spUser.email() != null && !spUser.email().isBlank()) {
+            user = userMapper.findByEmail(spUser.email());
+            if (user != null && user.getSpUserId() == null) {
+                user.setSpUserId(spUser.spUserId());
+                user.setUpdatedBy(user.getUserNo());
+                user.setUpdatedAt(LocalDateTime.now());
+                userMapper.updateUser(user);
+                log.info("기존 회원 SSO 매핑 완료: userNo={}, spUserId={}, email={}", user.getUserNo(), spUser.spUserId(), spUser.email());
+            } else if (user != null && user.getSpUserId() != null) {
+                // email은 같지만 다른 sp_user_id가 이미 매핑된 경우 → 다른 사람
+                user = null;
+            }
+        }
+
         if (user == null) {
             return null;
         }
