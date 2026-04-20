@@ -220,7 +220,9 @@ export const AssessmentPage: React.FC = () => {
         setGroups(g);
         if (g.length > 0) setSelectedClaId(g[0].claId);
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        console.warn('[Assessment] 그룹 목록 조회 실패:', err);
+      })
       .finally(() => setIsGroupsLoading(false));
   }, [user]);
 

@@ -13,6 +13,7 @@
  */
 
 import { maskPII } from '../utils/piiMasking';
+import { ENV } from '@shared/config/env';
 
 // ============================================================
 // 타입 정의
@@ -70,8 +71,8 @@ export interface GeminiResponse {
 // ============================================================
 
 const getConfig = (): GeminiConfig => ({
-  apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
-  model: import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash',
+  apiKey: ENV.GEMINI_API_KEY,
+  model: ENV.GEMINI_MODEL,
   baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
 });
 

@@ -9,7 +9,9 @@
  *   DELETE /chat/{id}  — 세션 초기화
  */
 
-const BASE_URL = import.meta.env.VITE_AGENT_API_URL || 'https://t-meta-agent-api.vsaidt.com';
+import { ENV } from '@shared/config/env';
+
+const BASE_URL = ENV.AGENT_API_URL;
 
 // ============================================================
 // 타입 정의

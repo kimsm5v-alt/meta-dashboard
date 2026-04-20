@@ -246,7 +246,9 @@ export const useConversations = ({
 
   const handleDeleteConversation = (convId: string) => {
     // 에이전트 서버 세션 + 로컬 컨텍스트 캐시 정리
-    agentResetSession(convId).catch(() => {});
+    agentResetSession(convId).catch((err: unknown) => {
+      console.warn('[AI] 세션 초기화 실패:', err);
+    });
     contextCacheRef.current.delete(convId);
 
     // 백엔드 대화방 soft delete (임시 대화는 제외)

@@ -7,6 +7,7 @@ export { ApiError as APIError, apiClient, axiosInstance } from '@shared/api/clie
 
 import { axiosInstance } from '@shared/api/client';
 import type { APIResponse } from '@shared/api/client';
+import { ENV } from '@shared/config/env';
 
 // ============================================================
 // 하위 호환: API_CONFIG
@@ -16,7 +17,7 @@ const REFRESH_TOKEN_KEY = 'refresh_token';
 
 export const API_CONFIG = {
   get baseUrl(): string {
-    return (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8081';
+    return ENV.API_URL;
   },
   get jwtToken(): string {
     return localStorage.getItem('auth_token') ?? '';

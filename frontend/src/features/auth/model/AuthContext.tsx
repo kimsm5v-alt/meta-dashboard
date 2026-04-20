@@ -216,23 +216,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   // 회원가입 (가입 완료 후 자동 로그인)
-  const signUp = useCallback(async (data: SignUpData) => {
-    setState((prev) => ({ ...prev, isLoading: true }));
+  const signUp = useCallback(
+    async (data: SignUpData) => {
+      setState((prev) => ({ ...prev, isLoading: true }));
 
-    try {
-      await apiClient.post('/member/signup', {
-        email: data.email,
-        password: data.password,
-        nickname: data.name,
-        gender: data.gender,
-        roleCode: data.roleCode,
-      });
-      await loginWithEmail(data.email, data.password);
-    } catch (err) {
-      setState((prev) => ({ ...prev, isLoading: false }));
-      throw err;
-    }
-  }, [loginWithEmail]);
+      try {
+        await apiClient.post('/member/signup', {
+          email: data.email,
+          password: data.password,
+          nickname: data.name,
+          gender: data.gender,
+          roleCode: data.roleCode,
+        });
+        await loginWithEmail(data.email, data.password);
+      } catch (err) {
+        setState((prev) => ({ ...prev, isLoading: false }));
+        throw err;
+      }
+    },
+    [loginWithEmail],
+  );
 
   // 사용자 정보 업데이트
   const updateUser = useCallback((updates: Partial<User>) => {
@@ -250,7 +253,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // 백엔드 로그아웃 (refreshToken 무효화) — 실패해도 클라이언트는 로그아웃
     if (refreshToken) {
-      apiClient.post('/member/logout', { refreshToken }).catch(() => {});
+      apiClient.post('/member/logout', { refreshToken }).catch((err: unknown) => {
+        console.warn('[Auth] 로그아웃 API 실패 (클라이언트 세션은 종료됨):', err);
+      });
     }
 
     localStorage.removeItem(AUTH_STORAGE_KEY);
