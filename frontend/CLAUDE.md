@@ -493,6 +493,50 @@ npx prettier --write "src/**/*.{ts,tsx}"  # prettier만 실행
   - pages/exam/ExamPage.tsx에 회원/게스트 분기 로직 통합
   - `user.memberType !== 'guest'` 조건으로 화면 분기
 
+#### 최근 완료 (2026-04-20) — 리팩토링 + SSO 통합
+
+**리팩토링 Phase 1: FSD Pages 레이어 slim화**
+
+- [x] `GroupDetailPage.tsx` (1,372줄 → 3줄) → `widgets/group-detail/GroupDetailWidget.tsx`
+- [x] `ClassDashboardPage.tsx` (857줄 → 4줄) → `widgets/class-dashboard/ClassDashboardWidget.tsx`
+- [x] `SchedulePage.tsx` (592줄 → 3줄) → `widgets/schedule/ScheduleWidget.tsx`
+- pages 파일에서 console.log 5개 제거, 빈 catch 블록 → console.error 처리
+
+**리팩토링 Phase 2: TanStack Query 마이그레이션**
+
+- [x] `features/api/useApiData.ts` — 4개 훅 전부 `useQuery` 패턴으로 교체
+  - `useTeacherClasses`, `useClassStudents`, `useStudentAnalysis`, `useClassAnalysis`
+  - `hasFetched` 플래그 제거 → queryKey 기반 자동 캐싱
+  - 569줄 → 278줄
+
+**리팩토링 Phase 3: 번들 분리**
+
+- [x] `vite.config.ts` — `manualChunks` 추가, 메인 번들 2,371kB → 1,827kB (23% 감소)
+  - `data-ai-prompts`, `data-school-record`, `data-lpa-profiles`, `data-knowledge-graph`
+  - `vendor-recharts`, `vendor-emotion`, `vendor-router`
+
+**리팩토링 Phase 4: 에러 핸들링 & 환경변수 중앙화**
+
+- [x] `shared/config/env.ts` 신규 생성 — `import.meta.env` 직접 접근 9개 파일 → `ENV.*` 통일
+- [x] `.catch(() => {})` 3곳 → `console.warn/error` 교체
+
+**SSO 통합 (feature/sso-integration 브랜치 반영)**
+
+- [x] `shared/lib/authClient.ts` 신규 — SuperPlatform Auth SDK 타입 + 싱글턴 (`initAuth`, `getAuth`)
+- [x] `shared/hooks/useSpAuth.ts` 신규 — SDK 기반 React 훅 (`useSyncExternalStore`)
+- [x] `shared/hooks/useProfileCheck.ts` 신규 — SSO 로그인 후 프로필 등록 여부 확인
+- [x] `pages/auth/CompleteProfilePage.tsx` 신규 — 최초 로그인 시 성별/역할 입력
+- [x] `features/auth/model/AuthContext.tsx` 완전 교체 — SDK 기반으로 전환
+  - 제거: `loginWithCredentials`, `loginWithEmail`, `signUp`, `sendCode`, `verifyCode`
+  - 유지: `loginAsGuest`(SDK `setGuestToken`), `updateUser`, `logout`
+- [x] `main.tsx` 완전 교체 — 비동기 bootstrap 패턴 (SDK 초기화 → callback → React 렌더)
+- [x] `shared/api/client.ts` 교체 — 자체 Silent Refresh 150줄 제거 → SDK `refreshAccessToken()` 20줄
+- [x] 삭제: `SignUpPage.tsx`, `ForgotPasswordPage.tsx`, `LoginForm.tsx`
+- [x] `LoginPage.tsx`, `ExamAuthStep.tsx`, `JoinGroupPage.tsx` — SSO 버튼으로 교체
+- [x] `routes.tsx` — `/signup`, `/forgot-password` 제거; `/auth/complete-profile` 추가; `useProfileCheck` 적용
+- [x] `groupService.ts` — `joinGroupAsGuest` 반환 타입 `refreshToken` → `guestId`
+- [x] `User` 타입에 `spUserId?`, `userType?` 추가; `OAuthProvider`에 `'sso'` 추가
+
 #### 최근 완료 (2026-04-10)
 
 **교사 대시보드 버그 수정 — Mock 데이터 → 실 API 전환**
@@ -625,57 +669,78 @@ const selectedGroup = allAnalyses[0];
 ## 🐛 알려진 이슈 (비치명적)
 
 **런타임 경고**:
+- `MyResultPage.tsx` — Recharts width/height NaN 경고 (시각적 영향 없음)
+- Vite 빌드 — index chunk 1,827kB 경고 (Phase 3 이후 개선됨, 추가 분리 가능)
 
-- `MyResultPage.tsx` — Recharts width/height NaN 경고 (시각적 영향 없음, ResponsiveContainer가 처리)
-- Vite 빌드 — chunk 2,371 kB 경고 (기능 영향 없음, 코드 스플리팅으로 해결 가능)
+**SSO 주의사항**:
+- `useProfileCheck`는 보호 라우트 접근마다 `/api/v1/user/status` 호출 — 성능 캐싱 고려 필요
+- Auth SDK CDN(`cdn.vsaidt.com/superplatform/auth-client.js`)이 로드되지 않으면 앱 전체 사용 불가
+- `index.html`의 CDN 스크립트가 `window.AuthClient`를 전역에 노출하는 패턴 — `initAuth()` 전에 접근 불가
 
 ---
 
-## 📊 UI 마이그레이션 진행률
+## 📊 진행 상태
 
 ```
-Phase 1: MyResultPage          ████████████ 100%
-Phase 2: 컴포넌트 분리          ░░░░░░░░░░░░   0%
-Phase 3: MemberCompleteStep    ████████████ 100%
-Phase 4: 추가 기능              ░░░░░░░░░░░░   0%
-
-전체 진행률: 50%
+FSD Pages 정리    ████████████ 100% (Group/Class/Schedule → widgets)
+TanStack Query    ████████████ 100% (useApiData 4개 훅)
+번들 분리          ████████████ 100% (2,371kB → 1,827kB)
+SSO 인증 통합     ████████████ 100% (feature/sso-integration 반영)
+student-exam FSD  ░░░░░░░░░░░░   0% (다음 작업)
+MyResultPage 비교 ░░░░░░░░░░░░   0% (다음 작업)
 ```
 
 ---
 
 ## 작업 시 주의사항
 
+### 아키텍처
 1. **prototype 코드 구조 참고 금지** — UI 디자인(색상, 레이아웃)만 참조
 2. **페이지 파일에 styled component 추가 금지** — widgets 또는 shared/ui로 분리
 3. **레이어 경계 위반 금지** — 하위 레이어가 상위 레이어 import 불가
 4. **`any` 사용 금지** — ESLint error로 차단됨
 5. **타입 import는 `import type`** — `verbatimModuleSyntax` 강제
-6. **새 feature 추가 시** `model/types.ts` → `api/queries.ts` → `index.ts` 순서로 작성
+6. **환경변수**: `import.meta.env` 직접 사용 금지 → `shared/config/env.ts`의 `ENV.*` 사용
+
+### TypeScript / 빌드
 7. **TypeScript 빌드 확인**: `tsc --noEmit` 대신 **`tsc -b`** 사용 — `noUnusedLocals`, `noUnusedParameters` 적용됨
-8. **`SchoolLevel` 타입**: `'초등' | '중등'` 만 허용. `'고등'` 없음. `SCHOOL_LEVEL_MAP['high']` → `'중등'`
+
+### 타입 / 데이터 모델
+8. **`SchoolLevel` 타입**: `'초등' | '중등'` 만 허용. `'고등'` 없음
 9. **`ExamPeriodStatus`**: `string`이 아닌 `{ round1: ExamStatus; round2: ExamStatus }` 인터페이스
 10. **그룹 ID**: `groupInfo.id`가 아닌 `groupInfo.claId` 사용
-11. **`AuthContext.isLoading`**: 초기 세션 체크 전용. `loginWithEmail`에서 isLoading 변경하면 LoginForm 언마운트됨 — 절대 건드리지 말 것
-12. **User 타입**: `user.role`이 아닌 `user.memberType` 사용 (`'vivasam' | 'general' | 'guest'`)
-13. **classId는 UUID**: `claId`를 `split('-')`으로 학년/반 파싱하면 안 됨 — `groupService.getMyGroups`로 매칭
-14. **상담 학생 목록**: `dgnssService.getDgnssStudentList`는 검사 컨텍스트 필요 — 그룹 전체 멤버 조회는 `groupService.getGroupMembers` 사용
-15. **useAuthStore vs useAuth()**: `useAuthStore`의 `User`는 `id/name/email/role`만 있음. `stdtId`, `classId`, `memberType` 접근 시 반드시 `useAuth()` (AuthContext) 사용
+11. **classId는 UUID**: `claId`를 `split('-')`으로 학년/반 파싱 금지 → `groupService.getMyGroups`로 매칭
+12. **상담 학생 목록**: `dgnssService.getDgnssStudentList`는 검사 컨텍스트 필요 → 전체 멤버는 `groupService.getGroupMembers`
+13. **User 타입**: `user.memberType` 사용 (`'vivasam' | 'general' | 'guest'`). `user.role` 없음
+
+### SSO 인증 (2026-04-20 전환)
+14. **로그인**: `auth.login()` → Auth 서버로 리다이렉트. `AuthContext`에 직접 로그인 메서드 없음
+15. **토큰**: SDK가 `accessToken`/`refreshToken` 키 사용. `API_CONFIG.jwtToken`은 두 키 모두 확인하는 fallback 포함
+16. **`AuthContext` 제공 메서드**: `loginAsGuest`, `updateUser`, `logout` 3개만 존재
+17. **SSO 후 프로필 미등록**: `useProfileCheck`가 `/api/v1/user/status` 확인 → `needsProfile=true` 시 `/auth/complete-profile` 리다이렉트
+18. **게스트 토큰**: `joinGroupAsGuest` 반환값 `guestId` (구 `refreshToken`) — `loginAsGuest({ ..., guestId })` 호출
+19. **SDK 미초기화 에러**: `getAuth()` 호출 시 `initAuth()` 먼저 완료되어야 함 — `main.tsx`에서 bootstrap 순서 보장
+
+### 데이터 패칭
+20. **useApiData 훅 캐싱**: React Query `queryKey` 기반 — `refetch()` 호출로 수동 갱신 가능
+21. **DataContext**: 신규 코드에서 `useData()` 사용 금지 → `useTeacherClasses()` 사용
 
 ---
 
-## 📋 다음 작업 체크리스트
+## 📋 다음 작업 우선순위
 
-**우선순위 1 - 컴포넌트 분리 (FSD 아키텍처 개선)**:
-- [ ] Phase 2: student-exam 컴포넌트 분리
-  - ExamCard → widgets/student-exam/ExamCard
-  - EmptyExamList → widgets/student-exam/EmptyExamList
-  - ExamCardSkeleton → widgets/student-exam/ExamCardSkeleton
-  - MyExamListPage 간소화 (현재 463줄 → 목표 150줄)
+**1순위 — student-exam FSD 분리 (큰 파일 남음)**:
+- [ ] `MyExamListPage.tsx` (~463줄) → `widgets/student-exam/` 분리
+  - ExamCard, EmptyExamList, ExamCardSkeleton 컴포넌트 추출
 
-**우선순위 2 - 기능 개선**:
+**2순위 — 기능 개선**:
 - [ ] MyResultPage 1차/2차 비교 모드 (Phase 4)
-- [ ] 더 자세한 차트 인터랙션
+- [ ] `useProfileCheck` 캐싱 — 매 라우트 이동마다 API 호출하지 않도록 (React Query 적용 권장)
+
+**3순위 — 기타**:
+- [ ] 에러 바운더리 추가
+- [ ] `features/counseling` 상담 기록 기능
+- [ ] `features/resources` 학습 자료 기능
 
 **우선순위 3 - 선택 사항**:
 - [ ] 에러 바운더리
@@ -684,5 +749,5 @@ Phase 4: 추가 기능              ░░░░░░░░░░░░   0%
 
 ---
 
-**최종 업데이트**: 2026-04-10 (Bug fixes #1, #2 완료 및 검증)
-**빌드 상태**: ✅ Production ready (tsc -b && vite build: 9.06s)
+**최종 업데이트**: 2026-04-20 (리팩토링 Phase 1-4 + SSO 통합 완료)
+**빌드 상태**: ✅ Production ready (tsc -b && vite build: ~21s, bundle 1,827kB)
