@@ -111,8 +111,8 @@ export const LoginPage: React.FC = () => {
   }, [isAuthenticated, isLoading, user, navigate, redirectTo]);
 
   const handleSsoLogin = () => {
-    const returnPath = redirectTo || '/dashboard';
-    login(returnPath);
+    // returnPath를 지정하지 않으면 main.tsx에서 역할 기반 리다이렉트
+    login(redirectTo || undefined);
   };
 
   const handleGuestEntry = () => {

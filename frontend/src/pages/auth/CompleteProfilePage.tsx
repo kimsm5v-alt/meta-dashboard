@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { Card } from '@shared/components';
 import { useSpAuth } from '@shared/hooks/useSpAuth';
@@ -121,6 +121,8 @@ const ErrorText = styled.p`
 
 export const CompleteProfilePage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect');
   const { user: spUser } = useSpAuth();
   const { updateUser } = useAuth();
   const [gender, setGender] = useState<'M' | 'F' | ''>('');
@@ -183,8 +185,9 @@ export const CompleteProfilePage: React.FC = () => {
         stdtId: data.stdtId ?? undefined,
       });
 
-      // 역할 기반 리다이렉트
-      navigate(data.roleCode === 'STUDENT' ? '/student/exams' : '/dashboard', { replace: true });
+      // 원래 경로 또는 역할 기반 리다이렉트
+      const defaultPath = data.roleCode === 'STUDENT' ? '/student/exams' : '/dashboard';
+      navigate(redirectTo || defaultPath, { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '프로필 등록에 실패했습니다.';
       setError(msg);

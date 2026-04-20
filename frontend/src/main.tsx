@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { initAuth } from '@shared/lib/authClient';
 import { App } from '@app/App';
 
-const PUBLIC_PATHS = ['/guest', '/group/join', '/join', '/exam', '/login', '/'];
+const PUBLIC_PATHS = ['/guest', '/group/join', '/join', '/exam', '/login', '/', '/auth/complete-profile'];
 
 async function bootstrap() {
   // 1) SDK 초기화
@@ -13,22 +13,38 @@ async function bootstrap() {
   const result = await auth.handleRedirectResult();
 
   if (result.type === 'callback') {
-    // 콜백 URL(?code=...)을 정리하고 적절한 페이지로 이동
     if (result.authenticated) {
-      const returnPath = result.returnPath || '/dashboard';
-      window.history.replaceState(null, '', returnPath);
+      // 콜백 성공 → 학심정 user 등록 여부 확인
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:8081'}/api/v1/user/status`,
+          { headers: { Authorization: `Bearer ${auth.getAccessToken()}` } },
+        );
+        const data = await res.json();
+        if (data.resultData?.needsProfile) {
+          // 학심정 user 미등록 → 프로필 입력 페이지로
+          const originalPath = result.returnPath || '/dashboard';
+          window.history.replaceState(null, '', `/auth/complete-profile?redirect=${encodeURIComponent(originalPath)}`);
+        } else {
+          // 등록된 사용자 → returnPath 또는 역할 기반 리다이렉트
+          const defaultPath = data.resultData?.roleCode === 'STUDENT' ? '/student/exams' : '/dashboard';
+          window.history.replaceState(null, '', result.returnPath || defaultPath);
+        }
+      } catch {
+        window.history.replaceState(null, '', result.returnPath || '/dashboard');
+      }
     } else {
       window.history.replaceState(null, '', '/login');
     }
   } else if (!result.authenticated) {
-    // 일반 페이지 로드 + 미인증
-    const isPublic = PUBLIC_PATHS.some((p) => window.location.pathname === p || window.location.pathname.startsWith(p + '/'));
+    const isPublic = PUBLIC_PATHS.some(
+      (p) => window.location.pathname === p || window.location.pathname.startsWith(p + '/'),
+    );
 
     if (!isPublic) {
-      // SSO 세션 복구 시도
       const silent = await auth.trySilentLogin();
       if (!silent.success && !auth.isAuthenticated()) {
-        // 미인증 → 라우터에서 로그인 페이지로 리다이렉트 (ProtectedLayout이 처리)
+        // 미인증 → 라우터에서 로그인 페이지로 리다이렉트
       }
     }
   }

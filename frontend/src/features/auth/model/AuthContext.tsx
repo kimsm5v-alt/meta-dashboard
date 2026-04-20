@@ -159,6 +159,7 @@ function mapSdkUserToUser(sdkUser: AuthUser): User {
     memberType: sdkUser.userType === 'GUEST' ? 'guest' : 'general',
     provider: 'sso',
     userType: sdkUser.userType,
+    roleCode: sdkUser.userType, // TEACHER/STUDENT — useProfileCheck에서 정확한 값으로 덮어씀
   };
 }
 
