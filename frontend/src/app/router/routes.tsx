@@ -4,15 +4,15 @@ import { MinimalLayout } from '@widgets/layout/MinimalLayout';
 import { StudentLayout } from '@widgets/layout/StudentLayout';
 import { PageLoading } from '@shared/ui/Loading';
 import { useAuth } from '@features/auth/model/AuthContext';
+import { useProfileCheck } from '@shared/hooks/useProfileCheck';
 import { FEATURES } from '@shared/config/features';
 
 // Page imports from pages layer
 import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
+import { CompleteProfilePage } from '@pages/auth/CompleteProfilePage';
 import {
   LandingPage,
   LoginPage,
-  SignUpPage,
-  ForgotPasswordPage,
   TeacherDashboardPage,
   ClassDashboardPage,
   ClassDetailAnalysisPage,
@@ -56,13 +56,18 @@ const PublicLayout = () => (
  */
 const ProtectedLayout = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
 
-  if (isLoading) {
+  if (isLoading || isChecking) {
     return <PageLoading text='로딩 중...' />;
   }
 
   if (!isAuthenticated) {
     return <Navigate to='/login' replace />;
+  }
+
+  if (needsProfile) {
+    return <Navigate to='/auth/complete-profile' replace />;
   }
 
   return (
@@ -77,13 +82,18 @@ const ProtectedLayout = () => {
  */
 const StudentProtectedLayout = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
 
-  if (isLoading) {
+  if (isLoading || isChecking) {
     return <PageLoading text='로딩 중...' />;
   }
 
   if (!isAuthenticated) {
     return <Navigate to='/login' replace />;
+  }
+
+  if (needsProfile) {
+    return <Navigate to='/auth/complete-profile' replace />;
   }
 
   return (
@@ -124,8 +134,7 @@ export const AppRoutes = () => (
     <Route element={<PublicLayout />}>
       <Route path='/' element={<LandingPage />} />
       <Route path='/login' element={<LoginPage />} />
-      <Route path='/signup' element={<SignUpPage />} />
-      <Route path='/forgot-password' element={<ForgotPasswordPage />} />
+      <Route path='/auth/complete-profile' element={<CompleteProfilePage />} />
       <Route path='/exam' element={<ExamCodeEntryPage />} />
       <Route path='/exam/:code' element={<ExamPage />} />
       <Route path='/join/:code' element={<JoinGroupPage />} />

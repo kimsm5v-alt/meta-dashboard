@@ -240,10 +240,11 @@ export interface TypeChartData {
 // ============================================================
 
 export type MemberType = 'vivasam' | 'general' | 'guest';
-export type OAuthProvider = 'vivasam' | 'google' | 'kakao' | 'naver';
+export type OAuthProvider = 'vivasam' | 'google' | 'kakao' | 'naver' | 'sso';
 
 export interface User {
   id: string;
+  spUserId?: string;        // SuperPlatform publicUserId (UUID)
   name: string;
   email: string;
   memberType: MemberType;
@@ -254,6 +255,7 @@ export interface User {
   stdtId?: string;
   roleCode?: string;
   classId?: string;
+  userType?: string;         // Auth JWT userType (TEACHER/STUDENT/GUEST/UNSET)
 }
 
 export interface AuthState {
