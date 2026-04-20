@@ -1,0 +1,1 @@
+export { GroupDetailWidget } from './GroupDetailWidget';
