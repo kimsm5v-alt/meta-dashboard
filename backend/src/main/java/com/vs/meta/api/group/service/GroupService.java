@@ -265,6 +265,7 @@ public class GroupService {
 
         paramData.put("stdtId", stdtId);
         paramData.put("memberId", member.getId());
+        paramData.put("claId", groupInfo.getClaId());
 
         // 진행중인 검사가 있으면 restart 호출하여 게스트 검사 레코드 자동 생성
         Integer activeDgnssId = groupQueryMapper.findActiveDgnssId(groupInfo.getClaId());
@@ -279,9 +280,9 @@ public class GroupService {
             log.info("게스트 검사 자동 등록: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
         }
 
-        emailVerificationService.consumeVerification(email);
-
         // 게스트 토큰 발급 — Auth 서버 게스트 토큰 사용 (RT 없음)
+        // authenticateGuest 내부에서 isVerified 체크 + consumeVerification을 수행하므로
+        // 여기서 미리 consume하면 안 됨
         Map<String, Object> guestToken = guestAuthService.authenticateGuest(
                 groupInfo.getInviteCode(), email, null, null);
         paramData.put("accessToken", guestToken.get("accessToken"));

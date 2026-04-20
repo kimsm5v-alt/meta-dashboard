@@ -13,7 +13,7 @@ import {
   User,
 } from 'lucide-react';
 import { Button } from '@shared/components';
-import { LoginForm } from '@features/auth/ui/LoginForm';
+// LoginForm 제거 — SSO 전환 후 auth.login()으로 대체
 import { groupService } from '@features/groups/api/groupService';
 import { useAuth } from '@features/auth/model/AuthContext';
 import type { GroupInviteInfo } from '@shared/types';
@@ -440,7 +440,7 @@ export const JoinGroupPage: React.FC = () => {
   const [groupInfo, setGroupInfo] = useState<GroupInviteInfo | null>(null);
   const [alreadyJoined, setAlreadyJoined] = useState(false);
   const [error, setError] = useState('');
-  const [loginLoading] = useState(false);
+  // loginLoading 제거 — SSO 전환 후 auth.login()은 리다이렉트라 로딩 상태 불필요
 
   // 게스트 가입 폼
   const [guestNickname, setGuestNickname] = useState('');
@@ -656,7 +656,8 @@ export const JoinGroupPage: React.FC = () => {
 
       // 게스트 검사 목록으로 이동
       navigate('/guest/exams');
-    } catch {
+    } catch (err) {
+      console.error('[JoinGroupPage] 게스트 재인증 실패:', err);
       setError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
       setStep('error');
     }
@@ -704,7 +705,8 @@ export const JoinGroupPage: React.FC = () => {
 
       // 게스트 검사 목록으로 이동
       navigate('/guest/exams');
-    } catch {
+    } catch (err) {
+      console.error('[JoinGroupPage] 게스트 가입 실패:', err);
       setError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
       setStep('error');
     }
@@ -1229,15 +1231,20 @@ export const JoinGroupPage: React.FC = () => {
               </SubmitButton>
             </AuthSection>
           ) : (
-            // ── 비로그인 상태: 로그인 폼 바로 표시 ──
+            // ── 비로그인 상태: SSO 로그인 + 게스트 참여 ──
             <div>
               <LoginPrompt>그룹에 가입하려면 로그인해주세요</LoginPrompt>
-              <LoginForm
-                onLogin={handleLogin}
-                isLoading={loginLoading}
-                onGuestLogin={() => setStep('email-input')}
-                redirectPath={`/join/${code}`}
-              />
+              <SubmitButton type='button' onClick={handleLogin} style={{ marginBottom: '0.75rem' }}>
+                로그인 / 회원가입
+                <ArrowIcon />
+              </SubmitButton>
+              <SubmitButton
+                type='button'
+                onClick={() => setStep('email-input')}
+                style={{ background: '#f1f5f9', color: '#475569' }}
+              >
+                게스트로 참여하기
+              </SubmitButton>
             </div>
           )}
         </MainCard>

@@ -56,8 +56,12 @@ const PUBLIC_ENDPOINTS = [
   '/guest/auth',
   '/member/send-code',      // 게스트 이메일 인증 (유지)
   '/member/verify-code',    // 게스트 이메일 인증 (유지)
-  '/group/invite',
   '/group/join-guest',
+];
+
+// 정확한 경로 매칭이 필요한 엔드포인트 (includes 대신 정확 비교)
+const PUBLIC_EXACT_ENDPOINTS = [
+  '/group/invite',          // 초대 링크 조회 (비로그인 허용) — /group/invite/list 등은 인증 필요
 ];
 
 // ============================================================
@@ -65,7 +69,9 @@ const PUBLIC_ENDPOINTS = [
 // ============================================================
 
 axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const isPublic = PUBLIC_ENDPOINTS.some((ep) => config.url?.includes(ep));
+  const url = config.url ?? '';
+  const isPublic = PUBLIC_ENDPOINTS.some((ep) => url.includes(ep))
+      || PUBLIC_EXACT_ENDPOINTS.some((ep) => url === ep || url.startsWith(ep + '?'));
   if (!isPublic) {
     try {
       const auth = getAuth();
