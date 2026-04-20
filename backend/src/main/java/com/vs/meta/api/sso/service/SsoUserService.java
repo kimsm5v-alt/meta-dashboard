@@ -98,7 +98,6 @@ public class SsoUserService {
 
         User user = User.builder()
                 .spUserId(spUser.spUserId())
-                .authProvider("SSO")
                 .email(spUser.email() != null ? spUser.email() : "")
                 .nickname(spUser.name() != null ? spUser.name() : "")
                 .gender(gender)

@@ -31,13 +31,14 @@ spring:
 # META_API_JWT_SECRET: "Qltkdtjqj!12Uu8H#N$er@4Lj6!z3Pf&Bxz7r8yQ#2M8&cH$"
 
 # ===== SuperPlatform Auth (SSO) =====
+# 개발서버 Auth 사용 (로컬 Auth 사용 시 localhost:8080으로 변경)
 spring.security.oauth2.resourceserver.jwt:
-  jwk-set-uri: http://localhost:8080/.well-known/jwks.json
+  jwk-set-uri: https://t-auth-superplatform-api.vsaidt.com/.well-known/jwks.json
   issuer-uri: superplatform
 
 superplatform:
   auth:
-    server-url: http://localhost:8080
+    server-url: https://t-auth-superplatform-api.vsaidt.com
     client-id: test-service
     client-secret: test-secret-1234!
 

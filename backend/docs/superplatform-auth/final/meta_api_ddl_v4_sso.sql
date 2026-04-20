@@ -8,7 +8,7 @@
 -- 학심정 DB: 서비스 데이터 + 개인정보 동기화 사본 (Auth JWT에서)
 -- ============================================================
 -- v3 → v4 변경 요약:
---   - user 테이블: +sp_user_id, +auth_provider, -password
+--   - user 테이블: +sp_user_id, -password
 --   - admin_account 테이블 신규 (Admin 전용, 자체 세션 인증)
 --   - email_verification 테이블 DROP (Auth 서버가 처리)
 --   - refresh_token 테이블 DROP (Auth 서버가 관리)
@@ -116,7 +116,6 @@ CREATE TABLE school_info (
 CREATE TABLE `user` (
     user_no         BIGINT          NOT NULL    AUTO_INCREMENT  COMMENT '회원 번호 (PK)',
     sp_user_id      VARCHAR(64)     NULL        COMMENT '슈퍼플랫폼 publicUserId (UUID)',
-    auth_provider   VARCHAR(20)     NOT NULL    DEFAULT 'SSO'  COMMENT '인증 제공자 (SSO)',
     email           VARCHAR(100)    NOT NULL    COMMENT '이메일 (Auth JWT에서 동기화)',
     nickname        VARCHAR(50)     NOT NULL    COMMENT '닉네임 (Auth JWT name에서 동기화)',
     gender          VARCHAR(10)     NULL        COMMENT '성별 (M/F, 최초 로그인 시 추가 입력)',

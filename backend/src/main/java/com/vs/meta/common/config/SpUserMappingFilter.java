@@ -45,6 +45,16 @@ public class SpUserMappingFilter extends OncePerRequestFilter {
                 try {
                     User user = userMapper.findBySpUserId(spUser.spUserId());
                     if (user != null) {
+                        // 정지/탈퇴 계정 차단
+                        if (user.getStatus() != com.vs.meta.domain.enums.UserStatus.ACTIVE) {
+                            response.setStatus(403);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write(
+                                "{\"success\":false,\"resultCode\":403,\"resultMessage\":\"" +
+                                (user.getStatus() == com.vs.meta.domain.enums.UserStatus.SUSPENDED ? "정지된 계정입니다." : "탈퇴된 계정입니다.") +
+                                "\",\"errorCode\":\"ACCOUNT_" + user.getStatus().name() + "\"}");
+                            return;
+                        }
                         request.setAttribute(ATTR_USER_NO, user.getUserNo());
                         request.setAttribute(ATTR_USER, user);
                     }

@@ -82,12 +82,17 @@ let authInstance: AuthClientInstance | null = null;
 export async function initAuth(): Promise<AuthClientInstance> {
   if (authInstance) return authInstance;
 
+  // touchEnabled: localhost(HTTP)에서는 Secure 쿠키가 전송 안 되므로 touch 비활성화
+  // HTTPS 환경(개발서버/운영)에서는 SameSite=None; Secure로 정상 동작
+  const isHttps = window.location.protocol === 'https:';
+
   authInstance = await AuthClient.init({
     authUrl: import.meta.env.VITE_SP_AUTH_URL || 'http://localhost:8080',
     clientId: import.meta.env.VITE_SP_CLIENT_ID || 'test-service',
     redirectUri: window.location.origin + '/auth/callback',
     postLogoutRedirectUri: window.location.origin + '/login',
     apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:8081',
+    touchEnabled: isHttps,
   });
 
   return authInstance;

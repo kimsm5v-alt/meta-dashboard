@@ -124,6 +124,10 @@ export const LoginPage: React.FC = () => {
   if (isLoading) return null;
   if (isAuthenticated) return null;
 
+  // 미인증 → 바로 SSO 로그인 리다이렉트
+  login(redirectTo || undefined);
+  return null;
+
   return (
     <PageContainer>
       <LogoSection>

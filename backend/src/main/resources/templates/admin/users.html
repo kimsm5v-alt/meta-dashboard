@@ -81,7 +81,6 @@
                                     <th>역할</th>
                                     <th>상태</th>
                                     <th>마지막 로그인</th>
-                                    <th>역할 변경</th>
                                     <th>상태 변경</th>
                                     <th>학교 매핑</th>
                                 </tr>
@@ -100,17 +99,7 @@
                                               th:text="${user.status}"></span>
                                     </td>
                                     <td class="text-muted" th:text="${user.lastLoginAt != null} ? ${#temporals.format(user.lastLoginAt, 'yyyy-MM-dd HH:mm')} : '-'"></td>
-                                    <td>
-                                        <form th:action="@{/admin/users/role}" method="post" class="inline-form">
-                                            <input type="hidden" name="userNo" th:value="${user.userNo}" />
-                                            <select name="roleCode" class="form-control form-control-sm" style="width:auto;display:inline-block;">
-                                                <option th:each="role : ${roles}" th:value="${role.roleCode}"
-                                                        th:text="${role.roleCode}"
-                                                        th:selected="${role.roleCode == user.roleCode}"></option>
-                                            </select>
-                                            <button type="submit" class="btn btn-primary btn-xs">변경</button>
-                                        </form>
-                                    </td>
+                                    <!-- 역할 변경 제거: Auth가 마스터 -->
                                     <td>
                                         <form th:action="@{/admin/users/status}" method="post" class="inline-form">
                                             <input type="hidden" name="userNo" th:value="${user.userNo}" />
@@ -130,7 +119,7 @@
                                     </td>
                                 </tr>
                                 <tr th:if="${#lists.isEmpty(users)}">
-                                    <td colspan="11" class="text-center text-muted py-4">검색 결과가 없습니다</td>
+                                    <td colspan="10" class="text-center text-muted py-4">검색 결과가 없습니다</td>
                                 </tr>
                             </tbody>
                         </table>
