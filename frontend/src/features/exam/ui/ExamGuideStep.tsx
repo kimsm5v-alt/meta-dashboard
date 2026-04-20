@@ -19,18 +19,6 @@ const Header = styled.div`
   margin-bottom: 2rem;
 `;
 
-const StudentBadge = styled.div`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  border-radius: ${({ theme }) => theme.radius.full};
-  background: ${({ theme }) => theme.colors.primary[100]};
-  color: ${({ theme }) => theme.colors.primary[600]};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  margin-bottom: 1rem;
-`;
 
 const Title = styled.h1`
   font-size: 1.5rem;
@@ -279,7 +267,7 @@ interface ExamGuideStepProps {
 }
 
 export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
-  studentNumber,
+  studentNumber: _studentNumber,
   onStart,
   onBack,
   isLoading,

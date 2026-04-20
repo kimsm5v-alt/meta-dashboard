@@ -1012,7 +1012,11 @@ export const JoinGroupPage: React.FC = () => {
           </Subtitle>
           {isAuthenticated ? (
             <Button
-              onClick={() => navigate(`/groups/${groupInfo?.claId}`)}
+              onClick={() =>
+                user?.memberType === 'general'
+                  ? navigate('/student/groups')
+                  : navigate(`/groups/${groupInfo?.claId}`)
+              }
               className='justify-center w-full'
             >
               그룹 보기
