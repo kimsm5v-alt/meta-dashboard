@@ -19,18 +19,6 @@ const Header = styled.div`
   margin-bottom: 2rem;
 `;
 
-const StudentBadge = styled.div`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  border-radius: ${({ theme }) => theme.radius.full};
-  background: ${({ theme }) => theme.colors.primary[100]};
-  color: ${({ theme }) => theme.colors.primary[600]};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  margin-bottom: 1rem;
-`;
 
 const Title = styled.h1`
   font-size: 1.5rem;
@@ -279,7 +267,7 @@ interface ExamGuideStepProps {
 }
 
 export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
-  studentNumber,
+  studentNumber: _studentNumber,
   onStart,
   onBack,
   isLoading,
@@ -301,9 +289,6 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
       <ContentWrapper>
         {/* 헤더 */}
         <Header>
-          <StudentBadge>
-            {studentNumber}번 학생
-          </StudentBadge>
           <Title>검사 안내</Title>
           <Subtitle>검사를 시작하기 전에 아래 내용을 읽어주세요</Subtitle>
         </Header>
@@ -318,9 +303,7 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
             <GuidelineList>
               {guidelines.map((guideline, index) => (
                 <GuidelineItem key={index}>
-                  <GuidelineNumber>
-                    {index + 1}
-                  </GuidelineNumber>
+                  <GuidelineNumber>{index + 1}</GuidelineNumber>
                   <GuidelineText>{guideline}</GuidelineText>
                 </GuidelineItem>
               ))}
@@ -335,21 +318,15 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
             </SectionHeader>
             <ExampleBox>
               <ExampleQuestion>
-                <ExampleQuestionNumber>질문 1.</ExampleQuestionNumber> 열심히 노력하면 내 능력이 향상될 수
-                있다.
+                <ExampleQuestionNumber>질문 1.</ExampleQuestionNumber> 열심히 노력하면 내 능력이
+                향상될 수 있다.
               </ExampleQuestion>
               <RadioGroup>
                 {['전혀 그렇지 않다', '그렇지 않다', '보통이다', '그렇다', '매우 그렇다'].map(
                   (label, index) => (
                     <RadioLabel key={index}>
-                      <RadioInput
-                        type='radio'
-                        name='example'
-                        disabled
-                      />
-                      <RadioLabelText>
-                        {label}
-                      </RadioLabelText>
+                      <RadioInput type='radio' name='example' disabled />
+                      <RadioLabelText>{label}</RadioLabelText>
                     </RadioLabel>
                   ),
                 )}
@@ -371,8 +348,7 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
                   onChange={(e) => setPrivacyAgreed(e.target.checked)}
                 />
                 <ConsentText>
-                  <RequiredBadge>[필수]</RequiredBadge> 개인정보 수집 및 이용에
-                  동의합니다.
+                  <RequiredBadge>[필수]</RequiredBadge> 개인정보 수집 및 이용에 동의합니다.
                 </ConsentText>
               </ConsentLabel>
               <ConsentLabel>
@@ -382,8 +358,7 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
                   onChange={(e) => setSensitiveAgreed(e.target.checked)}
                 />
                 <ConsentText>
-                  <RequiredBadge>[필수]</RequiredBadge> 민감정보 수집 및 이용에
-                  동의합니다.
+                  <RequiredBadge>[필수]</RequiredBadge> 민감정보 수집 및 이용에 동의합니다.
                 </ConsentText>
               </ConsentLabel>
             </ConsentList>
@@ -392,11 +367,7 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
           {/* 버튼 */}
           <ButtonGroup>
             {onBack && (
-              <BackButton
-                type='button'
-                onClick={onBack}
-                disabled={isLoading}
-              >
+              <BackButton type='button' onClick={onBack} disabled={isLoading}>
                 <ArrowLeft className='w-5 h-5' />
                 이전
               </BackButton>

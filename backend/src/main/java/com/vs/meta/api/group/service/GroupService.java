@@ -169,6 +169,15 @@ public class GroupService {
             paramData.put("stdtId", existing.getStdtId());
             paramData.put("memberId", existing.getId());
 
+            Integer activeDgnssId = registerActiveDgnssIfNeeded(
+                    groupInfo.getClaId(),
+                    groupInfo.getSchoolLevel(),
+                    existing.getStdtId()
+            );
+            if (activeDgnssId != null) {
+                paramData.put("dgnssId", activeDgnssId);
+            }
+
             log.info("회원 그룹 재가입: groupId={}, userNo={}, memberId={}", groupId, userNo, existing.getId());
             return paramData;
         }
@@ -196,6 +205,15 @@ public class GroupService {
 
         paramData.put("stdtId", user.getStdtId());
         paramData.put("memberId", member.getId());
+
+        Integer activeDgnssId = registerActiveDgnssIfNeeded(
+                groupInfo.getClaId(),
+                groupInfo.getSchoolLevel(),
+                user.getStdtId()
+        );
+        if (activeDgnssId != null) {
+            paramData.put("dgnssId", activeDgnssId);
+        }
 
         log.info("회원 그룹 참가: groupId={}, userNo={}, memberNo={}", groupId, userNo, memberNo);
         return paramData;
@@ -230,6 +248,11 @@ public class GroupService {
         long activeCount = groupMemberMapper.countByGroupIdAndStatus(groupId, MemberStatus.ACTIVE.name());
         if (groupInfo.getMaxMemberCount() != null && activeCount >= groupInfo.getMaxMemberCount()) {
             throw new IllegalStateException("그룹 최대 인원(" + groupInfo.getMaxMemberCount() + "명)을 초과할 수 없습니다.");
+        }
+
+        GroupMember existingGuest = groupMemberMapper.findActiveGuestByGroupIdAndEmail(groupId, email);
+        if (existingGuest != null) {
+            throw new IllegalStateException("이미 해당 그룹에 참가한 게스트입니다. 이메일 인증 후 기존 계정으로 다시 입장해주세요.");
         }
 
         String gender = (String) paramData.get("gender");
@@ -267,17 +290,13 @@ public class GroupService {
         paramData.put("memberId", member.getId());
         paramData.put("claId", groupInfo.getClaId());
 
-        // 진행중인 검사가 있으면 restart 호출하여 게스트 검사 레코드 자동 생성
-        Integer activeDgnssId = groupQueryMapper.findActiveDgnssId(groupInfo.getClaId());
+        Integer activeDgnssId = registerActiveDgnssIfNeeded(
+                groupInfo.getClaId(),
+                groupInfo.getSchoolLevel(),
+                stdtId
+        );
         if (activeDgnssId != null) {
-            String legacyGrade = SchoolLevel.fromCode(groupInfo.getSchoolLevel()).getLegacyGrade();
-            Map<String, Object> restartParam = new HashMap<>();
-            restartParam.put("dgnssId", activeDgnssId);
-            restartParam.put("claId", groupInfo.getClaId());
-            restartParam.put("grade", legacyGrade);
-            dgnssService.tcDgnssRestart(restartParam);
             paramData.put("dgnssId", activeDgnssId);
-            log.info("게스트 검사 자동 등록: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
         }
 
         // 게스트 토큰 발급 — Auth 서버 게스트 토큰 사용 (RT 없음)
@@ -290,6 +309,27 @@ public class GroupService {
 
         log.info("게스트 그룹 참가: groupId={}, email={}, memberNo={}", groupId, email, memberNo);
         return paramData;
+    }
+
+    private Integer registerActiveDgnssIfNeeded(String claId, String schoolLevel, String stdtId) throws Exception {
+        Integer activeDgnssId = groupQueryMapper.findActiveDgnssId(claId);
+        if (activeDgnssId == null || stdtId == null || stdtId.isBlank()) {
+            return activeDgnssId;
+        }
+
+        if (dgnssService.existsDgnssResult(activeDgnssId, stdtId)) {
+            log.info("검사 결과 중복 건너뜀: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
+            return activeDgnssId;
+        }
+
+        String legacyGrade = SchoolLevel.fromCode(schoolLevel).getLegacyGrade();
+        Map<String, Object> restartParam = new HashMap<>();
+        restartParam.put("dgnssId", activeDgnssId);
+        restartParam.put("claId", claId);
+        restartParam.put("grade", legacyGrade);
+        dgnssService.tcDgnssRestart(restartParam);
+        log.info("활성 검사 자동 등록: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
+        return activeDgnssId;
     }
 
     @Transactional(readOnly = true)

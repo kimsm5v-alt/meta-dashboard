@@ -2977,6 +2977,14 @@
 		</if>
 		GROUP BY gi.cla_id, dar.DEPTH, dar.SECTION_ID
 	</select>
+
+	<select id="countDgnssResultByDgnssIdAndStdtId" resultType="int">
+		/* DgnssMapper.countDgnssResultByDgnssIdAndStdtId */
+		SELECT COUNT(*)
+		FROM tb_dgnss_result_info
+		WHERE dgnss_id = #{dgnssId}
+		  AND stdt_id = #{stdtId}
+	</select>
 </mapper>
 
 

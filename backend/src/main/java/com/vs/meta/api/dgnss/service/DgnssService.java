@@ -283,6 +283,14 @@ public class DgnssService {
         return resultMap;
     }
 
+    @Transactional(readOnly = true)
+    public boolean existsDgnssResult(int dgnssId, String stdtId) {
+        if (dgnssId <= 0 || StringUtils.isBlank(stdtId)) {
+            return false;
+        }
+        return dgnssMapper.countDgnssResultByDgnssIdAndStdtId(dgnssId, stdtId) > 0;
+    }
+
     public boolean answerCheck(Collection<Object> answers, int checkCount) {
         int count = 0;
         Integer prev = null;
