@@ -734,7 +734,7 @@ export const ExamPage: React.FC = () => {
         <ExamAuthStep
           examName={examInfo.name}
           examCode={code || ''}
-          onGuestStart={() => setStep('guest-entry')}
+          onGuestStart={() => { /* 게스트 기능 제외 */ }}
         />
       );
 

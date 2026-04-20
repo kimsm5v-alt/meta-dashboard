@@ -1126,7 +1126,7 @@ export const GroupDetailPage: React.FC = () => {
                 )}
               </Button>
             </InputRow>
-            <FormHint>이 링크를 공유하면 회원 또는 게스트로 그룹에 참가할 수 있습니다.</FormHint>
+            <FormHint>이 링크를 공유하면 회원으로 그룹에 참가할 수 있습니다.</FormHint>
           </FormSection>
 
           {pendingInvitations.length > 0 && (

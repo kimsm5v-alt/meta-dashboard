@@ -67,6 +67,7 @@ const SsoButton = styled.button`
   }
 `;
 
+/* 게스트 기능 제외
 const GuestLink = styled.button`
   margin-top: ${({ theme }) => theme.spacing.md};
   padding: 10px;
@@ -81,6 +82,7 @@ const GuestLink = styled.button`
     background: ${({ theme }) => theme.colors.gray[50]};
   }
 `;
+*/
 
 // ============================================================
 // 헬퍼
@@ -115,9 +117,9 @@ export const LoginPage: React.FC = () => {
     login(redirectTo || undefined);
   };
 
-  const handleGuestEntry = () => {
-    navigate('/exam');
-  };
+  /* 게스트 기능 제외
+  const handleGuestEntry = () => { navigate('/exam'); };
+  */
 
   if (isLoading) return null;
   if (isAuthenticated) return null;
@@ -133,7 +135,7 @@ export const LoginPage: React.FC = () => {
 
       <StyledCard>
         <SsoButton onClick={handleSsoLogin}>로그인</SsoButton>
-        <GuestLink onClick={handleGuestEntry}>게스트로 참여하기</GuestLink>
+        {/* 게스트 기능 제외 (기획 결정) */}
       </StyledCard>
     </PageContainer>
   );

@@ -31,8 +31,8 @@ import {
   CommunityListPage,
   CommunityDetailPage,
   CommunityWritePage,
-  GuestExamListPage,
-  GuestCompletePage,
+  // GuestExamListPage, // 게스트 기능 제외
+  // GuestCompletePage,
   StudentGroupsPage,
   MyExamListPage,
   MyResultPage,
@@ -106,23 +106,14 @@ const StudentProtectedLayout = () => {
 /**
  * 보호 라우트 래퍼 - 게스트용 (게스트 인증 필요 + 사이드바 없음)
  */
+/* 게스트 기능 제외 (기획 결정)
 const GuestProtectedLayout = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-
-  if (isLoading) {
-    return <PageLoading text='로딩 중...' />;
-  }
-
-  if (!isAuthenticated || user?.memberType !== 'guest') {
-    return <Navigate to='/' replace />;
-  }
-
-  return (
-    <MinimalLayout>
-      <Outlet />
-    </MinimalLayout>
-  );
+  if (isLoading) return <PageLoading text='로딩 중...' />;
+  if (!isAuthenticated || user?.memberType !== 'guest') return <Navigate to='/' replace />;
+  return <MinimalLayout><Outlet /></MinimalLayout>;
 };
+*/
 
 // ============================================================
 // 라우트 정의
@@ -179,12 +170,12 @@ export const AppRoutes = () => (
       <Route path='/ai-room' element={<AIRoomPage />} />
     </Route>
 
-    {/* 게스트 라우트 - 사이드바 없음, 게스트 인증 필요 */}
-    <Route element={<GuestProtectedLayout />}>
+    {/* 게스트 라우트 비활성화 (기획 결정: 게스트 기능 제외) */}
+    {/* <Route element={<GuestProtectedLayout />}>
       <Route path='/guest/exams' element={<GuestExamListPage />} />
       <Route path='/guest/exam' element={<ExamPage />} />
       <Route path='/guest/complete' element={<GuestCompletePage />} />
-    </Route>
+    </Route> */}
 
     {/* 학생 라우트 - 학생 사이드바, 일반 인증 필요 */}
     <Route element={<StudentProtectedLayout />}>
