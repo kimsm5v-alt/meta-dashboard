@@ -11,23 +11,33 @@ import type { APIResponse } from '@shared/api/client';
 // ============================================================
 // 하위 호환: API_CONFIG
 // ============================================================
-const AUTH_TOKEN_KEY = 'auth_token';
-const REFRESH_TOKEN_KEY = 'refresh_token';
+// SSO 전환: SDK가 'accessToken' / 'refreshToken' 키를 사용
+// 기존 'auth_token' / 'refresh_token'도 fallback으로 확인
+const AUTH_TOKEN_KEYS = ['accessToken', 'auth_token'];
+const REFRESH_TOKEN_KEYS = ['refreshToken', 'refresh_token'];
+
+function findToken(keys: string[]): string | null {
+  for (const key of keys) {
+    const val = localStorage.getItem(key);
+    if (val) return val;
+  }
+  return null;
+}
 
 export const API_CONFIG = {
   get baseUrl(): string {
     return (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8081';
   },
   get jwtToken(): string {
-    return localStorage.getItem('auth_token') ?? '';
+    return findToken(AUTH_TOKEN_KEYS) ?? '';
   },
 } as const;
 
 export function getAuthTokens(): { authToken: string | null; refreshToken: string | null } | null {
   try {
-    const authToken = localStorage.getItem(AUTH_TOKEN_KEY);
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-    
+    const authToken = findToken(AUTH_TOKEN_KEYS);
+    const refreshToken = findToken(REFRESH_TOKEN_KEYS);
+
     if (authToken || refreshToken) {
       return { authToken, refreshToken };
     }

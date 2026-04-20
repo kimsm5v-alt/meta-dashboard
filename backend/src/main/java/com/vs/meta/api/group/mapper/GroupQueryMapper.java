@@ -15,7 +15,7 @@ public interface GroupQueryMapper {
 
     long countGroupMemberList(@Param("groupId") Long groupId);
 
-    Map<String, Object> findGroupDetail(@Param("groupId") Long groupId);
+    Map<String, Object> findGroupDetail(@Param("groupId") Long groupId, @Param("userNo") Long userNo);
 
     List<Map<String, Object>> findGuestMembersByEmail(@Param("email") String email);
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '@shared/api/client';
+import { useAuth } from '@features/auth/model/AuthContext';
 
 interface ProfileStatus {
   registered: boolean;
@@ -10,9 +11,11 @@ interface ProfileStatus {
 
 /**
  * SSO 로그인 후 학심정 프로필 등록 여부 확인.
+ * 등록된 사용자면 userNo, roleCode 등 학심정 서비스 데이터를 AuthContext에 반영.
  * 미등록이면 /auth/complete-profile로 리다이렉트 필요.
  */
 export function useProfileCheck(isAuthenticated: boolean): ProfileStatus {
+  const { updateUser } = useAuth();
   const [status, setStatus] = useState<ProfileStatus>({
     registered: false,
     needsProfile: false,
@@ -33,10 +36,25 @@ export function useProfileCheck(isAuthenticated: boolean): ProfileStatus {
         registered: boolean;
         needsProfile: boolean;
         needsRoleSelection?: boolean;
+        userNo?: number;
+        roleCode?: string;
+        tcId?: string;
+        stdtId?: string;
       }>('/api/v1/user/status')
       .then((res) => {
         if (cancelled) return;
         const data = res.resultData;
+
+        // 등록된 사용자면 학심정 서비스 데이터를 AuthContext에 반영
+        if (data.registered && data.userNo) {
+          updateUser({
+            id: String(data.userNo),
+            roleCode: data.roleCode,
+            tcId: data.tcId ?? undefined,
+            stdtId: data.stdtId ?? undefined,
+          });
+        }
+
         setStatus({
           registered: data.registered,
           needsProfile: data.needsProfile,
@@ -46,14 +64,13 @@ export function useProfileCheck(isAuthenticated: boolean): ProfileStatus {
       })
       .catch(() => {
         if (cancelled) return;
-        // API 실패 시 미등록으로 처리
         setStatus({ registered: false, needsProfile: true, needsRoleSelection: false, isChecking: false });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, updateUser]);
 
   return status;
 }
