@@ -131,7 +131,7 @@ export const LPA_PROFILE_DATA: LPAProfileData = {
     types: [
       {
         name: '자원소진형',
-        color: '#F97316',
+        color: '#E74C3C',
         colorName: 'orange',
         means: [
           38.14, 37.9, 37.23, 41.69, 42.93, 43.9, 41.06, 45.1, 44.32, 44.49, 45.41, 46.2, 41.72,
@@ -269,8 +269,8 @@ export const LPA_PROFILE_DATA: LPAProfileData = {
         ],
       },
       {
-        name: '안전균형형',
-        color: '#14B8A6',
+        name: '안전 균형형',
+        color: '#3498DB',
         colorName: 'teal',
         means: [
           52.01, 50.91, 50.68, 49.57, 47.6, 49.36, 46.98, 46.77, 45.49, 47.5, 47.44, 46.13, 48.09,
@@ -558,8 +558,8 @@ export const LPA_PROFILE_DATA: LPAProfileData = {
         ],
       },
       {
-        name: '몰입자원풍부형',
-        color: '#3B82F6',
+        name: '몰입자원 풍부형',
+        color: '#2ECC71',
         colorName: 'blue',
         means: [
           55.82, 56.08, 54.19, 53.78, 53.71, 54.81, 53.79, 56.65, 56.86, 57.55, 57.49, 55.03, 56.25,
@@ -620,16 +620,16 @@ export const LPA_PROFILE_DATA: LPAProfileData = {
     ],
     priors: {
       자원소진형: 0.30552,
-      안전균형형: 0.35469,
-      몰입자원풍부형: 0.33979,
+      '안전 균형형': 0.35469,
+      '몰입자원 풍부형': 0.33979,
     },
   },
 
   중등: {
     types: [
       {
-        name: '무기력형',
-        color: '#F97316',
+        name: '냉소적 무기력형',
+        color: '#E74C3C',
         colorName: 'orange',
         // 자원소진형 기반으로 조정 (내적 동기 더 낮고, 스트레스 더 높음)
         means: [
@@ -847,8 +847,8 @@ export const LPA_PROFILE_DATA: LPAProfileData = {
         ],
       },
       {
-        name: '정서조절취약형',
-        color: '#14B8A6',
+        name: '정서조절 취약형',
+        color: '#F39C12',
         colorName: 'teal',
         // 안전균형형 기반으로 조정 (정서조절 낮고, 스트레스 높음)
         means: [
@@ -1043,8 +1043,8 @@ export const LPA_PROFILE_DATA: LPAProfileData = {
         ],
       },
       {
-        name: '자기주도몰입형',
-        color: '#3B82F6',
+        name: '자기주도 몰입형',
+        color: '#2ECC71',
         colorName: 'blue',
         // 몰입자원풍부형 기반으로 조정 (자기주도성 높음)
         means: [
@@ -1105,7 +1105,7 @@ export const LPA_PROFILE_DATA: LPAProfileData = {
         ],
       },
     ],
-    priors: { 무기력형: 0.354, 정서조절취약형: 0.38, 자기주도몰입형: 0.266 },
+    priors: { '냉소적 무기력형': 0.354, '정서조절 취약형': 0.38, '자기주도 몰입형': 0.266 },
   },
 };
 
@@ -1179,22 +1179,30 @@ export const getKnowledgeGraphModerationEffects = (
 
 // 유형별 색상 클래스
 export const TYPE_COLOR_CLASSES: Record<string, string> = {
-  자원소진형: 'bg-orange-50 text-orange-600 border-orange-200',
-  안전균형형: 'bg-teal-50 text-teal-600 border-teal-200',
-  몰입자원풍부형: 'bg-blue-50 text-blue-600 border-blue-200',
-  무기력형: 'bg-orange-50 text-orange-600 border-orange-200',
-  정서조절취약형: 'bg-teal-50 text-teal-600 border-teal-200',
-  자기주도몰입형: 'bg-blue-50 text-blue-600 border-blue-200',
+  // 초등
+  자원소진형: 'bg-red-50 text-red-600 border-red-200',
+  '안전 균형형': 'bg-blue-50 text-blue-600 border-blue-200',
+  '몰입자원 풍부형': 'bg-green-50 text-green-600 border-green-200',
+  // 중등
+  '냉소적 무기력형': 'bg-red-50 text-red-600 border-red-200',
+  '정서조절 취약형': 'bg-yellow-50 text-yellow-600 border-yellow-200',
+  '자기주도 몰입형': 'bg-green-50 text-green-600 border-green-200',
+  // 미실시
+  미실시: 'bg-gray-50 text-gray-600 border-gray-200',
 };
 
 // 유형별 색상 HEX
 export const TYPE_COLORS: Record<string, string> = {
-  자원소진형: '#F97316',
-  안전균형형: '#14B8A6',
-  몰입자원풍부형: '#3B82F6',
-  무기력형: '#F97316',
-  정서조절취약형: '#14B8A6',
-  자기주도몰입형: '#3B82F6',
+  // 초등
+  자원소진형: '#E74C3C',
+  '안전 균형형': '#3498DB',
+  '몰입자원 풍부형': '#2ECC71',
+  // 중등
+  '냉소적 무기력형': '#E74C3C',
+  '정서조절 취약형': '#F39C12',
+  '자기주도 몰입형': '#2ECC71',
+  // 미실시
+  미실시: '#E5E7EB',
 };
 
 export default LPA_PROFILE_DATA;
