@@ -22,7 +22,9 @@
       "Bash(python:*)",
       "Bash(java -version:*)",
       "Bash(timeout:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(./gradlew :backend:compileJava)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

@@ -30,13 +30,12 @@ import { dgnssService } from '@features/groups/api/dgnssService';
 // ============================================================
 
 function useCredentials() {
-  const { credentials } = useAuth();
-  const tcId = credentials?.teacherId ?? '';
-  const claId = credentials?.classId ?? '';
-  const gradeLevel = credentials?.gradeLevel ?? 'mi';
-  const schoolLevel: SchoolLevel = gradeLevel === 'el' ? '초등' : '중등';
+  const { user } = useAuth();
+  const tcId = user?.tcId ?? '';
+  const claId = user?.classId ?? '';
+  const schoolLevel: SchoolLevel = '중등'; // SSO 전환 후 기본값, 추후 user 프로필에서 가져오기
 
-  return { tcId, claId, gradeLevel, schoolLevel, hasCredentials: !!credentials };
+  return { tcId, claId, gradeLevel: 'mi', schoolLevel, hasCredentials: !!user };
 }
 
 // ============================================================

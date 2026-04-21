@@ -288,6 +288,7 @@ public class GroupService {
 
         paramData.put("stdtId", stdtId);
         paramData.put("memberId", member.getId());
+        paramData.put("claId", groupInfo.getClaId());
 
         Integer activeDgnssId = registerActiveDgnssIfNeeded(
                 groupInfo.getClaId(),
@@ -298,12 +299,13 @@ public class GroupService {
             paramData.put("dgnssId", activeDgnssId);
         }
 
-        emailVerificationService.consumeVerification(email);
-
-        // 게스트 토큰 발급
-        Map<String, Object> tokens = guestAuthService.issueGuestTokens(stdtId, groupInfo.getClaId(), email, null, null);
-        paramData.put("accessToken", tokens.get("accessToken"));
-        paramData.put("refreshToken", tokens.get("refreshToken"));
+        // 게스트 토큰 발급 — Auth 서버 게스트 토큰 사용 (RT 없음)
+        // authenticateGuest 내부에서 isVerified 체크 + consumeVerification을 수행하므로
+        // 여기서 미리 consume하면 안 됨
+        Map<String, Object> guestToken = guestAuthService.authenticateGuest(
+                groupInfo.getInviteCode(), email, null, null);
+        paramData.put("accessToken", guestToken.get("accessToken"));
+        paramData.put("guestId", guestToken.get("guestId"));
 
         log.info("게스트 그룹 참가: groupId={}, email={}, memberNo={}", groupId, email, memberNo);
         return paramData;
@@ -357,7 +359,7 @@ public class GroupService {
             throw new IllegalStateException("그룹 상세 조회 권한이 없습니다. 그룹 멤버만 조회할 수 있습니다.");
         }
 
-        Map<String, Object> groupInfo = groupQueryMapper.findGroupDetail(groupId);
+        Map<String, Object> groupInfo = groupQueryMapper.findGroupDetail(groupId, userNo);
         returnMap.put("groupInfo", groupInfo);
 
         List<Map<String, Object>> memberList = groupQueryMapper.findGroupMemberList(groupId, offset, size);

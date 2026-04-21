@@ -3,8 +3,7 @@ export { LandingPage } from './landing/LandingPage';
 
 // Auth
 export { LoginPage } from './auth/LoginPage';
-export { SignUpPage } from './auth/SignUpPage';
-export { ForgotPasswordPage } from './auth/ForgotPasswordPage';
+// SignUpPage, ForgotPasswordPage 제거 — Auth 서버에서 처리
 
 // Teacher Dashboard
 export { TeacherDashboardPage } from './teacher-dashboard/TeacherDashboardPage';

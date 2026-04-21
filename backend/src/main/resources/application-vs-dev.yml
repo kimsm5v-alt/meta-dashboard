@@ -2,3 +2,14 @@ app:
   frontend-url: https://t-meta-service.vsaidt.com
   cors:
     allowed-origins: https://t-meta-service.vsaidt.com,http://localhost:5173,http://localhost:5174
+
+# ===== SuperPlatform Auth (SSO) =====
+spring.security.oauth2.resourceserver.jwt:
+  jwk-set-uri: https://t-auth-superplatform-api.vsaidt.com/.well-known/jwks.json
+  issuer-uri: superplatform
+
+superplatform:
+  auth:
+    server-url: https://t-auth-superplatform-api.vsaidt.com
+    client-id: ${SP_AUTH_CLIENT_ID:test-service}
+    client-secret: ${SP_AUTH_CLIENT_SECRET:test-secret-1234!}

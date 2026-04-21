@@ -1,4 +1,4 @@
-# DGNSS 마이그레이션 진행 메모
+ㅕㄴ되냐# DGNSS 마이그레이션 진행 메모
 
 > 작성일: 2026-03-19
 > 대상 프로젝트: `meta-dashboard/backend`

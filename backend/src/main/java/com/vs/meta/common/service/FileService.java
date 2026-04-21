@@ -1,12 +1,12 @@
 package com.vs.meta.common.service;
 
-import com.vs.meta.common.security.JwtUtil;
 import com.vs.meta.common.exception.AuthFailedException;
+import com.vs.meta.common.security.SpAuthenticatedUser;
+import com.vs.meta.common.utils.SecurityUtil;
 import com.vs.meta.common.vo.FileVO;
 import com.vs.meta.common.vo.FileLogVO;
 import com.vs.meta.common.mapper.FileMapper;
 import com.vs.meta.common.utils.FileUtil;
-import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -53,8 +53,6 @@ public class FileService {
 
     private final FileMapper fileMapper;
 
-    private final JwtUtil jwtUtil;
-
     @Value("${spring.profiles.active}")
     private String serverEnv;
 
@@ -97,21 +95,16 @@ public class FileService {
         String userId = null;
 
         try {
-            String authorizationHeader = request.getHeader("Authorization");
-            if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-                /*로컬 테스트 시 주석 변경하여 테스트*/
-                /*userId = "mathbook253-t";*/
-                log.error("Authorization 헤더 누락 또는 잘못된 형식");
-                throw new AuthFailedException("Authorization 헤더 누락 또는 잘못된 형식");
+            // SecurityContext에서 인증된 사용자 정보 추출 (Spring Security JWT 검증 완료 상태)
+            SpAuthenticatedUser spUser = SecurityUtil.getCurrentSpUser();
+            if (spUser == null) {
+                log.error("인증된 사용자 정보가 없습니다.");
+                throw new AuthFailedException("인증된 사용자 정보가 없습니다.");
             }
-            else {
-                String jwtToken = authorizationHeader.substring(7); // "Bearer " 제거
-                Claims claims = jwtUtil.getAllClaimsFromToken(jwtToken);
-                userId = claims.get("id", String.class);
-                if (userId == null) {
-                    log.error("JWT에서 id 값이 누락되었습니다.");
-                    throw new AuthFailedException("JWT에서 id 값이 누락되었습니다.");
-                }
+            userId = spUser.spUserId();
+            if (userId == null) {
+                log.error("사용자 ID가 누락되었습니다.");
+                throw new AuthFailedException("사용자 ID가 누락되었습니다.");
             }
 
             String requestSource = request.getHeader("Referer"); // 요청 출처를 헤더에서 추출
@@ -228,15 +221,17 @@ public class FileService {
         Map<String, String> response = new HashMap<>();
         String userId = null;
         try {
-            if (StringUtils.isEmpty(jwtToken)) {
-                log.error("JWT 토큰 값이 누락되었습니다.");
-                throw new AuthFailedException("JWT 토큰 값이 누락되었습니다.");
-            } else {
-                Claims claims = jwtUtil.getAllClaimsFromToken(jwtToken);
-                userId = claims.get("id", String.class);
+            // SecurityContext에서 인증된 사용자 정보 추출
+            SpAuthenticatedUser spUser = SecurityUtil.getCurrentSpUser();
+            if (spUser != null) {
+                userId = spUser.spUserId();
+            }
+            // jwtToken 파라미터가 있으면 fallback (레거시 호환)
+            if (StringUtils.isEmpty(userId) && StringUtils.isNotEmpty(jwtToken)) {
+                log.warn("SecurityContext에 사용자 없음, jwtToken 파라미터 무시 (SSO 전환 후)");
             }
             if (StringUtils.isEmpty(userId)) {
-                throw new AuthFailedException("JWT 토큰 값 오류 - 사용자 정보가 없습니다.");
+                throw new AuthFailedException("사용자 정보가 없습니다.");
             }
 
             String requestSource = request.getHeader("Referer");
@@ -570,15 +565,13 @@ public class FileService {
     public ResponseEntity<StreamingResponseBody> dgnssDownloadAll(String jwtToken, HttpServletRequest request, boolean isAuth, Map<String, Object> param) throws Exception {
         Map<String, String> response = new HashMap<>();
         String userId = null;
-        if (StringUtils.isEmpty(jwtToken)) {
-            log.error("JWT 토큰 값이 누락되었습니다.");
-            throw new AuthFailedException("JWT 토큰 값이 누락되었습니다.");
-        } else {
-            Claims claims = jwtUtil.getAllClaimsFromToken(jwtToken);
-            userId = claims.get("id", String.class);
+        // SecurityContext에서 인증된 사용자 정보 추출
+        SpAuthenticatedUser spUser = SecurityUtil.getCurrentSpUser();
+        if (spUser != null) {
+            userId = spUser.spUserId();
         }
         if (StringUtils.isEmpty(userId)) {
-            throw new AuthFailedException("JWT 토큰 값 오류 - 사용자 정보가 없습니다.");
+            throw new AuthFailedException("사용자 정보가 없습니다.");
         }
 
         String requestSource = request.getHeader("Referer"); // 요청 출처를 헤더에서 추출

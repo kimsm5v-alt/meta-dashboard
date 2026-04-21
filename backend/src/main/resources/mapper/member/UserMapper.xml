@@ -4,8 +4,8 @@
 
     <resultMap id="userResultMap" type="com.vs.meta.domain.User">
         <id property="userNo" column="user_no"/>
+        <result property="spUserId" column="sp_user_id"/>
         <result property="email" column="email"/>
-        <result property="password" column="password"/>
         <result property="nickname" column="nickname"/>
         <result property="gender" column="gender"/>
         <result property="roleCode" column="role_code"/>
@@ -20,7 +20,7 @@
     </resultMap>
 
     <sql id="userColumns">
-        user_no, email, password, nickname, gender, role_code, tc_id, stdt_id,
+        user_no, sp_user_id, email, nickname, gender, role_code, tc_id, stdt_id,
         status, last_login_at, created_by, updated_by, created_at, updated_at
     </sql>
 
@@ -44,6 +44,13 @@
         SELECT <include refid="userColumns"/>
         FROM `user`
         WHERE user_no = #{userNo}
+    </select>
+
+    <select id="findBySpUserId" resultMap="userResultMap">
+        /* UserMapper.findBySpUserId */
+        SELECT <include refid="userColumns"/>
+        FROM `user`
+        WHERE sp_user_id = #{spUserId}
     </select>
 
     <select id="findAllUsers" resultMap="userResultMap">
@@ -91,15 +98,14 @@
 
     <insert id="insertUser" parameterType="com.vs.meta.domain.User" useGeneratedKeys="true" keyProperty="userNo">
         /* UserMapper.insertUser */
-        INSERT INTO `user` (email, password, nickname, gender, role_code, tc_id, stdt_id, status, last_login_at, created_by, updated_by, created_at, updated_at)
-        VALUES (#{email}, #{password}, #{nickname}, #{gender}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+        INSERT INTO `user` (sp_user_id, email, nickname, gender, role_code, tc_id, stdt_id, status, last_login_at, created_by, updated_by, created_at, updated_at)
+        VALUES (#{spUserId}, #{email}, #{nickname}, #{gender}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="updateUser" parameterType="com.vs.meta.domain.User">
         /* UserMapper.updateUser */
         UPDATE `user`
-        SET password = #{password},
-            email = #{email},
+        SET email = #{email},
             nickname = #{nickname},
             gender = #{gender},
             role_code = #{roleCode},
@@ -112,13 +118,6 @@
         WHERE user_no = #{userNo}
     </update>
 
-    <update id="updatePassword">
-        /* UserMapper.updatePassword */
-        UPDATE `user`
-        SET password   = #{password},
-            updated_by = #{updatedBy},
-            updated_at = NOW()
-        WHERE user_no = #{userNo}
-    </update>
+    <!-- updatePassword 제거 — SSO 전환 후 password 컬럼 없음 -->
 
 </mapper>

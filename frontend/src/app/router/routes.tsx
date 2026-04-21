@@ -4,15 +4,16 @@ import { MinimalLayout } from '@widgets/layout/MinimalLayout';
 import { StudentLayout } from '@widgets/layout/StudentLayout';
 import { PageLoading } from '@shared/ui/Loading';
 import { useAuth } from '@features/auth/model/AuthContext';
+import { useSpAuth } from '@shared/hooks/useSpAuth';
+import { useProfileCheck } from '@shared/hooks/useProfileCheck';
 import { FEATURES } from '@shared/config/features';
 
 // Page imports from pages layer
 import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
+import { CompleteProfilePage } from '@pages/auth/CompleteProfilePage';
 import {
-  LandingPage,
+  // LandingPage, // 루트 경로는 AuthRedirect로 대체
   LoginPage,
-  SignUpPage,
-  ForgotPasswordPage,
   TeacherDashboardPage,
   ClassDashboardPage,
   ClassDetailAnalysisPage,
@@ -31,8 +32,8 @@ import {
   CommunityListPage,
   CommunityDetailPage,
   CommunityWritePage,
-  GuestExamListPage,
-  GuestCompletePage,
+  // GuestExamListPage, // 게스트 기능 제외
+  // GuestCompletePage,
   StudentGroupsPage,
   MyExamListPage,
   MyResultPage,
@@ -52,17 +53,41 @@ const PublicLayout = () => (
 );
 
 /**
+ * 루트 경로: 인증 상태면 역할 기반 리다이렉트, 미인증이면 SSO 로그인
+ */
+const AuthRedirect = () => {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const { login } = useSpAuth();
+
+  if (isLoading) return <PageLoading text='로딩 중...' />;
+
+  if (isAuthenticated) {
+    const path = user?.roleCode === 'STUDENT' ? '/student/exams' : '/dashboard';
+    return <Navigate to={path} replace />;
+  }
+
+  // 미인증 → SSO 로그인
+  login();
+  return null;
+};
+
+/**
  * 보호 라우트 래퍼 - 교사용 (인증 필요 + 교사 사이드바)
  */
 const ProtectedLayout = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
 
-  if (isLoading) {
+  if (isLoading || isChecking) {
     return <PageLoading text='로딩 중...' />;
   }
 
   if (!isAuthenticated) {
     return <Navigate to='/login' replace />;
+  }
+
+  if (needsProfile) {
+    return <Navigate to='/auth/complete-profile' replace />;
   }
 
   return (
@@ -77,13 +102,18 @@ const ProtectedLayout = () => {
  */
 const StudentProtectedLayout = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
 
-  if (isLoading) {
+  if (isLoading || isChecking) {
     return <PageLoading text='로딩 중...' />;
   }
 
   if (!isAuthenticated) {
     return <Navigate to='/login' replace />;
+  }
+
+  if (needsProfile) {
+    return <Navigate to='/auth/complete-profile' replace />;
   }
 
   return (
@@ -96,23 +126,14 @@ const StudentProtectedLayout = () => {
 /**
  * 보호 라우트 래퍼 - 게스트용 (게스트 인증 필요 + 사이드바 없음)
  */
+/* 게스트 기능 제외 (기획 결정)
 const GuestProtectedLayout = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-
-  if (isLoading) {
-    return <PageLoading text='로딩 중...' />;
-  }
-
-  if (!isAuthenticated || user?.memberType !== 'guest') {
-    return <Navigate to='/' replace />;
-  }
-
-  return (
-    <MinimalLayout>
-      <Outlet />
-    </MinimalLayout>
-  );
+  if (isLoading) return <PageLoading text='로딩 중...' />;
+  if (!isAuthenticated || user?.memberType !== 'guest') return <Navigate to='/' replace />;
+  return <MinimalLayout><Outlet /></MinimalLayout>;
 };
+*/
 
 // ============================================================
 // 라우트 정의
@@ -120,12 +141,13 @@ const GuestProtectedLayout = () => {
 
 export const AppRoutes = () => (
   <Routes>
+    {/* 루트: 인증 상태면 대시보드, 미인증이면 랜딩 */}
+    <Route path='/' element={<AuthRedirect />} />
+
     {/* 공개 라우트 - 사이드바 없음 */}
     <Route element={<PublicLayout />}>
-      <Route path='/' element={<LandingPage />} />
       <Route path='/login' element={<LoginPage />} />
-      <Route path='/signup' element={<SignUpPage />} />
-      <Route path='/forgot-password' element={<ForgotPasswordPage />} />
+      <Route path='/auth/complete-profile' element={<CompleteProfilePage />} />
       <Route path='/exam' element={<ExamCodeEntryPage />} />
       <Route path='/exam/:code' element={<ExamPage />} />
       <Route path='/join/:code' element={<JoinGroupPage />} />
@@ -170,12 +192,12 @@ export const AppRoutes = () => (
       <Route path='/ai-room' element={<AIRoomPage />} />
     </Route>
 
-    {/* 게스트 라우트 - 사이드바 없음, 게스트 인증 필요 */}
-    <Route element={<GuestProtectedLayout />}>
+    {/* 게스트 라우트 비활성화 (기획 결정: 게스트 기능 제외) */}
+    {/* <Route element={<GuestProtectedLayout />}>
       <Route path='/guest/exams' element={<GuestExamListPage />} />
       <Route path='/guest/exam' element={<ExamPage />} />
       <Route path='/guest/complete' element={<GuestCompletePage />} />
-    </Route>
+    </Route> */}
 
     {/* 학생 라우트 - 학생 사이드바, 일반 인증 필요 */}
     <Route element={<StudentProtectedLayout />}>

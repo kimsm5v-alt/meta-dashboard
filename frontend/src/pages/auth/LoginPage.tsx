@@ -1,33 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import type { User as UserType } from '@shared/types';
 import styled from '@emotion/styled';
-import { keyframes } from '@emotion/react';
 import { Card } from '@shared/components';
-import { LoginForm } from '@features/auth/ui';
 import { useAuth } from '@features/auth/model/AuthContext';
+import { useSpAuth } from '@shared/hooks/useSpAuth';
 
-const spin = keyframes`
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-`;
-
-const LoadingContainer = styled.div`
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: ${({ theme }) => theme.colors.gray[50]};
-`;
-
-const Spinner = styled.div`
-  animation: ${spin} 1s linear infinite;
-  border-radius: 50%;
-  height: 32px;
-  width: 32px;
-  border-bottom: 2px solid ${({ theme }) => theme.colors.primary[500]};
-`;
+// ============================================================
+// 스타일
+// ============================================================
 
 const PageContainer = styled.div`
   min-height: 100vh;
@@ -40,7 +21,7 @@ const PageContainer = styled.div`
     ${({ theme }) => theme.colors.gray[50]},
     ${({ theme }) => theme.colors.gray[100]}
   );
-  padding: 0 ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => theme.spacing.xl} ${({ theme }) => theme.spacing.md};
 `;
 
 const LogoSection = styled.div`
@@ -65,47 +46,47 @@ const LogoSubtitle = styled.p`
 
 const StyledCard = styled(Card)`
   width: 100%;
-  max-width: 448px;
-  padding: ${({ theme }) => theme.spacing.xl};
-`;
-
-const BackButton = styled.button`
-  padding: ${({ theme }) => theme.spacing.sm};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  transition: background-color ${({ theme }) => theme.transitions.fast};
-
-  &:hover {
-    background-color: ${({ theme }) => theme.colors.gray[100]};
-  }
-
-  svg {
-    width: 20px;
-    height: 20px;
-    color: ${({ theme }) => theme.colors.gray[500]};
-  }
-`;
-
-const HeaderSection = styled.div`
+  max-width: 400px;
+  padding: ${({ theme }) => theme.spacing['2xl']};
   text-align: center;
-  margin-bottom: ${({ theme }) => theme.spacing.xl};
-  padding-top: ${({ theme }) => theme.spacing.md};
 `;
 
-const HeaderTitle = styled.h2`
-  font-size: ${({ theme }) => theme.typography.fontSize['2xl']};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ theme }) => theme.colors.gray[900]};
+const SsoButton = styled.button`
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: ${({ theme }) => theme.radius.lg};
+  background: ${({ theme }) => theme.colors.primary[500]};
+  color: white;
+  font-size: ${({ theme }) => theme.typography.fontSize.lg};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  cursor: pointer;
+  transition: background 0.2s;
+  &:hover {
+    background: ${({ theme }) => theme.colors.primary[600]};
+  }
 `;
 
-const HeaderSubtitle = styled.p`
-  color: ${({ theme }) => theme.colors.gray[500]};
-  margin-top: ${({ theme }) => theme.spacing.xs};
+/* 게스트 기능 제외
+const GuestLink = styled.button`
+  margin-top: ${({ theme }) => theme.spacing.md};
+  padding: 10px;
+  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  background: transparent;
+  color: ${({ theme }) => theme.colors.gray[600]};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  cursor: pointer;
+  width: 100%;
+  &:hover {
+    background: ${({ theme }) => theme.colors.gray[50]};
+  }
 `;
+*/
 
+// ============================================================
+// 헬퍼
+// ============================================================
 
 const getRedirectPathByRole = (user: UserType, explicitRedirect: string | null): string => {
   if (explicitRedirect) return explicitRedirect;
@@ -113,106 +94,55 @@ const getRedirectPathByRole = (user: UserType, explicitRedirect: string | null):
   return '/dashboard';
 };
 
+// ============================================================
+// 컴포넌트
+// ============================================================
+
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect');
-  const { isAuthenticated, isLoading, user, loginWithEmail } = useAuth();
-  const [loginLoading, setLoginLoading] = useState(false);
-  // const [mode, setMode] = useState<LoginMode>('select');
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const { login } = useSpAuth();
 
-  // 로그인 완료(또는 이미 로그인) 시 역할 기반 리다이렉트
+  // 이미 로그인 상태면 역할 기반 리다이렉트
   useEffect(() => {
     if (isAuthenticated && !isLoading && user) {
       navigate(getRedirectPathByRole(user, redirectTo), { replace: true });
     }
   }, [isAuthenticated, isLoading, user, navigate, redirectTo]);
 
-  const handleEmailLogin = async (email: string, password: string) => {
-    setLoginLoading(true);
-    try {
-      await loginWithEmail(email, password);
-      // 리다이렉트는 useEffect가 처리
-    } catch (err) {
-      throw err;
-    } finally {
-      setLoginLoading(false);
-    }
+  const handleSsoLogin = () => {
+    // returnPath를 지정하지 않으면 main.tsx에서 역할 기반 리다이렉트
+    login(redirectTo || undefined);
   };
 
-  if (isLoading) {
-    return (
-      <LoadingContainer>
-        <Spinner />
-      </LoadingContainer>
-    );
-  }
+  /* 게스트 기능 제외
+  const handleGuestEntry = () => { navigate('/exam'); };
+  */
+
+  if (isLoading) return null;
+  if (isAuthenticated) return null;
+
+  // 미인증 → 바로 SSO 로그인 리다이렉트
+  login(redirectTo || undefined);
+  return null;
 
   return (
     <PageContainer>
-      {/* 로고 */}
       <LogoSection>
         <LogoTitle>
-          <BrandText>비상교육</BrandText> 학습심리정서검사
+          <BrandText>META</BrandText> 학습심리검사
         </LogoTitle>
-        <LogoSubtitle>AI 기반 맞춤형 학습 코칭 시스템</LogoSubtitle>
+        <LogoSubtitle>학습 습관과 마음 상태를 이해하고 성장을 돕습니다</LogoSubtitle>
       </LogoSection>
 
-      {/* 모드 선택 화면 */}
-        {/* <StyledCard>
-          <BackButton onClick={() => navigate('/')}>
-            <ArrowLeft />
-          </BackButton>
-
-          <HeaderSection>
-            <HeaderTitle>로그인</HeaderTitle>
-            <HeaderSubtitle>로그인 방식을 선택해주세요</HeaderSubtitle>
-          </HeaderSection>
-
-          <ButtonGroup>
-            <ModeButton $colorScheme='primary' onClick={() => setMode('normal')}>
-              <IconWrapper $colorScheme='primary'>
-                <User />
-              </IconWrapper>
-              <ButtonTextWrapper>
-                <ButtonTitle>로그인</ButtonTitle>
-                <ButtonDescription>이메일과 비밀번호로 로그인</ButtonDescription>
-              </ButtonTextWrapper>
-            </ModeButton>
-
-            <ModeButton $colorScheme='amber' onClick={() => setMode('test')}>
-              <IconWrapper $colorScheme='amber'>
-                <FlaskConical />
-              </IconWrapper>
-              <ButtonTextWrapper>
-                <ButtonTitle>테스트 계정 로그인</ButtonTitle>
-                <ButtonDescription>API 테스트용 임시 로그인</ButtonDescription>
-              </ButtonTextWrapper>
-            </ModeButton>
-          </ButtonGroup>
-        </StyledCard> */}
-      
-
-      {/* 일반 로그인 폼 */}
-        <StyledCard>
-          <BackButton onClick={() => navigate('/')}>
-            <ArrowLeft />
-          </BackButton>
-
-          <HeaderSection>
-            <HeaderTitle>로그인</HeaderTitle>
-            <HeaderSubtitle>이메일과 비밀번호를 입력하세요</HeaderSubtitle>
-          </HeaderSection>
-
-          <LoginForm onLogin={handleEmailLogin} isLoading={loginLoading} />
-        </StyledCard>
-      
-
-      {/* 테스트 로그인 폼 */}
-      {/* {mode === 'test' && <TestLoginForm onLogin={handleTestLogin} isLoading={loginLoading} />} */}
-
-      {/* 하단 안내 */}
-      {/* {mode === 'select' && <BottomInfo>계정이 없으시면 회원가입 후 이용해주세요.</BottomInfo>} */}
+      <StyledCard>
+        <SsoButton onClick={handleSsoLogin}>로그인</SsoButton>
+        {/* 게스트 기능 제외 (기획 결정) */}
+      </StyledCard>
     </PageContainer>
   );
 };
+
+export default LoginPage;

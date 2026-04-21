@@ -357,13 +357,13 @@ export const joinGroup = async (
  */
 export const joinGroupAsGuest = async (
   input: GuestJoinGroupInput,
-): Promise<GroupMember & { accessToken: string; refreshToken: string }> => {
+): Promise<GroupMember & { accessToken: string; guestId?: string }> => {
   const res = await apiClient.post<{
     claId: string;
     stdtId: string;
     memberId: number;
     accessToken: string;
-    refreshToken: string;
+    guestId?: string;
   }>('/group/join-guest', {
     inviteCode: input.inviteCode,
     nickname: input.nickname,
@@ -384,7 +384,7 @@ export const joinGroupAsGuest = async (
     status: 'active',
     joinedAt: new Date(),
     accessToken: data.accessToken,
-    refreshToken: data.refreshToken,
+    guestId: data.guestId,
   };
 };
 

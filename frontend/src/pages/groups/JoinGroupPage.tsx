@@ -13,7 +13,7 @@ import {
   User,
 } from 'lucide-react';
 import { Button } from '@shared/components';
-import { LoginForm } from '@features/auth/ui/LoginForm';
+// LoginForm 제거 — SSO 전환 후 auth.login()으로 대체
 import { groupService } from '@features/groups/api/groupService';
 import { useAuth } from '@features/auth/model/AuthContext';
 import type { GroupInviteInfo } from '@shared/types';
@@ -434,13 +434,13 @@ const GenderButton = styled.button<{ $isSelected: boolean }>`
 export const JoinGroupPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { user, isAuthenticated, isLoading: authLoading, loginWithEmail, loginAsGuest } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, loginAsGuest } = useAuth();
 
   const [step, setStep] = useState<PageStep>(isAuthenticated ? 'loading' : 'info');
   const [groupInfo, setGroupInfo] = useState<GroupInviteInfo | null>(null);
   const [alreadyJoined, setAlreadyJoined] = useState(false);
   const [error, setError] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
+  // loginLoading 제거 — SSO 전환 후 auth.login()은 리다이렉트라 로딩 상태 불필요
 
   // 게스트 가입 폼
   const [guestNickname, setGuestNickname] = useState('');
@@ -588,15 +588,11 @@ export const JoinGroupPage: React.FC = () => {
     }
   };
 
-  // 로그인 처리 (로그인 성공 후 자동 가입)
-  const handleLogin = async (email: string, password: string) => {
-    setLoginLoading(true);
-    try {
-      await loginWithEmail(email, password);
-      // 로그인 성공 → useEffect에서 isAuthenticated 변경 감지 → 자동 가입 처리
-    } finally {
-      setLoginLoading(false);
-    }
+  // SSO 로그인 처리 (Auth 서버로 리다이렉트)
+  const handleLogin = async () => {
+    const { getAuth } = await import('@shared/lib/authClient');
+    const auth = getAuth();
+    await auth.login({ redirectPath: `/join/${code}` });
   };
 
   // 로그인 후 자동 가입
@@ -638,7 +634,7 @@ export const JoinGroupPage: React.FC = () => {
         groupNm: string;
         email: string;
         accessToken: string;
-        refreshToken: string;
+        guestId?: string;
       }>('/guest/auth', {
         inviteCode: code,
         email: guestEmail.trim(),
@@ -655,12 +651,13 @@ export const JoinGroupPage: React.FC = () => {
         groupNm: result.resultData.groupNm || groupInfo.name,
         email: result.resultData.email,
         accessToken: result.resultData.accessToken,
-        refreshToken: result.resultData.refreshToken,
+        guestId: result.resultData.guestId,
       });
 
       // 게스트 검사 목록으로 이동
       navigate('/guest/exams');
-    } catch {
+    } catch (err) {
+      console.error('[JoinGroupPage] 게스트 재인증 실패:', err);
       setError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
       setStep('error');
     }
@@ -703,12 +700,13 @@ export const JoinGroupPage: React.FC = () => {
         groupNm: groupInfo.name,
         email: guestEmail.trim(),
         accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
+        guestId: result.guestId,
       });
 
       // 게스트 검사 목록으로 이동
       navigate('/guest/exams');
-    } catch {
+    } catch (err) {
+      console.error('[JoinGroupPage] 게스트 가입 실패:', err);
       setError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
       setStep('error');
     }
@@ -1237,15 +1235,14 @@ export const JoinGroupPage: React.FC = () => {
               </SubmitButton>
             </AuthSection>
           ) : (
-            // ── 비로그인 상태: 로그인 폼 바로 표시 ──
+            // ── 비로그인 상태: SSO 로그인 ──
             <div>
               <LoginPrompt>그룹에 가입하려면 로그인해주세요</LoginPrompt>
-              <LoginForm
-                onLogin={handleLogin}
-                isLoading={loginLoading}
-                onGuestLogin={() => setStep('email-input')}
-                redirectPath={`/join/${code}`}
-              />
+              <SubmitButton type='button' onClick={handleLogin} style={{ marginBottom: '0.75rem' }}>
+                로그인 / 회원가입
+                <ArrowIcon />
+              </SubmitButton>
+              {/* 게스트 기능 제외 (기획 결정) */}
             </div>
           )}
         </MainCard>
