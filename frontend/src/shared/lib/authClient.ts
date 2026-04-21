@@ -82,6 +82,9 @@ let authInstance: AuthClientInstance | null = null;
 export async function initAuth(): Promise<AuthClientInstance> {
   if (authInstance) return authInstance;
 
+  // CDN 스크립트 로드 대기 (index.html에서 Promise 세팅)
+  await (window as unknown as { __authSdkReady: Promise<void> }).__authSdkReady;
+
   // touchEnabled: localhost(HTTP)에서는 Secure 쿠키가 전송 안 되므로 touch 비활성화
   // HTTPS 환경(개발서버/운영)에서는 SameSite=None; Secure로 정상 동작
   const isHttps = window.location.protocol === 'https:';
