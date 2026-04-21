@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const user = mapSdkUserToUser(sdkUser);
       // localStorage에 학심정 서비스 데이터가 있으면 병합
       const storedUser = loadStoredUser();
-      const merged = storedUser ? { ...user, ...storedUser, ...user } : user;
+      const merged = storedUser ? { ...user, ...storedUser } : user;
       setState({ user: merged, isAuthenticated: true, isLoading: false });
     } else {
       setState({ user: null, isAuthenticated: false, isLoading: false });
