@@ -80,6 +80,68 @@ export interface FetchQuestionsResponse {
 }
 
 /**
+ * 페이지별 구성 정보
+ * - 120번 문항의 성격이 다르므로 별도 페이지로 분리
+ * - 페이지 6: 101-119 (19문항)
+ * - 페이지 7: 120-124 (5문항)
+ */
+interface PageConfig {
+  apiPage: number; // 실제 API에 요청할 페이지 번호
+  startNo: number; // 표시할 시작 문항 번호
+  endNo: number; // 표시할 끝 문항 번호
+}
+
+function getPageConfig(frontendPage: number): PageConfig {
+  // 페이지 0-4: 1-100번 (각 20문항)
+  if (frontendPage <= 4) {
+    return {
+      apiPage: frontendPage,
+      startNo: frontendPage * 20 + 1,
+      endNo: (frontendPage + 1) * 20,
+    };
+  }
+  // 페이지 5: 101-119 (19문항)
+  if (frontendPage === 5) {
+    return {
+      apiPage: 5, // API page 5 (101-120) 요청
+      startNo: 101,
+      endNo: 119,
+    };
+  }
+  // 페이지 6: 120-124 (5문항)
+  return {
+    apiPage: 5, // API page 5 (101-120) 요청 - 120번 포함
+    startNo: 120,
+    endNo: 124,
+  };
+}
+
+/**
+ * 답변 완료 개수로부터 마지막 답변이 있는 페이지 계산
+ * @param answeredCount 답변 완료 개수 (1-124)
+ * @returns 페이지 번호 (0-based, 0-6)
+ */
+export function getPageFromAnsweredCount(answeredCount: number): number {
+  if (answeredCount === 0) return 0;
+
+  // 마지막 답변 문항 번호 추정
+  const lastAnsweredNo = answeredCount;
+
+  // 1-100: 기존 페이징 (20문항씩, 페이지 0-4)
+  if (lastAnsweredNo <= 100) {
+    return Math.floor((lastAnsweredNo - 1) / 20);
+  }
+
+  // 101-119: 페이지 5
+  if (lastAnsweredNo <= 119) {
+    return 5;
+  }
+
+  // 120-124: 페이지 6
+  return 6;
+}
+
+/**
  * 학생 검사 목록 조회
  * GET /api/dgnss/st/info
  */
@@ -112,7 +174,7 @@ function fillMissingQuestions(
   page: number,
   size: number,
 ): ExamQuestion[] {
-  // 현재 페이지 범위 계산 (예: page=6, size=20 → 121-140)
+  // 현재 페이지 범위 계산 (예: page=5, size=20 → 101-120)
   const pageStart = page * size + 1;
   const pageEnd = (page + 1) * size;
 
@@ -128,13 +190,9 @@ function fillMissingQuestions(
   // API 응답에서 120-124번 문항 제거 (내용이 비어있을 수 있음)
   const filteredQuestions = questions.filter((q) => q.NO < 120 || q.NO > 124);
 
-  // 현재 페이지 범위에 해당하는 120-124번 mock 문항 추가
-  const result = [...filteredQuestions];
-  MOCK_QUESTIONS_120_124.forEach((mockQ) => {
-    if (mockQ.NO >= pageStart && mockQ.NO <= pageEnd) {
-      result.push(mockQ);
-    }
-  });
+  // 120-124번 MOCK 문항 전부 추가
+  // (나중에 fetchQuestions에서 startNo-endNo 범위로 필터링됨)
+  const result = [...filteredQuestions, ...MOCK_QUESTIONS_120_124];
 
   // 문항 번호 순으로 정렬
   return result.sort((a, b) => a.NO - b.NO);
@@ -143,24 +201,36 @@ function fillMissingQuestions(
 /**
  * 문항 조회 (페이지네이션)
  * GET /api/dgnss/st/start
+ *
+ * @param dgnssResultId 검사 결과 ID
+ * @param page 프론트엔드 페이지 번호 (0-based, 총 7페이지)
+ * @param _size 사용하지 않음 (하위 호환성 유지)
  */
 export async function fetchQuestions(
   dgnssResultId: number,
   page: number = 0,
-  size: number = 20,
+  _size: number = 20,
 ): Promise<FetchQuestionsResponse> {
+  // 페이지 설정 가져오기
+  const config = getPageConfig(page);
+
   const res = await apiClient.post<QuestionsResponseData>(
     '/api/dgnss/st/start',
-    { dgnssResultId, paperIdx: 1, page, size } //나중에 수정
+    { dgnssResultId, paperIdx: 1, page: config.apiPage, size: 20 }
   );
 
   // API에서 누락된 120-124번 문항 추가 (현재 페이지 범위만)
-  const filledQuestions = fillMissingQuestions(res.resultData.dgnssQuesList, page, size);
+  const filledQuestions = fillMissingQuestions(res.resultData.dgnssQuesList, config.apiPage, 20);
+
+  // 페이지별 문항 범위로 필터링
+  const filteredQuestions = filledQuestions.filter(
+    (q) => q.NO >= config.startNo && q.NO <= config.endNo
+  );
 
   return {
     omrIdx: res.resultData.omrIdx,
-    questions: filledQuestions,
-    totalPages: res.resultData.page.totalPages,
+    questions: filteredQuestions,
+    totalPages: 7, // 120번 문항 분리로 총 7페이지 (0-6)
     totalQuestions: 124, // 정확히 124개 문항
     answeredCount: res.resultData.stAnsCnt,
   };
@@ -194,26 +264,36 @@ export async function submitExam(dgnssResultId: number, paperIdx: string = '1'):
 /**
  * 검사 새로하기 (답안 초기화)
  * GET /api/dgnss/st/new
+ *
+ * @param dgnssResultId 검사 결과 ID
+ * @param page 프론트엔드 페이지 번호 (0-based, 총 7페이지)
+ * @param _size 사용하지 않음 (하위 호환성 유지)
  */
 export async function resetExam(
   dgnssResultId: number,
   page: number = 0,
-  size: number = 20,
+  _size: number = 20,
 ): Promise<FetchQuestionsResponse> {
+  // 페이지 설정 가져오기
+  const config = getPageConfig(page);
+
   const res = await apiClient.get<QuestionsResponseData>(
-    `/api/dgnss/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`,
+    `/api/dgnss/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${config.apiPage}&size=20`,
   );
 
   // API에서 누락된 120-124번 문항 추가 (현재 페이지 범위만)
-  const filledQuestions = fillMissingQuestions(res.resultData.dgnssQuesList, page, size);
-  const totalQuestions = 124; // 정확히 124개 문항
-  const totalPages = res.resultData.page?.totalPages ?? 7; // 124 / 20 = 7 페이지
+  const filledQuestions = fillMissingQuestions(res.resultData.dgnssQuesList, config.apiPage, 20);
+
+  // 페이지별 문항 범위로 필터링
+  const filteredQuestions = filledQuestions.filter(
+    (q) => q.NO >= config.startNo && q.NO <= config.endNo
+  );
 
   return {
     omrIdx: res.resultData.omrIdx,
-    questions: filledQuestions,
-    totalPages,
-    totalQuestions,
+    questions: filteredQuestions,
+    totalPages: 7, // 120번 문항 분리로 총 7페이지 (0-6)
+    totalQuestions: 124,
     answeredCount: res.resultData.stAnsCnt ?? 0,
   };
 }

@@ -206,16 +206,18 @@ public class DgnssService {
         List<Integer> dgnssResultIdList = new ArrayList<>();
         Map<Integer, Boolean> sameAnswerMap = new HashMap<>();
         for (LinkedHashMap<String, Object> map : stOmrList) {
-            if (map.values().stream().noneMatch(Objects::isNull)) {
-                int dgnssResultId = MapUtils.getInteger(map, "dgnssResultId", 0);
-                // 동일 응답한 문항이 10개 이상인지 체크하는 로직
-                LinkedHashMap<String, Object> answersOnly = new LinkedHashMap<>(map);
-                answersOnly.remove("dgnssResultId");
-                boolean sameAnswerCheck = answerCheck(answersOnly.values(), 10);
-
-                dgnssResultIdList.add(dgnssResultId);
-                sameAnswerMap.put(dgnssResultId, sameAnswerCheck);
+            int dgnssResultId = MapUtils.getInteger(map, "dgnssResultId", 0);
+            LinkedHashMap<String, Object> answersOnly = new LinkedHashMap<>(map);
+            answersOnly.remove("dgnssResultId");
+            // 모든 문항이 실제 응답값(빈값/0 제외)일 때만 자동 제출 대상에 포함
+            if (!hasAllAnsweredValues(answersOnly.values())) {
+                continue;
             }
+            // 동일 응답한 문항이 10개 이상인지 체크하는 로직
+            boolean sameAnswerCheck = answerCheck(answersOnly.values(), 10);
+
+            dgnssResultIdList.add(dgnssResultId);
+            sameAnswerMap.put(dgnssResultId, sameAnswerCheck);
         }
         // 제출 처리(프로시저 실행)
         if (CollectionUtils.isNotEmpty(dgnssResultIdList)) {
@@ -281,6 +283,25 @@ public class DgnssService {
         dgnssMapper.updateDgnssStatus(param);
         resultMap.put("result", "ok");
         return resultMap;
+    }
+
+    private boolean hasAllAnsweredValues(Collection<Object> answers) {
+        if (CollectionUtils.isEmpty(answers)) {
+            return false;
+        }
+        for (Object answer : answers) {
+            if (answer == null) {
+                return false;
+            }
+            if (answer instanceof String && StringUtils.isBlank((String) answer)) {
+                return false;
+            }
+            Integer value = convertToInteger(answer);
+            if (value == null || value <= 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Transactional(readOnly = true)
@@ -874,7 +895,7 @@ public class DgnssService {
     public Map<String, Object> selectUnifiedStAnalysis(Map<String, Object> param) {
         Map<String, Object> stInfoParam = new HashMap<>();
         String dgnssResultId = MapUtils.getString(param, "dgnssResultId", "");
-        boolean hasDgnssResultId = StringUtils.isNotEmpty(dgnssResultId);
+        boolean hasDgnssResultId = NumberUtils.toLong(StringUtils.trimToEmpty(dgnssResultId), 0L) > 0L;
 
         if (hasDgnssResultId) {
             stInfoParam.put("dgnssResultId", dgnssResultId);
@@ -907,6 +928,7 @@ public class DgnssService {
         Map<String, Object> analysisParam = new HashMap<>();
         analysisParam.put("paperIdx", resolvedPaperIdx);
         analysisParam.put("stdtId", stdtId);
+        analysisParam.put("claId", MapUtils.getString(stUserInfo, "claId", ""));
 
         List<Map<String, Object>> stAnalysisList = dgnssMapper.selectStLernAnalysis(analysisParam);
         if (CollectionUtils.isEmpty(stAnalysisList)) {
