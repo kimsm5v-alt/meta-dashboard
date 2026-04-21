@@ -56,7 +56,7 @@ public class SsoUserService {
             return null;
         }
 
-        // 개인정보 동기화 (Auth JWT name/email이 변경되었을 수 있음)
+        // 개인정보 동기화 (Auth JWT name/email/roleCode가 변경되었을 수 있음)
         boolean changed = false;
         if (spUser.email() != null && !spUser.email().isBlank()
                 && !spUser.email().equals(user.getEmail())) {
@@ -66,6 +66,20 @@ public class SsoUserService {
         if (spUser.name() != null && !spUser.name().isBlank()
                 && !spUser.name().equals(user.getNickname())) {
             user.setNickname(spUser.name());
+            changed = true;
+        }
+
+        // Auth userType → 학심정 roleCode 동기화
+        String authRoleCode = mapUserType(spUser.userType());
+        if (!authRoleCode.equals(user.getRoleCode())) {
+            log.info("SSO roleCode 동기화: userNo={}, {} → {}", user.getUserNo(), user.getRoleCode(), authRoleCode);
+            user.setRoleCode(authRoleCode);
+            // 역할 변경 시 tcId/stdtId 생성 (아직 없는 경우만)
+            if (IdGenerator.isTeacherRole(authRoleCode) && user.getTcId() == null) {
+                user.setTcId(IdGenerator.generateTcId());
+            } else if ("STUDENT".equals(authRoleCode) && user.getStdtId() == null) {
+                user.setStdtId(IdGenerator.generateStdtId());
+            }
             changed = true;
         }
 
