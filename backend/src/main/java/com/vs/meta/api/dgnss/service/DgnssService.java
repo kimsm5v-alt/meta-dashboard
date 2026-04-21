@@ -201,6 +201,7 @@ public class DgnssService {
         }
         String paperIdx = MapUtils.getString(dgnssInfoMap, "paperIdx", "");
         paramMap.put("paperIdx", paperIdx);
+        int expectedQuestionCount = resolveExpectedQuestionCount(paperIdx);
         // 강사가 강제로 종료한 경우 학생들 응시 이력 탐색을 해서 모든 문제를 푼 학생은 제출이 되어야 한다
         List<LinkedHashMap<String, Object>> stOmrList = dgnssMapper.selectStOmrInfo(paramMap);
         List<Integer> dgnssResultIdList = new ArrayList<>();
@@ -210,7 +211,7 @@ public class DgnssService {
             LinkedHashMap<String, Object> answersOnly = new LinkedHashMap<>(map);
             answersOnly.remove("dgnssResultId");
             // 모든 문항이 실제 응답값(빈값/0 제외)일 때만 자동 제출 대상에 포함
-            if (!hasAllAnsweredValues(answersOnly.values())) {
+            if (!hasAllAnsweredValues(answersOnly, expectedQuestionCount)) {
                 continue;
             }
             // 동일 응답한 문항이 10개 이상인지 체크하는 로직
@@ -285,11 +286,23 @@ public class DgnssService {
         return resultMap;
     }
 
-    private boolean hasAllAnsweredValues(Collection<Object> answers) {
-        if (CollectionUtils.isEmpty(answers)) {
+    private int resolveExpectedQuestionCount(String paperIdx) {
+        int paperIdxValue = NumberUtils.toInt(StringUtils.trimToEmpty(paperIdx), 0);
+        if (paperIdxValue == 1) {
+            return 124;
+        }
+        if (paperIdxValue == 2) {
+            return 77;
+        }
+        return 0;
+    }
+
+    private boolean hasAllAnsweredValues(Map<String, Object> answersByNo, int expectedQuestionCount) {
+        if (MapUtils.isEmpty(answersByNo) || expectedQuestionCount <= 0) {
             return false;
         }
-        for (Object answer : answers) {
+        for (int no = 1; no <= expectedQuestionCount; no++) {
+            Object answer = getAnswerValue(answersByNo, no);
             if (answer == null) {
                 return false;
             }
@@ -302,6 +315,14 @@ public class DgnssService {
             }
         }
         return true;
+    }
+
+    private Object getAnswerValue(Map<String, Object> answersByNo, int no) {
+        String key = Integer.toString(no);
+        if (answersByNo.containsKey(key)) {
+            return answersByNo.get(key);
+        }
+        return answersByNo.get(no);
     }
 
     @Transactional(readOnly = true)
