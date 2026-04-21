@@ -12,6 +12,7 @@ import {
   submitExam,
   getStudentExamInfo,
   resetExam,
+  getPageFromAnsweredCount,
 } from '@features/exam/api/examService';
 import { saveStudentInfo } from '@features/exam/api/studentInfoService';
 import {
@@ -202,9 +203,8 @@ export const ExamPage: React.FC = () => {
             // 첫 페이지 로드해서 answeredCount 확인
             const initialResult = await fetchQuestions(studentExamState.dgnssResultId, 0, 20);
             if (initialResult.answeredCount > 0) {
-              // 마지막 답변 페이지 계산 (0-based)
-              // 예: answeredCount=63 → page=3 (61-80번)
-              startPage = Math.floor((initialResult.answeredCount - 1) / 20);
+              // 마지막 답변 페이지 계산 (120번 문항 분리 고려)
+              startPage = getPageFromAnsweredCount(initialResult.answeredCount);
             }
           }
 
@@ -290,10 +290,10 @@ export const ExamPage: React.FC = () => {
                 try {
                   const initialResult = await fetchQuestions(session.dgnssResultId, 0, 20);
 
-                  // 이어하기인 경우 마지막 답변 페이지 계산
+                  // 이어하기인 경우 마지막 답변 페이지 계산 (120번 문항 분리 고려)
                   let startPage = 0;
                   if (initialResult.answeredCount > 0) {
-                    startPage = Math.floor((initialResult.answeredCount - 1) / 20);
+                    startPage = getPageFromAnsweredCount(initialResult.answeredCount);
                   }
 
                   // 시작 페이지 로드
@@ -396,10 +396,10 @@ export const ExamPage: React.FC = () => {
         // 먼저 첫 페이지 로드해서 answeredCount 확인
         const initialResult = await fetchQuestions(dgnssResultId, 0, 20);
 
-        // 이어하기인 경우 마지막 답변 페이지 계산
+        // 이어하기인 경우 마지막 답변 페이지 계산 (120번 문항 분리 고려)
         let startPage = 0;
         if (initialResult.answeredCount > 0) {
-          startPage = Math.floor((initialResult.answeredCount - 1) / 20);
+          startPage = getPageFromAnsweredCount(initialResult.answeredCount);
         }
 
         // 시작 페이지 로드
@@ -481,10 +481,10 @@ export const ExamPage: React.FC = () => {
         // 먼저 첫 페이지 로드해서 answeredCount 확인
         const initialResult = await fetchQuestions(state.dgnssResultId, 0, 20);
 
-        // 이어하기인 경우 마지막 답변 페이지 계산
+        // 이어하기인 경우 마지막 답변 페이지 계산 (120번 문항 분리 고려)
         let startPage = 0;
         if (initialResult.answeredCount > 0) {
-          startPage = Math.floor((initialResult.answeredCount - 1) / 20);
+          startPage = getPageFromAnsweredCount(initialResult.answeredCount);
         }
 
         // 시작 페이지 로드
