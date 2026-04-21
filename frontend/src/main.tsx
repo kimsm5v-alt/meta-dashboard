@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { initAuth } from '@shared/lib/authClient';
 import { App } from '@app/App';
 
-const PUBLIC_PATHS = ['/guest', '/group/join', '/join', '/exam', '/login', '/auth/complete-profile'];
+const PUBLIC_PATHS = ['/', '/guest', '/group/join', '/join', '/exam', '/login', '/auth/complete-profile'];
 
 async function bootstrap() {
   // 1) SDK 초기화

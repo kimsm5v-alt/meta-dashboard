@@ -4,7 +4,6 @@ import { MinimalLayout } from '@widgets/layout/MinimalLayout';
 import { StudentLayout } from '@widgets/layout/StudentLayout';
 import { PageLoading } from '@shared/ui/Loading';
 import { useAuth } from '@features/auth/model/AuthContext';
-import { useSpAuth } from '@shared/hooks/useSpAuth';
 import { useProfileCheck } from '@shared/hooks/useProfileCheck';
 import { FEATURES } from '@shared/config/features';
 
@@ -12,7 +11,7 @@ import { FEATURES } from '@shared/config/features';
 import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
 import { CompleteProfilePage } from '@pages/auth/CompleteProfilePage';
 import {
-  // LandingPage, // 루트 경로는 AuthRedirect로 대체
+  LandingPage,
   LoginPage,
   TeacherDashboardPage,
   ClassDashboardPage,
@@ -51,25 +50,6 @@ const PublicLayout = () => (
     <Outlet />
   </MinimalLayout>
 );
-
-/**
- * 루트 경로: 인증 상태면 역할 기반 리다이렉트, 미인증이면 SSO 로그인
- */
-const AuthRedirect = () => {
-  const { isAuthenticated, isLoading, user } = useAuth();
-  const { login } = useSpAuth();
-
-  if (isLoading) return <PageLoading text='로딩 중...' />;
-
-  if (isAuthenticated) {
-    const path = user?.roleCode === 'STUDENT' ? '/student/exams' : '/dashboard';
-    return <Navigate to={path} replace />;
-  }
-
-  // 미인증 → SSO 로그인
-  login();
-  return null;
-};
 
 /**
  * 보호 라우트 래퍼 - 교사용 (인증 필요 + 교사 사이드바)
@@ -141,8 +121,8 @@ const GuestProtectedLayout = () => {
 
 export const AppRoutes = () => (
   <Routes>
-    {/* 루트: 인증 상태면 대시보드, 미인증이면 랜딩 */}
-    <Route path='/' element={<AuthRedirect />} />
+    {/* 루트: 미인증이면 랜딩 페이지, 인증 상태면 LandingPage 내부에서 대시보드로 리다이렉트 */}
+    <Route path='/' element={<LandingPage />} />
 
     {/* 공개 라우트 - 사이드바 없음 */}
     <Route element={<PublicLayout />}>
