@@ -105,8 +105,16 @@ login:
     max-attempts: ${LOGIN_RATE_LIMIT_MAX_ATTEMPTS:5}
     block-minutes: ${LOGIN_RATE_LIMIT_BLOCK_MINUTES:5}
 
-# JWT
-META_API_JWT_SECRET: ${META_API_JWT_SECRET}
+# ===== SuperPlatform Auth (SSO) =====
+spring.security.oauth2.resourceserver.jwt:
+  jwk-set-uri: ${SP_AUTH_JWKS_URI:http://localhost:8080/.well-known/jwks.json}
+  issuer-uri: ${SP_AUTH_ISSUER:superplatform}
+
+superplatform:
+  auth:
+    server-url: ${SP_AUTH_SERVER_URL:http://localhost:8080}
+    client-id: ${SP_AUTH_CLIENT_ID:test-service}
+    client-secret: ${SP_AUTH_CLIENT_SECRET}
 
 key:
   salt:

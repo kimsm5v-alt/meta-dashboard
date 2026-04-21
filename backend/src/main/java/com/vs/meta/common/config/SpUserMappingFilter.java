@@ -44,6 +44,21 @@ public class SpUserMappingFilter extends OncePerRequestFilter {
             if (!"GUEST".equals(spUser.userType())) {
                 try {
                     User user = userMapper.findBySpUserId(spUser.spUserId());
+
+                    // sp_user_id로 못 찾으면 email로 기존 회원 매칭 (마이그레이션 회원)
+                    if (user == null && spUser.email() != null && !spUser.email().isBlank()) {
+                        user = userMapper.findByEmail(spUser.email());
+                        if (user != null && user.getSpUserId() == null) {
+                            user.setSpUserId(spUser.spUserId());
+                            user.setUpdatedBy(user.getUserNo());
+                            user.setUpdatedAt(java.time.LocalDateTime.now());
+                            userMapper.updateUser(user);
+                            log.info("SpUserMappingFilter: 기존 회원 SSO 매핑 완료: userNo={}, spUserId={}, email={}", user.getUserNo(), spUser.spUserId(), spUser.email());
+                        } else if (user != null && user.getSpUserId() != null) {
+                            user = null; // 이미 다른 sp_user_id가 매핑됨
+                        }
+                    }
+
                     if (user != null) {
                         // 정지/탈퇴 계정 차단
                         if (user.getStatus() != com.vs.meta.domain.enums.UserStatus.ACTIVE) {
