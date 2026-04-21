@@ -102,6 +102,7 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect');
+  const isLogout = searchParams.get('logout') === 'true';
   const { isAuthenticated, isLoading, user } = useAuth();
   const { login } = useSpAuth();
 
@@ -112,17 +113,20 @@ export const LoginPage: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, user, navigate, redirectTo]);
 
+  // 세션 만료 등으로 온 경우 자동 SSO, 로그아웃으로 온 경우 버튼 UI
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && !isLogout) {
+      login(redirectTo || undefined);
+    }
+  }, [isLoading, isAuthenticated, isLogout, login, redirectTo]);
+
   const handleSsoLogin = () => {
-    // returnPath를 지정하지 않으면 main.tsx에서 역할 기반 리다이렉트
     login(redirectTo || undefined);
   };
 
-  /* 게스트 기능 제외
-  const handleGuestEntry = () => { navigate('/exam'); };
-  */
-
   if (isLoading) return null;
   if (isAuthenticated) return null;
+  if (!isLogout) return null; // 자동 SSO 리다이렉트 대기
 
   return (
     <PageContainer>
