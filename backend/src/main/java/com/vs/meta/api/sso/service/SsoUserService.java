@@ -30,8 +30,35 @@ public class SsoUserService {
     private final UserMapper userMapper;
 
     /**
+     * 필터용 경량 조회: sp_user_id로 찾고, 없으면 email fallback + 매핑만 수행.
+     * 매 요청마다 호출되므로 개인정보 동기화/lastLogin 업데이트는 하지 않음.
+     */
+    @Transactional
+    public User resolveUser(SpAuthenticatedUser spUser) {
+        User user = userMapper.findBySpUserId(spUser.spUserId());
+        if (user != null) return user;
+
+        // email fallback (마이그레이션 회원: sp_user_id가 NULL)
+        if (spUser.email() != null && !spUser.email().isBlank()) {
+            user = userMapper.findByEmail(spUser.email());
+            if (user != null && user.getSpUserId() == null) {
+                user.setSpUserId(spUser.spUserId());
+                user.setUpdatedBy(user.getUserNo());
+                user.setUpdatedAt(LocalDateTime.now());
+                userMapper.updateUser(user);
+                log.info("기존 회원 SSO 매핑 완료: userNo={}, spUserId={}, email={}", user.getUserNo(), spUser.spUserId(), spUser.email());
+                return user;
+            } else if (user != null && user.getSpUserId() != null) {
+                return null; // 다른 sp_user_id가 이미 매핑됨
+            }
+        }
+        return null;
+    }
+
+    /**
      * SP 사용자 ID로 학심정 user 조회.
      * 있으면 개인정보 동기화 후 반환, 없으면 null.
+     * 로그인 시점에만 호출 (UserProfileController 등).
      */
     @Transactional
     public User findAndSyncUser(SpAuthenticatedUser spUser) {
