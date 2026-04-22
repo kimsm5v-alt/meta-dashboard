@@ -5,11 +5,11 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
-    <!-- SuperPlatform Auth Client SDK -->
+    <!-- SuperPlatform Auth Client SDK (로컬 번들 — CDN 캐시 퍼지 후 CDN으로 복원) -->
     <script>
       window.__authSdkReady = new Promise(function(resolve, reject) {
         var s = document.createElement('script');
-        s.src = 'https://cdn.vsaidt.com/superplatform/auth-client.js?v=' + Date.now();
+        s.src = '/sdk/auth-client.js';
         s.onload = resolve;
         s.onerror = function() { reject(new Error('Auth SDK failed to load')); };
         document.head.appendChild(s);
