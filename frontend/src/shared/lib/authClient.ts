@@ -93,7 +93,7 @@ export async function initAuth(): Promise<AuthClientInstance> {
     authUrl: import.meta.env.VITE_SP_AUTH_URL || 'http://localhost:8080',
     clientId: import.meta.env.VITE_SP_CLIENT_ID || 'test-service',
     redirectUri: window.location.origin + '/auth/callback',
-    postLogoutRedirectUri: window.location.origin + '/login?logout=true',
+    postLogoutRedirectUri: window.location.origin + '/',
     apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:8081',
     touchEnabled: isHttps,
   });
