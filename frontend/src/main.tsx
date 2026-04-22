@@ -9,15 +9,7 @@ async function bootstrap() {
   // 1) SDK 초기화
   const auth = await initAuth();
 
-  // 2) 콜백이 아닌 페이지에서 남아있는 OAuth 상태 정리
-  //    (구버전 SDK가 stale state를 보고 자동 authorize 호출하는 문제 방지)
-  if (window.location.pathname !== '/auth/callback') {
-    sessionStorage.removeItem('oauth_state');
-    sessionStorage.removeItem('code_verifier');
-    sessionStorage.removeItem('_auth_return_path');
-  }
-
-  // 3) 콜백 처리 + 세션 복구
+  // 2) 콜백 처리 + 세션 복구
   const result = await auth.handleRedirectResult();
 
   if (result.type === 'callback') {
