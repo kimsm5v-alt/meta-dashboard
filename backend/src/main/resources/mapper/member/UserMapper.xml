@@ -105,7 +105,8 @@
     <update id="updateUser" parameterType="com.vs.meta.domain.User">
         /* UserMapper.updateUser */
         UPDATE `user`
-        SET email = #{email},
+        SET sp_user_id = #{spUserId},
+            email = #{email},
             nickname = #{nickname},
             gender = #{gender},
             role_code = #{roleCode},
