@@ -1010,7 +1010,11 @@ export const JoinGroupPage: React.FC = () => {
           </Subtitle>
           {isAuthenticated ? (
             <Button
-              onClick={() => navigate(`/groups/${groupInfo?.claId}`)}
+              onClick={() =>
+                user?.memberType === 'general'
+                  ? navigate('/student/groups')
+                  : navigate(`/groups/${groupInfo?.claId}`)
+              }
               className='justify-center w-full'
             >
               그룹 보기
@@ -1231,20 +1235,14 @@ export const JoinGroupPage: React.FC = () => {
               </SubmitButton>
             </AuthSection>
           ) : (
-            // ── 비로그인 상태: SSO 로그인 + 게스트 참여 ──
+            // ── 비로그인 상태: SSO 로그인 ──
             <div>
               <LoginPrompt>그룹에 가입하려면 로그인해주세요</LoginPrompt>
               <SubmitButton type='button' onClick={handleLogin} style={{ marginBottom: '0.75rem' }}>
                 로그인 / 회원가입
                 <ArrowIcon />
               </SubmitButton>
-              <SubmitButton
-                type='button'
-                onClick={() => setStep('email-input')}
-                style={{ background: '#f1f5f9', color: '#475569' }}
-              >
-                게스트로 참여하기
-              </SubmitButton>
+              {/* 게스트 기능 제외 (기획 결정) */}
             </div>
           )}
         </MainCard>

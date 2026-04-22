@@ -23,11 +23,9 @@ public interface UserMapper {
 
     User findByUserNo(@Param("userNo") Long userNo);
 
+    User findBySpUserId(@Param("spUserId") String spUserId);
+
     void insertUser(User user);
 
     void updateUser(User user);
-
-    void updatePassword(@Param("userNo") Long userNo,
-                        @Param("password") String encodedPassword,
-                        @Param("updatedBy") Long updatedBy);
 }

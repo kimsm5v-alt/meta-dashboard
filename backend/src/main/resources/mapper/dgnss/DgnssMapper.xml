@@ -2345,6 +2345,7 @@
 		, DATE_FORMAT(a1.subm_dt,'%Y-%m-%d %H:%i:%s') AS eakStDt
 		, b1.DGNSS_ORD AS ordNo
 		, a1_1.paper_idx AS paperIdx
+		, a1_1.cla_id AS claId
 			, CASE
 				WHEN gm.gender = 'M' THEN '남자'
 				WHEN gm.gender = 'F' THEN '여자'
@@ -2402,6 +2403,7 @@
 			INNER JOIN tb_dgnss_section e1 ON d1.SECTION_ID = e1.SECTION_ID
 		WHERE a1.paper_idx = #{paperIdx}
 			AND b1.stdt_id = #{stdtId}
+			AND a1.cla_id = #{claId}
 			AND b1.subm_at = 'Y'
 	</select>
 
@@ -2976,6 +2978,14 @@
 			AND gi.cla_id = #{claId}
 		</if>
 		GROUP BY gi.cla_id, dar.DEPTH, dar.SECTION_ID
+	</select>
+
+	<select id="countDgnssResultByDgnssIdAndStdtId" resultType="int">
+		/* DgnssMapper.countDgnssResultByDgnssIdAndStdtId */
+		SELECT COUNT(*)
+		FROM tb_dgnss_result_info
+		WHERE dgnss_id = #{dgnssId}
+		  AND stdt_id = #{stdtId}
 	</select>
 </mapper>
 

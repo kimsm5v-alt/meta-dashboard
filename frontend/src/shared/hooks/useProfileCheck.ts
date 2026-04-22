@@ -45,6 +45,7 @@ export function useProfileCheck(isAuthenticated: boolean): ProfileStatus {
         if (cancelled) return;
         const data = res.resultData;
 
+        // 등록된 사용자면 학심정 서비스 데이터를 AuthContext에 반영
         if (data.registered && data.userNo) {
           updateUser({
             id: String(data.userNo),

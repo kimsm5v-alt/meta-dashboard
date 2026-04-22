@@ -84,12 +84,19 @@ let authInstance: AuthClientInstance | null = null;
 export async function initAuth(): Promise<AuthClientInstance> {
   if (authInstance) return authInstance;
 
+  // CDN 스크립트 로드 대기 (index.html에서 Promise 세팅)
+  await (window as unknown as { __authSdkReady: Promise<void> }).__authSdkReady;
+
+  // touchEnabled: localhost(HTTP)에서는 Secure 쿠키가 전송 안 되므로 touch 비활성화
+  const isHttps = window.location.protocol === 'https:';
+
   authInstance = await AuthClient.init({
     authUrl: ENV.SP_AUTH_URL,
     clientId: ENV.SP_CLIENT_ID,
     redirectUri: window.location.origin + '/auth/callback',
-    postLogoutRedirectUri: window.location.origin + '/login',
+    postLogoutRedirectUri: window.location.origin + '/login?logout=true',
     apiUrl: ENV.API_URL,
+    touchEnabled: isHttps,
   });
 
   return authInstance;

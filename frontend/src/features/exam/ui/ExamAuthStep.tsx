@@ -61,19 +61,11 @@ const SsoButton = styled.button`
   cursor: pointer;
   &:hover { background: ${({ theme }) => theme.colors.primary[600]}; }
 `;
-const GuestButton = styled.button`
-  width: 100%;
-  padding: 12px;
-  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
-  border-radius: 0.75rem;
-  background: transparent;
-  color: ${({ theme }) => theme.colors.gray[600]};
-  font-size: 0.875rem;
-  cursor: pointer;
-  &:hover { background: ${({ theme }) => theme.colors.gray[50]}; }
-`;
+/* 게스트 기능 제외
+const GuestButton = styled.button`...`;
+*/
 
-export const ExamAuthStep: React.FC<ExamAuthStepProps> = ({ examName, examCode, onGuestStart }) => {
+export const ExamAuthStep: React.FC<ExamAuthStepProps> = ({ examName, examCode }) => {
   const handleLogin = async () => {
     const { getAuth } = await import('@shared/lib/authClient');
     const auth = getAuth();
@@ -93,9 +85,7 @@ export const ExamAuthStep: React.FC<ExamAuthStepProps> = ({ examName, examCode, 
           <SsoButton onClick={handleLogin}>
             로그인 / 회원가입
           </SsoButton>
-          <GuestButton onClick={onGuestStart}>
-            게스트로 참여하기
-          </GuestButton>
+          {/* 게스트 기능 제외 (기획 결정) */}
         </FormCard>
       </ContentWrapper>
     </PageContainer>

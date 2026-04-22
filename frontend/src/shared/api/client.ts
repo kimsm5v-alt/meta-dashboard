@@ -50,17 +50,17 @@ export const axiosInstance: AxiosInstance = axios.create({
 
 // 인증 불필요 엔드포인트 (토큰 전송 제외)
 const PUBLIC_ENDPOINTS = [
-  '/api/v1/auth/',
+  '/api/v1/auth/',          // SSO 프록시
   '/guest/exists',
   '/guest/auth',
-  '/member/send-code',
-  '/member/verify-code',
+  '/member/send-code',      // 게스트 이메일 인증 (유지)
+  '/member/verify-code',    // 게스트 이메일 인증 (유지)
   '/group/join-guest',
 ];
 
-// 정확한 경로 매칭이 필요한 엔드포인트
+// 정확한 경로 매칭이 필요한 엔드포인트 (includes 대신 정확 비교)
 const PUBLIC_EXACT_ENDPOINTS = [
-  '/group/invite',
+  '/group/invite',          // 초대 링크 조회 (비로그인 허용) — /group/invite/list 등은 인증 필요
 ];
 
 // ============================================================
@@ -103,8 +103,10 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     const status = error.response?.status ?? 0;
 
+    // 401이고 재시도 아직 안 한 경우 → SDK refresh 시도
     if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
+
       try {
         const auth = getAuth();
         const newToken = await auth.refreshAccessToken();

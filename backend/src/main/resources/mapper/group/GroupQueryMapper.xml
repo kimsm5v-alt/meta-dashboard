@@ -65,7 +65,8 @@
             gi.max_member_count AS maxMemberCount,
             gi.use_yn           AS useYn,
             gi.created_at       AS createdAt,
-            u.nickname          AS hostNickname
+            u.nickname          AS hostNickname,
+            CASE WHEN gi.host_user_no = #{userNo} THEN 'HOST' ELSE 'STUDENT' END AS myRole
         FROM group_info gi
         JOIN `user` u ON u.user_no = gi.host_user_no
         WHERE gi.group_id = #{groupId}

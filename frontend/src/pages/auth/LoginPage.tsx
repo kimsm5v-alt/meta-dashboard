@@ -67,6 +67,7 @@ const SsoButton = styled.button`
   }
 `;
 
+/* 게스트 기능 제외
 const GuestLink = styled.button`
   margin-top: ${({ theme }) => theme.spacing.md};
   padding: 10px;
@@ -81,6 +82,7 @@ const GuestLink = styled.button`
     background: ${({ theme }) => theme.colors.gray[50]};
   }
 `;
+*/
 
 // ============================================================
 // 헬퍼
@@ -100,6 +102,7 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect');
+  const isLogout = searchParams.get('logout') === 'true';
   const { isAuthenticated, isLoading, user } = useAuth();
   const { login } = useSpAuth();
 
@@ -110,17 +113,20 @@ export const LoginPage: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, user, navigate, redirectTo]);
 
-  const handleSsoLogin = () => {
-    // returnPath를 지정하지 않으면 main.tsx에서 역할 기반 리다이렉트
-    login(redirectTo || undefined);
-  };
+  // 세션 만료 등으로 온 경우 자동 SSO, 로그아웃으로 온 경우 버튼 UI
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && !isLogout) {
+      login(redirectTo || undefined);
+    }
+  }, [isLoading, isAuthenticated, isLogout, login, redirectTo]);
 
-  const handleGuestEntry = () => {
-    navigate('/exam');
+  const handleSsoLogin = () => {
+    login(redirectTo || undefined);
   };
 
   if (isLoading) return null;
   if (isAuthenticated) return null;
+  if (!isLogout) return null; // 자동 SSO 리다이렉트 대기
 
   return (
     <PageContainer>
@@ -133,7 +139,7 @@ export const LoginPage: React.FC = () => {
 
       <StyledCard>
         <SsoButton onClick={handleSsoLogin}>로그인</SsoButton>
-        <GuestLink onClick={handleGuestEntry}>게스트로 참여하기</GuestLink>
+        {/* 게스트 기능 제외 (기획 결정) */}
       </StyledCard>
     </PageContainer>
   );

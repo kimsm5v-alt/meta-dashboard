@@ -256,7 +256,7 @@ export const AssessmentCodeModal: React.FC<AssessmentCodeModalProps> = ({
           <InstructionTitle>학생 안내 방법</InstructionTitle>
           <InstructionList>
             <li>학생들에게 초대 코드 또는 QR 코드를 공유하세요.</li>
-            <li>학생은 링크 접속 후 로그인/게스트 가입합니다.</li>
+            <li>학생은 링크 접속 후 로그인하여 참가합니다.</li>
             <li>검사 완료 후 결과가 자동으로 집계됩니다</li>
           </InstructionList>
         </InstructionBox>
