@@ -181,6 +181,41 @@ const SECTION_ID_TO_INDEX: Record<string, number> = {
   '10-22-05-01-03-0': 37, // 반감-냉소 (학업소진)
 };
 
+// ============================================================
+// DEPTH=4 (중분류) 데이터 추출
+// ============================================================
+
+const MID_CATEGORY_SECTION_ID_MAP: Record<string, string> = {
+  '10-22-01-01-0-0': '긍정적자아',
+  '10-22-01-02-0-0': '대인관계능력',
+  '10-22-02-01-0-0': '메타인지',
+  '10-22-02-02-0-0': '학습기술',
+  '10-22-02-03-0-0': '지지적관계',
+  '10-22-04-01-0-0': '학업열의',
+  '10-22-04-02-0-0': '성장력',
+  '10-22-03-01-0-0': '학업스트레스',
+  '10-22-03-03-0-0': '학습방해물',
+  '10-22-03-02-0-0': '학업관계스트레스',
+  '10-22-05-01-0-0': '학업소진',
+};
+
+function extractMidCategoryScores(sections: AnalysisSectionItem[]): Record<string, number> | null {
+  const midScores: Record<string, number> = {};
+  let foundAny = false;
+
+  for (const section of sections) {
+    if (section.DEPTH !== 4) continue;
+
+    const normalizedKey = MID_CATEGORY_SECTION_ID_MAP[section.SECTION_ID];
+    if (normalizedKey) {
+      midScores[normalizedKey] = section.tScore;
+      foundAny = true;
+    }
+  }
+
+  return foundAny ? midScores : null;
+}
+
 function convertSectionsToTScores(sections: AnalysisSectionItem[]): number[] {
   const tScores: number[] = new Array(38).fill(50);
 
@@ -300,6 +335,7 @@ export async function fetchStudentAnalysis(
   reliabilityWarnings: string[];
   sections: AnalysisSectionItem[];
   lpaTypeName: string | null;
+  midCategoryScores: Record<string, number> | null;
 }> {
   const response = await apiRequest<AnalysisResponse>(
     `/api/dgnss/st/analysis?claId=${classId}&stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
@@ -319,17 +355,20 @@ export async function fetchStudentAnalysis(
       reliabilityWarnings: [],
       sections: [],
       lpaTypeName,
+      midCategoryScores: null,
     };
   }
 
   const tScores = convertSectionsToTScores(roundData);
   const reliabilityWarnings = getReliabilityWarnings(roundData[0]);
+  const midCategoryScores = extractMidCategoryScores(roundData);
 
   return {
     tScores,
     reliabilityWarnings,
     sections: roundData,
     lpaTypeName,
+    midCategoryScores,
   };
 }
 
@@ -338,8 +377,18 @@ export async function fetchStudentFullAnalysis(
   stdtId: string,
   paperIdx: string = '1',
 ): Promise<{
-  round1: { tScores: number[]; reliabilityWarnings: string[]; lpaTypeName: string | null } | null;
-  round2: { tScores: number[]; reliabilityWarnings: string[]; lpaTypeName: string | null } | null;
+  round1: {
+    tScores: number[];
+    reliabilityWarnings: string[];
+    lpaTypeName: string | null;
+    midCategoryScores: Record<string, number> | null;
+  } | null;
+  round2: {
+    tScores: number[];
+    reliabilityWarnings: string[];
+    lpaTypeName: string | null;
+    midCategoryScores: Record<string, number> | null;
+  } | null;
 }> {
   const [r1Result, r2Result] = await Promise.allSettled([
     fetchStudentAnalysis(classId, stdtId, paperIdx, 1),
@@ -365,6 +414,7 @@ export async function fetchStudentFullAnalysis(
             tScores: r1Result.value.tScores,
             reliabilityWarnings: r1Result.value.reliabilityWarnings,
             lpaTypeName: r1Result.value.lpaTypeName,
+            midCategoryScores: r1Result.value.midCategoryScores,
           }
         : null,
     round2:
@@ -373,6 +423,7 @@ export async function fetchStudentFullAnalysis(
             tScores: r2Result.value.tScores,
             reliabilityWarnings: r2Result.value.reliabilityWarnings,
             lpaTypeName: r2Result.value.lpaTypeName,
+            midCategoryScores: r2Result.value.midCategoryScores,
           }
         : null,
   };
@@ -390,6 +441,7 @@ export function convertToAssessment(
         tScores: number[];
         reliabilityWarnings: string[];
         lpaTypeName?: string | null;
+        midCategoryScores?: Record<string, number> | null;
       }
     | null
     | undefined,
@@ -397,6 +449,7 @@ export function convertToAssessment(
 ): import('@shared/types').Assessment {
   const tScores = data?.tScores;
   const reliabilityWarnings = data?.reliabilityWarnings ?? [];
+  const midCategoryScores = data?.midCategoryScores ?? null;
 
   const safeTScores =
     tScores && Array.isArray(tScores) && tScores.length === 38 ? tScores : new Array(38).fill(50);
@@ -419,6 +472,7 @@ export function convertToAssessment(
     deviations,
     reliabilityWarnings,
     attentionResult,
+    midCategoryScores,
   };
 }
 

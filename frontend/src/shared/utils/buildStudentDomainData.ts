@@ -6,8 +6,13 @@ import type { DomainData, FactorAvgData, SubCategoryData } from '@shared/types';
 /**
  * 단일 학생의 tScores(38개)를 DomainData[] 계층 구조로 변환
  * useClassDetailData의 domainData 생성 로직과 동일한 구조
+ * @param tScores - 38개 요인 T점수
+ * @param apiMidScores - API에서 받은 중분류 점수 (우선 사용)
  */
-export function buildStudentDomainData(tScores: number[]): DomainData[] {
+export function buildStudentDomainData(
+  tScores: number[],
+  apiMidScores?: Record<string, number> | null,
+): DomainData[] {
   const factorData: FactorAvgData[] = FACTOR_DEFINITIONS.map((f) => ({
     index: f.index,
     name: f.name,
@@ -20,8 +25,13 @@ export function buildStudentDomainData(tScores: number[]): DomainData[] {
 
   const subCategoryAvgs: Record<string, number> = {};
   for (const [subCat, indices] of Object.entries(SUB_CATEGORY_FACTORS)) {
-    const scores = indices.map((i) => tScores[i] ?? 50);
-    subCategoryAvgs[subCat] = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    // API 중분류 값이 있으면 우선 사용, 없으면 프론트엔드 계산
+    if (apiMidScores && apiMidScores[subCat] !== undefined) {
+      subCategoryAvgs[subCat] = Math.round(apiMidScores[subCat]);
+    } else {
+      const scores = indices.map((i) => tScores[i] ?? 50);
+      subCategoryAvgs[subCat] = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    }
   }
 
   return MAIN_CATEGORIES.map((cat) => {

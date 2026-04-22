@@ -33,7 +33,7 @@ import {
 import type { Student, SchoolLevel } from '@shared/types';
 
 // TODO: 4단계 해석 탭을 다시 보이게 하려면 true로 변경
-const SHOW_FOUR_STEP = false;
+const SHOW_FOUR_STEP = true;
 
 // 헤더 버튼 설정
 const PANEL_BUTTONS = [
@@ -396,11 +396,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 
   // useMemo는 항상 호출 (current가 없으면 빈 배열 사용)
   const domainData = useMemo(
-    () => (current ? buildStudentDomainData(current.tScores) : []),
+    () => (current ? buildStudentDomainData(current.tScores, current.midCategoryScores) : []),
     [current],
   );
   const prevDomainData = useMemo(
-    () => (isCompare && r1 ? buildStudentDomainData(r1.tScores) : undefined),
+    () => (isCompare && r1 ? buildStudentDomainData(r1.tScores, r1.midCategoryScores) : undefined),
     [isCompare, r1],
   );
 
@@ -556,6 +556,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 <FourStepInterpretation
                   tScores={current.tScores}
                   prevTScores={isCompare && r1 ? r1.tScores : undefined}
+                  midCategoryScores={current.midCategoryScores}
+                  prevMidCategoryScores={isCompare && r1 ? r1.midCategoryScores : undefined}
                   studentName={student.name}
                 />
               ) : (
