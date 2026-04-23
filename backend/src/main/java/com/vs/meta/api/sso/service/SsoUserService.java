@@ -118,11 +118,20 @@ public class SsoUserService {
             log.info("SSO 사용자 개인정보 동기화: userNo={}, spUserId={}", user.getUserNo(), spUser.spUserId());
         }
 
-        // 마지막 로그인 시간 업데이트
-        user.updateLastLogin();
-        userMapper.updateUser(user);
+        // 마지막 로그인 시간 업데이트 — 10분 간격 디바운스 (매 요청마다 UPDATE 방지)
+        if (shouldUpdateLastLogin(user.getLastLoginAt())) {
+            user.updateLastLogin();
+            userMapper.updateUser(user);
+        }
 
         return user;
+    }
+
+    private static final long LAST_LOGIN_DEBOUNCE_MINUTES = 10;
+
+    private boolean shouldUpdateLastLogin(LocalDateTime lastLoginAt) {
+        if (lastLoginAt == null) return true;
+        return lastLoginAt.isBefore(LocalDateTime.now().minusMinutes(LAST_LOGIN_DEBOUNCE_MINUTES));
     }
 
     /**
