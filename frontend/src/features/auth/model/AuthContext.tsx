@@ -75,7 +75,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const user = mapSdkUserToUser(sdkUser);
       // localStorage에 학심정 서비스 데이터가 있으면 병합
       const storedUser = loadStoredUser();
-      const merged = storedUser ? { ...user, ...storedUser } : user;
+      // SDK가 Truth — 현재 로그인한 사용자의 name/email이 localStorage 잔존 데이터를 덮어씀
+      // A → 로그아웃 → B 로그인 시 A 이름 잔존 방지
+      const merged = storedUser ? { ...storedUser, ...user } : user;
       setState({ user: merged, isAuthenticated: true, isLoading: false });
     } else {
       setState({ user: null, isAuthenticated: false, isLoading: false });
