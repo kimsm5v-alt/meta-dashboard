@@ -131,4 +131,6 @@ public interface DgnssMapper {
     List<Map<String, Object>> selectTcClassFactorAverages(Map<String, Object> param);
 
     int countDgnssResultByDgnssIdAndStdtId(@Param("dgnssId") int dgnssId, @Param("stdtId") String stdtId);
+
+    Map<String, Object> selectLpaResultByAnswerIdx(@Param("answerIdx") int answerIdx);
 }

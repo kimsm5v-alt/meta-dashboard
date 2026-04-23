@@ -2987,6 +2987,20 @@
 		WHERE dgnss_id = #{dgnssId}
 		  AND stdt_id = #{stdtId}
 	</select>
+
+	<select id="selectLpaResultByAnswerIdx" resultType="map">
+		/* DgnssMapper.selectLpaResultByAnswerIdx */
+		SELECT answer_idx AS answerIdx
+		     , dgnss_result_id AS dgnssResultId
+		     , school_level AS schoolLevel
+		     , class_id AS classId
+		     , type_name AS typeName
+		     , confidence
+		     , probabilities_json AS probabilitiesJson
+		     , status
+		FROM tb_dgnss_lpa_result
+		WHERE answer_idx = #{answerIdx}
+	</select>
 </mapper>
 
 

@@ -132,6 +132,8 @@ public class SecurityConfig {
                 .authorizeRequests()
                     // SSO Auth 프록시 (public — SDK가 호출)
                     .antMatchers("/api/v1/auth/**").permitAll()
+                    // Neo4j 그래프 테스트 API (로컬 테스트 용도)
+                    .antMatchers("/api/dgnss/graph/**").permitAll()
                     // 게스트 관련 (public)
                     .antMatchers("/guest/exists", "/guest/auth").permitAll()
                     // 그룹 초대/참가 (public)
