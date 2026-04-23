@@ -1,6 +1,7 @@
 package com.vs.meta.common.config;
 
-import com.vs.meta.api.sso.service.SsoUserService;
+import com.vs.meta.api.sso.service.SsoUserMigrationService;
+import com.vs.meta.api.sso.service.SsoUserQueryService;
 import com.vs.meta.common.security.SpAuthenticatedUser;
 import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,8 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class SpUserMappingFilter extends OncePerRequestFilter {
 
-    private final SsoUserService ssoUserService;
+    private final SsoUserQueryService ssoUserQueryService;
+    private final SsoUserMigrationService ssoUserMigrationService;
 
     /** request attribute 키 — SecurityUtil에서 이 키로 읽음 */
     public static final String ATTR_USER_NO = "sp.mapped.userNo";
@@ -43,8 +45,11 @@ public class SpUserMappingFilter extends OncePerRequestFilter {
             // 게스트는 학심정 user가 없으므로 매핑 스킵
             if (!"GUEST".equals(spUser.userType())) {
                 try {
-                    // SsoUserService(@Transactional)에 위임 — 필터에서 직접 UPDATE하면 커밋 안 됨
-                    User user = ssoUserService.resolveUser(spUser);
+                    // sp_user_id로 조회 실패 시 마이그레이션 매핑 시도 (기존 회원 1회성)
+                    User user = ssoUserQueryService.findBySpUserId(spUser.spUserId());
+                    if (user == null) {
+                        user = ssoUserMigrationService.migrateBySpUserId(spUser);
+                    }
 
                     if (user != null) {
                         // 정지/탈퇴 계정 차단

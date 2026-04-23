@@ -1,6 +1,8 @@
 package com.vs.meta.api.sso.controller;
 
-import com.vs.meta.api.sso.service.SsoUserService;
+import com.vs.meta.api.sso.service.SsoUserMigrationService;
+import com.vs.meta.api.sso.service.SsoUserQueryService;
+import com.vs.meta.api.sso.service.SsoUserRegistrationService;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.CustomBody;
 import com.vs.meta.common.response.ResponseDTO;
@@ -25,7 +27,9 @@ import java.util.Map;
 @Tag(name = "SSO 사용자 프로필", description = "SSO 최초 로그인 시 추가 정보 입력")
 public class UserProfileController {
 
-    private final SsoUserService ssoUserService;
+    private final SsoUserQueryService ssoUserQueryService;
+    private final SsoUserMigrationService ssoUserMigrationService;
+    private final SsoUserRegistrationService ssoUserRegistrationService;
 
     /**
      * 추가 정보 입력 (성별 + 역할).
@@ -44,7 +48,7 @@ public class UserProfileController {
 
         String roleCode = body.get("roleCode"); // userType=UNSET일 때만 필수
 
-        User user = ssoUserService.createUser(spUser, gender, roleCode);
+        User user = ssoUserRegistrationService.register(spUser, gender, roleCode);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("userNo", user.getUserNo());
@@ -63,7 +67,14 @@ public class UserProfileController {
     @GetMapping("/status")
     @Operation(summary = "사용자 등록 상태 확인", description = "학심정에 user가 있는지 확인")
     public ResponseDTO<CustomBody> status(@AuthenticationPrincipal SpAuthenticatedUser spUser) {
-        User user = ssoUserService.findAndSyncUser(spUser);
+        // sp_user_id로 조회 실패 시 마이그레이션 매핑 시도
+        User user = ssoUserQueryService.findBySpUserId(spUser.spUserId());
+        if (user == null) {
+            user = ssoUserMigrationService.migrateBySpUserId(spUser);
+        }
+        if (user != null) {
+            ssoUserQueryService.touchLastLogin(user);
+        }
 
         Map<String, Object> result = new LinkedHashMap<>();
         if (user != null) {

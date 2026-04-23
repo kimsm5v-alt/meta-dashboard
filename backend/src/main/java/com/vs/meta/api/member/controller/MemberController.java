@@ -1,7 +1,8 @@
 package com.vs.meta.api.member.controller;
 
 import com.vs.meta.api.member.service.MemberService;
-import com.vs.meta.api.sso.service.SsoUserService;
+import com.vs.meta.api.sso.service.SsoUserMigrationService;
+import com.vs.meta.api.sso.service.SsoUserQueryService;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.CustomBody;
 import com.vs.meta.common.response.ResponseDTO;
@@ -26,7 +27,8 @@ import java.util.Map;
 public class MemberController {
 
     private final MemberService memberService;
-    private final SsoUserService ssoUserService;
+    private final SsoUserQueryService ssoUserQueryService;
+    private final SsoUserMigrationService ssoUserMigrationService;
 
     // ── SSO 전환으로 제거된 엔드포인트 ──
     // POST /member/signup        → Auth 서버에서 가입
@@ -40,8 +42,11 @@ public class MemberController {
             @AuthenticationPrincipal SpAuthenticatedUser spUser,
             @RequestParam Map<String, Object> paramData
     ) throws Exception {
-        // SP 사용자 → 학심정 user 조회/동기화
-        User user = ssoUserService.findAndSyncUser(spUser);
+        // SP 사용자 → 학심정 user 조회 (없으면 마이그레이션 매핑)
+        User user = ssoUserQueryService.findBySpUserId(spUser.spUserId());
+        if (user == null) {
+            user = ssoUserMigrationService.migrateBySpUserId(spUser);
+        }
         if (user == null) {
             throw new IllegalStateException("학심정에 등록되지 않은 사용자입니다. 추가 정보 입력이 필요합니다.");
         }
