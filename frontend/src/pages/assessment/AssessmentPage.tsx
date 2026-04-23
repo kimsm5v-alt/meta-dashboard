@@ -27,6 +27,7 @@ import {
   fetchExamList,
   endExam,
   cancelExam,
+  restartExam,
   type ExamListItem,
 } from '@features/assessment/api/assessmentService';
 import { APIError } from '@shared/services/apiClient';
@@ -159,6 +160,7 @@ function convertExamListItem(item: ExamListItem, groups: Group[]): ManagedAssess
     name: `${item.ordNo}차 검사`,
     code: shortCode,
     dgnssId: item.dgnssId,
+    claId: item.claId,
     grade: meta?.grade ?? group?.grade ?? 0,
     classNumber: meta?.classNumber ?? group?.classNumber ?? 0,
     studentCount: item.stTotalCnt,
@@ -403,6 +405,31 @@ export const AssessmentPage: React.FC = () => {
   );
 
   // ============================================================
+  // 검사 재시작 (추가 진행하기)
+  // ============================================================
+
+  const handleRestartExam = useCallback(
+    async (assessment: ManagedAssessment) => {
+      if (!assessment.dgnssId || !assessment.claId) return;
+
+      setIsProcessing(true);
+      setError(null);
+
+      try {
+        const group = groups.find((g) => g.claId === assessment.claId);
+        const gradeLevel = group ? schoolLevelToGradeLevel(group.schoolLevel) : 'mi';
+        await restartExam(assessment.dgnssId, assessment.claId, gradeLevel);
+        await loadExamList();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '검사 재시작에 실패했습니다.');
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [groups, loadExamList],
+  );
+
+  // ============================================================
   // 핸들러
   // ============================================================
 
@@ -463,6 +490,7 @@ export const AssessmentPage: React.FC = () => {
           onViewCode={handleViewCode}
           onEndExam={handleEndExam}
           onCancelExam={handleCancelExam}
+          onRestartExam={handleRestartExam}
         />
       )}
 

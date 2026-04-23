@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   UserX,
+  RefreshCw,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { ManagedAssessment } from '@shared/types';
@@ -181,11 +182,76 @@ const StudentBadge = styled.span`
   border: 1px solid #fde68a;
 `;
 
+const ConfirmOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ConfirmBackground = styled.div`
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+`;
+
+const ConfirmCard = styled.div`
+  position: relative;
+  background: ${({ theme }) => theme.colors.background.paper};
+  border-radius: ${({ theme }) => theme.radius['2xl']};
+  box-shadow: ${({ theme }) => theme.shadows['2xl']};
+  width: 100%;
+  max-width: 420px;
+  margin: 0 ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => theme.spacing.lg};
+`;
+
+const ConfirmTitle = styled.h3`
+  font-size: ${({ theme }) => theme.typography.fontSize.lg};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  color: ${({ theme }) => theme.colors.text.primary};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+`;
+
+const ConfirmDescription = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  line-height: ${({ theme }) => theme.typography.lineHeight.relaxed};
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
+`;
+
+const ConfirmButtons = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.sm};
+  justify-content: flex-end;
+`;
+
+const ConfirmButton = styled.button<{ $primary?: boolean }>`
+  padding: 0.5rem 1.25rem;
+  border-radius: ${({ theme }) => theme.radius.lg};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.15s ease;
+  background: ${({ $primary, theme }) => ($primary ? theme.colors.primary[600] : theme.colors.gray[100])};
+  color: ${({ $primary, theme }) => ($primary ? 'white' : theme.colors.gray[700])};
+
+  &:hover {
+    background: ${({ $primary, theme }) =>
+      $primary ? theme.colors.primary[700] : theme.colors.gray[200]};
+  }
+`;
+
 interface AssessmentListProps {
   assessments: ManagedAssessment[];
   onViewCode: (assessment: ManagedAssessment) => void;
   onEndExam?: (assessment: ManagedAssessment) => void;
   onCancelExam?: (assessment: ManagedAssessment) => void;
+  onRestartExam?: (assessment: ManagedAssessment) => void;
 }
 
 const formatDate = (date: Date): string => {
@@ -221,16 +287,18 @@ const getStatusBadge = (assessment: ManagedAssessment) => {
 /** 개별 검사 항목 컴포넌트 */
 const AssessmentItem: React.FC<{
   assessment: ManagedAssessment;
+  allAssessments: ManagedAssessment[];
   onViewCode: (assessment: ManagedAssessment) => void;
   onEndExam?: (assessment: ManagedAssessment) => void;
   onCancelExam?: (assessment: ManagedAssessment) => void;
-}> = ({ assessment, onViewCode, onEndExam, onCancelExam }) => {
+  onRestartExam?: (assessment: ManagedAssessment) => void;
+}> = ({ assessment, allAssessments, onViewCode, onEndExam, onCancelExam, onRestartExam }) => {
   const [showNotSubmitted, setShowNotSubmitted] = useState(false);
   const [notSubmittedStudents, setNotSubmittedStudents] = useState<NotSubmittedStudent[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
 
   const notSubmittedCount = assessment.studentCount - assessment.completedCount;
-  console.log(assessment, 'sss');
 
   useEffect(() => {
     if (showNotSubmitted && notSubmittedStudents.length === 0 && notSubmittedCount > 0) {
@@ -248,6 +316,21 @@ const AssessmentItem: React.FC<{
     }
   };
 
+  // "추가 진행하기" 버튼 노출 조건:
+  // 1) 종료된 검사 (isActive === false)
+  // 2) 미제출 학생 존재
+  // 3) 1차 검사인 경우 동일 claId의 2차 검사가 아직 시작되지 않음
+  const hasRound2Started =
+    assessment.round === 1 &&
+    allAssessments.some((a) => a.claId === assessment.claId && a.round === 2);
+  const showRestartButton =
+    assessment.isActive === false && notSubmittedCount > 0 && !hasRound2Started;
+
+  const handleRestartConfirm = () => {
+    setShowRestartConfirm(false);
+    onRestartExam?.(assessment);
+  };
+
   return (
     <ItemContainer>
       <ItemHeader>
@@ -261,6 +344,12 @@ const AssessmentItem: React.FC<{
             <Eye className='w-4 h-4' />
             코드 보기
           </ActionButton>
+          {showRestartButton && onRestartExam && (
+            <ActionButton onClick={() => setShowRestartConfirm(true)} $variant='primary'>
+              <RefreshCw className='w-4 h-4' />
+              추가 진행하기
+            </ActionButton>
+          )}
           {assessment.isActive && onEndExam && (
             <ActionButton onClick={() => onEndExam(assessment)} $variant='warning'>
               <StopCircle className='w-4 h-4' />
@@ -325,6 +414,26 @@ const AssessmentItem: React.FC<{
           )}
         </NotSubmittedPanel>
       )}
+
+      {/* 추가 진행하기 확인 모달 */}
+      {showRestartConfirm && (
+        <ConfirmOverlay>
+          <ConfirmBackground onClick={() => setShowRestartConfirm(false)} />
+          <ConfirmCard>
+            <ConfirmTitle>추가 진행하시겠습니까?</ConfirmTitle>
+            <ConfirmDescription>
+              미제출 학생이나 추가된 학생을 위해 추가 진행하기를 할 경우 현재 결과가 업데이트
+              됩니다.
+            </ConfirmDescription>
+            <ConfirmButtons>
+              <ConfirmButton onClick={() => setShowRestartConfirm(false)}>아니오</ConfirmButton>
+              <ConfirmButton $primary onClick={handleRestartConfirm}>
+                예
+              </ConfirmButton>
+            </ConfirmButtons>
+          </ConfirmCard>
+        </ConfirmOverlay>
+      )}
     </ItemContainer>
   );
 };
@@ -334,6 +443,7 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({
   onViewCode,
   onEndExam,
   onCancelExam,
+  onRestartExam,
 }) => {
   return (
     <Container>
@@ -341,9 +451,11 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({
         <AssessmentItem
           key={assessment.id}
           assessment={assessment}
+          allAssessments={assessments}
           onViewCode={onViewCode}
           onEndExam={onEndExam}
           onCancelExam={onCancelExam}
+          onRestartExam={onRestartExam}
         />
       ))}
     </Container>

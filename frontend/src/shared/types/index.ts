@@ -274,6 +274,7 @@ export interface ManagedAssessment {
   name: string;
   code: string;
   dgnssId: number; // 검사 ID (학급 단위, /tc/start API에서 반환)
+  claId?: string; // 학급 ID (추가 진행하기 API 호출 시 필요)
   grade: number;
   classNumber: number;
   studentCount: number;
