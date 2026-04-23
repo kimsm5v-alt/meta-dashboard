@@ -36,6 +36,7 @@ import java.util.Map;
 public class AuthProxyController {
 
     private final SpAuthProperties spAuth;
+    private final WebClient superPlatformAuthWebClient;
     private static final int RT_COOKIE_MAX_AGE_FALLBACK = 7 * 24 * 60 * 60;
 
     // ─────────────────────────────────────────────────────
@@ -56,7 +57,7 @@ public class AuthProxyController {
 
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> tokens = WebClient.create(spAuth.getServerUrl())
+            Map<String, Object> tokens = superPlatformAuthWebClient
                     .post()
                     .uri("/oauth2/token")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -90,7 +91,7 @@ public class AuthProxyController {
 
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> wrapped = WebClient.create(spAuth.getServerUrl())
+            Map<String, Object> wrapped = superPlatformAuthWebClient
                     .post()
                     .uri("/api/v1/auth/refresh")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -133,7 +134,7 @@ public class AuthProxyController {
         var refreshToken = resolveRefreshToken(body, request);
         if (refreshToken != null) {
             try {
-                WebClient.create(spAuth.getServerUrl())
+                superPlatformAuthWebClient
                         .post()
                         .uri("/api/v1/auth/logout")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -158,7 +159,7 @@ public class AuthProxyController {
     public ResponseEntity<?> guestToken(@RequestBody Map<String, String> body) {
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> result = WebClient.create(spAuth.getServerUrl())
+            Map<String, Object> result = superPlatformAuthWebClient
                     .post()
                     .uri("/oauth2/guest-token")
                     .contentType(MediaType.APPLICATION_JSON)
