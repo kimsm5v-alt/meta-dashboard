@@ -6,14 +6,16 @@ import { TYPE_COLORS } from '@shared/data/lpaProfiles';
 import type { Class } from '@shared/types';
 
 const TYPE_ORDER: Record<string, string[]> = {
-  초등: ['자원소진형', '안전균형형', '몰입자원풍부형'],
-  중등: ['무기력형', '정서조절취약형', '자기주도몰입형'],
+  초등: ['자원소진형', '안전 균형형', '몰입자원 풍부형'],
+  중등: ['냉소적 무기력형', '정서조절 취약형', '자기주도 몰입형'],
 };
 
 const getSortedTypeDistribution = (cls: Class) => {
   const dist = cls.stats?.typeDistribution;
   if (!dist) return [];
   const order = TYPE_ORDER[cls.schoolLevel] ?? [];
+  console.log(dist, 'dist');
+  console.log(order, 'order');
   return order
     .filter((t) => dist[t])
     .map((t) => [t, dist[t]] as [string, { count: number; percentage: number }]);
@@ -253,7 +255,6 @@ export const ClassCardsSection = ({ classes }: ClassCardsSectionProps) => {
           };
 
           const sorted = getSortedTypeDistribution(cls);
-          console.log(cls, '이거 뭐냐');
 
           return (
             <Card key={cls.id} hoverable>
@@ -388,7 +389,7 @@ export const ClassCardsSection = ({ classes }: ClassCardsSectionProps) => {
                     </TypeDistributionBar>
                     <TypeBadgesWrapper>
                       {sorted.map(([type, data]) => (
-                        <TypeBadge key={type} type={type} count={data.count} />
+                        <TypeBadge key={type} type={type} count={data.count} showSuffix={true} />
                       ))}
                     </TypeBadgesWrapper>
                   </>

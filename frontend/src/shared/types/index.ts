@@ -9,8 +9,8 @@ export * from './api';
 export type SchoolLevel = '초등' | '중등';
 
 // LPA 유형
-export type ElementaryType = '자원소진형' | '안전균형형' | '몰입자원풍부형';
-export type MiddleSchoolType = '무기력형' | '정서조절취약형' | '자기주도몰입형';
+export type ElementaryType = '자원소진형' | '안전 균형형' | '몰입자원 풍부형';
+export type MiddleSchoolType = '냉소적 무기력형' | '정서조절 취약형' | '자기주도 몰입형';
 export type StudentType = ElementaryType | MiddleSchoolType;
 
 // 검사 상태
@@ -245,7 +245,7 @@ export type OAuthProvider = 'vivasam' | 'google' | 'kakao' | 'naver' | 'sso';
 
 export interface User {
   id: string;
-  spUserId?: string;        // SuperPlatform publicUserId (UUID)
+  spUserId?: string; // SuperPlatform publicUserId (UUID)
   name: string;
   email: string;
   memberType: MemberType;
@@ -256,7 +256,7 @@ export interface User {
   stdtId?: string;
   roleCode?: string;
   classId?: string;
-  userType?: string;         // Auth JWT userType (TEACHER/STUDENT/GUEST/UNSET)
+  userType?: string; // Auth JWT userType (TEACHER/STUDENT/GUEST/UNSET)
 }
 
 export interface AuthState {

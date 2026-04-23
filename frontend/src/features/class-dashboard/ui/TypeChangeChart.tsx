@@ -16,14 +16,18 @@ const Container = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.gray[100]};
   border-radius: 1rem;
   padding: 1.5rem;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.05),
+    0 2px 4px -2px rgb(0 0 0 / 0.05);
   transition: box-shadow 0.3s ease;
   height: 100%;
   display: flex;
   flex-direction: column;
 
   &:hover {
-    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    box-shadow:
+      0 20px 25px -5px rgb(0 0 0 / 0.1),
+      0 8px 10px -6px rgb(0 0 0 / 0.1);
   }
 `;
 
@@ -263,12 +267,12 @@ interface BarSegment {
 
 const SVG_CONFIG = {
   width: 700,
-  height: 460,
+  height: 580,
   barWidth: 100,
   barGap: 240,
   barX1: 128,
   chartTop: 50,
-  chartHeight: 360,
+  chartHeight: 480,
   barX2: 128 + 100 + 240,
 };
 
@@ -300,13 +304,13 @@ const createFlowPath = (from: BarSegment, to: BarSegment): string => {
 
 const FLOW_STROKE_COLORS: Record<string, string> = {
   // 초등 유형
-  자원소진형: '#EA580C', // orange-600
-  안전균형형: '#0D9488', // teal-600
-  몰입자원풍부형: '#2563EB', // blue-600
+  자원소진형: '#E74C3C',
+  '안전 균형형': '#3498DB',
+  '몰입자원 풍부형': '#2ECC71',
   // 중등 유형
-  무기력형: '#EA580C', // orange-600
-  정서조절취약형: '#0D9488', // teal-600
-  자기주도몰입형: '#2563EB', // blue-600
+  '냉소적 무기력형': '#E74C3C',
+  '정서조절 취약형': '#F39C12',
+  '자기주도 몰입형': '#2ECC71',
 };
 
 const getFlowStyle = (
@@ -432,93 +436,143 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
   const round2Segments = calculateSegments(round2Distribution);
 
   // 렌더링 헬퍼
-  const renderBarSegment = (segment: BarSegment, round: 1 | 2, x: number, isEnabled: boolean) => (
-    <g key={`r${round}-${segment.type}`}>
-      <rect
-        x={x}
-        y={yScale(segment.yStart)}
-        width={SVG.barWidth}
-        height={yScale(segment.yEnd) - yScale(segment.yStart)}
-        fill={TYPE_COLORS[segment.type]}
-        rx={8}
-        ry={8}
-        filter='url(#shadow)'
-        opacity={isEnabled ? 1 : 0.4}
-        className={`transition-all duration-300 ${isEnabled ? 'cursor-pointer hover:opacity-90' : ''}`}
-        onMouseEnter={(e) => {
-          if (isEnabled) {
-            setSelectedSegment({ round, type: segment.type, x: e.clientX, y: e.clientY });
-          }
-        }}
-        onClick={(e) => {
-          if (isEnabled) {
-            setSelectedSegment({ round, type: segment.type, x: e.clientX, y: e.clientY });
-          }
-        }}
-      />
-      {/* 광택 효과 */}
-      <rect
-        x={x}
-        y={yScale(segment.yStart)}
-        width={SVG.barWidth}
-        height={yScale(segment.yEnd) - yScale(segment.yStart)}
-        fill='url(#shine)'
-        rx={8}
-        ry={8}
-        opacity={isEnabled ? 0.3 : 0.15}
-        pointerEvents='none'
-      />
-      {segment.count > 0 && (
-        <>
-          <text
-            x={x + SVG.barWidth / 2}
-            y={yScale((segment.yStart + segment.yEnd) / 2)}
-            textAnchor='middle'
-            dominantBaseline='middle'
-            className={`text-xs font-semibold ${segment.type === '미실시' ? 'fill-gray-700' : 'fill-white'}`}
-            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
-            opacity={isEnabled ? 1 : 0.6}
-          >
-            {isEnabled ? segment.type.replace('형', '') : '미실시'}
-            <tspan x={x + SVG.barWidth / 2} dy='1.2em' className='text-sm font-bold'>
-              {segment.count}명
-            </tspan>
-          </text>
-          {/* 퍼센트 배지 */}
-          <g opacity={isEnabled ? 1 : 0.6}>
-            <rect
-              x={round === 1 ? x - 55 : x + SVG.barWidth + 12}
-              y={yScale((segment.yStart + segment.yEnd) / 2) - 12}
-              width={46}
-              height={24}
-              rx={12}
-              fill='rgba(255, 255, 255, 0.95)'
-              stroke='#E5E7EB'
-              strokeWidth={1.5}
-              filter='drop-shadow(0 2px 4px rgba(0,0,0,0.06))'
-            />
-            <text
-              x={round === 1 ? x - 32 : x + SVG.barWidth + 35}
-              y={yScale((segment.yStart + segment.yEnd) / 2)}
-              textAnchor='middle'
-              dominantBaseline='middle'
-              className='text-xs font-bold fill-gray-700'
-            >
-              {segment.percentage.toFixed(0)}%
-            </text>
-          </g>
-        </>
-      )}
-    </g>
-  );
+  const renderBarSegment = (segment: BarSegment, round: 1 | 2, x: number, isEnabled: boolean) => {
+    const segPx = yScale(segment.yEnd) - yScale(segment.yStart);
+    const midY = yScale((segment.yStart + segment.yEnd) / 2);
+    // 세그먼트 높이에 따라 내부 표시 vs 외부 callout 결정
+    const isInside = segPx >= 42;
+    // 내부 표시 시 폰트 크기 조정
+    const fontSize = segPx >= 50 ? 13 : segPx >= 36 ? 11 : 10;
+    // callout 방향: 1차 바는 왼쪽, 2차 바는 오른쪽
+    const calloutX = round === 1 ? x - 8 : x + SVG.barWidth + 8;
+    const calloutAnchor = round === 1 ? 'end' : 'start';
+
+    return (
+      <g key={`r${round}-${segment.type}`}>
+        <rect
+          x={x}
+          y={yScale(segment.yStart)}
+          width={SVG.barWidth}
+          height={segPx}
+          fill={TYPE_COLORS[segment.type]}
+          rx={8}
+          ry={8}
+          filter='url(#shadow)'
+          opacity={isEnabled ? 1 : 0.4}
+          className={`transition-all duration-300 ${isEnabled ? 'cursor-pointer hover:opacity-90' : ''}`}
+          onMouseEnter={(e) => {
+            if (isEnabled) {
+              setSelectedSegment({ round, type: segment.type, x: e.clientX, y: e.clientY });
+            }
+          }}
+          onClick={(e) => {
+            if (isEnabled) {
+              setSelectedSegment({ round, type: segment.type, x: e.clientX, y: e.clientY });
+            }
+          }}
+        />
+        {/* 광택 효과 */}
+        <rect
+          x={x}
+          y={yScale(segment.yStart)}
+          width={SVG.barWidth}
+          height={segPx}
+          fill='url(#shine)'
+          rx={8}
+          ry={8}
+          opacity={isEnabled ? 0.3 : 0.15}
+          pointerEvents='none'
+        />
+        {segment.count > 0 && (
+          <>
+            {isInside ? (
+              /* 바 내부 텍스트 */
+              <text
+                x={x + SVG.barWidth / 2}
+                y={midY - fontSize * 0.7}
+                textAnchor='middle'
+                dominantBaseline='middle'
+                style={{
+                  fontSize: `${fontSize}px`,
+                  fontWeight: 700,
+                  fill: segment.type === '미실시' ? '#374151' : '#fff',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.25)',
+                  pointerEvents: 'none',
+                }}
+                opacity={isEnabled ? 1 : 0.6}
+              >
+                {isEnabled ? segment.type : '미실시'}
+                <tspan x={x + SVG.barWidth / 2} dy={`${fontSize * 1.5}px`}>
+                  {segment.count}명
+                </tspan>
+              </text>
+            ) : (
+              /* 바 외부 callout 텍스트 (세그먼트가 작을 때) */
+              <g opacity={isEnabled ? 1 : 0.6}>
+                {/* 연결선 */}
+                <line
+                  x1={round === 1 ? x : x + SVG.barWidth}
+                  y1={midY}
+                  x2={calloutX}
+                  y2={midY}
+                  stroke='#9CA3AF'
+                  strokeWidth={1}
+                  strokeDasharray='3,2'
+                />
+                <text
+                  x={calloutX}
+                  y={midY - 7}
+                  textAnchor={calloutAnchor}
+                  dominantBaseline='middle'
+                  style={{ fontSize: '11px', fontWeight: 700, fill: '#374151', pointerEvents: 'none' }}
+                >
+                  {isEnabled ? segment.type : '미실시'}
+                </text>
+                <text
+                  x={calloutX}
+                  y={midY + 8}
+                  textAnchor={calloutAnchor}
+                  dominantBaseline='middle'
+                  style={{ fontSize: '11px', fontWeight: 600, fill: '#6B7280', pointerEvents: 'none' }}
+                >
+                  {segment.count}명
+                </text>
+              </g>
+            )}
+            {/* 퍼센트 배지 */}
+            <g opacity={isEnabled ? 1 : 0.6}>
+              <rect
+                x={round === 1 ? x - 55 : x + SVG.barWidth + 12}
+                y={midY - 12}
+                width={46}
+                height={24}
+                rx={12}
+                fill='rgba(255, 255, 255, 0.95)'
+                stroke='#E5E7EB'
+                strokeWidth={1.5}
+                filter='drop-shadow(0 2px 4px rgba(0,0,0,0.06))'
+              />
+              <text
+                x={round === 1 ? x - 32 : x + SVG.barWidth + 35}
+                y={midY}
+                textAnchor='middle'
+                dominantBaseline='middle'
+                style={{ fontSize: '11px', fontWeight: 700, fill: '#374151' }}
+              >
+                {segment.percentage.toFixed(0)}%
+              </text>
+            </g>
+          </>
+        )}
+      </g>
+    );
+  };
 
   return (
     <Container>
       <Header>
         <Title>검사별 유형 분포</Title>
-        <Subtitle>
-          1차와 2차 검사 결과를 비교하여 학생들의 유형 변화를 확인하세요
-        </Subtitle>
+        <Subtitle>1차와 2차 검사 결과를 비교하여 학생들의 유형 변화를 확인하세요</Subtitle>
       </Header>
 
       <ChartWrapper>
@@ -712,17 +766,12 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
               const isChange = selectedFlow.changeType === 'change';
 
               const colorMap: Record<string, { bg: string; border: string; badge: string }> = {
-                자원소진형: {
-                  bg: '#fff7ed',
-                  border: '#fdba74',
-                  badge: '#f97316',
-                },
-                안전균형형: { bg: '#f0fdfa', border: '#5eead4', badge: '#14b8a6' },
-                몰입자원풍부형: {
-                  bg: '#eff6ff',
-                  border: '#93c5fd',
-                  badge: '#3b82f6',
-                },
+                자원소진형: { bg: '#fef2f2', border: '#fecaca', badge: '#E74C3C' },
+                '안전 균형형': { bg: '#eff8ff', border: '#bfdbfe', badge: '#3498DB' },
+                '몰입자원 풍부형': { bg: '#f0fdf4', border: '#bbf7d0', badge: '#2ECC71' },
+                '냉소적 무기력형': { bg: '#fef2f2', border: '#fecaca', badge: '#E74C3C' },
+                '정서조절 취약형': { bg: '#fffbeb', border: '#fde68a', badge: '#F39C12' },
+                '자기주도 몰입형': { bg: '#f0fdf4', border: '#bbf7d0', badge: '#2ECC71' },
               };
               const colors = isChange
                 ? colorMap[selectedFlow.to] || {

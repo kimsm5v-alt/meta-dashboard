@@ -2,12 +2,12 @@ import styled from '@emotion/styled';
 
 // LPA 유형별 색상 매핑
 const TYPE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-  자원소진형: { bg: '#fff7ed', text: '#ea580c', border: '#fed7aa' },
-  안전균형형: { bg: '#f0fdfa', text: '#0d9488', border: '#99f6e4' },
-  몰입자원풍부형: { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
-  무기력형: { bg: '#fff7ed', text: '#ea580c', border: '#fed7aa' },
-  정서조절취약형: { bg: '#f0fdfa', text: '#0d9488', border: '#99f6e4' },
-  자기주도몰입형: { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
+  자원소진형: { bg: '#fef2f2', text: '#E74C3C', border: '#fecaca' },
+  '안전 균형형': { bg: '#eff8ff', text: '#3498DB', border: '#bfdbfe' },
+  '몰입자원 풍부형': { bg: '#f0fdf4', text: '#2ECC71', border: '#bbf7d0' },
+  '냉소적 무기력형': { bg: '#fef2f2', text: '#E74C3C', border: '#fecaca' },
+  '정서조절 취약형': { bg: '#fffbeb', text: '#F39C12', border: '#fde68a' },
+  '자기주도 몰입형': { bg: '#f0fdf4', text: '#2ECC71', border: '#bbf7d0' },
 };
 
 const DEFAULT_STYLE = { bg: '#f3f4f6', text: '#6b7280', border: '#e5e7eb' };
