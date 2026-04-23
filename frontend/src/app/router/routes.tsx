@@ -55,7 +55,7 @@ const PublicLayout = () => (
  * 보호 라우트 래퍼 - 교사용 (인증 필요 + 교사 사이드바)
  */
 const ProtectedLayout = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
 
   if (isLoading || isChecking) {
@@ -68,6 +68,11 @@ const ProtectedLayout = () => {
 
   if (needsProfile) {
     return <Navigate to='/auth/complete-profile' replace />;
+  }
+
+  // 학생이 교사 경로 접근 시 학생 전용 경로로 강제 이동
+  if (user?.roleCode === 'STUDENT') {
+    return <Navigate to='/student/exams' replace />;
   }
 
   return (
@@ -81,7 +86,7 @@ const ProtectedLayout = () => {
  * 보호 라우트 래퍼 - 학생용 (인증 필요 + 학생 사이드바)
  */
 const StudentProtectedLayout = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
 
   if (isLoading || isChecking) {
@@ -94,6 +99,11 @@ const StudentProtectedLayout = () => {
 
   if (needsProfile) {
     return <Navigate to='/auth/complete-profile' replace />;
+  }
+
+  // 교사가 학생 경로 접근 시 교사 대시보드로 강제 이동
+  if (user?.roleCode && user.roleCode !== 'STUDENT') {
+    return <Navigate to='/dashboard' replace />;
   }
 
   return (

@@ -185,9 +185,13 @@ export const CompleteProfilePage: React.FC = () => {
         stdtId: data.stdtId ?? undefined,
       });
 
-      // 원래 경로 또는 역할 기반 리다이렉트
+      // 역할 기반 리다이렉트 우선 (가입 직후 returnPath로 들어온 /dashboard가 학생에게 적용되는 문제 방지)
       const defaultPath = data.roleCode === 'STUDENT' ? '/student/exams' : '/dashboard';
-      navigate(redirectTo || defaultPath, { replace: true });
+      const isStudent = data.roleCode === 'STUDENT';
+      const redirectValid = redirectTo && (
+        isStudent ? redirectTo.startsWith('/student') : !redirectTo.startsWith('/student')
+      );
+      navigate(redirectValid ? redirectTo : defaultPath, { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '프로필 등록에 실패했습니다.';
       setError(msg);
