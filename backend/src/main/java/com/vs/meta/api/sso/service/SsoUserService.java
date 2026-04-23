@@ -3,6 +3,7 @@ package com.vs.meta.api.sso.service;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.common.security.SpAuthenticatedUser;
 import com.vs.meta.common.utils.IdGenerator;
+import com.vs.meta.common.utils.PiiMasker;
 import com.vs.meta.domain.User;
 import com.vs.meta.domain.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +47,7 @@ public class SsoUserService {
                 user.setUpdatedBy(user.getUserNo());
                 user.setUpdatedAt(LocalDateTime.now());
                 userMapper.updateUser(user);
-                log.info("기존 회원 SSO 매핑 완료: userNo={}, spUserId={}, email={}", user.getUserNo(), spUser.spUserId(), spUser.email());
+                log.info("기존 회원 SSO 매핑 완료: userNo={}, spUserId={}, email={}", user.getUserNo(), spUser.spUserId(), PiiMasker.email(spUser.email()));
                 return user;
             } else if (user != null && user.getSpUserId() != null) {
                 return null; // 다른 sp_user_id가 이미 매핑됨
@@ -72,7 +73,7 @@ public class SsoUserService {
                 user.setUpdatedBy(user.getUserNo());
                 user.setUpdatedAt(LocalDateTime.now());
                 userMapper.updateUser(user);
-                log.info("기존 회원 SSO 매핑 완료: userNo={}, spUserId={}, email={}", user.getUserNo(), spUser.spUserId(), spUser.email());
+                log.info("기존 회원 SSO 매핑 완료: userNo={}, spUserId={}, email={}", user.getUserNo(), spUser.spUserId(), PiiMasker.email(spUser.email()));
             } else if (user != null && user.getSpUserId() != null) {
                 // email은 같지만 다른 sp_user_id가 이미 매핑된 경우 → 다른 사람
                 user = null;
