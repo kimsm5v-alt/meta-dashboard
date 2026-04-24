@@ -16,7 +16,6 @@ import {
   ChangeFilterButtons,
 } from '@features/class-dashboard/ui';
 import type { SortField, ChangeFilter } from '@features/class-dashboard/ui';
-import { getTypeChangeScore } from '@features/class-dashboard/lib/typeUtils';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 
 const spin = keyframes`
@@ -295,11 +294,6 @@ const DashPlaceholder = styled.span<{ $variant?: 'light' | 'default' }>`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
-const StatusBadgeWrapper = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-`;
 
 const StatusBadge = styled.span<{ $variant: 'attention' | 'reliability' | 'submitted' }>`
   display: inline-flex;
@@ -331,7 +325,7 @@ const BadgeIcon = styled.span`
   justify-content: center;
 `;
 
-const ChangeIndicator = styled.span<{ $variant: 'positive' | 'negative' | 'neutral' }>`
+const ChangeIndicator = styled.span<{ $variant: 'changed' | 'neutral' }>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -341,16 +335,17 @@ const ChangeIndicator = styled.span<{ $variant: 'positive' | 'negative' | 'neutr
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 
-  ${({ $variant }) => {
-    switch ($variant) {
-      case 'positive':
-        return `background: #d1fae5; color: #059669;`;
-      case 'negative':
-        return `background: #fee2e2; color: #dc2626;`;
-      case 'neutral':
-        return `background: #f3f4f6; color: #9ca3af;`;
-    }
-  }}
+  ${({ $variant }) =>
+    $variant === 'changed'
+      ? `background: #d1fae5; color: #059669;`
+      : `background: #f3f4f6; color: #9ca3af;`}
+`;
+
+const ResultCellWrapper = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
 `;
 
 const NoChangeText = styled.span`
@@ -494,11 +489,9 @@ export const ClassDashboardWidget: React.FC = () => {
 
       const r1 = s.assessments.find((a) => a.round === 1);
       const r2 = s.assessments.find((a) => a.round === 2);
-      const typeChange = getTypeChangeScore(r1?.predictedType, r2?.predictedType);
 
-      if (changeFilter === 'positive' && typeChange !== 1) return false;
-      if (changeFilter === 'negative' && typeChange !== -1) return false;
-      if (changeFilter === 'not-assessed' && r2) return false;
+      if (changeFilter === 'type-change' && !(r1 && r2 && r1.predictedType !== r2.predictedType))
+        return false;
       if (changeFilter === 'reliability-warning') {
         if (!s.assessments.some((a) => a.reliabilityWarnings.length > 0)) return false;
       }
@@ -545,14 +538,20 @@ export const ClassDashboardWidget: React.FC = () => {
     }
   };
 
-  const renderStatusBadges = (assessment: Assessment | undefined) => {
-    if (!assessment) return <DashPlaceholder $variant='light'>-</DashPlaceholder>;
+  const renderResultCell = (
+    assessment: Assessment | undefined,
+    isSubmittedNoResult?: boolean,
+  ) => {
+    if (!assessment) {
+      if (isSubmittedNoResult)
+        return <StatusBadge $variant='submitted'>제출 완료</StatusBadge>;
+      return <DashPlaceholder $variant='light'>-</DashPlaceholder>;
+    }
     const hasReliability = assessment.reliabilityWarnings.length > 0;
     const hasAttention = assessment.attentionResult.needsAttention;
-    if (!hasReliability && !hasAttention) return <DashPlaceholder>-</DashPlaceholder>;
-
     return (
-      <StatusBadgeWrapper>
+      <ResultCellWrapper>
+        <Badge type={assessment.predictedType}>{assessment.predictedType}</Badge>
         {hasAttention && (
           <StatusBadge
             $variant='attention'
@@ -575,15 +574,15 @@ export const ClassDashboardWidget: React.FC = () => {
             신뢰도
           </StatusBadge>
         )}
-      </StatusBadgeWrapper>
+      </ResultCellWrapper>
     );
   };
 
-  const renderChangeIndicator = (typeChange: number, hasRound2: boolean) => {
-    if (!hasRound2) return <NoChangeText>--</NoChangeText>;
-    if (typeChange === 1) return <ChangeIndicator $variant='positive'>+</ChangeIndicator>;
-    if (typeChange === -1) return <ChangeIndicator $variant='negative'>-</ChangeIndicator>;
-    return <ChangeIndicator $variant='neutral'>=</ChangeIndicator>;
+  const renderChangeIndicator = (r1: Assessment | undefined, r2: Assessment | undefined) => {
+    if (!r2) return <NoChangeText>--</NoChangeText>;
+    if (r1?.predictedType !== r2.predictedType)
+      return <ChangeIndicator $variant='changed'>→</ChangeIndicator>;
+    return <ChangeIndicator $variant='neutral'>−</ChangeIndicator>;
   };
 
   return (
@@ -695,36 +694,33 @@ export const ClassDashboardWidget: React.FC = () => {
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
-                  <TableHeaderCell $width='8rem'>
+                  <TableHeaderCell>
                     <SortableHeader
                       field='type1'
-                      label='1차 유형'
+                      label='1차 결과'
                       currentField={sortField}
                       direction={sortDirection}
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
-                  <TableHeaderCell $width='9rem'>1차 상태</TableHeaderCell>
                   <TableHeaderCell $width='4rem' $align='center'>
                     변화
                   </TableHeaderCell>
-                  <TableHeaderCell $width='8rem'>
+                  <TableHeaderCell>
                     <SortableHeader
                       field='type2'
-                      label='2차 유형'
+                      label='2차 결과'
                       currentField={sortField}
                       direction={sortDirection}
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
-                  <TableHeaderCell $width='9rem'>2차 상태</TableHeaderCell>
                 </TableHeaderRow>
               </TableHead>
               <TableBody>
                 {filteredAndSortedStudents.map((student) => {
                   const r1 = student.assessments.find((a) => a.round === 1);
                   const r2 = student.assessments.find((a) => a.round === 2);
-                  const typeChange = getTypeChangeScore(r1?.predictedType, r2?.predictedType);
 
                   return (
                     <TableRow
@@ -739,28 +735,16 @@ export const ClassDashboardWidget: React.FC = () => {
                       <TableCell>
                         <StudentName>{student.name}</StudentName>
                       </TableCell>
+                      <TableCell>{renderResultCell(r1)}</TableCell>
+                      <TableCell $align='center'>{renderChangeIndicator(r1, r2)}</TableCell>
                       <TableCell>
-                        {r1 ? (
-                          <Badge type={r1.predictedType}>{r1.predictedType}</Badge>
-                        ) : (
-                          <DashPlaceholder $variant='light'>-</DashPlaceholder>
+                        {renderResultCell(
+                          r2,
+                          !r2 &&
+                            classData.stats?.examStatus?.round2 === '진행중' &&
+                            student.round2Submitted,
                         )}
                       </TableCell>
-                      <TableCell>{renderStatusBadges(r1)}</TableCell>
-                      <TableCell $align='center'>
-                        {renderChangeIndicator(typeChange, !!r2)}
-                      </TableCell>
-                      <TableCell>
-                        {r2 ? (
-                          <Badge type={r2.predictedType}>{r2.predictedType}</Badge>
-                        ) : classData.stats?.examStatus?.round2 === '진행중' &&
-                          student.round2Submitted ? (
-                          <StatusBadge $variant='submitted'>제출 완료</StatusBadge>
-                        ) : (
-                          <DashPlaceholder $variant='light'>-</DashPlaceholder>
-                        )}
-                      </TableCell>
-                      <TableCell>{renderStatusBadges(r2)}</TableCell>
                     </TableRow>
                   );
                 })}
