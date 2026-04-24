@@ -87,13 +87,20 @@
 |---|---|---|---|
 | [x] | `NotificationDispatcher` 인터페이스 | BE | 2026-04-24 |
 | [x] | `InMemoryDispatcher` 구현 (`@ConditionalOnProperty`) | BE | 2026-04-24 |
-| [ ] | Application Event 클래스들 (T1~T4, S1, S3) | BE | |
-| [ ] | `NotificationEventHandler` | BE | |
-| [ ] | `GroupService.joinGroup` 훅 (T1) | BE | |
-| [ ] | `GroupService.leave` 훅 (T2) | BE | |
-| [ ] | 검사 제출 훅 (T3, T4) | BE | |
-| [ ] | 검사 생성 훅 (S1) | BE | |
-| [ ] | 결과 공개 훅 (S3) — ⚠️ 공개 로직 확정 후 | BE | |
+| [x] | `NotificationService` dispatch 제거 (AFTER_COMMIT 구조로) | BE | 2026-04-24 |
+| [x] | `insertBatch` useGeneratedKeys 수정 | BE | 2026-04-24 |
+| [x] | Application Event (T1/T2/S4/S5) | BE | 2026-04-24 |
+| [x] | `NotificationEventHandler` (T1/T2/S4/S5 리스너) | BE | 2026-04-24 |
+| [x] | `GroupService.joinGroupAsPlayer` 훅 (T1) | BE | 2026-04-24 |
+| [x] | `GroupService.joinGroupAsGuest` 훅 (T1) | BE | 2026-04-24 |
+| [x] | `GroupService.leaveGroup` 훅 (T2) | BE | 2026-04-24 |
+| [x] | `GroupService.kickMember` 훅 (S5) | BE | 2026-04-24 |
+| [x] | `GroupInvitationService.sendInvitation` 훅 (S4) | BE | 2026-04-24 |
+| [-] | 검사 제출 훅 (T3, T4) | 검사 담당 | 가이드 문서로 이관 |
+| [-] | 검사 생성 훅 (S1) | 검사 담당 | 가이드 문서로 이관 |
+| [-] | 결과 공개 훅 (S3) — ⚠️ 공개 로직 확정 후 | 검사 담당 | 가이드 문서로 이관 |
+| [-] | T6 배치 훅 — ⚠️ 배치 정의 확정 후 | 검사 담당 | 가이드 문서로 이관 |
+| [x] | 검사 영역 연동 가이드 문서 작성 | BE | 2026-04-24 |
 
 ### 6. BE 스케줄러
 
@@ -257,6 +264,14 @@
   - `Notification` 엔티티
   - `NotificationCategory` enum
   - `NotificationMapper` (interface + XML)
+- 그룹 영역 이벤트 연동:
+  - 이벤트 클래스 4개 (`StudentJoinedGroupEvent`, `StudentLeftGroupEvent`, `GroupInvitedEvent`, `StudentKickedEvent`)
+  - `NotificationEventHandler` (T1/T2/S4/S5)
+  - `GroupService`에 `publishEvent` 추가 (joinAsPlayer, joinAsGuest, leaveGroup, kickMember)
+  - `GroupInvitationService.sendInvitation`에 publishEvent 추가 (S4)
+  - `NotificationService` AFTER_COMMIT 패턴으로 리팩토링 (dispatch는 리스너에서 호출)
+  - `insertBatch` useGeneratedKeys 수정
+- 검사 영역 연동 가이드 작성 (`plan/exam-integration-guide.md`)
 - BE 서비스/컨트롤러/SSE 구현:
   - DTO (`NotificationDto`, `NotificationListResponse`)
   - `SseEmitterRegistry` (메모리)

@@ -1,6 +1,5 @@
 package com.vs.meta.api.notification.service;
 
-import com.vs.meta.api.notification.dispatcher.NotificationDispatcher;
 import com.vs.meta.api.notification.dto.NotificationDto;
 import com.vs.meta.api.notification.dto.NotificationListResponse;
 import com.vs.meta.api.notification.mapper.NotificationMapper;
@@ -30,10 +29,11 @@ public class NotificationService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final NotificationMapper mapper;
-    private final NotificationDispatcher dispatcher;
 
     /**
-     * 단건 알림 생성 + 실시간 전달.
+     * 단건 알림 생성 (DB insert만 수행).
+     * 실시간 전달은 호출자(NotificationEventHandler)가 AFTER_COMMIT 시점에
+     * {@code NotificationDispatcher.dispatch}를 직접 호출한다.
      */
     @Transactional
     public Notification create(Long userNo, NotificationCategory category,
@@ -47,19 +47,18 @@ public class NotificationService {
                 .createdAt(LocalDateTime.now())
                 .build();
         mapper.insert(n);
-        dispatcher.dispatch(userNo, NotificationDto.from(n));
         log.info("[Notification] created: userNo={}, eventCode={}, id={}", userNo, eventCode, n.getNotificationId());
         return n;
     }
 
     /**
-     * 다건 알림 생성 (대량 발송) + 실시간 전달.
-     * 예: 검사 배정 시 그룹 전원에게 S1 발송.
+     * 다건 알림 생성 (대량 발송).
+     * 실시간 전달은 호출자가 반환된 리스트로 개별 dispatch 수행.
      */
     @Transactional
-    public void createBatch(List<Long> userNos, NotificationCategory category,
-                            String eventCode, String content, String link) {
-        if (userNos == null || userNos.isEmpty()) return;
+    public List<Notification> createBatch(List<Long> userNos, NotificationCategory category,
+                                           String eventCode, String content, String link) {
+        if (userNos == null || userNos.isEmpty()) return List.of();
 
         LocalDateTime now = LocalDateTime.now();
         List<Notification> list = userNos.stream()
@@ -73,13 +72,8 @@ public class NotificationService {
                         .build())
                 .collect(Collectors.toList());
         mapper.insertBatch(list);
-
-        // insertBatch 후 개별 notificationId가 채워지지 않을 수 있어
-        // DTO는 각 사용자별로 최신 이벤트로 전달 (ID는 이후 조회 시 확인)
-        for (Notification n : list) {
-            dispatcher.dispatch(n.getUserNo(), NotificationDto.from(n));
-        }
         log.info("[Notification] batch created: count={}, eventCode={}", list.size(), eventCode);
+        return list;
     }
 
     /**

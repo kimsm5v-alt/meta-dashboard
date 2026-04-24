@@ -24,7 +24,8 @@
         VALUES (#{userNo}, #{category}, #{eventCode}, #{content}, #{link}, #{createdAt})
     </insert>
 
-    <insert id="insertBatch" parameterType="list">
+    <insert id="insertBatch" parameterType="list"
+            useGeneratedKeys="true" keyProperty="list.notificationId">
         /* NotificationMapper.insertBatch */
         INSERT INTO notification (user_no, category, event_code, content, link, created_at)
         VALUES

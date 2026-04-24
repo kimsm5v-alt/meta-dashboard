@@ -8,6 +8,9 @@ import com.vs.meta.api.guest.service.GuestAuthService;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.member.service.EmailVerificationService;
 import com.vs.meta.api.member.service.MemberService;
+import com.vs.meta.api.notification.event.StudentJoinedGroupEvent;
+import com.vs.meta.api.notification.event.StudentKickedEvent;
+import com.vs.meta.api.notification.event.StudentLeftGroupEvent;
 import com.vs.meta.common.utils.ConvertUtils;
 import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
@@ -20,6 +23,7 @@ import com.vs.meta.domain.enums.SchoolLevel;
 import com.vs.meta.domain.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
@@ -40,6 +44,7 @@ public class GroupService {
     private final EmailVerificationService emailVerificationService;
     private final DgnssService dgnssService;
     private final GuestAuthService guestAuthService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Object createGroup(Map<String, Object> paramData) throws Exception {
@@ -179,6 +184,7 @@ public class GroupService {
             }
 
             log.info("회원 그룹 재가입: groupId={}, userNo={}, memberId={}", groupId, userNo, existing.getId());
+            publishStudentJoined(groupInfo, existing.getNickname());
             return paramData;
         }
 
@@ -216,6 +222,7 @@ public class GroupService {
         }
 
         log.info("회원 그룹 참가: groupId={}, userNo={}, memberNo={}", groupId, userNo, memberNo);
+        publishStudentJoined(groupInfo, user.getNickname());
         return paramData;
     }
 
@@ -308,7 +315,22 @@ public class GroupService {
         paramData.put("guestId", guestToken.get("guestId"));
 
         log.info("게스트 그룹 참가: groupId={}, email={}, memberNo={}", groupId, email, memberNo);
+        publishStudentJoined(groupInfo, (String) paramData.get("nickname"));
         return paramData;
+    }
+
+    /**
+     * T1 알림 이벤트 발행 — 그룹 오너 교사에게.
+     * hostUserNo가 없는 경우는 건너뛴다.
+     */
+    private void publishStudentJoined(GroupInfo groupInfo, String studentNickname) {
+        if (groupInfo == null || groupInfo.getHostUserNo() == null) return;
+        eventPublisher.publishEvent(new StudentJoinedGroupEvent(
+                groupInfo.getHostUserNo(),
+                groupInfo.getClaId(),
+                groupInfo.getGroupNm(),
+                studentNickname
+        ));
     }
 
     private Integer registerActiveDgnssIfNeeded(String claId, String schoolLevel, String stdtId) throws Exception {
@@ -393,6 +415,16 @@ public class GroupService {
         member.setUpdatedBy(userNo);
         groupMemberMapper.updateGroupMember(member);
         log.info("그룹 멤버 탈퇴: memberId={}, userNo={}", memberId, userNo);
+
+        // T2: 그룹 오너 교사에게 알림
+        GroupInfo groupInfo = groupInfoMapper.findGroupInfoById(member.getGroupId());
+        if (groupInfo != null && groupInfo.getHostUserNo() != null) {
+            eventPublisher.publishEvent(new StudentLeftGroupEvent(
+                    groupInfo.getHostUserNo(),
+                    groupInfo.getClaId(),
+                    member.getNickname()
+            ));
+        }
         return paramData;
     }
 
@@ -423,6 +455,14 @@ public class GroupService {
         member.setUpdatedBy(hostUserNo);
         groupMemberMapper.updateGroupMember(member);
         log.info("그룹 멤버 강퇴: memberId={}, by={}", memberId, hostUserNo);
+
+        // S5: 추방된 학생(회원만)에게 알림. 게스트(userNo=null)는 인앱 알림 불가 → 스킵
+        if (member.getUserNo() != null) {
+            eventPublisher.publishEvent(new StudentKickedEvent(
+                    member.getUserNo(),
+                    groupInfo.getGroupNm()
+            ));
+        }
         return paramData;
     }
 
