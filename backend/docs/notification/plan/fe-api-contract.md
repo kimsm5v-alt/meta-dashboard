@@ -14,7 +14,7 @@
 
 ### 인증
 - 모든 요청에 `Authorization: Bearer {accessToken}` 헤더 필수
-- 토큰은 SDK의 `getAccessToken()`에서 획득
+- 토큰은 SSO SDK 래퍼 `getAuth().getAccessToken()` 에서 획득 (localStorage 직접 읽기 X — SDK 내부 저장 방식에 의존)
 
 ### 사용자 식별
 - **FE에서 userNo / stdtId / tcId 전달 불필요** — JWT로 BE가 자동 식별
@@ -374,19 +374,44 @@ FE에서 카테고리 탭별로 보여줄 이벤트:
 
 ## 🧪 로컬 테스트
 
-### PoC 확인 (현재 `feature/notification` 브랜치)
+### 방법 ① — BE 단독 테스터 페이지 (추천, FE 연동 전 확인용)
 
-1. BE 로컬 실행: `./gradlew :backend:bootRun`
-2. FE 로컬 실행: `npm run frontend`
-3. 로그인 후 `http://localhost:5173/dev/sse` 접속
-4. 우하단 패널에서 SSE 연결 상태 확인
-5. "테스트 알림 보내기" 버튼으로 본인에게 알림 발송 → 즉시 수신
+BE가 `@Profile("local")` 로 실행 중이면 브라우저에서 바로 접속:
 
-### 본 구현 연결 후 시나리오
+```
+http://localhost:8081/dev/notification-tester
+```
+
+- JWT 입력 → SSE 연결 → 좌측에서 T1/T2/S4/S5/TEST 폼으로 이벤트 발화 → 우측 로그에 실시간 수신 + 페이로드 확인
+- 어떤 `notification` 이벤트가 어떤 페이로드 JSON으로 오는지 시각적으로 확인 가능
+- FE 구현 전에 "받을 데이터 포맷" 미리 눈으로 확인할 때 유용
+
+**JWT 획득 방법**: FE로 한 번 로그인한 뒤 DevTools Console에서:
+```js
+window.__aidt_auth?.getAccessToken?.()
+// 또는 Object.keys(localStorage) 로 토큰 키 확인
+```
+
+### 방법 ② — FE PoC 페이지 (이미 구현된 `/dev/sse`)
+
+```
+http://localhost:5173/dev/sse
+```
+
+- FE의 `useSsePoc` 훅으로 SSE 연결 상태 확인용 (가장 단순)
+- BE의 `/api/v1/notifications/test-send` 를 호출하여 본인에게 알림 발송 → 즉시 수신 확인
+
+### 본 구현 연결 후 풀 E2E 시나리오
 
 - 교사 로그인 → 학생이 그룹 가입 API 호출 → 교사에게 T1 알림 수신
 - 학생 로그인 → 교사가 검사 생성 → 학생에게 S1 알림 수신
 - 알림 클릭 → 딥링크 이동 + 읽음 처리
+
+---
+
+## 🛠 대안: 수동 SSE 파서 (프레임워크 없는 환경용)
+
+`@microsoft/fetch-event-source` 쓸 수 없는 상황이면 `fetch` + `ReadableStream` 수동 파싱 가능. 구현 참고는 `backend/src/main/resources/notification-dev/tester.html` 의 `connect()` 함수 (바닐라 JS, 40여 줄). 보통은 라이브러리 사용 권장.
 
 ---
 
@@ -397,6 +422,7 @@ FE에서 카테고리 탭별로 보여줄 이벤트:
 - 기획 스펙: `backend/docs/notification/01-spec.md`
 - 구현 계획: `backend/docs/notification/plan/`
 - 프로토타입 UI: `prototype/src/features/notifications-mock/`
+- 로컬 테스터 페이지: `http://localhost:8081/dev/notification-tester` (BE `@Profile("local")` 기동 시)
 
 ---
 

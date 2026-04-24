@@ -1,5 +1,7 @@
 package com.vs.meta.api.notification.controller;
 
+import com.vs.meta.api.notification.dispatcher.NotificationDispatcher;
+import com.vs.meta.api.notification.dto.NotificationDto;
 import com.vs.meta.api.notification.event.GroupInvitedEvent;
 import com.vs.meta.api.notification.event.StudentJoinedGroupEvent;
 import com.vs.meta.api.notification.event.StudentKickedEvent;
@@ -9,6 +11,7 @@ import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.CustomBody;
 import com.vs.meta.common.response.ResponseDTO;
 import com.vs.meta.common.utils.SecurityUtil;
+import com.vs.meta.domain.Notification;
 import com.vs.meta.domain.enums.NotificationCategory;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -46,6 +49,7 @@ public class NotificationDebugController {
 
     private final NotificationService service;
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationDispatcher dispatcher;
 
     @PostMapping("/test-send")
     @Operation(summary = "[local] 본인에게 테스트 알림 발송", description = "로컬 환경에서 SSE 동작 확인용")
@@ -53,7 +57,9 @@ public class NotificationDebugController {
             @RequestParam(defaultValue = "테스트 알림입니다") String msg
     ) {
         Long userNo = SecurityUtil.requireCurrentUserNo();
-        service.create(userNo, NotificationCategory.NOTICE, "TEST", msg, null);
+        Notification n = service.create(userNo, NotificationCategory.NOTICE, "TEST", msg, null);
+        // 이벤트 시스템 우회 경로 — SSE 전송까지 확인하려면 직접 dispatch 호출 필요
+        dispatcher.dispatch(userNo, NotificationDto.from(n));
         return AidtCommonUtil.makeResultSuccess(null, Collections.singletonMap("userNo", userNo), "sent");
     }
 

@@ -91,7 +91,8 @@ public void onExamSubmitted(ExamSubmittedEvent e) {
             dispatcher.dispatch(e.teacherUserNo(), NotificationDto.from(t4));
         }
     } catch (Exception ex) {
-        log.warn("[Notification] T3/T4 처리 실패: {}", ex.getMessage());
+        // SLF4J — 마지막 인자가 Throwable이면 placeholder에 소비되지 않고 스택트레이스로 출력됨
+        log.warn("[Notification] T3/T4 처리 실패", ex);
     }
 }
 ```
@@ -130,11 +131,25 @@ public class DgnssService {
 
 ### Step 4 — 테스트
 
+#### (a) 빠른 단위 확인 — 이벤트 → 리스너 → DB/SSE 파이프라인만 격리 검증
+
+BE를 `@Profile("local")` 로 기동한 뒤 브라우저에서:
+
+```
+http://localhost:8081/dev/notification-tester
+```
+
+이 테스터는 **이벤트 publish 이후 경로 전체**를 실제와 동일하게 탄다 (리스너 → DB insert → SSE 전송). 상위 비즈 로직(검사 제출 로직 자체)은 우회하고 이벤트 파라미터를 직접 입력하여 발화.
+
+검사 이벤트용 트리거 폼이 필요하면 `NotificationDebugController` 에 기존 `fireT1/T2/S4/S5` 와 동일한 패턴으로 추가 (예: `fireT3` 등). T3/T4/S1/S3 각각 30초면 추가 가능.
+
+#### (b) 풀 E2E — 실 비즈 로직 포함 검증
+
 로컬 환경에서:
-1. 교사 로그인 → 브라우저 `/dev/sse` 접속 (SSE 연결 상태 확인)
-2. 학생 계정으로 검사 제출 API 호출
-3. 교사 화면에서 T3 알림 즉시 수신되는지 확인
-4. DB에 notification row 생성되는지 확인
+1. 교사 로그인 → 브라우저 `/dev/notification-tester` 접속 후 SSE 연결 (본인 userNo 로)
+2. 학생 계정으로 검사 제출 API 호출 (실 로직 경로)
+3. 교사 화면(테스터 우측 로그)에 T3 알림 즉시 수신되는지 확인
+4. DB에 notification row 생성되는지 확인 (`SELECT * FROM notification ORDER BY notification_id DESC`)
 
 ---
 
@@ -213,9 +228,9 @@ eventPublisher.publishEvent(new ExamAssignedEvent(
 - [ ] `ExamReminderScheduler` 작성 (T5/S2)
 
 ### 테스트
-- [ ] 로컬에서 `/dev/sse` 페이지로 SSE 수신 확인
+- [ ] 로컬 테스터 페이지 (`http://localhost:8081/dev/notification-tester`)로 SSE 연결 & 수신 확인
 - [ ] 각 이벤트별로 `notification` 테이블 row 생성 확인
-- [ ] 롤백 시나리오: 제출 트랜잭션 실패 시 알림 row 없음 확인
+- [ ] 롤백 시나리오: 제출 트랜잭션 실패 시 알림 row 없음 확인 (AFTER_COMMIT 리스너 동작 증빙)
 
 ### 담당자 협업
 - [ ] T6 집계 배치 정의 기획 확인
@@ -238,6 +253,10 @@ eventPublisher.publishEvent(new ExamAssignedEvent(
 
 - 알림 구조 설계: `backend/docs/notification/`
 - 이벤트별 문구/링크: `backend/docs/notification/05-events.md`
-- 그룹 영역 구현 예시: `GroupService.java`, `GroupInvitationService.java`, `NotificationEventHandler.java`
+- 그룹 영역 구현 예시 (실 비즈 로직 + `publishEvent` 호출 패턴):
+  - `com.vs.meta.api.group.service.GroupService` — `joinGroupAsPlayer`, `leaveGroup`, `kickMember`
+  - `com.vs.meta.api.group.service.GroupInvitationService` — `sendInvitation`
+  - `com.vs.meta.api.notification.listener.NotificationEventHandler` — 리스너 4종 (T1/T2/S4/S5)
+- 로컬 테스터 페이지: `backend/src/main/resources/notification-dev/tester.html` + `NotificationDebugController` (`@Profile("local")`)
 
 궁금한 점은 알림 기능 담당자에게 문의.
