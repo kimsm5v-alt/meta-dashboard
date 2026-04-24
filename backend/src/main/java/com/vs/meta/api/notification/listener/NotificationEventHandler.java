@@ -52,7 +52,7 @@ public class NotificationEventHandler {
             );
             dispatcher.dispatch(e.teacherUserNo(), NotificationDto.from(n));
         } catch (Exception ex) {
-            log.warn("[Notification] T1 처리 실패: {}", ex.getMessage());
+            log.warn("[Notification] T1 처리 실패", ex);
         }
     }
 
@@ -75,7 +75,7 @@ public class NotificationEventHandler {
             );
             dispatcher.dispatch(e.teacherUserNo(), NotificationDto.from(n));
         } catch (Exception ex) {
-            log.warn("[Notification] T2 처리 실패: {}", ex.getMessage());
+            log.warn("[Notification] T2 처리 실패", ex);
         }
     }
 
@@ -97,7 +97,7 @@ public class NotificationEventHandler {
             );
             dispatcher.dispatch(e.inviteeUserNo(), NotificationDto.from(n));
         } catch (Exception ex) {
-            log.warn("[Notification] S4 처리 실패: {}", ex.getMessage());
+            log.warn("[Notification] S4 처리 실패", ex);
         }
     }
 
@@ -119,7 +119,7 @@ public class NotificationEventHandler {
             );
             dispatcher.dispatch(e.studentUserNo(), NotificationDto.from(n));
         } catch (Exception ex) {
-            log.warn("[Notification] S5 처리 실패: {}", ex.getMessage());
+            log.warn("[Notification] S5 처리 실패", ex);
         }
     }
 }

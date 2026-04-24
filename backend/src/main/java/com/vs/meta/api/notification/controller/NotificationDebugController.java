@@ -42,4 +42,11 @@ public class NotificationDebugController {
         service.create(userNo, NotificationCategory.NOTICE, "TEST", msg, null);
         return AidtCommonUtil.makeResultSuccess(null, Collections.singletonMap("userNo", userNo), "sent");
     }
+
+    @PostMapping("/cleanup-old")
+    @Operation(summary = "[local] N일 경과 알림 즉시 삭제", description = "Retention 스케줄러 동작 검증용")
+    public ResponseDTO<CustomBody> cleanupOld(@RequestParam(defaultValue = "90") int days) {
+        int deleted = service.deleteOlderThan(days);
+        return AidtCommonUtil.makeResultSuccess(null, Collections.singletonMap("deleted", deleted), "OK");
+    }
 }
