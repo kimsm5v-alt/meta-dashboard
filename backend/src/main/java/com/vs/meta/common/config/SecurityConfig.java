@@ -144,6 +144,8 @@ public class SecurityConfig {
                     .antMatchers("/actuator/health").permitAll()
                     .antMatchers("/", "/robots.txt", "/favicon.ico").permitAll()
                     .antMatchers("/static/**").permitAll()
+                    // 개발/디버그용 페이지 — 컨트롤러 자체가 @Profile("local") 이므로 비로컬에서는 404
+                    .antMatchers("/dev/**").permitAll()
                     // 추가 정보 입력 API (JWT 필요하지만 user 미생성 상태에서 호출)
                     .antMatchers("/api/v1/user/complete-profile").authenticated()
                     .anyRequest().authenticated()
