@@ -59,30 +59,34 @@
 
 | 상태 | 작업 | 담당 | 완료일 |
 |---|---|---|---|
-| [ ] | `NotificationService.create` | BE | |
-| [ ] | `NotificationService.createBatch` | BE | |
-| [ ] | `NotificationService.list` (cursor) | BE | |
-| [ ] | `NotificationService.countUnread` | BE | |
-| [ ] | `NotificationService.markAsRead` | BE | |
-| [ ] | `NotificationService.markAllAsRead` | BE | |
-| [ ] | `NotificationController` REST 4종 | BE | |
-| [ ] | Swagger/OpenAPI 문서 | BE | |
+| [x] | `NotificationDto`, `NotificationListResponse` | BE | 2026-04-24 |
+| [x] | `NotificationService.create` | BE | 2026-04-24 |
+| [x] | `NotificationService.createBatch` | BE | 2026-04-24 |
+| [x] | `NotificationService.list` (cursor) | BE | 2026-04-24 |
+| [x] | `NotificationService.countUnread` | BE | 2026-04-24 |
+| [x] | `NotificationService.markAsRead` | BE | 2026-04-24 |
+| [x] | `NotificationService.markAllAsRead` | BE | 2026-04-24 |
+| [x] | `NotificationService.deleteOlderThan` | BE | 2026-04-24 |
+| [x] | `NotificationController` REST 4종 | BE | 2026-04-24 |
+| [x] | `NotificationDebugController` (local only test-send) | BE | 2026-04-24 |
+| [ ] | Swagger/OpenAPI 문서 (기본 어노테이션은 추가됨) | BE | |
 
 ### 4. BE SSE
 
 | 상태 | 작업 | 담당 | 완료일 |
 |---|---|---|---|
-| [ ] | `SseEmitterRegistry` (메모리) | BE | |
-| [ ] | `NotificationStreamController` (`/stream`) | BE | |
-| [ ] | Emitter 생명주기 관리 | BE | |
-| [ ] | Heartbeat 스케줄러 | BE | |
+| [x] | `SseEmitterRegistry` (메모리) | BE | 2026-04-24 |
+| [x] | `NotificationStreamController` (`/stream`) | BE | 2026-04-24 |
+| [x] | Emitter 생명주기 관리 | BE | 2026-04-24 |
+| [x] | Heartbeat 스케줄러 (30초) | BE | 2026-04-24 |
+| [x] | `@EnableScheduling` 활성화 | BE | 2026-04-24 |
 
 ### 5. BE Dispatcher + 이벤트
 
 | 상태 | 작업 | 담당 | 완료일 |
 |---|---|---|---|
-| [ ] | `NotificationDispatcher` 인터페이스 | BE | |
-| [ ] | `InMemoryDispatcher` 구현 | BE | |
+| [x] | `NotificationDispatcher` 인터페이스 | BE | 2026-04-24 |
+| [x] | `InMemoryDispatcher` 구현 (`@ConditionalOnProperty`) | BE | 2026-04-24 |
 | [ ] | Application Event 클래스들 (T1~T4, S1, S3) | BE | |
 | [ ] | `NotificationEventHandler` | BE | |
 | [ ] | `GroupService.joinGroup` 훅 (T1) | BE | |
@@ -253,7 +257,19 @@
   - `Notification` 엔티티
   - `NotificationCategory` enum
   - `NotificationMapper` (interface + XML)
+- BE 서비스/컨트롤러/SSE 구현:
+  - DTO (`NotificationDto`, `NotificationListResponse`)
+  - `SseEmitterRegistry` (메모리)
+  - `NotificationDispatcher` + `InMemoryDispatcher`
+  - `NotificationService`
+  - `NotificationController` (REST 4종)
+  - `NotificationStreamController` (SSE)
+  - `NotificationHeartbeatScheduler` (30초)
+  - `NotificationDebugController` (`@Profile("local")` 테스트 발송)
+- `@EnableScheduling` 활성화
+- 찍먹 `NotificationTestController` 제거 (정식 컨트롤러가 대체)
 - 컴파일 통과
+- FE 명세서 `plan/fe-api-contract.md` 작성
 
 ---
 
