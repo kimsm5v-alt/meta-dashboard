@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.notification.mapper.NotificationMapper">
+
+    <resultMap id="notificationResultMap" type="com.vs.meta.domain.Notification">
+        <id     property="notificationId" column="notification_id"/>
+        <result property="userNo"         column="user_no"/>
+        <result property="category"       column="category"       javaType="com.vs.meta.domain.enums.NotificationCategory"/>
+        <result property="eventCode"      column="event_code"/>
+        <result property="content"        column="content"/>
+        <result property="link"           column="link"/>
+        <result property="readAt"         column="read_at"/>
+        <result property="createdAt"      column="created_at"/>
+    </resultMap>
+
+    <sql id="columns">
+        notification_id, user_no, category, event_code, content, link, read_at, created_at
+    </sql>
+
+    <insert id="insert" parameterType="com.vs.meta.domain.Notification"
+            useGeneratedKeys="true" keyProperty="notificationId">
+        /* NotificationMapper.insert */
+        INSERT INTO notification (user_no, category, event_code, content, link, created_at)
+        VALUES (#{userNo}, #{category}, #{eventCode}, #{content}, #{link}, #{createdAt})
+    </insert>
+
+    <insert id="insertBatch" parameterType="list">
+        /* NotificationMapper.insertBatch */
+        INSERT INTO notification (user_no, category, event_code, content, link, created_at)
+        VALUES
+        <foreach collection="list" item="n" separator=",">
+            (#{n.userNo}, #{n.category}, #{n.eventCode}, #{n.content}, #{n.link}, #{n.createdAt})
+        </foreach>
+    </insert>
+
+    <select id="findByUserNoWithCursor" resultMap="notificationResultMap">
+        /* NotificationMapper.findByUserNoWithCursor */
+        SELECT <include refid="columns"/>
+        FROM notification
+        <where>
+            user_no = #{userNo}
+            <if test="cursor != null">
+                AND notification_id &lt; #{cursor}
+            </if>
+            <if test="category != null">
+                AND category = #{category}
+            </if>
+        </where>
+        ORDER BY notification_id DESC
+        LIMIT #{size}
+    </select>
+
+    <select id="countUnread" resultType="int">
+        /* NotificationMapper.countUnread */
+        SELECT COUNT(*)
+        FROM notification
+        WHERE user_no = #{userNo}
+          AND read_at IS NULL
+    </select>
+
+    <update id="markAsRead">
+        /* NotificationMapper.markAsRead */
+        UPDATE notification
+        SET read_at = NOW()
+        WHERE notification_id = #{notificationId}
+          AND user_no = #{userNo}
+          AND read_at IS NULL
+    </update>
+
+    <update id="markAllAsRead">
+        /* NotificationMapper.markAllAsRead */
+        UPDATE notification
+        SET read_at = NOW()
+        WHERE user_no = #{userNo}
+          AND read_at IS NULL
+    </update>
+
+    <delete id="deleteOlderThan">
+        /* NotificationMapper.deleteOlderThan */
+        DELETE FROM notification
+        WHERE created_at &lt; NOW() - INTERVAL #{days} DAY
+    </delete>
+
+</mapper>
