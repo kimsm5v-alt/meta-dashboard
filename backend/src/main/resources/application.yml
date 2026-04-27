@@ -127,6 +127,6 @@ cloud:
       path: ${CLOUD_AWS_NAS_PATH:/files/nas}
 
 neo4j:
-  uri: ${NEO4J_URI:bolt://localhost:7687}
-  username: ${NEO4J_USERNAME:neo4j}
-  password: ${NEO4J_PASSWORD:test1234}
+  uri: ${DGNSS_NEO4J_URI:bolt://localhost:7687}
+  username: ${DGNSS_NEO4J_USERNAME:neo4j}
+  password: ${DGNSS_NEO4J_PASSWORD:test1234}

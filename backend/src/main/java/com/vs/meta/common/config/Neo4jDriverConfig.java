@@ -1,5 +1,6 @@
 package com.vs.meta.common.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
@@ -8,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@Slf4j
 public class Neo4jDriverConfig {
 
     @Bean
@@ -16,7 +18,20 @@ public class Neo4jDriverConfig {
             @Value("${neo4j.username}") String username,
             @Value("${neo4j.password}") String password
     ) {
-        return GraphDatabase.driver(uri, AuthTokens.basic(username, password));
+        Driver driver = GraphDatabase.driver(uri, AuthTokens.basic(username, password));
+        try {
+            driver.verifyConnectivity();
+            log.info("Neo4j connectivity check succeeded. uri={}, username={}", uri, username);
+            return driver;
+        } catch (Exception e) {
+            log.error("Neo4j connectivity check failed. uri={}, username={}", uri, username, e);
+            try {
+                driver.close();
+            } catch (Exception closeEx) {
+                log.warn("Failed to close Neo4j driver after connectivity failure.", closeEx);
+            }
+            throw e;
+        }
     }
 }
 

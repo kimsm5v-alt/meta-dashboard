@@ -302,12 +302,18 @@ public class DgnssController {
                     @ExampleObject(name = "math", value = "1", description = "수학 환경"),
                     @ExampleObject(name = "engl", value = "1", description = "영어 환경")
             })
+    @Parameter(name = "graphYn", description = "지식그래프 추천 포함 여부(Y/N, 기본 N)",
+            examples = {
+                    @ExampleObject(name = "off", value = "N", description = "지식그래프 조회 안함"),
+                    @ExampleObject(name = "on", value = "Y", description = "지식그래프 조회 포함")
+            })
     public ResponseDTO<CustomBody> stMetaAnalysis(
             @RequestParam(name = "dgnssResultId", required = false) String dgnssResultId,
             @RequestParam(name = "paperIdx", required = false, defaultValue = "2") String paperIdx,
             @RequestParam(name = "ordNo", required = false, defaultValue = "1") String ordNo,
             @RequestParam(name = "stdtId", required = false) String stdtId,
             @RequestParam(name = "claId", required = false) String claId,
+            @RequestParam(name = "graphYn", required = false, defaultValue = "N") String graphYn,
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
     ) throws Exception {
         Map<String, Object> result = dgnssService.selectStAnalysis(paramData);

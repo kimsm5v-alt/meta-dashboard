@@ -2382,6 +2382,7 @@
 	<select id="selectStLernAnalysis" parameterType="map" resultType="map">
 		/* DgnssMapper.selectStLernAnalysis */
 		SELECT b1.id AS dgnssResultId
+			, c1.ANSWER_IDX AS answerIdx
 			, d1.SECTION_ID
 			, d1.`DEPTH`
 			, e1.SECTION_NM
