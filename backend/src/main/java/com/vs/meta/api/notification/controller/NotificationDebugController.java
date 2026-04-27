@@ -34,18 +34,20 @@ import java.util.Map;
 
 /**
  * 알림 기능 개발/디버그 전용 엔드포인트.
- * local profile에서만 동작. 운영/개발서버에서는 비활성.
+ * local + vs-dev 프로파일에서만 동작. vs-prod 에서는 비활성.
  *
  * <p>FE의 {@code /dev/notification-tester} 페이지가 이 엔드포인트를 사용해 SSE/이벤트 수동 검증.
  *
  * <p>각 fire 엔드포인트는 {@code @Transactional} 로 감싸져 있어 AFTER_COMMIT 리스너가 정상 동작한다.
+ *
+ * <p>⚠️ 임의 userNo 에 알림 발화 가능하므로 운영(vs-prod)에서는 절대 활성화 금지.
  */
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@Profile("local")
+@Profile({"local", "vs-dev"})
 @RequestMapping(value = "/api/v1/notifications", produces = MediaType.APPLICATION_JSON_VALUE)
-@Tag(name = "Notification Debug (local only)", description = "로컬 환경 SSE 수동 테스트")
+@Tag(name = "Notification Debug (local + dev only)", description = "로컬/개발 환경 SSE 수동 테스트")
 public class NotificationDebugController {
 
     private final NotificationService service;

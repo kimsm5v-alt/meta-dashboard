@@ -14,15 +14,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 알림 기능 수동 검증용 HTML 페이지 서빙.
- * local profile에서만 bean 등록 — 운영/개발서버에서는 404.
+ * local + vs-dev 프로파일에서만 bean 등록 — vs-prod 에서는 404.
  *
  * <p>클래스패스의 {@code notification-dev/tester.html} 을 그대로 반환한다.
  */
 @Slf4j
 @RestController
-@Profile("local")
+@Profile({"local", "vs-dev"})
 @RequestMapping("/dev")
-@Tag(name = "Notification Debug (local only)", description = "로컬 환경 SSE 수동 테스트")
+@Tag(name = "Notification Debug (local + dev only)", description = "로컬/개발 환경 SSE 수동 테스트")
 public class NotificationTesterPageController {
 
     @GetMapping(value = "/notification-tester", produces = MediaType.TEXT_HTML_VALUE)
