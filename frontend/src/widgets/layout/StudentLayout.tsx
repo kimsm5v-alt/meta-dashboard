@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import styled from '@emotion/styled';
+import { BellWithPanel } from '@features/notifications';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { getMyGroups } from '@features/groups/api/groupService';
 
@@ -312,6 +313,7 @@ const StudentHeader = () => {
         학습심리정서검사
       </HeaderTitle>
       <HeaderRight>
+        <BellWithPanel role='student' />
         <UserInfo>
           <UserDetails>
             <UserName>{user?.name ?? '학생'}</UserName>
