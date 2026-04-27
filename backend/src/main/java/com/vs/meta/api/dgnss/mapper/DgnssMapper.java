@@ -100,9 +100,6 @@ public interface DgnssMapper {
     List<Map<String, Object>> selectStLernAnalysis(Map<String, Object> param);
     String selectFirstDgnssResultId(Map<String, Object> param);
     String selectStAnalysis(Map<String, Object> param);
-    List<String> selectStrFactor(Map<String, Object> param);
-    List<String> selectWeakFactor(Map<String, Object> param);
-    List<Map<String, Object>> selectStTotalReport(Map<String, Object> param);
     List<Map<String, Object>> selectTcDgnssNotSubmStList(Map<String, Object> param);
     void saveDgnssTextSave(Map<String, Object> param);
     List<Map<String, Object>> selectTcTrustInfoList(Map<String, Object> param);
@@ -131,4 +128,6 @@ public interface DgnssMapper {
     List<Map<String, Object>> selectTcClassFactorAverages(Map<String, Object> param);
 
     int countDgnssResultByDgnssIdAndStdtId(@Param("dgnssId") int dgnssId, @Param("stdtId") String stdtId);
+
+    Map<String, Object> selectLpaResultByAnswerIdx(@Param("answerIdx") int answerIdx);
 }

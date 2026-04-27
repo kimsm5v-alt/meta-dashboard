@@ -57,6 +57,7 @@ dependencies {
     implementation 'com.mysql:mysql-connector-j:8.3.0'
     implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
     implementation 'org.apache.commons:commons-dbcp2:2.9.0'
+    implementation 'org.neo4j.driver:neo4j-java-driver:5.28.5'
 
     // ===== Swagger =====
     implementation 'org.springdoc:springdoc-openapi-ui:1.7.0'
