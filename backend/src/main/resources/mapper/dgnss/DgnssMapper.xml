@@ -10,7 +10,7 @@
 			INNER JOIN group_member gm
 				ON gi.group_id = gm.group_id
 		WHERE gi.cla_id = #{claId}
-		  AND gm.status = 'ACTIVE'
+		 
 	</select>
 
 	<select id="selectDgnssStdtList" parameterType="map" resultType="string">
@@ -51,7 +51,7 @@
 		     , DATE_FORMAT(a1.dgnss_ed_dt, '%Y. %m. %d.') AS dgnssEdDt
 		     , COUNT(
 		        DISTINCT CASE
-		                     WHEN b1.subm_at = 'Y' AND gm.status = 'ACTIVE' THEN b1.stdt_id
+		                     WHEN b1.subm_at = 'Y' THEN b1.stdt_id
 		                 END
 		       ) AS stSubmCnt
 		     , (
@@ -60,7 +60,7 @@
 		        	INNER JOIN group_member gm2
 		        		ON gi2.group_id = gm2.group_id
 		        WHERE gi2.cla_id = a1.cla_id
-		          AND gm2.status = 'ACTIVE'
+		         
 		       ) AS stTotalCnt
 		     , (
 		        SELECT COUNT(DISTINCT gm2.stdt_id)
@@ -68,7 +68,7 @@
 		        	INNER JOIN group_member gm2
 		        		ON gi2.group_id = gm2.group_id
 		        WHERE gi2.cla_id = a1.cla_id
-		          AND gm2.status = 'ACTIVE'
+		         
 		          AND NOT EXISTS (
 		          	SELECT 1
 		          	FROM tb_dgnss_result_info b2
@@ -82,7 +82,7 @@
 		        	INNER JOIN group_member gm2
 		        		ON gi2.group_id = gm2.group_id
 		        WHERE gi2.cla_id = a1.cla_id
-		          AND gm2.status = 'ACTIVE'
+		         
 		          AND NOT EXISTS (
 		          	SELECT 1
 		          	FROM tb_dgnss_result_info b2
@@ -99,7 +99,7 @@
 			INNER JOIN group_member gm
 				ON gi.group_id = gm.group_id
 				AND b1.stdt_id = gm.stdt_id
-				AND gm.status = 'ACTIVE'
+
 		WHERE a1.cla_id = #{claId}
 		GROUP BY a1.id
 	</select>
@@ -111,7 +111,7 @@
 			INNER JOIN group_member gm
 				ON gi.group_id = gm.group_id
 		WHERE gi.cla_id = #{claId}
-		  AND gm.status = 'ACTIVE'
+		 
 	</select>
 
 	<insert id="insertDgnssInfo" parameterType="map" useGeneratedKeys="true" keyProperty="id">
@@ -153,7 +153,7 @@
 			INNER JOIN group_member gm
 				ON gi.group_id = gm.group_id
 		WHERE gi.cla_id = #{claId}
-		  AND gm.status = 'ACTIVE'
+		 
 		ORDER BY gm.member_no
 	</select>
 
@@ -247,7 +247,7 @@
 			INNER JOIN group_member gm
 				ON gi.group_id = gm.group_id
 				AND b1.stdt_id = gm.stdt_id
-				AND gm.status = 'ACTIVE'
+
 		WHERE a1.cla_id = #{claId}
 		<choose>
 			<when test='paperIdx != "" and paperIdx == "1"'>
@@ -290,7 +290,7 @@
 			INNER JOIN group_member gm
 				ON gi.group_id = gm.group_id
 				AND b1.stdt_id = gm.stdt_id
-				AND gm.status = 'ACTIVE'
+
 		WHERE a1.id = #{dgnssId}
 		GROUP BY a1.id
 	</select>
@@ -344,7 +344,7 @@
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 		AND b1.subm_at = 'Y'
 	</select>
@@ -812,7 +812,7 @@
 			INNER JOIN group_member gm
 				ON gi.group_id = gm.group_id
 				AND DM.stdt_id = gm.stdt_id
-				AND gm.status = 'ACTIVE'
+
 		WHERE DM.dgnss_id = #{TEST_IDX}
 			AND EXISTS (
 				SELECT 1
@@ -888,7 +888,7 @@
 			                               INNER JOIN group_member gm
 			                                       ON gi.group_id = gm.group_id
 			                                      AND a1_1.stdt_id = gm.stdt_id
-			                                      AND gm.status = 'ACTIVE'
+			                                     
 			                    WHERE      a1_1.dgnss_id = #{TEST_IDX}
 			                    AND        EXISTS
 			                               (
@@ -1248,7 +1248,7 @@
 			                               INNER JOIN group_member gm
 			                                       ON gi.group_id = gm.group_id
 			                                      AND a1_1.stdt_id = gm.stdt_id
-			                                      AND gm.status = 'ACTIVE'
+			                                     
 			                    WHERE      a1_1.dgnss_id = #{TEST_IDX}
 			                    AND        EXISTS
 			                               (
@@ -1475,7 +1475,7 @@
 			INNER JOIN tb_dgnss_result_info DM ON DA.DGNSS_RESULT_ID = DM.id
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
 		WHERE DA.TEST_IDX = #{TEST_IDX}
 		ORDER BY gm.member_no
 	</select>
@@ -1491,7 +1491,7 @@
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM02_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM02_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
@@ -1501,7 +1501,7 @@
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM01_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM01_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
@@ -1511,7 +1511,7 @@
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.REPEATED_RESPONSE_YN = 'Y'
 			ORDER BY gm.member_no), '') AS REPEATED_RESPONSE_YN
 			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-01-0') AS SECTION_MEM_01_01_01
@@ -1573,7 +1573,7 @@
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM02_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM02_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
@@ -1583,7 +1583,7 @@
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM01_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM01_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
@@ -1593,7 +1593,7 @@
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.REPEATED_RESPONSE_YN = 'Y'
 			ORDER BY gm.member_no), '') AS REPEATED_RESPONSE_YN
 			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-01-01-0-0') AS SECTION_MEM_01_01
@@ -1637,7 +1637,7 @@
 				 INNER JOIN TB_DGNSS_ANSWER_REPORT DAR ON DA.ANSWER_IDX = DAR.ANSWER_IDX
 				 INNER JOIN tb_dgnss_result_info tdri ON DT.id = tdri.dgnss_id
 				 INNER JOIN group_info gi ON DT.cla_id = gi.cla_id
-				 INNER JOIN group_member gm ON gi.group_id = gm.group_id AND tdri.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+				 INNER JOIN group_member gm ON gi.group_id = gm.group_id AND tdri.stdt_id = gm.stdt_id
 		WHERE DA.TEST_IDX = #{TEST_IDX} AND DAR.DEPTH = #{DEPTH}
 		<if test='notExists != null and notExists == "N"'>
 		   AND DA.COCH_DGNSS_QESITM01_MARK <![CDATA[<>]]> '주의' AND DA.COCH_DGNSS_QESITM02_MARK <![CDATA[<>]]> '주의' AND DA.REPEATED_RESPONSE_YN <![CDATA[<>]]> 'Y'
@@ -1650,7 +1650,7 @@
 				 INNER JOIN TB_DGNSS_ANSWER_REPORT DAR ON DA.ANSWER_IDX = DAR.ANSWER_IDX
 				 INNER JOIN tb_dgnss_result_info tdri ON DT.id = tdri.dgnss_id
 				 INNER JOIN group_info gi ON DT.cla_id = gi.cla_id
-				 INNER JOIN group_member gm ON gi.group_id = gm.group_id AND tdri.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+				 INNER JOIN group_member gm ON gi.group_id = gm.group_id AND tdri.stdt_id = gm.stdt_id
 		WHERE DA.TEST_IDX = #{FIRST_IDX}
 		AND DAR.DEPTH = #{DEPTH}
 		<if test='firstCancel != null and firstCancel == "N"'>
@@ -1742,7 +1742,7 @@
 			INNER JOIN TB_DGNSS_RESULT_INFO DRI ON DA.DGNSS_RESULT_ID = DRI.id
 			INNER JOIN tb_dgnss_info tdi2 ON DRI.dgnss_id = tdi2.id
 			INNER JOIN group_info gi ON tdi2.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DRI.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DRI.stdt_id = gm.stdt_id
 			INNER JOIN user tu ON gi.host_user_no = tu.user_no
 		WHERE DA.ANSWER_IDX = #{answerIdx}
 	</select>
@@ -1991,7 +1991,7 @@
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2028,7 +2028,7 @@
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2067,7 +2067,7 @@
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2109,7 +2109,7 @@
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2145,7 +2145,7 @@
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2184,7 +2184,7 @@
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2222,7 +2222,7 @@
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2260,7 +2260,7 @@
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2300,7 +2300,7 @@
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2332,7 +2332,7 @@
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 		GROUP BY a1.id
 	</select>
@@ -2430,68 +2430,13 @@
 			AND tdri.stdt_id = #{stdtId}
 	</select>
 
-	<select id="selectStrFactor" parameterType="map" resultType="string">
-		/* DgnssMapper.selectStrFactor */
-		SELECT c1.SECTION_NM as strFactor
-		FROM tb_dgnss_info tdi
-			INNER JOIN tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
-			INNER JOIN tb_dgnss_answer a1 ON tdri.id = a1.DGNSS_RESULT_ID
-			INNER JOIN tb_dgnss_answer_report b1 ON a1.ANSWER_IDX = b1.ANSWER_IDX
-			INNER JOIN tb_dgnss_section c1 ON b1.SECTION_ID = c1.SECTION_ID
-		WHERE tdi.paper_idx = #{paperIdx}
-			AND tdi.ord_no = #{ordNo}
-			AND tdri.stdt_id = #{stdtId}
-			AND b1.`DEPTH` = 5
-			AND b1.SECTION_ID IN (<foreach item="sessionId" collection="sessionList" separator=",">#{sessionId}</foreach>)
-			AND b1.T_SCORE <![CDATA[>=]]> 60
-		ORDER BY b1.T_SCORE DESC
-	</select>
-
-	<select id="selectWeakFactor" parameterType="map" resultType="string">
-		/* DgnssMapper.selectWeakFactor */
-		SELECT c1.SECTION_NM AS weakFactor
-		FROM tb_dgnss_info tdi
-			INNER JOIN tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
-			INNER JOIN tb_dgnss_answer a1 ON tdri.id = a1.DGNSS_RESULT_ID
-			INNER JOIN tb_dgnss_answer_report b1 ON a1.ANSWER_IDX = b1.ANSWER_IDX
-			INNER JOIN tb_dgnss_section c1 ON b1.SECTION_ID = c1.SECTION_ID
-		WHERE tdi.paper_idx = #{paperIdx}
-			AND tdi.ord_no = #{ordNo}
-			AND tdri.stdt_id = #{stdtId}
-			AND b1.`DEPTH` = 5
-			AND b1.SECTION_ID in (<foreach item="sessionId" collection="sessionList" separator=",">#{sessionId}</foreach>)
-			AND b1.T_SCORE <![CDATA[<]]> 40
-		ORDER BY b1.T_SCORE ASC
-	</select>
-
-	<select id="selectStTotalReport" resultType="map" parameterType="list">
-		/* DgnssMapper.selectStTotalReport */
-		SELECT a1.id
-			, a1.ord_no
-			, CONCAT('{', GROUP_CONCAT(
-			CONCAT('"', d1.SECTION_ID, '"', ' : ', IF(d1.T_SCORE <![CDATA[<]]> 0, 0, d1.T_SCORE) )), '}'
-			) AS json
-			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
-			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
-			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-		FROM tb_dgnss_info a1
-			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
-			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
-			INNER JOIN tb_dgnss_answer_report d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
-		WHERE a1.paper_idx = #{paperIdx}
-			AND a1.dgnss_at = 'N'
-			AND b1.subm_at = 'Y'
-			AND b1.stdt_id = #{stdtId}
-		GROUP BY a1.`id`, b1.stdt_id
-	</select>
-
 	<select id="selectTcDgnssNotSubmStList" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcDgnssNotSubmStList */
 		SELECT gm.nickname AS nickname
 		FROM tb_dgnss_result_info a1
 			INNER JOIN tb_dgnss_info b1 ON a1.dgnss_id = b1.id
 			INNER JOIN group_info gi ON b1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND a1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND a1.stdt_id = gm.stdt_id
 		WHERE a1.dgnss_id = #{dgnssId}
 			AND a1.subm_at = 'N'
 	</select>
@@ -2515,7 +2460,7 @@
 				INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 				INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 				INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-				INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+				INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 			WHERE a1.id = #{dgnssId}
 				AND a1.dgnss_at = 'N'
 				AND b1.subm_at = 'Y'
@@ -2548,7 +2493,7 @@
 					INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 					INNER JOIN tb_dgnss_answer_report r ON r.ANSWER_IDX = c1.ANSWER_IDX
 					INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-					INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+					INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 				WHERE a1.id = #{dgnssId}
 					AND a1.dgnss_at = 'N'
 					AND b1.subm_at = 'Y'
@@ -2593,7 +2538,7 @@
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 			LEFT JOIN tb_dgnss_answer_report r1
 				ON r1.ANSWER_IDX = c1.ANSWER_IDX AND r1.SECTION_ID = '20-22-01-01-0-0'
 			LEFT JOIN tb_dgnss_answer_report r2
@@ -2633,7 +2578,7 @@
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			INNER JOIN tb_dgnss_answer_report d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
 		WHERE a1.id = #{dgnssId}
 		AND a1.dgnss_at = 'N'
 		AND b1.subm_at = 'Y'
@@ -2834,7 +2779,7 @@
             INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
             INNER JOIN group_member gm ON gi.group_id = gm.group_id
                                        AND tdri.stdt_id = gm.stdt_id
-                                       AND gm.status = 'ACTIVE'
+                                      
         WHERE tdri.dgnss_id = #{dgnssId}
             AND tdri.subm_at = 'Y'
             <choose>
@@ -2941,7 +2886,7 @@
 		       ) AS reliabilityAlertCount
 		FROM group_info gi
 			INNER JOIN user u ON gi.host_user_no = u.user_no
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id
 			LEFT JOIN tb_dgnss_info tdi ON tdi.cla_id = gi.cla_id
 				AND tdi.paper_idx = #{paperIdx}
 				AND tdi.ord_no IN (1, 2)
@@ -2964,7 +2909,7 @@
 		     , ROUND(AVG(IF(dar.T_SCORE <![CDATA[<]]> 0, 0, dar.T_SCORE)), 1) AS avgTScore
 		FROM group_info gi
 			INNER JOIN user u ON gi.host_user_no = u.user_no
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND gm.status = 'ACTIVE'
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id
 			INNER JOIN tb_dgnss_info tdi ON tdi.cla_id = gi.cla_id
 				AND tdi.paper_idx = #{paperIdx}
 				AND tdi.ord_no IN (1, 2)
@@ -2988,6 +2933,8 @@
 		  AND stdt_id = #{stdtId}
 	</select>
 </mapper>
+
+
 
 
 
