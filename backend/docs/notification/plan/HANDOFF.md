@@ -51,7 +51,8 @@
 
 | 우선순위 | 문서 | 내용 |
 |---|---|---|
-| 1 | [`fe-api-contract.md`](./fe-api-contract.md) | **이것만 봐도 충분.** REST 5종 + SSE 1종, TypeScript 타입, SSE 구현 주의사항 |
+| 1 | [`fe-guide.html`](./fe-guide.html) | **HTML 가독성 버전** — GitLab raw view 또는 다운로드 후 브라우저로 열기 (목차/스타일링 포함) |
+| 1' | [`fe-api-contract.md`](./fe-api-contract.md) | 위 HTML 의 원본 마크다운 (Single Source of Truth) |
 | 2 | (실행) `http://localhost:8081/dev/notification-tester` | BE 로컬 기동 후 접속 — 실제 페이로드 눈으로 확인 |
 | 3 | `prototype/src/features/notifications-mock/` | UI 디자인 레퍼런스 (구조 참고 X, 디자인만) |
 
