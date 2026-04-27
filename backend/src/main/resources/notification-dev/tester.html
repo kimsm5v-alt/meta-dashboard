@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Notification Tester (local)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a; --panel: #1e293b; --line: #334155;
+      --text: #e2e8f0; --muted: #94a3b8; --accent: #8b5cf6;
+      --ok: #22c55e; --warn: #f59e0b; --err: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg); color: var(--text); font-size: 13px;
+    }
+    header {
+      padding: 12px 20px; border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    header h1 { font-size: 15px; margin: 0; color: var(--accent); }
+    header .conn-status { padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .conn-status.disconnected { background: #7f1d1d; color: #fca5a5; }
+    .conn-status.connected { background: #166534; color: #86efac; }
+    .conn-status.connecting { background: #78350f; color: #fbbf24; }
+
+    main { display: grid; grid-template-columns: 1fr 1fr; gap: 0; height: calc(100vh - 53px); }
+    .col { overflow-y: auto; padding: 16px; }
+    .col.left { border-right: 1px solid var(--line); }
+
+    section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+              padding: 12px 14px; margin-bottom: 14px; }
+    section h2 {
+      font-size: 12px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase;
+      letter-spacing: 0.5px; font-weight: 700;
+    }
+    label { display: block; font-size: 11px; color: var(--muted); margin: 8px 0 4px; }
+    input, textarea {
+      width: 100%; background: #0f172a; color: var(--text); border: 1px solid var(--line);
+      border-radius: 4px; padding: 6px 8px; font-size: 12px; font-family: inherit;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 60px; font-family: ui-monospace, monospace; }
+
+    button {
+      background: var(--accent); color: white; border: none; padding: 6px 14px; font-size: 12px;
+      font-weight: 600; border-radius: 4px; cursor: pointer; transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.secondary { background: var(--line); color: var(--text); }
+    button.danger { background: var(--err); }
+    .btn-row { display: flex; gap: 6px; margin-top: 10px; }
+
+    button.btn-fill-me {
+      background: var(--line); color: var(--muted); padding: 1px 6px; font-size: 10px;
+      font-weight: 500; margin-left: 6px; vertical-align: middle;
+    }
+    button.btn-fill-me:hover { background: var(--accent); color: white; opacity: 1; }
+
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .log {
+      background: #020617; border: 1px solid var(--line); border-radius: 4px;
+      padding: 8px; max-height: 300px; overflow-y: auto;
+      font-family: ui-monospace, 'Cascadia Code', monospace; font-size: 11px; line-height: 1.45;
+    }
+    .log-entry { border-bottom: 1px dashed #1e293b; padding: 6px 0; }
+    .log-entry:last-child { border-bottom: none; }
+    .log-entry .ts { color: var(--muted); margin-right: 8px; }
+    .log-entry .event { color: var(--accent); font-weight: 700; }
+    .log-entry .event.heartbeat { color: var(--muted); font-weight: 400; }
+    .log-entry pre { margin: 4px 0 0 0; white-space: pre-wrap; word-break: break-all; color: #cbd5e1; }
+
+    .resp {
+      margin-top: 8px; font-family: ui-monospace, monospace; font-size: 11px;
+      padding: 6px 8px; border-radius: 4px; max-height: 120px; overflow-y: auto;
+      background: #020617; border: 1px solid var(--line); color: #cbd5e1;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .resp.ok { border-color: #166534; }
+    .resp.err { border-color: #7f1d1d; color: #fca5a5; }
+
+    .hint { color: var(--muted); font-size: 11px; line-height: 1.5; margin-top: 6px; }
+    .hint code { background: #020617; padding: 1px 5px; border-radius: 3px; font-size: 10.5px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🔔 Notification Tester <span style="color: var(--muted); font-weight: 400; font-size: 12px;">(@Profile local only)</span></h1>
+    <span id="connStatus" class="conn-status disconnected">disconnected</span>
+    <span style="color: var(--muted); font-size: 11px;">Base:
+      <input id="baseUrl" style="width: 200px; display: inline-block;" value="http://localhost:8081" />
+    </span>
+    <span style="color: var(--muted); font-size: 11px;">내 userNo:
+      <span id="myUserNo" style="color: var(--accent); font-weight: 700;">(JWT 입력 후 자동조회)</span>
+    </span>
+  </header>
+
+  <main>
+    <!-- ─── Left: Connect + Triggers ─── -->
+    <div class="col left">
+      <section>
+        <h2>SSE 연결</h2>
+        <label>JWT Access Token <span style="color: var(--muted);">(DevTools → Network → API 요청의 Authorization 헤더에서 'Bearer ' 뒤 부분 복사)</span></label>
+        <textarea id="jwt" placeholder="eyJhbGciOi..."></textarea>
+        <div class="btn-row">
+          <button id="btnConnect">Connect</button>
+          <button id="btnDisconnect" class="secondary" disabled>Disconnect</button>
+          <button id="btnClearLog" class="secondary">Clear Log</button>
+        </div>
+        <div class="hint">
+          Stream: <code>GET /api/v1/notifications/stream</code> · 연결 시 <code>connected</code> 이벤트 1회, 이후 알림은 <code>notification</code>, 30초마다 <code>heartbeat</code>.
+        </div>
+      </section>
+
+      <section>
+        <h2>TEST — 본인에게 즉시 알림</h2>
+        <label>메시지</label>
+        <input id="t-msg" value="테스트 알림입니다" />
+        <div class="btn-row">
+          <button data-fire="test">발송</button>
+        </div>
+        <div class="hint"><code>POST /api/v1/notifications/test-send</code> · 로그인한 본인(userNo)에게 NOTICE 카테고리로 insert + SSE 전송.</div>
+        <div class="resp" id="resp-test" style="display:none;"></div>
+      </section>
+
+      <section>
+        <h2>T1 — 학생 그룹 참여 (교사 수신)</h2>
+        <div class="field-row">
+          <div>
+            <label>teacherUserNo <button type="button" class="btn-fill-me" data-fill="t1-teacherUserNo">나</button></label>
+            <input id="t1-teacherUserNo" placeholder="1" />
+          </div>
+          <div>
+            <label>claId</label>
+            <input id="t1-claId" placeholder="cla-xxxxx" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div>
+            <label>groupName</label>
+            <input id="t1-groupName" value="3학년 2반" />
+          </div>
+          <div>
+            <label>studentNickname</label>
+            <input id="t1-studentNickname" value="길동이" />
+          </div>
+        </div>
+        <div class="btn-row"><button data-fire="t1">발화</button></div>
+        <div class="resp" id="resp-t1" style="display:none;"></div>
+      </section>
+
+      <section>
+        <h2>T2 — 학생 그룹 탈퇴(자발) (교사 수신)</h2>
+        <div class="field-row">
+          <div>
+            <label>teacherUserNo <button type="button" class="btn-fill-me" data-fill="t2-teacherUserNo">나</button></label>
+            <input id="t2-teacherUserNo" placeholder="1" />
+          </div>
+          <div>
+            <label>claId</label>
+            <input id="t2-claId" placeholder="cla-xxxxx" />
+          </div>
+        </div>
+        <label>studentNickname</label>
+        <input id="t2-studentNickname" value="길동이" />
+        <div class="btn-row"><button data-fire="t2">발화</button></div>
+        <div class="resp" id="resp-t2" style="display:none;"></div>
+      </section>
+
+      <section>
+        <h2>S4 — 그룹 초대 수신 (학생 수신)</h2>
+        <label>inviteeUserNo <button type="button" class="btn-fill-me" data-fill="s4-inviteeUserNo">나</button></label>
+        <input id="s4-inviteeUserNo" placeholder="2" />
+        <div class="field-row">
+          <div>
+            <label>groupName</label>
+            <input id="s4-groupName" value="3학년 2반" />
+          </div>
+          <div>
+            <label>inviteCode</label>
+            <input id="s4-inviteCode" value="ABCD1234" />
+          </div>
+        </div>
+        <div class="btn-row"><button data-fire="s4">발화</button></div>
+        <div class="resp" id="resp-s4" style="display:none;"></div>
+      </section>
+
+      <section>
+        <h2>S5 — 학생 추방 (학생 수신)</h2>
+        <div class="field-row">
+          <div>
+            <label>studentUserNo <button type="button" class="btn-fill-me" data-fill="s5-studentUserNo">나</button></label>
+            <input id="s5-studentUserNo" placeholder="2" />
+          </div>
+          <div>
+            <label>groupName</label>
+            <input id="s5-groupName" value="3학년 2반" />
+          </div>
+        </div>
+        <div class="btn-row"><button data-fire="s5">발화</button></div>
+        <div class="resp" id="resp-s5" style="display:none;"></div>
+      </section>
+    </div>
+
+    <!-- ─── Right: Live SSE Log ─── -->
+    <div class="col right">
+      <section>
+        <h2>실시간 SSE 수신 (연결된 본인 userNo 기준)</h2>
+        <div class="hint">
+          이벤트 타입: <code>connected</code> (연결 성공) · <code>notification</code> (알림 도착) · <code>heartbeat</code> (30초마다). 최신이 위로.
+        </div>
+        <div class="log" id="sseLog"><div class="log-entry"><span class="ts">-</span><span style="color:var(--muted);">연결하면 이곳에 이벤트가 뜹니다</span></div></div>
+      </section>
+
+      <section>
+        <h2>알림 페이로드 구조 참고 (FE 담당자용)</h2>
+        <div class="hint">
+          <strong>event: notification</strong> 의 <code>data</code> 필드는 JSON:
+        </div>
+<pre class="resp" style="display:block;">
+{
+  "notificationId": 123,
+  "userNo": 2,
+  "category": "GROUP",
+  "eventCode": "S4",
+  "content": "3학년 2반 그룹에 초대 되었어요.",
+  "link": "/student/groups?code=ABCD1234",
+  "readAt": null,
+  "createdAt": "2026-04-24T15:10:00"
+}
+</pre>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const LS_JWT = 'notif-tester-jwt';
+    const LS_BASE = 'notif-tester-base';
+
+    // ── 내 userNo 캐시 ──
+    let myUserNo = null;
+
+    async function fetchMyUserNo() {
+      const token = $('jwt').value.trim();
+      const base = $('baseUrl').value.trim();
+      if (!token) { $('myUserNo').textContent = '(JWT 입력 후 자동조회)'; return; }
+      try {
+        const res = await fetch(`${base}/api/v1/notifications/debug/me`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        myUserNo = json?.resultData?.userNo ?? null;
+        $('myUserNo').textContent = myUserNo != null ? myUserNo : '(조회 실패)';
+      } catch (err) {
+        myUserNo = null;
+        $('myUserNo').textContent = '(조회 실패: ' + (err.message || err) + ')';
+      }
+    }
+
+    // ── 초기 로드: localStorage 복원 + 내 userNo 자동 조회 ──
+    $('jwt').value = localStorage.getItem(LS_JWT) || '';
+    $('baseUrl').value = localStorage.getItem(LS_BASE) || 'http://localhost:8081';
+    $('jwt').addEventListener('change', () => {
+      localStorage.setItem(LS_JWT, $('jwt').value);
+      fetchMyUserNo();
+    });
+    $('baseUrl').addEventListener('change', () => {
+      localStorage.setItem(LS_BASE, $('baseUrl').value);
+      fetchMyUserNo();
+    });
+    if ($('jwt').value) fetchMyUserNo();
+
+    // ── [나로 채우기] 버튼들 ──
+    document.querySelectorAll('.btn-fill-me').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (myUserNo == null) { alert('먼저 JWT를 입력해서 내 userNo를 조회해주세요.'); return; }
+        const targetId = btn.getAttribute('data-fill');
+        $(targetId).value = myUserNo;
+      });
+    });
+
+    // ── SSE 상태 ──
+    let sseController = null;
+
+    function setStatus(s) {
+      const el = $('connStatus');
+      el.className = 'conn-status ' + s;
+      el.textContent = s;
+    }
+
+    function logSse(event, dataStr) {
+      const wrap = $('sseLog');
+      const row = document.createElement('div');
+      row.className = 'log-entry';
+      const now = new Date();
+      const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}.${String(now.getMilliseconds()).padStart(3,'0')}`;
+      const evCls = event === 'heartbeat' ? 'event heartbeat' : 'event';
+      row.innerHTML = `<span class="ts">${ts}</span><span class="${evCls}">${event || '(message)'}</span>`;
+      if (dataStr) {
+        let pretty = dataStr;
+        try { pretty = JSON.stringify(JSON.parse(dataStr), null, 2); } catch {}
+        const pre = document.createElement('pre');
+        pre.textContent = pretty;
+        row.appendChild(pre);
+      }
+      wrap.insertBefore(row, wrap.firstChild);
+    }
+
+    $('btnClearLog').addEventListener('click', () => {
+      $('sseLog').innerHTML = '<div class="log-entry"><span class="ts">-</span><span style="color:var(--muted);">(cleared)</span></div>';
+    });
+
+    // ── SSE 수동 파서 (EventSource는 Authorization 헤더 미지원) ──
+    async function connect() {
+      const token = $('jwt').value.trim();
+      if (!token) { alert('JWT 토큰을 입력하세요.'); return; }
+      localStorage.setItem(LS_JWT, token);
+
+      const base = $('baseUrl').value.trim();
+      sseController = new AbortController();
+      setStatus('connecting');
+      $('btnConnect').disabled = true;
+      $('btnDisconnect').disabled = false;
+
+      try {
+        const res = await fetch(`${base}/api/v1/notifications/stream`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'text/event-stream' },
+          signal: sseController.signal,
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const ct = res.headers.get('content-type') || '';
+        if (!ct.includes('text/event-stream')) throw new Error(`bad content-type: ${ct}`);
+
+        setStatus('connected');
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let currentEvent = null;
+        let currentData = [];
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split(/\r?\n/);
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (line === '') {
+              if (currentEvent || currentData.length) {
+                logSse(currentEvent, currentData.join('\n'));
+              }
+              currentEvent = null;
+              currentData = [];
+            } else if (line.startsWith('event:')) {
+              currentEvent = line.slice(6).trim();
+            } else if (line.startsWith('data:')) {
+              currentData.push(line.slice(5).trim());
+            } else if (line.startsWith(':')) {
+              // comment/keepalive — skip
+            }
+          }
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          logSse('ERROR', err.message || String(err));
+        }
+      } finally {
+        setStatus('disconnected');
+        $('btnConnect').disabled = false;
+        $('btnDisconnect').disabled = true;
+        sseController = null;
+      }
+    }
+
+    function disconnect() {
+      if (sseController) sseController.abort();
+    }
+
+    $('btnConnect').addEventListener('click', connect);
+    $('btnDisconnect').addEventListener('click', disconnect);
+
+    // ── 트리거 폼 ──
+    function showResp(key, ok, data) {
+      const el = $('resp-' + key);
+      el.style.display = 'block';
+      el.className = 'resp ' + (ok ? 'ok' : 'err');
+      el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    }
+
+    async function fire(type) {
+      const token = $('jwt').value.trim();
+      if (!token) { alert('JWT 토큰이 필요합니다.'); return; }
+      const base = $('baseUrl').value.trim();
+
+      let url, body, method = 'POST';
+      if (type === 'test') {
+        const msg = $('t-msg').value;
+        url = `${base}/api/v1/notifications/test-send?msg=${encodeURIComponent(msg)}`;
+      } else if (type === 't1') {
+        url = `${base}/api/v1/notifications/debug/fire/t1`;
+        body = {
+          teacherUserNo: Number($('t1-teacherUserNo').value) || null,
+          claId: $('t1-claId').value,
+          groupName: $('t1-groupName').value,
+          studentNickname: $('t1-studentNickname').value,
+        };
+      } else if (type === 't2') {
+        url = `${base}/api/v1/notifications/debug/fire/t2`;
+        body = {
+          teacherUserNo: Number($('t2-teacherUserNo').value) || null,
+          claId: $('t2-claId').value,
+          studentNickname: $('t2-studentNickname').value,
+        };
+      } else if (type === 's4') {
+        url = `${base}/api/v1/notifications/debug/fire/s4`;
+        body = {
+          inviteeUserNo: Number($('s4-inviteeUserNo').value) || null,
+          groupName: $('s4-groupName').value,
+          inviteCode: $('s4-inviteCode').value,
+        };
+      } else if (type === 's5') {
+        url = `${base}/api/v1/notifications/debug/fire/s5`;
+        body = {
+          studentUserNo: Number($('s5-studentUserNo').value) || null,
+          groupName: $('s5-groupName').value,
+        };
+      }
+
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        const text = await res.text();
+        let parsed = text;
+        try { parsed = JSON.parse(text); } catch {}
+        showResp(type, res.ok, parsed);
+      } catch (err) {
+        showResp(type, false, err.message || String(err));
+      }
+    }
+
+    document.querySelectorAll('[data-fire]').forEach((btn) => {
+      btn.addEventListener('click', () => fire(btn.getAttribute('data-fire')));
+    });
+  </script>
+</body>
+</html>

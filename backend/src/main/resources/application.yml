@@ -48,6 +48,18 @@ spring:
         pool-name: hikari-cp
         maximum-pool-size: 50
         minimum-idle: 10
+  # Redis 설정 (알림 SSE Pub/Sub 용도)
+  redis:
+    host: ${STAT_SPRING_REDIS_HOST:localhost}
+    port: ${STAT_SPRING_REDIS_PORT:6379}
+    username: ${STAT_SPRING_REDIS_USERNAME:}
+    password: ${STAT_SPRING_REDIS_PASSWORD:}
+    timeout: 3000
+    lettuce:
+      pool:
+        max-active: 16
+        max-idle: 8
+        min-idle: 2
   thymeleaf:
     prefix: classpath:/templates/
     suffix: .html
@@ -119,6 +131,20 @@ superplatform:
 key:
   salt:
     main: ${KEY_SALT_MAIN:}
+
+# ===== 알림 기능 Phase 2 토글 =====
+# pubsub.enabled : Redis Pub/Sub 사용 여부 (다중 인스턴스 환경)
+#                  false → InMemoryDispatcher 사용 (Phase 1 동일)
+#                  true  → RedisPubSubDispatcher 사용
+# shedlock.enabled : 스케줄러 분산 락 사용 여부 (다중 인스턴스 환경)
+#                    false → 일반 @Scheduled 동작 (단일 인스턴스 가정)
+#                    true  → @SchedulerLock 활성화, MySQL `shedlock` 테이블 필요
+# 로컬 검증용 기본값은 true. dev/stage 등은 환경변수로 false 설정.
+notification:
+  pubsub:
+    enabled: ${NOTIFICATION_PUBSUB_ENABLED:true}
+  shedlock:
+    enabled: ${NOTIFICATION_SHEDLOCK_ENABLED:true}
 
 # File Storage (NAS)
 cloud:

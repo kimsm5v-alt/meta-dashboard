@@ -145,7 +145,10 @@ public class SecurityConfig {
                     .antMatchers("/viva/metric/prometheus").permitAll()
                     .antMatchers("/actuator/health").permitAll()
                     .antMatchers("/", "/robots.txt", "/favicon.ico").permitAll()
-                    .antMatchers("/static/**").permitAll();
+                    .antMatchers("/static/**").permitAll()
+                    // 알림 기능 디버그 페이지 (HTML 자체는 정적 콘텐츠, 내부 API 호출은 JWT 필요)
+                    // 컨트롤러 자체가 @Profile({"local","vs-dev"}) 라 vs-prod 에서는 자동으로 404
+                    .antMatchers("/dev/**").permitAll();
 
             if (isLocalProfileActive()) {
                 authorizeRegistry.anyRequest().permitAll();

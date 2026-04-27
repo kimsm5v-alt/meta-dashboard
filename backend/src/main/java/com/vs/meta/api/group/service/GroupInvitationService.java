@@ -2,11 +2,15 @@ package com.vs.meta.api.group.service;
 
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupInvitationMapper;
+import com.vs.meta.api.member.mapper.UserMapper;
+import com.vs.meta.api.notification.event.GroupInvitedEvent;
 import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.GroupInvitation;
+import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +27,9 @@ public class GroupInvitationService {
 
     private final GroupInvitationMapper groupInvitationMapper;
     private final GroupInfoMapper groupInfoMapper;
+    private final UserMapper userMapper;
     private final NcpMailSender ncpMailSender;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final int INVITATION_EXPIRE_DAYS = 7;
 
@@ -75,6 +81,16 @@ public class GroupInvitationService {
         ncpMailSender.sendGroupInvitation(email, groupInfo.getGroupNm(), groupInfo.getInviteCode());
 
         log.info("그룹 초대 발송: groupId={}, email={}, by={}", groupId, email, userNo);
+
+        // S4: 해당 이메일의 기존 회원이 있으면 인앱 알림 발행 (미가입자는 이메일만)
+        User invitee = userMapper.findByEmail(email);
+        if (invitee != null && invitee.getUserNo() != null) {
+            eventPublisher.publishEvent(new GroupInvitedEvent(
+                    invitee.getUserNo(),
+                    groupInfo.getGroupNm(),
+                    groupInfo.getInviteCode()
+            ));
+        }
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("invitationId", invitation.getId());
