@@ -56,3 +56,11 @@ cloud:
   aws:
     nas:
       path: ${VLMSAPI_CLOUD_AWS_NAS_PATH:/files/nas/engl/}
+
+# ===== 알림 기능 Phase 2 토글 (로컬에서만 ON) =====
+# Podman Redis + 로컬 MySQL shedlock 테이블 사용 검증용
+notification:
+  pubsub:
+    enabled: true
+  shedlock:
+    enabled: true

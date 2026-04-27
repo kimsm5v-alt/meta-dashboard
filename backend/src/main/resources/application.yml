@@ -134,17 +134,19 @@ key:
 
 # ===== 알림 기능 Phase 2 토글 =====
 # pubsub.enabled : Redis Pub/Sub 사용 여부 (다중 인스턴스 환경)
-#                  false → InMemoryDispatcher 사용 (Phase 1 동일)
-#                  true  → RedisPubSubDispatcher 사용
+#                  false → InMemoryDispatcher 사용 (Phase 1 동일, Redis 인프라 불필요)
+#                  true  → RedisPubSubDispatcher 사용 (Redis 인프라 필수)
 # shedlock.enabled : 스케줄러 분산 락 사용 여부 (다중 인스턴스 환경)
 #                    false → 일반 @Scheduled 동작 (단일 인스턴스 가정)
 #                    true  → @SchedulerLock 활성화, MySQL `shedlock` 테이블 필요
-# 로컬 검증용 기본값은 true. dev/stage 등은 환경변수로 false 설정.
+#
+# 안전한 기본값: false. Redis/ShedLock 인프라가 갖춰진 환경에서만 환경변수로 true 설정.
+# 로컬 검증은 application-local.yml 에서 true 로 덮어씀.
 notification:
   pubsub:
-    enabled: ${NOTIFICATION_PUBSUB_ENABLED:true}
+    enabled: ${NOTIFICATION_PUBSUB_ENABLED:false}
   shedlock:
-    enabled: ${NOTIFICATION_SHEDLOCK_ENABLED:true}
+    enabled: ${NOTIFICATION_SHEDLOCK_ENABLED:false}
 
 # File Storage (NAS)
 cloud:
