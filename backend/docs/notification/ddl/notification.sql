@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS notification (
     INDEX idx_user_created (user_no, created_at DESC),
     INDEX idx_user_read    (user_no, read_at),
     INDEX idx_retention    (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='사용자별 알림 메시지';
 
 -- ============================================================

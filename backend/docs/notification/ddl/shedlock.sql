@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS shedlock (
     locked_at  TIMESTAMP(3) NOT NULL COMMENT '락 획득 시각',
     locked_by  VARCHAR(255) NOT NULL COMMENT '락 획득한 인스턴스 식별자',
     PRIMARY KEY (name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='ShedLock 분산 락';
 
 -- 락 이름 규칙:
