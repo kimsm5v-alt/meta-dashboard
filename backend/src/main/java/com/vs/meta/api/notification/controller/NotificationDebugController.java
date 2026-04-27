@@ -21,6 +21,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -50,6 +51,13 @@ public class NotificationDebugController {
     private final NotificationService service;
     private final ApplicationEventPublisher eventPublisher;
     private final NotificationDispatcher dispatcher;
+
+    @GetMapping("/debug/me")
+    @Operation(summary = "[local] 내 userNo 조회", description = "테스터 페이지에서 [나로 채우기] 자동 입력용")
+    public ResponseDTO<CustomBody> me() {
+        Long userNo = SecurityUtil.requireCurrentUserNo();
+        return AidtCommonUtil.makeResultSuccess(null, Collections.singletonMap("userNo", userNo), "OK");
+    }
 
     @PostMapping("/test-send")
     @Operation(summary = "[local] 본인에게 테스트 알림 발송", description = "로컬 환경에서 SSE 동작 확인용")

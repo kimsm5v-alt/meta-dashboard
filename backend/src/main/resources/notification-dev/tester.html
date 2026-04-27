@@ -53,6 +53,12 @@
     button.danger { background: var(--err); }
     .btn-row { display: flex; gap: 6px; margin-top: 10px; }
 
+    button.btn-fill-me {
+      background: var(--line); color: var(--muted); padding: 1px 6px; font-size: 10px;
+      font-weight: 500; margin-left: 6px; vertical-align: middle;
+    }
+    button.btn-fill-me:hover { background: var(--accent); color: white; opacity: 1; }
+
     .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
     .log {
@@ -86,6 +92,9 @@
     <span id="connStatus" class="conn-status disconnected">disconnected</span>
     <span style="color: var(--muted); font-size: 11px;">Base:
       <input id="baseUrl" style="width: 200px; display: inline-block;" value="http://localhost:8081" />
+    </span>
+    <span style="color: var(--muted); font-size: 11px;">내 userNo:
+      <span id="myUserNo" style="color: var(--accent); font-weight: 700;">(JWT 입력 후 자동조회)</span>
     </span>
   </header>
 
@@ -121,7 +130,7 @@
         <h2>T1 — 학생 그룹 참여 (교사 수신)</h2>
         <div class="field-row">
           <div>
-            <label>teacherUserNo</label>
+            <label>teacherUserNo <button type="button" class="btn-fill-me" data-fill="t1-teacherUserNo">나</button></label>
             <input id="t1-teacherUserNo" placeholder="1" />
           </div>
           <div>
@@ -147,7 +156,7 @@
         <h2>T2 — 학생 그룹 탈퇴(자발) (교사 수신)</h2>
         <div class="field-row">
           <div>
-            <label>teacherUserNo</label>
+            <label>teacherUserNo <button type="button" class="btn-fill-me" data-fill="t2-teacherUserNo">나</button></label>
             <input id="t2-teacherUserNo" placeholder="1" />
           </div>
           <div>
@@ -163,7 +172,7 @@
 
       <section>
         <h2>S4 — 그룹 초대 수신 (학생 수신)</h2>
-        <label>inviteeUserNo</label>
+        <label>inviteeUserNo <button type="button" class="btn-fill-me" data-fill="s4-inviteeUserNo">나</button></label>
         <input id="s4-inviteeUserNo" placeholder="2" />
         <div class="field-row">
           <div>
@@ -183,7 +192,7 @@
         <h2>S5 — 학생 추방 (학생 수신)</h2>
         <div class="field-row">
           <div>
-            <label>studentUserNo</label>
+            <label>studentUserNo <button type="button" class="btn-fill-me" data-fill="s5-studentUserNo">나</button></label>
             <input id="s5-studentUserNo" placeholder="2" />
           </div>
           <div>
@@ -232,11 +241,48 @@
     const LS_JWT = 'notif-tester-jwt';
     const LS_BASE = 'notif-tester-base';
 
-    // ── 초기 로드: localStorage 복원 ──
+    // ── 내 userNo 캐시 ──
+    let myUserNo = null;
+
+    async function fetchMyUserNo() {
+      const token = $('jwt').value.trim();
+      const base = $('baseUrl').value.trim();
+      if (!token) { $('myUserNo').textContent = '(JWT 입력 후 자동조회)'; return; }
+      try {
+        const res = await fetch(`${base}/api/v1/notifications/debug/me`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        myUserNo = json?.resultData?.userNo ?? null;
+        $('myUserNo').textContent = myUserNo != null ? myUserNo : '(조회 실패)';
+      } catch (err) {
+        myUserNo = null;
+        $('myUserNo').textContent = '(조회 실패: ' + (err.message || err) + ')';
+      }
+    }
+
+    // ── 초기 로드: localStorage 복원 + 내 userNo 자동 조회 ──
     $('jwt').value = localStorage.getItem(LS_JWT) || '';
     $('baseUrl').value = localStorage.getItem(LS_BASE) || 'http://localhost:8081';
-    $('jwt').addEventListener('change', () => localStorage.setItem(LS_JWT, $('jwt').value));
-    $('baseUrl').addEventListener('change', () => localStorage.setItem(LS_BASE, $('baseUrl').value));
+    $('jwt').addEventListener('change', () => {
+      localStorage.setItem(LS_JWT, $('jwt').value);
+      fetchMyUserNo();
+    });
+    $('baseUrl').addEventListener('change', () => {
+      localStorage.setItem(LS_BASE, $('baseUrl').value);
+      fetchMyUserNo();
+    });
+    if ($('jwt').value) fetchMyUserNo();
+
+    // ── [나로 채우기] 버튼들 ──
+    document.querySelectorAll('.btn-fill-me').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (myUserNo == null) { alert('먼저 JWT를 입력해서 내 userNo를 조회해주세요.'); return; }
+        const targetId = btn.getAttribute('data-fill');
+        $(targetId).value = myUserNo;
+      });
+    });
 
     // ── SSE 상태 ──
     let sseController = null;

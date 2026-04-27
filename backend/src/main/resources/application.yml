@@ -132,6 +132,20 @@ key:
   salt:
     main: ${KEY_SALT_MAIN:}
 
+# ===== 알림 기능 Phase 2 토글 =====
+# pubsub.enabled : Redis Pub/Sub 사용 여부 (다중 인스턴스 환경)
+#                  false → InMemoryDispatcher 사용 (Phase 1 동일)
+#                  true  → RedisPubSubDispatcher 사용
+# shedlock.enabled : 스케줄러 분산 락 사용 여부 (다중 인스턴스 환경)
+#                    false → 일반 @Scheduled 동작 (단일 인스턴스 가정)
+#                    true  → @SchedulerLock 활성화, MySQL `shedlock` 테이블 필요
+# 로컬 검증용 기본값은 true. dev/stage 등은 환경변수로 false 설정.
+notification:
+  pubsub:
+    enabled: ${NOTIFICATION_PUBSUB_ENABLED:true}
+  shedlock:
+    enabled: ${NOTIFICATION_SHEDLOCK_ENABLED:true}
+
 # File Storage (NAS)
 cloud:
   aws:
