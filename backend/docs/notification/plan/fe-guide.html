@@ -207,10 +207,13 @@
       </ul>
 
       <div class="callout">
-        <strong>JWT 획득 방법</strong>
-        FE 로 한 번 로그인한 뒤 DevTools Console 에서:
-        <pre><code>window.__aidt_auth?.getAccessToken?.()</code></pre>
-        SSO SDK 가 토큰 저장하는 방식이라 localStorage 직접 읽기 X.
+        <strong>JWT 획득 방법 — Network 탭에서 복사</strong>
+        <ol style="margin: 6px 0 0;">
+          <li>DevTools → <strong>Network</strong> 탭 열기</li>
+          <li>FE 페이지에서 아무 API 호출 (페이지 새로고침 또는 알림 목록 클릭 등)</li>
+          <li>Network 에서 API 요청 클릭 → <strong>Headers</strong> → <strong>Request Headers</strong> → <code>Authorization: Bearer eyJ...</code> 줄 찾기</li>
+          <li><code>Bearer </code> 뒤 토큰 부분만 복사</li>
+        </ol>
       </div>
 
       <!-- ============================================ -->

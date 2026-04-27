@@ -386,11 +386,12 @@ http://localhost:8081/dev/notification-tester
 - 어떤 `notification` 이벤트가 어떤 페이로드 JSON으로 오는지 시각적으로 확인 가능
 - FE 구현 전에 "받을 데이터 포맷" 미리 눈으로 확인할 때 유용
 
-**JWT 획득 방법**: FE로 한 번 로그인한 뒤 DevTools Console에서:
-```js
-window.__aidt_auth?.getAccessToken?.()
-// 또는 Object.keys(localStorage) 로 토큰 키 확인
-```
+**JWT 획득 방법** — DevTools Network 탭에서 복사:
+
+1. DevTools → **Network** 탭 열기
+2. FE 페이지에서 아무 API 호출 (페이지 새로고침 또는 알림 목록 클릭 등)
+3. Network 에서 API 요청 클릭 → **Headers** → **Request Headers** → `Authorization: Bearer eyJ...` 줄 찾기
+4. `Bearer ` 뒤 토큰 부분만 복사
 
 ### 방법 ② — FE PoC 페이지 (이미 구현된 `/dev/sse`)
 
