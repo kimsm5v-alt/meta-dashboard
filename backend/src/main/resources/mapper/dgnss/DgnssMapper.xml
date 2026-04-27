@@ -2382,6 +2382,7 @@
 	<select id="selectStLernAnalysis" parameterType="map" resultType="map">
 		/* DgnssMapper.selectStLernAnalysis */
 		SELECT b1.id AS dgnssResultId
+			, c1.ANSWER_IDX AS answerIdx
 			, d1.SECTION_ID
 			, d1.`DEPTH`
 			, e1.SECTION_NM
@@ -2931,6 +2932,20 @@
 		FROM tb_dgnss_result_info
 		WHERE dgnss_id = #{dgnssId}
 		  AND stdt_id = #{stdtId}
+	</select>
+
+	<select id="selectLpaResultByAnswerIdx" resultType="map">
+		/* DgnssMapper.selectLpaResultByAnswerIdx */
+		SELECT answer_idx AS answerIdx
+		     , dgnss_result_id AS dgnssResultId
+		     , school_level AS schoolLevel
+		     , class_id AS classId
+		     , type_name AS typeName
+		     , confidence
+		     , probabilities_json AS probabilitiesJson
+		     , status
+		FROM tb_dgnss_lpa_result
+		WHERE answer_idx = #{answerIdx}
 	</select>
 </mapper>
 

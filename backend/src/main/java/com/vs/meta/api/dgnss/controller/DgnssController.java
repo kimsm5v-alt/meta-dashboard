@@ -3,6 +3,7 @@ package com.vs.meta.api.dgnss.controller;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.ResponseDTO;
 import com.vs.meta.common.response.CustomBody;
+import com.vs.meta.api.dgnss.service.DgnssGraphService;
 import com.vs.meta.api.dgnss.service.DgnssService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,6 +34,7 @@ import java.util.Map;
 @RequestMapping(produces = MediaType.APPLICATION_JSON_VALUE)
 public class DgnssController {
     private final DgnssService dgnssService;
+    private final DgnssGraphService dgnssGraphService;
 
     @RequestMapping(value = {"/api/dgnss/tc/info","/api/dgnss/tc/list"}, method = {RequestMethod.GET})
     @Operation(summary = "(선생님) 학습심리정서검사 목록 조회", description = "")
@@ -300,12 +302,18 @@ public class DgnssController {
                     @ExampleObject(name = "math", value = "1", description = "수학 환경"),
                     @ExampleObject(name = "engl", value = "1", description = "영어 환경")
             })
+    @Parameter(name = "graphYn", description = "지식그래프 추천 포함 여부(Y/N, 기본 N)",
+            examples = {
+                    @ExampleObject(name = "off", value = "N", description = "지식그래프 조회 안함"),
+                    @ExampleObject(name = "on", value = "Y", description = "지식그래프 조회 포함")
+            })
     public ResponseDTO<CustomBody> stMetaAnalysis(
             @RequestParam(name = "dgnssResultId", required = false) String dgnssResultId,
             @RequestParam(name = "paperIdx", required = false, defaultValue = "2") String paperIdx,
             @RequestParam(name = "ordNo", required = false, defaultValue = "1") String ordNo,
             @RequestParam(name = "stdtId", required = false) String stdtId,
             @RequestParam(name = "claId", required = false) String claId,
+            @RequestParam(name = "graphYn", required = false, defaultValue = "N") String graphYn,
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
     ) throws Exception {
         Map<String, Object> result = dgnssService.selectStAnalysis(paramData);
@@ -420,6 +428,61 @@ public class DgnssController {
         }
         Map<String, Object> result = dgnssService.selectTcClassFactorAvg(paramData);
         String resultMessage = "(교사) 학급별 요인 평균 및 제출/신뢰도 집계";
+        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
+    @GetMapping(value = "/api/dgnss/graph/classes/{className}/moderation-paths")
+    @Operation(summary = "(그래프) 유형별 ModerationPath 조회", description = "")
+    @Parameter(name = "className", description = "LPA 유형명", required = true)
+    @Parameter(name = "schoolLevel", description = "학교급(선택): elementary/middle")
+    @Parameter(name = "limit", description = "조회 개수 제한(기본 20, 최대 100)")
+    public ResponseDTO<CustomBody> graphModerationPathsByClass(
+            @PathVariable("className") String className,
+            @RequestParam(name = "schoolLevel", required = false, defaultValue = "") String schoolLevel,
+            @RequestParam(name = "limit", required = false, defaultValue = "20") int limit,
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        int boundedLimit = Math.max(1, Math.min(limit, 100));
+        Map<String, Object> result = dgnssGraphService.selectModerationPathsByClass(className, schoolLevel, boundedLimit);
+        String resultMessage = "(그래프) 유형별 ModerationPath 조회";
+        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
+    @GetMapping(value = "/api/dgnss/graph/recommendation/by-answer/{answerIdx}")
+    @Operation(summary = "(그래프) answerIdx 기반 추천 조회", description = "")
+    @Parameter(name = "answerIdx", description = "답안 인덱스", required = true)
+    @Parameter(name = "limit", description = "조회 개수 제한(기본 5, 최대 100)")
+    public ResponseDTO<CustomBody> graphRecommendationByAnswerIdx(
+            @PathVariable("answerIdx") int answerIdx,
+            @RequestParam(name = "limit", required = false, defaultValue = "5") int limit,
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        if (answerIdx <= 0) {
+            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
+        }
+        int boundedLimit = Math.max(1, Math.min(limit, 100));
+        Map<String, Object> result = dgnssGraphService.selectRecommendationByAnswerIdx(answerIdx, boundedLimit);
+        String resultMessage = "(그래프) answerIdx 기반 추천 조회";
+        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
+    @GetMapping(value = "/api/dgnss/graph/recommendation/by-type")
+    @Operation(summary = "(그래프) schoolLevel + typeName 기반 추천 조회", description = "")
+    @Parameter(name = "schoolLevel", description = "학교급 elementary/middle", required = true)
+    @Parameter(name = "typeName", description = "LPA 유형명", required = true)
+    @Parameter(name = "limit", description = "조회 개수 제한(기본 20, 최대 100)")
+    public ResponseDTO<CustomBody> graphRecommendationByType(
+            @RequestParam(name = "schoolLevel") String schoolLevel,
+            @RequestParam(name = "typeName") String typeName,
+            @RequestParam(name = "limit", required = false, defaultValue = "20") int limit,
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        if (StringUtils.isBlank(schoolLevel) || StringUtils.isBlank(typeName)) {
+            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
+        }
+        int boundedLimit = Math.max(1, Math.min(limit, 100));
+        Map<String, Object> result = dgnssGraphService.selectRecommendationByType(schoolLevel, typeName, boundedLimit);
+        String resultMessage = "(그래프) schoolLevel + typeName 기반 추천 조회";
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
