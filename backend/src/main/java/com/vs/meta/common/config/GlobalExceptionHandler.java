@@ -70,6 +70,11 @@ public class GlobalExceptionHandler {
         return AidtCommonUtil.makeResultFail(null, errorData, e.getMessage());
     }
 
+    @ExceptionHandler(org.apache.catalina.connector.ClientAbortException.class)
+    public void handleClientAbort(org.apache.catalina.connector.ClientAbortException e) {
+        log.debug("Client disconnected: {}", e.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseDTO<CustomBody> handleException(Exception e) {
         log.error("Server error: {}", e.getMessage(), e);

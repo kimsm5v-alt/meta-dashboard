@@ -55,6 +55,9 @@ interface AuthProviderProps {
  * SDK의 auth.login()은 Auth 서버로 리다이렉트하므로 AuthContext가 아닌
  * useSpAuth() 훅 또는 getAuth().login()을 직접 사용한다.
  */
+// 로그아웃 진행 중 플래그 — SDK clearTokens() → onAuthChange(null) → React re-render 방지
+let loggingOut = false;
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -72,7 +75,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const user = mapSdkUserToUser(sdkUser);
       // localStorage에 학심정 서비스 데이터가 있으면 병합
       const storedUser = loadStoredUser();
-      const merged = storedUser ? { ...user, ...storedUser } : user;
+      // SDK가 Truth — 현재 로그인한 사용자의 name/email이 localStorage 잔존 데이터를 덮어씀
+      // A → 로그아웃 → B 로그인 시 A 이름 잔존 방지
+      const merged = storedUser ? { ...storedUser, ...user } : user;
       setState({ user: merged, isAuthenticated: true, isLoading: false });
     } else {
       setState({ user: null, isAuthenticated: false, isLoading: false });
@@ -80,6 +85,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // SDK 인증 상태 변경 리스너
     const unsubscribe = auth.onAuthChange((sdkUser: AuthUser | null) => {
+      // 로그아웃 진행 중이면 React 상태 업데이트 하지 않음
+      // (ProtectedLayout → /login → LoginPage auto-login race condition 방지)
+      if (loggingOut) return;
+
       if (sdkUser) {
         const user = mapSdkUserToUser(sdkUser);
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
@@ -127,9 +136,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // 로그아웃 — SDK가 Auth 서버 SSO 세션까지 삭제
   const logout = useCallback(() => {
+    // 플래그 설정: SDK clearTokens() → onAuthChange(null) 시 React re-render 방지
+    // 이 플래그가 없으면 ProtectedLayout → /login → LoginPage auto-login이
+    // SDK의 /oauth2/logout 리다이렉트보다 먼저 실행되어 로그아웃이 안 됨
+    loggingOut = true;
     localStorage.removeItem(AUTH_STORAGE_KEY);
     const auth = getAuth();
-    auth.logout(); // 브라우저 리다이렉트 발생
+    auth.logout(); // 브라우저 리다이렉트 발생 (페이지 이동 후 플래그 자동 리셋)
   }, []);
 
   return (

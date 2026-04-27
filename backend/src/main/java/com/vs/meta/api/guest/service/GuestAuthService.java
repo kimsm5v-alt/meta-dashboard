@@ -42,6 +42,7 @@ public class GuestAuthService {
     private final UserMapper userMapper;
     private final EmailVerificationService emailVerificationService;
     private final SpAuthProperties spAuth;
+    private final WebClient superPlatformAuthWebClient;
 
     @Transactional(readOnly = true)
     public Map<String, Object> checkGuestExists(String inviteCode, String email) {
@@ -124,7 +125,7 @@ public class GuestAuthService {
      */
     @SuppressWarnings("unchecked")
     private Map<String, Object> requestGuestToken(String name) {
-        return WebClient.create(spAuth.getServerUrl())
+        return superPlatformAuthWebClient
                 .post()
                 .uri("/oauth2/guest-token")
                 .contentType(MediaType.APPLICATION_JSON)

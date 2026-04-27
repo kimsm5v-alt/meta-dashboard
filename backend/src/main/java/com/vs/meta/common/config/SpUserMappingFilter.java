@@ -1,6 +1,7 @@
 package com.vs.meta.common.config;
 
-import com.vs.meta.api.member.mapper.UserMapper;
+import com.vs.meta.api.sso.service.SsoUserMigrationService;
+import com.vs.meta.api.sso.service.SsoUserQueryService;
 import com.vs.meta.common.security.SpAuthenticatedUser;
 import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,8 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class SpUserMappingFilter extends OncePerRequestFilter {
 
-    private final UserMapper userMapper;
+    private final SsoUserQueryService ssoUserQueryService;
+    private final SsoUserMigrationService ssoUserMigrationService;
 
     /** request attribute 키 — SecurityUtil에서 이 키로 읽음 */
     public static final String ATTR_USER_NO = "sp.mapped.userNo";
@@ -43,20 +45,10 @@ public class SpUserMappingFilter extends OncePerRequestFilter {
             // 게스트는 학심정 user가 없으므로 매핑 스킵
             if (!"GUEST".equals(spUser.userType())) {
                 try {
-                    User user = userMapper.findBySpUserId(spUser.spUserId());
-
-                    // sp_user_id로 못 찾으면 email로 기존 회원 매칭 (마이그레이션 회원)
-                    if (user == null && spUser.email() != null && !spUser.email().isBlank()) {
-                        user = userMapper.findByEmail(spUser.email());
-                        if (user != null && user.getSpUserId() == null) {
-                            user.setSpUserId(spUser.spUserId());
-                            user.setUpdatedBy(user.getUserNo());
-                            user.setUpdatedAt(java.time.LocalDateTime.now());
-                            userMapper.updateUser(user);
-                            log.info("SpUserMappingFilter: 기존 회원 SSO 매핑 완료: userNo={}, spUserId={}, email={}", user.getUserNo(), spUser.spUserId(), spUser.email());
-                        } else if (user != null && user.getSpUserId() != null) {
-                            user = null; // 이미 다른 sp_user_id가 매핑됨
-                        }
+                    // sp_user_id로 조회 실패 시 마이그레이션 매핑 시도 (기존 회원 1회성)
+                    User user = ssoUserQueryService.findBySpUserId(spUser.spUserId());
+                    if (user == null) {
+                        user = ssoUserMigrationService.migrateBySpUserId(spUser);
                     }
 
                     if (user != null) {
