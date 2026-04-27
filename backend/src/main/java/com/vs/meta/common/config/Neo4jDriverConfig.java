@@ -21,10 +21,10 @@ public class Neo4jDriverConfig {
         Driver driver = GraphDatabase.driver(uri, AuthTokens.basic(username, password));
         try {
             driver.verifyConnectivity();
-            log.info("Neo4j connectivity check succeeded. uri={}, username={}", uri, username);
+            log.info("Neo4j connectivity check succeeded.");
             return driver;
         } catch (Exception e) {
-            log.error("Neo4j connectivity check failed. uri={}, username={}", uri, username, e);
+            log.error("Neo4j connectivity check failed.", e);
             try {
                 driver.close();
             } catch (Exception closeEx) {
