@@ -121,7 +121,7 @@ public class SecurityConfig {
 
         @Override
         protected void configure(HttpSecurity http) throws Exception {
-            http
+            var authorizeRegistry = http
                 .cors()
                 .and()
                 .csrf().disable()
@@ -132,6 +132,8 @@ public class SecurityConfig {
                 .authorizeRequests()
                     // SSO Auth 프록시 (public — SDK가 호출)
                     .antMatchers("/api/v1/auth/**").permitAll()
+                    // Neo4j 그래프 테스트 API (로컬 테스트 용도)
+                    .antMatchers("/api/dgnss/graph/**").permitAll()
                     // 게스트 관련 (public)
                     .antMatchers("/guest/exists", "/guest/auth").permitAll()
                     // 그룹 초대/참가 (public)
@@ -143,10 +145,18 @@ public class SecurityConfig {
                     .antMatchers("/viva/metric/prometheus").permitAll()
                     .antMatchers("/actuator/health").permitAll()
                     .antMatchers("/", "/robots.txt", "/favicon.ico").permitAll()
-                    .antMatchers("/static/**").permitAll()
-                    // 추가 정보 입력 API (JWT 필요하지만 user 미생성 상태에서 호출)
-                    .antMatchers("/api/v1/user/complete-profile").authenticated()
-                    .anyRequest().authenticated()
+                    .antMatchers("/static/**").permitAll();
+
+            if (isLocalProfileActive()) {
+                authorizeRegistry.anyRequest().permitAll();
+            } else {
+                authorizeRegistry
+                        // 추가 정보 입력 API (JWT 필요하지만 user 미생성 상태에서 호출)
+                        .antMatchers("/api/v1/user/complete-profile").authenticated()
+                        .anyRequest().authenticated();
+            }
+
+            authorizeRegistry
                 .and()
                 .exceptionHandling()
                     .authenticationEntryPoint((request, response, authException) -> {
@@ -219,6 +229,10 @@ public class SecurityConfig {
 
         private boolean isRealProfileActive() {
             return Arrays.asList(env.getActiveProfiles()).contains("real");
+        }
+
+        private boolean isLocalProfileActive() {
+            return Arrays.asList(env.getActiveProfiles()).contains("local");
         }
     }
 }
