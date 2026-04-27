@@ -64,3 +64,9 @@ notification:
     enabled: true
   shedlock:
     enabled: true
+
+# 로컬에서는 Redis 띄워져 있으니 actuator health 도 활성
+management:
+  health:
+    redis:
+      enabled: true

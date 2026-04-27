@@ -148,6 +148,15 @@ notification:
   shedlock:
     enabled: ${NOTIFICATION_SHEDLOCK_ENABLED:false}
 
+# Actuator 의 Redis Health Indicator 자동 비활성.
+# spring-boot-starter-data-redis 가 classpath 에 있으면 actuator 가 자동으로 RedisReactiveHealthIndicator 를 등록해서
+# 10초마다 Redis 에 ping 시도 → Redis 인프라 없는 환경에서 로그 시끄러움.
+# 로컬 (Podman Redis 사용) 등 실제 Redis 쓰는 환경에서는 application-local.yml 에서 true 로 덮어씀.
+management:
+  health:
+    redis:
+      enabled: ${MANAGEMENT_HEALTH_REDIS_ENABLED:false}
+
 # File Storage (NAS)
 cloud:
   aws:
