@@ -1,6 +1,6 @@
 ﻿# 학습심리정서검사 API 연동 규격서
 
-> 최종 수정일: 2026-04-08
+> 최종 수정일: 2026-04-27
 
 ## 개요
 
@@ -12,7 +12,7 @@
 |------|-----|
 | Base URL | `{서버주소}` |
 | Content-Type | `application/json` |
-| 인증 방식 | JWT Token (Header: `Authorization: Bearer {token}`) |
+| 인증 방식 | JWT Token (Header: `Authorization: Bearer {token}`), 단 `local` 프로필은 인증 예외 |
 
 ### 공통 응답 형식
 
@@ -1229,6 +1229,7 @@ GET /api/dgnss/st/new?dgnssResultId=1717&paperIdx=1&page=0&size=20
 | 3 | paperIdx | String | X | 심리검사 종류 | 연동 시 `1` 또는 `2`를 반드시 명시 전달 |
 | 4 | ordNo | String | X | 기준 회차 | `stdtId` 기준 조회 시 메타 정보 조회용, 기본값: 1 |
 | 5 | claId | String | X | 학급 ID | `dgnssResultId` 없이 조회 시 필수 |
+| 6 | graphYn | String | X | 지식그래프 추천 포함 여부 | 기본값: `N`, `Y` 전달 시 추천 포함 |
 
 > `dgnssResultId` 또는 (`stdtId` + `paperIdx` + `claId`)를 전달해야 합니다.
 > `paperIdx`는 구현 히스토리상 기본값이 존재하더라도, 연동 규격상 필수값으로 간주합니다.
@@ -1244,14 +1245,19 @@ GET /api/dgnss/st/analysis?dgnssResultId=1717&paperIdx=1
 GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2&claId=lectureTest
 ```
 
+```
+GET /api/dgnss/st/analysis?dgnssResultId=1717&paperIdx=2&graphYn=Y
+```
+
 #### Response Fields (resultData)
 
 | NO | 필드 | 타입 | 설명 | 비고 |
 |----|------|------|------|------|
 | 1 | stUserInfo | Object | 학생 정보 | |
 | 2 | lpaTop | Object | 회차별 LPA 요약 정보 | 키: `"1"`, `"2"` |
-| 3 | `"1"` | Array | 1회차 검사 결과 정보 | 없을 수 있음 |
-| 4 | `"2"` | Array | 2회차 검사 결과 정보 | 없을 수 있음 |
+| 3 | recommendationByOrd | Object | 회차별 그래프 추천 결과 | `graphYn=Y`일 때만 포함 |
+| 4 | `"1"` | Array | 1회차 검사 결과 정보 | 없을 수 있음 |
+| 5 | `"2"` | Array | 2회차 검사 결과 정보 | 없을 수 있음 |
 
 #### Response Fields (resultData.stUserInfo)
 
@@ -1285,6 +1291,15 @@ GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2&claId=lectureTest
 | 10 | lpaTop3Probability | Number | LPA 3순위 확률(%) | 소수점 1자리 |
 
 > `lpaTop1Probability + lpaTop2Probability + lpaTop3Probability = 100.0`
+
+#### Response Fields (resultData.recommendationByOrd."1", resultData.recommendationByOrd."2")
+
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | answerIdx | Integer | 답안 인덱스 | |
+| 2 | lpa | Object | LPA 결과 메타 | `typeName`, `schoolLevel`, `classId`, `confidence` 등 |
+| 3 | recommendationCount | Integer | 추천 건수 | |
+| 4 | moderationPaths | Array | 추천 경로 목록 | `/api/dgnss/graph/recommendation/by-answer/{answerIdx}`와 동일 구조 |
 
 #### Response Fields (resultData."1"[], resultData."2"[])
 
@@ -1355,6 +1370,364 @@ GET /api/dgnss/st/analysis?stdtId=rrmath016-s1&paperIdx=2&claId=lectureTest
     ]
   },
   "currentTime": "2026-03-19 10:00:00"
+}
+```
+
+---
+
+### 17-1. 답안 무작위 일괄 입력 (테스트용)
+
+개발/테스트 용도로 현재 OMR의 문항 전체에 무작위 답안을 입력합니다.
+
+| 항목 | 값 |
+|------|-----|
+| URL | `/api/dgnss/st/answer/random` |
+| Method | `POST` |
+
+#### Request Parameters (Body)
+
+| NO | 파라미터 | 타입 | 필수 | 설명 | 비고 |
+|----|----------|------|------|------|------|
+| 1 | omrIdx | Integer | O | OMR 인덱스 | |
+| 2 | paperIdx | Integer | O | 심리검사 종류 | 1: 학습종합검사, 2: META 자기조절학습검사 |
+
+#### Request Example
+
+```json
+{
+  "omrIdx": 1,
+  "paperIdx": 1
+}
+```
+
+#### Response Fields (resultData)
+
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | omrIdx | Integer | OMR 인덱스 | |
+| 2 | paperIdx | Integer | 검사 종류 | |
+| 3 | questionCount | Integer | 문항 수 | paperIdx=1: 124, paperIdx=2: 77 |
+| 4 | updatedCount | Integer | 업데이트된 문항 수 | |
+| 5 | success | String | 처리 결과 | `success` 또는 `partial` |
+
+#### Response Example
+
+```json
+{
+  "success": true,
+  "resultMessage": "(학생)답안 무작위 일괄 입력",
+  "resultCode": 200,
+  "paramData": {
+    "omrIdx": 1,
+    "paperIdx": 1
+  },
+  "resultData": {
+    "omrIdx": 1,
+    "paperIdx": 1,
+    "questionCount": 124,
+    "updatedCount": 124,
+    "success": "success"
+  },
+  "currentTime": "2026-04-27 12:00:00"
+}
+```
+
+#### Response Example (`graphYn=Y`일 때 발췌)
+
+```json
+{
+  "resultData": {
+    "stUserInfo": { "...": "..." },
+    "lpaTop": { "1": { "...": "..." } },
+    "recommendationByOrd": {
+      "1": {
+        "answerIdx": 12679,
+        "lpa": {
+          "typeName": "안전 균형형",
+          "schoolLevel": "middle"
+        },
+        "recommendationCount": 5,
+        "moderationPaths": [
+          {
+            "id": "MOD_안전 균형형_01_...",
+            "pathType": "촉진",
+            "x": "자기효능감",
+            "z": "부모 학업지지",
+            "strategy": "지도 전략"
+          }
+        ]
+      }
+    },
+    "1": [ { "...": "..." } ]
+  }
+}
+```
+
+---
+
+### 17-2. 결과 메일 발송 테스트
+
+학생 결과 메일 발송 테스트 API입니다.
+
+| 항목 | 값 |
+|------|-----|
+| URL | `/api/dgnss/mail/test` |
+| Method | `POST` |
+
+#### Request Parameters (Body)
+
+| NO | 파라미터 | 타입 | 필수 | 설명 | 비고 |
+|----|----------|------|------|------|------|
+| 1 | dgnssResultId | Integer | O | 심리검사 상세 ID | |
+| 2 | toEmail | String | X | 테스트 수신 이메일 | 미입력 시 대상 학생 이메일 사용 |
+
+#### Request Example
+
+```json
+{
+  "dgnssResultId": 1,
+  "toEmail": "tester@example.com"
+}
+```
+
+#### Response Fields (resultData)
+
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | dgnssResultId | Integer | 심리검사 상세 ID | |
+| 2 | answerIdx | Integer | 답안 인덱스 | |
+| 3 | studentName | String | 학생명 | |
+| 4 | toEmail | String | 실제 발송 이메일 | |
+| 5 | fileUrl | String | 학생 결과 PDF URL | |
+| 6 | sent | Boolean | 발송 여부 | `true` |
+
+#### Response Example
+
+```json
+{
+  "success": true,
+  "resultMessage": "학습심리검사 결과 메일 발송 테스트",
+  "resultCode": 200,
+  "paramData": {
+    "dgnssResultId": 1,
+    "toEmail": "tester@example.com"
+  },
+  "resultData": {
+    "dgnssResultId": 1,
+    "answerIdx": 12679,
+    "studentName": "홍길동",
+    "toEmail": "tester@example.com",
+    "fileUrl": "/files/nas/engl/20260427/sample_student_result.pdf",
+    "sent": true
+  },
+  "currentTime": "2026-04-27 12:00:00"
+}
+```
+
+---
+
+## 그래프 API
+
+### G1. 유형별 ModerationPath 조회
+
+| 항목 | 값 |
+|------|-----|
+| URL | `/api/dgnss/graph/classes/{className}/moderation-paths` |
+| Method | `GET` |
+
+#### Request Parameters
+
+| NO | 파라미터 | 타입 | 필수 | 설명 | 비고 |
+|----|----------|------|------|------|------|
+| 1 | className | Path String | O | LPA 유형명 | |
+| 2 | schoolLevel | Query String | X | 학교급 | `elementary`, `middle` |
+| 3 | limit | Query Integer | X | 조회 개수 제한 | 기본 20, 최대 100 |
+
+#### Request Example
+
+```
+GET /api/dgnss/graph/classes/안전%20균형형/moderation-paths?schoolLevel=middle&limit=20
+```
+
+#### Response Fields (resultData)
+
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | className | String | 유형명 | |
+| 2 | schoolLevel | String | 학교급 | |
+| 3 | count | Integer | 경로 수 | |
+| 4 | moderationPaths | Array | 경로 목록 | |
+
+#### Response Example
+
+```json
+{
+  "success": true,
+  "resultMessage": "(그래프) 유형별 ModerationPath 조회",
+  "resultCode": 200,
+  "paramData": {
+    "className": "안전 균형형",
+    "schoolLevel": "middle",
+    "limit": "20"
+  },
+  "resultData": {
+    "className": "안전 균형형",
+    "schoolLevel": "middle",
+    "count": 20,
+    "moderationPaths": [
+      {
+        "className": "안전 균형형",
+        "schoolLevel": "middle",
+        "classDescription": "유형 설명",
+        "id": "MOD_안전 균형형_01_...",
+        "pathType": "촉진",
+        "pathColor": "#3498DB",
+        "x": "자기효능감",
+        "z": "부모 학업지지",
+        "y": "학업성취도",
+        "keywordInterp": "핵심 해석 키워드",
+        "keywordStrat": "핵심 전략 키워드",
+        "interpretation": "해석 문구",
+        "strategy": "지도 전략"
+      }
+    ]
+  },
+  "currentTime": "2026-04-27 12:00:00"
+}
+```
+
+---
+
+### G2. answerIdx 기반 추천 조회
+
+| 항목 | 값 |
+|------|-----|
+| URL | `/api/dgnss/graph/recommendation/by-answer/{answerIdx}` |
+| Method | `GET` |
+
+#### Request Parameters
+
+| NO | 파라미터 | 타입 | 필수 | 설명 | 비고 |
+|----|----------|------|------|------|------|
+| 1 | answerIdx | Path Integer | O | 답안 인덱스 | |
+| 2 | limit | Query Integer | X | 조회 개수 제한 | 기본 5, 최대 100 |
+
+#### Request Example
+
+```
+GET /api/dgnss/graph/recommendation/by-answer/12679?limit=5
+```
+
+#### Response Fields (resultData)
+
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | answerIdx | Integer | 답안 인덱스 | |
+| 2 | lpa | Object | LPA 결과 | |
+| 3 | recommendationCount | Integer | 추천 건수 | |
+| 4 | moderationPaths | Array | 추천 경로 목록 | |
+
+#### Response Example
+
+```json
+{
+  "success": true,
+  "resultMessage": "(그래프) answerIdx 기반 추천 조회",
+  "resultCode": 200,
+  "paramData": {
+    "answerIdx": "12679",
+    "limit": "5"
+  },
+  "resultData": {
+    "answerIdx": 12679,
+    "lpa": {
+      "answerIdx": 12679,
+      "dgnssResultId": 1717,
+      "schoolLevel": "middle",
+      "classId": "Class2",
+      "typeName": "안전 균형형",
+      "confidence": 78.45,
+      "probabilitiesJson": "{\"Class2\":0.7845}",
+      "status": "COMPLETED"
+    },
+    "recommendationCount": 5,
+    "moderationPaths": [
+      {
+        "id": "MOD_안전 균형형_01_...",
+        "pathType": "촉진",
+        "x": "자기효능감",
+        "z": "부모 학업지지",
+        "strategy": "지도 전략"
+      }
+    ]
+  },
+  "currentTime": "2026-04-27 12:00:00"
+}
+```
+
+---
+
+### G3. schoolLevel + typeName 기반 추천 조회
+
+| 항목 | 값 |
+|------|-----|
+| URL | `/api/dgnss/graph/recommendation/by-type` |
+| Method | `GET` |
+
+#### Request Parameters
+
+| NO | 파라미터 | 타입 | 필수 | 설명 | 비고 |
+|----|----------|------|------|------|------|
+| 1 | schoolLevel | String | O | 학교급 | `elementary`, `middle` |
+| 2 | typeName | String | O | LPA 유형명 | |
+| 3 | limit | Integer | X | 조회 개수 제한 | 기본 20, 최대 100 |
+
+#### Request Example
+
+```
+GET /api/dgnss/graph/recommendation/by-type?schoolLevel=middle&typeName=냉소적%20무기력형&limit=20
+```
+
+#### Response Fields (resultData)
+
+| NO | 필드 | 타입 | 설명 | 비고 |
+|----|------|------|------|------|
+| 1 | classInfo | Object | 유형 정보 | |
+| 2 | moderationPathCount | Integer | moderation 경로 수 | |
+| 3 | mediationPathCount | Integer | mediation 경로 수 | |
+| 4 | factorScoreCount | Integer | 요인 점수 수 | |
+| 5 | moderationPaths | Array | moderation 경로 목록 | |
+| 6 | mediationPaths | Array | mediation 경로 목록 | |
+| 7 | factorScores | Array | 요인별 점수 목록 | |
+
+#### Response Example
+
+```json
+{
+  "success": true,
+  "resultMessage": "(그래프) schoolLevel + typeName 기반 추천 조회",
+  "resultCode": 200,
+  "paramData": {
+    "schoolLevel": "middle",
+    "typeName": "냉소적 무기력형",
+    "limit": "20"
+  },
+  "resultData": {
+    "classInfo": {
+      "className": "냉소적 무기력형",
+      "schoolLevel": "middle",
+      "classNum": 1,
+      "color": "#E74C3C",
+      "description": "유형 설명"
+    },
+    "moderationPathCount": 20,
+    "mediationPathCount": 10,
+    "factorScoreCount": 38,
+    "moderationPaths": [],
+    "mediationPaths": [],
+    "factorScores": []
+  },
+  "currentTime": "2026-04-27 12:00:00"
 }
 ```
 
@@ -1609,3 +1982,4 @@ POST /api/ai/conversations/101/delete
 | 2026-03-19 | 1.4 | 학생 결과 조회 API를 `/api/dgnss/st/analysis` 단일 엔드포인트로 통합, `dgnssResultId`/`stdtId` 기준 조회 규칙 및 응답 구조 반영 |
 | 2026-04-08 | 1.5 | `tc/stinfolist` 응답에 `nickname`/`memberNo` 추가, `st/analysis`의 `stdtId` 조회 시 `claId` 규칙 추가 및 `stUserInfo`에 `groupNm`/`nickname`/`memberNo` 반영, `tc/class-factor-avg`의 학급명 키를 `classNm`→`groupNm`으로 변경 |
 | 2026-04-15 | 1.6 | AI 채팅 대화 Soft Delete API (`POST /api/ai/conversations/{conversationId}/delete`) 연계 스펙 추가 |
+| 2026-04-27 | 1.7 | `st/analysis`에 `graphYn` 및 `recommendationByOrd` 반영, 미기재 API 추가(`st/answer/random`, `mail/test`, `graph` 3종), 인증 방식에 `local` 프로필 예외 추가 |

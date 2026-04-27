@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -88,8 +89,18 @@ public class ApiResponseAspect {
             return;
         }
 
-        log.info("DgnssController call: method={}, paramData={}",
-                joinPoint.getSignature().getName(), mapArgs);
+        String httpMethod = "";
+        String apiPath = "";
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
+            HttpServletRequest request = attrs.getRequest();
+            if (request != null) {
+                httpMethod = request.getMethod();
+                apiPath = request.getRequestURI();
+            }
+        }
+
+        log.info("DgnssController call: httpMethod={}, apiPath={}, paramData={}",
+                httpMethod, apiPath, mapArgs);
     }
 
     private String sha256(String value) {

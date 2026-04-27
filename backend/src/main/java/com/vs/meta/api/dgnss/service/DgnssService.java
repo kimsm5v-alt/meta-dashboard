@@ -47,6 +47,7 @@ public class DgnssService {
     private final ObjectMapper mapper;
     private final DgnssMapper dgnssMapper;
     private final DgnssLpaService dgnssLpaService;
+    private final DgnssGraphService dgnssGraphService;
     private final PdfService pdfService;
     private final FileService fileService;
     private final NcpMailSender ncpMailSender;
@@ -969,16 +970,58 @@ public class DgnssService {
         }
         enrichLpaTop3(stAnalysisList);
         Map<String, Map<String, Object>> lpaTopByOrd = extractLpaTopByOrd(stAnalysisList);
+        boolean includeGraphRecommendation = StringUtils.equalsIgnoreCase(
+                MapUtils.getString(param, "graphYn", "N"),
+                "Y"
+        );
+        Map<String, Object> recommendationByOrd = includeGraphRecommendation
+                ? fetchGraphRecommendationByOrd(stAnalysisList)
+                : new LinkedHashMap<>();
         removeLpaTopFromRows(stAnalysisList);
 
         Map<String, Object> resultMap = new LinkedHashMap<>();
         resultMap.put("stUserInfo", stUserInfo);
         resultMap.put("lpaTop", lpaTopByOrd);
+        if (includeGraphRecommendation) {
+            resultMap.put("recommendationByOrd", recommendationByOrd);
+        }
         resultMap.putAll(splitStudentAnalysisByOrd(
                 stAnalysisList,
                 hasDgnssResultId ? resolvedOrdNo : MapUtils.getString(param, "ordNo", "")
         ));
         return resultMap;
+    }
+
+    private Map<String, Object> fetchGraphRecommendationByOrd(List<Map<String, Object>> stAnalysisList) {
+        Map<String, Object> recommendationByOrd = new LinkedHashMap<>();
+        if (CollectionUtils.isEmpty(stAnalysisList)) {
+            return recommendationByOrd;
+        }
+
+        for (Map<String, Object> row : stAnalysisList) {
+            int ordNo = MapUtils.getInteger(row, "ord_no", 0);
+            if (ordNo <= 0) {
+                continue;
+            }
+            String ordKey = Integer.toString(ordNo);
+            if (recommendationByOrd.containsKey(ordKey)) {
+                continue;
+            }
+
+            int answerIdx = MapUtils.getInteger(row, "answerIdx", 0);
+            if (answerIdx <= 0) {
+                continue;
+            }
+
+            try {
+                recommendationByOrd.put(ordKey, dgnssGraphService.selectRecommendationByAnswerIdx(answerIdx, 5));
+            } catch (Exception e) {
+                log.warn("Failed to fetch graph recommendation. ordNo={}, answerIdx={}", ordNo, answerIdx, e);
+                recommendationByOrd.put(ordKey, new LinkedHashMap<>());
+            }
+        }
+
+        return recommendationByOrd;
     }
 
     @Transactional(readOnly = true)
@@ -1664,6 +1707,7 @@ public class DgnssService {
             row.remove("lpaTop3ClassId");
             row.remove("lpaTop3TypeName");
             row.remove("lpaTop3Probability");
+            row.remove("answerIdx");
         }
     }
 
