@@ -75,7 +75,7 @@ export const counselingService = {
    * 상담 기록 수정
    */
   update: async (id: string, input: UpdateCounselingInput): Promise<CounselingRecord> => {
-    const response = await apiClient.put<CounselingRecord>(`/api/counseling/${id}`, input);
+    const response = await apiClient.patch<CounselingRecord>(`/api/counseling/${id}`, input);
     return response.resultData;
   },
 
