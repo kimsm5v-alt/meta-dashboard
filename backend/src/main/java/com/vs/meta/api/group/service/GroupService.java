@@ -357,7 +357,9 @@ public class GroupService {
     @Transactional(readOnly = true)
     public Object findGroupList(Map<String, Object> paramData) throws Exception {
         Long userNo = ConvertUtils.toLong(paramData.get("userNo"));
-        return groupQueryMapper.findGroupList(userNo);
+        boolean includeInactive = Boolean.parseBoolean(
+                String.valueOf(paramData.getOrDefault("includeInactive", "false")));
+        return groupQueryMapper.findGroupList(userNo, includeInactive);
     }
 
     @Transactional(readOnly = true)
