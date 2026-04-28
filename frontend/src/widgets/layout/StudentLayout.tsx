@@ -313,7 +313,7 @@ const StudentHeader = () => {
         학습심리정서검사
       </HeaderTitle>
       <HeaderRight>
-        <BellWithPanel role='student' />
+        <BellWithPanel />
         <UserInfo>
           <UserDetails>
             <UserName>{user?.name ?? '학생'}</UserName>

@@ -485,7 +485,7 @@ const Header = () => {
           <LogoImage src={serviceLogo} alt='학습심리정서검사' />
         </LogoButton>
         <HeaderActions>
-          <BellWithPanel role='teacher' />
+          <BellWithPanel />
           <IconButton>
             <Settings />
           </IconButton>

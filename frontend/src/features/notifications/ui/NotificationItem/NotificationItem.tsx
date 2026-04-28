@@ -2,28 +2,35 @@ import { useNavigate } from 'react-router-dom';
 import type { Notification } from '../../model/types';
 import { useMarkAsRead } from '../../api/queries';
 import { formatNotificationTime } from '../../utils/formatNotificationTime';
-import { renderMessage } from '../../utils/renderMessage';
 import * as S from './NotificationItem.styles';
 
 interface NotificationItemProps {
   notification: Notification;
-  role: 'teacher' | 'student';
 }
 
-export const NotificationItem = ({ notification, role }: NotificationItemProps) => {
+export const NotificationItem = ({ notification }: NotificationItemProps) => {
   const navigate = useNavigate();
-  const markAsReadMutation = useMarkAsRead(role);
+  const markAsReadMutation = useMarkAsRead();
 
   const handleClick = () => {
-    if (!notification.isRead) {
-      markAsReadMutation.mutate(notification.id);
+    // 읽지 않은 알림은 읽음 처리
+    if (!notification.read) {
+      markAsReadMutation.mutate(notification.notificationId);
     }
-    navigate(notification.link);
+
+    // 딥링크 이동 (null이면 이동하지 않음)
+    if (notification.link) {
+      navigate(notification.link);
+    }
   };
 
   return (
-    <S.Item $isRead={notification.isRead} onClick={handleClick}>
-      <S.Message>{renderMessage(notification.message, notification.highlights)}</S.Message>
+    <S.Item
+      $isRead={notification.read}
+      onClick={handleClick}
+      style={{ cursor: notification.link ? 'pointer' : 'default' }}
+    >
+      <S.Message>{notification.content}</S.Message>
       <S.Time>{formatNotificationTime(notification.createdAt)}</S.Time>
     </S.Item>
   );

@@ -1,65 +1,56 @@
-import type { Notification } from '../model/types';
-import { mockTeacherNotifications, mockStudentNotifications } from '../model/mockData';
-// import { apiClient } from '@shared/api';
+import { apiClient } from '@shared/api/client';
+import type {
+  NotificationListResponse,
+  UnreadCountResponse,
+  ReadAllResponse,
+  NotificationCategory,
+} from '../model/types';
+
+// ============================================================
+// 알림 API 서비스 (SSE 기반)
+// ============================================================
 
 /**
- * Mock 데이터로 알림 목록 조회
- * Phase 2: apiClient.get<Notification[]>('/notifications') 로 교체
+ * 알림 목록 조회 (cursor 페이징)
+ * GET /api/v1/notifications
  */
-export const fetchNotifications = async (
-  role: 'teacher' | 'student',
-): Promise<Notification[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 300)); // 0.3초 지연
+export const fetchNotifications = async (params: {
+  cursor?: number;
+  size?: number;
+  category?: NotificationCategory;
+}): Promise<NotificationListResponse> => {
+  const queryParams = new URLSearchParams();
+  if (params.cursor) queryParams.append('cursor', String(params.cursor));
+  if (params.size) queryParams.append('size', String(params.size));
+  if (params.category) queryParams.append('category', params.category);
 
-  const notifications =
-    role === 'teacher' ? mockTeacherNotifications : mockStudentNotifications;
-
-  // localStorage에서 읽음 상태 복원
-  const readIds = JSON.parse(
-    localStorage.getItem(`notification_read_${role}`) || '[]',
-  ) as string[];
-
-  return notifications.map((n) => ({
-    ...n,
-    isRead: readIds.includes(n.id),
-  }));
-
-  // Phase 2 (API 연동):
-  // const response = await apiClient.get<Notification[]>('/notifications');
-  // return response;
+  const url = `/api/v1/notifications${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const response = await apiClient.get<NotificationListResponse>(url);
+  return response.resultData;
 };
 
 /**
- * 알림 읽음 처리
- * Phase 2: PATCH /notifications/:id/read
+ * 미확인 알림 개수 조회
+ * GET /api/v1/notifications/unread-count
  */
-export const markAsRead = async (
-  notificationId: string,
-  role: 'teacher' | 'student',
-): Promise<void> => {
-  const key = `notification_read_${role}`;
-  const readIds = JSON.parse(localStorage.getItem(key) || '[]') as string[];
-
-  if (!readIds.includes(notificationId)) {
-    readIds.push(notificationId);
-    localStorage.setItem(key, JSON.stringify(readIds));
-  }
-
-  // Phase 2 (API 연동):
-  // await apiClient.patch(`/notifications/${notificationId}/read`);
+export const fetchUnreadCount = async (): Promise<number> => {
+  const response = await apiClient.get<UnreadCountResponse>('/api/v1/notifications/unread-count');
+  return response.resultData.count;
 };
 
 /**
- * 모든 알림 읽음 처리
- * Phase 2: PATCH /notifications/read-all
+ * 개별 알림 읽음 처리
+ * POST /api/v1/notifications/{notificationId}/read
  */
-export const markAllAsRead = async (role: 'teacher' | 'student'): Promise<void> => {
-  const notifications =
-    role === 'teacher' ? mockTeacherNotifications : mockStudentNotifications;
+export const markAsRead = async (notificationId: number): Promise<void> => {
+  await apiClient.post(`/api/v1/notifications/${notificationId}/read`);
+};
 
-  const allIds = notifications.map((n) => n.id);
-  localStorage.setItem(`notification_read_${role}`, JSON.stringify(allIds));
-
-  // Phase 2 (API 연동):
-  // await apiClient.patch('/notifications/read-all');
+/**
+ * 전체 알림 읽음 처리
+ * POST /api/v1/notifications/read-all
+ */
+export const markAllAsRead = async (): Promise<number> => {
+  const response = await apiClient.post<ReadAllResponse>('/api/v1/notifications/read-all');
+  return response.resultData.updatedCount;
 };

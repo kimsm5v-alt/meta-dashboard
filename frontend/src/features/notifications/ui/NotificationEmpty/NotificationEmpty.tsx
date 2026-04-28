@@ -7,8 +7,9 @@ interface NotificationEmptyProps {
 
 const categoryLabels: Record<'all' | NotificationCategory, string> = {
   all: '알림',
-  exam: '검사 알림',
-  group: '그룹 알림',
+  EXAM: '검사 알림',
+  GROUP: '그룹 알림',
+  NOTICE: '공지 알림',
 };
 
 export const NotificationEmpty = ({ category }: NotificationEmptyProps) => {

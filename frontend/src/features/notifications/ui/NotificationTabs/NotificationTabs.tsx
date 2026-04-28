@@ -4,17 +4,17 @@ import * as S from './NotificationTabs.styles';
 interface NotificationTabsProps {
   activeCategory: 'all' | NotificationCategory;
   onCategoryChange: (category: 'all' | NotificationCategory) => void;
-  notifications: Notification[];
+  allNotifications: Notification[];
 }
 
 export const NotificationTabs = ({
   activeCategory,
   onCategoryChange,
-  notifications,
+  allNotifications,
 }: NotificationTabsProps) => {
-  const allCount = notifications.filter((n) => !n.isRead).length;
-  const examCount = notifications.filter((n) => n.category === 'exam' && !n.isRead).length;
-  const groupCount = notifications.filter((n) => n.category === 'group' && !n.isRead).length;
+  const allCount = allNotifications.filter((n) => !n.read).length;
+  const examCount = allNotifications.filter((n) => n.category === 'EXAM' && !n.read).length;
+  const groupCount = allNotifications.filter((n) => n.category === 'GROUP' && !n.read).length;
 
   return (
     <S.TabContainer>
@@ -22,11 +22,11 @@ export const NotificationTabs = ({
         전체
         {allCount > 0 && <S.TabBadge>{allCount}</S.TabBadge>}
       </S.Tab>
-      <S.Tab $isActive={activeCategory === 'exam'} onClick={() => onCategoryChange('exam')}>
+      <S.Tab $isActive={activeCategory === 'EXAM'} onClick={() => onCategoryChange('EXAM')}>
         검사
         {examCount > 0 && <S.TabBadge>{examCount}</S.TabBadge>}
       </S.Tab>
-      <S.Tab $isActive={activeCategory === 'group'} onClick={() => onCategoryChange('group')}>
+      <S.Tab $isActive={activeCategory === 'GROUP'} onClick={() => onCategoryChange('GROUP')}>
         그룹
         {groupCount > 0 && <S.TabBadge>{groupCount}</S.TabBadge>}
       </S.Tab>

@@ -1,19 +1,28 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bell } from 'lucide-react';
-import { useNotifications } from '../../api/queries';
+import { useAuth } from '@features/auth/model/AuthContext';
+import { useUnreadCount } from '../../api/queries';
+import { useNotificationStream } from '../../api/useNotificationStream';
 import { NotificationPanel } from '../NotificationPanel/NotificationPanel';
 import * as S from './BellWithPanel.styles';
 
-interface BellWithPanelProps {
-  role: 'teacher' | 'student';
-}
-
-export const BellWithPanel = ({ role }: BellWithPanelProps) => {
+export const BellWithPanel = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [sseConnected, setSseConnected] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const { isAuthenticated } = useAuth();
 
-  const { data: notifications } = useNotifications(role);
-  const unreadCount = notifications?.filter((n) => !n.isRead).length ?? 0;
+  // SSE 스트림 연결
+  useNotificationStream({
+    enabled: isAuthenticated,
+    onNotification: (noti) => {
+      console.log('[BellWithPanel] New notification:', noti);
+      setSseConnected(true);
+    },
+  });
+
+  // 미확인 알림 개수 (SSE 연결 실패 시 fallback 폴링)
+  const { data: unreadCount = 0 } = useUnreadCount(sseConnected);
 
   // 외부 클릭 감지
   useEffect(() => {
@@ -48,13 +57,7 @@ export const BellWithPanel = ({ role }: BellWithPanelProps) => {
         {unreadCount > 0 && <S.Badge>{unreadCount >= 100 ? '99+' : unreadCount}</S.Badge>}
       </S.BellButton>
 
-      {isOpen && (
-        <NotificationPanel
-          notifications={notifications ?? []}
-          role={role}
-          onClose={() => setIsOpen(false)}
-        />
-      )}
+      {isOpen && <NotificationPanel onClose={() => setIsOpen(false)} />}
     </S.Container>
   );
 };

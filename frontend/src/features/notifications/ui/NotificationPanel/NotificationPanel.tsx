@@ -1,27 +1,32 @@
 import { useState } from 'react';
-import type { Notification, NotificationCategory } from '../../model/types';
+import type { NotificationCategory } from '../../model/types';
 import { NotificationTabs } from '../NotificationTabs/NotificationTabs';
 import { NotificationList } from '../NotificationList/NotificationList';
 import { NotificationEmpty } from '../NotificationEmpty/NotificationEmpty';
-import { useMarkAllAsRead } from '../../api/queries';
+import { useNotifications, useMarkAllAsRead } from '../../api/queries';
 import * as S from './NotificationPanel.styles';
 
 interface NotificationPanelProps {
-  notifications: Notification[];
-  role: 'teacher' | 'student';
   onClose: () => void;
 }
 
-export const NotificationPanel = ({ notifications, role }: NotificationPanelProps) => {
+export const NotificationPanel = ({ onClose: _onClose }: NotificationPanelProps) => {
   const [activeCategory, setActiveCategory] = useState<'all' | NotificationCategory>('all');
-  const markAllAsReadMutation = useMarkAllAsRead(role);
+  const markAllAsReadMutation = useMarkAllAsRead();
 
-  const filteredNotifications = notifications.filter((n) => {
-    if (activeCategory === 'all') return true;
-    return n.category === activeCategory;
-  });
+  // 무한 스크롤 쿼리 (카테고리 필터 적용)
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useNotifications(activeCategory === 'all' ? undefined : activeCategory);
 
-  const unreadCount = filteredNotifications.filter((n) => !n.isRead).length;
+  // 모든 페이지의 알림 병합
+  const allNotifications = data?.pages.flatMap((page) => page.items) ?? [];
+
+  // 미확인 개수 (현재 카테고리 기준)
+  const unreadCount = allNotifications.filter((n) => !n.read).length;
 
   const handleMarkAllAsRead = () => {
     markAllAsReadMutation.mutate();
@@ -39,13 +44,22 @@ export const NotificationPanel = ({ notifications, role }: NotificationPanelProp
       <NotificationTabs
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
-        notifications={notifications}
+        allNotifications={allNotifications}
       />
 
-      {filteredNotifications.length === 0 ? (
+      {allNotifications.length === 0 ? (
         <NotificationEmpty category={activeCategory} />
       ) : (
-        <NotificationList notifications={filteredNotifications} role={role} />
+        <NotificationList
+          notifications={allNotifications}
+          onLoadMore={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              fetchNextPage();
+            }
+          }}
+          hasMore={hasNextPage}
+          isLoading={isFetchingNextPage}
+        />
       )}
     </S.Panel>
   );

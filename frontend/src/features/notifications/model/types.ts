@@ -1,16 +1,38 @@
-export type NotificationCategory = 'exam' | 'group';
+// ============================================================
+// SSE 기반 실시간 알림 타입 정의
+// 백엔드 가이드: /Downloads/fe-guide.html 참조
+// ============================================================
 
-export type TeacherEventType = 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'T6';
-export type StudentEventType = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6';
-export type NotificationEventType = TeacherEventType | StudentEventType;
+/** 알림 카테고리 (대문자) */
+export type NotificationCategory = 'EXAM' | 'GROUP' | 'NOTICE';
 
+/** 백엔드 알림 객체 */
 export interface Notification {
-  id: string;
-  eventType: NotificationEventType;
+  notificationId: number;
   category: NotificationCategory;
-  message: string;
-  highlights?: string[]; // 메시지 내 강조 키워드
-  link: string; // 클릭 시 이동 경로
-  isRead: boolean;
-  createdAt: string; // ISO 8601 timestamp
+  eventCode: string; // 'T1', 'T2', 'S1', 'S4' 등
+  content: string; // 메시지 본문
+  link: string | null; // 딥링크 (null이면 이동 없음)
+  read: boolean; // 읽음 여부
+  createdAt: string; // ISO 8601
 }
+
+/** 알림 목록 응답 (cursor 페이징) */
+export interface NotificationListResponse {
+  items: Notification[];
+  nextCursor: number | null;
+  hasMore: boolean;
+}
+
+/** 미확인 알림 개수 응답 */
+export interface UnreadCountResponse {
+  count: number;
+}
+
+/** 전체 읽음 처리 응답 */
+export interface ReadAllResponse {
+  updatedCount: number;
+}
+
+/** SSE 이벤트 타입 */
+export type SSEEventType = 'connected' | 'notification';
