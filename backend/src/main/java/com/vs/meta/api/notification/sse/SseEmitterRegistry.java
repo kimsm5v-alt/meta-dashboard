@@ -50,25 +50,47 @@ public class SseEmitterRegistry {
             try {
                 emitter.send(SseEmitter.event().name(eventName).data(data));
                 sent++;
-            } catch (IOException e) {
+            } catch (IOException | IllegalStateException e) {
+                // IOException: 네트워크 끊김. IllegalStateException: response 객체 recycle 등
                 log.warn("[SSE] 전송 실패: userNo={}, error={}", userNo, e.getMessage());
-                emitter.completeWithError(e); // onError에서 remove 호출됨
+                try {
+                    emitter.completeWithError(e); // onError → registry.remove
+                } catch (Exception ignored) {
+                    // 이미 complete 된 emitter — 무시
+                }
             }
         }
         return sent;
     }
 
-    /** Heartbeat 전송 — 모든 활성 emitter에 주석(ping) 전송 */
+    /**
+     * Heartbeat 전송 — 모든 활성 emitter에 주석(ping) 전송.
+     *
+     * <p>죽은 emitter (클라이언트 연결 끊김, response 객체 recycle 등) 는 send 시점에
+     * IOException 또는 IllegalStateException 으로 터짐. 이 경우 {@code completeWithError}
+     * 호출하여 onError 콜백 → {@link #remove} 흐름으로 정리.
+     */
     public void broadcastHeartbeat() {
-        store.forEach((userNo, emitters) -> {
-            for (SseEmitter emitter : emitters) {
+        int sent = 0;
+        int failed = 0;
+        for (Map.Entry<Long, CopyOnWriteArrayList<SseEmitter>> entry : store.entrySet()) {
+            for (SseEmitter emitter : entry.getValue()) {
                 try {
                     emitter.send(SseEmitter.event().comment("heartbeat"));
-                } catch (IOException ignored) {
-                    // 실패한 emitter는 다음 전송 시 정리됨
+                    sent++;
+                } catch (IOException | IllegalStateException e) {
+                    failed++;
+                    try {
+                        emitter.completeWithError(e); // onError 콜백 → registry.remove
+                    } catch (Exception ignored) {
+                        // 이미 complete 된 emitter — 무시
+                    }
                 }
             }
-        });
+        }
+        if (failed > 0) {
+            log.debug("[SSE] heartbeat sent={}, failed={} (dead emitters cleaned)", sent, failed);
+        }
     }
 
     /** 모니터링용: 총 활성 연결 수 */

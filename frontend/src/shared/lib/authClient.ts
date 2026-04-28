@@ -96,6 +96,7 @@ export async function initAuth(): Promise<AuthClientInstance> {
     redirectUri: window.location.origin + '/auth/callback',
     postLogoutRedirectUri: window.location.origin + '/login?logout=true',
     apiUrl: ENV.API_URL,
+    tokenStorage: 'cookie',
     touchEnabled: isHttps,
   });
 
