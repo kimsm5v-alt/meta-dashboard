@@ -48,6 +48,18 @@ spring:
         pool-name: hikari-cp
         maximum-pool-size: 50
         minimum-idle: 10
+  # Redis 설정 (알림 SSE Pub/Sub 용도)
+  redis:
+    host: ${STAT_SPRING_REDIS_HOST:localhost}
+    port: ${STAT_SPRING_REDIS_PORT:6379}
+    username: ${STAT_SPRING_REDIS_USERNAME:}
+    password: ${STAT_SPRING_REDIS_PASSWORD:}
+    timeout: 3000
+    lettuce:
+      pool:
+        max-active: 16
+        max-idle: 8
+        min-idle: 2
   thymeleaf:
     prefix: classpath:/templates/
     suffix: .html
@@ -119,6 +131,31 @@ superplatform:
 key:
   salt:
     main: ${KEY_SALT_MAIN:}
+
+# ===== 알림 기능 Phase 2 토글 =====
+# pubsub.enabled : Redis Pub/Sub 사용 여부 (다중 인스턴스 환경)
+#                  false → InMemoryDispatcher 사용 (Phase 1 동일, Redis 인프라 불필요)
+#                  true  → RedisPubSubDispatcher 사용 (Redis 인프라 필수)
+# shedlock.enabled : 스케줄러 분산 락 사용 여부 (다중 인스턴스 환경)
+#                    false → 일반 @Scheduled 동작 (단일 인스턴스 가정)
+#                    true  → @SchedulerLock 활성화, MySQL `shedlock` 테이블 필요
+#
+# 안전한 기본값: false. Redis/ShedLock 인프라가 갖춰진 환경에서만 환경변수로 true 설정.
+# 로컬 검증은 application-local.yml 에서 true 로 덮어씀.
+notification:
+  pubsub:
+    enabled: ${NOTIFICATION_PUBSUB_ENABLED:false}
+  shedlock:
+    enabled: ${NOTIFICATION_SHEDLOCK_ENABLED:false}
+
+# Actuator 의 Redis Health Indicator 자동 비활성.
+# spring-boot-starter-data-redis 가 classpath 에 있으면 actuator 가 자동으로 RedisReactiveHealthIndicator 를 등록해서
+# 10초마다 Redis 에 ping 시도 → Redis 인프라 없는 환경에서 로그 시끄러움.
+# 로컬 (Podman Redis 사용) 등 실제 Redis 쓰는 환경에서는 application-local.yml 에서 true 로 덮어씀.
+management:
+  health:
+    redis:
+      enabled: ${MANAGEMENT_HEALTH_REDIS_ENABLED:false}
 
 # File Storage (NAS)
 cloud:

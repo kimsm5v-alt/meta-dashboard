@@ -9,6 +9,7 @@ import { FEATURES } from '@shared/config/features';
 
 // Page imports from pages layer
 import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
+import { SsePocPage } from '@pages/dev/SsePocPage';
 import { CompleteProfilePage } from '@pages/auth/CompleteProfilePage';
 import {
   LandingPage,
@@ -200,6 +201,7 @@ export const AppRoutes = () => (
 
     {/* 개발용 — 프로덕션 빌드에서도 접근 가능하지만 링크 미노출 */}
     <Route path='/dev/errors' element={<ErrorTestPage />} />
+    <Route path='/dev/sse' element={<SsePocPage />} />
 
     {/* Fallback */}
     <Route path='*' element={<Navigate to='/' replace />} />
