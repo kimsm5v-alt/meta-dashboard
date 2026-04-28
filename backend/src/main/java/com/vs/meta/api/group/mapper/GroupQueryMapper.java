@@ -9,7 +9,15 @@ import java.util.Map;
 @Mapper
 public interface GroupQueryMapper {
 
-    List<Map<String, Object>> findGroupList(@Param("userNo") Long userNo);
+    /**
+     * 내 그룹 목록 조회.
+     *
+     * @param userNo           대상 사용자 user_no
+     * @param includeInactive  false (기본): ACTIVE 상태 그룹만 반환 (기존 동작).
+     *                         true: LEFT/KICKED/ARCHIVED 도 포함 (탈퇴/추방 그룹의 검사 결과 이력 조회 용도).
+     */
+    List<Map<String, Object>> findGroupList(@Param("userNo") Long userNo,
+                                             @Param("includeInactive") boolean includeInactive);
 
     List<Map<String, Object>> findGroupMemberList(@Param("groupId") Long groupId, @Param("offset") int offset, @Param("limit") int limit);
 

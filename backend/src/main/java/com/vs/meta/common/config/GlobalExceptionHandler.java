@@ -72,7 +72,25 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(org.apache.catalina.connector.ClientAbortException.class)
     public void handleClientAbort(org.apache.catalina.connector.ClientAbortException e) {
-        log.debug("Client disconnected: {}", e.getMessage());
+        // 클라이언트 측 끊김 — ERROR 가 아니라 WARN 으로 가시화 (빈도 모니터링 용도, 스택트레이스 X)
+        log.warn("Client disconnected: {}", e.getMessage());
+    }
+
+    /**
+     * SSE 등 long-lived 연결에서 클라이언트가 비정상 끊김 시 발생하는 IOException 처리.
+     * "Connection reset by peer", "Broken pipe" 등은 정상 운영 흐름 (사용자 탭 닫기, 모바일 백그라운드,
+     * LB idle timeout) 이므로 WARN 으로 한 줄만 (스택트레이스 X). 그 외 진짜 서버 측 IO 문제는 ERROR 유지.
+     *
+     * <p>{@link org.apache.catalina.connector.ClientAbortException} 은 IOException 하위라 그쪽 핸들러에서 우선 처리.
+     */
+    @ExceptionHandler(java.io.IOException.class)
+    public void handleIOException(java.io.IOException e) {
+        String msg = e.getMessage() != null ? e.getMessage() : "";
+        if (msg.contains("Connection reset") || msg.contains("Broken pipe") || msg.contains("aborted")) {
+            log.warn("Client disconnected (IO): {}", msg);
+            return;
+        }
+        log.error("Server I/O error: {}", msg, e);
     }
 
     @ExceptionHandler(Exception.class)
