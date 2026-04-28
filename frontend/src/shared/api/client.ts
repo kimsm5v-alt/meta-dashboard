@@ -46,6 +46,7 @@ export const axiosInstance: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
   },
   timeout: 10000,
+  withCredentials: true,
 });
 
 // 인증 불필요 엔드포인트 (토큰 전송 제외)
