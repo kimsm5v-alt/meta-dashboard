@@ -6,6 +6,7 @@ import com.vs.meta.common.security.SpAuthenticatedUser;
 import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -42,6 +43,13 @@ public class SpUserMappingFilter extends OncePerRequestFilter {
 
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof SpAuthenticatedUser spUser) {
+            // 인증되자마자 spUserId 박음 (게스트 포함, 매핑 SQL 단계 로그도 식별 가능하게)
+            // UUID 앞 8자만 사용 — 가독성 (full UUID는 36자라 패턴이 길어짐)
+            String spUserId = spUser.spUserId();
+            if (spUserId != null && spUserId.length() >= 8) {
+                MDC.put(MdcLoggingFilter.MDC_SP_USER_ID, spUserId.substring(0, 8));
+            }
+
             // 게스트는 학심정 user가 없으므로 매핑 스킵
             if (!"GUEST".equals(spUser.userType())) {
                 try {
@@ -64,6 +72,9 @@ public class SpUserMappingFilter extends OncePerRequestFilter {
                         }
                         request.setAttribute(ATTR_USER_NO, user.getUserNo());
                         request.setAttribute(ATTR_USER, user);
+                        // MdcLoggingFilter 가 가장 앞에서 requestId/clientIp 박았고, 여기서 userNo 추가.
+                        // MDC.clear() 는 MdcLoggingFilter 의 finally 에서 일괄 처리되므로 여기선 put 만.
+                        MDC.put(MdcLoggingFilter.MDC_USER_NO, String.valueOf(user.getUserNo()));
                     }
                 } catch (Exception e) {
                     log.warn("spUserId → userNo 매핑 실패: spUserId={}, error={}", spUser.spUserId(), e.getMessage());
