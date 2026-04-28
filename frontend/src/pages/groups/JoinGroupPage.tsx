@@ -17,6 +17,7 @@ import { Button } from '@shared/components';
 import { groupService } from '@features/groups/api/groupService';
 import { useAuth } from '@features/auth/model/AuthContext';
 import type { GroupInviteInfo } from '@shared/types';
+import { ApiError } from '@shared/api/client';
 
 type PageStep =
   | 'email-input' // 이메일 입력 단계 (비로그인 사용자)
@@ -414,8 +415,7 @@ const GenderButton = styled.button<{ $isSelected: boolean }>`
   border: 2px solid
     ${({ $isSelected, theme }) =>
       $isSelected ? theme.colors.primary[500] : theme.colors.gray[300]};
-  background: ${({ $isSelected, theme }) =>
-    $isSelected ? theme.colors.primary[50] : 'white'};
+  background: ${({ $isSelected, theme }) => ($isSelected ? theme.colors.primary[50] : 'white')};
   color: ${({ $isSelected, theme }) =>
     $isSelected ? theme.colors.primary[600] : theme.colors.gray[700]};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
@@ -612,12 +612,15 @@ export const JoinGroupPage: React.FC = () => {
       await groupService.joinGroup({ inviteCode: groupInfo.inviteCode }, user.id, user.name);
       setStep('success');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '';
-      if (errorMessage === 'ALREADY_JOINED') {
-        setError('이미 가입된 그룹입니다.');
-      } else {
-        setError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
+      // 409 에러 (이미 가입된 그룹) — 검사하기 페이지로 리다이렉트
+      if (err instanceof ApiError && (err.statusCode === 409 || err.resultCode === 409)) {
+        console.log('[JoinGroupPage] 409 감지 → /student/exams 리다이렉트');
+        navigate('/student/exams');
+        return;
       }
+
+      // 기타 에러는 에러 화면 표시
+      setError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
       setStep('error');
     }
   };
@@ -835,13 +838,13 @@ export const JoinGroupPage: React.FC = () => {
                       backgroundColor: isEmailVerified
                         ? '#16a34a'
                         : isSendingCode || resendCooldown > 0
-                        ? '#f3f4f6'
-                        : undefined,
+                          ? '#f3f4f6'
+                          : undefined,
                       color: isEmailVerified
                         ? 'white'
                         : isSendingCode || resendCooldown > 0
-                        ? '#9ca3af'
-                        : undefined,
+                          ? '#9ca3af'
+                          : undefined,
                       cursor:
                         isSendingCode || resendCooldown > 0 || isEmailVerified
                           ? 'not-allowed'
@@ -851,10 +854,7 @@ export const JoinGroupPage: React.FC = () => {
                     {isEmailVerified ? (
                       <CheckCircle size={20} />
                     ) : isSendingCode ? (
-                      <Loader2
-                        size={20}
-                        style={{ animation: 'spin 1s linear infinite' }}
-                      />
+                      <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
                     ) : resendCooldown > 0 ? (
                       `${resendCooldown}초`
                     ) : (
@@ -917,9 +917,7 @@ export const JoinGroupPage: React.FC = () => {
 
                 {/* 인증코드 안내 */}
                 {codeSentMessage && !isEmailVerified && (
-                  <HelpText style={{ marginTop: '0.5rem' }}>
-                    인증코드는 5분간 유효합니다.
-                  </HelpText>
+                  <HelpText style={{ marginTop: '0.5rem' }}>인증코드는 5분간 유효합니다.</HelpText>
                 )}
               </FormGroup>
             </FormFields>
