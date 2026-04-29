@@ -560,12 +560,12 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 >
                   중분류 요인
                 </ChartModeButton>
-                <ChartModeButton
+                {/* <ChartModeButton
                   $isActive={chartViewMode === 'fourStep'}
                   onClick={() => setChartViewMode('fourStep')}
                 >
                   4단계 해석
-                </ChartModeButton>
+                </ChartModeButton> */}
               </ChartModeToggle>
             )}
           </SectionHeader>
