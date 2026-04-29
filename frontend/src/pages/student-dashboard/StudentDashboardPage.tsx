@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Clock,
   Loader2,
+  Lightbulb,
 } from 'lucide-react';
 import { useStudentAnalysis, useApiConfig } from '@features/api';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
@@ -30,6 +31,7 @@ import {
   DataHelperChatbot,
   type PanelTab,
 } from '@features/student-dashboard/ui';
+import { useCoachingStrategy } from '@features/student-dashboard/api/useCoachingStrategy';
 import type { Student, SchoolLevel } from '@shared/types';
 
 // TODO: 4단계 해석 탭을 다시 보이게 하려면 true로 변경
@@ -248,8 +250,13 @@ const PanelButton = styled.button`
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   cursor: pointer;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: ${({ theme }) => theme.colors.gray[100]};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 `;
 
@@ -388,6 +395,13 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   }, [studentId]);
 
   const selectedRound: 1 | 2 = viewMode === 'round1' ? 1 : 2;
+
+  // 코칭 전략 API 호출
+  const {
+    moderationPaths,
+    isLoading: isCoachingLoading,
+    fetchCoachingStrategy,
+  } = useCoachingStrategy(classId, studentId, selectedRound);
   const isCompare = viewMode === 'compare';
 
   const r1 = student.assessments.find((a) => a.round === 1);
@@ -511,6 +525,17 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                   </PanelButton>
                 );
               })}
+              {/* 코칭 전략 버튼 */}
+              <PanelButton
+                onClick={async () => {
+                  await fetchCoachingStrategy();
+                  setIsCoachingOpen(true);
+                }}
+                disabled={isCoachingLoading}
+              >
+                <PanelButtonIcon as={Lightbulb} />
+                {isCoachingLoading ? '로딩중...' : '코칭 전략'}
+              </PanelButton>
             </PanelButtons>
           )}
         </ControlsSection>
@@ -594,9 +619,9 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 
         {/* 코칭 전략 모달 */}
         <CoachingStrategy
-          predictedType={current.predictedType}
-          schoolLevel={student.schoolLevel}
-          tScores={current.tScores}
+          moderationPaths={moderationPaths}
+          typeName={current.predictedType}
+          typeDescription={`${student.schoolLevel} ${classInfo.grade}학년 ${current.predictedType}`}
           isOpen={isCoachingOpen}
           onClose={() => setIsCoachingOpen(false)}
         />
