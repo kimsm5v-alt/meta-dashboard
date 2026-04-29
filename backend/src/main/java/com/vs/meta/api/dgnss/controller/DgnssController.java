@@ -492,11 +492,20 @@ public class DgnssController {
     public ResponseEntity<StreamingResponseBody> dgnssDownloadAll(
             @RequestParam(value = "jwtToken") String jwtToken,
             @RequestParam(value = "dgnssId") String dgnssId,
+            @Parameter(name = "type", description = "다운로드 타입(1: 상세 보고서, 2: 요약 보고서, 3: 상세+요약 폴더 압축)")
             @RequestParam(name = "type", required = false, defaultValue = "1") String type,
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData,
             HttpServletRequest request) throws Exception {
-
-        return dgnssService.dgnssDownloadAll(jwtToken, request, true, paramData);
+        try {
+            return dgnssService.dgnssDownloadAll(jwtToken, request, true, paramData);
+        } catch (Exception e) {
+            log.error("dgnss-download-all API 오류: dgnssId={}, type={}, requesterIp={}",
+                    dgnssId,
+                    type,
+                    request != null ? request.getRemoteAddr() : "",
+                    e);
+            throw e;
+        }
     }
 
     @RequestMapping(value = "/api/dgnss/pdf/search", method = {RequestMethod.GET})
@@ -504,6 +513,7 @@ public class DgnssController {
     @Parameter(name = "dgnssId", description = "심리검사 ID", schema = @Schema(type = "int", example = "1"))
     public ResponseDTO<CustomBody> dgnssPdfStudentSearch(
             @RequestParam(name = "dgnssId", required = false) int dgnssId,
+            @Parameter(name = "type", description = "생성 대상 타입(1: file_url 미생성, 2: summary_file_url 미생성, 3: 둘 중 하나라도 미생성)")
             @RequestParam(name = "type", required = false, defaultValue = "1") String type,
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
     ) throws Exception {

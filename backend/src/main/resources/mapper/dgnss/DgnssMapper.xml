@@ -2787,6 +2787,12 @@
                 <when test='type != "" and type == "1"'>
                     AND (tdri.file_url IS NULL OR tdri.file_url = '')
                 </when>
+                <when test='type != "" and type == "3"'>
+                    AND (
+                        tdri.file_url IS NULL OR tdri.file_url = ''
+                        OR tdri.summary_file_url IS NULL OR tdri.summary_file_url = ''
+                    )
+                </when>
                 <otherwise>
                     AND (tdri.summary_file_url IS NULL OR tdri.summary_file_url = '')
                 </otherwise>
