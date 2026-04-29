@@ -6,7 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { API_CONFIG, getAuthTokens } from '@shared/services/apiClient';
+import { API_CONFIG } from '@shared/services/apiClient';
 import {
   fetchClassAnalysis,
   fetchClassAnalysisRaw,
@@ -73,8 +73,7 @@ export function useStudentAnalysis(
         return { student: undefined, classStudents: [], classInfo: undefined };
       }
 
-      const authTokens = getAuthTokens();
-      const isApiMode = !!authTokens?.authToken && !!authTokens?.refreshToken;
+      const isApiMode = !!user;
 
       if (!isApiMode) {
         const classData = getClassById(classId);
@@ -249,8 +248,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
     queryFn: async (): Promise<ClassStudentsData> => {
       const classData = getClassById(classId!);
 
-      const authTokens = getAuthTokens();
-      const isApiMode = !!authTokens?.authToken && !!authTokens?.refreshToken;
+      const isApiMode = !!user;
 
       if (!isApiMode) {
         return {
@@ -474,8 +472,9 @@ interface UseApiConfigResult {
 }
 
 export function useApiConfig(): UseApiConfigResult {
+  const { user } = useAuth();
   return {
-    hasJwtToken: !!API_CONFIG.jwtToken,
+    hasJwtToken: !!user,
     baseUrl: API_CONFIG.baseUrl,
   };
 }
