@@ -34,6 +34,37 @@ public class SecurityConfig {
     }
 
     /**
+     * MdcLoggingFilter 의 servlet chain 자동 등록 비활성화.
+     *
+     * <p>Spring Boot 는 @Component 로 등록된 Filter 빈을 자동으로 servlet chain 에 추가하는데,
+     * 그렇게 되면 MdcLoggingFilter 가 SpUserMappingFilter 보다 먼저 실행되어 USER_NO request attribute
+     * 가 아직 안 박힌 상태로 MDC.put 이 호출됨 → MDC 에 userNo 가 누락.
+     *
+     * <p>이 빈으로 자동 등록을 차단하고, {@link ApiSecurityConfig#configure(HttpSecurity)} 에서
+     * {@code addFilterAfter(mdcLoggingFilter, SpUserMappingFilter.class)} 로만 등록되도록 한다.
+     */
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<MdcLoggingFilter> mdcLoggingFilterRegistration(
+            MdcLoggingFilter filter) {
+        var reg = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
+        reg.setEnabled(false);
+        return reg;
+    }
+
+    /**
+     * SpUserMappingFilter 도 동일 사유로 자동 등록 차단.
+     * security chain 에서 BearerTokenAuthenticationFilter 다음에 명시적으로 등록되어야 SecurityContext 의
+     * SpAuthenticatedUser 를 읽어 매핑할 수 있다 (servlet chain 에서 먼저 실행되면 SecurityContext 비어있음).
+     */
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<SpUserMappingFilter> spUserMappingFilterRegistration(
+            SpUserMappingFilter filter) {
+        var reg = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
+        reg.setEnabled(false);
+        return reg;
+    }
+
+    /**
      * Admin 영역: 세션 기반 Form Login (/admin/**)
      */
     @Configuration
@@ -113,10 +144,14 @@ public class SecurityConfig {
 
         private final Environment env;
         private final SpUserMappingFilter spUserMappingFilter;
+        private final MdcLoggingFilter mdcLoggingFilter;
 
-        public ApiSecurityConfig(Environment env, SpUserMappingFilter spUserMappingFilter) {
+        public ApiSecurityConfig(Environment env,
+                                 SpUserMappingFilter spUserMappingFilter,
+                                 MdcLoggingFilter mdcLoggingFilter) {
             this.env = env;
             this.spUserMappingFilter = spUserMappingFilter;
+            this.mdcLoggingFilter = mdcLoggingFilter;
         }
 
         @Override
@@ -194,7 +229,12 @@ public class SecurityConfig {
                     .jwt()
                         .jwtAuthenticationConverter(jwtAuthenticationConverter());
 
-            // JWT 검증 후 spUserId → userNo 매핑 필터
+            // 가장 앞에 — 진입 즉시 requestId/clientIp 를 MDC 에 push
+            // (userNo 는 SpUserMappingFilter 매핑 시점에 직접 박음)
+            http.addFilterBefore(mdcLoggingFilter,
+                    org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationFilter.class);
+
+            // JWT 검증 후 spUserId → userNo 매핑 필터 (매핑 시 MDC.userNo 도 함께 push)
             http.addFilterAfter(spUserMappingFilter,
                     org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationFilter.class);
 

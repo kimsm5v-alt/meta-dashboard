@@ -94,8 +94,15 @@ logging:
     jdbc.resultsettable: OFF
     com.zaxxer.hikari: OFF
   pattern:
-    console: "[%date{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%level] [%c{0}:%L] : %msg %n"
-    file: "[%date{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%level] [%c{0}:%L] : %msg %n"
+    # MDC 변수 (MdcLoggingFilter / SpUserMappingFilter 가 push):
+    #   %X{requestId}   요청 추적 ID (UUID 8자) — 진입 즉시
+    #   %X{spUserId}    SuperPlatform Auth 의 사용자 식별자 (UUID 앞 8자) — 인증 직후, 매핑 SQL 시점부터 표시
+    #   %X{userNo}      학심정 user_no — 매핑 후
+    #   %X{clientIp}    X-Forwarded-For 우선, 없으면 RemoteAddr
+    # ※ log4j2 의 %X 는 default value 문법(:-)을 지원 안 하므로 빈 값일 때 빈 문자열 출력.
+    #   HTTP 외 경로(스케줄러 등)에서는 MDC 비어있어 placeholder 가 빈 문자열로 출력됨.
+    console: "[%date{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%X{requestId}] [%X{spUserId}] [%X{userNo}] [%X{clientIp}] [%level] [%c{0}:%L] : %msg %n"
+    file: "[%date{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%X{requestId}] [%X{spUserId}] [%X{userNo}] [%X{clientIp}] [%level] [%c{0}:%L] : %msg %n"
 
 # NCP Cloud Outbound Mailer
 ncp:

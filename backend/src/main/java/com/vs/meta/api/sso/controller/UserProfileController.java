@@ -67,6 +67,15 @@ public class UserProfileController {
     @GetMapping("/status")
     @Operation(summary = "사용자 등록 상태 확인", description = "학심정에 user가 있는지 확인")
     public ResponseDTO<CustomBody> status(@AuthenticationPrincipal SpAuthenticatedUser spUser) {
+        // 인증 안 된 요청 (로그아웃 직후 FE 가 useProfileCheck 호출 등) — null 가드
+        if (spUser == null) {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("registered", false);
+            result.put("needsProfile", false);
+            result.put("authenticated", false);
+            return AidtCommonUtil.makeResultSuccess(null, result, "인증 필요");
+        }
+
         // sp_user_id로 조회 실패 시 마이그레이션 매핑 시도
         User user = ssoUserQueryService.findBySpUserId(spUser.spUserId());
         if (user == null) {

@@ -1,6 +1,6 @@
 ﻿# 학습심리정서검사 API 연동 규격서
 
-> 최종 수정일: 2026-04-27
+> 최종 수정일: 2026-04-29
 
 ## 개요
 
@@ -1782,7 +1782,15 @@ PDF 일괄 다운로드 전 대상 학생 목록을 조회합니다.
 | NO | 파라미터 | 타입 | 필수 | 설명 | 비고 |
 |----|----------|------|------|------|------|
 | 1 | dgnssId | Integer | O | 심리검사 ID | |
-| 2 | type | String | N | PDF 타입 | 기본값: 1 |
+| 2 | type | String | N | PDF 생성 대상 타입 | 기본값: 1 |
+
+#### type 파라미터 설명
+
+| 값 | 설명 |
+|----|------|
+| 1 | `file_url` 미생성 대상 조회 |
+| 2 | `summary_file_url` 미생성 대상 조회 |
+| 3 | `file_url` 또는 `summary_file_url` 중 하나라도 미생성인 대상 조회 |
 
 #### Request Example
 
@@ -1804,6 +1812,7 @@ GET /api/dgnss/pdf/search?dgnssId=28
 | 1 | answerIdx | Integer | 학생 응답 데이터 | |
 | 2 | userId | String | 사용자 ID | |
 | 3 | userType | String | 사용자 타입 | S: 학생 |
+| 4 | targetType | String | 생성 대상 타입 | 1: 상세(file_url), 2: 요약(summary_file_url) |
 
 #### Response Example
 
@@ -1834,6 +1843,47 @@ GET /api/dgnss/pdf/search?dgnssId=28
 }
 ```
 
+#### Response Example (`type=3`일 때, `selectMakePdfTargetList` 기준)
+
+`type=3`은 `file_url` 미생성과 `summary_file_url` 미생성을 각각 조회하여 `UNION ALL`로 전달합니다.  
+동일 학생이 두 URL 모두 미생성인 경우 `targetType=1`, `targetType=2` 두 건이 반환됩니다.
+
+```json
+{
+  "success": true,
+  "resultMessage": "학습심리정서검사 일괄다운로드 전 학생 조회",
+  "resultCode": 200,
+  "paramData": {
+    "dgnssId": "28",
+    "type": "3"
+  },
+  "resultData": {
+    "data": [
+      {
+        "answerIdx": 131,
+        "userId": "re22mma33-s1",
+        "userType": "S",
+        "targetType": "1"
+      },
+      {
+        "answerIdx": 131,
+        "userId": "re22mma33-s1",
+        "userType": "S",
+        "targetType": "2"
+      },
+      {
+        "answerIdx": 132,
+        "userId": "re22mma33-s2",
+        "userType": "S",
+        "targetType": "2"
+      }
+    ],
+    "cnt": 3
+  },
+  "currentTime": "2026-04-29 16:10:00"
+}
+```
+
 ---
 
 ### 20. 일괄 다운로드
@@ -1852,7 +1902,7 @@ GET /api/dgnss/pdf/search?dgnssId=28
 |----|----------|------|------|------|------|
 | 1 | jwtToken | String | O | JWT 토큰 | JWT 토큰 값 |
 | 2 | dgnssId | String | O | 심리검사 ID | |
-| 3 | type | String | X | PDF 타입 | 1: 기존 PDF (default), 2: 요약본 PDF |
+| 3 | type | String | X | 다운로드 타입 | 1: 상세 보고서 ZIP (default), 2: 요약 보고서 ZIP, 3: 상세+요약 폴더 동시 ZIP |
 
 #### Request Example
 
@@ -1861,6 +1911,24 @@ GET /api/dgnss/dgnss-download-all?jwtToken=xxxxx&dgnssId=184&type=1
 ```
 
 > **Note**: 새 창으로 호출 시 ZIP 파일이 다운로드됩니다. Response가 따로 없습니다.
+>
+> **ZIP 파일명 규칙**: `[%그룹명%]%검사명%_%차수%.zip`
+>
+> **type=3 ZIP 내부 구조 예시**
+>
+> ```
+> [6학년 1반]학습종합검사_1차.zip
+> ├── 상세 보고서/
+> │   ├── 강시우.pdf
+> │   └── ...
+> └── 요약 보고서/
+>     ├── 강시우.pdf
+>     └── ...
+> ```
+>
+> **운영 로그(오류 탐지)**
+> - API 실패 시 컨트롤러 로그에 `dgnssId`, `type`, `requesterIp`가 기록됩니다.
+> - 서비스 로그에 `dgnssDownloadAll 시작/완료/실패`와 `userId`, `zipFileName`, `zipSize`가 기록됩니다.
 
 ---
 
@@ -1983,3 +2051,4 @@ POST /api/ai/conversations/101/delete
 | 2026-04-08 | 1.5 | `tc/stinfolist` 응답에 `nickname`/`memberNo` 추가, `st/analysis`의 `stdtId` 조회 시 `claId` 규칙 추가 및 `stUserInfo`에 `groupNm`/`nickname`/`memberNo` 반영, `tc/class-factor-avg`의 학급명 키를 `classNm`→`groupNm`으로 변경 |
 | 2026-04-15 | 1.6 | AI 채팅 대화 Soft Delete API (`POST /api/ai/conversations/{conversationId}/delete`) 연계 스펙 추가 |
 | 2026-04-27 | 1.7 | `st/analysis`에 `graphYn` 및 `recommendationByOrd` 반영, 미기재 API 추가(`st/answer/random`, `mail/test`, `graph` 3종), 인증 방식에 `local` 프로필 예외 추가 |
+| 2026-04-29 | 1.8 | `pdf/search` 및 `dgnss-download-all`에 `type=3`(상세+요약 동시 처리) 스펙 반영, ZIP 구조/파일명 규칙 및 오류 탐지 로그 명세 추가 |

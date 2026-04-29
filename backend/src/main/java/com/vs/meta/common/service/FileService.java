@@ -563,7 +563,6 @@ public class FileService {
      * @throws Exception
      */
     public ResponseEntity<StreamingResponseBody> dgnssDownloadAll(String jwtToken, HttpServletRequest request, boolean isAuth, Map<String, Object> param) throws Exception {
-        Map<String, String> response = new HashMap<>();
         String userId = null;
         // SecurityContext에서 인증된 사용자 정보 추출
         SpAuthenticatedUser spUser = SecurityUtil.getCurrentSpUser();
@@ -583,105 +582,58 @@ public class FileService {
             param.put("rgtr", userId);
         }
 
-        // 피어나다의 경우 학생 파일을 교사가 생성할 수 있음
         String type = MapUtils.getString(param, "type", "1");
-        List<Map<String, Object>> fileInfoList = new ArrayList<>();
-        if (StringUtils.equals(type, "1")) {
-            fileInfoList = fileMapper.selectFileDgnssFileList(param);
-        } else {
-            fileInfoList = fileMapper.selectFileDgnssSummaryList(param);
-        }
-        if (CollectionUtils.isEmpty(fileInfoList)) {
-            throw new Exception("파일 정보가 없습니다");
-        }
-
+        String dgnssId = MapUtils.getString(param, "dgnssId", "");
+        log.info("dgnssDownloadAll 시작: dgnssId={}, type={}, userId={}", dgnssId, type, userId);
         // 검사 정보 조회
         Map<String, Object> dgnssInfo = fileMapper.selectTcDgnssInfoWithId(param);
         if (MapUtils.isEmpty(dgnssInfo)) {
+            log.error("dgnssDownloadAll 실패(검사 정보 없음): dgnssId={}, type={}, userId={}", dgnssId, type, userId);
             throw new Exception("검사 정보가 없습니다");
         }
-        String claId = MapUtils.getString(dgnssInfo, "claId", "");
 
-        // 학생 이름 매핑 및 학급 정보
-        Map<String, Object> userIdMap = new HashMap<>();
-
-        // fileInfoList에서 학생 이름 매핑
-        for (Map<String, Object> fileMap : fileInfoList) {
-            String stdtId = MapUtils.getString(fileMap, "userId", "");
-            String stdtNm = MapUtils.getString(fileMap, "userNm", "");
-            if (StringUtils.isNotEmpty(stdtId)) {
-                userIdMap.put(stdtId, stdtNm);
-            }
-        }
-
-        for (Map<String, Object> fileMap : fileInfoList) {
-            String fileUrl = StringUtils.substringBeforeLast(MapUtils.getString(fileMap, "fileUrl", ""), "/");
-            String fileName = StringUtils.substringAfterLast(MapUtils.getString(fileMap, "fileUrl", ""), "/");
-            fileMap.put("filePath", fileUrl + "/");
-            fileMap.put("fileName", fileName);
-
-            if (isAuth && MapUtils.getString(fileMap, "downloadAuthYn", "N").equals("N")) {
-                throw new Exception("파일 열람 권한이 없습니다.");
-            }
-
-            if ("Y".equals(MapUtils.getString(fileMap, "delYn", "")) &&
-                    "Y".equals(MapUtils.getString(fileMap, "prsInfoYn", ""))) {
-                throw new Exception("개인정보 처리방침에 의해 삭제된 파일입니다.");
-            }
-
-            // 로그 기록
-            FileLogVO fileLogVO = setFileLogMapToDto(fileMap, FileUtil.getRemoteIP(request), requestSource);
-            fileLogVO.setUserId(userId);
-            fileMapper.insertDownloadLog(fileLogVO);
-
-            // 파일 존재 및 체크섬 확인
-            String saveFileName = MapUtils.getString(fileMap, "saveFileName", "");
-            Path filePath = Paths.get(fileUrl).resolve(saveFileName).normalize();
-            File file = filePath.toFile();
-
-            String fileChecksum = null;
-
-            String checksum = MapUtils.getString(fileMap, "checksum", "");
-            if (StringUtils.isEmpty(checksum)) {
-                throw new Exception("파일 체크섬 정보가 없습니다.");
-            }
-
-            fileChecksum = FileUtil.getHmacSHA256Checksum(filePath.toString(), keySaltMain);
-            if (StringUtils.equals(checksum, fileChecksum) == false) {
-                throw new IOException("파일 다운로드 실패: 파일이 손상되었습니다.");
-            }
-        }
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (ZipOutputStream zipOut = new ZipOutputStream(baos, StandardCharsets.UTF_8)) {
-            for (Map<String, Object> fileMap : fileInfoList) {
-                String stdtId = MapUtils.getString(fileMap, "userId", "");
-                String saveFileName = MapUtils.getString(fileMap, "saveFileName", "");
-                String fileUrl = MapUtils.getString(fileMap, "filePath", "");
-                Path filePath = Paths.get(fileUrl).resolve(saveFileName).normalize();
-                File file = filePath.toFile();
-                if (!file.exists() || !file.isFile()) continue;
-
-                try (InputStream fis = new FileInputStream(file)) {
-                    String zipFileName = MapUtils.getString(userIdMap, stdtId, "파일") + ".pdf";
-                    zipOut.putNextEntry(new ZipEntry(zipFileName));
-                    byte[] buffer = new byte[1024];
-                    int len;
-                    while ((len = fis.read(buffer)) > 0) {
-                        zipOut.write(buffer, 0, len);
-                    }
-                    zipOut.closeEntry();
+            if (StringUtils.equals(type, "3")) {
+                List<Map<String, Object>> detailFileInfoList = fileMapper.selectFileDgnssFileList(param);
+                List<Map<String, Object>> summaryFileInfoList = fileMapper.selectFileDgnssSummaryList(param);
+                if (CollectionUtils.isEmpty(detailFileInfoList) && CollectionUtils.isEmpty(summaryFileInfoList)) {
+                    log.error("dgnssDownloadAll 실패(파일 정보 없음): dgnssId={}, type=3, userId={}", dgnssId, userId);
+                    throw new Exception("파일 정보가 없습니다");
                 }
+
+                addDgnssFilesToZip(detailFileInfoList, "상세 보고서", zipOut, isAuth, userId, request, requestSource);
+                addDgnssFilesToZip(summaryFileInfoList, "요약 보고서", zipOut, isAuth, userId, request, requestSource);
+            } else {
+                List<Map<String, Object>> fileInfoList;
+                if (StringUtils.equals(type, "1")) {
+                    fileInfoList = fileMapper.selectFileDgnssFileList(param);
+                } else {
+                    fileInfoList = fileMapper.selectFileDgnssSummaryList(param);
+                }
+                if (CollectionUtils.isEmpty(fileInfoList)) {
+                    log.error("dgnssDownloadAll 실패(파일 정보 없음): dgnssId={}, type={}, userId={}", dgnssId, type, userId);
+                    throw new Exception("파일 정보가 없습니다");
+                }
+
+                addDgnssFilesToZip(fileInfoList, "", zipOut, isAuth, userId, request, requestSource);
             }
             zipOut.finish();
         } catch (Exception e) {
-            log.error("ZIP 생성 오류: {}", e.getMessage());
+            log.error("dgnssDownloadAll 실패: dgnssId={}, type={}, userId={}", dgnssId, type, userId, e);
+            throw e;
         }
         byte[] zipBytes = baos.toByteArray();
 
         String dgnssName = StringUtils.equals(MapUtils.getString(dgnssInfo, "paperIdx", ""), "1") ? "종합학습검사" : "자기조절학습검사";
         String ordNo = StringUtils.equals(MapUtils.getString(dgnssInfo, "ordNo", ""), "1") ? "1차" : "2차";
         String clsName = MapUtils.getString(dgnssInfo, "claNm", "");
-        String zipFileName = StringUtils.equals("1", type) ? "[" + clsName + "]" + dgnssName + "_" + ordNo + ".zip" : "[" + clsName + "]" + dgnssName + "_" + ordNo + "_요약본" + ".zip";
+        String zipFileName;
+        if (StringUtils.equals(type, "2")) {
+            zipFileName = "[" + clsName + "]" + dgnssName + "_" + ordNo + "_요약본.zip";
+        } else {
+            zipFileName = "[" + clsName + "]" + dgnssName + "_" + ordNo + ".zip";
+        }
         String encodedFileName = URLEncoder.encode(zipFileName, StandardCharsets.UTF_8).replace("+", "%20");
 
         HttpHeaders headers = new HttpHeaders();
@@ -695,7 +647,115 @@ public class FileService {
             outputStream.flush();
         };
 
+        log.info("dgnssDownloadAll 완료: dgnssId={}, type={}, userId={}, zipFileName={}, zipSize={}",
+                dgnssId, type, userId, zipFileName, zipBytes.length);
         return new ResponseEntity<>(stream, headers, HttpStatus.OK);
+    }
+
+    private void addDgnssFilesToZip(List<Map<String, Object>> fileInfoList,
+                                    String folderName,
+                                    ZipOutputStream zipOut,
+                                    boolean isAuth,
+                                    String userId,
+                                    HttpServletRequest request,
+                                    String requestSource) throws Exception {
+        if (CollectionUtils.isEmpty(fileInfoList)) {
+            return;
+        }
+
+        Set<String> usedZipEntries = new HashSet<>();
+        for (Map<String, Object> fileMap : fileInfoList) {
+            prepareAndValidateDgnssFileMap(fileMap, isAuth, userId, request, requestSource);
+            String zipEntryPath = buildDgnssZipEntryPath(fileMap, folderName, usedZipEntries);
+            writeDgnssFileToZip(fileMap, zipEntryPath, zipOut);
+        }
+    }
+
+    private void prepareAndValidateDgnssFileMap(Map<String, Object> fileMap,
+                                                boolean isAuth,
+                                                String userId,
+                                                HttpServletRequest request,
+                                                String requestSource) throws Exception {
+        String fileUrl = StringUtils.substringBeforeLast(MapUtils.getString(fileMap, "fileUrl", ""), "/");
+        String fileName = StringUtils.substringAfterLast(MapUtils.getString(fileMap, "fileUrl", ""), "/");
+        fileMap.put("filePath", fileUrl + "/");
+        fileMap.put("fileName", fileName);
+
+        if (isAuth && MapUtils.getString(fileMap, "downloadAuthYn", "N").equals("N")) {
+            throw new Exception("파일 열람 권한이 없습니다.");
+        }
+
+        if ("Y".equals(MapUtils.getString(fileMap, "delYn", "")) &&
+                "Y".equals(MapUtils.getString(fileMap, "prsInfoYn", ""))) {
+            throw new Exception("개인정보 처리방침에 의해 삭제된 파일입니다.");
+        }
+
+        FileLogVO fileLogVO = setFileLogMapToDto(fileMap, FileUtil.getRemoteIP(request), requestSource);
+        fileLogVO.setUserId(userId);
+        fileMapper.insertDownloadLog(fileLogVO);
+
+        String filePath = MapUtils.getString(fileMap, "filePath", "") + MapUtils.getString(fileMap, "saveFileName", "");
+        Path safePath = resolveSafePath(filePath);
+        File file = safePath.toFile();
+        if (!file.exists() || !file.isFile()) {
+            throw new FileNotFoundException("다운로드 대상 파일이 없습니다.");
+        }
+
+        String checksum = MapUtils.getString(fileMap, "checksum", "");
+        if (StringUtils.isEmpty(checksum)) {
+            throw new Exception("파일 체크섬 정보가 없습니다.");
+        }
+
+        String fileChecksum = FileUtil.getHmacSHA256Checksum(safePath.toString(), keySaltMain);
+        if (!StringUtils.equals(checksum, fileChecksum)) {
+            throw new IOException("파일 다운로드 실패: 파일이 손상되었습니다.");
+        }
+    }
+
+    private String buildDgnssZipEntryPath(Map<String, Object> fileMap, String folderName, Set<String> usedZipEntries) {
+        String stdtNm = MapUtils.getString(fileMap, "userNm", "파일");
+        String baseName = stdtNm + ".pdf";
+        String entryPath = StringUtils.isBlank(folderName) ? baseName : folderName + "/" + baseName;
+        if (usedZipEntries.add(entryPath)) {
+            return entryPath;
+        }
+
+        String stdtId = MapUtils.getString(fileMap, "userId", "");
+        String fallbackName = StringUtils.isBlank(stdtId) ? (stdtNm + "_2.pdf") : (stdtNm + "_" + stdtId + ".pdf");
+        String fallbackEntryPath = StringUtils.isBlank(folderName) ? fallbackName : folderName + "/" + fallbackName;
+        if (usedZipEntries.add(fallbackEntryPath)) {
+            return fallbackEntryPath;
+        }
+
+        int sequence = 2;
+        while (true) {
+            String seqName = stdtNm + "_" + sequence + ".pdf";
+            String seqEntryPath = StringUtils.isBlank(folderName) ? seqName : folderName + "/" + seqName;
+            if (usedZipEntries.add(seqEntryPath)) {
+                return seqEntryPath;
+            }
+            sequence++;
+        }
+    }
+
+    private void writeDgnssFileToZip(Map<String, Object> fileMap, String zipEntryPath, ZipOutputStream zipOut) throws Exception {
+        String saveFileName = MapUtils.getString(fileMap, "saveFileName", "");
+        String fileUrl = MapUtils.getString(fileMap, "filePath", "");
+        Path safePath = resolveSafePath(fileUrl + saveFileName);
+        File file = safePath.toFile();
+        if (!file.exists() || !file.isFile()) {
+            return;
+        }
+
+        try (InputStream fis = new FileInputStream(file)) {
+            zipOut.putNextEntry(new ZipEntry(zipEntryPath));
+            byte[] buffer = new byte[1024];
+            int len;
+            while ((len = fis.read(buffer)) > 0) {
+                zipOut.write(buffer, 0, len);
+            }
+            zipOut.closeEntry();
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
