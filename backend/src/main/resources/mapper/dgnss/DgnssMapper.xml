@@ -2772,31 +2772,65 @@
 
 	<select id="selectMakePdfTargetList" parameterType="map" resultType="map">
         /* DgnssMapper.selectMakePdfTargetList */
-        SELECT tdri.id AS answerIdx
-            , tdri.stdt_id AS userId
-            , 'S' AS userType
-        FROM tb_dgnss_result_info tdri
-            INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
-            INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-            INNER JOIN group_member gm ON gi.group_id = gm.group_id
-                                       AND tdri.stdt_id = gm.stdt_id
-                                      
-        WHERE tdri.dgnss_id = #{dgnssId}
-            AND tdri.subm_at = 'Y'
-            <choose>
-                <when test='type != "" and type == "1"'>
-                    AND (tdri.file_url IS NULL OR tdri.file_url = '')
-                </when>
-                <when test='type != "" and type == "3"'>
-                    AND (
-                        tdri.file_url IS NULL OR tdri.file_url = ''
-                        OR tdri.summary_file_url IS NULL OR tdri.summary_file_url = ''
-                    )
-                </when>
-                <otherwise>
-                    AND (tdri.summary_file_url IS NULL OR tdri.summary_file_url = '')
-                </otherwise>
-            </choose>
+        <choose>
+            <when test='type != "" and type == "3"'>
+                SELECT tdri.id AS answerIdx
+                     , tdri.stdt_id AS userId
+                     , 'S' AS userType
+                     , '1' AS targetType
+                FROM tb_dgnss_result_info tdri
+                         INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
+                         INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+                         INNER JOIN group_member gm ON gi.group_id = gm.group_id
+                            AND tdri.stdt_id = gm.stdt_id
+                WHERE tdri.dgnss_id = #{dgnssId}
+                  AND tdri.subm_at = 'Y'
+                  AND (tdri.file_url IS NULL OR tdri.file_url = '')
+
+                UNION ALL
+
+                SELECT tdri.id AS answerIdx
+                     , tdri.stdt_id AS userId
+                     , 'S' AS userType
+                     , '2' AS targetType
+                FROM tb_dgnss_result_info tdri
+                         INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
+                         INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+                         INNER JOIN group_member gm ON gi.group_id = gm.group_id
+                            AND tdri.stdt_id = gm.stdt_id
+                WHERE tdri.dgnss_id = #{dgnssId}
+                  AND tdri.subm_at = 'Y'
+                  AND (tdri.summary_file_url IS NULL OR tdri.summary_file_url = '')
+            </when>
+            <when test='type != "" and type == "1"'>
+                SELECT tdri.id AS answerIdx
+                     , tdri.stdt_id AS userId
+                     , 'S' AS userType
+                     , '1' AS targetType
+                FROM tb_dgnss_result_info tdri
+                         INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
+                         INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+                         INNER JOIN group_member gm ON gi.group_id = gm.group_id
+                            AND tdri.stdt_id = gm.stdt_id
+                WHERE tdri.dgnss_id = #{dgnssId}
+                  AND tdri.subm_at = 'Y'
+                  AND (tdri.file_url IS NULL OR tdri.file_url = '')
+            </when>
+            <otherwise>
+                SELECT tdri.id AS answerIdx
+                     , tdri.stdt_id AS userId
+                     , 'S' AS userType
+                     , '2' AS targetType
+                FROM tb_dgnss_result_info tdri
+                         INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
+                         INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+                         INNER JOIN group_member gm ON gi.group_id = gm.group_id
+                            AND tdri.stdt_id = gm.stdt_id
+                WHERE tdri.dgnss_id = #{dgnssId}
+                  AND tdri.subm_at = 'Y'
+                  AND (tdri.summary_file_url IS NULL OR tdri.summary_file_url = '')
+            </otherwise>
+        </choose>
     </select>
 
 	<select id="selectLpaFactorScores" parameterType="int" resultType="map">

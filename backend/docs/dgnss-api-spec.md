@@ -1812,6 +1812,7 @@ GET /api/dgnss/pdf/search?dgnssId=28
 | 1 | answerIdx | Integer | 학생 응답 데이터 | |
 | 2 | userId | String | 사용자 ID | |
 | 3 | userType | String | 사용자 타입 | S: 학생 |
+| 4 | targetType | String | 생성 대상 타입 | 1: 상세(file_url), 2: 요약(summary_file_url) |
 
 #### Response Example
 
@@ -1839,6 +1840,47 @@ GET /api/dgnss/pdf/search?dgnssId=28
     "cnt": 5
   },
   "currentTime": "2025-10-23 11:40:37"
+}
+```
+
+#### Response Example (`type=3`일 때, `selectMakePdfTargetList` 기준)
+
+`type=3`은 `file_url` 미생성과 `summary_file_url` 미생성을 각각 조회하여 `UNION ALL`로 전달합니다.  
+동일 학생이 두 URL 모두 미생성인 경우 `targetType=1`, `targetType=2` 두 건이 반환됩니다.
+
+```json
+{
+  "success": true,
+  "resultMessage": "학습심리정서검사 일괄다운로드 전 학생 조회",
+  "resultCode": 200,
+  "paramData": {
+    "dgnssId": "28",
+    "type": "3"
+  },
+  "resultData": {
+    "data": [
+      {
+        "answerIdx": 131,
+        "userId": "re22mma33-s1",
+        "userType": "S",
+        "targetType": "1"
+      },
+      {
+        "answerIdx": 131,
+        "userId": "re22mma33-s1",
+        "userType": "S",
+        "targetType": "2"
+      },
+      {
+        "answerIdx": 132,
+        "userId": "re22mma33-s2",
+        "userType": "S",
+        "targetType": "2"
+      }
+    ],
+    "cnt": 3
+  },
+  "currentTime": "2026-04-29 16:10:00"
 }
 ```
 
