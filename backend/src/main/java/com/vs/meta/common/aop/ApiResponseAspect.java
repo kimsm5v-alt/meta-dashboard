@@ -7,7 +7,6 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -43,71 +42,11 @@ public class ApiResponseAspect {
 
         String eTime = LocalDateTime.now().format(DATE_FORMATTER);
         long elapsedMs = System.currentTimeMillis() - sMillis;
+
         int statusCode = 0;
         if (result instanceof ResponseDTO<?> responseDTO
                 && responseDTO.getBody() instanceof CustomBody oldBody) {
 
-            statusCode = oldBody.resultCode();
-        } else if (result instanceof ResponseEntity<?> resEntity) {
-            statusCode = resEntity.getStatusCodeValue();
-        }
-
-        if (result instanceof ResponseDTO<?> responseDTO
-                && responseDTO.getBody() instanceof CustomBody oldBody) {
-        } else if (result instanceof ResponseEntity<?> resEntity) {
-            statusCode = resEntity.getStatusCodeValue();
-        }
-
-        if (result instanceof ResponseDTO<?> responseDTO
-                && responseDTO.getBody() instanceof CustomBody oldBody) {
-        } else if (result instanceof ResponseEntity<?> resEntity) {
-            statusCode = resEntity.getStatusCodeValue();
-        }
-
-        if (result instanceof ResponseDTO<?> responseDTO
-                && responseDTO.getBody() instanceof CustomBody oldBody) {
-        } else if (result instanceof ResponseEntity<?> resEntity) {
-            statusCode = resEntity.getStatusCodeValue();
-        }
-
-        if (result instanceof ResponseDTO<?> responseDTO
-                && responseDTO.getBody() instanceof CustomBody oldBody) {
-        } else if (result instanceof ResponseEntity<?> resEntity) {
-            statusCode = resEntity.getStatusCodeValue();
-        }
-
-        if (result instanceof ResponseDTO<?> responseDTO
-                && responseDTO.getBody() instanceof CustomBody oldBody) {
-        } else if (result instanceof ResponseEntity<?> resEntity) {
-            statusCode = resEntity.getStatusCodeValue();
-        }
-
-        if (result instanceof ResponseDTO<?> responseDTO
-                && responseDTO.getBody() instanceof CustomBody oldBody) {
-        } else if (result instanceof ResponseEntity<?> resEntity) {
-            statusCode = resEntity.getStatusCodeValue();
-        }
-
-        if (result instanceof ResponseDTO<?> responseDTO
-                && responseDTO.getBody() instanceof CustomBody oldBody) {
-        } else if (result instanceof ResponseEntity<?> resEntity) {
-            statusCode = resEntity.getStatusCodeValue();
-        }
-
-        if (result instanceof ResponseDTO<?> responseDTO
-                && responseDTO.getBody() instanceof CustomBody oldBody) {
-        } else if (result instanceof ResponseEntity<?> resEntity) {
-            statusCode = resEntity.getStatusCodeValue();
-        }
-
-        if (result instanceof ResponseDTO<?> responseDTO
-                && responseDTO.getBody() instanceof CustomBody oldBody) {
-        } else if (result instanceof ResponseEntity<?> resEntity) {
-            statusCode = resEntity.getStatusCodeValue();
-        }
-
-        if (result instanceof ResponseDTO<?> responseDTO
-                && responseDTO.getBody() instanceof CustomBody oldBody) {
             statusCode = oldBody.resultCode();
 
             String hash = sha256(String.valueOf(result));
