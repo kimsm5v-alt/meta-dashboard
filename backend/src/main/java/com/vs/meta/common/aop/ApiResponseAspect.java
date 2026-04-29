@@ -35,14 +35,19 @@ public class ApiResponseAspect {
     public Object enrichResponse(ProceedingJoinPoint joinPoint) throws Throwable {
         logDgnssParamData(joinPoint);
 
+        long sMillis = System.currentTimeMillis();
         String sTime = LocalDateTime.now().format(DATE_FORMATTER);
 
         Object result = joinPoint.proceed();
 
         String eTime = LocalDateTime.now().format(DATE_FORMATTER);
+        long elapsedMs = System.currentTimeMillis() - sMillis;
 
+        int statusCode = 0;
         if (result instanceof ResponseDTO<?> responseDTO
                 && responseDTO.getBody() instanceof CustomBody oldBody) {
+
+            statusCode = oldBody.resultCode();
 
             String hash = sha256(String.valueOf(result));
 
@@ -69,7 +74,24 @@ public class ApiResponseAspect {
             }
         }
 
+        // 모든 컨트롤러 호출당 한 줄 access log — MDC 컨텍스트(reqId/userNo/clientIp)는 패턴이 자동 첨부.
+        // 운영/개발 환경에서 어떤 API 가 어느 정도 빈도로 호출되는지 한눈에 파악.
+        logAccess(joinPoint, statusCode, elapsedMs);
+
         return result;
+    }
+
+    private void logAccess(ProceedingJoinPoint joinPoint, int statusCode, long elapsedMs) {
+        String httpMethod = "";
+        String apiPath = "";
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
+            HttpServletRequest request = attrs.getRequest();
+            if (request != null) {
+                httpMethod = request.getMethod();
+                apiPath = request.getRequestURI();
+            }
+        }
+        log.info("API {} {} {} ({}ms)", httpMethod, apiPath, statusCode, elapsedMs);
     }
 
     private void logDgnssParamData(ProceedingJoinPoint joinPoint) {

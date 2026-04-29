@@ -82,7 +82,11 @@ export function useStudentAnalysis(
           student: getStudentById(classId, studentId),
           classStudents: classData?.students ?? [],
           classInfo: classData
-            ? { grade: classData.grade, classNumber: classData.classNumber, schoolLevel: classData.schoolLevel }
+            ? {
+                grade: classData.grade,
+                classNumber: classData.classNumber,
+                schoolLevel: classData.schoolLevel,
+              }
             : undefined,
         };
       }
@@ -93,16 +97,23 @@ export function useStudentAnalysis(
         fetchTeacherExams(classId, '', '1'),
       ]);
 
-      const group = groups.find((g) => g.claId === classId);
-      const grade = group?.grade ?? 1;
-      const classNumber = group?.classNumber ?? 1;
-      const schoolLevel: SchoolLevel = group
-        ? (SCHOOL_LEVEL_MAP[group.schoolLevel] ?? credSchoolLevel)
+      const matchedGroup = groups.find((g) => g.claId === classId);
+      const grade = matchedGroup?.grade ?? 1;
+      const classNumber = matchedGroup?.classNumber ?? 1;
+      const schoolLevel: SchoolLevel = matchedGroup
+        ? (SCHOOL_LEVEL_MAP[matchedGroup.schoolLevel] ?? credSchoolLevel)
         : credSchoolLevel;
+      const completedR1 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 1);
+      let classStudents: Student[] = [];
+
+      if (completedR1) {
+        // L2 대시보드 데이터를 가져와서 학생 목록을 추출합니다.
+        const l2Data = await fetchL2DashboardData(completedR1.dgnssId, classId, schoolLevel, grade);
+        classStudents = l2Data.students; // 서버에서 받아온 실제 학생 목록
+      }
 
       let studentName = '학생';
       let studentNumber = 0;
-      const completedR1 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 1);
       if (completedR1) {
         try {
           const infoList = await fetchStudentInfoList(completedR1.dgnssId, '1', 1);
@@ -136,7 +147,6 @@ export function useStudentAnalysis(
         assessments.push(convertToAssessment(studentId, 2, fullAnalysis.round2, schoolLevel));
       }
 
-      const classData = getClassById(classId);
       return {
         student: {
           id: studentId,
@@ -147,7 +157,7 @@ export function useStudentAnalysis(
           grade,
           assessments,
         },
-        classStudents: classData?.students ?? [],
+        classStudents: classStudents ?? [],
         classInfo: { grade, classNumber, schoolLevel },
       };
     },
@@ -160,7 +170,9 @@ export function useStudentAnalysis(
     classInfo: query.data?.classInfo,
     isLoading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
-    refetch: () => { void query.refetch(); },
+    refetch: () => {
+      void query.refetch();
+    },
   };
 }
 
@@ -202,7 +214,9 @@ export function useClassAnalysis(
     sections: query.data?.sections ?? [],
     isLoading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
-    refetch: () => { void query.refetch(); },
+    refetch: () => {
+      void query.refetch();
+    },
   };
 }
 
@@ -243,7 +257,11 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
           students: classData?.students ?? [],
           l2Data: null,
           classInfo: classData
-            ? { grade: classData.grade, classNumber: classData.classNumber, schoolLevel: classData.schoolLevel }
+            ? {
+                grade: classData.grade,
+                classNumber: classData.classNumber,
+                schoolLevel: classData.schoolLevel,
+              }
             : undefined,
         };
       }
@@ -297,7 +315,9 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
     classInfo: query.data?.classInfo,
     isLoading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
-    refetch: () => { void query.refetch(); },
+    refetch: () => {
+      void query.refetch();
+    },
   };
 }
 
@@ -438,7 +458,9 @@ export function useTeacherClasses(): UseTeacherClassesResult {
     error: query.error instanceof Error ? query.error.message : null,
     examStatus: query.data?.examStatus ?? 'no-exams',
     user,
-    refetch: () => { void query.refetch(); },
+    refetch: () => {
+      void query.refetch();
+    },
   };
 }
 

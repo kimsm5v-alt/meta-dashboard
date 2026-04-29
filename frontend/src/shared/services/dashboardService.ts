@@ -104,6 +104,44 @@ export interface LpaTopData {
 
 export type AnalysisResponse = Record<string, AnalysisSectionItem[]>;
 
+// ============================================================
+// Neo4j 지식그래프 추천 타입 (2026-04-27 추가)
+// ============================================================
+
+export interface ModerationPath {
+  id: string;
+  pathType: string;
+  x: string;
+  z: string;
+  y?: string;
+  strategy: string;
+  keywordInterp?: string;
+  keywordStrat?: string;
+  interpretation?: string;
+  pathColor?: string;
+  className?: string;
+  schoolLevel?: string;
+  classDescription?: string;
+}
+
+export interface GraphRecommendation {
+  answerIdx: number;
+  lpa: {
+    answerIdx?: number;
+    dgnssResultId?: number;
+    schoolLevel: string;
+    classId?: string;
+    typeName: string;
+    confidence?: number;
+    probabilitiesJson?: string;
+    status?: string;
+  };
+  recommendationCount: number;
+  moderationPaths: ModerationPath[];
+}
+
+export type RecommendationByOrd = Record<string, GraphRecommendation>;
+
 // 백엔드 lpaTypeName → 프론트엔드 StudentType 정규화 매핑
 // 붙여쓰기/긴 이름 등 다양한 형식 → 표준 띄어쓰기 형식으로 통일
 const LPA_TYPE_NAME_MAP: Record<string, string> = {
@@ -330,15 +368,17 @@ export async function fetchStudentAnalysis(
   stdtId: string,
   paperIdx: string = '1',
   ordNo: number = 1,
+  graphYn: 'Y' | 'N' = 'N',
 ): Promise<{
   tScores: number[];
   reliabilityWarnings: string[];
   sections: AnalysisSectionItem[];
   lpaTypeName: string | null;
   midCategoryScores: Record<string, number> | null;
+  recommendations?: RecommendationByOrd;
 }> {
   const response = await apiRequest<AnalysisResponse>(
-    `/api/dgnss/st/analysis?claId=${classId}&stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
+    `/api/dgnss/st/analysis?claId=${classId}&stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=${ordNo}&graphYn=${graphYn}`,
   );
 
   // lpaTop에서 백엔드가 계산한 유형명 추출 (타입 우회 필요: lpaTop은 AnalysisSectionItem[]가 아님)
@@ -348,6 +388,11 @@ export async function fetchStudentAnalysis(
   // 백엔드 타입명 → 프론트엔드 StudentType 정규화 (공백 제거, 약칭 매핑)
   const lpaTypeName = normalizeLpaTypeName(rawLpaTypeName);
 
+  // Neo4j 지식그래프 추천 추출 (graphYn=Y인 경우에만 존재)
+  const recommendationByOrd = rawResultData['recommendationByOrd'] as
+    | RecommendationByOrd
+    | undefined;
+
   const roundData = response.resultData[String(ordNo)];
   if (!roundData || roundData.length === 0) {
     return {
@@ -356,6 +401,7 @@ export async function fetchStudentAnalysis(
       sections: [],
       lpaTypeName,
       midCategoryScores: null,
+      recommendations: recommendationByOrd,
     };
   }
 
@@ -369,6 +415,7 @@ export async function fetchStudentAnalysis(
     sections: roundData,
     lpaTypeName,
     midCategoryScores,
+    recommendations: recommendationByOrd,
   };
 }
 
@@ -376,23 +423,26 @@ export async function fetchStudentFullAnalysis(
   classId: string,
   stdtId: string,
   paperIdx: string = '1',
+  graphYn: 'Y' | 'N' = 'N',
 ): Promise<{
   round1: {
     tScores: number[];
     reliabilityWarnings: string[];
     lpaTypeName: string | null;
     midCategoryScores: Record<string, number> | null;
+    recommendations?: RecommendationByOrd;
   } | null;
   round2: {
     tScores: number[];
     reliabilityWarnings: string[];
     lpaTypeName: string | null;
     midCategoryScores: Record<string, number> | null;
+    recommendations?: RecommendationByOrd;
   } | null;
 }> {
   const [r1Result, r2Result] = await Promise.allSettled([
-    fetchStudentAnalysis(classId, stdtId, paperIdx, 1),
-    fetchStudentAnalysis(classId, stdtId, paperIdx, 2),
+    fetchStudentAnalysis(classId, stdtId, paperIdx, 1, graphYn),
+    fetchStudentAnalysis(classId, stdtId, paperIdx, 2, graphYn),
   ]);
 
   const hasValidR1 =
@@ -415,6 +465,7 @@ export async function fetchStudentFullAnalysis(
             reliabilityWarnings: r1Result.value.reliabilityWarnings,
             lpaTypeName: r1Result.value.lpaTypeName,
             midCategoryScores: r1Result.value.midCategoryScores,
+            recommendations: r1Result.value.recommendations,
           }
         : null,
     round2:
@@ -424,6 +475,7 @@ export async function fetchStudentFullAnalysis(
             reliabilityWarnings: r2Result.value.reliabilityWarnings,
             lpaTypeName: r2Result.value.lpaTypeName,
             midCategoryScores: r2Result.value.midCategoryScores,
+            recommendations: r2Result.value.recommendations,
           }
         : null,
   };
