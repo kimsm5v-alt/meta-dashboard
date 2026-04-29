@@ -23,7 +23,6 @@ import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_STUDENT_DETAIL } from '@shared/data/apiDefinitions';
 import {
   DiagnosisSummary,
-  FourStepInterpretation,
   TypeClassification,
   TypeDeviations,
   CoachingStrategy,
@@ -33,9 +32,6 @@ import {
 } from '@features/student-dashboard/ui';
 import { useCoachingStrategy } from '@features/student-dashboard/api/useCoachingStrategy';
 import type { Student, SchoolLevel } from '@shared/types';
-
-// TODO: 4단계 해석 탭을 다시 보이게 하려면 true로 변경
-const SHOW_FOUR_STEP = true;
 
 // 헤더 버튼 설정
 const PANEL_BUTTONS = [
@@ -301,38 +297,6 @@ const SectionTitle = styled.h2`
   font-weight: 700;
 `;
 
-const ChartModeToggle = styled.div`
-  display: flex;
-  background: ${({ theme }) => theme.colors.gray[100]};
-  border-radius: 0.5rem;
-  padding: 0.125rem;
-`;
-
-const ChartModeButton = styled.button<{ $isActive: boolean }>`
-  padding: 0.375rem 0.75rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.15s ease;
-  border: none;
-  cursor: pointer;
-
-  ${({ $isActive, theme }) =>
-    $isActive
-      ? `
-    background: white;
-    color: ${theme.colors.primary[600]};
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  `
-      : `
-    background: transparent;
-    color: ${theme.colors.gray[600]};
-
-    &:hover {
-      color: ${theme.colors.gray[900]};
-    }
-  `}
-`;
 
 const SectionCard = styled.div`
   background: white;
@@ -387,8 +351,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
-  const [chartViewMode, setChartViewMode] = useState<'midCategory' | 'fourStep'>('midCategory');
-  console.log('StudentDashboardContent 렌더링:', student, viewMode, panelTab, chartViewMode);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -552,22 +514,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         <SectionContainer>
           <SectionHeader>
             <SectionTitle>학생 진단 결과 해석</SectionTitle>
-            {SHOW_FOUR_STEP && (
-              <ChartModeToggle>
-                <ChartModeButton
-                  $isActive={chartViewMode === 'midCategory'}
-                  onClick={() => setChartViewMode('midCategory')}
-                >
-                  중분류 요인
-                </ChartModeButton>
-                {/* <ChartModeButton
-                  $isActive={chartViewMode === 'fourStep'}
-                  onClick={() => setChartViewMode('fourStep')}
-                >
-                  4단계 해석
-                </ChartModeButton> */}
-              </ChartModeToggle>
-            )}
           </SectionHeader>
           <SectionCard>
             {/* 총평 */}
@@ -575,19 +521,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               <DiagnosisSummary tScores={current.tScores} studentType={current.predictedType} />
             </CardSection>
 
-            {/* 차트 영역: A/B 토글 */}
             <CardSection>
-              {SHOW_FOUR_STEP && chartViewMode === 'fourStep' ? (
-                <FourStepInterpretation
-                  tScores={current.tScores}
-                  prevTScores={isCompare && r1 ? r1.tScores : undefined}
-                  midCategoryScores={current.midCategoryScores}
-                  prevMidCategoryScores={isCompare && r1 ? r1.midCategoryScores : undefined}
-                  studentName={student.name}
-                />
-              ) : (
-                <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
-              )}
+              <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
             </CardSection>
           </SectionCard>
         </SectionContainer>
