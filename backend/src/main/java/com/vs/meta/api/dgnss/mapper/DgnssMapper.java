@@ -29,9 +29,11 @@ public interface DgnssMapper {
     List<LinkedHashMap<String, Object>> selectStOmrInfo(Map<String, Object> param);
     // 교사) 제출한 모든 학생의 이름 가져오기
     List<String> selectSubmitStList(Map<String, Object> param);
+    List<Long> selectSubmittedStudentUserNoListByDgnssId(@Param("dgnssId") int dgnssId);
     List<String> selectDgnssStdtList(Map<String, Object> param);
     // 교사) META 자기조절학습 result_info에 insert할 학생 ID 탐색
     List<String> selectTargetStList(Map<String, Object> param);
+    List<Long> selectTargetStudentUserNoList(Map<String, Object> param);
     String selectTcId(Map<String, Object> param);
     // 교사) META 자기조절학습 학생 개인 답안(OMR) insert
     int insertDgnssOmr(Map<String, Object> param);
@@ -73,8 +75,12 @@ public interface DgnssMapper {
     List<Map<String, Object>> getDgnssReportStatByTest(Map<String, Object> param);
     void updateFileUrlTch(Map<String, Object> param);
     List<String> selectDgnssStdtListFromDgnssId(Map<String, Object> param);
+    List<Long> selectStudentUserNosByStdtIdsInClass(@Param("claId") String claId, @Param("stdtIds") List<String> stdtIds);
     void updateDgnssStatus(Map<String, Object> param);
     String selectStdtIdFromDgnssResultId(@Param("dgnssResultId") int dgnssResultId);
+    Map<String, Object> selectSubmitNotificationInfo(@Param("dgnssResultId") int dgnssResultId);
+    String selectSubmitYnByDgnssResultId(@Param("dgnssResultId") int dgnssResultId);
+    Map<String, Object> selectSubmitCompletionInfo(@Param("dgnssResultId") int dgnssResultId);
     /* META 자기조절학습 관련 */
     // 교사) 최근 META 자기조절학습 시작 여부(대시보드)
     String selectMetaStartYn(Map<String, Object> param);
