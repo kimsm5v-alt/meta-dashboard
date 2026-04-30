@@ -100,6 +100,12 @@ export interface LpaTopData {
   lpaTypeName?: string | null;
   lpaConfidence?: number | null;
   lpaStatus?: string | null;
+  lpaTop1TypeName?: string | null;
+  lpaTop1Probability?: number | null;
+  lpaTop2TypeName?: string | null;
+  lpaTop2Probability?: number | null;
+  lpaTop3TypeName?: string | null;
+  lpaTop3Probability?: number | null;
 }
 
 export type AnalysisResponse = Record<string, AnalysisSectionItem[]>;
@@ -164,6 +170,22 @@ const normalizeLpaTypeName = (typeName: string | null | undefined): string | nul
   if (!typeName) return null;
   return LPA_TYPE_NAME_MAP[typeName] ?? null;
 };
+
+// API lpaTop1/2/3 확률을 { 유형명: 확률 } 형태로 변환
+function buildApiTypeProbabilities(lpaTopData: LpaTopData): Record<string, number> | null {
+  const entries: [string | null | undefined, number | null | undefined][] = [
+    [lpaTopData.lpaTop1TypeName, lpaTopData.lpaTop1Probability],
+    [lpaTopData.lpaTop2TypeName, lpaTopData.lpaTop2Probability],
+    [lpaTopData.lpaTop3TypeName, lpaTopData.lpaTop3Probability],
+  ];
+  const result: Record<string, number> = {};
+  for (const [typeName, prob] of entries) {
+    if (!typeName || prob == null) continue;
+    const normalized = normalizeLpaTypeName(typeName) ?? typeName;
+    result[normalized] = Math.round(prob * 10) / 10;
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
 
 // ============================================================
 // SECTION_ID → 요인 인덱스 매핑
@@ -429,6 +451,7 @@ export async function fetchStudentFullAnalysis(
     tScores: number[];
     reliabilityWarnings: string[];
     lpaTypeName: string | null;
+    apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
     recommendations?: RecommendationByOrd;
   } | null;
@@ -436,6 +459,7 @@ export async function fetchStudentFullAnalysis(
     tScores: number[];
     reliabilityWarnings: string[];
     lpaTypeName: string | null;
+    apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
     recommendations?: RecommendationByOrd;
   } | null;
@@ -456,6 +480,7 @@ export async function fetchStudentFullAnalysis(
     tScores: number[];
     reliabilityWarnings: string[];
     lpaTypeName: string | null;
+    apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
     recommendations?: RecommendationByOrd;
   } | null => {
@@ -465,11 +490,14 @@ export async function fetchStudentFullAnalysis(
     const tScores = convertSectionsToTScores(roundData);
     if (!tScores.some((t) => t !== 50)) return null;
 
-    const rawLpaTypeName = lpaTopMap?.[String(ordNo)]?.lpaTypeName ?? null;
+    const lpaTopEntry = lpaTopMap?.[String(ordNo)];
+    const rawLpaTypeName = lpaTopEntry?.lpaTypeName ?? null;
+    const apiTypeProbabilities = lpaTopEntry ? buildApiTypeProbabilities(lpaTopEntry) : null;
     return {
       tScores,
       reliabilityWarnings: getReliabilityWarnings(roundData[0]),
       lpaTypeName: normalizeLpaTypeName(rawLpaTypeName),
+      apiTypeProbabilities,
       midCategoryScores: extractMidCategoryScores(roundData),
       recommendations: recommendationByOrd,
     };
@@ -493,6 +521,7 @@ export function convertToAssessment(
         tScores: number[];
         reliabilityWarnings: string[];
         lpaTypeName?: string | null;
+        apiTypeProbabilities?: Record<string, number> | null;
         midCategoryScores?: Record<string, number> | null;
       }
     | null
@@ -509,6 +538,8 @@ export function convertToAssessment(
   const classification = classifyStudent(safeTScores, schoolLevel);
   // 백엔드가 계산한 유형명이 있으면 우선 사용, 없으면 프론트엔드 재계산 결과 사용
   const predictedType = (data?.lpaTypeName ?? classification.predictedType) as StudentType;
+  // API lpaTop 확률이 있으면 우선 사용 — 유형명과 확률 출처를 일치시켜 카드/도넛 불일치 방지
+  const typeProbabilities = data?.apiTypeProbabilities ?? classification.allProbabilities;
   const deviations = getTypeDeviations(safeTScores, predictedType, schoolLevel, 3);
   const attentionResult = checkAttention(safeTScores);
 
@@ -520,7 +551,7 @@ export function convertToAssessment(
     tScores: safeTScores,
     predictedType,
     typeConfidence: classification.confidence,
-    typeProbabilities: classification.allProbabilities,
+    typeProbabilities,
     deviations,
     reliabilityWarnings,
     attentionResult,
