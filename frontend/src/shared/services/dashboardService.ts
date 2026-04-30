@@ -106,6 +106,7 @@ export interface LpaTopData {
   lpaTop2Probability?: number | null;
   lpaTop3TypeName?: string | null;
   lpaTop3Probability?: number | null;
+  answerIdx?: number | null;
 }
 
 export type AnalysisResponse = Record<string, AnalysisSectionItem[]>;
@@ -453,6 +454,7 @@ export async function fetchStudentFullAnalysis(
     lpaTypeName: string | null;
     apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
+    answerIdx: number | null;
     recommendations?: RecommendationByOrd;
   } | null;
   round2: {
@@ -461,6 +463,7 @@ export async function fetchStudentFullAnalysis(
     lpaTypeName: string | null;
     apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
+    answerIdx: number | null;
     recommendations?: RecommendationByOrd;
   } | null;
 }> {
@@ -482,6 +485,7 @@ export async function fetchStudentFullAnalysis(
     lpaTypeName: string | null;
     apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
+    answerIdx: number | null;
     recommendations?: RecommendationByOrd;
   } | null => {
     const roundData = response.resultData[String(ordNo)];
@@ -499,6 +503,7 @@ export async function fetchStudentFullAnalysis(
       lpaTypeName: normalizeLpaTypeName(rawLpaTypeName),
       apiTypeProbabilities,
       midCategoryScores: extractMidCategoryScores(roundData),
+      answerIdx: lpaTopEntry?.answerIdx ?? null,
       recommendations: recommendationByOrd,
     };
   };
@@ -523,6 +528,7 @@ export function convertToAssessment(
         lpaTypeName?: string | null;
         apiTypeProbabilities?: Record<string, number> | null;
         midCategoryScores?: Record<string, number> | null;
+        answerIdx?: number | null;
       }
     | null
     | undefined,
@@ -556,6 +562,7 @@ export function convertToAssessment(
     reliabilityWarnings,
     attentionResult,
     midCategoryScores,
+    answerIdx: data?.answerIdx ?? null,
   };
 }
 

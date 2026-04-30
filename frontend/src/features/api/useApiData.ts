@@ -47,6 +47,7 @@ interface UseStudentAnalysisResult {
   student: Student | undefined;
   classStudents: Student[];
   classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel } | undefined;
+  dgnssIds: { round1?: number; round2?: number };
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -56,7 +57,9 @@ type StudentAnalysisData = {
   student: Student | undefined;
   classStudents: Student[];
   classInfo: UseStudentAnalysisResult['classInfo'];
+  dgnssIds: { round1?: number; round2?: number };
 };
+
 
 export function useStudentAnalysis(
   classId: string | undefined,
@@ -70,7 +73,7 @@ export function useStudentAnalysis(
     queryKey: ['student', 'analysis', classId, studentId],
     queryFn: async (): Promise<StudentAnalysisData> => {
       if (!studentId || !classId) {
-        return { student: undefined, classStudents: [], classInfo: undefined };
+        return { student: undefined, classStudents: [], classInfo: undefined, dgnssIds: {} };
       }
 
       const isApiMode = !!user;
@@ -87,6 +90,7 @@ export function useStudentAnalysis(
                 schoolLevel: classData.schoolLevel,
               }
             : undefined,
+          dgnssIds: {},
         };
       }
 
@@ -103,6 +107,8 @@ export function useStudentAnalysis(
         ? (SCHOOL_LEVEL_MAP[matchedGroup.schoolLevel] ?? credSchoolLevel)
         : credSchoolLevel;
       const completedR1 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 1);
+      const completedR2 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 2);
+      const dgnssIds = { round1: completedR1?.dgnssId, round2: completedR2?.dgnssId };
       let classStudents: Student[] = [];
 
       if (completedR1) {
@@ -135,6 +141,7 @@ export function useStudentAnalysis(
             : undefined,
           classStudents: classData?.students ?? [],
           classInfo: { grade, classNumber, schoolLevel },
+          dgnssIds,
         };
       }
 
@@ -158,6 +165,7 @@ export function useStudentAnalysis(
         },
         classStudents: classStudents ?? [],
         classInfo: { grade, classNumber, schoolLevel },
+        dgnssIds,
       };
     },
     enabled: !!classId && !!studentId,
@@ -167,6 +175,7 @@ export function useStudentAnalysis(
     student: query.data?.student,
     classStudents: query.data?.classStudents ?? [],
     classInfo: query.data?.classInfo,
+    dgnssIds: query.data?.dgnssIds ?? {},
     isLoading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     refetch: () => {
@@ -227,6 +236,7 @@ interface UseClassStudentsResult {
   students: Student[];
   l2Data: L2DashboardData | null;
   classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel } | undefined;
+  dgnssIds: { round1?: number; round2?: number };
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -236,6 +246,7 @@ type ClassStudentsData = {
   students: Student[];
   l2Data: L2DashboardData | null;
   classInfo: UseClassStudentsResult['classInfo'];
+  dgnssIds: { round1?: number; round2?: number };
 };
 
 export function useClassStudents(classId: string | undefined): UseClassStudentsResult {
@@ -261,6 +272,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
                 schoolLevel: classData.schoolLevel,
               }
             : undefined,
+          dgnssIds: {},
         };
       }
 
@@ -282,12 +294,18 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
       const effectiveTcId = tcId || user?.tcId || '';
       const exams = await fetchTeacherExams(classId!, effectiveTcId, '1');
       const completedRound1 = exams.find((exam) => exam.dgnssAt === 'N' && exam.ordNo === 1);
+      const completedRound2 = exams.find((exam) => exam.dgnssAt === 'N' && exam.ordNo === 2);
+      const classDgnssIds = {
+        round1: completedRound1?.dgnssId,
+        round2: completedRound2?.dgnssId,
+      };
 
       if (!completedRound1) {
         return {
           students: classData?.students ?? [],
           l2Data: null,
           classInfo: { grade, classNumber, schoolLevel: classSchoolLevel },
+          dgnssIds: classDgnssIds,
         };
       }
 
@@ -302,6 +320,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
         students: data.students,
         l2Data: data,
         classInfo: { grade, classNumber, schoolLevel: classSchoolLevel },
+        dgnssIds: classDgnssIds,
       };
     },
     enabled: !!classId,
@@ -311,6 +330,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
     students: query.data?.students ?? [],
     l2Data: query.data?.l2Data ?? null,
     classInfo: query.data?.classInfo,
+    dgnssIds: query.data?.dgnssIds ?? {},
     isLoading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     refetch: () => {

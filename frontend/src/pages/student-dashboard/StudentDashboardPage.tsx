@@ -14,8 +14,10 @@ import {
   Clock,
   Loader2,
   Lightbulb,
+  Download,
 } from 'lucide-react';
 import { useStudentAnalysis, useApiConfig } from '@features/api';
+import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
@@ -337,6 +339,7 @@ interface StudentDashboardContentProps {
   classId: string;
   studentId: string;
   hasJwtToken: boolean;
+  dgnssIds: { round1?: number; round2?: number };
 }
 
 const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
@@ -346,6 +349,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   classId,
   studentId,
   hasJwtToken,
+  dgnssIds,
 }) => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
@@ -364,6 +368,26 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     isLoading: isCoachingLoading,
     fetchCoachingStrategy,
   } = useCoachingStrategy(classId, studentId, selectedRound);
+
+  const [isPdfDownloading, setIsPdfDownloading] = useState(false);
+
+  const handleDownloadPdf = async (ordNo: 1 | 2) => {
+    const dgnssId = ordNo === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    const assessment = student.assessments.find((a) => a.round === ordNo);
+    if (!dgnssId || assessment?.answerIdx == null) return;
+    setIsPdfDownloading(true);
+    try {
+      await downloadStudentPdf({
+        userId: studentId,
+        userType: 'S',
+        dgnssId,
+        answerIdx: assessment.answerIdx,
+        ordNo,
+      });
+    } finally {
+      setIsPdfDownloading(false);
+    }
+  };
   const isCompare = viewMode === 'compare';
 
   const r1 = student.assessments.find((a) => a.round === 1);
@@ -498,6 +522,37 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 <PanelButtonIcon as={Lightbulb} />
                 {isCoachingLoading ? '로딩중...' : '코칭 전략'}
               </PanelButton>
+              {/* PDF 다운로드 버튼 */}
+              {hasJwtToken && (
+                <>
+                  <PanelButton
+                    onClick={() => void handleDownloadPdf(1)}
+                    disabled={isPdfDownloading || !dgnssIds.round1 || !r1?.answerIdx}
+                    title={
+                      dgnssIds.round1 && r1?.answerIdx != null
+                        ? '1차 결과 PDF 다운로드'
+                        : '1차 검사 결과 없음'
+                    }
+                  >
+                    <PanelButtonIcon as={Download} />
+                    1차 PDF
+                  </PanelButton>
+                  {r2 && (
+                    <PanelButton
+                      onClick={() => void handleDownloadPdf(2)}
+                      disabled={isPdfDownloading || !dgnssIds.round2 || !r2?.answerIdx}
+                      title={
+                        dgnssIds.round2 && r2?.answerIdx != null
+                          ? '2차 결과 PDF 다운로드'
+                          : '2차 검사 결과 없음'
+                      }
+                    >
+                      <PanelButtonIcon as={Download} />
+                      2차 PDF
+                    </PanelButton>
+                  )}
+                </>
+              )}
             </PanelButtons>
           )}
         </ControlsSection>
@@ -595,7 +650,7 @@ export const StudentDashboardPage = () => {
 
   // API 모드: API에서 학생 데이터 + 학급 학생 목록 로드
   // Mock 모드: DataContext에서 데이터 사용
-  const { student, classStudents, classInfo, isLoading, error } = useStudentAnalysis(
+  const { student, classStudents, classInfo, dgnssIds, isLoading, error } = useStudentAnalysis(
     classId,
     studentId,
   );
@@ -641,6 +696,7 @@ export const StudentDashboardPage = () => {
       classId={classId}
       studentId={studentId}
       hasJwtToken={hasJwtToken}
+      dgnssIds={dgnssIds}
     />
   );
 };

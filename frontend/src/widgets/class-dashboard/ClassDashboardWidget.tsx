@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, ShieldAlert, AlertTriangle, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, ShieldAlert, AlertTriangle, Clock, Loader2, Download } from 'lucide-react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { Card, Badge } from '@shared/components';
@@ -8,6 +8,8 @@ import { useData } from '@shared/contexts/DataContext';
 import { useClassStudents, useApiConfig } from '@features/api';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_CLASS_STUDENTS } from '@shared/data/apiDefinitions';
+import { downloadAllPdf } from '@shared/services/pdfDownloadService';
+import { getAuth } from '@shared/lib/authClient';
 import type { Student, Assessment, Class } from '@shared/types';
 import {
   TypeChangeChart,
@@ -353,6 +355,37 @@ const NoChangeText = styled.span`
   color: ${({ theme }) => theme.colors.gray[300]};
 `;
 
+const DownloadButtons = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+`;
+
+const DownloadButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  background: white;
+  color: ${({ theme }) => theme.colors.gray[700]};
+  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.gray[50]};
+    border-color: ${({ theme }) => theme.colors.gray[400]};
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
 export const ClassDashboardWidget: React.FC = () => {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
@@ -362,6 +395,7 @@ export const ClassDashboardWidget: React.FC = () => {
     students: apiStudents,
     l2Data,
     classInfo: apiClassInfo,
+    dgnssIds,
     isLoading,
     error,
   } = useClassStudents(classId);
@@ -585,6 +619,13 @@ export const ClassDashboardWidget: React.FC = () => {
     return <ChangeIndicator $variant='neutral'>−</ChangeIndicator>;
   };
 
+  const handleDownloadAll = async (round: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    if (!dgnssId) return;
+    const token = getAuth().getAccessToken() ?? '';
+    await downloadAllPdf(dgnssId, token, round);
+  };
+
   return (
     <PageContainer>
       <HeaderRow>
@@ -600,6 +641,26 @@ export const ClassDashboardWidget: React.FC = () => {
             명
           </PageSubtitle>
         </HeaderContent>
+        {hasJwtToken && (
+          <DownloadButtons>
+            <DownloadButton
+              onClick={() => void handleDownloadAll(1)}
+              disabled={!dgnssIds.round1}
+              title={dgnssIds.round1 ? '1차 전체 결과 ZIP 다운로드' : '1차 검사 완료 후 가능'}
+            >
+              <Download size={14} />
+              1차 전체 PDF
+            </DownloadButton>
+            <DownloadButton
+              onClick={() => void handleDownloadAll(2)}
+              disabled={!dgnssIds.round2}
+              title={dgnssIds.round2 ? '2차 전체 결과 ZIP 다운로드' : '2차 검사 완료 후 가능'}
+            >
+              <Download size={14} />
+              2차 전체 PDF
+            </DownloadButton>
+          </DownloadButtons>
+        )}
       </HeaderRow>
 
       {classData.stats?.examStatus?.round2 === '진행중' && (
