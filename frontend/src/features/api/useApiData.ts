@@ -444,9 +444,8 @@ export function useTeacherClasses(): UseTeacherClassesResult {
     enabled: !!user,
   });
 
-  const hasJwt = !!API_CONFIG.jwtToken;
   const classes =
-    hasJwt && (query.data?.classes.length ?? 0) > 0
+    !!user && (query.data?.classes.length ?? 0) > 0
       ? (query.data?.classes ?? mockClasses)
       : mockClasses;
 
