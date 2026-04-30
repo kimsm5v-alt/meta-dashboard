@@ -440,44 +440,44 @@ export async function fetchStudentFullAnalysis(
     recommendations?: RecommendationByOrd;
   } | null;
 }> {
-  const [r1Result, r2Result] = await Promise.allSettled([
-    fetchStudentAnalysis(classId, stdtId, paperIdx, 1, graphYn),
-    fetchStudentAnalysis(classId, stdtId, paperIdx, 2, graphYn),
-  ]);
+  const response = await apiRequest<AnalysisResponse>(
+    `/api/dgnss/st/analysis?claId=${classId}&stdtId=${stdtId}&paperIdx=${paperIdx}&ordNo=2&graphYn=${graphYn}`,
+  );
 
-  const hasValidR1 =
-    r1Result.status === 'fulfilled' &&
-    r1Result.value.tScores &&
-    Array.isArray(r1Result.value.tScores) &&
-    r1Result.value.tScores.some((t) => t !== 50);
+  const rawResultData = response.resultData as Record<string, unknown>;
+  const lpaTopMap = rawResultData['lpaTop'] as Record<string, LpaTopData> | undefined;
+  const recommendationByOrd = rawResultData['recommendationByOrd'] as
+    | RecommendationByOrd
+    | undefined;
 
-  const hasValidR2 =
-    r2Result.status === 'fulfilled' &&
-    r2Result.value.tScores &&
-    Array.isArray(r2Result.value.tScores) &&
-    r2Result.value.tScores.some((t) => t !== 50);
+  const parseRound = (
+    ordNo: 1 | 2,
+  ): {
+    tScores: number[];
+    reliabilityWarnings: string[];
+    lpaTypeName: string | null;
+    midCategoryScores: Record<string, number> | null;
+    recommendations?: RecommendationByOrd;
+  } | null => {
+    const roundData = response.resultData[String(ordNo)];
+    if (!roundData || roundData.length === 0) return null;
+
+    const tScores = convertSectionsToTScores(roundData);
+    if (!tScores.some((t) => t !== 50)) return null;
+
+    const rawLpaTypeName = lpaTopMap?.[String(ordNo)]?.lpaTypeName ?? null;
+    return {
+      tScores,
+      reliabilityWarnings: getReliabilityWarnings(roundData[0]),
+      lpaTypeName: normalizeLpaTypeName(rawLpaTypeName),
+      midCategoryScores: extractMidCategoryScores(roundData),
+      recommendations: recommendationByOrd,
+    };
+  };
 
   return {
-    round1:
-      hasValidR1 && r1Result.status === 'fulfilled'
-        ? {
-            tScores: r1Result.value.tScores,
-            reliabilityWarnings: r1Result.value.reliabilityWarnings,
-            lpaTypeName: r1Result.value.lpaTypeName,
-            midCategoryScores: r1Result.value.midCategoryScores,
-            recommendations: r1Result.value.recommendations,
-          }
-        : null,
-    round2:
-      hasValidR2 && r2Result.status === 'fulfilled'
-        ? {
-            tScores: r2Result.value.tScores,
-            reliabilityWarnings: r2Result.value.reliabilityWarnings,
-            lpaTypeName: r2Result.value.lpaTypeName,
-            midCategoryScores: r2Result.value.midCategoryScores,
-            recommendations: r2Result.value.recommendations,
-          }
-        : null,
+    round1: parseRound(1),
+    round2: parseRound(2),
   };
 }
 
