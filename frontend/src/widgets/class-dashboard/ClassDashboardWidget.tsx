@@ -9,7 +9,6 @@ import { useClassStudents, useApiConfig } from '@features/api';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_CLASS_STUDENTS } from '@shared/data/apiDefinitions';
 import { downloadAllPdf } from '@shared/services/pdfDownloadService';
-import { getAuth } from '@shared/lib/authClient';
 import type { Student, Assessment, Class } from '@shared/types';
 import {
   TypeChangeChart,
@@ -622,8 +621,7 @@ export const ClassDashboardWidget: React.FC = () => {
   const handleDownloadAll = async (round: 1 | 2) => {
     const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
     if (!dgnssId) return;
-    const token = getAuth().getAccessToken() ?? '';
-    await downloadAllPdf(dgnssId, token, round);
+    await downloadAllPdf(dgnssId, round);
   };
 
   return (

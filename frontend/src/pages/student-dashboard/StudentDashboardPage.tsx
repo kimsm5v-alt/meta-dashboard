@@ -384,6 +384,9 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         answerIdx: assessment.answerIdx,
         ordNo,
       });
+    } catch (error) {
+      console.error('[StudentDashboard] PDF 다운로드 실패:', error);
+      alert('PDF 다운로드 중 오류가 발생했습니다. 다시 시도해 주세요.');
     } finally {
       setIsPdfDownloading(false);
     }
