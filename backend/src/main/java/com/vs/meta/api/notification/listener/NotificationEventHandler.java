@@ -2,6 +2,9 @@ package com.vs.meta.api.notification.listener;
 
 import com.vs.meta.api.notification.dispatcher.NotificationDispatcher;
 import com.vs.meta.api.notification.dto.NotificationDto;
+import com.vs.meta.api.notification.event.ExamSubmittedEvent;
+import com.vs.meta.api.notification.event.StudentExamNotificationEvent;
+import com.vs.meta.api.notification.event.TeacherExamNotificationEvent;
 import com.vs.meta.api.notification.event.GroupInvitedEvent;
 import com.vs.meta.api.notification.event.StudentJoinedGroupEvent;
 import com.vs.meta.api.notification.event.StudentKickedEvent;
@@ -16,6 +19,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+
+import java.util.List;
 
 /**
  * 알림 이벤트 리스너.
@@ -32,6 +37,98 @@ public class NotificationEventHandler {
 
     private final NotificationService notificationService;
     private final NotificationDispatcher dispatcher;
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onExamSubmitted(ExamSubmittedEvent e) {
+        try {
+            String content = String.format("%s 학생이 %d차 %s를 제출했습니다.",
+                    e.studentNickname(), e.round(), e.examName());
+            Notification n = notificationService.create(
+                    e.teacherUserNo(),
+                    NotificationCategory.EXAM,
+                    "T3",
+                    content,
+                    "/assessment"
+            );
+            dispatcher.dispatch(e.teacherUserNo(), NotificationDto.from(n));
+        } catch (Exception ex) {
+            log.warn("[Notification] T3 처리 실패", ex);
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onTeacherExamNotification(TeacherExamNotificationEvent e) {
+        try {
+            String eventCode;
+            String link;
+            String content;
+            if (e.kind() == TeacherExamNotificationEvent.Kind.T4_ALL_SUBMITTED) {
+                eventCode = "T4";
+                link = "/assessment";
+                content = String.format("%s %d차 %s 전원 제출이 완료되었습니다. [검사 종료] 시 리포트가 생성됩니다.",
+                        e.groupName(), e.round(), e.examName());
+            } else {
+                eventCode = "T6";
+                link = "/dashboard";
+                content = String.format("%s %d차 %s 리포트가 생성되었습니다. 대시보드에서 결과를 확인해 보세요.",
+                        e.groupName(), e.round(), e.examName());
+            }
+            Notification n = notificationService.create(
+                    e.teacherUserNo(),
+                    NotificationCategory.EXAM,
+                    eventCode,
+                    content,
+                    link
+            );
+            dispatcher.dispatch(e.teacherUserNo(), NotificationDto.from(n));
+        } catch (Exception ex) {
+            log.warn("[Notification] 교사 검사 알림 처리 실패", ex);
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onStudentExamNotification(StudentExamNotificationEvent e) {
+        try {
+            List<Long> targets = e.studentUserNos();
+            if (targets == null || targets.isEmpty()) {
+                return;
+            }
+            String eventCode;
+            String link;
+            String content;
+            if (e.kind() == StudentExamNotificationEvent.Kind.S1_ASSIGNED) {
+                eventCode = "S1";
+                link = "/student/exams";
+                content = String.format("%s %d차 %s 검사가 시작되었어요.",
+                        e.groupName(), e.round(), e.examName());
+            } else if (e.kind() == StudentExamNotificationEvent.Kind.S6_REEXAM_REQUESTED) {
+                eventCode = "S6";
+                link = "/student/exams";
+                content = String.format("선생님이 %d차 %s 다시 한번 응시를 요청했어요.",
+                        e.round(), e.examName());
+            } else {
+                eventCode = "S3";
+                link = "/student/result";
+                content = String.format("%s %d차 %s 리포트가 생성되었어요. 대시보드에서 결과를 확인해 보세요.",
+                        e.groupName(), e.round(), e.examName());
+            }
+            List<Notification> notifications = notificationService.createBatch(
+                    targets,
+                    NotificationCategory.EXAM,
+                    eventCode,
+                    content,
+                    link
+            );
+            for (Notification n : notifications) {
+                dispatcher.dispatch(n.getUserNo(), NotificationDto.from(n));
+            }
+        } catch (Exception ex) {
+            log.warn("[Notification] 학생 검사 알림 처리 실패", ex);
+        }
+    }
 
     // ───────────────────────────────────────────────────────────
     // T1 — 학생 그룹 가입
