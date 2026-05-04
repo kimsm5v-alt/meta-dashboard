@@ -495,6 +495,7 @@ export async function fetchStudentFullAnalysis(
     if (!tScores.some((t) => t !== 50)) return null;
 
     const lpaTopEntry = lpaTopMap?.[String(ordNo)];
+    const recEntry = (recommendationByOrd?.[String(ordNo)]) as GraphRecommendation | undefined;
     const rawLpaTypeName = lpaTopEntry?.lpaTypeName ?? null;
     const apiTypeProbabilities = lpaTopEntry ? buildApiTypeProbabilities(lpaTopEntry) : null;
     return {
@@ -503,7 +504,7 @@ export async function fetchStudentFullAnalysis(
       lpaTypeName: normalizeLpaTypeName(rawLpaTypeName),
       apiTypeProbabilities,
       midCategoryScores: extractMidCategoryScores(roundData),
-      answerIdx: lpaTopEntry?.answerIdx ?? null,
+      answerIdx: recEntry?.answerIdx ?? null,
       recommendations: recommendationByOrd,
     };
   };

@@ -159,6 +159,12 @@ const ClassInfo = styled.p`
   color: ${({ theme }) => theme.colors.gray[500]};
 `;
 
+const HeaderRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
 const NavigationSection = styled.div`
   display: flex;
   align-items: center;
@@ -370,12 +376,21 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   } = useCoachingStrategy(classId, studentId, selectedRound);
 
   const [isPdfDownloading, setIsPdfDownloading] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
 
-  const handleDownloadPdf = async (ordNo: 1 | 2) => {
+  useEffect(() => {
+    if (!pdfError) return;
+    const id = setTimeout(() => setPdfError(false), 4000);
+    return () => clearTimeout(id);
+  }, [pdfError]);
+
+  const handleDownloadPdf = async () => {
+    const ordNo: 1 | 2 = viewMode === 'round2' ? 2 : 1;
     const dgnssId = ordNo === 1 ? dgnssIds.round1 : dgnssIds.round2;
     const assessment = student.assessments.find((a) => a.round === ordNo);
     if (!dgnssId || assessment?.answerIdx == null) return;
     setIsPdfDownloading(true);
+    setPdfError(false);
     try {
       await downloadStudentPdf({
         userId: studentId,
@@ -384,9 +399,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         answerIdx: assessment.answerIdx,
         ordNo,
       });
-    } catch (error) {
-      console.error('[StudentDashboard] PDF 다운로드 실패:', error);
-      alert('PDF 다운로드 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    } catch {
+      setPdfError(true);
     } finally {
       setIsPdfDownloading(false);
     }
@@ -406,6 +420,10 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     () => (isCompare && r1 ? buildStudentDomainData(r1.tScores, r1.midCategoryScores) : undefined),
     [isCompare, r1],
   );
+
+  const pdfRound: 1 | 2 = viewMode === 'round2' ? 2 : 1;
+  const pdfDgnssId = pdfRound === 1 ? dgnssIds.round1 : dgnssIds.round2;
+  const pdfAssessment = pdfRound === 1 ? r1 : r2;
 
   const currentIdx = classStudents.findIndex((s) => s.id === studentId);
   const prev = currentIdx > 0 ? classStudents[currentIdx - 1] : null;
@@ -462,24 +480,44 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
             </HeaderTitle>
           </HeaderLeft>
 
-          {/* 학생 네비게이션 */}
-          <NavigationSection>
-            <NavButton
-              onClick={() => prev && navigate(`/dashboard/class/${classId}/student/${prev.id}`)}
-              disabled={!prev}
-            >
-              <NavIcon as={ChevronLeft} />
-            </NavButton>
-            <NavCounter>
-              {currentIdx + 1} / {classStudents.length}
-            </NavCounter>
-            <NavButton
-              onClick={() => next && navigate(`/dashboard/class/${classId}/student/${next.id}`)}
-              disabled={!next}
-            >
-              <NavIcon as={ChevronRight} />
-            </NavButton>
-          </NavigationSection>
+          <HeaderRight>
+            {/* PDF 다운로드 버튼 */}
+            {hasJwtToken && (
+              <>
+                <PanelButton
+                  onClick={() => void handleDownloadPdf()}
+                  disabled={isPdfDownloading || !pdfDgnssId || !pdfAssessment?.answerIdx}
+                  title={pdfDgnssId && pdfAssessment?.answerIdx != null ? 'PDF 다운로드' : '검사 결과 없음'}
+                >
+                  <PanelButtonIcon as={isPdfDownloading ? Loader2 : Download} />
+                  PDF 다운로드
+                </PanelButton>
+                {pdfError && (
+                  <span style={{ fontSize: '0.75rem', color: '#ef4444', whiteSpace: 'nowrap' }}>
+                    다운로드 실패
+                  </span>
+                )}
+              </>
+            )}
+            {/* 학생 네비게이션 */}
+            <NavigationSection>
+              <NavButton
+                onClick={() => prev && navigate(`/dashboard/class/${classId}/student/${prev.id}`)}
+                disabled={!prev}
+              >
+                <NavIcon as={ChevronLeft} />
+              </NavButton>
+              <NavCounter>
+                {currentIdx + 1} / {classStudents.length}
+              </NavCounter>
+              <NavButton
+                onClick={() => next && navigate(`/dashboard/class/${classId}/student/${next.id}`)}
+                disabled={!next}
+              >
+                <NavIcon as={ChevronRight} />
+              </NavButton>
+            </NavigationSection>
+          </HeaderRight>
         </HeaderSection>
 
         {/* Round Selector + Panel Buttons */}
@@ -525,37 +563,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 <PanelButtonIcon as={Lightbulb} />
                 {isCoachingLoading ? '로딩중...' : '코칭 전략'}
               </PanelButton>
-              {/* PDF 다운로드 버튼 */}
-              {hasJwtToken && (
-                <>
-                  <PanelButton
-                    onClick={() => void handleDownloadPdf(1)}
-                    disabled={isPdfDownloading || !dgnssIds.round1 || !r1?.answerIdx}
-                    title={
-                      dgnssIds.round1 && r1?.answerIdx != null
-                        ? '1차 결과 PDF 다운로드'
-                        : '1차 검사 결과 없음'
-                    }
-                  >
-                    <PanelButtonIcon as={Download} />
-                    1차 PDF
-                  </PanelButton>
-                  {r2 && (
-                    <PanelButton
-                      onClick={() => void handleDownloadPdf(2)}
-                      disabled={isPdfDownloading || !dgnssIds.round2 || !r2?.answerIdx}
-                      title={
-                        dgnssIds.round2 && r2?.answerIdx != null
-                          ? '2차 결과 PDF 다운로드'
-                          : '2차 검사 결과 없음'
-                      }
-                    >
-                      <PanelButtonIcon as={Download} />
-                      2차 PDF
-                    </PanelButton>
-                  )}
-                </>
-              )}
             </PanelButtons>
           )}
         </ControlsSection>

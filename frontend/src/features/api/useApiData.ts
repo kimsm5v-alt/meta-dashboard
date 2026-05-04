@@ -95,7 +95,7 @@ export function useStudentAnalysis(
       }
 
       const [fullAnalysis, groups, exams] = await Promise.all([
-        fetchStudentFullAnalysis(classId, studentId, '1'),
+        fetchStudentFullAnalysis(classId, studentId, '1', 'Y'),
         user ? groupService.getMyGroups(user.id) : Promise.resolve([]),
         fetchTeacherExams(classId, '', '1'),
       ]);

@@ -403,6 +403,13 @@ export const ClassDashboardWidget: React.FC = () => {
   const [changeFilter, setChangeFilter] = useState<ChangeFilter>('all');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [downloadError, setDownloadError] = useState(false);
+
+  useEffect(() => {
+    if (!downloadError) return;
+    const id = setTimeout(() => setDownloadError(false), 4000);
+    return () => clearTimeout(id);
+  }, [downloadError]);
 
   const baseClassData = classId ? getClassById(classId) : undefined;
 
@@ -621,7 +628,12 @@ export const ClassDashboardWidget: React.FC = () => {
   const handleDownloadAll = async (round: 1 | 2) => {
     const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
     if (!dgnssId) return;
-    await downloadAllPdf(dgnssId, round);
+    setDownloadError(false);
+    try {
+      await downloadAllPdf(dgnssId);
+    } catch {
+      setDownloadError(true);
+    }
   };
 
   return (
@@ -641,6 +653,11 @@ export const ClassDashboardWidget: React.FC = () => {
         </HeaderContent>
         {hasJwtToken && (
           <DownloadButtons>
+            {downloadError && (
+              <span style={{ fontSize: '0.75rem', color: '#ef4444', alignSelf: 'center' }}>
+                다운로드 실패
+              </span>
+            )}
             <DownloadButton
               onClick={() => void handleDownloadAll(1)}
               disabled={!dgnssIds.round1}

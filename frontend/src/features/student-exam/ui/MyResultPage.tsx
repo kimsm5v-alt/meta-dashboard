@@ -26,6 +26,7 @@ import {
 import { getMyGroups } from '@features/groups/api/groupService';
 import { fetchStudentFullAnalysis, convertToAssessment } from '@shared/services/dashboardService';
 import { getStudentExamList } from '../api/studentExamService';
+import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
 import type { Student, SchoolLevel, Assessment } from '@shared/types';
 
@@ -243,8 +244,13 @@ const PDFButton = styled.button`
   cursor: pointer;
   transition: background-color ${({ theme }) => theme.transitions.fast};
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: ${({ theme }) => theme.colors.gray[200]};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   svg {
@@ -328,6 +334,12 @@ const LoadingSpinner = styled(Loader2)`
   margin: 0 auto ${({ theme }) => theme.spacing.sm};
 `;
 
+const SpinningLoader = styled(Loader2)`
+  width: 16px;
+  height: 16px;
+  animation: ${spin} 1s linear infinite;
+`;
+
 const LoadingText = styled.p`
   color: ${({ theme }) => theme.colors.text.secondary};
 `;
@@ -378,8 +390,17 @@ export const MyResultPage: React.FC = () => {
 
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
   const [student, setStudent] = useState<Student | null>(null);
+  const [dgnssIds, setDgnssIds] = useState<{ round1?: number; round2?: number }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPdfDownloading, setIsPdfDownloading] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
+
+  useEffect(() => {
+    if (!pdfError) return;
+    const id = setTimeout(() => setPdfError(false), 4000);
+    return () => clearTimeout(id);
+  }, [pdfError]);
 
   useEffect(() => {
     const loadResult = async () => {
@@ -413,6 +434,7 @@ export const MyResultPage: React.FC = () => {
           claId: string;
           analysis: Awaited<ReturnType<typeof fetchStudentFullAnalysis>>;
           schoolLevel: SchoolLevel;
+          dgnssIds: { round1?: number; round2?: number };
         }> = [];
 
         for (const group of groupsToCheck) {
@@ -422,12 +444,16 @@ export const MyResultPage: React.FC = () => {
 
             if (hasResults) {
               hasAnyResults = true;
-              const fullAnalysis = await fetchStudentFullAnalysis(group.claId, user.stdtId, '1');
+              const r1Exam = examList.find((e) => e.hasResult && e.ordNo === 1);
+              const r2Exam = examList.find((e) => e.hasResult && e.ordNo === 2);
+              const groupDgnssIds = { round1: r1Exam?.dgnssId, round2: r2Exam?.dgnssId };
+              const fullAnalysis = await fetchStudentFullAnalysis(group.claId, user.stdtId, '1', 'Y');
               if (fullAnalysis.round1 || fullAnalysis.round2) {
                 allAnalyses.push({
                   claId: group.claId,
                   analysis: fullAnalysis,
                   schoolLevel: group.schoolLevel,
+                  dgnssIds: groupDgnssIds,
                 });
               }
             }
@@ -444,6 +470,7 @@ export const MyResultPage: React.FC = () => {
 
         // 첫 번째 그룹의 데이터 사용 (여러 그룹이 있으면 첫 번째 선택)
         const selectedGroup = allAnalyses[0];
+        setDgnssIds(selectedGroup.dgnssIds);
         const { analysis: fullAnalysis, schoolLevel } = selectedGroup;
 
         const assessments: Assessment[] = [];
@@ -568,10 +595,44 @@ export const MyResultPage: React.FC = () => {
         </HeaderLeft>
 
         {/* PDF 다운로드 */}
-        <PDFButton>
-          <Download />
-          PDF 다운로드
-        </PDFButton>
+        {(() => {
+          const pdfRound: 1 | 2 = viewMode === 'round2' ? 2 : 1;
+          const pdfDgnssId = pdfRound === 1 ? dgnssIds.round1 : dgnssIds.round2;
+          const pdfAssessment = student.assessments.find((a) => a.round === pdfRound);
+          const handleDownloadPdf = async () => {
+            if (!pdfDgnssId || pdfAssessment?.answerIdx == null || !user?.stdtId) return;
+            setIsPdfDownloading(true);
+            setPdfError(false);
+            try {
+              await downloadStudentPdf({
+                userId: user.stdtId,
+                userType: 'S',
+                dgnssId: pdfDgnssId,
+                answerIdx: pdfAssessment.answerIdx,
+                ordNo: pdfRound,
+              });
+            } catch {
+              setPdfError(true);
+            } finally {
+              setIsPdfDownloading(false);
+            }
+          };
+          return (
+            <>
+              <PDFButton
+                onClick={() => void handleDownloadPdf()}
+                disabled={isPdfDownloading || !pdfDgnssId || pdfAssessment?.answerIdx == null}
+                title={pdfDgnssId && pdfAssessment?.answerIdx != null ? 'PDF 다운로드' : '검사 결과 없음'}
+              >
+                {isPdfDownloading ? <SpinningLoader /> : <Download />}
+                PDF 다운로드
+              </PDFButton>
+              {pdfError && (
+                <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>다운로드 실패</span>
+              )}
+            </>
+          );
+        })()}
       </PageHeader>
 
       {/* 차수 선택 */}

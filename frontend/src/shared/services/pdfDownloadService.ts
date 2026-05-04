@@ -1,4 +1,5 @@
 import { axiosInstance } from '@shared/api';
+import { getAuth } from '@shared/lib/authClient';
 
 interface PdfDownloadResponse {
   fileUrl?: string;
@@ -6,26 +7,20 @@ interface PdfDownloadResponse {
   url?: string;
 }
 
-/** 다운로드 유형 상수 */
-const DOWNLOAD_TYPE = { STUDENT: 1, CLASS: 2, ALL: 3 } as const;
-
 /**
  * 학급 전체 PDF 일괄 다운로드 (ZIP)
- * POST 요청으로 blob을 받아와 다운로드합니다.
- * 인증은 쿠키 기반으로 이루어지므로 JWT 토큰을 URL에 노출하지 않습니다.
+ * type: 1=상세 보고서(기본), 2=요약 보고서, 3=상세+요약
  */
 export async function downloadAllPdf(
   dgnssId: number,
-  type: 1 | 2 | 3 = DOWNLOAD_TYPE.ALL,
+  type: 1 | 2 | 3 = 1,
 ): Promise<void> {
-  const response = await axiosInstance.post(
-    '/api/dgnss/dgnss-download-all',
-    { dgnssId, type },
-    {
-      responseType: 'blob',
-      validateStatus: () => true,
-    },
-  );
+  const jwtToken = getAuth().getAccessToken() ?? '';
+  const response = await axiosInstance.get('/api/dgnss/dgnss-download-all', {
+    params: { dgnssId, type, jwtToken },
+    responseType: 'blob',
+    validateStatus: () => true,
+  });
 
   const contentType = (response.headers['content-type'] as string | undefined) ?? '';
 
@@ -87,7 +82,6 @@ export async function downloadStudentPdf(params: {
       }
     }
   } catch (error) {
-    console.error('[downloadStudentPdf] PDF 다운로드 실패:', error);
     throw error;
   }
 }
