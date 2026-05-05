@@ -41,14 +41,9 @@ public class UserProfileController {
             @AuthenticationPrincipal SpAuthenticatedUser spUser,
             @RequestBody Map<String, String> body
     ) {
-        String gender = body.get("gender");
-        if (gender == null || (!gender.equals("M") && !gender.equals("F"))) {
-            throw new IllegalArgumentException("성별은 M 또는 F만 허용됩니다.");
-        }
-
         String roleCode = body.get("roleCode"); // userType=UNSET일 때만 필수
 
-        User user = ssoUserRegistrationService.register(spUser, gender, roleCode);
+        User user = ssoUserRegistrationService.register(spUser, roleCode);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("userNo", user.getUserNo());

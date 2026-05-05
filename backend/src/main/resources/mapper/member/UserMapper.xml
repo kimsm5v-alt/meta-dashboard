@@ -7,7 +7,6 @@
         <result property="spUserId" column="sp_user_id"/>
         <result property="email" column="email"/>
         <result property="nickname" column="nickname"/>
-        <result property="gender" column="gender"/>
         <result property="roleCode" column="role_code"/>
         <result property="tcId" column="tc_id"/>
         <result property="stdtId" column="stdt_id"/>
@@ -20,7 +19,7 @@
     </resultMap>
 
     <sql id="userColumns">
-        user_no, sp_user_id, email, nickname, gender, role_code, tc_id, stdt_id,
+        user_no, sp_user_id, email, nickname, role_code, tc_id, stdt_id,
         status, last_login_at, created_by, updated_by, created_at, updated_at
     </sql>
 
@@ -98,8 +97,8 @@
 
     <insert id="insertUser" parameterType="com.vs.meta.domain.User" useGeneratedKeys="true" keyProperty="userNo">
         /* UserMapper.insertUser */
-        INSERT INTO `user` (sp_user_id, email, nickname, gender, role_code, tc_id, stdt_id, status, last_login_at, created_by, updated_by, created_at, updated_at)
-        VALUES (#{spUserId}, #{email}, #{nickname}, #{gender}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+        INSERT INTO `user` (sp_user_id, email, nickname, role_code, tc_id, stdt_id, status, last_login_at, created_by, updated_by, created_at, updated_at)
+        VALUES (#{spUserId}, #{email}, #{nickname}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="updateUser" parameterType="com.vs.meta.domain.User">
@@ -108,7 +107,6 @@
         SET sp_user_id = #{spUserId},
             email = #{email},
             nickname = #{nickname},
-            gender = #{gender},
             role_code = #{roleCode},
             tc_id = #{tcId},
             stdt_id = #{stdtId},

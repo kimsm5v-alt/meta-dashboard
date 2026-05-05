@@ -8,7 +8,6 @@
         <result property="userNo" column="user_no"/>
         <result property="stdtId" column="stdt_id"/>
         <result property="nickname" column="nickname"/>
-        <result property="gender" column="gender"/>
         <result property="email" column="email"/>
         <result property="memberType" column="member_type"/>
         <result property="memberNo" column="member_no"/>
@@ -22,7 +21,7 @@
     </resultMap>
 
     <sql id="groupMemberColumns">
-        id, group_id, user_no, stdt_id, nickname, gender, email,
+        id, group_id, user_no, stdt_id, nickname, email,
         member_type, member_no, status, joined_at, left_at,
         created_by, updated_by, created_at, updated_at
     </sql>
@@ -56,8 +55,8 @@
 
     <insert id="insertGroupMember" parameterType="com.vs.meta.domain.GroupMember" useGeneratedKeys="true" keyProperty="id">
         /* GroupMemberMapper.insertGroupMember */
-        INSERT INTO group_member (group_id, user_no, stdt_id, nickname, gender, email, member_type, member_no, status, joined_at, created_by, updated_by, created_at, updated_at)
-        VALUES (#{groupId}, #{userNo}, #{stdtId}, #{nickname}, #{gender}, #{email}, #{memberType}, #{memberNo}, #{status}, #{joinedAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+        INSERT INTO group_member (group_id, user_no, stdt_id, nickname, email, member_type, member_no, status, joined_at, created_by, updated_by, created_at, updated_at)
+        VALUES (#{groupId}, #{userNo}, #{stdtId}, #{nickname}, #{email}, #{memberType}, #{memberNo}, #{status}, #{joinedAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="updateGroupMember" parameterType="com.vs.meta.domain.GroupMember">
@@ -66,7 +65,6 @@
         SET user_no = #{userNo},
             stdt_id = #{stdtId},
             nickname = #{nickname},
-            gender = #{gender},
             email = #{email},
             member_type = #{memberType},
             member_no = #{memberNo},
@@ -96,7 +94,7 @@
 
     <select id="findActiveGuestByGroupIdAndEmail" resultMap="groupMemberResultMap">
         /* GroupMemberMapper.findActiveGuestByGroupIdAndEmail */
-        SELECT id, group_id, user_no, stdt_id, nickname, gender, email,
+        SELECT id, group_id, user_no, stdt_id, nickname, email,
                member_type, member_no, status, joined_at, left_at,
                created_by, updated_by, created_at, updated_at
         FROM group_member

@@ -16,7 +16,6 @@ public class User {
     private String spUserId;      // 슈퍼플랫폼 publicUserId (UUID)
     private String email;
     private String nickname;
-    private String gender;
     private String roleCode;
     private String tcId;
     private String stdtId;
