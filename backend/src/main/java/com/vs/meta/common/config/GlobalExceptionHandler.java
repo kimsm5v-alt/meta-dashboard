@@ -87,15 +87,41 @@ public class GlobalExceptionHandler {
      * LB idle timeout) 이므로 WARN 으로 한 줄만 (스택트레이스 X). 그 외 진짜 서버 측 IO 문제는 ERROR 유지.
      *
      * <p>{@link org.apache.catalina.connector.ClientAbortException} 은 IOException 하위라 그쪽 핸들러에서 우선 처리.
+     *
+     * <p>SseEmitter / ResponseBodyEmitter 의 비동기 flush 단계에서 발생하는 IOException 은 호출 스레드 catch 로
+     * 잡히지 않고 MVC 예외 라우팅을 통해 여기로 도달한다. emitter 호출 측에서 이미 onError 콜백으로 dead emitter
+     * 정리 중이므로 여기선 WARN 으로만 처리. stack trace 에서 emitter 흔적이 보이면 메시지 로케일과 무관하게
+     * WARN 으로 다운그레이드 (Windows 한국어 환경 등에서 메시지 패턴 매칭 실패 케이스 대응).
      */
     @ExceptionHandler(java.io.IOException.class)
     public void handleIOException(java.io.IOException e) {
         String msg = e.getMessage() != null ? e.getMessage() : "";
-        if (msg.contains("Connection reset") || msg.contains("Broken pipe") || msg.contains("aborted")) {
+        if (msg.contains("Connection reset") || msg.contains("Broken pipe") || msg.contains("aborted")
+                || isFromEmitter(e)) {
             log.warn("Client disconnected (IO): {}", msg);
             return;
         }
         log.error("Server I/O error: {}", msg, e);
+    }
+
+    /**
+     * 예외 stack trace 에 SseEmitter / ResponseBodyEmitter 흐름이 있는지 검사.
+     * 비동기 flush 단계의 IOException 은 호출 스레드 catch 가 못 잡고 여기까지 올라오는데,
+     * 운영상 정상 흐름 (클라이언트 끊김) 이므로 WARN 으로 분류한다.
+     */
+    private boolean isFromEmitter(Throwable e) {
+        StackTraceElement[] stack = e.getStackTrace();
+        if (stack == null) return false;
+        for (StackTraceElement el : stack) {
+            String cls = el.getClassName();
+            if (cls.contains("SseEmitter")
+                    || cls.contains("ResponseBodyEmitter")
+                    || cls.contains("NotificationHeartbeatScheduler")
+                    || cls.contains("SseEmitterRegistry")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ─────────────────────────────────────────────────────
