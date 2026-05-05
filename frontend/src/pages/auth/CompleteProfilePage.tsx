@@ -125,7 +125,6 @@ export const CompleteProfilePage: React.FC = () => {
   const redirectTo = searchParams.get('redirect');
   const { user: spUser } = useSpAuth();
   const { updateUser } = useAuth();
-  const [gender, setGender] = useState<'M' | 'F' | ''>('');
   const [roleCode, setRoleCode] = useState<'TEACHER' | 'STUDENT' | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -150,10 +149,6 @@ export const CompleteProfilePage: React.FC = () => {
   }, [spUser, navigate]);
 
   const handleSubmit = async () => {
-    if (!gender) {
-      setError('성별을 선택해주세요.');
-      return;
-    }
     if (needsRoleSelection && !roleCode) {
       setError('역할을 선택해주세요.');
       return;
@@ -170,7 +165,6 @@ export const CompleteProfilePage: React.FC = () => {
         tcId: string | null;
         stdtId: string | null;
       }>('/api/v1/user/complete-profile', {
-        gender,
         roleCode: needsRoleSelection ? roleCode : undefined,
       });
 
@@ -232,31 +226,11 @@ export const CompleteProfilePage: React.FC = () => {
           </>
         )}
 
-        <SectionLabel>
-          성별 <Required>*</Required>
-        </SectionLabel>
-        <OptionGroup>
-          <OptionButton
-            type='button'
-            $selected={gender === 'M'}
-            onClick={() => setGender('M')}
-          >
-            남
-          </OptionButton>
-          <OptionButton
-            type='button'
-            $selected={gender === 'F'}
-            onClick={() => setGender('F')}
-          >
-            여
-          </OptionButton>
-        </OptionGroup>
-
         {error && <ErrorText>{error}</ErrorText>}
 
         <SubmitButton
           onClick={handleSubmit}
-          disabled={isSubmitting || !gender || (needsRoleSelection && !roleCode)}
+          disabled={isSubmitting || (needsRoleSelection && !roleCode)}
         >
           {isSubmitting ? '등록 중...' : '시작하기'}
         </SubmitButton>
