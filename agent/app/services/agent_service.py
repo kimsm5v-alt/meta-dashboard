@@ -1,10 +1,13 @@
+import json
 import litellm
 from typing import Dict, Any
 import logging
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.utils.function_calling import convert_to_openai_tool
 from app.core.llm_router import llm_router
 from app.utils.pii_filter import mask_pii_data
+from app.tools import neo4j_tools_list
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +23,9 @@ class MetaAgentService:
     def __init__(self):
         # LiteLLM Router 인스턴스 사용 (멀티 LLM 오케스트레이션)
         self.router = llm_router
+        self.tools = [convert_to_openai_tool(t) for t in neo4j_tools_list]
+        self.tool_map = {t.name: t for t in neo4j_tools_list}
+        self.max_iterations = 5
 
     def clear_session(self, session_id: str):
         """
@@ -30,58 +36,108 @@ class MetaAgentService:
             return True
         return False
 
-    async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
-        """
-        LiteLLM Router를 통해 에이전트 실행 및 메모리 처리
-        """
-        # 1. 세션 이력 가져오기
+    def _build_messages(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
         history = get_session_history(session_id)
-
-        # 2. PII 마스킹 처리 (CLAUDE.md 가이드라인 준수)
         masked_context = mask_pii_data(context_data)
-
-        # 3. 시스템 프롬프트 구성
         context_str = str(masked_context) if masked_context else "No additional context provided."
-        system_prompt = f"귀하는 Meta Dashboard의 AI 에이전트입니다. 전달받은 context_data를 참고하여 답변하십시오.\nContext: {context_str}"
         
-        # 4. 메시지 리스트 구성 (System + History + Human)
+        system_prompt = (
+            "귀하는 Meta Dashboard의 AI 에이전트입니다.\n"
+            "전달받은 context_data를 참고하여 답변하십시오.\n"
+            "전달된 context_data에서 사용자의 유형(className)과 학교급(schoolLevel)을 파악하십시오.\n"
+            "필요 시 제공된 Neo4j Graph Tools를 활용하여 해당 유형의 조절/매개 경로 및 T-Score 평균을 조회하십시오.\n"
+            "조회된 데이터를 바탕으로 학생의 현재 상태를 진단하고 맞춤형 학습 피드백을 제공하십시오.\n"
+            f"Context: {context_str}"
+        )
+        
         messages = [{"role": "system", "content": system_prompt}]
-        
-        # 이전 대화 이력 추가
         for msg in history.messages:
             if isinstance(msg, HumanMessage):
                 messages.append({"role": "user", "content": msg.content})
             elif isinstance(msg, AIMessage):
                 messages.append({"role": "assistant", "content": msg.content})
-        
-        # 현재 질문 추가
+                
         messages.append({"role": "user", "content": text})
+        return messages, history
 
-        # 5. LiteLLM Router를 통한 호출 (Retry 및 Fallback 자동 처리)
+    async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+        """
+        LiteLLM Router를 통해 에이전트 실행 (Tool Calling 자동화 포함)
+        """
+        messages, history = self._build_messages(text, session_id, context_data)
+        iterations = 0
+        answer = "응답을 생성하지 못했습니다."
+
         try:
-            # LiteLLM Router가 설정된 모든 키 중 최적의 리소스를 자동 선택 (Load Balancing & Failover)
-            response = await self.router.acompletion(
-                model="meta-agent-service",
-                messages=messages
-            )
-            answer = response.choices[0].message.content
+            while iterations < self.max_iterations:
+                response = await self.router.acompletion(
+                    model="meta-agent-service",
+                    messages=messages,
+                    tools=self.tools
+                )
+                
+                response_message = response.choices[0].message
+                
+                msg_dict = {"role": "assistant"}
+                if response_message.content:
+                    msg_dict["content"] = response_message.content
+                if getattr(response_message, "tool_calls", None):
+                    msg_dict["tool_calls"] = []
+                    for tc in response_message.tool_calls:
+                        msg_dict["tool_calls"].append({
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        })
+                messages.append(msg_dict)
+                
+                if not getattr(response_message, "tool_calls", None):
+                    answer = response_message.content
+                    break
+                    
+                for tool_call in response_message.tool_calls:
+                    func_name = tool_call.function.name
+                    try:
+                        arguments = json.loads(tool_call.function.arguments)
+                        if func_name in self.tool_map:
+                            result = await self.tool_map[func_name].ainvoke(arguments)
+                            result_str = json.dumps(result, ensure_ascii=False)
+                        else:
+                            result_str = f"Error: Tool {func_name} not found"
+                    except Exception as e:
+                        logger.error(f"Tool error ({func_name}): {e}", exc_info=True)
+                        result_str = json.dumps({"error": str(e)})
+                        
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "name": func_name,
+                        "content": result_str
+                    })
+                iterations += 1
+
+            if iterations >= self.max_iterations:
+                answer = "에이전트가 최대 허용 횟수 내에 답변을 완료하지 못했습니다."
+
         except litellm.exceptions.AuthenticationError as e:
             logger.error(f"Authentication error: {str(e)}")
-            answer = "API 키 인증 오류가 발생했습니다. 관리자에게 문의하세요. (.env 파일의 API 키를 확인하십시오)"
+            answer = "API 키 인증 오류가 발생했습니다. 관리자에게 문의하세요."
         except litellm.exceptions.RateLimitError as e:
             logger.error(f"Rate limit error: {str(e)}")
-            answer = "현재 요청이 많아 일시적으로 서비스 제한이 발생했습니다. 잠시 후 다시 시도해주세요."
+            answer = "현재 요청이 많아 일시적으로 서비스 제한이 발생했습니다."
         except litellm.exceptions.Timeout as e:
             logger.error(f"Timeout error: {str(e)}")
-            answer = "응답 시간이 초과되었습니다. 네트워크 상태를 확인하거나 잠시 후 다시 시도해주세요."
+            answer = "응답 시간이 초과되었습니다."
         except litellm.exceptions.APIError as e:
             logger.error(f"API error: {str(e)}")
-            answer = f"AI 서비스 연동 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            answer = "AI 서비스 연동 중 오류가 발생했습니다."
         except Exception as e:
-            logger.error(f"Unexpected error in agent service: {str(e)}", exc_info=True)
-            answer = "예상치 못한 오류가 발생했습니다. 관리자에게 문의하세요."
+            logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+            answer = "예상치 못한 오류가 발생했습니다."
 
-        # 6. 이력 업데이트
         history.add_user_message(text)
         history.add_ai_message(answer)
         
@@ -93,43 +149,92 @@ class MetaAgentService:
 
     async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
         """
-        LiteLLM Router를 통해 에이전트를 실시간 스트리밍 모드로 실행합니다.
-        - 각 청크(Chunk)를 비동기식으로 반환(Yield)합니다.
-        - 스트림이 완료되면 누적된 텍스트를 대화 이력에 저장합니다.
+        LiteLLM Router를 통해 Tool Calling을 지원하는 스트리밍 오케스트레이션
         """
-        # 1. 세션 이력 및 메시지 구성 (기존 run_agent 로직 공유)
-        history = get_session_history(session_id)
-        masked_context = mask_pii_data(context_data)
-        context_str = str(masked_context) if masked_context else "No additional context provided."
-        system_prompt = f"귀하는 Meta Dashboard의 AI 에이전트입니다. 전달받은 context_data를 참고하여 답변하십시오.\nContext: {context_str}"
-        
-        messages = [{"role": "system", "content": system_prompt}]
-        for msg in history.messages:
-            if isinstance(msg, HumanMessage):
-                messages.append({"role": "user", "content": msg.content})
-            elif isinstance(msg, AIMessage):
-                messages.append({"role": "assistant", "content": msg.content})
-        messages.append({"role": "user", "content": text})
+        messages, history = self._build_messages(text, session_id, context_data)
+        iterations = 0
+        final_content = ""
 
-        full_response = ""
         try:
-            # 2. LiteLLM Router 스트리밍 호출
-            response = await self.router.acompletion(
-                model="meta-agent-service",
-                messages=messages,
-                stream=True
-            )
-            
-            async for chunk in response:
-                content = chunk.choices[0].delta.content or ""
-                if content:
-                    full_response += content
-                    yield content # 생성된 텍스트 조각 반환
-            
-            # 3. 스트림 환료 후 이력 업데이트
-            history.add_user_message(text)
-            history.add_ai_message(full_response)
-            
+            while iterations < self.max_iterations:
+                response = await self.router.acompletion(
+                    model="meta-agent-service",
+                    messages=messages,
+                    tools=self.tools,
+                    stream=True
+                )
+                
+                content_buffer = ""
+                tool_call_buffer = {}
+                
+                async for chunk in response:
+                    delta = chunk.choices[0].delta
+                    
+                    if getattr(delta, "content", None):
+                        content_buffer += delta.content
+                        yield delta.content
+                        
+                    if getattr(delta, "tool_calls", None):
+                        for tc in delta.tool_calls:
+                            idx = getattr(tc, "index", 0)
+                            if idx not in tool_call_buffer:
+                                tool_call_buffer[idx] = {"id": "", "name": "", "arguments": ""}
+                            
+                            if getattr(tc, "id", None):
+                                tool_call_buffer[idx]["id"] += tc.id
+                            if getattr(tc, "function", None):
+                                if getattr(tc.function, "name", None):
+                                    tool_call_buffer[idx]["name"] += tc.function.name
+                                if getattr(tc.function, "arguments", None):
+                                    tool_call_buffer[idx]["arguments"] += tc.function.arguments
+
+                if not tool_call_buffer:
+                    final_content = content_buffer
+                    history.add_user_message(text)
+                    history.add_ai_message(final_content)
+                    break
+                    
+                # 버퍼에 모인 Tool Call 내역으로 메시지 업데이트
+                msg_dict = {"role": "assistant"}
+                if content_buffer:
+                    msg_dict["content"] = content_buffer
+                    
+                tool_calls_list = []
+                for idx, tc in tool_call_buffer.items():
+                    tool_calls_list.append({
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {"name": tc["name"], "arguments": tc["arguments"]}
+                    })
+                msg_dict["tool_calls"] = tool_calls_list
+                messages.append(msg_dict)
+                
+                # Tool 실행
+                for tc in tool_calls_list:
+                    func_name = tc["function"]["name"]
+                    try:
+                        arguments = json.loads(tc["function"]["arguments"])
+                        if func_name in self.tool_map:
+                            result = await self.tool_map[func_name].ainvoke(arguments)
+                            result_str = json.dumps(result, ensure_ascii=False)
+                        else:
+                            result_str = f"Error: Tool {func_name} not found"
+                    except Exception as e:
+                        logger.error(f"Streaming Tool error: {e}")
+                        result_str = json.dumps({"error": str(e)})
+                        
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "name": func_name,
+                        "content": result_str
+                    })
+                    
+                iterations += 1
+                
+            if iterations >= self.max_iterations:
+                yield "에이전트가 최대 허용 횟수 내에 답변을 완료하지 못했습니다."
+                
         except Exception as e:
             logger.error(f"Streaming error in agent service: {str(e)}", exc_info=True)
             yield f"Error: {str(e)}"
