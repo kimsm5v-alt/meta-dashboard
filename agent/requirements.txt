@@ -12,5 +12,5 @@ psycopg2-binary
 tiktoken
 streamlit
 requests
-neo4j
+neo4j>=5.0.0,<6.0.0
 pytest

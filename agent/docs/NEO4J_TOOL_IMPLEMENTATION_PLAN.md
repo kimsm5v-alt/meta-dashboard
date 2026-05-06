@@ -104,7 +104,7 @@ agent/
 **역할**: `context_data` 전처리 및 LLM Tool Calling 오케스트레이션.
 
 - **Context 주입**: `context_data.context` 텍스트를 `pii_filter`를 거쳐 System Message로 삽입합니다. 이 텍스트에는 학생의 실제 T-점수와 예측된 유형명(`predictedType`)이 들어 있습니다.
-- **Tool Binding**: LiteLLM/LangChain 등 프레임워크의 도구 바인딩 기능을 통해 `Neo4jTools`의 메서드들을 LLM에 주입합니다.
+- **Tool Binding**: LangChain의 `@tool` 데코레이터를 사용하여 `Neo4jTools`의 각 메서드를 Tool 함수로 등록하고, `bind_tools()` 메서드를 통해 LLM에 주입합니다. (참고: `requirements.txt`에 `langchain>=0.3.0` 명시됨. LiteLLM 사용 시에는 `tools` 파라미터에 JSON 스키마를 직접 전달하는 방식으로 대체 가능.)
 - **추론**: LLM은 텍스트(학생의 개별 점수)와 Tool 호출 결과(해당 유형의 집단 평균 점수 및 조절 경로 전략)를 대조하여 고도화된 응답을 생성합니다.
 
 ---

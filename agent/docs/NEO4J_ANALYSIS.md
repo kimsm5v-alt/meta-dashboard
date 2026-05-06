@@ -527,6 +527,7 @@ backend/src/main/resources/data/lpa-model-params.json
 2. **학교급 필터 옵셔널**: `$schoolLevel = ''` 조건으로 전체 조회 가능. 동명 LPAClass가 여러 학교급에 존재할 경우 `LIMIT 1`로 인해 임의 레코드 반환 가능성 있음.
 
 3. **`high` 학교급 미지원**: 고등학교(`CMM13003`)는 분류 모델이 없어 `middle` 모델로 처리. Neo4j에 `school_level: high` LPAClass 노드 없음.
+   > **TODO**: Agent 코드(`agent/app/tools/neo4j_tools.py` 등)에서 `context_data.context`의 `schoolLevel` 값이 `"high"`인 경우, Neo4j 쿼리 파라미터로 `"middle"`을 전달하는 매핑 로직을 반드시 구현해야 함. Backend의 `DgnssLpaService`에서 이미 동일 정책(`SCH_GRADE` 코드 매핑)으로 구현되어 있으므로 참고.
 
 4. **PII 마스킹**: Neo4j 데이터 자체에 PII 없음. `context_data`의 학생 정보는 `pii_filter.mask_pii_data()`로 마스킹 후 LLM 전달.
 
