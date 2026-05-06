@@ -33,9 +33,7 @@ Agent는 Neo4j에 직접 Bolt 연결을 수행하여 LLM의 Tool(함수)로 동�
 | `NEO4J_URI` | `bolt://localhost:7687` | Backend `DGNSS_NEO4J_URI`와 동일 엔드포인트 |
 | `NEO4J_USERNAME` | `neo4j` | |
 | `NEO4J_PASSWORD` | `test1234` | |
-| `BACKEND_BASE_URL` | `http://localhost:8081` | answerIdx → typeName 해석 시에만 사용 |
 | `GRAPH_TOOL_TIMEOUT` | `5.0` | Tool 쿼리 타임아웃(초) |
-| `GRAPH_TOOL_ENABLED` | `true` | Neo4j Tool On/Off Feature Flag |
 
 ### 1.3 Backend 드라이버 설정 클래스
 
@@ -160,81 +158,49 @@ public Driver neo4jDriver(
 
 ## 3. Cypher 쿼리 전체 목록
 
-Backend(`DgnssGraphService.java`)와 Agent(`graph_context_service.py`) 양쪽에서 동일한 Cypher를 사용합니다.
+Agent(`agent/app/tools/neo4j_tools.py`)의 Tool 함수에서 실제 사용하는 Cypher 쿼리입니다.
 
 ### 쿼리 1: LPAClass 정보 조회
 
 ```cypher
-MATCH (c:LPAClass {name: $className})
-WHERE $schoolLevel = '' OR c.school_level = $schoolLevel
-RETURN c.name        AS className,
-       c.school_level AS schoolLevel,
-       c.class_num   AS classNum,
-       c.color       AS color,
-       c.description AS description
-LIMIT 1
+MATCH (c:LPAClass {className: $className, schoolLevel: $schoolLevel})
+RETURN properties(c) AS info
 ```
 
-- **파라미터**: `className` (String), `schoolLevel` (String, 빈 문자열이면 전체)
-- **반환**: LPAClass 노드 단일 레코드
+- **파라미터**: `className` (String), `schoolLevel` (String)
+- **반환**: `info` 딕셔너리 (LPAClass 전체 프로퍼티)
 
 ### 쿼리 2: ModerationPath 조회
 
 ```cypher
-MATCH (c:LPAClass {name: $className})-[:HAS_MODERATION_PATH]->(m:ModerationPath)
-WHERE $schoolLevel = '' OR c.school_level = $schoolLevel
-RETURN m.id             AS id,
-       m.path_type      AS pathType,
-       m.path_color     AS pathColor,
-       m.x              AS x,
-       m.z              AS z,
-       m.y              AS y,
-       m.keyword_interp AS keywordInterp,
-       m.keyword_strat  AS keywordStrat,
-       m.interpretation AS interpretation,
-       m.strategy       AS strategy
-ORDER BY m.id
-LIMIT $limit
+MATCH (c:LPAClass {className: $className, schoolLevel: $schoolLevel})-[r:HAS_MODERATION_PATH]->(p:ModerationPath)
+RETURN p.pathName AS pathName, p.description AS description, r.priority AS priority
+ORDER BY r.priority ASC
 ```
 
-- **파라미터**: `className`, `schoolLevel`, `limit` (기본 20, 최대 100)
-- **반환**: ModerationPath 목록 (정렬: `m.id` ASC)
+- **파라미터**: `className`, `schoolLevel`
+- **반환**: `pathName`, `description`, `priority` (HAS_MODERATION_PATH 관계 속성 기반 정렬)
 
 ### 쿼리 3: MediationPath 조회
 
 ```cypher
-MATCH (c:LPAClass {name: $className})-[:HAS_MEDIATION_PATH]->(m:MediationPath)
-WHERE $schoolLevel = '' OR c.school_level = $schoolLevel
-RETURN m.id             AS id,
-       m.x              AS x,
-       m.m              AS mediator,
-       m.y              AS y,
-       m.interpretation AS interpretation,
-       m.strategy       AS strategy
-ORDER BY m.id
-LIMIT $limit
+MATCH (c:LPAClass {className: $className, schoolLevel: $schoolLevel})-[r:HAS_MEDIATION_PATH]->(p:MediationPath)
+RETURN p.pathName AS pathName, p.description AS description, r.priority AS priority
+ORDER BY r.priority ASC
 ```
 
-- **파라미터**: `className`, `schoolLevel`, `limit`
-- **반환**: MediationPath 목록
+- **파라미터**: `className`, `schoolLevel`
+- **반환**: `pathName`, `description`, `priority`
 
 ### 쿼리 4: Factor T-Score 조회
 
 ```cypher
-MATCH (c:LPAClass {name: $className})-[r:GROUP_TSCORE]->(f:Factor)
-WHERE $schoolLevel = '' OR c.school_level = $schoolLevel
-RETURN f.id                   AS factorId,
-       f.name                 AS factorName,
-       f.factor_type          AS factorType,
-       f.need_score_direction AS needScoreDirection,
-       r.t_score              AS tScore,
-       r.raw_mean             AS rawMean,
-       r.school_level         AS schoolLevel
-ORDER BY f.name
+MATCH (c:LPAClass {className: $className, schoolLevel: $schoolLevel})-[r:GROUP_TSCORE]->(f:Factor)
+RETURN f.factorName AS factorName, r.tscore AS averageScore
 ```
 
 - **파라미터**: `className`, `schoolLevel`
-- **반환**: Factor + 관계 속성 전체 (limit 없음)
+- **반환**: `factorName`, `averageScore` (T-Score 평균)
 
 ---
 
@@ -467,39 +433,49 @@ LLM이 상담 전략을 수립하거나 깊이 있는 분석이 필요할 때 �
 **파일**: `agent/app/tools/neo4j_tools.py`
 
 ```python
-from neo4j import AsyncGraphDatabase, AsyncDriver
+from neo4j import AsyncGraphDatabase, exceptions as neo4j_exceptions
 
-class GraphContextService:
-    def __init__(self):
-        self._driver: AsyncDriver | None = None  # Lazy init
+class Neo4jConnectionManager:
+    """Neo4j 연결 및 자원 해제를 관리하는 클래스 (클래스 메서드 기반 싱글톤)"""
+    _driver = None
 
-    async def _get_driver(self) -> AsyncDriver:
-        if self._driver is None:
-            self._driver = AsyncGraphDatabase.driver(
-                NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD)
+    @classmethod
+    def get_driver(cls):
+        """드라이버 지연 생성 (Lazy-loading)"""
+        if cls._driver is None:
+            cls._driver = AsyncGraphDatabase.driver(
+                os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+                auth=(os.getenv("NEO4J_USERNAME", "neo4j"), os.getenv("NEO4J_PASSWORD", "test1234"))
             )
-        return self._driver
+        return cls._driver
 
-    async def close(self):
+    @classmethod
+    async def close(cls):
         """main.py lifespan 종료 시 호출."""
-        if self._driver:
-            await self._driver.close()
-            self._driver = None
+        if cls._driver is not None:
+            await cls._driver.close()
+            cls._driver = None
 ```
 
 ### 7.2 Cypher 실행 패턴 (Python Async)
 
-```python
-async with driver.session() as session:
-    # 단일 레코드
-    result = await session.run(query, className=name, schoolLevel=level)
-    record = await result.single()       # Record | None
-    data = dict(record) if record else None
+모든 Tool 함수는 `_execute_query()` 공통 실행기를 경유합니다.
 
-    # 복수 레코드
-    result = await session.run(query, className=name, schoolLevel=level, limit=20)
-    rows = await result.data()           # list[dict] — 키는 RETURN 절 AS 별칭
+```python
+async def _execute_query(query: str, parameters: dict) -> List[Dict[str, Any]]:
+    driver = Neo4jConnectionManager.get_driver()
+    timeout = float(os.getenv("GRAPH_TOOL_TIMEOUT", "5.0"))
+
+    async def _run():
+        async with driver.session() as session:
+            result = await session.run(query, parameters)
+            return await result.data()  # list[dict] — RETURN 절 AS 별칭 사용
+
+    return await asyncio.wait_for(_run(), timeout=timeout)
 ```
+
+- **타임아웃**: `asyncio.wait_for()`로 `GRAPH_TOOL_TIMEOUT` 환경변수를 적용, 초과 시 `{"error": "Query timeout exceeded"}` 반환
+- **에러 보호**: `ServiceUnavailable`, `AuthError`, `ClientError` 각각 세분화된 예외 핸들러로 Graceful Degradation
 
 ### 7.3 확장 가능한 쿼리 패턴
 

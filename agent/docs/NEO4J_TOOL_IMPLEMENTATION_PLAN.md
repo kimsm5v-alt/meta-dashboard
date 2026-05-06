@@ -81,7 +81,7 @@ agent/
 │   ├── utils/
 │   │   └── pii_filter.py                 ← [유지] PII 데이터 마스킹
 │   └── models/
-│       └── schemas.py                    ← [수정] Tool 응답을 위한 스키마 추가
+│       └── schemas.py                    ← [유지] AgentQuery, AgentResponse 스키마 (변경 없음)
 └── docs/
     ├── NEO4J_ANALYSIS.md                 ← [수정] Neo4j 구조 및 Tool 연동 아키텍처 가이드
     └── NEO4J_TOOL_IMPLEMENTATION_PLAN.md ← 이 문서 (구 RAG_IMPLEMENTATION_PLAN.md)
@@ -94,18 +94,19 @@ agent/
 ### `neo4j_tools.py`
 **역할**: Neo4j 드라이버 인스턴스를 관리하고, 각각의 Cypher 쿼리를 실행하여 JSON 형태의 결과를 리턴하는 Tool 기능 캡슐화.
 
-- **`Neo4jTools` 클래스**:
-  - `__init__`: `neo4j.AsyncDriver` 지연 생성 (Lazy-loading).
-  - `get_lpa_class_info(className, schoolLevel)`: `@tool` 데코레이터 적용, 클래스 기본 메타데이터 반환.
-  - `get_moderation_paths(...)`, `get_mediation_paths(...)`, `get_factor_scores(...)`: 각 경로별 데이터 리스트 반환.
-  - 에러 처리 시 Exception을 발생시키지 않고 빈 리스트 또는 적절한 에러 딕셔너리를 반환하여 에이전트 루프가 중단되지 않도록 보호.
+- **`Neo4jConnectionManager` 클래스 (클래스 메서드 기반 싱글톤)**:
+  - `get_driver()`: `AsyncGraphDatabase.driver` 지연 생성 (Lazy-loading).
+  - `close()`: `main.py` lifespan 종료 시 드라이버 자원 반환.
+- **`_execute_query()` 공통 실행기**: `asyncio.wait_for()`로 타임아웃 처리. `ServiceUnavailable`, `AuthError`, `ClientError` 예외별 Graceful Degradation.
+- **4대 Tool 함수** (`get_lpa_class_info`, `get_moderation_paths`, `get_mediation_paths`, `get_factor_scores`): `langchain_core.tools.tool` 데코레이터 적용, 에러 발생 시 에러 딕셔너리를 반환하여 에이전트 루프가 중단되지 않도록 보호.
 
 ### `agent_service.py`
 **역할**: `context_data` 전처리 및 LLM Tool Calling 오케스트레이션.
 
-- **Context 주입**: `context_data.context` 텍스트를 `pii_filter`를 거쳐 System Message로 삽입합니다. 이 텍스트에는 학생의 실제 T-점수와 예측된 유형명(`predictedType`)이 들어 있습니다.
-- **Tool Binding**: LangChain의 `@tool` 데코레이터를 사용하여 `Neo4jTools`의 각 메서드를 Tool 함수로 등록하고, `bind_tools()` 메서드를 통해 LLM에 주입합니다. (참고: `requirements.txt`에 `langchain>=0.3.0` 명시됨. LiteLLM 사용 시에는 `tools` 파라미터에 JSON 스키마를 직접 전달하는 방식으로 대체 가능.)
-- **추론**: LLM은 텍스트(학생의 개별 점수)와 Tool 호출 결과(해당 유형의 집단 평균 점수 및 조절 경로 전략)를 대조하여 고도화된 응답을 생성합니다.
+- **Context 주입**: `context_data.context` 텍스트를 `pii_filter`를 거쳐 System Message로 삽입합니다.
+- **Tool Binding**: `langchain_core.utils.function_calling.convert_to_openai_tool`을 통해 LangChain Tool 스키마를 OpenAI Function 형식으로 변환한 뒤, LiteLLM Router `acompletion()` 호출 시 `tools` 파라미터로 전달합니다. (LangChain `bind_tools()` 미사용)
+- **Tool Calling 루프**: `tool_calls` 감지 시 해당 함수를 `ainvoke()`로 실행 후 결과를 메시지 이력에 추가, 최대 5회(`max_iterations`) 반복. 스트리밍 시 `tool_call_buffer`로 청크를 병합 후 실행.
+- **추론**: LLM은 텍스트(학생의 개별 점수)와 Tool 호출 결과(해당 유형의 집단 평균 점수 및 조절/매개 경로 전략)를 대조하여 고도화된 응답을 생성합니다.
 
 ---
 

@@ -3,14 +3,10 @@ uvicorn
 gunicorn
 langchain>=0.3.0
 langchain-community>=0.3.0
-langchain-openai>=0.2.0
 litellm
 python-dotenv
 pydantic
-sqlalchemy
-psycopg2-binary
 tiktoken
-streamlit
 requests
 neo4j>=5.0.0,<6.0.0
 pytest
