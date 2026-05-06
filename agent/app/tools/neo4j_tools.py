@@ -1,7 +1,7 @@
 import os
 import logging
 import asyncio
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from neo4j import AsyncGraphDatabase, exceptions as neo4j_exceptions
 from langchain_core.tools import tool
 
@@ -42,18 +42,13 @@ async def _execute_query(query: str, parameters: dict) -> List[Dict[str, Any]]:
     
     timeout = float(os.getenv("GRAPH_TOOL_TIMEOUT", "5.0"))
     
-    try:
-        # 비동기 환경에서 안전한 타임아웃 보장
+    async def _run():
         async with driver.session() as session:
-            result = await asyncio.wait_for(
-                session.run(query, parameters),
-                timeout=timeout
-            )
-            records = await asyncio.wait_for(
-                result.data(),
-                timeout=timeout
-            )
-            return records
+            result = await session.run(query, parameters)
+            return await result.data()
+
+    try:
+        return await asyncio.wait_for(_run(), timeout=timeout)
     except asyncio.TimeoutError:
         logger.error(f"Neo4j 쿼리 타임아웃 초과 ({timeout}s)")
         return [{"error": "Query timeout exceeded"}]

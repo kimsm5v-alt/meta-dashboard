@@ -39,7 +39,10 @@ class MetaAgentService:
     def _build_messages(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
         history = get_session_history(session_id)
         masked_context = mask_pii_data(context_data)
-        context_str = str(masked_context) if masked_context else "No additional context provided."
+        if masked_context:
+            context_str = masked_context.get("context") or str(masked_context)
+        else:
+            context_str = "No additional context provided."
         
         system_prompt = (
             "귀하는 Meta Dashboard의 AI 에이전트입니다.\n"
@@ -95,7 +98,7 @@ class MetaAgentService:
                 messages.append(msg_dict)
                 
                 if not getattr(response_message, "tool_calls", None):
-                    answer = response_message.content
+                    answer = response_message.content or "응답을 생성하지 못했습니다."
                     break
                     
                 for tool_call in response_message.tool_calls:
@@ -155,6 +158,7 @@ class MetaAgentService:
         iterations = 0
         final_content = ""
 
+        fallback_message = "응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
         try:
             while iterations < self.max_iterations:
                 response = await self.router.acompletion(
@@ -163,23 +167,23 @@ class MetaAgentService:
                     tools=self.tools,
                     stream=True
                 )
-                
+
                 content_buffer = ""
                 tool_call_buffer = {}
-                
+
                 async for chunk in response:
                     delta = chunk.choices[0].delta
-                    
+
                     if getattr(delta, "content", None):
                         content_buffer += delta.content
                         yield delta.content
-                        
+
                     if getattr(delta, "tool_calls", None):
                         for tc in delta.tool_calls:
                             idx = getattr(tc, "index", 0)
                             if idx not in tool_call_buffer:
                                 tool_call_buffer[idx] = {"id": "", "name": "", "arguments": ""}
-                            
+
                             if getattr(tc, "id", None):
                                 tool_call_buffer[idx]["id"] += tc.id
                             if getattr(tc, "function", None):
@@ -189,16 +193,16 @@ class MetaAgentService:
                                     tool_call_buffer[idx]["arguments"] += tc.function.arguments
 
                 if not tool_call_buffer:
-                    final_content = content_buffer
+                    final_content = content_buffer or fallback_message
                     history.add_user_message(text)
                     history.add_ai_message(final_content)
                     break
-                    
+
                 # 버퍼에 모인 Tool Call 내역으로 메시지 업데이트
                 msg_dict = {"role": "assistant"}
                 if content_buffer:
                     msg_dict["content"] = content_buffer
-                    
+
                 tool_calls_list = []
                 for idx, tc in tool_call_buffer.items():
                     tool_calls_list.append({
@@ -208,7 +212,7 @@ class MetaAgentService:
                     })
                 msg_dict["tool_calls"] = tool_calls_list
                 messages.append(msg_dict)
-                
+
                 # Tool 실행
                 for tc in tool_calls_list:
                     func_name = tc["function"]["name"]
@@ -222,21 +226,26 @@ class MetaAgentService:
                     except Exception as e:
                         logger.error(f"Streaming Tool error: {e}")
                         result_str = json.dumps({"error": str(e)})
-                        
+
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tc["id"],
                         "name": func_name,
                         "content": result_str
                     })
-                    
+
                 iterations += 1
-                
+
             if iterations >= self.max_iterations:
-                yield "에이전트가 최대 허용 횟수 내에 답변을 완료하지 못했습니다."
-                
+                max_iter_message = "에이전트가 최대 허용 횟수 내에 답변을 완료하지 못했습니다."
+                history.add_user_message(text)
+                history.add_ai_message(max_iter_message)
+                yield max_iter_message
+
         except Exception as e:
             logger.error(f"Streaming error in agent service: {str(e)}", exc_info=True)
-            yield f"Error: {str(e)}"
+            history.add_user_message(text)
+            history.add_ai_message(fallback_message)
+            yield fallback_message
 
 meta_agent_service = MetaAgentService()
