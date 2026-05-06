@@ -8,14 +8,8 @@ from langchain_core.tools import tool
 logger = logging.getLogger(__name__)
 
 class Neo4jConnectionManager:
-    """Neo4j 연결 및 자원 해제를 관리하는 싱글톤 매니저"""
-    _instance = None
+    """Neo4j 연결 및 자원 해제를 관리하는 클래스 (클래스 메서드 기반)"""
     _driver = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(Neo4jConnectionManager, cls).__new__(cls)
-        return cls._instance
 
     @classmethod
     def get_driver(cls):
@@ -43,7 +37,7 @@ async def _execute_query(query: str, parameters: dict) -> List[Dict[str, Any]]:
     """공통 쿼리 실행기: 타임아웃 및 Graceful Degradation 처리"""
     driver = Neo4jConnectionManager.get_driver()
     if driver is None:
-        logger.warning("Neo4j 드라이버가 존재하지 않아 쿼리를 수행할 수 없습니다.")
+        logger.error("Neo4j 드라이버가 초기화되지 않아 쿼리를 수행할 수 없습니다. (get_driver() 내부에서 초기화 실패 로그를 확인하세요)")
         return [{"error": "Database connection failed"}]
     
     timeout = float(os.getenv("GRAPH_TOOL_TIMEOUT", "5.0"))
@@ -55,13 +49,25 @@ async def _execute_query(query: str, parameters: dict) -> List[Dict[str, Any]]:
                 session.run(query, parameters),
                 timeout=timeout
             )
-            records = await result.data()
+            records = await asyncio.wait_for(
+                result.data(),
+                timeout=timeout
+            )
             return records
     except asyncio.TimeoutError:
         logger.error(f"Neo4j 쿼리 타임아웃 초과 ({timeout}s)")
         return [{"error": "Query timeout exceeded"}]
+    except neo4j_exceptions.ServiceUnavailable as e:
+        logger.error(f"Neo4j 서비스를 사용할 수 없음: {e}")
+        return [{"error": "Database service unavailable"}]
+    except neo4j_exceptions.AuthError as e:
+        logger.error(f"Neo4j 인증 실패: {e}")
+        return [{"error": "Database authentication failed"}]
+    except neo4j_exceptions.ClientError as e:
+        logger.error(f"Neo4j 클라이언트 오류 (Cypher 문법 등): {e}")
+        return [{"error": f"Database client error: {str(e)}"}]
     except Exception as e:
-        logger.error(f"Neo4j 쿼리 실행 중 오류 발생: {e}")
+        logger.error(f"Neo4j 쿼리 실행 중 알 수 없는 오류 발생: {e}")
         return [{"error": f"Query execution failed: {str(e)}"}]
 
 
