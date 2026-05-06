@@ -1,14 +1,27 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, ShieldAlert, AlertTriangle, Clock, Loader2, Download } from 'lucide-react';
+import {
+  ArrowLeft,
+  Search,
+  ShieldAlert,
+  AlertTriangle,
+  Clock,
+  Loader2,
+  Download,
+} from 'lucide-react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { Card, Badge } from '@shared/components';
 import { useData } from '@shared/contexts/DataContext';
+import { useAuth } from '@features/auth/model/AuthContext';
 import { useClassStudents, useApiConfig } from '@features/api';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_CLASS_STUDENTS } from '@shared/data/apiDefinitions';
-import { downloadAllPdf } from '@shared/services/pdfDownloadService';
+import {
+  downloadAllPdf,
+  downloadTeacherReportPdf,
+  downloadStudentPdf,
+} from '@shared/services/pdfDownloadService';
 import type { Student, Assessment, Class } from '@shared/types';
 import {
   TypeChangeChart,
@@ -295,7 +308,6 @@ const DashPlaceholder = styled.span<{ $variant?: 'light' | 'default' }>`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
-
 const StatusBadge = styled.span<{ $variant: 'attention' | 'reliability' | 'submitted' }>`
   display: inline-flex;
   align-items: center;
@@ -385,10 +397,85 @@ const DownloadButton = styled.button`
   }
 `;
 
+const TeacherReportButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  background: ${({ theme }) => theme.colors.gray[100]};
+  color: ${({ theme }) => theme.colors.gray[700]};
+  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.gray[200]};
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &::before {
+    content: '';
+    width: 20px;
+    height: 24px;
+    background-image: url("data:image/svg+xml,%3Csvg width='33' height='40' viewBox='0 0 33 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M23.7 14.51C20.24 14.51 17.44 11.7 17.44 8.23999V0.150024H3.84C1.96 0.150024 0.429993 1.67999 0.429993 3.54999V36.12C0.429993 38 1.96 39.52 3.84 39.52H28.7C30.58 39.52 32.11 38 32.11 36.12V14.51H23.7ZM17.59 31.31L13.08 13.44L17.59 31.31Z' fill='%23E53252'/%3E%3Cpath d='M23.81 12.45H31.19L19.95 1.26001V8.59003C19.95 10.72 21.69 12.45 23.81 12.45Z' fill='%234F4F4F'/%3E%3Cpath d='M7.34 28.8301V31.4501H5.07001V24.3301C5.07001 24.0101 5.09999 23.7502 5.14999 23.5302C5.19999 23.3102 5.29999 23.1301 5.42999 22.9901C5.55999 22.8501 5.73999 22.7501 5.95999 22.6901C6.17999 22.6301 6.46 22.6001 6.78 22.6001H8.69C9.17 22.6001 9.61001 22.6602 10.01 22.7802C10.41 22.9002 10.76 23.0801 11.05 23.3301C11.34 23.5801 11.57 23.8901 11.74 24.2701C11.91 24.6501 11.99 25.1001 11.99 25.6201V25.8101C11.99 26.3301 11.91 26.7801 11.74 27.1601C11.57 27.5401 11.35 27.8501 11.05 28.1001C10.75 28.3501 10.41 28.5301 10.01 28.6501C9.61001 28.7701 9.17 28.8301 8.69 28.8301H7.34ZM7.34 26.9101H8.59C8.77 26.9101 8.93999 26.8801 9.07999 26.8201C9.21999 26.7601 9.34 26.6701 9.44 26.5601C9.54 26.4501 9.61001 26.3201 9.67001 26.1901C9.72001 26.0501 9.75 25.9001 9.75 25.7501V25.6701C9.75 25.5201 9.72001 25.3701 9.67001 25.2301C9.62001 25.0901 9.54 24.9701 9.44 24.8601C9.34 24.7501 9.21999 24.6601 9.07999 24.6001C8.93999 24.5401 8.77 24.5101 8.59 24.5101H7.64999C7.52999 24.5101 7.43999 24.5301 7.39999 24.5701C7.35999 24.6101 7.32999 24.7001 7.32999 24.8301V26.9201H7.34V26.9101Z' fill='%23FCFFFF'/%3E%3Cpath d='M16.29 22.5901C16.77 22.5901 17.24 22.66 17.7 22.79C18.16 22.92 18.58 23.15 18.95 23.47C19.32 23.79 19.62 24.21 19.85 24.73C20.08 25.25 20.19 25.8901 20.19 26.6501V27.36C20.19 28.12 20.08 28.7601 19.85 29.2801C19.62 29.8001 19.32 30.22 18.95 30.54C18.58 30.86 18.16 31.09 17.7 31.22C17.23 31.36 16.76 31.42 16.29 31.42H14.65C14.32 31.42 14.05 31.3901 13.83 31.3301C13.61 31.2701 13.43 31.1701 13.3 31.0301C13.17 30.8901 13.07 30.7101 13.02 30.4901C12.96 30.2701 12.94 30.0001 12.94 29.6901V24.3101C12.94 23.9901 12.97 23.7301 13.02 23.5101C13.07 23.2901 13.17 23.11 13.3 22.97C13.43 22.83 13.61 22.73 13.83 22.67C14.05 22.61 14.33 22.5801 14.65 22.5801H16.29V22.5901ZM17.95 26.48C17.95 25.83 17.79 25.3401 17.48 25.0001C17.17 24.6601 16.75 24.4901 16.23 24.4901H15.5C15.38 24.4901 15.29 24.51 15.25 24.55C15.21 24.59 15.18 24.6801 15.18 24.8101V29.22C15.18 29.35 15.2 29.44 15.25 29.48C15.29 29.52 15.38 29.54 15.5 29.54H16.23C16.75 29.54 17.17 29.3701 17.48 29.0301C17.8 28.6901 17.95 28.2 17.95 27.55V26.48Z' fill='%23FCFFFF'/%3E%3Cpath d='M21.21 31.4501V24.3301C21.21 24.0101 21.24 23.7502 21.29 23.5302C21.34 23.3102 21.44 23.1301 21.57 22.9901C21.7 22.8501 21.88 22.7501 22.1 22.6901C22.32 22.6301 22.6 22.6001 22.92 22.6001H26.58C26.74 22.6001 26.88 22.6301 26.99 22.6901C27.1 22.7501 27.19 22.8301 27.27 22.9201C27.35 23.0101 27.4 23.1201 27.43 23.2401C27.46 23.3601 27.48 23.4701 27.48 23.5801C27.48 23.6901 27.46 23.8001 27.43 23.9101C27.4 24.0201 27.35 24.1301 27.28 24.2201C27.21 24.3101 27.12 24.3901 27.01 24.4401C26.9 24.4901 26.76 24.5201 26.6 24.5201H23.81C23.69 24.5201 23.6 24.5401 23.56 24.5801C23.52 24.6201 23.49 24.7101 23.49 24.8401V26.2301H26.32C26.48 26.2301 26.62 26.2601 26.73 26.3201C26.84 26.3801 26.93 26.4601 27.01 26.5501C27.08 26.6501 27.14 26.7501 27.17 26.8701C27.2 26.9901 27.22 27.1001 27.22 27.2101C27.22 27.3201 27.2 27.4301 27.17 27.5401C27.14 27.6501 27.09 27.7601 27.02 27.8501C26.95 27.9401 26.86 28.0201 26.75 28.0701C26.64 28.1201 26.5 28.1501 26.34 28.1501H23.51V31.4501H21.21Z' fill='%23FCFFFF'/%3E%3C/svg%3E%0A");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+`;
+
+const PdfIconButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+
+  &:hover:not(:disabled) {
+    opacity: 0.7;
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  &::before {
+    content: '';
+    display: block;
+    width: 16px;
+    height: 19px;
+    background-image: url("data:image/svg+xml,%3Csvg width='33' height='40' viewBox='0 0 33 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M23.7 14.51C20.24 14.51 17.44 11.7 17.44 8.23999V0.150024H3.84C1.96 0.150024 0.429993 1.67999 0.429993 3.54999V36.12C0.429993 38 1.96 39.52 3.84 39.52H28.7C30.58 39.52 32.11 38 32.11 36.12V14.51H23.7ZM17.59 31.31L13.08 13.44L17.59 31.31Z' fill='%23E53252'/%3E%3Cpath d='M23.81 12.45H31.19L19.95 1.26001V8.59003C19.95 10.72 21.69 12.45 23.81 12.45Z' fill='%234F4F4F'/%3E%3Cpath d='M7.34 28.8301V31.4501H5.07001V24.3301C5.07001 24.0101 5.09999 23.7502 5.14999 23.5302C5.19999 23.3102 5.29999 23.1301 5.42999 22.9901C5.55999 22.8501 5.73999 22.7501 5.95999 22.6901C6.17999 22.6301 6.46 22.6001 6.78 22.6001H8.69C9.17 22.6001 9.61001 22.6602 10.01 22.7802C10.41 22.9002 10.76 23.0801 11.05 23.3301C11.34 23.5801 11.57 23.8901 11.74 24.2701C11.91 24.6501 11.99 25.1001 11.99 25.6201V25.8101C11.99 26.3301 11.91 26.7801 11.74 27.1601C11.57 27.5401 11.35 27.8501 11.05 28.1001C10.75 28.3501 10.41 28.5301 10.01 28.6501C9.61001 28.7701 9.17 28.8301 8.69 28.8301H7.34ZM7.34 26.9101H8.59C8.77 26.9101 8.93999 26.8801 9.07999 26.8201C9.21999 26.7601 9.34 26.6701 9.44 26.5601C9.54 26.4501 9.61001 26.3201 9.67001 26.1901C9.72001 26.0501 9.75 25.9001 9.75 25.7501V25.6701C9.75 25.5201 9.72001 25.3701 9.67001 25.2301C9.62001 25.0901 9.54 24.9701 9.44 24.8601C9.34 24.7501 9.21999 24.6601 9.07999 24.6001C8.93999 24.5401 8.77 24.5101 8.59 24.5101H7.64999C7.52999 24.5101 7.43999 24.5301 7.39999 24.5701C7.35999 24.6101 7.32999 24.7001 7.32999 24.8301V26.9201H7.34V26.9101Z' fill='%23FCFFFF'/%3E%3Cpath d='M16.29 22.5901C16.77 22.5901 17.24 22.66 17.7 22.79C18.16 22.92 18.58 23.15 18.95 23.47C19.32 23.79 19.62 24.21 19.85 24.73C20.08 25.25 20.19 25.8901 20.19 26.6501V27.36C20.19 28.12 20.08 28.7601 19.85 29.2801C19.62 29.8001 19.32 30.22 18.95 30.54C18.58 30.86 18.16 31.09 17.7 31.22C17.23 31.36 16.76 31.42 16.29 31.42H14.65C14.32 31.42 14.05 31.3901 13.83 31.3301C13.61 31.2701 13.43 31.1701 13.3 31.0301C13.17 30.8901 13.07 30.7101 13.02 30.4901C12.96 30.2701 12.94 30.0001 12.94 29.6901V24.3101C12.94 23.9901 12.97 23.7301 13.02 23.5101C13.07 23.2901 13.17 23.11 13.3 22.97C13.43 22.83 13.61 22.73 13.83 22.67C14.05 22.61 14.33 22.5801 14.65 22.5801H16.29V22.5901ZM17.95 26.48C17.95 25.83 17.79 25.3401 17.48 25.0001C17.17 24.6601 16.75 24.4901 16.23 24.4901H15.5C15.38 24.4901 15.29 24.51 15.25 24.55C15.21 24.59 15.18 24.6801 15.18 24.8101V29.22C15.18 29.35 15.2 29.44 15.25 29.48C15.29 29.52 15.38 29.54 15.5 29.54H16.23C16.75 29.54 17.17 29.3701 17.48 29.0301C17.8 28.6901 17.95 28.2 17.95 27.55V26.48Z' fill='%23FCFFFF'/%3E%3Cpath d='M21.21 31.4501V24.3301C21.21 24.0101 21.24 23.7502 21.29 23.5302C21.34 23.3102 21.44 23.1301 21.57 22.9901C21.7 22.8501 21.88 22.7501 22.1 22.6901C22.32 22.6301 22.6 22.6001 22.92 22.6001H26.58C26.74 22.6001 26.88 22.6301 26.99 22.6901C27.1 22.7501 27.19 22.8301 27.27 22.9201C27.35 23.0101 27.4 23.1201 27.43 23.2401C27.46 23.3601 27.48 23.4701 27.48 23.5801C27.48 23.6901 27.46 23.8001 27.43 23.9101C27.4 24.0201 27.35 24.1301 27.28 24.2201C27.21 24.3101 27.12 24.3901 27.01 24.4401C26.9 24.4901 26.76 24.5201 26.6 24.5201H23.81C23.69 24.5201 23.6 24.5401 23.56 24.5801C23.52 24.6201 23.49 24.7101 23.49 24.8401V26.2301H26.32C26.48 26.2301 26.62 26.2601 26.73 26.3201C26.84 26.3801 26.93 26.4601 27.01 26.5501C27.08 26.6501 27.14 26.7501 27.17 26.8701C27.2 26.9901 27.22 27.1001 27.22 27.2101C27.22 27.3201 27.2 27.4301 27.17 27.5401C27.14 27.6501 27.09 27.7601 27.02 27.8501C26.95 27.9401 26.86 28.0201 26.75 28.0701C26.64 28.1201 26.5 28.1501 26.34 28.1501H23.51V31.4501H21.21Z' fill='%23FCFFFF'/%3E%3C/svg%3E%0A");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+`;
+
+const PdfIconsCell = styled.div`
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  justify-content: center;
+`;
+
 export const ClassDashboardWidget: React.FC = () => {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
   const { getClassById } = useData();
+  const { user } = useAuth();
   const { hasJwtToken } = useApiConfig();
   const {
     students: apiStudents,
@@ -467,9 +554,8 @@ export const ClassDashboardWidget: React.FC = () => {
               ? '종료'
               : '시작전',
           },
-          round2SubmittedCount: apiStudents.filter((s) =>
-            s.assessments.some((a) => a.round === 2),
-          ).length,
+          round2SubmittedCount: apiStudents.filter((s) => s.assessments.some((a) => a.round === 2))
+            .length,
         },
       };
     }
@@ -578,13 +664,9 @@ export const ClassDashboardWidget: React.FC = () => {
     }
   };
 
-  const renderResultCell = (
-    assessment: Assessment | undefined,
-    isSubmittedNoResult?: boolean,
-  ) => {
+  const renderResultCell = (assessment: Assessment | undefined, isSubmittedNoResult?: boolean) => {
     if (!assessment) {
-      if (isSubmittedNoResult)
-        return <StatusBadge $variant='submitted'>제출 완료</StatusBadge>;
+      if (isSubmittedNoResult) return <StatusBadge $variant='submitted'>제출 완료</StatusBadge>;
       return <DashPlaceholder $variant='light'>-</DashPlaceholder>;
     }
     const hasReliability = assessment.reliabilityWarnings.length > 0;
@@ -636,6 +718,39 @@ export const ClassDashboardWidget: React.FC = () => {
     }
   };
 
+  const handleDownloadTeacherReport = async (round: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    console.log(user?.id, dgnssIds, round);
+    if (!dgnssId) return;
+
+    setDownloadError(false);
+    try {
+      await downloadAllPdf(dgnssId);
+    } catch {
+      setDownloadError(true);
+    }
+  };
+
+  const handleDownloadStudentPdf = async (student: Student, round: 1 | 2, type: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    const assessment = student.assessments.find((a) => a.round === round);
+    if (!dgnssId || assessment?.answerIdx == null) return;
+
+    setDownloadError(false);
+    try {
+      await downloadStudentPdf({
+        userId: student.id,
+        userType: 'S',
+        dgnssId,
+        answerIdx: assessment.answerIdx,
+        ordNo: round,
+        type,
+      });
+    } catch {
+      setDownloadError(true);
+    }
+  };
+
   return (
     <PageContainer>
       <HeaderRow>
@@ -658,21 +773,32 @@ export const ClassDashboardWidget: React.FC = () => {
                 다운로드 실패
               </span>
             )}
+            <TeacherReportButton
+              onClick={() => void handleDownloadTeacherReport(dgnssIds)}
+              disabled={!dgnssIds.round1 && !dgnssIds.round2}
+              title={
+                dgnssIds.round1 || dgnssIds.round2
+                  ? '교사용 보고서 PDF 다운로드'
+                  : '검사 완료 후 가능'
+              }
+            >
+              교사용 보고서 PDF
+            </TeacherReportButton>
             <DownloadButton
               onClick={() => void handleDownloadAll(1)}
               disabled={!dgnssIds.round1}
-              title={dgnssIds.round1 ? '1차 전체 결과 ZIP 다운로드' : '1차 검사 완료 후 가능'}
+              title={dgnssIds.round1 ? '1차 보고서 전체 다운로드' : '1차 검사 완료 후 가능'}
             >
               <Download size={14} />
-              1차 전체 PDF
+              1차 보고서 전체 다운로드
             </DownloadButton>
             <DownloadButton
               onClick={() => void handleDownloadAll(2)}
               disabled={!dgnssIds.round2}
-              title={dgnssIds.round2 ? '2차 전체 결과 ZIP 다운로드' : '2차 검사 완료 후 가능'}
+              title={dgnssIds.round2 ? '2차 보고서 전체 다운로드' : '2차 검사 완료 후 가능'}
             >
               <Download size={14} />
-              2차 전체 PDF
+              2차 보고서 전체 다운로드
             </DownloadButton>
           </DownloadButtons>
         )}
@@ -791,6 +917,11 @@ export const ClassDashboardWidget: React.FC = () => {
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
+                  {hasJwtToken && (
+                    <TableHeaderCell $width='7rem' $align='center'>
+                      PDF 다운로드
+                    </TableHeaderCell>
+                  )}
                 </TableHeaderRow>
               </TableHead>
               <TableBody>
@@ -799,21 +930,46 @@ export const ClassDashboardWidget: React.FC = () => {
                   const r2 = student.assessments.find((a) => a.round === 2);
 
                   return (
-                    <TableRow
-                      key={student.id}
-                      onClick={() =>
-                        navigate(`/dashboard/class/${classId}/student/${student.id}`)
-                      }
-                    >
-                      <TableCell>
+                    <TableRow key={student.id}>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
                         <StudentNumber>{student.number}</StudentNumber>
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
                         <StudentName>{student.name}</StudentName>
                       </TableCell>
-                      <TableCell>{renderResultCell(r1)}</TableCell>
-                      <TableCell $align='center'>{renderChangeIndicator(r1, r2)}</TableCell>
-                      <TableCell>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {renderResultCell(r1)}
+                      </TableCell>
+                      <TableCell
+                        $align='center'
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {renderChangeIndicator(r1, r2)}
+                      </TableCell>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
                         {renderResultCell(
                           r2,
                           !r2 &&
@@ -821,6 +977,44 @@ export const ClassDashboardWidget: React.FC = () => {
                             student.round2Submitted,
                         )}
                       </TableCell>
+                      {hasJwtToken && (
+                        <TableCell $align='center'>
+                          <PdfIconsCell>
+                            <PdfIconButton
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDownloadStudentPdf(student, 1, 1);
+                              }}
+                              disabled={!r1 || r1.answerIdx == null}
+                              title='1차 상세'
+                            />
+                            <PdfIconButton
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDownloadStudentPdf(student, 1, 2);
+                              }}
+                              disabled={!r1 || r1.answerIdx == null}
+                              title='1차 요약'
+                            />
+                            <PdfIconButton
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDownloadStudentPdf(student, 2, 1);
+                              }}
+                              disabled={!r2 || r2.answerIdx == null}
+                              title='2차 상세'
+                            />
+                            <PdfIconButton
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDownloadStudentPdf(student, 2, 2);
+                              }}
+                              disabled={!r2 || r2.answerIdx == null}
+                              title='2차 요약'
+                            />
+                          </PdfIconsCell>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}

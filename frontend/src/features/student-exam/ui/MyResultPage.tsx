@@ -393,7 +393,7 @@ export const MyResultPage: React.FC = () => {
   const [dgnssIds, setDgnssIds] = useState<{ round1?: number; round2?: number }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isPdfDownloading, setIsPdfDownloading] = useState(false);
+  const [isPdfDownloading, setIsPdfDownloading] = useState<1 | 2 | null>(null);
   const [pdfError, setPdfError] = useState(false);
 
   useEffect(() => {
@@ -507,6 +507,27 @@ export const MyResultPage: React.FC = () => {
     window.scrollTo(0, 0);
   }, []);
 
+  const handleDownloadPdf = async (round: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    const assessment = student?.assessments.find((a) => a.round === round);
+    if (!dgnssId || assessment?.answerIdx == null || !user?.stdtId) return;
+    setIsPdfDownloading(round);
+    setPdfError(false);
+    try {
+      await downloadStudentPdf({
+        userId: user.stdtId,
+        userType: 'S',
+        dgnssId,
+        answerIdx: assessment.answerIdx,
+        ordNo: round,
+      });
+    } catch {
+      setPdfError(true);
+    } finally {
+      setIsPdfDownloading(null);
+    }
+  };
+
   // 로딩 상태
   if (isLoading) {
     return (
@@ -595,44 +616,27 @@ export const MyResultPage: React.FC = () => {
         </HeaderLeft>
 
         {/* PDF 다운로드 */}
-        {(() => {
-          const pdfRound: 1 | 2 = viewMode === 'round2' ? 2 : 1;
-          const pdfDgnssId = pdfRound === 1 ? dgnssIds.round1 : dgnssIds.round2;
-          const pdfAssessment = student.assessments.find((a) => a.round === pdfRound);
-          const handleDownloadPdf = async () => {
-            if (!pdfDgnssId || pdfAssessment?.answerIdx == null || !user?.stdtId) return;
-            setIsPdfDownloading(true);
-            setPdfError(false);
-            try {
-              await downloadStudentPdf({
-                userId: user.stdtId,
-                userType: 'S',
-                dgnssId: pdfDgnssId,
-                answerIdx: pdfAssessment.answerIdx,
-                ordNo: pdfRound,
-              });
-            } catch {
-              setPdfError(true);
-            } finally {
-              setIsPdfDownloading(false);
-            }
-          };
-          return (
-            <>
-              <PDFButton
-                onClick={() => void handleDownloadPdf()}
-                disabled={isPdfDownloading || !pdfDgnssId || pdfAssessment?.answerIdx == null}
-                title={pdfDgnssId && pdfAssessment?.answerIdx != null ? 'PDF 다운로드' : '검사 결과 없음'}
-              >
-                {isPdfDownloading ? <SpinningLoader /> : <Download />}
-                PDF 다운로드
-              </PDFButton>
-              {pdfError && (
-                <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>다운로드 실패</span>
-              )}
-            </>
-          );
-        })()}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <PDFButton
+            onClick={() => void handleDownloadPdf(1)}
+            disabled={isPdfDownloading !== null || !r1 || r1.answerIdx == null}
+            title={r1 && r1.answerIdx != null ? '1차 PDF 다운로드' : '1차 검사 결과 없음'}
+          >
+            {isPdfDownloading === 1 ? <SpinningLoader /> : <Download />}
+            1차 PDF
+          </PDFButton>
+          <PDFButton
+            onClick={() => void handleDownloadPdf(2)}
+            disabled={isPdfDownloading !== null || !r2 || r2.answerIdx == null}
+            title={r2 && r2.answerIdx != null ? '2차 PDF 다운로드' : '2차 검사 결과 없음'}
+          >
+            {isPdfDownloading === 2 ? <SpinningLoader /> : <Download />}
+            2차 PDF
+          </PDFButton>
+          {pdfError && (
+            <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>다운로드 실패</span>
+          )}
+        </div>
       </PageHeader>
 
       {/* 차수 선택 */}

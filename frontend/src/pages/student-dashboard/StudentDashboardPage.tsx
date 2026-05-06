@@ -375,7 +375,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     fetchCoachingStrategy,
   } = useCoachingStrategy(classId, studentId, selectedRound);
 
-  const [isPdfDownloading, setIsPdfDownloading] = useState(false);
+  const [isPdfDownloading, setIsPdfDownloading] = useState<1 | 2 | null>(null);
   const [pdfError, setPdfError] = useState(false);
 
   useEffect(() => {
@@ -384,12 +384,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     return () => clearTimeout(id);
   }, [pdfError]);
 
-  const handleDownloadPdf = async () => {
-    const ordNo: 1 | 2 = viewMode === 'round2' ? 2 : 1;
-    const dgnssId = ordNo === 1 ? dgnssIds.round1 : dgnssIds.round2;
-    const assessment = student.assessments.find((a) => a.round === ordNo);
+  const handleDownloadPdf = async (round: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    const assessment = student.assessments.find((a) => a.round === round);
     if (!dgnssId || assessment?.answerIdx == null) return;
-    setIsPdfDownloading(true);
+    setIsPdfDownloading(round);
     setPdfError(false);
     try {
       await downloadStudentPdf({
@@ -397,12 +396,12 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         userType: 'S',
         dgnssId,
         answerIdx: assessment.answerIdx,
-        ordNo,
+        ordNo: round,
       });
     } catch {
       setPdfError(true);
     } finally {
-      setIsPdfDownloading(false);
+      setIsPdfDownloading(null);
     }
   };
   const isCompare = viewMode === 'compare';
@@ -420,10 +419,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     () => (isCompare && r1 ? buildStudentDomainData(r1.tScores, r1.midCategoryScores) : undefined),
     [isCompare, r1],
   );
-
-  const pdfRound: 1 | 2 = viewMode === 'round2' ? 2 : 1;
-  const pdfDgnssId = pdfRound === 1 ? dgnssIds.round1 : dgnssIds.round2;
-  const pdfAssessment = pdfRound === 1 ? r1 : r2;
 
   const currentIdx = classStudents.findIndex((s) => s.id === studentId);
   const prev = currentIdx > 0 ? classStudents[currentIdx - 1] : null;
@@ -485,12 +480,20 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
             {hasJwtToken && (
               <>
                 <PanelButton
-                  onClick={() => void handleDownloadPdf()}
-                  disabled={isPdfDownloading || !pdfDgnssId || !pdfAssessment?.answerIdx}
-                  title={pdfDgnssId && pdfAssessment?.answerIdx != null ? 'PDF 다운로드' : '검사 결과 없음'}
+                  onClick={() => void handleDownloadPdf(1)}
+                  disabled={isPdfDownloading !== null || !r1 || r1.answerIdx == null}
+                  title={r1 && r1.answerIdx != null ? '1차 PDF 다운로드' : '1차 검사 결과 없음'}
                 >
-                  <PanelButtonIcon as={isPdfDownloading ? Loader2 : Download} />
-                  PDF 다운로드
+                  <PanelButtonIcon as={isPdfDownloading === 1 ? Loader2 : Download} />
+                  1차 PDF
+                </PanelButton>
+                <PanelButton
+                  onClick={() => void handleDownloadPdf(2)}
+                  disabled={isPdfDownloading !== null || !r2 || r2.answerIdx == null}
+                  title={r2 && r2.answerIdx != null ? '2차 PDF 다운로드' : '2차 검사 결과 없음'}
+                >
+                  <PanelButtonIcon as={isPdfDownloading === 2 ? Loader2 : Download} />
+                  2차 PDF
                 </PanelButton>
                 {pdfError && (
                   <span style={{ fontSize: '0.75rem', color: '#ef4444', whiteSpace: 'nowrap' }}>
