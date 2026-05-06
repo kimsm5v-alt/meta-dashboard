@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   MessageSquare,
   Users,
-  Bell,
   Settings,
   User,
   ChevronRight,
@@ -24,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@features/auth';
 import { useTeacherClasses } from '@features/api';
+import { BellWithPanel } from '@features/notifications';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_TEACHER_ME } from '@shared/data/apiDefinitions';
 import { FEATURES, type FeatureKey } from '@shared/config/features';
@@ -485,9 +485,7 @@ const Header = () => {
           <LogoImage src={serviceLogo} alt='학습심리정서검사' />
         </LogoButton>
         <HeaderActions>
-          <IconButton>
-            <Bell />
-          </IconButton>
+          <BellWithPanel />
           <IconButton>
             <Settings />
           </IconButton>

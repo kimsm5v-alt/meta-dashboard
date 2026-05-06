@@ -70,7 +70,7 @@ public class GroupController {
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(examples = {
                     @ExampleObject(name = "게스트참가", value =
-                            "{\"inviteCode\":\"ABC123\", \"nickname\":\"게스트\", \"email\":\"guest@test.com\", \"gender\":\"M\"}")
+                            "{\"inviteCode\":\"ABC123\", \"nickname\":\"게스트\", \"email\":\"guest@test.com\"}")
             }))
     public ResponseDTO<CustomBody> joinGroupAsGuest(@RequestBody Map<String, Object> paramData) throws Exception {
         Object resultData = groupService.joinGroupAsGuest(paramData);

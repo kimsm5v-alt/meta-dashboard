@@ -164,7 +164,6 @@ public class GroupService {
             // LEFT 상태: 재가입 허용 (기존 row 재활성화)
             existing.updateStatus(MemberStatus.ACTIVE);
             existing.setNickname(user.getNickname());
-            existing.setGender(user.getGender());
             existing.setEmail(user.getEmail());
             existing.setJoinedAt(LocalDateTime.now());
             existing.setLeftAt(null);
@@ -196,7 +195,6 @@ public class GroupService {
                 .userNo(userNo)
                 .stdtId(user.getStdtId())
                 .nickname(user.getNickname())
-                .gender(user.getGender())
                 .email(user.getEmail())
                 .memberNo(memberNo)
                 .memberType(MemberType.STUDENT)
@@ -262,14 +260,6 @@ public class GroupService {
             throw new IllegalStateException("이미 해당 그룹에 참가한 게스트입니다. 이메일 인증 후 기존 계정으로 다시 입장해주세요.");
         }
 
-        String gender = (String) paramData.get("gender");
-        if (gender == null || gender.isBlank()) {
-            throw new IllegalArgumentException("성별은 필수입니다.");
-        }
-        if (!"M".equals(gender) && !"F".equals(gender)) {
-            throw new IllegalArgumentException("성별은 M 또는 F만 허용됩니다.");
-        }
-
         String stdtId = IdGenerator.generateStdtId();
 
         Integer maxNo = groupMemberMapper.findMaxMemberNoByGroupId(groupId);
@@ -280,7 +270,6 @@ public class GroupService {
                 .userNo(null)
                 .stdtId(stdtId)
                 .nickname((String) paramData.get("nickname"))
-                .gender(gender)
                 .email((String) paramData.get("email"))
                 .memberNo(memberNo)
                 .memberType(MemberType.GUEST)

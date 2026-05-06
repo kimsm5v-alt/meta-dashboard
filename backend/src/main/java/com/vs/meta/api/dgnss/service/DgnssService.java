@@ -939,6 +939,7 @@ public class DgnssService {
         Map<String, Object> stInfoParam = new HashMap<>();
         String dgnssResultId = MapUtils.getString(param, "dgnssResultId", "");
         boolean hasDgnssResultId = NumberUtils.toLong(StringUtils.trimToEmpty(dgnssResultId), 0L) > 0L;
+        int requestedOrdNo = NumberUtils.toInt(MapUtils.getString(param, "ordNo", "1"), 1);
 
         if (hasDgnssResultId) {
             stInfoParam.put("dgnssResultId", dgnssResultId);
@@ -954,6 +955,12 @@ public class DgnssService {
         }
 
         Map<String, Object> stUserInfo = dgnssMapper.selectStInfo(stInfoParam);
+        // ordNo=2 요청인데 2회차 기본정보가 아직 없으면 1회차 기준으로 fallback 조회
+        // (분석 데이터는 이후 ord_no 조건으로 1/2회차를 다시 필터링)
+        if (stUserInfo == null && !hasDgnssResultId && requestedOrdNo == 2) {
+            stInfoParam.put("ordNo", "1");
+            stUserInfo = dgnssMapper.selectStInfo(stInfoParam);
+        }
         if (stUserInfo == null) {
             return new HashMap<>();
         }
@@ -983,6 +990,24 @@ public class DgnssService {
             if (targetOrdNo > 0) {
                 stAnalysisList = stAnalysisList.stream()
                         .filter(map -> MapUtils.getInteger(map, "ord_no", 0) == targetOrdNo)
+                        .collect(Collectors.toList());
+            }
+            if (CollectionUtils.isEmpty(stAnalysisList)) {
+                return new HashMap<>();
+            }
+        } else {
+            // dgnssResultId 미지정 시 ordNo 정책:
+            // 1 -> 1회차만, 2 -> 1/2회차 모두
+            if (requestedOrdNo == 1) {
+                stAnalysisList = stAnalysisList.stream()
+                        .filter(map -> MapUtils.getInteger(map, "ord_no", 0) == 1)
+                        .collect(Collectors.toList());
+            } else if (requestedOrdNo == 2) {
+                stAnalysisList = stAnalysisList.stream()
+                        .filter(map -> {
+                            int ord = MapUtils.getInteger(map, "ord_no", 0);
+                            return ord == 1 || ord == 2;
+                        })
                         .collect(Collectors.toList());
             }
             if (CollectionUtils.isEmpty(stAnalysisList)) {

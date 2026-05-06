@@ -56,7 +56,6 @@ public class MemberController {
         result.put("spUserId", user.getSpUserId());
         result.put("email", user.getEmail());
         result.put("nickname", user.getNickname());
-        result.put("gender", user.getGender());
         result.put("roleCode", user.getRoleCode());
         result.put("tcId", user.getTcId());
         result.put("stdtId", user.getStdtId());
