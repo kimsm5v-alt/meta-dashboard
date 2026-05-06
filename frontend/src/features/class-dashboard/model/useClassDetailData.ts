@@ -12,6 +12,7 @@ import type {
 import { FACTOR_DEFINITIONS, MAIN_CATEGORIES, SUB_CATEGORY_FACTORS } from '@shared/data/factors';
 import { CATEGORY_COLORS, DOMAIN_ICONS, POSITIVE_DOMAINS } from '@shared/data/lpaProfiles';
 import { SUB_CATEGORY_SCRIPTS, getLevel } from '@shared/data/subCategoryScripts';
+import { ENV } from '@shared/config/env';
 
 // 타입 re-export (하위 호환성)
 export type { TLevel, FactorAvgData, SubCategoryData, DomainData };
@@ -59,7 +60,7 @@ export function useClassDetailData(classData: Class, round: 1 | 2 = 1): ClassDet
     const effectiveStudents = validStudents.length > 0 ? validStudents : studentsWithAssessment;
 
     // DEBUG: 학생 데이터 확인
-    if (import.meta.env.DEV) {
+    if (ENV.IS_DEV) {
       console.log('[useClassDetailData] 전체 학생:', classData.students.length);
       console.log('[useClassDetailData] 검사 완료 학생:', studentsWithAssessment.length);
       console.log('[useClassDetailData] 신뢰도 양호 학생:', validStudents.length);

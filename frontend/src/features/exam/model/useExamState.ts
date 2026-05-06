@@ -33,9 +33,15 @@ export function useExamState() {
   const setAnswer = useCallback((questionNo: number, answer: string) => {
     setState((prev) => {
       const newAnswers = { ...prev.answers, [questionNo]: answer };
-      const answeredCount = Object.keys(newAnswers).filter(
-        (k) => newAnswers[Number(k)] !== '',
-      ).length;
+
+      // answeredCount 증가 로직:
+      // - 기존에 답변 없었으면 +1
+      // - 기존에 답변 있었으면 유지
+      const wasAnswered = prev.answers[questionNo] && prev.answers[questionNo] !== '';
+      const isAnswered = answer !== '';
+      const answeredCount =
+        !wasAnswered && isAnswered ? prev.answeredCount + 1 : prev.answeredCount;
+
       return { ...prev, answers: newAnswers, answeredCount };
     });
   }, []);
@@ -67,29 +73,39 @@ export function useExamState() {
   const loadExistingAnswers = useCallback((existingAnswers: Record<number, string>) => {
     setState((prev) => {
       const mergedAnswers = { ...prev.answers, ...existingAnswers };
-      const answeredCount = Object.keys(mergedAnswers).filter(
-        (k) => mergedAnswers[Number(k)] !== '',
-      ).length;
-      return { ...prev, answers: mergedAnswers, answeredCount };
+
+      return { ...prev, answers: mergedAnswers };
     });
   }, []);
 
   const loadQuestions = useCallback(
-    (questions: ExamQuestion[], totalPages: number, totalQuestions: number, omrIdx: number) => {
-      setState((prev) => ({
-        ...prev,
-        questions,
-        // 이미 유효한 값이 설정되어 있으면 유지 (페이지 이동 시 덮어쓰기 방지)
-        totalPages:
-          prev.totalPages > 0 && totalPages > 0
-            ? Math.max(prev.totalPages, totalPages)
-            : totalPages || prev.totalPages,
-        totalQuestions:
-          prev.totalQuestions > 0 && totalQuestions > 0
-            ? Math.max(prev.totalQuestions, totalQuestions)
-            : totalQuestions || prev.totalQuestions,
-        omrIdx,
-      }));
+    (
+      questions: ExamQuestion[],
+      totalPages: number,
+      totalQuestions: number,
+      omrIdx: number,
+      apiAnsweredCount?: number,
+    ) => {
+      setState((prev) => {
+        const newAnsweredCount = apiAnsweredCount ?? prev.answeredCount;
+
+        return {
+          ...prev,
+          questions,
+          // 이미 유효한 값이 설정되어 있으면 유지 (페이지 이동 시 덮어쓰기 방지)
+          totalPages:
+            prev.totalPages > 0 && totalPages > 0
+              ? Math.max(prev.totalPages, totalPages)
+              : totalPages || prev.totalPages,
+          totalQuestions:
+            prev.totalQuestions > 0 && totalQuestions > 0
+              ? Math.max(prev.totalQuestions, totalQuestions)
+              : totalQuestions || prev.totalQuestions,
+          omrIdx,
+          // API에서 받은 answeredCount 사용 (전체 응답 수)
+          answeredCount: newAnsweredCount,
+        };
+      });
     },
     [],
   );

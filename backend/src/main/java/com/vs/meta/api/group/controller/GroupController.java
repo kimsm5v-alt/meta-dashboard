@@ -70,7 +70,7 @@ public class GroupController {
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(examples = {
                     @ExampleObject(name = "게스트참가", value =
-                            "{\"inviteCode\":\"ABC123\", \"nickname\":\"게스트\", \"email\":\"guest@test.com\", \"gender\":\"M\"}")
+                            "{\"inviteCode\":\"ABC123\", \"nickname\":\"게스트\", \"email\":\"guest@test.com\"}")
             }))
     public ResponseDTO<CustomBody> joinGroupAsGuest(@RequestBody Map<String, Object> paramData) throws Exception {
         Object resultData = groupService.joinGroupAsGuest(paramData);
@@ -78,11 +78,19 @@ public class GroupController {
     }
 
     @GetMapping(value = "/group/list")
-    @Operation(summary = "내 그룹 목록 조회", description = "방장/플레이어 모두 포함, 전체 목록 반환")
+    @Operation(
+            summary = "내 그룹 목록 조회",
+            description = "방장/플레이어 모두 포함. 기본은 ACTIVE 그룹만. " +
+                          "includeInactive=true 시 LEFT/KICKED/ARCHIVED 도 포함 " +
+                          "(탈퇴/추방된 그룹의 검사 결과 이력 조회 용도)."
+    )
     public ResponseDTO<CustomBody> groupList(
+            @Parameter(description = "true 시 비활성(LEFT/KICKED/ARCHIVED) 그룹도 포함")
+            @RequestParam(value = "includeInactive", defaultValue = "false") boolean includeInactive,
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
     ) throws Exception {
         paramData.put("userNo", SecurityUtil.requireCurrentUserNo());
+        paramData.put("includeInactive", includeInactive);
         Object resultData = groupService.findGroupList(paramData);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "그룹 목록 조회");
     }
@@ -104,7 +112,7 @@ public class GroupController {
     @Operation(summary = "초대코드로 그룹 조회", description = "참가 전 그룹 정보를 미리 조회")
     @Parameter(name = "code", description = "초대 코드 (6자리)", required = true, examples = @ExampleObject(value = "ABC123"))
     public ResponseDTO<CustomBody> findGroupByInviteCode(@Parameter(hidden = true) @RequestParam Map<String, Object> paramData) throws Exception {
-        paramData.put("userNo", SecurityUtil.requireCurrentUserNo());
+        paramData.put("userNo", SecurityUtil.getCurrentUserNo());
         Object resultData = groupService.findGroupByInviteCode(paramData);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "초대코드 그룹 조회");
     }

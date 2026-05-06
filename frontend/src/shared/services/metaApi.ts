@@ -100,14 +100,16 @@ export interface ClassAnalysisData {
 // API 서비스 설정
 // ============================================================
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+import { ENV } from '@shared/config/env';
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || ENV.API_URL;
 
 /** JWT 토큰 가져오기 */
 const getAuthToken = (): string | null => {
-  // 환경변수 우선
-  if (import.meta.env.VITE_JWT_TOKEN) {
-    console.log('[DEBUG] Using VITE_JWT_TOKEN from env');
-    return import.meta.env.VITE_JWT_TOKEN;
+  // 환경변수 우선 (개발용)
+  const envToken = import.meta.env.VITE_JWT_TOKEN as string | undefined;
+  if (envToken) {
+    return envToken;
   }
   // localStorage의 credentials에서 가져오기
   try {

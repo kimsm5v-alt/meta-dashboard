@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { useAuth } from '@features/auth/model/AuthContext';
+import { useSpAuth } from '@shared/hooks/useSpAuth';
 import { Button } from '@shared/components';
 import { HeroSection, FeaturesSection } from '@features/landing/ui';
 import serviceLogo from '@/assets/logo_2.png';
@@ -98,16 +99,18 @@ const Copyright = styled.p`
 
 export const LandingPage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const { login } = useSpAuth();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
+    if (!isLoading && isAuthenticated) {
+      const path = user?.roleCode === 'STUDENT' ? '/student/exams' : '/dashboard';
+      navigate(path, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, user, navigate]);
 
-  const handleGetStarted = () => {
-    navigate('/login');
+  const handleLogin = () => {
+    login();
   };
 
   return (
@@ -118,10 +121,10 @@ export const LandingPage = () => {
             <Logo src={serviceLogo} alt='학습심리정서검사' />
           </div>
           <NavButtons>
-            <Button variant='outline' size='sm' onClick={() => navigate('/login')}>
+            <Button variant='outline' size='sm' onClick={handleLogin}>
               로그인
             </Button>
-            <Button size='sm' onClick={() => navigate('/login')}>
+            <Button size='sm' onClick={handleLogin}>
               시작하기
             </Button>
           </NavButtons>
@@ -129,7 +132,7 @@ export const LandingPage = () => {
       </Header>
 
       <Main>
-        <HeroSection onGetStarted={handleGetStarted} />
+        <HeroSection onGetStarted={handleLogin} />
         <FeaturesSection />
       </Main>
 

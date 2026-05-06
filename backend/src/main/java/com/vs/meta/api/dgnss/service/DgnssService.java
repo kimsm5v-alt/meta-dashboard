@@ -3,6 +3,9 @@ package com.vs.meta.api.dgnss.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vs.meta.api.notification.event.ExamSubmittedEvent;
+import com.vs.meta.api.notification.event.StudentExamNotificationEvent;
+import com.vs.meta.api.notification.event.TeacherExamNotificationEvent;
 import com.vs.meta.common.exception.IllegalStateException;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.service.FileService;
@@ -23,6 +26,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
@@ -47,9 +51,11 @@ public class DgnssService {
     private final ObjectMapper mapper;
     private final DgnssMapper dgnssMapper;
     private final DgnssLpaService dgnssLpaService;
+    private final DgnssGraphService dgnssGraphService;
     private final PdfService pdfService;
     private final FileService fileService;
     private final NcpMailSender ncpMailSender;
+    private final ApplicationEventPublisher eventPublisher;
     private Map<String, String> lpaTypeNameByClassId = Collections.emptyMap();
 
     @Value("${spring.profiles.active}")
@@ -141,6 +147,7 @@ public class DgnssService {
         return resultMap;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> insertTcDgnssStart(Map<String, Object> paramMap) {
         int result = 0;
         int paperIdx = MapUtils.getInteger(paramMap, "paperIdx", 0);
@@ -189,10 +196,12 @@ public class DgnssService {
         Map<String, Object> dgnssInfoMap = dgnssMapper.selectTcDgnssInfoOne(paramMap);
 
         dgnssInfoMap.put("stTotalCnt", result);
+        publishExamAssignedEvent(paramMap);
 
         return dgnssInfoMap;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> updateTcDgnssEnd(Map<String, Object> paramMap, HttpServletRequest request) throws Exception {
         dgnssMapper.updateDgnssInfo(paramMap);
         Map<String, Object> dgnssInfoMap = dgnssMapper.selectTcDgnssInfoOneWithDgnssId(paramMap);
@@ -201,31 +210,36 @@ public class DgnssService {
         }
         String paperIdx = MapUtils.getString(dgnssInfoMap, "paperIdx", "");
         paramMap.put("paperIdx", paperIdx);
+        int expectedQuestionCount = resolveExpectedQuestionCount(paperIdx);
         // 강사가 강제로 종료한 경우 학생들 응시 이력 탐색을 해서 모든 문제를 푼 학생은 제출이 되어야 한다
         List<LinkedHashMap<String, Object>> stOmrList = dgnssMapper.selectStOmrInfo(paramMap);
         List<Integer> dgnssResultIdList = new ArrayList<>();
         Map<Integer, Boolean> sameAnswerMap = new HashMap<>();
         for (LinkedHashMap<String, Object> map : stOmrList) {
-            if (map.values().stream().noneMatch(Objects::isNull)) {
-                int dgnssResultId = MapUtils.getInteger(map, "dgnssResultId", 0);
-                // 동일 응답한 문항이 10개 이상인지 체크하는 로직
-                LinkedHashMap<String, Object> answersOnly = new LinkedHashMap<>(map);
-                answersOnly.remove("dgnssResultId");
-                boolean sameAnswerCheck = answerCheck(answersOnly.values(), 10);
-
-                dgnssResultIdList.add(dgnssResultId);
-                sameAnswerMap.put(dgnssResultId, sameAnswerCheck);
+            int dgnssResultId = MapUtils.getInteger(map, "dgnssResultId", 0);
+            LinkedHashMap<String, Object> answersOnly = new LinkedHashMap<>(map);
+            answersOnly.remove("dgnssResultId");
+            // 모든 문항이 실제 응답값(빈값/0 제외)일 때만 자동 제출 대상에 포함
+            if (!hasAllAnsweredValues(answersOnly, expectedQuestionCount)) {
+                continue;
             }
+            // 동일 응답한 문항이 10개 이상인지 체크하는 로직
+            boolean sameAnswerCheck = answerCheck(answersOnly.values(), 10);
+
+            dgnssResultIdList.add(dgnssResultId);
+            sameAnswerMap.put(dgnssResultId, sameAnswerCheck);
         }
         // 제출 처리(프로시저 실행)
         if (CollectionUtils.isNotEmpty(dgnssResultIdList)) {
             for (int dgnssResultId : dgnssResultIdList) {
-                stSubmit(dgnssResultId, paperIdx, MapUtils.getBoolean(sameAnswerMap, dgnssResultId, false), request);
+                stSubmit(dgnssResultId, paperIdx, MapUtils.getBoolean(sameAnswerMap, dgnssResultId, false), request, false);
             }
         }
         List<String> submStdtIdList = dgnssMapper.selectSubmitStList(paramMap);
         dgnssInfoMap.put("submStdtList", submStdtIdList);
         dgnssInfoMap.put("stSubmCnt", dgnssResultIdList.size());
+        publishExamEndedReportEvent(dgnssInfoMap);
+        publishExamResultPublishedEvent(dgnssInfoMap);
         return dgnssInfoMap;
     }
 
@@ -241,6 +255,7 @@ public class DgnssService {
         dgnssMapper.deleteTcDgnssInfo(param);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> tcDgnssRestart(Map<String, Object> param) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
 
@@ -276,11 +291,60 @@ public class DgnssService {
                 dgnssMapper.insertDgnssResult(targetMap);
                 dgnssMapper.insertDgnssAnswer(targetMap);
             }
+
+            publishExamReexamRequestedEvent(dgnssInfoMap, targetStList);
         }
         // 상태값 및 PDF 초기화
         dgnssMapper.updateDgnssStatus(param);
         resultMap.put("result", "ok");
         return resultMap;
+    }
+
+    private int resolveExpectedQuestionCount(String paperIdx) {
+        int paperIdxValue = NumberUtils.toInt(StringUtils.trimToEmpty(paperIdx), 0);
+        if (paperIdxValue == 1) {
+            return 124;
+        }
+        if (paperIdxValue == 2) {
+            return 77;
+        }
+        return 0;
+    }
+
+    private boolean hasAllAnsweredValues(Map<String, Object> answersByNo, int expectedQuestionCount) {
+        if (MapUtils.isEmpty(answersByNo) || expectedQuestionCount <= 0) {
+            return false;
+        }
+        for (int no = 1; no <= expectedQuestionCount; no++) {
+            Object answer = getAnswerValue(answersByNo, no);
+            if (answer == null) {
+                return false;
+            }
+            if (answer instanceof String && StringUtils.isBlank((String) answer)) {
+                return false;
+            }
+            Integer value = convertToInteger(answer);
+            if (value == null || value <= 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Object getAnswerValue(Map<String, Object> answersByNo, int no) {
+        String key = Integer.toString(no);
+        if (answersByNo.containsKey(key)) {
+            return answersByNo.get(key);
+        }
+        return answersByNo.get(no);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean existsDgnssResult(int dgnssId, String stdtId) {
+        if (dgnssId <= 0 || StringUtils.isBlank(stdtId)) {
+            return false;
+        }
+        return dgnssMapper.countDgnssResultByDgnssIdAndStdtId(dgnssId, stdtId) > 0;
     }
 
     public boolean answerCheck(Collection<Object> answers, int checkCount) {
@@ -322,7 +386,10 @@ public class DgnssService {
         return null;
     }
 
-    public void stSubmit(int dgnssResultId, String paperType, boolean sameAnswerCheck, HttpServletRequest request) {
+    public void stSubmit(int dgnssResultId, String paperType, boolean sameAnswerCheck, HttpServletRequest request, boolean publishSubmittedEvent) {
+        String beforeSubmitYn = dgnssMapper.selectSubmitYnByDgnssResultId(dgnssResultId);
+        boolean wasAlreadySubmitted = StringUtils.equalsIgnoreCase(beforeSubmitYn, "Y");
+
         // tb_dgnss_result_info에서 subm_at = Y 처리
         dgnssMapper.updateStSubmit(dgnssResultId);
         if (StringUtils.equals(paperType, "1")) {
@@ -338,6 +405,11 @@ public class DgnssService {
             sendStudentResultMail(dgnssResultId, answerIdx, null, request);
         } catch (Exception e) {
             log.error("학생 결과 메일 발송 실패: dgnssResultId={}, answerIdx={}", dgnssResultId, answerIdx, e);
+        }
+
+        if (publishSubmittedEvent && !wasAlreadySubmitted) {
+            publishExamSubmittedEvent(dgnssResultId);
+            publishExamAllSubmittedEventIfCompleted(dgnssResultId);
         }
     }
 
@@ -570,7 +642,7 @@ public class DgnssService {
             answersOnly.remove("omrIdx");
             boolean sameAnswerCheck = answerCheck(answersOnly.values(), 10);
 
-             stSubmit(MapUtils.getInteger(param, "dgnssResultId", 0), paperType, sameAnswerCheck, request);
+             stSubmit(MapUtils.getInteger(param, "dgnssResultId", 0), paperType, sameAnswerCheck, request, true);
             resultMap.put("submit", true);
         } else {
             resultMap.put("submit", false);
@@ -654,6 +726,7 @@ public class DgnssService {
         }
 
         enrichLpaTop3(stInfoList);
+        moveSectionScoresToScoresMap(stInfoList);
         return resultMap;
     }
 
@@ -862,20 +935,32 @@ public class DgnssService {
     }
 
     @Transactional(readOnly = true)
-    private Map<String, Object> selectUnifiedStAnalysis(Map<String, Object> param) {
+    public Map<String, Object> selectUnifiedStAnalysis(Map<String, Object> param) {
         Map<String, Object> stInfoParam = new HashMap<>();
         String dgnssResultId = MapUtils.getString(param, "dgnssResultId", "");
-        boolean hasDgnssResultId = StringUtils.isNotEmpty(dgnssResultId);
+        boolean hasDgnssResultId = NumberUtils.toLong(StringUtils.trimToEmpty(dgnssResultId), 0L) > 0L;
+        int requestedOrdNo = NumberUtils.toInt(MapUtils.getString(param, "ordNo", "1"), 1);
 
         if (hasDgnssResultId) {
             stInfoParam.put("dgnssResultId", dgnssResultId);
         } else {
+            String claId = MapUtils.getString(param, "claId", "");
+            if (StringUtils.isBlank(claId)) {
+                return new HashMap<>();
+            }
             stInfoParam.put("stdtId", MapUtils.getString(param, "stdtId", ""));
             stInfoParam.put("paperIdx", MapUtils.getString(param, "paperIdx", "2"));
             stInfoParam.put("ordNo", MapUtils.getString(param, "ordNo", "1"));
+            stInfoParam.put("claId", claId);
         }
 
         Map<String, Object> stUserInfo = dgnssMapper.selectStInfo(stInfoParam);
+        // ordNo=2 요청인데 2회차 기본정보가 아직 없으면 1회차 기준으로 fallback 조회
+        // (분석 데이터는 이후 ord_no 조건으로 1/2회차를 다시 필터링)
+        if (stUserInfo == null && !hasDgnssResultId && requestedOrdNo == 2) {
+            stInfoParam.put("ordNo", "1");
+            stUserInfo = dgnssMapper.selectStInfo(stInfoParam);
+        }
         if (stUserInfo == null) {
             return new HashMap<>();
         }
@@ -893,6 +978,7 @@ public class DgnssService {
         Map<String, Object> analysisParam = new HashMap<>();
         analysisParam.put("paperIdx", resolvedPaperIdx);
         analysisParam.put("stdtId", stdtId);
+        analysisParam.put("claId", MapUtils.getString(stUserInfo, "claId", ""));
 
         List<Map<String, Object>> stAnalysisList = dgnssMapper.selectStLernAnalysis(analysisParam);
         if (CollectionUtils.isEmpty(stAnalysisList)) {
@@ -909,16 +995,79 @@ public class DgnssService {
             if (CollectionUtils.isEmpty(stAnalysisList)) {
                 return new HashMap<>();
             }
+        } else {
+            // dgnssResultId 미지정 시 ordNo 정책:
+            // 1 -> 1회차만, 2 -> 1/2회차 모두
+            if (requestedOrdNo == 1) {
+                stAnalysisList = stAnalysisList.stream()
+                        .filter(map -> MapUtils.getInteger(map, "ord_no", 0) == 1)
+                        .collect(Collectors.toList());
+            } else if (requestedOrdNo == 2) {
+                stAnalysisList = stAnalysisList.stream()
+                        .filter(map -> {
+                            int ord = MapUtils.getInteger(map, "ord_no", 0);
+                            return ord == 1 || ord == 2;
+                        })
+                        .collect(Collectors.toList());
+            }
+            if (CollectionUtils.isEmpty(stAnalysisList)) {
+                return new HashMap<>();
+            }
         }
         enrichLpaTop3(stAnalysisList);
+        Map<String, Map<String, Object>> lpaTopByOrd = extractLpaTopByOrd(stAnalysisList);
+        boolean includeGraphRecommendation = StringUtils.equalsIgnoreCase(
+                MapUtils.getString(param, "graphYn", "N"),
+                "Y"
+        );
+        Map<String, Object> recommendationByOrd = includeGraphRecommendation
+                ? fetchGraphRecommendationByOrd(stAnalysisList)
+                : new LinkedHashMap<>();
+        removeLpaTopFromRows(stAnalysisList);
 
         Map<String, Object> resultMap = new LinkedHashMap<>();
         resultMap.put("stUserInfo", stUserInfo);
+        resultMap.put("lpaTop", lpaTopByOrd);
+        if (includeGraphRecommendation) {
+            resultMap.put("recommendationByOrd", recommendationByOrd);
+        }
         resultMap.putAll(splitStudentAnalysisByOrd(
                 stAnalysisList,
                 hasDgnssResultId ? resolvedOrdNo : MapUtils.getString(param, "ordNo", "")
         ));
         return resultMap;
+    }
+
+    private Map<String, Object> fetchGraphRecommendationByOrd(List<Map<String, Object>> stAnalysisList) {
+        Map<String, Object> recommendationByOrd = new LinkedHashMap<>();
+        if (CollectionUtils.isEmpty(stAnalysisList)) {
+            return recommendationByOrd;
+        }
+
+        for (Map<String, Object> row : stAnalysisList) {
+            int ordNo = MapUtils.getInteger(row, "ord_no", 0);
+            if (ordNo <= 0) {
+                continue;
+            }
+            String ordKey = Integer.toString(ordNo);
+            if (recommendationByOrd.containsKey(ordKey)) {
+                continue;
+            }
+
+            int answerIdx = MapUtils.getInteger(row, "answerIdx", 0);
+            if (answerIdx <= 0) {
+                continue;
+            }
+
+            try {
+                recommendationByOrd.put(ordKey, dgnssGraphService.selectRecommendationByAnswerIdx(answerIdx, 5));
+            } catch (Exception e) {
+                log.warn("Failed to fetch graph recommendation. ordNo={}, answerIdx={}", ordNo, answerIdx, e);
+                recommendationByOrd.put(ordKey, new LinkedHashMap<>());
+            }
+        }
+
+        return recommendationByOrd;
     }
 
     @Transactional(readOnly = true)
@@ -996,6 +1145,77 @@ public class DgnssService {
                 result.put(item, list);
             }
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> selectTcClassFactorAvg(Map<String, Object> param) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        List<Map<String, Object>> classStats = dgnssMapper.selectTcClassMetaStats(param);
+        List<Map<String, Object>> factorAverages = dgnssMapper.selectTcClassFactorAverages(param);
+
+        Map<String, Map<String, Object>> classMap = new LinkedHashMap<>();
+        for (Map<String, Object> stat : classStats) {
+            String claId = MapUtils.getString(stat, "claId", "");
+            Map<String, Object> classRow = new LinkedHashMap<>();
+            classRow.put("claId", claId);
+            classRow.put("groupNm", MapUtils.getString(stat, "groupNm", "-"));
+            classRow.put("totalStudentCount", MapUtils.getInteger(stat, "totalStudentCount", 0));
+            classRow.put("submittedStudentCount", MapUtils.getInteger(stat, "submittedStudentCount", 0));
+            classRow.put("reliabilityAlertCount", MapUtils.getInteger(stat, "reliabilityAlertCount", 0));
+            classRow.put("factorScoresByDepth", createEmptyFactorScoresByDepth());
+            classMap.put(claId, classRow);
+        }
+
+        for (Map<String, Object> avg : factorAverages) {
+            String claId = MapUtils.getString(avg, "claId", "");
+            int depth = MapUtils.getInteger(avg, "depth", 0);
+            String sectionId = MapUtils.getString(avg, "sectionId", "");
+            Object avgTScore = avg.get("avgTScore");
+
+            Map<String, Object> classRow = classMap.get(claId);
+            if (classRow == null) {
+                classRow = new LinkedHashMap<>();
+                classRow.put("claId", claId);
+                classRow.put("groupNm", "-");
+                classRow.put("totalStudentCount", 0);
+                classRow.put("submittedStudentCount", 0);
+                classRow.put("reliabilityAlertCount", 0);
+                classRow.put("factorScoresByDepth", createEmptyFactorScoresByDepth());
+                classMap.put(claId, classRow);
+            }
+
+            Map<String, Object> factorScoresByDepth = (Map<String, Object>) classRow.get("factorScoresByDepth");
+            String depthKey = toDepthKey(depth);
+            if (depthKey == null) {
+                continue;
+            }
+            Map<String, Object> factorScores = (Map<String, Object>) factorScoresByDepth.get(depthKey);
+            factorScores.put(sectionId, avgTScore);
+        }
+
+        result.put("classList", new ArrayList<>(classMap.values()));
+        return result;
+    }
+
+    private Map<String, Object> createEmptyFactorScoresByDepth() {
+        Map<String, Object> byDepth = new LinkedHashMap<>();
+        byDepth.put("depth3", new LinkedHashMap<String, Object>());
+        byDepth.put("depth4", new LinkedHashMap<String, Object>());
+        byDepth.put("depth5", new LinkedHashMap<String, Object>());
+        return byDepth;
+    }
+
+    private String toDepthKey(int depth) {
+        if (depth == 3) {
+            return "depth3";
+        }
+        if (depth == 4) {
+            return "depth4";
+        }
+        if (depth == 5) {
+            return "depth5";
+        }
+        return null;
     }
 
     @Transactional(readOnly = true)
@@ -1145,6 +1365,216 @@ public class DgnssService {
 
     public int updateStntAnswer(Map<String, Object> param) {
         return dgnssMapper.updateStntAnswer(param);
+    }
+
+    private void publishExamSubmittedEvent(int dgnssResultId) {
+        try {
+            Map<String, Object> info = dgnssMapper.selectSubmitNotificationInfo(dgnssResultId);
+            if (MapUtils.isEmpty(info)) {
+                return;
+            }
+            Long teacherUserNo = MapUtils.getLong(info, "teacherUserNo");
+            if (teacherUserNo == null || teacherUserNo <= 0) {
+                return;
+            }
+            int round = MapUtils.getInteger(info, "ordNo", 0);
+            String paperIdx = MapUtils.getString(info, "paperIdx", "");
+            String examName = resolveExamNameByPaperIdx(paperIdx);
+            String studentNickname = MapUtils.getString(info, "studentNickname", "");
+            if (StringUtils.isBlank(studentNickname)) {
+                studentNickname = "학생";
+            }
+            eventPublisher.publishEvent(new ExamSubmittedEvent(
+                    teacherUserNo,
+                    studentNickname,
+                    round,
+                    examName
+            ));
+        } catch (Exception e) {
+            log.warn("ExamSubmittedEvent 발행 실패: dgnssResultId={}", dgnssResultId, e);
+        }
+    }
+
+    private void publishExamEndedReportEvent(Map<String, Object> dgnssInfoMap) {
+        try {
+            Long teacherUserNo = MapUtils.getLong(dgnssInfoMap, "teacherUserNo");
+            if (teacherUserNo == null || teacherUserNo <= 0) {
+                return;
+            }
+            int round = MapUtils.getInteger(dgnssInfoMap, "ordNo", 0);
+            String paperIdx = MapUtils.getString(dgnssInfoMap, "paperIdx", "");
+            String examName = resolveExamNameByPaperIdx(paperIdx);
+            String groupName = MapUtils.getString(dgnssInfoMap, "groupNm", "");
+            if (StringUtils.isBlank(groupName)) {
+                groupName = "그룹";
+            }
+            eventPublisher.publishEvent(new TeacherExamNotificationEvent(
+                    TeacherExamNotificationEvent.Kind.T6_REPORT_READY,
+                    teacherUserNo,
+                    groupName,
+                    round,
+                    examName
+            ));
+        } catch (Exception e) {
+            log.warn("ExamEndedReportEvent 발행 실패: dgnssId={}", MapUtils.getString(dgnssInfoMap, "dgnssId", ""), e);
+        }
+    }
+
+    private void publishExamAllSubmittedEventIfCompleted(int dgnssResultId) {
+        try {
+            Map<String, Object> info = dgnssMapper.selectSubmitCompletionInfo(dgnssResultId);
+            if (MapUtils.isEmpty(info)) {
+                return;
+            }
+
+            int totalCount = MapUtils.getInteger(info, "totalCount", 0);
+            int submittedCount = MapUtils.getInteger(info, "submittedCount", 0);
+            if (totalCount <= 0 || submittedCount != totalCount) {
+                return;
+            }
+
+            Long teacherUserNo = MapUtils.getLong(info, "teacherUserNo");
+            if (teacherUserNo == null || teacherUserNo <= 0) {
+                return;
+            }
+
+            int round = MapUtils.getInteger(info, "ordNo", 0);
+            String paperIdx = MapUtils.getString(info, "paperIdx", "");
+            String examName = resolveExamNameByPaperIdx(paperIdx);
+            String groupName = MapUtils.getString(info, "groupNm", "그룹");
+
+            eventPublisher.publishEvent(new TeacherExamNotificationEvent(
+                    TeacherExamNotificationEvent.Kind.T4_ALL_SUBMITTED,
+                    teacherUserNo,
+                    groupName,
+                    round,
+                    examName
+            ));
+        } catch (Exception e) {
+            log.warn("ExamAllSubmittedEvent 발행 실패: dgnssResultId={}", dgnssResultId, e);
+        }
+    }
+
+    private String resolveExamNameByPaperIdx(String paperIdx) {
+        return StringUtils.equals(StringUtils.trimToEmpty(paperIdx), "1")
+                ? "학습종합검사"
+                : "자기조절학습검사";
+    }
+
+    private void publishExamReexamRequestedEvent(Map<String, Object> dgnssInfoMap, List<String> targetStdtIds) {
+        try {
+            if (MapUtils.isEmpty(dgnssInfoMap) || CollectionUtils.isEmpty(targetStdtIds)) {
+                return;
+            }
+            String claId = MapUtils.getString(dgnssInfoMap, "claId", "");
+            if (StringUtils.isBlank(claId)) {
+                return;
+            }
+            List<Long> studentUserNos = dgnssMapper.selectStudentUserNosByStdtIdsInClass(claId, targetStdtIds);
+            if (CollectionUtils.isEmpty(studentUserNos)) {
+                return;
+            }
+            List<Long> uniqueTargets = studentUserNos.stream()
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+            if (CollectionUtils.isEmpty(uniqueTargets)) {
+                return;
+            }
+
+            int round = MapUtils.getInteger(dgnssInfoMap, "ordNo", 0);
+            String paperIdx = MapUtils.getString(dgnssInfoMap, "paperIdx", "");
+            String examName = resolveExamNameByPaperIdx(paperIdx);
+            String groupName = MapUtils.getString(dgnssInfoMap, "groupNm", "그룹");
+
+            eventPublisher.publishEvent(new StudentExamNotificationEvent(
+                    StudentExamNotificationEvent.Kind.S6_REEXAM_REQUESTED,
+                    uniqueTargets,
+                    groupName,
+                    round,
+                    examName
+            ));
+        } catch (Exception e) {
+            log.warn("S6 이벤트 발행 실패: dgnssId={}", MapUtils.getString(dgnssInfoMap, "dgnssId", ""), e);
+        }
+    }
+
+    private void publishExamResultPublishedEvent(Map<String, Object> dgnssInfoMap) {
+        try {
+            int dgnssId = MapUtils.getInteger(dgnssInfoMap, "dgnssId", 0);
+            if (dgnssId <= 0) {
+                return;
+            }
+            List<Long> studentUserNos = dgnssMapper.selectSubmittedStudentUserNoListByDgnssId(dgnssId);
+            if (CollectionUtils.isEmpty(studentUserNos)) {
+                return;
+            }
+            List<Long> uniqueTargets = studentUserNos.stream()
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+            if (CollectionUtils.isEmpty(uniqueTargets)) {
+                return;
+            }
+
+            int round = MapUtils.getInteger(dgnssInfoMap, "ordNo", 0);
+            String paperIdx = MapUtils.getString(dgnssInfoMap, "paperIdx", "");
+            String examName = resolveExamNameByPaperIdx(paperIdx);
+            String groupName = MapUtils.getString(dgnssInfoMap, "groupNm", "그룹");
+
+            eventPublisher.publishEvent(new StudentExamNotificationEvent(
+                    StudentExamNotificationEvent.Kind.S3_RESULT_PUBLISHED,
+                    uniqueTargets,
+                    groupName,
+                    round,
+                    examName
+            ));
+        } catch (Exception e) {
+            log.warn("ExamResultPublishedEvent 발행 실패: dgnssId={}", MapUtils.getString(dgnssInfoMap, "dgnssId", ""), e);
+        }
+    }
+
+    private void publishExamAssignedEvent(Map<String, Object> paramMap) {
+        try {
+            List<Long> studentUserNos = dgnssMapper.selectTargetStudentUserNoList(paramMap);
+            if (CollectionUtils.isEmpty(studentUserNos)) {
+                return;
+            }
+            List<Long> uniqueTargets = studentUserNos.stream()
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+            if (CollectionUtils.isEmpty(uniqueTargets)) {
+                return;
+            }
+
+            int round = MapUtils.getInteger(paramMap, "ordNo", 0);
+            String paperIdx = MapUtils.getString(paramMap, "paperIdx", "");
+            String examName = resolveExamNameByPaperIdx(paperIdx);
+            String groupName = "";
+            int dgnssId = MapUtils.getInteger(paramMap, "id", 0);
+            if (dgnssId > 0) {
+                Map<String, Object> q = new HashMap<>();
+                q.put("dgnssId", dgnssId);
+                Map<String, Object> dgnssInfoMap = dgnssMapper.selectTcDgnssInfoOneWithDgnssId(q);
+                if (MapUtils.isNotEmpty(dgnssInfoMap)) {
+                    groupName = MapUtils.getString(dgnssInfoMap, "groupNm", "");
+                }
+            }
+            if (StringUtils.isBlank(groupName)) {
+                groupName = "그룹";
+            }
+
+            eventPublisher.publishEvent(new StudentExamNotificationEvent(
+                    StudentExamNotificationEvent.Kind.S1_ASSIGNED,
+                    uniqueTargets,
+                    groupName,
+                    round,
+                    examName
+            ));
+        } catch (Exception e) {
+            log.warn("ExamAssignedEvent 발행 실패: claId={}", MapUtils.getString(paramMap, "claId", ""), e);
+        }
     }
 
     @Transactional
@@ -1337,17 +1767,23 @@ public class DgnssService {
             throw new IllegalStateException("학생 결과 메일 발송 대상 정보를 찾을 수 없습니다.");
         }
 
+        String memberType = MapUtils.getString(studentInfo, "memberType", "");
+        if (!StringUtils.equals(memberType, "GUEST")) {
+            log.info("게스트 회원이 아니므로 메일 발송 생략: dgnssResultId={}, answerIdx={}, memberType={}", dgnssResultId, answerIdx, memberType);
+            return;
+        }
+
         String toEmail = StringUtils.defaultIfBlank(overrideEmail, MapUtils.getString(studentInfo, "email", ""));
         if (StringUtils.isBlank(toEmail)) {
-            throw new IllegalStateException("학생 이메일 정보가 없습니다.");
+            log.warn("게스트 회원이지만 이메일 정보가 없어 발송 생략: dgnssResultId={}, answerIdx={}", dgnssResultId, answerIdx);
+            return;
         }
 
         String fileUrl = ensureStudentPdfUrl(answerIdx, request);
         byte[] pdfData = fileService.loadFileBytesForMail(fileUrl);
         String studentName = MapUtils.getString(studentInfo, "MEM_NM", "");
-        String examTypeName = resolveExamTypeName(MapUtils.getString(studentInfo, "DGNSS_ID", ""));
 
-        ncpMailSender.sendExamResultPdf(toEmail, studentName, examTypeName, pdfData);
+        ncpMailSender.sendExamResultPdf(toEmail, studentName, pdfData);
         log.info("학생 결과 메일 발송 완료: dgnssResultId={}, answerIdx={}, toEmail={}", dgnssResultId, answerIdx, toEmail);
     }
 
@@ -1453,6 +1889,82 @@ public class DgnssService {
             return null;
         }
         return MapUtils.getString(lpaTypeNameByClassId, classId, classId);
+    }
+
+    private void moveSectionScoresToScoresMap(List<Map<String, Object>> rows) {
+        if (CollectionUtils.isEmpty(rows)) {
+            return;
+        }
+
+        for (Map<String, Object> row : rows) {
+            Map<String, Object> scores = new LinkedHashMap<>();
+            List<String> keysToRemove = new ArrayList<>();
+
+            for (Map.Entry<String, Object> entry : row.entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
+                if (isSectionIdKey(key) && value instanceof Number) {
+                    scores.put(key, value);
+                    keysToRemove.add(key);
+                }
+            }
+
+            for (String keyToRemove : keysToRemove) {
+                row.remove(keyToRemove);
+            }
+            row.put("scores", scores);
+        }
+    }
+
+    private boolean isSectionIdKey(String key) {
+        return key != null && key.matches("^\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d$");
+    }
+
+    private Map<String, Map<String, Object>> extractLpaTopByOrd(List<Map<String, Object>> rows) {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String ordKey = Integer.toString(MapUtils.getInteger(row, "ord_no", 0));
+            if (!"1".equals(ordKey) && !"2".equals(ordKey)) {
+                continue;
+            }
+            if (result.containsKey(ordKey)) {
+                continue;
+            }
+
+            Map<String, Object> lpaTop = new LinkedHashMap<>();
+            lpaTop.put("lpaClassId", row.get("lpaClassId"));
+            lpaTop.put("lpaTypeName", row.get("lpaTypeName"));
+            lpaTop.put("lpaConfidence", row.get("lpaConfidence"));
+            lpaTop.put("lpaStatus", row.get("lpaStatus"));
+            lpaTop.put("lpaTop1TypeName", row.get("lpaTop1TypeName"));
+            lpaTop.put("lpaTop1Probability", row.get("lpaTop1Probability"));
+            lpaTop.put("lpaTop2TypeName", row.get("lpaTop2TypeName"));
+            lpaTop.put("lpaTop2Probability", row.get("lpaTop2Probability"));
+            lpaTop.put("lpaTop3TypeName", row.get("lpaTop3TypeName"));
+            lpaTop.put("lpaTop3Probability", row.get("lpaTop3Probability"));
+            result.put(ordKey, lpaTop);
+        }
+        return result;
+    }
+
+    private void removeLpaTopFromRows(List<Map<String, Object>> rows) {
+        for (Map<String, Object> row : rows) {
+            row.remove("lpaClassId");
+            row.remove("lpaTypeName");
+            row.remove("lpaConfidence");
+            row.remove("lpaStatus");
+            row.remove("lpaProbabilitiesJson");
+            row.remove("lpaTop1ClassId");
+            row.remove("lpaTop1TypeName");
+            row.remove("lpaTop1Probability");
+            row.remove("lpaTop2ClassId");
+            row.remove("lpaTop2TypeName");
+            row.remove("lpaTop2Probability");
+            row.remove("lpaTop3ClassId");
+            row.remove("lpaTop3TypeName");
+            row.remove("lpaTop3Probability");
+            row.remove("answerIdx");
+        }
     }
 
     private List<Double> normalizeTop3ProbabilitiesOneDecimal(List<Map.Entry<String, Double>> sortedTop3) {

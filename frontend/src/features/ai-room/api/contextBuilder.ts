@@ -16,7 +16,7 @@ import {
 import type { ContextMode, StudentAliasMap } from '../types';
 import { FACTOR_DEFINITIONS } from '@shared/data/factors';
 import { calculate4StepDiagnosis } from '@shared/utils/calculate4StepDiagnosis';
-import { unifiedCounselingService } from '@shared/services/unifiedCounselingService';
+import { counselingService } from '@shared/services/counselingService';
 import { memoService } from '@shared/services/memoService';
 import { schoolRecordService } from '@shared/services/schoolRecordService';
 import { computeClassProfile } from '@features/class-dashboard/model/useClassProfile';
@@ -42,17 +42,9 @@ export interface ContextBuildResult {
 // 별칭 생성 함수
 // ============================================================
 
-export const createAliasMap = (studentNames: string[]): StudentAliasMap => {
-  const aliasMap: StudentAliasMap = {};
-  studentNames.forEach((name, index) => {
-    const letter =
-      index < 26
-        ? String.fromCharCode(65 + index)
-        : String.fromCharCode(65 + Math.floor(index / 26) - 1) +
-          String.fromCharCode(65 + (index % 26));
-    aliasMap[`student_${letter}`] = name;
-  });
-  return aliasMap;
+export const createAliasMap = (_studentNames: string[]): StudentAliasMap => {
+  // 마스킹 비활성화: 빈 객체 반환 (학생 이름 그대로 노출)
+  return {};
 };
 
 export const reverseAliasMap = (aliasMap: StudentAliasMap): Record<string, string> => {
@@ -75,9 +67,20 @@ export const applyAliases = (text: string, aliasMap: StudentAliasMap): string =>
 export const restoreNames = (text: string, aliasMap: StudentAliasMap): string => {
   let result = text;
   Object.entries(aliasMap).forEach(([alias, name]) => {
-    result = result.replace(new RegExp(alias, 'g'), name);
+    // 일반 형태: student_A (대소문자 무시)
+    result = result.replace(new RegExp(alias, 'gi'), name);
+
+    // 대문자 버전: Student_A
+    const capitalizedAlias = alias.charAt(0).toUpperCase() + alias.slice(1);
+    result = result.replace(new RegExp(capitalizedAlias, 'g'), name);
+
+    // 이스케이프된 형태: student\_A (마크다운에서 _ 이스케이프)
     const escapedAlias = alias.replace(/_/g, '\\_');
-    result = result.replace(new RegExp(escapedAlias.replace(/\\/g, '\\\\'), 'g'), name);
+    result = result.replace(new RegExp(escapedAlias.replace(/\\/g, '\\\\'), 'gi'), name);
+
+    // 이스케이프된 대문자 형태: Student\_A
+    const escapedCapitalizedAlias = capitalizedAlias.replace(/_/g, '\\_');
+    result = result.replace(new RegExp(escapedCapitalizedAlias.replace(/\\/g, '\\\\'), 'g'), name);
   });
   return result;
 };
@@ -204,7 +207,7 @@ const format4StepDiagnosis = (tScores: number[]): string => {
 // ============================================================
 
 const formatCounselingRecords = (
-  records: Awaited<ReturnType<typeof unifiedCounselingService.getByStudentId>>,
+  records: Awaited<ReturnType<typeof counselingService.getByStudentId>>,
   aliasMap: StudentAliasMap,
 ): string => {
   const active = records.filter((r) => r.status !== 'cancelled');
@@ -302,16 +305,16 @@ ${formatItems(profile.weaknesses)}`;
 // 위험군 학생 포맷팅
 // ============================================================
 
-const formatRiskStudents = (students: Student[], aliasMap: StudentAliasMap): string => {
+const formatRiskStudents = (students: Student[], _aliasMap: StudentAliasMap): string => {
   const critical: string[] = [];
   const watchList: string[] = [];
-  const reversed = reverseAliasMap(aliasMap);
 
   for (const student of students) {
     const assessment = getLatestAssessment(student);
     if (!assessment?.attentionResult?.needsAttention) continue;
 
-    const alias = reversed[student.name] || student.name;
+    // 마스킹 비활성화: 항상 실제 학생 이름 사용
+    const alias = student.name;
     const reasons = assessment.attentionResult.reasons
       .map((r) => `${r.category} ${r.direction === 'low' ? '낮음' : '높음'}`)
       .join(', ');
@@ -369,7 +372,7 @@ const buildAllContext = async (classes: Class[]): Promise<string> => {
 - 약점: ${weaknesses}`;
   });
 
-  const allRecords = await unifiedCounselingService.getAll();
+  const allRecords = await counselingService.getAll();
   const activeRecords = allRecords.filter((r) => r.status !== 'cancelled');
   const completedCount = activeRecords.filter((r) => r.status === 'completed').length;
   const scheduledCount = activeRecords.filter((r) => r.status === 'scheduled').length;
@@ -390,7 +393,7 @@ ${classProfiles.join('\n\n')}`;
 const buildClassContext = async (cls: Class, aliasMap: StudentAliasMap): Promise<string> => {
   const typeDistribution = calculateTypeDistribution(cls.students);
 
-  const classRecords = await unifiedCounselingService.getByClassId(cls.id);
+  const classRecords = await counselingService.getByClassId(cls.id);
   const activeRecords = classRecords.filter((r) => r.status !== 'cancelled');
   const completedCount = activeRecords.filter((r) => r.status === 'completed').length;
   const scheduledCount = activeRecords.filter((r) => r.status === 'scheduled').length;
@@ -418,7 +421,6 @@ const buildStudentContext = async (
     return '선택된 학생이 없습니다.';
   }
 
-  const reversedMap = reverseAliasMap(aliasMap);
   const studentContexts: string[] = [];
 
   for (let index = 0; index < students.length; index++) {
@@ -426,7 +428,8 @@ const buildStudentContext = async (
     const assessment = getLatestAssessment(student);
     if (!assessment) continue;
 
-    const alias = reversedMap[student.name] || `student_${String.fromCharCode(65 + index)}`;
+    // 마스킹 비활성화: 항상 실제 학생 이름 사용
+    const alias = student.name;
     const tScores = assessment.tScores;
 
     const warnings =
@@ -441,7 +444,7 @@ const buildStudentContext = async (
     const changesText = formatRoundChanges(student);
     const diagnosisText = format4StepDiagnosis(tScores);
 
-    const counselingRecords = await unifiedCounselingService.getByStudentId(student.id);
+    const counselingRecords = await counselingService.getByStudentId(student.id);
     const counselingText = formatCounselingRecords(counselingRecords, aliasMap);
 
     const memos = await memoService.getByStudentId(student.id);

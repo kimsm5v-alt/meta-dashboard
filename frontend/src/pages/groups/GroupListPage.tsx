@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users, Search, QrCode, Crown, User, LogIn } from 'lucide-react';
+import { Plus, Users, Search, QrCode, Crown, User } from 'lucide-react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { Card, Button } from '@shared/components';
@@ -135,7 +135,7 @@ const BadgeIcon = styled.span`
 const RoleBadge: React.FC<{ role: GroupRole }> = ({ role }) => {
   if (role === 'owner') {
     return (
-      <RoleBadgeStyled $variant="owner">
+      <RoleBadgeStyled $variant='owner'>
         <BadgeIcon>
           <Crown size={12} />
         </BadgeIcon>
@@ -144,7 +144,7 @@ const RoleBadge: React.FC<{ role: GroupRole }> = ({ role }) => {
     );
   }
   return (
-    <RoleBadgeStyled $variant="member">
+    <RoleBadgeStyled $variant='member'>
       <BadgeIcon>
         <User size={12} />
       </BadgeIcon>
@@ -211,15 +211,7 @@ const OnboardingSubtitle = styled.p`
 `;
 
 const OnboardingGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-  width: 100%;
-  max-width: 42rem;
-
-  @media (min-width: 768px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  display: flex;
 `;
 
 const OnboardingCardContent = styled.div`
@@ -292,13 +284,13 @@ const GroupCardSkeleton: React.FC = () => (
         <SkeletonRow>
           <SkeletonAvatar />
           <div>
-            <SkeletonText $width="6rem" $height="1.25rem" style={{ marginBottom: '0.5rem' }} />
-            <SkeletonText $width="4rem" />
+            <SkeletonText $width='6rem' $height='1.25rem' style={{ marginBottom: '0.5rem' }} />
+            <SkeletonText $width='4rem' />
           </div>
         </SkeletonRow>
         <SkeletonBadge />
       </SkeletonCardHeader>
-      <SkeletonText $width="8rem" />
+      <SkeletonText $width='8rem' />
     </SkeletonContainer>
   </Card>
 );
@@ -427,12 +419,12 @@ const NoResultsText = styled.p`
 const OnboardingView: React.FC<{
   onCreateClick: () => void;
   onJoinClick: () => void;
-}> = ({ onCreateClick, onJoinClick }) => {
+}> = ({ onCreateClick, onJoinClick: _onJoinClick }) => {
   return (
     <OnboardingContainer>
       <OnboardingHeader>
-        <OnboardingIconCircle $variant="primary">
-          <Users size={40} color="#7c3aed" />
+        <OnboardingIconCircle $variant='primary'>
+          <Users size={40} color='#7c3aed' />
         </OnboardingIconCircle>
         <OnboardingTitle>학습심리정서검사 시작하기</OnboardingTitle>
         <OnboardingSubtitle>그룹을 만들거나 참가하여 검사를 시작하세요</OnboardingSubtitle>
@@ -440,10 +432,10 @@ const OnboardingView: React.FC<{
 
       <OnboardingGrid>
         {/* 그룹 만들기 */}
-        <Card hoverable onClick={onCreateClick} style={{ cursor: 'pointer'}}>
+        <Card hoverable onClick={onCreateClick} style={{ cursor: 'pointer' }}>
           <OnboardingCardContent>
-            <OnboardingIconCircle $variant="amber">
-              <Crown size={32} color="#d97706" />
+            <OnboardingIconCircle $variant='amber'>
+              <Crown size={32} color='#d97706' />
             </OnboardingIconCircle>
             <OnboardingCardTitle>그룹 만들기</OnboardingCardTitle>
             <OnboardingCardDescription>
@@ -459,10 +451,10 @@ const OnboardingView: React.FC<{
         </Card>
 
         {/* 그룹 참가 */}
-        <Card hoverable onClick={onJoinClick} style={{ cursor: 'pointer' }}>
+        {/* <Card hoverable onClick={onJoinClick} style={{ cursor: 'pointer' }}>
           <OnboardingCardContent>
-            <OnboardingIconCircle $variant="blue">
-              <LogIn size={32} color="#2563eb" />
+            <OnboardingIconCircle $variant='blue'>
+              <LogIn size={32} color='#2563eb' />
             </OnboardingIconCircle>
             <OnboardingCardTitle>그룹 참가</OnboardingCardTitle>
             <OnboardingCardDescription>
@@ -470,12 +462,12 @@ const OnboardingView: React.FC<{
               <br />
               선생님이 시작한 검사에 참여할 수 있습니다.
             </OnboardingCardDescription>
-            <FullWidthButton variant="secondary">
+            <FullWidthButton variant='secondary'>
               <QrCode size={16} style={{ marginRight: '0.5rem' }} />
               참가하기
             </FullWidthButton>
           </OnboardingCardContent>
-        </Card>
+        </Card> */}
       </OnboardingGrid>
     </OnboardingContainer>
   );
@@ -609,10 +601,10 @@ export const GroupListPage: React.FC = () => {
           <PageSubtitle>학급(그룹)을 생성하고 학생을 초대하세요</PageSubtitle>
         </HeaderContent>
         <ButtonGroup>
-          <Button variant="secondary" onClick={() => setIsJoinCodeModalOpen(true)}>
+          {/* <Button variant="secondary" onClick={() => setIsJoinCodeModalOpen(true)}>
             <LogIn size={16} style={{ marginRight: '0.5rem' }} />
             그룹 참가
-          </Button>
+          </Button> */}
           <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus size={16} style={{ marginRight: '0.5rem' }} />
             그룹 생성
@@ -624,8 +616,8 @@ export const GroupListPage: React.FC = () => {
       <SearchWrapper>
         <SearchIcon />
         <SearchInput
-          type="text"
-          placeholder="그룹 검색..."
+          type='text'
+          placeholder='그룹 검색...'
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -638,7 +630,7 @@ export const GroupListPage: React.FC = () => {
             <GroupCardHeader>
               <GroupCardInfo>
                 <GroupIconCircle>
-                  <Users size={24} color="#7c3aed" />
+                  <Users size={24} color='#7c3aed' />
                 </GroupIconCircle>
                 <div>
                   <GroupName>{group.name}</GroupName>
@@ -659,10 +651,7 @@ export const GroupListPage: React.FC = () => {
               </GroupStats>
               <GroupCardActions>
                 {group.myRole === 'owner' && (
-                  <InviteButton
-                    onClick={(e) => handleOpenInviteModal(group, e)}
-                    title="초대 코드"
-                  >
+                  <InviteButton onClick={(e) => handleOpenInviteModal(group, e)} title='초대 코드'>
                     <QrCode size={16} />
                   </InviteButton>
                 )}

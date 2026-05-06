@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Clock,
   Loader2,
+  Lightbulb,
 } from 'lucide-react';
 import { useStudentAnalysis, useApiConfig } from '@features/api';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
@@ -22,7 +23,6 @@ import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_STUDENT_DETAIL } from '@shared/data/apiDefinitions';
 import {
   DiagnosisSummary,
-  FourStepInterpretation,
   TypeClassification,
   TypeDeviations,
   CoachingStrategy,
@@ -30,10 +30,8 @@ import {
   DataHelperChatbot,
   type PanelTab,
 } from '@features/student-dashboard/ui';
+import { useCoachingStrategy } from '@features/student-dashboard/api/useCoachingStrategy';
 import type { Student, SchoolLevel } from '@shared/types';
-
-// TODO: 4단계 해석 탭을 다시 보이게 하려면 true로 변경
-const SHOW_FOUR_STEP = false;
 
 // 헤더 버튼 설정
 const PANEL_BUTTONS = [
@@ -248,8 +246,13 @@ const PanelButton = styled.button`
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   cursor: pointer;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: ${({ theme }) => theme.colors.gray[100]};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 `;
 
@@ -294,38 +297,6 @@ const SectionTitle = styled.h2`
   font-weight: 700;
 `;
 
-const ChartModeToggle = styled.div`
-  display: flex;
-  background: ${({ theme }) => theme.colors.gray[100]};
-  border-radius: 0.5rem;
-  padding: 0.125rem;
-`;
-
-const ChartModeButton = styled.button<{ $isActive: boolean }>`
-  padding: 0.375rem 0.75rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.15s ease;
-  border: none;
-  cursor: pointer;
-
-  ${({ $isActive, theme }) =>
-    $isActive
-      ? `
-    background: white;
-    color: ${theme.colors.primary[600]};
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  `
-      : `
-    background: transparent;
-    color: ${theme.colors.gray[600]};
-
-    &:hover {
-      color: ${theme.colors.gray[900]};
-    }
-  `}
-`;
 
 const SectionCard = styled.div`
   background: white;
@@ -380,13 +351,19 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
-  const [chartViewMode, setChartViewMode] = useState<'midCategory' | 'fourStep'>('midCategory');
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [studentId]);
 
   const selectedRound: 1 | 2 = viewMode === 'round1' ? 1 : 2;
+
+  // 코칭 전략 API 호출
+  const {
+    moderationPaths,
+    isLoading: isCoachingLoading,
+    fetchCoachingStrategy,
+  } = useCoachingStrategy(classId, studentId, selectedRound);
   const isCompare = viewMode === 'compare';
 
   const r1 = student.assessments.find((a) => a.round === 1);
@@ -395,11 +372,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 
   // useMemo는 항상 호출 (current가 없으면 빈 배열 사용)
   const domainData = useMemo(
-    () => (current ? buildStudentDomainData(current.tScores) : []),
+    () => (current ? buildStudentDomainData(current.tScores, current.midCategoryScores) : []),
     [current],
   );
   const prevDomainData = useMemo(
-    () => (isCompare && r1 ? buildStudentDomainData(r1.tScores) : undefined),
+    () => (isCompare && r1 ? buildStudentDomainData(r1.tScores, r1.midCategoryScores) : undefined),
     [isCompare, r1],
   );
 
@@ -490,7 +467,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                   ]
                 : []),
             ].map(({ mode, label }) => (
-              <RoundButton key={mode} $isActive={viewMode === mode} onClick={() => setViewMode(mode)}>
+              <RoundButton
+                key={mode}
+                $isActive={viewMode === mode}
+                onClick={() => setViewMode(mode)}
+              >
                 {label}
               </RoundButton>
             ))}
@@ -506,6 +487,17 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                   </PanelButton>
                 );
               })}
+              {/* 코칭 전략 버튼 */}
+              <PanelButton
+                onClick={async () => {
+                  await fetchCoachingStrategy();
+                  setIsCoachingOpen(true);
+                }}
+                disabled={isCoachingLoading}
+              >
+                <PanelButtonIcon as={Lightbulb} />
+                {isCoachingLoading ? '로딩중...' : '코칭 전략'}
+              </PanelButton>
             </PanelButtons>
           )}
         </ControlsSection>
@@ -522,22 +514,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         <SectionContainer>
           <SectionHeader>
             <SectionTitle>학생 진단 결과 해석</SectionTitle>
-            {SHOW_FOUR_STEP && (
-              <ChartModeToggle>
-                <ChartModeButton
-                  $isActive={chartViewMode === 'midCategory'}
-                  onClick={() => setChartViewMode('midCategory')}
-                >
-                  중분류 요인
-                </ChartModeButton>
-                <ChartModeButton
-                  $isActive={chartViewMode === 'fourStep'}
-                  onClick={() => setChartViewMode('fourStep')}
-                >
-                  4단계 해석
-                </ChartModeButton>
-              </ChartModeToggle>
-            )}
           </SectionHeader>
           <SectionCard>
             {/* 총평 */}
@@ -545,17 +521,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               <DiagnosisSummary tScores={current.tScores} studentType={current.predictedType} />
             </CardSection>
 
-            {/* 차트 영역: A/B 토글 */}
             <CardSection>
-              {SHOW_FOUR_STEP && chartViewMode === 'fourStep' ? (
-                <FourStepInterpretation
-                  tScores={current.tScores}
-                  prevTScores={isCompare && r1 ? r1.tScores : undefined}
-                  studentName={student.name}
-                />
-              ) : (
-                <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
-              )}
+              <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
             </CardSection>
           </SectionCard>
         </SectionContainer>
@@ -587,9 +554,9 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 
         {/* 코칭 전략 모달 */}
         <CoachingStrategy
-          predictedType={current.predictedType}
-          schoolLevel={student.schoolLevel}
-          tScores={current.tScores}
+          moderationPaths={moderationPaths}
+          typeName={current.predictedType}
+          typeDescription={`${student.schoolLevel} ${classInfo.grade}학년 ${current.predictedType}`}
           isOpen={isCoachingOpen}
           onClose={() => setIsCoachingOpen(false)}
         />

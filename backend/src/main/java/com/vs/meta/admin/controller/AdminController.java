@@ -6,7 +6,6 @@ import com.vs.meta.api.group.mapper.GroupQueryMapper;
 import com.vs.meta.api.school.mapper.SchoolInfoMapper;
 import com.vs.meta.api.school.service.SchoolSyncService;
 import com.vs.meta.api.school.service.SchoolSyncService.SchoolImportResult;
-import com.vs.meta.common.security.JwtUtil;
 import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
 import com.vs.meta.domain.AuthSchoolMap;
@@ -40,8 +39,6 @@ public class AdminController {
     private final SchoolSyncService schoolSyncService;
     private final GroupInfoMapper groupInfoMapper;
     private final GroupQueryMapper groupQueryMapper;
-    private final JwtUtil jwtUtil;
-
     private static final int PAGE_SIZE = 20;
     private static final DateTimeFormatter API_TOKEN_TS_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
@@ -90,23 +87,7 @@ public class AdminController {
         return "admin/users";
     }
 
-    @PostMapping("/users/create")
-    public String createUser(@RequestParam String email,
-                             @RequestParam String password,
-                             @RequestParam String nickname,
-                             @RequestParam String gender,
-                             @RequestParam String roleCode,
-                             Authentication auth,
-                             RedirectAttributes ra) {
-        try {
-            Long adminUserNo = adminUserService.resolveAdminUserNo(auth.getName());
-            adminUserService.createUserByAdmin(password, email, nickname, gender, roleCode, adminUserNo);
-            ra.addFlashAttribute("success", "계정 등록 완료: " + email);
-        } catch (Exception e) {
-            ra.addFlashAttribute("error", e.getMessage());
-        }
-        return "redirect:/admin/users";
-    }
+    // POST /admin/users/create 제거 — SSO 전환 후 회원 생성은 Auth 서버에서만 가능
 
     @PostMapping("/users/role")
     public String updateRole(@RequestParam Long userNo,
@@ -137,6 +118,9 @@ public class AdminController {
         }
         return "redirect:/admin/users";
     }
+
+    // POST /admin/users/reset-password 제거 — 일반 회원 비밀번호는 Auth 서버가 관리
+    // POST /admin/users/send-temp-password 제거
 
     // ===== 역할 관리 =====
 
@@ -273,34 +257,14 @@ public class AdminController {
         return "admin/api-test";
     }
 
+    /**
+     * API 테스트 부트스트랩 — 교사/그룹 목록만 반환.
+     * SSO 전환 후 자체 토큰 생성 제거. 토큰은 API 테스트 페이지에서 직접 입력.
+     */
     @GetMapping("/api-test/bootstrap")
     @ResponseBody
     public Map<String, Object> apiTestBootstrap(Authentication auth) {
-        Long adminUserNo = adminUserService.resolveAdminUserNo(auth.getName());
-        User admin = adminUserService.findUserByUserNo(adminUserNo);
-        if (admin == null) {
-            throw new IllegalArgumentException("관리자 계정을 찾을 수 없습니다.");
-        }
-
-        String userSeCd = IdGenerator.isTeacherRole(admin.getRoleCode()) ? "T" : "S";
-        String accessToken = jwtUtil.generateAccessToken(
-                admin.getUserNo(),
-                admin.getEmail(),
-                userSeCd,
-                LocalDateTime.now().format(API_TOKEN_TS_FORMAT)
-        );
-
-        Map<String, Object> adminInfo = new LinkedHashMap<>();
-        adminInfo.put("userNo", admin.getUserNo());
-        adminInfo.put("email", admin.getEmail());
-        adminInfo.put("nickname", admin.getNickname());
-        adminInfo.put("roleCode", admin.getRoleCode());
-        adminInfo.put("tcId", admin.getTcId());
-        adminInfo.put("stdtId", admin.getStdtId());
-
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("admin", adminInfo);
-        result.put("accessToken", accessToken);
         result.put("teachers", adminUserService.findApiTestTeachers());
         return result;
     }

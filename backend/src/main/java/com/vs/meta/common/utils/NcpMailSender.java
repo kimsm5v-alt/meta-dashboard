@@ -34,6 +34,9 @@ public class NcpMailSender {
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
+    @Value("${spring.profiles.active:}")
+    private String activeProfile;
+
     private static final String MAIL_API_PATH = "/api/v1/mails";
     private static final String FILE_API_PATH = "/api/v1/files";
 
@@ -80,6 +83,35 @@ public class NcpMailSender {
         } catch (Exception e) {
             throw new RuntimeException("NCP 서명 생성 실패", e);
         }
+    }
+
+    public void sendTempPassword(String toEmail, String tempPassword) {
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String signature = makeSignature("POST", MAIL_API_PATH, timestamp);
+
+        Map<String, Object> body = Map.of(
+                "senderAddress", senderAddress,
+                "senderName", "[학습심리검사]",
+                "title", "[학습심리검사] 비밀번호가 초기화되었습니다",
+                "body", buildTempPasswordHtml(tempPassword),
+                "recipients", List.of(Map.of("address", toEmail, "type", "R")),
+                "individual", true,
+                "advertising", false
+        );
+
+        WebClient.create(mailUrl)
+                .post()
+                .uri(MAIL_API_PATH)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("x-ncp-apigw-timestamp", timestamp)
+                .header("x-ncp-iam-access-key", accessKey)
+                .header("x-ncp-apigw-signature-v2", signature)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(String.class)
+                .doOnSuccess(res -> log.info("임시 비밀번호 메일 발송 성공: to={}", toEmail))
+                .doOnError(err -> log.error("임시 비밀번호 메일 발송 실패: to={}", toEmail, err))
+                .block();
     }
 
     public void sendGroupInvitation(String toEmail, String groupName, String inviteCode) {
@@ -200,15 +232,11 @@ public class NcpMailSender {
      * @param pdfData PDF 바이트 배열
      */
     public void sendExamResultPdf(String toEmail, String studentName, byte[] pdfData) {
-        sendExamResultPdf(toEmail, studentName, "학습심리검사", pdfData);
-    }
-
-    public void sendExamResultPdf(String toEmail, String studentName, String examTypeName, byte[] pdfData) {
         String fileId = null;
         try {
             fileId = uploadFile(pdfData, "학습심리검사_결과_" + studentName + ".pdf");
-            String htmlBody = buildExamResultHtml(studentName, examTypeName);
-            sendMailWithAttachment(toEmail, "[학습심리검사] " + examTypeName + " 결과 안내 - " + studentName, htmlBody, List.of(fileId));
+            String htmlBody = buildExamResultHtml(studentName);
+            sendMailWithAttachment(toEmail, "[학습심리정서검사] " + studentName + " 학생 검사 결과지가 도착했습니다", htmlBody, List.of(fileId));
         } finally {
             if (fileId != null) {
                 try {
@@ -238,12 +266,22 @@ public class NcpMailSender {
                 .block();
     }
 
-    private String buildExamResultHtml(String studentName, String examTypeName) {
-        return "<div style='padding:20px;font-family:sans-serif'>"
-                + "<h2>[학습심리검사] " + examTypeName + "</h2>"
-                + "<p><strong>" + studentName + "</strong>님의 " + examTypeName + " 결과를 첨부파일로 보내드립니다.</p>"
-                + "<p>첨부된 PDF 파일을 확인해 주세요.</p>"
-                + "<p style='color:#999;margin-top:20px'>본 메일은 자동 발송되었습니다.</p>"
+    private String buildExamResultHtml(String studentName) {
+        String signupUrl = "vs-prod".equals(activeProfile)
+                ? "https://meta-service.vsaidt.com/signup"
+                : "https://t-meta-service.vsaidt.com/signup";
+        return "<div style='padding:20px;font-family:sans-serif;line-height:1.8'>"
+                + "<p>안녕하세요, <strong>" + studentName + "</strong>님.</p>"
+                + "<p>최근 실시한 학습심리정서검사에 성실하게 참여해 주셔서 감사합니다.</p>"
+                + "<p>본 검사는 <strong>" + studentName + "</strong>님의 학습 습관과 마음 상태를 이해하고, 앞으로의 성장을 돕기 위해 진행되었습니다.<br>"
+                + "검사 결과가 담긴 PDF 파일을 첨부하오니 확인해 주시기 바랍니다.</p>"
+                + "<p><strong>참고 사항:</strong> 결과지는 현재의 상태를 나타내는 지표일 뿐, 절대적인 수치는 아닙니다. 결과에 대해 궁금한 점이 있다면 언제든 선생님께 상담을 요청해 주세요.</p>"
+                + "<div style='margin:24px 0;padding:16px;background:#f5f5f5;border-radius:8px'>"
+                + "<p style='margin:0 0 12px 0'><strong>더 자세한 결과를 확인하고 싶다면?</strong></p>"
+                + "<p style='margin:0 0 12px 0'>회원 가입 후 나의 학습 유형 분석, 맞춤 가이드 등 상세한 결과를 확인할 수 있습니다.</p>"
+                + "<a href='" + signupUrl + "' target='_blank' style='display:inline-block;padding:12px 24px;background:#4A90D9;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold'>회원가입하고 자세히 보기</a>"
+                + "</div>"
+                + "<p style='margin-top:24px'>여러분의 밝은 미래와 건강한 마음을 언제나 응원합니다.<br>감사합니다.</p>"
                 + "</div>";
     }
 
@@ -253,6 +291,19 @@ public class NcpMailSender {
                 + "<p>아래 인증코드를 입력해 주세요.</p>"
                 + "<h1 style='color:#4A90D9;letter-spacing:8px'>" + code + "</h1>"
                 + "<p style='color:#999'>이 코드는 5분간 유효합니다.</p>"
+                + "</div>";
+    }
+
+    private String buildTempPasswordHtml(String tempPassword) {
+        return "<div style='padding:20px;font-family:sans-serif;line-height:1.8'>"
+                + "<h2>[학습심리검사] 비밀번호 초기화 안내</h2>"
+                + "<p>안녕하세요.</p>"
+                + "<p>관리자에 의해 비밀번호가 초기화되었습니다.</p>"
+                + "<div style='margin:20px 0;padding:16px;background:#f5f5f5;border-radius:8px'>"
+                + "<p style='margin:0 0 8px 0;color:#666'>임시 비밀번호</p>"
+                + "<h1 style='margin:0;color:#4A90D9;letter-spacing:4px'>" + tempPassword + "</h1>"
+                + "</div>"
+                + "<p>위 비밀번호로 로그인해주세요.</p>"
                 + "</div>";
     }
 

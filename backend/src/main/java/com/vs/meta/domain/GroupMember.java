@@ -18,7 +18,6 @@ public class GroupMember {
     private Long userNo;
     private String stdtId;
     private String nickname;
-    private String gender;
     private String email;
     private MemberType memberType;
     private Integer memberNo;

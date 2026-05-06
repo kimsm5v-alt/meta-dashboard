@@ -7,19 +7,45 @@ export { ApiError as APIError, apiClient, axiosInstance } from '@shared/api/clie
 
 import { axiosInstance } from '@shared/api/client';
 import type { APIResponse } from '@shared/api/client';
+import { ENV } from '@shared/config/env';
 
 // ============================================================
 // 하위 호환: API_CONFIG
 // ============================================================
+// SSO 전환: SDK가 'accessToken' / 'refreshToken' 키를 사용
+// 기존 'auth_token' / 'refresh_token'도 fallback으로 확인
+const AUTH_TOKEN_KEYS = ['accessToken', 'auth_token'];
+const REFRESH_TOKEN_KEYS = ['refreshToken', 'refresh_token'];
+
+function findToken(keys: string[]): string | null {
+  for (const key of keys) {
+    const val = localStorage.getItem(key);
+    if (val) return val;
+  }
+  return null;
+}
 
 export const API_CONFIG = {
   get baseUrl(): string {
-    return (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8081';
+    return ENV.API_URL;
   },
   get jwtToken(): string {
-    return localStorage.getItem('auth_token') ?? '';
+    return findToken(AUTH_TOKEN_KEYS) ?? '';
   },
 } as const;
+
+export function getAuthTokens(): { authToken: string | null; refreshToken: string | null } | null {
+  try {
+    const authToken = findToken(AUTH_TOKEN_KEYS);
+    const refreshToken = findToken(REFRESH_TOKEN_KEYS);
+    if (authToken || refreshToken) {
+      return { authToken, refreshToken };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
 
 // ============================================================
 // 하위 호환: apiRequest (fetch 스타일 옵션 → axios)

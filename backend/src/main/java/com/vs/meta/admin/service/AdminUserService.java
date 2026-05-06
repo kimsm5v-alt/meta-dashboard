@@ -5,10 +5,12 @@ import com.vs.meta.admin.mapper.RoleGroupMapper;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupQueryMapper;
-import com.vs.meta.api.member.mapper.RefreshTokenMapper;
+import com.vs.meta.admin.mapper.AdminAccountMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.school.mapper.SchoolInfoMapper;
 import com.vs.meta.common.utils.IdGenerator;
+import com.vs.meta.common.utils.NcpMailSender;
+import com.vs.meta.domain.AdminAccount;
 import com.vs.meta.domain.AuthSchoolMap;
 import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.RoleGroup;
@@ -24,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -41,11 +44,12 @@ public class AdminUserService {
     private final RoleGroupMapper roleGroupMapper;
     private final AuthSchoolMapMapper authSchoolMapMapper;
     private final SchoolInfoMapper schoolInfoMapper;
-    private final RefreshTokenMapper refreshTokenMapper;
+    private final AdminAccountMapper adminAccountMapper;
     private final PasswordEncoder passwordEncoder;
     private final GroupInfoMapper groupInfoMapper;
     private final GroupQueryMapper groupQueryMapper;
     private final DgnssMapper dgnssMapper;
+    private final NcpMailSender ncpMailSender;
 
     // ===== 사용자 관리 =====
 
@@ -75,49 +79,15 @@ public class AdminUserService {
     }
 
     /**
-     * 관리자 email로 userNo를 조회
+     * 관리자 email로 admin ID를 조회
      */
     @Transactional(readOnly = true)
     public Long resolveAdminUserNo(String adminEmail) {
-        User admin = userMapper.findByEmailAndStatus(adminEmail, UserStatus.ACTIVE.name());
-        return (admin != null) ? admin.getUserNo() : 0L;
+        AdminAccount admin = adminAccountMapper.findByEmail(adminEmail);
+        return (admin != null) ? admin.getId() : 0L;
     }
 
-    /**
-     * 관리자가 직접 계정 등록 (이메일 인증 스킵)
-     */
-    @Transactional
-    public void createUserByAdmin(String password, String email,
-                                   String nickname, String gender, String roleCode, Long adminUserNo) {
-        if (userMapper.findByEmail(email) != null) {
-            throw new IllegalArgumentException("이미 사용 중인 이메일입니다: " + email);
-        }
-
-        String tcId = null;
-        String stdtId = null;
-        if (IdGenerator.isTeacherRole(roleCode)) {
-            tcId = IdGenerator.generateTcId();
-        } else if ("STUDENT".equals(roleCode)) {
-            stdtId = IdGenerator.generateStdtId();
-        }
-
-        User user = User.builder()
-                .password(passwordEncoder.encode(password))
-                .email(email)
-                .nickname(nickname)
-                .gender(gender)
-                .roleCode(roleCode)
-                .tcId(tcId)
-                .stdtId(stdtId)
-                .status(UserStatus.ACTIVE)
-                .createdBy(adminUserNo)
-                .updatedBy(adminUserNo)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-        userMapper.insertUser(user);
-        log.info("관리자 계정 등록: email={}, roleCode={}, by={}", email, roleCode, adminUserNo);
-    }
+    // createUserByAdmin 제거 — SSO 전환 후 회원 생성은 Auth 서버에서만 가능
 
     /**
      * 역할 변경 (승격/강등)
@@ -149,12 +119,72 @@ public class AdminUserService {
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateUser(user);
 
-        // 계정 정지/탈퇴 시 refreshToken 전체 삭제 → 30분 내 강제 로그아웃
-        if ("SUSPENDED".equals(newStatus) || "WITHDRAWN".equals(newStatus)) {
-            refreshTokenMapper.deleteByUserNo(userNo);
-            log.info("계정 정지/탈퇴로 refreshToken 전체 삭제: userNo={}", userNo);
-        }
+        // SSO 전환 후: refresh_token은 Auth 서버가 관리
+        // 계정 정지/탈퇴 시 Auth 서버 AT 만료(15분) 후 자연 로그아웃
         log.info("상태 변경: userNo={}, newStatus={}, by={}", userNo, newStatus, adminUserNo);
+    }
+
+    // ===== 비밀번호 초기화 =====
+
+    // ===== Admin 계정 비밀번호 초기화 (admin_account 전용) =====
+
+    /**
+     * Admin 비밀번호 초기화 (admin_account 테이블).
+     * 일반 회원은 Auth 서버가 비밀번호 관리 → 학심정에서 초기화 불가.
+     */
+    @Transactional
+    public String resetAdminPassword(Long adminId) {
+        AdminAccount admin = adminAccountMapper.findById(adminId);
+        if (admin == null) {
+            throw new IllegalArgumentException("존재하지 않는 관리자 계정입니다.");
+        }
+
+        String tempPassword = generateTempPassword();
+        String encoded = passwordEncoder.encode(tempPassword);
+
+        adminAccountMapper.updatePassword(adminId, encoded);
+
+        log.info("Admin 비밀번호 초기화: adminId={}", adminId);
+        return tempPassword;
+    }
+
+    /**
+     * Admin 임시 비밀번호 이메일 발송
+     */
+    public void sendAdminTempPasswordEmail(Long adminId, String tempPassword) {
+        AdminAccount admin = adminAccountMapper.findById(adminId);
+        if (admin == null) {
+            throw new IllegalArgumentException("존재하지 않는 관리자 계정입니다.");
+        }
+
+        ncpMailSender.sendTempPassword(admin.getEmail(), tempPassword);
+        log.info("Admin 임시 비밀번호 이메일 발송: adminId={}, email={}", adminId, admin.getEmail());
+    }
+
+    /**
+     * 랜덤 임시 비밀번호 생성 (10자: 대문자2 + 소문자4 + 숫자2 + 특수문자2)
+     */
+    private String generateTempPassword() {
+        SecureRandom random = new SecureRandom();
+        String upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        String lower = "abcdefghjkmnpqrstuvwxyz";
+        String digits = "23456789";
+        String special = "!@#$%&*";
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 2; i++) sb.append(upper.charAt(random.nextInt(upper.length())));
+        for (int i = 0; i < 4; i++) sb.append(lower.charAt(random.nextInt(lower.length())));
+        for (int i = 0; i < 2; i++) sb.append(digits.charAt(random.nextInt(digits.length())));
+        for (int i = 0; i < 2; i++) sb.append(special.charAt(random.nextInt(special.length())));
+
+        char[] chars = sb.toString().toCharArray();
+        for (int i = chars.length - 1; i > 0; i--) {
+            int j = random.nextInt(i + 1);
+            char tmp = chars[i];
+            chars[i] = chars[j];
+            chars[j] = tmp;
+        }
+        return new String(chars);
     }
 
     // ===== 역할 관리 =====

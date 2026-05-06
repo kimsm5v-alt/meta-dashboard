@@ -357,6 +357,8 @@ const CoachingBullet = styled.span`
 interface FourStepInterpretationProps {
   tScores: number[];
   prevTScores?: number[];
+  midCategoryScores?: Record<string, number> | null;
+  prevMidCategoryScores?: Record<string, number> | null;
   studentName: string;
 }
 
@@ -367,12 +369,17 @@ interface FourStepInterpretationProps {
 export function FourStepInterpretation({
   tScores,
   prevTScores,
+  midCategoryScores,
+  prevMidCategoryScores,
   studentName,
 }: FourStepInterpretationProps) {
-  const diagnosis = useMemo(() => calculate4StepDiagnosis(tScores), [tScores]);
+  const diagnosis = useMemo(
+    () => calculate4StepDiagnosis(tScores, midCategoryScores),
+    [tScores, midCategoryScores],
+  );
   const prevDiagnosis = useMemo(
-    () => (prevTScores ? calculate4StepDiagnosis(prevTScores) : null),
-    [prevTScores],
+    () => (prevTScores ? calculate4StepDiagnosis(prevTScores, prevMidCategoryScores) : null),
+    [prevTScores, prevMidCategoryScores],
   );
   const isCompare = !!prevDiagnosis;
 

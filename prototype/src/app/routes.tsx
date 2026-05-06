@@ -38,6 +38,12 @@ import { MyExamListPage, MyResultPage, StudentGroupsPage } from '../features/stu
 // 게스트용 Feature imports
 import { GuestExamListPage, GuestCompletePage } from '../features/guest-exam';
 
+// 알림 UI Mock (로그인 우회, 디자인 전용)
+import {
+  TeacherNotificationMockPage,
+  StudentNotificationMockPage,
+} from '../features/notifications-mock';
+
 // ============================================================
 // 레이아웃 래퍼
 // ============================================================
@@ -130,6 +136,10 @@ export const AppRoutes = () => (
       {/* /exam/:code는 폐기 - /join/:code로 리다이렉트 */}
       <Route path="/exam/:code" element={<ExamToJoinRedirect />} />
       <Route path="/join/:code" element={<JoinGroupPage />} />
+
+      {/* 알림 UI Mock — 로그인 우회, 디자인 전용 */}
+      <Route path="/mock/notifications/teacher" element={<TeacherNotificationMockPage />} />
+      <Route path="/mock/notifications/student" element={<StudentNotificationMockPage />} />
     </Route>
 
     {/* 보호 라우트 - 사이드바 있음 */}

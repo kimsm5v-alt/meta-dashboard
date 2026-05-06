@@ -12,7 +12,7 @@ import { keyframes } from '@emotion/react';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 import { useAuth } from '@features/auth';
-import type { ManagedAssessment } from '@shared/types';
+import type { ManagedAssessment, Group } from '@shared/types';
 import { AlertModal } from '@shared/components';
 import {
   GeneralSection,
@@ -27,6 +27,7 @@ import {
   fetchExamList,
   endExam,
   cancelExam,
+  restartExam,
   type ExamListItem,
 } from '@features/assessment/api/assessmentService';
 import { APIError } from '@shared/services/apiClient';
@@ -35,6 +36,7 @@ import {
   saveAssessmentMeta,
   getAssessmentMeta,
 } from '@features/assessment/api/assessmentMetaStorage';
+import { groupService } from '@features/groups/api/groupService';
 
 const PageContainer = styled.div`
   max-width: 80rem;
@@ -145,20 +147,22 @@ const LoadingText = styled.span`
 // ============================================================
 
 /** API 검사 목록 → ManagedAssessment 변환 */
-function convertExamListItem(item: ExamListItem): ManagedAssessment {
+function convertExamListItem(item: ExamListItem, groups: Group[]): ManagedAssessment {
   const shortCode = String(item.dgnssId);
   registerExamCode(shortCode, item.claId);
 
-  // localStorage에서 학년/반 정보 조회
+  // 1순위: localStorage 메타 (직접 생성한 검사), 2순위: group/list claId 매칭
   const meta = getAssessmentMeta(item.dgnssId);
+  const group = groups.find((g) => g.claId === item.claId);
 
   return {
     id: `assessment-${item.dgnssId}`,
     name: `${item.ordNo}차 검사`,
     code: shortCode,
     dgnssId: item.dgnssId,
-    grade: meta?.grade ?? 0,
-    classNumber: meta?.classNumber ?? 0,
+    claId: item.claId,
+    grade: meta?.grade ?? group?.grade ?? 0,
+    classNumber: meta?.classNumber ?? group?.classNumber ?? 0,
     studentCount: item.stTotalCnt,
     completedCount: item.stSubmCnt,
     round: item.ordNo as 1 | 2,
@@ -167,6 +171,7 @@ function convertExamListItem(item: ExamListItem): ManagedAssessment {
     createdAt: new Date(item.dgnssStDt),
     ownerId: item.tcId,
     isActive: item.dgnssAt === 'Y',
+    inviteCode: group?.inviteCode,
   };
 }
 
@@ -175,16 +180,18 @@ function convertExamListItem(item: ExamListItem): ManagedAssessment {
 // ============================================================
 
 export const AssessmentPage: React.FC = () => {
-  const { user, credentials } = useAuth();
+  const { user } = useAuth();
 
-  // credentials에서 ID 추출
-  const tcId = credentials?.teacherId ?? '';
-  const claId = credentials?.classId ?? '';
-  const hasCredentials = !!credentials;
+  const tcId = user?.id ?? '';
+
+  // 그룹 목록
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [selectedClaId, setSelectedClaId] = useState('');
+  const [isGroupsLoading, setIsGroupsLoading] = useState(true);
 
   // 상태
   const [assessments, setAssessments] = useState<ManagedAssessment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,24 +212,46 @@ export const AssessmentPage: React.FC = () => {
   // 데이터 로드
   // ============================================================
 
+  // 그룹 목록 초기 로드
+  useEffect(() => {
+    if (!user) return;
+    setIsGroupsLoading(true);
+    groupService
+      .getMyGroups(user.id)
+      .then((g) => {
+        setGroups(g);
+        if (g.length > 0) setSelectedClaId(g[0].claId);
+      })
+      .catch((err: unknown) => {
+        console.warn('[Assessment] 그룹 목록 조회 실패:', err);
+      })
+      .finally(() => setIsGroupsLoading(false));
+  }, [user]);
+
   const loadExamList = useCallback(async () => {
-    if (!hasCredentials) {
-      setIsLoading(false);
-      return;
-    }
+    if (groups.length === 0) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const items = await fetchExamList(claId, tcId, '1');
-      setAssessments(items.map((item) => convertExamListItem(item)));
+      const results = await Promise.all(groups.map((g) => fetchExamList(g.claId, tcId, '1')));
+
+      // 중복 제거 (dgnssId 기준)
+      const seen = new Set<number>();
+      const flat = results.flat().filter((item) => {
+        if (seen.has(item.dgnssId)) return false;
+        seen.add(item.dgnssId);
+        return true;
+      });
+      console.log(flat, '검사 목록 API 결과');
+      setAssessments(flat.map((item) => convertExamListItem(item, groups)));
     } catch (err) {
       setError(err instanceof Error ? err.message : '검사 목록 조회에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
-  }, [hasCredentials, claId, tcId]);
+  }, [groups, tcId]);
 
   useEffect(() => {
     loadExamList();
@@ -234,7 +263,12 @@ export const AssessmentPage: React.FC = () => {
 
   const handleCreateAssessment = useCallback(
     async (data: AssessmentFormData) => {
-      if (!hasCredentials) return;
+      // 모달에서 그룹 선택 시 해당 claId 사용, 아니면 첫 번째 그룹
+      const claId = data.groupId
+        ? (groups.find((g) => g.id === data.groupId)?.claId ?? selectedClaId)
+        : selectedClaId;
+
+      if (!claId) return;
 
       setIsProcessing(true);
       setError(null);
@@ -253,6 +287,9 @@ export const AssessmentPage: React.FC = () => {
           classNumber: data.classNumber,
         });
 
+        // 해당 그룹의 inviteCode 찾기
+        const group = groups.find((g) => g.claId === claId);
+
         const newAssessment: ManagedAssessment = {
           id: `assessment-${result.dgnssId}`,
           name: data.name,
@@ -268,6 +305,7 @@ export const AssessmentPage: React.FC = () => {
           createdAt: new Date(),
           ownerId: user?.id ?? '',
           isActive: true,
+          inviteCode: group?.inviteCode,
         };
 
         setAssessments((prev) => [newAssessment, ...prev]);
@@ -300,7 +338,7 @@ export const AssessmentPage: React.FC = () => {
         setIsProcessing(false);
       }
     },
-    [user?.id, hasCredentials, claId, tcId, assessments],
+    [user?.id, selectedClaId, tcId, assessments],
   );
 
   // ============================================================
@@ -367,6 +405,31 @@ export const AssessmentPage: React.FC = () => {
   );
 
   // ============================================================
+  // 검사 재시작 (추가 진행하기)
+  // ============================================================
+
+  const handleRestartExam = useCallback(
+    async (assessment: ManagedAssessment) => {
+      if (!assessment.dgnssId || !assessment.claId) return;
+
+      setIsProcessing(true);
+      setError(null);
+
+      try {
+        const group = groups.find((g) => g.claId === assessment.claId);
+        const gradeLevel = group ? schoolLevelToGradeLevel(group.schoolLevel) : 'mi';
+        await restartExam(assessment.dgnssId, assessment.claId, gradeLevel);
+        await loadExamList();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '검사 재시작에 실패했습니다.');
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [groups, loadExamList],
+  );
+
+  // ============================================================
   // 핸들러
   // ============================================================
 
@@ -402,24 +465,24 @@ export const AssessmentPage: React.FC = () => {
         </ProcessingOverlay>
       )}
 
-      {/* credentials 없음 경고 */}
-      {!hasCredentials && (
+      {/* 그룹 없음 경고 */}
+      {!isGroupsLoading && groups.length === 0 && (
         <WarningBanner>
           <WarningIcon />
-          <span>로그인 시 입력한 credentials가 없습니다. 다시 로그인해주세요.</span>
+          <span>등록된 학급이 없습니다. 먼저 그룹을 생성해주세요.</span>
         </WarningBanner>
       )}
 
       {/* 로딩 상태 */}
-      {isLoading && hasCredentials && (
+      {(isGroupsLoading || isLoading) && (
         <LoadingContainer>
           <LoadingSpinner />
-          <LoadingText>검사 목록을 불러오는 중...</LoadingText>
+          <LoadingText>불러오는 중...</LoadingText>
         </LoadingContainer>
       )}
 
       {/* 검사 관리 섹션 */}
-      {!isLoading && hasCredentials && (
+      {!isLoading && groups.length > 0 && (
         <GeneralSection
           assessments={assessments}
           onCreateClick={() => setIsCreateModalOpen(true)}
@@ -427,6 +490,7 @@ export const AssessmentPage: React.FC = () => {
           onViewCode={handleViewCode}
           onEndExam={handleEndExam}
           onCancelExam={handleCancelExam}
+          onRestartExam={handleRestartExam}
         />
       )}
 
@@ -435,6 +499,7 @@ export const AssessmentPage: React.FC = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreate={handleCreateAssessment}
+        groups={groups}
       />
       <AssessmentCodeModal
         isOpen={isCodeModalOpen}

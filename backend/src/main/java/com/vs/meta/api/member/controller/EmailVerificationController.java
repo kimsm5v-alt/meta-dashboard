@@ -32,12 +32,15 @@ public class EmailVerificationController {
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(examples = {
                     @ExampleObject(name = "인증코드발송", value =
-                            "{\"email\":\"user@example.com\"}")
+                            "{\"email\":\"user@example.com\", \"purpose\":\"GUEST\"}")
             }))
     public ResponseDTO<CustomBody> sendCode(
             @RequestBody Map<String, Object> paramData
     ) throws Exception {
-        emailVerificationService.sendCode((String) paramData.get("email"));
+        emailVerificationService.sendCode(
+                (String) paramData.get("email"),
+                (String) paramData.get("purpose")
+        );
         return AidtCommonUtil.makeResultSuccess(paramData, null, "인증코드 발송 완료");
     }
 

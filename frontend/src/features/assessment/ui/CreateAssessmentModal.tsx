@@ -1,7 +1,8 @@
 import styled from '@emotion/styled';
 import { useState, useMemo } from 'react';
-import { Calendar, Users, GraduationCap } from 'lucide-react';
+import { Users, GraduationCap } from 'lucide-react';
 import { Modal, Button } from '@shared/components';
+import type { Group } from '@shared/types';
 
 const Form = styled.form`
   display: flex;
@@ -104,47 +105,11 @@ const ButtonGroup = styled.div`
   padding-top: 0.5rem;
 `;
 
-// Mock 그룹 데이터 (나중에 API로 대체)
-interface GroupOption {
-  id: string;
-  name: string;
-  grade: number;
-  classNumber: number;
-  schoolLevel: SchoolLevel;
-  studentCount: number;
-}
-
-const mockGroups: GroupOption[] = [
-  {
-    id: '1',
-    name: '6학년 2반',
-    grade: 6,
-    classNumber: 2,
-    schoolLevel: 'elementary',
-    studentCount: 28,
-  },
-  {
-    id: '2',
-    name: '6학년 3반',
-    grade: 6,
-    classNumber: 3,
-    schoolLevel: 'elementary',
-    studentCount: 25,
-  },
-  {
-    id: '3',
-    name: '5학년 1반',
-    grade: 5,
-    classNumber: 1,
-    schoolLevel: 'elementary',
-    studentCount: 30,
-  },
-];
-
 interface CreateAssessmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (data: AssessmentFormData) => void;
+  groups: Group[]; // 실제 그룹 데이터는 API에서 받아올 예정
 }
 
 /** 학교급 타입 */
@@ -191,6 +156,7 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
   isOpen,
   onClose,
   onCreate,
+  groups = [],
 }) => {
   const defaultDates = generateDefaultDates();
   const [formData, setFormData] = useState<AssessmentFormData>({
@@ -207,7 +173,7 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
 
   // 선택된 그룹 정보
   const selectedGroup = useMemo(() => {
-    return mockGroups.find((g) => g.id === formData.groupId) || null;
+    return groups.find((g) => g.id === formData.groupId) || null;
   }, [formData.groupId]);
 
   // 그룹 선택 시 학교급, 학년, 반, 학생 수 자동 설정
@@ -220,7 +186,7 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
       return;
     }
 
-    const group = mockGroups.find((g) => g.id === groupId);
+    const group = groups.find((g) => g.id === groupId);
     if (group) {
       setFormData((prev) => ({
         ...prev,
@@ -228,7 +194,7 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
         schoolLevel: group.schoolLevel,
         grade: group.grade,
         classNumber: group.classNumber,
-        studentCount: group.studentCount,
+        studentCount: group.memberCount,
       }));
     }
   };
@@ -259,14 +225,14 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
         {/* 그룹 선택 */}
         <FormField>
           <Label>
-            <Users className='w-4 h-4 inline mr-1' />
+            <Users className='inline w-4 h-4 mr-1' />
             그룹 선택 <OptionalText>(선택)</OptionalText>
           </Label>
           <Select value={formData.groupId || ''} onChange={(e) => handleGroupChange(e.target.value)}>
             <option value=''>직접 입력</option>
-            {mockGroups.map((group) => (
+            {groups.map((group) => (
               <option key={group.id} value={group.id}>
-                {group.name} ({group.studentCount}명)
+                {group.name} ({group.memberCount}명)
               </option>
             ))}
           </Select>
@@ -290,7 +256,7 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
         {/* 학교급 */}
         <FormField>
           <Label>
-            <GraduationCap className='w-4 h-4 inline mr-1' />
+            <GraduationCap className='inline w-4 h-4 mr-1' />
             학교급
           </Label>
           <SchoolLevelGrid>
@@ -370,9 +336,9 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
         </TwoColumnGrid>
 
         {/* 검사 기간 */}
-        <FormField>
+        {/* <FormField>
           <Label>
-            <Calendar className='w-4 h-4 inline mr-1' />
+            <Calendar className='inline w-4 h-4 mr-1' />
             검사 기간
           </Label>
           <TwoColumnGrid>
@@ -388,7 +354,7 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
               min={formData.startDate}
             />
           </TwoColumnGrid>
-        </FormField>
+        </FormField> */}
 
         {/* 버튼 */}
         <ButtonGroup>

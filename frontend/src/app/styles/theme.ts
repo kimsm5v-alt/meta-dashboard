@@ -55,9 +55,10 @@ export const theme = {
 
     // Student Type Colors (LPA 유형)
     type: {
-      warning: '#ea580c', // 자원소진형/무기력형 (주황)
-      balance: '#0d9488', // 안전균형형/정서조절취약형 (틸)
-      excellent: '#2563eb', // 몰입자원풍부형/자기주도몰입형 (파랑)
+      warning: '#E74C3C', // 자원소진형/무기력형 (빨강)
+      balance: '#3498DB', // 안전 균형형 (파랑)
+      caution: '#F39C12', // 정서조절 취약형 (주황)
+      excellent: '#2ECC71', // 몰입자원 풍부형/자기주도 몰입형 (초록)
     },
 
     // Domain Colors (5대 영역)

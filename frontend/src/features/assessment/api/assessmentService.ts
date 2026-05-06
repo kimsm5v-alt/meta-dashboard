@@ -1,11 +1,10 @@
 /**
  * 교사용 검사 관리 API 서비스
  *
- * API 문서: docs/api-endpoints.md
- * 엔드포인트: /etc/meta/tc/* (교사용)
+ * 엔드포인트: /api/dgnss/tc/* (교사용)
  */
 
-import { apiRequest } from '@shared/services/apiClient';
+import { apiClient } from '@shared/api';
 
 // ============================================================
 // 타입 정의
@@ -69,7 +68,7 @@ export interface ExamDetailResponse {
 
 /**
  * 검사 시작 (생성)
- * GET /etc/meta/tc/start
+ * POST /api/dgnss/tc/start
  */
 export async function startExam(
   claId: string,
@@ -78,104 +77,90 @@ export async function startExam(
   grade: GradeLevel,
   paperIdx: string = '1',
 ): Promise<StartExamResponse> {
-  const response = await apiRequest<StartExamResponse>(
-    `/etc/meta/tc/start?claId=${claId}&tcId=${tcId}&ordNo=${ordNo}&grade=${grade}&paperIdx=${paperIdx}`,
-    { debug: true },
-  );
-  return response.resultData;
+  const res = await apiClient.post<StartExamResponse>('/api/dgnss/tc/start', {
+    claId,
+    tcId,
+    ordNo,
+    grade,
+    paperIdx,
+  });
+  return res.resultData;
 }
 
 /**
  * 검사 목록 조회
- * GET /etc/meta/tc/info
- *
- * 참고: /tc/list는 404 반환, /tc/info 사용
+ * GET /api/dgnss/tc/info
  */
 export async function fetchExamList(
   claId: string,
-  tcId: string,
-  paperIdx?: string,
+  _tcId: string,
+  _paperIdx?: string,
 ): Promise<ExamListItem[]> {
-  let endpoint = `/etc/meta/tc/info?claId=${claId}&tcId=${tcId}`;
-  if (paperIdx) {
-    endpoint += `&paperIdx=${paperIdx}`;
-  }
+  let endpoint = `/api/dgnss/tc/info?claId=${claId}`;
 
-  const response = await apiRequest<ExamListResponse | ExamListItem[]>(endpoint, { debug: true });
+  const res = await apiClient.get<ExamListResponse | ExamListItem[]>(endpoint);
+  const resultData = res.resultData;
 
-  // API 응답 구조 처리: resultData가 배열이거나 { dgnssInfo: [...] } 형태일 수 있음
-  const resultData = response.resultData;
   if (Array.isArray(resultData)) {
     return resultData;
   }
-  if (resultData && Array.isArray(resultData.dgnssInfo)) {
-    return resultData.dgnssInfo;
+  if (resultData && Array.isArray((resultData as ExamListResponse).dgnssInfo)) {
+    return (resultData as ExamListResponse).dgnssInfo;
   }
   return [];
 }
 
 /**
  * 검사 상세 조회
- * GET /etc/meta/tc/detail
+ * GET /api/dgnss/tc/detail
  */
 export async function fetchExamDetail(dgnssId: number): Promise<ExamDetailResponse> {
-  const response = await apiRequest<ExamDetailResponse>(`/etc/meta/tc/detail?dgnssId=${dgnssId}`, {
-    debug: true,
-  });
-  return response.resultData;
+  const res = await apiClient.get<ExamDetailResponse>(`/api/dgnss/tc/detail?dgnssId=${dgnssId}`);
+  return res.resultData;
 }
 
 /**
  * 검사 종료
- * GET /etc/meta/tc/end
+ * POST /api/dgnss/tc/end
  */
-export async function endExam(dgnssId: number, paperIdx?: string): Promise<void> {
-  let endpoint = `/etc/meta/tc/end?dgnssId=${dgnssId}`;
-  if (paperIdx) {
-    endpoint += `&paperIdx=${paperIdx}`;
-  }
-
-  await apiRequest<unknown>(endpoint, { debug: true });
+export async function endExam(dgnssId: number, _paperIdx?: string): Promise<void> {
+  await apiClient.post('/api/dgnss/tc/end', { dgnssId });
 }
 
 /**
  * 검사 취소
- * GET /etc/meta/tc/cancel
+ * POST /api/dgnss/tc/cancel
  *
  * 주의: 데이터가 삭제됨. 되돌릴 수 없음.
  */
 export async function cancelExam(dgnssId: number): Promise<void> {
-  await apiRequest<null>(`/etc/meta/tc/cancel?dgnssId=${dgnssId}`, { debug: true });
+  await apiClient.post('/api/dgnss/tc/cancel', { dgnssId });
 }
 
 /**
  * 검사 재시작
- * GET /etc/meta/tc/restart
+ * POST /api/dgnss/tc/restart
  */
 export async function restartExam(
   dgnssId: number,
   claId: string,
   grade: GradeLevel,
 ): Promise<void> {
-  await apiRequest<{ result: string }>(
-    `/etc/meta/tc/restart?dgnssId=${dgnssId}&claId=${claId}&grade=${grade}`,
-    { debug: true },
-  );
+  await apiClient.post('/api/dgnss/tc/restart', { dgnssId, claId, grade });
 }
 
 /** 미제출 학생 항목 */
 export interface NotSubmittedStudent {
-  stdtId: string;
+  nickname: string;
 }
 
 /**
  * 미제출 학생 목록 조회
- * GET /etc/meta/tc/notsubm
+ * GET /api/dgnss/tc/notsubm
  */
 export async function fetchNotSubmittedStudents(dgnssId: number): Promise<NotSubmittedStudent[]> {
-  const response = await apiRequest<NotSubmittedStudent[]>(
-    `/etc/meta/tc/notsubm?dgnssId=${dgnssId}`,
-    { debug: true },
+  const res = await apiClient.get<NotSubmittedStudent[]>(
+    `/api/dgnss/tc/notsubm?dgnssId=${dgnssId}`,
   );
-  return response.resultData ?? [];
+  return res.resultData ?? [];
 }

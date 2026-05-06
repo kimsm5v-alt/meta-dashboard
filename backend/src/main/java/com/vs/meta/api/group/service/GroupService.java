@@ -8,6 +8,9 @@ import com.vs.meta.api.guest.service.GuestAuthService;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.member.service.EmailVerificationService;
 import com.vs.meta.api.member.service.MemberService;
+import com.vs.meta.api.notification.event.StudentJoinedGroupEvent;
+import com.vs.meta.api.notification.event.StudentKickedEvent;
+import com.vs.meta.api.notification.event.StudentLeftGroupEvent;
 import com.vs.meta.common.utils.ConvertUtils;
 import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
@@ -20,6 +23,7 @@ import com.vs.meta.domain.enums.SchoolLevel;
 import com.vs.meta.domain.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
@@ -40,6 +44,7 @@ public class GroupService {
     private final EmailVerificationService emailVerificationService;
     private final DgnssService dgnssService;
     private final GuestAuthService guestAuthService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Object createGroup(Map<String, Object> paramData) throws Exception {
@@ -125,6 +130,10 @@ public class GroupService {
             throw new IllegalArgumentException("사용자를 찾을 수 없습니다: userNo=" + userNo);
         }
 
+        if ("TEACHER".equals(user.getRoleCode())) {
+            throw new IllegalStateException("교사 계정은 다른 교사의 그룹에 참여할 수 없습니다. 직접 그룹을 생성해주세요.");
+        }
+
         GroupInfo groupInfo = groupInfoMapper.findByInviteCodeAndUseYnForUpdate(inviteCode.toUpperCase(), "Y");
         if (groupInfo == null) {
             throw new IllegalArgumentException("유효한 초대코드가 아닙니다: " + inviteCode);
@@ -143,6 +152,41 @@ public class GroupService {
             userMapper.updateUser(user);
         }
 
+        // 기존 멤버 조회 (탈퇴/강퇴 이력 확인)
+        GroupMember existing = groupMemberMapper.findByGroupIdAndUserNo(groupId, userNo);
+        if (existing != null) {
+            if (existing.getStatus() == MemberStatus.ACTIVE) {
+                throw new IllegalStateException("이미 해당 그룹에 가입되어 있습니다.");
+            }
+            if (existing.getStatus() == MemberStatus.KICKED) {
+                throw new IllegalStateException("강퇴된 그룹에는 재가입할 수 없습니다.");
+            }
+            // LEFT 상태: 재가입 허용 (기존 row 재활성화)
+            existing.updateStatus(MemberStatus.ACTIVE);
+            existing.setNickname(user.getNickname());
+            existing.setEmail(user.getEmail());
+            existing.setJoinedAt(LocalDateTime.now());
+            existing.setLeftAt(null);
+            existing.setUpdatedBy(userNo);
+            groupMemberMapper.updateGroupMember(existing);
+
+            paramData.put("stdtId", existing.getStdtId());
+            paramData.put("memberId", existing.getId());
+
+            Integer activeDgnssId = registerActiveDgnssIfNeeded(
+                    groupInfo.getClaId(),
+                    groupInfo.getSchoolLevel(),
+                    existing.getStdtId()
+            );
+            if (activeDgnssId != null) {
+                paramData.put("dgnssId", activeDgnssId);
+            }
+
+            log.info("회원 그룹 재가입: groupId={}, userNo={}, memberId={}", groupId, userNo, existing.getId());
+            publishStudentJoined(groupInfo, existing.getNickname());
+            return paramData;
+        }
+
         Integer maxNo = groupMemberMapper.findMaxMemberNoByGroupId(groupId);
         int memberNo = (maxNo != null ? maxNo : 0) + 1;
 
@@ -151,6 +195,7 @@ public class GroupService {
                 .userNo(userNo)
                 .stdtId(user.getStdtId())
                 .nickname(user.getNickname())
+                .email(user.getEmail())
                 .memberNo(memberNo)
                 .memberType(MemberType.STUDENT)
                 .status(MemberStatus.ACTIVE)
@@ -165,7 +210,17 @@ public class GroupService {
         paramData.put("stdtId", user.getStdtId());
         paramData.put("memberId", member.getId());
 
+        Integer activeDgnssId = registerActiveDgnssIfNeeded(
+                groupInfo.getClaId(),
+                groupInfo.getSchoolLevel(),
+                user.getStdtId()
+        );
+        if (activeDgnssId != null) {
+            paramData.put("dgnssId", activeDgnssId);
+        }
+
         log.info("회원 그룹 참가: groupId={}, userNo={}, memberNo={}", groupId, userNo, memberNo);
+        publishStudentJoined(groupInfo, user.getNickname());
         return paramData;
     }
 
@@ -177,6 +232,11 @@ public class GroupService {
         }
         if (!emailVerificationService.isVerified(email)) {
             throw new IllegalArgumentException("이메일 인증이 필요합니다.");
+        }
+
+        User existingUser = userMapper.findByEmail(email);
+        if (existingUser != null) {
+            throw new IllegalArgumentException("이미 가입된 회원 이메일입니다. 회원으로 로그인하여 그룹에 참가해주세요.");
         }
 
         String inviteCode = (String) paramData.get("inviteCode");
@@ -195,12 +255,9 @@ public class GroupService {
             throw new IllegalStateException("그룹 최대 인원(" + groupInfo.getMaxMemberCount() + "명)을 초과할 수 없습니다.");
         }
 
-        String gender = (String) paramData.get("gender");
-        if (gender == null || gender.isBlank()) {
-            throw new IllegalArgumentException("성별은 필수입니다.");
-        }
-        if (!"M".equals(gender) && !"F".equals(gender)) {
-            throw new IllegalArgumentException("성별은 M 또는 F만 허용됩니다.");
+        GroupMember existingGuest = groupMemberMapper.findActiveGuestByGroupIdAndEmail(groupId, email);
+        if (existingGuest != null) {
+            throw new IllegalStateException("이미 해당 그룹에 참가한 게스트입니다. 이메일 인증 후 기존 계정으로 다시 입장해주세요.");
         }
 
         String stdtId = IdGenerator.generateStdtId();
@@ -213,7 +270,6 @@ public class GroupService {
                 .userNo(null)
                 .stdtId(stdtId)
                 .nickname((String) paramData.get("nickname"))
-                .gender(gender)
                 .email((String) paramData.get("email"))
                 .memberNo(memberNo)
                 .memberType(MemberType.GUEST)
@@ -228,35 +284,71 @@ public class GroupService {
 
         paramData.put("stdtId", stdtId);
         paramData.put("memberId", member.getId());
+        paramData.put("claId", groupInfo.getClaId());
 
-        // 진행중인 검사가 있으면 restart 호출하여 게스트 검사 레코드 자동 생성
-        Integer activeDgnssId = groupQueryMapper.findActiveDgnssId(groupInfo.getClaId());
+        Integer activeDgnssId = registerActiveDgnssIfNeeded(
+                groupInfo.getClaId(),
+                groupInfo.getSchoolLevel(),
+                stdtId
+        );
         if (activeDgnssId != null) {
-            String legacyGrade = SchoolLevel.fromCode(groupInfo.getSchoolLevel()).getLegacyGrade();
-            Map<String, Object> restartParam = new HashMap<>();
-            restartParam.put("dgnssId", activeDgnssId);
-            restartParam.put("claId", groupInfo.getClaId());
-            restartParam.put("grade", legacyGrade);
-            dgnssService.tcDgnssRestart(restartParam);
             paramData.put("dgnssId", activeDgnssId);
-            log.info("게스트 검사 자동 등록: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
         }
 
-        emailVerificationService.consumeVerification(email);
-
-        // 게스트 토큰 발급
-        Map<String, Object> tokens = guestAuthService.issueGuestTokens(stdtId, groupInfo.getClaId(), email, null, null);
-        paramData.put("accessToken", tokens.get("accessToken"));
-        paramData.put("refreshToken", tokens.get("refreshToken"));
+        // 게스트 토큰 발급 — Auth 서버 게스트 토큰 사용 (RT 없음)
+        // authenticateGuest 내부에서 isVerified 체크 + consumeVerification을 수행하므로
+        // 여기서 미리 consume하면 안 됨
+        Map<String, Object> guestToken = guestAuthService.authenticateGuest(
+                groupInfo.getInviteCode(), email, null, null);
+        paramData.put("accessToken", guestToken.get("accessToken"));
+        paramData.put("guestId", guestToken.get("guestId"));
 
         log.info("게스트 그룹 참가: groupId={}, email={}, memberNo={}", groupId, email, memberNo);
+        publishStudentJoined(groupInfo, (String) paramData.get("nickname"));
         return paramData;
+    }
+
+    /**
+     * T1 알림 이벤트 발행 — 그룹 오너 교사에게.
+     * hostUserNo가 없는 경우는 건너뛴다.
+     */
+    private void publishStudentJoined(GroupInfo groupInfo, String studentNickname) {
+        if (groupInfo == null || groupInfo.getHostUserNo() == null) return;
+        eventPublisher.publishEvent(new StudentJoinedGroupEvent(
+                groupInfo.getHostUserNo(),
+                groupInfo.getClaId(),
+                groupInfo.getGroupNm(),
+                studentNickname
+        ));
+    }
+
+    private Integer registerActiveDgnssIfNeeded(String claId, String schoolLevel, String stdtId) throws Exception {
+        Integer activeDgnssId = groupQueryMapper.findActiveDgnssId(claId);
+        if (activeDgnssId == null || stdtId == null || stdtId.isBlank()) {
+            return activeDgnssId;
+        }
+
+        if (dgnssService.existsDgnssResult(activeDgnssId, stdtId)) {
+            log.info("검사 결과 중복 건너뜀: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
+            return activeDgnssId;
+        }
+
+        String legacyGrade = SchoolLevel.fromCode(schoolLevel).getLegacyGrade();
+        Map<String, Object> restartParam = new HashMap<>();
+        restartParam.put("dgnssId", activeDgnssId);
+        restartParam.put("claId", claId);
+        restartParam.put("grade", legacyGrade);
+        dgnssService.tcDgnssRestart(restartParam);
+        log.info("활성 검사 자동 등록: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
+        return activeDgnssId;
     }
 
     @Transactional(readOnly = true)
     public Object findGroupList(Map<String, Object> paramData) throws Exception {
         Long userNo = ConvertUtils.toLong(paramData.get("userNo"));
-        return groupQueryMapper.findGroupList(userNo);
+        boolean includeInactive = Boolean.parseBoolean(
+                String.valueOf(paramData.getOrDefault("includeInactive", "false")));
+        return groupQueryMapper.findGroupList(userNo, includeInactive);
     }
 
     @Transactional(readOnly = true)
@@ -280,7 +372,7 @@ public class GroupService {
             throw new IllegalStateException("그룹 상세 조회 권한이 없습니다. 그룹 멤버만 조회할 수 있습니다.");
         }
 
-        Map<String, Object> groupInfo = groupQueryMapper.findGroupDetail(groupId);
+        Map<String, Object> groupInfo = groupQueryMapper.findGroupDetail(groupId, userNo);
         returnMap.put("groupInfo", groupInfo);
 
         List<Map<String, Object>> memberList = groupQueryMapper.findGroupMemberList(groupId, offset, size);
@@ -314,6 +406,16 @@ public class GroupService {
         member.setUpdatedBy(userNo);
         groupMemberMapper.updateGroupMember(member);
         log.info("그룹 멤버 탈퇴: memberId={}, userNo={}", memberId, userNo);
+
+        // T2: 그룹 오너 교사에게 알림
+        GroupInfo groupInfo = groupInfoMapper.findGroupInfoById(member.getGroupId());
+        if (groupInfo != null && groupInfo.getHostUserNo() != null) {
+            eventPublisher.publishEvent(new StudentLeftGroupEvent(
+                    groupInfo.getHostUserNo(),
+                    groupInfo.getClaId(),
+                    member.getNickname()
+            ));
+        }
         return paramData;
     }
 
@@ -344,6 +446,14 @@ public class GroupService {
         member.setUpdatedBy(hostUserNo);
         groupMemberMapper.updateGroupMember(member);
         log.info("그룹 멤버 강퇴: memberId={}, by={}", memberId, hostUserNo);
+
+        // S5: 추방된 학생(회원만)에게 알림. 게스트(userNo=null)는 인앱 알림 불가 → 스킵
+        if (member.getUserNo() != null) {
+            eventPublisher.publishEvent(new StudentKickedEvent(
+                    member.getUserNo(),
+                    groupInfo.getGroupNm()
+            ));
+        }
         return paramData;
     }
 
@@ -371,8 +481,10 @@ public class GroupService {
         }
 
         var result = new LinkedHashMap<String, Object>();
+        result.put("groupId", groupInfo.getGroupId());
         result.put("claId", groupInfo.getClaId());
         result.put("groupNm", groupInfo.getGroupNm());
+        result.put("inviteCode", groupInfo.getInviteCode());
         result.put("schoolLevel", groupInfo.getSchoolLevel());
         result.put("grade", groupInfo.getGrade());
         result.put("classNumber", groupInfo.getClassNumber());

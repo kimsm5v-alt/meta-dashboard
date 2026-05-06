@@ -1,7 +1,7 @@
 import styled from '@emotion/styled';
 import { useMemo } from 'react';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
-import type { UnifiedCounselingRecord } from '@shared/types';
+import type { CounselingRecord } from '@shared/types';
 import { CLASS_COLORS } from '@shared/data/mockUnifiedCounseling';
 
 const Container = styled.div`
@@ -109,7 +109,7 @@ const MoreCount = styled.div`
 
 interface MonthlyCalendarProps {
   currentDate: Date;
-  schedules: UnifiedCounselingRecord[];
+  schedules: CounselingRecord[];
   selectedDate: Date | null;
   onDateClick: (date: Date) => void;
 }
@@ -118,7 +118,7 @@ interface CalendarDay {
   date: Date;
   isCurrentMonth: boolean;
   isToday: boolean;
-  schedules: UnifiedCounselingRecord[];
+  schedules: CounselingRecord[];
 }
 
 // 월간 달력 날짜 배열 생성

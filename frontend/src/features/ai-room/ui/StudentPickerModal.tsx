@@ -34,14 +34,17 @@ const TabButton = styled.button<{ $isActive: boolean }>`
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
   border-bottom: 2px solid;
   margin-bottom: -1px;
-  border-color: ${({ $isActive, theme }) => ($isActive ? theme.colors.primary[500] : 'transparent')};
-  color: ${({ $isActive, theme }) => ($isActive ? theme.colors.primary[600] : theme.colors.gray[500])};
+  border-color: ${({ $isActive, theme }) =>
+    $isActive ? theme.colors.primary[500] : 'transparent'};
+  color: ${({ $isActive, theme }) =>
+    $isActive ? theme.colors.primary[600] : theme.colors.gray[500]};
   background: transparent;
   cursor: pointer;
   transition: ${({ theme }) => theme.transitions.fast};
 
   &:hover {
-    color: ${({ $isActive, theme }) => ($isActive ? theme.colors.primary[600] : theme.colors.gray[700])};
+    color: ${({ $isActive, theme }) =>
+      $isActive ? theme.colors.primary[600] : theme.colors.gray[700]};
   }
 `;
 
@@ -72,14 +75,17 @@ const StudentCard = styled.button<{ $selected: boolean }>`
   padding: 0.75rem;
   border-radius: ${({ theme }) => theme.radius.lg};
   border: 2px solid;
-  border-color: ${({ $selected, theme }) => ($selected ? theme.colors.primary[500] : theme.colors.gray[200])};
+  border-color: ${({ $selected, theme }) =>
+    $selected ? theme.colors.primary[500] : theme.colors.gray[200]};
   background: ${({ $selected, theme }) => ($selected ? theme.colors.primary[50] : 'transparent')};
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
-    border-color: ${({ $selected, theme }) => ($selected ? theme.colors.primary[500] : theme.colors.gray[300])};
-    background: ${({ $selected, theme }) => ($selected ? theme.colors.primary[50] : theme.colors.gray[50])};
+    border-color: ${({ $selected, theme }) =>
+      $selected ? theme.colors.primary[500] : theme.colors.gray[300]};
+    background: ${({ $selected, theme }) =>
+      $selected ? theme.colors.primary[50] : theme.colors.gray[50]};
   }
 `;
 
@@ -345,9 +351,7 @@ export const StudentPickerModal: React.FC<StudentPickerModalProps> = ({
                     )}
                     <StudentAvatar $bgColor={avatarColor}>{student.number}</StudentAvatar>
                     <StudentName>{student.name}</StudentName>
-                    <StudentType>
-                      {type === '미실시' ? '미실시' : type.slice(0, 4)}
-                    </StudentType>
+                    <StudentType>{type === '미실시' ? '미실시' : type}</StudentType>
                   </StudentCard>
                 );
               })}

@@ -1,24 +1,17 @@
 import styled from '@emotion/styled';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom'; // 게스트 기능 제외로 미사용
 import { QrCode, Search, Loader2, AlertCircle, Users, CheckCircle } from 'lucide-react';
 import { Modal, Button } from '@shared/components';
 import { groupService } from '../api/groupService';
 import { useAuth } from '@features/auth/model/AuthContext';
-import type { GroupInviteInfo, SchoolLevelCode } from '@shared/types';
+import type { GroupInviteInfo } from '@shared/types';
 
 interface JoinCodeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onJoinSuccess?: (groupId: string) => void;
 }
-
-/** 학교급 라벨 */
-const SCHOOL_LEVEL_LABELS: Record<SchoolLevelCode, string> = {
-  elementary: '초등',
-  middle: '중등',
-  high: '고등',
-};
 
 type Step = 'input' | 'preview' | 'joining' | 'success' | 'error';
 
@@ -129,51 +122,6 @@ const GroupMeta = styled.p`
   margin-bottom: 12px;
 `;
 
-const GroupOwnerInfo = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: ${({ theme }) => theme.spacing.md};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.gray[500]};
-`;
-
-const InputContainer = styled.div`
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
-
-const SmallLabel = styled.label`
-  display: block;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  color: ${({ theme }) => theme.colors.gray[700]};
-  margin-bottom: 6px;
-`;
-
-const OptionalText = styled.span`
-  color: ${({ theme }) => theme.colors.gray[400]};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.normal};
-`;
-
-const NumberInput = styled.input`
-  width: 100%;
-  padding: 10px 16px;
-  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  outline: none;
-  transition: all ${({ theme }) => theme.transitions.fast};
-
-  &:focus {
-    border-color: ${({ theme }) => theme.colors.primary[500]};
-    box-shadow: 0 0 0 3px ${({ theme }) => theme.colors.primary[200]};
-  }
-`;
-
-const HelperText = styled.p`
-  margin-top: ${({ theme }) => theme.spacing.xs};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[500]};
-`;
 
 const InfoBox = styled.div<{ $variant: 'blue' | 'amber' }>`
   background: ${({ $variant }) => ($variant === 'blue' ? '#eff6ff' : '#fffbeb')};
@@ -258,19 +206,17 @@ const ErrorMessage = styled.p`
 `;
 
 export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, onJoinSuccess }) => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // 게스트 기능 제외로 미사용
   const { user } = useAuth();
   const [code, setCode] = useState('');
   const [step, setStep] = useState<Step>('input');
   const [groupInfo, setGroupInfo] = useState<GroupInviteInfo | null>(null);
-  const [studentNumber, setStudentNumber] = useState<string>('');
   const [error, setError] = useState('');
 
   const resetState = () => {
     setCode('');
     setStep('input');
     setGroupInfo(null);
-    setStudentNumber('');
     setError('');
   };
 
@@ -298,7 +244,8 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
         return;
       }
 
-      if (info.alreadyJoined) {
+      if (false) {
+        // alreadyJoined 필드 제거됨 — 서버에서 이미 가입된 경우 에러 응답
         setError('이미 가입된 그룹입니다.');
         setStep('error');
         return;
@@ -320,8 +267,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
 
     try {
       await groupService.joinGroup(
-        groupInfo.id,
-        { studentNumber: studentNumber ? parseInt(studentNumber) : undefined },
+        { inviteCode: groupInfo.inviteCode },
         user.id,
         user.name,
       );
@@ -332,7 +278,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
       setTimeout(() => {
         handleClose();
         if (onJoinSuccess) {
-          onJoinSuccess(groupInfo.id);
+          onJoinSuccess(groupInfo.claId);
         }
       }, 2000);
     } catch (err) {
@@ -350,10 +296,9 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
   };
 
   // 비로그인 상태에서는 가입 페이지로 이동
-  const handleGuestJoin = () => {
-    handleClose();
-    navigate(`/join/${code.trim()}`);
-  };
+  /* 게스트 기능 제외
+  const handleGuestJoin = () => { handleClose(); navigate(`/join/${code.trim()}`); };
+  */
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title='그룹 참가' size='md'>
@@ -411,33 +356,8 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
               <Users size={32} color='#7c3aed' />
             </IconWrapper>
             <GroupTitle>{groupInfo.name}</GroupTitle>
-            <GroupMeta>
-              {SCHOOL_LEVEL_LABELS[groupInfo.schoolLevel]} {groupInfo.grade}학년{' '}
-              {groupInfo.classNumber}반
-            </GroupMeta>
-            <GroupOwnerInfo>
-              <span>방장: {groupInfo.ownerName}</span>
-              <span>멤버 {groupInfo.memberCount}명</span>
-            </GroupOwnerInfo>
+            <GroupMeta>초대코드: {groupInfo.inviteCode}</GroupMeta>
           </GroupPreview>
-
-          {/* 출석번호 입력 (선택) */}
-          {user && (
-            <InputContainer>
-              <SmallLabel>
-                출석번호 <OptionalText>(선택)</OptionalText>
-              </SmallLabel>
-              <NumberInput
-                type='number'
-                value={studentNumber}
-                onChange={(e) => setStudentNumber(e.target.value)}
-                placeholder='출석번호를 입력하세요'
-                min={1}
-                max={50}
-              />
-              <HelperText>나중에 방장이 수정할 수 있습니다.</HelperText>
-            </InputContainer>
-          )}
 
           {/* 안내 문구 */}
           {user ? (
@@ -448,7 +368,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
             </InfoBox>
           ) : (
             <InfoBox $variant='amber'>
-              <p>로그인하지 않은 상태입니다. 게스트로 참가하거나 로그인 후 가입하세요.</p>
+              <p>로그인하지 않은 상태입니다. 로그인 후 가입하세요.</p>
             </InfoBox>
           )}
 
@@ -466,7 +386,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
             {user ? (
               <FlexButton onClick={handleJoin}>가입하기</FlexButton>
             ) : (
-              <FlexButton onClick={handleGuestJoin}>게스트로 참가</FlexButton>
+              <FlexButton onClick={() => window.location.href = '/login'}>로그인하기</FlexButton>
             )}
           </ButtonRow>
         </ContentWrapper>

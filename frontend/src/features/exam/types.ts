@@ -13,6 +13,7 @@ export type ExamStep =
   | 'auth'
   | 'guest-entry'
   | 'number'
+  | 'student-info'
   | 'resume-choice'
   | 'guide'
   | 'questions'
@@ -52,6 +53,7 @@ export interface ExamQuestion {
   QESITM_NM: string;
   answer: string;
   fullCount: number;
+  choices?: string[]; // 커스텀 선택지 (120-124번 문항용)
 }
 
 // ============================================================

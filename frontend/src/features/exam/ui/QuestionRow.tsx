@@ -8,6 +8,7 @@ interface QuestionRowProps {
   selectedValue: string;
   onSelect: (value: string) => void;
   isSaving?: boolean;
+  choices?: string[]; // 커스텀 선택지 (120-124번 문항용)
 }
 
 const Container = styled.div<{ $hasValue: boolean; $isSaving: boolean }>`
@@ -85,6 +86,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   selectedValue,
   onSelect,
   isSaving = false,
+  choices,
 }) => {
   const questionId = `question-${questionNo}`;
 
@@ -101,6 +103,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           selectedValue={selectedValue}
           onSelect={onSelect}
           disabled={isSaving}
+          customChoices={choices}
         />
       </MobileLayout>
 
@@ -114,6 +117,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
             selectedValue={selectedValue}
             onSelect={onSelect}
             disabled={isSaving}
+            customChoices={choices}
           />
         </ScaleWrapper>
       </DesktopLayout>

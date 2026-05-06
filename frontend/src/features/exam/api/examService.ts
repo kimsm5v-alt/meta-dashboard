@@ -1,11 +1,10 @@
 /**
  * 학생용 검사 응시 API 서비스
  *
- * API 문서: docs/api-endpoints.md
- * 엔드포인트: /etc/meta/st/* (학생용)
+ * 엔드포인트: /api/dgnss/st/* (학생용)
  */
 
-import { apiRequest } from '@shared/services/apiClient';
+import { apiClient } from '@shared/api';
 import type {
   ExamQuestion,
   QuestionsResponseData,
@@ -13,6 +12,60 @@ import type {
   StudentExamItem,
   StudentExamListResponse,
 } from '../types';
+
+// ============================================================
+// Mock 문항 데이터 (120-124번, API에서 누락된 문항)
+// ============================================================
+
+const MOCK_QUESTIONS_120_124: ExamQuestion[] = [
+  {
+    NO: 120,
+    QESITM_NM: '내 학업 성적은 어느 정도인지 체크해 주세요.',
+    answer: '',
+    fullCount: 124,
+    choices: ['매우 낮음', '낮음', '보통', '높음', '매우 높음'],
+  },
+  {
+    NO: 121,
+    QESITM_NM: '나의 성적에 어느 정도 만족하는지 체크해 주세요.',
+    answer: '',
+    fullCount: 124,
+    choices: ['매우 낮음', '낮음', '보통', '높음', '매우 높음'],
+  },
+  {
+    NO: 122,
+    QESITM_NM: '다음 중 내가 공부하는 가장 중요한 이유 1가지를 체크해 주세요.',
+    answer: '',
+    fullCount: 124,
+    choices: [
+      '공부에 흥미를 느껴서',
+      '나의 미래를 위해서',
+      '대학을 가기 위해서',
+      '주변 사람들(부모님, 선생님)의 기대 때문에',
+      '솔직히 왜 하는지 모르겠다',
+    ],
+  },
+  {
+    NO: 123,
+    QESITM_NM: '학교 다닐 때, 혼자 공부하는 시간(온라인 학습 제외)이 하루 평균 어느 정도인지 체크해 보세요.',
+    answer: '',
+    fullCount: 124,
+    choices: [
+      '전혀 안함',
+      '1시간 미만',
+      '1시간 이상~2시간 미만',
+      '2시간 이상~3시간 미만',
+      '3시간 이상',
+    ],
+  },
+  {
+    NO: 124,
+    QESITM_NM: '공부와 관련된 고민이 있을 때, 가장 많이 상담하는 사람 1명을 체크해 주세요.',
+    answer: '',
+    fullCount: 124,
+    choices: ['친구', '선생님', '가족', '상담 전문가', '기타'],
+  },
+];
 
 // ============================================================
 // 학생 검사 API
@@ -27,17 +80,79 @@ export interface FetchQuestionsResponse {
 }
 
 /**
+ * 페이지별 구성 정보
+ * - 120번 문항의 성격이 다르므로 별도 페이지로 분리
+ * - 페이지 6: 101-119 (19문항)
+ * - 페이지 7: 120-124 (5문항)
+ */
+interface PageConfig {
+  apiPage: number; // 실제 API에 요청할 페이지 번호
+  startNo: number; // 표시할 시작 문항 번호
+  endNo: number; // 표시할 끝 문항 번호
+}
+
+function getPageConfig(frontendPage: number): PageConfig {
+  // 페이지 0-4: 1-100번 (각 20문항)
+  if (frontendPage <= 4) {
+    return {
+      apiPage: frontendPage,
+      startNo: frontendPage * 20 + 1,
+      endNo: (frontendPage + 1) * 20,
+    };
+  }
+  // 페이지 5: 101-119 (19문항)
+  if (frontendPage === 5) {
+    return {
+      apiPage: 5, // API page 5 (101-120) 요청
+      startNo: 101,
+      endNo: 119,
+    };
+  }
+  // 페이지 6: 120-124 (5문항)
+  return {
+    apiPage: 5, // API page 5 (101-120) 요청 - 120번 포함
+    startNo: 120,
+    endNo: 124,
+  };
+}
+
+/**
+ * 답변 완료 개수로부터 마지막 답변이 있는 페이지 계산
+ * @param answeredCount 답변 완료 개수 (1-124)
+ * @returns 페이지 번호 (0-based, 0-6)
+ */
+export function getPageFromAnsweredCount(answeredCount: number): number {
+  if (answeredCount === 0) return 0;
+
+  // 마지막 답변 문항 번호 추정
+  const lastAnsweredNo = answeredCount;
+
+  // 1-100: 기존 페이징 (20문항씩, 페이지 0-4)
+  if (lastAnsweredNo <= 100) {
+    return Math.floor((lastAnsweredNo - 1) / 20);
+  }
+
+  // 101-119: 페이지 5
+  if (lastAnsweredNo <= 119) {
+    return 5;
+  }
+
+  // 120-124: 페이지 6
+  return 6;
+}
+
+/**
  * 학생 검사 목록 조회
- * GET /etc/meta/st/info
+ * GET /api/dgnss/st/info
  */
 export async function fetchStudentExamList(
   claId: string,
   stdtId: string,
 ): Promise<StudentExamItem[]> {
-  const response = await apiRequest<StudentExamListResponse>(
-    `/etc/meta/st/info?claId=${claId}&stdtId=${stdtId}`,
+  const res = await apiClient.get<StudentExamListResponse>(
+    `/api/dgnss/st/info?claId=${claId}&stdtId=${stdtId}`,
   );
-  return response.resultData;
+  return res.resultData as unknown as StudentExamItem[];
 }
 
 /**
@@ -49,79 +164,137 @@ export function findActiveExam(exams: StudentExamItem[]): StudentExamItem | null
 }
 
 /**
+ * 문항 목록에 누락된 120-124번 문항 추가 (해당 범위 페이지만)
+ * @param questions API에서 반환된 문항 목록
+ * @param page 현재 페이지 번호
+ * @param size 페이지당 문항 수
+ */
+function fillMissingQuestions(
+  questions: ExamQuestion[],
+  page: number,
+  size: number,
+): ExamQuestion[] {
+  // 현재 페이지 범위 계산 (예: page=5, size=20 → 101-120)
+  const pageStart = page * size + 1;
+  const pageEnd = (page + 1) * size;
+
+  // 120-124번 문항이 현재 페이지 범위에 포함되는지 확인
+  const shouldIncludeMockQuestions = MOCK_QUESTIONS_120_124.some(
+    (q) => q.NO >= pageStart && q.NO <= pageEnd,
+  );
+
+  if (!shouldIncludeMockQuestions) {
+    return questions.sort((a, b) => a.NO - b.NO);
+  }
+
+  // API 응답에서 120-124번 문항 제거 (내용이 비어있을 수 있음)
+  const filteredQuestions = questions.filter((q) => q.NO < 120 || q.NO > 124);
+
+  // 120-124번 MOCK 문항 전부 추가
+  // (나중에 fetchQuestions에서 startNo-endNo 범위로 필터링됨)
+  const result = [...filteredQuestions, ...MOCK_QUESTIONS_120_124];
+
+  // 문항 번호 순으로 정렬
+  return result.sort((a, b) => a.NO - b.NO);
+}
+
+/**
  * 문항 조회 (페이지네이션)
- * GET /etc/meta/stnt/start/update
+ * GET /api/dgnss/st/start
+ *
+ * @param dgnssResultId 검사 결과 ID
+ * @param page 프론트엔드 페이지 번호 (0-based, 총 7페이지)
+ * @param _size 사용하지 않음 (하위 호환성 유지)
  */
 export async function fetchQuestions(
   dgnssResultId: number,
   page: number = 0,
-  size: number = 20,
+  _size: number = 20,
 ): Promise<FetchQuestionsResponse> {
-  const response = await apiRequest<QuestionsResponseData>(
-    `/etc/meta/st/start?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`,
+  // 페이지 설정 가져오기
+  const config = getPageConfig(page);
+
+  const res = await apiClient.post<QuestionsResponseData>(
+    '/api/dgnss/st/start',
+    { dgnssResultId, paperIdx: 1, page: config.apiPage, size: 20 }
+  );
+
+  // API에서 누락된 120-124번 문항 추가 (현재 페이지 범위만)
+  const filledQuestions = fillMissingQuestions(res.resultData.dgnssQuesList, config.apiPage, 20);
+
+  // 페이지별 문항 범위로 필터링
+  const filteredQuestions = filledQuestions.filter(
+    (q) => q.NO >= config.startNo && q.NO <= config.endNo
   );
 
   return {
-    omrIdx: response.resultData.omrIdx,
-    questions: response.resultData.dgnssQuesList,
-    totalPages: response.resultData.page.totalPages,
-    totalQuestions: response.resultData.page.totalElements,
-    answeredCount: response.resultData.stAnsCnt,
+    omrIdx: res.resultData.omrIdx,
+    questions: filteredQuestions,
+    totalPages: 7, // 120번 문항 분리로 총 7페이지 (0-6)
+    totalQuestions: 124, // 정확히 124개 문항
+    answeredCount: res.resultData.stAnsCnt,
   };
 }
 
 /**
  * 답변 저장
- * POST /etc/meta/st/answer
+ * POST /api/dgnss/st/answer
  */
 export async function saveAnswer(
   omrIdx: number,
   questionNo: number,
   answer: string,
 ): Promise<boolean> {
-  const response = await apiRequest<null>('/etc/meta/st/answer', {
-    method: 'POST',
-    body: JSON.stringify({ omrIdx, no: questionNo, answer }),
-  });
-  return response.success;
+  await apiClient.post<null>('/api/dgnss/st/answer', { omrIdx, no: questionNo, answer });
+  return true;
 }
 
 /**
  * 검사 제출
- * POST /etc/meta/st/submit
+ * POST /api/dgnss/st/submit
  */
 export async function submitExam(dgnssResultId: number, paperIdx: string = '1'): Promise<boolean> {
-  const response = await apiRequest<SubmitResponseData>('/etc/meta/st/submit', {
-    method: 'POST',
-    body: JSON.stringify({ dgnssResultId, paperIdx }),
+  const res = await apiClient.post<SubmitResponseData>('/api/dgnss/st/submit', {
+    dgnssResultId,
+    paperIdx,
   });
-  return response.resultData.submit;
+  return res.resultData.submit;
 }
 
 /**
  * 검사 새로하기 (답안 초기화)
- * GET /etc/meta/st/new
+ * GET /api/dgnss/st/new
+ *
+ * @param dgnssResultId 검사 결과 ID
+ * @param page 프론트엔드 페이지 번호 (0-based, 총 7페이지)
+ * @param _size 사용하지 않음 (하위 호환성 유지)
  */
 export async function resetExam(
   dgnssResultId: number,
   page: number = 0,
-  size: number = 20,
+  _size: number = 20,
 ): Promise<FetchQuestionsResponse> {
-  const response = await apiRequest<QuestionsResponseData>(
-    `/etc/meta/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${page}&size=${size}`,
+  // 페이지 설정 가져오기
+  const config = getPageConfig(page);
+
+  const res = await apiClient.get<QuestionsResponseData>(
+    `/api/dgnss/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${config.apiPage}&size=20`,
   );
 
-  const questions = response.resultData.dgnssQuesList;
-  // /st/new 응답에는 page 객체가 없을 수 있음 - fullCount에서 총 문항 수 추출
-  const totalQuestions = response.resultData.page?.totalElements ?? questions[0]?.fullCount ?? 124;
-  const totalPages = response.resultData.page?.totalPages ?? Math.ceil(totalQuestions / size);
+  // API에서 누락된 120-124번 문항 추가 (현재 페이지 범위만)
+  const filledQuestions = fillMissingQuestions(res.resultData.dgnssQuesList, config.apiPage, 20);
+
+  // 페이지별 문항 범위로 필터링
+  const filteredQuestions = filledQuestions.filter(
+    (q) => q.NO >= config.startNo && q.NO <= config.endNo
+  );
 
   return {
-    omrIdx: response.resultData.omrIdx,
-    questions,
-    totalPages,
-    totalQuestions,
-    answeredCount: response.resultData.stAnsCnt ?? 0,
+    omrIdx: res.resultData.omrIdx,
+    questions: filteredQuestions,
+    totalPages: 7, // 120번 문항 분리로 총 7페이지 (0-6)
+    totalQuestions: 124,
+    answeredCount: res.resultData.stAnsCnt ?? 0,
   };
 }
 

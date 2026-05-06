@@ -48,6 +48,18 @@ spring:
         pool-name: hikari-cp
         maximum-pool-size: 50
         minimum-idle: 10
+  # Redis 설정 (알림 SSE Pub/Sub 용도)
+  redis:
+    host: ${STAT_SPRING_REDIS_HOST:localhost}
+    port: ${STAT_SPRING_REDIS_PORT:6379}
+    username: ${STAT_SPRING_REDIS_USERNAME:}
+    password: ${STAT_SPRING_REDIS_PASSWORD:}
+    timeout: 3000
+    lettuce:
+      pool:
+        max-active: 16
+        max-idle: 8
+        min-idle: 2
   thymeleaf:
     prefix: classpath:/templates/
     suffix: .html
@@ -82,8 +94,15 @@ logging:
     jdbc.resultsettable: OFF
     com.zaxxer.hikari: OFF
   pattern:
-    console: "[%date{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%level] [%c{0}:%L] : %msg %n"
-    file: "[%date{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%level] [%c{0}:%L] : %msg %n"
+    # MDC 변수 (MdcLoggingFilter / SpUserMappingFilter 가 push):
+    #   %X{requestId}   요청 추적 ID (UUID 8자) — 진입 즉시
+    #   %X{spUserId}    SuperPlatform Auth 의 사용자 식별자 (UUID 앞 8자) — 인증 직후, 매핑 SQL 시점부터 표시
+    #   %X{userNo}      학심정 user_no — 매핑 후
+    #   %X{clientIp}    X-Forwarded-For 우선, 없으면 RemoteAddr
+    # ※ log4j2 의 %X 는 default value 문법(:-)을 지원 안 하므로 빈 값일 때 빈 문자열 출력.
+    #   HTTP 외 경로(스케줄러 등)에서는 MDC 비어있어 placeholder 가 빈 문자열로 출력됨.
+    console: "[%date{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%X{requestId}] [%X{spUserId}] [%X{userNo}] [%X{clientIp}] [%level] [%c{0}:%L] : %msg %n"
+    file: "[%date{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%X{requestId}] [%X{spUserId}] [%X{userNo}] [%X{clientIp}] [%level] [%c{0}:%L] : %msg %n"
 
 # NCP Cloud Outbound Mailer
 ncp:
@@ -95,7 +114,9 @@ ncp:
 
 # 프론트엔드 URL (초대 메일 링크 등에 사용)
 app:
-  frontend-url: ${APP_FRONTEND_URL:https://t-meta-service.vsaidt.com}
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}
 
 # 로그인 Rate Limiting
 login:
@@ -103,15 +124,53 @@ login:
     max-attempts: ${LOGIN_RATE_LIMIT_MAX_ATTEMPTS:5}
     block-minutes: ${LOGIN_RATE_LIMIT_BLOCK_MINUTES:5}
 
-# JWT
-META_API_JWT_SECRET: ${META_API_JWT_SECRET}
+# ===== SuperPlatform Auth (SSO) =====
+spring.security.oauth2.resourceserver.jwt:
+  jwk-set-uri: ${SP_AUTH_JWKS_URI:http://localhost:8080/.well-known/jwks.json}
+  issuer-uri: ${SP_AUTH_ISSUER:superplatform}
+
+superplatform:
+  auth:
+    server-url: ${SP_AUTH_SERVER_URL:http://localhost:8080}
+    client-id: ${SP_AUTH_CLIENT_ID:test-service}
+    client-secret: ${SP_AUTH_CLIENT_SECRET}
 
 key:
   salt:
     main: ${KEY_SALT_MAIN:}
+
+# ===== 알림 기능 Phase 2 토글 =====
+# pubsub.enabled : Redis Pub/Sub 사용 여부 (다중 인스턴스 환경)
+#                  false → InMemoryDispatcher 사용 (Phase 1 동일, Redis 인프라 불필요)
+#                  true  → RedisPubSubDispatcher 사용 (Redis 인프라 필수)
+# shedlock.enabled : 스케줄러 분산 락 사용 여부 (다중 인스턴스 환경)
+#                    false → 일반 @Scheduled 동작 (단일 인스턴스 가정)
+#                    true  → @SchedulerLock 활성화, MySQL `shedlock` 테이블 필요
+#
+# 안전한 기본값: false. Redis/ShedLock 인프라가 갖춰진 환경에서만 환경변수로 true 설정.
+# 로컬 검증은 application-local.yml 에서 true 로 덮어씀.
+notification:
+  pubsub:
+    enabled: ${NOTIFICATION_PUBSUB_ENABLED:false}
+  shedlock:
+    enabled: ${NOTIFICATION_SHEDLOCK_ENABLED:false}
+
+# Actuator 의 Redis Health Indicator 자동 비활성.
+# spring-boot-starter-data-redis 가 classpath 에 있으면 actuator 가 자동으로 RedisReactiveHealthIndicator 를 등록해서
+# 10초마다 Redis 에 ping 시도 → Redis 인프라 없는 환경에서 로그 시끄러움.
+# 로컬 (Podman Redis 사용) 등 실제 Redis 쓰는 환경에서는 application-local.yml 에서 true 로 덮어씀.
+management:
+  health:
+    redis:
+      enabled: ${MANAGEMENT_HEALTH_REDIS_ENABLED:false}
 
 # File Storage (NAS)
 cloud:
   aws:
     nas:
       path: ${CLOUD_AWS_NAS_PATH:/files/nas}
+
+neo4j:
+  uri: ${DGNSS_NEO4J_URI:bolt://localhost:7687}
+  username: ${DGNSS_NEO4J_USERNAME:neo4j}
+  password: ${DGNSS_NEO4J_PASSWORD:test1234}
