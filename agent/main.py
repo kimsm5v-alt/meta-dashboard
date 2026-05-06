@@ -7,6 +7,8 @@ from app.services.agent_service import meta_agent_service
 import logging
 import json
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
+from app.tools import Neo4jConnectionManager
 
 # 환경 변수 로드 (.env 파일이 없어도 시스템 환경 변수 우선 인식)
 load_dotenv()
@@ -16,10 +18,26 @@ DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", 8000))
 
+# 로깅 설정 (Lifespan에서 logger를 먼저 사용할 수 있도록 위치 상향)
+log_level = logging.DEBUG if DEBUG else logging.INFO
+logging.basicConfig(level=log_level)
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize DB Driver explicitly
+    logger.info("Starting up: Initializing Neo4j connection...")
+    Neo4jConnectionManager.get_driver()
+    yield
+    # Shutdown: Release resources
+    logger.info("Shutting down: Closing Neo4j connection...")
+    await Neo4jConnectionManager.close()
+
 app = FastAPI(
     title="Meta Dashboard AI Agent", 
     version="1.0.0",
-    debug=DEBUG
+    debug=DEBUG,
+    lifespan=lifespan
 )
 
 # CORS 설정: 지정된 도메인으로부터의 요청을 허용함
@@ -37,10 +55,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 로깅 설정 (DEBUG 모드에 따른 레벨 조정)
-log_level = logging.DEBUG if DEBUG else logging.INFO
-logging.basicConfig(level=log_level)
-logger = logging.getLogger(__name__)
+
 
 @app.get("/")
 async def root():
