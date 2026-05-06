@@ -718,15 +718,14 @@ export const ClassDashboardWidget: React.FC = () => {
     }
   };
 
-  const handleDownloadTeacherReport = async (ids: { round1?: number; round2?: number }) => {
+  const handleDownloadTeacherReport = async (round: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    console.log(user?.id, dgnssIds, round);
+    if (!dgnssId) return;
+
     setDownloadError(false);
     try {
-      if (ids.round1) {
-        await downloadAllPdf(ids.round1);
-      }
-      if (ids.round2) {
-        await downloadAllPdf(ids.round2);
-      }
+      await downloadAllPdf(dgnssId);
     } catch {
       setDownloadError(true);
     }
@@ -931,26 +930,46 @@ export const ClassDashboardWidget: React.FC = () => {
                   const r2 = student.assessments.find((a) => a.round === 2);
 
                   return (
-                    <TableRow
-                      key={student.id}
-                      onClick={() =>
-                        navigate(`/dashboard/class/${classId}/student/${student.id}`)
-                      }
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <TableCell>
+                    <TableRow key={student.id}>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
                         <StudentNumber>{student.number}</StudentNumber>
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
                         <StudentName>{student.name}</StudentName>
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
                         {renderResultCell(r1)}
                       </TableCell>
-                      <TableCell $align='center'>
+                      <TableCell
+                        $align='center'
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
                         {renderChangeIndicator(r1, r2)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
                         {renderResultCell(
                           r2,
                           !r2 &&
