@@ -152,12 +152,12 @@ GRAPH_TOOL_TIMEOUT=5.0
 - **상세 작업**:
   1. `AsyncGraphDatabase`를 이용한 비동기 DB 연결 및 해제 메서드(`__init__`, `close`) 작성.
   2. `GRAPH_TOOL_TIMEOUT` 타임아웃 환경 변수 적용 및 예외 발생 시 Graceful Degradation(빈 딕셔너리 반환 등) 처리 로직 구현.
-  3. 4대 Tool (`get_lpa_class_info`, `get_moderation_paths`, `get_mediation_paths`, `get_factor_scores`)의 Cypher 쿼리 매핑 및 `@tool` 데코레이터를 적용할 수 있는 형태로 함수 구조화. (`@tool` 데코레이터는 `langchain_core.tools`의 것을 사용하며, 데코레이터 적용 시 함수는 `str` 또는 `Dict` 타입의 단일 반환값을 가져야 하고, 인자는 타입 힌트가 명시된 파라미터로 정의되어야 OpenAI Tool 형식으로 자동 변환됨)
+  3. 4대 Tool (`get_lpa_class_info`, `get_moderation_paths`, `get_mediation_paths`, `get_factor_scores`)의 Cypher 쿼리 매핑 및 `langchain_core.tools.tool` 데코레이터를 적용할 수 있는 형태로 함수 구조화. (`@tool` 데코레이터 적용 시 함수는 단일 반환값을 가져야 하고, 인자는 타입 힌트가 명시된 파라미터로 정의되어야 OpenAI Tool 형식으로 자동 변환됨)
 
 ### Phase 2: Agent 오케스트레이션 및 Tool Binding (`agent_service.py` 수정)
 - **목표**: 기존 RAG 컨텍스트를 주입받아 LLM이 텍스트 내에서 유형명을 추출하고 자율적으로 Tool을 호출하도록 연동.
 - **상세 작업**:
-  1. `langchain_core.utils.function_calling.convert_to_openai_tool`을 사용하여 `Neo4jTools`의 함수들을 OpenAI Tool 형식으로 변환한 후, LiteLLM Router의 `acompletion()` 호출 시 `tools` 파라미터로 전달하여 LLM이 자율적으로 호출할 수 있도록 연동. (현재 코드베이스는 `langchain_core`의 Tool 변환 유틸리티와 LiteLLM Router를 사용하며, LangChain의 `bind_tools()`는 직접 사용하지 않음)
+  1. `langchain_core.utils.function_calling.convert_to_openai_tool`을 사용하여 `Neo4jTools`의 함수들을 OpenAI Tool 형식으로 변환한 후, LiteLLM Router (`agent/app/core/llm_router.py`)의 `acompletion()` 호출 시 `tools` 파라미터로 전달하여 LLM이 자율적으로 호출할 수 있도록 연동. (현재 코드베이스는 LangChain 에이전트 미사용, `convert_to_openai_tool`을 이용해 스키마를 변환하여 LiteLLM API 직접 호출 구조)
   2. **System Prompt 고도화**: 프론트엔드가 주입한 마크다운 `ragContext` 텍스트에서 학생의 요인 점수와 `className`을 명확히 읽어내고, 이를 파라미터로 사용하여 Tool을 자율 호출하도록 지침(Instruction) 추가.
 
 ### Phase 3: 수명주기 관리 및 통합 검증 (`main.py` 및 테스트)
@@ -166,4 +166,4 @@ GRAPH_TOOL_TIMEOUT=5.0
   1. FastAPI `lifespan` 내부에 `Neo4jTools` 드라이버 인스턴스 초기화 및 종료 로직 마운트.
   2. 환경 변수 누락 또는 Neo4j DB 다운 상황을 강제로 연출하여, Agent가 뻗지 않고(Crash-free) 텍스트 기반 일반 상담으로 우회 동작하는지 검증.
   3. 동시에 여러 요청이 들어올 경우 Neo4j 연결 풀(Connection Pool)이 고갈되지 않고 정상 동작하는지 부하 테스트 수행.
-  4. Neo4j 쿼리 응답이 타임아웃(GRAPH_TOOL_TIMEOUT)을 초과할 경우, Agent가 무한 대기하지 않고 적절히 타임아웃 처리되는지 검증.
+  4. Neo4j 쿼리 응답이 타임아웃(`GRAPH_TOOL_TIMEOUT`)을 초과할 경우, Agent가 무한 대기하지 않고 적절히 타임아웃 처리되어 정상적으로 LLM 답변이 이루어지는지 검증.
