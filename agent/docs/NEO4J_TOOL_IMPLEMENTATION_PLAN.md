@@ -142,3 +142,26 @@ GRAPH_TOOL_TIMEOUT=5.0
 2. LLM이 학생의 약점 요인을 텍스트에서 파악한 후, 이를 어떻게 개선할지 전략을 얻기 위해 `get_mediation_paths(className="자원소진형")` 또는 `get_moderation_paths(...)` 호출.
 3. Tool 응답(JSON)으로 자원소진형 집단의 전략 데이터를 반환 받음.
 4. LLM이 학생의 개별 점수 편차와 해당 유형의 집단 전략을 결합하여, 교사에게 완전히 개인화된 맞춤형 전략 텍스트 답변 생성.
+
+---
+
+## 9. 단계별 구현 계획 (Phased Execution Plan)
+
+### Phase 1: Neo4j Tools 뼈대 및 핵심 쿼리 구현 (`neo4j_tools.py`)
+- **목표**: Agent가 Neo4j와 통신할 수 있는 드라이버 환경 및 도구 함수 세트 구축
+- **상세 작업**:
+  1. `AsyncGraphDatabase`를 이용한 비동기 DB 연결 및 해제 메서드(`__init__`, `close`) 작성.
+  2. `GRAPH_TOOL_TIMEOUT` 타임아웃 환경 변수 적용 및 예외 발생 시 Graceful Degradation(빈 딕셔너리 반환 등) 처리 로직 구현.
+  3. 4대 Tool (`get_lpa_class_info`, `get_moderation_paths`, `get_mediation_paths`, `get_factor_scores`)의 Cypher 쿼리 매핑 및 `@tool` 데코레이터를 적용할 수 있는 형태로 함수 구조화.
+
+### Phase 2: Agent 오케스트레이션 및 Tool Binding (`agent_service.py` 수정)
+- **목표**: 기존 RAG 컨텍스트를 주입받아 LLM이 텍스트 내에서 유형명을 추출하고 자율적으로 Tool을 호출하도록 연동.
+- **상세 작업**:
+  1. LangChain 또는 사용 중인 LLM 프레임워크의 `bind_tools` 기능을 활용해 `Neo4jTools`의 함수들을 Agent 루프에 바인딩.
+  2. **System Prompt 고도화**: 프론트엔드가 주입한 마크다운 `ragContext` 텍스트에서 학생의 요인 점수와 `className`을 명확히 읽어내고, 이를 파라미터로 사용하여 Tool을 자율 호출하도록 지침(Instruction) 추가.
+
+### Phase 3: 수명주기 관리 및 통합 검증 (`main.py` 및 테스트)
+- **목표**: FastAPI 서버 시작/종료 주기에 맞춘 자원 최적화 및 최종 안전성 테스트.
+- **상세 작업**:
+  1. FastAPI `lifespan` 내부에 `Neo4jTools` 드라이버 인스턴스 초기화 및 종료 로직 마운트.
+  2. 환경 변수 누락 또는 Neo4j DB 다운 상황을 강제로 연출하여, Agent가 뻗지 않고(Crash-free) 텍스트 기반 일반 상담으로 우회 동작하는지 검증.
