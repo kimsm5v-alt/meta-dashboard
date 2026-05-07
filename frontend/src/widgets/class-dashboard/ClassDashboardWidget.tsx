@@ -366,6 +366,56 @@ const DownloadButtons = styled.div`
   margin-left: auto;
 `;
 
+const PdfProgressOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const PdfProgressCard = styled.div`
+  background: ${({ theme }) => theme.colors.background.paper};
+  border-radius: ${({ theme }) => theme.radius.xl};
+  box-shadow: ${({ theme }) => theme.shadows['2xl']};
+  padding: 2rem;
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+`;
+
+const PdfProgressTitle = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.lg};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  color: ${({ theme }) => theme.colors.text.primary};
+  text-align: center;
+`;
+
+const PdfProgressSub = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  text-align: center;
+`;
+
+const PdfProgressBarTrack = styled.div`
+  width: 100%;
+  height: 8px;
+  background: ${({ theme }) => theme.colors.gray[200]};
+  border-radius: 9999px;
+  overflow: hidden;
+`;
+
+const PdfProgressBarFill = styled.div<{ $pct: number }>`
+  height: 100%;
+  width: ${({ $pct }) => $pct}%;
+  background: #6366f1;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+`;
+
 const TeacherReportButton = styled.button`
   display: flex;
   align-items: center;
@@ -483,6 +533,7 @@ export const ClassDashboardWidget: React.FC = () => {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [downloadError, setDownloadError] = useState(false);
+  const [allPdfProgress, setAllPdfProgress] = useState<{ current: number; total: number } | null>(null);
   const [pdfAnswerMap, setPdfAnswerMap] = useState<{
     round1: Map<string, number>;
     round2: Map<string, number>;
@@ -719,12 +770,17 @@ export const ClassDashboardWidget: React.FC = () => {
 
   const handleDownloadAll = async (round: 1 | 2) => {
     const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
-    if (!dgnssId) return;
+    if (!dgnssId || !user?.id) return;
     setDownloadError(false);
+    setAllPdfProgress(null);
     try {
-      await downloadAllPdf(dgnssId);
+      await downloadAllPdf(dgnssId, user.id, round, 3, (current, total) => {
+        setAllPdfProgress({ current, total });
+      });
     } catch {
       setDownloadError(true);
+    } finally {
+      setAllPdfProgress(null);
     }
   };
 
@@ -768,6 +824,24 @@ export const ClassDashboardWidget: React.FC = () => {
 
   return (
     <PageContainer>
+      {/* PDF 생성 진행 모달 — 완료 전까지 모든 인터랙션 차단 */}
+      {allPdfProgress && (
+        <PdfProgressOverlay>
+          <PdfProgressCard>
+            <PdfProgressTitle>PDF 생성 중...</PdfProgressTitle>
+            <PdfProgressBarTrack>
+              <PdfProgressBarFill
+                $pct={Math.round((allPdfProgress.current / allPdfProgress.total) * 100)}
+              />
+            </PdfProgressBarTrack>
+            <PdfProgressSub>
+              {allPdfProgress.current} / {allPdfProgress.total}명 완료
+            </PdfProgressSub>
+            <PdfProgressSub>잠시만 기다려 주세요. 창을 닫지 마세요.</PdfProgressSub>
+          </PdfProgressCard>
+        </PdfProgressOverlay>
+      )}
+
       <HeaderRow>
         <BackButton onClick={() => navigate('/dashboard')}>
           <BackIcon />

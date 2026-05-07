@@ -77,17 +77,43 @@ function extractFileUrl(data: PdfDownloadResponse): string | undefined {
 }
 
 /**
- * 1. 학급 전체 PDF 일괄 다운로드 (ZIP) - GET
- * 응답: application/octet-stream (ZIP 바이너리 직접 반환)
- * type: 1=상세 보고서, 2=요약 보고서, 3=상세+요약
+ * 1. 학급 전체 PDF 일괄 다운로드 (ZIP)
+ * Step 1) pdf/search → 미생성 학생 목록
+ * Step 2) 학생별 POST /api/dgnss/pdf → PDF 생성 (다운로드 없음)
+ * Step 3) dgnss-download-all → ZIP 다운로드
  */
-export async function downloadAllPdf(dgnssId: number, type: 1 | 2 | 3 = 3): Promise<void> {
+export async function downloadAllPdf(
+  dgnssId: number,
+  teacherUserId: string,
+  ordNo: 1 | 2,
+  type: 1 | 2 | 3 = 3,
+  onProgress?: (current: number, total: number) => void,
+): Promise<void> {
+  // Step 1: 미생성 PDF 대상 학생 조회
+  const searchRes = await axiosInstance.get<{
+    resultData: { data: Array<{ userId: string; userType: 'S' | 'T'; answerIdx: number }> };
+  }>('/api/dgnss/pdf/search', {
+    params: { dgnssId, userId: teacherUserId, userType: 'T' },
+  });
+  const students = searchRes.data.resultData?.data ?? [];
+
+  // Step 2: 학생별 PDF 생성 요청 (URL 무시, 생성만)
+  for (let i = 0; i < students.length; i++) {
+    const { userId, userType, answerIdx } = students[i];
+    await axiosInstance.post(
+      '/api/dgnss/pdf',
+      { userId, userType, dgnssId, answerIdx, ordNo },
+      { validateStatus: () => true },
+    );
+    onProgress?.(i + 1, students.length);
+  }
+
+  // Step 3: 전체 ZIP 다운로드
   const jwtToken = getAuth().getAccessToken() ?? '';
   const response = await axiosInstance.get('/api/dgnss/dgnss-download-all', {
     params: { dgnssId, type, jwtToken },
     responseType: 'blob',
   });
-
   downloadBlob(response.data as Blob, `학습심리정서검사_${dgnssId}.zip`);
 }
 
@@ -100,7 +126,6 @@ export async function downloadTeacherReportPdf(params: PdfDownloadRequest): Prom
   });
 
   const fileUrl = extractFileUrl(response.data);
-  console.log('[PDF] teacher report url:', fileUrl, response.data);
   if (fileUrl) {
     await openBlobFromUrl(fileUrl);
   }
@@ -115,7 +140,6 @@ export async function downloadStudentPdf(params: PdfDownloadRequest): Promise<vo
   });
 
   const fileUrl = extractFileUrl(response.data);
-  console.log('[PDF] student pdf url:', fileUrl, response.data);
   if (fileUrl) {
     await openBlobFromUrl(fileUrl);
   }
