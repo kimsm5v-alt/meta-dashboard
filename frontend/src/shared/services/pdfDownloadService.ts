@@ -23,12 +23,12 @@ interface PdfDownloadRequest {
 }
 
 /**
- * 파일 경로를 게이트웨이를 통해 blob으로 받아 새 탭에서 오픈
- * GET {PDF_GW_URL}-extra/files/pfile-download?url={fileUrl}&jwtToken={token}&pionadaYn=Y
+ * /files/pfile-download 프록시를 통해 NAS 파일을 blob으로 받아 새 탭에서 오픈
+ * GET /files/pfile-download?url={filePath}&jwtToken={token}
  */
 async function openBlobFromUrl(fileUrl: string): Promise<void> {
   const jwtToken = getAuth().getAccessToken() ?? '';
-  const downloadUrl = `${ENV.API_URL}/files/pfile-download?url=${fileUrl}&jwtToken=${jwtToken}&pionadaYn=Y`;
+  const downloadUrl = `${ENV.API_URL}/files/pfile-download?url=${fileUrl}&jwtToken=${jwtToken}`;
 
   const response = await axios.get(downloadUrl, {
     headers: { Authorization: `Bearer ${jwtToken}` },
@@ -50,6 +50,20 @@ async function openBlobFromUrl(fileUrl: string): Promise<void> {
 }
 
 /**
+ * blob을 파일로 다운로드 (ZIP 등)
+ */
+function downloadBlob(blob: Blob, filename: string): void {
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+}
+
+/**
  * POST /api/dgnss/pdf 응답에서 파일 URL을 추출
  */
 function extractFileUrl(data: PdfDownloadResponse): string | undefined {
@@ -64,19 +78,17 @@ function extractFileUrl(data: PdfDownloadResponse): string | undefined {
 
 /**
  * 1. 학급 전체 PDF 일괄 다운로드 (ZIP) - GET
+ * 응답: application/octet-stream (ZIP 바이너리 직접 반환)
  * type: 1=상세 보고서, 2=요약 보고서, 3=상세+요약
  */
 export async function downloadAllPdf(dgnssId: number, type: 1 | 2 | 3 = 3): Promise<void> {
   const jwtToken = getAuth().getAccessToken() ?? '';
-  const response = await axiosInstance.get<PdfDownloadResponse>('/api/dgnss/dgnss-download-all', {
+  const response = await axiosInstance.get('/api/dgnss/dgnss-download-all', {
     params: { dgnssId, type, jwtToken },
-    validateStatus: () => true,
+    responseType: 'blob',
   });
 
-  const fileUrl = extractFileUrl(response.data);
-  if (fileUrl) {
-    await openBlobFromUrl(fileUrl);
-  }
+  downloadBlob(response.data as Blob, `학습심리정서검사_${dgnssId}.zip`);
 }
 
 /**
