@@ -165,7 +165,7 @@
             , gi.group_nm AS claNm
         FROM tb_dgnss_info tdi
         LEFT JOIN group_info gi ON tdi.cla_id = gi.cla_id
-        LEFT JOIN USER u ON tdi.tc_id = u.user_id
+        LEFT JOIN USER u ON tdi.tc_id = u.user_no
         WHERE tdi.id = #{dgnssId}
     </select>
 
