@@ -243,7 +243,11 @@ public class DgnssService {
         return dgnssInfoMap;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void deleteTcDgnssCancel(Map<String, Object> param) {
+        // FK 자식 테이블(LPA 분석결과) 먼저 삭제 — info/result_info/answer 의 부모이므로 가장 먼저 정리해야 함
+        dgnssMapper.deleteTcDgnssLpaResult(param);
+
         List<Integer> omrList = dgnssMapper.selectOmrIdxList(param);
         if (CollectionUtils.isNotEmpty(omrList)) {
             for (int omrIdx : omrList) {

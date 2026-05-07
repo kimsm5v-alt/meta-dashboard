@@ -48,6 +48,8 @@ public interface DgnssMapper {
     // 교사) META 자기조절학습 취소(상세테이블 삭제)
     void deleteTcDgnssResultInfo(Map<String, Object> param);
     void deleteTcDgnssAnswer(Map<String, Object> param);
+    // 교사) META 자기조절학습 취소(LPA 분석결과 삭제) — info/result_info/answer 의 부모이므로 가장 먼저 제거
+    void deleteTcDgnssLpaResult(Map<String, Object> param);
     List<Integer> selectOmrIdxList(Map<String, Object> param);
      // 학생) META 자기조절학습 문제 조회
     List<String> selectAllStdtList(Map<String, Object> param);
