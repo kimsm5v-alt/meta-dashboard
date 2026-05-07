@@ -98,13 +98,35 @@ public class FileUtil {
     public static void mkdirs(String filePath) {
         File uploadDir = new File(filePath);
         if (!uploadDir.exists()) {
-            boolean created = uploadDir.mkdirs();
+            boolean created;
+            try {
+                created = uploadDir.mkdirs();
+            } catch (SecurityException e) {
+                log.error("디렉터리 생성 실패 - 보안 예외: path={}, error={}",
+                        uploadDir.getAbsolutePath(), e.getMessage(), e);
+                return;
+            }
             if (!created && !uploadDir.exists()) {
-                log.error("디렉터리 생성 실패: path={}", uploadDir.getAbsolutePath());
+                File parent = findExistingAncestor(uploadDir);
+                log.error("디렉터리 생성 실패: path={}, existingAncestor={}, ancestorCanWrite={}, ancestorCanRead={}, ancestorIsDirectory={}",
+                        uploadDir.getAbsolutePath(),
+                        parent != null ? parent.getAbsolutePath() : "<none>",
+                        parent != null && parent.canWrite(),
+                        parent != null && parent.canRead(),
+                        parent != null && parent.isDirectory());
             } else {
                 log.debug("디렉터리 생성 완료: path={}", uploadDir.getAbsolutePath());
             }
         }
+    }
+
+    // 실제 존재하는 가장 가까운 상위 디렉터리 탐색 (mkdirs 실패 원인 분석용)
+    private static File findExistingAncestor(File dir) {
+        File cursor = dir.getAbsoluteFile().getParentFile();
+        while (cursor != null && !cursor.exists()) {
+            cursor = cursor.getParentFile();
+        }
+        return cursor;
     }
 
     // 파일 기본 경로 설정
