@@ -25,8 +25,12 @@ public class SchoolRecordService {
         if (studentId == null || studentId.isBlank()) {
             throw new IllegalArgumentException("studentId는 필수입니다.");
         }
+        String tcId = (String) paramData.get("tcId");
+        if (tcId == null || tcId.isBlank()) {
+            throw new IllegalStateException("인증된 교사 ID 를 확인할 수 없습니다.");
+        }
 
-        List<SchoolRecordInfo> records = schoolRecordMapper.findByStdtIdOrderByCreatedAtDesc(studentId);
+        List<SchoolRecordInfo> records = schoolRecordMapper.findByStdtIdOrderByCreatedAtDesc(studentId, tcId);
         return records.stream().map(this::toResponseMap).collect(Collectors.toList());
     }
 

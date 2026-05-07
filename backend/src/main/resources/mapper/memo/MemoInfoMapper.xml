@@ -27,7 +27,7 @@
         /* MemoInfoMapper.findByStdtIdOrderByMemoDateDesc */
         SELECT <include refid="memoInfoColumns"/>
         FROM memo_info
-        WHERE stdt_id = #{stdtId} AND use_yn = 'Y'
+        WHERE stdt_id = #{stdtId} AND tc_id = #{tcId} AND use_yn = 'Y'
         ORDER BY memo_date DESC
     </select>
 
