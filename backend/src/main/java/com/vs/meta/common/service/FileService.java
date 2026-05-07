@@ -351,25 +351,29 @@ public class FileService {
                         .body(response);
             }
         } catch (AuthFailedException e) {
-            log.error("File download - Authentication failed: {}", e.getMessage());
+            log.error("File download - Authentication failed: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 인증 오류");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response);
         } catch (IOException e) {
-            log.error("File download - IO error: {}", e.getMessage());
+            log.error("File download - IO error: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 파일 입출력 오류");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response);
         } catch (SecurityException e) {
-            log.error("File download - Security error: {}", e.getMessage());
+            log.error("File download - Security error: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 보안 오류");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response);
         } catch (Exception e) {
-            log.error("File download - Unexpected error: {}", e.getMessage());
+            log.error("File download - Unexpected error: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 예상치 못한 오류");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
