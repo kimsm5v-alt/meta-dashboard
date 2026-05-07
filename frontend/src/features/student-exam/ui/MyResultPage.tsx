@@ -11,7 +11,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
-import { ArrowLeft, ShieldAlert, AlertTriangle, Clock, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, AlertTriangle, Clock, Loader2 } from 'lucide-react';
+import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
@@ -231,31 +232,39 @@ const PageSubtitle = styled.p`
 `;
 
 const PDFButton = styled.button`
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.xs};
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  background: ${({ theme }) => theme.colors.gray[100]};
-  color: ${({ theme }) => theme.colors.gray[700]};
-  border: none;
-  border-radius: ${({ theme }) => theme.radius.lg};
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: white;
+  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
+  border-radius: 0.5rem;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  color: ${({ theme }) => theme.colors.gray[700]};
   cursor: pointer;
-  transition: background-color ${({ theme }) => theme.transitions.fast};
+  white-space: nowrap;
+  transition: all 0.15s ease;
+
+  &::before {
+    content: '';
+    width: 18px;
+    height: 22px;
+    background-image: ${PDF_ICON_SVG_URL};
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex-shrink: 0;
+  }
 
   &:hover:not(:disabled) {
-    background: ${({ theme }) => theme.colors.gray[200]};
+    background: ${({ theme }) => theme.colors.gray[50]};
+    border-color: ${({ theme }) => theme.colors.gray[400]};
   }
 
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
-  }
-
-  svg {
-    width: 16px;
-    height: 16px;
   }
 `;
 
@@ -620,19 +629,19 @@ export const MyResultPage: React.FC = () => {
           <PDFButton
             onClick={() => void handleDownloadPdf(1)}
             disabled={isPdfDownloading !== null || !r1 || r1.answerIdx == null}
-            title={r1 && r1.answerIdx != null ? '1차 PDF 다운로드' : '1차 검사 결과 없음'}
           >
-            {isPdfDownloading === 1 ? <SpinningLoader /> : <Download />}
-            1차 PDF
+            {isPdfDownloading === 1 && <SpinningLoader />}
+            1차 결과 다운로드
           </PDFButton>
-          <PDFButton
-            onClick={() => void handleDownloadPdf(2)}
-            disabled={isPdfDownloading !== null || !r2 || r2.answerIdx == null}
-            title={r2 && r2.answerIdx != null ? '2차 PDF 다운로드' : '2차 검사 결과 없음'}
-          >
-            {isPdfDownloading === 2 ? <SpinningLoader /> : <Download />}
-            2차 PDF
-          </PDFButton>
+          {r2 && (
+            <PDFButton
+              onClick={() => void handleDownloadPdf(2)}
+              disabled={isPdfDownloading !== null || r2.answerIdx == null}
+            >
+              {isPdfDownloading === 2 && <SpinningLoader />}
+              2차 결과 다운로드
+            </PDFButton>
+          )}
           {pdfError && (
             <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>다운로드 실패</span>
           )}

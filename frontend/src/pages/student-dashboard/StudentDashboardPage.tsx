@@ -14,10 +14,11 @@ import {
   Clock,
   Loader2,
   Lightbulb,
-  Download,
 } from 'lucide-react';
 import { useStudentAnalysis, useApiConfig } from '@features/api';
-import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
+import { useAuth } from '@features/auth/model/AuthContext';
+import { downloadStudentPdf, fetchPdfAnswerMap } from '@shared/services/pdfDownloadService';
+import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
@@ -306,6 +307,51 @@ const SectionTitle = styled.h2`
 `;
 
 
+
+const PdfButtonsArea = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  justify-content: flex-end;
+`;
+
+const PdfReportBtn = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: white;
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.gray[700]};
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.gray[50]};
+    border-color: ${({ theme }) => theme.colors.gray[300]};
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  &::before {
+    content: '';
+    width: 18px;
+    height: 22px;
+    background-image: ${PDF_ICON_SVG_URL};
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex-shrink: 0;
+  }
+`;
+
 const SectionCard = styled.div`
   background: white;
   border-radius: 0.5rem;
@@ -358,6 +404,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   dgnssIds,
 }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
@@ -375,8 +422,9 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     fetchCoachingStrategy,
   } = useCoachingStrategy(classId, studentId, selectedRound);
 
-  const [isPdfDownloading, setIsPdfDownloading] = useState<1 | 2 | null>(null);
+  const [isPdfDownloading, setIsPdfDownloading] = useState(false);
   const [pdfError, setPdfError] = useState(false);
+  const [pdfAnswerIdx, setPdfAnswerIdx] = useState<{ round1?: number; round2?: number }>({});
 
   useEffect(() => {
     if (!pdfError) return;
@@ -384,24 +432,39 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     return () => clearTimeout(id);
   }, [pdfError]);
 
-  const handleDownloadPdf = async (round: 1 | 2) => {
+  useEffect(() => {
+    if (!hasJwtToken || !user?.id) return;
+    if (dgnssIds.round1) {
+      void fetchPdfAnswerMap(dgnssIds.round1, user.id).then((map) =>
+        setPdfAnswerIdx((prev) => ({ ...prev, round1: map.get(studentId) })),
+      );
+    }
+    if (dgnssIds.round2) {
+      void fetchPdfAnswerMap(dgnssIds.round2, user.id).then((map) =>
+        setPdfAnswerIdx((prev) => ({ ...prev, round2: map.get(studentId) })),
+      );
+    }
+  }, [dgnssIds.round1, dgnssIds.round2, hasJwtToken, user?.id, studentId]);
+
+  const handleDownloadPdf = async (round: 1 | 2, type: 1 | 2) => {
     const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
-    const assessment = student.assessments.find((a) => a.round === round);
-    if (!dgnssId || assessment?.answerIdx == null) return;
-    setIsPdfDownloading(round);
+    const answerIdx = round === 1 ? pdfAnswerIdx.round1 : pdfAnswerIdx.round2;
+    if (!dgnssId || answerIdx == null) return;
+    setIsPdfDownloading(true);
     setPdfError(false);
     try {
       await downloadStudentPdf({
         userId: studentId,
         userType: 'S',
         dgnssId,
-        answerIdx: assessment.answerIdx,
+        answerIdx,
         ordNo: round,
+        type,
       });
     } catch {
       setPdfError(true);
     } finally {
-      setIsPdfDownloading(null);
+      setIsPdfDownloading(false);
     }
   };
   const isCompare = viewMode === 'compare';
@@ -476,32 +539,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
           </HeaderLeft>
 
           <HeaderRight>
-            {/* PDF 다운로드 버튼 */}
-            {hasJwtToken && (
-              <>
-                <PanelButton
-                  onClick={() => void handleDownloadPdf(1)}
-                  disabled={isPdfDownloading !== null || !r1 || r1.answerIdx == null}
-                  title={r1 && r1.answerIdx != null ? '1차 PDF 다운로드' : '1차 검사 결과 없음'}
-                >
-                  <PanelButtonIcon as={isPdfDownloading === 1 ? Loader2 : Download} />
-                  1차 PDF
-                </PanelButton>
-                <PanelButton
-                  onClick={() => void handleDownloadPdf(2)}
-                  disabled={isPdfDownloading !== null || !r2 || r2.answerIdx == null}
-                  title={r2 && r2.answerIdx != null ? '2차 PDF 다운로드' : '2차 검사 결과 없음'}
-                >
-                  <PanelButtonIcon as={isPdfDownloading === 2 ? Loader2 : Download} />
-                  2차 PDF
-                </PanelButton>
-                {pdfError && (
-                  <span style={{ fontSize: '0.75rem', color: '#ef4444', whiteSpace: 'nowrap' }}>
-                    다운로드 실패
-                  </span>
-                )}
-              </>
-            )}
             {/* 학생 네비게이션 */}
             <NavigationSection>
               <NavButton
@@ -582,6 +619,47 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         <SectionContainer>
           <SectionHeader>
             <SectionTitle>학생 진단 결과 해석</SectionTitle>
+            {hasJwtToken && (
+              <PdfButtonsArea>
+                <PdfReportBtn
+                  onClick={() => void handleDownloadPdf(1, 1)}
+                  disabled={isPdfDownloading || pdfAnswerIdx.round1 == null}
+                  title='학생 1차 상세 보고서 PDF 다운로드'
+                >
+                  학생 1차 상세 보고서
+                </PdfReportBtn>
+                <PdfReportBtn
+                  onClick={() => void handleDownloadPdf(1, 2)}
+                  disabled={isPdfDownloading || pdfAnswerIdx.round1 == null}
+                  title='학생 1차 요약 보고서 PDF 다운로드'
+                >
+                  학생 1차 요약 보고서
+                </PdfReportBtn>
+                {r2 && (
+                  <>
+                    <PdfReportBtn
+                      onClick={() => void handleDownloadPdf(2, 1)}
+                      disabled={isPdfDownloading || pdfAnswerIdx.round2 == null}
+                      title='학생 2차 상세 보고서 PDF 다운로드'
+                    >
+                      학생 2차 상세 보고서
+                    </PdfReportBtn>
+                    <PdfReportBtn
+                      onClick={() => void handleDownloadPdf(2, 2)}
+                      disabled={isPdfDownloading || pdfAnswerIdx.round2 == null}
+                      title='학생 2차 요약 보고서 PDF 다운로드'
+                    >
+                      학생 2차 요약 보고서
+                    </PdfReportBtn>
+                  </>
+                )}
+                {pdfError && (
+                  <span style={{ fontSize: '0.75rem', color: '#ef4444', alignSelf: 'center' }}>
+                    다운로드 실패
+                  </span>
+                )}
+              </PdfButtonsArea>
+            )}
           </SectionHeader>
           <SectionCard>
             {/* 총평 */}
