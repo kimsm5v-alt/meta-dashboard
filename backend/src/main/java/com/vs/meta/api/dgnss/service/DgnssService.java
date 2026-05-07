@@ -151,6 +151,7 @@ public class DgnssService {
     public Map<String, Object> insertTcDgnssStart(Map<String, Object> paramMap) {
         int result = 0;
         int paperIdx = MapUtils.getInteger(paramMap, "paperIdx", 0);
+        int ordNo = MapUtils.getInteger(paramMap, "ordNo", 0);
         String tcId = MapUtils.getString(paramMap, "tcId", "");
         String claId = MapUtils.getString(paramMap, "claId", "");
         int actvStdtCnt = dgnssMapper.selectActvStdtCnt(paramMap);
@@ -170,10 +171,19 @@ public class DgnssService {
         dgnssMapper.insertDgnssInfo(paramMap);
 
         List<String> targetStList = dgnssMapper.selectTargetStList(paramMap);
+        if (ordNo == 2) {
+            targetStList = dgnssMapper.selectEligibleTargetStListForOrd2(paramMap);
+            if (CollectionUtils.isEmpty(targetStList)) {
+                Map<String, Object> resultMap = new HashMap<>();
+                resultMap.put("result", "fail");
+                resultMap.put("message", "2회차는 동일 학급 1회차 응시 이력이 있는 학생만 출제할 수 있습니다.");
+                return resultMap;
+            }
+        }
         Map<String, Object> targetMap = new HashMap<>();
         targetMap.put("dgnssId", MapUtils.getInteger(paramMap, "id", 0));
         targetMap.put("claId", claId);
-        targetMap.put("ordNo", MapUtils.getInteger(paramMap, "ordNo", 0));
+        targetMap.put("ordNo", ordNo);
         targetMap.put("paperIdx", paperIdx);
 
         String grade = MapUtils.getString(paramMap, "grade", "");
@@ -1229,28 +1239,13 @@ public class DgnssService {
         // 조회하고자 하는 회차
         String ordNo = MapUtils.getString(param, "ordNo", "");
 
+        List<Integer> allDgnssIdList = dgnssMapper.selectDgnssIdxList(param);
+        List<Integer> targetDgnssIdList = resolveTargetDgnssIdListForAnalysis(paperIdx, ordNo, allDgnssIdList);
+
         // META자기조절학습검사
         if (StringUtils.equals(paperIdx, "2")) {
-            List<Integer> allDgnssIdList = dgnssMapper.selectDgnssIdxList(param);
-            List<Integer> targetDgnssIdList = new ArrayList<>();
             List<String> sessionList = putSession(0);
             Map<String, String> sessionCodeMap = putSessionMap(0);
-            if (StringUtils.isEmpty(ordNo)) {
-                if (allDgnssIdList.size() < 3 ) {
-                    targetDgnssIdList = allDgnssIdList;
-                } else if (allDgnssIdList.size() == 3) {
-                    targetDgnssIdList.add(allDgnssIdList.get(0));
-                    targetDgnssIdList.add(allDgnssIdList.get(2));
-                }
-            } else {
-                if (StringUtils.equals(ordNo, "1")) {
-                    targetDgnssIdList.add(allDgnssIdList.get(0));
-                } else {
-                    targetDgnssIdList.add(allDgnssIdList.get(0));
-                    targetDgnssIdList.add(allDgnssIdList.get(1));
-                }
-            }
-
             ObjectMapper mapper = new ObjectMapper();
 
             for (int dgnssId : targetDgnssIdList) {
@@ -1314,7 +1309,8 @@ public class DgnssService {
                         int avgScore = (int) Math.round(MapUtils.getDouble(sessionTotalMap, sessionId, 0D) / MapUtils.getInteger(sessionSizeMap, sessionId, 0));
                         resultAvgMap.put(MapUtils.getString(sessionCodeMap, sessionId, ""), avgScore);
                     }
-                    resultMap.put(Integer.toString(nowOrd), resultAvgMap);
+                    String ordKey = Integer.toString(nowOrd);
+                    resultMap.put(ordKey, resultAvgMap);
                 }
             }
         } else if (StringUtils.equals(paperIdx, "1")) {
@@ -1344,7 +1340,119 @@ public class DgnssService {
             }
         }
 
+        Map<String, List<Map<String, Object>>> lpaByOrd = new LinkedHashMap<>();
+        for (int dgnssId : targetDgnssIdList) {
+            Map<String, Object> lpaParam = new HashMap<>();
+            lpaParam.put("dgnssId", dgnssId);
+            lpaParam.put("notExistsYn", "N");
+            List<Map<String, Object>> lpaRows = dgnssMapper.selectClassTotalReport(lpaParam);
+            if (CollectionUtils.isEmpty(lpaRows)) {
+                lpaParam.put("notExistsYn", "Y");
+                lpaRows = dgnssMapper.selectClassTotalReport(lpaParam);
+            }
+            for (Map<String, Object> row : lpaRows) {
+                row.put("source", "IN_CLASS");
+            }
+
+            int currentOrdNo = dgnssMapper.selectOrdNoByDgnssId(dgnssId);
+            Map<String, Object> missingParam = new HashMap<>();
+            missingParam.put("claId", MapUtils.getString(param, "claId", ""));
+            missingParam.put("paperIdx", paperIdx);
+            missingParam.put("ordNo", currentOrdNo);
+            List<String> missingStudents = dgnssMapper.selectClassStudentsWithoutResultInClassForOrd(missingParam);
+
+            if (CollectionUtils.isNotEmpty(missingStudents)) {
+                Map<String, Object> fallbackParam = new HashMap<>();
+                fallbackParam.put("claId", MapUtils.getString(param, "claId", ""));
+                fallbackParam.put("paperIdx", paperIdx);
+                fallbackParam.put("ordNo", currentOrdNo);
+                fallbackParam.put("stdtIds", missingStudents);
+                fallbackParam.put("notExistsYn", MapUtils.getString(lpaParam, "notExistsYn", "N"));
+                List<Map<String, Object>> fallbackRows = dgnssMapper.selectClassTotalReportFromOtherClasses(fallbackParam);
+                if (CollectionUtils.isNotEmpty(fallbackRows)) {
+                    for (Map<String, Object> row : fallbackRows) {
+                        row.put("source", "OTHER_CLASS");
+                    }
+                    lpaRows.addAll(fallbackRows);
+                    lpaRows = deduplicateByStdtId(lpaRows);
+                }
+            }
+
+            if (CollectionUtils.isNotEmpty(lpaRows)) {
+                enrichLpaTop3(lpaRows);
+                String ordKey = Integer.toString(currentOrdNo);
+                List<Map<String, Object>> studentLpaList = new ArrayList<>();
+                for (Map<String, Object> row : lpaRows) {
+                    Map<String, Object> lpaRow = new LinkedHashMap<>();
+                    lpaRow.put("stdtId", MapUtils.getString(row, "stdtId", ""));
+                    lpaRow.put("source", MapUtils.getString(row, "source", "IN_CLASS"));
+                    lpaRow.put("lpaClassId", row.get("lpaClassId"));
+                    lpaRow.put("lpaTypeName", row.get("lpaTypeName"));
+                    lpaRow.put("lpaConfidence", row.get("lpaConfidence"));
+                    lpaRow.put("lpaStatus", row.get("lpaStatus"));
+                    lpaRow.put("lpaTop1TypeName", row.get("lpaTop1TypeName"));
+                    lpaRow.put("lpaTop1Probability", row.get("lpaTop1Probability"));
+                    lpaRow.put("lpaTop2TypeName", row.get("lpaTop2TypeName"));
+                    lpaRow.put("lpaTop2Probability", row.get("lpaTop2Probability"));
+                    lpaRow.put("lpaTop3TypeName", row.get("lpaTop3TypeName"));
+                    lpaRow.put("lpaTop3Probability", row.get("lpaTop3Probability"));
+                    studentLpaList.add(lpaRow);
+                }
+                lpaByOrd.put(ordKey, studentLpaList);
+            }
+        }
+        resultMap.put("lpaByOrd", lpaByOrd);
+
         return resultMap;
+    }
+
+    private List<Integer> resolveTargetDgnssIdListForAnalysis(String paperIdx, String ordNo, List<Integer> allDgnssIdList) {
+        List<Integer> targetDgnssIdList = new ArrayList<>();
+        if (CollectionUtils.isEmpty(allDgnssIdList)) {
+            return targetDgnssIdList;
+        }
+
+        if (StringUtils.equals(paperIdx, "2")) {
+            if (StringUtils.isEmpty(ordNo)) {
+                if (allDgnssIdList.size() < 3) {
+                    targetDgnssIdList.addAll(allDgnssIdList);
+                } else if (allDgnssIdList.size() == 3) {
+                    targetDgnssIdList.add(allDgnssIdList.get(0));
+                    targetDgnssIdList.add(allDgnssIdList.get(2));
+                }
+            } else if (StringUtils.equals(ordNo, "1")) {
+                targetDgnssIdList.add(allDgnssIdList.get(0));
+            } else {
+                targetDgnssIdList.add(allDgnssIdList.get(0));
+                if (allDgnssIdList.size() > 1) {
+                    targetDgnssIdList.add(allDgnssIdList.get(1));
+                }
+            }
+            return targetDgnssIdList;
+        }
+
+        if (StringUtils.equals(ordNo, "2") && allDgnssIdList.size() > 1) {
+            targetDgnssIdList.add(allDgnssIdList.get(0));
+            targetDgnssIdList.add(allDgnssIdList.get(1));
+        } else {
+            targetDgnssIdList.add(allDgnssIdList.get(0));
+        }
+        return targetDgnssIdList;
+    }
+
+    private List<Map<String, Object>> deduplicateByStdtId(List<Map<String, Object>> rows) {
+        if (CollectionUtils.isEmpty(rows)) {
+            return rows;
+        }
+        Map<String, Map<String, Object>> merged = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String stdtId = MapUtils.getString(row, "stdtId", "");
+            if (StringUtils.isBlank(stdtId) || merged.containsKey(stdtId)) {
+                continue;
+            }
+            merged.put(stdtId, row);
+        }
+        return new ArrayList<>(merged.values());
     }
 
 

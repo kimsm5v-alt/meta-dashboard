@@ -157,6 +157,36 @@
 		ORDER BY gm.member_no
 	</select>
 
+	<select id="selectEligibleTargetStListForOrd2" parameterType="map" resultType="String">
+		/* DgnssMapper.selectEligibleTargetStListForOrd2 */
+		SELECT gm.stdt_id
+		FROM group_info gi
+			INNER JOIN group_member gm
+				ON gi.group_id = gm.group_id
+		WHERE gi.cla_id = #{claId}
+		  AND EXISTS (
+		  	SELECT 1
+		  	FROM tb_dgnss_info tdi_same
+		  		INNER JOIN tb_dgnss_result_info tdri_same
+		  			ON tdri_same.dgnss_id = tdi_same.id
+		  	WHERE tdi_same.ord_no = 1
+		  	  AND tdi_same.paper_idx = #{paperIdx}
+		  	  AND tdi_same.cla_id = #{claId}
+		  	  AND tdri_same.stdt_id = gm.stdt_id
+		  )
+		  AND NOT EXISTS (
+		  	SELECT 1
+		  	FROM tb_dgnss_info tdi_other
+		  		INNER JOIN tb_dgnss_result_info tdri_other
+		  			ON tdri_other.dgnss_id = tdi_other.id
+		  	WHERE tdi_other.ord_no = 1
+		  	  AND tdi_other.paper_idx = #{paperIdx}
+		  	  AND tdi_other.cla_id != #{claId}
+		  	  AND tdri_other.stdt_id = gm.stdt_id
+		  )
+		ORDER BY gm.member_no
+	</select>
+
 	<select id="selectTargetStudentUserNoList" parameterType="map" resultType="long">
 		/* DgnssMapper.selectTargetStudentUserNoList */
 		SELECT gm.user_no
@@ -2665,11 +2695,18 @@
 		/* DgnssMapper.selectClassTotalReport */
 		SELECT a1.id
 		, a1.ord_no
+		, b1.stdt_id AS stdtId
+		, MAX(lpa.class_id) AS lpaClassId
+		, MAX(lpa.type_name) AS lpaTypeName
+		, MAX(lpa.confidence) AS lpaConfidence
+		, MAX(lpa.status) AS lpaStatus
+		, MAX(lpa.probabilities_json) AS lpaProbabilitiesJson
 		, CONCAT('{', GROUP_CONCAT(
 		CONCAT('"', d1.SECTION_ID, '"', ' : ', d1.T_SCORE)), '}') AS json
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN tb_dgnss_answer_report d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
@@ -2681,6 +2718,64 @@
 		</if>
 		AND IFNULL(c1.NO_ANS_CNT, 0) <![CDATA[<]]> 10
 		GROUP BY a1.`id`, b1.stdt_id
+	</select>
+
+	<select id="selectOrdNoByDgnssId" parameterType="int" resultType="int">
+		/* DgnssMapper.selectOrdNoByDgnssId */
+		SELECT ord_no
+		FROM tb_dgnss_info
+		WHERE id = #{dgnssId}
+		LIMIT 1
+	</select>
+
+	<select id="selectClassStudentsWithoutResultInClassForOrd" parameterType="map" resultType="string">
+		/* DgnssMapper.selectClassStudentsWithoutResultInClassForOrd */
+		SELECT gm.stdt_id
+		FROM group_info gi
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id
+		WHERE gi.cla_id = #{claId}
+		  AND NOT EXISTS (
+		  	SELECT 1
+		  	FROM tb_dgnss_info tdi
+		  		INNER JOIN tb_dgnss_result_info tdri ON tdi.id = tdri.dgnss_id
+		  	WHERE tdi.cla_id = #{claId}
+		  	  AND tdi.paper_idx = #{paperIdx}
+		  	  AND tdi.ord_no = #{ordNo}
+		  	  AND tdri.stdt_id = gm.stdt_id
+		  )
+		ORDER BY gm.member_no
+	</select>
+
+	<select id="selectClassTotalReportFromOtherClasses" parameterType="map" resultType="map">
+		/* DgnssMapper.selectClassTotalReportFromOtherClasses */
+		SELECT a1.id
+			, a1.ord_no
+			, b1.stdt_id AS stdtId
+			, MAX(lpa.class_id) AS lpaClassId
+			, MAX(lpa.type_name) AS lpaTypeName
+			, MAX(lpa.confidence) AS lpaConfidence
+			, MAX(lpa.status) AS lpaStatus
+			, MAX(lpa.probabilities_json) AS lpaProbabilitiesJson
+			, CONCAT('{', GROUP_CONCAT(CONCAT('"', d1.SECTION_ID, '"', ' : ', d1.T_SCORE)), '}') AS json
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
+			INNER JOIN tb_dgnss_answer_report d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
+		WHERE a1.cla_id <![CDATA[<>]]> #{claId}
+			AND a1.paper_idx = #{paperIdx}
+			AND a1.ord_no = #{ordNo}
+			AND a1.dgnss_at = 'N'
+			AND b1.subm_at = 'Y'
+			AND b1.stdt_id IN
+			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
+				#{stdtId}
+			</foreach>
+			<if test='notExistsYn != null and notExistsYn == "N"'>
+				AND c1.COCH_DGNSS_QESITM01_MARK <![CDATA[<>]]> '주의' AND c1.COCH_DGNSS_QESITM02_MARK <![CDATA[<>]]> '주의' AND c1.REPEATED_RESPONSE_YN <![CDATA[<>]]> 'Y'
+			</if>
+			AND IFNULL(c1.NO_ANS_CNT, 0) <![CDATA[<]]> 10
+		GROUP BY a1.id, b1.stdt_id
 	</select>
 
 	<select id="selectClassLernReport" parameterType="map" resultType="map">
