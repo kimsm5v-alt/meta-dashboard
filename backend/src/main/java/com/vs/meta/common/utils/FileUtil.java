@@ -98,7 +98,12 @@ public class FileUtil {
     public static void mkdirs(String filePath) {
         File uploadDir = new File(filePath);
         if (!uploadDir.exists()) {
-            uploadDir.mkdirs();
+            boolean created = uploadDir.mkdirs();
+            if (!created && !uploadDir.exists()) {
+                log.error("디렉터리 생성 실패: path={}", uploadDir.getAbsolutePath());
+            } else {
+                log.debug("디렉터리 생성 완료: path={}", uploadDir.getAbsolutePath());
+            }
         }
     }
 
@@ -134,19 +139,41 @@ public class FileUtil {
 
         File destFile = new File(targetFilePath);
 
+        // 대상 디렉토리가 존재하지 않으면 생성 (대상 파일 존재 여부와 무관하게 항상 보장)
+        File parentDir = destFile.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            boolean created = parentDir.mkdirs();
+            if (!created && !parentDir.exists()) {
+                log.error("대상 디렉터리 생성 실패: path={}", parentDir.getAbsolutePath());
+                throw new IOException("대상 디렉터리 생성 실패: " + parentDir.getAbsolutePath());
+            }
+            log.info("대상 디렉터리 생성: path={}", parentDir.getAbsolutePath());
+        }
+
         // 대상 파일이 존재하면 삭제
         if (destFile.exists()) {
-            Files.delete(destFile.toPath());
-        } else {
-            // 대상 디렉토리가 존재하지 않으면 생성
-            File parentDir = destFile.getParentFile();
-            if (parentDir != null && !parentDir.exists()) {
-                parentDir.mkdirs();
+            try {
+                Files.delete(destFile.toPath());
+            } catch (IOException e) {
+                log.error("기존 대상 파일 삭제 실패: path={}, error={}",
+                        destFile.getAbsolutePath(), e.getMessage(), e);
+                throw e;
             }
         }
 
         // 파일 이동
-        FileUtils.moveFile(uploadFile, destFile);
+        try {
+            FileUtils.moveFile(uploadFile, destFile);
+        } catch (IOException e) {
+            log.error("파일 이동 실패: source={}, target={}, sourceExists={}, parentExists={}, error={}",
+                    uploadFile.getAbsolutePath(),
+                    destFile.getAbsolutePath(),
+                    uploadFile.exists(),
+                    parentDir != null && parentDir.exists(),
+                    e.getMessage(),
+                    e);
+            throw e;
+        }
 
         return destFile;
     }
@@ -158,12 +185,25 @@ public class FileUtil {
         }
 
         synchronized (FileUtil.class) {
+            String absolutePath = file.getAbsolutePath();
             try {
+                if (!file.exists()) {
+                    log.warn("파일 삭제 대상이 존재하지 않습니다: path={}", absolutePath);
+                    return;
+                }
                 if (!file.delete()) {
-                    log.error("파일 삭제 실패");
+                    File parent = file.getParentFile();
+                    log.error("파일 삭제 실패: path={}, isFile={}, canWrite={}, parentExists={}, parentCanWrite={}",
+                            absolutePath,
+                            file.isFile(),
+                            file.canWrite(),
+                            parent != null && parent.exists(),
+                            parent != null && parent.canWrite());
+                } else {
+                    log.debug("파일 삭제 완료: path={}", absolutePath);
                 }
             } catch (SecurityException e) {
-                log.error("err : {}", e);
+                log.error("파일 삭제 실패 - 보안 오류: path={}, error={}", absolutePath, e.getMessage(), e);
             }
         }
     }
@@ -175,10 +215,25 @@ public class FileUtil {
         }
 
         synchronized (FileUtil.class) {
+            String absolutePath = file.getAbsolutePath();
             try {
-                return file.delete();
+                if (!file.exists()) {
+                    log.warn("파일 삭제 대상이 존재하지 않습니다: path={}", absolutePath);
+                    return false;
+                }
+                boolean result = file.delete();
+                if (!result) {
+                    File parent = file.getParentFile();
+                    log.error("파일 삭제 실패: path={}, isFile={}, canWrite={}, parentExists={}, parentCanWrite={}",
+                            absolutePath,
+                            file.isFile(),
+                            file.canWrite(),
+                            parent != null && parent.exists(),
+                            parent != null && parent.canWrite());
+                }
+                return result;
             } catch (SecurityException e) {
-                log.error("err : {}", e);
+                log.error("파일 삭제 실패 - 보안 오류: path={}, error={}", absolutePath, e.getMessage(), e);
                 return false;
             }
         }
