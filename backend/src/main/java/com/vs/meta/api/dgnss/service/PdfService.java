@@ -352,10 +352,13 @@ public class PdfService {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
         String datePath = LocalDate.now().format(formatter);
 
+        // nasPath 가 트레일링 슬래시로 끝나지 않을 때 대비 — 항상 정확히 한 개의 '/' 로 결합
+        String nasRoot = nasPath.endsWith("/") ? nasPath.substring(0, nasPath.length() - 1) : nasPath;
+
         // 로컬 환경에서는 직접 파일 저장
         if ("local".equals(activeProfile)) {
             try {
-                String dirPath = nasPath + datePath;
+                String dirPath = nasRoot + "/" + datePath;
                 File dir = new File(dirPath);
                 if (!dir.exists()) {
                     dir.mkdirs();
@@ -373,7 +376,7 @@ public class PdfService {
                 log.info("PDF 로컬 저장 완료: {}", saveFile.getAbsolutePath());
                 return dirPath + "/" + saveFileName;
             } catch (Exception e) {
-                log.error("PDF 로컬 저장 실패: {}", e.getMessage());
+                log.error("PDF 로컬 저장 실패: {}", e.getMessage(), e);
                 throw new RuntimeException("파일 저장 실패", e);
             }
         }
@@ -381,7 +384,7 @@ public class PdfService {
         // 서버 환경에서는 FileService 사용
         List<MultipartFile> fileList = new ArrayList<>();
         fileList.add(file);
-        String filePath = nasPath + datePath;
+        String filePath = nasRoot + "/" + datePath;
         List<LinkedHashMap<String, Object>> url = fileService.uploadFile(fileList, filePath, "Y", request);
 
         return url.get(0).get("url").toString();

@@ -49,6 +49,11 @@ public class FileService {
     @Value("${cloud.aws.nas.path}")
     private String nasPath;
 
+    /** 트레일링 슬래시를 제거한 NAS 루트. 경로 결합 시 항상 단일 '/' 보장 위해 사용. */
+    private String nasRoot() {
+        return nasPath.endsWith("/") ? nasPath.substring(0, nasPath.length() - 1) : nasPath;
+    }
+
     private long MAX_FILE_SIZE = 1000 * 1024 * 1024; // 1000mb
 
     private final FileMapper fileMapper;
@@ -117,7 +122,7 @@ public class FileService {
 
                 // 업로드 경로 지정
                 uploadPath = FileUtil.normalizeUploadPath(uploadPath);
-                String tempPath = nasPath + "/temp/";  // 임시저장
+                String tempPath = nasRoot() + "/temp/";  // 임시저장
 
                 // 파일 경로 생성 (temp + 최종 업로드 경로 모두 보장)
                 FileUtil.mkdirs(tempPath);
@@ -796,7 +801,7 @@ public class FileService {
 
                 // 업로드 경로 지정
                 uploadPath = FileUtil.normalizeUploadPath(uploadPath);
-                String tempPath = nasPath + "/temp/";  // 임시저장
+                String tempPath = nasRoot() + "/temp/";  // 임시저장
 
                 // 파일 경로 생성 (temp + 최종 업로드 경로 모두 보장)
                 FileUtil.mkdirs(tempPath);
