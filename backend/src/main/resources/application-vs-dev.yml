@@ -13,3 +13,10 @@ superplatform:
     server-url: https://t-auth-superplatform-api.vsaidt.com
     client-id: ${SP_AUTH_CLIENT_ID:test-service}
     client-secret: ${SP_AUTH_CLIENT_SECRET:test-secret-1234!}
+
+# ===== QCH 적재 (dev) =====
+qch:
+  enabled: ${QCH_ENABLED:false}
+  base-url: ${QCH_BASE_URL:https://t-qch.vsaidt.com}
+  service-key: ${QCH_SERVICE_KEY:meta-api}
+  env: ${QCH_ENV:DEV}

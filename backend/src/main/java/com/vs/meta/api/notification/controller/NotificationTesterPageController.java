@@ -1,5 +1,6 @@
 package com.vs.meta.api.notification.controller;
 
+import com.vs.meta.common.aop.QchSkip;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RestController
 @Profile({"local", "vs-dev"})
+@QchSkip(reason = "dev 전용 HTML 페이지 — QCH 적재 부적합")
 @RequestMapping("/dev")
 @Tag(name = "Notification Debug (local + dev only)", description = "로컬/개발 환경 SSE 수동 테스트")
 public class NotificationTesterPageController {

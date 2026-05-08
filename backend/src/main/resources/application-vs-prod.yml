@@ -2,3 +2,10 @@ app:
   frontend-url: https://meta-service.vsaidt.com
   cors:
     allowed-origins: https://meta-service.vsaidt.com
+
+# ===== QCH 적재 (prod) =====
+qch:
+  enabled: ${QCH_ENABLED:false}
+  base-url: ${QCH_BASE_URL:https://qch.vsaidt.com}
+  service-key: ${QCH_SERVICE_KEY:meta-api}
+  env: ${QCH_ENV:PROD}

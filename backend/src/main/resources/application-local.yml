@@ -59,14 +59,24 @@ cloud:
 
 # ===== 알림 기능 Phase 2 토글 (로컬에서만 ON) =====
 # Podman Redis + 로컬 MySQL shedlock 테이블 사용 검증용
+# Redis 미가동 환경에서 앱이 죽지 않도록 기본 false. Redis 검증 시 true 로 임시 변경.
 notification:
   pubsub:
-    enabled: true
+    enabled: false
   shedlock:
-    enabled: true
+    enabled: false
 
-# 로컬에서는 Redis 띄워져 있으니 actuator health 도 활성
+# Redis 미가동 시 actuator health 가 매 호출마다 실패 로그를 찍지 않도록 비활성.
+# 로컬에서 실제 Redis 띄워놓고 쓸 때만 true 로 변경.
 management:
   health:
     redis:
-      enabled: true
+      enabled: false
+
+# ===== QCH 적재 (local) =====
+# 로컬에서는 기본 비활성. QCH 적재 동작 검증 시 enabled=true 로 임시 변경하여 dev QCH 로 전송.
+qch:
+  enabled: false
+  base-url: https://t-qch.vsaidt.com
+  service-key: meta-api
+  env: DEV
