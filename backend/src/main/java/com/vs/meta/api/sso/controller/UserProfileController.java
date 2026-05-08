@@ -77,7 +77,7 @@ public class UserProfileController {
             user = ssoUserMigrationService.migrateBySpUserId(spUser);
         }
         if (user != null) {
-            ssoUserQueryService.touchLastLogin(user);
+            ssoUserQueryService.touchOnRequest(spUser, user);
         }
 
         Map<String, Object> result = new LinkedHashMap<>();

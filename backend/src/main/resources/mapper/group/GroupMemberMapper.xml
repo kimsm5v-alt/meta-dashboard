@@ -114,4 +114,14 @@
         LIMIT 1
     </select>
 
+    <update id="syncSnapshotByUserNo">
+        /* GroupMemberMapper.syncSnapshotByUserNo */
+        UPDATE group_member
+        SET nickname = #{nickname},
+            email = #{email},
+            updated_at = NOW()
+        WHERE user_no = #{userNo}
+          AND NOT (nickname &lt;=&gt; #{nickname} AND email &lt;=&gt; #{email})
+    </update>
+
 </mapper>

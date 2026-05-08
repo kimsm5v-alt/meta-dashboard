@@ -28,4 +28,8 @@ public interface GroupMemberMapper {
     GroupMember findActiveGuestByGroupIdAndEmail(@Param("groupId") Long groupId, @Param("email") String email);
 
     GroupMember findByGroupIdAndUserNo(@Param("groupId") Long groupId, @Param("userNo") Long userNo);
+
+    int syncSnapshotByUserNo(@Param("userNo") Long userNo,
+                             @Param("nickname") String nickname,
+                             @Param("email") String email);
 }
