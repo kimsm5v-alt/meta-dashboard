@@ -188,6 +188,14 @@ await apiClient.post('/student/exam', { examData });
 
 ## ✅ 완료 작업
 
+**2026-05-08**: PDF 다운로드 기능
+- `shared/services/pdfDownloadService.ts` — 2단계 패턴 (POST→URL→`/files/pfile-download` blob)
+- `shared/assets/svgIcons.ts` — PDF 아이콘 SVG 공용 상수
+- **교사 클래스 대시보드** (`ClassDashboardWidget`): 학생별 PDF 버튼 활성화 (`pdf/search` answerIdx 맵), 전체 ZIP 일괄 다운로드 (미생성 선생성 → ZIP), 진행 모달
+- **교사 학생 상세** (`StudentDashboardPage`): 1/2차 상세·요약 보고서 버튼 4개
+- **학생 결과 페이지** (`MyResultPage`): 1/2차 결과 다운로드 버튼
+- **검사하기** (`GeneralSection`): 교사용 설명서 PDF 버튼 2개
+
 **2026-04-27**: SSE 알림 시스템 + Cookie 보안
 - SSE 연결 (`@microsoft/fetch-event-source`) + React Query 폴링
 - Optimistic Update + 벨 아이콘 UI
@@ -232,6 +240,12 @@ await apiClient.post('/student/exam', { examData });
 16. **재연결**: 최대 3회 (5초 간격)
 17. **폴링**: React Query 30초 간격
 
+### PDF 다운로드
+18. **서비스**: `shared/services/pdfDownloadService.ts`
+19. **개별 PDF**: POST `/api/dgnss/pdf` → URL 추출 → GET `/files/pfile-download?url=...&jwtToken=...` → blob → 새 탭
+20. **전체 ZIP**: `pdf/search`로 미생성 학생 조회 → 순차 POST 생성 → GET `/api/dgnss/dgnss-download-all?jwtToken=...` → ZIP 다운로드
+21. **PDF 아이콘**: `shared/assets/svgIcons.ts`의 `PDF_ICON_SVG_URL` (CSS `::before` 사용)
+
 ---
 
 ## 🐛 알려진 이슈
@@ -245,7 +259,6 @@ await apiClient.post('/student/exam', { examData });
 ## 📋 다음 작업
 
 **우선순위 1**:
-- [ ] student-exam FSD 분리 (MyExamListPage)
 - [ ] useProfileCheck React Query 캐싱
 
 **우선순위 2**:
@@ -267,10 +280,11 @@ Cookie 보안       ████████████ 100%
 FSD Pages 정리    ████████████ 100%
 TanStack Query    ████████████ 100%
 번들 분리          ████████████ 100%
-student-exam FSD  ░░░░░░░░░░░░   0%
+PDF 다운로드      ████████████ 100%
+student-exam FSD  ████████████ 100%
 ```
 
 ---
 
-**최종 업데이트**: 2026-04-27 (SSE 알림 + Cookie 보안 완료)
+**최종 업데이트**: 2026-05-08 (PDF 다운로드 완료)
 **빌드 상태**: ✅ Production ready (tsc -b && vite build: ~21s, 1,827kB)
