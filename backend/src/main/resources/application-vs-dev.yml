@@ -32,3 +32,13 @@ management:
   health:
     redis:
       enabled: true
+
+# ===== Redis username override (dev 진단용 — 임시) =====
+# 현상: NCP Cloud DB Redis 부팅 시 WRONGPASS 발생.
+# 가설: 컨테이너에 주입된 STAT_SPRING_REDIS_USERNAME 가 NCP ACL 에 없는 값이라
+#       Lettuce 가 AUTH <user> <pass> 를 보내고 서버가 거부.
+# 조치: dev profile 에서 username 을 빈 문자열로 강제 → password-only AUTH 경로로 시도.
+# 결과 확인 후 환경변수 정리되면 본 블록 제거.
+spring:
+  redis:
+    username: ""
