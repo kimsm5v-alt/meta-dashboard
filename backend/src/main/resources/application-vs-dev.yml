@@ -21,14 +21,22 @@ qch:
   service-key: ${QCH_SERVICE_KEY:meta-api}
   env: ${QCH_ENV:DEV}
 
-# ===== 알림 Pub/Sub (dev: Redis 사용) =====
+# ===== 알림 Pub/Sub + ShedLock (dev: Redis 사용 / 분산 스케줄러 락) =====
 # 개발서버 Redis Pub/Sub 동작 검증용으로 dev profile에서 켜둠.
 # Redis 접속 정보(STAT_SPRING_REDIS_HOST 등)는 컨테이너 환경변수로 주입.
+# ShedLock 은 MySQL `shedlock` 테이블 기반 — dev 에 선행 생성 완료 가정.
 notification:
   pubsub:
     enabled: true
+  shedlock:
+    enabled: true
 
+# /actuator/health 응답에 components 상세 노출 (dev 진단용).
+# prod 는 base default(never) 유지.
 management:
+  endpoint:
+    health:
+      show-details: always
   health:
     redis:
       enabled: true

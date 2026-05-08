@@ -160,6 +160,11 @@ notification:
 # 10초마다 Redis 에 ping 시도 → Redis 인프라 없는 환경에서 로그 시끄러움.
 # 로컬 (Podman Redis 사용) 등 실제 Redis 쓰는 환경에서는 application-local.yml 에서 true 로 덮어씀.
 management:
+  # /actuator/health 응답에 components 상세 노출 여부.
+  # 기본 never (status 만). dev 진단용은 application-vs-dev.yml 에서 always 로 덮어씀.
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:never}
   health:
     redis:
       enabled: ${MANAGEMENT_HEALTH_REDIS_ENABLED:false}
