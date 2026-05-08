@@ -28,11 +28,11 @@
         summary, next_steps, use_yn, created_by, updated_by, created_at, updated_at
     </sql>
 
-    <select id="findAllCounselings" resultMap="counselingInfoResultMap">
-        /* CounselingInfoMapper.findAllCounselings */
+    <select id="findByTcIdOrderByScheduledAtDesc" resultMap="counselingInfoResultMap">
+        /* CounselingInfoMapper.findByTcIdOrderByScheduledAtDesc */
         SELECT <include refid="counselingInfoColumns"/>
         FROM counseling_info
-        WHERE use_yn = 'Y'
+        WHERE tc_id = #{tcId} AND use_yn = 'Y'
         ORDER BY scheduled_at DESC
     </select>
 
@@ -47,7 +47,7 @@
         /* CounselingInfoMapper.findByClaIdOrderByScheduledAtDesc */
         SELECT <include refid="counselingInfoColumns"/>
         FROM counseling_info
-        WHERE cla_id = #{claId} AND use_yn = 'Y'
+        WHERE cla_id = #{claId} AND tc_id = #{tcId} AND use_yn = 'Y'
         ORDER BY scheduled_at DESC
     </select>
 
@@ -55,7 +55,7 @@
         /* CounselingInfoMapper.findByStatusOrderByScheduledAtDesc */
         SELECT <include refid="counselingInfoColumns"/>
         FROM counseling_info
-        WHERE status = #{status} AND use_yn = 'Y'
+        WHERE status = #{status} AND tc_id = #{tcId} AND use_yn = 'Y'
         ORDER BY scheduled_at DESC
     </select>
 
@@ -63,7 +63,9 @@
         /* CounselingInfoMapper.findCounselingsByIds */
         SELECT <include refid="counselingInfoColumns"/>
         FROM counseling_info
-        WHERE id IN
+        WHERE tc_id = #{tcId}
+          AND use_yn = 'Y'
+          AND id IN
         <foreach item="id" collection="ids" open="(" separator="," close=")">
             #{id}
         </foreach>

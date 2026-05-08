@@ -29,7 +29,7 @@ public class SchoolRecordController {
     private final AuthTcIdResolver authTcIdResolver;
 
     @GetMapping(value = "/api/school-records/student/{studentId}")
-    @Operation(summary = "학생별 생기부 조회", description = "특정 학생의 생기부 목록을 최신순으로 조회")
+    @Operation(summary = "학생별 생기부 조회", description = "특정 학생의 생기부 중 본인이 작성한 건만 최신순으로 조회")
     @Parameter(name = "studentId", description = "학생 ID (stdt_id)", required = true,
             examples = @ExampleObject(value = "a1b2c3d4e5f67890abcdef1234567890"))
     public ResponseDTO<CustomBody> getSchoolRecordsByStudent(
@@ -37,6 +37,7 @@ public class SchoolRecordController {
     ) throws Exception {
         Map<String, Object> paramData = new HashMap<>();
         paramData.put("studentId", studentId);
+        authTcIdResolver.enforceAuthTcId(paramData);
         Object resultData = schoolRecordService.getSchoolRecordsByStudent(paramData);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "생기부 목록 조회");
     }

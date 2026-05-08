@@ -168,7 +168,7 @@ management:
 cloud:
   aws:
     nas:
-      path: ${CLOUD_AWS_NAS_PATH:/files/nas}
+      path: ${VLMSAPI_CLOUD_AWS_NAS_PATH:/files/nas/engl/}
 
 neo4j:
   uri: ${DGNSS_NEO4J_URI:bolt://localhost:7687}

@@ -49,6 +49,11 @@ public class FileService {
     @Value("${cloud.aws.nas.path}")
     private String nasPath;
 
+    /** 트레일링 슬래시를 제거한 NAS 루트. 경로 결합 시 항상 단일 '/' 보장 위해 사용. */
+    private String nasRoot() {
+        return nasPath.endsWith("/") ? nasPath.substring(0, nasPath.length() - 1) : nasPath;
+    }
+
     private long MAX_FILE_SIZE = 1000 * 1024 * 1024; // 1000mb
 
     private final FileMapper fileMapper;
@@ -117,10 +122,11 @@ public class FileService {
 
                 // 업로드 경로 지정
                 uploadPath = FileUtil.normalizeUploadPath(uploadPath);
-                String tempPath = nasPath + "/temp/";  // 임시저장
+                String tempPath = nasRoot() + "/temp/";  // 임시저장
 
-                // 파일 경로 생성
+                // 파일 경로 생성 (temp + 최종 업로드 경로 모두 보장)
                 FileUtil.mkdirs(tempPath);
+                FileUtil.mkdirs(uploadPath);
 
                 // 파일명 생성
                 String saveFileName = FileUtil.getSaveFileName(file.getOriginalFilename());
@@ -148,62 +154,75 @@ public class FileService {
             }
         } catch (AuthFailedException e) {
             resultMsg = "인증 실패: " + e.getMessage();
-            log.error("File upload - Authentication failed: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Authentication failed", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (IllegalArgumentException e) {
             resultMsg = "파일 업로드 실패: 잘못된 파라미터";
-            log.error("File upload - Invalid argument error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Invalid argument error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (NullPointerException e) {
             resultMsg = "파일 업로드 실패: 필수 데이터 누락";
-            log.error("File upload - Null pointer error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Null pointer error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (IOException e) {
             resultMsg = "파일 업로드 실패: 파일 입출력 오류";
-            log.error("File upload - IO error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("IO error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (SecurityException e) {
             resultMsg = "파일 업로드 실패: 보안 오류";
-            log.error("File upload - Security error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Security error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (DataAccessException e) {
             resultMsg = "파일 업로드 실패: 데이터베이스 오류";
-            log.error("File upload - Database access error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Database access error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (SQLException e) {
             resultMsg = "파일 업로드 실패: 데이터베이스 쿼리 오류";
-            log.error("File upload - SQL error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("SQL error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (MultipartException e) {
             resultMsg = "파일 업로드 실패: 멀티파트 파일 처리 오류";
-            log.error("File upload - Multipart error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Multipart error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (UnsupportedOperationException e) {
             resultMsg = "파일 업로드 실패: 지원하지 않는 작업";
-            log.error("File upload - Unsupported operation error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Unsupported operation error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (RuntimeException e) {
             resultMsg = "파일 업로드 실패: 런타임 오류";
-            log.error("File upload - Runtime error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Runtime error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (Exception e) {
             resultMsg = "파일 업로드 실패: 예상치 못한 오류";
-            log.error("File upload - Unexpected error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Unexpected error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         }
 
         return urls;
+    }
+
+    private void logUploadError(String errorType, Exception e, File tempFile, File movedFile, String userId, String uploadPath) {
+        log.error("File upload - {}: userId={}, uploadPath={}, tempFile={}, movedFile={}, message={}",
+                errorType,
+                userId,
+                uploadPath,
+                tempFile != null ? tempFile.getAbsolutePath() : "null",
+                movedFile != null ? movedFile.getAbsolutePath() : "null",
+                e.getMessage(),
+                e);
+    }
+
+    private void cleanupUploadFiles(File tempFile, File movedFile) {
+        if (tempFile != null) {
+            log.info("업로드 실패 후 temp 파일 정리 시도: path={}, exists={}",
+                    tempFile.getAbsolutePath(), tempFile.exists());
+            FileUtil.deleteFile(tempFile);
+        }
+        if (movedFile != null) {
+            log.info("업로드 실패 후 moved 파일 정리 시도: path={}, exists={}",
+                    movedFile.getAbsolutePath(), movedFile.exists());
+            FileUtil.deleteFile(movedFile);
+        }
     }
 
     /**
@@ -337,25 +356,29 @@ public class FileService {
                         .body(response);
             }
         } catch (AuthFailedException e) {
-            log.error("File download - Authentication failed: {}", e.getMessage());
+            log.error("File download - Authentication failed: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 인증 오류");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response);
         } catch (IOException e) {
-            log.error("File download - IO error: {}", e.getMessage());
+            log.error("File download - IO error: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 파일 입출력 오류");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response);
         } catch (SecurityException e) {
-            log.error("File download - Security error: {}", e.getMessage());
+            log.error("File download - Security error: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 보안 오류");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response);
         } catch (Exception e) {
-            log.error("File download - Unexpected error: {}", e.getMessage());
+            log.error("File download - Unexpected error: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 예상치 못한 오류");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
@@ -778,10 +801,11 @@ public class FileService {
 
                 // 업로드 경로 지정
                 uploadPath = FileUtil.normalizeUploadPath(uploadPath);
-                String tempPath = nasPath + "/temp/";  // 임시저장
+                String tempPath = nasRoot() + "/temp/";  // 임시저장
 
-                // 파일 경로 생성
+                // 파일 경로 생성 (temp + 최종 업로드 경로 모두 보장)
                 FileUtil.mkdirs(tempPath);
+                FileUtil.mkdirs(uploadPath);
 
                 // 파일명 생성
                 String saveFileName = FileUtil.getSaveFileName(file.getOriginalFilename());
@@ -810,11 +834,10 @@ public class FileService {
         } catch (Exception e) {
 
             resultMsg = "파일 업로드 실패: " + e.getMessage();
-            log.error(resultMsg);
+            logUploadError("Batch Dgnss upload error", e, tempFile, movedFile, userId, uploadPath);
 
             // 업로드 실패 시, 생성된 파일이 있다면 삭제
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            cleanupUploadFiles(tempFile, movedFile);
         }
 
         return urls;

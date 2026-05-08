@@ -1878,6 +1878,13 @@
 		WHERE  id = #{dgnssId}
 	</delete>
 
+	<delete id="deleteTcDgnssLpaResult" parameterType="map">
+		/* DgnssMapper.deleteTcDgnssLpaResult */
+		DELETE
+		FROM   tb_dgnss_lpa_result
+		WHERE  test_idx = #{dgnssId}
+	</delete>
+
 	<select id="selectDgnssStdtListFromDgnssId" parameterType="map" resultType="string">
 		/* DgnssMapper.selectDgnssStdtListFromDgnssId */
 		SELECT stdt_id
