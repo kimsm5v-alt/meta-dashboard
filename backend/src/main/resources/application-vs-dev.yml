@@ -20,3 +20,15 @@ qch:
   base-url: ${QCH_BASE_URL:https://t-qch.vsaidt.com}
   service-key: ${QCH_SERVICE_KEY:meta-api}
   env: ${QCH_ENV:DEV}
+
+# ===== 알림 Pub/Sub (dev: Redis 사용) =====
+# 개발서버 Redis Pub/Sub 동작 검증용으로 dev profile에서 켜둠.
+# Redis 접속 정보(STAT_SPRING_REDIS_HOST 등)는 컨테이너 환경변수로 주입.
+notification:
+  pubsub:
+    enabled: true
+
+management:
+  health:
+    redis:
+      enabled: true
