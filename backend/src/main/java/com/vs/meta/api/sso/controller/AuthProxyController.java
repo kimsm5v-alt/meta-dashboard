@@ -90,12 +90,19 @@ public class AuthProxyController {
         }
 
         try {
+            // OAuth2 §6 — IdP 가 RT.owner 와 client_id 매칭 + client_secret 을 검증하도록 자격을
+            //   함께 전달. 다른 RP 의 RT 가 흘러들어왔을 때 IdP 가 즉시 401 로 거부 (멀티-RP
+            //   쿠키 슬롯 충돌 방어 + RT 단독 탈취 차단).
             @SuppressWarnings("unchecked")
             Map<String, Object> wrapped = superPlatformAuthWebClient
                     .post()
                     .uri("/api/v1/auth/refresh")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(Map.of("refreshToken", refreshToken))
+                    .bodyValue(Map.of(
+                            "refreshToken", refreshToken,
+                            "clientId", spAuth.getClientId(),
+                            "clientSecret", spAuth.getClientSecret()
+                    ))
                     .retrieve()
                     .bodyToMono(Map.class)
                     .block();
