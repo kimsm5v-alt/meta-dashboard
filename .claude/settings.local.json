@@ -24,7 +24,8 @@
       "Bash(timeout:*)",
       "Bash(tasklist:*)",
       "Bash(./gradlew :backend:compileJava)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(git -C backend status --short)"
     ]
   }
 }
