@@ -1,5 +1,18 @@
 # Neo4j Tool Calling 구현 명세서
 
+> ## ⚠️ [DEPRECATED] 본 문서는 V1입니다. 단일 SSOT는 V2 문서를 참조하세요.
+> ➡️ **`agent/docs/NEO4J_TOOL_IMPLEMENTATION_PLAN_V2.md`**
+>
+> **폐기 사유 요약**:
+> 1. Cypher Property 이름이 실제 Neo4j 스키마와 불일치 (예: `className` → 실제는 `name`, `schoolLevel` → 실제는 `school_level`, `r.tscore` → 실제는 `r.t_score`).
+> 2. ModerationPath/MediationPath 반환 필드(`pathName`, `description`, `priority`)는 실 노드에 존재하지 않음.
+> 3. `schoolLevel` 약어(`E/M/H`)는 Backend·Neo4j 어디에도 사용되지 않음 (실제 값: `elementary`/`middle`).
+> 4. Frontend가 `schoolLevel` 식별자를 명시 전달하지 않아 Tool 인자 추출이 사실상 불가.
+>
+> 정확한 데이터 모델·인터페이스·실행 순서는 V2 문서를 참조하세요.
+
+---
+
 > **목적**: 프론트엔드에서 전달되는 문맥(`context_data`)을 활용하여, Agent가 필요 시 자율적으로 Neo4j 그래프 DB를 쿼리(Tool Calling)함으로써 추론 정합성 및 컨텍스트 효율을 극대화하는 아키텍처 도입  
 > **작성일**: 2026-05-06 | **현행화**: 2026-05-06  
 > **참조 문서**: `agent/docs/NEO4J_ANALYSIS.md`
