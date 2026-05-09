@@ -25,11 +25,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Initialize DB Driver explicitly
-    logger.info("Starting up: Initializing Neo4j connection...")
-    Neo4jConnectionManager.get_driver()
+    # Startup: Neo4j 연결 검증 (실패해도 텍스트 추론은 가능하므로 degraded mode로 가동)
+    logger.info("Starting up: Verifying Neo4j connection...")
+    try:
+        await Neo4jConnectionManager.verify()
+        logger.info("Neo4j connectivity OK.")
+    except Exception as e:
+        logger.warning(f"Neo4j unavailable at startup, will operate in degraded mode: {e}")
     yield
-    # Shutdown: Release resources
+    # Shutdown: 리소스 해제
     logger.info("Shutting down: Closing Neo4j connection...")
     await Neo4jConnectionManager.close()
 

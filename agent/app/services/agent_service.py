@@ -12,9 +12,10 @@ from app.tools import neo4j_tools_list
 logger = logging.getLogger(__name__)
 
 # 임메모리 세션 저장소 (프로덕션에서는 Redis 등으로 대체 권장)
-session_store = {}
+session_store: Dict[str, ChatMessageHistory] = {}
+session_context_store: Dict[str, Dict[str, Any]] = {}
 
-def get_session_history(session_id: str):
+def get_session_history(session_id: str) -> ChatMessageHistory:
     if session_id not in session_store:
         session_store[session_id] = ChatMessageHistory()
     return session_store[session_id]
@@ -25,33 +26,81 @@ class MetaAgentService:
         self.router = llm_router
         self.tools = [convert_to_openai_tool(t) for t in neo4j_tools_list]
         self.tool_map = {t.name: t for t in neo4j_tools_list}
-        self.max_iterations = 5
+        self.max_iterations = 8
 
     def clear_session(self, session_id: str):
-        """
-        특정 세션의 대화 이력을 삭제하여 새 대화를 시작합니다.
-        """
-        if session_id in session_store:
-            del session_store[session_id]
-            return True
-        return False
+        """특정 세션의 대화 이력과 컨텍스트를 삭제하여 새 대화를 시작합니다."""
+        existed = session_id in session_store
+        session_store.pop(session_id, None)
+        session_context_store.pop(session_id, None)
+        return existed
+
+    @staticmethod
+    def _normalize_tool_args(func_name: str, args: dict) -> dict:
+        """LLM이 잘못된 schoolLevel 값을 넣어도 정규화하는 후처리 방어 로직"""
+        sl = args.get("schoolLevel")
+        if isinstance(sl, str):
+            s = sl.strip().lower()
+            mapping = {
+                "초등": "elementary", "elementary": "elementary", "e": "elementary",
+                "중등": "middle", "middle": "middle", "m": "middle",
+                "고등": "middle", "high": "middle", "h": "middle",
+            }
+            args["schoolLevel"] = mapping.get(s, sl)
+        return args
+
+    @staticmethod
+    def _build_system_prompt(masked_context: dict | None) -> str:
+        """profile 기반으로 Tool 호출 가이드를 포함한 시스템 프롬프트를 생성한다."""
+        profile = (masked_context or {}).get("profile") or {}
+        context_text = (masked_context or {}).get("context") or "No additional context provided."
+        school_level = profile.get("schoolLevel")
+        predicted_type = profile.get("predictedType")
+
+        # profile에 schoolLevel + predictedType이 모두 있을 때만 Tool 호출 유도
+        profile_block = ""
+        if school_level and predicted_type:
+            profile_block = (
+                "\n## 분석 대상 학생 식별자 (Tool 호출 인자로 그대로 사용)\n"
+                f"- className: \"{predicted_type}\"\n"
+                f"- schoolLevel: \"{school_level}\"\n"
+            )
+            tool_policy = (
+                "필요 시 위 식별자로 Neo4j Tool을 호출하십시오. "
+                "특히 학생의 강/약점 분석, 개입 전략, 집단 평균 비교가 필요할 때 적극 활용하세요. "
+                "처음에는 `get_lpa_overview`를 1회 호출하여 전반을 파악하고, "
+                "심화 정보가 필요하면 개별 Tool로 보강하십시오.\n"
+            )
+        else:
+            tool_policy = (
+                "현재 단일 학생 식별자가 없으므로 Neo4j Tool을 호출하지 마십시오. "
+                "주어진 텍스트 컨텍스트만을 근거로 답변하십시오.\n"
+            )
+
+        return (
+            "귀하는 Meta Dashboard의 학습심리 상담 보조 AI입니다.\n"
+            "주어진 컨텍스트(학생의 38개 T점수, 4단계 진단 결과 등)를 기반으로 교사를 돕습니다.\n\n"
+            f"{tool_policy}"
+            f"{profile_block}"
+            "\n## 학생 컨텍스트 (마크다운)\n"
+            f"{context_text}"
+        )
 
     def _build_messages(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+        """LLM에 전달할 메시지 목록을 구성한다.
+
+        context_data는 첫 메시지에만 전달되므로, 마스킹 후 세션 단위로 저장하여
+        이후 턴에서도 동일한 학생 컨텍스트와 Tool 호출 권한을 유지한다.
+        """
         history = get_session_history(session_id)
-        masked_context = mask_pii_data(context_data)
-        if masked_context:
-            context_str = masked_context.get("context") or str(masked_context)
-        else:
-            context_str = "No additional context provided."
-        
-        system_prompt = (
-            "귀하는 Meta Dashboard의 AI 에이전트입니다.\n"
-            "전달받은 context_data를 참고하여 답변하십시오.\n"
-            "전달된 context_data에서 사용자의 유형(className)과 학교급(schoolLevel)을 파악하십시오.\n"
-            "필요 시 제공된 Neo4j Graph Tools를 활용하여 해당 유형의 조절/매개 경로 및 T-Score 평균을 조회하십시오.\n"
-            "조회된 데이터를 바탕으로 학생의 현재 상태를 진단하고 맞춤형 학습 피드백을 제공하십시오.\n"
-            f"Context: {context_str}"
-        )
+
+        if context_data is not None:
+            masked = mask_pii_data(context_data)
+            if masked:
+                session_context_store[session_id] = masked
+
+        effective_context = session_context_store.get(session_id)
+        system_prompt = self._build_system_prompt(effective_context)
         
         messages = [{"role": "system", "content": system_prompt}]
         for msg in history.messages:
@@ -105,6 +154,7 @@ class MetaAgentService:
                     func_name = tool_call.function.name
                     try:
                         arguments = json.loads(tool_call.function.arguments)
+                        arguments = self._normalize_tool_args(func_name, arguments)
                         if func_name in self.tool_map:
                             result = await self.tool_map[func_name].ainvoke(arguments)
                             result_str = json.dumps(result, ensure_ascii=False)
@@ -218,6 +268,7 @@ class MetaAgentService:
                     func_name = tc["function"]["name"]
                     try:
                         arguments = json.loads(tc["function"]["arguments"])
+                        arguments = self._normalize_tool_args(func_name, arguments)
                         if func_name in self.tool_map:
                             result = await self.tool_map[func_name].ainvoke(arguments)
                             result_str = json.dumps(result, ensure_ascii=False)
