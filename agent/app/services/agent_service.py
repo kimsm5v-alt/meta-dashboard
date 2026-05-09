@@ -37,14 +37,19 @@ class MetaAgentService:
 
     @staticmethod
     def _normalize_tool_args(func_name: str, args: dict) -> dict:
-        """LLM이 잘못된 schoolLevel 값을 넣어도 정규화하는 후처리 방어 로직"""
+        """LLM이 잘못된 schoolLevel 값을 넣어도 정규화하는 후처리 방어 로직
+
+        Args:
+            func_name: Tool 함수명 — 향후 Tool별로 다른 정규화 로직이 필요할 때 사용 (현재는 미사용)
+            args: Tool 호출 인자 (schoolLevel 정규화 대상)
+        """
         sl = args.get("schoolLevel")
         if isinstance(sl, str):
             s = sl.strip().lower()
             mapping = {
                 "초등": "elementary", "elementary": "elementary", "e": "elementary",
                 "중등": "middle", "middle": "middle", "m": "middle",
-                "고등": "middle", "high": "middle", "h": "middle",
+                # "고등"/"high"는 명시적으로 매핑하지 않음 — VALID_SCHOOL_LEVELS에 없으므로 _validate_args에서 차단됨
             }
             args["schoolLevel"] = mapping.get(s, sl)
         return args
