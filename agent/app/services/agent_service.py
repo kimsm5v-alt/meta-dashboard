@@ -105,8 +105,8 @@ class MetaAgentService:
             "- **도메인 한정**: 학습심리정서검사와 무관한 질문(일반 교과 지식, 외부 이슈 등)에는 "
             "'이 시스템의 학습심리정서검사 범위 외의 질문입니다'라고 안내하십시오.\n\n"
 
-            f"## Neo4j Tool 호출 정책\n{tool_policy}"
             f"{profile_block}"
+            f"## Neo4j Tool 호출 정책\n{tool_policy}"
             "\n## 학생 컨텍스트 (마크다운)\n"
             f"{context_text}"
         )
