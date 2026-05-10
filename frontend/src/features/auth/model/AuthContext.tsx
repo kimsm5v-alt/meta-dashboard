@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { User, AuthState } from '@shared/types';
 import { getAuth } from '@shared/lib/authClient';
 import type { AuthUser } from '@shared/lib/authClient';
@@ -59,6 +60,7 @@ interface AuthProviderProps {
 let loggingOut = false;
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [state, setState] = useState<AuthState>({
     user: null,
     isAuthenticated: false,
@@ -141,9 +143,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // SDK의 /oauth2/logout 리다이렉트보다 먼저 실행되어 로그아웃이 안 됨
     loggingOut = true;
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    // 사용자 전환(A 로그아웃 → B 로그인) 시 stale 프로필 캐시 노출 방지
+    queryClient.removeQueries({ queryKey: ['profile-status'] });
     const auth = getAuth();
     auth.logout(); // 브라우저 리다이렉트 발생 (페이지 이동 후 플래그 자동 리셋)
-  }, []);
+  }, [queryClient]);
 
   return (
     <AuthContext.Provider
