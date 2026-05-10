@@ -12,6 +12,7 @@ import {
   COUNSELING_METHOD_LABELS,
   MEMO_CATEGORY_LABELS,
   SCHOOL_RECORD_CATEGORY_LABELS,
+  SCHOOL_LEVEL_REVERSE_MAP,
 } from '@shared/types';
 import type { ContextMode, StudentAliasMap } from '../types';
 import { FACTOR_DEFINITIONS } from '@shared/data/factors';
@@ -89,7 +90,7 @@ export const restoreNames = (text: string, aliasMap: StudentAliasMap): string =>
 // 유틸리티 함수
 // ============================================================
 
-const getLatestAssessment = (student: Student): Assessment | null => {
+export const getLatestAssessment = (student: Student): Assessment | null => {
   if (!student.assessments || student.assessments.length === 0) return null;
   const round2 = student.assessments.find((a) => a.round === 2);
   return round2 || student.assessments.find((a) => a.round === 1) || null;
@@ -453,7 +454,11 @@ const buildStudentContext = async (
     const schoolRecords = await schoolRecordService.getSavedByStudentId(student.id);
     const schoolRecordText = formatSchoolRecords(schoolRecords, aliasMap);
 
+    // Agent Neo4j Tool 호출에 필요한 학교급 영문코드 주입
+    const schoolLevelCode = SCHOOL_LEVEL_REVERSE_MAP[student.schoolLevel];
+
     let context = `### ${alias}
+- **schoolLevel**: ${schoolLevelCode}
 - **유형**: ${assessment.predictedType} (확신도 ${(assessment.typeConfidence * 100).toFixed(0)}%)${badgeText}
 
 #### 38개 요인 T점수 (5대 영역별)
@@ -531,4 +536,5 @@ export default {
   reverseAliasMap,
   applyAliases,
   restoreNames,
+  getLatestAssessment,
 };

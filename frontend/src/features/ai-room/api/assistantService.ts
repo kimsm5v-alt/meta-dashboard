@@ -13,10 +13,11 @@
  * 세션 관리: 에이전트가 session_id 기반으로 서버 측에서 대화 히스토리를 유지합니다.
  */
 
-import { buildRAGContext, applyAliases, restoreNames } from './contextBuilder';
+import { buildRAGContext, applyAliases, restoreNames, getLatestAssessment } from './contextBuilder';
 import { agentChat, agentChatStream } from './agentApiService';
 import type { ChatMessage, ContextMode, StudentAliasMap } from '../types';
 import type { Class, Student } from '@shared/types';
+import { SCHOOL_LEVEL_REVERSE_MAP } from '@shared/types';
 
 // ============================================================
 // 타입 정의
@@ -48,6 +49,36 @@ export interface AssistantResponse {
 }
 
 // ============================================================
+// 학생 프로필 빌드 (Neo4j Tool 호출용)
+// ============================================================
+
+/**
+ * student 모드 + 단일 학생일 때만 profile 객체를 생성합니다.
+ * Agent의 _build_system_prompt가 profile을 받아 Neo4j Tool 호출을 유도합니다.
+ * 검사 데이터가 없는 학생은 null을 반환하여 Tool 호출을 방지합니다.
+ */
+const buildStudentProfile = (
+  mode: ContextMode,
+  selectedStudents: Student[],
+  classes: Class[],
+): Record<string, unknown> | null => {
+  if (mode !== 'student' || selectedStudents.length !== 1) return null;
+
+  const student = selectedStudents[0];
+  const assessment = getLatestAssessment(student);
+  if (!assessment) return null;
+
+  const cls = classes.find((c) => c.id === student.classId);
+
+  return {
+    schoolLevel: SCHOOL_LEVEL_REVERSE_MAP[student.schoolLevel],
+    predictedType: assessment.predictedType,
+    grade: student.grade,
+    classNumber: cls?.classNumber ?? null,
+  };
+};
+
+// ============================================================
 // 메인 서비스 함수
 // ============================================================
 
@@ -67,10 +98,11 @@ export const callAssistant = async (request: AssistantRequest): Promise<Assistan
     // 2. 사용자 메시지 별칭 처리
     const maskedUserMessage = applyAliases(userMessage, aliasMap);
 
-    // 3. context_data — 첫 메시지(캐시 없음)일 때만 context 포함, 이후엔 null
+    // 3. context_data — 첫 메시지(캐시 없음)일 때만 context + profile 포함, 이후엔 null
+    const profile = buildStudentProfile(mode, selectedStudents, classes);
     const contextData: Record<string, unknown> | null = cachedContext
       ? null
-      : { mode, context: ragContext };
+      : { mode, context: ragContext, ...(profile !== null ? { profile } : {}) };
 
     // 4. 에이전트 API 호출
     const agentResponse = await agentChat(maskedUserMessage, sessionId, contextData);
@@ -123,10 +155,11 @@ export const callAssistantStream = async (
     // 2. 사용자 메시지 별칭 처리
     const maskedUserMessage = applyAliases(userMessage, aliasMap);
 
-    // 3. context_data — 첫 메시지(캐시 없음)일 때만 context 포함, 이후엔 null
+    // 3. context_data — 첫 메시지(캐시 없음)일 때만 context + profile 포함, 이후엔 null
+    const profile = buildStudentProfile(mode, selectedStudents, classes);
     const contextData: Record<string, unknown> | null = cachedContext
       ? null
-      : { mode, context: ragContext };
+      : { mode, context: ragContext, ...(profile !== null ? { profile } : {}) };
 
     // 4. 스트리밍 호출 — 누적하며 별칭 복원 후 콜백
     let accumulated = '';
