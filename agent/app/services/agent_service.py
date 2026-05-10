@@ -36,11 +36,11 @@ class MetaAgentService:
         return existed
 
     @staticmethod
-    def _normalize_tool_args(func_name: str, args: dict) -> dict:
+    def _normalize_tool_args(_func_name: str, args: dict) -> dict:
         """LLM이 잘못된 schoolLevel 값을 넣어도 정규화하는 후처리 방어 로직
 
         Args:
-            func_name: Tool 함수명 — 향후 Tool별로 다른 정규화 로직이 필요할 때 사용 (현재는 미사용)
+            _func_name: 미사용. 향후 Tool별 분기가 필요할 때 활성화.
             args: Tool 호출 인자 (schoolLevel 정규화 대상)
         """
         sl = args.get("schoolLevel")
