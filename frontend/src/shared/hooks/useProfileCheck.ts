@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@shared/api/client';
-import { getAuth } from '@shared/lib/authClient';
 import { useAuth } from '@features/auth/model/AuthContext';
 
 interface ProfileStatusData {
@@ -23,16 +22,10 @@ interface ProfileStatus {
 
 /**
  * SSO 로그인 후 학심정 프로필 등록 여부 확인.
+ * SP claim sync는 BE touchOnRequest(987e284)가 담당하므로 프론트에서 refreshAccessToken() 불필요.
  *
- * <p>queryFn 진입 시 SDK refreshAccessToken()을 선행 호출하여 SP JWT의 최신 claim이
- * 학심정에 도달하도록 한다. BE의 touchOnRequest sync 와 결합되어 SP 마이페이지에서
- * 변경된 이름·이메일이 즉시 user/group_member 에 반영된다.
- *
- * <ul>
- *   <li>staleTime 5분 — 라우트 연타 시 호출 절감</li>
- *   <li>refetchOnWindowFocus — 다른 탭(SP 마이페이지) 다녀온 직후 자동 sync</li>
- *   <li>refresh 실패 시 fallback — 기존 AT 로 status 호출 진행</li>
- * </ul>
+ * - staleTime 5분: 라우트 연타 시 호출 절감
+ * - refetchOnWindowFocus: 다른 탭(SP 마이페이지) 복귀 시 자동 sync
  */
 export function useProfileCheck(isAuthenticated: boolean): ProfileStatus {
   const { updateUser } = useAuth();
@@ -43,8 +36,6 @@ export function useProfileCheck(isAuthenticated: boolean): ProfileStatus {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
-      // SP claim 최신화 — 실패해도 기존 AT 로 fallback 진행
-      await getAuth().refreshAccessToken().catch(() => null);
       const res = await apiClient.get<ProfileStatusData>('/api/v1/user/status');
       return res.resultData;
     },
