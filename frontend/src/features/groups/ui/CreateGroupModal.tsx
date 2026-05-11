@@ -12,7 +12,7 @@ interface CreateGroupModalProps {
 
 /** 학교급별 학년 범위 */
 const GRADE_OPTIONS: Record<SchoolLevelCode, number[]> = {
-  elementary: [1, 2, 3, 4, 5, 6],
+  elementary: [5, 6],
   middle: [1, 2, 3],
   high: [1, 2, 3],
 };
@@ -160,7 +160,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   const [formData, setFormData] = useState<GroupFormData>({
     name: '',
     schoolLevel: 'elementary',
-    grade: 1,
+    grade: GRADE_OPTIONS.elementary[0],
     classNumber: 1,
     description: '',
     schoolName: '',
@@ -171,7 +171,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     setFormData((prev) => ({
       ...prev,
       schoolLevel,
-      grade: 1,
+      grade: GRADE_OPTIONS[schoolLevel][0],
     }));
   };
 
@@ -195,7 +195,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     setFormData({
       name: '',
       schoolLevel: 'elementary',
-      grade: 1,
+      grade: GRADE_OPTIONS.elementary[0],
       classNumber: 1,
       description: '',
       schoolName: '',
