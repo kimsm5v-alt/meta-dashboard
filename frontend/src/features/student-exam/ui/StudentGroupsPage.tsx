@@ -15,7 +15,6 @@ import {
   leaveGroup,
 } from '@features/groups/api/groupService';
 import type { Group } from '@shared/types';
-import { ApiError } from '@shared/api/client';
 
 // ============================================================
 // Styled Components
