@@ -2431,6 +2431,441 @@
 		]]>
 	</select>
 
+	<!-- ================================================================== -->
+	<!-- /tc/stinfolist 학생 명단 fallback (다른 학급 응시자 보강)            -->
+	<!--   원본 9개 SQL (selectDgnssAnswerReliability, selectLernType2~6,    -->
+	<!--   selectDgnssAnswerReport(Motivate|Recognition|Behavior)) 와        -->
+	<!--   SELECT 컬럼 동일. WHERE 만 (cla_id<>claId + paperIdx + ordNo +    -->
+	<!--   stdtIds IN) 으로 변경. group_info JOIN 도 현재 학급 cla_id 로     -->
+	<!--   변경 — nickname/member_no 표시 일관성을 위해.                       -->
+	<!-- ================================================================== -->
+
+	<select id="selectDgnssAnswerReliabilityFromOtherClasses" parameterType="map" resultType="map">
+		/* DgnssMapper.selectDgnssAnswerReliabilityFromOtherClasses */
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
+			, b1.stdt_id AS stdtId
+			, gm.nickname AS nickname
+			, gm.member_no AS memberNo
+			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
+			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
+			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
+			, CASE WHEN c1.LS_ANS01 = 1 THEN '매우 낮음'
+				WHEN c1.LS_ANS01 = 2 THEN '낮음'
+				WHEN c1.LS_ANS01 = 3 THEN '보통'
+				WHEN c1.LS_ANS01 = 4 THEN '높음'
+				WHEN c1.LS_ANS01 = 5 THEN '매우 높음'
+			END styPer
+			, CASE WHEN c1.LS_ANS02 = 1 THEN '매우 낮음'
+				WHEN c1.LS_ANS02 = 2 THEN '낮음'
+				WHEN c1.LS_ANS02 = 3 THEN '보통'
+				WHEN c1.LS_ANS02 = 4 THEN '높음'
+				WHEN c1.LS_ANS02 = 5 THEN '매우 높음'
+			END satisPer
+			, CASE WHEN c1.LS_ANS03 = 1 THEN '친구를 사귀려고'
+				WHEN c1.LS_ANS03 = 2 THEN '미래를 위해서'
+				WHEN c1.LS_ANS03 = 3 THEN '대학 진학'
+				WHEN c1.LS_ANS03 = 4 THEN '주변 기대 때문에'
+				WHEN c1.LS_ANS03 = 5 THEN '모르겠음'
+			END reason
+			, CASE WHEN c1.LS_ANS04 = 1 THEN '거의 안함'
+				WHEN c1.LS_ANS04 = 2 THEN '1시간 미만'
+				WHEN c1.LS_ANS04 = 3 THEN '1~2시간'
+				WHEN c1.LS_ANS04 = 4 THEN '2~3시간'
+				WHEN c1.LS_ANS04 = 5 THEN '3시간 이상'
+			END styTime
+			, CASE WHEN c1.LS_ANS05 = 1 THEN '친구'
+				WHEN c1.LS_ANS05 = 2 THEN '선생님'
+				WHEN c1.LS_ANS05 = 3 THEN '가족'
+				WHEN c1.LS_ANS05 = 4 THEN '상담 전문가'
+				WHEN c1.LS_ANS05 = 5 THEN '기타'
+			END cnsl
+			, CASE
+				WHEN gm.gender = 'M' THEN '남자'
+				WHEN gm.gender = 'F' THEN '여자'
+				ELSE ''
+			END AS gender
+			, c1.ANSWER_IDX AS answerIdx
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
+			INNER JOIN group_info gi ON gi.cla_id = #{claId}
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+		WHERE a1.cla_id <![CDATA[<>]]> #{claId}
+			AND a1.paper_idx = #{paperIdx}
+			AND a1.ord_no = #{ordNo}
+			AND a1.dgnss_at = 'N'
+			AND b1.subm_at = 'Y'
+			AND b1.stdt_id IN
+			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
+				#{stdtId}
+			</foreach>
+		ORDER BY gm.member_no
+	</select>
+
+	<select id="selectLernType2FromOtherClasses" resultType="map" parameterType="map">
+		/* DgnssMapper.selectLernType2FromOtherClasses */
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
+			, b1.stdt_id AS stdtId
+			, gm.nickname AS nickname
+			, gm.member_no AS memberNo
+			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
+			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
+			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-01-01-0-0') AS '10-22-01-01-0-0'
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-01-01-01-0') AS '10-22-01-01-01-0'
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-01-01-02-0') AS '10-22-01-01-02-0'
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-01-01-03-0') AS '10-22-01-01-03-0'
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-01-02-0-0') AS '10-22-01-02-0-0'
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-01-02-01-0') AS '10-22-01-02-01-0'
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-01-02-02-0') AS '10-22-01-02-02-0'
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-01-02-03-0') AS '10-22-01-02-03-0'
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-01-02-04-0') AS '10-22-01-02-04-0'
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
+			INNER JOIN group_info gi ON gi.cla_id = #{claId}
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+		WHERE a1.cla_id <> #{claId}
+			AND a1.paper_idx = #{paperIdx}
+			AND a1.ord_no = #{ordNo}
+			AND a1.dgnss_at = 'N'
+			AND b1.subm_at = 'Y'
+		]]>
+			AND b1.stdt_id IN
+			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
+				#{stdtId}
+			</foreach>
+		ORDER BY gm.member_no
+	</select>
+
+	<select id="selectLernType3FromOtherClasses" resultType="map" parameterType="map">
+		/* DgnssMapper.selectLernType3FromOtherClasses */
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
+			, b1.stdt_id AS stdtId
+			, gm.nickname AS nickname
+			, gm.member_no AS memberNo
+			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
+			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
+			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-02-01-0-0') AS '10-22-02-01-0-0'
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-02-01-01-0') AS '10-22-02-01-01-0'
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-02-01-02-0') AS '10-22-02-01-02-0'
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-02-01-03-0') AS '10-22-02-01-03-0'
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-02-02-0-0') AS '10-22-02-02-0-0'
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-02-02-01-0') AS '10-22-02-02-01-0'
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-02-02-02-0') AS '10-22-02-02-02-0'
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-02-02-03-0') AS '10-22-02-02-03-0'
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-02-02-04-0') AS '10-22-02-02-04-0'
+			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-02-02-05-0') AS '10-22-02-02-05-0'
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
+			INNER JOIN group_info gi ON gi.cla_id = #{claId}
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+		WHERE a1.cla_id <> #{claId}
+			AND a1.paper_idx = #{paperIdx}
+			AND a1.ord_no = #{ordNo}
+			AND a1.dgnss_at = 'N'
+			AND b1.subm_at = 'Y'
+		]]>
+			AND b1.stdt_id IN
+			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
+				#{stdtId}
+			</foreach>
+		ORDER BY gm.member_no
+	</select>
+
+	<select id="selectLernType4FromOtherClasses" resultType="map" parameterType="map">
+		/* DgnssMapper.selectLernType4FromOtherClasses */
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
+			, b1.stdt_id AS stdtId
+			, gm.nickname AS nickname
+			, gm.member_no AS memberNo
+			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
+			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
+			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-02-03-0-0') AS '10-22-02-03-0-0'
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-02-03-01-0') AS '10-22-02-03-01-0'
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-02-03-02-0') AS '10-22-02-03-02-0'
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-02-03-03-0') AS '10-22-02-03-03-0'
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-02-03-04-0') AS '10-22-02-03-04-0'
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-04-01-0-0') AS '10-22-04-01-0-0'
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-04-01-01-0') AS '10-22-04-01-01-0'
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-04-01-02-0') AS '10-22-04-01-02-0'
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-04-01-03-0') AS '10-22-04-01-03-0'
+			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-04-02-0-0') AS '10-22-04-02-0-0'
+			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '10-22-04-02-01-0') AS '10-22-04-02-01-0'
+			, (SELECT IF(ROUND(b1_12.T_SCORE) < 0, 0, ROUND(b1_12.T_SCORE)) FROM tb_dgnss_answer_report b1_12 WHERE b1_12.ANSWER_IDX = c1.ANSWER_IDX AND b1_12.SECTION_ID = '10-22-04-02-02-0') AS '10-22-04-02-02-0'
+			, (SELECT IF(ROUND(b1_13.T_SCORE) < 0, 0, ROUND(b1_13.T_SCORE)) FROM tb_dgnss_answer_report b1_13 WHERE b1_13.ANSWER_IDX = c1.ANSWER_IDX AND b1_13.SECTION_ID = '10-22-04-02-03-0') AS '10-22-04-02-03-0'
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
+			INNER JOIN group_info gi ON gi.cla_id = #{claId}
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+		WHERE a1.cla_id <> #{claId}
+			AND a1.paper_idx = #{paperIdx}
+			AND a1.ord_no = #{ordNo}
+			AND a1.dgnss_at = 'N'
+			AND b1.subm_at = 'Y'
+		]]>
+			AND b1.stdt_id IN
+			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
+				#{stdtId}
+			</foreach>
+		ORDER BY gm.member_no
+	</select>
+
+	<select id="selectLernType5FromOtherClasses" resultType="map" parameterType="map">
+		/* DgnssMapper.selectLernType5FromOtherClasses */
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
+			, b1.stdt_id AS stdtId
+			, gm.nickname AS nickname
+			, gm.member_no AS memberNo
+			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
+			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
+			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-03-01-0-0') AS '10-22-03-01-0-0'
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-03-01-01-0') AS '10-22-03-01-01-0'
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-03-01-02-0') AS '10-22-03-01-02-0'
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-03-01-03-0') AS '10-22-03-01-03-0'
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-03-03-0-0') AS '10-22-03-03-0-0'
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-03-03-01-0') AS '10-22-03-03-01-0'
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-03-03-02-0') AS '10-22-03-03-02-0'
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
+			INNER JOIN group_info gi ON gi.cla_id = #{claId}
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+		WHERE a1.cla_id <> #{claId}
+			AND a1.paper_idx = #{paperIdx}
+			AND a1.ord_no = #{ordNo}
+			AND a1.dgnss_at = 'N'
+			AND b1.subm_at = 'Y'
+		]]>
+			AND b1.stdt_id IN
+			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
+				#{stdtId}
+			</foreach>
+		ORDER BY gm.member_no
+	</select>
+
+	<select id="selectLernType6FromOtherClasses" resultType="map" parameterType="map">
+		/* DgnssMapper.selectLernType6FromOtherClasses */
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
+			, b1.stdt_id AS stdtId
+			, gm.nickname AS nickname
+			, gm.member_no AS memberNo
+			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
+			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
+			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '10-22-03-02-0-0') AS '10-22-03-02-0-0'
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '10-22-03-02-01-0') AS '10-22-03-02-01-0'
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '10-22-03-02-02-0') AS '10-22-03-02-02-0'
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '10-22-03-02-03-0') AS '10-22-03-02-03-0'
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-03-02-04-0') AS '10-22-03-02-04-0'
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-03-02-05-0') AS '10-22-03-02-05-0'
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-05-01-0-0') AS '10-22-05-01-0-0'
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-05-01-01-0') AS '10-22-05-01-01-0'
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-05-01-02-0') AS '10-22-05-01-02-0'
+			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-05-01-03-0') AS '10-22-05-01-03-0'
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
+			INNER JOIN group_info gi ON gi.cla_id = #{claId}
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+		WHERE a1.cla_id <> #{claId}
+			AND a1.paper_idx = #{paperIdx}
+			AND a1.ord_no = #{ordNo}
+			AND a1.dgnss_at = 'N'
+			AND b1.subm_at = 'Y'
+		]]>
+			AND b1.stdt_id IN
+			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
+				#{stdtId}
+			</foreach>
+		ORDER BY gm.member_no
+	</select>
+
+	<select id="selectDgnssAnswerReportMotivateFromOtherClasses" parameterType="map" resultType="map">
+		/* DgnssMapper.selectDgnssAnswerReportMotivateFromOtherClasses */
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
+			, b1.stdt_id AS stdtId
+			, gm.nickname AS nickname
+			, gm.member_no AS memberNo
+			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
+			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
+			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-01-0-0-0') AS total
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-01-01-0-0') AS learningEg
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-01-01-01-0') AS mindSet
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '20-22-01-01-02-0') AS efficacy
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '20-22-01-01-03-0') AS motivation
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '20-22-01-02-0-0') AS emotionCtrl
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-01-02-01-0') AS gradeLvl
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-01-02-02-0') AS styLvl
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-01-02-03-0') AS failLvl
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
+			INNER JOIN group_info gi ON gi.cla_id = #{claId}
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+		WHERE a1.cla_id <> #{claId}
+			AND a1.paper_idx = #{paperIdx}
+			AND a1.ord_no = #{ordNo}
+			AND a1.dgnss_at = 'N'
+			AND b1.subm_at = 'Y'
+		]]>
+			AND b1.stdt_id IN
+			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
+				#{stdtId}
+			</foreach>
+		ORDER BY gm.member_no
+	</select>
+
+	<select id="selectDgnssAnswerReportRecognitionFromOtherClasses" parameterType="map" resultType="map">
+		/* DgnssMapper.selectDgnssAnswerReportRecognitionFromOtherClasses */
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
+			, b1.stdt_id AS stdtId
+			, gm.nickname AS nickname
+			, gm.member_no AS memberNo
+			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
+			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
+			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-02-0-0-0') AS total
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-02-01-0-0') AS metaCog
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-02-01-01-0') AS planAbil
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '20-22-02-01-02-0') AS inspecAbil
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '20-22-02-01-03-0') AS contrlAbil
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '20-22-02-02-0-0') AS cogLrnSkil
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-02-02-01-0') AS compreSkil
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-02-02-02-0') AS intenSkil
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-02-02-03-0') AS memrySkil
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
+			INNER JOIN group_info gi ON gi.cla_id = #{claId}
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+		WHERE a1.cla_id <> #{claId}
+			AND a1.paper_idx = #{paperIdx}
+			AND a1.ord_no = #{ordNo}
+			AND a1.dgnss_at = 'N'
+			AND b1.subm_at = 'Y'
+		]]>
+			AND b1.stdt_id IN
+			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
+				#{stdtId}
+			</foreach>
+		ORDER BY gm.member_no
+	</select>
+
+	<select id="selectDgnssAnswerReportBehaviorFromOtherClasses" parameterType="map" resultType="map">
+		/* DgnssMapper.selectDgnssAnswerReportBehaviorFromOtherClasses */
+		<![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
+			, b1.stdt_id AS stdtId
+			, gm.nickname AS nickname
+			, gm.member_no AS memberNo
+			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
+			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
+			, c1.REPEATED_RESPONSE_YN AS repeatResponse
+			, lpa.class_id AS lpaClassId
+			, lpa.type_name AS lpaTypeName
+			, lpa.confidence AS lpaConfidence
+			, lpa.status AS lpaStatus
+			, lpa.probabilities_json AS lpaProbabilitiesJson
+			, (SELECT IF(ROUND(b1_1.T_SCORE) < 0, 0, ROUND(b1_1.T_SCORE)) FROM tb_dgnss_answer_report b1_1 WHERE b1_1.ANSWER_IDX = c1.ANSWER_IDX AND b1_1.SECTION_ID = '20-22-03-0-0-0') AS total
+			, (SELECT IF(ROUND(b1_2.T_SCORE) < 0, 0, ROUND(b1_2.T_SCORE)) FROM tb_dgnss_answer_report b1_2 WHERE b1_2.ANSWER_IDX = c1.ANSWER_IDX AND b1_2.SECTION_ID = '20-22-03-01-0-0') AS behvCtrl
+			, (SELECT IF(ROUND(b1_3.T_SCORE) < 0, 0, ROUND(b1_3.T_SCORE)) FROM tb_dgnss_answer_report b1_3 WHERE b1_3.ANSWER_IDX = c1.ANSWER_IDX AND b1_3.SECTION_ID = '20-22-03-01-01-0') AS selfPraise
+			, (SELECT IF(ROUND(b1_4.T_SCORE) < 0, 0, ROUND(b1_4.T_SCORE)) FROM tb_dgnss_answer_report b1_4 WHERE b1_4.ANSWER_IDX = c1.ANSWER_IDX AND b1_4.SECTION_ID = '20-22-03-01-02-0') AS help
+			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '20-22-03-01-03-0') AS lrnConti
+			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '20-22-03-02-0-0') AS behvLrnSkil
+			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-03-02-01-0') AS styEnvi
+			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-03-02-02-0') AS timeCtrl
+			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-03-02-03-0') AS styAtti
+			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '20-22-03-02-04-0') AS note
+			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '20-22-03-02-05-0') AS test
+			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
+			INNER JOIN group_info gi ON gi.cla_id = #{claId}
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+		WHERE a1.cla_id <> #{claId}
+			AND a1.paper_idx = #{paperIdx}
+			AND a1.ord_no = #{ordNo}
+			AND a1.dgnss_at = 'N'
+			AND b1.subm_at = 'Y'
+		]]>
+			AND b1.stdt_id IN
+			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
+				#{stdtId}
+			</foreach>
+		ORDER BY gm.member_no
+	</select>
+
 	<select id="selectTcDgnssDetailInfo" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcDgnssDetailInfo */
 		SELECT a1.`id` AS dgnssId
@@ -2776,6 +3211,31 @@
 			</if>
 			AND IFNULL(c1.NO_ANS_CNT, 0) <![CDATA[<]]> 10
 		GROUP BY a1.id, b1.stdt_id
+	</select>
+
+	<select id="selectClaIdByDgnssId" parameterType="int" resultType="string">
+		/* DgnssMapper.selectClaIdByDgnssId */
+		SELECT cla_id
+		FROM tb_dgnss_info
+		WHERE id = #{dgnssId}
+		LIMIT 1
+	</select>
+
+	<select id="selectClassStudentsSubmStatusFromOtherClasses" parameterType="map" resultType="map">
+		/* DgnssMapper.selectClassStudentsSubmStatusFromOtherClasses */
+		SELECT b1.stdt_id AS stdtId
+			, MAX(b1.subm_at) AS submAt
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+		WHERE a1.cla_id <![CDATA[<>]]> #{claId}
+			AND a1.paper_idx = #{paperIdx}
+			AND a1.ord_no = #{ordNo}
+			AND a1.dgnss_at = 'N'
+			AND b1.stdt_id IN
+			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
+				#{stdtId}
+			</foreach>
+		GROUP BY b1.stdt_id
 	</select>
 
 	<select id="selectClassLernReport" parameterType="map" resultType="map">

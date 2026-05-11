@@ -117,6 +117,17 @@ public interface DgnssMapper {
     int selectOrdNoByDgnssId(@Param("dgnssId") int dgnssId);
     List<String> selectClassStudentsWithoutResultInClassForOrd(Map<String, Object> param);
     List<Map<String, Object>> selectClassTotalReportFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectClassStudentsSubmStatusFromOtherClasses(Map<String, Object> param);
+    String selectClaIdByDgnssId(@Param("dgnssId") int dgnssId);
+    List<Map<String, Object>> selectDgnssAnswerReliabilityFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType2FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType3FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType4FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType5FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType6FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectDgnssAnswerReportMotivateFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectDgnssAnswerReportRecognitionFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectDgnssAnswerReportBehaviorFromOtherClasses(Map<String, Object> param);
     List<Map<String, Object>> selectClassLernReport(Map<String, Object> param);
 
     // 학생) 답 입력
