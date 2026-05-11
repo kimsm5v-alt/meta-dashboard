@@ -34,7 +34,7 @@ export async function getStudentExamList(
   stdtId: string,
 ): Promise<StudentExamListItem[]> {
   const items = await fetchStudentExamList(claId, stdtId);
-  return items.map((item, index) => mapToListItem(item, index + 1));
+  return items.map((item) => mapToListItem(item, item.ordNo));
 }
 
 /** 검사 상태 라벨 */
