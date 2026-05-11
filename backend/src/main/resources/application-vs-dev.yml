@@ -16,7 +16,7 @@ superplatform:
 
 # ===== QCH 적재 (dev) =====
 qch:
-  enabled: ${QCH_ENABLED:false}
+  enabled: ${QCH_ENABLED:true}
   base-url: ${QCH_BASE_URL:https://t-qch.vsaidt.com}
   service-key: ${QCH_SERVICE_KEY:meta-api}
   env: ${QCH_ENV:DEV}
