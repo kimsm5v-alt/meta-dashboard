@@ -122,7 +122,6 @@ const GroupMeta = styled.p`
   margin-bottom: 12px;
 `;
 
-
 const InfoBox = styled.div<{ $variant: 'blue' | 'amber' }>`
   background: ${({ $variant }) => ($variant === 'blue' ? '#eff6ff' : '#fffbeb')};
   border-radius: ${({ theme }) => theme.radius.lg};
@@ -266,11 +265,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
     setStep('joining');
 
     try {
-      await groupService.joinGroup(
-        { inviteCode: groupInfo.inviteCode },
-        user.id,
-        user.name,
-      );
+      await groupService.joinGroup({ inviteCode: groupInfo.inviteCode }, user.id, user.name);
 
       setStep('success');
 
@@ -283,10 +278,18 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
       }, 2000);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '가입에 실패했습니다.';
-
-      if (errorMessage === 'ALREADY_JOINED') {
+      console.log(errorMessage, '에러메세지');
+      if (errorMessage.includes('강퇴된 그룹')) {
+        setError('탈퇴된 그룹이므로 가입할 수 없습니다.');
+      } else if (
+        errorMessage === 'ALREADY_JOINED' ||
+        errorMessage.includes('이미 해당 그룹에 가입')
+      ) {
         setError('이미 가입된 그룹입니다.');
-      } else if (errorMessage === 'GROUP_DELETED') {
+      } else if (
+        errorMessage === 'GROUP_DELETED' ||
+        errorMessage.includes('유효한 초대코드가 아닙니다')
+      ) {
         setError('존재하지 않는 그룹입니다.');
       } else {
         setError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
@@ -386,7 +389,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
             {user ? (
               <FlexButton onClick={handleJoin}>가입하기</FlexButton>
             ) : (
-              <FlexButton onClick={() => window.location.href = '/login'}>로그인하기</FlexButton>
+              <FlexButton onClick={() => (window.location.href = '/login')}>로그인하기</FlexButton>
             )}
           </ButtonRow>
         </ContentWrapper>
