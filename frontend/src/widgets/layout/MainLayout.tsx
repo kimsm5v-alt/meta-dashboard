@@ -9,6 +9,7 @@ import {
   Users,
   Settings,
   User,
+  UserCog,
   ChevronRight,
   LogOut,
   ClipboardList,
@@ -27,6 +28,7 @@ import { BellWithPanel } from '@features/notifications';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_TEACHER_ME } from '@shared/data/apiDefinitions';
 import { FEATURES, type FeatureKey } from '@shared/config/features';
+import { ENV } from '@shared/config/env';
 import serviceLogo from '@/assets/logo_2.png';
 
 // ============================================================================
@@ -478,6 +480,16 @@ const Header = () => {
     navigate('/');
   };
 
+  // SP 마이페이지로 이동 — 같은 탭, client_id + return_to(현재 URL) query
+  // 참조: superplatform-mypage/docs/mypage-integration-guide.html
+  const openMypage = () => {
+    const params = new URLSearchParams({
+      client_id: ENV.SP_CLIENT_ID,
+      return_to: window.location.href,
+    });
+    window.location.href = `${ENV.SP_MYPAGE_URL}/?${params}`;
+  };
+
   return (
     <HeaderWrapper>
       <HeaderContent>
@@ -500,6 +512,9 @@ const Header = () => {
                 <User />
               </UserAvatarPlaceholder>
             )}
+            <IconButton onClick={openMypage} title='내 정보 설정' aria-label='내 정보 설정'>
+              <UserCog />
+            </IconButton>
             <LogoutButton onClick={handleLogout} title='로그아웃'>
               <LogOut />
             </LogoutButton>
