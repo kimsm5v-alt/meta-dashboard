@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   MessageSquare,
   Users,
-  Settings,
   User,
   UserCog,
   ChevronRight,
@@ -498,8 +497,8 @@ const Header = () => {
         </LogoButton>
         <HeaderActions>
           <BellWithPanel />
-          <IconButton>
-            <Settings />
+          <IconButton onClick={openMypage} title='내 정보 설정' aria-label='내 정보 설정'>
+            <UserCog />
           </IconButton>
           <UserSection>
             <ApiTooltip {...API_TEACHER_ME} position='bottom-right'>
@@ -512,9 +511,6 @@ const Header = () => {
                 <User />
               </UserAvatarPlaceholder>
             )}
-            <IconButton onClick={openMypage} title='내 정보 설정' aria-label='내 정보 설정'>
-              <UserCog />
-            </IconButton>
             <LogoutButton onClick={handleLogout} title='로그아웃'>
               <LogOut />
             </LogoutButton>

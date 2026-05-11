@@ -15,12 +15,14 @@ import {
   PanelLeftClose,
   PanelLeft,
   UserCircle,
+  UserCog,
   type LucideIcon,
 } from 'lucide-react';
 import styled from '@emotion/styled';
 import { BellWithPanel } from '@features/notifications';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { getMyGroups } from '@features/groups/api/groupService';
+import { ENV } from '@shared/config/env';
 
 // ============================================================
 // 타입
@@ -131,6 +133,29 @@ const IconButton = styled.button`
   &:hover {
     color: #ef4444;
     background: #fef2f2;
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+`;
+
+const MypageButton = styled.button`
+  padding: ${({ theme }) => theme.spacing.sm};
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: ${({ theme }) => theme.radius.md};
+  color: ${({ theme }) => theme.colors.gray[500]};
+  transition: all ${({ theme }) => theme.transitions.fast};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.gray[700]};
+    background: ${({ theme }) => theme.colors.gray[100]};
   }
 
   svg {
@@ -307,6 +332,16 @@ const StudentHeader = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  // SP 마이페이지로 이동 — 같은 탭, client_id + return_to(현재 URL) query
+  // 참조: superplatform-mypage/docs/mypage-integration-guide.html
+  const openMypage = () => {
+    const params = new URLSearchParams({
+      client_id: ENV.SP_CLIENT_ID,
+      return_to: window.location.href,
+    });
+    window.location.href = `${ENV.SP_MYPAGE_URL}/?${params}`;
+  };
+
   return (
     <StyledHeader>
       <HeaderTitle onClick={() => navigate('/student/exams')}>
@@ -314,6 +349,9 @@ const StudentHeader = () => {
       </HeaderTitle>
       <HeaderRight>
         <BellWithPanel />
+        <MypageButton onClick={openMypage} title='내 정보 설정' aria-label='내 정보 설정'>
+          <UserCog />
+        </MypageButton>
         <UserInfo>
           <UserDetails>
             <UserName>{user?.name ?? '학생'}</UserName>
