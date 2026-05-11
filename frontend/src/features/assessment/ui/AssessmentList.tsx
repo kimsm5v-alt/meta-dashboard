@@ -340,10 +340,12 @@ const AssessmentItem: React.FC<{
           <RoundBadge>{assessment.round}차</RoundBadge>
         </ItemTitle>
         <Actions>
-          <ActionButton onClick={() => onViewCode(assessment)} $variant='primary'>
-            <Eye className='w-4 h-4' />
-            코드 보기
-          </ActionButton>
+          {assessment.isActive !== false && (
+            <ActionButton onClick={() => onViewCode(assessment)} $variant='primary'>
+              <Eye className='w-4 h-4' />
+              코드 보기
+            </ActionButton>
+          )}
           {showRestartButton && onRestartExam && (
             <ActionButton onClick={() => setShowRestartConfirm(true)} $variant='primary'>
               <RefreshCw className='w-4 h-4' />
@@ -356,7 +358,7 @@ const AssessmentItem: React.FC<{
               종료
             </ActionButton>
           )}
-          {onCancelExam && (
+          {assessment.isActive !== false && onCancelExam && (
             <ActionButton onClick={() => onCancelExam(assessment)} $variant='danger'>
               <Trash2 className='w-4 h-4' />
               취소
