@@ -504,7 +504,7 @@ export async function fetchStudentFullAnalysis(
       lpaTypeName: normalizeLpaTypeName(rawLpaTypeName),
       apiTypeProbabilities,
       midCategoryScores: extractMidCategoryScores(roundData),
-      answerIdx: recEntry?.answerIdx ?? null,
+      answerIdx: lpaTopEntry?.answerIdx ?? recEntry?.answerIdx ?? null,
       recommendations: recommendationByOrd,
     };
   };
@@ -713,7 +713,11 @@ export async function fetchL2DashboardData(
       const assessments: import('@shared/types').Assessment[] = [];
 
       if (fullAnalysis.round1?.tScores) {
-        assessments.push(convertToAssessment(info.stdtId, 1, fullAnalysis.round1, schoolLevel));
+        const r1data = {
+          ...fullAnalysis.round1,
+          answerIdx: fullAnalysis.round1.answerIdx ?? info.answerIdx ?? null,
+        };
+        assessments.push(convertToAssessment(info.stdtId, 1, r1data, schoolLevel));
       }
 
       if (fullAnalysis.round2?.tScores) {

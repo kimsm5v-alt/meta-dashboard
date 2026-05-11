@@ -13,8 +13,8 @@ import {
   downloadAllPdf,
   downloadStudentPdf,
   downloadTeacherReportPdf,
-  fetchPdfAnswerMap,
 } from '@shared/services/pdfDownloadService';
+import { fetchStudentInfoList } from '@shared/services/dashboardService';
 import type { Student, Assessment, Class } from '@shared/types';
 import {
   TypeChangeChart,
@@ -534,10 +534,7 @@ export const ClassDashboardWidget: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [downloadError, setDownloadError] = useState(false);
   const [allPdfProgress, setAllPdfProgress] = useState<{ current: number; total: number } | null>(null);
-  const [pdfAnswerMap, setPdfAnswerMap] = useState<{
-    round1: Map<string, number>;
-    round2: Map<string, number>;
-  }>({ round1: new Map(), round2: new Map() });
+  const [round2AnswerIdxMap, setRound2AnswerIdxMap] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     if (!downloadError) return;
@@ -546,18 +543,15 @@ export const ClassDashboardWidget: React.FC = () => {
   }, [downloadError]);
 
   useEffect(() => {
-    if (!hasJwtToken || !user?.id) return;
-    if (dgnssIds.round1) {
-      void fetchPdfAnswerMap(dgnssIds.round1, user.id).then((map) =>
-        setPdfAnswerMap((prev) => ({ ...prev, round1: map })),
-      );
-    }
-    if (dgnssIds.round2) {
-      void fetchPdfAnswerMap(dgnssIds.round2, user.id).then((map) =>
-        setPdfAnswerMap((prev) => ({ ...prev, round2: map })),
-      );
-    }
-  }, [dgnssIds.round1, dgnssIds.round2, hasJwtToken, user?.id]);
+    if (!hasJwtToken || !dgnssIds.round2) return;
+    void fetchStudentInfoList(dgnssIds.round2).then((list) => {
+      const map = new Map<string, number>();
+      for (const item of list) {
+        if (item.answerIdx != null) map.set(item.stdtId, item.answerIdx);
+      }
+      setRound2AnswerIdxMap(map);
+    });
+  }, [dgnssIds.round2, hasJwtToken]);
 
   const baseClassData = classId ? getClassById(classId) : undefined;
 
@@ -774,7 +768,7 @@ export const ClassDashboardWidget: React.FC = () => {
     setDownloadError(false);
     setAllPdfProgress(null);
     try {
-      await downloadAllPdf(dgnssId, user.id, round, 3, (current, total) => {
+      await downloadAllPdf(dgnssId, round, 3, (current, total) => {
         setAllPdfProgress({ current, total });
       });
     } catch {
@@ -803,8 +797,8 @@ export const ClassDashboardWidget: React.FC = () => {
 
   const handleDownloadStudentPdf = async (student: Student, round: 1 | 2, type: 1 | 2) => {
     const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
-    const map = round === 1 ? pdfAnswerMap.round1 : pdfAnswerMap.round2;
-    const answerIdx = map.get(student.id);
+    const assessment = student.assessments.find((a) => a.round === round);
+    const answerIdx = assessment?.answerIdx ?? (round === 2 ? round2AnswerIdxMap.get(student.id) : undefined);
     if (!dgnssId || answerIdx == null) return;
 
     setDownloadError(false);
@@ -1090,9 +1084,7 @@ export const ClassDashboardWidget: React.FC = () => {
                                 e.stopPropagation();
                                 void handleDownloadStudentPdf(student, 1, 1);
                               }}
-                              disabled={
-                                !dgnssIds.round1 || pdfAnswerMap.round1.get(student.id) == null
-                              }
+                              disabled={!dgnssIds.round1 || r1?.answerIdx == null}
                               title='1차 상세'
                             />
                           </PdfTableCell>
@@ -1102,9 +1094,7 @@ export const ClassDashboardWidget: React.FC = () => {
                                 e.stopPropagation();
                                 void handleDownloadStudentPdf(student, 1, 2);
                               }}
-                              disabled={
-                                !dgnssIds.round1 || pdfAnswerMap.round1.get(student.id) == null
-                              }
+                              disabled={!dgnssIds.round1 || r1?.answerIdx == null}
                               title='1차 요약'
                             />
                           </PdfTableCell>
@@ -1115,7 +1105,7 @@ export const ClassDashboardWidget: React.FC = () => {
                                   e.stopPropagation();
                                   void handleDownloadStudentPdf(student, 2, 1);
                                 }}
-                                disabled={pdfAnswerMap.round2.get(student.id) == null}
+                                disabled={r2?.answerIdx == null && !round2AnswerIdxMap.has(student.id)}
                                 title='2차 상세'
                               />
                             ) : (
@@ -1129,7 +1119,7 @@ export const ClassDashboardWidget: React.FC = () => {
                                   e.stopPropagation();
                                   void handleDownloadStudentPdf(student, 2, 2);
                                 }}
-                                disabled={pdfAnswerMap.round2.get(student.id) == null}
+                                disabled={r2?.answerIdx == null && !round2AnswerIdxMap.has(student.id)}
                                 title='2차 요약'
                               />
                             ) : (

@@ -9,6 +9,7 @@ interface PdfDownloadResponse {
   url?: string;
   resultData?: {
     fileUrl?: string;
+    summaryUrl?: string;
     url?: string;
   };
 }
@@ -72,6 +73,7 @@ function extractFileUrl(data: PdfDownloadResponse): string | undefined {
     data.summaryUrl ??
     data.url ??
     data.resultData?.fileUrl ??
+    data.resultData?.summaryUrl ??
     data.resultData?.url
   );
 }
@@ -84,27 +86,35 @@ function extractFileUrl(data: PdfDownloadResponse): string | undefined {
  */
 export async function downloadAllPdf(
   dgnssId: number,
-  teacherUserId: string,
   ordNo: 1 | 2,
   type: 1 | 2 | 3 = 3,
   onProgress?: (current: number, total: number) => void,
 ): Promise<void> {
-  // Step 1: 미생성 PDF 대상 학생 조회
+  // Step 1: 미생성 PDF 대상 학생 조회 (type=3: 상세·요약 둘 중 하나라도 미생성)
   const searchRes = await axiosInstance.get<{
-    resultData: { data: Array<{ userId: string; userType: 'S' | 'T'; answerIdx: number }> };
+    resultData: { data: Array<{ userId: string; userType: 'S' | 'T'; answerIdx: number; targetType: string }> };
   }>('/api/dgnss/pdf/search', {
-    params: { dgnssId, userId: teacherUserId, userType: 'T' },
+    params: { dgnssId, type },
   });
   const students = searchRes.data.resultData?.data ?? [];
 
   // Step 2: 학생별 PDF 생성 요청 (URL 무시, 생성만)
+  // targetType "2"(요약)는 /summary/pdf, "1"(상세)는 /pdf
   for (let i = 0; i < students.length; i++) {
-    const { userId, userType, answerIdx } = students[i];
-    await axiosInstance.post(
-      '/api/dgnss/pdf',
-      { userId, userType, dgnssId, answerIdx, ordNo },
-      { validateStatus: () => true },
-    );
+    const { userId, userType, answerIdx, targetType } = students[i];
+    if (targetType === '2') {
+      await axiosInstance.post(
+        '/api/dgnss/summary/pdf',
+        { answerIdx },
+        { validateStatus: () => true },
+      );
+    } else {
+      await axiosInstance.post(
+        '/api/dgnss/pdf',
+        { userId, userType, dgnssId, answerIdx, ordNo, type: Number(targetType) },
+        { validateStatus: () => true },
+      );
+    }
     onProgress?.(i + 1, students.length);
   }
 
@@ -119,44 +129,59 @@ export async function downloadAllPdf(
 
 /**
  * 2. 교사용 보고서 PDF 다운로드 - POST
+ * type=2(요약)는 /summary/pdf, type=1(상세)는 /pdf
  */
 export async function downloadTeacherReportPdf(params: PdfDownloadRequest): Promise<void> {
+  if (params.type === 2) {
+    const response = await axiosInstance.post<PdfDownloadResponse>(
+      '/api/dgnss/summary/pdf',
+      { answerIdx: params.answerIdx },
+      { validateStatus: () => true },
+    );
+    const fileUrl = extractFileUrl(response.data);
+    if (fileUrl) await openBlobFromUrl(fileUrl);
+    return;
+  }
+
   const response = await axiosInstance.post<PdfDownloadResponse>('/api/dgnss/pdf', params, {
     validateStatus: () => true,
   });
-
   const fileUrl = extractFileUrl(response.data);
-  if (fileUrl) {
-    await openBlobFromUrl(fileUrl);
-  }
+  if (fileUrl) await openBlobFromUrl(fileUrl);
 }
 
 /**
  * 3. 개별 학생 PDF 다운로드 - POST
+ * type=2(요약)는 /summary/pdf, type=1(상세)는 /pdf
  */
 export async function downloadStudentPdf(params: PdfDownloadRequest): Promise<void> {
+  if (params.type === 2) {
+    const response = await axiosInstance.post<PdfDownloadResponse>(
+      '/api/dgnss/summary/pdf',
+      { answerIdx: params.answerIdx },
+      { validateStatus: () => true },
+    );
+    const fileUrl = extractFileUrl(response.data);
+    if (fileUrl) await openBlobFromUrl(fileUrl);
+    return;
+  }
+
   const response = await axiosInstance.post<PdfDownloadResponse>('/api/dgnss/pdf', params, {
     validateStatus: () => true,
   });
-
   const fileUrl = extractFileUrl(response.data);
-  if (fileUrl) {
-    await openBlobFromUrl(fileUrl);
-  }
+  if (fileUrl) await openBlobFromUrl(fileUrl);
 }
 
 /**
  * 4. PDF 발급 가능한 학생 목록 조회 - GET
  * dgnssId에 해당하는 학생별 answerIdx 맵 반환 (studentId → answerIdx)
  */
-export async function fetchPdfAnswerMap(
-  dgnssId: number,
-  teacherUserId: string,
-): Promise<Map<string, number>> {
+export async function fetchPdfAnswerMap(dgnssId: number): Promise<Map<string, number>> {
   const response = await axiosInstance.get<{
     resultData: { data: Array<{ userId: string; answerIdx: number }> };
   }>('/api/dgnss/pdf/search', {
-    params: { dgnssId, userId: teacherUserId, userType: 'T' },
+    params: { dgnssId, type: 3 },
   });
   const map = new Map<string, number>();
   for (const item of response.data.resultData?.data ?? []) {

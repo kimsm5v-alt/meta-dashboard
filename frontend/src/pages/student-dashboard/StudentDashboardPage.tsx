@@ -435,12 +435,12 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   useEffect(() => {
     if (!hasJwtToken || !user?.id) return;
     if (dgnssIds.round1) {
-      void fetchPdfAnswerMap(dgnssIds.round1, user.id).then((map) =>
+      void fetchPdfAnswerMap(dgnssIds.round1).then((map) =>
         setPdfAnswerIdx((prev) => ({ ...prev, round1: map.get(studentId) })),
       );
     }
     if (dgnssIds.round2) {
-      void fetchPdfAnswerMap(dgnssIds.round2, user.id).then((map) =>
+      void fetchPdfAnswerMap(dgnssIds.round2).then((map) =>
         setPdfAnswerIdx((prev) => ({ ...prev, round2: map.get(studentId) })),
       );
     }
