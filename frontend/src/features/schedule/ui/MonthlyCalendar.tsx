@@ -121,6 +121,13 @@ interface CalendarDay {
   schedules: CounselingRecord[];
 }
 
+const formatDate = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 // 월간 달력 날짜 배열 생성
 const getMonthDays = (date: Date): CalendarDay[] => {
   const days: CalendarDay[] = [];
@@ -137,8 +144,7 @@ const getMonthDays = (date: Date): CalendarDay[] => {
   // 이전 월의 날짜 채우기
   const prevMonthLastDay = new Date(year, month, 0).getDate();
 
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = formatDate(new Date());
 
   // 이전 월 날짜들
   for (let i = startDayOfWeek - 1; i >= 0; i--) {
@@ -146,7 +152,7 @@ const getMonthDays = (date: Date): CalendarDay[] => {
     days.push({
       date: d,
       isCurrentMonth: false,
-      isToday: d.toISOString().split('T')[0] === todayStr,
+      isToday: formatDate(d) === todayStr,
       schedules: [],
     });
   }
@@ -157,7 +163,7 @@ const getMonthDays = (date: Date): CalendarDay[] => {
     days.push({
       date: d,
       isCurrentMonth: true,
-      isToday: d.toISOString().split('T')[0] === todayStr,
+      isToday: formatDate(d) === todayStr,
       schedules: [],
     });
   }
@@ -169,16 +175,12 @@ const getMonthDays = (date: Date): CalendarDay[] => {
     days.push({
       date: d,
       isCurrentMonth: false,
-      isToday: d.toISOString().split('T')[0] === todayStr,
+      isToday: formatDate(d) === todayStr,
       schedules: [],
     });
   }
 
   return days;
-};
-
-const formatDate = (date: Date): string => {
-  return date.toISOString().split('T')[0];
 };
 
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];

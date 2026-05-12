@@ -20,7 +20,10 @@ export const formatDateShort = (dateStr: string): string => {
   return date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
 };
 
-/** Date 객체 → 'YYYY-MM-DD' ISO 문자열 */
+/** Date 객체 → 'YYYY-MM-DD' (로컬 타임존 기준) */
 export const formatDateISO = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
