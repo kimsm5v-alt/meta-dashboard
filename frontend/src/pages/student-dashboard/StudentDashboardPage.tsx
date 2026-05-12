@@ -16,8 +16,8 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { useStudentAnalysis, useApiConfig } from '@features/api';
-import { useAuth } from '@features/auth/model/AuthContext';
-import { downloadStudentPdf, fetchPdfAnswerMap } from '@shared/services/pdfDownloadService';
+import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
+import { fetchStudentInfoList } from '@shared/services/dashboardService';
 import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
@@ -404,7 +404,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   dgnssIds,
 }) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
@@ -424,7 +423,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 
   const [isPdfDownloading, setIsPdfDownloading] = useState(false);
   const [pdfError, setPdfError] = useState(false);
-  const [pdfAnswerIdx, setPdfAnswerIdx] = useState<{ round1?: number; round2?: number }>({});
+  const [r2AnswerIdx, setR2AnswerIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!pdfError) return;
@@ -432,23 +431,20 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     return () => clearTimeout(id);
   }, [pdfError]);
 
+  const r1 = student.assessments.find((a) => a.round === 1);
+  const r2 = student.assessments.find((a) => a.round === 2);
+
   useEffect(() => {
-    if (!hasJwtToken || !user?.id) return;
-    if (dgnssIds.round1) {
-      void fetchPdfAnswerMap(dgnssIds.round1).then((map) =>
-        setPdfAnswerIdx((prev) => ({ ...prev, round1: map.get(studentId) })),
-      );
-    }
-    if (dgnssIds.round2) {
-      void fetchPdfAnswerMap(dgnssIds.round2).then((map) =>
-        setPdfAnswerIdx((prev) => ({ ...prev, round2: map.get(studentId) })),
-      );
-    }
-  }, [dgnssIds.round1, dgnssIds.round2, hasJwtToken, user?.id, studentId]);
+    if (!hasJwtToken || !dgnssIds.round2 || r2?.answerIdx != null) return;
+    void fetchStudentInfoList(dgnssIds.round2).then((list) => {
+      const entry = list.find((item) => item.stdtId === studentId);
+      if (entry) setR2AnswerIdx(entry.answerIdx);
+    });
+  }, [dgnssIds.round2, hasJwtToken, r2?.answerIdx, studentId]);
 
   const handleDownloadPdf = async (round: 1 | 2, type: 1 | 2) => {
     const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
-    const answerIdx = round === 1 ? pdfAnswerIdx.round1 : pdfAnswerIdx.round2;
+    const answerIdx = round === 1 ? r1?.answerIdx : (r2?.answerIdx ?? r2AnswerIdx);
     if (!dgnssId || answerIdx == null) return;
     setIsPdfDownloading(true);
     setPdfError(false);
@@ -469,8 +465,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   };
   const isCompare = viewMode === 'compare';
 
-  const r1 = student.assessments.find((a) => a.round === 1);
-  const r2 = student.assessments.find((a) => a.round === 2);
   const current = selectedRound === 2 && r2 ? r2 : r1;
 
   // useMemo는 항상 호출 (current가 없으면 빈 배열 사용)
@@ -623,14 +617,14 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               <PdfButtonsArea>
                 <PdfReportBtn
                   onClick={() => void handleDownloadPdf(1, 1)}
-                  disabled={isPdfDownloading || pdfAnswerIdx.round1 == null}
+                  disabled={isPdfDownloading || r1?.answerIdx == null}
                   title='학생 1차 상세 보고서 PDF 다운로드'
                 >
                   학생 1차 상세 보고서
                 </PdfReportBtn>
                 <PdfReportBtn
                   onClick={() => void handleDownloadPdf(1, 2)}
-                  disabled={isPdfDownloading || pdfAnswerIdx.round1 == null}
+                  disabled={isPdfDownloading || r1?.answerIdx == null}
                   title='학생 1차 요약 보고서 PDF 다운로드'
                 >
                   학생 1차 요약 보고서
@@ -639,14 +633,14 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                   <>
                     <PdfReportBtn
                       onClick={() => void handleDownloadPdf(2, 1)}
-                      disabled={isPdfDownloading || pdfAnswerIdx.round2 == null}
+                      disabled={isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)}
                       title='학생 2차 상세 보고서 PDF 다운로드'
                     >
                       학생 2차 상세 보고서
                     </PdfReportBtn>
                     <PdfReportBtn
                       onClick={() => void handleDownloadPdf(2, 2)}
-                      disabled={isPdfDownloading || pdfAnswerIdx.round2 == null}
+                      disabled={isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)}
                       title='학생 2차 요약 보고서 PDF 다운로드'
                     >
                       학생 2차 요약 보고서
