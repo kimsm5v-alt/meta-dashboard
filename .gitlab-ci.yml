@@ -1,0 +1,62 @@
+include:
+  - project: visang-cloud/ci/ci-templates
+    ref: main
+    file: /gitlab-ci/vs-argocd-manifest.yml
+
+# 원본 job들을 오버라이드하여 비활성화
+build_image:
+  rules:
+    - when: never
+
+update_manifest:
+  rules:
+    - when: never
+
+# 커스텀 빌드 job들
+build_image:meta-dashboard-backend:
+  extends: build_image
+  rules:
+    - changes:
+        - backend/**/*
+      when: on_success
+    - when: never
+  variables:
+    APP_NAME: "meta-dashboard-be"
+    DOCKERFILE_PATH: "backend/Dockerfile"
+
+build_image:meta-dashboard-front:
+  extends: build_image
+  rules:
+    - changes:
+        - frontend/**/*
+      when: on_success
+    - when: never
+  variables:
+    APP_NAME: "meta-dashboard-fe"
+    DOCKERFILE_PATH: "frontend/Dockerfile"
+
+update_manifest:meta-dashboard-backend:
+  extends: update_manifest
+  rules:
+    - changes:
+        - backend/**/*
+      when: on_success
+    - when: never
+  needs:
+    - build_image:meta-dashboard-backend
+    - set_app_dir
+  variables:
+    APP_NAME: "meta-dashboard-be"
+
+update_manifest:meta-dashboard-front:
+  extends: update_manifest
+  rules:
+    - changes:
+        - frontend/**/*
+      when: on_success
+    - when: never
+  needs:
+    - build_image:meta-dashboard-front
+    - set_app_dir
+  variables:
+    APP_NAME: "meta-dashboard-fe"
