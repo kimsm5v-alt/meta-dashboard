@@ -27,7 +27,7 @@ import {
 } from '@shared/utils/recordGenerator';
 import type { ExampleSentence } from '@shared/data/schoolRecordSentences';
 import { buildSimpleRecordMessages, validateSchoolRecordOutput } from '@shared/data/aiPrompts';
-import { callAI } from '@shared/services/ai';
+import { agentChatStream } from '@features/ai-room/api/agentApiService';
 
 // ============================================================
 // Styled Components
@@ -602,6 +602,9 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
 
   const handleGenerate = async () => {
     setIsGenerating(true);
+    const previousText = generatedText;
+    setGeneratedText('');
+
     try {
       const params = {
         schoolLevel: schoolLevelKr,
@@ -624,21 +627,18 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
       };
 
       const { systemPrompt, userMessage } = buildSimpleRecordMessages(params);
+      const fullPrompt = `${systemPrompt}\n\n---\n\n${userMessage}`;
+      const sessionId = `school-record-${student.id}`;
 
-      const response = await callAI({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage },
-        ],
+      let accumulated = '';
+      await agentChatStream(fullPrompt, sessionId, (chunk) => {
+        accumulated += chunk;
+        setGeneratedText(accumulated);
       });
 
-      if (response.success) {
-        setGeneratedText(response.content);
-      } else {
-        throw new Error(response.error ?? '생성 실패');
-      }
+      if (!accumulated) throw new Error('empty response');
     } catch {
-      setGeneratedText('생성에 실패했습니다. 다시 시도해주세요.');
+      setGeneratedText(previousText || '생성에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsGenerating(false);
     }
