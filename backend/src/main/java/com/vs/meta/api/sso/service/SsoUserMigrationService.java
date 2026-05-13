@@ -30,7 +30,7 @@ public class SsoUserMigrationService {
     /**
      * email로 기존 회원 찾아 sp_user_id 매핑.
      *
-     * @return 매핑 성공한 user (이미 다른 sp_user_id가 매핑된 경우 null)
+     * @return 매핑 성공한 user (email이 없거나 학심정에 미가입된 경우 null)
      */
     @Transactional
     public User migrateBySpUserId(SpAuthenticatedUser spUser) {
@@ -39,8 +39,15 @@ public class SsoUserMigrationService {
         User user = userMapper.findByEmail(spUser.email());
         if (user == null) return null;
 
-        // 이미 다른 sp_user_id가 매핑된 경우 → 다른 사람
-        if (user.getSpUserId() != null) return null;
+        // 이미 같은 sp_user_id로 매핑된 경우 → 이미 완료
+        if (spUser.spUserId().equals(user.getSpUserId())) return user;
+
+        // sp_user_id가 다른 값으로 매핑된 경우 → SSO 탈퇴 후 재가입 케이스
+        // SSO는 이메일 유니크를 보장하므로 같은 이메일 = 동일 인물, 새 UUID로 재연결
+        if (user.getSpUserId() != null) {
+            log.info("SSO 재가입 감지 (탈퇴 후 재가입), sp_user_id 재연결: userNo={}, email={}",
+                    user.getUserNo(), PiiMasker.email(spUser.email()));
+        }
 
         user.setSpUserId(spUser.spUserId());
         user.setUpdatedBy(user.getUserNo());
