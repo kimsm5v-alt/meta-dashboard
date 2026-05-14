@@ -1,5 +1,6 @@
 package com.vs.meta.common.controller;
 
+import com.vs.meta.common.aop.QchSkip;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -12,6 +13,7 @@ import java.io.IOException;
 
 @Slf4j
 @Controller
+@QchSkip(reason = "헬스체크/robots.txt - 인증 없는 시스템 엔드포인트")
 public class IndexController {
 
     @Hidden
