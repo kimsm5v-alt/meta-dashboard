@@ -362,6 +362,11 @@
                     </ul>
                 </li>
                 <li class="nav-item">
+                    <a href="/admin/bug-reports" class="nav-link" th:classappend="${menu == 'bug-reports'} ? 'active'">
+                        <i class="nav-icon fas fa-bug"></i><p>AI 버그리포트</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="/admin/api-test" class="nav-link" th:classappend="${menu == 'api-test'} ? 'active'">
                         <i class="nav-icon fas fa-flask"></i><p>API 테스트</p>
                     </a>

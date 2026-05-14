@@ -1,6 +1,7 @@
 package com.vs.meta.admin.controller;
 
 import com.vs.meta.admin.service.AdminUserService;
+import com.vs.meta.api.ai.mapper.AiBugReportMapper;
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupQueryMapper;
 import com.vs.meta.api.school.mapper.SchoolInfoMapper;
@@ -8,6 +9,7 @@ import com.vs.meta.api.school.service.SchoolSyncService;
 import com.vs.meta.api.school.service.SchoolSyncService.SchoolImportResult;
 import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
+import com.vs.meta.domain.AiBugReport;
 import com.vs.meta.domain.AuthSchoolMap;
 import com.vs.meta.domain.RoleGroup;
 import com.vs.meta.domain.User;
@@ -39,6 +41,7 @@ public class AdminController {
     private final SchoolSyncService schoolSyncService;
     private final GroupInfoMapper groupInfoMapper;
     private final GroupQueryMapper groupQueryMapper;
+    private final AiBugReportMapper aiBugReportMapper;
     private static final int PAGE_SIZE = 20;
     private static final DateTimeFormatter API_TOKEN_TS_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
@@ -406,5 +409,58 @@ public class AdminController {
         model.addAttribute("total", total);
         model.addAttribute("groupId", groupId);
         return "admin/group-detail";
+    }
+
+    // ===== AI 버그리포트 관리 =====
+
+    @GetMapping("/bug-reports")
+    public String bugReports(@RequestParam(defaultValue = "1") int page,
+                             @RequestParam(required = false) String status,
+                             @RequestParam(required = false) String errorType,
+                             @RequestParam(required = false) String severity,
+                             Model model) {
+        long total = aiBugReportMapper.countBugReports(status, errorType, severity);
+        int totalPages = PageUtil.totalPages(total, PAGE_SIZE);
+        page = PageUtil.clampPage(page, totalPages);
+
+        model.addAttribute("reports", aiBugReportMapper.selectBugReportList(
+                status, errorType, severity, PAGE_SIZE, PageUtil.offsetOneIndexed(page, PAGE_SIZE)));
+        model.addAttribute("page", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("total", total);
+        model.addAttribute("status", status);
+        model.addAttribute("errorType", errorType);
+        model.addAttribute("severity", severity);
+        return "admin/bug-reports";
+    }
+
+    @GetMapping("/bug-reports/{id}")
+    public String bugReportDetail(@PathVariable Long id, Model model) {
+        AiBugReport report = aiBugReportMapper.selectBugReportDetail(id);
+        if (report == null) {
+            return "redirect:/admin/bug-reports";
+        }
+        model.addAttribute("report", report);
+        return "admin/bug-report-detail";
+    }
+
+    @PostMapping("/bug-reports/{id}/status")
+    public String updateBugReportStatus(@PathVariable Long id,
+                                         @RequestParam String status,
+                                         @RequestParam(required = false) String resolutionNote,
+                                         Authentication auth,
+                                         RedirectAttributes ra) {
+        try {
+            Long adminUserNo = adminUserService.resolveAdminUserNo(auth.getName());
+            int affected = aiBugReportMapper.updateBugReportStatus(id, status, resolutionNote, adminUserNo);
+            if (affected > 0) {
+                ra.addFlashAttribute("success", "버그리포트 상태 변경 완료: #" + id + " → " + status);
+            } else {
+                ra.addFlashAttribute("error", "버그리포트를 찾을 수 없습니다: #" + id);
+            }
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/admin/bug-reports/" + id;
     }
 }

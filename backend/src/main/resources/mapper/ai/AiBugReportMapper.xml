@@ -22,10 +22,13 @@
         <result property="conversationTitle" column="conversation_title"/>
         <result property="conversationMode" column="conversation_mode"/>
         <result property="conversationContextLabel" column="conversation_context_label"/>
+        <result property="conversationContextData" column="conversation_context_data"/>
         <result property="messageContent" column="message_content"/>
         <result property="messageRole" column="message_role"/>
         <result property="reporterEmail" column="reporter_email"/>
+        <result property="reporterNickname" column="reporter_nickname"/>
         <result property="resolverEmail" column="resolver_email"/>
+        <result property="resolverNickname" column="resolver_nickname"/>
     </resultMap>
 
     <insert id="insertBugReport" parameterType="com.vs.meta.domain.AiBugReport"
@@ -67,10 +70,13 @@
                c.title AS conversation_title,
                c.mode AS conversation_mode,
                c.context_label AS conversation_context_label,
+               c.context_data AS conversation_context_data,
                m.content AS message_content,
                m.role AS message_role,
                reporter.email AS reporter_email,
-               resolver.email AS resolver_email
+               reporter.nickname AS reporter_nickname,
+               resolver.email AS resolver_email,
+               resolver.nickname AS resolver_nickname
         FROM ai_bug_report br
         INNER JOIN ai_conversation c ON c.id = br.conversation_id
         LEFT JOIN ai_message m ON m.id = br.message_id
@@ -97,7 +103,8 @@
                c.title AS conversation_title,
                m.content AS message_content,
                m.role AS message_role,
-               reporter.email AS reporter_email
+               reporter.email AS reporter_email,
+               reporter.nickname AS reporter_nickname
         FROM ai_bug_report br
         INNER JOIN ai_conversation c ON c.id = br.conversation_id
         LEFT JOIN ai_message m ON m.id = br.message_id
