@@ -33,15 +33,15 @@ export const useNotifications = (category?: NotificationCategory) => {
 
 /**
  * 미확인 알림 개수 조회
- * SSE 연결 실패 시 fallback 폴링
+ * 최초 1회만 호출 — 이후 SSE 수신 시 +1, 읽음 처리 시 -1 로 로컬 관리
  */
-export const useUnreadCount = (sseConnected: boolean) => {
+export const useUnreadCount = () => {
   return useQuery<number>({
     queryKey: ['unread-count'],
     queryFn: fetchUnreadCount,
-    staleTime: 30_000, // 30초
-    refetchInterval: sseConnected ? false : 30_000, // SSE 연결되면 폴링 중지
-    refetchOnWindowFocus: true,
+    staleTime: Infinity,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   });
 };
 
@@ -97,9 +97,7 @@ export const useMarkAsRead = () => {
       }
     },
     onSettled: () => {
-      // 서버 상태와 동기화
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['unread-count'] });
     },
   });
 };
@@ -152,7 +150,6 @@ export const useMarkAllAsRead = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['unread-count'] });
     },
   });
 };

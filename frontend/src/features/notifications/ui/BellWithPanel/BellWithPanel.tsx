@@ -8,21 +8,12 @@ import * as S from './BellWithPanel.styles';
 
 export const BellWithPanel = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [sseConnected, setSseConnected] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated } = useAuth();
 
-  // SSE 스트림 연결
-  useNotificationStream({
-    enabled: isAuthenticated,
-    onNotification: (noti) => {
-      console.log('[BellWithPanel] New notification:', noti);
-      setSseConnected(true);
-    },
-  });
+  useNotificationStream({ enabled: isAuthenticated });
 
-  // 미확인 알림 개수 (SSE 연결 실패 시 fallback 폴링)
-  const { data: unreadCount = 0 } = useUnreadCount(sseConnected);
+  const { data: unreadCount = 0 } = useUnreadCount();
 
   // 외부 클릭 감지
   useEffect(() => {

@@ -81,9 +81,10 @@ export const useNotificationStream = ({ enabled, onNotification }: UseNotificati
               const notification: Notification = JSON.parse(ev.data);
               console.log('[SSE] New notification:', notification);
 
-              // React Query 캐시 무효화 → 목록 새로고침
+              // 알림 목록 갱신
               queryClient.invalidateQueries({ queryKey: ['notifications'] });
-              queryClient.invalidateQueries({ queryKey: ['unread-count'] });
+              // 미확인 개수 +1 (API 재호출 없이 로컬 증가)
+              queryClient.setQueryData<number>(['unread-count'], (old) => (old ?? 0) + 1);
 
               // 커스텀 핸들러 호출 (옵션)
               onNotification?.(notification);
