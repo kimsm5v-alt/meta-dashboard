@@ -8,6 +8,7 @@
         <result property="title" column="title"/>
         <result property="mode" column="mode"/>
         <result property="contextLabel" column="context_label"/>
+        <result property="contextData" column="context_data"/>
         <result property="useYn" column="use_yn"/>
         <result property="createdBy" column="created_by"/>
         <result property="updatedBy" column="updated_by"/>
@@ -31,17 +32,17 @@
             useGeneratedKeys="true" keyProperty="id">
         /* AiConversationMapper.insertConversation */
         INSERT INTO ai_conversation (
-            owner_user_no, title, mode, context_label, use_yn,
+            owner_user_no, title, mode, context_label, context_data, use_yn,
             created_by, updated_by, created_at, updated_at, last_message_at
         ) VALUES (
-            #{ownerUserNo}, #{title}, #{mode}, #{contextLabel}, 'Y',
+            #{ownerUserNo}, #{title}, #{mode}, #{contextLabel}, #{contextData}, 'Y',
             #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt}, #{lastMessageAt}
         )
     </insert>
 
     <select id="findConversationByIdAndOwner" resultMap="aiConversationResultMap">
         /* AiConversationMapper.findConversationByIdAndOwner */
-        SELECT id, owner_user_no, title, mode, context_label, use_yn,
+        SELECT id, owner_user_no, title, mode, context_label, context_data, use_yn,
                created_by, updated_by, created_at, updated_at, last_message_at
         FROM ai_conversation
         WHERE id = #{id}
@@ -56,6 +57,7 @@
                c.title,
                c.mode,
                c.context_label,
+               c.context_data,
                c.use_yn,
                c.created_by,
                c.updated_by,
@@ -64,7 +66,7 @@
                c.last_message_at,
                COUNT(m.id) AS message_count
         FROM (
-            SELECT id, owner_user_no, title, mode, context_label, use_yn,
+            SELECT id, owner_user_no, title, mode, context_label, context_data, use_yn,
                    created_by, updated_by, created_at, updated_at, last_message_at
             FROM ai_conversation
             WHERE owner_user_no = #{ownerUserNo}
@@ -78,6 +80,7 @@
                  c.title,
                  c.mode,
                  c.context_label,
+                 c.context_data,
                  c.use_yn,
                  c.created_by,
                  c.updated_by,

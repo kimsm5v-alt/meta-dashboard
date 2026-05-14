@@ -3087,6 +3087,77 @@
 		FROM tb_dgnss_lpa_result
 		WHERE answer_idx = #{answerIdx}
 	</select>
+
+	<select id="selectOmrListForSampleExcel" parameterType="int" resultType="map">
+		/* DgnssMapper.selectOmrListForSampleExcel */
+		SELECT gm.member_no AS memberNo
+		     , tdo.OMR_IDX AS omrIdx
+		     , COALESCE(gm.nickname, tdri.stdt_id) AS nickname
+		FROM tb_dgnss_result_info tdri
+			INNER JOIN tb_dgnss_omr tdo ON tdri.omr_id = tdo.OMR_IDX
+			INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
+			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+			LEFT JOIN group_member gm ON gi.group_id = gm.group_id
+				AND gm.stdt_id = tdri.stdt_id
+		WHERE tdri.dgnss_id = #{dgnssId}
+		ORDER BY gm.member_no, tdri.stdt_id
+	</select>
+
+	<select id="selectDgnssInfoForExcelFilename" parameterType="int" resultType="map">
+		/* DgnssMapper.selectDgnssInfoForExcelFilename */
+		SELECT gi.group_nm AS groupName
+		     , tdi.ord_no AS ordNo
+		FROM tb_dgnss_info tdi
+			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+		WHERE tdi.id = #{dgnssId}
+		LIMIT 1
+	</select>
+
+	<select id="selectValidOmrIdxSetByDgnssId" parameterType="int" resultType="int">
+		/* DgnssMapper.selectValidOmrIdxSetByDgnssId */
+		SELECT tdo.OMR_IDX
+		FROM tb_dgnss_result_info tdri
+			INNER JOIN tb_dgnss_omr tdo ON tdri.omr_id = tdo.OMR_IDX
+		WHERE tdri.dgnss_id = #{dgnssId}
+	</select>
+
+	<select id="existsOmrIdx" parameterType="int" resultType="int">
+		/* DgnssMapper.existsOmrIdx */
+		SELECT COUNT(*)
+		FROM tb_dgnss_omr
+		WHERE OMR_IDX = #{omrIdx}
+	</select>
+
+	<update id="updateOmrAnswers" parameterType="map">
+		/* DgnssMapper.updateOmrAnswers */
+		UPDATE tb_dgnss_omr
+		SET `1` = #{a1}, `2` = #{a2}, `3` = #{a3}, `4` = #{a4}, `5` = #{a5},
+		    `6` = #{a6}, `7` = #{a7}, `8` = #{a8}, `9` = #{a9}, `10` = #{a10},
+		    `11` = #{a11}, `12` = #{a12}, `13` = #{a13}, `14` = #{a14}, `15` = #{a15},
+		    `16` = #{a16}, `17` = #{a17}, `18` = #{a18}, `19` = #{a19}, `20` = #{a20},
+		    `21` = #{a21}, `22` = #{a22}, `23` = #{a23}, `24` = #{a24}, `25` = #{a25},
+		    `26` = #{a26}, `27` = #{a27}, `28` = #{a28}, `29` = #{a29}, `30` = #{a30},
+		    `31` = #{a31}, `32` = #{a32}, `33` = #{a33}, `34` = #{a34}, `35` = #{a35},
+		    `36` = #{a36}, `37` = #{a37}, `38` = #{a38}, `39` = #{a39}, `40` = #{a40},
+		    `41` = #{a41}, `42` = #{a42}, `43` = #{a43}, `44` = #{a44}, `45` = #{a45},
+		    `46` = #{a46}, `47` = #{a47}, `48` = #{a48}, `49` = #{a49}, `50` = #{a50},
+		    `51` = #{a51}, `52` = #{a52}, `53` = #{a53}, `54` = #{a54}, `55` = #{a55},
+		    `56` = #{a56}, `57` = #{a57}, `58` = #{a58}, `59` = #{a59}, `60` = #{a60},
+		    `61` = #{a61}, `62` = #{a62}, `63` = #{a63}, `64` = #{a64}, `65` = #{a65},
+		    `66` = #{a66}, `67` = #{a67}, `68` = #{a68}, `69` = #{a69}, `70` = #{a70},
+		    `71` = #{a71}, `72` = #{a72}, `73` = #{a73}, `74` = #{a74}, `75` = #{a75},
+		    `76` = #{a76}, `77` = #{a77}, `78` = #{a78}, `79` = #{a79}, `80` = #{a80},
+		    `81` = #{a81}, `82` = #{a82}, `83` = #{a83}, `84` = #{a84}, `85` = #{a85},
+		    `86` = #{a86}, `87` = #{a87}, `88` = #{a88}, `89` = #{a89}, `90` = #{a90},
+		    `91` = #{a91}, `92` = #{a92}, `93` = #{a93}, `94` = #{a94}, `95` = #{a95},
+		    `96` = #{a96}, `97` = #{a97}, `98` = #{a98}, `99` = #{a99}, `100` = #{a100},
+		    `101` = #{a101}, `102` = #{a102}, `103` = #{a103}, `104` = #{a104}, `105` = #{a105},
+		    `106` = #{a106}, `107` = #{a107}, `108` = #{a108}, `109` = #{a109}, `110` = #{a110},
+		    `111` = #{a111}, `112` = #{a112}, `113` = #{a113}, `114` = #{a114}, `115` = #{a115},
+		    `116` = #{a116}, `117` = #{a117}, `118` = #{a118}, `119` = #{a119}, `120` = #{a120},
+		    `121` = #{a121}, `122` = #{a122}, `123` = #{a123}, `124` = #{a124}
+		WHERE OMR_IDX = #{omrIdx}
+	</update>
 </mapper>
 
 

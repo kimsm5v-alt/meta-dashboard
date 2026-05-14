@@ -7,6 +7,7 @@ import com.vs.meta.api.notification.event.ExamSubmittedEvent;
 import com.vs.meta.api.notification.event.StudentExamNotificationEvent;
 import com.vs.meta.api.notification.event.TeacherExamNotificationEvent;
 import com.vs.meta.common.exception.IllegalStateException;
+import com.vs.meta.common.exception.ValidationException;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.service.FileService;
 import com.vs.meta.common.utils.NcpMailSender;
@@ -30,8 +31,12 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
 import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletRequest;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -2050,7 +2055,399 @@ public class DgnssService {
         return Math.round(value * 100D) / 100D;
     }
 
+    /**
+     * 검사 응답 입력용 샘플 엑셀 생성
+     * @param dgnssId 검사 ID
+     * @return 엑셀 파일 바이트 배열
+     */
+    @Transactional(readOnly = true)
+    public byte[] generateSampleExcel(int dgnssId) throws IOException {
+        // 1. OMR 목록 조회
+        List<Map<String, Object>> omrList = dgnssMapper.selectOmrListForSampleExcel(dgnssId);
 
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
+            Sheet sheet = workbook.createSheet("응답입력");
 
+            // 2. 스타일 정의
+            // 수정금지 영역 스타일 (연한 빨간색 배경)
+            CellStyle lockedHeaderStyle = workbook.createCellStyle();
+            lockedHeaderStyle.setFillForegroundColor(IndexedColors.ROSE.getIndex());
+            lockedHeaderStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            lockedHeaderStyle.setLocked(true);
+            lockedHeaderStyle.setAlignment(HorizontalAlignment.CENTER);
+            lockedHeaderStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            lockedHeaderStyle.setFont(headerFont);
+            setBorder(lockedHeaderStyle);
+
+            CellStyle lockedDataStyle = workbook.createCellStyle();
+            lockedDataStyle.setFillForegroundColor(IndexedColors.ROSE.getIndex());
+            lockedDataStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            lockedDataStyle.setLocked(true);
+            lockedDataStyle.setAlignment(HorizontalAlignment.CENTER);
+            lockedDataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            setBorder(lockedDataStyle);
+
+            // 입력 영역 헤더 스타일
+            CellStyle unlockedHeaderStyle = workbook.createCellStyle();
+            unlockedHeaderStyle.setLocked(false);
+            unlockedHeaderStyle.setAlignment(HorizontalAlignment.CENTER);
+            unlockedHeaderStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            unlockedHeaderStyle.setFont(headerFont);
+            setBorder(unlockedHeaderStyle);
+
+            // 입력 영역 데이터 스타일
+            CellStyle unlockedDataStyle = workbook.createCellStyle();
+            unlockedDataStyle.setLocked(false);
+            unlockedDataStyle.setAlignment(HorizontalAlignment.CENTER);
+            unlockedDataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            setBorder(unlockedDataStyle);
+
+            // 3. 헤더 행 생성
+            Row headerRow = sheet.createRow(0);
+
+            // A~C열: 수정금지 헤더
+            String[] lockedHeaders = {"번호 (수정금지)", "OMR_IDX (수정금지)", "닉네임 (수정금지)"};
+            for (int i = 0; i < lockedHeaders.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(lockedHeaders[i]);
+                cell.setCellStyle(lockedHeaderStyle);
+            }
+
+            // D~DU열: 1~124 응답란 헤더
+            for (int i = 1; i <= 124; i++) {
+                Cell cell = headerRow.createCell(i + 2); // D열부터 시작 (인덱스 3)
+                cell.setCellValue(String.valueOf(i));
+                cell.setCellStyle(unlockedHeaderStyle);
+            }
+
+            // 4. 데이터 행 생성
+            int rowNum = 1;
+            for (Map<String, Object> omr : omrList) {
+                Row row = sheet.createRow(rowNum++);
+
+                // A열: 출석번호
+                Cell memberNoCell = row.createCell(0);
+                Object memberNo = omr.get("memberNo");
+                if (memberNo != null) {
+                    memberNoCell.setCellValue(NumberUtils.toInt(memberNo.toString(), 0));
+                }
+                memberNoCell.setCellStyle(lockedDataStyle);
+
+                // B열: OMR_IDX
+                Cell omrIdxCell = row.createCell(1);
+                Object omrIdx = omr.get("omrIdx");
+                if (omrIdx != null) {
+                    omrIdxCell.setCellValue(NumberUtils.toInt(omrIdx.toString(), 0));
+                }
+                omrIdxCell.setCellStyle(lockedDataStyle);
+
+                // C열: 닉네임
+                Cell nicknameCell = row.createCell(2);
+                nicknameCell.setCellValue(MapUtils.getString(omr, "nickname", ""));
+                nicknameCell.setCellStyle(lockedDataStyle);
+
+                // D~DU열: 빈 응답란
+                for (int i = 3; i < 127; i++) {
+                    Cell cell = row.createCell(i);
+                    cell.setCellStyle(unlockedDataStyle);
+                }
+            }
+
+            // 5. 열 너비 조정
+            sheet.setColumnWidth(0, 18 * 256);  // 번호 (수정금지) 텍스트 보이도록
+            sheet.setColumnWidth(1, 22 * 256);  // OMR_IDX (수정금지) 텍스트 보이도록
+            sheet.setColumnWidth(2, 22 * 256);  // 닉네임 (수정금지) 텍스트 보이도록
+            for (int i = 3; i < 127; i++) {
+                sheet.setColumnWidth(i, 4 * 256); // 응답란
+            }
+
+            // 6. 시트 보호 활성화 (비밀번호 없이)
+            sheet.protectSheet("");
+
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    private void setBorder(CellStyle style) {
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+    }
+
+    /**
+     * 엑셀 파일에서 응답값을 읽어 tb_dgnss_omr 테이블 업데이트
+     * @param dgnssId 검사 ID
+     * @param file 엑셀 파일
+     * @return 업데이트 결과
+     */
+    @Transactional
+    public Map<String, Object> uploadAnswersFromExcel(int dgnssId, org.springframework.web.multipart.MultipartFile file) throws IOException {
+        List<Map<String, Object>> errors = new ArrayList<>();
+
+        // 1. 파일 형식 검증
+        validateFileFormat(file, errors);
+        if (!errors.isEmpty()) {
+            throw new ValidationException(buildErrorMessage(errors), errors);
+        }
+
+        // 2. 해당 dgnssId에 속한 유효 OMR_IDX 집합 조회
+        List<Integer> validOmrIdxList = dgnssMapper.selectValidOmrIdxSetByDgnssId(dgnssId);
+        Set<Integer> validOmrIdxSet = new HashSet<>(validOmrIdxList);
+
+        if (validOmrIdxSet.isEmpty()) {
+            errors.add(createError(0, "dgnssId", "해당 검사에 등록된 학생이 없습니다 (dgnssId: " + dgnssId + ")"));
+            throw new ValidationException(buildErrorMessage(errors), errors);
+        }
+
+        // 3. 엑셀 파일 파싱 및 검증
+        List<Map<String, Object>> updateDataList = new ArrayList<>();
+
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            if (sheet == null) {
+                errors.add(createError(0, "sheet", "엑셀 시트를 읽을 수 없습니다"));
+                throw new ValidationException(buildErrorMessage(errors), errors);
+            }
+
+            // 헤더 행 검증
+            Row headerRow = sheet.getRow(0);
+            if (headerRow == null) {
+                errors.add(createError(1, "header", "헤더 행이 없습니다"));
+                throw new ValidationException(buildErrorMessage(errors), errors);
+            }
+
+            validateHeaderRow(headerRow, errors);
+            if (!errors.isEmpty()) {
+                throw new ValidationException(buildErrorMessage(errors), errors);
+            }
+
+            // 데이터 행 처리
+            int lastRowNum = sheet.getLastRowNum();
+            for (int rowNum = 1; rowNum <= lastRowNum; rowNum++) {
+                Row row = sheet.getRow(rowNum);
+                if (row == null || isEmptyRow(row)) {
+                    continue;
+                }
+
+                // OMR_IDX 읽기 (B열, 인덱스 1)
+                Cell omrIdxCell = row.getCell(1);
+                Integer omrIdx = getCellValueAsInteger(omrIdxCell);
+
+                if (omrIdx == null) {
+                    errors.add(createError(rowNum + 1, "OMR_IDX", "OMR_IDX가 비어있거나 유효하지 않습니다"));
+                    continue;
+                }
+
+                // OMR_IDX 존재 여부 확인
+                if (dgnssMapper.existsOmrIdx(omrIdx) == 0) {
+                    errors.add(createError(rowNum + 1, "OMR_IDX", "존재하지 않는 OMR_IDX입니다 (" + omrIdx + ")"));
+                    continue;
+                }
+
+                // dgnssId에 속하는지 확인
+                if (!validOmrIdxSet.contains(omrIdx)) {
+                    errors.add(createError(rowNum + 1, "OMR_IDX", "해당 검사에 속하지 않는 학생입니다 (" + omrIdx + ")"));
+                    continue;
+                }
+
+                // 응답값 읽기 (D~DU열, 인덱스 3~126)
+                Map<String, Object> updateData = new HashMap<>();
+                updateData.put("omrIdx", omrIdx);
+
+                for (int colIdx = 3; colIdx < 127; colIdx++) {
+                    int questionNo = colIdx - 2; // 1~124
+                    Cell cell = row.getCell(colIdx);
+                    String answer = getCellValueAsString(cell);
+
+                    // 빈 값은 null로 처리
+                    if (StringUtils.isBlank(answer)) {
+                        updateData.put("a" + questionNo, null);
+                        continue;
+                    }
+
+                    // 응답값 범위 검증 (1~5)
+                    try {
+                        int answerValue = Integer.parseInt(answer.trim());
+                        if (answerValue < 1 || answerValue > 5) {
+                            errors.add(createError(rowNum + 1, String.valueOf(questionNo), "응답값은 1~5만 가능합니다 (입력값: " + answerValue + ")"));
+                        } else {
+                            updateData.put("a" + questionNo, String.valueOf(answerValue));
+                        }
+                    } catch (NumberFormatException e) {
+                        errors.add(createError(rowNum + 1, String.valueOf(questionNo), "응답값은 숫자여야 합니다 (입력값: " + answer + ")"));
+                    }
+                }
+
+                updateDataList.add(updateData);
+            }
+        }
+
+        // 4. 검증 오류가 있으면 롤백 (예외 발생)
+        if (!errors.isEmpty()) {
+            throw new ValidationException(buildErrorMessage(errors), errors);
+        }
+
+        if (updateDataList.isEmpty()) {
+            errors.add(createError(0, "data", "업데이트할 데이터가 없습니다"));
+            throw new ValidationException(buildErrorMessage(errors), errors);
+        }
+
+        // 5. 업데이트 실행
+        int updatedCount = 0;
+        for (Map<String, Object> updateData : updateDataList) {
+            int result = dgnssMapper.updateOmrAnswers(updateData);
+            updatedCount += result;
+        }
+
+        // 6. 결과 반환
+        Map<String, Object> resultMap = new HashMap<>();
+        resultMap.put("totalRows", updateDataList.size());
+        resultMap.put("updatedRows", updatedCount);
+        resultMap.put("skippedRows", 0);
+
+        return resultMap;
+    }
+
+    private void validateFileFormat(org.springframework.web.multipart.MultipartFile file, List<Map<String, Object>> errors) throws IOException {
+        // 파일 존재 여부
+        if (file == null || file.isEmpty()) {
+            errors.add(createError(0, "file", "파일이 없습니다"));
+            return;
+        }
+
+        // 파일 크기 검증 (최대 10MB)
+        if (file.getSize() > 10 * 1024 * 1024) {
+            errors.add(createError(0, "file", "파일 크기가 너무 큽니다 (최대 10MB)"));
+            return;
+        }
+
+        // 파일 확장자 검증
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !originalFilename.toLowerCase().endsWith(".xlsx")) {
+            errors.add(createError(0, "file", "엑셀 파일(.xlsx)만 업로드 가능합니다"));
+            return;
+        }
+
+        // Content-Type 검증
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
+            // Content-Type이 다르더라도 매직 바이트로 추가 검증
+            byte[] header = new byte[4];
+            try (var is = file.getInputStream()) {
+                if (is.read(header) < 4) {
+                    errors.add(createError(0, "file", "올바른 엑셀 파일이 아닙니다"));
+                    return;
+                }
+            }
+            // ZIP 파일 매직 바이트: PK (0x50, 0x4B)
+            if (header[0] != 0x50 || header[1] != 0x4B) {
+                errors.add(createError(0, "file", "올바른 엑셀 파일이 아닙니다"));
+            }
+        }
+    }
+
+    private void validateHeaderRow(Row headerRow, List<Map<String, Object>> errors) {
+        // B열: OMR_IDX 확인
+        Cell omrIdxHeader = headerRow.getCell(1);
+        String omrIdxHeaderValue = getCellValueAsString(omrIdxHeader);
+        if (omrIdxHeaderValue == null || !omrIdxHeaderValue.contains("OMR_IDX")) {
+            errors.add(createError(1, "B1", "B1 셀이 'OMR_IDX'를 포함해야 합니다 (현재: " + omrIdxHeaderValue + ")"));
+        }
+
+        // D열~: 1~124 숫자 확인 (선택적 - 첫 몇 개만 확인)
+        for (int i = 3; i < 7 && i < 127; i++) {
+            Cell cell = headerRow.getCell(i);
+            String value = getCellValueAsString(cell);
+            int expectedNum = i - 2;
+            if (value == null || !value.trim().equals(String.valueOf(expectedNum))) {
+                errors.add(createError(1, getColumnLetter(i), "응답 컬럼 헤더가 올바르지 않습니다 (기대값: " + expectedNum + ", 실제값: " + value + ")"));
+                break;
+            }
+        }
+    }
+
+    private boolean isEmptyRow(Row row) {
+        for (int i = 0; i < 3; i++) {
+            Cell cell = row.getCell(i);
+            if (cell != null && cell.getCellType() != CellType.BLANK) {
+                String value = getCellValueAsString(cell);
+                if (StringUtils.isNotBlank(value)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private Integer getCellValueAsInteger(Cell cell) {
+        if (cell == null) return null;
+        try {
+            switch (cell.getCellType()) {
+                case NUMERIC:
+                    return (int) cell.getNumericCellValue();
+                case STRING:
+                    String value = cell.getStringCellValue().trim();
+                    return StringUtils.isBlank(value) ? null : Integer.parseInt(value);
+                default:
+                    return null;
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) return null;
+        try {
+            switch (cell.getCellType()) {
+                case NUMERIC:
+                    double numValue = cell.getNumericCellValue();
+                    if (numValue == Math.floor(numValue)) {
+                        return String.valueOf((int) numValue);
+                    }
+                    return String.valueOf(numValue);
+                case STRING:
+                    return cell.getStringCellValue();
+                case BOOLEAN:
+                    return String.valueOf(cell.getBooleanCellValue());
+                case FORMULA:
+                    try {
+                        return String.valueOf((int) cell.getNumericCellValue());
+                    } catch (Exception e) {
+                        return cell.getStringCellValue();
+                    }
+                default:
+                    return null;
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String getColumnLetter(int columnIndex) {
+        StringBuilder sb = new StringBuilder();
+        while (columnIndex >= 0) {
+            sb.insert(0, (char) ('A' + (columnIndex % 26)));
+            columnIndex = columnIndex / 26 - 1;
+        }
+        return sb.toString();
+    }
+
+    private Map<String, Object> createError(int row, String column, String message) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("row", row);
+        error.put("column", column);
+        error.put("message", message);
+        return error;
+    }
+
+    private String buildErrorMessage(List<Map<String, Object>> errors) {
+        return "유효성 검증 실패: " + errors.size() + "건의 오류가 발견되었습니다";
+    }
 }

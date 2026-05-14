@@ -14,6 +14,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class MetaApplication {
 
     public static void main(String[] args) {
+        // AWS SDK v1 deprecation 경고 메시지 비활성화
+        System.setProperty("aws.java.v1.disableDeprecationAnnouncement", "true");
         SpringApplication.run(MetaApplication.class, args);
     }
 }

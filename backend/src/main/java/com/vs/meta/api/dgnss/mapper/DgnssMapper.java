@@ -138,4 +138,19 @@ public interface DgnssMapper {
     int countDgnssResultByDgnssIdAndStdtId(@Param("dgnssId") int dgnssId, @Param("stdtId") String stdtId);
 
     Map<String, Object> selectLpaResultByAnswerIdx(@Param("answerIdx") int answerIdx);
+
+    // 교사) 샘플 엑셀용 OMR 목록 조회
+    List<Map<String, Object>> selectOmrListForSampleExcel(@Param("dgnssId") int dgnssId);
+
+    // 교사) dgnssId에 속한 유효 OMR_IDX 목록 조회
+    List<Integer> selectValidOmrIdxSetByDgnssId(@Param("dgnssId") int dgnssId);
+
+    // OMR_IDX 존재 여부 확인
+    int existsOmrIdx(@Param("omrIdx") int omrIdx);
+
+    // OMR 응답값 업데이트
+    int updateOmrAnswers(Map<String, Object> param);
+
+    // 교사) 샘플 엑셀 파일명용 검사 정보 조회
+    Map<String, Object> selectDgnssInfoForExcelFilename(@Param("dgnssId") int dgnssId);
 }

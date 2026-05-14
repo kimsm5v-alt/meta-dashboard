@@ -25,7 +25,12 @@
       "Bash(tasklist:*)",
       "Bash(./gradlew :backend:compileJava)",
       "Bash(xargs grep:*)",
-      "Bash(git -C backend status --short)"
+      "Bash(git -C backend status --short)",
+      "Bash(./gradlew :backend:compileJava:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "guide-docs"
+  ],
+  "enableAllProjectMcpServers": true
 }

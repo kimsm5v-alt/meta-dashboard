@@ -169,11 +169,21 @@ management:
     redis:
       enabled: ${MANAGEMENT_HEALTH_REDIS_ENABLED:false}
 
-# File Storage (NAS)
+# File Storage (NAS + NCP Object Storage)
 cloud:
   aws:
     nas:
       path: ${VLMSAPI_CLOUD_AWS_NAS_PATH:/files/nas/engl/}
+    s3:
+      bucket: ${VLMSAPI_CLOUD_AWS_S3_BUCKET:vsaidt-dev-contents}
+      endpoint: ${VLMSAPI_CLOUD_AWS_S3_ENDPOINT:https://kr.object.gov-ncloudstorage.com}
+      url: ${VLMSAPI_CLOUD_AWS_S3_URL:https://con.aidtclass.com}
+      path: ${VLMSAPI_CLOUD_AWS_S3_PATH:/files/dev/}
+    region:
+      static: ${VLMSAPI_CLOUD_AWS_REGION_STATIC:ap-northeast-2}
+    credentials:
+      accessKey: ${VLMSAPI_CLOUD_AWS_CREDENTIALS_ACCESSKEY:}
+      secretKey: ${VLMSAPI_CLOUD_AWS_CREDENTIALS_SECRETKEY:}
 
 neo4j:
   uri: ${DGNSS_NEO4J_URI:bolt://localhost:7687}

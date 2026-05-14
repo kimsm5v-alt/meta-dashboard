@@ -1,5 +1,7 @@
 package com.vs.meta.api.ai.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vs.meta.api.ai.mapper.AiConversationMapper;
 import com.vs.meta.domain.AiConversation;
 import com.vs.meta.domain.AiMessage;
@@ -27,6 +29,7 @@ public class AiConversationService {
     private static final int MAX_MESSAGE_SIZE = 200;
 
     private final AiConversationMapper aiConversationMapper;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public Object createConversation(Map<String, Object> paramData, Long userNo) {
@@ -41,12 +44,16 @@ public class AiConversationService {
             title = "새 대화";
         }
 
+        // contextData 처리 (JSON 문자열로 저장)
+        String contextData = extractContextData(paramData.get("contextData"));
+
         LocalDateTime now = LocalDateTime.now();
         AiConversation conversation = AiConversation.builder()
                 .ownerUserNo(userNo)
                 .title(title)
                 .mode(mode)
                 .contextLabel(contextLabel)
+                .contextData(contextData)
                 .useYn("Y")
                 .createdBy(userNo)
                 .updatedBy(userNo)
@@ -271,6 +278,7 @@ public class AiConversationService {
         map.put("title", conversation.getTitle());
         map.put("mode", conversation.getMode());
         map.put("contextLabel", conversation.getContextLabel());
+        map.put("contextData", parseContextData(conversation.getContextData()));
         map.put("createdAt", formatTs(conversation.getCreatedAt()));
         map.put("updatedAt", formatTs(conversation.getUpdatedAt()));
         map.put("lastMessageAt", formatTs(conversation.getLastMessageAt()));
@@ -310,6 +318,36 @@ public class AiConversationService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String extractContextData(Object contextDataObj) {
+        if (contextDataObj == null) {
+            return null;
+        }
+        // 이미 JSON 문자열인 경우
+        if (contextDataObj instanceof String) {
+            String str = ((String) contextDataObj).trim();
+            return str.isEmpty() ? null : str;
+        }
+        // Map 또는 List인 경우 JSON으로 변환
+        try {
+            return objectMapper.writeValueAsString(contextDataObj);
+        } catch (JsonProcessingException e) {
+            log.warn("contextData JSON 변환 실패", e);
+            return null;
+        }
+    }
+
+    private Object parseContextData(String contextData) {
+        if (contextData == null || contextData.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(contextData, Object.class);
+        } catch (JsonProcessingException e) {
+            log.warn("contextData JSON 파싱 실패", e);
+            return contextData;
+        }
     }
 
     private Map<String, Object> castToStringObjectMap(Map<?, ?> source) {
