@@ -144,4 +144,45 @@
         WHERE id = #{id}
     </update>
 
+    <select id="selectMyBugReportList" resultMap="aiBugReportDetailResultMap">
+        /* AiBugReportMapper.selectMyBugReportList */
+        SELECT br.id,
+               br.conversation_id,
+               br.message_id,
+               br.error_type,
+               br.severity,
+               br.description,
+               br.screenshot_url,
+               br.status,
+               br.reported_by,
+               br.reported_at,
+               br.resolved_by,
+               br.resolved_at,
+               br.resolution_note,
+               c.title AS conversation_title,
+               c.mode AS conversation_mode,
+               c.context_label AS conversation_context_label,
+               m.content AS message_content,
+               m.role AS message_role
+        FROM ai_bug_report br
+        INNER JOIN ai_conversation c ON c.id = br.conversation_id
+        LEFT JOIN ai_message m ON m.id = br.message_id
+        WHERE br.reported_by = #{reportedBy}
+        <if test="status != null and status != ''">
+            AND br.status = #{status}
+        </if>
+        ORDER BY br.reported_at DESC, br.id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countMyBugReports" resultType="long">
+        /* AiBugReportMapper.countMyBugReports */
+        SELECT COUNT(1)
+        FROM ai_bug_report
+        WHERE reported_by = #{reportedBy}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+    </select>
+
 </mapper>

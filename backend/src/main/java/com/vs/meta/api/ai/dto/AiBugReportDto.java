@@ -104,6 +104,26 @@ public class AiBugReportDto {
         return map;
     }
 
+    /**
+     * 내가 제보한 버그 목록용 응답 (스크린샷 URL 포함)
+     */
+    public static Map<String, Object> toMyBugReportItemResponse(AiBugReport report) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", report.getId());
+        map.put("conversationId", report.getConversationId());
+        map.put("messageId", report.getMessageId());
+        map.put("conversationTitle", report.getConversationTitle());
+        map.put("errorType", report.getErrorType());
+        map.put("severity", report.getSeverity());
+        map.put("description", report.getDescription());
+        map.put("screenshotUrl", report.getScreenshotUrl());
+        map.put("status", report.getStatus());
+        map.put("reportedAt", formatTs(report.getReportedAt()));
+        map.put("resolvedAt", formatTs(report.getResolvedAt()));
+        map.put("resolutionNote", report.getResolutionNote());
+        return map;
+    }
+
     private static String formatTs(LocalDateTime value) {
         if (value == null) {
             return null;

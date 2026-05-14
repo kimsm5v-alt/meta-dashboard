@@ -47,6 +47,22 @@ public class AiBugReportController {
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "버그리포트가 접수되었습니다");
     }
 
+    @GetMapping("/api/ai/bug-reports/my")
+    @Operation(summary = "내가 제보한 버그 목록", description = "특정 사용자가 제보한 버그리포트 목록을 조회합니다 (페이지당 5개)")
+    public ResponseDTO<CustomBody> getMyBugReportList(
+            @RequestParam("userNo") Long userNo,
+            @RequestParam(value = "page", required = false, defaultValue = "1") Integer page,
+            @RequestParam(value = "status", required = false) String status
+    ) {
+        Map<String, Object> paramData = new HashMap<>();
+        paramData.put("userNo", userNo);
+        paramData.put("page", page);
+        paramData.put("status", status);
+
+        Object resultData = aiBugReportService.getMyBugReportList(userNo, page, status);
+        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "내 버그리포트 목록");
+    }
+
     @GetMapping("/api/ai/bug-reports")
     @Operation(summary = "버그리포트 목록 조회", description = "버그리포트 목록을 페이징하여 조회합니다 (관리자)")
     public ResponseDTO<CustomBody> getBugReportList(

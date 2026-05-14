@@ -87,7 +87,7 @@ public class NcpStorageService {
      * @return 저장된 파일의 URL
      */
     public String uploadBugReportImage(MultipartFile file) throws IOException {
-        return uploadImage(file, "bug-report");
+        return uploadImage(file, "meta-dashboard/bug-report");
     }
 
     /**

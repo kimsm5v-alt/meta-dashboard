@@ -1,6 +1,6 @@
 # QA 검수 도구 API Specification
 
-> 최종 수정일: 2026-05-14
+> 최종 수정일: 2026-05-14 (내 버그리포트 목록 API 추가)
 
 AI 응답 품질 검수 및 테스트 데이터 입력을 위한 통합 API 가이드입니다.
 
@@ -74,7 +74,8 @@ AI 대화 중 발생한 이상 응답(환각, 데이터 불일치 등)을 신고
 | Method | Endpoint | 설명 |
 |--------|----------|------|
 | `POST` | `/api/ai/bug-reports` | 버그 리포트 생성 |
-| `GET` | `/api/ai/bug-reports` | 버그 리포트 목록 조회 |
+| `GET` | `/api/ai/bug-reports` | 버그 리포트 목록 조회 (관리자) |
+| `GET` | `/api/ai/bug-reports/my` | 내가 제보한 버그 목록 조회 |
 | `GET` | `/api/ai/bug-reports/{id}` | 버그 리포트 상세 조회 |
 | `PATCH` | `/api/ai/bug-reports/{id}/status` | 버그 리포트 상태 변경 |
 
@@ -129,7 +130,7 @@ fetch('/api/ai/bug-reports', {
     "errorType": "hallucination",
     "severity": "high",
     "description": "학생 이름이 잘못 표시됨",
-    "screenshotUrl": "https://con.aidtclass.com/files/dev/bug-report/20260514/abc123.png",
+    "screenshotUrl": "https://t-superplatform.vsaidt.com/public/meta-dashboard/bug-report/20260514/abc123.png",
     "status": "pending",
     "reportedBy": 12345,
     "reportedAt": "2026-05-14 14:30:00"
@@ -176,6 +177,58 @@ fetch('/api/ai/bug-reports', {
     "page": 0,
     "size": 20,
     "totalCount": 1
+  }
+}
+```
+
+---
+
+### GET `/api/ai/bug-reports/my`
+
+특정 사용자가 제보한 버그 리포트 목록 조회 (페이지당 5개)
+
+**Query Parameters**:
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|----------|------|------|------|
+| `userNo` | number | O | 조회할 사용자 번호 |
+| `page` | number | X | 페이지 번호 (기본 1, 1-indexed) |
+| `status` | string | X | 상태 필터 (pending/reviewing/resolved/dismissed) |
+
+**Request Example**:
+
+```
+GET /api/ai/bug-reports/my?userNo=12345&page=1&status=pending
+```
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "resultCode": 200,
+  "resultMessage": "내 버그리포트 목록",
+  "resultData": {
+    "items": [
+      {
+        "id": 1,
+        "conversationId": 101,
+        "messageId": 504,
+        "conversationTitle": "전체 학급에서 특별히 관심이...",
+        "errorType": "hallucination",
+        "severity": "high",
+        "description": "학생 이름이 잘못 표시됨",
+        "screenshotUrl": "https://t-superplatform.vsaidt.com/public/meta-dashboard/bug-report/20260514/abc123.png",
+        "status": "pending",
+        "reportedAt": "2026-05-14 14:30:00",
+        "resolvedAt": null,
+        "resolutionNote": null
+      }
+    ],
+    "page": 1,
+    "size": 5,
+    "totalCount": 12,
+    "totalPages": 3
   }
 }
 ```

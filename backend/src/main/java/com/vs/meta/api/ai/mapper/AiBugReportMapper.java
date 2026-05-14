@@ -29,4 +29,12 @@ public interface AiBugReportMapper {
                               @Param("status") String status,
                               @Param("resolutionNote") String resolutionNote,
                               @Param("resolvedBy") Long resolvedBy);
+
+    List<AiBugReport> selectMyBugReportList(@Param("reportedBy") Long reportedBy,
+                                            @Param("status") String status,
+                                            @Param("limit") int limit,
+                                            @Param("offset") int offset);
+
+    long countMyBugReports(@Param("reportedBy") Long reportedBy,
+                           @Param("status") String status);
 }

@@ -23,6 +23,7 @@ public class AiBugReportService {
 
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MY_BUG_REPORT_PAGE_SIZE = 5;
 
     private static final Set<String> VALID_ERROR_TYPES = Set.of(
             "hallucination", "data_mismatch", "missing_info", "sensitive", "ui_bug", "other"
@@ -150,6 +151,43 @@ public class AiBugReportService {
         result.put("page", resolvedPage);
         result.put("size", resolvedSize);
         result.put("totalCount", totalCount);
+        return result;
+    }
+
+    /**
+     * 특정 사용자가 제보한 버그 목록 조회 (페이지당 5개)
+     */
+    @Transactional(readOnly = true)
+    public Object getMyBugReportList(Long userNo, Integer page, String status) {
+        if (userNo == null) {
+            throw new IllegalArgumentException("userNo is required.");
+        }
+
+        int resolvedPage = page == null || page < 1 ? 1 : page;
+        int offset = (resolvedPage - 1) * MY_BUG_REPORT_PAGE_SIZE;
+
+        // 상태 필터 유효성 검사
+        String normalizedStatus = trimToNull(status);
+        if (normalizedStatus != null && !VALID_STATUSES.contains(normalizedStatus)) {
+            throw new IllegalArgumentException("Invalid status. Valid values: " + VALID_STATUSES);
+        }
+
+        List<AiBugReport> reports = aiBugReportMapper.selectMyBugReportList(
+                userNo, normalizedStatus, MY_BUG_REPORT_PAGE_SIZE, offset);
+        long totalCount = aiBugReportMapper.countMyBugReports(userNo, normalizedStatus);
+        int totalPages = (int) Math.ceil((double) totalCount / MY_BUG_REPORT_PAGE_SIZE);
+
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (AiBugReport report : reports) {
+            items.add(AiBugReportDto.toMyBugReportItemResponse(report));
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("items", items);
+        result.put("page", resolvedPage);
+        result.put("size", MY_BUG_REPORT_PAGE_SIZE);
+        result.put("totalCount", totalCount);
+        result.put("totalPages", totalPages);
         return result;
     }
 

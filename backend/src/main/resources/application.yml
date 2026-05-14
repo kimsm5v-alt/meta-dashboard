@@ -175,10 +175,10 @@ cloud:
     nas:
       path: ${VLMSAPI_CLOUD_AWS_NAS_PATH:/files/nas/engl/}
     s3:
-      bucket: ${VLMSAPI_CLOUD_AWS_S3_BUCKET:vsaidt-dev-contents}
-      endpoint: ${VLMSAPI_CLOUD_AWS_S3_ENDPOINT:https://kr.object.gov-ncloudstorage.com}
-      url: ${VLMSAPI_CLOUD_AWS_S3_URL:https://con.aidtclass.com}
-      path: ${VLMSAPI_CLOUD_AWS_S3_PATH:/files/dev/}
+      bucket: ${SUPERPLATFORM_CLOUD_AWS_S3_BUCKET:t-superplatform}
+      endpoint: ${SUPERPLATFORM_CLOUD_AWS_S3_ENDPOINT:https://kr.object.ncloudstorage.com}
+      url: ${SUPERPLATFORM_CLOUD_AWS_S3_URL:https://t-superplatform.vsaidt.com}
+      path: ${SUPERPLATFORM_CLOUD_AWS_S3_PATH:/public/}
     region:
       static: ${VLMSAPI_CLOUD_AWS_REGION_STATIC:ap-northeast-2}
     credentials:
