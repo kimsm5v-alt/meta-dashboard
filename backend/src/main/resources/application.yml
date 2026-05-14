@@ -197,7 +197,7 @@ qch:
   enabled: ${QCH_ENABLED:false}
   base-url: ${QCH_BASE_URL:https://t-qch.vsaidt.com}
   service-key: ${QCH_SERVICE_KEY:meta-api}
-  env: ${QCH_ENV:DEV}
+  env: ${QCH_ENV:dev}
   connect-timeout-ms: 3000
   response-timeout-ms: 5000
   async:
