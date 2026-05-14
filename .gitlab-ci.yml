@@ -21,7 +21,7 @@ build_image:meta-dashboard-backend:
       when: on_success
     - when: never
   variables:
-    APP_NAME: "meta-dashboard-be"
+    APP_NAME: "meta-dashboard-api"
     DOCKERFILE_PATH: "backend/Dockerfile"
 
 build_image:meta-dashboard-front:
@@ -46,7 +46,7 @@ update_manifest:meta-dashboard-backend:
     - build_image:meta-dashboard-backend
     - set_app_dir
   variables:
-    APP_NAME: "meta-dashboard-be"
+    APP_NAME: "meta-dashboard-api"
 
 update_manifest:meta-dashboard-front:
   extends: update_manifest
