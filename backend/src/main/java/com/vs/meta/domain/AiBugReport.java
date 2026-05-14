@@ -29,8 +29,11 @@ public class AiBugReport {
     private String conversationTitle;
     private String conversationMode;
     private String conversationContextLabel;
+    private String conversationContextData;
     private String messageContent;
     private String messageRole;
     private String reporterEmail;
+    private String reporterNickname;
     private String resolverEmail;
+    private String resolverNickname;
 }

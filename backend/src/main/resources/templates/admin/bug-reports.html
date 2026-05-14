@@ -120,7 +120,7 @@
                                                               (${report.status == 'resolved'} ? 'badge-success' : 'badge-secondary'))"
                                               th:text="${report.status}"></span>
                                     </td>
-                                    <td class="text-muted small" th:text="${report.reportedBy}"></td>
+                                    <td class="text-muted small" th:text="${report.reporterNickname != null ? report.reporterNickname : report.reporterEmail}"></td>
                                     <td class="text-muted small" th:text="${report.reportedAt != null} ? ${#temporals.format(report.reportedAt, 'yyyy-MM-dd HH:mm')} : '-'"></td>
                                     <td>
                                         <a th:href="@{/admin/bug-reports/{id}(id=${report.id})}"
