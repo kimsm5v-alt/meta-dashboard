@@ -19,6 +19,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.context.request.async.DeferredResult;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
@@ -129,7 +131,7 @@ public class QchTraceAspect {
                 .queryParams(queryParams)
                 .requestHeaders(headersAsObj)
                 .requestBody(requestBody == null ? new LinkedHashMap<>() : requestBody)
-                .responseBody(result == null ? new LinkedHashMap<>() : result)
+                .responseBody(sanitizeResponseBody(result))
                 .build();
 
         SpAuthenticatedUser spUser = SecurityUtil.getCurrentSpUser();
@@ -210,6 +212,41 @@ public class QchTraceAspect {
             // JSON 아닌 본문(text/plain 등) 또는 파싱 실패 — raw 문자열 그대로 (적재 가치는 낮지만 디버깅 가능)
             return raw;
         }
+    }
+
+    /**
+     * 응답 본문에서 직렬화 불가능한 타입(Resource, InputStream 등)을 안전하게 처리.
+     * PDF/파일 다운로드 등 바이너리 응답은 placeholder로 대체.
+     */
+    private Object sanitizeResponseBody(Object result) {
+        if (result == null) {
+            return new LinkedHashMap<>();
+        }
+
+        // ResponseEntity<Resource> 처리 (파일 다운로드)
+        if (result instanceof ResponseEntity<?> entity) {
+            Object body = entity.getBody();
+            if (body instanceof Resource) {
+                Map<String, Object> placeholder = new LinkedHashMap<>();
+                placeholder.put("_type", "binary");
+                placeholder.put("_description", "File download response (not serializable)");
+                if (body instanceof Resource resource) {
+                    placeholder.put("filename", resource.getFilename());
+                }
+                return placeholder;
+            }
+        }
+
+        // Resource 직접 반환 처리
+        if (result instanceof Resource resource) {
+            Map<String, Object> placeholder = new LinkedHashMap<>();
+            placeholder.put("_type", "binary");
+            placeholder.put("_description", "File download response (not serializable)");
+            placeholder.put("filename", resource.getFilename());
+            return placeholder;
+        }
+
+        return result;
     }
 
     private HttpServletRequest currentRequest() {
