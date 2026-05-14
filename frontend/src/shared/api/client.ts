@@ -69,6 +69,11 @@ const PUBLIC_EXACT_ENDPOINTS = [
 // ============================================================
 
 axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  // FormData는 브라우저가 boundary 포함한 Content-Type을 자동 설정해야 함
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
+
   const url = config.url ?? '';
   const isPublic =
     PUBLIC_ENDPOINTS.some((ep) => url.includes(ep)) ||
