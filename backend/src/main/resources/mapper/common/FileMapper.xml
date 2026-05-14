@@ -47,51 +47,22 @@
             , tdi.paper_idx AS paperIdx
             , tdi.ord_no AS ordNo
             <choose>
-                <when test='rgtr != null and rgtr != ""'>
+                <when test='reqUserNo != null'>
                     , CASE
-                    WHEN a1.rgtr = #{rgtr}
-                      OR (
-                        /* 요청자가 해당 검사 클래스의 교사이고, 생성자가 해당 클래스의 교사/학생인 경우 */
-                        EXISTS (
-                            SELECT 1
-                            FROM group_info gi_req_tc
-                                     INNER JOIN user u_req_tc ON gi_req_tc.host_user_no = u_req_tc.user_no
-                            WHERE gi_req_tc.cla_id = tdi.cla_id
-                              AND u_req_tc.tc_id = #{rgtr}
-                        )
-                        AND (
-                            EXISTS (
-                                SELECT 1
-                                FROM group_info gi_creator_tc
-                                         INNER JOIN user u_creator_tc ON gi_creator_tc.host_user_no = u_creator_tc.user_no
-                                WHERE gi_creator_tc.cla_id = tdi.cla_id
-                                  AND u_creator_tc.tc_id = a1.rgtr
-                            )
-                            OR EXISTS (
-                                SELECT 1
-                                FROM group_info gi_creator_st
-                                         INNER JOIN group_member gm_creator_st ON gi_creator_st.group_id = gm_creator_st.group_id
-                                WHERE gi_creator_st.cla_id = tdi.cla_id
-                                  AND gm_creator_st.stdt_id = a1.rgtr
-                            )
-                        )
+                    /* 요청자가 해당 검사 클래스의 교사인 경우 - 전체 허용 */
+                    WHEN EXISTS (
+                        SELECT 1 FROM group_info gi_req
+                        WHERE gi_req.cla_id = tdi.cla_id
+                          AND gi_req.host_user_no = #{reqUserNo}
                     )
-                      OR (
-                        /* 요청자가 해당 검사 클래스의 학생이고 생성자가 해당 클래스 교사인 경우 */
-                        EXISTS (
-                            SELECT 1
-                            FROM group_info gi_req_st
-                                     INNER JOIN group_member gm_req_st ON gi_req_st.group_id = gm_req_st.group_id
-                            WHERE gi_req_st.cla_id = tdi.cla_id
-                              AND gm_req_st.stdt_id = #{rgtr}
-                        )
-                        AND EXISTS (
-                            SELECT 1
-                            FROM group_info gi_creator_tc2
-                                     INNER JOIN user u_creator_tc2 ON gi_creator_tc2.host_user_no = u_creator_tc2.user_no
-                            WHERE gi_creator_tc2.cla_id = tdi.cla_id
-                              AND u_creator_tc2.tc_id = a1.rgtr
-                        )
+                    /* 요청자가 해당 검사의 학생이고 본인 리포트인 경우 */
+                    OR EXISTS (
+                        SELECT 1
+                        FROM group_info gi_req_st
+                        INNER JOIN group_member gm_req_st ON gi_req_st.group_id = gm_req_st.group_id
+                        WHERE gi_req_st.cla_id = tdi.cla_id
+                          AND gm_req_st.user_no = #{reqUserNo}
+                          AND gm_req_st.stdt_id = tdri.stdt_id
                     )
                     THEN 'Y'
                     ELSE 'N'
@@ -189,58 +160,29 @@
              , tdi.paper_idx AS paperIdx
              , tdi.ord_no AS ordNo
                 <choose>
-                    <when test='rgtr != null and rgtr != ""'>
-                        , case
-                        when a1.rgtr = #{rgtr}
-                          or (
-                            /* 요청자가 해당 검사 클래스의 교사이고, 생성자가 해당 클래스의 교사/학생인 경우 */
-                            exists (
-                                select 1
-                                from group_info gi_req_tc
-                                         inner join user u_req_tc on gi_req_tc.host_user_no = u_req_tc.user_no
-                                where gi_req_tc.cla_id = tdi.cla_id
-                                  and u_req_tc.tc_id = #{rgtr}
-                            )
-                            and (
-                                exists (
-                                    select 1
-                                    from group_info gi_creator_tc
-                                             inner join user u_creator_tc on gi_creator_tc.host_user_no = u_creator_tc.user_no
-                                    where gi_creator_tc.cla_id = tdi.cla_id
-                                      and u_creator_tc.tc_id = a1.rgtr
-                                )
-                                or exists (
-                                    select 1
-                                    from group_info gi_creator_st
-                                             inner join group_member gm_creator_st on gi_creator_st.group_id = gm_creator_st.group_id
-                                    where gi_creator_st.cla_id = tdi.cla_id
-                                      and gm_creator_st.stdt_id = a1.rgtr
-                                )
-                            )
+                    <when test='reqUserNo != null'>
+                        , CASE
+                        /* 요청자가 해당 검사 클래스의 교사인 경우 - 전체 허용 */
+                        WHEN EXISTS (
+                            SELECT 1 FROM group_info gi_req
+                            WHERE gi_req.cla_id = tdi.cla_id
+                              AND gi_req.host_user_no = #{reqUserNo}
                         )
-                          or (
-                            /* 요청자가 해당 검사 클래스의 학생이고 생성자가 해당 클래스 교사인 경우 */
-                            exists (
-                                select 1
-                                from group_info gi_req_st
-                                         inner join group_member gm_req_st on gi_req_st.group_id = gm_req_st.group_id
-                                where gi_req_st.cla_id = tdi.cla_id
-                                  and gm_req_st.stdt_id = #{rgtr}
-                            )
-                            and exists (
-                                select 1
-                                from group_info gi_creator_tc2
-                                         inner join user u_creator_tc2 on gi_creator_tc2.host_user_no = u_creator_tc2.user_no
-                                where gi_creator_tc2.cla_id = tdi.cla_id
-                                  and u_creator_tc2.tc_id = a1.rgtr
-                            )
+                        /* 요청자가 해당 검사의 학생이고 본인 리포트인 경우 */
+                        OR EXISTS (
+                            SELECT 1
+                            FROM group_info gi_req_st
+                            INNER JOIN group_member gm_req_st ON gi_req_st.group_id = gm_req_st.group_id
+                            WHERE gi_req_st.cla_id = tdi.cla_id
+                              AND gm_req_st.user_no = #{reqUserNo}
+                              AND gm_req_st.stdt_id = tdri.stdt_id
                         )
-                        then 'Y'
-                        else 'N'
-                        end downloadAuthYn
+                        THEN 'Y'
+                        ELSE 'N'
+                        END downloadAuthYn
                     </when>
                     <otherwise>
-                        , 'Y' as downloadAuthYn
+                        , 'Y' AS downloadAuthYn
                     </otherwise>
                 </choose>
         FROM file a1

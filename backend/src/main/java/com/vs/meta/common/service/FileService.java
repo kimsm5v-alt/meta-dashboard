@@ -586,13 +586,10 @@ public class FileService {
      * @throws Exception
      */
     public ResponseEntity<StreamingResponseBody> dgnssDownloadAll(String jwtToken, HttpServletRequest request, boolean isAuth, Map<String, Object> param) throws Exception {
-        String userId = null;
-        // SecurityContext에서 인증된 사용자 정보 추출
-        SpAuthenticatedUser spUser = SecurityUtil.getCurrentSpUser();
-        if (spUser != null) {
-            userId = spUser.spUserId();
-        }
-        if (StringUtils.isEmpty(userId)) {
+        // SecurityContext에서 인증된 사용자 정보 추출 (user_no 기반)
+        Long reqUserNo = SecurityUtil.getCurrentUserNo();
+        String userId = SecurityUtil.getCurrentSpUserId(); // 로그용
+        if (reqUserNo == null) {
             throw new AuthFailedException("사용자 정보가 없습니다.");
         }
 
@@ -602,7 +599,7 @@ public class FileService {
         }
 
         if (isAuth) {
-            param.put("rgtr", userId);
+            param.put("reqUserNo", reqUserNo);
         }
 
         String type = MapUtils.getString(param, "type", "1");
