@@ -37,6 +37,18 @@ public class QchTraceClient {
             return;
         }
         try {
+            log.info("[QCH] trace request: serviceKey={}, env={}, method={}, endpoint={}, statusCode={}, userId={}, userType={}, traceId={}, responseTimeMs={}, payload={}",
+                    truncate(event.getServiceKey()),
+                    truncate(event.getEnv()),
+                    truncate(event.getMethod()),
+                    truncate(event.getEndpoint()),
+                    event.getStatusCode(),
+                    truncate(event.getUserId()),
+                    truncate(event.getUserType()),
+                    truncate(event.getTraceId()),
+                    event.getResponseTimeMs(),
+                    truncatePayload(event.getPayload()));
+
             qchIngestWebClient.post()
                     .uri(TRACE_PATH)
                     .contentType(MediaType.APPLICATION_JSON)
@@ -53,5 +65,27 @@ public class QchTraceClient {
         } catch (Exception ex) {
             log.warn("[QCH] trace failed: {} {} - {}", event.getMethod(), event.getEndpoint(), ex.getMessage());
         }
+    }
+
+    private String truncate(String value) {
+        if (value == null) {
+            return "null";
+        }
+        if (value.length() <= 50) {
+            return value;
+        }
+        return value.substring(0, 50) + "...";
+    }
+
+    private String truncatePayload(QchTraceEvent.Payload payload) {
+        if (payload == null) {
+            return "null";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("{queryParams=").append(truncate(String.valueOf(payload.getQueryParams())));
+        sb.append(", requestBody=").append(truncate(String.valueOf(payload.getRequestBody())));
+        sb.append(", responseBody=").append(truncate(String.valueOf(payload.getResponseBody())));
+        sb.append("}");
+        return sb.toString();
     }
 }
