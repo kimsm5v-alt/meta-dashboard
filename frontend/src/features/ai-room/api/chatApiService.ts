@@ -29,6 +29,7 @@ export interface Conversation {
   title: string;
   mode: 'all' | 'class' | 'student';
   contextLabel: string;
+  contextData?: unknown;
   createdAt: string; // yyyy-MM-dd HH:mm:ss
   updatedAt: string;
   lastMessageAt: string;
@@ -45,6 +46,7 @@ interface CreateConversationRequest {
   title?: string;
   mode: 'all' | 'class' | 'student';
   contextLabel: string;
+  contextData?: unknown;
   messages?: ChatMessage[] | ChatMessage;
 }
 

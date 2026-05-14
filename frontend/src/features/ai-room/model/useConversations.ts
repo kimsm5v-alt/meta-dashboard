@@ -356,8 +356,9 @@ export const useConversations = ({
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
+    const tempUserMsgId = `user-${Date.now()}`;
     const userMessage: ChatMessage = {
-      id: Date.now().toString(),
+      id: tempUserMsgId,
       role: 'user',
       content: input,
       timestamp: new Date(),
@@ -369,17 +370,35 @@ export const useConversations = ({
     setStreamingContent('');
 
     try {
-      // ✅ 사용자 메시지를 서버에 저장 (비동기)
       const convId = activeConversationId;
+
+      // ✅ 사용자 메시지 저장 → 서버 messageId 반영
       if (!convId.startsWith('temp-')) {
-        // 서버 ID(숫자)면 저장
-        addMessageApi(parseInt(convId, 10), 'user', currentInput).catch((err) => {
-          console.warn('사용자 메시지 저장 실패:', err);
-        });
+        addMessageApi(parseInt(convId, 10), 'user', currentInput)
+          .then((res) => {
+            const serverId = res.messages?.[res.messages.length - 1]?.id?.toString();
+            if (serverId) {
+              setConversations((prev) =>
+                prev.map((conv) =>
+                  conv.id !== convId
+                    ? conv
+                    : {
+                        ...conv,
+                        messages: conv.messages.map((m) =>
+                          m.id === tempUserMsgId ? { ...m, id: serverId } : m,
+                        ),
+                      },
+                ),
+              );
+            }
+          })
+          .catch((err) => console.warn('사용자 메시지 저장 실패:', err));
       }
 
       // 세션 캐시 조회 — 있으면 API 재호출 없이 재사용
       const cachedContext = contextCacheRef.current.get(activeConversationId) ?? null;
+
+      let tempAiMsgId = '';
 
       const result = await callAssistantStream(
         {
@@ -395,9 +414,9 @@ export const useConversations = ({
         (accumulated, isFinal) => {
           setStreamingContent(accumulated);
           if (isFinal) {
-            // 스트리밍 완료 → 메시지 목록에 추가하고 스트리밍 초기화
+            tempAiMsgId = `ai-${Date.now() + 1}`;
             const aiMsg: ChatMessage = {
-              id: (Date.now() + 1).toString(),
+              id: tempAiMsgId,
               role: 'assistant',
               content: accumulated,
               timestamp: new Date(),
@@ -405,11 +424,27 @@ export const useConversations = ({
             setMessages((prev) => [...prev, aiMsg]);
             setStreamingContent('');
 
-            // ✅ AI 응답을 서버에 저장 (비동기)
+            // ✅ AI 응답 저장 → 서버 messageId 반영
             if (!convId.startsWith('temp-')) {
-              addMessageApi(parseInt(convId, 10), 'assistant', accumulated).catch((err) => {
-                console.warn('AI 응답 저장 실패:', err);
-              });
+              addMessageApi(parseInt(convId, 10), 'assistant', accumulated)
+                .then((res) => {
+                  const serverId = res.messages?.[res.messages.length - 1]?.id?.toString();
+                  if (serverId && tempAiMsgId) {
+                    setConversations((prev) =>
+                      prev.map((conv) =>
+                        conv.id !== convId
+                          ? conv
+                          : {
+                              ...conv,
+                              messages: conv.messages.map((m) =>
+                                m.id === tempAiMsgId ? { ...m, id: serverId } : m,
+                              ),
+                            },
+                      ),
+                    );
+                  }
+                })
+                .catch((err) => console.warn('AI 응답 저장 실패:', err));
             }
           }
         },

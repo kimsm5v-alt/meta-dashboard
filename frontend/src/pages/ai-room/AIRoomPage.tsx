@@ -103,6 +103,9 @@ export const AIRoomPage = () => {
         onDeleteConversation={handleDeleteConversation}
         onSend={handleSend}
         onQuickPrompt={handleQuickPrompt}
+        contextLabel={getContextLabel()}
+        selectedStudentId={selectedStudents[0]?.id ?? null}
+        selectedClassId={selectedClass?.id ?? null}
       />
 
       <StudentPickerModal

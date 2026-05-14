@@ -109,6 +109,9 @@ interface AIRoomChatAreaProps {
   onDeleteConversation: (id: string) => void;
   onSend: () => void;
   onQuickPrompt: (prompt: string) => void;
+  contextLabel?: string;
+  selectedStudentId?: string | null;
+  selectedClassId?: string | null;
 }
 
 export const AIRoomChatArea = ({
@@ -128,6 +131,9 @@ export const AIRoomChatArea = ({
   onDeleteConversation,
   onSend,
   onQuickPrompt,
+  contextLabel,
+  selectedStudentId,
+  selectedClassId,
 }: AIRoomChatAreaProps) => (
   <MainArea>
     {/* Conversation Sidebar */}
@@ -146,6 +152,11 @@ export const AIRoomChatArea = ({
         aliasMap={aliasMap}
         isLoading={isLoading}
         streamingContent={streamingContent}
+        conversationId={activeConversationId ?? undefined}
+        contextMode={mode}
+        contextLabel={contextLabel}
+        selectedStudentId={selectedStudentId}
+        selectedClassId={selectedClassId}
       />
       <InputArea>
         <InputContainer>
