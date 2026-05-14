@@ -124,7 +124,21 @@ export async function downloadAllPdf(
     params: { dgnssId, type, jwtToken },
     responseType: 'blob',
   });
-  downloadBlob(response.data as Blob, `학습심리정서검사_${dgnssId}.zip`);
+
+  const disposition = response.headers['content-disposition'] as string | undefined;
+  let filename = `학습심리정서검사_${dgnssId}.zip`;
+  if (disposition) {
+    // RFC 5987 형식: filename*=UTF-8''...
+    const rfc5987 = disposition.match(/filename\*=UTF-8''([^;\s]+)/i);
+    // 일반 형식: filename=... (URL 인코딩 포함)
+    const plain = disposition.match(/filename=([^;\s]+)/i);
+    if (rfc5987) {
+      filename = decodeURIComponent(rfc5987[1]);
+    } else if (plain) {
+      filename = decodeURIComponent(plain[1].replace(/['"]/g, ''));
+    }
+  }
+  downloadBlob(response.data as Blob, filename);
 }
 
 /**
