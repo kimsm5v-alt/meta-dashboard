@@ -62,6 +62,10 @@ public class NcpStorageService {
         // 경로: {basePath}/{pathPrefix}/YYYYMMDD/uuid.ext
         String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String objectKey = basePath + pathPrefix + "/" + datePath + "/" + savedFileName;
+        // S3 object key는 맨 앞 슬래시 제거 (NCP Object Storage 호환)
+        if (objectKey.startsWith("/")) {
+            objectKey = objectKey.substring(1);
+        }
 
         log.info("[NCP Storage] 업로드 시작 - bucket: {}, basePath: {}, pathPrefix: {}", bucket, basePath, pathPrefix);
         log.info("[NCP Storage] objectKey: {}", objectKey);
@@ -152,10 +156,14 @@ public class NcpStorageService {
         if (fileUrl == null || fileUrl.isEmpty()) {
             return null;
         }
-        // URL 형식: https://con.aidtclass.com/files/dev/bug-report/20260513/uuid.ext
-        // Object Key: /files/dev/bug-report/20260513/uuid.ext
+        // URL 형식: https://t-superplatform.vsaidt.com/public/bug-report/20260513/uuid.ext
+        // Object Key: public/bug-report/20260513/uuid.ext (맨 앞 슬래시 제거)
         if (fileUrl.startsWith(storageUrl)) {
-            return fileUrl.substring(storageUrl.length());
+            String key = fileUrl.substring(storageUrl.length());
+            if (key.startsWith("/")) {
+                key = key.substring(1);
+            }
+            return key;
         }
         return null;
     }
