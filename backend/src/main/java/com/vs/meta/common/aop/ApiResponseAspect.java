@@ -90,6 +90,11 @@ public class ApiResponseAspect {
         return result;
     }
 
+    /** 로그 제외 대상 API 경로 (빈번한 호출로 로그 노이즈 유발) */
+    private static final List<String> ACCESS_LOG_SKIP_PATHS = List.of(
+            "/api/v1/auth/refresh"
+    );
+
     private void logAccess(ProceedingJoinPoint joinPoint, int statusCode, long elapsedMs) {
         String httpMethod = "";
         String apiPath = "";
@@ -99,6 +104,9 @@ public class ApiResponseAspect {
                 httpMethod = request.getMethod();
                 apiPath = request.getRequestURI();
             }
+        }
+        if (ACCESS_LOG_SKIP_PATHS.contains(apiPath)) {
+            return;
         }
         log.info("API {} {} {} ({}ms)", httpMethod, apiPath, statusCode, elapsedMs);
     }

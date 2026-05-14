@@ -63,6 +63,9 @@ public class NcpStorageService {
         String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String objectKey = basePath + pathPrefix + "/" + datePath + "/" + savedFileName;
 
+        log.info("[NCP Storage] 업로드 시작 - bucket: {}, basePath: {}, pathPrefix: {}", bucket, basePath, pathPrefix);
+        log.info("[NCP Storage] objectKey: {}", objectKey);
+
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentType(file.getContentType());
         metadata.setContentLength(file.getSize());
@@ -75,7 +78,7 @@ public class NcpStorageService {
 
         // URL: {storageUrl}{basePath}{pathPrefix}/YYYYMMDD/uuid.ext
         String fileUrl = storageUrl + basePath + pathPrefix + "/" + datePath + "/" + savedFileName;
-        log.info("이미지 업로드 완료 [{}]: {}", pathPrefix, fileUrl);
+        log.info("[NCP Storage] 업로드 완료 - storageUrl: {}, fileUrl: {}", storageUrl, fileUrl);
 
         return fileUrl;
     }

@@ -1,5 +1,6 @@
 package com.vs.meta.api.sso.controller;
 
+import com.vs.meta.common.aop.QchSkip;
 import com.vs.meta.common.config.SpAuthProperties;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -80,6 +81,7 @@ public class AuthProxyController {
     // ─────────────────────────────────────────────────────
     @PostMapping("/refresh")
     @Operation(summary = "토큰 갱신", description = "Refresh Token → 새 Access Token + Refresh Token")
+    @QchSkip(reason = "토큰 갱신은 빈번하게 호출되어 QCH 적재 제외")
     public ResponseEntity<?> refresh(@RequestBody(required = false) Map<String, String> body,
                                      HttpServletRequest request,
                                      HttpServletResponse response) {
