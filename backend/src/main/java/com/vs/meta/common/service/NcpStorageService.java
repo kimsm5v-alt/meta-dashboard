@@ -30,13 +30,13 @@ public class NcpStorageService {
 
     private final AmazonS3 amazonS3Client;
 
-    @Value("${cloud.aws.s3.bucket:vsaidt-dev-contents}")
+    @Value("${cloud.aws.s3.bucket:t-superplatform}")
     private String bucket;
 
-    @Value("${cloud.aws.s3.url:https://con.aidtclass.com}")
+    @Value("${cloud.aws.s3.url:https://t-superplatform.vsaidt.com}")
     private String storageUrl;
 
-    @Value("${cloud.aws.s3.path:/files/dev/}")
+    @Value("${cloud.aws.s3.path:/public/}")
     private String basePath;
 
     private static final List<String> ALLOWED_IMAGE_EXTENSIONS = Arrays.asList(
@@ -61,7 +61,7 @@ public class NcpStorageService {
 
         // 경로: {basePath}/{pathPrefix}/YYYYMMDD/uuid.ext
         String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String objectKey = "aws-origin" + basePath + pathPrefix + "/" + datePath + "/" + savedFileName;
+        String objectKey = basePath + pathPrefix + "/" + datePath + "/" + savedFileName;
 
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentType(file.getContentType());
@@ -150,10 +150,9 @@ public class NcpStorageService {
             return null;
         }
         // URL 형식: https://con.aidtclass.com/files/dev/bug-report/20260513/uuid.ext
-        // Object Key: aws-origin/files/dev/bug-report/20260513/uuid.ext
+        // Object Key: /files/dev/bug-report/20260513/uuid.ext
         if (fileUrl.startsWith(storageUrl)) {
-            String relativePath = fileUrl.substring(storageUrl.length());
-            return "aws-origin" + relativePath;
+            return fileUrl.substring(storageUrl.length());
         }
         return null;
     }
