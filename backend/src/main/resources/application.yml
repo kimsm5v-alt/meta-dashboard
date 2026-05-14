@@ -178,7 +178,7 @@ cloud:
       bucket: ${SUPERPLATFORM_CLOUD_AWS_S3_BUCKET:t-superplatform}
       endpoint: ${SUPERPLATFORM_CLOUD_AWS_S3_ENDPOINT:https://kr.object.ncloudstorage.com}
       url: ${SUPERPLATFORM_CLOUD_AWS_S3_URL:https://t-superplatform.vsaidt.com}
-      path: ${SUPERPLATFORM_CLOUD_AWS_S3_PATH:/public/}
+      path: ${SUPERPLATFORM_CLOUD_AWS_S3_PUBLIC_PATH:/public/}
     region:
       static: ${VLMSAPI_CLOUD_AWS_REGION_STATIC:ap-northeast-2}
     credentials:
