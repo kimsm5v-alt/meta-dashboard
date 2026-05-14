@@ -80,8 +80,8 @@ public class NcpStorageService {
             amazonS3Client.putObject(putRequest);
         }
 
-        // URL: {storageUrl}{basePath}{pathPrefix}/YYYYMMDD/uuid.ext
-        String fileUrl = storageUrl + basePath + pathPrefix + "/" + datePath + "/" + savedFileName;
+        // URL: {storageUrl}/{pathPrefix}/YYYYMMDD/uuid.ext (CDN 기본경로가 basePath까지 포함하므로 basePath 제외)
+        String fileUrl = storageUrl + "/" + pathPrefix + "/" + datePath + "/" + savedFileName;
         log.info("[NCP Storage] 업로드 완료 - storageUrl: {}, fileUrl: {}", storageUrl, fileUrl);
 
         return fileUrl;
@@ -156,14 +156,16 @@ public class NcpStorageService {
         if (fileUrl == null || fileUrl.isEmpty()) {
             return null;
         }
-        // URL 형식: https://t-superplatform.vsaidt.com/public/bug-report/20260513/uuid.ext
-        // Object Key: public/bug-report/20260513/uuid.ext (맨 앞 슬래시 제거)
+        // URL 형식: https://t-superplatform-cdn.vsaidt.com/meta-dashboard/bug-report/20260513/uuid.ext
+        // Object Key: public/meta-dashboard/bug-report/20260513/uuid.ext (basePath 추가)
         if (fileUrl.startsWith(storageUrl)) {
-            String key = fileUrl.substring(storageUrl.length());
-            if (key.startsWith("/")) {
-                key = key.substring(1);
+            String relativePath = fileUrl.substring(storageUrl.length());
+            if (relativePath.startsWith("/")) {
+                relativePath = relativePath.substring(1);
             }
-            return key;
+            // basePath를 앞에 추가하여 실제 S3 object key 구성
+            String normalizedBasePath = basePath.startsWith("/") ? basePath.substring(1) : basePath;
+            return normalizedBasePath + relativePath;
         }
         return null;
     }
