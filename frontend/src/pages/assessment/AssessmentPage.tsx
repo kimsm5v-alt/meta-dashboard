@@ -28,6 +28,8 @@ import {
   endExam,
   cancelExam,
   restartExam,
+  downloadSampleExcel,
+  uploadAnswersExcel,
   type ExamListItem,
 } from '@features/assessment/api/assessmentService';
 import { APIError } from '@shared/services/apiClient';
@@ -438,6 +440,31 @@ export const AssessmentPage: React.FC = () => {
     setIsCodeModalOpen(true);
   };
 
+  const handleExcelUpload = useCallback(async (assessment: ManagedAssessment, file: File) => {
+    if (!assessment.dgnssId) return;
+    setIsProcessing(true);
+    try {
+      await uploadAnswersExcel(assessment.dgnssId, file);
+      setAlertModal({ isOpen: true, title: '업로드 완료', message: '엑셀 파일이 성공적으로 업로드되었습니다.' });
+    } catch {
+      setAlertModal({ isOpen: true, title: '업로드 실패', message: '엑셀 파일 업로드에 실패했습니다. 파일 형식을 확인해주세요.' });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
+  const handleTemplateDownload = useCallback(async (assessment: ManagedAssessment) => {
+    if (!assessment.dgnssId) return;
+    setIsProcessing(true);
+    try {
+      await downloadSampleExcel(assessment.dgnssId);
+    } catch {
+      setAlertModal({ isOpen: true, title: '다운로드 실패', message: '양식 파일 다운로드에 실패했습니다.' });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
   // ============================================================
   // 렌더링
   // ============================================================
@@ -491,6 +518,8 @@ export const AssessmentPage: React.FC = () => {
           onEndExam={handleEndExam}
           onCancelExam={handleCancelExam}
           onRestartExam={handleRestartExam}
+          onExcelUpload={handleExcelUpload}
+          onTemplateDownload={handleTemplateDownload}
         />
       )}
 

@@ -174,6 +174,8 @@ interface GeneralSectionProps {
   onEndExam?: (assessment: ManagedAssessment) => void;
   onCancelExam?: (assessment: ManagedAssessment) => void;
   onRestartExam?: (assessment: ManagedAssessment) => void;
+  onExcelUpload?: (assessment: ManagedAssessment, file: File) => void;
+  onTemplateDownload?: (assessment: ManagedAssessment) => void;
 }
 
 export const GeneralSection: React.FC<GeneralSectionProps> = ({
@@ -184,6 +186,8 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
   onEndExam,
   onCancelExam,
   onRestartExam,
+  onExcelUpload,
+  onTemplateDownload,
 }) => {
   return (
     <Container>
@@ -235,6 +239,8 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
             onEndExam={onEndExam}
             onCancelExam={onCancelExam}
             onRestartExam={onRestartExam}
+            onExcelUpload={onExcelUpload}
+            onTemplateDownload={onTemplateDownload}
           />
         ) : (
           <EmptyState>

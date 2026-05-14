@@ -4,7 +4,7 @@
  * 엔드포인트: /api/dgnss/tc/* (교사용)
  */
 
-import { apiClient } from '@shared/api';
+import { apiClient, axiosInstance } from '@shared/api';
 
 // ============================================================
 // 타입 정의
@@ -163,4 +163,36 @@ export async function fetchNotSubmittedStudents(dgnssId: number): Promise<NotSub
     `/api/dgnss/tc/notsubm?dgnssId=${dgnssId}`,
   );
   return res.resultData ?? [];
+}
+
+/**
+ * 엑셀 양식 샘플 다운로드
+ * GET /api/dgnss/tc/sample-excel?dgnssId={id}
+ */
+export async function downloadSampleExcel(dgnssId: number): Promise<void> {
+  const res = await axiosInstance.get<Blob>(`/api/dgnss/tc/sample-excel?dgnssId=${dgnssId}`, {
+    responseType: 'blob',
+  });
+  const blob = new Blob([res.data as BlobPart], {
+    type: res.headers['content-type'] ?? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const disposition = res.headers['content-disposition'] as string | undefined;
+  const match = disposition?.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
+  a.download = match?.[1] ? decodeURIComponent(match[1]) : `sample-excel-${dgnssId}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * 검수용 응답값 엑셀 업로드
+ * POST /api/dgnss/tc/upload-answers
+ */
+export async function uploadAnswersExcel(dgnssId: number, file: File): Promise<void> {
+  const formData = new FormData();
+  formData.append('dgnssId', String(dgnssId));
+  formData.append('file', file);
+  await apiClient.post<void>('/api/dgnss/tc/upload-answers', formData);
 }

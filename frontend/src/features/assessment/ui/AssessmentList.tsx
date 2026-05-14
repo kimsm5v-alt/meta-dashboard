@@ -10,8 +10,10 @@ import {
   ChevronUp,
   UserX,
   RefreshCw,
+  Upload,
+  Download,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ManagedAssessment } from '@shared/types';
 import { fetchNotSubmittedStudents, type NotSubmittedStudent } from '../api/assessmentService';
 
@@ -252,6 +254,8 @@ interface AssessmentListProps {
   onEndExam?: (assessment: ManagedAssessment) => void;
   onCancelExam?: (assessment: ManagedAssessment) => void;
   onRestartExam?: (assessment: ManagedAssessment) => void;
+  onExcelUpload?: (assessment: ManagedAssessment, file: File) => void;
+  onTemplateDownload?: (assessment: ManagedAssessment) => void;
 }
 
 const formatDate = (date: Date): string => {
@@ -292,11 +296,23 @@ const AssessmentItem: React.FC<{
   onEndExam?: (assessment: ManagedAssessment) => void;
   onCancelExam?: (assessment: ManagedAssessment) => void;
   onRestartExam?: (assessment: ManagedAssessment) => void;
-}> = ({ assessment, allAssessments, onViewCode, onEndExam, onCancelExam, onRestartExam }) => {
+  onExcelUpload?: (assessment: ManagedAssessment, file: File) => void;
+  onTemplateDownload?: (assessment: ManagedAssessment) => void;
+}> = ({
+  assessment,
+  allAssessments,
+  onViewCode,
+  onEndExam,
+  onCancelExam,
+  onRestartExam,
+  onExcelUpload,
+  onTemplateDownload,
+}) => {
   const [showNotSubmitted, setShowNotSubmitted] = useState(false);
   const [notSubmittedStudents, setNotSubmittedStudents] = useState<NotSubmittedStudent[]>([]);
   const [loading, setLoading] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const notSubmittedCount = assessment.studentCount - assessment.completedCount;
 
@@ -340,6 +356,31 @@ const AssessmentItem: React.FC<{
           <RoundBadge>{assessment.round}차</RoundBadge>
         </ItemTitle>
         <Actions>
+          {assessment.isActive === true && onExcelUpload && (
+            <>
+              <input
+                ref={fileInputRef}
+                type='file'
+                accept='.xlsx,.xls'
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onExcelUpload(assessment, file);
+                  e.target.value = '';
+                }}
+              />
+              <ActionButton onClick={() => fileInputRef.current?.click()} $variant='primary'>
+                <Upload className='w-4 h-4' />
+                엑셀 업로드
+              </ActionButton>
+            </>
+          )}
+          {assessment.isActive === true && onTemplateDownload && (
+            <ActionButton onClick={() => onTemplateDownload(assessment)} $variant='primary'>
+              <Download className='w-4 h-4' />
+              양식 다운로드
+            </ActionButton>
+          )}
           {assessment.isActive !== false && (
             <ActionButton onClick={() => onViewCode(assessment)} $variant='primary'>
               <Eye className='w-4 h-4' />
@@ -446,6 +487,8 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({
   onEndExam,
   onCancelExam,
   onRestartExam,
+  onExcelUpload,
+  onTemplateDownload,
 }) => {
   return (
     <Container>
@@ -458,6 +501,8 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({
           onEndExam={onEndExam}
           onCancelExam={onCancelExam}
           onRestartExam={onRestartExam}
+          onExcelUpload={onExcelUpload}
+          onTemplateDownload={onTemplateDownload}
         />
       ))}
     </Container>
