@@ -98,7 +98,7 @@ public class GroupService {
                 .schoolName((String) paramData.get("schoolName"))
                 .schoolCode((String) paramData.get("schoolCode"))
                 .inviteCode(inviteCode)
-                .maxMemberCount(maxMemberCount != null ? maxMemberCount : 40)
+                .maxMemberCount(maxMemberCount != null ? maxMemberCount : 100)
                 .useYn("Y")
                 .createdBy(userNo)
                 .updatedBy(userNo)

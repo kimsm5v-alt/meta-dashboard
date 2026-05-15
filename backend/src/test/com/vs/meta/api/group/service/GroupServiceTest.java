@@ -87,7 +87,7 @@ class GroupServiceTest {
         assertThat(savedGroup.getClaId()).hasSize(32).matches("[a-f0-9]{32}");
         assertThat(savedGroup.getHostUserNo()).isEqualTo(1L);
         assertThat(savedGroup.getUseYn()).isEqualTo("Y");
-        assertThat(savedGroup.getMaxMemberCount()).isEqualTo(40);
+        assertThat(savedGroup.getMaxMemberCount()).isEqualTo(100);
         assertThat(savedGroup.getInviteCode()).hasSize(6).matches("[A-Z0-9]{6}");
         assertThat(savedGroup.getCreatedBy()).isEqualTo(1L);
 
