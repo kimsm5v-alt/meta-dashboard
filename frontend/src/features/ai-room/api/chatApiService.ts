@@ -104,11 +104,13 @@ export const createConversation = async (
   contextLabel: string,
   title?: string,
   messages?: ChatMessage[],
+  contextData?: unknown,
 ): Promise<CreateConversationResponse> => {
   const request: CreateConversationRequest = {
     title,
     mode,
     contextLabel,
+    contextData,
     messages: messages || [],
   };
 
