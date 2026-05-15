@@ -150,6 +150,33 @@ public class QchTraceAspect {
         // userType은 JWT claim에서 직접 추출 (TEACHER/STUDENT/GUEST/UNSET)
         String resolvedUserType = (spUser != null) ? spUser.userType() : null;
 
+        // FE 가 X-QCH-* 헤더로 추가 추적 정보를 보내면 그대로 forward.
+        //   X-QCH-Trace-Id      → event.traceId       (FE 세션 추적 ID — 있으면 MDC requestId 대체)
+        //   X-QCH-User-Id       → event.userId        (FE 가 별도 사용자 식별자 보내면 사용 — JWT 기반 값 대체)
+        //   X-QCH-Is-User-Action→ extra.isUserAction  (boolean — 사용자 의도 액션 여부)
+        //   X-QCH-Intent        → extra.intent        (URL-encoded 가능, 받은 값 그대로 보존)
+        //   X-QCH-Action-Id     → extra.actionId
+        //   X-QCH-Client-Call-Id→ extra.clientCallId
+        String headerTraceId = request.getHeader("X-QCH-Trace-Id");
+        String headerUserId = request.getHeader("X-QCH-User-Id");
+        String headerIsUserAction = request.getHeader("X-QCH-Is-User-Action");
+        String headerIntent = request.getHeader("X-QCH-Intent");
+        String headerActionId = request.getHeader("X-QCH-Action-Id");
+        String headerClientCallId = request.getHeader("X-QCH-Client-Call-Id");
+
+        if (headerUserId != null && !headerUserId.isBlank()) {
+            resolvedUserId = headerUserId;
+        }
+        String resolvedTraceId = (headerTraceId != null && !headerTraceId.isBlank())
+                ? headerTraceId
+                : MDC.get("requestId");
+
+        Map<String, Object> extra = new LinkedHashMap<>();
+        if (headerIsUserAction != null) extra.put("isUserAction", Boolean.parseBoolean(headerIsUserAction));
+        if (headerIntent != null) extra.put("intent", headerIntent);
+        if (headerActionId != null) extra.put("actionId", headerActionId);
+        if (headerClientCallId != null) extra.put("clientCallId", headerClientCallId);
+
         return QchTraceEvent.builder()
                 .serviceKey(qch.getServiceKey())
                 .env(qch.getEnv())
@@ -160,10 +187,11 @@ public class QchTraceAspect {
                 .statusCode(statusCode)
                 .responseTimeMs(elapsedMs)
                 .testcoverage("Y")
-                .traceId(MDC.get("requestId"))
+                .traceId(resolvedTraceId)
                 .userId(resolvedUserId)
                 .userType(resolvedUserType)
                 .payload(payload)
+                .extra(extra.isEmpty() ? null : extra)
                 .build();
     }
 
