@@ -33,6 +33,8 @@ public interface DgnssMapper {
     List<String> selectDgnssStdtList(Map<String, Object> param);
     // 교사) META 자기조절학습 result_info에 insert할 학생 ID 탐색
     List<String> selectTargetStList(Map<String, Object> param);
+    List<String> selectEligibleTargetStListForOrd2(Map<String, Object> param);
+    List<Map<String, Object>> selectTcDgnssStartPreview(Map<String, Object> param);
     List<Long> selectTargetStudentUserNoList(Map<String, Object> param);
     String selectTcId(Map<String, Object> param);
     // 교사) META 자기조절학습 학생 개인 답안(OMR) insert
@@ -115,6 +117,20 @@ public interface DgnssMapper {
     List<Map<String, Object>> selectTcEtcInfoList(Map<String, Object> param);
     List<Integer> selectDgnssIdxList(Map<String, Object> param);
     List<Map<String, Object>> selectClassTotalReport(Map<String, Object> param);
+    int selectOrdNoByDgnssId(@Param("dgnssId") int dgnssId);
+    List<String> selectClassStudentsWithoutResultInClassForOrd(Map<String, Object> param);
+    List<Map<String, Object>> selectClassTotalReportFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectClassStudentsSubmStatusFromOtherClasses(Map<String, Object> param);
+    String selectClaIdByDgnssId(@Param("dgnssId") int dgnssId);
+    List<Map<String, Object>> selectDgnssAnswerReliabilityFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType2FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType3FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType4FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType5FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType6FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectDgnssAnswerReportMotivateFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectDgnssAnswerReportRecognitionFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectDgnssAnswerReportBehaviorFromOtherClasses(Map<String, Object> param);
     List<Map<String, Object>> selectClassLernReport(Map<String, Object> param);
 
     // 학생) 답 입력

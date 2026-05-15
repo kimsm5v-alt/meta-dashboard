@@ -91,6 +91,35 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
     }
 
+    @RequestMapping(value = "/api/dgnss/tc/start/preview", method = {RequestMethod.GET})
+    @Operation(summary = "(교사) 학습심리정서검사 출제 사전 검증",
+            description = "2회차 진입 직전 호출. 현재 학급 group_member 를 ELIGIBLE / BLOCKED_OTHER_CLASS / NO_HISTORY 로 분류하여 출제 가능 여부를 미리 알려준다. canStart=false 면 출제 불가.")
+    @Parameter(name = "claId", description = "클래스 ID", required = true,
+            examples = {
+                    @ExampleObject(name = "math", value = "eb1460dce8fc42889862e9a460beb4a0", description = "수학 환경")
+            })
+    @Parameter(name = "paperIdx", description = "심리검사 종류 (1: 학습종합, 2: META자기조절)", required = true,
+            examples = {
+                    @ExampleObject(name = "meta", value = "2", description = "META 자기조절")
+            })
+    @Parameter(name = "ordNo", description = "검사 회차 (현재는 2회차 진입 시에만 호출됨)", required = true,
+            examples = {
+                    @ExampleObject(name = "ord2", value = "2", description = "2회차")
+            })
+    public ResponseDTO<CustomBody> tchMetaStartPreview(
+            @RequestParam(name = "claId") String claId,
+            @RequestParam(name = "paperIdx") int paperIdx,
+            @RequestParam(name = "ordNo") int ordNo,
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        if (StringUtils.isBlank(claId) || paperIdx <= 0) {
+            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
+        }
+        Map<String, Object> result = dgnssService.selectTcDgnssStartPreview(paramData);
+        String resultMessage = "(교사) 학습심리정서검사 출제 사전 검증";
+        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
     @RequestMapping(value = "/api/dgnss/tc/end", method = {RequestMethod.POST})
     @Operation(summary = "(선생님) 학습심리정서검사 종료", description = "")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(

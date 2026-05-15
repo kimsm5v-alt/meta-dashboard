@@ -152,10 +152,60 @@ public class DgnssService {
         return resultMap;
     }
 
+    /**
+     * /tc/start 호출 전 사전 검증.
+     * <p>현재 학급 group_member 전체를 다음 3개로 분류:
+     * <ul>
+     *   <li>{@code ELIGIBLE} — 현재 학급에서 1회차 응시(NOT EXISTS 타학급 1회차) → 2회차 출제 가능</li>
+     *   <li>{@code BLOCKED_OTHER_CLASS} — 1회차를 다른 학급에서 응시 → 2회차 출제 불가</li>
+     *   <li>{@code NO_HISTORY} — 1회차 이력 없음 → 2회차 출제 불가</li>
+     * </ul>
+     * <p>응답: canStart(eligibleCount &gt; 0), totalCount, eligibleCount, blockedOtherClassCount,
+     * noHistoryCount, blockedStudents(stdtId/nickname/memberNo).
+     * <p>FE 는 2회차 진입 시점에만 호출하면 됨 (1회차는 분류 의미 없음).
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> selectTcDgnssStartPreview(Map<String, Object> param) {
+        List<Map<String, Object>> rows = dgnssMapper.selectTcDgnssStartPreview(param);
+
+        int eligibleCount = 0;
+        int blockedCount = 0;
+        int noHistoryCount = 0;
+        List<Map<String, Object>> blockedStudents = new ArrayList<>();
+
+        if (rows != null) {
+            for (Map<String, Object> row : rows) {
+                String status = MapUtils.getString(row, "status", "");
+                if ("ELIGIBLE".equals(status)) {
+                    eligibleCount++;
+                } else if ("BLOCKED_OTHER_CLASS".equals(status)) {
+                    blockedCount++;
+                    Map<String, Object> blocked = new LinkedHashMap<>();
+                    blocked.put("stdtId", MapUtils.getString(row, "stdtId", ""));
+                    blocked.put("nickname", MapUtils.getString(row, "nickname", ""));
+                    blocked.put("memberNo", row.get("memberNo"));
+                    blockedStudents.add(blocked);
+                } else {
+                    noHistoryCount++;
+                }
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("canStart", eligibleCount > 0);
+        result.put("totalCount", rows == null ? 0 : rows.size());
+        result.put("eligibleCount", eligibleCount);
+        result.put("blockedOtherClassCount", blockedCount);
+        result.put("noHistoryCount", noHistoryCount);
+        result.put("blockedStudents", blockedStudents);
+        return result;
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> insertTcDgnssStart(Map<String, Object> paramMap) {
         int result = 0;
         int paperIdx = MapUtils.getInteger(paramMap, "paperIdx", 0);
+        int ordNo = MapUtils.getInteger(paramMap, "ordNo", 0);
         String tcId = MapUtils.getString(paramMap, "tcId", "");
         String claId = MapUtils.getString(paramMap, "claId", "");
         int actvStdtCnt = dgnssMapper.selectActvStdtCnt(paramMap);
@@ -175,10 +225,19 @@ public class DgnssService {
         dgnssMapper.insertDgnssInfo(paramMap);
 
         List<String> targetStList = dgnssMapper.selectTargetStList(paramMap);
+        if (ordNo == 2) {
+            targetStList = dgnssMapper.selectEligibleTargetStListForOrd2(paramMap);
+            if (CollectionUtils.isEmpty(targetStList)) {
+                Map<String, Object> resultMap = new HashMap<>();
+                resultMap.put("result", "fail");
+                resultMap.put("message", "2회차는 동일 학급 1회차 응시 이력이 있는 학생만 출제할 수 있습니다.");
+                return resultMap;
+            }
+        }
         Map<String, Object> targetMap = new HashMap<>();
         targetMap.put("dgnssId", MapUtils.getInteger(paramMap, "id", 0));
         targetMap.put("claId", claId);
-        targetMap.put("ordNo", MapUtils.getInteger(paramMap, "ordNo", 0));
+        targetMap.put("ordNo", ordNo);
         targetMap.put("paperIdx", paperIdx);
 
         String grade = MapUtils.getString(paramMap, "grade", "");
@@ -710,8 +769,6 @@ public class DgnssService {
                 // 학업관계 스트레스 & 학업소진
                 stInfoList = dgnssMapper.selectLernType6(param);
             }
-            resultMap.put("stInfoList", stInfoList);
-            resultMap.put("type", type);
         } else {
             // META자기조절학습
             // 신뢰도
@@ -730,13 +787,83 @@ public class DgnssService {
             else if (type == 4) {
                 stInfoList = dgnssMapper.selectDgnssAnswerReportBehavior(param);
             }
-            resultMap.put("stInfoList", stInfoList);
-            resultMap.put("type", type);
         }
+
+        // 그룹에는 포함되어있지만 현재 학급의 심리검사 데이터가 없는 학생(다른 학급에서 응시) fallback 보강.
+        // 각 row 에 source ('IN_CLASS' / 'OTHER_CLASS') 필드 부여.
+        stInfoList = applyStInfoListFallback(stInfoList, param, paperIdx, type);
+
+        resultMap.put("stInfoList", stInfoList);
+        resultMap.put("type", type);
 
         enrichLpaTop3(stInfoList);
         moveSectionScoresToScoresMap(stInfoList);
         return resultMap;
+    }
+
+    /**
+     * /tc/stinfolist 응답에 다른 학급에서 응시한 학생을 보강.
+     * 기존 row 에 source=IN_CLASS, 보강 row 에 source=OTHER_CLASS 부여 후 stdtId 기준 dedup.
+     */
+    private List<Map<String, Object>> applyStInfoListFallback(
+            List<Map<String, Object>> stInfoList, Map<String, Object> param, int paperIdx, int type) {
+        if (stInfoList == null) stInfoList = new ArrayList<>();
+        int dgnssId = MapUtils.getInteger(param, "dgnssId", 0);
+        if (dgnssId <= 0) {
+            return stInfoList;
+        }
+        String claId = dgnssMapper.selectClaIdByDgnssId(dgnssId);
+        if (StringUtils.isBlank(claId)) {
+            return stInfoList;
+        }
+        int ordNo = dgnssMapper.selectOrdNoByDgnssId(dgnssId);
+
+        for (Map<String, Object> row : stInfoList) {
+            row.put("source", "IN_CLASS");
+        }
+
+        Map<String, Object> missingParam = new HashMap<>();
+        missingParam.put("claId", claId);
+        missingParam.put("paperIdx", String.valueOf(paperIdx));
+        missingParam.put("ordNo", ordNo);
+        List<String> missingStudents = dgnssMapper.selectClassStudentsWithoutResultInClassForOrd(missingParam);
+        if (CollectionUtils.isEmpty(missingStudents)) {
+            return stInfoList;
+        }
+
+        Map<String, Object> fbParam = new HashMap<>();
+        fbParam.put("claId", claId);
+        fbParam.put("paperIdx", String.valueOf(paperIdx));
+        fbParam.put("ordNo", ordNo);
+        fbParam.put("stdtIds", missingStudents);
+
+        List<Map<String, Object>> fbRows = dispatchStInfoFallback(paperIdx, type, fbParam);
+        if (CollectionUtils.isEmpty(fbRows)) {
+            return stInfoList;
+        }
+        for (Map<String, Object> row : fbRows) {
+            row.put("source", "OTHER_CLASS");
+        }
+        stInfoList.addAll(fbRows);
+        return deduplicateByStdtId(stInfoList);
+    }
+
+    /** paperIdx + type 조합으로 9개 fallback 매퍼 디스패치. 매핑 없으면 빈 리스트. */
+    private List<Map<String, Object>> dispatchStInfoFallback(int paperIdx, int type, Map<String, Object> fbParam) {
+        if (paperIdx == 1) {
+            if (type == 1) return dgnssMapper.selectDgnssAnswerReliabilityFromOtherClasses(fbParam);
+            if (type == 2) return dgnssMapper.selectLernType2FromOtherClasses(fbParam);
+            if (type == 3) return dgnssMapper.selectLernType3FromOtherClasses(fbParam);
+            if (type == 4) return dgnssMapper.selectLernType4FromOtherClasses(fbParam);
+            if (type == 5) return dgnssMapper.selectLernType5FromOtherClasses(fbParam);
+            if (type == 6) return dgnssMapper.selectLernType6FromOtherClasses(fbParam);
+        } else {
+            if (type == 1) return dgnssMapper.selectDgnssAnswerReliabilityFromOtherClasses(fbParam);
+            if (type == 2) return dgnssMapper.selectDgnssAnswerReportMotivateFromOtherClasses(fbParam);
+            if (type == 3) return dgnssMapper.selectDgnssAnswerReportRecognitionFromOtherClasses(fbParam);
+            if (type == 4) return dgnssMapper.selectDgnssAnswerReportBehaviorFromOtherClasses(fbParam);
+        }
+        return Collections.emptyList();
     }
 
     @Transactional(readOnly = true)
@@ -1238,28 +1365,13 @@ public class DgnssService {
         // 조회하고자 하는 회차
         String ordNo = MapUtils.getString(param, "ordNo", "");
 
+        List<Integer> allDgnssIdList = dgnssMapper.selectDgnssIdxList(param);
+        List<Integer> targetDgnssIdList = resolveTargetDgnssIdListForAnalysis(paperIdx, ordNo, allDgnssIdList);
+
         // META자기조절학습검사
         if (StringUtils.equals(paperIdx, "2")) {
-            List<Integer> allDgnssIdList = dgnssMapper.selectDgnssIdxList(param);
-            List<Integer> targetDgnssIdList = new ArrayList<>();
             List<String> sessionList = putSession(0);
             Map<String, String> sessionCodeMap = putSessionMap(0);
-            if (StringUtils.isEmpty(ordNo)) {
-                if (allDgnssIdList.size() < 3 ) {
-                    targetDgnssIdList = allDgnssIdList;
-                } else if (allDgnssIdList.size() == 3) {
-                    targetDgnssIdList.add(allDgnssIdList.get(0));
-                    targetDgnssIdList.add(allDgnssIdList.get(2));
-                }
-            } else {
-                if (StringUtils.equals(ordNo, "1")) {
-                    targetDgnssIdList.add(allDgnssIdList.get(0));
-                } else {
-                    targetDgnssIdList.add(allDgnssIdList.get(0));
-                    targetDgnssIdList.add(allDgnssIdList.get(1));
-                }
-            }
-
             ObjectMapper mapper = new ObjectMapper();
 
             for (int dgnssId : targetDgnssIdList) {
@@ -1323,7 +1435,8 @@ public class DgnssService {
                         int avgScore = (int) Math.round(MapUtils.getDouble(sessionTotalMap, sessionId, 0D) / MapUtils.getInteger(sessionSizeMap, sessionId, 0));
                         resultAvgMap.put(MapUtils.getString(sessionCodeMap, sessionId, ""), avgScore);
                     }
-                    resultMap.put(Integer.toString(nowOrd), resultAvgMap);
+                    String ordKey = Integer.toString(nowOrd);
+                    resultMap.put(ordKey, resultAvgMap);
                 }
             }
         } else if (StringUtils.equals(paperIdx, "1")) {
@@ -1353,7 +1466,185 @@ public class DgnssService {
             }
         }
 
+        Map<String, List<Map<String, Object>>> lpaByOrd = new LinkedHashMap<>();
+        // paperIdx=1 LERN 학습영역: 학생별 fallback source 노출용. 같은 lpaRows 의 json 컬럼을 파싱.
+        Map<String, List<Map<String, Object>>> lernReportByOrd = new LinkedHashMap<>();
+        boolean exposeLernReport = StringUtils.equals(paperIdx, "1");
+        ObjectMapper lernJsonParser = new ObjectMapper();
+        for (int dgnssId : targetDgnssIdList) {
+            Map<String, Object> lpaParam = new HashMap<>();
+            lpaParam.put("dgnssId", dgnssId);
+            lpaParam.put("notExistsYn", "N");
+            List<Map<String, Object>> lpaRows = dgnssMapper.selectClassTotalReport(lpaParam);
+            if (CollectionUtils.isEmpty(lpaRows)) {
+                lpaParam.put("notExistsYn", "Y");
+                lpaRows = dgnssMapper.selectClassTotalReport(lpaParam);
+            }
+            for (Map<String, Object> row : lpaRows) {
+                row.put("source", "IN_CLASS");
+            }
+
+            int currentOrdNo = dgnssMapper.selectOrdNoByDgnssId(dgnssId);
+            Map<String, Object> missingParam = new HashMap<>();
+            missingParam.put("claId", MapUtils.getString(param, "claId", ""));
+            missingParam.put("paperIdx", paperIdx);
+            missingParam.put("ordNo", currentOrdNo);
+            List<String> missingStudents = dgnssMapper.selectClassStudentsWithoutResultInClassForOrd(missingParam);
+
+            if (CollectionUtils.isNotEmpty(missingStudents)) {
+                Map<String, Object> fallbackParam = new HashMap<>();
+                fallbackParam.put("claId", MapUtils.getString(param, "claId", ""));
+                fallbackParam.put("paperIdx", paperIdx);
+                fallbackParam.put("ordNo", currentOrdNo);
+                fallbackParam.put("stdtIds", missingStudents);
+                fallbackParam.put("notExistsYn", MapUtils.getString(lpaParam, "notExistsYn", "N"));
+                List<Map<String, Object>> fallbackRows = dgnssMapper.selectClassTotalReportFromOtherClasses(fallbackParam);
+                if (CollectionUtils.isNotEmpty(fallbackRows)) {
+                    for (Map<String, Object> row : fallbackRows) {
+                        row.put("source", "OTHER_CLASS");
+                    }
+                    lpaRows.addAll(fallbackRows);
+                    lpaRows = deduplicateByStdtId(lpaRows);
+                }
+            }
+
+            if (CollectionUtils.isNotEmpty(lpaRows)) {
+                enrichLpaTop3(lpaRows);
+                String ordKey = Integer.toString(currentOrdNo);
+                List<Map<String, Object>> studentLpaList = new ArrayList<>();
+                List<Map<String, Object>> studentLernList = exposeLernReport ? new ArrayList<>() : null;
+                Set<String> lernIncludedStdtIds = exposeLernReport ? new HashSet<>() : null;
+                for (Map<String, Object> row : lpaRows) {
+                    Map<String, Object> lpaRow = new LinkedHashMap<>();
+                    lpaRow.put("stdtId", MapUtils.getString(row, "stdtId", ""));
+                    lpaRow.put("source", MapUtils.getString(row, "source", "IN_CLASS"));
+                    lpaRow.put("lpaClassId", row.get("lpaClassId"));
+                    lpaRow.put("lpaTypeName", row.get("lpaTypeName"));
+                    lpaRow.put("lpaConfidence", row.get("lpaConfidence"));
+                    lpaRow.put("lpaStatus", row.get("lpaStatus"));
+                    lpaRow.put("lpaTop1TypeName", row.get("lpaTop1TypeName"));
+                    lpaRow.put("lpaTop1Probability", row.get("lpaTop1Probability"));
+                    lpaRow.put("lpaTop2TypeName", row.get("lpaTop2TypeName"));
+                    lpaRow.put("lpaTop2Probability", row.get("lpaTop2Probability"));
+                    lpaRow.put("lpaTop3TypeName", row.get("lpaTop3TypeName"));
+                    lpaRow.put("lpaTop3Probability", row.get("lpaTop3Probability"));
+                    studentLpaList.add(lpaRow);
+
+                    if (studentLernList != null) {
+                        Map<String, Object> sectionScores = new LinkedHashMap<>();
+                        String jsonStr = MapUtils.getString(row, "json", "");
+                        if (StringUtils.isNotBlank(jsonStr)) {
+                            try {
+                                Map<String, Object> parsed = lernJsonParser.readValue(jsonStr, Map.class);
+                                sectionScores.putAll(parsed);
+                            } catch (Exception ex) {
+                                // json 파싱 실패 — 빈 sectionScores 로 응답. 데이터 없는 학생도 fallback 여부는 표기.
+                            }
+                        }
+                        String stdtIdValue = MapUtils.getString(row, "stdtId", "");
+                        Map<String, Object> lernRow = new LinkedHashMap<>();
+                        lernRow.put("stdtId", stdtIdValue);
+                        lernRow.put("source", MapUtils.getString(row, "source", "IN_CLASS"));
+                        lernRow.put("ord_no", currentOrdNo);
+                        // selectClassTotalReport / FromOtherClasses 양쪽 모두 b1.subm_at = 'Y' 필터링이라
+                        // lpaRows 에 들어온 학생은 모두 제출 완료 상태.
+                        lernRow.put("subm_at", "Y");
+                        lernRow.put("sectionScores", sectionScores);
+                        studentLernList.add(lernRow);
+                        if (StringUtils.isNotBlank(stdtIdValue)) {
+                            lernIncludedStdtIds.add(stdtIdValue);
+                        }
+                    }
+                }
+
+                // 타학급에서 응시 중(subm_at='N')이라 위 fallback 에 안 잡힌 학생도 lernReportByOrd 에 노출.
+                // FE 가 "다른 학급에서 응시 중(미제출)" 상태로 표시할 수 있도록.
+                if (studentLernList != null && CollectionUtils.isNotEmpty(missingStudents)) {
+                    Map<String, Object> statusParam = new HashMap<>();
+                    statusParam.put("claId", MapUtils.getString(param, "claId", ""));
+                    statusParam.put("paperIdx", paperIdx);
+                    statusParam.put("ordNo", currentOrdNo);
+                    statusParam.put("stdtIds", missingStudents);
+                    List<Map<String, Object>> statusRows =
+                            dgnssMapper.selectClassStudentsSubmStatusFromOtherClasses(statusParam);
+                    if (CollectionUtils.isNotEmpty(statusRows)) {
+                        for (Map<String, Object> sRow : statusRows) {
+                            String sId = MapUtils.getString(sRow, "stdtId", "");
+                            String sAt = MapUtils.getString(sRow, "submAt", "");
+                            if (StringUtils.isBlank(sId) || lernIncludedStdtIds.contains(sId)) continue;
+                            Map<String, Object> lernRow = new LinkedHashMap<>();
+                            lernRow.put("stdtId", sId);
+                            lernRow.put("source", "OTHER_CLASS");
+                            lernRow.put("ord_no", currentOrdNo);
+                            lernRow.put("subm_at", sAt);
+                            lernRow.put("sectionScores", new LinkedHashMap<>());
+                            studentLernList.add(lernRow);
+                            lernIncludedStdtIds.add(sId);
+                        }
+                    }
+                }
+
+                lpaByOrd.put(ordKey, studentLpaList);
+                if (studentLernList != null) {
+                    lernReportByOrd.put(ordKey, studentLernList);
+                }
+            }
+        }
+        resultMap.put("lpaByOrd", lpaByOrd);
+        if (exposeLernReport) {
+            resultMap.put("lernReportByOrd", lernReportByOrd);
+        }
+
         return resultMap;
+    }
+
+    private List<Integer> resolveTargetDgnssIdListForAnalysis(String paperIdx, String ordNo, List<Integer> allDgnssIdList) {
+        List<Integer> targetDgnssIdList = new ArrayList<>();
+        if (CollectionUtils.isEmpty(allDgnssIdList)) {
+            return targetDgnssIdList;
+        }
+
+        if (StringUtils.equals(paperIdx, "2")) {
+            if (StringUtils.isEmpty(ordNo)) {
+                if (allDgnssIdList.size() < 3) {
+                    targetDgnssIdList.addAll(allDgnssIdList);
+                } else if (allDgnssIdList.size() == 3) {
+                    targetDgnssIdList.add(allDgnssIdList.get(0));
+                    targetDgnssIdList.add(allDgnssIdList.get(2));
+                }
+            } else if (StringUtils.equals(ordNo, "1")) {
+                targetDgnssIdList.add(allDgnssIdList.get(0));
+            } else {
+                targetDgnssIdList.add(allDgnssIdList.get(0));
+                if (allDgnssIdList.size() > 1) {
+                    targetDgnssIdList.add(allDgnssIdList.get(1));
+                }
+            }
+            return targetDgnssIdList;
+        }
+
+        if (StringUtils.equals(ordNo, "2") && allDgnssIdList.size() > 1) {
+            targetDgnssIdList.add(allDgnssIdList.get(0));
+            targetDgnssIdList.add(allDgnssIdList.get(1));
+        } else {
+            targetDgnssIdList.add(allDgnssIdList.get(0));
+        }
+        return targetDgnssIdList;
+    }
+
+    private List<Map<String, Object>> deduplicateByStdtId(List<Map<String, Object>> rows) {
+        if (CollectionUtils.isEmpty(rows)) {
+            return rows;
+        }
+        Map<String, Map<String, Object>> merged = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String stdtId = MapUtils.getString(row, "stdtId", "");
+            if (StringUtils.isBlank(stdtId) || merged.containsKey(stdtId)) {
+                continue;
+            }
+            merged.put(stdtId, row);
+        }
+        return new ArrayList<>(merged.values());
     }
 
 
