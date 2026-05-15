@@ -147,6 +147,55 @@ public class DgnssService {
         return resultMap;
     }
 
+    /**
+     * /tc/start 호출 전 사전 검증.
+     * <p>현재 학급 group_member 전체를 다음 3개로 분류:
+     * <ul>
+     *   <li>{@code ELIGIBLE} — 현재 학급에서 1회차 응시(NOT EXISTS 타학급 1회차) → 2회차 출제 가능</li>
+     *   <li>{@code BLOCKED_OTHER_CLASS} — 1회차를 다른 학급에서 응시 → 2회차 출제 불가</li>
+     *   <li>{@code NO_HISTORY} — 1회차 이력 없음 → 2회차 출제 불가</li>
+     * </ul>
+     * <p>응답: canStart(eligibleCount &gt; 0), totalCount, eligibleCount, blockedOtherClassCount,
+     * noHistoryCount, blockedStudents(stdtId/nickname/memberNo).
+     * <p>FE 는 2회차 진입 시점에만 호출하면 됨 (1회차는 분류 의미 없음).
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> selectTcDgnssStartPreview(Map<String, Object> param) {
+        List<Map<String, Object>> rows = dgnssMapper.selectTcDgnssStartPreview(param);
+
+        int eligibleCount = 0;
+        int blockedCount = 0;
+        int noHistoryCount = 0;
+        List<Map<String, Object>> blockedStudents = new ArrayList<>();
+
+        if (rows != null) {
+            for (Map<String, Object> row : rows) {
+                String status = MapUtils.getString(row, "status", "");
+                if ("ELIGIBLE".equals(status)) {
+                    eligibleCount++;
+                } else if ("BLOCKED_OTHER_CLASS".equals(status)) {
+                    blockedCount++;
+                    Map<String, Object> blocked = new LinkedHashMap<>();
+                    blocked.put("stdtId", MapUtils.getString(row, "stdtId", ""));
+                    blocked.put("nickname", MapUtils.getString(row, "nickname", ""));
+                    blocked.put("memberNo", row.get("memberNo"));
+                    blockedStudents.add(blocked);
+                } else {
+                    noHistoryCount++;
+                }
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("canStart", eligibleCount > 0);
+        result.put("totalCount", rows == null ? 0 : rows.size());
+        result.put("eligibleCount", eligibleCount);
+        result.put("blockedOtherClassCount", blockedCount);
+        result.put("noHistoryCount", noHistoryCount);
+        result.put("blockedStudents", blockedStudents);
+        return result;
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> insertTcDgnssStart(Map<String, Object> paramMap) {
         int result = 0;

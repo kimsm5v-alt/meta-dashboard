@@ -34,6 +34,7 @@ public interface DgnssMapper {
     // 교사) META 자기조절학습 result_info에 insert할 학생 ID 탐색
     List<String> selectTargetStList(Map<String, Object> param);
     List<String> selectEligibleTargetStListForOrd2(Map<String, Object> param);
+    List<Map<String, Object>> selectTcDgnssStartPreview(Map<String, Object> param);
     List<Long> selectTargetStudentUserNoList(Map<String, Object> param);
     String selectTcId(Map<String, Object> param);
     // 교사) META 자기조절학습 학생 개인 답안(OMR) insert

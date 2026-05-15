@@ -200,6 +200,40 @@
 		ORDER BY gm.member_no
 	</select>
 
+	<select id="selectTcDgnssStartPreview" parameterType="map" resultType="map">
+		/* DgnssMapper.selectTcDgnssStartPreview */
+		SELECT gm.stdt_id AS stdtId
+			, gm.nickname AS nickname
+			, gm.member_no AS memberNo
+			, CASE
+				WHEN EXISTS (
+					SELECT 1
+					FROM tb_dgnss_info tdi_o
+						INNER JOIN tb_dgnss_result_info tdri_o
+							ON tdri_o.dgnss_id = tdi_o.id
+					WHERE tdi_o.ord_no = 1
+					  AND tdi_o.paper_idx = #{paperIdx}
+					  AND tdi_o.cla_id <![CDATA[<>]]> #{claId}
+					  AND tdri_o.stdt_id = gm.stdt_id
+				) THEN 'BLOCKED_OTHER_CLASS'
+				WHEN EXISTS (
+					SELECT 1
+					FROM tb_dgnss_info tdi_s
+						INNER JOIN tb_dgnss_result_info tdri_s
+							ON tdri_s.dgnss_id = tdi_s.id
+					WHERE tdi_s.ord_no = 1
+					  AND tdi_s.paper_idx = #{paperIdx}
+					  AND tdi_s.cla_id = #{claId}
+					  AND tdri_s.stdt_id = gm.stdt_id
+				) THEN 'ELIGIBLE'
+				ELSE 'NO_HISTORY'
+			END AS status
+		FROM group_info gi
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id
+		WHERE gi.cla_id = #{claId}
+		ORDER BY gm.member_no
+	</select>
+
 	<select id="selectTcId" parameterType="map" resultType="String">
 		/* DgnssMapper.selectTcId */
 		SELECT u.tc_id
