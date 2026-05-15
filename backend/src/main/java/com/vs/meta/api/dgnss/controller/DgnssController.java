@@ -694,14 +694,15 @@ public class DgnssController {
             })
     public ResponseDTO<CustomBody> uploadAnswers(
             @RequestParam("dgnssId") int dgnssId,
-            @RequestParam("file") MultipartFile file
+            @RequestParam("file") MultipartFile file,
+            HttpServletRequest request
     ) {
         Map<String, Object> paramData = new HashMap<>();
         paramData.put("dgnssId", dgnssId);
 
         try {
-            Map<String, Object> result = dgnssService.uploadAnswersFromExcel(dgnssId, file);
-            String resultMessage = "응답값이 성공적으로 업데이트되었습니다";
+            Map<String, Object> result = dgnssService.uploadAnswersFromExcel(dgnssId, file, request);
+            String resultMessage = "응답값이 업데이트되고 검사가 종료되었습니다";
             return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
         } catch (ValidationException e) {
             log.warn("엑셀 업로드 유효성 검증 실패: dgnssId={}, errors={}", dgnssId, e.getErrors());

@@ -2477,8 +2477,8 @@ public class DgnssService {
      * @param file 엑셀 파일
      * @return 업데이트 결과
      */
-    @Transactional
-    public Map<String, Object> uploadAnswersFromExcel(int dgnssId, org.springframework.web.multipart.MultipartFile file) throws IOException {
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> uploadAnswersFromExcel(int dgnssId, org.springframework.web.multipart.MultipartFile file, HttpServletRequest request) throws Exception {
         List<Map<String, Object>> errors = new ArrayList<>();
 
         // 1. 파일 형식 검증
@@ -2596,11 +2596,24 @@ public class DgnssService {
             updatedCount += result;
         }
 
-        // 6. 결과 반환
+        // 6. 검사 자동 종료 — updateTcDgnssEnd 가 다음을 수행:
+        //   - tb_dgnss_info.dgnss_at='N', dgnss_ed_dt=NOW() 갱신
+        //   - 모든 문항 답안 작성한 학생을 자동 제출 처리 (callProcMark 로 분석점수 계산 포함)
+        //   - 검사 종료/결과 공개 이벤트 발행
+        // 동일 트랜잭션이므로 한 단계라도 실패하면 엑셀 업데이트까지 통째로 롤백됨.
+        Map<String, Object> endParam = new HashMap<>();
+        endParam.put("dgnssId", dgnssId);
+        Map<String, Object> endResult = updateTcDgnssEnd(endParam, request);
+
+        // 7. 결과 반환
         Map<String, Object> resultMap = new HashMap<>();
         resultMap.put("totalRows", updateDataList.size());
         resultMap.put("updatedRows", updatedCount);
         resultMap.put("skippedRows", 0);
+        resultMap.put("stSubmCnt", endResult.get("stSubmCnt"));
+        resultMap.put("submStdtList", endResult.get("submStdtList"));
+        resultMap.put("dgnssAt", endResult.get("dgnssAt"));
+        resultMap.put("dgnssEdDt", endResult.get("dgnssEdDt"));
 
         return resultMap;
     }
