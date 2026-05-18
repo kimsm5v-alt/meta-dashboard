@@ -110,7 +110,7 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
       </Section>
 
       {/* 2. 학습 유형 알아보기 */}
-      <Section>
+      {/* <Section>
         <SectionTitle>나의 학습 유형</SectionTitle>
         <SectionCard>
           <SectionContent>
@@ -130,7 +130,7 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
             />
           </SectionContent>
         </SectionCard>
-      </Section>
+      </Section> */}
 
       {/* 데이터 해석 도우미 (플로팅 챗봇) */}
       <DataHelperChatbot
@@ -456,7 +456,12 @@ export const MyResultPage: React.FC = () => {
               const r1Exam = examList.find((e) => e.hasResult && e.ordNo === 1);
               const r2Exam = examList.find((e) => e.hasResult && e.ordNo === 2);
               const groupDgnssIds = { round1: r1Exam?.dgnssId, round2: r2Exam?.dgnssId };
-              const fullAnalysis = await fetchStudentFullAnalysis(group.claId, user.stdtId, '1', 'Y');
+              const fullAnalysis = await fetchStudentFullAnalysis(
+                group.claId,
+                user.stdtId,
+                '1',
+                'Y',
+              );
               if (fullAnalysis.round1 || fullAnalysis.round2) {
                 allAnalyses.push({
                   claId: group.claId,
@@ -642,9 +647,7 @@ export const MyResultPage: React.FC = () => {
               2차 결과 다운로드
             </PDFButton>
           )}
-          {pdfError && (
-            <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>다운로드 실패</span>
-          )}
+          {pdfError && <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>다운로드 실패</span>}
         </div>
       </PageHeader>
 
