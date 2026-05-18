@@ -10,7 +10,7 @@
  *   → callAI() → Gemini API
  */
 
-import { callAI } from '@shared/services/ai';
+import { agentChat } from '@features/ai-room/api/agentApiService';
 import { SYSTEM_PROMPT_DATA_HELPER } from '@shared/data/aiPrompts';
 import { getSubCategoryResults, type SubCategoryResult } from '@shared/utils/summaryGenerator';
 import { getTypeInfo } from '@shared/utils/lpaClassifier';
@@ -255,19 +255,9 @@ export const getDataHelperAnswer = async (
   data: StudentData,
 ): Promise<string> => {
   const userMessage = buildPromptForQuestion(questionId, data);
+  const fullPrompt = `${SYSTEM_PROMPT_DATA_HELPER}\n\n---\n\n${userMessage}`;
+  const sessionId = `data-helper-${questionId}-${Date.now()}`;
 
-  const response = await callAI({
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT_DATA_HELPER },
-      { role: 'user', content: userMessage },
-    ],
-    temperature: 0.4,
-    maskPII: false,
-  });
-
-  if (!response.success) {
-    throw new Error(response.error || '답변 생성에 실패했습니다.');
-  }
-
-  return response.content;
+  const response = await agentChat(fullPrompt, sessionId);
+  return response.response;
 };
