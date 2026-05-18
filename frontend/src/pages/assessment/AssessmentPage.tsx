@@ -18,7 +18,6 @@ import {
   GeneralSection,
   CreateAssessmentModal,
   AssessmentCodeModal,
-  PdfUploadModal,
   type AssessmentFormData,
 } from '@features/assessment/ui';
 import { registerExamCode } from '@features/exam/api/examService';
@@ -200,7 +199,6 @@ export const AssessmentPage: React.FC = () => {
   // 모달 상태
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState<ManagedAssessment | null>(null);
 
   // 알럿 모달 상태
@@ -445,9 +443,17 @@ export const AssessmentPage: React.FC = () => {
     setIsProcessing(true);
     try {
       await uploadAnswersExcel(assessment.dgnssId, file);
-      setAlertModal({ isOpen: true, title: '업로드 완료', message: '엑셀 파일이 성공적으로 업로드되었습니다.' });
+      setAlertModal({
+        isOpen: true,
+        title: '업로드 완료',
+        message: '엑셀 파일이 성공적으로 업로드되었습니다.',
+      });
     } catch {
-      setAlertModal({ isOpen: true, title: '업로드 실패', message: '엑셀 파일 업로드에 실패했습니다. 파일 형식을 확인해주세요.' });
+      setAlertModal({
+        isOpen: true,
+        title: '업로드 실패',
+        message: '엑셀 파일 업로드에 실패했습니다. 파일 형식을 확인해주세요.',
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -459,7 +465,11 @@ export const AssessmentPage: React.FC = () => {
     try {
       await downloadSampleExcel(assessment.dgnssId);
     } catch {
-      setAlertModal({ isOpen: true, title: '다운로드 실패', message: '양식 파일 다운로드에 실패했습니다.' });
+      setAlertModal({
+        isOpen: true,
+        title: '다운로드 실패',
+        message: '양식 파일 다운로드에 실패했습니다.',
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -513,7 +523,6 @@ export const AssessmentPage: React.FC = () => {
         <GeneralSection
           assessments={assessments}
           onCreateClick={() => setIsCreateModalOpen(true)}
-          onUploadClick={() => setIsUploadModalOpen(true)}
           onViewCode={handleViewCode}
           onEndExam={handleEndExam}
           onCancelExam={handleCancelExam}
@@ -535,7 +544,6 @@ export const AssessmentPage: React.FC = () => {
         onClose={() => setIsCodeModalOpen(false)}
         assessment={selectedAssessment}
       />
-      <PdfUploadModal isOpen={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} />
 
       {/* 알럿 모달 */}
       <AlertModal

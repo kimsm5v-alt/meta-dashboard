@@ -169,7 +169,6 @@ const UploadDescription = styled.p`
 interface GeneralSectionProps {
   assessments: ManagedAssessment[];
   onCreateClick: () => void;
-  onUploadClick: () => void;
   onViewCode: (assessment: ManagedAssessment) => void;
   onEndExam?: (assessment: ManagedAssessment) => void;
   onCancelExam?: (assessment: ManagedAssessment) => void;
@@ -181,7 +180,6 @@ interface GeneralSectionProps {
 export const GeneralSection: React.FC<GeneralSectionProps> = ({
   assessments,
   onCreateClick,
-  onUploadClick,
   onViewCode,
   onEndExam,
   onCancelExam,
@@ -204,18 +202,10 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
               검사를 시작할 수 있습니다.
             </InfoDescription>
             <ManualButtonRow>
-              <ManualBtn
-                href={MANUAL_URL_COMPREHENSIVE}
-                target='_blank'
-                rel='noopener noreferrer'
-              >
+              <ManualBtn href={MANUAL_URL_COMPREHENSIVE} target='_blank' rel='noopener noreferrer'>
                 학습종합검사 교사용 설명서
               </ManualBtn>
-              <ManualBtn
-                href={MANUAL_URL_SELF_REGULATED}
-                target='_blank'
-                rel='noopener noreferrer'
-              >
+              <ManualBtn href={MANUAL_URL_SELF_REGULATED} target='_blank' rel='noopener noreferrer'>
                 자기조절학습검사 교사용 설명서
               </ManualBtn>
             </ManualButtonRow>
@@ -254,24 +244,6 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
           </EmptyState>
         )}
       </ListContainer>
-
-      {/* PDF 업로드 옵션 */}
-      <UploadSection>
-        <UploadTitle>
-          <FileText className='w-5 h-5 text-gray-400' />
-          기존 결과 업로드
-        </UploadTitle>
-        <UploadDescription>
-          다른 곳에서 실시한 학습심리정서검사 결과가 있다면 PDF 파일을 업로드하여 분석할 수
-          있습니다.
-        </UploadDescription>
-        <ApiTooltip {...API_UPLOAD_CREATE} position='top-right'>
-          <Button onClick={onUploadClick} className='w-full justify-center'>
-            <Upload className='w-4 h-4 mr-2' />
-            PDF 결과 파일 업로드
-          </Button>
-        </ApiTooltip>
-      </UploadSection>
     </Container>
   );
 };
