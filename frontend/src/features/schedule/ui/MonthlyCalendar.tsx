@@ -2,7 +2,6 @@ import styled from '@emotion/styled';
 import { useMemo } from 'react';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { CounselingRecord } from '@shared/types';
-import { CLASS_COLORS } from '@shared/data/mockUnifiedCounseling';
 
 const Container = styled.div`
   background: ${({ theme }) => theme.colors.background.paper};
@@ -112,6 +111,7 @@ interface MonthlyCalendarProps {
   schedules: CounselingRecord[];
   selectedDate: Date | null;
   onDateClick: (date: Date) => void;
+  classColors: Record<string, string>;
 }
 
 interface CalendarDay {
@@ -190,6 +190,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
   schedules,
   selectedDate,
   onDateClick,
+  classColors,
 }) => {
   const calendarDays = useMemo(() => {
     const days = getMonthDays(currentDate);
@@ -253,7 +254,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
               <ScheduleList>
                 {displaySchedules.map((schedule) => {
                   const isCompleted = schedule.status === 'completed';
-                  const baseColor = CLASS_COLORS[schedule.classId] || '#9CA3AF';
+                  const baseColor = classColors[schedule.classId] || '#9CA3AF';
                   const backgroundColor = isCompleted ? `${baseColor}99` : baseColor;
                   return (
                     <ScheduleItem
