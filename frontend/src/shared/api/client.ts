@@ -2,6 +2,14 @@ import axios from 'axios';
 import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { getAuth } from '@shared/lib/authClient';
 import { ENV } from '@shared/config/env';
+import { createClientCallId, buildQchRequestHeaders, logApiEvent } from '@shared/logging/qchLogger';
+
+// Axios config에 QCH 메타 추가 (인터셉터 간 공유)
+declare module 'axios' {
+  interface InternalAxiosRequestConfig {
+    _qch?: { clientCallId: string; startedAt: number };
+  }
+}
 
 // ============================================================
 // 공통 응답 타입
@@ -89,6 +97,13 @@ axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
       // SDK 미초기화 시 토큰 없이 진행
     }
   }
+
+  // QCH: clientCallId 생성 + 시작 시각 기록 + backend 헤더 주입
+  const clientCallId = createClientCallId();
+  config._qch = { clientCallId, startedAt: performance.now() };
+  const qchHeaders = buildQchRequestHeaders(clientCallId);
+  Object.assign(config.headers, qchHeaders);
+
   return config;
 });
 
@@ -99,6 +114,23 @@ axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 axiosInstance.interceptors.response.use(
   (response: AxiosResponse) => {
     const data = response.data as APIResponse<unknown>;
+
+    // QCH 성공 로그
+    const qch = response.config._qch;
+    if (qch) {
+      const method = (response.config.method ?? 'GET').toUpperCase();
+      const endpoint = response.config.url ?? '';
+      const durationMs = Math.round(performance.now() - qch.startedAt);
+      logApiEvent({
+        component: endpoint,
+        logType: 'INFO',
+        code: 'I_API_CALL_OK',
+        message: `${method} ${endpoint} success`,
+        clientCallId: qch.clientCallId,
+        raw: { method, endpoint, statusCode: response.status, durationMs },
+      });
+    }
+
     if (data && data.success === false) {
       const message = data.resultMessage ?? 'API Error';
       return Promise.reject(new ApiError(response.status, message, data.resultCode));
@@ -123,6 +155,31 @@ axiosInstance.interceptors.response.use(
       } catch {
         // refresh 실패 → SDK가 자동으로 clearTokens + 로그아웃 처리
       }
+    }
+
+    // QCH 실패 로그
+    const qch = originalRequest._qch;
+    if (qch) {
+      const method = (originalRequest.method ?? 'GET').toUpperCase();
+      const endpoint = originalRequest.url ?? '';
+      const durationMs = Math.round(performance.now() - qch.startedAt);
+      const isNetworkError = !error.response;
+      logApiEvent({
+        component: endpoint,
+        logType: 'ERROR',
+        code: isNetworkError ? 'E_API_NETWORK' : 'E_API_CALL_FAIL',
+        message: isNetworkError
+          ? `${method} ${endpoint} network error`
+          : `${method} ${endpoint} failed: ${status}`,
+        clientCallId: qch.clientCallId,
+        raw: {
+          method,
+          endpoint,
+          statusCode: status,
+          durationMs,
+          errorMessage: (error as Error)?.message,
+        },
+      });
     }
 
     const message = error.response?.data?.resultMessage ?? error.message ?? 'API Error';
