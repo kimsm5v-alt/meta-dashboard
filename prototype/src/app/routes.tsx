@@ -22,7 +22,11 @@ import { StudentDashboardPage } from '../features/student-dashboard';
 import { AIRoomPage } from '../features/ai-room';
 import { LandingPage } from '../features/landing';
 import { LoginPage, SignUpPage, ForgotPasswordPage } from '../features/auth';
-import { AssessmentPage } from '../features/assessment';
+// 기존 검사 페이지 (레거시)
+// import { AssessmentPage } from '../features/assessment';
+
+// 검사하기 V2 (그룹 관리 + 검사하기 통합)
+import { AssessmentPageV2 } from '../features/assessment-v2';
 import { SchedulePage } from '../features/schedule';
 import { ExamPage } from '../features/exam';
 
@@ -144,10 +148,11 @@ export const AppRoutes = () => (
 
     {/* 보호 라우트 - 사이드바 있음 */}
     <Route element={<ProtectedLayout />}>
-      {/* 검사 영역 */}
-      <Route path="/groups" element={<GroupListPage />} />
-      <Route path="/groups/:groupId" element={<GroupDetailPage />} />
-      <Route path="/assessment" element={<AssessmentPage />} />
+      {/* 검사 영역 - 그룹 관리 + 검사하기 통합 */}
+      <Route path="/assessment" element={<AssessmentPageV2 />} />
+      {/* 레거시 그룹 라우트 → /assessment로 리다이렉트 */}
+      <Route path="/groups" element={<Navigate to="/assessment" replace />} />
+      <Route path="/groups/:groupId" element={<Navigate to="/assessment" replace />} />
       <Route path="/dashboard" element={<TeacherDashboardPage />} />
       <Route path="/dashboard/class/:classId" element={<ClassDashboardPage />} />
       <Route path="/dashboard/class/:classId/analysis" element={<ClassDetailAnalysisPage />} />
