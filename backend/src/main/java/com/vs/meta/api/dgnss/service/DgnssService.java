@@ -499,6 +499,7 @@ public class DgnssService {
     }
 
     public Map<String, Object> pdfDownload(Map<String, Object> paramData, HttpServletRequest request) throws Exception {
+        long totalStart = System.currentTimeMillis();
         Map<String, Object> result = new HashMap<>();
 
         String userId = MapUtils.getString(paramData, "userId", "");
@@ -520,7 +521,10 @@ public class DgnssService {
                 result.put("error", "error");
                 result.put("message", "dgnssId 필수값 누락");
             }
+            long dbStart = System.currentTimeMillis();
             Map<String, Object> tcUserInfo = dgnssMapper.selectTcUserInfo(paramData);
+            log.info("[PDF 성능] 교사 정보 조회: {}ms", System.currentTimeMillis() - dbStart);
+
             if (StringUtils.isNotEmpty(MapUtils.getString(tcUserInfo, "fileUrl", ""))) {
                 result.put("url", MapUtils.getString(tcUserInfo, "fileUrl", ""));
                 return result;
@@ -529,7 +533,10 @@ public class DgnssService {
             url = makeTcPdf(paramData, tcUserInfo, fileName, request);
         } else if (StringUtils.equals(userType, "S")) {
             // 학생용 PDF 생성 및 존재하는 데이터일 경우 주소 리턴
+            long dbStart = System.currentTimeMillis();
             Map<String, Object> stUserInfo = dgnssMapper.selectStUserInfo(paramData);
+            log.info("[PDF 성능] 학생 정보 조회: {}ms", System.currentTimeMillis() - dbStart);
+
             String fileUrl = MapUtils.getString(stUserInfo, "fileURL", "");
 
             if (StringUtils.isNotEmpty(fileUrl)) {
@@ -538,8 +545,6 @@ public class DgnssService {
             }
 
             url = makeStPdf(paramData, stUserInfo, fileName, request);
-
-            log.info("------file complete : {}", url);
         }
         if (StringUtils.isNotEmpty(url)) {
             result.put("url", url);
@@ -548,6 +553,8 @@ public class DgnssService {
             result.put("error", "fail");
         }
 
+        log.info("[PDF 성능] 전체 소요시간: {}ms (userId: {}, userType: {})",
+                System.currentTimeMillis() - totalStart, userId, userType);
         return result;
     }
 
@@ -555,6 +562,7 @@ public class DgnssService {
                             Map<String, Object> tcUserInfo,
                             String fileName,
                             HttpServletRequest request) throws Exception {
+        long methodStart = System.currentTimeMillis();
 
         Map<String, Object> dgnssData = new HashMap<String, Object>();
         Map<String, Object> param  = new HashMap<String, Object>();
@@ -567,6 +575,7 @@ public class DgnssService {
         param.put("DGNSS_ID", MapUtils.getString(tcUserInfo, "DGNSS_ID"));
         param.put("claId", MapUtils.getString(tcUserInfo, "claId"));
 
+        long dbStart = System.currentTimeMillis();
         // 1단계: 독립적인 쿼리 5개 병렬 실행
         CompletableFuture<List<Map<String, Object>>> reportLSFuture =
                 CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportLS(param), pdfQueryPool);
@@ -654,12 +663,20 @@ public class DgnssService {
 
         dgnssData.put("dgnssReportStat5", dgnssReportStat5);
 
+        log.info("[PDF 성능] 교사용 DB 쿼리 완료: {}ms", System.currentTimeMillis() - dbStart);
+
+        long pdfStart = System.currentTimeMillis();
         String url = pdfService.createDgnssReportCoch(new File(fileName), dgnssData, request);
+        log.info("[PDF 성능] 교사용 PDF 렌더링+업로드: {}ms", System.currentTimeMillis() - pdfStart);
+
+        long updateStart = System.currentTimeMillis();
         Map<String, Object> updateMap = new HashMap<>();
         updateMap.put("fileUrl", url);
         updateMap.put("dgnssId", MapUtils.getString(param, "TEST_IDX", ""));
         dgnssMapper.updateFileUrlTch(updateMap);
+        log.info("[PDF 성능] 교사용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
 
+        log.info("[PDF 성능] 교사용 makeTcPdf 총합: {}ms", System.currentTimeMillis() - methodStart);
         return url;
     }
 
@@ -668,6 +685,7 @@ public class DgnssService {
                             Map<String, Object> stUserInfo,
                             String fileName,
                             HttpServletRequest request) throws Exception {
+        long methodStart = System.currentTimeMillis();
         Map<String, Object> dgnssData = new HashMap<>();
         int answerIdx = MapUtils.getInteger(paramData, "answerIdx", 0);
 
@@ -684,6 +702,7 @@ public class DgnssService {
         param5.put("ANSWER_IDX", answerIdx);
         param5.put("DEPTH", 5);
 
+        long dbStart = System.currentTimeMillis();
         // 4개 쿼리 병렬 실행
         CompletableFuture<List<Map<String, Object>>> report3Future =
                 CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReport(param3), pdfQueryPool);
@@ -703,14 +722,20 @@ public class DgnssService {
         dgnssData.put("dgnssReport5", report5Future.get());
         dgnssData.put("dgnssReportStudy", reportStudyFuture.get());
         dgnssData.put("userInfo", stUserInfo);
+        log.info("[PDF 성능] 학생용 DB 쿼리 완료: {}ms", System.currentTimeMillis() - dbStart);
 
+        long pdfStart = System.currentTimeMillis();
         String url = pdfService.createDgnssAnalysisByTemplate(new File(fileName), dgnssData, request);
+        log.info("[PDF 성능] 학생용 PDF 렌더링+업로드: {}ms", System.currentTimeMillis() - pdfStart);
 
+        long updateStart = System.currentTimeMillis();
         Map<String, Object> updateMap = new HashMap<>();
         updateMap.put("fileUrl", url);
         updateMap.put("dgnssResultId", MapUtils.getString(stUserInfo, "dgnssResultId", ""));
         dgnssMapper.updateFileUrl(updateMap);
+        log.info("[PDF 성능] 학생용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
 
+        log.info("[PDF 성능] 학생용 makeStPdf 총합: {}ms", System.currentTimeMillis() - methodStart);
         return url;
     }
 
