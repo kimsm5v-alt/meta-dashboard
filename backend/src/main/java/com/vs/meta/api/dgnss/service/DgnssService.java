@@ -35,6 +35,7 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -42,7 +43,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toCollection;
@@ -52,6 +53,9 @@ import static java.util.stream.Collectors.toCollection;
 @Slf4j
 public class DgnssService {
     private static final String LPA_TYPES_RESOURCE_PATH = "data/lpa-types.json";
+
+    // PDF 쿼리 병렬 실행용 스레드 풀 (최대 20개 동시 쿼리)
+    private final ExecutorService pdfQueryPool = Executors.newFixedThreadPool(20);
 
     private final ObjectMapper mapper;
     private final DgnssMapper dgnssMapper;
@@ -83,6 +87,19 @@ public class DgnssService {
         } catch (IOException e) {
             log.warn("Failed to load LPA type metadata. top3 type names will fallback to classId.", e);
             lpaTypeNameByClassId = Collections.emptyMap();
+        }
+    }
+
+    @PreDestroy
+    void shutdownPdfQueryPool() {
+        pdfQueryPool.shutdown();
+        try {
+            if (!pdfQueryPool.awaitTermination(5, TimeUnit.SECONDS)) {
+                pdfQueryPool.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            pdfQueryPool.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -550,16 +567,31 @@ public class DgnssService {
         param.put("DGNSS_ID", MapUtils.getString(tcUserInfo, "DGNSS_ID"));
         param.put("claId", MapUtils.getString(tcUserInfo, "claId"));
 
-        // 학습환경
-        List<Map<String, Object>> dgnssReportLS = dgnssMapper.getDgnssReportLS(param);
-        List<Map<String, Object>> dgnssReportSection = dgnssMapper.getDgnssReportSection(param);
-        List<Map<String, Object>> dgnssReportValidity = dgnssMapper.getDgnssReportValidity(param);
+        // 1단계: 독립적인 쿼리 5개 병렬 실행
+        CompletableFuture<List<Map<String, Object>>> reportLSFuture =
+                CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportLS(param), pdfQueryPool);
+        CompletableFuture<List<Map<String, Object>>> reportSectionFuture =
+                CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportSection(param), pdfQueryPool);
+        CompletableFuture<List<Map<String, Object>>> reportValidityFuture =
+                CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportValidity(param), pdfQueryPool);
+        CompletableFuture<List<Map<String, Object>>> reportMemFuture =
+                CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportMem(param), pdfQueryPool);
+        CompletableFuture<Object> firstTestFuture =
+                CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssFirstTest(param), pdfQueryPool);
 
-        List<Map<String, Object>> dgnssReportMem = dgnssMapper.getDgnssReportMem(param);
-        // 첫번째 검사를 본 id 추출
-        param.put("FIRST_IDX", dgnssMapper.getDgnssFirstTest(param));
+        // 모든 병렬 쿼리 완료 대기
+        CompletableFuture.allOf(reportLSFuture, reportSectionFuture, reportValidityFuture, reportMemFuture, firstTestFuture).join();
 
-        // 종합분석 집계
+        // 병렬 쿼리 결과 추출
+        List<Map<String, Object>> dgnssReportLS = reportLSFuture.get();
+        List<Map<String, Object>> dgnssReportSection = reportSectionFuture.get();
+        List<Map<String, Object>> dgnssReportValidity = reportValidityFuture.get();
+        List<Map<String, Object>> dgnssReportMem = reportMemFuture.get();
+
+        // 첫번째 검사를 본 id 추출 (FIRST_IDX 설정)
+        param.put("FIRST_IDX", firstTestFuture.get());
+
+        // 2단계: 종합분석 집계 (조건부 재조회 로직으로 순차 처리)
         param.put("DEPTH", 3);
         param.put("notExists", "N");
         param.put("firstCancel", "N");
@@ -636,19 +668,40 @@ public class DgnssService {
                             Map<String, Object> stUserInfo,
                             String fileName,
                             HttpServletRequest request) throws Exception {
-        Map<String, Object> param = new HashMap<>();
         Map<String, Object> dgnssData = new HashMap<>();
-        param.put("ANSWER_IDX", MapUtils.getInteger(paramData, "answerIdx", 0));
+        int answerIdx = MapUtils.getInteger(paramData, "answerIdx", 0);
 
-        param.put("DEPTH", 3);
-        dgnssData.put("dgnssReport3", dgnssMapper.getDgnssReport(param));
+        // 각 DEPTH별로 별도 param 생성 (스레드 안전성 확보)
+        Map<String, Object> param3 = new HashMap<>();
+        param3.put("ANSWER_IDX", answerIdx);
+        param3.put("DEPTH", 3);
 
-        param.put("DEPTH", 4);
-        dgnssData.put("dgnssReport4", dgnssMapper.getDgnssReport(param));
+        Map<String, Object> param4 = new HashMap<>();
+        param4.put("ANSWER_IDX", answerIdx);
+        param4.put("DEPTH", 4);
 
-        param.put("DEPTH", 5);
-        dgnssData.put("dgnssReport5", dgnssMapper.getDgnssReport(param));
-        dgnssData.put("dgnssReportStudy", dgnssMapper.getDgnssReportStudy(param));
+        Map<String, Object> param5 = new HashMap<>();
+        param5.put("ANSWER_IDX", answerIdx);
+        param5.put("DEPTH", 5);
+
+        // 4개 쿼리 병렬 실행
+        CompletableFuture<List<Map<String, Object>>> report3Future =
+                CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReport(param3), pdfQueryPool);
+        CompletableFuture<List<Map<String, Object>>> report4Future =
+                CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReport(param4), pdfQueryPool);
+        CompletableFuture<List<Map<String, Object>>> report5Future =
+                CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReport(param5), pdfQueryPool);
+        CompletableFuture<List<Map<String, Object>>> reportStudyFuture =
+                CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportStudy(param5), pdfQueryPool);
+
+        // 모든 병렬 쿼리 완료 대기
+        CompletableFuture.allOf(report3Future, report4Future, report5Future, reportStudyFuture).join();
+
+        // 결과 조합
+        dgnssData.put("dgnssReport3", report3Future.get());
+        dgnssData.put("dgnssReport4", report4Future.get());
+        dgnssData.put("dgnssReport5", report5Future.get());
+        dgnssData.put("dgnssReportStudy", reportStudyFuture.get());
         dgnssData.put("userInfo", stUserInfo);
 
         String url = pdfService.createDgnssAnalysisByTemplate(new File(fileName), dgnssData, request);
