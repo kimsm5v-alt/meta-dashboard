@@ -1,8 +1,6 @@
 import styled from '@emotion/styled';
-import { Plus, Upload, FileText, QrCode } from 'lucide-react';
+import { Plus, FileText, QrCode } from 'lucide-react';
 import { Button } from '@shared/components';
-import { ApiTooltip } from '@shared/components/api-tooltip';
-import { API_UPLOAD_CREATE } from '@shared/data/apiDefinitions';
 import type { ManagedAssessment } from '@shared/types';
 import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
 import { AssessmentList } from './AssessmentList';
@@ -144,27 +142,27 @@ const EmptyText = styled.p`
   margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
-const UploadSection = styled.div`
-  background: ${({ theme }) => theme.colors.background.paper};
-  border-radius: ${({ theme }) => theme.radius.xl};
-  padding: 1.5rem;
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-`;
+// const UploadSection = styled.div`
+//   background: ${({ theme }) => theme.colors.background.paper};
+//   border-radius: ${({ theme }) => theme.radius.xl};
+//   padding: 1.5rem;
+//   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+// `;
 
-const UploadTitle = styled.h4`
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  color: ${({ theme }) => theme.colors.gray[900]};
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-`;
+// const UploadTitle = styled.h4`
+//   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+//   color: ${({ theme }) => theme.colors.gray[900]};
+//   margin-bottom: 0.5rem;
+//   display: flex;
+//   align-items: center;
+//   gap: 0.5rem;
+// `;
 
-const UploadDescription = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.gray[600]};
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
+// const UploadDescription = styled.p`
+//   font-size: ${({ theme }) => theme.typography.fontSize.sm};
+//   color: ${({ theme }) => theme.colors.gray[600]};
+//   margin-bottom: ${({ theme }) => theme.spacing.md};
+// `;
 
 interface GeneralSectionProps {
   assessments: ManagedAssessment[];
