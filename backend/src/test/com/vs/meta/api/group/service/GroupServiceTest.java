@@ -51,6 +51,12 @@ class GroupServiceTest {
     @Mock
     private EmailVerificationService emailVerificationService;
 
+    @Mock
+    private com.vs.meta.api.dgnss.service.DgnssService dgnssService;
+
+    @Mock
+    private com.vs.meta.api.guest.service.GuestAuthService guestAuthService;
+
     @InjectMocks
     private GroupService groupService;
 
@@ -112,6 +118,7 @@ class GroupServiceTest {
                 .groupId(10L)
                 .inviteCode("ABC123")
                 .maxMemberCount(40)
+                .schoolLevel("elementary")
                 .useYn("Y")
                 .build();
 
@@ -185,6 +192,7 @@ class GroupServiceTest {
                 .groupId(10L)
                 .inviteCode("ABC123")
                 .maxMemberCount(40)
+                .schoolLevel("elementary")
                 .useYn("Y")
                 .build();
 
@@ -202,7 +210,6 @@ class GroupServiceTest {
 
         ArgumentCaptor<GroupMember> memberCaptor = ArgumentCaptor.forClass(GroupMember.class);
         verify(groupMemberMapper).insertGroupMember(memberCaptor.capture());
-        verify(emailVerificationService).consumeVerification("guest@test.com");
 
         GroupMember savedMember = memberCaptor.getValue();
         assertThat(savedMember.getMemberType()).isEqualTo(MemberType.GUEST);

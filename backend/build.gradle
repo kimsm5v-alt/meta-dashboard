@@ -121,12 +121,14 @@ dependencies {
     // spring-security-test 제거 — 메타 test 디렉토리에서 미사용 (@WithMockUser/SecurityMockMvc 등 0건)
     // Boot 4: TestRestTemplate 이 별도 모듈로 분리됨 (신규 SecuritySwaggerSmokeTest 에서 사용)
     testImplementation 'org.springframework.boot:spring-boot-resttestclient'
-    testImplementation 'org.mockito:mockito-core:5.14.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.3'
+    // JUnit Jupiter / Mockito — Spring Boot 4 BOM 이 관리하는 버전 사용 (명시 핀고정 시 Boot 4 의
+    // SpringExtension 이 요구하는 ExtensionContext$Store#computeIfAbsent 3-arg 시그니처와 불일치 발생).
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
 
     // mockitoAgent: jvmArgs 로 -javaagent 주입에 사용 (transitive=false 로 byte-buddy 등 차단)
-    mockitoAgent('org.mockito:mockito-core:5.14.2') { transitive = false }
+    mockitoAgent('org.mockito:mockito-core') { transitive = false }
 }
 
 sourceSets {
