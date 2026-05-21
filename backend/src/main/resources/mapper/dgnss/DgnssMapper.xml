@@ -3038,19 +3038,23 @@
 			INNER JOIN tb_dgnss_result_info a1 ON a1_1.id = a1.dgnss_id
 			INNER JOIN tb_dgnss_answer b1 ON a1.id = b1.DGNSS_RESULT_ID
 			INNER JOIN group_info gi ON a1_1.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND a1.stdt_id = gm.stdt_id
+			LEFT JOIN group_member gm ON gi.group_id = gm.group_id AND a1.stdt_id = gm.stdt_id
 		WHERE 1=1
 		<choose>
+			<when test='dgnssResultId != null and dgnssResultId != ""'>
+				AND a1.id = #{dgnssResultId}
+			</when>
 			<when test='stdtId != null and stdtId != ""'>
 				AND a1.stdt_id = #{stdtId}
 				AND a1_1.paper_idx = #{paperIdx}
 				AND a1_1.ord_no = #{ordNo}
-				AND a1_1.cla_id = #{claId}
+				<if test='claId != null and claId != ""'>
+					AND a1_1.cla_id = #{claId}
+				</if>
 			</when>
-			<otherwise>
-				AND a1.id = #{dgnssResultId}
-			</otherwise>
 		</choose>
+		ORDER BY a1.subm_dt DESC
+		LIMIT 1
 	</select>
 
 	<select id="selectStLernAnalysis" parameterType="map" resultType="map">
@@ -3062,6 +3066,8 @@
 			, e1.SECTION_NM
 			, IF(d1.T_SCORE <![CDATA[<]]> 0, 0, d1.T_SCORE) AS tScore
 			, a1.ord_no
+			, a1.cla_id AS claId
+			, gi.group_nm AS groupNm
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
@@ -3076,9 +3082,9 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN tb_dgnss_answer_report d1 ON c1.ANSWER_IDX = d1.ANSWER_IDX
 			INNER JOIN tb_dgnss_section e1 ON d1.SECTION_ID = e1.SECTION_ID
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 		WHERE a1.paper_idx = #{paperIdx}
 			AND b1.stdt_id = #{stdtId}
-			AND a1.cla_id = #{claId}
 			AND b1.subm_at = 'Y'
 	</select>
 

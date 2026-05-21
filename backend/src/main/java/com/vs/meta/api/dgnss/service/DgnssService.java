@@ -1173,14 +1173,18 @@ public class DgnssService {
         if (hasDgnssResultId) {
             stInfoParam.put("dgnssResultId", dgnssResultId);
         } else {
-            String claId = MapUtils.getString(param, "claId", "");
-            if (StringUtils.isBlank(claId)) {
+            String stdtId = MapUtils.getString(param, "stdtId", "");
+            if (StringUtils.isBlank(stdtId)) {
                 return new HashMap<>();
             }
-            stInfoParam.put("stdtId", MapUtils.getString(param, "stdtId", ""));
+            stInfoParam.put("stdtId", stdtId);
             stInfoParam.put("paperIdx", MapUtils.getString(param, "paperIdx", "2"));
             stInfoParam.put("ordNo", MapUtils.getString(param, "ordNo", "1"));
-            stInfoParam.put("claId", claId);
+            // claId는 선택적 — 전달 시 해당 그룹 우선, 미전달 시 최근 응시 기록
+            String claId = MapUtils.getString(param, "claId", "");
+            if (StringUtils.isNotBlank(claId)) {
+                stInfoParam.put("claId", claId);
+            }
         }
 
         Map<String, Object> stUserInfo = dgnssMapper.selectStInfo(stInfoParam);
@@ -1204,10 +1208,10 @@ public class DgnssService {
             return new HashMap<>();
         }
 
+        // 학생 분석 조회: claId 조건 없이 해당 학생의 모든 그룹 이력 조회
         Map<String, Object> analysisParam = new HashMap<>();
         analysisParam.put("paperIdx", resolvedPaperIdx);
         analysisParam.put("stdtId", stdtId);
-        analysisParam.put("claId", MapUtils.getString(stUserInfo, "claId", ""));
 
         List<Map<String, Object>> stAnalysisList = dgnssMapper.selectStLernAnalysis(analysisParam);
         if (CollectionUtils.isEmpty(stAnalysisList)) {
