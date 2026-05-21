@@ -411,7 +411,7 @@ export const MyExamListPage: React.FC = () => {
           return;
         }
 
-        const groups = await getMyGroups(user.id);
+        const groups = await getMyGroups(user.id, true);
         const memberGroups = groups.filter((g) => g.myRole === 'member');
 
         if (memberGroups.length === 0) {

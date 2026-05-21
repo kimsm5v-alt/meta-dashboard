@@ -422,7 +422,7 @@ export const MyResultPage: React.FC = () => {
 
         // 속한 모든 그룹 조회 (학생은 여러 그룹에 속할 수 있음)
         // MyExamListPage와 동일한 패턴 사용
-        const groups = await getMyGroups(user.id);
+        const groups = await getMyGroups(user.id, true);
         const memberGroups = groups.filter((g) => g.myRole === 'member');
 
         if (memberGroups.length === 0) {

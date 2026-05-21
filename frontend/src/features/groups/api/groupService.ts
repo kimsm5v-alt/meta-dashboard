@@ -205,9 +205,14 @@ export const createGroup = async (
 
 /**
  * 내 그룹 목록 조회
+ * @param includeInactive true면 탈퇴/방출된 그룹도 포함
  */
-export const getMyGroups = async (_userId: string): Promise<Group[]> => {
-  const res = await apiClient.get<BackendGroupListItem[]>('/group/list');
+export const getMyGroups = async (
+  _userId: string,
+  includeInactive = false,
+): Promise<Group[]> => {
+  const url = includeInactive ? '/group/list?includeInactive=true' : '/group/list';
+  const res = await apiClient.get<BackendGroupListItem[]>(url);
   return (res.resultData ?? []).map(toFrontendGroup);
 };
 
