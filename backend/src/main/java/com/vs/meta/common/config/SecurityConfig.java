@@ -65,81 +65,10 @@ public class SecurityConfig {
     }
 
     /**
-     * Admin 영역: 세션 기반 Form Login (/admin/**)
-     */
-    @Configuration
-    @Order(1)
-    public static class AdminSecurityConfig extends WebSecurityConfigurerAdapter {
-
-        private final com.vs.meta.admin.service.AdminUserDetailsService adminUserDetailsService;
-        private final PasswordEncoder passwordEncoder;
-        private final com.vs.meta.common.utils.LoginRateLimiter loginRateLimiter;
-
-        public AdminSecurityConfig(
-                com.vs.meta.admin.service.AdminUserDetailsService adminUserDetailsService,
-                PasswordEncoder passwordEncoder,
-                com.vs.meta.common.utils.LoginRateLimiter loginRateLimiter) {
-            this.adminUserDetailsService = adminUserDetailsService;
-            this.passwordEncoder = passwordEncoder;
-            this.loginRateLimiter = loginRateLimiter;
-        }
-
-        @Override
-        protected void configure(org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder auth) throws Exception {
-            auth.userDetailsService(adminUserDetailsService).passwordEncoder(passwordEncoder);
-        }
-
-        @Override
-        protected void configure(HttpSecurity http) throws Exception {
-            http
-                .antMatcher("/admin/**")
-                .csrf().ignoringAntMatchers("/admin/login")
-                .and()
-                .headers().frameOptions().disable()
-                .and()
-                .authorizeRequests()
-                    .antMatchers("/admin/login").permitAll()
-                    .antMatchers("/admin/css/**", "/admin/js/**").permitAll()
-                    .antMatchers("/admin/**").authenticated()
-                .and()
-                .formLogin()
-                    .loginPage("/admin/login")
-                    .loginProcessingUrl("/admin/login")
-                    .usernameParameter("email")
-                    .passwordParameter("password")
-                    .successHandler((request, response, authentication) -> {
-                        String ip = request.getRemoteAddr();
-                        String email = request.getParameter("email");
-                        loginRateLimiter.clearAttempts(ip, email);
-                        response.sendRedirect("/admin/dashboard");
-                    })
-                    .failureHandler((request, response, exception) -> {
-                        String ip = request.getRemoteAddr();
-                        String email = request.getParameter("email");
-                        loginRateLimiter.recordFailure(ip, email);
-                        if (loginRateLimiter.isBlocked(ip, email)) {
-                            response.sendRedirect("/admin/login?error=blocked");
-                        } else {
-                            response.sendRedirect("/admin/login?error=true");
-                        }
-                    })
-                .and()
-                .logout()
-                    .logoutUrl("/admin/logout")
-                    .logoutSuccessUrl("/admin/login?logout=true")
-                    .invalidateHttpSession(true)
-                    .deleteCookies("JSESSIONID")
-                .and()
-                .sessionManagement()
-                    .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED);
-        }
-    }
-
-    /**
      * API 영역: SuperPlatform SSO JWT (RS256, JWKS 공개키 검증)
      */
     @Configuration
-    @Order(2)
+    @Order(1)
     public static class ApiSecurityConfig extends WebSecurityConfigurerAdapter {
 
         private final Environment env;
