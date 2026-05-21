@@ -49,26 +49,32 @@ AgentService → ROUTER_MODEL_NAME ("meta-agent-primary")
 ### 3.1 AI 에이전트 대화 (POST /chat)
 사용자 질문을 처리하며, 세션 기반 메모리와 실시간 콘텍스트 주입을 지원합니다.
 
+`context_data`는 반드시 다음 구조를 따라야 합니다:
+- `profile.schoolLevel` + `profile.predictedType`: Neo4j Tool 호출 여부를 결정하는 학생 식별자. 두 값이 모두 있어야 DB 조회가 활성화됩니다.
+- `context`: LLM에 전달할 학생 컨텍스트 본문(마크다운 문자열). `name` 등 PII 필드는 보안 레이어에서 자동 마스킹됩니다.
+
 **요청 (Request):**
 ```json
 {
   "text": "이 학생의 보완점과 지도 방향을 알려줘",
   "session_id": "std_001_session",
   "context_data": {
-    "student_name": "김철수",
-    "type": "자원소진형",
-    "t_scores": [45, 38, 52]
+    "profile": {
+      "schoolLevel": "middle",
+      "predictedType": "자원소진형"
+    },
+    "context": "## 학생 정보\n- 이름: 김철수\n- T점수: 인지조절 45, 동기조절 38, 정서조절 52\n- 4단계 진단: 위험\n- 최근 상담 기록: 수업 집중도 저하, 학습 의욕 감소"
   }
 }
 ```
-*참고: `student_name` 등 개인정보는 보안 레이어에서 자동으로 `김**` 형태로 마스킹되어 LLM에 전달됩니다.*
+*참고: `context` 내의 `이름` 등 개인정보는 보안 레이어에서 자동으로 `김**` 형태로 마스킹되어 LLM에 전달됩니다.*
 
 **응답 (Response):**
 ```json
 {
   "response": "분석 결과, 김** 학생은 현재 학습 소진도가 높습니다. 정서적 지지가 우선되어야 하며...",
   "session_id": "std_001_session",
-  "history_count": 4
+  "history_count": 2
 }
 ```
 
@@ -183,12 +189,14 @@ curl -s -X GET http://localhost:8000/ | python3 -m json.tool
 curl -s -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{
-    "text": "이 학생의 성적을 바탕으로 분석해줘.",
+    "text": "이 학생의 보완점과 지도 방향을 알려줘.",
     "session_id": "test_session_001",
     "context_data": {
-      "name": "홍길동",
-      "scores": {"math": 95, "science": 88},
-      "recent_comment": "수학에 매우 흥미를 보임"
+      "profile": {
+        "schoolLevel": "middle",
+        "predictedType": "자원소진형"
+      },
+      "context": "## 학생 정보\n- 이름: 홍길동\n- T점수: 인지조절 45, 동기조절 38, 정서조절 52\n- 4단계 진단: 위험\n- 최근 상담 기록: 수업 집중도 저하, 학습 의욕 감소"
     }
   }' | python3 -m json.tool
 ```
