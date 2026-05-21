@@ -18,6 +18,7 @@ import {
   GeneralSection,
   CreateAssessmentModal,
   AssessmentCodeModal,
+  ExamStartPreviewModal,
   type AssessmentFormData,
 } from '@features/assessment/ui';
 import { registerExamCode } from '@features/exam/api/examService';
@@ -29,7 +30,9 @@ import {
   restartExam,
   downloadSampleExcel,
   uploadAnswersExcel,
+  previewExamStart,
   type ExamListItem,
+  type ExamStartPreviewResponse,
 } from '@features/assessment/api/assessmentService';
 import { APIError } from '@shared/services/apiClient';
 import { generateShortCode, schoolLevelToGradeLevel } from '@features/assessment/config';
@@ -208,6 +211,14 @@ export const AssessmentPage: React.FC = () => {
     message: string;
   }>({ isOpen: false, title: '', message: '' });
 
+  // 2회차 출제 사전 검증 모달 상태
+  const [previewModal, setPreviewModal] = useState<{
+    isOpen: boolean;
+    preview: ExamStartPreviewResponse | null;
+    pendingData: AssessmentFormData | null;
+    pendingClaId: string;
+  }>({ isOpen: false, preview: null, pendingData: null, pendingClaId: '' });
+
   // ============================================================
   // 데이터 로드
   // ============================================================
@@ -261,15 +272,8 @@ export const AssessmentPage: React.FC = () => {
   // 검사 생성
   // ============================================================
 
-  const handleCreateAssessment = useCallback(
-    async (data: AssessmentFormData) => {
-      // 모달에서 그룹 선택 시 해당 claId 사용, 아니면 첫 번째 그룹
-      const claId = data.groupId
-        ? (groups.find((g) => g.id === data.groupId)?.claId ?? selectedClaId)
-        : selectedClaId;
-
-      if (!claId) return;
-
+  const doCreateExam = useCallback(
+    async (data: AssessmentFormData, claId: string) => {
       setIsProcessing(true);
       setError(null);
 
@@ -281,13 +285,11 @@ export const AssessmentPage: React.FC = () => {
         const shortCode = generateShortCode();
         registerExamCode(shortCode, result.claId);
 
-        // 학년/반 정보를 localStorage에 저장
         saveAssessmentMeta(result.dgnssId, {
           grade: data.grade,
           classNumber: data.classNumber,
         });
 
-        // 해당 그룹의 inviteCode 찾기
         const group = groups.find((g) => g.claId === claId);
 
         const newAssessment: ManagedAssessment = {
@@ -313,7 +315,6 @@ export const AssessmentPage: React.FC = () => {
         setIsCodeModalOpen(true);
       } catch (err) {
         if (err instanceof APIError && err.isDuplicateKeyError()) {
-          // 해당 차수의 기존 검사 찾기
           const existingExam = assessments.find((a) => a.round === data.round);
           const isActive = existingExam?.isActive ?? false;
           const examLabel = `${data.grade}학년 ${data.classNumber}반 ${data.round}차 검사`;
@@ -338,7 +339,38 @@ export const AssessmentPage: React.FC = () => {
         setIsProcessing(false);
       }
     },
-    [user?.id, selectedClaId, tcId, assessments],
+    [user?.id, tcId, groups, assessments],
+  );
+
+  const handleCreateAssessment = useCallback(
+    async (data: AssessmentFormData) => {
+      const claId = data.groupId
+        ? (groups.find((g) => g.id === data.groupId)?.claId ?? selectedClaId)
+        : selectedClaId;
+
+      if (!claId) return;
+
+      // 2회차 출제 전 사전 검증
+      if (data.round === 2) {
+        setIsProcessing(true);
+        try {
+          const preview = await previewExamStart(claId);
+          setIsProcessing(false);
+
+          if (!preview.canStart || preview.blockedOtherClassCount > 0) {
+            setPreviewModal({ isOpen: true, preview, pendingData: data, pendingClaId: claId });
+            return;
+          }
+        } catch {
+          setIsProcessing(false);
+          setError('2회차 출제 사전 검증에 실패했습니다.');
+          return;
+        }
+      }
+
+      await doCreateExam(data, claId);
+    },
+    [groups, selectedClaId, doCreateExam],
   );
 
   // ============================================================
@@ -459,6 +491,15 @@ export const AssessmentPage: React.FC = () => {
     }
   }, []);
 
+  const handlePreviewConfirm = useCallback(async () => {
+    const { pendingData, pendingClaId } = previewModal;
+    if (!pendingData || !pendingClaId) return;
+
+    setPreviewModal((prev) => ({ ...prev, isOpen: false }));
+    setIsCreateModalOpen(false);
+    await doCreateExam(pendingData, pendingClaId);
+  }, [previewModal, doCreateExam]);
+
   const handleTemplateDownload = useCallback(async (assessment: ManagedAssessment) => {
     if (!assessment.dgnssId) return;
     setIsProcessing(true);
@@ -543,6 +584,14 @@ export const AssessmentPage: React.FC = () => {
         isOpen={isCodeModalOpen}
         onClose={() => setIsCodeModalOpen(false)}
         assessment={selectedAssessment}
+      />
+
+      {/* 2회차 출제 사전 검증 모달 */}
+      <ExamStartPreviewModal
+        isOpen={previewModal.isOpen}
+        preview={previewModal.preview}
+        onClose={() => setPreviewModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={handlePreviewConfirm}
       />
 
       {/* 알럿 모달 */}

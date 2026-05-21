@@ -196,3 +196,34 @@ export async function uploadAnswersExcel(dgnssId: number, file: File): Promise<v
   formData.append('file', file);
   await apiClient.post<void>('/api/dgnss/tc/upload-answers', formData);
 }
+
+/** 2회차 출제 사전 검증 — 차단 학생 */
+export interface ExamStartPreviewStudent {
+  stdtId: string;
+  nickname: string;
+  memberNo: number;
+}
+
+/** 2회차 출제 사전 검증 응답 */
+export interface ExamStartPreviewResponse {
+  canStart: boolean;
+  totalCount: number;
+  eligibleCount: number;
+  blockedOtherClassCount: number;
+  noHistoryCount: number;
+  blockedStudents: ExamStartPreviewStudent[];
+}
+
+/**
+ * 2회차 출제 사전 검증
+ * GET /api/dgnss/tc/start/preview?claId=&paperIdx=&ordNo=2
+ */
+export async function previewExamStart(
+  claId: string,
+  paperIdx: string = '1',
+): Promise<ExamStartPreviewResponse> {
+  const res = await apiClient.get<ExamStartPreviewResponse>(
+    `/api/dgnss/tc/start/preview?claId=${claId}&paperIdx=${paperIdx}&ordNo=2`,
+  );
+  return res.resultData;
+}
