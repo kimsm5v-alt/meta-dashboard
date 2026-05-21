@@ -663,8 +663,13 @@ public class FileService {
         headers.setContentLength(zipBytes.length);
 
         StreamingResponseBody stream = outputStream -> {
-            outputStream.write(zipBytes);
-            outputStream.flush();
+            try {
+                outputStream.write(zipBytes);
+                outputStream.flush();
+            } catch (IOException e) {
+                // 클라이언트 연결 끊김 (Broken pipe, Connection reset 등) - 정상적인 상황으로 처리
+                log.debug("클라이언트 연결 끊김 (dgnssDownloadAll): {}", e.getMessage());
+            }
         };
 
         log.info("dgnssDownloadAll 완료: dgnssId={}, type={}, userId={}, zipFileName={}, zipSize={}",

@@ -23,9 +23,12 @@ public class DrawPdfService {
 
     public void addDgnssPage_DGNSS10(PioPdfVO pioPdfVO, PDDocument doc, PDPageContentStream cont, int page, Map<String, Object> userInfo, List<Map<String, Object>> dgnssReport3, List<Map<String, Object>> dgnssReport4, List<Map<String, Object>> dgnssReport5, List<Map<String, Object>> dgnssReportStudy) throws IOException {
         try {
-            // 첫 페이지에서 캐시 초기화 (요청별 격리)
+            // 첫 페이지에서 캐시 초기화 및 선행 로드 (O(n) 순회를 1회로 제한)
             if (page == 1) {
                 reportCacheMap.clear();
+                if (dgnssReport3 != null) buildReportCache(dgnssReport3, 3);
+                if (dgnssReport4 != null) buildReportCache(dgnssReport4, 4);
+                if (dgnssReport5 != null) buildReportCache(dgnssReport5, 5);
             }
 
             // 대분류 점수 배열
@@ -1268,9 +1271,12 @@ public class DrawPdfService {
 
     public void addDgnssPage_DGNSS20(PioPdfVO pioPdfVO, PDDocument doc, PDPageContentStream cont, int page, Map<String, Object> userInfo, List<Map<String, Object>> dgnssReport3, List<Map<String, Object>> dgnssReport4, List<Map<String, Object>> dgnssReport5) throws IOException {
         try {
-            // 첫 페이지에서 캐시 초기화 (요청별 격리)
+            // 첫 페이지에서 캐시 초기화 및 선행 로드 (O(n) 순회를 1회로 제한)
             if (page == 1) {
                 reportCacheMap.clear();
+                if (dgnssReport3 != null) buildReportCache(dgnssReport3, 3);
+                if (dgnssReport4 != null) buildReportCache(dgnssReport4, 4);
+                if (dgnssReport5 != null) buildReportCache(dgnssReport5, 5);
             }
 
             // 대분류 점수 배열

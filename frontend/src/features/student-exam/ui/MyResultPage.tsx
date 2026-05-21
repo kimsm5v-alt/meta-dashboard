@@ -19,8 +19,6 @@ import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
 import {
   DiagnosisSummary,
-  TypeClassification,
-  TypeDeviations,
   DataHelperChatbot,
   CoachingStrategy,
 } from '@features/student-dashboard';
