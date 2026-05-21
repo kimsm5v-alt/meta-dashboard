@@ -171,15 +171,20 @@ public class DgnssService {
 
     /**
      * /tc/start 호출 전 사전 검증.
-     * <p>현재 학급 group_member 전체를 다음 3개로 분류:
+     * <p>현재 학급 group_member 전체를 분류:
+     * <p><b>1회차(ordNo=1):</b>
      * <ul>
-     *   <li>{@code ELIGIBLE} — 현재 학급에서 1회차 응시(NOT EXISTS 타학급 1회차) → 2회차 출제 가능</li>
-     *   <li>{@code BLOCKED_OTHER_CLASS} — 1회차를 다른 학급에서 응시 → 2회차 출제 불가</li>
-     *   <li>{@code NO_HISTORY} — 1회차 이력 없음 → 2회차 출제 불가</li>
+     *   <li>{@code ELIGIBLE} — 타학급에서 1회차 이력 없음 → 출제 가능</li>
+     *   <li>{@code BLOCKED_OTHER_CLASS} — 타학급에서 1회차 이력 존재 → 출제 불가</li>
+     * </ul>
+     * <p><b>2회차(ordNo=2):</b>
+     * <ul>
+     *   <li>{@code ELIGIBLE} — 현재 학급에서 1회차 응시 + 타학급 1회차 이력 없음 → 출제 가능</li>
+     *   <li>{@code BLOCKED_OTHER_CLASS} — 타학급에서 1회차 이력 존재 → 출제 불가</li>
+     *   <li>{@code NO_HISTORY} — 1회차 이력 없음 → 출제 불가</li>
      * </ul>
      * <p>응답: canStart(eligibleCount &gt; 0), totalCount, eligibleCount, blockedOtherClassCount,
      * noHistoryCount, blockedStudents(stdtId/nickname/memberNo).
-     * <p>FE 는 2회차 진입 시점에만 호출하면 됨 (1회차는 분류 의미 없음).
      */
     @Transactional(readOnly = true)
     public Map<String, Object> selectTcDgnssStartPreview(Map<String, Object> param) {
@@ -241,8 +246,16 @@ public class DgnssService {
         // 진단검사 마스터테이블 Insert
         dgnssMapper.insertDgnssInfo(paramMap);
 
-        List<String> targetStList = dgnssMapper.selectTargetStList(paramMap);
-        if (ordNo == 2) {
+        List<String> targetStList;
+        if (ordNo == 1) {
+            targetStList = dgnssMapper.selectEligibleTargetStListForOrd1(paramMap);
+            if (CollectionUtils.isEmpty(targetStList)) {
+                Map<String, Object> resultMap = new HashMap<>();
+                resultMap.put("result", "fail");
+                resultMap.put("message", "모든 학생이 다른 학급에서 검사가 진행 중입니다.");
+                return resultMap;
+            }
+        } else if (ordNo == 2) {
             targetStList = dgnssMapper.selectEligibleTargetStListForOrd2(paramMap);
             if (CollectionUtils.isEmpty(targetStList)) {
                 Map<String, Object> resultMap = new HashMap<>();
@@ -250,6 +263,8 @@ public class DgnssService {
                 resultMap.put("message", "2회차는 동일 학급 1회차 응시 이력이 있는 학생만 출제할 수 있습니다.");
                 return resultMap;
             }
+        } else {
+            targetStList = dgnssMapper.selectTargetStList(paramMap);
         }
         Map<String, Object> targetMap = new HashMap<>();
         targetMap.put("dgnssId", MapUtils.getInteger(paramMap, "id", 0));

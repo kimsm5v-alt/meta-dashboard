@@ -157,6 +157,26 @@
 		ORDER BY gm.member_no
 	</select>
 
+	<select id="selectEligibleTargetStListForOrd1" parameterType="map" resultType="String">
+		/* DgnssMapper.selectEligibleTargetStListForOrd1 */
+		SELECT gm.stdt_id
+		FROM group_info gi
+			INNER JOIN group_member gm
+				ON gi.group_id = gm.group_id
+		WHERE gi.cla_id = #{claId}
+		  AND NOT EXISTS (
+		  	SELECT 1
+		  	FROM tb_dgnss_info tdi_other
+		  		INNER JOIN tb_dgnss_result_info tdri_other
+		  			ON tdri_other.dgnss_id = tdi_other.id
+		  	WHERE tdi_other.paper_idx = #{paperIdx}
+		  	  AND tdi_other.ord_no = 1
+		  	  AND tdi_other.cla_id != #{claId}
+		  	  AND tdri_other.stdt_id = gm.stdt_id
+		  )
+		ORDER BY gm.member_no
+	</select>
+
 	<select id="selectEligibleTargetStListForOrd2" parameterType="map" resultType="String">
 		/* DgnssMapper.selectEligibleTargetStListForOrd2 */
 		SELECT gm.stdt_id
@@ -164,25 +184,43 @@
 			INNER JOIN group_member gm
 				ON gi.group_id = gm.group_id
 		WHERE gi.cla_id = #{claId}
+		  /* 1회차 이력이 어딘가에 존재해야 함 */
 		  AND EXISTS (
 		  	SELECT 1
-		  	FROM tb_dgnss_info tdi_same
-		  		INNER JOIN tb_dgnss_result_info tdri_same
-		  			ON tdri_same.dgnss_id = tdi_same.id
-		  	WHERE tdi_same.ord_no = 1
-		  	  AND tdi_same.paper_idx = #{paperIdx}
-		  	  AND tdi_same.cla_id = #{claId}
-		  	  AND tdri_same.stdt_id = gm.stdt_id
+		  	FROM tb_dgnss_info tdi_any
+		  		INNER JOIN tb_dgnss_result_info tdri_any
+		  			ON tdri_any.dgnss_id = tdi_any.id
+		  	WHERE tdi_any.ord_no = 1
+		  	  AND tdi_any.paper_idx = #{paperIdx}
+		  	  AND tdri_any.stdt_id = gm.stdt_id
 		  )
+		  /* 타학급에서 2회차 이력이 없어야 함 */
 		  AND NOT EXISTS (
 		  	SELECT 1
 		  	FROM tb_dgnss_info tdi_other
 		  		INNER JOIN tb_dgnss_result_info tdri_other
 		  			ON tdri_other.dgnss_id = tdi_other.id
-		  	WHERE tdi_other.ord_no = 1
+		  	WHERE tdi_other.ord_no = 2
 		  	  AND tdi_other.paper_idx = #{paperIdx}
 		  	  AND tdi_other.cla_id != #{claId}
 		  	  AND tdri_other.stdt_id = gm.stdt_id
+		  )
+		  /* 다른 교사의 학급에서 1회차 응시 + 아직 그 학급 멤버인 경우 차단 (같은 교사는 허용) */
+		  AND NOT EXISTS (
+		  	SELECT 1
+		  	FROM tb_dgnss_info tdi_other1
+		  		INNER JOIN tb_dgnss_result_info tdri_other1
+		  			ON tdri_other1.dgnss_id = tdi_other1.id
+		  		INNER JOIN group_info gi_other
+		  			ON gi_other.cla_id = tdi_other1.cla_id
+		  		INNER JOIN group_member gm_other
+		  			ON gi_other.group_id = gm_other.group_id
+		  			AND gm_other.stdt_id = tdri_other1.stdt_id
+		  	WHERE tdi_other1.ord_no = 1
+		  	  AND tdi_other1.paper_idx = #{paperIdx}
+		  	  AND tdi_other1.cla_id != #{claId}
+		  	  AND gi_other.host_user_no != gi.host_user_no
+		  	  AND tdri_other1.stdt_id = gm.stdt_id
 		  )
 		ORDER BY gm.member_no
 	</select>
@@ -205,29 +243,66 @@
 		SELECT gm.stdt_id AS stdtId
 			, gm.nickname AS nickname
 			, gm.member_no AS memberNo
-			, CASE
-				WHEN EXISTS (
-					SELECT 1
-					FROM tb_dgnss_info tdi_o
-						INNER JOIN tb_dgnss_result_info tdri_o
-							ON tdri_o.dgnss_id = tdi_o.id
-					WHERE tdi_o.ord_no = 1
-					  AND tdi_o.paper_idx = #{paperIdx}
-					  AND tdi_o.cla_id <![CDATA[<>]]> #{claId}
-					  AND tdri_o.stdt_id = gm.stdt_id
-				) THEN 'BLOCKED_OTHER_CLASS'
-				WHEN EXISTS (
-					SELECT 1
-					FROM tb_dgnss_info tdi_s
-						INNER JOIN tb_dgnss_result_info tdri_s
-							ON tdri_s.dgnss_id = tdi_s.id
-					WHERE tdi_s.ord_no = 1
-					  AND tdi_s.paper_idx = #{paperIdx}
-					  AND tdi_s.cla_id = #{claId}
-					  AND tdri_s.stdt_id = gm.stdt_id
-				) THEN 'ELIGIBLE'
-				ELSE 'NO_HISTORY'
-			END AS status
+			<choose>
+				<when test="ordNo == 1">
+					, CASE
+						WHEN EXISTS (
+							SELECT 1
+							FROM tb_dgnss_info tdi_o
+								INNER JOIN tb_dgnss_result_info tdri_o
+									ON tdri_o.dgnss_id = tdi_o.id
+							WHERE tdi_o.ord_no = 1
+							  AND tdi_o.paper_idx = #{paperIdx}
+							  AND tdi_o.cla_id <![CDATA[<>]]> #{claId}
+							  AND tdri_o.stdt_id = gm.stdt_id
+						) THEN 'BLOCKED_OTHER_CLASS'
+						ELSE 'ELIGIBLE'
+					END AS status
+				</when>
+				<otherwise>
+					, CASE
+						/* 타학급에서 2회차 이력 존재 */
+						WHEN EXISTS (
+							SELECT 1
+							FROM tb_dgnss_info tdi_o
+								INNER JOIN tb_dgnss_result_info tdri_o
+									ON tdri_o.dgnss_id = tdi_o.id
+							WHERE tdi_o.ord_no = 2
+							  AND tdi_o.paper_idx = #{paperIdx}
+							  AND tdi_o.cla_id <![CDATA[<>]]> #{claId}
+							  AND tdri_o.stdt_id = gm.stdt_id
+						) THEN 'BLOCKED_OTHER_CLASS'
+						/* 다른 교사의 학급에서 1회차 응시 + 아직 그 학급 멤버 (같은 교사는 허용) */
+						WHEN EXISTS (
+							SELECT 1
+							FROM tb_dgnss_info tdi_o1
+								INNER JOIN tb_dgnss_result_info tdri_o1
+									ON tdri_o1.dgnss_id = tdi_o1.id
+								INNER JOIN group_info gi_o
+									ON gi_o.cla_id = tdi_o1.cla_id
+								INNER JOIN group_member gm_o
+									ON gi_o.group_id = gm_o.group_id
+									AND gm_o.stdt_id = tdri_o1.stdt_id
+							WHERE tdi_o1.ord_no = 1
+							  AND tdi_o1.paper_idx = #{paperIdx}
+							  AND tdi_o1.cla_id <![CDATA[<>]]> #{claId}
+							  AND gi_o.host_user_no <![CDATA[<>]]> gi.host_user_no
+							  AND tdri_o1.stdt_id = gm.stdt_id
+						) THEN 'BLOCKED_OTHER_CLASS'
+						/* 1회차 이력 존재 (어느 학급이든) */
+						WHEN EXISTS (
+							SELECT 1
+							FROM tb_dgnss_info tdi_any
+								INNER JOIN tb_dgnss_result_info tdri_any
+									ON tdri_any.dgnss_id = tdi_any.id
+							WHERE tdi_any.ord_no = 1
+							  AND tdi_any.paper_idx = #{paperIdx}
+							  AND tdri_any.stdt_id = gm.stdt_id
+						) THEN 'ELIGIBLE'
+						ELSE 'NO_HISTORY'
+					END AS status
+				</otherwise>
+			</choose>
 		FROM group_info gi
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id
 		WHERE gi.cla_id = #{claId}
