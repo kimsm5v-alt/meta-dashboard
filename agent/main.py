@@ -9,6 +9,7 @@ import json
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from app.tools import Neo4jConnectionManager
+from app.core import tracing
 
 # 환경 변수 로드 (.env 파일이 없어도 시스템 환경 변수 우선 인식)
 load_dotenv()
@@ -25,6 +26,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # LangSmith 트레이싱 초기화 (실패해도 서비스는 계속 기동)
+    try:
+        tracing.initialize()
+    except Exception as e:
+        logger.warning(f"LangSmith 트레이싱 초기화 실패, 비활성화 모드로 계속: {e}")
     # Startup: Neo4j 연결 검증 (실패해도 텍스트 추론은 가능하므로 degraded mode로 가동)
     logger.info("Starting up: Verifying Neo4j connection...")
     try:
