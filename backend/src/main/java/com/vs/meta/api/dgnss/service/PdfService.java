@@ -4,13 +4,11 @@ import com.vs.meta.api.dgnss.vo.PioPdfVO;
 import com.vs.meta.common.service.FileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.vs.meta.common.utils.InMemoryMultipartFile;
 import org.apache.commons.collections4.MapUtils;
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.disk.DiskFileItem;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.commons.CommonsMultipartFile;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
@@ -243,15 +241,7 @@ public class PdfService {
             }
             log.info("[PDF 상세] 학생용 PDF 직렬화: {}ms ({}KB)", System.currentTimeMillis() - serializeStart, pdfBytes.length / 1024);
 
-            FileItem fileItem = new DiskFileItem("file", "application/pdf", true, file.getName(), pdfBytes.length, null);
-
-            // 아래의 메서드가 파일 연결을 유지하고 있어 삭제할 수 없기에 try로 따로 관리
-            try (OutputStream os = fileItem.getOutputStream()) {
-                os.write(pdfBytes);
-                os.flush();
-            }
-
-            MultipartFile mFile = new CommonsMultipartFile(fileItem);
+            MultipartFile mFile = new InMemoryMultipartFile(file.getName(), "application/pdf", pdfBytes);
 
             long uploadStart = System.currentTimeMillis();
             String url = fileUpload(mFile, request);
@@ -375,14 +365,7 @@ public class PdfService {
         }
         log.info("[PDF 상세] 교사용 PDF 직렬화: {}ms ({}KB)", System.currentTimeMillis() - serializeStart, pdfBytes.length / 1024);
 
-        FileItem fileItem = new DiskFileItem("file", "application/pdf", true, file.getName(), pdfBytes.length, null);
-
-        try (OutputStream os = fileItem.getOutputStream()) {
-            os.write(pdfBytes);
-            os.flush();
-        }
-
-        MultipartFile mFile = new CommonsMultipartFile(fileItem);
+        MultipartFile mFile = new InMemoryMultipartFile(file.getName(), "application/pdf", pdfBytes);
 
         long uploadStart = System.currentTimeMillis();
         String url = fileUpload(mFile, request);
@@ -493,15 +476,7 @@ public class PdfService {
             pdfBytes = outputStream.toByteArray();
         }
 
-        FileItem fileItem = new DiskFileItem("file", "application/pdf", true, file.getName(), pdfBytes.length, null);
-
-        // 아래의 메서드가 파일 연결을 유지하고 있어 삭제할 수 없기에 try로 따로 관리
-        try (OutputStream os = fileItem.getOutputStream()) {
-            os.write(pdfBytes);
-            os.flush();
-        }
-
-        MultipartFile mFile = new CommonsMultipartFile(fileItem);
+        MultipartFile mFile = new InMemoryMultipartFile(file.getName(), "application/pdf", pdfBytes);
 
         return fileUpload(mFile, request);
 //        return "";
