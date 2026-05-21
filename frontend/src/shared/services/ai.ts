@@ -15,12 +15,14 @@
 
 import { callGemini, isGeminiConfigured } from './gemini';
 import { getSystemPrompt, type AIFeature } from '../data/aiPrompts';
+import { agentChat, agentResetSession } from '@features/ai-room/api/agentApiService';
+import { ENV } from '@shared/config/env';
 
 // ============================================================
 // 타입 정의
 // ============================================================
 
-export type AIProvider = 'gemini' | 'mock';
+export type AIProvider = 'gemini' | 'agent' | 'mock';
 
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant';
@@ -70,6 +72,10 @@ export const callAI = async (request: AIRequest): Promise<AIResponse> => {
     return callGeminiProvider(processedRequest);
   }
 
+  if (provider === 'agent') {
+    return callAgentProvider(processedRequest);
+  }
+
   return mockResponse();
 };
 
@@ -97,9 +103,14 @@ export const callAIWithFeature = async (
 
 /**
  * 현재 AI Provider 결정
+ * 우선순위: gemini → agent → mock
  */
+const isAgentConfigured = (): boolean => Boolean(ENV.AGENT_API_URL);
+
 const getProvider = (): AIProvider => {
-  return isGeminiConfigured() ? 'gemini' : 'mock';
+  if (isGeminiConfigured()) return 'gemini';
+  if (isAgentConfigured()) return 'agent';
+  return 'mock';
 };
 
 /**
@@ -126,6 +137,37 @@ const applyFeaturePrompt = (messages: AIMessage[], feature?: AIFeature): AIMessa
   }
 
   return result;
+};
+
+/**
+ * Agent 서버 Provider 호출 (Gemini 키 없을 때 폴백)
+ * 기존 /chat 엔드포인트 사용 — system 프롬프트를 user text에 포함
+ */
+const callAgentProvider = async (request: AIRequest): Promise<AIResponse> => {
+  try {
+    const systemContent = request.messages
+      .filter((m) => m.role === 'system')
+      .map((m) => m.content)
+      .join('\n\n');
+    const userContent = request.messages
+      .filter((m) => m.role === 'user')
+      .map((m) => m.content)
+      .join('\n\n');
+
+    const text = systemContent ? `${systemContent}\n\n---\n\n${userContent}` : userContent;
+    const sessionId = `summary-${Date.now()}`;
+
+    const response = await agentChat(text, sessionId);
+    void agentResetSession(sessionId);
+
+    return { success: true, content: response.response };
+  } catch (e) {
+    return {
+      success: false,
+      content: '',
+      error: e instanceof Error ? e.message : 'Agent 호출 실패',
+    };
+  }
 };
 
 /**
@@ -178,6 +220,7 @@ export const getAIStatus = () => {
     isMock: provider === 'mock',
   };
 };
+
 
 export { type AIFeature } from '../data/aiPrompts';
 
