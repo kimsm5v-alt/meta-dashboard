@@ -1180,11 +1180,7 @@ public class DgnssService {
             stInfoParam.put("stdtId", stdtId);
             stInfoParam.put("paperIdx", MapUtils.getString(param, "paperIdx", "2"));
             stInfoParam.put("ordNo", MapUtils.getString(param, "ordNo", "1"));
-            // claId는 선택적 — 전달 시 해당 그룹 우선, 미전달 시 최근 응시 기록
-            String claId = MapUtils.getString(param, "claId", "");
-            if (StringUtils.isNotBlank(claId)) {
-                stInfoParam.put("claId", claId);
-            }
+            // claId는 WHERE 조건에서 제외 — 학생은 모든 그룹 이력 조회
         }
 
         Map<String, Object> stUserInfo = dgnssMapper.selectStInfo(stInfoParam);

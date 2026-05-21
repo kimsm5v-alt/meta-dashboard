@@ -3048,9 +3048,6 @@
 				AND a1.stdt_id = #{stdtId}
 				AND a1_1.paper_idx = #{paperIdx}
 				AND a1_1.ord_no = #{ordNo}
-				<if test='claId != null and claId != ""'>
-					AND a1_1.cla_id = #{claId}
-				</if>
 			</when>
 		</choose>
 		ORDER BY a1.subm_dt DESC
