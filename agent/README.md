@@ -19,9 +19,30 @@
 
 `app/core/llm_router.py`를 통해 구현된 상세 기능은 다음과 같습니다.
 
-- **통합 서비스 모델 (`meta-agent-service`)**: 내부적으로 OpenAI, Gemini, Anthropic 등을 하나의 서비스명으로 추합하여 클라이언트 코드의 복잡성을 제거했습니다.
+### 2.1 Primary / Fallback 이중화 구조
+
+| 구분 | 프로바이더 | 모델 | 역할 |
+|------|-----------|------|------|
+| Primary | OpenAI | `gpt-4.1` | 기본 호출 대상. 에이전트·Tool Calling 특화, 1M 토큰 컨텍스트 |
+| Fallback | Gemini | `gemini-3.5-flash` | OpenAI 장애·Rate Limit 시 자동 전환 |
+
+OpenAI 호출이 실패하면 LiteLLM Router의 `fallbacks` 설정에 의해 별도 코드 변경 없이 Gemini로 즉시 전환됩니다.
+
+### 2.2 논리 모델명 추상화
+
+`AgentService`는 실제 LLM 종류를 알 필요 없이 `ROUTER_MODEL_NAME` 상수를 통해 호출합니다. 프로바이더 교체 시 `llm_router.py`만 수정하면 됩니다.
+
+```
+AgentService → ROUTER_MODEL_NAME ("meta-agent-primary")
+                      ↓ LiteLLM Router
+               OpenAI gpt-4.1  [실패 시 →]  Gemini gemini-3.5-flash
+```
+
+### 2.3 기타 기능
+
 - **동적 키 바인딩**: 환경 변수에서 `_2`, `_3` 등의 접미사가 붙은 추가 키를 자동으로 인식하여 로드합니다.
-- **재시도 전략**: 일시적인 네트워크 오류나 API 에러 시 최대 5회까지 자동 재시도를 수행하며, 속도 제한 발생 시 지능적인 대기(Retry-after) 로직이 작동합니다.
+- **재시도 전략**: 일시적인 네트워크 오류나 API 에러 시 최대 3회까지 자동 재시도를 수행합니다.
+- **방어 로직**: Primary(OpenAI) 키 미설정 시 Fallback(Gemini)을 Primary로 자동 승격합니다.
 
 ## 3. 주요 API 사용법
 
@@ -56,25 +77,29 @@
 
 ## 4. 환경 변수 및 설정 (Config)
 
-`.env` 파일에 다음과 같이 여러 개의 키를 설정하여 성능을 확장할 수 있습니다.
-
-현재 **Gemini 단일 프로바이더 + 10개 키** 구성으로 운영됩니다. 상용 배포 시 각 키를 서로 다른 값으로 교체하면 10배의 Quota 확장 효과를 얻을 수 있습니다.
+`.env` 파일에 다음과 같이 설정합니다. 상용 배포 시 각 키를 서로 다른 값으로 교체하면 Quota를 최대 10배 확장할 수 있습니다.
 
 ```bash
-# 사용 모델 설정
-GEMINI_MODEL=gemini-2.5-flash
+# Primary: OpenAI (기본)
+OPENAI_API_KEY=sk-...
+OPENAI_API_KEY_2=sk-...  # 추가 키 (선택)
+OPENAI_MODEL=gpt-4.1
 
-# Gemini API 키 (현재 동일 키 10개 설정 / 상용 배포 시 각각 다른 키로 교체)
+# Fallback: Gemini (OpenAI 장애 시 자동 전환)
 GEMINI_API_KEY=AIza...
 GEMINI_API_KEY_2=AIza...
-GEMINI_API_KEY_3=AIza...
-GEMINI_API_KEY_4=AIza...
-GEMINI_API_KEY_5=AIza...
-GEMINI_API_KEY_6=AIza...
-GEMINI_API_KEY_7=AIza...
-GEMINI_API_KEY_8=AIza...
-GEMINI_API_KEY_9=AIza...
-GEMINI_API_KEY_10=AIza...
+# ... GEMINI_API_KEY_10 까지 지원
+GEMINI_MODEL=gemini-3.5-flash
+
+# Neo4j Graph DB
+NEO4J_URI=bolt://your-neo4j-host:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your_password
+
+# FastAPI Settings
+PORT=8000
+HOST=0.0.0.0
+DEBUG=False
 ```
 
 > `_2`, `_3` ... `_N` 접미사 키는 `llm_router.py`의 `get_api_keys()` 함수가 자동으로 탐색하여 LiteLLM Router에 등록합니다. 키 추가 시 코드 수정 없이 환경 변수만 설정하면 됩니다.
@@ -217,7 +242,7 @@ docker run -d -p 8000:8000 --env-file agent/.env --name meta-agent meta-agent-se
 | 방법 | 명령 / 설정 | 사용 시나리오 |
 |---|---|---|
 | `--env-file` | `docker run --env-file agent/.env ...` | 단일 서버 직접 배포 |
-| `-e` 플래그 | `docker run -e GEMINI_API_KEY=AIza... ...` | 개별 키 주입 |
+| `-e` 플래그 | `docker run -e OPENAI_API_KEY=sk-... ...` | 개별 키 주입 |
 | Docker Compose | `env_file: [agent/.env]` | Compose 기반 배포 |
 | AWS Secrets Manager / GCP Secret Manager | 클라우드 SDK 연동 | 클라우드 배포 |
 | Kubernetes Secret | `envFrom.secretRef` | K8s 배포 |
@@ -241,7 +266,8 @@ metadata:
   name: agent-config
   namespace: meta-dashboard
 data:
-  GEMINI_MODEL: "gemini-2.5-flash"
+  OPENAI_MODEL: "gpt-4.1"
+  GEMINI_MODEL: "gemini-3.5-flash"
   LOG_LEVEL: "INFO"
 ```
 
@@ -255,6 +281,10 @@ metadata:
 type: Opaque
 stringData:
   # 현실적으로는 Sealed Secrets나 External Secrets를 통해 암호화 관리 권장
+  # Primary: OpenAI
+  OPENAI_API_KEY: "sk-..."
+  OPENAI_API_KEY_2: "sk-..."
+  # Fallback: Gemini
   GEMINI_API_KEY: "AIza..."
   GEMINI_API_KEY_2: "AIza..."
   # ... 필요한 만큼 추가
