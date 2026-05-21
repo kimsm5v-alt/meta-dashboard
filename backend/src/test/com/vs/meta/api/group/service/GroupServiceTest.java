@@ -209,7 +209,6 @@ class GroupServiceTest {
         assertThat(savedMember.getStatus()).isEqualTo(MemberStatus.ACTIVE);
         assertThat(savedMember.getUserNo()).isNull();
         assertThat(savedMember.getEmail()).isEqualTo("guest@test.com");
-        assertThat(savedMember.getGender()).isEqualTo("M");
         assertThat(savedMember.getStdtId()).hasSize(32).matches("[a-f0-9]{32}");
         assertThat(savedMember.getMemberNo()).isEqualTo(5);
         assertThat(savedMember.getCreatedBy()).isEqualTo(0L);

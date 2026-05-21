@@ -37,7 +37,7 @@ class EmailVerificationServiceTest {
     void sendCode_replacesExistingRecordAndSendsMail() {
         when(verificationMapper.findLatestByEmail("user@test.com")).thenReturn(null);
 
-        emailVerificationService.sendCode("user@test.com");
+        emailVerificationService.sendCode("user@test.com", "SIGNUP");
 
         ArgumentCaptor<EmailVerification> captor = ArgumentCaptor.forClass(EmailVerification.class);
         verify(verificationMapper).deleteByEmail("user@test.com");
@@ -62,7 +62,7 @@ class EmailVerificationServiceTest {
                 .build();
         when(verificationMapper.findLatestByEmail("user@test.com")).thenReturn(existing);
 
-        assertThatThrownBy(() -> emailVerificationService.sendCode("user@test.com"))
+        assertThatThrownBy(() -> emailVerificationService.sendCode("user@test.com", "SIGNUP"))
                 .isInstanceOf(IllegalStateException.class);
 
         verify(verificationMapper, never()).deleteByEmail("user@test.com");

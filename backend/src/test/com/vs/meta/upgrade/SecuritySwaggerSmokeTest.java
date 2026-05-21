@@ -3,8 +3,9 @@ package com.vs.meta.upgrade;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -22,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>실 DB 환경변수 (META_API_DATASOURCE_MASTER_URL) 가 주입된 환경에서만 활성화.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureTestRestTemplate
 @EnabledIfEnvironmentVariable(named = "META_API_DATASOURCE_MASTER_URL", matches = ".+")
 class SecuritySwaggerSmokeTest {
 

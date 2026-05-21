@@ -120,7 +120,7 @@ public class AuthProxyController {
 
             return ResponseEntity.ok(wrapped);
         } catch (WebClientResponseException e) {
-            int status = e.getRawStatusCode();
+            int status = e.getStatusCode().value();
             if (status == 401 || status == 403) {
                 clearRefreshTokenCookie(request, response);
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

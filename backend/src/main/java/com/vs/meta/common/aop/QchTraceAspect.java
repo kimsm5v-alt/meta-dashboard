@@ -205,7 +205,7 @@ public class QchTraceAspect {
         }
         // ResponseDTO<CustomBody> 의 resultCode 우선 — ApiResponseAspect 가 enrich 한 값
         if (result instanceof org.springframework.http.ResponseEntity<?> entity) {
-            return entity.getStatusCodeValue();
+            return entity.getStatusCode().value();
         }
         if (result instanceof com.vs.meta.common.response.ResponseDTO<?> dto
                 && dto.getBody() instanceof com.vs.meta.common.response.CustomBody body) {

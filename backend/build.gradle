@@ -119,6 +119,8 @@ dependencies {
         exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
     }
     // spring-security-test 제거 — 메타 test 디렉토리에서 미사용 (@WithMockUser/SecurityMockMvc 등 0건)
+    // Boot 4: TestRestTemplate 이 별도 모듈로 분리됨 (신규 SecuritySwaggerSmokeTest 에서 사용)
+    testImplementation 'org.springframework.boot:spring-boot-resttestclient'
     testImplementation 'org.mockito:mockito-core:5.14.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.3'
