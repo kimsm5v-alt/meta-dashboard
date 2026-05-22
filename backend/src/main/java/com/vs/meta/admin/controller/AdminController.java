@@ -32,6 +32,11 @@ public class AdminController {
     private final AiBugReportMapper aiBugReportMapper;
     private final AdminAccountMapper adminAccountMapper;
 
+    @GetMapping("/login")
+    public String loginPage() {
+        return "admin/login";
+    }
+
     @GetMapping("/bug-reports")
     public String bugReports(@RequestParam(defaultValue = "1") int page,
                              @RequestParam(required = false) String status,
