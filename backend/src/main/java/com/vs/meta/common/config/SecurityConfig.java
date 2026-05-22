@@ -97,7 +97,9 @@ public class SecurityConfig {
     public SecurityFilterChain adminSecurityFilterChain(HttpSecurity http) throws Exception {
         http
             .securityMatcher("/admin/**")
-            .cors(Customizer.withDefaults())
+            // Admin 은 same-origin Thymeleaf UI 라 CORS 불필요. 켜두면 브라우저가 자동으로 붙이는
+            // Origin 헤더가 app.cors.allowed-origins 화이트리스트에 없을 때 "Invalid CORS request" 발생.
+            .cors(cors -> cors.disable())
             // form login 에 필요한 _csrf 토큰은 Thymeleaf 폼에서 hidden input 으로 자동 전송
             .csrf(Customizer.withDefaults())
             .headers(headers -> headers
