@@ -49,9 +49,12 @@
 | MapStruct 1.5.3 → **1.6.3** | + binding 0.2.0 | ✅ 정식 | 🟢 | Task 2 |
 | AWS SDK v1 1.12.770 | 유지 | ⚠️ JDK21 reflection 경고 | 🟡 | 본 PR 유지, 후속 PR로 v2 마이그레이션 권장 |
 | commons-dbcp2 2.9.0 | 유지 | OK | 🟢 | 유지 |
-| Spring Security 7 deprecated API | 일부 | ⚠️ | 🟡 | Task 6에서 Security 7 호환 + Task 9에서 경고 수집 |
+| Spring Security 7 deprecated API | 일부 | ⚠️ | 🟡 | Task 6에서 Security 7 호환 + Task 9에서 경고 수집. **결과: Task 9 L1 재실행에서 deprecation 0건 — 람다 DSL 재작성 완전 적용 확인** |
+| **Jackson 2.x → 3.x (tools.jackson)** | **com.fasterxml → tools.jackson** | ✅ Boot 4 정식 | **🔴 → 🟢** | **Task 1 사전 조사 누락 항목 — Task 9 부팅 시 `ObjectMapper bean 미생성` 으로 발견 → 본 PR 후속 작업 Task 11 신설 (커밋 `bc93112`)** |
 
 **🔴 위험 → 0건. 🟡 위험 2건만 잔존** (AWS SDK v1 / Security 7 deprecated — 둘 다 본 PR 비차단).
+
+> **회고 (Task 1 보강 — 2026-05-22)**: Boot 4.0.5 의 `spring-boot-starter-jackson` 이 `tools.jackson.core:jackson-databind:3.1.0` 으로 좌표 자체가 바뀌고 `com.fasterxml.jackson.databind.ObjectMapper` autoconfig 가 제거된 사실을 사전 조사 단계에서 포착하지 못함. 본 PR 부팅 단계에서 회귀로 발견되었고 Task 11 (Jackson 3 마이그레이션, 커밋 `bc93112`) 로 즉시 해결. 향후 메이저 업그레이드 사전 조사 체크리스트에 "기본 JSON/HTTP/Logging starter 의 좌표 변경 여부" 를 명시적으로 추가할 것.
 
 ---
 
@@ -1286,6 +1289,50 @@ D2와 동일 절차. **❌ 발생 시 머지 보류, 원인 분석 후 패치 �
 
 ---
 
+## Task 11: Jackson 2 → 3 (tools.jackson) 마이그레이션 — Task 1 누락분 보강
+
+> **사후 추가 (2026-05-22)**: Task 9 에서 L1~L3 모두 통과했으나 실제 부팅 시도에서 ApplicationContext 가 `ObjectMapper` bean 미생성으로 실패. 원인은 Boot 4 가 기본 Jackson 라인을 `tools.jackson 3.x` 로 전환하고 `com.fasterxml.jackson.databind.ObjectMapper` autoconfig 를 제거한 사실 (Task 1 사전 조사 누락). 본 Task 에서 운영 코드를 Jackson 3 API 로 정렬한다.
+
+**Files (10):**
+- `api/ai/service/AiConversationService.java`
+- `api/counseling/service/CounselingService.java`
+- `api/dgnss/service/DgnssLpaService.java` (+ `JsonNode.fields()` → `properties()`)
+- `api/dgnss/service/DgnssService.java` (+ `throws JsonProcessingException` 시그니처 2건 제거)
+- `api/notification/dispatcher/NotificationRedisConfig.java` (+ `JavaTimeModule`/`WRITE_DATES_AS_TIMESTAMPS` 제거, `JsonMapper.builder()` 전환)
+- `api/notification/dispatcher/RedisPubSubDispatcher.java`
+- `api/notification/dispatcher/RedisPubSubSubscriber.java`
+- `common/aop/QchTraceAspect.java`
+- `common/config/SecurityConfig.java`
+- `common/utils/NcpMailSender.java`
+
+**제외:** `common/response/ResponseDTO.java`, `common/service/QchTraceEvent.java` — annotation 패키지 (`com.fasterxml.jackson.annotation.*`) 만 사용해 변경 불필요 (Jackson 3 도 v2 annotation jar 에 의존).
+
+### 적용 매핑
+
+| 기존 (Jackson 2) | 신규 (Jackson 3) | 비고 |
+|:---|:---|:---|
+| `com.fasterxml.jackson.databind.*` (`ObjectMapper`, `JsonNode`, `SerializationFeature`) | `tools.jackson.databind.*` | |
+| `com.fasterxml.jackson.core.type.TypeReference` | `tools.jackson.core.type.TypeReference` | |
+| `com.fasterxml.jackson.core.JsonProcessingException` (checked) | `tools.jackson.core.JacksonException` | `RuntimeException` 상속 — `throws` 제거 가능 |
+| `com.fasterxml.jackson.datatype.jsr310.JavaTimeModule` | **삭제** | Jackson 3 가 `java.time` 직렬화 자동 등록 |
+| `SerializationFeature.WRITE_DATES_AS_TIMESTAMPS` | **삭제** | 기본이 ISO 문자열로 변경됨 |
+| `new ObjectMapper()` + `setVisibility()` / `disable()` | `JsonMapper.builder()....build()` | Jackson 3 의 `ObjectMapper` 는 immutable |
+| `JsonNode.fields()` | `JsonNode.properties()` | Jackson 3 에서 제거 |
+| `com.fasterxml.jackson.annotation.*` | **유지** | Jackson 3 가 동일 annotation jar 에 의존 |
+
+### 검증
+
+- L1 `compileJava + compileTestJava`: ✅ BUILD SUCCESSFUL
+- L2 `test` (`com.vs.meta.upgrade.*`): ✅ tests=8 / skipped=8 / failures=0 (env 가드 작동, 의도된 skip)
+- L3 `bootJar`: ✅ BUILD SUCCESSFUL, JAR 108.49 MB (이전 108.53 MB)
+- 실제 부팅: 사용자 환경에서 NCP S3 환경변수 주입 후 재시도 필요
+
+### 커밋
+
+`bc93112` [BACKEND] Spring Boot 4 Jackson 2 → 3 (tools.jackson) 마이그레이션
+
+---
+
 ## 후속 작업 (별도 PR 권장)
 
 본 업그레이드와 분리:
@@ -1308,9 +1355,10 @@ D2와 동일 절차. **❌ 발생 시 머지 보류, 원인 분석 후 패치 �
 | mypage Mockito javaagent 패턴 확인 | 1 | 2026-05-21 | ✅ OK | mypage build.gradle:23-25, 70-79 검증 패턴 차용 |
 | 운영 표면 인벤토리 추출 + 우선순위 부여 | 1.5 | 2026-05-21 | ✅ 총 71개+α, P0=11 / P1=32 / P2=28 + 라이브러리 매트릭스 14종 | 커밋 `59b3dc4` — `docs/superpowers/specs/2026-05-21-upgrade-verification-checklist.md` |
 | NCP Java 21 이미지 가용성 | 8 | 2026-05-21 | ✅ OK | `ncp-vsaidt-registry.ncr.gov-ntruss.com/openjdk:21-jdk` (IDP/mypage와 동일 운영 검증 이미지) — 커밋 `47f5a1b`. 운영팀 컨택: _추후 기재_ |
-| L1 compileJava + compileTestJava | 9 | 2026-05-22 재실행 | ✅ BUILD SUCCESSFUL (23s, JDK 21.0.11) | deprecation 2건 (`JsonNode.fields()` ×2 in `DgnssLpaService.java:244,326` — Jackson 2.18 deprecated, Boot 4 무관) / unchecked 33건 / **Spring Security 7 deprecated 0건** |
+| L1 compileJava + compileTestJava | 9 | 2026-05-22 재실행 | ✅ BUILD SUCCESSFUL (23s, JDK 21.0.11) | deprecation 2건 (`JsonNode.fields()` ×2 in `DgnssLpaService.java:244,326` — Jackson 2.18 deprecated) / unchecked 33건 / **Spring Security 7 deprecated 0건**. (해당 fields() 호출은 Task 11 에서 `properties()` 로 교체됨) |
 | L2 test (신규 3종) | 9 | 2026-05-22 재실행 | ✅ BUILD SUCCESSFUL (tests=8, skipped=8, failures=0, errors=0) | 3종 모두 `@EnabledIfEnvironmentVariable("META_API_DATASOURCE_MASTER_URL")` 가드 작동 — 로컬 DB env 미주입으로 의도된 skip. CI/D 환경에서 env 주입 후 재실행 필요 |
 | L3 bootJar | 9 | 2026-05-22 재실행 | ✅ BUILD SUCCESSFUL (4s) | JAR 크기 **108.53 MB** (`backend/build/libs/backend-1.0.0-SNAPSHOT.jar`) |
+| **Task 11: Jackson 2 → 3 마이그레이션** | **11** | **2026-05-22** | **✅ L1/L2/L3 재통과** | **커밋 `bc93112`. 10 Java 파일 변경. JAR 108.53 → 108.49 MB. ObjectMapper bean 부팅 실패 회귀 해소. 상세는 위험 매트릭스 참조** |
 | D2 P0 시나리오 | 10 | _D1 배포 후 기재_ | _⏳_ | 체크리스트 P0×11 — 100% 통과 필수 |
 | D3 P1 시나리오 | 10 | _D1 배포 후 기재_ | _⏳_ | 체크리스트 P1×32 — 100% 통과 필수 |
 | D4 P2 시나리오 | 10 | _D1 배포 후 기재_ | _⏳_ | 체크리스트 P2×28+ — 부분 실패 허용, ❌는 별도 이슈 |
