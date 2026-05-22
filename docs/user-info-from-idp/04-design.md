@@ -21,6 +21,7 @@
 | 8 | LIKE 검색 | 학심정에 사용처 0건 (dead query) → Auth 측 추가 API 요청 불필요 |
 | 9 | PersonInfoClient 동기/비동기 | **동기 (RestClient)** — Spring 6+ 표준, 응답 조합 layer의 가독성/단순성 |
 | 10 | Service AT 발급 | `client_credentials` grant + `scope=users:read` + 1h TTL 메모리 캐시 + 만료 5분 전 갱신 |
+| 11 | 응답 조합 패턴 | **명시적 Enricher 패턴** — `HasUserInfo` 인터페이스 + 공통 `UserInfoEnricher` 컴포넌트. Service에서 `enricher.enrich(list)` 1줄 호출로 통일. AOP/ResponseBodyAdvice 미사용 (디버깅·트랜잭션 경계 안전). |
 
 ---
 
@@ -34,25 +35,145 @@
 [학심정 Controller]
    ↓
 [학심정 Service]
-   ├─ [Mapper] (sp_user_id, stdt_id, etc. 만 SELECT — PII 없음)
-   └─ [PersonInfoClient] ──→ [Auth /api/v1/users/{id} | /batch | /lookup]
-        ├─ RequestScope Cache (요청 단위)
-        ├─ ServiceAccessTokenProvider (1h TTL)
-        └─ Fallback (placeholder)
+   ├─ [Mapper] (sp_user_id, stdt_id 만 SELECT — PII 없음)
+   └─ [UserInfoEnricher.enrich(list)] ★ 한 줄로 enrich
+         └─ [PersonInfoClient] ─→ [Auth /api/v1/users/{id} | /batch | /lookup]
+              ├─ RequestScope Cache (요청 단위)
+              ├─ ServiceAccessTokenProvider (1h TTL)
+              └─ Fallback (placeholder)
 ```
 
-### 2.2 신규 컴포넌트
+### 2.2 응답 조합 패턴 — 명시적 Enricher (결정 #11)
 
-#### `PersonInfoClient` (인터페이스)
+**핵심 아이디어**: PII가 필요한 DTO는 `HasUserInfo` 인터페이스를 구현하고, Service는 `enricher.enrich(list)` 한 줄로 일괄 enrich. 모든 호출 지점에서 동일 패턴이라 학습/유지보수 비용 최소. AOP/ResponseBodyAdvice 미사용 (디버깅·트랜잭션 경계 안전).
+
+#### 2.2.1 `HasUserInfo` 인터페이스 (DTO 표준)
+
 ```java
-public interface PersonInfoClient {
-    UserInfo getOne(String publicUserId);
-    Map<String, UserInfo> getBatch(List<String> publicUserIds);
-    Optional<UserInfo> lookupByEmail(String email);
+package com.vs.meta.common.auth;
+
+/**
+ * PII(name/email)가 필요한 DTO 가 구현하는 인터페이스.
+ * UserInfoEnricher 가 sp_user_id 로 Auth 조회 후 setter 호출.
+ */
+public interface HasUserInfo {
+    String getSpUserId();
+    void setName(String name);
+    void setEmail(String email);
 }
 ```
 
-#### `UserInfo` (DTO)
+#### 2.2.2 `UserInfoEnricher` (공통 컴포넌트)
+
+```java
+@Component
+@RequiredArgsConstructor
+public class UserInfoEnricher {
+
+    private final PersonInfoClient personInfoClient;
+    private final PersonInfoRequestCache requestCache;
+
+    /**
+     * 단건 enrich — 내부적으로 batch 1건 호출로 통일.
+     * 단건 전용 API(getOne) 분기 의도적 미사용 — 캐시/디버깅 일관성 우선.
+     */
+    public <T extends HasUserInfo> void enrich(T item) {
+        if (item == null || item.getSpUserId() == null) return;
+        enrich(List.of(item));
+    }
+
+    /** 배치 enrich — sp_user_id 모아서 Auth /batch 호출 1회 (요청 캐시 거쳐서) */
+    public <T extends HasUserInfo> void enrich(List<T> items) {
+        if (items == null || items.isEmpty()) return;
+
+        List<String> ids = items.stream()
+                .map(HasUserInfo::getSpUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<String, UserInfo> infos = requestCache.getBatchOrLoad(ids, personInfoClient::getBatch);
+
+        items.forEach(item -> {
+            UserInfo info = infos.getOrDefault(item.getSpUserId(), UserInfo.placeholder(item.getSpUserId()));
+            item.setName(info.name());
+            item.setEmail(info.email());
+        });
+    }
+}
+```
+
+#### 2.2.3 2명 이상 enrich 하는 DTO (예: BugReport reporter+resolver)
+
+`HasUserInfo`는 1명 표현이므로, 여러 역할의 사용자가 있는 DTO는 nested 구조 권장:
+
+```java
+// 권장: nested UserSlot
+public class BugReportDto {
+    private Long id;
+    private String title;
+    private UserSlot reporter;   // HasUserInfo 구현
+    private UserSlot resolver;   // HasUserInfo 구현 (nullable)
+}
+
+public class UserSlot implements HasUserInfo {
+    private String spUserId;
+    private String name;
+    private String email;
+    // getters/setters
+}
+
+// Service 에서
+List<BugReportDto> reports = mapper.findReports();
+userInfoEnricher.enrich(
+    reports.stream()
+        .flatMap(r -> Stream.of(r.getReporter(), r.getResolver()))
+        .filter(Objects::nonNull)
+        .toList()
+);
+```
+
+> 비권장: BugReportDto 자체가 HasUserInfo를 두 번 구현하는 시도 — 인터페이스 충돌, 자동화 어려움.
+
+#### 2.2.4 Service에서 사용 — 단건/다건/중첩 모두 동일 한 줄
+
+```java
+// 단건 — /member/info
+MemberInfoDto dto = memberMapper.findByUserNo(userNo);   // sp_user_id만 SELECT
+userInfoEnricher.enrich(dto);                            // ★ 단건도 한 줄
+return dto;
+
+// 다건 — 그룹 멤버 목록
+List<MemberDto> members = mapper.findByGroupId(groupId);
+userInfoEnricher.enrich(members);                        // ★ 다건도 한 줄
+return members;
+
+// 중첩 — BugReport reporter + resolver
+List<BugReportDto> reports = mapper.findReports();
+userInfoEnricher.enrich(
+    reports.stream()
+        .flatMap(r -> Stream.of(r.getReporter(), r.getResolver()))
+        .filter(Objects::nonNull)
+        .toList()
+);
+```
+
+> **단건도 batch API 호출**: 단건 전용 분기를 두지 않는 이유 — 캐시/디버깅 일관성. 같은 요청에서 중복 호출은 RequestCache가 막아주므로 실질 비용 동일. Auth 호출 횟수 = `(같은 요청 안 distinct sp_user_id 종류 수 / 100)` 올림.
+
+### 2.3 신규 컴포넌트 목록
+
+| 컴포넌트 | 역할 |
+|:---|:---|
+| `HasUserInfo` (인터페이스) | PII 필요 DTO 표준 — 모든 enrich 대상이 구현 |
+| `UserInfoEnricher` (`@Component`) | 단건/배치 enrich. **호출 코드가 닿는 유일한 진입점** |
+| `PersonInfoClient` (인터페이스) | Auth 호출 추상화 — 단건/배치/lookup |
+| `PersonInfoClientImpl` (`@Component`) | RestClient 기반 구현 (timeout/retry/error 매핑) |
+| `PersonInfoRequestCache` (`@RequestScope`) | 한 HTTP 요청 안에서 sp_user_id → UserInfo 캐시 |
+| `ServiceAccessTokenProvider` (`@Component`) | `client_credentials` 토큰 발급/캐시/갱신 (1h TTL) |
+| `UserInfo` (record) | 응답 모델 + `placeholder()` factory |
+
+#### 2.3.1 `UserInfo` 상세
+
 ```java
 public record UserInfo(
     String publicUserId,
@@ -68,49 +189,17 @@ public record UserInfo(
 }
 ```
 
-#### `PersonInfoRequestCache` (`@RequestScope` Bean)
+#### 2.3.2 `PersonInfoClient` 인터페이스
+
 ```java
-@Component
-@RequestScope
-public class PersonInfoRequestCache {
-    private final Map<String, UserInfo> cache = new HashMap<>();
-    public UserInfo getOrLoad(String publicUserId, Function<String, UserInfo> loader) { ... }
-    public Map<String, UserInfo> getBatchOrLoad(List<String> ids, Function<List<String>, Map<String, UserInfo>> loader) { ... }
+public interface PersonInfoClient {
+    UserInfo getOne(String publicUserId);
+    Map<String, UserInfo> getBatch(List<String> publicUserIds);  // 100건 초과 시 자동 chunking
+    Optional<UserInfo> lookupByEmail(String email);              // service AT 전용
 }
 ```
 
-#### `ServiceAccessTokenProvider` (싱글턴)
-```java
-@Component
-public class ServiceAccessTokenProvider {
-    // client_credentials grant 로 토큰 발급
-    // ConcurrentHashMap에 토큰+만료시각 캐시
-    // 만료 5분 전 자동 갱신
-    public String getToken() { ... }
-}
-```
-
-### 2.3 응답 조합 패턴 (Service layer)
-
-```java
-// AS-IS: MyBatis가 PII 컬럼 직접 SELECT
-List<GroupMemberDto> members = groupMemberMapper.findByGroupId(groupId); // ← nickname, email 포함
-
-// TO-BE: MyBatis는 ID만 SELECT
-List<GroupMemberDto> members = groupMemberMapper.findByGroupId(groupId); // ← sp_user_id, stdt_id만
-
-// Auth batch 호출 (PersonInfoRequestCache 거쳐서)
-Map<String, UserInfo> userInfos = personInfoClient.getBatch(
-    members.stream().map(GroupMemberDto::getSpUserId).toList()
-);
-
-// 응답 조합
-members.forEach(m -> {
-    UserInfo info = userInfos.getOrDefault(m.getSpUserId(), UserInfo.placeholder(m.getSpUserId()));
-    m.setName(info.name());
-    m.setEmail(info.email());
-});
-```
+> **Service 코드에서 PersonInfoClient를 직접 호출하지 않는 것이 원칙** — 항상 `UserInfoEnricher`를 거친다. 예외: `lookupByEmail` (이메일 → publicUserId 변환은 enrich 패턴과 무관 — SsoUserMigration, GroupInvitation 등 5곳에서 직접 호출).
 
 ---
 
@@ -296,29 +385,35 @@ ALTER TABLE `user`
 | `CounselingStudentMapper.xml` | stdt_name resultMap/INSERT 제거 |
 | `FileMapper.xml` | `gm_st.nickname` JOIN 제거 |
 
-**Service 응답 조합 적용**:
-| 파일 | 변경 |
-|:---|:---|
-| `MemberService.java` + `MemberController.java` | `/member/info` 응답에 PersonInfoClient 호출 추가 |
-| `GroupService.java` | 그룹 상세/멤버 목록 응답 조합, 알림 publish 시 닉네임 조회 |
-| `GroupInvitationService.java` | 초대 목록 응답 조합 (email은 group_invitation.email 그대로) |
-| `CounselingService.java` | 상담 응답에 학생 이름 조합 |
-| `SsoUserQueryService.java` | **동기화 로직 자체 제거** (저장 안 함) |
-| `SsoUserRegistrationService.java` | 신규 user INSERT 시 sp_user_id만 저장 |
-| `DgnssService.java` (또는 보고서 Service) | 검사 결과 응답 조합 (학생 이름 batch 조회) |
-| `AiBugReportService.java` | 버그리포트 reporter/resolver 이름 조회 |
+**Service 응답 조합 적용** (공통 패턴: 응답 DTO가 `HasUserInfo` 구현 + `userInfoEnricher.enrich(...)` 한 줄):
+| 파일 | DTO 변경 (HasUserInfo 구현) | Service 변경 |
+|:---|:---|:---|
+| `MemberService.java` + `MemberController.java` | `MemberInfoDto` | `enrich(dto)` 1줄 (단건) |
+| `GroupService.java` | `GroupMemberDto`, `GroupHostDto` | 그룹 상세/멤버 목록 `enrich(members)` + 방장 단건 `enrich(host)`. 알림 publish 시 닉네임 필요하면 enrich 후 publish |
+| `GroupInvitationService.java` | `GroupInvitationDto` (initiator) | 초대 목록 `enrich(initiators)`. email은 group_invitation.email 그대로 (enrich 대상 X) |
+| `CounselingService.java` | `CounselingStudentDto` | `enrich(students)` |
+| `SsoUserQueryService.java` | - | **동기화 로직 자체 제거** (저장 안 함) |
+| `SsoUserRegistrationService.java` | - | 신규 user INSERT 시 sp_user_id만 저장. gender 컬럼 DROP에 따라 관련 코드 제거 |
+| `DgnssService.java` (또는 보고서 Service) | `DgnssReportRowDto`, `DgnssStudentRowDto` 등 | 검사 결과 보고서 응답 `enrich(rows)` |
+| `AiBugReportService.java` | `BugReportDto` (nested `UserSlot` reporter/resolver) | `enrich(reporters + resolvers stream flatMap)` |
+
+> 모든 Service는 **`userInfoEnricher.enrich(...)` 한 줄만 호출**. PersonInfoClient/RequestCache/AccessToken 등 내부 구조는 Service에서 인지 불필요.
 
 ### 4.3 신규 컴포넌트
 
 | 파일 | 역할 |
 |:---|:---|
-| `common/auth/PersonInfoClient.java` | Auth API 호출 인터페이스 |
+| `common/auth/HasUserInfo.java` | **PII 필요 DTO 표준 인터페이스** — getSpUserId/setName/setEmail |
+| `common/auth/UserInfoEnricher.java` | **Service에서 호출하는 유일한 진입점** — `enrich(item)` / `enrich(list)` |
+| `common/auth/PersonInfoClient.java` | Auth API 호출 인터페이스 (Enricher 내부에서만 호출) |
 | `common/auth/PersonInfoClientImpl.java` | RestClient 기반 구현 (단건/배치/lookup) |
 | `common/auth/PersonInfoRequestCache.java` | `@RequestScope` Bean — 요청 단위 캐시 |
 | `common/auth/ServiceAccessTokenProvider.java` | service AT 발급/캐시/갱신 |
 | `common/auth/UserInfo.java` | DTO + placeholder factory |
 | `common/auth/AuthApiException.java` | Auth 호출 실패 시 (로깅용, 컨트롤러까지 전파 안 함) |
 | `common/config/PersonInfoClientConfig.java` | RestClient Bean + timeout/retry 설정 |
+
+> **사용 규칙**: Service/Controller 코드는 **항상 `UserInfoEnricher`만 호출**. `PersonInfoClient`를 직접 호출하는 곳은 **이메일 lookup이 필요한 5곳뿐** (SsoUserMigration, GroupInvitation 등 — 이메일 → publicUserId 변환은 enrich 패턴과 무관).
 
 ### 4.4 설정 추가 (application.yml)
 
@@ -389,9 +484,13 @@ export const UserName = ({ user }: { user: UserInfo }) => {
 ## 7. 단계적 전환 계획 (개요 — 상세 Task는 `05-plan.md`)
 
 ### Phase 1 — 인프라 (코드만 추가, DB 변경 X)
-1. PersonInfoClient + ServiceAccessTokenProvider + UserInfo + RequestCache 작성
-2. PersonInfoClientConfig (RestClient Bean)
-3. 단위 테스트
+1. **`HasUserInfo` 인터페이스 + `UserInfoEnricher` 컴포넌트** 작성 (단건/다건/중첩 시그니처)
+2. `PersonInfoClient` + `PersonInfoClientImpl` (RestClient 기반, batch 100 chunking 포함)
+3. `ServiceAccessTokenProvider` (1h TTL 캐시 + 갱신)
+4. `PersonInfoRequestCache` (`@RequestScope`)
+5. `UserInfo` + `UserInfo.placeholder()` factory
+6. `PersonInfoClientConfig` (RestClient Bean, timeout/retry)
+7. 단위 테스트 (Mock 기반 — 정상/404/timeout/batch 부분 실패)
 
 ### Phase 2 — 게스트 영역 폐기 (코드 + 데이터)
 4. 게스트 Controller/Service/Mapper/Domain 삭제 + 관련 테스트 삭제
