@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { MainLayout } from '@widgets/layout/MainLayout';
 import { MinimalLayout } from '@widgets/layout/MinimalLayout';
 import { StudentLayout } from '@widgets/layout/StudentLayout';
@@ -19,12 +19,10 @@ import {
   ClassDetailAnalysisPage,
   StudentDashboardPage,
   AIRoomPage,
-  AssessmentPage,
+  AssessmentPageV2,
   SchedulePage,
   ExamCodeEntryPage,
   ExamPage,
-  GroupListPage,
-  GroupDetailPage,
   JoinGroupPage,
   CounselingDashboardPage,
   ResourceListPage,
@@ -42,6 +40,12 @@ import {
 // ============================================================
 // 레이아웃 래퍼
 // ============================================================
+
+/** /groups/:groupId → /assessment/:groupId 리다이렉트 */
+const GroupDetailRedirect = () => {
+  const { groupId } = useParams<{ groupId: string }>();
+  return <Navigate to={`/assessment/${groupId}`} replace />;
+};
 
 /**
  * 공개 라우트 래퍼 (사이드바 없음)
@@ -147,9 +151,10 @@ export const AppRoutes = () => (
     {/* 보호 라우트 - 사이드바 있음 */}
     <Route element={<ProtectedLayout />}>
       {/* 검사 영역 */}
-      <Route path='/groups' element={<GroupListPage />} />
-      <Route path='/groups/:groupId' element={<GroupDetailPage />} />
-      <Route path='/assessment' element={<AssessmentPage />} />
+      <Route path='/groups' element={<Navigate to='/assessment' replace />} />
+      <Route path='/groups/:groupId' element={<GroupDetailRedirect />} />
+      <Route path='/assessment' element={<AssessmentPageV2 />} />
+      <Route path='/assessment/:groupId' element={<AssessmentPageV2 />} />
       <Route path='/dashboard' element={<TeacherDashboardPage />} />
       <Route path='/dashboard/class/:classId' element={<ClassDashboardPage />} />
       <Route path='/dashboard/class/:classId/analysis' element={<ClassDetailAnalysisPage />} />

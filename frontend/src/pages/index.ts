@@ -20,6 +20,7 @@ export { AIRoomPage } from './ai-room/AIRoomPage';
 
 // Assessment
 export { AssessmentPage } from './assessment/AssessmentPage';
+export { AssessmentPageV2 } from './assessment-v2/AssessmentPageV2';
 
 // Exam
 export { ExamCodeEntryPage } from './exam/ExamCodeEntryPage';

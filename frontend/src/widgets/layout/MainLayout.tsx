@@ -58,7 +58,6 @@ const navGroups: NavGroup[] = [
   {
     title: '검사',
     items: [
-      { icon: Users, label: '그룹 관리', path: '/groups', feature: 'GROUPS' },
       { icon: ClipboardList, label: '검사하기', path: '/assessment', feature: 'ASSESSMENT' },
       { icon: LayoutDashboard, label: '대시보드', path: '/dashboard', feature: 'DASHBOARD' },
     ],
