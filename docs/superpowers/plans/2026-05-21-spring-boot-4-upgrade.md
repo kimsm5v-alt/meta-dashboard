@@ -1306,15 +1306,15 @@ D2와 동일 절차. **❌ 발생 시 머지 보류, 원인 분석 후 패치 �
 | jasypt-spring-boot-starter | 1 | 2026-05-21 | ✅ **완전 제거 결정** | 메타에서 미사용 (jasypt/ENC( 패턴 0건) |
 | MapStruct 1.6.3 + Jakarta + JDK 21 | 1 | 2026-05-21 | ✅ OK | + lombok-mapstruct-binding 0.2.0 |
 | mypage Mockito javaagent 패턴 확인 | 1 | 2026-05-21 | ✅ OK | mypage build.gradle:23-25, 70-79 검증 패턴 차용 |
-| 운영 표면 인벤토리 추출 + 우선순위 부여 | 1.5 | _기재_ | _총 N개, P0=, P1=, P2=_ | |
-| NCP Java 21 이미지 가용성 | 8 | _기재_ | _OK/NG_ | 운영팀 컨택: _이름_ |
-| L1 compileJava + compileTestJava | 9 | _기재_ | | deprecated 경고 _개_ |
-| L2 test (신규 3종) | 9 | _기재_ | | ContextLoads/Smoke/MapperRead 각각 |
-| L3 bootJar | 9 | _기재_ | | JAR 크기 _MB_ |
-| D2 P0 시나리오 | 10 | _기재_ | | _성공/실패_ |
-| D3 P1 시나리오 | 10 | _기재_ | | _성공/실패_ |
-| D4 P2 시나리오 | 10 | _기재_ | | _성공/실패 별도 이슈 #_ |
-| 핵심 라이브러리 매트릭스 (14개) | 10 | _기재_ | | |
+| 운영 표면 인벤토리 추출 + 우선순위 부여 | 1.5 | 2026-05-21 | ✅ 총 71개+α, P0=11 / P1=32 / P2=28 + 라이브러리 매트릭스 14종 | 커밋 `59b3dc4` — `docs/superpowers/specs/2026-05-21-upgrade-verification-checklist.md` |
+| NCP Java 21 이미지 가용성 | 8 | 2026-05-21 | ✅ OK | `ncp-vsaidt-registry.ncr.gov-ntruss.com/openjdk:21-jdk` (IDP/mypage와 동일 운영 검증 이미지) — 커밋 `47f5a1b`. 운영팀 컨택: _추후 기재_ |
+| L1 compileJava + compileTestJava | 9 | 2026-05-22 재실행 | ✅ BUILD SUCCESSFUL (23s, JDK 21.0.11) | deprecation 2건 (`JsonNode.fields()` ×2 in `DgnssLpaService.java:244,326` — Jackson 2.18 deprecated, Boot 4 무관) / unchecked 33건 / **Spring Security 7 deprecated 0건** |
+| L2 test (신규 3종) | 9 | 2026-05-22 재실행 | ✅ BUILD SUCCESSFUL (tests=8, skipped=8, failures=0, errors=0) | 3종 모두 `@EnabledIfEnvironmentVariable("META_API_DATASOURCE_MASTER_URL")` 가드 작동 — 로컬 DB env 미주입으로 의도된 skip. CI/D 환경에서 env 주입 후 재실행 필요 |
+| L3 bootJar | 9 | 2026-05-22 재실행 | ✅ BUILD SUCCESSFUL (4s) | JAR 크기 **108.53 MB** (`backend/build/libs/backend-1.0.0-SNAPSHOT.jar`) |
+| D2 P0 시나리오 | 10 | _D1 배포 후 기재_ | _⏳_ | 체크리스트 P0×11 — 100% 통과 필수 |
+| D3 P1 시나리오 | 10 | _D1 배포 후 기재_ | _⏳_ | 체크리스트 P1×32 — 100% 통과 필수 |
+| D4 P2 시나리오 | 10 | _D1 배포 후 기재_ | _⏳_ | 체크리스트 P2×28+ — 부분 실패 허용, ❌는 별도 이슈 |
+| 핵심 라이브러리 매트릭스 (14개) | 10 | _D2~D3 중 동시 수집_ | _⏳_ | MyBatis 4.0.1 / Master·Slave / OAuth2 RS / log4j2 / Mail / Caffeine / Redis Pub/Sub / ShedLock 7.7.0 / PDFBox / POI / S3 v1 / Neo4j / MapStruct 1.6.3 / AOP 4종 |
 
 ---
 
