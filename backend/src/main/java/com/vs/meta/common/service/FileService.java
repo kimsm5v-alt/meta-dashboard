@@ -232,11 +232,10 @@ public class FileService {
      * @param request
      * @param isAuth
      * @param pionadaYn
-     * @param partnerActivityYn
      * @return
      * @throws Exception
      */
-    public ResponseEntity<Object> downloadFile(String url, String jwtToken, HttpServletRequest request, boolean isAuth, String pionadaYn, String partnerActivityYn) throws Exception {
+    public ResponseEntity<Object> downloadFile(String url, String jwtToken, HttpServletRequest request, boolean isAuth, String pionadaYn) throws Exception {
         Map<String, String> response = new HashMap<>();
         String userId = null;
         try {
@@ -290,8 +289,6 @@ public class FileService {
                     fileVO.setDownloadAuthYn("Y");
                 }
 
-            } else if (StringUtils.equals(partnerActivityYn, "Y")) {
-                fileVO = fileMapper.selectFileInfoWithPartnerActivity(paramFileVO);
             } else {
                 fileVO = fileMapper.selectFileInfo(paramFileVO);
             }

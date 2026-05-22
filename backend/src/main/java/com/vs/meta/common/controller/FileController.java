@@ -26,9 +26,8 @@ public class FileController {
     /**
      * 개인정보 포함된 파일 다운로드 처리
      * @param url 파일 URL
-     * @param jwtToken JWT 토큰
+     * @param jwtToken JWT 토큰 (레거시 — SSO 전환 후 SecurityContext 사용, 본 파라미터는 무시됨)
      * @param pionadaYn 피어나다 여부
-     * @param partnerActivityYn 짝꿍 활동 여부
      * @param request HttpServletRequest
      * @return 파일 리소스
      * @throws Exception
@@ -39,9 +38,8 @@ public class FileController {
             @RequestParam("url") String url,
             @RequestParam(value = "jwtToken") String jwtToken,
             @RequestParam(value = "pionadaYn", required = false) String pionadaYn,
-            @RequestParam(value = "partnerActivityYn", required = false) String partnerActivityYn,
             HttpServletRequest request) throws Exception {
 
-        return fileService.downloadFile(url, jwtToken, request, true, pionadaYn, partnerActivityYn);
+        return fileService.downloadFile(url, jwtToken, request, true, pionadaYn);
     }
 }

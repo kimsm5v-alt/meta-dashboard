@@ -23,7 +23,6 @@ public interface FileMapper {
 	// pfile-download 관련
 	FileVO selectFileInfo(FileVO fileVO);
 	FileVO selectFileInfoWithPionada(FileVO fileVO);
-	FileVO selectFileInfoWithPartnerActivity(FileVO fileVO);
 	List<String> selectTcListFromCreator(Map<String, Object> map);
 	String selectFileAuthStudent(Map<String, Object> map);
 }
