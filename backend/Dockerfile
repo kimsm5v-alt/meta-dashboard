@@ -1,5 +1,5 @@
 # ===== Build Stage =====
-FROM ncp-vsaidt-registry.ncr.gov-ntruss.com/openjdk:17.0.1-jdk-slim AS builder
+FROM ncp-vsaidt-registry.ncr.gov-ntruss.com/openjdk:21-jdk AS builder
 
 COPY . /tmp
 WORKDIR /tmp
@@ -10,7 +10,7 @@ RUN ./gradlew :backend:clean
 RUN ./gradlew :backend:bootJar -x test
 
 # ===== Runtime Stage =====
-FROM ncp-vsaidt-registry.ncr.gov-ntruss.com/openjdk:17.0.1-jdk-slim
+FROM ncp-vsaidt-registry.ncr.gov-ntruss.com/openjdk:21-jdk
 
 COPY --from=builder /tmp/backend/build/libs/*.jar app.jar
 # 심리검사 파일

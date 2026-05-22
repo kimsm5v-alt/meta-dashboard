@@ -1,7 +1,7 @@
 package com.vs.meta.api.notification.dispatcher;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.vs.meta.api.notification.dto.NotificationDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -39,7 +39,7 @@ public class RedisPubSubDispatcher implements NotificationDispatcher {
             String payload = objectMapper.writeValueAsString(new RedisDispatchMessage(userNo, dto));
             redisTemplate.convertAndSend(NotificationRedisConfig.CHANNEL_DISPATCH, payload);
             log.debug("[Dispatch] Redis publish userNo={}, notificationId={}", userNo, dto.getNotificationId());
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.warn("[Dispatch] Redis 직렬화 실패 userNo={}, notificationId={}", userNo, dto.getNotificationId(), e);
         } catch (Exception e) {
             // Redis 일시 장애 — 본 비즈 로직은 이미 커밋된 상태이므로 알림만 못 받고 끝

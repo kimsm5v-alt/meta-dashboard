@@ -1,9 +1,8 @@
 package com.vs.meta.api.dgnss.vo;
 
+import com.vs.meta.common.utils.InMemoryMultipartFile;
 import de.rototor.pdfbox.graphics2d.PdfBoxGraphics2D;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.disk.DiskFileItem;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fontbox.ttf.OTFParser;
 import org.apache.fontbox.ttf.OpenTypeFont;
@@ -19,7 +18,6 @@ import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.commons.CommonsMultipartFile;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -1334,16 +1332,7 @@ public class PioPdfVO {
     }
 
     public MultipartFile convertFileToMultipartFile(File file) throws IOException {
-        FileItem fileItem = new DiskFileItem("file",
-                Files.probeContentType(file.toPath()), false,
-                file.getName(), (int) file.length(), file.getParentFile());
-
-        try (FileInputStream input = new FileInputStream(file)) {
-            byte[] fileContent = new byte[(int) file.length()];
-            input.read(fileContent);
-            fileItem.getOutputStream().write(fileContent);
-        }
-
-        return new CommonsMultipartFile(fileItem);
+        byte[] content = Files.readAllBytes(file.toPath());
+        return new InMemoryMultipartFile(file.getName(), Files.probeContentType(file.toPath()), content);
     }
 }

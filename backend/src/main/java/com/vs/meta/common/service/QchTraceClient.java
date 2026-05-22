@@ -46,7 +46,7 @@ public class QchTraceClient {
                     .block();
         } catch (WebClientResponseException ex) {
             log.warn("[QCH] trace failed (HTTP {} - {}): {} {}",
-                    ex.getRawStatusCode(), ex.getStatusText(), event.getMethod(), event.getEndpoint());
+                    ex.getStatusCode().value(), ex.getStatusText(), event.getMethod(), event.getEndpoint());
         } catch (Exception ex) {
             log.warn("[QCH] trace failed: {} {} - {}", event.getMethod(), event.getEndpoint(), ex.getMessage());
         }

@@ -1,6 +1,6 @@
 package com.vs.meta.common.aop;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.vs.meta.common.config.QchProperties;
 import com.vs.meta.common.security.SpAuthenticatedUser;
 import com.vs.meta.common.service.QchTraceClient;
@@ -26,8 +26,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -205,7 +205,7 @@ public class QchTraceAspect {
         }
         // ResponseDTO<CustomBody> 의 resultCode 우선 — ApiResponseAspect 가 enrich 한 값
         if (result instanceof org.springframework.http.ResponseEntity<?> entity) {
-            return entity.getStatusCodeValue();
+            return entity.getStatusCode().value();
         }
         if (result instanceof com.vs.meta.common.response.ResponseDTO<?> dto
                 && dto.getBody() instanceof com.vs.meta.common.response.CustomBody body) {
