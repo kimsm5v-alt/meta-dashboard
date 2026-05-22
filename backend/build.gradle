@@ -58,7 +58,8 @@ dependencies {
     // log4jdbc-log4j2-jdbc4.1: IDP 가 Boot 4.0.5 + JDK 21 에서 동일 버전(1.16) 운영 검증 중이므로 유지.
     implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
     implementation 'org.apache.commons:commons-dbcp2:2.9.0'
-    implementation 'org.neo4j.driver:neo4j-java-driver:5.28.5'
+    // Boot 4 BOM 이 6.0.3 으로 관리. bolt-connection 10.1.1 과 ABI 정합 (5.x driver 는 BootstrapFactory 호출 실패)
+    implementation 'org.neo4j.driver:neo4j-java-driver'
 
     // ===== Swagger =====
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
