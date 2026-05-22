@@ -574,6 +574,32 @@ export const UserName = ({ user }: { user: UserInfo }) => {
 
 ## 10. 후속 작업 (별도 PR 권장)
 
+### 10.1 tc_id / stdt_id → sp_user_id 통일 (★ 우선순위 높음)
+
+**문제**: 학심정 자체 채번한 `tc_id`(교사) / `stdt_id`(학생)이 `sp_user_id`와 별도로 존재 — 본질적으로 이중 식별자. 게스트 폐기로 통합 식별자 필요성이 사라졌으므로 `sp_user_id`로 통일 가능.
+
+**영향 규모 (2026-05-22 측정)**: 약 **567건 / 67 파일**
+- Backend MyBatis XML: 264건 (DgnssMapper.xml만 203건)
+- Backend Java: 182건 / 28 파일
+- Frontend: 121건 / 30+ 파일
+
+**일정 추정**: 5~8주 (본 PR과 비슷한 규모)
+
+**의존 관계**: 본 PR(IDP 회원정보 전환) 완료 후 진행 — sp_user_id가 PK 역할로 자리잡은 후 안전.
+
+**핵심 작업**:
+1. 검사 이력 테이블(`dgnss_*`)의 stdt_id를 sp_user_id로 일괄 UPDATE (수십만 row 가능)
+2. user/group_member 테이블에서 tc_id/stdt_id 컬럼 DROP
+3. API 응답 형식 변경 — FE/외부 시스템 영향 협의 필요 (breaking change)
+4. 28 Service + 9 XML + 30 FE 파일 수정
+
+**리스크**:
+- 검사 이력 데이터 무결성 (sp_user_id 미매핑 row 발생 가능)
+- API 응답 형식 변경 = breaking change
+- 1년치 검사 이력 마이그레이션 부담
+
+### 10.2 기타
+
 - Admin 영역 회원 목록 화면이 필요한 경우 Auth `/users/lookup` + 별도 Auth 측 LIKE 검색 API 협의
 - Auth 측 `gender` 필드 노출 정책 변경 시 학심정 검사 보고서 통합 (현 상태는 학심정 검사 결과 테이블에서 직접 표시)
 - 회원 통계/지표 화면 (이름 표시 필요 시 batch 호출 캐시 정책 재검토)
