@@ -2,9 +2,7 @@ package com.vs.meta.api.notification.dispatcher;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,11 +32,11 @@ public class NotificationRedisConfig {
      */
     @Bean(name = "notificationObjectMapper")
     public ObjectMapper notificationObjectMapper() {
-        ObjectMapper m = new ObjectMapper();
-        m.registerModule(new JavaTimeModule());
-        m.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        m.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
-        return m;
+        // Jackson 3: java.time 모듈 자동 등록, ObjectMapper immutable → JsonMapper.builder() 권장.
+        // 날짜 ISO 문자열 직렬화가 기본(WRITE_DATES_AS_TIMESTAMPS 옵션 제거됨). FIELD visibility 만 명시.
+        return tools.jackson.databind.json.JsonMapper.builder()
+                .changeDefaultVisibility(vc -> vc.withFieldVisibility(JsonAutoDetect.Visibility.ANY))
+                .build();
     }
 
     /**

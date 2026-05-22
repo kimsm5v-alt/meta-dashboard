@@ -1,6 +1,6 @@
 package com.vs.meta.api.notification.dispatcher;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.vs.meta.api.notification.sse.SseEmitterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;

@@ -1,8 +1,7 @@
 package com.vs.meta.api.dgnss.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import com.vs.meta.api.notification.event.ExamSubmittedEvent;
 import com.vs.meta.api.notification.event.StudentExamNotificationEvent;
 import com.vs.meta.api.notification.event.TeacherExamNotificationEvent;
@@ -983,7 +982,7 @@ public class DgnssService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> selectStAnalysis(Map<String, Object> param) throws JsonProcessingException {
+    public Map<String, Object> selectStAnalysis(Map<String, Object> param) {
         return selectUnifiedStAnalysis(param);
     }
 
@@ -1448,7 +1447,7 @@ public class DgnssService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> selectTcAnalysis(Map<String, Object> param) throws JsonProcessingException {
+    public Map<String, Object> selectTcAnalysis(Map<String, Object> param) {
         Map<String, Object> resultMap = new HashMap<>();
         if (StringUtils.isEmpty(MapUtils.getString(param, "paperIdx", ""))) {
             param.put("paperIdx", "2");

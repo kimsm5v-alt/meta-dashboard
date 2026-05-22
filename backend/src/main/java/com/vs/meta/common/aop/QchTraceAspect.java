@@ -1,6 +1,6 @@
 package com.vs.meta.common.aop;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.vs.meta.common.config.QchProperties;
 import com.vs.meta.common.security.SpAuthenticatedUser;
 import com.vs.meta.common.service.QchTraceClient;

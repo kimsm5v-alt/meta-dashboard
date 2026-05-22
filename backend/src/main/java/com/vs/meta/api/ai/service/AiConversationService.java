@@ -1,7 +1,7 @@
 package com.vs.meta.api.ai.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.vs.meta.api.ai.mapper.AiConversationMapper;
 import com.vs.meta.domain.AiConversation;
 import com.vs.meta.domain.AiMessage;
@@ -332,7 +332,7 @@ public class AiConversationService {
         // Map 또는 List인 경우 JSON으로 변환
         try {
             return objectMapper.writeValueAsString(contextDataObj);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.warn("contextData JSON 변환 실패", e);
             return null;
         }
@@ -344,7 +344,7 @@ public class AiConversationService {
         }
         try {
             return objectMapper.readValue(contextData, Object.class);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.warn("contextData JSON 파싱 실패", e);
             return contextData;
         }
