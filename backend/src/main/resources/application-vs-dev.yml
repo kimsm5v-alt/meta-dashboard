@@ -48,5 +48,6 @@ management:
 # 조치: dev profile 에서 username 을 빈 문자열로 강제 → password-only AUTH 경로로 시도.
 # 결과 확인 후 환경변수 정리되면 본 블록 제거.
 spring:
-  redis:
-    username: ""
+  data:
+    redis:
+      username: ""

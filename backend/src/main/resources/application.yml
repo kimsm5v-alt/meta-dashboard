@@ -49,17 +49,19 @@ spring:
         maximum-pool-size: 50
         minimum-idle: 10
   # Redis 설정 (알림 SSE Pub/Sub 용도)
-  redis:
-    host: ${STAT_SPRING_REDIS_HOST:localhost}
-    port: ${STAT_SPRING_REDIS_PORT:6379}
-    username: ${STAT_SPRING_REDIS_USERNAME:}
-    password: ${STAT_SPRING_REDIS_PASSWORD:}
-    timeout: 3000
-    lettuce:
-      pool:
-        max-active: 16
-        max-idle: 8
-        min-idle: 2
+  # Boot 3+ 부터 prefix 가 `spring.data.redis.*` 로 변경됨 (구 `spring.redis.*` 는 Boot 4 에서 제거).
+  data:
+    redis:
+      host: ${STAT_SPRING_REDIS_HOST:localhost}
+      port: ${STAT_SPRING_REDIS_PORT:6379}
+      username: ${STAT_SPRING_REDIS_USERNAME:}
+      password: ${STAT_SPRING_REDIS_PASSWORD:}
+      timeout: 3000
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
   thymeleaf:
     prefix: classpath:/templates/
     suffix: .html
