@@ -217,7 +217,7 @@
         <choose>
             <when test='rgtr != null and rgtr != ""'>
                 , CASE
-                    /* (1) 본인 파일 — a1.rgtr 과 #{rgtr} 모두 user.sp_user_id 형식 */
+                    /* (1) 본인 파일 — 생성자(rgtr)와 요청자가 같은 경우. 양쪽 모두 user.sp_user_id 형식 */
                     WHEN a1.rgtr = #{rgtr} THEN 'Y'
 
                     /* (2) 요청자=교사 — 생성자가 내 그룹 멤버(학생) 또는 같은 그룹의 다른 호스트 교사 */
