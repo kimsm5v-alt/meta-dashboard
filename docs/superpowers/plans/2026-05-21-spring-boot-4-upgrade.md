@@ -52,16 +52,19 @@
 | Spring Security 7 deprecated API | 일부 | ⚠️ | 🟡 | Task 6에서 Security 7 호환 + Task 9에서 경고 수집. **결과: Task 9 L1 재실행에서 deprecation 0건 — 람다 DSL 재작성 완전 적용 확인** |
 | **Jackson 2.x → 3.x (tools.jackson)** | **com.fasterxml → tools.jackson** | ✅ Boot 4 정식 | **🔴 → 🟢** | **Task 1 사전 조사 누락 항목 — Task 9 부팅 시 `ObjectMapper bean 미생성` 으로 발견 → 본 PR 후속 작업 Task 11 신설 (커밋 `bc93112`)** |
 | **Neo4j Java Driver 5.28.5 → 6.0.3** | **driver 핀고정 제거, BOM 위임** | ✅ Boot 4 BOM 6.0.3 | **🔴 → 🟢** | **Task 1 사전 조사 누락 항목 — Task 11 이후 부팅 시 `NoClassDefFoundError: BootstrapFactory` 로 발견 (Boot 4 BOM 이 bolt-connection 10.1.1 강제 vs driver 5.28.5 가 2.0.0 요구하는 ABI 불일치) → Task 12 신설 (커밋 `1d904ad`). 메타 사용 API 시그니처는 6.x 호환 — 코드 변경 0건** |
+| **Redis ConfigurationProperties prefix** | **spring.redis.\* → spring.data.redis.\*** | ✅ Boot 3+ 정식 | **🔴 → 🟢** | **Task 1 사전 조사 누락 항목 — 서버 배포 시 `redisMessageListenerContainer` 가 `Unable to connect: localhost/6379` 로 부팅 실패 (Boot 4 가 구 prefix 제거 → 메타 yml 의 host/port/auth 가 전부 무시되고 default 로 떨어짐) → Task 13 신설 (커밋 `6bea8bd`). application.yml + application-vs-dev.yml 2 파일 prefix 이동만으로 해결** |
 
 **🔴 위험 → 0건. 🟡 위험 2건만 잔존** (AWS SDK v1 / Security 7 deprecated — 둘 다 본 PR 비차단).
 
 > **회고 (Task 1 보강 — 2026-05-22)**:
 > 1. Boot 4.0.5 의 `spring-boot-starter-jackson` 이 `tools.jackson.core:jackson-databind:3.1.0` 으로 좌표 자체가 바뀌고 `com.fasterxml.jackson.databind.ObjectMapper` autoconfig 가 제거된 사실 → Task 11 로 해결.
 > 2. Boot 4.0.5 BOM 이 `neo4j-bolt-connection-*:10.1.1` 을 강제 관리하지만 `neo4j-java-driver` 는 미관리. 사용자가 driver 5.28.5 를 핀고정해 ABI 불일치 발생 → Task 12 로 해결 (BOM 의 6.0.3 위임).
+> 3. Boot 3+ 부터 `spring.redis.*` → `spring.data.redis.*` 로 prefix 변경, Boot 4 에서 구 prefix 제거. 메타 yml 이 구 prefix 를 쓰고 있어 host/port/auth 가 무시되고 localhost:6379 default 로 떨어져 RedisMessageListenerContainer 부팅 실패 → Task 13 으로 해결.
 >
-> 공통 교훈: 메이저 업그레이드 사전 조사에 다음 두 항목 명시 추가 필요:
+> 공통 교훈: 메이저 업그레이드 사전 조사에 다음 세 항목 명시 추가 필요:
 >   - 기본 JSON/HTTP/Logging starter 의 **좌표(groupId/artifactId)** 변경 여부
 >   - Boot BOM 이 transitive 의존성을 **강제 관리** 하는 라이브러리와 사용자 핀고정 버전의 **ABI 정합성**
+>   - `@ConfigurationProperties` **prefix 변경** 이력 (특히 메이저 버전 간 `spring.X` → `spring.data.X` 같은 재배치). 영향 큰 후보: `spring.redis`, `spring.cassandra`, `spring.mongodb`, `spring.couchbase`, `spring.r2dbc` 등 Data 도메인 전반
 
 ---
 
@@ -1374,6 +1377,37 @@ D2와 동일 절차. **❌ 발생 시 머지 보류, 원인 분석 후 패치 �
 
 ---
 
+## Task 13: Redis prefix `spring.data.redis` 마이그레이션 — Task 1 누락분 보강
+
+> **사후 추가 (2026-05-22)**: Task 12 적용 후 서버 배포 시 `Failed to start bean 'redisMessageListenerContainer'` → `Unable to connect: localhost/6379` 부팅 실패. 원인은 Boot 3 부터 `RedisProperties` 의 `@ConfigurationProperties` prefix 가 `spring.redis` → `spring.data.redis` 로 변경, Boot 4 에서 구 prefix 가 완전 제거됨. 메타 yml 이 구 prefix 를 그대로 쓰고 있어 host/port/username/password/lettuce.pool 설정이 **전부 무시** 되고 `host=localhost / port=6379` 의 default 로 fallback. dev 환경에서는 `notification.pubsub.enabled=true` 로 `RedisMessageListenerContainer` 가 활성화되며 부팅 시 localhost:6379 접속 시도 → 거기 Redis 없음 → 부팅 실패.
+
+### Files (2)
+- `backend/src/main/resources/application.yml` — `spring.redis.*` 전체 블록 (host/port/username/password/timeout/lettuce.pool.\*) → `spring.data.redis.*` 로 한 단계 들여쓰기 이동
+- `backend/src/main/resources/application-vs-dev.yml` — `spring.redis.username: ""` (dev 진단용 username 빈 문자열 강제) → `spring.data.redis.username: ""`
+
+### 적용 매핑
+
+| 기존 (Boot 2.7) | 신규 (Boot 3+) | 비고 |
+|:---|:---|:---|
+| `spring.redis.host` | `spring.data.redis.host` | |
+| `spring.redis.port` | `spring.data.redis.port` | |
+| `spring.redis.username` | `spring.data.redis.username` | |
+| `spring.redis.password` | `spring.data.redis.password` | |
+| `spring.redis.timeout` | `spring.data.redis.timeout` | |
+| `spring.redis.lettuce.pool.*` | `spring.data.redis.lettuce.pool.*` | |
+
+### 검증
+
+- L1 `compileJava`: ✅ BUILD SUCCESSFUL
+- L3 `bootJar`: ✅ BUILD SUCCESSFUL, JAR 108.50 MB
+- 실 서버 부팅 검증: **`STAT_SPRING_REDIS_HOST` 등 컨테이너 환경변수 주입이 별도로 되어 있는지 확인 필요** (yml prefix 만 고쳐도 env 미주입 시 동일 증상 재발)
+
+### 커밋
+
+`6bea8bd` [BACKEND] Boot 3+ Redis prefix 마이그레이션 (spring.redis → spring.data.redis)
+
+---
+
 ## 후속 작업 (별도 PR 권장)
 
 본 업그레이드와 분리:
@@ -1401,6 +1435,7 @@ D2와 동일 절차. **❌ 발생 시 머지 보류, 원인 분석 후 패치 �
 | L3 bootJar | 9 | 2026-05-22 재실행 | ✅ BUILD SUCCESSFUL (4s) | JAR 크기 **108.53 MB** (`backend/build/libs/backend-1.0.0-SNAPSHOT.jar`) |
 | **Task 11: Jackson 2 → 3 마이그레이션** | **11** | **2026-05-22** | **✅ L1/L2/L3 재통과** | **커밋 `bc93112`. 10 Java 파일 변경. JAR 108.53 → 108.49 MB. ObjectMapper bean 부팅 실패 회귀 해소. 상세는 위험 매트릭스 참조** |
 | **Task 12: Neo4j Driver 6.0.3 (BOM 정합)** | **12** | **2026-05-22** | **✅ L1/L2/L3 재통과** | **커밋 `1d904ad`. build.gradle 핀고정 제거 1줄. JAR 108.50 MB. BootstrapFactory NoClassDefFoundError 부팅 실패 회귀 해소. 코드 변경 0건 (API 시그니처 호환)** |
+| **Task 13: Redis prefix spring.data.redis 마이그레이션** | **13** | **2026-05-22** | **✅ L1/L3 재통과** | **커밋 `6bea8bd`. yml 2 파일 prefix 이동. JAR 108.50 MB. `redisMessageListenerContainer` Unable to connect 부팅 실패 회귀 해소. 코드 변경 0건. 단 STAT_SPRING_REDIS_HOST 환경변수 컨테이너 주입 별도 확인 필요** |
 | D2 P0 시나리오 | 10 | _D1 배포 후 기재_ | _⏳_ | 체크리스트 P0×11 — 100% 통과 필수 |
 | D3 P1 시나리오 | 10 | _D1 배포 후 기재_ | _⏳_ | 체크리스트 P1×32 — 100% 통과 필수 |
 | D4 P2 시나리오 | 10 | _D1 배포 후 기재_ | _⏳_ | 체크리스트 P2×28+ — 부분 실패 허용, ❌는 별도 이슈 |
