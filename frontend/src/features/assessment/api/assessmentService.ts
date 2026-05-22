@@ -215,15 +215,16 @@ export interface ExamStartPreviewResponse {
 }
 
 /**
- * 2회차 출제 사전 검증
- * GET /api/dgnss/tc/start/preview?claId=&paperIdx=&ordNo=2
+ * 검사 출제 사전 검증 (1·2회차 공통)
+ * GET /api/dgnss/tc/start/preview?claId=&paperIdx=&ordNo=
  */
 export async function previewExamStart(
   claId: string,
   paperIdx: string = '1',
+  ordNo: number = 2,
 ): Promise<ExamStartPreviewResponse> {
   const res = await apiClient.get<ExamStartPreviewResponse>(
-    `/api/dgnss/tc/start/preview?claId=${claId}&paperIdx=${paperIdx}&ordNo=2`,
+    `/api/dgnss/tc/start/preview?claId=${claId}&paperIdx=${paperIdx}&ordNo=${ordNo}`,
   );
   return res.resultData;
 }

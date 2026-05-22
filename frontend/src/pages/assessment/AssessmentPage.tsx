@@ -590,6 +590,8 @@ export const AssessmentPage: React.FC = () => {
       <ExamStartPreviewModal
         isOpen={previewModal.isOpen}
         preview={previewModal.preview}
+        ordNo={2}
+        paperIdx='1'
         onClose={() => setPreviewModal((prev) => ({ ...prev, isOpen: false }))}
         onConfirm={handlePreviewConfirm}
       />
