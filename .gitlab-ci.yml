@@ -23,7 +23,6 @@ build_image:meta-dashboard-backend:
   variables:
     APP_NAME: "meta-dashboard-api"
     DOCKERFILE_PATH: "backend/Dockerfile"
-    APP_DIR: "vs-dev"
 
 build_image:meta-dashboard-front:
   extends: build_image
@@ -35,7 +34,6 @@ build_image:meta-dashboard-front:
   variables:
     APP_NAME: "meta-dashboard-fe"
     DOCKERFILE_PATH: "frontend/Dockerfile"
-    APP_DIR: "vs-dev"
 
 update_manifest:meta-dashboard-backend:
   extends: update_manifest
@@ -49,7 +47,6 @@ update_manifest:meta-dashboard-backend:
     - set_app_dir
   variables:
     APP_NAME: "meta-dashboard-api"
-    APP_DIR: "vs-dev"
 
 update_manifest:meta-dashboard-front:
   extends: update_manifest
@@ -63,4 +60,3 @@ update_manifest:meta-dashboard-front:
     - set_app_dir
   variables:
     APP_NAME: "meta-dashboard-fe"
-    APP_DIR: "vs-dev"
