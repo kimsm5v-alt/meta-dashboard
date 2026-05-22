@@ -267,6 +267,9 @@ public class FileService {
             paramFileVO.setFilePath(fileUrl + "/");
             paramFileVO.setFileName(fileName);
 
+            log.info("[pfile-download] req userId={}, pionadaYn={}, isAuth={}, filePath={}, fileName={}",
+                    userId, pionadaYn, isAuth, paramFileVO.getFilePath(), fileName);
+
             FileVO fileVO = null;
 
             // 피어나다의 경우 학생 파일을 교사가 생성할 수 있음
@@ -294,13 +297,21 @@ public class FileService {
             }
 
             if (fileVO == null) {
+                log.warn("[pfile-download] 거부(파일정보없음): userId={}, filePath={}, fileName={}",
+                        userId, paramFileVO.getFilePath(), fileName);
                 response.put("message", "파일 다운로드 실패: 파일 정보가 없습니다.");
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(response);
             }
 
+            log.info("[pfile-download] file 조회: fileIdx={}, creator(rgtr)={}, downloadAuthYn={}, delYn={}, prsInfoYn={}",
+                    fileVO.getFileIdx(), fileVO.getRgtr(),
+                    fileVO.getDownloadAuthYn(), fileVO.getDelYn(), fileVO.getPrsInfoYn());
+
             if (isAuth && ObjectUtils.defaultIfNull(fileVO.getDownloadAuthYn(), "N").equals("N")) {
+                log.warn("[pfile-download] 거부(권한없음): userId={}, creator(rgtr)={}, fileIdx={}, pionadaYn={}",
+                        userId, fileVO.getRgtr(), fileVO.getFileIdx(), pionadaYn);
                 response.put("message", "파일 다운로드 실패: 파일 열람 권한이 없습니다.");
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -308,6 +319,8 @@ public class FileService {
             }
 
             if ("Y".equals(fileVO.getDelYn()) && "Y".equals(fileVO.getPrsInfoYn())) {
+                log.warn("[pfile-download] 거부(개인정보 삭제됨): userId={}, fileIdx={}",
+                        userId, fileVO.getFileIdx());
                 response.put("message", "파일 다운로드 실패: 개인정보 처리방침에 의해 삭제된 파일 입니다.");
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .contentType(MediaType.APPLICATION_JSON)
