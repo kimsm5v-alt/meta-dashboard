@@ -47,6 +47,7 @@ update_manifest:meta-dashboard-backend:
     - set_app_dir
   variables:
     APP_NAME: "meta-dashboard-api"
+    APP_DIR: "vs-dev"
 
 update_manifest:meta-dashboard-front:
   extends: update_manifest
@@ -60,3 +61,4 @@ update_manifest:meta-dashboard-front:
     - set_app_dir
   variables:
     APP_NAME: "meta-dashboard-fe"
+    APP_DIR: "vs-dev"
