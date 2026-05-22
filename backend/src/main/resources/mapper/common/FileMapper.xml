@@ -217,22 +217,23 @@
         <choose>
             <when test='rgtr != null and rgtr != ""'>
                 , CASE
-                    /* (1) 본인 파일 */
+                    /* (1) 본인 파일 — a1.rgtr 과 #{rgtr} 모두 user.sp_user_id 형식 */
                     WHEN a1.rgtr = #{rgtr} THEN 'Y'
 
-                    /* (2) 요청자=교사 — 생성자가 내 그룹 멤버 (학생) 또는 같은 그룹의 다른 호스트 교사 */
+                    /* (2) 요청자=교사 — 생성자가 내 그룹 멤버(학생) 또는 같은 그룹의 다른 호스트 교사 */
                     WHEN EXISTS (
                         SELECT 1
                         FROM user u_req
                                  INNER JOIN group_info gi_req ON gi_req.host_user_no = u_req.user_no
-                        WHERE u_req.tc_id = #{rgtr}
+                        WHERE u_req.sp_user_id = #{rgtr}
                           AND (
-                            /* 생성자 = 같은 그룹의 학생 */
+                            /* 생성자 = 같은 그룹의 학생 (sp_user_id → user_no 변환 후 group_member 매칭) */
                             EXISTS (
                                 SELECT 1
                                 FROM group_member gm
+                                         INNER JOIN user u_creator_st ON u_creator_st.user_no = gm.user_no
                                 WHERE gm.group_id = gi_req.group_id
-                                  AND gm.stdt_id = a1.rgtr
+                                  AND u_creator_st.sp_user_id = a1.rgtr
                             )
                             /* 또는 생성자 = 같은 그룹의 다른 호스트 교사 */
                             OR EXISTS (
@@ -240,7 +241,7 @@
                                 FROM group_info gi_creator
                                          INNER JOIN user u_creator ON gi_creator.host_user_no = u_creator.user_no
                                 WHERE gi_creator.group_id = gi_req.group_id
-                                  AND u_creator.tc_id = a1.rgtr
+                                  AND u_creator.sp_user_id = a1.rgtr
                             )
                           )
                     ) THEN 'Y'
@@ -253,7 +254,7 @@
                                  INNER JOIN group_info gi_req ON gi_req.host_user_no = u_req.user_no
                                  INNER JOIN group_member gm_target ON gm_target.group_id = gi_req.group_id
                                  INNER JOIN tb_dgnss_result_info tdri ON gm_target.stdt_id = tdri.stdt_id
-                        WHERE u_req.tc_id = #{rgtr}
+                        WHERE u_req.sp_user_id = #{rgtr}
                           AND (
                             (   tdri.file_url IS NOT NULL AND tdri.file_url != ''
                                 AND a1.file_name = SUBSTRING_INDEX(tdri.file_url, '/', -1)
@@ -275,11 +276,12 @@
                     /* (4) 요청자=학생 — 생성자가 내가 속한 그룹의 호스트 교사 */
                     WHEN EXISTS (
                         SELECT 1
-                        FROM group_member gm_req
+                        FROM user u_req_st
+                                 INNER JOIN group_member gm_req ON gm_req.user_no = u_req_st.user_no
                                  INNER JOIN group_info gi ON gm_req.group_id = gi.group_id
                                  INNER JOIN user u_host ON gi.host_user_no = u_host.user_no
-                        WHERE gm_req.stdt_id = #{rgtr}
-                          AND u_host.tc_id = a1.rgtr
+                        WHERE u_req_st.sp_user_id = #{rgtr}
+                          AND u_host.sp_user_id = a1.rgtr
                     ) THEN 'Y'
 
                     ELSE 'N'
