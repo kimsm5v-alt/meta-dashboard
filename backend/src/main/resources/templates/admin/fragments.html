@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<!-- Head: CSS + AdminLTE CDN + Hybrid Theme -->
+<th:block th:fragment="css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css" />
+<style>
+    /* ===== Base ===== */
+    body, .wrapper {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        background: #f1f5f9 !important;
+        color: #1e293b;
+    }
+    .content-wrapper {
+        background: #f1f5f9 !important;
+        min-height: calc(100vh - 57px);
+    }
+    .content-header h1 {
+        color: #0f172a;
+        font-size: 1.4rem;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+    }
+
+    /* ===== Navbar (dark) ===== */
+    .main-header.navbar {
+        background: #0f172a !important;
+        border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    }
+    .main-header .nav-link { color: #94a3b8 !important; font-size: .875rem; }
+    .main-header .nav-link:hover { color: #f1f5f9 !important; }
+
+    /* ===== Sidebar (dark) ===== */
+    .main-sidebar {
+        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+        border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .main-sidebar, .main-sidebar *:not(.fas):not(.far):not(.fab):not(.fa) { font-family: 'Inter', sans-serif !important; }
+    .brand-link {
+        border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+        background: rgba(0,0,0,0.15) !important;
+    }
+    .brand-link .brand-text { color: #f1f5f9 !important; font-weight: 600 !important; }
+    .brand-link .brand-text b { color: #60a5fa; }
+
+    .nav-sidebar .nav-link { color: #94a3b8 !important; border-radius: 8px !important; margin: 2px 8px; font-size: .8125rem; font-weight: 500; }
+    .nav-sidebar .nav-link:hover { background: rgba(255,255,255,0.06) !important; color: #e2e8f0 !important; }
+    .nav-sidebar > .nav-item > .nav-link.active {
+        background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+        color: #fff !important;
+        box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+    }
+    .nav-sidebar .nav-icon { color: inherit !important; }
+
+    /* Treeview sub-items */
+    .nav-treeview.force-open { display: block !important; }
+    .nav-treeview { background: rgba(0,0,0,0.15) !important; border-radius: 0 0 8px 8px; margin: 0 8px; padding: 4px 0; }
+    .nav-treeview > .nav-item > .nav-link { margin: 1px 4px; font-size: .8125rem; color: #64748b !important; }
+    .nav-treeview > .nav-item > .nav-link:hover { color: #e2e8f0 !important; background: rgba(255,255,255,0.04) !important; }
+    .nav-treeview > .nav-item > .nav-link.active {
+        background: rgba(59,130,246,0.15) !important;
+        color: #60a5fa !important;
+        box-shadow: none;
+    }
+    .nav-treeview .nav-icon { font-size: 8px !important; }
+
+    /* ===== Cards (light) ===== */
+    .card {
+        background: #fff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 16px !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+        color: #1e293b;
+    }
+    .card-header {
+        background: #fff !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        border-radius: 16px 16px 0 0 !important;
+    }
+    .card-header .card-title { color: #0f172a !important; font-weight: 600; font-size: .9375rem; }
+    .card-header .card-title .text-muted { color: #94a3b8 !important; }
+    .card-footer {
+        background: #fafbfc !important;
+        border-top: 1px solid #f1f5f9 !important;
+        border-radius: 0 0 16px 16px !important;
+    }
+    .card-primary.card-outline {
+        border-top: 3px solid #3b82f6 !important;
+        border-top-left-radius: 16px !important;
+        border-top-right-radius: 16px !important;
+    }
+    .card-danger.card-outline {
+        border-top: 3px solid #ef4444 !important;
+    }
+
+    /* ===== Tables ===== */
+    .table { color: #334155 !important; }
+    .table thead th, .thead-light th {
+        background: #f8fafc !important;
+        border-bottom: 2px solid #e2e8f0 !important;
+        color: #64748b !important;
+        font-weight: 600;
+        font-size: .75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+    .table td, .table th { vertical-align: middle; border-top: 1px solid #f1f5f9 !important; }
+    .table td { font-size: .875rem; }
+    .table-hover tbody tr:hover { background: #f8fafc !important; }
+
+    /* ===== Forms ===== */
+    .form-control, .custom-select {
+        background: #fff !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #1e293b !important;
+        border-radius: 8px !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: .875rem;
+    }
+    .form-control::placeholder { color: #94a3b8 !important; }
+    .form-control:focus, .custom-select:focus {
+        background: #fff !important;
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1) !important;
+        color: #0f172a !important;
+    }
+    label:not(.custom-file-label) { color: #475569 !important; font-weight: 600; font-size: .8125rem; }
+    .custom-file-label {
+        background: #fff !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #64748b !important;
+        border-radius: 8px !important;
+    }
+    .custom-file-label::after {
+        background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+        color: #fff !important;
+        border-left: 1px solid #e2e8f0 !important;
+        border-radius: 0 8px 8px 0 !important;
+    }
+
+    /* ===== Buttons ===== */
+    .btn { font-family: 'Inter', sans-serif !important; font-weight: 600; border-radius: 8px !important; transition: all 0.15s; }
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+        border: none !important;
+        box-shadow: 0 2px 8px rgba(59,130,246,0.25);
+        color: #fff !important;
+    }
+    .btn-primary:hover { box-shadow: 0 4px 16px rgba(59,130,246,0.35); transform: translateY(-1px); }
+    .btn-default, .btn-secondary {
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #475569 !important;
+    }
+    .btn-default:hover, .btn-secondary:hover { background: #f1f5f9 !important; color: #0f172a !important; }
+    .btn-danger {
+        background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+        border: none !important;
+        color: #fff !important;
+        box-shadow: 0 2px 8px rgba(239,68,68,0.25);
+    }
+    .btn-danger:hover { box-shadow: 0 4px 16px rgba(239,68,68,0.35); }
+
+    /* ===== Badges ===== */
+    .badge { font-weight: 600; border-radius: 6px; padding: 4px 10px; font-size: .75rem; }
+    .badge-info { background: #eff6ff !important; color: #2563eb !important; }
+    .badge-success { background: #f0fdf4 !important; color: #16a34a !important; }
+    .badge-danger { background: #fef2f2 !important; color: #dc2626 !important; }
+    .badge-secondary { background: #f1f5f9 !important; color: #64748b !important; }
+    .badge-warning { background: #fffbeb !important; color: #d97706 !important; }
+    .badge-purple { background: #faf5ff !important; color: #7c3aed !important; }
+
+    /* ===== Alerts ===== */
+    .alert { border-radius: 12px !important; font-size: .875rem; }
+    .alert-success {
+        background: #f0fdf4 !important;
+        border: 1px solid #bbf7d0 !important;
+        color: #15803d !important;
+    }
+    .alert-danger {
+        background: #fef2f2 !important;
+        border: 1px solid #fecaca !important;
+        color: #b91c1c !important;
+    }
+    .alert-info {
+        background: #eff6ff !important;
+        border: 1px solid #bfdbfe !important;
+        color: #1d4ed8 !important;
+    }
+    .alert .close { color: inherit !important; text-shadow: none !important; opacity: 0.5; }
+    .alert .close:hover { opacity: 0.8; }
+
+    /* ===== Dashboard small-box ===== */
+    .small-box {
+        border-radius: 16px !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        position: relative;
+        overflow: hidden;
+    }
+    .small-box::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+    .small-box.bg-info { background: #fff !important; }
+    .small-box.bg-info::before { background: linear-gradient(90deg, #3b82f6, #6366f1); }
+    .small-box.bg-success { background: #fff !important; }
+    .small-box.bg-success::before { background: linear-gradient(90deg, #22c55e, #10b981); }
+    .small-box.bg-warning { background: #fff !important; }
+    .small-box.bg-warning::before { background: linear-gradient(90deg, #f59e0b, #ea580c); }
+    .small-box.bg-danger { background: #fff !important; }
+    .small-box.bg-danger::before { background: linear-gradient(90deg, #ef4444, #dc2626); }
+    .small-box .inner h3 { color: #0f172a !important; font-weight: 700; }
+    .small-box .inner p { color: #64748b !important; }
+    .small-box .icon > i { color: #f1f5f9 !important; }
+    .small-box-footer {
+        background: #f8fafc !important;
+        border-radius: 0 0 16px 16px !important;
+        color: #64748b !important;
+        border-top: 1px solid #f1f5f9 !important;
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        position: relative;
+        z-index: 2;
+        padding: 10px 14px !important;
+        font-weight: 600;
+    }
+    .small-box.bg-info > .small-box-footer,
+    .small-box.bg-success > .small-box-footer,
+    .small-box.bg-warning > .small-box-footer,
+    .small-box.bg-danger > .small-box-footer {
+        background: #f8fafc !important;
+        color: #64748b !important;
+        border-top: 1px solid #f1f5f9 !important;
+        opacity: 1 !important;
+    }
+    .small-box-footer:hover { color: #3b82f6 !important; background: #f1f5f9 !important; }
+
+    /* ===== Pagination ===== */
+    .page-item .page-link {
+        background: #fff !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #475569 !important;
+        border-radius: 6px !important;
+        margin: 0 2px;
+        font-size: .8125rem;
+    }
+    .page-item .page-link:hover { background: #f1f5f9 !important; color: #0f172a !important; }
+    .page-item.active .page-link {
+        background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+        border-color: transparent !important;
+        color: #fff !important;
+    }
+    .page-item.disabled .page-link { background: #fafbfc !important; color: #cbd5e1 !important; }
+    .page-info { text-align: center; margin-top: 8px; font-size: .8125rem; color: #94a3b8; }
+
+    /* ===== Utility ===== */
+    .text-muted { color: #94a3b8 !important; }
+    a:not(.btn):not(.nav-link):not(.page-link):not(.brand-link):not(.small-box-footer) { color: #3b82f6; }
+    a:not(.btn):not(.nav-link):not(.page-link):not(.brand-link):not(.small-box-footer):hover { color: #2563eb; }
+    .code-cell { font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: .8125rem; color: #64748b; }
+    .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; align-items: flex-end; flex-wrap: wrap; }
+    .filter-bar .form-group { min-width: 140px; flex: none; margin-bottom: 0; }
+    .filter-bar label { font-size: .75rem !important; text-transform: uppercase; letter-spacing: 0.3px; }
+    .inline-form { display: inline-flex; gap: 4px; align-items: center; }
+
+    /* List group (school-import errors) */
+    .list-group-item { background: #fff !important; border-color: #f1f5f9 !important; }
+    .list-group-item.text-danger { color: #dc2626 !important; }
+
+    /* ===== Scrollbar ===== */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+</style>
+</th:block>
+
+<!-- JS: AdminLTE + dependencies -->
+<th:block th:fragment="js">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+</th:block>
+
+<!-- Navbar -->
+<nav th:fragment="navbar" class="main-header navbar navbar-expand navbar-dark">
+    <ul class="navbar-nav">
+        <li class="nav-item">
+            <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
+        </li>
+    </ul>
+    <ul class="navbar-nav ml-auto">
+        <li class="nav-item">
+            <span class="nav-link" th:text="'관리자: ' + ${#authentication.name}"></span>
+        </li>
+        <li class="nav-item">
+            <form th:action="@{/admin/logout}" method="post" style="display:inline">
+                <button type="submit" class="nav-link btn btn-link" style="color:#f87171 !important; border:none; cursor:pointer;"><i class="fas fa-sign-out-alt"></i> 로그아웃</button>
+            </form>
+        </li>
+    </ul>
+</nav>
+
+<!-- Sidebar -->
+<aside th:fragment="sidebar(menu)" class="main-sidebar elevation-4">
+    <a href="/admin/dashboard" class="brand-link">
+        <span class="brand-text" style="margin-left:12px;"><b>Meta</b> Admin</span>
+    </a>
+    <div class="sidebar">
+        <nav class="mt-2">
+            <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+                <li class="nav-item">
+                    <a href="/admin/dashboard" class="nav-link" th:classappend="${menu == 'dashboard'} ? 'active'">
+                        <i class="nav-icon fas fa-tachometer-alt"></i><p>대시보드</p>
+                    </a>
+                </li>
+                <li class="nav-item" th:classappend="${menu == 'users' || menu == 'roles'} ? 'menu-is-opening menu-open'">
+                    <a href="#" class="nav-link" th:classappend="${menu == 'users' || menu == 'roles'} ? 'active'">
+                        <i class="nav-icon fas fa-users"></i>
+                        <p>사용자 관리<i class="right fas fa-angle-left"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview" th:classappend="${menu == 'users' || menu == 'roles'} ? 'force-open'">
+                        <li class="nav-item">
+                            <a href="/admin/users" class="nav-link" th:classappend="${menu == 'users'} ? 'active'">
+                                <i class="far fa-circle nav-icon"></i><p>사용자 목록</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/admin/roles" class="nav-link" th:classappend="${menu == 'roles'} ? 'active'">
+                                <i class="far fa-circle nav-icon"></i><p>권한 관리</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/groups" class="nav-link" th:classappend="${menu == 'groups'} ? 'active'">
+                        <i class="nav-icon fas fa-layer-group"></i><p>그룹 관리</p>
+                    </a>
+                </li>
+                <li class="nav-item" th:classappend="${menu == 'schools' || menu == 'school-map' || menu == 'school-import'} ? 'menu-is-opening menu-open'">
+                    <a href="#" class="nav-link" th:classappend="${menu == 'schools' || menu == 'school-map' || menu == 'school-import'} ? 'active'">
+                        <i class="nav-icon fas fa-school"></i>
+                        <p>학교 관리<i class="right fas fa-angle-left"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview" th:classappend="${menu == 'schools' || menu == 'school-map' || menu == 'school-import'} ? 'force-open'">
+                        <li class="nav-item">
+                            <a href="/admin/schools" class="nav-link" th:classappend="${menu == 'schools'} ? 'active'">
+                                <i class="far fa-circle nav-icon"></i><p>학교 목록</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/admin/school-map" class="nav-link" th:classappend="${menu == 'school-map'} ? 'active'">
+                                <i class="far fa-circle nav-icon"></i><p>학교 매핑</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/admin/school-import" class="nav-link" th:classappend="${menu == 'school-import'} ? 'active'">
+                                <i class="far fa-circle nav-icon"></i><p>학교 등록</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/bug-reports" class="nav-link" th:classappend="${menu == 'bug-reports'} ? 'active'">
+                        <i class="nav-icon fas fa-bug"></i><p>AI 버그리포트</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/api-test" class="nav-link" th:classappend="${menu == 'api-test'} ? 'active'">
+                        <i class="nav-icon fas fa-flask"></i><p>API 테스트</p>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</aside>
+
+<!-- Pagination fragment -->
+<th:block th:fragment="pagination(baseUrl, params)">
+    <ul class="pagination pagination-sm justify-content-center mt-3" th:if="${totalPages > 1}">
+        <li class="page-item" th:classappend="${page <= 1} ? 'disabled'">
+            <a class="page-link" th:href="${baseUrl} + '?page=1' + ${params}">&laquo;&laquo;</a>
+        </li>
+        <li class="page-item" th:classappend="${page <= 1} ? 'disabled'">
+            <a class="page-link" th:href="${baseUrl} + '?page=' + ${page - 1} + ${params}">&laquo;</a>
+        </li>
+        <th:block th:with="startPage=${page - 2 > 1 ? page - 2 : 1}, endPage=${page + 2 < totalPages ? page + 2 : totalPages}">
+            <li class="page-item disabled" th:if="${startPage > 1}"><span class="page-link">...</span></li>
+            <th:block th:each="i : ${#numbers.sequence(startPage, endPage)}">
+                <li class="page-item" th:classappend="${i == page} ? 'active'">
+                    <a class="page-link" th:href="${baseUrl} + '?page=' + ${i} + ${params}" th:text="${i}"></a>
+                </li>
+            </th:block>
+            <li class="page-item disabled" th:if="${endPage < totalPages}"><span class="page-link">...</span></li>
+        </th:block>
+        <li class="page-item" th:classappend="${page >= totalPages} ? 'disabled'">
+            <a class="page-link" th:href="${baseUrl} + '?page=' + ${page + 1} + ${params}">&raquo;</a>
+        </li>
+        <li class="page-item" th:classappend="${page >= totalPages} ? 'disabled'">
+            <a class="page-link" th:href="${baseUrl} + '?page=' + ${totalPages} + ${params}">&raquo;&raquo;</a>
+        </li>
+    </ul>
+    <div class="page-info" th:text="'페이지 ' + ${page} + ' / ' + ${totalPages} + ' (총 ' + ${total} + '건)'"></div>
+</th:block>
+
+</html>

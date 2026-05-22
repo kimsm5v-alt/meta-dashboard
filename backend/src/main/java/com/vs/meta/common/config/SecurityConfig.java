@@ -87,8 +87,47 @@ public class SecurityConfig {
         return reg;
     }
 
+    /**
+     * Admin Thymeleaf UI 영역 — session 기반 form login (email + bcrypt).
+     * c9b5afe(2026-05-21)에서 폐기됐다가 버그리포트 운영 기능을 위해 일부 부활.
+     * {@code /admin/**} 경로만 매칭하므로 API JWT chain 과 분리.
+     */
     @Bean
     @Order(1)
+    public SecurityFilterChain adminSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher("/admin/**")
+            .cors(Customizer.withDefaults())
+            // form login 에 필요한 _csrf 토큰은 Thymeleaf 폼에서 hidden input 으로 자동 전송
+            .csrf(Customizer.withDefaults())
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.disable())
+            )
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/admin/login").permitAll()
+                .requestMatchers("/admin/css/**", "/admin/js/**", "/admin/images/**").permitAll()
+                .anyRequest().hasRole("ADMIN")
+            )
+            .formLogin(form -> form
+                .loginPage("/admin/login")
+                .loginProcessingUrl("/admin/login")
+                .usernameParameter("email")
+                .passwordParameter("password")
+                .defaultSuccessUrl("/admin/bug-reports", true)
+                .failureUrl("/admin/login?error")
+                .permitAll()
+            )
+            .logout(logout -> logout
+                .logoutUrl("/admin/logout")
+                .logoutSuccessUrl("/admin/login?logout")
+                .deleteCookies("JSESSIONID")
+                .permitAll()
+            );
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(Customizer.withDefaults())

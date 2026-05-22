@@ -36,6 +36,10 @@ configurations {
 dependencies {
     // ===== Spring Boot Starters =====
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    // Admin Thymeleaf UI (버그리포트 관리) — c9b5afe 폐기 후 일부 기능만 부활.
+    // Security 5 → 6+ 로 마이그레이션: extras-springsecurity5 → 6 사용 (Thymeleaf 3.1 + Spring Security 7 호환).
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6:3.1.2.RELEASE'
     // Boot 4: spring-boot-starter-aop → spring-boot-starter-aspectj 로 이름 변경.
     // 메타는 @Aspect 4종 (ApiResponseAspect / TransactionAspect / QchTraceAspect / RetryAspect) 사용 → AspectJ 필요.
     implementation 'org.springframework.boot:spring-boot-starter-aspectj'
