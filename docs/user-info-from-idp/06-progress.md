@@ -88,16 +88,53 @@
 
 ---
 
-## Phase 4 — DDL DROP (Point of No Return) ⏳ 예정
+## Phase 4 — DDL DROP (Point of No Return) ⏳ 로컬 완료, dev/prod 대기
 
-| Task | 제목 | 상태 |
-|:---:|:---|:---:|
-| 19 | 운영 DB 사전 백업 | ⏳ |
-| 20 | user 테이블 email/nickname/gender DROP | ⏳ |
-| 21 | group_member 테이블 nickname/email/gender DROP | ⏳ |
-| 22 | counseling_student.stdt_name DROP | ⏳ |
-| 23 | Domain 필드 제거 + Mapper 잔재 최종 정리 | ⏳ |
-| 24 | 최종 DB 검증 (PII 0건 확인) | ⏳ |
+| Task | 제목 | 커밋 | 상태 |
+|:---:|:---|:---|:---:|
+| 19 | 운영 DB 사전 백업 | (운영 적용 시) | ⏳ dev/prod |
+| 20 | user 테이블 email/nickname/gender DROP | 02-pii-column-drop.sql | ✅ 로컬 |
+| 21 | group_member 테이블 nickname/email/gender DROP | 02-pii-column-drop.sql | ✅ 로컬 |
+| 22 | counseling_student.stdt_name DROP | 02-pii-column-drop.sql | ✅ 로컬 |
+| 23 | Domain 필드 제거 + Mapper 잔재 정리 + findByEmail caller 대체 | `86f4620` + `a68c2d0` | ✅ |
+| 24 | 최종 DB 검증 (PII 0건 확인) | (이번 커밋) | ✅ 로컬 |
+
+### Task 23 결과 (코드 정리)
+
+- Domain 3종 필드 제거 (`User.email/nickname`, `GroupMember.nickname/email`, `CounselingStudent.stdtName`) + getter/setter
+- Mapper XML INSERT/UPDATE PII 컬럼 제거 (UserMapper / GroupMemberMapper / CounselingStudentMapper)
+- DgnssMapper `gm.nickname` GROUP_CONCAT 7곳 재설계 — `sp_user_id\x1Emember_no` raw 수집 + `DgnssService.enrichGroupConcatField()` 후처리로 `이름(member_no), ...` 동일 형식 복원
+- dead code 정리: `SecurityUtil.isGuestAuthenticated/getCurrentGuestId`, `GroupMemberMapper.updateGuestToStudent/syncSnapshotByUserNo`, `MemberService.findUserByEmail`
+- `findByEmail` caller 3곳 대체:
+  - `SsoUserMigrationService` — email fallback 분기 stub 화 (sp_user_id 매핑 100% 완료 가정)
+  - `GroupInvitationService` — `PersonInfoClient.lookupByEmail` → `UserMapper.findBySpUserId` 2단계 체인
+  - `MemberService.findUserByEmail` — dead 제거
+- `UserMapper.findByEmail` / `findByEmailAndStatus` 완전 폐기 (caller 0)
+
+### Task 20~22 DDL DROP 로컬 적용 (2026-05-23, podman mysql-meta)
+
+| 환경 | 실행 일시 | 실행자 | 결과 | 비고 |
+|:---|:---|:---|:---|:---|
+| 로컬 (podman) | 2026-05-23 | ohch1 | ✅ | `user` 11컬럼 / `group_member` 12컬럼 / `counseling_student` 6컬럼으로 정리, `uk_user_email` + `idx_gm_email` 인덱스 함께 DROP |
+| dev | _대기_ | - | - | 운영 백업 + 코드 배포 후 적용 |
+| prod | _대기_ | - | - | 운영 백업 + 코드 배포 후 적용 |
+
+### Task 24 검증 결과 (로컬)
+
+```
+SELECT TABLE_NAME, COLUMN_NAME
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'superplatform_meta'
+  AND COLUMN_NAME IN ('email','nickname','gender','stdt_name');
+```
+
+남은 항목 3건 — 모두 의도된 보존:
+- `admin_account.email` / `admin_account.nickname` — Admin 영역 (별도 테이블, 본 작업 범위 외)
+- `group_invitation.email` — 비회원 초대용 식별자
+
+`group_member.member_type='GUEST'` 잔여 0건, `user` 229건 중 sp_user_id 매핑 18건 누락 (로컬 dev 덤프 잔재 — prod 적용 전 별도 정리 필요).
+
+회귀 테스트: `./gradlew :backend:test` — 35 tests / 24 pass / 11 skip / 0 fail.
 
 ---
 
