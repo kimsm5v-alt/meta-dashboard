@@ -5,8 +5,6 @@
     <resultMap id="userResultMap" type="com.vs.meta.domain.User">
         <id property="userNo" column="user_no"/>
         <result property="spUserId" column="sp_user_id"/>
-        <result property="email" column="email"/>
-        <result property="nickname" column="nickname"/>
         <result property="roleCode" column="role_code"/>
         <result property="tcId" column="tc_id"/>
         <result property="stdtId" column="stdt_id"/>
@@ -19,7 +17,7 @@
     </resultMap>
 
     <sql id="userColumns">
-        user_no, sp_user_id, email, nickname, role_code, tc_id, stdt_id,
+        user_no, sp_user_id, role_code, tc_id, stdt_id,
         status, last_login_at, created_by, updated_by, created_at, updated_at
     </sql>
 
@@ -52,48 +50,8 @@
         WHERE sp_user_id = #{spUserId}
     </select>
 
-    <select id="findAllUsers" resultMap="userResultMap">
-        /* UserMapper.findAllUsers */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        ORDER BY created_at DESC
-    </select>
 
-    <select id="findUsersPaged" resultMap="userResultMap">
-        /* UserMapper.findUsersPaged */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        <where>
-            <if test="keyword != null and keyword != ''">
-                AND (email LIKE CONCAT('%',#{keyword},'%') OR nickname LIKE CONCAT('%',#{keyword},'%'))
-            </if>
-            <if test="roleCode != null and roleCode != ''">
-                AND role_code = #{roleCode}
-            </if>
-            <if test="status != null and status != ''">
-                AND status = #{status}
-            </if>
-        </where>
-        ORDER BY created_at DESC
-        LIMIT #{limit} OFFSET #{offset}
-    </select>
 
-    <select id="countUsersPaged" resultType="long">
-        /* UserMapper.countUsersPaged */
-        SELECT COUNT(*)
-        FROM `user`
-        <where>
-            <if test="keyword != null and keyword != ''">
-                AND (email LIKE CONCAT('%',#{keyword},'%') OR nickname LIKE CONCAT('%',#{keyword},'%'))
-            </if>
-            <if test="roleCode != null and roleCode != ''">
-                AND role_code = #{roleCode}
-            </if>
-            <if test="status != null and status != ''">
-                AND status = #{status}
-            </if>
-        </where>
-    </select>
 
     <insert id="insertUser" parameterType="com.vs.meta.domain.User" useGeneratedKeys="true" keyProperty="userNo">
         /* UserMapper.insertUser */
