@@ -1,60 +1,34 @@
 package com.vs.meta.api.sso.service;
 
-import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.common.security.SpAuthenticatedUser;
-import com.vs.meta.common.utils.PiiMasker;
 import com.vs.meta.domain.User;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
 
 /**
  * SSO 마이그레이션 매핑 서비스.
  *
- * <p>SSO 전환 이전에 가입했던 회원(sp_user_id = NULL)을 email로 찾아
- * sp_user_id를 채워 넣는 1회성 매핑 로직. 첫 로그인 시 1회만 실행되며,
- * 매핑 완료 후에는 일반 조회(SsoUserQueryService)로 동작한다.
+ * <p>Phase 4 (user-info-from-idp): user.email 컬럼 DROP에 따라 email 기반 fallback 제거.
+ * Phase 4 이후 모든 기존 회원은 sp_user_id 매핑 완료 가정 — email fallback 불필요.
  *
- * <p>마이그레이션이 완료되고 운영이 안정화되면 이 클래스 전체 제거 가능.
+ * <p>호출 site(SpUserMappingFilter, UserProfileController, MemberController) 는 유지되므로
+ * Bean은 존재하되 항상 null 반환. sp_user_id 미매핑 미가입 회원은 자동 가입(SsoUserRegistrationService)
+ * 경로로 처리된다.
+ *
+ * <p>이 클래스 자체는 모든 호출 site가 정리된 이후 제거 가능.
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class SsoUserMigrationService {
 
-    private final UserMapper userMapper;
-
     /**
-     * email로 기존 회원 찾아 sp_user_id 매핑.
-     *
-     * @return 매핑 성공한 user (email이 없거나 학심정에 미가입된 경우 null)
+     * Phase 4에서 email 컬럼 DROP으로 email 기반 매핑 로직 제거됨.
+     * 항상 null 반환 → 호출자는 자동 가입(register) 경로로 진행.
      */
-    @Transactional
     public User migrateBySpUserId(SpAuthenticatedUser spUser) {
-        if (spUser.email() == null || spUser.email().isBlank()) return null;
-
-        User user = userMapper.findByEmail(spUser.email());
-        if (user == null) return null;
-
-        // 이미 같은 sp_user_id로 매핑된 경우 → 이미 완료
-        if (spUser.spUserId().equals(user.getSpUserId())) return user;
-
-        // sp_user_id가 다른 값으로 매핑된 경우 → SSO 탈퇴 후 재가입 케이스
-        // SSO는 이메일 유니크를 보장하므로 같은 이메일 = 동일 인물, 새 UUID로 재연결
-        if (user.getSpUserId() != null) {
-            log.info("SSO 재가입 감지 (탈퇴 후 재가입), sp_user_id 재연결: userNo={}, email={}",
-                    user.getUserNo(), PiiMasker.email(spUser.email()));
-        }
-
-        user.setSpUserId(spUser.spUserId());
-        user.setUpdatedBy(user.getUserNo());
-        user.setUpdatedAt(LocalDateTime.now());
-        userMapper.updateUser(user);
-        log.info("기존 회원 SSO 매핑 완료: userNo={}, spUserId={}, email={}",
-                user.getUserNo(), spUser.spUserId(), PiiMasker.email(spUser.email()));
-        return user;
+        log.debug("SsoUserMigrationService: email fallback 제거됨 (Phase 4), spUserId={}",
+                spUser.spUserId() != null && spUser.spUserId().length() >= 8
+                        ? spUser.spUserId().substring(0, 8) + "..." : spUser.spUserId());
+        return null;
     }
 }

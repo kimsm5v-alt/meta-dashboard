@@ -4,6 +4,7 @@ import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupInvitationMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.notification.event.GroupInvitedEvent;
+import com.vs.meta.common.auth.PersonInfoClient;
 import com.vs.meta.common.auth.UserInfoEnricher;
 import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.domain.GroupInfo;
@@ -32,6 +33,7 @@ public class GroupInvitationService {
     private final NcpMailSender ncpMailSender;
     private final ApplicationEventPublisher eventPublisher;
     private final UserInfoEnricher userInfoEnricher;
+    private final PersonInfoClient personInfoClient;
 
     private static final int INVITATION_EXPIRE_DAYS = 7;
 
@@ -85,7 +87,10 @@ public class GroupInvitationService {
         log.info("그룹 초대 발송: groupId={}, email={}, by={}", groupId, email, userNo);
 
         // S4: 해당 이메일의 기존 회원이 있으면 인앱 알림 발행 (미가입자는 이메일만)
-        User invitee = userMapper.findByEmail(email);
+        // Phase 4: 학심정 DB email 컬럼 의존 제거 — Auth API lookupByEmail → sp_user_id → 학심정 user 조회
+        User invitee = personInfoClient.lookupByEmail(email)
+                .map(userInfo -> userMapper.findBySpUserId(userInfo.publicUserId()))
+                .orElse(null);
         if (invitee != null && invitee.getUserNo() != null) {
             eventPublisher.publishEvent(new GroupInvitedEvent(
                     invitee.getUserNo(),

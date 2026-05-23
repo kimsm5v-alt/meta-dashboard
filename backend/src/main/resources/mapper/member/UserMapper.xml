@@ -21,21 +21,6 @@
         status, last_login_at, created_by, updated_by, created_at, updated_at
     </sql>
 
-    <select id="findByEmailAndStatus" resultMap="userResultMap">
-        /* UserMapper.findByEmailAndStatus */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        WHERE email = #{email} AND status = #{status}
-    </select>
-
-    <select id="findByEmail" resultMap="userResultMap">
-        /* UserMapper.findByEmail */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        WHERE email = #{email}
-        LIMIT 1
-    </select>
-
     <select id="findByUserNo" resultMap="userResultMap">
         /* UserMapper.findByUserNo */
         SELECT <include refid="userColumns"/>

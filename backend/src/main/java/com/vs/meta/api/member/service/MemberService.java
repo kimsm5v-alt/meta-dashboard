@@ -10,9 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 /**
  * 회원 서비스 (SSO 전환 후).
  *
@@ -61,11 +58,6 @@ public class MemberService {
     @Transactional(readOnly = true)
     public User findUserByUserNo(Long userNo) {
         return userMapper.findByUserNo(userNo);
-    }
-
-    @Transactional(readOnly = true)
-    public User findUserByEmail(String email) {
-        return userMapper.findByEmailAndStatus(email, UserStatus.ACTIVE.name());
     }
 
     /**
