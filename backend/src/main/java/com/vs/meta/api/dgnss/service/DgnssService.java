@@ -2960,11 +2960,11 @@ public class DgnssService {
     // Phase 4 GROUP_CONCAT enrich 헬퍼
     // getDgnssReportMem / selectTcDgnssDetailInfo 가 raw 포맷으로 반환하는
     // "sp_user_id||member_no" 엔트리를 이름(member_no) 형식으로 복원.
-    // 구분자: RS (U+001E, 0x1E) — &#x1E; in DgnssMapper.xml
+    // 구분자: ";;" (sp_user_id/member_no 어디에도 등장 불가한 안전 ASCII 시퀀스 — XML 1.0 호환)
     // -----------------------------------------------------------------------
 
-    /** Record Separator (U+001E) — DgnssMapper GROUP_CONCAT raw 구분자. */
-    static final char GROUP_CONCAT_RS = (char) 0x1E;
+    /** GROUP_CONCAT raw record separator — DgnssMapper.xml SEPARATOR ';;' 와 동일. */
+    static final String GROUP_CONCAT_RS = ";;";
 
     /**
      * Map 안의 키에 저장된 GROUP_CONCAT raw 문자열을 "이름(member_no), ..." 형식으로 복원.
@@ -2980,7 +2980,7 @@ public class DgnssService {
         String raw = (String) row.get(key);
         if (raw == null || raw.isEmpty()) return;
 
-        String[] entries = raw.split(String.valueOf(GROUP_CONCAT_RS), -1);
+        String[] entries = raw.split(java.util.regex.Pattern.quote(GROUP_CONCAT_RS), -1);
 
         // distinct sp_user_id 수집
         List<String> spUserIds = Arrays.stream(entries)

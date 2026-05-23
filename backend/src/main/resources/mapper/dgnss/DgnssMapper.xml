@@ -1709,7 +1709,7 @@
 			/* Phase 4: raw sp_user_id||member_no 출력 — DgnssService.enrichGroupConcatField()가 이름으로 복원 */
 			IFNULL((SELECT GROUP_CONCAT(CONCAT(
 			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS QESITM02_MEM
+			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM02_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
@@ -1720,7 +1720,7 @@
 			ORDER BY gm.member_no), '') AS QESITM02_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
 			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS QESITM01_MEM
+			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM01_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
@@ -1731,7 +1731,7 @@
 			ORDER BY gm.member_no), '') AS QESITM01_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
 			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS REPEATED_RESPONSE_YN
+			ORDER BY gm.member_no SEPARATOR ';;') AS REPEATED_RESPONSE_YN
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
@@ -1795,7 +1795,7 @@
 			/* Phase 4: raw sp_user_id||member_no 출력 — DgnssService.enrichGroupConcatField()가 이름으로 복원 */
 			IFNULL((SELECT GROUP_CONCAT(CONCAT(
 			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS QESITM02_MEM
+			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM02_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
@@ -1806,7 +1806,7 @@
 			ORDER BY gm.member_no), '') AS QESITM02_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
 			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS QESITM01_MEM
+			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM01_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
@@ -1817,7 +1817,7 @@
 			ORDER BY gm.member_no), '') AS QESITM01_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
 			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS REPEATED_RESPONSE_YN
+			ORDER BY gm.member_no SEPARATOR ';;') AS REPEATED_RESPONSE_YN
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
@@ -3029,7 +3029,7 @@
 			, GROUP_CONCAT(
 				CASE WHEN b1.subm_at = 'N'
 				THEN CONCAT(IFNULL(u.sp_user_id, ''), '||', gm.member_no) END
-					SEPARATOR '&#x1E;'
+					SEPARATOR ';;'
 				) AS notSubmStdtName
 			, GROUP_CONCAT(
 				CASE WHEN b1.subm_at = 'N' THEN b1.stdt_id END

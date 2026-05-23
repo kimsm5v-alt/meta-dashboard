@@ -1,8 +1,8 @@
 package com.vs.meta.common.auth;
 
 import com.vs.meta.common.config.SpAuthProperties;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
@@ -17,16 +17,30 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Auth 서버의 service AT (client_credentials grant) 발급/캐시.
  * 만료 5분 전 자동 갱신, scope=users:read.
+ *
+ * <p>RestClient.Builder Bean 에 의존하지 않고 정적 builder() 사용 — Spring Boot 4 + webflux 공존 환경에서
+ * RestClient.Builder 자동 구성이 등록되지 않는 케이스 회피. 토큰 발급은 단발 POST 라 builder 공유 이득 없음.
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class ServiceAccessTokenProvider {
 
     private final SpAuthProperties spAuthProperties;
-    private final RestClient.Builder restClientBuilder;
+    private final RestClient restClient;
 
     private final AtomicReference<CachedToken> cache = new AtomicReference<>();
+
+    @Autowired
+    public ServiceAccessTokenProvider(SpAuthProperties spAuthProperties) {
+        this.spAuthProperties = spAuthProperties;
+        this.restClient = RestClient.builder().build();
+    }
+
+    /** 테스트 전용 — WireMock 등 외부 baseUrl 주입 가능. */
+    public ServiceAccessTokenProvider(SpAuthProperties spAuthProperties, RestClient.Builder restClientBuilder) {
+        this.spAuthProperties = spAuthProperties;
+        this.restClient = restClientBuilder.build();
+    }
 
     public synchronized String getToken() {
         CachedToken current = cache.get();
@@ -50,7 +64,7 @@ public class ServiceAccessTokenProvider {
             form.add("client_secret", spAuthProperties.getClientSecret());
             form.add("scope", spAuthProperties.getInternalApi().getServiceTokenScope());
 
-            Map<String, Object> response = restClientBuilder.build()
+            Map<String, Object> response = restClient
                     .post()
                     .uri(tokenEndpoint)
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
