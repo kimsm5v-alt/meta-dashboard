@@ -1,6 +1,8 @@
 package com.vs.meta.api.member.service;
 
+import com.vs.meta.api.member.dto.MemberInfoDto;
 import com.vs.meta.api.member.mapper.UserMapper;
+import com.vs.meta.common.auth.UserInfoEnricher;
 import com.vs.meta.domain.User;
 import com.vs.meta.domain.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
@@ -28,9 +30,10 @@ import java.util.Map;
 public class MemberService {
 
     private final UserMapper userMapper;
+    private final UserInfoEnricher userInfoEnricher;
 
     @Transactional(readOnly = true)
-    public Map<String, Object> findMemberInfo(Long userNo) throws Exception {
+    public MemberInfoDto findMemberInfo(Long userNo) throws Exception {
         if (userNo == null) {
             throw new IllegalArgumentException("사용자 번호는 필수입니다.");
         }
@@ -39,19 +42,20 @@ public class MemberService {
             throw new IllegalArgumentException("사용자를 찾을 수 없습니다: userNo=" + userNo);
         }
 
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("userNo", user.getUserNo());
-        result.put("spUserId", user.getSpUserId());
-        result.put("email", user.getEmail());
-        result.put("nickname", user.getNickname());
-        result.put("roleCode", user.getRoleCode());
-        result.put("tcId", user.getTcId());
-        result.put("stdtId", user.getStdtId());
-        result.put("status", user.getStatus());
-        result.put("lastLoginAt", user.getLastLoginAt());
-        result.put("createdAt", user.getCreatedAt());
-        result.put("updatedAt", user.getUpdatedAt());
-        return result;
+        MemberInfoDto dto = new MemberInfoDto();
+        dto.setUserNo(user.getUserNo());
+        dto.setSpUserId(user.getSpUserId());
+        // name/email은 Enricher가 채움 — DB에서 읽지 않음
+        dto.setRoleCode(user.getRoleCode());
+        dto.setTcId(user.getTcId());
+        dto.setStdtId(user.getStdtId());
+        dto.setStatus(user.getStatus().name());
+        dto.setLastLoginAt(user.getLastLoginAt() != null ? user.getLastLoginAt().toString() : null);
+
+        // Auth에서 name/email 조회
+        userInfoEnricher.enrich(dto);
+
+        return dto;
     }
 
     @Transactional(readOnly = true)
@@ -62,5 +66,13 @@ public class MemberService {
     @Transactional(readOnly = true)
     public User findUserByEmail(String email) {
         return userMapper.findByEmailAndStatus(email, UserStatus.ACTIVE.name());
+    }
+
+    /**
+     * MemberInfoDto에 Auth 회원정보(name/email) 주입.
+     * 단건 조회용 Enricher 호출.
+     */
+    public void enrichMemberInfo(MemberInfoDto dto) {
+        userInfoEnricher.enrich(dto);
     }
 }
