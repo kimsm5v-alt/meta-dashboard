@@ -30,6 +30,7 @@ import org.springframework.util.ObjectUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -297,9 +298,13 @@ public class GroupService {
         }
 
         Map<String, Object> groupInfo = groupQueryMapper.findGroupDetail(groupId, userNo);
+        // Phase 3: hostSpUserId → hostNickname/hostEmail 복원 (FE 호환)
+        enrichMap(groupInfo, "hostSpUserId", "hostNickname", "hostEmail");
         returnMap.put("groupInfo", groupInfo);
 
         List<Map<String, Object>> memberList = groupQueryMapper.findGroupMemberList(groupId, offset, size);
+        // Phase 3: spUserId → nickname/email 복원 (FE 호환)
+        enrichMaps(memberList, "spUserId", "nickname", "email");
         long total = groupQueryMapper.countGroupMemberList(groupId);
 
         returnMap.put("memberList", memberList);
@@ -484,6 +489,70 @@ public class GroupService {
         groupInfoMapper.updateGroupInfo(groupInfo);
         log.info("그룹 삭제: claId={}, by={}", claId, userNo);
         return paramData;
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 3 Map-enrich 헬퍼 — FE 호환 키(nickname/email 등) 복원
+    // HasUserInfo 타입이 아닌 List<Map> 응답에서 spUserId 기준으로 IDP 회원정보를 채운다.
+    // Task 12 hotfix: GroupQueryMapper SELECT에서 PII 컬럼이 제거된 Map 응답을 보정.
+    // -----------------------------------------------------------------------
+
+    /**
+     * spUserId 필드로 식별되는 Map 목록을 Auth 회원정보로 enrich.
+     * Phase 3 동안 List<Map<String,Object>> 응답에서 FE 호환 키(nickname/email)를 복원하기 위한 패턴.
+     *
+     * @param items        enrich 대상 Map 목록
+     * @param spUserIdKey  Map 안의 sp_user_id 필드 키 이름 (예: "spUserId", "hostSpUserId")
+     * @param nicknameKey  Map에 채워 넣을 닉네임 응답 키 이름 (예: "nickname", "hostNickname")
+     * @param emailKey     Map에 채워 넣을 이메일 응답 키 이름 (예: "email", "hostEmail")
+     */
+    private void enrichMaps(
+            List<Map<String, Object>> items,
+            String spUserIdKey,
+            String nicknameKey,
+            String emailKey
+    ) {
+        if (items == null || items.isEmpty()) return;
+
+        List<UserSlot> slots = items.stream()
+                .map(m -> (String) m.get(spUserIdKey))
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(UserSlot::new)
+                .toList();
+        if (slots.isEmpty()) return;
+
+        userInfoEnricher.enrich(slots);
+
+        Map<String, UserSlot> bySpUserId = slots.stream()
+                .collect(Collectors.toMap(UserSlot::getSpUserId, s -> s));
+        items.forEach(m -> {
+            String spUserId = (String) m.get(spUserIdKey);
+            if (spUserId == null) return;
+            UserSlot slot = bySpUserId.get(spUserId);
+            if (slot != null) {
+                m.put(nicknameKey, slot.getName());
+                m.put(emailKey, slot.getEmail());
+            } else {
+                m.put(nicknameKey, "(탈퇴 회원)");
+                m.put(emailKey, null);
+            }
+        });
+    }
+
+    /**
+     * 단건 Map enrich.
+     *
+     * @see #enrichMaps(List, String, String, String)
+     */
+    private void enrichMap(
+            Map<String, Object> item,
+            String spUserIdKey,
+            String nicknameKey,
+            String emailKey
+    ) {
+        if (item == null) return;
+        enrichMaps(List.of(item), spUserIdKey, nicknameKey, emailKey);
     }
 
 }
