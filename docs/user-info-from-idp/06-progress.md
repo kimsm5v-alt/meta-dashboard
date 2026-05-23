@@ -119,6 +119,22 @@
 | dev | _대기_ | - | - | 운영 백업 + 코드 배포 후 적용 |
 | prod | _대기_ | - | - | 운영 백업 + 코드 배포 후 적용 |
 
+### Phase 4 BE 부팅 sanity (commit `04893bd`)
+
+DDL DROP 직후 BE bootRun 시 두 회귀 발견 → fix 적용 후 부팅 5.3초 정상:
+
+| 회귀 | 원인 | fix |
+|:---|:---|:---|
+| `DgnssMapper.xml` parse 실패 | GROUP_CONCAT 구분자 `&#x1E;` (U+001E RS) 가 XML 1.0 부적합 문자 참조 | 안전 ASCII `;;` 로 변경 (XML 7곳 + `DgnssService.GROUP_CONCAT_RS`). sp_user_id/member_no 어디에도 등장 불가 |
+| `ServiceAccessTokenProvider` Bean 생성 실패 | Spring Boot 4 + webflux 공존 환경에서 `RestClient.Builder` 자동 구성 누락 + Phase 1 후속 작업에서 생성자 두 개로 인한 모호성 | `RestClient.Builder` DI 제거 → 단일 생성자 + `RestClient.builder()` 정적 호출. 테스트용 두 인자 생성자만 별도 유지 |
+
+부팅 확인:
+- `GET /actuator/health` → 200 (DB/Redis/Neo4j 모두 UP)
+- `GET /swagger-ui/index.html` → 200
+- MyBatis bean 전체 초기화 OK — DDL DROP 후 mapper XML ↔ DB 스키마 mismatch 없음
+
+> **결론**: Phase 4 로컬 적용은 코드 정리 + DDL DROP + BE 부팅까지 모두 회귀 없음. dev/prod 적용 시 동일 fix(`04893bd`) 가 같이 배포돼야 함.
+
 ### Task 24 검증 결과 (로컬)
 
 ```
