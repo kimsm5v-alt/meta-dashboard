@@ -4,7 +4,6 @@ import com.vs.meta.api.dgnss.service.DgnssService;
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupMemberMapper;
 import com.vs.meta.api.group.mapper.GroupQueryMapper;
-import com.vs.meta.api.guest.service.GuestAuthService;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.member.service.EmailVerificationService;
 import com.vs.meta.api.member.service.MemberService;
@@ -43,7 +42,6 @@ public class GroupService {
     private final MemberService memberService;
     private final EmailVerificationService emailVerificationService;
     private final DgnssService dgnssService;
-    private final GuestAuthService guestAuthService;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -224,89 +222,6 @@ public class GroupService {
         return paramData;
     }
 
-    @Transactional
-    public Object joinGroupAsGuest(Map<String, Object> paramData) throws Exception {
-        String email = (String) paramData.get("email");
-        if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("이메일은 필수입니다.");
-        }
-        if (!emailVerificationService.isVerified(email)) {
-            throw new IllegalArgumentException("이메일 인증이 필요합니다.");
-        }
-
-        User existingUser = userMapper.findByEmail(email);
-        if (existingUser != null) {
-            throw new IllegalArgumentException("이미 가입된 회원 이메일입니다. 회원으로 로그인하여 그룹에 참가해주세요.");
-        }
-
-        String inviteCode = (String) paramData.get("inviteCode");
-        if (inviteCode == null || inviteCode.isBlank()) {
-            throw new IllegalArgumentException("inviteCode는 필수입니다.");
-        }
-
-        GroupInfo groupInfo = groupInfoMapper.findByInviteCodeAndUseYnForUpdate(inviteCode.toUpperCase(), "Y");
-        if (groupInfo == null) {
-            throw new IllegalArgumentException("유효한 초대코드가 아닙니다: " + inviteCode);
-        }
-        Long groupId = groupInfo.getGroupId();
-
-        long activeCount = groupMemberMapper.countByGroupIdAndStatus(groupId, MemberStatus.ACTIVE.name());
-        if (groupInfo.getMaxMemberCount() != null && activeCount >= groupInfo.getMaxMemberCount()) {
-            throw new IllegalStateException("그룹 최대 인원(" + groupInfo.getMaxMemberCount() + "명)을 초과할 수 없습니다.");
-        }
-
-        GroupMember existingGuest = groupMemberMapper.findActiveGuestByGroupIdAndEmail(groupId, email);
-        if (existingGuest != null) {
-            throw new IllegalStateException("이미 해당 그룹에 참가한 게스트입니다. 이메일 인증 후 기존 계정으로 다시 입장해주세요.");
-        }
-
-        String stdtId = IdGenerator.generateStdtId();
-
-        Integer maxNo = groupMemberMapper.findMaxMemberNoByGroupId(groupId);
-        int memberNo = (maxNo != null ? maxNo : 0) + 1;
-
-        GroupMember member = GroupMember.builder()
-                .groupId(groupId)
-                .userNo(null)
-                .stdtId(stdtId)
-                .nickname((String) paramData.get("nickname"))
-                .email((String) paramData.get("email"))
-                .memberNo(memberNo)
-                .memberType(MemberType.GUEST)
-                .status(MemberStatus.ACTIVE)
-                .joinedAt(LocalDateTime.now())
-                .createdBy(0L)
-                .updatedBy(0L)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-        groupMemberMapper.insertGroupMember(member);
-
-        paramData.put("stdtId", stdtId);
-        paramData.put("memberId", member.getId());
-        paramData.put("claId", groupInfo.getClaId());
-
-        Integer activeDgnssId = registerActiveDgnssIfNeeded(
-                groupInfo.getClaId(),
-                groupInfo.getSchoolLevel(),
-                stdtId
-        );
-        if (activeDgnssId != null) {
-            paramData.put("dgnssId", activeDgnssId);
-        }
-
-        // 게스트 토큰 발급 — Auth 서버 게스트 토큰 사용 (RT 없음)
-        // authenticateGuest 내부에서 isVerified 체크 + consumeVerification을 수행하므로
-        // 여기서 미리 consume하면 안 됨
-        Map<String, Object> guestToken = guestAuthService.authenticateGuest(
-                groupInfo.getInviteCode(), email, null, null);
-        paramData.put("accessToken", guestToken.get("accessToken"));
-        paramData.put("guestId", guestToken.get("guestId"));
-
-        log.info("게스트 그룹 참가: groupId={}, email={}, memberNo={}", groupId, email, memberNo);
-        publishStudentJoined(groupInfo, (String) paramData.get("nickname"));
-        return paramData;
-    }
 
     /**
      * T1 알림 이벤트 발행 — 그룹 오너 교사에게.

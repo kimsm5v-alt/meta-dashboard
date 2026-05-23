@@ -145,10 +145,8 @@ public class SecurityConfig {
                     .requestMatchers("/api/v1/auth/**").permitAll()
                     // Neo4j 그래프 테스트 API (로컬 테스트 용도)
                     .requestMatchers("/api/dgnss/graph/**").permitAll()
-                    // 게스트 관련 (public)
-                    .requestMatchers("/guest/exists", "/guest/auth").permitAll()
-                    // 그룹 초대/참가 (public)
-                    .requestMatchers("/group/invite", "/group/join-guest").permitAll()
+                    // 그룹 초대 (public)
+                    .requestMatchers("/group/invite").permitAll()
                     // 게스트 이메일 인증 (학심정 자체 유지)
                     .requestMatchers("/member/send-code", "/member/verify-code").permitAll()
                     // Swagger, health, static
