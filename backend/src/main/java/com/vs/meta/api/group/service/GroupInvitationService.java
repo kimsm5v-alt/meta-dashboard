@@ -4,6 +4,7 @@ import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupInvitationMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.notification.event.GroupInvitedEvent;
+import com.vs.meta.common.auth.UserInfoEnricher;
 import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.GroupInvitation;
@@ -30,6 +31,7 @@ public class GroupInvitationService {
     private final UserMapper userMapper;
     private final NcpMailSender ncpMailSender;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserInfoEnricher userInfoEnricher;
 
     private static final int INVITATION_EXPIRE_DAYS = 7;
 
@@ -120,6 +122,10 @@ public class GroupInvitationService {
         groupInvitationMapper.expireOverdue();
 
         List<GroupInvitation> invitations = groupInvitationMapper.findByGroupId(groupId);
+
+        // Phase 3: 초대자(initiator) 정보 enrich (Auth API에서 이름/이메일 조회)
+        userInfoEnricher.enrich(invitations);
+
         return invitations.stream().map(inv -> {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("id", inv.getId());
@@ -127,6 +133,9 @@ public class GroupInvitationService {
             map.put("email", inv.getEmail());
             map.put("status", inv.getStatus());
             map.put("sentAt", inv.getSentAt());
+            // 초대자 정보 (enrich됨)
+            map.put("senderName", inv.getSenderName());
+            map.put("senderEmail", inv.getSenderEmail());
             return map;
         }).collect(Collectors.toList());
     }

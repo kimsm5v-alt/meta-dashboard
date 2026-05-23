@@ -9,6 +9,7 @@
         <result property="inviteCode" column="invite_code"/>
         <result property="status" column="status"/>
         <result property="sentBy" column="sent_by"/>
+        <result property="sentBySpUserId" column="sent_by_sp_user_id"/>
         <result property="sentAt" column="sent_at"/>
         <result property="expiresAt" column="expires_at"/>
         <result property="createdBy" column="created_by"/>
@@ -27,9 +28,11 @@
 
     <select id="findByGroupId" resultMap="invitationResultMap">
         /* GroupInvitationMapper.findByGroupId */
-        SELECT * FROM group_invitation
-        WHERE group_id = #{groupId}
-        ORDER BY created_at DESC
+        SELECT gi.*, u.sp_user_id AS sent_by_sp_user_id
+        FROM group_invitation gi
+        LEFT JOIN `user` u ON gi.sent_by = u.user_no
+        WHERE gi.group_id = #{groupId}
+        ORDER BY gi.created_at DESC
     </select>
 
     <select id="findById" resultMap="invitationResultMap">
