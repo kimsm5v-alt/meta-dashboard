@@ -61,6 +61,8 @@ public class MemberController {
         result.setStdtId(user.getStdtId());
         result.setStatus(user.getStatus().name());
         result.setLastLoginAt(user.getLastLoginAt() != null ? user.getLastLoginAt().toString() : null);
+        result.setCreatedAt(user.getCreatedAt() != null ? user.getCreatedAt().toString() : null);
+        result.setUpdatedAt(user.getUpdatedAt() != null ? user.getUpdatedAt().toString() : null);
 
         memberService.enrichMemberInfo(result);
 
