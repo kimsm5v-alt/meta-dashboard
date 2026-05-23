@@ -112,13 +112,24 @@
 
 ---
 
-## Phase 6 — 검증 ⏳ 예정
+## Phase 6 — 검증 ⏳ 진행 중
 
-| Task | 제목 | 상태 |
-|:---:|:---|:---:|
-| 27 | WireMock 기반 통합 테스트 | ⏳ |
-| 28 | 개발 서버 시나리오 검증 (7개 + 부하) | ⏳ |
-| 29 | CLAUDE.md 갱신 + 최종 정리 | ⏳ |
+| Task | 제목 | 커밋 | 상태 |
+|:---:|:---|:---|:---:|
+| 27 | WireMock 기반 통합 테스트 (10 시나리오) | `5fd69a9` | ✅ |
+| 28 | 개발 서버 시나리오 검증 체크리스트 작성 + 운영자 수행 | (문서) | ⏳ 문서 완료, 수행 대기 |
+| 29 | CLAUDE.md 갱신 + 최종 정리 | _대기_ | ⏳ |
+
+### Task 27 결과
+
+- WireMock 3.5.4 + 10 통합 테스트 (`PersonInfoClientIntegrationTest`) — 모두 통과
+- 시나리오: getOne 200/404/500/blank · getBatch 정상+notFound / chunking 150 / 빈 입력 / 503 · lookupByEmail 200/404/blank · 토큰 캐시 / form body 형식
+- 알려진 fragile 동작 (후속 정리 후보): `PersonInfoClientImpl.getOne()` 404 → null body → NPE → outer catch placeholder. 동작은 정확하지만 명시적 처리로 정리 권장.
+
+### Task 28 산출물
+
+- 체크리스트: [`07-verification-checklist.md`](07-verification-checklist.md) — 7개 시나리오 + 부하 L1/L2/L3 + FE 호환성 손동작 + 결과 기록 표
+- 운영자가 dev 배포 후 직접 수행하여 결과 표 채워 06-progress.md 에 사본 첨부
 
 ---
 
