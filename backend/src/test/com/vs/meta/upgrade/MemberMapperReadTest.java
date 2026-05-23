@@ -35,7 +35,8 @@ class MemberMapperReadTest {
         // 존재하지 않는 이메일 — null 반환이 정상 (SQLException 안 나면 OK).
         // 컨텍스트 부팅까지 이미 통과한 상태이므로 SqlSession 자체는 OK.
         // 본 호출이 정상 종료되면 — Mapper XML 인식 / 쿼리 컴파일 / JDBC 실행까지 통과.
+        // Phase 4: email 컬럼 제거 — findByEmail은 DDL DROP 전까지 유지 (null 반환이 정상)
         User u = userMapper.findByEmail("__boot4_upgrade_smoke__@invalid.local");
-        assertThat(u).matches(user -> user == null || user.getEmail() != null);
+        assertThat(u).isNull();
     }
 }

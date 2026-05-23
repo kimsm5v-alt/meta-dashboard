@@ -620,6 +620,8 @@ public class DgnssService {
         // Phase 3: memberSpUserId → MEM_NM 복원 (FE 호환)
         enrichMaps(dgnssReportLS, "memberSpUserId", "MEM_NM", null);
         enrichMaps(dgnssReportValidity, "memberSpUserId", "MEM_NM", null);
+        // Phase 4: GROUP_CONCAT raw(sp_user_id||member_no) → "이름(member_no)" 복원
+        enrichReportMemFields(dgnssReportMem);
 
         // 첫번째 검사를 본 id 추출 (FIRST_IDX 설정)
         param.put("FIRST_IDX", firstTestFuture.get());
@@ -975,6 +977,8 @@ public class DgnssService {
     @Transactional(readOnly = true)
     public Map<String, Object> selectTcDgnssDetailInfo(Map<String, Object> param) {
         Map<String, Object> result = dgnssMapper.selectTcDgnssDetailInfo(param);
+        // Phase 4: notSubmStdtName raw(sp_user_id||member_no) → "이름(member_no)" 복원
+        enrichGroupConcatField(result, "notSubmStdtName");
         String stdtList = MapUtils.getString(result, "notSubmStdtId", "");
         if (StringUtils.isNotEmpty(stdtList)) {
             String[] notDgnssStartListArr = stdtList.split(",");
@@ -2950,5 +2954,76 @@ public class DgnssService {
         if (stUserInfo == null) return;
         enrichMap(stUserInfo, "memberSpUserId", "MEM_NM", "email");
         enrichMap(stUserInfo, "teacherSpUserId", "tcNm", null);
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 4 GROUP_CONCAT enrich 헬퍼
+    // getDgnssReportMem / selectTcDgnssDetailInfo 가 raw 포맷으로 반환하는
+    // "sp_user_id||member_no" 엔트리를 이름(member_no) 형식으로 복원.
+    // 구분자: RS (U+001E, 0x1E) — &#x1E; in DgnssMapper.xml
+    // -----------------------------------------------------------------------
+
+    /** Record Separator (U+001E) — DgnssMapper GROUP_CONCAT raw 구분자. */
+    static final char GROUP_CONCAT_RS = (char) 0x1E;
+
+    /**
+     * Map 안의 키에 저장된 GROUP_CONCAT raw 문자열을 "이름(member_no), ..." 형식으로 복원.
+     *
+     * <p>raw 포맷: "sp_user_id||member_no{RS}sp_user_id||member_no{RS}..."
+     * <p>출력 포맷: "이름(member_no), 이름(member_no), ..." (FE 기존 형식 보존)
+     *
+     * @param row  대상 Map (in-place 수정)
+     * @param key  raw 값이 저장된 Map 키 (예: "QESITM02_MEM", "notSubmStdtName")
+     */
+    private void enrichGroupConcatField(Map<String, Object> row, String key) {
+        if (row == null) return;
+        String raw = (String) row.get(key);
+        if (raw == null || raw.isEmpty()) return;
+
+        String[] entries = raw.split(String.valueOf(GROUP_CONCAT_RS), -1);
+
+        // distinct sp_user_id 수집
+        List<String> spUserIds = Arrays.stream(entries)
+                .map(e -> e.split("\\|\\|", 2)[0])
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<String, String> nameBySpUserId = new HashMap<>();
+        if (!spUserIds.isEmpty()) {
+            List<UserSlot> slots = spUserIds.stream().map(UserSlot::new).collect(Collectors.toList());
+            userInfoEnricher.enrich(slots);
+            slots.forEach(s -> nameBySpUserId.put(s.getSpUserId(),
+                    s.getName() != null ? s.getName() : "(탈퇴 회원)"));
+        }
+
+        // 재조합: "이름(member_no)" 형식으로 변환
+        String enriched = Arrays.stream(entries)
+                .map(e -> {
+                    String[] parts = e.split("\\|\\|", 2);
+                    String spUserId = parts[0];
+                    String memberNo = parts.length > 1 ? parts[1] : "?";
+                    String name = spUserId.isEmpty()
+                            ? "(탈퇴 회원)"
+                            : nameBySpUserId.getOrDefault(spUserId, "(탈퇴 회원)");
+                    return name + "(" + memberNo + ")";
+                })
+                .collect(Collectors.joining(", "));
+
+        row.put(key, enriched);
+    }
+
+    /**
+     * getDgnssReportMem 결과 목록의 GROUP_CONCAT 필드들을 enrich.
+     *
+     * @param rows getDgnssReportMem 결과 목록
+     */
+    private void enrichReportMemFields(List<Map<String, Object>> rows) {
+        if (rows == null || rows.isEmpty()) return;
+        for (Map<String, Object> row : rows) {
+            enrichGroupConcatField(row, "QESITM02_MEM");
+            enrichGroupConcatField(row, "QESITM01_MEM");
+            enrichGroupConcatField(row, "REPEATED_RESPONSE_YN");
+        }
     }
 }

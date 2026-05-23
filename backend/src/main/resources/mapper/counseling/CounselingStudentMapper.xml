@@ -43,10 +43,10 @@
 
     <insert id="insertCounselingStudents" parameterType="list">
         /* CounselingStudentMapper.insertCounselingStudents */
-        INSERT INTO counseling_student (counseling_id, stdt_id, stdt_name, stdt_number, cla_id, use_yn)
+        INSERT INTO counseling_student (counseling_id, stdt_id, stdt_number, cla_id, use_yn)
         VALUES
         <foreach item="item" collection="list" separator=",">
-            (#{item.counselingId}, #{item.stdtId}, #{item.stdtName}, #{item.stdtNumber}, #{item.claId}, 'Y')
+            (#{item.counselingId}, #{item.stdtId}, #{item.stdtNumber}, #{item.claId}, 'Y')
         </foreach>
     </insert>
 

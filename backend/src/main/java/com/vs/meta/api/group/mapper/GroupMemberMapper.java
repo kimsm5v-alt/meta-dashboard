@@ -21,13 +21,7 @@ public interface GroupMemberMapper {
 
     void updateGroupMember(GroupMember groupMember);
 
-    int updateGuestToStudent(@Param("email") String email, @Param("userNo") Long userNo);
-
     Integer findMaxMemberNoByGroupId(@Param("groupId") Long groupId);
 
     GroupMember findByGroupIdAndUserNo(@Param("groupId") Long groupId, @Param("userNo") Long userNo);
-
-    int syncSnapshotByUserNo(@Param("userNo") Long userNo,
-                             @Param("nickname") String nickname,
-                             @Param("email") String email);
 }

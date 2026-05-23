@@ -1706,34 +1706,38 @@
 		/* DgnssMapper.getDgnssReportMem */
 		<if test='DGNSS_ID != null and DGNSS_ID == "DGNSS_10"'>
 			SELECT
+			/* Phase 4: raw sp_user_id||member_no 출력 — DgnssService.enrichGroupConcatField()가 이름으로 복원 */
 			IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM02_MEM
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS QESITM02_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM02_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM02_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(',IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM01_MEM
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS QESITM01_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM01_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM01_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS REPEATED_RESPONSE_YN
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS REPEATED_RESPONSE_YN
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.REPEATED_RESPONSE_YN = 'Y'
 			ORDER BY gm.member_no), '') AS REPEATED_RESPONSE_YN
 			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-01-0') AS SECTION_MEM_01_01_01
@@ -1788,34 +1792,38 @@
 		</if>
 		<if test='DGNSS_ID != null and DGNSS_ID == "DGNSS_20"'>
 			SELECT
+			/* Phase 4: raw sp_user_id||member_no 출력 — DgnssService.enrichGroupConcatField()가 이름으로 복원 */
 			IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM02_MEM
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS QESITM02_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM02_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM02_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(',IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM01_MEM
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS QESITM01_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM01_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM01_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS REPEATED_RESPONSE_YN
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR '&#x1E;') AS REPEATED_RESPONSE_YN
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.REPEATED_RESPONSE_YN = 'Y'
 			ORDER BY gm.member_no), '') AS REPEATED_RESPONSE_YN
 			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-01-01-0-0') AS SECTION_MEM_01_01
@@ -3016,9 +3024,12 @@
 			, DATE_FORMAT(a1.dgnss_st_dt, "%Y. %m. %d.") AS dgnssStDt
 			, DATE_FORMAT(a1.dgnss_ed_dt, "%Y. %m. %d.") AS dgnssEdDt
 			, MAX(gm.member_no) AS num
+			/* Phase 4: gm.nickname → sp_user_id||member_no raw 출력.
+			   DgnssService.selectTcDgnssDetailInfo()가 notSubmStdtName을 enrich로 복원. */
 			, GROUP_CONCAT(
-				CASE WHEN b1.subm_at = 'N' THEN CONCAT(gm.member_no, '번', gm.nickname) END
-					SEPARATOR ', '
+				CASE WHEN b1.subm_at = 'N'
+				THEN CONCAT(IFNULL(u.sp_user_id, ''), '||', gm.member_no) END
+					SEPARATOR '&#x1E;'
 				) AS notSubmStdtName
 			, GROUP_CONCAT(
 				CASE WHEN b1.subm_at = 'N' THEN b1.stdt_id END
@@ -3030,6 +3041,7 @@
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 		GROUP BY a1.id
 	</select>

@@ -69,8 +69,6 @@ class GroupServiceTest {
 
         User host = User.builder()
                 .userNo(1L)
-                .email("teacher1@test.com")
-                .nickname("Teacher")
                 .status(UserStatus.ACTIVE)
                 .build();
 
@@ -107,8 +105,6 @@ class GroupServiceTest {
 
         User player = User.builder()
                 .userNo(2L)
-                .email("student1@test.com")
-                .nickname("Player")
                 .status(UserStatus.ACTIVE)
                 .build();
         GroupInfo groupInfo = GroupInfo.builder()
@@ -157,7 +153,6 @@ class GroupServiceTest {
 
         User player = User.builder()
                 .userNo(2L)
-                .email("student1@test.com")
                 .status(UserStatus.ACTIVE)
                 .build();
         GroupInfo groupInfo = GroupInfo.builder()

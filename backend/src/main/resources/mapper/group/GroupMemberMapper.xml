@@ -8,8 +8,6 @@
         <result property="userNo" column="user_no"/>
         <result property="spUserId" column="sp_user_id"/>
         <result property="stdtId" column="stdt_id"/>
-        <result property="nickname" column="nickname"/>
-        <result property="email" column="email"/>
         <result property="memberType" column="member_type"/>
         <result property="memberNo" column="member_no"/>
         <result property="status" column="status"/>
@@ -60,8 +58,8 @@
 
     <insert id="insertGroupMember" parameterType="com.vs.meta.domain.GroupMember" useGeneratedKeys="true" keyProperty="id">
         /* GroupMemberMapper.insertGroupMember */
-        INSERT INTO group_member (group_id, user_no, stdt_id, nickname, email, member_type, member_no, status, joined_at, created_by, updated_by, created_at, updated_at)
-        VALUES (#{groupId}, #{userNo}, #{stdtId}, #{nickname}, #{email}, #{memberType}, #{memberNo}, #{status}, #{joinedAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+        INSERT INTO group_member (group_id, user_no, stdt_id, member_type, member_no, status, joined_at, created_by, updated_by, created_at, updated_at)
+        VALUES (#{groupId}, #{userNo}, #{stdtId}, #{memberType}, #{memberNo}, #{status}, #{joinedAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="updateGroupMember" parameterType="com.vs.meta.domain.GroupMember">
@@ -69,8 +67,6 @@
         UPDATE group_member
         SET user_no = #{userNo},
             stdt_id = #{stdtId},
-            nickname = #{nickname},
-            email = #{email},
             member_type = #{memberType},
             member_no = #{memberNo},
             status = #{status},
@@ -87,16 +83,6 @@
         WHERE group_id = #{groupId}
     </select>
 
-    <update id="updateGuestToStudent">
-        /* GroupMemberMapper.updateGuestToStudent */
-        UPDATE group_member
-        SET user_no = #{userNo},
-            member_type = 'STUDENT',
-            updated_by = #{userNo},
-            updated_at = NOW()
-        WHERE email = #{email} AND user_no IS NULL AND member_type = 'GUEST'
-    </update>
-
     <select id="findByGroupIdAndUserNo" resultMap="groupMemberResultMap">
         /* GroupMemberMapper.findByGroupIdAndUserNo */
         SELECT <include refid="groupMemberColumns"/>
@@ -106,14 +92,5 @@
         LIMIT 1
     </select>
 
-    <update id="syncSnapshotByUserNo">
-        /* GroupMemberMapper.syncSnapshotByUserNo */
-        UPDATE group_member
-        SET nickname = #{nickname},
-            email = #{email},
-            updated_at = NOW()
-        WHERE user_no = #{userNo}
-          AND NOT (nickname &lt;=&gt; #{nickname} AND email &lt;=&gt; #{email})
-    </update>
 
 </mapper>

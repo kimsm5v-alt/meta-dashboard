@@ -182,10 +182,10 @@ public class GroupService {
             }
 
             log.info("회원 그룹 재가입: groupId={}, userNo={}, memberId={}", groupId, userNo, existing.getId());
-            // Phase 3: existing은 DB에서 nickname이 없으므로 enrich 후 이벤트 발행
+            // Phase 4: nickname 컬럼 제거, IDP enrich 후 name 사용
             existing.setSpUserId(user.getSpUserId());
             userInfoEnricher.enrich(existing);
-            publishStudentJoined(groupInfo, existing.getNickname());
+            publishStudentJoined(groupInfo, existing.getName());
             return paramData;
         }
 
@@ -199,8 +199,6 @@ public class GroupService {
                 .groupId(groupId)
                 .userNo(userNo)
                 .stdtId(user.getStdtId())
-                .nickname(user.getNickname())
-                .email(user.getEmail())
                 .memberNo(memberNo)
                 .memberType(MemberType.STUDENT)
                 .status(MemberStatus.ACTIVE)
@@ -337,14 +335,14 @@ public class GroupService {
         log.info("그룹 멤버 탈퇴: memberId={}, userNo={}", memberId, userNo);
 
         // T2: 그룹 오너 교사에게 알림
-        // Phase 3: member.getNickname()은 DB에서 오지 않으므로 enrich 후 사용
+        // Phase 4: nickname 컬럼 제거, IDP enrich 후 name 사용
         GroupInfo groupInfo = groupInfoMapper.findGroupInfoById(member.getGroupId());
         if (groupInfo != null && groupInfo.getHostUserNo() != null) {
             userInfoEnricher.enrich(member);
             eventPublisher.publishEvent(new StudentLeftGroupEvent(
                     groupInfo.getHostUserNo(),
                     groupInfo.getClaId(),
-                    member.getNickname()
+                    member.getName()
             ));
         }
         return paramData;
