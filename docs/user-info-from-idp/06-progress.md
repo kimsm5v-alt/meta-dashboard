@@ -112,13 +112,13 @@
 
 ---
 
-## Phase 6 — 검증 ⏳ 진행 중
+## Phase 6 — 검증 ✅ 코드/문서 완료 (운영자 dev 수행 대기)
 
 | Task | 제목 | 커밋 | 상태 |
 |:---:|:---|:---|:---:|
 | 27 | WireMock 기반 통합 테스트 (10 시나리오) | `5fd69a9` | ✅ |
 | 28 | 개발 서버 시나리오 검증 체크리스트 작성 + 운영자 수행 | (문서) | ⏳ 문서 완료, 수행 대기 |
-| 29 | CLAUDE.md 갱신 + 최종 정리 | _대기_ | ⏳ |
+| 29 | CLAUDE.md 갱신 + 최종 정리 | (이번 커밋) | ✅ |
 
 ### Task 27 결과
 
@@ -130,6 +130,28 @@
 
 - 체크리스트: [`07-verification-checklist.md`](07-verification-checklist.md) — 7개 시나리오 + 부하 L1/L2/L3 + FE 호환성 손동작 + 결과 기록 표
 - 운영자가 dev 배포 후 직접 수행하여 결과 표 채워 06-progress.md 에 사본 첨부
+
+### Task 29 결과
+
+- `backend/CLAUDE.md` 갱신
+  - Tech Stack 에 "회원 정보 조회: Auth Internal API + UserInfoEnricher 패턴, 학심정 DB 에 PII 미저장" 명시
+  - Package Structure 에서 `api/guest/` 폐기 표기
+  - Security 섹션을 SSO/sp_user_id 기준으로 재작성 (email 로그인 표현 제거)
+  - Tables 섹션에 PII 미저장 정책 + `group_invitation.email` 유지 사유 + 폐기 테이블(email_verification, guest_conversion_log) 명시
+
+---
+
+## 머지 가능 상태 (PR 준비)
+
+| 항목 | 상태 | 비고 |
+|:---|:---:|:---|
+| Phase 1~3 코드/테스트 | ✅ | Task 1~18 모두 commit, UserInfoEnricherTest 5/5 |
+| Phase 6 통합 테스트 | ✅ | PersonInfoClientIntegrationTest 10/10 (WireMock) |
+| Phase 6 검증 체크리스트 | ✅ | 문서 완료, 운영자 dev 수행은 PR 머지 전 필수 |
+| Phase 2 Task 9 DB 적용 | ⏳ | 로컬/dev/prod 모두 미적용 — `migrations/01-guest-cleanup.sql` 실행 필요 |
+| Phase 4 DDL DROP | ⏳ | 운영 일정 협의 후 별도 작업 (백업 필수) |
+| Phase 5 FE 정리 | 🚫 | 본 PR 범위 외 (FE 담당자 별도) |
+| 원격 push / PR 생성 | ⏳ | 사용자 명시 후 진행
 
 ---
 
