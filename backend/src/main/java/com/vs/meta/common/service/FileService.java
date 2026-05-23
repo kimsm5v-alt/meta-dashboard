@@ -1,5 +1,7 @@
 package com.vs.meta.common.service;
 
+import com.vs.meta.common.auth.UserInfoEnricher;
+import com.vs.meta.common.auth.UserSlot;
 import com.vs.meta.common.exception.AuthFailedException;
 import com.vs.meta.common.security.SpAuthenticatedUser;
 import com.vs.meta.common.utils.SecurityUtil;
@@ -38,6 +40,7 @@ import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -57,6 +60,7 @@ public class FileService {
     private long MAX_FILE_SIZE = 1000 * 1024 * 1024; // 1000mb
 
     private final FileMapper fileMapper;
+    private final UserInfoEnricher userInfoEnricher;
 
     @Value("${spring.profiles.active}")
     private String serverEnv;
@@ -628,10 +632,12 @@ public class FileService {
                 List<Map<String, Object>> detailFileInfoList = fileMapper.selectFileDgnssFileList(param);
                 List<Map<String, Object>> summaryFileInfoList = fileMapper.selectFileDgnssSummaryList(param);
                 if (CollectionUtils.isEmpty(detailFileInfoList) && CollectionUtils.isEmpty(summaryFileInfoList)) {
-                    log.error("dgnssDownloadAll 실패(파일 정보 없음): dgnssId={}, type=3, userId={}", dgnssId, userId);
+                    log.error("dgnssDownloadAll 실패(파일 정보 없음): dgnssId={}, type=3, userId={}", dgnssId, type, userId);
                     throw new Exception("파일 정보가 없습니다");
                 }
 
+                enrichMaps(detailFileInfoList);
+                enrichMaps(summaryFileInfoList);
                 addDgnssFilesToZip(detailFileInfoList, "상세 보고서", zipOut, isAuth, userId, request, requestSource);
                 addDgnssFilesToZip(summaryFileInfoList, "요약 보고서", zipOut, isAuth, userId, request, requestSource);
             } else {
@@ -646,6 +652,7 @@ public class FileService {
                     throw new Exception("파일 정보가 없습니다");
                 }
 
+                enrichMaps(fileInfoList);
                 addDgnssFilesToZip(fileInfoList, "", zipOut, isAuth, userId, request, requestSource);
             }
             zipOut.finish();
@@ -918,5 +925,38 @@ public class FileService {
         if (!StringUtils.equals(checksum, fileChecksum)) {
             throw new IOException("파일 checksum 검증에 실패했습니다.");
         }
+    }
+
+    /**
+     * Map 리스트에서 sp_user_id로 닉네임/이메일을 IDP에서 조회하여 채우기.
+     * TODO: 나중에 GroupService.enrichMaps와 DRY 리팩토링 (Phase 4)
+     */
+    private void enrichMaps(List<Map<String, Object>> items) {
+        if (items == null || items.isEmpty()) return;
+
+        List<UserSlot> slots = items.stream()
+                .map(m -> (String) m.get("userSpUserId"))
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(UserSlot::new)
+                .toList();
+        if (slots.isEmpty()) return;
+
+        userInfoEnricher.enrich(slots);
+
+        Map<String, UserSlot> bySpUserId = slots.stream()
+                .collect(Collectors.toMap(UserSlot::getSpUserId, s -> s));
+        items.forEach(m -> {
+            String spUserId = (String) m.get("userSpUserId");
+            if (spUserId == null) return;
+            UserSlot slot = bySpUserId.get(spUserId);
+            if (slot != null) {
+                m.put("userNm", slot.getName());
+            } else {
+                // sp_user_id가 있지만 조회 실패: 다시 stdt_id로 fallback
+                String stdtId = (String) m.get("userId");
+                m.put("userNm", stdtId != null ? stdtId : "파일");
+            }
+        });
     }
 }

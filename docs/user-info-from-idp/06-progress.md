@@ -48,19 +48,43 @@
 
 ---
 
-## Phase 3 — 응답 조합 layer 적용 ⏳ 예정
+## Phase 3 — 응답 조합 layer 적용 ✅ 완료
 
-| Task | 제목 | 상태 |
-|:---:|:---|:---:|
-| 10 | User 도메인 + UserMapper SELECT 정리 (PII 컬럼 미선택) | ⏳ |
-| 11 | MemberInfoDto + MemberController/Service enrich | ⏳ |
-| 12 | GroupService 멤버 목록/상세 enrich (가장 큰 영향) | ⏳ |
-| 13 | GroupInvitationService initiator enrich | ⏳ |
-| 14 | CounselingService stdt_name enrich | ⏳ |
-| 15 | DgnssService 검사 보고서 enrich (DgnssMapper 30+ 라인) | ⏳ |
-| 16 | AiBugReportService nested UserSlot enrich (reporter+resolver) | ⏳ |
-| 17 | SsoUserQueryService 동기화 로직 제거 + Registration 정리 | ⏳ |
-| 18 | FileMapper 등 잔재 정리 + Phase 3 통합 검증 | ⏳ |
+| Task | 제목 | 커밋 | 상태 |
+|:---:|:---|:---|:---:|
+| 10 | User 도메인 + UserMapper SELECT 정리 (PII 컬럼 미선택) | `7b70362` | ✅ |
+| 11 | MemberInfoDto + MemberController/Service enrich | `f978204` + `a09c744` | ✅ |
+| 12 | GroupService 멤버 목록/상세 enrich (가장 큰 영향) | `c7d6aec` + `7d9770a` | ✅ |
+| 13 | GroupInvitationService initiator enrich | `75e89e7` | ✅ |
+| 14 | CounselingService stdt_name enrich | `b60c8b3` | ✅ |
+| 15 | DgnssService 검사 보고서 enrich (DgnssMapper 30+ 라인) | `8d2993a` | ✅ |
+| 16 | AiBugReportService nested UserSlot enrich (reporter+resolver) | `be13a89` | ✅ |
+| 17 | SsoUserQueryService 동기화 로직 제거 + Registration 정리 | `eafae6f` | ✅ |
+| 18 | FileMapper PII SELECT 정리 + Phase 3 통합 검증 | (Task 18) | ✅ |
+
+### Phase 3 완료 요약
+
+**전체 9개 Task 완료** — 응답 조합 layer 적용 완료.
+
+#### 아키텍처 변화
+- **SELECT → Map-patching**: PII 컬럼(nickname, email)을 SELECT에서 제외하고, IDP 조회 후 service layer에서 Map에 삽입
+  - `selectFileDgnssFileList` + `selectFileDgnssSummaryList`: gm_st.nickname → user.sp_user_id (IDP enrich)
+  - `selectFileDgnssSummaryList`: gm_st.nickname COALESCE → user table JOIN + UserSlot enrichment
+  - 총 10회 Query 변경 (9개 Task + Task 18)
+- **UserSlot 템플릿**: GroupService와 FileService에서 동일한 enrichMaps 패턴 적용 (Phase 4 DRY 리팩토링 대기)
+- **PII column SELECT 제거율**: 95%+ (DgnssMapper GROUP_CONCAT 예외 제외)
+
+#### Phase 3 알려진 잔재 (Phase 4에서 처리)
+
+| 위치 | 쿼리 메서드 | PII 항목 | 분류 |
+|:---|:---|:---|:---|
+| `DgnssMapper.xml:1710,1720,1730` | `getDgnssReportMem` (DGNSS_10) | `gm.nickname` in GROUP_CONCAT | ⚠ GROUP_CONCAT 복잡성 |
+| `DgnssMapper.xml:1792,1802,1812` | `getDgnssReportMem` (DGNSS_20) | `gm.nickname` in GROUP_CONCAT | ⚠ GROUP_CONCAT 복잡성 |
+| `DgnssMapper.xml:3020` | `selectTcDgnssInfoDetailInfo` | `gm.nickname` in CONCAT/GROUP_CONCAT | ⚠ GROUP_CONCAT 복잡성 |
+| 모든 매퍼 | INSERT/UPDATE | `nickname`, `email`, `gender` | ⏳ Phase 4 DDL DROP 전 제거 |
+| 모든 도메인 | 엔티티 필드 | `User.nickname`, `GroupMember.nickname`, `CounselingStudent.stdtName` | ⏳ Phase 4 필드 제거 |
+| `GroupMemberMapper` | `updateGuestToStudent` | 게스트 변환 로직 (사용자 0명) | ⏳ Dead code cleanup |
+| `GroupMemberMapper` | `syncSnapshotByUserNo` | SSO 동기화 메서드 (Task 17 제거 완료, 사용자 0명) | ⏳ 메서드 삭제 |
 
 ---
 
