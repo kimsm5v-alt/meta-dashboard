@@ -147,8 +147,6 @@ public class SecurityConfig {
                     .requestMatchers("/api/dgnss/graph/**").permitAll()
                     // 그룹 초대 (public)
                     .requestMatchers("/group/invite").permitAll()
-                    // 게스트 이메일 인증 (학심정 자체 유지)
-                    .requestMatchers("/member/send-code", "/member/verify-code").permitAll()
                     // Swagger, health, static
                     .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     .requestMatchers("/viva/metric/prometheus").permitAll()

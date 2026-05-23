@@ -5,7 +5,6 @@ import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupMemberMapper;
 import com.vs.meta.api.group.mapper.GroupQueryMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
-import com.vs.meta.api.member.service.EmailVerificationService;
 import com.vs.meta.api.member.service.MemberService;
 import com.vs.meta.api.notification.event.StudentJoinedGroupEvent;
 import com.vs.meta.api.notification.event.StudentKickedEvent;
@@ -40,7 +39,6 @@ public class GroupService {
     private final GroupQueryMapper groupQueryMapper;
     private final UserMapper userMapper;
     private final MemberService memberService;
-    private final EmailVerificationService emailVerificationService;
     private final DgnssService dgnssService;
     private final ApplicationEventPublisher eventPublisher;
 
