@@ -25,8 +25,6 @@ public interface GroupQueryMapper {
 
     Map<String, Object> findGroupDetail(@Param("groupId") Long groupId, @Param("userNo") Long userNo);
 
-    List<Map<String, Object>> findGuestMembersByEmail(@Param("email") String email);
-
     Integer findActiveDgnssId(@Param("claId") String claId);
 
     // Admin 그룹 관리

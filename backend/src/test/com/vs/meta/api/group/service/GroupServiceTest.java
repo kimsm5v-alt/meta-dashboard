@@ -5,6 +5,7 @@ import com.vs.meta.api.group.mapper.GroupMemberMapper;
 import com.vs.meta.api.group.mapper.GroupQueryMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.member.service.MemberService;
+import com.vs.meta.common.auth.UserInfoEnricher;
 import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.GroupMember;
 import com.vs.meta.domain.User;
@@ -49,6 +50,9 @@ class GroupServiceTest {
 
     @Mock
     private com.vs.meta.api.dgnss.service.DgnssService dgnssService;
+
+    @Mock
+    private UserInfoEnricher userInfoEnricher;
 
     @InjectMocks
     private GroupService groupService;

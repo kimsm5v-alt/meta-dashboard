@@ -9,6 +9,8 @@ import com.vs.meta.api.member.service.MemberService;
 import com.vs.meta.api.notification.event.StudentJoinedGroupEvent;
 import com.vs.meta.api.notification.event.StudentKickedEvent;
 import com.vs.meta.api.notification.event.StudentLeftGroupEvent;
+import com.vs.meta.common.auth.UserInfoEnricher;
+import com.vs.meta.common.auth.UserSlot;
 import com.vs.meta.common.utils.ConvertUtils;
 import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
@@ -41,6 +43,7 @@ public class GroupService {
     private final MemberService memberService;
     private final DgnssService dgnssService;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserInfoEnricher userInfoEnricher;
 
     @Transactional
     public Object createGroup(Map<String, Object> paramData) throws Exception {
@@ -158,9 +161,8 @@ public class GroupService {
                 throw new IllegalStateException("강퇴된 그룹에는 재가입할 수 없습니다.");
             }
             // LEFT 상태: 재가입 허용 (기존 row 재활성화)
+            // Phase 3: nickname/email snapshot 복사 제거 — IDP enricher가 읽기 시점에 채운다.
             existing.updateStatus(MemberStatus.ACTIVE);
-            existing.setNickname(user.getNickname());
-            existing.setEmail(user.getEmail());
             existing.setJoinedAt(LocalDateTime.now());
             existing.setLeftAt(null);
             existing.setUpdatedBy(userNo);
@@ -179,6 +181,9 @@ public class GroupService {
             }
 
             log.info("회원 그룹 재가입: groupId={}, userNo={}, memberId={}", groupId, userNo, existing.getId());
+            // Phase 3: existing은 DB에서 nickname이 없으므로 enrich 후 이벤트 발행
+            existing.setSpUserId(user.getSpUserId());
+            userInfoEnricher.enrich(existing);
             publishStudentJoined(groupInfo, existing.getNickname());
             return paramData;
         }
@@ -186,6 +191,9 @@ public class GroupService {
         Integer maxNo = groupMemberMapper.findMaxMemberNoByGroupId(groupId);
         int memberNo = (maxNo != null ? maxNo : 0) + 1;
 
+        // Phase 3: nickname/email snapshot 제거 — IDP enricher가 읽기 시점에 채운다.
+        // INSERT 시 nickname/email은 null이 되므로 DB NOT NULL 제약이 있다면 Phase 4에서 컬럼 DROP 후 해결.
+        // 현재 Phase 3에서 NOT NULL 제약은 기존 데이터를 위해 유지되므로 user 값을 넘긴다.
         GroupMember member = GroupMember.builder()
                 .groupId(groupId)
                 .userNo(userNo)
@@ -216,7 +224,10 @@ public class GroupService {
         }
 
         log.info("회원 그룹 참가: groupId={}, userNo={}, memberNo={}", groupId, userNo, memberNo);
-        publishStudentJoined(groupInfo, user.getNickname());
+        // Phase 3: User.spUserId로 enrich — user 객체가 이 시점에 살아있으므로 UserSlot 경유
+        UserSlot joinSlot = new UserSlot(user.getSpUserId());
+        userInfoEnricher.enrich(joinSlot);
+        publishStudentJoined(groupInfo, joinSlot.getName());
         return paramData;
     }
 
@@ -321,8 +332,10 @@ public class GroupService {
         log.info("그룹 멤버 탈퇴: memberId={}, userNo={}", memberId, userNo);
 
         // T2: 그룹 오너 교사에게 알림
+        // Phase 3: member.getNickname()은 DB에서 오지 않으므로 enrich 후 사용
         GroupInfo groupInfo = groupInfoMapper.findGroupInfoById(member.getGroupId());
         if (groupInfo != null && groupInfo.getHostUserNo() != null) {
+            userInfoEnricher.enrich(member);
             eventPublisher.publishEvent(new StudentLeftGroupEvent(
                     groupInfo.getHostUserNo(),
                     groupInfo.getClaId(),
@@ -383,7 +396,13 @@ public class GroupService {
         }
 
         User host = userMapper.findByUserNo(groupInfo.getHostUserNo());
-        String hostNickname = (host != null) ? host.getNickname() : null;
+        // Phase 3: host.getNickname()은 DB에서 신뢰할 수 없으므로 UserSlot으로 IDP enrich
+        String hostNickname = null;
+        if (host != null && host.getSpUserId() != null) {
+            UserSlot hostSlot = new UserSlot(host.getSpUserId());
+            userInfoEnricher.enrich(hostSlot);
+            hostNickname = hostSlot.getName();
+        }
 
         long memberCount = groupMemberMapper.countByGroupIdAndStatus(groupInfo.getGroupId(), MemberStatus.ACTIVE.name());
 
