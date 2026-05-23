@@ -241,7 +241,7 @@
 	<select id="selectTcDgnssStartPreview" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcDgnssStartPreview */
 		SELECT gm.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			<choose>
 				<when test="ordNo == 1">
@@ -305,6 +305,7 @@
 			</choose>
 		FROM group_info gi
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE gi.cla_id = #{claId}
 		ORDER BY gm.member_no
 	</select>
@@ -454,12 +455,14 @@
 		SELECT tdi.ord_no AS ordNo
 		     , tdi.paper_idx AS paperIdx
 		     , gi.host_user_no AS teacherUserNo
-		     , COALESCE(gm.nickname, tdri.stdt_id) AS studentNickname
+		     , u.sp_user_id AS memberSpUserId
+		     , tdri.stdt_id AS stdtId
 		FROM tb_dgnss_result_info tdri
 			INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			LEFT JOIN group_member gm ON gi.group_id = gm.group_id
 				AND gm.stdt_id = tdri.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE tdri.id = #{dgnssResultId}
 		LIMIT 1
 	</select>
@@ -999,7 +1002,7 @@
 		/* DgnssMapper.getDgnssReportLS */
 		SELECT DM.stdt_id,
 		       gm.member_no                            AS CLASS_NO,
-		       gm.nickname                             AS MEM_NM,
+		       u.sp_user_id                            AS memberSpUserId,
 		       gm.gender                               AS MEM_GENDER,
 		       CASE
 		         WHEN gm.gender = 'M' THEN '남자'
@@ -1029,6 +1032,7 @@
 			INNER JOIN group_member gm
 				ON gi.group_id = gm.group_id
 				AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 
 		WHERE DM.dgnss_id = #{TEST_IDX}
 			AND EXISTS (
@@ -1676,7 +1680,7 @@
 
 	<select id="getDgnssReportValidity" parameterType="map" resultType="map">
 		/* DgnssMapper.getDgnssReportValidity */
-		SELECT gm.nickname AS MEM_NM
+		SELECT u.sp_user_id AS memberSpUserId
 		  ,  DM.stdt_id AS MEM_ID
 		  ,  gm.gender AS MEM_GENDER
 		  ,  DM.id
@@ -1693,6 +1697,7 @@
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE DA.TEST_IDX = #{TEST_IDX}
 		ORDER BY gm.member_no
 	</select>
@@ -1910,7 +1915,7 @@
 		           WHEN DA.REPEATED_RESPONSE_YN = 'Y' THEN '주의'
 		           ELSE '양호'
 		       END AS REPEATED_RESPONSE_YN
-		     , IFNULL(gm.nickname, '') AS MEM_NM
+		     , u.sp_user_id AS memberSpUserId
 		     , IFNULL(gm.member_no, '') AS CLASS_NO
 		     , (
 		        SELECT IFNULL(ord_no, 0)
@@ -1936,7 +1941,7 @@
 		       END AS CLASS_NM
 		     , tdi2.cla_id AS claId
 		     , tdi2.paper_idx AS paperIdx
-		     , tu.nickname AS tcNm
+		     , tu.sp_user_id AS teacherSpUserId
 		     , tdi2.tc_id AS tcId
 		     , DRI.summary_file_url AS summaryFileURL
 		     , CASE
@@ -1953,14 +1958,14 @@
 		           WHEN gm.member_no IS NULL THEN ''
 		           ELSE CONCAT(gm.member_no, '번')
 		       END AS stdtNo
-		     , gm.email AS email
 		     , gm.member_type AS memberType
 		FROM TB_DGNSS_ANSWER DA
 			INNER JOIN TB_DGNSS_RESULT_INFO DRI ON DA.DGNSS_RESULT_ID = DRI.id
 			INNER JOIN tb_dgnss_info tdi2 ON DRI.dgnss_id = tdi2.id
 			INNER JOIN group_info gi ON tdi2.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DRI.stdt_id = gm.stdt_id
-			INNER JOIN user tu ON gi.host_user_no = tu.user_no
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
+			INNER JOIN `user` tu ON gi.host_user_no = tu.user_no
 		WHERE DA.ANSWER_IDX = #{answerIdx}
 	</select>
 
@@ -2179,7 +2184,7 @@
 		/* DgnssMapper.selectDgnssAnswerReliability */
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
@@ -2231,6 +2236,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2242,7 +2248,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2268,6 +2274,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2280,7 +2287,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2307,6 +2314,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2319,7 +2327,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2349,6 +2357,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2361,7 +2370,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2385,6 +2394,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2397,7 +2407,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2424,6 +2434,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2436,7 +2447,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2462,6 +2473,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2474,7 +2486,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2500,6 +2512,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2512,7 +2525,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2540,6 +2553,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2560,7 +2574,7 @@
 		/* DgnssMapper.selectDgnssAnswerReliabilityFromOtherClasses */
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
@@ -2612,6 +2626,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <![CDATA[<>]]> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2629,7 +2644,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2655,6 +2670,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2673,7 +2689,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2700,6 +2716,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2718,7 +2735,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2748,6 +2765,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2766,7 +2784,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2790,6 +2808,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2808,7 +2827,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2835,6 +2854,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2853,7 +2873,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2879,6 +2899,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2897,7 +2918,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2923,6 +2944,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2941,7 +2963,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2969,6 +2991,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -3014,7 +3037,7 @@
 	<select id="selectStInfo" parameterType="map" resultType="map">
 		/* DgnssMapper.selectStInfo */
 	SELECT a1.stdt_id AS stdtId
-		, gm.nickname AS nickname
+		, u.sp_user_id AS memberSpUserId
 		, gm.member_no AS memberNo
 		, DATE_FORMAT(a1.subm_dt,'%Y-%m-%d %H:%i:%s') AS eakStDt
 		, b1.DGNSS_ORD AS ordNo
@@ -3039,6 +3062,7 @@
 			INNER JOIN tb_dgnss_answer b1 ON a1.id = b1.DGNSS_RESULT_ID
 			INNER JOIN group_info gi ON a1_1.cla_id = gi.cla_id
 			LEFT JOIN group_member gm ON gi.group_id = gm.group_id AND a1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE 1=1
 		<choose>
 			<when test='dgnssResultId != null and dgnssResultId != ""'>
@@ -3110,11 +3134,12 @@
 
 	<select id="selectTcDgnssNotSubmStList" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcDgnssNotSubmStList */
-		SELECT gm.nickname AS nickname
+		SELECT u.sp_user_id AS memberSpUserId
 		FROM tb_dgnss_result_info a1
 			INNER JOIN tb_dgnss_info b1 ON a1.dgnss_id = b1.id
 			INNER JOIN group_info gi ON b1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND a1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.dgnss_id = #{dgnssId}
 			AND a1.subm_at = 'N'
 	</select>
@@ -3759,13 +3784,14 @@
 		/* DgnssMapper.selectOmrListForSampleExcel */
 		SELECT gm.member_no AS memberNo
 		     , tdo.OMR_IDX AS omrIdx
-		     , COALESCE(gm.nickname, tdri.stdt_id) AS nickname
+		     , u.sp_user_id AS memberSpUserId
 		FROM tb_dgnss_result_info tdri
 			INNER JOIN tb_dgnss_omr tdo ON tdri.omr_id = tdo.OMR_IDX
 			INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			LEFT JOIN group_member gm ON gi.group_id = gm.group_id
 				AND gm.stdt_id = tdri.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE tdri.dgnss_id = #{dgnssId}
 		ORDER BY gm.member_no, tdri.stdt_id
 	</select>
