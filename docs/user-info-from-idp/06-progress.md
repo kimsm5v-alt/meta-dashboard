@@ -37,7 +37,7 @@
 
 | 환경 | 실행 일시 | 실행자 | guest_member 삭제 | 비고 |
 |:---|:---|:---|:---:|:---|
-| 로컬 (podman) | _대기_ | - | - | - |
+| 로컬 (podman) | 2026-05-23 | ohch1 | 9 건 | STUDENT 233명 보존 확인, guest_conversion_log / email_verification 두 테이블 DROP 완료 |
 | dev | _대기_ | - | - | - |
 | prod | _대기_ | - | - | - |
 
