@@ -1,14 +1,11 @@
 package com.vs.meta.common.config;
 
-import com.vs.meta.api.sso.service.SsoUserMigrationService;
-import com.vs.meta.api.sso.service.SsoUserQueryService;
-import com.vs.meta.api.sso.service.SsoUserRegistrationService;
+import com.vs.meta.api.sso.service.SsoUserResolveService;
 import com.vs.meta.common.security.SpAuthenticatedUser;
 import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -31,9 +28,7 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class SpUserMappingFilter extends OncePerRequestFilter {
 
-    private final SsoUserQueryService ssoUserQueryService;
-    private final SsoUserMigrationService ssoUserMigrationService;
-    private final SsoUserRegistrationService ssoUserRegistrationService;
+    private final SsoUserResolveService ssoUserResolveService;
 
     /** request attribute 키 — SecurityUtil에서 이 키로 읽음 */
     public static final String ATTR_USER_NO = "sp.mapped.userNo";
@@ -56,17 +51,8 @@ public class SpUserMappingFilter extends OncePerRequestFilter {
             // 게스트는 학심정 user가 없으므로 매핑 스킵
             if (!"GUEST".equals(spUser.userType())) {
                 try {
-                    // sp_user_id로 조회 실패 시 마이그레이션 매핑 시도 (기존 회원 1회성)
-                    User user = ssoUserQueryService.findBySpUserId(spUser.spUserId());
-                    if (user == null) {
-                        user = ssoUserMigrationService.migrateBySpUserId(spUser);
-                    }
-
-                    // 매핑 실패 + userType 이 TEACHER/STUDENT 면 자동 가입.
-                    // (userType=UNSET 인 경우만 학심정 추가 정보 입력 화면(/auth/complete-profile)을 통과시킨다)
-                    if (user == null && isAutoRegistrable(spUser.userType())) {
-                        user = autoRegister(spUser);
-                    }
+                    // sp_user_id 매핑 + 마이그레이션 매핑 + 재가입 cascade + 자동 가입을 모두 위임
+                    User user = ssoUserResolveService.resolveOrProvision(spUser);
 
                     if (user != null) {
                         // 정지/탈퇴 계정 차단
@@ -105,35 +91,4 @@ public class SpUserMappingFilter extends OncePerRequestFilter {
                 || path.startsWith("/v3/api-docs");
     }
 
-    /**
-     * SP JWT 의 userType 이 자동 가입 가능한 값인지 판정.
-     * TEACHER/STUDENT 만 자동 가입. UNSET 등은 추가 정보 입력 화면을 통해 사용자가 직접 역할 선택해야 함.
-     */
-    private static boolean isAutoRegistrable(String userType) {
-        return "TEACHER".equals(userType) || "STUDENT".equals(userType);
-    }
-
-    /**
-     * SP JWT 의 사용자 정보로 학심정 user 자동 생성.
-     *
-     * <p>동시 요청 race condition 대비: 동시 요청이 둘 다 register 시도하면,
-     * <ul>
-     *   <li>register 진입 시 findBySpUserId 로 기존 row 발견 → IllegalStateException</li>
-     *   <li>또는 INSERT 단계에서 UNIQUE 제약 위반 → DataIntegrityViolationException</li>
-     * </ul>
-     * 두 케이스 모두 catch 후 재조회로 복구한다.
-     */
-    private User autoRegister(SpAuthenticatedUser spUser) {
-        try {
-            User created = ssoUserRegistrationService.register(spUser, spUser.userType());
-            log.info("SP 자동 가입: spUserId={}, userType={}, userNo={}",
-                    spUser.spUserId(), spUser.userType(),
-                    created != null ? created.getUserNo() : null);
-            return created;
-        } catch (IllegalStateException | DataIntegrityViolationException e) {
-            log.info("자동 가입 race 감지, 재조회: spUserId={}, error={}",
-                    spUser.spUserId(), e.getMessage());
-            return ssoUserQueryService.findBySpUserId(spUser.spUserId());
-        }
-    }
 }
