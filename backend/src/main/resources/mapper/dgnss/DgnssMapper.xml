@@ -216,6 +216,7 @@
 		  		INNER JOIN group_member gm_other
 		  			ON gi_other.group_id = gm_other.group_id
 		  			AND gm_other.stdt_id = tdri_other1.stdt_id
+		  			AND gm_other.status = 'ACTIVE'
 		  	WHERE tdi_other1.ord_no = 1
 		  	  AND tdi_other1.paper_idx = #{paperIdx}
 		  	  AND tdi_other1.cla_id != #{claId}
@@ -283,6 +284,7 @@
 								INNER JOIN group_member gm_o
 									ON gi_o.group_id = gm_o.group_id
 									AND gm_o.stdt_id = tdri_o1.stdt_id
+										AND gm_o.status = 'ACTIVE'
 							WHERE tdi_o1.ord_no = 1
 							  AND tdi_o1.paper_idx = #{paperIdx}
 							  AND tdi_o1.cla_id <![CDATA[<>]]> #{claId}
