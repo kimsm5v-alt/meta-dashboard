@@ -5,11 +5,12 @@
 학교/학급 관리, 그룹(방) 생성/참가, 상담 관리, 관찰 메모 등 교육 현장 기능 제공.
 
 ## Tech Stack
-- **Java 17** + **Spring Boot 2.7.17** + **Gradle**
-- **MyBatis 2.3.1** + **MySQL 8.3.0**
-- **Dual Security**: Admin(Session) + API(JWT Stateless)
+- **Java 21** + **Spring Boot 4.0.5** + **Gradle 8.14**
+- **MyBatis Spring Boot Starter 4.0.1** + **MySQL 8.3.0**
+- **Security**: API JWT Stateless (SuperPlatform SSO RS256 + JWKS) — Admin 영역 폐기됨
 - **Master/Slave DataSource** with `DynamicRoutingDataSource`
-- **Admin UI**: Thymeleaf + AdminLTE 3.x (CDN)
+- **ShedLock 7.7.0** (분산 스케줄러 락) + **Redis Pub/Sub** (알림)
+- **MapStruct 1.6.3** + **PDFBox 3.0.1** + **Apache POI 5.2.5** + **Neo4j Driver 5.28.5**
 - **Port**: 8081
 
 ## Package Structure

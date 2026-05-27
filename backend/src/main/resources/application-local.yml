@@ -2,8 +2,6 @@ app:
   frontend-url: http://localhost:5173
 
 spring:
-  thymeleaf:
-    cache: false
   datasource:
     hikari:
       master:

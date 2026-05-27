@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -154,9 +154,17 @@ public class ApiResponseAspect {
     /**
      * 컨트롤러에서 던진 예외를 한 줄+스택트레이스로 기록. {@code @AfterThrowing} 은 예외를 삼키지 않으므로
      * Spring 의 기본 예외 처리는 그대로 이어진다.
+     *
+     * <p>클라이언트 에러(비즈니스 룰 위반, 잘못된 파라미터 등) 는 {@link com.vs.meta.common.config.GlobalExceptionHandler}
+     * 가 이미 WARN 한 줄로 처리하므로 여기선 스킵 — 중복 로그 + 운영 알람 노이즈 방지.
+     * 진짜 서버 측 버그(NPE/DB 에러 등) 만 ERROR + 스택트레이스 유지.
      */
     @AfterThrowing(pointcut = "controllerMethods()", throwing = "ex")
     public void logControllerException(JoinPoint joinPoint, Throwable ex) {
+        if (isClientError(ex)) {
+            return;
+        }
+
         String httpMethod = "";
         String apiPath = "";
         String queryString = "";
@@ -182,6 +190,22 @@ public class ApiResponseAspect {
                 ex.getClass().getSimpleName(),
                 ex.getMessage(),
                 ex);
+    }
+
+    /**
+     * GlobalExceptionHandler 의 4xx 매핑 대상 = 클라이언트 에러 = ApiResponseAspect 에서 스킵.
+     * 서버 책임의 진짜 버그가 아니라 호출자의 잘못된 입력/비즈니스 룰 위반이므로 스택트레이스 불필요.
+     */
+    private boolean isClientError(Throwable ex) {
+        return ex instanceof IllegalArgumentException
+                || ex instanceof IllegalStateException
+                || ex instanceof com.vs.meta.common.exception.AuthFailedException
+                || ex instanceof org.springframework.web.bind.MissingServletRequestParameterException
+                || ex instanceof org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+                || ex instanceof org.springframework.http.converter.HttpMessageNotReadableException
+                || ex instanceof org.springframework.web.HttpRequestMethodNotSupportedException
+                || ex instanceof org.springframework.web.HttpMediaTypeNotSupportedException
+                || ex instanceof org.springframework.web.servlet.resource.NoResourceFoundException;
     }
 
     private String sha256(String value) {

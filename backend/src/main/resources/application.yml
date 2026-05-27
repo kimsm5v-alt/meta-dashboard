@@ -49,17 +49,19 @@ spring:
         maximum-pool-size: 50
         minimum-idle: 10
   # Redis 설정 (알림 SSE Pub/Sub 용도)
-  redis:
-    host: ${STAT_SPRING_REDIS_HOST:localhost}
-    port: ${STAT_SPRING_REDIS_PORT:6379}
-    username: ${STAT_SPRING_REDIS_USERNAME:}
-    password: ${STAT_SPRING_REDIS_PASSWORD:}
-    timeout: 3000
-    lettuce:
-      pool:
-        max-active: 16
-        max-idle: 8
-        min-idle: 2
+  # Boot 3+ 부터 prefix 가 `spring.data.redis.*` 로 변경됨 (구 `spring.redis.*` 는 Boot 4 에서 제거).
+  data:
+    redis:
+      host: ${STAT_SPRING_REDIS_HOST:localhost}
+      port: ${STAT_SPRING_REDIS_PORT:6379}
+      username: ${STAT_SPRING_REDIS_USERNAME:}
+      password: ${STAT_SPRING_REDIS_PASSWORD:}
+      timeout: 3000
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
   thymeleaf:
     prefix: classpath:/templates/
     suffix: .html
@@ -134,6 +136,16 @@ superplatform:
     server-url: ${SP_AUTH_SERVER_URL:http://localhost:8080}
     client-id: ${SP_AUTH_CLIENT_ID:test-service}
     client-secret: ${SP_AUTH_CLIENT_SECRET}
+
+# ===== SSO 이벤트 폴링 (IdP 탈퇴/연결끊기 cascade) =====
+# enabled : 폴링 활성화. 기본 false — 운영/개발에서 ENV 로 켠다 (점진 배포).
+#           사전조건: IdP oauth2_client.scopes 에 events:read 부여 + sso_poll_cursor 테이블 초기 INSERT.
+# limit   : 1회 폴링 page size (IdP max 1000).
+# 주기는 SsoEventPollingScheduler 의 @Scheduled cron 고정 (15분).
+sso:
+  poll:
+    enabled: ${SSO_POLL_ENABLED:false}
+    limit: ${SSO_POLL_LIMIT:500}
 
 key:
   salt:

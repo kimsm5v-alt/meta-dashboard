@@ -5,7 +5,7 @@ import logging
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.utils.function_calling import convert_to_openai_tool
-from app.core.llm_router import llm_router
+from app.core.llm_router import llm_router, ROUTER_MODEL_NAME
 from app.utils.pii_filter import mask_pii_data
 from app.tools import neo4j_tools_list
 
@@ -148,7 +148,7 @@ class MetaAgentService:
         try:
             while iterations < self.max_iterations:
                 response = await self.router.acompletion(
-                    model="meta-agent-service",
+                    model=ROUTER_MODEL_NAME,
                     messages=messages,
                     tools=self.tools
                 )
@@ -237,7 +237,7 @@ class MetaAgentService:
         try:
             while iterations < self.max_iterations:
                 response = await self.router.acompletion(
-                    model="meta-agent-service",
+                    model=ROUTER_MODEL_NAME,
                     messages=messages,
                     tools=self.tools,
                     stream=True
@@ -318,6 +318,30 @@ class MetaAgentService:
                 history.add_ai_message(max_iter_message)
                 yield max_iter_message
 
+        except litellm.exceptions.AuthenticationError as e:
+            logger.error(f"Authentication error: {str(e)}")
+            msg = "API 키 인증 오류가 발생했습니다. 관리자에게 문의하세요."
+            history.add_user_message(text)
+            history.add_ai_message(msg)
+            yield msg
+        except litellm.exceptions.RateLimitError as e:
+            logger.error(f"Rate limit error: {str(e)}")
+            msg = "현재 요청이 많아 일시적으로 서비스 제한이 발생했습니다."
+            history.add_user_message(text)
+            history.add_ai_message(msg)
+            yield msg
+        except litellm.exceptions.Timeout as e:
+            logger.error(f"Timeout error: {str(e)}")
+            msg = "응답 시간이 초과되었습니다."
+            history.add_user_message(text)
+            history.add_ai_message(msg)
+            yield msg
+        except litellm.exceptions.APIError as e:
+            logger.error(f"API error: {str(e)}")
+            msg = "AI 서비스 연동 중 오류가 발생했습니다."
+            history.add_user_message(text)
+            history.add_ai_message(msg)
+            yield msg
         except Exception as e:
             logger.error(f"Streaming error in agent service: {str(e)}", exc_info=True)
             history.add_user_message(text)

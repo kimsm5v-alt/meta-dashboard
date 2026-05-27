@@ -31,6 +31,12 @@ notification:
   shedlock:
     enabled: true
 
+# ===== SSO 이벤트 폴링 (dev: ON) =====
+# 사전조건: sso_poll_cursor 테이블 초기 INSERT + IdP events:read scope 부여.
+sso:
+  poll:
+    enabled: true
+
 # /actuator/health 응답에 components 상세 노출 (dev 진단용).
 # prod 는 base default(never) 유지.
 management:
@@ -48,5 +54,6 @@ management:
 # 조치: dev profile 에서 username 을 빈 문자열로 강제 → password-only AUTH 경로로 시도.
 # 결과 확인 후 환경변수 정리되면 본 블록 제거.
 spring:
-  redis:
-    username: ""
+  data:
+    redis:
+      username: ""

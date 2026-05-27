@@ -24,6 +24,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 public class QchTraceClient {
 
     private static final String TRACE_PATH = "/api/v1/ingest/trace";
+    private static final String HEADER_USER_ID = "X-QCH-User-Id";
 
     private final WebClient qchIngestWebClient;
     private final QchProperties qch;
@@ -40,13 +41,18 @@ public class QchTraceClient {
             qchIngestWebClient.post()
                     .uri(TRACE_PATH)
                     .contentType(MediaType.APPLICATION_JSON)
+                    .headers(headers -> {
+                        if (event.getUserId() != null) {
+                            headers.set(HEADER_USER_ID, event.getUserId());
+                        }
+                    })
                     .bodyValue(event)
                     .retrieve()
                     .toBodilessEntity()
                     .block();
         } catch (WebClientResponseException ex) {
             log.warn("[QCH] trace failed (HTTP {} - {}): {} {}",
-                    ex.getRawStatusCode(), ex.getStatusText(), event.getMethod(), event.getEndpoint());
+                    ex.getStatusCode().value(), ex.getStatusText(), event.getMethod(), event.getEndpoint());
         } catch (Exception ex) {
             log.warn("[QCH] trace failed: {} {} - {}", event.getMethod(), event.getEndpoint(), ex.getMessage());
         }

@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * 개인정보(PII) 로그 마스킹 유틸.
@@ -50,6 +50,15 @@ public final class PiiMasker {
         if (local.length() == 1) return "*" + domain;
         if (local.length() == 2) return local.charAt(0) + "*" + domain;
         return local.charAt(0) + "***" + domain;
+    }
+
+    /**
+     * UUID 식별자 마스킹: 앞 8자만 노출 ("550e8400..."). 추적 식별성은 유지하되 전체 노출 방지.
+     * sp_user_id(publicUserId) 같은 불투명 식별자 로깅용.
+     */
+    public static String maskUuid(String uuid) {
+        if (uuid == null || uuid.isBlank()) return "";
+        return uuid.length() <= 8 ? uuid : uuid.substring(0, 8) + "...";
     }
 
     /**

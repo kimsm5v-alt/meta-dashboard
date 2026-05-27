@@ -1,22 +1,17 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '2.7.17'
-    id 'io.spring.dependency-management' version '1.1.4'
+    id 'org.springframework.boot' version '4.0.5'
+    id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.vs.meta'
 version = '1.0.0-SNAPSHOT'
 
 java {
-    sourceCompatibility = '17'
-    targetCompatibility = '17'
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
-
-ext {
-    springCloudVersion = "2021.0.8"
-}
-
-ext['tomcat.version'] = '9.0.108'
 
 repositories {
     mavenCentral()
@@ -32,14 +27,22 @@ configurations {
     compileOnly {
         extendsFrom annotationProcessor
     }
+    // Mockito 5+ 는 JDK 21+ 에서 dynamic agent self-attach 가 deprecated/disabled.
+    // mockito-core jar 만 별도 configuration 으로 분리해 test 의 jvmArgs 로 명시 주입.
+    // (mypage 프로젝트의 검증된 패턴 차용)
+    mockitoAgent
 }
 
 dependencies {
     // ===== Spring Boot Starters =====
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    // Admin Thymeleaf UI (버그리포트 관리) — c9b5afe 폐기 후 일부 기능만 부활.
+    // Security 5 → 6+ 로 마이그레이션: extras-springsecurity5 → 6 사용 (Thymeleaf 3.1 + Spring Security 7 호환).
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
-    implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity5'
-    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6:3.1.2.RELEASE'
+    // Boot 4: spring-boot-starter-aop → spring-boot-starter-aspectj 로 이름 변경.
+    // 메타는 @Aspect 4종 (ApiResponseAspect / TransactionAspect / QchTraceAspect / RetryAspect) 사용 → AspectJ 필요.
+    implementation 'org.springframework.boot:spring-boot-starter-aspectj'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
@@ -47,7 +50,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-log4j2'
 
     // ===== MyBatis =====
-    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:2.3.1'
+    // 4.0.1: Spring Boot 4.x 정식 지원 라인 (3.0.x는 Boot 3.2~3.5 전용)
+    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:4.0.1'
 
     // ===== Cache =====
     implementation 'org.springframework.boot:spring-boot-starter-cache'
@@ -55,20 +59,23 @@ dependencies {
 
     // ===== Database =====
     implementation 'com.mysql:mysql-connector-j:8.3.0'
+    // log4jdbc-log4j2-jdbc4.1: IDP 가 Boot 4.0.5 + JDK 21 에서 동일 버전(1.16) 운영 검증 중이므로 유지.
     implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
     implementation 'org.apache.commons:commons-dbcp2:2.9.0'
-    implementation 'org.neo4j.driver:neo4j-java-driver:5.28.5'
+    // Boot 4 BOM 이 6.0.3 으로 관리. bolt-connection 10.1.1 과 ABI 정합 (5.x driver 는 BootstrapFactory 호출 실패)
+    implementation 'org.neo4j.driver:neo4j-java-driver'
 
     // ===== Swagger =====
-    implementation 'org.springdoc:springdoc-openapi-ui:1.7.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
 
     // ===== Lombok =====
-    compileOnly 'org.projectlombok:lombok:1.18.30'
-    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+    compileOnly 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.projectlombok:lombok:1.18.36'
 
-    // ===== MapStruct =====
-    implementation 'org.mapstruct:mapstruct:1.5.3.Final'
-    annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.3.Final'
+    // ===== MapStruct (1.6.3 — Jakarta + JDK 21 정식 지원) =====
+    implementation 'org.mapstruct:mapstruct:1.6.3'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
+    annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
 
     // ===== Spring Data Commons (Pageable) =====
     implementation 'org.springframework.data:spring-data-commons'
@@ -80,11 +87,11 @@ dependencies {
     // ===== Excel (Apache POI) =====
     implementation 'org.apache.poi:poi-ooxml:5.2.5'
 
-    // ===== File Upload =====
-    implementation 'commons-fileupload:commons-fileupload:1.5'
+    // ===== File Utils (commons-fileupload 제거 — Task 5에서 InMemoryMultipartFile 로 대체) =====
     implementation 'commons-io:commons-io:2.15.1'
 
     // ===== NCP Object Storage (S3 Compatible) =====
+    // AWS SDK v1 EOL 2025-12-31. 후속 PR에서 v2 (software.amazon.awssdk) 로 마이그레이션 권장.
     implementation 'com.amazonaws:aws-java-sdk-s3:1.12.770'
 
     // ===== Apache Commons =====
@@ -95,7 +102,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
 
     // ===== Security =====
-    implementation 'com.github.ulisesbocchio:jasypt-spring-boot-starter:3.0.5'
+    // jasypt-spring-boot-starter 제거 — 메타에서 미사용 (build.gradle 외 jasypt/ENC( 패턴 0건)
     implementation 'org.bouncycastle:bcprov-jdk18on:1.77'
     implementation 'org.owasp.encoder:encoder:1.2.3'
     implementation 'org.json:json:20240303'
@@ -103,15 +110,12 @@ dependencies {
     // ===== OAuth2 Resource Server (JWKS RS256 JWT 검증) =====
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 
-    // jjwt 제거 완료 — Auth 서버가 JWT 발급, 학심정은 JWKS 공개키로 검증 (oauth2-resource-server)
-
     // ===== Notification Phase 2 — Redis Pub/Sub + ShedLock =====
-    // 토글로 켜고 끄는 구조이므로 의존성 자체는 항상 포함.
-    // 토글 OFF 시 RedisAutoConfiguration 빈은 등록되지만 Lettuce가 lazy connect라
-    // 실제 Redis 미가용 환경에서도 startup 안 깨짐. 기동 회귀 확인 필수.
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-    implementation 'net.javacrumbs.shedlock:shedlock-spring:4.46.0'
-    implementation 'net.javacrumbs.shedlock:shedlock-provider-jdbc-template:4.46.0'
+    // 7.x: Spring Boot 4.x 정식 지원 라인 (5.x는 Boot 3.x 전용)
+    // 메타 코드는 withJdbcTemplate / usingDbTime 만 사용 — 5→7 코드 변경 0건
+    implementation 'net.javacrumbs.shedlock:shedlock-spring:7.7.0'
+    implementation 'net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.7.0'
 
     // ===== Test =====
     testImplementation('org.springframework.boot:spring-boot-starter-test') {
@@ -119,19 +123,17 @@ dependencies {
         exclude group: 'ch.qos.logback', module: 'logback-core'
         exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
     }
-    testImplementation('org.springframework.security:spring-security-test') {
-        exclude group: 'ch.qos.logback', module: 'logback-classic'
-        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
-    }
-    testImplementation 'org.mockito:mockito-core:3.12.4'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
-}
+    // spring-security-test 제거 — 메타 test 디렉토리에서 미사용 (@WithMockUser/SecurityMockMvc 등 0건)
+    // Boot 4: TestRestTemplate 이 별도 모듈로 분리됨 (신규 SecuritySwaggerSmokeTest 에서 사용)
+    testImplementation 'org.springframework.boot:spring-boot-resttestclient'
+    // JUnit Jupiter / Mockito — Spring Boot 4 BOM 이 관리하는 버전 사용 (명시 핀고정 시 Boot 4 의
+    // SpringExtension 이 요구하는 ExtensionContext$Store#computeIfAbsent 3-arg 시그니처와 불일치 발생).
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
 
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
-    }
+    // mockitoAgent: jvmArgs 로 -javaagent 주입에 사용 (transitive=false 로 byte-buddy 등 차단)
+    mockitoAgent('org.mockito:mockito-core') { transitive = false }
 }
 
 sourceSets {
@@ -144,6 +146,8 @@ sourceSets {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // JDK 21+ dynamic agent loading 차단 회피 (Mockito 공식 권장, mypage 검증 패턴)
+    jvmArgs("-javaagent:${configurations.mockitoAgent.asPath}")
 }
 
 bootRun {

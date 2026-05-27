@@ -119,4 +119,18 @@
 
     <!-- updatePassword 제거 — SSO 전환 후 password 컬럼 없음 -->
 
+    <update id="markWithdrawn">
+        /* UserMapper.markWithdrawn */
+        UPDATE `user`
+        SET status      = 'WITHDRAWN',
+            email       = CONCAT('withdrawn+', user_no, '@deleted.local'),
+            nickname    = '탈퇴한 회원',
+            tc_id       = NULL,
+            stdt_id     = NULL,
+            sp_user_id  = NULL,
+            updated_by  = 0,
+            updated_at  = NOW()
+        WHERE user_no = #{userNo}
+    </update>
+
 </mapper>

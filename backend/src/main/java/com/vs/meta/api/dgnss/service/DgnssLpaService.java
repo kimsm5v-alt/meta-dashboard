@@ -1,7 +1,8 @@
 package com.vs.meta.api.dgnss.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,7 +11,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -241,7 +242,7 @@ public class DgnssLpaService {
 
         Map<String, List<Double>> meansByTypeName = new LinkedHashMap<>();
         JsonNode meansNode = schoolNode.path("means");
-        meansNode.fields().forEachRemaining(entry -> meansByTypeName.put(entry.getKey(), readDoubleArray(entry.getValue())));
+        meansNode.properties().forEach(entry -> meansByTypeName.put(entry.getKey(), readDoubleArray(entry.getValue())));
 
         List<Double> variances = readDoubleArray(schoolNode.path("variances"));
         Map<String, Double> priorsByTypeName = readDoubleMap(schoolNode.path("priors"));
@@ -323,14 +324,14 @@ public class DgnssLpaService {
             return result;
         }
 
-        objectNode.fields().forEachRemaining(entry -> result.put(entry.getKey(), entry.getValue().asDouble(0D)));
+        objectNode.properties().forEach(entry -> result.put(entry.getKey(), entry.getValue().asDouble(0D)));
         return result;
     }
 
     private String writeJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             throw new java.lang.IllegalStateException("Failed to serialize LPA result.", e);
         }
     }

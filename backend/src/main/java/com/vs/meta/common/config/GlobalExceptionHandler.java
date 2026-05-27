@@ -12,8 +12,10 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -130,6 +132,17 @@ public class GlobalExceptionHandler {
     // 실제로는 클라이언트의 잘못된 호출이라 사용자/FE 에 정확한 원인 전달 필요.
     // 로그도 ERROR → WARN 으로 다운그레이드 (운영 알람 정확화).
     // ─────────────────────────────────────────────────────
+
+    /**
+     * 404 — 정적 리소스 미존재. 브라우저가 자동 요청하는 favicon.ico / apple-touch-icon.png 등.
+     * Boot 3.2+ 부터 정적 리소스 404 가 {@link NoResourceFoundException} 으로 통일되어 예외로 던져지는데,
+     * 운영상 의미 없는 노이즈라 ERROR → DEBUG 로 다운그레이드. 응답은 빈 404.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public void handleNoResourceFound(NoResourceFoundException e) {
+        log.debug("Static resource not found: {}", e.getResourcePath());
+    }
 
     /** 405 — 지원하지 않는 HTTP method (예: PUT 으로 호출했는데 컨트롤러는 PATCH 만 정의) */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

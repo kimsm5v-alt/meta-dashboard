@@ -9,3 +9,18 @@ qch:
   base-url: ${QCH_BASE_URL:https://qch.vsaidt.com}
   service-key: ${QCH_SERVICE_KEY:meta-api}
   env: ${QCH_ENV:PROD}
+
+# ===== 알림 Pub/Sub + ShedLock (prod: ON) =====
+# 사전조건: Redis 인프라(Pub/Sub) + MySQL shedlock 테이블.
+notification:
+  pubsub:
+    enabled: true
+  shedlock:
+    enabled: true
+
+# ===== SSO 이벤트 폴링 (prod: ON) =====
+# 사전조건: sso_poll_cursor 테이블 초기 INSERT(운영 SSO 전환일) + IdP events:read scope 부여.
+# 분산락은 위 notification.shedlock 의 LockProvider 공유 (pollSsoEvents 락).
+sso:
+  poll:
+    enabled: true

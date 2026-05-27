@@ -124,4 +124,17 @@
           AND NOT (nickname &lt;=&gt; #{nickname} AND email &lt;=&gt; #{email})
     </update>
 
+    <update id="withdrawByUserNo">
+        /* GroupMemberMapper.withdrawByUserNo */
+        UPDATE group_member
+        SET status     = 'WITHDRAWN',
+            nickname   = '탈퇴한 회원',
+            email      = NULL,
+            left_at    = NOW(),
+            updated_by = 0,
+            updated_at = NOW()
+        WHERE user_no = #{userNo}
+          AND status NOT IN ('LEFT', 'KICKED', 'ARCHIVED', 'WITHDRAWN')
+    </update>
+
 </mapper>

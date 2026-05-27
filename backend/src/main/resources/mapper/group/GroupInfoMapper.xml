@@ -98,4 +98,14 @@
         SELECT COUNT(*) FROM group_info WHERE use_yn = 'Y'
     </select>
 
+    <update id="deactivateByHostUserNo">
+        /* GroupInfoMapper.deactivateByHostUserNo */
+        UPDATE group_info
+        SET use_yn     = 'N',
+            updated_by = 0,
+            updated_at = NOW()
+        WHERE host_user_no = #{hostUserNo}
+          AND use_yn = 'Y'
+    </update>
+
 </mapper>
