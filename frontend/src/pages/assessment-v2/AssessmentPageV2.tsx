@@ -611,7 +611,6 @@ export const AssessmentPageV2 = () => {
           group={selectedGroup}
           members={members}
           allGroups={groups}
-          activeStudentCount={activeStudentCount}
           onBack={handleBack}
           onSwitchGroup={handleSwitchGroup}
           onEditGroup={handleEditGroup}

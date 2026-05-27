@@ -25,7 +25,6 @@ interface GroupDetailViewProps {
   group: GroupWithExamState;
   members: GroupMember[];
   allGroups: GroupWithExamState[];
-  activeStudentCount: number;
   onBack: () => void;
   onSwitchGroup: (groupId: string) => void;
   onEditGroup: (group: GroupWithExamState) => void;
@@ -48,7 +47,6 @@ export const GroupDetailView = ({
   group,
   members,
   allGroups,
-  activeStudentCount,
   onBack,
   onSwitchGroup,
   onEditGroup,
@@ -240,7 +238,6 @@ export const GroupDetailView = ({
                     slotDef={slotDef}
                     slotState={slotState}
                     allSlots={group.examSlots}
-                    activeStudentCount={activeStudentCount}
                     onStartExam={onStartExam}
                     onEndExam={onEndExam}
                     onCancelExam={onCancelExam}
