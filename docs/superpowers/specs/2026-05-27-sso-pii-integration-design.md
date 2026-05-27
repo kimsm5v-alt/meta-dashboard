@@ -90,7 +90,7 @@ develop SSO 코드가 DROP 된 컬럼(email/nickname)을 참조 → PII 없는 �
 | 2 | `SsoUserWithdrawalService` 로그 | `PiiMasker.email(user.getEmail())` | `user.getEmail()`(필드 없음) → sp_user_id 마스킹 로그 |
 | 3 | `GroupMemberMapper.xml withdrawByUserNo` | `SET status, nickname='탈퇴한 회원', email=NULL, left_at` | nickname/email SET 제거 → `status, left_at` 만 |
 | 4 | `UserMapper.xml markWithdrawn` | `SET status, email=CONCAT(...), nickname='탈퇴한 회원', tc_id=NULL, stdt_id=NULL, sp_user_id=NULL` | email/nickname SET 제거 → `status, tc_id=NULL, stdt_id=NULL, sp_user_id=NULL` |
-| 5 | `DgnssMapper.xml` `gm.gender` 26줄 (~20개 쿼리) | `gm.gender AS MEM_GENDER`, `CASE WHEN gm.gender='M'...` 등 | **gender 표시 폐기** — `group_member.gender` 컬럼 DROP 됨 + Auth 미반환이라 enrich 불가. CASE/SELECT 제거, 응답 키(MEM_GENDER/gender)는 빈 문자열 또는 키 제거(FE 확인 필요) |
+| 5 | `DgnssMapper.xml` `gm.gender` 26줄 (~20개 쿼리) | `gm.gender AS MEM_GENDER`, `CASE WHEN gm.gender='M'...` 등 | **gender 출력 키 완전 제거** — 컬럼 DROP + Auth 미반환. **FE 미사용 확인됨**(`MEM_GENDER`/`MEM_GENDER_NM` FE 0건, 소문자 gender 는 그룹멤버/입력폼 별도 경로 + 옵셔널 처리). CASE/SELECT 라인 삭제 |
 
 > `sp_user_id=NULL` 은 유지 — 탈퇴 row 의 SP 매핑을 떼어내는 게 인격분리 핵심.
 
