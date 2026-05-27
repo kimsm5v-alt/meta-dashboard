@@ -72,6 +72,7 @@ public class SsoEventPollService {
 
         int limit = props.getLimit();
         LocalDateTime since = cursor.getLastSince();
+        LocalDateTime finalCursor = since;
         int totalProcessed = 0;
 
         for (int page = 0; page < MAX_PAGES; page++) {
@@ -85,6 +86,7 @@ public class SsoEventPollService {
 
             // 페이지마다 cursor 전진 — 중단/장애 시에도 진행분 보존(멱등)
             cursorMapper.updateCursor(feedType, resp.nextSince(), LocalDateTime.now(), resp.items().size());
+            finalCursor = resp.nextSince();
 
             if (resp.items().size() < limit) {
                 break; // 끝까지 받음
@@ -92,9 +94,9 @@ public class SsoEventPollService {
             since = resp.nextSince();
         }
 
-        if (totalProcessed > 0) {
-            log.info("[SSO-POLL] {} 처리 완료: 탈퇴 cascade {}건", feedType, totalProcessed);
-        }
+        // 매 사이클 요약 1줄 — 신규 0건이어도 찍어서 폴링 동작 여부를 로그로 확인 가능하게.
+        log.info("[SSO-POLL] {} 폴링 완료: 신규 탈퇴 cascade {}건, cursor={}",
+                feedType, totalProcessed, finalCursor);
     }
 
     /** 토큰 만료(401) 시 1회 재발급 후 재시도. */
