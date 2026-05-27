@@ -20,6 +20,7 @@ interface ExamTimelineCardProps {
   slotDef: ExamSlotDefinition;
   slotState?: ExamSlotState;
   allSlots: ExamSlotState[];
+  activeStudentCount: number;
   onStartExam: (slotId: string) => void;
   onEndExam: (slotId: string, dgnssId: number) => void;
   onCancelExam: (slotId: string, dgnssId: number) => void;
@@ -33,6 +34,7 @@ export const ExamTimelineCard = ({
   slotDef,
   slotState,
   allSlots,
+  activeStudentCount,
   onStartExam,
   onEndExam,
   onCancelExam,
@@ -201,6 +203,7 @@ export const ExamTimelineCard = ({
           slotId={slotDef.id}
           dgnssId={slotState?.dgnssId}
           submittedCount={slotState?.submittedCount ?? 0}
+          activeStudentCount={activeStudentCount}
           onStartExam={onStartExam}
           onEndExam={onEndExam}
           onCancelExam={onCancelExam}
@@ -233,6 +236,7 @@ interface ActionButtonsProps {
   slotId: string;
   dgnssId?: number;
   submittedCount: number;
+  activeStudentCount: number;
   onStartExam: (slotId: string) => void;
   onEndExam: (slotId: string, dgnssId: number) => void;
   onCancelExam: (slotId: string, dgnssId: number) => void;
@@ -245,6 +249,7 @@ const ActionButtons = ({
   slotId,
   dgnssId,
   submittedCount,
+  activeStudentCount,
   onStartExam,
   onEndExam,
   onCancelExam,
@@ -254,7 +259,10 @@ const ActionButtons = ({
   switch (status) {
     case 'not_started':
       return (
-        <button className="btn sm primary" onClick={() => onStartExam(slotId)}>
+        <button
+          className="btn sm primary"
+          onClick={() => onStartExam(slotId)}
+        >
           <Play size={12} />
           검사 시작
         </button>
