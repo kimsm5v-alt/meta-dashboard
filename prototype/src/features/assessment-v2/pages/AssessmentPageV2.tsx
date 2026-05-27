@@ -12,7 +12,13 @@ import {
   GroupDetailView,
   GroupFormModal,
   DeleteGroupModal,
+  CancelExamModal,
+  EndExamModal,
+  NoStudentModal,
+  Toast,
+  QRCodeModal,
 } from '../components';
+import type { ToastType } from '../components';
 import { EXAM_SLOTS } from '../constants';
 import type {
   GroupWithExamState,
@@ -366,6 +372,47 @@ export const AssessmentPageV2: React.FC = () => {
   const [modalGroup, setModalGroup] = useState<GroupWithExamState | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // 토스트 상태
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+
+  // QR 모달 상태
+  const [showQRModal, setShowQRModal] = useState(false);
+
+  // 검사 취소 확인 모달 상태
+  const [cancelExamModal, setCancelExamModal] = useState<{
+    isOpen: boolean;
+    slotId: string | null;
+    dgnssId: number | null;
+    examName: string;
+    submittedCount: number;
+  }>({
+    isOpen: false,
+    slotId: null,
+    dgnssId: null,
+    examName: '',
+    submittedCount: 0,
+  });
+
+  // 검사 종료 확인 모달 상태
+  const [endExamModal, setEndExamModal] = useState<{
+    isOpen: boolean;
+    slotId: string | null;
+    dgnssId: number | null;
+    examName: string;
+    submittedCount: number;
+    totalCount: number;
+  }>({
+    isOpen: false,
+    slotId: null,
+    dgnssId: null,
+    examName: '',
+    submittedCount: 0,
+    totalCount: 0,
+  });
+
+  // 학생 없음 모달 상태
+  const [showNoStudentModal, setShowNoStudentModal] = useState(false);
+
   // 선택된 그룹
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
 
@@ -608,7 +655,7 @@ export const AssessmentPageV2: React.FC = () => {
       // 개발 환경: Mock
       if (isDev) {
         console.log('Mock: Invite member', email, 'to group', selectedGroupId);
-        alert(`${email}로 초대 이메일을 발송했습니다. (Mock)`);
+        setToast({ message: `${email}로 초대 이메일을 발송했습니다`, type: 'success' });
         return;
       }
 
@@ -617,8 +664,10 @@ export const AssessmentPageV2: React.FC = () => {
         { groupId: selectedGroupId, email },
         user.id
       );
+      setToast({ message: `${email}로 초대 이메일을 발송했습니다`, type: 'success' });
     } catch (err) {
       console.error('Failed to invite member:', err);
+      setToast({ message: '초대 이메일 발송에 실패했습니다', type: 'error' });
     }
   };
 
@@ -667,18 +716,19 @@ export const AssessmentPageV2: React.FC = () => {
   const handleCopyInviteCode = () => {
     if (!selectedGroup) return;
     navigator.clipboard.writeText(selectedGroup.inviteCode);
-    // TODO: 토스트 메시지
+    setToast({ message: '초대 코드가 복사되었습니다', type: 'success' });
   };
 
   const handleShowQR = () => {
-    // TODO: QR 모달
+    if (!selectedGroup) return;
+    setShowQRModal(true);
   };
 
   const handleCopyInviteLink = () => {
     if (!selectedGroup) return;
     const link = `${window.location.origin}/join/${selectedGroup.inviteCode}`;
     navigator.clipboard.writeText(link);
-    // TODO: 토스트 메시지
+    setToast({ message: '초대 링크가 복사되었습니다', type: 'success' });
   };
 
   // ============================================================
@@ -686,18 +736,86 @@ export const AssessmentPageV2: React.FC = () => {
   // ============================================================
 
   const handleStartExam = (slotId: string) => {
+    // 학생 수 체크
+    if (!selectedGroup || selectedGroup.activeMemberCount === 0) {
+      setShowNoStudentModal(true);
+      return;
+    }
+
     console.log('Start exam:', slotId);
     // TODO: 검사 시작 API
   };
 
   const handleEndExam = (slotId: string, dgnssId: number) => {
+    // 검사 정보 찾기
+    const slot = selectedGroup?.examSlots?.find((s) => s.slotId === slotId);
+    const slotDef = EXAM_SLOTS.find((s) => s.id === slotId);
+
+    if (!slot || !slotDef) return;
+
+    // 종료 확인 모달 열기
+    setEndExamModal({
+      isOpen: true,
+      slotId,
+      dgnssId,
+      examName: slotDef.title,
+      submittedCount: slot.submittedCount || 0,
+      totalCount: slot.totalCount || 0,
+    });
+  };
+
+  const handleConfirmEndExam = () => {
+    const { slotId, dgnssId } = endExamModal;
+    if (!slotId || !dgnssId) return;
+
     console.log('End exam:', slotId, dgnssId);
-    // TODO: 검사 종료 API
+    // TODO: 검사 종료 API 호출
+
+    setEndExamModal({
+      isOpen: false,
+      slotId: null,
+      dgnssId: null,
+      examName: '',
+      submittedCount: 0,
+      totalCount: 0,
+    });
+
+    setToast({ message: '검사가 종료되었습니다', type: 'success' });
   };
 
   const handleCancelExam = (slotId: string, dgnssId: number) => {
+    // 검사 정보 찾기
+    const slot = selectedGroup?.examSlots?.find((s) => s.slotId === slotId);
+    const slotDef = EXAM_SLOTS.find((s) => s.id === slotId);
+
+    if (!slot || !slotDef) return;
+
+    // 취소 확인 모달 열기
+    setCancelExamModal({
+      isOpen: true,
+      slotId,
+      dgnssId,
+      examName: slotDef.title,
+      submittedCount: slot.submittedCount || 0,
+    });
+  };
+
+  const handleConfirmCancelExam = () => {
+    const { slotId, dgnssId } = cancelExamModal;
+    if (!slotId || !dgnssId) return;
+
     console.log('Cancel exam:', slotId, dgnssId);
-    // TODO: 검사 취소 API
+    // TODO: 검사 취소 API 호출
+
+    setCancelExamModal({
+      isOpen: false,
+      slotId: null,
+      dgnssId: null,
+      examName: '',
+      submittedCount: 0,
+    });
+
+    setToast({ message: '검사가 취소되었습니다', type: 'success' });
   };
 
   const handleViewResult = (slotId: string, dgnssId: number) => {
@@ -797,6 +915,67 @@ export const AssessmentPageV2: React.FC = () => {
           onClose={handleCloseModal}
           onConfirm={handleConfirmDelete}
           isLoading={isProcessing}
+        />
+      )}
+
+      {/* QR 코드 모달 */}
+      {selectedGroup && (
+        <QRCodeModal
+          isOpen={showQRModal}
+          inviteCode={selectedGroup.inviteCode}
+          groupName={selectedGroup.name}
+          onClose={() => setShowQRModal(false)}
+        />
+      )}
+
+      {/* 검사 취소 확인 모달 */}
+      <CancelExamModal
+        isOpen={cancelExamModal.isOpen}
+        examName={cancelExamModal.examName}
+        submittedCount={cancelExamModal.submittedCount}
+        onClose={() =>
+          setCancelExamModal({
+            isOpen: false,
+            slotId: null,
+            dgnssId: null,
+            examName: '',
+            submittedCount: 0,
+          })
+        }
+        onConfirm={handleConfirmCancelExam}
+      />
+
+      {/* 검사 종료 확인 모달 */}
+      <EndExamModal
+        isOpen={endExamModal.isOpen}
+        examName={endExamModal.examName}
+        submittedCount={endExamModal.submittedCount}
+        totalCount={endExamModal.totalCount}
+        onClose={() =>
+          setEndExamModal({
+            isOpen: false,
+            slotId: null,
+            dgnssId: null,
+            examName: '',
+            submittedCount: 0,
+            totalCount: 0,
+          })
+        }
+        onConfirm={handleConfirmEndExam}
+      />
+
+      {/* 학생 없음 모달 */}
+      <NoStudentModal
+        isOpen={showNoStudentModal}
+        onClose={() => setShowNoStudentModal(false)}
+      />
+
+      {/* 토스트 메시지 */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
     </div>

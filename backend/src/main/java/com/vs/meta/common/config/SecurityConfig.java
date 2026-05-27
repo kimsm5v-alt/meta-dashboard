@@ -2,11 +2,13 @@ package com.vs.meta.common.config;
 
 import tools.jackson.databind.ObjectMapper;
 import com.vs.meta.common.security.SpAuthenticatedUser;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -35,6 +37,7 @@ import java.util.Map;
  *
  * <p>CORS 는 {@link CorsConfig#corsConfigurationSource()} Bean 을 자동 인식.
  */
+@Slf4j
 @EnableWebSecurity
 @Configuration
 public class SecurityConfig {
@@ -168,6 +171,19 @@ public class SecurityConfig {
             })
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((request, response, authException) -> {
+                    // JWT 검증 실패 사유를 운영 로그에 노출 — 만료/aud 불일치/issuer 불일치/JWKS 등
+                    // 식별을 위해 WARN 로 사유 + cause 까지 남긴다. 사용자 식별자는 MDC 의 sp_user_id 로 추적.
+                    String reason = authException.getMessage();
+                    String causeMsg = authException.getCause() != null
+                            ? authException.getCause().getMessage() : null;
+                    log.warn("[AUTH] 401: path={}, reason={}, cause={}",
+                            request.getRequestURI(), reason, causeMsg);
+
+                    // RFC 6750 — 클라이언트 측에서도 사유 식별 가능하도록 WWW-Authenticate 헤더 보강
+                    String safeReason = reason != null ? reason.replace("\"", "'") : "authentication required";
+                    response.setHeader(HttpHeaders.WWW_AUTHENTICATE,
+                            "Bearer error=\"invalid_token\", error_description=\"" + safeReason + "\"");
+
                     response.setStatus(HttpStatus.UNAUTHORIZED.value());
                     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                     response.setCharacterEncoding("UTF-8");

@@ -216,6 +216,7 @@
 		  		INNER JOIN group_member gm_other
 		  			ON gi_other.group_id = gm_other.group_id
 		  			AND gm_other.stdt_id = tdri_other1.stdt_id
+		  			AND gm_other.status = 'ACTIVE'
 		  	WHERE tdi_other1.ord_no = 1
 		  	  AND tdi_other1.paper_idx = #{paperIdx}
 		  	  AND tdi_other1.cla_id != #{claId}
@@ -283,6 +284,7 @@
 								INNER JOIN group_member gm_o
 									ON gi_o.group_id = gm_o.group_id
 									AND gm_o.stdt_id = tdri_o1.stdt_id
+										AND gm_o.status = 'ACTIVE'
 							WHERE tdi_o1.ord_no = 1
 							  AND tdi_o1.paper_idx = #{paperIdx}
 							  AND tdi_o1.cla_id <![CDATA[<>]]> #{claId}
@@ -1003,12 +1005,6 @@
 		SELECT DM.stdt_id,
 		       gm.member_no                            AS CLASS_NO,
 		       u.sp_user_id                            AS memberSpUserId,
-		       gm.gender                               AS MEM_GENDER,
-		       CASE
-		         WHEN gm.gender = 'M' THEN '남자'
-		         WHEN gm.gender = 'F' THEN '여자'
-		         ELSE ''
-		       END                                     AS MEM_GENDER_NM,
 		       CASE
 		         WHEN DA.repeated_response_yn = 'Y' THEN '주의'
 		         ELSE '양호'
@@ -1682,7 +1678,6 @@
 		/* DgnssMapper.getDgnssReportValidity */
 		SELECT u.sp_user_id AS memberSpUserId
 		  ,  DM.stdt_id AS MEM_ID
-		  ,  gm.gender AS MEM_GENDER
 		  ,  DM.id
 		  ,  DA.COCH_DGNSS_QESITM01_MARK
 		  ,  DA.COCH_DGNSS_QESITM02_MARK
@@ -2232,11 +2227,6 @@
 				WHEN c1.LS_ANS05 = 4 THEN '상담 전문가'
 				WHEN c1.LS_ANS05 = 5 THEN '기타'
 			END cnsl
-			, CASE
-				WHEN gm.gender = 'M' THEN '남자'
-				WHEN gm.gender = 'F' THEN '여자'
-				ELSE ''
-			END AS gender
 			, c1.ANSWER_IDX AS answerIdx
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
@@ -2275,7 +2265,6 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-01-02-02-0') AS '10-22-01-02-02-0'
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-01-02-03-0') AS '10-22-01-02-03-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-01-02-04-0') AS '10-22-01-02-04-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2315,7 +2304,6 @@
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-02-02-03-0') AS '10-22-02-02-03-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-02-02-04-0') AS '10-22-02-02-04-0'
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-02-02-05-0') AS '10-22-02-02-05-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2358,7 +2346,6 @@
 			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '10-22-04-02-01-0') AS '10-22-04-02-01-0'
 			, (SELECT IF(ROUND(b1_12.T_SCORE) < 0, 0, ROUND(b1_12.T_SCORE)) FROM tb_dgnss_answer_report b1_12 WHERE b1_12.ANSWER_IDX = c1.ANSWER_IDX AND b1_12.SECTION_ID = '10-22-04-02-02-0') AS '10-22-04-02-02-0'
 			, (SELECT IF(ROUND(b1_13.T_SCORE) < 0, 0, ROUND(b1_13.T_SCORE)) FROM tb_dgnss_answer_report b1_13 WHERE b1_13.ANSWER_IDX = c1.ANSWER_IDX AND b1_13.SECTION_ID = '10-22-04-02-03-0') AS '10-22-04-02-03-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2395,7 +2382,6 @@
 			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-03-03-0-0') AS '10-22-03-03-0-0'
 			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-03-03-01-0') AS '10-22-03-03-01-0'
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-03-03-02-0') AS '10-22-03-03-02-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2435,7 +2421,6 @@
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-05-01-01-0') AS '10-22-05-01-01-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-05-01-02-0') AS '10-22-05-01-02-0'
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-05-01-03-0') AS '10-22-05-01-03-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2474,7 +2459,6 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-01-02-01-0') AS gradeLvl
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-01-02-02-0') AS styLvl
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-01-02-03-0') AS failLvl
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2513,7 +2497,6 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-02-02-01-0') AS compreSkil
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-02-02-02-0') AS intenSkil
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-02-02-03-0') AS memrySkil
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2554,7 +2537,6 @@
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-03-02-03-0') AS styAtti
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '20-22-03-02-04-0') AS note
 			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '20-22-03-02-05-0') AS test
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2622,11 +2604,6 @@
 				WHEN c1.LS_ANS05 = 4 THEN '상담 전문가'
 				WHEN c1.LS_ANS05 = 5 THEN '기타'
 			END cnsl
-			, CASE
-				WHEN gm.gender = 'M' THEN '남자'
-				WHEN gm.gender = 'F' THEN '여자'
-				ELSE ''
-			END AS gender
 			, c1.ANSWER_IDX AS answerIdx
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
@@ -2671,7 +2648,6 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-01-02-02-0') AS '10-22-01-02-02-0'
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-01-02-03-0') AS '10-22-01-02-03-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-01-02-04-0') AS '10-22-01-02-04-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2717,7 +2693,6 @@
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-02-02-03-0') AS '10-22-02-02-03-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-02-02-04-0') AS '10-22-02-02-04-0'
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-02-02-05-0') AS '10-22-02-02-05-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2766,7 +2741,6 @@
 			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '10-22-04-02-01-0') AS '10-22-04-02-01-0'
 			, (SELECT IF(ROUND(b1_12.T_SCORE) < 0, 0, ROUND(b1_12.T_SCORE)) FROM tb_dgnss_answer_report b1_12 WHERE b1_12.ANSWER_IDX = c1.ANSWER_IDX AND b1_12.SECTION_ID = '10-22-04-02-02-0') AS '10-22-04-02-02-0'
 			, (SELECT IF(ROUND(b1_13.T_SCORE) < 0, 0, ROUND(b1_13.T_SCORE)) FROM tb_dgnss_answer_report b1_13 WHERE b1_13.ANSWER_IDX = c1.ANSWER_IDX AND b1_13.SECTION_ID = '10-22-04-02-03-0') AS '10-22-04-02-03-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2809,7 +2783,6 @@
 			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-03-03-0-0') AS '10-22-03-03-0-0'
 			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-03-03-01-0') AS '10-22-03-03-01-0'
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-03-03-02-0') AS '10-22-03-03-02-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2855,7 +2828,6 @@
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-05-01-01-0') AS '10-22-05-01-01-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-05-01-02-0') AS '10-22-05-01-02-0'
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-05-01-03-0') AS '10-22-05-01-03-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2900,7 +2872,6 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-01-02-01-0') AS gradeLvl
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-01-02-02-0') AS styLvl
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-01-02-03-0') AS failLvl
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2945,7 +2916,6 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-02-02-01-0') AS compreSkil
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-02-02-02-0') AS intenSkil
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-02-02-03-0') AS memrySkil
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -2992,7 +2962,6 @@
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-03-02-03-0') AS styAtti
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '20-22-03-02-04-0') AS note
 			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '20-22-03-02-05-0') AS test
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -3055,11 +3024,6 @@
 		, b1.DGNSS_ORD AS ordNo
 		, a1_1.paper_idx AS paperIdx
 		, a1_1.cla_id AS claId
-			, CASE
-				WHEN gm.gender = 'M' THEN '남자'
-				WHEN gm.gender = 'F' THEN '여자'
-				ELSE ''
-			END AS gender
 			, CASE
 				WHEN gi.school_level = 'elementary' THEN '초등'
 				WHEN gi.school_level = 'middle' THEN '중등'

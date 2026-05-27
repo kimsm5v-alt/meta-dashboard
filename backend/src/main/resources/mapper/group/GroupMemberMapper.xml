@@ -93,4 +93,15 @@
     </select>
 
 
+    <update id="withdrawByUserNo">
+        /* GroupMemberMapper.withdrawByUserNo */
+        UPDATE group_member
+        SET status     = 'WITHDRAWN',
+            left_at    = NOW(),
+            updated_by = 0,
+            updated_at = NOW()
+        WHERE user_no = #{userNo}
+          AND status NOT IN ('LEFT', 'KICKED', 'ARCHIVED', 'WITHDRAWN')
+    </update>
+
 </mapper>

@@ -142,6 +142,16 @@ superplatform:
       connect-timeout-ms: 2000
       read-timeout-ms: 3000
 
+# ===== SSO 이벤트 폴링 (IdP 탈퇴/연결끊기 cascade) =====
+# enabled : 폴링 활성화. 기본 false — 운영/개발에서 ENV 로 켠다 (점진 배포).
+#           사전조건: IdP oauth2_client.scopes 에 events:read 부여 + sso_poll_cursor 테이블 초기 INSERT.
+# limit   : 1회 폴링 page size (IdP max 1000).
+# 주기는 SsoEventPollingScheduler 의 @Scheduled cron 고정 (15분).
+sso:
+  poll:
+    enabled: ${SSO_POLL_ENABLED:false}
+    limit: ${SSO_POLL_LIMIT:500}
+
 key:
   salt:
     main: ${KEY_SALT_MAIN:}
