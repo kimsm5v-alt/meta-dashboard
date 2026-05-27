@@ -1,5 +1,5 @@
 import '@app/styles/vj.css';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { Loader2 } from 'lucide-react';
@@ -12,6 +12,7 @@ import {
   DeleteGroupModal,
 } from '@features/assessment-v2/ui';
 import { ExamStartPreviewModal } from '@features/assessment/ui';
+import { AlertModal } from '@shared/ui/AlertModal/AlertModal';
 import { EXAM_SLOTS } from '@features/assessment-v2/constants';
 import { getExamSlots } from '@features/assessment-v2/api/examSlotService';
 import {
@@ -62,7 +63,12 @@ const buildGroupWithExamState = (group: Group, examSlots: ExamSlotState[]): Grou
 });
 
 const emptySlots = (): ExamSlotState[] =>
-  EXAM_SLOTS.map((def) => ({ slotId: def.id, status: 'not_started' as const, submittedCount: 0, totalCount: 0 }));
+  EXAM_SLOTS.map((def) => ({
+    slotId: def.id,
+    status: 'not_started' as const,
+    submittedCount: 0,
+    totalCount: 0,
+  }));
 
 // ============================================================
 // 스타일
@@ -73,13 +79,20 @@ const Wrapper = styled.div`
 `;
 
 const LoadingBox = styled.div`
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 60vh;
 `;
 
 const ErrorBox = styled.div`
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  min-height: 60vh; text-align: center; gap: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  gap: 14px;
 `;
 
 // ============================================================
@@ -119,7 +132,23 @@ export const AssessmentPageV2 = () => {
     pendingPaperIdx: null,
   });
 
+  // HSJ-70, HSJ-66: 알럿/확인 모달
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm?: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+  });
+
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
+
+  const activeStudentCount = useMemo(() => {
+    return members.filter((m) => m.status === 'active').length;
+  }, [members]);
 
   // ============================================================
   // 데이터 로딩
@@ -149,17 +178,20 @@ export const AssessmentPageV2 = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, [user]);
 
-  const loadMembers = useCallback(async (groupId: string) => {
-    if (!user?.id) return;
-    try {
-      const result = await getGroupDetail(groupId, user.id);
-      setMembers(result?.members ?? []);
-    } catch {
-      setMembers([]);
-    }
-  }, [user?.id]);
+  const loadMembers = useCallback(
+    async (groupId: string) => {
+      if (!user?.id) return;
+      try {
+        const result = await getGroupDetail(groupId, user.id);
+        setMembers(result?.members ?? []);
+      } catch {
+        setMembers([]);
+      }
+    },
+    [user],
+  );
 
   useEffect(() => {
     loadGroups();
@@ -178,8 +210,7 @@ export const AssessmentPageV2 = () => {
     } else {
       navigate('/assessment', { replace: true });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, urlGroupId]);
+  }, [isLoading, urlGroupId, groups, navigate]);
 
   useEffect(() => {
     if (selectedGroupId) loadMembers(selectedGroupId);
@@ -211,10 +242,22 @@ export const AssessmentPageV2 = () => {
   // 그룹 CRUD
   // ============================================================
 
-  const handleCreateGroup = () => { setModalGroup(null); setModalType('create_group'); };
-  const handleEditGroup = (group: GroupWithExamState) => { setModalGroup(group); setModalType('edit_group'); };
-  const handleDeleteGroup = (group: GroupWithExamState) => { setModalGroup(group); setModalType('delete_group'); };
-  const handleCloseModal = () => { setModalType(null); setModalGroup(null); };
+  const handleCreateGroup = () => {
+    setModalGroup(null);
+    setModalType('create_group');
+  };
+  const handleEditGroup = (group: GroupWithExamState) => {
+    setModalGroup(group);
+    setModalType('edit_group');
+  };
+  const handleDeleteGroup = (group: GroupWithExamState) => {
+    setModalGroup(group);
+    setModalType('delete_group');
+  };
+  const handleCloseModal = () => {
+    setModalType(null);
+    setModalGroup(null);
+  };
 
   const handleSubmitGroupForm = async (data: GroupFormData) => {
     if (!user?.id || !user?.name) return;
@@ -223,7 +266,14 @@ export const AssessmentPageV2 = () => {
     try {
       if (modalType === 'create_group') {
         const newGroup = await createGroup(
-          { name: data.name, schoolLevel: data.schoolLevel, grade: data.grade, classNumber: data.classNumber, description: data.description, schoolName: data.schoolName },
+          {
+            name: data.name,
+            schoolLevel: data.schoolLevel,
+            grade: data.grade,
+            classNumber: data.classNumber,
+            description: data.description,
+            schoolName: data.schoolName,
+          },
           user.id,
           user.name,
         );
@@ -233,12 +283,23 @@ export const AssessmentPageV2 = () => {
         setViewMode('detail');
         navigate(`/assessment/${newGroup.id}`);
       } else if (modalType === 'edit_group' && modalGroup) {
-        const updated = await updateGroup(modalGroup.id, { name: data.name, description: data.description, schoolName: data.schoolName }, user.id);
+        const updated = await updateGroup(
+          modalGroup.id,
+          { name: data.name, description: data.description, schoolName: data.schoolName },
+          user.id,
+        );
         if (updated) {
           setGroups((prev) =>
             prev.map((g) =>
               g.id === modalGroup.id
-                ? { ...g, ...updated, examSlots: g.examSlots, inProgressCount: g.inProgressCount, completedCount: g.completedCount, activeMemberCount: g.activeMemberCount }
+                ? {
+                    ...g,
+                    ...updated,
+                    examSlots: g.examSlots,
+                    inProgressCount: g.inProgressCount,
+                    completedCount: g.completedCount,
+                    activeMemberCount: g.activeMemberCount,
+                  }
                 : g,
             ),
           );
@@ -338,52 +399,75 @@ export const AssessmentPageV2 = () => {
   // 검사 액션
   // ============================================================
 
-  const doStartExam = useCallback(async (slotId: string, claId: string, ordNo: number, paperIdx: string) => {
-    if (!user?.id || !selectedGroup) return;
+  const doStartExam = useCallback(
+    async (slotId: string, claId: string, ordNo: number, paperIdx: string) => {
+      if (!user?.id || !selectedGroup) return;
 
-    try {
-      const res = await startExam(claId, user.id, ordNo, schoolLevelToGrade(selectedGroup.schoolLevel), paperIdx);
-      updateGroupSlot(selectedGroup.id, slotId, {
-        dgnssId: res.dgnssId,
-        status: 'in_progress',
-        submittedCount: res.stSubmCnt,
-        totalCount: res.stTotalCnt,
-        startDate: new Date(res.dgnssStDt),
-      });
-    } catch {
-      // noop
-    }
-  }, [user?.id, selectedGroup]);
+      try {
+        const res = await startExam(
+          claId,
+          user.id,
+          ordNo,
+          schoolLevelToGrade(selectedGroup.schoolLevel),
+          paperIdx,
+        );
+        updateGroupSlot(selectedGroup.id, slotId, {
+          dgnssId: res.dgnssId,
+          status: 'in_progress',
+          submittedCount: res.stSubmCnt,
+          totalCount: res.stTotalCnt,
+          startDate: new Date(res.dgnssStDt),
+        });
+      } catch {
+        // noop
+      }
+    },
+    [user, selectedGroup],
+  );
 
-  const handleStartExam = useCallback(async (slotId: string) => {
-    if (!selectedGroup) return;
+  const handleStartExam = useCallback(
+    async (slotId: string) => {
+      if (!selectedGroup) return;
 
-    const slotDef = EXAM_SLOTS.find((s) => s.id === slotId);
-    if (!slotDef) return;
-
-    const claId = selectedGroup.claId;
-    const { ordNo, paperIdx } = slotDef;
-
-    // 출제 전 사전 검증 (1·2회차 공통)
-    try {
-      const preview = await previewExamStart(claId, paperIdx, ordNo);
-      if (!preview.canStart || preview.blockedStudents.length > 0) {
-        setPreviewModal({
+      // HSJ-70: 학생이 없을 경우 팝업 표시
+      if (activeStudentCount === 0) {
+        setAlertModal({
           isOpen: true,
-          preview,
-          pendingSlotId: slotId,
-          pendingClaId: claId,
-          pendingOrdNo: ordNo,
-          pendingPaperIdx: paperIdx,
+          title: '그룹에 가입된 학생이 없습니다',
+          message:
+            '검사를 시작하려면 먼저 학생을 초대해주세요.\n코드 복사, QR코드, 링크 공유 기능으로 학생을 초대할 수 있습니다.',
         });
         return;
       }
-    } catch {
-      // 검증 실패 시 그냥 진행
-    }
 
-    await doStartExam(slotId, claId, ordNo, paperIdx);
-  }, [selectedGroup, doStartExam]);
+      const slotDef = EXAM_SLOTS.find((s) => s.id === slotId);
+      if (!slotDef) return;
+
+      const claId = selectedGroup.claId;
+      const { ordNo, paperIdx } = slotDef;
+
+      // 출제 전 사전 검증 (1·2회차 공통)
+      try {
+        const preview = await previewExamStart(claId, paperIdx, ordNo);
+        if (!preview.canStart || preview.blockedStudents.length > 0) {
+          setPreviewModal({
+            isOpen: true,
+            preview,
+            pendingSlotId: slotId,
+            pendingClaId: claId,
+            pendingOrdNo: ordNo,
+            pendingPaperIdx: paperIdx,
+          });
+          return;
+        }
+      } catch {
+        // 검증 실패 시 그냥 진행
+      }
+
+      await doStartExam(slotId, claId, ordNo, paperIdx);
+    },
+    [selectedGroup, activeStudentCount, doStartExam],
+  );
 
   const handlePreviewConfirm = useCallback(async () => {
     const { pendingSlotId, pendingClaId, pendingOrdNo, pendingPaperIdx } = previewModal;
@@ -393,45 +477,77 @@ export const AssessmentPageV2 = () => {
     }
   }, [previewModal, doStartExam]);
 
-  const handleEndExam = useCallback(async (slotId: string, dgnssId: number) => {
-    if (!selectedGroup) return;
-    try {
-      await endExam(dgnssId);
-      updateGroupSlot(selectedGroup.id, slotId, { status: 'completed', endDate: new Date() });
-    } catch {
-      // noop
-    }
-  }, [selectedGroup]);
+  const handleEndExam = useCallback(
+    async (slotId: string, dgnssId: number) => {
+      if (!selectedGroup) return;
 
-  const handleCancelExam = useCallback(async (slotId: string, dgnssId: number) => {
-    if (!selectedGroup) return;
-    try {
-      await cancelExam(dgnssId);
-      updateGroupSlot(selectedGroup.id, slotId, {
-        dgnssId: undefined,
-        status: 'not_started',
-        submittedCount: 0,
-        startDate: undefined,
-        endDate: undefined,
+      // HSJ-66: 검사 종료 확인 모달
+      setAlertModal({
+        isOpen: true,
+        title: '검사를 종료하시겠습니까?',
+        message:
+          '해당 검사를 종료하면 미제출자는 검사지를 제출할 수 없습니다.\n(제출자의 검사지만 결과에 포함됨)',
+        onConfirm: async () => {
+          try {
+            await endExam(dgnssId);
+            updateGroupSlot(selectedGroup.id, slotId, { status: 'completed', endDate: new Date() });
+          } catch {
+            // noop
+          }
+        },
       });
-    } catch {
-      // noop
-    }
-  }, [selectedGroup]);
+    },
+    [selectedGroup],
+  );
+
+  const handleCancelExam = useCallback(
+    async (slotId: string, dgnssId: number) => {
+      if (!selectedGroup) return;
+
+      // HSJ-66: 검사 취소 확인 모달
+      setAlertModal({
+        isOpen: true,
+        title: '검사를 취소하시겠습니까?',
+        message: '검사를 취소하면 제출자의 내역도 사라집니다.',
+        onConfirm: async () => {
+          try {
+            await cancelExam(dgnssId);
+            updateGroupSlot(selectedGroup.id, slotId, {
+              dgnssId: undefined,
+              status: 'not_started',
+              submittedCount: 0,
+              startDate: undefined,
+              endDate: undefined,
+            });
+          } catch {
+            // noop
+          }
+        },
+      });
+    },
+    [selectedGroup],
+  );
 
   const handleViewResult = (_slotId: string, _dgnssId: number) => {
     navigate('/dashboard');
   };
 
-  const handleRestartExam = useCallback(async (slotId: string, dgnssId: number) => {
-    if (!user?.id || !selectedGroup) return;
-    try {
-      await restartExam(dgnssId, selectedGroup.claId, schoolLevelToGrade(selectedGroup.schoolLevel));
-      updateGroupSlot(selectedGroup.id, slotId, { status: 'in_progress', endDate: undefined });
-    } catch {
-      // noop
-    }
-  }, [user?.id, selectedGroup]);
+  const handleRestartExam = useCallback(
+    async (slotId: string, dgnssId: number) => {
+      if (!user?.id || !selectedGroup) return;
+      try {
+        await restartExam(
+          dgnssId,
+          selectedGroup.claId,
+          schoolLevelToGrade(selectedGroup.schoolLevel),
+        );
+        updateGroupSlot(selectedGroup.id, slotId, { status: 'in_progress', endDate: undefined });
+      } catch {
+        // noop
+      }
+    },
+    [user, selectedGroup],
+  );
 
   const handleExcelUpload = useCallback(async (_slotId: string, dgnssId: number, file: File) => {
     try {
@@ -466,10 +582,7 @@ export const AssessmentPageV2 = () => {
     return (
       <ErrorBox>
         <p style={{ color: '#EF4444', margin: 0 }}>{error}</p>
-        <button
-          className="btn primary"
-          onClick={loadGroups}
-        >
+        <button className='btn primary' onClick={loadGroups}>
           다시 시도
         </button>
       </ErrorBox>
@@ -479,19 +592,18 @@ export const AssessmentPageV2 = () => {
   return (
     <Wrapper>
       {/* 리스트 뷰 또는 빈 상태 */}
-      {viewMode === 'list' && (
-        groups.length === 0
-          ? <EmptyState onCreateGroup={handleCreateGroup} />
-          : (
-            <GroupListView
-              groups={groups}
-              onSelectGroup={handleSelectGroup}
-              onCreateGroup={handleCreateGroup}
-              onEditGroup={handleEditGroup}
-              onDeleteGroup={handleDeleteGroup}
-            />
-          )
-      )}
+      {viewMode === 'list' &&
+        (groups.length === 0 ? (
+          <EmptyState onCreateGroup={handleCreateGroup} />
+        ) : (
+          <GroupListView
+            groups={groups}
+            onSelectGroup={handleSelectGroup}
+            onCreateGroup={handleCreateGroup}
+            onEditGroup={handleEditGroup}
+            onDeleteGroup={handleDeleteGroup}
+          />
+        ))}
 
       {/* 상세 뷰 */}
       {viewMode === 'detail' && selectedGroup && (
@@ -499,6 +611,7 @@ export const AssessmentPageV2 = () => {
           group={selectedGroup}
           members={members}
           allGroups={groups}
+          activeStudentCount={activeStudentCount}
           onBack={handleBack}
           onSwitchGroup={handleSwitchGroup}
           onEditGroup={handleEditGroup}
@@ -561,6 +674,16 @@ export const AssessmentPageV2 = () => {
         paperIdx={previewModal.pendingPaperIdx ?? '1'}
         onClose={() => setPreviewModal((prev) => ({ ...prev, isOpen: false }))}
         onConfirm={handlePreviewConfirm}
+      />
+
+      {/* HSJ-70, HSJ-66: 알럿/확인 모달 */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ isOpen: false, title: '', message: '' })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type='warning'
+        onConfirm={alertModal.onConfirm}
       />
     </Wrapper>
   );
