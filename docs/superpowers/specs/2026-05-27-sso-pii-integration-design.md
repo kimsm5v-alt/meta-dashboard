@@ -74,7 +74,7 @@ auto-merge 가 `migrateBySpUserId`(feature)와 `resolveOrProvision`(develop)을 
 | 파일 | 확인 |
 |:---|:---|
 | `UserMapper.java` / `UserMapper.xml` | feature 의 `findByEmail`/`findByEmailAndStatus` 폐기 유지 (develop 이 되살리지 않게). 단 develop `markWithdrawn` 추가분은 §4 조정 |
-| `DgnssMapper.xml` | feature 의 PII 제거 + GROUP_CONCAT 재설계(`;;` 구분자) 유지 + develop 검사2회차 2줄 병존 |
+| `DgnssMapper.xml` | feature 의 PII 제거 + GROUP_CONCAT 재설계(`;;` 구분자) 유지 + develop 검사2회차 2줄 병존. **추가로 §4-5 gender 정리 동반** |
 | `application.yml` | feature `superplatform.auth.internal-api` + develop `sso.poll` 블록 둘 다 |
 | `SecurityConfig.java` | feature 게스트 폐기 + develop 401 사유 로깅/WWW-Authenticate 둘 다 |
 
@@ -90,8 +90,12 @@ develop SSO 코드가 DROP 된 컬럼(email/nickname)을 참조 → PII 없는 �
 | 2 | `SsoUserWithdrawalService` 로그 | `PiiMasker.email(user.getEmail())` | `user.getEmail()`(필드 없음) → sp_user_id 마스킹 로그 |
 | 3 | `GroupMemberMapper.xml withdrawByUserNo` | `SET status, nickname='탈퇴한 회원', email=NULL, left_at` | nickname/email SET 제거 → `status, left_at` 만 |
 | 4 | `UserMapper.xml markWithdrawn` | `SET status, email=CONCAT(...), nickname='탈퇴한 회원', tc_id=NULL, stdt_id=NULL, sp_user_id=NULL` | email/nickname SET 제거 → `status, tc_id=NULL, stdt_id=NULL, sp_user_id=NULL` |
+| 5 | `DgnssMapper.xml` `gm.gender` 26줄 (~20개 쿼리) | `gm.gender AS MEM_GENDER`, `CASE WHEN gm.gender='M'...` 등 | **gender 표시 폐기** — `group_member.gender` 컬럼 DROP 됨 + Auth 미반환이라 enrich 불가. CASE/SELECT 제거, 응답 키(MEM_GENDER/gender)는 빈 문자열 또는 키 제거(FE 확인 필요) |
 
 > `sp_user_id=NULL` 은 유지 — 탈퇴 row 의 SP 매핑을 떼어내는 게 인격분리 핵심.
+
+### §4-5 보충 — feature Phase 4 누락 보완
+이 gender 정리는 SSO 통합과 무관한 **feature 자체 누락 버그**다 (commit `8d2993a` "gender 는 Phase 4 정리 예정" → 컬럼 DROP 만 하고 DgnssMapper 참조 26줄 미정리). 영향 쿼리: `getDgnssReportLS`, `getDgnssReportValidity`, `selectDgnssAnswerReport{Behavior,Motivate,Recognition,Reliability}`(+FromOtherClasses), `selectLernType2~6`(+FromOtherClasses) 등 검사 보고서 분석 쿼리. 현재 호출 시 `Unknown column 'gm.gender'` 런타임 에러. 사용자 결정으로 **통합 작업에 포함**하여 함께 정리.
 
 ---
 
@@ -110,7 +114,7 @@ develop SSO 코드가 DROP 된 컬럼(email/nickname)을 참조 → PII 없는 �
 2. `git merge vs-develop` 실행
 3. 텍스트 충돌 2건 해결 (§3)
 4. 진입점 3곳 semantic 검토 — resolveOrProvision 단일화 (§3)
-5. PII 조정 4곳 적용 (§4)
+5. PII 조정 5곳 적용 (§4 — markWithdrawn/withdrawByUserNo XML, resolve, withdrawal 로그, **DgnssMapper gender 26줄**)
 6. resolveOrProvision email 분기 제거 (§2)
 7. 컴파일 + 테스트 + BE부팅 + verify-enrich.sh (§5)
 8. 머지 커밋 (sso-integration 에만, push 안 함)
