@@ -11,5 +11,7 @@ public enum MemberStatus {
     /** 방장에 의한 강퇴 */
     KICKED,
     /** 보관 (아카이브) */
-    ARCHIVED
+    ARCHIVED,
+    /** SSO 회원 탈퇴 cascade — IdP 탈퇴/재가입 감지 시 자동 처리 */
+    WITHDRAWN
 }

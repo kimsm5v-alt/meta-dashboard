@@ -204,6 +204,7 @@ export const ExamTimelineCard: React.FC<ExamTimelineCardProps> = ({
           slotId={slotDef.id}
           dgnssId={slotState?.dgnssId}
           submittedCount={slotState?.submittedCount || 0}
+          allSlots={allSlots}
           onStartExam={onStartExam}
           onEndExam={onEndExam}
           onCancelExam={onCancelExam}
@@ -237,6 +238,7 @@ interface ActionButtonsProps {
   slotId: string;
   dgnssId?: number;
   submittedCount: number;
+  allSlots: ExamSlotState[];
   onStartExam: (slotId: string) => void;
   onEndExam: (slotId: string, dgnssId: number) => void;
   onCancelExam: (slotId: string, dgnssId: number) => void;
@@ -249,12 +251,51 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   slotId,
   dgnssId,
   submittedCount,
+  allSlots,
   onStartExam,
   onEndExam,
   onCancelExam,
   onViewResult,
   onRestartExam,
 }) => {
+  // [추가 진행] 버튼 비활성화 체크
+  // 규칙: 2차 검사가 시작되면 1차 검사의 [추가 진행] 버튼 비활성화
+  const isRestartDisabled = () => {
+    if (status !== 'completed') return false;
+
+    // L1 완료 → L2나 S2가 시작되었는지 확인
+    if (slotId === 'L1') {
+      const l2 = allSlots.find((s) => s.slotId === 'L2');
+      const s2 = allSlots.find((s) => s.slotId === 'S2');
+      return (
+        l2?.status === 'in_progress' ||
+        l2?.status === 'completed' ||
+        s2?.status === 'in_progress' ||
+        s2?.status === 'completed'
+      );
+    }
+
+    // S1 완료 → L2나 S2가 시작되었는지 확인
+    if (slotId === 'S1') {
+      const l2 = allSlots.find((s) => s.slotId === 'L2');
+      const s2 = allSlots.find((s) => s.slotId === 'S2');
+      return (
+        l2?.status === 'in_progress' ||
+        l2?.status === 'completed' ||
+        s2?.status === 'in_progress' ||
+        s2?.status === 'completed'
+      );
+    }
+
+    // L2 완료 → S2가 시작되었는지 확인
+    if (slotId === 'L2') {
+      const s2 = allSlots.find((s) => s.slotId === 'S2');
+      return s2?.status === 'in_progress' || s2?.status === 'completed';
+    }
+
+    // S2는 마지막이므로 비활성화 없음
+    return false;
+  };
   switch (status) {
     case 'not_started':
       return (
@@ -293,8 +334,9 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             결과 보기
           </button>
           <button
-            className="btn sm ghost"
-            onClick={() => dgnssId && onRestartExam(slotId, dgnssId)}
+            className={`btn sm ghost ${isRestartDisabled() ? 'disabled' : ''}`}
+            onClick={() => dgnssId && !isRestartDisabled() && onRestartExam(slotId, dgnssId)}
+            disabled={isRestartDisabled()}
           >
             추가 진행
           </button>

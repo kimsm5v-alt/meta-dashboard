@@ -167,6 +167,7 @@
                             </div>
                             <div class="card-body">
                                 <form th:action="@{/admin/bug-reports/{id}/status(id=${report.id})}" method="post">
+                                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                                     <div class="form-group">
                                         <label>상태</label>
                                         <select name="status" class="form-control">

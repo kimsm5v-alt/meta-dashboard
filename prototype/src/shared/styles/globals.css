@@ -1569,15 +1569,20 @@
   color: var(--primary);
 }
 
-.btn.disabled {
+.btn.disabled,
+.btn:disabled {
   background: #F3F4F6;
   color: #9CA3AF;
   border-color: #E5E7EB;
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
-.btn.disabled:hover {
+.btn.disabled:hover,
+.btn:disabled:hover {
   background: #F3F4F6;
+  transform: none;
+  box-shadow: none;
 }
 
 /* 잠금 상태 카드 */

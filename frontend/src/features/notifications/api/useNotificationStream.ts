@@ -57,14 +57,37 @@ export const useNotificationStream = ({ enabled, onNotification }: UseNotificati
 
           // 401 토큰 만료 → SDK refresh 시도
           if (res.status === 401) {
+            // 가드 ① — max 한도 체크 (onerror 의 reconnectAttempts 가드가 401 경로에선 안 먹음).
+            // 폭주 방지: 5회 401 받으면 SSE 영구 중단 → IdP refresh 폭주 차단
+            reconnectAttempts.current += 1;
+            if (reconnectAttempts.current >= maxReconnectAttempts) {
+              console.error('[SSE] 401 retry max reached — 알림 기능 중단');
+              throw new Error('auth-failed-max-retries');
+            }
+
+            // 가드 ② — BE 가 user_no 매핑 실패로 보낸 401 은 refresh 무의미 → 즉시 중단
+            // (학심정 BE commit 600a82b 에서 errorCode=USER_NOT_MAPPED 로 식별)
+            let errorCode: string | undefined;
+            try {
+              const body = await res.clone().json();
+              errorCode = body?.errorCode;
+            } catch {
+              // SSE 응답 body 가 json 아닐 수 있음 — 무시
+            }
+            if (errorCode === 'USER_NOT_MAPPED') {
+              console.error('[SSE] 사용자 매핑 미완료 — SSE 중단 (refresh 무의미)');
+              throw new Error('user-not-mapped');
+            }
+
             console.warn('[SSE] Token expired, refreshing...');
             try {
               await auth.refreshAccessToken();
-              throw new Error('retry-with-new-token');
             } catch {
               console.error('[SSE] Token refresh failed');
               throw new Error('auth-failed');
             }
+            // refresh 성공 → 외부 catch 가 'retry-with-new-token' 분기에서 재연결 (1초 후)
+            throw new Error('retry-with-new-token');
           }
 
           throw new Error(`SSE connection failed: ${res.status}`);
@@ -120,6 +143,16 @@ export const useNotificationStream = ({ enabled, onNotification }: UseNotificati
       if (err instanceof Error && err.message === 'retry-with-new-token') {
         // 토큰 갱신 후 재연결
         setTimeout(() => connect(), 1000);
+        return;
+      }
+
+      // 영구 중단 케이스 — connect 재호출 안 함 (폭주 방지)
+      if (
+        err instanceof Error &&
+        (err.message === 'auth-failed-max-retries' ||
+          err.message === 'user-not-mapped' ||
+          err.message === 'auth-failed')
+      ) {
         return;
       }
 
