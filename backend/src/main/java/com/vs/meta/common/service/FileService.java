@@ -23,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.*;
@@ -544,6 +543,62 @@ public class FileService {
         return fileVO;
     }
 
+    /**
+     * 이미 디스크에 존재하는 파일을 업로드 파일로 등록한다 ({@link MultipartFile} 없이, 메모리 미적재).
+     *
+     * <p>{@link #uploadFile} 의 단일 파일 처리 흐름을 파일 기반으로 옮긴 것. 큰 zip 등 메모리에
+     * 올리면 안 되는 파일을 등록할 때 사용한다. {@code srcFile} 은 {@link FileUtil#moveFile} 로
+     * 업로드 경로에 이동되므로 호출 후 원본은 사라진다. 반환값은 {@code filePath + fileName} URL.
+     */
+    private String registerLocalFileAsUpload(File srcFile, String originalFileName, String uploadPath,
+                                             String regId, String requestSource, String prsInfoYn) throws Exception {
+        uploadPath = FileUtil.normalizeUploadPath(uploadPath);
+        FileUtil.mkdirs(uploadPath);
+
+        long fileSize = srcFile.length();
+        String saveFileName = FileUtil.getSaveFileName(originalFileName);
+        String copyFile = uploadPath + "/" + saveFileName;
+        FileUtil.moveFile(srcFile, copyFile);
+
+        FileVO fileVO = setFileVOFromFile(originalFileName, fileSize, saveFileName, uploadPath + "/", regId, requestSource, prsInfoYn);
+        fileMapper.insertUploadFile(fileVO);
+
+        return fileVO.getFilePath() + fileVO.getFileName();
+    }
+
+    /**
+     * {@link #setFileVO} 의 파일 기반 버전. {@link MultipartFile} 대신 원본 파일명/크기를 직접 받는다.
+     * checksum 계산·uuid 파일명 규칙 등은 {@link #setFileVO} 와 동일하게 맞춘다.
+     */
+    private FileVO setFileVOFromFile(String originalFileName, long fileSize, String saveFileName,
+                                     String filePath, String regId, String requestSource, String prsInfoYn) throws Exception {
+        if (StringUtils.startsWith(nasPath, "/") == false && StringUtils.startsWith(filePath, "/")) {
+            filePath = StringUtils.removeStart(filePath, "/");
+        }
+        if (prsInfoYn == null || "".equals(prsInfoYn)) {
+            prsInfoYn = "N";
+        }
+        String ext = FileUtil.getFileExtension(originalFileName);
+        FileVO fileVO = new FileVO();
+        fileVO.setFileName(originalFileName);
+        fileVO.setSaveFileName(saveFileName);
+        fileVO.setFilePath(filePath);
+        fileVO.setFileExtension(ext);
+        fileVO.setFileSize(fileSize);
+        fileVO.setRgtr(regId);
+        fileVO.setRequestSource(requestSource);
+        String checksum = FileUtil.getHmacSHA256Checksum(filePath + "/" + saveFileName, keySaltMain);
+        fileVO.setChecksum(checksum);
+        fileVO.setPrsInfoYn(prsInfoYn);
+
+        // 파일 중복 안되도록 uuid를 붙인다 (setFileVO 와 동일 규칙)
+        String uuid = UUID.randomUUID().toString().replaceAll("\\-", "");
+        String baseName = StringUtils.substringBeforeLast(originalFileName, ".");
+        fileVO.setFileName(baseName + "(" + uuid + ")." + ext);
+
+        return fileVO;
+    }
+
     private FileLogVO setFileLogVO(FileVO fileVO, String accessIp, String requestSource) {
         FileLogVO fileLogVO = new FileLogVO();
         fileLogVO.setFileIdx(fileVO.getFileIdx());
@@ -587,73 +642,45 @@ public class FileService {
     }
 
     /**
-     * 파일 일괄 다운로드
-     * @param jwtToken
-     * @param request
-     * @param isAuth
-     * @param param
-     * @return
-     * @throws Exception
+     * 일괄 다운로드용 zip 을 생성해 NAS 에 저장하고, {@code tb_dgnss_info} 의 type 별 zip URL 컬럼에 URL 을
+     * 등록한 뒤 그 URL 을 반환한다. (2단계 다운로드 중 1단계: 생성)
+     *
+     * <p><b>OOM 방지</b>: zip 을 메모리({@link ByteArrayOutputStream})가 아닌 임시 파일에 직접
+     * 스트리밍한 뒤, 그 파일을 업로드 파일로 등록(checksum 포함)한다. 반환된 URL 은 별도 호출인
+     * {@code /pfile-download} 로 다운로드하며, 그쪽은 {@code Resource} 서빙이라 Range/이어받기를 지원한다.
      */
-    public ResponseEntity<StreamingResponseBody> dgnssDownloadAll(String jwtToken, HttpServletRequest request, boolean isAuth, Map<String, Object> param) throws Exception {
-        // SecurityContext에서 인증된 사용자 정보 추출 (user_no 기반)
+    @Transactional(rollbackFor = Exception.class)
+    public String createDgnssDownloadAllZip(HttpServletRequest request, boolean isAuth, Map<String, Object> param) throws Exception {
         Long reqUserNo = SecurityUtil.getCurrentUserNo();
         String userId = SecurityUtil.getCurrentSpUserId(); // 로그용
         if (reqUserNo == null) {
             throw new AuthFailedException("사용자 정보가 없습니다.");
         }
 
-        String requestSource = request.getHeader("Referer"); // 요청 출처를 헤더에서 추출
+        String requestSource = request.getHeader("Referer");
         if (requestSource == null) {
-            requestSource = "";  // 기본 값 설정
+            requestSource = "";
         }
-
         if (isAuth) {
             param.put("reqUserNo", reqUserNo);
         }
 
         String type = MapUtils.getString(param, "type", "1");
         String dgnssId = MapUtils.getString(param, "dgnssId", "");
-        log.info("dgnssDownloadAll 시작: dgnssId={}, type={}, userId={}", dgnssId, type, userId);
-        // 검사 정보 조회
+        log.info("createDgnssDownloadAllZip 시작: dgnssId={}, type={}, userId={}", dgnssId, type, userId);
+
+        // 이미 생성된 zip 이 있으면 재생성 없이 바로 반환 (type 별 컬럼 조회)
+        String existingUrl = fileMapper.selectDgnssZipFileUrl(param);
+        if (StringUtils.isNotBlank(existingUrl)) {
+            log.info("createDgnssDownloadAllZip 기존 zip 반환: dgnssId={}, type={}, url={}", dgnssId, type, existingUrl);
+            return existingUrl;
+        }
+
         Map<String, Object> dgnssInfo = fileMapper.selectTcDgnssInfoWithId(param);
         if (MapUtils.isEmpty(dgnssInfo)) {
-            log.error("dgnssDownloadAll 실패(검사 정보 없음): dgnssId={}, type={}, userId={}", dgnssId, type, userId);
+            log.error("createDgnssDownloadAllZip 실패(검사 정보 없음): dgnssId={}, type={}, userId={}", dgnssId, type, userId);
             throw new Exception("검사 정보가 없습니다");
         }
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (ZipOutputStream zipOut = new ZipOutputStream(baos, StandardCharsets.UTF_8)) {
-            if (StringUtils.equals(type, "3")) {
-                List<Map<String, Object>> detailFileInfoList = fileMapper.selectFileDgnssFileList(param);
-                List<Map<String, Object>> summaryFileInfoList = fileMapper.selectFileDgnssSummaryList(param);
-                if (CollectionUtils.isEmpty(detailFileInfoList) && CollectionUtils.isEmpty(summaryFileInfoList)) {
-                    log.error("dgnssDownloadAll 실패(파일 정보 없음): dgnssId={}, type=3, userId={}", dgnssId, userId);
-                    throw new Exception("파일 정보가 없습니다");
-                }
-
-                addDgnssFilesToZip(detailFileInfoList, "상세 보고서", zipOut, isAuth, userId, request, requestSource);
-                addDgnssFilesToZip(summaryFileInfoList, "요약 보고서", zipOut, isAuth, userId, request, requestSource);
-            } else {
-                List<Map<String, Object>> fileInfoList;
-                if (StringUtils.equals(type, "1")) {
-                    fileInfoList = fileMapper.selectFileDgnssFileList(param);
-                } else {
-                    fileInfoList = fileMapper.selectFileDgnssSummaryList(param);
-                }
-                if (CollectionUtils.isEmpty(fileInfoList)) {
-                    log.error("dgnssDownloadAll 실패(파일 정보 없음): dgnssId={}, type={}, userId={}", dgnssId, type, userId);
-                    throw new Exception("파일 정보가 없습니다");
-                }
-
-                addDgnssFilesToZip(fileInfoList, "", zipOut, isAuth, userId, request, requestSource);
-            }
-            zipOut.finish();
-        } catch (Exception e) {
-            log.error("dgnssDownloadAll 실패: dgnssId={}, type={}, userId={}", dgnssId, type, userId, e);
-            throw e;
-        }
-        byte[] zipBytes = baos.toByteArray();
 
         String dgnssName = StringUtils.equals(MapUtils.getString(dgnssInfo, "paperIdx", ""), "1") ? "종합학습검사" : "자기조절학습검사";
         String ordNo = StringUtils.equals(MapUtils.getString(dgnssInfo, "ordNo", ""), "1") ? "1차" : "2차";
@@ -664,27 +691,61 @@ public class FileService {
         } else {
             zipFileName = "[" + clsName + "]" + dgnssName + "_" + ordNo + ".zip";
         }
-        String encodedFileName = URLEncoder.encode(zipFileName, StandardCharsets.UTF_8).replace("+", "%20");
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + encodedFileName);
-        headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE);
-        headers.add("Access-Control-Expose-Headers", "Content-Disposition");
-        headers.setContentLength(zipBytes.length);
+        // OOM 방지: zip 을 힙이 아닌 임시 파일에 직접 스트리밍
+        String tempDir = nasRoot() + "/temp/";
+        FileUtil.mkdirs(tempDir);
+        File tempZip = File.createTempFile("dgnss-zip-", ".zip", new File(tempDir));
 
-        StreamingResponseBody stream = outputStream -> {
-            try {
-                outputStream.write(zipBytes);
-                outputStream.flush();
-            } catch (IOException e) {
-                // 클라이언트 연결 끊김 (Broken pipe, Connection reset 등) - 정상적인 상황으로 처리
-                log.debug("클라이언트 연결 끊김 (dgnssDownloadAll): {}", e.getMessage());
+        try {
+            try (ZipOutputStream zipOut = new ZipOutputStream(
+                    new BufferedOutputStream(new FileOutputStream(tempZip)), StandardCharsets.UTF_8)) {
+                if (StringUtils.equals(type, "3")) {
+                    List<Map<String, Object>> detailFileInfoList = fileMapper.selectFileDgnssFileList(param);
+                    List<Map<String, Object>> summaryFileInfoList = fileMapper.selectFileDgnssSummaryList(param);
+                    if (CollectionUtils.isEmpty(detailFileInfoList) && CollectionUtils.isEmpty(summaryFileInfoList)) {
+                        log.error("createDgnssDownloadAllZip 실패(파일 정보 없음): dgnssId={}, type=3, userId={}", dgnssId, userId);
+                        throw new Exception("파일 정보가 없습니다");
+                    }
+                    addDgnssFilesToZip(detailFileInfoList, "상세 보고서", zipOut, isAuth, userId, request, requestSource);
+                    addDgnssFilesToZip(summaryFileInfoList, "요약 보고서", zipOut, isAuth, userId, request, requestSource);
+                } else {
+                    List<Map<String, Object>> fileInfoList = StringUtils.equals(type, "1")
+                            ? fileMapper.selectFileDgnssFileList(param)
+                            : fileMapper.selectFileDgnssSummaryList(param);
+                    if (CollectionUtils.isEmpty(fileInfoList)) {
+                        log.error("createDgnssDownloadAllZip 실패(파일 정보 없음): dgnssId={}, type={}, userId={}", dgnssId, type, userId);
+                        throw new Exception("파일 정보가 없습니다");
+                    }
+                    addDgnssFilesToZip(fileInfoList, "", zipOut, isAuth, userId, request, requestSource);
+                }
+                zipOut.finish();
             }
-        };
 
-        log.info("dgnssDownloadAll 완료: dgnssId={}, type={}, userId={}, zipFileName={}, zipSize={}",
-                dgnssId, type, userId, zipFileName, zipBytes.length);
-        return new ResponseEntity<>(stream, headers, HttpStatus.OK);
+            // 생성된 zip 을 업로드 파일로 등록 (checksum 포함) → /pfile-download 로 다운로드 가능
+            String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String uploadPath = nasRoot() + "/" + datePath;
+            String url = registerLocalFileAsUpload(tempZip, zipFileName, uploadPath, userId, requestSource, "Y");
+
+            // tb_dgnss_info.zip_file_url 등록
+            Map<String, Object> updateParam = new HashMap<>();
+            updateParam.put("dgnssId", dgnssId);
+            updateParam.put("type", type);
+            updateParam.put("zipFileUrl", url);
+            fileMapper.updateDgnssZipFileUrl(updateParam);
+
+            log.info("createDgnssDownloadAllZip 완료: dgnssId={}, type={}, userId={}, zipFileName={}, url={}",
+                    dgnssId, type, userId, zipFileName, url);
+            return url;
+        } catch (Exception e) {
+            log.error("createDgnssDownloadAllZip 실패: dgnssId={}, type={}, userId={}", dgnssId, type, userId, e);
+            throw e;
+        } finally {
+            // 정상 시 moveFile 로 원본이 이동돼 사라지지만, 실패 경로에서 남은 임시파일 정리
+            if (tempZip.exists()) {
+                FileUtil.deleteFile(tempZip);
+            }
+        }
     }
 
     private void addDgnssFilesToZip(List<Map<String, Object>> fileInfoList,

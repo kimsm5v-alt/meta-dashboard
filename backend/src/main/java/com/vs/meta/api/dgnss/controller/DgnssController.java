@@ -521,10 +521,12 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
-    @GetMapping(path = "/api/dgnss/dgnss-download-all", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    @Operation(summary = "학습심리정서검사 일괄다운로드", description = "")
-    @ResponseBody
-    public ResponseEntity<StreamingResponseBody> dgnssDownloadAll(
+    @GetMapping(path = "/api/dgnss/dgnss-download-all")
+    @Operation(summary = "학습심리정서검사 일괄다운로드",
+            description = "대상 PDF 들을 zip 으로 묶어 NAS 에 저장하고 tb_dgnss_info 의 type 별 zip URL 컬럼에 등록한 뒤 "
+                    + "다운로드 URL 을 반환합니다. 이미 생성된 zip 이 있으면 그 URL 을 즉시 반환합니다. "
+                    + "반환된 URL 은 /pfile-download 로 다운로드합니다(이어받기 지원).")
+    public ResponseDTO<CustomBody> dgnssDownloadAll(
             @RequestParam(value = "jwtToken") String jwtToken,
             @RequestParam(value = "dgnssId") String dgnssId,
             @Parameter(name = "type", description = "다운로드 타입(1: 상세 보고서, 2: 요약 보고서, 3: 상세+요약 폴더 압축)")
@@ -532,7 +534,10 @@ public class DgnssController {
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData,
             HttpServletRequest request) throws Exception {
         try {
-            return dgnssService.dgnssDownloadAll(jwtToken, request, true, paramData);
+            String zipFileUrl = dgnssService.createDgnssDownloadAllZip(request, true, paramData);
+            Map<String, Object> result = new HashMap<>();
+            result.put("zipFileUrl", zipFileUrl);
+            return AidtCommonUtil.makeResultSuccess(paramData, result, "학습심리정서검사 일괄다운로드");
         } catch (Exception e) {
             log.error("dgnss-download-all API 오류: dgnssId={}, type={}, requesterIp={}",
                     dgnssId,
