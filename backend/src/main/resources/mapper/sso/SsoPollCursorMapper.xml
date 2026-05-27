@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.sso.mapper.SsoPollCursorMapper">
+
+    <resultMap id="ssoPollCursorResultMap" type="com.vs.meta.domain.SsoPollCursor">
+        <id property="feedType" column="feed_type"/>
+        <result property="lastSince" column="last_since"/>
+        <result property="lastPolledAt" column="last_polled_at"/>
+        <result property="lastItemCount" column="last_item_count"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="findByFeedType" resultMap="ssoPollCursorResultMap">
+        /* SsoPollCursorMapper.findByFeedType */
+        SELECT feed_type, last_since, last_polled_at, last_item_count, updated_at
+        FROM sso_poll_cursor
+        WHERE feed_type = #{feedType}
+    </select>
+
+    <update id="updateCursor">
+        /* SsoPollCursorMapper.updateCursor */
+        UPDATE sso_poll_cursor
+        SET last_since      = #{lastSince},
+            last_polled_at  = #{lastPolledAt},
+            last_item_count = #{lastItemCount}
+        WHERE feed_type = #{feedType}
+    </update>
+
+</mapper>

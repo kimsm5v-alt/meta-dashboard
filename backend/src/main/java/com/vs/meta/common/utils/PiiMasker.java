@@ -53,6 +53,15 @@ public final class PiiMasker {
     }
 
     /**
+     * UUID 식별자 마스킹: 앞 8자만 노출 ("550e8400..."). 추적 식별성은 유지하되 전체 노출 방지.
+     * sp_user_id(publicUserId) 같은 불투명 식별자 로깅용.
+     */
+    public static String maskUuid(String uuid) {
+        if (uuid == null || uuid.isBlank()) return "";
+        return uuid.length() <= 8 ? uuid : uuid.substring(0, 8) + "...";
+    }
+
+    /**
      * 이름 마스킹: "홍길동" → "홍*동", "김철" → "김*"
      */
     public static String name(String name) {
