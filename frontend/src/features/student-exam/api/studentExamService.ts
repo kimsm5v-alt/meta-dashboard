@@ -24,7 +24,9 @@ function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListIte
     answeredCount: isFinished ? TOTAL_QUESTIONS : 0,
     totalQuestions: TOTAL_QUESTIONS,
     submittedAt: item.submDt,
-    hasResult: item.eakAt === 'Y',
+    // HSJ-71: eakAt 플래그 대신 상태 기반으로 결과 조회 가능 여부 판단
+    // 검사 완료(completed) 또는 검사 종료(result_ready) 상태면 결과 조회 가능
+    hasResult: status === 'completed' || status === 'result_ready',
   };
 }
 
