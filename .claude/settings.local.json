@@ -26,11 +26,26 @@
       "Bash(./gradlew :backend:compileJava)",
       "Bash(xargs grep:*)",
       "Bash(git -C backend status --short)",
-      "Bash(./gradlew :backend:compileJava:*)"
+      "Bash(./gradlew :backend:compileJava:*)",
+      "Bash(git stash *)",
+      "Bash(git -C \"C:/Users/user/dev/meta-dashboard\" add frontend/src/features/assessment-v2/ui/ExamTimelineCard.tsx frontend/src/features/assessment-v2/ui/GroupDetailView.tsx frontend/src/features/assessment-v2/ui/QRCodeModal.tsx)",
+      "Bash(git -C \"C:/Users/user/dev/meta-dashboard\" status --short)",
+      "Bash(git -C \"C:/Users/user/dev/meta-dashboard\" add frontend/src/pages/assessment-v2/AssessmentPageV2.tsx)",
+      "Bash(git *)",
+      "mcp__playwright__browser_tabs",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_type",
+      "Bash(xargs tail -5)",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_wait_for"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "guide-docs"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
