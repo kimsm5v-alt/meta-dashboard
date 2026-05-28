@@ -140,6 +140,29 @@
         WHERE tdi.id = #{dgnssId}
     </select>
 
+    <!-- type 별 zip URL 컬럼명 (1: 상세, 2: 요약, 3: 상세+요약) -->
+    <sql id="dgnssZipColumn">
+        <choose>
+            <when test='type == "2"'>summary_zip_file_url</when>
+            <when test='type == "3"'>full_zip_file_url</when>
+            <otherwise>detail_zip_file_url</otherwise>
+        </choose>
+    </sql>
+
+    <select id="selectDgnssZipFileUrl" parameterType="map" resultType="string">
+        /* FileMapper.selectDgnssZipFileUrl */
+        SELECT <include refid="dgnssZipColumn" />
+          FROM tb_dgnss_info
+         WHERE id = #{dgnssId}
+    </select>
+
+    <update id="updateDgnssZipFileUrl" parameterType="map">
+        /* FileMapper.updateDgnssZipFileUrl */
+        UPDATE tb_dgnss_info
+           SET <include refid="dgnssZipColumn" /> = #{zipFileUrl}
+         WHERE id = #{dgnssId}
+    </update>
+
     <select id="selectFileDgnssSummaryList" parameterType="map" resultType="map">
         /* File.selectFileDgnssSummaryList */
         SELECT a1.`id` as fileIdx

@@ -20,6 +20,10 @@ public interface FileMapper {
 	Map<String, Object> selectTcDgnssInfoWithId(Map<String, Object> param);
     List<Map<String, Object>> selectFileDgnssSummaryList(Map<String, Object> param);
 
+	// 일괄 다운로드 zip URL (type 별 컬럼) 조회/등록
+	String selectDgnssZipFileUrl(Map<String, Object> param);
+	void updateDgnssZipFileUrl(Map<String, Object> param);
+
 	// pfile-download 관련
 	FileVO selectFileInfo(FileVO fileVO);
 	FileVO selectFileInfoWithPionada(FileVO fileVO);
