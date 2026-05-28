@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import styled from '@emotion/styled';
 import {
   ChevronLeft,
   ChevronDown,
@@ -9,11 +10,48 @@ import {
   QrCode,
   Link,
 } from 'lucide-react';
+import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
 import { ExamTimelineCard } from './ExamTimelineCard';
 import { StudentManagementPanel } from './StudentManagementPanel';
 import { EXAM_SLOTS } from '../constants';
 import type { GroupWithExamState, GroupMember } from '../types';
 import type { SchoolLevelCode } from '@shared/types';
+
+const MANUAL_URL_COMPREHENSIVE = '';
+const MANUAL_URL_SELF_REGULATED = '';
+
+const PdfBtn = styled.a`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 13px;
+  font-weight: 500;
+  background: white;
+  color: #374151;
+  border: 1px solid #D1D5DB;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #F9FAFB;
+    border-color: #9CA3AF;
+  }
+
+  &::before {
+    content: '';
+    width: 18px;
+    height: 22px;
+    flex-shrink: 0;
+    background-image: ${PDF_ICON_SVG_URL};
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+`;
 
 const SCHOOL_LEVEL_LABELS: Record<SchoolLevelCode, string> = {
   elementary: '초등',
@@ -25,7 +63,6 @@ interface GroupDetailViewProps {
   group: GroupWithExamState;
   members: GroupMember[];
   allGroups: GroupWithExamState[];
-  activeStudentCount: number;
   onBack: () => void;
   onSwitchGroup: (groupId: string) => void;
   onEditGroup: (group: GroupWithExamState) => void;
@@ -48,7 +85,6 @@ export const GroupDetailView = ({
   group,
   members,
   allGroups,
-  activeStudentCount,
   onBack,
   onSwitchGroup,
   onEditGroup,
@@ -160,6 +196,16 @@ export const GroupDetailView = ({
               </>
             )}
           </div>
+
+          {/* PDF 설명서 버튼 */}
+          <div className="vj-d-tools">
+            <PdfBtn href={MANUAL_URL_COMPREHENSIVE} target="_blank" rel="noopener noreferrer">
+              학습종합검사 교사용 설명서
+            </PdfBtn>
+            <PdfBtn href={MANUAL_URL_SELF_REGULATED} target="_blank" rel="noopener noreferrer">
+              자기조절학습검사 교사용 설명서
+            </PdfBtn>
+          </div>
         </div>
 
         {/* 통계 카드 4개 */}
@@ -240,7 +286,6 @@ export const GroupDetailView = ({
                     slotDef={slotDef}
                     slotState={slotState}
                     allSlots={group.examSlots}
-                    activeStudentCount={activeStudentCount}
                     onStartExam={onStartExam}
                     onEndExam={onEndExam}
                     onCancelExam={onCancelExam}
