@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { Search, Mail, X, Plus, Users } from 'lucide-react';
+import { toast } from 'sonner';
 import type { GroupMember } from '../types';
 
 interface StudentManagementPanelProps {
   members: GroupMember[];
   isOwner: boolean;
-  onInvite: (email: string) => void;
+  onInvite: (email: string) => Promise<void>;
   onKick: (memberId: string) => void;
 }
 
@@ -32,11 +33,15 @@ export const StudentManagementPanel = ({
   }, [activeMembers, searchTerm]);
 
   const handleInvite = async () => {
-    if (!inviteEmail.trim()) return;
+    const email = inviteEmail.trim();
+    if (!email) return;
     setIsInviting(true);
+    setInviteEmail('');
+    toast.success(`${email}로 초대 이메일을 발송했습니다.`);
     try {
-      await onInvite(inviteEmail.trim());
-      setInviteEmail('');
+      await onInvite(email);
+    } catch {
+      toast.error('초대 이메일 발송에 실패했습니다.');
     } finally {
       setIsInviting(false);
     }

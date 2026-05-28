@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@features/auth/model/AuthContext';
 import {
   EmptyState,
@@ -10,6 +11,7 @@ import {
   GroupDetailView,
   GroupFormModal,
   DeleteGroupModal,
+  QRCodeModal,
 } from '@features/assessment-v2/ui';
 import { ExamStartPreviewModal } from '@features/assessment/ui';
 import { AlertModal } from '@shared/ui/AlertModal/AlertModal';
@@ -110,6 +112,7 @@ export const AssessmentPageV2 = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
 
   const [modalType, setModalType] = useState<ModalType>(null);
   const [modalGroup, setModalGroup] = useState<GroupWithExamState | null>(null);
@@ -337,11 +340,7 @@ export const AssessmentPageV2 = () => {
 
   const handleInviteMember = async (email: string) => {
     if (!user?.id || !selectedGroupId) return;
-    try {
-      await sendEmailInvitation({ groupId: selectedGroupId, email }, user.id);
-    } catch {
-      // noop
-    }
+    await sendEmailInvitation({ groupId: selectedGroupId, email }, user.id);
   };
 
   const handleKickMember = async (memberId: string) => {
@@ -370,15 +369,17 @@ export const AssessmentPageV2 = () => {
   const handleCopyInviteCode = () => {
     if (!selectedGroup) return;
     navigator.clipboard.writeText(selectedGroup.inviteCode);
+    toast.success('초대 코드가 복사되었습니다.');
   };
 
   const handleShowQR = () => {
-    // TODO: QR 모달
+    setQrModalOpen(true);
   };
 
   const handleCopyInviteLink = () => {
     if (!selectedGroup) return;
     navigator.clipboard.writeText(`${window.location.origin}/join/${selectedGroup.inviteCode}`);
+    toast.success('초대 링크가 복사되었습니다.');
   };
 
   // ============================================================
@@ -611,7 +612,6 @@ export const AssessmentPageV2 = () => {
           group={selectedGroup}
           members={members}
           allGroups={groups}
-          activeStudentCount={activeStudentCount}
           onBack={handleBack}
           onSwitchGroup={handleSwitchGroup}
           onEditGroup={handleEditGroup}
@@ -685,6 +685,16 @@ export const AssessmentPageV2 = () => {
         type='warning'
         onConfirm={alertModal.onConfirm}
       />
+
+      {/* QR 코드 초대 모달 */}
+      {selectedGroup && (
+        <QRCodeModal
+          isOpen={qrModalOpen}
+          inviteCode={selectedGroup.inviteCode}
+          inviteUrl={`${window.location.origin}/join/${selectedGroup.inviteCode}`}
+          onClose={() => setQrModalOpen(false)}
+        />
+      )}
     </Wrapper>
   );
 };

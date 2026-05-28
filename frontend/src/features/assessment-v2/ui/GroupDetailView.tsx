@@ -67,7 +67,7 @@ interface GroupDetailViewProps {
   onSwitchGroup: (groupId: string) => void;
   onEditGroup: (group: GroupWithExamState) => void;
   onDeleteGroup: (group: GroupWithExamState) => void;
-  onInviteMember: (email: string) => void;
+  onInviteMember: (email: string) => Promise<void>;
   onKickMember: (memberId: string) => void;
   onCopyInviteCode: () => void;
   onShowQR: () => void;
