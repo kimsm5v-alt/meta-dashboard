@@ -421,16 +421,15 @@ export const MyResultPage: React.FC = () => {
         }
 
         // 속한 모든 그룹 조회 (학생은 여러 그룹에 속할 수 있음)
-        // MyExamListPage와 동일한 패턴 사용
+        // includeInactive=true로 탈퇴/방출된 그룹도 포함하여 과거 검사 결과 조회 가능
         const groups = await getMyGroups(user.id, true);
-        const memberGroups = groups.filter((g) => g.myRole === 'member');
 
-        if (memberGroups.length === 0) {
+        if (groups.length === 0) {
           setError('아직 시행한 검사 결과가 없습니다.');
           return;
         }
 
-        const groupsToCheck = memberGroups.map((g) => ({
+        const groupsToCheck = groups.map((g) => ({
           claId: g.claId,
           schoolLevel: SCHOOL_LEVEL_MAP[g.schoolLevel] ?? '중등',
         }));

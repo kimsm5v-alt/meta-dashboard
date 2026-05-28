@@ -188,6 +188,14 @@ await apiClient.post('/student/exam', { examData });
 
 ## ✅ 완료 작업
 
+**2026-05-27**: 검사 시스템 이슈 수정 (Phase 1)
+- **HSJ-72**: 생기부 더보기 기능 — 2줄 clamp + 펼치기/접기 토글
+- **HSJ-71**: 탈퇴/방출 그룹 조회 수정 — `hasResult` 로직을 상태 기반으로 변경, KICKED 학생도 결과 조회 가능
+- **HSJ-70**: 학생 0명 시 검사 시작 팝업 — `AlertModal` 통합, 커스텀 모달 표시
+- **HSJ-66**: 검사 취소/종료 확인 알럿 — 2버튼 모드 구현, `window.confirm()` 제거
+- **AlertModal**: `onConfirm` async 지원, 확인/취소 2버튼 모드 추가
+- **React Hook**: 의존성 배열 수정 (`user?.id` → `user`), React Compiler 경고 해결
+
 **2026-05-08**: PDF 다운로드 기능
 - `shared/services/pdfDownloadService.ts` — 2단계 패턴 (POST→URL→`/files/pfile-download` blob)
 - `shared/assets/svgIcons.ts` — PDF 아이콘 SVG 공용 상수
@@ -258,14 +266,30 @@ await apiClient.post('/student/exam', { examData });
 
 ## 📋 다음 작업
 
-**우선순위 1**:
-- [ ] useProfileCheck React Query 캐싱
+**우선순위 1 (Phase 2 - 조사 필요)**:
+- [ ] **HSJ-67**: 타 그룹 이력 학생 미제출 목록 클릭 오류 수정
+  - 위치: 교사 > 검사하기 > 미제출 목록
+  - 조사: `notSubmittedStudents` 데이터 구조 확인 필요
+- [ ] **HSJ-65**: QR 코드/토스트 팝업 추가
+  - 위치: 교사 > 검사하기
+  - 조사: QR 라이브러리 확인, Toast 컴포넌트 활용
+- [ ] **HSJ-64**: 그룹 상세 보기 PDF 버튼 추가
+  - 위치: 교사 > 그룹 상세
+  - 조사: 그룹 상세 페이지 파일 위치 확인
+- [ ] **HSJ-62**: 기본 랜딩 페이지 변경
+  - 위치: 교사 로그인 후 첫 화면
+  - 조사: 변경할 페이지 명확화 필요
 
-**우선순위 2**:
+**우선순위 2 (Phase 3 - 백엔드 연동)**:
+- [ ] **HSJ-61**: 검사 종료 시 학생 대시보드 조회
+  - 위치: 학생 > 대시보드
+  - 요구사항: 교사 검사 종료 시 학생 결과 실시간 조회 가능
+  - 구현: SSE 또는 폴링 메커니즘 필요
+
+**우선순위 3 (기존 백로그)**:
+- [ ] useProfileCheck React Query 캐싱
 - [ ] MyResultPage 1차/2차 비교 모드
 - [ ] 에러 바운더리
-
-**우선순위 3**:
 - [ ] features/counseling — 상담 기록
 - [ ] features/resources — 학습 자료
 
@@ -286,5 +310,5 @@ student-exam FSD  ████████████ 100%
 
 ---
 
-**최종 업데이트**: 2026-05-08 (PDF 다운로드 완료)
+**최종 업데이트**: 2026-05-27 (검사 시스템 이슈 Phase 1 완료)
 **빌드 상태**: ✅ Production ready (tsc -b && vite build: ~21s, 1,827kB)

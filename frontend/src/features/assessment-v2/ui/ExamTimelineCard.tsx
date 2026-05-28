@@ -12,6 +12,7 @@ import {
   Upload,
   Download,
 } from 'lucide-react';
+import { fetchNotSubmittedStudents } from '@features/assessment/api/assessmentService';
 import { EXAM_STATUS_LABELS } from '../constants';
 import { calculateProgress, formatDateRange, getSlotStatus } from '../utils';
 import type { ExamSlotState, ExamSlotDefinition, ExamSlotStatus } from '../types';
@@ -42,14 +43,32 @@ export const ExamTimelineCard = ({
   onTemplateDownload,
 }: ExamTimelineCardProps) => {
   const [showMissing, setShowMissing] = useState(false);
+  const [fetchedStudents, setFetchedStudents] = useState<string[] | null>(null);
+  const [isFetchingStudents, setIsFetchingStudents] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const status = getSlotStatus(slotDef.id, slotState, allSlots);
   const isLocked = status === 'locked';
   const progress = slotState ? calculateProgress(slotState.submittedCount, slotState.totalCount) : 0;
 
-  const missingStudents = slotState?.notSubmittedStudents ?? [];
-  const hasMissing = status === 'in_progress' && missingStudents.length > 0;
+  const missingCount = Math.max(0, (slotState?.totalCount ?? 0) - (slotState?.submittedCount ?? 0));
+  const hasMissing = (status === 'in_progress' || status === 'completed') && missingCount > 0;
+
+  const handleToggleMissing = async () => {
+    const next = !showMissing;
+    setShowMissing(next);
+    if (next && fetchedStudents === null && slotState?.dgnssId) {
+      setIsFetchingStudents(true);
+      try {
+        const result = await fetchNotSubmittedStudents(slotState.dgnssId);
+        setFetchedStudents(result.map((s) => s.nickname));
+      } catch {
+        setFetchedStudents([]);
+      } finally {
+        setIsFetchingStudents(false);
+      }
+    }
+  };
 
   const isComingSoon = slotDef.isComingSoon;
 
@@ -124,7 +143,7 @@ export const ExamTimelineCard = ({
                 {hasMissing ? (
                   <button
                     className="vj-tc2-missing-toggle"
-                    onClick={() => setShowMissing(!showMissing)}
+                    onClick={handleToggleMissing}
                   >
                     <Users size={12} />
                     <b>{slotState.submittedCount}</b>/{slotState.totalCount}명 제출
@@ -213,14 +232,18 @@ export const ExamTimelineCard = ({
       {hasMissing && showMissing && (
         <div className="vj-tc2-missing">
           <div className="vj-tc2-missing-h">
-            미제출 <b>{missingStudents.length}</b>명
+            미제출 <b>{fetchedStudents !== null ? fetchedStudents.length : missingCount}</b>명
           </div>
           <div className="vj-tc2-missing-list">
-            {missingStudents.map((name, idx) => (
-              <span key={idx} className="vj-tc2-missing-tag">
-                {name}
-              </span>
-            ))}
+            {isFetchingStudents ? (
+              <span className="vj-tc2-missing-empty">불러오는 중...</span>
+            ) : fetchedStudents && fetchedStudents.length > 0 ? (
+              fetchedStudents.map((name, idx) => (
+                <span key={idx} className="vj-tc2-missing-tag">{name}</span>
+              ))
+            ) : fetchedStudents !== null ? (
+              <span className="vj-tc2-missing-empty">미제출 학생 목록을 불러올 수 없습니다</span>
+            ) : null}
           </div>
         </div>
       )}
@@ -254,7 +277,10 @@ const ActionButtons = ({
   switch (status) {
     case 'not_started':
       return (
-        <button className="btn sm primary" onClick={() => onStartExam(slotId)}>
+        <button
+          className="btn sm primary"
+          onClick={() => onStartExam(slotId)}
+        >
           <Play size={12} />
           검사 시작
         </button>

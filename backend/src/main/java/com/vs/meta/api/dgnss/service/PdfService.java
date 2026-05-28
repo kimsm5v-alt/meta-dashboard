@@ -142,6 +142,7 @@ public class PdfService {
             String templateFileName = null;
 
             PioPdfVO pioPdfVO = new PioPdfVO();
+            try {
 
             int currentPage= 1;
 
@@ -249,6 +250,9 @@ public class PdfService {
 
             return url;
     //        return "";
+            } finally {
+                pioPdfVO.closeQuietly();
+            }
         }
 
     // 교사용 시작
@@ -257,6 +261,7 @@ public class PdfService {
         String templateFileName = null;
 
         PioPdfVO pioPdfVO = new PioPdfVO();
+        try {
 
         int currentPage= 1;
         int totalPages = 0;
@@ -373,6 +378,9 @@ public class PdfService {
 
         return url;
         //return "";
+        } finally {
+            pioPdfVO.closeQuietly();
+        }
     }
 
     public String fileUpload(MultipartFile file, HttpServletRequest request) {
@@ -423,6 +431,7 @@ public class PdfService {
         String templateFileName = null;
 
         PioPdfVO pioPdf = new PioPdfVO();
+        try {
 
         Map<String, Object> userInfo = (Map<String, Object>)dgnssData.get("userInfo");
         int paperIdx = MapUtils.getInteger(userInfo, "paperIdx", 0);
@@ -480,6 +489,9 @@ public class PdfService {
 
         return fileUpload(mFile, request);
 //        return "";
+        } finally {
+            pioPdf.closeQuietly();
+        }
     }
 
     public byte[] getCachedTemplate(String templatePath) {

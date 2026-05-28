@@ -6,3 +6,4 @@ export { StudentManagementPanel } from './StudentManagementPanel';
 export { GroupFormModal } from './GroupFormModal';
 export { DeleteGroupModal } from './DeleteGroupModal';
 export { EmptyState } from './EmptyState';
+export { QRCodeModal } from './QRCodeModal';

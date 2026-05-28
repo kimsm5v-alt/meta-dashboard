@@ -60,6 +60,8 @@ __pycache__/
 .env.local
 .env.*.local
 .env.production
+.env.development
+frontend/.env.development
 public/test-accounts.json
 
 # Others

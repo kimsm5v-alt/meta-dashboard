@@ -24,7 +24,7 @@ function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListIte
     answeredCount: isFinished ? TOTAL_QUESTIONS : 0,
     totalQuestions: TOTAL_QUESTIONS,
     submittedAt: item.submDt,
-    hasResult: item.eakAt === 'Y',
+    hasResult: status === 'result_ready',
   };
 }
 

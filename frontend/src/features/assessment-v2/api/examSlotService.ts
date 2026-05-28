@@ -36,7 +36,7 @@ export async function getExamSlots(claId: string, tcId: string): Promise<ExamSlo
       totalCount: item.stTotalCnt,
       startDate: new Date(item.dgnssStDt),
       endDate: item.dgnssEdDt ? new Date(item.dgnssEdDt) : undefined,
-      notSubmittedStudents: item.notDgnssStartList ?? undefined,
+      notSubmittedStudents: Array.isArray(item.notDgnssStartList) ? item.notDgnssStartList : [],
     };
   });
 }

@@ -26,11 +26,9 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -1763,8 +1761,8 @@ public class DgnssService {
 
 
 
-    public ResponseEntity<StreamingResponseBody> dgnssDownloadAll(String jwtToken, HttpServletRequest request, boolean isAuth, Map<String, Object> param) throws Exception {
-        return fileService.dgnssDownloadAll(jwtToken, request, isAuth, param);
+    public String createDgnssDownloadAllZip(HttpServletRequest request, boolean isAuth, Map<String, Object> param) throws Exception {
+        return fileService.createDgnssDownloadAllZip(request, isAuth, param);
     }
 
     public Map<String, Object> selectMakePdfTargetList(Map<String, Object> param) {

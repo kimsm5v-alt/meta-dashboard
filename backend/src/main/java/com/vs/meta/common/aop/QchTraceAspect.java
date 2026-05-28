@@ -135,17 +135,10 @@ public class QchTraceAspect {
                 .build();
 
         SpAuthenticatedUser spUser = SecurityUtil.getCurrentSpUser();
-        Long userNo = SecurityUtil.getCurrentUserNo();
 
-        // JWT 토큰 정보 기반 사용자 식별자 결정
-        // 1순위: JWT sub claim의 spUserId (SP Auth 서버 공개 ID)
-        // 2순위: DB 매핑된 userNo (학심정 내부 PK)
-        String resolvedUserId = null;
-        if (spUser != null && spUser.spUserId() != null) {
-            resolvedUserId = spUser.spUserId();
-        } else if (userNo != null) {
-            resolvedUserId = String.valueOf(userNo);
-        }
+        // JWT sub claim의 spUserId (SP Auth 서버 공개 ID) 만 사용.
+        // 내부 PK(userNo)는 외부(QCH)로 전달하지 않는다 — spUserId 없으면 null.
+        String resolvedUserId = (spUser != null) ? spUser.spUserId() : null;
 
         // userType은 JWT claim에서 직접 추출 (TEACHER/STUDENT/GUEST/UNSET)
         String resolvedUserType = (spUser != null) ? spUser.userType() : null;

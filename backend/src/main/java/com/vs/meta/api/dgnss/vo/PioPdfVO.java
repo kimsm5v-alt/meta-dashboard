@@ -285,6 +285,24 @@ public class PioPdfVO {
         }
     }
 
+    /**
+     * 예외 경로에서도 {@link PDDocument} 가 확실히 닫히도록 하는 안전망.
+     *
+     * <p>정상 경로에서는 {@code saveDoc()} 가 이미 문서를 닫지만, 문서 로드/렌더링 중
+     * 예외가 나면 {@code saveDoc()} 에 도달하지 못해 문서(임베딩 폰트·이미지 포함)가
+     * 힙에 남는다. PDFBox 의 close 는 멱등이라 중복 호출돼도 무해하므로 finally 에서
+     * 호출해 누수를 막는다. (pdStream 은 saveDoc 가 닫으며, 미닫힘 시에도 pdDoc 종료로 회수됨)
+     */
+    public void closeQuietly() {
+        if (pdDoc != null) {
+            try {
+                pdDoc.close();
+            } catch (IOException e) {
+                log.error("IO error : {}", e.getMessage());
+            }
+        }
+    }
+
     public void save(){
         if(pdStream != null){
             try {
