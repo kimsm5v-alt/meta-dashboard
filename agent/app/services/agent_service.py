@@ -146,6 +146,7 @@ class MetaAgentService:
         """
         profile = (context_data or {}).get("profile", {})
         _trace_ctx = None
+        _run_tree = None
         answer = "응답을 생성하지 못했습니다."
         history = get_session_history(session_id)
 
@@ -160,7 +161,7 @@ class MetaAgentService:
                     "predicted_type": profile.get("predictedType"),
                 },
             )
-            _trace_ctx.__enter__()
+            _run_tree = _trace_ctx.__enter__()
 
         try:
             messages, history = self._build_messages(text, session_id, context_data)
@@ -237,6 +238,8 @@ class MetaAgentService:
             answer = "예상치 못한 오류가 발생했습니다."
         finally:
             if _trace_ctx is not None:
+                if _run_tree is not None:
+                    _run_tree.outputs = {"response": answer}
                 _trace_ctx.__exit__(*sys.exc_info())
 
         history.add_user_message(text)
@@ -256,6 +259,8 @@ class MetaAgentService:
         # LangSmith context manager 래핑 (최소 침습: 기존 로직 무변경)
         profile = (context_data or {}).get("profile", {})
         _trace_ctx = None
+        _run_tree = None
+        _stream_output = ""
         if langsmith_is_enabled():
             _trace_ctx = langsmith.trace(
                 name="meta-agent-stream",
@@ -267,7 +272,7 @@ class MetaAgentService:
                     "predicted_type": profile.get("predictedType"),
                 },
             )
-            _trace_ctx.__enter__()
+            _run_tree = _trace_ctx.__enter__()
 
         try:
             messages, history = self._build_messages(text, session_id, context_data)
@@ -310,6 +315,7 @@ class MetaAgentService:
 
                     if not tool_call_buffer:
                         final_content = content_buffer or fallback_message
+                        _stream_output = final_content
                         history.add_user_message(text)
                         history.add_ai_message(final_content)
                         break
@@ -355,6 +361,7 @@ class MetaAgentService:
 
                 if iterations >= self.max_iterations:
                     max_iter_message = "에이전트가 최대 허용 횟수 내에 답변을 완료하지 못했습니다."
+                    _stream_output = max_iter_message
                     history.add_user_message(text)
                     history.add_ai_message(max_iter_message)
                     yield max_iter_message
@@ -362,40 +369,49 @@ class MetaAgentService:
             except litellm.exceptions.AuthenticationError as e:
                 logger.error(f"Authentication error: {str(e)}")
                 msg = "API 키 인증 오류가 발생했습니다. 관리자에게 문의하세요."
+                _stream_output = msg
                 history.add_user_message(text)
                 history.add_ai_message(msg)
                 yield msg
             except litellm.exceptions.RateLimitError as e:
                 logger.error(f"Rate limit error: {str(e)}")
                 msg = "현재 요청이 많아 일시적으로 서비스 제한이 발생했습니다."
+                _stream_output = msg
                 history.add_user_message(text)
                 history.add_ai_message(msg)
                 yield msg
             except litellm.exceptions.Timeout as e:
                 logger.error(f"Timeout error: {str(e)}")
                 msg = "응답 시간이 초과되었습니다."
+                _stream_output = msg
                 history.add_user_message(text)
                 history.add_ai_message(msg)
                 yield msg
             except litellm.exceptions.APIError as e:
                 logger.error(f"API error: {str(e)}")
                 msg = "AI 서비스 연동 중 오류가 발생했습니다."
+                _stream_output = msg
                 history.add_user_message(text)
                 history.add_ai_message(msg)
                 yield msg
             except Exception as e:
                 logger.error(f"Streaming error in agent service: {str(e)}", exc_info=True)
+                _stream_output = fallback_message
                 history.add_user_message(text)
                 history.add_ai_message(fallback_message)
                 yield fallback_message
 
         except BaseException:
             if _trace_ctx is not None:
+                if _run_tree is not None:
+                    _run_tree.outputs = {"response": _stream_output}
                 _trace_ctx.__exit__(*sys.exc_info())
                 _trace_ctx = None
             raise
         finally:
             if _trace_ctx is not None:
+                if _run_tree is not None:
+                    _run_tree.outputs = {"response": _stream_output}
                 _trace_ctx.__exit__(None, None, None)
 
 meta_agent_service = MetaAgentService()
