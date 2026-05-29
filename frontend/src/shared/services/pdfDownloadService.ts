@@ -118,19 +118,26 @@ export async function downloadAllPdf(
     onProgress?.(i + 1, students.length);
   }
 
-  // Step 3: 전체 ZIP 다운로드
+  // Step 3-1: ZIP 생성 및 URL 조회 (JSON 응답)
   const jwtToken = getAuth().getAccessToken() ?? '';
-  const response = await axiosInstance.get('/api/dgnss/dgnss-download-all', {
-    params: { dgnssId, type, jwtToken },
+  const zipRes = await axiosInstance.get<{ resultData: { zipFileUrl: string } }>(
+    '/api/dgnss/dgnss-download-all',
+    { params: { dgnssId, type, jwtToken } },
+  );
+  const zipFileUrl = zipRes.data.resultData?.zipFileUrl;
+  if (!zipFileUrl) throw new Error('ZIP 파일 URL을 받지 못했습니다.');
+
+  // Step 3-2: URL로 실제 ZIP 다운로드 (/pfile-download 기존 패턴 동일)
+  const downloadUrl = `${ENV.API_URL}/files/pfile-download?url=${encodeURIComponent(zipFileUrl)}&jwtToken=${jwtToken}`;
+  const response = await axios.get(downloadUrl, {
+    headers: { Authorization: `Bearer ${jwtToken}` },
     responseType: 'blob',
   });
 
   const disposition = response.headers['content-disposition'] as string | undefined;
   let filename = `학습심리정서검사_${dgnssId}.zip`;
   if (disposition) {
-    // RFC 5987 형식: filename*=UTF-8''...
     const rfc5987 = disposition.match(/filename\*=UTF-8''([^;\s]+)/i);
-    // 일반 형식: filename=... (URL 인코딩 포함)
     const plain = disposition.match(/filename=([^;\s]+)/i);
     if (rfc5987) {
       filename = decodeURIComponent(rfc5987[1]);
