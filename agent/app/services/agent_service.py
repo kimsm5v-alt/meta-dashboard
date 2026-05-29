@@ -151,6 +151,9 @@ class MetaAgentService:
         history = get_session_history(session_id)
 
         if langsmith_is_enabled():
+            # inputs의 text(교사 질문)와 outputs의 answer(AI 응답)는 LangSmith로 전송됨.
+            # 교사가 질문에 학생 이름 등 PII를 직접 입력할 경우 LangSmith에 기록될 수 있음.
+            # context_data(학생 프로필)는 _build_messages에서 mask_pii_data로 마스킹 후 사용됨.
             _trace_ctx = langsmith.trace(
                 name="meta-agent-run",
                 inputs={"text": text, "session_id": session_id},
@@ -404,14 +407,14 @@ class MetaAgentService:
         except BaseException:
             if _trace_ctx is not None:
                 if _run_tree is not None:
-                    _run_tree.outputs = {"response": _stream_output}
+                    _run_tree.outputs = {"response": _stream_output or "응답을 생성하지 못했습니다."}
                 _trace_ctx.__exit__(*sys.exc_info())
                 _trace_ctx = None
             raise
         finally:
             if _trace_ctx is not None:
                 if _run_tree is not None:
-                    _run_tree.outputs = {"response": _stream_output}
+                    _run_tree.outputs = {"response": _stream_output or "응답을 생성하지 못했습니다."}
                 _trace_ctx.__exit__(None, None, None)
 
 meta_agent_service = MetaAgentService()
