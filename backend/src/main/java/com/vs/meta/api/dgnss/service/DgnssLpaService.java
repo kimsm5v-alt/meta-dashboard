@@ -118,6 +118,38 @@ public class DgnssLpaService {
         dgnssMapper.upsertDgnssLpaResult(params);
     }
 
+    /**
+     * 검사(dgnssId) 단위로 제출 완료한 학생들의 LPA 유형을 일괄 재분류하여 upsert 한다.
+     * T점수 재계산(PC_DGNSS_MARK) 없이 이미 저장된 점수를 다시 분류만 하며, 건별로 격리되어
+     * 한 학생의 실패가 나머지 처리를 막지 않는다.
+     */
+    public Map<String, Object> reprocessByDgnssId(int dgnssId) {
+        List<Integer> answerIdxList = dgnssMapper.selectLpaTargetAnswerIdxByDgnssId(dgnssId);
+
+        int success = 0;
+        List<Integer> failedAnswerIdx = new ArrayList<>();
+        for (Integer answerIdx : answerIdxList) {
+            try {
+                processAndSave(answerIdx);
+                success++;
+            } catch (Exception e) {
+                failedAnswerIdx.add(answerIdx);
+                log.error("LPA 재분류 실패. dgnssId={}, answerIdx={}", dgnssId, answerIdx, e);
+            }
+        }
+
+        log.info("LPA 재분류 완료. dgnssId={}, total={}, success={}, failed={}",
+                dgnssId, answerIdxList.size(), success, failedAnswerIdx.size());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("dgnssId", dgnssId);
+        result.put("total", answerIdxList.size());
+        result.put("success", success);
+        result.put("failed", failedAnswerIdx.size());
+        result.put("failedAnswerIdx", failedAnswerIdx);
+        return result;
+    }
+
     private void upsertUnsupportedResult(Map<String, Object> studentInfo, String schoolLevel, String status) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("answerIdx", MapUtils.getInteger(studentInfo, "ANSWER_IDX"));

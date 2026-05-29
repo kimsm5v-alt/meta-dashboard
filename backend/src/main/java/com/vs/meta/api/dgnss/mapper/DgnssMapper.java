@@ -148,6 +148,9 @@ public interface DgnssMapper {
 
     void upsertDgnssLpaResult(Map<String, Object> param);
 
+    // LPA 재분류 대상: 검사(dgnssId) 단위로 제출 완료한 학생의 ANSWER_IDX 목록
+    List<Integer> selectLpaTargetAnswerIdxByDgnssId(@Param("dgnssId") int dgnssId);
+
     List<Map<String, Object>> selectTcClassMetaStats(Map<String, Object> param);
 
     List<Map<String, Object>> selectTcClassFactorAverages(Map<String, Object> param);

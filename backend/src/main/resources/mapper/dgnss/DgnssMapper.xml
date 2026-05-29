@@ -3677,6 +3677,16 @@
 		]]>
 	</insert>
 
+	<select id="selectLpaTargetAnswerIdxByDgnssId" parameterType="int" resultType="int">
+		/* DgnssMapper.selectLpaTargetAnswerIdxByDgnssId */
+		SELECT da.ANSWER_IDX
+		FROM tb_dgnss_answer da
+			INNER JOIN tb_dgnss_result_info dri ON da.DGNSS_RESULT_ID = dri.id
+		WHERE dri.dgnss_id = #{dgnssId}
+		  AND dri.subm_at = 'Y'
+		ORDER BY da.ANSWER_IDX
+	</select>
+
 	<select id="selectTcClassMetaStats" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcClassMetaStats */
 		SELECT gi.cla_id AS claId
