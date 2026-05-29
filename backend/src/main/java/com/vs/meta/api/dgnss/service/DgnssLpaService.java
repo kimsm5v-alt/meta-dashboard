@@ -81,11 +81,11 @@ public class DgnssLpaService {
         }
 
         List<Map<String, Object>> rawScores = dgnssMapper.selectLpaFactorScores(answerIdx);
-        Map<String, Integer> scoreBySectionId = new LinkedHashMap<>();
+        Map<String, Double> scoreBySectionId = new LinkedHashMap<>();
         for (Map<String, Object> rawScore : rawScores) {
             scoreBySectionId.put(
                     MapUtils.getString(rawScore, "SECTION_ID", ""),
-                    MapUtils.getInteger(rawScore, "T_SCORE", 0)
+                    MapUtils.getDouble(rawScore, "T_SCORE", 0D)
             );
         }
 
@@ -136,18 +136,18 @@ public class DgnssLpaService {
         dgnssMapper.upsertDgnssLpaResult(params);
     }
 
-    private List<Double> buildOrderedScores(Map<String, Integer> scoreBySectionId) {
+    private List<Double> buildOrderedScores(Map<String, Double> scoreBySectionId) {
         List<Double> orderedScores = new ArrayList<>(featureOrder.size());
         for (String featureName : featureOrder) {
             String sectionId = FEATURE_TO_SECTION_ID.get(featureName);
             if (StringUtils.isBlank(sectionId)) {
                 throw new java.lang.IllegalStateException("Unknown feature in feature_order: " + featureName);
             }
-            Integer score = scoreBySectionId.get(sectionId);
+            Double score = scoreBySectionId.get(sectionId);
             if (score == null) {
                 throw new java.lang.IllegalStateException("Missing score for sectionId=" + sectionId + ", feature=" + featureName);
             }
-            orderedScores.add(score.doubleValue());
+            orderedScores.add(score);
         }
         return orderedScores;
     }

@@ -3606,7 +3606,7 @@
 		/* DgnssMapper.selectLpaFactorScores */
 		<![CDATA[
 		SELECT SECTION_ID
-		     , IF(ROUND(T_SCORE) < 0, 0, ROUND(T_SCORE)) AS T_SCORE
+		     , IF(T_SCORE < 0, 0, T_SCORE) AS T_SCORE
 		FROM tb_dgnss_answer_report
 		WHERE ANSWER_IDX = #{answerIdx}
 		  AND SECTION_ID IN (
