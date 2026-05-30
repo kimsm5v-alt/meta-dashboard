@@ -137,9 +137,11 @@ superplatform:
     client-id: ${SP_AUTH_CLIENT_ID:test-service}
     client-secret: ${SP_AUTH_CLIENT_SECRET}
     internal-api:
-      # base-url default 는 server-url 기반으로 자동 derive (도메인 중복 방지).
+      # base-url default 는 같은 yml 의 server-url property 값을 참조해서 자동 derive.
       # 환경 yml 에서 server-url 만 정의하면 internal-api 도 자동으로 그 도메인을 따라간다.
-      base-url: ${SP_AUTH_INTERNAL_API_URL:${SP_AUTH_SERVER_URL:http://localhost:8080}/api/v1}
+      # (주의: ${SP_AUTH_SERVER_URL:...} 가 아니라 ${superplatform.auth.server-url} 로 property 참조해야
+      #  application-vs-dev.yml 의 hardcoded server-url 값이 derive 됨)
+      base-url: ${SP_AUTH_INTERNAL_API_URL:${superplatform.auth.server-url}/api/v1}
       service-token-scope: users:read
       connect-timeout-ms: 2000
       read-timeout-ms: 3000
