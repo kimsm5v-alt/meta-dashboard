@@ -2165,7 +2165,7 @@ public class DrawPdfService {
 
                     pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_NM").toString(), x[1], y[i] + textHeight, x[2] - x[1], "", fontSize);
 
-                    pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_GENDER_NM").toString(), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
+                    pioPdfVO.drawTextC(MapUtils.getString(dgnssReportLS.get(i), "MEM_GENDER_NM", ""), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
 
                     if (dgnssReportLS.get(i).get("COCH_DGNSS_QESITM02_MARK").toString().equals("주의")) {
                         pioPdfVO.drawRectangle(x[3], y[i], x[4] - x[3], height, Color.BLACK, redBg);
@@ -2380,7 +2380,7 @@ public class DrawPdfService {
 
                     pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_NM").toString(), x[1], y[i] + textHeight, x[2] - x[1], "", fontSize);
 
-                    pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_GENDER_NM").toString(), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
+                    pioPdfVO.drawTextC(MapUtils.getString(dgnssReportLS.get(i), "MEM_GENDER_NM", ""), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
 
 
                     for (int j = 0; j < tScoreCnt; j++) {
@@ -2738,7 +2738,7 @@ public class DrawPdfService {
 
                     pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_NM").toString(), x[1], y[i] + textHeight, x[2] - x[1], "", fontSize);
 
-                    pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_GENDER_NM").toString(), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
+                    pioPdfVO.drawTextC(MapUtils.getString(dgnssReportLS.get(i), "MEM_GENDER_NM", ""), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
 
                     if (dgnssReportLS.get(i).get("COCH_DGNSS_QESITM02_MARK").toString().equals("주의")) {
                         pioPdfVO.drawRectangle(x[3], y[i], x[4] - x[3], height, Color.BLACK, redBg);
@@ -3023,7 +3023,7 @@ public class DrawPdfService {
 
                     pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_NM").toString(), x[1], y[i] + textHeight, x[2] - x[1], "", fontSize);
 
-                    pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_GENDER_NM").toString(), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
+                    pioPdfVO.drawTextC(MapUtils.getString(dgnssReportLS.get(i), "MEM_GENDER_NM", ""), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
 
 
                     for (int j = 0; j < tScoreCnt; j++) {
