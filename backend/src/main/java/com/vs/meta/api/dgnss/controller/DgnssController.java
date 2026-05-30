@@ -6,6 +6,7 @@ import com.vs.meta.common.response.ResponseDTO;
 import com.vs.meta.common.response.CustomBody;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import com.vs.meta.api.dgnss.service.DgnssGraphService;
+import com.vs.meta.api.dgnss.service.DgnssLpaService;
 import com.vs.meta.api.dgnss.service.DgnssService;
 import org.springframework.web.multipart.MultipartFile;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,6 +41,7 @@ import java.util.Map;
 public class DgnssController {
     private final DgnssService dgnssService;
     private final DgnssGraphService dgnssGraphService;
+    private final DgnssLpaService dgnssLpaService;
     private final DgnssMapper dgnssMapper;
 
     @RequestMapping(value = {"/api/dgnss/tc/info","/api/dgnss/tc/list"}, method = {RequestMethod.GET})
@@ -224,6 +226,30 @@ public class DgnssController {
     ) throws Exception {
         Map<String, Object> result = dgnssService.updateStSubmit(paramData, request);
         String resultMessage = "심리검사 제출";
+        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
+    @RequestMapping(value = "/api/dgnss/lpa/reprocess", method = {RequestMethod.POST})
+    @Operation(summary = "(관리) LPA 유형 검사 단위 재분류",
+            description = "지정한 검사(dgnssId)에서 제출 완료한 학생 전원의 LPA 유형을 이미 저장된 T점수로 다시 분류하여 tb_dgnss_lpa_result 에 upsert 합니다. "
+                    + "T점수 재계산이나 제출 재처리(메일 발송 등)는 수행하지 않습니다.")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(examples = {
+                    @ExampleObject(name = "파라미터", value = """
+                            {
+                                "dgnssId": 1088
+                            }
+                            """)
+            }))
+    public ResponseDTO<CustomBody> reprocessLpaByDgnssId(
+            @RequestBody Map<String, Object> paramData
+    ) throws Exception {
+        int dgnssId = MapUtils.getIntValue(paramData, "dgnssId", 0);
+        if (dgnssId <= 0) {
+            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락: dgnssId");
+        }
+        Map<String, Object> result = dgnssLpaService.reprocessByDgnssId(dgnssId);
+        String resultMessage = "(관리) LPA 유형 검사 단위 재분류";
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 

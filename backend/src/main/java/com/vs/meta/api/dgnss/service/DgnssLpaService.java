@@ -81,11 +81,11 @@ public class DgnssLpaService {
         }
 
         List<Map<String, Object>> rawScores = dgnssMapper.selectLpaFactorScores(answerIdx);
-        Map<String, Integer> scoreBySectionId = new LinkedHashMap<>();
+        Map<String, Double> scoreBySectionId = new LinkedHashMap<>();
         for (Map<String, Object> rawScore : rawScores) {
             scoreBySectionId.put(
                     MapUtils.getString(rawScore, "SECTION_ID", ""),
-                    MapUtils.getInteger(rawScore, "T_SCORE", 0)
+                    MapUtils.getDouble(rawScore, "T_SCORE", 0D)
             );
         }
 
@@ -118,6 +118,38 @@ public class DgnssLpaService {
         dgnssMapper.upsertDgnssLpaResult(params);
     }
 
+    /**
+     * 검사(dgnssId) 단위로 제출 완료한 학생들의 LPA 유형을 일괄 재분류하여 upsert 한다.
+     * T점수 재계산(PC_DGNSS_MARK) 없이 이미 저장된 점수를 다시 분류만 하며, 건별로 격리되어
+     * 한 학생의 실패가 나머지 처리를 막지 않는다.
+     */
+    public Map<String, Object> reprocessByDgnssId(int dgnssId) {
+        List<Integer> answerIdxList = dgnssMapper.selectLpaTargetAnswerIdxByDgnssId(dgnssId);
+
+        int success = 0;
+        List<Integer> failedAnswerIdx = new ArrayList<>();
+        for (Integer answerIdx : answerIdxList) {
+            try {
+                processAndSave(answerIdx);
+                success++;
+            } catch (Exception e) {
+                failedAnswerIdx.add(answerIdx);
+                log.error("LPA 재분류 실패. dgnssId={}, answerIdx={}", dgnssId, answerIdx, e);
+            }
+        }
+
+        log.info("LPA 재분류 완료. dgnssId={}, total={}, success={}, failed={}",
+                dgnssId, answerIdxList.size(), success, failedAnswerIdx.size());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("dgnssId", dgnssId);
+        result.put("total", answerIdxList.size());
+        result.put("success", success);
+        result.put("failed", failedAnswerIdx.size());
+        result.put("failedAnswerIdx", failedAnswerIdx);
+        return result;
+    }
+
     private void upsertUnsupportedResult(Map<String, Object> studentInfo, String schoolLevel, String status) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("answerIdx", MapUtils.getInteger(studentInfo, "ANSWER_IDX"));
@@ -136,18 +168,18 @@ public class DgnssLpaService {
         dgnssMapper.upsertDgnssLpaResult(params);
     }
 
-    private List<Double> buildOrderedScores(Map<String, Integer> scoreBySectionId) {
+    private List<Double> buildOrderedScores(Map<String, Double> scoreBySectionId) {
         List<Double> orderedScores = new ArrayList<>(featureOrder.size());
         for (String featureName : featureOrder) {
             String sectionId = FEATURE_TO_SECTION_ID.get(featureName);
             if (StringUtils.isBlank(sectionId)) {
                 throw new java.lang.IllegalStateException("Unknown feature in feature_order: " + featureName);
             }
-            Integer score = scoreBySectionId.get(sectionId);
+            Double score = scoreBySectionId.get(sectionId);
             if (score == null) {
                 throw new java.lang.IllegalStateException("Missing score for sectionId=" + sectionId + ", feature=" + featureName);
             }
-            orderedScores.add(score.doubleValue());
+            orderedScores.add(score);
         }
         return orderedScores;
     }
