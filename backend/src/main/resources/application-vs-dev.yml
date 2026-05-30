@@ -16,7 +16,7 @@ superplatform:
     # 회원정보 조회용 internal API base URL. 누락 시 공통 application.yml 의 기본값
     # http://localhost:8080/api/v1 로 떨어져 enrich 가 전부 placeholder 처리됨.
     internal-api:
-      base-url: ${SP_AUTH_INTERNAL_API_URL:https://t-auth-superplatform-api.vsaidt.com/api/v1}
+      base-url: https://t-auth-superplatform-api.vsaidt.com/api/v1
 
 # ===== QCH 적재 (dev) =====
 qch:
