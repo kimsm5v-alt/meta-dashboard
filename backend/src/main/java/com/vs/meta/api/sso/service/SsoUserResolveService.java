@@ -1,8 +1,6 @@
 package com.vs.meta.api.sso.service;
 
-import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.common.security.SpAuthenticatedUser;
-import com.vs.meta.common.utils.PiiMasker;
 import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,26 +11,27 @@ import org.springframework.transaction.annotation.Transactional;
  * SSO 인증 사용자 ↔ 학심정 user 매핑/프로비저닝 진입점.
  *
  * <p>SP JWT 가 들어왔을 때 학심정 user 를 resolve 하는 영구 운영 로직.
- * 마이그레이션({@link SsoUserMigrationService}) 과 책임 분리 — 마이그레이션은 SSO 전환 1회성.
  *
  * <p>처리 분기:
  * <ol>
  *   <li>sp_user_id 로 찾으면 그대로 반환 (정상 케이스)</li>
- *   <li>못 찾으면 마이그레이션 매핑 시도 (SSO 전환 이전 회원)</li>
- *   <li>마이그레이션에서 <b>동일 이메일 + 다른 sp_user_id</b> 감지되면 → 탈퇴 후 재가입으로 판단,
- *       옛 row 를 {@link SsoUserWithdrawalService#withdraw} 로 정리하고 신규 가입 처리</li>
- *   <li>아무것도 못 찾고 userType 이 TEACHER/STUDENT 면 자동 가입</li>
+ *   <li>못 찾고 userType 이 TEACHER/STUDENT 면 자동 가입</li>
  * </ol>
+ *
+ * <p>email 기반 재가입/마이그레이션 감지는 제거됨 (PII email 컬럼 DROP):
+ * <ul>
+ *   <li>재가입 — IdP 탈퇴 시 SSO 이벤트 폴링({@link SsoEventPollService})이 옛 row 를 WITHDRAWN 처리(인격분리).
+ *       재가입 시 신규 sp_user_id 라 자동가입(빈 계정)으로 흐른다.</li>
+ *   <li>마이그레이션 — SSO 전환 이전 회원이 없다(모든 회원 sp_user_id 보유).</li>
+ * </ul>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SsoUserResolveService {
 
-    private final UserMapper userMapper;
     private final SsoUserQueryService ssoUserQueryService;
     private final SsoUserRegistrationService ssoUserRegistrationService;
-    private final SsoUserWithdrawalService ssoUserWithdrawalService;
 
     /**
      * SP JWT 의 사용자 정보로 학심정 user 를 resolve.
@@ -45,35 +44,8 @@ public class SsoUserResolveService {
         User user = ssoUserQueryService.findBySpUserId(spUser.spUserId());
         if (user != null) return user;
 
-        // 2) 이메일 기반 후보 조회 — 마이그레이션 케이스 + 재가입 케이스 모두 여기서 분기
-        if (spUser.email() != null && !spUser.email().isBlank()) {
-            User byEmail = userMapper.findByEmail(spUser.email());
-            if (byEmail != null) {
-                // 2-a) 재가입 케이스: 같은 이메일에 다른 sp_user_id 가 매핑되어 있음
-                //      → 옛 row 탈퇴 처리 후 새 row insert (인격 분리 정책)
-                if (byEmail.getSpUserId() != null
-                        && !byEmail.getSpUserId().equals(spUser.spUserId())) {
-                    log.info("SSO 재가입 감지 — 옛 회원 탈퇴 처리 후 신규 가입: oldUserNo={}, oldSpUserId={}, newSpUserId={}, email={}",
-                            byEmail.getUserNo(), byEmail.getSpUserId(),
-                            spUser.spUserId(), PiiMasker.email(spUser.email()));
-                    ssoUserWithdrawalService.withdraw(byEmail, "SSO_REJOIN");
-                    return registerIfAutoRegistrable(spUser);
-                }
-                // 2-b) 마이그레이션 케이스: 같은 이메일 + sp_user_id 미매핑 (SSO 전환 이전 회원)
-                //      → 신규 sp_user_id 를 옛 row 에 박는다 (인격 동일, 단순 매핑)
-                if (byEmail.getSpUserId() == null) {
-                    byEmail.setSpUserId(spUser.spUserId());
-                    byEmail.setUpdatedBy(byEmail.getUserNo());
-                    byEmail.setUpdatedAt(java.time.LocalDateTime.now());
-                    userMapper.updateUser(byEmail);
-                    log.info("SSO 마이그레이션 매핑: userNo={}, spUserId={}, email={}",
-                            byEmail.getUserNo(), spUser.spUserId(), PiiMasker.email(spUser.email()));
-                    return byEmail;
-                }
-            }
-        }
-
-        // 3) 자동 가입 가능하면 신규 row insert
+        // 2) email 기반 재가입/마이그레이션 감지는 제거 (PII email 컬럼 DROP).
+        //    재가입은 SSO 이벤트 폴링이 옛 row 를 WITHDRAWN 처리, 마이그레이션은 대상 회원 없음.
         return registerIfAutoRegistrable(spUser);
     }
 

@@ -94,25 +94,6 @@ public class SecurityUtil {
     }
 
     /**
-     * 게스트 인증 여부 확인
-     */
-    public static boolean isGuestAuthenticated() {
-        SpAuthenticatedUser user = getCurrentSpUser();
-        return user != null && "GUEST".equals(user.userType());
-    }
-
-    /**
-     * 게스트 ID 추출 (SP JWT sub: "guest_xxx")
-     */
-    public static String getCurrentGuestId() {
-        SpAuthenticatedUser user = getCurrentSpUser();
-        if (user != null && "GUEST".equals(user.userType())) {
-            return user.spUserId();
-        }
-        return null;
-    }
-
-    /**
      * 현재 HttpServletRequest를 가져온다 (RequestContextHolder 경유).
      */
     private static HttpServletRequest getCurrentRequest() {

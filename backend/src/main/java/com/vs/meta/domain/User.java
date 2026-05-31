@@ -14,8 +14,6 @@ public class User {
 
     private Long userNo;
     private String spUserId;      // 슈퍼플랫폼 publicUserId (UUID)
-    private String email;
-    private String nickname;
     private String roleCode;
     private String tcId;
     private String stdtId;

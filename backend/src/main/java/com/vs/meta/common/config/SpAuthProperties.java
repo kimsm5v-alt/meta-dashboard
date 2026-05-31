@@ -23,4 +23,16 @@ public class SpAuthProperties {
 
     /** OAuth2 클라이언트 Secret (Auth 팀에서 발급, 서버 측에서만 사용) */
     private String clientSecret;
+
+    /** Internal API 설정 (users:read scope로 회원정보 조회) */
+    private InternalApi internalApi = new InternalApi();
+
+    @Getter
+    @Setter
+    public static class InternalApi {
+        private String baseUrl;
+        private String serviceTokenScope;
+        private int connectTimeoutMs;
+        private int readTimeoutMs;
+    }
 }

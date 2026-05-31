@@ -4,13 +4,13 @@ import com.vs.meta.api.dgnss.service.DgnssService;
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupMemberMapper;
 import com.vs.meta.api.group.mapper.GroupQueryMapper;
-import com.vs.meta.api.guest.service.GuestAuthService;
 import com.vs.meta.api.member.mapper.UserMapper;
-import com.vs.meta.api.member.service.EmailVerificationService;
 import com.vs.meta.api.member.service.MemberService;
 import com.vs.meta.api.notification.event.StudentJoinedGroupEvent;
 import com.vs.meta.api.notification.event.StudentKickedEvent;
 import com.vs.meta.api.notification.event.StudentLeftGroupEvent;
+import com.vs.meta.common.auth.UserInfoEnricher;
+import com.vs.meta.common.auth.UserSlot;
 import com.vs.meta.common.utils.ConvertUtils;
 import com.vs.meta.common.utils.IdGenerator;
 import com.vs.meta.common.utils.PageUtil;
@@ -30,6 +30,7 @@ import org.springframework.util.ObjectUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -41,10 +42,9 @@ public class GroupService {
     private final GroupQueryMapper groupQueryMapper;
     private final UserMapper userMapper;
     private final MemberService memberService;
-    private final EmailVerificationService emailVerificationService;
     private final DgnssService dgnssService;
-    private final GuestAuthService guestAuthService;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserInfoEnricher userInfoEnricher;
 
     @Transactional
     public Object createGroup(Map<String, Object> paramData) throws Exception {
@@ -162,9 +162,8 @@ public class GroupService {
                 throw new IllegalStateException("강퇴된 그룹에는 재가입할 수 없습니다.");
             }
             // LEFT 상태: 재가입 허용 (기존 row 재활성화)
+            // Phase 3: nickname/email snapshot 복사 제거 — IDP enricher가 읽기 시점에 채운다.
             existing.updateStatus(MemberStatus.ACTIVE);
-            existing.setNickname(user.getNickname());
-            existing.setEmail(user.getEmail());
             existing.setJoinedAt(LocalDateTime.now());
             existing.setLeftAt(null);
             existing.setUpdatedBy(userNo);
@@ -183,19 +182,23 @@ public class GroupService {
             }
 
             log.info("회원 그룹 재가입: groupId={}, userNo={}, memberId={}", groupId, userNo, existing.getId());
-            publishStudentJoined(groupInfo, existing.getNickname());
+            // Phase 4: nickname 컬럼 제거, IDP enrich 후 name 사용
+            existing.setSpUserId(user.getSpUserId());
+            userInfoEnricher.enrich(existing);
+            publishStudentJoined(groupInfo, existing.getName());
             return paramData;
         }
 
         Integer maxNo = groupMemberMapper.findMaxMemberNoByGroupId(groupId);
         int memberNo = (maxNo != null ? maxNo : 0) + 1;
 
+        // Phase 3: nickname/email snapshot 제거 — IDP enricher가 읽기 시점에 채운다.
+        // INSERT 시 nickname/email은 null이 되므로 DB NOT NULL 제약이 있다면 Phase 4에서 컬럼 DROP 후 해결.
+        // 현재 Phase 3에서 NOT NULL 제약은 기존 데이터를 위해 유지되므로 user 값을 넘긴다.
         GroupMember member = GroupMember.builder()
                 .groupId(groupId)
                 .userNo(userNo)
                 .stdtId(user.getStdtId())
-                .nickname(user.getNickname())
-                .email(user.getEmail())
                 .memberNo(memberNo)
                 .memberType(MemberType.STUDENT)
                 .status(MemberStatus.ACTIVE)
@@ -220,93 +223,13 @@ public class GroupService {
         }
 
         log.info("회원 그룹 참가: groupId={}, userNo={}, memberNo={}", groupId, userNo, memberNo);
-        publishStudentJoined(groupInfo, user.getNickname());
+        // Phase 3: User.spUserId로 enrich — user 객체가 이 시점에 살아있으므로 UserSlot 경유
+        UserSlot joinSlot = new UserSlot(user.getSpUserId());
+        userInfoEnricher.enrich(joinSlot);
+        publishStudentJoined(groupInfo, joinSlot.getName());
         return paramData;
     }
 
-    @Transactional
-    public Object joinGroupAsGuest(Map<String, Object> paramData) throws Exception {
-        String email = (String) paramData.get("email");
-        if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("이메일은 필수입니다.");
-        }
-        if (!emailVerificationService.isVerified(email)) {
-            throw new IllegalArgumentException("이메일 인증이 필요합니다.");
-        }
-
-        User existingUser = userMapper.findByEmail(email);
-        if (existingUser != null) {
-            throw new IllegalArgumentException("이미 가입된 회원 이메일입니다. 회원으로 로그인하여 그룹에 참가해주세요.");
-        }
-
-        String inviteCode = (String) paramData.get("inviteCode");
-        if (inviteCode == null || inviteCode.isBlank()) {
-            throw new IllegalArgumentException("inviteCode는 필수입니다.");
-        }
-
-        GroupInfo groupInfo = groupInfoMapper.findByInviteCodeAndUseYnForUpdate(inviteCode.toUpperCase(), "Y");
-        if (groupInfo == null) {
-            throw new IllegalArgumentException("유효한 초대코드가 아닙니다: " + inviteCode);
-        }
-        Long groupId = groupInfo.getGroupId();
-
-        long activeCount = groupMemberMapper.countByGroupIdAndStatus(groupId, MemberStatus.ACTIVE.name());
-        if (groupInfo.getMaxMemberCount() != null && activeCount >= groupInfo.getMaxMemberCount()) {
-            throw new IllegalStateException("그룹 최대 인원(" + groupInfo.getMaxMemberCount() + "명)을 초과할 수 없습니다.");
-        }
-
-        GroupMember existingGuest = groupMemberMapper.findActiveGuestByGroupIdAndEmail(groupId, email);
-        if (existingGuest != null) {
-            throw new IllegalStateException("이미 해당 그룹에 참가한 게스트입니다. 이메일 인증 후 기존 계정으로 다시 입장해주세요.");
-        }
-
-        String stdtId = IdGenerator.generateStdtId();
-
-        Integer maxNo = groupMemberMapper.findMaxMemberNoByGroupId(groupId);
-        int memberNo = (maxNo != null ? maxNo : 0) + 1;
-
-        GroupMember member = GroupMember.builder()
-                .groupId(groupId)
-                .userNo(null)
-                .stdtId(stdtId)
-                .nickname((String) paramData.get("nickname"))
-                .email((String) paramData.get("email"))
-                .memberNo(memberNo)
-                .memberType(MemberType.GUEST)
-                .status(MemberStatus.ACTIVE)
-                .joinedAt(LocalDateTime.now())
-                .createdBy(0L)
-                .updatedBy(0L)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-        groupMemberMapper.insertGroupMember(member);
-
-        paramData.put("stdtId", stdtId);
-        paramData.put("memberId", member.getId());
-        paramData.put("claId", groupInfo.getClaId());
-
-        Integer activeDgnssId = registerActiveDgnssIfNeeded(
-                groupInfo.getClaId(),
-                groupInfo.getSchoolLevel(),
-                stdtId
-        );
-        if (activeDgnssId != null) {
-            paramData.put("dgnssId", activeDgnssId);
-        }
-
-        // 게스트 토큰 발급 — Auth 서버 게스트 토큰 사용 (RT 없음)
-        // authenticateGuest 내부에서 isVerified 체크 + consumeVerification을 수행하므로
-        // 여기서 미리 consume하면 안 됨
-        Map<String, Object> guestToken = guestAuthService.authenticateGuest(
-                groupInfo.getInviteCode(), email, null, null);
-        paramData.put("accessToken", guestToken.get("accessToken"));
-        paramData.put("guestId", guestToken.get("guestId"));
-
-        log.info("게스트 그룹 참가: groupId={}, email={}, memberNo={}", groupId, email, memberNo);
-        publishStudentJoined(groupInfo, (String) paramData.get("nickname"));
-        return paramData;
-    }
 
     /**
      * T1 알림 이벤트 발행 — 그룹 오너 교사에게.
@@ -373,9 +296,13 @@ public class GroupService {
         }
 
         Map<String, Object> groupInfo = groupQueryMapper.findGroupDetail(groupId, userNo);
+        // Phase 3: hostSpUserId → hostNickname/hostEmail 복원 (FE 호환)
+        enrichMap(groupInfo, "hostSpUserId", "hostNickname", "hostEmail");
         returnMap.put("groupInfo", groupInfo);
 
         List<Map<String, Object>> memberList = groupQueryMapper.findGroupMemberList(groupId, offset, size);
+        // Phase 3: spUserId → nickname/email 복원 (FE 호환)
+        enrichMaps(memberList, "spUserId", "nickname", "email");
         long total = groupQueryMapper.countGroupMemberList(groupId);
 
         returnMap.put("memberList", memberList);
@@ -408,12 +335,14 @@ public class GroupService {
         log.info("그룹 멤버 탈퇴: memberId={}, userNo={}", memberId, userNo);
 
         // T2: 그룹 오너 교사에게 알림
+        // Phase 4: nickname 컬럼 제거, IDP enrich 후 name 사용
         GroupInfo groupInfo = groupInfoMapper.findGroupInfoById(member.getGroupId());
         if (groupInfo != null && groupInfo.getHostUserNo() != null) {
+            userInfoEnricher.enrich(member);
             eventPublisher.publishEvent(new StudentLeftGroupEvent(
                     groupInfo.getHostUserNo(),
                     groupInfo.getClaId(),
-                    member.getNickname()
+                    member.getName()
             ));
         }
         return paramData;
@@ -470,7 +399,13 @@ public class GroupService {
         }
 
         User host = userMapper.findByUserNo(groupInfo.getHostUserNo());
-        String hostNickname = (host != null) ? host.getNickname() : null;
+        // Phase 3: host.getNickname()은 DB에서 신뢰할 수 없으므로 UserSlot으로 IDP enrich
+        String hostNickname = null;
+        if (host != null && host.getSpUserId() != null) {
+            UserSlot hostSlot = new UserSlot(host.getSpUserId());
+            userInfoEnricher.enrich(hostSlot);
+            hostNickname = hostSlot.getName();
+        }
 
         long memberCount = groupMemberMapper.countByGroupIdAndStatus(groupInfo.getGroupId(), MemberStatus.ACTIVE.name());
 
@@ -552,6 +487,70 @@ public class GroupService {
         groupInfoMapper.updateGroupInfo(groupInfo);
         log.info("그룹 삭제: claId={}, by={}", claId, userNo);
         return paramData;
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 3 Map-enrich 헬퍼 — FE 호환 키(nickname/email 등) 복원
+    // HasUserInfo 타입이 아닌 List<Map> 응답에서 spUserId 기준으로 IDP 회원정보를 채운다.
+    // Task 12 hotfix: GroupQueryMapper SELECT에서 PII 컬럼이 제거된 Map 응답을 보정.
+    // -----------------------------------------------------------------------
+
+    /**
+     * spUserId 필드로 식별되는 Map 목록을 Auth 회원정보로 enrich.
+     * Phase 3 동안 List<Map<String,Object>> 응답에서 FE 호환 키(nickname/email)를 복원하기 위한 패턴.
+     *
+     * @param items        enrich 대상 Map 목록
+     * @param spUserIdKey  Map 안의 sp_user_id 필드 키 이름 (예: "spUserId", "hostSpUserId")
+     * @param nicknameKey  Map에 채워 넣을 닉네임 응답 키 이름 (예: "nickname", "hostNickname")
+     * @param emailKey     Map에 채워 넣을 이메일 응답 키 이름 (예: "email", "hostEmail")
+     */
+    private void enrichMaps(
+            List<Map<String, Object>> items,
+            String spUserIdKey,
+            String nicknameKey,
+            String emailKey
+    ) {
+        if (items == null || items.isEmpty()) return;
+
+        List<UserSlot> slots = items.stream()
+                .map(m -> (String) m.get(spUserIdKey))
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(UserSlot::new)
+                .toList();
+        if (slots.isEmpty()) return;
+
+        userInfoEnricher.enrich(slots);
+
+        Map<String, UserSlot> bySpUserId = slots.stream()
+                .collect(Collectors.toMap(UserSlot::getSpUserId, s -> s));
+        items.forEach(m -> {
+            String spUserId = (String) m.get(spUserIdKey);
+            if (spUserId == null) return;
+            UserSlot slot = bySpUserId.get(spUserId);
+            if (slot != null) {
+                m.put(nicknameKey, slot.getName());
+                m.put(emailKey, slot.getEmail());
+            } else {
+                m.put(nicknameKey, "(탈퇴 회원)");
+                m.put(emailKey, null);
+            }
+        });
+    }
+
+    /**
+     * 단건 Map enrich.
+     *
+     * @see #enrichMaps(List, String, String, String)
+     */
+    private void enrichMap(
+            Map<String, Object> item,
+            String spUserIdKey,
+            String nicknameKey,
+            String emailKey
+    ) {
+        if (item == null) return;
+        enrichMaps(List.of(item), spUserIdKey, nicknameKey, emailKey);
     }
 
 }

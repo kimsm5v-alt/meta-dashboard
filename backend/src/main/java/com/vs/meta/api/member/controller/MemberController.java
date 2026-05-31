@@ -1,5 +1,6 @@
 package com.vs.meta.api.member.controller;
 
+import com.vs.meta.api.member.dto.MemberInfoDto;
 import com.vs.meta.api.member.service.MemberService;
 import com.vs.meta.api.sso.service.SsoUserQueryService;
 import com.vs.meta.api.sso.service.SsoUserResolveService;
@@ -48,16 +49,19 @@ public class MemberController {
             throw new IllegalStateException("학심정에 등록되지 않은 사용자입니다. 추가 정보 입력이 필요합니다.");
         }
 
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("userNo", user.getUserNo());
-        result.put("spUserId", user.getSpUserId());
-        result.put("email", user.getEmail());
-        result.put("nickname", user.getNickname());
-        result.put("roleCode", user.getRoleCode());
-        result.put("tcId", user.getTcId());
-        result.put("stdtId", user.getStdtId());
-        result.put("status", user.getStatus());
-        result.put("lastLoginAt", user.getLastLoginAt());
+        // MemberInfoDto로 변환 + Enricher로 name/email 조회
+        MemberInfoDto result = new MemberInfoDto();
+        result.setUserNo(user.getUserNo());
+        result.setSpUserId(user.getSpUserId());
+        result.setRoleCode(user.getRoleCode());
+        result.setTcId(user.getTcId());
+        result.setStdtId(user.getStdtId());
+        result.setStatus(user.getStatus().name());
+        result.setLastLoginAt(user.getLastLoginAt() != null ? user.getLastLoginAt().toString() : null);
+        result.setCreatedAt(user.getCreatedAt() != null ? user.getCreatedAt().toString() : null);
+        result.setUpdatedAt(user.getUpdatedAt() != null ? user.getUpdatedAt().toString() : null);
+
+        memberService.enrichMemberInfo(result);
 
         return AidtCommonUtil.makeResultSuccess(paramData, result, "회원 정보 조회");
     }

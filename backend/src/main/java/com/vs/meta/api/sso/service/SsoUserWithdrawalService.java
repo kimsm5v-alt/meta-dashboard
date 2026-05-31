@@ -46,13 +46,13 @@ public class SsoUserWithdrawalService {
         if (user == null || user.getUserNo() == null) return;
 
         Long userNo = user.getUserNo();
-        String maskedEmail = PiiMasker.email(user.getEmail());
+        String maskedSpUserId = PiiMasker.maskUuid(user.getSpUserId());
 
         int userRows = userMapper.markWithdrawn(userNo);
         int memberRows = groupMemberMapper.withdrawByUserNo(userNo);
         int hostGroupRows = groupInfoMapper.deactivateByHostUserNo(userNo);
 
-        log.info("SSO 탈퇴 처리 완료: userNo={}, email={}, reason={}, userRows={}, memberRows={}, hostGroupRows={}",
-                userNo, maskedEmail, reason, userRows, memberRows, hostGroupRows);
+        log.info("SSO 탈퇴 처리 완료: userNo={}, spUserId={}, reason={}, userRows={}, memberRows={}, hostGroupRows={}",
+                userNo, maskedSpUserId, reason, userRows, memberRows, hostGroupRows);
     }
 }

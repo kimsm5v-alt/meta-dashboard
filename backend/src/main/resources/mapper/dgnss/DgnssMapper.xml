@@ -242,7 +242,7 @@
 	<select id="selectTcDgnssStartPreview" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcDgnssStartPreview */
 		SELECT gm.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			<choose>
 				<when test="ordNo == 1">
@@ -307,6 +307,7 @@
 			</choose>
 		FROM group_info gi
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE gi.cla_id = #{claId}
 		ORDER BY gm.member_no
 	</select>
@@ -456,12 +457,14 @@
 		SELECT tdi.ord_no AS ordNo
 		     , tdi.paper_idx AS paperIdx
 		     , gi.host_user_no AS teacherUserNo
-		     , COALESCE(gm.nickname, tdri.stdt_id) AS studentNickname
+		     , u.sp_user_id AS memberSpUserId
+		     , tdri.stdt_id AS stdtId
 		FROM tb_dgnss_result_info tdri
 			INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			LEFT JOIN group_member gm ON gi.group_id = gm.group_id
 				AND gm.stdt_id = tdri.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE tdri.id = #{dgnssResultId}
 		LIMIT 1
 	</select>
@@ -1001,13 +1004,7 @@
 		/* DgnssMapper.getDgnssReportLS */
 		SELECT DM.stdt_id,
 		       gm.member_no                            AS CLASS_NO,
-		       gm.nickname                             AS MEM_NM,
-		       gm.gender                               AS MEM_GENDER,
-		       CASE
-		         WHEN gm.gender = 'M' THEN '남자'
-		         WHEN gm.gender = 'F' THEN '여자'
-		         ELSE ''
-		       END                                     AS MEM_GENDER_NM,
+		       u.sp_user_id                            AS memberSpUserId,
 		       CASE
 		         WHEN DA.repeated_response_yn = 'Y' THEN '주의'
 		         ELSE '양호'
@@ -1031,6 +1028,7 @@
 			INNER JOIN group_member gm
 				ON gi.group_id = gm.group_id
 				AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 
 		WHERE DM.dgnss_id = #{TEST_IDX}
 			AND EXISTS (
@@ -1678,9 +1676,8 @@
 
 	<select id="getDgnssReportValidity" parameterType="map" resultType="map">
 		/* DgnssMapper.getDgnssReportValidity */
-		SELECT gm.nickname AS MEM_NM
+		SELECT u.sp_user_id AS memberSpUserId
 		  ,  DM.stdt_id AS MEM_ID
-		  ,  gm.gender AS MEM_GENDER
 		  ,  DM.id
 		  ,  DA.COCH_DGNSS_QESITM01_MARK
 		  ,  DA.COCH_DGNSS_QESITM02_MARK
@@ -1695,6 +1692,7 @@
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE DA.TEST_IDX = #{TEST_IDX}
 		ORDER BY gm.member_no
 	</select>
@@ -1703,34 +1701,38 @@
 		/* DgnssMapper.getDgnssReportMem */
 		<if test='DGNSS_ID != null and DGNSS_ID == "DGNSS_10"'>
 			SELECT
+			/* Phase 4: raw sp_user_id||member_no 출력 — DgnssService.enrichGroupConcatField()가 이름으로 복원 */
 			IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM02_MEM
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM02_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM02_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM02_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(',IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM01_MEM
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM01_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM01_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM01_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS REPEATED_RESPONSE_YN
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR ';;') AS REPEATED_RESPONSE_YN
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.REPEATED_RESPONSE_YN = 'Y'
 			ORDER BY gm.member_no), '') AS REPEATED_RESPONSE_YN
 			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-01-0') AS SECTION_MEM_01_01_01
@@ -1785,34 +1787,38 @@
 		</if>
 		<if test='DGNSS_ID != null and DGNSS_ID == "DGNSS_20"'>
 			SELECT
+			/* Phase 4: raw sp_user_id||member_no 출력 — DgnssService.enrichGroupConcatField()가 이름으로 복원 */
 			IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM02_MEM
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM02_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM02_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM02_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(',IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS QESITM01_MEM
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM01_MEM
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM01_MARK = '주의'
 			ORDER BY gm.member_no), '') AS QESITM01_MEM
 			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			gm.nickname
-			, '(', IFNULL(gm.member_no, '?'), ')') ORDER BY gm.member_no SEPARATOR ', ') AS REPEATED_RESPONSE_YN
+			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+			ORDER BY gm.member_no SEPARATOR ';;') AS REPEATED_RESPONSE_YN
 			FROM TB_DGNSS_ANSWER DA
 			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
 			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.REPEATED_RESPONSE_YN = 'Y'
 			ORDER BY gm.member_no), '') AS REPEATED_RESPONSE_YN
 			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-01-01-0-0') AS SECTION_MEM_01_01
@@ -1912,7 +1918,7 @@
 		           WHEN DA.REPEATED_RESPONSE_YN = 'Y' THEN '주의'
 		           ELSE '양호'
 		       END AS REPEATED_RESPONSE_YN
-		     , IFNULL(gm.nickname, '') AS MEM_NM
+		     , u.sp_user_id AS memberSpUserId
 		     , IFNULL(gm.member_no, '') AS CLASS_NO
 		     , (
 		        SELECT IFNULL(ord_no, 0)
@@ -1938,7 +1944,7 @@
 		       END AS CLASS_NM
 		     , tdi2.cla_id AS claId
 		     , tdi2.paper_idx AS paperIdx
-		     , tu.nickname AS tcNm
+		     , tu.sp_user_id AS teacherSpUserId
 		     , tdi2.tc_id AS tcId
 		     , DRI.summary_file_url AS summaryFileURL
 		     , CASE
@@ -1955,14 +1961,14 @@
 		           WHEN gm.member_no IS NULL THEN ''
 		           ELSE CONCAT(gm.member_no, '번')
 		       END AS stdtNo
-		     , gm.email AS email
 		     , gm.member_type AS memberType
 		FROM TB_DGNSS_ANSWER DA
 			INNER JOIN TB_DGNSS_RESULT_INFO DRI ON DA.DGNSS_RESULT_ID = DRI.id
 			INNER JOIN tb_dgnss_info tdi2 ON DRI.dgnss_id = tdi2.id
 			INNER JOIN group_info gi ON tdi2.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DRI.stdt_id = gm.stdt_id
-			INNER JOIN user tu ON gi.host_user_no = tu.user_no
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
+			INNER JOIN `user` tu ON gi.host_user_no = tu.user_no
 		WHERE DA.ANSWER_IDX = #{answerIdx}
 	</select>
 
@@ -2181,7 +2187,7 @@
 		/* DgnssMapper.selectDgnssAnswerReliability */
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
@@ -2221,11 +2227,6 @@
 				WHEN c1.LS_ANS05 = 4 THEN '상담 전문가'
 				WHEN c1.LS_ANS05 = 5 THEN '기타'
 			END cnsl
-			, CASE
-				WHEN gm.gender = 'M' THEN '남자'
-				WHEN gm.gender = 'F' THEN '여자'
-				ELSE ''
-			END AS gender
 			, c1.ANSWER_IDX AS answerIdx
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
@@ -2233,6 +2234,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2244,7 +2246,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2263,13 +2265,13 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-01-02-02-0') AS '10-22-01-02-02-0'
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-01-02-03-0') AS '10-22-01-02-03-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-01-02-04-0') AS '10-22-01-02-04-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2282,7 +2284,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2302,13 +2304,13 @@
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-02-02-03-0') AS '10-22-02-02-03-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-02-02-04-0') AS '10-22-02-02-04-0'
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-02-02-05-0') AS '10-22-02-02-05-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2321,7 +2323,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2344,13 +2346,13 @@
 			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '10-22-04-02-01-0') AS '10-22-04-02-01-0'
 			, (SELECT IF(ROUND(b1_12.T_SCORE) < 0, 0, ROUND(b1_12.T_SCORE)) FROM tb_dgnss_answer_report b1_12 WHERE b1_12.ANSWER_IDX = c1.ANSWER_IDX AND b1_12.SECTION_ID = '10-22-04-02-02-0') AS '10-22-04-02-02-0'
 			, (SELECT IF(ROUND(b1_13.T_SCORE) < 0, 0, ROUND(b1_13.T_SCORE)) FROM tb_dgnss_answer_report b1_13 WHERE b1_13.ANSWER_IDX = c1.ANSWER_IDX AND b1_13.SECTION_ID = '10-22-04-02-03-0') AS '10-22-04-02-03-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2363,7 +2365,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2380,13 +2382,13 @@
 			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-03-03-0-0') AS '10-22-03-03-0-0'
 			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-03-03-01-0') AS '10-22-03-03-01-0'
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-03-03-02-0') AS '10-22-03-03-02-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2399,7 +2401,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2419,13 +2421,13 @@
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-05-01-01-0') AS '10-22-05-01-01-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-05-01-02-0') AS '10-22-05-01-02-0'
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-05-01-03-0') AS '10-22-05-01-03-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2438,7 +2440,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2457,13 +2459,13 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-01-02-01-0') AS gradeLvl
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-01-02-02-0') AS styLvl
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-01-02-03-0') AS failLvl
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2476,7 +2478,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2495,13 +2497,13 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-02-02-01-0') AS compreSkil
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-02-02-02-0') AS intenSkil
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-02-02-03-0') AS memrySkil
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2514,7 +2516,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2535,13 +2537,13 @@
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-03-02-03-0') AS styAtti
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '20-22-03-02-04-0') AS note
 			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '20-22-03-02-05-0') AS test
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
@@ -2562,7 +2564,7 @@
 		/* DgnssMapper.selectDgnssAnswerReliabilityFromOtherClasses */
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
@@ -2602,11 +2604,6 @@
 				WHEN c1.LS_ANS05 = 4 THEN '상담 전문가'
 				WHEN c1.LS_ANS05 = 5 THEN '기타'
 			END cnsl
-			, CASE
-				WHEN gm.gender = 'M' THEN '남자'
-				WHEN gm.gender = 'F' THEN '여자'
-				ELSE ''
-			END AS gender
 			, c1.ANSWER_IDX AS answerIdx
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
@@ -2614,6 +2611,7 @@
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <![CDATA[<>]]> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2631,7 +2629,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2650,13 +2648,13 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-01-02-02-0') AS '10-22-01-02-02-0'
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-01-02-03-0') AS '10-22-01-02-03-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-01-02-04-0') AS '10-22-01-02-04-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2675,7 +2673,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2695,13 +2693,13 @@
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-02-02-03-0') AS '10-22-02-02-03-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-02-02-04-0') AS '10-22-02-02-04-0'
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-02-02-05-0') AS '10-22-02-02-05-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2720,7 +2718,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2743,13 +2741,13 @@
 			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '10-22-04-02-01-0') AS '10-22-04-02-01-0'
 			, (SELECT IF(ROUND(b1_12.T_SCORE) < 0, 0, ROUND(b1_12.T_SCORE)) FROM tb_dgnss_answer_report b1_12 WHERE b1_12.ANSWER_IDX = c1.ANSWER_IDX AND b1_12.SECTION_ID = '10-22-04-02-02-0') AS '10-22-04-02-02-0'
 			, (SELECT IF(ROUND(b1_13.T_SCORE) < 0, 0, ROUND(b1_13.T_SCORE)) FROM tb_dgnss_answer_report b1_13 WHERE b1_13.ANSWER_IDX = c1.ANSWER_IDX AND b1_13.SECTION_ID = '10-22-04-02-03-0') AS '10-22-04-02-03-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2768,7 +2766,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2785,13 +2783,13 @@
 			, (SELECT IF(ROUND(b1_5.T_SCORE) < 0, 0, ROUND(b1_5.T_SCORE)) FROM tb_dgnss_answer_report b1_5 WHERE b1_5.ANSWER_IDX = c1.ANSWER_IDX AND b1_5.SECTION_ID = '10-22-03-03-0-0') AS '10-22-03-03-0-0'
 			, (SELECT IF(ROUND(b1_6.T_SCORE) < 0, 0, ROUND(b1_6.T_SCORE)) FROM tb_dgnss_answer_report b1_6 WHERE b1_6.ANSWER_IDX = c1.ANSWER_IDX AND b1_6.SECTION_ID = '10-22-03-03-01-0') AS '10-22-03-03-01-0'
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '10-22-03-03-02-0') AS '10-22-03-03-02-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2810,7 +2808,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2830,13 +2828,13 @@
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '10-22-05-01-01-0') AS '10-22-05-01-01-0'
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '10-22-05-01-02-0') AS '10-22-05-01-02-0'
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '10-22-05-01-03-0') AS '10-22-05-01-03-0'
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2855,7 +2853,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2874,13 +2872,13 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-01-02-01-0') AS gradeLvl
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-01-02-02-0') AS styLvl
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-01-02-03-0') AS failLvl
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2899,7 +2897,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2918,13 +2916,13 @@
 			, (SELECT IF(ROUND(b1_7.T_SCORE) < 0, 0, ROUND(b1_7.T_SCORE)) FROM tb_dgnss_answer_report b1_7 WHERE b1_7.ANSWER_IDX = c1.ANSWER_IDX AND b1_7.SECTION_ID = '20-22-02-02-01-0') AS compreSkil
 			, (SELECT IF(ROUND(b1_8.T_SCORE) < 0, 0, ROUND(b1_8.T_SCORE)) FROM tb_dgnss_answer_report b1_8 WHERE b1_8.ANSWER_IDX = c1.ANSWER_IDX AND b1_8.SECTION_ID = '20-22-02-02-02-0') AS intenSkil
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-02-02-03-0') AS memrySkil
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2943,7 +2941,7 @@
 		<![CDATA[
 		SELECT ROW_NUMBER() OVER(ORDER BY gm.member_no) AS rowNum
 			, b1.stdt_id AS stdtId
-			, gm.nickname AS nickname
+			, u.sp_user_id AS memberSpUserId
 			, gm.member_no AS memberNo
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
@@ -2964,13 +2962,13 @@
 			, (SELECT IF(ROUND(b1_9.T_SCORE) < 0, 0, ROUND(b1_9.T_SCORE)) FROM tb_dgnss_answer_report b1_9 WHERE b1_9.ANSWER_IDX = c1.ANSWER_IDX AND b1_9.SECTION_ID = '20-22-03-02-03-0') AS styAtti
 			, (SELECT IF(ROUND(b1_10.T_SCORE) < 0, 0, ROUND(b1_10.T_SCORE)) FROM tb_dgnss_answer_report b1_10 WHERE b1_10.ANSWER_IDX = c1.ANSWER_IDX AND b1_10.SECTION_ID = '20-22-03-02-04-0') AS note
 			, (SELECT IF(ROUND(b1_11.T_SCORE) < 0, 0, ROUND(b1_11.T_SCORE)) FROM tb_dgnss_answer_report b1_11 WHERE b1_11.ANSWER_IDX = c1.ANSWER_IDX AND b1_11.SECTION_ID = '20-22-03-02-05-0') AS test
-			, CASE WHEN gm.gender = 'M' THEN '남자' WHEN gm.gender = 'F' THEN '여자' ELSE '' END AS gender
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
 			LEFT JOIN tb_dgnss_lpa_result lpa ON c1.ANSWER_IDX = lpa.answer_idx
 			INNER JOIN group_info gi ON gi.cla_id = #{claId}
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.cla_id <> #{claId}
 			AND a1.paper_idx = #{paperIdx}
 			AND a1.ord_no = #{ordNo}
@@ -2995,9 +2993,12 @@
 			, DATE_FORMAT(a1.dgnss_st_dt, "%Y. %m. %d.") AS dgnssStDt
 			, DATE_FORMAT(a1.dgnss_ed_dt, "%Y. %m. %d.") AS dgnssEdDt
 			, MAX(gm.member_no) AS num
+			/* Phase 4: gm.nickname → sp_user_id||member_no raw 출력.
+			   DgnssService.selectTcDgnssDetailInfo()가 notSubmStdtName을 enrich로 복원. */
 			, GROUP_CONCAT(
-				CASE WHEN b1.subm_at = 'N' THEN CONCAT(gm.member_no, '번', gm.nickname) END
-					SEPARATOR ', '
+				CASE WHEN b1.subm_at = 'N'
+				THEN CONCAT(IFNULL(u.sp_user_id, ''), '||', gm.member_no) END
+					SEPARATOR ';;'
 				) AS notSubmStdtName
 			, GROUP_CONCAT(
 				CASE WHEN b1.subm_at = 'N' THEN b1.stdt_id END
@@ -3009,6 +3010,7 @@
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND b1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.id = #{dgnssId}
 		GROUP BY a1.id
 	</select>
@@ -3016,17 +3018,12 @@
 	<select id="selectStInfo" parameterType="map" resultType="map">
 		/* DgnssMapper.selectStInfo */
 	SELECT a1.stdt_id AS stdtId
-		, gm.nickname AS nickname
+		, u.sp_user_id AS memberSpUserId
 		, gm.member_no AS memberNo
 		, DATE_FORMAT(a1.subm_dt,'%Y-%m-%d %H:%i:%s') AS eakStDt
 		, b1.DGNSS_ORD AS ordNo
 		, a1_1.paper_idx AS paperIdx
 		, a1_1.cla_id AS claId
-			, CASE
-				WHEN gm.gender = 'M' THEN '남자'
-				WHEN gm.gender = 'F' THEN '여자'
-				ELSE ''
-			END AS gender
 			, CASE
 				WHEN gi.school_level = 'elementary' THEN '초등'
 				WHEN gi.school_level = 'middle' THEN '중등'
@@ -3041,6 +3038,7 @@
 			INNER JOIN tb_dgnss_answer b1 ON a1.id = b1.DGNSS_RESULT_ID
 			INNER JOIN group_info gi ON a1_1.cla_id = gi.cla_id
 			LEFT JOIN group_member gm ON gi.group_id = gm.group_id AND a1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE 1=1
 		<choose>
 			<when test='dgnssResultId != null and dgnssResultId != ""'>
@@ -3112,11 +3110,12 @@
 
 	<select id="selectTcDgnssNotSubmStList" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcDgnssNotSubmStList */
-		SELECT gm.nickname AS nickname
+		SELECT u.sp_user_id AS memberSpUserId
 		FROM tb_dgnss_result_info a1
 			INNER JOIN tb_dgnss_info b1 ON a1.dgnss_id = b1.id
 			INNER JOIN group_info gi ON b1.cla_id = gi.cla_id
 			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND a1.stdt_id = gm.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE a1.dgnss_id = #{dgnssId}
 			AND a1.subm_at = 'N'
 	</select>
@@ -3771,13 +3770,14 @@
 		/* DgnssMapper.selectOmrListForSampleExcel */
 		SELECT gm.member_no AS memberNo
 		     , tdo.OMR_IDX AS omrIdx
-		     , COALESCE(gm.nickname, tdri.stdt_id) AS nickname
+		     , u.sp_user_id AS memberSpUserId
 		FROM tb_dgnss_result_info tdri
 			INNER JOIN tb_dgnss_omr tdo ON tdri.omr_id = tdo.OMR_IDX
 			INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
 			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
 			LEFT JOIN group_member gm ON gi.group_id = gm.group_id
 				AND gm.stdt_id = tdri.stdt_id
+			LEFT JOIN `user` u ON u.user_no = gm.user_no
 		WHERE tdri.dgnss_id = #{dgnssId}
 		ORDER BY gm.member_no, tdri.stdt_id
 	</select>

@@ -13,6 +13,7 @@ superplatform:
     server-url: https://t-auth-superplatform-api.vsaidt.com
     client-id: ${SP_AUTH_CLIENT_ID:test-service}
     client-secret: ${SP_AUTH_CLIENT_SECRET:test-secret-1234!}
+    # internal-api.base-url 은 공통 application.yml 에서 server-url 기반으로 자동 derive.
 
 # ===== QCH 적재 (dev) =====
 qch:
