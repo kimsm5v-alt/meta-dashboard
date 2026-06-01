@@ -14,6 +14,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -217,6 +218,17 @@ public class GlobalExceptionHandler {
         errorData.put("name", "BadRequestBody");
         errorData.put("message", message);
         return AidtCommonUtil.makeResultFail(null, errorData, message);
+    }
+
+    /**
+     * SSE / Async long-polling 의 정상 timeout — emitter 가 자체 종료 처리한다.
+     * catch-all 로 흘러가면 response 가 이미 text/event-stream 으로 committed 된 상태에서
+     * ResponseDTO(JSON) 를 쓰려다 HttpMessageNotWritableException 이 또 발생해 로그가 시끄러워짐.
+     * 여기서 void 로 잡아 추가 응답 쓰지 않고 DEBUG 로 다운그레이드.
+     */
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public void handleAsyncRequestTimeout(AsyncRequestTimeoutException e) {
+        log.debug("Async/SSE timeout (정상 종료, 클라이언트 재연결): {}", e.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
