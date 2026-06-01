@@ -671,6 +671,33 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
     }
 
+    @GetMapping(value = "/api/dgnss/st/resume")
+    @Operation(summary = "(학생)META 자기조절학습 이어하기 진입 정보",
+            description = "중간에 종료한 학생이 이어하기 시 마지막으로 응답한 문항번호와 진입해야 할 페이지(0-base, 첫 페이지=0)를 반환한다. "
+                    + "반환된 page 는 /api/dgnss/st/start 의 page(0-base)에 그대로 전달할 수 있다.")
+    @Parameter(name = "dgnssResultId", description = "심리검사 상세 ID", required = true,
+            examples = {
+                    @ExampleObject(name = "학습종합", value = "12509", description = "학습종합검사"),
+                    @ExampleObject(name = "META자기조절", value = "2161", description = "META자기조절검사")
+            })
+    @Parameter(name = "paperIdx", description = "심리검사 종류(1:학습종합, 2:META자기조절)", required = true,
+            examples = {
+                    @ExampleObject(name = "학습종합", value = "1", description = "학습종합검사"),
+                    @ExampleObject(name = "META자기조절", value = "2", description = "META자기조절검사")
+            })
+    public ResponseDTO<CustomBody> stMetaResume(
+            @RequestParam(name = "dgnssResultId") int dgnssResultId,
+            @RequestParam(name = "paperIdx", required = false, defaultValue = "2") int paperIdx,
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        if (dgnssResultId == 0) {
+            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
+        }
+        Map<String, Object> resultMap = dgnssService.selectStDgnssResume(paramData);
+        String resultMessage = "(학생)META 자기조절학습 이어하기 진입 정보";
+        return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
+    }
+
     @RequestMapping(value = "/api/dgnss/summary/pdf", method = {RequestMethod.POST})
     @Operation(summary = "심리검사 요약본 업로드", description = "")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(

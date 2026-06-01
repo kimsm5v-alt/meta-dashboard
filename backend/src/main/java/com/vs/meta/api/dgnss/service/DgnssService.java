@@ -2139,6 +2139,71 @@ public class DgnssService {
         return PageRequest.of(page, size);
     }
 
+    /**
+     * (학생)META 자기조절학습 이어하기 진입 정보.
+     * 중간에 종료한 학생이 이어하기 시 마지막으로 응답한 문항번호와, 진입해야 할 페이지(0-base, 첫 페이지=0)를 계산해 반환한다.
+     * "마지막으로 푼 문제" 기준은 OMR 에서 응답이 채워진 최대 문항번호(NO)이다.
+     *
+     * 페이지 레이아웃은 stMetaStart(selectStDgnssStart) 와 동일하다(페이지당 20문항, 0-base).
+     *  - 학습종합(paperIdx=1)  : 정규 119문항 + 추가 문항 120~124 (page 6)
+     *  - META자기조절(그 외)   : 정규 ~72문항 + 추가 문항 73~77  (page 4)
+     * 추가 문항은 마지막 페이지에 하드코딩으로 붙으므로, 정규 문항 범위를 벗어나면 해당 페이지로 고정한다.
+     *
+     * 반환된 page 는 /api/dgnss/st/start 의 page(0-base) 에 그대로 전달할 수 있다.
+     */
+    public Map<String, Object> selectStDgnssResume(Map<String, Object> param) {
+        final int PAGE_SIZE = 20;
+        Map<String, Object> resultMap = new HashMap<>();
+        int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
+
+        Map<String, Object> omrInfo = dgnssMapper.selectStDgnssOmr(param);
+
+        // 잘못된 id 값으로 보내는 케이스(교사가 취소한 시험지로 응시하려는 케이스)
+        if (MapUtils.isEmpty(omrInfo)) {
+            resultMap.put("success", "error");
+            return resultMap;
+        }
+
+        // 응답이 채워진 문항번호(NO) 중 최댓값과 응답 개수 산출 (응답이 아닌 dgnssResultId/omrIdx 컬럼은 제외)
+        int lastAnsweredNo = 0;
+        int stAnsCnt = 0;
+        for (Map.Entry<String, Object> entry : omrInfo.entrySet()) {
+            if (!StringUtils.isNumeric(entry.getKey())) {
+                continue;
+            }
+            if (ObjectUtils.isEmpty(entry.getValue())) {
+                continue;
+            }
+            stAnsCnt++;
+            int no = Integer.parseInt(entry.getKey());
+            if (no > lastAnsweredNo) {
+                lastAnsweredNo = no;
+            }
+        }
+
+        // paperIdx 별 추가(extras) 문항 시작 번호와, start 기준 extras 페이지(0-base)
+        boolean isComprehensive = (paperIdx == 1); // 1:학습종합, 그 외:META자기조절
+        int extrasStartNo = isComprehensive ? 120 : 73;
+        int extrasPageZeroBase = isComprehensive ? 6 : 4;
+
+        int pageZeroBase;
+        if (lastAnsweredNo <= 0) {
+            pageZeroBase = 0;
+        } else if (lastAnsweredNo >= extrasStartNo) {
+            pageZeroBase = extrasPageZeroBase;
+        } else {
+            pageZeroBase = (lastAnsweredNo - 1) / PAGE_SIZE;
+        }
+
+        resultMap.put("lastAnsweredNo", lastAnsweredNo);
+        resultMap.put("stAnsCnt", stAnsCnt);
+        resultMap.put("page", pageZeroBase); // 0-base (첫 페이지 = 0), start 의 page 에 그대로 전달 가능
+        resultMap.put("size", PAGE_SIZE);
+        resultMap.put("omrIdx", MapUtils.getInteger(omrInfo, "omrIdx", 0));
+
+        return resultMap;
+    }
+
     public Map<String, Object> summaryPdfUpload(Map<String, Object> paramData, HttpServletRequest request) throws Exception {
         Map<String, Object> result = new HashMap<>();
 
