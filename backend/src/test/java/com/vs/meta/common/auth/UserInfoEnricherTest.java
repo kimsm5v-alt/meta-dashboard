@@ -8,6 +8,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -113,5 +114,53 @@ class UserInfoEnricherTest {
         // spUserId null
         enricher.enrich(dto);
         verify(requestCache, never()).getBatchOrLoad(anyList(), any());
+    }
+
+    // ── 앱 캐시(Caffeine) 연동 시나리오 ──────────────────────────────────────
+
+    @Test
+    void 앱_캐시_hit시_SSO_호출_없음() {
+        PersonInfoCacheStore appCacheStore = new PersonInfoCacheStore();
+        // 앱 캐시 워밍
+        appCacheStore.getOrLoad(
+            List.of("user-cached"),
+            ids -> Map.of("user-cached",
+                new UserInfo("user-cached", "캐시된사용자", null, null, "TEACHER", false))
+        );
+
+        AtomicInteger ssoCallCount = new AtomicInteger(0);
+        PersonInfoRequestCache rc = new PersonInfoRequestCache(appCacheStore);
+        rc.getBatchOrLoad(
+            List.of("user-cached"),
+            ids -> { ssoCallCount.incrementAndGet(); return Map.of(); }
+        );
+
+        assertThat(ssoCallCount.get()).isEqualTo(0);
+    }
+
+    @Test
+    void 앱_캐시_miss시_SSO_1회_호출_후_다음_요청은_캐시_hit() {
+        PersonInfoCacheStore appCacheStore = new PersonInfoCacheStore();
+        AtomicInteger ssoCallCount = new AtomicInteger(0);
+
+        // 첫 번째 HTTP 요청 — 앱 캐시 miss → SSO 호출
+        PersonInfoRequestCache rc1 = new PersonInfoRequestCache(appCacheStore);
+        rc1.getBatchOrLoad(
+            List.of("user-new"),
+            ids -> {
+                ssoCallCount.incrementAndGet();
+                return Map.of("user-new",
+                    new UserInfo("user-new", "새사용자", null, null, "STUDENT", false));
+            }
+        );
+
+        // 두 번째 HTTP 요청 (새 RequestScope 인스턴스) — 앱 캐시 hit
+        PersonInfoRequestCache rc2 = new PersonInfoRequestCache(appCacheStore);
+        rc2.getBatchOrLoad(
+            List.of("user-new"),
+            ids -> { ssoCallCount.incrementAndGet(); return Map.of(); }
+        );
+
+        assertThat(ssoCallCount.get()).isEqualTo(1);
     }
 }
