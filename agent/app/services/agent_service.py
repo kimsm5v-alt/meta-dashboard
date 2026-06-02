@@ -6,7 +6,6 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.utils.function_calling import convert_to_openai_tool
 import langsmith
-import sys
 from app.core.llm_router import llm_router, ROUTER_MODEL_NAME
 from app.utils.pii_filter import mask_pii_data
 from app.tools import neo4j_tools_list
@@ -147,6 +146,7 @@ class MetaAgentService:
         profile = (context_data or {}).get("profile", {})
         _trace_ctx = None
         _run_tree = None
+        _langsmith_error: str | None = None
         answer = "응답을 생성하지 못했습니다."
         history = get_session_history(session_id)
 
@@ -227,23 +227,28 @@ class MetaAgentService:
         except litellm.exceptions.AuthenticationError as e:
             logger.error(f"Authentication error: {str(e)}")
             answer = "API 키 인증 오류가 발생했습니다. 관리자에게 문의하세요."
+            _langsmith_error = f"AuthenticationError: {e}"
         except litellm.exceptions.RateLimitError as e:
             logger.error(f"Rate limit error: {str(e)}")
             answer = "현재 요청이 많아 일시적으로 서비스 제한이 발생했습니다."
+            _langsmith_error = f"RateLimitError: {e}"
         except litellm.exceptions.Timeout as e:
             logger.error(f"Timeout error: {str(e)}")
             answer = "응답 시간이 초과되었습니다."
+            _langsmith_error = f"Timeout: {e}"
         except litellm.exceptions.APIError as e:
             logger.error(f"API error: {str(e)}")
             answer = "AI 서비스 연동 중 오류가 발생했습니다."
+            _langsmith_error = f"APIError: {e}"
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}", exc_info=True)
             answer = "예상치 못한 오류가 발생했습니다."
+            _langsmith_error = f"UnexpectedError: {e}"
         finally:
             if _trace_ctx is not None:
                 if _run_tree is not None:
-                    _run_tree.outputs = {"response": answer}
-                _trace_ctx.__exit__(*sys.exc_info())
+                    _run_tree.end(outputs={"response": answer}, error=_langsmith_error)
+                _trace_ctx.__exit__(None, None, None)
 
         history.add_user_message(text)
         history.add_ai_message(answer)
@@ -264,6 +269,7 @@ class MetaAgentService:
         _trace_ctx = None
         _run_tree = None
         _stream_output = ""
+        _langsmith_error: str | None = None
         if langsmith_is_enabled():
             _trace_ctx = langsmith.trace(
                 name="meta-agent-stream",
@@ -373,6 +379,7 @@ class MetaAgentService:
                 logger.error(f"Authentication error: {str(e)}")
                 msg = "API 키 인증 오류가 발생했습니다. 관리자에게 문의하세요."
                 _stream_output = msg
+                _langsmith_error = f"AuthenticationError: {e}"
                 history.add_user_message(text)
                 history.add_ai_message(msg)
                 yield msg
@@ -380,6 +387,7 @@ class MetaAgentService:
                 logger.error(f"Rate limit error: {str(e)}")
                 msg = "현재 요청이 많아 일시적으로 서비스 제한이 발생했습니다."
                 _stream_output = msg
+                _langsmith_error = f"RateLimitError: {e}"
                 history.add_user_message(text)
                 history.add_ai_message(msg)
                 yield msg
@@ -387,6 +395,7 @@ class MetaAgentService:
                 logger.error(f"Timeout error: {str(e)}")
                 msg = "응답 시간이 초과되었습니다."
                 _stream_output = msg
+                _langsmith_error = f"Timeout: {e}"
                 history.add_user_message(text)
                 history.add_ai_message(msg)
                 yield msg
@@ -394,12 +403,14 @@ class MetaAgentService:
                 logger.error(f"API error: {str(e)}")
                 msg = "AI 서비스 연동 중 오류가 발생했습니다."
                 _stream_output = msg
+                _langsmith_error = f"APIError: {e}"
                 history.add_user_message(text)
                 history.add_ai_message(msg)
                 yield msg
             except Exception as e:
                 logger.error(f"Streaming error in agent service: {str(e)}", exc_info=True)
                 _stream_output = fallback_message
+                _langsmith_error = f"UnexpectedError: {e}"
                 history.add_user_message(text)
                 history.add_ai_message(fallback_message)
                 yield fallback_message
@@ -407,14 +418,20 @@ class MetaAgentService:
         except BaseException:
             if _trace_ctx is not None:
                 if _run_tree is not None:
-                    _run_tree.outputs = {"response": _stream_output or "응답을 생성하지 못했습니다."}
-                _trace_ctx.__exit__(*sys.exc_info())
+                    _run_tree.end(
+                        outputs={"response": _stream_output or "응답을 생성하지 못했습니다."},
+                        error=_langsmith_error,
+                    )
+                _trace_ctx.__exit__(None, None, None)
                 _trace_ctx = None
             raise
         finally:
             if _trace_ctx is not None:
                 if _run_tree is not None:
-                    _run_tree.outputs = {"response": _stream_output or "응답을 생성하지 못했습니다."}
+                    _run_tree.end(
+                        outputs={"response": _stream_output or "응답을 생성하지 못했습니다."},
+                        error=_langsmith_error,
+                    )
                 _trace_ctx.__exit__(None, None, None)
 
 meta_agent_service = MetaAgentService()
