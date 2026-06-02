@@ -5,9 +5,11 @@ import logging
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.utils.function_calling import convert_to_openai_tool
+import langsmith
 from app.core.llm_router import llm_router, ROUTER_MODEL_NAME
 from app.utils.pii_filter import mask_pii_data
 from app.tools import neo4j_tools_list
+from app.core.tracing import is_enabled as langsmith_is_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -141,11 +143,33 @@ class MetaAgentService:
         """
         LiteLLM Router를 통해 에이전트 실행 (Tool Calling 자동화 포함)
         """
-        messages, history = self._build_messages(text, session_id, context_data)
-        iterations = 0
+        profile = (context_data or {}).get("profile", {})
+        _trace_ctx = None
+        _run_tree = None
+        _langsmith_error: str | None = None
         answer = "응답을 생성하지 못했습니다."
+        history = get_session_history(session_id)
+
+        if langsmith_is_enabled():
+            # inputs의 text(교사 질문)와 outputs의 answer(AI 응답)는 LangSmith로 전송됨.
+            # 교사가 질문에 학생 이름 등 PII를 직접 입력할 경우 LangSmith에 기록될 수 있음.
+            # context_data(학생 프로필)는 _build_messages에서 mask_pii_data로 마스킹 후 사용됨.
+            _trace_ctx = langsmith.trace(
+                name="meta-agent-run",
+                inputs={"text": text, "session_id": session_id},
+                tags=["agent", "non-stream"],
+                metadata={
+                    "session_id": session_id,
+                    "school_level": profile.get("schoolLevel"),
+                    "predicted_type": profile.get("predictedType"),
+                },
+            )
+            _run_tree = _trace_ctx.__enter__()
 
         try:
+            messages, history = self._build_messages(text, session_id, context_data)
+            iterations = 0
+
             while iterations < self.max_iterations:
                 response = await self.router.acompletion(
                     model=ROUTER_MODEL_NAME,
@@ -203,18 +227,28 @@ class MetaAgentService:
         except litellm.exceptions.AuthenticationError as e:
             logger.error(f"Authentication error: {str(e)}")
             answer = "API 키 인증 오류가 발생했습니다. 관리자에게 문의하세요."
+            _langsmith_error = f"AuthenticationError: {e}"
         except litellm.exceptions.RateLimitError as e:
             logger.error(f"Rate limit error: {str(e)}")
             answer = "현재 요청이 많아 일시적으로 서비스 제한이 발생했습니다."
+            _langsmith_error = f"RateLimitError: {e}"
         except litellm.exceptions.Timeout as e:
             logger.error(f"Timeout error: {str(e)}")
             answer = "응답 시간이 초과되었습니다."
+            _langsmith_error = f"Timeout: {e}"
         except litellm.exceptions.APIError as e:
             logger.error(f"API error: {str(e)}")
             answer = "AI 서비스 연동 중 오류가 발생했습니다."
+            _langsmith_error = f"APIError: {e}"
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}", exc_info=True)
             answer = "예상치 못한 오류가 발생했습니다."
+            _langsmith_error = f"UnexpectedError: {e}"
+        finally:
+            if _trace_ctx is not None:
+                if _run_tree is not None:
+                    _run_tree.end(outputs={"response": answer}, error=_langsmith_error)
+                _trace_ctx.__exit__(None, None, None)
 
         history.add_user_message(text)
         history.add_ai_message(answer)
@@ -227,125 +261,177 @@ class MetaAgentService:
 
     async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
         """
-        LiteLLM Router를 통해 Tool Calling을 지원하는 스트리밍 오케스트레이션
+        LiteLLM Router를 통해 Tool Calling을 지원하는 스트리밍 오케스트레이션.
+        LangSmith 활성화 시 langsmith.trace() context manager로 전체 스트림을 1개 Run으로 캡처한다.
         """
-        messages, history = self._build_messages(text, session_id, context_data)
-        iterations = 0
-        final_content = ""
+        # LangSmith context manager 래핑 (최소 침습: 기존 로직 무변경)
+        profile = (context_data or {}).get("profile", {})
+        _trace_ctx = None
+        _run_tree = None
+        _stream_output = ""
+        _langsmith_error: str | None = None
+        if langsmith_is_enabled():
+            _trace_ctx = langsmith.trace(
+                name="meta-agent-stream",
+                inputs={"text": text, "session_id": session_id},
+                tags=["agent", "stream"],
+                metadata={
+                    "session_id": session_id,
+                    "school_level": profile.get("schoolLevel"),
+                    "predicted_type": profile.get("predictedType"),
+                },
+            )
+            _run_tree = _trace_ctx.__enter__()
 
-        fallback_message = "응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
         try:
-            while iterations < self.max_iterations:
-                response = await self.router.acompletion(
-                    model=ROUTER_MODEL_NAME,
-                    messages=messages,
-                    tools=self.tools,
-                    stream=True
-                )
+            messages, history = self._build_messages(text, session_id, context_data)
+            iterations = 0
+            final_content = ""
 
-                content_buffer = ""
-                tool_call_buffer = {}
+            fallback_message = "응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
+            try:
+                while iterations < self.max_iterations:
+                    response = await self.router.acompletion(
+                        model=ROUTER_MODEL_NAME,
+                        messages=messages,
+                        tools=self.tools,
+                        stream=True
+                    )
 
-                async for chunk in response:
-                    delta = chunk.choices[0].delta
+                    content_buffer = ""
+                    tool_call_buffer = {}
 
-                    if getattr(delta, "content", None):
-                        content_buffer += delta.content
-                        yield delta.content
+                    async for chunk in response:
+                        delta = chunk.choices[0].delta
 
-                    if getattr(delta, "tool_calls", None):
-                        for tc in delta.tool_calls:
-                            idx = getattr(tc, "index", 0)
-                            if idx not in tool_call_buffer:
-                                tool_call_buffer[idx] = {"id": "", "name": "", "arguments": ""}
+                        if getattr(delta, "content", None):
+                            content_buffer += delta.content
+                            yield delta.content
 
-                            if getattr(tc, "id", None):
-                                tool_call_buffer[idx]["id"] += tc.id
-                            if getattr(tc, "function", None):
-                                if getattr(tc.function, "name", None):
-                                    tool_call_buffer[idx]["name"] += tc.function.name
-                                if getattr(tc.function, "arguments", None):
-                                    tool_call_buffer[idx]["arguments"] += tc.function.arguments
+                        if getattr(delta, "tool_calls", None):
+                            for tc in delta.tool_calls:
+                                idx = getattr(tc, "index", 0)
+                                if idx not in tool_call_buffer:
+                                    tool_call_buffer[idx] = {"id": "", "name": "", "arguments": ""}
 
-                if not tool_call_buffer:
-                    final_content = content_buffer or fallback_message
+                                if getattr(tc, "id", None):
+                                    tool_call_buffer[idx]["id"] += tc.id
+                                if getattr(tc, "function", None):
+                                    if getattr(tc.function, "name", None):
+                                        tool_call_buffer[idx]["name"] += tc.function.name
+                                    if getattr(tc.function, "arguments", None):
+                                        tool_call_buffer[idx]["arguments"] += tc.function.arguments
+
+                    if not tool_call_buffer:
+                        final_content = content_buffer or fallback_message
+                        _stream_output = final_content
+                        history.add_user_message(text)
+                        history.add_ai_message(final_content)
+                        break
+
+                    # 버퍼에 모인 Tool Call 내역으로 메시지 업데이트
+                    msg_dict = {"role": "assistant"}
+                    if content_buffer:
+                        msg_dict["content"] = content_buffer
+
+                    tool_calls_list = []
+                    for idx, tc in tool_call_buffer.items():
+                        tool_calls_list.append({
+                            "id": tc["id"],
+                            "type": "function",
+                            "function": {"name": tc["name"], "arguments": tc["arguments"]}
+                        })
+                    msg_dict["tool_calls"] = tool_calls_list
+                    messages.append(msg_dict)
+
+                    # Tool 실행
+                    for tc in tool_calls_list:
+                        func_name = tc["function"]["name"]
+                        try:
+                            arguments = json.loads(tc["function"]["arguments"])
+                            arguments = self._normalize_tool_args(func_name, arguments)
+                            if func_name in self.tool_map:
+                                result = await self.tool_map[func_name].ainvoke(arguments)
+                                result_str = json.dumps(result, ensure_ascii=False)
+                            else:
+                                result_str = f"Error: Tool {func_name} not found"
+                        except Exception as e:
+                            logger.error(f"Streaming Tool error: {e}")
+                            result_str = json.dumps({"error": str(e)})
+
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc["id"],
+                            "name": func_name,
+                            "content": result_str
+                        })
+
+                    iterations += 1
+
+                if iterations >= self.max_iterations:
+                    max_iter_message = "에이전트가 최대 허용 횟수 내에 답변을 완료하지 못했습니다."
+                    _stream_output = max_iter_message
                     history.add_user_message(text)
-                    history.add_ai_message(final_content)
-                    break
+                    history.add_ai_message(max_iter_message)
+                    yield max_iter_message
 
-                # 버퍼에 모인 Tool Call 내역으로 메시지 업데이트
-                msg_dict = {"role": "assistant"}
-                if content_buffer:
-                    msg_dict["content"] = content_buffer
-
-                tool_calls_list = []
-                for idx, tc in tool_call_buffer.items():
-                    tool_calls_list.append({
-                        "id": tc["id"],
-                        "type": "function",
-                        "function": {"name": tc["name"], "arguments": tc["arguments"]}
-                    })
-                msg_dict["tool_calls"] = tool_calls_list
-                messages.append(msg_dict)
-
-                # Tool 실행
-                for tc in tool_calls_list:
-                    func_name = tc["function"]["name"]
-                    try:
-                        arguments = json.loads(tc["function"]["arguments"])
-                        arguments = self._normalize_tool_args(func_name, arguments)
-                        if func_name in self.tool_map:
-                            result = await self.tool_map[func_name].ainvoke(arguments)
-                            result_str = json.dumps(result, ensure_ascii=False)
-                        else:
-                            result_str = f"Error: Tool {func_name} not found"
-                    except Exception as e:
-                        logger.error(f"Streaming Tool error: {e}")
-                        result_str = json.dumps({"error": str(e)})
-
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc["id"],
-                        "name": func_name,
-                        "content": result_str
-                    })
-
-                iterations += 1
-
-            if iterations >= self.max_iterations:
-                max_iter_message = "에이전트가 최대 허용 횟수 내에 답변을 완료하지 못했습니다."
+            except litellm.exceptions.AuthenticationError as e:
+                logger.error(f"Authentication error: {str(e)}")
+                msg = "API 키 인증 오류가 발생했습니다. 관리자에게 문의하세요."
+                _stream_output = msg
+                _langsmith_error = f"AuthenticationError: {e}"
                 history.add_user_message(text)
-                history.add_ai_message(max_iter_message)
-                yield max_iter_message
+                history.add_ai_message(msg)
+                yield msg
+            except litellm.exceptions.RateLimitError as e:
+                logger.error(f"Rate limit error: {str(e)}")
+                msg = "현재 요청이 많아 일시적으로 서비스 제한이 발생했습니다."
+                _stream_output = msg
+                _langsmith_error = f"RateLimitError: {e}"
+                history.add_user_message(text)
+                history.add_ai_message(msg)
+                yield msg
+            except litellm.exceptions.Timeout as e:
+                logger.error(f"Timeout error: {str(e)}")
+                msg = "응답 시간이 초과되었습니다."
+                _stream_output = msg
+                _langsmith_error = f"Timeout: {e}"
+                history.add_user_message(text)
+                history.add_ai_message(msg)
+                yield msg
+            except litellm.exceptions.APIError as e:
+                logger.error(f"API error: {str(e)}")
+                msg = "AI 서비스 연동 중 오류가 발생했습니다."
+                _stream_output = msg
+                _langsmith_error = f"APIError: {e}"
+                history.add_user_message(text)
+                history.add_ai_message(msg)
+                yield msg
+            except Exception as e:
+                logger.error(f"Streaming error in agent service: {str(e)}", exc_info=True)
+                _stream_output = fallback_message
+                _langsmith_error = f"UnexpectedError: {e}"
+                history.add_user_message(text)
+                history.add_ai_message(fallback_message)
+                yield fallback_message
 
-        except litellm.exceptions.AuthenticationError as e:
-            logger.error(f"Authentication error: {str(e)}")
-            msg = "API 키 인증 오류가 발생했습니다. 관리자에게 문의하세요."
-            history.add_user_message(text)
-            history.add_ai_message(msg)
-            yield msg
-        except litellm.exceptions.RateLimitError as e:
-            logger.error(f"Rate limit error: {str(e)}")
-            msg = "현재 요청이 많아 일시적으로 서비스 제한이 발생했습니다."
-            history.add_user_message(text)
-            history.add_ai_message(msg)
-            yield msg
-        except litellm.exceptions.Timeout as e:
-            logger.error(f"Timeout error: {str(e)}")
-            msg = "응답 시간이 초과되었습니다."
-            history.add_user_message(text)
-            history.add_ai_message(msg)
-            yield msg
-        except litellm.exceptions.APIError as e:
-            logger.error(f"API error: {str(e)}")
-            msg = "AI 서비스 연동 중 오류가 발생했습니다."
-            history.add_user_message(text)
-            history.add_ai_message(msg)
-            yield msg
-        except Exception as e:
-            logger.error(f"Streaming error in agent service: {str(e)}", exc_info=True)
-            history.add_user_message(text)
-            history.add_ai_message(fallback_message)
-            yield fallback_message
+        except BaseException:
+            if _trace_ctx is not None:
+                if _run_tree is not None:
+                    _run_tree.end(
+                        outputs={"response": _stream_output or "응답을 생성하지 못했습니다."},
+                        error=_langsmith_error,
+                    )
+                _trace_ctx.__exit__(None, None, None)
+                _trace_ctx = None
+            raise
+        finally:
+            if _trace_ctx is not None:
+                if _run_tree is not None:
+                    _run_tree.end(
+                        outputs={"response": _stream_output or "응답을 생성하지 못했습니다."},
+                        error=_langsmith_error,
+                    )
+                _trace_ctx.__exit__(None, None, None)
 
 meta_agent_service = MetaAgentService()
