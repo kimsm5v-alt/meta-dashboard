@@ -1697,137 +1697,45 @@
 		ORDER BY gm.member_no
 	</select>
 
+	<!-- Phase 4: FN_GET_MEM_UNDER_TSCORE 함수 호출 제거 → Java(DgnssService.buildSectionMemMap)로 이동 -->
+	<!-- SECTION_MEM_* 필드는 selectMembersByTScoreThreshold + buildSectionMemMap으로 처리 -->
 	<select id="getDgnssReportMem" parameterType="map" resultType="map">
 		/* DgnssMapper.getDgnssReportMem */
-		<if test='DGNSS_ID != null and DGNSS_ID == "DGNSS_10"'>
-			SELECT
-			/* Phase 4: raw sp_user_id||member_no 출력 — DgnssService.enrichGroupConcatField()가 이름으로 복원 */
-			IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM02_MEM
-			FROM TB_DGNSS_ANSWER DA
-			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
-			LEFT JOIN `user` u ON u.user_no = gm.user_no
-			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM02_MARK = '주의'
-			ORDER BY gm.member_no), '') AS QESITM02_MEM
-			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM01_MEM
-			FROM TB_DGNSS_ANSWER DA
-			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
-			LEFT JOIN `user` u ON u.user_no = gm.user_no
-			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM01_MARK = '주의'
-			ORDER BY gm.member_no), '') AS QESITM01_MEM
-			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR ';;') AS REPEATED_RESPONSE_YN
-			FROM TB_DGNSS_ANSWER DA
-			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
-			LEFT JOIN `user` u ON u.user_no = gm.user_no
-			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.REPEATED_RESPONSE_YN = 'Y'
-			ORDER BY gm.member_no), '') AS REPEATED_RESPONSE_YN
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-01-0') AS SECTION_MEM_01_01_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-02-0') AS SECTION_MEM_01_01_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-01-03-0') AS SECTION_MEM_01_01_03
-
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-01-0') AS SECTION_MEM_01_02_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-02-0') AS SECTION_MEM_01_02_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-03-0') AS SECTION_MEM_01_02_03
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-01-02-04-0') AS SECTION_MEM_01_02_04
-
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-01-01-0') AS SECTION_MEM_02_01_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-01-02-0') AS SECTION_MEM_02_01_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-01-03-0') AS SECTION_MEM_02_01_03
-
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-01-0') AS SECTION_MEM_02_02_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-02-0') AS SECTION_MEM_02_02_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-03-0') AS SECTION_MEM_02_02_03
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-04-0') AS SECTION_MEM_02_02_04
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-02-05-0') AS SECTION_MEM_02_02_05
-
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-01-0') AS SECTION_MEM_02_03_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-02-0') AS SECTION_MEM_02_03_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-03-0') AS SECTION_MEM_02_03_03
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-02-03-04-0') AS SECTION_MEM_02_03_04
-
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-01-01-0') AS SECTION_MEM_03_01_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-01-02-0') AS SECTION_MEM_03_01_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-01-03-0') AS SECTION_MEM_03_01_03
-
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-01-0') AS SECTION_MEM_03_02_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-02-0') AS SECTION_MEM_03_02_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-03-0') AS SECTION_MEM_03_02_03
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-04-0') AS SECTION_MEM_03_02_04
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-02-05-0') AS SECTION_MEM_03_02_05
-
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-03-01-0') AS SECTION_MEM_03_03_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-03-03-02-0') AS SECTION_MEM_03_03_02
-
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-01-01-0') AS SECTION_MEM_04_01_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-01-02-0') AS SECTION_MEM_04_01_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-01-03-0') AS SECTION_MEM_04_01_03
-
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-02-01-0') AS SECTION_MEM_04_02_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-02-02-0') AS SECTION_MEM_04_02_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-04-02-03-0') AS SECTION_MEM_04_02_03
-
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-05-01-01-0') AS SECTION_MEM_05_01_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-05-01-02-0') AS SECTION_MEM_05_01_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '10-22-05-01-03-0') AS SECTION_MEM_05_01_03
-
-		</if>
-		<if test='DGNSS_ID != null and DGNSS_ID == "DGNSS_20"'>
-			SELECT
-			/* Phase 4: raw sp_user_id||member_no 출력 — DgnssService.enrichGroupConcatField()가 이름으로 복원 */
-			IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM02_MEM
-			FROM TB_DGNSS_ANSWER DA
-			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
-			LEFT JOIN `user` u ON u.user_no = gm.user_no
-			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM02_MARK = '주의'
-			ORDER BY gm.member_no), '') AS QESITM02_MEM
-			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR ';;') AS QESITM01_MEM
-			FROM TB_DGNSS_ANSWER DA
-			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
-			LEFT JOIN `user` u ON u.user_no = gm.user_no
-			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM01_MARK = '주의'
-			ORDER BY gm.member_no), '') AS QESITM01_MEM
-			, IFNULL((SELECT GROUP_CONCAT(CONCAT(
-			IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
-			ORDER BY gm.member_no SEPARATOR ';;') AS REPEATED_RESPONSE_YN
-			FROM TB_DGNSS_ANSWER DA
-			INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
-			INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
-			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
-			LEFT JOIN `user` u ON u.user_no = gm.user_no
-			WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.REPEATED_RESPONSE_YN = 'Y'
-			ORDER BY gm.member_no), '') AS REPEATED_RESPONSE_YN
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-01-01-0-0') AS SECTION_MEM_01_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-01-02-0-0') AS SECTION_MEM_01_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-02-01-0-0') AS SECTION_MEM_02_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-02-02-0-0') AS SECTION_MEM_02_02
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-03-01-0-0') AS SECTION_MEM_03_01
-			, FN_GET_MEM_UNDER_TSCORE(#{TEST_IDX}, '20-22-03-02-0-0') AS SECTION_MEM_03_02
-		</if>
+		SELECT
+		/* Phase 4: raw sp_user_id||member_no 출력 — DgnssService.enrichGroupConcatField()가 이름으로 복원 */
+		IFNULL((SELECT GROUP_CONCAT(CONCAT(
+		IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+		ORDER BY gm.member_no SEPARATOR ';;') AS QESITM02_MEM
+		FROM TB_DGNSS_ANSWER DA
+		INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
+		INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
+		INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+		INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+		LEFT JOIN `user` u ON u.user_no = gm.user_no
+		WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM02_MARK = '주의'
+		ORDER BY gm.member_no), '') AS QESITM02_MEM
+		, IFNULL((SELECT GROUP_CONCAT(CONCAT(
+		IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+		ORDER BY gm.member_no SEPARATOR ';;') AS QESITM01_MEM
+		FROM TB_DGNSS_ANSWER DA
+		INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
+		INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
+		INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+		INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+		LEFT JOIN `user` u ON u.user_no = gm.user_no
+		WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.COCH_DGNSS_QESITM01_MARK = '주의'
+		ORDER BY gm.member_no), '') AS QESITM01_MEM
+		, IFNULL((SELECT GROUP_CONCAT(CONCAT(
+		IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?'))
+		ORDER BY gm.member_no SEPARATOR ';;') AS REPEATED_RESPONSE_YN
+		FROM TB_DGNSS_ANSWER DA
+		INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
+		INNER JOIN tb_dgnss_info tdi ON DM.dgnss_id = tdi.id
+		INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+		INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+		LEFT JOIN `user` u ON u.user_no = gm.user_no
+		WHERE DA.TEST_IDX = #{TEST_IDX} AND DA.REPEATED_RESPONSE_YN = 'Y'
+		ORDER BY gm.member_no), '') AS REPEATED_RESPONSE_YN
 	</select>
 
 	<select id="getDgnssFirstTest" parameterType="map" resultType="string">
@@ -3837,6 +3745,30 @@
 		    `121` = #{a121}, `122` = #{a122}, `123` = #{a123}, `124` = #{a124}
 		WHERE OMR_IDX = #{omrIdx}
 	</update>
+
+	<!-- Phase 4: FN_GET_MEM_UNDER_TSCORE 함수를 Java로 이동 - 한 번의 쿼리로 모든 SECTION별 학생 조회 -->
+	<select id="selectMembersByTScoreThreshold" parameterType="map" resultType="map">
+		/* DgnssMapper.selectMembersByTScoreThreshold */
+		SELECT
+			DAR.SECTION_ID AS sectionId,
+			IFNULL(s.STUDY, 'STEP') AS study,
+			CONCAT(IFNULL(u.sp_user_id, ''), '||', IFNULL(gm.member_no, '?')) AS memberKey,
+			gm.member_no AS memberNo
+		FROM TB_DGNSS_ANSWER DA
+		INNER JOIN TB_DGNSS_ANSWER_REPORT DAR ON DA.ANSWER_IDX = DAR.ANSWER_IDX
+		INNER JOIN TB_DGNSS_SECTION s ON DAR.SECTION_ID = s.SECTION_ID
+		INNER JOIN tb_dgnss_result_info DM ON DA.MEM_ID = DM.stdt_id AND DM.dgnss_id = DA.TEST_IDX
+		INNER JOIN tb_dgnss_info DI ON DM.dgnss_id = DI.id
+		INNER JOIN group_info gi ON DI.cla_id = gi.cla_id
+		INNER JOIN group_member gm ON gi.group_id = gm.group_id AND DM.stdt_id = gm.stdt_id
+		LEFT JOIN `user` u ON u.user_no = gm.user_no
+		WHERE DA.TEST_IDX = #{testIdx}
+		  AND (
+		      (IFNULL(s.STUDY, 'STEP') = 'STEP' AND ROUND(DAR.T_SCORE, 0) <![CDATA[<]]> 40)
+		      OR (IFNULL(s.STUDY, 'STEP') != 'STEP' AND ROUND(DAR.T_SCORE, 0) >= 60)
+		  )
+		ORDER BY DAR.SECTION_ID, gm.member_no
+	</select>
 </mapper>
 
 

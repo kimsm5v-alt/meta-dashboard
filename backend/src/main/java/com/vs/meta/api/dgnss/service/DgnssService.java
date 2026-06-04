@@ -595,7 +595,10 @@ public class DgnssService {
         param.put("claId", MapUtils.getString(tcUserInfo, "claId"));
 
         long dbStart = System.currentTimeMillis();
-        // 1단계: 독립적인 쿼리 5개 병렬 실행
+        // 1단계: 독립적인 쿼리 6개 병렬 실행 (Phase 4: selectMembersByTScoreThreshold 추가)
+        int testIdx = MapUtils.getInteger(param, "TEST_IDX", 0);
+        String dgnssId = MapUtils.getString(param, "DGNSS_ID");
+
         CompletableFuture<List<Map<String, Object>>> reportLSFuture =
                 CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportLS(param), pdfQueryPool);
         CompletableFuture<List<Map<String, Object>>> reportSectionFuture =
@@ -604,17 +607,29 @@ public class DgnssService {
                 CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportValidity(param), pdfQueryPool);
         CompletableFuture<List<Map<String, Object>>> reportMemFuture =
                 CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportMem(param), pdfQueryPool);
+        // Phase 4: FN_GET_MEM_UNDER_TSCORE 대체 - 한 번의 쿼리로 모든 SECTION_MEM 데이터 조회
+        CompletableFuture<List<Map<String, Object>>> sectionMemRawFuture =
+                CompletableFuture.supplyAsync(() -> dgnssMapper.selectMembersByTScoreThreshold(testIdx), pdfQueryPool);
         CompletableFuture<Object> firstTestFuture =
                 CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssFirstTest(param), pdfQueryPool);
 
         // 모든 병렬 쿼리 완료 대기
-        CompletableFuture.allOf(reportLSFuture, reportSectionFuture, reportValidityFuture, reportMemFuture, firstTestFuture).join();
+        CompletableFuture.allOf(reportLSFuture, reportSectionFuture, reportValidityFuture, reportMemFuture, sectionMemRawFuture, firstTestFuture).join();
 
         // 병렬 쿼리 결과 추출
         List<Map<String, Object>> dgnssReportLS = reportLSFuture.get();
         List<Map<String, Object>> dgnssReportSection = reportSectionFuture.get();
         List<Map<String, Object>> dgnssReportValidity = reportValidityFuture.get();
         List<Map<String, Object>> dgnssReportMem = reportMemFuture.get();
+        List<Map<String, Object>> sectionMemRaw = sectionMemRawFuture.get();
+
+        // Phase 4: SECTION_MEM 필드 병합 (FN_GET_MEM_UNDER_TSCORE 대체)
+        Map<String, String> sectionMemMap = buildSectionMemMap(sectionMemRaw, dgnssId);
+        if (!dgnssReportMem.isEmpty()) {
+            Map<String, Object> memRow = dgnssReportMem.get(0);
+            enrichSectionMemFields(memRow, sectionMemMap);
+        }
+
         // Phase 3: memberSpUserId → MEM_NM 복원 (FE 호환)
         enrichMaps(dgnssReportLS, "memberSpUserId", "MEM_NM", null);
         enrichMaps(dgnssReportValidity, "memberSpUserId", "MEM_NM", null);
@@ -3087,6 +3102,121 @@ public class DgnssService {
             enrichGroupConcatField(row, "QESITM02_MEM");
             enrichGroupConcatField(row, "QESITM01_MEM");
             enrichGroupConcatField(row, "REPEATED_RESPONSE_YN");
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 4: FN_GET_MEM_UNDER_TSCORE 함수 → Java 이동
+    // 44번 함수 호출 → 1번 쿼리로 성능 개선
+    // -----------------------------------------------------------------------
+
+    /** SECTION_ID → SECTION_MEM alias 매핑 (DGNSS_10) */
+    private static final Map<String, String> SECTION_MEM_ALIAS_MAP_10 = Map.ofEntries(
+            Map.entry("10-22-01-01-01-0", "SECTION_MEM_01_01_01"),
+            Map.entry("10-22-01-01-02-0", "SECTION_MEM_01_01_02"),
+            Map.entry("10-22-01-01-03-0", "SECTION_MEM_01_01_03"),
+            Map.entry("10-22-01-02-01-0", "SECTION_MEM_01_02_01"),
+            Map.entry("10-22-01-02-02-0", "SECTION_MEM_01_02_02"),
+            Map.entry("10-22-01-02-03-0", "SECTION_MEM_01_02_03"),
+            Map.entry("10-22-01-02-04-0", "SECTION_MEM_01_02_04"),
+            Map.entry("10-22-02-01-01-0", "SECTION_MEM_02_01_01"),
+            Map.entry("10-22-02-01-02-0", "SECTION_MEM_02_01_02"),
+            Map.entry("10-22-02-01-03-0", "SECTION_MEM_02_01_03"),
+            Map.entry("10-22-02-02-01-0", "SECTION_MEM_02_02_01"),
+            Map.entry("10-22-02-02-02-0", "SECTION_MEM_02_02_02"),
+            Map.entry("10-22-02-02-03-0", "SECTION_MEM_02_02_03"),
+            Map.entry("10-22-02-02-04-0", "SECTION_MEM_02_02_04"),
+            Map.entry("10-22-02-02-05-0", "SECTION_MEM_02_02_05"),
+            Map.entry("10-22-02-03-01-0", "SECTION_MEM_02_03_01"),
+            Map.entry("10-22-02-03-02-0", "SECTION_MEM_02_03_02"),
+            Map.entry("10-22-02-03-03-0", "SECTION_MEM_02_03_03"),
+            Map.entry("10-22-02-03-04-0", "SECTION_MEM_02_03_04"),
+            Map.entry("10-22-03-01-01-0", "SECTION_MEM_03_01_01"),
+            Map.entry("10-22-03-01-02-0", "SECTION_MEM_03_01_02"),
+            Map.entry("10-22-03-01-03-0", "SECTION_MEM_03_01_03"),
+            Map.entry("10-22-03-02-01-0", "SECTION_MEM_03_02_01"),
+            Map.entry("10-22-03-02-02-0", "SECTION_MEM_03_02_02"),
+            Map.entry("10-22-03-02-03-0", "SECTION_MEM_03_02_03"),
+            Map.entry("10-22-03-02-04-0", "SECTION_MEM_03_02_04"),
+            Map.entry("10-22-03-02-05-0", "SECTION_MEM_03_02_05"),
+            Map.entry("10-22-03-03-01-0", "SECTION_MEM_03_03_01"),
+            Map.entry("10-22-03-03-02-0", "SECTION_MEM_03_03_02"),
+            Map.entry("10-22-04-01-01-0", "SECTION_MEM_04_01_01"),
+            Map.entry("10-22-04-01-02-0", "SECTION_MEM_04_01_02"),
+            Map.entry("10-22-04-01-03-0", "SECTION_MEM_04_01_03"),
+            Map.entry("10-22-04-02-01-0", "SECTION_MEM_04_02_01"),
+            Map.entry("10-22-04-02-02-0", "SECTION_MEM_04_02_02"),
+            Map.entry("10-22-04-02-03-0", "SECTION_MEM_04_02_03"),
+            Map.entry("10-22-05-01-01-0", "SECTION_MEM_05_01_01"),
+            Map.entry("10-22-05-01-02-0", "SECTION_MEM_05_01_02"),
+            Map.entry("10-22-05-01-03-0", "SECTION_MEM_05_01_03")
+    );
+
+    /** SECTION_ID → SECTION_MEM alias 매핑 (DGNSS_20) */
+    private static final Map<String, String> SECTION_MEM_ALIAS_MAP_20 = Map.of(
+            "20-22-01-01-0-0", "SECTION_MEM_01_01",
+            "20-22-01-02-0-0", "SECTION_MEM_01_02",
+            "20-22-02-01-0-0", "SECTION_MEM_02_01",
+            "20-22-02-02-0-0", "SECTION_MEM_02_02",
+            "20-22-03-01-0-0", "SECTION_MEM_03_01",
+            "20-22-03-02-0-0", "SECTION_MEM_03_02"
+    );
+
+    /**
+     * selectMembersByTScoreThreshold 결과를 SECTION_MEM 필드 Map으로 변환.
+     * FN_GET_MEM_UNDER_TSCORE 함수 대체.
+     *
+     * @param rawList 쿼리 결과 (sectionId, memberKey, memberNo)
+     * @param dgnssId DGNSS_10 또는 DGNSS_20
+     * @return SECTION_MEM_* 필드를 담은 Map (sp_user_id||member_no;; 형식)
+     */
+    private Map<String, String> buildSectionMemMap(List<Map<String, Object>> rawList, String dgnssId) {
+        Map<String, String> aliasMap = "DGNSS_10".equals(dgnssId)
+                ? SECTION_MEM_ALIAS_MAP_10
+                : SECTION_MEM_ALIAS_MAP_20;
+
+        // SECTION_ID 별로 memberKey 그룹핑
+        Map<String, List<String>> grouped = new LinkedHashMap<>();
+        for (Map<String, Object> row : rawList) {
+            String sectionId = (String) row.get("sectionId");
+            String memberKey = (String) row.get("memberKey");
+
+            String alias = aliasMap.get(sectionId);
+            if (alias != null && memberKey != null) {
+                grouped.computeIfAbsent(alias, k -> new ArrayList<>()).add(memberKey);
+            }
+        }
+
+        // GROUP_CONCAT 형식으로 변환
+        Map<String, String> result = new HashMap<>();
+        for (String alias : aliasMap.values()) {
+            List<String> members = grouped.get(alias);
+            String value = (members == null || members.isEmpty())
+                    ? ""
+                    : String.join(GROUP_CONCAT_RS, members);
+            result.put(alias, value);
+        }
+
+        return result;
+    }
+
+    /**
+     * SECTION_MEM 필드들을 enrich하여 "이름(번호)" 형식으로 변환.
+     *
+     * @param targetRow    결과를 넣을 Map
+     * @param sectionMemMap buildSectionMemMap 결과
+     */
+    private void enrichSectionMemFields(Map<String, Object> targetRow, Map<String, String> sectionMemMap) {
+        if (sectionMemMap == null || sectionMemMap.isEmpty()) return;
+
+        // 먼저 raw 값을 targetRow에 넣고
+        for (Map.Entry<String, String> entry : sectionMemMap.entrySet()) {
+            targetRow.put(entry.getKey(), entry.getValue());
+        }
+
+        // enrichGroupConcatField로 이름 복원
+        for (String alias : sectionMemMap.keySet()) {
+            enrichGroupConcatField(targetRow, alias);
         }
     }
 }

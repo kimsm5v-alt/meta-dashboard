@@ -173,4 +173,7 @@ public interface DgnssMapper {
 
     // 교사) 샘플 엑셀 파일명용 검사 정보 조회
     Map<String, Object> selectDgnssInfoForExcelFilename(@Param("dgnssId") int dgnssId);
+
+    // Phase 4: FN_GET_MEM_UNDER_TSCORE 함수 대체 - T_SCORE 기준 학생 목록 조회
+    List<Map<String, Object>> selectMembersByTScoreThreshold(@Param("testIdx") int testIdx);
 }
