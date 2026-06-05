@@ -1,5 +1,6 @@
 import os
 import logging
+import litellm
 from typing import List, Tuple
 from litellm import Router
 from dotenv import load_dotenv
@@ -103,6 +104,19 @@ if not has_primary:
     logger.warning("OpenAI 키가 없습니다. Gemini를 기본으로 사용합니다.")
 if not has_fallback:
     logger.warning("Gemini 키가 없습니다. OpenAI 단독 운영됩니다.")
+
+# LangSmith 콜백 등록 (LANGSMITH_TRACING=true 환경에서만 활성화)
+# LiteLLM은 success_callback / failure_callback에 "langsmith"를 추가하면
+# 모든 LLM 호출을 자동으로 LangSmith 자식 Run으로 기록한다.
+_langsmith_tracing = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
+_langsmith_api_key = os.getenv("LANGSMITH_API_KEY", "").strip()
+
+if _langsmith_tracing and _langsmith_api_key:
+    if "langsmith" not in litellm.success_callback:
+        litellm.success_callback.append("langsmith")
+    if "langsmith" not in litellm.failure_callback:
+        litellm.failure_callback.append("langsmith")
+    logger.info("LiteLLM LangSmith 콜백 등록 완료.")
 
 # LiteLLM Router 설정
 llm_router = Router(

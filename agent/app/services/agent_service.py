@@ -30,6 +30,50 @@ class MetaAgentService:
         self.tool_map = {t.name: t for t in neo4j_tools_list}
         self.max_iterations = 8
 
+    async def _invoke_tool_with_tracing(
+        self, func_name: str, arguments: dict, run_tree=None
+    ) -> str:
+        """
+        Tool을 실행한다.
+        LangSmith가 활성화되어 있고 run_tree가 전달되면
+        Tool 호출을 자식 Run으로 명시적으로 기록한다.
+        """
+        child_ctx = None
+        child_run = None
+
+        if langsmith_is_enabled() and run_tree is not None:
+            child_ctx = langsmith.trace(
+                name=f"tool:{func_name}",
+                inputs={"arguments": arguments},
+                tags=["tool"],
+                parent=run_tree,
+            )
+            child_run = child_ctx.__enter__()
+
+        result_str = ""
+        error_msg = None
+        try:
+            if func_name in self.tool_map:
+                result = await self.tool_map[func_name].ainvoke(arguments)
+                result_str = json.dumps(result, ensure_ascii=False)
+            else:
+                error_msg = f"Tool {func_name} not found"
+                result_str = json.dumps({"error": error_msg})
+        except Exception as e:
+            logger.error(f"Tool error ({func_name}): {e}", exc_info=True)
+            error_msg = str(e)
+            result_str = json.dumps({"error": error_msg})
+        finally:
+            if child_ctx is not None:
+                if child_run is not None:
+                    child_run.end(
+                        outputs={"result": result_str},
+                        error=error_msg,
+                    )
+                child_ctx.__exit__(None, None, None)
+
+        return result_str
+
     def clear_session(self, session_id: str):
         """특정 세션의 대화 이력과 컨텍스트를 삭제하여 새 대화를 시작합니다."""
         existed = session_id in session_store
@@ -170,11 +214,20 @@ class MetaAgentService:
             messages, history = self._build_messages(text, session_id, context_data)
             iterations = 0
 
+            _ls_meta = {}
+            if langsmith_is_enabled() and _run_tree is not None:
+                # LiteLLM LangSmith 콜백이 인식하는 부모 Run 연결 키
+                _ls_meta = {
+                    "parent_run_id": str(_run_tree.id),
+                    "trace_id": str(_run_tree.trace_id),
+                }
+
             while iterations < self.max_iterations:
                 response = await self.router.acompletion(
                     model=ROUTER_MODEL_NAME,
                     messages=messages,
-                    tools=self.tools
+                    tools=self.tools,
+                    metadata=_ls_meta
                 )
                 
                 response_message = response.choices[0].message
@@ -204,11 +257,9 @@ class MetaAgentService:
                     try:
                         arguments = json.loads(tool_call.function.arguments)
                         arguments = self._normalize_tool_args(func_name, arguments)
-                        if func_name in self.tool_map:
-                            result = await self.tool_map[func_name].ainvoke(arguments)
-                            result_str = json.dumps(result, ensure_ascii=False)
-                        else:
-                            result_str = f"Error: Tool {func_name} not found"
+                        result_str = await self._invoke_tool_with_tracing(
+                            func_name, arguments, run_tree=_run_tree
+                        )
                     except Exception as e:
                         logger.error(f"Tool error ({func_name}): {e}", exc_info=True)
                         result_str = json.dumps({"error": str(e)})
@@ -288,6 +339,14 @@ class MetaAgentService:
             iterations = 0
             final_content = ""
 
+            _ls_meta = {}
+            if langsmith_is_enabled() and _run_tree is not None:
+                # LiteLLM LangSmith 콜백이 인식하는 부모 Run 연결 키
+                _ls_meta = {
+                    "parent_run_id": str(_run_tree.id),
+                    "trace_id": str(_run_tree.trace_id),
+                }
+
             fallback_message = "응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
             try:
                 while iterations < self.max_iterations:
@@ -295,7 +354,8 @@ class MetaAgentService:
                         model=ROUTER_MODEL_NAME,
                         messages=messages,
                         tools=self.tools,
-                        stream=True
+                        stream=True,
+                        metadata=_ls_meta
                     )
 
                     content_buffer = ""
@@ -350,11 +410,9 @@ class MetaAgentService:
                         try:
                             arguments = json.loads(tc["function"]["arguments"])
                             arguments = self._normalize_tool_args(func_name, arguments)
-                            if func_name in self.tool_map:
-                                result = await self.tool_map[func_name].ainvoke(arguments)
-                                result_str = json.dumps(result, ensure_ascii=False)
-                            else:
-                                result_str = f"Error: Tool {func_name} not found"
+                            result_str = await self._invoke_tool_with_tracing(
+                                func_name, arguments, run_tree=_run_tree
+                            )
                         except Exception as e:
                             logger.error(f"Streaming Tool error: {e}")
                             result_str = json.dumps({"error": str(e)})
