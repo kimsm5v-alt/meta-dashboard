@@ -24,7 +24,7 @@ function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListIte
     answeredCount: isFinished ? TOTAL_QUESTIONS : 0,
     totalQuestions: TOTAL_QUESTIONS,
     submittedAt: item.submDt,
-    hasResult: item.eakAt === 'Y',
+    hasResult: status === 'result_ready',
   };
 }
 
@@ -34,7 +34,7 @@ export async function getStudentExamList(
   stdtId: string,
 ): Promise<StudentExamListItem[]> {
   const items = await fetchStudentExamList(claId, stdtId);
-  return items.map((item, index) => mapToListItem(item, index + 1));
+  return items.map((item) => mapToListItem(item, item.ordNo));
 }
 
 /** 검사 상태 라벨 */

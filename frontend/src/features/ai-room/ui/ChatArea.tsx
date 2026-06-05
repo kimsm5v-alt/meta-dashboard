@@ -1,8 +1,10 @@
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
-import { useRef, useEffect } from 'react';
-import { Bot, User, Sparkles } from 'lucide-react';
-import type { ChatMessage, StudentAliasMap } from '../types';
+import { useRef, useEffect, useState } from 'react';
+import { Bot, User, Sparkles, MessageCircleWarning } from 'lucide-react';
+import type { ChatMessage, StudentAliasMap, ContextMode } from '../types';
+import { useAuth } from '@features/auth';
+import { ErrorReportModal, type ErrorCaptureContext } from './ErrorReportModal';
 
 const ChatContainer = styled.div`
   flex: 1;
@@ -46,14 +48,48 @@ const BotAvatar = styled.div`
 `;
 
 const MessageBubble = styled.div<{ $isUser: boolean }>`
-  max-width: 75%;
+  max-width: ${({ $isUser }) => ($isUser ? '75%' : '100%')};
   padding: ${({ theme }) => theme.spacing.md};
   border-radius: ${({ theme }) => theme.radius['2xl']};
   box-shadow: ${({ theme }) => theme.shadows.sm};
-  background: ${({ $isUser, theme }) => ($isUser ? theme.colors.primary[500] : theme.colors.background.paper)};
+  background: ${({ $isUser, theme }) =>
+    $isUser ? theme.colors.primary[500] : theme.colors.background.paper};
   border: ${({ $isUser, theme }) => ($isUser ? 'none' : `1px solid ${theme.colors.gray[100]}`)};
   color: ${({ $isUser, theme }) => ($isUser ? '#ffffff' : theme.colors.gray[900])};
-  ${({ $isUser }) => ($isUser ? 'border-top-right-radius: 0.125rem;' : 'border-top-left-radius: 0.125rem;')}
+  ${({ $isUser }) =>
+    $isUser ? 'border-top-right-radius: 0.125rem;' : 'border-top-left-radius: 0.125rem;'}
+`;
+
+const BubbleWrapper = styled.div`
+  position: relative;
+  max-width: 75%;
+`;
+
+const FlagButton = styled.button`
+  position: absolute;
+  bottom: 0;
+  right: -2.6rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 5px;
+  width: 40px;
+  height: 40px;
+  border-radius: ${({ theme }) => theme.radius.full};
+  background: white;
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  box-shadow: ${({ theme }) => theme.shadows.sm};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: ${({ theme }) => theme.colors.gray[400]};
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: #dc2626;
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
 `;
 
 const AIBadge = styled.div`
@@ -236,6 +272,11 @@ interface ChatAreaProps {
   isLoading?: boolean;
   /** 스트리밍 중인 누적 텍스트. 값이 있으면 로딩 점 대신 실시간 텍스트 표시 */
   streamingContent?: string;
+  conversationId?: string;
+  contextMode?: ContextMode;
+  contextLabel?: string;
+  selectedStudentId?: string | null;
+  selectedClassId?: string | null;
 }
 
 // student_A, student_B 등을 실제 이름으로 치환
@@ -291,11 +332,7 @@ const renderMarkdown = (content: string): React.ReactNode => {
     const parts = processedText.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
-        return (
-          <BoldText key={i}>
-            {part.slice(2, -2)}
-          </BoldText>
-        );
+        return <BoldText key={i}>{part.slice(2, -2)}</BoldText>;
       }
       // 줄바꿈 처리 (\n을 <br/>로)
       if (part.includes('\n')) {
@@ -385,9 +422,7 @@ const renderMarkdown = (content: string): React.ReactNode => {
           <BulletSpan $color={style.bulletColor} $fontWeight={style.fontWeight}>
             {orderNum}.
           </BulletSpan>
-          <ListContent $fontWeight={style.fontWeight}>
-            {formatInlineText(text)}
-          </ListContent>
+          <ListContent $fontWeight={style.fontWeight}>{formatInlineText(text)}</ListContent>
         </ListItem>
       );
     }
@@ -397,9 +432,7 @@ const renderMarkdown = (content: string): React.ReactNode => {
         <BulletSpan $color={style.bulletColor} $fontWeight={style.fontWeight}>
           {style.bullet}
         </BulletSpan>
-        <ListContent $fontWeight={style.fontWeight}>
-          {formatInlineText(text)}
-        </ListContent>
+        <ListContent $fontWeight={style.fontWeight}>{formatInlineText(text)}</ListContent>
       </ListItem>
     );
   };
@@ -486,33 +519,21 @@ const renderMarkdown = (content: string): React.ReactNode => {
 
     // # 대제목 (H1)
     if (trimmedLine.startsWith('# ')) {
-      elements.push(
-        <H1 key={`h1-${i}`}>
-          {formatInlineText(trimmedLine.slice(2))}
-        </H1>,
-      );
+      elements.push(<H1 key={`h1-${i}`}>{formatInlineText(trimmedLine.slice(2))}</H1>);
       i++;
       continue;
     }
 
     // ## 중제목 (H2)
     if (trimmedLine.startsWith('## ')) {
-      elements.push(
-        <H2 key={`h2-${i}`}>
-          {formatInlineText(trimmedLine.slice(3))}
-        </H2>,
-      );
+      elements.push(<H2 key={`h2-${i}`}>{formatInlineText(trimmedLine.slice(3))}</H2>);
       i++;
       continue;
     }
 
     // ### 소제목 (H3)
     if (trimmedLine.startsWith('### ')) {
-      elements.push(
-        <H3 key={`h3-${i}`}>
-          {formatInlineText(trimmedLine.slice(4))}
-        </H3>,
-      );
+      elements.push(<H3 key={`h3-${i}`}>{formatInlineText(trimmedLine.slice(4))}</H3>);
       i++;
       continue;
     }
@@ -523,9 +544,7 @@ const renderMarkdown = (content: string): React.ReactNode => {
       const restText = trimmedLine.replace(/【.+?】/, '').trim();
       elements.push(
         <SectionHeaderWrapper key={`section-${i}`}>
-          <SectionHeaderBadge>
-            {headerText}
-          </SectionHeaderBadge>
+          <SectionHeaderBadge>{headerText}</SectionHeaderBadge>
           {restText && <SectionHeaderText>{formatInlineText(restText)}</SectionHeaderText>}
         </SectionHeaderWrapper>,
       );
@@ -568,11 +587,7 @@ const renderMarkdown = (content: string): React.ReactNode => {
     }
 
     // 일반 텍스트
-    elements.push(
-      <Paragraph key={`p-${i}`}>
-        {formatInlineText(trimmedLine)}
-      </Paragraph>,
-    );
+    elements.push(<Paragraph key={`p-${i}`}>{formatInlineText(trimmedLine)}</Paragraph>);
     i++;
   }
 
@@ -584,8 +599,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   aliasMap,
   isLoading,
   streamingContent,
+  conversationId,
+  contextMode,
+  contextLabel,
+  selectedStudentId,
+  selectedClassId,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<{
+    message: ChatMessage;
+    prevUserMsg: ChatMessage | null;
+  } | null>(null);
+
+  const { user } = useAuth();
 
   // 메시지 또는 스트리밍 콘텐츠 변경 시 자동 스크롤
   useEffect(() => {
@@ -594,78 +621,122 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   }, [messages, streamingContent]);
 
+  const handleFlagClick = (msg: ChatMessage) => {
+    const msgIndex = messages.findIndex((m) => m.id === msg.id);
+    const prevUserMsg =
+      messages
+        .slice(0, msgIndex)
+        .reverse()
+        .find((m) => m.role === 'user') ?? null;
+    setReportTarget({ message: msg, prevUserMsg });
+  };
+
+  const captureContext: ErrorCaptureContext = {
+    userId: user?.id ?? '',
+    conversationId: conversationId ?? '',
+    mode: contextMode ?? 'all',
+    contextLabel: contextLabel ?? '',
+    stdtId: selectedStudentId,
+    claId: selectedClassId,
+    contextData: null,
+  };
+
   return (
-    <ChatContainer ref={scrollRef}>
-      {messages.map((msg) => {
-        const displayContent =
-          msg.role === 'assistant' ? replaceAliases(msg.content, aliasMap) : msg.content;
+    <>
+      <ChatContainer ref={scrollRef}>
+        {messages.map((msg) => {
+          const displayContent =
+            msg.role === 'assistant' ? replaceAliases(msg.content, aliasMap) : msg.content;
 
-        return (
-          <MessageRow key={msg.id} $isUser={msg.role === 'user'}>
-            <AvatarWrapper>
-              {msg.role === 'user' ? (
-                <UserAvatar>
-                  <User className='w-4 h-4 text-gray-600' />
-                </UserAvatar>
-              ) : (
-                <BotAvatar>
-                  <Bot className='w-4 h-4 text-white' />
-                </BotAvatar>
-              )}
-            </AvatarWrapper>
+          return (
+            <MessageRow key={msg.id} $isUser={msg.role === 'user'}>
+              <AvatarWrapper>
+                {msg.role === 'user' ? (
+                  <UserAvatar>
+                    <User className='w-4 h-4 text-gray-600' />
+                  </UserAvatar>
+                ) : (
+                  <BotAvatar>
+                    <Bot className='w-4 h-4 text-white' />
+                  </BotAvatar>
+                )}
+              </AvatarWrapper>
 
-            <MessageBubble $isUser={msg.role === 'user'}>
-              {msg.role === 'assistant' && (
-                <AIBadge>
-                  <Sparkles className='w-3 h-3' />
-                  <span>AI 분석</span>
-                </AIBadge>
-              )}
               {msg.role === 'assistant' ? (
-                <MarkdownWrapper>{renderMarkdown(displayContent)}</MarkdownWrapper>
+                <BubbleWrapper
+                  onMouseEnter={() => setHoveredMsgId(msg.id)}
+                  onMouseLeave={() => setHoveredMsgId(null)}
+                >
+                  <MessageBubble $isUser={false}>
+                    <AIBadge>
+                      <Sparkles className='w-3 h-3' />
+                      <span>AI 분석</span>
+                    </AIBadge>
+                    <MarkdownWrapper>{renderMarkdown(displayContent)}</MarkdownWrapper>
+                  </MessageBubble>
+                  {hoveredMsgId === msg.id && conversationId && (
+                    <FlagButton onClick={() => handleFlagClick(msg)} title='오류 보고'>
+                      <MessageCircleWarning className='w-7 h-7' />
+                    </FlagButton>
+                  )}
+                </BubbleWrapper>
               ) : (
-                <MessageText>{displayContent}</MessageText>
+                <MessageBubble $isUser={true}>
+                  <MessageText>{displayContent}</MessageText>
+                </MessageBubble>
               )}
+            </MessageRow>
+          );
+        })}
+
+        {/* 스트리밍 중: 텍스트 실시간 표시 */}
+        {isLoading && streamingContent && (
+          <LoadingRow>
+            <BotAvatar>
+              <Bot className='w-4 h-4 text-white' />
+            </BotAvatar>
+            <MessageBubble $isUser={false}>
+              <AIBadge>
+                <Sparkles className='w-3 h-3' />
+                <span>AI 분석</span>
+              </AIBadge>
+              <MarkdownWrapper>
+                {renderMarkdown(replaceAliases(streamingContent, aliasMap))}
+              </MarkdownWrapper>
             </MessageBubble>
-          </MessageRow>
-        );
-      })}
+          </LoadingRow>
+        )}
 
-      {/* 스트리밍 중: 텍스트 실시간 표시 */}
-      {isLoading && streamingContent && (
-        <LoadingRow>
-          <BotAvatar>
-            <Bot className='w-4 h-4 text-white' />
-          </BotAvatar>
-          <MessageBubble $isUser={false}>
-            <AIBadge>
-              <Sparkles className='w-3 h-3' />
-              <span>AI 분석</span>
-            </AIBadge>
-            <MarkdownWrapper>{renderMarkdown(replaceAliases(streamingContent, aliasMap))}</MarkdownWrapper>
-          </MessageBubble>
-        </LoadingRow>
-      )}
+        {/* 스트리밍 대기 중 (아직 첫 청크 미수신): 점 로딩 표시 */}
+        {isLoading && !streamingContent && (
+          <LoadingRow>
+            <BotAvatar>
+              <Bot className='w-4 h-4 text-white' />
+            </BotAvatar>
+            <LoadingBubble>
+              <AIBadge>
+                <Sparkles className='w-3 h-3' />
+                <span>분석 중...</span>
+              </AIBadge>
+              <LoadingDots>
+                <LoadingDot $delay='0s' $color='#c4b5fd' />
+                <LoadingDot $delay='0.1s' $color='#a78bfa' />
+                <LoadingDot $delay='0.2s' $color='#8b5cf6' />
+              </LoadingDots>
+            </LoadingBubble>
+          </LoadingRow>
+        )}
+      </ChatContainer>
 
-      {/* 스트리밍 대기 중 (아직 첫 청크 미수신): 점 로딩 표시 */}
-      {isLoading && !streamingContent && (
-        <LoadingRow>
-          <BotAvatar>
-            <Bot className='w-4 h-4 text-white' />
-          </BotAvatar>
-          <LoadingBubble>
-            <AIBadge>
-              <Sparkles className='w-3 h-3' />
-              <span>분석 중...</span>
-            </AIBadge>
-            <LoadingDots>
-              <LoadingDot $delay='0s' $color='#c4b5fd' />
-              <LoadingDot $delay='0.1s' $color='#a78bfa' />
-              <LoadingDot $delay='0.2s' $color='#8b5cf6' />
-            </LoadingDots>
-          </LoadingBubble>
-        </LoadingRow>
+      {reportTarget && (
+        <ErrorReportModal
+          isOpen={true}
+          onClose={() => setReportTarget(null)}
+          targetMessage={reportTarget.message}
+          prevUserMessage={reportTarget.prevUserMsg}
+          captureContext={captureContext}
+        />
       )}
-    </ChatContainer>
+    </>
   );
 };

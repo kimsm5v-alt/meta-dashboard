@@ -12,8 +12,11 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -131,6 +134,17 @@ public class GlobalExceptionHandler {
     // 로그도 ERROR → WARN 으로 다운그레이드 (운영 알람 정확화).
     // ─────────────────────────────────────────────────────
 
+    /**
+     * 404 — 정적 리소스 미존재. 브라우저가 자동 요청하는 favicon.ico / apple-touch-icon.png 등.
+     * Boot 3.2+ 부터 정적 리소스 404 가 {@link NoResourceFoundException} 으로 통일되어 예외로 던져지는데,
+     * 운영상 의미 없는 노이즈라 ERROR → DEBUG 로 다운그레이드. 응답은 빈 404.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public void handleNoResourceFound(NoResourceFoundException e) {
+        log.debug("Static resource not found: {}", e.getResourcePath());
+    }
+
     /** 405 — 지원하지 않는 HTTP method (예: PUT 으로 호출했는데 컨트롤러는 PATCH 만 정의) */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseDTO<CustomBody> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
@@ -204,6 +218,17 @@ public class GlobalExceptionHandler {
         errorData.put("name", "BadRequestBody");
         errorData.put("message", message);
         return AidtCommonUtil.makeResultFail(null, errorData, message);
+    }
+
+    /**
+     * SSE / Async long-polling 의 정상 timeout — emitter 가 자체 종료 처리한다.
+     * catch-all 로 흘러가면 response 가 이미 text/event-stream 으로 committed 된 상태에서
+     * ResponseDTO(JSON) 를 쓰려다 HttpMessageNotWritableException 이 또 발생해 로그가 시끄러워짐.
+     * 여기서 void 로 잡아 추가 응답 쓰지 않고 DEBUG 로 다운그레이드.
+     */
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public void handleAsyncRequestTimeout(AsyncRequestTimeoutException e) {
+        log.debug("Async/SSE timeout (정상 종료, 클라이언트 재연결): {}", e.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

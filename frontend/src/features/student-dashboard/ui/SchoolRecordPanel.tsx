@@ -27,7 +27,7 @@ import {
 } from '@shared/utils/recordGenerator';
 import type { ExampleSentence } from '@shared/data/schoolRecordSentences';
 import { buildSimpleRecordMessages, validateSchoolRecordOutput } from '@shared/data/aiPrompts';
-import { callAI } from '@shared/services/ai';
+import { agentChatStream } from '@features/ai-room/api/agentApiService';
 
 // ============================================================
 // Styled Components
@@ -350,11 +350,36 @@ const ApplyButton = styled.button`
   }
 `;
 
-const ResultText = styled.p`
+const ResultText = styled.p<{ $isExpanded: boolean }>`
   font-size: 0.875rem;
   color: #374151;
   line-height: 1.6;
   white-space: pre-wrap;
+  ${({ $isExpanded }) =>
+    !$isExpanded &&
+    `
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    `}
+`;
+
+const ToggleTextButton = styled.button`
+  font-size: 0.75rem;
+  color: #6366f1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+
+  &:hover {
+    text-decoration: underline;
+  }
 `;
 
 const ValidationWarning = styled.div`
@@ -460,12 +485,19 @@ const SavedCardDate = styled.span`
   margin-bottom: 0.25rem;
 `;
 
-const SavedCardPreview = styled.p`
+const SavedCardPreview = styled.p<{ $isExpanded: boolean }>`
   font-size: 0.8125rem;
   color: #374151;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  ${({ $isExpanded }) =>
+    !$isExpanded &&
+    `
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    `}
 `;
 
 const SavedCardActions = styled.div`
@@ -520,6 +552,8 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
   const [teacherInput, setTeacherInput] = useState('');
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [savedRecords, setSavedRecords] = useState<SavedSchoolRecord[]>([]);
+  const [expandedSavedRecords, setExpandedSavedRecords] = useState<Set<string>>(new Set());
+  const [isResultExpanded, setIsResultExpanded] = useState(false);
 
   const schoolLevelKr = useMemo(
     () => toSchoolLevelKr(student.schoolLevel, student.grade),
@@ -592,6 +626,18 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
     }
   };
 
+  const toggleSavedRecord = (id: string) => {
+    setExpandedSavedRecords((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const handleSentenceToggle = (text: string) => {
     if (selectedSentences.includes(text)) {
       setSelectedSentences(selectedSentences.filter((s) => s !== text));
@@ -602,6 +648,9 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
 
   const handleGenerate = async () => {
     setIsGenerating(true);
+    const previousText = generatedText;
+    setGeneratedText('');
+
     try {
       const params = {
         schoolLevel: schoolLevelKr,
@@ -624,21 +673,18 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
       };
 
       const { systemPrompt, userMessage } = buildSimpleRecordMessages(params);
+      const fullPrompt = `${systemPrompt}\n\n---\n\n${userMessage}`;
+      const sessionId = `school-record-${student.id}`;
 
-      const response = await callAI({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage },
-        ],
+      let accumulated = '';
+      await agentChatStream(fullPrompt, sessionId, (chunk) => {
+        accumulated += chunk;
+        setGeneratedText(accumulated);
       });
 
-      if (response.success) {
-        setGeneratedText(response.content);
-      } else {
-        throw new Error(response.error ?? '생성 실패');
-      }
+      if (!accumulated) throw new Error('empty response');
     } catch {
-      setGeneratedText('생성에 실패했습니다. 다시 시도해주세요.');
+      setGeneratedText(previousText || '생성에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsGenerating(false);
     }
@@ -710,22 +756,46 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
               <SavedCount>({savedRecords.length}개)</SavedCount>
             </SavedListTitle>
           </SavedListHeader>
-          {savedRecords.map((record) => (
-            <SavedCard key={record.id}>
-              <SavedCardBody>
-                <SavedCardDate>{formatSavedDate(record.createdAt)}</SavedCardDate>
-                <SavedCardPreview>{record.content}</SavedCardPreview>
-              </SavedCardBody>
-              <SavedCardActions>
-                <IconBtn title='불러오기' onClick={() => handleLoadRecord(record)}>
-                  <FolderOpen size={14} />
-                </IconBtn>
-                <IconBtn $variant='danger' title='삭제' onClick={() => handleDeleteRecord(record.id)}>
-                  <Trash2 size={14} />
-                </IconBtn>
-              </SavedCardActions>
-            </SavedCard>
-          ))}
+          {savedRecords.map((record) => {
+            const isExpanded = expandedSavedRecords.has(record.id);
+            const isLongText = record.content.length > 100; // 대략 2줄 초과 여부
+
+            return (
+              <SavedCard key={record.id}>
+                <SavedCardBody>
+                  <SavedCardDate>{formatSavedDate(record.createdAt)}</SavedCardDate>
+                  <SavedCardPreview $isExpanded={isExpanded}>{record.content}</SavedCardPreview>
+                  {isLongText && (
+                    <ToggleTextButton onClick={() => toggleSavedRecord(record.id)}>
+                      {isExpanded ? (
+                        <>
+                          <ChevronUp size={12} />
+                          접기
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown size={12} />
+                          더보기
+                        </>
+                      )}
+                    </ToggleTextButton>
+                  )}
+                </SavedCardBody>
+                <SavedCardActions>
+                  <IconBtn title='불러오기' onClick={() => handleLoadRecord(record)}>
+                    <FolderOpen size={14} />
+                  </IconBtn>
+                  <IconBtn
+                    $variant='danger'
+                    title='삭제'
+                    onClick={() => handleDeleteRecord(record.id)}
+                  >
+                    <Trash2 size={14} />
+                  </IconBtn>
+                </SavedCardActions>
+              </SavedCard>
+            );
+          })}
         </SectionBox>
       )}
 
@@ -786,7 +856,11 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
                       {strength.type === 'positive' ? '높음' : '낮음'} ({strength.level})
                     </StrengthBadge>
                   </StrengthLeft>
-                  {isExpanded ? <ChevronUp size={16} color='#9ca3af' /> : <ChevronDown size={16} color='#9ca3af' />}
+                  {isExpanded ? (
+                    <ChevronUp size={16} color='#9ca3af' />
+                  ) : (
+                    <ChevronDown size={16} color='#9ca3af' />
+                  )}
                 </StrengthToggleBtn>
 
                 {isExpanded && (
@@ -863,7 +937,24 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
                 </EditFooter>
               </>
             ) : (
-              <ResultText>{generatedText}</ResultText>
+              <>
+                <ResultText $isExpanded={isResultExpanded}>{generatedText}</ResultText>
+                {generatedText.length > 100 && (
+                  <ToggleTextButton onClick={() => setIsResultExpanded((prev) => !prev)}>
+                    {isResultExpanded ? (
+                      <>
+                        <ChevronUp size={12} />
+                        접기
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown size={12} />
+                        더보기
+                      </>
+                    )}
+                  </ToggleTextButton>
+                )}
+              </>
             )}
           </ResultBody>
 
@@ -914,7 +1005,10 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
                 다운로드
               </ActionBtn>
               <ActionBtn onClick={handleGenerate} disabled={isGenerating}>
-                <RefreshCw size={16} style={isGenerating ? { animation: 'spin 1s linear infinite' } : undefined} />
+                <RefreshCw
+                  size={16}
+                  style={isGenerating ? { animation: 'spin 1s linear infinite' } : undefined}
+                />
                 재생성
               </ActionBtn>
             </ActionButtons>

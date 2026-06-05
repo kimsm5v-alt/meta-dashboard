@@ -106,6 +106,7 @@ export interface LpaTopData {
   lpaTop2Probability?: number | null;
   lpaTop3TypeName?: string | null;
   lpaTop3Probability?: number | null;
+  answerIdx?: number | null;
 }
 
 export type AnalysisResponse = Record<string, AnalysisSectionItem[]>;
@@ -453,6 +454,7 @@ export async function fetchStudentFullAnalysis(
     lpaTypeName: string | null;
     apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
+    answerIdx: number | null;
     recommendations?: RecommendationByOrd;
   } | null;
   round2: {
@@ -461,6 +463,7 @@ export async function fetchStudentFullAnalysis(
     lpaTypeName: string | null;
     apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
+    answerIdx: number | null;
     recommendations?: RecommendationByOrd;
   } | null;
 }> {
@@ -482,6 +485,7 @@ export async function fetchStudentFullAnalysis(
     lpaTypeName: string | null;
     apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
+    answerIdx: number | null;
     recommendations?: RecommendationByOrd;
   } | null => {
     const roundData = response.resultData[String(ordNo)];
@@ -491,6 +495,7 @@ export async function fetchStudentFullAnalysis(
     if (!tScores.some((t) => t !== 50)) return null;
 
     const lpaTopEntry = lpaTopMap?.[String(ordNo)];
+    const recEntry = (recommendationByOrd?.[String(ordNo)]) as GraphRecommendation | undefined;
     const rawLpaTypeName = lpaTopEntry?.lpaTypeName ?? null;
     const apiTypeProbabilities = lpaTopEntry ? buildApiTypeProbabilities(lpaTopEntry) : null;
     return {
@@ -499,6 +504,7 @@ export async function fetchStudentFullAnalysis(
       lpaTypeName: normalizeLpaTypeName(rawLpaTypeName),
       apiTypeProbabilities,
       midCategoryScores: extractMidCategoryScores(roundData),
+      answerIdx: lpaTopEntry?.answerIdx ?? recEntry?.answerIdx ?? null,
       recommendations: recommendationByOrd,
     };
   };
@@ -523,6 +529,7 @@ export function convertToAssessment(
         lpaTypeName?: string | null;
         apiTypeProbabilities?: Record<string, number> | null;
         midCategoryScores?: Record<string, number> | null;
+        answerIdx?: number | null;
       }
     | null
     | undefined,
@@ -556,6 +563,7 @@ export function convertToAssessment(
     reliabilityWarnings,
     attentionResult,
     midCategoryScores,
+    answerIdx: data?.answerIdx ?? null,
   };
 }
 
@@ -705,7 +713,11 @@ export async function fetchL2DashboardData(
       const assessments: import('@shared/types').Assessment[] = [];
 
       if (fullAnalysis.round1?.tScores) {
-        assessments.push(convertToAssessment(info.stdtId, 1, fullAnalysis.round1, schoolLevel));
+        const r1data = {
+          ...fullAnalysis.round1,
+          answerIdx: fullAnalysis.round1.answerIdx ?? info.answerIdx ?? null,
+        };
+        assessments.push(convertToAssessment(info.stdtId, 1, r1data, schoolLevel));
       }
 
       if (fullAnalysis.round2?.tScores) {

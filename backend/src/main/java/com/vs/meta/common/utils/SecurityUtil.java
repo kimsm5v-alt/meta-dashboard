@@ -7,7 +7,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * SecurityContext에서 인증된 사용자 정보를 추출하는 유틸.
@@ -91,25 +91,6 @@ public class SecurityUtil {
             throw new IllegalStateException("인증된 사용자 정보가 없습니다.");
         }
         return userNo;
-    }
-
-    /**
-     * 게스트 인증 여부 확인
-     */
-    public static boolean isGuestAuthenticated() {
-        SpAuthenticatedUser user = getCurrentSpUser();
-        return user != null && "GUEST".equals(user.userType());
-    }
-
-    /**
-     * 게스트 ID 추출 (SP JWT sub: "guest_xxx")
-     */
-    public static String getCurrentGuestId() {
-        SpAuthenticatedUser user = getCurrentSpUser();
-        if (user != null && "GUEST".equals(user.userType())) {
-            return user.spUserId();
-        }
-        return null;
     }
 
     /**

@@ -5,8 +5,6 @@
     <resultMap id="userResultMap" type="com.vs.meta.domain.User">
         <id property="userNo" column="user_no"/>
         <result property="spUserId" column="sp_user_id"/>
-        <result property="email" column="email"/>
-        <result property="nickname" column="nickname"/>
         <result property="roleCode" column="role_code"/>
         <result property="tcId" column="tc_id"/>
         <result property="stdtId" column="stdt_id"/>
@@ -19,24 +17,9 @@
     </resultMap>
 
     <sql id="userColumns">
-        user_no, sp_user_id, email, nickname, role_code, tc_id, stdt_id,
+        user_no, sp_user_id, role_code, tc_id, stdt_id,
         status, last_login_at, created_by, updated_by, created_at, updated_at
     </sql>
-
-    <select id="findByEmailAndStatus" resultMap="userResultMap">
-        /* UserMapper.findByEmailAndStatus */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        WHERE email = #{email} AND status = #{status}
-    </select>
-
-    <select id="findByEmail" resultMap="userResultMap">
-        /* UserMapper.findByEmail */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        WHERE email = #{email}
-        LIMIT 1
-    </select>
 
     <select id="findByUserNo" resultMap="userResultMap">
         /* UserMapper.findByUserNo */
@@ -52,61 +35,19 @@
         WHERE sp_user_id = #{spUserId}
     </select>
 
-    <select id="findAllUsers" resultMap="userResultMap">
-        /* UserMapper.findAllUsers */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        ORDER BY created_at DESC
-    </select>
 
-    <select id="findUsersPaged" resultMap="userResultMap">
-        /* UserMapper.findUsersPaged */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        <where>
-            <if test="keyword != null and keyword != ''">
-                AND (email LIKE CONCAT('%',#{keyword},'%') OR nickname LIKE CONCAT('%',#{keyword},'%'))
-            </if>
-            <if test="roleCode != null and roleCode != ''">
-                AND role_code = #{roleCode}
-            </if>
-            <if test="status != null and status != ''">
-                AND status = #{status}
-            </if>
-        </where>
-        ORDER BY created_at DESC
-        LIMIT #{limit} OFFSET #{offset}
-    </select>
 
-    <select id="countUsersPaged" resultType="long">
-        /* UserMapper.countUsersPaged */
-        SELECT COUNT(*)
-        FROM `user`
-        <where>
-            <if test="keyword != null and keyword != ''">
-                AND (email LIKE CONCAT('%',#{keyword},'%') OR nickname LIKE CONCAT('%',#{keyword},'%'))
-            </if>
-            <if test="roleCode != null and roleCode != ''">
-                AND role_code = #{roleCode}
-            </if>
-            <if test="status != null and status != ''">
-                AND status = #{status}
-            </if>
-        </where>
-    </select>
 
     <insert id="insertUser" parameterType="com.vs.meta.domain.User" useGeneratedKeys="true" keyProperty="userNo">
         /* UserMapper.insertUser */
-        INSERT INTO `user` (sp_user_id, email, nickname, role_code, tc_id, stdt_id, status, last_login_at, created_by, updated_by, created_at, updated_at)
-        VALUES (#{spUserId}, #{email}, #{nickname}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+        INSERT INTO `user` (sp_user_id, role_code, tc_id, stdt_id, status, last_login_at, created_by, updated_by, created_at, updated_at)
+        VALUES (#{spUserId}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="updateUser" parameterType="com.vs.meta.domain.User">
         /* UserMapper.updateUser */
         UPDATE `user`
         SET sp_user_id = #{spUserId},
-            email = #{email},
-            nickname = #{nickname},
             role_code = #{roleCode},
             tc_id = #{tcId},
             stdt_id = #{stdtId},
@@ -118,5 +59,17 @@
     </update>
 
     <!-- updatePassword 제거 — SSO 전환 후 password 컬럼 없음 -->
+
+    <update id="markWithdrawn">
+        /* UserMapper.markWithdrawn */
+        UPDATE `user`
+        SET status      = 'WITHDRAWN',
+            tc_id       = NULL,
+            stdt_id     = NULL,
+            sp_user_id  = NULL,
+            updated_by  = 0,
+            updated_at  = NOW()
+        WHERE user_no = #{userNo}
+    </update>
 
 </mapper>

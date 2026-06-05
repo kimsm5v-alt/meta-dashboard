@@ -9,7 +9,8 @@ import java.util.List;
 @Mapper
 public interface SchoolRecordInfoMapper {
 
-    List<SchoolRecordInfo> findByStdtIdOrderByCreatedAtDesc(@Param("stdtId") String stdtId);
+    List<SchoolRecordInfo> findByStdtIdOrderByCreatedAtDesc(@Param("stdtId") String stdtId,
+                                                            @Param("tcId") String tcId);
 
     SchoolRecordInfo findSchoolRecordById(@Param("id") Long id);
 

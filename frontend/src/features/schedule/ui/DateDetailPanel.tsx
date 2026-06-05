@@ -3,7 +3,7 @@ import { X, Plus, User, Users, Phone, Video, AlertCircle, Clock } from 'lucide-r
 import type { CounselingRecord } from '@shared/types';
 import { COUNSELING_AREA_LABELS, COUNSELING_METHOD_LABELS } from '@shared/types';
 import { Button } from '@shared/components';
-import { SCHEDULE_CLASSES, CLASS_COLORS } from '@shared/data/mockUnifiedCounseling';
+import type { ScheduleClass } from '@shared/data/mockUnifiedCounseling';
 
 const Panel = styled.div`
   position: fixed;
@@ -216,6 +216,8 @@ interface DateDetailPanelProps {
   onClose: () => void;
   onAddClick: () => void;
   onScheduleClick: (schedule: CounselingRecord) => void;
+  classes: ScheduleClass[];
+  classColors: Record<string, string>;
 }
 
 const formatDate = (date: Date): string => {
@@ -234,6 +236,8 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
   onClose,
   onAddClick,
   onScheduleClick,
+  classes,
+  classColors,
 }) => {
   const getMethodIcon = (method: string) => {
     switch (method) {
@@ -249,7 +253,7 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
   };
 
   const getClassLabel = (classId: string) => {
-    const cls = SCHEDULE_CLASSES.find((c) => c.id === classId);
+    const cls = classes.find((c) => c.id === classId);
     return cls?.label || classId;
   };
 
@@ -280,6 +284,7 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
             .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
             .map((schedule) => {
               const scheduleTime = schedule.scheduledAt.split(' ')[1] || '09:00';
+              console.log('Schedule:', schedule);
               return (
                 <ScheduleCard key={schedule.id} onClick={() => onScheduleClick(schedule)}>
                   {/* 상단: 시간 + 긴급 + 유형 */}
@@ -294,8 +299,8 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
                       )}
                     </ScheduleTimeGroup>
                     <ClassBadge
-                      $bgColor={`${CLASS_COLORS[schedule.classId]}15`}
-                      $textColor={CLASS_COLORS[schedule.classId]}
+                      $bgColor={`${classColors[schedule.classId]}15`}
+                      $textColor={classColors[schedule.classId]}
                     >
                       {getClassLabel(schedule.classId)}
                     </ClassBadge>
@@ -325,8 +330,8 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
                     {schedule.areas.map((area, i) => (
                       <AreaBadge
                         key={i}
-                        $bgColor={`${CLASS_COLORS[schedule.classId]}15`}
-                        $textColor={CLASS_COLORS[schedule.classId]}
+                        $bgColor={`${classColors[schedule.classId]}15`}
+                        $textColor={classColors[schedule.classId]}
                       >
                         {COUNSELING_AREA_LABELS[area]}
                       </AreaBadge>

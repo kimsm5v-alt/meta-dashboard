@@ -54,8 +54,6 @@ public class SsoUserRegistrationService {
 
         User user = User.builder()
                 .spUserId(spUser.spUserId())
-                .email(spUser.email() != null ? spUser.email() : "")
-                .nickname(spUser.name() != null ? spUser.name() : "")
                 .roleCode(finalRoleCode)
                 .tcId(tcId)
                 .stdtId(stdtId)

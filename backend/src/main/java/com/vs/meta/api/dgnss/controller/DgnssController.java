@@ -1,10 +1,14 @@
 package com.vs.meta.api.dgnss.controller;
 
+import com.vs.meta.common.exception.ValidationException;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.ResponseDTO;
 import com.vs.meta.common.response.CustomBody;
+import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import com.vs.meta.api.dgnss.service.DgnssGraphService;
+import com.vs.meta.api.dgnss.service.DgnssLpaService;
 import com.vs.meta.api.dgnss.service.DgnssService;
+import org.springframework.web.multipart.MultipartFile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -22,7 +26,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +41,8 @@ import java.util.Map;
 public class DgnssController {
     private final DgnssService dgnssService;
     private final DgnssGraphService dgnssGraphService;
+    private final DgnssLpaService dgnssLpaService;
+    private final DgnssMapper dgnssMapper;
 
     @RequestMapping(value = {"/api/dgnss/tc/info","/api/dgnss/tc/list"}, method = {RequestMethod.GET})
     @Operation(summary = "(선생님) 학습심리정서검사 목록 조회", description = "")
@@ -83,6 +91,35 @@ public class DgnssController {
         Map<String, Object> resultMap = dgnssService.insertTcDgnssStart(paramData);
         String resultMessage = "(선생님) 학습심리정서검사 시작";
         return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
+    }
+
+    @RequestMapping(value = "/api/dgnss/tc/start/preview", method = {RequestMethod.GET})
+    @Operation(summary = "(교사) 학습심리정서검사 출제 사전 검증",
+            description = "2회차 진입 직전 호출. 현재 학급 group_member 를 ELIGIBLE / BLOCKED_OTHER_CLASS / NO_HISTORY 로 분류하여 출제 가능 여부를 미리 알려준다. canStart=false 면 출제 불가.")
+    @Parameter(name = "claId", description = "클래스 ID", required = true,
+            examples = {
+                    @ExampleObject(name = "math", value = "eb1460dce8fc42889862e9a460beb4a0", description = "수학 환경")
+            })
+    @Parameter(name = "paperIdx", description = "심리검사 종류 (1: 학습종합, 2: META자기조절)", required = true,
+            examples = {
+                    @ExampleObject(name = "meta", value = "2", description = "META 자기조절")
+            })
+    @Parameter(name = "ordNo", description = "검사 회차 (현재는 2회차 진입 시에만 호출됨)", required = true,
+            examples = {
+                    @ExampleObject(name = "ord2", value = "2", description = "2회차")
+            })
+    public ResponseDTO<CustomBody> tchMetaStartPreview(
+            @RequestParam(name = "claId") String claId,
+            @RequestParam(name = "paperIdx") int paperIdx,
+            @RequestParam(name = "ordNo") int ordNo,
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        if (StringUtils.isBlank(claId) || paperIdx <= 0) {
+            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
+        }
+        Map<String, Object> result = dgnssService.selectTcDgnssStartPreview(paramData);
+        String resultMessage = "(교사) 학습심리정서검사 출제 사전 검증";
+        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
     @RequestMapping(value = "/api/dgnss/tc/end", method = {RequestMethod.POST})
@@ -189,6 +226,30 @@ public class DgnssController {
     ) throws Exception {
         Map<String, Object> result = dgnssService.updateStSubmit(paramData, request);
         String resultMessage = "심리검사 제출";
+        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
+    @RequestMapping(value = "/api/dgnss/lpa/reprocess", method = {RequestMethod.POST})
+    @Operation(summary = "(관리) LPA 유형 검사 단위 재분류",
+            description = "지정한 검사(dgnssId)에서 제출 완료한 학생 전원의 LPA 유형을 이미 저장된 T점수로 다시 분류하여 tb_dgnss_lpa_result 에 upsert 합니다. "
+                    + "T점수 재계산이나 제출 재처리(메일 발송 등)는 수행하지 않습니다.")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(examples = {
+                    @ExampleObject(name = "파라미터", value = """
+                            {
+                                "dgnssId": 1088
+                            }
+                            """)
+            }))
+    public ResponseDTO<CustomBody> reprocessLpaByDgnssId(
+            @RequestBody Map<String, Object> paramData
+    ) throws Exception {
+        int dgnssId = MapUtils.getIntValue(paramData, "dgnssId", 0);
+        if (dgnssId <= 0) {
+            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락: dgnssId");
+        }
+        Map<String, Object> result = dgnssLpaService.reprocessByDgnssId(dgnssId);
+        String resultMessage = "(관리) LPA 유형 검사 단위 재분류";
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
@@ -486,10 +547,12 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
-    @GetMapping(path = "/api/dgnss/dgnss-download-all", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    @Operation(summary = "학습심리정서검사 일괄다운로드", description = "")
-    @ResponseBody
-    public ResponseEntity<StreamingResponseBody> dgnssDownloadAll(
+    @GetMapping(path = "/api/dgnss/dgnss-download-all")
+    @Operation(summary = "학습심리정서검사 일괄다운로드",
+            description = "대상 PDF 들을 zip 으로 묶어 NAS 에 저장하고 tb_dgnss_info 의 type 별 zip URL 컬럼에 등록한 뒤 "
+                    + "다운로드 URL 을 반환합니다. 이미 생성된 zip 이 있으면 그 URL 을 즉시 반환합니다. "
+                    + "반환된 URL 은 /pfile-download 로 다운로드합니다(이어받기 지원).")
+    public ResponseDTO<CustomBody> dgnssDownloadAll(
             @RequestParam(value = "jwtToken") String jwtToken,
             @RequestParam(value = "dgnssId") String dgnssId,
             @Parameter(name = "type", description = "다운로드 타입(1: 상세 보고서, 2: 요약 보고서, 3: 상세+요약 폴더 압축)")
@@ -497,7 +560,10 @@ public class DgnssController {
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData,
             HttpServletRequest request) throws Exception {
         try {
-            return dgnssService.dgnssDownloadAll(jwtToken, request, true, paramData);
+            String zipFileUrl = dgnssService.createDgnssDownloadAllZip(request, true, paramData);
+            Map<String, Object> result = new HashMap<>();
+            result.put("zipFileUrl", zipFileUrl);
+            return AidtCommonUtil.makeResultSuccess(paramData, result, "학습심리정서검사 일괄다운로드");
         } catch (Exception e) {
             log.error("dgnss-download-all API 오류: dgnssId={}, type={}, requesterIp={}",
                     dgnssId,
@@ -605,6 +671,33 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
     }
 
+    @GetMapping(value = "/api/dgnss/st/resume")
+    @Operation(summary = "(학생)META 자기조절학습 이어하기 진입 정보",
+            description = "중간에 종료한 학생이 이어하기 시 마지막으로 응답한 문항번호와 진입해야 할 페이지(0-base, 첫 페이지=0)를 반환한다. "
+                    + "반환된 page 는 /api/dgnss/st/start 의 page(0-base)에 그대로 전달할 수 있다.")
+    @Parameter(name = "dgnssResultId", description = "심리검사 상세 ID", required = true,
+            examples = {
+                    @ExampleObject(name = "학습종합", value = "12509", description = "학습종합검사"),
+                    @ExampleObject(name = "META자기조절", value = "2161", description = "META자기조절검사")
+            })
+    @Parameter(name = "paperIdx", description = "심리검사 종류(1:학습종합, 2:META자기조절)", required = true,
+            examples = {
+                    @ExampleObject(name = "학습종합", value = "1", description = "학습종합검사"),
+                    @ExampleObject(name = "META자기조절", value = "2", description = "META자기조절검사")
+            })
+    public ResponseDTO<CustomBody> stMetaResume(
+            @RequestParam(name = "dgnssResultId") int dgnssResultId,
+            @RequestParam(name = "paperIdx", required = false, defaultValue = "2") int paperIdx,
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        if (dgnssResultId == 0) {
+            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
+        }
+        Map<String, Object> resultMap = dgnssService.selectStDgnssResume(paramData);
+        String resultMessage = "(학생)META 자기조절학습 이어하기 진입 정보";
+        return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
+    }
+
     @RequestMapping(value = "/api/dgnss/summary/pdf", method = {RequestMethod.POST})
     @Operation(summary = "심리검사 요약본 업로드", description = "")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -622,5 +715,61 @@ public class DgnssController {
         Map<String, Object> result = dgnssService.summaryPdfUpload(paramData, request);
         String resultMessage = "심리검사 요약본 PDF 업로드";
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
+    @GetMapping(value = "/api/dgnss/tc/sample-excel",
+            produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    @Operation(summary = "(교사) 검사 응답 입력용 샘플 엑셀 다운로드", description = "검사별 학생 목록과 응답 입력란이 포함된 엑셀 파일을 다운로드합니다.")
+    @Parameter(name = "dgnssId", description = "검사 ID", required = true,
+            examples = {
+                    @ExampleObject(name = "example", value = "1088", description = "검사 ID")
+            })
+    public ResponseEntity<byte[]> downloadSampleExcel(
+            @RequestParam("dgnssId") int dgnssId
+    ) throws Exception {
+        byte[] excelBytes = dgnssService.generateSampleExcel(dgnssId);
+
+        // 파일명 생성을 위한 검사 정보 조회
+        Map<String, Object> dgnssInfo = dgnssMapper.selectDgnssInfoForExcelFilename(dgnssId);
+        String groupName = dgnssInfo != null ? String.valueOf(dgnssInfo.get("groupName")) : "그룹";
+        String ordNo = dgnssInfo != null ? String.valueOf(dgnssInfo.get("ordNo")) : "1";
+
+        // 파일명: {그룹이름}_{회차}_샘플.xlsx
+        String filename = groupName + "_" + ordNo + "_샘플.xlsx";
+        String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
+
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"" + encodedFilename + "\"; filename*=UTF-8''" + encodedFilename)
+                .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .body(excelBytes);
+    }
+
+    @PostMapping(value = "/api/dgnss/tc/upload-answers", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "(교사) 엑셀 기반 응답값 일괄 업데이트", description = "샘플 엑셀에 입력된 응답값을 일괄 업데이트합니다. 유효성 검증 실패 시 전체 롤백됩니다.")
+    @Parameter(name = "dgnssId", description = "검사 ID", required = true,
+            examples = {
+                    @ExampleObject(name = "example", value = "1088", description = "검사 ID")
+            })
+    public ResponseDTO<CustomBody> uploadAnswers(
+            @RequestParam("dgnssId") int dgnssId,
+            @RequestParam("file") MultipartFile file,
+            HttpServletRequest request
+    ) {
+        Map<String, Object> paramData = new HashMap<>();
+        paramData.put("dgnssId", dgnssId);
+
+        try {
+            Map<String, Object> result = dgnssService.uploadAnswersFromExcel(dgnssId, file, request);
+            String resultMessage = "응답값이 업데이트되고 검사가 종료되었습니다";
+            return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+        } catch (ValidationException e) {
+            log.warn("엑셀 업로드 유효성 검증 실패: dgnssId={}, errors={}", dgnssId, e.getErrors());
+            Map<String, Object> errorData = new HashMap<>();
+            errorData.put("errors", e.getErrors());
+            return AidtCommonUtil.makeResultFail(paramData, errorData, e.getMessage());
+        } catch (Exception e) {
+            log.error("엑셀 업로드 처리 중 오류: dgnssId={}", dgnssId, e);
+            return AidtCommonUtil.makeResultFail(paramData, null, "파일 처리 중 오류가 발생했습니다: " + e.getMessage());
+        }
     }
 }

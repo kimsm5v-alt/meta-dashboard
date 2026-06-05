@@ -5,9 +5,16 @@ import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { Card, Badge } from '@shared/components';
 import { useData } from '@shared/contexts/DataContext';
+import { useAuth } from '@features/auth/model/AuthContext';
 import { useClassStudents, useApiConfig } from '@features/api';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_CLASS_STUDENTS } from '@shared/data/apiDefinitions';
+import {
+  downloadAllPdf,
+  downloadStudentPdf,
+  downloadTeacherReportPdf,
+} from '@shared/services/pdfDownloadService';
+import { fetchStudentInfoList } from '@shared/services/dashboardService';
 import type { Student, Assessment, Class } from '@shared/types';
 import {
   TypeChangeChart,
@@ -17,6 +24,7 @@ import {
 } from '@features/class-dashboard/ui';
 import type { SortField, ChangeFilter } from '@features/class-dashboard/ui';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
+import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
 
 const spin = keyframes`
   from { transform: rotate(0deg); }
@@ -294,7 +302,6 @@ const DashPlaceholder = styled.span<{ $variant?: 'light' | 'default' }>`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
-
 const StatusBadge = styled.span<{ $variant: 'attention' | 'reliability' | 'submitted' }>`
   display: inline-flex;
   align-items: center;
@@ -353,15 +360,170 @@ const NoChangeText = styled.span`
   color: ${({ theme }) => theme.colors.gray[300]};
 `;
 
+const DownloadButtons = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+`;
+
+const PdfProgressOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const PdfProgressCard = styled.div`
+  background: ${({ theme }) => theme.colors.background.paper};
+  border-radius: ${({ theme }) => theme.radius.xl};
+  box-shadow: ${({ theme }) => theme.shadows['2xl']};
+  padding: 2rem;
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+`;
+
+const PdfProgressTitle = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.lg};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  color: ${({ theme }) => theme.colors.text.primary};
+  text-align: center;
+`;
+
+const PdfProgressSub = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  text-align: center;
+`;
+
+const PdfProgressBarTrack = styled.div`
+  width: 100%;
+  height: 8px;
+  background: ${({ theme }) => theme.colors.gray[200]};
+  border-radius: 9999px;
+  overflow: hidden;
+`;
+
+const PdfProgressBarFill = styled.div<{ $pct: number }>`
+  height: 100%;
+  width: ${({ $pct }) => $pct}%;
+  background: #6366f1;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+`;
+
+const TeacherReportButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  background: ${({ theme }) => theme.colors.background.paper};
+  color: ${({ theme }) => theme.colors.gray[700]};
+  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.background.default};
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &::before {
+    content: '';
+    width: 20px;
+    height: 24px;
+    background-image: ${PDF_ICON_SVG_URL};
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+`;
+
+const PdfIconButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+
+  &:hover:not(:disabled) {
+    opacity: 0.7;
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  &::before {
+    content: '';
+    display: block;
+    width: 16px;
+    height: 19px;
+    background-image: ${PDF_ICON_SVG_URL};
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+`;
+
+const PdfAreaHeader = styled.th`
+  background: ${({ theme }) => theme.colors.gray[50]};
+  text-align: center;
+  padding: 0.5rem 0.75rem;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.gray[600]};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+`;
+
+const PdfSubHeaderRow = styled.tr`
+  background: ${({ theme }) => theme.colors.gray[50]};
+`;
+
+const PdfSubHeader = styled.th`
+  background: ${({ theme }) => theme.colors.gray[50]};
+  text-align: center;
+  padding: 0.375rem 0.5rem;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.gray[500]};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.normal};
+  width: 2.5rem;
+  border-top: 1px solid ${({ theme }) => theme.colors.gray[200]};
+`;
+
+const PdfTableCell = styled.td`
+  text-align: center;
+  padding: 0.875rem 0.375rem;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[100]};
+`;
+
 export const ClassDashboardWidget: React.FC = () => {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
   const { getClassById } = useData();
+  const { user } = useAuth();
   const { hasJwtToken } = useApiConfig();
   const {
     students: apiStudents,
     l2Data,
     classInfo: apiClassInfo,
+    dgnssIds,
     isLoading,
     error,
   } = useClassStudents(classId);
@@ -370,6 +532,26 @@ export const ClassDashboardWidget: React.FC = () => {
   const [changeFilter, setChangeFilter] = useState<ChangeFilter>('all');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [downloadError, setDownloadError] = useState(false);
+  const [allPdfProgress, setAllPdfProgress] = useState<{ current: number; total: number } | null>(null);
+  const [round2AnswerIdxMap, setRound2AnswerIdxMap] = useState<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    if (!downloadError) return;
+    const id = setTimeout(() => setDownloadError(false), 4000);
+    return () => clearTimeout(id);
+  }, [downloadError]);
+
+  useEffect(() => {
+    if (!hasJwtToken || !dgnssIds.round2) return;
+    void fetchStudentInfoList(dgnssIds.round2).then((list) => {
+      const map = new Map<string, number>();
+      for (const item of list) {
+        if (item.answerIdx != null) map.set(item.stdtId, item.answerIdx);
+      }
+      setRound2AnswerIdxMap(map);
+    });
+  }, [dgnssIds.round2, hasJwtToken]);
 
   const baseClassData = classId ? getClassById(classId) : undefined;
 
@@ -427,9 +609,8 @@ export const ClassDashboardWidget: React.FC = () => {
               ? '종료'
               : '시작전',
           },
-          round2SubmittedCount: apiStudents.filter((s) =>
-            s.assessments.some((a) => a.round === 2),
-          ).length,
+          round2SubmittedCount: apiStudents.filter((s) => s.assessments.some((a) => a.round === 2))
+            .length,
         },
       };
     }
@@ -538,13 +719,9 @@ export const ClassDashboardWidget: React.FC = () => {
     }
   };
 
-  const renderResultCell = (
-    assessment: Assessment | undefined,
-    isSubmittedNoResult?: boolean,
-  ) => {
+  const renderResultCell = (assessment: Assessment | undefined, isSubmittedNoResult?: boolean) => {
     if (!assessment) {
-      if (isSubmittedNoResult)
-        return <StatusBadge $variant='submitted'>제출 완료</StatusBadge>;
+      if (isSubmittedNoResult) return <StatusBadge $variant='submitted'>제출 완료</StatusBadge>;
       return <DashPlaceholder $variant='light'>-</DashPlaceholder>;
     }
     const hasReliability = assessment.reliabilityWarnings.length > 0;
@@ -585,8 +762,80 @@ export const ClassDashboardWidget: React.FC = () => {
     return <ChangeIndicator $variant='neutral'>−</ChangeIndicator>;
   };
 
+  const handleDownloadAll = async (round: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    if (!dgnssId || !user?.id) return;
+    setDownloadError(false);
+    setAllPdfProgress(null);
+    try {
+      await downloadAllPdf(dgnssId, round, 3, (current, total) => {
+        setAllPdfProgress({ current, total });
+      });
+    } catch {
+      setDownloadError(true);
+    } finally {
+      setAllPdfProgress(null);
+    }
+  };
+
+  const handleDownloadTeacherReport = async (round: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    if (!dgnssId) return;
+
+    setDownloadError(false);
+    try {
+      await downloadTeacherReportPdf({
+        userId: user?.id ?? '',
+        userType: 'T',
+        dgnssId,
+        ordNo: round,
+      });
+    } catch {
+      setDownloadError(true);
+    }
+  };
+
+  const handleDownloadStudentPdf = async (student: Student, round: 1 | 2, type: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    const assessment = student.assessments.find((a) => a.round === round);
+    const answerIdx = assessment?.answerIdx ?? (round === 2 ? round2AnswerIdxMap.get(student.id) : undefined);
+    if (!dgnssId || answerIdx == null) return;
+
+    setDownloadError(false);
+    try {
+      await downloadStudentPdf({
+        userId: student.id,
+        userType: 'S',
+        dgnssId,
+        answerIdx,
+        ordNo: round,
+        type,
+      });
+    } catch {
+      setDownloadError(true);
+    }
+  };
+
   return (
     <PageContainer>
+      {/* PDF 생성 진행 모달 — 완료 전까지 모든 인터랙션 차단 */}
+      {allPdfProgress && (
+        <PdfProgressOverlay>
+          <PdfProgressCard>
+            <PdfProgressTitle>PDF 생성 중...</PdfProgressTitle>
+            <PdfProgressBarTrack>
+              <PdfProgressBarFill
+                $pct={Math.round((allPdfProgress.current / allPdfProgress.total) * 100)}
+              />
+            </PdfProgressBarTrack>
+            <PdfProgressSub>
+              {allPdfProgress.current} / {allPdfProgress.total}명 완료
+            </PdfProgressSub>
+            <PdfProgressSub>잠시만 기다려 주세요. 창을 닫지 마세요.</PdfProgressSub>
+          </PdfProgressCard>
+        </PdfProgressOverlay>
+      )}
+
       <HeaderRow>
         <BackButton onClick={() => navigate('/dashboard')}>
           <BackIcon />
@@ -600,6 +849,29 @@ export const ClassDashboardWidget: React.FC = () => {
             명
           </PageSubtitle>
         </HeaderContent>
+        {hasJwtToken && (
+          <DownloadButtons>
+            {downloadError && (
+              <span style={{ fontSize: '0.75rem', color: '#ef4444', alignSelf: 'center' }}>
+                다운로드 실패
+              </span>
+            )}
+            <TeacherReportButton
+              onClick={() => void handleDownloadTeacherReport(1)}
+              disabled={!dgnssIds.round1}
+              title={dgnssIds.round1 ? '1차 교사용 보고서 PDF 다운로드' : '1차 검사 완료 후 가능'}
+            >
+              1차 교사용 보고서
+            </TeacherReportButton>
+            <TeacherReportButton
+              onClick={() => void handleDownloadTeacherReport(2)}
+              disabled={!dgnssIds.round2}
+              title={dgnssIds.round2 ? '2차 교사용 보고서 PDF 다운로드' : '2차 검사 완료 후 가능'}
+            >
+              2차 교사용 보고서
+            </TeacherReportButton>
+          </DownloadButtons>
+        )}
       </HeaderRow>
 
       {classData.stats?.examStatus?.round2 === '진행중' && (
@@ -641,15 +913,35 @@ export const ClassDashboardWidget: React.FC = () => {
             <ApiTooltip {...API_CLASS_STUDENTS} position='top-left'>
               <CardTitle>학생 목록</CardTitle>
             </ApiTooltip>
-            <SearchWrapper>
-              <SearchIcon />
-              <SearchInput
-                type='text'
-                placeholder='이름/번호 검색'
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </SearchWrapper>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {hasJwtToken && (
+                <>
+                  <TeacherReportButton
+                    onClick={() => void handleDownloadAll(1)}
+                    disabled={!dgnssIds.round1}
+                    title={dgnssIds.round1 ? '1차 보고서 전체 다운로드' : '1차 검사 완료 후 가능'}
+                  >
+                    1차 보고서 전체 다운로드
+                  </TeacherReportButton>
+                  <TeacherReportButton
+                    onClick={() => void handleDownloadAll(2)}
+                    disabled={!dgnssIds.round2}
+                    title={dgnssIds.round2 ? '2차 보고서 전체 다운로드' : '2차 검사 완료 후 가능'}
+                  >
+                    2차 보고서 전체 다운로드
+                  </TeacherReportButton>
+                </>
+              )}
+              <SearchWrapper>
+                <SearchIcon />
+                <SearchInput
+                  type='text'
+                  placeholder='이름/번호 검색'
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </SearchWrapper>
+            </div>
           </CardHeaderRow>
 
           <FilterSection>
@@ -676,7 +968,7 @@ export const ClassDashboardWidget: React.FC = () => {
             <Table>
               <TableHead>
                 <TableHeaderRow>
-                  <TableHeaderCell $width='4rem'>
+                  <TableHeaderCell $width='4rem' rowSpan={hasJwtToken ? 2 : 1}>
                     <SortableHeader
                       field='number'
                       label='번호'
@@ -685,7 +977,7 @@ export const ClassDashboardWidget: React.FC = () => {
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
-                  <TableHeaderCell $width='6rem'>
+                  <TableHeaderCell $width='6rem' rowSpan={hasJwtToken ? 2 : 1}>
                     <SortableHeader
                       field='name'
                       label='이름'
@@ -694,7 +986,7 @@ export const ClassDashboardWidget: React.FC = () => {
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
-                  <TableHeaderCell>
+                  <TableHeaderCell rowSpan={hasJwtToken ? 2 : 1}>
                     <SortableHeader
                       field='type1'
                       label='1차 결과'
@@ -703,10 +995,10 @@ export const ClassDashboardWidget: React.FC = () => {
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
-                  <TableHeaderCell $width='4rem' $align='center'>
+                  <TableHeaderCell $width='4rem' $align='center' rowSpan={hasJwtToken ? 2 : 1}>
                     변화
                   </TableHeaderCell>
-                  <TableHeaderCell>
+                  <TableHeaderCell rowSpan={hasJwtToken ? 2 : 1}>
                     <SortableHeader
                       field='type2'
                       label='2차 결과'
@@ -715,7 +1007,21 @@ export const ClassDashboardWidget: React.FC = () => {
                       onSort={handleSort}
                     />
                   </TableHeaderCell>
+                  {hasJwtToken && (
+                    <>
+                      <PdfAreaHeader colSpan={2}>1차 보고서</PdfAreaHeader>
+                      <PdfAreaHeader colSpan={2}>2차 보고서</PdfAreaHeader>
+                    </>
+                  )}
                 </TableHeaderRow>
+                {hasJwtToken && (
+                  <PdfSubHeaderRow>
+                    <PdfSubHeader>상세</PdfSubHeader>
+                    <PdfSubHeader>요약</PdfSubHeader>
+                    <PdfSubHeader>상세</PdfSubHeader>
+                    <PdfSubHeader>요약</PdfSubHeader>
+                  </PdfSubHeaderRow>
+                )}
               </TableHead>
               <TableBody>
                 {filteredAndSortedStudents.map((student) => {
@@ -723,21 +1029,46 @@ export const ClassDashboardWidget: React.FC = () => {
                   const r2 = student.assessments.find((a) => a.round === 2);
 
                   return (
-                    <TableRow
-                      key={student.id}
-                      onClick={() =>
-                        navigate(`/dashboard/class/${classId}/student/${student.id}`)
-                      }
-                    >
-                      <TableCell>
+                    <TableRow key={student.id}>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
                         <StudentNumber>{student.number}</StudentNumber>
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
                         <StudentName>{student.name}</StudentName>
                       </TableCell>
-                      <TableCell>{renderResultCell(r1)}</TableCell>
-                      <TableCell $align='center'>{renderChangeIndicator(r1, r2)}</TableCell>
-                      <TableCell>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {renderResultCell(r1)}
+                      </TableCell>
+                      <TableCell
+                        $align='center'
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {renderChangeIndicator(r1, r2)}
+                      </TableCell>
+                      <TableCell
+                        onClick={() =>
+                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                        }
+                        style={{ cursor: 'pointer' }}
+                      >
                         {renderResultCell(
                           r2,
                           !r2 &&
@@ -745,6 +1076,58 @@ export const ClassDashboardWidget: React.FC = () => {
                             student.round2Submitted,
                         )}
                       </TableCell>
+                      {hasJwtToken && (
+                        <>
+                          <PdfTableCell>
+                            <PdfIconButton
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDownloadStudentPdf(student, 1, 1);
+                              }}
+                              disabled={!dgnssIds.round1 || r1?.answerIdx == null}
+                              title='1차 상세'
+                            />
+                          </PdfTableCell>
+                          <PdfTableCell>
+                            <PdfIconButton
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDownloadStudentPdf(student, 1, 2);
+                              }}
+                              disabled={!dgnssIds.round1 || r1?.answerIdx == null}
+                              title='1차 요약'
+                            />
+                          </PdfTableCell>
+                          <PdfTableCell>
+                            {r2 ? (
+                              <PdfIconButton
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDownloadStudentPdf(student, 2, 1);
+                                }}
+                                disabled={r2?.answerIdx == null && !round2AnswerIdxMap.has(student.id)}
+                                title='2차 상세'
+                              />
+                            ) : (
+                              <DashPlaceholder>-</DashPlaceholder>
+                            )}
+                          </PdfTableCell>
+                          <PdfTableCell>
+                            {r2 ? (
+                              <PdfIconButton
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDownloadStudentPdf(student, 2, 2);
+                                }}
+                                disabled={r2?.answerIdx == null && !round2AnswerIdxMap.has(student.id)}
+                                title='2차 요약'
+                              />
+                            ) : (
+                              <DashPlaceholder>-</DashPlaceholder>
+                            )}
+                          </PdfTableCell>
+                        </>
+                      )}
                     </TableRow>
                   );
                 })}

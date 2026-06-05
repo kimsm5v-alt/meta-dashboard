@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS build
+FROM containerregistry-private.kr.ncr.ntruss.com/node:20-alpine AS build
 WORKDIR /app
 
 # 1) 루트 + 각 workspace의 package.json만 먼저 복사 (소스 제외)

@@ -533,6 +533,7 @@ export const ScheduleWidget: React.FC = () => {
             onDateClick={handleDateClick}
             onScheduleClick={handleScheduleClick}
             onAddClick={handleAddClick}
+            classColors={classColors}
           />
         ) : (
           <MonthlyCalendar
@@ -540,6 +541,7 @@ export const ScheduleWidget: React.FC = () => {
             schedules={filteredSchedules}
             selectedDate={selectedDate}
             onDateClick={handleDateClick}
+            classColors={classColors}
           />
         )}
       </CalendarContainer>
@@ -561,6 +563,8 @@ export const ScheduleWidget: React.FC = () => {
           onClose={() => setSelectedDate(null)}
           onAddClick={() => handleAddClick(selectedDate)}
           onScheduleClick={handleScheduleClick}
+          classes={scheduleClasses}
+          classColors={classColors}
         />
       )}
 

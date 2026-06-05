@@ -33,6 +33,9 @@ public interface DgnssMapper {
     List<String> selectDgnssStdtList(Map<String, Object> param);
     // 교사) META 자기조절학습 result_info에 insert할 학생 ID 탐색
     List<String> selectTargetStList(Map<String, Object> param);
+    List<String> selectEligibleTargetStListForOrd1(Map<String, Object> param);
+    List<String> selectEligibleTargetStListForOrd2(Map<String, Object> param);
+    List<Map<String, Object>> selectTcDgnssStartPreview(Map<String, Object> param);
     List<Long> selectTargetStudentUserNoList(Map<String, Object> param);
     String selectTcId(Map<String, Object> param);
     // 교사) META 자기조절학습 학생 개인 답안(OMR) insert
@@ -48,6 +51,8 @@ public interface DgnssMapper {
     // 교사) META 자기조절학습 취소(상세테이블 삭제)
     void deleteTcDgnssResultInfo(Map<String, Object> param);
     void deleteTcDgnssAnswer(Map<String, Object> param);
+    // 교사) META 자기조절학습 취소(LPA 분석결과 삭제) — info/result_info/answer 의 부모이므로 가장 먼저 제거
+    void deleteTcDgnssLpaResult(Map<String, Object> param);
     List<Integer> selectOmrIdxList(Map<String, Object> param);
      // 학생) META 자기조절학습 문제 조회
     List<String> selectAllStdtList(Map<String, Object> param);
@@ -113,6 +118,20 @@ public interface DgnssMapper {
     List<Map<String, Object>> selectTcEtcInfoList(Map<String, Object> param);
     List<Integer> selectDgnssIdxList(Map<String, Object> param);
     List<Map<String, Object>> selectClassTotalReport(Map<String, Object> param);
+    int selectOrdNoByDgnssId(@Param("dgnssId") int dgnssId);
+    List<String> selectClassStudentsWithoutResultInClassForOrd(Map<String, Object> param);
+    List<Map<String, Object>> selectClassTotalReportFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectClassStudentsSubmStatusFromOtherClasses(Map<String, Object> param);
+    String selectClaIdByDgnssId(@Param("dgnssId") int dgnssId);
+    List<Map<String, Object>> selectDgnssAnswerReliabilityFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType2FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType3FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType4FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType5FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectLernType6FromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectDgnssAnswerReportMotivateFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectDgnssAnswerReportRecognitionFromOtherClasses(Map<String, Object> param);
+    List<Map<String, Object>> selectDgnssAnswerReportBehaviorFromOtherClasses(Map<String, Object> param);
     List<Map<String, Object>> selectClassLernReport(Map<String, Object> param);
 
     // 학생) 답 입력
@@ -129,6 +148,9 @@ public interface DgnssMapper {
 
     void upsertDgnssLpaResult(Map<String, Object> param);
 
+    // LPA 재분류 대상: 검사(dgnssId) 단위로 제출 완료한 학생의 ANSWER_IDX 목록
+    List<Integer> selectLpaTargetAnswerIdxByDgnssId(@Param("dgnssId") int dgnssId);
+
     List<Map<String, Object>> selectTcClassMetaStats(Map<String, Object> param);
 
     List<Map<String, Object>> selectTcClassFactorAverages(Map<String, Object> param);
@@ -136,4 +158,22 @@ public interface DgnssMapper {
     int countDgnssResultByDgnssIdAndStdtId(@Param("dgnssId") int dgnssId, @Param("stdtId") String stdtId);
 
     Map<String, Object> selectLpaResultByAnswerIdx(@Param("answerIdx") int answerIdx);
+
+    // 교사) 샘플 엑셀용 OMR 목록 조회
+    List<Map<String, Object>> selectOmrListForSampleExcel(@Param("dgnssId") int dgnssId);
+
+    // 교사) dgnssId에 속한 유효 OMR_IDX 목록 조회
+    List<Integer> selectValidOmrIdxSetByDgnssId(@Param("dgnssId") int dgnssId);
+
+    // OMR_IDX 존재 여부 확인
+    int existsOmrIdx(@Param("omrIdx") int omrIdx);
+
+    // OMR 응답값 업데이트
+    int updateOmrAnswers(Map<String, Object> param);
+
+    // 교사) 샘플 엑셀 파일명용 검사 정보 조회
+    Map<String, Object> selectDgnssInfoForExcelFilename(@Param("dgnssId") int dgnssId);
+
+    // Phase 4: FN_GET_MEM_UNDER_TSCORE 함수 대체 - T_SCORE 기준 학생 목록 조회
+    List<Map<String, Object>> selectMembersByTScoreThreshold(@Param("testIdx") int testIdx);
 }

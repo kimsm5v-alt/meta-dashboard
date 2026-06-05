@@ -29,57 +29,66 @@ public class CounselingController {
     private final AuthTcIdResolver authTcIdResolver;
 
     @GetMapping(value = "/api/counseling")
-    @Operation(summary = "전체 상담 기록 조회", description = "모든 상담 기록을 조회")
+    @Operation(summary = "전체 상담 기록 조회", description = "본인이 작성한 상담 기록 전체 조회")
     public ResponseDTO<CustomBody> getAll(
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
     ) throws Exception {
+        authTcIdResolver.enforceAuthTcId(paramData);
         Object resultData = counselingService.getAll(paramData);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "상담 목록 조회");
     }
 
     @GetMapping(value = "/api/counseling/student/{studentId}")
-    @Operation(summary = "학생별 상담 기록 조회", description = "특정 학생의 상담 기록을 조회")
+    @Operation(summary = "학생별 상담 기록 조회", description = "특정 학생의 상담 기록 중 본인이 작성한 건만 조회")
     @Parameter(name = "studentId", description = "학생 ID (stdt_id)", required = true,
             examples = @ExampleObject(value = "a1b2c3d4e5f67890abcdef1234567890"))
     public ResponseDTO<CustomBody> getByStudentId(
             @PathVariable String studentId
     ) throws Exception {
-        Map<String, Object> paramData = Map.of("studentId", studentId);
-        Object resultData = counselingService.getByStudentId(studentId);
+        Map<String, Object> paramData = new HashMap<>();
+        paramData.put("studentId", studentId);
+        authTcIdResolver.enforceAuthTcId(paramData);
+        Object resultData = counselingService.getByStudentId(studentId, paramData);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "학생별 상담 조회");
     }
 
     @GetMapping(value = "/api/counseling/class/{classId}")
-    @Operation(summary = "학급별 상담 기록 조회", description = "특정 학급의 상담 기록을 조회")
+    @Operation(summary = "학급별 상담 기록 조회", description = "특정 학급의 상담 기록 중 본인이 작성한 건만 조회")
     @Parameter(name = "classId", description = "학급 ID (cla_id)", required = true,
             examples = @ExampleObject(value = "abcd1234"))
     public ResponseDTO<CustomBody> getByClassId(
             @PathVariable String classId
     ) throws Exception {
-        Map<String, Object> paramData = Map.of("classId", classId);
-        Object resultData = counselingService.getByClassId(classId);
+        Map<String, Object> paramData = new HashMap<>();
+        paramData.put("classId", classId);
+        authTcIdResolver.enforceAuthTcId(paramData);
+        Object resultData = counselingService.getByClassId(classId, paramData);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "학급별 상담 조회");
     }
 
     @GetMapping(value = "/api/counseling/status/{status}")
-    @Operation(summary = "상태별 상담 기록 조회", description = "scheduled/completed/cancelled 별 조회")
+    @Operation(summary = "상태별 상담 기록 조회", description = "본인이 작성한 상담 중 scheduled/completed/cancelled 별 조회")
     @Parameter(name = "status", description = "상담 상태", required = true,
             examples = @ExampleObject(value = "scheduled"))
     public ResponseDTO<CustomBody> getByStatus(
             @PathVariable String status
     ) throws Exception {
-        Map<String, Object> paramData = Map.of("status", status);
-        Object resultData = counselingService.getByStatus(status);
+        Map<String, Object> paramData = new HashMap<>();
+        paramData.put("status", status);
+        authTcIdResolver.enforceAuthTcId(paramData);
+        Object resultData = counselingService.getByStatus(status, paramData);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "상태별 상담 조회");
     }
 
     @GetMapping(value = "/api/counseling/{id}")
-    @Operation(summary = "단일 상담 기록 조회", description = "특정 상담 기록을 조회")
+    @Operation(summary = "단일 상담 기록 조회", description = "특정 상담 기록 조회 (본인 작성 건만 가능)")
     public ResponseDTO<CustomBody> getById(
             @PathVariable Long id
     ) throws Exception {
-        Map<String, Object> paramData = Map.of("id", id);
-        Object resultData = counselingService.getById(id);
+        Map<String, Object> paramData = new HashMap<>();
+        paramData.put("id", id);
+        authTcIdResolver.enforceAuthTcId(paramData);
+        Object resultData = counselingService.getById(id, paramData);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "상담 상세 조회");
     }
 

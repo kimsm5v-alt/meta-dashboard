@@ -7,8 +7,8 @@ import {
   LayoutDashboard,
   MessageSquare,
   Users,
-  Settings,
   User,
+  UserCog,
   ChevronRight,
   LogOut,
   ClipboardList,
@@ -27,6 +27,7 @@ import { BellWithPanel } from '@features/notifications';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_TEACHER_ME } from '@shared/data/apiDefinitions';
 import { FEATURES, type FeatureKey } from '@shared/config/features';
+import { ENV } from '@shared/config/env';
 import serviceLogo from '@/assets/logo_2.png';
 
 // ============================================================================
@@ -57,7 +58,6 @@ const navGroups: NavGroup[] = [
   {
     title: '검사',
     items: [
-      { icon: Users, label: '그룹 관리', path: '/groups', feature: 'GROUPS' },
       { icon: ClipboardList, label: '검사하기', path: '/assessment', feature: 'ASSESSMENT' },
       { icon: LayoutDashboard, label: '대시보드', path: '/dashboard', feature: 'DASHBOARD' },
     ],
@@ -478,6 +478,16 @@ const Header = () => {
     navigate('/');
   };
 
+  // SP 마이페이지로 이동 — 같은 탭, client_id + return_to(현재 URL) query
+  // 참조: superplatform-mypage/docs/mypage-integration-guide.html
+  const openMypage = () => {
+    const params = new URLSearchParams({
+      client_id: ENV.SP_CLIENT_ID,
+      return_to: window.location.href,
+    });
+    window.location.href = `${ENV.SP_MYPAGE_URL}/?${params}`;
+  };
+
   return (
     <HeaderWrapper>
       <HeaderContent>
@@ -486,8 +496,8 @@ const Header = () => {
         </LogoButton>
         <HeaderActions>
           <BellWithPanel />
-          <IconButton>
-            <Settings />
+          <IconButton onClick={openMypage} title='내 정보 설정' aria-label='내 정보 설정'>
+            <UserCog />
           </IconButton>
           <UserSection>
             <ApiTooltip {...API_TEACHER_ME} position='bottom-right'>

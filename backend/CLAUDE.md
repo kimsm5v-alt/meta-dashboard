@@ -5,11 +5,16 @@
 학교/학급 관리, 그룹(방) 생성/참가, 상담 관리, 관찰 메모 등 교육 현장 기능 제공.
 
 ## Tech Stack
-- **Java 17** + **Spring Boot 2.7.17** + **Gradle**
-- **MyBatis 2.3.1** + **MySQL 8.3.0**
-- **Dual Security**: Admin(Session) + API(JWT Stateless)
+- **Java 21** + **Spring Boot 4.0.5** + **Gradle 8.14**
+- **MyBatis Spring Boot Starter 4.0.1** + **MySQL 8.3.0**
+- **Security**: API JWT Stateless (SuperPlatform SSO RS256 + JWKS) — Admin 영역 폐기됨
+- **회원 정보 조회**: Auth Internal API (`/api/v1/users/{id}` · `/batch` · `/lookup`) + `UserInfoEnricher` 패턴
+  - 학심정 DB 에 회원 PII(name/email/nickname/gender) **미저장** — Auth 가 단일 출처
+  - `HasUserInfo` 구현 DTO 또는 `UserSlot` 으로 묶어서 `enricher.enrich(item|list)` 한 줄로 채움
+  - `@RequestScope` `PersonInfoRequestCache` 가 요청 내 중복 호출 dedup, 100건 초과는 자동 chunking
 - **Master/Slave DataSource** with `DynamicRoutingDataSource`
-- **Admin UI**: Thymeleaf + AdminLTE 3.x (CDN)
+- **ShedLock 7.7.0** (분산 스케줄러 락) + **Redis Pub/Sub** (알림)
+- **MapStruct 1.6.3** + **PDFBox 3.0.1** + **Apache POI 5.2.5** + **Neo4j Driver 5.28.5**
 - **Port**: 8081
 
 ## Package Structure
@@ -22,10 +27,10 @@ com.vs.meta
 ├── api/                        # REST API (JWT-based)
 │   ├── counseling/             # 상담 관리
 │   ├── group/                  # 그룹(방/학급) 관리
-│   ├── guest/                  # 게스트 회원전환
-│   ├── member/                 # 회원/이메일인증
+│   ├── member/                 # 회원 정보 조회 (SSO 가입은 Auth)
 │   ├── memo/                   # 관찰 메모
 │   └── school/                 # 학교 정보 관리
+# 폐기된 영역: api/guest/, api/member/EmailVerification — Auth 단일 가입 + 게스트 폐기 (feature/user-info-from-idp)
 ├── common/
 │   ├── aop/                    # ApiResponseAspect, TransactionAspect
 │   ├── config/                 # Security, MyBatis, CORS, Swagger, DataSource
@@ -73,14 +78,13 @@ npm run backend                     # Run via Nx
 - `AidtCommonUtil.makeResultSuccess(null, data, message)` 사용
 
 ### Security
-- **Admin** (`/admin/**`): Session 기반 (email 로그인), `AdminUserDetailsService` → `UserMapper.findByEmail`
-- **API** (`/member/**`, `/group/**`, `/api/**`): JWT Stateless, `JwtAuthenticationFilter`
-- **PK**: `user_no` (BIGINT AUTO_INCREMENT) — 내부 식별자, 클라이언트에서 직접 전달하지 않음
-- **로그인 식별자**: `email` (UNIQUE KEY) — 회원가입/로그인 시 이메일 사용
-- **JWT Claims**: `{userNo, email, userSeCd, timestamp}` — subject=userNo
-- **SecurityContext principal**: userNo(String) → `SecurityUtil.requireCurrentUserNo()` → Long 변환
-- **Audit 컬럼**: `created_by`/`updated_by` BIGINT (0=시스템, 게스트/배치 등)
-- JWT에서 userNo/tcId 추출: `AuthTcIdResolver` 사용
+- **API** (`/member/**`, `/group/**`, `/api/**`): SuperPlatform SSO JWT Stateless (RS256 + JWKS) — `JwtAuthenticationFilter` 검증
+- **로그인 식별자**: `sp_user_id` (Auth public_user_id) — 회원가입/로그인은 Auth 서버가 처리, 학심정은 sp_user_id 기준으로 user 행 매핑
+- **PK**: `user_no` (BIGINT AUTO_INCREMENT) — 학심정 내부 식별자, 클라이언트에서 직접 전달하지 않음
+- **JWT Claims**: SuperPlatform 표준 (`sub` = sp_user_id, `userType`, `roles` 등)
+- **SecurityContext principal**: `SpAuthenticatedUser` → `SecurityUtil.requireCurrentUserNo()` 로 학심정 user_no 변환
+- **Audit 컬럼**: `created_by`/`updated_by` BIGINT (0=시스템/배치)
+- JWT에서 sp_user_id/tcId 추출: `AuthTcIdResolver` 사용
 
 ### Admin UI (Thymeleaf)
 - AdminLTE 3.x CDN 기반
@@ -106,15 +110,15 @@ KEY_SALT_MAIN
 ### Tables (DDL: docs/meta_api_ddl_v3.sql)
 - `role_group` — 권한 그룹 마스터
 - `school_info` — 학교 마스터 (CSV import, UPSERT, ACTIVE/CLOSED)
-- `user` — 통합 회원 (user_no PK, email 로그인, ACTIVE/WITHDRAWN/SUSPENDED)
+- `user` — 학심정 회원 매핑 (user_no PK, sp_user_id UNIQUE, ACTIVE/WITHDRAWN/SUSPENDED). **PII(name/email/nickname/gender) 미저장 — Auth 가 단일 출처** (Phase 4 에서 컬럼 DROP 예정)
 - `group_info` — 그룹(방/학급), invite_code, FOR UPDATE 잠금
-- `group_member` — 그룹 멤버 (STUDENT/GUEST, ACTIVE/LEFT/KICKED/ARCHIVED)
+- `group_member` — 그룹 멤버 (STUDENT, ACTIVE/LEFT/KICKED/ARCHIVED). nickname/email 컬럼은 Phase 4 DROP 대상
+- `group_invitation` — 그룹 초대 (회원/비회원 모두 — email 컬럼 **유지**: 비회원 초대 식별용)
 - `auth_school_map` — 직책별 학교 접근 매핑
-- `email_verification` — 이메일 인증 (6자리 코드)
-- `guest_conversion_log` — 게스트→회원 전환 이력
 - `memo_info` — 관찰 메모
 - `counseling_info` — 상담 정보 (scheduled→completed/cancelled)
-- `counseling_student` — 상담 대상 학생
+- `counseling_student` — 상담 대상 학생 (stdt_name 컬럼은 Phase 4 DROP 대상)
+- **폐기됨**: `email_verification`(Auth 단일 가입), `guest_conversion_log`(게스트 영역 폐기). DDL DROP 은 `docs/user-info-from-idp/migrations/01-guest-cleanup.sql`
 
 ### Deployment
 - **Docker**: Multi-stage build (gradle:8.5-jdk17 → temurin:17-jre-alpine)

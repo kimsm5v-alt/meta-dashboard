@@ -92,6 +92,7 @@ export interface Assessment {
   reliabilityWarnings: string[];
   attentionResult: AttentionResult;
   midCategoryScores?: Record<string, number> | null;
+  answerIdx?: number | null;
 }
 
 // 관심 필요 판별 결과

@@ -89,76 +89,106 @@ function mapLoginResponseToUser(data: LoginResponseData): User {
   };
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [state, setState] = useState<AuthState>({
+// 개발 환경 자동 로그인용 초기 상태 생성
+const getInitialAuthState = (): AuthState => {
+  const isDev = import.meta.env.DEV;
+  const autoLogin = import.meta.env.VITE_AUTO_LOGIN === 'true';
+
+  if (isDev || autoLogin) {
+    return {
+      user: {
+        id: 'dev-teacher-1',
+        name: MOCK_TEACHER.name,
+        email: 'dev@prototype.local',
+        memberType: 'vivasam',
+        provider: 'vivasam',
+        schoolName: '프로토타입 학교',
+        roleCode: 'TEACHER',
+        tcId: 'TC001',
+      },
+      isAuthenticated: true,
+      isLoading: false,
+    };
+  }
+
+  return {
     user: null,
     isAuthenticated: false,
     isLoading: true,
-  });
+  };
+};
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [state, setState] = useState<AuthState>(getInitialAuthState);
   const [credentials, setCredentials] = useState<TestCredentials | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // 초기 세션 확인
+  // 초기 세션 확인 (프로덕션 환경에서만 실행)
   useEffect(() => {
-    const initAuth = async () => {
-      const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
-      const storedCredentials = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
-      const authTokens = getAuthTokens();
+    // 개발 환경에서는 이미 초기 상태에서 로그인됨 - 아무것도 하지 않음
+    const isDev = import.meta.env.DEV;
+    const autoLogin = import.meta.env.VITE_AUTO_LOGIN === 'true';
+    if (isDev || autoLogin) {
+      return;
+    }
 
-      // 1. 실제 로그인 토큰이 있는 경우
-      if (storedUser && authTokens?.accessToken) {
-        try {
-          const user = JSON.parse(storedUser) as User;
+    // 프로덕션: localStorage에서 기존 세션 복원
+    const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
+    const storedCredentials = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
+    const authTokens = getAuthTokens();
 
-          // 새로고침 시에는 토큰 갱신을 시도하지 않고, 기존 토큰 사용
-          // 실제 API 요청 시 401 에러가 발생하면 그때 리프레시 시도
-          setState({ user, isAuthenticated: true, isLoading: false });
-          return;
-        } catch {
-          clearAuthTokens();
-          localStorage.removeItem(AUTH_STORAGE_KEY);
-        }
+    // 1. 실제 로그인 토큰이 있는 경우
+    if (storedUser && authTokens?.accessToken) {
+      try {
+        const user = JSON.parse(storedUser) as User;
+        setState({ user, isAuthenticated: true, isLoading: false });
+        return;
+      } catch {
+        clearAuthTokens();
+        localStorage.removeItem(AUTH_STORAGE_KEY);
       }
+    }
 
-      // 2. 테스트 credentials가 있는 경우 (기존 호환성)
-      if (storedUser && storedCredentials) {
-        try {
-          const user = JSON.parse(storedUser) as User;
-          const creds = JSON.parse(storedCredentials) as TestCredentials;
+    // 2. 테스트 credentials가 있는 경우 (기존 호환성)
+    if (storedUser && storedCredentials) {
+      try {
+        const user = JSON.parse(storedUser) as User;
+        const creds = JSON.parse(storedCredentials) as TestCredentials;
 
-          // localStorage의 이름을 현재 MOCK_TEACHER 이름과 동기화
-          const synced: User = { ...user, name: MOCK_TEACHER.name };
-          if (synced.name !== user.name) {
-            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(synced));
-          }
-
-          setState({ user: synced, isAuthenticated: true, isLoading: false });
-          setCredentials(creds);
-          return;
-        } catch {
-          localStorage.removeItem(AUTH_STORAGE_KEY);
-          localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
+        const synced: User = { ...user, name: MOCK_TEACHER.name };
+        if (synced.name !== user.name) {
+          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(synced));
         }
+
+        setState({ user: synced, isAuthenticated: true, isLoading: false });
+        setCredentials(creds);
+        return;
+      } catch {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
       }
+    }
 
-      setState(prev => ({ ...prev, isLoading: false }));
-    };
-
-    initAuth();
+    setState(prev => ({ ...prev, isLoading: false }));
   }, []);
 
-  // 토큰 감시 - 토큰이 삭제되면 자동 로그아웃
+  // 토큰 감시 - 토큰이 삭제되면 자동 로그아웃 (프로덕션만)
   useEffect(() => {
+    // 개발 환경에서는 토큰 감시 안함
+    const isDev = import.meta.env.DEV;
+    const autoLogin = import.meta.env.VITE_AUTO_LOGIN === 'true';
+    if (isDev || autoLogin) {
+      return;
+    }
+
     const checkTokens = () => {
       if (state.isAuthenticated && !getAuthTokens()?.accessToken) {
-        // 토큰이 삭제되었으면 로그아웃 처리
         console.warn('Tokens cleared, logging out...');
         setState({ user: null, isAuthenticated: false, isLoading: false });
         localStorage.removeItem(AUTH_STORAGE_KEY);
       }
     };
 
-    // 주기적으로 토큰 체크 (1초마다)
     const interval = setInterval(checkTokens, 1000);
     return () => clearInterval(interval);
   }, [state.isAuthenticated]);

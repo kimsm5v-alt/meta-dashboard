@@ -1,5 +1,7 @@
 package com.vs.meta.common.service;
 
+import com.vs.meta.common.auth.UserInfoEnricher;
+import com.vs.meta.common.auth.UserSlot;
 import com.vs.meta.common.exception.AuthFailedException;
 import com.vs.meta.common.security.SpAuthenticatedUser;
 import com.vs.meta.common.utils.SecurityUtil;
@@ -23,9 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -38,6 +39,7 @@ import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -49,9 +51,15 @@ public class FileService {
     @Value("${cloud.aws.nas.path}")
     private String nasPath;
 
+    /** 트레일링 슬래시를 제거한 NAS 루트. 경로 결합 시 항상 단일 '/' 보장 위해 사용. */
+    private String nasRoot() {
+        return nasPath.endsWith("/") ? nasPath.substring(0, nasPath.length() - 1) : nasPath;
+    }
+
     private long MAX_FILE_SIZE = 1000 * 1024 * 1024; // 1000mb
 
     private final FileMapper fileMapper;
+    private final UserInfoEnricher userInfoEnricher;
 
     @Value("${spring.profiles.active}")
     private String serverEnv;
@@ -117,10 +125,11 @@ public class FileService {
 
                 // 업로드 경로 지정
                 uploadPath = FileUtil.normalizeUploadPath(uploadPath);
-                String tempPath = nasPath + "/temp/";  // 임시저장
+                String tempPath = nasRoot() + "/temp/";  // 임시저장
 
-                // 파일 경로 생성
+                // 파일 경로 생성 (temp + 최종 업로드 경로 모두 보장)
                 FileUtil.mkdirs(tempPath);
+                FileUtil.mkdirs(uploadPath);
 
                 // 파일명 생성
                 String saveFileName = FileUtil.getSaveFileName(file.getOriginalFilename());
@@ -148,62 +157,75 @@ public class FileService {
             }
         } catch (AuthFailedException e) {
             resultMsg = "인증 실패: " + e.getMessage();
-            log.error("File upload - Authentication failed: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Authentication failed", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (IllegalArgumentException e) {
             resultMsg = "파일 업로드 실패: 잘못된 파라미터";
-            log.error("File upload - Invalid argument error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Invalid argument error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (NullPointerException e) {
             resultMsg = "파일 업로드 실패: 필수 데이터 누락";
-            log.error("File upload - Null pointer error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Null pointer error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (IOException e) {
             resultMsg = "파일 업로드 실패: 파일 입출력 오류";
-            log.error("File upload - IO error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("IO error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (SecurityException e) {
             resultMsg = "파일 업로드 실패: 보안 오류";
-            log.error("File upload - Security error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Security error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (DataAccessException e) {
             resultMsg = "파일 업로드 실패: 데이터베이스 오류";
-            log.error("File upload - Database access error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Database access error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (SQLException e) {
             resultMsg = "파일 업로드 실패: 데이터베이스 쿼리 오류";
-            log.error("File upload - SQL error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("SQL error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (MultipartException e) {
             resultMsg = "파일 업로드 실패: 멀티파트 파일 처리 오류";
-            log.error("File upload - Multipart error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Multipart error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (UnsupportedOperationException e) {
             resultMsg = "파일 업로드 실패: 지원하지 않는 작업";
-            log.error("File upload - Unsupported operation error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Unsupported operation error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (RuntimeException e) {
             resultMsg = "파일 업로드 실패: 런타임 오류";
-            log.error("File upload - Runtime error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Runtime error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         } catch (Exception e) {
             resultMsg = "파일 업로드 실패: 예상치 못한 오류";
-            log.error("File upload - Unexpected error: {}", e.getMessage());
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            logUploadError("Unexpected error", e, tempFile, movedFile, userId, uploadPath);
+            cleanupUploadFiles(tempFile, movedFile);
         }
 
         return urls;
+    }
+
+    private void logUploadError(String errorType, Exception e, File tempFile, File movedFile, String userId, String uploadPath) {
+        log.error("File upload - {}: userId={}, uploadPath={}, tempFile={}, movedFile={}, message={}",
+                errorType,
+                userId,
+                uploadPath,
+                tempFile != null ? tempFile.getAbsolutePath() : "null",
+                movedFile != null ? movedFile.getAbsolutePath() : "null",
+                e.getMessage(),
+                e);
+    }
+
+    private void cleanupUploadFiles(File tempFile, File movedFile) {
+        if (tempFile != null) {
+            log.info("업로드 실패 후 temp 파일 정리 시도: path={}, exists={}",
+                    tempFile.getAbsolutePath(), tempFile.exists());
+            FileUtil.deleteFile(tempFile);
+        }
+        if (movedFile != null) {
+            log.info("업로드 실패 후 moved 파일 정리 시도: path={}, exists={}",
+                    movedFile.getAbsolutePath(), movedFile.exists());
+            FileUtil.deleteFile(movedFile);
+        }
     }
 
     /**
@@ -213,11 +235,10 @@ public class FileService {
      * @param request
      * @param isAuth
      * @param pionadaYn
-     * @param partnerActivityYn
      * @return
      * @throws Exception
      */
-    public ResponseEntity<Object> downloadFile(String url, String jwtToken, HttpServletRequest request, boolean isAuth, String pionadaYn, String partnerActivityYn) throws Exception {
+    public ResponseEntity<Object> downloadFile(String url, String jwtToken, HttpServletRequest request, boolean isAuth, String pionadaYn) throws Exception {
         Map<String, String> response = new HashMap<>();
         String userId = null;
         try {
@@ -249,6 +270,9 @@ public class FileService {
             paramFileVO.setFilePath(fileUrl + "/");
             paramFileVO.setFileName(fileName);
 
+            log.info("[pfile-download] req userId={}, pionadaYn={}, isAuth={}, filePath={}, fileName={}",
+                    userId, pionadaYn, isAuth, paramFileVO.getFilePath(), fileName);
+
             FileVO fileVO = null;
 
             // 피어나다의 경우 학생 파일을 교사가 생성할 수 있음
@@ -271,20 +295,26 @@ public class FileService {
                     fileVO.setDownloadAuthYn("Y");
                 }
 
-            } else if (StringUtils.equals(partnerActivityYn, "Y")) {
-                fileVO = fileMapper.selectFileInfoWithPartnerActivity(paramFileVO);
             } else {
                 fileVO = fileMapper.selectFileInfo(paramFileVO);
             }
 
             if (fileVO == null) {
+                log.warn("[pfile-download] 거부(파일정보없음): userId={}, filePath={}, fileName={}",
+                        userId, paramFileVO.getFilePath(), fileName);
                 response.put("message", "파일 다운로드 실패: 파일 정보가 없습니다.");
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(response);
             }
 
+            log.info("[pfile-download] file 조회: fileIdx={}, creator(rgtr)={}, downloadAuthYn={}, delYn={}, prsInfoYn={}",
+                    fileVO.getFileIdx(), fileVO.getRgtr(),
+                    fileVO.getDownloadAuthYn(), fileVO.getDelYn(), fileVO.getPrsInfoYn());
+
             if (isAuth && ObjectUtils.defaultIfNull(fileVO.getDownloadAuthYn(), "N").equals("N")) {
+                log.warn("[pfile-download] 거부(권한없음): userId={}, creator(rgtr)={}, fileIdx={}, pionadaYn={}",
+                        userId, fileVO.getRgtr(), fileVO.getFileIdx(), pionadaYn);
                 response.put("message", "파일 다운로드 실패: 파일 열람 권한이 없습니다.");
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -292,6 +322,8 @@ public class FileService {
             }
 
             if ("Y".equals(fileVO.getDelYn()) && "Y".equals(fileVO.getPrsInfoYn())) {
+                log.warn("[pfile-download] 거부(개인정보 삭제됨): userId={}, fileIdx={}",
+                        userId, fileVO.getFileIdx());
                 response.put("message", "파일 다운로드 실패: 개인정보 처리방침에 의해 삭제된 파일 입니다.");
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -337,25 +369,29 @@ public class FileService {
                         .body(response);
             }
         } catch (AuthFailedException e) {
-            log.error("File download - Authentication failed: {}", e.getMessage());
+            log.error("File download - Authentication failed: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 인증 오류");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response);
         } catch (IOException e) {
-            log.error("File download - IO error: {}", e.getMessage());
+            log.error("File download - IO error: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 파일 입출력 오류");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response);
         } catch (SecurityException e) {
-            log.error("File download - Security error: {}", e.getMessage());
+            log.error("File download - Security error: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 보안 오류");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response);
         } catch (Exception e) {
-            log.error("File download - Unexpected error: {}", e.getMessage());
+            log.error("File download - Unexpected error: userId={}, url={}, message={}",
+                    userId, url, e.getMessage(), e);
             response.put("message", "파일 다운로드 실패: 예상치 못한 오류");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
@@ -511,6 +547,62 @@ public class FileService {
         return fileVO;
     }
 
+    /**
+     * 이미 디스크에 존재하는 파일을 업로드 파일로 등록한다 ({@link MultipartFile} 없이, 메모리 미적재).
+     *
+     * <p>{@link #uploadFile} 의 단일 파일 처리 흐름을 파일 기반으로 옮긴 것. 큰 zip 등 메모리에
+     * 올리면 안 되는 파일을 등록할 때 사용한다. {@code srcFile} 은 {@link FileUtil#moveFile} 로
+     * 업로드 경로에 이동되므로 호출 후 원본은 사라진다. 반환값은 {@code filePath + fileName} URL.
+     */
+    private String registerLocalFileAsUpload(File srcFile, String originalFileName, String uploadPath,
+                                             String regId, String requestSource, String prsInfoYn) throws Exception {
+        uploadPath = FileUtil.normalizeUploadPath(uploadPath);
+        FileUtil.mkdirs(uploadPath);
+
+        long fileSize = srcFile.length();
+        String saveFileName = FileUtil.getSaveFileName(originalFileName);
+        String copyFile = uploadPath + "/" + saveFileName;
+        FileUtil.moveFile(srcFile, copyFile);
+
+        FileVO fileVO = setFileVOFromFile(originalFileName, fileSize, saveFileName, uploadPath + "/", regId, requestSource, prsInfoYn);
+        fileMapper.insertUploadFile(fileVO);
+
+        return fileVO.getFilePath() + fileVO.getFileName();
+    }
+
+    /**
+     * {@link #setFileVO} 의 파일 기반 버전. {@link MultipartFile} 대신 원본 파일명/크기를 직접 받는다.
+     * checksum 계산·uuid 파일명 규칙 등은 {@link #setFileVO} 와 동일하게 맞춘다.
+     */
+    private FileVO setFileVOFromFile(String originalFileName, long fileSize, String saveFileName,
+                                     String filePath, String regId, String requestSource, String prsInfoYn) throws Exception {
+        if (StringUtils.startsWith(nasPath, "/") == false && StringUtils.startsWith(filePath, "/")) {
+            filePath = StringUtils.removeStart(filePath, "/");
+        }
+        if (prsInfoYn == null || "".equals(prsInfoYn)) {
+            prsInfoYn = "N";
+        }
+        String ext = FileUtil.getFileExtension(originalFileName);
+        FileVO fileVO = new FileVO();
+        fileVO.setFileName(originalFileName);
+        fileVO.setSaveFileName(saveFileName);
+        fileVO.setFilePath(filePath);
+        fileVO.setFileExtension(ext);
+        fileVO.setFileSize(fileSize);
+        fileVO.setRgtr(regId);
+        fileVO.setRequestSource(requestSource);
+        String checksum = FileUtil.getHmacSHA256Checksum(filePath + "/" + saveFileName, keySaltMain);
+        fileVO.setChecksum(checksum);
+        fileVO.setPrsInfoYn(prsInfoYn);
+
+        // 파일 중복 안되도록 uuid를 붙인다 (setFileVO 와 동일 규칙)
+        String uuid = UUID.randomUUID().toString().replaceAll("\\-", "");
+        String baseName = StringUtils.substringBeforeLast(originalFileName, ".");
+        fileVO.setFileName(baseName + "(" + uuid + ")." + ext);
+
+        return fileVO;
+    }
+
     private FileLogVO setFileLogVO(FileVO fileVO, String accessIp, String requestSource) {
         FileLogVO fileLogVO = new FileLogVO();
         fileLogVO.setFileIdx(fileVO.getFileIdx());
@@ -554,76 +646,45 @@ public class FileService {
     }
 
     /**
-     * 파일 일괄 다운로드
-     * @param jwtToken
-     * @param request
-     * @param isAuth
-     * @param param
-     * @return
-     * @throws Exception
+     * 일괄 다운로드용 zip 을 생성해 NAS 에 저장하고, {@code tb_dgnss_info} 의 type 별 zip URL 컬럼에 URL 을
+     * 등록한 뒤 그 URL 을 반환한다. (2단계 다운로드 중 1단계: 생성)
+     *
+     * <p><b>OOM 방지</b>: zip 을 메모리({@link ByteArrayOutputStream})가 아닌 임시 파일에 직접
+     * 스트리밍한 뒤, 그 파일을 업로드 파일로 등록(checksum 포함)한다. 반환된 URL 은 별도 호출인
+     * {@code /pfile-download} 로 다운로드하며, 그쪽은 {@code Resource} 서빙이라 Range/이어받기를 지원한다.
      */
-    public ResponseEntity<StreamingResponseBody> dgnssDownloadAll(String jwtToken, HttpServletRequest request, boolean isAuth, Map<String, Object> param) throws Exception {
-        String userId = null;
-        // SecurityContext에서 인증된 사용자 정보 추출
-        SpAuthenticatedUser spUser = SecurityUtil.getCurrentSpUser();
-        if (spUser != null) {
-            userId = spUser.spUserId();
-        }
-        if (StringUtils.isEmpty(userId)) {
+    @Transactional(rollbackFor = Exception.class)
+    public String createDgnssDownloadAllZip(HttpServletRequest request, boolean isAuth, Map<String, Object> param) throws Exception {
+        Long reqUserNo = SecurityUtil.getCurrentUserNo();
+        String userId = SecurityUtil.getCurrentSpUserId(); // 로그용
+        if (reqUserNo == null) {
             throw new AuthFailedException("사용자 정보가 없습니다.");
         }
 
-        String requestSource = request.getHeader("Referer"); // 요청 출처를 헤더에서 추출
+        String requestSource = request.getHeader("Referer");
         if (requestSource == null) {
-            requestSource = "";  // 기본 값 설정
+            requestSource = "";
         }
-
         if (isAuth) {
-            param.put("rgtr", userId);
+            param.put("reqUserNo", reqUserNo);
         }
 
         String type = MapUtils.getString(param, "type", "1");
         String dgnssId = MapUtils.getString(param, "dgnssId", "");
-        log.info("dgnssDownloadAll 시작: dgnssId={}, type={}, userId={}", dgnssId, type, userId);
-        // 검사 정보 조회
+        log.info("createDgnssDownloadAllZip 시작: dgnssId={}, type={}, userId={}", dgnssId, type, userId);
+
+        // 이미 생성된 zip 이 있으면 재생성 없이 바로 반환 (type 별 컬럼 조회)
+        String existingUrl = fileMapper.selectDgnssZipFileUrl(param);
+        if (StringUtils.isNotBlank(existingUrl)) {
+            log.info("createDgnssDownloadAllZip 기존 zip 반환: dgnssId={}, type={}, url={}", dgnssId, type, existingUrl);
+            return existingUrl;
+        }
+
         Map<String, Object> dgnssInfo = fileMapper.selectTcDgnssInfoWithId(param);
         if (MapUtils.isEmpty(dgnssInfo)) {
-            log.error("dgnssDownloadAll 실패(검사 정보 없음): dgnssId={}, type={}, userId={}", dgnssId, type, userId);
+            log.error("createDgnssDownloadAllZip 실패(검사 정보 없음): dgnssId={}, type={}, userId={}", dgnssId, type, userId);
             throw new Exception("검사 정보가 없습니다");
         }
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (ZipOutputStream zipOut = new ZipOutputStream(baos, StandardCharsets.UTF_8)) {
-            if (StringUtils.equals(type, "3")) {
-                List<Map<String, Object>> detailFileInfoList = fileMapper.selectFileDgnssFileList(param);
-                List<Map<String, Object>> summaryFileInfoList = fileMapper.selectFileDgnssSummaryList(param);
-                if (CollectionUtils.isEmpty(detailFileInfoList) && CollectionUtils.isEmpty(summaryFileInfoList)) {
-                    log.error("dgnssDownloadAll 실패(파일 정보 없음): dgnssId={}, type=3, userId={}", dgnssId, userId);
-                    throw new Exception("파일 정보가 없습니다");
-                }
-
-                addDgnssFilesToZip(detailFileInfoList, "상세 보고서", zipOut, isAuth, userId, request, requestSource);
-                addDgnssFilesToZip(summaryFileInfoList, "요약 보고서", zipOut, isAuth, userId, request, requestSource);
-            } else {
-                List<Map<String, Object>> fileInfoList;
-                if (StringUtils.equals(type, "1")) {
-                    fileInfoList = fileMapper.selectFileDgnssFileList(param);
-                } else {
-                    fileInfoList = fileMapper.selectFileDgnssSummaryList(param);
-                }
-                if (CollectionUtils.isEmpty(fileInfoList)) {
-                    log.error("dgnssDownloadAll 실패(파일 정보 없음): dgnssId={}, type={}, userId={}", dgnssId, type, userId);
-                    throw new Exception("파일 정보가 없습니다");
-                }
-
-                addDgnssFilesToZip(fileInfoList, "", zipOut, isAuth, userId, request, requestSource);
-            }
-            zipOut.finish();
-        } catch (Exception e) {
-            log.error("dgnssDownloadAll 실패: dgnssId={}, type={}, userId={}", dgnssId, type, userId, e);
-            throw e;
-        }
-        byte[] zipBytes = baos.toByteArray();
 
         String dgnssName = StringUtils.equals(MapUtils.getString(dgnssInfo, "paperIdx", ""), "1") ? "종합학습검사" : "자기조절학습검사";
         String ordNo = StringUtils.equals(MapUtils.getString(dgnssInfo, "ordNo", ""), "1") ? "1차" : "2차";
@@ -634,22 +695,64 @@ public class FileService {
         } else {
             zipFileName = "[" + clsName + "]" + dgnssName + "_" + ordNo + ".zip";
         }
-        String encodedFileName = URLEncoder.encode(zipFileName, StandardCharsets.UTF_8).replace("+", "%20");
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + encodedFileName);
-        headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE);
-        headers.add("Access-Control-Expose-Headers", "Content-Disposition");
-        headers.setContentLength(zipBytes.length);
+        // OOM 방지: zip 을 힙이 아닌 임시 파일에 직접 스트리밍
+        String tempDir = nasRoot() + "/temp/";
+        FileUtil.mkdirs(tempDir);
+        File tempZip = File.createTempFile("dgnss-zip-", ".zip", new File(tempDir));
 
-        StreamingResponseBody stream = outputStream -> {
-            outputStream.write(zipBytes);
-            outputStream.flush();
-        };
+        try {
+            try (ZipOutputStream zipOut = new ZipOutputStream(
+                    new BufferedOutputStream(new FileOutputStream(tempZip)), StandardCharsets.UTF_8)) {
+                if (StringUtils.equals(type, "3")) {
+                    List<Map<String, Object>> detailFileInfoList = fileMapper.selectFileDgnssFileList(param);
+                    List<Map<String, Object>> summaryFileInfoList = fileMapper.selectFileDgnssSummaryList(param);
+                    if (CollectionUtils.isEmpty(detailFileInfoList) && CollectionUtils.isEmpty(summaryFileInfoList)) {
+                        log.error("createDgnssDownloadAllZip 실패(파일 정보 없음): dgnssId={}, type=3, userId={}", dgnssId, userId);
+                        throw new Exception("파일 정보가 없습니다");
+                    }
+                    enrichMaps(detailFileInfoList);
+                    enrichMaps(summaryFileInfoList);
+                    addDgnssFilesToZip(detailFileInfoList, "상세 보고서", zipOut, isAuth, userId, request, requestSource);
+                    addDgnssFilesToZip(summaryFileInfoList, "요약 보고서", zipOut, isAuth, userId, request, requestSource);
+                } else {
+                    List<Map<String, Object>> fileInfoList = StringUtils.equals(type, "1")
+                            ? fileMapper.selectFileDgnssFileList(param)
+                            : fileMapper.selectFileDgnssSummaryList(param);
+                    if (CollectionUtils.isEmpty(fileInfoList)) {
+                        log.error("createDgnssDownloadAllZip 실패(파일 정보 없음): dgnssId={}, type={}, userId={}", dgnssId, type, userId);
+                        throw new Exception("파일 정보가 없습니다");
+                    }
+                    enrichMaps(fileInfoList);
+                    addDgnssFilesToZip(fileInfoList, "", zipOut, isAuth, userId, request, requestSource);
+                }
+                zipOut.finish();
+            }
 
-        log.info("dgnssDownloadAll 완료: dgnssId={}, type={}, userId={}, zipFileName={}, zipSize={}",
-                dgnssId, type, userId, zipFileName, zipBytes.length);
-        return new ResponseEntity<>(stream, headers, HttpStatus.OK);
+            // 생성된 zip 을 업로드 파일로 등록 (checksum 포함) → /pfile-download 로 다운로드 가능
+            String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String uploadPath = nasRoot() + "/" + datePath;
+            String url = registerLocalFileAsUpload(tempZip, zipFileName, uploadPath, userId, requestSource, "Y");
+
+            // tb_dgnss_info.zip_file_url 등록
+            Map<String, Object> updateParam = new HashMap<>();
+            updateParam.put("dgnssId", dgnssId);
+            updateParam.put("type", type);
+            updateParam.put("zipFileUrl", url);
+            fileMapper.updateDgnssZipFileUrl(updateParam);
+
+            log.info("createDgnssDownloadAllZip 완료: dgnssId={}, type={}, userId={}, zipFileName={}, url={}",
+                    dgnssId, type, userId, zipFileName, url);
+            return url;
+        } catch (Exception e) {
+            log.error("createDgnssDownloadAllZip 실패: dgnssId={}, type={}, userId={}", dgnssId, type, userId, e);
+            throw e;
+        } finally {
+            // 정상 시 moveFile 로 원본이 이동돼 사라지지만, 실패 경로에서 남은 임시파일 정리
+            if (tempZip.exists()) {
+                FileUtil.deleteFile(tempZip);
+            }
+        }
     }
 
     private void addDgnssFilesToZip(List<Map<String, Object>> fileInfoList,
@@ -778,10 +881,11 @@ public class FileService {
 
                 // 업로드 경로 지정
                 uploadPath = FileUtil.normalizeUploadPath(uploadPath);
-                String tempPath = nasPath + "/temp/";  // 임시저장
+                String tempPath = nasRoot() + "/temp/";  // 임시저장
 
-                // 파일 경로 생성
+                // 파일 경로 생성 (temp + 최종 업로드 경로 모두 보장)
                 FileUtil.mkdirs(tempPath);
+                FileUtil.mkdirs(uploadPath);
 
                 // 파일명 생성
                 String saveFileName = FileUtil.getSaveFileName(file.getOriginalFilename());
@@ -810,11 +914,10 @@ public class FileService {
         } catch (Exception e) {
 
             resultMsg = "파일 업로드 실패: " + e.getMessage();
-            log.error(resultMsg);
+            logUploadError("Batch Dgnss upload error", e, tempFile, movedFile, userId, uploadPath);
 
             // 업로드 실패 시, 생성된 파일이 있다면 삭제
-            FileUtil.deleteFile(tempFile);
-            FileUtil.deleteFile(movedFile);
+            cleanupUploadFiles(tempFile, movedFile);
         }
 
         return urls;
@@ -883,5 +986,38 @@ public class FileService {
         if (!StringUtils.equals(checksum, fileChecksum)) {
             throw new IOException("파일 checksum 검증에 실패했습니다.");
         }
+    }
+
+    /**
+     * Map 리스트에서 sp_user_id로 닉네임/이메일을 IDP에서 조회하여 채우기.
+     * TODO: 나중에 GroupService.enrichMaps와 DRY 리팩토링 (Phase 4)
+     */
+    private void enrichMaps(List<Map<String, Object>> items) {
+        if (items == null || items.isEmpty()) return;
+
+        List<UserSlot> slots = items.stream()
+                .map(m -> (String) m.get("userSpUserId"))
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(UserSlot::new)
+                .toList();
+        if (slots.isEmpty()) return;
+
+        userInfoEnricher.enrich(slots);
+
+        Map<String, UserSlot> bySpUserId = slots.stream()
+                .collect(Collectors.toMap(UserSlot::getSpUserId, s -> s));
+        items.forEach(m -> {
+            String spUserId = (String) m.get("userSpUserId");
+            if (spUserId == null) return;
+            UserSlot slot = bySpUserId.get(spUserId);
+            if (slot != null) {
+                m.put("userNm", slot.getName());
+            } else {
+                // sp_user_id가 있지만 조회 실패: 다시 stdt_id로 fallback
+                String stdtId = (String) m.get("userId");
+                m.put("userNm", stdtId != null ? stdtId : "파일");
+            }
+        });
     }
 }

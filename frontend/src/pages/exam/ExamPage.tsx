@@ -784,7 +784,7 @@ export const ExamPage: React.FC = () => {
         <ExamGuideStep
           studentNumber={state.studentNumber || 0}
           onStart={handleStartExam}
-          onBack={() => setStep('number')}
+          onBack={() => setStep('student-info')}
           isLoading={isLoading}
         />
       );

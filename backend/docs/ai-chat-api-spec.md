@@ -1,5 +1,7 @@
 # AI Chat API Specification
 
+> 최종 수정일: 2026-05-14
+
 ## 1. 개요
 
 - Base URL: `http://{host}:8081`
@@ -28,6 +30,7 @@
 - `title`: 대화방 제목
 - `mode`: `all | class | student`
 - `contextLabel`: UI 표시용 컨텍스트 텍스트
+- `contextData`: RAG 컨텍스트 데이터 (object/array, **v2026-05-14 추가**)
 - `createdAt`: 생성 시각 (`yyyy-MM-dd HH:mm:ss`)
 - `updatedAt`: 수정 시각 (`yyyy-MM-dd HH:mm:ss`)
 - `lastMessageAt`: 마지막 메시지 시각 (`yyyy-MM-dd HH:mm:ss`)
@@ -63,6 +66,11 @@ Request Body:
   "title": "전체 학급에서 특별히 관심이 필요한 ...",
   "mode": "all",
   "contextLabel": "전체",
+  "contextData": {
+    "studentIds": [12345, 12346],
+    "ragContext": ["문서1 내용", "문서2 내용"],
+    "metadata": { "analysisType": "comprehensive" }
+  },
   "messages": [
     {
       "role": "assistant",
@@ -83,6 +91,7 @@ Request Body:
 - `mode`: 필수 (`all | class | student`)
 - `contextLabel`: 필수
 - `title`: 선택 (미입력 시 `새 대화`)
+- `contextData`: 선택 (object 또는 array, JSON으로 저장됨) **v2026-05-14 추가**
 - `messages`: 선택 (단건 객체 또는 배열)
 
 Response `resultData` 예시:
@@ -94,6 +103,11 @@ Response `resultData` 예시:
     "title": "전체 학급에서 특별히 관심이 필요한 ...",
     "mode": "all",
     "contextLabel": "전체",
+    "contextData": {
+      "studentIds": [12345, 12346],
+      "ragContext": ["문서1 내용", "문서2 내용"],
+      "metadata": { "analysisType": "comprehensive" }
+    },
     "createdAt": "2026-04-10 11:36:07",
     "updatedAt": "2026-04-10 11:36:14",
     "lastMessageAt": "2026-04-10 11:36:14"
@@ -172,6 +186,7 @@ Response `resultData` 예시:
     "title": "전체 학급에서 특별히 관심이 필요한 ...",
     "mode": "all",
     "contextLabel": "전체",
+    "contextData": { ... },
     "createdAt": "2026-04-10 11:36:07",
     "updatedAt": "2026-04-10 11:57:38",
     "lastMessageAt": "2026-04-10 11:57:38"
@@ -274,3 +289,43 @@ Response `resultData` 예시:
 ## 6. 참고 DDL
 
 - [ai_chat_ddl.sql](./ai_chat_ddl.sql)
+
+---
+
+## 7. 변경 이력
+
+### v2026-05-14
+
+**Conversation에 `contextData` 필드 추가**
+
+- 대화 생성 시 RAG 컨텍스트 데이터를 함께 저장할 수 있습니다.
+- `contextData`는 object 또는 array 형태로 전달하며, DB에 JSON으로 저장됩니다.
+- 조회 시 JSON 파싱되어 원래 형태로 반환됩니다.
+
+**사용 예시:**
+
+```javascript
+// 대화 생성 시 contextData 전달
+const response = await fetch('/api/ai/conversations', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer ' + accessToken,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    mode: 'student',
+    contextLabel: '김철수',
+    contextData: {
+      studentId: 12345,
+      ragContext: ['문서1', '문서2'],
+      analysisParams: { type: 'comprehensive', depth: 'detailed' }
+    },
+    messages: [...]
+  })
+});
+```
+
+**버그 리포트 연동:**
+
+메시지 저장 응답의 `id`를 활용하여 버그 리포트 시 정확한 메시지 추적이 가능합니다.
+자세한 내용은 [ai-bug-report-api-spec.md](./ai-bug-report-api-spec.md)를 참고하세요.

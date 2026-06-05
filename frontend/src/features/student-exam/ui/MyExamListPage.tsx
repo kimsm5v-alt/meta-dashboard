@@ -411,16 +411,15 @@ export const MyExamListPage: React.FC = () => {
           return;
         }
 
-        const groups = await getMyGroups(user.id);
-        const memberGroups = groups.filter((g) => g.myRole === 'member');
+        const groups = await getMyGroups(user.id, true);
 
-        if (memberGroups.length === 0) {
+        if (groups.length === 0) {
           setExams([]);
           return;
         }
 
         const results = await Promise.all(
-          memberGroups.map((g) => getStudentExamList(g.claId, user.stdtId!)),
+          groups.map((g) => getStudentExamList(g.claId, user.stdtId!)),
         );
 
         // 중복 제거 (dgnssResultId 기준)

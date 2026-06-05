@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { Card, Button, Modal } from '@shared/components';
+import { ApiError } from '@shared/api/client';
 import { GroupInviteModal } from '@features/groups/ui';
 import { groupService } from '@features/groups/api/groupService';
 import { useAuth } from '@features/auth/model/AuthContext';
@@ -87,26 +88,26 @@ const ErrorContainer = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  min-height: 80vh;
+  gap: ${({ theme }) => theme.spacing.md};
 `;
 
 const ErrorIcon = styled(AlertCircle)`
   width: 4rem;
   height: 4rem;
   color: ${({ theme }) => theme.colors.gray[300]};
-  margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
 const ErrorTitle = styled.h2`
-  font-size: ${({ theme }) => theme.typography.fontSize.xl};
+  font-size: ${({ theme }) => theme.typography.fontSize['2xl']};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   color: ${({ theme }) => theme.colors.gray[900]};
-  margin-bottom: ${({ theme }) => theme.spacing.sm};
 `;
 
 const ErrorText = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
   color: ${({ theme }) => theme.colors.gray[500]};
-  margin-bottom: ${({ theme }) => theme.spacing.lg};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
 `;
 
 const Header = styled.div`
@@ -780,7 +781,8 @@ export const GroupDetailWidget: React.FC = () => {
         const detail = await groupService.getGroupDetail(groupId, user.id);
 
         if (!detail) {
-          setError('그룹을 찾을 수 없거나 접근 권한이 없습니다.');
+          setError('삭제된 그룹입니다.');
+          setTimeout(() => navigate('/groups'), 3000);
           return;
         }
 
@@ -793,11 +795,21 @@ export const GroupDetailWidget: React.FC = () => {
             const invitationsData = await groupService.getGroupInvitations(groupId, user.id);
             setInvitations(invitationsData);
           } catch (err) {
+            if (err instanceof ApiError && err.message.includes('찾을 수 없습니다')) {
+              setError('삭제된 그룹입니다.');
+              setTimeout(() => navigate('/groups'), 3000);
+              return;
+            }
             console.error('[GroupDetailWidget] 초대 목록 로드 실패:', err);
           }
         }
-      } catch {
-        setError('데이터를 불러오는데 실패했습니다.');
+      } catch (err) {
+        if (err instanceof ApiError && (err.statusCode === 404 || err.message.includes('찾을 수 없습니다'))) {
+          setError('삭제된 그룹입니다.');
+          setTimeout(() => navigate('/groups'), 3000);
+        } else {
+          setError('데이터를 불러오는데 실패했습니다.');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -950,11 +962,12 @@ export const GroupDetailWidget: React.FC = () => {
   }
 
   if (error || !group) {
+    const isDeleted = error === '삭제된 그룹입니다.';
     return (
       <ErrorContainer>
         <ErrorIcon />
-        <ErrorTitle>오류 발생</ErrorTitle>
-        <ErrorText>{error || '그룹을 찾을 수 없습니다.'}</ErrorText>
+        <ErrorTitle>{error || '그룹을 찾을 수 없습니다.'}</ErrorTitle>
+        {isDeleted && <ErrorText>잠시 후 그룹 목록으로 이동합니다.</ErrorText>}
         <Button onClick={() => navigate('/groups')}>그룹 목록으로</Button>
       </ErrorContainer>
     );

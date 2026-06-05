@@ -2,7 +2,6 @@ import styled from '@emotion/styled';
 import { useMemo } from 'react';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { CounselingRecord } from '@shared/types';
-import { CLASS_COLORS } from '@shared/data/mockUnifiedCounseling';
 
 const Container = styled.div`
   background: ${({ theme }) => theme.colors.background.paper};
@@ -112,6 +111,7 @@ interface MonthlyCalendarProps {
   schedules: CounselingRecord[];
   selectedDate: Date | null;
   onDateClick: (date: Date) => void;
+  classColors: Record<string, string>;
 }
 
 interface CalendarDay {
@@ -120,6 +120,13 @@ interface CalendarDay {
   isToday: boolean;
   schedules: CounselingRecord[];
 }
+
+const formatDate = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 // 월간 달력 날짜 배열 생성
 const getMonthDays = (date: Date): CalendarDay[] => {
@@ -137,8 +144,7 @@ const getMonthDays = (date: Date): CalendarDay[] => {
   // 이전 월의 날짜 채우기
   const prevMonthLastDay = new Date(year, month, 0).getDate();
 
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = formatDate(new Date());
 
   // 이전 월 날짜들
   for (let i = startDayOfWeek - 1; i >= 0; i--) {
@@ -146,7 +152,7 @@ const getMonthDays = (date: Date): CalendarDay[] => {
     days.push({
       date: d,
       isCurrentMonth: false,
-      isToday: d.toISOString().split('T')[0] === todayStr,
+      isToday: formatDate(d) === todayStr,
       schedules: [],
     });
   }
@@ -157,7 +163,7 @@ const getMonthDays = (date: Date): CalendarDay[] => {
     days.push({
       date: d,
       isCurrentMonth: true,
-      isToday: d.toISOString().split('T')[0] === todayStr,
+      isToday: formatDate(d) === todayStr,
       schedules: [],
     });
   }
@@ -169,16 +175,12 @@ const getMonthDays = (date: Date): CalendarDay[] => {
     days.push({
       date: d,
       isCurrentMonth: false,
-      isToday: d.toISOString().split('T')[0] === todayStr,
+      isToday: formatDate(d) === todayStr,
       schedules: [],
     });
   }
 
   return days;
-};
-
-const formatDate = (date: Date): string => {
-  return date.toISOString().split('T')[0];
 };
 
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
@@ -188,6 +190,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
   schedules,
   selectedDate,
   onDateClick,
+  classColors,
 }) => {
   const calendarDays = useMemo(() => {
     const days = getMonthDays(currentDate);
@@ -251,7 +254,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
               <ScheduleList>
                 {displaySchedules.map((schedule) => {
                   const isCompleted = schedule.status === 'completed';
-                  const baseColor = CLASS_COLORS[schedule.classId] || '#9CA3AF';
+                  const baseColor = classColors[schedule.classId] || '#9CA3AF';
                   const backgroundColor = isCompleted ? `${baseColor}99` : baseColor;
                   return (
                     <ScheduleItem

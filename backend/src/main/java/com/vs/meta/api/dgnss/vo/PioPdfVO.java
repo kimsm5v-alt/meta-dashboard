@@ -1,9 +1,8 @@
 package com.vs.meta.api.dgnss.vo;
 
+import com.vs.meta.common.utils.InMemoryMultipartFile;
 import de.rototor.pdfbox.graphics2d.PdfBoxGraphics2D;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.disk.DiskFileItem;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fontbox.ttf.OTFParser;
 import org.apache.fontbox.ttf.OpenTypeFont;
@@ -19,7 +18,6 @@ import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.commons.CommonsMultipartFile;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -281,6 +279,24 @@ public class PioPdfVO {
         } finally{
             try {
                 this.pdDoc.close();
+            } catch (IOException e) {
+                log.error("IO error : {}", e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 예외 경로에서도 {@link PDDocument} 가 확실히 닫히도록 하는 안전망.
+     *
+     * <p>정상 경로에서는 {@code saveDoc()} 가 이미 문서를 닫지만, 문서 로드/렌더링 중
+     * 예외가 나면 {@code saveDoc()} 에 도달하지 못해 문서(임베딩 폰트·이미지 포함)가
+     * 힙에 남는다. PDFBox 의 close 는 멱등이라 중복 호출돼도 무해하므로 finally 에서
+     * 호출해 누수를 막는다. (pdStream 은 saveDoc 가 닫으며, 미닫힘 시에도 pdDoc 종료로 회수됨)
+     */
+    public void closeQuietly() {
+        if (pdDoc != null) {
+            try {
+                pdDoc.close();
             } catch (IOException e) {
                 log.error("IO error : {}", e.getMessage());
             }
@@ -1334,16 +1350,7 @@ public class PioPdfVO {
     }
 
     public MultipartFile convertFileToMultipartFile(File file) throws IOException {
-        FileItem fileItem = new DiskFileItem("file",
-                Files.probeContentType(file.toPath()), false,
-                file.getName(), (int) file.length(), file.getParentFile());
-
-        try (FileInputStream input = new FileInputStream(file)) {
-            byte[] fileContent = new byte[(int) file.length()];
-            input.read(fileContent);
-            fileItem.getOutputStream().write(fileContent);
-        }
-
-        return new CommonsMultipartFile(fileItem);
+        byte[] content = Files.readAllBytes(file.toPath());
+        return new InMemoryMultipartFile(file.getName(), Files.probeContentType(file.toPath()), content);
     }
 }

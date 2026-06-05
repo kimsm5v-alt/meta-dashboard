@@ -1,5 +1,6 @@
 package com.vs.meta.api.sso.controller;
 
+import com.vs.meta.common.aop.QchSkip;
 import com.vs.meta.common.config.SpAuthProperties;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,9 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -80,6 +81,7 @@ public class AuthProxyController {
     // ─────────────────────────────────────────────────────
     @PostMapping("/refresh")
     @Operation(summary = "토큰 갱신", description = "Refresh Token → 새 Access Token + Refresh Token")
+    @QchSkip(reason = "토큰 갱신은 빈번하게 호출되어 QCH 적재 제외")
     public ResponseEntity<?> refresh(@RequestBody(required = false) Map<String, String> body,
                                      HttpServletRequest request,
                                      HttpServletResponse response) {
@@ -90,12 +92,19 @@ public class AuthProxyController {
         }
 
         try {
+            // OAuth2 §6 — IdP 가 RT.owner 와 client_id 매칭 + client_secret 을 검증하도록 자격을
+            //   함께 전달. 다른 RP 의 RT 가 흘러들어왔을 때 IdP 가 즉시 401 로 거부 (멀티-RP
+            //   쿠키 슬롯 충돌 방어 + RT 단독 탈취 차단).
             @SuppressWarnings("unchecked")
             Map<String, Object> wrapped = superPlatformAuthWebClient
                     .post()
                     .uri("/api/v1/auth/refresh")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(Map.of("refreshToken", refreshToken))
+                    .bodyValue(Map.of(
+                            "refreshToken", refreshToken,
+                            "clientId", spAuth.getClientId(),
+                            "clientSecret", spAuth.getClientSecret()
+                    ))
                     .retrieve()
                     .bodyToMono(Map.class)
                     .block();
@@ -111,7 +120,7 @@ public class AuthProxyController {
 
             return ResponseEntity.ok(wrapped);
         } catch (WebClientResponseException e) {
-            int status = e.getRawStatusCode();
+            int status = e.getStatusCode().value();
             if (status == 401 || status == 403) {
                 clearRefreshTokenCookie(request, response);
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

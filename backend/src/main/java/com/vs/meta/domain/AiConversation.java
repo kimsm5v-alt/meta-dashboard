@@ -15,6 +15,7 @@ public class AiConversation {
     private String title;
     private String mode;
     private String contextLabel;
+    private String contextData;
     private String useYn;
     private Long createdBy;
     private Long updatedBy;

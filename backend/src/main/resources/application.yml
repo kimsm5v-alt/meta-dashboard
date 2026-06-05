@@ -49,17 +49,19 @@ spring:
         maximum-pool-size: 50
         minimum-idle: 10
   # Redis 설정 (알림 SSE Pub/Sub 용도)
-  redis:
-    host: ${STAT_SPRING_REDIS_HOST:localhost}
-    port: ${STAT_SPRING_REDIS_PORT:6379}
-    username: ${STAT_SPRING_REDIS_USERNAME:}
-    password: ${STAT_SPRING_REDIS_PASSWORD:}
-    timeout: 3000
-    lettuce:
-      pool:
-        max-active: 16
-        max-idle: 8
-        min-idle: 2
+  # Boot 3+ 부터 prefix 가 `spring.data.redis.*` 로 변경됨 (구 `spring.redis.*` 는 Boot 4 에서 제거).
+  data:
+    redis:
+      host: ${STAT_SPRING_REDIS_HOST:localhost}
+      port: ${STAT_SPRING_REDIS_PORT:6379}
+      username: ${STAT_SPRING_REDIS_USERNAME:}
+      password: ${STAT_SPRING_REDIS_PASSWORD:}
+      timeout: 3000
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
   thymeleaf:
     prefix: classpath:/templates/
     suffix: .html
@@ -134,6 +136,25 @@ superplatform:
     server-url: ${SP_AUTH_SERVER_URL:http://localhost:8080}
     client-id: ${SP_AUTH_CLIENT_ID:test-service}
     client-secret: ${SP_AUTH_CLIENT_SECRET}
+    internal-api:
+      # base-url default 는 같은 yml 의 server-url property 값을 참조해서 자동 derive.
+      # 환경 yml 에서 server-url 만 정의하면 internal-api 도 자동으로 그 도메인을 따라간다.
+      # (주의: ${SP_AUTH_SERVER_URL:...} 가 아니라 ${superplatform.auth.server-url} 로 property 참조해야
+      #  application-vs-dev.yml 의 hardcoded server-url 값이 derive 됨)
+      base-url: ${SP_AUTH_INTERNAL_API_URL:${superplatform.auth.server-url}/api/v1}
+      service-token-scope: users:read
+      connect-timeout-ms: 2000
+      read-timeout-ms: 3000
+
+# ===== SSO 이벤트 폴링 (IdP 탈퇴/연결끊기 cascade) =====
+# enabled : 폴링 활성화. 기본 false — 운영/개발에서 ENV 로 켠다 (점진 배포).
+#           사전조건: IdP oauth2_client.scopes 에 events:read 부여 + sso_poll_cursor 테이블 초기 INSERT.
+# limit   : 1회 폴링 page size (IdP max 1000).
+# 주기는 SsoEventPollingScheduler 의 @Scheduled cron 고정 (15분).
+sso:
+  poll:
+    enabled: ${SSO_POLL_ENABLED:false}
+    limit: ${SSO_POLL_LIMIT:500}
 
 key:
   salt:
@@ -160,17 +181,48 @@ notification:
 # 10초마다 Redis 에 ping 시도 → Redis 인프라 없는 환경에서 로그 시끄러움.
 # 로컬 (Podman Redis 사용) 등 실제 Redis 쓰는 환경에서는 application-local.yml 에서 true 로 덮어씀.
 management:
+  # /actuator/health 응답에 components 상세 노출 여부.
+  # 기본 never (status 만). dev 진단용은 application-vs-dev.yml 에서 always 로 덮어씀.
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:never}
   health:
     redis:
       enabled: ${MANAGEMENT_HEALTH_REDIS_ENABLED:false}
 
-# File Storage (NAS)
+# File Storage (NAS + NCP Object Storage)
 cloud:
   aws:
     nas:
-      path: ${CLOUD_AWS_NAS_PATH:/files/nas}
+      path: ${VLMSAPI_CLOUD_AWS_NAS_PATH:/files/nas/engl/}
+    s3:
+      bucket: ${SUPERPLATFORM_CLOUD_AWS_S3_BUCKET:}
+      endpoint: ${SUPERPLATFORM_CLOUD_AWS_S3_ENDPOINT:}
+      url: ${SUPERPLATFORM_CLOUD_AWS_S3_URL:}
+      path: ${SUPERPLATFORM_CLOUD_AWS_S3_PUBLIC_PATH:}
+    region:
+      static: ${VLMSAPI_CLOUD_AWS_REGION_STATIC:ap-northeast-2}
+    credentials:
+      accessKey: ${SUPERPLATFORM_CLOUD_AWS_CREDENTIALS_ACCESSKEY:}
+      secretKey: ${SUPERPLATFORM_CLOUD_AWS_CREDENTIALS_SECRETKEY:}
 
 neo4j:
   uri: ${DGNSS_NEO4J_URI:bolt://localhost:7687}
   username: ${DGNSS_NEO4J_USERNAME:neo4j}
   password: ${DGNSS_NEO4J_PASSWORD:test1234}
+
+# ===== QCH(Quality Coverage Hub) 외부 로그 적재 =====
+# 모든 API 호출을 QCH /api/v1/ingest/trace 로 best-effort 비동기 발행. 가이드: backend/docs/doc-1444.md
+# enabled=false 가 안전한 기본값 — QCH 운영팀 등록(serviceKey/baseUrl 발급) 완료 후 환경별로 true 로 켠다.
+qch:
+  enabled: ${QCH_ENABLED:false}
+  base-url: ${QCH_BASE_URL:https://t-qch.vsaidt.com}
+  service-key: ${QCH_SERVICE_KEY:meta-api}
+  env: ${QCH_ENV:dev}
+  connect-timeout-ms: 3000
+  response-timeout-ms: 5000
+  async:
+    core-pool-size: 2
+    max-pool-size: 8
+    queue-capacity: 500
+    thread-name-prefix: qch-trace-

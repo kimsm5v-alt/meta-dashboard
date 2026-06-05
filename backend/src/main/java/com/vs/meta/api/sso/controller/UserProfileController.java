@@ -1,8 +1,8 @@
 package com.vs.meta.api.sso.controller;
 
-import com.vs.meta.api.sso.service.SsoUserMigrationService;
 import com.vs.meta.api.sso.service.SsoUserQueryService;
 import com.vs.meta.api.sso.service.SsoUserRegistrationService;
+import com.vs.meta.api.sso.service.SsoUserResolveService;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.CustomBody;
 import com.vs.meta.common.response.ResponseDTO;
@@ -28,7 +28,7 @@ import java.util.Map;
 public class UserProfileController {
 
     private final SsoUserQueryService ssoUserQueryService;
-    private final SsoUserMigrationService ssoUserMigrationService;
+    private final SsoUserResolveService ssoUserResolveService;
     private final SsoUserRegistrationService ssoUserRegistrationService;
 
     /**
@@ -71,13 +71,10 @@ public class UserProfileController {
             return AidtCommonUtil.makeResultSuccess(null, result, "인증 필요");
         }
 
-        // sp_user_id로 조회 실패 시 마이그레이션 매핑 시도
-        User user = ssoUserQueryService.findBySpUserId(spUser.spUserId());
-        if (user == null) {
-            user = ssoUserMigrationService.migrateBySpUserId(spUser);
-        }
+        // 매핑/마이그레이션/재가입 cascade 일괄 위임 (UNSET 등 자동가입 불가는 null 반환)
+        User user = ssoUserResolveService.resolveOrProvision(spUser);
         if (user != null) {
-            ssoUserQueryService.touchLastLogin(user);
+            ssoUserQueryService.touchOnRequest(spUser, user);
         }
 
         Map<String, Object> result = new LinkedHashMap<>();

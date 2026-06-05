@@ -16,6 +16,9 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { useStudentAnalysis, useApiConfig } from '@features/api';
+import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
+import { fetchStudentInfoList } from '@shared/services/dashboardService';
+import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
@@ -155,6 +158,12 @@ const WarningIcon = styled.div`
 
 const ClassInfo = styled.p`
   color: ${({ theme }) => theme.colors.gray[500]};
+`;
+
+const HeaderRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 `;
 
 const NavigationSection = styled.div`
@@ -298,6 +307,51 @@ const SectionTitle = styled.h2`
 `;
 
 
+
+const PdfButtonsArea = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  justify-content: flex-end;
+`;
+
+const PdfReportBtn = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: white;
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.gray[700]};
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.gray[50]};
+    border-color: ${({ theme }) => theme.colors.gray[300]};
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  &::before {
+    content: '';
+    width: 18px;
+    height: 22px;
+    background-image: ${PDF_ICON_SVG_URL};
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex-shrink: 0;
+  }
+`;
+
 const SectionCard = styled.div`
   background: white;
   border-radius: 0.5rem;
@@ -337,6 +391,7 @@ interface StudentDashboardContentProps {
   classId: string;
   studentId: string;
   hasJwtToken: boolean;
+  dgnssIds: { round1?: number; round2?: number };
 }
 
 const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
@@ -346,6 +401,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   classId,
   studentId,
   hasJwtToken,
+  dgnssIds,
 }) => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
@@ -364,10 +420,51 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     isLoading: isCoachingLoading,
     fetchCoachingStrategy,
   } = useCoachingStrategy(classId, studentId, selectedRound);
-  const isCompare = viewMode === 'compare';
+
+  const [isPdfDownloading, setIsPdfDownloading] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
+  const [r2AnswerIdx, setR2AnswerIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!pdfError) return;
+    const id = setTimeout(() => setPdfError(false), 4000);
+    return () => clearTimeout(id);
+  }, [pdfError]);
 
   const r1 = student.assessments.find((a) => a.round === 1);
   const r2 = student.assessments.find((a) => a.round === 2);
+
+  useEffect(() => {
+    if (!hasJwtToken || !dgnssIds.round2 || r2?.answerIdx != null) return;
+    void fetchStudentInfoList(dgnssIds.round2).then((list) => {
+      const entry = list.find((item) => item.stdtId === studentId);
+      if (entry) setR2AnswerIdx(entry.answerIdx);
+    });
+  }, [dgnssIds.round2, hasJwtToken, r2?.answerIdx, studentId]);
+
+  const handleDownloadPdf = async (round: 1 | 2, type: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    const answerIdx = round === 1 ? r1?.answerIdx : (r2?.answerIdx ?? r2AnswerIdx);
+    if (!dgnssId || answerIdx == null) return;
+    setIsPdfDownloading(true);
+    setPdfError(false);
+    try {
+      await downloadStudentPdf({
+        userId: studentId,
+        userType: 'S',
+        dgnssId,
+        answerIdx,
+        ordNo: round,
+        type,
+      });
+    } catch {
+      setPdfError(true);
+    } finally {
+      setIsPdfDownloading(false);
+    }
+  };
+  const isCompare = viewMode === 'compare';
+
   const current = selectedRound === 2 && r2 ? r2 : r1;
 
   // useMemo는 항상 호출 (current가 없으면 빈 배열 사용)
@@ -435,24 +532,26 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
             </HeaderTitle>
           </HeaderLeft>
 
-          {/* 학생 네비게이션 */}
-          <NavigationSection>
-            <NavButton
-              onClick={() => prev && navigate(`/dashboard/class/${classId}/student/${prev.id}`)}
-              disabled={!prev}
-            >
-              <NavIcon as={ChevronLeft} />
-            </NavButton>
-            <NavCounter>
-              {currentIdx + 1} / {classStudents.length}
-            </NavCounter>
-            <NavButton
-              onClick={() => next && navigate(`/dashboard/class/${classId}/student/${next.id}`)}
-              disabled={!next}
-            >
-              <NavIcon as={ChevronRight} />
-            </NavButton>
-          </NavigationSection>
+          <HeaderRight>
+            {/* 학생 네비게이션 */}
+            <NavigationSection>
+              <NavButton
+                onClick={() => prev && navigate(`/dashboard/class/${classId}/student/${prev.id}`)}
+                disabled={!prev}
+              >
+                <NavIcon as={ChevronLeft} />
+              </NavButton>
+              <NavCounter>
+                {currentIdx + 1} / {classStudents.length}
+              </NavCounter>
+              <NavButton
+                onClick={() => next && navigate(`/dashboard/class/${classId}/student/${next.id}`)}
+                disabled={!next}
+              >
+                <NavIcon as={ChevronRight} />
+              </NavButton>
+            </NavigationSection>
+          </HeaderRight>
         </HeaderSection>
 
         {/* Round Selector + Panel Buttons */}
@@ -514,6 +613,47 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         <SectionContainer>
           <SectionHeader>
             <SectionTitle>학생 진단 결과 해석</SectionTitle>
+            {hasJwtToken && (
+              <PdfButtonsArea>
+                <PdfReportBtn
+                  onClick={() => void handleDownloadPdf(1, 1)}
+                  disabled={isPdfDownloading || r1?.answerIdx == null}
+                  title='학생 1차 상세 보고서 PDF 다운로드'
+                >
+                  학생 1차 상세 보고서
+                </PdfReportBtn>
+                <PdfReportBtn
+                  onClick={() => void handleDownloadPdf(1, 2)}
+                  disabled={isPdfDownloading || r1?.answerIdx == null}
+                  title='학생 1차 요약 보고서 PDF 다운로드'
+                >
+                  학생 1차 요약 보고서
+                </PdfReportBtn>
+                {r2 && (
+                  <>
+                    <PdfReportBtn
+                      onClick={() => void handleDownloadPdf(2, 1)}
+                      disabled={isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)}
+                      title='학생 2차 상세 보고서 PDF 다운로드'
+                    >
+                      학생 2차 상세 보고서
+                    </PdfReportBtn>
+                    <PdfReportBtn
+                      onClick={() => void handleDownloadPdf(2, 2)}
+                      disabled={isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)}
+                      title='학생 2차 요약 보고서 PDF 다운로드'
+                    >
+                      학생 2차 요약 보고서
+                    </PdfReportBtn>
+                  </>
+                )}
+                {pdfError && (
+                  <span style={{ fontSize: '0.75rem', color: '#ef4444', alignSelf: 'center' }}>
+                    다운로드 실패
+                  </span>
+                )}
+              </PdfButtonsArea>
+            )}
           </SectionHeader>
           <SectionCard>
             {/* 총평 */}
@@ -595,7 +735,7 @@ export const StudentDashboardPage = () => {
 
   // API 모드: API에서 학생 데이터 + 학급 학생 목록 로드
   // Mock 모드: DataContext에서 데이터 사용
-  const { student, classStudents, classInfo, isLoading, error } = useStudentAnalysis(
+  const { student, classStudents, classInfo, dgnssIds, isLoading, error } = useStudentAnalysis(
     classId,
     studentId,
   );
@@ -641,6 +781,7 @@ export const StudentDashboardPage = () => {
       classId={classId}
       studentId={studentId}
       hasJwtToken={hasJwtToken}
+      dgnssIds={dgnssIds}
     />
   );
 };

@@ -9,7 +9,8 @@ import java.util.List;
 @Mapper
 public interface MemoInfoMapper {
 
-    List<MemoInfo> findByStdtIdOrderByMemoDateDesc(@Param("stdtId") String stdtId);
+    List<MemoInfo> findByStdtIdOrderByMemoDateDesc(@Param("stdtId") String stdtId,
+                                                  @Param("tcId") String tcId);
 
     MemoInfo findMemoById(@Param("id") Long id);
 
