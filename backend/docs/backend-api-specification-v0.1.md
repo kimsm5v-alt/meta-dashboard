@@ -1603,3 +1603,28 @@ yyyy-MM-dd HH:mm:ss   (예: 2026-03-17 14:30:00)
 ### 그룹 필드명 매핑
 
 > 위 [5. 그룹](#5-그룹--필드명-매핑-필요) 매핑표 참고
+
+---
+
+## 14. AI Chat API
+
+> AI 어시스턴트 대화 저장/조회 API입니다. 상세 스펙은 별도 문서를 참조하세요.
+> 상세 문서: [ai-chat-api-spec.md](./ai-chat-api-spec.md)
+> DDL: [ai_chat_ddl.sql](./ai_chat_ddl.sql)
+
+### 엔드포인트 요약
+
+| # | 영역 | Method | URL | 설명 | 비고 |
+|---|------|--------|-----|------|------|
+| 67 | AI Chat | POST | `/api/ai/conversations` | 대화방 생성 + 초기 메시지 저장 | `mode`, `contextLabel` 필수 |
+| 68 | AI Chat | GET | `/api/ai/conversations` | 내 대화방 목록 조회 | 기본 `size=10` |
+| 69 | AI Chat | GET | `/api/ai/conversations/{conversationId}/messages` | 대화 메시지 조회 | `beforeMessageId` 커서 페이징 |
+| 70 | AI Chat | POST | `/api/ai/conversations/{conversationId}/messages` | 메시지 저장 | 단건/배열 모두 지원 |
+
+### 핵심 규칙
+
+- `mode`: `all | class | student`
+- `role`: `user | assistant | system`
+- 시간 포맷: `yyyy-MM-dd HH:mm:ss`
+- 대화/메시지 ID: DB `AUTO_INCREMENT`
+

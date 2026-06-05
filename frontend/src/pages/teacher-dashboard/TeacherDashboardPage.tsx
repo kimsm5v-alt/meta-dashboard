@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import styled from '@emotion/styled';
-import { useData } from '@shared/contexts/DataContext';
 import { useTeacherClasses, useApiConfig } from '@features/api';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_TEACHER_DASHBOARD, API_UPLOAD_LATEST } from '@shared/data/apiDefinitions';
@@ -41,9 +40,8 @@ const PageSubtitle = styled.p`
 `;
 
 export const TeacherDashboardPage = () => {
-  const { teacher } = useData();
   const { hasJwtToken } = useApiConfig();
-  const { classes, isLoading, error, examStatus } = useTeacherClasses();
+  const { classes, isLoading, error, examStatus, user } = useTeacherClasses();
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   const totalStats = useMemo(
@@ -69,7 +67,7 @@ export const TeacherDashboardPage = () => {
       <HeaderSection>
         <HeaderRow>
           <ApiTooltip {...API_TEACHER_DASHBOARD} position='bottom-left'>
-            <PageTitle>{teacher.name}님의 학급 현황</PageTitle>
+            <PageTitle>{user?.name}님의 학급 현황</PageTitle>
           </ApiTooltip>
           <ApiTooltip {...API_UPLOAD_LATEST} position='bottom-left'>
             <span />

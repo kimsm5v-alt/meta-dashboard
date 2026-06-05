@@ -15,6 +15,7 @@ import {
   leaveGroup,
 } from '@features/groups/api/groupService';
 import type { Group } from '@shared/types';
+import { ApiError } from '@shared/api/client';
 
 // ============================================================
 // Styled Components
@@ -529,11 +530,15 @@ export const StudentGroupsPage: React.FC = () => {
         return;
       }
 
-      await joinGroup({ inviteCode: groupInfo.inviteCode }, user.id, user.name);
+      await joinGroup({ inviteCode }, user.id, user.name);
       setShowJoinModal(false);
       setInviteCode('');
       loadGroups(true);
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && (err.statusCode === 409 || err.resultCode === 409)) {
+        setJoinError('이미 가입된 그룹입니다.');
+        return;
+      }
       setJoinError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsJoining(false);

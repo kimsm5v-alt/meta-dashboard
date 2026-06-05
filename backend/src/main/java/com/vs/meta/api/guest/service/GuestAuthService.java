@@ -2,28 +2,36 @@ package com.vs.meta.api.guest.service;
 
 import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupMemberMapper;
-import com.vs.meta.api.member.mapper.RefreshTokenMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
 import com.vs.meta.api.member.service.EmailVerificationService;
-import com.vs.meta.common.security.JwtUtil;
+import com.vs.meta.common.config.SpAuthProperties;
 import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.GroupMember;
-import com.vs.meta.domain.RefreshToken;
 import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClient;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * 게스트 인증 서비스 (SSO 전환 후).
+ *
+ * <p>변경 사항:
+ * <ul>
+ *   <li>자체 Guest JWT 발급 → Auth 서버 게스트 토큰 프록시 경유</li>
+ *   <li>자체 refresh_token 저장 제거 → Auth 서버가 관리 (게스트는 RT 없음, 2시간 만료)</li>
+ * </ul>
+ *
+ * <p>유지 사항:
+ * <ul>
+ *   <li>초대코드 검증, 이메일 인증 — 학심정 자체 유지</li>
+ * </ul>
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -31,15 +39,10 @@ public class GuestAuthService {
 
     private final GroupInfoMapper groupInfoMapper;
     private final GroupMemberMapper groupMemberMapper;
-    private final RefreshTokenMapper refreshTokenMapper;
     private final UserMapper userMapper;
     private final EmailVerificationService emailVerificationService;
-    private final JwtUtil jwtUtil;
-
-    @Value("${META_API_JWT_REFRESH_EXPIRATION_MS:1209600000}")
-    private long refreshExpirationMs;
-
-    private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private final SpAuthProperties spAuth;
+    private final WebClient superPlatformAuthWebClient;
 
     @Transactional(readOnly = true)
     public Map<String, Object> checkGuestExists(String inviteCode, String email) {
@@ -94,18 +97,16 @@ public class GuestAuthService {
 
         String stdtId = guest.getStdtId();
         String claId = group.getClaId();
-        String timestamp = LocalDateTime.now().format(TS_FORMAT);
+        String nickname = guest.getNickname();
 
-        String accessToken = jwtUtil.generateGuestAccessToken(stdtId, claId, email, timestamp);
-        String refreshToken = jwtUtil.generateGuestRefreshToken(stdtId, claId, email, timestamp);
-
-        // 기존 게스트 refreshToken 정리 후 새로 저장
-        refreshTokenMapper.deleteByStdtId(stdtId);
-        saveGuestRefreshToken(stdtId, refreshToken, deviceInfo, ipAddress);
+        // Auth 서버 게스트 토큰 발급 (프록시 경유 대신 직접 호출)
+        Map<String, Object> guestToken = requestGuestToken(nickname);
+        String accessToken = (String) guestToken.get("accessToken");
+        String guestId = (String) guestToken.get("guestId");
 
         emailVerificationService.consumeVerification(email);
 
-        log.info("게스트 재인증 완료: stdtId={}, claId={}", stdtId, claId);
+        log.info("게스트 인증 완료: stdtId={}, claId={}, guestId={}", stdtId, claId, guestId);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("stdtId", stdtId);
@@ -113,48 +114,28 @@ public class GuestAuthService {
         result.put("groupNm", group.getGroupNm());
         result.put("email", email);
         result.put("accessToken", accessToken);
-        result.put("refreshToken", refreshToken);
+        result.put("guestId", guestId);
+        // refreshToken 없음 — Auth 게스트 토큰은 2시간 만료, RT 미발급
         return result;
     }
 
-    public Map<String, Object> issueGuestTokens(String stdtId, String claId, String email,
-                                                   String deviceInfo, String ipAddress) {
-        String timestamp = LocalDateTime.now().format(TS_FORMAT);
-        String accessToken = jwtUtil.generateGuestAccessToken(stdtId, claId, email, timestamp);
-        String refreshToken = jwtUtil.generateGuestRefreshToken(stdtId, claId, email, timestamp);
-
-        saveGuestRefreshToken(stdtId, refreshToken, deviceInfo, ipAddress);
-
-        Map<String, Object> tokens = new LinkedHashMap<>();
-        tokens.put("accessToken", accessToken);
-        tokens.put("refreshToken", refreshToken);
-        return tokens;
-    }
-
-    private void saveGuestRefreshToken(String stdtId, String refreshToken,
-                                        String deviceInfo, String ipAddress) {
-        String tokenHash = hashToken(refreshToken);
-        LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(refreshExpirationMs / 1000);
-
-        RefreshToken entity = RefreshToken.builder()
-                .userNo(null)
-                .stdtId(stdtId)
-                .tokenHash(tokenHash)
-                .deviceInfo(deviceInfo)
-                .ipAddress(ipAddress)
-                .expiresAt(expiresAt)
-                .createdAt(LocalDateTime.now())
-                .build();
-        refreshTokenMapper.insertRefreshToken(entity);
-    }
-
-    private String hashToken(String token) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            throw new RuntimeException("토큰 해싱 실패", e);
-        }
+    /**
+     * Auth 서버에 게스트 토큰 발급 요청.
+     * AuthProxyController를 거치지 않고 직접 호출 (서버 내부 호출이므로 client_secret 포함).
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> requestGuestToken(String name) {
+        return superPlatformAuthWebClient
+                .post()
+                .uri("/oauth2/guest-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Map.of(
+                        "clientId", spAuth.getClientId(),
+                        "clientSecret", spAuth.getClientSecret(),
+                        "name", name != null ? name : ""
+                ))
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
     }
 }

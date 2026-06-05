@@ -3,8 +3,7 @@ export { LandingPage } from './landing/LandingPage';
 
 // Auth
 export { LoginPage } from './auth/LoginPage';
-export { SignUpPage } from './auth/SignUpPage';
-export { ForgotPasswordPage } from './auth/ForgotPasswordPage';
+export { CompleteProfilePage } from './auth/CompleteProfilePage';
 
 // Teacher Dashboard
 export { TeacherDashboardPage } from './teacher-dashboard/TeacherDashboardPage';

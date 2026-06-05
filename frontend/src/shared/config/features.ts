@@ -23,11 +23,11 @@ export const FEATURES = {
   /** 그룹 관리 */
   GROUPS: true,
 
-  /** 커뮤니티 */
-  COMMUNITY: true,
+  /** 커뮤니티 - HSJ-36: 1차 고도화 버전, MVP 제외 */
+  COMMUNITY: false,
 
-  /** 자료실 */
-  RESOURCES: true,
+  /** 자료실 - HSJ-36: 1차 고도화 버전, MVP 제외 */
+  RESOURCES: false,
 } as const;
 
 export type FeatureKey = keyof typeof FEATURES;

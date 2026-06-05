@@ -1,6 +1,6 @@
 import styled from '@emotion/styled';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom'; // 게스트 기능 제외로 미사용
 import { QrCode, Search, Loader2, AlertCircle, Users, CheckCircle } from 'lucide-react';
 import { Modal, Button } from '@shared/components';
 import { groupService } from '../api/groupService';
@@ -206,7 +206,7 @@ const ErrorMessage = styled.p`
 `;
 
 export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, onJoinSuccess }) => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // 게스트 기능 제외로 미사용
   const { user } = useAuth();
   const [code, setCode] = useState('');
   const [step, setStep] = useState<Step>('input');
@@ -296,10 +296,9 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
   };
 
   // 비로그인 상태에서는 가입 페이지로 이동
-  const handleGuestJoin = () => {
-    handleClose();
-    navigate(`/join/${code.trim()}`);
-  };
+  /* 게스트 기능 제외
+  const handleGuestJoin = () => { handleClose(); navigate(`/join/${code.trim()}`); };
+  */
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title='그룹 참가' size='md'>
@@ -369,7 +368,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
             </InfoBox>
           ) : (
             <InfoBox $variant='amber'>
-              <p>로그인하지 않은 상태입니다. 게스트로 참가하거나 로그인 후 가입하세요.</p>
+              <p>로그인하지 않은 상태입니다. 로그인 후 가입하세요.</p>
             </InfoBox>
           )}
 
@@ -387,7 +386,7 @@ export const JoinCodeModal: React.FC<JoinCodeModalProps> = ({ isOpen, onClose, o
             {user ? (
               <FlexButton onClick={handleJoin}>가입하기</FlexButton>
             ) : (
-              <FlexButton onClick={handleGuestJoin}>게스트로 참가</FlexButton>
+              <FlexButton onClick={() => window.location.href = '/login'}>로그인하기</FlexButton>
             )}
           </ButtonRow>
         </ContentWrapper>

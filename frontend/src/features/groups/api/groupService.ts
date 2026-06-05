@@ -144,15 +144,19 @@ const toFrontendMember = (m: BackendGroupMember): GroupMember => ({
   stdtId: m.stdtId,
   name: m.nickname,
   email: m.email,
-  gender: (m.gender === 'M' || m.gender === 'F') ? m.gender : undefined,
+  gender: m.gender === 'M' || m.gender === 'F' ? m.gender : undefined,
   memberNo: m.memberNo,
   memberType: m.memberType === 'GUEST' ? 'guest' : 'member',
   status: (() => {
     switch (m.status) {
-      case 'ACTIVE': return 'active';
-      case 'LEFT': return 'left';
-      case 'KICKED': return 'kicked';
-      case 'ARCHIVED': return 'archived';
+      case 'ACTIVE':
+        return 'active';
+      case 'LEFT':
+        return 'left';
+      case 'KICKED':
+        return 'kicked';
+      case 'ARCHIVED':
+        return 'archived';
     }
   })(),
   joinedAt: m.joinedAt ? new Date(m.joinedAt) : new Date(),
@@ -267,7 +271,8 @@ export const deleteGroup = async (groupId: string, _userId: string): Promise<boo
 };
 
 /**
- * 초대 코드로 그룹 조회
+ * 초대 코드로 그룹 조회 (인증 필요 - 레거시)
+ * @deprecated 비회원 사용자는 getGuestGroupInfo 사용 권장
  */
 export const getGroupByInviteCode = async (
   code: string,
@@ -283,6 +288,28 @@ export const getGroupByInviteCode = async (
     name: data.groupNm,
     inviteCode: data.inviteCode,
   };
+};
+
+/**
+ * 게스트 그룹 정보 조회 (인증 불필요, Public API)
+ * - 백엔드 spec: GET /guest/exists?inviteCode=xxx&email=xxx
+ * - 게스트 프로세스 기반
+ */
+export interface GuestGroupInfoResponse {
+  exists: boolean; // 해당 이메일로 이미 참가했는지 여부
+  groupNm: string; // 그룹명
+  claId: string; // 학급 ID
+}
+
+export const getGuestGroupInfo = async (
+  inviteCode: string,
+  email: string,
+): Promise<GuestGroupInfoResponse | null> => {
+  const res = await apiClient.get<GuestGroupInfoResponse>(
+    `/guest/exists?inviteCode=${inviteCode}&email=${email}`,
+  );
+  if (!res.resultData) return null;
+  return res.resultData;
 };
 
 // ============================================================
@@ -305,9 +332,12 @@ export const joinGroup = async (
   _userId: string,
   _userName: string,
 ): Promise<GroupMember> => {
-  const res = await apiClient.post<{ claId: string; memberId: number; stdtId?: string }>('/group/join', {
-    inviteCode: input.inviteCode,
-  });
+  const res = await apiClient.post<{ claId: string; memberId: number; stdtId?: string }>(
+    '/group/join',
+    {
+      inviteCode: input.inviteCode,
+    },
+  );
 
   const data = res.resultData;
   return {
@@ -327,13 +357,13 @@ export const joinGroup = async (
  */
 export const joinGroupAsGuest = async (
   input: GuestJoinGroupInput,
-): Promise<GroupMember & { accessToken: string; refreshToken: string }> => {
+): Promise<GroupMember & { accessToken: string; guestId?: string }> => {
   const res = await apiClient.post<{
     claId: string;
     stdtId: string;
     memberId: number;
     accessToken: string;
-    refreshToken: string;
+    guestId?: string;
   }>('/group/join-guest', {
     inviteCode: input.inviteCode,
     nickname: input.nickname,
@@ -354,7 +384,7 @@ export const joinGroupAsGuest = async (
     status: 'active',
     joinedAt: new Date(),
     accessToken: data.accessToken,
-    refreshToken: data.refreshToken,
+    guestId: data.guestId,
   };
 };
 
@@ -428,7 +458,20 @@ export const getGroupInvitations = async (
     groupId: String(inv.groupId),
     email: inv.email,
     invitedBy: '',
-    status: inv.status === 'SENT' ? 'sent' : inv.status === 'ACCEPTED' ? 'accepted' : 'cancelled',
+    status: (() => {
+      switch (inv.status) {
+        case 'SENT':
+          return 'sent' as const;
+        case 'ACCEPTED':
+          return 'accepted' as const;
+        case 'EXPIRED':
+          return 'expired' as const;
+        case 'CANCELLED':
+          return 'cancelled' as const;
+        default:
+          return 'sent' as const;
+      }
+    })(),
     sentAt: new Date(inv.sentAt),
     expiresAt: inv.expiresAt ? new Date(inv.expiresAt) : new Date(),
   }));
@@ -474,6 +517,7 @@ export const linkGuestRecords = async (
 // ============================================================
 
 export const groupService = {
+  apiClient, // API 클라이언트 직접 접근용 (이메일 인증 등)
   createGroup,
   getMyGroups,
   getGroupDetail,
@@ -481,6 +525,7 @@ export const groupService = {
   updateGroup,
   deleteGroup,
   getGroupByInviteCode,
+  getGuestGroupInfo,
   joinGroup,
   joinGroupAsGuest,
   getGroupMembers,

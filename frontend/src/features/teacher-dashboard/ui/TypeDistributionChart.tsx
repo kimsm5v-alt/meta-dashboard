@@ -22,9 +22,9 @@ interface TypeDistributionChartProps {
   onClassSelect?: (classId: string | null) => void;
 }
 
-const Container = styled.div`
+const Container = styled.div<{ $height: number }>`
   position: relative;
-  height: 450px;
+  height: ${({ $height }) => $height}px;
 `;
 
 const TooltipBox = styled.div<{ $x: number; $y: number }>`
@@ -59,13 +59,16 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
 }) => {
   const isMiddleSchool = classes.length > 0 && classes[0].schoolLevel === '중등';
 
+  // 반 수에 따라 동적으로 높이 계산 (반 1개당 72px, 최소 300px)
+  const chartHeight = Math.max(300, classes.length * 72 + 100);
+
   const typeKeys = isMiddleSchool
-    ? (['무기력형', '정서조절취약형', '자기주도몰입형'] as const)
-    : (['자원소진형', '안전균형형', '몰입자원풍부형'] as const);
+    ? (['냉소적 무기력형', '정서조절 취약형', '자기주도 몰입형'] as const)
+    : (['자원소진형', '안전 균형형', '몰입자원 풍부형'] as const);
 
   const typeColors = isMiddleSchool
-    ? ['#F97316', '#14B8A6', '#3B82F6']
-    : ['#F97316', '#14B8A6', '#3B82F6'];
+    ? ['#E74C3C', '#F39C12', '#2ECC71']
+    : ['#E74C3C', '#3498DB', '#2ECC71'];
 
   const chartData = useMemo(() => {
     return classes
@@ -153,20 +156,20 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
               onMouseMove={(e) => showTooltip(e, bar)}
               onMouseLeave={hideTooltip}
             />
-            {(bar.data.value ?? 0) > 0 && bar.width > 28 && (
+            {(bar.data.value ?? 0) > 0 && bar.width > 18 && (
               <text
                 x={bar.width / 2}
                 y={bar.height / 2}
                 textAnchor='middle'
                 dominantBaseline='central'
                 style={{
-                  fontSize: 11,
+                  fontSize: bar.width > 50 ? 11 : 10,
                   fontWeight: 600,
                   fill: '#fff',
                   pointerEvents: 'none',
                 }}
               >
-                {bar.width > 60
+                {bar.width > 70
                   ? `${bar.data.data[`${bar.data.id}_count`]}명(${bar.data.value}%)`
                   : `${bar.data.value}%`}
               </text>
@@ -178,7 +181,7 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
   );
 
   return (
-    <Container>
+    <Container $height={chartHeight}>
       <ResponsiveBar
         data={chartData}
         keys={[...typeKeys]}

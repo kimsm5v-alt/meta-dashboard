@@ -1,22 +1,28 @@
 package com.vs.meta.common.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vs.meta.common.security.SpAuthenticatedUser;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.convert.converter.Converter;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @EnableWebSecurity
@@ -25,6 +31,37 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * MdcLoggingFilter 의 servlet chain 자동 등록 비활성화.
+     *
+     * <p>Spring Boot 는 @Component 로 등록된 Filter 빈을 자동으로 servlet chain 에 추가하는데,
+     * 그렇게 되면 MdcLoggingFilter 가 SpUserMappingFilter 보다 먼저 실행되어 USER_NO request attribute
+     * 가 아직 안 박힌 상태로 MDC.put 이 호출됨 → MDC 에 userNo 가 누락.
+     *
+     * <p>이 빈으로 자동 등록을 차단하고, {@link ApiSecurityConfig#configure(HttpSecurity)} 에서
+     * {@code addFilterAfter(mdcLoggingFilter, SpUserMappingFilter.class)} 로만 등록되도록 한다.
+     */
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<MdcLoggingFilter> mdcLoggingFilterRegistration(
+            MdcLoggingFilter filter) {
+        var reg = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
+        reg.setEnabled(false);
+        return reg;
+    }
+
+    /**
+     * SpUserMappingFilter 도 동일 사유로 자동 등록 차단.
+     * security chain 에서 BearerTokenAuthenticationFilter 다음에 명시적으로 등록되어야 SecurityContext 의
+     * SpAuthenticatedUser 를 읽어 매핑할 수 있다 (servlet chain 에서 먼저 실행되면 SecurityContext 비어있음).
+     */
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<SpUserMappingFilter> spUserMappingFilterRegistration(
+            SpUserMappingFilter filter) {
+        var reg = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
+        reg.setEnabled(false);
+        return reg;
     }
 
     /**
@@ -99,23 +136,27 @@ public class SecurityConfig {
     }
 
     /**
-     * API 영역: JWT 기반 Stateless (기존)
+     * API 영역: SuperPlatform SSO JWT (RS256, JWKS 공개키 검증)
      */
     @Configuration
     @Order(2)
     public static class ApiSecurityConfig extends WebSecurityConfigurerAdapter {
 
         private final Environment env;
-        private final JwtAuthenticationFilter jwtAuthenticationFilter;
+        private final SpUserMappingFilter spUserMappingFilter;
+        private final MdcLoggingFilter mdcLoggingFilter;
 
-        public ApiSecurityConfig(Environment env, JwtAuthenticationFilter jwtAuthenticationFilter) {
+        public ApiSecurityConfig(Environment env,
+                                 SpUserMappingFilter spUserMappingFilter,
+                                 MdcLoggingFilter mdcLoggingFilter) {
             this.env = env;
-            this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+            this.spUserMappingFilter = spUserMappingFilter;
+            this.mdcLoggingFilter = mdcLoggingFilter;
         }
 
         @Override
         protected void configure(HttpSecurity http) throws Exception {
-            http
+            var authorizeRegistry = http
                 .cors()
                 .and()
                 .csrf().disable()
@@ -124,17 +165,36 @@ public class SecurityConfig {
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
                 .authorizeRequests()
-                    .antMatchers("/member/login", "/member/signup", "/member/token/refresh",
-                            "/member/logout", "/member/send-code", "/member/verify-code",
-                            "/group/join-guest",
-                            "/guest/exists", "/guest/auth").permitAll()
+                    // SSO Auth 프록시 (public — SDK가 호출)
+                    .antMatchers("/api/v1/auth/**").permitAll()
+                    // Neo4j 그래프 테스트 API (로컬 테스트 용도)
+                    .antMatchers("/api/dgnss/graph/**").permitAll()
+                    // 게스트 관련 (public)
+                    .antMatchers("/guest/exists", "/guest/auth").permitAll()
+                    // 그룹 초대/참가 (public)
+                    .antMatchers("/group/invite", "/group/join-guest").permitAll()
+                    // 게스트 이메일 인증 (학심정 자체 유지)
+                    .antMatchers("/member/send-code", "/member/verify-code").permitAll()
+                    // Swagger, health, static
                     .antMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     .antMatchers("/viva/metric/prometheus").permitAll()
                     .antMatchers("/actuator/health").permitAll()
                     .antMatchers("/", "/robots.txt", "/favicon.ico").permitAll()
                     .antMatchers("/static/**").permitAll()
-                    // /school/** 제거 — 인증 없이 school import 불가하도록 차단 (Admin UI로 대체)
-                    .anyRequest().authenticated()
+                    // 알림 기능 디버그 페이지 (HTML 자체는 정적 콘텐츠, 내부 API 호출은 JWT 필요)
+                    // 컨트롤러 자체가 @Profile({"local","vs-dev"}) 라 vs-prod 에서는 자동으로 404
+                    .antMatchers("/dev/**").permitAll();
+
+            if (isLocalProfileActive()) {
+                authorizeRegistry.anyRequest().permitAll();
+            } else {
+                authorizeRegistry
+                        // 추가 정보 입력 API (JWT 필요하지만 user 미생성 상태에서 호출)
+                        .antMatchers("/api/v1/user/complete-profile").authenticated()
+                        .anyRequest().authenticated();
+            }
+
+            authorizeRegistry
                 .and()
                 .exceptionHandling()
                     .authenticationEntryPoint((request, response, authException) -> {
@@ -164,11 +224,43 @@ public class SecurityConfig {
                         new ObjectMapper().writeValue(response.getOutputStream(), body);
                     })
                 .and()
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // RS256 JWT 검증 (JWKS 공개키 자동 페칭)
+                .oauth2ResourceServer()
+                    .jwt()
+                        .jwtAuthenticationConverter(jwtAuthenticationConverter());
+
+            // 가장 앞에 — 진입 즉시 requestId/clientIp 를 MDC 에 push
+            // (userNo 는 SpUserMappingFilter 매핑 시점에 직접 박음)
+            http.addFilterBefore(mdcLoggingFilter,
+                    org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationFilter.class);
+
+            // JWT 검증 후 spUserId → userNo 매핑 필터 (매핑 시 MDC.userNo 도 함께 push)
+            http.addFilterAfter(spUserMappingFilter,
+                    org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationFilter.class);
 
             if (isRealProfileActive()) {
                 configureHsts(http);
             }
+        }
+
+        /**
+         * SP JWT Claims → SpAuthenticatedUser 변환.
+         * SecurityContext의 principal로 SpAuthenticatedUser가 설정된다.
+         */
+        private Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter() {
+            return jwt -> {
+                String spUserId = jwt.getSubject();
+                String email = jwt.getClaimAsString("email");
+                String name = jwt.getClaimAsString("name");
+                String userType = jwt.getClaimAsString("userType");
+
+                var user = new SpAuthenticatedUser(spUserId, email, name, userType);
+
+                String role = (userType != null) ? userType : "USER";
+                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+
+                return new UsernamePasswordAuthenticationToken(user, null, authorities);
+            };
         }
 
         private void configureHsts(HttpSecurity http) throws Exception {
@@ -180,6 +272,10 @@ public class SecurityConfig {
 
         private boolean isRealProfileActive() {
             return Arrays.asList(env.getActiveProfiles()).contains("real");
+        }
+
+        private boolean isLocalProfileActive() {
+            return Arrays.asList(env.getActiveProfiles()).contains("local");
         }
     }
 }

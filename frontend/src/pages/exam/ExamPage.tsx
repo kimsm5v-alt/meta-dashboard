@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { AlertCircle, Loader2 } from 'lucide-react';
@@ -12,9 +12,13 @@ import {
   submitExam,
   getStudentExamInfo,
   resetExam,
+  getPageFromAnsweredCount,
 } from '@features/exam/api/examService';
+import { saveStudentInfo } from '@features/exam/api/studentInfoService';
 import {
   StudentIdEntryStep,
+  StudentInfoStep,
+  MemberCompleteStep,
   ExamAuthStep,
   GuestExamEntryStep,
   ResumeChoiceStep,
@@ -22,11 +26,21 @@ import {
   ExamQuestionStep,
   ExamCompleteStep,
 } from '@features/exam/ui';
+import type { StudentInfo } from '@features/exam/ui/StudentInfoStep';
 
 interface ExamInfo {
   name: string;
   examCode: string; // 항상 숫자 코드
   claId?: string; // API 모드에서 사용
+}
+
+interface StudentExamLocationState {
+  dgnssResultId: number;
+  dgnssId: number;
+  ordNo: number;
+  examName: string;
+  resume?: boolean;
+  restart?: boolean;
 }
 
 const LoadingContainer = styled.div`
@@ -129,15 +143,21 @@ const RetryButton = styled.button`
 export const ExamPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const location = useLocation();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
 
-  const [isValidating, setIsValidating] = useState(true);
-  const [isValid, setIsValid] = useState(false);
+  // 학생(회원) 플로우 여부 확인
+  const studentExamState = location.state as StudentExamLocationState | undefined;
+  const isStudentFlow = !code && !!studentExamState?.dgnssResultId;
+
+  const [isValidating, setIsValidating] = useState(!isStudentFlow);
+  const [isValid, setIsValid] = useState(isStudentFlow);
   const [examInfo, setExamInfo] = useState<ExamInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [savingQuestionNo, setSavingQuestionNo] = useState<number | null>(null);
   const [pendingAnsweredCount, setPendingAnsweredCount] = useState(0);
   const [isRestartMode, setIsRestartMode] = useState(false);
+  const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
 
   const {
     state,
@@ -150,8 +170,89 @@ export const ExamPage: React.FC = () => {
     loadExistingAnswers,
   } = useExamState();
 
-  // QR 코드 검증
+  // 학생(회원) 플로우 초기화
   useEffect(() => {
+    if (!isStudentFlow || !studentExamState) return;
+
+    const init = async () => {
+      setExamInfo({
+        name: studentExamState.examName,
+        examCode: '', // 학생용은 코드 없음
+      });
+      setDgnssResultId(studentExamState.dgnssResultId);
+
+      // user의 studentNumber 추출 (stdtId에서)
+      if (user?.stdtId) {
+        const numberMatch = user.stdtId.match(/s(\d+)$/);
+        const studentNumber = numberMatch ? parseInt(numberMatch[1], 10) : 0;
+        setStudentNumber(studentNumber);
+      }
+
+      // resume/restart 처리
+      if (studentExamState.resume || studentExamState.restart) {
+        setIsLoading(true);
+        try {
+          if (studentExamState.restart) {
+            setIsRestartMode(true);
+          }
+
+          // 이어하기: 마지막 답변 페이지 계산
+          // 새로하기: 0페이지부터 시작
+          let startPage = 0;
+          if (!studentExamState.restart && studentExamState.resume) {
+            // 첫 페이지 로드해서 answeredCount 확인
+            const initialResult = await fetchQuestions(studentExamState.dgnssResultId, 0, 20);
+            if (initialResult.answeredCount > 0) {
+              // 마지막 답변 페이지 계산 (120번 문항 분리 고려)
+              startPage = getPageFromAnsweredCount(initialResult.answeredCount);
+            }
+          }
+
+          const result = studentExamState.restart
+            ? await resetExam(studentExamState.dgnssResultId, 0, 20)
+            : await fetchQuestions(studentExamState.dgnssResultId, startPage, 20);
+
+          const existingAnswers: Record<number, string> = {};
+          if (!studentExamState.restart) {
+            result.questions.forEach((q) => {
+              if (q.answer) {
+                existingAnswers[q.NO] = q.answer;
+              }
+            });
+          }
+
+          loadQuestions(
+            result.questions,
+            result.totalPages,
+            result.totalQuestions,
+            result.omrIdx,
+            result.answeredCount,
+          );
+          loadExistingAnswers(existingAnswers);
+          setCurrentPage(startPage); // 계산된 페이지로 설정
+
+          if (!studentExamState.restart && result.answeredCount > 0) {
+            setPendingAnsweredCount(result.answeredCount);
+            setStep('resume-choice');
+          } else {
+            setStep('guide');
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        // 새로 시작 → student-info 단계로
+        setStep('student-info');
+      }
+    };
+
+    init();
+  }, [isStudentFlow, studentExamState, user, setDgnssResultId, setStudentNumber, loadQuestions, loadExistingAnswers, setStep]);
+
+  // QR 코드 검증 + 게스트 세션 복원
+  useEffect(() => {
+    if (isStudentFlow) return; // 학생 플로우면 스킵
+
     const validate = async () => {
       if (!code) {
         navigate('/exam');
@@ -167,6 +268,74 @@ export const ExamPage: React.FC = () => {
             examCode: result.examCode,
             claId: result.claId,
           });
+
+          // ✅ 게스트 세션 복원 (새로고침 후)
+          try {
+            const stored = localStorage.getItem('exam_guest_session');
+            if (stored) {
+              const session = JSON.parse(stored) as {
+                examCode: string;
+                nickname: string;
+                dgnssResultId: number;
+                timestamp: number;
+              };
+
+              // 같은 검사 코드인 경우만 복원 (다른 검사로 접속하면 초기화)
+              if (session.examCode === result.examCode) {
+                console.log('🔄 게스트 세션 복원:', session);
+                setDgnssResultId(session.dgnssResultId);
+
+                // 첫 페이지 로드
+                setIsLoading(true);
+                try {
+                  const initialResult = await fetchQuestions(session.dgnssResultId, 0, 20);
+
+                  // 이어하기인 경우 마지막 답변 페이지 계산 (120번 문항 분리 고려)
+                  let startPage = 0;
+                  if (initialResult.answeredCount > 0) {
+                    startPage = getPageFromAnsweredCount(initialResult.answeredCount);
+                  }
+
+                  // 시작 페이지 로드
+                  const result = startPage === 0
+                    ? initialResult
+                    : await fetchQuestions(session.dgnssResultId, startPage, 20);
+
+                  const existingAnswers: Record<number, string> = {};
+                  result.questions.forEach((q) => {
+                    if (q.answer) {
+                      existingAnswers[q.NO] = q.answer;
+                    }
+                  });
+
+                  loadQuestions(
+                    result.questions,
+                    result.totalPages,
+                    result.totalQuestions,
+                    result.omrIdx,
+                    result.answeredCount,
+                  );
+                  loadExistingAnswers(existingAnswers);
+                  setCurrentPage(startPage);
+
+                  if (result.answeredCount > 0) {
+                    setPendingAnsweredCount(result.answeredCount);
+                    setStep('resume-choice');
+                  } else {
+                    setStep('guide');
+                  }
+                } finally {
+                  setIsLoading(false);
+                }
+              } else {
+                // 다른 검사 코드 → 게스트 세션 초기화
+                localStorage.removeItem('exam_guest_session');
+              }
+            }
+          } catch (err) {
+            console.warn('게스트 세션 복원 실패:', err);
+            localStorage.removeItem('exam_guest_session');
+          }
         } else {
           setIsValid(false);
         }
@@ -178,10 +347,11 @@ export const ExamPage: React.FC = () => {
     };
 
     validate();
-  }, [code, navigate]);
+  }, [code, navigate, isStudentFlow, loadQuestions, loadExistingAnswers, setCurrentPage, setStep, setDgnssResultId]);
 
-  // 인증 상태에 따라 초기 step 결정
+  // 인증 상태에 따라 초기 step 결정 (QR 코드 플로우만)
   useEffect(() => {
+    if (isStudentFlow) return; // 학생 플로우는 스킵
     if (isValidating || authLoading || !isValid) return;
 
     if (isAuthenticated) {
@@ -195,7 +365,7 @@ export const ExamPage: React.FC = () => {
         setStep('auth');
       }
     }
-  }, [isAuthenticated, authLoading, isValidating, isValid, state.step, setStep]);
+  }, [isAuthenticated, authLoading, isValidating, isValid, state.step, setStep, isStudentFlow]);
 
   // 게스트 검사 시작 (닉네임만 입력)
   const handleGuestSubmit = useCallback(
@@ -215,7 +385,27 @@ export const ExamPage: React.FC = () => {
         const { dgnssResultId } = examResult;
         setDgnssResultId(dgnssResultId);
 
-        const result = await fetchQuestions(dgnssResultId, 0, 20);
+        // ✅ 게스트 세션 저장 (새로고침 후 복원용)
+        localStorage.setItem('exam_guest_session', JSON.stringify({
+          examCode: examInfo.examCode,
+          nickname,
+          dgnssResultId,
+          timestamp: Date.now(),
+        }));
+
+        // 먼저 첫 페이지 로드해서 answeredCount 확인
+        const initialResult = await fetchQuestions(dgnssResultId, 0, 20);
+
+        // 이어하기인 경우 마지막 답변 페이지 계산 (120번 문항 분리 고려)
+        let startPage = 0;
+        if (initialResult.answeredCount > 0) {
+          startPage = getPageFromAnsweredCount(initialResult.answeredCount);
+        }
+
+        // 시작 페이지 로드
+        const result = startPage === 0
+          ? initialResult
+          : await fetchQuestions(dgnssResultId, startPage, 20);
 
         const existingAnswers: Record<number, string> = {};
         result.questions.forEach((q) => {
@@ -224,9 +414,16 @@ export const ExamPage: React.FC = () => {
           }
         });
 
-        loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+        loadQuestions(
+          result.questions,
+          result.totalPages,
+          result.totalQuestions,
+          result.omrIdx,
+          result.answeredCount,
+        );
         loadExistingAnswers(existingAnswers);
         setStudentNumber(0);
+        setCurrentPage(startPage);
 
         if (result.answeredCount > 0) {
           setPendingAnsweredCount(result.answeredCount);
@@ -238,10 +435,10 @@ export const ExamPage: React.FC = () => {
         setIsLoading(false);
       }
     },
-    [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep],
+    [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setCurrentPage, setStep],
   );
 
-  // 학생 ID 입력 후 dgnssResultId 조회 및 문항 로드
+  // 학생 ID 입력 후 dgnssResultId 조회
   const handleStudentIdSubmit = useCallback(
     async (stdtId: string) => {
       if (!examInfo) return;
@@ -257,7 +454,43 @@ export const ExamPage: React.FC = () => {
         const { dgnssResultId } = examResult;
         setDgnssResultId(dgnssResultId);
 
-        const result = await fetchQuestions(dgnssResultId, 0, 20);
+        const numberMatch = stdtId.match(/s(\d+)$/);
+        const studentNumber = numberMatch ? parseInt(numberMatch[1], 10) : 0;
+        setStudentNumber(studentNumber);
+
+        // 학생 정보 입력 단계로 이동
+        setStep('student-info');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [examInfo, setStudentNumber, setDgnssResultId, setStep],
+  );
+
+  // 학생 정보 입력 후 문항 로드
+  const handleStudentInfoSubmit = useCallback(
+    async (info: StudentInfo) => {
+      if (!state.dgnssResultId) return;
+
+      setIsLoading(true);
+      try {
+        // 학생 정보 저장 (localStorage)
+        await saveStudentInfo(state.dgnssResultId, info);
+        setStudentInfo(info);
+
+        // 먼저 첫 페이지 로드해서 answeredCount 확인
+        const initialResult = await fetchQuestions(state.dgnssResultId, 0, 20);
+
+        // 이어하기인 경우 마지막 답변 페이지 계산 (120번 문항 분리 고려)
+        let startPage = 0;
+        if (initialResult.answeredCount > 0) {
+          startPage = getPageFromAnsweredCount(initialResult.answeredCount);
+        }
+
+        // 시작 페이지 로드
+        const result = startPage === 0
+          ? initialResult
+          : await fetchQuestions(state.dgnssResultId, startPage, 20);
 
         const existingAnswers: Record<number, string> = {};
         result.questions.forEach((q) => {
@@ -266,12 +499,15 @@ export const ExamPage: React.FC = () => {
           }
         });
 
-        loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+        loadQuestions(
+          result.questions,
+          result.totalPages,
+          result.totalQuestions,
+          result.omrIdx,
+          result.answeredCount,
+        );
         loadExistingAnswers(existingAnswers);
-
-        const numberMatch = stdtId.match(/s(\d+)$/);
-        const studentNumber = numberMatch ? parseInt(numberMatch[1], 10) : 0;
-        setStudentNumber(studentNumber);
+        setCurrentPage(startPage);
 
         if (result.answeredCount > 0) {
           setPendingAnsweredCount(result.answeredCount);
@@ -283,13 +519,13 @@ export const ExamPage: React.FC = () => {
         setIsLoading(false);
       }
     },
-    [examInfo, loadQuestions, loadExistingAnswers, setStudentNumber, setDgnssResultId, setStep],
+    [state.dgnssResultId, loadQuestions, loadExistingAnswers, setCurrentPage, setStep],
   );
 
-  // 이어하기
+  // 이어하기 (guide 건너뛰고 바로 문항으로)
   const handleResume = useCallback(() => {
     setIsRestartMode(false);
-    setStep('guide');
+    setStep('questions');
   }, [setStep]);
 
   // 새로하기
@@ -310,7 +546,13 @@ export const ExamPage: React.FC = () => {
         ? await resetExam(state.dgnssResultId, 0, 20)
         : await fetchQuestions(state.dgnssResultId, 0, 20);
 
-      loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+      loadQuestions(
+        result.questions,
+        result.totalPages,
+        result.totalQuestions,
+        result.omrIdx,
+        result.answeredCount,
+      );
 
       const existingAnswers: Record<number, string> = {};
       if (!isRestartMode) {
@@ -356,7 +598,13 @@ export const ExamPage: React.FC = () => {
     setIsLoading(true);
     try {
       const result = await fetchQuestions(state.dgnssResultId, nextPageIndex, 20);
-      loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+      loadQuestions(
+        result.questions,
+        result.totalPages,
+        result.totalQuestions,
+        result.omrIdx,
+        result.answeredCount,
+      );
 
       const existingAnswers: Record<number, string> = { ...state.answers };
       result.questions.forEach((q) => {
@@ -383,14 +631,29 @@ export const ExamPage: React.FC = () => {
     setIsLoading(true);
     try {
       const result = await fetchQuestions(state.dgnssResultId, prevPageIndex, 20);
-      loadQuestions(result.questions, result.totalPages, result.totalQuestions, result.omrIdx);
+      loadQuestions(
+        result.questions,
+        result.totalPages,
+        result.totalQuestions,
+        result.omrIdx,
+        result.answeredCount,
+      );
+
+      // 기존 답변 유지 + 새로 로드한 페이지의 답변 병합
+      const existingAnswers: Record<number, string> = { ...state.answers };
+      result.questions.forEach((q) => {
+        if (q.answer) {
+          existingAnswers[q.NO] = q.answer;
+        }
+      });
+      loadExistingAnswers(existingAnswers);
 
       setCurrentPage(prevPageIndex);
       window.scrollTo(0, 0);
     } finally {
       setIsLoading(false);
     }
-  }, [state.dgnssResultId, state.currentPage, loadQuestions, setCurrentPage]);
+  }, [state, loadQuestions, loadExistingAnswers, setCurrentPage]);
 
   // 검사 제출
   const handleSubmit = useCallback(async () => {
@@ -416,7 +679,7 @@ export const ExamPage: React.FC = () => {
   }, []);
 
   // 로딩 화면
-  if (isValidating || authLoading) {
+  if ((!isStudentFlow && isValidating) || authLoading) {
     return (
       <LoadingContainer>
         <LoadingContent>
@@ -427,8 +690,8 @@ export const ExamPage: React.FC = () => {
     );
   }
 
-  // 유효하지 않은 코드
-  if (!isValid || !examInfo) {
+  // 유효하지 않은 코드 (QR 코드 플로우만)
+  if (!isStudentFlow && (!isValid || !examInfo)) {
     return (
       <ErrorContainer>
         <ErrorContent>
@@ -447,6 +710,23 @@ export const ExamPage: React.FC = () => {
     );
   }
 
+  // 학생 플로우인데 examInfo가 없으면 초기화 대기
+  if (isStudentFlow && !examInfo) {
+    return (
+      <LoadingContainer>
+        <LoadingContent>
+          <LoadingSpinner />
+          <LoadingText>검사 준비 중...</LoadingText>
+        </LoadingContent>
+      </LoadingContainer>
+    );
+  }
+
+  // examInfo가 없으면 렌더링하지 않음 (위에서 모든 케이스 처리됨)
+  if (!examInfo) {
+    return null;
+  }
+
   // Step별 렌더링
   switch (state.step) {
     case 'auth':
@@ -454,7 +734,7 @@ export const ExamPage: React.FC = () => {
         <ExamAuthStep
           examName={examInfo.name}
           examCode={code || ''}
-          onGuestStart={() => setStep('guest-entry')}
+          onGuestStart={() => { /* 게스트 기능 제외 */ }}
         />
       );
 
@@ -473,6 +753,16 @@ export const ExamPage: React.FC = () => {
         <StudentIdEntryStep
           examName={examInfo.name}
           onSubmit={handleStudentIdSubmit}
+          isLoading={isLoading}
+        />
+      );
+
+    case 'student-info':
+      return (
+        <StudentInfoStep
+          examName={examInfo.name}
+          initialData={studentInfo || undefined}
+          onSubmit={handleStudentInfoSubmit}
           isLoading={isLoading}
         />
       );
@@ -500,14 +790,12 @@ export const ExamPage: React.FC = () => {
       );
 
     case 'questions':
-      // 실제 응답 수 계산 (빈 문자열 제외)
-      const actualAnsweredCount = Object.values(state.answers).filter((v) => v !== '').length;
       return (
         <ExamQuestionStep
           questions={state.questions}
           currentPage={state.currentPage}
           totalPages={state.totalPages}
-          answeredCount={actualAnsweredCount}
+          answeredCount={state.answeredCount}
           totalQuestions={state.totalQuestions}
           answers={state.answers}
           savingQuestionNo={savingQuestionNo}
@@ -521,6 +809,10 @@ export const ExamPage: React.FC = () => {
       );
 
     case 'complete':
+      // 회원/게스트 분기
+      if (user && user.memberType !== 'guest') {
+        return <MemberCompleteStep userName={user.name} />;
+      }
       return (
         <ExamCompleteStep
           studentNumber={state.studentNumber!}

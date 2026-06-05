@@ -3,11 +3,11 @@ import styled from '@emotion/styled';
 type BadgeVariant = 'warning' | 'balance' | 'excellent' | 'success' | 'error' | 'info' | 'default';
 type StudentType =
   | '자원소진형'
-  | '안전균형형'
-  | '몰입자원풍부형'
-  | '무기력형'
-  | '정서조절취약형'
-  | '자기주도몰입형';
+  | '안전 균형형'
+  | '몰입자원 풍부형'
+  | '냉소적 무기력형'
+  | '정서조절 취약형'
+  | '자기주도 몰입형';
 
 interface BadgeProps {
   variant?: BadgeVariant;
@@ -29,11 +29,11 @@ const StyledBadge = styled.span<{ $variant: BadgeVariant; $type?: StudentType }>
     if ($type) {
       const typeColorMap: Record<StudentType, string> = {
         자원소진형: theme.colors.type.warning,
-        무기력형: theme.colors.type.warning,
-        안전균형형: theme.colors.type.balance,
-        정서조절취약형: theme.colors.type.balance,
-        몰입자원풍부형: theme.colors.type.excellent,
-        자기주도몰입형: theme.colors.type.excellent,
+        '냉소적 무기력형': theme.colors.type.warning,
+        '안전 균형형': theme.colors.type.balance,
+        '정서조절 취약형': theme.colors.type.caution,
+        '몰입자원 풍부형': theme.colors.type.excellent,
+        '자기주도 몰입형': theme.colors.type.excellent,
       };
       const color = typeColorMap[$type] || theme.colors.gray[400];
       return `
@@ -68,4 +68,6 @@ export const Badge = ({ variant = 'default', type, children, className }: BadgeP
   );
 };
 
-export const TypeBadge = ({ type }: { type: StudentType }) => <Badge type={type}>{type}</Badge>;
+export const TypeBadge = ({ type }: { type: StudentType }) => (
+  <Badge type={type}>{type}</Badge>
+);

@@ -1,21 +1,12 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { User, AuthState } from '@shared/types';
-import { MOCK_TEACHER } from '@shared/data/mockData';
-import { apiClient } from '@shared/api/client';
-import type { TestCredentials } from '../ui';
+import { getAuth } from '@shared/lib/authClient';
+import type { AuthUser } from '@shared/lib/authClient';
 
 // ============================================================
 // Context 타입 정의
 // ============================================================
-
-interface SignUpData {
-  name: string;
-  email: string;
-  password: string;
-  gender?: 'M' | 'F';
-  roleCode: 'TEACHER' | 'STUDENT';
-}
 
 /** 게스트 로그인 정보 */
 interface GuestLoginInfo {
@@ -24,28 +15,16 @@ interface GuestLoginInfo {
   groupNm: string;
   email: string;
   accessToken: string;
-  refreshToken: string;
+  guestId?: string;
 }
 
 interface AuthContextType extends AuthState {
-  /** 테스트 로그인 (credentials 저장) */
-  loginWithCredentials: (credentials: TestCredentials) => Promise<void>;
-  /** 이메일/비밀번호 로그인 */
-  loginWithEmail: (email: string, password: string) => Promise<void>;
   /** 게스트 로그인 (토큰 기반) */
   loginAsGuest: (info: GuestLoginInfo) => void;
   /** 사용자 정보 부분 업데이트 */
   updateUser: (updates: Partial<User>) => void;
-  /** 이메일 인증코드 발송 */
-  sendCode: (email: string) => Promise<void>;
-  /** 이메일 인증코드 확인 */
-  verifyCode: (email: string, code: string) => Promise<void>;
-  /** 회원가입 */
-  signUp: (data: SignUpData) => Promise<void>;
-  /** 로그아웃 */
+  /** 로그아웃 — SDK가 Auth 서버 세션까지 삭제 */
   logout: () => void;
-  /** 테스트용 credentials (API 호출 시 사용) */
-  credentials: TestCredentials | null;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -55,7 +34,6 @@ const AuthContext = createContext<AuthContextType | null>(null);
 // ============================================================
 
 const AUTH_STORAGE_KEY = 'meta_auth_user';
-const CREDENTIALS_STORAGE_KEY = 'meta_test_credentials';
 
 // ============================================================
 // Provider 컴포넌트
@@ -65,176 +43,88 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+/**
+ * Auth SDK 기반으로 전환된 AuthProvider.
+ *
+ * SSO 전환으로 제거된 기능:
+ * - loginWithCredentials (테스트 로그인)
+ * - loginWithEmail (이메일/비밀번호 로그인) → auth.login()으로 대체
+ * - signUp (회원가입) → Auth 서버에서 처리
+ * - sendCode / verifyCode (가입용 이메일 인증) → Auth 서버에서 처리
+ *
+ * SDK의 auth.login()은 Auth 서버로 리다이렉트하므로 AuthContext가 아닌
+ * useSpAuth() 훅 또는 getAuth().login()을 직접 사용한다.
+ */
+// 로그아웃 진행 중 플래그 — SDK clearTokens() → onAuthChange(null) → React re-render 방지
+let loggingOut = false;
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, setState] = useState<AuthState>({
     user: null,
     isAuthenticated: false,
     isLoading: true,
   });
-  const [credentials, setCredentials] = useState<TestCredentials | null>(null);
 
-  // 초기 세션 확인
+  // SDK 인증 상태와 동기화
   useEffect(() => {
-    const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
-    const storedCredentials = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
+    const auth = getAuth();
 
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser) as User;
-        const creds = storedCredentials ? (JSON.parse(storedCredentials) as TestCredentials) : null;
+    // SDK에서 현재 사용자 가져오기
+    const sdkUser = auth.getUser();
+    if (sdkUser) {
+      const user = mapSdkUserToUser(sdkUser);
+      // localStorage에 학심정 서비스 데이터가 있으면 병합
+      const storedUser = loadStoredUser();
+      // SDK가 Truth — 현재 로그인한 사용자의 name/email이 localStorage 잔존 데이터를 덮어씀
+      // A → 로그아웃 → B 로그인 시 A 이름 잔존 방지
+      const merged = storedUser ? { ...storedUser, ...user } : user;
+      setState({ user: merged, isAuthenticated: true, isLoading: false });
+    } else {
+      setState({ user: null, isAuthenticated: false, isLoading: false });
+    }
 
-        // localStorage의 이름을 현재 MOCK_TEACHER 이름과 동기화 (테스트 로그인 케이스)
-        if (creds) {
-          const synced: User = { ...user, name: MOCK_TEACHER.name };
-          if (synced.name !== user.name) {
-            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(synced));
-          }
-          setState({ user: synced, isAuthenticated: true, isLoading: false });
-          setCredentials(creds);
-        } else {
-          setState({ user, isAuthenticated: true, isLoading: false });
-        }
-      } catch {
+    // SDK 인증 상태 변경 리스너
+    const unsubscribe = auth.onAuthChange((sdkUser: AuthUser | null) => {
+      // 로그아웃 진행 중이면 React 상태 업데이트 하지 않음
+      // (ProtectedLayout → /login → LoginPage auto-login race condition 방지)
+      if (loggingOut) return;
+
+      if (sdkUser) {
+        const user = mapSdkUserToUser(sdkUser);
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+        setState({ user, isAuthenticated: true, isLoading: false });
+      } else {
         localStorage.removeItem(AUTH_STORAGE_KEY);
-        localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
         setState({ user: null, isAuthenticated: false, isLoading: false });
       }
-    } else {
-      setState((prev) => ({ ...prev, isLoading: false }));
-    }
+    });
+
+    return unsubscribe;
   }, []);
 
-  // client.ts에서 refresh 실패 시 발생하는 이벤트 + 다른 탭 로그아웃 동기화
-  useEffect(() => {
-    const handleForceLogout = () => {
-      setCredentials(null);
-      setState({ user: null, isAuthenticated: false, isLoading: false });
-    };
-
-    const handleStorageChange = (e: StorageEvent) => {
-      // 다른 탭에서 auth_token이 제거되면 (로그아웃) 현재 탭도 로그아웃
-      if (e.key === 'auth_token' && !e.newValue) {
-        handleForceLogout();
-      }
-    };
-
-    window.addEventListener('auth:logout', handleForceLogout);
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('auth:logout', handleForceLogout);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
-
-  // 테스트 로그인
-  const loginWithCredentials = useCallback(async (creds: TestCredentials) => {
-    setState((prev) => ({ ...prev, isLoading: true }));
-
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const user: User = {
-      id: `test-${creds.teacherId}`,
-      name: MOCK_TEACHER.name,
-      email: `${creds.teacherId}@test.com`,
-      memberType: 'vivasam',
-      provider: 'vivasam',
-      schoolName: '테스트 학교',
-    };
-
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-    localStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(creds));
-
-    setCredentials(creds);
-    setState({ user, isAuthenticated: true, isLoading: false });
-  }, []);
-
-  // 게스트 로그인 (토큰 기반)
+  // 게스트 로그인 — SDK setGuestToken 사용
   const loginAsGuest = useCallback((info: GuestLoginInfo) => {
-    localStorage.setItem('auth_token', info.accessToken);
-    localStorage.setItem('refresh_token', info.refreshToken);
+    const auth = getAuth();
+    auth.setGuestToken(info.accessToken);
 
     const user: User = {
       id: info.stdtId,
+      spUserId: info.guestId || info.stdtId,
       name: info.email.split('@')[0],
       email: info.email,
       memberType: 'guest',
-      provider: 'vivasam',
+      provider: 'sso',
       roleCode: 'GUEST',
       stdtId: info.stdtId,
       classId: info.claId,
-    };
-
-    localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-    setCredentials(null);
-    setState({ user, isAuthenticated: true, isLoading: false });
-  }, []);
-
-  // 이메일/비밀번호 로그인 — isLoading을 건드리지 않음 (로딩은 호출자가 관리)
-  const loginWithEmail = useCallback(async (email: string, password: string) => {
-    const res = await apiClient.post<{
-      userNo: number;
-      email: string;
-      nickname: string;
-      gender: string;
-      roleCode: string;
-      tcId: string | null;
-      stdtId: string | null;
-      accessToken: string;
-      refreshToken: string;
-    }>('/member/login', { email, password });
-
-    const data = res.resultData;
-
-    localStorage.setItem('auth_token', data.accessToken);
-    localStorage.setItem('refresh_token', data.refreshToken);
-
-    const user: User = {
-      id: String(data.userNo),
-      name: data.nickname,
-      email: data.email,
-      memberType: 'general',
-      provider: 'vivasam',
-      roleCode: data.roleCode,
-      ...(data.tcId ? { tcId: data.tcId } : {}),
-      ...(data.stdtId ? { stdtId: data.stdtId } : {}),
+      userType: 'GUEST',
     };
 
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
     setState({ user, isAuthenticated: true, isLoading: false });
   }, []);
 
-  // 이메일 인증코드 발송
-  const sendCode = useCallback(async (email: string) => {
-    await apiClient.post('/member/send-code', { email });
-  }, []);
-
-  // 이메일 인증코드 확인
-  const verifyCode = useCallback(async (email: string, code: string) => {
-    await apiClient.post('/member/verify-code', { email, code });
-  }, []);
-
-  // 회원가입 (가입 완료 후 자동 로그인)
-  const signUp = useCallback(async (data: SignUpData) => {
-    setState((prev) => ({ ...prev, isLoading: true }));
-
-    try {
-      await apiClient.post('/member/signup', {
-        email: data.email,
-        password: data.password,
-        nickname: data.name,
-        gender: data.gender,
-        roleCode: data.roleCode,
-      });
-      await loginWithEmail(data.email, data.password);
-    } catch (err) {
-      setState((prev) => ({ ...prev, isLoading: false }));
-      throw err;
-    }
-  }, [loginWithEmail]);
-
-  // 사용자 정보 업데이트
+  // 사용자 정보 업데이트 (학심정 서비스 데이터)
   const updateUser = useCallback((updates: Partial<User>) => {
     setState((prev) => {
       if (!prev.user) return prev;
@@ -244,42 +134,56 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
   }, []);
 
-  // 로그아웃
+  // 로그아웃 — SDK가 Auth 서버 SSO 세션까지 삭제
   const logout = useCallback(() => {
-    const refreshToken = localStorage.getItem('refresh_token');
-
-    // 백엔드 로그아웃 (refreshToken 무효화) — 실패해도 클라이언트는 로그아웃
-    if (refreshToken) {
-      apiClient.post('/member/logout', { refreshToken }).catch(() => {});
-    }
-
+    // 플래그 설정: SDK clearTokens() → onAuthChange(null) 시 React re-render 방지
+    // 이 플래그가 없으면 ProtectedLayout → /login → LoginPage auto-login이
+    // SDK의 /oauth2/logout 리다이렉트보다 먼저 실행되어 로그아웃이 안 됨
+    loggingOut = true;
     localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
-    setCredentials(null);
-    setState({ user: null, isAuthenticated: false, isLoading: false });
+    const auth = getAuth();
+    auth.logout(); // 브라우저 리다이렉트 발생 (페이지 이동 후 플래그 자동 리셋)
   }, []);
 
   return (
     <AuthContext.Provider
       value={{
         ...state,
-        loginWithCredentials,
-        loginWithEmail,
         loginAsGuest,
         updateUser,
-        sendCode,
-        verifyCode,
-        signUp,
         logout,
-        credentials,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
 };
+
+// ============================================================
+// 헬퍼
+// ============================================================
+
+function mapSdkUserToUser(sdkUser: AuthUser): User {
+  return {
+    id: sdkUser.publicUserId,
+    spUserId: sdkUser.publicUserId,
+    name: sdkUser.name,
+    email: sdkUser.email,
+    memberType: sdkUser.userType === 'GUEST' ? 'guest' : 'general',
+    provider: 'sso',
+    userType: sdkUser.userType,
+    roleCode: sdkUser.userType, // TEACHER/STUDENT — useProfileCheck에서 정확한 값으로 덮어씀
+  };
+}
+
+function loadStoredUser(): User | null {
+  try {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as User) : null;
+  } catch {
+    return null;
+  }
+}
 
 // ============================================================
 // Hook

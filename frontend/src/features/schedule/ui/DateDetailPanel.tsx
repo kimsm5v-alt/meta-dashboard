@@ -1,6 +1,6 @@
 import styled from '@emotion/styled';
 import { X, Plus, User, Users, Phone, Video, AlertCircle, Clock } from 'lucide-react';
-import type { UnifiedCounselingRecord } from '@shared/types';
+import type { CounselingRecord } from '@shared/types';
 import { COUNSELING_AREA_LABELS, COUNSELING_METHOD_LABELS } from '@shared/types';
 import { Button } from '@shared/components';
 import { SCHEDULE_CLASSES, CLASS_COLORS } from '@shared/data/mockUnifiedCounseling';
@@ -212,10 +212,10 @@ const Footer = styled.div`
 
 interface DateDetailPanelProps {
   date: Date;
-  schedules: UnifiedCounselingRecord[];
+  schedules: CounselingRecord[];
   onClose: () => void;
   onAddClick: () => void;
-  onScheduleClick: (schedule: UnifiedCounselingRecord) => void;
+  onScheduleClick: (schedule: CounselingRecord) => void;
 }
 
 const formatDate = (date: Date): string => {
@@ -281,10 +281,7 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
             .map((schedule) => {
               const scheduleTime = schedule.scheduledAt.split(' ')[1] || '09:00';
               return (
-                <ScheduleCard
-                  key={schedule.id}
-                  onClick={() => onScheduleClick(schedule)}
-                >
+                <ScheduleCard key={schedule.id} onClick={() => onScheduleClick(schedule)}>
                   {/* 상단: 시간 + 긴급 + 유형 */}
                   <ScheduleHeader>
                     <ScheduleTimeGroup>
@@ -314,14 +311,10 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
                     {schedule.students.length > 1 && (
                       <StudentTagList>
                         {schedule.students.slice(1, 4).map((s) => (
-                          <StudentTag key={s.id}>
-                            {s.name}
-                          </StudentTag>
+                          <StudentTag key={s.id}>{s.name}</StudentTag>
                         ))}
                         {schedule.students.length > 4 && (
-                          <StudentTagCount>
-                            +{schedule.students.length - 4}
-                          </StudentTagCount>
+                          <StudentTagCount>+{schedule.students.length - 4}</StudentTagCount>
                         )}
                       </StudentTagList>
                     )}
@@ -347,9 +340,7 @@ export const DateDetailPanel: React.FC<DateDetailPanelProps> = ({
                   </CounselingInfo>
 
                   {/* 사유 */}
-                  {schedule.reason && (
-                    <Reason>{schedule.reason}</Reason>
-                  )}
+                  {schedule.reason && <Reason>{schedule.reason}</Reason>}
                 </ScheduleCard>
               );
             })

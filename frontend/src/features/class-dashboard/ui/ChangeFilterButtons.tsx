@@ -1,13 +1,7 @@
 import type React from 'react';
 import styled from '@emotion/styled';
 
-export type ChangeFilter =
-  | 'all'
-  | 'reliability-warning'
-  | 'need-attention'
-  | 'negative'
-  | 'positive'
-  | 'not-assessed';
+export type ChangeFilter = 'all' | 'reliability-warning' | 'need-attention' | 'type-change';
 
 interface FilterOption {
   value: ChangeFilter;
@@ -48,31 +42,13 @@ const FILTER_OPTIONS: FilterOption[] = [
     hoverBg: '#fef3c7',
   },
   {
-    value: 'negative',
-    label: '부정 변화',
-    activeBg: '#ef4444',
-    activeColor: '#ffffff',
-    inactiveBg: '#fef2f2',
-    inactiveColor: '#b91c1c',
-    hoverBg: '#fee2e2',
-  },
-  {
-    value: 'positive',
-    label: '긍정 변화',
+    value: 'type-change',
+    label: '유형 변화',
     activeBg: '#10b981',
     activeColor: '#ffffff',
     inactiveBg: '#d1fae5',
     inactiveColor: '#047857',
     hoverBg: '#a7f3d0',
-  },
-  {
-    value: 'not-assessed',
-    label: '2차 미실시',
-    activeBg: '#4b5563',
-    activeColor: '#ffffff',
-    inactiveBg: '#f3f4f6',
-    inactiveColor: '#4b5563',
-    hoverBg: '#e5e7eb',
   },
 ];
 

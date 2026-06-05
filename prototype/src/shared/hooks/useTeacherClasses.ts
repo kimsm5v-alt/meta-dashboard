@@ -75,8 +75,10 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         return;
       }
 
-      // 1. 교사의 그룹 목록을 먼저 조회하여 claId 목록 확보
+      // 1. 교사의 그룹 목록을 먼저 조회하여 claId 목록 및 학년/반/학교급 정보 확보
       let claIds: string[] = [];
+      const groupMap = new Map<string, { grade: number; classNumber: number; schoolLevel: SchoolLevel }>();
+
       if (claId) {
         // useCredentials에서 claId가 있으면 그것 사용
         claIds = [claId];
@@ -85,6 +87,14 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         try {
           const groups = await getMyGroups(effectiveTcId);
           claIds = groups.map(g => g.claId);
+          // 그룹 정보를 Map에 저장 (claId -> {grade, classNumber, schoolLevel})
+          groups.forEach(g => {
+            groupMap.set(g.claId, {
+              grade: g.grade,
+              classNumber: g.classNumber,
+              schoolLevel: g.schoolLevel
+            });
+          });
         } catch (err) {
           console.warn('Failed to fetch groups, trying without claId:', err);
           claIds = ['']; // fallback
@@ -138,9 +148,11 @@ export function useTeacherClasses(): UseTeacherClassesResult {
 
       // 학급 데이터 병렬 구축
       const classPromises = Array.from(classExamMap.entries()).map(async ([examClaId, dgnssIds]) => {
-        const parts = examClaId.split('-');
-        const grade = parseInt(parts[0], 10) || 1;
-        const classNumber = parseInt(parts[1], 10) || 1;
+        // groupMap에서 학년/반/학교급 정보 가져오기, 없으면 기본값 사용
+        const groupInfo = groupMap.get(examClaId);
+        const grade = groupInfo?.grade ?? 1;
+        const classNumber = groupInfo?.classNumber ?? 1;
+        const schoolLevel = groupInfo?.schoolLevel ?? credSchoolLevel;
 
         const primaryDgnssId = dgnssIds.round1 ?? dgnssIds.round2;
         if (!primaryDgnssId) return null;
@@ -149,7 +161,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
           examClaId,
           grade,
           classNumber,
-          credSchoolLevel,
+          schoolLevel,
           primaryDgnssId,
           dgnssIds.round2
         );

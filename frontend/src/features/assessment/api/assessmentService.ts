@@ -94,12 +94,9 @@ export async function startExam(
 export async function fetchExamList(
   claId: string,
   _tcId: string,
-  paperIdx?: string,
+  _paperIdx?: string,
 ): Promise<ExamListItem[]> {
   let endpoint = `/api/dgnss/tc/info?claId=${claId}`;
-  if (paperIdx) {
-    endpoint += `&paperIdx=${paperIdx}`;
-  }
 
   const res = await apiClient.get<ExamListResponse | ExamListItem[]>(endpoint);
   const resultData = res.resultData;
@@ -154,7 +151,7 @@ export async function restartExam(
 
 /** 미제출 학생 항목 */
 export interface NotSubmittedStudent {
-  stdtId: string;
+  nickname: string;
 }
 
 /**

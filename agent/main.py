@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.models.schemas import AgentQuery, AgentResponse
@@ -7,6 +7,9 @@ from app.services.agent_service import meta_agent_service
 import logging
 import json
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
+from app.tools import Neo4jConnectionManager
+from app.core import tracing
 
 # 환경 변수 로드 (.env 파일이 없어도 시스템 환경 변수 우선 인식)
 load_dotenv()
@@ -16,10 +19,35 @@ DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", 8000))
 
+# 로깅 설정 (Lifespan에서 logger를 먼저 사용할 수 있도록 위치 상향)
+log_level = logging.DEBUG if DEBUG else logging.INFO
+logging.basicConfig(level=log_level)
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # LangSmith 트레이싱 초기화 (실패해도 서비스는 계속 기동)
+    try:
+        tracing.initialize()
+    except Exception as e:
+        logger.warning(f"LangSmith 트레이싱 초기화 실패, 비활성화 모드로 계속: {e}")
+    # Startup: Neo4j 연결 검증 (실패해도 텍스트 추론은 가능하므로 degraded mode로 가동)
+    logger.info("Starting up: Verifying Neo4j connection...")
+    try:
+        await Neo4jConnectionManager.verify()
+        logger.info("Neo4j connectivity OK.")
+    except Exception as e:
+        logger.warning(f"Neo4j unavailable at startup, will operate in degraded mode: {e}")
+    yield
+    # Shutdown: 리소스 해제
+    logger.info("Shutting down: Closing Neo4j connection...")
+    await Neo4jConnectionManager.close()
+
 app = FastAPI(
     title="Meta Dashboard AI Agent", 
     version="1.0.0",
-    debug=DEBUG
+    debug=DEBUG,
+    lifespan=lifespan
 )
 
 # CORS 설정: 지정된 도메인으로부터의 요청을 허용함
@@ -37,10 +65,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 로깅 설정 (DEBUG 모드에 따른 레벨 조정)
-log_level = logging.DEBUG if DEBUG else logging.INFO
-logging.basicConfig(level=log_level)
-logger = logging.getLogger(__name__)
+
 
 @app.get("/")
 async def root():

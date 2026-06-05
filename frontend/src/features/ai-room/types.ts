@@ -6,7 +6,7 @@ export type ContextMode = 'all' | 'class' | 'student';
 // 채팅 메시지
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
 }

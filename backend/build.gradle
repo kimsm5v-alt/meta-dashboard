@@ -57,6 +57,7 @@ dependencies {
     implementation 'com.mysql:mysql-connector-j:8.3.0'
     implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
     implementation 'org.apache.commons:commons-dbcp2:2.9.0'
+    implementation 'org.neo4j.driver:neo4j-java-driver:5.28.5'
 
     // ===== Swagger =====
     implementation 'org.springdoc:springdoc-openapi-ui:1.7.0'
@@ -92,9 +93,19 @@ dependencies {
     implementation 'org.bouncycastle:bcprov-jdk18on:1.77'
     implementation 'org.owasp.encoder:encoder:1.2.3'
     implementation 'org.json:json:20240303'
-    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
-    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
-    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
+    // ===== OAuth2 Resource Server (JWKS RS256 JWT 검증) =====
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+
+    // jjwt 제거 완료 — Auth 서버가 JWT 발급, 학심정은 JWKS 공개키로 검증 (oauth2-resource-server)
+
+    // ===== Notification Phase 2 — Redis Pub/Sub + ShedLock =====
+    // 토글로 켜고 끄는 구조이므로 의존성 자체는 항상 포함.
+    // 토글 OFF 시 RedisAutoConfiguration 빈은 등록되지만 Lettuce가 lazy connect라
+    // 실제 Redis 미가용 환경에서도 startup 안 깨짐. 기동 회귀 확인 필수.
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'net.javacrumbs.shedlock:shedlock-spring:4.46.0'
+    implementation 'net.javacrumbs.shedlock:shedlock-provider-jdbc-template:4.46.0'
 
     // ===== Test =====
     testImplementation('org.springframework.boot:spring-boot-starter-test') {

@@ -17,9 +17,13 @@ import { SUB_CATEGORY_FACTORS } from '@shared/data/factors';
 /**
  * 4단계 해석 가이드 계산
  * @param tScores - Assessment.tScores (number[38])
+ * @param apiMidScores - API에서 받은 중분류 점수 (DEPTH=4). 우선 사용됨
  */
-export function calculate4StepDiagnosis(tScores: number[]) {
-  const mid = calculateMidCategories(tScores);
+export function calculate4StepDiagnosis(
+  tScores: number[],
+  apiMidScores?: Record<string, number> | null,
+) {
+  const mid = calculateMidCategories(tScores, apiMidScores);
 
   const step1 = calculateStep1(mid);
   const step2 = calculateStep2(mid);
@@ -34,26 +38,37 @@ export function calculate4StepDiagnosis(tScores: number[]) {
 // ============================================================
 
 /**
- * SUB_CATEGORY_FACTORS 활용하여 중분류 T점수 평균 계산
+ * 중분류 T점수 계산
+ * @param tScores - 38개 요인 T점수
+ * @param apiMidScores - API 중분류 점수 (우선 사용)
+ * @returns 11개 중분류 점수
  */
-function calculateMidCategories(tScores: number[]) {
+function calculateMidCategories(
+  tScores: number[],
+  apiMidScores?: Record<string, number> | null,
+) {
   const calcAverage = (indices: number[]) => {
     const sum = indices.reduce((acc, idx) => acc + tScores[idx], 0);
     return sum / indices.length;
   };
 
+  // API 데이터 우선, 없으면 프론트엔드 계산
+  const getValue = (key: string, indices: number[]) => {
+    return apiMidScores?.[key] ?? calcAverage(indices);
+  };
+
   return {
-    긍정적자아: calcAverage(SUB_CATEGORY_FACTORS['긍정적자아']),
-    대인관계능력: calcAverage(SUB_CATEGORY_FACTORS['대인관계능력']),
-    메타인지: calcAverage(SUB_CATEGORY_FACTORS['메타인지']),
-    학습기술: calcAverage(SUB_CATEGORY_FACTORS['학습기술']),
-    지지적관계: calcAverage(SUB_CATEGORY_FACTORS['지지적관계']),
-    학업열의: calcAverage(SUB_CATEGORY_FACTORS['학업열의']),
-    성장력: calcAverage(SUB_CATEGORY_FACTORS['성장력']),
-    학업스트레스: calcAverage(SUB_CATEGORY_FACTORS['학업스트레스']),
-    학습방해물: calcAverage(SUB_CATEGORY_FACTORS['학습방해물']),
-    학업관계스트레스: calcAverage(SUB_CATEGORY_FACTORS['학업관계스트레스']),
-    학업소진: calcAverage(SUB_CATEGORY_FACTORS['학업소진']),
+    긍정적자아: getValue('긍정적자아', SUB_CATEGORY_FACTORS['긍정적자아']),
+    대인관계능력: getValue('대인관계능력', SUB_CATEGORY_FACTORS['대인관계능력']),
+    메타인지: getValue('메타인지', SUB_CATEGORY_FACTORS['메타인지']),
+    학습기술: getValue('학습기술', SUB_CATEGORY_FACTORS['학습기술']),
+    지지적관계: getValue('지지적관계', SUB_CATEGORY_FACTORS['지지적관계']),
+    학업열의: getValue('학업열의', SUB_CATEGORY_FACTORS['학업열의']),
+    성장력: getValue('성장력', SUB_CATEGORY_FACTORS['성장력']),
+    학업스트레스: getValue('학업스트레스', SUB_CATEGORY_FACTORS['학업스트레스']),
+    학습방해물: getValue('학습방해물', SUB_CATEGORY_FACTORS['학습방해물']),
+    학업관계스트레스: getValue('학업관계스트레스', SUB_CATEGORY_FACTORS['학업관계스트레스']),
+    학업소진: getValue('학업소진', SUB_CATEGORY_FACTORS['학업소진']),
   };
 }
 

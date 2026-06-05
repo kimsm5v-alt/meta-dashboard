@@ -252,6 +252,23 @@ export interface StudentInfoItem {
   styPer: string;
   satisPer: string;
   cnsl: string;
+  nickname?: string;
+  memberNo?: number;
+  lpaStatus?: string;
+  lpaClassId?: string;
+  lpaTypeName?: string;
+  lpaConfidence?: number;
+  lpaTop1ClassId?: string;
+  lpaTop1TypeName?: string;
+  lpaTop1Probability?: number;
+  lpaTop2ClassId?: string;
+  lpaTop2TypeName?: string;
+  lpaTop2Probability?: number;
+  lpaTop3ClassId?: string;
+  lpaTop3TypeName?: string;
+  lpaTop3Probability?: number;
+  lpaProbabilitiesJson?: string;
+  scores?: Record<string, unknown>;
 }
 
 /** 학생 정보 목록 응답 */

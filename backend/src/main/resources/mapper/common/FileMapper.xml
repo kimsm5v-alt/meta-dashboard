@@ -42,29 +42,58 @@
             , a1.del_yn AS delYn
             , a1.prsinfo_yn AS prsInfoYn
             , tdri.stdt_id AS userId
-            , sri.flnm AS userNm
+            , COALESCE(gm_st.nickname, tdri.stdt_id) AS userNm
             , tdri.file_url AS fileUrl
             , tdi.paper_idx AS paperIdx
             , tdi.ord_no AS ordNo
             <choose>
                 <when test='rgtr != null and rgtr != ""'>
                     , CASE
-                    WHEN a1.rgtr = #{rgtr} OR (
-                    EXISTS(/*본인이 올린 파일 또는 같은 반 학생이 올린 파일을 교사가 보는 경우*/
-                    SELECT 1
-                    FROM  tc_cla_mb_info a2_1
-                    WHERE a2_1.user_id = #{rgtr}
-                    AND   a2_1.stdt_id = a1.rgtr
-                    AND   a2_1.actvtn_at = 'Y'
+                    WHEN a1.rgtr = #{rgtr}
+                      OR (
+                        /* 요청자가 해당 검사 클래스의 교사이고, 생성자가 해당 클래스의 교사/학생인 경우 */
+                        EXISTS (
+                            SELECT 1
+                            FROM group_info gi_req_tc
+                                     INNER JOIN user u_req_tc ON gi_req_tc.host_user_no = u_req_tc.user_no
+                            WHERE gi_req_tc.cla_id = tdi.cla_id
+                              AND u_req_tc.tc_id = #{rgtr}
+                        )
+                        AND (
+                            EXISTS (
+                                SELECT 1
+                                FROM group_info gi_creator_tc
+                                         INNER JOIN user u_creator_tc ON gi_creator_tc.host_user_no = u_creator_tc.user_no
+                                WHERE gi_creator_tc.cla_id = tdi.cla_id
+                                  AND u_creator_tc.tc_id = a1.rgtr
+                            )
+                            OR EXISTS (
+                                SELECT 1
+                                FROM group_info gi_creator_st
+                                         INNER JOIN group_member gm_creator_st ON gi_creator_st.group_id = gm_creator_st.group_id
+                                WHERE gi_creator_st.cla_id = tdi.cla_id
+                                  AND gm_creator_st.stdt_id = a1.rgtr
+                            )
+                        )
                     )
-                    ) OR (
-                    a1.rgtr = (
-                    SELECT a3_1.user_id
-                    FROM tc_cla_mb_info a3_1
-                    WHERE a3_1.stdt_id = #{rgtr}
-                    AND   a3_1.actvtn_at = 'Y'
+                      OR (
+                        /* 요청자가 해당 검사 클래스의 학생이고 생성자가 해당 클래스 교사인 경우 */
+                        EXISTS (
+                            SELECT 1
+                            FROM group_info gi_req_st
+                                     INNER JOIN group_member gm_req_st ON gi_req_st.group_id = gm_req_st.group_id
+                            WHERE gi_req_st.cla_id = tdi.cla_id
+                              AND gm_req_st.stdt_id = #{rgtr}
+                        )
+                        AND EXISTS (
+                            SELECT 1
+                            FROM group_info gi_creator_tc2
+                                     INNER JOIN user u_creator_tc2 ON gi_creator_tc2.host_user_no = u_creator_tc2.user_no
+                            WHERE gi_creator_tc2.cla_id = tdi.cla_id
+                              AND u_creator_tc2.tc_id = a1.rgtr
+                        )
                     )
-                    ) THEN 'Y'
+                    THEN 'Y'
                     ELSE 'N'
                     END downloadAuthYn
                 </when>
@@ -73,12 +102,14 @@
                 </otherwise>
             </choose>
         FROM file a1
-             INNER JOIN aidt_diagnosis.tb_dgnss_result_info tdri ON a1.file_name = SUBSTRING_INDEX(tdri.file_url, '/', -1)
+             INNER JOIN tb_dgnss_result_info tdri ON a1.file_name = SUBSTRING_INDEX(tdri.file_url, '/', -1)
                     AND a1.file_path = CONCAT(SUBSTRING_INDEX(tdri.file_url, '/', LENGTH(tdri.file_url) - LENGTH(REPLACE(tdri.file_url, '/', ''))), '/')
                     AND tdri.file_url IS NOT NULL
                     AND tdri.file_url != ''
-            INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
-                    INNER JOIN aidt_lms.stdt_reg_info sri ON tdri.stdt_id = sri.user_id
+            INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
+            LEFT JOIN group_info gi ON tdi.cla_id = gi.cla_id
+            LEFT JOIN group_member gm_st ON gi.group_id = gm_st.group_id
+                                      AND gm_st.stdt_id = tdri.stdt_id
         WHERE tdi.id = #{dgnssId}
           AND a1.file_extension = 'pdf'
     </select>
@@ -131,14 +162,11 @@
             , tdi.paper_idx AS paperIdx
             , tdi.ord_no AS ordNo
             , tdi.tc_id AS tcId
-            , CASE
-                WHEN tci.cla_nm LIKE '%반' THEN tci.cla_nm
-                ELSE CONCAT(tci.cla_nm, '반')
-              END AS claNm
+            , gi.group_nm AS claNm
             , u.ptn_id AS ptnId
-        FROM aidt_diagnosis.tb_dgnss_info tdi
-        LEFT JOIN aidt_lms.tc_cla_info tci ON tdi.cla_id = tci.cla_id
-        LEFT JOIN aidt_lms.USER u ON tdi.tc_id = u.user_id
+        FROM tb_dgnss_info tdi
+        LEFT JOIN group_info gi ON tdi.cla_id = gi.cla_id
+        LEFT JOIN USER u ON tdi.tc_id = u.user_id
         WHERE tdi.id = #{dgnssId}
     </select>
 
@@ -157,29 +185,58 @@
              , a1.del_yn as delYn
              , a1.prsinfo_yn as prsInfoYn
              , tdri.stdt_id AS userId
-             , sri.flnm AS userNm
+             , COALESCE(gm_st.nickname, tdri.stdt_id) AS userNm
              , tdri.summary_file_url AS fileUrl
              , tdi.paper_idx AS paperIdx
              , tdi.ord_no AS ordNo
                 <choose>
                     <when test='rgtr != null and rgtr != ""'>
                         , case
-                        when a1.rgtr = #{rgtr} or (
-                        exists(/*본인이 올린 파일 또는 같은 반 학생이 올린 파일을 교사가 보는 경우*/
-                        select 1
-                        from  tc_cla_mb_info a2_1
-                        where a2_1.user_id = #{rgtr}
-                        and   a2_1.stdt_id = a1.rgtr
-                        and   a2_1.actvtn_at = 'Y'
+                        when a1.rgtr = #{rgtr}
+                          or (
+                            /* 요청자가 해당 검사 클래스의 교사이고, 생성자가 해당 클래스의 교사/학생인 경우 */
+                            exists (
+                                select 1
+                                from group_info gi_req_tc
+                                         inner join user u_req_tc on gi_req_tc.host_user_no = u_req_tc.user_no
+                                where gi_req_tc.cla_id = tdi.cla_id
+                                  and u_req_tc.tc_id = #{rgtr}
+                            )
+                            and (
+                                exists (
+                                    select 1
+                                    from group_info gi_creator_tc
+                                             inner join user u_creator_tc on gi_creator_tc.host_user_no = u_creator_tc.user_no
+                                    where gi_creator_tc.cla_id = tdi.cla_id
+                                      and u_creator_tc.tc_id = a1.rgtr
+                                )
+                                or exists (
+                                    select 1
+                                    from group_info gi_creator_st
+                                             inner join group_member gm_creator_st on gi_creator_st.group_id = gm_creator_st.group_id
+                                    where gi_creator_st.cla_id = tdi.cla_id
+                                      and gm_creator_st.stdt_id = a1.rgtr
+                                )
+                            )
                         )
-                        ) or (
-                        a1.rgtr = (
-                        select a3_1.user_id
-                        from tc_cla_mb_info a3_1
-                        where a3_1.stdt_id = #{rgtr}
-                        and   a3_1.actvtn_at = 'Y'
+                          or (
+                            /* 요청자가 해당 검사 클래스의 학생이고 생성자가 해당 클래스 교사인 경우 */
+                            exists (
+                                select 1
+                                from group_info gi_req_st
+                                         inner join group_member gm_req_st on gi_req_st.group_id = gm_req_st.group_id
+                                where gi_req_st.cla_id = tdi.cla_id
+                                  and gm_req_st.stdt_id = #{rgtr}
+                            )
+                            and exists (
+                                select 1
+                                from group_info gi_creator_tc2
+                                         inner join user u_creator_tc2 on gi_creator_tc2.host_user_no = u_creator_tc2.user_no
+                                where gi_creator_tc2.cla_id = tdi.cla_id
+                                  and u_creator_tc2.tc_id = a1.rgtr
+                            )
                         )
-                        )then 'Y'
+                        then 'Y'
                         else 'N'
                         end downloadAuthYn
                     </when>
@@ -188,12 +245,14 @@
                     </otherwise>
                 </choose>
         FROM file a1
-             INNER JOIN aidt_diagnosis.tb_dgnss_result_info tdri ON a1.file_name = SUBSTRING_INDEX(tdri.summary_file_url, '/', -1)
+             INNER JOIN tb_dgnss_result_info tdri ON a1.file_name = SUBSTRING_INDEX(tdri.summary_file_url, '/', -1)
                     AND a1.file_path = CONCAT(SUBSTRING_INDEX(tdri.summary_file_url, '/', LENGTH(tdri.summary_file_url) - LENGTH(REPLACE(tdri.summary_file_url, '/', ''))), '/')
                     AND tdri.summary_file_url IS NOT NULL
                     AND tdri.summary_file_url != ''
-            INNER JOIN aidt_diagnosis.tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
-                    INNER JOIN aidt_lms.stdt_reg_info sri ON tdri.stdt_id = sri.user_id
+            INNER JOIN tb_dgnss_info tdi ON tdri.dgnss_id = tdi.id
+            LEFT JOIN group_info gi ON tdi.cla_id = gi.cla_id
+            LEFT JOIN group_member gm_st ON gi.group_id = gm_st.group_id
+                                      AND gm_st.stdt_id = tdri.stdt_id
         WHERE tdi.id = #{dgnssId}
           AND a1.file_extension = 'pdf'
     </select>
@@ -217,15 +276,45 @@
         <choose>
             <when test='rgtr != null and rgtr != ""'>
                 , CASE
-                    WHEN rgtr = #{rgtr} OR (
-                        EXISTS(
+                    WHEN a1.rgtr = #{rgtr}
+                      OR (
+                        /* 요청 교사와 생성자(교사/학생)가 같은 group_id에 속하는 경우만 허용 */
+                        EXISTS (
                             SELECT 1
-                            FROM tc_cla_mb_info a2_1
-                            WHERE 1=1
-                            AND a2_1.stdt_id = a1.rgtr
-                            AND a2_1.actvtn_at = 'Y'
+                            FROM group_info gi_req_tc
+                                     INNER JOIN user u_req_tc ON gi_req_tc.host_user_no = u_req_tc.user_no
+                                     INNER JOIN group_info gi_creator ON gi_req_tc.group_id = gi_creator.group_id
+                            WHERE u_req_tc.tc_id = #{rgtr}
+                              AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM user u_creator_tc
+                                    WHERE u_creator_tc.user_no = gi_creator.host_user_no
+                                      AND u_creator_tc.tc_id = a1.rgtr
+                                )
+                                OR EXISTS (
+                                    SELECT 1
+                                    FROM group_member gm_creator_st
+                                    WHERE gm_creator_st.group_id = gi_creator.group_id
+                                      AND gm_creator_st.stdt_id = a1.rgtr
+                                )
+                              )
                         )
-                    ) THEN 'Y'
+                    )
+                      OR (
+                        EXISTS (
+                            SELECT 1
+                            FROM group_member gm_req_st
+                            WHERE gm_req_st.stdt_id = #{rgtr}
+                        )
+                        AND EXISTS (
+                            SELECT 1
+                            FROM group_info gi_creator_tc2
+                                     INNER JOIN user u_creator_tc2 ON gi_creator_tc2.host_user_no = u_creator_tc2.user_no
+                            WHERE u_creator_tc2.tc_id = a1.rgtr
+                        )
+                    )
+                    THEN 'Y'
                     ELSE 'N'
                   END downloadAuthYn
             </when>
@@ -237,7 +326,7 @@
         WHERE 1=1
         <choose>
             <when test="fileIdx != null and fileIdx > 0">
-                AND file_idx = #{fileIdx}
+                AND id = #{fileIdx}
             </when>
             <otherwise>
                 AND file_path = #{filePath}
@@ -267,7 +356,7 @@
         WHERE 1=1
         <choose>
             <when test="fileIdx != null and fileIdx > 0">
-                AND file_idx = #{fileIdx}
+                AND id = #{fileIdx}
             </when>
             <otherwise>
                 AND file_path = #{filePath}
@@ -296,15 +385,45 @@
         <choose>
             <when test='rgtr != null and rgtr != ""'>
                 , CASE
-                    WHEN rgtr = #{rgtr} OR (
-                        EXISTS(
+                    WHEN a1.rgtr = #{rgtr}
+                      OR (
+                        /* 요청 교사와 생성자(교사/학생)가 같은 group_id에 속하는 경우만 허용 */
+                        EXISTS (
                             SELECT 1
-                            FROM tc_cla_mb_info a2_1
-                            WHERE a2_1.cla_id = (SELECT cla_id FROM tc_cla_mb_info WHERE stdt_id = a1.rgtr AND actvtn_at = 'Y')
-                            AND a2_1.stdt_id = #{rgtr}
-                            AND a2_1.actvtn_at = 'Y'
+                            FROM group_info gi_req_tc
+                                     INNER JOIN user u_req_tc ON gi_req_tc.host_user_no = u_req_tc.user_no
+                                     INNER JOIN group_info gi_creator ON gi_req_tc.group_id = gi_creator.group_id
+                            WHERE u_req_tc.tc_id = #{rgtr}
+                              AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM user u_creator_tc
+                                    WHERE u_creator_tc.user_no = gi_creator.host_user_no
+                                      AND u_creator_tc.tc_id = a1.rgtr
+                                )
+                                OR EXISTS (
+                                    SELECT 1
+                                    FROM group_member gm_creator_st
+                                    WHERE gm_creator_st.group_id = gi_creator.group_id
+                                      AND gm_creator_st.stdt_id = a1.rgtr
+                                )
+                              )
                         )
-                    ) THEN 'Y'
+                    )
+                      OR (
+                        EXISTS (
+                            SELECT 1
+                            FROM group_member gm_req_st
+                            WHERE gm_req_st.stdt_id = #{rgtr}
+                        )
+                        AND EXISTS (
+                            SELECT 1
+                            FROM group_info gi_creator_tc2
+                                     INNER JOIN user u_creator_tc2 ON gi_creator_tc2.host_user_no = u_creator_tc2.user_no
+                            WHERE u_creator_tc2.tc_id = a1.rgtr
+                        )
+                    )
+                    THEN 'Y'
                     ELSE 'N'
                   END downloadAuthYn
             </when>
@@ -316,7 +435,7 @@
         WHERE 1=1
         <choose>
             <when test="fileIdx != null and fileIdx > 0">
-                AND file_idx = #{fileIdx}
+                AND id = #{fileIdx}
             </when>
             <otherwise>
                 AND file_path = #{filePath}
@@ -329,19 +448,20 @@
 
     <select id="selectTcListFromCreator" parameterType="map" resultType="string">
         /* FileMapper.selectTcListFromCreator */
-        SELECT tcui.user_id
-        FROM aidt_lms.tc_cla_mb_info tcmi
-             INNER JOIN aidt_lms.tc_cla_user_info tcui ON tcmi.cla_id = tcui.cla_id
-        WHERE tcmi.stdt_id = #{creator}
-          AND tcmi.actvtn_at = 'Y'
+        SELECT u.tc_id
+        FROM group_info gi
+                 INNER JOIN user u ON gi.host_user_no = u.user_no
+                 INNER JOIN group_member gm ON gi.group_id = gm.group_id
+        WHERE gm.stdt_id = #{creator}
     </select>
 
     <select id="selectFileAuthStudent" parameterType="map" resultType="string">
         /* FileMapper.selectFileAuthStudent */
-        SELECT stdt_id
-        FROM aidt_lms.tc_cla_mb_info
-        WHERE user_id = #{creator}
-          AND stdt_id = #{reader}
-          AND actvtn_at = 'Y'
+        SELECT gm.stdt_id
+        FROM group_info gi
+                 INNER JOIN user u ON gi.host_user_no = u.user_no
+                 INNER JOIN group_member gm ON gi.group_id = gm.group_id
+        WHERE u.tc_id = #{creator}
+          AND gm.stdt_id = #{reader}
     </select>
 </mapper>

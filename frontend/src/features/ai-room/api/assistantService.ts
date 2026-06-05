@@ -1,27 +1,42 @@
 /**
  * AI Room 어시스턴트 서비스
  *
- * AI Room에서 교사의 질문에 AI가 응답하는 서비스입니다.
- * RAG 컨텍스트와 PII 마스킹을 적용하여 안전하고 맥락 있는 응답을 생성합니다.
+ * META AI 에이전트 API (https://t-meta-agent-api.vsaidt.com)에 연결합니다.
+ *
+ * 처리 흐름:
+ * 1. 별칭 맵 생성 (학생 이름 → student_A)  — PII 보호
+ * 2. RAG 컨텍스트 생성 (이미 별칭 처리된 데이터 포함)
+ * 3. 사용자 메시지 별칭 처리
+ * 4. 에이전트 API 호출 (session_id = 대화 ID, context_data = RAG 컨텍스트)
+ * 5. 응답에서 별칭 → 이름 복원
+ *
+ * 세션 관리: 에이전트가 session_id 기반으로 서버 측에서 대화 히스토리를 유지합니다.
  */
 
-import { callAI, type AIMessage } from '@shared/services/ai';
-import { buildAssistantPrompt } from '@shared/data/aiPrompts';
-import { buildRAGContext, restoreNames, applyAliases } from './contextBuilder';
+import { buildRAGContext, applyAliases, restoreNames, getLatestAssessment } from './contextBuilder';
+import { agentChat, agentChatStream } from './agentApiService';
 import type { ChatMessage, ContextMode, StudentAliasMap } from '../types';
 import type { Class, Student } from '@shared/types';
+import { SCHOOL_LEVEL_REVERSE_MAP } from '@shared/types';
 
 // ============================================================
 // 타입 정의
 // ============================================================
 
 export interface AssistantRequest {
+  sessionId: string;
   mode: ContextMode;
   classes: Class[];
   selectedClass: Class | null;
   selectedStudents: Student[];
+  /** 대화 히스토리 — 에이전트 초기화 시 컨텍스트로만 참조 (서버가 히스토리 관리) */
   messages: ChatMessage[];
   userMessage: string;
+  /**
+   * 사전 빌드된 RAG 컨텍스트 — 제공 시 buildRAGContext를 건너뜁니다.
+   * useConversations에서 세션당 한 번만 빌드하여 캐싱합니다.
+   */
+  cachedContext?: { ragContext: string; aliasMap: StudentAliasMap } | null;
 }
 
 export interface AssistantResponse {
@@ -29,93 +44,150 @@ export interface AssistantResponse {
   content: string;
   error?: string;
   aliasMap: StudentAliasMap;
+  /** 이번 호출에서 빌드된 RAG 컨텍스트 — 캐시가 없었을 때만 값이 있음 */
+  builtContext?: { ragContext: string; aliasMap: StudentAliasMap };
 }
+
+// ============================================================
+// 학생 프로필 빌드 (Neo4j Tool 호출용)
+// ============================================================
+
+/**
+ * student 모드 + 단일 학생일 때만 profile 객체를 생성합니다.
+ * Agent의 _build_system_prompt가 profile을 받아 Neo4j Tool 호출을 유도합니다.
+ * 검사 데이터가 없는 학생은 null을 반환하여 Tool 호출을 방지합니다.
+ */
+const buildStudentProfile = (
+  mode: ContextMode,
+  selectedStudents: Student[],
+  classes: Class[],
+): Record<string, unknown> | null => {
+  if (mode !== 'student' || selectedStudents.length !== 1) return null;
+
+  const student = selectedStudents[0];
+  const assessment = getLatestAssessment(student);
+  if (!assessment) return null;
+
+  const cls = classes.find((c) => c.id === student.classId);
+
+  return {
+    schoolLevel: SCHOOL_LEVEL_REVERSE_MAP[student.schoolLevel],
+    predictedType: assessment.predictedType,
+    grade: student.grade,
+    classNumber: cls?.classNumber ?? null,
+  };
+};
 
 // ============================================================
 // 메인 서비스 함수
 // ============================================================
 
 /**
- * AI 어시스턴트 호출
- *
- * 처리 흐름:
- * 1. 별칭 맵 생성 (학생 이름 → student_A)
- * 2. RAG 컨텍스트 생성 (T_SCRIPT 기반)
- * 3. 시스템 프롬프트에 컨텍스트 주입
- * 4. 대화 히스토리 마스킹
- * 5. AI 호출
- * 6. 응답에서 별칭 → 이름 복원
+ * AI 어시스턴트 호출 (일반 응답)
  */
 export const callAssistant = async (request: AssistantRequest): Promise<AssistantResponse> => {
-  const { mode, classes, selectedClass, selectedStudents, messages, userMessage } = request;
+  const { sessionId, mode, classes, selectedClass, selectedStudents, userMessage, cachedContext } =
+    request;
 
   try {
-    // 1. RAG 컨텍스트 생성 (별칭 맵도 함께 반환)
-    const { context: ragContext, aliasMap } = await buildRAGContext({
-      mode,
-      classes,
-      selectedClass,
-      selectedStudents,
-    });
+    // 1. RAG 컨텍스트 — 캐시가 있으면 재사용, 없으면 빌드 (API 호출 발생)
+    const { context: ragContext, aliasMap } = cachedContext
+      ? { context: cachedContext.ragContext, aliasMap: cachedContext.aliasMap }
+      : await buildRAGContext({ mode, classes, selectedClass, selectedStudents });
 
-    // 2. 시스템 프롬프트 생성 (RAG 컨텍스트 주입)
-    const systemPrompt = buildAssistantPrompt(ragContext);
-
-    // 3. 대화 히스토리 변환 (이름 → 별칭 마스킹)
-    const maskedHistory = messages
-      .filter((msg) => msg.id !== '1') // 초기 안내 메시지 제외
-      .map((msg) => ({
-        role: msg.role as 'user' | 'assistant',
-        content: applyAliases(msg.content, aliasMap),
-      }));
-
-    // 4. 현재 사용자 메시지 마스킹
+    // 2. 사용자 메시지 별칭 처리
     const maskedUserMessage = applyAliases(userMessage, aliasMap);
 
-    // 5. AI 메시지 배열 구성
-    const aiMessages: AIMessage[] = [
-      { role: 'system', content: systemPrompt },
-      ...maskedHistory,
-      { role: 'user', content: maskedUserMessage },
-    ];
+    // 3. context_data — 첫 메시지(캐시 없음)일 때만 context + profile 포함, 이후엔 null
+    const profile = buildStudentProfile(mode, selectedStudents, classes);
+    const contextData: Record<string, unknown> | null = cachedContext
+      ? null
+      : { mode, context: ragContext, ...(profile !== null ? { profile } : {}) };
 
-    // 6. AI 호출 (AI Room은 이미 별칭 처리했으므로 PII 마스킹 비활성화)
-    const response = await callAI({
-      messages: aiMessages,
-      temperature: 0.7,
-      maskPII: false,
-    });
+    // 4. 에이전트 API 호출
+    const agentResponse = await agentChat(maskedUserMessage, sessionId, contextData);
 
-    // 7. 응답에서 별칭 → 이름 복원
-    const restoredContent = restoreNames(response.content, aliasMap);
+    // 5. 응답에서 별칭 → 이름 복원
+    const restoredContent = restoreNames(agentResponse.response, aliasMap);
 
     return {
-      success: response.success,
-      content: response.success ? restoredContent : response.content,
-      error: response.error,
+      success: true,
+      content: restoredContent,
       aliasMap,
+      builtContext: cachedContext ? undefined : { ragContext, aliasMap },
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+    const msg = error instanceof Error ? error.message : '알 수 없는 오류';
     return {
       success: false,
       content: '',
-      error: `AI 응답 생성 중 오류가 발생했습니다: ${errorMessage}`,
+      error: `AI 응답 생성 중 오류가 발생했습니다: ${msg}`,
       aliasMap: {},
     };
   }
 };
 
 /**
- * 스트리밍 응답용 (향후 구현)
+ * AI 어시스턴트 호출 (스트리밍 응답)
+ *
+ * @param onChunk 청크를 받을 때마다 호출 — (accumulated, isFinal)
  */
 export const callAssistantStream = async (
   request: AssistantRequest,
-  _onChunk: (chunk: string) => void,
+  onChunk: (accumulated: string, isFinal: boolean) => void,
 ): Promise<AssistantResponse> => {
-  // TODO: 스트리밍 지원 시 구현
-  // 현재는 일반 호출 사용
-  return callAssistant(request);
+  const {
+    sessionId,
+    mode,
+    classes,
+    selectedClass,
+    selectedStudents,
+    userMessage,
+    cachedContext,
+  } = request;
+
+  try {
+    // 1. RAG 컨텍스트 — 캐시가 있으면 재사용, 없으면 빌드 (API 호출 발생)
+    const { context: ragContext, aliasMap } = cachedContext
+      ? { context: cachedContext.ragContext, aliasMap: cachedContext.aliasMap }
+      : await buildRAGContext({ mode, classes, selectedClass, selectedStudents });
+
+    // 2. 사용자 메시지 별칭 처리
+    const maskedUserMessage = applyAliases(userMessage, aliasMap);
+
+    // 3. context_data — 첫 메시지(캐시 없음)일 때만 context + profile 포함, 이후엔 null
+    const profile = buildStudentProfile(mode, selectedStudents, classes);
+    const contextData: Record<string, unknown> | null = cachedContext
+      ? null
+      : { mode, context: ragContext, ...(profile !== null ? { profile } : {}) };
+
+    // 4. 스트리밍 호출 — 누적하며 별칭 복원 후 콜백
+    let accumulated = '';
+
+    await agentChatStream(
+      maskedUserMessage,
+      sessionId,
+      (chunk, isFinal) => {
+        accumulated += chunk;
+        const restored = restoreNames(accumulated, aliasMap);
+        onChunk(restored, isFinal);
+      },
+      contextData,
+    );
+
+    const finalContent = restoreNames(accumulated, aliasMap);
+    return {
+      success: true,
+      content: finalContent,
+      aliasMap,
+      builtContext: cachedContext ? undefined : { ragContext, aliasMap },
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : '알 수 없는 오류';
+    const errorMsg = `AI 응답 생성 중 오류가 발생했습니다: ${msg}`;
+    onChunk(errorMsg, true);
+    return { success: false, content: '', error: errorMsg, aliasMap: {} };
+  }
 };
 
 // ============================================================
@@ -123,7 +195,7 @@ export const callAssistantStream = async (
 // ============================================================
 
 /**
- * 빠른 프롬프트 생성 (QuickPrompts 컴포넌트용)
+ * 빠른 프롬프트 목록 (QuickPrompts 컴포넌트용)
  */
 export const getQuickPromptContext = (
   mode: ContextMode,
@@ -166,25 +238,20 @@ export const getQuickPromptContext = (
             { label: '가정 연계', prompt: '가정에서 할 수 있는 지원 방법을 알려주세요.' },
           ],
         };
-      } else {
-        return {
-          category: '다중 분석',
-          prompts: [
-            { label: '관계성 분석', prompt: '선택한 학생들의 관계성을 분석해주세요.' },
-            { label: '결과 비교', prompt: '선택한 학생들의 검사 결과를 비교해주세요.' },
-            { label: '그룹 상담', prompt: '선택한 학생들을 위한 그룹 상담 방법을 제안해주세요.' },
-            { label: '모둠 구성', prompt: '선택한 학생들로 효과적인 모둠을 구성해주세요.' },
-          ],
-        };
       }
+      return {
+        category: '다중 분석',
+        prompts: [
+          { label: '관계성 분석', prompt: '선택한 학생들의 관계성을 분석해주세요.' },
+          { label: '결과 비교', prompt: '선택한 학생들의 검사 결과를 비교해주세요.' },
+          { label: '그룹 상담', prompt: '선택한 학생들을 위한 그룹 상담 방법을 제안해주세요.' },
+          { label: '모둠 구성', prompt: '선택한 학생들로 효과적인 모둠을 구성해주세요.' },
+        ],
+      };
 
     default:
       return { category: '', prompts: [] };
   }
 };
 
-export default {
-  callAssistant,
-  callAssistantStream,
-  getQuickPromptContext,
-};
+export default { callAssistant, callAssistantStream, getQuickPromptContext };

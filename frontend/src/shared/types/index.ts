@@ -9,8 +9,8 @@ export * from './api';
 export type SchoolLevel = '초등' | '중등';
 
 // LPA 유형
-export type ElementaryType = '자원소진형' | '안전균형형' | '몰입자원풍부형';
-export type MiddleSchoolType = '무기력형' | '정서조절취약형' | '자기주도몰입형';
+export type ElementaryType = '자원소진형' | '안전 균형형' | '몰입자원 풍부형';
+export type MiddleSchoolType = '냉소적 무기력형' | '정서조절 취약형' | '자기주도 몰입형';
 export type StudentType = ElementaryType | MiddleSchoolType;
 
 // 검사 상태
@@ -91,6 +91,7 @@ export interface Assessment {
   deviations: FactorDeviation[];
   reliabilityWarnings: string[];
   attentionResult: AttentionResult;
+  midCategoryScores?: Record<string, number> | null;
 }
 
 // 관심 필요 판별 결과
@@ -240,10 +241,11 @@ export interface TypeChartData {
 // ============================================================
 
 export type MemberType = 'vivasam' | 'general' | 'guest';
-export type OAuthProvider = 'vivasam' | 'google' | 'kakao' | 'naver';
+export type OAuthProvider = 'vivasam' | 'google' | 'kakao' | 'naver' | 'sso';
 
 export interface User {
   id: string;
+  spUserId?: string; // SuperPlatform publicUserId (UUID)
   name: string;
   email: string;
   memberType: MemberType;
@@ -254,6 +256,7 @@ export interface User {
   stdtId?: string;
   roleCode?: string;
   classId?: string;
+  userType?: string; // Auth JWT userType (TEACHER/STUDENT/GUEST/UNSET)
 }
 
 export interface AuthState {
@@ -269,8 +272,9 @@ export interface AuthState {
 export interface ManagedAssessment {
   id: string;
   name: string;
-  code: string; // QR 코드 값: {dgnssId}-{studentCount}
+  code: string;
   dgnssId: number; // 검사 ID (학급 단위, /tc/start API에서 반환)
+  claId?: string; // 학급 ID (추가 진행하기 API 호출 시 필요)
   grade: number;
   classNumber: number;
   studentCount: number;
@@ -281,6 +285,7 @@ export interface ManagedAssessment {
   createdAt: Date;
   ownerId: string;
   isActive?: boolean; // 진행 중 여부 (dgnssAt === 'Y')
+  inviteCode?: string; // 그룹 초대 코드 (학생 초대 URL 생성용)
 }
 
 export interface CreateAssessmentInput {
@@ -387,7 +392,7 @@ export interface CounselingStudent {
   classId: string;
 }
 
-export interface UnifiedCounselingRecord {
+export interface CounselingRecord {
   id: string;
   students: CounselingStudent[]; // 1명 이상
   classId: string;
@@ -404,7 +409,7 @@ export interface UnifiedCounselingRecord {
   updatedAt: Date;
 }
 
-export interface CreateUnifiedCounselingInput {
+export interface CreateCounselingInput {
   students: CounselingStudent[];
   classId: string;
   scheduledAt: string;
@@ -418,7 +423,7 @@ export interface CreateUnifiedCounselingInput {
   nextSteps?: string;
 }
 
-export interface UpdateUnifiedCounselingInput {
+export interface UpdateCounselingInput {
   students?: CounselingStudent[];
   classId?: string;
   scheduledAt?: string;
@@ -432,7 +437,7 @@ export interface UpdateUnifiedCounselingInput {
   nextSteps?: string;
 }
 
-export interface CompleteUnifiedCounselingInput {
+export interface CompleteCounselingInput {
   duration: number;
   summary: string;
   nextSteps?: string;
@@ -442,7 +447,7 @@ export interface CompleteUnifiedCounselingInput {
 // 상담 기록 관련 타입 (레거시 - 호환성 유지용)
 // ============================================================
 
-export interface CounselingRecord {
+export interface LegacyCounselingRecord {
   id: string;
   studentId: string;
   classId: string;

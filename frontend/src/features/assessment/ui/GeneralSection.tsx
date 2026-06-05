@@ -128,6 +128,7 @@ interface GeneralSectionProps {
   onViewCode: (assessment: ManagedAssessment) => void;
   onEndExam?: (assessment: ManagedAssessment) => void;
   onCancelExam?: (assessment: ManagedAssessment) => void;
+  onRestartExam?: (assessment: ManagedAssessment) => void;
 }
 
 export const GeneralSection: React.FC<GeneralSectionProps> = ({
@@ -137,6 +138,7 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
   onViewCode,
   onEndExam,
   onCancelExam,
+  onRestartExam,
 }) => {
   return (
     <Container>
@@ -171,6 +173,7 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
             onViewCode={onViewCode}
             onEndExam={onEndExam}
             onCancelExam={onCancelExam}
+            onRestartExam={onRestartExam}
           />
         ) : (
           <EmptyState>

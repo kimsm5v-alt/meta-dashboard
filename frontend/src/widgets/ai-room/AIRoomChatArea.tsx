@@ -100,6 +100,7 @@ interface AIRoomChatAreaProps {
   input: string;
   setInput: (value: string) => void;
   isLoading: boolean;
+  streamingContent?: string;
   mode: ContextMode;
   selectedStudentCount: number;
   isPromptDisabled: boolean;
@@ -118,6 +119,7 @@ export const AIRoomChatArea = ({
   input,
   setInput,
   isLoading,
+  streamingContent,
   mode,
   selectedStudentCount,
   isPromptDisabled,
@@ -139,7 +141,12 @@ export const AIRoomChatArea = ({
 
     {/* Chat Area */}
     <ChatCard>
-      <ChatArea messages={messages} aliasMap={aliasMap} isLoading={isLoading} />
+      <ChatArea
+        messages={messages}
+        aliasMap={aliasMap}
+        isLoading={isLoading}
+        streamingContent={streamingContent}
+      />
       <InputArea>
         <InputContainer>
           <StyledInput

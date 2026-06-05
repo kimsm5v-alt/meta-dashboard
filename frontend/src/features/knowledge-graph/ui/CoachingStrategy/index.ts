@@ -1,0 +1,1 @@
+export { CoachingStrategy } from './CoachingStrategy';

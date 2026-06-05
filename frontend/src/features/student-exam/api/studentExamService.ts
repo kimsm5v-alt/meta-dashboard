@@ -75,3 +75,21 @@ export function getStatusColor(status: ExamStatus): {
       return { bg: '#f3f4f6', text: '#4b5563' };
   }
 }
+
+/** 학생 결과 조회 (Mock) */
+export async function fetchStudentResult(
+  _stdtId: string,
+  _round: string,
+): Promise<{ tScores: number[]; reliabilityWarnings: string[] }> {
+  // Mock 데이터 반환 (랜덤 T점수 38개)
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        tScores: Array(38)
+          .fill(0)
+          .map(() => Math.random() * 30 + 35), // 35~65 범위 랜덤
+        reliabilityWarnings: [],
+      });
+    }, 500); // 0.5초 지연으로 로딩 상태 테스트
+  });
+}

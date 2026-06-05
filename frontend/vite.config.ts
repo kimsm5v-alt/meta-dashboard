@@ -37,4 +37,21 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, 'src/shared'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // 정적 데이터 파일 — 별도 청크로 분리 (번들 크기 감소)
+          if (id.includes('shared/data/aiPrompts')) return 'data-ai-prompts';
+          if (id.includes('shared/data/schoolRecordSentences')) return 'data-school-record';
+          if (id.includes('shared/data/knowledgeGraph')) return 'data-knowledge-graph';
+          if (id.includes('shared/data/lpaProfiles')) return 'data-lpa-profiles';
+          // 주요 라이브러리 청크 분리
+          if (id.includes('node_modules/recharts')) return 'vendor-recharts';
+          if (id.includes('node_modules/@emotion')) return 'vendor-emotion';
+          if (id.includes('node_modules/react-router')) return 'vendor-router';
+        },
+      },
+    },
+  },
 });

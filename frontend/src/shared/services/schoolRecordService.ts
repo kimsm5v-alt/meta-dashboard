@@ -2,6 +2,7 @@
  * 생활기록부 AI 문구 생성 서비스
  */
 
+import { apiClient } from '@shared/api';
 import { callAI } from './ai';
 import type {
   SchoolRecordRequest,
@@ -10,8 +11,6 @@ import type {
   SchoolRecordCategory,
 } from '@shared/types';
 import { SCHOOL_RECORD_CATEGORY_LABELS } from '@shared/types';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 // ============================================================
 // 카테고리별 프롬프트 템플릿
@@ -102,31 +101,24 @@ ${customNote}
    * 저장된 문구 조회
    */
   getSavedByStudentId: async (studentId: string): Promise<SavedSchoolRecord[]> => {
-    const response = await fetch(`${API_BASE}/api/school-records/student/${studentId}`);
-    if (!response.ok) throw new Error('Failed to fetch saved records');
-    return response.json();
+    const response = await apiClient.get<SavedSchoolRecord[]>(
+      `/api/school-records/student/${studentId}`,
+    );
+    return response.resultData;
   },
 
   /**
    * 생성된 문구 저장
    */
   save: async (input: Omit<SavedSchoolRecord, 'id' | 'createdAt'>): Promise<SavedSchoolRecord> => {
-    const response = await fetch(`${API_BASE}/api/school-records`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-    if (!response.ok) throw new Error('Failed to save school record');
-    return response.json();
+    const response = await apiClient.post<SavedSchoolRecord>('/api/school-records', input);
+    return response.resultData;
   },
 
   /**
    * 저장된 문구 삭제
    */
   delete: async (id: string): Promise<void> => {
-    const response = await fetch(`${API_BASE}/api/school-records/${id}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Failed to delete school record');
+    await apiClient.delete(`/api/school-records/${id}`);
   },
 };

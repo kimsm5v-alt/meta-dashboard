@@ -1,10 +1,11 @@
 /**
  * API 데이터 로드 훅
  *
- * 백엔드 API에서 데이터를 가져오고, credentials가 없을 때는 DataContext를 fallback으로 사용합니다.
+ * TanStack React Query 기반으로 데이터를 캐싱하여 가져옵니다.
+ * 토큰이 없을 때는 DataContext를 fallback으로 사용합니다.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { API_CONFIG } from '@shared/services/apiClient';
 import {
   fetchClassAnalysis,
@@ -12,12 +13,14 @@ import {
   buildClassFromAPI,
   fetchL2DashboardData,
   fetchStudentFullAnalysis,
+  fetchStudentInfoList,
+  fetchTeacherExams,
   convertToAssessment,
   type AnalysisSectionItem,
   type L2DashboardData,
 } from '@shared/services/dashboardService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
-import type { SchoolLevel, Student, Class, Assessment } from '@shared/types';
+import type { SchoolLevel, Student, Class, Assessment, User } from '@shared/types';
 import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth';
 import { groupService } from '@features/groups/api/groupService';
@@ -28,14 +31,12 @@ import { dgnssService } from '@features/groups/api/dgnssService';
 // ============================================================
 
 function useCredentials() {
-  const { credentials } = useAuth();
+  const { user } = useAuth();
+  const tcId = user?.tcId ?? '';
+  const claId = user?.classId ?? '';
+  const schoolLevel: SchoolLevel = '중등'; // SSO 전환 후 기본값 — user 프로필에서 추후 개선 가능
 
-  const tcId = credentials?.teacherId ?? '';
-  const claId = credentials?.classId ?? '';
-  const gradeLevel = credentials?.gradeLevel ?? 'mi';
-  const schoolLevel: SchoolLevel = gradeLevel === 'el' ? '초등' : '중등';
-
-  return { tcId, claId, gradeLevel, schoolLevel, hasCredentials: !!credentials };
+  return { tcId, claId, gradeLevel: 'mi', schoolLevel, hasCredentials: !!user };
 }
 
 // ============================================================
@@ -51,126 +52,126 @@ interface UseStudentAnalysisResult {
   refetch: () => void;
 }
 
-/**
- * 학생 분석 데이터 조회
- * - credentials 있음: API에서 학생 T점수 조회
- * - credentials 없음: DataContext fallback
- */
+type StudentAnalysisData = {
+  student: Student | undefined;
+  classStudents: Student[];
+  classInfo: UseStudentAnalysisResult['classInfo'];
+};
+
 export function useStudentAnalysis(
   classId: string | undefined,
   studentId: string | undefined,
 ): UseStudentAnalysisResult {
   const { getStudentById, getClassById } = useData();
-  const { schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
-  const [apiStudent, setApiStudent] = useState<Student | undefined>(undefined);
-  const [classStudents, setClassStudents] = useState<Student[]>([]);
-  const [classInfo, setClassInfo] = useState<UseStudentAnalysisResult['classInfo']>(undefined);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { schoolLevel: credSchoolLevel } = useCredentials();
+  const { user } = useAuth();
 
-  const fetchData = useCallback(async () => {
-    if (!studentId || !classId) return;
+  const query = useQuery<StudentAnalysisData>({
+    queryKey: ['student', 'analysis', classId, studentId],
+    queryFn: async (): Promise<StudentAnalysisData> => {
+      if (!studentId || !classId) {
+        return { student: undefined, classStudents: [], classInfo: undefined };
+      }
 
-    const parts = classId.split('-');
-    const grade = parseInt(parts[0], 10) || 1;
-    const classNumber = parseInt(parts[1], 10) || 1;
+      const isApiMode = !!user;
 
-    // credentials 없으면 DataContext fallback
-    if (!hasCredentials) {
-      const classData = getClassById(classId);
-      setClassStudents(classData?.students ?? []);
-      setClassInfo(
-        classData
-          ? {
-              grade: classData.grade,
-              classNumber: classData.classNumber,
-              schoolLevel: classData.schoolLevel,
-            }
-          : undefined,
-      );
-      setApiStudent(getStudentById(classId, studentId));
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const fullAnalysis = await fetchStudentFullAnalysis(studentId, '1');
-
-      // 유효한 데이터가 없으면 DataContext fallback
-      if (!fullAnalysis.round1 && !fullAnalysis.round2) {
+      if (!isApiMode) {
         const classData = getClassById(classId);
-        setClassStudents(classData?.students ?? []);
-        setClassInfo(
-          classData
+        return {
+          student: getStudentById(classId, studentId),
+          classStudents: classData?.students ?? [],
+          classInfo: classData
             ? {
                 grade: classData.grade,
                 classNumber: classData.classNumber,
                 schoolLevel: classData.schoolLevel,
               }
             : undefined,
-        );
-        setApiStudent(getStudentById(classId, studentId));
-        setIsLoading(false);
-        return;
+        };
+      }
+
+      const [fullAnalysis, groups, exams] = await Promise.all([
+        fetchStudentFullAnalysis(classId, studentId, '1'),
+        user ? groupService.getMyGroups(user.id) : Promise.resolve([]),
+        fetchTeacherExams(classId, '', '1'),
+      ]);
+
+      const matchedGroup = groups.find((g) => g.claId === classId);
+      const grade = matchedGroup?.grade ?? 1;
+      const classNumber = matchedGroup?.classNumber ?? 1;
+      const schoolLevel: SchoolLevel = matchedGroup
+        ? (SCHOOL_LEVEL_MAP[matchedGroup.schoolLevel] ?? credSchoolLevel)
+        : credSchoolLevel;
+      const completedR1 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 1);
+      let classStudents: Student[] = [];
+
+      if (completedR1) {
+        // L2 대시보드 데이터를 가져와서 학생 목록을 추출합니다.
+        const l2Data = await fetchL2DashboardData(completedR1.dgnssId, classId, schoolLevel, grade);
+        classStudents = l2Data.students; // 서버에서 받아온 실제 학생 목록
+      }
+
+      let studentName = '학생';
+      let studentNumber = 0;
+      if (completedR1) {
+        try {
+          const infoList = await fetchStudentInfoList(completedR1.dgnssId, '1', 1);
+          const info = infoList.find((s) => s.stdtId === studentId);
+          if (info) {
+            studentName = info.stdtNm ?? info.nickname ?? `학생${info.rowNum}`;
+            studentNumber = info.rowNum;
+          }
+        } catch {
+          // 이름 조회 실패 시 fallback 유지
+        }
+      }
+
+      if (!fullAnalysis.round1 && !fullAnalysis.round2) {
+        const classData = getClassById(classId);
+        const fallbackStudent = getStudentById(classId, studentId);
+        return {
+          student: fallbackStudent
+            ? { ...fallbackStudent, name: studentName || fallbackStudent.name }
+            : undefined,
+          classStudents: classData?.students ?? [],
+          classInfo: { grade, classNumber, schoolLevel },
+        };
       }
 
       const assessments: Assessment[] = [];
-
       if (fullAnalysis.round1) {
-        assessments.push(convertToAssessment(studentId, 1, fullAnalysis.round1, credSchoolLevel));
+        assessments.push(convertToAssessment(studentId, 1, fullAnalysis.round1, schoolLevel));
       }
-
       if (fullAnalysis.round2) {
-        assessments.push(convertToAssessment(studentId, 2, fullAnalysis.round2, credSchoolLevel));
+        assessments.push(convertToAssessment(studentId, 2, fullAnalysis.round2, schoolLevel));
       }
 
-      const student: Student = {
-        id: studentId,
-        classId,
-        number: 0,
-        name: '학생',
-        schoolLevel: credSchoolLevel,
-        grade,
-        assessments,
+      return {
+        student: {
+          id: studentId,
+          classId,
+          number: studentNumber,
+          name: studentName,
+          schoolLevel,
+          grade,
+          assessments,
+        },
+        classStudents: classStudents ?? [],
+        classInfo: { grade, classNumber, schoolLevel },
       };
-
-      setApiStudent(student);
-      setClassInfo({ grade, classNumber, schoolLevel: credSchoolLevel });
-
-      const classData = getClassById(classId);
-      setClassStudents(classData?.students ?? []);
-    } catch (err) {
-      console.error('Failed to fetch student analysis:', err);
-      setError(err instanceof Error ? err.message : 'API 호출 실패');
-      const classData = getClassById(classId);
-      setClassStudents(classData?.students ?? []);
-      setClassInfo(
-        classData
-          ? {
-              grade: classData.grade,
-              classNumber: classData.classNumber,
-              schoolLevel: classData.schoolLevel,
-            }
-          : undefined,
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [classId, studentId, getClassById, getStudentById, credSchoolLevel, hasCredentials]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    },
+    enabled: !!classId && !!studentId,
+  });
 
   return {
-    student: apiStudent,
-    classStudents,
-    classInfo,
-    isLoading,
-    error,
-    refetch: fetchData,
+    student: query.data?.student,
+    classStudents: query.data?.classStudents ?? [],
+    classInfo: query.data?.classInfo,
+    isLoading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: () => {
+      void query.refetch();
+    },
   };
 }
 
@@ -186,50 +187,35 @@ interface UseClassAnalysisResult {
   refetch: () => void;
 }
 
-/**
- * 학급 평균 T점수 조회
- */
+type ClassAnalysisData = {
+  tScores: number[];
+  sections: AnalysisSectionItem[];
+};
+
 export function useClassAnalysis(
   classId: string | undefined,
   round: 1 | 2 = 1,
 ): UseClassAnalysisResult {
-  const [tScores, setTScores] = useState<number[]>(new Array(38).fill(50));
-  const [sections, setSections] = useState<AnalysisSectionItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    if (!classId) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
+  const query = useQuery<ClassAnalysisData>({
+    queryKey: ['class', 'analysis', classId, round],
+    queryFn: async (): Promise<ClassAnalysisData> => {
       const [scores, rawSections] = await Promise.all([
-        fetchClassAnalysis(classId, '1', round),
-        fetchClassAnalysisRaw(classId, '1', round),
+        fetchClassAnalysis(classId!, '1', round),
+        fetchClassAnalysisRaw(classId!, '1', round),
       ]);
-
-      setTScores(scores);
-      setSections(rawSections);
-    } catch (err) {
-      console.error('Failed to fetch class analysis:', err);
-      setError(err instanceof Error ? err.message : 'API 호출 실패');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [classId, round]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+      return { tScores: scores, sections: rawSections };
+    },
+    enabled: !!classId,
+  });
 
   return {
-    tScores,
-    sections,
-    isLoading,
-    error,
-    refetch: fetchData,
+    tScores: query.data?.tScores ?? new Array(38).fill(50),
+    sections: query.data?.sections ?? [],
+    isLoading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: () => {
+      void query.refetch();
+    },
   };
 }
 
@@ -240,78 +226,96 @@ export function useClassAnalysis(
 interface UseClassStudentsResult {
   students: Student[];
   l2Data: L2DashboardData | null;
+  classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel } | undefined;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
 }
 
-/**
- * 학급 학생 목록 조회 (검사 결과 포함)
- */
+type ClassStudentsData = {
+  students: Student[];
+  l2Data: L2DashboardData | null;
+  classInfo: UseClassStudentsResult['classInfo'];
+};
+
 export function useClassStudents(classId: string | undefined): UseClassStudentsResult {
   const { getClassById } = useData();
-  const { tcId, claId, schoolLevel: credSchoolLevel, hasCredentials } = useCredentials();
-  const [students, setStudents] = useState<Student[]>([]);
-  const [l2Data, setL2Data] = useState<L2DashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { tcId, schoolLevel: credSchoolLevel } = useCredentials();
 
-  const fetchData = useCallback(async () => {
-    if (!classId) {
-      setStudents([]);
-      setL2Data(null);
-      return;
-    }
+  const query = useQuery<ClassStudentsData>({
+    queryKey: ['class', 'students', classId],
+    queryFn: async (): Promise<ClassStudentsData> => {
+      const classData = getClassById(classId!);
 
-    const classData = getClassById(classId);
+      const isApiMode = !!user;
 
-    // credentials 없으면 DataContext fallback
-    if (!hasCredentials) {
-      setStudents(classData?.students ?? []);
-      setL2Data(null);
-      return;
-    }
+      if (!isApiMode) {
+        return {
+          students: classData?.students ?? [],
+          l2Data: null,
+          classInfo: classData
+            ? {
+                grade: classData.grade,
+                classNumber: classData.classNumber,
+                schoolLevel: classData.schoolLevel,
+              }
+            : undefined,
+        };
+      }
 
-    setIsLoading(true);
-    setError(null);
+      let classSchoolLevel: SchoolLevel = credSchoolLevel;
+      let grade = classData?.grade ?? 1;
+      let classNumber = classData?.classNumber ?? 1;
+      try {
+        const groups = await groupService.getMyGroups(user?.id ?? '');
+        const matchedGroup = groups.find((g) => g.claId === classId);
+        if (matchedGroup) {
+          classSchoolLevel = SCHOOL_LEVEL_MAP[matchedGroup.schoolLevel] ?? credSchoolLevel;
+          grade = matchedGroup.grade;
+          classNumber = matchedGroup.classNumber;
+        }
+      } catch {
+        // 그룹 조회 실패 시 fallback 유지
+      }
 
-    try {
-      const exams = await dgnssService.getDgnssList(claId);
+      const effectiveTcId = tcId || user?.tcId || '';
+      const exams = await fetchTeacherExams(classId!, effectiveTcId, '1');
       const completedRound1 = exams.find((exam) => exam.dgnssAt === 'N' && exam.ordNo === 1);
 
       if (!completedRound1) {
-        setStudents(classData?.students ?? []);
-        setL2Data(null);
-        setIsLoading(false);
-        return;
+        return {
+          students: classData?.students ?? [],
+          l2Data: null,
+          classInfo: { grade, classNumber, schoolLevel: classSchoolLevel },
+        };
       }
 
-      const dgnssId = completedRound1.dgnssId;
-      const grade = classData?.grade ?? 1;
+      const data = await fetchL2DashboardData(
+        completedRound1.dgnssId,
+        classId!,
+        classSchoolLevel,
+        grade,
+      );
 
-      const data = await fetchL2DashboardData(dgnssId, classId, credSchoolLevel, grade);
-
-      setL2Data(data);
-      setStudents(data.students);
-    } catch (err) {
-      console.error('Failed to fetch L2 dashboard data:', err);
-      setError(err instanceof Error ? err.message : 'API 호출 실패');
-      setStudents(classData?.students ?? []);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [classId, getClassById, tcId, claId, credSchoolLevel, hasCredentials]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+      return {
+        students: data.students,
+        l2Data: data,
+        classInfo: { grade, classNumber, schoolLevel: classSchoolLevel },
+      };
+    },
+    enabled: !!classId,
+  });
 
   return {
-    students,
-    l2Data,
-    isLoading,
-    error,
-    refetch: fetchData,
+    students: query.data?.students ?? [],
+    l2Data: query.data?.l2Data ?? null,
+    classInfo: query.data?.classInfo,
+    isLoading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: () => {
+      void query.refetch();
+    },
   };
 }
 
@@ -326,21 +330,12 @@ interface UseClassDetailResult {
   refetch: () => void;
 }
 
-/**
- * 학급 상세 분석용 데이터 조회
- */
 export function useClassDetail(
   classId: string | undefined,
   round: 1 | 2 = 1,
 ): UseClassDetailResult {
   const { tScores, isLoading, error, refetch } = useClassAnalysis(classId, round);
-
-  return {
-    classTScores: tScores,
-    isLoading,
-    error,
-    refetch,
-  };
+  return { classTScores: tScores, isLoading, error, refetch };
 }
 
 // ============================================================
@@ -354,41 +349,31 @@ interface UseTeacherClassesResult {
   isLoading: boolean;
   error: string | null;
   examStatus: ExamStatus;
+  user: User | null;
   refetch: () => void;
 }
 
-/**
- * 교사 학급 목록 조회
- */
+type TeacherClassesData = {
+  classes: Class[];
+  examStatus: ExamStatus;
+};
+
 export function useTeacherClasses(): UseTeacherClassesResult {
   const { classes: mockClasses } = useData();
   const { user } = useAuth();
   const { schoolLevel: credSchoolLevel } = useCredentials();
-  const [apiClasses, setApiClasses] = useState<Class[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [examStatus, setExamStatus] = useState<ExamStatus>('no-exams');
-  const [hasFetched, setHasFetched] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    if (!user) return;
-    if (hasFetched) return;
+  const query = useQuery<TeacherClassesData>({
+    queryKey: ['teacher', 'classes', user?.id],
+    queryFn: async (): Promise<TeacherClassesData> => {
+      if (!user) return { classes: mockClasses, examStatus: 'no-exams' };
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // 그룹 목록 조회
       const groups = await groupService.getMyGroups(user.id);
 
       if (groups.length === 0) {
-        setApiClasses([]);
-        setExamStatus('no-exams');
-        setHasFetched(true);
-        return;
+        return { classes: [], examStatus: 'no-exams' };
       }
 
-      // 각 그룹의 검사 목록 병렬 조회
       const groupDgnssResults = await Promise.all(
         groups.map(async (group) => {
           try {
@@ -400,32 +385,24 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         }),
       );
 
-      // 진행 중인 검사 여부 확인
       const hasActive = groupDgnssResults.some((r) => r.dgnssList.some((d) => d.dgnssAt === 'Y'));
       const hasCompleted = groupDgnssResults.some((r) =>
         r.dgnssList.some((d) => d.dgnssAt === 'N'),
       );
 
-      if (hasActive && !hasCompleted) {
-        setExamStatus('in-progress');
-      } else if (hasCompleted) {
-        setExamStatus('completed');
-      } else {
-        setExamStatus('no-exams');
-      }
+      let examStatus: ExamStatus = 'no-exams';
+      if (hasActive && !hasCompleted) examStatus = 'in-progress';
+      else if (hasCompleted) examStatus = 'completed';
 
-      // 그룹 → Class 변환 (완료된 검사 기준)
       const classPromises = groupDgnssResults.map(async ({ group, dgnssList }) => {
         const completedExams = dgnssList.filter((d) => d.dgnssAt === 'N');
         const round1 = completedExams.find((d) => d.ordNo === 1);
         const round2 = completedExams.find((d) => d.ordNo === 2);
         const primaryDgnssId = round1?.dgnssId ?? round2?.dgnssId;
-
-        const schoolLevel: SchoolLevel = SCHOOL_LEVEL_MAP[group.schoolLevel];
+        const schoolLevel: SchoolLevel = SCHOOL_LEVEL_MAP[group.schoolLevel] ?? credSchoolLevel;
 
         if (primaryDgnssId) {
-          // 완료된 검사가 있으면 상세 분석 데이터 구축
-          const built = await buildClassFromAPI(
+          return buildClassFromAPI(
             group.claId,
             group.grade,
             group.classNumber,
@@ -433,14 +410,12 @@ export function useTeacherClasses(): UseTeacherClassesResult {
             primaryDgnssId,
             round2?.dgnssId,
           );
-          return built;
         }
 
-        // 완료된 검사 없으면 기본 Class 구조 반환
         const activeExam = dgnssList.find((d) => d.dgnssAt === 'Y');
         const simpleClass: Class = {
           id: group.claId,
-          schoolLevel: schoolLevel ?? (credSchoolLevel as SchoolLevel),
+          schoolLevel,
           grade: group.grade,
           classNumber: group.classNumber,
           teacherId: user.id,
@@ -464,32 +439,24 @@ export function useTeacherClasses(): UseTeacherClassesResult {
       const classResults = await Promise.all(classPromises);
       const validClasses = classResults.filter((c): c is Class => c !== null);
 
-      setApiClasses(validClasses);
-      setHasFetched(true);
-    } catch (err) {
-      console.error('Failed to fetch teacher classes:', err);
-      setError(err instanceof Error ? err.message : 'API 호출 실패');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [hasFetched, user, credSchoolLevel]);
+      return { classes: validClasses, examStatus };
+    },
+    enabled: !!user,
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // JWT 있으면 API 데이터, 없으면 mockClasses fallback
-  const hasJwt = !!API_CONFIG.jwtToken;
-  const classes = hasJwt && apiClasses.length > 0 ? apiClasses : mockClasses;
+  const classes =
+    !!user && (query.data?.classes.length ?? 0) > 0
+      ? (query.data?.classes ?? mockClasses)
+      : mockClasses;
 
   return {
     classes,
-    isLoading,
-    error,
-    examStatus,
+    isLoading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    examStatus: query.data?.examStatus ?? 'no-exams',
+    user,
     refetch: () => {
-      setHasFetched(false);
-      fetchData();
+      void query.refetch();
     },
   };
 }
@@ -504,8 +471,9 @@ interface UseApiConfigResult {
 }
 
 export function useApiConfig(): UseApiConfigResult {
+  const { user } = useAuth();
   return {
-    hasJwtToken: !!API_CONFIG.jwtToken,
+    hasJwtToken: !!user,
     baseUrl: API_CONFIG.baseUrl,
   };
 }
