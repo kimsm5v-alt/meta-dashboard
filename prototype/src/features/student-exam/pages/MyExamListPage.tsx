@@ -10,8 +10,35 @@ import { ClipboardList, RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/components';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { ExamCard, EmptyExamList, ExamCardSkeleton } from '../components';
-import { getStudentExamList } from '../services/studentExamService';
 import type { StudentExamListItem } from '../types';
+
+// [PROTOTYPE MOCK] 학생용 목업 검사 목록
+const MOCK_EXAMS: StudentExamListItem[] = [
+  {
+    dgnssId: 1001,
+    dgnssResultId: 5001,
+    ordNo: 1,
+    name: '1차 학습심리정서검사',
+    status: 'result_ready',
+    progress: 100,
+    answeredCount: 124,
+    totalQuestions: 124,
+    submittedAt: '2026-05-15',
+    hasResult: true,
+  },
+  {
+    dgnssId: 1002,
+    dgnssResultId: 5002,
+    ordNo: 2,
+    name: '2차 학습심리정서검사',
+    status: 'in_progress',
+    progress: 45,
+    answeredCount: 56,
+    totalQuestions: 124,
+    submittedAt: null,
+    hasResult: false,
+  },
+];
 
 export const MyExamListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -31,6 +58,14 @@ export const MyExamListPage: React.FC = () => {
     }
 
     try {
+      // [PROTOTYPE MOCK] 목업 데이터 우선 사용
+      // 실제 API 연동 시 아래 코드로 대체
+      setExams(MOCK_EXAMS);
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
+
+      /* 실제 API 연동 코드 (주석 처리)
       if (!user.stdtId) {
         console.warn('[MyExamListPage] stdtId가 없습니다:', user);
         setExams([]);
@@ -46,6 +81,7 @@ export const MyExamListPage: React.FC = () => {
 
       const data = await getStudentExamList(user.classId, user.stdtId);
       setExams(data);
+      */
     } catch (error) {
       console.error('[MyExamListPage] 검사 목록 로드 실패:', error);
       setExams([]);
@@ -146,7 +182,7 @@ export const MyExamListPage: React.FC = () => {
           </div>
         </div>
         <Button
-          variant="ghost"
+          variant="outline"
           onClick={handleRefresh}
           disabled={isRefreshing}
           className="text-gray-500"
