@@ -7,7 +7,7 @@
  * - 학생 정보 표시
  */
 
-import { ReactNode, useState, useMemo, useEffect } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
@@ -21,10 +21,10 @@ import {
   PanelLeftClose,
   PanelLeft,
   UserCircle,
+  ArrowRightLeft,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
-import { getMyGroups } from '@/features/groups/services/groupService';
 import serviceLogo from '@/assets/logo_2.png';
 
 interface StudentLayoutProps {
@@ -52,6 +52,11 @@ const StudentHeader = () => {
     navigate('/');
   };
 
+  // [PROTOTYPE MOCK] 교사 계정으로 전환
+  const handleSwitchToTeacher = () => {
+    navigate('/dashboard');
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50">
       <div className="flex items-center justify-between h-full px-6">
@@ -59,6 +64,15 @@ const StudentHeader = () => {
           <img src={serviceLogo} alt="학습심리정서검사" className="h-5" />
         </button>
         <div className="flex items-center gap-4">
+          {/* [PROTOTYPE MOCK] 계정 전환 버튼 */}
+          <button
+            onClick={handleSwitchToTeacher}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+            title="교사 계정으로 전환 (목업)"
+          >
+            <ArrowRightLeft className="w-4 h-4" />
+            <span>교사 전환</span>
+          </button>
           <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
             <Bell className="w-5 h-5" />
           </button>
@@ -194,24 +208,14 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
   const { user, updateUser } = useAuth();
 
   // 학생 그룹 정보 로드 (classId 설정)
+  // [PROTOTYPE MOCK] 목업 환경에서는 그룹 로드 스킵
   useEffect(() => {
-    const loadStudentGroup = async () => {
-      // 학생이고 classId가 없는 경우에만 그룹 조회
-      if (user?.roleCode === 'STUDENT' && user?.stdtId && !user?.classId) {
-        try {
-          const groups = await getMyGroups();
-          if (groups.length > 0) {
-            // 첫 번째 그룹의 claId를 사용자 정보에 저장
-            updateUser({ classId: groups[0].claId });
-            console.info('[StudentLayout] 학생 그룹 정보 로드 완료:', groups[0].claId);
-          }
-        } catch (error) {
-          console.error('[StudentLayout] 학생 그룹 정보 로드 실패:', error);
-        }
-      }
-    };
-
-    loadStudentGroup();
+    // 목업 환경에서는 classId가 없어도 동작하도록 처리
+    if (user?.roleCode === 'STUDENT' && user?.stdtId && !user?.classId) {
+      // 목업 데이터로 대체 - 실제 API 호출 없이 mock classId 설정
+      updateUser({ classId: 'mock-class-id' });
+      console.info('[StudentLayout] 목업 모드: mock classId 설정 완료');
+    }
   }, [user?.roleCode, user?.stdtId, user?.classId, updateUser]);
 
   const handleToggle = () => {
