@@ -1,11 +1,12 @@
 import json
 import litellm
-from typing import Dict, Any
+from typing import Any, Dict
 import logging
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.utils.function_calling import convert_to_openai_tool
 import langsmith
+from langsmith import traceable
 from app.core.llm_router import llm_router, ROUTER_MODEL_NAME
 from app.utils.pii_filter import mask_pii_data
 from app.tools import neo4j_tools_list
@@ -17,10 +18,12 @@ logger = logging.getLogger(__name__)
 session_store: Dict[str, ChatMessageHistory] = {}
 session_context_store: Dict[str, Dict[str, Any]] = {}
 
+
 def get_session_history(session_id: str) -> ChatMessageHistory:
     if session_id not in session_store:
         session_store[session_id] = ChatMessageHistory()
     return session_store[session_id]
+
 
 class MetaAgentService:
     def __init__(self):
@@ -30,49 +33,34 @@ class MetaAgentService:
         self.tool_map = {t.name: t for t in neo4j_tools_list}
         self.max_iterations = 8
 
-    async def _invoke_tool_with_tracing(
-        self, func_name: str, arguments: dict, run_tree=None
-    ) -> str:
+    @traceable(run_type="llm", name="LiteLLM")
+    async def _call_llm_once(self, messages: list, tools: list) -> Any:
         """
-        Tool을 실행한다.
-        LangSmith가 활성화되어 있고 run_tree가 전달되면
-        Tool 호출을 자식 Run으로 명시적으로 기록한다.
+        단일 LLM 호출을 수행한다. (non-stream)
+
+        @traceable 데코레이터를 통해 LangSmith ContextVar에서 부모 Run을 자동 인식한다.
+        상위에 langsmith.trace() context가 존재하면 자식 Run으로 연결된다.
         """
-        child_ctx = None
-        child_run = None
+        return await self.router.acompletion(
+            model=ROUTER_MODEL_NAME,
+            messages=messages,
+            tools=tools,
+        )
 
-        if langsmith_is_enabled() and run_tree is not None:
-            child_ctx = langsmith.trace(
-                name=f"tool:{func_name}",
-                inputs={"arguments": arguments},
-                tags=["tool"],
-                parent=run_tree,
-            )
-            child_run = child_ctx.__enter__()
+    @traceable(run_type="tool")
+    async def _invoke_tool_with_tracing(self, func_name: str, arguments: dict) -> str:
+        """
+        Tool을 실행하고 결과를 JSON 문자열로 반환한다.
 
-        result_str = ""
-        error_msg = None
-        try:
-            if func_name in self.tool_map:
-                result = await self.tool_map[func_name].ainvoke(arguments)
-                result_str = json.dumps(result, ensure_ascii=False)
-            else:
-                error_msg = f"Tool {func_name} not found"
-                result_str = json.dumps({"error": error_msg})
-        except Exception as e:
-            logger.error(f"Tool error ({func_name}): {e}", exc_info=True)
-            error_msg = str(e)
-            result_str = json.dumps({"error": error_msg})
-        finally:
-            if child_ctx is not None:
-                if child_run is not None:
-                    child_run.end(
-                        outputs={"result": result_str},
-                        error=error_msg,
-                    )
-                child_ctx.__exit__(None, None, None)
-
-        return result_str
+        @traceable 데코레이터를 통해 LangSmith ContextVar에서 부모 Run을 자동 인식한다.
+        상위에 langsmith.trace() context가 존재하면 자식 Tool Run으로 연결된다.
+        Tool 미존재 또는 실행 오류 시 예외를 그대로 raise하여 @traceable이
+        LangSmith에 실패 Run으로 기록할 수 있도록 한다.
+        """
+        if func_name not in self.tool_map:
+            raise ValueError(f"Tool '{func_name}' not found")
+        result = await self.tool_map[func_name].ainvoke(arguments)
+        return json.dumps(result, ensure_ascii=False)
 
     def clear_session(self, session_id: str):
         """특정 세션의 대화 이력과 컨텍스트를 삭제하여 새 대화를 시작합니다."""
@@ -121,6 +109,7 @@ class MetaAgentService:
                 "필요한 경우 반드시 Neo4j Tool을 호출하여 실제 데이터를 확보한 후 답변하십시오. "
                 "처음에는 `get_lpa_overview`를 1회 호출하여 전반을 파악하고, "
                 "세부 질문에는 개별 Tool을 추가 호출하십시오. "
+                "Tool을 호출하기 전에 반드시 호출 이유를 한 문장으로 먼저 서술하십시오. "
                 "Tool 결과가 빈 목록([])이거나 오류를 반환하면 "
                 "'해당 데이터를 현재 조회할 수 없습니다'라고 안내하고, 임의로 내용을 창작하지 마십시오.\n"
             )
@@ -172,35 +161,43 @@ class MetaAgentService:
 
         effective_context = session_context_store.get(session_id)
         system_prompt = self._build_system_prompt(effective_context)
-        
+
         messages = [{"role": "system", "content": system_prompt}]
         for msg in history.messages:
             if isinstance(msg, HumanMessage):
                 messages.append({"role": "user", "content": msg.content})
             elif isinstance(msg, AIMessage):
                 messages.append({"role": "assistant", "content": msg.content})
-                
+
         messages.append({"role": "user", "content": text})
         return messages, history
 
     async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
         """
         LiteLLM Router를 통해 에이전트 실행 (Tool Calling 자동화 포함)
+
+        LangSmith 구조:
+          langsmith.trace("meta-agent-run")       최상위 Run (메타데이터, 태그 포함)
+            ├── LiteLLM (@traceable, run_type=llm) LLM 호출 자식 Run
+            └── tool:xxx (@traceable, run_type=tool) Tool 실행 자식 Run
         """
         profile = (context_data or {}).get("profile", {})
         _trace_ctx = None
         _run_tree = None
         _langsmith_error: str | None = None
         answer = "응답을 생성하지 못했습니다."
-        history = get_session_history(session_id)
+
+        # trace inputs에 system_prompt를 포함하기 위해 trace 진입 전에 먼저 빌드
+        messages, history = self._build_messages(text, session_id, context_data)
+
+        # 초기 메시지 수 기록: outputs에서 에이전트가 추가한 메시지만 슬라이싱하기 위해
+        _initial_msg_len = len(messages)
 
         if langsmith_is_enabled():
-            # inputs의 text(교사 질문)와 outputs의 answer(AI 응답)는 LangSmith로 전송됨.
-            # 교사가 질문에 학생 이름 등 PII를 직접 입력할 경우 LangSmith에 기록될 수 있음.
-            # context_data(학생 프로필)는 _build_messages에서 mask_pii_data로 마스킹 후 사용됨.
+            # inputs["messages"]: OpenAI 채팅 형식 → LangSmith가 System/User/AI/Tool 아이콘으로 렌더링
             _trace_ctx = langsmith.trace(
                 name="meta-agent-run",
-                inputs={"text": text, "session_id": session_id},
+                inputs={"messages": list(messages)},
                 tags=["agent", "non-stream"],
                 metadata={
                     "session_id": session_id,
@@ -211,27 +208,15 @@ class MetaAgentService:
             _run_tree = _trace_ctx.__enter__()
 
         try:
-            messages, history = self._build_messages(text, session_id, context_data)
             iterations = 0
 
-            _ls_meta = {}
-            if langsmith_is_enabled() and _run_tree is not None:
-                # LiteLLM LangSmith 콜백이 인식하는 부모 Run 연결 키
-                _ls_meta = {
-                    "parent_run_id": str(_run_tree.id),
-                    "trace_id": str(_run_tree.trace_id),
-                }
-
             while iterations < self.max_iterations:
-                response = await self.router.acompletion(
-                    model=ROUTER_MODEL_NAME,
-                    messages=messages,
-                    tools=self.tools,
-                    metadata=_ls_meta
-                )
-                
+                # @traceable(run_type="llm")이 LangSmith ContextVar를 통해
+                # 자동으로 최상위 Run의 자식 LLM Run으로 연결됨
+                response = await self._call_llm_once(messages, self.tools)
+
                 response_message = response.choices[0].message
-                
+
                 msg_dict = {"role": "assistant"}
                 if response_message.content:
                     msg_dict["content"] = response_message.content
@@ -247,23 +232,22 @@ class MetaAgentService:
                             }
                         })
                 messages.append(msg_dict)
-                
+
                 if not getattr(response_message, "tool_calls", None):
                     answer = response_message.content or "응답을 생성하지 못했습니다."
                     break
-                    
+
                 for tool_call in response_message.tool_calls:
                     func_name = tool_call.function.name
                     try:
                         arguments = json.loads(tool_call.function.arguments)
                         arguments = self._normalize_tool_args(func_name, arguments)
-                        result_str = await self._invoke_tool_with_tracing(
-                            func_name, arguments, run_tree=_run_tree
-                        )
+                        # @traceable(run_type="tool")이 ContextVar를 통해 자동으로 자식 Run으로 연결됨
+                        result_str = await self._invoke_tool_with_tracing(func_name, arguments)
                     except Exception as e:
                         logger.error(f"Tool error ({func_name}): {e}", exc_info=True)
                         result_str = json.dumps({"error": str(e)})
-                        
+
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tool_call.id,
@@ -298,12 +282,16 @@ class MetaAgentService:
         finally:
             if _trace_ctx is not None:
                 if _run_tree is not None:
-                    _run_tree.end(outputs={"response": answer}, error=_langsmith_error)
+                    # outputs["messages"]: 에이전트가 추가한 메시지만 (AI + Tool), System/User 제외
+                    _run_tree.end(
+                        outputs={"messages": messages[_initial_msg_len:], "response": answer},
+                        error=_langsmith_error,
+                    )
                 _trace_ctx.__exit__(None, None, None)
 
         history.add_user_message(text)
         history.add_ai_message(answer)
-        
+
         return {
             "output": answer,
             "session_id": session_id,
@@ -313,18 +301,29 @@ class MetaAgentService:
     async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
         """
         LiteLLM Router를 통해 Tool Calling을 지원하는 스트리밍 오케스트레이션.
-        LangSmith 활성화 시 langsmith.trace() context manager로 전체 스트림을 1개 Run으로 캡처한다.
+
+        LangSmith 구조:
+          langsmith.trace("meta-agent-stream")     최상위 Run (스트리밍 전체)
+            └── tool:xxx (@traceable, run_type=tool) Tool 실행 자식 Run
+          * stream LLM 호출은 @traceable 적용 불가하여 개별 추적 안 됨
         """
-        # LangSmith context manager 래핑 (최소 침습: 기존 로직 무변경)
         profile = (context_data or {}).get("profile", {})
         _trace_ctx = None
         _run_tree = None
         _stream_output = ""
         _langsmith_error: str | None = None
+
+        # trace inputs에 system_prompt를 포함하기 위해 trace 진입 전에 먼저 빌드
+        messages, history = self._build_messages(text, session_id, context_data)
+
+        # 초기 메시지 수 기록: outputs에서 에이전트가 추가한 메시지만 슬라이싱하기 위해
+        _initial_msg_len = len(messages)
+
         if langsmith_is_enabled():
+            # inputs["messages"]: OpenAI 채팅 형식 → LangSmith가 System/User/AI/Tool 아이콘으로 렌더링
             _trace_ctx = langsmith.trace(
                 name="meta-agent-stream",
-                inputs={"text": text, "session_id": session_id},
+                inputs={"messages": list(messages)},
                 tags=["agent", "stream"],
                 metadata={
                     "session_id": session_id,
@@ -335,27 +334,19 @@ class MetaAgentService:
             _run_tree = _trace_ctx.__enter__()
 
         try:
-            messages, history = self._build_messages(text, session_id, context_data)
             iterations = 0
             final_content = ""
-
-            _ls_meta = {}
-            if langsmith_is_enabled() and _run_tree is not None:
-                # LiteLLM LangSmith 콜백이 인식하는 부모 Run 연결 키
-                _ls_meta = {
-                    "parent_run_id": str(_run_tree.id),
-                    "trace_id": str(_run_tree.trace_id),
-                }
 
             fallback_message = "응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
             try:
                 while iterations < self.max_iterations:
+                    # 스트리밍 모드: @traceable 적용 불가하여 router.acompletion 직접 호출
+                    # LangSmith에는 최상위 Run + Tool 자식 Run만 기록됨 (LLM 개별 호출은 미추적)
                     response = await self.router.acompletion(
                         model=ROUTER_MODEL_NAME,
                         messages=messages,
                         tools=self.tools,
                         stream=True,
-                        metadata=_ls_meta
                     )
 
                     content_buffer = ""
@@ -385,6 +376,8 @@ class MetaAgentService:
                     if not tool_call_buffer:
                         final_content = content_buffer or fallback_message
                         _stream_output = final_content
+                        # 최종 AI 응답을 messages에 추가해야 LangSmith Output에 assistant 턴이 표시됨
+                        messages.append({"role": "assistant", "content": final_content})
                         history.add_user_message(text)
                         history.add_ai_message(final_content)
                         break
@@ -404,15 +397,13 @@ class MetaAgentService:
                     msg_dict["tool_calls"] = tool_calls_list
                     messages.append(msg_dict)
 
-                    # Tool 실행
+                    # Tool 실행: @traceable(run_type="tool")이 ContextVar를 통해 자식 Run으로 연결됨
                     for tc in tool_calls_list:
                         func_name = tc["function"]["name"]
                         try:
                             arguments = json.loads(tc["function"]["arguments"])
                             arguments = self._normalize_tool_args(func_name, arguments)
-                            result_str = await self._invoke_tool_with_tracing(
-                                func_name, arguments, run_tree=_run_tree
-                            )
+                            result_str = await self._invoke_tool_with_tracing(func_name, arguments)
                         except Exception as e:
                             logger.error(f"Streaming Tool error: {e}")
                             result_str = json.dumps({"error": str(e)})
@@ -429,6 +420,7 @@ class MetaAgentService:
                 if iterations >= self.max_iterations:
                     max_iter_message = "에이전트가 최대 허용 횟수 내에 답변을 완료하지 못했습니다."
                     _stream_output = max_iter_message
+                    messages.append({"role": "assistant", "content": max_iter_message})
                     history.add_user_message(text)
                     history.add_ai_message(max_iter_message)
                     yield max_iter_message
@@ -477,7 +469,10 @@ class MetaAgentService:
             if _trace_ctx is not None:
                 if _run_tree is not None:
                     _run_tree.end(
-                        outputs={"response": _stream_output or "응답을 생성하지 못했습니다."},
+                        outputs={
+                            "messages": messages[_initial_msg_len:],
+                            "response": _stream_output or "응답을 생성하지 못했습니다.",
+                        },
                         error=_langsmith_error,
                     )
                 _trace_ctx.__exit__(None, None, None)
@@ -487,9 +482,13 @@ class MetaAgentService:
             if _trace_ctx is not None:
                 if _run_tree is not None:
                     _run_tree.end(
-                        outputs={"response": _stream_output or "응답을 생성하지 못했습니다."},
+                        outputs={
+                            "messages": messages[_initial_msg_len:],
+                            "response": _stream_output or "응답을 생성하지 못했습니다.",
+                        },
                         error=_langsmith_error,
                     )
                 _trace_ctx.__exit__(None, None, None)
+
 
 meta_agent_service = MetaAgentService()

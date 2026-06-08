@@ -105,18 +105,11 @@ if not has_primary:
 if not has_fallback:
     logger.warning("Gemini 키가 없습니다. OpenAI 단독 운영됩니다.")
 
-# LangSmith 콜백 등록 (LANGSMITH_TRACING=true 환경에서만 활성화)
-# LiteLLM은 success_callback / failure_callback에 "langsmith"를 추가하면
-# 모든 LLM 호출을 자동으로 LangSmith 자식 Run으로 기록한다.
-_langsmith_tracing = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
-_langsmith_api_key = os.getenv("LANGSMITH_API_KEY", "").strip()
+# LangSmith 트레이싱은 agent_service.py의 @traceable 데코레이터가 담당한다.
+# LiteLLM success_callback="langsmith"를 동시에 활성화하면 동일 LLM 호출이
+# LangSmith에 중복 Run으로 기록되므로 여기서는 등록하지 않는다.
+# 참고: https://docs.smith.langchain.com/observability/how_to_guides/trace_with_litellm
 
-if _langsmith_tracing and _langsmith_api_key:
-    if "langsmith" not in litellm.success_callback:
-        litellm.success_callback.append("langsmith")
-    if "langsmith" not in litellm.failure_callback:
-        litellm.failure_callback.append("langsmith")
-    logger.info("LiteLLM LangSmith 콜백 등록 완료.")
 
 # LiteLLM Router 설정
 llm_router = Router(
