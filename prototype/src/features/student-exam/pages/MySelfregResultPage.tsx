@@ -1,36 +1,34 @@
 /**
- * 학생용 학습종합검사 결과 페이지
+ * 학생용 자기조절학습검사 결과 페이지
  *
- * 교사용 StudentDashboardPage (testId='comprehensive')를 참조하여 구현
+ * 교사용 StudentDashboardPage (testId='selfreg')를 참조하여 구현
  * - AI 총평 (DiagnosisSummary)
- * - 38개 요인 분석 (StudentFactorAnalysis)
- * - LPA 유형 분류는 학생에게 미표시 (교사 전용)
- * - 코칭 전략, 우측 패널, 학생 네비게이션은 학생용에서 제외
+ * - 20개 요인 분석 (SelfregFactorAnalysis)
+ * - LPA 유형 분류, 코칭 전략은 자기조절학습검사에서는 미표시
  */
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShieldAlert, AlertTriangle, Clock, Loader2, Download, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Download, Loader2, AlertTriangle, ShieldAlert, Clock, ChevronDown } from 'lucide-react';
 import { Button } from '@/shared/components';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 import {
   DiagnosisSummary,
-  StudentFactorAnalysis,
+  SelfregFactorAnalysis,
 } from '@/features/student-dashboard/components';
 import type { Student, Assessment } from '@/shared/types';
 import { MOCK_CLASSES } from '@/shared/data/mockData';
 
 type ViewMode = 'round1' | 'round2' | 'compare';
 
-interface MyResultContentProps {
-  student: Student;
+interface MySelfregResultContentProps {
   assessment: Assessment;
   prevAssessment?: Assessment;
   isCompare: boolean;
 }
 
-const MyResultContent: React.FC<MyResultContentProps> = ({
+const MySelfregResultContent: React.FC<MySelfregResultContentProps> = ({
   assessment,
   prevAssessment,
   isCompare,
@@ -43,19 +41,17 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
         studentType={assessment.predictedType}
       />
 
-      {/* 38개 요인 분석 */}
-      <StudentFactorAnalysis
+      {/* 20개 요인 분석 (자기조절학습검사) */}
+      <SelfregFactorAnalysis
         tScores={assessment.tScores}
         prevTScores={isCompare && prevAssessment ? prevAssessment.tScores : undefined}
         showCompare={isCompare}
       />
-
-      {/* LPA 유형 분류 및 유형별 특이점은 학생에게 미표시 (교사 전용) */}
     </div>
   );
 };
 
-export const MyResultPage: React.FC = () => {
+export const MySelfregResultPage: React.FC = () => {
   const { resultId } = useParams<{ resultId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -95,7 +91,7 @@ export const MyResultPage: React.FC = () => {
 
         setError('아직 시행한 검사 결과가 없습니다.');
       } catch (err) {
-        console.error('[MyResultPage] 결과 로드 실패:', err);
+        console.error('[MySelfregResultPage] 결과 로드 실패:', err);
         setError('아직 시행한 검사 결과가 없습니다.');
       } finally {
         setIsLoading(false);
@@ -114,7 +110,7 @@ export const MyResultPage: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 text-primary-500 animate-spin mx-auto mb-2" />
+          <Loader2 className="w-8 h-8 text-teal-500 animate-spin mx-auto mb-2" />
           <p className="text-gray-500">결과를 불러오는 중...</p>
         </div>
       </div>
@@ -173,9 +169,9 @@ export const MyResultPage: React.FC = () => {
             <div className="flex items-center gap-2 flex-wrap">
               <span
                 className="px-3 py-1 text-xs font-semibold rounded-full text-white"
-                style={{ backgroundColor: '#9D53E1' }}
+                style={{ backgroundColor: '#009F88' }}
               >
-                학습종합검사
+                자기조절학습검사
               </span>
               <h1 className="text-2xl font-bold text-gray-900">나의 검사 결과</h1>
               {current.reliabilityWarnings.length > 0 && (
@@ -197,7 +193,7 @@ export const MyResultPage: React.FC = () => {
                 </span>
               )}
             </div>
-            <p className="text-gray-500 mt-0.5">{user?.name || student.name}님의 학습종합검사 결과</p>
+            <p className="text-gray-500 mt-0.5">{user?.name || student.name}님의 자기조절학습검사 결과</p>
           </div>
         </div>
 
@@ -261,7 +257,7 @@ export const MyResultPage: React.FC = () => {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
               style={{
-                backgroundColor: viewMode === mode ? '#9D53E1' : undefined,
+                backgroundColor: viewMode === mode ? '#009F88' : undefined,
               }}
             >
               {label}
@@ -281,8 +277,7 @@ export const MyResultPage: React.FC = () => {
       )}
 
       {/* 메인 콘텐츠 */}
-      <MyResultContent
-        student={student}
+      <MySelfregResultContent
         assessment={current}
         prevAssessment={isCompare ? r1 : undefined}
         isCompare={isCompare}
