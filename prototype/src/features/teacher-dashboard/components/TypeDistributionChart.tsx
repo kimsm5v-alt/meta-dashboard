@@ -41,8 +41,8 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
         (sum, key) => sum + (cls.stats?.typeDistribution?.[key]?.count || 0), 0,
       );
       const row: BarRecord = {
-        name: `${cls.grade}-${cls.classNumber}반`,
-        label: `${cls.grade}-${cls.classNumber}반 (${total}명)`,
+        name: `${cls.grade}학년 ${cls.classNumber}반`,
+        label: `${cls.grade}학년 ${cls.classNumber}반 (${total}명)`,
         classId: cls.id,
       };
       for (const key of typeKeys) {

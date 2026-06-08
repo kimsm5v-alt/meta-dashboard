@@ -5,6 +5,8 @@ import tools.jackson.databind.ObjectMapper;
 import com.vs.meta.api.notification.event.ExamSubmittedEvent;
 import com.vs.meta.api.notification.event.StudentExamNotificationEvent;
 import com.vs.meta.api.notification.event.TeacherExamNotificationEvent;
+import com.vs.meta.common.auth.UserInfoEnricher;
+import com.vs.meta.common.auth.UserSlot;
 import com.vs.meta.common.exception.IllegalStateException;
 import com.vs.meta.common.exception.ValidationException;
 import com.vs.meta.common.response.AidtCommonUtil;
@@ -62,6 +64,7 @@ public class DgnssService {
     private final FileService fileService;
     private final NcpMailSender ncpMailSender;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserInfoEnricher userInfoEnricher;
     private Map<String, String> lpaTypeNameByClassId = Collections.emptyMap();
 
     @Value("${spring.profiles.active}")
@@ -186,6 +189,8 @@ public class DgnssService {
     @Transactional(readOnly = true)
     public Map<String, Object> selectTcDgnssStartPreview(Map<String, Object> param) {
         List<Map<String, Object>> rows = dgnssMapper.selectTcDgnssStartPreview(param);
+        // Phase 3: memberSpUserId → nickname 복원 (FE 호환)
+        enrichMaps(rows, "memberSpUserId", "nickname", null);
 
         int eligibleCount = 0;
         int blockedCount = 0;
@@ -547,6 +552,8 @@ public class DgnssService {
             // 학생용 PDF 생성 및 존재하는 데이터일 경우 주소 리턴
             long dbStart = System.currentTimeMillis();
             Map<String, Object> stUserInfo = dgnssMapper.selectStUserInfo(paramData);
+            // Phase 3: memberSpUserId → MEM_NM/email, teacherSpUserId → tcNm 복원
+            enrichStUserInfo(stUserInfo);
             log.info("[PDF 성능] 학생 정보 조회: {}ms", System.currentTimeMillis() - dbStart);
 
             String fileUrl = MapUtils.getString(stUserInfo, "fileURL", "");
@@ -588,7 +595,10 @@ public class DgnssService {
         param.put("claId", MapUtils.getString(tcUserInfo, "claId"));
 
         long dbStart = System.currentTimeMillis();
-        // 1단계: 독립적인 쿼리 5개 병렬 실행
+        // 1단계: 독립적인 쿼리 6개 병렬 실행 (Phase 4: selectMembersByTScoreThreshold 추가)
+        int testIdx = MapUtils.getInteger(param, "TEST_IDX", 0);
+        String dgnssId = MapUtils.getString(param, "DGNSS_ID");
+
         CompletableFuture<List<Map<String, Object>>> reportLSFuture =
                 CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportLS(param), pdfQueryPool);
         CompletableFuture<List<Map<String, Object>>> reportSectionFuture =
@@ -597,17 +607,34 @@ public class DgnssService {
                 CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportValidity(param), pdfQueryPool);
         CompletableFuture<List<Map<String, Object>>> reportMemFuture =
                 CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssReportMem(param), pdfQueryPool);
+        // Phase 4: FN_GET_MEM_UNDER_TSCORE 대체 - 한 번의 쿼리로 모든 SECTION_MEM 데이터 조회
+        CompletableFuture<List<Map<String, Object>>> sectionMemRawFuture =
+                CompletableFuture.supplyAsync(() -> dgnssMapper.selectMembersByTScoreThreshold(testIdx), pdfQueryPool);
         CompletableFuture<Object> firstTestFuture =
                 CompletableFuture.supplyAsync(() -> dgnssMapper.getDgnssFirstTest(param), pdfQueryPool);
 
         // 모든 병렬 쿼리 완료 대기
-        CompletableFuture.allOf(reportLSFuture, reportSectionFuture, reportValidityFuture, reportMemFuture, firstTestFuture).join();
+        CompletableFuture.allOf(reportLSFuture, reportSectionFuture, reportValidityFuture, reportMemFuture, sectionMemRawFuture, firstTestFuture).join();
 
         // 병렬 쿼리 결과 추출
         List<Map<String, Object>> dgnssReportLS = reportLSFuture.get();
         List<Map<String, Object>> dgnssReportSection = reportSectionFuture.get();
         List<Map<String, Object>> dgnssReportValidity = reportValidityFuture.get();
         List<Map<String, Object>> dgnssReportMem = reportMemFuture.get();
+        List<Map<String, Object>> sectionMemRaw = sectionMemRawFuture.get();
+
+        // Phase 4: SECTION_MEM 필드 병합 (FN_GET_MEM_UNDER_TSCORE 대체)
+        Map<String, String> sectionMemMap = buildSectionMemMap(sectionMemRaw, dgnssId);
+        if (!dgnssReportMem.isEmpty()) {
+            Map<String, Object> memRow = dgnssReportMem.get(0);
+            enrichSectionMemFields(memRow, sectionMemMap);
+        }
+
+        // Phase 3: memberSpUserId → MEM_NM 복원 (FE 호환)
+        enrichMaps(dgnssReportLS, "memberSpUserId", "MEM_NM", null);
+        enrichMaps(dgnssReportValidity, "memberSpUserId", "MEM_NM", null);
+        // Phase 4: GROUP_CONCAT raw(sp_user_id||member_no) → "이름(member_no)" 복원
+        enrichReportMemFields(dgnssReportMem);
 
         // 첫번째 검사를 본 id 추출 (FIRST_IDX 설정)
         param.put("FIRST_IDX", firstTestFuture.get());
@@ -820,6 +847,8 @@ public class DgnssService {
         sendStudentResultMail(dgnssResultId, answerIdx, overrideEmail, request);
 
         Map<String, Object> studentInfo = dgnssMapper.selectStUserInfo(Collections.singletonMap("answerIdx", answerIdx));
+        // Phase 3: memberSpUserId → MEM_NM/email, teacherSpUserId → tcNm 복원
+        enrichStUserInfo(studentInfo);
         Map<String, Object> resultMap = new HashMap<>();
         resultMap.put("dgnssResultId", dgnssResultId);
         resultMap.put("answerIdx", answerIdx);
@@ -882,6 +911,8 @@ public class DgnssService {
         // 그룹에는 포함되어있지만 현재 학급의 심리검사 데이터가 없는 학생(다른 학급에서 응시) fallback 보강.
         // 각 row 에 source ('IN_CLASS' / 'OTHER_CLASS') 필드 부여.
         stInfoList = applyStInfoListFallback(stInfoList, param, paperIdx, type);
+        // Phase 3: memberSpUserId → nickname 복원 (FE 호환, IN_CLASS + OTHER_CLASS 모두)
+        enrichMaps(stInfoList, "memberSpUserId", "nickname", null);
 
         resultMap.put("stInfoList", stInfoList);
         resultMap.put("type", type);
@@ -959,6 +990,8 @@ public class DgnssService {
     @Transactional(readOnly = true)
     public Map<String, Object> selectTcDgnssDetailInfo(Map<String, Object> param) {
         Map<String, Object> result = dgnssMapper.selectTcDgnssDetailInfo(param);
+        // Phase 4: notSubmStdtName raw(sp_user_id||member_no) → "이름(member_no)" 복원
+        enrichGroupConcatField(result, "notSubmStdtName");
         String stdtList = MapUtils.getString(result, "notSubmStdtId", "");
         if (StringUtils.isNotEmpty(stdtList)) {
             String[] notDgnssStartListArr = stdtList.split(",");
@@ -1190,6 +1223,8 @@ public class DgnssService {
         if (stUserInfo == null) {
             return new HashMap<>();
         }
+        // Phase 3: memberSpUserId → nickname 복원 (FE 호환)
+        enrichMap(stUserInfo, "memberSpUserId", "nickname", null);
 
         String resolvedPaperIdx = MapUtils.getString(stUserInfo, "paperIdx",
                 MapUtils.getString(param, "paperIdx", "2"));
@@ -1299,6 +1334,8 @@ public class DgnssService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> selectTcDgnssNotSubmStList(Map<String, Object> param) {
         List<Map<String, Object>> resultList = dgnssMapper.selectTcDgnssNotSubmStList(param);
+        // Phase 3: memberSpUserId → nickname 복원 (FE 호환)
+        enrichMaps(resultList, "memberSpUserId", "nickname", null);
         return resultList;
     }
 
@@ -1770,7 +1807,12 @@ public class DgnssService {
             int round = MapUtils.getInteger(info, "ordNo", 0);
             String paperIdx = MapUtils.getString(info, "paperIdx", "");
             String examName = resolveExamNameByPaperIdx(paperIdx);
+            // Phase 3: memberSpUserId → studentNickname 복원, fallback → stdtId
+            enrichMap(info, "memberSpUserId", "studentNickname", null);
             String studentNickname = MapUtils.getString(info, "studentNickname", "");
+            if (StringUtils.isBlank(studentNickname)) {
+                studentNickname = MapUtils.getString(info, "stdtId", "학생");
+            }
             if (StringUtils.isBlank(studentNickname)) {
                 studentNickname = "학생";
             }
@@ -2112,6 +2154,71 @@ public class DgnssService {
         return PageRequest.of(page, size);
     }
 
+    /**
+     * (학생)META 자기조절학습 이어하기 진입 정보.
+     * 중간에 종료한 학생이 이어하기 시 마지막으로 응답한 문항번호와, 진입해야 할 페이지(0-base, 첫 페이지=0)를 계산해 반환한다.
+     * "마지막으로 푼 문제" 기준은 OMR 에서 응답이 채워진 최대 문항번호(NO)이다.
+     *
+     * 페이지 레이아웃은 stMetaStart(selectStDgnssStart) 와 동일하다(페이지당 20문항, 0-base).
+     *  - 학습종합(paperIdx=1)  : 정규 119문항 + 추가 문항 120~124 (page 6)
+     *  - META자기조절(그 외)   : 정규 ~72문항 + 추가 문항 73~77  (page 4)
+     * 추가 문항은 마지막 페이지에 하드코딩으로 붙으므로, 정규 문항 범위를 벗어나면 해당 페이지로 고정한다.
+     *
+     * 반환된 page 는 /api/dgnss/st/start 의 page(0-base) 에 그대로 전달할 수 있다.
+     */
+    public Map<String, Object> selectStDgnssResume(Map<String, Object> param) {
+        final int PAGE_SIZE = 20;
+        Map<String, Object> resultMap = new HashMap<>();
+        int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
+
+        Map<String, Object> omrInfo = dgnssMapper.selectStDgnssOmr(param);
+
+        // 잘못된 id 값으로 보내는 케이스(교사가 취소한 시험지로 응시하려는 케이스)
+        if (MapUtils.isEmpty(omrInfo)) {
+            resultMap.put("success", "error");
+            return resultMap;
+        }
+
+        // 응답이 채워진 문항번호(NO) 중 최댓값과 응답 개수 산출 (응답이 아닌 dgnssResultId/omrIdx 컬럼은 제외)
+        int lastAnsweredNo = 0;
+        int stAnsCnt = 0;
+        for (Map.Entry<String, Object> entry : omrInfo.entrySet()) {
+            if (!StringUtils.isNumeric(entry.getKey())) {
+                continue;
+            }
+            if (ObjectUtils.isEmpty(entry.getValue())) {
+                continue;
+            }
+            stAnsCnt++;
+            int no = Integer.parseInt(entry.getKey());
+            if (no > lastAnsweredNo) {
+                lastAnsweredNo = no;
+            }
+        }
+
+        // paperIdx 별 추가(extras) 문항 시작 번호와, start 기준 extras 페이지(0-base)
+        boolean isComprehensive = (paperIdx == 1); // 1:학습종합, 그 외:META자기조절
+        int extrasStartNo = isComprehensive ? 120 : 73;
+        int extrasPageZeroBase = isComprehensive ? 6 : 4;
+
+        int pageZeroBase;
+        if (lastAnsweredNo <= 0) {
+            pageZeroBase = 0;
+        } else if (lastAnsweredNo >= extrasStartNo) {
+            pageZeroBase = extrasPageZeroBase;
+        } else {
+            pageZeroBase = (lastAnsweredNo - 1) / PAGE_SIZE;
+        }
+
+        resultMap.put("lastAnsweredNo", lastAnsweredNo);
+        resultMap.put("stAnsCnt", stAnsCnt);
+        resultMap.put("page", pageZeroBase); // 0-base (첫 페이지 = 0), start 의 page 에 그대로 전달 가능
+        resultMap.put("size", PAGE_SIZE);
+        resultMap.put("omrIdx", MapUtils.getInteger(omrInfo, "omrIdx", 0));
+
+        return resultMap;
+    }
+
     public Map<String, Object> summaryPdfUpload(Map<String, Object> paramData, HttpServletRequest request) throws Exception {
         Map<String, Object> result = new HashMap<>();
 
@@ -2120,6 +2227,8 @@ public class DgnssService {
         String formattedTime = currentTime.format(formatter);
 
         Map<String, Object> dgnssAnswer = dgnssMapper.selectStUserInfo(paramData);
+        // Phase 3: memberSpUserId → MEM_NM/email, teacherSpUserId → tcNm 복원
+        enrichStUserInfo(dgnssAnswer);
         if (StringUtils.isNotEmpty(MapUtils.getString(dgnssAnswer, "summaryFileURL", ""))) {
             result.put("summaryUrl", MapUtils.getString(dgnssAnswer, "summaryFileURL", ""));
         }
@@ -2156,6 +2265,8 @@ public class DgnssService {
         if (MapUtils.isEmpty(studentInfo)) {
             throw new IllegalStateException("학생 결과 메일 발송 대상 정보를 찾을 수 없습니다.");
         }
+        // Phase 3: memberSpUserId → MEM_NM/email, teacherSpUserId → tcNm 복원
+        enrichStUserInfo(studentInfo);
 
         String memberType = MapUtils.getString(studentInfo, "memberType", "");
         if (!StringUtils.equals(memberType, "GUEST")) {
@@ -2182,6 +2293,8 @@ public class DgnssService {
         if (MapUtils.isEmpty(stUserInfo)) {
             throw new IllegalStateException("학생 PDF 생성 대상 정보를 찾을 수 없습니다.");
         }
+        // Phase 3: memberSpUserId → MEM_NM/email, teacherSpUserId → tcNm 복원
+        enrichStUserInfo(stUserInfo);
 
         String fileUrl = MapUtils.getString(stUserInfo, "fileURL", "");
         if (StringUtils.isNotBlank(fileUrl)) {
@@ -2445,6 +2558,8 @@ public class DgnssService {
     public byte[] generateSampleExcel(int dgnssId) throws IOException {
         // 1. OMR 목록 조회
         List<Map<String, Object>> omrList = dgnssMapper.selectOmrListForSampleExcel(dgnssId);
+        // Phase 3: memberSpUserId → nickname 복원 (FE 호환)
+        enrichMaps(omrList, "memberSpUserId", "nickname", null);
 
         try (Workbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -2843,5 +2958,265 @@ public class DgnssService {
 
     private String buildErrorMessage(List<Map<String, Object>> errors) {
         return "유효성 검증 실패: " + errors.size() + "건의 오류가 발견되었습니다";
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 3 Map-enrich 헬퍼 — FE 호환 키(nickname/email 등) 복원
+    // HasUserInfo 타입이 아닌 List<Map> 응답에서 memberSpUserId / teacherSpUserId 기준으로
+    // IDP 회원정보를 채운다. (Task 15: DgnssMapper SELECT PII 정리 대응)
+    // -----------------------------------------------------------------------
+
+    /**
+     * spUserId 필드로 식별되는 Map 목록을 Auth 회원정보로 enrich.
+     *
+     * @param items       enrich 대상 Map 목록
+     * @param spUserIdKey Map 안의 sp_user_id 필드 키 이름 (예: "memberSpUserId", "teacherSpUserId")
+     * @param nicknameKey Map에 채워 넣을 닉네임 응답 키 이름 (예: "nickname", "MEM_NM", "tcNm")
+     * @param emailKey    Map에 채워 넣을 이메일 응답 키 이름 (null 이면 email 을 채우지 않음)
+     */
+    private void enrichMaps(
+            List<Map<String, Object>> items,
+            String spUserIdKey,
+            String nicknameKey,
+            String emailKey
+    ) {
+        if (items == null || items.isEmpty()) return;
+
+        List<UserSlot> slots = items.stream()
+                .map(m -> (String) m.get(spUserIdKey))
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(UserSlot::new)
+                .toList();
+        if (slots.isEmpty()) return;
+
+        userInfoEnricher.enrich(slots);
+
+        Map<String, UserSlot> bySpUserId = slots.stream()
+                .collect(Collectors.toMap(UserSlot::getSpUserId, s -> s));
+        items.forEach(m -> {
+            String spUserId = (String) m.get(spUserIdKey);
+            if (spUserId == null) return;
+            UserSlot slot = bySpUserId.get(spUserId);
+            if (slot != null) {
+                m.put(nicknameKey, slot.getName());
+                if (emailKey != null) m.put(emailKey, slot.getEmail());
+            } else {
+                m.put(nicknameKey, "(탈퇴 회원)");
+                if (emailKey != null) m.put(emailKey, null);
+            }
+        });
+    }
+
+    /**
+     * 단건 Map enrich.
+     *
+     * @see #enrichMaps(List, String, String, String)
+     */
+    private void enrichMap(
+            Map<String, Object> item,
+            String spUserIdKey,
+            String nicknameKey,
+            String emailKey
+    ) {
+        if (item == null) return;
+        enrichMaps(List.of(item), spUserIdKey, nicknameKey, emailKey);
+    }
+
+    /**
+     * selectStUserInfo 결과 Map을 enrich.
+     * 학생: memberSpUserId → MEM_NM / email
+     * 교사: teacherSpUserId → tcNm
+     */
+    private void enrichStUserInfo(Map<String, Object> stUserInfo) {
+        if (stUserInfo == null) return;
+        enrichMap(stUserInfo, "memberSpUserId", "MEM_NM", "email");
+        enrichMap(stUserInfo, "teacherSpUserId", "tcNm", null);
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 4 GROUP_CONCAT enrich 헬퍼
+    // getDgnssReportMem / selectTcDgnssDetailInfo 가 raw 포맷으로 반환하는
+    // "sp_user_id||member_no" 엔트리를 이름(member_no) 형식으로 복원.
+    // 구분자: ";;" (sp_user_id/member_no 어디에도 등장 불가한 안전 ASCII 시퀀스 — XML 1.0 호환)
+    // -----------------------------------------------------------------------
+
+    /** GROUP_CONCAT raw record separator — DgnssMapper.xml SEPARATOR ';;' 와 동일. */
+    static final String GROUP_CONCAT_RS = ";;";
+
+    /**
+     * Map 안의 키에 저장된 GROUP_CONCAT raw 문자열을 "이름(member_no), ..." 형식으로 복원.
+     *
+     * <p>raw 포맷: "sp_user_id||member_no{RS}sp_user_id||member_no{RS}..."
+     * <p>출력 포맷: "이름(member_no), 이름(member_no), ..." (FE 기존 형식 보존)
+     *
+     * @param row  대상 Map (in-place 수정)
+     * @param key  raw 값이 저장된 Map 키 (예: "QESITM02_MEM", "notSubmStdtName")
+     */
+    private void enrichGroupConcatField(Map<String, Object> row, String key) {
+        if (row == null) return;
+        String raw = (String) row.get(key);
+        if (raw == null || raw.isEmpty()) return;
+
+        String[] entries = raw.split(java.util.regex.Pattern.quote(GROUP_CONCAT_RS), -1);
+
+        // distinct sp_user_id 수집
+        List<String> spUserIds = Arrays.stream(entries)
+                .map(e -> e.split("\\|\\|", 2)[0])
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<String, String> nameBySpUserId = new HashMap<>();
+        if (!spUserIds.isEmpty()) {
+            List<UserSlot> slots = spUserIds.stream().map(UserSlot::new).collect(Collectors.toList());
+            userInfoEnricher.enrich(slots);
+            slots.forEach(s -> nameBySpUserId.put(s.getSpUserId(),
+                    s.getName() != null ? s.getName() : "(탈퇴 회원)"));
+        }
+
+        // 재조합: "이름(member_no)" 형식으로 변환
+        String enriched = Arrays.stream(entries)
+                .map(e -> {
+                    String[] parts = e.split("\\|\\|", 2);
+                    String spUserId = parts[0];
+                    String memberNo = parts.length > 1 ? parts[1] : "?";
+                    String name = spUserId.isEmpty()
+                            ? "(탈퇴 회원)"
+                            : nameBySpUserId.getOrDefault(spUserId, "(탈퇴 회원)");
+                    return name + "(" + memberNo + ")";
+                })
+                .collect(Collectors.joining(", "));
+
+        row.put(key, enriched);
+    }
+
+    /**
+     * getDgnssReportMem 결과 목록의 GROUP_CONCAT 필드들을 enrich.
+     *
+     * @param rows getDgnssReportMem 결과 목록
+     */
+    private void enrichReportMemFields(List<Map<String, Object>> rows) {
+        if (rows == null || rows.isEmpty()) return;
+        for (Map<String, Object> row : rows) {
+            enrichGroupConcatField(row, "QESITM02_MEM");
+            enrichGroupConcatField(row, "QESITM01_MEM");
+            enrichGroupConcatField(row, "REPEATED_RESPONSE_YN");
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 4: FN_GET_MEM_UNDER_TSCORE 함수 → Java 이동
+    // 44번 함수 호출 → 1번 쿼리로 성능 개선
+    // -----------------------------------------------------------------------
+
+    /** SECTION_ID → SECTION_MEM alias 매핑 (DGNSS_10) */
+    private static final Map<String, String> SECTION_MEM_ALIAS_MAP_10 = Map.ofEntries(
+            Map.entry("10-22-01-01-01-0", "SECTION_MEM_01_01_01"),
+            Map.entry("10-22-01-01-02-0", "SECTION_MEM_01_01_02"),
+            Map.entry("10-22-01-01-03-0", "SECTION_MEM_01_01_03"),
+            Map.entry("10-22-01-02-01-0", "SECTION_MEM_01_02_01"),
+            Map.entry("10-22-01-02-02-0", "SECTION_MEM_01_02_02"),
+            Map.entry("10-22-01-02-03-0", "SECTION_MEM_01_02_03"),
+            Map.entry("10-22-01-02-04-0", "SECTION_MEM_01_02_04"),
+            Map.entry("10-22-02-01-01-0", "SECTION_MEM_02_01_01"),
+            Map.entry("10-22-02-01-02-0", "SECTION_MEM_02_01_02"),
+            Map.entry("10-22-02-01-03-0", "SECTION_MEM_02_01_03"),
+            Map.entry("10-22-02-02-01-0", "SECTION_MEM_02_02_01"),
+            Map.entry("10-22-02-02-02-0", "SECTION_MEM_02_02_02"),
+            Map.entry("10-22-02-02-03-0", "SECTION_MEM_02_02_03"),
+            Map.entry("10-22-02-02-04-0", "SECTION_MEM_02_02_04"),
+            Map.entry("10-22-02-02-05-0", "SECTION_MEM_02_02_05"),
+            Map.entry("10-22-02-03-01-0", "SECTION_MEM_02_03_01"),
+            Map.entry("10-22-02-03-02-0", "SECTION_MEM_02_03_02"),
+            Map.entry("10-22-02-03-03-0", "SECTION_MEM_02_03_03"),
+            Map.entry("10-22-02-03-04-0", "SECTION_MEM_02_03_04"),
+            Map.entry("10-22-03-01-01-0", "SECTION_MEM_03_01_01"),
+            Map.entry("10-22-03-01-02-0", "SECTION_MEM_03_01_02"),
+            Map.entry("10-22-03-01-03-0", "SECTION_MEM_03_01_03"),
+            Map.entry("10-22-03-02-01-0", "SECTION_MEM_03_02_01"),
+            Map.entry("10-22-03-02-02-0", "SECTION_MEM_03_02_02"),
+            Map.entry("10-22-03-02-03-0", "SECTION_MEM_03_02_03"),
+            Map.entry("10-22-03-02-04-0", "SECTION_MEM_03_02_04"),
+            Map.entry("10-22-03-02-05-0", "SECTION_MEM_03_02_05"),
+            Map.entry("10-22-03-03-01-0", "SECTION_MEM_03_03_01"),
+            Map.entry("10-22-03-03-02-0", "SECTION_MEM_03_03_02"),
+            Map.entry("10-22-04-01-01-0", "SECTION_MEM_04_01_01"),
+            Map.entry("10-22-04-01-02-0", "SECTION_MEM_04_01_02"),
+            Map.entry("10-22-04-01-03-0", "SECTION_MEM_04_01_03"),
+            Map.entry("10-22-04-02-01-0", "SECTION_MEM_04_02_01"),
+            Map.entry("10-22-04-02-02-0", "SECTION_MEM_04_02_02"),
+            Map.entry("10-22-04-02-03-0", "SECTION_MEM_04_02_03"),
+            Map.entry("10-22-05-01-01-0", "SECTION_MEM_05_01_01"),
+            Map.entry("10-22-05-01-02-0", "SECTION_MEM_05_01_02"),
+            Map.entry("10-22-05-01-03-0", "SECTION_MEM_05_01_03")
+    );
+
+    /** SECTION_ID → SECTION_MEM alias 매핑 (DGNSS_20) */
+    private static final Map<String, String> SECTION_MEM_ALIAS_MAP_20 = Map.of(
+            "20-22-01-01-0-0", "SECTION_MEM_01_01",
+            "20-22-01-02-0-0", "SECTION_MEM_01_02",
+            "20-22-02-01-0-0", "SECTION_MEM_02_01",
+            "20-22-02-02-0-0", "SECTION_MEM_02_02",
+            "20-22-03-01-0-0", "SECTION_MEM_03_01",
+            "20-22-03-02-0-0", "SECTION_MEM_03_02"
+    );
+
+    /**
+     * selectMembersByTScoreThreshold 결과를 SECTION_MEM 필드 Map으로 변환.
+     * FN_GET_MEM_UNDER_TSCORE 함수 대체.
+     *
+     * @param rawList 쿼리 결과 (sectionId, memberKey, memberNo)
+     * @param dgnssId DGNSS_10 또는 DGNSS_20
+     * @return SECTION_MEM_* 필드를 담은 Map (sp_user_id||member_no;; 형식)
+     */
+    private Map<String, String> buildSectionMemMap(List<Map<String, Object>> rawList, String dgnssId) {
+        Map<String, String> aliasMap = "DGNSS_10".equals(dgnssId)
+                ? SECTION_MEM_ALIAS_MAP_10
+                : SECTION_MEM_ALIAS_MAP_20;
+
+        // SECTION_ID 별로 memberKey 그룹핑
+        Map<String, List<String>> grouped = new LinkedHashMap<>();
+        for (Map<String, Object> row : rawList) {
+            String sectionId = (String) row.get("sectionId");
+            String memberKey = (String) row.get("memberKey");
+
+            String alias = aliasMap.get(sectionId);
+            if (alias != null && memberKey != null) {
+                grouped.computeIfAbsent(alias, k -> new ArrayList<>()).add(memberKey);
+            }
+        }
+
+        // GROUP_CONCAT 형식으로 변환
+        Map<String, String> result = new HashMap<>();
+        for (String alias : aliasMap.values()) {
+            List<String> members = grouped.get(alias);
+            String value = (members == null || members.isEmpty())
+                    ? ""
+                    : String.join(GROUP_CONCAT_RS, members);
+            result.put(alias, value);
+        }
+
+        return result;
+    }
+
+    /**
+     * SECTION_MEM 필드들을 enrich하여 "이름(번호)" 형식으로 변환.
+     *
+     * @param targetRow    결과를 넣을 Map
+     * @param sectionMemMap buildSectionMemMap 결과
+     */
+    private void enrichSectionMemFields(Map<String, Object> targetRow, Map<String, String> sectionMemMap) {
+        if (sectionMemMap == null || sectionMemMap.isEmpty()) return;
+
+        // 먼저 raw 값을 targetRow에 넣고
+        for (Map.Entry<String, String> entry : sectionMemMap.entrySet()) {
+            targetRow.put(entry.getKey(), entry.getValue());
+        }
+
+        // enrichGroupConcatField로 이름 복원
+        for (String alias : sectionMemMap.keySet()) {
+            enrichGroupConcatField(targetRow, alias);
+        }
     }
 }

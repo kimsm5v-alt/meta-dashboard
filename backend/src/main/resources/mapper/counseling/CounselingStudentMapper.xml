@@ -6,14 +6,14 @@
         <id property="id" column="id"/>
         <result property="counselingId" column="counseling_id"/>
         <result property="stdtId" column="stdt_id"/>
-        <result property="stdtName" column="stdt_name"/>
         <result property="stdtNumber" column="stdt_number"/>
         <result property="claId" column="cla_id"/>
+        <result property="spUserId" column="sp_user_id"/>
         <result property="useYn" column="use_yn"/>
     </resultMap>
 
     <sql id="counselingStudentColumns">
-        id, counseling_id, stdt_id, stdt_name, stdt_number, cla_id, use_yn
+        cs.id, cs.counseling_id, cs.stdt_id, cs.stdt_number, cs.cla_id, cs.use_yn, u.sp_user_id
     </sql>
 
     <select id="findCounselingIdsByStdtId" resultType="long">
@@ -25,15 +25,17 @@
     <select id="findByCounselingId" resultMap="counselingStudentResultMap">
         /* CounselingStudentMapper.findByCounselingId */
         SELECT <include refid="counselingStudentColumns"/>
-        FROM counseling_student
-        WHERE counseling_id = #{counselingId} AND use_yn = 'Y'
+        FROM counseling_student cs
+        LEFT JOIN user u ON u.stdt_id = cs.stdt_id
+        WHERE cs.counseling_id = #{counselingId} AND cs.use_yn = 'Y'
     </select>
 
     <select id="findByCounselingIds" resultMap="counselingStudentResultMap">
         /* CounselingStudentMapper.findByCounselingIds */
         SELECT <include refid="counselingStudentColumns"/>
-        FROM counseling_student
-        WHERE use_yn = 'Y' AND counseling_id IN
+        FROM counseling_student cs
+        LEFT JOIN user u ON u.stdt_id = cs.stdt_id
+        WHERE cs.use_yn = 'Y' AND cs.counseling_id IN
         <foreach item="id" collection="counselingIds" open="(" separator="," close=")">
             #{id}
         </foreach>
@@ -41,10 +43,10 @@
 
     <insert id="insertCounselingStudents" parameterType="list">
         /* CounselingStudentMapper.insertCounselingStudents */
-        INSERT INTO counseling_student (counseling_id, stdt_id, stdt_name, stdt_number, cla_id, use_yn)
+        INSERT INTO counseling_student (counseling_id, stdt_id, stdt_number, cla_id, use_yn)
         VALUES
         <foreach item="item" collection="list" separator=",">
-            (#{item.counselingId}, #{item.stdtId}, #{item.stdtName}, #{item.stdtNumber}, #{item.claId}, 'Y')
+            (#{item.counselingId}, #{item.stdtId}, #{item.stdtNumber}, #{item.claId}, 'Y')
         </foreach>
     </insert>
 

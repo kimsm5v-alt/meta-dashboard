@@ -1,5 +1,6 @@
 import os
 import logging
+import litellm
 from typing import List, Tuple
 from litellm import Router
 from dotenv import load_dotenv
@@ -103,6 +104,12 @@ if not has_primary:
     logger.warning("OpenAI 키가 없습니다. Gemini를 기본으로 사용합니다.")
 if not has_fallback:
     logger.warning("Gemini 키가 없습니다. OpenAI 단독 운영됩니다.")
+
+# LangSmith 트레이싱은 agent_service.py의 @traceable 데코레이터가 담당한다.
+# LiteLLM success_callback="langsmith"를 동시에 활성화하면 동일 LLM 호출이
+# LangSmith에 중복 Run으로 기록되므로 여기서는 등록하지 않는다.
+# 참고: https://docs.smith.langchain.com/observability/how_to_guides/trace_with_litellm
+
 
 # LiteLLM Router 설정
 llm_router = Router(

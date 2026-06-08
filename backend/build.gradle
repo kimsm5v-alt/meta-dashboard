@@ -132,6 +132,10 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
 
+    // WireMock: HTTP 수준 통합 테스트용 (PersonInfoClientIntegrationTest — Phase 6)
+    // standalone jar 는 Jackson/Jetty 등 자체 번들 → Spring Boot 4 classpath 와 충돌 없음
+    testImplementation 'org.wiremock:wiremock-standalone:3.5.4'
+
     // mockitoAgent: jvmArgs 로 -javaagent 주입에 사용 (transitive=false 로 byte-buddy 등 차단)
     mockitoAgent('org.mockito:mockito-core') { transitive = false }
 }

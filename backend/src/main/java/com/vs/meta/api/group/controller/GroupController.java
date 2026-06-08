@@ -65,19 +65,7 @@ public class GroupController {
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "그룹 참가 완료");
     }
 
-    @PostMapping(value = "/group/join-guest")
-    @Operation(summary = "그룹 참가 게스트(GUEST)", description = "비회원 참가, 매번 새 stdt_id 채번")
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            content = @Content(examples = {
-                    @ExampleObject(name = "게스트참가", value =
-                            "{\"inviteCode\":\"ABC123\", \"nickname\":\"게스트\", \"email\":\"guest@test.com\"}")
-            }))
-    public ResponseDTO<CustomBody> joinGroupAsGuest(@RequestBody Map<String, Object> paramData) throws Exception {
-        Object resultData = groupService.joinGroupAsGuest(paramData);
-        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "게스트 참가 완료");
-    }
-
-    @GetMapping(value = "/group/list")
+@GetMapping(value = "/group/list")
     @Operation(
             summary = "내 그룹 목록 조회",
             description = "방장/플레이어 모두 포함. 기본은 ACTIVE 그룹만. " +

@@ -6,6 +6,7 @@ import com.vs.meta.common.response.ResponseDTO;
 import com.vs.meta.common.response.CustomBody;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import com.vs.meta.api.dgnss.service.DgnssGraphService;
+import com.vs.meta.api.dgnss.service.DgnssLpaService;
 import com.vs.meta.api.dgnss.service.DgnssService;
 import org.springframework.web.multipart.MultipartFile;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,6 +41,7 @@ import java.util.Map;
 public class DgnssController {
     private final DgnssService dgnssService;
     private final DgnssGraphService dgnssGraphService;
+    private final DgnssLpaService dgnssLpaService;
     private final DgnssMapper dgnssMapper;
 
     @RequestMapping(value = {"/api/dgnss/tc/info","/api/dgnss/tc/list"}, method = {RequestMethod.GET})
@@ -224,6 +226,30 @@ public class DgnssController {
     ) throws Exception {
         Map<String, Object> result = dgnssService.updateStSubmit(paramData, request);
         String resultMessage = "심리검사 제출";
+        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
+    @RequestMapping(value = "/api/dgnss/lpa/reprocess", method = {RequestMethod.POST})
+    @Operation(summary = "(관리) LPA 유형 검사 단위 재분류",
+            description = "지정한 검사(dgnssId)에서 제출 완료한 학생 전원의 LPA 유형을 이미 저장된 T점수로 다시 분류하여 tb_dgnss_lpa_result 에 upsert 합니다. "
+                    + "T점수 재계산이나 제출 재처리(메일 발송 등)는 수행하지 않습니다.")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(examples = {
+                    @ExampleObject(name = "파라미터", value = """
+                            {
+                                "dgnssId": 1088
+                            }
+                            """)
+            }))
+    public ResponseDTO<CustomBody> reprocessLpaByDgnssId(
+            @RequestBody Map<String, Object> paramData
+    ) throws Exception {
+        int dgnssId = MapUtils.getIntValue(paramData, "dgnssId", 0);
+        if (dgnssId <= 0) {
+            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락: dgnssId");
+        }
+        Map<String, Object> result = dgnssLpaService.reprocessByDgnssId(dgnssId);
+        String resultMessage = "(관리) LPA 유형 검사 단위 재분류";
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
@@ -642,6 +668,33 @@ public class DgnssController {
     ) throws Exception {
         Map<String, Object> resultMap = dgnssService.selectStDgnssStart(paramData, pageable);
         String resultMessage = "(학생)META 자기조절학습 시작";
+        return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
+    }
+
+    @GetMapping(value = "/api/dgnss/st/resume")
+    @Operation(summary = "(학생)META 자기조절학습 이어하기 진입 정보",
+            description = "중간에 종료한 학생이 이어하기 시 마지막으로 응답한 문항번호와 진입해야 할 페이지(0-base, 첫 페이지=0)를 반환한다. "
+                    + "반환된 page 는 /api/dgnss/st/start 의 page(0-base)에 그대로 전달할 수 있다.")
+    @Parameter(name = "dgnssResultId", description = "심리검사 상세 ID", required = true,
+            examples = {
+                    @ExampleObject(name = "학습종합", value = "12509", description = "학습종합검사"),
+                    @ExampleObject(name = "META자기조절", value = "2161", description = "META자기조절검사")
+            })
+    @Parameter(name = "paperIdx", description = "심리검사 종류(1:학습종합, 2:META자기조절)", required = true,
+            examples = {
+                    @ExampleObject(name = "학습종합", value = "1", description = "학습종합검사"),
+                    @ExampleObject(name = "META자기조절", value = "2", description = "META자기조절검사")
+            })
+    public ResponseDTO<CustomBody> stMetaResume(
+            @RequestParam(name = "dgnssResultId") int dgnssResultId,
+            @RequestParam(name = "paperIdx", required = false, defaultValue = "2") int paperIdx,
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        if (dgnssResultId == 0) {
+            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
+        }
+        Map<String, Object> resultMap = dgnssService.selectStDgnssResume(paramData);
+        String resultMessage = "(학생)META 자기조절학습 이어하기 진입 정보";
         return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
     }
 

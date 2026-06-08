@@ -42,7 +42,9 @@
             , a1.del_yn AS delYn
             , a1.prsinfo_yn AS prsInfoYn
             , tdri.stdt_id AS userId
-            , COALESCE(gm_st.nickname, tdri.stdt_id) AS userNm
+            , gm_st.user_no AS userNo
+            , u_st.sp_user_id AS userSpUserId
+            , tdri.stdt_id AS userNm
             , tdri.file_url AS fileUrl
             , tdi.paper_idx AS paperIdx
             , tdi.ord_no AS ordNo
@@ -81,6 +83,7 @@
             LEFT JOIN group_info gi ON tdi.cla_id = gi.cla_id
             LEFT JOIN group_member gm_st ON gi.group_id = gm_st.group_id
                                       AND gm_st.stdt_id = tdri.stdt_id
+            LEFT JOIN user u_st ON u_st.user_no = gm_st.user_no
         WHERE tdi.id = #{dgnssId}
           AND a1.file_extension = 'pdf'
     </select>
@@ -178,7 +181,9 @@
              , a1.del_yn as delYn
              , a1.prsinfo_yn as prsInfoYn
              , tdri.stdt_id AS userId
-             , COALESCE(gm_st.nickname, tdri.stdt_id) AS userNm
+             , gm_st.user_no AS userNo
+             , u_st.sp_user_id AS userSpUserId
+             , tdri.stdt_id AS userNm
              , tdri.summary_file_url AS fileUrl
              , tdi.paper_idx AS paperIdx
              , tdi.ord_no AS ordNo
@@ -217,6 +222,7 @@
             LEFT JOIN group_info gi ON tdi.cla_id = gi.cla_id
             LEFT JOIN group_member gm_st ON gi.group_id = gm_st.group_id
                                       AND gm_st.stdt_id = tdri.stdt_id
+            LEFT JOIN user u_st ON u_st.user_no = gm_st.user_no
         WHERE tdi.id = #{dgnssId}
           AND a1.file_extension = 'pdf'
     </select>

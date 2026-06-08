@@ -4,8 +4,8 @@ import com.vs.meta.api.group.mapper.GroupInfoMapper;
 import com.vs.meta.api.group.mapper.GroupMemberMapper;
 import com.vs.meta.api.group.mapper.GroupQueryMapper;
 import com.vs.meta.api.member.mapper.UserMapper;
-import com.vs.meta.api.member.service.EmailVerificationService;
 import com.vs.meta.api.member.service.MemberService;
+import com.vs.meta.common.auth.UserInfoEnricher;
 import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.GroupMember;
 import com.vs.meta.domain.User;
@@ -49,13 +49,10 @@ class GroupServiceTest {
     private MemberService memberService;
 
     @Mock
-    private EmailVerificationService emailVerificationService;
-
-    @Mock
     private com.vs.meta.api.dgnss.service.DgnssService dgnssService;
 
     @Mock
-    private com.vs.meta.api.guest.service.GuestAuthService guestAuthService;
+    private UserInfoEnricher userInfoEnricher;
 
     @InjectMocks
     private GroupService groupService;
@@ -72,8 +69,6 @@ class GroupServiceTest {
 
         User host = User.builder()
                 .userNo(1L)
-                .email("teacher1@test.com")
-                .nickname("Teacher")
                 .status(UserStatus.ACTIVE)
                 .build();
 
@@ -110,8 +105,6 @@ class GroupServiceTest {
 
         User player = User.builder()
                 .userNo(2L)
-                .email("student1@test.com")
-                .nickname("Player")
                 .status(UserStatus.ACTIVE)
                 .build();
         GroupInfo groupInfo = GroupInfo.builder()
@@ -160,7 +153,6 @@ class GroupServiceTest {
 
         User player = User.builder()
                 .userNo(2L)
-                .email("student1@test.com")
                 .status(UserStatus.ACTIVE)
                 .build();
         GroupInfo groupInfo = GroupInfo.builder()
@@ -178,50 +170,5 @@ class GroupServiceTest {
                 .isInstanceOf(IllegalStateException.class);
 
         verify(groupMemberMapper, never()).insertGroupMember(any(GroupMember.class));
-    }
-
-    @Test
-    void joinGroupAsGuest_requiresVerifiedEmailAndConsumesVerificationAfterJoin() throws Exception {
-        Map<String, Object> paramData = new LinkedHashMap<>();
-        paramData.put("email", "guest@test.com");
-        paramData.put("inviteCode", "abc123");
-        paramData.put("nickname", "Guest");
-        paramData.put("gender", "M");
-
-        GroupInfo groupInfo = GroupInfo.builder()
-                .groupId(10L)
-                .inviteCode("ABC123")
-                .maxMemberCount(40)
-                .schoolLevel("elementary")
-                .useYn("Y")
-                .build();
-
-        when(emailVerificationService.isVerified("guest@test.com")).thenReturn(true);
-        when(groupInfoMapper.findByInviteCodeAndUseYnForUpdate("ABC123", "Y")).thenReturn(groupInfo);
-        when(groupMemberMapper.countByGroupIdAndStatus(10L, MemberStatus.ACTIVE.name())).thenReturn(4L);
-        when(groupMemberMapper.findMaxMemberNoByGroupId(10L)).thenReturn(4);
-        doAnswer(invocation -> {
-            GroupMember member = invocation.getArgument(0);
-            member.setId(88L);
-            return null;
-        }).when(groupMemberMapper).insertGroupMember(any(GroupMember.class));
-
-        Object result = groupService.joinGroupAsGuest(paramData);
-
-        ArgumentCaptor<GroupMember> memberCaptor = ArgumentCaptor.forClass(GroupMember.class);
-        verify(groupMemberMapper).insertGroupMember(memberCaptor.capture());
-
-        GroupMember savedMember = memberCaptor.getValue();
-        assertThat(savedMember.getMemberType()).isEqualTo(MemberType.GUEST);
-        assertThat(savedMember.getStatus()).isEqualTo(MemberStatus.ACTIVE);
-        assertThat(savedMember.getUserNo()).isNull();
-        assertThat(savedMember.getEmail()).isEqualTo("guest@test.com");
-        assertThat(savedMember.getStdtId()).hasSize(32).matches("[a-f0-9]{32}");
-        assertThat(savedMember.getMemberNo()).isEqualTo(5);
-        assertThat(savedMember.getCreatedBy()).isEqualTo(0L);
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> resultMap = (Map<String, Object>) result;
-        assertThat(resultMap).containsKey("stdtId").containsEntry("memberId", 88L);
     }
 }

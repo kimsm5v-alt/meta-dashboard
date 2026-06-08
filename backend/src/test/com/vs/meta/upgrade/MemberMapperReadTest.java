@@ -32,10 +32,11 @@ class MemberMapperReadTest {
 
     @Test
     void canExecuteSelectQuery() {
-        // 존재하지 않는 이메일 — null 반환이 정상 (SQLException 안 나면 OK).
+        // 존재하지 않는 sp_user_id — null 반환이 정상 (SQLException 안 나면 OK).
         // 컨텍스트 부팅까지 이미 통과한 상태이므로 SqlSession 자체는 OK.
         // 본 호출이 정상 종료되면 — Mapper XML 인식 / 쿼리 컴파일 / JDBC 실행까지 통과.
-        User u = userMapper.findByEmail("__boot4_upgrade_smoke__@invalid.local");
-        assertThat(u).matches(user -> user == null || user.getEmail() != null);
+        // Phase 4: findByEmail 제거 — findBySpUserId 로 교체 (email 컬럼 DROP 완료 가정)
+        User u = userMapper.findBySpUserId("__boot4_upgrade_smoke__");
+        assertThat(u).isNull();
     }
 }

@@ -8,6 +8,7 @@
     "frontend": "nx serve frontend",
     "backend": "nx serve backend",
     "agent": "nx serve agent",
+    "agent:local": "LOCAL_HTTPS=true nx serve agent",
     "build": "nx run-many -t build",
     "test": "nx run-many -t test",
     "lint": "nx run-many -t lint"

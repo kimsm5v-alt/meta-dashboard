@@ -2,6 +2,7 @@ package com.vs.meta.api.counseling.service;
 
 import com.vs.meta.api.counseling.mapper.CounselingInfoMapper;
 import com.vs.meta.api.counseling.mapper.CounselingStudentMapper;
+import com.vs.meta.common.auth.UserInfoEnricher;
 import com.vs.meta.domain.CounselingInfo;
 import com.vs.meta.domain.CounselingStudent;
 import com.vs.meta.domain.enums.CounselingStatus;
@@ -26,6 +27,7 @@ public class CounselingService {
 
     private final CounselingInfoMapper counselingMapper;
     private final CounselingStudentMapper studentMapper;
+    private final UserInfoEnricher userInfoEnricher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final DateTimeFormatter SCHEDULED_AT_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -79,6 +81,7 @@ public class CounselingService {
             throw new IllegalStateException("상담 조회 권한이 없습니다.");
         }
         List<CounselingStudent> students = studentMapper.findByCounselingId(id);
+        userInfoEnricher.enrich(students);
         info.setStudents(students);
         return toResponseMap(info);
     }
@@ -132,7 +135,11 @@ public class CounselingService {
         }
         students.forEach(s -> s.setCounselingId(info.getId()));
         studentMapper.insertCounselingStudents(students);
-        info.setStudents(students);
+
+        // Fetch fresh students from DB to get sp_user_id via JOIN
+        List<CounselingStudent> freshStudents = studentMapper.findByCounselingId(info.getId());
+        userInfoEnricher.enrich(freshStudents);
+        info.setStudents(freshStudents);
 
         log.info("상담 생성: id={}, classId={}, tcId={}", info.getId(), classId, tcId);
 
@@ -179,9 +186,12 @@ public class CounselingService {
                 newStudents.forEach(s -> s.setCounselingId(id));
                 studentMapper.insertCounselingStudents(newStudents);
             }
+            userInfoEnricher.enrich(newStudents);
             info.setStudents(newStudents);
         } else {
-            info.setStudents(studentMapper.findByCounselingId(id));
+            List<CounselingStudent> existing = studentMapper.findByCounselingId(id);
+            userInfoEnricher.enrich(existing);
+            info.setStudents(existing);
         }
 
         log.info("상담 수정: id={}", id);
@@ -212,7 +222,9 @@ public class CounselingService {
         info.setUpdatedBy(userNo != null ? userNo : 0L);
         info.complete(duration, summary, nextSteps);
         counselingMapper.updateCounseling(info);
-        info.setStudents(studentMapper.findByCounselingId(id));
+        List<CounselingStudent> students = studentMapper.findByCounselingId(id);
+        userInfoEnricher.enrich(students);
+        info.setStudents(students);
         log.info("상담 완료: id={}", id);
 
         return toResponseMap(info);
@@ -232,7 +244,9 @@ public class CounselingService {
         info.setUpdatedBy(userNo != null ? userNo : 0L);
         info.cancel();
         counselingMapper.updateCounseling(info);
-        info.setStudents(studentMapper.findByCounselingId(id));
+        List<CounselingStudent> students = studentMapper.findByCounselingId(id);
+        userInfoEnricher.enrich(students);
+        info.setStudents(students);
         log.info("상담 취소: id={}", id);
 
         return toResponseMap(info);
@@ -263,6 +277,7 @@ public class CounselingService {
         if (list.isEmpty()) return;
         List<Long> ids = list.stream().map(CounselingInfo::getId).collect(Collectors.toList());
         List<CounselingStudent> allStudents = studentMapper.findByCounselingIds(ids);
+        userInfoEnricher.enrich(allStudents);
         Map<Long, List<CounselingStudent>> grouped = allStudents.stream()
                 .collect(Collectors.groupingBy(CounselingStudent::getCounselingId));
         list.forEach(info -> info.setStudents(grouped.getOrDefault(info.getId(), List.of())));

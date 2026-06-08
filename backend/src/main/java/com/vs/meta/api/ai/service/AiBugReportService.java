@@ -3,6 +3,8 @@ package com.vs.meta.api.ai.service;
 import com.vs.meta.api.ai.dto.AiBugReportDto;
 import com.vs.meta.api.ai.mapper.AiBugReportMapper;
 import com.vs.meta.api.ai.mapper.AiConversationMapper;
+import com.vs.meta.common.auth.UserInfoEnricher;
+import com.vs.meta.common.auth.UserSlot;
 import com.vs.meta.common.service.NcpStorageService;
 import com.vs.meta.domain.AiBugReport;
 import com.vs.meta.domain.AiConversation;
@@ -15,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -40,6 +43,7 @@ public class AiBugReportService {
     private final AiBugReportMapper aiBugReportMapper;
     private final AiConversationMapper aiConversationMapper;
     private final NcpStorageService ncpStorageService;
+    private final UserInfoEnricher userInfoEnricher;
 
     @Transactional
     public Object createBugReport(Long conversationId, Long messageId, String errorType, String severity,
@@ -111,6 +115,7 @@ public class AiBugReportService {
             throw new IllegalStateException("bug report not found. id=" + id);
         }
 
+        enrichReportUserInfo(bugReport);
         return AiBugReportDto.toDetailResponse(bugReport);
     }
 
@@ -140,6 +145,8 @@ public class AiBugReportService {
                 normalizedStatus, normalizedErrorType, normalizedSeverity, resolvedSize, offset);
         long totalCount = aiBugReportMapper.countBugReports(
                 normalizedStatus, normalizedErrorType, normalizedSeverity);
+
+        enrichReportsUserInfo(reports);
 
         List<Map<String, Object>> items = new ArrayList<>();
         for (AiBugReport report : reports) {
@@ -218,7 +225,90 @@ public class AiBugReportService {
 
         // 변경된 데이터 조회 후 반환
         AiBugReport updatedReport = aiBugReportMapper.selectBugReportDetail(id);
+        enrichReportUserInfo(updatedReport);
         return AiBugReportDto.toDetailResponse(updatedReport);
+    }
+
+    /**
+     * Phase 3 enrich: 단건 report의 reporter/resolver 사용자 정보 보충
+     */
+    private void enrichReportUserInfo(AiBugReport report) {
+        if (report == null) return;
+        enrichReportsUserInfo(List.of(report));
+    }
+
+    /**
+     * Phase 3 enrich: 배치 reports의 reporter/resolver 사용자 정보 보충
+     * reporter와 resolver 각각에 대해 Map-patching 수행
+     */
+    private void enrichReportsUserInfo(List<AiBugReport> reports) {
+        if (reports == null || reports.isEmpty()) return;
+
+        // Reporter 정보 보충
+        enrichReporters(reports);
+
+        // Resolver 정보 보충
+        enrichResolvers(reports);
+    }
+
+    /**
+     * Reporter 정보 보충: reporterSpUserId → reporterNickname, reporterEmail
+     */
+    private void enrichReporters(List<AiBugReport> reports) {
+        List<UserSlot> slots = reports.stream()
+                .map(AiBugReport::getReporterSpUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(UserSlot::new)
+                .toList();
+        if (slots.isEmpty()) return;
+
+        userInfoEnricher.enrich(slots);
+
+        Map<String, UserSlot> bySpUserId = slots.stream()
+                .collect(Collectors.toMap(UserSlot::getSpUserId, s -> s));
+        reports.forEach(r -> {
+            String spUserId = r.getReporterSpUserId();
+            if (spUserId == null) return;
+            UserSlot slot = bySpUserId.get(spUserId);
+            if (slot != null) {
+                r.setReporterNickname(slot.getName());
+                r.setReporterEmail(slot.getEmail());
+            } else {
+                r.setReporterNickname("(탈퇴 회원)");
+                r.setReporterEmail(null);
+            }
+        });
+    }
+
+    /**
+     * Resolver 정보 보충: resolverSpUserId → resolverNickname, resolverEmail
+     */
+    private void enrichResolvers(List<AiBugReport> reports) {
+        List<UserSlot> slots = reports.stream()
+                .map(AiBugReport::getResolverSpUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(UserSlot::new)
+                .toList();
+        if (slots.isEmpty()) return;
+
+        userInfoEnricher.enrich(slots);
+
+        Map<String, UserSlot> bySpUserId = slots.stream()
+                .collect(Collectors.toMap(UserSlot::getSpUserId, s -> s));
+        reports.forEach(r -> {
+            String spUserId = r.getResolverSpUserId();
+            if (spUserId == null) return;
+            UserSlot slot = bySpUserId.get(spUserId);
+            if (slot != null) {
+                r.setResolverNickname(slot.getName());
+                r.setResolverEmail(slot.getEmail());
+            } else {
+                r.setResolverNickname("(탈퇴 회원)");
+                r.setResolverEmail(null);
+            }
+        });
     }
 
     private int resolvePageSize(Integer requested) {
