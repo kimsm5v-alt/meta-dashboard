@@ -1,43 +1,51 @@
 /**
  * 학생용 검사 목록 서비스
+ *
+ * 2종(학습종합검사, 자기조절학습검사) × 2회차 구조 지원
  */
 
 import { fetchStudentExamList } from '@/features/exam/services/examService';
 import type { StudentExamItem } from '@/features/exam/types';
-import type { StudentExamListItem } from '../types';
-import { mapExamStatus } from '../types';
+import type { StudentExamListItem, ExamType, ExamStatus } from '../types';
+import { mapExamStatus, EXAM_TYPE_INFO, EXAM_STATUS_INFO } from '../types';
 
 /**
  * API 응답을 UI 타입으로 변환
  */
-function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListItem {
+function mapToListItem(
+  item: StudentExamItem,
+  type: ExamType,
+  round: number
+): StudentExamListItem {
   const status = mapExamStatus(item.dgnssAt, item.submAt, item.eakAt);
-  const totalQuestions = 124; // 고정값 (실제 API에서 받아올 수 있음)
+  const typeInfo = EXAM_TYPE_INFO[type];
+  const roundInfo = typeInfo.rounds.find((r) => r.round === round);
+
+  // 총 문항 수 (검사 종류에 따라 다름)
+  const totalQuestions = type === 'comp' ? 124 : 80;
 
   // 진행률 계산
-  // 주의: 실제 답변 개수는 /api/dgnss/st/start API에서만 제공됨 (stAnsCnt)
-  // 목록 API에서는 제공되지 않으므로, 완료된 검사만 100%로 표시
   let progress = 0;
   let answeredCount = 0;
 
-  if (status === 'completed' || status === 'result_ready') {
-    // 제출 완료한 검사만 100% 진행률 표시
+  if (status === 'awaiting' || status === 'result') {
     progress = 100;
     answeredCount = totalQuestions;
   }
-  // waiting, in_progress 상태는 진행률 0% (실제 답변 개수를 알 수 없음)
 
   return {
     dgnssId: item.dgnssId,
     dgnssResultId: item.dgnssResultId,
-    ordNo,
-    name: `${ordNo}차 학습심리정서검사`,
+    type,
+    round,
+    name: `${round}차 ${typeInfo.name}`,
     status,
     progress,
     answeredCount,
     totalQuestions,
     submittedAt: item.submDt,
-    hasResult: item.eakAt === 'Y',
+    hasResult: status === 'result',
+    recommendedMonth: roundInfo?.recommendedMonth || '',
   };
 }
 
@@ -49,49 +57,71 @@ export async function getStudentExamList(
   stdtId: string
 ): Promise<StudentExamListItem[]> {
   const items = await fetchStudentExamList(claId, stdtId);
-  return items.map((item, index) => mapToListItem(item, index + 1));
+
+  // TODO: 실제 API 응답에서 type/round 정보를 파싱
+  // 현재는 순서대로 comp 1차, comp 2차, self 1차, self 2차로 매핑
+  return items.map((item, index) => {
+    const type: ExamType = index < 2 ? 'comp' : 'self';
+    const round = index % 2 === 0 ? 1 : 2;
+    return mapToListItem(item, type, round);
+  });
 }
 
 /**
  * 검사 상태 라벨
  */
-export function getStatusLabel(status: StudentExamListItem['status']): string {
-  switch (status) {
-    case 'waiting':
-      return '대기중';
-    case 'in_progress':
-      return '진행중';
-    case 'completed':
-      return '완료';
-    case 'result_ready':
-      return '결과 확인 가능';
-    case 'not_submitted':
-      return '미응시';
-    default:
-      return '알 수 없음';
-  }
+export function getStatusLabel(status: ExamStatus): string {
+  return EXAM_STATUS_INFO[status]?.label || '알 수 없음';
 }
 
 /**
  * 검사 상태 색상
  */
-export function getStatusColor(status: StudentExamListItem['status']): {
+export function getStatusColor(status: ExamStatus): {
   bg: string;
   text: string;
   dot: string;
 } {
-  switch (status) {
-    case 'waiting':
-      return { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' };
-    case 'in_progress':
-      return { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' };
-    case 'completed':
-      return { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
-    case 'result_ready':
-      return { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' };
-    case 'not_submitted':
-      return { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' };
-    default:
-      return { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
+  const info = EXAM_STATUS_INFO[status];
+  if (!info) {
+    return { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
   }
+
+  return {
+    bg: info.bgClass,
+    text: info.textClass,
+    dot: info.bgClass.replace('bg-', 'bg-').replace('-50', '-500'),
+  };
+}
+
+/**
+ * 1차 검사 완료 여부 확인 (2차 잠금 해제 조건)
+ */
+export function isFirstRoundCompleted(
+  exams: StudentExamListItem[],
+  type: ExamType
+): boolean {
+  const firstRound = exams.find((e) => e.type === type && e.round === 1);
+  if (!firstRound) return false;
+
+  // awaiting 또는 result 상태면 1차 완료
+  return firstRound.status === 'awaiting' || firstRound.status === 'result';
+}
+
+/**
+ * 2차 검사 잠금 상태 적용
+ */
+export function applySecondRoundLock(
+  exams: StudentExamListItem[]
+): StudentExamListItem[] {
+  return exams.map((exam) => {
+    if (exam.round !== 2) return exam;
+
+    const firstCompleted = isFirstRoundCompleted(exams, exam.type);
+    if (!firstCompleted && exam.status !== 'locked') {
+      return { ...exam, status: 'locked' as ExamStatus };
+    }
+
+    return exam;
+  });
 }
