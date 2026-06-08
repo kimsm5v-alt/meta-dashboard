@@ -55,7 +55,7 @@ export const getFactorsByCategory = (category: FactorCategory): Factor[] => {
 };
 
 export const MAIN_CATEGORIES: FactorCategory[] = [
-  '자아강점', '학습디딤돌', '학습걸림돌', '긍정적공부마음', '부정적공부마음',
+  '자아강점', '학습디딤돌', '긍정적공부마음', '학습걸림돌', '부정적공부마음',
 ];
 
 /**

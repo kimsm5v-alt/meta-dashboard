@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { X, FileText, MessageSquare, Eye } from 'lucide-react';
+import { X } from 'lucide-react';
 import { SchoolRecordPanel } from './SchoolRecordPanel';
 import { CounselingRecordPanel } from './counseling';
 import { ObservationMemoPanel } from './ObservationMemoPanel';
+import { AIHelperPanel } from './AIHelperPanel';
 import type { Student, Assessment } from '@/shared/types';
 
-export type PanelTab = 'schoolRecord' | 'counseling' | 'observation' | null;
+export type PanelTab = 'ai' | 'schoolRecord' | 'counseling' | 'observation' | null;
 
 interface RightPanelProps {
   isOpen: boolean;
@@ -19,9 +20,10 @@ interface RightPanelProps {
 }
 
 const TABS = [
-  { key: 'schoolRecord' as const, label: '생기부', icon: FileText },
-  { key: 'counseling' as const, label: '상담', icon: MessageSquare },
-  { key: 'observation' as const, label: '관찰', icon: Eye },
+  { key: 'ai' as const, label: 'AI 챗봇' },
+  { key: 'observation' as const, label: '관찰' },
+  { key: 'counseling' as const, label: '상담' },
+  { key: 'schoolRecord' as const, label: '생기부' },
 ];
 
 export const RightPanel: React.FC<RightPanelProps> = ({
@@ -48,24 +50,22 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="w-96 flex-shrink-0 bg-white border border-gray-200 rounded-lg shadow-sm self-stretch">
+    <div className="w-80 flex-shrink-0 bg-white border border-gray-200 rounded-lg shadow-sm self-start sticky top-0 flex flex-col" style={{ height: 'calc(100vh - 112px)' }}>
       {/* 패널 헤더 */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg flex-shrink-0">
         <div className="flex gap-1">
           {TABS.map(tab => {
-            const Icon = tab.icon;
             const isActive = activeTab === tab.key;
             return (
               <button
                 key={tab.key}
                 onClick={() => onTabChange(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-primary-500 text-white'
                     : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                <Icon className="w-4 h-4" />
                 {tab.label}
               </button>
             );
@@ -80,7 +80,16 @@ export const RightPanel: React.FC<RightPanelProps> = ({
       </div>
 
       {/* 패널 콘텐츠 */}
-      <div>
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'ai' && (
+          <AIHelperPanel
+            tScores={assessment.tScores}
+            predictedType={assessment.predictedType}
+            typeProbabilities={assessment.typeProbabilities}
+            schoolLevel={student.schoolLevel}
+            deviations={assessment.deviations}
+          />
+        )}
         {activeTab === 'schoolRecord' && (
           <SchoolRecordPanel
             student={student}
