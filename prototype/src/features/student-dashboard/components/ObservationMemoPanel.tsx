@@ -61,6 +61,9 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
     try {
       const data = await memoService.getByStudentId(studentId);
       setMemos(data);
+    } catch (error) {
+      console.error('Failed to load memos:', error);
+      setMemos([]); // 에러 시 빈 배열로 fallback
     } finally {
       setLoading(false);
     }

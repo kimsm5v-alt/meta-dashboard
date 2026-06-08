@@ -81,6 +81,9 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
     try {
       const data = await unifiedCounselingService.getByStudentId(studentId);
       setRecords(data);
+    } catch (error) {
+      console.error('Failed to load counseling records:', error);
+      setRecords([]); // 에러 시 빈 배열로 fallback
     } finally {
       setLoading(false);
     }

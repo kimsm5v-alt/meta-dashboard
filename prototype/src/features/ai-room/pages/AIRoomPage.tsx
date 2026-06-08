@@ -138,7 +138,7 @@ export const AIRoomPage = () => {
               }`}
             >
               {mode === 'class' && selectedClass
-                ? `${selectedClass.grade}-${selectedClass.classNumber}반`
+                ? `${selectedClass.grade}학년 ${selectedClass.classNumber}반`
                 : '반별'}
             </button>
             {isClassDropdownOpen && (

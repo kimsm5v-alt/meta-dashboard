@@ -217,6 +217,10 @@
   .animate-scale-in {
     animation: scale-in 0.2s ease-out;
   }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.25s ease-out;
+  }
 }
 
 /* 키프레임 애니메이션 */

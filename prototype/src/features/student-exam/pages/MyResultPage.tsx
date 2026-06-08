@@ -1,29 +1,25 @@
 /**
- * 학생용 결과 대시보드 페이지
+ * 학생용 학습종합검사 결과 페이지
  *
- * 교사용 StudentDashboardPage (L3)에서 아래 기능 제외:
- * 1. 코칭 전략 보기 버튼 & 팝업
- * 2. 우측 패널 (생기부, 상담, 관찰)
- * 3. 학생 네비게이션 (이전/다음 학생)
+ * 교사용 StudentDashboardPage (testId='comprehensive')를 참조하여 구현
+ * - AI 총평 (DiagnosisSummary)
+ * - 38개 요인 분석 (StudentFactorAnalysis)
+ * - LPA 유형 분류는 학생에게 미표시 (교사 전용)
+ * - 코칭 전략, 우측 패널, 학생 네비게이션은 학생용에서 제외
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShieldAlert, AlertTriangle, Clock, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, AlertTriangle, Clock, Loader2, Download, ChevronDown } from 'lucide-react';
 import { Button } from '@/shared/components';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { formatAttentionTooltip, checkAttention } from '@/shared/utils/attentionChecker';
-import { buildStudentDomainData } from '@/shared/utils/buildStudentDomainData';
-import { FactorHeatmapSection } from '@/shared/components/FactorHeatmapSection';
+import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 import {
   DiagnosisSummary,
-  TypeClassification,
-  TypeDeviations,
-  DataHelperChatbot,
+  StudentFactorAnalysis,
 } from '@/features/student-dashboard/components';
-import { fetchStudentAnalysis } from '@/shared/services/dashboardService';
-import { classifyStudent, getTypeDeviations } from '@/shared/utils/lpaClassifier';
-import type { Student, SchoolLevel, Assessment } from '@/shared/types';
+import type { Student, Assessment } from '@/shared/types';
+import { MOCK_CLASSES } from '@/shared/data/mockData';
 
 type ViewMode = 'round1' | 'round2' | 'compare';
 
@@ -35,75 +31,26 @@ interface MyResultContentProps {
 }
 
 const MyResultContent: React.FC<MyResultContentProps> = ({
-  student,
   assessment,
   prevAssessment,
   isCompare,
 }) => {
-  const domainData = useMemo(
-    () => buildStudentDomainData(assessment.tScores),
-    [assessment.tScores]
-  );
-
-  const prevDomainData = useMemo(
-    () => isCompare && prevAssessment ? buildStudentDomainData(prevAssessment.tScores) : undefined,
-    [isCompare, prevAssessment]
-  );
-
   return (
     <div className="space-y-6">
-      {/* 1. 진단결과 한눈에 보기 */}
-      <section>
-        <h2 className="text-xl font-bold mb-4">나의 진단 결과</h2>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          {/* 총평 */}
-          <div className="p-6 border-b border-gray-200">
-            <DiagnosisSummary
-              tScores={assessment.tScores}
-              studentType={assessment.predictedType}
-            />
-          </div>
-
-          {/* 차트 영역 */}
-          <div className="p-6">
-            <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
-          </div>
-        </div>
-      </section>
-
-      {/* 2. 학습 유형 알아보기 */}
-      <section>
-        <h2 className="text-xl font-bold mb-4">나의 학습 유형</h2>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          {/* 유형 분류 */}
-          <div className="p-6 border-b border-gray-200">
-            <TypeClassification
-              predictedType={assessment.predictedType}
-              typeProbabilities={assessment.typeProbabilities}
-              schoolLevel={student.schoolLevel}
-            />
-          </div>
-
-          {/* 유형별 특이점 (코칭 버튼 없음) */}
-          <div className="p-6">
-            <TypeDeviations
-              tScores={assessment.tScores}
-              predictedType={assessment.predictedType}
-              schoolLevel={student.schoolLevel}
-              // onCoachingClick 제거 - 학생에게는 코칭 전략 미표시
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* 데이터 해석 도우미 (플로팅 챗봇) */}
-      <DataHelperChatbot
+      {/* AI 총평 */}
+      <DiagnosisSummary
         tScores={assessment.tScores}
-        predictedType={assessment.predictedType}
-        typeProbabilities={assessment.typeProbabilities}
-        schoolLevel={student.schoolLevel}
-        deviations={assessment.deviations}
+        studentType={assessment.predictedType}
       />
+
+      {/* 38개 요인 분석 */}
+      <StudentFactorAnalysis
+        tScores={assessment.tScores}
+        prevTScores={isCompare && prevAssessment ? prevAssessment.tScores : undefined}
+        showCompare={isCompare}
+      />
+
+      {/* LPA 유형 분류 및 유형별 특이점은 학생에게 미표시 (교사 전용) */}
     </div>
   );
 };
@@ -117,63 +64,36 @@ export const MyResultPage: React.FC = () => {
   const [student, setStudent] = useState<Student | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isReportDropdownOpen, setIsReportDropdownOpen] = useState(false);
+  const reportDropdownRef = useRef<HTMLDivElement>(null);
+
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (reportDropdownRef.current && !reportDropdownRef.current.contains(event.target as Node)) {
+        setIsReportDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const loadResult = async () => {
-      if (!user?.stdtId) {
-        setError('학생 정보를 찾을 수 없습니다.');
-        setIsLoading(false);
-        return;
-      }
-
       setIsLoading(true);
+
       try {
-        // 그룹 미가입 체크
-        if (!user.classId) {
-          setError('아직 시행한 검사 결과가 없습니다.');
+        // [PROTOTYPE MOCK] 목업 데이터 사용
+        const mockClass = MOCK_CLASSES[0];
+        const mockStudent = mockClass?.students[0];
+
+        if (mockStudent && mockStudent.assessments.length > 0) {
+          setStudent(mockStudent);
           setIsLoading(false);
           return;
         }
 
-        // API 호출: GET /api/dgnss/st/analysis
-        const { tScores, reliabilityWarnings } = await fetchStudentAnalysis(user.stdtId, '1', 1);
-
-        // 학교급 결정 (user 정보에서 가져오거나 기본값)
-        const schoolLevel: SchoolLevel = (user.schoolLevel as SchoolLevel) || '중등';
-
-        // LPA 분류
-        const { predictedType, typeProbabilities } = classifyStudent(tScores, schoolLevel);
-
-        // 유형별 편차
-        const deviations = getTypeDeviations(tScores, schoolLevel, predictedType);
-
-        // 관심 필요 판별
-        const attentionResult = checkAttention(tScores, schoolLevel);
-
-        // Assessment 생성
-        const assessment: Assessment = {
-          round: 1,
-          completedAt: new Date().toISOString().split('T')[0],
-          predictedType,
-          typeProbabilities,
-          tScores,
-          reliabilityWarnings,
-          attentionResult,
-          deviations,
-        };
-
-        // Student 객체 생성
-        const studentData: Student = {
-          id: user.stdtId,
-          name: user.name,
-          number: 0, // API에서 제공하지 않음
-          gender: user.gender || 'M',
-          schoolLevel,
-          round2Submitted: false,
-          assessments: [assessment],
-        };
-
-        setStudent(studentData);
+        setError('아직 시행한 검사 결과가 없습니다.');
       } catch (err) {
         console.error('[MyResultPage] 결과 로드 실패:', err);
         setError('아직 시행한 검사 결과가 없습니다.');
@@ -250,8 +170,14 @@ export const MyResultPage: React.FC = () => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">나의 검사 결과</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className="px-3 py-1 text-xs font-semibold rounded-full text-white"
+                style={{ backgroundColor: '#9D53E1' }}
+              >
+                학습종합검사
+              </span>
+              <h1 className="text-2xl font-bold text-gray-900">나의 검사 결과</h1>
               {current.reliabilityWarnings.length > 0 && (
                 <span
                   className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-red-50 text-red-600 border-red-200"
@@ -271,15 +197,47 @@ export const MyResultPage: React.FC = () => {
                 </span>
               )}
             </div>
-            <p className="text-gray-500">{user?.name || student.name}님의 학습심리정서검사 결과</p>
+            <p className="text-gray-500 mt-0.5">{user?.name || student.name}님의 학습종합검사 결과</p>
           </div>
         </div>
 
-        {/* PDF 다운로드 */}
-        <Button variant="secondary">
-          <Download className="w-4 h-4 mr-2" />
-          PDF 다운로드
-        </Button>
+        {/* 보고서 다운로드 드롭다운 */}
+        <div className="relative" ref={reportDropdownRef}>
+          <Button
+            variant="secondary"
+            onClick={() => setIsReportDropdownOpen(!isReportDropdownOpen)}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            보고서 다운로드
+            <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${isReportDropdownOpen ? 'rotate-180' : ''}`} />
+          </Button>
+          {isReportDropdownOpen && (
+            <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden">
+              <button
+                onClick={() => {
+                  // TODO: 1차 보고서 다운로드 로직
+                  console.log('1차 보고서 다운로드');
+                  setIsReportDropdownOpen(false);
+                }}
+                disabled={!r1}
+                className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                1차 보고서
+              </button>
+              <button
+                onClick={() => {
+                  // TODO: 2차 보고서 다운로드 로직
+                  console.log('2차 보고서 다운로드');
+                  setIsReportDropdownOpen(false);
+                }}
+                disabled={!r2}
+                className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-t border-gray-100"
+              >
+                2차 보고서
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 차수 선택 */}
@@ -299,9 +257,12 @@ export const MyResultPage: React.FC = () => {
               onClick={() => setViewMode(mode)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === mode
-                  ? 'bg-primary-500 text-white'
+                  ? 'text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
+              style={{
+                backgroundColor: viewMode === mode ? '#9D53E1' : undefined,
+              }}
             >
               {label}
             </button>
