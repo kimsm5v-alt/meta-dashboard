@@ -12,18 +12,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShieldAlert, AlertTriangle, Clock, Loader2, Download } from 'lucide-react';
 import { Button } from '@/shared/components';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { formatAttentionTooltip, checkAttention } from '@/shared/utils/attentionChecker';
+import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@/shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@/shared/components/FactorHeatmapSection';
 import {
   DiagnosisSummary,
   TypeClassification,
   TypeDeviations,
-  DataHelperChatbot,
 } from '@/features/student-dashboard/components';
-import { fetchStudentAnalysis } from '@/shared/services/dashboardService';
-import { classifyStudent, getTypeDeviations } from '@/shared/utils/lpaClassifier';
-import type { Student, SchoolLevel, Assessment } from '@/shared/types';
+import type { Student, Assessment } from '@/shared/types';
+import { MOCK_CLASSES } from '@/shared/data/mockData';
 
 type ViewMode = 'round1' | 'round2' | 'compare';
 
@@ -96,14 +94,6 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
         </div>
       </section>
 
-      {/* 데이터 해석 도우미 (플로팅 챗봇) */}
-      <DataHelperChatbot
-        tScores={assessment.tScores}
-        predictedType={assessment.predictedType}
-        typeProbabilities={assessment.typeProbabilities}
-        schoolLevel={student.schoolLevel}
-        deviations={assessment.deviations}
-      />
     </div>
   );
 };
@@ -120,14 +110,27 @@ export const MyResultPage: React.FC = () => {
 
   useEffect(() => {
     const loadResult = async () => {
-      if (!user?.stdtId) {
-        setError('학생 정보를 찾을 수 없습니다.');
-        setIsLoading(false);
-        return;
-      }
-
       setIsLoading(true);
+
       try {
+        // [PROTOTYPE MOCK] 목업 데이터 사용
+        // 첫 번째 반의 첫 번째 학생 데이터 사용
+        const mockClass = MOCK_CLASSES[0];
+        const mockStudent = mockClass?.students[0];
+
+        if (mockStudent && mockStudent.assessments.length > 0) {
+          setStudent(mockStudent);
+          setIsLoading(false);
+          return;
+        }
+
+        /* 실제 API 연동 코드 (주석 처리)
+        if (!user?.stdtId) {
+          setError('학생 정보를 찾을 수 없습니다.');
+          setIsLoading(false);
+          return;
+        }
+
         // 그룹 미가입 체크
         if (!user.classId) {
           setError('아직 시행한 검사 결과가 없습니다.');
@@ -174,6 +177,7 @@ export const MyResultPage: React.FC = () => {
         };
 
         setStudent(studentData);
+        */
       } catch (err) {
         console.error('[MyResultPage] 결과 로드 실패:', err);
         setError('아직 시행한 검사 결과가 없습니다.');

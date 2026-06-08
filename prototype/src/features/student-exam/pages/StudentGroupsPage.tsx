@@ -5,12 +5,52 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Users, Plus, RefreshCw, UserPlus, Trash2, LogOut, AlertCircle } from 'lucide-react';
+// import { useNavigate } from 'react-router-dom';
+import { Users, Plus, RefreshCw, UserPlus, LogOut, AlertCircle } from 'lucide-react';
 import { Button, Card } from '@/shared/components';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { groupService } from '@/features/groups/services/groupService';
 import type { Group } from '@/shared/types';
+
+// [PROTOTYPE MOCK] 학생용 목업 그룹 목록
+const MOCK_GROUPS: Group[] = [
+  {
+    id: 'mock-group-1',
+    claId: 'mock-cla-1',
+    name: '3학년 2반 학습심리정서검사',
+    description: '2026학년도 1학기 학습심리정서검사 그룹입니다.',
+    schoolName: '서울중학교',
+    schoolLevel: 'middle',
+    grade: 3,
+    classNumber: 2,
+    inviteCode: 'ABC123',
+    memberCount: 28,
+    myRole: 'member',
+    ownerId: 'teacher-1',
+    ownerName: '김선생',
+    ownerTcId: 'tc-1',
+    createdAt: new Date('2026-03-01'),
+    updatedAt: new Date('2026-03-01'),
+  },
+  {
+    id: 'mock-group-2',
+    claId: 'mock-cla-2',
+    name: '3학년 자기조절학습검사',
+    description: '자기조절학습능력 진단을 위한 검사입니다.',
+    schoolName: '서울중학교',
+    schoolLevel: 'middle',
+    grade: 3,
+    classNumber: 2,
+    inviteCode: 'DEF456',
+    memberCount: 30,
+    myRole: 'member',
+    ownerId: 'teacher-1',
+    ownerName: '김선생',
+    ownerTcId: 'tc-1',
+    createdAt: new Date('2026-04-15'),
+    updatedAt: new Date('2026-04-15'),
+  },
+];
 
 /** 학교급 영문 → 한글 변환 */
 const getSchoolLevelLabel = (level: string | undefined): string => {
@@ -28,7 +68,7 @@ const getSchoolLevelLabel = (level: string | undefined): string => {
 };
 
 export const StudentGroupsPage: React.FC = () => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { user } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,8 +80,6 @@ export const StudentGroupsPage: React.FC = () => {
 
   // 그룹 목록 로드
   const loadGroups = async (showRefreshIndicator = false) => {
-    if (!user?.id) return;
-
     if (showRefreshIndicator) {
       setIsRefreshing(true);
     } else {
@@ -49,9 +87,19 @@ export const StudentGroupsPage: React.FC = () => {
     }
 
     try {
+      // [PROTOTYPE MOCK] 목업 데이터 우선 사용
+      setGroups(MOCK_GROUPS);
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
+
+      /* 실제 API 연동 코드 (주석 처리)
+      if (!user?.id) return;
+
       const data = await groupService.getMyGroups(user.id);
       // 학생은 member인 그룹만 표시 (owner 제외)
       setGroups(data.filter(g => g.myRole === 'member'));
+      */
     } catch (error) {
       console.error('[StudentGroupsPage] 그룹 목록 로드 실패:', error);
       setGroups([]);
@@ -169,7 +217,7 @@ export const StudentGroupsPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={handleRefresh}
             disabled={isRefreshing}
             className="text-gray-500"
