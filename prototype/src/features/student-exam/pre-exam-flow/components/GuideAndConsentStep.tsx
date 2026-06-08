@@ -148,14 +148,14 @@ export const GuideAndConsentStep: React.FC<GuideAndConsentStepProps> = ({
         className="bg-white rounded-2xl p-6"
         style={{ border: '1px solid #ECEEF2', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
       >
-        <div className="flex items-baseline justify-between mb-4">
-          <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+        <div className="mb-4">
+          <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2 mb-1">
             <CheckCircle2 className="w-5 h-5" style={{ color: theme.pointColor }} />
             예시 문제
           </h3>
-          <span className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
             검사를 시작하기 전에 예시를 보며 검사 방법을 확인해 주세요.
-          </span>
+          </p>
         </div>
 
         {/* 예시 문제 박스 (안내문 + 질문 + 척도 포함) */}
