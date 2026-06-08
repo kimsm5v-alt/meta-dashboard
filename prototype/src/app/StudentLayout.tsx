@@ -17,6 +17,7 @@ import {
   Settings,
   User,
   ChevronRight,
+  ChevronDown,
   LogOut,
   PanelLeftClose,
   PanelLeft,
@@ -35,12 +36,25 @@ interface NavItem {
   icon: LucideIcon;
   label: string;
   path: string;
+  hasSubMenu?: boolean;
 }
+
+// 결과보기 하위 메뉴 (검사 종류)
+interface ResultSubItem {
+  label: string;
+  path: string;
+  testId: string;
+}
+
+const RESULT_SUB_ITEMS: ResultSubItem[] = [
+  { label: '학습종합검사', path: '/student/result/comprehensive', testId: 'comprehensive' },
+  { label: '자기조절학습검사', path: '/student/result/selfreg', testId: 'selfreg' },
+];
 
 const studentNavItems: NavItem[] = [
   { icon: Users, label: '나의 그룹', path: '/student/groups' },
   { icon: ClipboardList, label: '검사하기', path: '/student/exams' },
-  { icon: BarChart3, label: '대시보드', path: '/student/result' },
+  { icon: BarChart3, label: '결과보기', path: '/student/result', hasSubMenu: true },
 ];
 
 const StudentHeader = () => {
@@ -118,8 +132,10 @@ const StudentSidebar: React.FC<StudentSidebarProps> = ({ isCollapsed, onToggle }
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [isResultsOpen, setIsResultsOpen] = useState(true); // 결과보기 하위 메뉴 펼침 상태
 
   const isActive = (path: string) => location.pathname.startsWith(path);
+  const isResultActive = location.pathname.startsWith('/student/result');
 
   return (
     <aside
@@ -155,25 +171,76 @@ const StudentSidebar: React.FC<StudentSidebarProps> = ({ isCollapsed, onToggle }
           {studentNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
+            const isResultItem = item.hasSubMenu;
+
             return (
               <li key={item.path}>
-                <button
-                  onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    active
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  } ${isCollapsed ? 'justify-center px-0' : ''}`}
-                  title={isCollapsed ? item.label : undefined}
-                >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && (
-                    <>
-                      <span className="flex-1 text-left">{item.label}</span>
-                      {active && <ChevronRight className="w-4 h-4" />}
-                    </>
-                  )}
-                </button>
+                {isResultItem ? (
+                  // 결과보기 메뉴 (하위 메뉴 포함)
+                  <>
+                    <button
+                      onClick={() => !isCollapsed && setIsResultsOpen(!isResultsOpen)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                        isResultActive
+                          ? 'bg-blue-50 text-blue-600'
+                          : 'text-gray-600 hover:bg-gray-50'
+                      } ${isCollapsed ? 'justify-center px-0' : ''}`}
+                      title={isCollapsed ? item.label : undefined}
+                    >
+                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1 text-left">{item.label}</span>
+                          <ChevronDown
+                            className={`w-4 h-4 transition-transform ${isResultsOpen ? 'rotate-180' : ''}`}
+                          />
+                        </>
+                      )}
+                    </button>
+                    {/* 결과보기 하위 메뉴 */}
+                    {!isCollapsed && isResultsOpen && (
+                      <ul className="mt-1 ml-4 space-y-1">
+                        {RESULT_SUB_ITEMS.map((subItem) => {
+                          const subActive = location.pathname.startsWith(subItem.path);
+                          return (
+                            <li key={subItem.path}>
+                              <button
+                                onClick={() => navigate(subItem.path)}
+                                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                                  subActive
+                                    ? 'bg-blue-50 text-blue-600 font-medium'
+                                    : 'text-gray-500 hover:bg-gray-50'
+                                }`}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                <span>{subItem.label}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </>
+                ) : (
+                  // 일반 메뉴
+                  <button
+                    onClick={() => navigate(item.path)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      active
+                        ? 'bg-blue-50 text-blue-600'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    } ${isCollapsed ? 'justify-center px-0' : ''}`}
+                    title={isCollapsed ? item.label : undefined}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <>
+                        <span className="flex-1 text-left">{item.label}</span>
+                        {active && <ChevronRight className="w-4 h-4" />}
+                      </>
+                    )}
+                  </button>
+                )}
               </li>
             );
           })}
