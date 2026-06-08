@@ -53,7 +53,7 @@ export const StudentPickerModal: React.FC<StudentPickerModalProps> = ({
   // 선택된 학생들을 반별로 그룹화
   const selectionByClass = localSelection.reduce((acc, student) => {
     const cls = classes.find((c) => c.id === student.classId);
-    const key = cls ? `${cls.grade}-${cls.classNumber}반` : '기타';
+    const key = cls ? `${cls.grade}학년 ${cls.classNumber}반` : '기타';
     if (!acc[key]) acc[key] = [];
     acc[key].push(student);
     return acc;
@@ -82,7 +82,7 @@ export const StudentPickerModal: React.FC<StudentPickerModalProps> = ({
                   }`}
                 >
                   <span>
-                    {cls.grade}-{cls.classNumber}반
+                    {cls.grade}학년 {cls.classNumber}반
                   </span>
                   {classSelectedCount > 0 && (
                     <span className="px-1.5 py-0.5 bg-primary-100 text-primary-600 text-xs rounded-full">

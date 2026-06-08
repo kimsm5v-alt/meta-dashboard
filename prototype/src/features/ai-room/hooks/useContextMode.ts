@@ -61,7 +61,7 @@ export const useContextMode = (): UseContextModeReturn => {
   const getContextLabel = useCallback((): string => {
     if (mode === 'all') return '전체';
     if (mode === 'class' && selectedClass)
-      return `${selectedClass.grade}-${selectedClass.classNumber}반`;
+      return `${selectedClass.grade}학년 ${selectedClass.classNumber}반`;
     if (mode === 'student' && selectedStudents.length > 0) {
       return selectedStudents.length === 1
         ? selectedStudents[0].name
