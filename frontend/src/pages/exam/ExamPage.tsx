@@ -26,6 +26,7 @@ import {
   ExamCompleteStep,
 } from '@features/exam/ui';
 import type { StudentInfo } from '@features/exam/ui/StudentInfoStep';
+import type { StudentExamContext } from '@features/exam/ui/ExamGuideStep';
 
 interface ExamInfo {
   name: string;
@@ -33,11 +34,19 @@ interface ExamInfo {
   claId?: string; // API 모드에서 사용
 }
 
+interface GroupInfo {
+  schoolName?: string;
+  schoolLevel?: string;
+  grade?: number;
+  classNumber?: number;
+}
+
 interface StudentExamLocationState {
   dgnssResultId: number;
   dgnssId: number;
   ordNo: number;
   examName: string;
+  groupInfo?: GroupInfo;
   resume?: boolean;
   restart?: boolean;
 }
@@ -516,16 +525,43 @@ export const ExamPage: React.FC = () => {
     }
   }, [state.dgnssResultId, isRestartMode, loadQuestions, loadExistingAnswers, setStep]);
 
-  // guide 시작 핸들러 (QR 플로우: 학생 정보 저장 + 문항 로드 / 회원 플로우: 바로 시작)
+  // guide 시작 핸들러
   const handleGuideStart = useCallback(
     async (info?: StudentInfo) => {
-      if (info && state.dgnssResultId) {
-        // QR 플로우: 정보 저장 후 문항 로드 (이어하기 여부 체크)
-        setIsLoading(true);
-        try {
-          await saveStudentInfo(state.dgnssResultId, info);
-          setStudentInfo(info);
+      if (!info || !state.dgnssResultId) {
+        await handleStartExam();
+        return;
+      }
 
+      setIsLoading(true);
+      try {
+        await saveStudentInfo(state.dgnssResultId, info);
+        setStudentInfo(info);
+
+        if (isStudentFlow) {
+          // 학생(회원) 플로우: restart 여부 반영 후 문항 로드
+          const result = isRestartMode
+            ? await resetExam(state.dgnssResultId, 0, 20)
+            : await fetchQuestions(state.dgnssResultId, 0, 20);
+
+          const existingAnswers: Record<number, string> = {};
+          if (!isRestartMode) {
+            result.questions.forEach((q) => {
+              if (q.answer) existingAnswers[q.NO] = q.answer;
+            });
+          }
+          loadQuestions(
+            result.questions,
+            result.totalPages,
+            result.totalQuestions,
+            result.omrIdx,
+            result.answeredCount,
+          );
+          loadExistingAnswers(existingAnswers);
+          setIsRestartMode(false);
+          setStep('questions');
+        } else {
+          // QR/게스트 플로우: 이어하기 여부 체크
           const initialResult = await fetchQuestions(state.dgnssResultId, 0, 20);
           let startPage = 0;
           if (initialResult.answeredCount > 0) {
@@ -556,15 +592,22 @@ export const ExamPage: React.FC = () => {
           } else {
             setStep('questions');
           }
-        } finally {
-          setIsLoading(false);
         }
-      } else {
-        // 회원 플로우: 바로 검사 시작
-        await handleStartExam();
+      } finally {
+        setIsLoading(false);
       }
     },
-    [state.dgnssResultId, loadQuestions, loadExistingAnswers, setCurrentPage, setStep, handleStartExam],
+    [
+      state.dgnssResultId,
+      isStudentFlow,
+      isRestartMode,
+      loadQuestions,
+      loadExistingAnswers,
+      setCurrentPage,
+      setStep,
+      handleStartExam,
+      setPendingAnsweredCount,
+    ],
   );
 
   // 답변 저장
@@ -765,17 +808,34 @@ export const ExamPage: React.FC = () => {
         />
       );
 
-    case 'guide':
+    case 'guide': {
+      const studentCtx: StudentExamContext | undefined = isStudentFlow
+        ? {
+            ordNo: studentExamState!.ordNo,
+            schoolName:
+              studentExamState!.groupInfo?.schoolName || user?.schoolName || undefined,
+            schoolLevel: studentExamState!.groupInfo?.schoolLevel,
+            grade: studentExamState!.groupInfo?.grade,
+            classNumber: studentExamState!.groupInfo?.classNumber,
+            prefilledName: user?.name || '',
+            prefilledStudentNumber: '',
+          }
+        : undefined;
+
       return (
         <ExamGuideStep
           examName={examInfo.name}
           showInfoForm={!isStudentFlow}
           initialInfo={studentInfo || undefined}
+          studentExamContext={studentCtx}
           onStart={handleGuideStart}
-          onBack={isStudentFlow ? undefined : () => setStep('number')}
+          onBack={
+            isStudentFlow ? () => navigate('/student/exams') : () => setStep('number')
+          }
           isLoading={isLoading}
         />
       );
+    }
 
     case 'questions':
       return (

@@ -7,13 +7,10 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  MessageSquare,
-  Eye,
   ShieldAlert,
   AlertTriangle,
   Clock,
   Loader2,
-  Lightbulb,
 } from 'lucide-react';
 import { useStudentAnalysis, useApiConfig } from '@features/api';
 import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
@@ -35,12 +32,10 @@ import {
 import { useCoachingStrategy } from '@features/student-dashboard/api/useCoachingStrategy';
 import type { Student, SchoolLevel } from '@shared/types';
 
-// 헤더 버튼 설정
-const PANEL_BUTTONS = [
-  { key: 'schoolRecord' as const, label: '생기부', icon: FileText },
-  { key: 'counseling' as const, label: '상담', icon: MessageSquare },
-  { key: 'observation' as const, label: '관찰', icon: Eye },
-];
+const TEST_META: Record<string, { name: string; color: string }> = {
+  comprehensive: { name: '학습종합검사', color: '#6366F1' },
+  selfreg: { name: '자기조절학습검사', color: '#009F88' },
+};
 
 type ViewMode = 'round1' | 'round2' | 'compare';
 
@@ -231,40 +226,6 @@ const RoundButton = styled.button<{ $isActive: boolean }>`
   `}
 `;
 
-const PanelButtons = styled.div`
-  display: flex;
-  gap: 0.375rem;
-`;
-
-const PanelButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background-color 0.15s ease;
-  background: white;
-  color: ${({ theme }) => theme.colors.gray[600]};
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    background: ${({ theme }) => theme.colors.gray[100]};
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
-const PanelButtonIcon = styled.div`
-  width: 1rem;
-  height: 1rem;
-`;
-
 const InfoAlert = styled.div`
   background: #eff6ff;
   border: 1px solid #bfdbfe;
@@ -285,6 +246,41 @@ const InfoIcon = styled(Clock)`
 const InfoText = styled.p`
   font-size: 0.875rem;
   color: #1e40af;
+`;
+
+const BreadcrumbRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+`;
+
+const TestBadge = styled.span<{ $color: string }>`
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  background: ${({ $color }) => $color};
+  flex-shrink: 0;
+`;
+
+const BreadcrumbNav = styled.nav`
+  font-size: 0.875rem;
+  color: ${({ theme }) => theme.colors.gray[500]};
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+`;
+
+const BreadcrumbSep = styled.span`
+  color: ${({ theme }) => theme.colors.gray[300]};
+  margin: 0 0.125rem;
+`;
+
+const BreadcrumbCurrent = styled.span`
+  color: ${({ theme }) => theme.colors.gray[800]};
+  font-weight: 500;
 `;
 
 const SectionContainer = styled.section``;
@@ -359,7 +355,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 }) => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
-  const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
   const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
 
@@ -375,6 +370,12 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     isLoading: isCoachingLoading,
     fetchCoachingStrategy,
   } = useCoachingStrategy(classId, studentId, selectedRound);
+
+  // 학생/차수 변경 시 코칭 전략 자동 로드
+  useEffect(() => {
+    void fetchCoachingStrategy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId, selectedRound]);
 
   const [isPdfDownloading, setIsPdfDownloading] = useState(false);
   const [pdfError, setPdfError] = useState(false);
@@ -449,6 +450,22 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     <MainLayout>
       {/* 메인 콘텐츠 */}
       <MainContent $panelOpen={panelTab !== null}>
+        {/* 브레드크럼 */}
+        <BreadcrumbRow>
+          <TestBadge $color={TEST_META[testId]?.color ?? '#6366F1'}>
+            {TEST_META[testId]?.name ?? testId}
+          </TestBadge>
+          <BreadcrumbNav>
+            결과보기
+            <BreadcrumbSep>›</BreadcrumbSep>
+            {TEST_META[testId]?.name ?? testId}
+            <BreadcrumbSep>›</BreadcrumbSep>
+            {classInfo.grade}학년 {classInfo.classNumber}반
+            <BreadcrumbSep>›</BreadcrumbSep>
+            <BreadcrumbCurrent>{student.number}번 {student.name}</BreadcrumbCurrent>
+          </BreadcrumbNav>
+        </BreadcrumbRow>
+
         {/* Header */}
         <HeaderSection>
           <HeaderLeft>
@@ -581,29 +598,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 )}
               </div>
             )}
-            {!panelTab && (
-              <PanelButtons>
-                {PANEL_BUTTONS.map((btn) => {
-                  const Icon = btn.icon;
-                  return (
-                    <PanelButton key={btn.key} onClick={() => setPanelTab(btn.key)}>
-                      <PanelButtonIcon as={Icon} />
-                      {btn.label}
-                    </PanelButton>
-                  );
-                })}
-                <PanelButton
-                  onClick={async () => {
-                    await fetchCoachingStrategy();
-                    setIsCoachingOpen(true);
-                  }}
-                  disabled={isCoachingLoading}
-                >
-                  <PanelButtonIcon as={Lightbulb} />
-                  {isCoachingLoading ? '로딩중...' : '코칭 전략'}
-                </PanelButton>
-              </PanelButtons>
-            )}
           </div>
         </ControlsSection>
 
@@ -634,7 +628,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 
         {/* 2. 학습 유형 알아보기 */}
         <SectionContainer>
-          <SectionTitle>학습 유형 알아보기</SectionTitle>
+          <SectionTitle>{isCompare ? 'LPA 유형 변화' : '학습 유형 알아보기'}</SectionTitle>
           <SectionCard>
             {/* 유형 분류 */}
             <CardSection $hasBorder>
@@ -642,37 +636,49 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 predictedType={current.predictedType}
                 typeProbabilities={current.typeProbabilities}
                 schoolLevel={student.schoolLevel}
+                showCompare={isCompare && !!r1 && !!r2}
+                prevType={r1?.predictedType}
+                prevTypeProbabilities={r1?.typeProbabilities}
               />
             </CardSection>
 
-            {/* 유형별 특이점 + 코칭 전략 버튼 */}
+            {/* 유형별 특이점 / 차수 변화가 큰 요인 */}
             <CardSection>
+              {isCompare && (
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <SectionTitle style={{ fontSize: '1rem' }}>1차→2차 변화가 큰 요인</SectionTitle>
+                  <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.25rem' }}>
+                    1차와 2차 검사 사이에 가장 큰 변화를 보인 요인입니다.
+                  </p>
+                </div>
+              )}
               <TypeDeviations
                 tScores={current.tScores}
                 predictedType={current.predictedType}
                 schoolLevel={student.schoolLevel}
-                onCoachingClick={() => setIsCoachingOpen(true)}
+                isCompare={isCompare}
+                prevTScores={isCompare && r1 ? r1.tScores : undefined}
               />
             </CardSection>
           </SectionCard>
         </SectionContainer>
 
-        {/* 코칭 전략 모달 */}
+        {/* 코칭 전략 (인라인) */}
         <CoachingStrategy
           moderationPaths={moderationPaths}
           typeName={current.predictedType}
-          typeDescription={`${student.schoolLevel} ${classInfo.grade}학년 ${current.predictedType}`}
-          isOpen={isCoachingOpen}
-          onClose={() => setIsCoachingOpen(false)}
+          isLoading={isCoachingLoading}
         />
 
-        {/* 데이터 해석 도우미 (플로팅 챗봇) */}
+        {/* 데이터 해석 도우미 (스피드다이얼 FAB) */}
         <DataHelperChatbot
           tScores={current.tScores}
           predictedType={current.predictedType}
           typeProbabilities={current.typeProbabilities}
           schoolLevel={student.schoolLevel}
           deviations={current.deviations}
+          onOpenPanel={setPanelTab}
+          isPanelOpen={panelTab !== null}
         />
       </MainContent>
 

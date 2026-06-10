@@ -481,10 +481,18 @@ const ExamCard: React.FC<ExamCardProps> = ({
 // Page Component
 // ============================================================
 
+interface ExamGroupInfo {
+  schoolName?: string;
+  schoolLevel?: string;
+  grade?: number;
+  classNumber?: number;
+}
+
 export const MyExamListPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [exams, setExams] = useState<StudentExamListItem[]>([]);
+  const [examGroupMap, setExamGroupMap] = useState<Map<number, ExamGroupInfo>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -520,17 +528,34 @@ export const MyExamListPage: React.FC = () => {
           return;
         }
 
-        const results = await Promise.all(
-          groups.map((g) => getStudentExamList(g.claId, user.stdtId!)),
+        const resultsWithGroups = await Promise.all(
+          groups.map(async (g) => ({
+            group: g,
+            exams: await getStudentExamList(g.claId, user.stdtId!),
+          })),
         );
 
-        // 중복 제거 (dgnssResultId 기준)
+        // 중복 제거 (dgnssResultId 기준) + 그룹 매핑 구축
         const seen = new Set<number>();
-        const flat = results.flat().filter((e) => {
-          if (seen.has(e.dgnssResultId)) return false;
-          seen.add(e.dgnssResultId);
-          return true;
-        });
+        const flat: StudentExamListItem[] = [];
+        const groupMap = new Map<number, ExamGroupInfo>();
+
+        for (const { group, exams: groupExams } of resultsWithGroups) {
+          for (const e of groupExams) {
+            if (!seen.has(e.dgnssResultId)) {
+              seen.add(e.dgnssResultId);
+              flat.push(e);
+              groupMap.set(e.dgnssResultId, {
+                schoolName: group.schoolName,
+                schoolLevel: group.schoolLevel as string | undefined,
+                grade: group.grade,
+                classNumber: group.classNumber,
+              });
+            }
+          }
+        }
+
+        setExamGroupMap(groupMap);
         setExams(flat);
       } catch {
         setExams([]);
@@ -553,6 +578,7 @@ export const MyExamListPage: React.FC = () => {
         dgnssId: exam.dgnssId,
         ordNo: exam.ordNo,
         examName: exam.name,
+        groupInfo: examGroupMap.get(exam.dgnssResultId),
         ...extra,
       },
     });
