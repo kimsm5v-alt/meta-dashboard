@@ -162,9 +162,9 @@ export const MyExamListPage: React.FC = () => {
     loadExams();
   }, [user]);
 
-  // 검사 응시 시작
+  // 검사 응시 시작 → 새로운 Pre-Exam Flow 페이지로 이동
   const handleStartExam = (exam: StudentExamListItem) => {
-    navigate(`/exam/student`, {
+    navigate('/student/exam/prepare', {
       state: {
         dgnssResultId: exam.dgnssResultId,
         dgnssId: exam.dgnssId,
@@ -189,9 +189,9 @@ export const MyExamListPage: React.FC = () => {
     });
   };
 
-  // 검사 새로하기 (처음부터 다시)
+  // 검사 새로하기 (처음부터 다시) → 새로운 Pre-Exam Flow 페이지로 이동
   const handleRestartExam = (exam: StudentExamListItem) => {
-    navigate(`/exam/student`, {
+    navigate('/student/exam/prepare', {
       state: {
         dgnssResultId: exam.dgnssResultId,
         dgnssId: exam.dgnssId,
