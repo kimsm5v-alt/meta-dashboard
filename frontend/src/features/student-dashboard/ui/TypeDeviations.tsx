@@ -1,6 +1,8 @@
 import type React from 'react';
+import { useMemo } from 'react';
 import styled from '@emotion/styled';
 import { getTypeDeviations } from '../../../shared/utils/lpaClassifier';
+import { FACTOR_DEFINITIONS } from '../../../shared/data/factors';
 import type { StudentType, SchoolLevel } from '../../../shared/types';
 
 const Container = styled.div``;
@@ -88,39 +90,134 @@ const ScoreDetails = styled.p`
   color: ${({ theme }) => theme.colors.gray[500]};
 `;
 
-const CoachingButton = styled.button`
-  width: 100%;
-  padding: 0.75rem ${({ theme }) => theme.spacing.md};
-  background: ${({ theme }) => theme.colors.primary[500]};
-  color: #ffffff;
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  transition: background-color 0.15s ease;
+const CompareGrid = styled.div`
   display: flex;
+  gap: ${({ theme }) => theme.spacing.md};
+`;
+
+const CompareCard = styled.div<{ $improved: boolean }>`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border: none;
-  cursor: pointer;
+  padding: ${({ theme }) => theme.spacing.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: 1px solid;
+  transition: box-shadow 0.15s ease;
+  text-align: center;
+  ${({ $improved }) =>
+    $improved
+      ? 'background: #f0fdf4; border-color: #bbf7d0;'
+      : 'background: #fef2f2; border-color: #fecaca;'}
 
   &:hover {
-    background: ${({ theme }) => theme.colors.primary[600]};
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
 `;
+
+const CompareArrow = styled.div<{ $improved: boolean }>`
+  font-size: 1.875rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: ${({ $improved }) => ($improved ? '#16A34A' : '#DC2626')};
+`;
+
+const CompareFactor = styled.div`
+  font-size: 1rem;
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  color: ${({ theme }) => theme.colors.gray[900]};
+  margin-bottom: 0.25rem;
+`;
+
+const CompareDiff = styled.div<{ $improved: boolean }>`
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: ${({ $improved }) => ($improved ? '#16A34A' : '#DC2626')};
+`;
+
+const CompareDetail = styled.div`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.gray[500]};
+`;
+
+const CompareBadge = styled.div<{ $improved: boolean }>`
+  margin-top: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: ${({ theme }) => theme.radius.full};
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  ${({ $improved }) =>
+    $improved
+      ? 'background: #dcfce7; color: #166534;'
+      : 'background: #fee2e2; color: #991b1b;'}
+`;
+
+interface RoundChangeItem {
+  factor: string;
+  round1Score: number;
+  round2Score: number;
+  diff: number;
+  absDiff: number;
+  isImproved: boolean;
+}
 
 interface TypeDeviationsProps {
   tScores: number[];
   predictedType: StudentType;
   schoolLevel: SchoolLevel;
-  onCoachingClick?: () => void;
+  isCompare?: boolean;
+  prevTScores?: number[];
 }
 
 export const TypeDeviations: React.FC<TypeDeviationsProps> = ({
   tScores,
   predictedType,
   schoolLevel,
-  onCoachingClick,
+  isCompare = false,
+  prevTScores,
 }) => {
+  const roundChanges = useMemo<RoundChangeItem[]>(() => {
+    if (!isCompare || !prevTScores || prevTScores.length !== tScores.length) return [];
+    return FACTOR_DEFINITIONS.map((factor, idx) => {
+      const round1Score = Math.round(prevTScores[idx]);
+      const round2Score = Math.round(tScores[idx]);
+      const diff = round2Score - round1Score;
+      return {
+        factor: factor.name,
+        round1Score,
+        round2Score,
+        diff,
+        absDiff: Math.abs(diff),
+        isImproved: factor.isPositive ? diff > 0 : diff < 0,
+      };
+    })
+      .filter((c) => c.absDiff >= 3)
+      .sort((a, b) => b.absDiff - a.absDiff)
+      .slice(0, 3);
+  }, [isCompare, prevTScores, tScores]);
+
+  if (isCompare) {
+    if (roundChanges.length === 0) {
+      return <SummaryBox><SummaryText>1차와 2차 사이에 큰 변화가 없습니다.</SummaryText></SummaryBox>;
+    }
+    return (
+      <CompareGrid>
+        {roundChanges.map((item, i) => (
+          <CompareCard key={i} $improved={item.isImproved}>
+            <CompareArrow $improved={item.isImproved}>{item.diff > 0 ? '↑' : '↓'}</CompareArrow>
+            <CompareFactor>{item.factor}</CompareFactor>
+            <CompareDiff $improved={item.isImproved}>
+              {item.diff > 0 ? '+' : ''}{item.diff}
+            </CompareDiff>
+            <CompareDetail>1차 T={item.round1Score} → 2차 T={item.round2Score}</CompareDetail>
+            <CompareBadge $improved={item.isImproved}>{item.isImproved ? '개선' : '주의'}</CompareBadge>
+          </CompareCard>
+        ))}
+      </CompareGrid>
+    );
+  }
+
   let deviations: ReturnType<typeof getTypeDeviations> = [];
 
   try {
@@ -210,12 +307,6 @@ export const TypeDeviations: React.FC<TypeDeviationsProps> = ({
         ))}
       </Grid>
 
-      {onCoachingClick && (
-        <CoachingButton onClick={onCoachingClick}>
-          <span>코칭 전략 보기</span>
-          <span>→</span>
-        </CoachingButton>
-      )}
     </Container>
   );
 };
