@@ -1,7 +1,10 @@
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle2, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+import type { StudentInfo } from './StudentInfoStep';
+
+type SchoolLevel = 'elementary' | 'middle' | 'high' | '';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -19,6 +22,26 @@ const Header = styled.div`
   margin-bottom: 2rem;
 `;
 
+const ExamBadge = styled.span<{ $color: string }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: ${({ $color }) => $color};
+  background: ${({ $color }) => `${$color}18`};
+  border: 1px solid ${({ $color }) => `${$color}40`};
+  margin-bottom: 0.75rem;
+`;
+
+const BadgeDot = styled.span<{ $color: string }>`
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: ${({ $color }) => $color};
+`;
 
 const Title = styled.h1`
   font-size: 1.5rem;
@@ -52,11 +75,17 @@ const SectionDivider = styled.div`
   padding-top: 1.5rem;
 `;
 
-const SectionHeader = styled.div`
+const SectionHeader = styled.div<{ $color?: string }>`
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
+
+  svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: ${({ $color, theme }) => $color || theme.colors.primary[500]};
+  }
 `;
 
 const SectionTitle = styled.h2`
@@ -77,13 +106,13 @@ const GuidelineItem = styled.li`
   color: ${({ theme }) => theme.colors.gray[700]};
 `;
 
-const GuidelineNumber = styled.span`
+const GuidelineNumber = styled.span<{ $color: string }>`
   flex-shrink: 0;
   width: 1.5rem;
   height: 1.5rem;
   border-radius: ${({ theme }) => theme.radius.full};
-  background: ${({ theme }) => theme.colors.primary[100]};
-  color: ${({ theme }) => theme.colors.primary[600]};
+  background: ${({ $color }) => `${$color}18`};
+  color: ${({ $color }) => $color};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
   display: flex;
@@ -134,13 +163,6 @@ const RadioLabel = styled.label`
 const RadioInput = styled.input`
   width: 1.25rem;
   height: 1.25rem;
-  color: ${({ theme }) => theme.colors.primary[600]};
-  border-color: ${({ theme }) => theme.colors.gray[300]};
-
-  &:focus {
-    ring: 2px;
-    ring-color: ${({ theme }) => theme.colors.primary[500]};
-  }
 `;
 
 const RadioLabelText = styled.span`
@@ -150,49 +172,118 @@ const RadioLabelText = styled.span`
   white-space: nowrap;
 `;
 
-const ConsentList = styled.div`
+/* ──────────── Info Form Styled Components ──────────── */
+
+const fadeUp = keyframes`
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const InfoFormGrid = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1.25rem;
+  animation: ${fadeUp} 0.3s ease-out;
 `;
 
-const ConsentLabel = styled.label`
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  cursor: pointer;
-  padding: 0.75rem;
+const FormField = styled.div``;
+
+const FieldLabel = styled.label`
+  display: block;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  color: ${({ theme }) => theme.colors.gray[500]};
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+`;
+
+const FieldError = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: #ef4444;
+  margin-top: 0.375rem;
+`;
+
+const TextInput = styled.input<{ $hasError?: boolean }>`
+  width: 100%;
+  padding: 0.625rem 0.875rem;
   border-radius: ${({ theme }) => theme.radius.lg};
-  transition: background-color 0.15s ease;
-
-  &:hover {
-    background: ${({ theme }) => theme.colors.gray[50]};
-  }
-`;
-
-const Checkbox = styled.input`
-  margin-top: 0.125rem;
-  width: 1.25rem;
-  height: 1.25rem;
-  color: ${({ theme }) => theme.colors.primary[600]};
-  border-color: ${({ theme }) => theme.colors.gray[300]};
-  border-radius: ${({ theme }) => theme.radius.sm};
+  border: 1.5px solid ${({ $hasError, theme }) => ($hasError ? '#ef4444' : theme.colors.gray[200])};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  color: ${({ theme }) => theme.colors.gray[900]};
+  background: ${({ theme }) => theme.colors.gray[50]};
+  transition: border-color 0.15s ease;
 
   &:focus {
-    ring: 2px;
-    ring-color: ${({ theme }) => theme.colors.primary[500]};
+    outline: none;
+    border-color: ${({ $hasError, theme }) => ($hasError ? '#ef4444' : theme.colors.primary[400])};
+  }
+
+  &::placeholder {
+    color: ${({ theme }) => theme.colors.gray[400]};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 `;
 
-const ConsentText = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.gray[700]};
+const ToggleGroup = styled.div`
+  display: flex;
+  gap: 0.5rem;
 `;
 
-const RequiredBadge = styled.span`
-  color: #ef4444;
+const ToggleButton = styled.button<{ $isSelected: boolean; $color: string }>`
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  border: 1.5px solid ${({ $isSelected, $color }) => ($isSelected ? $color : 'transparent')};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: ${({ $isSelected, $color }) => ($isSelected ? `${$color}18` : '#f3f4f6')};
+  color: ${({ $isSelected, $color, theme }) => ($isSelected ? $color : theme.colors.gray[500])};
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 `;
+
+const GradeRow = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`;
+
+const GradeSelect = styled.select<{ $hasError?: boolean }>`
+  flex: 2;
+  padding: 0.625rem 0.875rem;
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: 1.5px solid ${({ $hasError, theme }) => ($hasError ? '#ef4444' : theme.colors.gray[200])};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  background: ${({ theme }) => theme.colors.gray[50]};
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary[400]};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const SmallInput = styled(TextInput)`
+  flex: 1;
+  text-align: center;
+`;
+
+/* ──────────── Button Styled Components ──────────── */
 
 const ButtonGroup = styled.div`
   display: flex;
@@ -225,28 +316,29 @@ const BackButton = styled.button`
   }
 `;
 
-const StartButton = styled.button<{ $hasBackButton: boolean }>`
+const StartButton = styled.button<{ $hasBackButton: boolean; $color: string }>`
   flex: ${({ $hasBackButton }) => ($hasBackButton ? '2' : '1')};
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   padding: 1rem 1.5rem;
-  background: ${({ theme }) => theme.colors.primary[600]};
+  background: ${({ $color }) => $color};
   color: #ffffff;
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   border-radius: ${({ theme }) => theme.radius.xl};
   border: none;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: filter 0.15s ease;
 
   &:hover:not(:disabled) {
-    background: ${({ theme }) => theme.colors.primary[700]};
+    filter: brightness(1.08);
   }
 
   &:disabled {
     background: ${({ theme }) => theme.colors.gray[300]};
     cursor: not-allowed;
+    filter: none;
   }
 `;
 
@@ -259,36 +351,97 @@ const SpinningIcon = styled(Loader2)`
   animation: ${spin} 1s linear infinite;
 `;
 
+/* ──────────── Component ──────────── */
+
 interface ExamGuideStepProps {
-  studentNumber: number;
-  onStart: () => void;
-  onBack?: () => void; // optional: 직접 모드에서는 뒤로가기 없음
+  examName: string;
+  showInfoForm?: boolean;
+  initialInfo?: Partial<StudentInfo>;
+  onStart: (info?: StudentInfo) => void;
+  onBack?: () => void;
   isLoading: boolean;
 }
 
+const EXAM_COLOR = (name: string) =>
+  name.includes('자기조절') ? '#009F88' : '#9D53E1';
+
+const GRADE_OPTIONS: Record<string, string[]> = {
+  elementary: ['초1', '초2', '초3', '초4', '초5', '초6'],
+  middle: ['중1', '중2', '중3'],
+  high: ['고1', '고2', '고3'],
+};
+
+const GUIDELINES = [
+  '검사 문항에는 옳고, 그른 답이 없습니다. 정답이 없으므로 자신의 생각대로 솔직하게 답해주세요.',
+  '해당 검사는 학업 성적이나 교과 점수와는 전혀 관련이 없으므로 걱정하지 않아도 됩니다.',
+  '내가 바라는 모습이 아닌, 현재의 나를 기준으로 답해주세요.',
+  '중간에 검사를 멈추지 않고 전체 문항을 빠짐없이 응답해 주세요. (약 15~20분 소요)',
+];
+
 export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
-  studentNumber: _studentNumber,
+  examName,
+  showInfoForm = false,
+  initialInfo,
   onStart,
   onBack,
   isLoading,
 }) => {
-  const [privacyAgreed, setPrivacyAgreed] = useState(false);
-  const [sensitiveAgreed, setSensitiveAgreed] = useState(false);
+  const color = EXAM_COLOR(examName);
 
-  const canStart = privacyAgreed && sensitiveAgreed;
+  // Info form state
+  const [schoolLevel, setSchoolLevel] = useState<SchoolLevel>('');
+  const [formData, setFormData] = useState<StudentInfo>({
+    schoolName: initialInfo?.schoolName || '',
+    grade: initialInfo?.grade || '',
+    classNumber: initialInfo?.classNumber || '',
+    studentNumber: initialInfo?.studentNumber || '',
+    name: initialInfo?.name || '',
+    gender: initialInfo?.gender || '',
+  });
+  const [errors, setErrors] = useState<Partial<Record<keyof StudentInfo, string>>>({});
 
-  const guidelines = [
-    '검사 문항에는 옳고, 그른 답이 없습니다. 정답이 없으므로 자신의 생각대로 솔직하게 답해주세요.',
-    '해당 검사는 학업 성적이나 교과 점수와는 전혀 관련이 없으므로 걱정하지 않아도 됩니다.',
-    '내가 바라는 모습이 아닌, 현재의 나를 기준으로 답해주세요.',
-    '중간에 검사를 멈추지 않고 전체 문항을 빠짐없이 응답해 주세요. (약 15~20분 소요)',
-  ];
+  useEffect(() => {
+    if (schoolLevel) {
+      setFormData((prev) => ({ ...prev, grade: '' }));
+    }
+  }, [schoolLevel]);
+
+  const handleField = (field: keyof StudentInfo, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  const validateInfoForm = (): boolean => {
+    const newErrors: Partial<Record<keyof StudentInfo, string>> = {};
+    if (!formData.schoolName.trim()) newErrors.schoolName = '학교명을 입력해주세요';
+    if (!formData.grade) newErrors.grade = '학년을 선택해주세요';
+    if (!formData.classNumber.trim()) newErrors.classNumber = '반을 입력해주세요';
+    if (!formData.studentNumber.trim()) newErrors.studentNumber = '번호를 입력해주세요';
+    if (!formData.name.trim()) newErrors.name = '이름을 입력해주세요';
+    if (!formData.gender) newErrors.gender = '성별을 선택해주세요';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleStart = () => {
+    if (showInfoForm) {
+      if (!validateInfoForm()) return;
+      onStart(formData as StudentInfo);
+    } else {
+      onStart();
+    }
+  };
+
+  const gradeOptions = GRADE_OPTIONS[schoolLevel] ?? [];
 
   return (
     <Container>
       <ContentWrapper>
-        {/* 헤더 */}
         <Header>
+          <ExamBadge $color={color}>
+            <BadgeDot $color={color} />
+            {examName}
+          </ExamBadge>
           <Title>검사 안내</Title>
           <Subtitle>검사를 시작하기 전에 아래 내용을 읽어주세요</Subtitle>
         </Header>
@@ -296,15 +449,15 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
         <Card>
           {/* 검사 진행 방법 */}
           <Section>
-            <SectionHeader>
-              <CheckCircle2 className='w-5 h-5 text-primary-500' />
+            <SectionHeader $color={color}>
+              <CheckCircle2 />
               <SectionTitle>검사 진행 방법</SectionTitle>
             </SectionHeader>
             <GuidelineList>
-              {guidelines.map((guideline, index) => (
-                <GuidelineItem key={index}>
-                  <GuidelineNumber>{index + 1}</GuidelineNumber>
-                  <GuidelineText>{guideline}</GuidelineText>
+              {GUIDELINES.map((text, i) => (
+                <GuidelineItem key={i}>
+                  <GuidelineNumber $color={color}>{i + 1}</GuidelineNumber>
+                  <GuidelineText>{text}</GuidelineText>
                 </GuidelineItem>
               ))}
             </GuidelineList>
@@ -312,8 +465,8 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
 
           {/* 예시 문제 */}
           <SectionDivider>
-            <SectionHeader>
-              <CheckCircle2 className='w-5 h-5 text-primary-500' />
+            <SectionHeader $color={color}>
+              <CheckCircle2 />
               <SectionTitle>예시 문제</SectionTitle>
             </SectionHeader>
             <ExampleBox>
@@ -323,8 +476,8 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
               </ExampleQuestion>
               <RadioGroup>
                 {['전혀 그렇지 않다', '그렇지 않다', '보통이다', '그렇다', '매우 그렇다'].map(
-                  (label, index) => (
-                    <RadioLabel key={index}>
+                  (label, i) => (
+                    <RadioLabel key={i}>
                       <RadioInput type='radio' name='example' disabled />
                       <RadioLabelText>{label}</RadioLabelText>
                     </RadioLabel>
@@ -334,35 +487,140 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
             </ExampleBox>
           </SectionDivider>
 
-          {/* 개인정보 동의 */}
-          <SectionDivider>
-            <SectionHeader>
-              <CheckCircle2 className='w-5 h-5 text-primary-500' />
-              <SectionTitle>개인정보 수집·이용 동의</SectionTitle>
-            </SectionHeader>
-            <ConsentList>
-              <ConsentLabel>
-                <Checkbox
-                  type='checkbox'
-                  checked={privacyAgreed}
-                  onChange={(e) => setPrivacyAgreed(e.target.checked)}
-                />
-                <ConsentText>
-                  <RequiredBadge>[필수]</RequiredBadge> 개인정보 수집 및 이용에 동의합니다.
-                </ConsentText>
-              </ConsentLabel>
-              <ConsentLabel>
-                <Checkbox
-                  type='checkbox'
-                  checked={sensitiveAgreed}
-                  onChange={(e) => setSensitiveAgreed(e.target.checked)}
-                />
-                <ConsentText>
-                  <RequiredBadge>[필수]</RequiredBadge> 민감정보 수집 및 이용에 동의합니다.
-                </ConsentText>
-              </ConsentLabel>
-            </ConsentList>
-          </SectionDivider>
+          {/* 학생 정보 입력 (QR/게스트 플로우) */}
+          {showInfoForm && (
+            <SectionDivider>
+              <SectionHeader $color={color}>
+                <CheckCircle2 />
+                <SectionTitle>기본 정보 입력</SectionTitle>
+              </SectionHeader>
+              <InfoFormGrid>
+                {/* 학교명 */}
+                <FormField>
+                  <FieldLabel>학교명</FieldLabel>
+                  <TextInput
+                    type='text'
+                    value={formData.schoolName}
+                    onChange={(e) => handleField('schoolName', e.target.value)}
+                    placeholder='학교 이름을 입력하세요'
+                    disabled={isLoading}
+                    $hasError={!!errors.schoolName}
+                  />
+                  {errors.schoolName && <FieldError>{errors.schoolName}</FieldError>}
+                </FormField>
+
+                {/* 학교급 */}
+                <FormField>
+                  <FieldLabel>학교급</FieldLabel>
+                  <ToggleGroup>
+                    {[
+                      { value: 'elementary', label: '초등학교' },
+                      { value: 'middle', label: '중학교' },
+                      { value: 'high', label: '고등학교' },
+                    ].map((opt) => (
+                      <ToggleButton
+                        key={opt.value}
+                        type='button'
+                        $isSelected={schoolLevel === opt.value}
+                        $color={color}
+                        onClick={() => setSchoolLevel(opt.value as SchoolLevel)}
+                        disabled={isLoading}
+                      >
+                        {opt.label}
+                      </ToggleButton>
+                    ))}
+                  </ToggleGroup>
+                </FormField>
+
+                {/* 학년 · 반 · 번호 */}
+                <FormField>
+                  <FieldLabel>학년 · 반 · 번호</FieldLabel>
+                  <GradeRow>
+                    <div style={{ flex: 2 }}>
+                      <GradeSelect
+                        value={formData.grade}
+                        onChange={(e) => handleField('grade', e.target.value)}
+                        disabled={isLoading || gradeOptions.length === 0}
+                        $hasError={!!errors.grade}
+                      >
+                        <option value=''>
+                          {gradeOptions.length === 0 ? '학교급 선택 필요' : '학년 선택'}
+                        </option>
+                        {gradeOptions.map((g) => (
+                          <option key={g} value={g}>
+                            {g.replace(/[초중고]/, '')}학년
+                          </option>
+                        ))}
+                      </GradeSelect>
+                      {errors.grade && <FieldError>{errors.grade}</FieldError>}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <SmallInput
+                        type='text'
+                        value={formData.classNumber}
+                        onChange={(e) => handleField('classNumber', e.target.value)}
+                        placeholder='반'
+                        disabled={isLoading}
+                        $hasError={!!errors.classNumber}
+                      />
+                      {errors.classNumber && <FieldError>{errors.classNumber}</FieldError>}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <SmallInput
+                        type='text'
+                        value={formData.studentNumber}
+                        onChange={(e) => handleField('studentNumber', e.target.value)}
+                        placeholder='번호'
+                        disabled={isLoading}
+                        $hasError={!!errors.studentNumber}
+                      />
+                      {errors.studentNumber && <FieldError>{errors.studentNumber}</FieldError>}
+                    </div>
+                  </GradeRow>
+                </FormField>
+
+                {/* 이름 */}
+                <FormField>
+                  <FieldLabel>이름</FieldLabel>
+                  <TextInput
+                    type='text'
+                    value={formData.name}
+                    onChange={(e) => handleField('name', e.target.value)}
+                    placeholder='홍길동'
+                    disabled={isLoading}
+                    $hasError={!!errors.name}
+                  />
+                  {errors.name && <FieldError>{errors.name}</FieldError>}
+                </FormField>
+
+                {/* 성별 */}
+                <FormField>
+                  <FieldLabel>성별</FieldLabel>
+                  <ToggleGroup>
+                    <ToggleButton
+                      type='button'
+                      $isSelected={formData.gender === 'M'}
+                      $color={color}
+                      onClick={() => handleField('gender', 'M')}
+                      disabled={isLoading}
+                    >
+                      남자
+                    </ToggleButton>
+                    <ToggleButton
+                      type='button'
+                      $isSelected={formData.gender === 'F'}
+                      $color={color}
+                      onClick={() => handleField('gender', 'F')}
+                      disabled={isLoading}
+                    >
+                      여자
+                    </ToggleButton>
+                  </ToggleGroup>
+                  {errors.gender && <FieldError>{errors.gender}</FieldError>}
+                </FormField>
+              </InfoFormGrid>
+            </SectionDivider>
+          )}
 
           {/* 버튼 */}
           <ButtonGroup>
@@ -374,9 +632,10 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
             )}
             <StartButton
               type='button'
-              onClick={onStart}
-              disabled={!canStart || isLoading}
+              onClick={handleStart}
+              disabled={isLoading}
               $hasBackButton={!!onBack}
+              $color={color}
             >
               {isLoading ? (
                 <>

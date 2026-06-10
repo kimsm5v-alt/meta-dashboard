@@ -1,4 +1,5 @@
 import type { Class, FactorCategory, ClassCategoryAverage, CategoryChartData } from '../types';
+import { SUB_CATEGORY_FACTORS } from '@shared/data/factors';
 
 // 5대 영역별 인덱스 매핑
 export const MAIN_CATEGORY_INDICES: Record<FactorCategory, number[]> = {
@@ -80,3 +81,71 @@ export const transformToCategoryChartData = (
     return dataPoint;
   });
 };
+
+// ============================================================
+// 11개 중분류 유틸리티
+// ============================================================
+
+export const SUB_CATEGORY_ORDER = [
+  '긍정적자아', '대인관계능력',
+  '메타인지', '학습기술', '지지적관계',
+  '학업열의', '성장력',
+  '학업스트레스', '학습방해물', '학업관계스트레스',
+  '학업소진',
+];
+
+export const SUB_CATEGORY_POLARITY: Record<string, 'positive' | 'negative'> = {
+  긍정적자아: 'positive', 대인관계능력: 'positive',
+  메타인지: 'positive', 학습기술: 'positive', 지지적관계: 'positive',
+  학업열의: 'positive', 성장력: 'positive',
+  학업스트레스: 'negative', 학습방해물: 'negative', 학업관계스트레스: 'negative',
+  학업소진: 'negative',
+};
+
+export interface SubCategoryAverage {
+  classId: string;
+  className: string;
+  subCategoryAverages: Record<string, number>;
+}
+
+export const calculateSubCategoryAverages = (classData: Class): SubCategoryAverage => {
+  const subCategoryAverages: Record<string, number> = {};
+  const assessedStudents = classData.students.filter((s) => s.assessments.length > 0);
+
+  if (assessedStudents.length === 0) {
+    for (const sub of SUB_CATEGORY_ORDER) subCategoryAverages[sub] = 50;
+    return {
+      classId: classData.id,
+      className: `${classData.grade}-${classData.classNumber}반`,
+      subCategoryAverages,
+    };
+  }
+
+  for (const [sub, indices] of Object.entries(SUB_CATEGORY_FACTORS)) {
+    let sum = 0, count = 0;
+    for (const student of assessedStudents) {
+      const assessment = student.assessments.find((a) => a.round === 2) || student.assessments[0];
+      const vals = (indices as number[]).map((i) => assessment.tScores[i]);
+      sum += vals.reduce((a, b) => a + b, 0) / vals.length;
+      count++;
+    }
+    subCategoryAverages[sub] = Math.round(sum / count);
+  }
+
+  return {
+    classId: classData.id,
+    className: `${classData.grade}-${classData.classNumber}반`,
+    subCategoryAverages,
+  };
+};
+
+export const transformToSubCategoryChartData = (
+  classesSubData: SubCategoryAverage[],
+): CategoryChartData[] =>
+  SUB_CATEGORY_ORDER.map((sub) => {
+    const dataPoint: CategoryChartData = { category: sub as FactorCategory };
+    classesSubData.forEach((cls) => {
+      dataPoint[cls.className] = cls.subCategoryAverages[sub];
+    });
+    return dataPoint;
+  });

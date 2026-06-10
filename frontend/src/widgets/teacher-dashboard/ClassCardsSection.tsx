@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { Card } from '@shared/components';
 import { TypeBadge } from '@shared/ui';
@@ -227,6 +227,8 @@ interface ClassCardsSectionProps {
 
 export const ClassCardsSection = ({ classes }: ClassCardsSectionProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const testId = location.pathname.includes('/selfreg') ? 'selfreg' : 'comprehensive';
 
   return (
     <div>
@@ -266,7 +268,7 @@ export const ClassCardsSection = ({ classes }: ClassCardsSectionProps) => {
                 <DetailButton
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/dashboard/class/${cls.id}`);
+                    navigate(`/dashboard/${testId}/class/${cls.id}`);
                   }}
                 >
                   상세보기

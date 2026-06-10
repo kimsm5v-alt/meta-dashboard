@@ -514,7 +514,7 @@ const PdfTableCell = styled.td`
 `;
 
 export const ClassDashboardWidget: React.FC = () => {
-  const { classId } = useParams<{ classId: string }>();
+  const { classId, testId = 'comprehensive' } = useParams<{ classId: string; testId: string }>();
   const navigate = useNavigate();
   const { getClassById } = useData();
   const { user } = useAuth();
@@ -837,7 +837,7 @@ export const ClassDashboardWidget: React.FC = () => {
       )}
 
       <HeaderRow>
-        <BackButton onClick={() => navigate('/dashboard')}>
+        <BackButton onClick={() => navigate(`/dashboard/${testId}`)}>
           <BackIcon />
         </BackButton>
         <HeaderContent>
@@ -1032,7 +1032,7 @@ export const ClassDashboardWidget: React.FC = () => {
                     <TableRow key={student.id}>
                       <TableCell
                         onClick={() =>
-                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                          navigate(`/dashboard/${testId}/class/${classId}/student/${student.id}`)
                         }
                         style={{ cursor: 'pointer' }}
                       >
@@ -1040,7 +1040,7 @@ export const ClassDashboardWidget: React.FC = () => {
                       </TableCell>
                       <TableCell
                         onClick={() =>
-                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                          navigate(`/dashboard/${testId}/class/${classId}/student/${student.id}`)
                         }
                         style={{ cursor: 'pointer' }}
                       >
@@ -1048,7 +1048,7 @@ export const ClassDashboardWidget: React.FC = () => {
                       </TableCell>
                       <TableCell
                         onClick={() =>
-                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                          navigate(`/dashboard/${testId}/class/${classId}/student/${student.id}`)
                         }
                         style={{ cursor: 'pointer' }}
                       >
@@ -1057,7 +1057,7 @@ export const ClassDashboardWidget: React.FC = () => {
                       <TableCell
                         $align='center'
                         onClick={() =>
-                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                          navigate(`/dashboard/${testId}/class/${classId}/student/${student.id}`)
                         }
                         style={{ cursor: 'pointer' }}
                       >
@@ -1065,7 +1065,7 @@ export const ClassDashboardWidget: React.FC = () => {
                       </TableCell>
                       <TableCell
                         onClick={() =>
-                          navigate(`/dashboard/class/${classId}/student/${student.id}`)
+                          navigate(`/dashboard/${testId}/class/${classId}/student/${student.id}`)
                         }
                         style={{ cursor: 'pointer' }}
                       >

@@ -18,7 +18,6 @@ import {
 import { useStudentAnalysis, useApiConfig } from '@features/api';
 import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
 import { fetchStudentInfoList } from '@shared/services/dashboardService';
-import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
@@ -190,10 +189,6 @@ const NavButton = styled.button`
   }
 `;
 
-const NavIcon = styled.div`
-  width: 1.25rem;
-  height: 1.25rem;
-`;
 
 const NavCounter = styled.span`
   font-size: 0.875rem;
@@ -308,49 +303,6 @@ const SectionTitle = styled.h2`
 
 
 
-const PdfButtonsArea = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-  justify-content: flex-end;
-`;
-
-const PdfReportBtn = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  background: white;
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  border-radius: 0.5rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: ${({ theme }) => theme.colors.gray[700]};
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-
-  &:hover:not(:disabled) {
-    background: ${({ theme }) => theme.colors.gray[50]};
-    border-color: ${({ theme }) => theme.colors.gray[300]};
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-  }
-
-  &::before {
-    content: '';
-    width: 18px;
-    height: 22px;
-    background-image: ${PDF_ICON_SVG_URL};
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    flex-shrink: 0;
-  }
-`;
 
 const SectionCard = styled.div`
   background: white;
@@ -390,6 +342,7 @@ interface StudentDashboardContentProps {
   classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel };
   classId: string;
   studentId: string;
+  testId: string;
   hasJwtToken: boolean;
   dgnssIds: { round1?: number; round2?: number };
 }
@@ -400,6 +353,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   classInfo,
   classId,
   studentId,
+  testId,
   hasJwtToken,
   dgnssIds,
 }) => {
@@ -407,6 +361,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
   const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
+  const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -497,7 +452,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         {/* Header */}
         <HeaderSection>
           <HeaderLeft>
-            <BackButton onClick={() => navigate(`/dashboard/class/${classId}`)}>
+            <BackButton onClick={() => navigate(`/dashboard/${testId}/class/${classId}`)}>
               <BackIcon />
             </BackButton>
             <HeaderTitle>
@@ -527,34 +482,36 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 )}
               </TitleRow>
               <ClassInfo>
-                {classInfo.grade}학년 {classInfo.classNumber}반
+                {classInfo.schoolLevel} · {classInfo.grade}학년 {classInfo.classNumber}반
               </ClassInfo>
             </HeaderTitle>
           </HeaderLeft>
 
           <HeaderRight>
-            {/* 학생 네비게이션 */}
+            {/* 학생 네비게이션 — 프로토타입: ‹ 이전 / X/N / 다음 › 텍스트 버튼 */}
             <NavigationSection>
               <NavButton
-                onClick={() => prev && navigate(`/dashboard/class/${classId}/student/${prev.id}`)}
+                onClick={() => prev && navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`)}
                 disabled={!prev}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.125rem', padding: '0.375rem 0.625rem', fontSize: '0.875rem', fontWeight: 500, border: '1px solid #E5E7EB', borderRadius: '0.5rem', background: 'white', color: '#374151' }}
               >
-                <NavIcon as={ChevronLeft} />
+                <ChevronLeft size={14} /> 이전
               </NavButton>
               <NavCounter>
                 {currentIdx + 1} / {classStudents.length}
               </NavCounter>
               <NavButton
-                onClick={() => next && navigate(`/dashboard/class/${classId}/student/${next.id}`)}
+                onClick={() => next && navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`)}
                 disabled={!next}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.125rem', padding: '0.375rem 0.625rem', fontSize: '0.875rem', fontWeight: 500, border: '1px solid #E5E7EB', borderRadius: '0.5rem', background: 'white', color: '#374151' }}
               >
-                <NavIcon as={ChevronRight} />
+                다음 <ChevronRight size={14} />
               </NavButton>
             </NavigationSection>
           </HeaderRight>
         </HeaderSection>
 
-        {/* Round Selector + Panel Buttons */}
+        {/* Round Selector + 보고서 다운로드 드롭다운 + Panel Buttons */}
         <ControlsSection>
           <RoundButtons>
             {[
@@ -575,30 +532,79 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               </RoundButton>
             ))}
           </RoundButtons>
-          {!panelTab && (
-            <PanelButtons>
-              {PANEL_BUTTONS.map((btn) => {
-                const Icon = btn.icon;
-                return (
-                  <PanelButton key={btn.key} onClick={() => setPanelTab(btn.key)}>
-                    <PanelButtonIcon as={Icon} />
-                    {btn.label}
-                  </PanelButton>
-                );
-              })}
-              {/* 코칭 전략 버튼 */}
-              <PanelButton
-                onClick={async () => {
-                  await fetchCoachingStrategy();
-                  setIsCoachingOpen(true);
-                }}
-                disabled={isCoachingLoading}
-              >
-                <PanelButtonIcon as={Lightbulb} />
-                {isCoachingLoading ? '로딩중...' : '코칭 전략'}
-              </PanelButton>
-            </PanelButtons>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            {/* 보고서 다운로드 드롭다운 — 프로토타입과 동일 위치 */}
+            {hasJwtToken && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setReportDropdownOpen(v => !v)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', background: '#4F46E5', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
+                >
+                  <FileText size={15} />
+                  보고서 다운로드
+                  <ChevronRight size={14} style={{ transform: reportDropdownOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s' }} />
+                </button>
+                {reportDropdownOpen && (
+                  <>
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setReportDropdownOpen(false)} />
+                    <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', width: '14rem', background: 'white', borderRadius: '0.625rem', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', border: '1px solid #E5E7EB', padding: '0.5rem 0', zIndex: 20 }}>
+                      <div style={{ padding: '0.375rem 0.75rem' }}>
+                        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', marginBottom: '0.25rem' }}>1차 검사 {!r1 && <span style={{ color: '#D1D5DB' }}>(미실시)</span>}</p>
+                        <button disabled={isPdfDownloading || r1?.answerIdx == null} onClick={() => void handleDownloadPdf(1, 1).then(() => setReportDropdownOpen(false))}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed', opacity: r1?.answerIdx != null ? 1 : 0.4, borderRadius: '0.375rem' }}>
+                          <FileText size={14} color="#EF4444" /> 상세 보고서
+                        </button>
+                        <button disabled={isPdfDownloading || r1?.answerIdx == null} onClick={() => void handleDownloadPdf(1, 2).then(() => setReportDropdownOpen(false))}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed', opacity: r1?.answerIdx != null ? 1 : 0.4, borderRadius: '0.375rem' }}>
+                          <FileText size={14} color="#EF4444" /> 요약 보고서
+                        </button>
+                      </div>
+                      {r2 && (
+                        <>
+                          <div style={{ borderTop: '1px solid #F3F4F6', margin: '0.25rem 0' }} />
+                          <div style={{ padding: '0.375rem 0.75rem' }}>
+                            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', marginBottom: '0.25rem' }}>2차 검사</p>
+                            <button disabled={isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)} onClick={() => void handleDownloadPdf(2, 1).then(() => setReportDropdownOpen(false))}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.375rem' }}>
+                              <FileText size={14} color="#EF4444" /> 상세 보고서
+                            </button>
+                            <button disabled={isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)} onClick={() => void handleDownloadPdf(2, 2).then(() => setReportDropdownOpen(false))}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.375rem' }}>
+                              <FileText size={14} color="#EF4444" /> 요약 보고서
+                            </button>
+                          </div>
+                        </>
+                      )}
+                      {pdfError && <p style={{ fontSize: '0.75rem', color: '#EF4444', padding: '0.25rem 0.75rem' }}>다운로드 실패</p>}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {!panelTab && (
+              <PanelButtons>
+                {PANEL_BUTTONS.map((btn) => {
+                  const Icon = btn.icon;
+                  return (
+                    <PanelButton key={btn.key} onClick={() => setPanelTab(btn.key)}>
+                      <PanelButtonIcon as={Icon} />
+                      {btn.label}
+                    </PanelButton>
+                  );
+                })}
+                <PanelButton
+                  onClick={async () => {
+                    await fetchCoachingStrategy();
+                    setIsCoachingOpen(true);
+                  }}
+                  disabled={isCoachingLoading}
+                >
+                  <PanelButtonIcon as={Lightbulb} />
+                  {isCoachingLoading ? '로딩중...' : '코칭 전략'}
+                </PanelButton>
+              </PanelButtons>
+            )}
+          </div>
         </ControlsSection>
 
         {/* 2차 검사 진행중 안내 (Mock 모드에서만 표시) */}
@@ -613,47 +619,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         <SectionContainer>
           <SectionHeader>
             <SectionTitle>학생 진단 결과 해석</SectionTitle>
-            {hasJwtToken && (
-              <PdfButtonsArea>
-                <PdfReportBtn
-                  onClick={() => void handleDownloadPdf(1, 1)}
-                  disabled={isPdfDownloading || r1?.answerIdx == null}
-                  title='학생 1차 상세 보고서 PDF 다운로드'
-                >
-                  학생 1차 상세 보고서
-                </PdfReportBtn>
-                <PdfReportBtn
-                  onClick={() => void handleDownloadPdf(1, 2)}
-                  disabled={isPdfDownloading || r1?.answerIdx == null}
-                  title='학생 1차 요약 보고서 PDF 다운로드'
-                >
-                  학생 1차 요약 보고서
-                </PdfReportBtn>
-                {r2 && (
-                  <>
-                    <PdfReportBtn
-                      onClick={() => void handleDownloadPdf(2, 1)}
-                      disabled={isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)}
-                      title='학생 2차 상세 보고서 PDF 다운로드'
-                    >
-                      학생 2차 상세 보고서
-                    </PdfReportBtn>
-                    <PdfReportBtn
-                      onClick={() => void handleDownloadPdf(2, 2)}
-                      disabled={isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)}
-                      title='학생 2차 요약 보고서 PDF 다운로드'
-                    >
-                      학생 2차 요약 보고서
-                    </PdfReportBtn>
-                  </>
-                )}
-                {pdfError && (
-                  <span style={{ fontSize: '0.75rem', color: '#ef4444', alignSelf: 'center' }}>
-                    다운로드 실패
-                  </span>
-                )}
-              </PdfButtonsArea>
-            )}
           </SectionHeader>
           <SectionCard>
             {/* 총평 */}
@@ -730,7 +695,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 // 메인 컴포넌트: 로딩/에러/null 체크 후 StudentDashboardContent 렌더링
 // ============================================================
 export const StudentDashboardPage = () => {
-  const { classId, studentId } = useParams<{ classId: string; studentId: string }>();
+  const { classId, studentId, testId = 'comprehensive' } = useParams<{ classId: string; studentId: string; testId: string }>();
   const { hasJwtToken } = useApiConfig();
 
   // API 모드: API에서 학생 데이터 + 학급 학생 목록 로드
@@ -780,6 +745,7 @@ export const StudentDashboardPage = () => {
       classInfo={classInfo}
       classId={classId}
       studentId={studentId}
+      testId={testId}
       hasJwtToken={hasJwtToken}
       dgnssIds={dgnssIds}
     />

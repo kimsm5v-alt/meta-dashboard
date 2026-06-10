@@ -16,6 +16,8 @@ export interface StudentExamListItem {
   dgnssResultId: number;
   /** 검사 회차 (1차, 2차...) */
   ordNo: number;
+  /** 검사지 종류 ('1': 학습종합검사, '2': 자기조절학습검사) */
+  paperIdx: string;
   /** 검사명 */
   name: string;
   /** 상태 */

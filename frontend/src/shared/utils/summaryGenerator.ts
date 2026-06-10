@@ -112,6 +112,13 @@ export const getSubCategoryResults = (tScores: number[]): SubCategoryResult[] =>
 // Step 3: AI 3줄 총평 생성
 // ============================================================
 
+const SUMMARY_CACHE_PREFIX = 'ai_summary_v1_';
+
+const getSummaryCacheKey = (subCategoryResults: SubCategoryResult[]): string => {
+  const scores = subCategoryResults.map((r) => `${r.name}:${r.avgTScore}`).join(',');
+  return SUMMARY_CACHE_PREFIX + btoa(encodeURIComponent(scores));
+};
+
 /**
  * 11개 중분류 스크립트를 AI로 3줄 요약
  *
@@ -122,6 +129,11 @@ export const generateAISummary = async (
   subCategoryResults: SubCategoryResult[],
   _studentType: string,
 ): Promise<string> => {
+  // sessionStorage 캐시 확인 — 동일 점수 조합이면 재호출 생략
+  const cacheKey = getSummaryCacheKey(subCategoryResults);
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) return cached;
+
   // 사용자 프롬프트 구성 (명세 형식)
   const lines = subCategoryResults.map((r) => {
     const direction = r.isPositive ? '정적' : '부적';
@@ -144,7 +156,18 @@ ${lines.join('\n')}
   });
 
   // 응답 파싱 (줄바꿈이 있으면 공백으로 합치기)
-  return parseAISummary(response.content);
+  const result = parseAISummary(response.content);
+
+  // 성공한 응답만 캐싱 (오류 메시지는 캐싱하지 않음)
+  if (response.success) {
+    try {
+      sessionStorage.setItem(cacheKey, result);
+    } catch {
+      // storage quota 초과 등 무시
+    }
+  }
+
+  return result;
 };
 
 /**
