@@ -18,6 +18,7 @@ import {
   ClassDashboardPage,
   ClassDetailAnalysisPage,
   StudentDashboardPage,
+  SelfregStudentDashboardPage,
   AIRoomPage,
   AssessmentPageV2,
   SchedulePage,
@@ -35,6 +36,7 @@ import {
   StudentGroupsPage,
   MyExamListPage,
   MyResultPage,
+  MySelfregResultPage,
 } from '@pages/index';
 
 // ============================================================
@@ -155,11 +157,20 @@ export const AppRoutes = () => (
       <Route path='/groups/:groupId' element={<GroupDetailRedirect />} />
       <Route path='/assessment' element={<AssessmentPageV2 />} />
       <Route path='/assessment/:groupId' element={<AssessmentPageV2 />} />
-      <Route path='/dashboard' element={<TeacherDashboardPage />} />
-      <Route path='/dashboard/class/:classId' element={<ClassDashboardPage />} />
-      <Route path='/dashboard/class/:classId/analysis' element={<ClassDetailAnalysisPage />} />
+
+      {/* 대시보드 — testId 분기 */}
+      <Route path='/dashboard' element={<Navigate to='/dashboard/comprehensive' replace />} />
+      <Route path='/dashboard/comprehensive' element={<TeacherDashboardPage />} />
+      <Route path='/dashboard/selfreg' element={<TeacherDashboardPage />} />
+      <Route path='/dashboard/:testId/class/:classId' element={<ClassDashboardPage />} />
+      <Route path='/dashboard/:testId/class/:classId/analysis' element={<ClassDetailAnalysisPage />} />
+      {/* 자기조절검사 학생 상세 — selfreg 전용 (generic 라우트보다 먼저 등록) */}
       <Route
-        path='/dashboard/class/:classId/student/:studentId'
+        path='/dashboard/selfreg/class/:classId/student/:studentId'
+        element={<SelfregStudentDashboardPage />}
+      />
+      <Route
+        path='/dashboard/:testId/class/:classId/student/:studentId'
         element={<StudentDashboardPage />}
       />
 
@@ -199,8 +210,11 @@ export const AppRoutes = () => (
     <Route element={<StudentProtectedLayout />}>
       <Route path='/student/groups' element={<StudentGroupsPage />} />
       <Route path='/student/exams' element={<MyExamListPage />} />
-      <Route path='/student/result' element={<MyResultPage />} />
-      <Route path='/student/result/:resultId' element={<MyResultPage />} />
+      <Route path='/student/result' element={<Navigate to='/student/result/comprehensive' replace />} />
+      <Route path='/student/result/comprehensive' element={<MyResultPage />} />
+      <Route path='/student/result/comprehensive/:resultId' element={<MyResultPage />} />
+      <Route path='/student/result/selfreg' element={<MySelfregResultPage />} />
+      <Route path='/student/result/selfreg/:resultId' element={<MySelfregResultPage />} />
       <Route path='/exam/student' element={<ExamPage />} />
     </Route>
 

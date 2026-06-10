@@ -1,15 +1,32 @@
 import { useState, useMemo } from 'react';
 import styled from '@emotion/styled';
 import type { DomainData, SubCategoryData } from '@shared/types';
-import { LevelBadge } from '@shared/ui/LevelBadge';
-import { lightenColor } from '@shared/utils/colorUtils';
-import { PREV_COLOR } from '@shared/utils/chartUtils';
 
 // ============================================================
 // 상수
 // ============================================================
 
-const CHART_H = 240; // 차트 영역 높이 (px)
+const CHART_H = 260; // 차트 영역 높이 (px) — 프로토타입 chartHeight=260 동일
+
+// ============================================================
+// 바 색상 헬퍼 (T점수 기반 — 프로토타입 getBarTone 동일)
+// ============================================================
+
+const getBarTone = (t: number, isPositive: boolean) => {
+  if (t >= 40 && t < 60) return { fill: '#EDEDF0', border: '#D4D4D8', labelColor: '#71717A' };
+  const isHigh = t >= 60;
+  const isGood = isPositive ? isHigh : !isHigh;
+  if (isGood) return { fill: '#E3F4E9', border: '#A9DCBC', labelColor: '#16A34A' };
+  return { fill: '#FDE7E4', border: '#F0B5AC', labelColor: '#DC2626' };
+};
+
+const getGradeLabel = (t: number): string => {
+  if (t >= 70) return '매우높음';
+  if (t >= 60) return '높음';
+  if (t >= 40) return '보통';
+  if (t >= 30) return '낮음';
+  return '매우낮음';
+};
 const T_MIN = 0;
 const T_MAX = 100;
 const T_RANGE = T_MAX - T_MIN; // 100
@@ -142,17 +159,34 @@ const ScoreLabel = styled.span`
   white-space: nowrap;
 `;
 
-const BarElement = styled.div<{ $height: number; $color: string }>`
+const BarElement = styled.div<{ $height: number; $fill: string; $border: string }>`
   width: 75%;
-  max-width: 36px;
-  min-width: 12px;
+  max-width: 48px;
+  min-width: 14px;
   height: ${({ $height }) => $height}px;
-  background-color: ${({ $color }) => $color};
+  background-color: ${({ $fill }) => $fill};
+  border: 1px solid ${({ $border }) => $border};
   border-top-left-radius: ${({ theme }) => theme.radius.md};
   border-top-right-radius: ${({ theme }) => theme.radius.md};
   transition: all 0.3s ease-out;
   flex-shrink: 0;
   margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+`;
+
+const BarGradeLabel = styled.span<{ $labelColor: string }>`
+  position: absolute;
+  bottom: 3px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: ${({ $labelColor }) => $labelColor};
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
 `;
 
 // ============================================================
@@ -161,13 +195,20 @@ const BarElement = styled.div<{ $height: number; $color: string }>`
 
 const SingleBar: React.FC<{
   score: number;
-  color: string;
-}> = ({ score, color }) => (
-  <SingleBarContainer $height={CHART_H}>
-    <ScoreLabel>{Math.round(score)}</ScoreLabel>
-    <BarElement $height={toH(score)} $color={color} />
-  </SingleBarContainer>
-);
+  isPositive: boolean;
+}> = ({ score, isPositive }) => {
+  const t = Math.round(score);
+  const tone = getBarTone(t, isPositive);
+  const barH = toH(score);
+  return (
+    <SingleBarContainer $height={CHART_H}>
+      <ScoreLabel style={{ color: tone.labelColor }}>{t}</ScoreLabel>
+      <BarElement $height={barH} $fill={tone.fill} $border={tone.border}>
+        {barH > 26 && <BarGradeLabel $labelColor={tone.labelColor}>{getGradeLabel(t)}</BarGradeLabel>}
+      </BarElement>
+    </SingleBarContainer>
+  );
+};
 
 // ============================================================
 // Styled Components - CompareBar
@@ -200,7 +241,7 @@ const CompareBarsGroup = styled.div`
   gap: 1px;
   flex-shrink: 0;
   width: 85%;
-  max-width: 64px;
+  max-width: 80px;
   margin: 0 auto;
 `;
 
@@ -222,30 +263,35 @@ const PrevScoreLabel = styled.span`
   white-space: nowrap;
 `;
 
-const CompareBarElement = styled.div<{ $height: number; $color: string }>`
+const CompareBarElement = styled.div<{ $height: number; $fill: string; $border: string }>`
   width: 100%;
   height: ${({ $height }) => $height}px;
-  background-color: ${({ $color }) => $color};
+  background-color: ${({ $fill }) => $fill};
+  border: 1px solid ${({ $border }) => $border};
   border-top-left-radius: ${({ theme }) => theme.radius.md};
   border-top-right-radius: ${({ theme }) => theme.radius.md};
   transition: all 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
 `;
 
 // ============================================================
 // 비교 쌍 막대 (1차 + 2차, flex-1 컬럼 기반)
 // ============================================================
 
-/** D3용 연한 회색 (1차 막대) */
-const PREV_COLOR_LIGHT = '#D1D5DB';
 
 const CompareBar: React.FC<{
   score: number;
   prevScore: number;
-  color: string;
-  prevColor?: string;
   isPositive: boolean;
-}> = ({ score, prevScore, color, prevColor = PREV_COLOR, isPositive }) => {
-  const delta = Math.round(score - prevScore);
+}> = ({ score, prevScore, isPositive }) => {
+  const t = Math.round(score);
+  const prevT = Math.round(prevScore);
+  const tone = getBarTone(t, isPositive);
+  const prevTone = getBarTone(prevT, isPositive);
+  const barH = toH(score);
+  const prevBarH = toH(prevScore);
+  const delta = t - prevT;
   return (
     <CompareBarContainer $height={CHART_H}>
       <DeltaBadgeWrapper>
@@ -253,12 +299,16 @@ const CompareBar: React.FC<{
       </DeltaBadgeWrapper>
       <CompareBarsGroup>
         <CompareBarColumn>
-          <PrevScoreLabel>{Math.round(prevScore)}</PrevScoreLabel>
-          <CompareBarElement $height={toH(prevScore)} $color={prevColor} />
+          <PrevScoreLabel style={{ color: prevTone.labelColor }}>{prevT}</PrevScoreLabel>
+          <CompareBarElement $height={prevBarH} $fill={prevTone.fill} $border={prevTone.border}>
+            {prevBarH > 26 && <BarGradeLabel $labelColor={prevTone.labelColor}>{getGradeLabel(prevT)}</BarGradeLabel>}
+          </CompareBarElement>
         </CompareBarColumn>
         <CompareBarColumn>
-          <ScoreLabel>{Math.round(score)}</ScoreLabel>
-          <CompareBarElement $height={toH(score)} $color={color} />
+          <ScoreLabel style={{ color: tone.labelColor }}>{t}</ScoreLabel>
+          <CompareBarElement $height={barH} $fill={tone.fill} $border={tone.border}>
+            {barH > 26 && <BarGradeLabel $labelColor={tone.labelColor}>{getGradeLabel(t)}</BarGradeLabel>}
+          </CompareBarElement>
         </CompareBarColumn>
       </CompareBarsGroup>
     </CompareBarContainer>
@@ -274,6 +324,7 @@ const SubCatGroupContainer = styled.div`
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  height: 100%;
 `;
 
 const BarsRow = styled.div`
@@ -284,24 +335,25 @@ const BarsRow = styled.div`
 const LabelsRow = styled.div`
   display: flex;
   margin-top: 0.5rem;
-`;
-
-const D2LabelContainer = styled.div`
   flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0 0.125rem;
+  align-items: flex-start;
 `;
 
-const D2Label = styled.span<{ $isCompact: boolean; $color: string }>`
-  font-size: ${({ $isCompact, theme }) =>
-    $isCompact ? theme.typography.fontSize.sm : theme.typography.fontSize.base};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ $color }) => $color};
+const SubCatFooter = styled.div`
+  margin-top: 0.375rem;
+`;
+
+const SubCatLine = styled.div<{ $color: string }>`
+  height: 2px;
+  background: ${({ $color }) => $color};
+  margin-bottom: 0.25rem;
+`;
+
+const SubCatNameLabel = styled.div<{ $color: string }>`
   text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: ${({ $color }) => $color};
   line-height: 1.25;
   word-break: keep-all;
 `;
@@ -325,36 +377,21 @@ const D3Label = styled.span<{ $isCompact: boolean }>`
 `;
 
 // ============================================================
-// D2 그룹 (중분류 평균 + D3 요인들) — flex-1 컬럼 기반
+// 중분류 그룹 (D3 요인 막대만) — 프로토타입 레이아웃
 // ============================================================
 
 const SubCatGroup: React.FC<{
   subCat: SubCategoryData;
   isCompare: boolean;
   isCompact: boolean;
-  prevSubCatT?: number;
   prevFactorLookup: Record<number, number>;
-}> = ({ subCat, isCompare, isCompact, prevSubCatT, prevFactorLookup }) => {
+}> = ({ subCat, isCompare, isCompact, prevFactorLookup }) => {
   const color = subCat.color;
-  const lightColor = lightenColor(color, 0.55);
 
   return (
     <SubCatGroupContainer>
-      {/* 막대 영역 */}
+      {/* 막대 영역 — D3 요인만 */}
       <BarsRow>
-        {/* D2 평균 막대 */}
-        {isCompare && prevSubCatT != null ? (
-          <CompareBar
-            score={subCat.avgTScore}
-            prevScore={prevSubCatT}
-            color={color}
-            isPositive={subCat.isPositive}
-          />
-        ) : (
-          <SingleBar score={subCat.avgTScore} color={color} />
-        )}
-
-        {/* D3 요인 막대들 */}
         {subCat.factors.map((f) => {
           const prevT = prevFactorLookup[f.index];
           return isCompare && prevT != null ? (
@@ -362,33 +399,28 @@ const SubCatGroup: React.FC<{
               key={f.index}
               score={f.avgTScore}
               prevScore={prevT}
-              color={lightColor}
-              prevColor={PREV_COLOR_LIGHT}
               isPositive={f.isPositive}
             />
           ) : (
-            <SingleBar key={f.index} score={f.avgTScore} color={lightColor} />
+            <SingleBar key={f.index} score={f.avgTScore} isPositive={f.isPositive} />
           );
         })}
       </BarsRow>
 
-      {/* 라벨 행 */}
+      {/* 요인명 행 */}
       <LabelsRow>
-        {/* D2 라벨 */}
-        <D2LabelContainer>
-          <D2Label $isCompact={isCompact} $color={color}>
-            {formatFactorLabel(subCat.displayName)}
-          </D2Label>
-          <LevelBadge level={subCat.level} isPositive={subCat.isPositive} size='sm' />
-        </D2LabelContainer>
-
-        {/* D3 라벨 */}
         {subCat.factors.map((f) => (
           <D3LabelContainer key={f.index}>
             <D3Label $isCompact={isCompact}>{formatFactorLabel(f.name)}</D3Label>
           </D3LabelContainer>
         ))}
       </LabelsRow>
+
+      {/* 중분류 구분선 + 이름 */}
+      <SubCatFooter>
+        <SubCatLine $color={color} />
+        <SubCatNameLabel $color={color}>{formatFactorLabel(subCat.displayName)}</SubCatNameLabel>
+      </SubCatFooter>
     </SubCatGroupContainer>
   );
 };
@@ -410,9 +442,12 @@ const TabsRow = styled.div`
 `;
 
 const TabButton = styled.button<{ $isActive: boolean; $bgColor?: string }>`
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
   padding: 0.5rem 1rem;
-  border-radius: ${({ theme }) => theme.radius.lg};
-  font-size: ${({ theme }) => theme.typography.fontSize.base};
+  border-radius: ${({ theme }) => theme.radius.full};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   transition: all 0.15s ease;
   border: none;
@@ -433,6 +468,20 @@ const TabButton = styled.button<{ $isActive: boolean; $bgColor?: string }>`
       background: ${theme.colors.gray[200]};
     }
   `}
+`;
+
+const TabCountBadge = styled.span<{ $isActive: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.0625rem 0.375rem;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  font-size: 0.625rem;
+  font-weight: 700;
+  ${({ $isActive }) =>
+    $isActive
+      ? 'background: rgba(255,255,255,0.25); color: white;'
+      : 'background: white; color: #6B7280;'}
 `;
 
 const TypeBadge = styled.div<{ $isPositive: boolean }>`
@@ -557,34 +606,31 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({
     return lookup;
   }, [prevDomainData]);
 
-  const prevSubCatLookup = useMemo(() => {
-    if (!prevDomainData) return {} as Record<string, number>;
-    const lookup: Record<string, number> = {};
-    for (const d of prevDomainData)
-      for (const sc of d.subCategories) lookup[sc.name] = sc.avgTScore;
-    return lookup;
-  }, [prevDomainData]);
-
   const domain = domainData[selectedDomain];
 
-  // 총 막대 수 기반 밀집 모드 판단
-  const totalBars = domain.subCategories.reduce((sum, sc) => sum + 1 + sc.factors.length, 0);
+  // 총 막대 수 기반 밀집 모드 판단 (D3 요인만)
+  const totalBars = domain.subCategories.reduce((sum, sc) => sum + sc.factors.length, 0);
   const isCompact = totalBars > 10;
 
   return (
     <Container>
       {/* ===== Depth 1 탭 ===== */}
       <TabsRow>
-        {domainData.map((d, i) => (
-          <TabButton
-            key={d.category}
-            onClick={() => setSelectedDomain(i)}
-            $isActive={selectedDomain === i}
-            $bgColor={selectedDomain === i ? d.subCategories[0]?.color : undefined}
-          >
-            {d.icon} {d.category}
-          </TabButton>
-        ))}
+        {domainData.map((d, i) => {
+          const factorCount = d.subCategories.reduce((sum, sc) => sum + sc.factors.length, 0);
+          const isActive = selectedDomain === i;
+          return (
+            <TabButton
+              key={d.category}
+              onClick={() => setSelectedDomain(i)}
+              $isActive={isActive}
+              $bgColor={isActive ? (d.subCategories[0]?.color ?? undefined) : undefined}
+            >
+              {d.category}
+              <TabCountBadge $isActive={isActive}>{factorCount}</TabCountBadge>
+            </TabButton>
+          );
+        })}
       </TabsRow>
 
       {/* ===== 요인 유형 배지 ===== */}
@@ -605,7 +651,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({
           <>
             <LegendSeparator>|</LegendSeparator>
             <LegendItem>
-              <LegendColorBox $color={PREV_COLOR} /> 1차
+              <LegendColorBox $color='#9CA3AF' /> 1차
             </LegendItem>
             <LegendItem>
               <LegendColorBox $color={domain.subCategories[0]?.color ?? '#6B7280'} /> 2차
@@ -623,7 +669,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({
           {/* 막대 그룹 — 비례 flex 가중치 */}
           <BarsContainer>
             {domain.subCategories.map((sc, i) => {
-              const colCount = 1 + sc.factors.length;
+              const colCount = sc.factors.length;
               return (
                 <div key={sc.name} style={{ display: 'contents' }}>
                   <SubCatWrapper $flex={colCount}>
@@ -631,7 +677,6 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({
                       subCat={sc}
                       isCompare={isCompare}
                       isCompact={isCompact}
-                      prevSubCatT={prevSubCatLookup[sc.name]}
                       prevFactorLookup={prevFactorLookup}
                     />
                   </SubCatWrapper>

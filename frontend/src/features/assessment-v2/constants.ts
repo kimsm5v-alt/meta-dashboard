@@ -27,7 +27,7 @@ export const EXAM_SLOTS: ExamSlotDefinition[] = [
     description: '학생의 자기조절학습 능력을 측정합니다.',
     recommendedMonth: '6~7월',
     semester: '1학기',
-    isComingSoon: true,
+    isComingSoon: false,
   },
   {
     id: 'L2',
@@ -55,7 +55,7 @@ export const EXAM_SLOTS: ExamSlotDefinition[] = [
     description: '자기조절학습 2차 검사입니다.',
     recommendedMonth: '12월',
     semester: '2학기',
-    isComingSoon: true,
+    isComingSoon: false,
   },
 ];
 

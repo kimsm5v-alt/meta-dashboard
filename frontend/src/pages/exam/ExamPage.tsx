@@ -17,7 +17,6 @@ import {
 import { saveStudentInfo } from '@features/exam/api/studentInfoService';
 import {
   StudentIdEntryStep,
-  StudentInfoStep,
   MemberCompleteStep,
   ExamAuthStep,
   GuestExamEntryStep,
@@ -241,8 +240,8 @@ export const ExamPage: React.FC = () => {
           setIsLoading(false);
         }
       } else {
-        // 새로 시작 → student-info 단계로
-        setStep('student-info');
+        // 새로 시작 → guide 단계로 (회원 플로우는 정보 입력 불필요)
+        setStep('guide');
       }
     };
 
@@ -458,8 +457,8 @@ export const ExamPage: React.FC = () => {
         const studentNumber = numberMatch ? parseInt(numberMatch[1], 10) : 0;
         setStudentNumber(studentNumber);
 
-        // 학생 정보 입력 단계로 이동
-        setStep('student-info');
+        // guide 단계로 이동 (학생 정보 폼 포함)
+        setStep('guide');
       } finally {
         setIsLoading(false);
       }
@@ -467,61 +466,7 @@ export const ExamPage: React.FC = () => {
     [examInfo, setStudentNumber, setDgnssResultId, setStep],
   );
 
-  // 학생 정보 입력 후 문항 로드
-  const handleStudentInfoSubmit = useCallback(
-    async (info: StudentInfo) => {
-      if (!state.dgnssResultId) return;
-
-      setIsLoading(true);
-      try {
-        // 학생 정보 저장 (localStorage)
-        await saveStudentInfo(state.dgnssResultId, info);
-        setStudentInfo(info);
-
-        // 먼저 첫 페이지 로드해서 answeredCount 확인
-        const initialResult = await fetchQuestions(state.dgnssResultId, 0, 20);
-
-        // 이어하기인 경우 마지막 답변 페이지 계산 (120번 문항 분리 고려)
-        let startPage = 0;
-        if (initialResult.answeredCount > 0) {
-          startPage = getPageFromAnsweredCount(initialResult.answeredCount);
-        }
-
-        // 시작 페이지 로드
-        const result = startPage === 0
-          ? initialResult
-          : await fetchQuestions(state.dgnssResultId, startPage, 20);
-
-        const existingAnswers: Record<number, string> = {};
-        result.questions.forEach((q) => {
-          if (q.answer) {
-            existingAnswers[q.NO] = q.answer;
-          }
-        });
-
-        loadQuestions(
-          result.questions,
-          result.totalPages,
-          result.totalQuestions,
-          result.omrIdx,
-          result.answeredCount,
-        );
-        loadExistingAnswers(existingAnswers);
-        setCurrentPage(startPage);
-
-        if (result.answeredCount > 0) {
-          setPendingAnsweredCount(result.answeredCount);
-          setStep('resume-choice');
-        } else {
-          setStep('guide');
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [state.dgnssResultId, loadQuestions, loadExistingAnswers, setCurrentPage, setStep],
-  );
-
+  // guide 시작 핸들러 (QR 플로우: 학생 정보 저장 + 문항 로드 / 회원 플로우: 바로 시작)
   // 이어하기 (guide 건너뛰고 바로 문항으로)
   const handleResume = useCallback(() => {
     setIsRestartMode(false);
@@ -536,7 +481,7 @@ export const ExamPage: React.FC = () => {
     setStep('guide');
   }, [loadExistingAnswers, setStep]);
 
-  // 검사 시작
+  // 검사 시작 (회원 플로우 - 문항 로드 후 questions로 이동)
   const handleStartExam = useCallback(async () => {
     if (!state.dgnssResultId) return;
 
@@ -570,6 +515,57 @@ export const ExamPage: React.FC = () => {
       setIsLoading(false);
     }
   }, [state.dgnssResultId, isRestartMode, loadQuestions, loadExistingAnswers, setStep]);
+
+  // guide 시작 핸들러 (QR 플로우: 학생 정보 저장 + 문항 로드 / 회원 플로우: 바로 시작)
+  const handleGuideStart = useCallback(
+    async (info?: StudentInfo) => {
+      if (info && state.dgnssResultId) {
+        // QR 플로우: 정보 저장 후 문항 로드 (이어하기 여부 체크)
+        setIsLoading(true);
+        try {
+          await saveStudentInfo(state.dgnssResultId, info);
+          setStudentInfo(info);
+
+          const initialResult = await fetchQuestions(state.dgnssResultId, 0, 20);
+          let startPage = 0;
+          if (initialResult.answeredCount > 0) {
+            startPage = getPageFromAnsweredCount(initialResult.answeredCount);
+          }
+          const result =
+            startPage === 0
+              ? initialResult
+              : await fetchQuestions(state.dgnssResultId, startPage, 20);
+
+          const existingAnswers: Record<number, string> = {};
+          result.questions.forEach((q) => {
+            if (q.answer) existingAnswers[q.NO] = q.answer;
+          });
+          loadQuestions(
+            result.questions,
+            result.totalPages,
+            result.totalQuestions,
+            result.omrIdx,
+            result.answeredCount,
+          );
+          loadExistingAnswers(existingAnswers);
+          setCurrentPage(startPage);
+
+          if (result.answeredCount > 0) {
+            setPendingAnsweredCount(result.answeredCount);
+            setStep('resume-choice');
+          } else {
+            setStep('questions');
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        // 회원 플로우: 바로 검사 시작
+        await handleStartExam();
+      }
+    },
+    [state.dgnssResultId, loadQuestions, loadExistingAnswers, setCurrentPage, setStep, handleStartExam],
+  );
 
   // 답변 저장
   const handleAnswer = useCallback(
@@ -757,16 +753,6 @@ export const ExamPage: React.FC = () => {
         />
       );
 
-    case 'student-info':
-      return (
-        <StudentInfoStep
-          examName={examInfo.name}
-          initialData={studentInfo || undefined}
-          onSubmit={handleStudentInfoSubmit}
-          isLoading={isLoading}
-        />
-      );
-
     case 'resume-choice':
       return (
         <ResumeChoiceStep
@@ -782,9 +768,11 @@ export const ExamPage: React.FC = () => {
     case 'guide':
       return (
         <ExamGuideStep
-          studentNumber={state.studentNumber || 0}
-          onStart={handleStartExam}
-          onBack={() => setStep('student-info')}
+          examName={examInfo.name}
+          showInfoForm={!isStudentFlow}
+          initialInfo={studentInfo || undefined}
+          onStart={handleGuideStart}
+          onBack={isStudentFlow ? undefined : () => setStep('number')}
           isLoading={isLoading}
         />
       );

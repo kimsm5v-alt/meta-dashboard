@@ -3,5 +3,6 @@ export {
   useTeacherClasses,
   useClassStudents,
   useStudentAnalysis,
+  useSelfregClassAnalysis,
   // useL2DashboardData,
 } from './useApiData';

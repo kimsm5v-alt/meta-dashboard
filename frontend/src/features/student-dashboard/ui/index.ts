@@ -13,3 +13,6 @@ export { ObservationMemoPanel } from './ObservationMemoPanel';
 
 // 데이터 해석 도우미 (플로팅 챗봇)
 export { DataHelperChatbot } from './DataHelperChatbot';
+
+// 자기조절학습검사 요인 분석
+export { SelfregFactorAnalysis } from './SelfregFactorAnalysis';

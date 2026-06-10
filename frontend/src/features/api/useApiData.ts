@@ -10,6 +10,7 @@ import { API_CONFIG } from '@shared/services/apiClient';
 import {
   fetchClassAnalysis,
   fetchClassAnalysisRaw,
+  fetchSelfregClassAnalysis,
   buildClassFromAPI,
   fetchL2DashboardData,
   fetchStudentFullAnalysis,
@@ -220,6 +221,46 @@ export function useClassAnalysis(
   return {
     tScores: query.data?.tScores ?? new Array(38).fill(50),
     sections: query.data?.sections ?? [],
+    isLoading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: () => {
+      void query.refetch();
+    },
+  };
+}
+
+// ============================================================
+// 자기조절학습검사 학급 분석 훅 (20요인 반 평균)
+// ============================================================
+
+interface UseSelfregClassAnalysisResult {
+  /** 1차 반 평균 20요인 T-score (없으면 null) */
+  round1: number[] | null;
+  /** 2차 반 평균 20요인 T-score (없으면 null) */
+  round2: number[] | null;
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => void;
+}
+
+export function useSelfregClassAnalysis(
+  classId: string | undefined,
+): UseSelfregClassAnalysisResult {
+  const query = useQuery<{ round1: number[] | null; round2: number[] | null }>({
+    queryKey: ['class', 'selfreg-analysis', classId],
+    queryFn: async () => {
+      const [round1, round2] = await Promise.all([
+        fetchSelfregClassAnalysis(classId!, 1),
+        fetchSelfregClassAnalysis(classId!, 2),
+      ]);
+      return { round1, round2 };
+    },
+    enabled: !!classId,
+  });
+
+  return {
+    round1: query.data?.round1 ?? null,
+    round2: query.data?.round2 ?? null,
     isLoading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     refetch: () => {

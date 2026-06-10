@@ -14,6 +14,7 @@ export { ClassDetailAnalysisPage } from './class-dashboard/ClassDetailAnalysisPa
 
 // Student Dashboard
 export { StudentDashboardPage } from './student-dashboard/StudentDashboardPage';
+export { SelfregStudentDashboardPage } from './student-dashboard/SelfregStudentDashboardPage';
 
 // AI Room
 export { AIRoomPage } from './ai-room/AIRoomPage';
@@ -54,3 +55,4 @@ export { GuestCompletePage } from './guest-exam/GuestCompletePage';
 export { StudentGroupsPage } from './student-exam/StudentGroupsPage';
 export { MyExamListPage } from './student-exam/MyExamListPage';
 export { MyResultPage } from './student-exam/MyResultPage';
+export { MySelfregResultPage } from './student-exam/MySelfregResultPage';

@@ -8,3 +8,4 @@ export {
 export { SummarySection } from './SummarySection';
 export { ComparisonSection } from './ComparisonSection';
 export { ClassCardsSection } from './ClassCardsSection';
+export { LPAComparisonSection } from './LPAComparisonSection';

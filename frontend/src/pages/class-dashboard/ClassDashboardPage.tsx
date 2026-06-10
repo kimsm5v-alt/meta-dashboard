@@ -1,5 +1,7 @@
-import { ClassDashboardWidget } from '@widgets/class-dashboard';
+import { ClassDashboardV2Widget } from '@widgets/class-dashboard';
 
-export const ClassDashboardPage: React.FC = () => <ClassDashboardWidget />;
+export const ClassDashboardPage: React.FC = () => {
+  return <ClassDashboardV2Widget />;
+};
 
 export default ClassDashboardPage;

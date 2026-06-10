@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
+import { ChevronRight } from 'lucide-react';
 import { useTeacherClasses, useApiConfig } from '@features/api';
+import { SelfregComparisonSection } from '@features/teacher-dashboard/ui';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_TEACHER_DASHBOARD, API_UPLOAD_LATEST } from '@shared/data/apiDefinitions';
 import {
@@ -9,9 +12,8 @@ import {
   InProgressState,
   NoExamsState,
   NoClassesState,
-  SummarySection,
   ComparisonSection,
-  ClassCardsSection,
+  LPAComparisonSection,
 } from '@widgets/teacher-dashboard';
 
 const PageContainer = styled.div`
@@ -39,9 +41,37 @@ const PageSubtitle = styled.p`
   margin-top: 0.25rem;
 `;
 
+const Breadcrumb = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+`;
+
+const BreadcrumbBadge = styled.span<{ $color?: string }>`
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: ${({ $color }) => $color ?? '#009f88'};
+`;
+
+const BreadcrumbText = styled.span`
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  color: ${({ theme }) => theme.colors.gray[500]};
+`;
+
 export const TeacherDashboardPage = () => {
   const { hasJwtToken } = useApiConfig();
   const { classes, isLoading, error, examStatus, user } = useTeacherClasses();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const testId: 'comprehensive' | 'selfreg' = location.pathname.includes('/selfreg')
+    ? 'selfreg'
+    : 'comprehensive';
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   const totalStats = useMemo(
@@ -60,40 +90,76 @@ export const TeacherDashboardPage = () => {
   if (classes.length === 0) return <NoClassesState />;
 
   const completionRate = Math.round((totalStats.assessedStudents / totalStats.totalStudents) * 100);
+  const handleGoToClass = (classId: string) =>
+    navigate(`/dashboard/${testId}/class/${classId}`);
 
   return (
     <PageContainer>
       {/* Header */}
       <HeaderSection>
-        <HeaderRow>
-          <ApiTooltip {...API_TEACHER_DASHBOARD} position='bottom-left'>
-            <PageTitle>{user?.name}님의 학급 현황</PageTitle>
-          </ApiTooltip>
-          <ApiTooltip {...API_UPLOAD_LATEST} position='bottom-left'>
-            <span />
-          </ApiTooltip>
-        </HeaderRow>
+        {testId === 'selfreg' ? (
+          <>
+            <Breadcrumb>
+              <BreadcrumbBadge>자기조절검사</BreadcrumbBadge>
+              <BreadcrumbText>결과보기</BreadcrumbText>
+              <ChevronRight size={14} color="#9CA3AF" />
+              <BreadcrumbText style={{ color: '#111827' }}>자기조절학습검사</BreadcrumbText>
+            </Breadcrumb>
+            <HeaderRow>
+              <ApiTooltip {...API_TEACHER_DASHBOARD} position='bottom-left'>
+                <PageTitle>{user?.name}님의 학급 분석</PageTitle>
+              </ApiTooltip>
+              <ApiTooltip {...API_UPLOAD_LATEST} position='bottom-left'>
+                <span />
+              </ApiTooltip>
+            </HeaderRow>
+          </>
+        ) : (
+          <>
+            <Breadcrumb>
+              <BreadcrumbBadge $color="#4F46E5">학습종합검사</BreadcrumbBadge>
+              <BreadcrumbText>결과보기</BreadcrumbText>
+              <ChevronRight size={14} color="#9CA3AF" />
+              <BreadcrumbText style={{ color: '#111827' }}>학습종합검사</BreadcrumbText>
+            </Breadcrumb>
+            <HeaderRow>
+              <ApiTooltip {...API_TEACHER_DASHBOARD} position='bottom-left'>
+                <PageTitle>{user?.name}님의 학급 현황</PageTitle>
+              </ApiTooltip>
+              <ApiTooltip {...API_UPLOAD_LATEST} position='bottom-left'>
+                <span />
+              </ApiTooltip>
+            </HeaderRow>
+          </>
+        )}
         <PageSubtitle>
-          담당 학급: {classes.length}개 반 | 총 학생: {totalStats.totalStudents}명 | 검사 완료:{' '}
+          담당 학급 {classes.length}개 반 · 총 학생 {totalStats.totalStudents}명 · 검사 완료:{' '}
           {totalStats.assessedStudents}명 ({completionRate}%)
         </PageSubtitle>
       </HeaderSection>
 
-      {/* Summary Cards */}
-      <SummarySection
-        totalStudents={totalStats.totalStudents}
-        assessedStudents={totalStats.assessedStudents}
-      />
-
       {/* Comparison Section */}
-      <ComparisonSection
-        classes={classes}
-        selectedClassId={selectedClassId}
-        onClassSelect={setSelectedClassId}
-      />
+      {testId === 'selfreg' ? (
+        <SelfregComparisonSection
+          classes={classes}
+          selectedClassId={selectedClassId}
+          onClassSelect={setSelectedClassId}
+          onGoToClass={handleGoToClass}
+        />
+      ) : (
+        <ComparisonSection
+          classes={classes}
+          selectedClassId={selectedClassId}
+          onClassSelect={setSelectedClassId}
+          onGoToClass={handleGoToClass}
+        />
+      )}
 
-      {/* Class Cards */}
-      <ClassCardsSection classes={classes} />
+      {/* LPA 유형 분포 비교 — 종합검사만 */}
+      {testId === 'comprehensive' && (
+        <LPAComparisonSection classes={classes} onGoToClass={handleGoToClass} />
+      )}
+
     </PageContainer>
   );
 };

@@ -11,6 +11,7 @@ import {
   BarChart3,
   Users,
   ChevronRight,
+  ChevronDown,
   LogOut,
   PanelLeftClose,
   PanelLeft,
@@ -28,16 +29,27 @@ import { ENV } from '@shared/config/env';
 // 타입
 // ============================================================
 
-interface NavItem {
-  icon: LucideIcon;
+interface NavSubItem {
   label: string;
   path: string;
 }
 
+interface NavItem {
+  icon: LucideIcon;
+  label: string;
+  path: string;
+  subItems?: NavSubItem[];
+}
+
+const RESULT_SUB_ITEMS: NavSubItem[] = [
+  { label: '학습종합검사', path: '/student/result/comprehensive' },
+  { label: '자기조절학습검사', path: '/student/result/selfreg' },
+];
+
 const studentNavItems: NavItem[] = [
   { icon: Users, label: '나의 그룹', path: '/student/groups' },
   { icon: ClipboardList, label: '검사하기', path: '/student/exams' },
-  { icon: BarChart3, label: '대시보드', path: '/student/result' },
+  { icon: BarChart3, label: '결과보기', path: '/student/result', subItems: RESULT_SUB_ITEMS },
 ];
 
 // ============================================================
@@ -280,6 +292,45 @@ const NavChevron = styled(ChevronRight)`
   height: 16px !important;
 `;
 
+const NavChevronDown = styled(ChevronDown, {
+  shouldForwardProp: (prop) => prop !== '$open',
+})<{ $open: boolean }>`
+  width: 16px !important;
+  height: 16px !important;
+  transition: transform 0.2s;
+  transform: ${({ $open }) => ($open ? 'rotate(180deg)' : 'rotate(0deg)')};
+`;
+
+const SubNavList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 2px 0 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const SubNavButton = styled.button<{ $active: boolean }>`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 8px ${({ theme }) => theme.spacing.sm};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: none;
+  background: ${({ $active }) => ($active ? '#dbeafe' : 'transparent')};
+  color: ${({ $active, theme }) => ($active ? '#1d4ed8' : theme.colors.text.secondary)};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ $active, theme }) =>
+    $active ? theme.typography.fontWeight.medium : theme.typography.fontWeight.normal};
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  text-align: left;
+
+  &:hover {
+    background: ${({ $active }) => ($active ? '#dbeafe' : '#f9fafb')};
+  }
+`;
+
 const CollapseArea = styled.div`
   border-top: 1px solid ${({ theme }) => theme.colors.gray[200]};
   padding: ${({ theme }) => theme.spacing.sm};
@@ -317,6 +368,8 @@ const MainArea = styled.div`
 
 const MainContent = styled.main<{ $collapsed: boolean }>`
   flex: 1;
+  /* flex 자식이 콘텐츠(차트 SVG) min-content 폭으로 팽창하지 않도록 */
+  min-width: 0;
   margin-top: 64px;
   margin-left: ${({ $collapsed }) => ($collapsed ? '64px' : '256px')};
   padding: ${({ theme }) => theme.spacing.xl};
@@ -383,6 +436,13 @@ const StudentSidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const isResultPath = location.pathname.startsWith('/student/result');
+  const [isResultsOpen, setIsResultsOpen] = useState(isResultPath);
+
+  useEffect(() => {
+    if (isResultPath) setIsResultsOpen(true);
+  }, [isResultPath]);
+
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
@@ -405,7 +465,51 @@ const StudentSidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         <NavList>
           {studentNavItems.map((item) => {
             const Icon = item.icon;
+            const hasSubItems = Boolean(item.subItems?.length);
             const active = isActive(item.path);
+
+            if (hasSubItems) {
+              return (
+                <li key={item.path}>
+                  <NavItemButton
+                    $active={active}
+                    $collapsed={isCollapsed}
+                    onClick={() => {
+                      if (isCollapsed) {
+                        const activeSubPath = item.subItems!.find((s) => isActive(s.path))?.path ?? item.subItems![0].path;
+                        navigate(activeSubPath);
+                      } else {
+                        setIsResultsOpen((p) => !p);
+                      }
+                    }}
+                    title={isCollapsed ? item.label : undefined}
+                  >
+                    <Icon />
+                    {!isCollapsed && (
+                      <>
+                        <NavItemLabel>{item.label}</NavItemLabel>
+                        <NavChevronDown $open={isResultsOpen} />
+                      </>
+                    )}
+                  </NavItemButton>
+                  {!isCollapsed && isResultsOpen && (
+                    <SubNavList>
+                      {item.subItems!.map((sub) => (
+                        <li key={sub.path}>
+                          <SubNavButton
+                            $active={isActive(sub.path)}
+                            onClick={() => navigate(sub.path)}
+                          >
+                            {sub.label}
+                          </SubNavButton>
+                        </li>
+                      ))}
+                    </SubNavList>
+                  )}
+                </li>
+              );
+            }
+
             return (
               <li key={item.path}>
                 <NavItemButton
