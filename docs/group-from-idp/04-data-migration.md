@@ -150,6 +150,151 @@ UPDATE group_info gi
 
 → **B안(이관) 권장.** 데이터 연속성이 학심정의 핵심 가치(검사 이력)와 직결되고, 기술적 충돌은 §4 세 개뿐이며 전부 처리 가능.
 
+## 부록 A. 순수 SQL 이관 경로 (Auth DB 직접 적재 — Auth 담당자 실행)
+
+> import 스크립트 없이 **쿼리만으로** 이관하는 경로. Auth DB 에 직접 INSERT 하므로
+> 앱 불변식(교사 멤버 차단·코드 규칙)을 우회한다 — 검증 쿼리(A2)로 반드시 대체할 것.
+> 전제: Auth DB 백업 완료, freeze window 내 실행, `@tenant` = 학심정 tenant_id 확인.
+
+### A1. 학심정 DB — export (CSV 2개)
+
+```sql
+-- groups.csv
+SELECT gi.cla_id, gi.group_nm, gi.school_level, gi.grade, gi.class_number,
+       gi.school_code, gi.school_name, hu.sp_user_id AS owner_public_user_id, gi.created_at
+  FROM group_info gi
+  JOIN `user` hu ON hu.user_no = gi.host_user_no
+ WHERE gi.use_yn = 'Y';
+
+-- members.csv (ACTIVE 만)
+SELECT gi.cla_id, mu.sp_user_id AS member_public_user_id, gm.joined_at
+  FROM group_member gm
+  JOIN group_info gi ON gi.group_id = gm.group_id AND gi.use_yn = 'Y'
+  JOIN `user` mu ON mu.user_no = gm.user_no
+ WHERE gm.status = 'ACTIVE';
+```
+
+### A2. Auth DB — 스테이징 + 검증
+
+```sql
+CREATE TABLE mig_group_stage (
+    cla_id               VARCHAR(64) PRIMARY KEY,
+    group_name           VARCHAR(100) NOT NULL,
+    school_level         VARCHAR(20)  NOT NULL,   -- 학심정 소문자 그대로 적재 후 본적재 시 UPPER()
+    grade                VARCHAR(20)  NULL,
+    class_no             VARCHAR(20)  NULL,
+    school_code          VARCHAR(10)  NULL,
+    school_name          VARCHAR(100) NULL,
+    owner_public_user_id VARCHAR(64)  NOT NULL,
+    created_at           DATETIME     NOT NULL,
+    invite_code          VARCHAR(8)   NULL,
+    UNIQUE KEY uk_stage_code (invite_code)
+);
+CREATE TABLE mig_member_stage (
+    cla_id                VARCHAR(64) NOT NULL,
+    member_public_user_id VARCHAR(64) NOT NULL,
+    joined_at             DATETIME    NULL,
+    PRIMARY KEY (cla_id, member_public_user_id)
+);
+-- LOAD DATA LOCAL INFILE 'groups.csv' / 'members.csv' 적재
+
+-- [검증 1] owner resolve 실패 — 0건이어야 진행
+SELECT s.cla_id FROM mig_group_stage s
+  LEFT JOIN platform_user pu ON pu.public_user_id = s.owner_public_user_id
+ WHERE pu.id IS NULL;
+
+-- [검증 2] member resolve 실패 — 0건이어야 진행
+SELECT m.cla_id, m.member_public_user_id FROM mig_member_stage m
+  LEFT JOIN platform_user pu ON pu.public_user_id = m.member_public_user_id
+ WHERE pu.id IS NULL;
+
+-- [검증 3] 교사 멤버 (Auth 불변식: 교사는 멤버 불가 — 앱이면 403, SQL 은 통과하므로 직접 차단)
+SELECT m.cla_id, m.member_public_user_id FROM mig_member_stage m
+  JOIN platform_user pu ON pu.public_user_id = m.member_public_user_id
+ WHERE pu.user_type = 'TEACHER';   -- 발견 시 해당 행 제외 협의
+
+-- [검증 4] owner 가 교사인지 (그룹은 교사 소유)
+SELECT s.cla_id FROM mig_group_stage s
+  JOIN platform_user pu ON pu.public_user_id = s.owner_public_user_id
+ WHERE pu.user_type <> 'TEACHER';
+```
+
+### A3. Auth DB — invite_code 재채번 (Auth 규칙: A-Z0-9 에서 0/O/1/I 제외 32자, tenant 내 UNIQUE)
+
+```sql
+SET @cs = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+-- 채번 (충돌 시 NULL 로 비우고 이 블록 재실행 — 수렴할 때까지)
+UPDATE mig_group_stage
+   SET invite_code = CONCAT(
+        SUBSTRING(@cs, FLOOR(1 + RAND()*32), 1), SUBSTRING(@cs, FLOOR(1 + RAND()*32), 1),
+        SUBSTRING(@cs, FLOOR(1 + RAND()*32), 1), SUBSTRING(@cs, FLOOR(1 + RAND()*32), 1),
+        SUBSTRING(@cs, FLOOR(1 + RAND()*32), 1), SUBSTRING(@cs, FLOOR(1 + RAND()*32), 1))
+ WHERE invite_code IS NULL;
+
+-- 기존 Auth 코드와 충돌분 비우기 → 위 UPDATE 재실행 (보통 1~2회로 수렴)
+UPDATE mig_group_stage s
+  JOIN group_info g ON g.tenant_id = @tenant AND g.invite_code = s.invite_code
+   SET s.invite_code = NULL;
+SELECT COUNT(*) AS remaining FROM mig_group_stage WHERE invite_code IS NULL;  -- 0 이면 다음 단계
+```
+
+### A4. Auth DB — 본 적재 + manifest
+
+```sql
+-- 그룹 적재 (grade/class_no 는 Auth 가 자유텍스트라 학심정 값 그대로도 유효 — 표시 통일 시 '학년'/'반' 접미)
+INSERT INTO group_info (tenant_id, owner_user_id, status, school_name, school_level,
+                        school_code, grade, class_no, subject, group_name, invite_code,
+                        created_at, updated_at)
+SELECT @tenant, pu.id, 'ACTIVE', s.school_name, UPPER(s.school_level),
+       s.school_code, s.grade, s.class_no, NULL, s.group_name, s.invite_code,
+       s.created_at, NOW()
+  FROM mig_group_stage s
+  JOIN platform_user pu ON pu.public_user_id = s.owner_public_user_id;
+
+-- ★ manifest — 재채번 invite_code 가 상관키 (Auth 에 cla_id 컬럼이 없는 문제의 SQL 해법)
+SELECT g.id AS sp_group_id, s.cla_id
+  FROM group_info g
+  JOIN mig_group_stage s ON s.invite_code = g.invite_code
+ WHERE g.tenant_id = @tenant;
+-- → manifest.csv 로 추출, 학심정에 전달
+
+-- 멤버 적재
+INSERT INTO group_member (group_id, user_id, status, join_source, joined_at, created_at, updated_at)
+SELECT g.id, pu.id, 'ACTIVE', 'CODE', COALESCE(m.joined_at, NOW()), NOW(), NOW()
+  FROM mig_member_stage m
+  JOIN mig_group_stage s  ON s.cla_id = m.cla_id
+  JOIN group_info g       ON g.tenant_id = @tenant AND g.invite_code = s.invite_code
+  JOIN platform_user pu   ON pu.public_user_id = m.member_public_user_id
+ WHERE pu.user_type <> 'TEACHER';   -- 검증 3 방어 중복
+
+-- 건수 대조 (학심정 V1 과 일치 확인) 후 스테이징 정리
+-- DROP TABLE mig_group_stage, mig_member_stage;
+```
+
+> ⚠️ 직접 INSERT 는 `group_change_log` 를 남기지 않는다 — **의도된 동작** (남기면 학심정 부트스트랩 직후
+> 피드 폴링이 전 그룹을 재조회하는 무해한 소음 발생, §9 #12). 정원 검사도 우회되므로 필요 시 별도 점검.
+
+### A5. 학심정 DB — backfill (manifest 적용)
+
+```sql
+CREATE TABLE mig_manifest (cla_id VARCHAR(64) PRIMARY KEY, sp_group_id BIGINT NOT NULL UNIQUE);
+-- LOAD DATA LOCAL INFILE 'manifest.csv' 적재
+
+UPDATE group_info gi
+  JOIN mig_manifest m ON m.cla_id = gi.cla_id
+   SET gi.sp_group_id = m.sp_group_id, gi.updated_by = 0
+ WHERE gi.sp_group_id IS NULL;
+
+-- 검증: backfill 건수 = 활성 그룹 수
+SELECT COUNT(*) FROM group_info WHERE sp_group_id IS NOT NULL;
+DROP TABLE mig_manifest;
+```
+
+이후 `GROUP_SYNC_ENABLED=true` → 부트스트랩이 backfill 된 행을 `findBySpGroupId` 로 찾아
+**기존 행 no-op upsert** (cla_id 불변 = 검사/상담/메모 이력 연속). 신규 행 생성 없음을 보정 로그 0건으로 확인.
+
+---
+
 ## 9. Auth팀 추가 요청사항 (03 §8 에 합산)
 
 9. **그룹 bulk import 스크립트** 작성 가능 여부 + 일정 — export JSON 포맷 협의
