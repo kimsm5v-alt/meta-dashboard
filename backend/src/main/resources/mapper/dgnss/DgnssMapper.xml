@@ -3694,6 +3694,15 @@
 		WHERE answer_idx = #{answerIdx}
 	</select>
 
+	<select id="selectFactorScoresByAnswerIdx" resultType="map">
+		/* DgnssMapper.selectFactorScoresByAnswerIdx */
+		SELECT e1.SECTION_NM AS sectionNm
+		     , IF(d1.T_SCORE <![CDATA[<]]> 0, 0, d1.T_SCORE) AS tScore
+		FROM tb_dgnss_answer_report d1
+			INNER JOIN tb_dgnss_section e1 ON d1.SECTION_ID = e1.SECTION_ID
+		WHERE d1.ANSWER_IDX = #{answerIdx}
+	</select>
+
 	<select id="selectOmrListForSampleExcel" parameterType="int" resultType="map">
 		/* DgnssMapper.selectOmrListForSampleExcel */
 		SELECT gm.member_no AS memberNo

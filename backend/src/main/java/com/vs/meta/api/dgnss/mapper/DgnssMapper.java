@@ -161,6 +161,9 @@ public interface DgnssMapper {
 
     Map<String, Object> selectLpaResultByAnswerIdx(@Param("answerIdx") int answerIdx);
 
+    // 그래프 추천 개인화) answerIdx의 요인(섹션)별 T점수 조회 — 약점 요인 산출용
+    List<Map<String, Object>> selectFactorScoresByAnswerIdx(@Param("answerIdx") int answerIdx);
+
     // 교사) 샘플 엑셀용 OMR 목록 조회
     List<Map<String, Object>> selectOmrListForSampleExcel(@Param("dgnssId") int dgnssId);
 
