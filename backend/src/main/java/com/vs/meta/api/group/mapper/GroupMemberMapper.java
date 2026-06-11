@@ -30,4 +30,7 @@ public interface GroupMemberMapper {
      * status='WITHDRAWN' 은 어떤 멤버 조회 쿼리에도 매칭되지 않으므로 유령 멤버 발생 안 함.
      */
     int withdrawByUserNo(@Param("userNo") Long userNo);
+
+    /** 그룹 동기화 명단 교체용 — status 무관 전체 멤버 (group-from-idp). */
+    List<GroupMember> findByGroupId(@Param("groupId") Long groupId);
 }

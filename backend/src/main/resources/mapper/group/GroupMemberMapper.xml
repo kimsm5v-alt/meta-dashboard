@@ -93,6 +93,14 @@
     </select>
 
 
+    <select id="findByGroupId" resultMap="groupMemberResultMap">
+        /* GroupMemberMapper.findByGroupId */
+        SELECT <include refid="groupMemberColumns"/>
+        FROM group_member gm
+        LEFT JOIN `user` u ON u.user_no = gm.user_no
+        WHERE gm.group_id = #{groupId}
+    </select>
+
     <update id="withdrawByUserNo">
         /* GroupMemberMapper.withdrawByUserNo */
         UPDATE group_member

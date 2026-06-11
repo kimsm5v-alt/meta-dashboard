@@ -245,7 +245,11 @@ public class GroupService {
         ));
     }
 
-    private Integer registerActiveDgnssIfNeeded(String claId, String schoolLevel, String stdtId) throws Exception {
+    /**
+     * 활성 검사 자동 등록 — 학생이 그룹에 들어오면 진행 중 검사(dgnss_at='Y')에 자동 추가.
+     * 그룹 동기화(MEMBER_ADD 반영, group-from-idp)에서도 호출되므로 public.
+     */
+    public Integer registerActiveDgnssIfNeeded(String claId, String schoolLevel, String stdtId) throws Exception {
         Integer activeDgnssId = groupQueryMapper.findActiveDgnssId(claId);
         if (activeDgnssId == null || stdtId == null || stdtId.isBlank()) {
             return activeDgnssId;
