@@ -174,6 +174,10 @@
 		  	  AND tdi_other.cla_id != #{claId}
 		  	  AND tdri_other.stdt_id = gm.stdt_id
 		  )
+		  <!-- 그룹 가입 단일 학생 적격성 확인 시: 해당 학생으로 한정 (교사 시작 플로우에선 미전달 → 전체) -->
+		  <if test="stdtId != null and stdtId != ''">
+		  AND gm.stdt_id = #{stdtId}
+		  </if>
 		ORDER BY gm.member_no
 	</select>
 
@@ -223,6 +227,10 @@
 		  	  AND gi_other.host_user_no != gi.host_user_no
 		  	  AND tdri_other1.stdt_id = gm.stdt_id
 		  )
+		  <!-- 그룹 가입 단일 학생 적격성 확인 시: 해당 학생으로 한정 (교사 시작 플로우에선 미전달 → 전체) -->
+		  <if test="stdtId != null and stdtId != ''">
+		  AND gm.stdt_id = #{stdtId}
+		  </if>
 		ORDER BY gm.member_no
 	</select>
 
@@ -450,6 +458,18 @@
 
 		WHERE a1.id = #{dgnssId}
 		GROUP BY a1.id
+	</select>
+
+	<select id="findActiveDgnssListByClaId" resultType="map">
+		/* DgnssMapper.findActiveDgnssListByClaId */
+		SELECT id        AS dgnssId
+		     , ord_no    AS ordNo
+		     , paper_idx AS paperIdx
+		     , cla_id    AS claId
+		FROM tb_dgnss_info
+		WHERE cla_id = #{claId}
+		  AND dgnss_at = 'Y'
+		ORDER BY paper_idx
 	</select>
 
 	<select id="selectSubmitNotificationInfo" parameterType="int" resultType="map">

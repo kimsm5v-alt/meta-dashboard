@@ -25,6 +25,8 @@ public interface DgnssMapper {
     Map<String, Object> selectTcDgnssInfoOne(Map<String, Object> param);
     // 교사) UPDATE 할 META 자기조절학습 Info 테이블 검색(dgnssId로 탐색)
     Map<String, Object> selectTcDgnssInfoOneWithDgnssId(Map<String, Object> param);
+    // 그룹 가입) 학급에서 진행 중(dgnss_at='Y')인 검사 전체 조회 — 종합(paperIdx=1)/자기조절(paperIdx=2) 모두
+    List<Map<String, Object>> findActiveDgnssListByClaId(@Param("claId") String claId);
     // 교사) 학생들의 OMR 카드 정보 가져오기
     List<LinkedHashMap<String, Object>> selectStOmrInfo(Map<String, Object> param);
     // 교사) 제출한 모든 학생의 이름 가져오기
