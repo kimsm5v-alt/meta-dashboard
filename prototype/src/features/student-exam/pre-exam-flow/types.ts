@@ -34,6 +34,23 @@ export const EXAM_THEME: Record<ExamType, ExamTheme> = {
   },
 };
 
+/** 학교급 타입 */
+export type SchoolLevel = 'elementary' | 'middle' | 'high' | '';
+
+/** 학교급별 학년 범위 */
+export const GRADE_OPTIONS: Record<Exclude<SchoolLevel, ''>, number[]> = {
+  elementary: [1, 2, 3, 4, 5, 6],
+  middle: [1, 2, 3],
+  high: [1, 2, 3],
+};
+
+/** 학교급 라벨 */
+export const SCHOOL_LEVEL_LABELS: Record<Exclude<SchoolLevel, ''>, string> = {
+  elementary: '초등학교',
+  middle: '중학교',
+  high: '고등학교',
+};
+
 /** 학생 기본 정보 (2단계 입력) */
 export interface StudentBasicInfo {
   /** 출석번호 */
@@ -44,14 +61,26 @@ export interface StudentBasicInfo {
   gender: 'M' | 'F' | '';
 }
 
-/** 그룹 정보 (읽기 전용) */
+/** 그룹 정보 */
 export interface GroupInfo {
-  /** 학교명 */
+  /** 학교명 (항상 제공됨) */
   schoolName: string;
-  /** 학년 */
-  grade: string;
-  /** 반 */
-  classNumber: string;
+  /** 학교급 (비어있을 수 있음) */
+  schoolLevel?: SchoolLevel;
+  /** 학년 (비어있을 수 있음) */
+  grade?: string;
+  /** 반 (비어있을 수 있음) */
+  classNumber?: string;
+}
+
+/** 그룹 정보 잠금 상태 (서버에서 제공된 항목인지 여부) */
+export interface GroupInfoLocked {
+  /** 학교급 잠금 여부 */
+  schoolLevel: boolean;
+  /** 학년 잠금 여부 */
+  grade: boolean;
+  /** 반 잠금 여부 */
+  classNumber: boolean;
 }
 
 /** 동의 항목 */

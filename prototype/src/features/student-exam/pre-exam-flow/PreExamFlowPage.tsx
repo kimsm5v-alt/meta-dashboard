@@ -8,10 +8,19 @@
  * - 푸터: 검사 목록 / 검사 시작하기
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { CheckCircle2, Lock, Users } from 'lucide-react';
-import { EXAM_THEME, type StudentBasicInfo, type GroupInfo, type ExamTheme } from './types';
+import { CheckCircle2, Lock } from 'lucide-react';
+import {
+  EXAM_THEME,
+  GRADE_OPTIONS,
+  SCHOOL_LEVEL_LABELS,
+  type StudentBasicInfo,
+  type GroupInfo,
+  type GroupInfoLocked,
+  type ExamTheme,
+  type SchoolLevel,
+} from './types';
 import type { ExamType } from '../types';
 
 interface PreExamFlowState {
@@ -21,6 +30,15 @@ interface PreExamFlowState {
   examName: string;
   examType: ExamType;
   restart?: boolean; // 새로하기 플래그
+  /** 그룹 정보 (서버에서 제공) */
+  groupInfo?: GroupInfo;
+}
+
+/** 확장된 폼 데이터 (그룹 정보 + 학생 정보) */
+interface ExtendedFormData extends StudentBasicInfo {
+  schoolLevel: SchoolLevel;
+  grade: string;
+  classNumber: string;
 }
 
 // 검사 진행 방법 안내문
@@ -65,30 +83,45 @@ export const PreExamFlowPage: React.FC = () => {
     return null;
   }
 
-  const { dgnssResultId, dgnssId, ordNo, examName, examType, restart } = examState;
+  const { dgnssResultId, dgnssId, ordNo, examName, examType, restart, groupInfo: initialGroupInfo } = examState;
+
+  // 테마 가져오기
+  const theme = EXAM_THEME[examType];
+
+  // 그룹 정보 (서버에서 제공되거나 기본값)
+  // Mock: 실제로는 서버에서 제공된 값 사용, 일부 항목은 비어있을 수 있음
+  const serverGroupInfo: GroupInfo = initialGroupInfo || {
+    schoolName: '비상중학교',
+    // schoolLevel, grade, classNumber는 비어있을 수 있음 (데모용: 일부 비워둠)
+    schoolLevel: 'middle', // 'middle' | '' 토글 가능
+    grade: '', // 빈 값 → 학생 입력 필요
+    classNumber: '', // 빈 값 → 학생 입력 필요
+  };
+
+  // 잠금 상태 계산 (서버에서 값이 제공되었는지 여부)
+  const lockedFields = useMemo<GroupInfoLocked>(() => ({
+    schoolLevel: !!serverGroupInfo.schoolLevel,
+    grade: !!serverGroupInfo.grade,
+    classNumber: !!serverGroupInfo.classNumber,
+  }), [serverGroupInfo]);
 
   // 상태
   const [isLoading, setIsLoading] = useState(false);
   const [exampleAnswer, setExampleAnswer] = useState<number | null>(null);
 
-  // 기본 정보 입력 폼
-  const [formData, setFormData] = useState<StudentBasicInfo>({
+  // 확장된 폼 데이터 (그룹 정보 + 학생 정보)
+  const [formData, setFormData] = useState<ExtendedFormData>({
+    // 그룹 정보 (서버 제공값 또는 빈 값)
+    schoolLevel: serverGroupInfo.schoolLevel || '',
+    grade: serverGroupInfo.grade || '',
+    classNumber: serverGroupInfo.classNumber || '',
+    // 학생 정보 (항상 학생 입력)
     studentNumber: '',
     name: '',
     gender: '',
   });
-  const [errors, setErrors] = useState<Partial<Record<keyof StudentBasicInfo, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof ExtendedFormData, string>>>({});
   const [focusedField, setFocusedField] = useState<string>('');
-
-  // 테마 가져오기
-  const theme = EXAM_THEME[examType];
-
-  // 그룹 정보 (Mock - 실제로는 user.classInfo 등에서 가져옴)
-  const groupInfo: GroupInfo = {
-    schoolName: '비상중학교',
-    grade: '2학년',
-    classNumber: '3반',
-  };
 
   // 뱃지 텍스트
   const badgeText = `${ordNo}차 ${theme.name}`;
@@ -103,10 +136,21 @@ export const PreExamFlowPage: React.FC = () => {
   };
 
   // 필드 변경 핸들러
-  const handleChange = (field: keyof StudentBasicInfo, value: string) => {
+  const handleChange = (field: keyof ExtendedFormData, value: string) => {
+    // 숫자 필드 처리
     if (field === 'studentNumber') {
       const numericValue = value.replace(/[^0-9]/g, '').slice(0, 3);
       setFormData((prev) => ({ ...prev, [field]: numericValue }));
+    } else if (field === 'classNumber') {
+      const numericValue = value.replace(/[^0-9]/g, '').slice(0, 2);
+      setFormData((prev) => ({ ...prev, [field]: numericValue }));
+    } else if (field === 'schoolLevel') {
+      // 학교급 변경 시 학년 초기화 (잠금되지 않은 경우에만)
+      setFormData((prev) => ({
+        ...prev,
+        schoolLevel: value as SchoolLevel,
+        grade: lockedFields.grade ? prev.grade : '', // 학년이 잠금 상태면 유지
+      }));
     } else {
       setFormData((prev) => ({ ...prev, [field]: value }));
     }
@@ -114,14 +158,30 @@ export const PreExamFlowPage: React.FC = () => {
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
+    // 학교급 변경 시 학년 에러도 초기화
+    if (field === 'schoolLevel' && errors.grade) {
+      setErrors((prev) => ({ ...prev, grade: undefined }));
+    }
   };
 
   // 유효성 검사
   const validate = (): boolean => {
-    const newErrors: Partial<Record<keyof StudentBasicInfo, string>> = {};
+    const newErrors: Partial<Record<keyof ExtendedFormData, string>> = {};
 
+    // 그룹 정보 검사 (잠금되지 않은 필드만)
+    if (!lockedFields.schoolLevel && !formData.schoolLevel) {
+      newErrors.schoolLevel = '학교급을 선택해주세요';
+    }
+    if (!lockedFields.grade && !formData.grade) {
+      newErrors.grade = '학년을 선택해주세요';
+    }
+    if (!lockedFields.classNumber && !formData.classNumber.trim()) {
+      newErrors.classNumber = '반을 입력해주세요';
+    }
+
+    // 학생 정보 검사 (항상 필수)
     if (!formData.studentNumber.trim()) {
-      newErrors.studentNumber = '출석번호를 입력해주세요';
+      newErrors.studentNumber = '번호를 입력해주세요';
     }
     if (!formData.name.trim()) {
       newErrors.name = '이름을 입력해주세요';
@@ -169,15 +229,39 @@ export const PreExamFlowPage: React.FC = () => {
   };
 
   // 모든 필드가 채워졌는지 확인
-  const isFormComplete = formData.studentNumber && formData.name && formData.gender;
+  const isFormComplete = useMemo(() => {
+    // 그룹 정보 검사 (잠금되지 않은 필드만)
+    const schoolLevelOk = lockedFields.schoolLevel || !!formData.schoolLevel;
+    const gradeOk = lockedFields.grade || !!formData.grade;
+    const classNumberOk = lockedFields.classNumber || !!formData.classNumber;
 
-  // 인풋 스타일 (박스형)
-  const getInputStyle = (field: string, hasError: boolean) => ({
+    // 학생 정보 검사 (항상 필수)
+    const studentInfoOk = !!formData.studentNumber && !!formData.name && !!formData.gender;
+
+    return schoolLevelOk && gradeOk && classNumberOk && studentInfoOk;
+  }, [formData, lockedFields]);
+
+  // 입력 필드 스타일 (흰 박스, 포커스 시 테마 컬러)
+  const getInputStyle = (field: string, hasError: boolean): React.CSSProperties => ({
     borderColor: hasError ? '#EF4444' : focusedField === field ? theme.actionColor : '#E5E7EB',
     borderWidth: '1.5px',
-    borderStyle: 'solid' as const,
+    borderStyle: 'solid',
     borderRadius: '11px',
+    backgroundColor: '#FFFFFF',
   });
+
+  // 읽기 전용 필드 스타일 (회색 배경)
+  const getLockedFieldStyle = (): React.CSSProperties => ({
+    backgroundColor: '#F3F4F7',
+    borderRadius: '11px',
+    border: 'none',
+  });
+
+  // 학년 옵션 생성 (학교급에 따라)
+  const gradeOptions = useMemo(() => {
+    if (!formData.schoolLevel) return [];
+    return GRADE_OPTIONS[formData.schoolLevel as Exclude<SchoolLevel, ''>] || [];
+  }, [formData.schoolLevel]);
 
   return (
     <div
@@ -310,52 +394,187 @@ export const PreExamFlowPage: React.FC = () => {
             className="bg-white rounded-2xl p-6"
             style={{ border: '1px solid #ECEEF2', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
           >
-            <div className="flex gap-10">
-              {/* 좌측: 그룹 정보 카드 */}
-              <div
-                className="w-[320px] flex-shrink-0 rounded-xl p-5"
-                style={{ backgroundColor: '#F7F8FA' }}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <CheckCircle2 className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700">아래 내용이 맞는지 확인해 주세요</span>
-                </div>
-                <div className="h-px bg-gray-200 my-3" />
-                <div className="space-y-4">
-                  {/* 학교 */}
-                  <div className="flex gap-6">
-                    <span className="text-sm text-gray-400 w-14">학교</span>
-                    <span className="text-sm font-medium text-gray-900">{groupInfo.schoolName}</span>
-                  </div>
-                  {/* 학교급 */}
-                  <div className="flex gap-6">
-                    <span className="text-sm text-gray-400 w-14">학교급</span>
-                    <span className="text-sm font-medium text-gray-900">중등</span>
-                  </div>
-                  {/* 학년 반 */}
-                  <div className="flex gap-6">
-                    <span className="text-sm text-gray-400 w-14">학년 반</span>
-                    <span className="text-sm font-medium text-gray-900">{groupInfo.grade} {groupInfo.classNumber}</span>
-                  </div>
-                  {/* 차수 */}
-                  <div className="flex gap-6">
-                    <span className="text-sm text-gray-400 w-14">차수</span>
-                    <span className="text-sm font-medium text-gray-900">{ordNo}차</span>
-                  </div>
-                  {/* 검사명 */}
-                  <div className="flex gap-6">
-                    <span className="text-sm text-gray-400 w-14">검사명</span>
-                    <span className="text-sm font-medium" style={{ color: theme.pointColor }}>{theme.name}</span>
-                  </div>
+            <div className="space-y-5">
+              {/* 검사 (항상 자동 잠금, 전체 너비) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  검사
+                </label>
+                <div
+                  className="flex items-center justify-between px-4 py-3"
+                  style={getLockedFieldStyle()}
+                >
+                  <span className="text-base font-medium text-gray-900">
+                    {ordNo}차 {theme.name}
+                  </span>
+                  <span
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
+                    style={{ backgroundColor: '#E5E7EB', color: '#6B7280' }}
+                  >
+                    <Lock className="w-3 h-3" />
+                    자동
+                  </span>
                 </div>
               </div>
 
-              {/* 우측: 입력 폼 */}
-              <div className="flex-1 space-y-5">
-                {/* 출석번호 */}
+              {/* 2열 그리드 */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                {/* 학교 (항상 자동 잠금) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    출석번호 <span className="text-red-500">*</span>
+                    학교
+                  </label>
+                  <div
+                    className="flex items-center justify-between px-4 py-3"
+                    style={getLockedFieldStyle()}
+                  >
+                    <span className="text-base font-medium text-gray-900">
+                      {serverGroupInfo.schoolName}
+                    </span>
+                    <span
+                      className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
+                      style={{ backgroundColor: '#E5E7EB', color: '#6B7280' }}
+                    >
+                      <Lock className="w-3 h-3" />
+                      자동
+                    </span>
+                  </div>
+                </div>
+
+                {/* 학교급 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    학교급 {!lockedFields.schoolLevel && <span className="text-red-500">*</span>}
+                  </label>
+                  {lockedFields.schoolLevel ? (
+                    <div
+                      className="flex items-center justify-between px-4 py-3"
+                      style={getLockedFieldStyle()}
+                    >
+                      <span className="text-base font-medium text-gray-900">
+                        {formData.schoolLevel && SCHOOL_LEVEL_LABELS[formData.schoolLevel as Exclude<SchoolLevel, ''>]}
+                      </span>
+                      <span
+                        className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
+                        style={{ backgroundColor: '#E5E7EB', color: '#6B7280' }}
+                      >
+                        <Lock className="w-3 h-3" />
+                        자동
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        value={formData.schoolLevel}
+                        onChange={(e) => handleChange('schoolLevel', e.target.value)}
+                        onFocus={() => setFocusedField('schoolLevel')}
+                        onBlur={() => setFocusedField('')}
+                        disabled={isLoading}
+                        className="w-full px-4 py-3 text-base font-medium text-gray-900 focus:outline-none transition-colors appearance-none cursor-pointer"
+                        style={getInputStyle('schoolLevel', !!errors.schoolLevel)}
+                      >
+                        <option value="">선택</option>
+                        <option value="elementary">초등학교</option>
+                        <option value="middle">중학교</option>
+                        <option value="high">고등학교</option>
+                      </select>
+                      {errors.schoolLevel && (
+                        <p className="text-red-500 text-xs mt-2">{errors.schoolLevel}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* 학년 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    학년 {!lockedFields.grade && <span className="text-red-500">*</span>}
+                  </label>
+                  {lockedFields.grade ? (
+                    <div
+                      className="flex items-center justify-between px-4 py-3"
+                      style={getLockedFieldStyle()}
+                    >
+                      <span className="text-base font-medium text-gray-900">
+                        {formData.grade}학년
+                      </span>
+                      <span
+                        className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
+                        style={{ backgroundColor: '#E5E7EB', color: '#6B7280' }}
+                      >
+                        <Lock className="w-3 h-3" />
+                        자동
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        value={formData.grade}
+                        onChange={(e) => handleChange('grade', e.target.value)}
+                        onFocus={() => setFocusedField('grade')}
+                        onBlur={() => setFocusedField('')}
+                        disabled={isLoading || !formData.schoolLevel}
+                        className="w-full px-4 py-3 text-base font-medium text-gray-900 focus:outline-none transition-colors appearance-none cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        style={getInputStyle('grade', !!errors.grade)}
+                      >
+                        <option value="">{formData.schoolLevel ? '선택' : '학교급을 먼저 선택'}</option>
+                        {gradeOptions.map((g) => (
+                          <option key={g} value={String(g)}>{g}학년</option>
+                        ))}
+                      </select>
+                      {errors.grade && (
+                        <p className="text-red-500 text-xs mt-2">{errors.grade}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* 반 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    반 {!lockedFields.classNumber && <span className="text-red-500">*</span>}
+                  </label>
+                  {lockedFields.classNumber ? (
+                    <div
+                      className="flex items-center justify-between px-4 py-3"
+                      style={getLockedFieldStyle()}
+                    >
+                      <span className="text-base font-medium text-gray-900">
+                        {formData.classNumber}반
+                      </span>
+                      <span
+                        className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
+                        style={{ backgroundColor: '#E5E7EB', color: '#6B7280' }}
+                      >
+                        <Lock className="w-3 h-3" />
+                        자동
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={formData.classNumber}
+                        onChange={(e) => handleChange('classNumber', e.target.value)}
+                        onFocus={() => setFocusedField('classNumber')}
+                        onBlur={() => setFocusedField('')}
+                        placeholder="반"
+                        disabled={isLoading}
+                        className="w-full px-4 py-3 text-base font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
+                        style={getInputStyle('classNumber', !!errors.classNumber)}
+                      />
+                      {errors.classNumber && (
+                        <p className="text-red-500 text-xs mt-2">{errors.classNumber}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* 번호 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    번호 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -366,7 +585,7 @@ export const PreExamFlowPage: React.FC = () => {
                     onBlur={() => setFocusedField('')}
                     placeholder="번호"
                     disabled={isLoading}
-                    className="w-[200px] px-4 py-3 text-base font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors bg-white"
+                    className="w-full px-4 py-3 text-base font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
                     style={getInputStyle('studentNumber', !!errors.studentNumber)}
                   />
                   {errors.studentNumber && (
@@ -385,53 +604,53 @@ export const PreExamFlowPage: React.FC = () => {
                     onChange={(e) => handleChange('name', e.target.value)}
                     onFocus={() => setFocusedField('name')}
                     onBlur={() => setFocusedField('')}
-                    placeholder="이름 입력"
+                    placeholder="이름"
                     disabled={isLoading}
-                    className="w-[360px] px-4 py-3 text-base font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors bg-white"
+                    className="w-full px-4 py-3 text-base font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
                     style={getInputStyle('name', !!errors.name)}
                   />
                   {errors.name && (
                     <p className="text-red-500 text-xs mt-2">{errors.name}</p>
                   )}
                 </div>
+              </div>
 
-                {/* 성별 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    성별 <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-3 w-[400px]">
-                    <button
-                      type="button"
-                      onClick={() => handleChange('gender', 'M')}
-                      disabled={isLoading}
-                      className="flex-1 py-3 px-4 rounded-xl font-medium text-base transition-all disabled:opacity-50"
-                      style={{
-                        backgroundColor: formData.gender === 'M' ? theme.actionColor : '#F3F4F6',
-                        color: formData.gender === 'M' ? '#FFFFFF' : '#6B7280',
-                        boxShadow: formData.gender === 'M' ? `0 4px 12px ${theme.actionColor}40` : 'none',
-                      }}
-                    >
-                      남자
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleChange('gender', 'F')}
-                      disabled={isLoading}
-                      className="flex-1 py-3 px-4 rounded-xl font-medium text-base transition-all disabled:opacity-50"
-                      style={{
-                        backgroundColor: formData.gender === 'F' ? theme.actionColor : '#F3F4F6',
-                        color: formData.gender === 'F' ? '#FFFFFF' : '#6B7280',
-                        boxShadow: formData.gender === 'F' ? `0 4px 12px ${theme.actionColor}40` : 'none',
-                      }}
-                    >
-                      여자
-                    </button>
-                  </div>
-                  {errors.gender && (
-                    <p className="text-red-500 text-xs mt-2">{errors.gender}</p>
-                  )}
+              {/* 성별 (단독 행) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  성별 <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-3" style={{ maxWidth: '300px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleChange('gender', 'M')}
+                    disabled={isLoading}
+                    className="flex-1 py-3 px-4 rounded-xl font-medium text-base transition-all disabled:opacity-50"
+                    style={{
+                      backgroundColor: formData.gender === 'M' ? theme.actionColor : '#F3F4F6',
+                      color: formData.gender === 'M' ? '#FFFFFF' : '#6B7280',
+                      boxShadow: formData.gender === 'M' ? `0 4px 12px ${theme.actionColor}40` : 'none',
+                    }}
+                  >
+                    남자
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleChange('gender', 'F')}
+                    disabled={isLoading}
+                    className="flex-1 py-3 px-4 rounded-xl font-medium text-base transition-all disabled:opacity-50"
+                    style={{
+                      backgroundColor: formData.gender === 'F' ? theme.actionColor : '#F3F4F6',
+                      color: formData.gender === 'F' ? '#FFFFFF' : '#6B7280',
+                      boxShadow: formData.gender === 'F' ? `0 4px 12px ${theme.actionColor}40` : 'none',
+                    }}
+                  >
+                    여자
+                  </button>
                 </div>
+                {errors.gender && (
+                  <p className="text-red-500 text-xs mt-2">{errors.gender}</p>
+                )}
               </div>
             </div>
           </section>
