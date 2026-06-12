@@ -93,6 +93,7 @@ public class DgnssGraphService {
             List<Map<String, Object>> fallback = queryModerationPaths(className, schoolLevel, limit);
             result.put("strengths", new ArrayList<>());
             result.put("weaknesses", new ArrayList<>());
+            result.put("typeDeviations", new ArrayList<>());
             result.put("moderationPaths", fallback);
             result.put("recommendationCount", fallback.size());
             return result;
@@ -119,6 +120,7 @@ public class DgnssGraphService {
 
         result.put("strengths", strengths);
         result.put("weaknesses", weaknesses);
+        result.put("typeDeviations", buildTypeDeviations(deviations, SELECT_COUNT));
         result.put("moderationPaths", moderationPaths);
         result.put("recommendationCount", moderationPaths.size());
         return result;
@@ -183,6 +185,35 @@ public class DgnssGraphService {
             result.add(row);
         }
         return result;
+    }
+
+    /**
+     * FE '유형별 특이점'(getTypeDeviations) 동일 방식 — GROUP_TSCORE 편차의 절댓값이 큰 상위 N개(강점·약점 혼합).
+     * FE 렌더 필드명(factor/studentScore/typeMean/diff/direction)에 맞춰 반환한다.
+     */
+    private List<Map<String, Object>> buildTypeDeviations(List<Map<String, Object>> deviations, int topN) {
+        List<Map<String, Object>> sorted = new ArrayList<>(deviations);
+        sorted.sort((a, b) -> Double.compare(
+                Math.abs(MapUtils.getDoubleValue(b, "deviation", 0d)),
+                Math.abs(MapUtils.getDoubleValue(a, "deviation", 0d))));
+
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (int i = 0; i < sorted.size() && i < topN; i++) {
+            Map<String, Object> f = sorted.get(i);
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("factor", f.get("factorName"));
+            item.put("studentScore", f.get("individualT"));
+            item.put("typeMean", round1(MapUtils.getDoubleValue(f, "groupT", 0d)));
+            item.put("diff", round1(MapUtils.getDoubleValue(f, "deviation", 0d)));
+            item.put("direction", f.get("direction"));
+            out.add(item);
+        }
+        return out;
+    }
+
+    /** 소수점 첫째자리 반올림 (FE 표시값과 동일하게). */
+    private double round1(double value) {
+        return Math.round(value * 10.0) / 10.0;
     }
 
     /** 편차 계산 내부값(need)을 제거한 요인 정보 복사본 리스트 (유형별 특이점 응답용). */
