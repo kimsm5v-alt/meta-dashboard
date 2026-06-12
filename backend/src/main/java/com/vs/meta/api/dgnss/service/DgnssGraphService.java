@@ -14,7 +14,8 @@ import org.neo4j.driver.Values;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class DgnssGraphService {
+
+    /** 강점/보완점 선별 개수 (기술명세서 4.4: 각 3개). */
+    private static final int SELECT_COUNT = 3;
 
     private final Driver neo4jDriver;
     private final DgnssMapper dgnssMapper;
@@ -74,97 +78,144 @@ public class DgnssGraphService {
             throw new IllegalArgumentException("LPA 유형(typeName)이 비어 있습니다. answerIdx=" + answerIdx);
         }
 
-        // 개인화: 학생 요인 T점수 + 요인 방향(need_score_direction)으로 '도움 필요' 상위 N 요인 산출
-        List<Map<String, Object>> factorScores = dgnssMapper.selectFactorScoresByAnswerIdx(answerIdx);
-        Map<String, String> factorDirections = queryFactorNeedDirections();
-        List<String> weakFactors = resolveWeakFactors(factorScores, factorDirections, limit);
-
-        // 약점 요인이 포함된(x 또는 z) 경로를 심각도 순으로 우선 추천. 산출 실패 시 유형(class) 기본 경로로 폴백.
-        List<Map<String, Object>> moderationPaths =
-                queryModerationPathsByFactors(className, schoolLevel, weakFactors, limit);
+        // 개별화 코칭 경로 선별 (기술명세서 4.4)
+        //  1) 개인 T점수 ↔ LPA 집단 평균 T점수(GROUP_TSCORE) 편차로 강점/보완점 각 3개 선별
+        //  2) 선별 요인이 Z(조절변수)로 연결된 ModerationPath(Z_INDIVIDUAL)를 코칭경로로 제시
+        Map<String, Double> studentTScores = loadStudentTScores(answerIdx);
+        List<Map<String, Object>> groupTScores = queryGroupTScores(className, schoolLevel);
+        List<Map<String, Object>> deviations = computeFactorDeviations(studentTScores, groupTScores);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("answerIdx", answerIdx);
         result.put("lpa", lpaResult);
-        result.put("weakFactors", weakFactors);
-        result.put("recommendationCount", moderationPaths.size());
-        result.put("moderationPaths", moderationPaths);
-        return result;
-    }
 
-    /**
-     * 학생 요인 T점수와 요인 방향을 이용해 '도움이 필요한' 요인을 심각도 내림차순 상위 N개로 산출한다.
-     * <ul>
-     *   <li>정적요인(lower_T_worse): T점수가 낮을수록 심각</li>
-     *   <li>부적요인(higher_T_worse): T점수가 높을수록 심각</li>
-     * </ul>
-     * 방향 정보가 없는(=잎 요인이 아닌 상위 분류) 항목은 제외한다.
-     * 점수/방향이 비어 있으면 빈 목록을 반환해 호출부가 유형(class) 기본 동작으로 폴백하도록 한다.
-     */
-    private List<String> resolveWeakFactors(List<Map<String, Object>> factorScores,
-                                            Map<String, String> factorDirections,
-                                            int topN) {
-        if (CollectionUtils.isEmpty(factorScores) || MapUtils.isEmpty(factorDirections)) {
-            return new ArrayList<>();
+        if (deviations.isEmpty()) {
+            // 개인 점수 또는 집단 평균(GROUP_TSCORE)을 확보하지 못한 경우: 유형(class) 기본 경로로 폴백
+            List<Map<String, Object>> fallback = queryModerationPaths(className, schoolLevel, limit);
+            result.put("strengths", new ArrayList<>());
+            result.put("weaknesses", new ArrayList<>());
+            result.put("moderationPaths", fallback);
+            result.put("recommendationCount", fallback.size());
+            return result;
         }
 
-        List<Map.Entry<String, Double>> ranked = new ArrayList<>();
-        java.util.Set<String> seen = new java.util.HashSet<>();
-        for (Map<String, Object> row : factorScores) {
-            String factorName = MapUtils.getString(row, "sectionNm", "");
-            String direction = factorDirections.get(factorName);
-            if (StringUtils.isBlank(factorName) || direction == null || !seen.add(factorName)) {
-                continue; // 방향 정보 없는 상위 분류명 또는 중복 제외
-            }
-            double tScore = MapUtils.getDoubleValue(row, "tScore", 50.0);
-            double severity = "higher_T_worse".equalsIgnoreCase(direction)
-                    ? (tScore - 50.0)   // 부적요인: 높을수록 심각
-                    : (50.0 - tScore);  // 정적요인: 낮을수록 심각
-            ranked.add(Map.entry(factorName, severity));
-        }
+        // need 내림차순 정렬: need 클수록 보완 필요(약점), 작을수록 강점
+        deviations.sort((a, b) -> Double.compare(
+                MapUtils.getDoubleValue(b, "need", 0d), MapUtils.getDoubleValue(a, "need", 0d)));
 
-        ranked.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
-        List<String> result = new ArrayList<>();
-        for (int i = 0; i < ranked.size() && i < topN; i++) {
-            result.add(ranked.get(i).getKey());
-        }
-        return result;
-    }
+        // 보완점 3개: need 상위
+        List<Map<String, Object>> weaknesses = buildFactorCoaching(
+                deviations.subList(0, Math.min(SELECT_COUNT, deviations.size())), className, schoolLevel);
 
-    /** Factor 노드의 요인별 점수 방향(need_score_direction) 맵. 조회 실패 시 빈 맵(→ 개인화 폴백). */
-    private Map<String, String> queryFactorNeedDirections() {
-        Map<String, String> directions = new LinkedHashMap<>();
-        String query = "MATCH (f:Factor) RETURN f.name AS name, f.need_score_direction AS direction";
-        try (Session session = neo4jDriver.session()) {
-            Result result = session.run(query);
-            while (result.hasNext()) {
-                Record record = result.next();
-                String name = record.get("name").asString("");
-                if (StringUtils.isNotBlank(name)) {
-                    directions.put(name, record.get("direction").asString(""));
+        // 강점 3개: need 하위(가장 강한 순으로 뒤집어 제시)
+        int from = Math.max(0, deviations.size() - SELECT_COUNT);
+        List<Map<String, Object>> strengthSource = new ArrayList<>(deviations.subList(from, deviations.size()));
+        Collections.reverse(strengthSource);
+        List<Map<String, Object>> strengths = buildFactorCoaching(strengthSource, className, schoolLevel);
+
+        // 하위호환: 기존 FE가 소비하는 평면 moderationPaths = 보완점 코칭경로
+        List<Map<String, Object>> weaknessPaths = new ArrayList<>();
+        for (Map<String, Object> w : weaknesses) {
+            Object paths = w.get("moderationPaths");
+            if (paths instanceof List<?> list) {
+                for (Object p : list) {
+                    if (p instanceof Map<?, ?> pathMap) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> casted = (Map<String, Object>) pathMap;
+                        weaknessPaths.add(casted);
+                    }
                 }
             }
-        } catch (Exception e) {
-            log.error("Failed to query Neo4j factor directions.", e);
-            return new LinkedHashMap<>();
         }
-        return directions;
+
+        result.put("strengths", strengths);
+        result.put("weaknesses", weaknesses);
+        result.put("moderationPaths", weaknessPaths);
+        result.put("recommendationCount", weaknessPaths.size());
+        return result;
+    }
+
+    /** answerIdx의 요인(잎)별 개인 T점수 맵 (요인명 → T). */
+    private Map<String, Double> loadStudentTScores(int answerIdx) {
+        Map<String, Double> scores = new HashMap<>();
+        List<Map<String, Object>> rows = dgnssMapper.selectFactorScoresByAnswerIdx(answerIdx);
+        if (CollectionUtils.isEmpty(rows)) {
+            return scores;
+        }
+        for (Map<String, Object> row : rows) {
+            String name = MapUtils.getString(row, "sectionNm", "");
+            if (StringUtils.isNotBlank(name)) {
+                scores.putIfAbsent(name, MapUtils.getDoubleValue(row, "tScore", 50.0));
+            }
+        }
+        return scores;
     }
 
     /**
-     * 약점 요인(weakFactors)이 x 또는 z에 포함된 ModerationPath를 조회해, 약점 심각도 순서로 정렬 후 상위 limit개 반환.
-     * weakFactors 가 비어 있으면 기존 동작(유형 단위, id 순)으로 폴백한다.
+     * 요인별 편차(개인T − 집단T)와 보완 필요도(need)를 계산한다 (기술명세서 4.4).
+     * <ul>
+     *   <li>정적요인: need = 집단T − 개인T (개인이 집단보다 낮을수록 보완 필요)</li>
+     *   <li>부적요인: need = 개인T − 집단T (개인이 집단보다 높을수록 더 부정적 = 보완 필요)</li>
+     * </ul>
+     * GROUP_TSCORE(집단 평균)와 매칭되는 잎 요인만 대상 — 상위 분류명은 자동 제외된다.
      */
-    private List<Map<String, Object>> queryModerationPathsByFactors(String className, String schoolLevel,
-                                                                    List<String> weakFactors, int limit) {
-        if (CollectionUtils.isEmpty(weakFactors)) {
-            return queryModerationPaths(className, schoolLevel, limit);
+    private List<Map<String, Object>> computeFactorDeviations(Map<String, Double> studentTScores,
+                                                              List<Map<String, Object>> groupTScores) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        if (studentTScores.isEmpty() || CollectionUtils.isEmpty(groupTScores)) {
+            return result;
         }
+        for (Map<String, Object> g : groupTScores) {
+            String name = MapUtils.getString(g, "factorName", "");
+            if (StringUtils.isBlank(name) || !studentTScores.containsKey(name)) {
+                continue;
+            }
+            double groupT = MapUtils.getDoubleValue(g, "tScore", 50.0);
+            double individualT = studentTScores.get(name);
+            boolean negative = "negative".equalsIgnoreCase(MapUtils.getString(g, "factorType", ""));
+            double deviation = individualT - groupT;          // 부호 보존(양수=강점, 음수=보완 — 정적요인 기준)
+            double need = negative ? deviation : -deviation;  // 클수록 보완 필요
 
+            // 방향(direction): 편차가 학생에게 긍정적이면 'positive', 부정적이면 'negative'
+            //  - 정적요인: 편차 ≥ 0 → positive, < 0 → negative
+            //  - 부적요인: 편차 ≤ 0 → positive, > 0 → negative
+            String direction = negative
+                    ? (deviation <= 0 ? "positive" : "negative")
+                    : (deviation >= 0 ? "positive" : "negative");
+
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("factorName", name);
+            row.put("factorType", MapUtils.getString(g, "factorType", ""));
+            row.put("individualT", individualT);
+            row.put("groupT", groupT);
+            row.put("deviation", deviation);
+            row.put("direction", direction);
+            row.put("need", need);
+            result.add(row);
+        }
+        return result;
+    }
+
+    /** 선별된 요인 각각에 Z_INDIVIDUAL 조절경로를 붙여 코칭 항목 리스트를 만든다. */
+    private List<Map<String, Object>> buildFactorCoaching(List<Map<String, Object>> factors,
+                                                          String className, String schoolLevel) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (Map<String, Object> f : factors) {
+            String name = MapUtils.getString(f, "factorName", "");
+            Map<String, Object> item = new LinkedHashMap<>(f);
+            item.remove("need"); // 내부 계산용 값은 응답에서 제외
+            item.put("moderationPaths", queryModerationPathsByZFactor(className, schoolLevel, name));
+            items.add(item);
+        }
+        return items;
+    }
+
+    /** 특정 요인이 Z(조절변수, Z_INDIVIDUAL)인 ModerationPath를 조회한다 (기술명세서 7.4). */
+    private List<Map<String, Object>> queryModerationPathsByZFactor(String className, String schoolLevel, String factorName) {
         String query = ""
-                + "MATCH (c:LPAClass {name: $className})-[:HAS_MODERATION_PATH]->(m:ModerationPath) "
+                + "MATCH (c:LPAClass {name: $className})-[:HAS_MODERATION_PATH]->(m:ModerationPath)"
+                + "<-[:Z_INDIVIDUAL]-(f:Factor {name: $factorName}) "
                 + "WHERE ($schoolLevel = '' OR c.school_level = $schoolLevel) "
-                + "  AND (m.x IN $weakFactors OR m.z IN $weakFactors) "
                 + "RETURN c.name AS className, c.school_level AS schoolLevel, c.description AS classDescription, "
                 + "       m.id AS id, m.path_type AS pathType, m.path_color AS pathColor, "
                 + "       m.x AS x, m.z AS z, m.y AS y, "
@@ -179,29 +230,17 @@ public class DgnssGraphService {
                     Values.parameters(
                             "className", className,
                             "schoolLevel", StringUtils.defaultString(schoolLevel),
-                            "weakFactors", weakFactors
+                            "factorName", factorName
                     )
             );
             while (result.hasNext()) {
                 rows.add(mapModerationPathRow(result.next()));
             }
         } catch (Exception e) {
-            log.error("Failed to query Neo4j moderation paths by factors. className={}, schoolLevel={}", className, schoolLevel, e);
+            log.error("Failed to query Neo4j moderation paths by Z factor. className={}, factor={}", className, factorName, e);
             throw new IllegalStateException("Neo4j 조회 중 오류가 발생했습니다.");
         }
-
-        // 약점 심각도 순서(weakFactors의 인덱스가 앞일수록 심각)로 정렬 — 안정 정렬로 동률은 id 순 유지
-        rows.sort(Comparator.comparingInt(row -> bestWeakFactorRank(row, weakFactors)));
-        return rows.size() > limit ? new ArrayList<>(rows.subList(0, limit)) : rows;
-    }
-
-    /** 경로의 x/z 중 weakFactors에서 더 앞선(=더 심각한) 순위. 매칭 없으면 최하위. */
-    private int bestWeakFactorRank(Map<String, Object> row, List<String> weakFactors) {
-        int xi = weakFactors.indexOf(MapUtils.getString(row, "x", ""));
-        int zi = weakFactors.indexOf(MapUtils.getString(row, "z", ""));
-        int rankX = (xi < 0) ? Integer.MAX_VALUE : xi;
-        int rankZ = (zi < 0) ? Integer.MAX_VALUE : zi;
-        return Math.min(rankX, rankZ);
+        return rows;
     }
 
     private Map<String, Object> queryClassInfo(String className, String schoolLevel) {
