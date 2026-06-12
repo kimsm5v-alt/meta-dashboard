@@ -88,6 +88,8 @@ public class DgnssGraphService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("answerIdx", answerIdx);
         result.put("lpa", lpaResult);
+        // 유형별 특이점: 학생 개인 T점수(절대값, 부적요인 역채점)로 강점 3 + 보완점 3 선별
+        result.put("distinctiveFactors", buildDistinctiveFactors(studentTScores, groupTScores));
 
         if (deviations.isEmpty()) {
             // 개인 점수 또는 집단 평균(GROUP_TSCORE)을 확보하지 못한 경우: 유형(class) 기본 경로로 폴백
@@ -194,6 +196,54 @@ public class DgnssGraphService {
             result.add(row);
         }
         return result;
+    }
+
+    /**
+     * 유형별 특이점: 학생 개인 T점수(절대값)를 기준으로 강점 3 + 보완점 3 요인을 선별한다.
+     * 부적요인은 역채점(100 − T)으로 "높을수록 좋음" 척도로 통일한 뒤 정적요인과 함께 순위를 매긴다.
+     * <ul>
+     *   <li>강점: 역채점 점수 상위 3개</li>
+     *   <li>보완점: 역채점 점수 하위 3개(가장 낮은 순)</li>
+     * </ul>
+     * GROUP_TSCORE 로 연결된 잎 요인(38개)만 대상 — factor_type 판정 및 상위 분류명 제외에 사용한다.
+     */
+    private Map<String, Object> buildDistinctiveFactors(Map<String, Double> studentTScores,
+                                                        List<Map<String, Object>> groupTScores) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        if (!studentTScores.isEmpty() && CollectionUtils.isNotEmpty(groupTScores)) {
+            for (Map<String, Object> g : groupTScores) {
+                String name = MapUtils.getString(g, "factorName", "");
+                if (StringUtils.isBlank(name) || !studentTScores.containsKey(name)) {
+                    continue;
+                }
+                boolean negative = "negative".equalsIgnoreCase(MapUtils.getString(g, "factorType", ""));
+                double individualT = studentTScores.get(name);
+                double adjustedScore = negative ? (100.0 - individualT) : individualT; // 부적요인 역채점
+
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("factorName", name);
+                row.put("factorType", MapUtils.getString(g, "factorType", ""));
+                row.put("individualT", individualT);
+                row.put("adjustedScore", adjustedScore);
+                items.add(row);
+            }
+        }
+
+        // 역채점 점수 내림차순 — 앞쪽이 강점, 뒤쪽이 보완점
+        items.sort((a, b) -> Double.compare(
+                MapUtils.getDoubleValue(b, "adjustedScore", 0d), MapUtils.getDoubleValue(a, "adjustedScore", 0d)));
+
+        List<Map<String, Object>> strengths =
+                new ArrayList<>(items.subList(0, Math.min(SELECT_COUNT, items.size())));
+
+        int from = Math.max(0, items.size() - SELECT_COUNT);
+        List<Map<String, Object>> weaknesses = new ArrayList<>(items.subList(from, items.size()));
+        Collections.reverse(weaknesses); // 가장 낮은(보완 필요) 요인부터
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("strengths", strengths);
+        out.put("weaknesses", weaknesses);
+        return out;
     }
 
     /** 선별된 요인 각각에 Z_INDIVIDUAL 조절경로를 붙여 코칭 항목 리스트를 만든다. */
