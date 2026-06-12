@@ -295,6 +295,79 @@ DROP TABLE mig_manifest;
 
 ---
 
+## 부록 B. 실행 런북 — 이관 + 동기화 전환 (DBeaver 기준)
+
+> 도구: DBeaver (학심정 DB / Auth DB 커넥션 2개). dev 리허설 → prod 본행사 동일 절차.
+> ⚠️ 순서 불변식: **DDL → freeze → 이관 → backfill → 동기화 ON**. backfill 전에 ON 하면 중복 그룹 생성.
+
+### STEP 0. 사전 준비 (D-day 전 아무 때나 — 전부 무해)
+
+| # | 작업 | 검증 |
+|---|---|---|
+| 0-1 | Auth oauth2_client 에 `groups:read` 등록 | `POST /oauth2/token` scope=groups:read → 200 + scope 확인 |
+| 0-2 | Auth `@tenant` 값 확정 | oauth2_client 행의 tenant_id 확인 |
+| 0-3 | **Auth 실물 스키마 대조** — 부록 A SQL 은 설계 문서 기준이므로 `DESC group_info; DESC group_member; DESC platform_user;` 로 컬럼명 확인 후 필요 시 A4 조정 | |
+| 0-4 | 학심정 DDL 적용 (`migrations/01-sync-prep.sql`) — 컬럼 추가뿐이라 freeze 전 적용 무해 | sp_group_id 존재 + `GROUP_CHANGES.last_since IS NULL` |
+| 0-5 | 학심정 사전 검증 §5 V1~V4 | V2·V3·V4 = **0건**, V1 건수 기록 (그룹 N / 멤버 M) |
+| 0-6 | `feature/group-from-idp` 빌드를 **플래그 off 상태로 미리 배포** (off 면 아무것도 안 함) | 기동 정상 |
+
+### STEP 1. Freeze (D-day 시작 — 새벽 권장)
+
+1. 학심정 그룹 쓰기가 일어나지 않는 시간대 확보 (P4 폐기 배포를 freeze 로 삼으면 가장 깔끔 — 영구 freeze)
+2. 같은 시간 mypage 그룹 생성 자제 (이중 생성 방지 — 새벽이면 실질 무공지 가능)
+3. freeze 직후 V1 재실행 → **최종 건수 N/M 확정** (이후 모든 단계의 대조 기준)
+
+### STEP 2. Export → Auth 스테이징 (DBeaver Data Transfer ×2)
+
+1. [Auth] A2 의 `CREATE TABLE mig_group_stage / mig_member_stage`
+2. [학심정] A1 그룹 SELECT 실행 → 결과 그리드 우클릭 → **Export Data → Database** → Auth 커넥션 `mig_group_stage`
+3. [학심정] A1 멤버 SELECT → 동일하게 `mig_member_stage`
+4. [Auth] `SELECT COUNT(*)` 두 테이블 = **N / M 일치 확인**
+
+### STEP 3. Auth 검증 + 코드 채번
+
+1. [Auth] A2 검증 4종 전부 **0건** (비0 → 해당 행 처리 결정 후 재개)
+2. [Auth] A3 invite_code 채번 → `remaining = 0` 까지 반복
+
+### STEP 4. 본 적재 + manifest (auto-commit OFF 권장)
+
+1. [Auth] A4 그룹 INSERT → **영향 행수 = N**
+2. [Auth] A4 manifest SELECT → **N행** → 결과 우클릭 → Export Data → Database → 학심정 `mig_manifest` (A5 CREATE 선행)
+3. [Auth] A4 멤버 INSERT → 행수 = M (교사 제외분 감안)
+4. 커밋 → mypage 에서 교사 1명 로그인해 그룹 표시 눈검증
+
+### STEP 5. 학심정 backfill
+
+1. [학심정] A5 UPDATE → **영향 행수 = N**
+2. `SELECT COUNT(*) FROM group_info WHERE sp_group_id IS NOT NULL;` = N
+3. 잔여: `use_yn='Y' AND sp_group_id IS NULL` 행 = 0건 확인
+
+### STEP 6. 동기화 ON + no-op 검증
+
+1. `GROUP_SYNC_ENABLED=true` → 재기동. 1분 내 부트스트랩 자동 수행
+2. ★ 핵심 체크: 로그에 **`[GROUP-SYNC] 그룹 생성` 이 0건**이어야 함 (전부 기존 행 매칭).
+   나온다면 = manifest 누락 (단, freeze 중 mypage 에서 만든 신규 그룹이면 정상)
+3. group_info 행 수 불변(중복 생성 없음) + cla_id 변동 없음
+4. 기존 검사 그룹 하나로 교사 화면에서 **검사 결과 조회** — 이력 연속성 최종 확인
+
+### STEP 7. 피드 검증 + 마무리
+
+1. mypage 그룹명 수정/학생 합류 → 1분+5초 내 학심정 반영 + T1 SSE 알림
+2. FE 전환 배포 (그룹 관리 진입점 → mypage) — P4 와 동시
+3. 스테이징/manifest 테이블 DROP
+4. 익일 04시 전체 재동기화 로그 **보정 0건** 확인
+
+### 롤백 포인트
+
+| 시점 | 롤백 |
+|---|---|
+| STEP 4 이전 | 영향 없음 — 스테이징 DROP 만 |
+| STEP 4 후 | Auth 적재분 삭제: manifest 의 sp_group_id 로 `DELETE FROM group_member WHERE group_id IN (...)` → `DELETE FROM group_info WHERE id IN (...)` |
+| STEP 5 후 | `UPDATE group_info SET sp_group_id = NULL` |
+| STEP 6 후 | `GROUP_SYNC_ENABLED=false` + 위 둘 (provisioned='Y' user 도 정리) |
+
+---
+
 ## 9. Auth팀 추가 요청사항 (03 §8 에 합산)
 
 9. **그룹 bulk import 스크립트** 작성 가능 여부 + 일정 — export JSON 포맷 협의
