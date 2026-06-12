@@ -3,25 +3,21 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Search, Mail, X, Plus, Users } from 'lucide-react';
+import { Search, X, Users } from 'lucide-react';
 import type { GroupMember } from '../types';
 
 interface StudentManagementPanelProps {
   members: GroupMember[];
   isOwner: boolean;
-  onInvite: (email: string) => void;
   onKick: (memberId: string) => void;
 }
 
 export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({
   members,
   isOwner,
-  onInvite,
   onKick,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [isInviting, setIsInviting] = useState(false);
 
   // 활성 멤버만 필터링
   const activeMembers = useMemo(() => {
@@ -39,23 +35,6 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({
     );
   }, [activeMembers, searchTerm]);
 
-  const handleInvite = async () => {
-    if (!inviteEmail.trim()) return;
-    setIsInviting(true);
-    try {
-      await onInvite(inviteEmail.trim());
-      setInviteEmail('');
-    } finally {
-      setIsInviting(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleInvite();
-    }
-  };
-
   // 검색바 표시 조건: 학생 9명 이상
   const showSearch = activeMembers.length >= 9;
 
@@ -67,32 +46,6 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({
         학생 관리
         <span className="sub">{activeMembers.length}명</span>
       </h3>
-
-      {/* 이메일 초대 (방장만) */}
-      {isOwner && (
-        <div className="vj-mem-invite">
-          <div className="vj-mem-invite-row">
-            <div className="vj-mem-input-wrap">
-              <Mail size={14} />
-              <input
-                type="email"
-                placeholder="이메일 주소 입력"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
-            </div>
-            <button
-              onClick={handleInvite}
-              disabled={!inviteEmail.trim() || isInviting}
-              className="btn primary sm"
-            >
-              <Plus size={14} />
-              초대
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* 검색 (9명 이상일 때만) */}
       {showSearch && (

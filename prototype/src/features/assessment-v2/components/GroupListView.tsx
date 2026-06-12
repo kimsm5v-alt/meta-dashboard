@@ -11,16 +11,12 @@ interface GroupListViewProps {
   groups: GroupWithExamState[];
   onSelectGroup: (groupId: string) => void;
   onCreateGroup: () => void;
-  onEditGroup: (group: GroupWithExamState) => void;
-  onDeleteGroup: (group: GroupWithExamState) => void;
 }
 
 export const GroupListView: React.FC<GroupListViewProps> = ({
   groups,
   onSelectGroup,
   onCreateGroup,
-  onEditGroup,
-  onDeleteGroup,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -76,8 +72,6 @@ export const GroupListView: React.FC<GroupListViewProps> = ({
               key={group.id}
               group={group}
               onSelect={onSelectGroup}
-              onEdit={onEditGroup}
-              onDelete={onDeleteGroup}
             />
           ))}
         </div>
