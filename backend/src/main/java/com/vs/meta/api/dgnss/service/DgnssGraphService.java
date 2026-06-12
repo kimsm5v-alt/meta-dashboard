@@ -71,6 +71,7 @@ public class DgnssGraphService {
         if (MapUtils.isEmpty(lpaResult)) {
             throw new IllegalArgumentException("answerIdx에 대한 LPA 결과가 없습니다. answerIdx=" + answerIdx);
         }
+        lpaResult.remove("probabilitiesJson"); // 거대 raw 확률 문자열 제거 (lpaTop 확률로 대체)
 
         String className = MapUtils.getString(lpaResult, "typeName", "");
         String schoolLevel = MapUtils.getString(lpaResult, "schoolLevel", "");
@@ -78,9 +79,7 @@ public class DgnssGraphService {
             throw new IllegalArgumentException("LPA 유형(typeName)이 비어 있습니다. answerIdx=" + answerIdx);
         }
 
-        // 개별화 코칭 경로 선별 (기술명세서 4.4)
-        //  1) 개인 T점수 ↔ LPA 집단 평균 T점수(GROUP_TSCORE) 편차로 강점/보완점 각 3개 선별
-        //  2) 선별 요인이 Z(조절변수)로 연결된 ModerationPath(Z_INDIVIDUAL)를 코칭경로로 제시
+        // 개별화 코칭 (기술명세서 4.4): 개인 T점수 ↔ LPA 집단 평균(GROUP_TSCORE) 편차로 강점/보완점 각 3개 선별
         Map<String, Double> studentTScores = loadStudentTScores(answerIdx);
         List<Map<String, Object>> groupTScores = queryGroupTScores(className, schoolLevel);
         List<Map<String, Object>> deviations = computeFactorDeviations(studentTScores, groupTScores);
@@ -88,11 +87,9 @@ public class DgnssGraphService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("answerIdx", answerIdx);
         result.put("lpa", lpaResult);
-        // 유형별 특이점: 학생 개인 T점수(절대값, 부적요인 역채점)로 강점 3 + 보완점 3 선별
-        result.put("distinctiveFactors", buildDistinctiveFactors(studentTScores, groupTScores));
 
         if (deviations.isEmpty()) {
-            // 개인 점수 또는 집단 평균(GROUP_TSCORE)을 확보하지 못한 경우: 유형(class) 기본 경로로 폴백
+            // 개인 점수 또는 집단 평균(GROUP_TSCORE) 미확보: 유형(class) 기본 경로로 폴백
             List<Map<String, Object>> fallback = queryModerationPaths(className, schoolLevel, limit);
             result.put("strengths", new ArrayList<>());
             result.put("weaknesses", new ArrayList<>());
@@ -101,39 +98,29 @@ public class DgnssGraphService {
             return result;
         }
 
-        // need 내림차순 정렬: need 클수록 보완 필요(약점), 작을수록 강점
+        // need 내림차순: 클수록 보완 필요(보완점), 작을수록 강점
         deviations.sort((a, b) -> Double.compare(
                 MapUtils.getDoubleValue(b, "need", 0d), MapUtils.getDoubleValue(a, "need", 0d)));
 
-        // 보완점 3개: need 상위
-        List<Map<String, Object>> weaknesses = buildFactorCoaching(
-                deviations.subList(0, Math.min(SELECT_COUNT, deviations.size())), className, schoolLevel);
-
-        // 강점 3개: need 하위(가장 강한 순으로 뒤집어 제시)
+        // 유형별 특이점(편차 기반): 보완점 3 = need 상위, 강점 3 = need 하위(강한 순). 요인 정보만 — 경로는 분리.
+        List<Map<String, Object>> weaknesses = stripInternal(
+                deviations.subList(0, Math.min(SELECT_COUNT, deviations.size())));
         int from = Math.max(0, deviations.size() - SELECT_COUNT);
         List<Map<String, Object>> strengthSource = new ArrayList<>(deviations.subList(from, deviations.size()));
         Collections.reverse(strengthSource);
-        List<Map<String, Object>> strengths = buildFactorCoaching(strengthSource, className, schoolLevel);
+        List<Map<String, Object>> strengths = stripInternal(strengthSource);
 
-        // 하위호환: 기존 FE가 소비하는 평면 moderationPaths = 보완점 코칭경로
-        List<Map<String, Object>> weaknessPaths = new ArrayList<>();
+        // 코칭경로: 보완점 요인이 Z(조절변수)인 ModerationPath(Z_INDIVIDUAL) — FE 코칭 전략용 평면 배열
+        List<Map<String, Object>> moderationPaths = new ArrayList<>();
         for (Map<String, Object> w : weaknesses) {
-            Object paths = w.get("moderationPaths");
-            if (paths instanceof List<?> list) {
-                for (Object p : list) {
-                    if (p instanceof Map<?, ?> pathMap) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> casted = (Map<String, Object>) pathMap;
-                        weaknessPaths.add(casted);
-                    }
-                }
-            }
+            moderationPaths.addAll(
+                    queryModerationPathsByZFactor(className, schoolLevel, MapUtils.getString(w, "factorName", "")));
         }
 
         result.put("strengths", strengths);
         result.put("weaknesses", weaknesses);
-        result.put("moderationPaths", weaknessPaths);
-        result.put("recommendationCount", weaknessPaths.size());
+        result.put("moderationPaths", moderationPaths);
+        result.put("recommendationCount", moderationPaths.size());
         return result;
     }
 
@@ -198,66 +185,15 @@ public class DgnssGraphService {
         return result;
     }
 
-    /**
-     * 유형별 특이점: 학생 개인 T점수(절대값)를 기준으로 강점 3 + 보완점 3 요인을 선별한다.
-     * 부적요인은 역채점(100 − T)으로 "높을수록 좋음" 척도로 통일한 뒤 정적요인과 함께 순위를 매긴다.
-     * <ul>
-     *   <li>강점: 역채점 점수 상위 3개</li>
-     *   <li>보완점: 역채점 점수 하위 3개(가장 낮은 순)</li>
-     * </ul>
-     * GROUP_TSCORE 로 연결된 잎 요인(38개)만 대상 — factor_type 판정 및 상위 분류명 제외에 사용한다.
-     */
-    private Map<String, Object> buildDistinctiveFactors(Map<String, Double> studentTScores,
-                                                        List<Map<String, Object>> groupTScores) {
-        List<Map<String, Object>> items = new ArrayList<>();
-        if (!studentTScores.isEmpty() && CollectionUtils.isNotEmpty(groupTScores)) {
-            for (Map<String, Object> g : groupTScores) {
-                String name = MapUtils.getString(g, "factorName", "");
-                if (StringUtils.isBlank(name) || !studentTScores.containsKey(name)) {
-                    continue;
-                }
-                boolean negative = "negative".equalsIgnoreCase(MapUtils.getString(g, "factorType", ""));
-                double individualT = studentTScores.get(name);
-                double adjustedScore = negative ? (100.0 - individualT) : individualT; // 부적요인 역채점
-
-                Map<String, Object> row = new LinkedHashMap<>();
-                row.put("factorName", name);
-                row.put("factorType", MapUtils.getString(g, "factorType", ""));
-                row.put("individualT", individualT);
-                row.put("adjustedScore", adjustedScore);
-                items.add(row);
-            }
-        }
-
-        // 역채점 점수 내림차순 — 앞쪽이 강점, 뒤쪽이 보완점
-        items.sort((a, b) -> Double.compare(
-                MapUtils.getDoubleValue(b, "adjustedScore", 0d), MapUtils.getDoubleValue(a, "adjustedScore", 0d)));
-
-        List<Map<String, Object>> strengths =
-                new ArrayList<>(items.subList(0, Math.min(SELECT_COUNT, items.size())));
-
-        int from = Math.max(0, items.size() - SELECT_COUNT);
-        List<Map<String, Object>> weaknesses = new ArrayList<>(items.subList(from, items.size()));
-        Collections.reverse(weaknesses); // 가장 낮은(보완 필요) 요인부터
-
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("strengths", strengths);
-        out.put("weaknesses", weaknesses);
-        return out;
-    }
-
-    /** 선별된 요인 각각에 Z_INDIVIDUAL 조절경로를 붙여 코칭 항목 리스트를 만든다. */
-    private List<Map<String, Object>> buildFactorCoaching(List<Map<String, Object>> factors,
-                                                          String className, String schoolLevel) {
-        List<Map<String, Object>> items = new ArrayList<>();
+    /** 편차 계산 내부값(need)을 제거한 요인 정보 복사본 리스트 (유형별 특이점 응답용). */
+    private List<Map<String, Object>> stripInternal(List<Map<String, Object>> factors) {
+        List<Map<String, Object>> out = new ArrayList<>();
         for (Map<String, Object> f : factors) {
-            String name = MapUtils.getString(f, "factorName", "");
-            Map<String, Object> item = new LinkedHashMap<>(f);
-            item.remove("need"); // 내부 계산용 값은 응답에서 제외
-            item.put("moderationPaths", queryModerationPathsByZFactor(className, schoolLevel, name));
-            items.add(item);
+            Map<String, Object> m = new LinkedHashMap<>(f);
+            m.remove("need");
+            out.add(m);
         }
-        return items;
+        return out;
     }
 
     /** 특정 요인이 Z(조절변수, Z_INDIVIDUAL)인 ModerationPath를 조회한다 (기술명세서 7.4). */
@@ -266,8 +202,7 @@ public class DgnssGraphService {
                 + "MATCH (c:LPAClass {name: $className})-[:HAS_MODERATION_PATH]->(m:ModerationPath)"
                 + "<-[:Z_INDIVIDUAL]-(f:Factor {name: $factorName}) "
                 + "WHERE ($schoolLevel = '' OR c.school_level = $schoolLevel) "
-                + "RETURN c.name AS className, c.school_level AS schoolLevel, c.description AS classDescription, "
-                + "       m.id AS id, m.path_type AS pathType, m.path_color AS pathColor, "
+                + "RETURN m.id AS id, m.path_type AS pathType, m.path_color AS pathColor, "
                 + "       m.x AS x, m.z AS z, m.y AS y, "
                 + "       m.keyword_interp AS keywordInterp, m.keyword_strat AS keywordStrat, "
                 + "       m.interpretation AS interpretation, m.strategy AS strategy "
@@ -330,8 +265,7 @@ public class DgnssGraphService {
         String query = ""
                 + "MATCH (c:LPAClass {name: $className})-[:HAS_MODERATION_PATH]->(m:ModerationPath) "
                 + "WHERE $schoolLevel = '' OR c.school_level = $schoolLevel "
-                + "RETURN c.name AS className, c.school_level AS schoolLevel, c.description AS classDescription, "
-                + "       m.id AS id, m.path_type AS pathType, m.path_color AS pathColor, "
+                + "RETURN m.id AS id, m.path_type AS pathType, m.path_color AS pathColor, "
                 + "       m.x AS x, m.z AS z, m.y AS y, "
                 + "       m.keyword_interp AS keywordInterp, m.keyword_strat AS keywordStrat, "
                 + "       m.interpretation AS interpretation, m.strategy AS strategy "
@@ -361,9 +295,6 @@ public class DgnssGraphService {
     /** ModerationPath 레코드 → 응답 row 매핑 (queryModerationPaths / queryModerationPathsByFactors 공통). */
     private Map<String, Object> mapModerationPathRow(Record record) {
         Map<String, Object> row = new LinkedHashMap<>();
-        row.put("className", record.get("className").asString(""));
-        row.put("schoolLevel", record.get("schoolLevel").asString(""));
-        row.put("classDescription", record.get("classDescription").asString(""));
         row.put("id", record.get("id").asString(""));
         row.put("pathType", record.get("pathType").asString(""));
         row.put("pathColor", record.get("pathColor").asString(""));
