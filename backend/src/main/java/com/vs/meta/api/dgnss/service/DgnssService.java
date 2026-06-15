@@ -1373,10 +1373,11 @@ public class DgnssService {
         }
         enrichLpaTop3(stAnalysisList);
         Map<String, Map<String, Object>> lpaTopByOrd = extractLpaTopByOrd(stAnalysisList);
+        // 그래프 추천은 종합검사(paperIdx=1)에서만 — 자기조절(2) 등은 recommendationByOrd 자체를 응답에서 제외
         boolean includeGraphRecommendation = StringUtils.equalsIgnoreCase(
                 MapUtils.getString(param, "graphYn", "N"),
                 "Y"
-        );
+        ) && StringUtils.equals(resolvedPaperIdx, "1");
         Map<String, Object> recommendationByOrd = includeGraphRecommendation
                 ? fetchGraphRecommendationByOrd(stAnalysisList)
                 : new LinkedHashMap<>();
