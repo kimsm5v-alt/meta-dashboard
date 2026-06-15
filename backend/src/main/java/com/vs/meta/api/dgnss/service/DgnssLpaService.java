@@ -307,9 +307,10 @@ public class DgnssLpaService {
         if (StringUtils.equals(storedSchoolLevel, "elementary")) {
             return "elementary";
         }
-        if (StringUtils.equals(storedSchoolLevel, "middle") || StringUtils.equals(storedSchoolLevel, "high")) {
+        if (StringUtils.equals(storedSchoolLevel, "middle")) {
             return "middle";
         }
+        // 고등(high)은 LPA 모델 미지원 → 채점하지 않음(UNSUPPORTED 처리)
         return "";
     }
 
