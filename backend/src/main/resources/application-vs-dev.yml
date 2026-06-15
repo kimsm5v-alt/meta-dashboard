@@ -38,6 +38,13 @@ sso:
   poll:
     enabled: true
 
+# ===== IDP 그룹 동기화 (dev: ON) — group-from-idp =====
+# 사전조건: migrations/01-sync-prep.sql 적용(sp_group_id/provisioned/GROUP_CHANGES 커서)
+#          + IdP oauth2_client 에 groups:read scope 부여.
+# 부트스트랩(커서 NULL) → 1분 폴링 → 일1회(04시) 전체 재동기화. ShedLock 으로 단일 인스턴스 실행.
+group-sync:
+  enabled: true
+
 # /actuator/health 응답에 components 상세 노출 (dev 진단용).
 # prod 는 base default(never) 유지.
 management:
