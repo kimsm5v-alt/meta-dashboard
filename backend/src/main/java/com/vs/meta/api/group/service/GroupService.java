@@ -172,13 +172,13 @@ public class GroupService {
             paramData.put("stdtId", existing.getStdtId());
             paramData.put("memberId", existing.getId());
 
-            Integer activeDgnssId = registerActiveDgnssIfNeeded(
+            List<Integer> assignedDgnssIds = registerActiveDgnssIfNeeded(
                     groupInfo.getClaId(),
                     groupInfo.getSchoolLevel(),
                     existing.getStdtId()
             );
-            if (activeDgnssId != null) {
-                paramData.put("dgnssId", activeDgnssId);
+            if (!assignedDgnssIds.isEmpty()) {
+                paramData.put("dgnssIds", assignedDgnssIds);
             }
 
             log.info("회원 그룹 재가입: groupId={}, userNo={}, memberId={}", groupId, userNo, existing.getId());
@@ -213,13 +213,13 @@ public class GroupService {
         paramData.put("stdtId", user.getStdtId());
         paramData.put("memberId", member.getId());
 
-        Integer activeDgnssId = registerActiveDgnssIfNeeded(
+        List<Integer> assignedDgnssIds = registerActiveDgnssIfNeeded(
                 groupInfo.getClaId(),
                 groupInfo.getSchoolLevel(),
                 user.getStdtId()
         );
-        if (activeDgnssId != null) {
-            paramData.put("dgnssId", activeDgnssId);
+        if (!assignedDgnssIds.isEmpty()) {
+            paramData.put("dgnssIds", assignedDgnssIds);
         }
 
         log.info("회원 그룹 참가: groupId={}, userNo={}, memberNo={}", groupId, userNo, memberNo);
@@ -245,25 +245,22 @@ public class GroupService {
         ));
     }
 
-    private Integer registerActiveDgnssIfNeeded(String claId, String schoolLevel, String stdtId) throws Exception {
-        Integer activeDgnssId = groupQueryMapper.findActiveDgnssId(claId);
-        if (activeDgnssId == null || stdtId == null || stdtId.isBlank()) {
-            return activeDgnssId;
+    /**
+     * 그룹 가입 시 진행 중인 학심정 검사를 가입 학생에게 배부한다.
+     * 종합(paperIdx=1)/자기조절(paperIdx=2) 모두 대상이며, 다른 학급 응시 이력자는 제외된다.
+     *
+     * @return 배부된 검사들의 dgnssId 목록 (없으면 빈 목록)
+     */
+    private List<Integer> registerActiveDgnssIfNeeded(String claId, String schoolLevel, String stdtId) throws Exception {
+        if (stdtId == null || stdtId.isBlank()) {
+            return List.of();
         }
-
-        if (dgnssService.existsDgnssResult(activeDgnssId, stdtId)) {
-            log.info("검사 결과 중복 건너뜀: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
-            return activeDgnssId;
-        }
-
         String legacyGrade = SchoolLevel.fromCode(schoolLevel).getLegacyGrade();
-        Map<String, Object> restartParam = new HashMap<>();
-        restartParam.put("dgnssId", activeDgnssId);
-        restartParam.put("claId", claId);
-        restartParam.put("grade", legacyGrade);
-        dgnssService.tcDgnssRestart(restartParam);
-        log.info("활성 검사 자동 등록: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
-        return activeDgnssId;
+        List<Integer> assignedDgnssIds = dgnssService.assignActiveDgnssToStudent(claId, legacyGrade, stdtId);
+        if (!assignedDgnssIds.isEmpty()) {
+            log.info("가입 시 활성 검사 자동 배부: claId={}, stdtId={}, dgnssIds={}", claId, stdtId, assignedDgnssIds);
+        }
+        return assignedDgnssIds;
     }
 
     @Transactional(readOnly = true)

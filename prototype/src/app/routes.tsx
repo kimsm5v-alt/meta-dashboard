@@ -37,7 +37,7 @@ import { ResourceListPage, ResourceDetailPage } from '../features/resources';
 import { CommunityListPage, CommunityDetailPage, CommunityWritePage } from '../features/community';
 
 // 학생용 Feature imports
-import { MyExamListPage, MyResultPage, MySelfregResultPage, StudentGroupsPage } from '../features/student-exam';
+import { MyExamListPage, MyResultPage, MySelfregResultPage, StudentGroupsPage, PreExamFlowPage } from '../features/student-exam';
 
 // 게스트용 Feature imports
 import { GuestExamListPage, GuestCompletePage } from '../features/guest-exam';
@@ -197,6 +197,8 @@ export const AppRoutes = () => (
     <Route element={<StudentProtectedLayout />}>
       <Route path="/student/groups" element={<StudentGroupsPage />} />
       <Route path="/student/exams" element={<MyExamListPage />} />
+      {/* 검사 응시 전 플로우 (안내·동의 → 기본 정보 입력) */}
+      <Route path="/student/exam/prepare" element={<PreExamFlowPage />} />
       {/* 학생 결과보기 - 학습종합검사 */}
       <Route path="/student/result" element={<Navigate to="/student/result/comprehensive" replace />} />
       <Route path="/student/result/comprehensive" element={<MyResultPage />} />
