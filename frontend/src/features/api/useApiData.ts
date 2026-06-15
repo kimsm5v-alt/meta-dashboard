@@ -111,25 +111,29 @@ export function useStudentAnalysis(
       const completedR2 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 2);
       const dgnssIds = { round1: completedR1?.dgnssId, round2: completedR2?.dgnssId };
       let classStudents: Student[] = [];
-
-      if (completedR1) {
-        // L2 대시보드 데이터를 가져와서 학생 목록을 추출합니다.
-        const l2Data = await fetchL2DashboardData(completedR1.dgnssId, classId, schoolLevel, grade);
-        classStudents = l2Data.students; // 서버에서 받아온 실제 학생 목록
-      }
-
       let studentName = '학생';
       let studentNumber = 0;
+
       if (completedR1) {
         try {
+          // 네비게이션용 학생 목록은 기본 정보만 필요 — 분석 API 추가 호출 없음
           const infoList = await fetchStudentInfoList(completedR1.dgnssId, '1', 1);
+          classStudents = infoList.map((info) => ({
+            id: info.stdtId,
+            classId,
+            number: info.rowNum,
+            name: info.stdtNm ?? info.nickname ?? `학생${info.rowNum}`,
+            schoolLevel,
+            grade,
+            assessments: [],
+          }));
           const info = infoList.find((s) => s.stdtId === studentId);
           if (info) {
             studentName = info.stdtNm ?? info.nickname ?? `학생${info.rowNum}`;
             studentNumber = info.rowNum;
           }
         } catch {
-          // 이름 조회 실패 시 fallback 유지
+          // 조회 실패 시 fallback 유지
         }
       }
 
@@ -519,6 +523,76 @@ export function useTeacherClasses(): UseTeacherClassesResult {
     refetch: () => {
       void query.refetch();
     },
+  };
+}
+
+// ============================================================
+// 사이드바용 경량 학급 목록 훅 (분석 API 호출 없음)
+// ============================================================
+
+interface TeacherClassMeta {
+  id: string;
+  grade: number;
+  classNumber: number;
+  schoolLevel: SchoolLevel;
+}
+
+interface UseTeacherClassListResult {
+  classes: TeacherClassMeta[];
+  isLoading: boolean;
+  examStatus: ExamStatus;
+}
+
+export function useTeacherClassList(): UseTeacherClassListResult {
+  const { user } = useAuth();
+  const { schoolLevel: credSchoolLevel } = useCredentials();
+
+  const query = useQuery<{ classes: TeacherClassMeta[]; examStatus: ExamStatus }>({
+    queryKey: ['teacher', 'class-list', user?.id],
+    queryFn: async () => {
+      if (!user) return { classes: [], examStatus: 'no-exams' as ExamStatus };
+
+      const groups = await groupService.getMyGroups(user.id);
+      if (groups.length === 0) return { classes: [], examStatus: 'no-exams' as ExamStatus };
+
+      const groupDgnssResults = await Promise.all(
+        groups.map(async (group) => {
+          try {
+            const dgnssList = await dgnssService.getDgnssList(group.claId);
+            return { group, dgnssList };
+          } catch {
+            return { group, dgnssList: [] };
+          }
+        }),
+      );
+
+      const hasActive = groupDgnssResults.some((r) => r.dgnssList.some((d) => d.dgnssAt === 'Y'));
+      const hasCompleted = groupDgnssResults.some((r) =>
+        r.dgnssList.some((d) => d.dgnssAt === 'N'),
+      );
+
+      let examStatus: ExamStatus = 'no-exams';
+      if (hasActive && !hasCompleted) examStatus = 'in-progress';
+      else if (hasCompleted) examStatus = 'completed';
+
+      const classes: TeacherClassMeta[] = groupDgnssResults
+        .filter(({ dgnssList }) => dgnssList.some((d) => d.dgnssAt === 'N'))
+        .map(({ group }) => ({
+          id: group.claId,
+          grade: group.grade,
+          classNumber: group.classNumber,
+          schoolLevel: SCHOOL_LEVEL_MAP[group.schoolLevel] ?? credSchoolLevel,
+        }));
+
+      return { classes, examStatus };
+    },
+    enabled: !!user,
+  });
+
+  return {
+    classes: query.data?.classes ?? [],
+    isLoading: query.isLoading,
+    examStatus: query.data?.examStatus ?? 'no-exams',
   };
 }
 

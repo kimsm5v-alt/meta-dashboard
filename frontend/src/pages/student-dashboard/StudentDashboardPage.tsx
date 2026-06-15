@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
@@ -365,8 +365,13 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     fetchCoachingStrategy,
   } = useCoachingStrategy(classId, studentId, selectedRound);
 
-  // 학생/차수 변경 시 코칭 전략 자동 로드
+  const coachingFetchKeyRef = useRef<string>('');
+
+  // 학생/차수 변경 시 코칭 전략 자동 로드 (StrictMode 이중 실행 방지)
   useEffect(() => {
+    const key = `${studentId}-${selectedRound}`;
+    if (coachingFetchKeyRef.current === key) return;
+    coachingFetchKeyRef.current = key;
     void fetchCoachingStrategy();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, selectedRound]);

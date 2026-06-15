@@ -1,6 +1,7 @@
 export {
   useApiConfig,
   useTeacherClasses,
+  useTeacherClassList,
   useClassStudents,
   useStudentAnalysis,
   useSelfregClassAnalysis,
