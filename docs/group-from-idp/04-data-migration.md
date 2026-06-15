@@ -156,23 +156,37 @@ UPDATE group_info gi
 > 앱 불변식(교사 멤버 차단·코드 규칙)을 우회한다 — 검증 쿼리(A2)로 반드시 대체할 것.
 > 전제: Auth DB 백업 완료, freeze window 내 실행, `@tenant` = 학심정 tenant_id 확인.
 
-### A1. 학심정 DB — export (CSV 2개)
+### A1. 학심정 DB — export (CSV 2개) — **resolve 가능 행만 필터**
+
+> 정책(2026-06): **sp_user_id 없는 행은 이관 제외**(Auth 가 식별 불가 — 회원 전환 전 레거시). 아래 필터가
+> §5 V2(호스트 매핑불가 그룹)·V3(교사 멤버)·V4(sp 없는 멤버)를 자동 제외한다. dev 검증 시 V2~V4 가
+> 비0 여도 이 필터로 깨끗한 집합만 넘어간다. prod 도 동일 필터 사용 (별도 데이터 클렌징 불요).
 
 ```sql
--- groups.csv
+-- groups.csv — 호스트가 sp_user_id 보유 + ACTIVE 인 그룹만 (V2 제외)
 SELECT gi.cla_id, gi.group_nm, gi.school_level, gi.grade, gi.class_number,
        gi.school_code, gi.school_name, hu.sp_user_id AS owner_public_user_id, gi.created_at
   FROM group_info gi
   JOIN `user` hu ON hu.user_no = gi.host_user_no
- WHERE gi.use_yn = 'Y';
+ WHERE gi.use_yn = 'Y'
+   AND hu.sp_user_id IS NOT NULL
+   AND hu.status = 'ACTIVE';
 
--- members.csv (ACTIVE 만)
+-- members.csv — 위 그룹의 멤버 중 학생 + sp_user_id 보유만 (V3·V4 제외)
+--   호스트 조건(hu)을 재차 거는 이유: 제외된 그룹의 멤버가 부모 없이 딸려가지 않도록.
 SELECT gi.cla_id, mu.sp_user_id AS member_public_user_id, gm.joined_at
   FROM group_member gm
   JOIN group_info gi ON gi.group_id = gm.group_id AND gi.use_yn = 'Y'
+  JOIN `user` hu ON hu.user_no = gi.host_user_no
+                 AND hu.sp_user_id IS NOT NULL AND hu.status = 'ACTIVE'
   JOIN `user` mu ON mu.user_no = gm.user_no
- WHERE gm.status = 'ACTIVE';
+ WHERE gm.status = 'ACTIVE'
+   AND mu.role_code = 'STUDENT'
+   AND mu.sp_user_id IS NOT NULL;
 ```
+
+> ⚠️ 이관 후 검증(STEP 5 backfill·STEP 6 부트스트랩)의 대조 기준은 V1 전체 건수가 아니라
+> **이 필터를 통과한 migratable 건수**다 (제외분만큼 차이남 — 정상).
 
 ### A2. Auth DB — 스테이징 + 검증
 
