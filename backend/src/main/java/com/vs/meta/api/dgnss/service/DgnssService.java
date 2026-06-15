@@ -1119,6 +1119,7 @@ public class DgnssService {
 
         for (Map<String, Object> map : stInfoList) {
             int ordNoInt = MapUtils.getInteger(map, "ord_no", 0);
+            map.remove("ord_no"); // FE 미사용 — 회차는 응답 키("1"/"2")로 구분
             if (ordNoInt == 1) {
                 ord1List.add(map);
             } else if (ordNoInt == 2) {
@@ -1384,7 +1385,6 @@ public class DgnssService {
         removeLpaTopFromRows(stAnalysisList);
 
         Map<String, Object> resultMap = new LinkedHashMap<>();
-        resultMap.put("stUserInfo", stUserInfo);
         resultMap.put("lpaTop", lpaTopByOrd);
         if (includeGraphRecommendation) {
             resultMap.put("recommendationByOrd", recommendationByOrd);
@@ -2532,10 +2532,7 @@ public class DgnssService {
             }
 
             Map<String, Object> lpaTop = new LinkedHashMap<>();
-            lpaTop.put("lpaClassId", row.get("lpaClassId"));
             lpaTop.put("lpaTypeName", row.get("lpaTypeName"));
-            lpaTop.put("lpaConfidence", row.get("lpaConfidence"));
-            lpaTop.put("lpaStatus", row.get("lpaStatus"));
             lpaTop.put("lpaTop1TypeName", row.get("lpaTop1TypeName"));
             lpaTop.put("lpaTop1Probability", row.get("lpaTop1Probability"));
             lpaTop.put("lpaTop2TypeName", row.get("lpaTop2TypeName"));
