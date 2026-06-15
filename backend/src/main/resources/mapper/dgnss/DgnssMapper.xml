@@ -2984,22 +2984,15 @@
 
 	<select id="selectStLernAnalysis" parameterType="map" resultType="map">
 		/* DgnssMapper.selectStLernAnalysis */
-		SELECT b1.id AS dgnssResultId
-			, c1.ANSWER_IDX AS answerIdx
+		SELECT c1.ANSWER_IDX AS answerIdx
 			, d1.SECTION_ID
 			, d1.`DEPTH`
-			, e1.SECTION_NM
 			, IF(d1.T_SCORE <![CDATA[<]]> 0, 0, d1.T_SCORE) AS tScore
 			, a1.ord_no
-			, a1.cla_id AS claId
-			, gi.group_nm AS groupNm
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, lpa.class_id AS lpaClassId
 			, lpa.type_name AS lpaTypeName
-			, lpa.confidence AS lpaConfidence
-			, lpa.status AS lpaStatus
 			, lpa.probabilities_json AS lpaProbabilitiesJson
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id

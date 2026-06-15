@@ -148,9 +148,8 @@ public class DgnssGraphService {
         String className = MapUtils.isEmpty(lpaResult) ? "" : MapUtils.getString(lpaResult, "typeName", "");
         // LPA 결과/유형이 없으면(자기조절·미분류 등) 예외 대신 빈 추천을 반환한다.
         if (MapUtils.isEmpty(lpaResult) || StringUtils.isBlank(className)) {
-            return emptyRecommendation(answerIdx, lpaResult);
+            return emptyRecommendation(answerIdx);
         }
-        lpaResult.remove("probabilitiesJson"); // 거대 raw 확률 문자열 제거 (lpaTop 확률로 대체)
 
         String schoolLevel = MapUtils.getString(lpaResult, "schoolLevel", "");
 
@@ -161,7 +160,6 @@ public class DgnssGraphService {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("answerIdx", answerIdx);
-        result.put("lpa", lpaResult);
 
         if (deviations.isEmpty()) {
             // 개인 점수 또는 집단 평균(GROUP_TSCORE) 미확보: 유형(class) 기본 경로로 폴백
@@ -170,7 +168,6 @@ public class DgnssGraphService {
             result.put("weaknesses", new ArrayList<>());
             result.put("typeDeviations", new ArrayList<>());
             result.put("moderationPaths", fallback);
-            result.put("recommendationCount", fallback.size());
             return result;
         }
 
@@ -197,7 +194,6 @@ public class DgnssGraphService {
         result.put("weaknesses", weaknesses);
         result.put("typeDeviations", buildTypeDeviations(deviations, SELECT_COUNT));
         result.put("moderationPaths", moderationPaths);
-        result.put("recommendationCount", moderationPaths.size());
         return result;
     }
 
@@ -292,15 +288,13 @@ public class DgnssGraphService {
     }
 
     /** LPA 결과/유형이 없을 때(자기조절·미분류 등) 내려줄 빈 추천 응답. */
-    private Map<String, Object> emptyRecommendation(int answerIdx, Map<String, Object> lpaResult) {
+    private Map<String, Object> emptyRecommendation(int answerIdx) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("answerIdx", answerIdx);
-        result.put("lpa", MapUtils.isEmpty(lpaResult) ? new LinkedHashMap<>() : lpaResult);
         result.put("strengths", new ArrayList<>());
         result.put("weaknesses", new ArrayList<>());
         result.put("typeDeviations", new ArrayList<>());
         result.put("moderationPaths", new ArrayList<>());
-        result.put("recommendationCount", 0);
         return result;
     }
 
@@ -321,9 +315,8 @@ public class DgnssGraphService {
                 + "MATCH (c:LPAClass {name: $className})-[:HAS_MODERATION_PATH]->(m:ModerationPath)"
                 + "<-[:Z_INDIVIDUAL]-(f:Factor {name: $factorName}) "
                 + "WHERE ($schoolLevel = '' OR c.school_level = $schoolLevel) "
-                + "RETURN m.id AS id, m.path_type AS pathType, m.path_color AS pathColor, "
+                + "RETURN m.id AS id, m.path_type AS pathType, "
                 + "       m.x AS x, m.z AS z, m.y AS y, "
-                + "       m.keyword_interp AS keywordInterp, m.keyword_strat AS keywordStrat, "
                 + "       m.interpretation AS interpretation, m.strategy AS strategy "
                 + "ORDER BY m.id";
 
@@ -384,9 +377,8 @@ public class DgnssGraphService {
         String query = ""
                 + "MATCH (c:LPAClass {name: $className})-[:HAS_MODERATION_PATH]->(m:ModerationPath) "
                 + "WHERE $schoolLevel = '' OR c.school_level = $schoolLevel "
-                + "RETURN m.id AS id, m.path_type AS pathType, m.path_color AS pathColor, "
+                + "RETURN m.id AS id, m.path_type AS pathType, "
                 + "       m.x AS x, m.z AS z, m.y AS y, "
-                + "       m.keyword_interp AS keywordInterp, m.keyword_strat AS keywordStrat, "
                 + "       m.interpretation AS interpretation, m.strategy AS strategy "
                 + "ORDER BY m.id "
                 + "LIMIT $limit";
@@ -416,12 +408,9 @@ public class DgnssGraphService {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("id", record.get("id").asString(""));
         row.put("pathType", record.get("pathType").asString(""));
-        row.put("pathColor", record.get("pathColor").asString(""));
         row.put("x", record.get("x").asString(""));
         row.put("z", record.get("z").asString(""));
         row.put("y", record.get("y").asString(""));
-        row.put("keywordInterp", record.get("keywordInterp").asString(""));
-        row.put("keywordStrat", record.get("keywordStrat").asString(""));
         row.put("interpretation", record.get("interpretation").asString(""));
         row.put("strategy", record.get("strategy").asString(""));
         return row;
