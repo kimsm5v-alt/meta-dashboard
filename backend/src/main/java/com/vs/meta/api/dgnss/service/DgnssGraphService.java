@@ -68,16 +68,14 @@ public class DgnssGraphService {
 
     public Map<String, Object> selectRecommendationByAnswerIdx(int answerIdx, int limit) {
         Map<String, Object> lpaResult = dgnssMapper.selectLpaResultByAnswerIdx(answerIdx);
-        if (MapUtils.isEmpty(lpaResult)) {
-            throw new IllegalArgumentException("answerIdx에 대한 LPA 결과가 없습니다. answerIdx=" + answerIdx);
+        String className = MapUtils.isEmpty(lpaResult) ? "" : MapUtils.getString(lpaResult, "typeName", "");
+        // LPA 결과/유형이 없으면(자기조절·미분류 등) 예외 대신 빈 추천을 반환한다.
+        if (MapUtils.isEmpty(lpaResult) || StringUtils.isBlank(className)) {
+            return emptyRecommendation(answerIdx, lpaResult);
         }
         lpaResult.remove("probabilitiesJson"); // 거대 raw 확률 문자열 제거 (lpaTop 확률로 대체)
 
-        String className = MapUtils.getString(lpaResult, "typeName", "");
         String schoolLevel = MapUtils.getString(lpaResult, "schoolLevel", "");
-        if (StringUtils.isBlank(className)) {
-            throw new IllegalArgumentException("LPA 유형(typeName)이 비어 있습니다. answerIdx=" + answerIdx);
-        }
 
         // 개별화 코칭 (기술명세서 4.4): 개인 T점수 ↔ LPA 집단 평균(GROUP_TSCORE) 편차로 강점/보완점 각 3개 선별
         Map<String, Double> studentTScores = loadStudentTScores(answerIdx);
@@ -214,6 +212,19 @@ public class DgnssGraphService {
     /** 소수점 첫째자리 반올림 (FE 표시값과 동일하게). */
     private double round1(double value) {
         return Math.round(value * 10.0) / 10.0;
+    }
+
+    /** LPA 결과/유형이 없을 때(자기조절·미분류 등) 내려줄 빈 추천 응답. */
+    private Map<String, Object> emptyRecommendation(int answerIdx, Map<String, Object> lpaResult) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("answerIdx", answerIdx);
+        result.put("lpa", MapUtils.isEmpty(lpaResult) ? new LinkedHashMap<>() : lpaResult);
+        result.put("strengths", new ArrayList<>());
+        result.put("weaknesses", new ArrayList<>());
+        result.put("typeDeviations", new ArrayList<>());
+        result.put("moderationPaths", new ArrayList<>());
+        result.put("recommendationCount", 0);
+        return result;
     }
 
     /** 편차 계산 내부값(need)을 제거한 요인 정보 복사본 리스트 (유형별 특이점 응답용). */
