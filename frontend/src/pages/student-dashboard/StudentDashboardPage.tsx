@@ -349,7 +349,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 }) => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
-  const [panelTab, setPanelTab] = useState<PanelTab>(null);
+  const panelTab: PanelTab = null;
   const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
 
   useEffect(() => {
