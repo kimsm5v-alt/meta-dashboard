@@ -3,15 +3,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
 import { useAuth } from '@features/auth/model/AuthContext';
 import {
   EmptyState,
   GroupListView,
   GroupDetailView,
-  GroupFormModal,
-  DeleteGroupModal,
-  QRCodeModal,
 } from '@features/assessment-v2/ui';
 import { ExamStartPreviewModal } from '@features/assessment/ui';
 import { AlertModal } from '@shared/ui/AlertModal/AlertModal';
@@ -30,18 +26,11 @@ import type { ExamStartPreviewResponse } from '@features/assessment/api/assessme
 import {
   getMyGroups,
   getGroupDetail,
-  createGroup,
-  updateGroup,
-  deleteGroup,
-  kickMember,
-  sendEmailInvitation,
 } from '@features/groups/api/groupService';
 import type {
   GroupWithExamState,
   GroupMember,
   ViewMode,
-  ModalType,
-  GroupFormData,
   ExamSlotState,
 } from '@features/assessment-v2/types';
 import type { Group, SchoolLevelCode } from '@shared/types';
@@ -112,11 +101,7 @@ export const AssessmentPageV2 = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [qrModalOpen, setQrModalOpen] = useState(false);
-
-  const [modalType, setModalType] = useState<ModalType>(null);
-  const [modalGroup, setModalGroup] = useState<GroupWithExamState | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  // 그룹 생성/수정/삭제·QR 모달 state 제거 — mypage(SSO)로 이관 (group-from-idp)
 
   // 2회차 사전 검증 모달
   const [previewModal, setPreviewModal] = useState<{
@@ -245,138 +230,7 @@ export const AssessmentPageV2 = () => {
   // 그룹 CRUD
   // ============================================================
 
-  const handleEditGroup = (group: GroupWithExamState) => {
-    setModalGroup(group);
-    setModalType('edit_group');
-  };
-  const handleDeleteGroup = (group: GroupWithExamState) => {
-    setModalGroup(group);
-    setModalType('delete_group');
-  };
-  const handleCloseModal = () => {
-    setModalType(null);
-    setModalGroup(null);
-  };
-
-  const handleSubmitGroupForm = async (data: GroupFormData) => {
-    if (!user?.id || !user?.name) return;
-
-    setIsProcessing(true);
-    try {
-      if (modalType === 'create_group') {
-        const newGroup = await createGroup(
-          {
-            name: data.name,
-            schoolLevel: data.schoolLevel,
-            grade: data.grade,
-            classNumber: data.classNumber,
-            description: data.description,
-            schoolName: data.schoolName,
-          },
-          user.id,
-          user.name,
-        );
-        const enriched = buildGroupWithExamState(newGroup, emptySlots());
-        setGroups((prev) => [...prev, enriched]);
-        setSelectedGroupId(newGroup.id);
-        setViewMode('detail');
-        navigate(`/assessment/${newGroup.id}`);
-      } else if (modalType === 'edit_group' && modalGroup) {
-        const updated = await updateGroup(
-          modalGroup.id,
-          { name: data.name, description: data.description, schoolName: data.schoolName },
-          user.id,
-        );
-        if (updated) {
-          setGroups((prev) =>
-            prev.map((g) =>
-              g.id === modalGroup.id
-                ? {
-                    ...g,
-                    ...updated,
-                    examSlots: g.examSlots,
-                    inProgressCount: g.inProgressCount,
-                    completedCount: g.completedCount,
-                    activeMemberCount: g.activeMemberCount,
-                  }
-                : g,
-            ),
-          );
-        }
-      }
-      handleCloseModal();
-    } catch {
-      // 에러는 무시 (사용자에게 별도 피드백 없음)
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!user?.id || !modalGroup) return;
-
-    setIsProcessing(true);
-    try {
-      const ok = await deleteGroup(modalGroup.id, user.id);
-      if (ok) {
-        setGroups((prev) => prev.filter((g) => g.id !== modalGroup.id));
-        if (selectedGroupId === modalGroup.id) handleBack();
-      }
-      handleCloseModal();
-    } catch {
-      // noop
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // ============================================================
-  // 멤버 관리
-  // ============================================================
-
-  const handleInviteMember = async (email: string) => {
-    if (!user?.id || !selectedGroupId) return;
-    await sendEmailInvitation({ groupId: selectedGroupId, email }, user.id);
-  };
-
-  const handleKickMember = async (memberId: string) => {
-    if (!user?.id || !selectedGroupId) return;
-    try {
-      const ok = await kickMember(selectedGroupId, memberId, user.id);
-      if (ok) {
-        setMembers((prev) => prev.filter((m) => m.id !== memberId));
-        setGroups((prev) =>
-          prev.map((g) =>
-            g.id === selectedGroupId
-              ? { ...g, memberCount: g.memberCount - 1, activeMemberCount: g.activeMemberCount - 1 }
-              : g,
-          ),
-        );
-      }
-    } catch {
-      // noop
-    }
-  };
-
-  // ============================================================
-  // 초대 코드 관련
-  // ============================================================
-
-  const handleCopyInviteCode = () => {
-    if (!selectedGroup) return;
-    navigator.clipboard.writeText(selectedGroup.inviteCode);
-    toast.success('초대 코드가 복사되었습니다.');
-  };
-
-  const handleShowQR = () => {
-    setQrModalOpen(true);
-  };
-
-  const handleCopyInviteLink = () => {
-    if (!selectedGroup) return;
-    navigator.clipboard.writeText(`${window.location.origin}/join/${selectedGroup.inviteCode}`);
-    toast.success('초대 링크가 복사되었습니다.');
-  };
+  // 그룹 생성/수정/삭제·학생 초대/강퇴·초대코드/QR/링크 핸들러 제거 — mypage(SSO)로 이관 (group-from-idp)
 
   // ============================================================
   // 슬롯 상태 업데이트 헬퍼
@@ -607,13 +461,6 @@ export const AssessmentPageV2 = () => {
           allGroups={groups}
           onBack={handleBack}
           onSwitchGroup={handleSwitchGroup}
-          onEditGroup={handleEditGroup}
-          onDeleteGroup={handleDeleteGroup}
-          onInviteMember={handleInviteMember}
-          onKickMember={handleKickMember}
-          onCopyInviteCode={handleCopyInviteCode}
-          onShowQR={handleShowQR}
-          onCopyInviteLink={handleCopyInviteLink}
           onStartExam={handleStartExam}
           onEndExam={handleEndExam}
           onCancelExam={handleCancelExam}
@@ -624,40 +471,7 @@ export const AssessmentPageV2 = () => {
         />
       )}
 
-      {/* 그룹 생성/수정 모달 */}
-      <GroupFormModal
-        isOpen={modalType === 'create_group' || modalType === 'edit_group'}
-        mode={modalType === 'create_group' ? 'create' : 'edit'}
-        initialData={
-          modalType === 'edit_group' && modalGroup
-            ? {
-                name: modalGroup.name,
-                schoolLevel: modalGroup.schoolLevel,
-                grade: modalGroup.grade,
-                classNumber: modalGroup.classNumber,
-                description: modalGroup.description,
-                schoolName: modalGroup.schoolName,
-              }
-            : undefined
-        }
-        onClose={handleCloseModal}
-        onSubmit={handleSubmitGroupForm}
-        isLoading={isProcessing}
-      />
-
-      {/* 그룹 삭제 모달 */}
-      {modalGroup && (
-        <DeleteGroupModal
-          isOpen={modalType === 'delete_group'}
-          group={modalGroup}
-          memberCount={modalGroup.activeMemberCount || modalGroup.memberCount}
-          completedExamCount={modalGroup.completedCount}
-          inProgressExamCount={modalGroup.inProgressCount}
-          onClose={handleCloseModal}
-          onConfirm={handleConfirmDelete}
-          isLoading={isProcessing}
-        />
-      )}
+      {/* 그룹 생성/수정/삭제 모달 제거 — mypage(SSO)로 이관 (group-from-idp) */}
 
       {/* 검사 출제 사전 검증 모달 */}
       <ExamStartPreviewModal
@@ -679,15 +493,7 @@ export const AssessmentPageV2 = () => {
         onConfirm={alertModal.onConfirm}
       />
 
-      {/* QR 코드 초대 모달 */}
-      {selectedGroup && (
-        <QRCodeModal
-          isOpen={qrModalOpen}
-          inviteCode={selectedGroup.inviteCode}
-          inviteUrl={`${window.location.origin}/join/${selectedGroup.inviteCode}`}
-          onClose={() => setQrModalOpen(false)}
-        />
-      )}
+      {/* QR 코드 초대 모달 제거 — mypage(SSO)로 이관 (group-from-idp) */}
     </Wrapper>
   );
 };

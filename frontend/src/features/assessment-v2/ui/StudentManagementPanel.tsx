@@ -1,24 +1,17 @@
 import { useState, useMemo } from 'react';
-import { Search, Mail, X, Plus, Users } from 'lucide-react';
-import { toast } from 'sonner';
+import { Search, Users } from 'lucide-react';
 import type { GroupMember } from '../types';
 
+/**
+ * 학생 관리 패널 — group-from-idp 전환 후 "조회 전용".
+ * 학생 초대(이메일)·강퇴는 mypage(SSO)로 이관되어 제거됨. 멤버 목록 표시/검색만 유지.
+ */
 interface StudentManagementPanelProps {
   members: GroupMember[];
-  isOwner: boolean;
-  onInvite: (email: string) => Promise<void>;
-  onKick: (memberId: string) => void;
 }
 
-export const StudentManagementPanel = ({
-  members,
-  isOwner,
-  onInvite,
-  onKick,
-}: StudentManagementPanelProps) => {
+export const StudentManagementPanel = ({ members }: StudentManagementPanelProps) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [isInviting, setIsInviting] = useState(false);
 
   const activeMembers = useMemo(() => members.filter((m) => m.status === 'active'), [members]);
 
@@ -32,25 +25,6 @@ export const StudentManagementPanel = ({
     );
   }, [activeMembers, searchTerm]);
 
-  const handleInvite = async () => {
-    const email = inviteEmail.trim();
-    if (!email) return;
-    setIsInviting(true);
-    setInviteEmail('');
-    toast.success(`${email}로 초대 이메일을 발송했습니다.`);
-    try {
-      await onInvite(email);
-    } catch {
-      toast.error('초대 이메일 발송에 실패했습니다.');
-    } finally {
-      setIsInviting(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleInvite();
-  };
-
   const showSearch = activeMembers.length >= 9;
 
   return (
@@ -60,32 +34,6 @@ export const StudentManagementPanel = ({
         학생 관리
         <span className="sub">{activeMembers.length}명</span>
       </h3>
-
-      {/* 이메일 초대 (방장만) */}
-      {isOwner && (
-        <div className="vj-mem-invite">
-          <div className="vj-mem-invite-row">
-            <div className="vj-mem-input-wrap">
-              <Mail size={14} />
-              <input
-                type="email"
-                placeholder="이메일 주소 입력"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
-            </div>
-            <button
-              onClick={handleInvite}
-              disabled={!inviteEmail.trim() || isInviting}
-              className="btn primary sm"
-            >
-              <Plus size={14} />
-              초대
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* 검색 (9명 이상) */}
       {showSearch && (
@@ -105,20 +53,14 @@ export const StudentManagementPanel = ({
       <div className="vj-mem-list">
         {filteredMembers.length > 0 ? (
           filteredMembers.map((member, idx) => (
-            <MemberRow
-              key={member.id}
-              member={member}
-              index={idx + 1}
-              isOwner={isOwner}
-              onKick={onKick}
-            />
+            <MemberRow key={member.id} member={member} index={idx + 1} />
           ))
         ) : (
           <div className="vj-mem-empty">
             {searchTerm ? (
               <p>검색 결과가 없습니다</p>
             ) : (
-              <p>아직 학생이 없어요. 위에서 초대해 보세요.</p>
+              <p>아직 학생이 없어요. 마이페이지에서 학생을 초대해 보세요.</p>
             )}
           </div>
         )}
@@ -130,11 +72,9 @@ export const StudentManagementPanel = ({
 interface MemberRowProps {
   member: GroupMember;
   index: number;
-  isOwner: boolean;
-  onKick: (memberId: string) => void;
 }
 
-const MemberRow = ({ member, index, isOwner, onKick }: MemberRowProps) => (
+const MemberRow = ({ member, index }: MemberRowProps) => (
   <div className="vj-mem-row">
     <span className="num">{member.memberNo ?? index}</span>
     <div className="info">
@@ -146,10 +86,5 @@ const MemberRow = ({ member, index, isOwner, onKick }: MemberRowProps) => (
       </p>
       {member.email && <p className="email">{member.email}</p>}
     </div>
-    {isOwner && (
-      <button onClick={() => onKick(member.id)} className="kick-btn" title="강퇴">
-        <X size={14} />
-      </button>
-    )}
   </div>
 );
