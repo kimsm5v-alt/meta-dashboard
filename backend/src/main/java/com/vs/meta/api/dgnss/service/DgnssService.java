@@ -378,14 +378,10 @@ public class DgnssService {
             targetMap.put("paperIdx", MapUtils.getInteger(dgnssInfoMap, "paperIdx", 0));
 
             String grade = MapUtils.getString(param, "grade", "");
-            if (StringUtils.equals(grade, "el")) {
-                targetMap.put("schGrade", "CMM13001");
-            } else if (StringUtils.equals(grade, "mi")) {
-                targetMap.put("schGrade", "CMM13002");
-            } else if (StringUtils.equals(grade, "hi")) {
-                targetMap.put("schGrade", "CMM13003");
+            String schGrade = resolveSchGrade(grade);
+            if (schGrade != null) {
+                targetMap.put("schGrade", schGrade);
             }
-
 
             for (String stdtId : targetStList) {
                 targetMap.put("stdtId", stdtId);
@@ -400,6 +396,106 @@ public class DgnssService {
         dgnssMapper.updateDgnssStatus(param);
         resultMap.put("result", "ok");
         return resultMap;
+    }
+
+    /**
+     * 그룹 가입 시 해당 학생에게 진행 중인 학심정(학습심리정서검사) 시험지를 배부한다.
+     * <ul>
+     *   <li>학급에 진행 중(dgnss_at='Y')인 검사 전체 — 종합(paperIdx=1)/자기조절(paperIdx=2) — 를 대상으로 한다.</li>
+     *   <li>이미 해당 검사에 등록된 경우, 또는 다른 학급 응시 이력으로 차단 대상인 경우 건너뛴다.</li>
+     *   <li>{@link #tcDgnssRestart(Map)} 와 달리 학급 전체가 아니라 가입한 단일 학생만 등록한다.</li>
+     * </ul>
+     *
+     * @param claId  학급 ID
+     * @param grade  레거시 학교급 코드(el/mi/hi)
+     * @param stdtId 가입 학생 ID
+     * @return 실제로 배부(등록)된 검사들의 dgnssId 목록
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public List<Integer> assignActiveDgnssToStudent(String claId, String grade, String stdtId) {
+        List<Integer> assignedDgnssIds = new ArrayList<>();
+        if (StringUtils.isBlank(claId) || StringUtils.isBlank(stdtId)) {
+            return assignedDgnssIds;
+        }
+
+        List<Map<String, Object>> activeDgnssList = dgnssMapper.findActiveDgnssListByClaId(claId);
+        if (CollectionUtils.isEmpty(activeDgnssList)) {
+            return assignedDgnssIds;
+        }
+
+        String schGrade = resolveSchGrade(grade);
+
+        for (Map<String, Object> activeDgnss : activeDgnssList) {
+            int dgnssId = MapUtils.getIntValue(activeDgnss, "dgnssId", 0);
+            int paperIdx = MapUtils.getIntValue(activeDgnss, "paperIdx", 0);
+            int ordNo = MapUtils.getIntValue(activeDgnss, "ordNo", 0);
+            if (dgnssId <= 0) {
+                continue;
+            }
+
+            // 1) 이미 이 검사에 등록되어 있으면 건너뜀(중복 방지)
+            if (existsDgnssResult(dgnssId, stdtId)) {
+                log.info("가입 검사 배부 - 이미 등록됨 건너뜀: dgnssId={}, stdtId={}", dgnssId, stdtId);
+                continue;
+            }
+
+            // 2) 다른 학급에서 이미 응시(진행/완료)한 이력이 있으면 배부 제외
+            if (!isStudentEligibleForJoin(claId, stdtId, paperIdx, ordNo)) {
+                log.info("가입 검사 배부 - 타학급 이력으로 제외: dgnssId={}, stdtId={}, paperIdx={}, ordNo={}",
+                        dgnssId, stdtId, paperIdx, ordNo);
+                continue;
+            }
+
+            // 3) 시험지 INSERT (OMR / 결과 / 답안) — paperIdx 별 컬럼 분기는 매퍼 XML에서 처리
+            Map<String, Object> targetMap = new HashMap<>();
+            targetMap.put("dgnssId", dgnssId);
+            targetMap.put("claId", claId);
+            targetMap.put("ordNo", ordNo);
+            targetMap.put("paperIdx", paperIdx);
+            if (schGrade != null) {
+                targetMap.put("schGrade", schGrade);
+            }
+            targetMap.put("stdtId", stdtId);
+
+            dgnssMapper.insertDgnssOmr(targetMap);
+            dgnssMapper.insertDgnssResult(targetMap);
+            dgnssMapper.insertDgnssAnswer(targetMap);
+
+            assignedDgnssIds.add(dgnssId);
+            log.info("가입 검사 배부 완료: dgnssId={}, stdtId={}, paperIdx={}, ordNo={}",
+                    dgnssId, stdtId, paperIdx, ordNo);
+        }
+
+        return assignedDgnssIds;
+    }
+
+    /**
+     * 가입 학생 1명이 특정 검사(회차/시험지)에 응시 가능한지 — 다른 학급 응시 이력 기준.
+     * 교사 검사 시작과 동일한 적격성 규칙(selectEligibleTargetStListForOrd1/2)을 stdtId 로 한정해 재사용한다.
+     */
+    private boolean isStudentEligibleForJoin(String claId, String stdtId, int paperIdx, int ordNo) {
+        Map<String, Object> param = new HashMap<>();
+        param.put("claId", claId);
+        param.put("paperIdx", paperIdx);
+        param.put("stdtId", stdtId);
+
+        List<String> eligibleStdtIds = (ordNo == 2)
+                ? dgnssMapper.selectEligibleTargetStListForOrd2(param)
+                : dgnssMapper.selectEligibleTargetStListForOrd1(param);
+
+        return eligibleStdtIds != null && eligibleStdtIds.contains(stdtId);
+    }
+
+    /** 레거시 학교급 코드(el/mi/hi) → 검사 응시용 SCH_GRADE 코드 매핑. 매칭 없으면 null. */
+    private String resolveSchGrade(String grade) {
+        if (StringUtils.equals(grade, "el")) {
+            return "CMM13001";
+        } else if (StringUtils.equals(grade, "mi")) {
+            return "CMM13002";
+        } else if (StringUtils.equals(grade, "hi")) {
+            return "CMM13003";
+        }
+        return null;
     }
 
     private int resolveExpectedQuestionCount(String paperIdx) {
