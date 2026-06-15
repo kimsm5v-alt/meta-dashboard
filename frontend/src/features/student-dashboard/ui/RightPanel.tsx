@@ -1,13 +1,15 @@
 import type React from 'react';
 import { useEffect } from 'react';
 import styled from '@emotion/styled';
-import { X, FileText, MessageSquare, Eye } from 'lucide-react';
+import { X, FileText, MessageSquare, Eye, Sparkles } from 'lucide-react';
 import { SchoolRecordPanel } from './SchoolRecordPanel';
 import { CounselingRecordPanel } from './counseling';
 import { ObservationMemoPanel } from './ObservationMemoPanel';
+import { AiChatPanel } from './AiChatPanel';
 import type { Student, Assessment } from '@shared/types';
+import type { StudentData } from '../api/dataHelperService';
 
-export type PanelTab = 'schoolRecord' | 'counseling' | 'observation' | null;
+export type PanelTab = 'ai' | 'schoolRecord' | 'counseling' | 'observation' | null;
 
 interface RightPanelProps {
   isOpen: boolean;
@@ -18,22 +20,37 @@ interface RightPanelProps {
   classId: string;
   student: Student;
   assessment: Assessment;
+  aiChatData?: StudentData;
 }
 
 const TABS = [
+  { key: 'ai' as const, label: 'AI 챗봇', icon: Sparkles },
   { key: 'schoolRecord' as const, label: '생기부', icon: FileText },
   { key: 'counseling' as const, label: '상담', icon: MessageSquare },
   { key: 'observation' as const, label: '관찰', icon: Eye },
 ];
 
 const PanelContainer = styled.div`
-  width: 24rem;
+  width: 25rem;
   flex-shrink: 0;
   background: ${({ theme }) => theme.colors.background.paper};
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   border-radius: ${({ theme }) => theme.radius.lg};
   box-shadow: ${({ theme }) => theme.shadows.sm};
-  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 64px;
+  max-height: calc(100vh - 64px);
+  align-self: flex-start;
+`;
+
+const ContentArea = styled.div`
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 `;
 
 const Header = styled.div`
@@ -57,7 +74,7 @@ const TabButton = styled.button<{ $isActive: boolean }>`
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
+  padding: ${({ theme }) => `${theme.spacing.sm} 12px`};
   border-radius: ${({ theme }) => theme.radius.lg};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
@@ -69,7 +86,8 @@ const TabButton = styled.button<{ $isActive: boolean }>`
   color: ${({ $isActive, theme }) => ($isActive ? '#ffffff' : theme.colors.gray[600])};
 
   &:hover {
-    background: ${({ $isActive, theme }) => ($isActive ? theme.colors.primary[500] : theme.colors.gray[100])};
+    background: ${({ $isActive, theme }) =>
+      $isActive ? theme.colors.primary[500] : theme.colors.gray[100]};
   }
 `;
 
@@ -82,6 +100,11 @@ const IconWrapper = styled.span`
     width: 100%;
     height: 100%;
   }
+`;
+
+const TabLabel = styled.p`
+  fontsize: 14px;
+  min-width: max-content;
 `;
 
 const CloseButton = styled.button`
@@ -119,6 +142,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   classId,
   student,
   assessment,
+  aiChatData,
 }) => {
   // ESC 키로 패널 닫기
   useEffect(() => {
@@ -146,7 +170,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 <IconWrapper>
                   <Icon />
                 </IconWrapper>
-                {tab.label}
+                <TabLabel>{tab.label}</TabLabel>
               </TabButton>
             );
           })}
@@ -159,7 +183,8 @@ export const RightPanel: React.FC<RightPanelProps> = ({
       </Header>
 
       {/* 패널 콘텐츠 */}
-      <div>
+      <ContentArea>
+        {activeTab === 'ai' && aiChatData && <AiChatPanel data={aiChatData} />}
         {activeTab === 'schoolRecord' && (
           <SchoolRecordPanel student={student} assessment={assessment} />
         )}
@@ -169,7 +194,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
         {activeTab === 'observation' && (
           <ObservationMemoPanel studentId={studentId} classId={classId} />
         )}
-      </div>
+      </ContentArea>
     </PanelContainer>
   );
 };

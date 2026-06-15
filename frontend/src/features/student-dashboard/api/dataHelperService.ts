@@ -212,6 +212,19 @@ const buildQuestion = (questionId: QuestionId, data: StudentData): string => {
 // 메인 함수
 // ============================================================
 
+export const getDataHelperFreeAnswer = async (
+  question: string,
+  data: StudentData,
+): Promise<string> => {
+  const studentContext = buildStudentContextMarkdown(data);
+  const sessionId = `data-helper-free-${Date.now()}`;
+  const contextData = {
+    context: `${SYSTEM_PROMPT_DATA_HELPER}\n\n---\n\n${studentContext}`,
+  };
+  const response = await agentChat(question, sessionId, contextData);
+  return response.response;
+};
+
 /**
  * 질문 ID에 맞는 AI 답변 생성
  *
