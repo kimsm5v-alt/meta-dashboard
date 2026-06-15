@@ -15,6 +15,10 @@ import org.springframework.stereotype.Component;
  * 부트스트랩 미완료(커서 NULL)면 폴링 대신 부트스트랩을 수행.
  * <p>분산 락: {@code notification.shedlock.enabled=true} 면 단일 인스턴스 실행 보장.
  * <p>활성화: {@code group-sync.enabled=true} (기본 false). ENV(GROUP_SYNC_ENABLED) 토글로 점진 배포.
+ *
+ * <p>운영 메모: 폴링이 멈춘 것으로 보이면 {@code sso_poll_cursor.last_polled_at}(GROUP_CHANGES)이
+ * 갱신되는지 먼저 확인. 값이 멈춰 있으면 스케줄 스레드 정지/Pod 교체가 원인이며, 재기동 시
+ * 커서(last_since)부터 catch-up 하므로 그 사이 누락된 GROUP_DELETE 등도 멱등 반영된다.
  */
 @Slf4j
 @Component
