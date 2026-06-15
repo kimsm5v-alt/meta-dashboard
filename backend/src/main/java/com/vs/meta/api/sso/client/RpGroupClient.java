@@ -96,6 +96,37 @@ public class RpGroupClient {
         }
     }
 
+    /**
+     * 교사 본인 그룹 id 목록 — {@code GET /api/v1/groups} (교사 user AT, group-from-idp on-demand).
+     * 응답(GroupSummaryResponse[])에서 groupId 만 추출. 실제 데이터는 {@link #detail}(service AT)로 받는다.
+     */
+    public List<Long> myTeacherGroupIds(String userToken) {
+        return myGroupIds(userToken, "/api/v1/groups");
+    }
+
+    /** 학생 본인 그룹 id 목록 — {@code GET /api/v1/groups/my} (학생 user AT). */
+    public List<Long> myStudentGroupIds(String userToken) {
+        return myGroupIds(userToken, "/api/v1/groups/my");
+    }
+
+    private List<Long> myGroupIds(String userToken, String path) {
+        Map<String, Object> resp = superPlatformAuthWebClient.get()
+                .uri(path)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
+        // 이 응답의 data 는 배열(List) — unwrapData(Map 기대)와 달라 별도 처리
+        Object data = resp == null ? null : resp.get("data");
+        if (!(data instanceof List)) {
+            return List.of();
+        }
+        return listOf(data).stream()
+                .map(m -> asLong(m.get("groupId")))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
     // ---- parsing ----
 
     @SuppressWarnings("unchecked")
