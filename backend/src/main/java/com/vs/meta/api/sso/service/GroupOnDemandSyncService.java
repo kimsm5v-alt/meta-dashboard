@@ -32,8 +32,12 @@ import static com.vs.meta.api.sso.client.SpServiceTokenProvider.SCOPE_GROUPS_REA
 @RequiredArgsConstructor
 public class GroupOnDemandSyncService {
 
-    /** 같은 사용자의 재동기화 최소 간격 — 이 시간 내 재호출은 skip. */
-    private static final long DEBOUNCE_MS = 30_000L;
+    /**
+     * 같은 사용자의 재동기화 최소 간격 — 이 시간 내 재호출은 skip.
+     * 화면 진입 시 group/list 연타(중복 호출)는 묶되, "mypage 수정 후 복귀" 는 반영되도록 짧게.
+     * (30초는 수정 직후 복귀를 막아 반영 지연 발생 → 5초로 단축)
+     */
+    private static final long DEBOUNCE_MS = 5_000L;
 
     private final RpGroupClient rpGroupClient;
     private final SpServiceTokenProvider tokenProvider;
