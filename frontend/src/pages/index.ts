@@ -30,10 +30,7 @@ export { ExamPage } from './exam/ExamPage';
 // Schedule
 export { SchedulePage } from './schedule/SchedulePage';
 
-// Groups
-export { GroupListPage } from './groups/GroupListPage';
-export { GroupDetailPage } from './groups/GroupDetailPage';
-export { JoinGroupPage } from './groups/JoinGroupPage';
+// Groups — 그룹 생성/관리/참여 페이지는 mypage(SSO)로 이관, 학심정은 /assessment 에서 조회 (group-from-idp)
 
 // Counseling Dashboard
 export { CounselingDashboardPage } from './counseling-dashboard/CounselingDashboardPage';
