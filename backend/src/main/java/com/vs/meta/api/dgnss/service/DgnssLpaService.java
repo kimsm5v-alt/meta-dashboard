@@ -70,6 +70,12 @@ public class DgnssLpaService {
             return;
         }
 
+        // LPA 분류는 종합검사(paperIdx=1)만 대상 — 자기조절(2) 등은 분류하지 않음
+        String paperIdx = MapUtils.getString(studentInfo, "paperIdx", "");
+        if (!StringUtils.equals(paperIdx, "1")) {
+            return;
+        }
+
         String storedSchoolLevel = resolveStoredSchoolLevel(MapUtils.getString(studentInfo, "SCH_GRADE", ""));
         String modelSchoolLevel = resolveModelSchoolLevel(storedSchoolLevel);
         List<LpaClassInfo> targetClasses = resolveTargetClasses(modelSchoolLevel);
