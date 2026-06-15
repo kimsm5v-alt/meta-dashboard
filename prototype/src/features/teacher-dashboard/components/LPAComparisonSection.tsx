@@ -26,9 +26,9 @@ export const LPAComparisonSection: React.FC<LPAComparisonSectionProps> = ({
 }) => {
   if (classes.length === 0) return null;
 
-  // TODO: 고등학교(schoolLevel === '고등')일 경우 LPA 유형이 없으므로 null 반환 필요
-  //       백엔드에서 그룹별 교과급 분류 작업 완료 후 조건 추가 필요
-  //       예: if (classes[0].schoolLevel === '고등') return null;
+  // 고등학교는 LPA 유형이 없으므로 null 반환
+  if (classes.some(c => c.schoolLevel === '고등')) return null;
+
   const isMiddleSchool = classes[0].schoolLevel === '중등';
   const typeOrder = isMiddleSchool ? LPA_TYPES_MIDDLE : LPA_TYPES_ELEMENTARY;
 

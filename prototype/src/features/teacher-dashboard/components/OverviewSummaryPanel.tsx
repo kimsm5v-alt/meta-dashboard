@@ -220,12 +220,9 @@ export const OverviewSummaryPanel: React.FC<OverviewSummaryPanelProps> = ({
     );
   }
 
-  // LPA 유형 분포
-  // TODO: 고등학교(schoolLevel === '고등')일 경우 LPA 유형이 없으므로 hasLPA를 false로 처리해야 함
-  //       백엔드에서 그룹별 교과급 분류 작업 완료 후 조건 추가 필요
-  //       예: testId === 'comprehensive' && typeDistribution && selectedClass.schoolLevel !== '고등'
+  // LPA 유형 분포 (고등학교는 LPA 없음)
   const typeDistribution = selectedClass.stats?.typeDistribution;
-  const hasLPA = testId === 'comprehensive' && typeDistribution;
+  const hasLPA = testId === 'comprehensive' && typeDistribution && selectedClass.schoolLevel !== '고등';
   const needAttentionCount = selectedClass.stats?.needAttentionCount || 0;
   const totalStudents = selectedClass.stats?.totalStudents || 0;
 

@@ -7,8 +7,6 @@ import { useState } from 'react';
 import {
   ChevronLeft,
   ChevronDown,
-  Settings,
-  Trash2,
   ClipboardList,
   Copy,
   QrCode,
@@ -25,9 +23,6 @@ interface GroupDetailViewProps {
   allGroups: GroupWithExamState[];
   onBack: () => void;
   onSwitchGroup: (groupId: string) => void;
-  onEditGroup: (group: GroupWithExamState) => void;
-  onDeleteGroup: (group: GroupWithExamState) => void;
-  onInviteMember: (email: string) => void;
   onKickMember: (memberId: string) => void;
   onCopyInviteCode: () => void;
   onShowQR: () => void;
@@ -45,9 +40,6 @@ export const GroupDetailView: React.FC<GroupDetailViewProps> = ({
   allGroups,
   onBack,
   onSwitchGroup,
-  onEditGroup,
-  onDeleteGroup,
-  onInviteMember,
   onKickMember,
   onCopyInviteCode,
   onShowQR,
@@ -101,22 +93,6 @@ export const GroupDetailView: React.FC<GroupDetailViewProps> = ({
               >
                 <span className="vj-gswitch-name">{group.name}</span>
                 <ChevronDown size={18} />
-              </button>
-              <button
-                className="vj-gicon"
-                onClick={(e) => { e.stopPropagation(); onEditGroup(group); }}
-                aria-label="그룹 정보 수정"
-                title="그룹 정보 수정"
-              >
-                <Settings size={16} />
-              </button>
-              <button
-                className="vj-gicon danger"
-                onClick={(e) => { e.stopPropagation(); onDeleteGroup(group); }}
-                aria-label="그룹 삭제"
-                title="그룹 삭제"
-              >
-                <Trash2 size={16} />
               </button>
             </div>
             <div className="sub">
@@ -287,7 +263,6 @@ export const GroupDetailView: React.FC<GroupDetailViewProps> = ({
           <StudentManagementPanel
             members={members}
             isOwner={true}
-            onInvite={onInviteMember}
             onKick={onKickMember}
           />
         </div>
