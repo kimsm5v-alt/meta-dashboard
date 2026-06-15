@@ -492,6 +492,16 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
+    @RequestMapping(value = "/api/dgnss/graph/load", method = {RequestMethod.POST})
+    @Operation(summary = "(그래프) LPA 그래프 Cypher 적재",
+            description = "lpa_graph_all_merge_safe.cypher(초등+중등 통합)를 Neo4j에 MERGE 적재한다. 멱등이라 반복 실행 가능. 운영 시드/갱신용")
+    public ResponseDTO<CustomBody> loadLpaGraph(
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        Map<String, Object> result = dgnssGraphService.loadLpaGraph();
+        return AidtCommonUtil.makeResultSuccess(paramData, result, "LPA 그래프 적재 완료");
+    }
+
     @GetMapping(value = "/api/dgnss/graph/classes/{className}/moderation-paths")
     @Operation(summary = "(그래프) 유형별 ModerationPath 조회", description = "")
     @Parameter(name = "className", description = "LPA 유형명", required = true)
