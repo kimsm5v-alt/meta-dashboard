@@ -11,8 +11,13 @@ import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.Values;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -28,8 +33,80 @@ public class DgnssGraphService {
     /** 강점/보완점 선별 개수 (기술명세서 4.4: 각 3개). */
     private static final int SELECT_COUNT = 3;
 
+    /** LPA 그래프 적재용 Cypher 리소스(초등+중등 통합, MERGE 멱등). */
+    private static final String LPA_GRAPH_RESOURCE_PATH = "data/lpa/lpa_graph_all_merge_safe.cypher";
+
+    /** LPA 그래프 유니크 제약조건 Cypher 리소스(데이터 적재 전 선실행, IF NOT EXISTS 멱등). */
+    private static final String LPA_CONSTRAINTS_RESOURCE_PATH = "data/lpa/constraints.cypher";
+
     private final Driver neo4jDriver;
     private final DgnssMapper dgnssMapper;
+
+    /**
+     * LPA 그래프 Cypher({@value #LPA_GRAPH_RESOURCE_PATH})를 Neo4j에 적재한다.
+     * 전부 MERGE 구문(멱등)이라 반복 실행해도 중복 생성되지 않으며, 단일 트랜잭션으로 원자 적용된다.
+     *
+     * @return 적재 결과(구문 수, 상태)
+     */
+    public Map<String, Object> loadLpaGraph() {
+        List<String> constraints = readCypherStatements(LPA_CONSTRAINTS_RESOURCE_PATH);
+        List<String> statements = readCypherStatements(LPA_GRAPH_RESOURCE_PATH);
+        if (statements.isEmpty()) {
+            throw new IllegalStateException("적재할 Cypher 구문이 없습니다: " + LPA_GRAPH_RESOURCE_PATH);
+        }
+
+        try (Session session = neo4jDriver.session()) {
+            // 1) 제약조건/인덱스: 스키마 구문은 데이터 트랜잭션과 분리해야 하므로 각각 autocommit 실행 (IF NOT EXISTS 멱등)
+            for (String constraint : constraints) {
+                session.run(constraint).consume();
+            }
+            // 2) 노드/관계 데이터: 단일 쓰기 트랜잭션으로 원자 적용 (MERGE 멱등)
+            session.executeWriteWithoutResult(tx -> {
+                for (String statement : statements) {
+                    tx.run(statement);
+                }
+            });
+        } catch (Exception e) {
+            log.error("LPA 그래프 적재 실패. resource={}", LPA_GRAPH_RESOURCE_PATH, e);
+            throw new IllegalStateException("LPA 그래프 적재 중 오류가 발생했습니다: " + e.getMessage(), e);
+        }
+
+        log.info("LPA 그래프 적재 완료. constraints={}, statements={}", constraints.size(), statements.size());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("resource", LPA_GRAPH_RESOURCE_PATH);
+        result.put("constraintCount", constraints.size());
+        result.put("statementCount", statements.size());
+        result.put("status", "LOADED");
+        return result;
+    }
+
+    /** Cypher 파일(classpath)을 구문 단위로 파싱한다. 한 줄당 한 구문, '//' 주석·빈 줄 제외, 끝 ';' 제거. */
+    private List<String> readCypherStatements(String resourcePath) {
+        List<String> statements = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new ClassPathResource(resourcePath).getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder buffer = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty() || trimmed.startsWith("//")) {
+                    continue;
+                }
+                buffer.append(line).append('\n');
+                if (trimmed.endsWith(";")) {
+                    String statement = buffer.toString().trim();
+                    statement = statement.substring(0, statement.length() - 1).trim(); // 끝 ';' 제거
+                    if (!statement.isEmpty()) {
+                        statements.add(statement);
+                    }
+                    buffer.setLength(0);
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Cypher 파일을 읽을 수 없습니다: " + resourcePath, e);
+        }
+        return statements;
+    }
 
     public Map<String, Object> selectModerationPathsByClass(String className, String schoolLevel, int limit) {
         Map<String, Object> result = new LinkedHashMap<>();
