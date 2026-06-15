@@ -17,10 +17,7 @@ import { useAuth } from '@features/auth/model/AuthContext';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
-import {
-  DiagnosisSummary,
-  DataHelperChatbot,
-} from '@features/student-dashboard';
+import { DiagnosisSummary, DataHelperChatbot } from '@features/student-dashboard';
 import { getMyGroups } from '@features/groups/api/groupService';
 import { fetchStudentFullAnalysis, convertToAssessment } from '@shared/services/dashboardService';
 import { getStudentExamList } from '../api/studentExamService';
@@ -72,7 +69,6 @@ const SectionDivider = styled.div`
 `;
 
 const MyResultContent: React.FC<MyResultContentProps> = ({
-  student,
   assessment,
   prevAssessment,
   isCompare,
@@ -127,16 +123,11 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
         </SectionCard>
       </Section> */}
 
-      {/* 데이터 해석 도우미 (플로팅 챗봇) */}
-      <DataHelperChatbot
-        tScores={assessment.tScores}
-        predictedType={assessment.predictedType}
-        typeProbabilities={assessment.typeProbabilities}
-        schoolLevel={student.schoolLevel}
-        deviations={assessment.deviations}
+      {/* 데이터 해석 도우미 (스피드다이얼 FAB) */}
+      {/* <DataHelperChatbot
         onOpenPanel={() => {}}
         isPanelOpen={false}
-      />
+      /> */}
     </ContentRoot>
   );
 };

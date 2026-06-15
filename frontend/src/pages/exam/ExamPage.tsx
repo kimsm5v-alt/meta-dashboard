@@ -45,6 +45,7 @@ interface StudentExamLocationState {
   dgnssResultId: number;
   dgnssId: number;
   ordNo: number;
+  paperIdx?: string;
   examName: string;
   groupInfo?: GroupInfo;
   resume?: boolean;
@@ -157,6 +158,7 @@ export const ExamPage: React.FC = () => {
   // 학생(회원) 플로우 여부 확인
   const studentExamState = location.state as StudentExamLocationState | undefined;
   const isStudentFlow = !code && !!studentExamState?.dgnssResultId;
+  const examPaperIdx = studentExamState?.paperIdx ?? '1';
 
   const [isValidating, setIsValidating] = useState(!isStudentFlow);
   const [isValid, setIsValid] = useState(isStudentFlow);
@@ -209,16 +211,16 @@ export const ExamPage: React.FC = () => {
           let startPage = 0;
           if (!studentExamState.restart && studentExamState.resume) {
             // 첫 페이지 로드해서 answeredCount 확인
-            const initialResult = await fetchQuestions(studentExamState.dgnssResultId, 0, 20);
+            const initialResult = await fetchQuestions(studentExamState.dgnssResultId, 0, 20, examPaperIdx);
             if (initialResult.answeredCount > 0) {
               // 마지막 답변 페이지 계산 (120번 문항 분리 고려)
-              startPage = getPageFromAnsweredCount(initialResult.answeredCount);
+              startPage = getPageFromAnsweredCount(initialResult.answeredCount, examPaperIdx);
             }
           }
 
           const result = studentExamState.restart
-            ? await resetExam(studentExamState.dgnssResultId, 0, 20)
-            : await fetchQuestions(studentExamState.dgnssResultId, startPage, 20);
+            ? await resetExam(studentExamState.dgnssResultId, 0, 20, examPaperIdx)
+            : await fetchQuestions(studentExamState.dgnssResultId, startPage, 20, examPaperIdx);
 
           const existingAnswers: Record<number, string> = {};
           if (!studentExamState.restart) {
@@ -497,8 +499,8 @@ export const ExamPage: React.FC = () => {
     setIsLoading(true);
     try {
       const result = isRestartMode
-        ? await resetExam(state.dgnssResultId, 0, 20)
-        : await fetchQuestions(state.dgnssResultId, 0, 20);
+        ? await resetExam(state.dgnssResultId, 0, 20, examPaperIdx)
+        : await fetchQuestions(state.dgnssResultId, 0, 20, examPaperIdx);
 
       loadQuestions(
         result.questions,
@@ -541,8 +543,8 @@ export const ExamPage: React.FC = () => {
         if (isStudentFlow) {
           // 학생(회원) 플로우: restart 여부 반영 후 문항 로드
           const result = isRestartMode
-            ? await resetExam(state.dgnssResultId, 0, 20)
-            : await fetchQuestions(state.dgnssResultId, 0, 20);
+            ? await resetExam(state.dgnssResultId, 0, 20, examPaperIdx)
+            : await fetchQuestions(state.dgnssResultId, 0, 20, examPaperIdx);
 
           const existingAnswers: Record<number, string> = {};
           if (!isRestartMode) {
@@ -562,15 +564,15 @@ export const ExamPage: React.FC = () => {
           setStep('questions');
         } else {
           // QR/게스트 플로우: 이어하기 여부 체크
-          const initialResult = await fetchQuestions(state.dgnssResultId, 0, 20);
+          const initialResult = await fetchQuestions(state.dgnssResultId, 0, 20, examPaperIdx);
           let startPage = 0;
           if (initialResult.answeredCount > 0) {
-            startPage = getPageFromAnsweredCount(initialResult.answeredCount);
+            startPage = getPageFromAnsweredCount(initialResult.answeredCount, examPaperIdx);
           }
           const result =
             startPage === 0
               ? initialResult
-              : await fetchQuestions(state.dgnssResultId, startPage, 20);
+              : await fetchQuestions(state.dgnssResultId, startPage, 20, examPaperIdx);
 
           const existingAnswers: Record<number, string> = {};
           result.questions.forEach((q) => {
@@ -636,7 +638,7 @@ export const ExamPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const result = await fetchQuestions(state.dgnssResultId, nextPageIndex, 20);
+      const result = await fetchQuestions(state.dgnssResultId, nextPageIndex, 20, examPaperIdx);
       loadQuestions(
         result.questions,
         result.totalPages,
@@ -669,7 +671,7 @@ export const ExamPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const result = await fetchQuestions(state.dgnssResultId, prevPageIndex, 20);
+      const result = await fetchQuestions(state.dgnssResultId, prevPageIndex, 20, examPaperIdx);
       loadQuestions(
         result.questions,
         result.totalPages,
@@ -700,7 +702,7 @@ export const ExamPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      await submitExam(state.dgnssResultId);
+      await submitExam(state.dgnssResultId, examPaperIdx);
       setStep('complete');
     } finally {
       setIsLoading(false);
@@ -853,6 +855,7 @@ export const ExamPage: React.FC = () => {
           onSubmit={handleSubmit}
           isLastPage={state.currentPage === state.totalPages - 1}
           isSubmitting={state.isSubmitting || isLoading}
+          paperIdx={examPaperIdx}
         />
       );
 
