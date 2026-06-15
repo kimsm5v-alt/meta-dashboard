@@ -577,6 +577,7 @@ export const MyExamListPage: React.FC = () => {
         dgnssResultId: exam.dgnssResultId,
         dgnssId: exam.dgnssId,
         ordNo: exam.ordNo,
+        paperIdx: exam.paperIdx,
         examName: exam.name,
         groupInfo: examGroupMap.get(exam.dgnssResultId),
         ...extra,

@@ -25,8 +25,6 @@ import {
   TypeClassification,
   TypeDeviations,
   CoachingStrategy,
-  RightPanel,
-  DataHelperChatbot,
   type PanelTab,
 } from '@features/student-dashboard/ui';
 import { useCoachingStrategy } from '@features/student-dashboard/api/useCoachingStrategy';
@@ -184,7 +182,6 @@ const NavButton = styled.button`
   }
 `;
 
-
 const NavCounter = styled.span`
   font-size: 0.875rem;
   color: ${({ theme }) => theme.colors.gray[500]};
@@ -296,9 +293,6 @@ const SectionTitle = styled.h2`
   font-size: 1.25rem;
   font-weight: 700;
 `;
-
-
-
 
 const SectionCard = styled.div`
   background: white;
@@ -460,9 +454,10 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
             <BreadcrumbSep>›</BreadcrumbSep>
             {TEST_META[testId]?.name ?? testId}
             <BreadcrumbSep>›</BreadcrumbSep>
-            {classInfo.grade}학년 {classInfo.classNumber}반
-            <BreadcrumbSep>›</BreadcrumbSep>
-            <BreadcrumbCurrent>{student.number}번 {student.name}</BreadcrumbCurrent>
+            {classInfo.grade}학년 {classInfo.classNumber}반<BreadcrumbSep>›</BreadcrumbSep>
+            <BreadcrumbCurrent>
+              {student.number}번 {student.name}
+            </BreadcrumbCurrent>
           </BreadcrumbNav>
         </BreadcrumbRow>
 
@@ -508,9 +503,22 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
             {/* 학생 네비게이션 — 프로토타입: ‹ 이전 / X/N / 다음 › 텍스트 버튼 */}
             <NavigationSection>
               <NavButton
-                onClick={() => prev && navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`)}
+                onClick={() =>
+                  prev && navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`)
+                }
                 disabled={!prev}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.125rem', padding: '0.375rem 0.625rem', fontSize: '0.875rem', fontWeight: 500, border: '1px solid #E5E7EB', borderRadius: '0.5rem', background: 'white', color: '#374151' }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.125rem',
+                  padding: '0.375rem 0.625rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '0.5rem',
+                  background: 'white',
+                  color: '#374151',
+                }}
               >
                 <ChevronLeft size={14} /> 이전
               </NavButton>
@@ -518,9 +526,22 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 {currentIdx + 1} / {classStudents.length}
               </NavCounter>
               <NavButton
-                onClick={() => next && navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`)}
+                onClick={() =>
+                  next && navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`)
+                }
                 disabled={!next}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.125rem', padding: '0.375rem 0.625rem', fontSize: '0.875rem', fontWeight: 500, border: '1px solid #E5E7EB', borderRadius: '0.5rem', background: 'white', color: '#374151' }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.125rem',
+                  padding: '0.375rem 0.625rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '0.5rem',
+                  background: 'white',
+                  color: '#374151',
+                }}
               >
                 다음 <ChevronRight size={14} />
               </NavButton>
@@ -554,45 +575,185 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
             {hasJwtToken && (
               <div style={{ position: 'relative' }}>
                 <button
-                  onClick={() => setReportDropdownOpen(v => !v)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', background: '#4F46E5', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
+                  onClick={() => setReportDropdownOpen((v) => !v)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.375rem',
+                    padding: '0.5rem 0.875rem',
+                    background: '#4F46E5',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                  }}
                 >
                   <FileText size={15} />
                   보고서 다운로드
-                  <ChevronRight size={14} style={{ transform: reportDropdownOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s' }} />
+                  <ChevronRight
+                    size={14}
+                    style={{
+                      transform: reportDropdownOpen ? 'rotate(90deg)' : 'rotate(0)',
+                      transition: 'transform 0.15s',
+                    }}
+                  />
                 </button>
                 {reportDropdownOpen && (
                   <>
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setReportDropdownOpen(false)} />
-                    <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', width: '14rem', background: 'white', borderRadius: '0.625rem', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', border: '1px solid #E5E7EB', padding: '0.5rem 0', zIndex: 20 }}>
+                    <div
+                      style={{ position: 'fixed', inset: 0, zIndex: 10 }}
+                      onClick={() => setReportDropdownOpen(false)}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 'calc(100% + 4px)',
+                        width: '14rem',
+                        background: 'white',
+                        borderRadius: '0.625rem',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                        border: '1px solid #E5E7EB',
+                        padding: '0.5rem 0',
+                        zIndex: 20,
+                      }}
+                    >
                       <div style={{ padding: '0.375rem 0.75rem' }}>
-                        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', marginBottom: '0.25rem' }}>1차 검사 {!r1 && <span style={{ color: '#D1D5DB' }}>(미실시)</span>}</p>
-                        <button disabled={isPdfDownloading || r1?.answerIdx == null} onClick={() => void handleDownloadPdf(1, 1).then(() => setReportDropdownOpen(false))}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed', opacity: r1?.answerIdx != null ? 1 : 0.4, borderRadius: '0.375rem' }}>
-                          <FileText size={14} color="#EF4444" /> 상세 보고서
+                        <p
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            color: '#6B7280',
+                            marginBottom: '0.25rem',
+                          }}
+                        >
+                          1차 검사 {!r1 && <span style={{ color: '#D1D5DB' }}>(미실시)</span>}
+                        </p>
+                        <button
+                          disabled={isPdfDownloading || r1?.answerIdx == null}
+                          onClick={() =>
+                            void handleDownloadPdf(1, 1).then(() => setReportDropdownOpen(false))
+                          }
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.375rem 0.5rem',
+                            fontSize: '0.875rem',
+                            color: '#374151',
+                            background: 'none',
+                            border: 'none',
+                            cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed',
+                            opacity: r1?.answerIdx != null ? 1 : 0.4,
+                            borderRadius: '0.375rem',
+                          }}
+                        >
+                          <FileText size={14} color='#EF4444' /> 상세 보고서
                         </button>
-                        <button disabled={isPdfDownloading || r1?.answerIdx == null} onClick={() => void handleDownloadPdf(1, 2).then(() => setReportDropdownOpen(false))}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed', opacity: r1?.answerIdx != null ? 1 : 0.4, borderRadius: '0.375rem' }}>
-                          <FileText size={14} color="#EF4444" /> 요약 보고서
+                        <button
+                          disabled={isPdfDownloading || r1?.answerIdx == null}
+                          onClick={() =>
+                            void handleDownloadPdf(1, 2).then(() => setReportDropdownOpen(false))
+                          }
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.375rem 0.5rem',
+                            fontSize: '0.875rem',
+                            color: '#374151',
+                            background: 'none',
+                            border: 'none',
+                            cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed',
+                            opacity: r1?.answerIdx != null ? 1 : 0.4,
+                            borderRadius: '0.375rem',
+                          }}
+                        >
+                          <FileText size={14} color='#EF4444' /> 요약 보고서
                         </button>
                       </div>
                       {r2 && (
                         <>
                           <div style={{ borderTop: '1px solid #F3F4F6', margin: '0.25rem 0' }} />
                           <div style={{ padding: '0.375rem 0.75rem' }}>
-                            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', marginBottom: '0.25rem' }}>2차 검사</p>
-                            <button disabled={isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)} onClick={() => void handleDownloadPdf(2, 1).then(() => setReportDropdownOpen(false))}
-                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.375rem' }}>
-                              <FileText size={14} color="#EF4444" /> 상세 보고서
+                            <p
+                              style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                color: '#6B7280',
+                                marginBottom: '0.25rem',
+                              }}
+                            >
+                              2차 검사
+                            </p>
+                            <button
+                              disabled={
+                                isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)
+                              }
+                              onClick={() =>
+                                void handleDownloadPdf(2, 1).then(() =>
+                                  setReportDropdownOpen(false),
+                                )
+                              }
+                              style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.375rem 0.5rem',
+                                fontSize: '0.875rem',
+                                color: '#374151',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                borderRadius: '0.375rem',
+                              }}
+                            >
+                              <FileText size={14} color='#EF4444' /> 상세 보고서
                             </button>
-                            <button disabled={isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)} onClick={() => void handleDownloadPdf(2, 2).then(() => setReportDropdownOpen(false))}
-                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.375rem' }}>
-                              <FileText size={14} color="#EF4444" /> 요약 보고서
+                            <button
+                              disabled={
+                                isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)
+                              }
+                              onClick={() =>
+                                void handleDownloadPdf(2, 2).then(() =>
+                                  setReportDropdownOpen(false),
+                                )
+                              }
+                              style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.375rem 0.5rem',
+                                fontSize: '0.875rem',
+                                color: '#374151',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                borderRadius: '0.375rem',
+                              }}
+                            >
+                              <FileText size={14} color='#EF4444' /> 요약 보고서
                             </button>
                           </div>
                         </>
                       )}
-                      {pdfError && <p style={{ fontSize: '0.75rem', color: '#EF4444', padding: '0.25rem 0.75rem' }}>다운로드 실패</p>}
+                      {pdfError && (
+                        <p
+                          style={{
+                            fontSize: '0.75rem',
+                            color: '#EF4444',
+                            padding: '0.25rem 0.75rem',
+                          }}
+                        >
+                          다운로드 실패
+                        </p>
+                      )}
                     </div>
                   </>
                 )}
@@ -671,19 +832,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         />
 
         {/* 데이터 해석 도우미 (스피드다이얼 FAB) */}
-        <DataHelperChatbot
-          tScores={current.tScores}
-          predictedType={current.predictedType}
-          typeProbabilities={current.typeProbabilities}
-          schoolLevel={student.schoolLevel}
-          deviations={current.deviations}
-          onOpenPanel={setPanelTab}
-          isPanelOpen={panelTab !== null}
-        />
+        {/* <DataHelperChatbot onOpenPanel={setPanelTab} isPanelOpen={panelTab !== null} /> */}
       </MainContent>
 
       {/* 우측 푸시 패널 */}
-      <RightPanel
+      {/* <RightPanel
         isOpen={panelTab !== null}
         activeTab={panelTab}
         onTabChange={setPanelTab}
@@ -692,7 +845,14 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         classId={classId}
         student={student}
         assessment={current}
-      />
+        aiChatData={{
+          tScores: current.tScores,
+          predictedType: current.predictedType,
+          typeProbabilities: current.typeProbabilities,
+          schoolLevel: student.schoolLevel,
+          deviations: current.deviations,
+        }}
+      /> */}
     </MainLayout>
   );
 };
@@ -701,7 +861,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 // 메인 컴포넌트: 로딩/에러/null 체크 후 StudentDashboardContent 렌더링
 // ============================================================
 export const StudentDashboardPage = () => {
-  const { classId, studentId, testId = 'comprehensive' } = useParams<{ classId: string; studentId: string; testId: string }>();
+  const {
+    classId,
+    studentId,
+    testId = 'comprehensive',
+  } = useParams<{ classId: string; studentId: string; testId: string }>();
   const { hasJwtToken } = useApiConfig();
 
   // API 모드: API에서 학생 데이터 + 학급 학생 목록 로드
