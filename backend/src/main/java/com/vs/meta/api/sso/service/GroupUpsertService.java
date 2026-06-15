@@ -131,7 +131,7 @@ public class GroupUpsertService {
                 .claId(IdGenerator.generateClaId())
                 .spGroupId(rp.groupId())
                 .hostUserNo(host.getUserNo())
-                .groupNm(rp.groupName())
+                .groupNm(safeGroupNm(rp.groupName()))
                 .schoolLevel(mapSchoolLevel(rp.schoolLevel()))
                 .grade(parseGrade(rp.grade()))
                 .classNumber(parseClassNo(rp.classNo()))
@@ -139,7 +139,7 @@ public class GroupUpsertService {
                 .schoolCode(fkSafeSchoolCode(rp.schoolCode()))
                 .schoolName(rp.schoolName())
                 .inviteCode(null)           // Auth 응답에 미포함 — 코드 합류는 mypage 책임
-                .maxMemberCount(null)       // 정원 검사는 Auth 책임 (학심정 미사용)
+                .maxMemberCount(100)        // group_info.max_member_count NOT NULL — 정원은 Auth 책임이라 학심정 미사용, 기본값 고정(createGroup 과 동일)
                 .useYn("Y")
                 .createdBy(0L)
                 .updatedBy(0L)
@@ -155,7 +155,10 @@ public class GroupUpsertService {
     /** RP 필드를 도메인에 반영. 실제로 달라진 게 있을 때만 true (멱등 — 무변경이면 UPDATE 생략). */
     private boolean applyGroupFields(GroupInfo g, RpGroupDto rp) {
         boolean dirty = false;
-        dirty |= setIfChanged(g.getGroupNm(), rp.groupName(), g::setGroupNm);
+        // group_nm NOT NULL — Auth groupName 이 null 로 와도 기존 값을 null 로 덮지 않음
+        if (rp.groupName() != null) {
+            dirty |= setIfChanged(g.getGroupNm(), rp.groupName(), g::setGroupNm);
+        }
         dirty |= setIfChanged(g.getSchoolLevel(), mapSchoolLevel(rp.schoolLevel()), g::setSchoolLevel);
         dirty |= setIfChanged(g.getGrade(), parseGrade(rp.grade()), g::setGrade);
         Integer classNo = parseClassNo(rp.classNo());
@@ -293,6 +296,11 @@ public class GroupUpsertService {
     }
 
     // ---- Auth → 학심정 매핑 (02-schema-and-mapping.md §3) ----
+
+    /** group_nm NOT NULL 방어 — Auth groupName 이 비어 오면 대체 표시값. */
+    static String safeGroupNm(String groupName) {
+        return (groupName == null || groupName.isBlank()) ? "(이름 없는 그룹)" : groupName;
+    }
 
     /** ELEMENTARY/MIDDLE/HIGH → elementary/middle/high. ETC 등 비표준은 소문자 그대로 (검사 자동 등록은 skip). */
     static String mapSchoolLevel(String authLevel) {
