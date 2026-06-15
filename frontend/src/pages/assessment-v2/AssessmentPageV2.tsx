@@ -245,10 +245,6 @@ export const AssessmentPageV2 = () => {
   // 그룹 CRUD
   // ============================================================
 
-  const handleCreateGroup = () => {
-    setModalGroup(null);
-    setModalType('create_group');
-  };
   const handleEditGroup = (group: GroupWithExamState) => {
     setModalGroup(group);
     setModalType('edit_group');
@@ -595,14 +591,11 @@ export const AssessmentPageV2 = () => {
       {/* 리스트 뷰 또는 빈 상태 */}
       {viewMode === 'list' &&
         (groups.length === 0 ? (
-          <EmptyState onCreateGroup={handleCreateGroup} />
+          <EmptyState />
         ) : (
           <GroupListView
             groups={groups}
             onSelectGroup={handleSelectGroup}
-            onCreateGroup={handleCreateGroup}
-            onEditGroup={handleEditGroup}
-            onDeleteGroup={handleDeleteGroup}
           />
         ))}
 

@@ -1,22 +1,17 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Search, ExternalLink } from 'lucide-react';
 import { GroupCard } from './GroupCard';
+import { openMypageGroups } from '@shared/lib/mypage';
 import type { GroupWithExamState } from '../types';
 
 interface GroupListViewProps {
   groups: GroupWithExamState[];
   onSelectGroup: (groupId: string) => void;
-  onCreateGroup: () => void;
-  onEditGroup: (group: GroupWithExamState) => void;
-  onDeleteGroup: (group: GroupWithExamState) => void;
 }
 
 export const GroupListView = ({
   groups,
   onSelectGroup,
-  onCreateGroup,
-  onEditGroup,
-  onDeleteGroup,
 }: GroupListViewProps) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -34,6 +29,14 @@ export const GroupListView = ({
 
   return (
     <div className="vj">
+      {/* 안내 문구 — 그룹 관리가 mypage(SSO)로 이관됨 (group-from-idp) */}
+      <div style={{ marginBottom: 16 }}>
+        <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#111827' }}>검사하기</h2>
+        <p style={{ margin: 0, fontSize: 13, color: '#6B7280' }}>
+          학급(그룹)을 만들고 학생을 초대하여 그룹별 검사 진행을 한 곳에서 관리해보세요.
+        </p>
+      </div>
+
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {showSearch && (
@@ -66,9 +69,10 @@ export const GroupListView = ({
             />
           </div>
         )}
-        <button className="btn primary" onClick={onCreateGroup} style={{ flexShrink: 0 }}>
-          <Plus size={15} />
-          새 그룹
+        {/* 그룹 관리(생성/수정/삭제/초대)는 mypage(SSO)로 이관 — group-from-idp */}
+        <button className="btn primary" onClick={() => openMypageGroups('list')} style={{ flexShrink: 0 }}>
+          그룹 관리
+          <ExternalLink size={15} />
         </button>
       </div>
 
@@ -79,8 +83,6 @@ export const GroupListView = ({
             key={group.id}
             group={group}
             onSelect={onSelectGroup}
-            onEdit={onEditGroup}
-            onDelete={onDeleteGroup}
           />
         ))}
       </div>
