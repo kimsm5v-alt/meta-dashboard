@@ -2145,6 +2145,7 @@ public class DgnssService {
 
     public Map<String, Object> selectStDgnssStart(Map<String, Object> param, Pageable pageable) {
         pageable = resolvePageable(param, pageable);
+        normalizeAndValidateGender(param);
         Map<String, Object> resultMap = new HashMap<>();
         int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
         String eakAt = "";
@@ -2236,6 +2237,19 @@ public class DgnssService {
 
 
         return resultMap;
+    }
+
+    /** 학생 입력 성별(gender)이 있으면 대문자 정규화 후 M/F만 허용. 미입력 시 무시(미저장). */
+    private void normalizeAndValidateGender(Map<String, Object> param) {
+        String gender = MapUtils.getString(param, "gender", null);
+        if (StringUtils.isBlank(gender)) {
+            return;
+        }
+        String normalized = gender.trim().toUpperCase();
+        if (!"M".equals(normalized) && !"F".equals(normalized)) {
+            throw new IllegalArgumentException("gender는 'M' 또는 'F'만 허용됩니다: " + gender);
+        }
+        param.put("gender", normalized);
     }
 
     private Pageable resolvePageable(Map<String, Object> param, Pageable pageable) {

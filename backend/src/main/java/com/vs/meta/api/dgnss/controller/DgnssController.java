@@ -660,7 +660,8 @@ public class DgnssController {
     }
 
     @PostMapping(value = {"/api/dgnss/st/start", "/api/dgnss/stnt/start/update"})
-    @Operation(summary = "(학생)META 자기조절학습 시작", description = "")
+    @Operation(summary = "(학생)META 자기조절학습 시작",
+            description = "schoolName/grade/classNo/gender는 선택값. 교사 그룹정보 미입력 시 학생 입력값을 시작 시 1회만 전송하면 tb_dgnss_result_info에 저장된다(페이지 이동 호출에는 미전송 권장). gender는 'M'/'F'만 허용.")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(examples = {
                     @ExampleObject(name = "파라미터", value = """
@@ -668,7 +669,11 @@ public class DgnssController {
                                 "dgnssResultId": 12509,
                                 "paperIdx": 1,
                                 "page": 0,
-                                "size": 20
+                                "size": 20,
+                                "schoolName": "비상중학교",
+                                "grade": "2",
+                                "classNumber": "3",
+                                "gender": "M"
                             }
                             """)
             }))
