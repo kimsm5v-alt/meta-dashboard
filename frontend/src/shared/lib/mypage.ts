@@ -29,9 +29,13 @@ export function openMypageGroups(view?: 'list' | 'create'): void {
  * @param inviteCode Auth 동기화로 받은 그룹 초대코드
  */
 export function buildGroupJoinUrl(inviteCode: string): string {
+  // return_to 는 QR을 생성하는 현재 학심정 origin 기준(환경별 자동) — 운영/스테이징 주소 동기화 불필요.
+  // 이 origin 은 학심정 OAuth allowedOrigins 에 이미 등록된 값이라 mypage 복귀 검증도 통과.
+  // ENV.SP_STUDENT_RETURN_URL 이 설정돼 있으면 그것으로 오버라이드.
+  const returnTo = ENV.SP_STUDENT_RETURN_URL || `${window.location.origin}/student/exams`;
   const params = new URLSearchParams({
     client_id: ENV.SP_CLIENT_ID,
-    return_to: ENV.SP_STUDENT_RETURN_URL,
+    return_to: returnTo,
   });
   return `${ENV.SP_MYPAGE_URL}/groups/join/${encodeURIComponent(inviteCode)}?${params}`;
 }
