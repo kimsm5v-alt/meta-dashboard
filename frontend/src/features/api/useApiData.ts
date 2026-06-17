@@ -21,7 +21,7 @@ import {
   type L2DashboardData,
 } from '@shared/services/dashboardService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
-import type { SchoolLevel, Student, Class, Assessment, User } from '@shared/types';
+import type { SchoolLevel, Student, Class, Assessment, User, Group } from '@shared/types';
 import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth';
 import { groupService } from '@features/groups/api/groupService';
@@ -527,6 +527,29 @@ export function useTeacherClasses(): UseTeacherClassesResult {
 }
 
 // ============================================================
+// 공유 그룹 목록 훅 (API 과도 호출 방지)
+// ============================================================
+
+/**
+ * 그룹 목록 쿼리 — 캐시 공유 + 사용자별 격리
+ * - 사이드바(useTeacherClassList)와 검사하기(AssessmentPageV2)가 캐시 공유
+ * - userId를 queryKey에 포함하여 멀티 사용자 환경에서 캐시 격리 보장
+ */
+function useMyGroups(userId: string | undefined) {
+  return useQuery<Group[]>({
+    queryKey: ['my-groups', userId], // userId 포함으로 캐시 격리
+    queryFn: () => groupService.getMyGroups(userId!),
+    enabled: !!userId,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useMyGroupsQuery() {
+  const { user } = useAuth();
+  return useMyGroups(user?.id);
+}
+
+// ============================================================
 // 사이드바용 경량 학급 목록 훅 (분석 API 호출 없음)
 // ============================================================
 
@@ -547,12 +570,13 @@ export function useTeacherClassList(): UseTeacherClassListResult {
   const { user } = useAuth();
   const { schoolLevel: credSchoolLevel } = useCredentials();
 
-  const query = useQuery<{ classes: TeacherClassMeta[]; examStatus: ExamStatus }>({
-    queryKey: ['teacher', 'class-list', user?.id],
-    queryFn: async () => {
-      if (!user) return { classes: [], examStatus: 'no-exams' as ExamStatus };
+  // 그룹 목록: ['my-groups'] 캐시 공유
+  const { data: groups = [], isLoading: groupsLoading } = useMyGroups(user?.id);
 
-      const groups = await groupService.getMyGroups(user.id);
+  // 검사 상태: queryKey에서 user?.id 제거 (auth 흐름 중복 호출 방지)
+  const dgnssQuery = useQuery<{ classes: TeacherClassMeta[]; examStatus: ExamStatus }>({
+    queryKey: ['group-dgnss-status', ...groups.map((g: Group) => g.claId)],
+    queryFn: async () => {
       if (groups.length === 0) return { classes: [], examStatus: 'no-exams' as ExamStatus };
 
       const groupDgnssResults = await Promise.all(
@@ -586,13 +610,13 @@ export function useTeacherClassList(): UseTeacherClassListResult {
 
       return { classes, examStatus };
     },
-    enabled: !!user,
+    enabled: groups.length > 0,
   });
 
   return {
-    classes: query.data?.classes ?? [],
-    isLoading: query.isLoading,
-    examStatus: query.data?.examStatus ?? 'no-exams',
+    classes: dgnssQuery.data?.classes ?? [],
+    isLoading: groupsLoading || dgnssQuery.isLoading,
+    examStatus: dgnssQuery.data?.examStatus ?? 'no-exams',
   };
 }
 

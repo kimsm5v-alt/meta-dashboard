@@ -1,14 +1,11 @@
 import '@app/styles/vj.css';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@features/auth/model/AuthContext';
-import {
-  EmptyState,
-  GroupListView,
-  GroupDetailView,
-} from '@features/assessment-v2/ui';
+import { useMyGroupsQuery } from '@features/api';
+import { EmptyState, GroupListView, GroupDetailView } from '@features/assessment-v2/ui';
 import { ExamStartPreviewModal } from '@features/assessment/ui';
 import { AlertModal } from '@shared/ui/AlertModal/AlertModal';
 import { EXAM_SLOTS } from '@features/assessment-v2/constants';
@@ -23,10 +20,7 @@ import {
   previewExamStart,
 } from '@features/assessment/api/assessmentService';
 import type { ExamStartPreviewResponse } from '@features/assessment/api/assessmentService';
-import {
-  getMyGroups,
-  getGroupDetail,
-} from '@features/groups/api/groupService';
+import { getGroupDetail } from '@features/groups/api/groupService';
 import type {
   GroupWithExamState,
   GroupMember,
@@ -95,13 +89,46 @@ export const AssessmentPageV2 = () => {
   const { groupId: urlGroupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
 
-  const [groups, setGroups] = useState<GroupWithExamState[]>([]);
+  // 그룹 목록: ['my-groups'] 캐시 공유 (사이드바 useTeacherClassList와 동일 캐시)
+  const {
+    data: rawGroups = [],
+    isLoading: isGroupsLoading,
+    error: groupsQueryError,
+    refetch: refetchGroups,
+  } = useMyGroupsQuery();
+
+  // 검사 슬롯 상태: claId 키 로컬 맵 (검사 시작·종료·취소 시 직접 갱신)
+  const [examSlotsMap, setExamSlotsMap] = useState<Map<string, ExamSlotState[]>>(new Map());
+  const [isSlotsLoading, setIsSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
+
+  const isLoading = isGroupsLoading || isSlotsLoading;
+  const error = groupsQueryError ? '그룹 목록을 불러오는데 실패했습니다.' : slotsError;
+
+  // rawGroups + examSlotsMap → GroupWithExamState[]
+  const groups = useMemo<GroupWithExamState[]>(
+    () =>
+      rawGroups.map((g: Group) =>
+        buildGroupWithExamState(g, examSlotsMap.get(g.claId) ?? emptySlots()),
+      ),
+    [rawGroups, examSlotsMap],
+  );
+
   const [members, setMembers] = useState<GroupMember[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   // 그룹 생성/수정/삭제·QR 모달 state 제거 — mypage(SSO)로 이관 (group-from-idp)
+
+  // URL 기반 derived state (React Compiler 최적화: useEffect 내 setState 방지)
+  const selectedGroupId = useMemo(() => {
+    if (!urlGroupId || isLoading) return null;
+    const exists = groups.some((g) => g.id === urlGroupId);
+    return exists ? urlGroupId : null;
+  }, [urlGroupId, groups, isLoading]);
+
+  const viewMode = useMemo<ViewMode>(() => {
+    return selectedGroupId ? 'detail' : 'list';
+  }, [selectedGroupId]);
+
+  const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
 
   // 2회차 사전 검증 모달
   const [previewModal, setPreviewModal] = useState<{
@@ -132,8 +159,6 @@ export const AssessmentPageV2 = () => {
     message: '',
   });
 
-  const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
-
   const activeStudentCount = useMemo(() => {
     return members.filter((m) => m.status === 'active').length;
   }, [members]);
@@ -142,86 +167,102 @@ export const AssessmentPageV2 = () => {
   // 데이터 로딩
   // ============================================================
 
-  const loadGroups = useCallback(async () => {
-    if (!user?.id) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const rawGroups = await getMyGroups(user.id);
-      const enriched = await Promise.all(
-        rawGroups.map(async (g) => {
-          try {
-            const slots = await getExamSlots(g.claId, user.id);
-            return buildGroupWithExamState(g, slots);
-          } catch {
-            return buildGroupWithExamState(g, emptySlots());
-          }
-        }),
-      );
-      setGroups(enriched);
-    } catch {
-      setError('그룹 목록을 불러오는데 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
-
-  const loadMembers = useCallback(
-    async (groupId: string) => {
-      if (!user?.id) return;
+  const loadExamSlots = useCallback(
+    async (groupsToLoad: Group[]) => {
+      if (!user?.id || groupsToLoad.length === 0) return;
+      const userId = user.id;
+      setIsSlotsLoading(true);
+      setSlotsError(null);
       try {
-        const result = await getGroupDetail(groupId, user.id);
-        setMembers(result?.members ?? []);
-      } catch {
-        setMembers([]);
+        const entries = await Promise.all(
+          groupsToLoad.map(async (g) => {
+            try {
+              const slots = await getExamSlots(g.claId, userId);
+              return [g.claId, slots] as [string, ExamSlotState[]];
+            } catch (err) {
+              console.error(`[loadExamSlots] Failed to load slots for ${g.claId}:`, err);
+              return [g.claId, emptySlots()] as [string, ExamSlotState[]];
+            }
+          }),
+        );
+        setExamSlotsMap(new Map(entries));
+      } catch (err) {
+        console.error('[loadExamSlots] Failed to load exam slots:', err);
+        setSlotsError('검사 현황을 불러오는데 실패했습니다.');
+      } finally {
+        setIsSlotsLoading(false);
       }
     },
     [user],
   );
 
+  // rawGroups 로드 완료 후 슬롯 1회 로딩 (auth 흐름·StrictMode 이중 실행 방지)
+  const hasLoadedSlotsRef = useRef(false);
   useEffect(() => {
-    loadGroups();
-  }, [loadGroups]);
+    if (!user?.id || rawGroups.length === 0) return;
+    if (hasLoadedSlotsRef.current) return;
+    hasLoadedSlotsRef.current = true;
 
-  // 그룹 로드 완료 후 URL groupId → state 동기화
-  // - found: 해당 그룹 상세 뷰로 전환
-  // - not-found: /assessment로 fallback (잘못된 URL, 삭제된 그룹 등)
+    let isCancelled = false;
+    const load = async () => {
+      if (isCancelled) return;
+      await loadExamSlots(rawGroups);
+    };
+    void load();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user, rawGroups, loadExamSlots]);
+
+  // URL 유효성 검증: 존재하지 않는 groupId일 경우 리다이렉트
   useEffect(() => {
     if (isLoading) return;
     if (!urlGroupId) return;
     const exists = groups.some((g) => g.id === urlGroupId);
-    if (exists) {
-      setSelectedGroupId(urlGroupId);
-      setViewMode('detail');
-    } else {
+    if (!exists) {
       navigate('/assessment', { replace: true });
     }
   }, [isLoading, urlGroupId, groups, navigate]);
 
+  // selectedGroupId 변경 시 members 로드
   useEffect(() => {
-    if (selectedGroupId) loadMembers(selectedGroupId);
-  }, [selectedGroupId, loadMembers]);
+    if (!selectedGroupId || !user?.id) return;
+
+    let isCancelled = false;
+    const load = async () => {
+      try {
+        const result = await getGroupDetail(selectedGroupId, user.id);
+        if (!isCancelled) {
+          setMembers(result?.members ?? []);
+        }
+      } catch (err) {
+        console.error('[useEffect:loadMembers] Failed to load group members:', err);
+        if (!isCancelled) {
+          setMembers([]);
+        }
+      }
+    };
+    void load();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedGroupId, user]);
 
   // ============================================================
   // 그룹 선택 / 전환 / 뒤로
   // ============================================================
 
   const handleSelectGroup = (groupId: string) => {
-    setSelectedGroupId(groupId);
-    setViewMode('detail');
     navigate(`/assessment/${groupId}`);
   };
 
   const handleSwitchGroup = (groupId: string) => {
-    setSelectedGroupId(groupId);
-    loadMembers(groupId);
+    navigate(`/assessment/${groupId}`, { replace: true });
   };
 
   const handleBack = () => {
-    setViewMode('list');
-    setSelectedGroupId(null);
     setMembers([]);
     navigate('/assessment', { replace: true });
   };
@@ -233,17 +274,30 @@ export const AssessmentPageV2 = () => {
   // 그룹 생성/수정/삭제·학생 초대/강퇴·초대코드/QR/링크 핸들러 제거 — mypage(SSO)로 이관 (group-from-idp)
 
   // ============================================================
+  // 재시도
+  // ============================================================
+
+  const handleRetry = useCallback(() => {
+    if (groupsQueryError) {
+      void refetchGroups();
+    } else {
+      hasLoadedSlotsRef.current = false;
+      void loadExamSlots(rawGroups);
+    }
+  }, [groupsQueryError, refetchGroups, rawGroups, loadExamSlots]);
+
+  // ============================================================
   // 슬롯 상태 업데이트 헬퍼
   // ============================================================
 
   const updateGroupSlot = (groupId: string, slotId: string, patch: Partial<ExamSlotState>) => {
-    setGroups((prev) =>
-      prev.map((g) => {
-        if (g.id !== groupId) return g;
-        const newSlots = g.examSlots.map((s) => (s.slotId === slotId ? { ...s, ...patch } : s));
-        return buildGroupWithExamState(g, newSlots);
-      }),
-    );
+    const rawGroup = rawGroups.find((g: Group) => g.id === groupId);
+    if (!rawGroup) return;
+    setExamSlotsMap((prev) => {
+      const slots = prev.get(rawGroup.claId) ?? emptySlots();
+      const newSlots = slots.map((s) => (s.slotId === slotId ? { ...s, ...patch } : s));
+      return new Map(prev).set(rawGroup.claId, newSlots);
+    });
   };
 
   // ============================================================
@@ -269,8 +323,8 @@ export const AssessmentPageV2 = () => {
           totalCount: res.stTotalCnt,
           startDate: new Date(res.dgnssStDt),
         });
-      } catch {
-        // noop
+      } catch (err) {
+        console.error('[doStartExam] Failed to start exam:', err);
       }
     },
     [user, selectedGroup],
@@ -311,7 +365,8 @@ export const AssessmentPageV2 = () => {
           });
           return;
         }
-      } catch {
+      } catch (err) {
+        console.error('[handleStartExam] Preview validation failed:', err);
         // 검증 실패 시 그냥 진행
       }
 
@@ -433,7 +488,7 @@ export const AssessmentPageV2 = () => {
     return (
       <ErrorBox>
         <p style={{ color: '#EF4444', margin: 0 }}>{error}</p>
-        <button className='btn primary' onClick={loadGroups}>
+        <button className='btn primary' onClick={handleRetry}>
           다시 시도
         </button>
       </ErrorBox>
@@ -447,10 +502,7 @@ export const AssessmentPageV2 = () => {
         (groups.length === 0 ? (
           <EmptyState />
         ) : (
-          <GroupListView
-            groups={groups}
-            onSelectGroup={handleSelectGroup}
-          />
+          <GroupListView groups={groups} onSelectGroup={handleSelectGroup} />
         ))}
 
       {/* 상세 뷰 */}

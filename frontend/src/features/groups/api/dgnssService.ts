@@ -37,10 +37,11 @@ export interface DgnssStudentInfo {
 
 /**
  * (교사) 학급의 검사 목록 조회
+ * paperIdx 파라미터 제거로 1차+2차 통합 조회 (API 호출 최적화)
  */
-export const getDgnssList = async (claId: string, paperIdx: number = 1): Promise<DgnssInfo[]> => {
+export const getDgnssList = async (claId: string): Promise<DgnssInfo[]> => {
   const res = await apiClient.get<DgnssInfo[] | { dgnssInfo: DgnssInfo[] }>(
-    `/api/dgnss/tc/info?claId=${claId}&paperIdx=${paperIdx}`,
+    `/api/dgnss/tc/info?claId=${claId}`,
   );
   const data = res.resultData;
   if (!data) return [];
