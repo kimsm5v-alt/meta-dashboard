@@ -26,6 +26,8 @@ import {
   TypeDeviations,
   CoachingStrategy,
   type PanelTab,
+  DataHelperChatbot,
+  RightPanel,
 } from '@features/student-dashboard/ui';
 import { useCoachingStrategy } from '@features/student-dashboard/api/useCoachingStrategy';
 import type { Student, SchoolLevel } from '@shared/types';
@@ -349,7 +351,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 }) => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
-  const panelTab: PanelTab = null;
+  const [panelTab, setPanelTab] = useState<PanelTab>(null);
   const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
 
   useEffect(() => {
@@ -837,11 +839,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         />
 
         {/* 데이터 해석 도우미 (스피드다이얼 FAB) */}
-        {/* <DataHelperChatbot onOpenPanel={setPanelTab} isPanelOpen={panelTab !== null} /> */}
+        <DataHelperChatbot onOpenPanel={setPanelTab} isPanelOpen={panelTab !== null} />
       </MainContent>
 
       {/* 우측 푸시 패널 */}
-      {/* <RightPanel
+      <RightPanel
         isOpen={panelTab !== null}
         activeTab={panelTab}
         onTabChange={setPanelTab}
@@ -857,7 +859,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
           schoolLevel: student.schoolLevel,
           deviations: current.deviations,
         }}
-      /> */}
+      />
     </MainLayout>
   );
 };

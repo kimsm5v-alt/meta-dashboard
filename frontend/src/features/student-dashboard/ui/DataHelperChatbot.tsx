@@ -1,13 +1,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import styled from '@emotion/styled';
-import {
-  X,
-  Sparkles,
-  Eye,
-  MessageSquare,
-  ClipboardList,
-} from 'lucide-react';
+import { X, Sparkles, Eye, MessageSquare, ClipboardList } from 'lucide-react';
 import type { PanelTab } from './RightPanel';
 
 const SpeedDialContainer = styled.div<{ $panelOpen: boolean }>`
@@ -32,15 +26,14 @@ const FabButton = styled.button<{ $active: boolean }>`
   align-items: center;
   justify-content: center;
   background: ${({ $active }) =>
-    $active
-      ? '#4b5563'
-      : 'linear-gradient(135deg, #8b5cf6, #7c3aed)'};
+    $active ? '#4b5563' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)'};
   border: none;
   cursor: pointer;
 
   &:hover {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-    background: ${({ $active }) => ($active ? '#374151' : 'linear-gradient(135deg, #7c3aed, #6d28d9)')};
+    background: ${({ $active }) =>
+      $active ? '#374151' : 'linear-gradient(135deg, #7c3aed, #6d28d9)'};
   }
 `;
 
@@ -140,17 +133,8 @@ export const DataHelperChatbot: React.FC<DataHelperChatbotProps> = ({
     <SpeedDialContainer $panelOpen={isPanelOpen}>
       {isDialOpen && <Backdrop onClick={() => setIsDialOpen(false)} />}
 
-      <FabButton
-        id="data-helper-fab"
-        onClick={handleFabClick}
-        $active={isActive}
-        title="빠른 작업"
-      >
-        {isActive ? (
-          <X size={24} color="white" />
-        ) : (
-          <Sparkles size={24} color="white" />
-        )}
+      <FabButton id='data-helper-fab' onClick={handleFabClick} $active={isActive} title='빠른 작업'>
+        {isActive ? <X size={24} color='white' /> : <Sparkles size={24} color='white' />}
       </FabButton>
 
       <SpeedDialItems $visible={isDialOpen}>
