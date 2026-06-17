@@ -4,10 +4,16 @@ import {
   ChevronLeft,
   ChevronDown,
   ClipboardList,
+  Copy,
+  QrCode,
+  Link2,
+  Check,
 } from 'lucide-react';
 import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
+import { buildGroupJoinUrl } from '@shared/lib/mypage';
 import { ExamTimelineCard } from './ExamTimelineCard';
 import { StudentManagementPanel } from './StudentManagementPanel';
+import { QRCodeModal } from './QRCodeModal';
 import { EXAM_SLOTS } from '../constants';
 import type { GroupWithExamState, GroupMember } from '../types';
 import type { SchoolLevelCode } from '@shared/types';
@@ -85,6 +91,15 @@ export const GroupDetailView = ({
   onTemplateDownload,
 }: GroupDetailViewProps) => {
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+
+  const copyText = (text: string, which: 'code' | 'link') => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(which);
+      setTimeout(() => setCopied(null), 1500);
+    });
+  };
 
   const activeMembers = members.filter((m) => m.status === 'active');
   const inProgressCount = group.examSlots.filter((s) => s.status === 'in_progress').length;
@@ -193,9 +208,44 @@ export const GroupDetailView = ({
               <small>개</small>
             </div>
           </div>
-          {/* 초대 코드/QR/링크 칸 제거 — 학생 초대는 mypage(SSO)로 이관 (group-from-idp) */}
+          {/* 초대 코드 — 학생 그룹참여 QR/링크 (group-from-idp). 동기화로 코드 수신 시에만 노출 */}
+          {group.inviteCode && (
+            <div className="vj-d-stat invite">
+              <div className="lbl">초대 코드</div>
+              <div className="invite-row">
+                <span className="val code">{group.inviteCode}</span>
+                <button
+                  className="icon-btn"
+                  title="코드 복사"
+                  onClick={() => copyText(group.inviteCode!, 'code')}
+                >
+                  {copied === 'code' ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+                <button className="icon-btn" title="QR 코드" onClick={() => setQrOpen(true)}>
+                  <QrCode size={14} />
+                </button>
+                <button
+                  className="icon-btn"
+                  title="참여 링크 복사"
+                  onClick={() => copyText(buildGroupJoinUrl(group.inviteCode!), 'link')}
+                >
+                  {copied === 'link' ? <Check size={14} /> : <Link2 size={14} />}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* 학생 그룹참여 QR 모달 */}
+      {group.inviteCode && (
+        <QRCodeModal
+          isOpen={qrOpen}
+          inviteCode={group.inviteCode}
+          groupName={group.name}
+          onClose={() => setQrOpen(false)}
+        />
+      )}
 
       {/* 본문: 좌측 검사 타임라인 + 우측 학생 관리 */}
       <div className="vj-d-body">

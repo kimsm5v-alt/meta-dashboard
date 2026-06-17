@@ -163,6 +163,7 @@ public class RpGroupClient {
                 (String) m.get("grade"),
                 (String) m.get("classNo"),
                 (String) m.get("subject"),
+                (String) m.get("inviteCode"),
                 (String) m.get("status"),
                 parseTime(m.get("updatedAt")),
                 members,

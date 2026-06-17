@@ -19,3 +19,19 @@ export function openMypageGroups(view?: 'list' | 'create'): void {
   }
   window.location.href = `${ENV.SP_MYPAGE_URL}/groups?${params}`;
 }
+
+/**
+ * 학생 그룹참여 deep-link (교사 그룹상세의 QR/링크 공유용). (group-from-idp)
+ *
+ * <p>학생이 이 링크/QR로 진입하면 mypage 그룹참여 페이지에서 회원가입/로그인 →
+ * 그룹 합류 → `return_to`(학심정 학생 검사목록)로 자동 복귀한다. 참여는 mypage(SSO)가 처리.
+ *
+ * @param inviteCode Auth 동기화로 받은 그룹 초대코드
+ */
+export function buildGroupJoinUrl(inviteCode: string): string {
+  const params = new URLSearchParams({
+    client_id: ENV.SP_CLIENT_ID,
+    return_to: ENV.SP_STUDENT_RETURN_URL,
+  });
+  return `${ENV.SP_MYPAGE_URL}/groups/join/${encodeURIComponent(inviteCode)}?${params}`;
+}

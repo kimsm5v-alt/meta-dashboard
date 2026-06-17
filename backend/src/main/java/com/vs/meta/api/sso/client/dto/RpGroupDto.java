@@ -12,6 +12,7 @@ import java.util.List;
  * @param schoolLevel ELEMENTARY / MIDDLE / HIGH / ETC
  * @param grade       자유텍스트 ("3학년"), nullable
  * @param classNo     자유텍스트 ("5반"), nullable
+ * @param inviteCode  그룹 초대코드(6~8자, tenant 내 UNIQUE) — 학생 그룹참여 QR/링크 생성용. nullable
  */
 public record RpGroupDto(
         Long groupId,
@@ -22,6 +23,7 @@ public record RpGroupDto(
         String grade,
         String classNo,
         String subject,
+        String inviteCode,
         String status,
         LocalDateTime updatedAt,
         List<RpMemberDto> members,
