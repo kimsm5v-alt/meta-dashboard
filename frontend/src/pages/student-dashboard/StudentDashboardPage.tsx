@@ -363,6 +363,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   // 코칭 전략 API 호출
   const {
     moderationPaths,
+    strengths,
+    weaknesses,
     isLoading: isCoachingLoading,
     fetchCoachingStrategy,
   } = useCoachingStrategy(classId, studentId, selectedRound);
@@ -810,33 +812,24 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               />
             </CardSection>
 
-            {/* 유형별 특이점 / 차수 변화가 큰 요인 */}
+            {/* 강점/약점 TOP 3 */}
             <CardSection>
-              {isCompare && (
-                <div style={{ marginBottom: '0.75rem' }}>
-                  <SectionTitle style={{ fontSize: '1rem' }}>1차→2차 변화가 큰 요인</SectionTitle>
-                  <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.25rem' }}>
-                    1차와 2차 검사 사이에 가장 큰 변화를 보인 요인입니다.
-                  </p>
-                </div>
-              )}
               <TypeDeviations
-                tScores={current.tScores}
-                predictedType={current.predictedType}
-                schoolLevel={student.schoolLevel}
-                isCompare={isCompare}
-                prevTScores={isCompare && r1 ? r1.tScores : undefined}
+                strengths={strengths}
+                weaknesses={weaknesses}
               />
             </CardSection>
           </SectionCard>
         </SectionContainer>
 
-        {/* 코칭 전략 (인라인) */}
-        <CoachingStrategy
-          moderationPaths={moderationPaths}
-          typeName={current.predictedType}
-          isLoading={isCoachingLoading}
-        />
+        {/* 코칭 전략 (인라인) - 고등학교 제외 */}
+        {student.schoolLevel !== '고등' && (
+          <CoachingStrategy
+            moderationPaths={moderationPaths}
+            typeName={current.predictedType}
+            isLoading={isCoachingLoading}
+          />
+        )}
 
         {/* 데이터 해석 도우미 (스피드다이얼 FAB) */}
         <DataHelperChatbot onOpenPanel={setPanelTab} isPanelOpen={panelTab !== null} />

@@ -221,6 +221,13 @@ const TypeBadgesWrapper = styled.div`
   margin-top: 0.5rem;
 `;
 
+const EmptyMessage = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  color: ${({ theme }) => theme.colors.gray[500]};
+  text-align: center;
+  padding: 0.5rem 0;
+`;
+
 interface ClassCardsSectionProps {
   classes: Class[];
 }
@@ -378,23 +385,27 @@ export const ClassCardsSection = ({ classes }: ClassCardsSectionProps) => {
               {/* Type Distribution Bar */}
               <TypeDistributionSection>
                 <TypeDistributionTitle>유형 분포</TypeDistributionTitle>
-                {sorted.length > 0 && (
-                  <>
-                    <TypeDistributionBar>
-                      {sorted.map(([type, data]) => (
-                        <TypeSegment
-                          key={type}
-                          $width={data.percentage}
-                          $color={TYPE_COLORS[type]}
-                        />
-                      ))}
-                    </TypeDistributionBar>
-                    <TypeBadgesWrapper>
-                      {sorted.map(([type, data]) => (
-                        <TypeBadge key={type} type={type} count={data.count} showSuffix={true} />
-                      ))}
-                    </TypeBadgesWrapper>
-                  </>
+                {cls.schoolLevel === '고등' ? (
+                  <EmptyMessage>고등학교는 LPA 유형 분석을 제공하지 않습니다.</EmptyMessage>
+                ) : (
+                  sorted.length > 0 && (
+                    <>
+                      <TypeDistributionBar>
+                        {sorted.map(([type, data]) => (
+                          <TypeSegment
+                            key={type}
+                            $width={data.percentage}
+                            $color={TYPE_COLORS[type]}
+                          />
+                        ))}
+                      </TypeDistributionBar>
+                      <TypeBadgesWrapper>
+                        {sorted.map(([type, data]) => (
+                          <TypeBadge key={type} type={type} count={data.count} showSuffix={true} />
+                        ))}
+                      </TypeBadgesWrapper>
+                    </>
+                  )
                 )}
               </TypeDistributionSection>
             </Card>

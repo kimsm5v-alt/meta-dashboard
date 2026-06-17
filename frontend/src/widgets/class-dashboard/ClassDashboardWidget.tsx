@@ -726,9 +726,10 @@ export const ClassDashboardWidget: React.FC = () => {
     }
     const hasReliability = assessment.reliabilityWarnings.length > 0;
     const hasAttention = assessment.attentionResult.needsAttention;
+    const isHighSchool = classData?.schoolLevel === '고등';
     return (
       <ResultCellWrapper>
-        <Badge type={assessment.predictedType}>{assessment.predictedType}</Badge>
+        {!isHighSchool && <Badge type={assessment.predictedType}>{assessment.predictedType}</Badge>}
         {hasAttention && (
           <StatusBadge
             $variant='attention'

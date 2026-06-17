@@ -120,7 +120,13 @@ export function rankInterventions(
   predictedType: StudentType,
   schoolLevel: SchoolLevel,
 ): RankedIntervention[] {
-  const schoolData = LPA_PROFILE_DATA[schoolLevel];
+  // 고등학교는 LPA 분류를 제공하지 않음
+  if (schoolLevel === '고등') {
+    return [];
+  }
+
+  const schoolLevel2 = schoolLevel as '초등' | '중등';
+  const schoolData = LPA_PROFILE_DATA[schoolLevel2];
   const typeProfile = schoolData?.types.find((t) => t.name === predictedType);
 
   if (!typeProfile) return [];

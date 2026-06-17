@@ -54,6 +54,17 @@ export const classifyStudent = (
   studentScores: number[],
   schoolLevel: SchoolLevel,
 ): ClassificationResult => {
+  // 고등학교는 LPA 분류를 제공하지 않음
+  if (schoolLevel === '고등') {
+    return {
+      schoolLevel,
+      predictedType: '안전 균형형' as StudentType,
+      confidence: 0,
+      allProbabilities: {},
+      rank: [],
+    };
+  }
+
   // 방어: studentScores 유효성 검사
   if (!studentScores || !Array.isArray(studentScores) || studentScores.length !== 38) {
     console.warn(`[classifyStudent] 유효하지 않은 T점수 배열:`, studentScores?.length);
@@ -68,7 +79,8 @@ export const classifyStudent = (
     };
   }
 
-  let schoolData = LPA_PROFILE_DATA[schoolLevel];
+  const schoolLevel2 = schoolLevel as '초등' | '중등';
+  let schoolData = LPA_PROFILE_DATA[schoolLevel2];
 
   // 방어: 학교급 데이터가 없거나 means가 비어있으면 초등 데이터 사용
   const hasValidMeans = schoolData?.types.some((t) => t.means.length === 38);
@@ -147,13 +159,19 @@ export const getTypeDeviations = (
   schoolLevel: SchoolLevel,
   topN: number = 3,
 ) => {
+  // 고등학교는 LPA 분류를 제공하지 않음
+  if (schoolLevel === '고등') {
+    return [];
+  }
+
   // 방어: studentScores 유효성 검사
   if (!studentScores || !Array.isArray(studentScores) || studentScores.length !== 38) {
     console.warn(`[getTypeDeviations] 유효하지 않은 T점수 배열`);
     return [];
   }
 
-  let schoolData = LPA_PROFILE_DATA[schoolLevel];
+  const schoolLevel2 = schoolLevel as '초등' | '중등';
+  let schoolData = LPA_PROFILE_DATA[schoolLevel2];
   let profile = schoolData?.types.find((t) => t.name === typeName);
 
   // 해당 유형의 means가 없으면 초등 데이터에서 가장 비슷한 유형 찾기
@@ -193,7 +211,12 @@ export const getTypeDeviations = (
 
 // 유형 정보 조회
 export const getTypeInfo = (typeName: string, schoolLevel: SchoolLevel) => {
-  const schoolData = LPA_PROFILE_DATA[schoolLevel];
+  // 고등학교는 LPA 분류를 제공하지 않음
+  if (schoolLevel === '고등') {
+    return undefined;
+  }
+  const schoolLevel2 = schoolLevel as '초등' | '중등';
+  const schoolData = LPA_PROFILE_DATA[schoolLevel2];
   return schoolData?.types.find((t) => t.name === typeName);
 };
 

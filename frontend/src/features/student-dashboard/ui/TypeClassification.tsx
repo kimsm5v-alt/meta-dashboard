@@ -306,6 +306,11 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
   prevType,
   prevTypeProbabilities,
 }) => {
+  // 고등학교는 LPA 유형 분석을 제공하지 않음
+  if (schoolLevel === '고등') {
+    return null;
+  }
+
   const typeInfo = getTypeInfo(predictedType, schoolLevel);
 
   if (showCompare && prevType && prevTypeProbabilities) {

@@ -92,7 +92,8 @@ const buildStudentContextMarkdown = (data: StudentData): string => {
   const typeInfo = getTypeInfo(data.predictedType, data.schoolLevel);
   const typeProb = Math.round(data.typeProbabilities[data.predictedType] || 0);
 
-  const schoolData = LPA_PROFILE_DATA[data.schoolLevel];
+  const schoolLevel2 = data.schoolLevel === '고등' ? '중등' : (data.schoolLevel as '초등' | '중등');
+  const schoolData = LPA_PROFILE_DATA[schoolLevel2];
   const allTypesInfo = schoolData.types
     .map((t) => {
       const priorProb = Math.round((schoolData.priors[t.name] ?? 0) * 100);

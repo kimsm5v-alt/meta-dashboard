@@ -131,6 +131,24 @@ export interface ModerationPath {
   classDescription?: string;
 }
 
+export interface Weakness {
+  factorName: string;
+  factorType: 'positive' | 'negative';
+  individualT: number;
+  groupT: number;
+  deviation: number;
+  direction: 'positive' | 'negative';
+}
+
+export interface Strength {
+  factorName: string;
+  factorType: 'positive' | 'negative';
+  individualT: number;
+  groupT: number;
+  deviation: number;
+  direction: 'positive' | 'negative';
+}
+
 export interface GraphRecommendation {
   answerIdx: number;
   lpa: {
@@ -145,6 +163,8 @@ export interface GraphRecommendation {
   };
   recommendationCount: number;
   moderationPaths: ModerationPath[];
+  strengths?: Strength[];
+  weaknesses?: Weakness[];
 }
 
 export type RecommendationByOrd = Record<string, GraphRecommendation>;

@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { fetchStudentAnalysis, type ModerationPath } from '@shared/services/dashboardService';
+import {
+  fetchStudentAnalysis,
+  type ModerationPath,
+  type Strength,
+  type Weakness,
+} from '@shared/services/dashboardService';
 
 /**
  * 코칭 전략 데이터 훅
@@ -12,6 +17,8 @@ export function useCoachingStrategy(
 ) {
   const [isLoading, setIsLoading] = useState(false);
   const [moderationPaths, setModerationPaths] = useState<ModerationPath[]>([]);
+  const [strengths, setStrengths] = useState<Strength[]>([]);
+  const [weaknesses, setWeaknesses] = useState<Weakness[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const fetchCoachingStrategy = async () => {
@@ -30,18 +37,26 @@ export function useCoachingStrategy(
       if (data.recommendations) {
         const roundKey = String(round);
         const recommendation = data.recommendations[roundKey];
-        if (recommendation?.moderationPaths) {
-          setModerationPaths(recommendation.moderationPaths);
+        if (recommendation) {
+          setModerationPaths(recommendation.moderationPaths || []);
+          setStrengths(recommendation.strengths || []);
+          setWeaknesses(recommendation.weaknesses || []);
         } else {
           setModerationPaths([]);
+          setStrengths([]);
+          setWeaknesses([]);
         }
       } else {
         setModerationPaths([]);
+        setStrengths([]);
+        setWeaknesses([]);
       }
     } catch (err) {
       console.error('[useCoachingStrategy] API 호출 실패:', err);
       setError(err instanceof Error ? err.message : '알 수 없는 오류');
       setModerationPaths([]);
+      setStrengths([]);
+      setWeaknesses([]);
     } finally {
       setIsLoading(false);
     }
@@ -49,6 +64,8 @@ export function useCoachingStrategy(
 
   return {
     moderationPaths,
+    strengths,
+    weaknesses,
     isLoading,
     error,
     fetchCoachingStrategy,
