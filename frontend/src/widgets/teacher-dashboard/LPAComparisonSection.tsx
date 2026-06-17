@@ -322,6 +322,10 @@ export const LPAComparisonSection = ({ classes, onGoToClass }: LPAComparisonSect
 
   if (classes.length === 0) return null;
 
+  // 고등학교는 LPA 유형 분석을 제공하지 않음
+  const isHighSchool = classes[0].schoolLevel === '고등';
+  if (isHighSchool) return null;
+
   const isMiddleSchool = classes[0].schoolLevel === '중등';
   const typeOrder = isMiddleSchool ? LPA_TYPES_MIDDLE : LPA_TYPES_ELEMENTARY;
 
