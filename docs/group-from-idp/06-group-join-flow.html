@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>그룹 초대코드 · QR 참여 → 학심정 복귀 플로우 (group-from-idp)</title>
+<style>
+  :root{--ink:#0f172a;--body:#334155;--mut:#64748b;--line:#e2e8f0;--accent:#7c3aed;--accent2:#0f766e;--amber:#b45309;--red:#b91c1c;--soft:#f5f3ff;--card:#fff;--ok:#15803d;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#eef1f5;color:var(--body);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","맑은 고딕",sans-serif;line-height:1.65;-webkit-font-smoothing:antialiased;font-size:15px;}
+  .page{max-width:980px;margin:30px auto;background:var(--card);border-radius:14px;box-shadow:0 6px 30px rgba(15,23,42,.08);padding:48px 56px 64px;}
+  .head{border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:8px;}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;}
+  h1{font-size:25px;color:var(--ink);letter-spacing:-.02em;margin:8px 0 4px;}
+  .meta{color:var(--mut);font-size:13px;}
+  h2{font-size:18px;color:var(--ink);margin:34px 0 10px;padding-left:11px;border-left:4px solid var(--accent);}
+  h2 .step{color:var(--accent);font-weight:800;margin-right:6px;}
+  h3{font-size:15px;color:var(--ink);margin:20px 0 6px;}
+  p{margin:9px 0;}
+  strong,b{color:var(--ink);}
+  code{background:var(--soft);padding:1px 6px;border-radius:5px;font-family:Consolas,"D2Coding",monospace;font-size:12.5px;color:#5b21b6;}
+  .lead{background:var(--soft);border-left:4px solid var(--accent);border-radius:8px;padding:14px 18px;margin:14px 0;font-size:15px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{text-align:left;padding:9px 12px;border:1px solid var(--line);vertical-align:top;}
+  th{background:var(--soft);color:var(--ink);font-weight:700;}
+  td code{font-size:12px;}
+  ul,ol{margin:9px 0;padding-left:22px;} li{margin:6px 0;font-size:14px;}
+  .repo{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;margin-right:6px;color:#fff;vertical-align:1px;}
+  .r-auth{background:#0f766e;} .r-mypage{background:#7c3aed;} .r-meta{background:#b45309;}
+  .commit{font-family:Consolas,monospace;font-size:11.5px;color:var(--mut);}
+  .case{border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:14px 0;background:#fcfcfd;}
+  .case .ct{font-size:15px;font-weight:800;color:var(--ink);margin-bottom:6px;}
+  .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;margin-right:7px;vertical-align:1px;}
+  .tag-ok{background:#dcfce7;color:#15803d;} .tag-mid{background:#fef3c7;color:#b45309;} .tag-x{background:#fee2e2;color:#b91c1c;}
+  .flow{font-size:13px;color:var(--body);background:#fff;border:1px dashed #cbd5e1;border-radius:8px;padding:10px 14px;margin-top:8px;font-family:Consolas,"D2Coding",monospace;line-height:1.9;}
+  .flow b{color:var(--accent2);}
+  .note{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:13px 17px;margin:14px 0;}
+  .note .nt{font-weight:800;color:var(--amber);margin-bottom:4px;}
+  .ok{color:var(--ok);font-weight:700;} .x{color:var(--red);font-weight:700;}
+  .small{font-size:12.5px;color:var(--mut);}
+  @media print{body{background:#fff;}.page{box-shadow:none;max-width:none;margin:0;padding:24px;}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="head">
+    <div class="kicker">group-from-idp · 06</div>
+    <h1>그룹 초대코드 · QR 참여 → 학심정 복귀 플로우</h1>
+    <div class="meta">교사가 학심정에서 공유한 QR/링크로 학생이 그룹에 참여하고 학심정으로 복귀하기까지 · 2026-06-17</div>
+  </div>
+
+  <div class="lead">
+    <b>요지.</b> 교사가 학심정 <b>그룹 상세</b>에서 초대코드/QR/링크를 공유 → 학생이 그 링크로
+    <b>mypage 그룹참여 페이지</b>에 진입 → (필요 시 로그인·회원가입) → <b>그룹 합류</b> →
+    <b>학심정으로 자동 복귀</b>. 초대코드의 원천은 <b>Auth(IDP)</b>이며, 학심정은 동기화로 받아 표시만 한다.
+    그룹 합류 처리는 <b>mypage/Auth</b>가 담당하고 학심정은 동기화로 멤버 상태를 반영한다.
+  </div>
+
+  <!-- ───────────────────────── 1. 구성요소 ───────────────────────── -->
+  <h2><span class="step">1.</span>구성 요소 &amp; 역할</h2>
+  <table>
+    <thead><tr><th style="width:18%">주체</th><th style="width:32%">역할</th><th>이 작업에서 한 일</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="repo r-auth">Auth</span>superplatform-auth (IDP)</td>
+        <td>그룹·멤버·초대코드의 <b>원천(source of truth)</b>. 로그인/회원가입/그룹참여 처리.</td>
+        <td>① RP Group API 응답에 <code>inviteCode</code> 노출<br>② 초대코드 그룹 미리보기 API 신설 (<b>비로그인 공개</b>)</td>
+      </tr>
+      <tr>
+        <td><span class="repo r-mypage">mypage</span>superplatform-mypage</td>
+        <td>그룹 관리/참여 <b>화면 + BFF</b>. IdP로 1:1 프록시.</td>
+        <td>③ 코드 그룹참여 랜딩 페이지 신설<br>④ 그룹명 미리보기 BFF 공개 프록시</td>
+      </tr>
+      <tr>
+        <td><span class="repo r-meta">학심정</span>meta-dashboard (RP)</td>
+        <td>심리검사 서비스. 그룹 정보를 <b>동기화로 복제</b>해 읽기.</td>
+        <td>⑤ 초대코드 동기화 저장<br>⑥ 그룹상세 초대코드/QR/링크 UI 복원</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ───────────────────────── 2. 변경 내역 ───────────────────────── -->
+  <h2><span class="step">2.</span>레포별 변경 내역</h2>
+
+  <h3><span class="repo r-auth">Auth</span> superplatform-auth (develop)</h3>
+  <table>
+    <thead><tr><th style="width:42%">변경</th><th style="width:18%">위치</th><th>커밋</th></tr></thead>
+    <tbody>
+      <tr><td>RP Group API 응답에 <code>inviteCode</code> 필드 추가 (스냅샷/단건 2곳)</td><td><code>RpGroupResponse</code> · <code>RpGroupService</code></td><td class="commit">4992b8e</td></tr>
+      <tr><td>초대코드 그룹 미리보기 <code>GET /api/v1/groups/join-info?code=</code> 신설 (그룹명/학교/교사, 멤버 PII 없음)</td><td><code>GroupController</code> · <code>GroupJoinService</code> · <code>GroupCodeInfoResponse</code></td><td class="commit">3bbd936</td></tr>
+      <tr><td>위 미리보기 API <b>비로그인 공개</b> 전환 (<code>@PreAuthorize</code> 제거 + <code>PUBLIC_PATHS</code>) — tenant 없이 <code>findFirstByInviteCodeAndStatus</code> 전역 조회</td><td><code>SecurityConfig</code> · <code>GroupInfoRepository</code></td><td class="commit">bbc99a8</td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="repo r-mypage">mypage</span> superplatform-mypage (develop)</h3>
+  <table>
+    <thead><tr><th style="width:42%">변경</th><th style="width:18%">위치</th><th>커밋</th></tr></thead>
+    <tbody>
+      <tr><td>코드 그룹참여 랜딩 <code>/groups/join/:code</code> 신설 (public 라우트) — 비로그인 시 로그인 유도(return_to 보존), 로그인 시 <code>joinByCode</code> → 검증된 return_to 복귀, 교사 403 안내</td><td>FE <code>GroupCodeLandingPage</code> · <code>App.tsx</code> · <code>main.tsx</code></td><td class="commit">64ad57a</td></tr>
+      <tr><td>참여 랜딩에 그룹명 미리보기 표시 (초기엔 인증 필요)</td><td>FE <code>GroupCodeLandingPage</code> · <code>group.ts</code></td><td class="commit">05b3833</td></tr>
+      <tr><td>그룹명 미리보기 <b>BFF 공개 프록시</b> — <code>/api/v1/groups/join-info</code>를 <code>anonymousIdpRestClient</code>(무토큰)로 IdP에 포워드, <code>SecurityConfig</code> permitAll. FE는 <b>그룹명만</b> 표시</td><td>BFF <code>GroupController</code>·<code>GroupService</code>·<code>IdpGroupClient</code>·<code>SecurityConfig</code>·<code>GroupCodeInfoDto</code> / FE 랜딩</td><td class="commit">831c9f8</td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="repo r-meta">학심정</span> meta-dashboard (vs-develop)</h3>
+  <table>
+    <thead><tr><th style="width:42%">변경</th><th style="width:18%">위치</th><th>커밋</th></tr></thead>
+    <tbody>
+      <tr><td><b>BE</b> 동기화로 받은 <code>inviteCode</code>를 <code>group_info.invite_code</code>에 저장 (insert/update) + <code>safeInviteCode</code> UNIQUE 충돌 방어</td><td><code>RpGroupDto</code>·<code>RpGroupClient</code>·<code>GroupUpsertService</code></td><td class="commit">0e7256d</td></tr>
+      <tr><td><b>FE</b> 그룹상세 초대코드 카드 복원 (코드 + 복사/QR/링크 3종), <code>QRCodeModal</code> 재추가, <code>buildGroupJoinUrl</code> 헬퍼</td><td><code>GroupDetailView</code>·<code>QRCodeModal</code>·<code>mypage.ts</code></td><td class="commit">0e7256d</td></tr>
+      <tr><td><b>FE</b> 그룹참여 <code>return_to</code>를 현재 origin 기준 자동 도출 (환경별 env 동기화 불필요)</td><td><code>mypage.ts</code>·<code>env.ts</code></td><td class="commit">e98f7ee</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ───────────────────────── 3. QR/링크 ───────────────────────── -->
+  <h2><span class="step">3.</span>공유되는 QR / 링크</h2>
+  <p>교사가 그룹 상세에서 공유하는 QR과 "링크 복사"는 <b>동일한 URL</b>이다. 학심정 FE의 <code>buildGroupJoinUrl()</code>이 생성한다.</p>
+  <div class="flow">
+    https://&lt;mypage&gt;/groups/join/<b>{초대코드}</b>?client_id=<b>{학심정}</b>&amp;return_to=<b>{학심정 origin}/student/exams</b>
+  </div>
+  <ul>
+    <li><code>초대코드</code> — Auth 동기화로 학심정이 받은 그룹 코드 (<code>group_info.invite_code</code>)</li>
+    <li><code>client_id</code> — 학심정 (<code>VITE_SP_CLIENT_ID</code>). mypage "돌아가기" 브랜딩/검증용</li>
+    <li><code>return_to</code> — 합류 후 복귀할 학심정 학생 검사목록. <b>QR을 만드는 교사의 현재 학심정 origin</b>에서 자동 도출 → dev/운영 자동 일치, 이미 학심정 allowedOrigins 등록값이라 mypage 복귀 검증 통과</li>
+  </ul>
+
+  <!-- ───────────────────────── 4. 케이스별 흐름 ───────────────────────── -->
+  <h2><span class="step">4.</span>케이스별 참여 → 복귀 흐름</h2>
+  <p class="small">QR/링크는 같은 URL이라 동작 동일. 차이는 <b>학생의 로그인/가입 상태</b>와 <b>교사 여부</b>뿐.</p>
+
+  <div class="case">
+    <div class="ct"><span class="tag tag-ok">정상 · 최단</span>케이스 A — 이미 로그인된 학생</div>
+    <div>진입 즉시 그룹명 미리보기 표시 → "그룹 참여하기" → 합류 → 학심정 복귀.</div>
+    <div class="flow">
+      QR/링크 → mypage 랜딩(그룹명 표시) → <b>joinByCode</b> → 검증된 return_to → <b>학심정 /student/exams</b> ✓
+    </div>
+  </div>
+
+  <div class="case">
+    <div class="ct"><span class="tag tag-mid">로그인 필요</span>케이스 B — 미로그인 (기존 회원)</div>
+    <div>"로그인하고 참여하기" → IdP 로그인 → 콜백 → mypage가 원래 경로(return_to 포함) 복원 → 합류 → 학심정 복귀.</div>
+    <div class="flow">
+      QR/링크 → mypage 랜딩 → <b>login(redirectPath=현재경로)</b> → IdP 로그인 → 콜백 →<br>
+      mypage 랜딩 복원 → joinByCode → return_to → <b>학심정 /student/exams</b> ✓
+    </div>
+  </div>
+
+  <div class="case">
+    <div class="ct"><span class="tag tag-mid">회원가입 필요</span>케이스 C — 미가입 (신규 회원, 이메일/소셜)</div>
+    <div>가입(통합 개인정보처리방침 동의) → 원래 OAuth로 복귀. <b>소셜 신규가입</b>은 가입 직후 ST_SESSION 미발급 정책이라 <b>로그인 1회 더</b> 거친 뒤 복귀(IdP 기존 설계). 이후 합류 → 학심정 복귀.</div>
+    <div class="flow">
+      QR/링크 → mypage 랜딩 → login → IdP <b>회원가입</b> → (소셜은 로그인 1회 더) →<br>
+      콜백 → mypage 랜딩 복원 → joinByCode → return_to → <b>학심정 /student/exams</b> ✓
+    </div>
+    <div class="small" style="margin-top:6px">※ <code>return_to</code>는 로그인·가입·재로그인을 모두 관통해 보존됨(SDK <code>_auth_return_path</code> + OAuth return_to). 소셜 finalize 후 <code>completeLoginRedirect</code>가 원 OAuth로 이어줌.</div>
+  </div>
+
+  <div class="case">
+    <div class="ct"><span class="tag tag-x">차단</span>케이스 D — 교사 계정이 참여 시도</div>
+    <div>로그인까진 되지만 <code>joinByCode</code>에서 서버가 <b>403</b>("교사 계정은 그룹에 학생으로 합류할 수 없습니다") → 랜딩이 메시지만 표시하고 <b>학심정으로 보내지 않음</b>.</div>
+    <div class="flow">
+      QR/링크 → mypage 랜딩 → (로그인) → joinByCode → <b class="x">403 차단</b> → 안내 표시 (복귀 X)
+    </div>
+  </div>
+
+  <h3>약관 동의는 어디서? — 출발점에 따라 다름</h3>
+  <p>약관 검증(<code>SignupAgreementValidator</code>)은 <b>그 가입을 구동한 OAuth client</b>가
+  <code>consent_required=TRUE</code> RP일 때만 그 RP의 서비스 약관을 필수로 받는다.
+  통합 개인정보처리방침(privacy)은 가입 경로와 무관하게 항상 필수.</p>
+  <table>
+    <thead><tr><th style="width:26%">출발점</th><th style="width:37%">가입 화면에서 받는 약관</th><th>학심정 서비스 약관 받는 시점</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>학심정 직접 로그인</b><br><span class="small">(OAuth client = 학심정)</span></td>
+        <td>통합 privacy + <b>학심정 서비스 약관</b></td>
+        <td><b>가입 시 한 번에</b> ✅ (clientId=학심정, consent_required=TRUE)</td>
+      </tr>
+      <tr>
+        <td><b>QR/링크 경유</b><br><span class="small">(OAuth client = mypage)</span></td>
+        <td>통합 privacy <b>만</b></td>
+        <td>학심정 첫 진입 authorize의 <b>동의 화면</b>에서 ✅</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>QR 흐름의 가입은 <b>mypage 화면에서 mypage의 OAuth client</b>로 일어나므로(URL의 <code>client_id=학심정</code>은
+  mypage 브랜딩/복귀용일 뿐 OAuth client 아님), 그 가입 시엔 학심정 약관이 안 걸린다. 대신 학생이 합류 후
+  <b>학심정에 처음 authorize</b>할 때 학심정(<code>consent_required=TRUE</code>) 서비스 약관에 미동의 상태면
+  <code>OAuth2Controller</code>가 <code>CONSENT_REQUIRED</code> → <code>/consent</code> 동의 화면으로 보낸다
+  (<code>/consent/required</code>가 <b>미동의 항목만</b> 반환 → 이미 받은 통합 약관은 제외, 학심정 약관만).</p>
+  <div class="note">
+    <div class="nt">결론</div>
+    어느 경로든 <b>학심정 서비스 약관은 반드시 수집</b>된다 (학심정 client <code>consent_required=TRUE</code> +
+    authorize 동의 화면). 차이는 "가입 화면에서 한 번에"(학심정 직접) vs "학심정 진입 시 동의 화면에서"(QR 경유)일 뿐.
+  </div>
+
+  <!-- ───────────────────────── 5. 초대코드 동기화 체인 ───────────────────────── -->
+  <h2><span class="step">5.</span>초대코드 동기화 체인 (표시용)</h2>
+  <div class="flow">
+    Auth <code>group_info.invite_code</code> → RP API 응답 <code>inviteCode</code> →<br>
+    학심정 <code>RpGroupClient</code> 파싱 → <code>GroupUpsertService</code>(insert/update) →<br>
+    학심정 <code>group_info.invite_code</code> 저장 → 그룹 API → FE 그룹상세 <b>초대코드/QR/링크</b> 표시
+  </div>
+  <ul>
+    <li>부트스트랩 / 변경피드 폴링 / on-demand / 일일 재동기화 <b>어느 경로로 들어와도</b> 저장됨.</li>
+    <li><b>safeInviteCode</b>: 같은 코드를 다른 그룹이 점유 중이면 null 저장 + 경고 (<code>uk_group_invite_code</code> UNIQUE 충돌로 동기화가 깨지지 않게).</li>
+    <li>기존 synced 그룹은 Auth 배포 후 <b>그 그룹이 재조회되는 시점</b>(GROUP_UPDATE/on-demand)에 코드가 채워짐 → 그때부터 카드 노출.</li>
+  </ul>
+
+  <!-- ───────────────────────── 6. 멤버 제거 반영 ───────────────────────── -->
+  <h2><span class="step">6.</span>SSO에서 학생 제거 시 학심정 반영</h2>
+  <p><b>로우는 삭제하지 않고 <code>status</code>만 <code>KICKED</code>로 전이</b>한다. (검사 결과/이력이 멤버 로우를 참조하므로 보존)</p>
+  <table>
+    <thead><tr><th style="width:34%">경로</th><th>학심정 동작</th></tr></thead>
+    <tbody>
+      <tr><td>MEMBER_REMOVE 이벤트(폴링)</td><td><code>removeMemberBySpUserId</code> → <code>updateStatus(KICKED)</code> + <code>StudentKickedEvent</code> 알림</td></tr>
+      <tr><td>명단 전체 교체(스냅샷/단건/on-demand)</td><td>RP 명단에 없는 로컬 ACTIVE → <code>KICKED</code> 전이</td></tr>
+      <tr><td>그룹 자체 삭제(GROUP_DELETE)</td><td><code>group_info.use_yn='N'</code>만 — 멤버 로우 불변</td></tr>
+    </tbody>
+  </table>
+  <p class="small"><code>GroupMemberMapper.xml</code>에 물리 <code>DELETE</code> 쿼리 자체가 없음 → 동기화가 멤버 로우를 지우는 일은 구조적으로 불가능. <code>WITHDRAWN</code>(연동해제/동의철회)은 동기화가 재활성하지 않음(동의 철회 우선).</p>
+
+  <!-- ───────────────────────── 7. 주의/거버넌스 ───────────────────────── -->
+  <h2><span class="step">7.</span>설계 노트 &amp; 주의</h2>
+  <div class="note">
+    <div class="nt">⚠ 배포 / 운영 체크</div>
+    <ul>
+      <li><b>순서</b>: Auth(inviteCode 노출) 배포 → 학심정 동기화가 코드 수신 시작. 그 전엔 레거시 코드 보유 그룹만 카드 노출(graceful).</li>
+      <li><b>mypage 프록시</b>: <code>/api/v1/groups/join-info</code>가 BFF SecurityConfig에 permitAll로 열려 있어야 비로그인 그룹명 미리보기 동작 (이메일 초대 info와 동일 패턴, 처리 완료).</li>
+      <li><b>return_to</b>: 학심정 origin이 Auth OAuth allowedOrigins(redirectUris)에 등록돼 있어야 mypage 복귀 검증 통과.</li>
+    </ul>
+  </div>
+  <ul>
+    <li><b>노출 정보 최소화</b>: 미리보기는 그룹명만(BE는 학교/교사도 반환하나 FE 미표시), <b>멤버 명단·PII는 노출하지 않음</b>.</li>
+    <li><b>미리보기 전역 조회</b>: tenant 없이 코드로 조회(랜덤 8자라 교차 충돌 무시 가능)하되, <b>실제 합류(joinByCode)는 tenant 스코프 유지</b> — 미리보기는 비권위적.</li>
+    <li><b>역방향 없음</b>: 학심정은 그룹 데이터를 pull/표시만. 쓰기(생성·수정·삭제·합류·제거)는 모두 mypage/Auth.</li>
+  </ul>
+
+  <!-- ───────────────────────── 8. 범위 ───────────────────────── -->
+  <h2><span class="step">8.</span>본질은 "평가 링크"가 아니라 "그룹 초대 링크"</h2>
+  <p>별도 기획 문서 <code>20260617-평가-그룹멤버십-인증플로우</code> [그림1]은 <b>"평가 링크 클릭 →
+  RP가 ①로그인 ②멤버십 2관문 게이트"</b>로 그렸지만, <b>학심정엔 그런 "평가 링크" 개념도, 비멤버를
+  자동으로 그룹참여로 보내는 RP 게이트도 없다.</b> 학심정에서 실제로 의미 있는 건
+  <b>그룹 초대 링크(=이번에 구현한 QR/참여 링크)</b>이며, 본 작업이 구현한 게 바로 그것이다.</p>
+
+  <h3>학심정의 실제 평가(검사) 진입 경로 — 멤버십 자동 게이트 없음</h3>
+  <table>
+    <thead><tr><th style="width:42%">경로</th><th>방식</th></tr></thead>
+    <tbody>
+      <tr><td><b>로그인 학생 → <code>/student/exams</code></b></td><td>내 검사목록(그룹 멤버십 기반)에서 응시 — 멤버라서 목록에 보이는 것</td></tr>
+      <tr><td><b>검사 코드 입력 → <code>/exam</code> → <code>/exam/:code</code></b></td><td><code>META-XXXX</code> 코드 입력 진입</td></tr>
+    </tbody>
+  </table>
+
+  <h3>기획 [그림1] 요소별 대조</h3>
+  <table>
+    <thead><tr><th style="width:46%">기획 [그림1] 요소</th><th style="width:16%">학심정</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td>관문 ① 로그인 확인 → 중앙 SSO 로그인(state, 복귀)</td><td><span class="ok">기존 구현</span></td><td>학심정 SSO 로그인 표준 흐름</td></tr>
+      <tr><td>중앙 그룹참여 박스 (<code>groupCode</code> + <code>returnUrl</code> → 참여 후 RP 복귀)</td><td><span class="ok">이번 구현</span></td><td>= <b>그룹 초대 링크</b>. mypage <code>/groups/join/{code}?…&amp;return_to=</code> + 참여 후 자동 복귀. 진입은 <b>교사 QR/링크 공유</b></td></tr>
+      <tr><td>관문 ② "평가 링크 → 비멤버 RP 자동 게이트"</td><td><span class="small" style="font-weight:700">해당 없음</span></td><td>학심정엔 평가 링크/자동 멤버십 게이트 모델 자체가 없음 — 미구현이 아니라 <b>모델 불일치</b></td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <div class="nt">⚠ 정리 대상 (별건) — 죽은 링크</div>
+    구 <code>features/assessment/ui/AssessmentCodeModal.tsx</code>의 검사 QR이
+    <code>examUrl = {origin}/join/{inviteCode}</code> 를 가리키나, <code>/join/:code</code> 라우트는
+    group-from-idp 작업에서 제거됨(→ fallback <code>/</code>, 죽은 링크). 해당 모달은 구 assessment 피처라
+    현재 라우팅(assessment-v2)에서 미사용일 가능성 — 제거/정리 검토 필요.
+  </div>
+
+  <p class="small" style="margin-top:24px;border-top:1px solid var(--line);padding-top:12px">
+    관련 문서: <code>00-overview.md</code> ~ <code>05-frontend-changes.md</code> · 본 문서는 초대코드 복원 + 그룹참여 복귀 플로우(2026-06-17 작업)를 정리한다.
+  </p>
+
+</div>
+</body>
+</html>

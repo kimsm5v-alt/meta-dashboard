@@ -138,7 +138,7 @@ public class GroupUpsertService {
                 .subject(rp.subject())
                 .schoolCode(fkSafeSchoolCode(rp.schoolCode()))
                 .schoolName(rp.schoolName())
-                .inviteCode(null)           // Auth 응답에 미포함 — 코드 합류는 mypage 책임
+                .inviteCode(safeInviteCode(rp.inviteCode(), rp.groupId()))  // 그룹참여 QR/링크용 — UNIQUE 충돌 시 null
                 .maxMemberCount(100)        // group_info.max_member_count NOT NULL — 정원은 Auth 책임이라 학심정 미사용, 기본값 고정(createGroup 과 동일)
                 .useYn("Y")
                 .createdBy(0L)
@@ -167,6 +167,7 @@ public class GroupUpsertService {
             dirty = true;
         }
         dirty |= setIfChanged(g.getSubject(), rp.subject(), g::setSubject);
+        dirty |= setIfChanged(g.getInviteCode(), safeInviteCode(rp.inviteCode(), rp.groupId()), g::setInviteCode);
         dirty |= setIfChanged(g.getSchoolCode(), fkSafeSchoolCode(rp.schoolCode()), g::setSchoolCode);
         dirty |= setIfChanged(g.getSchoolName(), rp.schoolName(), g::setSchoolName);
         if (!"Y".equals(g.getUseYn())) {
@@ -300,6 +301,25 @@ public class GroupUpsertService {
     /** group_nm NOT NULL 방어 — Auth groupName 이 비어 오면 대체 표시값. */
     static String safeGroupNm(String groupName) {
         return (groupName == null || groupName.isBlank()) ? "(이름 없는 그룹)" : groupName;
+    }
+
+    /**
+     * invite_code UNIQUE(uk_group_invite_code) 충돌 방어. Auth 코드를 그대로 저장하되,
+     * 같은 코드를 <b>다른 그룹</b>(레거시/타 sp_group_id)이 이미 점유 중이면 null 저장 + 경고.
+     * 컷오버 전환기 레거시 코드 충돌이 동기화를 깨지 않게 — 표시는 못 해도 동기화는 계속.
+     * (활성 그룹 기준 점검. 비활성 보유 행과의 희박한 충돌은 범위 외)
+     */
+    private String safeInviteCode(String code, Long spGroupId) {
+        if (code == null || code.isBlank()) {
+            return null;
+        }
+        GroupInfo holder = groupInfoMapper.findByInviteCodeAndUseYn(code, "Y");
+        if (holder != null && !java.util.Objects.equals(holder.getSpGroupId(), spGroupId)) {
+            log.warn("[GROUP-SYNC] invite_code 충돌 — 코드 보류(null): code={}, 점유 claId={}, 신규 spGroupId={}",
+                    code, holder.getClaId(), spGroupId);
+            return null;
+        }
+        return code;
     }
 
     /** ELEMENTARY/MIDDLE/HIGH → elementary/middle/high. ETC 등 비표준은 소문자 그대로 (검사 자동 등록은 skip). */
