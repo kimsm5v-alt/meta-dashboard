@@ -1,7 +1,7 @@
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { useState, useEffect } from 'react';
-import { ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Loader2, Lock, CheckCircle2 } from 'lucide-react';
 import type { StudentInfo } from './StudentInfoStep';
 
 type SchoolLevel = 'elementary' | 'middle' | 'high' | '';
@@ -18,17 +18,17 @@ export interface StudentExamContext {
 
 const Container = styled.div`
   min-height: 100vh;
-  background: linear-gradient(to bottom right, #f5f3ff, #ffffff, #eef2ff);
-  padding: 2rem 1rem;
+  background: #f5f6fa;
+  padding: 24px;
 `;
 
 const ContentWrapper = styled.div<{ $wide?: boolean }>`
-  max-width: ${({ $wide }) => ($wide ? '54rem' : '42rem')};
+  max-width: ${({ $wide }) => ($wide ? '67.5rem' : '42rem')};
   margin: 0 auto;
 `;
 
 const Header = styled.div`
-  text-align: center;
+  text-align: left;
   margin-bottom: 2rem;
 `;
 
@@ -41,8 +41,7 @@ const ExamBadge = styled.span<{ $color: string }>`
   font-size: 0.8125rem;
   font-weight: 600;
   color: ${({ $color }) => $color};
-  background: ${({ $color }) => `${$color}18`};
-  border: 1px solid ${({ $color }) => `${$color}40`};
+  background: #009f8815;
   margin-bottom: 0.75rem;
 `;
 
@@ -72,10 +71,6 @@ const Card = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-
-  @media (min-width: 768px) {
-    padding: 2rem;
-  }
 `;
 
 const Section = styled.div``;
@@ -121,10 +116,10 @@ const GuidelineNumber = styled.span<{ $color: string }>`
   width: 1.5rem;
   height: 1.5rem;
   border-radius: ${({ theme }) => theme.radius.full};
-  background: ${({ $color }) => `${$color}18`};
-  color: ${({ $color }) => $color};
+  background: #009f8815;
+  color: #009f88;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -135,20 +130,40 @@ const GuidelineText = styled.span`
   line-height: 1.6;
 `;
 
-const ExampleBox = styled.div`
-  background: ${({ theme }) => theme.colors.gray[50]};
-  border-radius: ${({ theme }) => theme.radius.xl};
-  padding: 1rem;
-`;
-
-const ExampleQuestion = styled.p`
+const ExampleDescription = styled.p`
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.gray[700]};
+  color: ${({ theme }) => theme.colors.gray[500]};
   margin-bottom: 1rem;
 `;
 
+const ExampleBox = styled.div`
+  background: ${({ theme }) => theme.colors.gray[50]};
+  border-radius: ${({ theme }) => theme.radius.xl};
+  padding: 1.25rem;
+`;
+
+const ExampleInstruction = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  color: ${({ theme }) => theme.colors.gray[900]};
+  line-height: 1.6;
+  margin-bottom: 1rem;
+`;
+
+const ExampleQuestion = styled.div`
+  background: ${({ theme }) => theme.colors.background.paper};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: ${({ theme }) => theme.typography.fontSize.base};
+  color: ${({ theme }) => theme.colors.gray[900]};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+`;
+
 const ExampleQuestionNumber = styled.span`
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  color: ${({ theme }) => theme.colors.gray[500]};
+  margin-right: 0.5rem;
 `;
 
 const RadioGroup = styled.div`
@@ -221,12 +236,13 @@ const TextInput = styled.input<{ $hasError?: boolean }>`
   border: 1.5px solid ${({ $hasError, theme }) => ($hasError ? '#ef4444' : theme.colors.gray[200])};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   color: ${({ theme }) => theme.colors.gray[900]};
-  background: ${({ theme }) => theme.colors.gray[50]};
+  background: #ffffff;
   transition: border-color 0.15s ease;
+  min-height: 3rem;
 
   &:focus {
     outline: none;
-    border-color: ${({ $hasError, theme }) => ($hasError ? '#ef4444' : theme.colors.primary[400])};
+    border-color: ${({ $hasError, theme }) => ($hasError ? '#ef4444' : theme.colors.primary[1000])};
   }
 
   &::placeholder {
@@ -273,13 +289,15 @@ const GradeSelect = styled.select<{ $hasError?: boolean }>`
   border-radius: ${({ theme }) => theme.radius.lg};
   border: 1.5px solid ${({ $hasError, theme }) => ($hasError ? '#ef4444' : theme.colors.gray[200])};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  background: ${({ theme }) => theme.colors.gray[50]};
+  background: #ffffff;
   cursor: pointer;
   transition: border-color 0.15s ease;
+  min-height: 3rem;
+  min-width: 436px;
 
   &:focus {
     outline: none;
-    border-color: ${({ theme }) => theme.colors.primary[400]};
+    border-color: ${({ theme }) => theme.colors.primary[1000]};
   }
 
   &:disabled {
@@ -298,7 +316,7 @@ const SmallInput = styled(TextInput)`
 const ButtonGroup = styled.div`
   display: flex;
   gap: 0.75rem;
-  padding-top: 1rem;
+  margin-top: 1rem;
 `;
 
 const BackButton = styled.button`
@@ -363,93 +381,98 @@ const SpinningIcon = styled(Loader2)`
 
 /* ──────────── Numbered Section Styled Components (student context) ──────────── */
 
-const NumberedSectionWrapper = styled.div`
-  display: flex;
-  gap: 0.875rem;
-  align-items: flex-start;
+/* ──────────── Section with External Header ──────────── */
+
+const SectionWrapper = styled.div`
+  margin-bottom: 2rem;
 `;
 
-const SectionCircle = styled.div<{ $color: string }>`
+const SectionHeaderRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+`;
+
+const SectionNumber = styled.div<{ $color: string }>`
   flex-shrink: 0;
   width: 2rem;
   height: 2rem;
   border-radius: 50%;
   background: ${({ $color }) => $color};
   color: white;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 0.125rem;
 `;
 
-const SectionBodyWrapper = styled.div`
-  flex: 1;
-`;
-
-const SectionBodyHeading = styled.h2`
-  font-size: ${({ theme }) => theme.typography.fontSize.base};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+const SectionHeading = styled.h2`
+  font-size: 1.25rem;
+  font-weight: 700;
   color: ${({ theme }) => theme.colors.gray[900]};
-  margin-bottom: 1rem;
 `;
 
-const TwoColumnInfo = styled.div`
+const InfoGrid = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+`;
+
+const TwoColumnGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: 1.5rem 1.5rem;
 
-  @media (max-width: 640px) {
+  @media (max-width: 768px) {
     grid-template-columns: 1fr;
   }
 `;
 
-const InfoConfirmPanel = styled.div`
-  background: ${({ theme }) => theme.colors.gray[50]};
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  border-radius: ${({ theme }) => theme.radius.xl};
-  padding: 1rem;
-`;
-
-const InfoConfirmPanelHint = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[500]};
-  margin-bottom: 0.75rem;
-`;
-
-const InfoConfirmRows = styled.dl`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
-
-const InfoConfirmRow = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-`;
-
-const InfoConfirmLabel = styled.dt`
-  color: ${({ theme }) => theme.colors.gray[500]};
-  min-width: 4.5rem;
-  flex-shrink: 0;
-`;
-
-const InfoConfirmValue = styled.dd`
-  color: ${({ theme }) => theme.colors.gray[900]};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-`;
-
-const MinimalInputPanel = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+const GenderRow = styled.div`
+  max-width: 18.75rem;
 `;
 
 const RequiredMark = styled.span`
   color: #ef4444;
   margin-left: 1px;
+`;
+
+/* ──────────── Locked Field (Read-only with auto badge) ──────────── */
+
+const LockedFieldWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  background: ${({ theme }) => theme.colors.gray[50]};
+  min-height: 3rem;
+`;
+
+const LockedValue = styled.div`
+  font-size: ${({ theme }) => theme.typography.fontSize.base};
+  color: ${({ theme }) => theme.colors.gray[900]};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+`;
+
+const AutoBadge = styled.div<{ $color: string }>`
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  color: ${({ $color }) => $color};
+  background: ${({ $color }) => `${$color}15`};
+
+  svg {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
 `;
 
 /* ──────────── Component ──────────── */
@@ -464,8 +487,7 @@ interface ExamGuideStepProps {
   isLoading: boolean;
 }
 
-const EXAM_COLOR = (name: string) =>
-  name.includes('자기조절') ? '#009F88' : '#9D53E1';
+const EXAM_COLOR = (name: string) => (name.includes('자기조절') ? '#009F88' : '#9D53E1');
 
 const SCHOOL_LEVEL_LABEL: Record<string, string> = {
   elementary: '초등',
@@ -480,38 +502,84 @@ const GRADE_OPTIONS: Record<string, string[]> = {
 };
 
 const GUIDELINES = [
-  '검사 문항에는 옳고, 그른 답이 없습니다. 정답이 없으므로 자신의 생각대로 솔직하게 답해주세요.',
-  '해당 검사는 학업 성적이나 교과 점수와는 전혀 관련이 없으므로 걱정하지 않아도 됩니다.',
-  '내가 바라는 모습이 아닌, 현재의 나를 기준으로 답해주세요.',
-  '중간에 검사를 멈추지 않고 전체 문항을 빠짐없이 응답해 주세요. (약 15~20분 소요)',
+  {
+    text: "검사 응답에는 옳고, 그른 답이 없습니다. 각 문항에 대한 자신의 생각과 느낌을 바탕으로 '전혀 그렇지 않다(1점)부터 매우 그렇다(5점)' 까지 나에게 해당하는 점수를 선택해 주세요.",
+    boldParts: ['옳고, 그른 답이 없습니다', "'전혀 그렇지 않다(1점)부터 매우 그렇다(5점)'"],
+  },
+  {
+    text: '해당 검사는 학업 성적이나 교과 점수와 무관하니 편안한 마음으로 응답해 주세요.',
+    boldParts: ['학업 성적이나 교과 점수와 무관'],
+  },
+  {
+    text: '내가 바라는 모습이 아닌, 현재의 나를 가장 잘 나타내는 답변에 체크해 주세요.',
+    boldParts: ['현재의 나를 가장 잘 나타내는 답변'],
+  },
+  {
+    text: '중간에 검사를 멈추지 않고 전체 문항을 모두 응답해야 선생님께 제출되니, 한 문항도 빠뜨리지 말고 성실하게 응답해 주세요.',
+    boldParts: ['전체 문항을 모두 응답해야 선생님께 제출'],
+  },
 ];
+
+// 텍스트에서 볼드 처리
+const renderTextWithBold = (text: string, boldParts: string[]) => {
+  let result = text;
+  boldParts.forEach((part) => {
+    result = result.replace(
+      part,
+      `<strong style="font-weight: 600; color: #111827;">${part}</strong>`,
+    );
+  });
+  return <span dangerouslySetInnerHTML={{ __html: result }} />;
+};
 
 const GuideSection: React.FC<{ color: string }> = ({ color }) => (
   <>
-    <GuidelineList>
-      {GUIDELINES.map((text, i) => (
-        <GuidelineItem key={i}>
-          <GuidelineNumber $color={color}>{i + 1}</GuidelineNumber>
-          <GuidelineText>{text}</GuidelineText>
-        </GuidelineItem>
-      ))}
-    </GuidelineList>
-    <ExampleBox style={{ marginTop: '1rem' }}>
-      <ExampleQuestion>
-        <ExampleQuestionNumber>질문 1.</ExampleQuestionNumber> 열심히 노력하면 내 능력이
-        향상될 수 있다.
-      </ExampleQuestion>
-      <RadioGroup>
-        {['전혀 그렇지 않다', '그렇지 않다', '보통이다', '그렇다', '매우 그렇다'].map(
-          (label, i) => (
-            <RadioLabel key={i}>
-              <RadioInput type='radio' name='example' disabled />
-              <RadioLabelText>{label}</RadioLabelText>
-            </RadioLabel>
-          ),
-        )}
-      </RadioGroup>
-    </ExampleBox>
+    {/* 검사 진행 방법 */}
+    <Section>
+      <SectionHeader $color={color}>
+        <CheckCircle2 />
+        <SectionTitle>검사 진행 방법</SectionTitle>
+      </SectionHeader>
+      <GuidelineList>
+        {GUIDELINES.map((guideline, i) => (
+          <GuidelineItem key={i}>
+            <GuidelineNumber $color={color}>{i + 1}</GuidelineNumber>
+            <GuidelineText>{renderTextWithBold(guideline.text, guideline.boldParts)}</GuidelineText>
+          </GuidelineItem>
+        ))}
+      </GuidelineList>
+    </Section>
+
+    {/* 예시 문제 */}
+    <Section style={{ marginTop: '1.5rem' }}>
+      <SectionHeader $color={color}>
+        <CheckCircle2 />
+        <SectionTitle>예시 문제</SectionTitle>
+      </SectionHeader>
+      <ExampleDescription>
+        검사를 시작하기 전에 예시를 보며 검사 방법을 확인해 주세요.
+      </ExampleDescription>
+      <ExampleBox>
+        <ExampleInstruction>
+          다음 문항은 여러분이 어떤 환경에서 공부하는 것을 더 좋아하는지를 묻는 질문입니다. 각
+          문항을 읽고, 요즘 자신의 생각이나 느낌과 가장 가까운 곳에 체크해 주세요.
+        </ExampleInstruction>
+        <ExampleQuestion>
+          <ExampleQuestionNumber>질문 1.</ExampleQuestionNumber>
+          열심히 노력하면 내 능력이 향상될 수 있다.
+        </ExampleQuestion>
+        <RadioGroup>
+          {['전혀 그렇지 않다', '그렇지 않다', '보통이다', '그렇다', '매우 그렇다'].map(
+            (label, i) => (
+              <RadioLabel key={i}>
+                <RadioInput type='radio' name='example' disabled />
+                <RadioLabelText>{label}</RadioLabelText>
+              </RadioLabel>
+            ),
+          )}
+        </RadioGroup>
+      </ExampleBox>
+    </Section>
   </>
 );
 
@@ -525,6 +593,18 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
   isLoading,
 }) => {
   const color = EXAM_COLOR(examName);
+
+  // 🔴 TEST: 모든 필드를 입력 가능하게 만들기 위해 빈 context로 강제 설정
+  // studentExamContext = {
+  //   ordNo: 1,
+  //   examName: examName,
+  //   schoolName: undefined,
+  //   schoolLevel: undefined,
+  //   grade: undefined,
+  //   classNumber: undefined,
+  //   prefilledName: '고우진',
+  //   prefilledStudentNumber: '1',
+  // }
 
   /* ── QR flow form state ── */
   const [schoolLevel, setSchoolLevel] = useState<SchoolLevel>('');
@@ -544,10 +624,21 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
     studentExamContext?.prefilledStudentNumber || '',
   );
   const [localGender, setLocalGender] = useState<'M' | 'F' | ''>('');
+
+  /* ── Editable group fields (when missing from context) ── */
+  const [editableSchoolName, setEditableSchoolName] = useState('');
+  const [editableSchoolLevel, setEditableSchoolLevel] = useState<SchoolLevel>('');
+  const [editableGrade, setEditableGrade] = useState('');
+  const [editableClassNumber, setEditableClassNumber] = useState('');
+
   const [contextErrors, setContextErrors] = useState<{
     studentNumber?: string;
     name?: string;
     gender?: string;
+    schoolName?: string;
+    schoolLevel?: string;
+    grade?: string;
+    classNumber?: string;
   }>({});
 
   useEffect(() => {
@@ -555,6 +646,12 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
       setFormData((prev) => ({ ...prev, grade: '' }));
     }
   }, [schoolLevel]);
+
+  useEffect(() => {
+    if (editableSchoolLevel) {
+      setEditableGrade('');
+    }
+  }, [editableSchoolLevel]);
 
   const handleField = (field: keyof StudentInfo, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -576,18 +673,34 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
   const handleStart = () => {
     if (studentExamContext) {
       const newErrors: typeof contextErrors = {};
+
+      // Validate always-required fields
       if (!localStudentNumber.trim()) newErrors.studentNumber = '출석번호를 입력해주세요';
       if (!localName.trim()) newErrors.name = '이름을 입력해주세요';
       if (!localGender) newErrors.gender = '성별을 선택해주세요';
+
+      // Validate editable group fields (if context doesn't have them)
+      const { schoolName, schoolLevel: ctxLevel, grade, classNumber } = studentExamContext;
+      if (!schoolName && !editableSchoolName.trim()) newErrors.schoolName = '학교를 입력해주세요';
+      if (!ctxLevel && !editableSchoolLevel) newErrors.schoolLevel = '학교급을 선택해주세요';
+      if (grade == null && !editableGrade) newErrors.grade = '학년을 선택해주세요';
+      if (classNumber == null && !editableClassNumber.trim())
+        newErrors.classNumber = '반을 입력해주세요';
+
       if (Object.keys(newErrors).length > 0) {
         setContextErrors(newErrors);
         return;
       }
+
+      // Prepare StudentInfo with context data or editable values
+      const finalSchoolName = schoolName || editableSchoolName;
+      const finalGrade = grade != null ? String(grade) : editableGrade;
+      const finalClassNumber = classNumber != null ? String(classNumber) : editableClassNumber;
+
       onStart({
-        schoolName: studentExamContext.schoolName || '',
-        grade: studentExamContext.grade != null ? String(studentExamContext.grade) : '',
-        classNumber:
-          studentExamContext.classNumber != null ? String(studentExamContext.classNumber) : '',
+        schoolName: finalSchoolName,
+        grade: finalGrade,
+        classNumber: finalClassNumber,
         studentNumber: localStudentNumber,
         name: localName,
         gender: localGender,
@@ -601,195 +714,325 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
   };
 
   const isStartEnabled = studentExamContext
-    ? localStudentNumber.trim() !== '' && localName.trim() !== '' && localGender !== ''
+    ? (() => {
+        const { schoolName, schoolLevel: ctxLevel, grade, classNumber } = studentExamContext;
+        const hasSchoolName = !!schoolName || editableSchoolName.trim() !== '';
+        const hasSchoolLevel = !!ctxLevel || editableSchoolLevel !== '';
+        const hasGrade = grade != null || editableGrade !== '';
+        const hasClassNumber = classNumber != null || editableClassNumber.trim() !== '';
+        return (
+          localStudentNumber.trim() !== '' &&
+          localName.trim() !== '' &&
+          localGender !== '' &&
+          hasSchoolName &&
+          hasSchoolLevel &&
+          hasGrade &&
+          hasClassNumber
+        );
+      })()
     : true;
 
   const gradeOptions = GRADE_OPTIONS[schoolLevel] ?? [];
+  const editableGradeOptions = GRADE_OPTIONS[editableSchoolLevel] ?? [];
 
   /* ════════════════════════════════════════════════════
      Student context mode: "검사 시작 준비"
   ════════════════════════════════════════════════════ */
   if (studentExamContext) {
-    const { ordNo, schoolName, schoolLevel: ctxLevel, grade, classNumber } = studentExamContext;
+    const { schoolName, schoolLevel: ctxLevel, grade, classNumber } = studentExamContext;
 
     return (
       <Container>
         <ContentWrapper $wide>
           <Header>
-            <ExamBadge $color={color}>
-              <BadgeDot $color={color} />
-              {examName}
-            </ExamBadge>
+            <ExamBadge $color={color}>{examName}</ExamBadge>
             <Title>검사 시작 준비</Title>
             <Subtitle>검사 안내를 확인하고 기본 정보를 입력해 주세요</Subtitle>
           </Header>
 
-          <Card>
-            {/* ① 검사 안내 */}
-            <NumberedSectionWrapper>
-              <SectionCircle $color={color}>1</SectionCircle>
-              <SectionBodyWrapper>
-                <SectionBodyHeading>검사 안내</SectionBodyHeading>
-                <GuideSection color={color} />
-              </SectionBodyWrapper>
-            </NumberedSectionWrapper>
+          {/* ① 검사 안내 */}
+          <SectionWrapper>
+            <SectionHeaderRow>
+              <SectionNumber $color={color}>1</SectionNumber>
+              <SectionHeading>검사 안내</SectionHeading>
+            </SectionHeaderRow>
+            <Card>
+              <GuideSection color={color} />
+            </Card>
+          </SectionWrapper>
 
-            <SectionDivider style={{ paddingTop: 0, marginTop: 0 }} />
+          {/* ② 기본 정보 입력 */}
+          <SectionWrapper>
+            <SectionHeaderRow>
+              <SectionNumber $color={color}>2</SectionNumber>
+              <SectionHeading>기본 정보 입력</SectionHeading>
+            </SectionHeaderRow>
+            <Card>
+              <InfoGrid>
+                {/* 검사 (전체 너비, 항상 잠금) */}
+                <FormField>
+                  <FieldLabel>검사</FieldLabel>
+                  <LockedFieldWrapper>
+                    <LockedValue>{examName}</LockedValue>
+                    <AutoBadge $color={color}>
+                      <Lock size={12} />
+                      자동
+                    </AutoBadge>
+                  </LockedFieldWrapper>
+                </FormField>
 
-            {/* ② 기본 정보 입력 */}
-            <NumberedSectionWrapper>
-              <SectionCircle $color={color}>2</SectionCircle>
-              <SectionBodyWrapper>
-                <SectionBodyHeading>기본 정보 입력</SectionBodyHeading>
-                <TwoColumnInfo>
-                  {/* Left: read-only confirmation */}
-                  <InfoConfirmPanel>
-                    <InfoConfirmPanelHint>아래 내용이 맞는지 확인해 주세요</InfoConfirmPanelHint>
-                    <InfoConfirmRows>
-                      {schoolName && (
-                        <InfoConfirmRow>
-                          <InfoConfirmLabel>학교</InfoConfirmLabel>
-                          <InfoConfirmValue>{schoolName}</InfoConfirmValue>
-                        </InfoConfirmRow>
-                      )}
-                      {ctxLevel && (
-                        <InfoConfirmRow>
-                          <InfoConfirmLabel>학교급</InfoConfirmLabel>
-                          <InfoConfirmValue>
-                            {SCHOOL_LEVEL_LABEL[ctxLevel] ?? ctxLevel}
-                          </InfoConfirmValue>
-                        </InfoConfirmRow>
-                      )}
-                      {(grade != null || classNumber != null) && (
-                        <InfoConfirmRow>
-                          <InfoConfirmLabel>학년/반</InfoConfirmLabel>
-                          <InfoConfirmValue>
-                            {grade != null ? `${grade}학년` : ''}
-                            {classNumber != null ? ` ${classNumber}반` : ''}
-                          </InfoConfirmValue>
-                        </InfoConfirmRow>
-                      )}
-                      <InfoConfirmRow>
-                        <InfoConfirmLabel>차수</InfoConfirmLabel>
-                        <InfoConfirmValue>{ordNo}차</InfoConfirmValue>
-                      </InfoConfirmRow>
-                      <InfoConfirmRow>
-                        <InfoConfirmLabel>검사명</InfoConfirmLabel>
-                        <InfoConfirmValue>{examName}</InfoConfirmValue>
-                      </InfoConfirmRow>
-                    </InfoConfirmRows>
-                  </InfoConfirmPanel>
+                {/* 2열 그리드 */}
+                <TwoColumnGrid>
+                  {/* 학교 */}
+                  <FormField>
+                    <FieldLabel>학교{!schoolName && <RequiredMark>*</RequiredMark>}</FieldLabel>
+                    {schoolName ? (
+                      <LockedFieldWrapper>
+                        <LockedValue>{schoolName}</LockedValue>
+                        <AutoBadge $color={color}>
+                          <Lock size={12} />
+                          자동
+                        </AutoBadge>
+                      </LockedFieldWrapper>
+                    ) : (
+                      <>
+                        <TextInput
+                          type='text'
+                          value={editableSchoolName}
+                          onChange={(e) => {
+                            setEditableSchoolName(e.target.value);
+                            if (contextErrors.schoolName)
+                              setContextErrors((p) => ({ ...p, schoolName: undefined }));
+                          }}
+                          placeholder='학교'
+                          disabled={isLoading}
+                          $hasError={!!contextErrors.schoolName}
+                        />
+                        {contextErrors.schoolName && (
+                          <FieldError>{contextErrors.schoolName}</FieldError>
+                        )}
+                      </>
+                    )}
+                  </FormField>
 
-                  {/* Right: minimal inputs */}
-                  <MinimalInputPanel>
-                    <FormField>
-                      <FieldLabel>
-                        출석번호<RequiredMark>*</RequiredMark>
-                      </FieldLabel>
-                      <TextInput
-                        type='text'
-                        value={localStudentNumber}
-                        onChange={(e) => {
-                          setLocalStudentNumber(e.target.value);
-                          if (contextErrors.studentNumber)
-                            setContextErrors((p) => ({ ...p, studentNumber: undefined }));
-                        }}
-                        placeholder='출석번호를 입력하세요'
-                        disabled={isLoading}
-                        $hasError={!!contextErrors.studentNumber}
-                      />
-                      {contextErrors.studentNumber && (
-                        <FieldError>{contextErrors.studentNumber}</FieldError>
-                      )}
-                    </FormField>
-
-                    <FormField>
-                      <FieldLabel>
-                        이름<RequiredMark>*</RequiredMark>
-                      </FieldLabel>
-                      <TextInput
-                        type='text'
-                        value={localName}
-                        onChange={(e) => {
-                          setLocalName(e.target.value);
-                          if (contextErrors.name)
-                            setContextErrors((p) => ({ ...p, name: undefined }));
-                        }}
-                        placeholder='이름을 입력하세요'
-                        disabled={isLoading}
-                        $hasError={!!contextErrors.name}
-                      />
-                      {contextErrors.name && <FieldError>{contextErrors.name}</FieldError>}
-                    </FormField>
-
-                    <FormField>
-                      <FieldLabel>
-                        성별<RequiredMark>*</RequiredMark>
-                      </FieldLabel>
-                      <ToggleGroup>
-                        <ToggleButton
-                          type='button'
-                          $isSelected={localGender === 'M'}
-                          $color={color}
-                          onClick={() => {
-                            setLocalGender('M');
-                            if (contextErrors.gender)
-                              setContextErrors((p) => ({ ...p, gender: undefined }));
+                  {/* 학교급 */}
+                  <FormField>
+                    <FieldLabel>학교급{!ctxLevel && <RequiredMark>*</RequiredMark>}</FieldLabel>
+                    {ctxLevel ? (
+                      <LockedFieldWrapper>
+                        <LockedValue>{SCHOOL_LEVEL_LABEL[ctxLevel]}</LockedValue>
+                        <AutoBadge $color={color}>
+                          <Lock size={12} />
+                          자동
+                        </AutoBadge>
+                      </LockedFieldWrapper>
+                    ) : (
+                      <>
+                        <GradeSelect
+                          value={editableSchoolLevel}
+                          onChange={(e) => {
+                            setEditableSchoolLevel(e.target.value as SchoolLevel);
+                            if (contextErrors.schoolLevel)
+                              setContextErrors((p) => ({ ...p, schoolLevel: undefined }));
                           }}
                           disabled={isLoading}
+                          $hasError={!!contextErrors.schoolLevel}
                         >
-                          남자
-                        </ToggleButton>
-                        <ToggleButton
-                          type='button'
-                          $isSelected={localGender === 'F'}
-                          $color={color}
-                          onClick={() => {
-                            setLocalGender('F');
-                            if (contextErrors.gender)
-                              setContextErrors((p) => ({ ...p, gender: undefined }));
-                          }}
-                          disabled={isLoading}
-                        >
-                          여자
-                        </ToggleButton>
-                      </ToggleGroup>
-                      {contextErrors.gender && <FieldError>{contextErrors.gender}</FieldError>}
-                    </FormField>
-                  </MinimalInputPanel>
-                </TwoColumnInfo>
-              </SectionBodyWrapper>
-            </NumberedSectionWrapper>
+                          <option value=''>선택</option>
+                          <option value='elementary'>초등학교</option>
+                          <option value='middle'>중학교</option>
+                          <option value='high'>고등학교</option>
+                        </GradeSelect>
+                        {contextErrors.schoolLevel && (
+                          <FieldError>{contextErrors.schoolLevel}</FieldError>
+                        )}
+                      </>
+                    )}
+                  </FormField>
 
-            {/* Buttons */}
-            <ButtonGroup>
-              {onBack && (
-                <BackButton type='button' onClick={onBack} disabled={isLoading}>
-                  <ArrowLeft className='w-5 h-5' />
-                  검사 목록
-                </BackButton>
+                  {/* 학년 */}
+                  <FormField>
+                    <FieldLabel>학년{grade == null && <RequiredMark>*</RequiredMark>}</FieldLabel>
+                    {grade != null ? (
+                      <LockedFieldWrapper>
+                        <LockedValue>{grade}학년</LockedValue>
+                        <AutoBadge $color={color}>
+                          <Lock size={12} />
+                          자동
+                        </AutoBadge>
+                      </LockedFieldWrapper>
+                    ) : (
+                      <>
+                        <GradeSelect
+                          value={editableGrade}
+                          onChange={(e) => {
+                            setEditableGrade(e.target.value);
+                            if (contextErrors.grade)
+                              setContextErrors((p) => ({ ...p, grade: undefined }));
+                          }}
+                          disabled={isLoading || !editableSchoolLevel}
+                          $hasError={!!contextErrors.grade}
+                        >
+                          <option value=''>
+                            {editableSchoolLevel ? '선택' : '학교급을 먼저 선택'}
+                          </option>
+                          {editableGradeOptions.map((g) => (
+                            <option key={g} value={g}>
+                              {g.replace(/[초중고]/, '')}학년
+                            </option>
+                          ))}
+                        </GradeSelect>
+                        {contextErrors.grade && <FieldError>{contextErrors.grade}</FieldError>}
+                      </>
+                    )}
+                  </FormField>
+
+                  {/* 반 */}
+                  <FormField>
+                    <FieldLabel>
+                      반{classNumber == null && <RequiredMark>*</RequiredMark>}
+                    </FieldLabel>
+                    {classNumber != null ? (
+                      <LockedFieldWrapper>
+                        <LockedValue>{classNumber}반</LockedValue>
+                        <AutoBadge $color={color}>
+                          <Lock size={12} />
+                          자동
+                        </AutoBadge>
+                      </LockedFieldWrapper>
+                    ) : (
+                      <>
+                        <TextInput
+                          type='text'
+                          value={editableClassNumber}
+                          onChange={(e) => {
+                            setEditableClassNumber(e.target.value);
+                            if (contextErrors.classNumber)
+                              setContextErrors((p) => ({ ...p, classNumber: undefined }));
+                          }}
+                          placeholder='반'
+                          disabled={isLoading}
+                          $hasError={!!contextErrors.classNumber}
+                        />
+                        {contextErrors.classNumber && (
+                          <FieldError>{contextErrors.classNumber}</FieldError>
+                        )}
+                      </>
+                    )}
+                  </FormField>
+
+                  {/* 번호 */}
+                  <FormField>
+                    <FieldLabel>
+                      번호<RequiredMark>*</RequiredMark>
+                    </FieldLabel>
+                    <TextInput
+                      type='text'
+                      value={localStudentNumber}
+                      onChange={(e) => {
+                        setLocalStudentNumber(e.target.value);
+                        if (contextErrors.studentNumber)
+                          setContextErrors((p) => ({ ...p, studentNumber: undefined }));
+                      }}
+                      placeholder='번호'
+                      disabled={isLoading}
+                      $hasError={!!contextErrors.studentNumber}
+                    />
+                    {contextErrors.studentNumber && (
+                      <FieldError>{contextErrors.studentNumber}</FieldError>
+                    )}
+                  </FormField>
+
+                  {/* 이름 */}
+                  <FormField>
+                    <FieldLabel>
+                      이름<RequiredMark>*</RequiredMark>
+                    </FieldLabel>
+                    <TextInput
+                      type='text'
+                      value={localName}
+                      onChange={(e) => {
+                        setLocalName(e.target.value);
+                        if (contextErrors.name)
+                          setContextErrors((p) => ({ ...p, name: undefined }));
+                      }}
+                      placeholder='이름'
+                      disabled={isLoading}
+                      $hasError={!!contextErrors.name}
+                    />
+                    {contextErrors.name && <FieldError>{contextErrors.name}</FieldError>}
+                  </FormField>
+                </TwoColumnGrid>
+
+                {/* 성별 (단독 행) */}
+                <FormField>
+                  <FieldLabel>
+                    성별<RequiredMark>*</RequiredMark>
+                  </FieldLabel>
+                  <GenderRow>
+                    <ToggleGroup>
+                      <ToggleButton
+                        type='button'
+                        $isSelected={localGender === 'M'}
+                        $color={color}
+                        onClick={() => {
+                          setLocalGender('M');
+                          if (contextErrors.gender)
+                            setContextErrors((p) => ({ ...p, gender: undefined }));
+                        }}
+                        disabled={isLoading}
+                      >
+                        남자
+                      </ToggleButton>
+                      <ToggleButton
+                        type='button'
+                        $isSelected={localGender === 'F'}
+                        $color={color}
+                        onClick={() => {
+                          setLocalGender('F');
+                          if (contextErrors.gender)
+                            setContextErrors((p) => ({ ...p, gender: undefined }));
+                        }}
+                        disabled={isLoading}
+                      >
+                        여자
+                      </ToggleButton>
+                    </ToggleGroup>
+                  </GenderRow>
+                  {contextErrors.gender && <FieldError>{contextErrors.gender}</FieldError>}
+                </FormField>
+              </InfoGrid>
+            </Card>
+          </SectionWrapper>
+
+          {/* Buttons */}
+          <ButtonGroup>
+            {onBack && (
+              <BackButton type='button' onClick={onBack} disabled={isLoading}>
+                <ArrowLeft className='w-5 h-5' />
+                검사 목록
+              </BackButton>
+            )}
+            <StartButton
+              type='button'
+              onClick={handleStart}
+              disabled={isLoading || !isStartEnabled}
+              $hasBackButton={!!onBack}
+              $color={color}
+            >
+              {isLoading ? (
+                <>
+                  <SpinningIcon className='w-5 h-5' />
+                  준비 중...
+                </>
+              ) : (
+                <>
+                  검사 시작하기
+                  <ArrowRight className='w-5 h-5' />
+                </>
               )}
-              <StartButton
-                type='button'
-                onClick={handleStart}
-                disabled={isLoading || !isStartEnabled}
-                $hasBackButton={!!onBack}
-                $color={color}
-              >
-                {isLoading ? (
-                  <>
-                    <SpinningIcon className='w-5 h-5' />
-                    준비 중...
-                  </>
-                ) : (
-                  <>
-                    검사 시작하기
-                    <ArrowRight className='w-5 h-5' />
-                  </>
-                )}
-              </StartButton>
-            </ButtonGroup>
-          </Card>
+            </StartButton>
+          </ButtonGroup>
         </ContentWrapper>
       </Container>
     );
@@ -814,13 +1057,16 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
           {/* 검사 진행 방법 */}
           <Section>
             <SectionHeader $color={color}>
+              <CheckCircle2 />
               <SectionTitle>검사 진행 방법</SectionTitle>
             </SectionHeader>
             <GuidelineList>
-              {GUIDELINES.map((text, i) => (
+              {GUIDELINES.map((guideline, i) => (
                 <GuidelineItem key={i}>
                   <GuidelineNumber $color={color}>{i + 1}</GuidelineNumber>
-                  <GuidelineText>{text}</GuidelineText>
+                  <GuidelineText>
+                    {renderTextWithBold(guideline.text, guideline.boldParts)}
+                  </GuidelineText>
                 </GuidelineItem>
               ))}
             </GuidelineList>
@@ -829,12 +1075,20 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
           {/* 예시 문제 */}
           <SectionDivider>
             <SectionHeader $color={color}>
+              <CheckCircle2 />
               <SectionTitle>예시 문제</SectionTitle>
             </SectionHeader>
+            <ExampleDescription>
+              검사를 시작하기 전에 예시를 보며 검사 방법을 확인해 주세요.
+            </ExampleDescription>
             <ExampleBox>
+              <ExampleInstruction>
+                다음 문항은 여러분이 어떤 환경에서 공부하는 것을 더 좋아하는지를 묻는 질문입니다. 각
+                문항을 읽고, 요즘 자신의 생각이나 느낌과 가장 가까운 곳에 체크해 주세요.
+              </ExampleInstruction>
               <ExampleQuestion>
-                <ExampleQuestionNumber>질문 1.</ExampleQuestionNumber> 열심히 노력하면 내 능력이
-                향상될 수 있다.
+                <ExampleQuestionNumber>질문 1.</ExampleQuestionNumber>
+                열심히 노력하면 내 능력이 향상될 수 있다.
               </ExampleQuestion>
               <RadioGroup>
                 {['전혀 그렇지 않다', '그렇지 않다', '보통이다', '그렇다', '매우 그렇다'].map(

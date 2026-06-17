@@ -199,26 +199,50 @@ function fillMissingQuestions(
 }
 
 /**
+ * 학생 정보 (최초 호출 시에만 전달)
+ */
+export interface StudentInfoForStart {
+  schoolName?: string;
+  grade?: number;
+  classNumber?: number;
+  gender?: 'M' | 'F';
+}
+
+/**
  * 문항 조회 (페이지네이션)
- * GET /api/dgnss/st/start
+ * POST /api/dgnss/st/start
  *
  * @param dgnssResultId 검사 결과 ID
  * @param page 프론트엔드 페이지 번호 (0-based)
  * @param _size 사용하지 않음 (하위 호환성 유지)
  * @param paperIdx 검사지 종류 ('1': 학습종합, '2': 자기조절)
+ * @param studentInfo 학생 정보 (최초 호출 시에만 포함)
  */
 export async function fetchQuestions(
   dgnssResultId: number,
   page: number = 0,
   _size: number = 20,
   paperIdx: string = '1',
+  studentInfo?: StudentInfoForStart,
 ): Promise<FetchQuestionsResponse> {
   if (paperIdx !== '1') {
     // 자기조절학습검사: 단순 페이징, 백엔드 응답 그대로 사용
-    const res = await apiClient.post<QuestionsResponseData>(
-      '/api/dgnss/st/start',
-      { dgnssResultId, paperIdx: Number(paperIdx), page, size: 20 },
-    );
+    const payload: Record<string, unknown> = {
+      dgnssResultId,
+      paperIdx: Number(paperIdx),
+      page,
+      size: 20,
+    };
+
+    // 최초 호출 시 학생 정보 포함
+    if (studentInfo) {
+      if (studentInfo.schoolName) payload.schoolName = studentInfo.schoolName;
+      if (studentInfo.grade !== undefined) payload.grade = studentInfo.grade;
+      if (studentInfo.classNumber !== undefined) payload.classNumber = studentInfo.classNumber;
+      if (studentInfo.gender) payload.gender = studentInfo.gender;
+    }
+
+    const res = await apiClient.post<QuestionsResponseData>('/api/dgnss/st/start', payload);
     return {
       omrIdx: res.resultData.omrIdx,
       questions: res.resultData.dgnssQuesList.sort((a, b) => a.NO - b.NO),
@@ -231,10 +255,22 @@ export async function fetchQuestions(
   // 학습종합검사: 7페이지 구조 + 120-124번 mock 문항
   const config = getPageConfig(page);
 
-  const res = await apiClient.post<QuestionsResponseData>(
-    '/api/dgnss/st/start',
-    { dgnssResultId, paperIdx: 1, page: config.apiPage, size: 20 },
-  );
+  const payload: Record<string, unknown> = {
+    dgnssResultId,
+    paperIdx: 1,
+    page: config.apiPage,
+    size: 20,
+  };
+
+  // 최초 호출 시 학생 정보 포함
+  if (studentInfo) {
+    if (studentInfo.schoolName) payload.schoolName = studentInfo.schoolName;
+    if (studentInfo.grade !== undefined) payload.grade = studentInfo.grade;
+    if (studentInfo.classNumber !== undefined) payload.classNumber = studentInfo.classNumber;
+    if (studentInfo.gender) payload.gender = studentInfo.gender;
+  }
+
+  const res = await apiClient.post<QuestionsResponseData>('/api/dgnss/st/start', payload);
 
   const filledQuestions = fillMissingQuestions(res.resultData.dgnssQuesList, config.apiPage, 20);
   const filteredQuestions = filledQuestions.filter(
