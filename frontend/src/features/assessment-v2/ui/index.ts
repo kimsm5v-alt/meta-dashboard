@@ -3,7 +3,5 @@ export { GroupListView } from './GroupListView';
 export { GroupDetailView } from './GroupDetailView';
 export { ExamTimelineCard } from './ExamTimelineCard';
 export { StudentManagementPanel } from './StudentManagementPanel';
-export { GroupFormModal } from './GroupFormModal';
-export { DeleteGroupModal } from './DeleteGroupModal';
 export { EmptyState } from './EmptyState';
-export { QRCodeModal } from './QRCodeModal';
+// GroupFormModal/DeleteGroupModal/QRCodeModal 제거 — 그룹 생성/수정/삭제·초대 mypage 이관 (group-from-idp)

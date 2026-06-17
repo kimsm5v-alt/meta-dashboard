@@ -3,12 +3,7 @@ import styled from '@emotion/styled';
 import {
   ChevronLeft,
   ChevronDown,
-  Settings,
-  Trash2,
   ClipboardList,
-  Copy,
-  QrCode,
-  Link,
 } from 'lucide-react';
 import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
 import { ExamTimelineCard } from './ExamTimelineCard';
@@ -65,13 +60,6 @@ interface GroupDetailViewProps {
   allGroups: GroupWithExamState[];
   onBack: () => void;
   onSwitchGroup: (groupId: string) => void;
-  onEditGroup: (group: GroupWithExamState) => void;
-  onDeleteGroup: (group: GroupWithExamState) => void;
-  onInviteMember: (email: string) => Promise<void>;
-  onKickMember: (memberId: string) => void;
-  onCopyInviteCode: () => void;
-  onShowQR: () => void;
-  onCopyInviteLink: () => void;
   onStartExam: (slotId: string) => void;
   onEndExam: (slotId: string, dgnssId: number) => void;
   onCancelExam: (slotId: string, dgnssId: number) => void;
@@ -81,19 +69,13 @@ interface GroupDetailViewProps {
   onTemplateDownload: (slotId: string, dgnssId: number) => void;
 }
 
+// 그룹 수정/삭제·학생 초대·초대코드/QR/링크는 mypage(SSO)로 이관 — 조회+검사진행만 유지 (group-from-idp)
 export const GroupDetailView = ({
   group,
   members,
   allGroups,
   onBack,
   onSwitchGroup,
-  onEditGroup,
-  onDeleteGroup,
-  onInviteMember,
-  onKickMember,
-  onCopyInviteCode,
-  onShowQR,
-  onCopyInviteLink,
   onStartExam,
   onEndExam,
   onCancelExam,
@@ -110,8 +92,6 @@ export const GroupDetailView = ({
 
   const levelLabel = SCHOOL_LEVEL_LABELS[group.schoolLevel] ?? group.schoolLevel;
   const gradeInfo = `${levelLabel} ${group.grade}학년 ${group.classNumber}반`;
-
-  const isOwner = group.myRole === 'owner';
 
   return (
     <div className="vj-d">
@@ -139,26 +119,6 @@ export const GroupDetailView = ({
                 <span className="vj-gswitch-name">{group.name}</span>
                 <ChevronDown size={18} />
               </button>
-              {isOwner && (
-                <>
-                  <button
-                    className="vj-gicon"
-                    onClick={(e) => { e.stopPropagation(); onEditGroup(group); }}
-                    aria-label="그룹 정보 수정"
-                    title="그룹 정보 수정"
-                  >
-                    <Settings size={16} />
-                  </button>
-                  <button
-                    className="vj-gicon danger"
-                    onClick={(e) => { e.stopPropagation(); onDeleteGroup(group); }}
-                    aria-label="그룹 삭제"
-                    title="그룹 삭제"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </>
-              )}
             </div>
             <div className="sub">
               {group.schoolName ? `${group.schoolName} · ${gradeInfo}` : gradeInfo}
@@ -233,22 +193,7 @@ export const GroupDetailView = ({
               <small>개</small>
             </div>
           </div>
-
-          <div className="vj-d-stat invite">
-            <div className="lbl">초대 코드</div>
-            <div className="invite-row">
-              <span className="val code">{group.inviteCode}</span>
-              <button className="icon-btn" title="코드 복사" onClick={onCopyInviteCode}>
-                <Copy size={14} />
-              </button>
-              <button className="icon-btn" title="QR 코드" onClick={onShowQR}>
-                <QrCode size={14} />
-              </button>
-              <button className="icon-btn" title="링크 복사" onClick={onCopyInviteLink}>
-                <Link size={14} />
-              </button>
-            </div>
-          </div>
+          {/* 초대 코드/QR/링크 칸 제거 — 학생 초대는 mypage(SSO)로 이관 (group-from-idp) */}
         </div>
       </div>
 
@@ -300,14 +245,9 @@ export const GroupDetailView = ({
           </div>
         </div>
 
-        {/* 우측 - 학생 관리 */}
+        {/* 우측 - 학생 관리 (조회 전용) */}
         <div className="vj-mem-side">
-          <StudentManagementPanel
-            members={members}
-            isOwner={isOwner}
-            onInvite={onInviteMember}
-            onKick={onKickMember}
-          />
+          <StudentManagementPanel members={members} />
         </div>
       </div>
     </div>

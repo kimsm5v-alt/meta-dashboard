@@ -1119,6 +1119,7 @@ public class DgnssService {
 
         for (Map<String, Object> map : stInfoList) {
             int ordNoInt = MapUtils.getInteger(map, "ord_no", 0);
+            map.remove("ord_no"); // FE 미사용 — 회차는 응답 키("1"/"2")로 구분
             if (ordNoInt == 1) {
                 ord1List.add(map);
             } else if (ordNoInt == 2) {
@@ -1373,17 +1374,17 @@ public class DgnssService {
         }
         enrichLpaTop3(stAnalysisList);
         Map<String, Map<String, Object>> lpaTopByOrd = extractLpaTopByOrd(stAnalysisList);
+        // 그래프 추천은 종합검사(paperIdx=1)에서만 — 자기조절(2) 등은 recommendationByOrd 자체를 응답에서 제외
         boolean includeGraphRecommendation = StringUtils.equalsIgnoreCase(
                 MapUtils.getString(param, "graphYn", "N"),
                 "Y"
-        );
+        ) && StringUtils.equals(resolvedPaperIdx, "1");
         Map<String, Object> recommendationByOrd = includeGraphRecommendation
                 ? fetchGraphRecommendationByOrd(stAnalysisList)
                 : new LinkedHashMap<>();
         removeLpaTopFromRows(stAnalysisList);
 
         Map<String, Object> resultMap = new LinkedHashMap<>();
-        resultMap.put("stUserInfo", stUserInfo);
         resultMap.put("lpaTop", lpaTopByOrd);
         if (includeGraphRecommendation) {
             resultMap.put("recommendationByOrd", recommendationByOrd);
@@ -2144,6 +2145,7 @@ public class DgnssService {
 
     public Map<String, Object> selectStDgnssStart(Map<String, Object> param, Pageable pageable) {
         pageable = resolvePageable(param, pageable);
+        normalizeAndValidateGender(param);
         Map<String, Object> resultMap = new HashMap<>();
         int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
         String eakAt = "";
@@ -2235,6 +2237,19 @@ public class DgnssService {
 
 
         return resultMap;
+    }
+
+    /** 학생 입력 성별(gender)이 있으면 대문자 정규화 후 M/F만 허용. 미입력 시 무시(미저장). */
+    private void normalizeAndValidateGender(Map<String, Object> param) {
+        String gender = MapUtils.getString(param, "gender", null);
+        if (StringUtils.isBlank(gender)) {
+            return;
+        }
+        String normalized = gender.trim().toUpperCase();
+        if (!"M".equals(normalized) && !"F".equals(normalized)) {
+            throw new IllegalArgumentException("gender는 'M' 또는 'F'만 허용됩니다: " + gender);
+        }
+        param.put("gender", normalized);
     }
 
     private Pageable resolvePageable(Map<String, Object> param, Pageable pageable) {
@@ -2531,10 +2546,7 @@ public class DgnssService {
             }
 
             Map<String, Object> lpaTop = new LinkedHashMap<>();
-            lpaTop.put("lpaClassId", row.get("lpaClassId"));
             lpaTop.put("lpaTypeName", row.get("lpaTypeName"));
-            lpaTop.put("lpaConfidence", row.get("lpaConfidence"));
-            lpaTop.put("lpaStatus", row.get("lpaStatus"));
             lpaTop.put("lpaTop1TypeName", row.get("lpaTop1TypeName"));
             lpaTop.put("lpaTop1Probability", row.get("lpaTop1Probability"));
             lpaTop.put("lpaTop2TypeName", row.get("lpaTop2TypeName"));

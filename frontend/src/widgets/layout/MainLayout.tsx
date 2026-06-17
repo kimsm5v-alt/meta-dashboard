@@ -23,7 +23,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@features/auth';
-import { useTeacherClasses } from '@features/api';
+import { useTeacherClassList } from '@features/api';
 import { BellWithPanel } from '@features/notifications';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_TEACHER_ME } from '@shared/data/apiDefinitions';
@@ -593,7 +593,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { classes, isLoading, examStatus } = useTeacherClasses();
+  const { classes, isLoading, examStatus } = useTeacherClassList();
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   const isDashboardPath = location.pathname.startsWith('/dashboard');

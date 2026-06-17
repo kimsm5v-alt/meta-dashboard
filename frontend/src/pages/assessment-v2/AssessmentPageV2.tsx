@@ -1,18 +1,11 @@
 import '@app/styles/vj.css';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
 import { useAuth } from '@features/auth/model/AuthContext';
-import {
-  EmptyState,
-  GroupListView,
-  GroupDetailView,
-  GroupFormModal,
-  DeleteGroupModal,
-  QRCodeModal,
-} from '@features/assessment-v2/ui';
+import { useMyGroupsQuery } from '@features/api';
+import { EmptyState, GroupListView, GroupDetailView } from '@features/assessment-v2/ui';
 import { ExamStartPreviewModal } from '@features/assessment/ui';
 import { AlertModal } from '@shared/ui/AlertModal/AlertModal';
 import { EXAM_SLOTS } from '@features/assessment-v2/constants';
@@ -27,21 +20,11 @@ import {
   previewExamStart,
 } from '@features/assessment/api/assessmentService';
 import type { ExamStartPreviewResponse } from '@features/assessment/api/assessmentService';
-import {
-  getMyGroups,
-  getGroupDetail,
-  createGroup,
-  updateGroup,
-  deleteGroup,
-  kickMember,
-  sendEmailInvitation,
-} from '@features/groups/api/groupService';
+import { getGroupDetail } from '@features/groups/api/groupService';
 import type {
   GroupWithExamState,
   GroupMember,
   ViewMode,
-  ModalType,
-  GroupFormData,
   ExamSlotState,
 } from '@features/assessment-v2/types';
 import type { Group, SchoolLevelCode } from '@shared/types';
@@ -106,17 +89,46 @@ export const AssessmentPageV2 = () => {
   const { groupId: urlGroupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
 
-  const [groups, setGroups] = useState<GroupWithExamState[]>([]);
-  const [members, setMembers] = useState<GroupMember[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [qrModalOpen, setQrModalOpen] = useState(false);
+  // 그룹 목록: ['my-groups'] 캐시 공유 (사이드바 useTeacherClassList와 동일 캐시)
+  const {
+    data: rawGroups = [],
+    isLoading: isGroupsLoading,
+    error: groupsQueryError,
+    refetch: refetchGroups,
+  } = useMyGroupsQuery();
 
-  const [modalType, setModalType] = useState<ModalType>(null);
-  const [modalGroup, setModalGroup] = useState<GroupWithExamState | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  // 검사 슬롯 상태: claId 키 로컬 맵 (검사 시작·종료·취소 시 직접 갱신)
+  const [examSlotsMap, setExamSlotsMap] = useState<Map<string, ExamSlotState[]>>(new Map());
+  const [isSlotsLoading, setIsSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
+
+  const isLoading = isGroupsLoading || isSlotsLoading;
+  const error = groupsQueryError ? '그룹 목록을 불러오는데 실패했습니다.' : slotsError;
+
+  // rawGroups + examSlotsMap → GroupWithExamState[]
+  const groups = useMemo<GroupWithExamState[]>(
+    () =>
+      rawGroups.map((g: Group) =>
+        buildGroupWithExamState(g, examSlotsMap.get(g.claId) ?? emptySlots()),
+      ),
+    [rawGroups, examSlotsMap],
+  );
+
+  const [members, setMembers] = useState<GroupMember[]>([]);
+  // 그룹 생성/수정/삭제·QR 모달 state 제거 — mypage(SSO)로 이관 (group-from-idp)
+
+  // URL 기반 derived state (React Compiler 최적화: useEffect 내 setState 방지)
+  const selectedGroupId = useMemo(() => {
+    if (!urlGroupId || isLoading) return null;
+    const exists = groups.some((g) => g.id === urlGroupId);
+    return exists ? urlGroupId : null;
+  }, [urlGroupId, groups, isLoading]);
+
+  const viewMode = useMemo<ViewMode>(() => {
+    return selectedGroupId ? 'detail' : 'list';
+  }, [selectedGroupId]);
+
+  const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
 
   // 2회차 사전 검증 모달
   const [previewModal, setPreviewModal] = useState<{
@@ -147,8 +159,6 @@ export const AssessmentPageV2 = () => {
     message: '',
   });
 
-  const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
-
   const activeStudentCount = useMemo(() => {
     return members.filter((m) => m.status === 'active').length;
   }, [members]);
@@ -157,86 +167,102 @@ export const AssessmentPageV2 = () => {
   // 데이터 로딩
   // ============================================================
 
-  const loadGroups = useCallback(async () => {
-    if (!user?.id) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const rawGroups = await getMyGroups(user.id);
-      const enriched = await Promise.all(
-        rawGroups.map(async (g) => {
-          try {
-            const slots = await getExamSlots(g.claId, user.id);
-            return buildGroupWithExamState(g, slots);
-          } catch {
-            return buildGroupWithExamState(g, emptySlots());
-          }
-        }),
-      );
-      setGroups(enriched);
-    } catch {
-      setError('그룹 목록을 불러오는데 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
-
-  const loadMembers = useCallback(
-    async (groupId: string) => {
-      if (!user?.id) return;
+  const loadExamSlots = useCallback(
+    async (groupsToLoad: Group[]) => {
+      if (!user?.id || groupsToLoad.length === 0) return;
+      const userId = user.id;
+      setIsSlotsLoading(true);
+      setSlotsError(null);
       try {
-        const result = await getGroupDetail(groupId, user.id);
-        setMembers(result?.members ?? []);
-      } catch {
-        setMembers([]);
+        const entries = await Promise.all(
+          groupsToLoad.map(async (g) => {
+            try {
+              const slots = await getExamSlots(g.claId, userId);
+              return [g.claId, slots] as [string, ExamSlotState[]];
+            } catch (err) {
+              console.error(`[loadExamSlots] Failed to load slots for ${g.claId}:`, err);
+              return [g.claId, emptySlots()] as [string, ExamSlotState[]];
+            }
+          }),
+        );
+        setExamSlotsMap(new Map(entries));
+      } catch (err) {
+        console.error('[loadExamSlots] Failed to load exam slots:', err);
+        setSlotsError('검사 현황을 불러오는데 실패했습니다.');
+      } finally {
+        setIsSlotsLoading(false);
       }
     },
     [user],
   );
 
+  // rawGroups 로드 완료 후 슬롯 1회 로딩 (auth 흐름·StrictMode 이중 실행 방지)
+  const hasLoadedSlotsRef = useRef(false);
   useEffect(() => {
-    loadGroups();
-  }, [loadGroups]);
+    if (!user?.id || rawGroups.length === 0) return;
+    if (hasLoadedSlotsRef.current) return;
+    hasLoadedSlotsRef.current = true;
 
-  // 그룹 로드 완료 후 URL groupId → state 동기화
-  // - found: 해당 그룹 상세 뷰로 전환
-  // - not-found: /assessment로 fallback (잘못된 URL, 삭제된 그룹 등)
+    let isCancelled = false;
+    const load = async () => {
+      if (isCancelled) return;
+      await loadExamSlots(rawGroups);
+    };
+    void load();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user, rawGroups, loadExamSlots]);
+
+  // URL 유효성 검증: 존재하지 않는 groupId일 경우 리다이렉트
   useEffect(() => {
     if (isLoading) return;
     if (!urlGroupId) return;
     const exists = groups.some((g) => g.id === urlGroupId);
-    if (exists) {
-      setSelectedGroupId(urlGroupId);
-      setViewMode('detail');
-    } else {
+    if (!exists) {
       navigate('/assessment', { replace: true });
     }
   }, [isLoading, urlGroupId, groups, navigate]);
 
+  // selectedGroupId 변경 시 members 로드
   useEffect(() => {
-    if (selectedGroupId) loadMembers(selectedGroupId);
-  }, [selectedGroupId, loadMembers]);
+    if (!selectedGroupId || !user?.id) return;
+
+    let isCancelled = false;
+    const load = async () => {
+      try {
+        const result = await getGroupDetail(selectedGroupId, user.id);
+        if (!isCancelled) {
+          setMembers(result?.members ?? []);
+        }
+      } catch (err) {
+        console.error('[useEffect:loadMembers] Failed to load group members:', err);
+        if (!isCancelled) {
+          setMembers([]);
+        }
+      }
+    };
+    void load();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedGroupId, user]);
 
   // ============================================================
   // 그룹 선택 / 전환 / 뒤로
   // ============================================================
 
   const handleSelectGroup = (groupId: string) => {
-    setSelectedGroupId(groupId);
-    setViewMode('detail');
     navigate(`/assessment/${groupId}`);
   };
 
   const handleSwitchGroup = (groupId: string) => {
-    setSelectedGroupId(groupId);
-    loadMembers(groupId);
+    navigate(`/assessment/${groupId}`, { replace: true });
   };
 
   const handleBack = () => {
-    setViewMode('list');
-    setSelectedGroupId(null);
     setMembers([]);
     navigate('/assessment', { replace: true });
   };
@@ -245,155 +271,33 @@ export const AssessmentPageV2 = () => {
   // 그룹 CRUD
   // ============================================================
 
-  const handleCreateGroup = () => {
-    setModalGroup(null);
-    setModalType('create_group');
-  };
-  const handleEditGroup = (group: GroupWithExamState) => {
-    setModalGroup(group);
-    setModalType('edit_group');
-  };
-  const handleDeleteGroup = (group: GroupWithExamState) => {
-    setModalGroup(group);
-    setModalType('delete_group');
-  };
-  const handleCloseModal = () => {
-    setModalType(null);
-    setModalGroup(null);
-  };
+  // 그룹 생성/수정/삭제·학생 초대/강퇴·초대코드/QR/링크 핸들러 제거 — mypage(SSO)로 이관 (group-from-idp)
 
-  const handleSubmitGroupForm = async (data: GroupFormData) => {
-    if (!user?.id || !user?.name) return;
+  // ============================================================
+  // 재시도
+  // ============================================================
 
-    setIsProcessing(true);
-    try {
-      if (modalType === 'create_group') {
-        const newGroup = await createGroup(
-          {
-            name: data.name,
-            schoolLevel: data.schoolLevel,
-            grade: data.grade,
-            classNumber: data.classNumber,
-            description: data.description,
-            schoolName: data.schoolName,
-          },
-          user.id,
-          user.name,
-        );
-        const enriched = buildGroupWithExamState(newGroup, emptySlots());
-        setGroups((prev) => [...prev, enriched]);
-        setSelectedGroupId(newGroup.id);
-        setViewMode('detail');
-        navigate(`/assessment/${newGroup.id}`);
-      } else if (modalType === 'edit_group' && modalGroup) {
-        const updated = await updateGroup(
-          modalGroup.id,
-          { name: data.name, description: data.description, schoolName: data.schoolName },
-          user.id,
-        );
-        if (updated) {
-          setGroups((prev) =>
-            prev.map((g) =>
-              g.id === modalGroup.id
-                ? {
-                    ...g,
-                    ...updated,
-                    examSlots: g.examSlots,
-                    inProgressCount: g.inProgressCount,
-                    completedCount: g.completedCount,
-                    activeMemberCount: g.activeMemberCount,
-                  }
-                : g,
-            ),
-          );
-        }
-      }
-      handleCloseModal();
-    } catch {
-      // 에러는 무시 (사용자에게 별도 피드백 없음)
-    } finally {
-      setIsProcessing(false);
+  const handleRetry = useCallback(() => {
+    if (groupsQueryError) {
+      void refetchGroups();
+    } else {
+      hasLoadedSlotsRef.current = false;
+      void loadExamSlots(rawGroups);
     }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!user?.id || !modalGroup) return;
-
-    setIsProcessing(true);
-    try {
-      const ok = await deleteGroup(modalGroup.id, user.id);
-      if (ok) {
-        setGroups((prev) => prev.filter((g) => g.id !== modalGroup.id));
-        if (selectedGroupId === modalGroup.id) handleBack();
-      }
-      handleCloseModal();
-    } catch {
-      // noop
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // ============================================================
-  // 멤버 관리
-  // ============================================================
-
-  const handleInviteMember = async (email: string) => {
-    if (!user?.id || !selectedGroupId) return;
-    await sendEmailInvitation({ groupId: selectedGroupId, email }, user.id);
-  };
-
-  const handleKickMember = async (memberId: string) => {
-    if (!user?.id || !selectedGroupId) return;
-    try {
-      const ok = await kickMember(selectedGroupId, memberId, user.id);
-      if (ok) {
-        setMembers((prev) => prev.filter((m) => m.id !== memberId));
-        setGroups((prev) =>
-          prev.map((g) =>
-            g.id === selectedGroupId
-              ? { ...g, memberCount: g.memberCount - 1, activeMemberCount: g.activeMemberCount - 1 }
-              : g,
-          ),
-        );
-      }
-    } catch {
-      // noop
-    }
-  };
-
-  // ============================================================
-  // 초대 코드 관련
-  // ============================================================
-
-  const handleCopyInviteCode = () => {
-    if (!selectedGroup) return;
-    navigator.clipboard.writeText(selectedGroup.inviteCode);
-    toast.success('초대 코드가 복사되었습니다.');
-  };
-
-  const handleShowQR = () => {
-    setQrModalOpen(true);
-  };
-
-  const handleCopyInviteLink = () => {
-    if (!selectedGroup) return;
-    navigator.clipboard.writeText(`${window.location.origin}/join/${selectedGroup.inviteCode}`);
-    toast.success('초대 링크가 복사되었습니다.');
-  };
+  }, [groupsQueryError, refetchGroups, rawGroups, loadExamSlots]);
 
   // ============================================================
   // 슬롯 상태 업데이트 헬퍼
   // ============================================================
 
   const updateGroupSlot = (groupId: string, slotId: string, patch: Partial<ExamSlotState>) => {
-    setGroups((prev) =>
-      prev.map((g) => {
-        if (g.id !== groupId) return g;
-        const newSlots = g.examSlots.map((s) => (s.slotId === slotId ? { ...s, ...patch } : s));
-        return buildGroupWithExamState(g, newSlots);
-      }),
-    );
+    const rawGroup = rawGroups.find((g: Group) => g.id === groupId);
+    if (!rawGroup) return;
+    setExamSlotsMap((prev) => {
+      const slots = prev.get(rawGroup.claId) ?? emptySlots();
+      const newSlots = slots.map((s) => (s.slotId === slotId ? { ...s, ...patch } : s));
+      return new Map(prev).set(rawGroup.claId, newSlots);
+    });
   };
 
   // ============================================================
@@ -419,8 +323,8 @@ export const AssessmentPageV2 = () => {
           totalCount: res.stTotalCnt,
           startDate: new Date(res.dgnssStDt),
         });
-      } catch {
-        // noop
+      } catch (err) {
+        console.error('[doStartExam] Failed to start exam:', err);
       }
     },
     [user, selectedGroup],
@@ -461,7 +365,8 @@ export const AssessmentPageV2 = () => {
           });
           return;
         }
-      } catch {
+      } catch (err) {
+        console.error('[handleStartExam] Preview validation failed:', err);
         // 검증 실패 시 그냥 진행
       }
 
@@ -583,7 +488,7 @@ export const AssessmentPageV2 = () => {
     return (
       <ErrorBox>
         <p style={{ color: '#EF4444', margin: 0 }}>{error}</p>
-        <button className='btn primary' onClick={loadGroups}>
+        <button className='btn primary' onClick={handleRetry}>
           다시 시도
         </button>
       </ErrorBox>
@@ -595,15 +500,9 @@ export const AssessmentPageV2 = () => {
       {/* 리스트 뷰 또는 빈 상태 */}
       {viewMode === 'list' &&
         (groups.length === 0 ? (
-          <EmptyState onCreateGroup={handleCreateGroup} />
+          <EmptyState />
         ) : (
-          <GroupListView
-            groups={groups}
-            onSelectGroup={handleSelectGroup}
-            onCreateGroup={handleCreateGroup}
-            onEditGroup={handleEditGroup}
-            onDeleteGroup={handleDeleteGroup}
-          />
+          <GroupListView groups={groups} onSelectGroup={handleSelectGroup} />
         ))}
 
       {/* 상세 뷰 */}
@@ -614,13 +513,6 @@ export const AssessmentPageV2 = () => {
           allGroups={groups}
           onBack={handleBack}
           onSwitchGroup={handleSwitchGroup}
-          onEditGroup={handleEditGroup}
-          onDeleteGroup={handleDeleteGroup}
-          onInviteMember={handleInviteMember}
-          onKickMember={handleKickMember}
-          onCopyInviteCode={handleCopyInviteCode}
-          onShowQR={handleShowQR}
-          onCopyInviteLink={handleCopyInviteLink}
           onStartExam={handleStartExam}
           onEndExam={handleEndExam}
           onCancelExam={handleCancelExam}
@@ -631,40 +523,7 @@ export const AssessmentPageV2 = () => {
         />
       )}
 
-      {/* 그룹 생성/수정 모달 */}
-      <GroupFormModal
-        isOpen={modalType === 'create_group' || modalType === 'edit_group'}
-        mode={modalType === 'create_group' ? 'create' : 'edit'}
-        initialData={
-          modalType === 'edit_group' && modalGroup
-            ? {
-                name: modalGroup.name,
-                schoolLevel: modalGroup.schoolLevel,
-                grade: modalGroup.grade,
-                classNumber: modalGroup.classNumber,
-                description: modalGroup.description,
-                schoolName: modalGroup.schoolName,
-              }
-            : undefined
-        }
-        onClose={handleCloseModal}
-        onSubmit={handleSubmitGroupForm}
-        isLoading={isProcessing}
-      />
-
-      {/* 그룹 삭제 모달 */}
-      {modalGroup && (
-        <DeleteGroupModal
-          isOpen={modalType === 'delete_group'}
-          group={modalGroup}
-          memberCount={modalGroup.activeMemberCount || modalGroup.memberCount}
-          completedExamCount={modalGroup.completedCount}
-          inProgressExamCount={modalGroup.inProgressCount}
-          onClose={handleCloseModal}
-          onConfirm={handleConfirmDelete}
-          isLoading={isProcessing}
-        />
-      )}
+      {/* 그룹 생성/수정/삭제 모달 제거 — mypage(SSO)로 이관 (group-from-idp) */}
 
       {/* 검사 출제 사전 검증 모달 */}
       <ExamStartPreviewModal
@@ -686,15 +545,7 @@ export const AssessmentPageV2 = () => {
         onConfirm={alertModal.onConfirm}
       />
 
-      {/* QR 코드 초대 모달 */}
-      {selectedGroup && (
-        <QRCodeModal
-          isOpen={qrModalOpen}
-          inviteCode={selectedGroup.inviteCode}
-          inviteUrl={`${window.location.origin}/join/${selectedGroup.inviteCode}`}
-          onClose={() => setQrModalOpen(false)}
-        />
-      )}
+      {/* QR 코드 초대 모달 제거 — mypage(SSO)로 이관 (group-from-idp) */}
     </Wrapper>
   );
 };

@@ -2,9 +2,11 @@ package com.vs.meta.api.group.controller;
 
 import com.vs.meta.api.group.service.GroupInvitationService;
 import com.vs.meta.api.group.service.GroupService;
+import com.vs.meta.api.sso.service.GroupOnDemandSyncService;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.CustomBody;
 import com.vs.meta.common.response.ResponseDTO;
+import com.vs.meta.common.security.SpAuthenticatedUser;
 import com.vs.meta.common.utils.PageUtil;
 import com.vs.meta.common.utils.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,6 +40,7 @@ public class GroupController {
 
     private final GroupService groupService;
     private final GroupInvitationService groupInvitationService;
+    private final GroupOnDemandSyncService groupOnDemandSyncService;
 
     @PostMapping(value = "/group/create")
     @Operation(summary = "그룹 생성", description = "방장 역할, tc_id lazy 채번")
@@ -79,6 +82,15 @@ public class GroupController {
     ) throws Exception {
         paramData.put("userNo", SecurityUtil.requireCurrentUserNo());
         paramData.put("includeInactive", includeInactive);
+
+        // on-demand 동기화 (group-from-idp) — 목록 조회 직전 본인 그룹을 즉시 당겨와 mypage 변경분 반영.
+        // 실패는 서비스 내부에서 흡수(폴링이 백업) → 화면을 막지 않음. 디바운스로 호출 폭주 방지.
+        SpAuthenticatedUser spUser = SecurityUtil.getCurrentSpUser();
+        if (spUser != null) {
+            groupOnDemandSyncService.syncMyGroups(
+                    spUser.spUserId(), spUser.userType(), SecurityUtil.getCurrentBearerToken());
+        }
+
         Object resultData = groupService.findGroupList(paramData);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "그룹 목록 조회");
     }

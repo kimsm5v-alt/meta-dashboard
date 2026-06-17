@@ -1,4 +1,4 @@
-import { Settings, Trash2, Users, ChevronRight } from 'lucide-react';
+import { Users, ChevronRight } from 'lucide-react';
 import { getGroupStatusSummary } from '../utils';
 import type { GroupWithExamState } from '../types';
 import type { SchoolLevelCode } from '@shared/types';
@@ -12,36 +12,15 @@ const SCHOOL_LEVEL_LABELS: Record<SchoolLevelCode, string> = {
 interface GroupCardProps {
   group: GroupWithExamState;
   onSelect: (groupId: string) => void;
-  onEdit: (group: GroupWithExamState) => void;
-  onDelete: (group: GroupWithExamState) => void;
 }
 
-export const GroupCard = ({ group, onSelect, onEdit, onDelete }: GroupCardProps) => {
+// 그룹 수정/삭제는 mypage(SSO)로 이관 — 카드 내 수정/삭제 버튼 제거 (group-from-idp)
+export const GroupCard = ({ group, onSelect }: GroupCardProps) => {
   const status = getGroupStatusSummary(group);
   const levelLabel = SCHOOL_LEVEL_LABELS[group.schoolLevel] ?? group.schoolLevel;
 
   return (
     <div className="vj-card" onClick={() => onSelect(group.id)}>
-      {/* 수정/삭제 버튼 */}
-      <div className="vj-card-actions">
-        <button
-          className="vj-gicon"
-          onClick={(e) => { e.stopPropagation(); onEdit(group); }}
-          aria-label="그룹 정보 수정"
-          title="그룹 정보 수정"
-        >
-          <Settings size={14} />
-        </button>
-        <button
-          className="vj-gicon danger"
-          onClick={(e) => { e.stopPropagation(); onDelete(group); }}
-          aria-label="그룹 삭제"
-          title="그룹 삭제"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
-
       {/* 그룹명 */}
       <div>
         <div className="nm">

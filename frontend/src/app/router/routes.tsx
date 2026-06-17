@@ -24,7 +24,6 @@ import {
   SchedulePage,
   ExamCodeEntryPage,
   ExamPage,
-  JoinGroupPage,
   CounselingDashboardPage,
   ResourceListPage,
   ResourceDetailPage,
@@ -147,7 +146,7 @@ export const AppRoutes = () => (
       <Route path='/auth/complete-profile' element={<CompleteProfilePage />} />
       <Route path='/exam' element={<ExamCodeEntryPage />} />
       <Route path='/exam/:code' element={<ExamPage />} />
-      <Route path='/join/:code' element={<JoinGroupPage />} />
+      {/* /join/:code 제거 — 그룹 참여(초대링크)는 mypage(SSO)로 이관 (group-from-idp) */}
     </Route>
 
     {/* 보호 라우트 - 사이드바 있음 */}

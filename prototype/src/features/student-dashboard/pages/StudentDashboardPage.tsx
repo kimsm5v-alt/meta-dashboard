@@ -323,8 +323,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         />
       )}
 
-      {/* 학습 유형 분류 (학습종합검사만 - 자기조절검사는 LPA 없음) */}
-      {testId === 'comprehensive' && (
+      {/* 학습 유형 분류 (학습종합검사만, 고등학교 제외 - 자기조절검사는 LPA 없음) */}
+      {testId === 'comprehensive' && student.schoolLevel !== '고등' && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="p-5 border-b border-gray-100">
             <div className="flex items-center gap-2">
@@ -355,8 +355,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         </div>
       )}
 
-      {/* 유형별 특이점 (학습종합검사만) */}
-      {testId === 'comprehensive' && (
+      {/* 유형별 특이점 (학습종합검사만, 고등학교 제외) */}
+      {testId === 'comprehensive' && student.schoolLevel !== '고등' && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="p-5 border-b border-gray-100">
             <div>
@@ -382,8 +382,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         </div>
       )}
 
-      {/* 추천 코칭 전략 (학습종합검사만) */}
-      {testId === 'comprehensive' && (
+      {/* 추천 코칭 전략 (학습종합검사만, 고등학교 제외 - LPA 유형 기반) */}
+      {testId === 'comprehensive' && student.schoolLevel !== '고등' && (
         <CoachingStrategy
           predictedType={current.predictedType}
           schoolLevel={student.schoolLevel}

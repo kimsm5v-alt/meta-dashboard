@@ -238,12 +238,9 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({ test
         </div>
       </Card>
 
-      {/* LPA 유형 분포 비교 (학습종합검사만) */}
-      {/* TODO: 고등학교(schoolLevel === '고등')일 경우 LPA 유형이 없으므로 이 섹션을 숨겨야 함
-          - 현재는 schoolLevel이 '초등' | '중등'만 지원
-          - 백엔드에서 그룹별 교과급 분류 작업 완료 후 조건 추가 필요
-          - 예: testMeta.hasLPA && schoolLevel !== '고등' */}
-      {testMeta.hasLPA && (
+      {/* LPA 유형 분포 비교 (학습종합검사만, 고등학교 제외) */}
+      {/* 고등학교는 LPA 유형이 없으므로 섹션 전체를 숨김 */}
+      {testMeta.hasLPA && !classes.some(c => c.schoolLevel === '고등') && (
         <LPAComparisonSection
           classes={classes}
           onGoToClass={(classId) => navigate(getClassPath(classId))}

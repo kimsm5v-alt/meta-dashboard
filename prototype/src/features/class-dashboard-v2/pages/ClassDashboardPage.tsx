@@ -22,7 +22,7 @@ interface ClassDashboardPageProps {
 
 // 검사별 메타 정보
 const TEST_META: Record<TestId, { name: string; shortName: string; color: string; hasLPA: boolean }> = {
-  comprehensive: { name: '학습종합검사', shortName: '학습종합', color: '#6366F1', hasLPA: true },
+  comprehensive: { name: '학습종합검사', shortName: '학습종합', color: '#6366F1', hasLPA: true }, // 고등일 때는 hasLPA가 false로 동적 처리됨
   selfreg: { name: '자기조절학습검사', shortName: '자기조절', color: '#10B981', hasLPA: false },
 };
 
@@ -34,8 +34,6 @@ export const ClassDashboardPage: React.FC<ClassDashboardPageProps> = ({ testId =
   const { students: apiStudents, isLoading, error } = useClassStudents(classId);
 
   const [activeTab, setActiveTab] = useState<TabId>('core-summary');
-
-  const testMeta = TEST_META[testId];
 
   // API 모드: useClassStudents에서 가져온 학생 데이터 사용
   // Mock 모드: DataContext에서 가져온 데이터 사용
@@ -99,6 +97,18 @@ export const ClassDashboardPage: React.FC<ClassDashboardPageProps> = ({ testId =
     }
     return baseClassData;
   }, [baseClassData, hasJwtToken, apiStudents, classId]);
+
+  // 학교급에 따른 hasLPA 동적 처리
+  // - 초등/중등 학습종합검사: LPA 있음
+  // - 고등 학습종합검사: LPA 없음 (영역별 강점/약점만 표시)
+  // - 자기조절학습검사: LPA 없음
+  const testMeta = useMemo(() => {
+    const baseMeta = TEST_META[testId];
+    if (testId === 'comprehensive' && classData?.schoolLevel === '고등') {
+      return { ...baseMeta, hasLPA: false };
+    }
+    return baseMeta;
+  }, [testId, classData?.schoolLevel]);
 
   // 학급 프로필 (강점/약점)
   const classProfile = useClassProfile(classData, 1);

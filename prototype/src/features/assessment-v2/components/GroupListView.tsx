@@ -3,7 +3,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { ExternalLink, Search } from 'lucide-react';
 import { GroupCard } from './GroupCard';
 import type { GroupWithExamState } from '../types';
 
@@ -11,16 +11,12 @@ interface GroupListViewProps {
   groups: GroupWithExamState[];
   onSelectGroup: (groupId: string) => void;
   onCreateGroup: () => void;
-  onEditGroup: (group: GroupWithExamState) => void;
-  onDeleteGroup: (group: GroupWithExamState) => void;
 }
 
 export const GroupListView: React.FC<GroupListViewProps> = ({
   groups,
   onSelectGroup,
   onCreateGroup,
-  onEditGroup,
-  onDeleteGroup,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -49,8 +45,8 @@ export const GroupListView: React.FC<GroupListViewProps> = ({
           onClick={onCreateGroup}
           className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors"
         >
-          <Plus className="w-4 h-4" />
-          새 그룹
+          그룹 관리
+          <ExternalLink className="w-4 h-4" />
         </button>
       </div>
 
@@ -76,8 +72,6 @@ export const GroupListView: React.FC<GroupListViewProps> = ({
               key={group.id}
               group={group}
               onSelect={onSelectGroup}
-              onEdit={onEditGroup}
-              onDelete={onDeleteGroup}
             />
           ))}
         </div>

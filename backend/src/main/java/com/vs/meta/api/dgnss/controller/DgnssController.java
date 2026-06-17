@@ -492,6 +492,16 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
+    @RequestMapping(value = "/api/dgnss/graph/load", method = {RequestMethod.POST})
+    @Operation(summary = "(그래프) LPA 그래프 Cypher 적재",
+            description = "lpa_graph_all_merge_safe.cypher(초등+중등 통합)를 Neo4j에 MERGE 적재한다. 멱등이라 반복 실행 가능. 운영 시드/갱신용")
+    public ResponseDTO<CustomBody> loadLpaGraph(
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        Map<String, Object> result = dgnssGraphService.loadLpaGraph();
+        return AidtCommonUtil.makeResultSuccess(paramData, result, "LPA 그래프 적재 완료");
+    }
+
     @GetMapping(value = "/api/dgnss/graph/classes/{className}/moderation-paths")
     @Operation(summary = "(그래프) 유형별 ModerationPath 조회", description = "")
     @Parameter(name = "className", description = "LPA 유형명", required = true)
@@ -650,7 +660,8 @@ public class DgnssController {
     }
 
     @PostMapping(value = {"/api/dgnss/st/start", "/api/dgnss/stnt/start/update"})
-    @Operation(summary = "(학생)META 자기조절학습 시작", description = "")
+    @Operation(summary = "(학생)META 자기조절학습 시작",
+            description = "schoolName/grade/classNo/gender는 선택값. 교사 그룹정보 미입력 시 학생 입력값을 시작 시 1회만 전송하면 tb_dgnss_result_info에 저장된다(페이지 이동 호출에는 미전송 권장). gender는 'M'/'F'만 허용.")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(examples = {
                     @ExampleObject(name = "파라미터", value = """
@@ -658,7 +669,11 @@ public class DgnssController {
                                 "dgnssResultId": 12509,
                                 "paperIdx": 1,
                                 "page": 0,
-                                "size": 20
+                                "size": 20,
+                                "schoolName": "비상중학교",
+                                "grade": "2",
+                                "classNumber": "3",
+                                "gender": "M"
                             }
                             """)
             }))

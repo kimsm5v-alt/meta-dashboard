@@ -248,10 +248,11 @@ public class GroupService {
     /**
      * 그룹 가입 시 진행 중인 학심정 검사를 가입 학생에게 배부한다.
      * 종합(paperIdx=1)/자기조절(paperIdx=2) 모두 대상이며, 다른 학급 응시 이력자는 제외된다.
+     * 그룹 동기화(MEMBER_ADD 반영, group-from-idp)에서도 호출되므로 public.
      *
      * @return 배부된 검사들의 dgnssId 목록 (없으면 빈 목록)
      */
-    private List<Integer> registerActiveDgnssIfNeeded(String claId, String schoolLevel, String stdtId) throws Exception {
+    public List<Integer> registerActiveDgnssIfNeeded(String claId, String schoolLevel, String stdtId) throws Exception {
         if (stdtId == null || stdtId.isBlank()) {
             return List.of();
         }

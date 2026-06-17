@@ -17,7 +17,7 @@ import { useAuth } from '@features/auth/model/AuthContext';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
-import { DiagnosisSummary, DataHelperChatbot } from '@features/student-dashboard';
+import { DiagnosisSummary } from '@features/student-dashboard';
 import { getMyGroups } from '@features/groups/api/groupService';
 import { fetchStudentFullAnalysis, convertToAssessment } from '@shared/services/dashboardService';
 import { getStudentExamList } from '../api/studentExamService';

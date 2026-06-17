@@ -23,6 +23,7 @@ import styled from '@emotion/styled';
 import { BellWithPanel } from '@features/notifications';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { getMyGroups } from '@features/groups/api/groupService';
+import { openMypageGroups } from '@shared/lib/mypage';
 import { ENV } from '@shared/config/env';
 
 // ============================================================
@@ -39,6 +40,8 @@ interface NavItem {
   label: string;
   path: string;
   subItems?: NavSubItem[];
+  /** true면 학심정 라우팅 대신 SSO(mypage) 페이지로 전환한다. (group-from-idp) */
+  external?: boolean;
 }
 
 const RESULT_SUB_ITEMS: NavSubItem[] = [
@@ -47,7 +50,8 @@ const RESULT_SUB_ITEMS: NavSubItem[] = [
 ];
 
 const studentNavItems: NavItem[] = [
-  { icon: Users, label: '나의 그룹', path: '/student/groups' },
+  // '나의 그룹'은 학심정 내부 페이지 대신 SSO(mypage) 내 그룹으로 전환한다. (group-from-idp)
+  { icon: Users, label: '나의 그룹', path: '/student/groups', external: true },
   { icon: ClipboardList, label: '검사하기', path: '/student/exams' },
   { icon: BarChart3, label: '결과보기', path: '/student/result', subItems: RESULT_SUB_ITEMS },
 ];
@@ -513,9 +517,9 @@ const StudentSidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
             return (
               <li key={item.path}>
                 <NavItemButton
-                  $active={active}
+                  $active={item.external ? false : active}
                   $collapsed={isCollapsed}
-                  onClick={() => navigate(item.path)}
+                  onClick={() => (item.external ? openMypageGroups() : navigate(item.path))}
                   title={isCollapsed ? item.label : undefined}
                 >
                   <Icon />

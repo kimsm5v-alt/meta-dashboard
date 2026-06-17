@@ -1,10 +1,8 @@
-import { Plus, Users } from 'lucide-react';
+import { ExternalLink, Users } from 'lucide-react';
+import { openMypageGroups } from '@shared/lib/mypage';
 
-interface EmptyStateProps {
-  onCreateGroup: () => void;
-}
-
-export const EmptyState = ({ onCreateGroup }: EmptyStateProps) => {
+// 그룹 생성이 mypage(SSO)로 이관 — CTA 를 mypage 그룹 관리 이동으로 (group-from-idp)
+export const EmptyState = () => {
   return (
     <div className="vj">
       <div className="vj-empty">
@@ -12,10 +10,10 @@ export const EmptyState = ({ onCreateGroup }: EmptyStateProps) => {
           <Users size={24} />
         </div>
 
-        <h2 className="vj-empty-title">첫 번째 그룹을 만들어보세요</h2>
+        <h2 className="vj-empty-title">아직 그룹이 없습니다</h2>
         <p className="vj-empty-desc">
-          그룹을 생성하고 학생들을 초대하면<br />
-          학습심리정서검사를 시작할 수 있습니다
+          마이페이지에서 학급(그룹)을 만들고 학생을 초대하면<br />
+          이곳에서 그룹별 검사를 진행할 수 있습니다
         </p>
 
         <div className="vj-empty-steps">
@@ -44,9 +42,9 @@ export const EmptyState = ({ onCreateGroup }: EmptyStateProps) => {
           </div>
         </div>
 
-        <button className="btn primary lg vj-empty-cta" onClick={onCreateGroup}>
-          <Plus size={18} />
-          첫 번째 그룹 만들기
+        <button className="btn primary lg vj-empty-cta" onClick={() => openMypageGroups('create')}>
+          그룹 관리하러 가기
+          <ExternalLink size={18} />
         </button>
       </div>
     </div>

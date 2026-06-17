@@ -865,8 +865,6 @@ export const AssessmentPageV2: React.FC = () => {
             groups={groups}
             onSelectGroup={handleSelectGroup}
             onCreateGroup={handleCreateGroup}
-            onEditGroup={handleEditGroup}
-            onDeleteGroup={handleDeleteGroup}
           />
         )
       )}
@@ -879,9 +877,6 @@ export const AssessmentPageV2: React.FC = () => {
           allGroups={groups}
           onBack={handleBack}
           onSwitchGroup={handleSwitchGroup}
-          onEditGroup={handleEditGroup}
-          onDeleteGroup={handleDeleteGroup}
-          onInviteMember={handleInviteMember}
           onKickMember={handleKickMember}
           onCopyInviteCode={handleCopyInviteCode}
           onShowQR={handleShowQR}

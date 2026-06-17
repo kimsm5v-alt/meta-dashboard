@@ -3,59 +3,26 @@
  * 디자인 핸드오프: Variant J (vj-card + vj-status)
  */
 
-import { Settings, Trash2, ChevronRight, Users } from 'lucide-react';
+import { ChevronRight, Users } from 'lucide-react';
 import type { GroupWithExamState, GroupStatusSummary } from '../types';
 import { getGroupStatusSummary } from '../utils';
 
 interface GroupCardProps {
   group: GroupWithExamState;
   onSelect: (groupId: string) => void;
-  onEdit: (group: GroupWithExamState) => void;
-  onDelete: (group: GroupWithExamState) => void;
 }
 
 export const GroupCard: React.FC<GroupCardProps> = ({
   group,
   onSelect,
-  onEdit,
-  onDelete,
 }) => {
   const status = getGroupStatusSummary(group);
-
-  const handleEditClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onEdit(group);
-  };
-
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete(group);
-  };
 
   return (
     <div
       className="vj-card"
       onClick={() => onSelect(group.id)}
     >
-      {/* 호버 시 나타나는 액션 버튼 */}
-      <div className="vj-card-actions" onClick={(e) => e.stopPropagation()}>
-        <button
-          className="vj-gicon"
-          onClick={handleEditClick}
-          aria-label="그룹 정보 수정"
-          title="그룹 정보 수정"
-        >
-          <Settings size={14} />
-        </button>
-        <button
-          className="vj-gicon danger"
-          onClick={handleDeleteClick}
-          aria-label="그룹 삭제"
-          title="그룹 삭제"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
 
       {/* 그룹명 + 메타정보 */}
       <div>

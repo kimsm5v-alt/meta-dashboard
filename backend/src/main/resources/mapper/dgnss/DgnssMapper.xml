@@ -906,13 +906,13 @@
 		           WHEN gi.school_level = 'elementary' THEN '초등'
 		           WHEN gi.school_level = 'middle' THEN '중등'
 		           WHEN gi.school_level = 'high' THEN '고등'
-		           ELSE ''
+		           ELSE '-'
 		       END AS MEM_GRADE_NM
 		     , CASE
 		           WHEN gi.group_nm IS NULL THEN '-'
 		           ELSE gi.group_nm
 		       END AS CLASS_NM
-		     , IFNULL(gi.school_name, '') AS SCH_NM
+		     , IFNULL(NULLIF(gi.school_name, ''), '-') AS SCH_NM
 		     , a1.ord_no AS TEST_ORD
 		     , (
 		        SELECT DATE_FORMAT(d1.dgnss_ed_dt, '%Y-%m-%d')
@@ -1834,12 +1834,12 @@
 		     , DA.COCH_DGNSS_QESITM04_SCORE, DA.COCH_DGNSS_QESITM04_MARK
 		     , DRI.stdt_id AS MEM_ID
 		     , IFNULL(DA.SCH_GRADE, '') AS SCH_GRADE
-		     , IFNULL(gi.school_name, '') AS SCH_NM
+		     , IFNULL(NULLIF(gi.school_name, ''), IFNULL(DRI.school_name, '')) AS SCH_NM
 		     , IFNULL(gi.school_level, '') AS MEM_GRADE
-		     , CASE
-		           WHEN gi.school_level = 'elementary' THEN '초등'
-		           WHEN gi.school_level = 'middle' THEN '중등'
-		           WHEN gi.school_level = 'high' THEN '고등'
+		     , CASE DA.SCH_GRADE
+		           WHEN 'CMM13001' THEN '초등'
+		           WHEN 'CMM13002' THEN '중등'
+		           WHEN 'CMM13003' THEN '고등'
 		           ELSE ''
 		       END AS MEM_GRADE_NM
 		     , CASE
@@ -1867,26 +1867,30 @@
 		     , DRI.file_url AS fileURL
 		     , DRI.id AS dgnssResultId
 		     , CASE
-		           WHEN gi.group_nm IS NULL THEN '-'
-		           ELSE gi.group_nm
+		           WHEN COALESCE(NULLIF(gi.grade, ''), DRI.grade) IS NOT NULL
+		                AND COALESCE(gi.class_number, DRI.class_number) IS NOT NULL
+		           THEN CONCAT(COALESCE(NULLIF(gi.grade, ''), DRI.grade), '학년 ', COALESCE(gi.class_number, DRI.class_number), '반')
+		           ELSE '-'
 		       END AS CLASS_NM
 		     , tdi2.cla_id AS claId
 		     , tdi2.paper_idx AS paperIdx
 		     , tu.sp_user_id AS teacherSpUserId
 		     , tdi2.tc_id AS tcId
 		     , DRI.summary_file_url AS summaryFileURL
-		     , CASE
-		           WHEN gi.school_level = 'elementary' THEN '초등'
-		           WHEN gi.school_level = 'middle' THEN '중등'
-		           WHEN gi.school_level = 'high' THEN '고등'
+		     , CASE DA.SCH_GRADE
+		           WHEN 'CMM13001' THEN '초등'
+		           WHEN 'CMM13002' THEN '중등'
+		           WHEN 'CMM13003' THEN '고등'
 		           ELSE ''
 		       END AS stdtGrade
 		     , CASE
-		           WHEN gi.group_nm IS NULL THEN ''
-		           ELSE gi.group_nm
+		           WHEN COALESCE(NULLIF(gi.grade, ''), DRI.grade) IS NOT NULL
+		                AND COALESCE(gi.class_number, DRI.class_number) IS NOT NULL
+		           THEN CONCAT(COALESCE(NULLIF(gi.grade, ''), DRI.grade), '학년 ', COALESCE(gi.class_number, DRI.class_number), '반')
+		           ELSE ''
 		       END AS stdtClassNm
 		     , CASE
-		           WHEN gm.member_no IS NULL THEN ''
+		           WHEN gm.member_no IS NULL THEN '-'
 		           ELSE CONCAT(gm.member_no, '번')
 		       END AS stdtNo
 		     , gm.member_type AS memberType
@@ -2064,6 +2068,11 @@
 		SET eak_stts_cd = 2
 			, eak_at = 'Y'
 			, eak_st_dt = NOW()
+			<!-- 학생 입력 식별정보: 값이 전달된 경우에만 갱신(시작 시 1회 전송, 페이지 호출 시 미전송이면 보존) -->
+			<if test="schoolName != null and schoolName != ''">, school_name = #{schoolName}</if>
+			<if test="grade != null and grade != ''">, grade = #{grade}</if>
+			<if test="classNumber != null and classNumber != ''">, class_number = #{classNumber}</if>
+			<if test="gender != null and gender != ''">, gender = #{gender}</if>
 		WHERE id = #{dgnssResultId}
 	</update>
 
@@ -2984,22 +2993,15 @@
 
 	<select id="selectStLernAnalysis" parameterType="map" resultType="map">
 		/* DgnssMapper.selectStLernAnalysis */
-		SELECT b1.id AS dgnssResultId
-			, c1.ANSWER_IDX AS answerIdx
+		SELECT c1.ANSWER_IDX AS answerIdx
 			, d1.SECTION_ID
 			, d1.`DEPTH`
-			, e1.SECTION_NM
 			, IF(d1.T_SCORE <![CDATA[<]]> 0, 0, d1.T_SCORE) AS tScore
 			, a1.ord_no
-			, a1.cla_id AS claId
-			, gi.group_nm AS groupNm
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, lpa.class_id AS lpaClassId
 			, lpa.type_name AS lpaTypeName
-			, lpa.confidence AS lpaConfidence
-			, lpa.status AS lpaStatus
 			, lpa.probabilities_json AS lpaProbabilitiesJson
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id

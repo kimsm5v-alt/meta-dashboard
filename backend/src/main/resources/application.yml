@@ -156,6 +156,18 @@ sso:
     enabled: ${SSO_POLL_ENABLED:false}
     limit: ${SSO_POLL_LIMIT:500}
 
+# ===== IDP 그룹 동기화 (group-from-idp) =====
+# enabled        : 그룹 동기화 활성화. 기본 false — ENV 로 켠다 (점진 배포).
+#                  사전조건: IdP oauth2_client.scopes 에 groups:read 부여
+#                          + migrations/01-sync-prep.sql 적용 (sp_group_id, provisioned, GROUP_CHANGES 커서).
+# snapshot-limit : 부트스트랩/전체 재동기화 page size (IdP max 500).
+# feed-limit     : 변경 피드 page size (IdP max 1000).
+# 주기는 GroupSyncScheduler(1분) / GroupFullResyncScheduler(일 1회 04시) @Scheduled cron 고정.
+group-sync:
+  enabled: ${GROUP_SYNC_ENABLED:false}
+  snapshot-limit: ${GROUP_SYNC_SNAPSHOT_LIMIT:100}
+  feed-limit: ${GROUP_SYNC_FEED_LIMIT:500}
+
 key:
   salt:
     main: ${KEY_SALT_MAIN:}
