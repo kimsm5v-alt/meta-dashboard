@@ -223,6 +223,12 @@ neo4j:
   username: ${DGNSS_NEO4J_USERNAME:neo4j}
   password: ${DGNSS_NEO4J_PASSWORD:test1234}
 
+# ===== NEIS 학교기본정보 Open API =====
+# 검사 기본정보 입력의 학교 검색 모달이 프록시 호출. api-key 는 시크릿 — 개발/운영 env(NEIS_API_KEY)로 주입(하드코딩 금지).
+neis:
+  base-url: ${NEIS_BASE_URL:https://open.neis.go.kr}
+  api-key: ${NEIS_API_KEY:}
+
 # ===== QCH(Quality Coverage Hub) 외부 로그 적재 =====
 # 모든 API 호출을 QCH /api/v1/ingest/trace 로 best-effort 비동기 발행. 가이드: backend/docs/doc-1444.md
 # enabled=false 가 안전한 기본값 — QCH 운영팀 등록(serviceKey/baseUrl 발급) 완료 후 환경별로 true 로 켠다.

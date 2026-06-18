@@ -17,6 +17,8 @@ export interface StudentInfo {
   studentNumber: string;
   name: string;
   gender: 'M' | 'F' | '';
+  /** NEIS 표준학교코드 — 학교 검색으로 선택 시 채워짐(나이스 연동 등록용). */
+  schoolCode?: string;
 }
 
 type SchoolLevel = 'elementary' | 'middle' | 'high' | '';
