@@ -529,9 +529,12 @@ public class GroupService {
             if (slot != null) {
                 m.put(nicknameKey, slot.getName());
                 m.put(emailKey, slot.getEmail());
+                // 미동의(NOT_CONSENTED)/탈퇴(WITHDRAWN) 등 사유 — FE 가 마스킹 표시·안내 툴팁 분기에 사용
+                m.put("maskedReason", slot.getMaskedReason());
             } else {
                 m.put(nicknameKey, "(탈퇴 회원)");
                 m.put(emailKey, null);
+                m.put("maskedReason", "NOT_FOUND");
             }
         });
     }

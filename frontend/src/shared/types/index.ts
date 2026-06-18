@@ -687,6 +687,8 @@ export interface GroupMember {
 
   name: string;
   email?: string;
+  /** Auth PII 마스킹 사유 (group-from-idp). NOT_CONSENTED=학심정 미동의 → 이름/이메일 마스킹+안내 툴팁 */
+  maskedReason?: 'NONE' | 'NOT_CONSENTED' | 'WITHDRAWN' | 'NOT_FOUND';
   gender?: 'M' | 'F';
   memberNo?: number; // 출석번호 (그룹 내 자동 채번)
 
