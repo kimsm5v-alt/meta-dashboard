@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
  *       "현재 상태와 다를 때만 변경+알림"</li>
  *   <li><b>알림</b> — 실제 INSERT/재활성(T1)·ACTIVE→KICKED 전이(S5) 시에만 발행.
  *       부트스트랩/전체 재동기화는 {@code suppressNotifications=true} 로 폭주 방지</li>
- *   <li><b>PII</b> — RP 응답의 멤버 성명(name)은 알림 문구 일회성 사용만. DB 영속화 금지</li>
+ *   <li><b>PII</b> — RP 그룹 응답은 멤버 이름을 싣지 않는다(publicUserId만). 합류 알림 이름은 리스너가 /users/batch 로 해석(동의자만). DB 영속화 금지</li>
  *   <li><b>cla_id/stdt_id</b> — 학심정 채번 유지 (검사·메모·상담·생기부 외래 식별자)</li>
  * </ul>
  */
@@ -258,8 +258,8 @@ public class GroupUpsertService {
             if (joined) {
                 changes++;
                 if (!suppress) {
-                    // name 은 알림 문구 일회성 사용 — 영속화 금지 (Auth 거버넌스)
-                    publishJoined(g, m.name());
+                    // 합류 알림 — 이름은 리스너가 /users/batch 로 해석(동의자만 표시), 미동의자는 일반 문구
+                    publishJoined(g, m.publicUserId());
                 }
                 registerActiveDgnssSafely(g, u.getStdtId());
             }
@@ -282,12 +282,13 @@ public class GroupUpsertService {
         return changes;
     }
 
-    private void publishJoined(GroupInfo g, String studentName) {
+    private void publishJoined(GroupInfo g, String studentPublicUserId) {
         if (g.getHostUserNo() == null) {
             return;
         }
+        // 이름 미보유(그룹 API 가 PII 미제공) — publicUserId 만 실어 리스너가 /users/batch 로 해석
         eventPublisher.publishEvent(new StudentJoinedGroupEvent(
-                g.getHostUserNo(), g.getClaId(), g.getGroupNm(), studentName));
+                g.getHostUserNo(), g.getClaId(), g.getGroupNm(), null, studentPublicUserId));
     }
 
     /**

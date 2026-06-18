@@ -185,7 +185,7 @@ public class GroupService {
             // Phase 4: nickname 컬럼 제거, IDP enrich 후 name 사용
             existing.setSpUserId(user.getSpUserId());
             userInfoEnricher.enrich(existing);
-            publishStudentJoined(groupInfo, existing.getName());
+            publishStudentJoined(groupInfo, existing.getName(), user.getSpUserId());
             return paramData;
         }
 
@@ -226,7 +226,7 @@ public class GroupService {
         // Phase 3: User.spUserId로 enrich — user 객체가 이 시점에 살아있으므로 UserSlot 경유
         UserSlot joinSlot = new UserSlot(user.getSpUserId());
         userInfoEnricher.enrich(joinSlot);
-        publishStudentJoined(groupInfo, joinSlot.getName());
+        publishStudentJoined(groupInfo, joinSlot.getName(), user.getSpUserId());
         return paramData;
     }
 
@@ -235,13 +235,14 @@ public class GroupService {
      * T1 알림 이벤트 발행 — 그룹 오너 교사에게.
      * hostUserNo가 없는 경우는 건너뛴다.
      */
-    private void publishStudentJoined(GroupInfo groupInfo, String studentNickname) {
+    private void publishStudentJoined(GroupInfo groupInfo, String studentNickname, String studentPublicUserId) {
         if (groupInfo == null || groupInfo.getHostUserNo() == null) return;
         eventPublisher.publishEvent(new StudentJoinedGroupEvent(
                 groupInfo.getHostUserNo(),
                 groupInfo.getClaId(),
                 groupInfo.getGroupNm(),
-                studentNickname
+                studentNickname,
+                studentPublicUserId
         ));
     }
 

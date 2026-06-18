@@ -2,6 +2,8 @@
 
 > 작성일: 2026-06-18 · 대상: **superplatform-auth(IDP)** + **학심정(meta-dashboard, RP)**
 > 스코프: **그룹 멤버 리스트(+그룹 오너) 표시에서, 학심정에 SERVICE 동의하지 않은 사용자의 이름/이메일 노출 차단.**
+>
+> **개정 2026-06-18(구현 반영)**: RP Group API 는 멤버 이름을 **전원 미제공**(필드 제거, api-reference v2.0.0)으로 확정했다. 초기안의 채널 B(roster `RpMemberResponse.name=null` + `consented` 플래그)는 **폐기**하고, **PII·동의 마스킹은 `/users/batch` 단일 경로**로 일원화한다. 합류 알림 이름은 리스너가 `/batch` 로 해석(동의자만 표시).
 
 ---
 
@@ -32,10 +34,10 @@
 
 | 채널 | 무엇 | 시점 | 처리 |
 |---|---|---|---|
-| **A. `/batch` (표시 enrich)** | name/email | **표시 시점(실시간)** | 호출 RP 미동의 사용자는 **null/placeholder** 반환 → 표시 마스킹의 **1차·실시간 방어선** |
-| **B. RP Group API roster (`RpMemberResponse.name`)** | name | 동기화 시점 | 미동의 멤버는 **`name=null`** + `consented` 플래그 → 알림 문구 누출 방지 + 동기화 신호 제공 |
+| **A. `/batch` (표시 enrich)** | name/email | **표시 시점(실시간)** | 호출 RP 미동의 사용자는 **null + `maskedReason`** 반환 → 표시 마스킹의 **유일·실시간 권위** |
+| **B. RP Group API roster** | (이름 미제공) | — | 그룹 API 는 멤버 이름을 **싣지 않음**(전원, v2.0.0). 멤버 식별자(`publicUserId`)·멤버십만 동기화 |
 
-> **핵심**: 교사가 화면에서 보는 이름은 **채널 A(`/batch`)** 에서 온다. 그래서 **표시 마스킹의 권위·실시간 보장은 채널 A가 책임진다.** 채널 B는 동기화/알림 경로 보호용.
+> **핵심**: 교사가 화면에서 보는 이름·이메일은 **전부 채널 A(`/batch`)** 에서 온다 — **표시 마스킹의 권위·실시간 보장을 채널 A가 단독으로 책임진다.** 그룹 동기화(채널 B)는 PII 를 일절 나르지 않는다(과거 `RpMemberResponse.name`/`consented` 안은 폐기).
 
 ---
 
@@ -57,11 +59,10 @@
 
 - 효과: 학심정 표시 이름은 **항상 실시간 정확**(동의 변화 즉시 반영, staleness 없음). **`maskedReason`으로 미동의/탈퇴/오류를 구분**해 각기 다른 표시(툴팁 등) 가능. 향후 사유 추가도 enum 확장으로 흡수.
 
-### 3.2 RP Group API — `RpMemberResponse` 동의 반영
-- `RpMemberResponse`에 **`consented`(boolean)** 추가 — 멤버별 `existsByUserIdAndClientIdAndAgreementType(userId, clientId, SERVICE, active)`.
-- **미동의 멤버는 `name=null`** 로 내려줌(roster에서도 이름 미제공).
-- 적용 지점: `RpGroupService.listGroups`(스냅샷, L107 부근) + `getGroup`(단건, L255 부근) — `clientId`는 이미 보유(감사로그 기록 중).
-- 멤버 일괄 동의 조회는 N+1 피하게 **배치 조회**(userId 목록 → 동의 보유 set) 권장.
+### 3.2 RP Group API — 멤버 PII 제거 (구현 완료, api-reference v2.0.0)
+- `RpMemberResponse`에서 **`name` 필드 제거** — 멤버 객체는 `publicUserId`·`status`·`seqNo`·`joinedAt`·`updatedAt` 만. 동의 여부와 무관하게 **전원 이름 미제공**.
+- 적용 지점: `RpGroupService.listGroups`(스냅샷) + `getGroup`(단건) — 멤버 name 매핑 제거.
+- **consent 마스킹은 그룹 API 가 아니라 `/batch`(§3.1)가 단독 책임** → 그룹 API 에 per-멤버 동의 조회가 아예 불필요(N+1 회피 그 자체).
 
 ### 3.3 그룹 오너(교사)가 학심정 미동의인 경우 ← 질문 ①
 - **그룹 자체는 항상 동기화**한다 — 그룹 속성은 개인 PII가 아니고, **동의한 학생 멤버가 검사에 그룹을 써야** 하므로 오너 동의와 무관하게 제공.
@@ -85,10 +86,10 @@
   - 옆에 **(i) 툴팁** 노출 — 문구는 §6 고정.
   - (`WITHDRAWN`/`NOT_FOUND`는 각기 다른 표기 — 툴팁 대상 아님)
 
-### 4.2 roster 동의 신호 수신 (동기화 경로)
-- `RpMemberDto`에 **`consented`** 추가, `RpGroupClient.parseGroup`에서 파싱.
-- **`name=null`** 로 오면 합류 알림(`StudentJoinedGroupEvent`) 문구에서 이름 누출 안 됨(기존 "name은 알림 일회성" 정책과 정합).
-- **저장 정책**: `consented`를 group_member에 영속화할지는 **선택**. 영속화하더라도 **마스킹 권위로 쓰지 않는다**(§5 staleness). 통계/비표시 로직 용도에 한해.
+### 4.2 동기화 경로 — 멤버 name 제거 (구현 완료)
+- `RpMemberDto`에서 **`name` 제거**, `RpGroupClient.parseGroup`의 name 파싱 제거.
+- 합류 알림(`StudentJoinedGroupEvent`)은 이름 대신 **`studentPublicUserId`** 를 실어 보내고, 리스너(`NotificationEventHandler`)가 `PersonInfoClient.getOne`(/batch 경로)으로 이름을 해석한다 → **동의자만 이름 표시, 미동의자는 일반 문구**(§6).
+- group_member 에 동의 플래그 영속화 안 함 — 마스킹 권위는 `/batch` 실시간(§5 staleness).
 
 ### 4.3 그룹/오너
 - 그룹은 항상 수신·표시. 오너 이름은 §4.1로 자동 마스킹.
@@ -105,8 +106,8 @@
 ### 결론 — 폴링은 그대로, 마스킹은 표시 시점으로
 1. **change 피드 폴링은 현행 유지** — 구조 변경(그룹/멤버 add/remove)만 처리. **CONSENT 이벤트 타입 추가 불필요.**
 2. **표시 마스킹은 §3.1 `/batch`(표시 시점 실시간)** 가 책임 → 동의 변화가 **다음 화면 로드에 즉시 반영**(폴링 주기와 무관).
-3. roster의 `consented`/`name=null`은 **serve 시점 실시간**이라 그 순간 정확. 학심정이 저장하면 다음 동기화까지 stale하므로 **마스킹 권위로 쓰지 않음**.
-4. **일일 전체 재동기화**(기존)는 저장 플래그(저장한다면)와 roster name의 **정합성 보정 안전망**으로 그대로 동작.
+3. roster 는 이름·동의 플래그를 **더 이상 나르지 않으므로** 동의 staleness 문제 자체가 없다 — 이름 표시·동의 마스킹은 전적으로 `/batch`(serve 시점 실시간)가 담당.
+4. **일일 전체 재동기화**(기존)는 **멤버십(가입/탈퇴) 정합성 보정** 안전망으로 그대로 동작(이름은 `/batch` 실시간이라 별도 보정 불필요).
 
 > 한 줄: **동의 상태는 "동기화로 끌어와 저장"하지 말고, 데이터 줄 때마다 Auth가 실시간 계산해 반영**(roster serve + /batch). change 피드는 구조 변경 전용으로 둔다.
 
@@ -127,7 +128,7 @@
 - **이름 표시값**: 전체 마스킹(예: `비공개` 또는 `●●●`) + (i) 아이콘. 이메일: 빈값/`-`.
 - **기타 엣지**:
   - **멤버 수(count)**: 미동의 멤버도 포함(마스킹만, 명단 제외 아님). 합의: 평문 저장만 아니면 마스킹으로 OK.
-  - **합류 알림**: 미동의 멤버는 roster `name=null` → 알림 이름 없이 또는 보류 정책 검토.
+  - **합류 알림(T1)**: 동의 학생은 이름 표시(`○○ 학생이 '△△' 그룹에 참여했습니다.`), 미동의 학생은 일반 문구(`'△△' 그룹에 새 학생이 참여했어요. 학생이 로그인·동의하면 이름이 표시됩니다.`). 리스너가 `publicUserId`로 `/batch` 조회해 분기. (구현 완료)
   - **미동의 vs 탈퇴 구분**: `/batch` `maskedReason`(`NOT_CONSENTED` vs `WITHDRAWN`)으로 구분 → 미동의만 위 툴팁, 탈퇴는 별도 표기.
   - **오너 미동의**: 그룹은 보이되 오너 이름만 마스킹(학생에게 "선생님 OOO" 노출 시).
 
@@ -136,16 +137,15 @@
 ## 7. 작업 분해
 
 ### Auth (superplatform-auth)
-1. `/api/v1/users/batch` — 호출 RP 미동의 publicUserId의 name/email null + **`maskedReason` enum**(NONE/NOT_CONSENTED/WITHDRAWN/NOT_FOUND). **표시 마스킹·툴팁 핵심.**
-2. `RpMemberResponse` += `consented`; 미동의 시 `name=null`. `RpGroupService` 2곳 배치 동의 조회 적용.
-3. (선택) `RpGroupResponse` += `ownerConsented`.
-4. 동의 조회는 `UserServiceConsentRepository.existsByUserIdAndClientIdAndAgreementType(...active)` 배치화.
+1. `/api/v1/users/batch` — 호출 RP 미동의 publicUserId의 name/email null + **`maskedReason` enum**(NONE/NOT_CONSENTED/WITHDRAWN/NOT_FOUND). **표시 마스킹·툴팁 핵심.** ✅ 운영 반영
+2. ✅ **완료** — `RpMemberResponse`에서 `name` **제거**(전원), `RpGroupService` 2곳 name 매핑 제거 (api-reference v2.0.0, commit `c0b57e1`). consent 마스킹은 `/batch` 단독이라 그룹 API 동의 조회 불필요.
+3. (선택 불필요) 오너 이름도 `/batch`로 마스킹되므로 별도 처리 불필요 — `RpGroupResponse`는 `ownerPublicUserId`만 제공.
 
 ### 학심정 (meta-dashboard)
-5. `RpMemberDto` += `consented`, `RpGroupClient.parseGroup` 파싱. (저장은 선택, 마스킹 권위로 미사용)
-6. **`UserInfo`/`HasUserInfo`에 `maskedReason`(enum) 추가** — `/batch` 사유를 enrich 시 멤버 DTO로 전파.
+5. ✅ **완료** — `RpMemberDto`에서 `name` **제거**, `RpGroupClient.parseGroup` name 파싱 제거.
+6. **`UserInfo`/`HasUserInfo`에 `maskedReason`(enum)** — `/batch` 사유를 enrich 시 멤버 DTO로 전파(표시 마스킹용, 기존 유지).
 7. **FE 그룹상세 학생 리스트(`StudentManagementPanel`)**: `maskedReason == NOT_CONSENTED` 멤버 → 이름·이메일 전체 마스킹 + **(i) 툴팁**(§6 고정 문구).
-8. 합류 알림 문구가 `name=null` 안전한지 점검.
+8. ✅ **완료** — 합류 알림(`StudentJoinedGroupEvent`)에 `studentPublicUserId` 추가, `NotificationEventHandler`가 `/batch`로 이름 해석 → 동의자 이름 / 미동의 일반 문구 분기.
 
 ### 변경 없음
 - change 피드 폴링 로직(구조 변경 전용) · `provisioned` 컬럼 · REVOCATION 폴링 — **그대로 유지.**
@@ -159,7 +159,8 @@
 | 멤버 동의 판단 | Auth가 **serve 시점 실시간** 계산 (provisioned/revoke 아님) |
 | 표시 마스킹 권위 | **`/batch` 동의 필터 + `maskedReason` enum**(표시 시점 실시간, staleness 없음) |
 | 그룹상세 학생 리스트 | 미동의 멤버 **이름·이메일 전체 마스킹 + (i) 툴팁**(고정 문구) |
-| roster(`RpMemberResponse`) | `consented` + 미동의 `name=null` (알림 보호·동기화 신호) |
+| roster(`RpMemberResponse`) | **이름 미제공(전원, v2.0.0)** — PII·동의 마스킹은 `/batch` 단독 |
+| 합류 알림(T1) | 동의 학생=이름 표시, 미동의 학생=일반 문구 — 리스너가 `publicUserId`로 `/batch` 해석 |
 | 그룹정보 / 오너 미동의 | **그룹은 항상 동기화**, **오너 이름만 동의 게이트**(/batch) |
 | change 폴링과 결합 | **현행 유지(구조 변경 전용)**. 동의는 /batch 실시간으로 해결 → CONSENT 이벤트 불필요 |
 | provisioned/revoke | 기존 용도 **유지**, 마스킹 판단엔 미사용 |

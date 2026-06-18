@@ -149,7 +149,6 @@ public class RpGroupClient {
         List<RpMemberDto> members = listOf(m.get("members")).stream()
                 .map(mm -> new RpMemberDto(
                         (String) mm.get("publicUserId"),
-                        (String) mm.get("name"),
                         (String) mm.get("status"),
                         mm.get("seqNo") instanceof Number n ? n.intValue() : null,
                         parseTime(mm.get("joinedAt")),
