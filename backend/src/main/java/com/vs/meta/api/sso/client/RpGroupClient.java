@@ -151,6 +151,7 @@ public class RpGroupClient {
                         (String) mm.get("publicUserId"),
                         (String) mm.get("name"),
                         (String) mm.get("status"),
+                        mm.get("seqNo") instanceof Number n ? n.intValue() : null,
                         parseTime(mm.get("joinedAt")),
                         parseTime(mm.get("updatedAt"))))
                 .toList();
