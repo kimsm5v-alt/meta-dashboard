@@ -852,8 +852,8 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
 
                   {/* 학년 */}
                   <FormField>
-                    <FieldLabel>학년{grade == null && <RequiredMark>*</RequiredMark>}</FieldLabel>
-                    {grade != null ? (
+                    <FieldLabel>학년{!grade && <RequiredMark>*</RequiredMark>}</FieldLabel>
+                    {grade ? (
                       <LockedFieldWrapper>
                         <LockedValue>{grade}학년</LockedValue>
                         <AutoBadge $color={color}>
@@ -890,9 +890,9 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
                   {/* 반 */}
                   <FormField>
                     <FieldLabel>
-                      반{classNumber == null && <RequiredMark>*</RequiredMark>}
+                      반{!classNumber && <RequiredMark>*</RequiredMark>}
                     </FieldLabel>
-                    {classNumber != null ? (
+                    {classNumber ? (
                       <LockedFieldWrapper>
                         <LockedValue>{classNumber}반</LockedValue>
                         <AutoBadge $color={color}>
