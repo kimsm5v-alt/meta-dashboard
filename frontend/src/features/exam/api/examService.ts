@@ -206,6 +206,8 @@ export interface StudentInfoForStart {
   grade?: number;
   classNumber?: number;
   gender?: 'M' | 'F';
+  /** NEIS 표준학교코드 — 학교 검색 선택 시(나이스 연동). 검사쪽 저장용. */
+  schoolCode?: string;
 }
 
 /**
@@ -240,6 +242,7 @@ export async function fetchQuestions(
       if (studentInfo.grade !== undefined) payload.grade = studentInfo.grade;
       if (studentInfo.classNumber !== undefined) payload.classNumber = studentInfo.classNumber;
       if (studentInfo.gender) payload.gender = studentInfo.gender;
+      if (studentInfo.schoolCode) payload.schoolCode = studentInfo.schoolCode;
     }
 
     const res = await apiClient.post<QuestionsResponseData>('/api/dgnss/st/start', payload);

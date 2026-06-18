@@ -81,15 +81,19 @@ interface MemberRowProps {
 }
 
 const MemberRow = ({ member, index }: MemberRowProps) => {
-  // 학심정 미동의 학생 — 이름/이메일 전체 마스킹 + 안내 툴팁 (group-from-idp)
-  const consentPending = member.maskedReason === 'NOT_CONSENTED';
+  // 동의(NONE)가 아니면 전부 마스킹 — 미동의(NOT_CONSENTED)·연동해제(WITHDRAWN)·미존재(NOT_FOUND)
+  // 어느 경우든 실명/이메일 노출 차단(폴링 cascade 랙 구간 방어). (group-from-idp)
+  const reason = member.maskedReason;
+  const masked = !!reason && reason !== 'NONE';
+  // 안내 툴팁은 "아직 로그인 안 한 미동의 학생"(NOT_CONSENTED)에만 — 다른 사유는 마스킹만.
+  const consentPending = reason === 'NOT_CONSENTED';
 
   return (
     <div className="vj-mem-row">
       <span className="num">{member.memberNo ?? index}</span>
       <div className="info">
-        <p className="name" style={consentPending ? { color: '#9CA3AF' } : undefined}>
-          {consentPending ? '****' : member.name}
+        <p className="name" style={masked ? { color: '#9CA3AF' } : undefined}>
+          {masked ? '****' : member.name}
           {consentPending && (
             <span
               title={CONSENT_PENDING_TOOLTIP}
@@ -99,11 +103,11 @@ const MemberRow = ({ member, index }: MemberRowProps) => {
               <Info size={13} />
             </span>
           )}
-          {!consentPending && member.memberType === 'guest' && (
+          {!masked && member.memberType === 'guest' && (
             <span className="guest-badge">게스트</span>
           )}
         </p>
-        {consentPending
+        {masked
           ? <p className="email" style={{ color: '#9CA3AF' }}>****@****</p>
           : member.email && <p className="email">{member.email}</p>}
       </div>

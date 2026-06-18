@@ -2070,6 +2070,7 @@
 			, eak_st_dt = NOW()
 			<!-- 학생 입력 식별정보: 값이 전달된 경우에만 갱신(시작 시 1회 전송, 페이지 호출 시 미전송이면 보존) -->
 			<if test="schoolName != null and schoolName != ''">, school_name = #{schoolName}</if>
+			<if test="schoolCode != null and schoolCode != ''">, school_code = #{schoolCode}</if>
 			<if test="grade != null and grade != ''">, grade = #{grade}</if>
 			<if test="classNumber != null and classNumber != ''">, class_number = #{classNumber}</if>
 			<if test="gender != null and gender != ''">, gender = #{gender}</if>

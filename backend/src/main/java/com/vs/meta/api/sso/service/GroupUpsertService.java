@@ -225,7 +225,8 @@ public class GroupUpsertService {
                         .userNo(u.getUserNo())
                         .stdtId(u.getStdtId())
                         .memberType(MemberType.STUDENT)
-                        .memberNo(++maxNo)
+                        // 교사가 mypage 에서 정한 순번(seqNo) 사용 — 미제공 시 학심정 채번(MAX+1) fallback
+                        .memberNo(m.seqNo() != null ? m.seqNo() : (++maxNo))
                         .status(MemberStatus.ACTIVE)
                         .joinedAt(m.joinedAt() != null ? m.joinedAt() : LocalDateTime.now())
                         .createdBy(0L)
@@ -243,6 +244,15 @@ public class GroupUpsertService {
                 gm.setUpdatedAt(LocalDateTime.now());
                 groupMemberMapper.updateGroupMember(gm);
                 joined = true;
+            }
+
+            // 순번(seqNo) 재정렬 반영 — 기존 멤버의 member_no 가 Auth seqNo 와 다르면 갱신 (mypage reorder 동기화)
+            if (gm != null && m.seqNo() != null && !m.seqNo().equals(gm.getMemberNo())) {
+                gm.setMemberNo(m.seqNo());
+                gm.setUpdatedBy(0L);
+                gm.setUpdatedAt(LocalDateTime.now());
+                groupMemberMapper.updateGroupMember(gm);
+                changes++;
             }
 
             if (joined) {
