@@ -1,6 +1,12 @@
 import { useState, useMemo } from 'react';
-import { Search, Users } from 'lucide-react';
+import { Search, Users, Info } from 'lucide-react';
 import type { GroupMember } from '../types';
+
+// 미동의(NOT_CONSENTED) 학생 마스킹 시 (i) 툴팁 문구 — 기획 고정
+const CONSENT_PENDING_TOOLTIP =
+  '학습심리정서검사를 아직 시작하지 않은 학생입니다.\n' +
+  '학생이 최초 1회 로그인하여, 사이트 사용에 동의할 수 있게 안내해주세요.\n' +
+  '자세한 내용은 그룹 관리에서 확인할 수 있습니다.';
 
 /**
  * 학생 관리 패널 — group-from-idp 전환 후 "조회 전용".
@@ -20,7 +26,7 @@ export const StudentManagementPanel = ({ members }: StudentManagementPanelProps)
     const term = searchTerm.toLowerCase();
     return activeMembers.filter(
       (m) =>
-        m.name.toLowerCase().includes(term) ||
+        (m.name ?? '').toLowerCase().includes(term) ||
         (m.email && m.email.toLowerCase().includes(term)),
     );
   }, [activeMembers, searchTerm]);
@@ -74,17 +80,33 @@ interface MemberRowProps {
   index: number;
 }
 
-const MemberRow = ({ member, index }: MemberRowProps) => (
-  <div className="vj-mem-row">
-    <span className="num">{member.memberNo ?? index}</span>
-    <div className="info">
-      <p className="name">
-        {member.name}
-        {member.memberType === 'guest' && (
-          <span className="guest-badge">게스트</span>
-        )}
-      </p>
-      {member.email && <p className="email">{member.email}</p>}
+const MemberRow = ({ member, index }: MemberRowProps) => {
+  // 학심정 미동의 학생 — 이름/이메일 전체 마스킹 + 안내 툴팁 (group-from-idp)
+  const consentPending = member.maskedReason === 'NOT_CONSENTED';
+
+  return (
+    <div className="vj-mem-row">
+      <span className="num">{member.memberNo ?? index}</span>
+      <div className="info">
+        <p className="name" style={consentPending ? { color: '#9CA3AF' } : undefined}>
+          {consentPending ? '****' : member.name}
+          {consentPending && (
+            <span
+              title={CONSENT_PENDING_TOOLTIP}
+              aria-label={CONSENT_PENDING_TOOLTIP}
+              style={{ display: 'inline-flex', alignItems: 'center', marginLeft: 4, color: '#9CA3AF', cursor: 'help', verticalAlign: 'middle' }}
+            >
+              <Info size={13} />
+            </span>
+          )}
+          {!consentPending && member.memberType === 'guest' && (
+            <span className="guest-badge">게스트</span>
+          )}
+        </p>
+        {consentPending
+          ? <p className="email" style={{ color: '#9CA3AF' }}>****@****</p>
+          : member.email && <p className="email">{member.email}</p>}
+      </div>
     </div>
-  </div>
-);
+  );
+};

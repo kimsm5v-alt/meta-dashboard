@@ -26,8 +26,8 @@ class PersonInfoCacheStoreTest {
         store.getOrLoad(ids, missed -> {
             callCount.incrementAndGet();
             return Map.of(
-                "user-1", new UserInfo("user-1", "홍길동", null, null, "TEACHER", false),
-                "user-2", new UserInfo("user-2", "김철수", null, null, "STUDENT", false)
+                "user-1", new UserInfo("user-1", "홍길동", null, null, "TEACHER", false, "NONE"),
+                "user-2", new UserInfo("user-2", "김철수", null, null, "STUDENT", false, "NONE")
             );
         });
 
@@ -42,7 +42,7 @@ class PersonInfoCacheStoreTest {
         // 첫 번째 호출로 캐시 워밍
         store.getOrLoad(ids, missed -> {
             callCount.incrementAndGet();
-            return Map.of("user-1", new UserInfo("user-1", "홍길동", null, null, "TEACHER", false));
+            return Map.of("user-1", new UserInfo("user-1", "홍길동", null, null, "TEACHER", false, "NONE"));
         });
 
         // 두 번째 호출 — 캐시 hit
@@ -77,13 +77,13 @@ class PersonInfoCacheStoreTest {
     void 일부_miss시_miss된_ID만_loader에_전달된다() {
         // user-1만 캐시 워밍
         store.getOrLoad(List.of("user-1"), missed ->
-            Map.of("user-1", new UserInfo("user-1", "홍길동", null, null, "TEACHER", false)));
+            Map.of("user-1", new UserInfo("user-1", "홍길동", null, null, "TEACHER", false, "NONE")));
 
         // user-1은 hit, user-2만 miss
         List<String> missedCapture = new java.util.ArrayList<>();
         store.getOrLoad(List.of("user-1", "user-2"), missed -> {
             missedCapture.addAll(missed);
-            return Map.of("user-2", new UserInfo("user-2", "김철수", null, null, "STUDENT", false));
+            return Map.of("user-2", new UserInfo("user-2", "김철수", null, null, "STUDENT", false, "NONE"));
         });
 
         assertThat(missedCapture).containsExactly("user-2");
@@ -93,8 +93,8 @@ class PersonInfoCacheStoreTest {
     void 결과_맵에_전체_ID가_포함된다() {
         Map<String, UserInfo> result = store.getOrLoad(List.of("user-1", "user-2"), missed ->
             Map.of(
-                "user-1", new UserInfo("user-1", "홍길동", null, null, "TEACHER", false),
-                "user-2", new UserInfo("user-2", "김철수", null, null, "STUDENT", false)
+                "user-1", new UserInfo("user-1", "홍길동", null, null, "TEACHER", false, "NONE"),
+                "user-2", new UserInfo("user-2", "김철수", null, null, "STUDENT", false, "NONE")
             )
         );
 

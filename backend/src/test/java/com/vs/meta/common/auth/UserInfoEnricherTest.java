@@ -65,7 +65,7 @@ class UserInfoEnricherTest {
         dto.setSpUserId("sp-123");
 
         when(requestCache.getBatchOrLoad(anyList(), any()))
-                .thenReturn(Map.of("sp-123", new UserInfo("sp-123", "홍길동", null, "a@b.c", "STUDENT", false)));
+                .thenReturn(Map.of("sp-123", new UserInfo("sp-123", "홍길동", null, "a@b.c", "STUDENT", false, "NONE")));
 
         enricher.enrich(dto);
 
@@ -80,8 +80,8 @@ class UserInfoEnricherTest {
         TestDto c = new TestDto(); c.setSpUserId("sp-1");  // 중복
 
         when(requestCache.getBatchOrLoad(anyList(), any())).thenReturn(Map.of(
-                "sp-1", new UserInfo("sp-1", "A", null, "a@x", "STUDENT", false),
-                "sp-2", new UserInfo("sp-2", "B", null, "b@x", "STUDENT", false)
+                "sp-1", new UserInfo("sp-1", "A", null, "a@x", "STUDENT", false, "NONE"),
+                "sp-2", new UserInfo("sp-2", "B", null, "b@x", "STUDENT", false, "NONE")
         ));
 
         enricher.enrich(List.of(a, b, c));
@@ -125,7 +125,7 @@ class UserInfoEnricherTest {
         appCacheStore.getOrLoad(
             List.of("user-cached"),
             ids -> Map.of("user-cached",
-                new UserInfo("user-cached", "캐시된사용자", null, null, "TEACHER", false))
+                new UserInfo("user-cached", "캐시된사용자", null, null, "TEACHER", false, "NONE"))
         );
 
         AtomicInteger ssoCallCount = new AtomicInteger(0);
@@ -150,7 +150,7 @@ class UserInfoEnricherTest {
             ids -> {
                 ssoCallCount.incrementAndGet();
                 return Map.of("user-new",
-                    new UserInfo("user-new", "새사용자", null, null, "STUDENT", false));
+                    new UserInfo("user-new", "새사용자", null, null, "STUDENT", false, "NONE"));
             }
         );
 
