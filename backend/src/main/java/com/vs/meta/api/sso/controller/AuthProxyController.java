@@ -56,6 +56,11 @@ public class AuthProxyController {
         form.add("code_verifier", body.get("codeVerifier"));
         form.add("redirect_uri", body.get("redirectUri"));
 
+        // [게이트웨이 전환 디버깅] 교환 파라미터 정합 확인 — 시크릿(code/verifier/secret)은 값 미로깅, 존재여부만.
+        log.info("[TOKEN-DBG] codePresent={}, verifierPresent={}, redirectUri={}, clientId={}",
+                body.get("code") != null, body.get("codeVerifier") != null,
+                body.get("redirectUri"), spAuth.getClientId());
+
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> tokens = superPlatformAuthWebClient
@@ -70,7 +75,8 @@ public class AuthProxyController {
             setRefreshTokenCookie(request, response, (String) tokens.get("refreshToken"), resolveRefreshExpiresIn(tokens));
             return ResponseEntity.ok(Map.of("success", true, "data", tokens));
         } catch (WebClientResponseException e) {
-            log.warn("토큰 교환 실패: {}", e.getStatusCode());
+            // [게이트웨이 전환 디버깅] IdP 가 준 거부 사유(error/error_description) 그대로 로깅.
+            log.warn("토큰 교환 실패: {} body={}", e.getStatusCode(), e.getResponseBodyAsString());
             return ResponseEntity.status(e.getStatusCode())
                     .body(Map.of("success", false, "message", "token exchange failed"));
         }
