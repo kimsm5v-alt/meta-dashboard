@@ -11,7 +11,7 @@ type SchoolLevel = 'elementary' | 'middle' | 'high' | '';
 export interface StudentExamContext {
   ordNo: number;
   schoolName?: string;
-  schoolLevel?: string;
+  schoolLevel?: SchoolLevel;
   grade?: number;
   classNumber?: number;
   prefilledName?: string;
@@ -295,7 +295,13 @@ const GradeSelect = styled.select<{ $hasError?: boolean }>`
   cursor: pointer;
   transition: border-color 0.15s ease;
   min-height: 3rem;
-  min-width: 436px;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1.5L6 6.5L11 1.5" stroke="%23666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
 
   &:focus {
     outline: none;
@@ -646,6 +652,12 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
     }
   }, [editableSchoolLevel]);
 
+  useEffect(() => {
+    if (studentExamContext?.schoolLevel) {
+      setSchoolLevel(studentExamContext.schoolLevel);
+    }
+  }, [studentExamContext?.schoolLevel]);
+
   const handleField = (field: keyof StudentInfo, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -707,7 +719,7 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
         name: localName,
         gender: localGender,
         // 학교 직접입력(검색) 케이스에서만 NEIS 학교코드 — 컨텍스트(동기화) 학교면 미포함
-        schoolCode: schoolName ? undefined : (selectedSchoolCode || undefined),
+        schoolCode: schoolName ? undefined : selectedSchoolCode || undefined,
       });
     } else if (showInfoForm) {
       if (!validateInfoForm()) return;
@@ -737,14 +749,13 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
     : true;
 
   const gradeOptions = GRADE_OPTIONS[schoolLevel] ?? [];
-  const editableGradeOptions = GRADE_OPTIONS[editableSchoolLevel] ?? [];
 
   /* ════════════════════════════════════════════════════
      Student context mode: "검사 시작 준비"
   ════════════════════════════════════════════════════ */
   if (studentExamContext) {
     const { schoolName, schoolLevel: ctxLevel, grade, classNumber } = studentExamContext;
-
+    const contextGradeOptions = GRADE_OPTIONS[ctxLevel || editableSchoolLevel] ?? [];
     return (
       <Container>
         <ContentWrapper $wide>
@@ -810,7 +821,10 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
                             placeholder='학교 검색'
                             disabled={isLoading}
                             $hasError={!!contextErrors.schoolName}
-                            style={{ cursor: isLoading ? 'not-allowed' : 'pointer', paddingRight: 32 }}
+                            style={{
+                              cursor: isLoading ? 'not-allowed' : 'pointer',
+                              paddingRight: 32,
+                            }}
                           />
                           <Search
                             size={16}
@@ -897,7 +911,7 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
                           $hasError={!!contextErrors.grade}
                         >
                           <option value=''>학년</option>
-                          {editableGradeOptions.map((g) => (
+                          {contextGradeOptions.map((g) => (
                             <option key={g} value={g}>
                               {g.replace(/[초중고]/, '')}학년
                             </option>
@@ -910,9 +924,7 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
 
                   {/* 반 */}
                   <FormField>
-                    <FieldLabel>
-                      반{!classNumber && <RequiredMark>*</RequiredMark>}
-                    </FieldLabel>
+                    <FieldLabel>반{!classNumber && <RequiredMark>*</RequiredMark>}</FieldLabel>
                     {classNumber ? (
                       <LockedFieldWrapper>
                         <LockedValue>{classNumber}반</LockedValue>
