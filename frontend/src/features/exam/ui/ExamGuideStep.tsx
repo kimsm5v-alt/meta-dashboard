@@ -596,18 +596,6 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
 }) => {
   const color = EXAM_COLOR(examName);
 
-  // 🔴 TEST: 모든 필드를 입력 가능하게 만들기 위해 빈 context로 강제 설정
-  // studentExamContext = {
-  //   ordNo: 1,
-  //   examName: examName,
-  //   schoolName: undefined,
-  //   schoolLevel: undefined,
-  //   grade: undefined,
-  //   classNumber: undefined,
-  //   prefilledName: '고우진',
-  //   prefilledStudentNumber: '1',
-  // }
-
   /* ── QR flow form state ── */
   const [schoolLevel, setSchoolLevel] = useState<SchoolLevel>('');
   const [formData, setFormData] = useState<StudentInfo>({
@@ -905,12 +893,10 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
                             if (contextErrors.grade)
                               setContextErrors((p) => ({ ...p, grade: undefined }));
                           }}
-                          disabled={isLoading || !editableSchoolLevel}
+                          disabled={isLoading}
                           $hasError={!!contextErrors.grade}
                         >
-                          <option value=''>
-                            {editableSchoolLevel ? '선택' : '학교급을 먼저 선택'}
-                          </option>
+                          <option value=''>학년</option>
                           {editableGradeOptions.map((g) => (
                             <option key={g} value={g}>
                               {g.replace(/[초중고]/, '')}학년
