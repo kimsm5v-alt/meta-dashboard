@@ -10,6 +10,8 @@ import com.vs.meta.api.notification.event.StudentJoinedGroupEvent;
 import com.vs.meta.api.notification.event.StudentKickedEvent;
 import com.vs.meta.api.notification.event.StudentLeftGroupEvent;
 import com.vs.meta.api.notification.service.NotificationService;
+import com.vs.meta.common.auth.PersonInfoClient;
+import com.vs.meta.common.auth.UserInfo;
 import com.vs.meta.domain.Notification;
 import com.vs.meta.domain.enums.NotificationCategory;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,7 @@ public class NotificationEventHandler {
 
     private final NotificationService notificationService;
     private final NotificationDispatcher dispatcher;
+    private final PersonInfoClient personInfoClient;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -137,8 +140,10 @@ public class NotificationEventHandler {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onStudentJoined(StudentJoinedGroupEvent e) {
         try {
-            String content = String.format("%s 학생이 '%s' 그룹에 참여했습니다.",
-                    e.studentNickname(), e.groupName());
+            String name = resolveJoinedStudentName(e);
+            String content = (name != null && !name.isBlank())
+                    ? String.format("%s 학생이 '%s' 그룹에 참여했습니다.", name, e.groupName())
+                    : String.format("'%s' 그룹에 새 학생이 참여했어요. 학생이 로그인·동의하면 이름이 표시됩니다.", e.groupName());
             String link = "/groups/" + e.claId();
             Notification n = notificationService.create(
                     e.teacherUserNo(),
@@ -151,6 +156,27 @@ public class NotificationEventHandler {
         } catch (Exception ex) {
             log.warn("[Notification] T1 처리 실패", ex);
         }
+    }
+
+    /**
+     * 합류 알림용 학생 이름 해석.
+     * 이미 보유한 이름이 있으면 그대로 사용하고, 없으면 publicUserId 로 Auth /users 단건 조회 —
+     * 호출 RP(학심정)에 SERVICE 동의한 학생만 이름이 채워지고(maskedReason=NONE), 미동의/탈퇴/조회실패는
+     * null 을 반환해 호출부가 이름 없는 일반 문구로 처리한다. (그룹 API 는 PII 미제공 — 동의 마스킹은 /users 가 책임)
+     */
+    private String resolveJoinedStudentName(StudentJoinedGroupEvent e) {
+        if (e.studentNickname() != null && !e.studentNickname().isBlank()) {
+            return e.studentNickname();
+        }
+        if (e.studentPublicUserId() == null) {
+            return null;
+        }
+        UserInfo info = personInfoClient.getOne(e.studentPublicUserId());
+        if (info != null && "NONE".equals(info.maskedReason())
+                && info.name() != null && !info.name().isBlank()) {
+            return info.name();
+        }
+        return null;
     }
 
     // ───────────────────────────────────────────────────────────

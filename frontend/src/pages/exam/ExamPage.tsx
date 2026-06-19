@@ -581,6 +581,7 @@ export const ExamPage: React.FC = () => {
           grade: gradeNumber,
           classNumber: classNumberInt,
           gender: info.gender === 'M' || info.gender === 'F' ? info.gender : undefined,
+          schoolCode: info.schoolCode || undefined, // NEIS 학교코드(나이스 연동) — 검사쪽 저장
         };
 
         // 기존 로컬 저장용 (studentInfoService 사용, 향후 제거 가능)

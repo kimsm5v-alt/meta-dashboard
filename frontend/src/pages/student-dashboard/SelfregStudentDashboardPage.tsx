@@ -13,11 +13,9 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useClassStudents } from '@features/api';
-import { fetchSelfregFullAnalysis, fetchTeacherExams } from '@shared/services/dashboardService';
+import { fetchSelfregFullAnalysis, fetchTeacherExams, fetchStudentInfoList } from '@shared/services/dashboardService';
 import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
-import {
-  SelfregFactorAnalysis,
-} from '@features/student-dashboard/ui';
+import { SelfregFactorAnalysis } from '@features/student-dashboard/ui';
 import {
   SELFREG_DOMAIN_STRUCTURE,
   SELFREG_DOMAIN_COLORS,
@@ -73,8 +71,14 @@ const BackButton = styled.button`
   border-radius: ${({ theme }) => theme.radius.lg};
   cursor: pointer;
   transition: background-color ${({ theme }) => theme.transitions.fast};
-  &:hover { background: ${({ theme }) => theme.colors.gray[100]}; }
-  svg { width: 20px; height: 20px; color: ${({ theme }) => theme.colors.text.primary}; }
+  &:hover {
+    background: ${({ theme }) => theme.colors.gray[100]};
+  }
+  svg {
+    width: 20px;
+    height: 20px;
+    color: ${({ theme }) => theme.colors.text.primary};
+  }
 `;
 
 const TitleArea = styled.div`
@@ -96,7 +100,7 @@ const ExamBadge = styled.span`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   color: #ffffff;
-  background: #009F88;
+  background: #009f88;
 `;
 
 const PageTitle = styled.h1`
@@ -117,7 +121,10 @@ const WarnBadge = styled.span<{ $variant: 'reliability' | 'attention' }>`
     $variant === 'reliability'
       ? 'background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;'
       : 'background: #fffbeb; color: #d97706; border: 1px solid #fde68a;'}
-  svg { width: 12px; height: 12px; }
+  svg {
+    width: 12px;
+    height: 12px;
+  }
 `;
 
 const SubTitle = styled.p`
@@ -143,8 +150,13 @@ const NavBtn = styled.button`
   background: white;
   color: ${({ theme }) => theme.colors.gray[700]};
   cursor: pointer;
-  &:disabled { opacity: 0.3; cursor: not-allowed; }
-  &:not(:disabled):hover { background: ${({ theme }) => theme.colors.gray[50]}; }
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  &:not(:disabled):hover {
+    background: ${({ theme }) => theme.colors.gray[50]};
+  }
 `;
 
 const NavCounter = styled.span`
@@ -169,7 +181,9 @@ const TabBtn = styled.button<{ $isActive: boolean }>`
   transition: all ${({ theme }) => theme.transitions.fast};
   background: ${({ $isActive }) => ($isActive ? '#009F88' : '#F3F4F6')};
   color: ${({ $isActive }) => ($isActive ? '#ffffff' : '#4B5563')};
-  &:hover { background: ${({ $isActive }) => ($isActive ? '#009F88' : '#E5E7EB')}; }
+  &:hover {
+    background: ${({ $isActive }) => ($isActive ? '#009F88' : '#E5E7EB')};
+  }
 `;
 
 const CenterBox = styled.div`
@@ -186,7 +200,7 @@ const CenterContent = styled.div`
 const SpinIcon = styled(Loader2)`
   width: 32px;
   height: 32px;
-  color: #009F88;
+  color: #009f88;
   animation: ${spin} 1s linear infinite;
   margin: 0 auto 0.5rem;
 `;
@@ -221,7 +235,9 @@ const DomainGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: ${({ theme }) => theme.spacing.md};
-  @media (max-width: 640px) { grid-template-columns: 1fr; }
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const DomainTile = styled.div<{ $color: string }>`
@@ -274,8 +290,7 @@ const SelfregDomainSummary: React.FC<{ tScores: number[] }> = ({ tScores }) => {
     () =>
       SELFREG_DOMAIN_STRUCTURE.map((domain) => {
         const indices = domain.subCategories.flatMap((s) => s.factors.map((f) => f.index));
-        const avg =
-          indices.reduce((sum, i) => sum + (tScores[i] ?? 50), 0) / (indices.length || 1);
+        const avg = indices.reduce((sum, i) => sum + (tScores[i] ?? 50), 0) / (indices.length || 1);
         return { id: domain.id as SelfregCategory, name: domain.name, avg: Math.round(avg) };
       }),
     [tScores],
@@ -304,7 +319,11 @@ const SelfregDomainSummary: React.FC<{ tScores: number[] }> = ({ tScores }) => {
 // ============================================================
 
 export const SelfregStudentDashboardPage: React.FC = () => {
-  const { classId, studentId, testId = 'selfreg' } = useParams<{
+  const {
+    classId,
+    studentId,
+    testId = 'selfreg',
+  } = useParams<{
     classId: string;
     studentId: string;
     testId: string;
@@ -338,15 +357,21 @@ export const SelfregStudentDashboardPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
-    fetchSelfregFullAnalysis(classId, studentId, 'N')
-      .then((result) => {
+    const loadData = async () => {
+      try {
+        const result = await fetchSelfregFullAnalysis(classId, studentId, 'N');
         const parsed: SelfregRound[] = [];
         if (result.round1) parsed.push({ round: 1, ...result.round1 });
         if (result.round2) parsed.push({ round: 2, ...result.round2 });
         setRounds(parsed);
-      })
-      .catch(() => setError('데이터를 불러오는데 실패했습니다.'))
-      .finally(() => setIsLoading(false));
+      } catch {
+        setError('데이터를 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadData();
   }, [classId, studentId]);
 
   useEffect(() => {
@@ -359,8 +384,49 @@ export const SelfregStudentDashboardPage: React.FC = () => {
           round2: selfreg.find((e) => e.ordNo === 2)?.dgnssId,
         });
       })
-      .catch(() => { /* dgnssIds 없으면 버튼 비활성화 */ });
+      .catch(() => {
+        /* dgnssIds 없으면 버튼 비활성화 */
+      });
   }, [classId]);
+
+  // answerIdx 보충 (fetchStudentInfoList 사용)
+  useEffect(() => {
+    if (!studentId || !selfregDgnssIds.round1 || rounds.length === 0) return;
+
+    // 이미 answerIdx가 모두 있으면 스킵
+    if (rounds.every((r) => r.answerIdx != null)) return;
+
+    const updateAnswerIndices = async () => {
+      const updatedRounds = [...rounds];
+      let hasChanges = false;
+
+      for (let i = 0; i < updatedRounds.length; i++) {
+        const round = updatedRounds[i];
+        if (round.answerIdx != null) continue; // 이미 있으면 스킵
+
+        const dgnssId = round.round === 1 ? selfregDgnssIds.round1 : selfregDgnssIds.round2;
+        if (!dgnssId) continue;
+
+        try {
+          const list = await fetchStudentInfoList(dgnssId);
+          const entry = list.find((item) => item.stdtId === studentId);
+          if (entry?.answerIdx != null) {
+            updatedRounds[i] = { ...round, answerIdx: entry.answerIdx };
+            hasChanges = true;
+          }
+        } catch {
+          // 실패 시 그대로 유지
+        }
+      }
+
+      if (hasChanges) {
+        setRounds(updatedRounds);
+      }
+    };
+
+    void updateAnswerIndices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId, selfregDgnssIds.round1, selfregDgnssIds.round2, rounds.length]);
 
   const handleDownloadPdf = async (round: 1 | 2, type: 1 | 2 = 1) => {
     const dgnssId = round === 1 ? selfregDgnssIds.round1 : selfregDgnssIds.round2;
@@ -396,9 +462,7 @@ export const SelfregStudentDashboardPage: React.FC = () => {
   const isCompare = viewMode === 'compare';
   const current = selectedRound === 2 && r2 ? r2 : r1;
 
-  const classLabel = classInfo
-    ? `${classInfo.grade}학년 ${classInfo.classNumber}반`
-    : '';
+  const classLabel = classInfo ? `${classInfo.grade}학년 ${classInfo.classNumber}반` : '';
 
   if (isLoading || studentsLoading) {
     return (
@@ -415,7 +479,9 @@ export const SelfregStudentDashboardPage: React.FC = () => {
     return (
       <CenterBox>
         <CenterContent>
-          <AlertTriangle style={{ width: 32, height: 32, color: '#f59e0b', margin: '0 auto 0.5rem' }} />
+          <AlertTriangle
+            style={{ width: 32, height: 32, color: '#f59e0b', margin: '0 auto 0.5rem' }}
+          />
           <CenterText>{error}</CenterText>
         </CenterContent>
       </CenterBox>
@@ -441,9 +507,7 @@ export const SelfregStudentDashboardPage: React.FC = () => {
           <TitleArea>
             <TitleRow>
               <ExamBadge>자기조절학습검사</ExamBadge>
-              <PageTitle>
-                {student ? `${student.number}번 ${student.name}` : '학생'}
-              </PageTitle>
+              <PageTitle>{student ? `${student.number}번 ${student.name}` : '학생'}</PageTitle>
               {current.reliabilityWarnings.length > 0 && (
                 <WarnBadge $variant='reliability'>
                   <ShieldAlert />
@@ -460,34 +524,109 @@ export const SelfregStudentDashboardPage: React.FC = () => {
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setReportDropdownOpen((v) => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', background: '#4F46E5', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+                padding: '0.5rem 0.875rem',
+                background: '#4F46E5',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
             >
               <FileText size={15} />
               보고서 다운로드
-              <ChevronDown size={14} style={{ transform: reportDropdownOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.15s' }} />
+              <ChevronDown
+                size={14}
+                style={{
+                  transform: reportDropdownOpen ? 'rotate(180deg)' : 'rotate(0)',
+                  transition: 'transform 0.15s',
+                }}
+              />
             </button>
             {reportDropdownOpen && (
               <>
-                <div style={{ position: 'fixed', inset: 0, zIndex: 19 }} onClick={() => setReportDropdownOpen(false)} />
-                <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', width: '13rem', background: 'white', borderRadius: '0.625rem', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', border: '1px solid #E5E7EB', padding: '0.5rem 0', zIndex: 20 }}>
+                <div
+                  style={{ position: 'fixed', inset: 0, zIndex: 19 }}
+                  onClick={() => setReportDropdownOpen(false)}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 'calc(100% + 4px)',
+                    width: '13rem',
+                    background: 'white',
+                    borderRadius: '0.625rem',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                    border: '1px solid #E5E7EB',
+                    padding: '0.5rem 0',
+                    zIndex: 20,
+                  }}
+                >
                   {/* 1차 */}
                   <div style={{ padding: '0.25rem 0.75rem' }}>
-                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', marginBottom: '0.125rem' }}>
+                    <p
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        color: '#6B7280',
+                        marginBottom: '0.125rem',
+                      }}
+                    >
                       1차 검사 {!r1 && <span style={{ color: '#D1D5DB' }}>(미실시)</span>}
                     </p>
                     <button
-                      disabled={isPdfDownloading !== null || !selfregDgnssIds.round1 || r1?.answerIdx == null}
+                      disabled={
+                        isPdfDownloading !== null ||
+                        !selfregDgnssIds.round1 ||
+                        r1?.answerIdx == null
+                      }
                       onClick={() => void handleDownloadPdf(1, 1)}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed', opacity: r1?.answerIdx != null ? 1 : 0.4, borderRadius: '0.375rem' }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.375rem 0.5rem',
+                        fontSize: '0.875rem',
+                        color: '#374151',
+                        background: 'none',
+                        border: 'none',
+                        cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed',
+                        opacity: r1?.answerIdx != null ? 1 : 0.4,
+                        borderRadius: '0.375rem',
+                      }}
                     >
-                      <FileText size={14} color="#EF4444" /> 상세 보고서
+                      <FileText size={14} color='#EF4444' /> 상세 보고서
                     </button>
                     <button
-                      disabled={isPdfDownloading !== null || !selfregDgnssIds.round1 || r1?.answerIdx == null}
+                      disabled={
+                        isPdfDownloading !== null ||
+                        !selfregDgnssIds.round1 ||
+                        r1?.answerIdx == null
+                      }
                       onClick={() => void handleDownloadPdf(1, 2)}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed', opacity: r1?.answerIdx != null ? 1 : 0.4, borderRadius: '0.375rem' }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.375rem 0.5rem',
+                        fontSize: '0.875rem',
+                        color: '#374151',
+                        background: 'none',
+                        border: 'none',
+                        cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed',
+                        opacity: r1?.answerIdx != null ? 1 : 0.4,
+                        borderRadius: '0.375rem',
+                      }}
                     >
-                      <FileText size={14} color="#EF4444" /> 요약 보고서
+                      <FileText size={14} color='#EF4444' /> 요약 보고서
                     </button>
                   </div>
                   {/* 2차 */}
@@ -495,32 +634,83 @@ export const SelfregStudentDashboardPage: React.FC = () => {
                     <>
                       <div style={{ borderTop: '1px solid #F3F4F6', margin: '0.25rem 0' }} />
                       <div style={{ padding: '0.25rem 0.75rem' }}>
-                        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6B7280', marginBottom: '0.125rem' }}>2차 검사</p>
-                        <button
-                          disabled={isPdfDownloading !== null || !selfregDgnssIds.round2 || r2?.answerIdx == null}
-                          onClick={() => void handleDownloadPdf(2, 1)}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.375rem' }}
+                        <p
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            color: '#6B7280',
+                            marginBottom: '0.125rem',
+                          }}
                         >
-                          <FileText size={14} color="#EF4444" /> 상세 보고서
+                          2차 검사
+                        </p>
+                        <button
+                          disabled={
+                            isPdfDownloading !== null ||
+                            !selfregDgnssIds.round2 ||
+                            r2?.answerIdx == null
+                          }
+                          onClick={() => void handleDownloadPdf(2, 1)}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.375rem 0.5rem',
+                            fontSize: '0.875rem',
+                            color: '#374151',
+                            background: 'none',
+                            border: 'none',
+                            cursor: r2?.answerIdx != null ? 'pointer' : 'not-allowed',
+                            opacity: r2?.answerIdx != null ? 1 : 0.4,
+                            borderRadius: '0.375rem',
+                          }}
+                        >
+                          <FileText size={14} color='#EF4444' /> 상세 보고서
                         </button>
                         <button
-                          disabled={isPdfDownloading !== null || !selfregDgnssIds.round2 || r2?.answerIdx == null}
+                          disabled={
+                            isPdfDownloading !== null ||
+                            !selfregDgnssIds.round2 ||
+                            r2?.answerIdx == null
+                          }
                           onClick={() => void handleDownloadPdf(2, 2)}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.5rem', fontSize: '0.875rem', color: '#374151', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.375rem' }}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.375rem 0.5rem',
+                            fontSize: '0.875rem',
+                            color: '#374151',
+                            background: 'none',
+                            border: 'none',
+                            cursor: r2?.answerIdx != null ? 'pointer' : 'not-allowed',
+                            opacity: r2?.answerIdx != null ? 1 : 0.4,
+                            borderRadius: '0.375rem',
+                          }}
                         >
-                          <FileText size={14} color="#EF4444" /> 요약 보고서
+                          <FileText size={14} color='#EF4444' /> 요약 보고서
                         </button>
                       </div>
                     </>
                   )}
-                  {pdfError && <p style={{ fontSize: '0.75rem', color: '#EF4444', padding: '0.25rem 0.75rem' }}>다운로드 실패</p>}
+                  {pdfError && (
+                    <p
+                      style={{ fontSize: '0.75rem', color: '#EF4444', padding: '0.25rem 0.75rem' }}
+                    >
+                      다운로드 실패
+                    </p>
+                  )}
                 </div>
               </>
             )}
           </div>
           <NavBtn
             disabled={!prev}
-            onClick={() => prev && navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`)}
+            onClick={() =>
+              prev && navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`)
+            }
           >
             <ChevronLeft size={14} /> 이전
           </NavBtn>
@@ -529,7 +719,9 @@ export const SelfregStudentDashboardPage: React.FC = () => {
           </NavCounter>
           <NavBtn
             disabled={!next}
-            onClick={() => next && navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`)}
+            onClick={() =>
+              next && navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`)
+            }
           >
             다음 <ChevronRight size={14} />
           </NavBtn>

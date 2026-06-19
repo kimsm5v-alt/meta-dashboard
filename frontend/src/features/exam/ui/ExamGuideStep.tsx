@@ -1,8 +1,10 @@
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { useState, useEffect } from 'react';
-import { ArrowRight, ArrowLeft, Loader2, Lock, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Loader2, Lock, CheckCircle2, Search } from 'lucide-react';
 import type { StudentInfo } from './StudentInfoStep';
+import { SchoolSearchModal } from './SchoolSearchModal';
+import { neisGradeToSchoolLevel, type SchoolSearchResult } from '../api/schoolSearchService';
 
 type SchoolLevel = 'elementary' | 'middle' | 'high' | '';
 
@@ -594,18 +596,6 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
 }) => {
   const color = EXAM_COLOR(examName);
 
-  // 🔴 TEST: 모든 필드를 입력 가능하게 만들기 위해 빈 context로 강제 설정
-  // studentExamContext = {
-  //   ordNo: 1,
-  //   examName: examName,
-  //   schoolName: undefined,
-  //   schoolLevel: undefined,
-  //   grade: undefined,
-  //   classNumber: undefined,
-  //   prefilledName: '고우진',
-  //   prefilledStudentNumber: '1',
-  // }
-
   /* ── QR flow form state ── */
   const [schoolLevel, setSchoolLevel] = useState<SchoolLevel>('');
   const [formData, setFormData] = useState<StudentInfo>({
@@ -628,6 +618,9 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
   /* ── Editable group fields (when missing from context) ── */
   const [editableSchoolName, setEditableSchoolName] = useState('');
   const [editableSchoolLevel, setEditableSchoolLevel] = useState<SchoolLevel>('');
+  // NEIS 학교 검색
+  const [schoolSearchOpen, setSchoolSearchOpen] = useState(false);
+  const [selectedSchoolCode, setSelectedSchoolCode] = useState<string>('');
   const [editableGrade, setEditableGrade] = useState('');
   const [editableClassNumber, setEditableClassNumber] = useState('');
 
@@ -656,6 +649,15 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
   const handleField = (field: keyof StudentInfo, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  // NEIS 학교 검색 선택 — 학교명 + 학교코드(나이스 연동) + 학교급 자동 채움
+  const handleSchoolSelect = (school: SchoolSearchResult) => {
+    setEditableSchoolName(school.name);
+    setSelectedSchoolCode(school.code);
+    const level = neisGradeToSchoolLevel(school.grade);
+    if (level) setEditableSchoolLevel(level);
+    setContextErrors((p) => ({ ...p, schoolName: undefined, schoolLevel: undefined }));
   };
 
   const validateInfoForm = (): boolean => {
@@ -704,6 +706,8 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
         studentNumber: localStudentNumber,
         name: localName,
         gender: localGender,
+        // 학교 직접입력(검색) 케이스에서만 NEIS 학교코드 — 컨텍스트(동기화) 학교면 미포함
+        schoolCode: schoolName ? undefined : (selectedSchoolCode || undefined),
       });
     } else if (showInfoForm) {
       if (!validateInfoForm()) return;
@@ -796,24 +800,43 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
                       </LockedFieldWrapper>
                     ) : (
                       <>
-                        <TextInput
-                          type='text'
-                          value={editableSchoolName}
-                          onChange={(e) => {
-                            setEditableSchoolName(e.target.value);
-                            if (contextErrors.schoolName)
-                              setContextErrors((p) => ({ ...p, schoolName: undefined }));
-                          }}
-                          placeholder='학교'
-                          disabled={isLoading}
-                          $hasError={!!contextErrors.schoolName}
-                        />
+                        {/* NEIS 학교 검색 — 클릭 시 모달, 직접 타이핑 대신 검색으로 선택(학교코드 연동) */}
+                        <div style={{ position: 'relative' }}>
+                          <TextInput
+                            type='text'
+                            value={editableSchoolName}
+                            readOnly
+                            onClick={() => !isLoading && setSchoolSearchOpen(true)}
+                            placeholder='학교 검색'
+                            disabled={isLoading}
+                            $hasError={!!contextErrors.schoolName}
+                            style={{ cursor: isLoading ? 'not-allowed' : 'pointer', paddingRight: 32 }}
+                          />
+                          <Search
+                            size={16}
+                            style={{
+                              position: 'absolute',
+                              right: 8,
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              color: '#9CA3AF',
+                              pointerEvents: 'none',
+                            }}
+                          />
+                        </div>
                         {contextErrors.schoolName && (
                           <FieldError>{contextErrors.schoolName}</FieldError>
                         )}
                       </>
                     )}
                   </FormField>
+
+                  {/* NEIS 학교 검색 모달 (학교 직접입력 케이스) */}
+                  <SchoolSearchModal
+                    isOpen={schoolSearchOpen}
+                    onClose={() => setSchoolSearchOpen(false)}
+                    onSelect={handleSchoolSelect}
+                  />
 
                   {/* 학교급 */}
                   <FormField>
@@ -870,12 +893,10 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
                             if (contextErrors.grade)
                               setContextErrors((p) => ({ ...p, grade: undefined }));
                           }}
-                          disabled={isLoading || !editableSchoolLevel}
+                          disabled={isLoading}
                           $hasError={!!contextErrors.grade}
                         >
-                          <option value=''>
-                            {editableSchoolLevel ? '선택' : '학교급을 먼저 선택'}
-                          </option>
+                          <option value=''>학년</option>
                           {editableGradeOptions.map((g) => (
                             <option key={g} value={g}>
                               {g.replace(/[초중고]/, '')}학년

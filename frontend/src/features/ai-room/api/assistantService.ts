@@ -37,6 +37,7 @@ export interface AssistantRequest {
    * useConversations에서 세션당 한 번만 빌드하여 캐싱합니다.
    */
   cachedContext?: { ragContext: string; aliasMap: StudentAliasMap } | null;
+  userId?: string;
 }
 
 export interface AssistantResponse {
@@ -86,7 +87,7 @@ const buildStudentProfile = (
  * AI 어시스턴트 호출 (일반 응답)
  */
 export const callAssistant = async (request: AssistantRequest): Promise<AssistantResponse> => {
-  const { sessionId, mode, classes, selectedClass, selectedStudents, userMessage, cachedContext } =
+  const { sessionId, mode, classes, selectedClass, selectedStudents, userMessage, cachedContext, userId } =
     request;
 
   try {
@@ -105,7 +106,7 @@ export const callAssistant = async (request: AssistantRequest): Promise<Assistan
       : { mode, context: ragContext, ...(profile !== null ? { profile } : {}) };
 
     // 4. 에이전트 API 호출
-    const agentResponse = await agentChat(maskedUserMessage, sessionId, contextData);
+    const agentResponse = await agentChat(maskedUserMessage, sessionId, contextData, userId);
 
     // 5. 응답에서 별칭 → 이름 복원
     const restoredContent = restoreNames(agentResponse.response, aliasMap);
@@ -144,6 +145,7 @@ export const callAssistantStream = async (
     selectedStudents,
     userMessage,
     cachedContext,
+    userId,
   } = request;
 
   try {
@@ -173,6 +175,7 @@ export const callAssistantStream = async (
         onChunk(restored, isFinal);
       },
       contextData,
+      userId,
     );
 
     const finalContent = restoreNames(accumulated, aliasMap);

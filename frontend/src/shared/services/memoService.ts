@@ -30,7 +30,8 @@ export const memoService = {
    * 관찰 메모 수정
    */
   update: async (id: string, input: UpdateObservationMemoInput): Promise<ObservationMemo> => {
-    const response = await apiClient.put<ObservationMemo>(`/api/memos/${id}`, input);
+    // 백엔드 MemoController 는 PATCH /api/memos/{id} (PUT 은 405). PATCH 사용.
+    const response = await apiClient.patch<ObservationMemo>(`/api/memos/${id}`, input);
     return response.resultData;
   },
 
@@ -45,7 +46,7 @@ export const memoService = {
    * 중요 표시 토글
    */
   toggleImportant: async (id: string, isImportant: boolean): Promise<ObservationMemo> => {
-    const response = await apiClient.put<ObservationMemo>(`/api/memos/${id}`, { isImportant });
+    const response = await apiClient.patch<ObservationMemo>(`/api/memos/${id}`, { isImportant });
     return response.resultData;
   },
 };

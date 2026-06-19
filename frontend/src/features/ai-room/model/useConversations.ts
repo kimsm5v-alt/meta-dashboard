@@ -9,6 +9,7 @@ import type {
 import type { AssistantResponse } from '@features/ai-room/api/assistantService';
 import { callAssistantStream } from '@features/ai-room/api/assistantService';
 import { agentResetSession } from '@features/ai-room/api/agentApiService';
+import { useAuth } from '@features/auth';
 import {
   createConversation as createConversationApi,
   addMessage as addMessageApi,
@@ -131,6 +132,8 @@ export const useConversations = ({
   selectedStudents,
   getContextLabel,
 }: UseConversationsParams): UseConversationsReturn => {
+  const { user } = useAuth();
+
   // ---------------------------------------------------------------------------
   // State (서버 중심)
   // ---------------------------------------------------------------------------
@@ -371,6 +374,7 @@ export const useConversations = ({
           messages: messages.filter((m) => m.id !== '1'),
           userMessage: currentInput,
           cachedContext,
+          userId: user?.id,
         },
         (accumulated, isFinal) => {
           setStreamingContent(accumulated);

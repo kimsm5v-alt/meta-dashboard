@@ -104,6 +104,16 @@ public class GroupController {
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
     ) throws Exception {
         paramData.put("userNo", SecurityUtil.requireCurrentUserNo());
+
+        // on-demand 동기화 (group-from-idp) — 상세 조회 직전 본인 그룹 즉시 당겨와 mypage 변경분(그룹명/멤버/순번) 반영.
+        // 상세는 FE 캐시 없이 매번 직접 호출되므로, 여기서 sync 하면 staleTime 무관하게 상세 화면이 실시간이 된다.
+        // 실패는 서비스 내부 흡수(폴링 백업), 디바운스로 폭주 방지. (목록 조회와 동일 패턴)
+        SpAuthenticatedUser spUser = SecurityUtil.getCurrentSpUser();
+        if (spUser != null) {
+            groupOnDemandSyncService.syncMyGroups(
+                    spUser.spUserId(), spUser.userType(), SecurityUtil.getCurrentBearerToken());
+        }
+
         Object resultData = groupService.findGroupDetail(paramData, page, size);
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "그룹 상세 조회");
     }

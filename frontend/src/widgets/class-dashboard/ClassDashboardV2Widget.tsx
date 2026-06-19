@@ -1780,7 +1780,7 @@ export const ClassDashboardV2Widget: React.FC = () => {
   const [reportRound, setReportRound] = useState<'1' | '2' | 'both'>('1');
   const [reportFormat, setReportFormat] = useState<'detail' | 'summary'>('detail');
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
-  const [selfregDgnssIds, setSelfregDgnssIds] = useState<{ round1?: number; round2?: number }>({});
+  const [selfregDgnssIds, setSelfregDgnssIds] = useState<{ round1?: number; round2?: number; stTotalCnt?: number; stSubmCnt?: number }>({});
   const [selfregR1InfoList, setSelfregR1InfoList] = useState<import('@shared/services/dashboardService').StudentInfoItem[]>([]);
   const [selfregR2AnswerIdxMap, setSelfregR2AnswerIdxMap] = useState<Map<string, number>>(new Map());
 
@@ -1790,9 +1790,12 @@ export const ClassDashboardV2Widget: React.FC = () => {
     fetchTeacherExams(classId, '', '2')
       .then((exams) => {
         const selfreg = exams.filter((e) => e.paperIdx === '2' && e.dgnssAt === 'N');
+        const round1Exam = selfreg.find((e) => e.ordNo === 1);
         setSelfregDgnssIds({
-          round1: selfreg.find((e) => e.ordNo === 1)?.dgnssId,
+          round1: round1Exam?.dgnssId,
           round2: selfreg.find((e) => e.ordNo === 2)?.dgnssId,
+          stTotalCnt: round1Exam?.stTotalCnt,
+          stSubmCnt: round1Exam?.stSubmCnt,
         });
       })
       .catch(() => {});
@@ -1917,7 +1920,8 @@ export const ClassDashboardV2Widget: React.FC = () => {
   const baseClassData = classId ? getClassById(classId) : undefined;
 
   const classData: Class | undefined = useMemo(() => {
-    if (hasJwtToken && apiStudents.length > 0 && classId) {
+    // 종합검사 전용 분기 (자기조절검사는 제외)
+    if (hasJwtToken && testId !== 'selfreg' && apiStudents.length > 0 && classId) {
       const schoolLevel = apiClassInfo?.schoolLevel ?? apiStudents[0]?.schoolLevel ?? '초등';
       const grade = apiClassInfo?.grade ?? apiStudents[0]?.grade ?? 1;
       const classNumber = apiClassInfo?.classNumber ?? 1;
@@ -1953,6 +1957,8 @@ export const ClassDashboardV2Widget: React.FC = () => {
     }
     // selfreg 전용: 종합검사 학생 없어도 classInfo(groups API)가 있으면 최소 classData 구성
     if (hasJwtToken && testId === 'selfreg' && apiClassInfo && classId) {
+      const totalStudents = selfregDgnssIds.stTotalCnt ?? 0;
+      const assessedStudents = selfregDgnssIds.stSubmCnt ?? 0;
       return {
         id: classId,
         schoolLevel: apiClassInfo.schoolLevel,
@@ -1961,7 +1967,7 @@ export const ClassDashboardV2Widget: React.FC = () => {
         teacherId: '',
         students: [],
         stats: {
-          totalStudents: 0, assessedStudents: 0, typeDistribution: {}, needAttentionCount: 0,
+          totalStudents, assessedStudents, typeDistribution: {}, needAttentionCount: 0,
           round1Completed: !!selfregRound1, round2Completed: !!selfregRound2,
           examStatus: { round1: selfregRound1 ? '종료' : '시작전', round2: selfregRound2 ? '종료' : '시작전' },
           round2SubmittedCount: 0,
@@ -1969,7 +1975,7 @@ export const ClassDashboardV2Widget: React.FC = () => {
       };
     }
     return baseClassData;
-  }, [baseClassData, hasJwtToken, apiStudents, classId, l2Data, apiClassInfo, testId, selfregRound1, selfregRound2]);
+  }, [baseClassData, hasJwtToken, apiStudents, classId, l2Data, apiClassInfo, testId, selfregRound1, selfregRound2, selfregDgnssIds]);
 
   // 모달에서 사용할 학생 목록 (comprehensive=classData.students, selfreg=selfregR1InfoList)
   const modalStudents: Array<{ id: string; number: number; name: string }> =
