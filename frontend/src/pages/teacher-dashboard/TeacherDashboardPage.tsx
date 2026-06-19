@@ -90,8 +90,7 @@ export const TeacherDashboardPage = () => {
   if (classes.length === 0) return <NoClassesState />;
 
   const completionRate = Math.round((totalStats.assessedStudents / totalStats.totalStudents) * 100);
-  const handleGoToClass = (classId: string) =>
-    navigate(`/dashboard/${testId}/class/${classId}`);
+  const handleGoToClass = (classId: string) => navigate(`/dashboard/${testId}/class/${classId}`);
 
   return (
     <PageContainer>
@@ -102,7 +101,7 @@ export const TeacherDashboardPage = () => {
             <Breadcrumb>
               <BreadcrumbBadge>자기조절검사</BreadcrumbBadge>
               <BreadcrumbText>결과보기</BreadcrumbText>
-              <ChevronRight size={14} color="#9CA3AF" />
+              <ChevronRight size={14} color='#9CA3AF' />
               <BreadcrumbText style={{ color: '#111827' }}>자기조절학습검사</BreadcrumbText>
             </Breadcrumb>
             <HeaderRow>
@@ -117,14 +116,14 @@ export const TeacherDashboardPage = () => {
         ) : (
           <>
             <Breadcrumb>
-              <BreadcrumbBadge $color="#4F46E5">학습종합검사</BreadcrumbBadge>
+              <BreadcrumbBadge $color='#4F46E5'>학습종합검사</BreadcrumbBadge>
               <BreadcrumbText>결과보기</BreadcrumbText>
-              <ChevronRight size={14} color="#9CA3AF" />
+              <ChevronRight size={14} color='#9CA3AF' />
               <BreadcrumbText style={{ color: '#111827' }}>학습종합검사</BreadcrumbText>
             </Breadcrumb>
             <HeaderRow>
               <ApiTooltip {...API_TEACHER_DASHBOARD} position='bottom-left'>
-                <PageTitle>{user?.name}님의 학급 현황</PageTitle>
+                <PageTitle>{user?.name}님의 학급 분석</PageTitle>
               </ApiTooltip>
               <ApiTooltip {...API_UPLOAD_LATEST} position='bottom-left'>
                 <span />
@@ -159,7 +158,6 @@ export const TeacherDashboardPage = () => {
       {testId === 'comprehensive' && (
         <LPAComparisonSection classes={classes} onGoToClass={handleGoToClass} />
       )}
-
     </PageContainer>
   );
 };

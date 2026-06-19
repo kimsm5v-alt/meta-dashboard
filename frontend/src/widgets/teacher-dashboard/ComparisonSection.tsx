@@ -2,9 +2,7 @@ import { useState, useMemo } from 'react';
 import styled from '@emotion/styled';
 import { Card } from '@shared/components';
 import { CategoryComparisonChart } from '@features/teacher-dashboard/ui';
-import {
-  calculateCategoryAverages,
-} from '@shared/utils/classComparisonUtils';
+import { calculateCategoryAverages } from '@shared/utils/classComparisonUtils';
 import type { Class, FactorCategory } from '@shared/types';
 import type { ClassCategoryAverage } from '@shared/types';
 
@@ -21,7 +19,11 @@ const AREA_POLARITY: Record<FactorCategory, 'positive' | 'negative'> = {
 };
 
 const AREA_ORDER: FactorCategory[] = [
-  '자아강점', '학습디딤돌', '긍정적공부마음', '학습걸림돌', '부정적공부마음',
+  '자아강점',
+  '학습디딤돌',
+  '긍정적공부마음',
+  '학습걸림돌',
+  '부정적공부마음',
 ];
 
 const AREA_COLORS: Record<FactorCategory, string> = {
@@ -34,7 +36,7 @@ const AREA_COLORS: Record<FactorCategory, string> = {
 
 // TYPE_COLORS for selected-class type distribution
 const TYPE_COLORS: Record<string, string> = {
-  '자원소진형': '#E74C3C',
+  자원소진형: '#E74C3C',
   '안전 균형형': '#3498DB',
   '몰입자원 풍부형': '#2ECC71',
   '냉소적 무기력형': '#E74C3C',
@@ -268,7 +270,7 @@ const GoToClassBtn = styled.button`
   width: 100%;
   padding: 0.75rem 1rem;
   border-radius: ${({ theme }) => theme.radius.lg};
-  background: #4F46E5;
+  background: #4f46e5;
   color: white;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
@@ -278,7 +280,7 @@ const GoToClassBtn = styled.button`
   margin-top: auto;
 
   &:hover {
-    background: #4338CA;
+    background: #4338ca;
   }
 `;
 
@@ -328,7 +330,14 @@ function computeOutliers(classes: Class[], classAverages: ClassCategoryAverage[]
       const delta = Math.round(t - mean);
       const polarity = AREA_POLARITY[category];
       const positiveSignal = polarity === 'negative' ? delta < 0 : delta > 0;
-      outliers.push({ cls, category, t, delta, kind: positiveSignal ? 'good' : 'warn', strong: Math.abs(delta) >= 3 });
+      outliers.push({
+        cls,
+        category,
+        t,
+        delta,
+        kind: positiveSignal ? 'good' : 'warn',
+        strong: Math.abs(delta) >= 3,
+      });
     });
   });
 
@@ -409,8 +418,14 @@ export const ComparisonSection = ({
   const totalStudents = classes.reduce((s, c) => s + (c.stats?.totalStudents || 0), 0);
 
   const CLASS_COLORS_LIST = [
-    '#6366F1', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444',
-    '#14B8A6', '#F97316', '#06B6D4',
+    '#6366F1',
+    '#10B981',
+    '#F59E0B',
+    '#8B5CF6',
+    '#EF4444',
+    '#14B8A6',
+    '#F97316',
+    '#06B6D4',
   ];
 
   return (
@@ -425,7 +440,10 @@ export const ComparisonSection = ({
           <DrillBtn $active={drillLevel === '5areas'} onClick={() => setDrillLevel('5areas')}>
             5대 영역
           </DrillBtn>
-          <DrillBtn $active={drillLevel === '11categories'} onClick={() => setDrillLevel('11categories')}>
+          <DrillBtn
+            $active={drillLevel === '11categories'}
+            onClick={() => setDrillLevel('11categories')}
+          >
             11개 요인
           </DrillBtn>
         </DrillToggle>
@@ -438,7 +456,7 @@ export const ComparisonSection = ({
           {/* Class Chips */}
           <ChipsRow>
             <Chip $active={selectedClassId === null} onClick={() => onClassSelect(null)}>
-              <ChipDot $color="#9CA3AF" />
+              <ChipDot $color='#9CA3AF' />
               전체 ({totalStudents}명)
             </Chip>
             {classes.map((cls, idx) => {
@@ -491,8 +509,8 @@ export const ComparisonSection = ({
                           {c.cls.grade}학년 {c.cls.classNumber}반 : {c.category}
                         </OutlierLabel>
                         <OutlierDelta $kind={c.kind}>
-                          학년 평균보다 {c.delta > 0 ? '+' : ''}{c.delta || 1}{' '}
-                          {c.delta >= 0 ? '높음' : '낮음'}
+                          학년 평균보다 {c.delta > 0 ? '+' : ''}
+                          {c.delta || 1} {c.delta >= 0 ? '높음' : '낮음'}
                         </OutlierDelta>
                       </div>
                     </OutlierItem>
@@ -505,7 +523,15 @@ export const ComparisonSection = ({
             <>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: '#6366F1', display: 'inline-block' }} />
+                  <span
+                    style={{
+                      width: '0.5rem',
+                      height: '0.5rem',
+                      borderRadius: '50%',
+                      background: '#6366F1',
+                      display: 'inline-block',
+                    }}
+                  />
                   <PanelTitle>
                     {selectedClass.grade}학년 {selectedClass.classNumber}반 분석 요약
                   </PanelTitle>
@@ -519,15 +545,24 @@ export const ComparisonSection = ({
                 <KpiBox>
                   <KpiBoxLabel>평균 T점수</KpiBoxLabel>
                   <KpiBoxValue>{avgT ?? '-'}</KpiBoxValue>
-                  <KpiBoxSub>전국 대비 {avgT != null ? (avgT - 50 >= 0 ? '+' : '') + (avgT - 50) : '-'}</KpiBoxSub>
+                  <KpiBoxSub>
+                    전국 대비 {avgT != null ? (avgT - 50 >= 0 ? '+' : '') + (avgT - 50) : '-'}
+                  </KpiBoxSub>
                 </KpiBox>
                 <KpiBox>
                   <KpiBoxLabel>관심 필요</KpiBoxLabel>
-                  <KpiBoxValue $color="#DC2626">{selectedClass.stats?.needAttentionCount ?? 0}명</KpiBoxValue>
+                  <KpiBoxValue $color='#DC2626'>
+                    {selectedClass.stats?.needAttentionCount ?? 0}명
+                  </KpiBoxValue>
                   <KpiBoxSub>
                     {selectedClass.stats?.totalStudents
-                      ? Math.round(((selectedClass.stats.needAttentionCount ?? 0) / selectedClass.stats.totalStudents) * 100)
-                      : 0}%
+                      ? Math.round(
+                          ((selectedClass.stats.needAttentionCount ?? 0) /
+                            selectedClass.stats.totalStudents) *
+                            100,
+                        )
+                      : 0}
+                    %
                   </KpiBoxSub>
                 </KpiBox>
               </KpiGrid>
@@ -538,7 +573,15 @@ export const ComparisonSection = ({
                   {concerns.map((a) => (
                     <ConcernItem key={a.category}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ width: '0.375rem', height: '0.375rem', borderRadius: '50%', background: AREA_COLORS[a.category], display: 'inline-block' }} />
+                        <span
+                          style={{
+                            width: '0.375rem',
+                            height: '0.375rem',
+                            borderRadius: '50%',
+                            background: AREA_COLORS[a.category],
+                            display: 'inline-block',
+                          }}
+                        />
                         <span style={{ fontSize: '0.875rem', color: '#1F2937' }}>{a.category}</span>
                       </div>
                       <span style={{ fontSize: '0.875rem', color: '#6B7280' }}>
@@ -560,7 +603,12 @@ export const ComparisonSection = ({
                       const color = TYPE_COLORS[type] ?? '#9CA3AF';
                       if (data.percentage === 0) return null;
                       return (
-                        <TypeBarSegment key={type} $pct={data.percentage} $color={color} title={`${type}: ${data.count}명`}>
+                        <TypeBarSegment
+                          key={type}
+                          $pct={data.percentage}
+                          $color={color}
+                          title={`${type}: ${data.count}명`}
+                        >
                           {data.percentage > 15 && `${data.count}명`}
                         </TypeBarSegment>
                       );

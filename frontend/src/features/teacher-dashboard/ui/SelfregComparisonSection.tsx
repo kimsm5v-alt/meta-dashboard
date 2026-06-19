@@ -37,8 +37,16 @@ const SUBCATEGORY_INDICES: Record<string, number[]> = {
 };
 
 const CLASS_COLORS = [
-  '#6366F1', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444',
-  '#14B8A6', '#F97316', '#06B6D4', '#EC4899', '#3B82F6',
+  '#6366F1',
+  '#10B981',
+  '#F59E0B',
+  '#8B5CF6',
+  '#EF4444',
+  '#14B8A6',
+  '#F97316',
+  '#06B6D4',
+  '#EC4899',
+  '#3B82F6',
 ];
 
 function computeGroupAvg(tScores: number[], indices: number[]): number {
@@ -365,6 +373,8 @@ export const SelfregComparisonSection = ({
       .slice(0, 4);
   }, [classes, classTScores]);
 
+  const totalStudents = classes.reduce((s, c) => s + (c.stats?.totalStudents || 0), 0);
+
   const subtitle =
     drillLevel === '3strategies'
       ? '각 반의 3대 전략별 평균 T점수를 비교합니다. 점선(50)은 전국 평균입니다.'
@@ -397,9 +407,10 @@ export const SelfregComparisonSection = ({
         <ChartArea>
           <ChipsRow>
             <Chip $active={selectedClassId === null} onClick={() => onClassSelect(null)}>
-              <ChipDot $color="#9CA3AF" />
-              전체
+              <ChipDot $color='#9CA3AF' />
+              전체 ({totalStudents}명)
             </Chip>
+
             {classes.map((cls, idx) => {
               const color = CLASS_COLORS[idx % CLASS_COLORS.length];
               const isSelected = selectedClassId === cls.id;
@@ -410,19 +421,19 @@ export const SelfregComparisonSection = ({
                   onClick={() => onClassSelect(isSelected ? null : cls.id)}
                 >
                   <ChipDot $color={color} />
-                  {cls.grade}학년 {cls.classNumber}반
+                  {cls.grade}학년 {cls.classNumber}반 ({cls.stats?.assessedStudents || 0}명)
                 </Chip>
               );
             })}
           </ChipsRow>
 
-          <ResponsiveContainer width="100%" height={420}>
+          <ResponsiveContainer width='100%' height={420}>
             <LineChart data={chartData} margin={{ top: 20, right: 80, left: 10, bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+              <CartesianGrid strokeDasharray='3 3' stroke='#E5E7EB' vertical={false} />
               <XAxis
-                dataKey="category"
+                dataKey='category'
                 angle={-20}
-                textAnchor="end"
+                textAnchor='end'
                 height={80}
                 tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 500 }}
                 axisLine={{ stroke: '#D1D5DB', strokeWidth: 1.5 }}
@@ -447,20 +458,18 @@ export const SelfregComparisonSection = ({
               />
               <Legend
                 wrapperStyle={{ paddingTop: '12px', fontSize: '13px', fontWeight: 500 }}
-                iconType="line"
+                iconType='line'
                 iconSize={16}
                 onClick={(e) => {
-                  const cls = classes.find(
-                    (c) => `${c.grade}-${c.classNumber}반` === e.value,
-                  );
+                  const cls = classes.find((c) => `${c.grade}-${c.classNumber}반` === e.value);
                   if (cls) onClassSelect(selectedClassId === cls.id ? null : cls.id);
                 }}
                 style={{ cursor: 'pointer' }}
               />
               <ReferenceLine
                 y={50}
-                stroke="#9CA3AF"
-                strokeDasharray="5 5"
+                stroke='#9CA3AF'
+                strokeDasharray='5 5'
                 strokeWidth={2}
                 label={{
                   value: '전국 평균 (50)',
@@ -478,7 +487,7 @@ export const SelfregComparisonSection = ({
                 return (
                   <Line
                     key={key}
-                    type="monotone"
+                    type='monotone'
                     dataKey={key}
                     stroke={color}
                     strokeWidth={isSelected ? 4 : hasSelection ? 2 : 3}
@@ -495,44 +504,59 @@ export const SelfregComparisonSection = ({
         </ChartArea>
 
         <SidePanel style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {selectedClassId ? (() => {
-            const clsIdx = classes.findIndex((c) => c.id === selectedClassId);
-            const cls = classes[clsIdx];
-            const ts = classTScores[clsIdx];
-            const avgT = ts
-              ? Math.round(
-                  Object.values(CATEGORY_INDICES).reduce((sum, idxList) => sum + computeGroupAvg(ts, idxList), 0) /
-                  Object.keys(CATEGORY_INDICES).length,
-                )
-              : null;
-            return (
-              <>
-                <div>
-                  <PanelTitle>{cls.grade}학년 {cls.classNumber}반 분석 요약</PanelTitle>
-                  <PanelSubtitle style={{ marginBottom: 0 }}>학생 {cls.stats?.assessedStudents || 0}명 · 자기조절검사</PanelSubtitle>
-                </div>
-                <KpiGrid>
-                  <KpiBox>
-                    <KpiBoxLabel>평균 T점수</KpiBoxLabel>
-                    <KpiBoxValue>{avgT ?? '-'}</KpiBoxValue>
-                    <KpiBoxSub>전국 대비 {avgT != null ? (avgT - 50 >= 0 ? '+' : '') + (avgT - 50) : '-'}</KpiBoxSub>
-                  </KpiBox>
-                  <KpiBox>
-                    <KpiBoxLabel>관심 필요</KpiBoxLabel>
-                    <KpiBoxValue style={{ color: '#DC2626' }}>{cls.stats?.needAttentionCount ?? 0}명</KpiBoxValue>
-                    <KpiBoxSub>
-                      {cls.stats?.totalStudents
-                        ? Math.round(((cls.stats.needAttentionCount ?? 0) / cls.stats.totalStudents) * 100)
-                        : 0}%
-                    </KpiBoxSub>
-                  </KpiBox>
-                </KpiGrid>
-                <GoToClassBtn onClick={() => onGoToClass(selectedClassId)}>
-                  {cls.grade}학년 {cls.classNumber}반 상세 분석 →
-                </GoToClassBtn>
-              </>
-            );
-          })() : (
+          {selectedClassId ? (
+            (() => {
+              const clsIdx = classes.findIndex((c) => c.id === selectedClassId);
+              const cls = classes[clsIdx];
+              const ts = classTScores[clsIdx];
+              const avgT = ts
+                ? Math.round(
+                    Object.values(CATEGORY_INDICES).reduce(
+                      (sum, idxList) => sum + computeGroupAvg(ts, idxList),
+                      0,
+                    ) / Object.keys(CATEGORY_INDICES).length,
+                  )
+                : null;
+              return (
+                <>
+                  <div>
+                    <PanelTitle>
+                      {cls.grade}학년 {cls.classNumber}반 분석 요약
+                    </PanelTitle>
+                    <PanelSubtitle style={{ marginBottom: 0 }}>
+                      학생 {cls.stats?.assessedStudents || 0}명 · 자기조절검사
+                    </PanelSubtitle>
+                  </div>
+                  <KpiGrid>
+                    <KpiBox>
+                      <KpiBoxLabel>평균 T점수</KpiBoxLabel>
+                      <KpiBoxValue>{avgT ?? '-'}</KpiBoxValue>
+                      <KpiBoxSub>
+                        전국 대비 {avgT != null ? (avgT - 50 >= 0 ? '+' : '') + (avgT - 50) : '-'}
+                      </KpiBoxSub>
+                    </KpiBox>
+                    <KpiBox>
+                      <KpiBoxLabel>관심 필요</KpiBoxLabel>
+                      <KpiBoxValue style={{ color: '#DC2626' }}>
+                        {cls.stats?.needAttentionCount ?? 0}명
+                      </KpiBoxValue>
+                      <KpiBoxSub>
+                        {cls.stats?.totalStudents
+                          ? Math.round(
+                              ((cls.stats.needAttentionCount ?? 0) / cls.stats.totalStudents) * 100,
+                            )
+                          : 0}
+                        %
+                      </KpiBoxSub>
+                    </KpiBox>
+                  </KpiGrid>
+                  <GoToClassBtn onClick={() => onGoToClass(selectedClassId)}>
+                    {cls.grade}학년 {cls.classNumber}반 상세 분석 →
+                  </GoToClassBtn>
+                </>
+              );
+            })()
+          ) : (
             <>
               <div>
                 <PanelTitle>전체 비교 요약</PanelTitle>
@@ -555,7 +579,10 @@ export const SelfregComparisonSection = ({
                         {o.delta} {o.delta >= 0 ? '높음' : '낮음'}
                       </OutlierDelta>
                     </div>
-                    <ChevronRight size={14} style={{ color: '#9CA3AF', flexShrink: 0, marginTop: '2px' }} />
+                    <ChevronRight
+                      size={14}
+                      style={{ color: '#9CA3AF', flexShrink: 0, marginTop: '2px' }}
+                    />
                   </OutlierItem>
                 ))
               )}
