@@ -8,7 +8,7 @@ qch:
   enabled: ${QCH_ENABLED:false}
   base-url: ${QCH_BASE_URL:https://qch.vsaidt.com}
   service-key: ${QCH_SERVICE_KEY:meta-api}
-  env: ${QCH_ENV:PROD}
+  env: ${QCH_ENV:prod}
 
 # ===== 알림 Pub/Sub + ShedLock (prod: ON) =====
 # 사전조건: Redis 인프라(Pub/Sub) + MySQL shedlock 테이블.
@@ -24,3 +24,22 @@ notification:
 sso:
   poll:
     enabled: true
+
+# ===== SuperPlatform Auth (SSO) =====
+# 비밀 아닌 값(주소/issuer/client-id)은 yml 명시 — env 누락 시 base 의 localhost 기본값으로 떨어지는 사고 방지.
+# client-secret 만 시크릿이라 env(SP_AUTH_CLIENT_SECRET) 주입 필수(default 없음 → 미주입 시 기동 실패로 조기 발견).
+spring.security.oauth2.resourceserver.jwt:
+  jwk-set-uri: https://auth-superplatform-api.vsaidt.com/.well-known/jwks.json
+  issuer-uri: superplatform
+
+superplatform:
+  auth:
+    server-url: https://auth-superplatform-api.vsaidt.com
+    client-id: ${SP_AUTH_CLIENT_ID:meta}
+    client-secret: ${SP_AUTH_CLIENT_SECRET}
+
+# ===== IDP 그룹 동기화 (prod: ON) — group-from-idp =====
+# 사전조건: migrations/01-sync-prep.sql 적용(sp_group_id/provisioned/GROUP_CHANGES 커서)
+#          + IdP 운영 oauth2_client(meta) 에 groups:read scope 부여.
+group-sync:
+  enabled: true
