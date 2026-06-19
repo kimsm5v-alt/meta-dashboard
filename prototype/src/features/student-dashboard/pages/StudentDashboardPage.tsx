@@ -355,18 +355,16 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         </div>
       )}
 
-      {/* 유형별 특이점 (학습종합검사만, 고등학교 제외) */}
-      {testId === 'comprehensive' && student.schoolLevel !== '고등' && (
+      {/* 1차→2차 변화가 큰 요인 (비교 모드에서만 표시) */}
+      {testId === 'comprehensive' && student.schoolLevel !== '고등' && isCompare && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="p-5 border-b border-gray-100">
             <div>
               <h3 className="text-base font-bold text-gray-900">
-                {isCompare ? '1차→2차 변화가 큰 요인' : '유형별 특이점'}
+                1차→2차 변화가 큰 요인
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                {isCompare
-                  ? '1차와 2차 검사 사이에 가장 큰 변화를 보인 요인입니다.'
-                  : `같은 ${current.predictedType} 학생들과 비교한 이 학생의 두드러진 특성입니다.`}
+                1차와 2차 검사 사이에 가장 큰 변화를 보인 요인입니다.
               </p>
             </div>
           </div>
@@ -376,7 +374,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               predictedType={current.predictedType}
               schoolLevel={student.schoolLevel}
               isCompare={isCompare}
-              prevTScores={isCompare && r1 ? r1.tScores : undefined}
+              prevTScores={r1?.tScores}
             />
           </div>
         </div>
