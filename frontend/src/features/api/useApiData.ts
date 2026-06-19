@@ -61,7 +61,6 @@ type StudentAnalysisData = {
   dgnssIds: { round1?: number; round2?: number };
 };
 
-
 export function useStudentAnalysis(
   classId: string | undefined,
   studentId: string | undefined,
@@ -540,7 +539,7 @@ function useMyGroups(userId: string | undefined) {
     queryKey: ['my-groups', userId], // userId 포함으로 캐시 격리
     queryFn: () => groupService.getMyGroups(userId!),
     enabled: !!userId,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
   });
 }
 
