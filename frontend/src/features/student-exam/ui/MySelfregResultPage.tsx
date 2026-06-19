@@ -22,7 +22,7 @@ import {
 import { useAuth } from '@features/auth/model/AuthContext';
 import { SelfregFactorAnalysis } from '@features/student-dashboard';
 import { getMyGroups } from '@features/groups/api/groupService';
-import { fetchSelfregFullAnalysis } from '@shared/services/dashboardService';
+import { fetchSelfregFullAnalysis, fetchStudentInfoList } from '@shared/services/dashboardService';
 import { getStudentExamList } from '../api/studentExamService';
 import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
 import {
@@ -494,12 +494,46 @@ export const MySelfregResultPage: React.FC = () => {
             const fullAnalysis = await fetchSelfregFullAnalysis(group.claId, user.stdtId, 'Y');
             if (!fullAnalysis.round1 && !fullAnalysis.round2) continue;
 
+            // answerIdx를 fetchStudentInfoList에서 가져오기
+            let r1AnswerIdx: number | null = null;
+            let r2AnswerIdx: number | null = null;
+
+            if (r1Exam?.dgnssId) {
+              try {
+                const r1List = await fetchStudentInfoList(r1Exam.dgnssId);
+                const r1Entry = r1List.find((item) => item.stdtId === user.stdtId);
+                r1AnswerIdx = r1Entry?.answerIdx ?? null;
+              } catch {
+                // fallback to API answerIdx
+                r1AnswerIdx = fullAnalysis.round1?.answerIdx ?? null;
+              }
+            }
+
+            if (r2Exam?.dgnssId) {
+              try {
+                const r2List = await fetchStudentInfoList(r2Exam.dgnssId);
+                const r2Entry = r2List.find((item) => item.stdtId === user.stdtId);
+                r2AnswerIdx = r2Entry?.answerIdx ?? null;
+              } catch {
+                // fallback to API answerIdx
+                r2AnswerIdx = fullAnalysis.round2?.answerIdx ?? null;
+              }
+            }
+
             const rounds: SelfregRound[] = [];
             if (fullAnalysis.round1) {
-              rounds.push({ round: 1, ...fullAnalysis.round1 });
+              rounds.push({
+                round: 1,
+                ...fullAnalysis.round1,
+                answerIdx: r1AnswerIdx ?? fullAnalysis.round1.answerIdx,
+              });
             }
             if (fullAnalysis.round2) {
-              rounds.push({ round: 2, ...fullAnalysis.round2 });
+              rounds.push({
+                round: 2,
+                ...fullAnalysis.round2,
+                answerIdx: r2AnswerIdx ?? fullAnalysis.round2.answerIdx,
+              });
             }
 
             foundResult = {

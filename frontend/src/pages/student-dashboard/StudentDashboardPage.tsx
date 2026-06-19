@@ -718,7 +718,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                                 color: '#374151',
                                 background: 'none',
                                 border: 'none',
-                                cursor: 'pointer',
+                                cursor: (r2?.answerIdx != null || r2AnswerIdx != null) ? 'pointer' : 'not-allowed',
+                                opacity: (r2?.answerIdx != null || r2AnswerIdx != null) ? 1 : 0.4,
                                 borderRadius: '0.375rem',
                               }}
                             >
@@ -743,7 +744,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                                 color: '#374151',
                                 background: 'none',
                                 border: 'none',
-                                cursor: 'pointer',
+                                cursor: (r2?.answerIdx != null || r2AnswerIdx != null) ? 'pointer' : 'not-allowed',
+                                opacity: (r2?.answerIdx != null || r2AnswerIdx != null) ? 1 : 0.4,
                                 borderRadius: '0.375rem',
                               }}
                             >
