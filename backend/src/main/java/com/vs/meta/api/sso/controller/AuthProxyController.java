@@ -212,13 +212,18 @@ public class AuthProxyController {
         return null;
     }
 
+    // RT 쿠키 path = "/" : 게이트웨이가 경로 앞에 prefix(/v1/meta)를 붙여도 refresh 요청에 실리도록 한다.
+    //   (path="/api/v1/auth" 로 좁히면 브라우저가 보는 /v1/meta/api/v1/auth/refresh 와 안 맞아 쿠키 미전송 → 로그인 루프)
+    //   백엔드는 자신의 게이트웨이 prefix 를 모르므로 "/" 로 두는 게 게이트웨이 유무와 무관하게 안전.
+    private static final String RT_COOKIE_PATH = "/";
+
     private void setRefreshTokenCookie(HttpServletRequest request, HttpServletResponse response,
                                        String refreshToken, int maxAge) {
         var cookie = ResponseCookie.from("RT", refreshToken)
                 .httpOnly(true)
                 .secure(request.isSecure())
                 .sameSite("Lax")
-                .path("/api/v1/auth")
+                .path(RT_COOKIE_PATH)
                 .maxAge(maxAge)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
@@ -227,7 +232,7 @@ public class AuthProxyController {
     private void clearRefreshTokenCookie(HttpServletRequest request, HttpServletResponse response) {
         var cookie = ResponseCookie.from("RT", "")
                 .httpOnly(true).secure(request.isSecure()).sameSite("Lax")
-                .path("/api/v1/auth").maxAge(0).build();
+                .path(RT_COOKIE_PATH).maxAge(0).build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 }

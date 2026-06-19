@@ -183,11 +183,13 @@ public class DgnssGraphService {
         Collections.reverse(strengthSource);
         List<Map<String, Object>> strengths = stripInternal(strengthSource);
 
-        // 코칭경로: 보완점 요인이 Z(조절변수)인 ModerationPath(Z_INDIVIDUAL) — FE 코칭 전략용 평면 배열
+        // 코칭경로: 강점 최상위 1개 + 보완점 최상위 1개 = 총 2개 (각 요인이 Z인 대표 ModerationPath, category 표시)
         List<Map<String, Object>> moderationPaths = new ArrayList<>();
-        for (Map<String, Object> w : weaknesses) {
-            moderationPaths.addAll(
-                    queryModerationPathsByZFactor(className, schoolLevel, MapUtils.getString(w, "factorName", "")));
+        if (!strengths.isEmpty()) {
+            addTopModerationPath(moderationPaths, className, schoolLevel, strengths.get(0), "strength");
+        }
+        if (!weaknesses.isEmpty()) {
+            addTopModerationPath(moderationPaths, className, schoolLevel, weaknesses.get(0), "weakness");
         }
 
         result.put("strengths", strengths);
@@ -309,6 +311,18 @@ public class DgnssGraphService {
         return out;
     }
 
+    /** 선별 요인(강점/보완점)의 대표 ModerationPath 1개를 category('strength'/'weakness')와 함께 목록에 추가. */
+    private void addTopModerationPath(List<Map<String, Object>> out, String className, String schoolLevel,
+                                      Map<String, Object> factor, String category) {
+        List<Map<String, Object>> paths =
+                queryModerationPathsByZFactor(className, schoolLevel, MapUtils.getString(factor, "factorName", ""));
+        if (!paths.isEmpty()) {
+            Map<String, Object> path = paths.get(0); // 요인별 대표 1개
+            path.put("category", category);
+            out.add(path);
+        }
+    }
+
     /** 특정 요인이 Z(조절변수, Z_INDIVIDUAL)인 ModerationPath를 조회한다 (기술명세서 7.4). */
     private List<Map<String, Object>> queryModerationPathsByZFactor(String className, String schoolLevel, String factorName) {
         String query = ""
@@ -316,7 +330,7 @@ public class DgnssGraphService {
                 + "<-[:Z_INDIVIDUAL]-(f:Factor {name: $factorName}) "
                 + "WHERE ($schoolLevel = '' OR c.school_level = $schoolLevel) "
                 + "RETURN m.id AS id, m.path_type AS pathType, "
-                + "       m.x AS x, m.z AS z, m.y AS y, "
+                + "       m.x AS x, m.z AS z, m.y AS y, m.z_factor_type AS zFactorType, "
                 + "       m.interpretation AS interpretation, m.strategy AS strategy "
                 + "ORDER BY m.id";
 
@@ -378,7 +392,7 @@ public class DgnssGraphService {
                 + "MATCH (c:LPAClass {name: $className})-[:HAS_MODERATION_PATH]->(m:ModerationPath) "
                 + "WHERE $schoolLevel = '' OR c.school_level = $schoolLevel "
                 + "RETURN m.id AS id, m.path_type AS pathType, "
-                + "       m.x AS x, m.z AS z, m.y AS y, "
+                + "       m.x AS x, m.z AS z, m.y AS y, m.z_factor_type AS zFactorType, "
                 + "       m.interpretation AS interpretation, m.strategy AS strategy "
                 + "ORDER BY m.id "
                 + "LIMIT $limit";
@@ -411,6 +425,7 @@ public class DgnssGraphService {
         row.put("x", record.get("x").asString(""));
         row.put("z", record.get("z").asString(""));
         row.put("y", record.get("y").asString(""));
+        row.put("zFactorType", record.get("zFactorType").asString("")); // Z(조절=선별 요인)의 정적(positive)/부적(negative)
         row.put("interpretation", record.get("interpretation").asString(""));
         row.put("strategy", record.get("strategy").asString(""));
         return row;
