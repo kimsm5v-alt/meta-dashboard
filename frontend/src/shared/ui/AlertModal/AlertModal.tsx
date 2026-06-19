@@ -13,6 +13,8 @@ interface AlertModalProps {
   message: string;
   type?: AlertType;
   confirmText?: string;
+  onConfirm?: () => void | Promise<void>;
+  cancelText?: string;
 }
 
 interface AlertConfig {
@@ -67,7 +69,7 @@ const Container = styled.div`
   border-radius: ${({ theme }) => theme.radius['2xl']};
   box-shadow: ${({ theme }) => theme.shadows['2xl']};
   width: 100%;
-  max-width: 384px;
+  max-width: 420px;
   margin: 0 ${({ theme }) => theme.spacing.md};
   overflow: hidden;
 `;
@@ -109,6 +111,11 @@ const Message = styled.p`
   white-space: pre-line;
 `;
 
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
 export const AlertModal = ({
   isOpen,
   onClose,
@@ -116,9 +123,17 @@ export const AlertModal = ({
   message,
   type = 'warning',
   confirmText = '확인',
+  onConfirm,
+  cancelText = '취소',
 }: AlertModalProps) => {
   const config = ALERT_CONFIG[type];
   const Icon = config.icon;
+  const isConfirmMode = !!onConfirm;
+
+  const handleConfirm = async () => {
+    await onConfirm?.();
+    onClose();
+  };
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -150,9 +165,20 @@ export const AlertModal = ({
           </IconWrapper>
           <Title>{title}</Title>
           <Message>{message}</Message>
-          <Button onClick={onClose} variant='primary' style={{ width: '100%' }}>
-            {confirmText}
-          </Button>
+          {isConfirmMode ? (
+            <ButtonGroup>
+              <Button onClick={onClose} variant='secondary' style={{ flex: 1 }}>
+                {cancelText}
+              </Button>
+              <Button onClick={handleConfirm} variant='primary' style={{ flex: 1 }}>
+                {confirmText}
+              </Button>
+            </ButtonGroup>
+          ) : (
+            <Button onClick={onClose} variant='primary' style={{ width: '100%' }}>
+              {confirmText}
+            </Button>
+          )}
         </Content>
       </Container>
     </Overlay>

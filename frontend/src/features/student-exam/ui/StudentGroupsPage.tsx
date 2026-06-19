@@ -1,21 +1,16 @@
 /**
  * 학생용 그룹 목록 페이지
- * 학생이 가입한 그룹 목록 조회 + 초대코드로 새 그룹 참여
+ * 학생이 가입한 그룹 목록 조회 (참여/탈퇴는 mypage(SSO)로 이관 — group-from-idp)
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Plus, RefreshCw, UserPlus, LogOut, AlertCircle } from 'lucide-react';
+import { Users, ExternalLink, RefreshCw } from 'lucide-react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { useAuth } from '@features/auth/model/AuthContext';
-import {
-  getMyGroups,
-  getGroupByInviteCode,
-  joinGroup,
-  leaveGroup,
-} from '@features/groups/api/groupService';
+import { getMyGroups } from '@features/groups/api/groupService';
+import { openMypageGroups } from '@shared/lib/mypage';
 import type { Group } from '@shared/types';
-import { ApiError } from '@shared/api/client';
 
 // ============================================================
 // Styled Components
@@ -266,190 +261,7 @@ const GroupStats = styled.div`
   color: ${({ theme }) => theme.colors.text.secondary};
 `;
 
-const LeaveButton = styled.button`
-  padding: ${({ theme }) => theme.spacing.sm};
-  background: none;
-  border: none;
-  border-radius: ${({ theme }) => theme.radius.md};
-  color: ${({ theme }) => theme.colors.gray[400]};
-  cursor: pointer;
-  transition: all ${({ theme }) => theme.transitions.fast};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &:hover {
-    color: #ef4444;
-    background: #fef2f2;
-  }
-
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-`;
-
-// Modal
-const Overlay = styled.div`
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-  padding: ${({ theme }) => theme.spacing.md};
-`;
-
-const ModalCard = styled.div`
-  background: ${({ theme }) => theme.colors.background.paper};
-  border-radius: ${({ theme }) => theme.radius.xl};
-  padding: ${({ theme }) => theme.spacing.xl};
-  width: 100%;
-  max-width: 448px;
-  box-shadow: ${({ theme }) => theme.shadows.xl};
-`;
-
-const ModalHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  margin-bottom: ${({ theme }) => theme.spacing.xl};
-`;
-
-const ModalIconBox = styled.div`
-  width: 40px;
-  height: 40px;
-  border-radius: ${({ theme }) => theme.radius.xl};
-  background: #dbeafe;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  svg {
-    width: 20px;
-    height: 20px;
-    color: #2563eb;
-  }
-`;
-
-const ModalTitle = styled.h2`
-  font-size: ${({ theme }) => theme.typography.fontSize.xl};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ theme }) => theme.colors.text.primary};
-`;
-
-const ModalSubtitle = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.text.secondary};
-`;
-
-const FormLabel = styled.label`
-  display: block;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  color: ${({ theme }) => theme.colors.gray[700]};
-  margin-bottom: ${({ theme }) => theme.spacing.xs};
-`;
-
-const CodeInput = styled.input`
-  width: 100%;
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
-  border-radius: ${({ theme }) => theme.radius.xl};
-  font-size: ${({ theme }) => theme.typography.fontSize.base};
-  text-transform: uppercase;
-  outline: none;
-  box-sizing: border-box;
-
-  &:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-  }
-`;
-
-const ErrorBox = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  padding: ${({ theme }) => theme.spacing.sm};
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: ${({ theme }) => theme.radius.lg};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: #b91c1c;
-
-  svg {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-  }
-`;
-
-const HintBox = styled.div`
-  padding: ${({ theme }) => theme.spacing.md};
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: ${({ theme }) => theme.radius.lg};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: #1d4ed8;
-`;
-
-const ModalFooter = styled.div`
-  display: flex;
-  gap: ${({ theme }) => theme.spacing.sm};
-  padding-top: ${({ theme }) => theme.spacing.sm};
-`;
-
-const OutlineButton = styled.button`
-  flex: 1;
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  background: none;
-  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  cursor: pointer;
-  transition: all ${({ theme }) => theme.transitions.fast};
-
-  &:hover {
-    background: ${({ theme }) => theme.colors.gray[50]};
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
-const JoinButton = styled.button`
-  flex: 1;
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  background: #2563eb;
-  border: none;
-  border-radius: ${({ theme }) => theme.radius.lg};
-  color: white;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  cursor: pointer;
-  transition: background ${({ theme }) => theme.transitions.fast};
-
-  &:hover:not(:disabled) {
-    background: #1d4ed8;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
-const ModalFormStack = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
-`;
+// 그룹 참여/탈퇴 모달·버튼 styled 제거 — mypage(SSO)로 이관 (group-from-idp)
 
 // ============================================================
 // Helpers
@@ -477,10 +289,7 @@ export const StudentGroupsPage: React.FC = () => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showJoinModal, setShowJoinModal] = useState(false);
-  const [inviteCode, setInviteCode] = useState('');
-  const [joinError, setJoinError] = useState('');
-  const [isJoining, setIsJoining] = useState(false);
+  // 참여/탈퇴 모달 state 제거 — mypage(SSO)로 이관 (group-from-idp)
 
   const loadGroups = useCallback(
     async (showRefreshIndicator = false) => {
@@ -509,59 +318,7 @@ export const StudentGroupsPage: React.FC = () => {
     loadGroups();
   }, [loadGroups]);
 
-  const handleJoinGroup = async () => {
-    if (!inviteCode.trim()) {
-      setJoinError('초대 코드를 입력해주세요.');
-      return;
-    }
-    if (!user?.id || !user?.name) {
-      setJoinError('사용자 정보를 찾을 수 없습니다.');
-      return;
-    }
-
-    setIsJoining(true);
-    setJoinError('');
-
-    try {
-      const groupInfo = await getGroupByInviteCode(inviteCode.trim().toUpperCase());
-
-      if (!groupInfo) {
-        setJoinError('유효하지 않은 초대 코드입니다.');
-        return;
-      }
-
-      await joinGroup({ inviteCode }, user.id, user.name);
-      setShowJoinModal(false);
-      setInviteCode('');
-      loadGroups(true);
-    } catch (err) {
-      if (err instanceof ApiError && (err.statusCode === 409 || err.resultCode === 409)) {
-        setJoinError('이미 가입된 그룹입니다.');
-        return;
-      }
-      setJoinError('그룹 가입에 실패했습니다. 다시 시도해주세요.');
-    } finally {
-      setIsJoining(false);
-    }
-  };
-
-  const handleLeaveGroup = async (group: Group) => {
-    if (!user?.id) return;
-    if (!window.confirm(`"${group.name}" 그룹을 탈퇴하시겠습니까?`)) return;
-
-    try {
-      await leaveGroup(group.id, user.id);
-      loadGroups(true);
-    } catch {
-      alert('그룹 탈퇴에 실패했습니다.');
-    }
-  };
-
-  const closeModal = () => {
-    setShowJoinModal(false);
-    setInviteCode('');
-    setJoinError('');
-  };
+  // 참여/탈퇴 핸들러 제거 — mypage(SSO)로 이관 (group-from-idp)
 
   if (isLoading) {
     return (
@@ -602,9 +359,9 @@ export const StudentGroupsPage: React.FC = () => {
             />
             새로고침
           </GhostButton>
-          <PrimaryButton onClick={() => setShowJoinModal(true)}>
-            <Plus />
+          <PrimaryButton onClick={() => openMypageGroups()}>
             그룹 가입
+            <ExternalLink />
           </PrimaryButton>
         </HeaderButtons>
       </PageHeader>
@@ -615,10 +372,10 @@ export const StudentGroupsPage: React.FC = () => {
             <Users />
           </EmptyIconCircle>
           <EmptyTitle>가입한 그룹이 없습니다</EmptyTitle>
-          <EmptyDesc>초대 코드를 입력하여 그룹에 참여하세요</EmptyDesc>
-          <EmptyButton onClick={() => setShowJoinModal(true)}>
-            <UserPlus />
+          <EmptyDesc>마이페이지에서 초대 코드를 입력하여 그룹에 참여하세요</EmptyDesc>
+          <EmptyButton onClick={() => openMypageGroups()}>
             그룹 가입하기
+            <ExternalLink />
           </EmptyButton>
         </EmptyState>
       ) : (
@@ -646,67 +403,15 @@ export const StudentGroupsPage: React.FC = () => {
               <GroupCardFooter>
                 <GroupStats>
                   <span>멤버 {group.memberCount}명</span>
-                  <span>초대코드: {group.inviteCode}</span>
                 </GroupStats>
-                <LeaveButton onClick={() => handleLeaveGroup(group)} title='그룹 탈퇴'>
-                  <LogOut />
-                </LeaveButton>
+                {/* 탈퇴 버튼 제거 — 그룹 이탈은 교사 제거(mypage)만 (group-from-idp) */}
               </GroupCardFooter>
             </GroupCard>
           ))}
         </GroupGrid>
       )}
 
-      {showJoinModal && (
-        <Overlay>
-          <ModalCard>
-            <ModalHeader>
-              <ModalIconBox>
-                <UserPlus />
-              </ModalIconBox>
-              <div>
-                <ModalTitle>그룹 가입</ModalTitle>
-                <ModalSubtitle>초대 코드를 입력하세요</ModalSubtitle>
-              </div>
-            </ModalHeader>
-
-            <ModalFormStack>
-              <div>
-                <FormLabel>초대 코드</FormLabel>
-                <CodeInput
-                  type='text'
-                  value={inviteCode}
-                  onChange={(e) => {
-                    setInviteCode(e.target.value.toUpperCase());
-                    setJoinError('');
-                  }}
-                  placeholder='예: ABC123'
-                  maxLength={10}
-                  autoFocus
-                />
-              </div>
-
-              {joinError && (
-                <ErrorBox>
-                  <AlertCircle />
-                  {joinError}
-                </ErrorBox>
-              )}
-
-              <HintBox>선생님이 공유한 초대 코드를 입력하면 그룹에 참여할 수 있습니다.</HintBox>
-
-              <ModalFooter>
-                <OutlineButton onClick={closeModal} disabled={isJoining}>
-                  취소
-                </OutlineButton>
-                <JoinButton onClick={handleJoinGroup} disabled={isJoining || !inviteCode.trim()}>
-                  {isJoining ? '가입 중...' : '가입하기'}
-                </JoinButton>
-              </ModalFooter>
-            </ModalFormStack>
-          </ModalCard>
-        </Overlay>
-      )}
+      {/* 그룹 참여 모달 제거 — mypage(SSO)로 이관 (group-from-idp) */}
     </PageRoot>
   );
 };

@@ -11,31 +11,49 @@ import {
   BarChart3,
   Users,
   ChevronRight,
+  ChevronDown,
   LogOut,
   PanelLeftClose,
   PanelLeft,
   UserCircle,
+  UserCog,
   type LucideIcon,
 } from 'lucide-react';
 import styled from '@emotion/styled';
 import { BellWithPanel } from '@features/notifications';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { getMyGroups } from '@features/groups/api/groupService';
+import { openMypageGroups } from '@shared/lib/mypage';
+import { ENV } from '@shared/config/env';
 
 // ============================================================
 // 타입
 // ============================================================
 
-interface NavItem {
-  icon: LucideIcon;
+interface NavSubItem {
   label: string;
   path: string;
 }
 
+interface NavItem {
+  icon: LucideIcon;
+  label: string;
+  path: string;
+  subItems?: NavSubItem[];
+  /** true면 학심정 라우팅 대신 SSO(mypage) 페이지로 전환한다. (group-from-idp) */
+  external?: boolean;
+}
+
+const RESULT_SUB_ITEMS: NavSubItem[] = [
+  { label: '학습종합검사', path: '/student/result/comprehensive' },
+  { label: '자기조절학습검사', path: '/student/result/selfreg' },
+];
+
 const studentNavItems: NavItem[] = [
-  { icon: Users, label: '나의 그룹', path: '/student/groups' },
+  // '나의 그룹'은 학심정 내부 페이지 대신 SSO(mypage) 내 그룹으로 전환한다. (group-from-idp)
+  { icon: Users, label: '나의 그룹', path: '/student/groups', external: true },
   { icon: ClipboardList, label: '검사하기', path: '/student/exams' },
-  { icon: BarChart3, label: '대시보드', path: '/student/result' },
+  { icon: BarChart3, label: '결과보기', path: '/student/result', subItems: RESULT_SUB_ITEMS },
 ];
 
 // ============================================================
@@ -131,6 +149,29 @@ const IconButton = styled.button`
   &:hover {
     color: #ef4444;
     background: #fef2f2;
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+`;
+
+const MypageButton = styled.button`
+  padding: ${({ theme }) => theme.spacing.sm};
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: ${({ theme }) => theme.radius.md};
+  color: ${({ theme }) => theme.colors.gray[500]};
+  transition: all ${({ theme }) => theme.transitions.fast};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.gray[700]};
+    background: ${({ theme }) => theme.colors.gray[100]};
   }
 
   svg {
@@ -255,6 +296,45 @@ const NavChevron = styled(ChevronRight)`
   height: 16px !important;
 `;
 
+const NavChevronDown = styled(ChevronDown, {
+  shouldForwardProp: (prop) => prop !== '$open',
+})<{ $open: boolean }>`
+  width: 16px !important;
+  height: 16px !important;
+  transition: transform 0.2s;
+  transform: ${({ $open }) => ($open ? 'rotate(180deg)' : 'rotate(0deg)')};
+`;
+
+const SubNavList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 2px 0 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const SubNavButton = styled.button<{ $active: boolean }>`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 8px ${({ theme }) => theme.spacing.sm};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: none;
+  background: ${({ $active }) => ($active ? '#dbeafe' : 'transparent')};
+  color: ${({ $active, theme }) => ($active ? '#1d4ed8' : theme.colors.text.secondary)};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ $active, theme }) =>
+    $active ? theme.typography.fontWeight.medium : theme.typography.fontWeight.normal};
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  text-align: left;
+
+  &:hover {
+    background: ${({ $active }) => ($active ? '#dbeafe' : '#f9fafb')};
+  }
+`;
+
 const CollapseArea = styled.div`
   border-top: 1px solid ${({ theme }) => theme.colors.gray[200]};
   padding: ${({ theme }) => theme.spacing.sm};
@@ -292,6 +372,8 @@ const MainArea = styled.div`
 
 const MainContent = styled.main<{ $collapsed: boolean }>`
   flex: 1;
+  /* flex 자식이 콘텐츠(차트 SVG) min-content 폭으로 팽창하지 않도록 */
+  min-width: 0;
   margin-top: 64px;
   margin-left: ${({ $collapsed }) => ($collapsed ? '64px' : '256px')};
   padding: ${({ theme }) => theme.spacing.xl};
@@ -307,6 +389,16 @@ const StudentHeader = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  // SP 마이페이지로 이동 — 같은 탭, client_id + return_to(현재 URL) query
+  // 참조: superplatform-mypage/docs/mypage-integration-guide.html
+  const openMypage = () => {
+    const params = new URLSearchParams({
+      client_id: ENV.SP_CLIENT_ID,
+      return_to: window.location.href,
+    });
+    window.location.href = `${ENV.SP_MYPAGE_URL}/?${params}`;
+  };
+
   return (
     <StyledHeader>
       <HeaderTitle onClick={() => navigate('/student/exams')}>
@@ -314,6 +406,9 @@ const StudentHeader = () => {
       </HeaderTitle>
       <HeaderRight>
         <BellWithPanel />
+        <MypageButton onClick={openMypage} title='내 정보 설정' aria-label='내 정보 설정'>
+          <UserCog />
+        </MypageButton>
         <UserInfo>
           <UserDetails>
             <UserName>{user?.name ?? '학생'}</UserName>
@@ -345,6 +440,13 @@ const StudentSidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const isResultPath = location.pathname.startsWith('/student/result');
+  const [isResultsOpen, setIsResultsOpen] = useState(isResultPath);
+
+  useEffect(() => {
+    if (isResultPath) setIsResultsOpen(true);
+  }, [isResultPath]);
+
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
@@ -367,13 +469,57 @@ const StudentSidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         <NavList>
           {studentNavItems.map((item) => {
             const Icon = item.icon;
+            const hasSubItems = Boolean(item.subItems?.length);
             const active = isActive(item.path);
+
+            if (hasSubItems) {
+              return (
+                <li key={item.path}>
+                  <NavItemButton
+                    $active={active}
+                    $collapsed={isCollapsed}
+                    onClick={() => {
+                      if (isCollapsed) {
+                        const activeSubPath = item.subItems!.find((s) => isActive(s.path))?.path ?? item.subItems![0].path;
+                        navigate(activeSubPath);
+                      } else {
+                        setIsResultsOpen((p) => !p);
+                      }
+                    }}
+                    title={isCollapsed ? item.label : undefined}
+                  >
+                    <Icon />
+                    {!isCollapsed && (
+                      <>
+                        <NavItemLabel>{item.label}</NavItemLabel>
+                        <NavChevronDown $open={isResultsOpen} />
+                      </>
+                    )}
+                  </NavItemButton>
+                  {!isCollapsed && isResultsOpen && (
+                    <SubNavList>
+                      {item.subItems!.map((sub) => (
+                        <li key={sub.path}>
+                          <SubNavButton
+                            $active={isActive(sub.path)}
+                            onClick={() => navigate(sub.path)}
+                          >
+                            {sub.label}
+                          </SubNavButton>
+                        </li>
+                      ))}
+                    </SubNavList>
+                  )}
+                </li>
+              );
+            }
+
             return (
               <li key={item.path}>
                 <NavItemButton
-                  $active={active}
+                  $active={item.external ? false : active}
                   $collapsed={isCollapsed}
-                  onClick={() => navigate(item.path)}
+                  onClick={() => (item.external ? openMypageGroups() : navigate(item.path))}
                   title={isCollapsed ? item.label : undefined}
                 >
                   <Icon />

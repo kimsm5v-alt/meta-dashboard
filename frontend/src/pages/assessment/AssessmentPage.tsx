@@ -12,13 +12,14 @@ import { keyframes } from '@emotion/react';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 import { useAuth } from '@features/auth';
+import { useMyGroupsQuery } from '@features/api';
 import type { ManagedAssessment, Group } from '@shared/types';
 import { AlertModal } from '@shared/components';
 import {
   GeneralSection,
   CreateAssessmentModal,
   AssessmentCodeModal,
-  PdfUploadModal,
+  ExamStartPreviewModal,
   type AssessmentFormData,
 } from '@features/assessment/ui';
 import { registerExamCode } from '@features/exam/api/examService';
@@ -28,7 +29,11 @@ import {
   endExam,
   cancelExam,
   restartExam,
+  downloadSampleExcel,
+  uploadAnswersExcel,
+  previewExamStart,
   type ExamListItem,
+  type ExamStartPreviewResponse,
 } from '@features/assessment/api/assessmentService';
 import { APIError } from '@shared/services/apiClient';
 import { generateShortCode, schoolLevelToGradeLevel } from '@features/assessment/config';
@@ -36,7 +41,6 @@ import {
   saveAssessmentMeta,
   getAssessmentMeta,
 } from '@features/assessment/api/assessmentMetaStorage';
-import { groupService } from '@features/groups/api/groupService';
 
 const PageContainer = styled.div`
   max-width: 80rem;
@@ -184,10 +188,9 @@ export const AssessmentPage: React.FC = () => {
 
   const tcId = user?.id ?? '';
 
-  // 그룹 목록
-  const [groups, setGroups] = useState<Group[]>([]);
+  // 그룹 목록: ['my-groups'] 캐시 공유
+  const { data: groups = [], isLoading: isGroupsLoading } = useMyGroupsQuery();
   const [selectedClaId, setSelectedClaId] = useState('');
-  const [isGroupsLoading, setIsGroupsLoading] = useState(true);
 
   // 상태
   const [assessments, setAssessments] = useState<ManagedAssessment[]>([]);
@@ -198,7 +201,6 @@ export const AssessmentPage: React.FC = () => {
   // 모달 상태
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState<ManagedAssessment | null>(null);
 
   // 알럿 모달 상태
@@ -208,25 +210,24 @@ export const AssessmentPage: React.FC = () => {
     message: string;
   }>({ isOpen: false, title: '', message: '' });
 
+  // 2회차 출제 사전 검증 모달 상태
+  const [previewModal, setPreviewModal] = useState<{
+    isOpen: boolean;
+    preview: ExamStartPreviewResponse | null;
+    pendingData: AssessmentFormData | null;
+    pendingClaId: string;
+  }>({ isOpen: false, preview: null, pendingData: null, pendingClaId: '' });
+
   // ============================================================
   // 데이터 로드
   // ============================================================
 
-  // 그룹 목록 초기 로드
+  // 첫 그룹 자동 선택
   useEffect(() => {
-    if (!user) return;
-    setIsGroupsLoading(true);
-    groupService
-      .getMyGroups(user.id)
-      .then((g) => {
-        setGroups(g);
-        if (g.length > 0) setSelectedClaId(g[0].claId);
-      })
-      .catch((err: unknown) => {
-        console.warn('[Assessment] 그룹 목록 조회 실패:', err);
-      })
-      .finally(() => setIsGroupsLoading(false));
-  }, [user]);
+    if (groups.length > 0 && !selectedClaId) {
+      setSelectedClaId(groups[0].claId);
+    }
+  }, [groups, selectedClaId]);
 
   const loadExamList = useCallback(async () => {
     if (groups.length === 0) return;
@@ -254,22 +255,23 @@ export const AssessmentPage: React.FC = () => {
   }, [groups, tcId]);
 
   useEffect(() => {
-    loadExamList();
+    let isCancelled = false;
+    const load = async () => {
+      if (isCancelled) return;
+      await loadExamList();
+    };
+    void load();
+    return () => {
+      isCancelled = true;
+    };
   }, [loadExamList]);
 
   // ============================================================
   // 검사 생성
   // ============================================================
 
-  const handleCreateAssessment = useCallback(
-    async (data: AssessmentFormData) => {
-      // 모달에서 그룹 선택 시 해당 claId 사용, 아니면 첫 번째 그룹
-      const claId = data.groupId
-        ? (groups.find((g) => g.id === data.groupId)?.claId ?? selectedClaId)
-        : selectedClaId;
-
-      if (!claId) return;
-
+  const doCreateExam = useCallback(
+    async (data: AssessmentFormData, claId: string) => {
       setIsProcessing(true);
       setError(null);
 
@@ -281,13 +283,11 @@ export const AssessmentPage: React.FC = () => {
         const shortCode = generateShortCode();
         registerExamCode(shortCode, result.claId);
 
-        // 학년/반 정보를 localStorage에 저장
         saveAssessmentMeta(result.dgnssId, {
           grade: data.grade,
           classNumber: data.classNumber,
         });
 
-        // 해당 그룹의 inviteCode 찾기
         const group = groups.find((g) => g.claId === claId);
 
         const newAssessment: ManagedAssessment = {
@@ -313,7 +313,6 @@ export const AssessmentPage: React.FC = () => {
         setIsCodeModalOpen(true);
       } catch (err) {
         if (err instanceof APIError && err.isDuplicateKeyError()) {
-          // 해당 차수의 기존 검사 찾기
           const existingExam = assessments.find((a) => a.round === data.round);
           const isActive = existingExam?.isActive ?? false;
           const examLabel = `${data.grade}학년 ${data.classNumber}반 ${data.round}차 검사`;
@@ -338,7 +337,38 @@ export const AssessmentPage: React.FC = () => {
         setIsProcessing(false);
       }
     },
-    [user?.id, selectedClaId, tcId, assessments],
+    [user?.id, tcId, groups, assessments],
+  );
+
+  const handleCreateAssessment = useCallback(
+    async (data: AssessmentFormData) => {
+      const claId = data.groupId
+        ? (groups.find((g) => g.id === data.groupId)?.claId ?? selectedClaId)
+        : selectedClaId;
+
+      if (!claId) return;
+
+      // 2회차 출제 전 사전 검증
+      if (data.round === 2) {
+        setIsProcessing(true);
+        try {
+          const preview = await previewExamStart(claId);
+          setIsProcessing(false);
+
+          if (!preview.canStart || preview.blockedOtherClassCount > 0) {
+            setPreviewModal({ isOpen: true, preview, pendingData: data, pendingClaId: claId });
+            return;
+          }
+        } catch {
+          setIsProcessing(false);
+          setError('2회차 출제 사전 검증에 실패했습니다.');
+          return;
+        }
+      }
+
+      await doCreateExam(data, claId);
+    },
+    [groups, selectedClaId, doCreateExam],
   );
 
   // ============================================================
@@ -438,6 +468,52 @@ export const AssessmentPage: React.FC = () => {
     setIsCodeModalOpen(true);
   };
 
+  const handleExcelUpload = useCallback(async (assessment: ManagedAssessment, file: File) => {
+    if (!assessment.dgnssId) return;
+    setIsProcessing(true);
+    try {
+      await uploadAnswersExcel(assessment.dgnssId, file);
+      setAlertModal({
+        isOpen: true,
+        title: '업로드 완료',
+        message: '엑셀 파일이 성공적으로 업로드되었습니다.',
+      });
+    } catch {
+      setAlertModal({
+        isOpen: true,
+        title: '업로드 실패',
+        message: '엑셀 파일 업로드에 실패했습니다. 파일 형식을 확인해주세요.',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
+  const handlePreviewConfirm = useCallback(async () => {
+    const { pendingData, pendingClaId } = previewModal;
+    if (!pendingData || !pendingClaId) return;
+
+    setPreviewModal((prev) => ({ ...prev, isOpen: false }));
+    setIsCreateModalOpen(false);
+    await doCreateExam(pendingData, pendingClaId);
+  }, [previewModal, doCreateExam]);
+
+  const handleTemplateDownload = useCallback(async (assessment: ManagedAssessment) => {
+    if (!assessment.dgnssId) return;
+    setIsProcessing(true);
+    try {
+      await downloadSampleExcel(assessment.dgnssId);
+    } catch {
+      setAlertModal({
+        isOpen: true,
+        title: '다운로드 실패',
+        message: '양식 파일 다운로드에 실패했습니다.',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
   // ============================================================
   // 렌더링
   // ============================================================
@@ -486,11 +562,12 @@ export const AssessmentPage: React.FC = () => {
         <GeneralSection
           assessments={assessments}
           onCreateClick={() => setIsCreateModalOpen(true)}
-          onUploadClick={() => setIsUploadModalOpen(true)}
           onViewCode={handleViewCode}
           onEndExam={handleEndExam}
           onCancelExam={handleCancelExam}
           onRestartExam={handleRestartExam}
+          onExcelUpload={handleExcelUpload}
+          onTemplateDownload={handleTemplateDownload}
         />
       )}
 
@@ -506,7 +583,16 @@ export const AssessmentPage: React.FC = () => {
         onClose={() => setIsCodeModalOpen(false)}
         assessment={selectedAssessment}
       />
-      <PdfUploadModal isOpen={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} />
+
+      {/* 2회차 출제 사전 검증 모달 */}
+      <ExamStartPreviewModal
+        isOpen={previewModal.isOpen}
+        preview={previewModal.preview}
+        ordNo={2}
+        paperIdx='1'
+        onClose={() => setPreviewModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={handlePreviewConfirm}
+      />
 
       {/* 알럿 모달 */}
       <AlertModal

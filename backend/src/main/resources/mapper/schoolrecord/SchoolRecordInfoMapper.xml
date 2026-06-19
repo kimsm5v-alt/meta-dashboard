@@ -25,7 +25,7 @@
         /* SchoolRecordInfoMapper.findByStdtIdOrderByCreatedAtDesc */
         SELECT <include refid="schoolRecordInfoColumns"/>
         FROM school_record_info
-        WHERE stdt_id = #{stdtId} AND use_yn = 'Y'
+        WHERE stdt_id = #{stdtId} AND tc_id = #{tcId} AND use_yn = 'Y'
         ORDER BY created_at DESC
     </select>
 

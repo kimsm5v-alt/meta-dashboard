@@ -4,16 +4,14 @@ import com.vs.meta.api.dgnss.vo.PioPdfVO;
 import com.vs.meta.common.service.FileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.vs.meta.common.utils.InMemoryMultipartFile;
 import org.apache.commons.collections4.MapUtils;
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.disk.DiskFileItem;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.commons.CommonsMultipartFile;
 
-import javax.annotation.PostConstruct;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -144,13 +142,18 @@ public class PdfService {
             String templateFileName = null;
 
             PioPdfVO pioPdfVO = new PioPdfVO();
+            try {
 
             int currentPage= 1;
 
             Map<String, Object> userInfo = (HashMap)dgnssData.get("userInfo");
+            String dgnssType = userInfo.get("DGNSS_ID").toString();
+            int totalPages = 0;
+
+            long templateStart = System.currentTimeMillis();
 
             // 종합평가일 경우
-            if(userInfo.get("DGNSS_ID").toString().equals("DGNSS_10")) {
+            if(dgnssType.equals("DGNSS_10")) {
 
                 templateFileName = "./assets/imgs/dgnss/template/template_10.pdf";
 
@@ -169,20 +172,26 @@ public class PdfService {
                         log.warn("캐시된 템플릿을 찾을 수 없음, 파일에서 직접 로드: {}", templateFileName);
                         pioPdfVO.loadDoc(templateFileName);
                     }
+                    log.info("[PDF 상세] 학생용 템플릿 로드: {}ms ({})", System.currentTimeMillis() - templateStart, dgnssType);
 
+                    long renderStart = System.currentTimeMillis();
                     currentPage = 1;
+                    totalPages = 23;
                     for (int i = 1; i < 24; i++) {
                         pioPdfVO.movePage(currentPage);
                         drawPdfService.addDgnssPage_DGNSS10(pioPdfVO, pioPdfVO.pdDoc, pioPdfVO.pdStream,  i, userInfo, null, dgnssReport4, dgnssReport5,dgnssReportStudy);
                         currentPage++;
                     }
+                    log.info("[PDF 상세] 학생용 페이지 렌더링: {}ms ({}페이지, 페이지당 {}ms)",
+                            System.currentTimeMillis() - renderStart, totalPages,
+                            (System.currentTimeMillis() - renderStart) / totalPages);
                 } catch(IOException e){
                     throw new RuntimeException(e);
                 }
 
             }
             // 자기조절일 경우
-            else if(userInfo.get("DGNSS_ID").toString().equals("DGNSS_20")){
+            else if(dgnssType.equals("DGNSS_20")){
 
                 if(userInfo.get("DGNSS_ORD").toString().equals("1"))
                     templateFileName = "./assets/imgs/dgnss/template/template_20_1st.pdf";
@@ -202,13 +211,19 @@ public class PdfService {
                         log.warn("캐시된 템플릿을 찾을 수 없음, 파일에서 직접 로드: {}", templateFileName);
                         pioPdfVO.loadDoc(templateFileName);
                     }
+                    log.info("[PDF 상세] 학생용 템플릿 로드: {}ms ({})", System.currentTimeMillis() - templateStart, dgnssType);
 
+                    long renderStart = System.currentTimeMillis();
                     currentPage = 1;
+                    totalPages = 18;
                     for (int i = 1; i < 19; i++) {
                         pioPdfVO.movePage(currentPage);
                         drawPdfService.addDgnssPage_DGNSS20(pioPdfVO, pioPdfVO.pdDoc, pioPdfVO.pdStream,  i, userInfo, dgnssReport3, dgnssReport4, dgnssReport5);
                         currentPage++;
                     }
+                    log.info("[PDF 상세] 학생용 페이지 렌더링: {}ms ({}페이지, 페이지당 {}ms)",
+                            System.currentTimeMillis() - renderStart, totalPages,
+                            (System.currentTimeMillis() - renderStart) / totalPages);
                 } catch(IOException e){
                     throw new RuntimeException(e);
                 }
@@ -219,24 +234,25 @@ public class PdfService {
 
             byte[] pdfBytes;
 
+            long serializeStart = System.currentTimeMillis();
             // 초기 버퍼 크기 2MB - 버퍼 재할당 최소화
             try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(2 * 1024 * 1024)) {
                 pioPdfVO.saveDoc(outputStream);
                 pdfBytes = outputStream.toByteArray();
             }
+            log.info("[PDF 상세] 학생용 PDF 직렬화: {}ms ({}KB)", System.currentTimeMillis() - serializeStart, pdfBytes.length / 1024);
 
-            FileItem fileItem = new DiskFileItem("file", "application/pdf", true, file.getName(), pdfBytes.length, null);
+            MultipartFile mFile = new InMemoryMultipartFile(file.getName(), "application/pdf", pdfBytes);
 
-            // 아래의 메서드가 파일 연결을 유지하고 있어 삭제할 수 없기에 try로 따로 관리
-            try (OutputStream os = fileItem.getOutputStream()) {
-                os.write(pdfBytes);
-                os.flush();
-            }
+            long uploadStart = System.currentTimeMillis();
+            String url = fileUpload(mFile, request);
+            log.info("[PDF 상세] 학생용 파일 업로드: {}ms", System.currentTimeMillis() - uploadStart);
 
-            MultipartFile mFile = new CommonsMultipartFile(fileItem);
-
-            return fileUpload(mFile, request);
+            return url;
     //        return "";
+            } finally {
+                pioPdfVO.closeQuietly();
+            }
         }
 
     // 교사용 시작
@@ -245,13 +261,18 @@ public class PdfService {
         String templateFileName = null;
 
         PioPdfVO pioPdfVO = new PioPdfVO();
+        try {
 
         int currentPage= 1;
+        int totalPages = 0;
 
         Map<String, Object> testInfo = (HashMap)dgnssData.get("testInfo");
+        String dgnssType = testInfo.get("DGNSS_ID").toString();
+
+        long templateStart = System.currentTimeMillis();
 
         // 종합평가일 경우
-        if(testInfo.get("DGNSS_ID").toString().equals("DGNSS_10")) {
+        if(dgnssType.equals("DGNSS_10")) {
 
             templateFileName = "./assets/imgs/dgnss/template/template_10_coch_30.pdf";
 
@@ -271,8 +292,11 @@ public class PdfService {
                     log.warn("캐시된 템플릿을 찾을 수 없음, 파일에서 직접 로드: {}", templateFileName);
                     pioPdfVO.loadDoc(templateFileName);
                 }
+                log.info("[PDF 상세] 교사용 템플릿 로드: {}ms ({})", System.currentTimeMillis() - templateStart, dgnssType);
 
+                long renderStart = System.currentTimeMillis();
                 currentPage = 1;
+                totalPages = 18;
                 for (int i = 1; i < 19; i++) {
                     log.debug("now page : {}" , i);
                     pioPdfVO.movePage(currentPage);
@@ -282,12 +306,15 @@ public class PdfService {
                     currentPage++;
 
                 }
+                log.info("[PDF 상세] 교사용 페이지 렌더링: {}ms ({}페이지, 페이지당 {}ms)",
+                        System.currentTimeMillis() - renderStart, totalPages,
+                        (System.currentTimeMillis() - renderStart) / totalPages);
             } catch(IOException e){
                 throw new RuntimeException(e);
             }
         }
         // 자기조절일 경우
-        else if(testInfo.get("DGNSS_ID").toString().equals("DGNSS_20")){
+        else if(dgnssType.equals("DGNSS_20")){
 
             templateFileName = "./assets/imgs/dgnss/template/template_20_coch_30.pdf";
 
@@ -307,8 +334,11 @@ public class PdfService {
                     log.warn("캐시된 템플릿을 찾을 수 없음, 파일에서 직접 로드: {}", templateFileName);
                     pioPdfVO.loadDoc(templateFileName);
                 }
+                log.info("[PDF 상세] 교사용 템플릿 로드: {}ms ({})", System.currentTimeMillis() - templateStart, dgnssType);
 
+                long renderStart = System.currentTimeMillis();
                 currentPage = 1;
+                totalPages = 11;
                 for (int i = 1; i < 12; i++) {
                     //log.debug("now page : {}" , i);
                     pioPdfVO.movePage(currentPage);
@@ -318,6 +348,9 @@ public class PdfService {
                     currentPage++;
 
                 }
+                log.info("[PDF 상세] 교사용 페이지 렌더링: {}ms ({}페이지, 페이지당 {}ms)",
+                        System.currentTimeMillis() - renderStart, totalPages,
+                        (System.currentTimeMillis() - renderStart) / totalPages);
             } catch(IOException e){
                 throw new RuntimeException(e);
             }
@@ -329,33 +362,38 @@ public class PdfService {
 
         byte[] pdfBytes;
 
+        long serializeStart = System.currentTimeMillis();
         // 초기 버퍼 크기 2MB - 버퍼 재할당 최소화
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(2 * 1024 * 1024)) {
             pioPdfVO.saveDoc(outputStream);
             pdfBytes = outputStream.toByteArray();
         }
+        log.info("[PDF 상세] 교사용 PDF 직렬화: {}ms ({}KB)", System.currentTimeMillis() - serializeStart, pdfBytes.length / 1024);
 
-        FileItem fileItem = new DiskFileItem("file", "application/pdf", true, file.getName(), pdfBytes.length, null);
+        MultipartFile mFile = new InMemoryMultipartFile(file.getName(), "application/pdf", pdfBytes);
 
-        try (OutputStream os = fileItem.getOutputStream()) {
-            os.write(pdfBytes);
-            os.flush();
-        }
+        long uploadStart = System.currentTimeMillis();
+        String url = fileUpload(mFile, request);
+        log.info("[PDF 상세] 교사용 파일 업로드: {}ms", System.currentTimeMillis() - uploadStart);
 
-        MultipartFile mFile = new CommonsMultipartFile(fileItem);
-
-        return fileUpload(mFile, request);
+        return url;
         //return "";
+        } finally {
+            pioPdfVO.closeQuietly();
+        }
     }
 
     public String fileUpload(MultipartFile file, HttpServletRequest request) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
         String datePath = LocalDate.now().format(formatter);
 
+        // nasPath 가 트레일링 슬래시로 끝나지 않을 때 대비 — 항상 정확히 한 개의 '/' 로 결합
+        String nasRoot = nasPath.endsWith("/") ? nasPath.substring(0, nasPath.length() - 1) : nasPath;
+
         // 로컬 환경에서는 직접 파일 저장
         if ("local".equals(activeProfile)) {
             try {
-                String dirPath = nasPath + datePath;
+                String dirPath = nasRoot + "/" + datePath;
                 File dir = new File(dirPath);
                 if (!dir.exists()) {
                     dir.mkdirs();
@@ -373,7 +411,7 @@ public class PdfService {
                 log.info("PDF 로컬 저장 완료: {}", saveFile.getAbsolutePath());
                 return dirPath + "/" + saveFileName;
             } catch (Exception e) {
-                log.error("PDF 로컬 저장 실패: {}", e.getMessage());
+                log.error("PDF 로컬 저장 실패: {}", e.getMessage(), e);
                 throw new RuntimeException("파일 저장 실패", e);
             }
         }
@@ -381,7 +419,7 @@ public class PdfService {
         // 서버 환경에서는 FileService 사용
         List<MultipartFile> fileList = new ArrayList<>();
         fileList.add(file);
-        String filePath = nasPath + datePath;
+        String filePath = nasRoot + "/" + datePath;
         List<LinkedHashMap<String, Object>> url = fileService.uploadFile(fileList, filePath, "Y", request);
 
         return url.get(0).get("url").toString();
@@ -393,6 +431,7 @@ public class PdfService {
         String templateFileName = null;
 
         PioPdfVO pioPdf = new PioPdfVO();
+        try {
 
         Map<String, Object> userInfo = (Map<String, Object>)dgnssData.get("userInfo");
         int paperIdx = MapUtils.getInteger(userInfo, "paperIdx", 0);
@@ -446,18 +485,13 @@ public class PdfService {
             pdfBytes = outputStream.toByteArray();
         }
 
-        FileItem fileItem = new DiskFileItem("file", "application/pdf", true, file.getName(), pdfBytes.length, null);
-
-        // 아래의 메서드가 파일 연결을 유지하고 있어 삭제할 수 없기에 try로 따로 관리
-        try (OutputStream os = fileItem.getOutputStream()) {
-            os.write(pdfBytes);
-            os.flush();
-        }
-
-        MultipartFile mFile = new CommonsMultipartFile(fileItem);
+        MultipartFile mFile = new InMemoryMultipartFile(file.getName(), "application/pdf", pdfBytes);
 
         return fileUpload(mFile, request);
 //        return "";
+        } finally {
+            pioPdf.closeQuietly();
+        }
     }
 
     public byte[] getCachedTemplate(String templatePath) {

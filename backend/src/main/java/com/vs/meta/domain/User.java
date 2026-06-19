@@ -14,12 +14,15 @@ public class User {
 
     private Long userNo;
     private String spUserId;      // 슈퍼플랫폼 publicUserId (UUID)
-    private String email;
-    private String nickname;
     private String roleCode;
     private String tcId;
     private String stdtId;
     private UserStatus status;
+    /**
+     * Y=그룹 동기화가 선제 생성한 행 (학심정 미로그인, 보유 근거=그룹 멤버십).
+     * 첫 로그인 시 N 전환, 멤버십 소멸 시 일간 재동기화가 행 삭제. (group-from-idp 02 §7)
+     */
+    private String provisioned;
     private LocalDateTime lastLoginAt;
     private Long createdBy;
     private Long updatedBy;

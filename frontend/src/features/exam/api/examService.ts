@@ -118,26 +118,26 @@ function getPageConfig(frontendPage: number): PageConfig {
 
 /**
  * 답변 완료 개수로부터 마지막 답변이 있는 페이지 계산
- * @param answeredCount 답변 완료 개수 (1-124)
- * @returns 페이지 번호 (0-based, 0-6)
+ * @param answeredCount 답변 완료 개수
+ * @param paperIdx 검사지 종류 ('1': 학습종합, '2': 자기조절)
+ * @returns 페이지 번호 (0-based)
  */
-export function getPageFromAnsweredCount(answeredCount: number): number {
+export function getPageFromAnsweredCount(answeredCount: number, paperIdx: string = '1'): number {
   if (answeredCount === 0) return 0;
 
-  // 마지막 답변 문항 번호 추정
+  if (paperIdx !== '1') {
+    return Math.floor((answeredCount - 1) / 20);
+  }
+
+  // 학습종합검사 (124문항, 7페이지 구조)
   const lastAnsweredNo = answeredCount;
 
-  // 1-100: 기존 페이징 (20문항씩, 페이지 0-4)
   if (lastAnsweredNo <= 100) {
     return Math.floor((lastAnsweredNo - 1) / 20);
   }
-
-  // 101-119: 페이지 5
   if (lastAnsweredNo <= 119) {
     return 5;
   }
-
-  // 120-124: 페이지 6
   return 6;
 }
 
@@ -199,39 +199,92 @@ function fillMissingQuestions(
 }
 
 /**
+ * 학생 정보 (최초 호출 시에만 전달)
+ */
+export interface StudentInfoForStart {
+  schoolName?: string;
+  grade?: number;
+  classNumber?: number;
+  gender?: 'M' | 'F';
+  /** NEIS 표준학교코드 — 학교 검색 선택 시(나이스 연동). 검사쪽 저장용. */
+  schoolCode?: string;
+}
+
+/**
  * 문항 조회 (페이지네이션)
- * GET /api/dgnss/st/start
+ * POST /api/dgnss/st/start
  *
  * @param dgnssResultId 검사 결과 ID
- * @param page 프론트엔드 페이지 번호 (0-based, 총 7페이지)
+ * @param page 프론트엔드 페이지 번호 (0-based)
  * @param _size 사용하지 않음 (하위 호환성 유지)
+ * @param paperIdx 검사지 종류 ('1': 학습종합, '2': 자기조절)
+ * @param studentInfo 학생 정보 (최초 호출 시에만 포함)
  */
 export async function fetchQuestions(
   dgnssResultId: number,
   page: number = 0,
   _size: number = 20,
+  paperIdx: string = '1',
+  studentInfo?: StudentInfoForStart,
 ): Promise<FetchQuestionsResponse> {
-  // 페이지 설정 가져오기
+  if (paperIdx !== '1') {
+    // 자기조절학습검사: 단순 페이징, 백엔드 응답 그대로 사용
+    const payload: Record<string, unknown> = {
+      dgnssResultId,
+      paperIdx: Number(paperIdx),
+      page,
+      size: 20,
+    };
+
+    // 최초 호출 시 학생 정보 포함
+    if (studentInfo) {
+      if (studentInfo.schoolName) payload.schoolName = studentInfo.schoolName;
+      if (studentInfo.grade !== undefined) payload.grade = studentInfo.grade;
+      if (studentInfo.classNumber !== undefined) payload.classNumber = studentInfo.classNumber;
+      if (studentInfo.gender) payload.gender = studentInfo.gender;
+      if (studentInfo.schoolCode) payload.schoolCode = studentInfo.schoolCode;
+    }
+
+    const res = await apiClient.post<QuestionsResponseData>('/api/dgnss/st/start', payload);
+    return {
+      omrIdx: res.resultData.omrIdx,
+      questions: res.resultData.dgnssQuesList.sort((a, b) => a.NO - b.NO),
+      totalPages: res.resultData.page.totalPages,
+      totalQuestions: res.resultData.page.totalElements,
+      answeredCount: res.resultData.stAnsCnt,
+    };
+  }
+
+  // 학습종합검사: 7페이지 구조 + 120-124번 mock 문항
   const config = getPageConfig(page);
 
-  const res = await apiClient.post<QuestionsResponseData>(
-    '/api/dgnss/st/start',
-    { dgnssResultId, paperIdx: 1, page: config.apiPage, size: 20 }
-  );
+  const payload: Record<string, unknown> = {
+    dgnssResultId,
+    paperIdx: 1,
+    page: config.apiPage,
+    size: 20,
+  };
 
-  // API에서 누락된 120-124번 문항 추가 (현재 페이지 범위만)
+  // 최초 호출 시 학생 정보 포함
+  if (studentInfo) {
+    if (studentInfo.schoolName) payload.schoolName = studentInfo.schoolName;
+    if (studentInfo.grade !== undefined) payload.grade = studentInfo.grade;
+    if (studentInfo.classNumber !== undefined) payload.classNumber = studentInfo.classNumber;
+    if (studentInfo.gender) payload.gender = studentInfo.gender;
+  }
+
+  const res = await apiClient.post<QuestionsResponseData>('/api/dgnss/st/start', payload);
+
   const filledQuestions = fillMissingQuestions(res.resultData.dgnssQuesList, config.apiPage, 20);
-
-  // 페이지별 문항 범위로 필터링
   const filteredQuestions = filledQuestions.filter(
-    (q) => q.NO >= config.startNo && q.NO <= config.endNo
+    (q) => q.NO >= config.startNo && q.NO <= config.endNo,
   );
 
   return {
     omrIdx: res.resultData.omrIdx,
     questions: filteredQuestions,
-    totalPages: 7, // 120번 문항 분리로 총 7페이지 (0-6)
-    totalQuestions: 124, // 정확히 124개 문항
+    totalPages: 7,
+    totalQuestions: 124,
     answeredCount: res.resultData.stAnsCnt,
   };
 }
@@ -266,33 +319,51 @@ export async function submitExam(dgnssResultId: number, paperIdx: string = '1'):
  * GET /api/dgnss/st/new
  *
  * @param dgnssResultId 검사 결과 ID
- * @param page 프론트엔드 페이지 번호 (0-based, 총 7페이지)
+ * @param page 프론트엔드 페이지 번호 (0-based)
  * @param _size 사용하지 않음 (하위 호환성 유지)
+ * @param paperIdx 검사지 종류 ('1': 학습종합, '2': 자기조절)
  */
 export async function resetExam(
   dgnssResultId: number,
   page: number = 0,
   _size: number = 20,
+  paperIdx: string = '1',
 ): Promise<FetchQuestionsResponse> {
-  // 페이지 설정 가져오기
+  if (paperIdx !== '1') {
+    // 자기조절학습검사: reset 후 start API로 재조회
+    // (GET /api/dgnss/st/new 응답에 page 정보가 없으므로 POST /api/dgnss/st/start로 재조회)
+    await apiClient.get<QuestionsResponseData>(
+      `/api/dgnss/st/new?dgnssResultId=${dgnssResultId}&paperIdx=${paperIdx}&page=${page}&size=20`,
+    );
+    const startRes = await apiClient.post<QuestionsResponseData>(
+      '/api/dgnss/st/start',
+      { dgnssResultId, paperIdx: Number(paperIdx), page: 0, size: 20 },
+    );
+    return {
+      omrIdx: startRes.resultData.omrIdx,
+      questions: startRes.resultData.dgnssQuesList.sort((a, b) => a.NO - b.NO),
+      totalPages: startRes.resultData.page.totalPages,
+      totalQuestions: startRes.resultData.page.totalElements,
+      answeredCount: startRes.resultData.stAnsCnt ?? 0,
+    };
+  }
+
+  // 학습종합검사: 7페이지 구조 + 120-124번 mock 문항
   const config = getPageConfig(page);
 
   const res = await apiClient.get<QuestionsResponseData>(
     `/api/dgnss/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${config.apiPage}&size=20`,
   );
 
-  // API에서 누락된 120-124번 문항 추가 (현재 페이지 범위만)
   const filledQuestions = fillMissingQuestions(res.resultData.dgnssQuesList, config.apiPage, 20);
-
-  // 페이지별 문항 범위로 필터링
   const filteredQuestions = filledQuestions.filter(
-    (q) => q.NO >= config.startNo && q.NO <= config.endNo
+    (q) => q.NO >= config.startNo && q.NO <= config.endNo,
   );
 
   return {
     omrIdx: res.resultData.omrIdx,
     questions: filteredQuestions,
-    totalPages: 7, // 120번 문항 분리로 총 7페이지 (0-6)
+    totalPages: 7,
     totalQuestions: 124,
     answeredCount: res.resultData.stAnsCnt ?? 0,
   };

@@ -129,14 +129,200 @@ interface TypeClassificationProps {
   predictedType: StudentType;
   typeProbabilities: Record<string, number>;
   schoolLevel: SchoolLevel;
+  showCompare?: boolean;
+  prevType?: StudentType;
+  prevTypeProbabilities?: Record<string, number>;
 }
+
+// ============================================================
+// 차수 비교 서브 컴포넌트
+// ============================================================
+
+const TYPE_ORDER = ['자원소진형', '안전 균형형', '몰입자원 풍부형'];
+
+const CompareWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding-bottom: 1.5rem;
+`;
+
+const ArrowWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
+const ArrowText = styled.div`
+  font-size: 1.875rem;
+  color: ${({ theme }) => theme.colors.gray[400]};
+`;
+
+const ChangeBadge = styled.span<{ $changed: boolean }>`
+  margin-top: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: ${({ theme }) => theme.radius.full};
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  ${({ $changed }) =>
+    $changed
+      ? 'background: #fef3c7; color: #b45309;'
+      : 'background: #dcfce7; color: #166534;'}
+`;
+
+const DonutWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
+const DonutLabel = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  color: ${({ theme }) => theme.colors.gray[600]};
+  margin-bottom: 0.5rem;
+`;
+
+const DonutLegend = styled.div`
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+`;
+
+const LegendItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  color: ${({ theme }) => theme.colors.gray[600]};
+`;
+
+const LegendDot = styled.span<{ $color: string }>`
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: ${({ $color }) => $color};
+  display: inline-block;
+`;
+
+interface LpaDonutMiniProps {
+  type: StudentType;
+  probs: Record<string, number>;
+  label: string;
+}
+
+function LpaDonutMini({ type, probs, label }: LpaDonutMiniProps) {
+  const size = 160;
+  const sw = 24;
+  const r = (size - sw) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circ = 2 * Math.PI * r;
+
+  const sortedData = TYPE_ORDER.map((t) => ({
+    type: t,
+    prob: probs[t] || 0,
+    color: TYPE_COLORS[t] || '#9CA3AF',
+  }));
+
+  let acc = 0;
+  const segments = sortedData.map((d) => {
+    const seg = { ...d, offset: acc };
+    acc += d.prob;
+    return seg;
+  });
+
+  const topColor = TYPE_COLORS[type] || '#6B7280';
+
+  return (
+    <DonutWrapper>
+      <DonutLabel>{label}</DonutLabel>
+      <svg width={size} height={size}>
+        <g transform={`rotate(-90 ${cx} ${cy})`}>
+          {segments.map((seg) => (
+            <circle
+              key={seg.type}
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke={seg.color}
+              strokeWidth={sw}
+              strokeDasharray={`${(circ * seg.prob) / 100} ${circ}`}
+              strokeDashoffset={(-circ * seg.offset) / 100}
+            />
+          ))}
+        </g>
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill="#6B7280">
+          {Math.round(probs[type] || 0)}%
+        </text>
+        <text x={cx} y={cy + 12} textAnchor="middle" fontSize={12} fontWeight={800} fill={topColor}>
+          {type}
+        </text>
+      </svg>
+      <DonutLegend>
+        {sortedData.map((d) => (
+          <LegendItem key={d.type}>
+            <LegendDot $color={d.color} />
+            {d.type}
+            <span style={{ color: '#9CA3AF' }}>{Math.round(d.prob)}%</span>
+          </LegendItem>
+        ))}
+      </DonutLegend>
+    </DonutWrapper>
+  );
+}
+
+interface LpaCompareViewProps {
+  prevType: StudentType;
+  prevProbs: Record<string, number>;
+  currType: StudentType;
+  currProbs: Record<string, number>;
+}
+
+function LpaCompareView({ prevType, prevProbs, currType, currProbs }: LpaCompareViewProps) {
+  return (
+    <CompareWrapper>
+      <LpaDonutMini type={prevType} probs={prevProbs} label="1차 검사" />
+      <ArrowWrapper>
+        <ArrowText>→</ArrowText>
+        <ChangeBadge $changed={prevType !== currType}>
+          {prevType !== currType ? '유형 변화' : '유형 유지'}
+        </ChangeBadge>
+      </ArrowWrapper>
+      <LpaDonutMini type={currType} probs={currProbs} label="2차 검사" />
+    </CompareWrapper>
+  );
+}
+
+// ============================================================
 
 export const TypeClassification: React.FC<TypeClassificationProps> = ({
   predictedType,
   typeProbabilities,
   schoolLevel,
+  showCompare = false,
+  prevType,
+  prevTypeProbabilities,
 }) => {
+  // 고등학교는 LPA 유형 분석을 제공하지 않음
+  if (schoolLevel === '고등') {
+    return null;
+  }
+
   const typeInfo = getTypeInfo(predictedType, schoolLevel);
+
+  if (showCompare && prevType && prevTypeProbabilities) {
+    return (
+      <LpaCompareView
+        prevType={prevType}
+        prevProbs={prevTypeProbabilities}
+        currType={predictedType}
+        currProbs={typeProbabilities}
+      />
+    );
+  }
 
   const chartData = Object.entries(typeProbabilities)
     .map(([type, prob]) => ({

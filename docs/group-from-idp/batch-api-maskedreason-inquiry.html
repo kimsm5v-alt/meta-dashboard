@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>[문의] /users/batch — notFound 대신 maskedReason 사유 추가 제안</title>
+<style>
+  :root{--ink:#0f172a;--body:#334155;--mut:#64748b;--line:#e2e8f0;--accent:#0f766e;--accent2:#7c3aed;--amber:#b45309;--red:#b91c1c;--soft:#ecfeff;--card:#fff;--ok:#15803d;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#eef1f5;color:var(--body);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","맑은 고딕",sans-serif;line-height:1.65;-webkit-font-smoothing:antialiased;font-size:15px;}
+  .page{max-width:960px;margin:30px auto;background:var(--card);border-radius:14px;box-shadow:0 6px 30px rgba(15,23,42,.08);padding:46px 54px 60px;}
+  .head{border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:8px;}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;}
+  h1{font-size:23px;color:var(--ink);letter-spacing:-.02em;margin:8px 0 4px;}
+  .meta{color:var(--mut);font-size:13px;}
+  h2{font-size:17.5px;color:var(--ink);margin:32px 0 10px;padding-left:11px;border-left:4px solid var(--accent);}
+  h2 .step{color:var(--accent);font-weight:800;margin-right:6px;}
+  h3{font-size:14.5px;color:var(--ink);margin:18px 0 6px;}
+  p{margin:9px 0;}
+  strong,b{color:var(--ink);}
+  code{background:var(--soft);padding:1px 6px;border-radius:5px;font-family:Consolas,"D2Coding",monospace;font-size:12.5px;color:#0e7490;}
+  .lead{background:var(--soft);border-left:4px solid var(--accent);border-radius:8px;padding:14px 18px;margin:14px 0;font-size:15px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{text-align:left;padding:9px 12px;border:1px solid var(--line);vertical-align:top;}
+  th{background:var(--soft);color:var(--ink);font-weight:700;}
+  td code{font-size:12px;}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px 16px;overflow:auto;font-size:12.5px;line-height:1.6;margin:10px 0;}
+  pre .c{color:#7dd3fc;} pre .k{color:#fca5a5;} pre .g{color:#86efac;} pre .m{color:#94a3b8;}
+  ul,ol{margin:9px 0;padding-left:22px;} li{margin:7px 0;font-size:14px;}
+  .q{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 18px;margin:12px 0;}
+  .q .qn{font-weight:800;color:var(--amber);}
+  .note{background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:13px 17px;margin:14px 0;}
+  .small{font-size:12.5px;color:var(--mut);}
+  .ok{color:var(--ok);font-weight:700;} .x{color:var(--red);font-weight:700;}
+  @media print{body{background:#fff;}.page{box-shadow:none;max-width:none;margin:0;padding:24px;}pre{background:#f1f5f9;color:#0f172a;}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="head">
+    <div class="kicker">Auth 팀 문의 · superplatform-auth</div>
+    <h1>[문의] <code>/api/v1/users/batch</code> — notFound 대신 <code>maskedReason</code> 사유 추가 제안</h1>
+    <div class="meta">요청: 학심정(meta) RP · 대상: Auth(core-api) 회원 조회 API · 2026-06-18</div>
+  </div>
+
+  <div class="lead">
+    <b>한 줄.</b> 현재 <code>/users/batch</code>는 동의 안 한/탈퇴/없는 사용자를 모두 <code>notFound</code>에 <b>뭉뚱그려</b> 줍니다.
+    RP에서 "왜 정보가 안 왔는지"를 구분할 수 없어, <b>미동의 사용자에게만 안내 UI(툴팁)를 띄우거나 placeholder 문구를 정확히 분기</b>할 수 없습니다.
+    → <b>대상 사용자를 <code>users</code>에 포함하되 PII는 비우고, <code>maskedReason</code>(enum)으로 사유를 같이 내려주는</b> 방향으로 수정 가능한지 문의드립니다.
+  </div>
+
+  <!-- 1 -->
+  <h2><span class="step">1.</span>현재 동작 (확인한 코드 기준)</h2>
+  <p><code>UserService.getUsersByPublicIds(ids, tenantId, rpClientIdFilter)</code>:</p>
+  <ol>
+    <li><code>findAllByPublicUserIdInAndTenantId</code> — <b>status 필터 없음</b> (ACTIVE/SUSPENDED/WITHDRAWN 모두, hard purge 된 행만 제외)</li>
+    <li>호출자가 <b>service AT + <code>consent_required=true</code> RP</b> 면(=학심정) → <code>isRpMember(userId, clientId)</code> 로 필터
+      <div class="small"><code>isRpMember</code> = <code>existsByUserIdAndClientIdAndAgreementTypeAndRevokedAtIsNull(userId, clientId, SERVICE)</code> (철회 안 된 active SERVICE 동의 보유 여부)</div>
+    </li>
+    <li><code>notFound</code> = 요청 id 중 최종 <code>users</code> 리스트에 없는 것 전부</li>
+  </ol>
+  <p>그 결과 학심정 입장에서 <code>notFound</code>에는 <b>아래 3가지가 구분 없이</b> 들어옵니다:</p>
+  <table>
+    <thead><tr><th style="width:26%">사유</th><th>설명</th></tr></thead>
+    <tbody>
+      <tr><td>(a) <b>진짜 없음</b></td><td>hard purge 완료 / 잘못된 id / 타 tenant</td></tr>
+      <tr><td>(b) <b>미동의</b></td><td>행은 있으나 해당 RP에 SERVICE 동의 없음 (예: 그룹 동기화로 선제 생성됐지만 학심정 미로그인 학생)</td></tr>
+      <tr><td>(c) <b>탈퇴/연결끊기</b></td><td>SERVICE 동의가 revoke됨 (탈퇴 30일 grace 중 행은 있으나 동의 철회)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>현재 응답 형태</h3>
+<pre><span class="m">// 요청 (학심정 service AT)</span>
+POST /api/v1/users/batch
+{ <span class="c">"publicUserIds"</span>: [<span class="g">"A_동의"</span>, <span class="g">"B_미동의"</span>, <span class="g">"C_탈퇴"</span>, <span class="g">"D_없음"</span>] }
+
+<span class="m">// 응답</span>
+{ <span class="c">"data"</span>: {
+    <span class="c">"users"</span>: [ { <span class="c">"publicUserId"</span>:<span class="g">"A_동의"</span>, <span class="c">"name"</span>:<span class="g">"홍길동"</span>, <span class="c">"email"</span>:<span class="g">"..."</span>, ... } ],
+    <span class="c">"notFound"</span>: [ <span class="g">"B_미동의"</span>, <span class="g">"C_탈퇴"</span>, <span class="g">"D_없음"</span> ]   <span class="m">// ← 사유 구분 불가</span>
+} }</pre>
+
+  <!-- 2 -->
+  <h2><span class="step">2.</span>문제점</h2>
+  <ul>
+    <li>RP에서 <b>(b)미동의 / (c)탈퇴 / (a)없음</b>을 구분 못 함 → 학심정 현재 placeholder가 일괄 <b>"(탈퇴 회원)"</b> 로 떠서 <b>미동의 학생에게도 '탈퇴'로 잘못 표기</b>.</li>
+    <li>요구사항: 그룹 멤버 리스트에서 <b>미동의 학생만</b> 이름/이메일 전체 마스킹 + 안내 툴팁("아직 검사 시작 안 한 학생, 최초 1회 로그인 안내…")을 띄워야 하는데, <b>사유를 모르니 미동의에만 정확히 분기 불가.</b></li>
+  </ul>
+
+  <!-- 3 -->
+  <h2><span class="step">3.</span>제안 — <code>maskedReason</code> enum 추가</h2>
+  <p>정보 제공 안 하는 사용자도 <b><code>users</code>에 포함</b>하되 PII(name/email 등)는 <b>null</b>로 비우고, <b>왜 비웠는지</b>를 <code>maskedReason</code>으로 같이 내려줍니다. <code>notFound</code>는 <b>진짜 없는 사용자만</b> 남깁니다.</p>
+  <table>
+    <thead><tr><th style="width:24%"><code>maskedReason</code></th><th>의미</th><th>PII 필드</th></tr></thead>
+    <tbody>
+      <tr><td><code>NONE</code> (또는 필드 생략)</td><td>정상 (동의 회원)</td><td>실제값</td></tr>
+      <tr><td><code>NOT_CONSENTED</code></td><td>해당 RP 미동의</td><td>null</td></tr>
+      <tr><td><code>WITHDRAWN</code></td><td>탈퇴/동의 철회</td><td>null</td></tr>
+      <tr><td>(<code>NOT_FOUND</code>)</td><td>진짜 없음 — <code>notFound</code> 배열로 유지</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h3>제안 응답 형태</h3>
+<pre><span class="m">// 응답 (제안)</span>
+{ <span class="c">"data"</span>: {
+    <span class="c">"users"</span>: [
+      { <span class="c">"publicUserId"</span>:<span class="g">"A_동의"</span>,   <span class="c">"name"</span>:<span class="g">"홍길동"</span>, <span class="c">"email"</span>:<span class="g">"hong@x.com"</span>, <span class="c">"status"</span>:<span class="g">"ACTIVE"</span>,    <span class="c">"maskedReason"</span>:<span class="g">"NONE"</span> },
+      { <span class="c">"publicUserId"</span>:<span class="g">"B_미동의"</span>, <span class="c">"name"</span>:<span class="k">null</span>,    <span class="c">"email"</span>:<span class="k">null</span>,        <span class="c">"status"</span>:<span class="g">"ACTIVE"</span>,    <span class="c">"maskedReason"</span>:<span class="g">"NOT_CONSENTED"</span> },
+      { <span class="c">"publicUserId"</span>:<span class="g">"C_탈퇴"</span>,   <span class="c">"name"</span>:<span class="k">null</span>,    <span class="c">"email"</span>:<span class="k">null</span>,        <span class="c">"status"</span>:<span class="g">"WITHDRAWN"</span>, <span class="c">"maskedReason"</span>:<span class="g">"WITHDRAWN"</span> }
+    ],
+    <span class="c">"notFound"</span>: [ <span class="g">"D_없음"</span> ]   <span class="m">// ← 진짜 없는 사용자만</span>
+} }</pre>
+  <p class="small">→ RP는 <code>maskedReason</code>으로 미동의/탈퇴/없음을 구분해 각기 다른 표시(툴팁/문구) 가능. 사유 추가는 enum 확장으로 흡수.</p>
+
+  <!-- 4 -->
+  <h2><span class="step">4.</span>문의 사항</h2>
+
+  <div class="q"><span class="qn">Q1. 호환성 — 가장 중요.</span><br>
+    <code>/users/batch</code>는 공유 API입니다. 지금 <b>미동의/탈퇴 사용자가 <code>notFound</code>에 들어가는 동작에 의존하는 기존 소비자</b>(다른 RP / 어드민 도구 등)가 있나요?
+    제안대로 그들을 <code>users</code>로 옮기면(=PII는 null) 깨지는 곳이 있을지 검토 부탁드립니다.
+    <div class="small">대안: 기존 <code>notFound</code>는 유지하고 <b><code>masked: [{publicUserId, maskedReason}]</code> 배열을 추가</b>하는 비파괴 방식도 가능 — 어느 쪽 선호하시는지?</div>
+  </div>
+
+  <div class="q"><span class="qn">Q2. enum 값/네이밍.</span><br>
+    <code>maskedReason</code> 값 후보(<code>NONE / NOT_CONSENTED / WITHDRAWN / NOT_FOUND</code>) 합의 가능한지, Auth 내부 명명 규칙에 맞는 이름이 있는지.
+  </div>
+
+  <div class="q"><span class="qn">Q3. 적용 범위.</span><br>
+    <code>/users/batch</code>만 적용인지, 단건 <code>GET /users/{publicUserId}</code> · <code>/users/lookup</code> 도 동일 사유 모델로 맞출지.
+  </div>
+
+  <div class="q"><span class="qn">Q4. 마스킹 필드 범위.</span><br>
+    미동의 시 어떤 필드를 null로 줄지 — <code>name/email/nickname/school*/profileImageUrl</code> 전부 비우고, <code>publicUserId/status/userType</code> 같은 비PII 식별/상태값은 유지하는 게 맞는지.
+  </div>
+
+  <div class="q"><span class="qn">Q5. consent_required=false RP.</span><br>
+    mypage 등 first-party(consent_required=false)는 기존대로 전체 제공(필터·마스킹 없음) 유지 맞는지 확인.
+  </div>
+
+  <!-- 5 -->
+  <h2><span class="step">5.</span>참고 — 우리(학심정) 쪽 처리</h2>
+  <ul>
+    <li><code>UserInfoEnricher</code>가 <code>maskedReason</code>을 멤버 DTO로 전파 → 그룹 멤버 리스트에서 <code>NOT_CONSENTED</code>면 전체 마스킹 + 안내 툴팁, <code>WITHDRAWN</code>이면 "(탈퇴)" 표기로 분기.</li>
+    <li>이름/이메일 비저장(읽기 시점 enrich) 원칙은 그대로 — <b>평문 PII를 학심정 DB에 적재하지 않음.</b></li>
+  </ul>
+
+  <p class="small" style="margin-top:22px;border-top:1px solid var(--line);padding-top:12px">
+    배경 설계: 학심정 <code>docs/group-from-idp/07-member-consent-masking.md</code> · 회신 주시면 그 기준으로 학심정 RP 측 구현 진행하겠습니다. 감사합니다.
+  </p>
+
+</div>
+</body>
+</html>

@@ -9,6 +9,9 @@
 import { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
+import { Search } from 'lucide-react';
+import { SchoolSearchModal } from './SchoolSearchModal';
+import { neisGradeToSchoolLevel, type SchoolSearchResult } from '../api/schoolSearchService';
 
 export interface StudentInfo {
   schoolName: string;
@@ -17,6 +20,8 @@ export interface StudentInfo {
   studentNumber: string;
   name: string;
   gender: 'M' | 'F' | '';
+  /** NEIS 표준학교코드 — 학교 검색으로 선택 시 채워짐(나이스 연동 등록용). */
+  schoolCode?: string;
 }
 
 type SchoolLevel = 'elementary' | 'middle' | 'high' | '';
@@ -321,6 +326,15 @@ export const StudentInfoStep: React.FC<StudentInfoStepProps> = ({
 
   const [errors, setErrors] = useState<Partial<Record<keyof StudentInfo, string>>>({});
   const [focusedField, setFocusedField] = useState<string>('');
+  const [schoolSearchOpen, setSchoolSearchOpen] = useState(false);
+
+  // NEIS 학교 검색 선택 — 학교명 + 학교코드(나이스 연동) + 학교급 자동 채움
+  const handleSchoolSelect = (school: SchoolSearchResult) => {
+    setFormData((prev) => ({ ...prev, schoolName: school.name, schoolCode: school.code }));
+    const level = neisGradeToSchoolLevel(school.grade);
+    if (level) setSchoolLevel(level);
+    if (errors.schoolName) setErrors((prev) => ({ ...prev, schoolName: undefined }));
+  };
 
   // 학교급 변경 시 학년 초기화
   useEffect(() => {
@@ -397,20 +411,26 @@ export const StudentInfoStep: React.FC<StudentInfoStepProps> = ({
 
         {/* 폼 */}
         <Form onSubmit={handleSubmit}>
-          {/* 학교명 */}
+          {/* 학교명 — NEIS 학교 검색 (클릭 시 모달, 학교코드 연동) */}
           <FormGroup $delay='0.1s'>
             <Label>학교명</Label>
-            <TextInput
-              type='text'
-              value={formData.schoolName}
-              onChange={(e) => handleChange('schoolName', e.target.value)}
-              onFocus={() => setFocusedField('schoolName')}
-              onBlur={() => setFocusedField('')}
-              placeholder='학교 이름을 입력하세요'
-              disabled={isLoading}
-              $isFocused={focusedField === 'schoolName'}
-              $hasError={!!errors.schoolName}
-            />
+            <div style={{ position: 'relative' }}>
+              <TextInput
+                type='text'
+                value={formData.schoolName}
+                readOnly
+                onClick={() => !isLoading && setSchoolSearchOpen(true)}
+                placeholder='학교 검색'
+                disabled={isLoading}
+                $isFocused={focusedField === 'schoolName'}
+                $hasError={!!errors.schoolName}
+                style={{ cursor: isLoading ? 'not-allowed' : 'pointer', paddingRight: 28 }}
+              />
+              <Search
+                size={18}
+                style={{ position: 'absolute', right: 0, bottom: 12, color: '#9ca3af', pointerEvents: 'none' }}
+              />
+            </div>
             {errors.schoolName && <ErrorText>{errors.schoolName}</ErrorText>}
           </FormGroup>
 
@@ -546,6 +566,13 @@ export const StudentInfoStep: React.FC<StudentInfoStepProps> = ({
             {isLoading ? '처리 중...' : '검사 시작하기'}
           </SubmitButton>
         </Form>
+
+        {/* NEIS 학교 검색 모달 */}
+        <SchoolSearchModal
+          isOpen={schoolSearchOpen}
+          onClose={() => setSchoolSearchOpen(false)}
+          onSelect={handleSchoolSelect}
+        />
 
         {/* 안내 */}
         <Notice $delay='0.9s'>

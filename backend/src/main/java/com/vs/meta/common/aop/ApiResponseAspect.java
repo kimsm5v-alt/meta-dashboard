@@ -3,21 +3,25 @@ package com.vs.meta.common.aop;
 import com.vs.meta.common.response.CustomBody;
 import com.vs.meta.common.response.ResponseDTO;
 import lombok.extern.slf4j.Slf4j;
+import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Pointcut;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -31,9 +35,14 @@ public class ApiResponseAspect {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
+    /** api 컨트롤러 + common 컨트롤러를 모두 포함. 응답 enrich/access log/error log 공용 포인트컷. */
+    @Pointcut("execution(* com.vs.meta..api..controller..*.*(..)) "
+            + "|| execution(* com.vs.meta.common.controller..*.*(..))")
+    public void controllerMethods() {}
+
     @Around("execution(* com.vs.meta..api..controller..*.*(..))")
     public Object enrichResponse(ProceedingJoinPoint joinPoint) throws Throwable {
-        logDgnssParamData(joinPoint);
+        logTargetedParamData(joinPoint);
 
         long sMillis = System.currentTimeMillis();
         String sTime = LocalDateTime.now().format(DATE_FORMATTER);
@@ -81,6 +90,11 @@ public class ApiResponseAspect {
         return result;
     }
 
+    /** 로그 제외 대상 API 경로 (빈번한 호출로 로그 노이즈 유발) */
+    private static final List<String> ACCESS_LOG_SKIP_PATHS = List.of(
+            "/api/v1/auth/refresh"
+    );
+
     private void logAccess(ProceedingJoinPoint joinPoint, int statusCode, long elapsedMs) {
         String httpMethod = "";
         String apiPath = "";
@@ -91,23 +105,34 @@ public class ApiResponseAspect {
                 apiPath = request.getRequestURI();
             }
         }
+        if (ACCESS_LOG_SKIP_PATHS.contains(apiPath)) {
+            return;
+        }
         log.info("API {} {} {} ({}ms)", httpMethod, apiPath, statusCode, elapsedMs);
     }
 
-    private void logDgnssParamData(ProceedingJoinPoint joinPoint) {
+    /** 디버깅 가치가 큰 컨트롤러(파라미터 맵을 받거나 파일 처리 등)에 한해 진입 시 파라미터 로깅. */
+    private static final List<String> PARAM_LOG_TARGETS = Arrays.asList(
+            "com.vs.meta.api.dgnss.controller.DgnssController",
+            "com.vs.meta.common.controller.FileController"
+    );
+
+    private void logTargetedParamData(ProceedingJoinPoint joinPoint) {
         String declaringTypeName = joinPoint.getSignature().getDeclaringTypeName();
-        if (!"com.vs.meta.api.dgnss.controller.DgnssController".equals(declaringTypeName)) {
+        if (!PARAM_LOG_TARGETS.contains(declaringTypeName)) {
             return;
         }
 
-        List<Map<?, ?>> mapArgs = new ArrayList<>();
+        List<Object> loggableArgs = new ArrayList<>();
         for (Object arg : joinPoint.getArgs()) {
             if (arg instanceof Map<?, ?> map) {
-                mapArgs.add(map);
+                loggableArgs.add(map);
+            } else if (arg instanceof String || arg instanceof Number || arg instanceof Boolean) {
+                loggableArgs.add(arg);
             }
         }
 
-        if (mapArgs.isEmpty()) {
+        if (loggableArgs.isEmpty()) {
             return;
         }
 
@@ -121,8 +146,66 @@ public class ApiResponseAspect {
             }
         }
 
-        log.info("DgnssController call: httpMethod={}, apiPath={}, paramData={}",
-                httpMethod, apiPath, mapArgs);
+        String simpleClassName = declaringTypeName.substring(declaringTypeName.lastIndexOf('.') + 1);
+        log.info("{} call: httpMethod={}, apiPath={}, method={}, paramData={}",
+                simpleClassName, httpMethod, apiPath, joinPoint.getSignature().getName(), loggableArgs);
+    }
+
+    /**
+     * 컨트롤러에서 던진 예외를 한 줄+스택트레이스로 기록. {@code @AfterThrowing} 은 예외를 삼키지 않으므로
+     * Spring 의 기본 예외 처리는 그대로 이어진다.
+     *
+     * <p>클라이언트 에러(비즈니스 룰 위반, 잘못된 파라미터 등) 는 {@link com.vs.meta.common.config.GlobalExceptionHandler}
+     * 가 이미 WARN 한 줄로 처리하므로 여기선 스킵 — 중복 로그 + 운영 알람 노이즈 방지.
+     * 진짜 서버 측 버그(NPE/DB 에러 등) 만 ERROR + 스택트레이스 유지.
+     */
+    @AfterThrowing(pointcut = "controllerMethods()", throwing = "ex")
+    public void logControllerException(JoinPoint joinPoint, Throwable ex) {
+        if (isClientError(ex)) {
+            return;
+        }
+
+        String httpMethod = "";
+        String apiPath = "";
+        String queryString = "";
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
+            HttpServletRequest request = attrs.getRequest();
+            if (request != null) {
+                httpMethod = request.getMethod();
+                apiPath = request.getRequestURI();
+                queryString = request.getQueryString() != null ? request.getQueryString() : "";
+            }
+        }
+
+        String declaringType = joinPoint.getSignature().getDeclaringTypeName();
+        String simpleClassName = declaringType.substring(declaringType.lastIndexOf('.') + 1);
+        String methodName = joinPoint.getSignature().getName();
+
+        log.error("Controller exception: {}.{} {} {}{} - {}: {}",
+                simpleClassName,
+                methodName,
+                httpMethod,
+                apiPath,
+                queryString.isEmpty() ? "" : "?" + queryString,
+                ex.getClass().getSimpleName(),
+                ex.getMessage(),
+                ex);
+    }
+
+    /**
+     * GlobalExceptionHandler 의 4xx 매핑 대상 = 클라이언트 에러 = ApiResponseAspect 에서 스킵.
+     * 서버 책임의 진짜 버그가 아니라 호출자의 잘못된 입력/비즈니스 룰 위반이므로 스택트레이스 불필요.
+     */
+    private boolean isClientError(Throwable ex) {
+        return ex instanceof IllegalArgumentException
+                || ex instanceof IllegalStateException
+                || ex instanceof com.vs.meta.common.exception.AuthFailedException
+                || ex instanceof org.springframework.web.bind.MissingServletRequestParameterException
+                || ex instanceof org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+                || ex instanceof org.springframework.http.converter.HttpMessageNotReadableException
+                || ex instanceof org.springframework.web.HttpRequestMethodNotSupportedException
+                || ex instanceof org.springframework.web.HttpMediaTypeNotSupportedException
+                || ex instanceof org.springframework.web.servlet.resource.NoResourceFoundException;
     }
 
     private String sha256(String value) {

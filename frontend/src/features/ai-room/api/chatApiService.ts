@@ -29,6 +29,7 @@ export interface Conversation {
   title: string;
   mode: 'all' | 'class' | 'student';
   contextLabel: string;
+  contextData?: unknown;
   createdAt: string; // yyyy-MM-dd HH:mm:ss
   updatedAt: string;
   lastMessageAt: string;
@@ -45,6 +46,7 @@ interface CreateConversationRequest {
   title?: string;
   mode: 'all' | 'class' | 'student';
   contextLabel: string;
+  contextData?: unknown;
   messages?: ChatMessage[] | ChatMessage;
 }
 
@@ -102,11 +104,13 @@ export const createConversation = async (
   contextLabel: string,
   title?: string,
   messages?: ChatMessage[],
+  contextData?: unknown,
 ): Promise<CreateConversationResponse> => {
   const request: CreateConversationRequest = {
     title,
     mode,
     contextLabel,
+    contextData,
     messages: messages || [],
   };
 

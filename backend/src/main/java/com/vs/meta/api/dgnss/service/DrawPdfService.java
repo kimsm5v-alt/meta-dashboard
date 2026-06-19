@@ -23,9 +23,12 @@ public class DrawPdfService {
 
     public void addDgnssPage_DGNSS10(PioPdfVO pioPdfVO, PDDocument doc, PDPageContentStream cont, int page, Map<String, Object> userInfo, List<Map<String, Object>> dgnssReport3, List<Map<String, Object>> dgnssReport4, List<Map<String, Object>> dgnssReport5, List<Map<String, Object>> dgnssReportStudy) throws IOException {
         try {
-            // 첫 페이지에서 캐시 초기화 (요청별 격리)
+            // 첫 페이지에서 캐시 초기화 및 선행 로드 (O(n) 순회를 1회로 제한)
             if (page == 1) {
                 reportCacheMap.clear();
+                if (dgnssReport3 != null) buildReportCache(dgnssReport3, 3);
+                if (dgnssReport4 != null) buildReportCache(dgnssReport4, 4);
+                if (dgnssReport5 != null) buildReportCache(dgnssReport5, 5);
             }
 
             // 대분류 점수 배열
@@ -53,7 +56,7 @@ public class DrawPdfService {
                 pioPdfVO.drawTextC((String) userInfo.get("RSPNS_DT_KO"), x, pioPdfVO.px2mm(633f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                 pioPdfVO.drawTextC((String) userInfo.get("SCH_NM"), x, pioPdfVO.px2mm(665f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                 pioPdfVO.drawTextC(userInfo.get("MEM_GRADE_NM") + " " + userInfo.get("CLASS_NM"), x, pioPdfVO.px2mm(695f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
-                pioPdfVO.drawTextC(userInfo.get("CLASS_NO").toString() + "번", x, pioPdfVO.px2mm(727f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
+                pioPdfVO.drawTextC((String.valueOf(userInfo.getOrDefault("CLASS_NO", "")).isBlank() ? "-" : userInfo.get("CLASS_NO") + "번"), x, pioPdfVO.px2mm(727f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
 
                 // pioPdfVO.drawPicture("./assets/imgs/dgnss/logo/school_snu.png", 5f, 250f, 2*23.0f, 2*17.4f );
             }
@@ -1268,9 +1271,12 @@ public class DrawPdfService {
 
     public void addDgnssPage_DGNSS20(PioPdfVO pioPdfVO, PDDocument doc, PDPageContentStream cont, int page, Map<String, Object> userInfo, List<Map<String, Object>> dgnssReport3, List<Map<String, Object>> dgnssReport4, List<Map<String, Object>> dgnssReport5) throws IOException {
         try {
-            // 첫 페이지에서 캐시 초기화 (요청별 격리)
+            // 첫 페이지에서 캐시 초기화 및 선행 로드 (O(n) 순회를 1회로 제한)
             if (page == 1) {
                 reportCacheMap.clear();
+                if (dgnssReport3 != null) buildReportCache(dgnssReport3, 3);
+                if (dgnssReport4 != null) buildReportCache(dgnssReport4, 4);
+                if (dgnssReport5 != null) buildReportCache(dgnssReport5, 5);
             }
 
             // 대분류 점수 배열
@@ -1316,7 +1322,7 @@ public class DrawPdfService {
                 // 학급
                 pioPdfVO.drawTextC(userInfo.get("MEM_GRADE_NM") + " " + userInfo.get("CLASS_NM"), x, pioPdfVO.px2mm(695f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                 // 번호(현재는 해석전문가)
-                pioPdfVO.drawTextC(userInfo.get("CLASS_NO").toString() + "번", x, pioPdfVO.px2mm(727f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
+                pioPdfVO.drawTextC((String.valueOf(userInfo.getOrDefault("CLASS_NO", "")).isBlank() ? "-" : userInfo.get("CLASS_NO") + "번"), x, pioPdfVO.px2mm(727f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
 
 
             } else if (page == 4) {
@@ -2149,7 +2155,7 @@ public class DrawPdfService {
                 for (int i = 0; i < dgnssReportLS.size(); i++) {
 
                     if (dgnssReportLS.get(i).get("CLASS_NO") == null)
-                        pioPdfVO.drawTextC("?", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
+                        pioPdfVO.drawTextC("-", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
                     else
                         pioPdfVO.drawTextC(dgnssReportLS.get(i).get("CLASS_NO").toString(), x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
 
@@ -2159,7 +2165,7 @@ public class DrawPdfService {
 
                     pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_NM").toString(), x[1], y[i] + textHeight, x[2] - x[1], "", fontSize);
 
-                    pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_GENDER_NM").toString(), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
+                    pioPdfVO.drawTextC(MapUtils.getString(dgnssReportLS.get(i), "MEM_GENDER_NM", ""), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
 
                     if (dgnssReportLS.get(i).get("COCH_DGNSS_QESITM02_MARK").toString().equals("주의")) {
                         pioPdfVO.drawRectangle(x[3], y[i], x[4] - x[3], height, Color.BLACK, redBg);
@@ -2365,7 +2371,7 @@ public class DrawPdfService {
                     }
 
                     if (dgnssReportLS.get(i).get("CLASS_NO") == null)
-                        pioPdfVO.drawTextC("?", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
+                        pioPdfVO.drawTextC("-", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
                     else
                         pioPdfVO.drawTextC(dgnssReportLS.get(i).get("CLASS_NO").toString(), x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
 
@@ -2374,7 +2380,7 @@ public class DrawPdfService {
 
                     pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_NM").toString(), x[1], y[i] + textHeight, x[2] - x[1], "", fontSize);
 
-                    pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_GENDER_NM").toString(), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
+                    pioPdfVO.drawTextC(MapUtils.getString(dgnssReportLS.get(i), "MEM_GENDER_NM", ""), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
 
 
                     for (int j = 0; j < tScoreCnt; j++) {
@@ -2722,7 +2728,7 @@ public class DrawPdfService {
                 for (int i = 0; i < dgnssReportLS.size(); i++) {
 
                     if (dgnssReportLS.get(i).get("CLASS_NO") == null)
-                        pioPdfVO.drawTextC("?", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
+                        pioPdfVO.drawTextC("-", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
                     else
                         pioPdfVO.drawTextC(dgnssReportLS.get(i).get("CLASS_NO").toString(), x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
 
@@ -2732,7 +2738,7 @@ public class DrawPdfService {
 
                     pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_NM").toString(), x[1], y[i] + textHeight, x[2] - x[1], "", fontSize);
 
-                    pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_GENDER_NM").toString(), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
+                    pioPdfVO.drawTextC(MapUtils.getString(dgnssReportLS.get(i), "MEM_GENDER_NM", ""), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
 
                     if (dgnssReportLS.get(i).get("COCH_DGNSS_QESITM02_MARK").toString().equals("주의")) {
                         pioPdfVO.drawRectangle(x[3], y[i], x[4] - x[3], height, Color.BLACK, redBg);
@@ -3008,7 +3014,7 @@ public class DrawPdfService {
                     }
 
                     if (dgnssReportLS.get(i).get("CLASS_NO") == null)
-                        pioPdfVO.drawTextC("?", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
+                        pioPdfVO.drawTextC("-", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
                     else
                         pioPdfVO.drawTextC(dgnssReportLS.get(i).get("CLASS_NO").toString(), x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
 
@@ -3017,7 +3023,7 @@ public class DrawPdfService {
 
                     pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_NM").toString(), x[1], y[i] + textHeight, x[2] - x[1], "", fontSize);
 
-                    pioPdfVO.drawTextC(dgnssReportLS.get(i).get("MEM_GENDER_NM").toString(), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
+                    pioPdfVO.drawTextC(MapUtils.getString(dgnssReportLS.get(i), "MEM_GENDER_NM", ""), x[2], y[i] + textHeight, x[3] - x[2], "", fontSize);
 
 
                     for (int j = 0; j < tScoreCnt; j++) {
@@ -3794,6 +3800,7 @@ public class DrawPdfService {
                     String tRank = MapUtils.getString(report4, "T_RANK", "");
 
                     Color color = this.getColorByTRankForSummary(pioPdf, tRank);
+                    Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                     float controlSpace = this.controlSpace(tRank);
 
                     if (StringUtils.equals("긍정적 자아", sectionNm)) {
@@ -3826,20 +3833,17 @@ public class DrawPdfService {
 
                     } else if (StringUtils.equals("학업소진", sectionNm)) {
                         pioPdf.drawText(tScore, depth4X + depth4XSpace + depth4XSpace - 3f, depth4Y - 77.5f, "Pretendard Medium", fontSize, true, false, Color.BLACK, 0f);
-                        pioPdf.drawText(tRank, depth4X + depth4XSpace + depth4XSpace + depth4XTextSpace + controlSpace - 3f, depth4Y - 77.5f, "Pretendard Medium", fontSize, true, false, color, -0.58f);
+                        pioPdf.drawText(tRank, depth4X + depth4XSpace + depth4XSpace + depth4XTextSpace + controlSpace - 3f, depth4Y - 77.5f, "Pretendard Medium", fontSize, true, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("학업스트레스", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth4X + depth4XSpace + depth4XSpace + depth4XSpace - 2.1f, depth4Y, "Pretendard Medium", fontSize, true, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth4X + depth4XSpace + depth4XSpace + depth4XSpace + depth4XTextSpace + controlSpace - 2.1f, depth4Y, "Pretendard Medium", fontSize, true, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("학습 방해물", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth4X + depth4XSpace + depth4XSpace + depth4XSpace - 2.1f, depth4Y - 28f, "Pretendard Medium", fontSize, true, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth4X + depth4XSpace + depth4XSpace + depth4XSpace + depth4XTextSpace + controlSpace - 2.1f, depth4Y - 28f, "Pretendard Medium", fontSize, true, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("학업관계 스트레스", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth4X + depth4XSpace + depth4XSpace + depth4XSpace - 2.1f, depth4Y - 49.3f, "Pretendard Medium", fontSize, true, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth4X + depth4XSpace + depth4XSpace + depth4XSpace + depth4XTextSpace + controlSpace - 2.1f, depth4Y - 49.3f, "Pretendard Medium", fontSize, true, false, stressColor, -0.58f);
                     }
@@ -3867,6 +3871,7 @@ public class DrawPdfService {
                     String tRank = MapUtils.getString(report4, "T_RANK", "");
 
                     Color color = this.getColorByTRankForSummary(pioPdf, tRank);
+                    Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                     float controlSpace = this.controlSpace(tRank);
 
                     // 긍정적 자아
@@ -3979,66 +3984,56 @@ public class DrawPdfService {
                         // 학업소진
                     } else if (StringUtils.equals("고갈", sectionNm)) {
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace - 3f, depth5Y - 77.4f, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
-                        pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace - 3f + controlSpace, depth5Y - 77.4f, "Pretendard Medium", fontSize, false, false, color, -0.58f);
+                        pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace - 3f + controlSpace, depth5Y - 77.4f, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("무능감", sectionNm)) {
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace - 3f, depth5Y - 77.4f + depthYSpace, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
-                        pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace - 3f + controlSpace, depth5Y - 77.4f + depthYSpace, "Pretendard Medium", fontSize, false, false, color, -0.58f);
+                        pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace - 3f + controlSpace, depth5Y - 77.4f + depthYSpace, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("반감-냉소", sectionNm)) {
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace - 3f, depth5Y - 77.4f + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
-                        pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace - 3f + controlSpace, depth5Y - 77.4f + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, color, -0.58f);
+                        pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace - 3f + controlSpace, depth5Y - 77.4f + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                         // 학업 스트레스
                     } else if (StringUtils.equals("성적부담", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace + depth5XSpace - 2.1f, depth5Y, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace + depth5XSpace - 2.1f + controlSpace, depth5Y, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("공부부담", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace + depth5XSpace - 2.1f, depth5Y + depthYSpace, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace + depth5XSpace - 2.1f + controlSpace, depth5Y + depthYSpace, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("수업부담", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace + depth5XSpace - 2.1f, depth5Y + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace + depth5XSpace - 2.1f + controlSpace, depth5Y + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                         // 학습 방해물
                     } else if (StringUtils.equals("스마트폰 의존", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace + depth5XSpace - 2.1f, depth5Y + depthYSpace + depthYSpace + depthYTerm + depthYSpace, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace + depth5XSpace - 2.1f + controlSpace, depth5Y + depthYSpace + depthYSpace + depthYTerm + depthYSpace, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("게임 과몰입", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace + depth5XSpace - 2.1f, depth5Y + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace + depth5XSpace - 2.1f + controlSpace, depth5Y + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                         // 학업관계 스트레스
                     } else if (StringUtils.equals("부모 성적압력", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace + depth5XSpace - 2.1f, depth5Y + depthYSpace + depthYSpace + depthYTerm + depthYSpace + depthYTerm + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace + depth5XSpace - 2.1f + controlSpace, depth5Y + depthYSpace + depthYSpace + depthYTerm + depthYSpace + depthYTerm + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("부모 공부부담", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace + depth5XSpace - 2.1f, depth5Y + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace + depth5XSpace - 2.1f + controlSpace, depth5Y + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("친구 공부비교", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace + depth5XSpace - 2.1f, depth5Y + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace + depth5XSpace - 2.1f + controlSpace, depth5Y + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("교사 성적압력", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace + depth5XSpace - 2.1f, depth5Y + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYSpace + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace + depth5XSpace - 2.1f + controlSpace, depth5Y + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYSpace + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 
                     } else if (StringUtils.equals("교사 수업부담", sectionNm)) {
-                        Color stressColor = this.getColorByTScoreForStress(pioPdf, tScore);
                         pioPdf.drawText(tScore, depth5X + depth5XSpace + depth5XSpace + depth5XSpace - 2.1f, depth5Y + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYSpace + depthYSpace + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                         pioPdf.drawText(tRank, depth5X + depth5XSpace + depth5XSpace + depth5XTextSpace + depth5XSpace - 2.1f + controlSpace, depth5Y + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYTerm + depthYSpace + depthYSpace + depthYSpace + depthYSpace + depthYSpace + depthYSpace, "Pretendard Medium", fontSize, false, false, stressColor, -0.58f);
 

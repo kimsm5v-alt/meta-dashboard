@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
@@ -7,9 +7,10 @@ import {
   LayoutDashboard,
   MessageSquare,
   Users,
-  Settings,
   User,
+  UserCog,
   ChevronRight,
+  ChevronDown,
   LogOut,
   ClipboardList,
   Calendar,
@@ -22,11 +23,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@features/auth';
-import { useTeacherClasses } from '@features/api';
+import { useTeacherClassList } from '@features/api';
 import { BellWithPanel } from '@features/notifications';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_TEACHER_ME } from '@shared/data/apiDefinitions';
 import { FEATURES, type FeatureKey } from '@shared/config/features';
+import { ENV } from '@shared/config/env';
 import serviceLogo from '@/assets/logo_2.png';
 
 // ============================================================================
@@ -37,11 +39,17 @@ interface LayoutProps {
   children: ReactNode;
 }
 
+interface NavSubItem {
+  label: string;
+  path: string;
+}
+
 interface NavItem {
   icon: LucideIcon;
   label: string;
   path: string;
   feature?: FeatureKey;
+  subItems?: NavSubItem[];
 }
 
 interface NavGroup {
@@ -53,13 +61,23 @@ interface NavGroup {
 // Constants
 // ============================================================================
 
+const DASHBOARD_SUB_ITEMS: NavSubItem[] = [
+  { label: '학습종합검사', path: '/dashboard/comprehensive' },
+  { label: '자기조절학습검사', path: '/dashboard/selfreg' },
+];
+
 const navGroups: NavGroup[] = [
   {
     title: '검사',
     items: [
-      { icon: Users, label: '그룹 관리', path: '/groups', feature: 'GROUPS' },
       { icon: ClipboardList, label: '검사하기', path: '/assessment', feature: 'ASSESSMENT' },
-      { icon: LayoutDashboard, label: '대시보드', path: '/dashboard', feature: 'DASHBOARD' },
+      {
+        icon: LayoutDashboard,
+        label: '결과보기',
+        path: '/dashboard',
+        feature: 'DASHBOARD',
+        subItems: DASHBOARD_SUB_ITEMS,
+      },
     ],
   },
   {
@@ -301,6 +319,47 @@ const NavItemChevron = styled(ChevronRight)`
   height: 16px;
 `;
 
+const NavChevronDown = styled(ChevronDown, {
+  shouldForwardProp: (prop) => prop !== '$open',
+})<{ $open: boolean }>`
+  width: 16px !important;
+  height: 16px !important;
+  transition: transform 0.2s;
+  transform: ${({ $open }) => ($open ? 'rotate(180deg)' : 'rotate(0deg)')};
+`;
+
+const SubNavList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 2px 0 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const SubNavButton = styled.button<{ $isActive: boolean }>`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 8px ${({ theme }) => theme.spacing.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: none;
+  background: ${({ $isActive, theme }) => ($isActive ? theme.colors.primary[50] : 'transparent')};
+  color: ${({ $isActive, theme }) =>
+    $isActive ? theme.colors.primary[600] : theme.colors.gray[600]};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ $isActive, theme }) =>
+    $isActive ? theme.typography.fontWeight.medium : theme.typography.fontWeight.normal};
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  text-align: left;
+
+  &:hover {
+    background: ${({ $isActive, theme }) =>
+      $isActive ? theme.colors.primary[50] : theme.colors.gray[50]};
+  }
+`;
+
 // ============================================================================
 // Styled Components - Class List Section
 // ============================================================================
@@ -459,6 +518,8 @@ const FlexContainer = styled.div`
 
 const MainContent = styled.main<{ $isCollapsed: boolean }>`
   flex: 1;
+  /* flex 자식이 콘텐츠(차트 SVG) min-content 폭으로 팽창하지 않도록 */
+  min-width: 0;
   margin-top: 64px;
   margin-left: ${({ $isCollapsed }) => ($isCollapsed ? '64px' : '256px')};
   padding: ${({ theme }) => theme.spacing.lg};
@@ -478,6 +539,16 @@ const Header = () => {
     navigate('/');
   };
 
+  // SP 마이페이지로 이동 — 같은 탭, client_id + return_to(현재 URL) query
+  // 참조: superplatform-mypage/docs/mypage-integration-guide.html
+  const openMypage = () => {
+    const params = new URLSearchParams({
+      client_id: ENV.SP_CLIENT_ID,
+      return_to: window.location.href,
+    });
+    window.location.href = `${ENV.SP_MYPAGE_URL}/?${params}`;
+  };
+
   return (
     <HeaderWrapper>
       <HeaderContent>
@@ -486,8 +557,8 @@ const Header = () => {
         </LogoButton>
         <HeaderActions>
           <BellWithPanel />
-          <IconButton>
-            <Settings />
+          <IconButton onClick={openMypage} title='내 정보 설정' aria-label='내 정보 설정'>
+            <UserCog />
           </IconButton>
           <UserSection>
             <ApiTooltip {...API_TEACHER_ME} position='bottom-right'>
@@ -522,8 +593,18 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { classes, isLoading, examStatus } = useTeacherClasses();
+  const { classes, isLoading, examStatus } = useTeacherClassList();
   const isActive = (path: string) => location.pathname.startsWith(path);
+
+  const isDashboardPath = location.pathname.startsWith('/dashboard');
+  const [isDashboardOpen, setIsDashboardOpen] = useState(isDashboardPath);
+
+  useEffect(() => {
+    if (isDashboardPath) setIsDashboardOpen(true);
+  }, [isDashboardPath]);
+
+  // 현재 URL에서 testId 추출 (담당 학급 클릭 시 사용)
+  const currentTestId = location.pathname.startsWith('/dashboard/selfreg') ? 'selfreg' : 'comprehensive';
 
   // Feature Flag에 따라 네비게이션 필터링
   const filteredNavGroups = useMemo(() => {
@@ -567,7 +648,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
           <li key={cls.id}>
             <ClassItemButton
               $isCollapsed={isCollapsed}
-              onClick={() => navigate(`/dashboard/class/${cls.id}`)}
+              onClick={() => navigate(`/dashboard/${currentTestId}/class/${cls.id}`)}
               title={`${cls.grade}-${cls.classNumber}반`}
             >
               {isCollapsed ? (
@@ -599,7 +680,52 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
             <NavList>
               {group.items.map((item) => {
                 const Icon = item.icon;
+                const hasSubItems = Boolean(item.subItems?.length);
                 const active = isActive(item.path);
+
+                if (hasSubItems) {
+                  const isOpen = isDashboardOpen;
+                  return (
+                    <li key={item.path}>
+                      <NavItemButton
+                        $isActive={active}
+                        $isCollapsed={isCollapsed}
+                        onClick={() => {
+                          if (isCollapsed) {
+                            const activeSub = item.subItems!.find((s) => isActive(s.path));
+                            navigate(activeSub?.path ?? item.subItems![0].path);
+                          } else {
+                            setIsDashboardOpen((p) => !p);
+                          }
+                        }}
+                        title={isCollapsed ? item.label : undefined}
+                      >
+                        <Icon />
+                        {!isCollapsed && (
+                          <>
+                            <NavItemLabel>{item.label}</NavItemLabel>
+                            <NavChevronDown $open={isOpen} />
+                          </>
+                        )}
+                      </NavItemButton>
+                      {!isCollapsed && isOpen && (
+                        <SubNavList>
+                          {item.subItems!.map((sub) => (
+                            <li key={sub.path}>
+                              <SubNavButton
+                                $isActive={isActive(sub.path)}
+                                onClick={() => navigate(sub.path)}
+                              >
+                                {sub.label}
+                              </SubNavButton>
+                            </li>
+                          ))}
+                        </SubNavList>
+                      )}
+                    </li>
+                  );
+                }
+
                 return (
                   <li key={item.path}>
                     <NavItemButton

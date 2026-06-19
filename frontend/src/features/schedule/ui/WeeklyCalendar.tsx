@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { Plus, User, Users, Phone, Video, AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { CounselingRecord } from '@shared/types';
 import { COUNSELING_AREA_LABELS } from '@shared/types';
-import { CLASS_COLORS } from '@shared/data/mockUnifiedCounseling';
 
 const Container = styled.div`
   background: ${({ theme }) => theme.colors.background.paper};
@@ -192,6 +191,7 @@ interface WeeklyCalendarProps {
   onDateClick?: (date: Date) => void;
   onScheduleClick: (schedule: CounselingRecord) => void;
   onAddClick: (date: Date) => void;
+  classColors: Record<string, string>;
 }
 
 // 주간 날짜 배열 생성 (월~금)
@@ -227,6 +227,7 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
   schedules,
   onScheduleClick,
   onAddClick,
+  classColors,
 }) => {
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate]);
 
@@ -293,7 +294,7 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
               <ScheduleList>
                 {daySchedules.map((schedule) => {
                   const isCompleted = schedule.status === 'completed';
-                  const borderColor = CLASS_COLORS[schedule.classId] || '#9CA3AF';
+                  const borderColor = classColors[schedule.classId] || '#9CA3AF';
                   return (
                     <ScheduleCard
                       key={schedule.id}
@@ -326,8 +327,8 @@ export const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({
                         {schedule.areas.slice(0, 2).map((area, i) => (
                           <AreaBadge
                             key={i}
-                            $bgColor={`${CLASS_COLORS[schedule.classId]}20`}
-                            $textColor={CLASS_COLORS[schedule.classId]}
+                            $bgColor={`${classColors[schedule.classId]}20`}
+                            $textColor={classColors[schedule.classId]}
                           >
                             {COUNSELING_AREA_LABELS[area]}
                           </AreaBadge>

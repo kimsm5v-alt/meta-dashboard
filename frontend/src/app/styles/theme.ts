@@ -17,6 +17,7 @@ export const theme = {
       700: '#6d28d9',
       800: '#5b21b6',
       900: '#4c1d95',
+      1000: '#009f88',
     },
     secondary: {
       50: '#ecfeff',

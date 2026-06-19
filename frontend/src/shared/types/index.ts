@@ -6,7 +6,7 @@
 export * from './api';
 
 // 학교급
-export type SchoolLevel = '초등' | '중등';
+export type SchoolLevel = '초등' | '중등' | '고등';
 
 // LPA 유형
 export type ElementaryType = '자원소진형' | '안전 균형형' | '몰입자원 풍부형';
@@ -92,6 +92,7 @@ export interface Assessment {
   reliabilityWarnings: string[];
   attentionResult: AttentionResult;
   midCategoryScores?: Record<string, number> | null;
+  answerIdx?: number | null;
 }
 
 // 관심 필요 판별 결과
@@ -635,12 +636,13 @@ export type SchoolLevelCode = 'elementary' | 'middle' | 'high';
 export const SCHOOL_LEVEL_MAP: Record<SchoolLevelCode, SchoolLevel> = {
   elementary: '초등',
   middle: '중등',
-  high: '중등', // 고등도 중등으로 처리 (검사 기준)
+  high: '고등',
 };
 
 export const SCHOOL_LEVEL_REVERSE_MAP: Record<SchoolLevel, SchoolLevelCode> = {
   초등: 'elementary',
   중등: 'middle',
+  고등: 'high',
 };
 
 /** 학교급 라벨 */
@@ -685,6 +687,8 @@ export interface GroupMember {
 
   name: string;
   email?: string;
+  /** Auth PII 마스킹 사유 (group-from-idp). NOT_CONSENTED=학심정 미동의 → 이름/이메일 마스킹+안내 툴팁 */
+  maskedReason?: 'NONE' | 'NOT_CONSENTED' | 'WITHDRAWN' | 'NOT_FOUND';
   gender?: 'M' | 'F';
   memberNo?: number; // 출석번호 (그룹 내 자동 채번)
 

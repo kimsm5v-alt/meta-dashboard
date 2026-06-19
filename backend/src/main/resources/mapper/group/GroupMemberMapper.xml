@@ -6,9 +6,8 @@
         <id property="id" column="id"/>
         <result property="groupId" column="group_id"/>
         <result property="userNo" column="user_no"/>
+        <result property="spUserId" column="sp_user_id"/>
         <result property="stdtId" column="stdt_id"/>
-        <result property="nickname" column="nickname"/>
-        <result property="email" column="email"/>
         <result property="memberType" column="member_type"/>
         <result property="memberNo" column="member_no"/>
         <result property="status" column="status"/>
@@ -20,10 +19,12 @@
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
 
+    <!-- Phase 3: nickname/email은 SELECT하지 않음 — UserInfoEnricher가 IDP에서 채운다.
+         sp_user_id를 user 테이블 JOIN으로 가져온다. -->
     <sql id="groupMemberColumns">
-        id, group_id, user_no, stdt_id, nickname, email,
-        member_type, member_no, status, joined_at, left_at,
-        created_by, updated_by, created_at, updated_at
+        gm.id, gm.group_id, gm.user_no, u.sp_user_id,
+        gm.stdt_id, gm.member_type, gm.member_no, gm.status, gm.joined_at, gm.left_at,
+        gm.created_by, gm.updated_by, gm.created_at, gm.updated_at
     </sql>
 
     <select id="countByGroupIdAndStatus" resultType="long">
@@ -35,8 +36,9 @@
     <select id="findByGroupIdAndStatus" resultMap="groupMemberResultMap">
         /* GroupMemberMapper.findByGroupIdAndStatus */
         SELECT <include refid="groupMemberColumns"/>
-        FROM group_member
-        WHERE group_id = #{groupId} AND status = #{status}
+        FROM group_member gm
+        LEFT JOIN `user` u ON u.user_no = gm.user_no
+        WHERE gm.group_id = #{groupId} AND gm.status = #{status}
     </select>
 
     <select id="existsByGroupIdAndUserNoAndStatus" resultType="boolean">
@@ -49,14 +51,15 @@
     <select id="findGroupMemberById" resultMap="groupMemberResultMap">
         /* GroupMemberMapper.findGroupMemberById */
         SELECT <include refid="groupMemberColumns"/>
-        FROM group_member
-        WHERE id = #{id}
+        FROM group_member gm
+        LEFT JOIN `user` u ON u.user_no = gm.user_no
+        WHERE gm.id = #{id}
     </select>
 
     <insert id="insertGroupMember" parameterType="com.vs.meta.domain.GroupMember" useGeneratedKeys="true" keyProperty="id">
         /* GroupMemberMapper.insertGroupMember */
-        INSERT INTO group_member (group_id, user_no, stdt_id, nickname, email, member_type, member_no, status, joined_at, created_by, updated_by, created_at, updated_at)
-        VALUES (#{groupId}, #{userNo}, #{stdtId}, #{nickname}, #{email}, #{memberType}, #{memberNo}, #{status}, #{joinedAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+        INSERT INTO group_member (group_id, user_no, stdt_id, member_type, member_no, status, joined_at, created_by, updated_by, created_at, updated_at)
+        VALUES (#{groupId}, #{userNo}, #{stdtId}, #{memberType}, #{memberNo}, #{status}, #{joinedAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="updateGroupMember" parameterType="com.vs.meta.domain.GroupMember">
@@ -64,8 +67,6 @@
         UPDATE group_member
         SET user_no = #{userNo},
             stdt_id = #{stdtId},
-            nickname = #{nickname},
-            email = #{email},
             member_type = #{memberType},
             member_no = #{memberNo},
             status = #{status},
@@ -82,36 +83,33 @@
         WHERE group_id = #{groupId}
     </select>
 
-    <update id="updateGuestToStudent">
-        /* GroupMemberMapper.updateGuestToStudent */
-        UPDATE group_member
-        SET user_no = #{userNo},
-            member_type = 'STUDENT',
-            updated_by = #{userNo},
-            updated_at = NOW()
-        WHERE email = #{email} AND user_no IS NULL AND member_type = 'GUEST'
-    </update>
-
-    <select id="findActiveGuestByGroupIdAndEmail" resultMap="groupMemberResultMap">
-        /* GroupMemberMapper.findActiveGuestByGroupIdAndEmail */
-        SELECT id, group_id, user_no, stdt_id, nickname, email,
-               member_type, member_no, status, joined_at, left_at,
-               created_by, updated_by, created_at, updated_at
-        FROM group_member
-        WHERE group_id = #{groupId}
-          AND email = #{email}
-          AND user_no IS NULL
-          AND member_type = 'GUEST'
-          AND status = 'ACTIVE'
-        LIMIT 1
-    </select>
-
     <select id="findByGroupIdAndUserNo" resultMap="groupMemberResultMap">
         /* GroupMemberMapper.findByGroupIdAndUserNo */
         SELECT <include refid="groupMemberColumns"/>
-        FROM group_member
-        WHERE group_id = #{groupId} AND user_no = #{userNo}
+        FROM group_member gm
+        LEFT JOIN `user` u ON u.user_no = gm.user_no
+        WHERE gm.group_id = #{groupId} AND gm.user_no = #{userNo}
         LIMIT 1
     </select>
+
+
+    <select id="findByGroupId" resultMap="groupMemberResultMap">
+        /* GroupMemberMapper.findByGroupId */
+        SELECT <include refid="groupMemberColumns"/>
+        FROM group_member gm
+        LEFT JOIN `user` u ON u.user_no = gm.user_no
+        WHERE gm.group_id = #{groupId}
+    </select>
+
+    <update id="withdrawByUserNo">
+        /* GroupMemberMapper.withdrawByUserNo */
+        UPDATE group_member
+        SET status     = 'WITHDRAWN',
+            left_at    = NOW(),
+            updated_by = 0,
+            updated_at = NOW()
+        WHERE user_no = #{userNo}
+          AND status NOT IN ('LEFT', 'KICKED', 'ARCHIVED', 'WITHDRAWN')
+    </update>
 
 </mapper>

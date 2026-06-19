@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
@@ -7,15 +7,14 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  MessageSquare,
-  Eye,
   ShieldAlert,
   AlertTriangle,
   Clock,
   Loader2,
-  Lightbulb,
 } from 'lucide-react';
 import { useStudentAnalysis, useApiConfig } from '@features/api';
+import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
+import { fetchStudentInfoList } from '@shared/services/dashboardService';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
@@ -26,19 +25,17 @@ import {
   TypeClassification,
   TypeDeviations,
   CoachingStrategy,
-  RightPanel,
-  DataHelperChatbot,
   type PanelTab,
+  DataHelperChatbot,
+  RightPanel,
 } from '@features/student-dashboard/ui';
 import { useCoachingStrategy } from '@features/student-dashboard/api/useCoachingStrategy';
 import type { Student, SchoolLevel } from '@shared/types';
 
-// 헤더 버튼 설정
-const PANEL_BUTTONS = [
-  { key: 'schoolRecord' as const, label: '생기부', icon: FileText },
-  { key: 'counseling' as const, label: '상담', icon: MessageSquare },
-  { key: 'observation' as const, label: '관찰', icon: Eye },
-];
+const TEST_META: Record<string, { name: string; color: string }> = {
+  comprehensive: { name: '학습종합검사', color: '#6366F1' },
+  selfreg: { name: '자기조절학습검사', color: '#009F88' },
+};
 
 type ViewMode = 'round1' | 'round2' | 'compare';
 
@@ -157,6 +154,12 @@ const ClassInfo = styled.p`
   color: ${({ theme }) => theme.colors.gray[500]};
 `;
 
+const HeaderRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
 const NavigationSection = styled.div`
   display: flex;
   align-items: center;
@@ -179,11 +182,6 @@ const NavButton = styled.button`
     opacity: 0.5;
     cursor: not-allowed;
   }
-`;
-
-const NavIcon = styled.div`
-  width: 1.25rem;
-  height: 1.25rem;
 `;
 
 const NavCounter = styled.span`
@@ -227,40 +225,6 @@ const RoundButton = styled.button<{ $isActive: boolean }>`
   `}
 `;
 
-const PanelButtons = styled.div`
-  display: flex;
-  gap: 0.375rem;
-`;
-
-const PanelButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background-color 0.15s ease;
-  background: white;
-  color: ${({ theme }) => theme.colors.gray[600]};
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    background: ${({ theme }) => theme.colors.gray[100]};
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
-const PanelButtonIcon = styled.div`
-  width: 1rem;
-  height: 1rem;
-`;
-
 const InfoAlert = styled.div`
   background: #eff6ff;
   border: 1px solid #bfdbfe;
@@ -283,6 +247,41 @@ const InfoText = styled.p`
   color: #1e40af;
 `;
 
+const BreadcrumbRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+`;
+
+const TestBadge = styled.span<{ $color: string }>`
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  background: ${({ $color }) => $color};
+  flex-shrink: 0;
+`;
+
+const BreadcrumbNav = styled.nav`
+  font-size: 0.875rem;
+  color: ${({ theme }) => theme.colors.gray[500]};
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+`;
+
+const BreadcrumbSep = styled.span`
+  color: ${({ theme }) => theme.colors.gray[300]};
+  margin: 0 0.125rem;
+`;
+
+const BreadcrumbCurrent = styled.span`
+  color: ${({ theme }) => theme.colors.gray[800]};
+  font-weight: 500;
+`;
+
 const SectionContainer = styled.section``;
 
 const SectionHeader = styled.div`
@@ -296,7 +295,6 @@ const SectionTitle = styled.h2`
   font-size: 1.25rem;
   font-weight: 700;
 `;
-
 
 const SectionCard = styled.div`
   background: white;
@@ -336,7 +334,9 @@ interface StudentDashboardContentProps {
   classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel };
   classId: string;
   studentId: string;
+  testId: string;
   hasJwtToken: boolean;
+  dgnssIds: { round1?: number; round2?: number };
 }
 
 const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
@@ -345,12 +345,14 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   classInfo,
   classId,
   studentId,
+  testId,
   hasJwtToken,
+  dgnssIds,
 }) => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
-  const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>(null);
+  const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -361,13 +363,67 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   // 코칭 전략 API 호출
   const {
     moderationPaths,
+    strengths,
+    weaknesses,
     isLoading: isCoachingLoading,
     fetchCoachingStrategy,
   } = useCoachingStrategy(classId, studentId, selectedRound);
-  const isCompare = viewMode === 'compare';
+
+  const coachingFetchKeyRef = useRef<string>('');
+
+  // 학생/차수 변경 시 코칭 전략 자동 로드 (StrictMode 이중 실행 방지)
+  useEffect(() => {
+    const key = `${studentId}-${selectedRound}`;
+    if (coachingFetchKeyRef.current === key) return;
+    coachingFetchKeyRef.current = key;
+    void fetchCoachingStrategy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId, selectedRound]);
+
+  const [isPdfDownloading, setIsPdfDownloading] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
+  const [r2AnswerIdx, setR2AnswerIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!pdfError) return;
+    const id = setTimeout(() => setPdfError(false), 4000);
+    return () => clearTimeout(id);
+  }, [pdfError]);
 
   const r1 = student.assessments.find((a) => a.round === 1);
   const r2 = student.assessments.find((a) => a.round === 2);
+
+  useEffect(() => {
+    if (!hasJwtToken || !dgnssIds.round2 || r2?.answerIdx != null) return;
+    void fetchStudentInfoList(dgnssIds.round2).then((list) => {
+      const entry = list.find((item) => item.stdtId === studentId);
+      if (entry) setR2AnswerIdx(entry.answerIdx);
+    });
+  }, [dgnssIds.round2, hasJwtToken, r2?.answerIdx, studentId]);
+
+  const handleDownloadPdf = async (round: 1 | 2, type: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    const answerIdx = round === 1 ? r1?.answerIdx : (r2?.answerIdx ?? r2AnswerIdx);
+    if (!dgnssId || answerIdx == null) return;
+    setIsPdfDownloading(true);
+    setPdfError(false);
+    try {
+      await downloadStudentPdf({
+        userId: studentId,
+        userType: 'S',
+        dgnssId,
+        answerIdx,
+        ordNo: round,
+        type,
+      });
+    } catch {
+      setPdfError(true);
+    } finally {
+      setIsPdfDownloading(false);
+    }
+  };
+  const isCompare = viewMode === 'compare';
+
   const current = selectedRound === 2 && r2 ? r2 : r1;
 
   // useMemo는 항상 호출 (current가 없으면 빈 배열 사용)
@@ -397,10 +453,27 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     <MainLayout>
       {/* 메인 콘텐츠 */}
       <MainContent $panelOpen={panelTab !== null}>
+        {/* 브레드크럼 */}
+        <BreadcrumbRow>
+          <TestBadge $color={TEST_META[testId]?.color ?? '#6366F1'}>
+            {TEST_META[testId]?.name ?? testId}
+          </TestBadge>
+          <BreadcrumbNav>
+            결과보기
+            <BreadcrumbSep>›</BreadcrumbSep>
+            {TEST_META[testId]?.name ?? testId}
+            <BreadcrumbSep>›</BreadcrumbSep>
+            {classInfo.grade}학년 {classInfo.classNumber}반<BreadcrumbSep>›</BreadcrumbSep>
+            <BreadcrumbCurrent>
+              {student.number}번 {student.name}
+            </BreadcrumbCurrent>
+          </BreadcrumbNav>
+        </BreadcrumbRow>
+
         {/* Header */}
         <HeaderSection>
           <HeaderLeft>
-            <BackButton onClick={() => navigate(`/dashboard/class/${classId}`)}>
+            <BackButton onClick={() => navigate(`/dashboard/${testId}/class/${classId}`)}>
               <BackIcon />
             </BackButton>
             <HeaderTitle>
@@ -430,32 +503,62 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 )}
               </TitleRow>
               <ClassInfo>
-                {classInfo.grade}학년 {classInfo.classNumber}반
+                {classInfo.schoolLevel} · {classInfo.grade}학년 {classInfo.classNumber}반
               </ClassInfo>
             </HeaderTitle>
           </HeaderLeft>
 
-          {/* 학생 네비게이션 */}
-          <NavigationSection>
-            <NavButton
-              onClick={() => prev && navigate(`/dashboard/class/${classId}/student/${prev.id}`)}
-              disabled={!prev}
-            >
-              <NavIcon as={ChevronLeft} />
-            </NavButton>
-            <NavCounter>
-              {currentIdx + 1} / {classStudents.length}
-            </NavCounter>
-            <NavButton
-              onClick={() => next && navigate(`/dashboard/class/${classId}/student/${next.id}`)}
-              disabled={!next}
-            >
-              <NavIcon as={ChevronRight} />
-            </NavButton>
-          </NavigationSection>
+          <HeaderRight>
+            {/* 학생 네비게이션 — 프로토타입: ‹ 이전 / X/N / 다음 › 텍스트 버튼 */}
+            <NavigationSection>
+              <NavButton
+                onClick={() =>
+                  prev && navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`)
+                }
+                disabled={!prev}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.125rem',
+                  padding: '0.375rem 0.625rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '0.5rem',
+                  background: 'white',
+                  color: '#374151',
+                }}
+              >
+                <ChevronLeft size={14} /> 이전
+              </NavButton>
+              <NavCounter>
+                {currentIdx + 1} / {classStudents.length}
+              </NavCounter>
+              <NavButton
+                onClick={() =>
+                  next && navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`)
+                }
+                disabled={!next}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.125rem',
+                  padding: '0.375rem 0.625rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '0.5rem',
+                  background: 'white',
+                  color: '#374151',
+                }}
+              >
+                다음 <ChevronRight size={14} />
+              </NavButton>
+            </NavigationSection>
+          </HeaderRight>
         </HeaderSection>
 
-        {/* Round Selector + Panel Buttons */}
+        {/* Round Selector + 보고서 다운로드 드롭다운 + Panel Buttons */}
         <ControlsSection>
           <RoundButtons>
             {[
@@ -476,30 +579,198 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               </RoundButton>
             ))}
           </RoundButtons>
-          {!panelTab && (
-            <PanelButtons>
-              {PANEL_BUTTONS.map((btn) => {
-                const Icon = btn.icon;
-                return (
-                  <PanelButton key={btn.key} onClick={() => setPanelTab(btn.key)}>
-                    <PanelButtonIcon as={Icon} />
-                    {btn.label}
-                  </PanelButton>
-                );
-              })}
-              {/* 코칭 전략 버튼 */}
-              <PanelButton
-                onClick={async () => {
-                  await fetchCoachingStrategy();
-                  setIsCoachingOpen(true);
-                }}
-                disabled={isCoachingLoading}
-              >
-                <PanelButtonIcon as={Lightbulb} />
-                {isCoachingLoading ? '로딩중...' : '코칭 전략'}
-              </PanelButton>
-            </PanelButtons>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            {/* 보고서 다운로드 드롭다운 — 프로토타입과 동일 위치 */}
+            {hasJwtToken && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setReportDropdownOpen((v) => !v)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.375rem',
+                    padding: '0.5rem 0.875rem',
+                    background: '#4F46E5',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <FileText size={15} />
+                  보고서 다운로드
+                  <ChevronRight
+                    size={14}
+                    style={{
+                      transform: reportDropdownOpen ? 'rotate(90deg)' : 'rotate(0)',
+                      transition: 'transform 0.15s',
+                    }}
+                  />
+                </button>
+                {reportDropdownOpen && (
+                  <>
+                    <div
+                      style={{ position: 'fixed', inset: 0, zIndex: 10 }}
+                      onClick={() => setReportDropdownOpen(false)}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 'calc(100% + 4px)',
+                        width: '14rem',
+                        background: 'white',
+                        borderRadius: '0.625rem',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                        border: '1px solid #E5E7EB',
+                        padding: '0.5rem 0',
+                        zIndex: 20,
+                      }}
+                    >
+                      <div style={{ padding: '0.375rem 0.75rem' }}>
+                        <p
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            color: '#6B7280',
+                            marginBottom: '0.25rem',
+                          }}
+                        >
+                          1차 검사 {!r1 && <span style={{ color: '#D1D5DB' }}>(미실시)</span>}
+                        </p>
+                        <button
+                          disabled={isPdfDownloading || r1?.answerIdx == null}
+                          onClick={() =>
+                            void handleDownloadPdf(1, 1).then(() => setReportDropdownOpen(false))
+                          }
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.375rem 0.5rem',
+                            fontSize: '0.875rem',
+                            color: '#374151',
+                            background: 'none',
+                            border: 'none',
+                            cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed',
+                            opacity: r1?.answerIdx != null ? 1 : 0.4,
+                            borderRadius: '0.375rem',
+                          }}
+                        >
+                          <FileText size={14} color='#EF4444' /> 상세 보고서
+                        </button>
+                        <button
+                          disabled={isPdfDownloading || r1?.answerIdx == null}
+                          onClick={() =>
+                            void handleDownloadPdf(1, 2).then(() => setReportDropdownOpen(false))
+                          }
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.375rem 0.5rem',
+                            fontSize: '0.875rem',
+                            color: '#374151',
+                            background: 'none',
+                            border: 'none',
+                            cursor: r1?.answerIdx != null ? 'pointer' : 'not-allowed',
+                            opacity: r1?.answerIdx != null ? 1 : 0.4,
+                            borderRadius: '0.375rem',
+                          }}
+                        >
+                          <FileText size={14} color='#EF4444' /> 요약 보고서
+                        </button>
+                      </div>
+                      {r2 && (
+                        <>
+                          <div style={{ borderTop: '1px solid #F3F4F6', margin: '0.25rem 0' }} />
+                          <div style={{ padding: '0.375rem 0.75rem' }}>
+                            <p
+                              style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                color: '#6B7280',
+                                marginBottom: '0.25rem',
+                              }}
+                            >
+                              2차 검사
+                            </p>
+                            <button
+                              disabled={
+                                isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)
+                              }
+                              onClick={() =>
+                                void handleDownloadPdf(2, 1).then(() =>
+                                  setReportDropdownOpen(false),
+                                )
+                              }
+                              style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.375rem 0.5rem',
+                                fontSize: '0.875rem',
+                                color: '#374151',
+                                background: 'none',
+                                border: 'none',
+                                cursor: (r2?.answerIdx != null || r2AnswerIdx != null) ? 'pointer' : 'not-allowed',
+                                opacity: (r2?.answerIdx != null || r2AnswerIdx != null) ? 1 : 0.4,
+                                borderRadius: '0.375rem',
+                              }}
+                            >
+                              <FileText size={14} color='#EF4444' /> 상세 보고서
+                            </button>
+                            <button
+                              disabled={
+                                isPdfDownloading || (r2?.answerIdx == null && r2AnswerIdx == null)
+                              }
+                              onClick={() =>
+                                void handleDownloadPdf(2, 2).then(() =>
+                                  setReportDropdownOpen(false),
+                                )
+                              }
+                              style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.375rem 0.5rem',
+                                fontSize: '0.875rem',
+                                color: '#374151',
+                                background: 'none',
+                                border: 'none',
+                                cursor: (r2?.answerIdx != null || r2AnswerIdx != null) ? 'pointer' : 'not-allowed',
+                                opacity: (r2?.answerIdx != null || r2AnswerIdx != null) ? 1 : 0.4,
+                                borderRadius: '0.375rem',
+                              }}
+                            >
+                              <FileText size={14} color='#EF4444' /> 요약 보고서
+                            </button>
+                          </div>
+                        </>
+                      )}
+                      {pdfError && (
+                        <p
+                          style={{
+                            fontSize: '0.75rem',
+                            color: '#EF4444',
+                            padding: '0.25rem 0.75rem',
+                          }}
+                        >
+                          다운로드 실패
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </ControlsSection>
 
         {/* 2차 검사 진행중 안내 (Mock 모드에서만 표시) */}
@@ -529,7 +800,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 
         {/* 2. 학습 유형 알아보기 */}
         <SectionContainer>
-          <SectionTitle>학습 유형 알아보기</SectionTitle>
+          <SectionTitle>{isCompare ? 'LPA 유형 변화' : '학습 유형 알아보기'}</SectionTitle>
           <SectionCard>
             {/* 유형 분류 */}
             <CardSection $hasBorder>
@@ -537,38 +808,33 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 predictedType={current.predictedType}
                 typeProbabilities={current.typeProbabilities}
                 schoolLevel={student.schoolLevel}
+                showCompare={isCompare && !!r1 && !!r2}
+                prevType={r1?.predictedType}
+                prevTypeProbabilities={r1?.typeProbabilities}
               />
             </CardSection>
 
-            {/* 유형별 특이점 + 코칭 전략 버튼 */}
+            {/* 강점/약점 TOP 3 */}
             <CardSection>
               <TypeDeviations
-                tScores={current.tScores}
-                predictedType={current.predictedType}
-                schoolLevel={student.schoolLevel}
-                onCoachingClick={() => setIsCoachingOpen(true)}
+                strengths={strengths}
+                weaknesses={weaknesses}
               />
             </CardSection>
           </SectionCard>
         </SectionContainer>
 
-        {/* 코칭 전략 모달 */}
-        <CoachingStrategy
-          moderationPaths={moderationPaths}
-          typeName={current.predictedType}
-          typeDescription={`${student.schoolLevel} ${classInfo.grade}학년 ${current.predictedType}`}
-          isOpen={isCoachingOpen}
-          onClose={() => setIsCoachingOpen(false)}
-        />
+        {/* 코칭 전략 (인라인) - 고등학교 제외 */}
+        {student.schoolLevel !== '고등' && (
+          <CoachingStrategy
+            moderationPaths={moderationPaths}
+            typeName={current.predictedType}
+            isLoading={isCoachingLoading}
+          />
+        )}
 
-        {/* 데이터 해석 도우미 (플로팅 챗봇) */}
-        <DataHelperChatbot
-          tScores={current.tScores}
-          predictedType={current.predictedType}
-          typeProbabilities={current.typeProbabilities}
-          schoolLevel={student.schoolLevel}
-          deviations={current.deviations}
-        />
+        {/* 데이터 해석 도우미 (스피드다이얼 FAB) */}
+        <DataHelperChatbot onOpenPanel={setPanelTab} isPanelOpen={panelTab !== null} />
       </MainContent>
 
       {/* 우측 푸시 패널 */}
@@ -581,6 +847,13 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         classId={classId}
         student={student}
         assessment={current}
+        aiChatData={{
+          tScores: current.tScores,
+          predictedType: current.predictedType,
+          typeProbabilities: current.typeProbabilities,
+          schoolLevel: student.schoolLevel,
+          deviations: current.deviations,
+        }}
       />
     </MainLayout>
   );
@@ -590,12 +863,16 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 // 메인 컴포넌트: 로딩/에러/null 체크 후 StudentDashboardContent 렌더링
 // ============================================================
 export const StudentDashboardPage = () => {
-  const { classId, studentId } = useParams<{ classId: string; studentId: string }>();
+  const {
+    classId,
+    studentId,
+    testId = 'comprehensive',
+  } = useParams<{ classId: string; studentId: string; testId: string }>();
   const { hasJwtToken } = useApiConfig();
 
   // API 모드: API에서 학생 데이터 + 학급 학생 목록 로드
   // Mock 모드: DataContext에서 데이터 사용
-  const { student, classStudents, classInfo, isLoading, error } = useStudentAnalysis(
+  const { student, classStudents, classInfo, dgnssIds, isLoading, error } = useStudentAnalysis(
     classId,
     studentId,
   );
@@ -640,7 +917,9 @@ export const StudentDashboardPage = () => {
       classInfo={classInfo}
       classId={classId}
       studentId={studentId}
+      testId={testId}
       hasJwtToken={hasJwtToken}
+      dgnssIds={dgnssIds}
     />
   );
 };

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { MainLayout } from '@widgets/layout/MainLayout';
 import { MinimalLayout } from '@widgets/layout/MinimalLayout';
 import { StudentLayout } from '@widgets/layout/StudentLayout';
@@ -18,14 +18,12 @@ import {
   ClassDashboardPage,
   ClassDetailAnalysisPage,
   StudentDashboardPage,
+  SelfregStudentDashboardPage,
   AIRoomPage,
-  AssessmentPage,
+  AssessmentPageV2,
   SchedulePage,
   ExamCodeEntryPage,
   ExamPage,
-  GroupListPage,
-  GroupDetailPage,
-  JoinGroupPage,
   CounselingDashboardPage,
   ResourceListPage,
   ResourceDetailPage,
@@ -37,11 +35,18 @@ import {
   StudentGroupsPage,
   MyExamListPage,
   MyResultPage,
+  MySelfregResultPage,
 } from '@pages/index';
 
 // ============================================================
 // 레이아웃 래퍼
 // ============================================================
+
+/** /groups/:groupId → /assessment/:groupId 리다이렉트 */
+const GroupDetailRedirect = () => {
+  const { groupId } = useParams<{ groupId: string }>();
+  return <Navigate to={`/assessment/${groupId}`} replace />;
+};
 
 /**
  * 공개 라우트 래퍼 (사이드바 없음)
@@ -141,20 +146,30 @@ export const AppRoutes = () => (
       <Route path='/auth/complete-profile' element={<CompleteProfilePage />} />
       <Route path='/exam' element={<ExamCodeEntryPage />} />
       <Route path='/exam/:code' element={<ExamPage />} />
-      <Route path='/join/:code' element={<JoinGroupPage />} />
+      {/* /join/:code 제거 — 그룹 참여(초대링크)는 mypage(SSO)로 이관 (group-from-idp) */}
     </Route>
 
     {/* 보호 라우트 - 사이드바 있음 */}
     <Route element={<ProtectedLayout />}>
       {/* 검사 영역 */}
-      <Route path='/groups' element={<GroupListPage />} />
-      <Route path='/groups/:groupId' element={<GroupDetailPage />} />
-      <Route path='/assessment' element={<AssessmentPage />} />
-      <Route path='/dashboard' element={<TeacherDashboardPage />} />
-      <Route path='/dashboard/class/:classId' element={<ClassDashboardPage />} />
-      <Route path='/dashboard/class/:classId/analysis' element={<ClassDetailAnalysisPage />} />
+      <Route path='/groups' element={<Navigate to='/assessment' replace />} />
+      <Route path='/groups/:groupId' element={<GroupDetailRedirect />} />
+      <Route path='/assessment' element={<AssessmentPageV2 />} />
+      <Route path='/assessment/:groupId' element={<AssessmentPageV2 />} />
+
+      {/* 대시보드 — testId 분기 */}
+      <Route path='/dashboard' element={<Navigate to='/dashboard/comprehensive' replace />} />
+      <Route path='/dashboard/comprehensive' element={<TeacherDashboardPage />} />
+      <Route path='/dashboard/selfreg' element={<TeacherDashboardPage />} />
+      <Route path='/dashboard/:testId/class/:classId' element={<ClassDashboardPage />} />
+      <Route path='/dashboard/:testId/class/:classId/analysis' element={<ClassDetailAnalysisPage />} />
+      {/* 자기조절검사 학생 상세 — selfreg 전용 (generic 라우트보다 먼저 등록) */}
       <Route
-        path='/dashboard/class/:classId/student/:studentId'
+        path='/dashboard/selfreg/class/:classId/student/:studentId'
+        element={<SelfregStudentDashboardPage />}
+      />
+      <Route
+        path='/dashboard/:testId/class/:classId/student/:studentId'
         element={<StudentDashboardPage />}
       />
 
@@ -194,8 +209,11 @@ export const AppRoutes = () => (
     <Route element={<StudentProtectedLayout />}>
       <Route path='/student/groups' element={<StudentGroupsPage />} />
       <Route path='/student/exams' element={<MyExamListPage />} />
-      <Route path='/student/result' element={<MyResultPage />} />
-      <Route path='/student/result/:resultId' element={<MyResultPage />} />
+      <Route path='/student/result' element={<Navigate to='/student/result/comprehensive' replace />} />
+      <Route path='/student/result/comprehensive' element={<MyResultPage />} />
+      <Route path='/student/result/comprehensive/:resultId' element={<MyResultPage />} />
+      <Route path='/student/result/selfreg' element={<MySelfregResultPage />} />
+      <Route path='/student/result/selfreg/:resultId' element={<MySelfregResultPage />} />
       <Route path='/exam/student' element={<ExamPage />} />
     </Route>
 

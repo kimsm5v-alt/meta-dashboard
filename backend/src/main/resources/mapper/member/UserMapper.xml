@@ -5,12 +5,11 @@
     <resultMap id="userResultMap" type="com.vs.meta.domain.User">
         <id property="userNo" column="user_no"/>
         <result property="spUserId" column="sp_user_id"/>
-        <result property="email" column="email"/>
-        <result property="nickname" column="nickname"/>
         <result property="roleCode" column="role_code"/>
         <result property="tcId" column="tc_id"/>
         <result property="stdtId" column="stdt_id"/>
         <result property="status" column="status"/>
+        <result property="provisioned" column="provisioned"/>
         <result property="lastLoginAt" column="last_login_at"/>
         <result property="createdBy" column="created_by"/>
         <result property="updatedBy" column="updated_by"/>
@@ -19,24 +18,9 @@
     </resultMap>
 
     <sql id="userColumns">
-        user_no, sp_user_id, email, nickname, role_code, tc_id, stdt_id,
-        status, last_login_at, created_by, updated_by, created_at, updated_at
+        user_no, sp_user_id, role_code, tc_id, stdt_id,
+        status, provisioned, last_login_at, created_by, updated_by, created_at, updated_at
     </sql>
-
-    <select id="findByEmailAndStatus" resultMap="userResultMap">
-        /* UserMapper.findByEmailAndStatus */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        WHERE email = #{email} AND status = #{status}
-    </select>
-
-    <select id="findByEmail" resultMap="userResultMap">
-        /* UserMapper.findByEmail */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        WHERE email = #{email}
-        LIMIT 1
-    </select>
 
     <select id="findByUserNo" resultMap="userResultMap">
         /* UserMapper.findByUserNo */
@@ -52,65 +36,24 @@
         WHERE sp_user_id = #{spUserId}
     </select>
 
-    <select id="findAllUsers" resultMap="userResultMap">
-        /* UserMapper.findAllUsers */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        ORDER BY created_at DESC
-    </select>
 
-    <select id="findUsersPaged" resultMap="userResultMap">
-        /* UserMapper.findUsersPaged */
-        SELECT <include refid="userColumns"/>
-        FROM `user`
-        <where>
-            <if test="keyword != null and keyword != ''">
-                AND (email LIKE CONCAT('%',#{keyword},'%') OR nickname LIKE CONCAT('%',#{keyword},'%'))
-            </if>
-            <if test="roleCode != null and roleCode != ''">
-                AND role_code = #{roleCode}
-            </if>
-            <if test="status != null and status != ''">
-                AND status = #{status}
-            </if>
-        </where>
-        ORDER BY created_at DESC
-        LIMIT #{limit} OFFSET #{offset}
-    </select>
 
-    <select id="countUsersPaged" resultType="long">
-        /* UserMapper.countUsersPaged */
-        SELECT COUNT(*)
-        FROM `user`
-        <where>
-            <if test="keyword != null and keyword != ''">
-                AND (email LIKE CONCAT('%',#{keyword},'%') OR nickname LIKE CONCAT('%',#{keyword},'%'))
-            </if>
-            <if test="roleCode != null and roleCode != ''">
-                AND role_code = #{roleCode}
-            </if>
-            <if test="status != null and status != ''">
-                AND status = #{status}
-            </if>
-        </where>
-    </select>
 
     <insert id="insertUser" parameterType="com.vs.meta.domain.User" useGeneratedKeys="true" keyProperty="userNo">
         /* UserMapper.insertUser */
-        INSERT INTO `user` (sp_user_id, email, nickname, role_code, tc_id, stdt_id, status, last_login_at, created_by, updated_by, created_at, updated_at)
-        VALUES (#{spUserId}, #{email}, #{nickname}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+        INSERT INTO `user` (sp_user_id, role_code, tc_id, stdt_id, status, provisioned, last_login_at, created_by, updated_by, created_at, updated_at)
+        VALUES (#{spUserId}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, COALESCE(#{provisioned}, 'N'), #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="updateUser" parameterType="com.vs.meta.domain.User">
         /* UserMapper.updateUser */
         UPDATE `user`
         SET sp_user_id = #{spUserId},
-            email = #{email},
-            nickname = #{nickname},
             role_code = #{roleCode},
             tc_id = #{tcId},
             stdt_id = #{stdtId},
             status = #{status},
+            provisioned = COALESCE(#{provisioned}, provisioned),
             last_login_at = #{lastLoginAt},
             updated_by = #{updatedBy},
             updated_at = #{updatedAt}
@@ -118,5 +61,29 @@
     </update>
 
     <!-- updatePassword 제거 — SSO 전환 후 password 컬럼 없음 -->
+
+    <update id="markWithdrawn">
+        /* UserMapper.markWithdrawn */
+        UPDATE `user`
+        SET status      = 'WITHDRAWN',
+            tc_id       = NULL,
+            stdt_id     = NULL,
+            sp_user_id  = NULL,
+            updated_by  = 0,
+            updated_at  = NOW()
+        WHERE user_no = #{userNo}
+    </update>
+
+    <delete id="deleteOrphanProvisionedUsers">
+        /* UserMapper.deleteOrphanProvisionedUsers */
+        <!-- 호스트 체크에 use_yn 조건을 걸지 않는 이유: fk_group_host 가 ON DELETE RESTRICT 라
+             비활성 그룹이라도 호스트 user 삭제 시 FK 위반. 호스트 이력이 있으면 행 보존. -->
+        DELETE u FROM `user` u
+        WHERE u.provisioned = 'Y'
+          AND NOT EXISTS (SELECT 1 FROM group_member gm
+                           WHERE gm.user_no = u.user_no AND gm.status = 'ACTIVE')
+          AND NOT EXISTS (SELECT 1 FROM group_info gi
+                           WHERE gi.host_user_no = u.user_no)
+    </delete>
 
 </mapper>

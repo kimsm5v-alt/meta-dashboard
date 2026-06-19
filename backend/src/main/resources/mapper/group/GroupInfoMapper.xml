@@ -5,12 +5,14 @@
     <resultMap id="groupInfoResultMap" type="com.vs.meta.domain.GroupInfo">
         <id property="groupId" column="group_id"/>
         <result property="claId" column="cla_id"/>
+        <result property="spGroupId" column="sp_group_id"/>
         <result property="hostUserNo" column="host_user_no"/>
         <result property="groupNm" column="group_nm"/>
         <result property="groupDesc" column="group_desc"/>
         <result property="schoolLevel" column="school_level"/>
         <result property="grade" column="grade"/>
         <result property="classNumber" column="class_number"/>
+        <result property="subject" column="subject"/>
         <result property="schoolCode" column="school_code"/>
         <result property="schoolName" column="school_name"/>
         <result property="inviteCode" column="invite_code"/>
@@ -24,8 +26,8 @@
     </resultMap>
 
     <sql id="groupInfoColumns">
-        group_id, cla_id, host_user_no, group_nm, group_desc,
-        school_level, grade, class_number, school_code, school_name,
+        group_id, cla_id, sp_group_id, host_user_no, group_nm, group_desc,
+        school_level, grade, class_number, subject, school_code, school_name,
         invite_code, invite_link_token, max_member_count,
         use_yn, created_by, updated_by, created_at, updated_at
     </sql>
@@ -70,8 +72,8 @@
 
     <insert id="insertGroupInfo" parameterType="com.vs.meta.domain.GroupInfo" useGeneratedKeys="true" keyProperty="groupId">
         /* GroupInfoMapper.insertGroupInfo */
-        INSERT INTO group_info (cla_id, host_user_no, group_nm, group_desc, school_level, grade, class_number, school_code, school_name, invite_code, invite_link_token, max_member_count, use_yn, created_by, updated_by, created_at, updated_at)
-        VALUES (#{claId}, #{hostUserNo}, #{groupNm}, #{groupDesc}, #{schoolLevel}, #{grade}, #{classNumber}, #{schoolCode}, #{schoolName}, #{inviteCode}, #{inviteLinkToken}, #{maxMemberCount}, #{useYn}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+        INSERT INTO group_info (cla_id, sp_group_id, host_user_no, group_nm, group_desc, school_level, grade, class_number, subject, school_code, school_name, invite_code, invite_link_token, max_member_count, use_yn, created_by, updated_by, created_at, updated_at)
+        VALUES (#{claId}, #{spGroupId}, #{hostUserNo}, #{groupNm}, #{groupDesc}, #{schoolLevel}, #{grade}, #{classNumber}, #{subject}, #{schoolCode}, #{schoolName}, #{inviteCode}, #{inviteLinkToken}, #{maxMemberCount}, #{useYn}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="updateGroupInfo" parameterType="com.vs.meta.domain.GroupInfo">
@@ -82,6 +84,7 @@
             school_level = #{schoolLevel},
             grade = #{grade},
             class_number = #{classNumber},
+            subject = #{subject},
             school_code = #{schoolCode},
             school_name = #{schoolName},
             invite_code = #{inviteCode},
@@ -96,6 +99,31 @@
     <select id="countActiveGroups" resultType="long">
         /* GroupInfoMapper.countActiveGroups */
         SELECT COUNT(*) FROM group_info WHERE use_yn = 'Y'
+    </select>
+
+    <update id="deactivateByHostUserNo">
+        /* GroupInfoMapper.deactivateByHostUserNo */
+        UPDATE group_info
+        SET use_yn     = 'N',
+            updated_by = 0,
+            updated_at = NOW()
+        WHERE host_user_no = #{hostUserNo}
+          AND use_yn = 'Y'
+    </update>
+
+    <select id="findBySpGroupId" resultMap="groupInfoResultMap">
+        /* GroupInfoMapper.findBySpGroupId */
+        SELECT <include refid="groupInfoColumns"/>
+        FROM group_info
+        WHERE sp_group_id = #{spGroupId}
+    </select>
+
+    <select id="findActiveSyncedGroups" resultMap="groupInfoResultMap">
+        /* GroupInfoMapper.findActiveSyncedGroups */
+        SELECT <include refid="groupInfoColumns"/>
+        FROM group_info
+        WHERE sp_group_id IS NOT NULL
+          AND use_yn = 'Y'
     </select>
 
 </mapper>

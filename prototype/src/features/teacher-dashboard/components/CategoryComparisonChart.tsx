@@ -1,12 +1,22 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import type { Class } from '@/shared/types';
-import { calculateCategoryAverages, transformToCategoryChartData } from '@/shared/utils/classComparisonUtils';
+import {
+  calculateCategoryAverages,
+  transformToCategoryChartData,
+  transformToSubCategoryChartData,
+  transformToSelfregCategoryChartData,
+  transformToSelfregSubCategoryChartData,
+} from '@/shared/utils/classComparisonUtils';
+
+type TestId = 'comprehensive' | 'selfreg';
 
 interface CategoryComparisonChartProps {
   classes: Class[];
   selectedClassId?: string | null;
   onClassSelect?: (classId: string | null) => void;
+  drillLevel?: '5areas' | '11categories';
+  testId?: TestId;
 }
 
 // 반별 색상 (더 생생하고 조화로운 색상)
@@ -27,11 +37,24 @@ export const CategoryComparisonChart: React.FC<CategoryComparisonChartProps> = (
   classes,
   selectedClassId,
   onClassSelect,
+  drillLevel = '5areas',
+  testId = 'comprehensive',
 }) => {
   const chartData = useMemo(() => {
+    // 자기조절학습검사: 3대 영역 / 6개 중분류
+    if (testId === 'selfreg') {
+      if (drillLevel === '11categories') {
+        return transformToSelfregSubCategoryChartData(classes);
+      }
+      return transformToSelfregCategoryChartData(classes);
+    }
+    // 학습종합검사: 5대 영역 / 11개 중분류
     const classAverages = classes.map(calculateCategoryAverages);
+    if (drillLevel === '11categories') {
+      return transformToSubCategoryChartData(classes);
+    }
     return transformToCategoryChartData(classAverages);
-  }, [classes]);
+  }, [classes, drillLevel, testId]);
 
   const handleLineClick = (classId: string) => {
     if (onClassSelect) {
@@ -48,7 +71,7 @@ export const CategoryComparisonChart: React.FC<CategoryComparisonChartProps> = (
       <ResponsiveContainer width="100%" height={500}>
         <LineChart
           data={chartData}
-          margin={{ top: 30, right: 40, left: 10, bottom: 70 }}
+          margin={{ top: 30, right: 100, left: 10, bottom: 70 }}
         >
           <defs>
             {classes.map((cls, idx) => (
@@ -77,12 +100,6 @@ export const CategoryComparisonChart: React.FC<CategoryComparisonChartProps> = (
 
           <YAxis
             domain={[20, 80]}
-            label={{
-              value: 'T점수',
-              angle: -90,
-              position: 'insideLeft',
-              style: { fontSize: '13px', fill: '#374151', fontWeight: 600 },
-            }}
             tick={{ fontSize: 11, fill: '#6B7280' }}
             axisLine={{ stroke: '#D1D5DB', strokeWidth: 1.5 }}
             tickLine={false}
@@ -110,7 +127,7 @@ export const CategoryComparisonChart: React.FC<CategoryComparisonChartProps> = (
             iconType="line"
             iconSize={16}
             onClick={(e) => {
-              const cls = classes.find(c => `${c.grade}-${c.classNumber}반` === e.value);
+              const cls = classes.find(c => `${c.grade}학년 ${c.classNumber}반` === e.value);
               if (cls) handleLineClick(cls.id);
             }}
             style={{ cursor: 'pointer' }}
@@ -131,7 +148,7 @@ export const CategoryComparisonChart: React.FC<CategoryComparisonChartProps> = (
           />
 
           {classes.map((cls, idx) => {
-            const className = `${cls.grade}-${cls.classNumber}반`;
+            const className = `${cls.grade}학년 ${cls.classNumber}반`;
             const isSelected = selectedClassId === cls.id;
             const hasSelection = selectedClassId !== null;
             const color = CLASS_COLORS[idx % CLASS_COLORS.length];

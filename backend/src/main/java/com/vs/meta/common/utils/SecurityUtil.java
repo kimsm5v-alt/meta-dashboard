@@ -7,7 +7,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * SecurityContext에서 인증된 사용자 정보를 추출하는 유틸.
@@ -37,6 +37,25 @@ public class SecurityUtil {
     public static String getCurrentSpUserId() {
         SpAuthenticatedUser user = getCurrentSpUser();
         return (user != null) ? user.spUserId() : null;
+    }
+
+    /**
+     * 현재 요청의 Authorization 헤더에서 raw Bearer 토큰을 추출한다.
+     *
+     * <p>그룹 on-demand 동기화(group-from-idp)에서 사용자 본인 AT 를 Auth user API
+     * ({@code /api/v1/groups}, {@code /api/v1/groups/my}) 로 forward 할 때 사용.
+     * principal(SpAuthenticatedUser)에는 raw 토큰이 없으므로 헤더에서 직접 읽는다.
+     *
+     * @return "Bearer " 접두어를 제거한 토큰. 없으면 null
+     */
+    public static String getCurrentBearerToken() {
+        HttpServletRequest request = getCurrentRequest();
+        if (request == null) return null;
+        String header = request.getHeader("Authorization");
+        if (header == null || !header.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return null;
+        }
+        return header.substring(7).trim();
     }
 
     /**
@@ -91,25 +110,6 @@ public class SecurityUtil {
             throw new IllegalStateException("인증된 사용자 정보가 없습니다.");
         }
         return userNo;
-    }
-
-    /**
-     * 게스트 인증 여부 확인
-     */
-    public static boolean isGuestAuthenticated() {
-        SpAuthenticatedUser user = getCurrentSpUser();
-        return user != null && "GUEST".equals(user.userType());
-    }
-
-    /**
-     * 게스트 ID 추출 (SP JWT sub: "guest_xxx")
-     */
-    public static String getCurrentGuestId() {
-        SpAuthenticatedUser user = getCurrentSpUser();
-        if (user != null && "GUEST".equals(user.userType())) {
-            return user.spUserId();
-        }
-        return null;
     }
 
     /**

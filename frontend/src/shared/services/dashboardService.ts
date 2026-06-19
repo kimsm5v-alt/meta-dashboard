@@ -106,6 +106,7 @@ export interface LpaTopData {
   lpaTop2Probability?: number | null;
   lpaTop3TypeName?: string | null;
   lpaTop3Probability?: number | null;
+  answerIdx?: number | null;
 }
 
 export type AnalysisResponse = Record<string, AnalysisSectionItem[]>;
@@ -130,6 +131,24 @@ export interface ModerationPath {
   classDescription?: string;
 }
 
+export interface Weakness {
+  factorName: string;
+  factorType: 'positive' | 'negative';
+  individualT: number;
+  groupT: number;
+  deviation: number;
+  direction: 'positive' | 'negative';
+}
+
+export interface Strength {
+  factorName: string;
+  factorType: 'positive' | 'negative';
+  individualT: number;
+  groupT: number;
+  deviation: number;
+  direction: 'positive' | 'negative';
+}
+
 export interface GraphRecommendation {
   answerIdx: number;
   lpa: {
@@ -144,6 +163,8 @@ export interface GraphRecommendation {
   };
   recommendationCount: number;
   moderationPaths: ModerationPath[];
+  strengths?: Strength[];
+  weaknesses?: Weakness[];
 }
 
 export type RecommendationByOrd = Record<string, GraphRecommendation>;
@@ -291,6 +312,52 @@ function convertSectionsToTScores(sections: AnalysisSectionItem[]): number[] {
   return tScores;
 }
 
+// ============================================================
+// 자기조절학습검사(paperIdx='2') SECTION_ID → 요인 인덱스 매핑 (20개)
+// shared/data/selfregFactors.ts의 index 순서와 일치
+// ============================================================
+
+const SELFREG_SECTION_ID_TO_INDEX: Record<string, number> = {
+  // 동기전략
+  '20-22-01-01-01-0': 0, // 성장마인드셋
+  '20-22-01-01-02-0': 1, // 학업효능감
+  '20-22-01-01-03-0': 2, // 학습동기
+  '20-22-01-02-01-0': 3, // 성적부담조절
+  '20-22-01-02-02-0': 4, // 공부부담조절
+  '20-22-01-02-03-0': 5, // 실패부담조절
+  // 인지전략
+  '20-22-02-01-01-0': 6, // 계획능력
+  '20-22-02-01-02-0': 7, // 점검능력
+  '20-22-02-01-03-0': 8, // 조절능력
+  '20-22-02-02-01-0': 9, // 이해기술
+  '20-22-02-02-02-0': 10, // 기억기술
+  '20-22-02-02-03-0': 11, // 집중기술
+  // 행동전략
+  '20-22-03-01-01-0': 12, // 자기칭찬
+  '20-22-03-01-02-0': 13, // 도움구하기
+  '20-22-03-01-03-0': 14, // 학습지속성
+  '20-22-03-02-01-0': 15, // 공부환경
+  '20-22-03-02-02-0': 16, // 시간관리
+  '20-22-03-02-03-0': 17, // 수업태도
+  '20-22-03-02-04-0': 18, // 노트하기
+  '20-22-03-02-05-0': 19, // 시험준비
+};
+
+function convertSelfregSectionsToTScores(sections: AnalysisSectionItem[]): number[] {
+  const tScores: number[] = new Array(20).fill(50);
+
+  for (const section of sections) {
+    if (section.DEPTH !== 5) continue;
+
+    const index = SELFREG_SECTION_ID_TO_INDEX[section.SECTION_ID];
+    if (index !== undefined) {
+      tScores[index] = Math.round(section.tScore);
+    }
+  }
+
+  return tScores;
+}
+
 function getReliabilityWarnings(info: StudentInfoItem | AnalysisSectionItem): string[] {
   const warnings: string[] = [];
 
@@ -385,6 +452,65 @@ export async function fetchClassAnalysisRaw(
   return response.resultData[String(ordNo)] ?? [];
 }
 
+/**
+ * 자기조절 반 집계 응답의 명명 키 → 요인 인덱스 (0~19)
+ * 교사 tc/analysis 는 학생 st/analysis(SECTION_ID 배열)와 달리 명명 키 객체를 반환한다.
+ * selfregFactors.ts의 index 순서와 일치.
+ */
+const SELFREG_CLASS_KEYS: string[] = [
+  // 동기전략
+  'mindSet', // 0 성장마인드셋
+  'efficacy', // 1 학업효능감
+  'motivation', // 2 학습동기
+  'gradeLvl', // 3 성적부담조절
+  'styLvl', // 4 공부부담조절
+  'failLvl', // 5 실패부담조절
+  // 인지전략
+  'planAbil', // 6 계획능력
+  'inspecAbil', // 7 점검능력
+  'contrlAbil', // 8 조절능력
+  'compreSkil', // 9 이해기술
+  'memrySkil', // 10 기억기술
+  'intenSkil', // 11 집중기술
+  // 행동전략
+  'selfPraise', // 12 자기칭찬
+  'help', // 13 도움구하기
+  'lrnConti', // 14 학습지속성
+  'styEnvi', // 15 공부환경
+  'timeCtrl', // 16 시간관리
+  'styAtti', // 17 수업태도
+  'note', // 18 노트하기
+  'test', // 19 시험준비
+];
+
+/**
+ * 자기조절학습검사(paperIdx='2') 반 평균 분석
+ * 20개 요인 class-average T-score 반환 (값이 없으면 null)
+ */
+export async function fetchSelfregClassAnalysis(
+  claId: string,
+  ordNo: number = 1,
+): Promise<number[] | null> {
+  const response = await apiRequest<AnalysisResponse>(
+    `/api/dgnss/tc/analysis?claId=${claId}&paperIdx=2&ordNo=${ordNo}`,
+  );
+
+  // 반 집계는 명명 키 객체 형태 (배열 아님)
+  const roundData = response.resultData[String(ordNo)] as unknown as
+    | Record<string, number>
+    | undefined;
+  if (!roundData || typeof roundData !== 'object') return null;
+
+  const tScores = SELFREG_CLASS_KEYS.map((key) => {
+    const v = roundData[key];
+    return typeof v === 'number' ? Math.round(v) : 50;
+  });
+
+  // 전부 기본값(50)이면 데이터 없음으로 간주
+  if (!tScores.some((t) => t !== 50)) return null;
+  return tScores;
+}
+
 export async function fetchStudentAnalysis(
   classId: string,
   stdtId: string,
@@ -453,6 +579,7 @@ export async function fetchStudentFullAnalysis(
     lpaTypeName: string | null;
     apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
+    answerIdx: number | null;
     recommendations?: RecommendationByOrd;
   } | null;
   round2: {
@@ -461,6 +588,7 @@ export async function fetchStudentFullAnalysis(
     lpaTypeName: string | null;
     apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
+    answerIdx: number | null;
     recommendations?: RecommendationByOrd;
   } | null;
 }> {
@@ -482,6 +610,7 @@ export async function fetchStudentFullAnalysis(
     lpaTypeName: string | null;
     apiTypeProbabilities: Record<string, number> | null;
     midCategoryScores: Record<string, number> | null;
+    answerIdx: number | null;
     recommendations?: RecommendationByOrd;
   } | null => {
     const roundData = response.resultData[String(ordNo)];
@@ -491,6 +620,7 @@ export async function fetchStudentFullAnalysis(
     if (!tScores.some((t) => t !== 50)) return null;
 
     const lpaTopEntry = lpaTopMap?.[String(ordNo)];
+    const recEntry = (recommendationByOrd?.[String(ordNo)]) as GraphRecommendation | undefined;
     const rawLpaTypeName = lpaTopEntry?.lpaTypeName ?? null;
     const apiTypeProbabilities = lpaTopEntry ? buildApiTypeProbabilities(lpaTopEntry) : null;
     return {
@@ -499,7 +629,57 @@ export async function fetchStudentFullAnalysis(
       lpaTypeName: normalizeLpaTypeName(rawLpaTypeName),
       apiTypeProbabilities,
       midCategoryScores: extractMidCategoryScores(roundData),
+      answerIdx: lpaTopEntry?.answerIdx ?? recEntry?.answerIdx ?? null,
       recommendations: recommendationByOrd,
+    };
+  };
+
+  return {
+    round1: parseRound(1),
+    round2: parseRound(2),
+  };
+}
+
+// ============================================================
+// 자기조절학습검사(paperIdx='2') 분석 조회
+// 종합검사와 달리 20개 요인, LPA 유형 없음
+// ============================================================
+
+export interface SelfregRoundAnalysis {
+  /** 자기조절 20개 요인 T-score (index 0~19) */
+  tScores: number[];
+  reliabilityWarnings: string[];
+  answerIdx: number | null;
+}
+
+export async function fetchSelfregFullAnalysis(
+  classId: string,
+  stdtId: string,
+  graphYn: 'Y' | 'N' = 'N',
+): Promise<{ round1: SelfregRoundAnalysis | null; round2: SelfregRoundAnalysis | null }> {
+  const response = await apiRequest<AnalysisResponse>(
+    `/api/dgnss/st/analysis?claId=${classId}&stdtId=${stdtId}&paperIdx=2&ordNo=2&graphYn=${graphYn}`,
+  );
+
+  const rawResultData = response.resultData as Record<string, unknown>;
+  const lpaTopMap = rawResultData['lpaTop'] as Record<string, LpaTopData> | undefined;
+  const recommendationByOrd = rawResultData['recommendationByOrd'] as
+    | RecommendationByOrd
+    | undefined;
+
+  const parseRound = (ordNo: 1 | 2): SelfregRoundAnalysis | null => {
+    const roundData = response.resultData[String(ordNo)];
+    if (!roundData || roundData.length === 0) return null;
+
+    const tScores = convertSelfregSectionsToTScores(roundData);
+    if (!tScores.some((t) => t !== 50)) return null;
+
+    const lpaTopEntry = lpaTopMap?.[String(ordNo)];
+    const recEntry = recommendationByOrd?.[String(ordNo)] as GraphRecommendation | undefined;
+    return {
+      tScores,
+      reliabilityWarnings: getReliabilityWarnings(roundData[0]),
+      answerIdx: lpaTopEntry?.answerIdx ?? recEntry?.answerIdx ?? null,
     };
   };
 
@@ -523,6 +703,7 @@ export function convertToAssessment(
         lpaTypeName?: string | null;
         apiTypeProbabilities?: Record<string, number> | null;
         midCategoryScores?: Record<string, number> | null;
+        answerIdx?: number | null;
       }
     | null
     | undefined,
@@ -556,6 +737,7 @@ export function convertToAssessment(
     reliabilityWarnings,
     attentionResult,
     midCategoryScores,
+    answerIdx: data?.answerIdx ?? null,
   };
 }
 
@@ -705,7 +887,11 @@ export async function fetchL2DashboardData(
       const assessments: import('@shared/types').Assessment[] = [];
 
       if (fullAnalysis.round1?.tScores) {
-        assessments.push(convertToAssessment(info.stdtId, 1, fullAnalysis.round1, schoolLevel));
+        const r1data = {
+          ...fullAnalysis.round1,
+          answerIdx: fullAnalysis.round1.answerIdx ?? info.answerIdx ?? null,
+        };
+        assessments.push(convertToAssessment(info.stdtId, 1, r1data, schoolLevel));
       }
 
       if (fullAnalysis.round2?.tScores) {

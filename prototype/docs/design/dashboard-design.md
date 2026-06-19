@@ -494,31 +494,47 @@ type CounselingStatus = 'scheduled' | 'completed' | 'cancelled';
 
 ## 8. 색상 시스템
 
-### 8.1 LPA 유형 색상
+### 8.1 검사 유형 색상
 
-| 학교급 | 유형 | 색상 | Tailwind |
-|--------|------|------|----------|
-| 초등 | 자원소진형 | #F97316 | orange-500 |
-| 초등 | 안전균형형 | #14B8A6 | teal-500 |
-| 초등 | 몰입자원풍부형 | #3351A4 | primary-500 |
-| 중등 | 무기력형 | #F97316 | orange-500 |
-| 중등 | 정서조절취약형 | #14B8A6 | teal-500 |
-| 중등 | 자기주도몰입형 | #3351A4 | primary-500 |
+| 검사명 | 색상 |
+|--------|------|
+| 학습종합검사 | #9D53E1 |
+| 자기조절검사 | #009F88 |
 
-### 8.2 유형 배지 스타일
+### 8.2 LPA 유형 색상
+
+#### 초등
+
+| 유형 | 색상 |
+|------|------|
+| 자원소진형 | #E74C3C |
+| 안전균형형 | #3498DB |
+| 몰입자원풍부형 | #2ECC71 |
+
+#### 중등
+
+| 유형 | 색상 |
+|------|------|
+| 냉소적무기력형 | #E74C3C |
+| 정서조절취약형 | #F39C12 |
+| 자기주도몰입형 | #2ECC71 |
+
+### 8.3 유형 배지 스타일
 
 ```typescript
 const TYPE_COLORS = {
-  '자원소진형': 'bg-orange-50 text-orange-600 border-orange-200',
-  '안전균형형': 'bg-teal-50 text-teal-600 border-teal-200',
-  '몰입자원풍부형': 'bg-blue-50 text-blue-600 border-blue-200',
-  '무기력형': 'bg-orange-50 text-orange-600 border-orange-200',
-  '정서조절취약형': 'bg-teal-50 text-teal-600 border-teal-200',
-  '자기주도몰입형': 'bg-blue-50 text-blue-600 border-blue-200',
+  // 초등
+  '자원소진형': 'bg-red-50 text-red-600 border-red-200',       // #E74C3C
+  '안전균형형': 'bg-blue-50 text-blue-600 border-blue-200',    // #3498DB
+  '몰입자원풍부형': 'bg-emerald-50 text-emerald-600 border-emerald-200', // #2ECC71
+  // 중등
+  '냉소적무기력형': 'bg-red-50 text-red-600 border-red-200',   // #E74C3C
+  '정서조절취약형': 'bg-amber-50 text-amber-600 border-amber-200', // #F39C12
+  '자기주도몰입형': 'bg-emerald-50 text-emerald-600 border-emerald-200', // #2ECC71
 } as const;
 ```
 
-### 8.3 상태 색상
+### 8.4 상태 색상
 
 | 상태 | HEX | 용도 |
 |------|-----|------|
@@ -528,7 +544,7 @@ const TYPE_COLORS = {
 | 주의 | #F97316 | 관심 필요, orange-500 |
 | 신뢰도 경고 | #EF4444 | 신뢰도 주의, red-500 |
 
-### 8.4 변화 상태 색상 (L2)
+### 8.5 변화 상태 색상 (L2)
 
 ```typescript
 const CHANGE_COLORS = {
@@ -541,15 +557,25 @@ const CHANGE_COLORS = {
 } as const;
 ```
 
-### 8.5 5대 영역 색상 (DOMAIN_COLORS)
+### 8.6 대분류 색상
 
-| 영역 | 색상 | 성격 |
-|------|------|------|
-| 자아강점 | emerald | 정적 |
-| 학습디딤돌 | blue | 정적 |
-| 학습걸림돌 | rose | 부적 |
-| 긍정적공부마음 | amber | 정적 |
-| 부정적공부마음 | purple | 부적 |
+#### 학습종합검사
+
+| 대분류 | HEX | 성격 |
+|--------|-----|------|
+| 자아강점 | #00D282 | 정적(긍정) |
+| 학습디딤돌 | #4BC1FF | 정적(긍정) |
+| 긍정적공부마음 | #67A7FF | 정적(긍정) |
+| 학습걸림돌 | #FF849F | 부적(부정) |
+| 부정적공부마음 | #FF87D4 | 부적(부정) |
+
+#### 자기조절학습검사
+
+| 대분류 | HEX |
+|--------|-----|
+| 동기전략 | #9F91F8 |
+| 인지전략 | #4BC1FF |
+| 행동전략 | #FF8A94 |
 
 ---
 

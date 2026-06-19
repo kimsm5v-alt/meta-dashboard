@@ -1,6 +1,7 @@
 package com.vs.meta.api.sso.service;
 
 import com.vs.meta.api.member.mapper.UserMapper;
+import com.vs.meta.common.security.SpAuthenticatedUser;
 import com.vs.meta.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,9 +13,11 @@ import java.time.LocalDateTime;
 /**
  * SSO 사용자 조회 서비스.
  *
- * <p>순수 조회 + 마지막 로그인 시각 디바운스 업데이트만 담당한다.
- * 개인정보 동기화(email/nickname/roleCode)는 하지 않는다 —
- * Auth 서버가 단일 진실(source of truth)이며 변경 기능이 없어 sync 불필요.
+ * <p>sp_user_id로 학심정 user를 조회하고 last_login_at을 갱신한다.
+ * Auth 서버의 PII(이름/이메일)는 더 이상 DB에 미러링하지 않는다 (Phase 3).
+ *
+ * <p>호출 시점: FE의 useProfileCheck (`/api/v1/user/status`) 가 라우트마다 호출되므로
+ * 그 시점에 last_login_at 디바운스 갱신을 처리한다.
  */
 @Slf4j
 @Service
@@ -32,13 +35,21 @@ public class SsoUserQueryService {
     }
 
     /**
-     * 마지막 로그인 시각 업데이트 (디바운스 — 최소 10분 간격).
-     * 페이지 이동마다 UPDATE 쿼리가 나가는 것을 방지한다.
+     * 요청 진입 시 처리: last_login_at 디바운스 갱신.
+     *
+     * <p>last_login_at 은 10분 디바운스 — 페이지 이동마다 UPDATE 나가는 것을 방지.
      */
     @Transactional
-    public void touchLastLogin(User user) {
-        if (!shouldUpdate(user.getLastLoginAt())) return;
+    public void touchOnRequest(SpAuthenticatedUser spUser, User user) {
+        boolean lastLoginDue = shouldUpdate(user.getLastLoginAt());
+
+        if (!lastLoginDue) {
+            return;
+        }
+
         user.updateLastLogin();
+        user.setUpdatedBy(user.getUserNo());
+        user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateUser(user);
     }
 

@@ -4,10 +4,10 @@
 
 /** 검사 상태 */
 export type ExamStatus =
-  | 'waiting'        // 시작 전 (eakAt=N, submAt=N, dgnssAt=Y)
-  | 'in_progress'    // 응시 중 (eakAt=Y, submAt=N, dgnssAt=Y)
-  | 'completed'      // 제출 완료 (eakAt=Y, submAt=Y, dgnssAt=Y)
-  | 'result_ready'   // 검사 종료 (eakAt=Y, submAt=Y, dgnssAt=N)
+  | 'waiting' // 시작 전 (eakAt=N, submAt=N, dgnssAt=Y)
+  | 'in_progress' // 응시 중 (eakAt=Y, submAt=N, dgnssAt=Y)
+  | 'completed' // 제출 완료 (eakAt=Y, submAt=Y, dgnssAt=Y)
+  | 'result_ready' // 검사 종료 (eakAt=Y, submAt=Y, dgnssAt=N)
   | 'not_submitted'; // 미제출 (eakAt=N, submAt=N, dgnssAt=N)
 
 /** 학생 검사 목록 아이템 (UI용) */
@@ -16,6 +16,8 @@ export interface StudentExamListItem {
   dgnssResultId: number;
   /** 검사 회차 (1차, 2차...) */
   ordNo: number;
+  /** 검사지 종류 ('1': 학습종합검사, '2': 자기조절학습검사) */
+  paperIdx: string;
   /** 검사명 */
   name: string;
   /** 상태 */
@@ -33,11 +35,7 @@ export interface StudentExamListItem {
 }
 
 /** API 응답 → UI 상태 변환 헬퍼 */
-export function mapExamStatus(
-  dgnssAt: 'Y' | 'N',
-  submAt: 'Y' | 'N',
-  eakAt: 'Y' | 'N',
-): ExamStatus {
+export function mapExamStatus(dgnssAt: 'Y' | 'N', submAt: 'Y' | 'N', eakAt: 'Y' | 'N'): ExamStatus {
   if (dgnssAt === 'N') {
     return submAt === 'Y' ? 'result_ready' : 'not_submitted';
   }

@@ -63,6 +63,8 @@ interface BackendGroupMember {
   memberNo?: number;
   memberType: 'STUDENT' | 'GUEST';
   status: 'ACTIVE' | 'LEFT' | 'KICKED' | 'ARCHIVED';
+  /** Auth PII 마스킹 사유 (NONE/NOT_CONSENTED/WITHDRAWN/NOT_FOUND). 미동의자는 name/email null. */
+  maskedReason?: string;
   joinedAt?: string;
   leftAt?: string;
 }
@@ -142,8 +144,9 @@ const toFrontendMember = (m: BackendGroupMember): GroupMember => ({
   groupId: '',
   userId: m.userNo != null ? String(m.userNo) : null,
   stdtId: m.stdtId,
-  name: m.nickname,
+  name: m.nickname ?? '', // 미동의(NOT_CONSENTED) 멤버는 Auth 가 name=null → 패널에서 '비공개' 표시
   email: m.email,
+  maskedReason: m.maskedReason as GroupMember['maskedReason'],
   gender: m.gender === 'M' || m.gender === 'F' ? m.gender : undefined,
   memberNo: m.memberNo,
   memberType: m.memberType === 'GUEST' ? 'guest' : 'member',
@@ -205,9 +208,14 @@ export const createGroup = async (
 
 /**
  * 내 그룹 목록 조회
+ * @param includeInactive true면 탈퇴/방출된 그룹도 포함
  */
-export const getMyGroups = async (_userId: string): Promise<Group[]> => {
-  const res = await apiClient.get<BackendGroupListItem[]>('/group/list');
+export const getMyGroups = async (
+  _userId: string,
+  includeInactive = false,
+): Promise<Group[]> => {
+  const url = includeInactive ? '/group/list?includeInactive=true' : '/group/list';
+  const res = await apiClient.get<BackendGroupListItem[]>(url);
   return (res.resultData ?? []).map(toFrontendGroup);
 };
 

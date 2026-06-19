@@ -104,7 +104,7 @@ export const LandingPage = () => {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      const path = user?.roleCode === 'STUDENT' ? '/student/exams' : '/dashboard';
+      const path = user?.roleCode === 'STUDENT' ? '/student/exams' : '/assessment';
       navigate(path, { replace: true });
     }
   }, [isAuthenticated, isLoading, user, navigate]);

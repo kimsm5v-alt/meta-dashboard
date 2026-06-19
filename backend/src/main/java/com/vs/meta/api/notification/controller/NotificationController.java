@@ -2,6 +2,7 @@ package com.vs.meta.api.notification.controller;
 
 import com.vs.meta.api.notification.dto.NotificationListResponse;
 import com.vs.meta.api.notification.service.NotificationService;
+import com.vs.meta.common.aop.QchSkip;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.CustomBody;
 import com.vs.meta.common.response.ResponseDTO;
@@ -49,6 +50,7 @@ public class NotificationController {
 
     @GetMapping("/unread-count")
     @Operation(summary = "미확인 알림 개수", description = "뱃지 표시 / fallback 폴링용 경량 API")
+    @QchSkip(reason = "폴링 빈도 높음 - QCH 적재 불필요")
     public ResponseDTO<CustomBody> unreadCount() {
         Long userNo = SecurityUtil.requireCurrentUserNo();
         int count = service.countUnread(userNo);

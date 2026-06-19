@@ -29,20 +29,21 @@
         ORDER BY gi.created_at DESC
     </select>
 
+    <!-- Phase 3: nickname/email 제거, sp_user_id JOIN 추가 — UserInfoEnricher가 서비스 레이어에서 채운다. -->
     <select id="findGroupMemberList" resultType="java.util.LinkedHashMap">
         /* GroupQueryMapper.findGroupMemberList */
         SELECT
             gm.id           AS id,
             gm.group_id     AS groupId,
             gm.user_no      AS userNo,
+            u.sp_user_id    AS spUserId,
             gm.stdt_id      AS stdtId,
-            gm.nickname      AS nickname,
-            gm.email         AS email,
             gm.member_type   AS memberType,
             gm.member_no     AS memberNo,
             gm.status        AS status,
             gm.joined_at     AS joinedAt
         FROM group_member gm
+        LEFT JOIN `user` u ON u.user_no = gm.user_no
         WHERE gm.group_id = #{groupId}
         ORDER BY gm.member_no ASC
         LIMIT #{limit} OFFSET #{offset}
@@ -54,6 +55,7 @@
         WHERE group_id = #{groupId}
     </select>
 
+    <!-- Phase 3: hostNickname 제거, hostSpUserId 추가 — UserInfoEnricher가 서비스 레이어에서 채운다. -->
     <select id="findGroupDetail" resultType="java.util.LinkedHashMap">
         /* GroupQueryMapper.findGroupDetail */
         SELECT
@@ -70,7 +72,7 @@
             gi.max_member_count AS maxMemberCount,
             gi.use_yn           AS useYn,
             gi.created_at       AS createdAt,
-            u.nickname          AS hostNickname,
+            u.sp_user_id        AS hostSpUserId,
             CASE WHEN gi.host_user_no = #{userNo} THEN 'HOST' ELSE 'STUDENT' END AS myRole
         FROM group_info gi
         JOIN `user` u ON u.user_no = gi.host_user_no
@@ -87,26 +89,8 @@
         LIMIT 1
     </select>
 
-    <select id="findGuestMembersByEmail" resultType="java.util.LinkedHashMap">
-        /* GroupQueryMapper.findGuestMembersByEmail */
-        SELECT
-            gm.id           AS memberId,
-            gi.cla_id       AS claId,
-            gm.stdt_id      AS stdtId,
-            gm.nickname      AS nickname,
-            gm.email         AS email,
-            gi.group_nm     AS groupNm,
-            gi.grade        AS grade,
-            gm.joined_at    AS joinedAt
-        FROM group_member gm
-        JOIN group_info gi ON gi.group_id = gm.group_id
-        WHERE gm.email = #{email}
-          AND gm.user_no IS NULL
-          AND gm.member_type = 'GUEST'
-          AND gm.status = 'ACTIVE'
-    </select>
-
     <!-- Admin 그룹 관리 -->
+    <!-- Phase 3: hostNickname/hostEmail 제거, hostSpUserId 추가. keyword 검색에서 nickname/email LIKE 제거. -->
     <select id="findAdminGroupList" resultType="java.util.LinkedHashMap">
         /* GroupQueryMapper.findAdminGroupList */
         SELECT
@@ -125,17 +109,14 @@
             gi.invite_code      AS inviteCode,
             gi.use_yn           AS useYn,
             gi.created_at       AS createdAt,
-            u.nickname          AS hostNickname,
-            u.email             AS hostEmail,
+            u.sp_user_id        AS hostSpUserId,
             (SELECT COUNT(*) FROM group_member gm WHERE gm.group_id = gi.group_id AND gm.status = 'ACTIVE') AS memberCount
         FROM group_info gi
         JOIN `user` u ON u.user_no = gi.host_user_no
         <where>
             <if test="keyword != null and keyword != ''">
                 AND (gi.group_nm LIKE CONCAT('%', #{keyword}, '%')
-                     OR gi.school_name LIKE CONCAT('%', #{keyword}, '%')
-                     OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
-                     OR u.email LIKE CONCAT('%', #{keyword}, '%'))
+                     OR gi.school_name LIKE CONCAT('%', #{keyword}, '%'))
             </if>
             <if test="schoolLevel != null and schoolLevel != ''">
                 AND gi.school_level = #{schoolLevel}
@@ -156,9 +137,7 @@
         <where>
             <if test="keyword != null and keyword != ''">
                 AND (gi.group_nm LIKE CONCAT('%', #{keyword}, '%')
-                     OR gi.school_name LIKE CONCAT('%', #{keyword}, '%')
-                     OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
-                     OR u.email LIKE CONCAT('%', #{keyword}, '%'))
+                     OR gi.school_name LIKE CONCAT('%', #{keyword}, '%'))
             </if>
             <if test="schoolLevel != null and schoolLevel != ''">
                 AND gi.school_level = #{schoolLevel}
@@ -169,6 +148,7 @@
         </where>
     </select>
 
+    <!-- Phase 3: hostNickname/hostEmail 제거, hostSpUserId 추가. -->
     <select id="findAdminGroupDetail" resultType="java.util.LinkedHashMap">
         /* GroupQueryMapper.findAdminGroupDetail */
         SELECT
@@ -189,8 +169,7 @@
             gi.max_member_count AS maxMemberCount,
             gi.use_yn           AS useYn,
             gi.created_at       AS createdAt,
-            u.nickname          AS hostNickname,
-            u.email             AS hostEmail,
+            u.sp_user_id        AS hostSpUserId,
             (SELECT COUNT(*) FROM group_member gm WHERE gm.group_id = gi.group_id AND gm.status = 'ACTIVE') AS activeMemberCount,
             (SELECT COUNT(*) FROM group_member gm WHERE gm.group_id = gi.group_id) AS totalMemberCount
         FROM group_info gi
@@ -198,18 +177,20 @@
         WHERE gi.group_id = #{groupId}
     </select>
 
+    <!-- Phase 3: nickname/email 제거, sp_user_id JOIN 추가. -->
     <select id="findAdminGroupMemberList" resultType="java.util.LinkedHashMap">
         /* GroupQueryMapper.findAdminGroupMemberList */
         SELECT
             gm.id           AS id,
+            gm.user_no      AS userNo,
+            u.sp_user_id    AS spUserId,
             gm.stdt_id      AS stdtId,
-            gm.nickname      AS nickname,
-            gm.email         AS email,
             gm.member_type   AS memberType,
             gm.member_no     AS memberNo,
             gm.status        AS status,
             gm.joined_at     AS joinedAt
         FROM group_member gm
+        LEFT JOIN `user` u ON u.user_no = gm.user_no
         WHERE gm.group_id = #{groupId}
         ORDER BY gm.member_no ASC
         LIMIT #{limit} OFFSET #{offset}

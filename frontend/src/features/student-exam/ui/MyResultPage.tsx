@@ -11,21 +11,17 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
-import { ArrowLeft, ShieldAlert, AlertTriangle, Clock, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, AlertTriangle, Clock, Loader2 } from 'lucide-react';
+import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
-import {
-  DiagnosisSummary,
-  TypeClassification,
-  TypeDeviations,
-  DataHelperChatbot,
-  CoachingStrategy,
-} from '@features/student-dashboard';
+import { DiagnosisSummary } from '@features/student-dashboard';
 import { getMyGroups } from '@features/groups/api/groupService';
 import { fetchStudentFullAnalysis, convertToAssessment } from '@shared/services/dashboardService';
 import { getStudentExamList } from '../api/studentExamService';
+import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
 import type { Student, SchoolLevel, Assessment } from '@shared/types';
 
@@ -73,13 +69,10 @@ const SectionDivider = styled.div`
 `;
 
 const MyResultContent: React.FC<MyResultContentProps> = ({
-  student,
   assessment,
   prevAssessment,
   isCompare,
 }) => {
-  const [isCoachingOpen, setIsCoachingOpen] = useState(false);
-
   const domainData = useMemo(
     () => buildStudentDomainData(assessment.tScores),
     [assessment.tScores],
@@ -108,7 +101,7 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
       </Section>
 
       {/* 2. 학습 유형 알아보기 */}
-      <Section>
+      {/* <Section>
         <SectionTitle>나의 학습 유형</SectionTitle>
         <SectionCard>
           <SectionContent>
@@ -128,25 +121,13 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
             />
           </SectionContent>
         </SectionCard>
-      </Section>
+      </Section> */}
 
-      {/* 데이터 해석 도우미 (플로팅 챗봇) */}
-      <DataHelperChatbot
-        tScores={assessment.tScores}
-        predictedType={assessment.predictedType}
-        typeProbabilities={assessment.typeProbabilities}
-        schoolLevel={student.schoolLevel}
-        deviations={assessment.deviations}
-      />
-
-      {/* 코칭 전략 모달 */}
-      <CoachingStrategy
-        predictedType={assessment.predictedType}
-        schoolLevel={student.schoolLevel}
-        tScores={assessment.tScores}
-        isOpen={isCoachingOpen}
-        onClose={() => setIsCoachingOpen(false)}
-      />
+      {/* 데이터 해석 도우미 (스피드다이얼 FAB) */}
+      {/* <DataHelperChatbot
+        onOpenPanel={() => {}}
+        isPanelOpen={false}
+      /> */}
     </ContentRoot>
   );
 };
@@ -230,26 +211,39 @@ const PageSubtitle = styled.p`
 `;
 
 const PDFButton = styled.button`
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.xs};
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  background: ${({ theme }) => theme.colors.gray[100]};
-  color: ${({ theme }) => theme.colors.gray[700]};
-  border: none;
-  border-radius: ${({ theme }) => theme.radius.lg};
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: white;
+  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
+  border-radius: 0.5rem;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  color: ${({ theme }) => theme.colors.gray[700]};
   cursor: pointer;
-  transition: background-color ${({ theme }) => theme.transitions.fast};
+  white-space: nowrap;
+  transition: all 0.15s ease;
 
-  &:hover {
-    background: ${({ theme }) => theme.colors.gray[200]};
+  &::before {
+    content: '';
+    width: 18px;
+    height: 22px;
+    background-image: ${PDF_ICON_SVG_URL};
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex-shrink: 0;
   }
 
-  svg {
-    width: 16px;
-    height: 16px;
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.gray[50]};
+    border-color: ${({ theme }) => theme.colors.gray[400]};
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 `;
 
@@ -328,6 +322,12 @@ const LoadingSpinner = styled(Loader2)`
   margin: 0 auto ${({ theme }) => theme.spacing.sm};
 `;
 
+const SpinningLoader = styled(Loader2)`
+  width: 16px;
+  height: 16px;
+  animation: ${spin} 1s linear infinite;
+`;
+
 const LoadingText = styled.p`
   color: ${({ theme }) => theme.colors.text.secondary};
 `;
@@ -378,8 +378,17 @@ export const MyResultPage: React.FC = () => {
 
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
   const [student, setStudent] = useState<Student | null>(null);
+  const [dgnssIds, setDgnssIds] = useState<{ round1?: number; round2?: number }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPdfDownloading, setIsPdfDownloading] = useState<1 | 2 | null>(null);
+  const [pdfError, setPdfError] = useState(false);
+
+  useEffect(() => {
+    if (!pdfError) return;
+    const id = setTimeout(() => setPdfError(false), 4000);
+    return () => clearTimeout(id);
+  }, [pdfError]);
 
   useEffect(() => {
     const loadResult = async () => {
@@ -393,16 +402,15 @@ export const MyResultPage: React.FC = () => {
         }
 
         // 속한 모든 그룹 조회 (학생은 여러 그룹에 속할 수 있음)
-        // MyExamListPage와 동일한 패턴 사용
-        const groups = await getMyGroups(user.id);
-        const memberGroups = groups.filter((g) => g.myRole === 'member');
+        // includeInactive=true로 탈퇴/방출된 그룹도 포함하여 과거 검사 결과 조회 가능
+        const groups = await getMyGroups(user.id, true);
 
-        if (memberGroups.length === 0) {
+        if (groups.length === 0) {
           setError('아직 시행한 검사 결과가 없습니다.');
           return;
         }
 
-        const groupsToCheck = memberGroups.map((g) => ({
+        const groupsToCheck = groups.map((g) => ({
           claId: g.claId,
           schoolLevel: SCHOOL_LEVEL_MAP[g.schoolLevel] ?? '중등',
         }));
@@ -413,6 +421,7 @@ export const MyResultPage: React.FC = () => {
           claId: string;
           analysis: Awaited<ReturnType<typeof fetchStudentFullAnalysis>>;
           schoolLevel: SchoolLevel;
+          dgnssIds: { round1?: number; round2?: number };
         }> = [];
 
         for (const group of groupsToCheck) {
@@ -422,12 +431,21 @@ export const MyResultPage: React.FC = () => {
 
             if (hasResults) {
               hasAnyResults = true;
-              const fullAnalysis = await fetchStudentFullAnalysis(group.claId, user.stdtId, '1');
+              const r1Exam = examList.find((e) => e.hasResult && e.ordNo === 1);
+              const r2Exam = examList.find((e) => e.hasResult && e.ordNo === 2);
+              const groupDgnssIds = { round1: r1Exam?.dgnssId, round2: r2Exam?.dgnssId };
+              const fullAnalysis = await fetchStudentFullAnalysis(
+                group.claId,
+                user.stdtId,
+                '1',
+                'Y',
+              );
               if (fullAnalysis.round1 || fullAnalysis.round2) {
                 allAnalyses.push({
                   claId: group.claId,
                   analysis: fullAnalysis,
                   schoolLevel: group.schoolLevel,
+                  dgnssIds: groupDgnssIds,
                 });
               }
             }
@@ -444,6 +462,7 @@ export const MyResultPage: React.FC = () => {
 
         // 첫 번째 그룹의 데이터 사용 (여러 그룹이 있으면 첫 번째 선택)
         const selectedGroup = allAnalyses[0];
+        setDgnssIds(selectedGroup.dgnssIds);
         const { analysis: fullAnalysis, schoolLevel } = selectedGroup;
 
         const assessments: Assessment[] = [];
@@ -479,6 +498,27 @@ export const MyResultPage: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  const handleDownloadPdf = async (round: 1 | 2) => {
+    const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
+    const assessment = student?.assessments.find((a) => a.round === round);
+    if (!dgnssId || assessment?.answerIdx == null || !user?.stdtId) return;
+    setIsPdfDownloading(round);
+    setPdfError(false);
+    try {
+      await downloadStudentPdf({
+        userId: user.stdtId,
+        userType: 'S',
+        dgnssId,
+        answerIdx: assessment.answerIdx,
+        ordNo: round,
+      });
+    } catch {
+      setPdfError(true);
+    } finally {
+      setIsPdfDownloading(null);
+    }
+  };
 
   // 로딩 상태
   if (isLoading) {
@@ -568,10 +608,25 @@ export const MyResultPage: React.FC = () => {
         </HeaderLeft>
 
         {/* PDF 다운로드 */}
-        <PDFButton>
-          <Download />
-          PDF 다운로드
-        </PDFButton>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <PDFButton
+            onClick={() => void handleDownloadPdf(1)}
+            disabled={isPdfDownloading !== null || !r1 || r1.answerIdx == null}
+          >
+            {isPdfDownloading === 1 && <SpinningLoader />}
+            1차 결과 다운로드
+          </PDFButton>
+          {r2 && (
+            <PDFButton
+              onClick={() => void handleDownloadPdf(2)}
+              disabled={isPdfDownloading !== null || r2.answerIdx == null}
+            >
+              {isPdfDownloading === 2 && <SpinningLoader />}
+              2차 결과 다운로드
+            </PDFButton>
+          )}
+          {pdfError && <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>다운로드 실패</span>}
+        </div>
       </PageHeader>
 
       {/* 차수 선택 */}

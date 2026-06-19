@@ -6,4 +6,4 @@ export {
   type SchoolLevel,
 } from './CreateAssessmentModal';
 export { AssessmentCodeModal } from './AssessmentCodeModal';
-export { PdfUploadModal } from './PdfUploadModal';
+export { ExamStartPreviewModal } from './ExamStartPreviewModal';

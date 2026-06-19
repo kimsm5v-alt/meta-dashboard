@@ -17,12 +17,16 @@ const ExamToJoinRedirect = () => {
 
 // Feature imports
 import { TeacherDashboardPage } from '../features/teacher-dashboard';
-import { ClassDashboardPage, ClassDetailAnalysisPage } from '../features/class-dashboard';
+import { ClassDashboardPage, ClassDetailAnalysisPage } from '../features/class-dashboard-v2';
 import { StudentDashboardPage } from '../features/student-dashboard';
 import { AIRoomPage } from '../features/ai-room';
 import { LandingPage } from '../features/landing';
 import { LoginPage, SignUpPage, ForgotPasswordPage } from '../features/auth';
-import { AssessmentPage } from '../features/assessment';
+// 기존 검사 페이지 (레거시)
+// import { AssessmentPage } from '../features/assessment';
+
+// 검사하기 V2 (그룹 관리 + 검사하기 통합)
+import { AssessmentPageV2 } from '../features/assessment-v2';
 import { SchedulePage } from '../features/schedule';
 import { ExamPage } from '../features/exam';
 
@@ -33,7 +37,7 @@ import { ResourceListPage, ResourceDetailPage } from '../features/resources';
 import { CommunityListPage, CommunityDetailPage, CommunityWritePage } from '../features/community';
 
 // 학생용 Feature imports
-import { MyExamListPage, MyResultPage, StudentGroupsPage } from '../features/student-exam';
+import { MyExamListPage, MyResultPage, MySelfregResultPage, StudentGroupsPage, PreExamFlowPage } from '../features/student-exam';
 
 // 게스트용 Feature imports
 import { GuestExamListPage, GuestCompletePage } from '../features/guest-exam';
@@ -144,11 +148,22 @@ export const AppRoutes = () => (
 
     {/* 보호 라우트 - 사이드바 있음 */}
     <Route element={<ProtectedLayout />}>
-      {/* 검사 영역 */}
-      <Route path="/groups" element={<GroupListPage />} />
-      <Route path="/groups/:groupId" element={<GroupDetailPage />} />
-      <Route path="/assessment" element={<AssessmentPage />} />
-      <Route path="/dashboard" element={<TeacherDashboardPage />} />
+      {/* 검사 영역 - 그룹 관리 + 검사하기 통합 */}
+      <Route path="/assessment" element={<AssessmentPageV2 />} />
+      {/* 레거시 그룹 라우트 → /assessment로 리다이렉트 */}
+      <Route path="/groups" element={<Navigate to="/assessment" replace />} />
+      <Route path="/groups/:groupId" element={<Navigate to="/assessment" replace />} />
+      {/* 결과보기 영역 */}
+      <Route path="/dashboard" element={<Navigate to="/dashboard/comprehensive" replace />} />
+      {/* 학습종합검사 */}
+      <Route path="/dashboard/comprehensive" element={<TeacherDashboardPage testId="comprehensive" />} />
+      <Route path="/dashboard/comprehensive/class/:classId" element={<ClassDashboardPage testId="comprehensive" />} />
+      <Route path="/dashboard/comprehensive/class/:classId/student/:studentId" element={<StudentDashboardPage testId="comprehensive" />} />
+      {/* 자기조절학습검사 */}
+      <Route path="/dashboard/selfreg" element={<TeacherDashboardPage testId="selfreg" />} />
+      <Route path="/dashboard/selfreg/class/:classId" element={<ClassDashboardPage testId="selfreg" />} />
+      <Route path="/dashboard/selfreg/class/:classId/student/:studentId" element={<StudentDashboardPage testId="selfreg" />} />
+      {/* 레거시 경로 지원 */}
       <Route path="/dashboard/class/:classId" element={<ClassDashboardPage />} />
       <Route path="/dashboard/class/:classId/analysis" element={<ClassDetailAnalysisPage />} />
       <Route path="/dashboard/class/:classId/student/:studentId" element={<StudentDashboardPage />} />
@@ -182,8 +197,15 @@ export const AppRoutes = () => (
     <Route element={<StudentProtectedLayout />}>
       <Route path="/student/groups" element={<StudentGroupsPage />} />
       <Route path="/student/exams" element={<MyExamListPage />} />
-      <Route path="/student/result" element={<MyResultPage />} />
-      <Route path="/student/result/:resultId" element={<MyResultPage />} />
+      {/* 검사 응시 전 플로우 (안내·동의 → 기본 정보 입력) */}
+      <Route path="/student/exam/prepare" element={<PreExamFlowPage />} />
+      {/* 학생 결과보기 - 학습종합검사 */}
+      <Route path="/student/result" element={<Navigate to="/student/result/comprehensive" replace />} />
+      <Route path="/student/result/comprehensive" element={<MyResultPage />} />
+      <Route path="/student/result/comprehensive/:resultId" element={<MyResultPage />} />
+      {/* 학생 결과보기 - 자기조절학습검사 */}
+      <Route path="/student/result/selfreg" element={<MySelfregResultPage />} />
+      <Route path="/student/result/selfreg/:resultId" element={<MySelfregResultPage />} />
       <Route path="/exam/student" element={<ExamPage />} />
     </Route>
 

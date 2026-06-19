@@ -10,6 +10,7 @@ import { API_CONFIG } from '@shared/services/apiClient';
 import {
   fetchClassAnalysis,
   fetchClassAnalysisRaw,
+  fetchSelfregClassAnalysis,
   buildClassFromAPI,
   fetchL2DashboardData,
   fetchStudentFullAnalysis,
@@ -20,7 +21,7 @@ import {
   type L2DashboardData,
 } from '@shared/services/dashboardService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
-import type { SchoolLevel, Student, Class, Assessment, User } from '@shared/types';
+import type { SchoolLevel, Student, Class, Assessment, User, Group } from '@shared/types';
 import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth';
 import { groupService } from '@features/groups/api/groupService';
@@ -47,6 +48,7 @@ interface UseStudentAnalysisResult {
   student: Student | undefined;
   classStudents: Student[];
   classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel } | undefined;
+  dgnssIds: { round1?: number; round2?: number };
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -56,6 +58,7 @@ type StudentAnalysisData = {
   student: Student | undefined;
   classStudents: Student[];
   classInfo: UseStudentAnalysisResult['classInfo'];
+  dgnssIds: { round1?: number; round2?: number };
 };
 
 export function useStudentAnalysis(
@@ -70,7 +73,7 @@ export function useStudentAnalysis(
     queryKey: ['student', 'analysis', classId, studentId],
     queryFn: async (): Promise<StudentAnalysisData> => {
       if (!studentId || !classId) {
-        return { student: undefined, classStudents: [], classInfo: undefined };
+        return { student: undefined, classStudents: [], classInfo: undefined, dgnssIds: {} };
       }
 
       const isApiMode = !!user;
@@ -87,11 +90,12 @@ export function useStudentAnalysis(
                 schoolLevel: classData.schoolLevel,
               }
             : undefined,
+          dgnssIds: {},
         };
       }
 
       const [fullAnalysis, groups, exams] = await Promise.all([
-        fetchStudentFullAnalysis(classId, studentId, '1'),
+        fetchStudentFullAnalysis(classId, studentId, '1', 'Y'),
         user ? groupService.getMyGroups(user.id) : Promise.resolve([]),
         fetchTeacherExams(classId, '', '1'),
       ]);
@@ -103,26 +107,32 @@ export function useStudentAnalysis(
         ? (SCHOOL_LEVEL_MAP[matchedGroup.schoolLevel] ?? credSchoolLevel)
         : credSchoolLevel;
       const completedR1 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 1);
+      const completedR2 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 2);
+      const dgnssIds = { round1: completedR1?.dgnssId, round2: completedR2?.dgnssId };
       let classStudents: Student[] = [];
-
-      if (completedR1) {
-        // L2 대시보드 데이터를 가져와서 학생 목록을 추출합니다.
-        const l2Data = await fetchL2DashboardData(completedR1.dgnssId, classId, schoolLevel, grade);
-        classStudents = l2Data.students; // 서버에서 받아온 실제 학생 목록
-      }
-
       let studentName = '학생';
       let studentNumber = 0;
+
       if (completedR1) {
         try {
+          // 네비게이션용 학생 목록은 기본 정보만 필요 — 분석 API 추가 호출 없음
           const infoList = await fetchStudentInfoList(completedR1.dgnssId, '1', 1);
+          classStudents = infoList.map((info) => ({
+            id: info.stdtId,
+            classId,
+            number: info.rowNum,
+            name: info.stdtNm ?? info.nickname ?? `학생${info.rowNum}`,
+            schoolLevel,
+            grade,
+            assessments: [],
+          }));
           const info = infoList.find((s) => s.stdtId === studentId);
           if (info) {
             studentName = info.stdtNm ?? info.nickname ?? `학생${info.rowNum}`;
             studentNumber = info.rowNum;
           }
         } catch {
-          // 이름 조회 실패 시 fallback 유지
+          // 조회 실패 시 fallback 유지
         }
       }
 
@@ -135,6 +145,7 @@ export function useStudentAnalysis(
             : undefined,
           classStudents: classData?.students ?? [],
           classInfo: { grade, classNumber, schoolLevel },
+          dgnssIds,
         };
       }
 
@@ -158,6 +169,7 @@ export function useStudentAnalysis(
         },
         classStudents: classStudents ?? [],
         classInfo: { grade, classNumber, schoolLevel },
+        dgnssIds,
       };
     },
     enabled: !!classId && !!studentId,
@@ -167,6 +179,7 @@ export function useStudentAnalysis(
     student: query.data?.student,
     classStudents: query.data?.classStudents ?? [],
     classInfo: query.data?.classInfo,
+    dgnssIds: query.data?.dgnssIds ?? {},
     isLoading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     refetch: () => {
@@ -220,6 +233,46 @@ export function useClassAnalysis(
 }
 
 // ============================================================
+// 자기조절학습검사 학급 분석 훅 (20요인 반 평균)
+// ============================================================
+
+interface UseSelfregClassAnalysisResult {
+  /** 1차 반 평균 20요인 T-score (없으면 null) */
+  round1: number[] | null;
+  /** 2차 반 평균 20요인 T-score (없으면 null) */
+  round2: number[] | null;
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => void;
+}
+
+export function useSelfregClassAnalysis(
+  classId: string | undefined,
+): UseSelfregClassAnalysisResult {
+  const query = useQuery<{ round1: number[] | null; round2: number[] | null }>({
+    queryKey: ['class', 'selfreg-analysis', classId],
+    queryFn: async () => {
+      const [round1, round2] = await Promise.all([
+        fetchSelfregClassAnalysis(classId!, 1),
+        fetchSelfregClassAnalysis(classId!, 2),
+      ]);
+      return { round1, round2 };
+    },
+    enabled: !!classId,
+  });
+
+  return {
+    round1: query.data?.round1 ?? null,
+    round2: query.data?.round2 ?? null,
+    isLoading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: () => {
+      void query.refetch();
+    },
+  };
+}
+
+// ============================================================
 // 학급 학생 목록 훅 (L2용)
 // ============================================================
 
@@ -227,6 +280,7 @@ interface UseClassStudentsResult {
   students: Student[];
   l2Data: L2DashboardData | null;
   classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel } | undefined;
+  dgnssIds: { round1?: number; round2?: number };
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -236,6 +290,7 @@ type ClassStudentsData = {
   students: Student[];
   l2Data: L2DashboardData | null;
   classInfo: UseClassStudentsResult['classInfo'];
+  dgnssIds: { round1?: number; round2?: number };
 };
 
 export function useClassStudents(classId: string | undefined): UseClassStudentsResult {
@@ -261,6 +316,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
                 schoolLevel: classData.schoolLevel,
               }
             : undefined,
+          dgnssIds: {},
         };
       }
 
@@ -282,12 +338,18 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
       const effectiveTcId = tcId || user?.tcId || '';
       const exams = await fetchTeacherExams(classId!, effectiveTcId, '1');
       const completedRound1 = exams.find((exam) => exam.dgnssAt === 'N' && exam.ordNo === 1);
+      const completedRound2 = exams.find((exam) => exam.dgnssAt === 'N' && exam.ordNo === 2);
+      const classDgnssIds = {
+        round1: completedRound1?.dgnssId,
+        round2: completedRound2?.dgnssId,
+      };
 
       if (!completedRound1) {
         return {
           students: classData?.students ?? [],
           l2Data: null,
           classInfo: { grade, classNumber, schoolLevel: classSchoolLevel },
+          dgnssIds: classDgnssIds,
         };
       }
 
@@ -302,6 +364,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
         students: data.students,
         l2Data: data,
         classInfo: { grade, classNumber, schoolLevel: classSchoolLevel },
+        dgnssIds: classDgnssIds,
       };
     },
     enabled: !!classId,
@@ -311,6 +374,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
     students: query.data?.students ?? [],
     l2Data: query.data?.l2Data ?? null,
     classInfo: query.data?.classInfo,
+    dgnssIds: query.data?.dgnssIds ?? {},
     isLoading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     refetch: () => {
@@ -458,6 +522,100 @@ export function useTeacherClasses(): UseTeacherClassesResult {
     refetch: () => {
       void query.refetch();
     },
+  };
+}
+
+// ============================================================
+// 공유 그룹 목록 훅 (API 과도 호출 방지)
+// ============================================================
+
+/**
+ * 그룹 목록 쿼리 — 캐시 공유 + 사용자별 격리
+ * - 사이드바(useTeacherClassList)와 검사하기(AssessmentPageV2)가 캐시 공유
+ * - userId를 queryKey에 포함하여 멀티 사용자 환경에서 캐시 격리 보장
+ */
+function useMyGroups(userId: string | undefined) {
+  return useQuery<Group[]>({
+    queryKey: ['my-groups', userId], // userId 포함으로 캐시 격리
+    queryFn: () => groupService.getMyGroups(userId!),
+    enabled: !!userId,
+    staleTime: 0,
+  });
+}
+
+export function useMyGroupsQuery() {
+  const { user } = useAuth();
+  return useMyGroups(user?.id);
+}
+
+// ============================================================
+// 사이드바용 경량 학급 목록 훅 (분석 API 호출 없음)
+// ============================================================
+
+interface TeacherClassMeta {
+  id: string;
+  grade: number;
+  classNumber: number;
+  schoolLevel: SchoolLevel;
+}
+
+interface UseTeacherClassListResult {
+  classes: TeacherClassMeta[];
+  isLoading: boolean;
+  examStatus: ExamStatus;
+}
+
+export function useTeacherClassList(): UseTeacherClassListResult {
+  const { user } = useAuth();
+  const { schoolLevel: credSchoolLevel } = useCredentials();
+
+  // 그룹 목록: ['my-groups'] 캐시 공유
+  const { data: groups = [], isLoading: groupsLoading } = useMyGroups(user?.id);
+
+  // 검사 상태: queryKey에서 user?.id 제거 (auth 흐름 중복 호출 방지)
+  const dgnssQuery = useQuery<{ classes: TeacherClassMeta[]; examStatus: ExamStatus }>({
+    queryKey: ['group-dgnss-status', ...groups.map((g: Group) => g.claId)],
+    queryFn: async () => {
+      if (groups.length === 0) return { classes: [], examStatus: 'no-exams' as ExamStatus };
+
+      const groupDgnssResults = await Promise.all(
+        groups.map(async (group) => {
+          try {
+            const dgnssList = await dgnssService.getDgnssList(group.claId);
+            return { group, dgnssList };
+          } catch {
+            return { group, dgnssList: [] };
+          }
+        }),
+      );
+
+      const hasActive = groupDgnssResults.some((r) => r.dgnssList.some((d) => d.dgnssAt === 'Y'));
+      const hasCompleted = groupDgnssResults.some((r) =>
+        r.dgnssList.some((d) => d.dgnssAt === 'N'),
+      );
+
+      let examStatus: ExamStatus = 'no-exams';
+      if (hasActive && !hasCompleted) examStatus = 'in-progress';
+      else if (hasCompleted) examStatus = 'completed';
+
+      const classes: TeacherClassMeta[] = groupDgnssResults
+        .filter(({ dgnssList }) => dgnssList.some((d) => d.dgnssAt === 'N'))
+        .map(({ group }) => ({
+          id: group.claId,
+          grade: group.grade,
+          classNumber: group.classNumber,
+          schoolLevel: SCHOOL_LEVEL_MAP[group.schoolLevel] ?? credSchoolLevel,
+        }));
+
+      return { classes, examStatus };
+    },
+    enabled: groups.length > 0,
+  });
+
+  return {
+    classes: dgnssQuery.data?.classes ?? [],
+    isLoading: groupsLoading || dgnssQuery.isLoading,
+    examStatus: dgnssQuery.data?.examStatus ?? 'no-exams',
   };
 }
 

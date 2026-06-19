@@ -2,6 +2,7 @@ package com.vs.meta.api.counseling.service;
 
 import com.vs.meta.api.counseling.mapper.CounselingInfoMapper;
 import com.vs.meta.api.counseling.mapper.CounselingStudentMapper;
+import com.vs.meta.common.auth.UserInfoEnricher;
 import com.vs.meta.domain.CounselingInfo;
 import com.vs.meta.domain.CounselingStudent;
 import com.vs.meta.domain.enums.CounselingStatus;
@@ -10,9 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -26,50 +27,61 @@ public class CounselingService {
 
     private final CounselingInfoMapper counselingMapper;
     private final CounselingStudentMapper studentMapper;
+    private final UserInfoEnricher userInfoEnricher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final DateTimeFormatter SCHEDULED_AT_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     @Transactional(readOnly = true)
     public Object getAll(Map<String, Object> paramData) throws Exception {
-        List<CounselingInfo> list = counselingMapper.findAllCounselings();
+        String tcId = requireTcId(paramData);
+        List<CounselingInfo> list = counselingMapper.findByTcIdOrderByScheduledAtDesc(tcId);
         loadStudents(list);
         return list.stream().map(this::toResponseMap).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Object getByStudentId(String studentId) throws Exception {
+    public Object getByStudentId(String studentId, Map<String, Object> paramData) throws Exception {
+        String tcId = requireTcId(paramData);
         List<Long> counselingIds = studentMapper.findCounselingIdsByStdtId(studentId);
         if (counselingIds.isEmpty()) return List.of();
 
-        List<CounselingInfo> list = counselingMapper.findCounselingsByIds(counselingIds);
+        List<CounselingInfo> list = counselingMapper.findCounselingsByIds(counselingIds, tcId);
         list.sort((a, b) -> b.getScheduledAt().compareTo(a.getScheduledAt()));
         loadStudents(list);
         return list.stream().map(this::toResponseMap).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Object getByClassId(String classId) throws Exception {
-        List<CounselingInfo> list = counselingMapper.findByClaIdOrderByScheduledAtDesc(classId);
+    public Object getByClassId(String classId, Map<String, Object> paramData) throws Exception {
+        String tcId = requireTcId(paramData);
+        List<CounselingInfo> list = counselingMapper.findByClaIdOrderByScheduledAtDesc(classId, tcId);
         loadStudents(list);
         return list.stream().map(this::toResponseMap).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Object getByStatus(String statusStr) throws Exception {
+    public Object getByStatus(String statusStr, Map<String, Object> paramData) throws Exception {
+        String tcId = requireTcId(paramData);
         CounselingStatus status = parseStatus(statusStr);
-        List<CounselingInfo> list = counselingMapper.findByStatusOrderByScheduledAtDesc(status.name());
+        List<CounselingInfo> list = counselingMapper.findByStatusOrderByScheduledAtDesc(status.name(), tcId);
         loadStudents(list);
         return list.stream().map(this::toResponseMap).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Object getById(Long id) throws Exception {
+    public Object getById(Long id, Map<String, Object> paramData) throws Exception {
+        String tcId = requireTcId(paramData);
         CounselingInfo info = counselingMapper.findCounselingById(id);
         if (info == null) {
             throw new IllegalArgumentException("상담 기록을 찾을 수 없습니다: id=" + id);
         }
+        // 본인이 작성한 상담만 조회 가능 (다른 교사의 상담 노출 차단)
+        if (!tcId.equals(info.getTcId())) {
+            throw new IllegalStateException("상담 조회 권한이 없습니다.");
+        }
         List<CounselingStudent> students = studentMapper.findByCounselingId(id);
+        userInfoEnricher.enrich(students);
         info.setStudents(students);
         return toResponseMap(info);
     }
@@ -123,7 +135,11 @@ public class CounselingService {
         }
         students.forEach(s -> s.setCounselingId(info.getId()));
         studentMapper.insertCounselingStudents(students);
-        info.setStudents(students);
+
+        // Fetch fresh students from DB to get sp_user_id via JOIN
+        List<CounselingStudent> freshStudents = studentMapper.findByCounselingId(info.getId());
+        userInfoEnricher.enrich(freshStudents);
+        info.setStudents(freshStudents);
 
         log.info("상담 생성: id={}, classId={}, tcId={}", info.getId(), classId, tcId);
 
@@ -170,9 +186,12 @@ public class CounselingService {
                 newStudents.forEach(s -> s.setCounselingId(id));
                 studentMapper.insertCounselingStudents(newStudents);
             }
+            userInfoEnricher.enrich(newStudents);
             info.setStudents(newStudents);
         } else {
-            info.setStudents(studentMapper.findByCounselingId(id));
+            List<CounselingStudent> existing = studentMapper.findByCounselingId(id);
+            userInfoEnricher.enrich(existing);
+            info.setStudents(existing);
         }
 
         log.info("상담 수정: id={}", id);
@@ -203,7 +222,9 @@ public class CounselingService {
         info.setUpdatedBy(userNo != null ? userNo : 0L);
         info.complete(duration, summary, nextSteps);
         counselingMapper.updateCounseling(info);
-        info.setStudents(studentMapper.findByCounselingId(id));
+        List<CounselingStudent> students = studentMapper.findByCounselingId(id);
+        userInfoEnricher.enrich(students);
+        info.setStudents(students);
         log.info("상담 완료: id={}", id);
 
         return toResponseMap(info);
@@ -223,7 +244,9 @@ public class CounselingService {
         info.setUpdatedBy(userNo != null ? userNo : 0L);
         info.cancel();
         counselingMapper.updateCounseling(info);
-        info.setStudents(studentMapper.findByCounselingId(id));
+        List<CounselingStudent> students = studentMapper.findByCounselingId(id);
+        userInfoEnricher.enrich(students);
+        info.setStudents(students);
         log.info("상담 취소: id={}", id);
 
         return toResponseMap(info);
@@ -254,6 +277,7 @@ public class CounselingService {
         if (list.isEmpty()) return;
         List<Long> ids = list.stream().map(CounselingInfo::getId).collect(Collectors.toList());
         List<CounselingStudent> allStudents = studentMapper.findByCounselingIds(ids);
+        userInfoEnricher.enrich(allStudents);
         Map<Long, List<CounselingStudent>> grouped = allStudents.stream()
                 .collect(Collectors.groupingBy(CounselingStudent::getCounselingId));
         list.forEach(info -> info.setStudents(grouped.getOrDefault(info.getId(), List.of())));
@@ -272,7 +296,7 @@ public class CounselingService {
         if (value instanceof List) {
             try {
                 return objectMapper.writeValueAsString(value);
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 throw new IllegalArgumentException("JSON 변환 실패: " + value, e);
             }
         }
@@ -285,7 +309,7 @@ public class CounselingService {
         if (json == null || json.isBlank()) return List.of();
         try {
             return objectMapper.readValue(json, new TypeReference<List<String>>() {});
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return Arrays.asList(json.replace("[", "").replace("]", "").replace("\"", "").split(","));
         }
     }
@@ -361,5 +385,17 @@ public class CounselingService {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    /**
+     * paramData 에서 인증된 사용자의 tcId 를 꺼낸다.
+     * Controller 가 {@code authTcIdResolver.enforceAuthTcId(paramData)} 를 선행 호출한 상태여야 함.
+     */
+    private String requireTcId(Map<String, Object> paramData) {
+        String tcId = (String) paramData.get("tcId");
+        if (tcId == null || tcId.isBlank()) {
+            throw new IllegalStateException("인증된 교사 ID 를 확인할 수 없습니다.");
+        }
+        return tcId;
     }
 }

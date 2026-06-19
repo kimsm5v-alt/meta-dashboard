@@ -7,6 +7,7 @@ import com.vs.meta.api.notification.event.StudentJoinedGroupEvent;
 import com.vs.meta.api.notification.event.StudentKickedEvent;
 import com.vs.meta.api.notification.event.StudentLeftGroupEvent;
 import com.vs.meta.api.notification.service.NotificationService;
+import com.vs.meta.common.aop.QchSkip;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.CustomBody;
 import com.vs.meta.common.response.ResponseDTO;
@@ -46,6 +47,7 @@ import java.util.Map;
 @RestController
 @RequiredArgsConstructor
 @Profile({"local", "vs-dev"})
+@QchSkip(reason = "디버그 endpoint — QCH 시그니처 노이즈/자동 테스트 부적합")
 @RequestMapping(value = "/api/v1/notifications", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "Notification Debug (local + dev only)", description = "로컬/개발 환경 SSE 수동 테스트")
 public class NotificationDebugController {
@@ -91,7 +93,7 @@ public class NotificationDebugController {
     @Transactional
     public ResponseDTO<CustomBody> fireT1(@RequestBody T1Body body) {
         eventPublisher.publishEvent(new StudentJoinedGroupEvent(
-                body.teacherUserNo, body.claId, body.groupName, body.studentNickname
+                body.teacherUserNo, body.claId, body.groupName, body.studentNickname, null
         ));
         log.info("[Debug] T1 published: {}", body);
         return AidtCommonUtil.makeResultSuccess(null, echo("T1", body), "published");
