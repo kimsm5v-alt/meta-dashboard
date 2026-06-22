@@ -33,6 +33,8 @@ interface BackendGroupListItem {
   myRole: 'HOST' | 'STUDENT';
   memberCount: number;
   createdAt: string;
+  /** 본인(학생) 출석번호 — findGroupList 가 본인 멤버 행을 JOIN 해 내려줌. HOST/미가입이면 없음 */
+  memberNo?: number;
 }
 
 /** GET /group/detail 응답의 groupInfo 필드 (SQL 쿼리 반환값) */
@@ -119,6 +121,7 @@ const toFrontendGroup = (item: BackendGroupListItem): Group => ({
   ownerName: '',
   memberCount: item.memberCount,
   myRole: item.myRole === 'HOST' ? 'owner' : 'member',
+  memberNo: item.memberNo,
   createdAt: new Date(item.createdAt),
 });
 

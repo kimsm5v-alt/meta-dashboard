@@ -486,6 +486,8 @@ interface ExamGroupInfo {
   schoolLevel?: string;
   grade?: number;
   classNumber?: number;
+  /** 본인 출석번호 — 검사 시작 화면 번호칸 prefill 용 */
+  memberNo?: number;
 }
 
 export const MyExamListPage: React.FC = () => {
@@ -550,6 +552,7 @@ export const MyExamListPage: React.FC = () => {
                 schoolLevel: group.schoolLevel as string | undefined,
                 grade: group.grade,
                 classNumber: group.classNumber,
+                memberNo: group.memberNo,
               });
             }
           }

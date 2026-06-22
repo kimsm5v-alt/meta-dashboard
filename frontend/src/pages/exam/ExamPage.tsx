@@ -39,6 +39,8 @@ interface GroupInfo {
   schoolLevel?: string;
   grade?: number;
   classNumber?: number;
+  /** 본인 출석번호(group_member.member_no) — 검사 시작 화면 번호칸 prefill 용 */
+  memberNo?: number;
 }
 
 interface StudentExamLocationState {
@@ -878,7 +880,11 @@ export const ExamPage: React.FC = () => {
             grade: studentExamState!.groupInfo?.grade,
             classNumber: studentExamState!.groupInfo?.classNumber,
             prefilledName: user?.name || '',
-            prefilledStudentNumber: '',
+            // 그룹 동기화로 받은 본인 출석번호(member_no) prefill — 없으면 학생이 직접 입력
+            prefilledStudentNumber:
+              studentExamState!.groupInfo?.memberNo != null
+                ? String(studentExamState!.groupInfo.memberNo)
+                : '',
           }
         : undefined;
 
