@@ -129,6 +129,8 @@ export interface ModerationPath {
   className?: string;
   schoolLevel?: string;
   classDescription?: string;
+  category?: string;                     // '강점' | '보완점'
+  zFactorType?: 'positive' | 'negative'; // Z 요인 성질
 }
 
 export interface Weakness {
