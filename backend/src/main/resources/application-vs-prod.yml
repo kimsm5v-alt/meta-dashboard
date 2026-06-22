@@ -43,3 +43,12 @@ superplatform:
 #          + IdP 운영 oauth2_client(meta) 에 groups:read scope 부여.
 group-sync:
   enabled: true
+
+# ===== Redis username override (NCP Cloud DB Redis — password-only AUTH) =====
+# 현상: 기동 시 Redis WRONGPASS (notification pubsub/shedlock 가 Redis 연결 시도).
+# 원인: 주입된 STAT_SPRING_REDIS_USERNAME 이 NCP Redis ACL 에 없는 값이라 AUTH <user> <pass> 거부.
+# 조치: username 을 빈 문자열로 강제 → password-only AUTH (dev 와 동일). STAT_SPRING_REDIS_PASSWORD 는 정확해야 함.
+spring:
+  data:
+    redis:
+      username: ""

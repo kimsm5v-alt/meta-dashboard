@@ -873,7 +873,8 @@ export const ExamPage: React.FC = () => {
         ? {
             ordNo: studentExamState!.ordNo,
             schoolName: studentExamState!.groupInfo?.schoolName || user?.schoolName || undefined,
-            schoolLevel: studentExamState!.groupInfo?.schoolLevel,
+            // groupInfo.schoolLevel 은 영문 코드(elementary|middle|high) 문자열 — StudentExamContext 의 union 으로 좁힘
+            schoolLevel: studentExamState!.groupInfo?.schoolLevel as StudentExamContext['schoolLevel'],
             grade: studentExamState!.groupInfo?.grade,
             classNumber: studentExamState!.groupInfo?.classNumber,
             prefilledName: user?.name || '',
