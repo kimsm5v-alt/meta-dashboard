@@ -404,9 +404,7 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
               {moderationPaths.map((path, idx) => {
                 const isStrength = path.category === 'strength';
                 const factorName = isStrength ? strength?.factorName : weakness?.factorName;
-                const label = isStrength
-                  ? `강점 코칭 ${factorName ?? ''}`
-                  : `보완점 코칭 ${factorName ?? ''}`;
+                const label = isStrength ? `${factorName ?? ''}` : `${factorName ?? ''}`;
                 const isExpanded = openIndex === idx;
                 const steps = path.strategy.split(/(?<=\.) /).filter(Boolean);
 
