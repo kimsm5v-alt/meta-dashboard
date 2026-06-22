@@ -14,7 +14,7 @@ export const ENV = {
   SP_CLIENT_ID: (import.meta.env.VITE_SP_CLIENT_ID as string | undefined) ?? 'test-service',
   SP_MYPAGE_URL:
     (import.meta.env.VITE_SP_MYPAGE_URL as string | undefined)
-    ?? 'https://t-mypage-superplatform.vsaidt.com',
+    ?? 'https://t-hub.vschool.at',
   // 학생 그룹참여(QR/링크) 복귀 URL 오버라이드 (group-from-idp).
   // 기본은 빈 값 → buildGroupJoinUrl 이 window.location.origin 기준으로 자동 도출(환경별 자동).
   SP_STUDENT_RETURN_URL: (import.meta.env.VITE_SP_STUDENT_RETURN_URL as string | undefined) ?? '',

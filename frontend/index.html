@@ -9,7 +9,7 @@
     <script>
       window.__authSdkReady = new Promise(function (resolve, reject) {
         var s = document.createElement('script');
-        s.src = 'https://cdn.vsaidt.com/superplatform/auth-client.js?v=' + Date.now();
+        s.src = 'https://t-cdn.vschool.at/sdk/auth-client.js?v=' + Date.now();
         s.onload = resolve;
         s.onerror = function () {
           reject(new Error('Auth SDK failed to load'));
