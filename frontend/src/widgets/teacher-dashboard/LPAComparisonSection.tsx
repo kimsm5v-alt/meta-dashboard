@@ -63,7 +63,9 @@ const TooltipBox = styled.div<{ $visible: boolean }>`
   pointer-events: none;
   opacity: ${({ $visible }) => ($visible ? 1 : 0)};
   visibility: ${({ $visible }) => ($visible ? 'visible' : 'hidden')};
-  transition: opacity 0.15s, visibility 0.15s;
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
 `;
 
 const TooltipTitle = styled.p`
@@ -79,7 +81,7 @@ const TooltipList = styled.ul`
 `;
 
 const TooltipItem = styled.li`
-  color: #D1D5DB;
+  color: #d1d5db;
   line-height: 1.5;
 `;
 
@@ -146,7 +148,7 @@ const ClassNameBtn = styled.button`
   padding: 0;
 
   &:hover span:first-of-type {
-    color: #4F46E5;
+    color: #4f46e5;
   }
 `;
 
@@ -218,7 +220,7 @@ const DetailBtn = styled.button`
   padding: 0.375rem 0.75rem;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  color: #4F46E5;
+  color: #4f46e5;
   background: none;
   border: none;
   cursor: pointer;
@@ -227,8 +229,8 @@ const DetailBtn = styled.button`
   white-space: nowrap;
 
   &:hover {
-    color: #4338CA;
-    background: #EEF2FF;
+    color: #4338ca;
+    background: #eef2ff;
   }
 `;
 
@@ -339,7 +341,7 @@ export const LPAComparisonSection = ({ classes, onGoToClass }: LPAComparisonSect
               onMouseEnter={() => setTooltipVisible(true)}
               onMouseLeave={() => setTooltipVisible(false)}
             >
-              <Info size={16} color="#9CA3AF" style={{ cursor: 'help' }} />
+              <Info size={16} color='#9CA3AF' style={{ cursor: 'help' }} />
               <TooltipBox $visible={tooltipVisible}>
                 <TooltipTitle>LPA 유형이란?</TooltipTitle>
                 <TooltipList>
@@ -366,14 +368,16 @@ export const LPAComparisonSection = ({ classes, onGoToClass }: LPAComparisonSect
       </Header>
 
       <RowList>
-        {classes.map((cls) => (
-          <LPAComparisonRow
-            key={cls.id}
-            cls={cls}
-            typeOrder={typeOrder}
-            onGoToClass={onGoToClass}
-          />
-        ))}
+        {classes
+          .filter((cls) => (cls.stats?.assessedStudents ?? 0) > 0)
+          .map((cls) => (
+            <LPAComparisonRow
+              key={cls.id}
+              cls={cls}
+              typeOrder={typeOrder}
+              onGoToClass={onGoToClass}
+            />
+          ))}
       </RowList>
     </Card>
   );

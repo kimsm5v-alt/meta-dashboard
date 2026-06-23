@@ -661,6 +661,7 @@ export interface Group {
   classNumber: number;
   description?: string;
   schoolName?: string;
+  schoolCode?: string;
   inviteCode: string;
 
   // API 매핑
@@ -700,6 +701,17 @@ export interface GroupMember {
 
   joinedAt: Date;
   leftAt?: Date;
+}
+
+/** 학생 정보 (검사 시작 시 입력) */
+export interface StudentInfo {
+  schoolName: string;
+  grade: string;
+  classNumber: string;
+  studentNumber: string;
+  name: string;
+  gender: 'M' | 'F' | '';
+  schoolCode?: string;
 }
 
 /** 그룹 생성 요청 */

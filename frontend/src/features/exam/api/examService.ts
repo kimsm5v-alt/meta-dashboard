@@ -47,7 +47,8 @@ const MOCK_QUESTIONS_120_124: ExamQuestion[] = [
   },
   {
     NO: 123,
-    QESITM_NM: '학교 다닐 때, 혼자 공부하는 시간(온라인 학습 제외)이 하루 평균 어느 정도인지 체크해 보세요.',
+    QESITM_NM:
+      '학교 다닐 때, 혼자 공부하는 시간(온라인 학습 제외)이 하루 평균 어느 정도인지 체크해 보세요.',
     answer: '',
     fullCount: 124,
     choices: [
@@ -328,32 +329,65 @@ export async function resetExam(
   page: number = 0,
   _size: number = 20,
   paperIdx: string = '1',
+  studentInfo?: StudentInfoForStart,
 ): Promise<FetchQuestionsResponse> {
   if (paperIdx !== '1') {
     // 자기조절학습검사: reset 후 start API로 재조회
     // (GET /api/dgnss/st/new 응답에 page 정보가 없으므로 POST /api/dgnss/st/start로 재조회)
-    await apiClient.get<QuestionsResponseData>(
-      `/api/dgnss/st/new?dgnssResultId=${dgnssResultId}&paperIdx=${paperIdx}&page=${page}&size=20`,
+
+    // 기본 파라미터
+    const params = new URLSearchParams({
+      dgnssResultId: String(dgnssResultId),
+      paperIdx: paperIdx,
+      page: String(page),
+      size: '20',
+    });
+
+    // studentInfo가 있을 때만 추가 파라미터 전달
+    if (studentInfo) {
+      if (studentInfo.schoolName) params.append('schoolName', studentInfo.schoolName);
+      if (studentInfo.schoolCode) params.append('schoolCode', studentInfo.schoolCode);
+      if (studentInfo.grade !== undefined) params.append('grade', String(studentInfo.grade));
+      if (studentInfo.classNumber !== undefined)
+        params.append('classNumber', String(studentInfo.classNumber));
+      if (studentInfo.gender) params.append('gender', studentInfo.gender);
+    }
+
+    const res = await apiClient.get<QuestionsResponseData>(
+      `/api/dgnss/st/new?${params.toString()}`,
     );
-    const startRes = await apiClient.post<QuestionsResponseData>(
-      '/api/dgnss/st/start',
-      { dgnssResultId, paperIdx: Number(paperIdx), page: 0, size: 20 },
-    );
+
     return {
-      omrIdx: startRes.resultData.omrIdx,
-      questions: startRes.resultData.dgnssQuesList.sort((a, b) => a.NO - b.NO),
-      totalPages: startRes.resultData.page.totalPages,
-      totalQuestions: startRes.resultData.page.totalElements,
-      answeredCount: startRes.resultData.stAnsCnt ?? 0,
+      omrIdx: res.resultData.omrIdx,
+      questions: res.resultData.dgnssQuesList.sort((a, b) => a.NO - b.NO),
+      totalPages: 4,
+      totalQuestions: 72,
+      answeredCount: res.resultData.stAnsCnt ?? 0,
     };
   }
 
   // 학습종합검사: 7페이지 구조 + 120-124번 mock 문항
   const config = getPageConfig(page);
 
-  const res = await apiClient.get<QuestionsResponseData>(
-    `/api/dgnss/st/new?dgnssResultId=${dgnssResultId}&paperIdx=1&page=${config.apiPage}&size=20`,
-  );
+  // 기본 파라미터
+  const params = new URLSearchParams({
+    dgnssResultId: String(dgnssResultId),
+    paperIdx: '1',
+    page: String(config.apiPage),
+    size: '20',
+  });
+
+  // studentInfo가 있을 때만 추가 파라미터 전달
+  if (studentInfo) {
+    if (studentInfo.schoolName) params.append('schoolName', studentInfo.schoolName);
+    if (studentInfo.schoolCode) params.append('schoolCode', studentInfo.schoolCode);
+    if (studentInfo.grade !== undefined) params.append('grade', String(studentInfo.grade));
+    if (studentInfo.classNumber !== undefined)
+      params.append('classNumber', String(studentInfo.classNumber));
+    if (studentInfo.gender) params.append('gender', studentInfo.gender);
+  }
+
+  const res = await apiClient.get<QuestionsResponseData>(`/api/dgnss/st/new?${params.toString()}`);
 
   const filledQuestions = fillMissingQuestions(res.resultData.dgnssQuesList, config.apiPage, 20);
   const filteredQuestions = filledQuestions.filter(
