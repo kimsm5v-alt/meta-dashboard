@@ -23,7 +23,6 @@ import { API_STUDENT_DETAIL } from '@shared/data/apiDefinitions';
 import {
   DiagnosisSummary,
   TypeClassification,
-  TypeDeviations,
   CoachingStrategy,
   type PanelTab,
   DataHelperChatbot,
@@ -814,20 +813,15 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               />
             </CardSection>
 
-            {/* 강점/약점 TOP 3 */}
-            <CardSection>
-              <TypeDeviations
-                strengths={strengths}
-                weaknesses={weaknesses}
-              />
-            </CardSection>
           </SectionCard>
         </SectionContainer>
 
-        {/* 코칭 전략 (인라인) - 고등학교 제외 */}
+        {/* 코칭 전략 (강점/보완점 카드 + 아코디언 통합) - 고등학교 제외 */}
         {student.schoolLevel !== '고등' && (
           <CoachingStrategy
             moderationPaths={moderationPaths}
+            strengths={strengths}
+            weaknesses={weaknesses}
             typeName={current.predictedType}
             isLoading={isCoachingLoading}
           />

@@ -16,6 +16,7 @@
             gi.created_at   AS createdAt,
             CASE WHEN gi.host_user_no = #{userNo} THEN 'HOST' ELSE 'STUDENT' END AS myRole,
             gm.status       AS myStatus,
+            gm.member_no    AS memberNo,
             (SELECT COUNT(*) FROM group_member gm2 WHERE gm2.group_id = gi.group_id AND gm2.status = 'ACTIVE') AS memberCount
         FROM group_info gi
         LEFT JOIN group_member gm

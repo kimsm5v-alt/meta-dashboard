@@ -671,9 +671,11 @@ public class DgnssController {
                                 "page": 0,
                                 "size": 20,
                                 "schoolName": "비상중학교",
+                                "schoolCode": "B000012345",
                                 "grade": "2",
                                 "classNumber": "3",
-                                "gender": "M"
+                                "gender": "M",
+                                "nickname": "홍길동"
                             }
                             """)
             }))

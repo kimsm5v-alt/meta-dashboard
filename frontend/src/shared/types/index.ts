@@ -674,6 +674,9 @@ export interface Group {
   // 현재 사용자 역할 정보
   myRole: GroupRole;
 
+  /** 현재 사용자(학생) 본인의 출석번호(group_member.member_no) — /group/list 에서 본인 멤버 행 JOIN. HOST/미가입이면 없음 */
+  memberNo?: number;
+
   // 상태
   createdAt: Date;
 }
