@@ -4,7 +4,7 @@
  * TODO: 백엔드 API 개발 완료 후 실제 API와 연결
  */
 
-import type { StudentInfo } from '../ui/StudentInfoStep';
+import type { StudentInfo } from '@shared/types';
 
 /**
  * 학생 정보 저장

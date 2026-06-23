@@ -650,6 +650,7 @@ public class DgnssService {
             Map<String, Object> stUserInfo = dgnssMapper.selectStUserInfo(paramData);
             // Phase 3: memberSpUserId → MEM_NM/email, teacherSpUserId → tcNm 복원
             enrichStUserInfo(stUserInfo);
+            applyNicknameOverride(stUserInfo); // 학생 입력 닉네임이 있으면 표시 이름으로 사용
             log.info("[PDF 성능] 학생 정보 조회: {}ms", System.currentTimeMillis() - dbStart);
 
             String fileUrl = MapUtils.getString(stUserInfo, "fileURL", "");
@@ -875,6 +876,10 @@ public class DgnssService {
     }
 
     public Map<String, Object> selectNewOmr(Map<String, Object> param, Pageable pageable) {
+        // st/start와 동일: 학생 입력 식별정보 정규화 (gender M/F, grade·classNumber 숫자만) — 저장은 하단 updateStStart에서
+        normalizeAndValidateGender(param);
+        normalizeNumericInput(param, "grade");
+        normalizeNumericInput(param, "classNumber");
         Map<String, Object> resultMap = new HashMap<>();
         Map<String, Object> targetMap = dgnssMapper.selectPastOmrInfo(param);
         int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
@@ -2146,6 +2151,8 @@ public class DgnssService {
     public Map<String, Object> selectStDgnssStart(Map<String, Object> param, Pageable pageable) {
         pageable = resolvePageable(param, pageable);
         normalizeAndValidateGender(param);
+        normalizeNumericInput(param, "grade");
+        normalizeNumericInput(param, "classNumber");
         Map<String, Object> resultMap = new HashMap<>();
         int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
         String eakAt = "";
@@ -2252,6 +2259,18 @@ public class DgnssService {
         param.put("gender", normalized);
     }
 
+    /**
+     * 학생 입력 숫자 필드(grade/classNumber)에서 선행 숫자만 남기고 뒤 문자열("학년"/"반" 등)을 제거.
+     * 예) "2학년" → "2", "3반" → "3", "2" → "2". 숫자가 없으면 빈 값(→ 저장 시 미반영).
+     */
+    private void normalizeNumericInput(Map<String, Object> param, String key) {
+        String value = MapUtils.getString(param, key, null);
+        if (StringUtils.isBlank(value)) {
+            return;
+        }
+        param.put(key, value.trim().replaceAll("[^0-9].*$", ""));
+    }
+
     private Pageable resolvePageable(Map<String, Object> param, Pageable pageable) {
         int defaultPage = pageable != null ? pageable.getPageNumber() : 0;
         int defaultSize = pageable != null ? pageable.getPageSize() : 20;
@@ -2340,6 +2359,7 @@ public class DgnssService {
         Map<String, Object> dgnssAnswer = dgnssMapper.selectStUserInfo(paramData);
         // Phase 3: memberSpUserId → MEM_NM/email, teacherSpUserId → tcNm 복원
         enrichStUserInfo(dgnssAnswer);
+        applyNicknameOverride(dgnssAnswer); // 학생 입력 닉네임이 있으면 표시 이름으로 사용
         if (StringUtils.isNotEmpty(MapUtils.getString(dgnssAnswer, "summaryFileURL", ""))) {
             result.put("summaryUrl", MapUtils.getString(dgnssAnswer, "summaryFileURL", ""));
         }
@@ -3140,6 +3160,15 @@ public class DgnssService {
         if (stUserInfo == null) return;
         enrichMap(stUserInfo, "memberSpUserId", "MEM_NM", "email");
         enrichMap(stUserInfo, "teacherSpUserId", "tcNm", null);
+    }
+
+    /** PDF 표시 이름(MEM_NM)을 학생 입력 닉네임(tb_dgnss_result_info.nickname)으로 우선 대체. 없으면 기존 값 유지. */
+    private void applyNicknameOverride(Map<String, Object> stUserInfo) {
+        if (stUserInfo == null) return;
+        String nickname = MapUtils.getString(stUserInfo, "nickname", "");
+        if (StringUtils.isNotBlank(nickname)) {
+            stUserInfo.put("MEM_NM", nickname);
+        }
     }
 
     // -----------------------------------------------------------------------

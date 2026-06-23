@@ -1833,6 +1833,7 @@
 		     , DA.COCH_DGNSS_QESITM03_SCORE, DA.COCH_DGNSS_QESITM03_MARK
 		     , DA.COCH_DGNSS_QESITM04_SCORE, DA.COCH_DGNSS_QESITM04_MARK
 		     , DRI.stdt_id AS MEM_ID
+		     , DRI.nickname AS nickname
 		     , IFNULL(DA.SCH_GRADE, '') AS SCH_GRADE
 		     , IFNULL(NULLIF(gi.school_name, ''), IFNULL(DRI.school_name, '')) AS SCH_NM
 		     , IFNULL(gi.school_level, '') AS MEM_GRADE
@@ -2074,6 +2075,7 @@
 			<if test="grade != null and grade != ''">, grade = #{grade}</if>
 			<if test="classNumber != null and classNumber != ''">, class_number = #{classNumber}</if>
 			<if test="gender != null and gender != ''">, gender = #{gender}</if>
+			<if test="nickname != null and nickname != ''">, nickname = #{nickname}</if>
 		WHERE id = #{dgnssResultId}
 	</update>
 

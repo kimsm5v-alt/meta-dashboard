@@ -33,7 +33,7 @@ spring:
       max-lifetime: 1800000
       leak-detection-threshold: 0
       master:
-        driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME}
+        driver-class-name: net.sf.log4jdbc.sql.jdbcapi.DriverSpy
         jdbc-url: ${META_API_DATASOURCE_MASTER_URL}
         username: ${META_API_DATASOURCE_MASTER_USERNAME}
         password: ${META_API_DATASOURCE_MASTER_PASSWORD}
@@ -41,7 +41,7 @@ spring:
         maximum-pool-size: 50
         minimum-idle: 10
       slave:
-        driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME}
+        driver-class-name: net.sf.log4jdbc.sql.jdbcapi.DriverSpy
         jdbc-url: ${META_API_DATASOURCE_SLAVE_URL}
         username: ${META_API_DATASOURCE_SLAVE_USERNAME}
         password: ${META_API_DATASOURCE_SLAVE_PASSWORD}

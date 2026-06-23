@@ -661,6 +661,7 @@ export interface Group {
   classNumber: number;
   description?: string;
   schoolName?: string;
+  schoolCode?: string;
   inviteCode: string;
 
   // API 매핑
@@ -673,6 +674,9 @@ export interface Group {
 
   // 현재 사용자 역할 정보
   myRole: GroupRole;
+
+  /** 현재 사용자(학생) 본인의 출석번호(group_member.member_no) — /group/list 에서 본인 멤버 행 JOIN. HOST/미가입이면 없음 */
+  memberNo?: number;
 
   // 상태
   createdAt: Date;
@@ -697,6 +701,17 @@ export interface GroupMember {
 
   joinedAt: Date;
   leftAt?: Date;
+}
+
+/** 학생 정보 (검사 시작 시 입력) */
+export interface StudentInfo {
+  schoolName: string;
+  grade: string;
+  classNumber: string;
+  studentNumber: string;
+  name: string;
+  gender: 'M' | 'F' | '';
+  schoolCode?: string;
 }
 
 /** 그룹 생성 요청 */

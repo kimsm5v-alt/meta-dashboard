@@ -25,8 +25,8 @@ import {
   ExamQuestionStep,
   ExamCompleteStep,
 } from '@features/exam/ui';
-import type { StudentInfo } from '@features/exam/ui/StudentInfoStep';
 import type { StudentExamContext } from '@features/exam/ui/ExamGuideStep';
+import type { StudentInfo } from '@shared/types';
 
 interface ExamInfo {
   name: string;
@@ -36,9 +36,12 @@ interface ExamInfo {
 
 interface GroupInfo {
   schoolName?: string;
+  schoolCode?: string;
   schoolLevel?: string;
   grade?: number;
   classNumber?: number;
+  /** 본인 출석번호(group_member.member_no) — 검사 시작 화면 번호칸 prefill 용 */
+  memberNo?: number;
 }
 
 interface StudentExamLocationState {
@@ -578,12 +581,11 @@ export const ExamPage: React.FC = () => {
         const classNumberInt = info.classNumber ? parseInt(info.classNumber, 10) : undefined;
         const studentInfoForStart = {
           schoolName: info.schoolName || undefined,
+          schoolCode: info.schoolCode || undefined,
           grade: gradeNumber,
           classNumber: classNumberInt,
           gender: info.gender === 'M' || info.gender === 'F' ? info.gender : undefined,
-          schoolCode: info.schoolCode || undefined, // NEIS 학교코드(나이스 연동) — 검사쪽 저장
         };
-
         // 기존 로컬 저장용 (studentInfoService 사용, 향후 제거 가능)
         await saveStudentInfo(state.dgnssResultId, info);
         setStudentInfo(info);
@@ -591,7 +593,7 @@ export const ExamPage: React.FC = () => {
         if (isStudentFlow) {
           // 학생(회원) 플로우: restart 여부 반영 후 문항 로드 (학생 정보 포함)
           const result = isRestartMode
-            ? await resetExam(state.dgnssResultId, 0, 20, examPaperIdx)
+            ? await resetExam(state.dgnssResultId, 0, 20, examPaperIdx, studentInfoForStart)
             : await fetchQuestions(state.dgnssResultId, 0, 20, examPaperIdx, studentInfoForStart);
 
           const existingAnswers: Record<number, string> = {};
@@ -873,12 +875,18 @@ export const ExamPage: React.FC = () => {
         ? {
             ordNo: studentExamState!.ordNo,
             schoolName: studentExamState!.groupInfo?.schoolName || user?.schoolName || undefined,
+            schoolCode: studentExamState!.groupInfo?.schoolCode || undefined,
             // groupInfo.schoolLevel 은 영문 코드(elementary|middle|high) 문자열 — StudentExamContext 의 union 으로 좁힘
-            schoolLevel: studentExamState!.groupInfo?.schoolLevel as StudentExamContext['schoolLevel'],
+            schoolLevel: studentExamState!.groupInfo
+              ?.schoolLevel as StudentExamContext['schoolLevel'],
             grade: studentExamState!.groupInfo?.grade,
             classNumber: studentExamState!.groupInfo?.classNumber,
             prefilledName: user?.name || '',
-            prefilledStudentNumber: '',
+            // 그룹 동기화로 받은 본인 출석번호(member_no) prefill — 없으면 학생이 직접 입력
+            prefilledStudentNumber:
+              studentExamState!.groupInfo?.memberNo != null
+                ? String(studentExamState!.groupInfo.memberNo)
+                : '',
           }
         : undefined;
 

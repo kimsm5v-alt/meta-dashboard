@@ -483,9 +483,12 @@ const ExamCard: React.FC<ExamCardProps> = ({
 
 interface ExamGroupInfo {
   schoolName?: string;
+  schoolCode?: string;
   schoolLevel?: string;
   grade?: number;
   classNumber?: number;
+  /** 본인 출석번호 — 검사 시작 화면 번호칸 prefill 용 */
+  memberNo?: number;
 }
 
 export const MyExamListPage: React.FC = () => {
@@ -498,10 +501,11 @@ export const MyExamListPage: React.FC = () => {
 
   // paperIdx 기준 섹션 그룹화 (존재하는 섹션만)
   const sections = useMemo(
-    () => EXAM_SECTIONS.map((def) => ({
-      def,
-      exams: exams.filter((e) => e.paperIdx === def.paperIdx).sort((a, b) => a.ordNo - b.ordNo),
-    })).filter((s) => s.exams.length > 0),
+    () =>
+      EXAM_SECTIONS.map((def) => ({
+        def,
+        exams: exams.filter((e) => e.paperIdx === def.paperIdx).sort((a, b) => a.ordNo - b.ordNo),
+      })).filter((s) => s.exams.length > 0),
     [exams],
   );
 
@@ -547,9 +551,11 @@ export const MyExamListPage: React.FC = () => {
               flat.push(e);
               groupMap.set(e.dgnssResultId, {
                 schoolName: group.schoolName,
+                schoolCode: group.schoolCode,
                 schoolLevel: group.schoolLevel as string | undefined,
                 grade: group.grade,
                 classNumber: group.classNumber,
+                memberNo: group.memberNo,
               });
             }
           }

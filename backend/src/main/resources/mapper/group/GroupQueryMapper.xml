@@ -11,11 +11,13 @@
             gi.grade        AS grade,
             gi.class_number AS classNumber,
             gi.school_name  AS schoolName,
+            gi.school_code  AS schoolCode,
             gi.invite_code  AS inviteCode,
             gi.use_yn       AS useYn,
             gi.created_at   AS createdAt,
             CASE WHEN gi.host_user_no = #{userNo} THEN 'HOST' ELSE 'STUDENT' END AS myRole,
             gm.status       AS myStatus,
+            gm.member_no    AS memberNo,
             (SELECT COUNT(*) FROM group_member gm2 WHERE gm2.group_id = gi.group_id AND gm2.status = 'ACTIVE') AS memberCount
         FROM group_info gi
         LEFT JOIN group_member gm
@@ -68,6 +70,7 @@
             gi.grade            AS grade,
             gi.class_number     AS classNumber,
             gi.school_name      AS schoolName,
+            gi.school_code      AS schoolCode,
             gi.invite_code      AS inviteCode,
             gi.max_member_count AS maxMemberCount,
             gi.use_yn           AS useYn,

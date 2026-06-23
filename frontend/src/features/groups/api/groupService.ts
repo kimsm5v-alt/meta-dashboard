@@ -29,10 +29,13 @@ interface BackendGroupListItem {
   grade: string;
   classNumber: number;
   schoolName?: string;
+  schoolCode?: string;
   inviteCode: string;
   myRole: 'HOST' | 'STUDENT';
   memberCount: number;
   createdAt: string;
+  /** 본인(학생) 출석번호 — findGroupList 가 본인 멤버 행을 JOIN 해 내려줌. HOST/미가입이면 없음 */
+  memberNo?: number;
 }
 
 /** GET /group/detail 응답의 groupInfo 필드 (SQL 쿼리 반환값) */
@@ -114,11 +117,13 @@ const toFrontendGroup = (item: BackendGroupListItem): Group => ({
   grade: parseInt(item.grade, 10),
   classNumber: item.classNumber,
   schoolName: item.schoolName,
+  schoolCode: item.schoolCode,
   inviteCode: item.inviteCode,
   ownerId: '',
   ownerName: '',
   memberCount: item.memberCount,
   myRole: item.myRole === 'HOST' ? 'owner' : 'member',
+  memberNo: item.memberNo,
   createdAt: new Date(item.createdAt),
 });
 
@@ -210,10 +215,7 @@ export const createGroup = async (
  * 내 그룹 목록 조회
  * @param includeInactive true면 탈퇴/방출된 그룹도 포함
  */
-export const getMyGroups = async (
-  _userId: string,
-  includeInactive = false,
-): Promise<Group[]> => {
+export const getMyGroups = async (_userId: string, includeInactive = false): Promise<Group[]> => {
   const url = includeInactive ? '/group/list?includeInactive=true' : '/group/list';
   const res = await apiClient.get<BackendGroupListItem[]>(url);
   return (res.resultData ?? []).map(toFrontendGroup);

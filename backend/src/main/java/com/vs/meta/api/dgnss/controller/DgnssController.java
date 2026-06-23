@@ -180,7 +180,8 @@ public class DgnssController {
     }
 
     @RequestMapping(value = "/api/dgnss/st/new", method = {RequestMethod.GET})
-    @Operation(summary = "(학생)심리검사 새로하기", description = "")
+    @Operation(summary = "(학생)심리검사 새로하기",
+            description = "schoolName/schoolCode/grade/classNumber/gender/nickname을 함께 넘기면 st/start와 동일하게 tb_dgnss_result_info에 저장된다(전달된 값만). grade/classNumber는 숫자만 저장, gender는 'M'/'F'.")
     @Parameter(name = "dgnssResultId", description = "심리검사 상세 ID",
             examples = {
                     @ExampleObject(name = "math", value = "12509", description = "수학 환경"),
@@ -671,9 +672,11 @@ public class DgnssController {
                                 "page": 0,
                                 "size": 20,
                                 "schoolName": "비상중학교",
+                                "schoolCode": "B000012345",
                                 "grade": "2",
                                 "classNumber": "3",
-                                "gender": "M"
+                                "gender": "M",
+                                "nickname": "홍길동"
                             }
                             """)
             }))
