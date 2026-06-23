@@ -373,7 +373,9 @@ export const SelfregComparisonSection = ({
       .slice(0, 4);
   }, [classes, classTScores]);
 
-  const totalStudents = classes.reduce((s, c) => s + (c.stats?.totalStudents || 0), 0);
+  const totalStudents = classes
+    .filter((c) => (c.stats?.assessedStudents ?? 0) > 0)
+    .reduce((s, c) => s + (c.stats?.assessedStudents || 0), 0);
 
   const subtitle =
     drillLevel === '3strategies'
@@ -411,20 +413,22 @@ export const SelfregComparisonSection = ({
               전체 ({totalStudents}명)
             </Chip>
 
-            {classes.map((cls, idx) => {
-              const color = CLASS_COLORS[idx % CLASS_COLORS.length];
-              const isSelected = selectedClassId === cls.id;
-              return (
-                <Chip
-                  key={cls.id}
-                  $active={isSelected}
-                  onClick={() => onClassSelect(isSelected ? null : cls.id)}
-                >
-                  <ChipDot $color={color} />
-                  {cls.grade}학년 {cls.classNumber}반 ({cls.stats?.assessedStudents || 0}명)
-                </Chip>
-              );
-            })}
+            {classes
+              .filter((cls) => (cls.stats?.assessedStudents ?? 0) > 0)
+              .map((cls, idx) => {
+                const color = CLASS_COLORS[idx % CLASS_COLORS.length];
+                const isSelected = selectedClassId === cls.id;
+                return (
+                  <Chip
+                    key={cls.id}
+                    $active={isSelected}
+                    onClick={() => onClassSelect(isSelected ? null : cls.id)}
+                  >
+                    <ChipDot $color={color} />
+                    {cls.grade}학년 {cls.classNumber}반 ({cls.stats?.assessedStudents || 0}명)
+                  </Chip>
+                );
+              })}
           </ChipsRow>
 
           <ResponsiveContainer width='100%' height={420}>
