@@ -876,6 +876,10 @@ public class DgnssService {
     }
 
     public Map<String, Object> selectNewOmr(Map<String, Object> param, Pageable pageable) {
+        // st/start와 동일: 학생 입력 식별정보 정규화 (gender M/F, grade·classNumber 숫자만) — 저장은 하단 updateStStart에서
+        normalizeAndValidateGender(param);
+        normalizeNumericInput(param, "grade");
+        normalizeNumericInput(param, "classNumber");
         Map<String, Object> resultMap = new HashMap<>();
         Map<String, Object> targetMap = dgnssMapper.selectPastOmrInfo(param);
         int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
