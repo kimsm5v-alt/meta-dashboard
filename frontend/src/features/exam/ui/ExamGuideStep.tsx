@@ -2,7 +2,7 @@ import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { useState, useEffect } from 'react';
 import { ArrowRight, ArrowLeft, Loader2, Lock, CheckCircle2, Search } from 'lucide-react';
-import type { StudentInfo } from './StudentInfoStep';
+import type { StudentInfo } from '@shared/types';
 import { SchoolSearchModal } from './SchoolSearchModal';
 import { neisGradeToSchoolLevel, type SchoolSearchResult } from '../api/schoolSearchService';
 
@@ -11,6 +11,7 @@ type SchoolLevel = 'elementary' | 'middle' | 'high' | '';
 export interface StudentExamContext {
   ordNo: number;
   schoolName?: string;
+  schoolCode?: string;
   schoolLevel?: SchoolLevel;
   grade?: number;
   classNumber?: number;
@@ -616,9 +617,6 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
 
   /* ── Student context form state ── */
   const [localName, setLocalName] = useState(studentExamContext?.prefilledName || '');
-  const [localStudentNumber, setLocalStudentNumber] = useState(
-    studentExamContext?.prefilledStudentNumber || '',
-  );
   const [localGender, setLocalGender] = useState<'M' | 'F' | ''>('');
 
   /* ── Editable group fields (when missing from context) ── */
@@ -629,6 +627,7 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
   const [selectedSchoolCode, setSelectedSchoolCode] = useState<string>('');
   const [editableGrade, setEditableGrade] = useState('');
   const [editableClassNumber, setEditableClassNumber] = useState('');
+  const [editableStudentNumber, setEditableStudentNumber] = useState('');
 
   const [contextErrors, setContextErrors] = useState<{
     studentNumber?: string;
@@ -688,17 +687,26 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
     if (studentExamContext) {
       const newErrors: typeof contextErrors = {};
 
+      // Validate editable group fields (if context doesn't have them)
+      const {
+        schoolName,
+        schoolCode,
+        schoolLevel: ctxLevel,
+        grade,
+        classNumber,
+        prefilledStudentNumber,
+      } = studentExamContext;
+
       // Validate always-required fields
-      if (!localStudentNumber.trim()) newErrors.studentNumber = '출석번호를 입력해주세요';
+      if (!prefilledStudentNumber && !editableStudentNumber.trim())
+        newErrors.studentNumber = '출석번호를 입력해주세요';
       if (!localName.trim()) newErrors.name = '이름을 입력해주세요';
       if (!localGender) newErrors.gender = '성별을 선택해주세요';
 
-      // Validate editable group fields (if context doesn't have them)
-      const { schoolName, schoolLevel: ctxLevel, grade, classNumber } = studentExamContext;
       if (!schoolName && !editableSchoolName.trim()) newErrors.schoolName = '학교를 입력해주세요';
       if (!ctxLevel && !editableSchoolLevel) newErrors.schoolLevel = '학교급을 선택해주세요';
-      if (grade == null && !editableGrade) newErrors.grade = '학년을 선택해주세요';
-      if (classNumber == null && !editableClassNumber.trim())
+      if (grade == 0 && !editableGrade) newErrors.grade = '학년을 선택해주세요';
+      if (classNumber == 0 && !editableClassNumber.trim())
         newErrors.classNumber = '반을 입력해주세요';
 
       if (Object.keys(newErrors).length > 0) {
@@ -708,18 +716,32 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
 
       // Prepare StudentInfo with context data or editable values
       const finalSchoolName = schoolName || editableSchoolName;
-      const finalGrade = grade != null ? String(grade) : editableGrade;
-      const finalClassNumber = classNumber != null ? String(classNumber) : editableClassNumber;
+      const finalGrade = grade != 0 ? String(grade) : editableGrade.replace(/[초중고]/, '');
+      const finalClassNumber = classNumber != 0 ? String(classNumber) : editableClassNumber;
+      const finalStudentNumber = prefilledStudentNumber
+        ? String(prefilledStudentNumber)
+        : editableStudentNumber;
+      const finalSchoolCode = schoolCode || selectedSchoolCode || undefined;
 
+      console.log(
+        'Starting exam with context info:',
+        finalSchoolName,
+        finalGrade,
+        finalClassNumber,
+        finalStudentNumber,
+        localName,
+        localGender,
+        finalSchoolCode,
+      );
       onStart({
         schoolName: finalSchoolName,
         grade: finalGrade,
         classNumber: finalClassNumber,
-        studentNumber: localStudentNumber,
+        studentNumber: finalStudentNumber,
         name: localName,
         gender: localGender,
         // 학교 직접입력(검색) 케이스에서만 NEIS 학교코드 — 컨텍스트(동기화) 학교면 미포함
-        schoolCode: schoolName ? undefined : selectedSchoolCode || undefined,
+        schoolCode: finalSchoolCode,
       });
     } else if (showInfoForm) {
       if (!validateInfoForm()) return;
@@ -731,13 +753,20 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
 
   const isStartEnabled = studentExamContext
     ? (() => {
-        const { schoolName, schoolLevel: ctxLevel, grade, classNumber } = studentExamContext;
+        const {
+          schoolName,
+          schoolLevel: ctxLevel,
+          grade,
+          classNumber,
+          prefilledStudentNumber,
+        } = studentExamContext;
         const hasSchoolName = !!schoolName || editableSchoolName.trim() !== '';
         const hasSchoolLevel = !!ctxLevel || editableSchoolLevel !== '';
-        const hasGrade = grade != null || editableGrade !== '';
-        const hasClassNumber = classNumber != null || editableClassNumber.trim() !== '';
+        const hasGrade = grade != 0 || editableGrade !== '';
+        const hasClassNumber = classNumber != 0 || editableClassNumber.trim() !== '';
+        const hasStudentNumber = !!prefilledStudentNumber || editableStudentNumber.trim() !== '';
         return (
-          localStudentNumber.trim() !== '' &&
+          hasStudentNumber &&
           localName.trim() !== '' &&
           localGender !== '' &&
           hasSchoolName &&
@@ -754,7 +783,14 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
      Student context mode: "검사 시작 준비"
   ════════════════════════════════════════════════════ */
   if (studentExamContext) {
-    const { schoolName, schoolLevel: ctxLevel, grade, classNumber } = studentExamContext;
+    const {
+      schoolName,
+      schoolLevel: ctxLevel,
+      grade,
+      classNumber,
+      prefilledStudentNumber,
+    } = studentExamContext;
+    console.log('Student context:', studentExamContext);
     const contextGradeOptions = GRADE_OPTIONS[ctxLevel || editableSchoolLevel] ?? [];
     return (
       <Container>
@@ -957,22 +993,34 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
                   {/* 번호 */}
                   <FormField>
                     <FieldLabel>
-                      번호<RequiredMark>*</RequiredMark>
+                      번호{!prefilledStudentNumber && <RequiredMark>*</RequiredMark>}
                     </FieldLabel>
-                    <TextInput
-                      type='text'
-                      value={localStudentNumber}
-                      onChange={(e) => {
-                        setLocalStudentNumber(e.target.value);
-                        if (contextErrors.studentNumber)
-                          setContextErrors((p) => ({ ...p, studentNumber: undefined }));
-                      }}
-                      placeholder='번호'
-                      disabled={isLoading}
-                      $hasError={!!contextErrors.studentNumber}
-                    />
-                    {contextErrors.studentNumber && (
-                      <FieldError>{contextErrors.studentNumber}</FieldError>
+                    {prefilledStudentNumber ? (
+                      <LockedFieldWrapper>
+                        <LockedValue>{prefilledStudentNumber}</LockedValue>
+                        <AutoBadge $color={color}>
+                          <Lock size={12} />
+                          자동
+                        </AutoBadge>
+                      </LockedFieldWrapper>
+                    ) : (
+                      <>
+                        <TextInput
+                          type='text'
+                          value={editableStudentNumber}
+                          onChange={(e) => {
+                            setEditableStudentNumber(e.target.value);
+                            if (contextErrors.studentNumber)
+                              setContextErrors((p) => ({ ...p, studentNumber: undefined }));
+                          }}
+                          placeholder='번호'
+                          disabled={isLoading}
+                          $hasError={!!contextErrors.studentNumber}
+                        />
+                        {contextErrors.studentNumber && (
+                          <FieldError>{contextErrors.studentNumber}</FieldError>
+                        )}
+                      </>
                     )}
                   </FormField>
 
