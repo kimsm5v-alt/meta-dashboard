@@ -2049,8 +2049,8 @@ export const ClassDashboardV2Widget: React.FC = () => {
     const dist = classData.stats?.typeDistribution ?? {};
     const dominantType = Object.entries(dist).sort((a, b) => b[1].count - a[1].count)[0];
     kpiCard2Label = '우세 유형';
-    kpiCard2Value = dominantType?.[0] ?? '-';
-    kpiCard2Sub = dominantType ? `${dominantType[1].percentage}%` : '-';
+    kpiCard2Value = dominantType?.[0] === '미지원' ? '없음' : (dominantType?.[0] ?? '-');
+    kpiCard2Sub = (dominantType && dominantType[0] !== '미지원') ? `${dominantType[1].percentage}%` : '-';
   }
 
   const badgeColor = testId === 'selfreg' ? '#009f88' : '#4F46E5';

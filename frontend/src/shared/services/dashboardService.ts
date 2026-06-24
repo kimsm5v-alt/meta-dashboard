@@ -719,8 +719,9 @@ export function convertToAssessment(
     tScores && Array.isArray(tScores) && tScores.length === 38 ? tScores : new Array(38).fill(50);
 
   const classification = classifyStudent(safeTScores, schoolLevel);
-  // 백엔드가 계산한 유형명이 있으면 우선 사용, 없으면 프론트엔드 재계산 결과 사용
-  const predictedType = (data?.lpaTypeName ?? classification.predictedType) as StudentType;
+  // 백엔드가 계산한 유형명이 있으면 우선 사용
+  // lpaTypeName이 없으면 프론트엔드 계산값 사용 (고등학교는 "미지원")
+  const predictedType = (data?.lpaTypeName || classification.predictedType) as StudentType;
   // API lpaTop 확률이 있으면 우선 사용 — 유형명과 확률 출처를 일치시켜 카드/도넛 불일치 방지
   const typeProbabilities = data?.apiTypeProbabilities ?? classification.allProbabilities;
   const deviations = getTypeDeviations(safeTScores, predictedType, schoolLevel, 3);
