@@ -14,8 +14,11 @@ RUN npm install && npm install @rollup/rollup-linux-x64-musl --optional
 # 3) 빌드에 필요한 frontend 소스만 복사
 COPY frontend/ ./frontend/
 
-# 4) 빌드
-RUN npm run build --workspace=frontend
+# 4) 빌드 (BUILD_MODE: dev → .env.development, prod → .env.production)
+#    CI에서 브랜치별로 --build-arg BUILD_MODE=dev|prod 전달
+#    미전달 시 prod로 동작하여 기존 동작과 동일(하위호환)
+ARG BUILD_MODE=prod
+RUN npm run build:${BUILD_MODE} --workspace=frontend
 
 # Production stage
 FROM nginx:stable-alpine

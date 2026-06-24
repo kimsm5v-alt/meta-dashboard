@@ -34,6 +34,7 @@ build_image:meta-dashboard-front:
   variables:
     APP_NAME: "meta-dashboard-fe"
     DOCKERFILE_PATH: "frontend/Dockerfile"
+    DOCKER_BUILD_ARGS: "--build-arg BUILD_MODE=dev"
 
 update_manifest:meta-dashboard-backend:
   extends: update_manifest

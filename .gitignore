@@ -61,7 +61,8 @@ __pycache__/
 .env.*.local
 .env.production
 .env.development
-frontend/.env.development
+# vs-develop CI 빌드에 필요 — Vite 변수는 번들에 공개되므로 커밋 가능
+!frontend/.env.development
 public/test-accounts.json
 
 # Others
