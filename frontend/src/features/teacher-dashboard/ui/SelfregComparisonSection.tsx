@@ -310,26 +310,38 @@ export const SelfregComparisonSection = ({
     [classes, queries.map((q) => q.dataUpdatedAt).join(',')],
   );
 
+  // 자기조절검사 데이터가 있는 반만 필터링 (검사 유형별로 구분)
+  const assessedClasses = useMemo(
+    () => classes.filter((_, idx) => classTScores[idx] !== null),
+    [classes, classTScores],
+  );
+
+  // 필터링된 반의 T점수만 추출
+  const assessedTScores = useMemo(
+    () => classTScores.filter((ts) => ts !== null) as number[][],
+    [classTScores],
+  );
+
   const indices = drillLevel === '3strategies' ? CATEGORY_INDICES : SUBCATEGORY_INDICES;
 
   const chartData = useMemo(
     () =>
       Object.entries(indices).map(([category, idxList]) => {
         const point: Record<string, string | number> = { category };
-        classes.forEach((cls, idx) => {
-          const ts = classTScores[idx];
+        assessedClasses.forEach((cls, idx) => {
+          const ts = assessedTScores[idx];
           if (ts) point[`${cls.grade}-${cls.classNumber}반`] = computeGroupAvg(ts, idxList);
         });
         return point;
       }),
-    [classes, classTScores, indices],
+    [assessedClasses, assessedTScores, indices],
   );
 
   // 전체 비교 요약: 학년 평균 대비 편차 (3대 전략 기준 고정)
   const outliers = useMemo(() => {
-    const classStats = classes
+    const classStats = assessedClasses
       .map((cls, idx) => {
-        const ts = classTScores[idx];
+        const ts = assessedTScores[idx];
         if (!ts) return null;
         return {
           cls,
@@ -371,11 +383,9 @@ export const SelfregComparisonSection = ({
         return Math.abs(b.delta) - Math.abs(a.delta);
       })
       .slice(0, 4);
-  }, [classes, classTScores]);
+  }, [assessedClasses, assessedTScores]);
 
-  const totalStudents = classes
-    .filter((c) => (c.stats?.assessedStudents ?? 0) > 0)
-    .reduce((s, c) => s + (c.stats?.assessedStudents || 0), 0);
+  const totalStudents = assessedClasses.reduce((s, c) => s + (c.stats?.assessedStudents || 0), 0);
 
   const subtitle =
     drillLevel === '3strategies'
@@ -413,22 +423,20 @@ export const SelfregComparisonSection = ({
               전체 ({totalStudents}명)
             </Chip>
 
-            {classes
-              .filter((cls) => (cls.stats?.assessedStudents ?? 0) > 0)
-              .map((cls, idx) => {
-                const color = CLASS_COLORS[idx % CLASS_COLORS.length];
-                const isSelected = selectedClassId === cls.id;
-                return (
-                  <Chip
-                    key={cls.id}
-                    $active={isSelected}
-                    onClick={() => onClassSelect(isSelected ? null : cls.id)}
-                  >
-                    <ChipDot $color={color} />
-                    {cls.grade}학년 {cls.classNumber}반 ({cls.stats?.assessedStudents || 0}명)
-                  </Chip>
-                );
-              })}
+            {assessedClasses.map((cls, idx) => {
+              const color = CLASS_COLORS[idx % CLASS_COLORS.length];
+              const isSelected = selectedClassId === cls.id;
+              return (
+                <Chip
+                  key={cls.id}
+                  $active={isSelected}
+                  onClick={() => onClassSelect(isSelected ? null : cls.id)}
+                >
+                  <ChipDot $color={color} />
+                  {cls.grade}학년 {cls.classNumber}반 ({cls.stats?.assessedStudents || 0}명)
+                </Chip>
+              );
+            })}
           </ChipsRow>
 
           <ResponsiveContainer width='100%' height={420}>
@@ -465,7 +473,7 @@ export const SelfregComparisonSection = ({
                 iconType='line'
                 iconSize={16}
                 onClick={(e) => {
-                  const cls = classes.find((c) => `${c.grade}-${c.classNumber}반` === e.value);
+                  const cls = assessedClasses.find((c) => `${c.grade}-${c.classNumber}반` === e.value);
                   if (cls) onClassSelect(selectedClassId === cls.id ? null : cls.id);
                 }}
                 style={{ cursor: 'pointer' }}
@@ -483,7 +491,7 @@ export const SelfregComparisonSection = ({
                   fontWeight: 600,
                 }}
               />
-              {classes.map((cls, idx) => {
+              {assessedClasses.map((cls, idx) => {
                 const key = `${cls.grade}-${cls.classNumber}반`;
                 const isSelected = selectedClassId === cls.id;
                 const hasSelection = selectedClassId !== null;
@@ -510,9 +518,9 @@ export const SelfregComparisonSection = ({
         <SidePanel style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {selectedClassId ? (
             (() => {
-              const clsIdx = classes.findIndex((c) => c.id === selectedClassId);
-              const cls = classes[clsIdx];
-              const ts = classTScores[clsIdx];
+              const clsIdx = assessedClasses.findIndex((c) => c.id === selectedClassId);
+              const cls = assessedClasses[clsIdx];
+              const ts = assessedTScores[clsIdx];
               const avgT = ts
                 ? Math.round(
                     Object.values(CATEGORY_INDICES).reduce(
