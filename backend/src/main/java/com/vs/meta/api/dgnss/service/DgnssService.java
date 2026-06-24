@@ -1018,8 +1018,13 @@ public class DgnssService {
         resultMap.put("stInfoList", stInfoList);
         resultMap.put("type", type);
 
-        enrichLpaTop3(stInfoList);
-        moveSectionScoresToScoresMap(stInfoList);
+        // type=1(신뢰도)은 FE가 LPA top3·섹션점수(scores)를 사용하지 않으므로 보강을 생략한다.
+        // (신뢰도 쿼리에는 LPA 확률 JSON·섹션점수 컬럼 자체가 없어 빈 값만 추가될 뿐이다.)
+        // type 2~6(전략)은 scores 맵이 필요하므로 기존대로 보강한다.
+        if (type != 1) {
+            enrichLpaTop3(stInfoList);
+            moveSectionScoresToScoresMap(stInfoList);
+        }
         return resultMap;
     }
 
