@@ -216,13 +216,14 @@ const buildQuestion = (questionId: QuestionId, data: StudentData): string => {
 export const getDataHelperFreeAnswer = async (
   question: string,
   data: StudentData,
+  userId?: string,
 ): Promise<string> => {
   const studentContext = buildStudentContextMarkdown(data);
   const sessionId = `data-helper-free-${Date.now()}`;
   const contextData = {
     context: `${SYSTEM_PROMPT_DATA_HELPER}\n\n---\n\n${studentContext}`,
   };
-  const response = await agentChat(question, sessionId, contextData);
+  const response = await agentChat(question, sessionId, contextData, userId);
   return response.response;
 };
 
@@ -237,6 +238,7 @@ export const getDataHelperFreeAnswer = async (
 export const getDataHelperAnswer = async (
   questionId: QuestionId,
   data: StudentData,
+  userId?: string,
 ): Promise<string> => {
   const questionText = buildQuestion(questionId, data);
   const studentContext = buildStudentContextMarkdown(data);
@@ -250,6 +252,6 @@ export const getDataHelperAnswer = async (
     }),
   };
 
-  const response = await agentChat(questionText, sessionId, contextData);
+  const response = await agentChat(questionText, sessionId, contextData, userId);
   return response.response;
 };
