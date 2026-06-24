@@ -302,10 +302,16 @@ public class DgnssGraphService {
 
     /** 편차 계산 내부값(need)을 제거한 요인 정보 복사본 리스트 (유형별 특이점 응답용). */
     private List<Map<String, Object>> stripInternal(List<Map<String, Object>> factors) {
+        // 강점/보완점은 FE에서 factorName·individualT만 사용. 나머지는 미사용(groupT·deviation·direction은
+        // typeDeviations의 typeMean·diff·direction과 중복)이라 응답에서 제외한다.
         List<Map<String, Object>> out = new ArrayList<>();
         for (Map<String, Object> f : factors) {
             Map<String, Object> m = new LinkedHashMap<>(f);
             m.remove("need");
+            m.remove("factorType");
+            m.remove("groupT");
+            m.remove("deviation");
+            m.remove("direction");
             out.add(m);
         }
         return out;
