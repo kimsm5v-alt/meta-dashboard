@@ -293,13 +293,16 @@ type ClassStudentsData = {
   dgnssIds: { round1?: number; round2?: number };
 };
 
-export function useClassStudents(classId: string | undefined): UseClassStudentsResult {
+export function useClassStudents(
+  classId: string | undefined,
+  paperIdx: '1' | '2' = '1', // '1': 학습심리정서검사, '2': 자기조절학습검사
+): UseClassStudentsResult {
   const { getClassById } = useData();
   const { user } = useAuth();
   const { tcId, schoolLevel: credSchoolLevel } = useCredentials();
 
   const query = useQuery<ClassStudentsData>({
-    queryKey: ['class', 'students', classId],
+    queryKey: ['class', 'students', classId, paperIdx],
     queryFn: async (): Promise<ClassStudentsData> => {
       const classData = getClassById(classId!);
 
@@ -336,7 +339,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
       }
 
       const effectiveTcId = tcId || user?.tcId || '';
-      const exams = await fetchTeacherExams(classId!, effectiveTcId, '1');
+      const exams = await fetchTeacherExams(classId!, effectiveTcId, paperIdx);
       const completedRound1 = exams.find((exam) => exam.dgnssAt === 'N' && exam.ordNo === 1);
       const completedRound2 = exams.find((exam) => exam.dgnssAt === 'N' && exam.ordNo === 2);
       const classDgnssIds = {
@@ -358,6 +361,7 @@ export function useClassStudents(classId: string | undefined): UseClassStudentsR
         classId!,
         classSchoolLevel,
         grade,
+        paperIdx,
       );
 
       return {

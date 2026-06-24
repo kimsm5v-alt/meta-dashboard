@@ -744,6 +744,37 @@ export function convertToAssessment(
   };
 }
 
+/**
+ * 자기조절학습검사(20요인) 전용 Assessment 변환
+ * 종합검사와 달리 LPA 유형/도형 분류가 없으므로 유형 관련 필드는 비워둔다.
+ */
+export function convertSelfregToAssessment(
+  studentId: string,
+  round: 1 | 2,
+  data: (SelfregRoundAnalysis & { answerIdx?: number | null }) | null | undefined,
+): import('@shared/types').Assessment {
+  const tScores =
+    data?.tScores && Array.isArray(data.tScores) && data.tScores.length === 20
+      ? data.tScores
+      : new Array(20).fill(50);
+
+  return {
+    id: `${studentId}-r${round}`,
+    studentId,
+    round,
+    assessedAt: new Date(),
+    tScores,
+    predictedType: '미지원' as StudentType, // 자기조절검사는 유형 미제공
+    typeConfidence: 0,
+    typeProbabilities: {},
+    deviations: [],
+    reliabilityWarnings: data?.reliabilityWarnings ?? [],
+    attentionResult: { needsAttention: false, reasons: [] },
+    midCategoryScores: null,
+    answerIdx: data?.answerIdx ?? null,
+  };
+}
+
 export async function buildClassFromAPI(
   claId: string,
   grade: number,
@@ -870,35 +901,49 @@ export async function fetchL2DashboardData(
   claId: string,
   schoolLevel: SchoolLevel,
   grade: number,
+  paperIdx: '1' | '2' = '1', // '1': 학습심리정서검사, '2': 자기조절학습검사
 ): Promise<L2DashboardData> {
+  const isSelfreg = paperIdx === '2';
+
+  // 자기조절검사(paperIdx=2)는 반/학생 집계 구조가 종합검사와 달라 전용 함수 사용
   const [examDetail, studentInfoList, classTScores, needAttention] = await Promise.all([
     fetchExamDetail(dgnssId),
-    fetchStudentInfoList(dgnssId, '1', 1),
-    fetchClassAnalysis(claId, '1', 1),
-    fetchNeedAttentionStudents(dgnssId, '1'),
+    fetchStudentInfoList(dgnssId, paperIdx, 1),
+    isSelfreg
+      ? fetchSelfregClassAnalysis(claId, 1).then((r) => r ?? new Array(20).fill(50))
+      : fetchClassAnalysis(claId, paperIdx, 1),
+    fetchNeedAttentionStudents(dgnssId, paperIdx),
   ]);
 
-  const studentAnalysisPromises = studentInfoList.map(async (info) => {
-    const fullAnalysis = await fetchStudentFullAnalysis(claId, info.stdtId, '1');
-    return { info, fullAnalysis };
-  });
-
-  const studentResults = await Promise.all(studentAnalysisPromises);
-
-  const students: import('@shared/types').Student[] = studentResults.map(
-    ({ info, fullAnalysis }) => {
+  const students: import('@shared/types').Student[] = await Promise.all(
+    studentInfoList.map(async (info) => {
       const assessments: import('@shared/types').Assessment[] = [];
 
-      if (fullAnalysis.round1?.tScores) {
-        const r1data = {
-          ...fullAnalysis.round1,
-          answerIdx: fullAnalysis.round1.answerIdx ?? info.answerIdx ?? null,
-        };
-        assessments.push(convertToAssessment(info.stdtId, 1, r1data, schoolLevel));
-      }
-
-      if (fullAnalysis.round2?.tScores) {
-        assessments.push(convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel));
+      if (isSelfreg) {
+        const selfreg = await fetchSelfregFullAnalysis(claId, info.stdtId);
+        if (selfreg.round1?.tScores) {
+          assessments.push(
+            convertSelfregToAssessment(info.stdtId, 1, {
+              ...selfreg.round1,
+              answerIdx: selfreg.round1.answerIdx ?? info.answerIdx ?? null,
+            }),
+          );
+        }
+        if (selfreg.round2?.tScores) {
+          assessments.push(convertSelfregToAssessment(info.stdtId, 2, selfreg.round2));
+        }
+      } else {
+        const fullAnalysis = await fetchStudentFullAnalysis(claId, info.stdtId, paperIdx);
+        if (fullAnalysis.round1?.tScores) {
+          const r1data = {
+            ...fullAnalysis.round1,
+            answerIdx: fullAnalysis.round1.answerIdx ?? info.answerIdx ?? null,
+          };
+          assessments.push(convertToAssessment(info.stdtId, 1, r1data, schoolLevel));
+        }
+        if (fullAnalysis.round2?.tScores) {
+          assessments.push(convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel));
+        }
       }
 
       const infoReliabilityWarnings = getReliabilityWarnings(info);
@@ -916,7 +961,7 @@ export async function fetchL2DashboardData(
         grade,
         assessments,
       };
-    },
+    }),
   );
 
   return {

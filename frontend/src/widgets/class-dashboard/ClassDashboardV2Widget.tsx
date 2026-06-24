@@ -1765,7 +1765,7 @@ export const ClassDashboardV2Widget: React.FC = () => {
   const { getClassById } = useData();
   const { hasJwtToken } = useApiConfig();
 
-  const { students: apiStudents, l2Data, classInfo: apiClassInfo, dgnssIds, isLoading: studentsLoading, error: studentsError } = useClassStudents(classId);
+  const { students: apiStudents, l2Data, classInfo: apiClassInfo, dgnssIds, isLoading: studentsLoading, error: studentsError } = useClassStudents(classId, testId === 'selfreg' ? '2' : '1');
   const { round1: selfregRound1, round2: selfregRound2, isLoading: selfregLoading } = useSelfregClassAnalysis(
     testId === 'selfreg' ? classId : undefined,
   );
@@ -1955,22 +1955,24 @@ export const ClassDashboardV2Widget: React.FC = () => {
         },
       };
     }
-    // selfreg 전용: 종합검사 학생 없어도 classInfo(groups API)가 있으면 최소 classData 구성
+    // selfreg 전용: 자기조절검사 학생 목록(paperIdx=2)을 apiStudents로 구성
     if (hasJwtToken && testId === 'selfreg' && apiClassInfo && classId) {
-      const totalStudents = selfregDgnssIds.stTotalCnt ?? 0;
-      const assessedStudents = selfregDgnssIds.stSubmCnt ?? 0;
+      // 검사 완료율은 자기조절검사 실제 응시자 기준 (examDetail은 종합검사 회차 정보라 사용 금지)
+      const totalStudents = apiStudents.length || selfregDgnssIds.stTotalCnt || 0;
+      const submittedCount = apiStudents.filter(s => s.assessments.length > 0).length;
+      const needAttentionCount = apiStudents.filter(s => s.assessments.some(a => a.attentionResult.needsAttention)).length;
       return {
         id: classId,
         schoolLevel: apiClassInfo.schoolLevel,
         grade: apiClassInfo.grade,
         classNumber: apiClassInfo.classNumber,
         teacherId: '',
-        students: [],
+        students: apiStudents,
         stats: {
-          totalStudents, assessedStudents, typeDistribution: {}, needAttentionCount: 0,
+          totalStudents, assessedStudents: submittedCount, typeDistribution: {}, needAttentionCount,
           round1Completed: !!selfregRound1, round2Completed: !!selfregRound2,
           examStatus: { round1: selfregRound1 ? '종료' : '시작전', round2: selfregRound2 ? '종료' : '시작전' },
-          round2SubmittedCount: 0,
+          round2SubmittedCount: apiStudents.filter(s => s.assessments.some(a => a.round === 2)).length,
         },
       };
     }
