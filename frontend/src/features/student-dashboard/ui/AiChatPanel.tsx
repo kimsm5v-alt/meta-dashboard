@@ -10,6 +10,7 @@ import {
   type QuestionId,
 } from '../api/dataHelperService';
 import { renderMarkdown } from './DataHelperAnswer';
+import { useAuth } from '@features/auth';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(4px); }
@@ -206,6 +207,7 @@ interface AiChatPanelProps {
 }
 
 export const AiChatPanel: React.FC<AiChatPanelProps> = ({ data }) => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -239,8 +241,8 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ data }) => {
 
     try {
       const answer = questionId
-        ? await getDataHelperAnswer(questionId, data)
-        : await getDataHelperFreeAnswer(userText, data);
+        ? await getDataHelperAnswer(questionId, data, user?.email)
+        : await getDataHelperFreeAnswer(userText, data, user?.email);
 
       setMessages((prev) =>
         prev.map((m) => (m.id === loadingId ? { ...m, content: answer, loading: false } : m)),

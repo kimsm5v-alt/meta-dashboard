@@ -4395,7 +4395,7 @@ public class DrawPdfService {
             }
 
             // 검사해석 전문가
-            String teacherNm = MapUtils.getString(userInfo, "teacherNm", "김비상");
+            String teacherNm = MapUtils.getString(userInfo, "tcNm", "김비상");
             pioPdf.drawText("검사 해석 전문가 : " + teacherNm, 14.5f, 7.5f, "Pretendard Medium", 9f, true, false, pioPdf.hexa2Color("#00B298"), -0.58f);
         }
 

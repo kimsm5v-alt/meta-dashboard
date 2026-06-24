@@ -28,6 +28,7 @@ import {
 import type { ExampleSentence } from '@shared/data/schoolRecordSentences';
 import { buildSimpleRecordMessages, validateSchoolRecordOutput } from '@shared/data/aiPrompts';
 import { agentChatStream } from '@features/ai-room/api/agentApiService';
+import { useAuth } from '@features/auth';
 
 // ============================================================
 // Styled Components
@@ -542,6 +543,7 @@ interface ValidationResult {
 }
 
 export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, assessment }) => {
+  const { user } = useAuth();
   const [selectedSentences, setSelectedSentences] = useState<string[]>([]);
   const [generatedText, setGeneratedText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -677,10 +679,16 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
       const sessionId = `school-record-${student.id}`;
 
       let accumulated = '';
-      await agentChatStream(fullPrompt, sessionId, (chunk) => {
-        accumulated += chunk;
-        setGeneratedText(accumulated);
-      });
+      await agentChatStream(
+        fullPrompt,
+        sessionId,
+        (chunk) => {
+          accumulated += chunk;
+          setGeneratedText(accumulated);
+        },
+        null,
+        user?.email,
+      );
 
       if (!accumulated) throw new Error('empty response');
     } catch {
