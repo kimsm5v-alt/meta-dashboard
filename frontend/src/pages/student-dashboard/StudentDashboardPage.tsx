@@ -717,8 +717,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                                 color: '#374151',
                                 background: 'none',
                                 border: 'none',
-                                cursor: (r2?.answerIdx != null || r2AnswerIdx != null) ? 'pointer' : 'not-allowed',
-                                opacity: (r2?.answerIdx != null || r2AnswerIdx != null) ? 1 : 0.4,
+                                cursor:
+                                  r2?.answerIdx != null || r2AnswerIdx != null
+                                    ? 'pointer'
+                                    : 'not-allowed',
+                                opacity: r2?.answerIdx != null || r2AnswerIdx != null ? 1 : 0.4,
                                 borderRadius: '0.375rem',
                               }}
                             >
@@ -743,8 +746,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                                 color: '#374151',
                                 background: 'none',
                                 border: 'none',
-                                cursor: (r2?.answerIdx != null || r2AnswerIdx != null) ? 'pointer' : 'not-allowed',
-                                opacity: (r2?.answerIdx != null || r2AnswerIdx != null) ? 1 : 0.4,
+                                cursor:
+                                  r2?.answerIdx != null || r2AnswerIdx != null
+                                    ? 'pointer'
+                                    : 'not-allowed',
+                                opacity: r2?.answerIdx != null || r2AnswerIdx != null ? 1 : 0.4,
                                 borderRadius: '0.375rem',
                               }}
                             >
@@ -797,27 +803,28 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
           </SectionCard>
         </SectionContainer>
 
-        {/* 2. 학습 유형 알아보기 */}
-        <SectionContainer>
-          <SectionTitle>{isCompare ? 'LPA 유형 변화' : '학습 유형 알아보기'}</SectionTitle>
-          <SectionCard>
-            {/* 유형 분류 */}
-            <CardSection $hasBorder>
-              <TypeClassification
-                predictedType={current.predictedType}
-                typeProbabilities={current.typeProbabilities}
-                schoolLevel={student.schoolLevel}
-                showCompare={isCompare && !!r1 && !!r2}
-                prevType={r1?.predictedType}
-                prevTypeProbabilities={r1?.typeProbabilities}
-              />
-            </CardSection>
+        {/* 2. 학습 유형 알아보기 - 고등학교(LPA 미제공) 제외 */}
+        {student.schoolLevel !== '고등' && current.predictedType !== '미지원' && (
+          <SectionContainer>
+            <SectionTitle>{isCompare ? 'LPA 유형 변화' : '학습 유형 알아보기'}</SectionTitle>
+            <SectionCard>
+              {/* 유형 분류 */}
+              <CardSection $hasBorder>
+                <TypeClassification
+                  predictedType={current.predictedType}
+                  typeProbabilities={current.typeProbabilities}
+                  schoolLevel={student.schoolLevel}
+                  showCompare={isCompare && !!r1 && !!r2}
+                  prevType={r1?.predictedType}
+                  prevTypeProbabilities={r1?.typeProbabilities}
+                />
+              </CardSection>
+            </SectionCard>
+          </SectionContainer>
+        )}
 
-          </SectionCard>
-        </SectionContainer>
-
-        {/* 코칭 전략 (강점/보완점 카드 + 아코디언 통합) - 고등학교 제외 */}
-        {student.schoolLevel !== '고등' && (
+        {/* 코칭 전략 (강점/보완점 카드 + 아코디언 통합) - 고등학교(LPA 미제공) 제외 */}
+        {student.schoolLevel !== '고등' && current.predictedType !== '미지원' && (
           <CoachingStrategy
             moderationPaths={moderationPaths}
             strengths={strengths}

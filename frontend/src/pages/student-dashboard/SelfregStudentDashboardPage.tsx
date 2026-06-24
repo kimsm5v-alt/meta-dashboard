@@ -330,7 +330,7 @@ export const SelfregStudentDashboardPage: React.FC = () => {
   }>();
   const navigate = useNavigate();
 
-  const { students, classInfo, isLoading: studentsLoading } = useClassStudents(classId);
+  const { students, classInfo, isLoading: studentsLoading } = useClassStudents(classId, '2');
 
   const [rounds, setRounds] = useState<SelfregRound[]>([]);
   const [isLoading, setIsLoading] = useState(true);

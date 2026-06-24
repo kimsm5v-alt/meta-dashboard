@@ -729,7 +729,9 @@ export const ClassDashboardWidget: React.FC = () => {
     const isHighSchool = classData?.schoolLevel === '고등';
     return (
       <ResultCellWrapper>
-        {!isHighSchool && <Badge type={assessment.predictedType}>{assessment.predictedType}</Badge>}
+        {!isHighSchool && assessment.predictedType !== '미지원' && (
+          <Badge type={assessment.predictedType}>{assessment.predictedType}</Badge>
+        )}
         {hasAttention && (
           <StatusBadge
             $variant='attention'
