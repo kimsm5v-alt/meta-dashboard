@@ -375,7 +375,7 @@ export const ComparisonSection = ({
   // calculateCategoryAverages 내부에서 assessments.length > 0인 학생만 계산하므로,
   // 해당 검사 완료 학생이 있는 반만 선택
   const assessedClasses = useMemo(() => {
-    return classes.filter((cls, idx) => {
+    return classes.filter((_cls, idx) => {
       const avg = classAverages[idx];
       // 평균이 모두 0이면 검사 완료 학생이 없는 것
       return Object.values(avg.categoryAverages).some((v) => v !== 0);
