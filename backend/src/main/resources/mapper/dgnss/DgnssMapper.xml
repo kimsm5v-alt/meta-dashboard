@@ -2132,11 +2132,6 @@
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, lpa.class_id AS lpaClassId
-			, lpa.type_name AS lpaTypeName
-			, lpa.confidence AS lpaConfidence
-			, lpa.status AS lpaStatus
-			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, CASE WHEN c1.LS_ANS01 = 1 THEN '매우 낮음'
 				WHEN c1.LS_ANS01 = 2 THEN '낮음'
 				WHEN c1.LS_ANS01 = 3 THEN '보통'
@@ -2509,11 +2504,6 @@
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, lpa.class_id AS lpaClassId
-			, lpa.type_name AS lpaTypeName
-			, lpa.confidence AS lpaConfidence
-			, lpa.status AS lpaStatus
-			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, CASE WHEN c1.LS_ANS01 = 1 THEN '매우 낮음'
 				WHEN c1.LS_ANS01 = 2 THEN '낮음'
 				WHEN c1.LS_ANS01 = 3 THEN '보통'
