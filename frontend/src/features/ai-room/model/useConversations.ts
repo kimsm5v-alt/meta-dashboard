@@ -374,7 +374,7 @@ export const useConversations = ({
           messages: messages.filter((m) => m.id !== '1'),
           userMessage: currentInput,
           cachedContext,
-          userId: user?.id,
+          userId: user?.email,
         },
         (accumulated, isFinal) => {
           setStreamingContent(accumulated);
