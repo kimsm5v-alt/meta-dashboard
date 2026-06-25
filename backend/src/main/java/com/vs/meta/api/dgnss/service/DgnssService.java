@@ -806,11 +806,16 @@ public class DgnssService {
         log.info("[PDF 성능] 교사용 PDF 렌더링+업로드: {}ms", System.currentTimeMillis() - pdfStart);
 
         long updateStart = System.currentTimeMillis();
-        Map<String, Object> updateMap = new HashMap<>();
-        updateMap.put("fileUrl", url);
-        updateMap.put("dgnssId", MapUtils.getString(param, "TEST_IDX", ""));
-        dgnssMapper.updateFileUrlTch(updateMap);
-        log.info("[PDF 성능] 교사용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
+        if (isStorableFileUrl(url)) {
+            Map<String, Object> updateMap = new HashMap<>();
+            updateMap.put("fileUrl", url);
+            updateMap.put("dgnssId", MapUtils.getString(param, "TEST_IDX", ""));
+            dgnssMapper.updateFileUrlTch(updateMap);
+            log.info("[PDF 성능] 교사용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
+        } else {
+            log.warn("[file_url 저장 생략] 유효하지 않은 업로드 URL: dgnssId={}, urlLen={}, url={}",
+                    MapUtils.getString(param, "TEST_IDX", ""), url == null ? 0 : url.length(), url);
+        }
 
         log.info("[PDF 성능] 교사용 makeTcPdf 총합: {}ms", System.currentTimeMillis() - methodStart);
         return url;
@@ -865,14 +870,41 @@ public class DgnssService {
         log.info("[PDF 성능] 학생용 PDF 렌더링+업로드: {}ms", System.currentTimeMillis() - pdfStart);
 
         long updateStart = System.currentTimeMillis();
-        Map<String, Object> updateMap = new HashMap<>();
-        updateMap.put("fileUrl", url);
-        updateMap.put("dgnssResultId", MapUtils.getString(stUserInfo, "dgnssResultId", ""));
-        dgnssMapper.updateFileUrl(updateMap);
-        log.info("[PDF 성능] 학생용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
+        if (isStorableFileUrl(url)) {
+            Map<String, Object> updateMap = new HashMap<>();
+            updateMap.put("fileUrl", url);
+            updateMap.put("dgnssResultId", MapUtils.getString(stUserInfo, "dgnssResultId", ""));
+            dgnssMapper.updateFileUrl(updateMap);
+            log.info("[PDF 성능] 학생용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
+        } else {
+            // 업로드 실패/비정상 URL → file_url 저장 생략 (잘못된 값 영구 저장 방지). 원인은 상위 업로드 로그 참조.
+            log.warn("[file_url 저장 생략] 유효하지 않은 업로드 URL: dgnssResultId={}, urlLen={}, url={}",
+                    MapUtils.getString(stUserInfo, "dgnssResultId", ""), url == null ? 0 : url.length(), url);
+        }
 
         log.info("[PDF 성능] 학생용 makeStPdf 총합: {}ms", System.currentTimeMillis() - methodStart);
         return url;
+    }
+
+    /**
+     * 업로드된 PDF 경로(file_url/summary_file_url)로 저장해도 되는 값인지 검증한다.
+     * 업로드 실패/부분 실패 시 비정상 값(빈 값, 컬럼 길이 초과로 잘린 값, pfile-download 같은 API URL,
+     * 쿼리스트링/토큰 포함 값)이 그대로 저장되는 것을 막는다.
+     */
+    private boolean isStorableFileUrl(String url) {
+        if (StringUtils.isBlank(url)) {
+            return false;
+        }
+        if (url.length() > 200) { // 컬럼 길이(varchar 200) 초과 → 잘린 값 방지
+            return false;
+        }
+        if (StringUtils.containsAny(url, "?", " ", "\n", "\r", "\t")) { // 쿼리/토큰/공백 포함 → 비정상
+            return false;
+        }
+        if (StringUtils.contains(url, "pfile-download")) { // 다운로드 API URL 오저장 방지
+            return false;
+        }
+        return StringUtils.endsWithIgnoreCase(url, ".pdf");
     }
 
     public Map<String, Object> selectNewOmr(Map<String, Object> param, Pageable pageable) {
@@ -2409,10 +2441,15 @@ public class DgnssService {
 
         String url = pdfService.createDgnssSummaryByTemplate(new File(fileName), dgnssData, request);
 
-        Map<String, Object> updateMap = new HashMap<>();
-        updateMap.put("fileUrl", url);
-        updateMap.put("dgnssResultId", MapUtils.getString(dgnssAnswer, "dgnssResultId", ""));
-        dgnssMapper.updateSummaryFileUrl(updateMap);
+        if (isStorableFileUrl(url)) {
+            Map<String, Object> updateMap = new HashMap<>();
+            updateMap.put("fileUrl", url);
+            updateMap.put("dgnssResultId", MapUtils.getString(dgnssAnswer, "dgnssResultId", ""));
+            dgnssMapper.updateSummaryFileUrl(updateMap);
+        } else {
+            log.warn("[summary_file_url 저장 생략] 유효하지 않은 업로드 URL: dgnssResultId={}, urlLen={}, url={}",
+                    MapUtils.getString(dgnssAnswer, "dgnssResultId", ""), url == null ? 0 : url.length(), url);
+        }
 
         result.put("summaryUrl", url);
         return result;

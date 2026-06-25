@@ -201,6 +201,13 @@ public class FileService {
             cleanupUploadFiles(tempFile, movedFile);
         }
 
+        // 실패 시(urls 비어있음) 원인 분류 요약 한 줄 — 권한/인증 vs 파일 입출력 vs 보안 vs DB 구분.
+        // (세부 스택트레이스는 위 logUploadError 의 'File upload - ...' 로그 참조)
+        if (urls.isEmpty()) {
+            log.warn("[파일 업로드 결과 없음] 원인={} (uploadPath={}, userId={}) — 호출 측 file_url 저장은 생략됩니다.",
+                    resultMsg, uploadPath, userId);
+        }
+
         return urls;
     }
 

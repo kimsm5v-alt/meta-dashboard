@@ -422,6 +422,16 @@ public class PdfService {
         String filePath = nasRoot + "/" + datePath;
         List<LinkedHashMap<String, Object>> url = fileService.uploadFile(fileList, filePath, "Y", request);
 
+        // 업로드 실패 시 uploadFile 은 빈 리스트를 반환한다. 이때 get(0) 으로 예외를 내거나
+        // 잘못된 값을 상위로 흘려보내지 않도록, 명확한 예외로 중단시켜 file_url 저장을 막는다.
+        // (실패 원인 — 권한/인증·파일 입출력·보안 등 — 은 FileService.uploadFile 의 분류 로그에 남는다.)
+        if (url == null || url.isEmpty() || url.get(0) == null || url.get(0).get("url") == null) {
+            log.error("[PDF 업로드 실패] 업로드 결과가 비어 있어 file_url 을 저장하지 않습니다. filePath={}, fileName={} "
+                            + "(원인은 직전 'File upload - ...' 로그 참조: 권한/인증 vs 파일 입출력 vs 보안)",
+                    filePath, file.getOriginalFilename());
+            throw new IllegalStateException("PDF 업로드 실패: 업로드 결과 없음 (권한/파일 IO 오류 등 — 업로드 로그 확인)");
+        }
+
         return url.get(0).get("url").toString();
     }
 
