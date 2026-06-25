@@ -432,7 +432,11 @@ public class PdfService {
             throw new IllegalStateException("PDF 업로드 실패: 업로드 결과 없음 (권한/파일 IO 오류 등 — 업로드 로그 확인)");
         }
 
-        return url.get(0).get("url").toString();
+        String uploadedUrl = url.get(0).get("url").toString();
+        // 업로드가 실제로 반환한 경로 — file_url 에 저장될 원본 값 추적용 ([] 로 감싸 앞뒤 공백/특수문자 식별)
+        log.info("[PDF 업로드 결과] filePath={}, fileName={}, returnedUrl=[{}]",
+                filePath, file.getOriginalFilename(), uploadedUrl);
+        return uploadedUrl;
     }
 
     // PDF 요약본

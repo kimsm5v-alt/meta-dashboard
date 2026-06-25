@@ -638,8 +638,12 @@ public class DgnssService {
             Map<String, Object> tcUserInfo = dgnssMapper.selectTcUserInfo(paramData);
             log.info("[PDF 성능] 교사 정보 조회: {}ms", System.currentTimeMillis() - dbStart);
 
-            if (StringUtils.isNotEmpty(MapUtils.getString(tcUserInfo, "fileUrl", ""))) {
-                result.put("url", MapUtils.getString(tcUserInfo, "fileUrl", ""));
+            String existingTcUrl = MapUtils.getString(tcUserInfo, "fileUrl", "");
+            if (StringUtils.isNotEmpty(existingTcUrl)) {
+                // 신규 생성 없이 기존 저장값을 그대로 반환 → 기존 값이 비정상이면 응답도 비정상이 된다.
+                log.info("[pdfDownload] 기존 교사 file_url 재사용(생성 생략): urlLen={}, url=[{}]",
+                        existingTcUrl.length(), existingTcUrl);
+                result.put("url", existingTcUrl);
                 return result;
             }
 
@@ -656,6 +660,9 @@ public class DgnssService {
             String fileUrl = MapUtils.getString(stUserInfo, "fileURL", "");
 
             if (StringUtils.isNotEmpty(fileUrl)) {
+                // 신규 생성 없이 기존 저장값을 그대로 반환 → 기존 값이 비정상이면 응답도 비정상이 된다.
+                log.info("[pdfDownload] 기존 학생 file_url 재사용(생성 생략): dgnssResultId={}, urlLen={}, url=[{}]",
+                        MapUtils.getString(stUserInfo, "dgnssResultId", ""), fileUrl.length(), fileUrl);
                 result.put("url", fileUrl);
                 return result;
             }
@@ -669,6 +676,9 @@ public class DgnssService {
             result.put("error", "fail");
         }
 
+        // 응답으로 내려가는 최종 url/error 추적 — 서버 200 이지만 클라이언트에서 오류로 보이는 경우 값 확인용
+        log.info("[pdfDownload 응답] userType={}, urlLen={}, url=[{}], error={}",
+                userType, url == null ? 0 : url.length(), result.get("url"), result.get("error"));
         log.info("[PDF 성능] 전체 소요시간: {}ms (userId: {}, userType: {})",
                 System.currentTimeMillis() - totalStart, userId, userType);
         return result;
@@ -875,7 +885,7 @@ public class DgnssService {
             updateMap.put("fileUrl", url);
             updateMap.put("dgnssResultId", MapUtils.getString(stUserInfo, "dgnssResultId", ""));
             dgnssMapper.updateFileUrl(updateMap);
-            log.info("[PDF 성능] 학생용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
+            log.info("[PDF 성능] 학생용 URL 저장: {}ms (file_url=[{}])", System.currentTimeMillis() - updateStart, url);
         } else {
             // 업로드 실패/비정상 URL → file_url 저장 생략 (잘못된 값 영구 저장 방지). 원인은 상위 업로드 로그 참조.
             log.warn("[file_url 저장 생략] 유효하지 않은 업로드 URL: dgnssResultId={}, urlLen={}, url={}",
