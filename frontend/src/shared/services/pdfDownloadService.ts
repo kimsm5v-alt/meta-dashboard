@@ -106,13 +106,13 @@ export async function downloadAllPdf(
       await axiosInstance.post(
         '/api/dgnss/summary/pdf',
         { answerIdx },
-        { validateStatus: () => true },
+        { validateStatus: () => true, timeout: 30000 },
       );
     } else {
       await axiosInstance.post(
         '/api/dgnss/pdf',
         { userId, userType, dgnssId, answerIdx, ordNo, type: Number(targetType) },
-        { validateStatus: () => true },
+        { validateStatus: () => true, timeout: 30000 },
       );
     }
     onProgress?.(i + 1, students.length);
@@ -122,7 +122,7 @@ export async function downloadAllPdf(
   const jwtToken = getAuth().getAccessToken() ?? '';
   const zipRes = await axiosInstance.get<{ resultData: { zipFileUrl: string } }>(
     '/api/dgnss/dgnss-download-all',
-    { params: { dgnssId, type, jwtToken } },
+    { params: { dgnssId, type, jwtToken }, timeout: 30000 },
   );
   const zipFileUrl = zipRes.data.resultData?.zipFileUrl;
   if (!zipFileUrl) throw new Error('ZIP 파일 URL을 받지 못했습니다.');
@@ -157,7 +157,7 @@ export async function downloadTeacherReportPdf(params: PdfDownloadRequest): Prom
     const response = await axiosInstance.post<PdfDownloadResponse>(
       '/api/dgnss/summary/pdf',
       { answerIdx: params.answerIdx },
-      { validateStatus: () => true },
+      { validateStatus: () => true, timeout: 30000 }, // 요약 PDF 생성용 타임아웃 override
     );
     const fileUrl = extractFileUrl(response.data);
     if (fileUrl) await openBlobFromUrl(fileUrl);
@@ -166,6 +166,7 @@ export async function downloadTeacherReportPdf(params: PdfDownloadRequest): Prom
 
   const response = await axiosInstance.post<PdfDownloadResponse>('/api/dgnss/pdf', params, {
     validateStatus: () => true,
+    timeout: 30000, // PDF 생성은 10초 이상 걸려 전역 타임아웃(10s) override
   });
   const fileUrl = extractFileUrl(response.data);
   if (fileUrl) await openBlobFromUrl(fileUrl);
@@ -180,7 +181,7 @@ export async function downloadStudentPdf(params: PdfDownloadRequest): Promise<vo
     const response = await axiosInstance.post<PdfDownloadResponse>(
       '/api/dgnss/summary/pdf',
       { answerIdx: params.answerIdx },
-      { validateStatus: () => true },
+      { validateStatus: () => true, timeout: 30000 }, // 요약 PDF 생성용 타임아웃 override
     );
     const fileUrl = extractFileUrl(response.data);
     if (fileUrl) await openBlobFromUrl(fileUrl);
@@ -189,6 +190,7 @@ export async function downloadStudentPdf(params: PdfDownloadRequest): Promise<vo
 
   const response = await axiosInstance.post<PdfDownloadResponse>('/api/dgnss/pdf', params, {
     validateStatus: () => true,
+    timeout: 30000, // PDF 생성은 10초 이상 걸려 전역 타임아웃(10s) override
   });
   const fileUrl = extractFileUrl(response.data);
   if (fileUrl) await openBlobFromUrl(fileUrl);
