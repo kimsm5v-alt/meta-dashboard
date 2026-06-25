@@ -695,7 +695,9 @@ public class FileService {
 
         String dgnssName = StringUtils.equals(MapUtils.getString(dgnssInfo, "paperIdx", ""), "1") ? "종합학습검사" : "자기조절학습검사";
         String ordNo = StringUtils.equals(MapUtils.getString(dgnssInfo, "ordNo", ""), "1") ? "1차" : "2차";
-        String clsName = MapUtils.getString(dgnssInfo, "claNm", "");
+        // 반 이름에 포함된 '/'(경로 구분자)는 파일명/다운로드 URL 분리(substringBeforeLast/AfterLast)를 깨뜨린다.
+        // OS·URL·브라우저 모두 파일명에 ASCII '/'를 허용하지 않으므로, 시각적으로 동일한 전각 '／'(U+FF0F)로 치환한다.
+        String clsName = MapUtils.getString(dgnssInfo, "claNm", "").replace('/', '／');
         String zipFileName;
         if (StringUtils.equals(type, "2")) {
             zipFileName = "[" + clsName + "]" + dgnssName + "_" + ordNo + "_요약본.zip";
