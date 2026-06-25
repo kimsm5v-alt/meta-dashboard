@@ -152,7 +152,11 @@ public class FileService {
                 movedFile = null;
 
                 LinkedHashMap<String, Object> fileMap = new LinkedHashMap<>();
-                fileMap.put("url", fileVO.getFilePath() + fileVO.getFileName());
+                String storedUrl = fileVO.getFilePath() + fileVO.getFileName();
+                // 업로드 직후 실제 저장 경로 추적용 — filePath/fileName 분리값과 결합 url 을 [] 로 감싸 기록
+                log.info("[파일 업로드 성공] filePath=[{}], fileName=[{}], url=[{}]",
+                        fileVO.getFilePath(), fileVO.getFileName(), storedUrl);
+                fileMap.put("url", storedUrl);
                 urls.add(fileMap);
             }
         } catch (AuthFailedException e) {
@@ -917,7 +921,11 @@ public class FileService {
                 movedFile = null;
 
                 LinkedHashMap<String, Object> fileMap = new LinkedHashMap<>();
-                fileMap.put("url", fileVO.getFilePath() + fileVO.getFileName());
+                String storedUrl = fileVO.getFilePath() + fileVO.getFileName();
+                // 업로드 직후 실제 저장 경로 추적용 — filePath/fileName 분리값과 결합 url 을 [] 로 감싸 기록
+                log.info("[파일 업로드 성공] filePath=[{}], fileName=[{}], url=[{}]",
+                        fileVO.getFilePath(), fileVO.getFileName(), storedUrl);
+                fileMap.put("url", storedUrl);
                 urls.add(fileMap);
             }
         } catch (Exception e) {
