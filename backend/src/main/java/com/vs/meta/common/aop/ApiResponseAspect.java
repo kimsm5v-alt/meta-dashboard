@@ -79,7 +79,9 @@ public class ApiResponseAspect {
             HttpServletResponse response = attrs.getResponse();
             if (response != null) {
                 response.setHeader("X-Response-Time", eTime);
-                response.setHeader("Access-Control-Expose-Headers", "X-Response-Hash, X-Response-Time");
+                // Content-Disposition 포함 — 파일 다운로드(예: sample-excel) 응답에서 FE가 파일명을 읽을 수 있도록.
+                // (이 setHeader 는 CORS 필터가 설정한 값을 덮어쓰므로 여기서도 함께 명시한다.)
+                response.setHeader("Access-Control-Expose-Headers", "X-Response-Hash, X-Response-Time, Content-Disposition");
             }
         }
 
