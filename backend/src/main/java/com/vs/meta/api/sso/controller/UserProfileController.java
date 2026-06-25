@@ -1,7 +1,6 @@
 package com.vs.meta.api.sso.controller;
 
 import com.vs.meta.api.sso.service.SsoUserQueryService;
-import com.vs.meta.api.sso.service.SsoUserRegistrationService;
 import com.vs.meta.api.sso.service.SsoUserResolveService;
 import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.CustomBody;
@@ -29,31 +28,6 @@ public class UserProfileController {
 
     private final SsoUserQueryService ssoUserQueryService;
     private final SsoUserResolveService ssoUserResolveService;
-    private final SsoUserRegistrationService ssoUserRegistrationService;
-
-    /**
-     * 추가 정보 입력 (성별 + 역할).
-     * SSO 최초 로그인 후 학심정 user가 없을 때 호출.
-     */
-    @PostMapping("/complete-profile")
-    @Operation(summary = "추가 정보 입력", description = "SSO 최초 로그인 시 성별/역할 입력 → 학심정 user 생성")
-    public ResponseDTO<CustomBody> completeProfile(
-            @AuthenticationPrincipal SpAuthenticatedUser spUser,
-            @RequestBody Map<String, String> body
-    ) {
-        String roleCode = body.get("roleCode"); // userType=UNSET일 때만 필수
-
-        User user = ssoUserRegistrationService.register(spUser, roleCode);
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("userNo", user.getUserNo());
-        result.put("spUserId", user.getSpUserId());
-        result.put("roleCode", user.getRoleCode());
-        result.put("tcId", user.getTcId());
-        result.put("stdtId", user.getStdtId());
-
-        return AidtCommonUtil.makeResultSuccess(null, result, "프로필 등록 완료");
-    }
 
     /**
      * 현재 SSO 사용자의 학심정 등록 상태 확인.

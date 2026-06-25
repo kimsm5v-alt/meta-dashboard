@@ -10,7 +10,6 @@ import { FEATURES } from '@shared/config/features';
 // Page imports from pages layer
 import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
 import { SsePocPage } from '@pages/dev/SsePocPage';
-import { CompleteProfilePage } from '@pages/auth/CompleteProfilePage';
 import {
   LandingPage,
   LoginPage,
@@ -62,7 +61,7 @@ const PublicLayout = () => (
  */
 const ProtectedLayout = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
+  const { isChecking } = useProfileCheck(isAuthenticated);
 
   if (isLoading || isChecking) {
     return <PageLoading text='로딩 중...' />;
@@ -70,10 +69,6 @@ const ProtectedLayout = () => {
 
   if (!isAuthenticated) {
     return <Navigate to='/login' replace />;
-  }
-
-  if (needsProfile) {
-    return <Navigate to='/auth/complete-profile' replace />;
   }
 
   // 학생이 교사 경로 접근 시 학생 전용 경로로 강제 이동
@@ -93,7 +88,7 @@ const ProtectedLayout = () => {
  */
 const StudentProtectedLayout = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
+  const { isChecking } = useProfileCheck(isAuthenticated);
 
   if (isLoading || isChecking) {
     return <PageLoading text='로딩 중...' />;
@@ -101,10 +96,6 @@ const StudentProtectedLayout = () => {
 
   if (!isAuthenticated) {
     return <Navigate to='/login' replace />;
-  }
-
-  if (needsProfile) {
-    return <Navigate to='/auth/complete-profile' replace />;
   }
 
   // 교사가 학생 경로 접근 시 교사 대시보드로 강제 이동
@@ -143,7 +134,6 @@ export const AppRoutes = () => (
     {/* 공개 라우트 - 사이드바 없음 */}
     <Route element={<PublicLayout />}>
       <Route path='/login' element={<LoginPage />} />
-      <Route path='/auth/complete-profile' element={<CompleteProfilePage />} />
       <Route path='/exam' element={<ExamCodeEntryPage />} />
       <Route path='/exam/:code' element={<ExamPage />} />
       {/* /join/:code 제거 — 그룹 참여(초대링크)는 mypage(SSO)로 이관 (group-from-idp) */}
