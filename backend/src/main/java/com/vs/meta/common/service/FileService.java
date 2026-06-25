@@ -365,7 +365,9 @@ public class FileService {
                     throw new IOException("파일 다운로드 실패: 파일이 손상되었습니다.");
                 }
 
-                String encodedFileName = URLEncoder.encode(originalFileName, "UTF-8").replace("+", "%20");
+                // 저장 고유성용 UUID 접미사 "(32 hex)"는 사용자 노출 파일명에서 제거 (저장 파일명은 그대로 유지)
+                String downloadFileName = stripUploadUuidSuffix(originalFileName);
+                String encodedFileName = URLEncoder.encode(downloadFileName, "UTF-8").replace("+", "%20");
                 String contentDisposition = "attachment; filename*=UTF-8''" + encodedFileName;
 
                 HttpHeaders headers = new HttpHeaders();
@@ -612,6 +614,19 @@ public class FileService {
         fileVO.setFileName(baseName + "(" + uuid + ")." + ext);
 
         return fileVO;
+    }
+
+    /**
+     * 업로드 시 중복 방지용으로 붙인 UUID 접미사 "(32 hex)"를 확장자 직전에서 제거한다.
+     * 저장 파일명/URL 은 그대로 두고, 다운로드(Content-Disposition) 노출 파일명만 깔끔하게 정리하는 용도.
+     * 예) [반]종합학습검사_1차(23d4...defb).zip → [반]종합학습검사_1차.zip
+     * 패턴이 없으면(레거시·다른 형식) 원본을 그대로 반환한다.
+     */
+    private String stripUploadUuidSuffix(String fileName) {
+        if (StringUtils.isBlank(fileName)) {
+            return fileName;
+        }
+        return fileName.replaceFirst("\\([0-9a-fA-F]{32}\\)(\\.[^.]+)$", "$1");
     }
 
     private FileLogVO setFileLogVO(FileVO fileVO, String accessIp, String requestSource) {
