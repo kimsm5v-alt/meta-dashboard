@@ -26,6 +26,9 @@ public class CorsConfig implements WebMvcConfigurer {
         config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
+        // 크로스 오리진에서 JS가 읽을 수 있도록 노출할 응답 헤더.
+        // Content-Disposition 미노출 시 FE가 파일명을 못 읽어 기본명으로 폴백한다(다운로드 파일명 오류).
+        config.setExposedHeaders(List.of("Content-Disposition", "X-Response-Hash", "X-Response-Time"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
