@@ -70,3 +70,6 @@ public/test-accounts.json
 
 # 로컬 HTTPS 개발 인증서 (mkcert로 생성)
 agent/certs/
+
+# SDD scratch (subagent-driven-development)
+.superpowers/
