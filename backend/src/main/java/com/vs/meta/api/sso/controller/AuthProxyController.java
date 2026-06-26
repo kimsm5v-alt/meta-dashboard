@@ -61,11 +61,14 @@ public class AuthProxyController {
                 body.get("code") != null, body.get("codeVerifier") != null,
                 body.get("redirectUri"), spAuth.getClientId());
 
+        var dpop = request.getHeader("DPoP");
+
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> tokens = superPlatformAuthWebClient
                     .post()
                     .uri("/oauth2/token")
+                    .headers(h -> { if (dpop != null && !dpop.isBlank()) h.set("DPoP", dpop); })
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .bodyValue(form)
                     .retrieve()
@@ -97,6 +100,8 @@ public class AuthProxyController {
                     .body(Map.of("success", false, "message", "refresh token not found"));
         }
 
+        var dpop = request.getHeader("DPoP");
+
         try {
             // OAuth2 §6 — IdP 가 RT.owner 와 client_id 매칭 + client_secret 을 검증하도록 자격을
             //   함께 전달. 다른 RP 의 RT 가 흘러들어왔을 때 IdP 가 즉시 401 로 거부 (멀티-RP
@@ -105,6 +110,7 @@ public class AuthProxyController {
             Map<String, Object> wrapped = superPlatformAuthWebClient
                     .post()
                     .uri("/api/v1/auth/refresh")
+                    .headers(h -> { if (dpop != null && !dpop.isBlank()) h.set("DPoP", dpop); })
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(Map.of(
                             "refreshToken", refreshToken,
