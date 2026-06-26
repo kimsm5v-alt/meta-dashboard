@@ -96,7 +96,9 @@ export async function initAuth(): Promise<AuthClientInstance> {
     redirectUri: window.location.origin + '/auth/callback',
     postLogoutRedirectUri: window.location.origin + '/login?logout=true',
     apiUrl: ENV.API_URL,
-    tokenStorage: 'cookie',
+    // 쿠키리스(RT를 body로) — FE/게이트웨이 도메인이 달라 RT 쿠키가 SameSite로 막히는 문제 회피.
+    // 콩 경유 유지(WAF). 현재 CDN SDK의 localStorage 모드 사용, DPoP 바인딩은 SDK 버전업(학1.2) 후 활성.
+    tokenStorage: 'localStorage',
     touchEnabled: isHttps,
   });
 
