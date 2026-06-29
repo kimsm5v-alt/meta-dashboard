@@ -308,24 +308,24 @@ export const LearningDetailTab: React.FC<LearningDetailTabProps> = ({
             <div className="grid grid-cols-3 gap-2.5">
               {profile.strengths.slice(0, 3).map((item) => {
                 const domainColor = testId === 'selfreg'
-                  ? (SELFREG_DOMAIN_COLORS as Record<string, string>)[item.parentCategory] || '#10B981'
-                  : DOMAIN_COLORS[item.parentCategory];
+                  ? (SELFREG_DOMAIN_COLORS as Record<string, string>)[item.category] || '#10B981'
+                  : DOMAIN_COLORS[item.category];
                 return (
                   <div
-                    key={item.category}
+                    key={item.factorName}
                     className="rounded-xl p-3 border bg-[#F2FBF6] border-[#C8E9D2]"
                   >
                     <div
                       className="text-[10.5px] font-bold mb-1"
                       style={{ color: domainColor }}
                     >
-                      #{item.parentCategory?.replace(/\s/g, '')}
+                      #{item.category?.replace(/\s/g, '')}
                     </div>
                     <div className="text-sm font-extrabold tracking-tight text-gray-900 mb-1">
-                      {testId === 'selfreg' ? item.category : (SUB_CATEGORY_SCRIPTS[item.category]?.name || item.category)}
+                      {item.factorName}
                     </div>
                     <div className="text-[11.5px] text-gray-600 leading-relaxed">
-                      {item.categoryScript || '학년 평균을 상회하는 강점 영역입니다'}
+                      {item.definition || '학년 평균을 상회하는 강점 영역입니다'}
                     </div>
                   </div>
                 );
@@ -344,24 +344,24 @@ export const LearningDetailTab: React.FC<LearningDetailTabProps> = ({
             <div className="grid grid-cols-3 gap-2.5">
               {profile.weaknesses.slice(0, 3).map((item) => {
                 const domainColor = testId === 'selfreg'
-                  ? (SELFREG_DOMAIN_COLORS as Record<string, string>)[item.parentCategory] || '#EF4444'
-                  : DOMAIN_COLORS[item.parentCategory];
+                  ? (SELFREG_DOMAIN_COLORS as Record<string, string>)[item.category] || '#EF4444'
+                  : DOMAIN_COLORS[item.category];
                 return (
                   <div
-                    key={item.category}
+                    key={item.factorName}
                     className="rounded-xl p-3 border bg-[#FFF5F3] border-[#FFD5CC]"
                   >
                     <div
                       className="text-[10.5px] font-bold mb-1"
                       style={{ color: domainColor }}
                     >
-                      #{item.parentCategory?.replace(/\s/g, '')}
+                      #{item.category?.replace(/\s/g, '')}
                     </div>
                     <div className="text-sm font-extrabold tracking-tight text-gray-900 mb-1">
-                      {testId === 'selfreg' ? item.category : (SUB_CATEGORY_SCRIPTS[item.category]?.name || item.category)}
+                      {item.factorName}
                     </div>
                     <div className="text-[11.5px] text-gray-600 leading-relaxed">
-                      {item.categoryScript || (testId === 'selfreg' ? '학년 평균보다 낮아 보완이 필요한 영역입니다' : '학년 평균보다 높아 주의가 필요한 영역입니다')}
+                      {item.definition || (testId === 'selfreg' ? '학년 평균보다 낮아 보완이 필요한 영역입니다' : '학년 평균보다 높아 주의가 필요한 영역입니다')}
                     </div>
                   </div>
                 );
