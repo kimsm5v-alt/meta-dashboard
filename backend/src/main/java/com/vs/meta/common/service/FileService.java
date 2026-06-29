@@ -152,7 +152,11 @@ public class FileService {
                 movedFile = null;
 
                 LinkedHashMap<String, Object> fileMap = new LinkedHashMap<>();
-                fileMap.put("url", fileVO.getFilePath() + fileVO.getFileName());
+                String storedUrl = fileVO.getFilePath() + fileVO.getFileName();
+                // 업로드 직후 실제 저장 경로 추적용 — filePath/fileName 분리값과 결합 url 을 [] 로 감싸 기록
+                log.info("[파일 업로드 성공] filePath=[{}], fileName=[{}], url=[{}]",
+                        fileVO.getFilePath(), fileVO.getFileName(), storedUrl);
+                fileMap.put("url", storedUrl);
                 urls.add(fileMap);
             }
         } catch (AuthFailedException e) {
@@ -199,6 +203,13 @@ public class FileService {
             resultMsg = "파일 업로드 실패: 예상치 못한 오류";
             logUploadError("Unexpected error", e, tempFile, movedFile, userId, uploadPath);
             cleanupUploadFiles(tempFile, movedFile);
+        }
+
+        // 실패 시(urls 비어있음) 원인 분류 요약 한 줄 — 권한/인증 vs 파일 입출력 vs 보안 vs DB 구분.
+        // (세부 스택트레이스는 위 logUploadError 의 'File upload - ...' 로그 참조)
+        if (urls.isEmpty()) {
+            log.warn("[파일 업로드 결과 없음] 원인={} (uploadPath={}, userId={}) — 호출 측 file_url 저장은 생략됩니다.",
+                    resultMsg, uploadPath, userId);
         }
 
         return urls;
@@ -354,7 +365,9 @@ public class FileService {
                     throw new IOException("파일 다운로드 실패: 파일이 손상되었습니다.");
                 }
 
-                String encodedFileName = URLEncoder.encode(originalFileName, "UTF-8").replace("+", "%20");
+                // 저장 고유성용 UUID 접미사 "(32 hex)"는 사용자 노출 파일명에서 제거 (저장 파일명은 그대로 유지)
+                String downloadFileName = stripUploadUuidSuffix(originalFileName);
+                String encodedFileName = URLEncoder.encode(downloadFileName, "UTF-8").replace("+", "%20");
                 String contentDisposition = "attachment; filename*=UTF-8''" + encodedFileName;
 
                 HttpHeaders headers = new HttpHeaders();
@@ -603,6 +616,19 @@ public class FileService {
         return fileVO;
     }
 
+    /**
+     * 업로드 시 중복 방지용으로 붙인 UUID 접미사 "(32 hex)"를 확장자 직전에서 제거한다.
+     * 저장 파일명/URL 은 그대로 두고, 다운로드(Content-Disposition) 노출 파일명만 깔끔하게 정리하는 용도.
+     * 예) [반]종합학습검사_1차(23d4...defb).zip → [반]종합학습검사_1차.zip
+     * 패턴이 없으면(레거시·다른 형식) 원본을 그대로 반환한다.
+     */
+    private String stripUploadUuidSuffix(String fileName) {
+        if (StringUtils.isBlank(fileName)) {
+            return fileName;
+        }
+        return fileName.replaceFirst("\\([0-9a-fA-F]{32}\\)(\\.[^.]+)$", "$1");
+    }
+
     private FileLogVO setFileLogVO(FileVO fileVO, String accessIp, String requestSource) {
         FileLogVO fileLogVO = new FileLogVO();
         fileLogVO.setFileIdx(fileVO.getFileIdx());
@@ -688,7 +714,9 @@ public class FileService {
 
         String dgnssName = StringUtils.equals(MapUtils.getString(dgnssInfo, "paperIdx", ""), "1") ? "종합학습검사" : "자기조절학습검사";
         String ordNo = StringUtils.equals(MapUtils.getString(dgnssInfo, "ordNo", ""), "1") ? "1차" : "2차";
-        String clsName = MapUtils.getString(dgnssInfo, "claNm", "");
+        // 반 이름에 포함된 '/'(경로 구분자)는 파일명/다운로드 URL 분리(substringBeforeLast/AfterLast)를 깨뜨린다.
+        // OS·URL·브라우저 모두 파일명에 ASCII '/'를 허용하지 않으므로, 시각적으로 동일한 전각 '／'(U+FF0F)로 치환한다.
+        String clsName = MapUtils.getString(dgnssInfo, "claNm", "").replace('/', '／');
         String zipFileName;
         if (StringUtils.equals(type, "2")) {
             zipFileName = "[" + clsName + "]" + dgnssName + "_" + ordNo + "_요약본.zip";
@@ -908,7 +936,11 @@ public class FileService {
                 movedFile = null;
 
                 LinkedHashMap<String, Object> fileMap = new LinkedHashMap<>();
-                fileMap.put("url", fileVO.getFilePath() + fileVO.getFileName());
+                String storedUrl = fileVO.getFilePath() + fileVO.getFileName();
+                // 업로드 직후 실제 저장 경로 추적용 — filePath/fileName 분리값과 결합 url 을 [] 로 감싸 기록
+                log.info("[파일 업로드 성공] filePath=[{}], fileName=[{}], url=[{}]",
+                        fileVO.getFilePath(), fileVO.getFileName(), storedUrl);
+                fileMap.put("url", storedUrl);
                 urls.add(fileMap);
             }
         } catch (Exception e) {

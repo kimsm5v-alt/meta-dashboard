@@ -538,7 +538,7 @@ export const SelfregClassDashboardWidget: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const { round1, round2, isLoading: chartLoading } = useSelfregClassAnalysis(classId);
-  const { students, classInfo, isLoading: studentsLoading } = useClassStudents(classId);
+  const { students, classInfo, isLoading: studentsLoading } = useClassStudents(classId, '2');
 
   const hasRound2 = !!round2;
   const activeScores = selectedRound === 1 ? round1 : (round2 ?? round1);

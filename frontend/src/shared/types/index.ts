@@ -11,7 +11,7 @@ export type SchoolLevel = '초등' | '중등' | '고등';
 // LPA 유형
 export type ElementaryType = '자원소진형' | '안전 균형형' | '몰입자원 풍부형';
 export type MiddleSchoolType = '냉소적 무기력형' | '정서조절 취약형' | '자기주도 몰입형';
-export type StudentType = ElementaryType | MiddleSchoolType;
+export type StudentType = ElementaryType | MiddleSchoolType | '미지원'; // 미지원: 고등학교(LPA 미제공)
 
 // 검사 상태
 export type ExamStatus = '시작전' | '진행중' | '종료';

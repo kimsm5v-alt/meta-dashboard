@@ -164,8 +164,6 @@ public class SecurityConfig {
                     auth.anyRequest().permitAll();
                 } else {
                     auth
-                        // 추가 정보 입력 API (JWT 필요하지만 user 미생성 상태에서 호출)
-                        .requestMatchers("/api/v1/user/complete-profile").authenticated()
                         .anyRequest().authenticated();
                 }
             })

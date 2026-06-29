@@ -1188,8 +1188,8 @@ const CoreSummaryTab = ({ classData, testId, selfregRound1, selfregRound2 }: Cor
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* LPA 유형 분포 — comprehensive only */}
-      {testId === 'comprehensive' && (
+      {/* LPA 유형 분포 — comprehensive + 고등 제외 */}
+      {testId === 'comprehensive' && classData.schoolLevel !== '고등' && (
         <Card>
           <div style={{ marginBottom: '1rem' }}>
             <SectionTitle>검사별 유형 분포</SectionTitle>
@@ -1765,7 +1765,7 @@ export const ClassDashboardV2Widget: React.FC = () => {
   const { getClassById } = useData();
   const { hasJwtToken } = useApiConfig();
 
-  const { students: apiStudents, l2Data, classInfo: apiClassInfo, dgnssIds, isLoading: studentsLoading, error: studentsError } = useClassStudents(classId);
+  const { students: apiStudents, l2Data, classInfo: apiClassInfo, dgnssIds, isLoading: studentsLoading, error: studentsError } = useClassStudents(classId, testId === 'selfreg' ? '2' : '1');
   const { round1: selfregRound1, round2: selfregRound2, isLoading: selfregLoading } = useSelfregClassAnalysis(
     testId === 'selfreg' ? classId : undefined,
   );
@@ -1955,22 +1955,24 @@ export const ClassDashboardV2Widget: React.FC = () => {
         },
       };
     }
-    // selfreg 전용: 종합검사 학생 없어도 classInfo(groups API)가 있으면 최소 classData 구성
+    // selfreg 전용: 자기조절검사 학생 목록(paperIdx=2)을 apiStudents로 구성
     if (hasJwtToken && testId === 'selfreg' && apiClassInfo && classId) {
-      const totalStudents = selfregDgnssIds.stTotalCnt ?? 0;
-      const assessedStudents = selfregDgnssIds.stSubmCnt ?? 0;
+      // 검사 완료율은 자기조절검사 실제 응시자 기준 (examDetail은 종합검사 회차 정보라 사용 금지)
+      const totalStudents = apiStudents.length || selfregDgnssIds.stTotalCnt || 0;
+      const submittedCount = apiStudents.filter(s => s.assessments.length > 0).length;
+      const needAttentionCount = apiStudents.filter(s => s.assessments.some(a => a.attentionResult.needsAttention)).length;
       return {
         id: classId,
         schoolLevel: apiClassInfo.schoolLevel,
         grade: apiClassInfo.grade,
         classNumber: apiClassInfo.classNumber,
         teacherId: '',
-        students: [],
+        students: apiStudents,
         stats: {
-          totalStudents, assessedStudents, typeDistribution: {}, needAttentionCount: 0,
+          totalStudents, assessedStudents: submittedCount, typeDistribution: {}, needAttentionCount,
           round1Completed: !!selfregRound1, round2Completed: !!selfregRound2,
           examStatus: { round1: selfregRound1 ? '종료' : '시작전', round2: selfregRound2 ? '종료' : '시작전' },
-          round2SubmittedCount: 0,
+          round2SubmittedCount: apiStudents.filter(s => s.assessments.some(a => a.round === 2)).length,
         },
       };
     }
@@ -2045,12 +2047,29 @@ export const ClassDashboardV2Widget: React.FC = () => {
       });
       kpiAvgT = Math.round(sum / count);
     }
-    // Dominant LPA type
-    const dist = classData.stats?.typeDistribution ?? {};
-    const dominantType = Object.entries(dist).sort((a, b) => b[1].count - a[1].count)[0];
-    kpiCard2Label = '우세 유형';
-    kpiCard2Value = dominantType?.[0] ?? '-';
-    kpiCard2Sub = dominantType ? `${dominantType[1].percentage}%` : '-';
+    if (classData.schoolLevel === '고등') {
+      // 고등: LPA 유형 없음 → 대표 강점(하위요인 평균 최고값)으로 대체
+      const subAvgs: { name: string; avg: number }[] = [];
+      Object.entries(SUB_CATEGORY_FACTORS).forEach(([subCat, indices]) => {
+        const vals: number[] = [];
+        assessed.forEach(s => {
+          const a = s.assessments.find(a => a.round === 1);
+          if (a) indices.forEach(i => { if (a.tScores[i] !== undefined) vals.push(a.tScores[i]); });
+        });
+        if (vals.length > 0) subAvgs.push({ name: subCat, avg: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) });
+      });
+      const top = subAvgs.sort((a, b) => b.avg - a.avg)[0];
+      kpiCard2Label = '대표 강점';
+      kpiCard2Value = top?.name ?? '-';
+      kpiCard2Sub = top ? `T${top.avg}` : '-';
+    } else {
+      // Dominant LPA type
+      const dist = classData.stats?.typeDistribution ?? {};
+      const dominantType = Object.entries(dist).sort((a, b) => b[1].count - a[1].count)[0];
+      kpiCard2Label = '우세 유형';
+      kpiCard2Value = dominantType?.[0] === '미지원' ? '없음' : (dominantType?.[0] ?? '-');
+      kpiCard2Sub = (dominantType && dominantType[0] !== '미지원') ? `${dominantType[1].percentage}%` : '-';
+    }
   }
 
   const badgeColor = testId === 'selfreg' ? '#009f88' : '#4F46E5';

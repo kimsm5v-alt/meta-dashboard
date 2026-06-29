@@ -368,18 +368,35 @@ export const ComparisonSection = ({
 }: ComparisonSectionProps) => {
   const [drillLevel, setDrillLevel] = useState<'5areas' | '11categories'>('5areas');
 
+  // 모든 반의 카테고리 평균 계산
   const classAverages = useMemo(() => classes.map(calculateCategoryAverages), [classes]);
 
-  const outliers = useMemo(() => computeOutliers(classes, classAverages), [classes, classAverages]);
+  // 학습심리정서검사 데이터가 있는 반만 필터링 (검사 유형별로 구분)
+  // calculateCategoryAverages 내부에서 assessments.length > 0인 학생만 계산하므로,
+  // 해당 검사 완료 학생이 있는 반만 선택
+  const assessedClasses = useMemo(() => {
+    return classes.filter((_cls, idx) => {
+      const avg = classAverages[idx];
+      // 평균이 모두 0이면 검사 완료 학생이 없는 것
+      return Object.values(avg.categoryAverages).some((v) => v !== 0);
+    });
+  }, [classes, classAverages]);
+
+  // 필터링된 반의 평균만 추출
+  const assessedAverages = useMemo(() => {
+    return assessedClasses.map((cls) => classAverages.find((a) => a.classId === cls.id)!);
+  }, [assessedClasses, classAverages]);
+
+  const outliers = useMemo(() => computeOutliers(assessedClasses, assessedAverages), [assessedClasses, assessedAverages]);
 
   const selectedClass = useMemo(
-    () => (selectedClassId ? classes.find((c) => c.id === selectedClassId) : null),
-    [classes, selectedClassId],
+    () => (selectedClassId ? assessedClasses.find((c) => c.id === selectedClassId) : null),
+    [assessedClasses, selectedClassId],
   );
 
   const selectedAvg = useMemo(
-    () => (selectedClassId ? classAverages.find((a) => a.classId === selectedClassId) : null),
-    [selectedClassId, classAverages],
+    () => (selectedClassId ? assessedAverages.find((a) => a.classId === selectedClassId) : null),
+    [selectedClassId, assessedAverages],
   );
 
   const avgT = useMemo(() => {
@@ -416,9 +433,7 @@ export const ComparisonSection = ({
       : '각 반의 11개 중분류별 평균 T점수를 비교합니다. 점선(50)은 전국 평균입니다.';
 
   // 종료된 검사가 있는 그룹의 평가 완료 학생 합계
-  const totalStudents = classes
-    .filter((c) => (c.stats?.assessedStudents ?? 0) > 0)
-    .reduce((s, c) => s + (c.stats?.assessedStudents || 0), 0);
+  const totalStudents = assessedClasses.reduce((s, c) => s + (c.stats?.assessedStudents || 0), 0);
 
   const CLASS_COLORS_LIST = [
     '#6366F1',
@@ -462,26 +477,24 @@ export const ComparisonSection = ({
               <ChipDot $color='#9CA3AF' />
               전체 ({totalStudents}명)
             </Chip>
-            {classes
-              .filter((cls) => (cls.stats?.assessedStudents ?? 0) > 0)
-              .map((cls, idx) => {
-                const color = CLASS_COLORS_LIST[idx % CLASS_COLORS_LIST.length];
-                const isActive = selectedClassId === cls.id;
-                return (
-                  <Chip
-                    key={cls.id}
-                    $active={isActive}
-                    $color={color}
-                    onClick={() => onClassSelect(isActive ? null : cls.id)}
-                  >
-                    <ChipDot $color={color} />
-                    {cls.grade}학년 {cls.classNumber}반 ({cls.stats?.assessedStudents || 0}명)
-                  </Chip>
-                );
-              })}
+            {assessedClasses.map((cls, idx) => {
+              const color = CLASS_COLORS_LIST[idx % CLASS_COLORS_LIST.length];
+              const isActive = selectedClassId === cls.id;
+              return (
+                <Chip
+                  key={cls.id}
+                  $active={isActive}
+                  $color={color}
+                  onClick={() => onClassSelect(isActive ? null : cls.id)}
+                >
+                  <ChipDot $color={color} />
+                  {cls.grade}학년 {cls.classNumber}반 ({cls.stats?.assessedStudents || 0}명)
+                </Chip>
+              );
+            })}
           </ChipsRow>
           <CategoryComparisonChart
-            classes={classes}
+            classes={assessedClasses}
             selectedClassId={selectedClassId}
             onClassSelect={onClassSelect}
             drillLevel={drillLevel}

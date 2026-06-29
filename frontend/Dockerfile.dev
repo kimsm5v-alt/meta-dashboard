@@ -1,3 +1,8 @@
+# 개발(vs-develop) 전용 Dockerfile — .env.development 로 빌드
+# ⚠️ frontend/Dockerfile 과 빌드 단계만 다르고 나머지는 동일하게 유지할 것
+#    (운영은 frontend/Dockerfile = build:prod, 개발은 이 파일 = build:dev)
+#    GitLab CI(.gitlab-ci.yml)에서 DOCKERFILE_PATH 로 이 파일을 지정한다.
+
 # Build stage
 FROM containerregistry-private.kr.ncr.ntruss.com/node:20-alpine AS build
 WORKDIR /app
@@ -14,10 +19,8 @@ RUN npm install && npm install @rollup/rollup-linux-x64-musl --optional
 # 3) 빌드에 필요한 frontend 소스만 복사
 COPY frontend/ ./frontend/
 
-# 4) 빌드 (운영 모드 고정 → .env.production 사용)
-#    운영(vs-prod, Jenkins)은 이 파일을 사용한다.
-#    개발(vs-develop, GitLab CI)은 frontend/Dockerfile.dev = build:dev 사용.
-RUN npm run build:prod --workspace=frontend
+# 4) 빌드 (개발 모드 고정 → .env.development 사용)
+RUN npm run build:dev --workspace=frontend
 
 # Production stage
 FROM nginx:stable-alpine

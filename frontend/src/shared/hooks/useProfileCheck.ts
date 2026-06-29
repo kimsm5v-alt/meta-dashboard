@@ -5,8 +5,6 @@ import { useAuth } from '@features/auth/model/AuthContext';
 
 interface ProfileStatusData {
   registered: boolean;
-  needsProfile: boolean;
-  needsRoleSelection?: boolean;
   userNo?: number;
   roleCode?: string;
   tcId?: string;
@@ -14,15 +12,15 @@ interface ProfileStatusData {
 }
 
 interface ProfileStatus {
-  registered: boolean;
-  needsProfile: boolean;
-  needsRoleSelection: boolean;
   isChecking: boolean;
 }
 
 /**
- * SSO 로그인 후 학심정 프로필 등록 여부 확인.
- * SP claim sync는 BE touchOnRequest(987e284)가 담당하므로 프론트에서 refreshAccessToken() 불필요.
+ * SSO 로그인 후 학심정 user 동기화 훅.
+ *
+ * `/api/v1/user/status` 호출이 BE 의 resolveOrProvision(알려진 역할 자동 프로비저닝)
+ * + touchOnRequest(SP claim sync) 를 태우고, 응답의 userNo/tcId/stdtId 를 AuthContext 에 반영한다.
+ * (역할 미정 UNSET 사용자는 RP 까지 내려오지 않으므로 별도 프로필 입력 단계는 없다.)
  *
  * - staleTime 5분: 라우트 연타 시 호출 절감
  * - refetchOnWindowFocus: 다른 탭(SP 마이페이지) 복귀 시 자동 sync
@@ -55,10 +53,6 @@ export function useProfileCheck(isAuthenticated: boolean): ProfileStatus {
   }, [query.data, updateUser]);
 
   return {
-    registered: query.data?.registered ?? false,
-    // 에러 시 needsProfile=true 로 가드 (기존 catch 블록과 동일 동작)
-    needsProfile: query.isError ? true : (query.data?.needsProfile ?? false),
-    needsRoleSelection: query.data?.needsRoleSelection ?? false,
     isChecking: query.isLoading,
   };
 }

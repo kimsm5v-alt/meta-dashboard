@@ -61,7 +61,8 @@ __pycache__/
 .env.*.local
 .env.production
 .env.development
-frontend/.env.development
+# vs-develop CI 빌드에 필요 — Vite 변수는 번들에 공개되므로 커밋 가능
+!frontend/.env.development
 public/test-accounts.json
 
 # Others
@@ -69,3 +70,6 @@ public/test-accounts.json
 
 # 로컬 HTTPS 개발 인증서 (mkcert로 생성)
 agent/certs/
+
+# SDD scratch (subagent-driven-development)
+.superpowers/

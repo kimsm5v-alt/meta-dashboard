@@ -412,7 +412,7 @@ export const CoachingStrategy: React.FC<CoachingStrategyProps> = ({
                   <AccordionItem key={path.id ?? idx} $expanded={isExpanded}>
                     <AccordionHeader onClick={() => setOpenIndex(isExpanded ? -1 : idx)}>
                       <AccordionLabelBadge $type={isStrength ? 'strength' : 'weakness'}>
-                        {isStrength ? '강점' : '보완점'}
+                        {isStrength ? '강점 코칭' : '보완 코칭'}
                       </AccordionLabelBadge>
                       <AccordionLabel>{label}</AccordionLabel>
                       <ChevronIcon>

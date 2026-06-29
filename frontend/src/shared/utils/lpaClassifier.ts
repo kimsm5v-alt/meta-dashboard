@@ -58,7 +58,7 @@ export const classifyStudent = (
   if (schoolLevel === '고등') {
     return {
       schoolLevel,
-      predictedType: '안전 균형형' as StudentType,
+      predictedType: '미지원' as StudentType, // 백엔드와 동일하게 "미지원"
       confidence: 0,
       allProbabilities: {},
       rank: [],

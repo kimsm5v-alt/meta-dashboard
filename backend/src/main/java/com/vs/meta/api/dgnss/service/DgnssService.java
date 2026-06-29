@@ -638,8 +638,12 @@ public class DgnssService {
             Map<String, Object> tcUserInfo = dgnssMapper.selectTcUserInfo(paramData);
             log.info("[PDF 성능] 교사 정보 조회: {}ms", System.currentTimeMillis() - dbStart);
 
-            if (StringUtils.isNotEmpty(MapUtils.getString(tcUserInfo, "fileUrl", ""))) {
-                result.put("url", MapUtils.getString(tcUserInfo, "fileUrl", ""));
+            String existingTcUrl = MapUtils.getString(tcUserInfo, "fileUrl", "");
+            if (StringUtils.isNotEmpty(existingTcUrl)) {
+                // 신규 생성 없이 기존 저장값을 그대로 반환 → 기존 값이 비정상이면 응답도 비정상이 된다.
+                log.info("[pdfDownload] 기존 교사 file_url 재사용(생성 생략): urlLen={}, url=[{}]",
+                        existingTcUrl.length(), existingTcUrl);
+                result.put("url", existingTcUrl);
                 return result;
             }
 
@@ -656,6 +660,9 @@ public class DgnssService {
             String fileUrl = MapUtils.getString(stUserInfo, "fileURL", "");
 
             if (StringUtils.isNotEmpty(fileUrl)) {
+                // 신규 생성 없이 기존 저장값을 그대로 반환 → 기존 값이 비정상이면 응답도 비정상이 된다.
+                log.info("[pdfDownload] 기존 학생 file_url 재사용(생성 생략): dgnssResultId={}, urlLen={}, url=[{}]",
+                        MapUtils.getString(stUserInfo, "dgnssResultId", ""), fileUrl.length(), fileUrl);
                 result.put("url", fileUrl);
                 return result;
             }
@@ -669,6 +676,9 @@ public class DgnssService {
             result.put("error", "fail");
         }
 
+        // 응답으로 내려가는 최종 url/error 추적 — 서버 200 이지만 클라이언트에서 오류로 보이는 경우 값 확인용
+        log.info("[pdfDownload 응답] userType={}, urlLen={}, url=[{}], error={}",
+                userType, url == null ? 0 : url.length(), result.get("url"), result.get("error"));
         log.info("[PDF 성능] 전체 소요시간: {}ms (userId: {}, userType: {})",
                 System.currentTimeMillis() - totalStart, userId, userType);
         return result;
@@ -806,11 +816,16 @@ public class DgnssService {
         log.info("[PDF 성능] 교사용 PDF 렌더링+업로드: {}ms", System.currentTimeMillis() - pdfStart);
 
         long updateStart = System.currentTimeMillis();
-        Map<String, Object> updateMap = new HashMap<>();
-        updateMap.put("fileUrl", url);
-        updateMap.put("dgnssId", MapUtils.getString(param, "TEST_IDX", ""));
-        dgnssMapper.updateFileUrlTch(updateMap);
-        log.info("[PDF 성능] 교사용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
+        if (isStorableFileUrl(url)) {
+            Map<String, Object> updateMap = new HashMap<>();
+            updateMap.put("fileUrl", url);
+            updateMap.put("dgnssId", MapUtils.getString(param, "TEST_IDX", ""));
+            dgnssMapper.updateFileUrlTch(updateMap);
+            log.info("[PDF 성능] 교사용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
+        } else {
+            log.warn("[file_url 저장 생략] 유효하지 않은 업로드 URL: dgnssId={}, urlLen={}, url={}",
+                    MapUtils.getString(param, "TEST_IDX", ""), url == null ? 0 : url.length(), url);
+        }
 
         log.info("[PDF 성능] 교사용 makeTcPdf 총합: {}ms", System.currentTimeMillis() - methodStart);
         return url;
@@ -865,14 +880,41 @@ public class DgnssService {
         log.info("[PDF 성능] 학생용 PDF 렌더링+업로드: {}ms", System.currentTimeMillis() - pdfStart);
 
         long updateStart = System.currentTimeMillis();
-        Map<String, Object> updateMap = new HashMap<>();
-        updateMap.put("fileUrl", url);
-        updateMap.put("dgnssResultId", MapUtils.getString(stUserInfo, "dgnssResultId", ""));
-        dgnssMapper.updateFileUrl(updateMap);
-        log.info("[PDF 성능] 학생용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
+        if (isStorableFileUrl(url)) {
+            Map<String, Object> updateMap = new HashMap<>();
+            updateMap.put("fileUrl", url);
+            updateMap.put("dgnssResultId", MapUtils.getString(stUserInfo, "dgnssResultId", ""));
+            dgnssMapper.updateFileUrl(updateMap);
+            log.info("[PDF 성능] 학생용 URL 저장: {}ms (file_url=[{}])", System.currentTimeMillis() - updateStart, url);
+        } else {
+            // 업로드 실패/비정상 URL → file_url 저장 생략 (잘못된 값 영구 저장 방지). 원인은 상위 업로드 로그 참조.
+            log.warn("[file_url 저장 생략] 유효하지 않은 업로드 URL: dgnssResultId={}, urlLen={}, url={}",
+                    MapUtils.getString(stUserInfo, "dgnssResultId", ""), url == null ? 0 : url.length(), url);
+        }
 
         log.info("[PDF 성능] 학생용 makeStPdf 총합: {}ms", System.currentTimeMillis() - methodStart);
         return url;
+    }
+
+    /**
+     * 업로드된 PDF 경로(file_url/summary_file_url)로 저장해도 되는 값인지 검증한다.
+     * 업로드 실패/부분 실패 시 비정상 값(빈 값, 컬럼 길이 초과로 잘린 값, pfile-download 같은 API URL,
+     * 쿼리스트링/토큰 포함 값)이 그대로 저장되는 것을 막는다.
+     */
+    private boolean isStorableFileUrl(String url) {
+        if (StringUtils.isBlank(url)) {
+            return false;
+        }
+        if (url.length() > 200) { // 컬럼 길이(varchar 200) 초과 → 잘린 값 방지
+            return false;
+        }
+        if (StringUtils.containsAny(url, "?", " ", "\n", "\r", "\t")) { // 쿼리/토큰/공백 포함 → 비정상
+            return false;
+        }
+        if (StringUtils.contains(url, "pfile-download")) { // 다운로드 API URL 오저장 방지
+            return false;
+        }
+        return StringUtils.endsWithIgnoreCase(url, ".pdf");
     }
 
     public Map<String, Object> selectNewOmr(Map<String, Object> param, Pageable pageable) {
@@ -1018,8 +1060,13 @@ public class DgnssService {
         resultMap.put("stInfoList", stInfoList);
         resultMap.put("type", type);
 
-        enrichLpaTop3(stInfoList);
-        moveSectionScoresToScoresMap(stInfoList);
+        // type=1(신뢰도)은 FE가 LPA top3·섹션점수(scores)를 사용하지 않으므로 보강을 생략한다.
+        // (신뢰도 쿼리에는 LPA 확률 JSON·섹션점수 컬럼 자체가 없어 빈 값만 추가될 뿐이다.)
+        // type 2~6(전략)은 scores 맵이 필요하므로 기존대로 보강한다.
+        if (type != 1) {
+            enrichLpaTop3(stInfoList);
+            moveSectionScoresToScoresMap(stInfoList);
+        }
         return resultMap;
     }
 
@@ -1597,6 +1644,11 @@ public class DgnssService {
         List<Integer> allDgnssIdList = dgnssMapper.selectDgnssIdxList(param);
         List<Integer> targetDgnssIdList = resolveTargetDgnssIdListForAnalysis(paperIdx, ordNo, allDgnssIdList);
 
+        // selectClassTotalReport(dgnssId)는 평균 루프와 아래 lpa 루프에서 동일하게 호출되므로
+        // 호출당 1회만 조회하도록 캐시한다. value=조회결과, notExistsUsed=실제 사용된 분기('N'/'Y').
+        Map<Integer, List<Map<String, Object>>> classTotalReportCache = new HashMap<>();
+        Map<Integer, String> classTotalReportNotExistsUsed = new HashMap<>();
+
         // META자기조절학습검사
         if (StringUtils.equals(paperIdx, "2")) {
             List<String> sessionList = putSession(0);
@@ -1604,16 +1656,9 @@ public class DgnssService {
             ObjectMapper mapper = new ObjectMapper();
 
             for (int dgnssId : targetDgnssIdList) {
-                Map<String, Object> paramMap = new HashMap<>();
-                paramMap.put("dgnssId", dgnssId);
-                paramMap.put("notExistsYn", "N");
-                // 초기에는 신뢰도 지표 기준 '주의'가 없는 데이터만 조회
-                // 데이터 조회를 했음에도 데이터가 없는 경우 신뢰도 '주의'제거 후 재 조회
-                List<Map<String, Object>> claInfoList = dgnssMapper.selectClassTotalReport(paramMap);
-                if (CollectionUtils.isEmpty(claInfoList)) {
-                    paramMap.put("notExistsYn", "Y");
-                    claInfoList = dgnssMapper.selectClassTotalReport(paramMap);
-                }
+                // 초기에는 신뢰도 '주의'가 없는 데이터만, 없으면 '주의' 제거 후 재조회 (캐시 내부 처리).
+                List<Map<String, Object>> claInfoList =
+                        fetchClassTotalReportCached(dgnssId, classTotalReportCache, classTotalReportNotExistsUsed);
                 Map<String, Double> sessionTotalMap = new HashMap<>();
                 Map<String, Integer> sessionSizeMap = new HashMap<>();
                 if (CollectionUtils.isNotEmpty(claInfoList)) {
@@ -1701,14 +1746,10 @@ public class DgnssService {
         boolean exposeLernReport = StringUtils.equals(paperIdx, "1");
         ObjectMapper lernJsonParser = new ObjectMapper();
         for (int dgnssId : targetDgnssIdList) {
-            Map<String, Object> lpaParam = new HashMap<>();
-            lpaParam.put("dgnssId", dgnssId);
-            lpaParam.put("notExistsYn", "N");
-            List<Map<String, Object>> lpaRows = dgnssMapper.selectClassTotalReport(lpaParam);
-            if (CollectionUtils.isEmpty(lpaRows)) {
-                lpaParam.put("notExistsYn", "Y");
-                lpaRows = dgnssMapper.selectClassTotalReport(lpaParam);
-            }
+            List<Map<String, Object>> cachedRows =
+                    fetchClassTotalReportCached(dgnssId, classTotalReportCache, classTotalReportNotExistsUsed);
+            // 캐시 원본 오염 방지: source 부여·fallback addAll·enrichLpaTop3 등 변형은 복사본 리스트에서 수행.
+            List<Map<String, Object>> lpaRows = new ArrayList<>(cachedRows);
             for (Map<String, Object> row : lpaRows) {
                 row.put("source", "IN_CLASS");
             }
@@ -1726,7 +1767,7 @@ public class DgnssService {
                 fallbackParam.put("paperIdx", paperIdx);
                 fallbackParam.put("ordNo", currentOrdNo);
                 fallbackParam.put("stdtIds", missingStudents);
-                fallbackParam.put("notExistsYn", MapUtils.getString(lpaParam, "notExistsYn", "N"));
+                fallbackParam.put("notExistsYn", classTotalReportNotExistsUsed.getOrDefault(dgnssId, "N"));
                 List<Map<String, Object>> fallbackRows = dgnssMapper.selectClassTotalReportFromOtherClasses(fallbackParam);
                 if (CollectionUtils.isNotEmpty(fallbackRows)) {
                     for (Map<String, Object> row : fallbackRows) {
@@ -1747,10 +1788,8 @@ public class DgnssService {
                     Map<String, Object> lpaRow = new LinkedHashMap<>();
                     lpaRow.put("stdtId", MapUtils.getString(row, "stdtId", ""));
                     lpaRow.put("source", MapUtils.getString(row, "source", "IN_CLASS"));
-                    lpaRow.put("lpaClassId", row.get("lpaClassId"));
+                    // lpaClassId/lpaConfidence/lpaStatus 는 FE 미사용이라 응답에서 제외 (lpaTypeName + top3 만 노출).
                     lpaRow.put("lpaTypeName", row.get("lpaTypeName"));
-                    lpaRow.put("lpaConfidence", row.get("lpaConfidence"));
-                    lpaRow.put("lpaStatus", row.get("lpaStatus"));
                     lpaRow.put("lpaTop1TypeName", row.get("lpaTop1TypeName"));
                     lpaRow.put("lpaTop1Probability", row.get("lpaTop1Probability"));
                     lpaRow.put("lpaTop2TypeName", row.get("lpaTop2TypeName"));
@@ -1825,6 +1864,36 @@ public class DgnssService {
         }
 
         return resultMap;
+    }
+
+    /**
+     * selectClassTotalReport(dgnssId) 를 호출당 1회만 조회하도록 캐시한다.
+     * '주의' 제외(N) 조회 후 데이터가 없으면 '주의' 포함(Y)으로 재조회하며, 실제 사용된 분기값을 함께 캐시한다.
+     * 평균 루프(읽기 전용)와 lpa 루프가 같은 dgnssId 를 공유하므로, 반환 리스트는 호출 측에서 변형 전 복사할 것.
+     */
+    private List<Map<String, Object>> fetchClassTotalReportCached(
+            int dgnssId,
+            Map<Integer, List<Map<String, Object>>> cache,
+            Map<Integer, String> notExistsUsedCache) {
+        if (cache.containsKey(dgnssId)) {
+            return cache.get(dgnssId);
+        }
+        Map<String, Object> p = new HashMap<>();
+        p.put("dgnssId", dgnssId);
+        p.put("notExistsYn", "N");
+        List<Map<String, Object>> rows = dgnssMapper.selectClassTotalReport(p);
+        String used = "N";
+        if (CollectionUtils.isEmpty(rows)) {
+            p.put("notExistsYn", "Y");
+            rows = dgnssMapper.selectClassTotalReport(p);
+            used = "Y";
+        }
+        if (rows == null) {
+            rows = new ArrayList<>();
+        }
+        cache.put(dgnssId, rows);
+        notExistsUsedCache.put(dgnssId, used);
+        return rows;
     }
 
     private List<Integer> resolveTargetDgnssIdListForAnalysis(String paperIdx, String ordNo, List<Integer> allDgnssIdList) {
@@ -2382,10 +2451,15 @@ public class DgnssService {
 
         String url = pdfService.createDgnssSummaryByTemplate(new File(fileName), dgnssData, request);
 
-        Map<String, Object> updateMap = new HashMap<>();
-        updateMap.put("fileUrl", url);
-        updateMap.put("dgnssResultId", MapUtils.getString(dgnssAnswer, "dgnssResultId", ""));
-        dgnssMapper.updateSummaryFileUrl(updateMap);
+        if (isStorableFileUrl(url)) {
+            Map<String, Object> updateMap = new HashMap<>();
+            updateMap.put("fileUrl", url);
+            updateMap.put("dgnssResultId", MapUtils.getString(dgnssAnswer, "dgnssResultId", ""));
+            dgnssMapper.updateSummaryFileUrl(updateMap);
+        } else {
+            log.warn("[summary_file_url 저장 생략] 유효하지 않은 업로드 URL: dgnssResultId={}, urlLen={}, url={}",
+                    MapUtils.getString(dgnssAnswer, "dgnssResultId", ""), url == null ? 0 : url.length(), url);
+        }
 
         result.put("summaryUrl", url);
         return result;

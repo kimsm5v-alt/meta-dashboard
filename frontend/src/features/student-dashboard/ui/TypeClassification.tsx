@@ -307,7 +307,8 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
   prevTypeProbabilities,
 }) => {
   // 고등학교는 LPA 유형 분석을 제공하지 않음
-  if (schoolLevel === '고등') {
+  // predictedType이 "미지원"이면 LPA 미제공 (백엔드 기준)
+  if (schoolLevel === '고등' || predictedType === '미지원') {
     return null;
   }
 
