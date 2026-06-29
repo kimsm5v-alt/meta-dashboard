@@ -1188,8 +1188,8 @@ const CoreSummaryTab = ({ classData, testId, selfregRound1, selfregRound2 }: Cor
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* LPA 유형 분포 — comprehensive only */}
-      {testId === 'comprehensive' && (
+      {/* LPA 유형 분포 — comprehensive + 고등 제외 */}
+      {testId === 'comprehensive' && classData.schoolLevel !== '고등' && (
         <Card>
           <div style={{ marginBottom: '1rem' }}>
             <SectionTitle>검사별 유형 분포</SectionTitle>
@@ -2047,12 +2047,29 @@ export const ClassDashboardV2Widget: React.FC = () => {
       });
       kpiAvgT = Math.round(sum / count);
     }
-    // Dominant LPA type
-    const dist = classData.stats?.typeDistribution ?? {};
-    const dominantType = Object.entries(dist).sort((a, b) => b[1].count - a[1].count)[0];
-    kpiCard2Label = '우세 유형';
-    kpiCard2Value = dominantType?.[0] === '미지원' ? '없음' : (dominantType?.[0] ?? '-');
-    kpiCard2Sub = (dominantType && dominantType[0] !== '미지원') ? `${dominantType[1].percentage}%` : '-';
+    if (classData.schoolLevel === '고등') {
+      // 고등: LPA 유형 없음 → 대표 강점(하위요인 평균 최고값)으로 대체
+      const subAvgs: { name: string; avg: number }[] = [];
+      Object.entries(SUB_CATEGORY_FACTORS).forEach(([subCat, indices]) => {
+        const vals: number[] = [];
+        assessed.forEach(s => {
+          const a = s.assessments.find(a => a.round === 1);
+          if (a) indices.forEach(i => { if (a.tScores[i] !== undefined) vals.push(a.tScores[i]); });
+        });
+        if (vals.length > 0) subAvgs.push({ name: subCat, avg: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) });
+      });
+      const top = subAvgs.sort((a, b) => b.avg - a.avg)[0];
+      kpiCard2Label = '대표 강점';
+      kpiCard2Value = top?.name ?? '-';
+      kpiCard2Sub = top ? `T${top.avg}` : '-';
+    } else {
+      // Dominant LPA type
+      const dist = classData.stats?.typeDistribution ?? {};
+      const dominantType = Object.entries(dist).sort((a, b) => b[1].count - a[1].count)[0];
+      kpiCard2Label = '우세 유형';
+      kpiCard2Value = dominantType?.[0] === '미지원' ? '없음' : (dominantType?.[0] ?? '-');
+      kpiCard2Sub = (dominantType && dominantType[0] !== '미지원') ? `${dominantType[1].percentage}%` : '-';
+    }
   }
 
   const badgeColor = testId === 'selfreg' ? '#009f88' : '#4F46E5';
