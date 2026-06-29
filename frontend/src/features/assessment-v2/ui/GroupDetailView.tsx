@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
 import { buildGroupJoinUrl } from '@shared/lib/mypage';
+import { ENV } from '@shared/config/env';
 import { ExamTimelineCard } from './ExamTimelineCard';
 import { StudentManagementPanel } from './StudentManagementPanel';
 import { QRCodeModal } from './QRCodeModal';
@@ -18,8 +19,8 @@ import { EXAM_SLOTS } from '../constants';
 import type { GroupWithExamState, GroupMember } from '../types';
 import type { SchoolLevelCode } from '@shared/types';
 
-const MANUAL_URL_COMPREHENSIVE = '';
-const MANUAL_URL_SELF_REGULATED = '';
+const MANUAL_URL_COMPREHENSIVE = ENV.MANUAL_URL_COMPREHENSIVE;
+const MANUAL_URL_SELF_REGULATED = ENV.MANUAL_URL_SELF_REGULATED;
 
 const PdfBtn = styled.a`
   display: flex;

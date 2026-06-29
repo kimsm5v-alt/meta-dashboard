@@ -19,4 +19,7 @@ export const ENV = {
   // 기본은 빈 값 → buildGroupJoinUrl 이 window.location.origin 기준으로 자동 도출(환경별 자동).
   SP_STUDENT_RETURN_URL: (import.meta.env.VITE_SP_STUDENT_RETURN_URL as string | undefined) ?? '',
   IS_DEV: import.meta.env.DEV as boolean,
+  SELFREG_HIDDEN: import.meta.env.VITE_SELFREG_HIDDEN === 'true',
+  MANUAL_URL_COMPREHENSIVE: (import.meta.env.VITE_MANUAL_URL_COMPREHENSIVE as string | undefined) ?? '',
+  MANUAL_URL_SELF_REGULATED: (import.meta.env.VITE_MANUAL_URL_SELF_REGULATED as string | undefined) ?? '',
 } as const;

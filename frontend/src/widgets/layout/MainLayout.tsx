@@ -63,7 +63,7 @@ interface NavGroup {
 
 const DASHBOARD_SUB_ITEMS: NavSubItem[] = [
   { label: '학습종합검사', path: '/dashboard/comprehensive' },
-  { label: '자기조절학습검사', path: '/dashboard/selfreg' },
+  ...(!ENV.SELFREG_HIDDEN ? [{ label: '자기조절학습검사', path: '/dashboard/selfreg' }] : []),
 ];
 
 const navGroups: NavGroup[] = [
