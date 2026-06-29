@@ -22,10 +22,10 @@ async function bootstrap() {
         );
         const data = await res.json();
         // 등록 여부는 BE resolveOrProvision 이 자동 처리 → returnPath 또는 역할 기반 리다이렉트
-        const defaultPath = data.resultData?.roleCode === 'STUDENT' ? '/student/exams' : '/dashboard';
+        const defaultPath = data.resultData?.roleCode === 'STUDENT' ? '/student/exams' : '/assessment';
         window.history.replaceState(null, '', result.returnPath || defaultPath);
       } catch {
-        window.history.replaceState(null, '', result.returnPath || '/dashboard');
+        window.history.replaceState(null, '', result.returnPath || '/assessment');
       }
     } else {
       window.history.replaceState(null, '', '/login');
