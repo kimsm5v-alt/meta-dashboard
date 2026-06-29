@@ -2,10 +2,19 @@ import { getBarPercent } from '@/shared/utils/chartUtils';
 export { COLORS_POSITIVE, COLORS_NEGATIVE } from '@/shared/components/LevelBadge';
 
 // ============================================================
-// T=50 기준선 위치
+// T점수 구간 기준선 위치
 // ============================================================
 
 export const T50_PERCENT = getBarPercent(50);
+
+// T점수 구간별 기준선 위치
+export const T_SCORE_THRESHOLDS = {
+  VERY_LOW: getBarPercent(40),   // 매우 낮음 / 낮음 경계
+  LOW: getBarPercent(45),         // 낮음 / 보통 경계
+  AVERAGE: getBarPercent(50),     // 평균 (중앙)
+  HIGH: getBarPercent(55),        // 보통 / 높음 경계
+  VERY_HIGH: getBarPercent(60),   // 높음 / 매우 높음 경계
+} as const;
 
 // ============================================================
 // Step 4 유형 설명
