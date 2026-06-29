@@ -303,7 +303,7 @@ export const LearningDetailTab: React.FC<LearningDetailTabProps> = ({
               <span className="w-[18px] h-[18px] rounded-full bg-white text-emerald-600 grid place-items-center text-[11px] font-extrabold">
                 ✓
               </span>
-              강점 TOP 3
+              우리 반의 강점 TOP 3
             </div>
             <div className="grid grid-cols-3 gap-2.5">
               {profile.strengths.slice(0, 3).map((item) => {
@@ -339,7 +339,7 @@ export const LearningDetailTab: React.FC<LearningDetailTabProps> = ({
               <span className="w-[18px] h-[18px] rounded-full bg-white text-red-500 grid place-items-center text-[11px] font-extrabold">
                 !
               </span>
-              관심 필요 TOP 3
+              우리 반의 보완점 TOP 3
             </div>
             <div className="grid grid-cols-3 gap-2.5">
               {profile.weaknesses.slice(0, 3).map((item) => {
