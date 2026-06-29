@@ -4,7 +4,7 @@ import type { Class } from '@/shared/types';
 import type { ClassDetailData } from '../../hooks/useClassDetailData';
 import type { ClassProfile } from '../../hooks/useClassProfile';
 import { callAI } from '@/shared/services/ai';
-import { ProfileCard } from '@/features/class-dashboard/components/detail/ProfileCard';
+import { ProfileCard } from './ProfileCard';
 import {
   buildUserMessage,
   buildCompareUserMessage,
