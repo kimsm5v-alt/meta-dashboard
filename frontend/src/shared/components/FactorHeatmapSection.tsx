@@ -103,7 +103,7 @@ const KNOWN_PREFIXES = [
 
 /** 요인명을 의미 단위로 줄바꿈 (6자+: 항상 2줄, 4-5자: 좁을 때만) */
 const formatFactorLabel = (name: string): React.ReactNode => {
-  if (name.length < 4) return name;
+  if (name.length < 4 || name === '지지적 관계') return name;
 
   let breakAt = -1;
   for (const p of KNOWN_PREFIXES) {
@@ -204,7 +204,9 @@ const SingleBar: React.FC<{
     <SingleBarContainer $height={CHART_H}>
       <ScoreLabel style={{ color: tone.labelColor }}>{t}</ScoreLabel>
       <BarElement $height={barH} $fill={tone.fill} $border={tone.border}>
-        {barH > 26 && <BarGradeLabel $labelColor={tone.labelColor}>{getGradeLabel(t)}</BarGradeLabel>}
+        {barH > 26 && (
+          <BarGradeLabel $labelColor={tone.labelColor}>{getGradeLabel(t)}</BarGradeLabel>
+        )}
       </BarElement>
     </SingleBarContainer>
   );
@@ -279,7 +281,6 @@ const CompareBarElement = styled.div<{ $height: number; $fill: string; $border: 
 // 비교 쌍 막대 (1차 + 2차, flex-1 컬럼 기반)
 // ============================================================
 
-
 const CompareBar: React.FC<{
   score: number;
   prevScore: number;
@@ -301,13 +302,19 @@ const CompareBar: React.FC<{
         <CompareBarColumn>
           <PrevScoreLabel style={{ color: prevTone.labelColor }}>{prevT}</PrevScoreLabel>
           <CompareBarElement $height={prevBarH} $fill={prevTone.fill} $border={prevTone.border}>
-            {prevBarH > 26 && <BarGradeLabel $labelColor={prevTone.labelColor}>{getGradeLabel(prevT)}</BarGradeLabel>}
+            {prevBarH > 26 && (
+              <BarGradeLabel $labelColor={prevTone.labelColor}>
+                {getGradeLabel(prevT)}
+              </BarGradeLabel>
+            )}
           </CompareBarElement>
         </CompareBarColumn>
         <CompareBarColumn>
           <ScoreLabel style={{ color: tone.labelColor }}>{t}</ScoreLabel>
           <CompareBarElement $height={barH} $fill={tone.fill} $border={tone.border}>
-            {barH > 26 && <BarGradeLabel $labelColor={tone.labelColor}>{getGradeLabel(t)}</BarGradeLabel>}
+            {barH > 26 && (
+              <BarGradeLabel $labelColor={tone.labelColor}>{getGradeLabel(t)}</BarGradeLabel>
+            )}
           </CompareBarElement>
         </CompareBarColumn>
       </CompareBarsGroup>
