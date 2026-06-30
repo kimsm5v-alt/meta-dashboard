@@ -34,6 +34,8 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFileAttributes;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.sql.SQLException;
 import java.time.DateTimeException;
 import java.time.LocalDateTime;
@@ -131,17 +133,24 @@ public class FileService {
                 FileUtil.mkdirs(tempPath);
                 FileUtil.mkdirs(uploadPath);
 
+                // NAS 업로드 권한 진단 — 루트/temp/업로드 디렉터리의 존재·읽기·쓰기·실행 권한 및 소유자(POSIX)
+                logNasPermission("NAS root", nasRoot());
+                logNasPermission("temp dir", tempPath);
+                logNasPermission("upload dir", uploadPath);
+
                 // 파일명 생성
                 String saveFileName = FileUtil.getSaveFileName(file.getOriginalFilename());
 
                 // 파일 저장
                 tempFile = new File(tempPath + saveFileName);
                 file.transferTo(tempFile);
+                logNasPermission("temp file(저장 직후)", tempFile.getAbsolutePath());
 
                 // 파일 이동
                 String copyPath = uploadPath;
                 String copyFile = copyPath + "/" + saveFileName;
                 movedFile = FileUtil.moveFile(tempFile, copyFile);
+                logNasPermission("uploaded file(이동 후)", copyFile);
 
                 // DB 저장
                 FileVO fileVO = setFileVO(file, saveFileName, copyPath + "/", userId, requestSource, prsInfoYn);
@@ -617,6 +626,37 @@ public class FileService {
     }
 
     /**
+     * NAS 업로드 경로/파일의 권한을 진단 로깅한다 (PDF 업로드 실패가 권한 문제인지 확인용).
+     * 존재 여부·읽기/쓰기/실행 권한과, POSIX(리눅스 NAS)면 권한 비트(rwxr-xr-x)·소유자·그룹까지 남긴다.
+     */
+    private void logNasPermission(String label, String pathStr) {
+        try {
+            File f = new File(pathStr);
+            boolean exists = f.exists();
+            StringBuilder sb = new StringBuilder();
+            sb.append("exists=").append(exists)
+              .append(", isDir=").append(f.isDirectory())
+              .append(", isFile=").append(f.isFile())
+              .append(", canRead=").append(f.canRead())
+              .append(", canWrite=").append(f.canWrite())
+              .append(", canExecute=").append(f.canExecute());
+            if (exists) {
+                try {
+                    PosixFileAttributes attrs = Files.readAttributes(f.toPath(), PosixFileAttributes.class);
+                    sb.append(", posix=").append(PosixFilePermissions.toString(attrs.permissions()))
+                      .append(", owner=").append(attrs.owner().getName())
+                      .append(", group=").append(attrs.group().getName());
+                } catch (UnsupportedOperationException | IOException ex) {
+                    sb.append(", posix=N/A(").append(ex.getClass().getSimpleName()).append(")");
+                }
+            }
+            log.info("[NAS 권한] {} | path={} | {}", label, pathStr, sb);
+        } catch (Exception e) {
+            log.warn("[NAS 권한] {} 확인 실패 | path={} | err={}", label, pathStr, e.getMessage());
+        }
+    }
+
+    /**
      * 업로드 시 중복 방지용으로 붙인 UUID 접미사 "(32 hex)"를 확장자 직전에서 제거한다.
      * 저장 파일명/URL 은 그대로 두고, 다운로드(Content-Disposition) 노출 파일명만 깔끔하게 정리하는 용도.
      * 예) [반]종합학습검사_1차(23d4...defb).zip → [반]종합학습검사_1차.zip
@@ -915,17 +955,24 @@ public class FileService {
                 FileUtil.mkdirs(tempPath);
                 FileUtil.mkdirs(uploadPath);
 
+                // NAS 업로드 권한 진단 — 루트/temp/업로드 디렉터리의 존재·읽기·쓰기·실행 권한 및 소유자(POSIX)
+                logNasPermission("NAS root", nasRoot());
+                logNasPermission("temp dir", tempPath);
+                logNasPermission("upload dir", uploadPath);
+
                 // 파일명 생성
                 String saveFileName = FileUtil.getSaveFileName(file.getOriginalFilename());
 
                 // 파일 저장
                 tempFile = new File(tempPath + saveFileName);
                 file.transferTo(tempFile);
+                logNasPermission("temp file(저장 직후)", tempFile.getAbsolutePath());
 
                 // 파일 이동
                 String copyPath = uploadPath;
                 String copyFile = copyPath + "/" + saveFileName;
                 movedFile = FileUtil.moveFile(tempFile, copyFile);
+                logNasPermission("uploaded file(이동 후)", copyFile);
 
                 // DB 저장
                 FileVO fileVO = setFileVO(file, saveFileName, copyPath + "/", userId, "Batch Dgnss", "Y");

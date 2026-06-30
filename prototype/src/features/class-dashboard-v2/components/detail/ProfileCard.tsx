@@ -1,5 +1,4 @@
 import type { ClassProfileItem } from '../../hooks/useClassProfile';
-import { SUB_CATEGORY_SCRIPTS } from '@/shared/data/subCategoryScripts';
 import { DOMAIN_COLORS } from '@/shared/data/lpaProfiles';
 
 // ============================================================
@@ -18,14 +17,6 @@ export const ACCENT_STYLES = {
     score: 'text-red-600',
   },
 } as const;
-
-// ============================================================
-// 유틸리티
-// ============================================================
-
-function getCategoryDisplayName(category: string): string {
-  return SUB_CATEGORY_SCRIPTS[category]?.name ?? category;
-}
 
 // ============================================================
 // Props
@@ -47,43 +38,56 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ item, idx, accent, pre
   const prevMap: Record<string, number> = {};
   if (prevItems) {
     for (const p of prevItems) {
-      prevMap[p.category] = p.avgT;
+      prevMap[p.factorName] = p.avgT;
     }
   }
-  const prevT = prevMap[item.category];
+  const prevT = prevMap[item.factorName];
   const hasPrev = prevT != null;
   const delta = hasPrev ? Math.round(item.avgT - prevT) : 0;
 
   return (
     <div className={`flex-1 p-3 rounded-lg border ${s.card}`}>
-      {item.parentCategory && (
+      {/* 대분류 태그 */}
+      {item.category && (
         <span
           className="text-[11px] font-semibold mb-1 inline-block"
-          style={{ color: DOMAIN_COLORS[item.parentCategory] ?? '#9CA3AF' }}
+          style={{ color: DOMAIN_COLORS[item.category] ?? '#9CA3AF' }}
         >
-          #{item.parentCategory}
+          #{item.category}
         </span>
       )}
+      {/* 순위 + 요인명 */}
       <div className="flex items-center gap-1.5 mb-1">
         <span className={`text-xs font-bold ${s.rank}`}>{idx + 1}</span>
-        <p className="text-sm font-semibold text-gray-800">
-          {getCategoryDisplayName(item.category)}
-        </p>
+        <p className="text-sm font-semibold text-gray-800">{item.factorName}</p>
       </div>
+      {/* T점수 (변화 표시) */}
       {hasPrev ? (
         <p className="text-xs text-gray-500 mb-1">
           T {prevT} → {item.avgT}
           {delta !== 0 && (
-            <span className={`ml-1 font-semibold ${delta > 0 ? (item.isPositive ? 'text-emerald-600' : 'text-red-500') : (item.isPositive ? 'text-red-500' : 'text-emerald-600')}`}>
-              ({delta > 0 ? '+' : ''}{delta})
+            <span
+              className={`ml-1 font-semibold ${
+                delta > 0
+                  ? item.isPositive
+                    ? 'text-emerald-600'
+                    : 'text-red-500'
+                  : item.isPositive
+                    ? 'text-red-500'
+                    : 'text-emerald-600'
+              }`}
+            >
+              ({delta > 0 ? '+' : ''}
+              {delta})
             </span>
           )}
         </p>
       ) : (
         <p className={`text-xs mb-1 ${s.score}`}>T {item.avgT}</p>
       )}
-      {item.categoryScript && (
-        <p className="text-xs text-gray-500 leading-relaxed">{item.categoryScript}</p>
+      {/* 요인 정의 (조작적 정의) */}
+      {item.definition && (
+        <p className="text-xs text-gray-500 leading-relaxed">{item.definition}</p>
       )}
     </div>
   );
