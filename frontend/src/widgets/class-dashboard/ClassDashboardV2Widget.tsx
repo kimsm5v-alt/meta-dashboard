@@ -31,7 +31,11 @@ import {
   downloadStudentPdf,
   downloadTeacherReportPdf,
 } from '@shared/services/pdfDownloadService';
-import { fetchStudentInfoList, fetchTeacherExams } from '@shared/services/dashboardService';
+import {
+  fetchStudentInfoList,
+  fetchTeacherExams,
+  type StudentInfoItem,
+} from '@shared/services/dashboardService';
 import type { Class, Student } from '@shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1499,8 +1503,8 @@ const CoreSummaryTab = ({
       if (!profile) return scores;
       COMP_CATEGORY_ORDER.forEach((cat) => {
         const item =
-          profile.strengths.find((s) => s.subCategory === cat.name) ||
-          profile.weaknesses.find((w) => w.subCategory === cat.name);
+          profile.strengths.find((s) => s.definition === cat.name) ||
+          profile.weaknesses.find((w) => w.definition === cat.name);
         scores[cat.name] = item?.avgT ?? 50;
       });
     }
@@ -1949,7 +1953,7 @@ const LearningDetailTab = ({
           <div>
             <Top3Header $variant='strength'>
               <Top3Icon $variant='strength'>✓</Top3Icon>
-              강점 TOP 3
+              우리 반의 강점 TOP 3
             </Top3Header>
             <Top3Cards>
               {profile.strengths.slice(0, 3).map((item) => {
@@ -1974,7 +1978,7 @@ const LearningDetailTab = ({
           <div>
             <Top3Header $variant='weakness'>
               <Top3Icon $variant='weakness'>!</Top3Icon>
-              관심 필요 TOP 3
+              우리 반의 보완점 TOP 3
             </Top3Header>
             <Top3Cards>
               {profile.weaknesses.slice(0, 3).map((item) => {
@@ -2539,9 +2543,7 @@ export const ClassDashboardV2Widget: React.FC = () => {
     stTotalCnt?: number;
     stSubmCnt?: number;
   }>({});
-  const [selfregR1InfoList, setSelfregR1InfoList] = useState<
-    import('@shared/services/dashboardService').StudentInfoItem[]
-  >([]);
+  const [selfregR1InfoList, setSelfregR1InfoList] = useState<StudentInfoItem[]>([]);
   const [selfregR2AnswerIdxMap, setSelfregR2AnswerIdxMap] = useState<Map<string, number>>(
     new Map(),
   );
@@ -2715,7 +2717,7 @@ export const ClassDashboardV2Widget: React.FC = () => {
 
   const baseClassData = classId ? getClassById(classId) : undefined;
 
-  const classData: Class | undefined = useMemo(() => {
+  const classData: Class | undefined = (() => {
     // 종합검사 전용 분기 (자기조절검사는 제외)
     if (hasJwtToken && testId !== 'selfreg' && apiStudents.length > 0 && classId) {
       const schoolLevel = apiClassInfo?.schoolLevel ?? apiStudents[0]?.schoolLevel ?? '초등';
@@ -2799,18 +2801,7 @@ export const ClassDashboardV2Widget: React.FC = () => {
       };
     }
     return baseClassData;
-  }, [
-    baseClassData,
-    hasJwtToken,
-    apiStudents,
-    classId,
-    l2Data,
-    apiClassInfo,
-    testId,
-    selfregRound1,
-    selfregRound2,
-    selfregDgnssIds,
-  ]);
+  })();
 
   // 모달에서 사용할 학생 목록 (comprehensive=classData.students, selfreg=selfregR1InfoList)
   const modalStudents: Array<{ id: string; number: number; name: string }> =

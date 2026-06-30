@@ -823,16 +823,18 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
           </SectionContainer>
         )}
 
-        {/* 코칭 전략 (강점/보완점 카드 + 아코디언 통합) - 고등학교(LPA 미제공) 제외 */}
-        {student.schoolLevel !== '고등' && current.predictedType !== '미지원' && (
-          <CoachingStrategy
-            moderationPaths={moderationPaths}
-            strengths={strengths}
-            weaknesses={weaknesses}
-            typeName={current.predictedType}
-            isLoading={isCoachingLoading}
-          />
-        )}
+        {/* 코칭 전략 (강점/보완점 카드 + 아코디언 통합) - 고등학교(LPA 미제공) 제외, 운영서버 데이터 이슈로 임시 숨김(HSJ-108) */}
+        {import.meta.env.VITE_ENV !== 'prod' &&
+          student.schoolLevel !== '고등' &&
+          current.predictedType !== '미지원' && (
+            <CoachingStrategy
+              moderationPaths={moderationPaths}
+              strengths={strengths}
+              weaknesses={weaknesses}
+              typeName={current.predictedType}
+              isLoading={isCoachingLoading}
+            />
+          )}
 
         {/* 데이터 해석 도우미 (스피드다이얼 FAB) */}
         <DataHelperChatbot onOpenPanel={setPanelTab} isPanelOpen={panelTab !== null} />
