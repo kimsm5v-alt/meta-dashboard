@@ -34,8 +34,20 @@ const T_RANGE = T_MAX - T_MIN; // 100
 /** T점수 → 막대 높이(px) */
 const toH = (t: number) => Math.max(0, Math.min(CHART_H, ((t - T_MIN) / T_RANGE) * CHART_H));
 
-/** T=50 기준선의 bottom 위치(px) */
-const REF_BOTTOM = toH(50);
+/** T점수 → 차트 top 오프셋 문자열 (CSS calc) */
+const toTop = (t: number) => `calc(1.5rem + ${CHART_H - toH(t)}px)`;
+
+/** 구간 경계선 T값 */
+const GRID_T_VALUES = [30, 40, 50, 60, 70] as const;
+
+/** 구간 라벨 — 각 밴드 중심 T값 기준 배치 */
+const GRADE_BAND_LABELS = [
+  { label: '매우높음', midT: 85 },
+  { label: '높음', midT: 65 },
+  { label: '보통', midT: 50 },
+  { label: '낮음', midT: 35 },
+  { label: '매우낮음', midT: 15 },
+] as const;
 
 // ============================================================
 // Styled Components - DeltaBadge
@@ -452,6 +464,7 @@ const TabButton = styled.button<{ $isActive: boolean; $bgColor?: string }>`
   transition: all 0.15s ease;
   border: none;
   cursor: pointer;
+  text-align: center;
 
   ${({ $isActive, $bgColor, theme }) =>
     $isActive
@@ -548,16 +561,32 @@ const ChartContainer = styled.div`
 
 const ChartInner = styled.div`
   position: relative;
-  padding: 1.5rem 1rem 1rem;
+  padding: 1.5rem 1rem 1rem 2.75rem;
 `;
 
-const ReferenceLine = styled.div<{ $top: string }>`
+const GridLine = styled.div<{ $top: string; $isPrimary: boolean }>`
   position: absolute;
-  left: 0.5rem;
+  left: 2.25rem;
   right: 0.5rem;
   top: ${({ $top }) => $top};
-  border-top: 1px dashed ${({ theme }) => theme.colors.gray[300]};
+  border-top: ${({ $isPrimary }) => ($isPrimary ? '1.5px dashed #C9A4ED' : '1px dashed #E5E7EB')};
   pointer-events: none;
+`;
+
+const GradeLabel = styled.span<{ $top: string }>`
+  position: absolute;
+  left: 0;
+  width: 2.25rem;
+  top: ${({ $top }) => $top};
+  transform: translateY(-50%);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  color: #a1a1a8;
+  text-align: right;
+  padding-right: 0.25rem;
+  pointer-events: none;
+  white-space: nowrap;
+  line-height: 1;
 `;
 
 const BarsContainer = styled.div`
@@ -619,6 +648,22 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({
         {domainData.map((d, i) => {
           const factorCount = d.subCategories.reduce((sum, sc) => sum + sc.factors.length, 0);
           const isActive = selectedDomain === i;
+          const label =
+            d.category === '긍정적공부마음' ? (
+              <>
+                긍정적
+                <br />
+                공부마음
+              </>
+            ) : d.category === '부정적공부마음' ? (
+              <>
+                부정적
+                <br />
+                공부마음
+              </>
+            ) : (
+              d.category
+            );
           return (
             <TabButton
               key={d.category}
@@ -626,7 +671,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({
               $isActive={isActive}
               $bgColor={isActive ? (d.subCategories[0]?.color ?? undefined) : undefined}
             >
-              {d.category}
+              {label}
               <TabCountBadge $isActive={isActive}>{factorCount}</TabCountBadge>
             </TabButton>
           );
@@ -646,7 +691,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({
 
       {/* ===== 범례 ===== */}
       <LegendRow>
-        <span>점선: T=50 (전국 평균)</span>
+        <span>보라색 점선: T=50 (전국 평균)</span>
         {isCompare && (
           <>
             <LegendSeparator>|</LegendSeparator>
@@ -663,8 +708,17 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({
       {/* ===== 차트 영역 ===== */}
       <ChartContainer>
         <ChartInner>
-          {/* T=50 기준선 */}
-          <ReferenceLine $top={`calc(1.5rem + ${CHART_H - REF_BOTTOM}px)`} />
+          {/* 구간 경계선 (T=30,40,50,60,70) */}
+          {GRID_T_VALUES.map((t) => (
+            <GridLine key={t} $top={toTop(t)} $isPrimary={t === 50} />
+          ))}
+
+          {/* 구간 라벨 (매우낮음~매우높음) */}
+          {GRADE_BAND_LABELS.map(({ label, midT }) => (
+            <GradeLabel key={label} $top={toTop(midT)}>
+              {label}
+            </GradeLabel>
+          ))}
 
           {/* 막대 그룹 — 비례 flex 가중치 */}
           <BarsContainer>
