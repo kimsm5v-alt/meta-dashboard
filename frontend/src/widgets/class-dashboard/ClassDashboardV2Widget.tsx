@@ -1503,8 +1503,8 @@ const CoreSummaryTab = ({
       if (!profile) return scores;
       COMP_CATEGORY_ORDER.forEach((cat) => {
         const item =
-          profile.strengths.find((s) => s.definition === cat.name) ||
-          profile.weaknesses.find((w) => w.definition === cat.name);
+          profile.strengths.find((s) => s.subCategory === cat.name) ||
+          profile.weaknesses.find((w) => w.subCategory === cat.name);
         scores[cat.name] = item?.avgT ?? 50;
       });
     }
