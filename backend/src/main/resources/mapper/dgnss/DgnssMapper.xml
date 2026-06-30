@@ -1868,9 +1868,9 @@
 		     , DRI.file_url AS fileURL
 		     , DRI.id AS dgnssResultId
 		     , CASE
-		           WHEN COALESCE(NULLIF(gi.grade, ''), NULLIF(DRI.grade, '')) IS NOT NULL
+		           WHEN COALESCE(NULLIF(gi.grade, '0'), NULLIF(DRI.grade, '')) IS NOT NULL
 		                AND COALESCE(NULLIF(gi.class_number, 0), NULLIF(DRI.class_number, '')) IS NOT NULL
-		           THEN CONCAT(COALESCE(NULLIF(gi.grade, ''), NULLIF(DRI.grade, '')), '학년 ', COALESCE(NULLIF(gi.class_number, 0), NULLIF(DRI.class_number, '')), '반')
+		           THEN CONCAT(COALESCE(NULLIF(gi.grade, '0'), NULLIF(DRI.grade, '')), '학년 ', COALESCE(NULLIF(gi.class_number, 0), NULLIF(DRI.class_number, '')), '반')
 		           ELSE '-'
 		       END AS CLASS_NM
 		     , tdi2.cla_id AS claId
@@ -1885,9 +1885,9 @@
 		           ELSE ''
 		       END AS stdtGrade
 		     , CASE
-		           WHEN COALESCE(NULLIF(gi.grade, ''), NULLIF(DRI.grade, '')) IS NOT NULL
+		           WHEN COALESCE(NULLIF(gi.grade, '0'), NULLIF(DRI.grade, '')) IS NOT NULL
 		                AND COALESCE(NULLIF(gi.class_number, 0), NULLIF(DRI.class_number, '')) IS NOT NULL
-		           THEN CONCAT(COALESCE(NULLIF(gi.grade, ''), NULLIF(DRI.grade, '')), '학년 ', COALESCE(NULLIF(gi.class_number, 0), NULLIF(DRI.class_number, '')), '반')
+		           THEN CONCAT(COALESCE(NULLIF(gi.grade, '0'), NULLIF(DRI.grade, '')), '학년 ', COALESCE(NULLIF(gi.class_number, 0), NULLIF(DRI.class_number, '')), '반')
 		           ELSE ''
 		       END AS stdtClassNm
 		     , CASE
