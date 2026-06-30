@@ -38,7 +38,10 @@ export function getGroupStatusSummary(group: GroupWithExamState): {
 } {
   const { inProgressCount, completedCount, examSlots } = group;
   if (inProgressCount > 0) return { label: '진행 중', className: 'live' };
-  if (completedCount >= examSlots.filter((s) => !s.slotId.startsWith('S')).length && completedCount > 0) {
+  if (
+    completedCount >= examSlots.filter((s) => !s.slotId.startsWith('S')).length &&
+    completedCount > 0
+  ) {
     return { label: '완료', className: 'alldone' };
   }
   if (completedCount > 0) return { label: '일부 완료', className: 'alldone' };

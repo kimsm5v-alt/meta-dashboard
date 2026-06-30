@@ -77,6 +77,7 @@ export const ApiDevModeProvider: React.FC<ApiDevModeProviderProps> = ({ children
 // Hook
 // ============================================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useApiDevMode = (): ApiDevModeContextType => {
   const context = useContext(ApiDevModeContext);
   if (!context) {

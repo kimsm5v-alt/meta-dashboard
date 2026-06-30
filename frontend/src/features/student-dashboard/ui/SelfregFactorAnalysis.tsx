@@ -1,9 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import styled from '@emotion/styled';
-import {
-  SELFREG_DOMAIN_STRUCTURE,
-  type SelfregCategory,
-} from '@shared/data/selfregFactors';
+import { SELFREG_DOMAIN_STRUCTURE, type SelfregCategory } from '@shared/data/selfregFactors';
 
 interface SelfregFactorAnalysisProps {
   /** 자기조절 20개 요인 T-score (index 0~19, selfregFactors.ts 순서와 일치) */
@@ -116,7 +113,7 @@ export const SelfregFactorAnalysis: React.FC<SelfregFactorAnalysisProps> = ({
   }, []);
 
   const activeDomain = useMemo(
-    () => SELFREG_DOMAIN_STRUCTURE.find(d => d.id === activeTab)!,
+    () => SELFREG_DOMAIN_STRUCTURE.find((d) => d.id === activeTab)!,
     [activeTab],
   );
 
@@ -174,37 +171,138 @@ export const SelfregFactorAnalysis: React.FC<SelfregFactorAnalysisProps> = ({
 
           elements.push(
             <g key={`${factor.index}-prev`}>
-              <text x={pairStartX + pairWidth / 2} y={prevY - 5} textAnchor="middle" fontSize={10} fontWeight={700} fill={prevTone.labelColor}>{prevT}</text>
-              <rect x={pairStartX} y={prevY} width={pairWidth} height={prevBarH} rx={3} fill={prevTone.fill} stroke={prevTone.stroke} strokeWidth={1} />
-              {prevBarH > 32 && (prevGrade.isTwoLine ? (
-                <>
-                  <text x={pairStartX + pairWidth / 2} y={prevY + Math.min(prevBarH / 2 - 2, prevBarH - 18)} textAnchor="middle" fontSize={9} fontWeight={600} fill={prevTone.labelColor}>{prevGrade.label.slice(0, 2)}</text>
-                  <text x={pairStartX + pairWidth / 2} y={prevY + Math.min(prevBarH / 2 + 10, prevBarH - 6)} textAnchor="middle" fontSize={9} fontWeight={600} fill={prevTone.labelColor}>{prevGrade.label.slice(2)}</text>
-                </>
-              ) : (
-                <text x={pairStartX + pairWidth / 2} y={prevY + Math.min(prevBarH / 2 + 4, prevBarH - 8)} textAnchor="middle" fontSize={9} fontWeight={600} fill={prevTone.labelColor}>{prevGrade.label}</text>
-              ))}
+              <text
+                x={pairStartX + pairWidth / 2}
+                y={prevY - 5}
+                textAnchor='middle'
+                fontSize={10}
+                fontWeight={700}
+                fill={prevTone.labelColor}
+              >
+                {prevT}
+              </text>
+              <rect
+                x={pairStartX}
+                y={prevY}
+                width={pairWidth}
+                height={prevBarH}
+                rx={3}
+                fill={prevTone.fill}
+                stroke={prevTone.stroke}
+                strokeWidth={1}
+              />
+              {prevBarH > 32 &&
+                (prevGrade.isTwoLine ? (
+                  <>
+                    <text
+                      x={pairStartX + pairWidth / 2}
+                      y={prevY + Math.min(prevBarH / 2 - 2, prevBarH - 18)}
+                      textAnchor='middle'
+                      fontSize={9}
+                      fontWeight={600}
+                      fill={prevTone.labelColor}
+                    >
+                      {prevGrade.label.slice(0, 2)}
+                    </text>
+                    <text
+                      x={pairStartX + pairWidth / 2}
+                      y={prevY + Math.min(prevBarH / 2 + 10, prevBarH - 6)}
+                      textAnchor='middle'
+                      fontSize={9}
+                      fontWeight={600}
+                      fill={prevTone.labelColor}
+                    >
+                      {prevGrade.label.slice(2)}
+                    </text>
+                  </>
+                ) : (
+                  <text
+                    x={pairStartX + pairWidth / 2}
+                    y={prevY + Math.min(prevBarH / 2 + 4, prevBarH - 8)}
+                    textAnchor='middle'
+                    fontSize={9}
+                    fontWeight={600}
+                    fill={prevTone.labelColor}
+                  >
+                    {prevGrade.label}
+                  </text>
+                ))}
             </g>,
           );
 
           const currBarX = centerX + pairGap / 2;
           elements.push(
             <g key={`${factor.index}-curr`}>
-              <text x={currBarX + pairWidth / 2} y={y - 5} textAnchor="middle" fontSize={10} fontWeight={700} fill={tone.labelColor}>{t}</text>
-              <rect x={currBarX} y={y} width={pairWidth} height={barH} rx={3} fill={tone.fill} stroke={tone.stroke} strokeWidth={1} />
-              {barH > 32 && (currGrade.isTwoLine ? (
-                <>
-                  <text x={currBarX + pairWidth / 2} y={y + Math.min(barH / 2 - 2, barH - 18)} textAnchor="middle" fontSize={9} fontWeight={600} fill={tone.labelColor}>{currGrade.label.slice(0, 2)}</text>
-                  <text x={currBarX + pairWidth / 2} y={y + Math.min(barH / 2 + 10, barH - 6)} textAnchor="middle" fontSize={9} fontWeight={600} fill={tone.labelColor}>{currGrade.label.slice(2)}</text>
-                </>
-              ) : (
-                <text x={currBarX + pairWidth / 2} y={y + Math.min(barH / 2 + 4, barH - 8)} textAnchor="middle" fontSize={9} fontWeight={600} fill={tone.labelColor}>{currGrade.label}</text>
-              ))}
+              <text
+                x={currBarX + pairWidth / 2}
+                y={y - 5}
+                textAnchor='middle'
+                fontSize={10}
+                fontWeight={700}
+                fill={tone.labelColor}
+              >
+                {t}
+              </text>
+              <rect
+                x={currBarX}
+                y={y}
+                width={pairWidth}
+                height={barH}
+                rx={3}
+                fill={tone.fill}
+                stroke={tone.stroke}
+                strokeWidth={1}
+              />
+              {barH > 32 &&
+                (currGrade.isTwoLine ? (
+                  <>
+                    <text
+                      x={currBarX + pairWidth / 2}
+                      y={y + Math.min(barH / 2 - 2, barH - 18)}
+                      textAnchor='middle'
+                      fontSize={9}
+                      fontWeight={600}
+                      fill={tone.labelColor}
+                    >
+                      {currGrade.label.slice(0, 2)}
+                    </text>
+                    <text
+                      x={currBarX + pairWidth / 2}
+                      y={y + Math.min(barH / 2 + 10, barH - 6)}
+                      textAnchor='middle'
+                      fontSize={9}
+                      fontWeight={600}
+                      fill={tone.labelColor}
+                    >
+                      {currGrade.label.slice(2)}
+                    </text>
+                  </>
+                ) : (
+                  <text
+                    x={currBarX + pairWidth / 2}
+                    y={y + Math.min(barH / 2 + 4, barH - 8)}
+                    textAnchor='middle'
+                    fontSize={9}
+                    fontWeight={600}
+                    fill={tone.labelColor}
+                  >
+                    {currGrade.label}
+                  </text>
+                ))}
             </g>,
           );
 
           elements.push(
-            <text key={`${factor.index}-label`} x={centerX} y={baseY + 14} textAnchor="middle" fontSize={10} fill="#52525B">{factor.name}</text>,
+            <text
+              key={`${factor.index}-label`}
+              x={centerX}
+              y={baseY + 14}
+              textAnchor='middle'
+              fontSize={10}
+              fill='#52525B'
+            >
+              {factor.name}
+            </text>,
           );
         } else {
           const bx = centerX - barWidth / 2;
@@ -212,17 +310,65 @@ export const SelfregFactorAnalysis: React.FC<SelfregFactorAnalysisProps> = ({
 
           elements.push(
             <g key={factor.index}>
-              <text x={centerX} y={y - 6} textAnchor="middle" fontSize={12} fontWeight={700} fill={tone.labelColor}>{t}</text>
-              <rect x={bx} y={y} width={barWidth} height={barH} rx={5} fill={tone.fill} stroke={tone.stroke} strokeWidth={1} />
-              {barH > 28 && (grade.isTwoLine ? (
-                <>
-                  <text x={centerX} y={y + Math.min(barH / 2 - 2, barH - 18)} textAnchor="middle" fontSize={10} fontWeight={600} fill={tone.labelColor}>{grade.label.slice(0, 2)}</text>
-                  <text x={centerX} y={y + Math.min(barH / 2 + 10, barH - 6)} textAnchor="middle" fontSize={10} fontWeight={600} fill={tone.labelColor}>{grade.label.slice(2)}</text>
-                </>
-              ) : (
-                <text x={centerX} y={y + Math.min(barH / 2 + 4, barH - 8)} textAnchor="middle" fontSize={10} fontWeight={600} fill={tone.labelColor}>{grade.label}</text>
-              ))}
-              <text x={centerX} y={baseY + 14} textAnchor="middle" fontSize={11} fill="#52525B">{factor.name}</text>
+              <text
+                x={centerX}
+                y={y - 6}
+                textAnchor='middle'
+                fontSize={12}
+                fontWeight={700}
+                fill={tone.labelColor}
+              >
+                {t}
+              </text>
+              <rect
+                x={bx}
+                y={y}
+                width={barWidth}
+                height={barH}
+                rx={5}
+                fill={tone.fill}
+                stroke={tone.stroke}
+                strokeWidth={1}
+              />
+              {barH > 28 &&
+                (grade.isTwoLine ? (
+                  <>
+                    <text
+                      x={centerX}
+                      y={y + Math.min(barH / 2 - 2, barH - 18)}
+                      textAnchor='middle'
+                      fontSize={10}
+                      fontWeight={600}
+                      fill={tone.labelColor}
+                    >
+                      {grade.label.slice(0, 2)}
+                    </text>
+                    <text
+                      x={centerX}
+                      y={y + Math.min(barH / 2 + 10, barH - 6)}
+                      textAnchor='middle'
+                      fontSize={10}
+                      fontWeight={600}
+                      fill={tone.labelColor}
+                    >
+                      {grade.label.slice(2)}
+                    </text>
+                  </>
+                ) : (
+                  <text
+                    x={centerX}
+                    y={y + Math.min(barH / 2 + 4, barH - 8)}
+                    textAnchor='middle'
+                    fontSize={10}
+                    fontWeight={600}
+                    fill={tone.labelColor}
+                  >
+                    {grade.label}
+                  </text>
+                ))}
+              <text x={centerX} y={baseY + 14} textAnchor='middle' fontSize={11} fill='#52525B'>
+                {factor.name}
+              </text>
             </g>,
           );
         }
@@ -233,15 +379,40 @@ export const SelfregFactorAnalysis: React.FC<SelfregFactorAnalysisProps> = ({
       const subEnd = xOffset - barSlotWidth * 0.1;
       elements.push(
         <g key={`sub-${subIdx}`}>
-          <line x1={subStart} y1={baseY + 24} x2={subEnd} y2={baseY + 24} stroke={activeDomain.color} strokeWidth={2} />
-          <text x={(subStart + subEnd) / 2} y={baseY + 44} textAnchor="middle" fontSize={13} fontWeight={800} fill={activeDomain.color}>{subCat.name}</text>
+          <line
+            x1={subStart}
+            y1={baseY + 24}
+            x2={subEnd}
+            y2={baseY + 24}
+            stroke={activeDomain.color}
+            strokeWidth={2}
+          />
+          <text
+            x={(subStart + subEnd) / 2}
+            y={baseY + 44}
+            textAnchor='middle'
+            fontSize={13}
+            fontWeight={800}
+            fill={activeDomain.color}
+          >
+            {subCat.name}
+          </text>
         </g>,
       );
 
       if (subIdx < activeDomain.subCategories.length - 1) {
         const sepX = xOffset + groupGap / 2;
         elements.push(
-          <line key={`sep-${subIdx}`} x1={sepX} y1={40} x2={sepX} y2={baseY + 18} stroke="#E5E5E7" strokeWidth={1} strokeDasharray="3 3" />,
+          <line
+            key={`sep-${subIdx}`}
+            x1={sepX}
+            y1={40}
+            x2={sepX}
+            y2={baseY + 18}
+            stroke='#E5E5E7'
+            strokeWidth={1}
+            strokeDasharray='3 3'
+          />,
         );
         xOffset += groupGap;
       }
@@ -257,7 +428,7 @@ export const SelfregFactorAnalysis: React.FC<SelfregFactorAnalysisProps> = ({
       </CardHeader>
 
       <TabRow>
-        {SELFREG_DOMAIN_STRUCTURE.map(domain => (
+        {SELFREG_DOMAIN_STRUCTURE.map((domain) => (
           <TabButton
             key={domain.id}
             $active={activeTab === domain.id}
@@ -274,15 +445,29 @@ export const SelfregFactorAnalysis: React.FC<SelfregFactorAnalysisProps> = ({
 
       <ChartArea ref={containerRef}>
         <svg width={containerWidth} height={380} style={{ display: 'block' }}>
-          <line x1={10} y1={yOf(50)} x2={containerWidth - 10} y2={yOf(50)} stroke="#C9A4ED" strokeWidth={1.3} strokeDasharray="5 5" />
-          <text x={containerWidth - 10} y={20} textAnchor="end" fontSize={11} fill="#9CA3AF">점선: T=50 (전국 평균)</text>
+          <line
+            x1={10}
+            y1={yOf(50)}
+            x2={containerWidth - 10}
+            y2={yOf(50)}
+            stroke='#C9A4ED'
+            strokeWidth={1.3}
+            strokeDasharray='5 5'
+          />
+          <text x={containerWidth - 10} y={20} textAnchor='end' fontSize={11} fill='#9CA3AF'>
+            점선: T=50 (전국 평균)
+          </text>
 
           {showCompare && prevTScores && (
             <g>
-              <rect x={10} y={8} width={12} height={12} rx={2} fill="#F0F0F2" stroke="#DADADE" />
-              <text x={28} y={18} fontSize={11} fill="#52525B">1차</text>
-              <rect x={60} y={8} width={12} height={12} rx={2} fill="#D6D6DC" stroke="#B6B6BE" />
-              <text x={78} y={18} fontSize={11} fill="#52525B">2차</text>
+              <rect x={10} y={8} width={12} height={12} rx={2} fill='#F0F0F2' stroke='#DADADE' />
+              <text x={28} y={18} fontSize={11} fill='#52525B'>
+                1차
+              </text>
+              <rect x={60} y={8} width={12} height={12} rx={2} fill='#D6D6DC' stroke='#B6B6BE' />
+              <text x={78} y={18} fontSize={11} fill='#52525B'>
+                2차
+              </text>
             </g>
           )}
 

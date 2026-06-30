@@ -45,7 +45,12 @@ const QuestionList = styled.div`
   gap: 0.5rem;
 `;
 
-const QuestionButton = styled.button<{ $isAnswered: boolean; $bgColor?: string; $borderColor?: string; $textColor?: string }>`
+const QuestionButton = styled.button<{
+  $isAnswered: boolean;
+  $bgColor?: string;
+  $borderColor?: string;
+  $textColor?: string;
+}>`
   width: 100%;
   text-align: left;
   padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
@@ -53,7 +58,8 @@ const QuestionButton = styled.button<{ $isAnswered: boolean; $bgColor?: string; 
   border: 1px solid
     ${({ $isAnswered, $borderColor, theme }) =>
       $isAnswered ? $borderColor || theme.colors.gray[200] : theme.colors.gray[200]};
-  background: ${({ $isAnswered, $bgColor }) => ($isAnswered ? $bgColor || 'transparent' : 'transparent')};
+  background: ${({ $isAnswered, $bgColor }) =>
+    $isAnswered ? $bgColor || 'transparent' : 'transparent'};
   cursor: pointer;
   transition: all 0.15s ease;
 
@@ -159,9 +165,7 @@ export const DataHelperQuestions: React.FC<DataHelperQuestionsProps> = ({
 
   return (
     <Container>
-      <IntroText>
-        궁금한 질문을 선택하면 AI가 이 학생의 데이터를 기반으로 답변해 드려요.
-      </IntroText>
+      <IntroText>궁금한 질문을 선택하면 AI가 이 학생의 데이터를 기반으로 답변해 드려요.</IntroText>
 
       {QUESTION_GROUPS.map((group) => {
         const Icon = group.icon;

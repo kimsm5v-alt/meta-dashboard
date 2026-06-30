@@ -540,7 +540,12 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
                   y={midY - 7}
                   textAnchor={calloutAnchor}
                   dominantBaseline='middle'
-                  style={{ fontSize: '11px', fontWeight: 700, fill: '#374151', pointerEvents: 'none' }}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    fill: '#374151',
+                    pointerEvents: 'none',
+                  }}
                 >
                   {isEnabled ? segment.type : '미실시'}
                 </text>
@@ -549,7 +554,12 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
                   y={midY + 8}
                   textAnchor={calloutAnchor}
                   dominantBaseline='middle'
-                  style={{ fontSize: '11px', fontWeight: 600, fill: '#6B7280', pointerEvents: 'none' }}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    fill: '#6B7280',
+                    pointerEvents: 'none',
+                  }}
                 >
                   {segment.count}명
                 </text>

@@ -22,7 +22,7 @@ import type { StudentListItem, TScoreItem, StudentAnalysisData, ExamDetail } fro
 // ============================================================
 
 /** API SECTION_NM → FACTORS 인덱스 매핑 빌드 */
-const normalizeName = (name: string): string => name.replace(/[\s\-]/g, '');
+const normalizeName = (name: string): string => name.replace(/[\s-]/g, '');
 
 const buildSectionMapping = (): Map<string, number> => {
   const mapping = new Map<string, number>();

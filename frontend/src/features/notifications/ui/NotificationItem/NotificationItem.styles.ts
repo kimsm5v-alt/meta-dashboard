@@ -2,8 +2,7 @@ import styled from '@emotion/styled';
 
 export const Item = styled.div<{ $isRead: boolean }>`
   padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.lg};
-  background: ${({ theme, $isRead }) =>
-    $isRead ? 'transparent' : theme.colors.primary[50]};
+  background: ${({ theme, $isRead }) => ($isRead ? 'transparent' : theme.colors.primary[50])};
   border-bottom: 1px solid ${({ theme }) => theme.colors.gray[200]};
   cursor: pointer;
   transition: background ${({ theme }) => theme.transitions.fast};

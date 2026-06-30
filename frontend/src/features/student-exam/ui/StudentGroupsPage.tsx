@@ -292,6 +292,7 @@ export const StudentGroupsPage: React.FC = () => {
   // 참여/탈퇴 모달 state 제거 — mypage(SSO)로 이관 (group-from-idp)
 
   const loadGroups = useCallback(
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     async (showRefreshIndicator = false) => {
       if (!user?.id) return;
 
@@ -315,6 +316,7 @@ export const StudentGroupsPage: React.FC = () => {
   );
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadGroups();
   }, [loadGroups]);
 

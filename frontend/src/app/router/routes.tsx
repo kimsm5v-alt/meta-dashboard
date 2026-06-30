@@ -152,7 +152,10 @@ export const AppRoutes = () => (
       <Route path='/dashboard/comprehensive' element={<TeacherDashboardPage />} />
       <Route path='/dashboard/selfreg' element={<TeacherDashboardPage />} />
       <Route path='/dashboard/:testId/class/:classId' element={<ClassDashboardPage />} />
-      <Route path='/dashboard/:testId/class/:classId/analysis' element={<ClassDetailAnalysisPage />} />
+      <Route
+        path='/dashboard/:testId/class/:classId/analysis'
+        element={<ClassDetailAnalysisPage />}
+      />
       {/* 자기조절검사 학생 상세 — selfreg 전용 (generic 라우트보다 먼저 등록) */}
       <Route
         path='/dashboard/selfreg/class/:classId/student/:studentId'
@@ -199,7 +202,10 @@ export const AppRoutes = () => (
     <Route element={<StudentProtectedLayout />}>
       <Route path='/student/groups' element={<StudentGroupsPage />} />
       <Route path='/student/exams' element={<MyExamListPage />} />
-      <Route path='/student/result' element={<Navigate to='/student/result/comprehensive' replace />} />
+      <Route
+        path='/student/result'
+        element={<Navigate to='/student/result/comprehensive' replace />}
+      />
       <Route path='/student/result/comprehensive' element={<MyResultPage />} />
       <Route path='/student/result/comprehensive/:resultId' element={<MyResultPage />} />
       <Route path='/student/result/selfreg' element={<MySelfregResultPage />} />

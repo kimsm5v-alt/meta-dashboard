@@ -71,7 +71,8 @@ const DropZone = styled.div<{ $isDragging: boolean }>`
     ${({ $isDragging, theme }) =>
       $isDragging ? theme.colors.primary[500] : theme.colors.gray[300]};
   border-radius: ${({ theme }) => theme.radius.xl};
-  background: ${({ $isDragging, theme }) => ($isDragging ? theme.colors.primary[50] : 'transparent')};
+  background: ${({ $isDragging, theme }) =>
+    $isDragging ? theme.colors.primary[50] : 'transparent'};
   cursor: pointer;
   transition: all 0.15s ease;
 
@@ -89,7 +90,8 @@ const UploadIconWrapper = styled.div<{ $isDragging: boolean }>`
   align-items: center;
   justify-content: center;
   margin-bottom: ${({ theme }) => theme.spacing.md};
-  background: ${({ $isDragging, theme }) => ($isDragging ? theme.colors.primary[100] : theme.colors.gray[100])};
+  background: ${({ $isDragging, theme }) =>
+    $isDragging ? theme.colors.primary[100] : theme.colors.gray[100]};
 `;
 
 const MainText = styled.p`

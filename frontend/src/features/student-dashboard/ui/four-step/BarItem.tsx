@@ -135,12 +135,13 @@ export const BarItem: React.FC<BarItemProps> = ({
 
   return (
     <Container>
-      <Row $hasSubFactors={hasSubFactors} onClick={() => hasSubFactors && setIsExpanded(!isExpanded)}>
+      <Row
+        $hasSubFactors={hasSubFactors}
+        onClick={() => hasSubFactors && setIsExpanded(!isExpanded)}
+      >
         <Label>
           {hasSubFactors && (
-            <ChevronIcon>
-              {isExpanded ? <ChevronDown /> : <ChevronRight />}
-            </ChevronIcon>
+            <ChevronIcon>{isExpanded ? <ChevronDown /> : <ChevronRight />}</ChevronIcon>
           )}
           {label}
           {isNegative && <NegativeLabel>(부적)</NegativeLabel>}

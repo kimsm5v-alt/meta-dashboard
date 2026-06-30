@@ -23,12 +23,48 @@ import { useSelfregClassAnalysis, useClassStudents } from '@features/api';
 // ============================================================
 
 const SUBCATEGORY_INFO = [
-  { name: '학습원동력', shortName: '학습\n원동력', indices: [0, 1, 2], domain: '동기전략', color: '#9F91F8' },
-  { name: '정서조절', shortName: '정서\n조절', indices: [3, 4, 5], domain: '동기전략', color: '#9F91F8' },
-  { name: '메타인지', shortName: '메타\n인지', indices: [6, 7, 8], domain: '인지전략', color: '#4BC1FF' },
-  { name: '인지적학습기술', shortName: '인지적\n학습기술', indices: [9, 10, 11], domain: '인지전략', color: '#4BC1FF' },
-  { name: '행동조절', shortName: '행동\n조절', indices: [12, 13, 14], domain: '행동전략', color: '#FF8A94' },
-  { name: '행동적학습기술', shortName: '행동적\n학습기술', indices: [15, 16, 17, 18, 19], domain: '행동전략', color: '#FF8A94' },
+  {
+    name: '학습원동력',
+    shortName: '학습\n원동력',
+    indices: [0, 1, 2],
+    domain: '동기전략',
+    color: '#9F91F8',
+  },
+  {
+    name: '정서조절',
+    shortName: '정서\n조절',
+    indices: [3, 4, 5],
+    domain: '동기전략',
+    color: '#9F91F8',
+  },
+  {
+    name: '메타인지',
+    shortName: '메타\n인지',
+    indices: [6, 7, 8],
+    domain: '인지전략',
+    color: '#4BC1FF',
+  },
+  {
+    name: '인지적학습기술',
+    shortName: '인지적\n학습기술',
+    indices: [9, 10, 11],
+    domain: '인지전략',
+    color: '#4BC1FF',
+  },
+  {
+    name: '행동조절',
+    shortName: '행동\n조절',
+    indices: [12, 13, 14],
+    domain: '행동전략',
+    color: '#FF8A94',
+  },
+  {
+    name: '행동적학습기술',
+    shortName: '행동적\n학습기술',
+    indices: [15, 16, 17, 18, 19],
+    domain: '행동전략',
+    color: '#FF8A94',
+  },
 ];
 
 const DOMAIN_INFO: Record<string, { color: string; bg: string }> = {
@@ -38,12 +74,26 @@ const DOMAIN_INFO: Record<string, { color: string; bg: string }> = {
 };
 
 const FACTOR_NAMES = [
-  '마인드셋', '자아효능감', '학습동기',
-  '등급조절', '유형조절', '실패조절',
-  '계획능력', '점검능력', '통제능력',
-  '이해기술', '기억기술', '의도기술',
-  '자기칭찬', '도움구하기', '학습지속성',
-  '학습환경', '시간통제', '학습태도', '노트필기', '시험준비',
+  '마인드셋',
+  '자아효능감',
+  '학습동기',
+  '등급조절',
+  '유형조절',
+  '실패조절',
+  '계획능력',
+  '점검능력',
+  '통제능력',
+  '이해기술',
+  '기억기술',
+  '의도기술',
+  '자기칭찬',
+  '도움구하기',
+  '학습지속성',
+  '학습환경',
+  '시간통제',
+  '학습태도',
+  '노트필기',
+  '시험준비',
 ];
 
 const RECOMMENDED_ACTIVITIES = [
@@ -516,11 +566,22 @@ type ChartTooltipProps = {
 const ChartTooltip = ({ active, payload, label }: ChartTooltipProps) => {
   if (!active || !payload?.length) return null;
   const score = payload[0].value;
-  const level = score >= 65 ? '매우높음' : score >= 55 ? '높음' : score >= 45 ? '보통' : score >= 35 ? '낮음' : '매우낮음';
+  const level =
+    score >= 65
+      ? '매우높음'
+      : score >= 55
+        ? '높음'
+        : score >= 45
+          ? '보통'
+          : score >= 35
+            ? '낮음'
+            : '매우낮음';
   return (
     <ChartTooltipBox>
       <p style={{ fontWeight: 600, marginBottom: 2 }}>{label}</p>
-      <p>T점수: <strong>{score}</strong></p>
+      <p>
+        T점수: <strong>{score}</strong>
+      </p>
       <p style={{ color: '#6B7280' }}>등급: {level}</p>
     </ChartTooltipBox>
   );
@@ -600,9 +661,7 @@ export const SelfregClassDashboardWidget: React.FC = () => {
   const filteredStudents = useMemo(() => {
     const term = searchTerm.trim();
     if (!term) return students;
-    return students.filter(
-      (s) => s.name.includes(term) || String(s.number).includes(term),
-    );
+    return students.filter((s) => s.name.includes(term) || String(s.number).includes(term));
   }, [students, searchTerm]);
 
   const isLoading = chartLoading && studentsLoading;
@@ -627,7 +686,9 @@ export const SelfregClassDashboardWidget: React.FC = () => {
           <BreadcrumbSep size={14} />
           <BreadcrumbText>결과보기</BreadcrumbText>
           <BreadcrumbSep size={14} />
-          <BreadcrumbText style={{ color: '#111827', fontWeight: 500 }}>{classTitle}</BreadcrumbText>
+          <BreadcrumbText style={{ color: '#111827', fontWeight: 500 }}>
+            {classTitle}
+          </BreadcrumbText>
         </Breadcrumb>
         <PageTitle>{classTitle} 자기조절학습 분석</PageTitle>
       </Header>
@@ -652,7 +713,7 @@ export const SelfregClassDashboardWidget: React.FC = () => {
           <KpiRow>
             <KpiCard>
               <KpiLabel>학급 평균 T점수</KpiLabel>
-              <KpiValue $color="#009f88">{overallAvg ?? '-'}</KpiValue>
+              <KpiValue $color='#009f88'>{overallAvg ?? '-'}</KpiValue>
               <KpiSub>전체 20요인 평균</KpiSub>
             </KpiCard>
             <KpiCard>
@@ -664,14 +725,16 @@ export const SelfregClassDashboardWidget: React.FC = () => {
             </KpiCard>
             <KpiCard>
               <KpiLabel>주의 영역</KpiLabel>
-              <KpiValue style={{ fontSize: '1.125rem' }} $color="#EF4444">
+              <KpiValue style={{ fontSize: '1.125rem' }} $color='#EF4444'>
                 {bottomSubcategory ? bottomSubcategory[0] : '-'}
               </KpiValue>
               <KpiSub>{bottomSubcategory ? `T${bottomSubcategory[1]}` : '데이터 없음'}</KpiSub>
             </KpiCard>
             <KpiCard>
               <KpiLabel>검사 차수</KpiLabel>
-              <KpiValue style={{ fontSize: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <KpiValue
+                style={{ fontSize: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}
+              >
                 {round1 && <span style={{ color: '#009f88' }}>1차 ✓</span>}
                 {round2 && <span style={{ color: '#6366f1' }}>2차 ✓</span>}
                 {!round1 && !round2 && <span style={{ color: '#9CA3AF' }}>-</span>}
@@ -687,10 +750,7 @@ export const SelfregClassDashboardWidget: React.FC = () => {
                 <SectionTitle>6개 중분류 학급 평균</SectionTitle>
               </div>
               <RoundToggle>
-                <RoundBtn
-                  $active={selectedRound === 1}
-                  onClick={() => setSelectedRound(1)}
-                >
+                <RoundBtn $active={selectedRound === 1} onClick={() => setSelectedRound(1)}>
                   1차
                 </RoundBtn>
                 <RoundBtn
@@ -704,22 +764,22 @@ export const SelfregClassDashboardWidget: React.FC = () => {
             </SectionHeader>
             <SectionBody>
               <ChartContainer>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width='100%' height='100%'>
                   <BarChart
                     data={barChartData}
                     margin={{ top: 20, right: 24, left: 0, bottom: 8 }}
                     barSize={48}
                   >
                     {/* Level bands */}
-                    <ReferenceArea y1={0} y2={35} fill="#FEE2E2" fillOpacity={0.35} />
-                    <ReferenceArea y1={35} y2={45} fill="#FEF9C3" fillOpacity={0.35} />
-                    <ReferenceArea y1={45} y2={55} fill="#F3F4F6" fillOpacity={0.35} />
-                    <ReferenceArea y1={55} y2={65} fill="#D1FAE5" fillOpacity={0.35} />
-                    <ReferenceArea y1={65} y2={80} fill="#A7F3D0" fillOpacity={0.35} />
+                    <ReferenceArea y1={0} y2={35} fill='#FEE2E2' fillOpacity={0.35} />
+                    <ReferenceArea y1={35} y2={45} fill='#FEF9C3' fillOpacity={0.35} />
+                    <ReferenceArea y1={45} y2={55} fill='#F3F4F6' fillOpacity={0.35} />
+                    <ReferenceArea y1={55} y2={65} fill='#D1FAE5' fillOpacity={0.35} />
+                    <ReferenceArea y1={65} y2={80} fill='#A7F3D0' fillOpacity={0.35} />
 
-                    <CartesianGrid vertical={false} stroke="#E5E7EB" strokeDasharray="3 3" />
+                    <CartesianGrid vertical={false} stroke='#E5E7EB' strokeDasharray='3 3' />
                     <XAxis
-                      dataKey="name"
+                      dataKey='name'
                       tick={{ fontSize: 11, fill: '#6B7280' }}
                       tickLine={false}
                       axisLine={false}
@@ -735,17 +795,17 @@ export const SelfregClassDashboardWidget: React.FC = () => {
                     <Tooltip content={<ChartTooltip />} />
                     <ReferenceLine
                       y={50}
-                      stroke="#9CA3AF"
-                      strokeDasharray="4 4"
+                      stroke='#9CA3AF'
+                      strokeDasharray='4 4'
                       strokeWidth={1.5}
                     />
-                    <Bar dataKey="score" radius={[4, 4, 0, 0]}>
+                    <Bar dataKey='score' radius={[4, 4, 0, 0]}>
                       {barChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                       <LabelList
-                        dataKey="score"
-                        position="top"
+                        dataKey='score'
+                        position='top'
                         style={{ fontSize: 12, fontWeight: 700, fill: '#374151' }}
                       />
                     </Bar>
@@ -767,8 +827,8 @@ export const SelfregClassDashboardWidget: React.FC = () => {
               <NoteBox>
                 <span>💡</span>
                 <span>
-                  자기조절학습검사의 모든 요인은 <strong>정적 요인</strong>으로,
-                  점수가 높을수록 학습에 유리한 특성을 보입니다.
+                  자기조절학습검사의 모든 요인은 <strong>정적 요인</strong>으로, 점수가 높을수록
+                  학습에 유리한 특성을 보입니다.
                 </span>
               </NoteBox>
             </SectionBody>
@@ -800,10 +860,7 @@ export const SelfregClassDashboardWidget: React.FC = () => {
             <DetailTitle>20요인 상세 분석</DetailTitle>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
               <RoundToggle>
-                <RoundBtn
-                  $active={selectedRound === 1}
-                  onClick={() => setSelectedRound(1)}
-                >
+                <RoundBtn $active={selectedRound === 1} onClick={() => setSelectedRound(1)}>
                   1차
                 </RoundBtn>
                 <RoundBtn
@@ -815,9 +872,7 @@ export const SelfregClassDashboardWidget: React.FC = () => {
                 </RoundBtn>
               </RoundToggle>
               <AnalysisLink
-                onClick={() =>
-                  navigate(`/dashboard/${testId}/class/${classId}/analysis`)
-                }
+                onClick={() => navigate(`/dashboard/${testId}/class/${classId}/analysis`)}
               >
                 <ExternalLink size={14} />
                 상세 분석 보기
@@ -831,21 +886,21 @@ export const SelfregClassDashboardWidget: React.FC = () => {
                 {domain}
               </DomainLabel>
               <FactorChartContainer>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width='100%' height='100%'>
                   <BarChart
                     data={factors}
                     margin={{ top: 16, right: 16, left: 0, bottom: 4 }}
                     barSize={32}
                   >
-                    <ReferenceArea y1={0} y2={35} fill="#FEE2E2" fillOpacity={0.3} />
-                    <ReferenceArea y1={35} y2={45} fill="#FEF9C3" fillOpacity={0.3} />
-                    <ReferenceArea y1={45} y2={55} fill="#F3F4F6" fillOpacity={0.3} />
-                    <ReferenceArea y1={55} y2={65} fill="#D1FAE5" fillOpacity={0.3} />
-                    <ReferenceArea y1={65} y2={80} fill="#A7F3D0" fillOpacity={0.3} />
+                    <ReferenceArea y1={0} y2={35} fill='#FEE2E2' fillOpacity={0.3} />
+                    <ReferenceArea y1={35} y2={45} fill='#FEF9C3' fillOpacity={0.3} />
+                    <ReferenceArea y1={45} y2={55} fill='#F3F4F6' fillOpacity={0.3} />
+                    <ReferenceArea y1={55} y2={65} fill='#D1FAE5' fillOpacity={0.3} />
+                    <ReferenceArea y1={65} y2={80} fill='#A7F3D0' fillOpacity={0.3} />
 
-                    <CartesianGrid vertical={false} stroke="#E5E7EB" strokeDasharray="3 3" />
+                    <CartesianGrid vertical={false} stroke='#E5E7EB' strokeDasharray='3 3' />
                     <XAxis
-                      dataKey="name"
+                      dataKey='name'
                       tick={{ fontSize: 10, fill: '#6B7280' }}
                       tickLine={false}
                       axisLine={false}
@@ -860,11 +915,16 @@ export const SelfregClassDashboardWidget: React.FC = () => {
                       width={28}
                     />
                     <Tooltip content={<ChartTooltip />} />
-                    <ReferenceLine y={50} stroke="#9CA3AF" strokeDasharray="4 4" strokeWidth={1.5} />
-                    <Bar dataKey="score" fill={color} radius={[4, 4, 0, 0]}>
+                    <ReferenceLine
+                      y={50}
+                      stroke='#9CA3AF'
+                      strokeDasharray='4 4'
+                      strokeWidth={1.5}
+                    />
+                    <Bar dataKey='score' fill={color} radius={[4, 4, 0, 0]}>
                       <LabelList
-                        dataKey="score"
-                        position="top"
+                        dataKey='score'
+                        position='top'
                         style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }}
                       />
                     </Bar>
@@ -874,9 +934,7 @@ export const SelfregClassDashboardWidget: React.FC = () => {
             </DomainSection>
           ))}
 
-          {!activeScores && (
-            <EmptyState>검사 데이터가 없습니다.</EmptyState>
-          )}
+          {!activeScores && <EmptyState>검사 데이터가 없습니다.</EmptyState>}
         </DetailCard>
       )}
 
@@ -890,7 +948,7 @@ export const SelfregClassDashboardWidget: React.FC = () => {
                 <Search size={14} />
               </SearchIconWrap>
               <SearchInput
-                placeholder="이름 또는 번호 검색"
+                placeholder='이름 또는 번호 검색'
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -906,9 +964,11 @@ export const SelfregClassDashboardWidget: React.FC = () => {
               <Table>
                 <Thead>
                   <THeadRow>
-                    <Th $align="center" style={{ width: '4rem' }}>번호</Th>
+                    <Th $align='center' style={{ width: '4rem' }}>
+                      번호
+                    </Th>
                     <Th>이름</Th>
-                    <Th $align="center">개인 분석 보기</Th>
+                    <Th $align='center'>개인 분석 보기</Th>
                   </THeadRow>
                 </Thead>
                 <Tbody>
@@ -916,19 +976,17 @@ export const SelfregClassDashboardWidget: React.FC = () => {
                     <TRow
                       key={student.id}
                       onClick={() =>
-                        navigate(
-                          `/dashboard/${testId}/class/${classId}/student/${student.id}`,
-                        )
+                        navigate(`/dashboard/${testId}/class/${classId}/student/${student.id}`)
                       }
                     >
-                      <Td $align="center">
+                      <Td $align='center'>
                         <StudentNum>{student.number}</StudentNum>
                       </Td>
                       <Td>
                         <StudentName>{student.name}</StudentName>
                       </Td>
-                      <Td $align="center">
-                        <ExternalLink size={14} color="#9CA3AF" />
+                      <Td $align='center'>
+                        <ExternalLink size={14} color='#9CA3AF' />
                       </Td>
                     </TRow>
                   ))}

@@ -267,7 +267,8 @@ export const GuestCompletePage: React.FC = () => {
           <InfoContent>
             <InfoTitle>결과 PDF 발송 예정</InfoTitle>
             <InfoDesc>
-              검사가 종료되면 아래 이메일로<br />
+              검사가 종료되면 아래 이메일로
+              <br />
               결과 PDF가 발송됩니다.
             </InfoDesc>
             <EmailBox>
@@ -285,7 +286,8 @@ export const GuestCompletePage: React.FC = () => {
           <CTAContent>
             <CTATitle>회원가입 하시겠어요?</CTATitle>
             <CTADesc>
-              회원이 되면 결과를 웹에서 바로 확인하고,<br />
+              회원이 되면 결과를 웹에서 바로 확인하고,
+              <br />
               언제든 다시 볼 수 있어요.
             </CTADesc>
             <CTAButton onClick={handleConvertToMember}>회원으로 전환하기</CTAButton>
@@ -293,9 +295,7 @@ export const GuestCompletePage: React.FC = () => {
         </CTACard>
 
         <ButtonStack>
-          <BackButton onClick={() => navigate('/guest/exams')}>
-            검사 목록으로 돌아가기
-          </BackButton>
+          <BackButton onClick={() => navigate('/guest/exams')}>검사 목록으로 돌아가기</BackButton>
           <CloseButton onClick={handleClose}>
             <Home />
             종료

@@ -215,8 +215,11 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ data }) => {
 
   // 학생 변경 시 대화 초기화
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages([]);
+
     setInputValue('');
+
     setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.predictedType, data.tScores.join(',')]);
@@ -229,6 +232,7 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ data }) => {
   const sendMessage = async (userText: string, questionId?: QuestionId) => {
     if (isLoading || !userText.trim()) return;
 
+    // eslint-disable-next-line react-hooks/purity
     const msgId = Date.now().toString();
     const loadingId = `loading-${msgId}`;
 

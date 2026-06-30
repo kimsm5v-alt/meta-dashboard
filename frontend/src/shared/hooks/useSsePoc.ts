@@ -36,7 +36,7 @@ export function useSsePoc(enabled: boolean = true) {
       onopen: async (res) => {
         if (res.ok && res.headers.get('content-type')?.includes('text/event-stream')) {
           setConnected(true);
-          // eslint-disable-next-line no-console
+
           console.log('[SSE] opened');
         } else {
           throw new Error(`SSE open failed: ${res.status}`);
@@ -51,19 +51,17 @@ export function useSsePoc(enabled: boolean = true) {
             // ignore
           }
         } else if (ev.event === 'connected') {
-          // eslint-disable-next-line no-console
           console.log('[SSE] connected event');
         }
       },
       onerror: (err) => {
-        // eslint-disable-next-line no-console
         console.warn('[SSE] error:', err);
         setConnected(false);
         // throw 안 하면 자동 재연결 시도
       },
       onclose: () => {
         setConnected(false);
-        // eslint-disable-next-line no-console
+
         console.log('[SSE] closed');
       },
     }).catch(() => {

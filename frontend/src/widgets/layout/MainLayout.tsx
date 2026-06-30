@@ -600,11 +600,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const [isDashboardOpen, setIsDashboardOpen] = useState(isDashboardPath);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isDashboardPath) setIsDashboardOpen(true);
   }, [isDashboardPath]);
 
   // 현재 URL에서 testId 추출 (담당 학급 클릭 시 사용)
-  const currentTestId = location.pathname.startsWith('/dashboard/selfreg') ? 'selfreg' : 'comprehensive';
+  const currentTestId = location.pathname.startsWith('/dashboard/selfreg')
+    ? 'selfreg'
+    : 'comprehensive';
 
   // Feature Flag에 따라 네비게이션 필터링
   const filteredNavGroups = useMemo(() => {

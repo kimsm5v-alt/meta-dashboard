@@ -68,6 +68,4 @@ export const Badge = ({ variant = 'default', type, children, className }: BadgeP
   );
 };
 
-export const TypeBadge = ({ type }: { type: StudentType }) => (
-  <Badge type={type}>{type}</Badge>
-);
+export const TypeBadge = ({ type }: { type: StudentType }) => <Badge type={type}>{type}</Badge>;

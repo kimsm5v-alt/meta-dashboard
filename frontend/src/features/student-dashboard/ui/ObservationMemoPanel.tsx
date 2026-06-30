@@ -404,10 +404,6 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
     tag: '',
   });
 
-  useEffect(() => {
-    loadMemos();
-  }, [studentId]);
-
   const loadMemos = async () => {
     setLoading(true);
     try {
@@ -417,6 +413,12 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadMemos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId]);
 
   const resetForm = () => {
     setFormData({

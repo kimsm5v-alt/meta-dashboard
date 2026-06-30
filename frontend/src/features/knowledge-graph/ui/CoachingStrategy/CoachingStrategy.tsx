@@ -35,16 +35,14 @@ export const CoachingStrategy = ({
         {/* 헤더 */}
         <S.Header>
           <S.Title>코칭 전략</S.Title>
-          <S.CloseButton onClick={onClose} aria-label="닫기">
+          <S.CloseButton onClick={onClose} aria-label='닫기'>
             <X size={20} />
           </S.CloseButton>
         </S.Header>
 
         {/* 유형 정보 */}
         <S.TypeSection>
-          <S.TypeBadge style={{ backgroundColor: typeColor }}>
-            {typeName}
-          </S.TypeBadge>
+          <S.TypeBadge style={{ backgroundColor: typeColor }}>{typeName}</S.TypeBadge>
           {typeDescription && (
             <>
               <S.Divider />
@@ -95,9 +93,7 @@ export const CoachingStrategy = ({
                     </S.PathHeader>
 
                     {/* 효과 유형 */}
-                    {path.pathType && (
-                      <S.PathTypeBadge>{path.pathType}</S.PathTypeBadge>
-                    )}
+                    {path.pathType && <S.PathTypeBadge>{path.pathType}</S.PathTypeBadge>}
                   </S.PathItem>
                 ))
               )}
@@ -111,9 +107,7 @@ export const CoachingStrategy = ({
                 {/* 헤더: 경로 번호 + 효과 유형 */}
                 <S.DetailHeader>
                   <S.DetailBadge>경로 {selectedIndex + 1}</S.DetailBadge>
-                  {selectedPath.pathType && (
-                    <S.PathTypeTag>{selectedPath.pathType}</S.PathTypeTag>
-                  )}
+                  {selectedPath.pathType && <S.PathTypeTag>{selectedPath.pathType}</S.PathTypeTag>}
                 </S.DetailHeader>
 
                 {/* 경로 공식 (큰 글씨) */}
@@ -137,9 +131,7 @@ export const CoachingStrategy = ({
                 {selectedPath.interpretation && (
                   <S.Section>
                     <S.SectionTitle>왜 이 경로가 중요한가요?</S.SectionTitle>
-                    <S.InterpretationBox>
-                      {selectedPath.interpretation}
-                    </S.InterpretationBox>
+                    <S.InterpretationBox>{selectedPath.interpretation}</S.InterpretationBox>
                   </S.Section>
                 )}
 
@@ -147,13 +139,9 @@ export const CoachingStrategy = ({
                 <S.Section>
                   <S.SectionTitle>구체적 실행 전략</S.SectionTitle>
                   <S.StrategyBox>
-                    {selectedPath.strategy
-                      .split(/(?<=\.) /)
-                      .map((sentence, i) => (
-                        <S.StrategyParagraph key={i}>
-                          {sentence}
-                        </S.StrategyParagraph>
-                      ))}
+                    {selectedPath.strategy.split(/(?<=\.) /).map((sentence, i) => (
+                      <S.StrategyParagraph key={i}>{sentence}</S.StrategyParagraph>
+                    ))}
                   </S.StrategyBox>
                 </S.Section>
               </S.DetailContent>

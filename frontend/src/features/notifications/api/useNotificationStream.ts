@@ -14,7 +14,10 @@ interface UseNotificationStreamOptions {
   onNotification?: (notification: Notification) => void;
 }
 
-export const useNotificationStream = ({ enabled, onNotification }: UseNotificationStreamOptions) => {
+export const useNotificationStream = ({
+  enabled,
+  onNotification,
+}: UseNotificationStreamOptions) => {
   const queryClient = useQueryClient();
   const abortControllerRef = useRef<AbortController | null>(null);
   const reconnectAttempts = useRef(0);
@@ -142,6 +145,7 @@ export const useNotificationStream = ({ enabled, onNotification }: UseNotificati
     } catch (err) {
       if (err instanceof Error && err.message === 'retry-with-new-token') {
         // 토큰 갱신 후 재연결
+        // eslint-disable-next-line react-hooks/immutability
         setTimeout(() => connect(), 1000);
         return;
       }

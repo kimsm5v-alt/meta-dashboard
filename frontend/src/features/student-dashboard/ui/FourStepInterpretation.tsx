@@ -717,36 +717,36 @@ export function FourStepInterpretation({
         showBarLegend
         isCompare={isCompare}
       >
-        <SubSection title="긍정적 공부 마음" level={getLevel(diagnosis.step1.긍정.종합)}>
+        <SubSection title='긍정적 공부 마음' level={getLevel(diagnosis.step1.긍정.종합)}>
           <BarItem
-            label="학업열의"
+            label='학업열의'
             score={diagnosis.step1.긍정.학업열의}
             prevScore={prevDiagnosis?.step1.긍정.학업열의}
-            subCategoryKey="학업열의"
+            subCategoryKey='학업열의'
             tScores={tScores}
             prevTScores={prevTScores}
           />
           <BarItem
-            label="성장력"
+            label='성장력'
             score={diagnosis.step1.긍정.성장력}
             prevScore={prevDiagnosis?.step1.긍정.성장력}
-            subCategoryKey="성장력"
+            subCategoryKey='성장력'
             tScores={tScores}
             prevTScores={prevTScores}
           />
         </SubSection>
 
         <SubSection
-          title="부정적 공부 마음"
+          title='부정적 공부 마음'
           level={getLevel(diagnosis.step1.부정.학업소진)}
           isNegativeSection
         >
           <BarItem
-            label="학업소진"
+            label='학업소진'
             score={diagnosis.step1.부정.학업소진}
             prevScore={prevDiagnosis?.step1.부정.학업소진}
             isNegative
-            subCategoryKey="학업소진"
+            subCategoryKey='학업소진'
             tScores={tScores}
             prevTScores={prevTScores}
           />
@@ -767,65 +767,65 @@ export function FourStepInterpretation({
         showBarLegend
         isCompare={isCompare}
       >
-        <SubSection title="개인 자원" level={getLevel(diagnosis.step2.개인.종합)}>
+        <SubSection title='개인 자원' level={getLevel(diagnosis.step2.개인.종합)}>
           <BarItem
-            label="긍정적자아"
+            label='긍정적자아'
             score={diagnosis.step2.개인.긍정적자아}
             prevScore={prevDiagnosis?.step2.개인.긍정적자아}
-            subCategoryKey="긍정적자아"
+            subCategoryKey='긍정적자아'
             tScores={tScores}
             prevTScores={prevTScores}
           />
           <BarItem
-            label="대인관계능력"
+            label='대인관계능력'
             score={diagnosis.step2.개인.대인관계능력}
             prevScore={prevDiagnosis?.step2.개인.대인관계능력}
-            subCategoryKey="대인관계능력"
+            subCategoryKey='대인관계능력'
             tScores={tScores}
             prevTScores={prevTScores}
           />
         </SubSection>
 
-        <SubSection title="환경 자원" level={getLevel(diagnosis.step2.환경.종합)}>
+        <SubSection title='환경 자원' level={getLevel(diagnosis.step2.환경.종합)}>
           <BarItem
-            label="지지적관계"
+            label='지지적관계'
             score={diagnosis.step2.환경.지지적관계}
             prevScore={prevDiagnosis?.step2.환경.지지적관계}
-            subCategoryKey="지지적관계"
+            subCategoryKey='지지적관계'
             tScores={tScores}
             prevTScores={prevTScores}
           />
         </SubSection>
 
         <SubSection
-          title="자원 방해"
+          title='자원 방해'
           level={getLevel(diagnosis.step2.방해.학업스트레스)}
           isNegativeSection
         >
           <BarItem
-            label="학업스트레스"
+            label='학업스트레스'
             score={diagnosis.step2.방해.학업스트레스}
             prevScore={prevDiagnosis?.step2.방해.학업스트레스}
             isNegative
-            subCategoryKey="학업스트레스"
+            subCategoryKey='학업스트레스'
             tScores={tScores}
             prevTScores={prevTScores}
           />
           <BarItem
-            label="학습방해물"
+            label='학습방해물'
             score={diagnosis.step2.방해.학습방해물}
             prevScore={prevDiagnosis?.step2.방해.학습방해물}
             isNegative
-            subCategoryKey="학습방해물"
+            subCategoryKey='학습방해물'
             tScores={tScores}
             prevTScores={prevTScores}
           />
           <BarItem
-            label="학업관계스트레스"
+            label='학업관계스트레스'
             score={diagnosis.step2.방해.학업관계스트레스}
             prevScore={prevDiagnosis?.step2.방해.학업관계스트레스}
             isNegative
-            subCategoryKey="학업관계스트레스"
+            subCategoryKey='학업관계스트레스'
             tScores={tScores}
             prevTScores={prevTScores}
           />
@@ -846,28 +846,28 @@ export function FourStepInterpretation({
         showBarLegend
         isCompare={isCompare}
       >
-        <SubSection title="학습 재설계" level={getLevel(diagnosis.step3.학습.종합)}>
+        <SubSection title='학습 재설계' level={getLevel(diagnosis.step3.학습.종합)}>
           <BarItem
-            label="메타인지"
+            label='메타인지'
             score={diagnosis.step3.학습.메타인지}
             prevScore={prevDiagnosis?.step3.학습.메타인지}
-            subCategoryKey="메타인지"
+            subCategoryKey='메타인지'
             tScores={tScores}
             prevTScores={prevTScores}
           />
           <BarItem
-            label="학습기술"
+            label='학습기술'
             score={diagnosis.step3.학습.학습기술}
             prevScore={prevDiagnosis?.step3.학습.학습기술}
-            subCategoryKey="학습기술"
+            subCategoryKey='학습기술'
             tScores={tScores}
             prevTScores={prevTScores}
           />
         </SubSection>
 
-        <SubSection title="마음 재설계" level={getLevel(diagnosis.step3.마음.종합)}>
+        <SubSection title='마음 재설계' level={getLevel(diagnosis.step3.마음.종합)}>
           <LeafFactorItem
-            label="자기정서조절"
+            label='자기정서조절'
             score={diagnosis.step3.마음.자기정서조절}
             prevScore={prevDiagnosis?.step3.마음.자기정서조절}
             color={CATEGORY_COLORS['대인관계능력'] ?? '#9CA3AF'}
@@ -898,16 +898,16 @@ export function FourStepInterpretation({
                 <QuadrantChart>
                   {/* 사분면 배경 */}
                   <QuadrantBg>
-                    <QuadrantCell $position="top-left" $bgColor="#dbeafe">
+                    <QuadrantCell $position='top-left' $bgColor='#dbeafe'>
                       <QuadrantNumber>2</QuadrantNumber>
                     </QuadrantCell>
-                    <QuadrantCell $position="top-right" $bgColor="#dcfce7">
+                    <QuadrantCell $position='top-right' $bgColor='#dcfce7'>
                       <QuadrantNumber>1</QuadrantNumber>
                     </QuadrantCell>
-                    <QuadrantCell $position="bottom-left" $bgColor="#fee2e2">
+                    <QuadrantCell $position='bottom-left' $bgColor='#fee2e2'>
                       <QuadrantNumber>3</QuadrantNumber>
                     </QuadrantCell>
-                    <QuadrantCell $position="bottom-right" $bgColor="#fef9c3">
+                    <QuadrantCell $position='bottom-right' $bgColor='#fef9c3'>
                       <QuadrantNumber>4</QuadrantNumber>
                     </QuadrantCell>
                   </QuadrantBg>
@@ -961,16 +961,16 @@ export function FourStepInterpretation({
               <LegendContainer>
                 <LegendTitle>공부기술</LegendTitle>
                 <LegendItem>
-                  <LegendCircle $color="#2563eb" />
+                  <LegendCircle $color='#2563eb' />
                   <LegendLabel>높음(≥50)</LegendLabel>
                 </LegendItem>
                 <LegendItem>
-                  <LegendCircle $color="#ef4444" />
+                  <LegendCircle $color='#ef4444' />
                   <LegendLabel>낮음(&lt;50)</LegendLabel>
                 </LegendItem>
                 {isCompare && (
                   <LegendItem>
-                    <LegendCircle $color="#9ca3af" $opacity={0.6} />
+                    <LegendCircle $color='#9ca3af' $opacity={0.6} />
                     <LegendLabel>1차</LegendLabel>
                   </LegendItem>
                 )}
@@ -993,9 +993,7 @@ export function FourStepInterpretation({
                     </PrevTypeHint>
                   )}
               </TypeInfoRow>
-              <TypeDescription>
-                {TYPE_DESCRIPTIONS[diagnosis.step4.유형코드] || ''}
-              </TypeDescription>
+              <TypeDescription>{TYPE_DESCRIPTIONS[diagnosis.step4.유형코드] || ''}</TypeDescription>
             </TypeInfoHeader>
 
             {/* 3개 점수 */}
@@ -1028,9 +1026,7 @@ export function FourStepInterpretation({
                     <ScoreItem key={item.label}>
                       <ScoreItemLabel>{item.label}</ScoreItemLabel>
                       <ScoreItemValueRow>
-                        <ScoreItemValue $color={item.color}>
-                          {item.value.toFixed(0)}
-                        </ScoreItemValue>
+                        <ScoreItemValue $color={item.color}>{item.value.toFixed(0)}</ScoreItemValue>
                         {delta != null && Math.abs(delta) >= 0.5 && (
                           <DeltaValue $positive={delta > 0}>
                             {delta > 0 ? '+' : ''}
@@ -1105,10 +1101,10 @@ function StepCard({
               <>
                 <LegendDivider>|</LegendDivider>
                 <LegendItem>
-                  <LegendDot $color="#9ca3af" /> 1차
+                  <LegendDot $color='#9ca3af' /> 1차
                 </LegendItem>
                 <LegendItem>
-                  <LegendDot $color="#818cf8" /> 2차
+                  <LegendDot $color='#818cf8' /> 2차
                 </LegendItem>
               </>
             )}
@@ -1204,12 +1200,7 @@ function DualBar({
           <>
             {/* 1차 < 2차: [0..1차]=회색, [1차..2차]=색상 */}
             <BarFill $width={prevPct} $color={PREV_COLOR} />
-            <BarFill
-              $width={curPct - prevPct}
-              $left={prevPct}
-              $color={color}
-              $radius={radius}
-            />
+            <BarFill $width={curPct - prevPct} $left={prevPct} $color={color} $radius={radius} />
             {showLabel && curPct > 20 && (
               <BarLabelWrapper $width={curPct}>
                 <BarLabel $size={labelSize}>T={score.toFixed(0)}</BarLabel>
@@ -1220,9 +1211,7 @@ function DualBar({
       ) : (
         /* 단일 막대 (1차 없거나 동일) */
         <SingleBarFill $width={curPct} $color={color} $radius={radius}>
-          {showLabel && curPct > 20 && (
-            <BarLabel $size={labelSize}>T={score.toFixed(0)}</BarLabel>
-          )}
+          {showLabel && curPct > 20 && <BarLabel $size={labelSize}>T={score.toFixed(0)}</BarLabel>}
         </SingleBarFill>
       )}
     </BarContainer>
@@ -1254,10 +1243,10 @@ function LeafFactorItem({
         score={score}
         prevScore={prevScore}
         color={lightenColor(color)}
-        height="1.25rem"
-        radius="0 3px 3px 0"
+        height='1.25rem'
+        radius='0 3px 3px 0'
         showLabel={false}
-        labelSize="10px"
+        labelSize='10px'
       />
       <SmallScoreValue>{score.toFixed(0)}</SmallScoreValue>
     </FactorRow>
@@ -1333,10 +1322,10 @@ function BarItem({
                 score={factor.score}
                 prevScore={factor.prevScore}
                 color={lightenColor(barHex)}
-                height="1.25rem"
-                radius="0 3px 3px 0"
+                height='1.25rem'
+                radius='0 3px 3px 0'
                 showLabel={false}
-                labelSize="10px"
+                labelSize='10px'
               />
               <SmallScoreValue>{factor.score.toFixed(0)}</SmallScoreValue>
             </FactorRow>

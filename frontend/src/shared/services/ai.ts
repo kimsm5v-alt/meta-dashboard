@@ -221,7 +221,6 @@ export const getAIStatus = () => {
   };
 };
 
-
 export { type AIFeature } from '../data/aiPrompts';
 
 export default {

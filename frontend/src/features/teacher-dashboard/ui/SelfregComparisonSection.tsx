@@ -304,10 +304,11 @@ export const SelfregComparisonSection = ({
   const isLoading = queries.some((q) => q.isLoading);
 
   // 2차 우선, 없으면 1차
+  const queryDates = queries.map((q) => q.dataUpdatedAt).join(',');
   const classTScores = useMemo(
     () => classes.map((_, idx) => queries[idx]?.data?.round2 ?? queries[idx]?.data?.round1 ?? null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [classes, queries.map((q) => q.dataUpdatedAt).join(',')],
+    [classes, queryDates],
   );
 
   // 자기조절검사 데이터가 있는 반만 필터링 (검사 유형별로 구분)
@@ -473,7 +474,9 @@ export const SelfregComparisonSection = ({
                 iconType='line'
                 iconSize={16}
                 onClick={(e) => {
-                  const cls = assessedClasses.find((c) => `${c.grade}-${c.classNumber}반` === e.value);
+                  const cls = assessedClasses.find(
+                    (c) => `${c.grade}-${c.classNumber}반` === e.value,
+                  );
                   if (cls) onClassSelect(selectedClassId === cls.id ? null : cls.id);
                 }}
                 style={{ cursor: 'pointer' }}

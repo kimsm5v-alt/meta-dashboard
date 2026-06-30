@@ -49,7 +49,9 @@ export const ExamTimelineCard = ({
 
   const status = getSlotStatus(slotDef.id, slotState, allSlots);
   const isLocked = status === 'locked';
-  const progress = slotState ? calculateProgress(slotState.submittedCount, slotState.totalCount) : 0;
+  const progress = slotState
+    ? calculateProgress(slotState.submittedCount, slotState.totalCount)
+    : 0;
 
   const missingCount = Math.max(0, (slotState?.totalCount ?? 0) - (slotState?.submittedCount ?? 0));
   const hasMissing = (status === 'in_progress' || status === 'completed') && missingCount > 0;
@@ -87,30 +89,36 @@ export const ExamTimelineCard = ({
     <div className={cardClass}>
       {/* Coming Soon 오버레이 */}
       {isComingSoon && (
-        <div className="vj-tc2-coming-soon">
+        <div className='vj-tc2-coming-soon'>
           <span>Coming Soon</span>
         </div>
       )}
 
       {/* 좌측 컬러바 */}
-      <div className="vj-tc2-bar" />
+      <div className='vj-tc2-bar' />
 
       {/* 메인 콘텐츠 */}
-      <div className="vj-tc2-main">
+      <div className='vj-tc2-main'>
         {/* 헤더 */}
-        <div className="vj-tc2-head">
-          <div className="vj-tc2-title">
-            <div className="t1">
-              <span className="nm">{slotDef.shortLabel}</span>
-              <span className="rnd">· {slotDef.round}회차</span>
+        <div className='vj-tc2-head'>
+          <div className='vj-tc2-title'>
+            <div className='t1'>
+              <span className='nm'>{slotDef.shortLabel}</span>
+              <span className='rnd'>· {slotDef.round}회차</span>
             </div>
-            <div className="t2">권장 {slotDef.recommendedMonth} · {slotDef.semester}</div>
+            <div className='t2'>
+              권장 {slotDef.recommendedMonth} · {slotDef.semester}
+            </div>
           </div>
           <span
             className={`vj-tc2-badge ${
-              status === 'in_progress' ? 'live' :
-              status === 'completed' ? 'done' :
-              status === 'locked' ? 'locked' : 'none'
+              status === 'in_progress'
+                ? 'live'
+                : status === 'completed'
+                  ? 'done'
+                  : status === 'locked'
+                    ? 'locked'
+                    : 'none'
             }`}
           >
             {status === 'locked' && <Lock size={10} style={{ marginRight: 3 }} />}
@@ -119,8 +127,8 @@ export const ExamTimelineCard = ({
         </div>
 
         {/* 본문 */}
-        <div className="vj-tc2-body">
-          <div className="vj-tc2-desc">
+        <div className='vj-tc2-body'>
+          <div className='vj-tc2-desc'>
             {isLocked ? (
               <>
                 <Lock size={12} />
@@ -133,18 +141,15 @@ export const ExamTimelineCard = ({
 
           {(status === 'in_progress' || status === 'completed') && slotState ? (
             <>
-              <div className="vj-tc2-prog">
-                <div className="progress">
+              <div className='vj-tc2-prog'>
+                <div className='progress'>
                   <i style={{ width: `${progress}%` }} />
                 </div>
-                <span className="pct">{progress}%</span>
+                <span className='pct'>{progress}%</span>
               </div>
-              <div className="vj-tc2-stats">
+              <div className='vj-tc2-stats'>
                 {hasMissing ? (
-                  <button
-                    className="vj-tc2-missing-toggle"
-                    onClick={handleToggleMissing}
-                  >
+                  <button className='vj-tc2-missing-toggle' onClick={handleToggleMissing}>
                     <Users size={12} />
                     <b>{slotState.submittedCount}</b>/{slotState.totalCount}명 제출
                     {showMissing ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -155,18 +160,18 @@ export const ExamTimelineCard = ({
                     <b>{slotState.submittedCount}</b>/{slotState.totalCount}명 제출
                   </span>
                 )}
-                <span className="sep">·</span>
+                <span className='sep'>·</span>
                 <span>
                   <Calendar size={12} />
                   {formatDateRange(slotState.startDate, slotState.endDate)}
                 </span>
 
                 {status === 'in_progress' && slotState.dgnssId && (
-                  <div className="vj-tc2-excel-row">
+                  <div className='vj-tc2-excel-row'>
                     <input
                       ref={fileInputRef}
-                      type="file"
-                      accept=".xlsx,.xls"
+                      type='file'
+                      accept='.xlsx,.xls'
                       style={{ display: 'none' }}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
@@ -177,15 +182,17 @@ export const ExamTimelineCard = ({
                       }}
                     />
                     <button
-                      className="vj-tc2-excel-btn"
+                      className='vj-tc2-excel-btn'
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <Upload size={11} />
                       엑셀 업로드
                     </button>
                     <button
-                      className="vj-tc2-excel-btn"
-                      onClick={() => slotState.dgnssId && onTemplateDownload?.(slotDef.id, slotState.dgnssId)}
+                      className='vj-tc2-excel-btn'
+                      onClick={() =>
+                        slotState.dgnssId && onTemplateDownload?.(slotDef.id, slotState.dgnssId)
+                      }
                     >
                       <Download size={11} />
                       양식 다운로드
@@ -194,27 +201,29 @@ export const ExamTimelineCard = ({
                 )}
               </div>
             </>
-          ) : !isLocked && (
-            <>
-              <div className="vj-tc2-prog skeleton">
-                <div className="progress">
-                  <i style={{ width: '0%' }} />
+          ) : (
+            !isLocked && (
+              <>
+                <div className='vj-tc2-prog skeleton'>
+                  <div className='progress'>
+                    <i style={{ width: '0%' }} />
+                  </div>
+                  <span className='pct'>—</span>
                 </div>
-                <span className="pct">—</span>
-              </div>
-              <div className="vj-tc2-stats skeleton">
-                <span>
-                  <Calendar size={12} />
-                  시작 전
-                </span>
-              </div>
-            </>
+                <div className='vj-tc2-stats skeleton'>
+                  <span>
+                    <Calendar size={12} />
+                    시작 전
+                  </span>
+                </div>
+              </>
+            )
           )}
         </div>
       </div>
 
       {/* 우측 액션 */}
-      <div className="vj-tc2-actions">
+      <div className='vj-tc2-actions'>
         <ActionButtons
           status={status}
           slotId={slotDef.id}
@@ -230,19 +239,21 @@ export const ExamTimelineCard = ({
 
       {/* 미제출 학생 영역 */}
       {hasMissing && showMissing && (
-        <div className="vj-tc2-missing">
-          <div className="vj-tc2-missing-h">
+        <div className='vj-tc2-missing'>
+          <div className='vj-tc2-missing-h'>
             미제출 <b>{fetchedStudents !== null ? fetchedStudents.length : missingCount}</b>명
           </div>
-          <div className="vj-tc2-missing-list">
+          <div className='vj-tc2-missing-list'>
             {isFetchingStudents ? (
-              <span className="vj-tc2-missing-empty">불러오는 중...</span>
+              <span className='vj-tc2-missing-empty'>불러오는 중...</span>
             ) : fetchedStudents && fetchedStudents.length > 0 ? (
               fetchedStudents.map((name, idx) => (
-                <span key={idx} className="vj-tc2-missing-tag">{name}</span>
+                <span key={idx} className='vj-tc2-missing-tag'>
+                  {name}
+                </span>
               ))
             ) : fetchedStudents !== null ? (
-              <span className="vj-tc2-missing-empty">미제출 학생 목록을 불러올 수 없습니다</span>
+              <span className='vj-tc2-missing-empty'>미제출 학생 목록을 불러올 수 없습니다</span>
             ) : null}
           </div>
         </div>
@@ -277,10 +288,7 @@ const ActionButtons = ({
   switch (status) {
     case 'not_started':
       return (
-        <button
-          className="btn sm primary"
-          onClick={() => onStartExam(slotId)}
-        >
+        <button className='btn sm primary' onClick={() => onStartExam(slotId)}>
           <Play size={12} />
           검사 시작
         </button>
@@ -290,17 +298,14 @@ const ActionButtons = ({
       return (
         <>
           <button
-            className="btn sm primary"
+            className='btn sm primary'
             onClick={() => dgnssId && submittedCount > 0 && onEndExam(slotId, dgnssId)}
             disabled={submittedCount === 0}
           >
             <Square size={12} />
             검사 종료
           </button>
-          <button
-            className="btn sm ghost"
-            onClick={() => dgnssId && onCancelExam(slotId, dgnssId)}
-          >
+          <button className='btn sm ghost' onClick={() => dgnssId && onCancelExam(slotId, dgnssId)}>
             <X size={12} />
             취소
           </button>
@@ -311,13 +316,13 @@ const ActionButtons = ({
       return (
         <>
           <button
-            className="btn sm primary"
+            className='btn sm primary'
             onClick={() => dgnssId && onViewResult(slotId, dgnssId)}
           >
             결과 보기
           </button>
           <button
-            className="btn sm ghost"
+            className='btn sm ghost'
             onClick={() => dgnssId && onRestartExam(slotId, dgnssId)}
           >
             <RefreshCw size={12} />
@@ -328,7 +333,7 @@ const ActionButtons = ({
 
     case 'locked':
       return (
-        <button className="btn sm disabled" disabled>
+        <button className='btn sm disabled' disabled>
           <Lock size={12} />
           검사 시작
         </button>

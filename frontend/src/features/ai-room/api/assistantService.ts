@@ -87,8 +87,16 @@ const buildStudentProfile = (
  * AI 어시스턴트 호출 (일반 응답)
  */
 export const callAssistant = async (request: AssistantRequest): Promise<AssistantResponse> => {
-  const { sessionId, mode, classes, selectedClass, selectedStudents, userMessage, cachedContext, userId } =
-    request;
+  const {
+    sessionId,
+    mode,
+    classes,
+    selectedClass,
+    selectedStudents,
+    userMessage,
+    cachedContext,
+    userId,
+  } = request;
 
   try {
     // 1. RAG 컨텍스트 — 캐시가 있으면 재사용, 없으면 빌드 (API 호출 발생)

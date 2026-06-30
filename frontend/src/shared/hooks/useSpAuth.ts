@@ -17,10 +17,7 @@ export function useSpAuth() {
   return {
     user,
     isAuthenticated: user !== null,
-    login: useCallback(
-      (redirectPath?: string) => auth.login({ redirectPath }),
-      [auth],
-    ),
+    login: useCallback((redirectPath?: string) => auth.login({ redirectPath }), [auth]),
     logout: useCallback(() => auth.logout(), [auth]),
     getAccessToken: useCallback(() => auth.getAccessToken(), [auth]),
     refreshAccessToken: useCallback(() => auth.refreshAccessToken(), [auth]),

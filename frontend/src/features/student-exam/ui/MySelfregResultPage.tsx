@@ -87,9 +87,15 @@ const BackButton = styled.button`
   cursor: pointer;
   transition: background-color ${({ theme }) => theme.transitions.fast};
 
-  &:hover { background: ${({ theme }) => theme.colors.gray[100]}; }
+  &:hover {
+    background: ${({ theme }) => theme.colors.gray[100]};
+  }
 
-  svg { width: 20px; height: 20px; color: ${({ theme }) => theme.colors.text.primary}; }
+  svg {
+    width: 20px;
+    height: 20px;
+    color: ${({ theme }) => theme.colors.text.primary};
+  }
 `;
 
 const HeaderContent = styled.div`
@@ -111,7 +117,7 @@ const ExamTypeBadge = styled.span`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   color: #ffffff;
-  background: #009F88;
+  background: #009f88;
 `;
 
 const PageTitle = styled.h1`
@@ -132,7 +138,10 @@ const Badge = styled.span<{ $bg: string; $text: string }>`
   color: ${({ $text }) => $text};
   border: 1px solid ${({ $text }) => $text}33;
 
-  svg { width: 14px; height: 14px; }
+  svg {
+    width: 14px;
+    height: 14px;
+  }
 `;
 
 const PageSubtitle = styled.p`
@@ -158,10 +167,18 @@ const DropdownTrigger = styled.button`
   cursor: pointer;
   transition: all 0.15s;
 
-  &:hover { background: ${({ theme }) => theme.colors.gray[50]}; }
-  &:disabled { opacity: 0.4; cursor: not-allowed; }
+  &:hover {
+    background: ${({ theme }) => theme.colors.gray[50]};
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 
-  svg { width: 16px; height: 16px; }
+  svg {
+    width: 16px;
+    height: 16px;
+  }
 `;
 
 const DropdownMenu = styled.div`
@@ -189,9 +206,16 @@ const DropdownItem = styled.button`
   cursor: pointer;
   transition: background ${({ theme }) => theme.transitions.fast};
 
-  &:first-of-type { border-top: none; }
-  &:hover:not(:disabled) { background: ${({ theme }) => theme.colors.gray[50]}; }
-  &:disabled { opacity: 0.4; cursor: not-allowed; }
+  &:first-of-type {
+    border-top: none;
+  }
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.gray[50]};
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 `;
 
 const SpinningLoader = styled(Loader2)`
@@ -235,8 +259,16 @@ const InfoBox = styled.div`
   border: 1px solid #bfdbfe;
   border-radius: ${({ theme }) => theme.radius.lg};
 
-  svg { width: 16px; height: 16px; color: #3b82f6; flex-shrink: 0; }
-  p { font-size: ${({ theme }) => theme.typography.fontSize.sm}; color: #1e40af; }
+  svg {
+    width: 16px;
+    height: 16px;
+    color: #3b82f6;
+    flex-shrink: 0;
+  }
+  p {
+    font-size: ${({ theme }) => theme.typography.fontSize.sm};
+    color: #1e40af;
+  }
 `;
 
 const LoadingContainer = styled.div`
@@ -253,7 +285,7 @@ const LoadingContent = styled.div`
 const LoadingSpinner = styled(Loader2)`
   width: 32px;
   height: 32px;
-  color: #009F88;
+  color: #009f88;
   animation: ${spin} 1s linear infinite;
   margin: 0 auto ${({ theme }) => theme.spacing.sm};
 `;
@@ -295,7 +327,9 @@ const ErrorButton = styled.button`
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
   cursor: pointer;
 
-  &:hover { background: ${({ theme }) => theme.colors.gray[200]}; }
+  &:hover {
+    background: ${({ theme }) => theme.colors.gray[200]};
+  }
 `;
 
 const ContentRoot = styled.div`
@@ -378,8 +412,7 @@ const SelfregDomainSummary: React.FC<{ tScores: number[] }> = ({ tScores }) => {
     () =>
       SELFREG_DOMAIN_STRUCTURE.map((domain) => {
         const indices = domain.subCategories.flatMap((s) => s.factors.map((f) => f.index));
-        const avg =
-          indices.reduce((sum, i) => sum + (tScores[i] ?? 50), 0) / (indices.length || 1);
+        const avg = indices.reduce((sum, i) => sum + (tScores[i] ?? 50), 0) / (indices.length || 1);
         return { id: domain.id as SelfregCategory, name: domain.name, avg: Math.round(avg) };
       }),
     [tScores],

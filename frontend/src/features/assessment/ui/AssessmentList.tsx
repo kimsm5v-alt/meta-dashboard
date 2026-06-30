@@ -239,7 +239,8 @@ const ConfirmButton = styled.button<{ $primary?: boolean }>`
   cursor: pointer;
   border: none;
   transition: background-color 0.15s ease;
-  background: ${({ $primary, theme }) => ($primary ? theme.colors.primary[600] : theme.colors.gray[100])};
+  background: ${({ $primary, theme }) =>
+    $primary ? theme.colors.primary[600] : theme.colors.gray[100]};
   color: ${({ $primary, theme }) => ($primary ? 'white' : theme.colors.gray[700])};
 
   &:hover {
@@ -318,6 +319,7 @@ const AssessmentItem: React.FC<{
 
   useEffect(() => {
     if (showNotSubmitted && notSubmittedStudents.length === 0 && notSubmittedCount > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true);
       fetchNotSubmittedStudents(assessment.dgnssId)
         .then(setNotSubmittedStudents)

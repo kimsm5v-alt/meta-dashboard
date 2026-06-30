@@ -571,13 +571,29 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
 
   const changeAnalysis = useMemo(() => analyzeChanges(student), [student]);
 
+  const loadSavedContent = async () => {
+    try {
+      const saved = await schoolRecordService.getSavedByStudentId(student.id);
+      setSavedRecords(saved);
+      // 현재 편집 중인 내용이 없을 때만 최신 저장본 자동 로드
+      if (saved.length > 0 && !generatedText) {
+        setGeneratedText(saved[0].content);
+      }
+    } catch {
+      // 에러 무시
+    }
+  };
+
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSavedContent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student.id]);
 
   useEffect(() => {
     if (generatedText) {
       const result = validateSchoolRecordOutput(generatedText);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setValidationResult({
         isValid: result.isValid,
         wordCountResult: {
@@ -592,19 +608,6 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
       setValidationResult(null);
     }
   }, [generatedText]);
-
-  const loadSavedContent = async () => {
-    try {
-      const saved = await schoolRecordService.getSavedByStudentId(student.id);
-      setSavedRecords(saved);
-      // 현재 편집 중인 내용이 없을 때만 최신 저장본 자동 로드
-      if (saved.length > 0 && !generatedText) {
-        setGeneratedText(saved[0].content);
-      }
-    } catch {
-      // 에러 무시
-    }
-  };
 
   const handleLoadRecord = (record: SavedSchoolRecord) => {
     setGeneratedText(record.content);

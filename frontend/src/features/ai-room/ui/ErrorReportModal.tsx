@@ -4,10 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@features/auth/model/AuthContext';
 import type { ContextMode, ChatMessage } from '../types';
-import {
-  errorReportService,
-  type BugReportPayload,
-} from '@shared/services/errorReportService';
+import { errorReportService, type BugReportPayload } from '@shared/services/errorReportService';
 
 // ============================================================
 // 상수
@@ -23,7 +20,13 @@ const ERROR_TYPE_OPTIONS = [
 ] as const;
 
 const SEVERITY_OPTIONS = [
-  { id: 'critical' as const, label: 'Critical', bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
+  {
+    id: 'critical' as const,
+    label: 'Critical',
+    bg: '#fef2f2',
+    color: '#dc2626',
+    border: '#fecaca',
+  },
   { id: 'high' as const, label: 'High', bg: '#fffbeb', color: '#d97706', border: '#fde68a' },
   { id: 'medium' as const, label: 'Medium', bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' },
   { id: 'low' as const, label: 'Low', bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
@@ -134,7 +137,8 @@ const Tab = styled.button<{ $active: boolean }>`
   font-weight: ${({ $active, theme }) =>
     $active ? theme.typography.fontWeight.semibold : theme.typography.fontWeight.normal};
   color: ${({ $active, theme }) => ($active ? theme.colors.primary[600] : theme.colors.gray[500])};
-  border-bottom: 2px solid ${({ $active, theme }) => ($active ? theme.colors.primary[500] : 'transparent')};
+  border-bottom: 2px solid
+    ${({ $active, theme }) => ($active ? theme.colors.primary[500] : 'transparent')};
   transition: all 0.15s ease;
 `;
 
@@ -205,9 +209,11 @@ const TypeChip = styled.button<{ $selected: boolean }>`
   padding: 0.25rem 0.625rem;
   border-radius: ${({ theme }) => theme.radius.full};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  border: 1px solid ${({ $selected, theme }) => ($selected ? theme.colors.primary[400] : theme.colors.gray[200])};
+  border: 1px solid
+    ${({ $selected, theme }) => ($selected ? theme.colors.primary[400] : theme.colors.gray[200])};
   background: ${({ $selected, theme }) => ($selected ? theme.colors.primary[50] : 'transparent')};
-  color: ${({ $selected, theme }) => ($selected ? theme.colors.primary[700] : theme.colors.gray[600])};
+  color: ${({ $selected, theme }) =>
+    $selected ? theme.colors.primary[700] : theme.colors.gray[600]};
   cursor: pointer;
   transition: all 0.15s ease;
 
@@ -222,14 +228,20 @@ const SeverityGroup = styled.div`
   gap: 0.5rem;
 `;
 
-const SeverityBtn = styled.button<{ $selected: boolean; $bg: string; $color: string; $border: string }>`
+const SeverityBtn = styled.button<{
+  $selected: boolean;
+  $bg: string;
+  $color: string;
+  $border: string;
+}>`
   flex: 1;
   padding: 0.375rem 0;
   border-radius: ${({ theme }) => theme.radius.lg};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ $selected, theme }) =>
     $selected ? theme.typography.fontWeight.semibold : theme.typography.fontWeight.normal};
-  border: 1px solid ${({ $selected, $border, theme }) => ($selected ? $border : theme.colors.gray[200])};
+  border: 1px solid
+    ${({ $selected, $border, theme }) => ($selected ? $border : theme.colors.gray[200])};
   background: ${({ $selected, $bg }) => ($selected ? $bg : 'transparent')};
   color: ${({ $selected, $color, theme }) => ($selected ? $color : theme.colors.gray[500])};
   cursor: pointer;
@@ -356,7 +368,9 @@ const ReportCard = styled.button`
   border-radius: ${({ theme }) => theme.radius.lg};
   padding: 0.75rem;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
@@ -379,15 +393,21 @@ const SeverityBadge = styled.span<{ $severity: string }>`
   padding: 0.125rem 0.5rem;
   border-radius: ${({ theme }) => theme.radius.full};
   background: ${({ $severity }) =>
-    $severity === 'critical' ? '#fef2f2'
-    : $severity === 'high' ? '#fffbeb'
-    : $severity === 'medium' ? '#eff6ff'
-    : '#f0fdf4'};
+    $severity === 'critical'
+      ? '#fef2f2'
+      : $severity === 'high'
+        ? '#fffbeb'
+        : $severity === 'medium'
+          ? '#eff6ff'
+          : '#f0fdf4'};
   color: ${({ $severity }) =>
-    $severity === 'critical' ? '#dc2626'
-    : $severity === 'high' ? '#d97706'
-    : $severity === 'medium' ? '#2563eb'
-    : '#16a34a'};
+    $severity === 'critical'
+      ? '#dc2626'
+      : $severity === 'high'
+        ? '#d97706'
+        : $severity === 'medium'
+          ? '#2563eb'
+          : '#16a34a'};
 `;
 
 const StatusBadge = styled.span<{ $status: string }>`
@@ -395,13 +415,9 @@ const StatusBadge = styled.span<{ $status: string }>`
   padding: 0.125rem 0.5rem;
   border-radius: ${({ theme }) => theme.radius.full};
   background: ${({ $status }) =>
-    $status === 'resolved' ? '#f0fdf4'
-    : $status === 'dismissed' ? '#f9fafb'
-    : '#fefce8'};
+    $status === 'resolved' ? '#f0fdf4' : $status === 'dismissed' ? '#f9fafb' : '#fefce8'};
   color: ${({ $status }) =>
-    $status === 'resolved' ? '#16a34a'
-    : $status === 'dismissed' ? '#6b7280'
-    : '#a16207'};
+    $status === 'resolved' ? '#16a34a' : $status === 'dismissed' ? '#6b7280' : '#a16207'};
 `;
 
 const CardErrorType = styled.span`
@@ -645,10 +661,7 @@ const ReportForm: React.FC<ReportFormProps> = ({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <Upload
-              className='w-5 h-5'
-              style={{ color: isDragging ? '#8b5cf6' : '#9ca3af' }}
-            />
+            <Upload className='w-5 h-5' style={{ color: isDragging ? '#8b5cf6' : '#9ca3af' }} />
             {screenshot ? (
               <DropZoneFile>{screenshot.name}</DropZoneFile>
             ) : (
@@ -725,7 +738,6 @@ const ReportForm: React.FC<ReportFormProps> = ({
             )}
           </ContextScrollBox>
         </Section>
-
       </ModalBody>
 
       {(submitStatus === 'success' || submitStatus === 'error') && (
@@ -735,10 +747,7 @@ const ReportForm: React.FC<ReportFormProps> = ({
       )}
 
       <ModalFooter>
-        <SubmitBtn
-          onClick={handleSubmit}
-          disabled={isSubmitting || !errorType}
-        >
+        <SubmitBtn onClick={handleSubmit} disabled={isSubmitting || !errorType}>
           {isSubmitting ? '제출 중...' : '보고 제출'}
         </SubmitBtn>
       </ModalFooter>
@@ -767,7 +776,11 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const DetailView: React.FC<{ id: number; onBack: () => void }> = ({ id, onBack }) => {
-  const { data: detail, isLoading: loading, isError: error } = useQuery({
+  const {
+    data: detail,
+    isLoading: loading,
+    isError: error,
+  } = useQuery({
     queryKey: ['bug-report-detail', id],
     queryFn: () => errorReportService.getDetail(id),
     staleTime: 60_000,
@@ -796,7 +809,9 @@ const DetailView: React.FC<{ id: number; onBack: () => void }> = ({ id, onBack }
                 <SeverityBadge $severity={detail.severity}>
                   {detail.severity.toUpperCase()}
                 </SeverityBadge>
-                <CardErrorType>{ERROR_TYPE_LABEL[detail.errorType] ?? detail.errorType}</CardErrorType>
+                <CardErrorType>
+                  {ERROR_TYPE_LABEL[detail.errorType] ?? detail.errorType}
+                </CardErrorType>
                 <StatusBadge $status={detail.status}>
                   {STATUS_LABEL[detail.status] ?? detail.status}
                 </StatusBadge>
@@ -806,7 +821,9 @@ const DetailView: React.FC<{ id: number; onBack: () => void }> = ({ id, onBack }
             {detail.conversation && (
               <DetailSection>
                 <DetailLabel>대화방</DetailLabel>
-                <DetailValue>{detail.conversation.title} ({detail.conversation.contextLabel})</DetailValue>
+                <DetailValue>
+                  {detail.conversation.title} ({detail.conversation.contextLabel})
+                </DetailValue>
               </DetailSection>
             )}
 
@@ -888,7 +905,11 @@ const ReportList: React.FC = () => {
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  const { data, isLoading: loading, isError: error } = useQuery({
+  const {
+    data,
+    isLoading: loading,
+    isError: error,
+  } = useQuery({
     queryKey: ['bug-reports-my', validUserNo, page],
     queryFn: () => errorReportService.getMyReports(validUserNo!, page),
     enabled: !!validUserNo,
@@ -906,15 +927,15 @@ const ReportList: React.FC = () => {
     <ModalBody>
       {loading && <ListLoading>불러오는 중...</ListLoading>}
       {!loading && error && <ListEmpty>목록을 불러오지 못했습니다.</ListEmpty>}
-      {!loading && !error && items.length === 0 && (
-        <ListEmpty>보고한 오류가 없습니다.</ListEmpty>
-      )}
+      {!loading && !error && items.length === 0 && <ListEmpty>보고한 오류가 없습니다.</ListEmpty>}
       {items.map((item) => (
         <ReportCard key={item.id} onClick={() => setSelectedId(item.id)}>
           <CardTop>
             <SeverityBadge $severity={item.severity}>{item.severity.toUpperCase()}</SeverityBadge>
             <CardErrorType>{ERROR_TYPE_LABEL[item.errorType] ?? item.errorType}</CardErrorType>
-            <StatusBadge $status={item.status}>{STATUS_LABEL[item.status] ?? item.status}</StatusBadge>
+            <StatusBadge $status={item.status}>
+              {STATUS_LABEL[item.status] ?? item.status}
+            </StatusBadge>
           </CardTop>
           {item.description && <CardMemo>{item.description}</CardMemo>}
           <CardDate>{item.reportedAt}</CardDate>
@@ -922,13 +943,17 @@ const ReportList: React.FC = () => {
       ))}
       {totalPages > 1 && (
         <Pagination>
-          <PageBtn onClick={() => setPage((p) => p - 1)} disabled={page === 1}>‹</PageBtn>
+          <PageBtn onClick={() => setPage((p) => p - 1)} disabled={page === 1}>
+            ‹
+          </PageBtn>
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <PageBtn key={p} $active={p === page} onClick={() => setPage(p)}>
               {p}
             </PageBtn>
           ))}
-          <PageBtn onClick={() => setPage((p) => p + 1)} disabled={page === totalPages}>›</PageBtn>
+          <PageBtn onClick={() => setPage((p) => p + 1)} disabled={page === totalPages}>
+            ›
+          </PageBtn>
         </Pagination>
       )}
     </ModalBody>

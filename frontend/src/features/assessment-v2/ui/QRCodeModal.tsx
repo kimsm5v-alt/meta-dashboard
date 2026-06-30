@@ -69,7 +69,8 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
           zIndex: 1000,
           width: '90%',
           maxWidth: '420px',
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%)',
+          background:
+            'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%)',
           backdropFilter: 'blur(20px)',
           borderRadius: '20px',
           border: '1px solid rgba(148, 163, 184, 0.2)',
@@ -79,9 +80,18 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
         }}
       >
         {/* 헤더 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: '24px',
+          }}
+        >
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#1F2937', marginBottom: '4px' }}>
+            <h2
+              style={{ fontSize: '20px', fontWeight: 700, color: '#1F2937', marginBottom: '4px' }}
+            >
               QR 코드로 초대
             </h2>
             <p style={{ fontSize: '14px', color: '#64748B' }}>
@@ -103,7 +113,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             }}
             onMouseEnter={(e) => (e.currentTarget.style.color = '#1F2937')}
             onMouseLeave={(e) => (e.currentTarget.style.color = '#64748B')}
-            aria-label="닫기"
+            aria-label='닫기'
           >
             <X size={24} />
           </button>
@@ -134,16 +144,14 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             <QRCodeCanvas
               value={joinUrl}
               size={280}
-              level="H"
-              fgColor="#1F2937"
-              bgColor="#FFFFFF"
+              level='H'
+              fgColor='#1F2937'
+              bgColor='#FFFFFF'
             />
           </div>
 
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '6px' }}>
-              초대 코드
-            </div>
+            <div style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '6px' }}>초대 코드</div>
             <div
               style={{
                 fontSize: '24px',

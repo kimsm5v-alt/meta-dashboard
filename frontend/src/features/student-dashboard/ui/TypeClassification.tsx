@@ -166,9 +166,7 @@ const ChangeBadge = styled.span<{ $changed: boolean }>`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   ${({ $changed }) =>
-    $changed
-      ? 'background: #fef3c7; color: #b45309;'
-      : 'background: #dcfce7; color: #166534;'}
+    $changed ? 'background: #fef3c7; color: #b45309;' : 'background: #dcfce7; color: #166534;'}
 `;
 
 const DonutWrapper = styled.div`
@@ -229,6 +227,7 @@ function LpaDonutMini({ type, probs, label }: LpaDonutMiniProps) {
   let acc = 0;
   const segments = sortedData.map((d) => {
     const seg = { ...d, offset: acc };
+    // eslint-disable-next-line react-hooks/immutability
     acc += d.prob;
     return seg;
   });
@@ -246,7 +245,7 @@ function LpaDonutMini({ type, probs, label }: LpaDonutMiniProps) {
               cx={cx}
               cy={cy}
               r={r}
-              fill="none"
+              fill='none'
               stroke={seg.color}
               strokeWidth={sw}
               strokeDasharray={`${(circ * seg.prob) / 100} ${circ}`}
@@ -254,10 +253,10 @@ function LpaDonutMini({ type, probs, label }: LpaDonutMiniProps) {
             />
           ))}
         </g>
-        <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill="#6B7280">
+        <text x={cx} y={cy - 6} textAnchor='middle' fontSize={11} fontWeight={600} fill='#6B7280'>
           {Math.round(probs[type] || 0)}%
         </text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fontSize={12} fontWeight={800} fill={topColor}>
+        <text x={cx} y={cy + 12} textAnchor='middle' fontSize={12} fontWeight={800} fill={topColor}>
           {type}
         </text>
       </svg>
@@ -284,14 +283,14 @@ interface LpaCompareViewProps {
 function LpaCompareView({ prevType, prevProbs, currType, currProbs }: LpaCompareViewProps) {
   return (
     <CompareWrapper>
-      <LpaDonutMini type={prevType} probs={prevProbs} label="1차 검사" />
+      <LpaDonutMini type={prevType} probs={prevProbs} label='1차 검사' />
       <ArrowWrapper>
         <ArrowText>→</ArrowText>
         <ChangeBadge $changed={prevType !== currType}>
           {prevType !== currType ? '유형 변화' : '유형 유지'}
         </ChangeBadge>
       </ArrowWrapper>
-      <LpaDonutMini type={currType} probs={currProbs} label="2차 검사" />
+      <LpaDonutMini type={currType} probs={currProbs} label='2차 검사' />
     </CompareWrapper>
   );
 }
