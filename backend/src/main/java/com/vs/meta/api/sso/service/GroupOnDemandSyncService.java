@@ -9,9 +9,11 @@ import com.vs.meta.common.config.GroupSyncProperties;
 import com.vs.meta.common.utils.PiiMasker;
 import com.vs.meta.domain.GroupInfo;
 import com.vs.meta.domain.User;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.HashSet;
 import java.util.List;
@@ -35,7 +37,6 @@ import static com.vs.meta.api.sso.client.SpServiceTokenProvider.SCOPE_GROUPS_REA
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class GroupOnDemandSyncService {
 
     /**
@@ -51,9 +52,29 @@ public class GroupOnDemandSyncService {
     private final GroupSyncProperties props;
     private final UserMapper userMapper;
     private final GroupInfoMapper groupInfoMapper;
+    private final TransactionTemplate requiresNewTx;
 
     /** spUserId → 마지막 sync epoch millis. 재기동/멀티인스턴스에 느슨해도 무방(호출 줄이기 목적). */
     private final ConcurrentHashMap<String, Long> lastSyncAt = new ConcurrentHashMap<>();
+
+    public GroupOnDemandSyncService(RpGroupClient rpGroupClient,
+                                    SpServiceTokenProvider tokenProvider,
+                                    GroupUpsertService upsertService,
+                                    GroupSyncProperties props,
+                                    UserMapper userMapper,
+                                    GroupInfoMapper groupInfoMapper,
+                                    PlatformTransactionManager txManager) {
+        this.rpGroupClient = rpGroupClient;
+        this.tokenProvider = tokenProvider;
+        this.upsertService = upsertService;
+        this.props = props;
+        this.userMapper = userMapper;
+        this.groupInfoMapper = groupInfoMapper;
+        // 각 그룹 작업을 outer sync* 트랜잭션에서 분리 — 한 그룹 실패가 공유 tx를 rollback-only로 오염시키지 않도록.
+        TransactionTemplate t = new TransactionTemplate(txManager);
+        t.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.requiresNewTx = t;
+    }
 
     /**
      * 현재 사용자 본인 그룹을 즉시 동기화. 실패는 호출 측 화면을 막지 않도록 내부에서 흡수(로그만).
@@ -82,10 +103,19 @@ public class GroupOnDemandSyncService {
             String serviceToken = tokenProvider.getToken(SCOPE_GROUPS_READ);
             int synced = 0;
             for (Long groupId : groupIds) {
-                RpGroupDto rp = rpGroupClient.detail(serviceToken, groupId);
-                if (rp != null) {
-                    upsertService.upsertGroupFromRp(rp, true); // 알림 억제
-                    synced++;
+                try {
+                    RpGroupDto rp = rpGroupClient.detail(serviceToken, groupId); // HTTP — tx 밖
+                    if (rp != null) {
+                        requiresNewTx.execute(status -> {
+                            upsertService.upsertGroupFromRp(rp, true); // 알림 억제
+                            return null;
+                        });
+                        synced++;
+                    }
+                } catch (Exception e) {
+                    // 그룹별 격리 — 한 그룹 실패(중복 race 등)가 나머지 그룹·요청을 막지 않음. 폴링이 백업.
+                    log.warn("[GROUP-SYNC] on-demand 그룹 sync 실패(스킵): groupId={}, error={}",
+                            groupId, e.getMessage());
                 }
             }
             // 삭제 즉시 반영 — Auth "내 그룹 목록"에 없는 로컬 활성 그룹을 비활성 (추가/수정과 달리 목록에 안 와서 별도 처리).
