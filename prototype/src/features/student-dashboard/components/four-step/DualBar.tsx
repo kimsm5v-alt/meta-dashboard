@@ -1,6 +1,6 @@
 import { getBarPercent, PREV_COLOR } from '@/shared/utils/chartUtils';
 import { lightenColor } from '@/shared/utils/colorUtils';
-import { T50_PERCENT } from '@/features/student-dashboard/components/four-step/constants';
+import { T_SCORE_THRESHOLDS } from '@/features/student-dashboard/components/four-step/constants';
 
 // ============================================================
 // DualBar Props
@@ -35,10 +35,26 @@ export function DualBar({
 
   return (
     <div className={`flex-1 ${height} bg-gray-100 rounded overflow-hidden relative`}>
-      {/* T=50 기준선 */}
+      {/* T점수 구간 기준선 */}
+      <div
+        className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-300 z-[1]"
+        style={{ left: `${T_SCORE_THRESHOLDS.VERY_LOW}%` }}
+      />
+      <div
+        className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-400 z-[1]"
+        style={{ left: `${T_SCORE_THRESHOLDS.LOW}%` }}
+      />
       <div
         className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-600 z-[1]"
-        style={{ left: `${T50_PERCENT}%` }}
+        style={{ left: `${T_SCORE_THRESHOLDS.AVERAGE}%` }}
+      />
+      <div
+        className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-400 z-[1]"
+        style={{ left: `${T_SCORE_THRESHOLDS.HIGH}%` }}
+      />
+      <div
+        className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-300 z-[1]"
+        style={{ left: `${T_SCORE_THRESHOLDS.VERY_HIGH}%` }}
       />
 
       {hasPrev && prevScore !== score ? (

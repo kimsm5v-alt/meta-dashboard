@@ -6,7 +6,7 @@
  */
 
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
-import type { Class, Teacher } from '@shared/types';
+import type { Class, Student, Teacher } from '@shared/types';
 import { MOCK_CLASSES, MOCK_TEACHER } from '@shared/data/mockData';
 import { transformFullData } from '@shared/data/dataTransformer';
 import {
@@ -25,10 +25,7 @@ interface DataContextType {
   classes: Class[];
   teacher: Teacher;
   getClassById: (classId: string) => Class | undefined;
-  getStudentById: (
-    classId: string,
-    studentId: string,
-  ) => import('@shared/types').Student | undefined;
+  getStudentById: (classId: string, studentId: string) => Student | undefined;
   importData: (rawData: RawData, metadata: UploadMetadata) => void;
   resetToDefault: () => void;
   dataSource: DataSource;
@@ -141,6 +138,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 // Hook
 // ============================================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useData = (): DataContextType => {
   const context = useContext(DataContext);
   if (!context) {

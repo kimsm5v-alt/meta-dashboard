@@ -15,12 +15,9 @@ export const NotificationPanel = ({ onClose: _onClose }: NotificationPanelProps)
   const markAllAsReadMutation = useMarkAllAsRead();
 
   // 무한 스크롤 쿼리 (카테고리 필터 적용)
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useNotifications(activeCategory === 'all' ? undefined : activeCategory);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useNotifications(
+    activeCategory === 'all' ? undefined : activeCategory,
+  );
 
   // 모든 페이지의 알림 병합
   const allNotifications = data?.pages.flatMap((page) => page.items) ?? [];

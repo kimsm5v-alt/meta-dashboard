@@ -20,17 +20,19 @@ export const GroupCard = ({ group, onSelect }: GroupCardProps) => {
   const levelLabel = SCHOOL_LEVEL_LABELS[group.schoolLevel] ?? group.schoolLevel;
 
   return (
-    <div className="vj-card" onClick={() => onSelect(group.id)}>
+    <div className='vj-card' onClick={() => onSelect(group.id)}>
       {/* 그룹명 */}
       <div>
-        <div className="nm">
-          <span className="truncate">{group.name}</span>
+        <div className='nm'>
+          <span className='truncate'>{group.name}</span>
         </div>
-        <div className="mt">
-          <span>{levelLabel} {group.grade}학년 {group.classNumber}반</span>
+        <div className='mt'>
+          <span>
+            {levelLabel} {group.grade}학년 {group.classNumber}반
+          </span>
           {group.schoolName && (
             <>
-              <span className="dot" />
+              <span className='dot' />
               <span>{group.schoolName}</span>
             </>
           )}
@@ -39,35 +41,41 @@ export const GroupCard = ({ group, onSelect }: GroupCardProps) => {
 
       {/* 상태 박스 */}
       <div className={`vj-status ${status.className}`}>
-        <div className="top">
-          <span className="badge">{status.label}</span>
-          <span className="name">{group.name}</span>
+        <div className='top'>
+          <span className='badge'>{status.label}</span>
+          <span className='name'>{group.name}</span>
         </div>
-        <div className="mid">
+        <div className='mid'>
           <Users size={12} />
           학생 <b>{group.activeMemberCount || group.memberCount}</b>명
           {group.inProgressCount > 0 && (
             <>
-              <span className="dot" style={{ width: 3, height: 3, background: '#D1D5DB', borderRadius: '50%' }} />
+              <span
+                className='dot'
+                style={{ width: 3, height: 3, background: '#D1D5DB', borderRadius: '50%' }}
+              />
               진행 중 <b>{group.inProgressCount}</b>개
             </>
           )}
           {group.completedCount > 0 && group.inProgressCount === 0 && (
             <>
-              <span className="dot" style={{ width: 3, height: 3, background: '#D1D5DB', borderRadius: '50%' }} />
+              <span
+                className='dot'
+                style={{ width: 3, height: 3, background: '#D1D5DB', borderRadius: '50%' }}
+              />
               완료 <b>{group.completedCount}</b>개
             </>
           )}
         </div>
         {group.inProgressCount === 0 && group.completedCount === 0 && (
-          <p className="empty-line">아직 진행된 검사가 없습니다</p>
+          <p className='empty-line'>아직 진행된 검사가 없습니다</p>
         )}
       </div>
 
       {/* 하단 액션 */}
-      <div className="vj-cta">
+      <div className='vj-cta'>
         <span>{group.inviteCode}</span>
-        <button className="vj-detail-btn">
+        <button className='vj-detail-btn'>
           상세 보기 <ChevronRight size={13} />
         </button>
       </div>

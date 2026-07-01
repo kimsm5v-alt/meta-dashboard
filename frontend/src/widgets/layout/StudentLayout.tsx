@@ -401,9 +401,7 @@ const StudentHeader = () => {
 
   return (
     <StyledHeader>
-      <HeaderTitle onClick={() => navigate('/student/exams')}>
-        학습심리정서검사
-      </HeaderTitle>
+      <HeaderTitle onClick={() => navigate('/student/exams')}>학습심리정서검사</HeaderTitle>
       <HeaderRight>
         <BellWithPanel />
         <MypageButton onClick={openMypage} title='내 정보 설정' aria-label='내 정보 설정'>
@@ -417,7 +415,13 @@ const StudentHeader = () => {
           <AvatarCircle>
             <UserCircle />
           </AvatarCircle>
-          <IconButton onClick={() => { logout(); navigate('/'); }} title='로그아웃'>
+          <IconButton
+            onClick={() => {
+              logout();
+              navigate('/');
+            }}
+            title='로그아웃'
+          >
             <LogOut />
           </IconButton>
         </UserInfo>
@@ -444,6 +448,7 @@ const StudentSidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const [isResultsOpen, setIsResultsOpen] = useState(isResultPath);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isResultPath) setIsResultsOpen(true);
   }, [isResultPath]);
 
@@ -480,7 +485,9 @@ const StudentSidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                     $collapsed={isCollapsed}
                     onClick={() => {
                       if (isCollapsed) {
-                        const activeSubPath = item.subItems!.find((s) => isActive(s.path))?.path ?? item.subItems![0].path;
+                        const activeSubPath =
+                          item.subItems!.find((s) => isActive(s.path))?.path ??
+                          item.subItems![0].path;
                         navigate(activeSubPath);
                       } else {
                         setIsResultsOpen((p) => !p);
@@ -537,8 +544,19 @@ const StudentSidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       </NavScrollArea>
 
       <CollapseArea>
-        <CollapseButton $collapsed={isCollapsed} onClick={onToggle} title={isCollapsed ? '메뉴 펼치기' : '메뉴 접기'}>
-          {isCollapsed ? <PanelLeft /> : <><PanelLeftClose /><span>메뉴 접기</span></>}
+        <CollapseButton
+          $collapsed={isCollapsed}
+          onClick={onToggle}
+          title={isCollapsed ? '메뉴 펼치기' : '메뉴 접기'}
+        >
+          {isCollapsed ? (
+            <PanelLeft />
+          ) : (
+            <>
+              <PanelLeftClose />
+              <span>메뉴 접기</span>
+            </>
+          )}
         </CollapseButton>
       </CollapseArea>
     </StyledAside>

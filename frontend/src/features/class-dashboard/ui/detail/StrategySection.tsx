@@ -99,7 +99,8 @@ const CheckIcon = styled(CheckCircle2)`
 const ActionText = styled.span<{ $isChecked: boolean }>`
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   line-height: 1.625;
-  color: ${({ $isChecked, theme }) => ($isChecked ? theme.colors.gray[400] : theme.colors.gray[600])};
+  color: ${({ $isChecked, theme }) =>
+    $isChecked ? theme.colors.gray[400] : theme.colors.gray[600]};
   text-decoration: ${({ $isChecked }) => ($isChecked ? 'line-through' : 'none')};
 `;
 
@@ -262,20 +263,20 @@ export const StrategySection: React.FC<StrategySectionProps> = ({ profile, prevP
 
   if (isCompare && prevProfile && profile) {
     // 1차→2차 약점 중 새로 진입하거나 merit 악화된 영역 우선
-    const prevWeakCats = new Set(prevProfile.weaknesses.map((w) => w.category));
-    const newWeaknesses = profile.weaknesses.filter((w) => !prevWeakCats.has(w.category));
-    const persistentWeaknesses = profile.weaknesses.filter((w) => prevWeakCats.has(w.category));
+    const prevWeakCats = new Set(prevProfile.weaknesses.map((w) => w.subCategory));
+    const newWeaknesses = profile.weaknesses.filter((w) => !prevWeakCats.has(w.subCategory));
+    const persistentWeaknesses = profile.weaknesses.filter((w) => prevWeakCats.has(w.subCategory));
 
     // 새로 약점이 된 영역을 먼저, 기존 지속 약점을 그 다음에
     const orderedWeaknesses = [...newWeaknesses, ...persistentWeaknesses];
     for (const w of orderedWeaknesses) {
-      const tmpl = STRATEGY_TEMPLATES[w.category];
+      const tmpl = STRATEGY_TEMPLATES[w.subCategory];
       if (tmpl && strategies.length < 3) strategies.push(tmpl);
     }
   } else {
     // 기존 로직: 약점 TOP 3
     const weakStrategies = (profile?.weaknesses ?? [])
-      .map((w) => STRATEGY_TEMPLATES[w.category])
+      .map((w) => STRATEGY_TEMPLATES[w.subCategory])
       .filter(Boolean);
     strategies.push(...weakStrategies);
   }
@@ -283,7 +284,7 @@ export const StrategySection: React.FC<StrategySectionProps> = ({ profile, prevP
   // 3개 미만이면 기본 전략 추가
   if (strategies.length < 3) {
     const fallbacks = ['학업스트레스', '메타인지', '학습기술'];
-    const usedCategories = new Set(profile?.weaknesses?.map((w) => w.category) ?? []);
+    const usedCategories = new Set(profile?.weaknesses?.map((w) => w.subCategory) ?? []);
     for (const cat of fallbacks) {
       if (strategies.length >= 3) break;
       if (!usedCategories.has(cat) && STRATEGY_TEMPLATES[cat]) {

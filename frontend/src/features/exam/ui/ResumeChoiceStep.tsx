@@ -3,7 +3,12 @@ import { PlayCircle, RefreshCw, Loader2 } from 'lucide-react';
 
 const Container = styled.div`
   min-height: 100vh;
-  background: linear-gradient(to bottom right, ${({ theme }) => theme.colors.primary[50]}, #ffffff, #eef2ff);
+  background: linear-gradient(
+    to bottom right,
+    ${({ theme }) => theme.colors.primary[50]},
+    #ffffff,
+    #eef2ff
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -88,7 +93,11 @@ const ProgressBarContainer = styled.div`
 
 const ProgressBarFill = styled.div<{ $width: number }>`
   height: 100%;
-  background: linear-gradient(to right, ${({ theme }) => theme.colors.primary[500]}, ${({ theme }) => theme.colors.primary[600]});
+  background: linear-gradient(
+    to right,
+    ${({ theme }) => theme.colors.primary[500]},
+    ${({ theme }) => theme.colors.primary[600]}
+  );
   border-radius: ${({ theme }) => theme.radius.full};
   width: ${({ $width }) => $width}%;
   transition: width 0.3s ease;

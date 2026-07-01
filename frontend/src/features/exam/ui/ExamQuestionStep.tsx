@@ -223,7 +223,9 @@ export const ExamQuestionStep: React.FC<ExamQuestionStepProps> = ({
         </NavBarInner>
 
         {/* 미응답 안내 */}
-        {!allCurrentPageAnswered && <Warning>모든 문항에 응답해야 다음으로 넘어갈 수 있습니다.</Warning>}
+        {!allCurrentPageAnswered && (
+          <Warning>모든 문항에 응답해야 다음으로 넘어갈 수 있습니다.</Warning>
+        )}
       </NavBar>
     </Container>
   );

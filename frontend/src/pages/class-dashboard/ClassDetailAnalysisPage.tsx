@@ -238,7 +238,11 @@ const ClassDetailContent: React.FC<ClassDetailContentProps> = ({ classData, clas
               ]
             : []),
         ].map(({ mode, label }) => (
-          <ViewModeButton key={mode} onClick={() => setViewMode(mode)} $isActive={viewMode === mode}>
+          <ViewModeButton
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            $isActive={viewMode === mode}
+          >
             {label}
           </ViewModeButton>
         ))}
@@ -473,7 +477,7 @@ const SelfregClassDetailPage: React.FC<{ classId?: string }> = ({ classId }) => 
   const hasRound2 = round2 !== null;
   const isCompare = viewMode === 'compare';
   const current = viewMode === 'round2' && round2 ? round2 : (round1 ?? round2)!;
-  const prev = isCompare ? round1 ?? undefined : undefined;
+  const prev = isCompare ? (round1 ?? undefined) : undefined;
 
   return (
     <PageContainer>
@@ -497,7 +501,11 @@ const SelfregClassDetailPage: React.FC<{ classId?: string }> = ({ classId }) => 
               ]
             : []),
         ].map(({ mode, label }) => (
-          <ViewModeButton key={mode} onClick={() => setViewMode(mode)} $isActive={viewMode === mode}>
+          <ViewModeButton
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            $isActive={viewMode === mode}
+          >
             {label}
           </ViewModeButton>
         ))}

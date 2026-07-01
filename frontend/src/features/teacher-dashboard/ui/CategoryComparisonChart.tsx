@@ -28,8 +28,16 @@ interface CategoryComparisonChartProps {
 }
 
 const CLASS_COLORS = [
-  '#6366F1', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444',
-  '#14B8A6', '#F97316', '#06B6D4', '#EC4899', '#3B82F6',
+  '#6366F1',
+  '#10B981',
+  '#F59E0B',
+  '#8B5CF6',
+  '#EF4444',
+  '#14B8A6',
+  '#F97316',
+  '#06B6D4',
+  '#EC4899',
+  '#3B82F6',
 ];
 
 const Container = styled.div`
@@ -59,17 +67,17 @@ export const CategoryComparisonChart: React.FC<CategoryComparisonChartProps> = (
 
   return (
     <Container>
-      <ResponsiveContainer width="100%" height={chartHeight}>
+      <ResponsiveContainer width='100%' height={chartHeight}>
         <LineChart
           data={chartData}
           margin={{ top: 20, right: 40, left: 10, bottom: drillLevel === '11categories' ? 90 : 60 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+          <CartesianGrid strokeDasharray='3 3' stroke='#E5E7EB' vertical={false} />
 
           <XAxis
-            dataKey="category"
+            dataKey='category'
             angle={-25}
-            textAnchor="end"
+            textAnchor='end'
             height={drillLevel === '11categories' ? 90 : 70}
             tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 500 }}
             axisLine={{ stroke: '#D1D5DB', strokeWidth: 1.5 }}
@@ -98,7 +106,7 @@ export const CategoryComparisonChart: React.FC<CategoryComparisonChartProps> = (
 
           <Legend
             wrapperStyle={{ paddingTop: '12px', fontSize: '12px', fontWeight: 500 }}
-            iconType="line"
+            iconType='line'
             iconSize={14}
             onClick={(e) => {
               const cls = classes.find((c) => `${c.grade}-${c.classNumber}반` === e.value);
@@ -109,8 +117,8 @@ export const CategoryComparisonChart: React.FC<CategoryComparisonChartProps> = (
 
           <ReferenceLine
             y={50}
-            stroke="#9CA3AF"
-            strokeDasharray="5 5"
+            stroke='#9CA3AF'
+            strokeDasharray='5 5'
             strokeWidth={1.5}
             label={{ value: '전국 평균 (50)', position: 'right', fontSize: 11, fill: '#9CA3AF' }}
           />
@@ -123,7 +131,7 @@ export const CategoryComparisonChart: React.FC<CategoryComparisonChartProps> = (
             return (
               <Line
                 key={name}
-                type="monotone"
+                type='monotone'
                 dataKey={name}
                 stroke={color}
                 strokeWidth={isSelected ? 3.5 : hasSelection ? 1.5 : 2.5}

@@ -60,7 +60,7 @@ interface RawData {
 // ============================================================
 
 /** 공백/하이픈 제거 정규화 */
-const normalizeName = (name: string): string => name.replace(/[\s\-]/g, '');
+const normalizeName = (name: string): string => name.replace(/[\s-]/g, '');
 
 /** JSON tScore 키 목록으로부터 FACTORS 인덱스 매핑 빌드 */
 const buildFactorMapping = (jsonKeys: string[]): Record<string, number> => {

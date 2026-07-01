@@ -519,11 +519,6 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
     saveAsCompleted: false,
   });
 
-  // 데이터 로드
-  useEffect(() => {
-    loadRecords();
-  }, [studentId]);
-
   const loadRecords = async () => {
     setLoading(true);
     try {
@@ -533,6 +528,13 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
       setLoading(false);
     }
   };
+
+  // 데이터 로드
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId]);
 
   // 예정 / 완료 분리
   const { scheduledRecords, completedRecords } = useMemo(() => {

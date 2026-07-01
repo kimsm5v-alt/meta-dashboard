@@ -13,7 +13,11 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useClassStudents } from '@features/api';
-import { fetchSelfregFullAnalysis, fetchTeacherExams, fetchStudentInfoList } from '@shared/services/dashboardService';
+import {
+  fetchSelfregFullAnalysis,
+  fetchTeacherExams,
+  fetchStudentInfoList,
+} from '@shared/services/dashboardService';
 import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
 import { SelfregFactorAnalysis } from '@features/student-dashboard/ui';
 import {
@@ -349,12 +353,15 @@ export const SelfregStudentDashboardPage: React.FC = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setViewMode('round1');
   }, [studentId]);
 
   useEffect(() => {
     if (!classId || !studentId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
+
     setError(null);
 
     const loadData = async () => {

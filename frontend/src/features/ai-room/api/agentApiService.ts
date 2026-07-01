@@ -43,7 +43,12 @@ export const agentChat = async (
   contextData?: Record<string, unknown> | null,
   userId?: string,
 ): Promise<AgentChatResponse> => {
-  const body: AgentQuery = { text, session_id: sessionId, context_data: contextData ?? null, userId };
+  const body: AgentQuery = {
+    text,
+    session_id: sessionId,
+    context_data: contextData ?? null,
+    userId,
+  };
 
   const res = await fetch(`${CHAT_BASE_URL}/chat`, {
     method: 'POST',
@@ -70,7 +75,12 @@ export const agentChatStream = async (
   contextData?: Record<string, unknown> | null,
   userId?: string,
 ): Promise<void> => {
-  const body: AgentQuery = { text, session_id: sessionId, context_data: contextData ?? null, userId };
+  const body: AgentQuery = {
+    text,
+    session_id: sessionId,
+    context_data: contextData ?? null,
+    userId,
+  };
 
   const res = await fetch(`${CHAT_BASE_URL}/chat/stream`, {
     method: 'POST',

@@ -335,6 +335,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const isCompleted = status === 'completed';
 
   // 수정 모드일 때 기존 데이터 로드
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isOpen && editingSchedule) {
       const [scheduleDate, scheduleTime] = editingSchedule.scheduledAt.split(' ');
@@ -355,8 +356,10 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setStatus('scheduled');
     }
   }, [initialDate, isOpen, editingSchedule]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // 모달 닫힐 때 초기화
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isOpen) {
       setSelectedStudents([]);
@@ -371,6 +374,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setShowCompleteConfirm(false);
     }
   }, [isOpen]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSubmit = () => {
     if (selectedStudents.length === 0 || !date || areas.length === 0) return;

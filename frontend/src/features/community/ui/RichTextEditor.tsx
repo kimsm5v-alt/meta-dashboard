@@ -24,7 +24,8 @@ const ToolbarButton = styled.button<{ $isActive: boolean }>`
   padding: 0.5rem;
   border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ $isActive, theme }) => ($isActive ? theme.colors.gray[200] : 'transparent')};
-  color: ${({ $isActive, theme }) => ($isActive ? theme.colors.primary[600] : theme.colors.gray[600])};
+  color: ${({ $isActive, theme }) =>
+    $isActive ? theme.colors.primary[600] : theme.colors.gray[600]};
   border: none;
   cursor: pointer;
   transition: background-color 0.15s ease;

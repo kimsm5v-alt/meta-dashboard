@@ -92,7 +92,9 @@ export async function downloadAllPdf(
 ): Promise<void> {
   // Step 1: 미생성 PDF 대상 학생 조회 (type=3: 상세·요약 둘 중 하나라도 미생성)
   const searchRes = await axiosInstance.get<{
-    resultData: { data: Array<{ userId: string; userType: 'S' | 'T'; answerIdx: number; targetType: string }> };
+    resultData: {
+      data: Array<{ userId: string; userType: 'S' | 'T'; answerIdx: number; targetType: string }>;
+    };
   }>('/api/dgnss/pdf/search', {
     params: { dgnssId, type },
   });

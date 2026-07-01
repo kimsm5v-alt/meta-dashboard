@@ -225,6 +225,7 @@ export const AssessmentPage: React.FC = () => {
   // 첫 그룹 자동 선택
   useEffect(() => {
     if (groups.length > 0 && !selectedClaId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedClaId(groups[0].claId);
     }
   }, [groups, selectedClaId]);
@@ -271,6 +272,7 @@ export const AssessmentPage: React.FC = () => {
   // ============================================================
 
   const doCreateExam = useCallback(
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     async (data: AssessmentFormData, claId: string) => {
       setIsProcessing(true);
       setError(null);

@@ -87,18 +87,30 @@ export const transformToCategoryChartData = (
 // ============================================================
 
 export const SUB_CATEGORY_ORDER = [
-  '긍정적자아', '대인관계능력',
-  '메타인지', '학습기술', '지지적관계',
-  '학업열의', '성장력',
-  '학업스트레스', '학습방해물', '학업관계스트레스',
+  '긍정적자아',
+  '대인관계능력',
+  '메타인지',
+  '학습기술',
+  '지지적관계',
+  '학업열의',
+  '성장력',
+  '학업스트레스',
+  '학습방해물',
+  '학업관계스트레스',
   '학업소진',
 ];
 
 export const SUB_CATEGORY_POLARITY: Record<string, 'positive' | 'negative'> = {
-  긍정적자아: 'positive', 대인관계능력: 'positive',
-  메타인지: 'positive', 학습기술: 'positive', 지지적관계: 'positive',
-  학업열의: 'positive', 성장력: 'positive',
-  학업스트레스: 'negative', 학습방해물: 'negative', 학업관계스트레스: 'negative',
+  긍정적자아: 'positive',
+  대인관계능력: 'positive',
+  메타인지: 'positive',
+  학습기술: 'positive',
+  지지적관계: 'positive',
+  학업열의: 'positive',
+  성장력: 'positive',
+  학업스트레스: 'negative',
+  학습방해물: 'negative',
+  학업관계스트레스: 'negative',
   학업소진: 'negative',
 };
 
@@ -122,7 +134,8 @@ export const calculateSubCategoryAverages = (classData: Class): SubCategoryAvera
   }
 
   for (const [sub, indices] of Object.entries(SUB_CATEGORY_FACTORS)) {
-    let sum = 0, count = 0;
+    let sum = 0,
+      count = 0;
     for (const student of assessedStudents) {
       const assessment = student.assessments.find((a) => a.round === 2) || student.assessments[0];
       const vals = (indices as number[]).map((i) => assessment.tScores[i]);

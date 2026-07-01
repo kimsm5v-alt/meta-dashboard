@@ -17,7 +17,10 @@ import {
   getMessages as getMessagesApi,
   deleteConversation as deleteConversationApi,
 } from '@features/ai-room/api/chatApiService';
-import type { Message, Conversation as ServerConversation } from '@features/ai-room/api/chatApiService';
+import type {
+  Message,
+  Conversation as ServerConversation,
+} from '@features/ai-room/api/chatApiService';
 
 // ============================================================================
 // Constants
@@ -90,7 +93,6 @@ const convertConversation = (serverConv: ServerConversation): Conversation => ({
   messages: [INITIAL_MESSAGE], // 초기값, 나중에 getMessages로 채움
 });
 
-
 // ============================================================================
 // Hook Interface
 // ============================================================================
@@ -149,9 +151,9 @@ export const useConversations = ({
    * - 첫 메시지에서 빌드(API 호출), 이후 메시지는 재사용
    * - 대화 삭제 시 해당 세션 캐시도 제거
    */
-  const contextCacheRef = useRef<
-    Map<string, NonNullable<AssistantResponse['builtContext']>>
-  >(new Map());
+  const contextCacheRef = useRef<Map<string, NonNullable<AssistantResponse['builtContext']>>>(
+    new Map(),
+  );
 
   // ---------------------------------------------------------------------------
   // Computed
@@ -219,9 +221,7 @@ export const useConversations = ({
           const messagesWithInitial = prependInitialMessage(convertedMessages);
 
           setConversations((prev) =>
-            prev.map((c) =>
-              c.id === firstConvId ? { ...c, messages: messagesWithInitial } : c,
-            ),
+            prev.map((c) => (c.id === firstConvId ? { ...c, messages: messagesWithInitial } : c)),
           );
 
           console.log(`✅ 메시지 ${messagesWithInitial.length}개 로드 완료 (INITIAL 포함)`);
@@ -299,9 +299,7 @@ export const useConversations = ({
       const messagesWithInitial = prependInitialMessage(convertedMessages);
 
       setConversations((prev) =>
-        prev.map((c) =>
-          c.id === convId ? { ...c, messages: messagesWithInitial } : c,
-        ),
+        prev.map((c) => (c.id === convId ? { ...c, messages: messagesWithInitial } : c)),
       );
 
       console.log(`✅ 메시지 ${messagesWithInitial.length}개 로드 완료 (INITIAL 포함)`);
@@ -313,7 +311,6 @@ export const useConversations = ({
   const getConversationMode = (convId: string): ContextMode | undefined => {
     return conversations.find((c) => c.id === convId)?.mode;
   };
-
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;

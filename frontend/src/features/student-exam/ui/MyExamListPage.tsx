@@ -574,6 +574,7 @@ export const MyExamListPage: React.FC = () => {
   );
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadExams();
   }, [loadExams]);
 

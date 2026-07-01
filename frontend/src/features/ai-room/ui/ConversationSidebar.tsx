@@ -66,8 +66,7 @@ const ConversationItem = styled.div<{ $isActive: boolean }>`
   border-radius: ${({ theme }) => theme.radius.lg};
   border: 1px solid
     ${({ $isActive, theme }) => ($isActive ? theme.colors.primary[200] : 'transparent')};
-  background: ${({ $isActive, theme }) =>
-    $isActive ? theme.colors.primary[50] : 'transparent'};
+  background: ${({ $isActive, theme }) => ($isActive ? theme.colors.primary[50] : 'transparent')};
   cursor: pointer;
   transition: all 0.15s ease;
 
@@ -106,17 +105,9 @@ const ModeBadge = styled.span<{ $mode: 'all' | 'class' | 'student' }>`
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
   border-radius: ${({ theme }) => theme.radius.sm};
   background: ${({ $mode, theme }) =>
-    $mode === 'all'
-      ? theme.colors.gray[100]
-      : $mode === 'class'
-        ? '#dbeafe'
-        : '#d1fae5'};
+    $mode === 'all' ? theme.colors.gray[100] : $mode === 'class' ? '#dbeafe' : '#d1fae5'};
   color: ${({ $mode, theme }) =>
-    $mode === 'all'
-      ? theme.colors.gray[600]
-      : $mode === 'class'
-        ? '#1d4ed8'
-        : '#047857'};
+    $mode === 'all' ? theme.colors.gray[600] : $mode === 'class' ? '#1d4ed8' : '#047857'};
 `;
 
 const DateText = styled.span`

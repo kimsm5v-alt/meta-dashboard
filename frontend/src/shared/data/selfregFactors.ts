@@ -41,43 +41,41 @@ export const SELFREG_FACTOR_DEFINITIONS: SelfregFactor[] = [
   { index: 19, name: '시험준비', category: '행동전략', subCategory: '행동적학습기술' },
 ];
 
-export const SELFREG_MAIN_CATEGORIES: SelfregCategory[] = [
-  '동기전략', '인지전략', '행동전략',
-];
+export const SELFREG_MAIN_CATEGORIES: SelfregCategory[] = ['동기전략', '인지전략', '행동전략'];
 
 export const SELFREG_DOMAIN_COLORS: Record<SelfregCategory, string> = {
-  '동기전략': '#9F91F8',
-  '인지전략': '#4BC1FF',
-  '행동전략': '#FF8A94',
+  동기전략: '#9F91F8',
+  인지전략: '#4BC1FF',
+  행동전략: '#FF8A94',
 };
 
 export const SELFREG_DOMAIN_SOFT_COLORS: Record<SelfregCategory, string> = {
-  '동기전략': '#EDE9FE',
-  '인지전략': '#E2F4FF',
-  '행동전략': '#FFE7EC',
+  동기전략: '#EDE9FE',
+  인지전략: '#E2F4FF',
+  행동전략: '#FFE7EC',
 };
 
 export const SELFREG_DOMAIN_DESCRIPTIONS: Record<SelfregCategory, string> = {
-  '동기전략': '학습하는 이유와 목적을 발견하여, 학습 지속성을 갖게 하는 마음가짐 전략',
-  '인지전략': '학습 내용을 효과적으로 파악하고, 체계적으로 습득하도록 돕는 전략',
-  '행동전략': '학습 활동을 최적화될 수 있게 하는 학습기술 및 실행력 향상 전략',
+  동기전략: '학습하는 이유와 목적을 발견하여, 학습 지속성을 갖게 하는 마음가짐 전략',
+  인지전략: '학습 내용을 효과적으로 파악하고, 체계적으로 습득하도록 돕는 전략',
+  행동전략: '학습 활동을 최적화될 수 있게 하는 학습기술 및 실행력 향상 전략',
 };
 
 export const SELFREG_SUB_CATEGORY_FACTORS: Record<string, number[]> = {
-  '학습원동력': [0, 1, 2],
-  '정서조절': [3, 4, 5],
-  '메타인지': [6, 7, 8],
-  '인지적학습기술': [9, 10, 11],
-  '행동조절': [12, 13, 14],
-  '행동적학습기술': [15, 16, 17, 18, 19],
+  학습원동력: [0, 1, 2],
+  정서조절: [3, 4, 5],
+  메타인지: [6, 7, 8],
+  인지적학습기술: [9, 10, 11],
+  행동조절: [12, 13, 14],
+  행동적학습기술: [15, 16, 17, 18, 19],
 };
 
-export const SELFREG_DOMAIN_STRUCTURE = SELFREG_MAIN_CATEGORIES.map(domain => {
-  const factors = SELFREG_FACTOR_DEFINITIONS.filter(f => f.category === domain);
-  const subCatsSet = new Set(factors.map(f => f.subCategory));
-  const subCategories = Array.from(subCatsSet).map(subCat => ({
+export const SELFREG_DOMAIN_STRUCTURE = SELFREG_MAIN_CATEGORIES.map((domain) => {
+  const factors = SELFREG_FACTOR_DEFINITIONS.filter((f) => f.category === domain);
+  const subCatsSet = new Set(factors.map((f) => f.subCategory));
+  const subCategories = Array.from(subCatsSet).map((subCat) => ({
     name: subCat,
-    factors: factors.filter(f => f.subCategory === subCat),
+    factors: factors.filter((f) => f.subCategory === subCat),
   }));
   return {
     id: domain,
@@ -94,6 +92,6 @@ export const getSelfregFactorByIndex = (index: number): SelfregFactor | undefine
   SELFREG_FACTOR_DEFINITIONS[index];
 
 export const getSelfregFactorsByCategory = (category: SelfregCategory): SelfregFactor[] =>
-  SELFREG_FACTOR_DEFINITIONS.filter(f => f.category === category);
+  SELFREG_FACTOR_DEFINITIONS.filter((f) => f.category === category);
 
 export default SELFREG_FACTOR_DEFINITIONS;

@@ -193,16 +193,27 @@ export const StudentFactorAnalysis: React.FC<StudentFactorAnalysisProps> = ({
           height={380}
           style={{ display: 'block' }}
         >
-          {/* 전국 평균선 (T=50) */}
-          <line
-            x1={10}
-            y1={yOf(50)}
-            x2={containerWidth - 10}
-            y2={yOf(50)}
-            stroke="#C9A4ED"
-            strokeWidth={1.3}
-            strokeDasharray="5 5"
-          />
+          {/* T점수 구간 경계선 */}
+          {[30, 40, 50, 60, 70].map(t => (
+            <line
+              key={t}
+              x1={10}
+              y1={yOf(t)}
+              x2={containerWidth - 10}
+              y2={yOf(t)}
+              stroke={t === 50 ? '#C9A4ED' : '#E5E7EB'}
+              strokeWidth={t === 50 ? 1.3 : 1}
+              strokeDasharray={t === 50 ? '5 5' : '3 3'}
+            />
+          ))}
+
+          {/* 구간 라벨 (왼쪽) */}
+          <text x={20} y={yOf(85) + 5} fontSize="10" fill="#A1A1A8" fontWeight="600">매우높음</text>
+          <text x={20} y={yOf(65) + 5} fontSize="10" fill="#A1A1A8" fontWeight="600">높음</text>
+          <text x={20} y={yOf(50) + 5} fontSize="10" fill="#A1A1A8" fontWeight="600">보통</text>
+          <text x={20} y={yOf(35) + 5} fontSize="10" fill="#A1A1A8" fontWeight="600">낮음</text>
+          <text x={20} y={yOf(15) + 5} fontSize="10" fill="#A1A1A8" fontWeight="600">매우낮음</text>
+
           <text
             x={containerWidth - 10}
             y={20}

@@ -683,9 +683,7 @@ export function FourStepInterpretation({
                     </PrevTypeHint>
                   )}
               </TypeInfoRow>
-              <TypeDescription>
-                {TYPE_DESCRIPTIONS[diagnosis.step4.유형코드] || ''}
-              </TypeDescription>
+              <TypeDescription>{TYPE_DESCRIPTIONS[diagnosis.step4.유형코드] || ''}</TypeDescription>
             </TypeInfoHeader>
 
             {/* 3개 점수 */}
@@ -718,9 +716,7 @@ export function FourStepInterpretation({
                     <ScoreItem key={item.label}>
                       <ScoreItemLabel>{item.label}</ScoreItemLabel>
                       <ScoreItemValueRow>
-                        <ScoreItemValue $color={item.color}>
-                          {item.value.toFixed(0)}
-                        </ScoreItemValue>
+                        <ScoreItemValue $color={item.color}>{item.value.toFixed(0)}</ScoreItemValue>
                         {delta != null && Math.abs(delta) >= 0.5 && (
                           <DeltaValue $positive={delta > 0}>
                             {delta > 0 ? '+' : ''}

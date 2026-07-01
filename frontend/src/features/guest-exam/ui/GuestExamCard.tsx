@@ -41,16 +41,14 @@ const ExamIconWrapper = styled.div<{ $status: string }>`
   align-items: center;
   justify-content: center;
   background: ${({ $status }) =>
-    $status === 'completed' ? '#dcfce7' :
-    $status === 'in_progress' ? '#fef3c7' : '#ede9fe'};
+    $status === 'completed' ? '#dcfce7' : $status === 'in_progress' ? '#fef3c7' : '#ede9fe'};
   flex-shrink: 0;
 
   svg {
     width: 28px;
     height: 28px;
     color: ${({ $status }) =>
-      $status === 'completed' ? '#16a34a' :
-      $status === 'in_progress' ? '#d97706' : '#7c3aed'};
+      $status === 'completed' ? '#16a34a' : $status === 'in_progress' ? '#d97706' : '#7c3aed'};
   }
 `;
 
@@ -185,10 +183,14 @@ export const GuestExamCard: React.FC<GuestExamCardProps> = ({
 
   const renderStatusIcon = () => {
     switch (exam.status) {
-      case 'waiting': return <Clock />;
-      case 'in_progress': return <RotateCcw />;
-      case 'completed': return <CheckCircle2 />;
-      default: return null;
+      case 'waiting':
+        return <Clock />;
+      case 'in_progress':
+        return <RotateCcw />;
+      case 'completed':
+        return <CheckCircle2 />;
+      default:
+        return null;
     }
   };
 
@@ -199,7 +201,11 @@ export const GuestExamCard: React.FC<GuestExamCardProps> = ({
       case 'in_progress':
         return <StatusText $color='#d97706'>검사가 중단되었어요. 이어서 진행해주세요.</StatusText>;
       case 'completed':
-        return <StatusText $color='#16a34a'>검사가 완료되었습니다. 결과는 이메일로 발송됩니다.</StatusText>;
+        return (
+          <StatusText $color='#16a34a'>
+            검사가 완료되었습니다. 결과는 이메일로 발송됩니다.
+          </StatusText>
+        );
       default:
         return null;
     }

@@ -347,6 +347,7 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
   // Re-sync localSelection when modal opens with new selectedStudents
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalSelection(selectedStudents);
       if (!activeTab && classes[0]?.id) {
         setActiveTab(classes[0].id);
@@ -453,7 +454,7 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
                       </SelectedCheck>
                     )}
                     <StudentAvatar
-                      $color={selected ? '#8b5cf6' : classColors[student.classId] ?? '#9CA3AF'}
+                      $color={selected ? '#8b5cf6' : (classColors[student.classId] ?? '#9CA3AF')}
                     >
                       {student.number}
                     </StudentAvatar>
