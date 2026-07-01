@@ -158,12 +158,20 @@ public class GroupOnDemandSyncService {
             if (g.getSpGroupId() == null) {
                 continue; // 레거시(학심정 자체 생성) 그룹 불가침
             }
-            if (!authSet.contains(g.getSpGroupId())) {
-                if (upsertService.deactivateBySpGroupId(g.getSpGroupId()) > 0) {
+            if (authSet.contains(g.getSpGroupId())) {
+                continue;
+            }
+            try {
+                Integer n = requiresNewTx.execute(status -> upsertService.deactivateBySpGroupId(g.getSpGroupId()));
+                if (n != null && n > 0) {
                     count++;
                     log.info("[GROUP-SYNC] on-demand 삭제 반영: spGroupId={}, claId={}",
                             g.getSpGroupId(), g.getClaId());
                 }
+            } catch (Exception e) {
+                // 건별 격리 — 한 그룹 비활성 실패가 나머지 reconcile·요청을 막지 않음.
+                log.warn("[GROUP-SYNC] on-demand 삭제 반영 실패(스킵): spGroupId={}, error={}",
+                        g.getSpGroupId(), e.getMessage());
             }
         }
         return count;
