@@ -12,6 +12,7 @@ class WebClientConfigTest {
         assertThat(WebClientConfig.SP_AUTH_MAX_IDLE).isPositive();
         assertThat(WebClientConfig.SP_AUTH_EVICT).isPositive();
         assertThat(WebClientConfig.SP_AUTH_MAX_IDLE).isLessThan(WebClientConfig.SP_AUTH_MAX_LIFE);
+        assertThat(WebClientConfig.SP_AUTH_EVICT).isLessThan(WebClientConfig.SP_AUTH_MAX_LIFE);
     }
 
     @Test
