@@ -655,22 +655,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({
         {domainData.map((d, i) => {
           const factorCount = d.subCategories.reduce((sum, sc) => sum + sc.factors.length, 0);
           const isActive = selectedDomain === i;
-          const label =
-            d.category === '긍정적공부마음' ? (
-              <>
-                긍정적
-                <br />
-                공부마음
-              </>
-            ) : d.category === '부정적공부마음' ? (
-              <>
-                부정적
-                <br />
-                공부마음
-              </>
-            ) : (
-              d.category
-            );
+          const label = d.category;
           return (
             <TabButton
               key={d.category}
