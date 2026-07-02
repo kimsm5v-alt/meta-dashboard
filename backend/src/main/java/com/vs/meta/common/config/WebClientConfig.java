@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
+import reactor.netty.resources.ConnectionProvider;
 
 import java.time.Duration;
 
@@ -21,9 +22,23 @@ public class WebClientConfig {
     private static final int CONNECT_TIMEOUT_MS = 5_000;
     private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(10);
 
+    static final Duration SP_AUTH_MAX_IDLE = Duration.ofSeconds(20);   // 게이트웨이 keep-alive(통상 60s)보다 짧게 → 유휴 커넥션 선제 폐기
+    static final Duration SP_AUTH_MAX_LIFE = Duration.ofMinutes(5);    // 총수명 백스톱
+    static final Duration SP_AUTH_EVICT    = Duration.ofSeconds(30);   // 신규 acquire 없어도 주기적으로 유휴 회수(저트래픽 필수)
+
+    static ConnectionProvider spAuthConnectionProvider() {
+        return ConnectionProvider.builder("sp-auth")
+                .maxConnections(100)                       // 내부 Auth 호출 규모에 충분 + 전역 기본풀에서 격리
+                .maxIdleTime(SP_AUTH_MAX_IDLE)
+                .maxLifeTime(SP_AUTH_MAX_LIFE)
+                .evictInBackground(SP_AUTH_EVICT)
+                .pendingAcquireTimeout(Duration.ofSeconds(10))
+                .build();
+    }
+
     @Bean
     public WebClient superPlatformAuthWebClient(SpAuthProperties spAuth) {
-        HttpClient httpClient = HttpClient.create()
+        HttpClient httpClient = HttpClient.create(spAuthConnectionProvider())
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, CONNECT_TIMEOUT_MS)
                 .responseTimeout(RESPONSE_TIMEOUT);
 
