@@ -50,10 +50,24 @@ const CATEGORY_ORDER = [
 
 // LPA 툴팁 메시지 (전체 대시보드와 동일)
 const LPA_TOOLTIP_LINES = [
-  '학생의 학습 심리 패턴을 3가지 유형으로 나눈 것입니다.',
-  '검사 결과를 분석해 비슷한 학습 특성을 가진 학생끼리 묶어서 맞춤형 지도 방법을 제공하기 위한 분류입니다.',
-  '단, 유형은 학생을 이해하기 위한 참고이며, 같은 유형 안에서도 개인별 강점과 보완점을 함께 살펴봐 주세요.',
+  '비상교육은 학생을 단순한 점수로 구분하지 않고, 학습 특성이 함께 나타나는 패턴을 분석하기 위해 LPA 기반 학습유형 분석을 도입했습니다.',
+  'LPA는 최근 교육·심리·사회과학 연구에서 활용되는 통계 분석 기법으로, 학생의 학습 부담, 심리·정서적 자원, 학습 몰입을 종합적으로 살펴 유사한 학습 상태를 유형화합니다.',
+  '이를 통해 선생님께서는 학생의 현재 상태를 더 입체적으로 이해하고, 유형별로 필요한 지원 방향을 확인할 수 있습니다.',
 ];
+
+// LPA 유형별 설명 (초등)
+const LPA_TYPE_DESCRIPTIONS_ELEMENTARY: Record<string, string> = {
+  '자원소진형': '학습에 필요한 심리·정서적 자원이 상대적으로 낮고, 기대나 부담은 크게 느끼는 유형입니다. 먼저 부담을 낮추고 작은 성공 경험을 통해 학습 회복감을 키워주세요.',
+  '안전 균형형': '전반적으로 안정적인 학습 상태를 보이지만, 스스로 점검하고 조절하는 힘은 더 키워야 할 수 있습니다. 계획·점검 습관을 함께 길러주세요.',
+  '몰입자원 풍부형': '긍정적 학습 자원이 풍부하고 몰입 가능성이 높은 유형입니다. 강점을 유지하면서 도전 목표와 깊이 있는 학습 경험으로 확장해주세요.',
+};
+
+// LPA 유형별 설명 (중등)
+const LPA_TYPE_DESCRIPTIONS_MIDDLE: Record<string, string> = {
+  '냉소적 무기력형': '심리·정서적 자원이 상대적으로 낮고, 성적과 공부 부담을 크게 느끼는 유형입니다. 먼저 부담을 낮추고 정서적 회복감과 작은 성취 경험을 만들어주세요.',
+  '정서조절 취약형': '학습 자원은 일정 수준 있으나, 성적 압박과 소진을 크게 느끼는 유형입니다. 학습 전략뿐 아니라 감정 조절과 부담 관리 방법을 함께 지원해주세요.',
+  '자기주도 몰입형': '심리·정서적 자원이 풍부하고 자기주도적 몰입 가능성이 높은 유형입니다. 현재의 강점을 유지하면서 도전 목표와 심화 학습 기회를 제공해주세요.',
+};
 
 // 추천 학급 운영 활동
 const RECOMMENDED_ACTIVITIES = [
@@ -100,6 +114,7 @@ export const CoreSummaryTab: React.FC<CoreSummaryTabProps> = ({
   testId = 'comprehensive',
 }) => {
   const [summaryRound, setSummaryRound] = useState<1 | 2>(1);
+  const [hoveredType, setHoveredType] = useState<{ sessionNo: number; type: string } | null>(null);
 
   const hasRound1 = classData.students.some(s =>
     s.assessments.some(a => a.round === 1)
@@ -114,6 +129,7 @@ export const CoreSummaryTab: React.FC<CoreSummaryTabProps> = ({
   const isMiddleSchool = classData.schoolLevel === '중등';
   const typeOrder = isMiddleSchool ? LPA_TYPES_MIDDLE : LPA_TYPES_ELEMENTARY;
   const donutOrder = isMiddleSchool ? DONUT_ORDER_MIDDLE : DONUT_ORDER_ELEMENTARY;
+  const typeDescriptions = isMiddleSchool ? LPA_TYPE_DESCRIPTIONS_MIDDLE : LPA_TYPE_DESCRIPTIONS_ELEMENTARY;
 
   // 1차/2차별 유형 분포 계산
   const getDistributionByRound = (round: 1 | 2) => {
@@ -137,11 +153,11 @@ export const CoreSummaryTab: React.FC<CoreSummaryTabProps> = ({
   const total1 = dist1 ? Object.values(dist1).reduce((sum, n) => sum + n, 0) : 0;
   const total2 = dist2 ? Object.values(dist2).reduce((sum, n) => sum + n, 0) : 0;
 
-  // 중분류별 평균 T점수 계산
-  const getCategoryScores = (round: 1 | 2) => {
+  // 중분류별 평균 T점수 계산 (useMemo로 메모이제이션하여 불필요한 재계산 방지)
+  const categoryScores = useMemo(() => {
     const scores: Record<string, number> = {};
     const assessedStudents = classData.students.filter(s =>
-      s.assessments.some(a => a.round === round)
+      s.assessments.some(a => a.round === summaryRound)
     );
 
     if (testId === 'selfreg') {
@@ -152,7 +168,7 @@ export const CoreSummaryTab: React.FC<CoreSummaryTabProps> = ({
         let count = 0;
 
         assessedStudents.forEach(student => {
-          const assessment = student.assessments.find(a => a.round === round);
+          const assessment = student.assessments.find(a => a.round === summaryRound);
           if (assessment) {
             const selfregScores = convertToSelfregScores(assessment.tScores);
             const catScores = indices.map(i => selfregScores[i]);
@@ -166,18 +182,17 @@ export const CoreSummaryTab: React.FC<CoreSummaryTabProps> = ({
       });
     } else {
       // 학습종합검사: 11개 중분류
-      const profile = round === 1 ? profile1 : profile2;
+      const profile = summaryRound === 1 ? profile1 : profile2;
       CATEGORY_ORDER.forEach(cat => {
         const item = profile?.strengths.find(s => s.category === cat.name)
           || profile?.weaknesses.find(w => w.category === cat.name);
-        scores[cat.id] = item?.avgT || 50 + Math.floor(Math.random() * 20 - 10);
+        // Math.random() 제거 - 데이터가 없으면 기본값 50 사용
+        scores[cat.id] = item?.avgT || 50;
       });
     }
 
     return scores;
-  };
-
-  const categoryScores = getCategoryScores(summaryRound);
+  }, [classData.students, summaryRound, testId, profile1, profile2]);
 
   // 현재 테스트 유형에 맞는 카테고리 순서
   const currentCategoryOrder = testId === 'selfreg' ? SELFREG_CATEGORY_ORDER : CATEGORY_ORDER;
@@ -215,10 +230,11 @@ export const CoreSummaryTab: React.FC<CoreSummaryTabProps> = ({
       <div className="flex flex-col items-center">
         <div className="text-sm font-bold text-gray-700 mb-3">{sessionNo}차 검사</div>
         <div className="flex items-center gap-6">
-          <div className="relative">
+          <div className="relative" style={{ width: size, height: size }}>
             <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
               {segs.map(s => {
                 if (s.n === 0) return null;
+                const isHovered = hoveredType?.sessionNo === sessionNo && hoveredType?.type === s.type;
                 return (
                   <circle
                     key={s.type}
@@ -230,17 +246,34 @@ export const CoreSummaryTab: React.FC<CoreSummaryTabProps> = ({
                     strokeWidth={stroke}
                     strokeDasharray={`${s.dash} ${circ - s.dash}`}
                     strokeDashoffset={-s.offset}
-                    style={{ cursor: 'pointer', transition: 'stroke-width 0.15s' }}
+                    style={{ cursor: 'pointer', transition: 'opacity 0.15s', opacity: isHovered ? 1 : 0.85 }}
+                    onMouseEnter={() => setHoveredType({ sessionNo, type: s.type })}
+                    onMouseLeave={() => setHoveredType(null)}
                   />
                 );
               })}
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center">
                 <p className="text-2xl font-extrabold text-gray-900">{total}</p>
                 <p className="text-xs text-gray-500">명</p>
               </div>
             </div>
+            {/* 호버 툴팁 */}
+            {hoveredType?.sessionNo === sessionNo && segs.map(s => {
+              if (s.n === 0 || hoveredType.type !== s.type) return null;
+              const pct = Math.round(s.frac * 100);
+              return (
+                <div
+                  key={s.type}
+                  className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-40 pointer-events-none"
+                >
+                  <p className="font-bold text-yellow-400 mb-1">{s.type}</p>
+                  <p className="text-gray-100 mb-2">{s.n}명 ({pct}%)</p>
+                  <p className="leading-relaxed text-gray-300">{typeDescriptions[s.type]}</p>
+                </div>
+              );
+            })}
           </div>
 
           {/* 범례 */}
@@ -248,10 +281,14 @@ export const CoreSummaryTab: React.FC<CoreSummaryTabProps> = ({
             {donutOrder.map(type => {
               const n = dist[type] || 0;
               const pct = total > 0 ? Math.round((n / total) * 100) : 0;
+              // 2차 검사는 오른쪽에 위치하므로 툴팁을 왼쪽에 표시
+              const tooltipPosition = sessionNo === 2
+                ? 'right-full mr-2'
+                : 'left-full ml-2';
               return (
-                <button
+                <div
                   key={type}
-                  className="flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-50 transition-colors"
+                  className="relative group flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-50 transition-colors cursor-help"
                 >
                   <span
                     className="w-2.5 h-2.5 rounded-full"
@@ -261,7 +298,12 @@ export const CoreSummaryTab: React.FC<CoreSummaryTabProps> = ({
                   <span className="ml-auto text-sm font-medium tabular-nums">
                     {n}명 · {pct}%
                   </span>
-                </button>
+                  {/* 유형별 툴팁 */}
+                  <div className={`absolute ${tooltipPosition} top-0 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 shadow-lg`}>
+                    <p className="font-bold text-yellow-400 mb-1">{type}</p>
+                    <p className="leading-relaxed text-gray-300">{typeDescriptions[type]}</p>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -280,11 +322,11 @@ export const CoreSummaryTab: React.FC<CoreSummaryTabProps> = ({
               <h3 className="text-base font-bold text-gray-900">검사별 유형 분포</h3>
               <div className="relative group">
                 <Info className="w-4 h-4 text-gray-400 cursor-help" />
-                <div className="absolute left-0 bottom-full mb-2 w-80 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-lg">
-                  <p className="font-bold text-sm mb-2">LPA 유형이란?</p>
-                  <ul className="space-y-1.5 list-none">
+                <div className="absolute left-0 bottom-full mb-2 w-96 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-lg">
+                  <p className="font-bold text-yellow-400 mb-2">학생유형 분포 비교</p>
+                  <ul className="space-y-1.5 text-gray-300">
                     {LPA_TOOLTIP_LINES.map((line, idx) => (
-                      <li key={idx} className="leading-relaxed">• {line}</li>
+                      <li key={idx} className="leading-relaxed">{line}</li>
                     ))}
                   </ul>
                 </div>
