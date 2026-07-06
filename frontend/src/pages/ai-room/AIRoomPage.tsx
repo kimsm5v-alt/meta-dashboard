@@ -80,10 +80,11 @@ export const AIRoomPage = () => {
       return;
     }
 
-    // 캐시가 없는 대화(새로고침 후 등)는 모드만 복원 — 이후 전송 시
-    // 시그니처 불일치로 현재 선택 기준 컨텍스트가 재빌드·재전송된다.
+    // 캐시가 없는 대화(새로고침 후 등)는 모드만 알 수 있으므로
+    // class/students를 초기화한 채 복원한다. 같은 mode끼리 전환 시
+    // 이전 대화의 반/학생이 잔존하면 엉뚱한 컨텍스트로 전송되는 버그 방지.
     const convMode = getConversationMode(convId);
-    if (convMode) contextMode.setMode(convMode);
+    if (convMode) contextMode.restoreSelections(convMode, null, []);
   };
 
   return (
