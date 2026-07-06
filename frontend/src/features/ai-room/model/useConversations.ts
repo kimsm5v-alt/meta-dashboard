@@ -122,6 +122,12 @@ interface UseConversationsReturn {
   handleSend: () => Promise<void>;
   handleQuickPrompt: (prompt: string) => void;
   getConversationMode: (convId: string) => ContextMode | undefined;
+  /** 같은 세션에서 대화했던 컨텍스트 선택(모드/반/학생) 조회 — 대화 전환 시 복원용 */
+  getConversationSelection: (convId: string) => {
+    mode: ContextMode;
+    selectedClass: Class | null;
+    selectedStudents: Student[];
+  } | undefined;
 }
 
 // ============================================================================
@@ -150,11 +156,23 @@ export const useConversations = ({
   /**
    * 세션별 RAG 컨텍스트 캐시
    * - 첫 메시지에서 빌드(API 호출), 이후 메시지는 재사용
+   * - signature: 캐시 생성 시점의 컨텍스트 선택(모드/반/학생). 전송 시점의 선택과
+   *   다르면 캐시 미스로 취급해 재빌드·재전송한다 (대화 중 선택 변경 시 낡은
+   *   컨텍스트로 답변하는 버그 방지)
+   * - selection: 대화 전환 시 해당 대화의 선택 상태를 복원하는 데 사용
    * - 대화 삭제 시 해당 세션 캐시도 제거
    */
-  const contextCacheRef = useRef<Map<string, NonNullable<AssistantResponse['builtContext']>>>(
-    new Map(),
-  );
+  interface CachedConversationContext {
+    ragContext: string;
+    aliasMap: StudentAliasMap;
+    signature: string;
+    selection: {
+      mode: ContextMode;
+      selectedClass: Class | null;
+      selectedStudents: Student[];
+    };
+  }
+  const contextCacheRef = useRef<Map<string, CachedConversationContext>>(new Map());
 
   // ---------------------------------------------------------------------------
   // Computed
@@ -313,6 +331,10 @@ export const useConversations = ({
     return conversations.find((c) => c.id === convId)?.mode;
   };
 
+  const getConversationSelection = (convId: string) => {
+    return contextCacheRef.current.get(convId)?.selection;
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -331,6 +353,25 @@ export const useConversations = ({
 
     const convId = activeConversationId;
     const isTempConv = convId.startsWith('temp-');
+
+    // 현재 컨텍스트 선택의 시그니처 — 캐시 유효성 판정 기준
+    const selectionSignature = [
+      mode,
+      selectedClass?.id ?? '',
+      selectedStudents
+        .map((s) => s.id)
+        .sort()
+        .join(','),
+    ].join('|');
+
+    // 캐시 저장 헬퍼 — 컨텍스트와 함께 당시 선택 상태를 기록
+    const cacheContext = (id: string, built: NonNullable<AssistantResponse['builtContext']>) => {
+      contextCacheRef.current.set(id, {
+        ...built,
+        signature: selectionSignature,
+        selection: { mode, selectedClass, selectedStudents },
+      });
+    };
 
     try {
       // 임시 대화: 에이전트 호출 전에 서버 대화방을 먼저 생성해 세션 ID를 고정
@@ -383,8 +424,13 @@ export const useConversations = ({
           .catch((err) => console.warn('사용자 메시지 저장 실패:', err));
       }
 
-      // 세션 캐시 조회 — 있으면 API 재호출 없이 재사용
-      const cachedContext = contextCacheRef.current.get(convId) ?? null;
+      // 세션 캐시 조회 — 시그니처(현재 선택)가 일치할 때만 재사용.
+      // 대화 중 선택이 바뀌었으면 캐시 미스로 취급 → 재빌드 후 context_data 재전송
+      const cached = contextCacheRef.current.get(convId);
+      const cachedContext =
+        cached && cached.signature === selectionSignature
+          ? { ragContext: cached.ragContext, aliasMap: cached.aliasMap }
+          : null;
 
       let tempAiMsgId = '';
       let finalAccumulated = '';
@@ -455,7 +501,7 @@ export const useConversations = ({
 
         // 컨텍스트 캐시 (서버 ID로 저장)
         if (result.builtContext) {
-          contextCacheRef.current.set(finalConvId, result.builtContext);
+          cacheContext(finalConvId, result.builtContext);
         }
 
         // 사용자 메시지 저장
@@ -502,9 +548,9 @@ export const useConversations = ({
             .catch((err) => console.warn('AI 응답 저장 실패:', err));
         }
       } else if (!isTempConv) {
-        // 기존 대화: 컨텍스트 캐시 저장
+        // 기존 대화: 컨텍스트 캐시 저장 (선택 변경으로 재빌드된 경우 새 시그니처로 갱신)
         if (result.builtContext) {
-          contextCacheRef.current.set(convId, result.builtContext);
+          cacheContext(convId, result.builtContext);
         }
       }
 
@@ -555,5 +601,6 @@ export const useConversations = ({
     handleSend,
     handleQuickPrompt,
     getConversationMode,
+    getConversationSelection,
   };
 };
