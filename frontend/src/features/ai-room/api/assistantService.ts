@@ -37,6 +37,12 @@ export interface AssistantRequest {
    * useConversations에서 세션당 한 번만 빌드하여 캐싱합니다.
    */
   cachedContext?: { ragContext: string; aliasMap: StudentAliasMap } | null;
+  /**
+   * 사전 빌드된 RAG 컨텍스트 (첫 턴용) — cachedContext처럼 빌드는 건너뛰지만,
+   * 아직 에이전트에 전송된 적이 없으므로 context_data는 함께 전송합니다.
+   * (대화방 생성 시 contextData 저장을 위해 먼저 빌드한 결과를 재사용하는 용도)
+   */
+  prebuiltContext?: { ragContext: string; aliasMap: StudentAliasMap } | null;
   userId?: string;
 }
 
@@ -95,19 +101,22 @@ export const callAssistant = async (request: AssistantRequest): Promise<Assistan
     selectedStudents,
     userMessage,
     cachedContext,
+    prebuiltContext,
     userId,
   } = request;
 
   try {
-    // 1. RAG 컨텍스트 — 캐시가 있으면 재사용, 없으면 빌드 (API 호출 발생)
-    const { context: ragContext, aliasMap } = cachedContext
-      ? { context: cachedContext.ragContext, aliasMap: cachedContext.aliasMap }
+    // 1. RAG 컨텍스트 — 캐시/사전 빌드가 있으면 재사용, 없으면 빌드 (API 호출 발생)
+    const knownContext = cachedContext ?? prebuiltContext;
+    const { context: ragContext, aliasMap } = knownContext
+      ? { context: knownContext.ragContext, aliasMap: knownContext.aliasMap }
       : await buildRAGContext({ mode, classes, selectedClass, selectedStudents });
 
     // 2. 사용자 메시지 별칭 처리
     const maskedUserMessage = applyAliases(userMessage, aliasMap);
 
     // 3. context_data — 첫 메시지(캐시 없음)일 때만 context + profile 포함, 이후엔 null
+    //    (prebuiltContext는 아직 에이전트에 전송된 적이 없으므로 전송을 억제하지 않음)
     const profile = buildStudentProfile(mode, selectedStudents, classes);
     const contextData: Record<string, unknown> | null = cachedContext
       ? null
@@ -153,19 +162,22 @@ export const callAssistantStream = async (
     selectedStudents,
     userMessage,
     cachedContext,
+    prebuiltContext,
     userId,
   } = request;
 
   try {
-    // 1. RAG 컨텍스트 — 캐시가 있으면 재사용, 없으면 빌드 (API 호출 발생)
-    const { context: ragContext, aliasMap } = cachedContext
-      ? { context: cachedContext.ragContext, aliasMap: cachedContext.aliasMap }
+    // 1. RAG 컨텍스트 — 캐시/사전 빌드가 있으면 재사용, 없으면 빌드 (API 호출 발생)
+    const knownContext = cachedContext ?? prebuiltContext;
+    const { context: ragContext, aliasMap } = knownContext
+      ? { context: knownContext.ragContext, aliasMap: knownContext.aliasMap }
       : await buildRAGContext({ mode, classes, selectedClass, selectedStudents });
 
     // 2. 사용자 메시지 별칭 처리
     const maskedUserMessage = applyAliases(userMessage, aliasMap);
 
     // 3. context_data — 첫 메시지(캐시 없음)일 때만 context + profile 포함, 이후엔 null
+    //    (prebuiltContext는 아직 에이전트에 전송된 적이 없으므로 전송을 억제하지 않음)
     const profile = buildStudentProfile(mode, selectedStudents, classes);
     const contextData: Record<string, unknown> | null = cachedContext
       ? null

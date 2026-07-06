@@ -8,6 +8,7 @@ import type {
 } from '@features/ai-room/types';
 import type { AssistantResponse } from '@features/ai-room/api/assistantService';
 import { callAssistantStream } from '@features/ai-room/api/assistantService';
+import { buildRAGContext } from '@features/ai-room/api/contextBuilder';
 import { agentResetSession } from '@features/ai-room/api/agentApiService';
 import { useAuth } from '@features/auth';
 import {
@@ -332,6 +333,33 @@ export const useConversations = ({
     const isTempConv = convId.startsWith('temp-');
 
     try {
+      // 임시 대화: 에이전트 호출 전에 서버 대화방을 먼저 생성해 세션 ID를 고정
+      // (temp ID로 첫 턴을 보내면 에이전트가 이력·컨텍스트를 temp 키로 저장해
+      //  서버 ID로 바뀌는 두 번째 턴부터 찾지 못함)
+      let serverConvId: string | null = null;
+      let prebuiltContext: NonNullable<AssistantResponse['builtContext']> | null = null;
+      if (isTempConv) {
+        const convTitle = currentInput.slice(0, 20) + (currentInput.length > 20 ? '...' : '');
+        try {
+          // 대화방 생성 시 contextData를 함께 저장하기 위해 RAG 컨텍스트를 먼저 빌드
+          // (빌드 결과는 아래 에이전트 호출에 재사용 — 중복 빌드 방지)
+          const built = await buildRAGContext({ mode, classes, selectedClass, selectedStudents });
+          prebuiltContext = { ragContext: built.context, aliasMap: built.aliasMap };
+
+          const created = await createConversationApi(
+            mode,
+            getContextLabel(),
+            convTitle,
+            [],
+            prebuiltContext,
+          );
+          serverConvId = created.conversation.id.toString();
+          console.log('대화 생성 완료 (contextData 포함, 세션 ID 고정):', serverConvId);
+        } catch (err) {
+          console.error('대화 생성 실패, 임시 세션으로 진행:', err);
+        }
+      }
+
       // ✅ 사용자 메시지 저장 → 서버 messageId 반영 (실제 대화방만)
       if (!isTempConv) {
         addMessageApi(parseInt(convId, 10), 'user', currentInput)
@@ -363,7 +391,7 @@ export const useConversations = ({
 
       const result = await callAssistantStream(
         {
-          sessionId: convId,
+          sessionId: serverConvId ?? convId,
           mode,
           classes,
           selectedClass,
@@ -371,6 +399,7 @@ export const useConversations = ({
           messages: messages.filter((m) => m.id !== '1'),
           userMessage: currentInput,
           cachedContext,
+          prebuiltContext,
           userId: user?.email,
         },
         (accumulated, isFinal) => {
@@ -413,79 +442,66 @@ export const useConversations = ({
         },
       );
 
-      // 임시 대화: 첫 메시지 완료 후 서버에 대화방 생성 (contextData 포함)
-      if (isTempConv) {
-        const convTitle = currentInput.slice(0, 20) + (currentInput.length > 20 ? '...' : '');
-        try {
-          const created = await createConversationApi(
-            mode,
-            getContextLabel(),
-            convTitle,
-            [],
-            result.builtContext ?? undefined,
-          );
-          const serverConvId = created.conversation.id.toString();
+      // 임시 대화: 스트림 완료 후 임시 ID → 서버 ID 교체 및 메시지 저장
+      // (대화방은 에이전트 호출 전에 이미 생성됨 — 세션 ID 고정 목적)
+      if (isTempConv && serverConvId) {
+        const finalConvId = serverConvId;
 
-          // 임시 ID → 서버 ID 교체
-          setConversations((prev) =>
-            prev.map((c) => (c.id === convId ? { ...c, id: serverConvId } : c)),
-          );
-          setActiveConversationId(serverConvId);
+        // 임시 ID → 서버 ID 교체
+        setConversations((prev) =>
+          prev.map((c) => (c.id === convId ? { ...c, id: finalConvId } : c)),
+        );
+        setActiveConversationId(finalConvId);
 
-          // 컨텍스트 캐시 (서버 ID로 저장)
-          if (result.builtContext) {
-            contextCacheRef.current.set(serverConvId, result.builtContext);
-          }
+        // 컨텍스트 캐시 (서버 ID로 저장)
+        if (result.builtContext) {
+          contextCacheRef.current.set(finalConvId, result.builtContext);
+        }
 
-          // 사용자 메시지 저장
-          addMessageApi(parseInt(serverConvId, 10), 'user', currentInput)
+        // 사용자 메시지 저장
+        addMessageApi(parseInt(finalConvId, 10), 'user', currentInput)
+          .then((res) => {
+            const msgServerId = res.messages?.[res.messages.length - 1]?.id?.toString();
+            if (msgServerId) {
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c.id !== finalConvId
+                    ? c
+                    : {
+                        ...c,
+                        messages: c.messages.map((m) =>
+                          m.id === tempUserMsgId ? { ...m, id: msgServerId } : m,
+                        ),
+                      },
+                ),
+              );
+            }
+          })
+          .catch((err) => console.warn('사용자 메시지 저장 실패:', err));
+
+        // AI 메시지 저장
+        if (finalAccumulated) {
+          addMessageApi(parseInt(finalConvId, 10), 'assistant', finalAccumulated)
             .then((res) => {
               const msgServerId = res.messages?.[res.messages.length - 1]?.id?.toString();
-              if (msgServerId) {
+              if (msgServerId && tempAiMsgId) {
                 setConversations((prev) =>
                   prev.map((c) =>
-                    c.id !== serverConvId
+                    c.id !== finalConvId
                       ? c
                       : {
                           ...c,
                           messages: c.messages.map((m) =>
-                            m.id === tempUserMsgId ? { ...m, id: msgServerId } : m,
+                            m.id === tempAiMsgId ? { ...m, id: msgServerId } : m,
                           ),
                         },
                   ),
                 );
               }
             })
-            .catch((err) => console.warn('사용자 메시지 저장 실패:', err));
-
-          // AI 메시지 저장
-          if (finalAccumulated) {
-            addMessageApi(parseInt(serverConvId, 10), 'assistant', finalAccumulated)
-              .then((res) => {
-                const msgServerId = res.messages?.[res.messages.length - 1]?.id?.toString();
-                if (msgServerId && tempAiMsgId) {
-                  setConversations((prev) =>
-                    prev.map((c) =>
-                      c.id !== serverConvId
-                        ? c
-                        : {
-                            ...c,
-                            messages: c.messages.map((m) =>
-                              m.id === tempAiMsgId ? { ...m, id: msgServerId } : m,
-                            ),
-                          },
-                    ),
-                  );
-                }
-              })
-              .catch((err) => console.warn('AI 응답 저장 실패:', err));
-          }
-
-          console.log('✅ 대화 생성 완료 (contextData 포함):', serverConvId);
-        } catch (err) {
-          console.error('❌ 대화 생성 실패:', err);
+            .catch((err) => console.warn('AI 응답 저장 실패:', err));
         }
-      } else {
+      } else if (!isTempConv) {
         // 기존 대화: 컨텍스트 캐시 저장
         if (result.builtContext) {
           contextCacheRef.current.set(convId, result.builtContext);
