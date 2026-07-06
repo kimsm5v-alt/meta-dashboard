@@ -19,7 +19,7 @@ import { calculate4StepDiagnosis } from '@/shared/utils/calculate4StepDiagnosis'
 import { unifiedCounselingService } from '@/shared/services/unifiedCounselingService';
 import { memoService } from '@/shared/services/memoService';
 import { schoolRecordService } from '@/shared/services/schoolRecordService';
-import { computeClassProfile } from '@/features/class-dashboard/hooks/useClassProfile';
+import { computeClassProfile } from '@/features/class-dashboard-v2/hooks/useClassProfile';
 
 // ============================================================
 // 타입 정의

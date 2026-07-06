@@ -31,7 +31,7 @@ import { SchedulePage } from '../features/schedule';
 import { ExamPage } from '../features/exam';
 
 // 신규 Feature imports
-import { GroupListPage, GroupDetailPage, JoinGroupPage } from '../features/groups';
+import { JoinGroupPage } from '../features/groups';
 import { CounselingDashboardPage } from '../features/counseling-dashboard';
 import { ResourceListPage, ResourceDetailPage } from '../features/resources';
 import { CommunityListPage, CommunityDetailPage, CommunityWritePage } from '../features/community';
