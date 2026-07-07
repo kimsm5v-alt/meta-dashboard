@@ -9,6 +9,7 @@ import {
   getLpaTypeDescriptions,
 } from '@shared/data/lpaTooltipContent';
 import type { Class } from '@shared/types';
+import { getRoundTypeDistribution } from './lpaDistribution';
 
 // ============================================================
 // LPA 유형 순서
@@ -281,7 +282,9 @@ const SegmentTooltip = styled.div`
   opacity: 0;
   visibility: hidden;
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
-  transition: opacity 0.15s, visibility 0.15s;
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
 
   ${TypeSegment}:hover & {
     opacity: 1;
@@ -332,14 +335,18 @@ const LPAComparisonRow = ({
   typeDescriptions,
   onGoToClass,
 }: LPAComparisonRowProps) => {
-  const typeDistribution = cls.stats?.typeDistribution;
   const round1Completed = cls.stats?.round1Completed;
   const round2Completed = cls.stats?.round2Completed;
+  const roundTypeDistributions = {
+    1: getRoundTypeDistribution(cls.students, 1),
+    2: getRoundTypeDistribution(cls.students, 2),
+  };
 
   const renderBar = (sessionNo: 1 | 2) => {
     const isCompleted = sessionNo === 1 ? round1Completed : round2Completed;
+    const typeDistribution = roundTypeDistributions[sessionNo];
 
-    if (!isCompleted || !typeDistribution) {
+    if (!isCompleted) {
       return <EmptyBar>{sessionNo}차 검사 미실시</EmptyBar>;
     }
 

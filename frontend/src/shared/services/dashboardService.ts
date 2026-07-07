@@ -14,6 +14,7 @@ import { apiRequest } from './apiClient';
 import type { Assessment, Class, SchoolLevel, Student, StudentType } from '@shared/types';
 import { classifyStudent, getTypeDeviations } from '@shared/utils/lpaClassifier';
 import { checkAttention } from '@shared/utils/attentionChecker';
+import { createSubmittedStudentIdSet, hasSubmittedRound } from './roundSubmissions';
 
 // ============================================================
 // API 응답 타입
@@ -789,6 +790,14 @@ export async function buildClassFromAPI(
       return null;
     }
 
+    const round2StudentInfoList = round2DgnssId
+      ? round2DgnssId === dgnssId
+        ? studentInfoList
+        : await fetchStudentInfoList(round2DgnssId, '1', 1)
+      : [];
+    const round2SubmittedStudentIds = createSubmittedStudentIdSet(round2StudentInfoList);
+    const hasRound1Exam = !round2DgnssId || round2DgnssId !== dgnssId;
+
     const studentPromises = studentInfoList.map(async (info) => {
       const fullAnalysis = await fetchStudentFullAnalysis(claId, info.stdtId, '1');
       return { info, fullAnalysis };
@@ -797,21 +806,30 @@ export async function buildClassFromAPI(
     const studentResults = await Promise.all(studentPromises);
 
     const students: Student[] = studentResults
-      .filter(({ fullAnalysis }) => {
+      .filter(({ info, fullAnalysis }) => {
         const hasValidR1 =
-          fullAnalysis.round1?.tScores && Array.isArray(fullAnalysis.round1.tScores);
+          hasRound1Exam &&
+          fullAnalysis.round1?.tScores &&
+          Array.isArray(fullAnalysis.round1.tScores);
         const hasValidR2 =
-          fullAnalysis.round2?.tScores && Array.isArray(fullAnalysis.round2.tScores);
+          round2DgnssId &&
+          hasSubmittedRound(info.stdtId, round2SubmittedStudentIds) &&
+          fullAnalysis.round2?.tScores &&
+          Array.isArray(fullAnalysis.round2.tScores);
         return hasValidR1 || hasValidR2;
       })
       .map(({ info, fullAnalysis }) => {
         const assessments: Assessment[] = [];
 
-        if (fullAnalysis.round1?.tScores) {
+        if (hasRound1Exam && fullAnalysis.round1?.tScores) {
           assessments.push(convertToAssessment(info.stdtId, 1, fullAnalysis.round1, schoolLevel));
         }
 
-        if (fullAnalysis.round2?.tScores) {
+        if (
+          round2DgnssId &&
+          hasSubmittedRound(info.stdtId, round2SubmittedStudentIds) &&
+          fullAnalysis.round2?.tScores
+        ) {
           assessments.push(convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel));
         }
 
@@ -849,6 +867,12 @@ export async function buildClassFromAPI(
     const needAttentionCount = students.filter((s) =>
       s.assessments.some((a) => a.attentionResult.needsAttention),
     ).length;
+    const round1SubmittedCount = students.filter((s) =>
+      s.assessments.some((a) => a.round === 1),
+    ).length;
+    const round2SubmittedCount = students.filter((s) =>
+      s.assessments.some((a) => a.round === 2),
+    ).length;
 
     return {
       id: claId,
@@ -862,16 +886,13 @@ export async function buildClassFromAPI(
         assessedStudents,
         typeDistribution,
         needAttentionCount,
-        round1Completed: assessedStudents > 0,
-        round2Completed: students.some((s) => s.assessments.some((a) => a.round === 2)),
+        round1Completed: round1SubmittedCount > 0,
+        round2Completed: round2SubmittedCount > 0,
         examStatus: {
-          round1: assessedStudents > 0 ? '종료' : '시작전',
-          round2: students.some((s) => s.assessments.some((a) => a.round === 2))
-            ? '종료'
-            : '시작전',
+          round1: round1SubmittedCount > 0 ? '종료' : '시작전',
+          round2: round2SubmittedCount > 0 ? '종료' : '시작전',
         },
-        round2SubmittedCount: students.filter((s) => s.assessments.some((a) => a.round === 2))
-          .length,
+        round2SubmittedCount,
         dgnssIds: {
           round1: dgnssId,
           round2: round2DgnssId,
