@@ -7,8 +7,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Lightbulb,
-  Mic,
   Edit2,
   Trash2,
 } from 'lucide-react';
@@ -429,56 +427,6 @@ const EmptyState = styled.div`
 
 const EmptyText = styled.p`
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-`;
-
-// Info Box
-const InfoBox = styled.div`
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
-  border-radius: 0.75rem;
-  padding: 1rem;
-`;
-
-const InfoContent = styled.div`
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-`;
-
-const InfoIcon = styled.span`
-  width: 1rem;
-  height: 1rem;
-  color: #3b82f6;
-  flex-shrink: 0;
-  margin-top: 0.125rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
-const InfoText = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: #1d4ed8;
-  margin-bottom: 0.5rem;
-`;
-
-const VoiceButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  background: #3b82f6;
-  color: white;
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  border-radius: 0.5rem;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-
-  &:hover {
-    background: #2563eb;
-  }
 `;
 
 interface CounselingRecordPanelProps {
@@ -910,22 +858,6 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
           </RecordList>
         )}
       </div>
-
-      {/* 음성 녹음 안내 */}
-      <InfoBox>
-        <InfoContent>
-          <InfoIcon>
-            <Lightbulb size={16} />
-          </InfoIcon>
-          <div>
-            <InfoText>음성 녹음으로 상담 기록을 작성할 수 있습니다.</InfoText>
-            <VoiceButton>
-              <Mic size={14} />
-              음성으로 기록
-            </VoiceButton>
-          </div>
-        </InfoContent>
-      </InfoBox>
 
       {/* 완료 처리 모달 */}
       {completingRecord && (
