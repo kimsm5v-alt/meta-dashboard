@@ -123,11 +123,13 @@ interface UseConversationsReturn {
   handleQuickPrompt: (prompt: string) => void;
   getConversationMode: (convId: string) => ContextMode | undefined;
   /** 같은 세션에서 대화했던 컨텍스트 선택(모드/반/학생) 조회 — 대화 전환 시 복원용 */
-  getConversationSelection: (convId: string) => {
-    mode: ContextMode;
-    selectedClass: Class | null;
-    selectedStudents: Student[];
-  } | undefined;
+  getConversationSelection: (convId: string) =>
+    | {
+        mode: ContextMode;
+        selectedClass: Class | null;
+        selectedStudents: Student[];
+      }
+    | undefined;
 }
 
 // ============================================================================
