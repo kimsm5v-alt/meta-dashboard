@@ -1,12 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { Card } from '@/shared/components';
-import type { Class, Student } from '@/shared/types';
+import type { Class } from '@/shared/types';
 import { useClassProfile } from '../../hooks/useClassProfile';
-import { SUB_CATEGORY_SCRIPTS } from '@/shared/data/subCategoryScripts';
 import { DOMAIN_COLORS } from '@/shared/data/lpaProfiles';
-import { FACTOR_DEFINITIONS, SUB_CATEGORY_FACTORS } from '@/shared/data/factors';
-import { SELFREG_FACTOR_DEFINITIONS, SELFREG_DOMAIN_COLORS } from '@/shared/data/selfregFactors';
-import { convertToSelfregScores, SELFREG_SUB_CATEGORY_INDICES } from '@/shared/utils/classComparisonUtils';
+import { FACTOR_DEFINITIONS } from '@/shared/data/factors';
+import { SELFREG_DOMAIN_COLORS } from '@/shared/data/selfregFactors';
+import { convertToSelfregScores } from '@/shared/utils/classComparisonUtils';
 import { ProfileLineChart } from '../ProfileLineChart';
 
 interface LearningDetailTabProps {
@@ -42,8 +41,7 @@ export const LearningDetailTab: React.FC<LearningDetailTabProps> = ({
   // 'detail' = 38요인(학습종합) 또는 20요인(자기조절), 'summary' = 11중분류(학습종합) 또는 6중분류(자기조절)
   const [viewMode, setViewMode] = useState<'summary' | 'detail'>('detail');
 
-  // 현재 테스트 유형에 맞는 요인 정의
-  const currentFactorDefs = testId === 'selfreg' ? SELFREG_FACTOR_DEFINITIONS : FACTOR_DEFINITIONS;
+  // 현재 테스트 유형에 맞는 요인 수
   const factorCount = testId === 'selfreg' ? 20 : 38;
   const subCategoryCount = testId === 'selfreg' ? 6 : 11;
   const [factorModal, setFactorModal] = useState<{

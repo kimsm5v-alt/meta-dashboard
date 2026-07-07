@@ -3,7 +3,13 @@ import styled from '@emotion/styled';
 import { Info, ChevronRight } from 'lucide-react';
 import { Card } from '@shared/components';
 import { TYPE_COLORS } from '@shared/data/lpaProfiles';
+import {
+  LPA_TOOLTIP_LINES,
+  LPA_TOOLTIP_TITLE,
+  getLpaTypeDescriptions,
+} from '@shared/data/lpaTooltipContent';
 import type { Class } from '@shared/types';
+import { getRoundTypeDistribution } from './lpaDistribution';
 
 // ============================================================
 // LPA 유형 순서
@@ -11,12 +17,6 @@ import type { Class } from '@shared/types';
 
 const LPA_TYPES_ELEMENTARY = ['자원소진형', '안전 균형형', '몰입자원 풍부형'];
 const LPA_TYPES_MIDDLE = ['냉소적 무기력형', '정서조절 취약형', '자기주도 몰입형'];
-
-const LPA_TOOLTIP_LINES = [
-  '학생의 학습 심리 패턴을 3가지 유형으로 나눈 것입니다.',
-  '검사 결과를 분석해 비슷한 학습 특성을 가진 학생끼리 묶어서 맞춤형 지도 방법을 제공하기 위한 분류입니다.',
-  '단, 유형은 학생을 이해하기 위한 참고이며, 같은 유형 안에서도 개인별 강점과 보완점을 함께 살펴봐 주세요.',
-];
 
 // ============================================================
 // Styled Components
@@ -71,6 +71,7 @@ const TooltipBox = styled.div<{ $visible: boolean }>`
 const TooltipTitle = styled.p`
   font-weight: 600;
   margin-bottom: 0.5rem;
+  color: #facc15;
 `;
 
 const TooltipList = styled.ul`
@@ -99,9 +100,11 @@ const Legend = styled.div`
 `;
 
 const LegendItem = styled.div`
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.375rem;
+  cursor: help;
 `;
 
 const LegendDot = styled.span<{ $color: string }>`
@@ -115,6 +118,44 @@ const LegendDot = styled.span<{ $color: string }>`
 const LegendLabel = styled.span`
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   color: ${({ theme }) => theme.colors.gray[600]};
+`;
+
+const TypeTooltip = styled.div`
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: 0.5rem;
+  width: 18rem;
+  padding: 0.75rem;
+  background: #111827;
+  color: white;
+  font-size: 0.75rem;
+  border-radius: 0.5rem;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
+
+  ${LegendItem}:hover & {
+    opacity: 1;
+    visibility: visible;
+  }
+`;
+
+const TypeTooltipName = styled.p`
+  font-weight: 700;
+  color: #facc15;
+  margin-bottom: 0.25rem;
+`;
+
+const TypeTooltipText = styled.p`
+  color: #d1d5db;
+  line-height: 1.5;
 `;
 
 const RowList = styled.div`
@@ -199,10 +240,10 @@ const TypeBarRow = styled.div`
   display: flex;
   height: 2rem;
   border-radius: 0.5rem;
-  overflow: hidden;
 `;
 
 const TypeSegment = styled.div<{ $pct: number; $color: string }>`
+  position: relative;
   width: ${({ $pct }) => $pct}%;
   background: ${({ $color }) => $color};
   display: flex;
@@ -211,6 +252,49 @@ const TypeSegment = styled.div<{ $pct: number; $color: string }>`
   font-size: 0.75rem;
   color: white;
   font-weight: 600;
+  cursor: help;
+
+  &:first-of-type {
+    border-top-left-radius: 0.5rem;
+    border-bottom-left-radius: 0.5rem;
+  }
+
+  &:last-of-type {
+    border-top-right-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+  }
+`;
+
+const SegmentTooltip = styled.div`
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: 0.5rem;
+  width: 18rem;
+  padding: 0.75rem;
+  background: #111827;
+  color: white;
+  font-size: 0.75rem;
+  border-radius: 0.5rem;
+  z-index: 40;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
+
+  ${TypeSegment}:hover & {
+    opacity: 1;
+    visibility: visible;
+  }
+`;
+
+const SegmentTooltipMeta = styled.p`
+  color: #f3f4f6;
+  margin-bottom: 0.5rem;
 `;
 
 const DetailBtn = styled.button`
@@ -241,18 +325,28 @@ const DetailBtn = styled.button`
 interface LPAComparisonRowProps {
   cls: Class;
   typeOrder: string[];
+  typeDescriptions: Record<string, string>;
   onGoToClass: (classId: string) => void;
 }
 
-const LPAComparisonRow = ({ cls, typeOrder, onGoToClass }: LPAComparisonRowProps) => {
-  const typeDistribution = cls.stats?.typeDistribution;
+const LPAComparisonRow = ({
+  cls,
+  typeOrder,
+  typeDescriptions,
+  onGoToClass,
+}: LPAComparisonRowProps) => {
   const round1Completed = cls.stats?.round1Completed;
   const round2Completed = cls.stats?.round2Completed;
+  const roundTypeDistributions = {
+    1: getRoundTypeDistribution(cls.students, 1),
+    2: getRoundTypeDistribution(cls.students, 2),
+  };
 
   const renderBar = (sessionNo: 1 | 2) => {
     const isCompleted = sessionNo === 1 ? round1Completed : round2Completed;
+    const typeDistribution = roundTypeDistributions[sessionNo];
 
-    if (!isCompleted || !typeDistribution) {
+    if (!isCompleted) {
       return <EmptyBar>{sessionNo}차 검사 미실시</EmptyBar>;
     }
 
@@ -269,13 +363,15 @@ const LPAComparisonRow = ({ cls, typeOrder, onGoToClass }: LPAComparisonRowProps
           const pct = Math.round((data.count / total) * 100);
           const color = TYPE_COLORS[type] || '#9CA3AF';
           return (
-            <TypeSegment
-              key={type}
-              $pct={pct}
-              $color={color}
-              title={`${type}: ${data.count}명 (${pct}%)`}
-            >
+            <TypeSegment key={type} $pct={pct} $color={color}>
               {pct > 12 && `${data.count}명`}
+              <SegmentTooltip>
+                <TypeTooltipName>{type}</TypeTooltipName>
+                <SegmentTooltipMeta>
+                  {data.count}명 · {pct}%
+                </SegmentTooltipMeta>
+                <TypeTooltipText>{typeDescriptions[type]}</TypeTooltipText>
+              </SegmentTooltip>
             </TypeSegment>
           );
         })}
@@ -330,6 +426,7 @@ export const LPAComparisonSection = ({ classes, onGoToClass }: LPAComparisonSect
 
   const isMiddleSchool = classes[0].schoolLevel === '중등';
   const typeOrder = isMiddleSchool ? LPA_TYPES_MIDDLE : LPA_TYPES_ELEMENTARY;
+  const typeDescriptions = getLpaTypeDescriptions(classes[0].schoolLevel);
 
   return (
     <Card>
@@ -343,10 +440,10 @@ export const LPAComparisonSection = ({ classes, onGoToClass }: LPAComparisonSect
             >
               <Info size={16} color='#9CA3AF' style={{ cursor: 'help' }} />
               <TooltipBox $visible={tooltipVisible}>
-                <TooltipTitle>LPA 유형이란?</TooltipTitle>
+                <TooltipTitle>{LPA_TOOLTIP_TITLE}</TooltipTitle>
                 <TooltipList>
                   {LPA_TOOLTIP_LINES.map((line, idx) => (
-                    <TooltipItem key={idx}>• {line}</TooltipItem>
+                    <TooltipItem key={idx}>{line}</TooltipItem>
                   ))}
                 </TooltipList>
               </TooltipBox>
@@ -362,6 +459,10 @@ export const LPAComparisonSection = ({ classes, onGoToClass }: LPAComparisonSect
             <LegendItem key={type}>
               <LegendDot $color={TYPE_COLORS[type] || '#9CA3AF'} />
               <LegendLabel>{type}</LegendLabel>
+              <TypeTooltip>
+                <TypeTooltipName>{type}</TypeTooltipName>
+                <TypeTooltipText>{typeDescriptions[type]}</TypeTooltipText>
+              </TypeTooltip>
             </LegendItem>
           ))}
         </Legend>
@@ -375,6 +476,7 @@ export const LPAComparisonSection = ({ classes, onGoToClass }: LPAComparisonSect
               key={cls.id}
               cls={cls}
               typeOrder={typeOrder}
+              typeDescriptions={typeDescriptions}
               onGoToClass={onGoToClass}
             />
           ))}

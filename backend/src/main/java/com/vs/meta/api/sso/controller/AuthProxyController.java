@@ -64,22 +64,29 @@ public class AuthProxyController {
         var dpop = request.getHeader("DPoP");
 
         try {
+            // DPoP-Nonce 응답 relay — Auth 가 요청 DPoP 를 받았다면 응답(성공 2xx)에 새 nonce 를
+            //   되돌려줄 수 있다. .bodyToMono 대신 .toEntity 로 받아 응답 헤더까지 확보한다.
             @SuppressWarnings("unchecked")
-            Map<String, Object> tokens = superPlatformAuthWebClient
+            ResponseEntity<Map> resp = superPlatformAuthWebClient
                     .post()
                     .uri("/oauth2/token")
                     .headers(h -> { if (dpop != null && !dpop.isBlank()) h.set("DPoP", dpop); })
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .bodyValue(form)
                     .retrieve()
-                    .bodyToMono(Map.class)
+                    .toEntity(Map.class)
                     .block();
 
+            relayDpopNonce(resp.getHeaders().getFirst("DPoP-Nonce"), response);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> tokens = resp.getBody();
             setRefreshTokenCookie(request, response, (String) tokens.get("refreshToken"), resolveRefreshExpiresIn(tokens));
             return ResponseEntity.ok(Map.of("success", true, "data", tokens));
         } catch (WebClientResponseException e) {
             // [게이트웨이 전환 디버깅] IdP 가 준 거부 사유(error/error_description) 그대로 로깅.
             log.warn("토큰 교환 실패: {} body={}", e.getStatusCode(), e.getResponseBodyAsString());
+            // DPoP-Nonce 챌린지(401) relay — SDK 가 이 헤더를 읽어 새 DPoP proof 로 재시도한다.
+            relayDpopNonce(e.getHeaders().getFirst("DPoP-Nonce"), response);
             return ResponseEntity.status(e.getStatusCode())
                     .body(Map.of("success", false, "message", "token exchange failed"));
         }
@@ -106,8 +113,9 @@ public class AuthProxyController {
             // OAuth2 §6 — IdP 가 RT.owner 와 client_id 매칭 + client_secret 을 검증하도록 자격을
             //   함께 전달. 다른 RP 의 RT 가 흘러들어왔을 때 IdP 가 즉시 401 로 거부 (멀티-RP
             //   쿠키 슬롯 충돌 방어 + RT 단독 탈취 차단).
+            // DPoP-Nonce 응답 relay — .bodyToMono 대신 .toEntity 로 받아 응답 헤더까지 확보한다.
             @SuppressWarnings("unchecked")
-            Map<String, Object> wrapped = superPlatformAuthWebClient
+            ResponseEntity<Map> resp = superPlatformAuthWebClient
                     .post()
                     .uri("/api/v1/auth/refresh")
                     .headers(h -> { if (dpop != null && !dpop.isBlank()) h.set("DPoP", dpop); })
@@ -118,8 +126,12 @@ public class AuthProxyController {
                             "clientSecret", spAuth.getClientSecret()
                     ))
                     .retrieve()
-                    .bodyToMono(Map.class)
+                    .toEntity(Map.class)
                     .block();
+
+            relayDpopNonce(resp.getHeaders().getFirst("DPoP-Nonce"), response);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> wrapped = resp.getBody();
 
             if (wrapped != null && wrapped.get("data") instanceof Map) {
                 @SuppressWarnings("unchecked")
@@ -133,6 +145,14 @@ public class AuthProxyController {
             return ResponseEntity.ok(wrapped);
         } catch (WebClientResponseException e) {
             int status = e.getStatusCode().value();
+            String nonce = e.getHeaders().getFirst("DPoP-Nonce");
+            if (nonce != null) {
+                // nonce 챌린지(401 + DPoP-Nonce)는 RT 무효가 아니다 — RT 쿠키를 지우면 SDK 의
+                //   1회 재시도(새 DPoP proof)가 RT 없이 나가 실패해 로그아웃된다. 쿠키는 그대로 두고 relay 만.
+                relayDpopNonce(nonce, response);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "dpop nonce required"));
+            }
             if (status == 401 || status == 403) {
                 clearRefreshTokenCookie(request, response);
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -204,6 +224,14 @@ public class AuthProxyController {
     // ─────────────────────────────────────────────────────
     // 헬퍼
     // ─────────────────────────────────────────────────────
+
+    // Auth 응답의 DPoP-Nonce 를 브라우저 응답으로 그대로 relay (RFC 9449 §8).
+    //   브라우저 JS/SDK 가 읽으려면 게이트웨이(Kong) CORS 의 expose-headers 에 DPoP-Nonce 가 있어야 한다.
+    private void relayDpopNonce(String nonce, HttpServletResponse response) {
+        if (nonce != null && !nonce.isBlank()) {
+            response.setHeader("DPoP-Nonce", nonce);
+        }
+    }
 
     private int resolveRefreshExpiresIn(Map<?, ?> data) {
         var val = data.get("refreshExpiresIn");

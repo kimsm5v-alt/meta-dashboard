@@ -4,7 +4,6 @@
  */
 
 import { ClipboardList, Play, RotateCcw, Clock, CheckCircle2, RefreshCw } from 'lucide-react';
-import { Button } from '@/shared/components';
 import type { StudentExamListItem } from '@/features/student-exam/types';
 import { getStatusLabel, getStatusColor } from '../services/guestExamService';
 

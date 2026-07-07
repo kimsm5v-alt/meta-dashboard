@@ -24,6 +24,8 @@ interface UseContextModeReturn {
   isPromptDisabled: boolean;
   /** Reset context selections (used when creating a new conversation) */
   resetSelections: () => void;
+  /** 대화 전환 시 해당 대화의 선택 상태(모드/반/학생)를 모달 없이 복원 */
+  restoreSelections: (mode: ContextMode, cls: Class | null, students: Student[]) => void;
 }
 
 // ============================================================================
@@ -105,6 +107,13 @@ export const useContextMode = (): UseContextModeReturn => {
     setSelectedStudents([]);
   };
 
+  // handleModeChange와 달리 드롭다운/모달을 열지 않고 상태만 복원한다
+  const restoreSelections = (newMode: ContextMode, cls: Class | null, students: Student[]) => {
+    setMode(newMode);
+    setSelectedClass(cls);
+    setSelectedStudents(students);
+  };
+
   return {
     mode,
     setMode,
@@ -122,5 +131,6 @@ export const useContextMode = (): UseContextModeReturn => {
     getContextLabel,
     isPromptDisabled,
     resetSelections,
+    restoreSelections,
   };
 };

@@ -12,8 +12,8 @@
  */
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { FACTOR_DEFINITIONS, SUB_CATEGORY_FACTORS, DOMAIN_GROUPS } from '@/shared/data/factors';
-import { SELFREG_FACTOR_DEFINITIONS, SELFREG_DOMAIN_STRUCTURE, SELFREG_DOMAIN_COLORS, SELFREG_DOMAIN_SOFT_COLORS } from '@/shared/data/selfregFactors';
+import { FACTOR_DEFINITIONS, DOMAIN_GROUPS } from '@/shared/data/factors';
+import { SELFREG_DOMAIN_STRUCTURE, SELFREG_DOMAIN_COLORS, SELFREG_DOMAIN_SOFT_COLORS } from '@/shared/data/selfregFactors';
 
 type TestId = 'comprehensive' | 'selfreg';
 
@@ -92,7 +92,6 @@ export const ProfileLineChart: React.FC<ProfileLineChartProps> = ({
 
   // 현재 테스트 유형에 맞는 메타 정보
   const currentAreaMeta = testId === 'selfreg' ? SELFREG_AREA_META : AREA_META;
-  const currentAreaOrder = testId === 'selfreg' ? SELFREG_AREA_ORDER : AREA_ORDER;
 
   // 행 데이터 구성 (대분류/중분류/요인 그룹핑)
   const items = useMemo(() => {

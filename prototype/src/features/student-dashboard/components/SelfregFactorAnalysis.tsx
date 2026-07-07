@@ -1,6 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  SELFREG_FACTOR_DEFINITIONS,
   SELFREG_DOMAIN_STRUCTURE,
   type SelfregCategory,
 } from '@/shared/data/selfregFactors';
@@ -38,7 +37,7 @@ const generateSelfregScores = (comprehensiveTScores: number[]): number[] => {
     14,          // 시험준비 <- 시험준비(14)
   ];
 
-  return mapping.map((source, idx) => {
+  return mapping.map((source) => {
     if (typeof source === 'number') {
       const val = comprehensiveTScores[source] ?? 50;
       // 부적 요인(25, 26, 35, 36)은 역산 (100 - score)
