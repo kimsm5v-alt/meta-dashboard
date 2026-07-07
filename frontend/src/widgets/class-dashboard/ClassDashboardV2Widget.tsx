@@ -25,6 +25,11 @@ import {
   SELFREG_SUB_CATEGORY_FACTORS,
 } from '@shared/data/selfregFactors';
 import { TYPE_COLORS } from '@shared/data/lpaProfiles';
+import {
+  LPA_TOOLTIP_LINES,
+  LPA_TOOLTIP_TITLE,
+  getLpaTypeDescriptions,
+} from '@shared/data/lpaTooltipContent';
 import { DOMAIN_COLORS } from '@shared/data/lpaProfiles';
 import {
   downloadAllPdf,
@@ -1410,11 +1415,13 @@ const DonutLegendList = styled.div`
 `;
 
 const DonutLegendRow = styled.div`
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   color: ${({ theme }) => theme.colors.gray[700]};
+  cursor: help;
 `;
 
 const DonutDot = styled.span<{ $color: string }>`
@@ -1423,6 +1430,89 @@ const DonutDot = styled.span<{ $color: string }>`
   border-radius: 50%;
   flex-shrink: 0;
   background: ${({ $color }) => $color};
+`;
+
+const LpaInfoWrapper = styled.div`
+  position: relative;
+  display: inline-flex;
+  margin-left: 0.5rem;
+`;
+
+const LpaInfoTooltip = styled.div`
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: 0.5rem;
+  width: 24rem;
+  padding: 0.75rem;
+  background: #111827;
+  color: white;
+  font-size: 0.75rem;
+  border-radius: 0.5rem;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+  transition: opacity 0.15s, visibility 0.15s;
+
+  ${LpaInfoWrapper}:hover & {
+    opacity: 1;
+    visibility: visible;
+  }
+`;
+
+const LpaTooltipTitle = styled.p`
+  font-weight: 700;
+  color: #facc15;
+  margin-bottom: 0.5rem;
+`;
+
+const LpaTooltipList = styled.ul`
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+`;
+
+const LpaTooltipItem = styled.li`
+  color: #d1d5db;
+  line-height: 1.5;
+`;
+
+const TypeTooltip = styled.div`
+  position: absolute;
+  left: calc(100% + 0.75rem);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18rem;
+  padding: 0.75rem;
+  background: #111827;
+  color: white;
+  font-size: 0.75rem;
+  border-radius: 0.5rem;
+  z-index: 30;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+  transition: opacity 0.15s, visibility 0.15s;
+
+  ${DonutLegendRow}:hover & {
+    opacity: 1;
+    visibility: visible;
+  }
+`;
+
+const TypeTooltipName = styled.p`
+  font-weight: 700;
+  color: #facc15;
+  margin-bottom: 0.25rem;
+`;
+
+const TypeTooltipText = styled.p`
+  color: #d1d5db;
+  line-height: 1.5;
 `;
 
 const DonutCount = styled.span`
@@ -1460,6 +1550,7 @@ const CoreSummaryTab = ({
 
   const isMiddleSchool = classData.schoolLevel === '중등';
   const donutOrder = isMiddleSchool ? DONUT_ORDER_MIDDLE : DONUT_ORDER_ELEMENTARY;
+  const typeDescriptions = getLpaTypeDescriptions(classData.schoolLevel);
 
   const hasRound1 =
     testId === 'selfreg'
@@ -1595,6 +1686,10 @@ const CoreSummaryTab = ({
                 <DonutLegendRow key={type}>
                   <DonutDot $color={TYPE_COLORS[type] || '#9CA3AF'} />
                   <span>{type}</span>
+                  <TypeTooltip>
+                    <TypeTooltipName>{type}</TypeTooltipName>
+                    <TypeTooltipText>{typeDescriptions[type]}</TypeTooltipText>
+                  </TypeTooltip>
                   <DonutCount>
                     {n}명 · {pct}%
                   </DonutCount>
@@ -1613,7 +1708,20 @@ const CoreSummaryTab = ({
       {testId === 'comprehensive' && classData.schoolLevel !== '고등' && (
         <Card>
           <div style={{ marginBottom: '1rem' }}>
-            <SectionTitle>검사별 유형 분포</SectionTitle>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <SectionTitle>검사별 유형 분포</SectionTitle>
+              <LpaInfoWrapper>
+                <Info size={16} color='#9CA3AF' style={{ cursor: 'help' }} />
+                <LpaInfoTooltip>
+                  <LpaTooltipTitle>{LPA_TOOLTIP_TITLE}</LpaTooltipTitle>
+                  <LpaTooltipList>
+                    {LPA_TOOLTIP_LINES.map((line, idx) => (
+                      <LpaTooltipItem key={idx}>{line}</LpaTooltipItem>
+                    ))}
+                  </LpaTooltipList>
+                </LpaInfoTooltip>
+              </LpaInfoWrapper>
+            </div>
             <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.25rem' }}>
               1차와 2차 검사 결과를 비교하여 학생들의 유형 변화를 확인하세요.
             </p>

@@ -19,7 +19,7 @@ import {
   type GroupInfo,
   type GroupInfoLocked,
   type ExamTheme,
-  type SchoolLevel,
+  type SchoolLevelCode,
 } from './types';
 import type { ExamType } from '../types';
 
@@ -36,7 +36,7 @@ interface PreExamFlowState {
 
 /** 확장된 폼 데이터 (그룹 정보 + 학생 정보) */
 interface ExtendedFormData extends StudentBasicInfo {
-  schoolLevel: SchoolLevel;
+  schoolLevel: SchoolLevelCode;
   grade: string;
   classNumber: string;
 }
@@ -148,7 +148,7 @@ export const PreExamFlowPage: React.FC = () => {
       // 학교급 변경 시 학년 초기화 (잠금되지 않은 경우에만)
       setFormData((prev) => ({
         ...prev,
-        schoolLevel: value as SchoolLevel,
+        schoolLevel: value as SchoolLevelCode,
         grade: lockedFields.grade ? prev.grade : '', // 학년이 잠금 상태면 유지
       }));
     } else {
@@ -260,7 +260,7 @@ export const PreExamFlowPage: React.FC = () => {
   // 학년 옵션 생성 (학교급에 따라)
   const gradeOptions = useMemo(() => {
     if (!formData.schoolLevel) return [];
-    return GRADE_OPTIONS[formData.schoolLevel as Exclude<SchoolLevel, ''>] || [];
+    return GRADE_OPTIONS[formData.schoolLevel as Exclude<SchoolLevelCode, ''>] || [];
   }, [formData.schoolLevel]);
 
   return (
@@ -452,7 +452,7 @@ export const PreExamFlowPage: React.FC = () => {
                       style={getLockedFieldStyle()}
                     >
                       <span className="text-base font-medium text-gray-900">
-                        {formData.schoolLevel && SCHOOL_LEVEL_LABELS[formData.schoolLevel as Exclude<SchoolLevel, ''>]}
+                        {formData.schoolLevel && SCHOOL_LEVEL_LABELS[formData.schoolLevel as Exclude<SchoolLevelCode, ''>]}
                       </span>
                       <span
                         className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"

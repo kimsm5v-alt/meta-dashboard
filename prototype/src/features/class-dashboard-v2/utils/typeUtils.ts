@@ -1,6 +1,7 @@
 import type { Student } from '@/shared/types';
 import { getTypeDeviations } from '@/shared/utils/lpaClassifier';
 import { FACTOR_DEFINITIONS } from '@/shared/data/factors';
+import { TYPE_COLORS } from '@/shared/data/lpaProfiles';
 
 // ============================================================
 // 타입 정의
@@ -23,17 +24,8 @@ export const TYPE_ORDER_MIDDLE = ['자기주도 몰입형', '정서조절 취약
 // 기본값 (초등)
 export const TYPE_ORDER = TYPE_ORDER_ELEMENTARY;
 
-export const TYPE_COLORS: Record<string, string> = {
-  '미실시': '#E5E7EB',
-  // 초등 유형 (JSON 원본 기준)
-  '자원소진형': '#E74C3C',        // red
-  '안전 균형형': '#3498DB',       // blue
-  '몰입자원 풍부형': '#2ECC71',   // green
-  // 중등 유형 (JSON 원본 기준)
-  '냉소적 무기력형': '#E74C3C',   // red
-  '정서조절 취약형': '#F39C12',   // orange
-  '자기주도 몰입형': '#2ECC71',   // green
-};
+// TYPE_COLORS는 shared/data/lpaProfiles.ts에서 import
+export { TYPE_COLORS };
 
 export const TYPE_GRADIENTS: Record<string, { start: string; end: string }> = {
   '미실시': { start: '#E5E7EB', end: '#D1D5DB' },
