@@ -178,6 +178,8 @@ public class QchTraceAspect {
                 .method(request.getMethod())
                 .endpoint(request.getRequestURI())
                 .statusCode(statusCode)
+                .logType(logType(statusCode))
+                .isError(isError(statusCode))
                 .responseTimeMs(elapsedMs)
                 .testcoverage("Y")
                 .traceId(resolvedTraceId)
@@ -206,6 +208,24 @@ public class QchTraceAspect {
         }
         HttpServletResponse response = currentResponse();
         return response != null && response.getStatus() > 0 ? response.getStatus() : 200;
+    }
+
+    /**
+     * 에러 지표(isError) — 서버 오류(5xx)만 true.
+     *
+     * <p>4xx(401 토큰만료·로그인 실패, 409 중복 등)는 예상된 비즈니스 실패라 제외한다.
+     * QCH ingest 는 이 값을 최우선으로 채택하므로(명시 > logType==ERROR > statusCode>=400),
+     * 명시 false 를 보내야 정상 4xx 가 에러로 오적재되지 않는다. mypage/auth 와 기준 통일.
+     */
+    static boolean isError(int status) {
+        return status >= 500;
+    }
+
+    /** 로그 레벨(logType) — 5xx→ERROR, 4xx→WARN, 그 외→INFO. mypage/auth 와 기준 통일. */
+    static String logType(int status) {
+        if (status >= 500) return "ERROR";
+        if (status >= 400) return "WARN";
+        return "INFO";
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.vs.meta.common.service;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -25,6 +26,12 @@ public class QchTraceEvent {
     private final String method;
     private final String endpoint;
     private final Integer statusCode;
+    // QCH ingest 는 logType/isError 미전송 시 statusCode>=400 을 전부 에러로 폴백 분류
+    //   (IngestPersistenceService.computeIsError). 예상된 4xx(로그인 실패·토큰만료·nonce 챌린지)가
+    //   에러 지표로 오적재되지 않도록, mypage/auth 와 동일 기준으로 명시 전송한다.
+    private final String logType;
+    @JsonProperty("isError")
+    private final Boolean isError;
     private final Long responseTimeMs;
     private final String testcoverage;
     private final Boolean testAllowed;
