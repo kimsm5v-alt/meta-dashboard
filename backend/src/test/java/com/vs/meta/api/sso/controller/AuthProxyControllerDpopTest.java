@@ -206,6 +206,58 @@ class AuthProxyControllerDpopTest {
     }
 
     @Test
+    @DisplayName("token — nonce 챌린지(401 + DPoP-Nonce)는 사유를 'dpop nonce required' 로 구분해 반환한다")
+    void token_nonceChallengeReturnsDpopNonceRequiredMessage() {
+        wireMock.stubFor(post(urlEqualTo("/oauth2/token"))
+                .willReturn(aResponse().withStatus(401)
+                        .withHeader("DPoP-Nonce", "nonce-challenge-1")
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"success\":false}")));
+
+        var req = new MockHttpServletRequest();
+        req.addHeader("DPoP", DPOP_PROOF);
+        var res = new MockHttpServletResponse();
+
+        var body = java.util.Map.of(
+                "code", "auth-code-123",
+                "codeVerifier", "verifier-abc",
+                "redirectUri", "https://app.example.com/callback"
+        );
+
+        var result = controller.token(body, req, res);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(result.getBody()).isInstanceOf(java.util.Map.class);
+        assertThat(((java.util.Map<?, ?>) result.getBody()).get("message")).isEqualTo("dpop nonce required");
+    }
+
+    @Test
+    @DisplayName("token — nonce 없는 실패(진짜 교환 실패)는 기존대로 'token exchange failed' 를 반환한다")
+    void token_plainFailureReturnsGenericMessage() {
+        wireMock.stubFor(post(urlEqualTo("/oauth2/token"))
+                .willReturn(aResponse().withStatus(401)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"error\":\"invalid_grant\"}")));
+
+        var req = new MockHttpServletRequest();
+        req.addHeader("DPoP", DPOP_PROOF);
+        var res = new MockHttpServletResponse();
+
+        var body = java.util.Map.of(
+                "code", "auth-code-123",
+                "codeVerifier", "verifier-abc",
+                "redirectUri", "https://app.example.com/callback"
+        );
+
+        var result = controller.token(body, req, res);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(res.getHeader("DPoP-Nonce")).isNull();
+        assertThat(result.getBody()).isInstanceOf(java.util.Map.class);
+        assertThat(((java.util.Map<?, ?>) result.getBody()).get("message")).isEqualTo("token exchange failed");
+    }
+
+    @Test
     @DisplayName("refresh — Auth 응답의 DPoP-Nonce 헤더를 브라우저 응답으로 relay 한다 (성공)")
     void refresh_relaysDpopNonceOnSuccess() {
         wireMock.stubFor(post(urlEqualTo("/api/v1/auth/refresh"))
