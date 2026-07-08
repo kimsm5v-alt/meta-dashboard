@@ -126,7 +126,7 @@ const TypeTooltip = styled.div`
   bottom: 100%;
   transform: translateX(-50%);
   margin-bottom: 0.5rem;
-  width: 18rem;
+  width: min(18rem, calc(100vw - 2rem));
   padding: 0.75rem;
   background: #111827;
   color: white;
@@ -144,6 +144,12 @@ const TypeTooltip = styled.div`
   ${LegendItem}:hover & {
     opacity: 1;
     visibility: visible;
+  }
+
+  ${LegendItem}:last-of-type & {
+    left: auto;
+    right: 0;
+    transform: none;
   }
 `;
 
