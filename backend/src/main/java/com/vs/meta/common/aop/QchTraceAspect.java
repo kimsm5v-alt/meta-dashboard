@@ -20,7 +20,12 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.context.request.async.DeferredResult;
 import org.springframework.core.io.Resource;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.apache.catalina.connector.ClientAbortException;
+import com.vs.meta.common.exception.AuthFailedException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
@@ -192,11 +197,9 @@ public class QchTraceAspect {
 
     private int resolveStatusCode(Object result, Throwable thrown) {
         if (thrown != null) {
-            HttpServletResponse response = currentResponse();
-            if (response != null && response.getStatus() > 0) {
-                return response.getStatus();
-            }
-            return 500;
+            // response.getStatus() 는 아직 200 — GlobalExceptionHandler(@RestControllerAdvice)가
+            //   status 를 세팅하기 전에 이 aspect 의 finally 가 unwind 되므로, 예외에서 직접 도출한다.
+            return statusFromException(thrown);
         }
         // ResponseDTO<CustomBody> 의 resultCode 우선 — ApiResponseAspect 가 enrich 한 값
         if (result instanceof org.springframework.http.ResponseEntity<?> entity) {
@@ -226,6 +229,43 @@ public class QchTraceAspect {
         if (status >= 500) return "ERROR";
         if (status >= 400) return "WARN";
         return "INFO";
+    }
+
+    /**
+     * 던져진 예외에서 최종 HTTP status 를 역추정한다.
+     *
+     * <p>{@link com.vs.meta.common.config.GlobalExceptionHandler}(@RestControllerAdvice)가 status 를
+     * 세팅하는 시점은 이 aspect 의 finally 가 unwind 된 뒤라 {@code response.getStatus()} 로는 못 본다
+     * (항상 200). 따라서 예외 타입에서 직접 도출하며, GlobalExceptionHandler 의 매핑과 동일 기준으로 유지한다.
+     */
+    static int statusFromException(Throwable t) {
+        for (Throwable c = t; c != null; c = c.getCause()) {
+            // 클라이언트 끊김/정상 종료(void 핸들러) — 서버 오류가 아니므로 499(WARN·isError=false).
+            if (isBenignDisconnect(c)) return 499;
+            // Spring 표준 웹 예외(400/404/405/415/…)는 ErrorResponse 가 status 를 자체 보유 → 제네릭 처리.
+            if (c instanceof ErrorResponse er) return er.getStatusCode().value();
+            // 학심정 고유 예외 — GlobalExceptionHandler 와 동일 매핑.
+            if (c instanceof AuthFailedException) return 401;
+            if (c instanceof DataIntegrityViolationException || c instanceof IllegalStateException) return 409;
+            if (c instanceof IllegalArgumentException) return 400;
+        }
+        return 500; // catch-all(Exception) — 진짜 서버 오류
+    }
+
+    /**
+     * 클라이언트 끊김/정상 종료로 응답 body 없이 WARN/DEBUG 로만 처리되는 예외인지 판정
+     * ({@link com.vs.meta.common.config.GlobalExceptionHandler} 의 ClientAbort/IOException(disconnect)/
+     * AsyncRequestTimeout 처리와 동일 기준). 에러 지표 false positive 방지용.
+     */
+    private static boolean isBenignDisconnect(Throwable c) {
+        if (c instanceof ClientAbortException || c instanceof AsyncRequestTimeoutException) {
+            return true;
+        }
+        if (c instanceof java.io.IOException) {
+            String m = c.getMessage() == null ? "" : c.getMessage();
+            return m.contains("Connection reset") || m.contains("Broken pipe") || m.contains("aborted");
+        }
+        return false;
     }
 
     /**
