@@ -1454,7 +1454,9 @@ const LpaInfoTooltip = styled.div`
   opacity: 0;
   visibility: hidden;
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
-  transition: opacity 0.15s, visibility 0.15s;
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
 
   ${LpaInfoWrapper}:hover & {
     opacity: 1;
@@ -1496,7 +1498,9 @@ const TypeTooltip = styled.div`
   opacity: 0;
   visibility: hidden;
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
-  transition: opacity 0.15s, visibility 0.15s;
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
 
   ${DonutLegendRow}:hover & {
     opacity: 1;
@@ -1547,6 +1551,9 @@ const CoreSummaryTab = ({
   selfregRound2,
 }: CoreSummaryTabProps) => {
   const [summaryRound, setSummaryRound] = useState<1 | 2>(1);
+  const handleActivityDownload = () => {
+    alert('추천 활동 자료 페이지는 추후 구현 예정입니다.');
+  };
 
   const isMiddleSchool = classData.schoolLevel === '중등';
   const donutOrder = isMiddleSchool ? DONUT_ORDER_MIDDLE : DONUT_ORDER_ELEMENTARY;
@@ -1778,7 +1785,7 @@ const CoreSummaryTab = ({
             <ActivityCard key={act.id}>
               <ActivityTitle>{act.title}</ActivityTitle>
               <ActivityDesc>{act.description}</ActivityDesc>
-              <ActivityBtn>다운로드</ActivityBtn>
+              <ActivityBtn onClick={handleActivityDownload}>다운로드</ActivityBtn>
             </ActivityCard>
           ))}
         </ActivitiesGrid>
