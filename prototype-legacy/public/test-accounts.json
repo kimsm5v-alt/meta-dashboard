@@ -1,0 +1,37 @@
+[
+  {
+    "label": "engreal51-t (중등)",
+    "teacherId": "engreal51-t",
+    "classId": "1c4379432acc4a37ad0b608fd3a16a5c",
+    "gradeLevel": "mi",
+    "jwtToken": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJtYXRoIiwiaWF0IjoxNzcyNTkwNjIxLCJleHAiOjE3NzI2MzM4MjEsInRpbWVzdGFtcCI6IjE3NzI1OTA2MjEyMTYiLCJpZCI6ImVuZ3JlYWw1MS10Iiwic3ViamVjdCI6Im1hdGgiLCJ1c2VyU2VDZCI6IlQiLCJjbGFJZCI6IjFjNDM3OTQzMmFjYzRhMzdhZDBiNjA4ZmQzYTE2YTVjIiwiaXNQcm94eSI6Ik4ifQ.VtmWoZJZ8i_ZSCfkbJnb9Hyie5N1K6s_w8xamQAUFPTOHXfnxYYR3M33dHG4t76-"
+  },
+  {
+    "label": "engreal52-t (중등)",
+    "teacherId": "engreal52-t",
+    "classId": "79b7443d6a2e47a7bb7e8f6306f45bed",
+    "gradeLevel": "mi",
+    "jwtToken": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJtYXRoIiwiaWF0IjoxNzcyNTkwNjU0LCJleHAiOjE3NzI2MzM4NTQsInRpbWVzdGFtcCI6IjE3NzI1OTA2NTQ3MzciLCJpZCI6ImVuZ3JlYWw1Mi10Iiwic3ViamVjdCI6Im1hdGgiLCJ1c2VyU2VDZCI6IlQiLCJjbGFJZCI6Ijc5Yjc0NDNkNmEyZTQ3YTdiYjdlOGY2MzA2ZjQ1YmVkIiwiaXNQcm94eSI6Ik4ifQ.rBBNePMDv-2wp7xEHuakG3SjCYuQZj1p5ImTTvmk025IY6kKFifDXI44mPhnuLQK"
+  },
+  {
+    "label": "engreal53-t (중등)",
+    "teacherId": "engreal53-t",
+    "classId": "9ce9a5fa274949ababalfeb4d1685e65",
+    "gradeLevel": "mi",
+    "jwtToken": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJtYXRoIiwiaWF0IjoxNzcyNTkwNjgwLCJleHAiOjE3NzI2MzM4ODAsInRpbWVzdGFtcCI6IjE3NzI1OTA2ODAyMTMiLCJpZCI6ImVuZ3JlYWw1My10Iiwic3ViamVjdCI6Im1hdGgiLCJ1c2VyU2VDZCI6IlQiLCJjbGFJZCI6IjljZTlhNWZhMjc0OTQ5YWJhYmFsZmViNGQxNjg1ZTY1IiwiaXNQcm94eSI6Ik4ifQ.GVX7rNtF4oSWUjLh6RqAeTVQpQ6Hm_K9I8-0Pj0VyAvbZ-9nCNDWV80CQkSQwW8W"
+  },
+  {
+    "label": "engreal54-t (중등)",
+    "teacherId": "engreal54-t",
+    "classId": "9724b4e2af654b38b488947a59a454e2",
+    "gradeLevel": "mi",
+    "jwtToken": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJtYXRoIiwiaWF0IjoxNzcyNTkwNzA2LCJleHAiOjE3NzI2MzM5MDYsInRpbWVzdGFtcCI6IjE3NzI1OTA3MDY3NzYiLCJpZCI6ImVuZ3JlYWw1NC10Iiwic3ViamVjdCI6Im1hdGgiLCJ1c2VyU2VDZCI6IlQiLCJjbGFJZCI6Ijk3MjRiNGUyYWY2NTRiMzhiNDg4OTQ3YTU5YTQ1NGUyIiwiaXNQcm94eSI6Ik4ifQ.khe4-Jkofg7jPZaJVWVFc_R2JVWnX1mT5_DafF0-VdkZY6ika1c--PjVVZ6WBcFF"
+  },
+  {
+    "label": "engreal55-t (중등)",
+    "teacherId": "engreal55-t",
+    "classId": "dc86c4c7e7e84c07b5e106d18240e602",
+    "gradeLevel": "mi",
+    "jwtToken": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJtYXRoIiwiaWF0IjoxNzc0NDA1MDEzLCJleHAiOjE3NzQ0NDgyMTMsInRpbWVzdGFtcCI6IjE3NzQ0MDUwMTMyNTQiLCJpZCI6ImVuZ3JlYWw1NS10Iiwic3ViamVjdCI6Im1hdGgiLCJ1c2VyU2VDZCI6IlQiLCJjbGFJZCI6ImRjODZjNGM3ZTdlODRjMDdiNWUxMDZkMTgyNDBlNjAyIiwiaXNQcm94eSI6Ik4ifQ.S19gjLQUTc4kvzB423OXjvAFawX3j27etx3n944cH6KQKAcMRkbAbB9LicfVtzzx"
+  }
+]

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440, initial-scale=1">
+<title>HSJ Dashboard — 결과보기 (자기조절학습검사)</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="root"></div>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Mock data (vanilla JS, sets window.HSJ_DATA) -->
+<script src="data.js"></script>
+<script>
+window.LPA_TIP = [
+  '학생의 학습 심리 패턴을 3가지 유형으로 나눈 것입니다.',
+  '검사 결과를 분석해 비슷한 학습 특성을 가진 학생끼리 묶어서 맞춤형 지도 방법을 제공하기 위한 분류입니다.',
+  '단, 유형은 학생을 이해하기 위한 참고이며, 같은 유형 안에서도 개인별 강점과 보완점을 함께 살펴봐 주세요.',
+].map(function(s, i){ return React.createElement('p', { key: i, style: { margin: i === 0 ? '0' : '8px 0 0' } }, s); });
+</script>
+
+<!-- Tweaks panel scaffold -->
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<!-- Components -->
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" src="drawer-shell.jsx"></script>
+<script type="text/babel" src="student-drawer.jsx"></script>
+<script type="text/babel" src="charts.jsx"></script>
+<script type="text/babel" src="comp-charts.jsx"></script>
+<script type="text/babel" src="comp-overview-charts.jsx"></script>
+<script type="text/babel" src="overview-variants.jsx"></script>
+<script type="text/babel" src="proposal-modes.jsx"></script>
+<script type="text/babel" src="page-overview.jsx"></script>
+<script type="text/babel" src="page-class.jsx"></script>
+<script type="text/babel" src="page-comp-overview.jsx"></script>
+<script type="text/babel" src="page-comp-class.jsx"></script>
+<script type="text/babel" src="page-comp-student.jsx"></script>
+
+<!-- Root -->
+<script type="text/babel" src="app.jsx"></script>
+</body>
+</html>
