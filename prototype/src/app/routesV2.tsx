@@ -12,12 +12,12 @@ import { useAuth } from '../features/auth/context/AuthContext';
 // 홈 → teacher-dashboard
 import { TeacherDashboardPage as HomePage } from '../features/teacher-dashboard';
 
-// 검사 > 검사관리 → assessment
-import { AssessmentPage as ExamManagementPage } from '../features/assessment';
-// 검사 > 결과보기 → class-dashboard
-import { ClassDashboardPage as ExamResultPage } from '../features/class-dashboard';
-// 검사 > 변화추적 (신규 - 임시 placeholder)
-const ExamTrackingPage = () => <div className="p-8 text-center text-gray-500">변화추적 (개발 예정)</div>;
+// 검사 > 검사관리/결과보기/변화추적 → assessment (서브탭별로 분기)
+import { AssessmentPage as ExamPage_ } from '../features/assessment';
+// 별칭으로 각 서브탭 라우트에서 동일한 컴포넌트 사용
+const ExamManagementPage = ExamPage_;
+const ExamResultPage = ExamPage_;
+const ExamTrackingPage = ExamPage_;
 
 // 상담·코칭 > 학생 상담 → schedule
 import { SchedulePage as CounselingPage } from '../features/schedule';
