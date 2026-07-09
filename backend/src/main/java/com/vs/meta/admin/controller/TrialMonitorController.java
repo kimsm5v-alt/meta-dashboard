@@ -95,13 +95,16 @@ public class TrialMonitorController {
             labelTeacher(integrity, userNoToName);
         }
 
-        // 검사 진행 행별 제출률·이상 여부 계산 (템플릿에서 진행바/하이라이트에 사용)
+        // 검사 진행 행별 제출률·PDF 생성 수 계산.
+        // (PDF/요약PDF 는 다운로드 클릭 시 lazy 생성 → "미생성"은 정상이며 오류가 아님. 정보성으로만 표시)
         for (Map<String, Object> e : examProgress) {
             long total = num(e.get("totalCount"));
             long submitted = num(e.get("submittedCount"));
             e.put("submitRate", total > 0 ? Math.round(submitted * 100.0 / total) : 0);
-            e.put("hasAnomaly", num(e.get("pdfMissingCount")) > 0 || num(e.get("summaryMissingCount")) > 0);
+            e.put("pdfGenerated", submitted - num(e.get("pdfMissingCount")));       // 실제 생성(다운로드)된 수
+            e.put("summaryGenerated", submitted - num(e.get("summaryMissingCount")));
         }
+        // 정합성 이상 = 요인 미달 또는 LPA 누락 (PDF 미생성은 정상이라 제외)
         for (Map<String, Object> i : integrity) {
             i.put("hasAnomaly", num(i.get("factorIncompleteCount")) > 0 || num(i.get("lpaMissingCount")) > 0);
         }
@@ -111,7 +114,6 @@ public class TrialMonitorController {
         long examTotal = sumLong(examProgress, "totalCount");
         long examSubmitted = sumLong(examProgress, "submittedCount");
         long submitRatePct = examTotal > 0 ? Math.round(examSubmitted * 100.0 / examTotal) : 0;
-        long anomalyPdf = sumLong(examProgress, "pdfMissingCount") + sumLong(examProgress, "summaryMissingCount");
         long anomalyLpaMissing = sumLong(integrity, "lpaMissingCount");
         long anomalyFactor = sumLong(integrity, "factorIncompleteCount");
         long reliabilityWarn = sumLong(integrity, "reliabilityWarnCount");
@@ -130,10 +132,9 @@ public class TrialMonitorController {
         model.addAttribute("examTotal", examTotal);
         model.addAttribute("examSubmitted", examSubmitted);
         model.addAttribute("submitRatePct", submitRatePct);
-        model.addAttribute("anomalyPdf", anomalyPdf);
         model.addAttribute("anomalyLpaMissing", anomalyLpaMissing);
         model.addAttribute("anomalyFactor", anomalyFactor);
-        model.addAttribute("anomalyTotal", anomalyPdf + anomalyLpaMissing + anomalyFactor);
+        model.addAttribute("anomalyTotal", anomalyLpaMissing + anomalyFactor);
         model.addAttribute("reliabilityWarn", reliabilityWarn);
         return "admin/trial-monitor";
     }

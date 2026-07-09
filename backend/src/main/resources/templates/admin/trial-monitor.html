@@ -80,9 +80,8 @@
                 <!-- 이상 요약 알림 -->
                 <div th:if="${anomalyTotal > 0}" class="alert alert-danger">
                     <i class="fas fa-triangle-exclamation"></i> <strong>점검 필요</strong> —
-                    PDF 미생성 <b th:text="${anomalyPdf}"></b>건 ·
-                    LPA 누락 <b th:text="${anomalyLpaMissing}"></b>건 ·
-                    요인 미달 <b th:text="${anomalyFactor}"></b>건
+                    요인 미달 <b th:text="${anomalyFactor}"></b>건 ·
+                    LPA 누락 <b th:text="${anomalyLpaMissing}"></b>건
                     <span class="text-muted" th:if="${reliabilityWarn > 0}" th:text="'(신뢰도 주의 ' + ${reliabilityWarn} + '건)'"></span>
                 </div>
                 <div th:if="${anomalyTotal == 0}" class="alert alert-success">
@@ -140,16 +139,16 @@
                 <!-- ===== ③ 검사 진행 ===== -->
                 <div class="card card-primary card-outline">
                     <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">3</span> 검사 진행 현황</h3>
-                        <small class="text-muted d-block mt-1">이탈=응시 중(미제출) · PDF미생성=제출완료인데 파일 없음(빨강=점검)</small></div>
+                        <small class="text-muted d-block mt-1">이탈=응시 중(미제출) · PDF/요약은 다운로드 클릭 시 생성 → '생성/제출' 수 (미생성은 정상)</small></div>
                     <div class="card-body table-responsive p-0">
                         <table class="table table-hover mb-0">
                             <thead class="thead-light"><tr>
                                 <th>교사</th><th>그룹</th><th>종류</th><th>회차</th>
                                 <th style="min-width:160px;">제출률</th>
-                                <th class="text-right">이탈</th><th class="text-right">PDF</th><th class="text-right">요약PDF</th>
+                                <th class="text-right">이탈</th><th class="text-right">PDF 생성</th><th class="text-right">요약 생성</th>
                             </tr></thead>
                             <tbody>
-                                <tr th:each="e : ${examProgress}" th:classappend="${e.hasAnomaly} ? 'row-alert'">
+                                <tr th:each="e : ${examProgress}">
                                     <td th:text="${e.teacherName}"></td>
                                     <td th:text="${e.groupNm}"></td>
                                     <td><span class="badge" th:classappend="${#strings.toString(e.paperIdx) == '1'} ? 'badge-info' : 'badge-purple'"
@@ -164,9 +163,9 @@
                                         </div>
                                         <span class="mini-muted" th:text="${e.submittedCount} + ' / ' + ${e.totalCount} + ' 제출'"></span>
                                     </td>
-                                    <td class="text-right" th:classappend="${e.inProgressCount != null and e.inProgressCount > 0} ? 'num-danger'" th:text="${e.inProgressCount}"></td>
-                                    <td class="text-right" th:classappend="${e.pdfMissingCount != null and e.pdfMissingCount > 0} ? 'num-danger'" th:text="${e.pdfMissingCount}"></td>
-                                    <td class="text-right" th:classappend="${e.summaryMissingCount != null and e.summaryMissingCount > 0} ? 'num-danger'" th:text="${e.summaryMissingCount}"></td>
+                                    <td class="text-right" th:text="${e.inProgressCount}"></td>
+                                    <td class="text-right mini-muted" th:text="${e.pdfGenerated} + ' / ' + ${e.submittedCount}"></td>
+                                    <td class="text-right mini-muted" th:text="${e.summaryGenerated} + ' / ' + ${e.submittedCount}"></td>
                                 </tr>
                                 <tr th:if="${#lists.isEmpty(examProgress)}"><td colspan="8" class="text-muted text-center py-3">검사 없음</td></tr>
                             </tbody>
