@@ -80,9 +80,9 @@ export const useLayoutContext = () => {
 // ============================================
 
 const MOCK_CLASSES: ClassInfo[] = [
-  { id: '1', name: '2-3반', status: '응시율 85% · 상담 3' },
-  { id: '2', name: '2-4반', status: '검사 배포 가능' },
-  { id: '3', name: '2-5반', status: '검사 배포 가능' },
+  { id: 'group-1', name: '2-3반', status: '응시율 85% · 상담 3' },
+  { id: 'group-2', name: '2-4반', status: '검사 배포 가능' },
+  { id: 'group-3', name: '2-5반', status: '검사 배포 가능' },
 ];
 
 const MOCK_STUDENTS: StudentInfo[] = [
@@ -415,17 +415,17 @@ const Sidebar: React.FC = () => {
 };
 
 // ============================================
-// Sub Tabs (반 선택 시 노출)
+// Sub Tabs (서브탭이 있는 GNB에서 항상 노출)
 // ============================================
 
 const SubTabs: React.FC = () => {
   const navigate = useNavigate();
-  const { selectedClass, activeGNB, activeSubTab, setActiveSubTab, setSelectedStudent } = useLayoutContext();
+  const { activeGNB, activeSubTab, setActiveSubTab, setSelectedStudent } = useLayoutContext();
 
   const currentGNB = GNB_ITEMS.find((item) => item.id === activeGNB);
 
-  // 반이 선택되지 않았거나, 서브탭이 없으면 렌더링하지 않음
-  if (!selectedClass || !currentGNB?.subTabs) {
+  // 서브탭이 없으면 렌더링하지 않음 (반 선택 여부와 무관하게 표시)
+  if (!currentGNB?.subTabs) {
     return null;
   }
 
