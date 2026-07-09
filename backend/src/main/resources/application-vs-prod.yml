@@ -4,8 +4,10 @@ app:
     allowed-origins: https://meta-service.vsaidt.com
 
 # ===== QCH 적재 (prod) =====
+# 기본 ON — 같은 파일의 notification/sso/group-sync 운영 토글과 일관.
+# 끄려면 배포 env 에 QCH_ENABLED=false 주입.
 qch:
-  enabled: ${QCH_ENABLED:false}
+  enabled: ${QCH_ENABLED:true}
   base-url: ${QCH_BASE_URL:https://qch.vsaidt.com}
   service-key: ${QCH_SERVICE_KEY:meta-api}
   env: ${QCH_ENV:prod}
