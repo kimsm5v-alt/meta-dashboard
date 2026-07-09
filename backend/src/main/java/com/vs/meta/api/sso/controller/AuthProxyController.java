@@ -86,7 +86,14 @@ public class AuthProxyController {
             // [게이트웨이 전환 디버깅] IdP 가 준 거부 사유(error/error_description) 그대로 로깅.
             log.warn("토큰 교환 실패: {} body={}", e.getStatusCode(), e.getResponseBodyAsString());
             // DPoP-Nonce 챌린지(401) relay — SDK 가 이 헤더를 읽어 새 DPoP proof 로 재시도한다.
-            relayDpopNonce(e.getHeaders().getFirst("DPoP-Nonce"), response);
+            String nonce = e.getHeaders().getFirst("DPoP-Nonce");
+            relayDpopNonce(nonce, response);
+            if (nonce != null) {
+                // nonce 챌린지는 교환 실패가 아니라 "이 nonce 로 재시도하라"는 신호 — /refresh 와
+                //   동일하게 사유를 구분해 노출한다(응답만으로 nonce 재시도 케이스를 식별 가능하도록).
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "dpop nonce required"));
+            }
             return ResponseEntity.status(e.getStatusCode())
                     .body(Map.of("success", false, "message", "token exchange failed"));
         }
