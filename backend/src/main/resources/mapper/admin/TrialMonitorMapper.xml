@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.admin.mapper.TrialMonitorMapper">
+
+    <!-- 체험단 교사 계정(코호트). 이름 IN + TEACHER + 가입일 조건. 이름당 계정 여러 개 가능.
+         PII/이름은 SSO 스키마(superteacher_core), 가입완료 판정은 superplatform_meta.user 존재 여부. -->
+    <select id="selectTrialTeacherAccounts" resultType="map">
+        /* TrialMonitorMapper.selectTrialTeacherAccounts */
+        SELECT pu.name           AS name
+             , pu.public_user_id AS publicUserId
+             , pu.created_at      AS createdAt
+             , u.user_no          AS userNo
+             , u.status           AS userStatus
+        FROM superteacher_core.platform_user pu
+            LEFT JOIN superplatform_meta.`user` u ON u.sp_user_id = pu.public_user_id
+        WHERE pu.user_type = 'TEACHER'
+          AND pu.created_at <![CDATA[>=]]> #{signupFrom}
+          AND pu.name IN
+          <foreach item="nm" collection="names" open="(" separator="," close=")">
+              #{nm}
+          </foreach>
+        ORDER BY pu.name, pu.created_at
+    </select>
+
+    <!-- ② 교사(host_user_no)별 생성 그룹 + 학생 수 (ACTIVE 학생) -->
+    <select id="selectGroupsByHostUserNos" resultType="map">
+        /* TrialMonitorMapper.selectGroupsByHostUserNos */
+        SELECT gi.host_user_no  AS hostUserNo
+             , gi.group_id      AS groupId
+             , gi.cla_id        AS claId
+             , gi.group_nm      AS groupNm
+             , gi.school_level  AS schoolLevel
+             , gi.grade         AS grade
+             , gi.class_number  AS classNumber
+             , gi.school_name   AS schoolName
+             , gi.created_at    AS groupCreatedAt
+             , (SELECT COUNT(*) FROM group_member gm
+                 WHERE gm.group_id = gi.group_id AND gm.member_type = 'STUDENT' AND gm.status = 'ACTIVE') AS studentCount
+        FROM group_info gi
+        WHERE gi.use_yn = 'Y'
+          AND gi.host_user_no IN
+          <foreach item="uno" collection="userNos" open="(" separator="," close=")">#{uno}</foreach>
+        ORDER BY gi.host_user_no, gi.created_at
+    </select>
+
+    <!-- ③ 검사(dgnss_info)별 진행 현황: 총원/제출/이탈(응시중)/PDF 미생성 -->
+    <select id="selectExamProgressByHostUserNos" resultType="map">
+        /* TrialMonitorMapper.selectExamProgressByHostUserNos */
+        SELECT gi.host_user_no AS hostUserNo
+             , gi.group_nm     AS groupNm
+             , di.id           AS dgnssId
+             , di.cla_id       AS claId
+             , di.paper_idx    AS paperIdx
+             , di.ord_no       AS ordNo
+             , di.dgnss_at     AS dgnssAt
+             , COUNT(ri.id)                                                        AS totalCount
+             , SUM(ri.subm_at = 'Y')                                               AS submittedCount
+             , SUM(ri.eak_stts_cd = 2)                                             AS inProgressCount
+             , SUM(ri.subm_at = 'Y' AND (ri.file_url IS NULL OR ri.file_url = '')) AS pdfMissingCount
+             , SUM(ri.subm_at = 'Y' AND (ri.summary_file_url IS NULL OR ri.summary_file_url = '')) AS summaryMissingCount
+        FROM tb_dgnss_info di
+            INNER JOIN group_info gi ON di.cla_id = gi.cla_id
+            LEFT JOIN tb_dgnss_result_info ri ON ri.dgnss_id = di.id
+        WHERE gi.host_user_no IN
+          <foreach item="uno" collection="userNos" open="(" separator="," close=")">#{uno}</foreach>
+        GROUP BY di.id, gi.host_user_no, gi.group_nm, di.cla_id, di.paper_idx, di.ord_no, di.dgnss_at
+        ORDER BY gi.host_user_no, di.cla_id, di.paper_idx, di.ord_no
+    </select>
+
+    <!-- ④ 검사별 데이터 정합성: 요인 완전성(종합38/자기조절20), LPA status, 신뢰도 주의 -->
+    <select id="selectIntegrityByHostUserNos" resultType="map">
+        /* TrialMonitorMapper.selectIntegrityByHostUserNos */
+        SELECT gi.host_user_no AS hostUserNo
+             , gi.group_nm     AS groupNm
+             , di.id           AS dgnssId
+             , di.paper_idx    AS paperIdx
+             , di.ord_no       AS ordNo
+             , COUNT(DISTINCT a.ANSWER_IDX)                                                 AS submittedAnswerCount
+             , SUM(CASE WHEN COALESCE(rep.factorCnt, 0) &lt; (CASE WHEN di.paper_idx = '1' THEN 38 ELSE 20 END)
+                        THEN 1 ELSE 0 END)                                                  AS factorIncompleteCount
+             , SUM(CASE WHEN lpa.status = 'COMPLETED'   THEN 1 ELSE 0 END)                  AS lpaCompletedCount
+             , SUM(CASE WHEN lpa.status = 'UNSUPPORTED' THEN 1 ELSE 0 END)                  AS lpaUnsupportedCount
+             , SUM(CASE WHEN di.paper_idx = '1' AND lpa.answer_idx IS NULL THEN 1 ELSE 0 END) AS lpaMissingCount
+             , SUM(CASE WHEN a.COCH_DGNSS_QESITM01_MARK = '주의'
+                          OR a.COCH_DGNSS_QESITM02_MARK = '주의'
+                          OR a.REPEATED_RESPONSE_YN = 'Y' THEN 1 ELSE 0 END)                AS reliabilityWarnCount
+        FROM tb_dgnss_info di
+            INNER JOIN group_info gi ON di.cla_id = gi.cla_id
+            INNER JOIN tb_dgnss_result_info ri ON ri.dgnss_id = di.id AND ri.subm_at = 'Y'
+            INNER JOIN tb_dgnss_answer a ON a.DGNSS_RESULT_ID = ri.id
+            LEFT JOIN (SELECT ANSWER_IDX, COUNT(*) AS factorCnt
+                       FROM tb_dgnss_answer_report WHERE `DEPTH` = 5 GROUP BY ANSWER_IDX) rep ON rep.ANSWER_IDX = a.ANSWER_IDX
+            LEFT JOIN tb_dgnss_lpa_result lpa ON lpa.answer_idx = a.ANSWER_IDX
+        WHERE gi.host_user_no IN
+          <foreach item="uno" collection="userNos" open="(" separator="," close=")">#{uno}</foreach>
+        GROUP BY di.id, gi.host_user_no, gi.group_nm, di.paper_idx, di.ord_no
+        ORDER BY gi.host_user_no, di.paper_idx, di.ord_no
+    </select>
+
+    <!-- ④ LPA 유형 분포 (종합검사 paperIdx=1, COMPLETED) -->
+    <select id="selectLpaTypeDistribution" resultType="map">
+        /* TrialMonitorMapper.selectLpaTypeDistribution */
+        SELECT lpa.type_name AS typeName, COUNT(*) AS cnt
+        FROM tb_dgnss_lpa_result lpa
+            INNER JOIN tb_dgnss_answer a  ON a.ANSWER_IDX = lpa.answer_idx
+            INNER JOIN tb_dgnss_result_info ri ON ri.id = a.DGNSS_RESULT_ID
+            INNER JOIN tb_dgnss_info di   ON di.id = ri.dgnss_id AND di.paper_idx = '1'
+            INNER JOIN group_info gi      ON gi.cla_id = di.cla_id
+        WHERE lpa.status = 'COMPLETED'
+          AND gi.host_user_no IN
+          <foreach item="uno" collection="userNos" open="(" separator="," close=")">#{uno}</foreach>
+        GROUP BY lpa.type_name
+        ORDER BY cnt DESC
+    </select>
+
+</mapper>
