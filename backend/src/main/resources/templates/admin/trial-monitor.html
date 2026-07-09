@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>체험단 모니터링 - Meta Admin</title>
     <th:block th:replace="admin/fragments :: css" />
+    <style>
+        .kpi .small-box .inner h3 { font-size: 1.7rem; }
+        .kpi .small-box .inner .unit { font-size: .95rem; color:#94a3b8; font-weight:600; }
+        .row-alert > td { background: #fff5f5 !important; }
+        .sec-title { display:flex; align-items:center; gap:8px; }
+        .sec-no { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px;
+                  background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; font-size:.75rem; font-weight:700; }
+        .progress { background:#eef2f7 !important; border-radius:6px; }
+        .progress-bar { background:linear-gradient(90deg,#3b82f6,#6366f1); font-weight:600; font-size:.72rem; }
+        .progress-bar.done { background:linear-gradient(90deg,#22c55e,#10b981); }
+        .mini-muted { font-size:.72rem; color:#94a3b8; }
+        .num-danger { color:#dc2626; font-weight:700; }
+        .num-zero { color:#cbd5e1; }
+    </style>
 </head>
 <body class="hold-transition sidebar-mini">
 <div class="wrapper">
@@ -16,166 +30,202 @@
             <div class="container-fluid">
                 <h1>체험단 모니터링</h1>
                 <p class="text-muted"
-                   th:text="'교사 ' + ${totalTeachers} + '명 · 가입일 ≥ ' + ${signupFrom} + ' (이름 기준 집계, 한 교사의 여러 계정 통합)'"></p>
+                   th:text="'교사 ' + ${totalTeachers} + '명 · 가입일 ≥ ' + ${signupFrom} + ' · 이름 기준 집계(한 교사의 여러 계정 통합)'"></p>
             </div>
         </section>
 
         <section class="content">
             <div class="container-fluid">
-                <!-- 요약 -->
-                <div class="row">
-                    <div class="col-md-3 col-6">
+
+                <!-- ===== KPI 요약 ===== -->
+                <div class="row kpi">
+                    <div class="col-lg-2 col-md-4 col-6">
                         <div class="small-box bg-info">
-                            <div class="inner">
-                                <h3 th:text="${registeredTeachers} + ' / ' + ${totalTeachers}"></h3>
-                                <p>가입 완료 교사</p>
-                            </div>
+                            <div class="inner"><h3 th:text="${registeredTeachers}"></h3><p>가입 완료 <span class="unit" th:text="'/ ' + ${totalTeachers} + '명'"></span></p></div>
                             <div class="icon"><i class="fas fa-user-check"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="small-box bg-info">
+                            <div class="inner"><h3 th:text="${totalGroups}"></h3><p>생성 그룹</p></div>
+                            <div class="icon"><i class="fas fa-layer-group"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="small-box bg-success">
+                            <div class="inner"><h3 th:text="${totalStudents}"></h3><p>학생(ACTIVE)</p></div>
+                            <div class="icon"><i class="fas fa-users"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="small-box bg-success">
+                            <div class="inner"><h3 th:text="${examSubmitted}"></h3><p>제출 <span class="unit" th:text="'/ ' + ${examTotal}"></span></p></div>
+                            <div class="icon"><i class="fas fa-file-signature"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="small-box bg-warning">
+                            <div class="inner"><h3 th:text="${submitRatePct} + '%'"></h3><p>제출률</p></div>
+                            <div class="icon"><i class="fas fa-percent"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="small-box" th:classappend="${anomalyTotal > 0} ? 'bg-danger' : 'bg-success'">
+                            <div class="inner"><h3 th:text="${anomalyTotal}"></h3><p>이상 건수</p></div>
+                            <div class="icon"><i class="fas fa-triangle-exclamation"></i></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ① 가입 현황 -->
+                <!-- 이상 요약 알림 -->
+                <div th:if="${anomalyTotal > 0}" class="alert alert-danger">
+                    <i class="fas fa-triangle-exclamation"></i> <strong>점검 필요</strong> —
+                    PDF 미생성 <b th:text="${anomalyPdf}"></b>건 ·
+                    LPA 누락 <b th:text="${anomalyLpaMissing}"></b>건 ·
+                    요인 미달 <b th:text="${anomalyFactor}"></b>건
+                    <span class="text-muted" th:if="${reliabilityWarn > 0}" th:text="'(신뢰도 주의 ' + ${reliabilityWarn} + '건)'"></span>
+                </div>
+                <div th:if="${anomalyTotal == 0}" class="alert alert-success">
+                    <i class="fas fa-circle-check"></i> 데이터 정합성 이상 없음
+                    <span class="text-muted" th:if="${reliabilityWarn > 0}" th:text="'· 신뢰도 주의 ' + ${reliabilityWarn} + '건'"></span>
+                </div>
+
+                <!-- ===== ① 가입 현황 ===== -->
                 <div class="card card-primary card-outline">
-                    <div class="card-header">
-                        <h3 class="card-title">① 가입 현황</h3>
-                    </div>
+                    <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">1</span> 가입 현황</h3></div>
                     <div class="card-body table-responsive p-0">
-                        <table class="table table-hover">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>이름</th>
-                                    <th>가입 완료</th>
-                                    <th>계정 수</th>
-                                    <th>가입완료 계정</th>
-                                </tr>
-                            </thead>
+                        <table class="table table-hover mb-0">
+                            <thead class="thead-light"><tr><th>이름</th><th>가입</th><th class="text-right">계정 수</th><th class="text-right">가입완료 계정</th></tr></thead>
                             <tbody>
-                                <tr th:each="t : ${summary}">
+                                <tr th:each="t : ${summary}" th:classappend="${!t.registered} ? 'row-alert'">
                                     <td th:text="${t.name}"></td>
                                     <td>
                                         <span th:if="${t.registered}" class="badge badge-success">완료</span>
                                         <span th:unless="${t.registered}" class="badge badge-danger">미가입</span>
                                     </td>
-                                    <td th:text="${t.accountCount}"></td>
-                                    <td th:text="${t.registeredCount}"></td>
+                                    <td class="text-right" th:text="${t.accountCount}"></td>
+                                    <td class="text-right" th:text="${t.registeredCount}"></td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- ② 그룹 현황 -->
+                <!-- ===== ② 그룹 현황 ===== -->
                 <div class="card card-primary card-outline">
-                    <div class="card-header">
-                        <h3 class="card-title">② 그룹 현황 <small class="text-muted" th:text="'(' + ${#lists.size(groups)} + '개 그룹)'"></small></h3>
-                    </div>
+                    <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">2</span> 그룹 현황
+                        <small class="text-muted" th:text="'· ' + ${totalGroups} + '개'"></small></h3></div>
                     <div class="card-body table-responsive p-0">
-                        <table class="table table-hover">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>교사</th><th>그룹명</th><th>학교급</th><th>학년</th><th>반</th>
-                                    <th>학교명</th><th>학생 수</th><th>생성일</th>
-                                </tr>
-                            </thead>
+                        <table class="table table-hover mb-0">
+                            <thead class="thead-light"><tr>
+                                <th>교사</th><th>그룹명</th><th>학교급</th><th>학년/반</th><th>학교명</th>
+                                <th class="text-right">학생</th><th>생성일</th>
+                            </tr></thead>
                             <tbody>
                                 <tr th:each="g : ${groups}">
                                     <td th:text="${g.teacherName}"></td>
                                     <td th:text="${g.groupNm}"></td>
-                                    <td th:text="${g.schoolLevel}"></td>
-                                    <td th:text="${g.grade}"></td>
-                                    <td th:text="${g.classNumber}"></td>
+                                    <td><span class="badge badge-secondary" th:text="${g.schoolLevel}"></span></td>
+                                    <td th:text="${g.grade} + '학년 ' + ${g.classNumber} + '반'"></td>
                                     <td th:text="${g.schoolName}"></td>
-                                    <td th:text="${g.studentCount}"></td>
-                                    <td th:text="${g.groupCreatedAt}"></td>
+                                    <td class="text-right" th:text="${g.studentCount}"></td>
+                                    <td class="mini-muted" th:text="${g.groupCreatedAt}"></td>
                                 </tr>
-                                <tr th:if="${#lists.isEmpty(groups)}"><td colspan="8" class="text-muted text-center">그룹 없음</td></tr>
+                                <tr th:if="${#lists.isEmpty(groups)}"><td colspan="7" class="text-muted text-center py-3">그룹 없음</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- ③ 검사 진행 -->
+                <!-- ===== ③ 검사 진행 ===== -->
                 <div class="card card-primary card-outline">
-                    <div class="card-header">
-                        <h3 class="card-title">③ 검사 진행 현황</h3>
-                        <small class="text-muted d-block">검사종류: 1=종합, 2=자기조절 · 이탈=응시중(미제출) · PDF미생성=제출완료인데 파일 없음(빨강=이상)</small>
-                    </div>
+                    <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">3</span> 검사 진행 현황</h3>
+                        <small class="text-muted d-block mt-1">이탈=응시 중(미제출) · PDF미생성=제출완료인데 파일 없음(빨강=점검)</small></div>
                     <div class="card-body table-responsive p-0">
-                        <table class="table table-hover">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>교사</th><th>그룹</th><th>종류</th><th>회차</th>
-                                    <th>총원</th><th>제출</th><th>이탈</th><th>PDF미생성</th><th>요약PDF미생성</th>
-                                </tr>
-                            </thead>
+                        <table class="table table-hover mb-0">
+                            <thead class="thead-light"><tr>
+                                <th>교사</th><th>그룹</th><th>종류</th><th>회차</th>
+                                <th style="min-width:160px;">제출률</th>
+                                <th class="text-right">이탈</th><th class="text-right">PDF</th><th class="text-right">요약PDF</th>
+                            </tr></thead>
                             <tbody>
-                                <tr th:each="e : ${examProgress}">
+                                <tr th:each="e : ${examProgress}" th:classappend="${e.hasAnomaly} ? 'row-alert'">
                                     <td th:text="${e.teacherName}"></td>
                                     <td th:text="${e.groupNm}"></td>
-                                    <td th:text="${#strings.toString(e.paperIdx) == '1' ? '종합' : '자기조절'}"></td>
-                                    <td th:text="${e.ordNo}"></td>
-                                    <td th:text="${e.totalCount}"></td>
-                                    <td th:text="${e.submittedCount}"></td>
-                                    <td th:text="${e.inProgressCount}"></td>
-                                    <td th:classappend="${e.pdfMissingCount != null and e.pdfMissingCount > 0} ? 'text-danger font-weight-bold'" th:text="${e.pdfMissingCount}"></td>
-                                    <td th:classappend="${e.summaryMissingCount != null and e.summaryMissingCount > 0} ? 'text-danger font-weight-bold'" th:text="${e.summaryMissingCount}"></td>
+                                    <td><span class="badge" th:classappend="${#strings.toString(e.paperIdx) == '1'} ? 'badge-info' : 'badge-purple'"
+                                              th:text="${#strings.toString(e.paperIdx) == '1' ? '종합' : '자기조절'}"></span></td>
+                                    <td th:text="${e.ordNo} + '회차'"></td>
+                                    <td>
+                                        <div class="progress" style="height:16px;">
+                                            <div class="progress-bar" role="progressbar"
+                                                 th:style="'width:' + ${e.submitRate} + '%'"
+                                                 th:classappend="${e.submitRate == 100} ? 'done'"
+                                                 th:text="${e.submitRate} + '%'"></div>
+                                        </div>
+                                        <span class="mini-muted" th:text="${e.submittedCount} + ' / ' + ${e.totalCount} + ' 제출'"></span>
+                                    </td>
+                                    <td class="text-right" th:classappend="${e.inProgressCount != null and e.inProgressCount > 0} ? 'num-danger'" th:text="${e.inProgressCount}"></td>
+                                    <td class="text-right" th:classappend="${e.pdfMissingCount != null and e.pdfMissingCount > 0} ? 'num-danger'" th:text="${e.pdfMissingCount}"></td>
+                                    <td class="text-right" th:classappend="${e.summaryMissingCount != null and e.summaryMissingCount > 0} ? 'num-danger'" th:text="${e.summaryMissingCount}"></td>
                                 </tr>
-                                <tr th:if="${#lists.isEmpty(examProgress)}"><td colspan="9" class="text-muted text-center">검사 없음</td></tr>
+                                <tr th:if="${#lists.isEmpty(examProgress)}"><td colspan="8" class="text-muted text-center py-3">검사 없음</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- ④ 데이터 정합성 -->
-                <div class="card card-danger card-outline">
-                    <div class="card-header">
-                        <h3 class="card-title">④ 데이터 정합성</h3>
-                        <small class="text-muted d-block">요인 미달: report 요인수 &lt; 종합38/자기조절20 · LPA누락: 종합인데 유형 없음 · 미지원: 고등(정상) · 빨강=점검 필요</small>
+                <!-- ===== ④ 데이터 정합성 ===== -->
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card card-danger card-outline">
+                            <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">4</span> 데이터 정합성</h3>
+                                <small class="text-muted d-block mt-1">요인 미달(종합38/자기조절20 미만)·LPA 누락=점검 필요 · 미지원=고등(정상)</small></div>
+                            <div class="card-body table-responsive p-0">
+                                <table class="table table-hover mb-0">
+                                    <thead class="thead-light"><tr>
+                                        <th>교사</th><th>종류</th><th>회차</th><th class="text-right">제출</th>
+                                        <th class="text-right">요인미달</th><th class="text-right">LPA정상</th>
+                                        <th class="text-right">미지원</th><th class="text-right">LPA누락</th><th class="text-right">신뢰도주의</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <tr th:each="i : ${integrity}" th:classappend="${i.hasAnomaly} ? 'row-alert'">
+                                            <td th:text="${i.teacherName}"></td>
+                                            <td><span class="badge" th:classappend="${#strings.toString(i.paperIdx) == '1'} ? 'badge-info' : 'badge-purple'"
+                                                      th:text="${#strings.toString(i.paperIdx) == '1' ? '종합' : '자기조절'}"></span></td>
+                                            <td th:text="${i.ordNo} + '회차'"></td>
+                                            <td class="text-right" th:text="${i.submittedAnswerCount}"></td>
+                                            <td class="text-right" th:classappend="${i.factorIncompleteCount != null and i.factorIncompleteCount > 0} ? 'num-danger'" th:text="${i.factorIncompleteCount}"></td>
+                                            <td class="text-right" th:text="${i.lpaCompletedCount}"></td>
+                                            <td class="text-right text-muted" th:text="${i.lpaUnsupportedCount}"></td>
+                                            <td class="text-right" th:classappend="${i.lpaMissingCount != null and i.lpaMissingCount > 0} ? 'num-danger'" th:text="${i.lpaMissingCount}"></td>
+                                            <td class="text-right" th:classappend="${i.reliabilityWarnCount != null and i.reliabilityWarnCount > 0} ? 'text-warning font-weight-bold'" th:text="${i.reliabilityWarnCount}"></td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(integrity)}"><td colspan="9" class="text-muted text-center py-3">제출 데이터 없음</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body table-responsive p-0">
-                        <table class="table table-hover">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>교사</th><th>그룹</th><th>종류</th><th>회차</th>
-                                    <th>제출건</th><th>요인 미달</th><th>LPA 정상</th><th>LPA 미지원</th><th>LPA 누락</th><th>신뢰도 주의</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr th:each="i : ${integrity}">
-                                    <td th:text="${i.teacherName}"></td>
-                                    <td th:text="${i.groupNm}"></td>
-                                    <td th:text="${#strings.toString(i.paperIdx) == '1' ? '종합' : '자기조절'}"></td>
-                                    <td th:text="${i.ordNo}"></td>
-                                    <td th:text="${i.submittedAnswerCount}"></td>
-                                    <td th:classappend="${i.factorIncompleteCount != null and i.factorIncompleteCount > 0} ? 'text-danger font-weight-bold'" th:text="${i.factorIncompleteCount}"></td>
-                                    <td th:text="${i.lpaCompletedCount}"></td>
-                                    <td th:text="${i.lpaUnsupportedCount}"></td>
-                                    <td th:classappend="${i.lpaMissingCount != null and i.lpaMissingCount > 0} ? 'text-danger font-weight-bold'" th:text="${i.lpaMissingCount}"></td>
-                                    <td th:text="${i.reliabilityWarnCount}"></td>
-                                </tr>
-                                <tr th:if="${#lists.isEmpty(integrity)}"><td colspan="10" class="text-muted text-center">제출 데이터 없음</td></tr>
-                            </tbody>
-                        </table>
+                    <!-- LPA 유형 분포 -->
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header"><h3 class="card-title">LPA 유형 분포 <small class="text-muted">종합·COMPLETED</small></h3></div>
+                            <div class="card-body table-responsive p-0">
+                                <table class="table table-hover mb-0">
+                                    <thead class="thead-light"><tr><th>유형</th><th class="text-right">인원</th></tr></thead>
+                                    <tbody>
+                                        <tr th:each="d : ${lpaTypeDist}">
+                                            <td th:text="${d.typeName}"></td>
+                                            <td class="text-right" th:text="${d.cnt}"></td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(lpaTypeDist)}"><td colspan="2" class="text-muted text-center py-3">데이터 없음</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- ④-b LPA 유형 분포 -->
-                <div class="card">
-                    <div class="card-header"><h3 class="card-title">LPA 유형 분포 <small class="text-muted">(종합검사, COMPLETED)</small></h3></div>
-                    <div class="card-body table-responsive p-0">
-                        <table class="table table-hover">
-                            <thead class="thead-light"><tr><th>유형</th><th>인원</th></tr></thead>
-                            <tbody>
-                                <tr th:each="d : ${lpaTypeDist}">
-                                    <td th:text="${d.typeName}"></td>
-                                    <td th:text="${d.cnt}"></td>
-                                </tr>
-                                <tr th:if="${#lists.isEmpty(lpaTypeDist)}"><td colspan="2" class="text-muted text-center">데이터 없음</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
         </section>
     </div>

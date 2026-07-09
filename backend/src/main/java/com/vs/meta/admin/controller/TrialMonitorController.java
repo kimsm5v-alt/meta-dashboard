@@ -95,6 +95,27 @@ public class TrialMonitorController {
             labelTeacher(integrity, userNoToName);
         }
 
+        // 검사 진행 행별 제출률·이상 여부 계산 (템플릿에서 진행바/하이라이트에 사용)
+        for (Map<String, Object> e : examProgress) {
+            long total = num(e.get("totalCount"));
+            long submitted = num(e.get("submittedCount"));
+            e.put("submitRate", total > 0 ? Math.round(submitted * 100.0 / total) : 0);
+            e.put("hasAnomaly", num(e.get("pdfMissingCount")) > 0 || num(e.get("summaryMissingCount")) > 0);
+        }
+        for (Map<String, Object> i : integrity) {
+            i.put("hasAnomaly", num(i.get("factorIncompleteCount")) > 0 || num(i.get("lpaMissingCount")) > 0);
+        }
+
+        // 상단 KPI 요약
+        long totalStudents = sumLong(groups, "studentCount");
+        long examTotal = sumLong(examProgress, "totalCount");
+        long examSubmitted = sumLong(examProgress, "submittedCount");
+        long submitRatePct = examTotal > 0 ? Math.round(examSubmitted * 100.0 / examTotal) : 0;
+        long anomalyPdf = sumLong(examProgress, "pdfMissingCount") + sumLong(examProgress, "summaryMissingCount");
+        long anomalyLpaMissing = sumLong(integrity, "lpaMissingCount");
+        long anomalyFactor = sumLong(integrity, "factorIncompleteCount");
+        long reliabilityWarn = sumLong(integrity, "reliabilityWarnCount");
+
         model.addAttribute("summary", summary);
         model.addAttribute("totalTeachers", TEACHER_NAMES.size());
         model.addAttribute("registeredTeachers", registeredTeachers);
@@ -103,7 +124,32 @@ public class TrialMonitorController {
         model.addAttribute("examProgress", examProgress);
         model.addAttribute("integrity", integrity);
         model.addAttribute("lpaTypeDist", lpaTypeDist);
+        // KPI
+        model.addAttribute("totalGroups", groups.size());
+        model.addAttribute("totalStudents", totalStudents);
+        model.addAttribute("examTotal", examTotal);
+        model.addAttribute("examSubmitted", examSubmitted);
+        model.addAttribute("submitRatePct", submitRatePct);
+        model.addAttribute("anomalyPdf", anomalyPdf);
+        model.addAttribute("anomalyLpaMissing", anomalyLpaMissing);
+        model.addAttribute("anomalyFactor", anomalyFactor);
+        model.addAttribute("anomalyTotal", anomalyPdf + anomalyLpaMissing + anomalyFactor);
+        model.addAttribute("reliabilityWarn", reliabilityWarn);
         return "admin/trial-monitor";
+    }
+
+    /** Map 값(SUM/COUNT 결과 Number)을 long 으로 안전 변환. */
+    private long num(Object v) {
+        return v instanceof Number n ? n.longValue() : 0L;
+    }
+
+    /** rows 전체에서 key 필드 합계. */
+    private long sumLong(List<Map<String, Object>> rows, String key) {
+        long sum = 0L;
+        for (Map<String, Object> r : rows) {
+            sum += num(r.get(key));
+        }
+        return sum;
     }
 
     /** 각 행의 hostUserNo 를 교사 이름(teacherName)으로 라벨링. */
