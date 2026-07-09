@@ -89,48 +89,25 @@
                     <span class="text-muted" th:if="${reliabilityWarn > 0}" th:text="'· 신뢰도 주의 ' + ${reliabilityWarn} + '건'"></span>
                 </div>
 
-                <!-- ===== ① 가입 현황 ===== -->
+                <!-- ===== ① 교사별 요약 (그룹 수 · 총 학생 수) ===== -->
                 <div class="card card-primary card-outline">
-                    <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">1</span> 가입 현황</h3></div>
+                    <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">1</span> 교사별 요약
+                        <small class="text-muted" th:text="'· 그룹 ' + ${totalGroups} + '개 · 학생 ' + ${totalStudents} + '명'"></small></h3></div>
                     <div class="card-body table-responsive p-0">
                         <table class="table table-hover mb-0">
-                            <thead class="thead-light"><tr><th>이름</th><th>가입</th><th class="text-right">계정 수</th><th class="text-right">가입완료 계정</th></tr></thead>
+                            <thead class="thead-light"><tr>
+                                <th>교사</th><th>가입</th><th class="text-right">그룹 수</th><th class="text-right">총 학생 수</th>
+                            </tr></thead>
                             <tbody>
-                                <tr th:each="t : ${summary}" th:classappend="${!t.registered} ? 'row-alert'">
+                                <tr th:each="t : ${teacherSummary}" th:classappend="${!t.registered} ? 'row-alert'">
                                     <td th:text="${t.name}"></td>
                                     <td>
                                         <span th:if="${t.registered}" class="badge badge-success">완료</span>
                                         <span th:unless="${t.registered}" class="badge badge-danger">미가입</span>
                                     </td>
-                                    <td class="text-right" th:text="${t.accountCount}"></td>
-                                    <td class="text-right" th:text="${t.registeredCount}"></td>
+                                    <td class="text-right" th:text="${t.groupCount}"></td>
+                                    <td class="text-right" th:text="${t.studentCount}"></td>
                                 </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- ===== ② 그룹 현황 ===== -->
-                <div class="card card-primary card-outline">
-                    <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">2</span> 그룹 현황
-                        <small class="text-muted" th:text="'· ' + ${totalGroups} + '개'"></small></h3></div>
-                    <div class="card-body table-responsive p-0">
-                        <table class="table table-hover mb-0">
-                            <thead class="thead-light"><tr>
-                                <th>교사</th><th>그룹명</th><th>학교급</th><th>학년/반</th><th>학교명</th>
-                                <th class="text-right">학생</th><th>생성일</th>
-                            </tr></thead>
-                            <tbody>
-                                <tr th:each="g : ${groups}">
-                                    <td th:text="${g.teacherName}"></td>
-                                    <td th:text="${g.groupNm}"></td>
-                                    <td><span class="badge badge-secondary" th:text="${g.schoolLevel}"></span></td>
-                                    <td th:text="${g.grade} + '학년 ' + ${g.classNumber} + '반'"></td>
-                                    <td th:text="${g.schoolName}"></td>
-                                    <td class="text-right" th:text="${g.studentCount}"></td>
-                                    <td class="mini-muted" th:text="${g.groupCreatedAt}"></td>
-                                </tr>
-                                <tr th:if="${#lists.isEmpty(groups)}"><td colspan="7" class="text-muted text-center py-3">그룹 없음</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -138,7 +115,7 @@
 
                 <!-- ===== ③ 검사 진행 ===== -->
                 <div class="card card-primary card-outline">
-                    <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">3</span> 검사 진행 현황</h3>
+                    <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">2</span> 검사 진행 현황</h3>
                         <small class="text-muted d-block mt-1">이탈=응시 중(미제출) · PDF/요약은 다운로드 클릭 시 생성 → '생성/제출' 수 (미생성은 정상)</small></div>
                     <div class="card-body table-responsive p-0">
                         <table class="table table-hover mb-0">
@@ -149,7 +126,8 @@
                             </tr></thead>
                             <tbody>
                                 <tr th:each="e : ${examProgress}">
-                                    <td th:text="${e.teacherName}"></td>
+                                    <td th:if="${e.firstOfTeacher}" th:rowspan="${e.teacherRowspan}"
+                                        style="vertical-align:middle; font-weight:600; background:#fafbfc;" th:text="${e.teacherName}"></td>
                                     <td th:text="${e.groupNm}"></td>
                                     <td><span class="badge" th:classappend="${#strings.toString(e.paperIdx) == '1'} ? 'badge-info' : 'badge-purple'"
                                               th:text="${#strings.toString(e.paperIdx) == '1' ? '종합' : '자기조절'}"></span></td>
@@ -177,7 +155,7 @@
                 <div class="row">
                     <div class="col-lg-8">
                         <div class="card card-danger card-outline">
-                            <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">4</span> 데이터 정합성</h3>
+                            <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">3</span> 데이터 정합성</h3>
                                 <small class="text-muted d-block mt-1">요인 미달(종합38/자기조절20 미만)·LPA 누락=점검 필요 · 미지원=고등(정상)</small></div>
                             <div class="card-body table-responsive p-0">
                                 <table class="table table-hover mb-0">

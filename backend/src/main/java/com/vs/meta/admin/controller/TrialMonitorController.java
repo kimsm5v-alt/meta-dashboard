@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -104,6 +105,9 @@ public class TrialMonitorController {
             e.put("pdfGenerated", submitted - num(e.get("pdfMissingCount")));       // 실제 생성(다운로드)된 수
             e.put("summaryGenerated", submitted - num(e.get("summaryMissingCount")));
         }
+        // ③ 교사 셀 병합(rowspan)을 위해 교사 이름으로 안정 정렬 후 그룹핑 (내부 순서 유지)
+        examProgress.sort(Comparator.comparing(r -> String.valueOf(r.get("teacherName"))));
+        applyTeacherRowspan(examProgress);
         // 정합성 이상 = 요인 미달 또는 LPA 누락 (PDF 미생성은 정상이라 제외)
         for (Map<String, Object> i : integrity) {
             i.put("hasAnomaly", num(i.get("factorIncompleteCount")) > 0 || num(i.get("lpaMissingCount")) > 0);
@@ -118,7 +122,26 @@ public class TrialMonitorController {
         long anomalyFactor = sumLong(integrity, "factorIncompleteCount");
         long reliabilityWarn = sumLong(integrity, "reliabilityWarnCount");
 
-        model.addAttribute("summary", summary);
+        // ② 교사별 요약: 그룹 수 + 총 학생 수 (미가입/그룹없는 교사는 0/0). ① 상세표 대체.
+        List<Map<String, Object>> teacherSummary = new ArrayList<>();
+        for (Map<String, Object> r : summary) {
+            String name = (String) r.get("name");
+            long gCount = 0, sCount = 0;
+            for (Map<String, Object> g : groups) {
+                if (name.equals(g.get("teacherName"))) {
+                    gCount++;
+                    sCount += num(g.get("studentCount"));
+                }
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("name", name);
+            row.put("registered", r.get("registered"));
+            row.put("groupCount", gCount);
+            row.put("studentCount", sCount);
+            teacherSummary.add(row);
+        }
+
+        model.addAttribute("teacherSummary", teacherSummary);
         model.addAttribute("totalTeachers", TEACHER_NAMES.size());
         model.addAttribute("registeredTeachers", registeredTeachers);
         model.addAttribute("signupFrom", SIGNUP_FROM);
@@ -159,6 +182,28 @@ public class TrialMonitorController {
             Object hostObj = row.get("hostUserNo");
             Long hostUserNo = hostObj == null ? null : ((Number) hostObj).longValue();
             row.put("teacherName", userNoToName.getOrDefault(hostUserNo, "(알수없음)"));
+        }
+    }
+
+    /**
+     * teacherName 이 같은 연속 행들에 rowspan 정보를 부여한다 (템플릿에서 교사 셀 병합).
+     * 첫 행에 firstOfTeacher=true + teacherRowspan=행수, 나머지는 firstOfTeacher=false.
+     * 호출 전에 rows 는 teacherName 으로 정렬되어 같은 교사가 연속이어야 한다.
+     */
+    private void applyTeacherRowspan(List<Map<String, Object>> rows) {
+        int i = 0;
+        while (i < rows.size()) {
+            String name = String.valueOf(rows.get(i).get("teacherName"));
+            int j = i;
+            while (j < rows.size() && name.equals(String.valueOf(rows.get(j).get("teacherName")))) {
+                j++;
+            }
+            int span = j - i;
+            for (int k = i; k < j; k++) {
+                rows.get(k).put("firstOfTeacher", k == i);
+                rows.get(k).put("teacherRowspan", span);
+            }
+            i = j;
         }
     }
 }
