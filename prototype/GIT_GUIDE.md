@@ -39,9 +39,11 @@ vs-develop
 ✅ 올바른 방식: 각자 브랜치에서 작업
 vs-develop (기준 브랜치 - 직접 작업 X, 머지만 함)
     │
-    ├── feat/v2-exam-counseling   ← 김새미 (여기서 작업)
-    ├── feat/v2-lesson            ← 문승민 (여기서 작업)
-    └── feat/v2-ai-assistant      ← 김다영 (여기서 작업)
+    ├── feat/v2-prototype-menu-structure  ← 공통 (IA, Layout, routes)
+    │
+    ├── feat/v2-prototype-exam-counseling ← 김새미 (여기서 작업)
+    ├── feat/v2-prototype-lesson          ← 문승민 (여기서 작업)
+    └── feat/v2-prototype-ai-assistant    ← 김다영 (여기서 작업)
 ```
 
 ### 브랜치 설명
@@ -50,16 +52,17 @@ vs-develop (기준 브랜치 - 직접 작업 X, 머지만 함)
 |--------|------|-----------|
 | `vs-prod` | 운영 서버 | ❌ 절대 금지 |
 | `vs-develop` | 개발 서버 (머지용) | ❌ 직접 작업 금지 |
-| `feat/v2-본인브랜치` | 본인 작업용 | ✅ 여기서 작업 |
+| `feat/v2-prototype-menu-structure` | 공통 (IA, Layout, routes) | ⚠️ 공통 작업용 |
+| `feat/v2-prototype-본인브랜치` | 본인 작업용 | ✅ 여기서 작업 |
 
 ### 작업 흐름 요약
 
 ```
-1. 본인 브랜치에서 작업 (feat/v2-xxx)
+1. 본인 브랜치에서 작업 (feat/v2-prototype-xxx)
         ↓
 2. 작업 완료 → GitLab에 push
         ↓
-3. MR(Merge Request) 생성: feat/v2-xxx → vs-develop
+3. MR(Merge Request) 생성: feat/v2-prototype-xxx → vs-develop
         ↓
 4. 리뷰 후 머지 → vs-develop에 반영됨
         ↓
@@ -89,7 +92,7 @@ git checkout vs-develop
 git pull gitlab vs-develop
 
 # 3. 본인 브랜치로 이동
-git checkout feat/v2-본인브랜치명
+git checkout feat/v2-prototype-본인브랜치명
 
 # 4. 최신 코드 합치기
 git merge vs-develop
@@ -109,31 +112,32 @@ git merge vs-develop
 
 ```
 prototype/src/
-├── app/                    ← ⚠️ 공용 (Layout, routes)
-├── assets/                 ← ⚠️ 공용 (이미지, 아이콘)
-├── features/               ← ✅ 각자 담당 폴더에서 작업
-│   ├── exam-management/    ← 김새미
-│   ├── exam-result/        ← 김새미
-│   ├── exam-tracking/      ← 김새미
-│   ├── counseling/         ← 김새미
-│   ├── coaching/           ← 김새미
-│   ├── lesson-resources/   ← 문승민
-│   ├── my-lesson/          ← 문승민
-│   └── ai-assistant/       ← 김다영
-└── shared/                 ← ⚠️ 공용 (수정 시 팀 공유)
-    ├── components/         ← 공통 컴포넌트
-    ├── hooks/              ← 공통 훅
-    ├── types/              ← 공통 타입
-    └── utils/              ← 공통 유틸
+├── app/                      ← ⚠️ 공용 (Layout, routes) - menu-structure 브랜치
+├── assets/                   ← ⚠️ 공용 (이미지, 아이콘)
+├── features/                 ← ✅ 각자 담당 폴더에서 작업
+│   ├── teacher-dashboard/    ← 홈 (공통)
+│   ├── assessment/           ← 김새미 (검사관리)
+│   ├── class-dashboard/      ← 김새미 (결과보기)
+│   ├── schedule/             ← 김새미 (학생 상담)
+│   ├── counseling-dashboard/ ← 김새미 (코칭)
+│   ├── resources/            ← 문승민 (수업 자료실)
+│   ├── ai-room/              ← 김다영 (AI어시스턴트)
+│   └── groups/               ← 공통 (그룹관리)
+└── shared/                   ← ⚠️ 공용 (수정 시 팀 공유)
+    ├── components/           ← 공통 컴포넌트
+    ├── hooks/                ← 공통 훅
+    ├── types/                ← 공통 타입
+    └── utils/                ← 공통 유틸
 ```
 
 ### 담당 영역 분배
 
 | 기획자 | 브랜치 | 담당 GNB | 담당 Features |
 |--------|--------|----------|--------------|
-| 김새미 | `feat/v2-exam-counseling` | 검사, 상담·코칭 | `exam-management/`, `exam-result/`, `exam-tracking/`, `counseling/`, `coaching/` |
-| 문승민 | `feat/v2-lesson` | 수업 | `lesson-resources/`, `my-lesson/` |
-| 김다영 | `feat/v2-ai-assistant` | AI어시스턴트 | `ai-assistant/` |
+| (공통) | `feat/v2-prototype-menu-structure` | IA, Layout, routes | `app/` |
+| 김새미 | `feat/v2-prototype-exam-counseling` | 검사, 상담·코칭 | `assessment/`, `class-dashboard/`, `schedule/`, `counseling-dashboard/` |
+| 문승민 | `feat/v2-prototype-lesson` | 수업 | `resources/` |
+| 김다영 | `feat/v2-prototype-ai-assistant` | AI어시스턴트 | `ai-room/` |
 
 ---
 
@@ -172,14 +176,14 @@ git commit -m "[PROTOTYPE] 작업 내용 간단히"
 ### Step 3: GitLab에 올리기
 
 ```bash
-git push gitlab feat/v2-본인브랜치명
+git push gitlab feat/v2-prototype-본인브랜치명
 ```
 
 ### Step 4: 머지 요청 (MR)
 
 1. GitLab 사이트 접속
 2. "Create merge request" 버튼 클릭
-3. `feat/v2-본인브랜치명` → `vs-develop` 선택
+3. `feat/v2-prototype-본인브랜치명` → `vs-develop` 선택
 4. 리뷰어 지정 후 생성
 
 ---
@@ -227,7 +231,7 @@ git push gitlab feat/v2-본인브랜치명
 git branch
 
 # 본인 브랜치로 이동
-git checkout feat/v2-본인브랜치명
+git checkout feat/v2-prototype-본인브랜치명
 ```
 
 ### "충돌(Conflict)이 발생했어요!"
