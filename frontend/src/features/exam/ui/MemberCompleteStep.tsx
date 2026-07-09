@@ -135,7 +135,7 @@ export const MemberCompleteStep: FC<MemberCompleteStepProps> = ({ userName }) =>
         {/* 완료 메시지 */}
         <Header>
           <CompleteIconWrapper>
-            <CheckCircle2 size={48} color="#059669" />
+            <CheckCircle2 size={48} color='#059669' />
           </CompleteIconWrapper>
           <Title>검사 완료!</Title>
           <Description>{userName}님, 수고하셨습니다.</Description>
@@ -145,7 +145,7 @@ export const MemberCompleteStep: FC<MemberCompleteStepProps> = ({ userName }) =>
         <InfoCard>
           <InfoContent>
             <InfoIcon>
-              <BarChart3 size={24} color="#059669" />
+              <BarChart3 size={24} color='#059669' />
             </InfoIcon>
             <InfoText>
               <InfoTitle>결과 확인 안내</InfoTitle>

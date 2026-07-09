@@ -2,7 +2,12 @@ import React from 'react';
 import { Info, ChevronRight } from 'lucide-react';
 import { Card } from '@/shared/components';
 import type { Class } from '@/shared/types';
-import { TYPE_COLORS } from '@/shared/data/lpaProfiles';
+import {
+  TYPE_COLORS,
+  LPA_TOOLTIP_LINES,
+  LPA_TYPE_DESCRIPTIONS_ELEMENTARY,
+  LPA_TYPE_DESCRIPTIONS_MIDDLE,
+} from '@/shared/data/lpaProfiles';
 
 interface LPAComparisonSectionProps {
   classes: Class[];
@@ -12,13 +17,6 @@ interface LPAComparisonSectionProps {
 // LPA 유형 순서 (초등/중등)
 const LPA_TYPES_ELEMENTARY = ['자원소진형', '안전 균형형', '몰입자원 풍부형'];
 const LPA_TYPES_MIDDLE = ['냉소적 무기력형', '정서조절 취약형', '자기주도 몰입형'];
-
-// LPA 유형 설명 툴팁 (문장별 줄바꿈)
-const LPA_TOOLTIP_LINES = [
-  '학생의 학습 심리 패턴을 3가지 유형으로 나눈 것입니다.',
-  '검사 결과를 분석해 비슷한 학습 특성을 가진 학생끼리 묶어서 맞춤형 지도 방법을 제공하기 위한 분류입니다.',
-  '단, 유형은 학생을 이해하기 위한 참고이며, 같은 유형 안에서도 개인별 강점과 보완점을 함께 살펴봐 주세요.',
-];
 
 export const LPAComparisonSection: React.FC<LPAComparisonSectionProps> = ({
   classes,
@@ -31,6 +29,7 @@ export const LPAComparisonSection: React.FC<LPAComparisonSectionProps> = ({
 
   const isMiddleSchool = classes[0].schoolLevel === '중등';
   const typeOrder = isMiddleSchool ? LPA_TYPES_MIDDLE : LPA_TYPES_ELEMENTARY;
+  const typeDescriptions = isMiddleSchool ? LPA_TYPE_DESCRIPTIONS_MIDDLE : LPA_TYPE_DESCRIPTIONS_ELEMENTARY;
 
   return (
     <Card>
@@ -41,11 +40,11 @@ export const LPAComparisonSection: React.FC<LPAComparisonSectionProps> = ({
             <h2 className="text-lg font-semibold text-gray-900">학생 유형 분포 비교</h2>
             <div className="relative group">
               <Info className="w-4 h-4 text-gray-400 cursor-help" />
-              <div className="absolute left-0 bottom-full mb-2 w-80 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                <p className="font-medium mb-2">LPA 유형이란?</p>
+              <div className="absolute left-0 bottom-full mb-2 w-96 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                <p className="font-bold text-yellow-400 mb-2">학생유형 분포 비교</p>
                 <ul className="space-y-1.5 text-gray-300">
                   {LPA_TOOLTIP_LINES.map((line, idx) => (
-                    <li key={idx} className="leading-relaxed">• {line}</li>
+                    <li key={idx} className="leading-relaxed">{line}</li>
                   ))}
                 </ul>
               </div>
@@ -59,12 +58,17 @@ export const LPAComparisonSection: React.FC<LPAComparisonSectionProps> = ({
         {/* 범례 */}
         <div className="flex items-center gap-4">
           {typeOrder.map((type) => (
-            <div key={type} className="flex items-center gap-1.5">
+            <div key={type} className="relative group flex items-center gap-1.5 cursor-help">
               <span
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: TYPE_COLORS[type] || '#9CA3AF' }}
               />
               <span className="text-sm text-gray-600">{type}</span>
+              {/* 유형별 툴팁 */}
+              <div className="absolute right-0 top-full mt-2 w-80 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 shadow-lg">
+                <p className="font-bold text-yellow-400 mb-1">{type}</p>
+                <p className="leading-relaxed text-gray-300">{typeDescriptions[type]}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -77,6 +81,7 @@ export const LPAComparisonSection: React.FC<LPAComparisonSectionProps> = ({
             key={cls.id}
             cls={cls}
             typeOrder={typeOrder}
+            typeDescriptions={typeDescriptions}
             onGoToClass={onGoToClass}
           />
         ))}
@@ -88,12 +93,14 @@ export const LPAComparisonSection: React.FC<LPAComparisonSectionProps> = ({
 interface LPAComparisonRowProps {
   cls: Class;
   typeOrder: string[];
+  typeDescriptions: Record<string, string>;
   onGoToClass: (classId: string) => void;
 }
 
 const LPAComparisonRow: React.FC<LPAComparisonRowProps> = ({
   cls,
   typeOrder,
+  typeDescriptions,
   onGoToClass,
 }) => {
   const typeDistribution = cls.stats?.typeDistribution;
@@ -122,27 +129,53 @@ const LPAComparisonRow: React.FC<LPAComparisonRowProps> = ({
     }
 
     return (
-      <div className="flex-1 flex h-8 rounded-lg overflow-hidden">
-        {typeOrder.map((type) => {
-          const data = typeDistribution[type];
-          if (!data || data.count === 0) return null;
-          const pct = Math.round((data.count / total) * 100);
-          const color = TYPE_COLORS[type] || '#9CA3AF';
+      <div className="flex-1 relative">
+        <div className="flex h-8 rounded-lg overflow-hidden">
+          {typeOrder.map((type, idx) => {
+            const data = typeDistribution[type];
+            if (!data || data.count === 0) return null;
+            const pct = Math.round((data.count / total) * 100);
+            const color = TYPE_COLORS[type] || '#9CA3AF';
 
-          return (
-            <div
-              key={type}
-              className="flex items-center justify-center text-xs text-white font-medium"
-              style={{
-                width: `${pct}%`,
-                backgroundColor: color,
-              }}
-              title={`${type}: ${data.count}명 (${pct}%)`}
-            >
-              {pct > 12 && `${data.count}명`}
-            </div>
-          );
-        })}
+            return (
+              <div
+                key={type}
+                className="group flex items-center justify-center text-xs text-white font-medium cursor-help"
+                style={{
+                  width: `${pct}%`,
+                  backgroundColor: color,
+                }}
+                data-type={type}
+                data-idx={idx}
+              >
+                {pct > 12 && `${data.count}명`}
+              </div>
+            );
+          })}
+        </div>
+        {/* 막대 호버 툴팁 - overflow-hidden 밖에 배치 */}
+        <div className="absolute inset-0 flex h-8 rounded-lg">
+          {typeOrder.map((type) => {
+            const data = typeDistribution[type];
+            if (!data || data.count === 0) return null;
+            const pct = Math.round((data.count / total) * 100);
+
+            return (
+              <div
+                key={type}
+                className="relative group"
+                style={{ width: `${pct}%` }}
+              >
+                <div className="w-full h-full" />
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-30 shadow-lg pointer-events-none">
+                  <p className="font-bold text-yellow-400 mb-1">{type}</p>
+                  <p className="text-gray-100 mb-2">{data.count}명 ({pct}%)</p>
+                  <p className="leading-relaxed text-gray-300">{typeDescriptions[type]}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };

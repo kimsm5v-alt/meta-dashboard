@@ -114,10 +114,7 @@ export const createConversation = async (
     messages: messages || [],
   };
 
-  const res = await apiClient.post<CreateConversationResponse>(
-    '/api/ai/conversations',
-    request,
-  );
+  const res = await apiClient.post<CreateConversationResponse>('/api/ai/conversations', request);
 
   return res.resultData;
 };

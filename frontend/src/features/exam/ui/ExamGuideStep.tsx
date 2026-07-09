@@ -641,18 +641,21 @@ export const ExamGuideStep: React.FC<ExamGuideStepProps> = ({
 
   useEffect(() => {
     if (schoolLevel) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData((prev) => ({ ...prev, grade: '' }));
     }
   }, [schoolLevel]);
 
   useEffect(() => {
     if (editableSchoolLevel) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEditableGrade('');
     }
   }, [editableSchoolLevel]);
 
   useEffect(() => {
     if (studentExamContext?.schoolLevel) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSchoolLevel(studentExamContext.schoolLevel);
     }
   }, [studentExamContext?.schoolLevel]);

@@ -32,7 +32,8 @@ const Select = styled.select<{ $disabled?: boolean }>`
   border-radius: ${({ theme }) => theme.radius.lg};
   outline: none;
   transition: ${({ theme }) => theme.transitions.fast};
-  background: ${({ $disabled, theme }) => ($disabled ? theme.colors.gray[50] : theme.colors.background.paper)};
+  background: ${({ $disabled, theme }) =>
+    $disabled ? theme.colors.gray[50] : theme.colors.background.paper};
   opacity: ${({ $disabled }) => ($disabled ? 0.6 : 1)};
   cursor: ${({ $disabled }) => ($disabled ? 'not-allowed' : 'default')};
 
@@ -50,7 +51,8 @@ const Input = styled.input<{ $disabled?: boolean }>`
   border-radius: ${({ theme }) => theme.radius.lg};
   outline: none;
   transition: ${({ theme }) => theme.transitions.fast};
-  background: ${({ $disabled, theme }) => ($disabled ? theme.colors.gray[50] : theme.colors.background.paper)};
+  background: ${({ $disabled, theme }) =>
+    $disabled ? theme.colors.gray[50] : theme.colors.background.paper};
   opacity: ${({ $disabled }) => ($disabled ? 0.6 : 1)};
   cursor: ${({ $disabled }) => ($disabled ? 'not-allowed' : 'default')};
 
@@ -89,7 +91,8 @@ const SchoolLevelButton = styled.button<{ $isActive: boolean; $disabled?: boolea
   cursor: ${({ $disabled }) => ($disabled ? 'not-allowed' : 'pointer')};
 
   &:hover {
-    background: ${({ $isActive, theme }) => ($isActive ? theme.colors.primary[500] : theme.colors.gray[50])};
+    background: ${({ $isActive, theme }) =>
+      $isActive ? theme.colors.primary[500] : theme.colors.gray[50]};
   }
 `;
 
@@ -228,7 +231,10 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
             <Users className='inline w-4 h-4 mr-1' />
             그룹 선택 <OptionalText>(선택)</OptionalText>
           </Label>
-          <Select value={formData.groupId || ''} onChange={(e) => handleGroupChange(e.target.value)}>
+          <Select
+            value={formData.groupId || ''}
+            onChange={(e) => handleGroupChange(e.target.value)}
+          >
             <option value=''>직접 입력</option>
             {groups.map((group) => (
               <option key={group.id} value={group.id}>

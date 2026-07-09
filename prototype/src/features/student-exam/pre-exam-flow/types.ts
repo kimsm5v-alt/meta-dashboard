@@ -35,17 +35,17 @@ export const EXAM_THEME: Record<ExamType, ExamTheme> = {
 };
 
 /** 학교급 타입 */
-export type SchoolLevel = 'elementary' | 'middle' | 'high' | '';
+export type SchoolLevelCode = 'elementary' | 'middle' | 'high' | '';
 
 /** 학교급별 학년 범위 */
-export const GRADE_OPTIONS: Record<Exclude<SchoolLevel, ''>, number[]> = {
+export const GRADE_OPTIONS: Record<Exclude<SchoolLevelCode, ''>, number[]> = {
   elementary: [1, 2, 3, 4, 5, 6],
   middle: [1, 2, 3],
   high: [1, 2, 3],
 };
 
 /** 학교급 라벨 */
-export const SCHOOL_LEVEL_LABELS: Record<Exclude<SchoolLevel, ''>, string> = {
+export const SCHOOL_LEVEL_LABELS: Record<Exclude<SchoolLevelCode, ''>, string> = {
   elementary: '초등학교',
   middle: '중학교',
   high: '고등학교',
@@ -66,7 +66,7 @@ export interface GroupInfo {
   /** 학교명 (항상 제공됨) */
   schoolName: string;
   /** 학교급 (비어있을 수 있음) */
-  schoolLevel?: SchoolLevel;
+  schoolLevel?: SchoolLevelCode;
   /** 학년 (비어있을 수 있음) */
   grade?: string;
   /** 반 (비어있을 수 있음) */

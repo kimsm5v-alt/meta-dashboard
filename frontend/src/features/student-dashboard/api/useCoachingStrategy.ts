@@ -10,11 +10,7 @@ import {
  * 코칭 전략 데이터 훅
  * 버튼 클릭 시 graphYn='Y'로 Neo4j 추천 경로를 조회
  */
-export function useCoachingStrategy(
-  classId: string,
-  studentId: string,
-  round: 1 | 2 = 1,
-) {
+export function useCoachingStrategy(classId: string, studentId: string, round: 1 | 2 = 1) {
   const [isLoading, setIsLoading] = useState(false);
   const [moderationPaths, setModerationPaths] = useState<ModerationPath[]>([]);
   const [strengths, setStrengths] = useState<Strength[]>([]);

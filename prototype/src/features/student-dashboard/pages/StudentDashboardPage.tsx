@@ -15,6 +15,11 @@ import {
   type PanelTab,
 } from '../components';
 import type { Student, SchoolLevel } from '@/shared/types';
+import {
+  LPA_TOOLTIP_LINES,
+  LPA_TYPE_DESCRIPTIONS_ELEMENTARY,
+  LPA_TYPE_DESCRIPTIONS_MIDDLE,
+} from '@/shared/data/lpaProfiles';
 
 type ViewMode = 'round1' | 'round2' | 'compare';
 
@@ -38,13 +43,6 @@ const TEST_META: Record<TestId, { name: string; shortName: string; color: string
   comprehensive: { name: '학습종합검사', shortName: '학습종합', color: '#6366F1' },
   selfreg: { name: '자기조절학습검사', shortName: '자기조절', color: '#10B981' },
 };
-
-// LPA 툴팁 메시지 (반 대시보드와 동일)
-const LPA_TOOLTIP_LINES = [
-  '학생의 학습 심리 패턴을 3가지 유형으로 나눈 것입니다.',
-  '검사 결과를 분석해 비슷한 학습 특성을 가진 학생끼리 묶어서 맞춤형 지도 방법을 제공하기 위한 분류입니다.',
-  '단, 유형은 학생을 이해하기 위한 참고이며, 같은 유형 안에서도 개인별 강점과 보완점을 함께 살펴봐 주세요.',
-];
 
 const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   student,
@@ -331,11 +329,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               <h3 className="text-base font-bold text-gray-900">학습 유형 분류</h3>
               <div className="relative group">
                 <Info className="w-4 h-4 text-gray-400 cursor-help" />
-                <div className="absolute left-0 top-full mt-2 w-80 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-lg">
-                  <p className="font-bold text-sm mb-2">LPA 유형이란?</p>
-                  <ul className="space-y-1.5 list-none">
+                <div className="absolute left-0 top-full mt-2 w-96 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-lg">
+                  <p className="font-bold text-yellow-400 mb-2">학생유형 분포 비교</p>
+                  <ul className="space-y-1.5 text-gray-300">
                     {LPA_TOOLTIP_LINES.map((line, idx) => (
-                      <li key={idx} className="leading-relaxed">• {line}</li>
+                      <li key={idx} className="leading-relaxed">{line}</li>
                     ))}
                   </ul>
                 </div>
@@ -350,6 +348,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               showCompare={isCompare && !!r1 && !!r2}
               prevType={r1?.predictedType}
               prevTypeProbabilities={r1?.typeProbabilities}
+              typeDescriptions={student.schoolLevel === '중등' ? LPA_TYPE_DESCRIPTIONS_MIDDLE : LPA_TYPE_DESCRIPTIONS_ELEMENTARY}
             />
           </div>
         </div>

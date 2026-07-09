@@ -152,4 +152,174 @@ class AuthProxyControllerDpopTest {
         wireMock.verify(postRequestedFor(urlEqualTo("/api/v1/auth/refresh"))
                 .withoutHeader("DPoP"));
     }
+
+    // ─────────────────────────────────────────────────────
+    // DPoP-Nonce 응답 relay (RFC 9449 §8)
+    // ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("token — Auth 응답의 DPoP-Nonce 헤더를 브라우저 응답으로 relay 한다 (성공)")
+    void token_relaysDpopNonceOnSuccess() {
+        wireMock.stubFor(post(urlEqualTo("/oauth2/token"))
+                .willReturn(okJson("{\"access_token\":\"at-1\",\"refreshToken\":\"rt-1\",\"refreshExpiresIn\":3600}")
+                        .withHeader("DPoP-Nonce", "nonce-success-1")));
+
+        var req = new MockHttpServletRequest();
+        req.addHeader("DPoP", DPOP_PROOF);
+        var res = new MockHttpServletResponse();
+
+        var body = java.util.Map.of(
+                "code", "auth-code-123",
+                "codeVerifier", "verifier-abc",
+                "redirectUri", "https://app.example.com/callback"
+        );
+
+        var result = controller.token(body, req, res);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(res.getHeader("DPoP-Nonce")).isEqualTo("nonce-success-1");
+    }
+
+    @Test
+    @DisplayName("token — 401 nonce 챌린지 시 DPoP-Nonce 를 relay 하고 상태코드를 전파한다")
+    void token_relaysDpopNonceOnChallenge() {
+        wireMock.stubFor(post(urlEqualTo("/oauth2/token"))
+                .willReturn(aResponse().withStatus(401)
+                        .withHeader("DPoP-Nonce", "nonce-challenge-1")
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"success\":false}")));
+
+        var req = new MockHttpServletRequest();
+        req.addHeader("DPoP", DPOP_PROOF);
+        var res = new MockHttpServletResponse();
+
+        var body = java.util.Map.of(
+                "code", "auth-code-123",
+                "codeVerifier", "verifier-abc",
+                "redirectUri", "https://app.example.com/callback"
+        );
+
+        var result = controller.token(body, req, res);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(res.getHeader("DPoP-Nonce")).isEqualTo("nonce-challenge-1");
+    }
+
+    @Test
+    @DisplayName("token — nonce 챌린지(401 + DPoP-Nonce)는 사유를 'dpop nonce required' 로 구분해 반환한다")
+    void token_nonceChallengeReturnsDpopNonceRequiredMessage() {
+        wireMock.stubFor(post(urlEqualTo("/oauth2/token"))
+                .willReturn(aResponse().withStatus(401)
+                        .withHeader("DPoP-Nonce", "nonce-challenge-1")
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"success\":false}")));
+
+        var req = new MockHttpServletRequest();
+        req.addHeader("DPoP", DPOP_PROOF);
+        var res = new MockHttpServletResponse();
+
+        var body = java.util.Map.of(
+                "code", "auth-code-123",
+                "codeVerifier", "verifier-abc",
+                "redirectUri", "https://app.example.com/callback"
+        );
+
+        var result = controller.token(body, req, res);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(result.getBody()).isInstanceOf(java.util.Map.class);
+        assertThat(((java.util.Map<?, ?>) result.getBody()).get("message")).isEqualTo("dpop nonce required");
+    }
+
+    @Test
+    @DisplayName("token — nonce 없는 실패(진짜 교환 실패)는 기존대로 'token exchange failed' 를 반환한다")
+    void token_plainFailureReturnsGenericMessage() {
+        wireMock.stubFor(post(urlEqualTo("/oauth2/token"))
+                .willReturn(aResponse().withStatus(401)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"error\":\"invalid_grant\"}")));
+
+        var req = new MockHttpServletRequest();
+        req.addHeader("DPoP", DPOP_PROOF);
+        var res = new MockHttpServletResponse();
+
+        var body = java.util.Map.of(
+                "code", "auth-code-123",
+                "codeVerifier", "verifier-abc",
+                "redirectUri", "https://app.example.com/callback"
+        );
+
+        var result = controller.token(body, req, res);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(res.getHeader("DPoP-Nonce")).isNull();
+        assertThat(result.getBody()).isInstanceOf(java.util.Map.class);
+        assertThat(((java.util.Map<?, ?>) result.getBody()).get("message")).isEqualTo("token exchange failed");
+    }
+
+    @Test
+    @DisplayName("refresh — Auth 응답의 DPoP-Nonce 헤더를 브라우저 응답으로 relay 한다 (성공)")
+    void refresh_relaysDpopNonceOnSuccess() {
+        wireMock.stubFor(post(urlEqualTo("/api/v1/auth/refresh"))
+                .willReturn(okJson("{\"success\":true,\"data\":{\"accessToken\":\"at-new\",\"refreshToken\":\"rt-new\",\"refreshExpiresIn\":3600}}")
+                        .withHeader("DPoP-Nonce", "nonce-refresh-1")));
+
+        var req = new MockHttpServletRequest();
+        req.addHeader("DPoP", DPOP_PROOF);
+        var body = java.util.Map.of("refreshToken", "rt-existing");
+        var res = new MockHttpServletResponse();
+
+        var result = controller.refresh(body, req, res);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(res.getHeader("DPoP-Nonce")).isEqualTo("nonce-refresh-1");
+    }
+
+    @Test
+    @DisplayName("refresh — 401 nonce 챌린지 시 RT 쿠키를 지우지 않고 nonce 를 relay 한다")
+    void refresh_nonceChallengeDoesNotClearCookieAndRelaysNonce() {
+        wireMock.stubFor(post(urlEqualTo("/api/v1/auth/refresh"))
+                .willReturn(aResponse().withStatus(401)
+                        .withHeader("DPoP-Nonce", "nonce-refresh-challenge")
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"success\":false}")));
+
+        var req = new MockHttpServletRequest();
+        req.addHeader("DPoP", DPOP_PROOF);
+        var body = java.util.Map.of("refreshToken", "rt-existing");
+        var res = new MockHttpServletResponse();
+
+        var result = controller.refresh(body, req, res);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(res.getHeader("DPoP-Nonce")).isEqualTo("nonce-refresh-challenge");
+        // nonce 챌린지는 RT 무효가 아니다 — RT 쿠키를 지우면 SDK 재시도가 RT 없이 나가 로그아웃된다.
+        assertThat(clearsRtCookie(res)).isFalse();
+    }
+
+    @Test
+    @DisplayName("refresh — nonce 없는 401(진짜 RT 무효)은 기존대로 RT 쿠키를 지운다")
+    void refresh_plainUnauthorizedClearsCookie() {
+        wireMock.stubFor(post(urlEqualTo("/api/v1/auth/refresh"))
+                .willReturn(aResponse().withStatus(401)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"success\":false}")));
+
+        var req = new MockHttpServletRequest();
+        req.addHeader("DPoP", DPOP_PROOF);
+        var body = java.util.Map.of("refreshToken", "rt-existing");
+        var res = new MockHttpServletResponse();
+
+        var result = controller.refresh(body, req, res);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(res.getHeader("DPoP-Nonce")).isNull();
+        assertThat(clearsRtCookie(res)).isTrue();
+    }
+
+    /** 응답 Set-Cookie 중 RT 쿠키를 만료(Max-Age=0)시키는 헤더가 있는지 */
+    private static boolean clearsRtCookie(MockHttpServletResponse res) {
+        return res.getHeaders("Set-Cookie").stream()
+                .anyMatch(h -> h.startsWith("RT=") && h.contains("Max-Age=0"));
+    }
 }

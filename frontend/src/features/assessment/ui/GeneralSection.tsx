@@ -3,11 +3,11 @@ import { Plus, FileText, QrCode } from 'lucide-react';
 import { Button } from '@shared/components';
 import type { ManagedAssessment } from '@shared/types';
 import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
+import { ENV } from '@shared/config/env';
 import { AssessmentList } from './AssessmentList';
 
-// TODO: URL 확정 후 채워넣기
-const MANUAL_URL_COMPREHENSIVE = '';
-const MANUAL_URL_SELF_REGULATED = '';
+const MANUAL_URL_COMPREHENSIVE = ENV.MANUAL_URL_COMPREHENSIVE;
+const MANUAL_URL_SELF_REGULATED = ENV.MANUAL_URL_SELF_REGULATED;
 
 const Container = styled.div`
   display: flex;

@@ -91,15 +91,21 @@ const PageDot = styled.div<{ $isActive: boolean; $isPast: boolean; $isSrl: boole
   transition: all 0.15s ease;
   background: ${({ $isActive, $isPast, $isSrl, theme }) =>
     $isActive
-      ? ($isSrl ? SRL_COLOR.main : theme.colors.primary[500])
+      ? $isSrl
+        ? SRL_COLOR.main
+        : theme.colors.primary[500]
       : $isPast
-        ? ($isSrl ? SRL_COLOR.light : theme.colors.primary[100])
+        ? $isSrl
+          ? SRL_COLOR.light
+          : theme.colors.primary[100]
         : theme.colors.gray[100]};
   color: ${({ $isActive, $isPast, $isSrl, theme }) =>
     $isActive
       ? '#ffffff'
       : $isPast
-        ? ($isSrl ? SRL_COLOR.dark : theme.colors.primary[600])
+        ? $isSrl
+          ? SRL_COLOR.dark
+          : theme.colors.primary[600]
         : theme.colors.gray[400]};
   transform: ${({ $isActive }) => ($isActive ? 'scale(1.1)' : 'scale(1)')};
   box-shadow: ${({ $isActive, theme }) => ($isActive ? theme.shadows.md : 'none')};

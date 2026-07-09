@@ -35,8 +35,10 @@ const ModeButton = styled.button<{ $isActive: boolean }>`
   transition: all 0.15s ease;
   border: none;
   cursor: pointer;
-  background: ${({ $isActive, theme }) => ($isActive ? theme.colors.background.paper : 'transparent')};
-  color: ${({ $isActive, theme }) => ($isActive ? theme.colors.primary[600] : theme.colors.gray[600])};
+  background: ${({ $isActive, theme }) =>
+    $isActive ? theme.colors.background.paper : 'transparent'};
+  color: ${({ $isActive, theme }) =>
+    $isActive ? theme.colors.primary[600] : theme.colors.gray[600]};
   box-shadow: ${({ $isActive, theme }) => ($isActive ? theme.shadows.sm : 'none')};
 
   &:hover {

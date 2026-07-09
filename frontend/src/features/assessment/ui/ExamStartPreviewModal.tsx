@@ -195,9 +195,7 @@ export const ExamStartPreviewModal = ({
                 // 케이스 3·10: 다른 그룹 1차 시행 전원
                 <>
                   <Title>출제할 수 있는 학생이 없습니다.</Title>
-                  <Description>
-                    2회차는 1회차를 시행한 그룹에서만 출제할 수 있습니다.
-                  </Description>
+                  <Description>2회차는 1회차를 시행한 그룹에서만 출제할 수 있습니다.</Description>
                 </>
               ) : (
                 // 케이스 2·5·7·9: 이미 응시 전원
@@ -222,9 +220,7 @@ export const ExamStartPreviewModal = ({
 
               {type === 'ALREADY_TAKEN' && (
                 <>
-                  <Description>
-                    {excludedCount}명은 이미 응시하여 자동 제외됩니다.
-                  </Description>
+                  <Description>{excludedCount}명은 이미 응시하여 자동 제외됩니다.</Description>
                   <StudentInfo label={`이미 응시(${excludedCount}명)`} names={allNames} />
                 </>
               )}

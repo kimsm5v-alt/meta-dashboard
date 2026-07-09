@@ -190,9 +190,7 @@ export const PathItem = styled.div<{ $isSelected: boolean }>`
   padding: ${({ theme }) => theme.spacing.md};
   background: ${({ theme }) => theme.colors.background.paper};
   border: ${({ theme, $isSelected }) =>
-    $isSelected
-      ? `2px solid ${theme.colors.primary[500]}`
-      : `1px solid ${theme.colors.gray[200]}`};
+    $isSelected ? `2px solid ${theme.colors.primary[500]}` : `1px solid ${theme.colors.gray[200]}`};
   border-radius: ${({ theme }) => theme.radius.md};
   cursor: pointer;
   transition: all 0.2s;

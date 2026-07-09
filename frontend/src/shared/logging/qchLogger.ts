@@ -60,7 +60,10 @@ function getOrCreateTraceId(): string {
 // QCH 헤더 빌더 (backend API 호출 시 첨부용)
 // ============================================================
 
-export function buildQchRequestHeaders(clientCallId: string, actionId = ''): Record<string, string> {
+export function buildQchRequestHeaders(
+  clientCallId: string,
+  actionId = '',
+): Record<string, string> {
   return {
     'X-QCH-Trace-Id': getOrCreateTraceId(),
     'X-QCH-Action-Id': actionId,
@@ -96,7 +99,7 @@ function redact(value: unknown): unknown {
 export function logApiEvent(event: QchApiLogEvent): void {
   const baseUrl = import.meta.env.VITE_QCH_BASE_URL as string | undefined;
   const serviceKey = import.meta.env.VITE_QCH_SERVICE_KEY as string | undefined;
-  const env = import.meta.env.VITE_QCH_ENV as string | undefined;
+  const env = import.meta.env.VITE_ENV as string | undefined;
   const enabled = import.meta.env.VITE_ENABLE_QCH_LOGGING === 'true';
 
   if (!enabled || !baseUrl || !serviceKey || !env) return;

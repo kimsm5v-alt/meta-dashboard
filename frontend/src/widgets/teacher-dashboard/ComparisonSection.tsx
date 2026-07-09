@@ -387,7 +387,10 @@ export const ComparisonSection = ({
     return assessedClasses.map((cls) => classAverages.find((a) => a.classId === cls.id)!);
   }, [assessedClasses, classAverages]);
 
-  const outliers = useMemo(() => computeOutliers(assessedClasses, assessedAverages), [assessedClasses, assessedAverages]);
+  const outliers = useMemo(
+    () => computeOutliers(assessedClasses, assessedAverages),
+    [assessedClasses, assessedAverages],
+  );
 
   const selectedClass = useMemo(
     () => (selectedClassId ? assessedClasses.find((c) => c.id === selectedClassId) : null),

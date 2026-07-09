@@ -20,10 +20,7 @@ export interface SchoolSearchPage {
   pageSize: number;
 }
 
-export const searchSchools = async (
-  keyword: string,
-  page = 1,
-): Promise<SchoolSearchPage> => {
+export const searchSchools = async (keyword: string, page = 1): Promise<SchoolSearchPage> => {
   const res = await apiClient.get<SchoolSearchPage>(
     `/api/v1/schools/search?keyword=${encodeURIComponent(keyword)}&page=${page}`,
   );
@@ -31,9 +28,7 @@ export const searchSchools = async (
 };
 
 /** NEIS 학교급 ENUM → 학심정 SchoolLevel(elementary/middle/high). 그 외(유치원/특수 등)는 ''. */
-export const neisGradeToSchoolLevel = (
-  grade: string,
-): 'elementary' | 'middle' | 'high' | '' => {
+export const neisGradeToSchoolLevel = (grade: string): 'elementary' | 'middle' | 'high' | '' => {
   switch (grade) {
     case 'ELEMENTARY':
       return 'elementary';

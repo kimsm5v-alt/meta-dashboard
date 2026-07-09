@@ -326,7 +326,7 @@ const renderMarkdown = (content: string): React.ReactNode => {
 
   const formatInlineText = (text: string): React.ReactNode => {
     // <br>, <br/>, <br /> 태그를 실제 줄바꿈으로 변환
-    let processedText = text.replace(/<br\s*\/?>/gi, '\n');
+    const processedText = text.replace(/<br\s*\/?>/gi, '\n');
 
     // **볼드** 처리
     const parts = processedText.split(/(\*\*[^*]+\*\*)/g);

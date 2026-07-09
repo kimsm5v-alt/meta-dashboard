@@ -31,6 +31,7 @@ export const SchoolSearchModal = ({ isOpen, onClose, onSelect }: Props) => {
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setKeyword('');
       setSubmitted('');
       setTimeout(() => inputRef.current?.focus(), 0);
@@ -57,7 +58,7 @@ export const SchoolSearchModal = ({ isOpen, onClose, onSelect }: Props) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="학교 검색" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title='학교 검색' size='lg'>
       <Hint>학교명을 입력 후 검색 버튼 또는 Enter. (데이터 출처: 교육부 · NEIS)</Hint>
 
       <SearchRow>
@@ -73,10 +74,10 @@ export const SchoolSearchModal = ({ isOpen, onClose, onSelect }: Props) => {
                 submit();
               }
             }}
-            placeholder="예: 비상고등학교"
+            placeholder='예: 비상고등학교'
           />
         </InputWrap>
-        <SearchButton type="button" onClick={submit} disabled={!canSubmit || isFetching}>
+        <SearchButton type='button' onClick={submit} disabled={!canSubmit || isFetching}>
           {isFetching && !isFetchingNextPage ? '검색 중' : '검색'}
         </SearchButton>
       </SearchRow>
@@ -107,7 +108,13 @@ export const SchoolSearchModal = ({ isOpen, onClose, onSelect }: Props) => {
             <ResultList>
               {items.map((school) => (
                 <li key={school.code}>
-                  <ResultItem type="button" onClick={() => { onSelect(school); onClose(); }}>
+                  <ResultItem
+                    type='button'
+                    onClick={() => {
+                      onSelect(school);
+                      onClose();
+                    }}
+                  >
                     <GradeChip>{SCHOOL_GRADE_LABEL[school.grade] ?? school.niceKindName}</GradeChip>
                     <ItemInfo>
                       <ItemName>{school.name}</ItemName>
@@ -119,8 +126,14 @@ export const SchoolSearchModal = ({ isOpen, onClose, onSelect }: Props) => {
               ))}
             </ResultList>
             {hasNextPage && (
-              <MoreButton type="button" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
-                {isFetchingNextPage ? '불러오는 중...' : `더 보기 (${loaded} / ${totalCount.toLocaleString()})`}
+              <MoreButton
+                type='button'
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+              >
+                {isFetchingNextPage
+                  ? '불러오는 중...'
+                  : `더 보기 (${loaded} / ${totalCount.toLocaleString()})`}
               </MoreButton>
             )}
           </>
@@ -173,7 +186,8 @@ const SearchButton = styled.button`
   padding: 0 20px;
   border: none;
   border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme, disabled }) => (disabled ? theme.colors.gray[300] : theme.colors.primary[500])};
+  background: ${({ theme, disabled }) =>
+    disabled ? theme.colors.gray[300] : theme.colors.primary[500]};
   color: #fff;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};

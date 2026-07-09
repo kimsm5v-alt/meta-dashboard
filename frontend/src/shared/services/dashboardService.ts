@@ -11,9 +11,10 @@
  */
 
 import { apiRequest } from './apiClient';
-import type { SchoolLevel, StudentType } from '@shared/types';
+import type { Assessment, Class, SchoolLevel, Student, StudentType } from '@shared/types';
 import { classifyStudent, getTypeDeviations } from '@shared/utils/lpaClassifier';
 import { checkAttention } from '@shared/utils/attentionChecker';
+import { createSubmittedStudentIdSet, hasSubmittedRound } from './roundSubmissions';
 
 // ============================================================
 // API 응답 타입
@@ -129,7 +130,7 @@ export interface ModerationPath {
   className?: string;
   schoolLevel?: string;
   classDescription?: string;
-  category?: string;                     // '강점' | '보완점'
+  category?: string; // '강점' | '보완점'
   zFactorType?: 'positive' | 'negative'; // Z 요인 성질
 }
 
@@ -622,7 +623,7 @@ export async function fetchStudentFullAnalysis(
     if (!tScores.some((t) => t !== 50)) return null;
 
     const lpaTopEntry = lpaTopMap?.[String(ordNo)];
-    const recEntry = (recommendationByOrd?.[String(ordNo)]) as GraphRecommendation | undefined;
+    const recEntry = recommendationByOrd?.[String(ordNo)] as GraphRecommendation | undefined;
     const rawLpaTypeName = lpaTopEntry?.lpaTypeName ?? null;
     const apiTypeProbabilities = lpaTopEntry ? buildApiTypeProbabilities(lpaTopEntry) : null;
     return {
@@ -710,7 +711,7 @@ export function convertToAssessment(
     | null
     | undefined,
   schoolLevel: SchoolLevel,
-): import('@shared/types').Assessment {
+): Assessment {
   const tScores = data?.tScores;
   const reliabilityWarnings = data?.reliabilityWarnings ?? [];
   const midCategoryScores = data?.midCategoryScores ?? null;
@@ -752,7 +753,7 @@ export function convertSelfregToAssessment(
   studentId: string,
   round: 1 | 2,
   data: (SelfregRoundAnalysis & { answerIdx?: number | null }) | null | undefined,
-): import('@shared/types').Assessment {
+): Assessment {
   const tScores =
     data?.tScores && Array.isArray(data.tScores) && data.tScores.length === 20
       ? data.tScores
@@ -782,12 +783,20 @@ export async function buildClassFromAPI(
   schoolLevel: SchoolLevel,
   dgnssId: number,
   round2DgnssId?: number,
-): Promise<import('@shared/types').Class | null> {
+): Promise<Class | null> {
   try {
     const studentInfoList = await fetchStudentInfoList(dgnssId, '1', 1);
     if (studentInfoList.length === 0) {
       return null;
     }
+
+    const round2StudentInfoList = round2DgnssId
+      ? round2DgnssId === dgnssId
+        ? studentInfoList
+        : await fetchStudentInfoList(round2DgnssId, '1', 1)
+      : [];
+    const round2SubmittedStudentIds = createSubmittedStudentIdSet(round2StudentInfoList);
+    const hasRound1Exam = !round2DgnssId || round2DgnssId !== dgnssId;
 
     const studentPromises = studentInfoList.map(async (info) => {
       const fullAnalysis = await fetchStudentFullAnalysis(claId, info.stdtId, '1');
@@ -796,22 +805,31 @@ export async function buildClassFromAPI(
 
     const studentResults = await Promise.all(studentPromises);
 
-    const students: import('@shared/types').Student[] = studentResults
-      .filter(({ fullAnalysis }) => {
+    const students: Student[] = studentResults
+      .filter(({ info, fullAnalysis }) => {
         const hasValidR1 =
-          fullAnalysis.round1?.tScores && Array.isArray(fullAnalysis.round1.tScores);
+          hasRound1Exam &&
+          fullAnalysis.round1?.tScores &&
+          Array.isArray(fullAnalysis.round1.tScores);
         const hasValidR2 =
-          fullAnalysis.round2?.tScores && Array.isArray(fullAnalysis.round2.tScores);
+          round2DgnssId &&
+          hasSubmittedRound(info.stdtId, round2SubmittedStudentIds) &&
+          fullAnalysis.round2?.tScores &&
+          Array.isArray(fullAnalysis.round2.tScores);
         return hasValidR1 || hasValidR2;
       })
       .map(({ info, fullAnalysis }) => {
-        const assessments: import('@shared/types').Assessment[] = [];
+        const assessments: Assessment[] = [];
 
-        if (fullAnalysis.round1?.tScores) {
+        if (hasRound1Exam && fullAnalysis.round1?.tScores) {
           assessments.push(convertToAssessment(info.stdtId, 1, fullAnalysis.round1, schoolLevel));
         }
 
-        if (fullAnalysis.round2?.tScores) {
+        if (
+          round2DgnssId &&
+          hasSubmittedRound(info.stdtId, round2SubmittedStudentIds) &&
+          fullAnalysis.round2?.tScores
+        ) {
           assessments.push(convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel));
         }
 
@@ -849,6 +867,12 @@ export async function buildClassFromAPI(
     const needAttentionCount = students.filter((s) =>
       s.assessments.some((a) => a.attentionResult.needsAttention),
     ).length;
+    const round1SubmittedCount = students.filter((s) =>
+      s.assessments.some((a) => a.round === 1),
+    ).length;
+    const round2SubmittedCount = students.filter((s) =>
+      s.assessments.some((a) => a.round === 2),
+    ).length;
 
     return {
       id: claId,
@@ -862,16 +886,13 @@ export async function buildClassFromAPI(
         assessedStudents,
         typeDistribution,
         needAttentionCount,
-        round1Completed: assessedStudents > 0,
-        round2Completed: students.some((s) => s.assessments.some((a) => a.round === 2)),
+        round1Completed: round1SubmittedCount > 0,
+        round2Completed: round2SubmittedCount > 0,
         examStatus: {
-          round1: assessedStudents > 0 ? '종료' : '시작전',
-          round2: students.some((s) => s.assessments.some((a) => a.round === 2))
-            ? '종료'
-            : '시작전',
+          round1: round1SubmittedCount > 0 ? '종료' : '시작전',
+          round2: round2SubmittedCount > 0 ? '종료' : '시작전',
         },
-        round2SubmittedCount: students.filter((s) => s.assessments.some((a) => a.round === 2))
-          .length,
+        round2SubmittedCount,
         dgnssIds: {
           round1: dgnssId,
           round2: round2DgnssId,
@@ -893,7 +914,7 @@ export interface L2DashboardData {
   studentInfoList: StudentInfoItem[];
   classTScores: number[];
   needAttention: NeedStudentsResponse;
-  students: import('@shared/types').Student[];
+  students: Student[];
 }
 
 export async function fetchL2DashboardData(
@@ -915,9 +936,9 @@ export async function fetchL2DashboardData(
     fetchNeedAttentionStudents(dgnssId, paperIdx),
   ]);
 
-  const students: import('@shared/types').Student[] = await Promise.all(
+  const students: Student[] = await Promise.all(
     studentInfoList.map(async (info) => {
-      const assessments: import('@shared/types').Assessment[] = [];
+      const assessments: Assessment[] = [];
 
       if (isSelfreg) {
         const selfreg = await fetchSelfregFullAnalysis(claId, info.stdtId);

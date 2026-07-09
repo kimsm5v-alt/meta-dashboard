@@ -8,10 +8,6 @@ import { useRef } from 'react';
 import {
   Lock,
   Play,
-  Square,
-  X,
-  Eye,
-  RefreshCw,
   ChevronDown,
   ChevronUp,
   Users,

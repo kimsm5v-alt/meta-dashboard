@@ -6,9 +6,7 @@ export async function getExamSlots(claId: string, tcId: string): Promise<ExamSlo
   const items = await fetchExamList(claId, tcId);
 
   return EXAM_SLOTS.map((slotDef) => {
-    const item = items.find(
-      (i) => i.ordNo === slotDef.ordNo && i.paperIdx === slotDef.paperIdx,
-    );
+    const item = items.find((i) => i.ordNo === slotDef.ordNo && i.paperIdx === slotDef.paperIdx);
 
     if (!item) {
       return {

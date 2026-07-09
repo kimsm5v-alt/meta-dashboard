@@ -533,7 +533,9 @@ export const ClassDashboardWidget: React.FC = () => {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [downloadError, setDownloadError] = useState(false);
-  const [allPdfProgress, setAllPdfProgress] = useState<{ current: number; total: number } | null>(null);
+  const [allPdfProgress, setAllPdfProgress] = useState<{ current: number; total: number } | null>(
+    null,
+  );
   const [round2AnswerIdxMap, setRound2AnswerIdxMap] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
@@ -801,7 +803,8 @@ export const ClassDashboardWidget: React.FC = () => {
   const handleDownloadStudentPdf = async (student: Student, round: 1 | 2, type: 1 | 2) => {
     const dgnssId = round === 1 ? dgnssIds.round1 : dgnssIds.round2;
     const assessment = student.assessments.find((a) => a.round === round);
-    const answerIdx = assessment?.answerIdx ?? (round === 2 ? round2AnswerIdxMap.get(student.id) : undefined);
+    const answerIdx =
+      assessment?.answerIdx ?? (round === 2 ? round2AnswerIdxMap.get(student.id) : undefined);
     if (!dgnssId || answerIdx == null) return;
 
     setDownloadError(false);
@@ -1108,7 +1111,9 @@ export const ClassDashboardWidget: React.FC = () => {
                                   e.stopPropagation();
                                   void handleDownloadStudentPdf(student, 2, 1);
                                 }}
-                                disabled={r2?.answerIdx == null && !round2AnswerIdxMap.has(student.id)}
+                                disabled={
+                                  r2?.answerIdx == null && !round2AnswerIdxMap.has(student.id)
+                                }
                                 title='2차 상세'
                               />
                             ) : (
@@ -1122,7 +1127,9 @@ export const ClassDashboardWidget: React.FC = () => {
                                   e.stopPropagation();
                                   void handleDownloadStudentPdf(student, 2, 2);
                                 }}
-                                disabled={r2?.answerIdx == null && !round2AnswerIdxMap.has(student.id)}
+                                disabled={
+                                  r2?.answerIdx == null && !round2AnswerIdxMap.has(student.id)
+                                }
                                 title='2차 요약'
                               />
                             ) : (

@@ -262,11 +262,7 @@ export const DataReviewTable: React.FC<DataReviewTableProps> = ({ rawData, valid
                 <TableCell>{student.className}</TableCell>
                 <NameCell>{student.name}</NameCell>
                 <TableCell>
-                  {student.type ? (
-                    <TypeBadge>{student.type}</TypeBadge>
-                  ) : (
-                    <EmptyCell>-</EmptyCell>
-                  )}
+                  {student.type ? <TypeBadge>{student.type}</TypeBadge> : <EmptyCell>-</EmptyCell>}
                 </TableCell>
                 <TableCell $align='center'>{student.factorCount}/38</TableCell>
                 <TableCell $align='center'>

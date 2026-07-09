@@ -77,7 +77,6 @@ const Description = styled.p`
   line-height: 1.5;
 `;
 
-
 interface TypeDeviationsProps {
   strengths?: Strength[];
   weaknesses?: Weakness[];
@@ -101,43 +100,43 @@ export const TypeDeviations: React.FC<TypeDeviationsProps> = ({ strengths, weakn
       <SectionWrapper>
         {/* 타이틀 그리드 */}
         <TitleGrid>
-          <SectionTitle $type="strength" style={{ gridColumn: '1 / 4' }}>강점 TOP 3</SectionTitle>
-          <SectionTitle $type="weakness" style={{ gridColumn: '4 / 7' }}>약점 TOP 3</SectionTitle>
+          <SectionTitle $type='strength' style={{ gridColumn: '1 / 4' }}>
+            강점 TOP 3
+          </SectionTitle>
+          <SectionTitle $type='weakness' style={{ gridColumn: '4 / 7' }}>
+            약점 TOP 3
+          </SectionTitle>
         </TitleGrid>
 
         {/* 강점/약점 카드 한 줄에 표시 */}
         <Grid>
           {/* 강점 TOP 3 */}
-          {strengths && strengths.length > 0 && strengths.map((item, idx) => {
-            const factorInfo = getFactorInfo(item.factorName);
-            return (
-              <Card key={`strength-${idx}`} $type="strength">
-                {factorInfo && (
-                  <CategoryTag $type="strength">#{factorInfo.category}</CategoryTag>
-                )}
-                <FactorName>{item.factorName}</FactorName>
-                <Description>
-                  학년 평균보다 상위하는 강점입니다
-                </Description>
-              </Card>
-            );
-          })}
+          {strengths &&
+            strengths.length > 0 &&
+            strengths.map((item, idx) => {
+              const factorInfo = getFactorInfo(item.factorName);
+              return (
+                <Card key={`strength-${idx}`} $type='strength'>
+                  {factorInfo && <CategoryTag $type='strength'>#{factorInfo.category}</CategoryTag>}
+                  <FactorName>{item.factorName}</FactorName>
+                  <Description>학년 평균보다 상위하는 강점입니다</Description>
+                </Card>
+              );
+            })}
 
           {/* 약점 TOP 3 */}
-          {weaknesses && weaknesses.length > 0 && weaknesses.map((item, idx) => {
-            const factorInfo = getFactorInfo(item.factorName);
-            return (
-              <Card key={`weakness-${idx}`} $type="weakness">
-                {factorInfo && (
-                  <CategoryTag $type="weakness">#{factorInfo.category}</CategoryTag>
-                )}
-                <FactorName>{item.factorName}</FactorName>
-                <Description>
-                  학년 평균보다 보완이 필요한 영역입니다
-                </Description>
-              </Card>
-            );
-          })}
+          {weaknesses &&
+            weaknesses.length > 0 &&
+            weaknesses.map((item, idx) => {
+              const factorInfo = getFactorInfo(item.factorName);
+              return (
+                <Card key={`weakness-${idx}`} $type='weakness'>
+                  {factorInfo && <CategoryTag $type='weakness'>#{factorInfo.category}</CategoryTag>}
+                  <FactorName>{item.factorName}</FactorName>
+                  <Description>학년 평균보다 보완이 필요한 영역입니다</Description>
+                </Card>
+              );
+            })}
         </Grid>
       </SectionWrapper>
     </Container>

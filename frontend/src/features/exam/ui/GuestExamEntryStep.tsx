@@ -4,7 +4,12 @@ import { ArrowRight, Loader2, User, Info } from 'lucide-react';
 
 const Container = styled.div`
   min-height: 100vh;
-  background: linear-gradient(to bottom right, ${({ theme }) => theme.colors.primary[50]}, #ffffff, #eef2ff);
+  background: linear-gradient(
+    to bottom right,
+    ${({ theme }) => theme.colors.primary[50]},
+    #ffffff,
+    #eef2ff
+  );
   display: flex;
   align-items: center;
   justify-content: center;

@@ -34,35 +34,35 @@ export const StudentManagementPanel = ({ members }: StudentManagementPanelProps)
   const showSearch = activeMembers.length >= 9;
 
   return (
-    <div className="vj-section vj-mem-panel">
+    <div className='vj-section vj-mem-panel'>
       <h3>
         <Users size={16} style={{ color: '#7C3AED' }} />
         학생 관리
-        <span className="sub">{activeMembers.length}명</span>
+        <span className='sub'>{activeMembers.length}명</span>
       </h3>
 
       {/* 검색 (9명 이상) */}
       {showSearch && (
-        <div className="vj-mem-search">
+        <div className='vj-mem-search'>
           <Search size={14} />
           <input
-            type="text"
-            placeholder="이름, 이메일로 검색..."
+            type='text'
+            placeholder='이름, 이메일로 검색...'
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          {searchTerm && <span className="count">{filteredMembers.length}명</span>}
+          {searchTerm && <span className='count'>{filteredMembers.length}명</span>}
         </div>
       )}
 
       {/* 멤버 목록 */}
-      <div className="vj-mem-list">
+      <div className='vj-mem-list'>
         {filteredMembers.length > 0 ? (
           filteredMembers.map((member, idx) => (
             <MemberRow key={member.id} member={member} index={idx + 1} />
           ))
         ) : (
-          <div className="vj-mem-empty">
+          <div className='vj-mem-empty'>
             {searchTerm ? (
               <p>검색 결과가 없습니다</p>
             ) : (
@@ -89,27 +89,36 @@ const MemberRow = ({ member, index }: MemberRowProps) => {
   const consentPending = reason === 'NOT_CONSENTED';
 
   return (
-    <div className="vj-mem-row">
-      <span className="num">{member.memberNo ?? index}</span>
-      <div className="info">
-        <p className="name" style={masked ? { color: '#9CA3AF' } : undefined}>
+    <div className='vj-mem-row'>
+      <span className='num'>{member.memberNo ?? index}</span>
+      <div className='info'>
+        <p className='name' style={masked ? { color: '#9CA3AF' } : undefined}>
           {masked ? '****' : member.name}
           {consentPending && (
             <span
               title={CONSENT_PENDING_TOOLTIP}
               aria-label={CONSENT_PENDING_TOOLTIP}
-              style={{ display: 'inline-flex', alignItems: 'center', marginLeft: 4, color: '#9CA3AF', cursor: 'help', verticalAlign: 'middle' }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                marginLeft: 4,
+                color: '#9CA3AF',
+                cursor: 'help',
+                verticalAlign: 'middle',
+              }}
             >
               <Info size={13} />
             </span>
           )}
-          {!masked && member.memberType === 'guest' && (
-            <span className="guest-badge">게스트</span>
-          )}
+          {!masked && member.memberType === 'guest' && <span className='guest-badge'>게스트</span>}
         </p>
-        {masked
-          ? <p className="email" style={{ color: '#9CA3AF' }}>****@****</p>
-          : member.email && <p className="email">{member.email}</p>}
+        {masked ? (
+          <p className='email' style={{ color: '#9CA3AF' }}>
+            ****@****
+          </p>
+        ) : (
+          member.email && <p className='email'>{member.email}</p>
+        )}
       </div>
     </div>
   );

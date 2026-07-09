@@ -188,6 +188,28 @@ await apiClient.post('/student/exam', { examData });
 
 ## ✅ 완료 작업
 
+**2026-06-29**: 검사 시스템 Phase 2 + 환경 정비
+- **HSJ-61**: 교사 검사 종료 시 학생 대시보드 실시간 조회
+- **HSJ-62**: 로그인 후 기본 랜딩 → `/assessment` (`main.tsx` bootstrap + `LandingPage` 양쪽 수정)
+- **HSJ-64**: 그룹 상세 교사용 설명서 PDF 버튼 (`GroupDetailView`)
+- **HSJ-65**: 검사하기 QR코드 팝업 + 토스트 팝업
+- **HSJ-67**: 타 그룹 이력 학생 미제출 목록 클릭 오류 수정
+- **HSJ-73~76**: 자기조절학습검사 탑재 + 교사/학생 대시보드 UI/UX 개편
+- **HSJ-78**: 학생 대시보드 AI 챗봇 개선
+- **HSJ-82**: 학생 대시보드 유형별 특이점 + 색상
+- **HSJ-83**: 고등 학교급 LPA 유형 분포·추천코칭 미노출
+- **HSJ-87**: 검사 응시 전 기본정보 입력 항목 변경 + NEIS 학교 검색
+- **HSJ-91**: 자기조절학습 학생 보고서 다운로드 비활성화
+- **HSJ-96**: 학생 검사 학년 드롭다운 비활성화
+- **HSJ-97**: 추천 코칭 전략 구조 변경 (강점/보완점 카드 + 아코디언, 기본 접힘)
+- **HSJ-98**: 완료 검사 있는 경우에만 대시보드 리스트 노출
+- **HSJ-99/100**: 학생 검사 번호 입력 비활성화 + 식별정보 API 전달
+- **HSJ-102**: 교사용 설명서 PDF URL env 변수로 설정 (개발 `t-cdn` / 운영 `cdn`)
+- **HSJ-103**: 자기조절학습검사 운영서버 전용 숨김 (`VITE_SELFREG_HIDDEN`)
+- **group-from-IDP**: 그룹 생성/초대/QR 기능 mypage 이관, 미동의 멤버 PII 마스킹, on-demand 동기화
+- **AI env 정리**: `VITE_GEMINI_API_KEY` 제거 → `VITE_CHAT_API_URL`(GPT/DJ 서버) 명시적 설정
+- **SSO/CDN 도메인**: vschool.at 이전 + 콩(Kong) 게이트웨이 경유 통일
+
 **2026-05-27**: 검사 시스템 이슈 수정 (Phase 1)
 - **HSJ-72**: 생기부 더보기 기능 — 2줄 clamp + 펼치기/접기 토글
 - **HSJ-71**: 탈퇴/방출 그룹 조회 수정 — `hasResult` 로직을 상태 기반으로 변경, KICKED 학생도 결과 조회 가능
@@ -234,7 +256,7 @@ await apiClient.post('/student/exam', { examData });
 ### 데이터 모델
 7. **claId**: UUID 형식 (`split` 금지)
 8. **User 타입**: `user.memberType` 사용 (`role` 없음)
-9. **SchoolLevel**: `'초등' | '중등'` (고등 없음)
+9. **SchoolLevel**: 타입 정의는 `'초등' | '중등'`만 명시되어 있으나 실제 데이터에는 `'고등'`도 존재 (HSJ-83 이후). 고등 분기는 `classData.schoolLevel === '고등'` 인라인 비교로 처리
 
 ### SSO 인증
 10. **로그인**: `auth.login()` → Auth 서버 리다이렉트
@@ -266,28 +288,8 @@ await apiClient.post('/student/exam', { examData });
 
 ## 📋 다음 작업
 
-**우선순위 1 (Phase 2 - 조사 필요)**:
-- [ ] **HSJ-67**: 타 그룹 이력 학생 미제출 목록 클릭 오류 수정
-  - 위치: 교사 > 검사하기 > 미제출 목록
-  - 조사: `notSubmittedStudents` 데이터 구조 확인 필요
-- [ ] **HSJ-65**: QR 코드/토스트 팝업 추가
-  - 위치: 교사 > 검사하기
-  - 조사: QR 라이브러리 확인, Toast 컴포넌트 활용
-- [ ] **HSJ-64**: 그룹 상세 보기 PDF 버튼 추가
-  - 위치: 교사 > 그룹 상세
-  - 조사: 그룹 상세 페이지 파일 위치 확인
-- [ ] **HSJ-62**: 기본 랜딩 페이지 변경
-  - 위치: 교사 로그인 후 첫 화면
-  - 조사: 변경할 페이지 명확화 필요
-
-**우선순위 2 (Phase 3 - 백엔드 연동)**:
-- [ ] **HSJ-61**: 검사 종료 시 학생 대시보드 조회
-  - 위치: 학생 > 대시보드
-  - 요구사항: 교사 검사 종료 시 학생 결과 실시간 조회 가능
-  - 구현: SSE 또는 폴링 메커니즘 필요
-
-**우선순위 3 (기존 백로그)**:
-- [ ] useProfileCheck React Query 캐싱
+**백로그**:
+- [ ] useProfileCheck React Query 캐싱 (매 라우트마다 `/api/v1/user/status` 호출)
 - [ ] MyResultPage 1차/2차 비교 모드
 - [ ] 에러 바운더리
 - [ ] features/counseling — 상담 기록
@@ -310,5 +312,5 @@ student-exam FSD  ████████████ 100%
 
 ---
 
-**최종 업데이트**: 2026-05-27 (검사 시스템 이슈 Phase 1 완료)
-**빌드 상태**: ✅ Production ready (tsc -b && vite build: ~21s, 1,827kB)
+**최종 업데이트**: 2026-06-29 (Phase 2 완료 + group-from-IDP + HSJ-102/103)
+**빌드 상태**: ✅ Production ready (tsc -b --noEmit 에러 없음)

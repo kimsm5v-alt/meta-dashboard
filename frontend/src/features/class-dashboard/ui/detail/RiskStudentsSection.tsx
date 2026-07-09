@@ -179,7 +179,9 @@ const EmptyBadge = styled.span`
   color: ${({ theme }) => theme.colors.gray[400]};
 `;
 
-const ChangeBadge = styled.span<{ $status: 'new' | 'persistent' | 'resolved' | 'escalated' | 'deescalated' }>`
+const ChangeBadge = styled.span<{
+  $status: 'new' | 'persistent' | 'resolved' | 'escalated' | 'deescalated';
+}>`
   display: inline-block;
   font-size: 10px;
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
@@ -393,7 +395,10 @@ export const RiskStudentsSection: React.FC<RiskStudentsSectionProps> = ({
           <ChangeSummaryContent>
             <ChangeStat>
               1차 위험군{' '}
-              <StatBold>{(prevCriticalStudents?.length ?? 0) + (prevWatchListStudents?.length ?? 0)}</StatBold>명
+              <StatBold>
+                {(prevCriticalStudents?.length ?? 0) + (prevWatchListStudents?.length ?? 0)}
+              </StatBold>
+              명
             </ChangeStat>
             <ArrowRight className='w-3.5 h-3.5 text-gray-400' />
             <ChangeStat>
@@ -419,6 +424,7 @@ export const RiskStudentsSection: React.FC<RiskStudentsSectionProps> = ({
             </SectionDescription>
           </SectionHeaderContent>
         </SectionHeader>
+        {/* eslint-disable-next-line react-hooks/static-components */}
         <StudentTable students={criticalStudents} accent='red' level='critical' />
       </SectionWrapper>
 
@@ -431,6 +437,7 @@ export const RiskStudentsSection: React.FC<RiskStudentsSectionProps> = ({
             <SectionDescription>단일 영역 관심 필요 학생</SectionDescription>
           </SectionHeaderContent>
         </SectionHeader>
+        {/* eslint-disable-next-line react-hooks/static-components */}
         <StudentTable students={watchListStudents} accent='amber' level='watch' />
       </SectionWrapper>
 
@@ -443,9 +450,7 @@ export const RiskStudentsSection: React.FC<RiskStudentsSectionProps> = ({
               <SectionTitle $variant='resolved'>
                 위험 해소 ({resolvedStudents.length}명)
               </SectionTitle>
-              <SectionDescription>
-                1차에서 관심 필요였으나 2차에서 해소된 학생
-              </SectionDescription>
+              <SectionDescription>1차에서 관심 필요였으나 2차에서 해소된 학생</SectionDescription>
             </SectionHeaderContent>
           </SectionHeader>
           <TableWrapper>

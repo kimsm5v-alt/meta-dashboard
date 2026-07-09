@@ -328,6 +328,7 @@ export const ScheduleWidget: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRecords();
   }, [loadRecords]);
 
@@ -516,7 +517,10 @@ export const ScheduleWidget: React.FC = () => {
                 $activeColor={classColors[cls.id]}
                 onClick={() => handleClassFilterClick(cls.id)}
               >
-                <FilterDot $color={classColors[cls.id] ?? '#9CA3AF'} $isActive={classFilter === cls.id} />
+                <FilterDot
+                  $color={classColors[cls.id] ?? '#9CA3AF'}
+                  $isActive={classFilter === cls.id}
+                />
                 {cls.label}
               </FilterButton>
             ))}

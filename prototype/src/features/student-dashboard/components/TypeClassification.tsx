@@ -11,6 +11,8 @@ interface TypeClassificationProps {
   showCompare?: boolean;
   prevType?: StudentType;
   prevTypeProbabilities?: Record<string, number>;
+  // 유형별 설명
+  typeDescriptions?: Record<string, string>;
 }
 
 export const TypeClassification: React.FC<TypeClassificationProps> = ({
@@ -20,6 +22,7 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
   showCompare = false,
   prevType,
   prevTypeProbabilities,
+  typeDescriptions = {},
 }) => {
   const typeInfo = getTypeInfo(predictedType, schoolLevel);
 
@@ -43,6 +46,7 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
         prevProbs={prevTypeProbabilities}
         currType={predictedType}
         currProbs={typeProbabilities}
+        typeDescriptions={typeDescriptions}
       />
     );
   }
@@ -93,17 +97,50 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value: number) => `${value}%`}
-                contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    const typeName = data.name;
+                    const description = typeDescriptions[typeName];
+                    return (
+                      <div className="bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg max-w-72">
+                        <p className="font-bold text-yellow-400 mb-1">{typeName}</p>
+                        <p className="text-gray-100 mb-2">{data.value}%</p>
+                        {description && (
+                          <p className="leading-relaxed text-gray-300">{description}</p>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
               />
               <Legend
                 layout="horizontal"
                 verticalAlign="bottom"
                 align="center"
-                formatter={(value: string, entry) => `${value} ${(entry as { payload?: { value: number } }).payload?.value ?? 0}%`}
-                iconType="circle"
-                iconSize={10}
-                wrapperStyle={{ fontSize: '12px', lineHeight: '1.8' }}
+                content={() => (
+                  <div className="flex justify-center gap-4 mt-2">
+                    {chartData.map((item, index) => (
+                      <div key={index} className="relative group flex items-center gap-1.5 cursor-help">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-xs text-gray-700">
+                          {item.name} {item.value}%
+                        </span>
+                        {/* 툴팁 */}
+                        {typeDescriptions[item.name] && (
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-30 shadow-lg pointer-events-none">
+                            <p className="font-bold text-yellow-400 mb-1">{item.name}</p>
+                            <p className="leading-relaxed text-gray-300">{typeDescriptions[item.name]}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -157,16 +194,17 @@ interface LpaCompareViewProps {
   prevProbs: Record<string, number>;
   currType: StudentType;
   currProbs: Record<string, number>;
+  typeDescriptions?: Record<string, string>;
 }
 
 // 실제 데이터 키와 매칭되는 유형 순서
 const TYPE_ORDER = ['자원소진형', '안전 균형형', '몰입자원 풍부형'];
 
-function LpaCompareView({ prevType, prevProbs, currType, currProbs }: LpaCompareViewProps) {
+function LpaCompareView({ prevType, prevProbs, currType, currProbs, typeDescriptions = {} }: LpaCompareViewProps) {
   return (
     <div className="flex items-center justify-center gap-8 pb-6">
       {/* 1차 검사 */}
-      <LpaDonutMini type={prevType} probs={prevProbs} label="1차 검사" />
+      <LpaDonutMini type={prevType} probs={prevProbs} label="1차 검사" typeDescriptions={typeDescriptions} />
 
       {/* 화살표 */}
       <div className="flex flex-col items-center">
@@ -183,7 +221,7 @@ function LpaCompareView({ prevType, prevProbs, currType, currProbs }: LpaCompare
       </div>
 
       {/* 2차 검사 */}
-      <LpaDonutMini type={currType} probs={currProbs} label="2차 검사" />
+      <LpaDonutMini type={currType} probs={currProbs} label="2차 검사" typeDescriptions={typeDescriptions} />
     </div>
   );
 }
@@ -192,9 +230,10 @@ interface LpaDonutMiniProps {
   type: StudentType;
   probs: Record<string, number>;
   label: string;
+  typeDescriptions?: Record<string, string>;
 }
 
-function LpaDonutMini({ type, probs, label }: LpaDonutMiniProps) {
+function LpaDonutMini({ type, probs, label, typeDescriptions = {} }: LpaDonutMiniProps) {
   const size = 160;
   const strokeWidth = 24;
   const radius = (size - strokeWidth) / 2;
@@ -220,41 +259,72 @@ function LpaDonutMini({ type, probs, label }: LpaDonutMiniProps) {
   return (
     <div className="flex flex-col items-center">
       <p className="text-sm font-semibold text-gray-600 mb-2">{label}</p>
-      <svg width={size} height={size}>
-        <g transform={`rotate(-90 ${cx} ${cy})`}>
-          {segments.map(seg => (
-            <circle
-              key={seg.type}
-              cx={cx}
-              cy={cy}
-              r={radius}
-              fill="none"
-              stroke={seg.color}
-              strokeWidth={strokeWidth}
-              strokeDasharray={`${(circumference * seg.prob) / 100} ${circumference}`}
-              strokeDashoffset={(-circumference * seg.offset) / 100}
-            />
-          ))}
-        </g>
-        {/* 중앙 텍스트 */}
-        <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill="#6B7280">
-          {Math.round(probs[type] || 0)}%
-        </text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fontSize={12} fontWeight={800} fill={topColor}>
-          {type}
-        </text>
-      </svg>
+      <div className="relative">
+        <svg width={size} height={size}>
+          <g transform={`rotate(-90 ${cx} ${cy})`}>
+            {segments.map(seg => (
+              <circle
+                key={seg.type}
+                cx={cx}
+                cy={cy}
+                r={radius}
+                fill="none"
+                stroke={seg.color}
+                strokeWidth={strokeWidth}
+                strokeDasharray={`${(circumference * seg.prob) / 100} ${circumference}`}
+                strokeDashoffset={(-circumference * seg.offset) / 100}
+              />
+            ))}
+          </g>
+          {/* 중앙 텍스트 */}
+          <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill="#6B7280">
+            {Math.round(probs[type] || 0)}%
+          </text>
+          <text x={cx} y={cy + 12} textAnchor="middle" fontSize={12} fontWeight={800} fill={topColor}>
+            {type}
+          </text>
+        </svg>
+        {/* 차트 호버 영역 - 투명 레이어 */}
+        <div className="absolute inset-0 flex">
+          {segments.map(seg => {
+            if (seg.prob === 0) return null;
+            const pctWidth = seg.prob;
+            return (
+              <div
+                key={seg.type}
+                className="relative group h-full"
+                style={{ width: `${pctWidth}%` }}
+              >
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1 w-64 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-30 shadow-lg pointer-events-none">
+                  <p className="font-bold text-yellow-400 mb-0.5">{seg.type}</p>
+                  <p className="text-gray-100 mb-1">{Math.round(seg.prob)}%</p>
+                  {typeDescriptions[seg.type] && (
+                    <p className="leading-relaxed text-gray-300 text-[10px]">{typeDescriptions[seg.type]}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* 범례 */}
       <div className="flex gap-3 mt-2">
         {sortedData.map(d => (
-          <div key={d.type} className="flex items-center gap-1 text-xs">
+          <div key={d.type} className="relative group flex items-center gap-1 text-xs cursor-help">
             <span
               className="w-2 h-2 rounded-full"
               style={{ backgroundColor: d.color }}
             />
             <span className="text-gray-600">{d.type}</span>
             <span className="text-gray-400 tabular-nums">{Math.round(d.prob)}%</span>
+            {/* 툴팁 */}
+            {typeDescriptions[d.type] && (
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-30 shadow-lg pointer-events-none">
+                <p className="font-bold text-yellow-400 mb-1">{d.type}</p>
+                <p className="leading-relaxed text-gray-300">{typeDescriptions[d.type]}</p>
+              </div>
+            )}
           </div>
         ))}
       </div>
