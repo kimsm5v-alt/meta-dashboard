@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Plus,
   Calendar,
@@ -24,7 +24,13 @@ import {
   COUNSELING_AREA_LABELS,
   COUNSELING_METHOD_LABELS,
 } from '@shared/types';
-import { counselingService } from '@shared/services/counselingService';
+import {
+  useCompleteCounselingMutation,
+  useCreateCounselingMutation,
+  useDeleteCounselingMutation,
+  useStudentCounselingRecordsQuery,
+  useUpdateCounselingMutation,
+} from '@features/student-dashboard/api/counselingQueries';
 import { SCHEDULE_STUDENTS } from '@shared/data/mockUnifiedCounseling';
 import {
   TIME_OPTIONS,
@@ -442,8 +448,16 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
   studentName = '',
   studentNumber = 0,
 }) => {
-  const [records, setRecords] = useState<CounselingRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: records = [], isLoading: loading } = useStudentCounselingRecordsQuery(studentId);
+  const createCounselingMutation = useCreateCounselingMutation();
+  const updateCounselingMutation = useUpdateCounselingMutation();
+  const deleteCounselingMutation = useDeleteCounselingMutation();
+  const completeCounselingMutation = useCompleteCounselingMutation();
+  const isSubmittingCounseling =
+    createCounselingMutation.isPending || updateCounselingMutation.isPending;
+  const isDeletingCounseling = deleteCounselingMutation.isPending;
+  const isCompletingCounseling = completeCounselingMutation.isPending;
+  const isUpdatingReason = updateCounselingMutation.isPending;
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -466,23 +480,6 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
     reason: '',
     saveAsCompleted: false,
   });
-
-  const loadRecords = async () => {
-    setLoading(true);
-    try {
-      const data = await counselingService.getByStudentId(studentId);
-      setRecords(data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 데이터 로드
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadRecords();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId]);
 
   // 예정 / 완료 분리
   const { scheduledRecords, completedRecords } = useMemo(() => {
@@ -551,6 +548,8 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
   };
 
   const handleSubmit = async () => {
+    if (isSubmittingCounseling) return;
+
     const student = getStudentInfo();
 
     const input: CreateCounselingInput = {
@@ -567,18 +566,22 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
 
     try {
       if (editingId) {
-        await counselingService.update(editingId, {
-          scheduledAt: input.scheduledAt,
-          types: input.types,
-          areas: input.areas,
-          methods: input.methods,
-          reason: input.reason,
+        await updateCounselingMutation.mutateAsync({
+          id: editingId,
+          input: {
+            scheduledAt: input.scheduledAt,
+            types: input.types,
+            areas: input.areas,
+            methods: input.methods,
+            reason: input.reason,
+          },
+          studentId,
+          classId,
         });
       } else {
-        await counselingService.create(input);
+        await createCounselingMutation.mutateAsync({ input, studentId, classId });
       }
       resetForm();
-      await loadRecords();
     } catch {
       // 에러 처리
     }
@@ -600,36 +603,44 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('이 상담 기록을 삭제하시겠습니까?')) return;
+    if (isDeletingCounseling || !confirm('이 상담 기록을 삭제하시겠습니까?')) return;
     try {
-      await counselingService.delete(id);
-      await loadRecords();
+      await deleteCounselingMutation.mutateAsync({ id, studentId, classId });
     } catch {
       // 에러 처리
     }
   };
 
   const handleComplete = async () => {
-    if (!completingRecord) return;
+    if (!completingRecord || isCompletingCounseling) return;
 
     try {
-      await counselingService.complete(completingRecord.id, {
-        duration: completionData.duration,
-        summary: completionData.summary,
-        nextSteps: completionData.nextSteps || undefined,
+      await completeCounselingMutation.mutateAsync({
+        id: completingRecord.id,
+        input: {
+          duration: completionData.duration,
+          summary: completionData.summary,
+          nextSteps: completionData.nextSteps || undefined,
+        },
+        studentId,
+        classId,
       });
       setCompletingRecord(null);
       setCompletionData({ duration: 30, summary: '', nextSteps: '' });
-      await loadRecords();
     } catch {
       // 에러 처리
     }
   };
 
   const handleUpdateReason = async (record: CounselingRecord, newReason: string) => {
+    if (isUpdatingReason) return;
     try {
-      await counselingService.update(record.id, { reason: newReason });
-      await loadRecords();
+      await updateCounselingMutation.mutateAsync({
+        id: record.id,
+        input: { reason: newReason },
+        studentId,
+        classId,
+      });
     } catch {
       // 에러 처리
     }
@@ -753,10 +764,14 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
           )}
 
           <FormActions>
-            <CancelButton onClick={resetForm}>취소</CancelButton>
+            <CancelButton onClick={resetForm} disabled={isSubmittingCounseling}>
+              취소
+            </CancelButton>
             <SubmitButton
               onClick={handleSubmit}
-              disabled={formData.saveAsCompleted && !formData.reason.trim()}
+              disabled={
+                isSubmittingCounseling || (formData.saveAsCompleted && !formData.reason.trim())
+              }
             >
               {editingId ? '수정' : formData.saveAsCompleted ? '완료 기록 저장' : '예정 등록'}
             </SubmitButton>
@@ -780,6 +795,12 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
                 onEdit={() => handleEdit(record)}
                 onDelete={() => handleDelete(record.id)}
                 onUpdateReason={(reason) => handleUpdateReason(record, reason)}
+                isActionPending={
+                  isSubmittingCounseling ||
+                  isDeletingCounseling ||
+                  isCompletingCounseling ||
+                  isUpdatingReason
+                }
               />
             ))}
           </RecordList>
@@ -842,10 +863,18 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
                           </NextStepsBox>
                         )}
                         <ActionButtons>
-                          <IconButton $variant='edit' onClick={() => handleEdit(record)}>
+                          <IconButton
+                            $variant='edit'
+                            onClick={() => handleEdit(record)}
+                            disabled={isSubmittingCounseling || isDeletingCounseling}
+                          >
                             <Edit2 size={14} />
                           </IconButton>
-                          <IconButton $variant='delete' onClick={() => handleDelete(record.id)}>
+                          <IconButton
+                            $variant='delete'
+                            onClick={() => handleDelete(record.id)}
+                            disabled={isDeletingCounseling}
+                          >
                             <Trash2 size={14} />
                           </IconButton>
                         </ActionButtons>
@@ -866,6 +895,7 @@ export const CounselingRecordPanel: React.FC<CounselingRecordPanelProps> = ({
           data={completionData}
           onChange={setCompletionData}
           onComplete={handleComplete}
+          isCompleting={isCompletingCounseling}
           onClose={() => setCompletingRecord(null)}
         />
       )}

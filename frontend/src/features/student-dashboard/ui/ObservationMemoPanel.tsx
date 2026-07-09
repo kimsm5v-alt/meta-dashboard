@@ -1,9 +1,14 @@
 import styled from '@emotion/styled';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, X, Info } from 'lucide-react';
 import type { ObservationMemo, CreateObservationMemoInput, MemoCategory } from '@shared/types';
 import { MEMO_CATEGORY_LABELS } from '@shared/types';
-import { memoService } from '@shared/services/memoService';
+import {
+  useCreateMemoMutation,
+  useDeleteMemoMutation,
+  useStudentMemosQuery,
+  useUpdateMemoMutation,
+} from '@features/student-dashboard/api/memoQueries';
 import { formatDateShort } from '@shared/utils/dateUtils';
 import { PanelLoading } from '@shared/components';
 import { ApiTooltip } from '@shared/components/api-tooltip';
@@ -392,8 +397,12 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
   studentId,
   classId,
 }) => {
-  const [memos, setMemos] = useState<ObservationMemo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: memos = [], isLoading: loading } = useStudentMemosQuery(studentId);
+  const createMemoMutation = useCreateMemoMutation();
+  const updateMemoMutation = useUpdateMemoMutation();
+  const deleteMemoMutation = useDeleteMemoMutation();
+  const isSubmittingMemo = createMemoMutation.isPending || updateMemoMutation.isPending;
+  const isDeletingMemo = deleteMemoMutation.isPending;
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
@@ -403,22 +412,6 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
     category: 'behavior',
     tag: '',
   });
-
-  const loadMemos = async () => {
-    setLoading(true);
-    try {
-      const data = await memoService.getByStudentId(studentId);
-      setMemos(data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadMemos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId]);
 
   const resetForm = () => {
     setFormData({
@@ -433,7 +426,7 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!formData.content.trim()) return;
+    if (!formData.content.trim() || isSubmittingMemo) return;
 
     // 상황 + 내용 + 태그를 content에 합쳐서 저장
     const fullContent = formData.situation
@@ -450,13 +443,16 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
     };
 
     if (editingId) {
-      await memoService.update(editingId, { content: fullContent, category: formData.category });
+      await updateMemoMutation.mutateAsync({
+        id: editingId,
+        studentId,
+        input: { content: fullContent, category: formData.category },
+      });
     } else {
-      await memoService.create(input);
+      await createMemoMutation.mutateAsync(input);
     }
 
     resetForm();
-    loadMemos();
   };
 
   const handleEdit = (memo: ObservationMemo) => {
@@ -484,8 +480,8 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
   };
 
   const handleDelete = async (memo: ObservationMemo) => {
-    await memoService.delete(memo.id);
-    loadMemos();
+    if (isDeletingMemo) return;
+    await deleteMemoMutation.mutateAsync({ id: memo.id, studentId });
   };
 
   const parseMemo = (content: string) => {
@@ -602,8 +598,13 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
           </TagSection>
 
           <FormActions>
-            <CancelButton onClick={resetForm}>취소</CancelButton>
-            <SubmitButton onClick={handleSubmit} disabled={!formData.content.trim()}>
+            <CancelButton onClick={resetForm} disabled={isSubmittingMemo}>
+              취소
+            </CancelButton>
+            <SubmitButton
+              onClick={handleSubmit}
+              disabled={!formData.content.trim() || isSubmittingMemo}
+            >
               {editingId ? '수정' : '저장'}
             </SubmitButton>
           </FormActions>
@@ -627,8 +628,15 @@ export const ObservationMemoPanel: React.FC<ObservationMemoPanelProps> = ({
                     {parsed.situation && <MemoSituation>{parsed.situation}</MemoSituation>}
                   </MemoMeta>
                   <ButtonGroup>
-                    <EditButton onClick={() => handleEdit(memo)}>편집</EditButton>
-                    <DeleteButton onClick={() => handleDelete(memo)}>삭제</DeleteButton>
+                    <EditButton
+                      onClick={() => handleEdit(memo)}
+                      disabled={isSubmittingMemo || isDeletingMemo}
+                    >
+                      편집
+                    </EditButton>
+                    <DeleteButton onClick={() => handleDelete(memo)} disabled={isDeletingMemo}>
+                      삭제
+                    </DeleteButton>
                   </ButtonGroup>
                 </MemoHeader>
                 <MemoContent>{parsed.content}</MemoContent>

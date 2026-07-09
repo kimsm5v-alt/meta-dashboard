@@ -137,6 +137,8 @@ export const ApiTooltip: React.FC<ApiTooltipProps> = ({
         left = padding;
       }
 
+      // DOM 측정 결과를 팝오버 위치 상태로 동기화한다.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPopoverPosition({ top, left });
     }
   }, [isOpen, position]);

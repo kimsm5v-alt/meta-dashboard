@@ -14,9 +14,13 @@ const CONSENT_PENDING_TOOLTIP =
  */
 interface StudentManagementPanelProps {
   members: GroupMember[];
+  isLoading?: boolean;
 }
 
-export const StudentManagementPanel = ({ members }: StudentManagementPanelProps) => {
+export const StudentManagementPanel = ({
+  members,
+  isLoading = false,
+}: StudentManagementPanelProps) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const activeMembers = useMemo(() => members.filter((m) => m.status === 'active'), [members]);
@@ -57,7 +61,11 @@ export const StudentManagementPanel = ({ members }: StudentManagementPanelProps)
 
       {/* 멤버 목록 */}
       <div className='vj-mem-list'>
-        {filteredMembers.length > 0 ? (
+        {isLoading ? (
+          <div className='vj-mem-empty'>
+            <p>학생 목록을 불러오는 중...</p>
+          </div>
+        ) : filteredMembers.length > 0 ? (
           filteredMembers.map((member, idx) => (
             <MemberRow key={member.id} member={member} index={idx + 1} />
           ))

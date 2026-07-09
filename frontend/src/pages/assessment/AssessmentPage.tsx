@@ -6,7 +6,7 @@
  * - PDF 결과 업로드
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -23,18 +23,20 @@ import {
   type AssessmentFormData,
 } from '@features/assessment/ui';
 import { registerExamCode } from '@features/exam/api/examService';
-import {
-  startExam,
-  fetchExamList,
-  endExam,
-  cancelExam,
-  restartExam,
-  downloadSampleExcel,
-  uploadAnswersExcel,
-  previewExamStart,
-  type ExamListItem,
-  type ExamStartPreviewResponse,
+import type {
+  ExamListItem,
+  ExamStartPreviewResponse,
 } from '@features/assessment/api/assessmentService';
+import {
+  useAssessmentExamListByGroupsQuery,
+  useCancelExamMutation,
+  useDownloadSampleExcelMutation,
+  useEndExamMutation,
+  usePreviewExamStartMutation,
+  useRestartExamMutation,
+  useStartExamMutation,
+  useUploadAnswersExcelMutation,
+} from '@features/assessment/api/queries';
 import { APIError } from '@shared/services/apiClient';
 import { generateShortCode, schoolLevelToGradeLevel } from '@features/assessment/config';
 import {
@@ -192,9 +194,15 @@ export const AssessmentPage: React.FC = () => {
   const { data: groups = [], isLoading: isGroupsLoading } = useMyGroupsQuery();
   const [selectedClaId, setSelectedClaId] = useState('');
 
+  const examListQuery = useAssessmentExamListByGroupsQuery(groups, tcId, '1');
+  const assessments = useMemo(
+    () => (examListQuery.data ?? []).map((item) => convertExamListItem(item, groups)),
+    [examListQuery.data, groups],
+  );
+  const queryError = examListQuery.error instanceof Error ? examListQuery.error.message : null;
+  const isLoading = examListQuery.isLoading;
+
   // 상태
-  const [assessments, setAssessments] = useState<ManagedAssessment[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -230,57 +238,45 @@ export const AssessmentPage: React.FC = () => {
     }
   }, [groups, selectedClaId]);
 
-  const loadExamList = useCallback(async () => {
-    if (groups.length === 0) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const results = await Promise.all(groups.map((g) => fetchExamList(g.claId, tcId, '1')));
-
-      // 중복 제거 (dgnssId 기준)
-      const seen = new Set<number>();
-      const flat = results.flat().filter((item) => {
-        if (seen.has(item.dgnssId)) return false;
-        seen.add(item.dgnssId);
-        return true;
-      });
-      console.log(flat, '검사 목록 API 결과');
-      setAssessments(flat.map((item) => convertExamListItem(item, groups)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '검사 목록 조회에 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [groups, tcId]);
-
-  useEffect(() => {
-    let isCancelled = false;
-    const load = async () => {
-      if (isCancelled) return;
-      await loadExamList();
-    };
-    void load();
-    return () => {
-      isCancelled = true;
-    };
-  }, [loadExamList]);
+  const startExamMutation = useStartExamMutation();
+  const endExamMutation = useEndExamMutation();
+  const cancelExamMutation = useCancelExamMutation();
+  const restartExamMutation = useRestartExamMutation();
+  const previewExamStartMutation = usePreviewExamStartMutation();
+  const uploadAnswersExcelMutation = useUploadAnswersExcelMutation();
+  const downloadSampleExcelMutation = useDownloadSampleExcelMutation();
+  const isExamActionPending =
+    startExamMutation.isPending ||
+    endExamMutation.isPending ||
+    cancelExamMutation.isPending ||
+    restartExamMutation.isPending ||
+    previewExamStartMutation.isPending ||
+    uploadAnswersExcelMutation.isPending ||
+    downloadSampleExcelMutation.isPending;
 
   // ============================================================
+  // 검사 생성
   // 검사 생성
   // ============================================================
 
   const doCreateExam = useCallback(
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
     async (data: AssessmentFormData, claId: string) => {
+      if (startExamMutation.isPending) return;
+
       setIsProcessing(true);
       setError(null);
 
       try {
         const gradeLevel = schoolLevelToGradeLevel(data.schoolLevel);
 
-        const result = await startExam(claId, tcId, data.round, gradeLevel, '1');
+        const result = await startExamMutation.mutateAsync({
+          claId,
+          tcId,
+          ordNo: data.round,
+          grade: gradeLevel,
+          paperIdx: '1',
+        });
 
         const shortCode = generateShortCode();
         registerExamCode(shortCode, result.claId);
@@ -310,7 +306,6 @@ export const AssessmentPage: React.FC = () => {
           inviteCode: group?.inviteCode,
         };
 
-        setAssessments((prev) => [newAssessment, ...prev]);
         setSelectedAssessment(newAssessment);
         setIsCodeModalOpen(true);
       } catch (err) {
@@ -339,7 +334,7 @@ export const AssessmentPage: React.FC = () => {
         setIsProcessing(false);
       }
     },
-    [user?.id, tcId, groups, assessments],
+    [user?.id, tcId, groups, assessments, startExamMutation],
   );
 
   const handleCreateAssessment = useCallback(
@@ -348,13 +343,13 @@ export const AssessmentPage: React.FC = () => {
         ? (groups.find((g) => g.id === data.groupId)?.claId ?? selectedClaId)
         : selectedClaId;
 
-      if (!claId) return;
+      if (!claId || startExamMutation.isPending || previewExamStartMutation.isPending) return;
 
       // 2회차 출제 전 사전 검증
       if (data.round === 2) {
         setIsProcessing(true);
         try {
-          const preview = await previewExamStart(claId);
+          const preview = await previewExamStartMutation.mutateAsync({ claId });
           setIsProcessing(false);
 
           if (!preview.canStart || preview.blockedOtherClassCount > 0) {
@@ -370,7 +365,7 @@ export const AssessmentPage: React.FC = () => {
 
       await doCreateExam(data, claId);
     },
-    [groups, selectedClaId, doCreateExam],
+    [groups, selectedClaId, doCreateExam, startExamMutation, previewExamStartMutation],
   );
 
   // ============================================================
@@ -379,7 +374,7 @@ export const AssessmentPage: React.FC = () => {
 
   const handleEndExam = useCallback(
     async (assessment: ManagedAssessment) => {
-      if (!assessment.dgnssId) return;
+      if (!assessment.dgnssId || !assessment.claId || endExamMutation.isPending) return;
 
       // 제출 인원이 0명이면 종료 불가
       if (assessment.completedCount === 0) {
@@ -397,15 +392,18 @@ export const AssessmentPage: React.FC = () => {
       setError(null);
 
       try {
-        await endExam(assessment.dgnssId, '1');
-        await loadExamList();
+        await endExamMutation.mutateAsync({
+          dgnssId: assessment.dgnssId,
+          claId: assessment.claId,
+          userId: tcId,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : '검사 종료에 실패했습니다.');
       } finally {
         setIsProcessing(false);
       }
     },
-    [loadExamList],
+    [endExamMutation, tcId],
   );
 
   // ============================================================
@@ -414,7 +412,7 @@ export const AssessmentPage: React.FC = () => {
 
   const handleCancelExam = useCallback(
     async (assessment: ManagedAssessment) => {
-      if (!assessment.dgnssId) return;
+      if (!assessment.dgnssId || !assessment.claId || cancelExamMutation.isPending) return;
 
       const confirmed = confirm(
         `"${assessment.name}" 검사를 취소하시겠습니까?\n\n⚠️ 주의: 모든 응답 데이터가 삭제되며 복구할 수 없습니다.`,
@@ -425,15 +423,18 @@ export const AssessmentPage: React.FC = () => {
       setError(null);
 
       try {
-        await cancelExam(assessment.dgnssId);
-        await loadExamList();
+        await cancelExamMutation.mutateAsync({
+          dgnssId: assessment.dgnssId,
+          claId: assessment.claId,
+          userId: tcId,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : '검사 취소에 실패했습니다.');
       } finally {
         setIsProcessing(false);
       }
     },
-    [loadExamList],
+    [cancelExamMutation, tcId],
   );
 
   // ============================================================
@@ -442,7 +443,7 @@ export const AssessmentPage: React.FC = () => {
 
   const handleRestartExam = useCallback(
     async (assessment: ManagedAssessment) => {
-      if (!assessment.dgnssId || !assessment.claId) return;
+      if (!assessment.dgnssId || !assessment.claId || restartExamMutation.isPending) return;
 
       setIsProcessing(true);
       setError(null);
@@ -450,15 +451,19 @@ export const AssessmentPage: React.FC = () => {
       try {
         const group = groups.find((g) => g.claId === assessment.claId);
         const gradeLevel = group ? schoolLevelToGradeLevel(group.schoolLevel) : 'mi';
-        await restartExam(assessment.dgnssId, assessment.claId, gradeLevel);
-        await loadExamList();
+        await restartExamMutation.mutateAsync({
+          dgnssId: assessment.dgnssId,
+          claId: assessment.claId,
+          userId: tcId,
+          grade: gradeLevel,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : '검사 재시작에 실패했습니다.');
       } finally {
         setIsProcessing(false);
       }
     },
-    [groups, loadExamList],
+    [groups, restartExamMutation, tcId],
   );
 
   // ============================================================
@@ -470,26 +475,35 @@ export const AssessmentPage: React.FC = () => {
     setIsCodeModalOpen(true);
   };
 
-  const handleExcelUpload = useCallback(async (assessment: ManagedAssessment, file: File) => {
-    if (!assessment.dgnssId) return;
-    setIsProcessing(true);
-    try {
-      await uploadAnswersExcel(assessment.dgnssId, file);
-      setAlertModal({
-        isOpen: true,
-        title: '업로드 완료',
-        message: '엑셀 파일이 성공적으로 업로드되었습니다.',
-      });
-    } catch {
-      setAlertModal({
-        isOpen: true,
-        title: '업로드 실패',
-        message: '엑셀 파일 업로드에 실패했습니다. 파일 형식을 확인해주세요.',
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  }, []);
+  const handleExcelUpload = useCallback(
+    async (assessment: ManagedAssessment, file: File) => {
+      if (!assessment.dgnssId || uploadAnswersExcelMutation.isPending) return;
+      setIsProcessing(true);
+      try {
+        if (!assessment.claId) return;
+        await uploadAnswersExcelMutation.mutateAsync({
+          dgnssId: assessment.dgnssId,
+          file,
+          claId: assessment.claId,
+          userId: tcId,
+        });
+        setAlertModal({
+          isOpen: true,
+          title: '업로드 완료',
+          message: '엑셀 파일이 성공적으로 업로드되었습니다.',
+        });
+      } catch {
+        setAlertModal({
+          isOpen: true,
+          title: '업로드 실패',
+          message: '엑셀 파일 업로드에 실패했습니다. 파일 형식을 확인해주세요.',
+        });
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [tcId, uploadAnswersExcelMutation],
+  );
 
   const handlePreviewConfirm = useCallback(async () => {
     const { pendingData, pendingClaId } = previewModal;
@@ -500,21 +514,24 @@ export const AssessmentPage: React.FC = () => {
     await doCreateExam(pendingData, pendingClaId);
   }, [previewModal, doCreateExam]);
 
-  const handleTemplateDownload = useCallback(async (assessment: ManagedAssessment) => {
-    if (!assessment.dgnssId) return;
-    setIsProcessing(true);
-    try {
-      await downloadSampleExcel(assessment.dgnssId);
-    } catch {
-      setAlertModal({
-        isOpen: true,
-        title: '다운로드 실패',
-        message: '양식 파일 다운로드에 실패했습니다.',
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  }, []);
+  const handleTemplateDownload = useCallback(
+    async (assessment: ManagedAssessment) => {
+      if (!assessment.dgnssId || downloadSampleExcelMutation.isPending) return;
+      setIsProcessing(true);
+      try {
+        await downloadSampleExcelMutation.mutateAsync({ dgnssId: assessment.dgnssId });
+      } catch {
+        setAlertModal({
+          isOpen: true,
+          title: '다운로드 실패',
+          message: '양식 파일 다운로드에 실패했습니다.',
+        });
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [downloadSampleExcelMutation],
+  );
 
   // ============================================================
   // 렌더링
@@ -531,7 +548,7 @@ export const AssessmentPage: React.FC = () => {
       </HeaderSection>
 
       {/* 에러 메시지 */}
-      {error && <ErrorBanner>{error}</ErrorBanner>}
+      {(error || queryError) && <ErrorBanner>{error || queryError}</ErrorBanner>}
 
       {/* 처리 중 오버레이 */}
       {isProcessing && (
@@ -570,6 +587,7 @@ export const AssessmentPage: React.FC = () => {
           onRestartExam={handleRestartExam}
           onExcelUpload={handleExcelUpload}
           onTemplateDownload={handleTemplateDownload}
+          isActionPending={isExamActionPending}
         />
       )}
 
