@@ -6,28 +6,32 @@ import { PageLoading } from '../shared/components';
 import { useAuth } from '../features/auth/context/AuthContext';
 
 // ============================================================
-// Feature Imports (신규 IA 기준 - 기존 폴더 활용)
+// Feature Imports (신규 IA 기준)
+// - 홈: 로고 클릭 시 진입
+// - 검사: 검사관리 · 결과보기 · 학생 상담 · 변화추적
+// - 코칭: 학급 코칭 · 개별 코칭 (독립 GNB)
+// - 수업/AI: TBD
 // ============================================================
 
 // 홈 → teacher-dashboard
 import { TeacherDashboardPage as HomePage } from '../features/teacher-dashboard';
 
-// 검사 > 검사관리/결과보기/변화추적 → assessment (서브탭별로 분기)
+// 검사 > 검사관리/결과보기/학생 상담/변화추적 → assessment (서브탭별로 분기)
 import { AssessmentPage as ExamPage_ } from '../features/assessment';
-// 별칭으로 각 서브탭 라우트에서 동일한 컴포넌트 사용
 const ExamManagementPage = ExamPage_;
 const ExamResultPage = ExamPage_;
 const ExamTrackingPage = ExamPage_;
 
-// 상담·코칭 > 학생 상담 → schedule
-import { SchedulePage as CounselingPage } from '../features/schedule';
-// 상담·코칭 > 코칭 → counseling-dashboard
-import { CounselingDashboardPage as CoachingPage } from '../features/counseling-dashboard';
+// 검사 > 학생 상담 → schedule (기존 상담·코칭에서 검사로 이동)
+import { SchedulePage as ExamCounselingPage } from '../features/schedule';
 
-// 수업 > 수업 자료실 → resources
-import { ResourceListPage as LessonResourcesPage } from '../features/resources';
-// 수업 > 나의 수업 (신규 - 임시 placeholder)
-const MyLessonPage = () => <div className="p-8 text-center text-gray-500">나의 수업 (개발 예정)</div>;
+// 코칭 > 학급 코칭/개별 코칭 → counseling-dashboard
+import { CounselingDashboardPage as CoachingPage_ } from '../features/counseling-dashboard';
+const ClassCoachingPage = CoachingPage_;
+const IndividualCoachingPage = CoachingPage_;
+
+// 수업 → resources (TBD)
+import { ResourceListPage as LessonPage } from '../features/resources';
 
 // AI어시스턴트 → ai-room
 import { AIRoomPage as AIAssistantPage } from '../features/ai-room';
@@ -140,26 +144,25 @@ export const AppRoutesV2 = () => (
         교사용 보호 라우트 - 신규 IA 레이아웃
     ======================================== */}
     <Route element={<ProtectedLayoutV2 />}>
-      {/* 홈 */}
+      {/* 홈 (로고 클릭 시 진입) */}
       <Route path="/home" element={<HomePage />} />
 
-      {/* 검사 */}
+      {/* 검사 (검사관리 · 결과보기 · 학생 상담 · 변화추적) */}
       <Route path="/exam" element={<Navigate to="/exam/management" replace />} />
       <Route path="/exam/management" element={<ExamManagementPage />} />
       <Route path="/exam/result" element={<ExamResultPage />} />
+      <Route path="/exam/counseling" element={<ExamCounselingPage />} />
       <Route path="/exam/tracking" element={<ExamTrackingPage />} />
 
-      {/* 상담·코칭 */}
-      <Route path="/counseling" element={<Navigate to="/counseling/student" replace />} />
-      <Route path="/counseling/student" element={<CounselingPage />} />
-      <Route path="/counseling/coaching" element={<CoachingPage />} />
+      {/* 코칭 (학급 코칭 · 개별 코칭) - 독립 GNB */}
+      <Route path="/coaching" element={<Navigate to="/coaching/class" replace />} />
+      <Route path="/coaching/class" element={<ClassCoachingPage />} />
+      <Route path="/coaching/individual" element={<IndividualCoachingPage />} />
 
-      {/* 수업 */}
-      <Route path="/lesson" element={<Navigate to="/lesson/resources" replace />} />
-      <Route path="/lesson/resources" element={<LessonResourcesPage />} />
-      <Route path="/lesson/my-lesson" element={<MyLessonPage />} />
+      {/* 수업 (TBD) */}
+      <Route path="/lesson" element={<LessonPage />} />
 
-      {/* AI어시스턴트 */}
+      {/* AI어시스턴트 (TBD) */}
       <Route path="/ai-assistant" element={<AIAssistantPage />} />
 
       {/* 그룹관리 */}
@@ -196,9 +199,11 @@ export const AppRoutesV2 = () => (
     {/* 기존 경로 호환성 유지 */}
     <Route path="/assessment" element={<Navigate to="/exam/management" replace />} />
     <Route path="/dashboard/*" element={<Navigate to="/exam/result" replace />} />
-    <Route path="/schedule" element={<Navigate to="/counseling/student" replace />} />
-    <Route path="/counseling-dashboard" element={<Navigate to="/counseling/coaching" replace />} />
-    <Route path="/resources" element={<Navigate to="/lesson/resources" replace />} />
+    <Route path="/schedule" element={<Navigate to="/exam/counseling" replace />} />
+    <Route path="/counseling/*" element={<Navigate to="/coaching/class" replace />} />
+    <Route path="/counseling-dashboard" element={<Navigate to="/coaching/class" replace />} />
+    <Route path="/resources" element={<Navigate to="/lesson" replace />} />
+    <Route path="/lesson/*" element={<Navigate to="/lesson" replace />} />
     <Route path="/community" element={<Navigate to="/home" replace />} />
     <Route path="/ai-room" element={<Navigate to="/ai-assistant" replace />} />
 
