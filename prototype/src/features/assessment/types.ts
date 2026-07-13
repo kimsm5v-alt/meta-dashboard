@@ -4,6 +4,8 @@
  * @see prototype/docs/features/EXAM_COUNSELING.md
  */
 
+import type { StudentType, SchoolLevel } from '@/shared/types';
+
 // ============================================================
 // 검사 상태
 // ============================================================
@@ -111,3 +113,43 @@ export const ASSESSMENT_SUBTAB_LABELS: Record<AssessmentSubTab, string> = {
   result: '결과보기',
   tracking: '변화추적',
 };
+
+// ============================================================
+// 결과보기 - 학생 결과 (화면 5번)
+// ============================================================
+
+/** 학생 검사 결과 */
+export interface StudentExamResult {
+  id: string;
+  number: number;
+  name: string;
+  /** 학교급 */
+  schoolLevel: SchoolLevel;
+  /** LPA 유형 */
+  predictedType: StudentType;
+  /** 유형 확률 */
+  typeProbabilities: Record<string, number>;
+  /** 38개 요인 T점수 */
+  tScores: number[];
+  /** 평균 T점수 */
+  avgTScore: number;
+  /** 관심 필요 여부 */
+  needsAttention: boolean;
+  /** 관심 필요 사유 */
+  attentionReason?: string;
+  /** 신뢰도 주의 여부 (응답 일관성 부족 등) */
+  hasReliabilityWarning: boolean;
+  /** 신뢰도 주의 사유 */
+  reliabilityWarningReason?: string;
+  /** 검사일 */
+  assessedAt: Date;
+  /** 회차 */
+  round: 1 | 2;
+  /** 1차 결과 (비교용) */
+  prevResult?: {
+    predictedType: StudentType;
+    typeProbabilities: Record<string, number>;
+    tScores: number[];
+    avgTScore: number;
+  };
+}

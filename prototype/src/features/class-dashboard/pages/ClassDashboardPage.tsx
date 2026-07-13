@@ -149,8 +149,8 @@ export const ClassDashboardPage = () => {
 
       {/* 강점/보완점 */}
       <StrengthWeaknessCard
-        strengths={MOCK_CLASS_RESULT.strengths}
-        weaknesses={MOCK_CLASS_RESULT.weaknesses}
+        strengths={MOCK_CLASS_RESULT.strengths.map((s) => s.factorName)}
+        weaknesses={MOCK_CLASS_RESULT.weaknesses.map((w) => w.factorName)}
         title="반 전체 강점 / 보완점"
       />
 

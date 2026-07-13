@@ -58,6 +58,15 @@ export interface RiskStudent {
   type: 'attention' | 'reliability';
 }
 
+/** 강점/보완점 요인 상세 */
+export interface ProfileFactor {
+  parentCategory: string;  // 대분류 (5대 영역)
+  factorName: string;      // 소분류 요인명
+  avgT: number;            // 평균 T점수
+  definition: string;      // 요인 설명
+  isPositive: boolean;     // 정적 요인 여부
+}
+
 /** 반 결과 요약 */
 export interface ClassResultSummary {
   className: string;
@@ -68,8 +77,8 @@ export interface ClassResultSummary {
   lpaDistribution: LPADistribution[];
   factorAverages: FactorAverage[];
   riskStudents: RiskStudent[];
-  strengths: string[];
-  weaknesses: string[];
+  strengths: ProfileFactor[];
+  weaknesses: ProfileFactor[];
 }
 
 // ============================================================

@@ -97,7 +97,7 @@ export const StudentStatusTable: React.FC<StudentStatusTableProps> = ({ students
       {/* 헤더 */}
       <div className="px-6 py-4 border-b border-gray-100">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">학생 응시 현황</h2>
+          <h2 className="text-base font-semibold text-gray-900">학생 응시 현황</h2>
           <div className="flex items-center gap-4 text-sm text-gray-500">
             <span>전체 {students.length}명</span>
             <span className="text-green-600">응시 {submittedCount}명</span>

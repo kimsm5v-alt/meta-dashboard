@@ -7,3 +7,11 @@ export { ExamStatusCard } from './ExamStatusCard';
 export { RoundTabs } from './RoundTabs';
 export { StudentStatusTable } from './StudentStatusTable';
 export { ExamManagementView } from './ExamManagementView';
+
+// 결과보기 - 반 전체 (화면 3-1)
+export { ClassResultView } from './ClassResultView';
+
+// 결과보기 - 학생 (화면 5번)
+export { StudentFactorAnalysis } from './StudentFactorAnalysis';
+export { TypeClassification } from './TypeClassification';
+export { StudentResultView } from './StudentResultView';
