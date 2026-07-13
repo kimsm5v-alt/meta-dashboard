@@ -26,9 +26,7 @@ const ExamTrackingPage = ExamPage_;
 import { SchedulePage as ExamCounselingPage } from '../features/schedule';
 
 // 코칭 > 학급 코칭/개별 코칭 → counseling-dashboard
-import { CounselingDashboardPage as CoachingPage_ } from '../features/counseling-dashboard';
-const ClassCoachingPage = CoachingPage_;
-const IndividualCoachingPage = CoachingPage_;
+import { ClassCoachingPage, IndividualCoachingPage } from '../features/counseling-dashboard';
 
 // 수업 → resources (TBD)
 import { ResourceListPage as LessonPage } from '../features/resources';
