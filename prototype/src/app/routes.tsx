@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { Layout } from './Layout';
+import { LayoutV2 } from './LayoutV2';
 import { StudentLayout } from './StudentLayout';
 import { MinimalLayout } from './MinimalLayout';
 import { PageLoading } from '../shared/components';
@@ -23,7 +24,8 @@ import { AIRoomPage } from '../features/ai-room';
 import { LandingPage } from '../features/landing';
 import { LoginPage, SignUpPage, ForgotPasswordPage } from '../features/auth';
 // 기존 검사 페이지 (레거시)
-// import { AssessmentPage } from '../features/assessment';
+// import { AssessmentPage as LegacyAssessmentPage } from '../features/assessment';
+import { AssessmentPage } from '../features/assessment';
 
 // 검사하기 V2 (그룹 관리 + 검사하기 통합)
 import { AssessmentPageV2 } from '../features/assessment-v2';
@@ -32,7 +34,7 @@ import { ExamPage } from '../features/exam';
 
 // 신규 Feature imports
 import { JoinGroupPage } from '../features/groups';
-import { CounselingDashboardPage } from '../features/counseling-dashboard';
+import { CounselingDashboardPage, CoachingPage } from '../features/counseling-dashboard';
 import { ResourceListPage, ResourceDetailPage } from '../features/resources';
 import { CommunityListPage, CommunityDetailPage, CommunityWritePage } from '../features/community';
 
@@ -104,6 +106,28 @@ const StudentProtectedLayout = () => {
 };
 
 /**
+ * 보호 라우트 래퍼 - 검사/코칭용 (인증 필요 + LayoutV2 사이드바)
+ * /exam/*, /coaching/* 경로에서 사용
+ */
+const ProtectedLayoutV2 = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <PageLoading text="로딩 중..." />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <LayoutV2>
+      <Outlet />
+    </LayoutV2>
+  );
+};
+
+/**
  * 보호 라우트 래퍼 - 게스트용 (게스트 인증 필요 + 사이드바 없음)
  */
 const GuestProtectedLayout = () => {
@@ -168,8 +192,8 @@ export const AppRoutes = () => (
       <Route path="/dashboard/class/:classId/analysis" element={<ClassDetailAnalysisPage />} />
       <Route path="/dashboard/class/:classId/student/:studentId" element={<StudentDashboardPage />} />
 
-      {/* 상담 영역 */}
-      <Route path="/schedule" element={<SchedulePage />} />
+      {/* 레거시 라우트 - Layout 사용 */}
+      <Route path="/counseling/coaching" element={<CounselingDashboardPage />} />
       {FEATURES.COUNSELING_DASHBOARD && (
         <Route path="/counseling-dashboard" element={<CounselingDashboardPage />} />
       )}
@@ -191,6 +215,26 @@ export const AppRoutes = () => (
 
       {/* AI */}
       <Route path="/ai-room" element={<AIRoomPage />} />
+    </Route>
+
+    {/* 보호 라우트 - LayoutV2 (검사/코칭 영역) */}
+    <Route element={<ProtectedLayoutV2 />}>
+      {/* 검사 영역 - 서브탭별 라우트 */}
+      <Route path="/exam" element={<AssessmentPage />} />
+      <Route path="/exam/management" element={<AssessmentPage />} />
+      <Route path="/exam/result" element={<AssessmentPage />} />
+      <Route path="/exam/tracking" element={<AssessmentPage />} />
+      <Route path="/exam/counseling" element={<SchedulePage />} />
+
+      {/* 코칭 영역 */}
+      <Route path="/coaching" element={<CoachingPage />} />
+      <Route path="/coaching/class" element={<CoachingPage />} />
+      <Route path="/coaching/individual" element={<CoachingPage />} />
+
+      {/* 레거시 라우트 - LayoutV2 사용 */}
+      <Route path="/counseling" element={<SchedulePage />} />
+      <Route path="/counseling/student" element={<SchedulePage />} />
+      <Route path="/schedule" element={<SchedulePage />} />
     </Route>
 
     {/* 학생용 보호 라우트 - 학생 사이드바 */}

@@ -548,7 +548,7 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
         <div className="flex">
           <Sidebar />
           <main className="flex-1 mt-[58px] ml-[210px] overflow-y-auto">
-            <div className="p-[30px_40px_60px] max-w-[1180px]">
+            <div className="p-[30px_40px_60px]">
               <SubTabs />
               {children}
             </div>
