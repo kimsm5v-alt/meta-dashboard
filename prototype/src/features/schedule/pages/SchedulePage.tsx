@@ -1,383 +1,181 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+/**
+ * 상담·코칭 > 학생 상담
+ *
+ * 3가지 상태로 구분:
+ * - 반 미선택 (화면 7번): 전체 현황 대시보드
+ * - 반 전체 (화면 8번): 우선순위 학생, 상담 통계
+ * - 학생 선택 (화면 9번): AI 질문, 메모, 상담 이력
+ *
+ * LayoutV2의 context를 사용하여 LNB와 상태 동기화
+ */
+
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import {
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Link2,
-} from 'lucide-react';
-import { Button } from '@/shared/components';
-import { formatDateISO } from '@/shared/utils/dateUtils';
-import type { UnifiedCounselingRecord, CreateUnifiedCounselingInput, UpdateUnifiedCounselingInput } from '@/shared/types';
-import {
-  WeeklyCalendar,
-  MonthlyCalendar,
-  ScheduleModal,
-  DateDetailPanel,
-  ClassSummaryCards,
-  CalendarIntegrationModal,
+  CounselingSummaryCards,
+  RecentCounselingList,
+  PriorityStudentsList,
+  CounselingStatsCard,
+  StudentCounselingSummaryCard,
+  AIRecommendedQuestions,
+  CounselingMemoEditor,
+  CounselingHistoryList,
 } from '../components';
-import { SCHEDULE_CLASSES, CLASS_COLORS } from '@/shared/data/mockUnifiedCounseling';
-import { unifiedCounselingService } from '@/shared/services/unifiedCounselingService';
+import {
+  MOCK_COUNSELING_OVERVIEW,
+  MOCK_RECENT_RECORDS,
+  MOCK_SCHEDULED_RECORDS,
+  MOCK_PRIORITY_STUDENTS,
+  MOCK_COUNSELING_STATS,
+  MOCK_RECOMMENDED_QUESTIONS,
+  getStudentCounselingSummary,
+} from '../mock-data';
+import type { CounselingMemoData } from '../components/CounselingMemoEditor';
+import { useLayoutContext } from '@/app/LayoutV2';
 
-// ============================================================
-// Types
-// ============================================================
+export const SchedulePage = () => {
+  const location = useLocation();
+  // LayoutV2 context 사용
+  const { selectedClass, selectedStudent, setSelectedStudent, setActiveSubTab } = useLayoutContext();
 
-type ViewMode = 'weekly' | 'monthly';
-
-// ============================================================
-// Utils
-// ============================================================
-
-const formatMonthYear = (date: Date): string => {
-  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
-};
-
-const formatWeekRange = (date: Date): string => {
-  const dayOfWeek = date.getDay();
-  const monday = new Date(date);
-  monday.setDate(date.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-  const friday = new Date(monday);
-  friday.setDate(monday.getDate() + 4);
-
-  const monthStart = monday.getMonth() + 1;
-  const monthEnd = friday.getMonth() + 1;
-
-  if (monthStart === monthEnd) {
-    return `${monday.getFullYear()}년 ${monthStart}월 ${monday.getDate()}일 - ${friday.getDate()}일`;
-  }
-  return `${monthStart}월 ${monday.getDate()}일 - ${monthEnd}월 ${friday.getDate()}일`;
-};
-
-// ============================================================
-// Component
-// ============================================================
-
-export const SchedulePage: React.FC = () => {
-  // 뷰 모드
-  const [viewMode, setViewMode] = useState<ViewMode>('weekly');
-
-  // 현재 날짜
-  const [currentDate, setCurrentDate] = useState(new Date());
-
-  // 선택된 날짜 (월간 뷰)
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-
-  // 반별 필터
-  const [classFilter, setClassFilter] = useState<string | null>(null);
-
-  // 모달 상태
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [showIntegrationModal, setShowIntegrationModal] = useState(false);
-  const [modalInitialDate, setModalInitialDate] = useState<Date | undefined>();
-  const [editingSchedule, setEditingSchedule] = useState<UnifiedCounselingRecord | null>(null);
-
-  // 상담 일정 데이터 (통합 서비스에서 로드)
-  const [records, setRecords] = useState<UnifiedCounselingRecord[]>([]);
-
-  // 데이터 로드
-  const loadRecords = useCallback(async () => {
-    try {
-      const data = await unifiedCounselingService.getAll();
-      setRecords(data);
-    } catch {
-      // 에러 시 빈 목록 유지
-    }
-  }, []);
-
+  // URL path에 따라 activeSubTab 동기화
   useEffect(() => {
-    loadRecords();
-  }, [loadRecords]);
-
-  // 취소되지 않은 모든 상담 (예정 + 완료)
-  const activeRecords = useMemo(() => {
-    return records.filter(r => r.status !== 'cancelled');
-  }, [records]);
-
-  // 필터된 스케줄
-  const filteredSchedules = useMemo(() => {
-    if (!classFilter) return activeRecords;
-    return activeRecords.filter(s => s.classId === classFilter);
-  }, [activeRecords, classFilter]);
-
-  // 선택된 날짜의 스케줄 (월간 뷰 상세 패널)
-  const selectedDateSchedules = useMemo(() => {
-    if (!selectedDate) return [];
-    const dateStr = formatDateISO(selectedDate);
-    return filteredSchedules
-      .filter(s => s.scheduledAt.startsWith(dateStr))
-      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
-  }, [selectedDate, filteredSchedules]);
-
-  // 이전/다음 네비게이션
-  const handlePrev = () => {
-    const newDate = new Date(currentDate);
-    if (viewMode === 'weekly') {
-      newDate.setDate(newDate.getDate() - 7);
-    } else {
-      newDate.setMonth(newDate.getMonth() - 1);
+    if (location.pathname === '/counseling/student' || location.pathname === '/counseling' || location.pathname === '/schedule') {
+      setActiveSubTab('student');
     }
-    setCurrentDate(newDate);
-    setSelectedDate(null);
+  }, [location.pathname, setActiveSubTab]);
+
+  // 상담 저장 핸들러
+  const handleSaveCounseling = (data: CounselingMemoData) => {
+    console.log('상담 저장:', data);
+    // 실제 구현에서는 API 호출
   };
 
-  const handleNext = () => {
-    const newDate = new Date(currentDate);
-    if (viewMode === 'weekly') {
-      newDate.setDate(newDate.getDate() + 7);
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1);
-    }
-    setCurrentDate(newDate);
-    setSelectedDate(null);
-  };
-
-  const handleToday = () => {
-    setCurrentDate(new Date());
-    setSelectedDate(null);
-  };
-
-  // 날짜 클릭 핸들러
-  const handleDateClick = (date: Date) => {
-    if (viewMode === 'monthly') {
-      setSelectedDate(date);
+  // 학생 선택 핸들러 (우선순위 목록에서 클릭 시)
+  const handleStudentSelect = (studentId: string) => {
+    // mock 학생 데이터에서 찾기
+    const student = MOCK_PRIORITY_STUDENTS.find((s) => s.id === studentId);
+    if (student) {
+      setSelectedStudent({ id: student.id, name: student.name });
     }
   };
 
-  // 일정 추가 클릭
-  const handleAddClick = (date?: Date) => {
-    setEditingSchedule(null);
-    setModalInitialDate(date);
-    setShowScheduleModal(true);
-  };
+  // 현재 선택된 학생 정보
+  const studentSummary = selectedStudent ? getStudentCounselingSummary(selectedStudent.id) : null;
 
-  // 스케줄 클릭 (상세/수정)
-  const handleScheduleClick = (schedule: UnifiedCounselingRecord) => {
-    setEditingSchedule(schedule);
-    setModalInitialDate(undefined);
-    setShowScheduleModal(true);
-  };
+  // 학생의 상담 이력 (실제로는 API에서 가져옴)
+  const studentCounselingRecords = selectedStudent
+    ? MOCK_RECENT_RECORDS.filter((r) => r.studentId === selectedStudent.id)
+    : [];
 
-  // 새 일정 등록
-  const handleCreateSchedule = async (input: CreateUnifiedCounselingInput) => {
-    try {
-      await unifiedCounselingService.create(input);
-      await loadRecords();
-    } catch {
-      // 등록 실패 시 무시
-    }
-  };
-
-  // 일정 수정
-  const handleUpdateSchedule = async (id: string, input: UpdateUnifiedCounselingInput) => {
-    try {
-      await unifiedCounselingService.update(id, input);
-      await loadRecords();
-    } catch {
-      // 수정 실패 시 무시
-    }
-  };
-
-  // 일정 삭제
-  const handleDeleteSchedule = async (id: string) => {
-    try {
-      await unifiedCounselingService.delete(id);
-      await loadRecords();
-    } catch {
-      // 삭제 실패 시 무시
-    }
-  };
-
-  // 반 필터 클릭
-  const handleClassFilterClick = (classId: string) => {
-    setClassFilter(prev => (prev === classId ? null : classId));
-  };
+  // 뷰 상태 결정: 반 미선택 / 반 전체 / 학생 선택
+  const viewState = !selectedClass ? 'overview' : !selectedStudent ? 'class' : 'student';
 
   return (
-    <div className="space-y-6">
+    <div className="p-8">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">상담일정</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            학생 상담 일정을 관리하고 캘린더에서 확인하세요
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            onClick={() => setShowIntegrationModal(true)}
-          >
-            <Link2 className="w-4 h-4 mr-2" />
-            캘린더 연동
-          </Button>
-          <Button onClick={() => handleAddClick()}>
-            <Plus className="w-4 h-4 mr-2" />
-            상담 일정 등록
-          </Button>
-        </div>
-      </div>
-
-      {/* 캘린더 컨트롤 */}
-      <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-4">
-        {/* 좌측: 뷰 모드 토글 */}
-        <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-          <button
-            onClick={() => {
-              setViewMode('weekly');
-              setSelectedDate(null);
-            }}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'weekly'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            주간
-          </button>
-          <button
-            onClick={() => {
-              setViewMode('monthly');
-              setSelectedDate(null);
-            }}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'monthly'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            월간
-          </button>
-        </div>
-
-        {/* 중앙: 날짜 네비게이션 */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handlePrev}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div className="text-center min-w-[200px]">
-            <span className="text-lg font-semibold text-gray-900">
-              {viewMode === 'weekly'
-                ? formatWeekRange(currentDate)
-                : formatMonthYear(currentDate)}
-            </span>
+          <h1 className="text-2xl font-bold text-gray-900">학생 상담</h1>
+          <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
+            <span>상담·코칭</span>
+            <ChevronRight className="w-4 h-4" />
+            <span>학생 상담</span>
+            {selectedClass && (
+              <>
+                <ChevronRight className="w-4 h-4" />
+                <span>{selectedClass.name}</span>
+              </>
+            )}
+            {selectedStudent && (
+              <>
+                <ChevronRight className="w-4 h-4" />
+                <span>{selectedStudent.name}</span>
+              </>
+            )}
           </div>
-          <button
-            onClick={handleNext}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronRight className="w-5 h-5 text-gray-600" />
-          </button>
-          <button
-            onClick={handleToday}
-            className="px-3 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-          >
-            오늘
-          </button>
-        </div>
-
-        {/* 우측: 반별 필터 */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setClassFilter(null)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              classFilter === null
-                ? 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            전체
-          </button>
-          {SCHEDULE_CLASSES.map(cls => (
-            <button
-              key={cls.id}
-              onClick={() => handleClassFilterClick(cls.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                classFilter === cls.id
-                  ? 'text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-              style={{
-                backgroundColor:
-                  classFilter === cls.id ? CLASS_COLORS[cls.id] : undefined,
-              }}
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  classFilter === cls.id ? 'bg-white/50' : ''
-                }`}
-                style={{
-                  backgroundColor:
-                    classFilter !== cls.id ? CLASS_COLORS[cls.id] : undefined,
-                }}
-              />
-              {cls.label}
-            </button>
-          ))}
         </div>
       </div>
 
-      {/* 캘린더 뷰 */}
-      <div className={`${viewMode === 'monthly' && selectedDate ? 'pr-[400px]' : ''}`}>
-        {viewMode === 'weekly' ? (
-          <WeeklyCalendar
-            currentDate={currentDate}
-            schedules={filteredSchedules}
-            onDateClick={handleDateClick}
-            onScheduleClick={handleScheduleClick}
-            onAddClick={handleAddClick}
-          />
-        ) : (
-          <MonthlyCalendar
-            currentDate={currentDate}
-            schedules={filteredSchedules}
-            selectedDate={selectedDate}
-            onDateClick={handleDateClick}
-          />
-        )}
-      </div>
+      {/* 화면 7번: 전체 현황 (반 미선택) */}
+      {viewState === 'overview' && (
+        <div className="space-y-6">
+          {/* 요약 카드 */}
+          <CounselingSummaryCards summary={MOCK_COUNSELING_OVERVIEW} />
 
-      {/* 학급별 요약 카드 */}
-      <ClassSummaryCards
-        schedules={activeRecords}
-        onClassClick={handleClassFilterClick}
-        selectedClassFilter={classFilter}
-      />
+          {/* 안내 메시지 */}
+          <div className="bg-primary-50 border border-primary-100 rounded-xl p-6 text-center">
+            <p className="text-primary-700">
+              좌측 메뉴에서 <span className="font-semibold">반을 선택</span>하면 상담 관리를 시작할 수 있습니다.
+            </p>
+          </div>
 
-      {/* 날짜 상세 패널 (월간 뷰) */}
-      {viewMode === 'monthly' && selectedDate && (
-        <DateDetailPanel
-          date={selectedDate}
-          schedules={selectedDateSchedules}
-          onClose={() => setSelectedDate(null)}
-          onAddClick={() => handleAddClick(selectedDate)}
-          onScheduleClick={handleScheduleClick}
-        />
+          {/* 최근/예정 상담 */}
+          <div className="grid grid-cols-2 gap-6">
+            <RecentCounselingList
+              title="최근 상담"
+              records={MOCK_RECENT_RECORDS}
+              type="recent"
+              onRecordClick={(record) => console.log('상담 기록 클릭:', record.id)}
+            />
+            <RecentCounselingList
+              title="예정 상담"
+              records={MOCK_SCHEDULED_RECORDS}
+              type="scheduled"
+              onRecordClick={(record) => console.log('예정 상담 클릭:', record.id)}
+            />
+          </div>
+        </div>
       )}
 
-      {/* 상담 일정 등록/수정 모달 */}
-      <ScheduleModal
-        isOpen={showScheduleModal}
-        onClose={() => {
-          setShowScheduleModal(false);
-          setModalInitialDate(undefined);
-          setEditingSchedule(null);
-        }}
-        onSubmit={handleCreateSchedule}
-        onUpdate={handleUpdateSchedule}
-        onDelete={handleDeleteSchedule}
-        initialDate={modalInitialDate}
-        editingSchedule={editingSchedule}
-      />
+      {/* 화면 8번: 반 전체 */}
+      {viewState === 'class' && selectedClass && (
+        <div className="space-y-6">
+          {/* 안내 메시지 */}
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+            <p className="text-blue-700 text-sm">
+              좌측 학생 목록에서 <span className="font-semibold">학생을 선택</span>하면 개별 상담 화면으로 이동합니다.
+            </p>
+          </div>
 
-      {/* 캘린더 연동 모달 */}
-      <CalendarIntegrationModal
-        isOpen={showIntegrationModal}
-        onClose={() => setShowIntegrationModal(false)}
-      />
+          {/* 우선 상담 대상 + 통계 */}
+          <div className="grid grid-cols-2 gap-6">
+            <PriorityStudentsList
+              students={MOCK_PRIORITY_STUDENTS}
+              onStudentClick={handleStudentSelect}
+            />
+            <CounselingStatsCard stats={MOCK_COUNSELING_STATS} />
+          </div>
+        </div>
+      )}
+
+      {/* 화면 9번: 학생 선택 */}
+      {viewState === 'student' && selectedStudent && studentSummary && (
+        <div className="space-y-6">
+          {/* 학생 요약 헤더 */}
+          <StudentCounselingSummaryCard summary={studentSummary} />
+
+          {/* AI 추천 질문 + 메모 에디터 */}
+          <div className="grid grid-cols-2 gap-6">
+            <AIRecommendedQuestions
+              questions={MOCK_RECOMMENDED_QUESTIONS}
+              studentName={selectedStudent.name}
+            />
+            <CounselingMemoEditor
+              studentId={selectedStudent.id}
+              studentName={selectedStudent.name}
+              onSave={handleSaveCounseling}
+            />
+          </div>
+
+          {/* 상담 이력 */}
+          <CounselingHistoryList
+            records={studentCounselingRecords}
+            studentName={selectedStudent.name}
+          />
+        </div>
+      )}
     </div>
   );
 };

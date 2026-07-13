@@ -2,6 +2,43 @@
 
 > AI 코딩 어시스턴트가 프로젝트 컨텍스트를 이해하고 일관된 코드를 생성하기 위한 가이드
 
+---
+
+## ⚠️ Git 협업 규칙 (필독!)
+
+> **작업 시작 전 반드시 [`GIT_GUIDE.md`](GIT_GUIDE.md)를 숙지하세요.**
+
+### 핵심 규칙
+
+| 규칙 | 설명 |
+|------|------|
+| **브랜치** | `vs-develop`에 직접 작업 금지. 본인 feature 브랜치에서만 작업 |
+| **커밋** | `[PROTOTYPE]` 접두어 필수 (예: `[PROTOTYPE] feat: 차트 추가`) |
+| **담당 폴더** | 본인 담당 features 폴더에서만 작업. 타 영역 수정 시 팀 공유 |
+| **prototype-legacy** | 참고용. **절대 수정 금지** |
+| **충돌 시** | 혼자 해결 X → 팀에 공유 |
+
+### 담당 영역
+
+| 기획자 | 브랜치 | 담당 Features |
+|--------|--------|--------------|
+| 김새미 | `feat/v2-prototype-exam-counseling` | `assessment/`, `class-dashboard/`, `schedule/`, `counseling-dashboard/` |
+| 문승민 | `feat/v2-prototype-lesson` | `resources/` |
+| 김다영 | `feat/v2-prototype-ai-assistant` | `ai-room/` |
+| (공통) | `feat/v2-prototype-menu-structure` | `app/` (Layout, routes) |
+
+### 작업 전 체크
+
+```bash
+# 1. 현재 브랜치 확인
+git branch
+
+# 2. 본인 브랜치 맞는지 확인 후 작업
+git checkout feat/v2-prototype-본인브랜치명
+```
+
+---
+
 ## 목차
 
 1. [프로젝트 개요](#-프로젝트-개요)
@@ -469,5 +506,5 @@ interface SafeData {
 
 ---
 
-**Last Updated**: 2026-03-04
-**Version**: 3.0 (UI 컴포넌트 가이드 분리 → COMPONENTS.md)
+**Last Updated**: 2026-07-09
+**Version**: 3.1 (Git 협업 규칙 추가)

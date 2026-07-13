@@ -1,0 +1,1 @@
+export { GuestExamCard } from './GuestExamCard';
