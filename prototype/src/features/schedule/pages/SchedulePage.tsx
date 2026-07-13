@@ -126,8 +126,7 @@ export const SchedulePage = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{selectedClass.name}</h1>
             <p className="text-sm text-gray-500 mt-1">
-              {MOCK_SCHOOL_INFO.schoolName} · {MOCK_SCHOOL_INFO.eduLevel} 2학년{' '}
-              {selectedClass.name.replace('반', '')}
+              {MOCK_SCHOOL_INFO.schoolName} · {MOCK_SCHOOL_INFO.eduLevel} 2학년 {selectedClass.name.split('-')[1]}
             </p>
           </div>
         </div>
