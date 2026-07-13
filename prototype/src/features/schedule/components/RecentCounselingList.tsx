@@ -4,7 +4,7 @@
  * 최근 상담 기록, 예정된 상담
  */
 
-import { Clock, CheckCircle, Calendar, ChevronRight, User } from 'lucide-react';
+import { Clock, ChevronRight, User } from 'lucide-react';
 import type { CounselingRecord } from '../types';
 import { COUNSELING_TYPE_LABELS, COUNSELING_AREA_LABELS } from '../types';
 
@@ -61,14 +61,7 @@ export const RecentCounselingList: React.FC<RecentCounselingListProps> = ({
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
       {/* 헤더 */}
       <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {type === 'recent' ? (
-            <CheckCircle className="w-5 h-5 text-green-600" />
-          ) : (
-            <Calendar className="w-5 h-5 text-primary-600" />
-          )}
-          <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-        </div>
+        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
         <span className="text-sm text-gray-500">{records.length}건</span>
       </div>
 
