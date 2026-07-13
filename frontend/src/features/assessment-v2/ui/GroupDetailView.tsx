@@ -66,6 +66,8 @@ interface GroupDetailViewProps {
   onRestartExam: (slotId: string, dgnssId: number) => void;
   onExcelUpload: (slotId: string, dgnssId: number, file: File) => void;
   onTemplateDownload: (slotId: string, dgnssId: number) => void;
+  isMembersLoading: boolean;
+  isActionPending: boolean;
 }
 
 // 그룹 수정/삭제·학생 초대·초대코드/QR/링크는 mypage(SSO)로 이관 — 조회+검사진행만 유지 (group-from-idp)
@@ -82,6 +84,8 @@ export const GroupDetailView = ({
   onRestartExam,
   onExcelUpload,
   onTemplateDownload,
+  isMembersLoading,
+  isActionPending,
 }: GroupDetailViewProps) => {
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -289,6 +293,7 @@ export const GroupDetailView = ({
                     onRestartExam={onRestartExam}
                     onExcelUpload={onExcelUpload}
                     onTemplateDownload={onTemplateDownload}
+                    isActionPending={isActionPending}
                   />
                 );
               })}
@@ -298,7 +303,7 @@ export const GroupDetailView = ({
 
         {/* 우측 - 학생 관리 (조회 전용) */}
         <div className='vj-mem-side'>
-          <StudentManagementPanel members={members} />
+          <StudentManagementPanel members={members} isLoading={isMembersLoading} />
         </div>
       </div>
     </div>

@@ -151,6 +151,7 @@ interface GeneralSectionProps {
   onRestartExam?: (assessment: ManagedAssessment) => void;
   onExcelUpload?: (assessment: ManagedAssessment, file: File) => void;
   onTemplateDownload?: (assessment: ManagedAssessment) => void;
+  isActionPending?: boolean;
 }
 
 export const GeneralSection: React.FC<GeneralSectionProps> = ({
@@ -162,6 +163,7 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
   onRestartExam,
   onExcelUpload,
   onTemplateDownload,
+  isActionPending = false,
 }) => {
   return (
     <Container>
@@ -207,6 +209,7 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({
             onRestartExam={onRestartExam}
             onExcelUpload={onExcelUpload}
             onTemplateDownload={onTemplateDownload}
+            isActionPending={isActionPending}
           />
         ) : (
           <EmptyState>

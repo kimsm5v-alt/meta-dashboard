@@ -123,7 +123,7 @@ export async function fetchExamDetail(dgnssId: number): Promise<ExamDetailRespon
  * 검사 종료
  * POST /api/dgnss/tc/end
  */
-export async function endExam(dgnssId: number, _paperIdx?: string): Promise<void> {
+export async function endExam(dgnssId: number): Promise<void> {
   await apiClient.post('/api/dgnss/tc/end', { dgnssId });
 }
 

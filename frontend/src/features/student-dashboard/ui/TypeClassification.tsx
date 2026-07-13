@@ -139,7 +139,6 @@ interface TypeClassificationProps {
 // 차수 비교 서브 컴포넌트
 // ============================================================
 
-
 const CompareWrapper = styled.div`
   display: flex;
   align-items: center;
@@ -231,7 +230,9 @@ const TypeTooltip = styled.div`
   opacity: 0;
   visibility: hidden;
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
-  transition: opacity 0.15s, visibility 0.15s;
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
 
   ${LegendItem}:hover & {
     opacity: 1;
@@ -348,18 +349,34 @@ interface LpaCompareViewProps {
   schoolLevel: SchoolLevel;
 }
 
-function LpaCompareView({ prevType, prevProbs, currType, currProbs, schoolLevel }: LpaCompareViewProps) {
+function LpaCompareView({
+  prevType,
+  prevProbs,
+  currType,
+  currProbs,
+  schoolLevel,
+}: LpaCompareViewProps) {
   const typeDescriptions = getLpaTypeDescriptions(schoolLevel);
   return (
     <CompareWrapper>
-      <LpaDonutMini type={prevType} probs={prevProbs} label='1차 검사' typeDescriptions={typeDescriptions} />
+      <LpaDonutMini
+        type={prevType}
+        probs={prevProbs}
+        label='1차 검사'
+        typeDescriptions={typeDescriptions}
+      />
       <ArrowWrapper>
         <ArrowText>→</ArrowText>
         <ChangeBadge $changed={prevType !== currType}>
           {prevType !== currType ? '유형 변화' : '유형 유지'}
         </ChangeBadge>
       </ArrowWrapper>
-      <LpaDonutMini type={currType} probs={currProbs} label='2차 검사' typeDescriptions={typeDescriptions} />
+      <LpaDonutMini
+        type={currType}
+        probs={currProbs}
+        label='2차 검사'
+        typeDescriptions={typeDescriptions}
+      />
     </CompareWrapper>
   );
 }

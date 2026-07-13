@@ -257,6 +257,7 @@ interface AssessmentListProps {
   onRestartExam?: (assessment: ManagedAssessment) => void;
   onExcelUpload?: (assessment: ManagedAssessment, file: File) => void;
   onTemplateDownload?: (assessment: ManagedAssessment) => void;
+  isActionPending?: boolean;
 }
 
 const formatDate = (date: Date): string => {
@@ -299,6 +300,7 @@ const AssessmentItem: React.FC<{
   onRestartExam?: (assessment: ManagedAssessment) => void;
   onExcelUpload?: (assessment: ManagedAssessment, file: File) => void;
   onTemplateDownload?: (assessment: ManagedAssessment) => void;
+  isActionPending?: boolean;
 }> = ({
   assessment,
   allAssessments,
@@ -308,6 +310,7 @@ const AssessmentItem: React.FC<{
   onRestartExam,
   onExcelUpload,
   onTemplateDownload,
+  isActionPending = false,
 }) => {
   const [showNotSubmitted, setShowNotSubmitted] = useState(false);
   const [notSubmittedStudents, setNotSubmittedStudents] = useState<NotSubmittedStudent[]>([]);
@@ -345,6 +348,7 @@ const AssessmentItem: React.FC<{
     assessment.isActive === false && notSubmittedCount > 0 && !hasRound2Started;
 
   const handleRestartConfirm = () => {
+    if (isActionPending) return;
     setShowRestartConfirm(false);
     onRestartExam?.(assessment);
   };
@@ -365,20 +369,29 @@ const AssessmentItem: React.FC<{
                 type='file'
                 accept='.xlsx,.xls'
                 style={{ display: 'none' }}
+                disabled={isActionPending}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) onExcelUpload(assessment, file);
+                  if (file && !isActionPending) onExcelUpload(assessment, file);
                   e.target.value = '';
                 }}
               />
-              <ActionButton onClick={() => fileInputRef.current?.click()} $variant='primary'>
+              <ActionButton
+                onClick={() => !isActionPending && fileInputRef.current?.click()}
+                $variant='primary'
+                disabled={isActionPending}
+              >
                 <Upload className='w-4 h-4' />
                 엑셀 업로드
               </ActionButton>
             </>
           )}
           {assessment.isActive === true && onTemplateDownload && (
-            <ActionButton onClick={() => onTemplateDownload(assessment)} $variant='primary'>
+            <ActionButton
+              onClick={() => onTemplateDownload(assessment)}
+              $variant='primary'
+              disabled={isActionPending}
+            >
               <Download className='w-4 h-4' />
               양식 다운로드
             </ActionButton>
@@ -390,19 +403,31 @@ const AssessmentItem: React.FC<{
             </ActionButton>
           )}
           {showRestartButton && onRestartExam && (
-            <ActionButton onClick={() => setShowRestartConfirm(true)} $variant='primary'>
+            <ActionButton
+              onClick={() => setShowRestartConfirm(true)}
+              $variant='primary'
+              disabled={isActionPending}
+            >
               <RefreshCw className='w-4 h-4' />
               추가 진행하기
             </ActionButton>
           )}
           {assessment.isActive && onEndExam && (
-            <ActionButton onClick={() => onEndExam(assessment)} $variant='warning'>
+            <ActionButton
+              onClick={() => onEndExam(assessment)}
+              $variant='warning'
+              disabled={isActionPending}
+            >
               <StopCircle className='w-4 h-4' />
               종료
             </ActionButton>
           )}
           {assessment.isActive !== false && onCancelExam && (
-            <ActionButton onClick={() => onCancelExam(assessment)} $variant='danger'>
+            <ActionButton
+              onClick={() => onCancelExam(assessment)}
+              $variant='danger'
+              disabled={isActionPending}
+            >
               <Trash2 className='w-4 h-4' />
               취소
             </ActionButton>
@@ -472,7 +497,7 @@ const AssessmentItem: React.FC<{
             </ConfirmDescription>
             <ConfirmButtons>
               <ConfirmButton onClick={() => setShowRestartConfirm(false)}>아니오</ConfirmButton>
-              <ConfirmButton $primary onClick={handleRestartConfirm}>
+              <ConfirmButton $primary onClick={handleRestartConfirm} disabled={isActionPending}>
                 예
               </ConfirmButton>
             </ConfirmButtons>
@@ -491,6 +516,7 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({
   onRestartExam,
   onExcelUpload,
   onTemplateDownload,
+  isActionPending = false,
 }) => {
   return (
     <Container>
@@ -505,6 +531,7 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({
           onRestartExam={onRestartExam}
           onExcelUpload={onExcelUpload}
           onTemplateDownload={onTemplateDownload}
+          isActionPending={isActionPending}
         />
       ))}
     </Container>

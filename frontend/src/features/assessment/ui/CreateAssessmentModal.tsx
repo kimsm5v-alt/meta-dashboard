@@ -177,7 +177,7 @@ export const CreateAssessmentModal: React.FC<CreateAssessmentModalProps> = ({
   // 선택된 그룹 정보
   const selectedGroup = useMemo(() => {
     return groups.find((g) => g.id === formData.groupId) || null;
-  }, [formData.groupId]);
+  }, [groups, formData.groupId]);
 
   // 그룹 선택 시 학교급, 학년, 반, 학생 수 자동 설정
   const handleGroupChange = (groupId: string) => {

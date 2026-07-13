@@ -1,5 +1,5 @@
 import '@app/styles/vj.css';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { Loader2 } from 'lucide-react';
@@ -9,24 +9,19 @@ import { EmptyState, GroupListView, GroupDetailView } from '@features/assessment
 import { ExamStartPreviewModal } from '@features/assessment/ui';
 import { AlertModal } from '@shared/ui/AlertModal/AlertModal';
 import { EXAM_SLOTS } from '@features/assessment-v2/constants';
-import { getExamSlots } from '@features/assessment-v2/api/examSlotService';
 import {
-  startExam,
-  endExam,
-  cancelExam,
-  restartExam,
-  uploadAnswersExcel,
-  downloadSampleExcel,
-  previewExamStart,
-} from '@features/assessment/api/assessmentService';
+  useAssessmentGroupMembersQuery,
+  useAssessmentSlotsQueries,
+  useCancelExamMutation,
+  useDownloadSampleExcelMutation,
+  useEndExamMutation,
+  usePreviewExamStartMutation,
+  useRestartExamMutation,
+  useStartExamMutation,
+  useUploadAnswersExcelMutation,
+} from '@features/assessment/api/queries';
 import type { ExamStartPreviewResponse } from '@features/assessment/api/assessmentService';
-import { getGroupDetail } from '@features/groups/api/groupService';
-import type {
-  GroupWithExamState,
-  GroupMember,
-  ViewMode,
-  ExamSlotState,
-} from '@features/assessment-v2/types';
+import type { GroupWithExamState, ViewMode, ExamSlotState } from '@features/assessment-v2/types';
 import type { Group, SchoolLevelCode } from '@shared/types';
 
 // ============================================================
@@ -97,39 +92,41 @@ export const AssessmentPageV2 = () => {
     refetch: refetchGroups,
   } = useMyGroupsQuery();
 
-  // 검사 슬롯 상태: claId 키 로컬 맵 (검사 시작·종료·취소 시 직접 갱신)
-  const [examSlotsMap, setExamSlotsMap] = useState<Map<string, ExamSlotState[]>>(new Map());
-  const [isSlotsLoading, setIsSlotsLoading] = useState(false);
-  const [slotsError, setSlotsError] = useState<string | null>(null);
+  const slotsQueryState = useAssessmentSlotsQueries(rawGroups, user?.id);
+  const isBaseLoading = isGroupsLoading || slotsQueryState.isLoading;
+  const slotError = slotsQueryState.error ? '검사 현황을 불러오는데 실패했습니다.' : null;
 
-  const isLoading = isGroupsLoading || isSlotsLoading;
-  const error = groupsQueryError ? '그룹 목록을 불러오는데 실패했습니다.' : slotsError;
-
-  // rawGroups + examSlotsMap → GroupWithExamState[]
+  // rawGroups + slot queries -> GroupWithExamState[]
   const groups = useMemo<GroupWithExamState[]>(
     () =>
       rawGroups.map((g: Group) =>
-        buildGroupWithExamState(g, examSlotsMap.get(g.claId) ?? emptySlots()),
+        buildGroupWithExamState(g, slotsQueryState.dataByClaId.get(g.claId) ?? emptySlots()),
       ),
-    [rawGroups, examSlotsMap],
+    [rawGroups, slotsQueryState.dataByClaId],
   );
 
-  const [members, setMembers] = useState<GroupMember[]>([]);
   // 그룹 생성/수정/삭제·QR 모달 state 제거 — mypage(SSO)로 이관 (group-from-idp)
 
   // URL 기반 derived state (React Compiler 최적화: useEffect 내 setState 방지)
   const selectedGroupId = useMemo(() => {
-    if (!urlGroupId || isLoading) return null;
+    if (!urlGroupId || isBaseLoading) return null;
     const exists = groups.some((g) => g.id === urlGroupId);
     return exists ? urlGroupId : null;
-  }, [urlGroupId, groups, isLoading]);
+  }, [urlGroupId, groups, isBaseLoading]);
+
+  const membersQuery = useAssessmentGroupMembersQuery(selectedGroupId, user?.id);
+  const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
+  const isMembersLoading = !!selectedGroupId && membersQuery.isLoading;
+  const isLoading = isBaseLoading;
+  const error = groupsQueryError
+    ? '그룹 목록을 불러오는데 실패했습니다.'
+    : slotError || (membersQuery.error ? '학생 목록을 불러오는데 실패했습니다.' : null);
 
   const viewMode = useMemo<ViewMode>(() => {
     return selectedGroupId ? 'detail' : 'list';
   }, [selectedGroupId]);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
-
   // 2회차 사전 검증 모달
   const [previewModal, setPreviewModal] = useState<{
     isOpen: boolean;
@@ -164,93 +161,6 @@ export const AssessmentPageV2 = () => {
   }, [members]);
 
   // ============================================================
-  // 데이터 로딩
-  // ============================================================
-
-  const loadExamSlots = useCallback(
-    async (groupsToLoad: Group[]) => {
-      if (!user?.id || groupsToLoad.length === 0) return;
-      const userId = user.id;
-      setIsSlotsLoading(true);
-      setSlotsError(null);
-      try {
-        const entries = await Promise.all(
-          groupsToLoad.map(async (g) => {
-            try {
-              const slots = await getExamSlots(g.claId, userId);
-              return [g.claId, slots] as [string, ExamSlotState[]];
-            } catch (err) {
-              console.error(`[loadExamSlots] Failed to load slots for ${g.claId}:`, err);
-              return [g.claId, emptySlots()] as [string, ExamSlotState[]];
-            }
-          }),
-        );
-        setExamSlotsMap(new Map(entries));
-      } catch (err) {
-        console.error('[loadExamSlots] Failed to load exam slots:', err);
-        setSlotsError('검사 현황을 불러오는데 실패했습니다.');
-      } finally {
-        setIsSlotsLoading(false);
-      }
-    },
-    [user],
-  );
-
-  // rawGroups 로드 완료 후 슬롯 1회 로딩 (auth 흐름·StrictMode 이중 실행 방지)
-  const hasLoadedSlotsRef = useRef(false);
-  useEffect(() => {
-    if (!user?.id || rawGroups.length === 0) return;
-    if (hasLoadedSlotsRef.current) return;
-    hasLoadedSlotsRef.current = true;
-
-    let isCancelled = false;
-    const load = async () => {
-      if (isCancelled) return;
-      await loadExamSlots(rawGroups);
-    };
-    void load();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [user, rawGroups, loadExamSlots]);
-
-  // URL 유효성 검증: 존재하지 않는 groupId일 경우 리다이렉트
-  useEffect(() => {
-    if (isLoading) return;
-    if (!urlGroupId) return;
-    const exists = groups.some((g) => g.id === urlGroupId);
-    if (!exists) {
-      navigate('/assessment', { replace: true });
-    }
-  }, [isLoading, urlGroupId, groups, navigate]);
-
-  // selectedGroupId 변경 시 members 로드
-  useEffect(() => {
-    if (!selectedGroupId || !user?.id) return;
-
-    let isCancelled = false;
-    const load = async () => {
-      try {
-        const result = await getGroupDetail(selectedGroupId, user.id);
-        if (!isCancelled) {
-          setMembers(result?.members ?? []);
-        }
-      } catch (err) {
-        console.error('[useEffect:loadMembers] Failed to load group members:', err);
-        if (!isCancelled) {
-          setMembers([]);
-        }
-      }
-    };
-    void load();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [selectedGroupId, user]);
-
-  // ============================================================
   // 그룹 선택 / 전환 / 뒤로
   // ============================================================
 
@@ -263,7 +173,6 @@ export const AssessmentPageV2 = () => {
   };
 
   const handleBack = () => {
-    setMembers([]);
     navigate('/assessment', { replace: true });
   };
 
@@ -280,59 +189,58 @@ export const AssessmentPageV2 = () => {
   const handleRetry = useCallback(() => {
     if (groupsQueryError) {
       void refetchGroups();
-    } else {
-      hasLoadedSlotsRef.current = false;
-      void loadExamSlots(rawGroups);
+      return;
     }
-  }, [groupsQueryError, refetchGroups, rawGroups, loadExamSlots]);
-
-  // ============================================================
-  // 슬롯 상태 업데이트 헬퍼
-  // ============================================================
-
-  const updateGroupSlot = (groupId: string, slotId: string, patch: Partial<ExamSlotState>) => {
-    const rawGroup = rawGroups.find((g: Group) => g.id === groupId);
-    if (!rawGroup) return;
-    setExamSlotsMap((prev) => {
-      const slots = prev.get(rawGroup.claId) ?? emptySlots();
-      const newSlots = slots.map((s) => (s.slotId === slotId ? { ...s, ...patch } : s));
-      return new Map(prev).set(rawGroup.claId, newSlots);
-    });
-  };
+    if (membersQuery.error) {
+      void membersQuery.refetch();
+      return;
+    }
+    slotsQueryState.refetchAll();
+  }, [groupsQueryError, refetchGroups, membersQuery, slotsQueryState]);
 
   // ============================================================
   // 검사 액션
   // ============================================================
 
+  const startExamMutation = useStartExamMutation();
+  const endExamMutation = useEndExamMutation();
+  const cancelExamMutation = useCancelExamMutation();
+  const restartExamMutation = useRestartExamMutation();
+  const previewExamStartMutation = usePreviewExamStartMutation();
+  const uploadAnswersExcelMutation = useUploadAnswersExcelMutation();
+  const downloadSampleExcelMutation = useDownloadSampleExcelMutation();
+  const isExamActionPending =
+    startExamMutation.isPending ||
+    endExamMutation.isPending ||
+    cancelExamMutation.isPending ||
+    restartExamMutation.isPending ||
+    previewExamStartMutation.isPending ||
+    uploadAnswersExcelMutation.isPending ||
+    downloadSampleExcelMutation.isPending;
+
   const doStartExam = useCallback(
-    async (slotId: string, claId: string, ordNo: number, paperIdx: string) => {
-      if (!user?.id || !selectedGroup) return;
+    async (_slotId: string, claId: string, ordNo: number, paperIdx: string) => {
+      if (!user?.id || !selectedGroup || startExamMutation.isPending) return;
 
       try {
-        const res = await startExam(
+        await startExamMutation.mutateAsync({
           claId,
-          user.id,
+          tcId: user.id,
           ordNo,
-          schoolLevelToGrade(selectedGroup.schoolLevel),
+          grade: schoolLevelToGrade(selectedGroup.schoolLevel),
           paperIdx,
-        );
-        updateGroupSlot(selectedGroup.id, slotId, {
-          dgnssId: res.dgnssId,
-          status: 'in_progress',
-          submittedCount: res.stSubmCnt,
-          totalCount: res.stTotalCnt,
-          startDate: new Date(res.dgnssStDt),
         });
       } catch (err) {
         console.error('[doStartExam] Failed to start exam:', err);
       }
     },
-    [user, selectedGroup],
+    [user, selectedGroup, startExamMutation],
   );
 
   const handleStartExam = useCallback(
     async (slotId: string) => {
-      if (!selectedGroup) return;
+      if (!selectedGroup || startExamMutation.isPending || previewExamStartMutation.isPending)
+        return;
 
       // HSJ-70: 학생이 없을 경우 팝업 표시
       if (activeStudentCount === 0) {
@@ -353,7 +261,7 @@ export const AssessmentPageV2 = () => {
 
       // 출제 전 사전 검증 (1·2회차 공통)
       try {
-        const preview = await previewExamStart(claId, paperIdx, ordNo);
+        const preview = await previewExamStartMutation.mutateAsync({ claId, paperIdx, ordNo });
         if (!preview.canStart || preview.blockedStudents.length > 0) {
           setPreviewModal({
             isOpen: true,
@@ -372,7 +280,13 @@ export const AssessmentPageV2 = () => {
 
       await doStartExam(slotId, claId, ordNo, paperIdx);
     },
-    [selectedGroup, activeStudentCount, doStartExam],
+    [
+      selectedGroup,
+      activeStudentCount,
+      startExamMutation.isPending,
+      previewExamStartMutation,
+      doStartExam,
+    ],
   );
 
   const handlePreviewConfirm = useCallback(async () => {
@@ -384,8 +298,8 @@ export const AssessmentPageV2 = () => {
   }, [previewModal, doStartExam]);
 
   const handleEndExam = useCallback(
-    async (slotId: string, dgnssId: number) => {
-      if (!selectedGroup) return;
+    async (_slotId: string, dgnssId: number) => {
+      if (!selectedGroup || !user?.id) return;
 
       // HSJ-66: 검사 종료 확인 모달
       setAlertModal({
@@ -394,36 +308,12 @@ export const AssessmentPageV2 = () => {
         message:
           '해당 검사를 종료하면 미제출자는 검사지를 제출할 수 없습니다.\n(제출자의 검사지만 결과에 포함됨)',
         onConfirm: async () => {
+          if (endExamMutation.isPending) return;
           try {
-            await endExam(dgnssId);
-            updateGroupSlot(selectedGroup.id, slotId, { status: 'completed', endDate: new Date() });
-          } catch {
-            // noop
-          }
-        },
-      });
-    },
-    [selectedGroup],
-  );
-
-  const handleCancelExam = useCallback(
-    async (slotId: string, dgnssId: number) => {
-      if (!selectedGroup) return;
-
-      // HSJ-66: 검사 취소 확인 모달
-      setAlertModal({
-        isOpen: true,
-        title: '검사를 취소하시겠습니까?',
-        message: '검사를 취소하면 제출자의 내역도 사라집니다.',
-        onConfirm: async () => {
-          try {
-            await cancelExam(dgnssId);
-            updateGroupSlot(selectedGroup.id, slotId, {
-              dgnssId: undefined,
-              status: 'not_started',
-              submittedCount: 0,
-              startDate: undefined,
-              endDate: undefined,
+            await endExamMutation.mutateAsync({
+              dgnssId,
+              claId: selectedGroup.claId,
+              userId: user.id,
             });
           } catch {
             // noop
@@ -431,7 +321,33 @@ export const AssessmentPageV2 = () => {
         },
       });
     },
-    [selectedGroup],
+    [selectedGroup, user, endExamMutation],
+  );
+
+  const handleCancelExam = useCallback(
+    async (_slotId: string, dgnssId: number) => {
+      if (!selectedGroup || !user?.id) return;
+
+      // HSJ-66: 검사 취소 확인 모달
+      setAlertModal({
+        isOpen: true,
+        title: '검사를 취소하시겠습니까?',
+        message: '검사를 취소하면 제출자의 내역도 사라집니다.',
+        onConfirm: async () => {
+          if (cancelExamMutation.isPending) return;
+          try {
+            await cancelExamMutation.mutateAsync({
+              dgnssId,
+              claId: selectedGroup.claId,
+              userId: user.id,
+            });
+          } catch {
+            // noop
+          }
+        },
+      });
+    },
+    [selectedGroup, user, cancelExamMutation],
   );
 
   const handleViewResult = (_slotId: string, _dgnssId: number) => {
@@ -439,37 +355,50 @@ export const AssessmentPageV2 = () => {
   };
 
   const handleRestartExam = useCallback(
-    async (slotId: string, dgnssId: number) => {
-      if (!user?.id || !selectedGroup) return;
+    async (_slotId: string, dgnssId: number) => {
+      if (!user?.id || !selectedGroup || restartExamMutation.isPending) return;
       try {
-        await restartExam(
+        await restartExamMutation.mutateAsync({
           dgnssId,
-          selectedGroup.claId,
-          schoolLevelToGrade(selectedGroup.schoolLevel),
-        );
-        updateGroupSlot(selectedGroup.id, slotId, { status: 'in_progress', endDate: undefined });
+          claId: selectedGroup.claId,
+          userId: user.id,
+          grade: schoolLevelToGrade(selectedGroup.schoolLevel),
+        });
       } catch {
         // noop
       }
     },
-    [user, selectedGroup],
+    [user, selectedGroup, restartExamMutation],
   );
 
-  const handleExcelUpload = useCallback(async (_slotId: string, dgnssId: number, file: File) => {
-    try {
-      await uploadAnswersExcel(dgnssId, file);
-    } catch {
-      // noop
-    }
-  }, []);
+  const handleExcelUpload = useCallback(
+    async (_slotId: string, dgnssId: number, file: File) => {
+      if (!selectedGroup || !user?.id || uploadAnswersExcelMutation.isPending) return;
+      try {
+        await uploadAnswersExcelMutation.mutateAsync({
+          dgnssId,
+          file,
+          claId: selectedGroup.claId,
+          userId: user.id,
+        });
+      } catch {
+        // noop
+      }
+    },
+    [selectedGroup, user, uploadAnswersExcelMutation],
+  );
 
-  const handleTemplateDownload = useCallback(async (_slotId: string, dgnssId: number) => {
-    try {
-      await downloadSampleExcel(dgnssId);
-    } catch {
-      // noop
-    }
-  }, []);
+  const handleTemplateDownload = useCallback(
+    async (_slotId: string, dgnssId: number) => {
+      if (downloadSampleExcelMutation.isPending) return;
+      try {
+        await downloadSampleExcelMutation.mutateAsync({ dgnssId });
+      } catch {
+        // noop
+      }
+    },
+    [downloadSampleExcelMutation],
+  );
 
   // ============================================================
   // 렌더링
@@ -520,6 +449,8 @@ export const AssessmentPageV2 = () => {
           onRestartExam={handleRestartExam}
           onExcelUpload={handleExcelUpload}
           onTemplateDownload={handleTemplateDownload}
+          isMembersLoading={isMembersLoading}
+          isActionPending={isExamActionPending}
         />
       )}
 

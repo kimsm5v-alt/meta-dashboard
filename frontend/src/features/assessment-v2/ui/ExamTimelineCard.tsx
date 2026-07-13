@@ -28,6 +28,7 @@ interface ExamTimelineCardProps {
   onRestartExam: (slotId: string, dgnssId: number) => void;
   onExcelUpload?: (slotId: string, dgnssId: number, file: File) => void;
   onTemplateDownload?: (slotId: string, dgnssId: number) => void;
+  isActionPending?: boolean;
 }
 
 export const ExamTimelineCard = ({
@@ -41,6 +42,7 @@ export const ExamTimelineCard = ({
   onRestartExam,
   onExcelUpload,
   onTemplateDownload,
+  isActionPending = false,
 }: ExamTimelineCardProps) => {
   const [showMissing, setShowMissing] = useState(false);
   const [fetchedStudents, setFetchedStudents] = useState<string[] | null>(null);
@@ -173,6 +175,7 @@ export const ExamTimelineCard = ({
                       type='file'
                       accept='.xlsx,.xls'
                       style={{ display: 'none' }}
+                      disabled={isActionPending}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file && slotState.dgnssId) {
@@ -183,7 +186,8 @@ export const ExamTimelineCard = ({
                     />
                     <button
                       className='vj-tc2-excel-btn'
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={() => !isActionPending && fileInputRef.current?.click()}
+                      disabled={isActionPending}
                     >
                       <Upload size={11} />
                       엑셀 업로드
@@ -191,8 +195,11 @@ export const ExamTimelineCard = ({
                     <button
                       className='vj-tc2-excel-btn'
                       onClick={() =>
-                        slotState.dgnssId && onTemplateDownload?.(slotDef.id, slotState.dgnssId)
+                        !isActionPending &&
+                        slotState.dgnssId &&
+                        onTemplateDownload?.(slotDef.id, slotState.dgnssId)
                       }
+                      disabled={isActionPending}
                     >
                       <Download size={11} />
                       양식 다운로드
@@ -234,6 +241,7 @@ export const ExamTimelineCard = ({
           onCancelExam={onCancelExam}
           onViewResult={onViewResult}
           onRestartExam={onRestartExam}
+          isActionPending={isActionPending}
         />
       </div>
 
@@ -272,6 +280,7 @@ interface ActionButtonsProps {
   onCancelExam: (slotId: string, dgnssId: number) => void;
   onViewResult: (slotId: string, dgnssId: number) => void;
   onRestartExam: (slotId: string, dgnssId: number) => void;
+  isActionPending: boolean;
 }
 
 const ActionButtons = ({
@@ -284,11 +293,16 @@ const ActionButtons = ({
   onCancelExam,
   onViewResult,
   onRestartExam,
+  isActionPending,
 }: ActionButtonsProps) => {
   switch (status) {
     case 'not_started':
       return (
-        <button className='btn sm primary' onClick={() => onStartExam(slotId)}>
+        <button
+          className='btn sm primary'
+          onClick={() => onStartExam(slotId)}
+          disabled={isActionPending}
+        >
           <Play size={12} />
           검사 시작
         </button>
@@ -300,12 +314,16 @@ const ActionButtons = ({
           <button
             className='btn sm primary'
             onClick={() => dgnssId && submittedCount > 0 && onEndExam(slotId, dgnssId)}
-            disabled={submittedCount === 0}
+            disabled={isActionPending || submittedCount === 0}
           >
             <Square size={12} />
             검사 종료
           </button>
-          <button className='btn sm ghost' onClick={() => dgnssId && onCancelExam(slotId, dgnssId)}>
+          <button
+            className='btn sm ghost'
+            onClick={() => dgnssId && onCancelExam(slotId, dgnssId)}
+            disabled={isActionPending}
+          >
             <X size={12} />
             취소
           </button>
@@ -324,6 +342,7 @@ const ActionButtons = ({
           <button
             className='btn sm ghost'
             onClick={() => dgnssId && onRestartExam(slotId, dgnssId)}
+            disabled={isActionPending}
           >
             <RefreshCw size={12} />
             추가 진행
