@@ -125,8 +125,12 @@ export interface StudentExamResult {
   name: string;
   /** 학교급 */
   schoolLevel: SchoolLevel;
-  /** LPA 유형 */
+  /** LPA 유형 (현재 회차 기준) */
   predictedType: StudentType;
+  /** 1차 검사 LPA 유형 (미응시 시 undefined) */
+  lpaType1?: StudentType;
+  /** 2차 검사 LPA 유형 (미응시 시 undefined) */
+  lpaType2?: StudentType;
   /** 유형 확률 */
   typeProbabilities: Record<string, number>;
   /** 38개 요인 T점수 */
@@ -142,9 +146,9 @@ export interface StudentExamResult {
   /** 신뢰도 주의 사유 */
   reliabilityWarningReason?: string;
   /** 검사일 */
-  assessedAt: Date;
+  assessedAt?: Date;
   /** 회차 */
-  round: 1 | 2;
+  round: 0 | 1 | 2;
   /** 1차 결과 (비교용) */
   prevResult?: {
     predictedType: StudentType;

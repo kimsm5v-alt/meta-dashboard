@@ -278,8 +278,29 @@ export const generateStudentResult = (
   id: string,
   number: number,
   name: string,
-  round: 1 | 2 = 1,
+  round: 0 | 1 | 2 = 1,
+  /** 1차/2차 미응시 여부 */
+  options?: { noRound1?: boolean; noRound2?: boolean },
 ): StudentExamResult => {
+  // 미응시 학생 (round = 0)
+  if (round === 0 || (options?.noRound1 && options?.noRound2)) {
+    return {
+      id,
+      number,
+      name,
+      schoolLevel: '중등',
+      predictedType: '정서조절 취약형', // 기본값 (표시되지 않음)
+      lpaType1: undefined,
+      lpaType2: undefined,
+      typeProbabilities: {},
+      tScores: [],
+      avgTScore: 0,
+      needsAttention: false,
+      hasReliabilityWarning: false,
+      round: 0,
+    };
+  }
+
   // 번호에 따라 유형 분배
   const typeIndex = number % 3;
   const predictedType = MIDDLE_SCHOOL_TYPES[typeIndex];
@@ -294,12 +315,20 @@ export const generateStudentResult = (
   // 신뢰도 주의 여부 (일부 학생에게 무작위 할당)
   const hasReliabilityWarning = number % 7 === 0; // 7번, 14번, 21번 학생
 
+  // 1차 유형 결정
+  const lpaType1 = options?.noRound1 ? undefined : MIDDLE_SCHOOL_TYPES[(typeIndex + 1) % 3];
+
+  // 2차 유형 결정 (round >= 2일 때만)
+  const lpaType2 = round >= 2 && !options?.noRound2 ? predictedType : undefined;
+
   const result: StudentExamResult = {
     id,
     number,
     name,
     schoolLevel: '중등',
     predictedType,
+    lpaType1,
+    lpaType2,
     typeProbabilities: generateTypeProbabilities(predictedType),
     tScores,
     avgTScore,
@@ -320,8 +349,8 @@ export const generateStudentResult = (
     const prevTScores = generateTScores(baseLevel);
     const prevAvgT = Math.round(prevTScores.reduce((a, b) => a + b, 0) / prevTScores.length);
     result.prevResult = {
-      predictedType: MIDDLE_SCHOOL_TYPES[(typeIndex + 1) % 3], // 유형 변화 시뮬레이션
-      typeProbabilities: generateTypeProbabilities(MIDDLE_SCHOOL_TYPES[(typeIndex + 1) % 3]),
+      predictedType: lpaType1 || MIDDLE_SCHOOL_TYPES[(typeIndex + 1) % 3],
+      typeProbabilities: generateTypeProbabilities(lpaType1 || MIDDLE_SCHOOL_TYPES[(typeIndex + 1) % 3]),
       tScores: prevTScores,
       avgTScore: prevAvgT,
     };
@@ -332,12 +361,23 @@ export const generateStudentResult = (
 
 /** 반별 학생 결과 목록 */
 export const MOCK_STUDENT_RESULTS: Record<string, StudentExamResult[]> = {
-  'group-1': MOCK_STUDENTS_CLASS_1.slice(0, 26).map((s, i) =>
-    generateStudentResult(`sr1-${i + 1}`, s.number, s.name, 1)
-  ),
-  'group-2': MOCK_STUDENTS_CLASS_1.slice(0, 28).map((s, i) =>
-    generateStudentResult(`sr2-${i + 1}`, s.number, s.name, 1)
-  ),
+  // group-1: 1차만 완료된 반 (일부 학생 미응시)
+  'group-1': MOCK_STUDENTS_CLASS_1.slice(0, 26).map((s, i) => {
+    // 14번, 17번 학생은 미응시
+    if (s.number === 14 || s.number === 17) {
+      return generateStudentResult(`sr1-${i + 1}`, s.number, s.name, 0);
+    }
+    return generateStudentResult(`sr1-${i + 1}`, s.number, s.name, 1);
+  }),
+  // group-2: 1차 완료, 2차 진행중 (일부 2차 미응시)
+  'group-2': MOCK_STUDENTS_CLASS_1.slice(0, 28).map((s, i) => {
+    // 5, 10, 19번 학생은 2차 미응시
+    if (s.number === 5 || s.number === 10 || s.number === 19) {
+      return generateStudentResult(`sr2-${i + 1}`, s.number, s.name, 1);
+    }
+    return generateStudentResult(`sr2-${i + 1}`, s.number, s.name, 2);
+  }),
+  // group-3: 1차/2차 모두 완료
   'group-3': MOCK_STUDENTS_CLASS_1.slice(0, 24).map((s, i) =>
     generateStudentResult(`sr3-${i + 1}`, s.number, s.name, 2)
   ),
