@@ -123,7 +123,12 @@ export interface CounselingStudentItem {
   id: string;
   number: number;
   name: string;
-  lpaType: string;
+  /** 1차 검사 LPA 유형 (미응시 시 undefined) */
+  lpaType1?: string;
+  /** 2차 검사 LPA 유형 (미응시 시 undefined) */
+  lpaType2?: string;
+  /** @deprecated lpaType1으로 대체 - 하위 호환용 */
+  lpaType?: string;
   avgTScore: number;
   tags: CounselingReasonTag[];
   lastCounselingAt?: Date;
