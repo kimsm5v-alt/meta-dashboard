@@ -19,14 +19,26 @@ interface StudentCounselingListProps {
   onStudentClick: (studentId: string) => void;
 }
 
-/** LPA 유형별 색상 */
+/** LPA 유형별 색상 (TYPE_COLORS와 동일) */
 const LPA_COLORS: Record<string, string> = {
-  '자원소진형': '#EF4444',
-  '안전 균형형': '#10B981',
-  '몰입자원 풍부형': '#3B82F6',
-  '냉소적 무기력형': '#EF4444',
-  '정서조절 취약형': '#F59E0B',
-  '자기주도 몰입형': '#3B82F6',
+  // 초등
+  '자원소진형': '#E74C3C',
+  '안전 균형형': '#3498DB',
+  '몰입자원 풍부형': '#2ECC71',
+  // 중등
+  '냉소적 무기력형': '#E74C3C',
+  '정서조절 취약형': '#F39C12',
+  '자기주도 몰입형': '#2ECC71',
+};
+
+/** LPA 유형 약어 (UI 공간 절약) */
+const LPA_SHORT_NAMES: Record<string, string> = {
+  '자원소진형': '자원소진',
+  '안전 균형형': '안전균형',
+  '몰입자원 풍부형': '몰입풍부',
+  '냉소적 무기력형': '냉소무기력',
+  '정서조절 취약형': '정서취약',
+  '자기주도 몰입형': '자기주도',
 };
 
 /** 날짜 포맷팅 */
@@ -80,9 +92,8 @@ export const StudentCounselingList: React.FC<StudentCounselingListProps> = ({
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       {/* 필터 헤더 */}
-      <div className="px-6 py-4 border-b border-gray-100">
-        <h3 className="text-base font-semibold text-gray-900 mb-1">상담 기준 필터</h3>
-        <p className="text-sm text-gray-500 mb-4">상담 목적에 따라 볼 학생을 빠르게 좁힐 수 있습니다.</p>
+      <div className="px-5 py-4 border-b border-gray-100">
+        <h3 className="text-base font-semibold text-gray-900 mb-3">학생 목록</h3>
 
         {/* 필터 버튼들 */}
         <div className="flex flex-wrap gap-2">
@@ -90,7 +101,7 @@ export const StudentCounselingList: React.FC<StudentCounselingListProps> = ({
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 activeFilter === filter
                   ? 'bg-primary-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -107,71 +118,125 @@ export const StudentCounselingList: React.FC<StudentCounselingListProps> = ({
             </button>
           ))}
         </div>
-
-        {/* 현재 필터 설명 */}
-        <p className="mt-3 text-xs text-gray-500">
-          {COUNSELING_FILTER_DESCRIPTIONS[activeFilter]}
-        </p>
       </div>
 
-      {/* 학생 목록 */}
-      <div className="divide-y divide-gray-100">
+      {/* 학생 목록 테이블 */}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          {/* 테이블 헤더 */}
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50">
+              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-16">번호</th>
+              <th className="text-left text-xs font-semibold text-gray-500 py-3 w-24">이름</th>
+              <th className="text-left text-xs font-semibold text-gray-500 py-3">유형</th>
+              <th className="text-left text-xs font-semibold text-gray-500 py-3">상담 이유</th>
+              <th className="text-left text-xs font-semibold text-gray-500 py-3 w-32">최근 상담</th>
+              <th className="w-8"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
         {filteredStudents.map((student) => {
-          const lpaColor = LPA_COLORS[student.lpaType] || '#6B7280';
           // 대표 태그 1개만 표시 (우선순위: burden > obstacle > reliability > strength)
           const primaryTag = student.tags.find((t) => t === 'burden') ||
             student.tags.find((t) => t === 'obstacle') ||
             student.tags.find((t) => t === 'reliability') ||
             student.tags.find((t) => t === 'strength');
 
+          // 1차/2차 유형 (미응시 시 undefined)
+          const type1 = student.lpaType1;
+          const type2 = student.lpaType2;
+          const hasNoAssessment = !type1 && !type2;
+
           return (
-            <button
+            <tr
               key={student.id}
               onClick={() => onStudentClick(student.id)}
-              className="w-full flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+              className="hover:bg-gray-50 cursor-pointer transition-colors"
             >
               {/* 번호 */}
-              <span className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-sm font-medium flex items-center justify-center flex-shrink-0">
-                {student.number}
-              </span>
-
-              {/* 학생 정보 */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-gray-900">{student.name}</span>
-                  <span className="text-sm text-gray-500">{student.lpaType}</span>
-                  {primaryTag && (
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${COUNSELING_REASON_TAG_COLORS[primaryTag].bg} ${COUNSELING_REASON_TAG_COLORS[primaryTag].text}`}
-                    >
-                      {COUNSELING_REASON_TAG_LABELS[primaryTag]}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* T점수 */}
-              <div className="text-right flex-shrink-0">
-                <span
-                  className={`text-lg font-bold ${
-                    student.avgTScore >= 50 ? 'text-green-600' : student.avgTScore >= 40 ? 'text-amber-600' : 'text-red-600'
-                  }`}
-                >
-                  T{student.avgTScore}
+              <td className="px-5 py-4">
+                <span className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-sm font-medium flex items-center justify-center">
+                  {student.number}
                 </span>
-              </div>
+              </td>
 
-              {/* 마지막 상담 */}
-              <div className="flex items-center gap-1.5 text-xs text-gray-400 flex-shrink-0 w-20 justify-end">
-                <Clock className="w-3.5 h-3.5" />
-                <span>{formatLastCounseling(student.lastCounselingAt)}</span>
-              </div>
+              {/* 학생 이름 */}
+              <td className="py-4">
+                <span className="font-semibold text-gray-900 text-base">{student.name}</span>
+              </td>
+
+              {/* 1차/2차 유형 */}
+              <td className="py-4">
+                {hasNoAssessment ? (
+                  <span className="text-sm text-gray-400 italic">응시 전</span>
+                ) : (
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-gray-400">1차</span>
+                      {type1 ? (
+                        <span
+                          className="px-2 py-1 rounded font-medium"
+                          style={{
+                            backgroundColor: `${LPA_COLORS[type1]}15`,
+                            color: LPA_COLORS[type1],
+                          }}
+                        >
+                          {type1}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 italic">응시 전</span>
+                      )}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-gray-400">2차</span>
+                      {type2 ? (
+                        <span
+                          className="px-2 py-1 rounded font-medium"
+                          style={{
+                            backgroundColor: `${LPA_COLORS[type2]}15`,
+                            color: LPA_COLORS[type2],
+                          }}
+                        >
+                          {type2}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 italic">응시 전</span>
+                      )}
+                    </span>
+                  </div>
+                )}
+              </td>
+
+              {/* 상담 이유 */}
+              <td className="py-4">
+                {primaryTag ? (
+                  <span
+                    className={`px-2 py-1 rounded text-sm font-medium ${COUNSELING_REASON_TAG_COLORS[primaryTag].bg} ${COUNSELING_REASON_TAG_COLORS[primaryTag].text}`}
+                  >
+                    {COUNSELING_REASON_TAG_LABELS[primaryTag]}
+                  </span>
+                ) : (
+                  <span className="text-sm text-gray-400">—</span>
+                )}
+              </td>
+
+              {/* 최근 상담 */}
+              <td className="py-4">
+                <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                  <Clock className="w-4 h-4" />
+                  <span>{formatLastCounseling(student.lastCounselingAt)}</span>
+                </div>
+              </td>
 
               {/* 화살표 */}
-              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
-            </button>
+              <td className="py-4 text-center">
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </td>
+            </tr>
           );
         })}
+          </tbody>
+        </table>
       </div>
 
       {/* Empty State */}

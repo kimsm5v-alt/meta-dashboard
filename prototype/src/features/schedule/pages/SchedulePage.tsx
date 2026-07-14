@@ -25,6 +25,7 @@ import {
   CounselingHistoryList,
   CounselingWeekCalendar,
 } from '../components';
+import { StudentHeader } from '@/shared/components';
 import {
   MOCK_COUNSELING_OVERVIEW,
   MOCK_RECENT_RECORDS,
@@ -132,21 +133,14 @@ export const SchedulePage = () => {
         </div>
       )}
 
-      {viewState === 'student' && selectedStudent && selectedClass && (
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleBackToClass}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{selectedStudent.name} 학생 상담</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {selectedClass.name} · 결과를 확인하며 상담을 준비합니다
-            </p>
-          </div>
-        </div>
+      {viewState === 'student' && selectedStudent && selectedClass && studentSummary && (
+        <StudentHeader
+          studentNumber={studentSummary.studentNumber}
+          studentName={studentSummary.studentName}
+          lpaType={studentSummary.lpaType}
+          className={selectedClass.name}
+          onBack={handleBackToClass}
+        />
       )}
 
       {/* 화면 6번: 전체 현황 (반 미선택) */}
@@ -227,17 +221,21 @@ export const SchedulePage = () => {
           />
 
           {/* 학생 목록 (필터) + 이 반 최근 상담 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <StudentCounselingList
-              students={MOCK_CLASS_COUNSELING_STUDENTS}
-              onStudentClick={handleStudentSelect}
-            />
-            <RecentCounselingList
-              title="이 반 최근 상담"
-              records={MOCK_RECENT_RECORDS.filter((r) => r.classId === selectedClass.id || r.className === selectedClass.name)}
-              type="recent"
-              onRecordClick={(record) => console.log('상담 기록 클릭:', record.id)}
-            />
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3">
+              <StudentCounselingList
+                students={MOCK_CLASS_COUNSELING_STUDENTS}
+                onStudentClick={handleStudentSelect}
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <RecentCounselingList
+                title="이 반 최근 상담"
+                records={MOCK_RECENT_RECORDS.filter((r) => r.classId === selectedClass.id || r.className === selectedClass.name)}
+                type="recent"
+                onRecordClick={(record) => console.log('상담 기록 클릭:', record.id)}
+              />
+            </div>
           </div>
         </>
       )}
