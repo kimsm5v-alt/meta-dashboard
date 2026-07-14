@@ -318,72 +318,106 @@ export const ClassResultView: React.FC<ClassResultViewProps> = ({
         </div>
       </div>
 
-      {/* 5. 학생 목록 (학생 클릭 시 학생 결과 화면으로 이동) */}
+      {/* 5. 학생 목록 (학생 클릭 시 학생 결과 화면으로 이동) - 4열 그리드 */}
       {students && students.length > 0 && onStudentClick && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-4">학생 목록</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left text-xs font-semibold text-gray-500 pb-3 w-16">번호</th>
-                  <th className="text-left text-xs font-semibold text-gray-500 pb-3">이름</th>
-                  <th className="text-left text-xs font-semibold text-gray-500 pb-3">학습 유형</th>
-                  <th className="text-center text-xs font-semibold text-gray-500 pb-3 w-24">평균 T</th>
-                  <th className="text-left text-xs font-semibold text-gray-500 pb-3">상태</th>
-                  <th className="w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((student) => (
-                  <tr
-                    key={student.id}
-                    onClick={() => onStudentClick(student.id)}
-                    className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
-                  >
-                    <td className="py-3 text-sm text-gray-600">{student.number}</td>
-                    <td className="py-3 text-sm font-medium text-gray-900">{student.name}</td>
-                    <td className="py-3">
-                      <span
-                        className="px-2 py-0.5 rounded-full text-xs font-semibold text-white"
-                        style={{ backgroundColor: TYPE_COLORS[student.predictedType] || '#9CA3AF' }}
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <h3 className="text-base font-semibold text-gray-900 mb-3">학생 목록</h3>
+          <div className="grid grid-cols-4 gap-2">
+            {students.map((student) => {
+              const hasNoAssessment = !student.lpaType1 && !student.lpaType2;
+              return (
+                <div
+                  key={student.id}
+                  className="relative p-2.5 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors"
+                >
+                  {/* 우측 상단 상태 배지 */}
+                  {!hasNoAssessment && (student.needsAttention || student.hasReliabilityWarning) && (
+                    <div className="absolute top-1.5 right-1.5 flex gap-0.5">
+                      {student.needsAttention && (
+                        <span
+                          className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700"
+                          title={student.attentionReason}
+                        >
+                          관심
+                        </span>
+                      )}
+                      {student.hasReliabilityWarning && (
+                        <span
+                          className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700"
+                          title={student.reliabilityWarningReason}
+                        >
+                          신뢰도 주의
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-2">
+                    {/* 번호 */}
+                    <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-medium flex items-center justify-center flex-shrink-0">
+                      {student.number}
+                    </span>
+
+                    {/* 이름 + 유형 */}
+                    <div className="flex-1 min-w-0">
+                      {/* 이름 */}
+                      <div className="font-semibold text-sm text-gray-900 mb-2">{student.name}</div>
+
+                      {/* 유형 (상하 배치) */}
+                      {hasNoAssessment ? (
+                        <span className="text-xs text-gray-400 italic">응시 전</span>
+                      ) : (
+                        <div className="space-y-1.5 text-xs">
+                          {/* 1차 유형 */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400 w-5">1차</span>
+                            {student.lpaType1 ? (
+                              <span
+                                className="px-1.5 py-0.5 rounded font-medium"
+                                style={{
+                                  backgroundColor: `${TYPE_COLORS[student.lpaType1]}15`,
+                                  color: TYPE_COLORS[student.lpaType1] || '#9CA3AF',
+                                }}
+                              >
+                                {student.lpaType1}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic">응시 전</span>
+                            )}
+                          </div>
+                          {/* 2차 유형 */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400 w-5">2차</span>
+                            {student.lpaType2 ? (
+                              <span
+                                className="px-1.5 py-0.5 rounded font-medium"
+                                style={{
+                                  backgroundColor: `${TYPE_COLORS[student.lpaType2]}15`,
+                                  color: TYPE_COLORS[student.lpaType2] || '#9CA3AF',
+                                }}
+                              >
+                                {student.lpaType2}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic">응시 전</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 더보기 버튼 */}
+                      <button
+                        onClick={() => onStudentClick(student.id)}
+                        className="mt-2 flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
                       >
-                        {student.predictedType}
-                      </span>
-                    </td>
-                    <td className="py-3 text-center text-sm font-medium text-gray-700">{student.avgTScore}</td>
-                    <td className="py-3">
-                      <div className="flex items-center gap-1.5">
-                        {student.needsAttention && (
-                          <span
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700"
-                            title={student.attentionReason}
-                          >
-                            <AlertTriangle className="w-3 h-3" />
-                            관심 필요
-                          </span>
-                        )}
-                        {student.hasReliabilityWarning && (
-                          <span
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"
-                            title={student.reliabilityWarningReason}
-                          >
-                            <AlertCircle className="w-3 h-3" />
-                            신뢰도 주의
-                          </span>
-                        )}
-                        {!student.needsAttention && !student.hasReliabilityWarning && (
-                          <span className="text-xs text-gray-400">양호</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 text-center">
-                      <ChevronRight className="w-4 h-4 text-gray-400" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        <span>결과보기</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
