@@ -353,12 +353,14 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
                   tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 500 }}
                   axisLine={{ stroke: '#D1D5DB', strokeWidth: 1.5 }}
                   tickLine={false}
+                  padding={{ left: 40, right: 40 }}
                 />
                 <YAxis
-                  domain={[20, 80]}
+                  domain={[30, 70]}
                   tick={{ fontSize: 11, fill: '#6B7280' }}
                   axisLine={{ stroke: '#D1D5DB', strokeWidth: 1.5 }}
                   tickLine={false}
+                  ticks={[30, 40, 50, 60, 70]}
                 />
                 <Tooltip
                   contentStyle={{
@@ -395,7 +397,7 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
                   return (
                     <Line
                       key={className}
-                      type="monotone"
+                      type="linear"
                       dataKey={className}
                       stroke={color}
                       strokeWidth={isSelected ? 4 : hasSelection ? 2 : 3}
