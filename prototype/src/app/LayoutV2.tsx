@@ -180,10 +180,14 @@ const Header: React.FC = () => {
 
   const handleGNBClick = (item: GNBItem) => {
     setActiveGNB(item.id);
-    setSelectedClass(null); // 반 선택 해제
-    setSelectedStudent(null); // 학생 선택 해제
-    setActiveSubTab(null); // 서브탭 해제
-    navigate(item.path);
+    // 반/학생 선택 유지, 서브탭만 첫 번째로 설정
+    if (item.subTabs && item.subTabs.length > 0) {
+      setActiveSubTab(item.subTabs[0].id);
+      navigate(item.subTabs[0].path);
+    } else {
+      setActiveSubTab(null);
+      navigate(item.path);
+    }
   };
 
   const handleLogoClick = () => {
@@ -302,8 +306,8 @@ const Sidebar: React.FC = () => {
   const handleClassClick = (cls: ClassInfo) => {
     setSelectedClass(cls);
     setSelectedStudent(null);
-    // 첫 번째 서브탭 자동 선택
-    if (currentGNB?.subTabs && currentGNB.subTabs.length > 0) {
+    // GNB/서브탭 유지, 서브탭이 없으면 첫 번째로 설정
+    if (currentGNB?.subTabs && currentGNB.subTabs.length > 0 && !activeSubTab) {
       const firstTab = currentGNB.subTabs[0];
       setActiveSubTab(firstTab.id);
       navigate(firstTab.path);
@@ -314,10 +318,7 @@ const Sidebar: React.FC = () => {
   const handleBackToClassList = () => {
     setSelectedClass(null);
     setSelectedStudent(null);
-    setActiveSubTab(null);
-    if (currentGNB) {
-      navigate(currentGNB.path);
-    }
+    // GNB/서브탭 유지
   };
 
   // 학생 클릭 핸들러
@@ -482,7 +483,7 @@ const SubTabs: React.FC = () => {
 
   const handleSubTabClick = (tab: SubTab) => {
     setActiveSubTab(tab.id);
-    setSelectedStudent(null); // 서브탭 전환 시 학생 선택 초기화
+    // 반/학생 선택 유지
     navigate(tab.path);
   };
 
