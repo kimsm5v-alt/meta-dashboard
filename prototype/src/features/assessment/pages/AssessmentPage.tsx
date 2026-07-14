@@ -21,6 +21,7 @@ import {
 import type { ExamOverviewRow, StudentExamResult } from '../types';
 import { useLayoutContext } from '@/app/LayoutV2';
 import { ResultOverviewView, MOCK_CLASS_RESULT } from '@/features/class-dashboard';
+import { StudentHeader } from '@/shared/components';
 
 export const AssessmentPage = () => {
   const location = useLocation();
@@ -241,6 +242,26 @@ export const AssessmentPage = () => {
 
   // 변화추적 서브탭 + 반 선택 (추후 구현)
   if (activeSubTab === 'tracking') {
+    // 학생 선택 시 학생 헤더 표시
+    if (selectedStudent && selectedStudentResult) {
+      return (
+        <div className="p-6 space-y-6">
+          <StudentHeader
+            studentNumber={selectedStudentResult.number}
+            studentName={selectedStudentResult.name}
+            lpaType={selectedStudentResult.predictedType}
+            className={selectedClass.name}
+            onBack={handleBackToClassResult}
+          />
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 text-center">
+            <p className="text-amber-700">
+              변화추적 학생 상세 화면은 추후 구현 예정입니다.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="p-6 space-y-6">
         <div className="flex items-center gap-4">

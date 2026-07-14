@@ -9,11 +9,11 @@
  */
 
 import { useState } from 'react';
-import { ArrowLeft, AlertTriangle, Download } from 'lucide-react';
+import { AlertTriangle, Download } from 'lucide-react';
 import { StudentFactorAnalysis } from './StudentFactorAnalysis';
 import { TypeClassification } from './TypeClassification';
 import type { StudentExamResult } from '../types';
-import { TYPE_COLORS } from '@/shared/data/lpaProfiles';
+import { StudentHeader } from '@/shared/components';
 
 type ViewMode = 'round1' | 'round2' | 'compare';
 
@@ -58,75 +58,48 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
   const prevType = isCompare && result.prevResult ? result.prevResult.predictedType : undefined;
   const prevTypeProbabilities = isCompare && result.prevResult ? result.prevResult.typeProbabilities : undefined;
 
+  // 우측 컨텐츠: 학생 네비게이션 + 보고서 다운로드
+  const rightContent = (
+    <>
+      {/* 학생 네비게이션 */}
+      {onNavigateStudent && (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => prevStudent && onNavigateStudent(prevStudent.id)}
+            disabled={!prevStudent}
+            className="px-2.5 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            ‹ 이전
+          </button>
+          <button
+            onClick={() => nextStudent && onNavigateStudent(nextStudent.id)}
+            disabled={!nextStudent}
+            className="px-2.5 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            다음 ›
+          </button>
+        </div>
+      )}
+
+      {/* 보고서 다운로드 */}
+      <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
+        <Download className="w-4 h-4" />
+        보고서
+      </button>
+    </>
+  );
+
   return (
     <div className="space-y-6">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-gray-900">
-                {result.number}번 {result.name}
-              </h1>
-              {/* 유형 배지 */}
-              <span
-                className="px-3 py-1 rounded-full text-sm font-semibold text-white"
-                style={{ backgroundColor: TYPE_COLORS[result.predictedType] }}
-              >
-                {result.predictedType}
-              </span>
-              {/* 관심 필요 배지 */}
-              {result.needsAttention && (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-600"
-                  title={result.attentionReason}
-                >
-                  <AlertTriangle className="w-3 h-3" />
-                  관심 필요
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-gray-500 mt-1">
-              {className} · {result.schoolLevel}
-            </p>
-          </div>
-        </div>
-
-        {/* 우측: 학생 네비게이션 + 보고서 다운로드 */}
-        <div className="flex items-center gap-3">
-          {/* 학생 네비게이션 */}
-          {onNavigateStudent && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => prevStudent && onNavigateStudent(prevStudent.id)}
-                disabled={!prevStudent}
-                className="px-2.5 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                ‹ 이전
-              </button>
-              <button
-                onClick={() => nextStudent && onNavigateStudent(nextStudent.id)}
-                disabled={!nextStudent}
-                className="px-2.5 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                다음 ›
-              </button>
-            </div>
-          )}
-
-          {/* 보고서 다운로드 */}
-          <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
-            <Download className="w-4 h-4" />
-            보고서
-          </button>
-        </div>
-      </div>
+      <StudentHeader
+        studentNumber={result.number}
+        studentName={result.name}
+        lpaType={result.predictedType}
+        className={className}
+        onBack={onBack}
+        rightContent={rightContent}
+      />
 
       {/* 회차 선택 탭 */}
       <div className="flex gap-2">
