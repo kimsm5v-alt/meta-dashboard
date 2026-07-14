@@ -60,18 +60,9 @@ const PublicLayout = () => (
 
 /**
  * 보호 라우트 래퍼 - 교사용 V2 (신규 GNB/LNB 레이아웃)
+ * 프로토타입용: 인증 체크 비활성화
  */
 const ProtectedLayoutV2 = () => {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <PageLoading text="로딩 중..." />;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
   return (
     <LayoutV2>
       <Outlet />
@@ -81,18 +72,9 @@ const ProtectedLayoutV2 = () => {
 
 /**
  * 보호 라우트 래퍼 - 학생용
+ * 프로토타입용: 인증 체크 비활성화
  */
 const StudentProtectedLayout = () => {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <PageLoading text="로딩 중..." />;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
   return (
     <StudentLayout>
       <Outlet />
@@ -102,18 +84,9 @@ const StudentProtectedLayout = () => {
 
 /**
  * 보호 라우트 래퍼 - 게스트용
+ * 프로토타입용: 인증 체크 비활성화
  */
 const GuestProtectedLayout = () => {
-  const { isAuthenticated, isLoading, user } = useAuth();
-
-  if (isLoading) {
-    return <PageLoading text="로딩 중..." />;
-  }
-
-  if (!isAuthenticated || user?.memberType !== 'guest') {
-    return <Navigate to="/" replace />;
-  }
-
   return (
     <MinimalLayout>
       <Outlet />
@@ -131,7 +104,7 @@ export const AppRoutesV2 = () => (
         공개 라우트 - 사이드바 없음
     ======================================== */}
     <Route element={<PublicLayout />}>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<Navigate to="/home" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
