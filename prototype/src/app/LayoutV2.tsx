@@ -19,7 +19,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { RaonAvatar } from '@/shared/components';
 import serviceLogo from '@/assets/logo_2.png';
+import aiOwlIcon from '@/assets/raon/ai-owl.svg';
 
 // ============================================
 // Types
@@ -156,12 +158,6 @@ const GNB_ITEMS: GNBItem[] = [
     icon: BookOpen,
     path: '/lesson',
   },
-  {
-    id: 'ai-assistant',
-    label: 'AI어시스턴트',
-    icon: Bot,
-    path: '/ai-assistant',
-  },
 ];
 
 // ============================================
@@ -218,7 +214,7 @@ const Header: React.FC = () => {
               <div key={item.id} className="flex items-center">
                 <button
                   onClick={() => handleGNBClick(item)}
-                  className={`px-4 py-[6px] rounded-full text-[13px] font-semibold transition-all ${
+                  className={`px-5 py-[7px] rounded-full text-[15px] font-semibold transition-all ${
                     isActive
                       ? 'bg-white text-primary-600 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
@@ -236,6 +232,27 @@ const Header: React.FC = () => {
 
         {/* Right Section */}
         <div className="flex items-center gap-4">
+          {/* AI 어시스턴트 버튼 */}
+          <button
+            onClick={() => {
+              setActiveGNB('ai-assistant');
+              setActiveSubTab(null);
+              navigate('/ai-assistant');
+            }}
+            className={`transition-all hover:scale-105 ${
+              activeGNB === 'ai-assistant' ? 'ring-2 ring-primary-400/50 rounded-xl' : ''
+            }`}
+            title="AI 어시스턴트"
+          >
+            <img
+              src={aiOwlIcon}
+              alt="AI 어시스턴트"
+              className="w-11 h-11 rounded-xl object-cover"
+            />
+          </button>
+
+          <div className="w-px h-5 bg-gray-200" />
+
           <button className="relative w-[34px] h-[34px] rounded-[9px] flex items-center justify-center text-gray-500 hover:bg-gray-100">
             <Bell className="w-5 h-5" />
           </button>
