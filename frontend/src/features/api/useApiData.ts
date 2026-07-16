@@ -535,7 +535,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
 
 /**
  * 그룹 목록 쿼리 — 캐시 공유 + 사용자별 격리
- * - 사이드바(useTeacherClassList)와 검사하기(AssessmentPageV2)가 캐시 공유
+ * - 사이드바(useTeacherClassList)와 검사하기(AssessmentPage)가 캐시 공유
  * - userId를 queryKey에 포함하여 멀티 사용자 환경에서 캐시 격리 보장
  */
 function useMyGroups(userId: string | undefined) {

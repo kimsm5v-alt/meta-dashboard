@@ -421,20 +421,6 @@ try {
   // ignore
 }
 
-function saveExamCodeMap(): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...examCodeMap.entries()]));
-  } catch {
-    // ignore
-  }
-}
-
-/** 검사 코드 등록 (교사용) */
-export function registerExamCode(numericCode: string, claId: string): void {
-  examCodeMap.set(numericCode, claId);
-  saveExamCodeMap();
-}
-
 /** 숫자 코드로 claId 조회 */
 export function getClaIdByCode(numericCode: string): string | null {
   return examCodeMap.get(numericCode) ?? null;

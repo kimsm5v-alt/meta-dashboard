@@ -19,7 +19,7 @@ import {
   StudentDashboardPage,
   SelfregStudentDashboardPage,
   AIRoomPage,
-  AssessmentPageV2,
+  AssessmentPage,
   SchedulePage,
   ExamCodeEntryPage,
   ExamPage,
@@ -144,8 +144,8 @@ export const AppRoutes = () => (
       {/* 검사 영역 */}
       <Route path='/groups' element={<Navigate to='/assessment' replace />} />
       <Route path='/groups/:groupId' element={<GroupDetailRedirect />} />
-      <Route path='/assessment' element={<AssessmentPageV2 />} />
-      <Route path='/assessment/:groupId' element={<AssessmentPageV2 />} />
+      <Route path='/assessment' element={<AssessmentPage />} />
+      <Route path='/assessment/:groupId' element={<AssessmentPage />} />
 
       {/* 대시보드 — testId 분기 */}
       <Route path='/dashboard' element={<Navigate to='/dashboard/comprehensive' replace />} />

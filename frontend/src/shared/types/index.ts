@@ -267,37 +267,6 @@ export interface AuthState {
 }
 
 // ============================================================
-// 검사 관리 관련 타입
-// ============================================================
-
-export interface ManagedAssessment {
-  id: string;
-  name: string;
-  code: string;
-  dgnssId: number; // 검사 ID (학급 단위, /tc/start API에서 반환)
-  claId?: string; // 학급 ID (추가 진행하기 API 호출 시 필요)
-  grade: number;
-  classNumber: number;
-  studentCount: number;
-  completedCount: number;
-  round: 1 | 2;
-  startDate: Date;
-  endDate?: Date; // 종료일 (API에서는 null일 수 있음)
-  createdAt: Date;
-  ownerId: string;
-  isActive?: boolean; // 진행 중 여부 (dgnssAt === 'Y')
-  inviteCode?: string; // 그룹 초대 코드 (학생 초대 URL 생성용)
-}
-
-export interface CreateAssessmentInput {
-  name: string;
-  grade: number;
-  classNumber: number;
-  studentCount: number;
-  round: 1 | 2;
-}
-
-// ============================================================
 // 상담일정 관련 타입
 // ============================================================
 

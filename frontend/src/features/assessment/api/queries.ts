@@ -1,42 +1,18 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGroupDetail } from '@features/groups/api/groupService';
-import { getExamSlots } from '@features/assessment-v2/api/examSlotService';
+import { getExamSlots } from '@features/assessment/api/examSlotService';
 import {
   cancelExam,
   downloadSampleExcel,
   endExam,
-  fetchExamList,
   previewExamStart,
   restartExam,
   startExam,
   uploadAnswersExcel,
-  type ExamListItem,
   type GradeLevel,
 } from './assessmentService';
 import { assessmentKeys } from './queryKeys';
 import type { Group } from '@shared/types';
-
-export const useAssessmentExamListByGroupsQuery = (
-  groups: readonly Group[],
-  tcId: string,
-  paperIdx = '1',
-) => {
-  const claIds = groups.map((g) => g.claId);
-
-  return useQuery<ExamListItem[]>({
-    queryKey: assessmentKeys.examListByGroups(claIds, tcId, paperIdx),
-    enabled: groups.length > 0 && !!tcId,
-    queryFn: async () => {
-      const results = await Promise.all(groups.map((g) => fetchExamList(g.claId, tcId, paperIdx)));
-      const seen = new Set<number>();
-      return results.flat().filter((item) => {
-        if (seen.has(item.dgnssId)) return false;
-        seen.add(item.dgnssId);
-        return true;
-      });
-    },
-  });
-};
 
 export const useAssessmentSlotsQueries = (groups: readonly Group[], userId: string | undefined) => {
   const results = useQueries({
@@ -88,7 +64,6 @@ const useInvalidateAssessmentGroup = () => {
   return async (claId: string, userId: string) => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: assessmentKeys.examSlots(claId, userId) }),
-      queryClient.invalidateQueries({ queryKey: assessmentKeys.examLists() }),
       queryClient.invalidateQueries({ queryKey: ['group-dgnss-status'] }),
     ]);
   };
