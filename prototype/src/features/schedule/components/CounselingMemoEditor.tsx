@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { FileText, Save, Clock, Tag } from 'lucide-react';
+import { Save } from 'lucide-react';
 import type { CounselingType, CounselingArea } from '../types';
 import { COUNSELING_TYPE_LABELS, COUNSELING_AREA_LABELS } from '../types';
 
@@ -62,7 +62,6 @@ export const CounselingMemoEditor: React.FC<CounselingMemoEditorProps> = ({
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-6">
       <div className="flex items-center gap-2 mb-4">
-        <FileText className="w-5 h-5 text-primary-600" />
         <h3 className="text-base font-semibold text-gray-900">상담 기록</h3>
         <span className="text-sm text-gray-500">- {studentName}</span>
       </div>
@@ -72,7 +71,6 @@ export const CounselingMemoEditor: React.FC<CounselingMemoEditorProps> = ({
         {/* 상담 유형 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            <Tag className="w-4 h-4 inline mr-1" />
             상담 유형
           </label>
           <select
@@ -109,7 +107,6 @@ export const CounselingMemoEditor: React.FC<CounselingMemoEditorProps> = ({
         {/* 상담 시간 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            <Clock className="w-4 h-4 inline mr-1" />
             상담 시간
           </label>
           <select

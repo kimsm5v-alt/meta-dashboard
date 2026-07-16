@@ -9,22 +9,28 @@
  * @see prototype/docs/features/EXAM_COUNSELING.md
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { SummaryCards, ExamOverviewTable, ExamManagementView } from '../components';
+import { SummaryCards, ExamOverviewTable, ExamManagementView, ClassResultView, StudentResultView } from '../components';
 import {
   MOCK_EXAM_OVERVIEW_SUMMARY,
   MOCK_EXAM_OVERVIEW_ROWS,
   MOCK_CLASS_EXAM_DATA,
+  MOCK_STUDENT_RESULTS,
 } from '../mock-data';
-import type { ExamOverviewRow } from '../types';
+import type { ExamOverviewRow, StudentExamResult } from '../types';
 import { useLayoutContext } from '@/app/LayoutV2';
-import { ResultOverviewView } from '@/features/class-dashboard';
+import { ResultOverviewView, MOCK_CLASS_RESULT } from '@/features/class-dashboard';
+import { StudentHeader } from '@/shared/components';
 
 export const AssessmentPage = () => {
   const location = useLocation();
   // LayoutV2 context 사용
-  const { selectedClass, setSelectedClass, activeSubTab, setActiveSubTab } = useLayoutContext();
+  const { selectedClass, setSelectedClass, selectedStudent, setSelectedStudent, activeSubTab, setActiveSubTab } = useLayoutContext();
+
+  // 학생 결과 상태
+  const [selectedStudentResult, setSelectedStudentResult] = useState<StudentExamResult | null>(null);
+
 
   // URL path에 따라 activeSubTab 동기화
   useEffect(() => {
@@ -37,6 +43,19 @@ export const AssessmentPage = () => {
       setActiveSubTab('tracking');
     }
   }, [location.pathname, setActiveSubTab]);
+
+  // LNB에서 학생 선택 시 selectedStudentResult 자동 설정
+  useEffect(() => {
+    if (selectedStudent && selectedClass && activeSubTab === 'result') {
+      const results = MOCK_STUDENT_RESULTS[selectedClass.id];
+      // LNB의 학생 ID (s1, s2...)를 MOCK_STUDENT_RESULTS의 ID (sr1-1, sr2-1...)와 매칭
+      // LNB 학생 이름으로 찾기
+      const studentResult = results?.find(r => r.name === selectedStudent.name);
+      if (studentResult) {
+        setSelectedStudentResult(studentResult);
+      }
+    }
+  }, [selectedStudent, selectedClass, activeSubTab]);
 
   // 결과보기 클릭 핸들러
   const handleViewResult = useCallback((row: ExamOverviewRow) => {
@@ -52,7 +71,42 @@ export const AssessmentPage = () => {
   // 전체 현황으로 돌아가기
   const handleBackToOverview = useCallback(() => {
     setSelectedClass(null);
-  }, [setSelectedClass]);
+    setSelectedStudent(null);
+    setSelectedStudentResult(null);
+  }, [setSelectedClass, setSelectedStudent]);
+
+  // 반 결과로 돌아가기 (학생 결과에서)
+  const handleBackToClassResult = useCallback(() => {
+    setSelectedStudent(null);
+    setSelectedStudentResult(null);
+  }, [setSelectedStudent]);
+
+  // 학생 클릭 핸들러 (결과보기 > 반에서 학생 선택 시)
+  const handleStudentClick = useCallback((studentId: string) => {
+    if (!selectedClass) return;
+    const results = MOCK_STUDENT_RESULTS[selectedClass.id];
+    const studentResult = results?.find(r => r.id === studentId);
+    if (studentResult) {
+      setSelectedStudent({ id: studentId, name: studentResult.name });
+      setSelectedStudentResult(studentResult);
+    }
+  }, [selectedClass, setSelectedStudent]);
+
+  // 학생 네비게이션 핸들러
+  const handleNavigateStudent = useCallback((studentId: string) => {
+    handleStudentClick(studentId);
+  }, [handleStudentClick]);
+
+  // 이전/다음 학생 계산
+  const getAdjacentStudents = useCallback(() => {
+    if (!selectedClass || !selectedStudentResult) return { prev: undefined, next: undefined };
+    const results = MOCK_STUDENT_RESULTS[selectedClass.id] || [];
+    const currentIdx = results.findIndex(r => r.id === selectedStudentResult.id);
+    return {
+      prev: currentIdx > 0 ? { id: results[currentIdx - 1].id, name: results[currentIdx - 1].name } : undefined,
+      next: currentIdx < results.length - 1 ? { id: results[currentIdx + 1].id, name: results[currentIdx + 1].name } : undefined,
+    };
+  }, [selectedClass, selectedStudentResult]);
 
   // 검사 시작/종료/취소/재검사 핸들러
   const handleStartExam = useCallback((round: 1 | 2) => {
@@ -132,13 +186,6 @@ export const AssessmentPage = () => {
           <p className="mt-1 text-sm text-gray-500">{pageInfo.desc}</p>
         </div>
 
-        {/* 안내 메시지 */}
-        <div className="bg-primary-50 border border-primary-100 rounded-xl p-6 text-center">
-          <p className="text-primary-700">
-            좌측 메뉴에서 <span className="font-semibold">반을 선택</span>하면 검사 관리를 시작할 수 있습니다.
-          </p>
-        </div>
-
         {/* 요약 카드 */}
         <SummaryCards summary={MOCK_EXAM_OVERVIEW_SUMMARY} />
 
@@ -152,9 +199,90 @@ export const AssessmentPage = () => {
     );
   }
 
-  // 반 선택 상태: 검사관리 (화면 2번)
+  // 반 선택 상태: 서브탭별 분기
   const classData = MOCK_CLASS_EXAM_DATA[selectedClass.id];
 
+  // 결과보기 서브탭 + 반 선택: ClassResultView (화면 3-1) 또는 StudentResultView (화면 5번)
+  if (activeSubTab === 'result') {
+    // 학생 선택 상태: StudentResultView (화면 5번)
+    if (selectedStudent && selectedStudentResult) {
+      const { prev, next } = getAdjacentStudents();
+      return (
+        <div className="p-6">
+          <StudentResultView
+            result={selectedStudentResult}
+            className={selectedClass.name}
+            onBack={handleBackToClassResult}
+            prevStudent={prev}
+            nextStudent={next}
+            onNavigateStudent={handleNavigateStudent}
+          />
+        </div>
+      );
+    }
+
+    // Mock 데이터에서 className을 사용하여 결과 데이터 생성
+    const classResultData = {
+      ...MOCK_CLASS_RESULT,
+      className: selectedClass.name,
+    };
+
+    return (
+      <div className="p-6">
+        <ClassResultView
+          className={selectedClass.name}
+          onBack={handleBackToOverview}
+          resultData={classResultData}
+          onStudentClick={handleStudentClick}
+          students={MOCK_STUDENT_RESULTS[selectedClass.id]}
+        />
+      </div>
+    );
+  }
+
+  // 변화추적 서브탭 + 반 선택 (추후 구현)
+  if (activeSubTab === 'tracking') {
+    // 학생 선택 시 학생 헤더 표시
+    if (selectedStudent && selectedStudentResult) {
+      return (
+        <div className="p-6 space-y-6">
+          <StudentHeader
+            studentNumber={selectedStudentResult.number}
+            studentName={selectedStudentResult.name}
+            lpaType={selectedStudentResult.predictedType}
+            className={selectedClass.name}
+            onBack={handleBackToClassResult}
+          />
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 text-center">
+            <p className="text-amber-700">
+              변화추적 학생 상세 화면은 추후 구현 예정입니다.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleBackToOverview}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            ← 전체 현황
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">{selectedClass.name} 변화추적</h1>
+        </div>
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 text-center">
+          <p className="text-amber-700">
+            변화추적 반별 상세 화면은 추후 구현 예정입니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 검사관리 서브탭 + 반 선택: ExamManagementView (화면 2)
   if (!classData) {
     return (
       <div className="p-6">

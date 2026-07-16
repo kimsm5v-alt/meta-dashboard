@@ -7,3 +7,7 @@ export { Modal } from './Modal';
 export { AlertModal } from './AlertModal';
 export { CoachingStrategyModal } from './CoachingStrategyModal';
 export type { CoachingPath, CoachingStrategyModalProps } from './CoachingStrategyModal';
+export { StudentHeader } from './StudentHeader';
+export type { StudentHeaderProps } from './StudentHeader';
+export { RaonAvatar } from './RaonAvatar';
+export type { RaonState } from './RaonAvatar';

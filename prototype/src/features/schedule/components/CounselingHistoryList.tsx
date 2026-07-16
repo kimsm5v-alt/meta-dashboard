@@ -4,7 +4,7 @@
  * 개별 학생의 상담 이력 목록
  */
 
-import { History, Calendar, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import type { CounselingRecord } from '../types';
 import { COUNSELING_TYPE_LABELS, COUNSELING_AREA_LABELS } from '../types';
@@ -45,7 +45,6 @@ export const CounselingHistoryList: React.FC<CounselingHistoryListProps> = ({
     <div className="bg-white rounded-xl border border-gray-100 p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <History className="w-5 h-5 text-primary-600" />
           <h3 className="text-base font-semibold text-gray-900">상담 이력</h3>
           <span className="text-sm text-gray-500">- {studentName}</span>
         </div>
@@ -109,7 +108,6 @@ export const CounselingHistoryList: React.FC<CounselingHistoryListProps> = ({
         </div>
       ) : (
         <div className="text-center py-8">
-          <History className="w-10 h-10 text-gray-300 mx-auto mb-2" />
           <p className="text-sm text-gray-500">상담 이력이 없습니다</p>
         </div>
       )}

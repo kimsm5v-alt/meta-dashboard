@@ -20,7 +20,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
-import { Users, TrendingUp, AlertTriangle, ChevronRight, Info } from 'lucide-react';
+import { ChevronRight, Info } from 'lucide-react';
 
 interface ClassSummary {
   id: string;
@@ -140,12 +140,20 @@ const LPA_TYPE_ORDER = ['자원소진형', '안전 균형형', '몰입자원 풍
 
 // LPA 유형 설명
 const LPA_TYPE_DESCRIPTIONS: Record<string, string> = {
-  '몰입자원 풍부형':
-    '학습 동기와 자원이 풍부하며 긍정적인 학습 태도를 보입니다. 자기주도적 학습이 가능하고 스트레스 관리 능력이 좋습니다.',
-  '안전 균형형':
-    '전반적으로 안정적인 학습 패턴을 보입니다. 적절한 지원과 격려가 있으면 더 성장할 수 있는 잠재력이 있습니다.',
+  // 초등
   '자원소진형':
-    '학습 에너지가 소진된 상태로 관심과 지원이 필요합니다. 스트레스 관리와 정서적 지지가 중요합니다.',
+    '학습에 필요한 심리·정서적 자원이 상대적으로 낮고, 기대나 부담은 크게 느끼는 유형입니다. 먼저 부담을 낮추고 작은 성공 경험을 통해 학습 회복감을 키워주세요.',
+  '안전 균형형':
+    '전반적으로 안정적인 학습 상태를 보이지만, 스스로 점검하고 조절하는 힘은 더 키워야 할 수 있습니다. 계획·점검 습관을 함께 길러주세요.',
+  '몰입자원 풍부형':
+    '긍정적 학습 자원이 풍부하고 몰입 가능성이 높은 유형입니다. 강점을 유지하면서 도전 목표와 깊이 있는 학습 경험으로 확장해주세요.',
+  // 중등
+  '냉소적 무기력형':
+    '심리·정서적 자원이 상대적으로 낮고, 성적과 공부 부담을 크게 느끼는 유형입니다. 먼저 부담을 낮추고 정서적 회복감과 작은 성취 경험을 만들어주세요.',
+  '정서조절 취약형':
+    '학습 자원은 일정 수준 있으나, 성적 압박과 소진을 크게 느끼는 유형입니다. 학습 전략뿐 아니라 감정 조절과 부담 관리 방법을 함께 지원해주세요.',
+  '자기주도 몰입형':
+    '심리·정서적 자원이 풍부하고 자기주도적 몰입 가능성이 높은 유형입니다. 현재의 강점을 유지하면서 도전 목표와 심화 학습 기회를 제공해주세요.',
 };
 
 // 반별 색상
@@ -243,77 +251,43 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
   return (
     <div className="space-y-6">
       {/* 페이지 헤더 */}
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <span className="px-3 py-1 text-xs font-semibold rounded-full text-white bg-indigo-500">
-              학습종합검사
-            </span>
-            <nav className="text-sm text-gray-500">
-              <span>검사</span>
-              <ChevronRight className="inline w-4 h-4 mx-1" />
-              <span className="text-gray-900">결과보기</span>
-            </nav>
-          </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
-            전체 반 결과 분석
-          </h1>
-          <p className="text-gray-500 mt-1">
-            담당 학급 {classes.length}개 반 · 총 학생 {totalStats.totalStudents}명
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">결과보기</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          담당 학급 {classes.length}개 반 · 총 학생 {totalStats.totalStudents}명의 검사 결과를 확인할 수 있습니다.
+        </p>
       </div>
 
       {/* KPI 카드 */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
-              <Users className="w-5 h-5 text-primary-600" />
-            </div>
-            <p className="text-sm text-gray-500">담당 반</p>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <p className="text-sm font-medium text-gray-500 mb-2">담당 반</p>
+          <p className="text-3xl font-bold text-gray-900">
             {totalStats.totalClasses}
-            <span className="text-lg font-normal text-gray-500">개</span>
+            <span className="text-lg font-medium text-gray-400 ml-1">개</span>
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-emerald-600" />
-            </div>
-            <p className="text-sm text-gray-500">전체 평균 T점수</p>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{totalStats.avgTScore}</p>
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <p className="text-sm font-medium text-gray-500 mb-2">전체 평균 T점수</p>
+          <p className="text-3xl font-bold text-emerald-600">{totalStats.avgTScore}</p>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-600" />
-            </div>
-            <p className="text-sm text-gray-500">검사 완료율</p>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <p className="text-2xl font-bold text-gray-900">{completionRate}%</p>
-            <span className="text-sm text-gray-500">
-              ({totalStats.assessedStudents}/{totalStats.totalStudents}명)
-            </span>
-          </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <p className="text-sm font-medium text-gray-500 mb-2">검사 완료율</p>
+          <p className="text-3xl font-bold text-gray-900">
+            {completionRate}%
+          </p>
+          <p className="text-xs text-gray-400 mt-2">
+            {totalStats.assessedStudents}/{totalStats.totalStudents}명
+          </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-            </div>
-            <p className="text-sm text-gray-500">관심 필요 학생</p>
-          </div>
-          <p className="text-2xl font-bold text-red-600">
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <p className="text-sm font-medium text-gray-500 mb-2">관심 필요 학생</p>
+          <p className="text-3xl font-bold text-red-500">
             {totalStats.needsAttentionCount}
-            <span className="text-lg font-normal text-gray-500">명</span>
+            <span className="text-lg font-medium text-gray-400 ml-1">명</span>
           </p>
         </div>
       </div>
@@ -379,12 +353,14 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
                   tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 500 }}
                   axisLine={{ stroke: '#D1D5DB', strokeWidth: 1.5 }}
                   tickLine={false}
+                  padding={{ left: 40, right: 40 }}
                 />
                 <YAxis
-                  domain={[20, 80]}
+                  domain={[30, 70]}
                   tick={{ fontSize: 11, fill: '#6B7280' }}
                   axisLine={{ stroke: '#D1D5DB', strokeWidth: 1.5 }}
                   tickLine={false}
+                  ticks={[30, 40, 50, 60, 70]}
                 />
                 <Tooltip
                   contentStyle={{
@@ -421,7 +397,7 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
                   return (
                     <Line
                       key={className}
-                      type="monotone"
+                      type="linear"
                       dataKey={className}
                       stroke={color}
                       strokeWidth={isSelected ? 4 : hasSelection ? 2 : 3}
@@ -580,13 +556,18 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
               <h2 className="text-lg font-semibold text-gray-900">학생 유형 분포 비교</h2>
               <div className="relative group">
                 <Info className="w-4 h-4 text-gray-400 cursor-help" />
-                <div className="absolute left-0 bottom-full mb-2 w-96 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                  <p className="font-bold text-yellow-400 mb-2">학생유형 분포 비교</p>
-                  <ul className="space-y-1.5 text-gray-300">
-                    <li>• 1차·2차 검사 결과의 유형 분포 변화를 비교합니다.</li>
-                    <li>• 자원소진형 비율이 감소하면 긍정적인 변화입니다.</li>
-                    <li>• 몰입자원 풍부형 비율이 증가하면 성장의 신호입니다.</li>
-                  </ul>
+                <div className="absolute left-0 top-full mt-2 w-[420px] p-4 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-xl">
+                  <p className="font-bold text-yellow-400 mb-3 text-sm">학생유형 분포 비교</p>
+                  <p className="text-gray-200 leading-relaxed">
+                    비상교육은 학생을 단순한 점수로 구분하지 않고, 학습 특성이 함께 나타나는 패턴을 분석하기 위해 LPA 기반 학습유형 분석을 도입했습니다.
+                  </p>
+                  <p className="text-gray-200 leading-relaxed mt-2">
+                    LPA는 최근 교육·심리·사회과학 연구에서 활용되는 통계 분석 기법으로, 학생의 학습 부담, 심리·정서적 자원, 학습 몰입을 종합적으로 살펴 유사한 학습 상태를 유형화합니다.
+                  </p>
+                  <p className="text-gray-200 leading-relaxed mt-2">
+                    이를 통해 선생님께서는 학생의 현재 상태를 더 입체적으로 이해하고, 유형별로 필요한 지원 방향을 확인할 수 있습니다.
+                  </p>
+                  <div className="absolute bottom-full left-4 border-8 border-transparent border-b-gray-900" />
                 </div>
               </div>
             </div>

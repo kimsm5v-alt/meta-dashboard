@@ -22,17 +22,22 @@ export const MOCK_CLASS_RESULT: ClassResultSummary = {
     { type: '자원소진형', count: 4, percentage: 16, color: '#EF4444' },
   ],
   factorAverages: [
-    { name: '자아존중감', category: '자아강점', avgScore: 55, level: '보통' },
-    { name: '자아효능감', category: '자아강점', avgScore: 58, level: '보통' },
+    // 자아강점 (Depth 1) - 긍정적 자아, 대인관계능력 (Depth 2)
+    { name: '긍정적 자아', category: '자아강점', avgScore: 55, level: '보통' },
+    { name: '대인관계능력', category: '자아강점', avgScore: 58, level: '보통' },
+    // 학습디딤돌 (Depth 1) - 메타인지, 학습기술, 지지적 관계 (Depth 2)
     { name: '메타인지', category: '학습디딤돌', avgScore: 52, level: '보통' },
     { name: '학습기술', category: '학습디딤돌', avgScore: 48, level: '보통' },
-    { name: '학습동기', category: '학습디딤돌', avgScore: 54, level: '보통' },
+    { name: '지지적 관계', category: '학습디딤돌', avgScore: 54, level: '보통' },
+    // 긍정적공부마음 (Depth 1) - 학업열의, 성장력 (Depth 2)
     { name: '학업열의', category: '긍정적공부마음', avgScore: 51, level: '보통' },
-    { name: '성장마인드셋', category: '긍정적공부마음', avgScore: 56, level: '보통' },
+    { name: '성장력', category: '긍정적공부마음', avgScore: 56, level: '보통' },
+    // 학습걸림돌 (Depth 1) - 학업스트레스, 학습방해물, 학업관계스트레스 (Depth 2)
     { name: '학업스트레스', category: '학습걸림돌', avgScore: 45, level: '보통' },
-    { name: '주의산만', category: '학습걸림돌', avgScore: 48, level: '보통' },
+    { name: '학습방해물', category: '학습걸림돌', avgScore: 48, level: '보통' },
+    { name: '학업관계스트레스', category: '학습걸림돌', avgScore: 46, level: '보통' },
+    // 부정적공부마음 (Depth 1) - 학업소진 (Depth 2)
     { name: '학업소진', category: '부정적공부마음', avgScore: 42, level: '보통' },
-    { name: '시험불안', category: '부정적공부마음', avgScore: 44, level: '보통' },
   ],
   riskStudents: [
     { id: 's4', number: 4, name: '최수아', reason: '학업소진 T점수 35 이하', type: 'attention' },
@@ -40,8 +45,52 @@ export const MOCK_CLASS_RESULT: ClassResultSummary = {
     { id: 's10', number: 10, name: '임지아', reason: '응답 일관성 부족', type: 'reliability' },
     { id: 's21', number: 21, name: '허지후', reason: '학업스트레스 T점수 75 이상', type: 'attention' },
   ],
-  strengths: ['자아효능감', '성장마인드셋', '자아존중감'],
-  weaknesses: ['학업소진', '시험불안', '학업스트레스'],
+  strengths: [
+    {
+      parentCategory: '자아강점',
+      factorName: '자기효능감',
+      avgT: 62,
+      definition: '자신이 어떤 일을 성공적으로 수행할 수 있는 능력이 있다고 믿는 기대와 신념',
+      isPositive: true,
+    },
+    {
+      parentCategory: '자아강점',
+      factorName: '성장마인드셋',
+      avgT: 59,
+      definition: '지능이나 능력이 노력을 통해 변화하고 성장할 수 있다고 생각하는 정도',
+      isPositive: true,
+    },
+    {
+      parentCategory: '학습디딤돌',
+      factorName: '계획능력',
+      avgT: 57,
+      definition: '공부 목표를 세우고, 목표에 따라 순차적으로 학습을 계획하는 능력',
+      isPositive: true,
+    },
+  ],
+  weaknesses: [
+    {
+      parentCategory: '부정적공부마음',
+      factorName: '고갈',
+      avgT: 62,
+      definition: '공부 때문에 지쳐서 아무 즐거움이나 흥미가 없는 피로 상태',
+      isPositive: false,
+    },
+    {
+      parentCategory: '부정적공부마음',
+      factorName: '무능감',
+      avgT: 58,
+      definition: '노력해도 성적이 만족스럽지 않고, 노력한만큼 좋은 결과가 나오지 않아 실망감을 느끼는 상태',
+      isPositive: false,
+    },
+    {
+      parentCategory: '학습걸림돌',
+      factorName: '성적부담',
+      avgT: 56,
+      definition: '기대와 목표에 비해 성적이 낮게 나올 수 있다는 부담을 느끼는 정도',
+      isPositive: false,
+    },
+  ],
 };
 
 // ============================================================

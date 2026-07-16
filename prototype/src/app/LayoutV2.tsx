@@ -6,15 +6,22 @@ import {
   User,
   LogOut,
   ChevronLeft,
-  Home,
+  ChevronRight,
   ClipboardList,
   Heart,
   BookOpen,
   Bot,
   Settings2,
+  Home,
+  PanelLeftClose,
+  PanelLeft,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
+import { RaonAvatar } from '@/shared/components';
+import serviceLogo from '@/assets/logo_2.png';
+import aiOwlIcon from '@/assets/raon/ai-owl.svg';
 
 // ============================================
 // Types
@@ -86,24 +93,43 @@ const MOCK_CLASSES: ClassInfo[] = [
 ];
 
 const MOCK_STUDENTS: StudentInfo[] = [
-  { id: '1', name: '김채미' },
-  { id: '2', name: '문순민' },
-  { id: '3', name: '임지영' },
-  { id: '4', name: '이리사' },
-  { id: '5', name: '김다영' },
+  { id: 's1', name: '김민준' },
+  { id: 's2', name: '이서연' },
+  { id: 's3', name: '박지호' },
+  { id: 's4', name: '최수아' },
+  { id: 's5', name: '정예준' },
+  { id: 's6', name: '강하은' },
+  { id: 's7', name: '조민서' },
+  { id: 's8', name: '윤시우' },
+  { id: 's9', name: '장도윤' },
+  { id: 's10', name: '임지아' },
+  { id: 's11', name: '한서준' },
+  { id: 's12', name: '오하린' },
+  { id: 's13', name: '신유나' },
+  { id: 's14', name: '권준우' },
+  { id: 's15', name: '송지원' },
+  { id: 's16', name: '백서윤' },
+  { id: 's17', name: '고은우' },
+  { id: 's18', name: '문채원' },
+  { id: 's19', name: '양시온' },
+  { id: 's20', name: '배하율' },
+  { id: 's21', name: '허지후' },
+  { id: 's22', name: '남윤서' },
+  { id: 's23', name: '심현우' },
+  { id: 's24', name: '안소율' },
+  { id: 's25', name: '유건우' },
+  { id: 's26', name: '노이서' },
 ];
 
 // ============================================
 // GNB Configuration (IA 기준)
+// - 홈: 로고 클릭 시 진입 (GNB 탭 아님)
+// - 검사: 검사관리 · 결과보기 · 학생 상담 · 변화추적
+// - 코칭: 학급 코칭 · 개별 코칭 (서비스 특장점 부각)
+// - 수업/AI: TBD
 // ============================================
 
 const GNB_ITEMS: GNBItem[] = [
-  {
-    id: 'home',
-    label: '홈',
-    icon: Home,
-    path: '/home',
-  },
   {
     id: 'exam',
     label: '검사',
@@ -112,17 +138,18 @@ const GNB_ITEMS: GNBItem[] = [
     subTabs: [
       { id: 'management', label: '검사관리', path: '/exam/management', allowStudentSelect: false },
       { id: 'result', label: '결과보기', path: '/exam/result', allowStudentSelect: true },
+      { id: 'counseling', label: '학생 상담', path: '/exam/counseling', allowStudentSelect: true },
       { id: 'tracking', label: '변화추적', path: '/exam/tracking', allowStudentSelect: true },
     ],
   },
   {
-    id: 'counseling',
-    label: '상담·코칭',
+    id: 'coaching',
+    label: '코칭',
     icon: Heart,
-    path: '/counseling',
+    path: '/coaching',
     subTabs: [
-      { id: 'student', label: '학생 상담', path: '/counseling/student', allowStudentSelect: true },
-      { id: 'coaching', label: '코칭', path: '/counseling/coaching', allowStudentSelect: true },
+      { id: 'class', label: '학급 코칭', path: '/coaching/class', allowStudentSelect: false },
+      { id: 'individual', label: '개별 코칭', path: '/coaching/individual', allowStudentSelect: true },
     ],
   },
   {
@@ -130,16 +157,6 @@ const GNB_ITEMS: GNBItem[] = [
     label: '수업',
     icon: BookOpen,
     path: '/lesson',
-    subTabs: [
-      { id: 'resources', label: '수업 자료실', path: '/lesson/resources', allowStudentSelect: false },
-      { id: 'my-lesson', label: '나의 수업', path: '/lesson/my-lesson', allowStudentSelect: true },
-    ],
-  },
-  {
-    id: 'ai-assistant',
-    label: 'AI어시스턴트',
-    icon: Bot,
-    path: '/ai-assistant',
   },
 ];
 
@@ -159,14 +176,18 @@ const Header: React.FC = () => {
 
   const handleGNBClick = (item: GNBItem) => {
     setActiveGNB(item.id);
-    setSelectedClass(null); // 반 선택 해제
-    setSelectedStudent(null); // 학생 선택 해제
-    setActiveSubTab(null); // 서브탭 해제
-    navigate(item.path);
+    // 반/학생 선택 유지, 서브탭만 첫 번째로 설정
+    if (item.subTabs && item.subTabs.length > 0) {
+      setActiveSubTab(item.subTabs[0].id);
+      navigate(item.subTabs[0].path);
+    } else {
+      setActiveSubTab(null);
+      navigate(item.path);
+    }
   };
 
   const handleLogoClick = () => {
-    setActiveGNB('home');
+    setActiveGNB(''); // GNB 탭 전부 비활성
     setSelectedClass(null);
     setSelectedStudent(null);
     setActiveSubTab(null);
@@ -174,74 +195,87 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-200 z-50">
-      <div className="flex items-center justify-between h-full px-4">
-        {/* Logo + GNB */}
-        <div className="flex items-center gap-8">
-          {/* Logo */}
-          <button
-            onClick={handleLogoClick}
-            className="flex items-center gap-2 text-lg font-bold text-primary-600"
-          >
-            <span className="text-xl">📚</span>
-            <span>학급 성장 관리</span>
-          </button>
+    <header className="fixed top-0 left-0 right-0 h-[58px] bg-white border-b border-gray-200 z-50">
+      <div className="flex items-center justify-between h-full px-7">
+        {/* Logo - 클릭 시 홈 화면 */}
+        <button
+          onClick={handleLogoClick}
+          className="flex items-center"
+        >
+          <img src={serviceLogo} alt="학습심리정서검사" className="h-6" />
+        </button>
 
-          {/* GNB Tabs */}
-          <nav className="flex items-center gap-1">
-            {GNB_ITEMS.map((item) => {
-              const isActive = activeGNB === item.id;
-              return (
+        {/* GNB Tabs - 중앙 정렬, 둥근 테두리 + 화살표 */}
+        <nav className="absolute left-1/2 -translate-x-1/2 flex items-center bg-[#f2f1fb] rounded-full px-1 py-1">
+          {GNB_ITEMS.map((item, index) => {
+            const isActive = activeGNB === item.id;
+            const isLast = index === GNB_ITEMS.length - 1;
+            return (
+              <div key={item.id} className="flex items-center">
                 <button
-                  key={item.id}
                   onClick={() => handleGNBClick(item)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-5 py-[7px] rounded-full text-[15px] font-semibold transition-all ${
                     isActive
-                      ? 'bg-primary-50 text-primary-600'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-white text-primary-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   {item.label}
                 </button>
-              );
-            })}
-          </nav>
-        </div>
+                {!isLast && (
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-400 mx-0.5" />
+                )}
+              </div>
+            );
+          })}
+        </nav>
 
         {/* Right Section */}
-        <div className="flex items-center gap-3">
-          {/* AI 도우미 바로가기 */}
+        <div className="flex items-center gap-4">
+          {/* AI 어시스턴트 버튼 */}
           <button
-            onClick={() => navigate('/ai-assistant')}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+            onClick={() => {
+              setActiveGNB('ai-assistant');
+              setActiveSubTab(null);
+              navigate('/ai-assistant');
+            }}
+            className={`transition-all hover:scale-105 ${
+              activeGNB === 'ai-assistant' ? 'ring-2 ring-primary-400/50 rounded-xl' : ''
+            }`}
+            title="AI 어시스턴트"
           >
-            <Bot className="w-4 h-4" />
-            <span>AI도우미</span>
+            <img
+              src={aiOwlIcon}
+              alt="AI 어시스턴트"
+              className="w-11 h-11 rounded-xl object-cover"
+            />
           </button>
 
-          <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
+          <div className="w-px h-5 bg-gray-200" />
+
+          <button className="relative w-[34px] h-[34px] rounded-[9px] flex items-center justify-center text-gray-500 hover:bg-gray-100">
             <Bell className="w-5 h-5" />
           </button>
-          <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
+          <button className="w-[34px] h-[34px] rounded-[9px] flex items-center justify-center text-gray-500 hover:bg-gray-100">
             <Settings className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
-            <p className="text-sm font-medium text-gray-900">{user?.name || '사용자'}</p>
+          <div className="flex items-center gap-2 pl-4 border-l border-gray-200">
+            <span className="text-sm font-semibold text-gray-900">{user?.name || '김민지'}</span>
             {user?.profileImage ? (
               <img
                 src={user.profileImage}
                 alt={user.name}
-                className="w-8 h-8 rounded-full object-cover"
+                className="w-[30px] h-[30px] rounded-full object-cover"
               />
             ) : (
-              <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+              <div className="w-[30px] h-[30px] bg-primary-100 rounded-full flex items-center justify-center">
                 <User className="w-4 h-4 text-primary-600" />
               </div>
             )}
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              className="w-[34px] h-[34px] rounded-[9px] flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
               title="로그아웃"
             >
               <LogOut className="w-4 h-4" />
@@ -259,12 +293,14 @@ const Header: React.FC = () => {
 
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const {
     selectedClass,
     setSelectedClass,
     selectedStudent,
     setSelectedStudent,
     activeGNB,
+    setActiveGNB,
     activeSubTab,
     setActiveSubTab,
   } = useLayoutContext();
@@ -274,12 +310,21 @@ const Sidebar: React.FC = () => {
   const currentSubTab = currentGNB?.subTabs?.find((tab) => tab.id === activeSubTab);
   const allowStudentSelect = currentSubTab?.allowStudentSelect ?? false;
 
+  // 홈 클릭 핸들러
+  const handleHomeClick = () => {
+    setActiveGNB('');
+    setSelectedClass(null);
+    setSelectedStudent(null);
+    setActiveSubTab(null);
+    navigate('/home');
+  };
+
   // 반 클릭 핸들러
   const handleClassClick = (cls: ClassInfo) => {
     setSelectedClass(cls);
     setSelectedStudent(null);
-    // 첫 번째 서브탭 자동 선택
-    if (currentGNB?.subTabs && currentGNB.subTabs.length > 0) {
+    // GNB/서브탭 유지, 서브탭이 없으면 첫 번째로 설정
+    if (currentGNB?.subTabs && currentGNB.subTabs.length > 0 && !activeSubTab) {
       const firstTab = currentGNB.subTabs[0];
       setActiveSubTab(firstTab.id);
       navigate(firstTab.path);
@@ -290,10 +335,7 @@ const Sidebar: React.FC = () => {
   const handleBackToClassList = () => {
     setSelectedClass(null);
     setSelectedStudent(null);
-    setActiveSubTab(null);
-    if (currentGNB) {
-      navigate(currentGNB.path);
-    }
+    // GNB/서브탭 유지
   };
 
   // 학생 클릭 핸들러
@@ -309,107 +351,134 @@ const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside className="fixed left-0 top-14 bottom-0 w-56 bg-white border-r border-gray-200 flex flex-col">
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* 보기 기준 */}
-        <div className="text-xs font-medium text-gray-400 mb-3">보기 기준</div>
+    <aside className={`fixed left-0 top-[58px] bottom-0 ${isCollapsed ? 'w-16' : 'w-[210px]'} bg-[#fafafa] border-r border-gray-200 flex flex-col transition-all duration-200`}>
+      {/* 상단 영역: 홈 버튼 + 접기 버튼 */}
+      <div className="flex items-center justify-between px-3 py-4">
+        <button
+          onClick={handleHomeClick}
+          className={`p-2 rounded-[9px] hover:bg-gray-100 transition-colors ${activeGNB === '' ? 'bg-primary-100 text-primary-600' : 'text-gray-500'}`}
+          title="홈"
+        >
+          <Home className="w-[18px] h-[18px]" />
+        </button>
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="p-2 rounded-[8px] hover:bg-gray-100 text-gray-500"
+          title={isCollapsed ? '펼치기' : '접기'}
+        >
+          {isCollapsed ? <PanelLeft className="w-[18px] h-[18px]" /> : <PanelLeftClose className="w-[18px] h-[18px]" />}
+        </button>
+      </div>
 
-        {/* 상태 2: 학생 목록 (반 선택됨) */}
-        {selectedClass ? (
-          <>
-            {/* 뒤로가기 */}
-            <button
-              onClick={handleBackToClassList}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg mb-3"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <span>반 목록</span>
-            </button>
+      {/* 접힌 상태일 때는 내용 숨김 */}
+      {!isCollapsed && (
+        <div className="flex-1 overflow-y-auto px-3 pb-4">
+          {/* 상태 2: 학생 목록 (반 선택됨) */}
+          {selectedClass ? (
+            <>
+              {/* 뒤로가기 */}
+              <button
+                onClick={handleBackToClassList}
+                className="flex items-center gap-2 w-full px-[10px] py-[9px] text-[13.5px] text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-[9px] mb-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>반 목록</span>
+              </button>
 
-            <div className="border-t border-gray-200 my-3" />
+              <div className="border-t border-gray-200 my-3" />
 
-            {/* 선택된 반 */}
-            <div className="px-3 py-2 text-sm font-medium text-gray-900 mb-2">
-              {selectedClass.name}
-            </div>
+              {/* 선택된 반 */}
+              <div className="text-[11px] font-bold text-gray-400 tracking-wide px-[10px] mb-1">
+                {selectedClass.name}
+              </div>
 
-            {/* 반 전체 옵션 */}
-            <button
-              onClick={handleClassTotalClick}
-              className={`flex items-center justify-between w-full px-3 py-2 text-sm rounded-lg mb-1 ${
-                !selectedStudent
-                  ? 'bg-primary-50 text-primary-600 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <span>반 전체</span>
-              {!selectedStudent && <span className="w-2 h-2 rounded-full bg-primary-500" />}
-            </button>
+              {/* 반 전체 옵션 */}
+              <button
+                onClick={handleClassTotalClick}
+                className={`flex items-center justify-between w-full px-[10px] py-[9px] text-[13.5px] rounded-[9px] mb-1 ${
+                  !selectedStudent
+                    ? 'bg-primary-100 text-primary-600 font-semibold'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <div className="flex items-center gap-[10px]">
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center ${!selectedStudent ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                    <Users className="w-3.5 h-3.5" />
+                  </span>
+                  <span>반 전체</span>
+                </div>
+                {!selectedStudent && <span className="w-2 h-2 rounded-full bg-primary-500" />}
+              </button>
 
-            <div className="border-t border-gray-200 my-3" />
+              <div className="border-t border-gray-200 my-3" />
 
-            {/* 학생 목록 */}
-            <div className="text-xs font-medium text-gray-400 mb-2">학생</div>
-            <ul className="space-y-1">
-              {MOCK_STUDENTS.map((student) => {
-                const isSelected = selectedStudent?.id === student.id;
-                const isDisabled = !allowStudentSelect;
-                return (
-                  <li key={student.id}>
+              {/* 학생 목록 */}
+              <div className="text-[11px] font-bold text-gray-400 tracking-wide px-[10px] mb-[6px]">학생</div>
+              <ul className="space-y-[2px]">
+                {MOCK_STUDENTS.map((student) => {
+                  const isSelected = selectedStudent?.id === student.id;
+                  const isDisabled = !allowStudentSelect;
+                  return (
+                    <li key={student.id}>
+                      <button
+                        onClick={() => handleStudentClick(student)}
+                        disabled={isDisabled}
+                        className={`flex items-center justify-between w-full px-[10px] py-[9px] text-[13.5px] rounded-[9px] ${
+                          isSelected
+                            ? 'bg-primary-100 text-primary-600 font-semibold'
+                            : isDisabled
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-[10px]">
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center ${isSelected ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                            <User className="w-3.5 h-3.5" />
+                          </span>
+                          <span>{student.name}</span>
+                        </div>
+                        {isSelected && <span className="w-2 h-2 rounded-full bg-primary-500" />}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : (
+            /* 상태 1: 반 목록 (기본) */
+            <>
+              {/* 그룹관리 */}
+              <button
+                onClick={() => navigate('/group-management')}
+                className="flex items-center gap-[10px] w-full px-[10px] py-[9px] text-[13.5px] font-medium text-gray-600 hover:bg-gray-100 rounded-[9px] mb-2"
+              >
+                <Settings2 className="w-[18px] h-[18px]" />
+                <span>그룹관리</span>
+              </button>
+
+              <div className="border-t border-gray-200 my-3" />
+
+              {/* 반 목록 */}
+              <div className="text-[11px] font-bold text-gray-400 tracking-wide px-[10px] mb-[6px]">반 목록</div>
+              <ul className="space-y-[2px]">
+                {MOCK_CLASSES.map((cls) => (
+                  <li key={cls.id}>
                     <button
-                      onClick={() => handleStudentClick(student)}
-                      disabled={isDisabled}
-                      className={`flex items-center justify-between w-full px-3 py-2 text-sm rounded-lg ${
-                        isSelected
-                          ? 'bg-primary-50 text-primary-600 font-medium'
-                          : isDisabled
-                          ? 'text-gray-400 cursor-not-allowed'
-                          : 'text-gray-600 hover:bg-gray-50'
-                      }`}
+                      onClick={() => handleClassClick(cls)}
+                      className="flex items-center gap-[10px] w-full px-[10px] py-[9px] text-left hover:bg-gray-100 rounded-[9px]"
                     >
-                      <span>{student.name}</span>
-                      {isSelected && <span className="w-2 h-2 rounded-full bg-primary-500" />}
+                      <span className="w-6 h-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center flex-shrink-0">
+                        <Users className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="text-[13.5px] font-medium text-gray-900">{cls.name}</span>
                     </button>
                   </li>
-                );
-              })}
-            </ul>
-          </>
-        ) : (
-          /* 상태 1: 반 목록 (기본) */
-          <>
-            {/* 그룹관리 */}
-            <button
-              onClick={() => navigate('/group-management')}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg mb-3"
-            >
-              <Settings2 className="w-4 h-4" />
-              <span>그룹관리</span>
-            </button>
-
-            <div className="border-t border-gray-200 my-3" />
-
-            {/* 내 반 */}
-            <div className="text-xs font-medium text-gray-400 mb-2">내 반</div>
-            <ul className="space-y-1">
-              {MOCK_CLASSES.map((cls) => (
-                <li key={cls.id}>
-                  <button
-                    onClick={() => handleClassClick(cls)}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-primary-500" />
-                      <span className="text-sm font-medium text-gray-900">{cls.name}</span>
-                    </div>
-                    <div className="ml-4 text-xs text-gray-500 mt-0.5">{cls.status}</div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
     </aside>
   );
 };
@@ -431,26 +500,25 @@ const SubTabs: React.FC = () => {
 
   const handleSubTabClick = (tab: SubTab) => {
     setActiveSubTab(tab.id);
-    setSelectedStudent(null); // 서브탭 전환 시 학생 선택 초기화
+    // 반/학생 선택 유지
     navigate(tab.path);
   };
 
   return (
-    <div className="flex items-center gap-2 mb-4">
+    <div className="flex items-center gap-1 border-b border-gray-200 mb-6">
       {currentGNB.subTabs.map((tab) => {
         const isActive = activeSubTab === tab.id;
         return (
           <button
             key={tab.id}
             onClick={() => handleSubTabClick(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${
+            className={`px-4 py-[11px] text-[14.5px] font-semibold transition-colors border-b-2 -mb-px ${
               isActive
-                ? 'bg-primary-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'text-primary-600 border-primary-600'
+                : 'text-gray-500 border-transparent hover:text-gray-700'
             }`}
           >
             {tab.label}
-            {tab.allowStudentSelect && <span className="ml-1 text-xs">◀</span>}
           </button>
         );
       })}
@@ -493,13 +561,15 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <LayoutContext.Provider value={contextValue}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#fbfbfc]">
         <Header />
         <div className="flex">
           <Sidebar />
-          <main className="flex-1 mt-14 ml-56 p-6">
-            <SubTabs />
-            {children}
+          <main className="flex-1 mt-[58px] ml-[210px] overflow-y-auto">
+            <div className="p-[30px_40px_60px]">
+              <SubTabs />
+              {children}
+            </div>
           </main>
         </div>
       </div>
