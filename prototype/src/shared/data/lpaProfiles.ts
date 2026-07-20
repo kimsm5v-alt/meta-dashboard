@@ -1732,15 +1732,32 @@ export const TYPE_COLOR_CLASSES: Record<string, string> = {
   '자기주도 몰입형': 'bg-emerald-50 text-emerald-600 border-emerald-200',
 };
 
-// 유형별 색상 HEX (JSON 원본 기준)
+/**
+ * LPA 유형별 색상 HEX
+ *
+ * [학교급별 LPA 유형명 - 필터 버튼 및 학생 카드에 표시됨]
+ *
+ * 초등학교 (3가지):
+ *   - 자원소진형     (빨강 #E74C3C) : 심리·정서적 자원 낮음, 부담 큼
+ *   - 안전 균형형    (파랑 #3498DB) : 전반적 안정, 자기조절 필요
+ *   - 몰입자원 풍부형 (초록 #2ECC71) : 긍정적 자원 풍부, 몰입 가능성 높음
+ *
+ * 중등학교 (3가지):
+ *   - 냉소적 무기력형  (빨강 #E74C3C) : 심리·정서적 자원 낮음, 성적/공부 부담 큼
+ *   - 정서조절 취약형  (주황 #F39C12) : 학습 자원 있으나 성적 압박/소진 느낌
+ *   - 자기주도 몰입형  (초록 #2ECC71) : 심리·정서적 자원 풍부, 자기주도적
+ *
+ * @see LPA_TYPE_DESCRIPTIONS_ELEMENTARY - 초등 유형별 상세 설명
+ * @see LPA_TYPE_DESCRIPTIONS_MIDDLE - 중등 유형별 상세 설명
+ */
 export const TYPE_COLORS: Record<string, string> = {
   // 미실시
   '미실시': '#E5E7EB',
-  // 초등
+  // 초등 (3가지)
   '자원소진형': '#E74C3C',
   '안전 균형형': '#3498DB',
   '몰입자원 풍부형': '#2ECC71',
-  // 중등
+  // 중등 (3가지)
   '냉소적 무기력형': '#E74C3C',
   '정서조절 취약형': '#F39C12',
   '자기주도 몰입형': '#2ECC71',
