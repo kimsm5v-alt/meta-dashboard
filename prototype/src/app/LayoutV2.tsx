@@ -1,27 +1,36 @@
-import { ReactNode, useState, useMemo, createContext, useContext } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { ReactNode, useState, useMemo, createContext, useContext, useCallback, useEffect, useRef } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Bell,
   Settings,
   User,
   LogOut,
-  ChevronLeft,
   ChevronRight,
   ClipboardList,
   Heart,
   BookOpen,
-  Bot,
-  Settings2,
   Home,
   PanelLeftClose,
   PanelLeft,
-  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
-import { RaonAvatar } from '@/shared/components';
 import serviceLogo from '@/assets/logo_2.png';
 import aiOwlIcon from '@/assets/raon/ai-owl.svg';
+
+// 스코프 관련 임포트
+import {
+  type Scope,
+  type ScopeMemory,
+  type MenuScopeConfig,
+  INITIAL_SCOPE,
+  INITIAL_SCOPE_MEMORY,
+  getMenuKeyFromPath,
+  getMenuScopeConfig,
+  adjustScopeForMenu,
+  isScopeEqual,
+} from './scope';
+import { ScopeTree, type ClassInfo, type StudentInfo } from './components';
 
 // ============================================
 // Types
@@ -43,18 +52,6 @@ interface SubTab {
   id: string;
   label: string;
   path: string;
-  allowStudentSelect: boolean; // ◀ 표시 (학생 선택 가능 여부)
-}
-
-interface ClassInfo {
-  id: string;
-  name: string;
-  status: string; // 예: "응시율 85% · 상담 3"
-}
-
-interface StudentInfo {
-  id: string;
-  name: string;
 }
 
 // ============================================
@@ -62,14 +59,29 @@ interface StudentInfo {
 // ============================================
 
 interface LayoutContextType {
+  // 기존 호환성 유지 (deprecated, scope 사용 권장)
   selectedClass: ClassInfo | null;
   setSelectedClass: (cls: ClassInfo | null) => void;
   selectedStudent: StudentInfo | null;
   setSelectedStudent: (student: StudentInfo | null) => void;
+
+  // GNB/서브탭 상태
   activeGNB: string;
   setActiveGNB: (gnb: string) => void;
   activeSubTab: string | null;
   setActiveSubTab: (tab: string | null) => void;
+
+  // 신규: 스코프 상태
+  scope: Scope;
+  setScope: (scope: Scope) => void;
+  expandedClassId: string | null;
+  setExpandedClassId: (id: string | null) => void;
+  currentMenuConfig: MenuScopeConfig;
+
+  // 스코프 액션
+  selectAll: () => void;
+  selectClass: (classId: string) => void;
+  selectStudent: (classId: string, studentId: string) => void;
 }
 
 const LayoutContext = createContext<LayoutContextType | null>(null);
@@ -122,11 +134,7 @@ const MOCK_STUDENTS: StudentInfo[] = [
 ];
 
 // ============================================
-// GNB Configuration (IA 기준)
-// - 홈: 로고 클릭 시 진입 (GNB 탭 아님)
-// - 검사: 검사관리 · 결과보기 · 학생 상담 · 변화추적
-// - 코칭: 학급 코칭 · 개별 코칭 (서비스 특장점 부각)
-// - 수업/AI: TBD
+// GNB Configuration
 // ============================================
 
 const GNB_ITEMS: GNBItem[] = [
@@ -136,10 +144,10 @@ const GNB_ITEMS: GNBItem[] = [
     icon: ClipboardList,
     path: '/exam',
     subTabs: [
-      { id: 'management', label: '검사관리', path: '/exam/management', allowStudentSelect: false },
-      { id: 'result', label: '결과보기', path: '/exam/result', allowStudentSelect: true },
-      { id: 'counseling', label: '학생 상담', path: '/exam/counseling', allowStudentSelect: true },
-      { id: 'tracking', label: '변화추적', path: '/exam/tracking', allowStudentSelect: true },
+      { id: 'management', label: '검사관리', path: '/exam/management' },
+      { id: 'result', label: '결과보기', path: '/exam/result' },
+      { id: 'counseling', label: '학생 상담', path: '/exam/counseling' },
+      { id: 'tracking', label: '변화추적', path: '/exam/tracking' },
     ],
   },
   {
@@ -148,8 +156,8 @@ const GNB_ITEMS: GNBItem[] = [
     icon: Heart,
     path: '/coaching',
     subTabs: [
-      { id: 'class', label: '학급 코칭', path: '/coaching/class', allowStudentSelect: false },
-      { id: 'individual', label: '개별 코칭', path: '/coaching/individual', allowStudentSelect: true },
+      { id: 'class', label: '학급 코칭', path: '/coaching/class' },
+      { id: 'individual', label: '개별 코칭', path: '/coaching/individual' },
     ],
   },
   {
@@ -167,29 +175,35 @@ const GNB_ITEMS: GNBItem[] = [
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { activeGNB, setActiveGNB, setSelectedClass, setSelectedStudent, setActiveSubTab } = useLayoutContext();
+  const [searchParams] = useSearchParams();
+  const { activeGNB, setActiveGNB, setActiveSubTab, selectAll } = useLayoutContext();
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
+  // 현재 스코프 파라미터를 유지하면서 이동
+  const navigateWithScope = (path: string) => {
+    const params = new URLSearchParams(searchParams);
+    const queryString = params.toString();
+    navigate(queryString ? `${path}?${queryString}` : path);
+  };
+
   const handleGNBClick = (item: GNBItem) => {
     setActiveGNB(item.id);
-    // 반/학생 선택 유지, 서브탭만 첫 번째로 설정
     if (item.subTabs && item.subTabs.length > 0) {
       setActiveSubTab(item.subTabs[0].id);
-      navigate(item.subTabs[0].path);
+      navigateWithScope(item.subTabs[0].path);
     } else {
       setActiveSubTab(null);
-      navigate(item.path);
+      navigateWithScope(item.path);
     }
   };
 
   const handleLogoClick = () => {
-    setActiveGNB(''); // GNB 탭 전부 비활성
-    setSelectedClass(null);
-    setSelectedStudent(null);
+    setActiveGNB('');
+    selectAll();
     setActiveSubTab(null);
     navigate('/home');
   };
@@ -197,15 +211,12 @@ const Header: React.FC = () => {
   return (
     <header className="fixed top-0 left-0 right-0 h-[58px] bg-white border-b border-gray-200 z-50">
       <div className="flex items-center justify-between h-full px-7">
-        {/* Logo - 클릭 시 홈 화면 */}
-        <button
-          onClick={handleLogoClick}
-          className="flex items-center"
-        >
+        {/* Logo */}
+        <button onClick={handleLogoClick} className="flex items-center">
           <img src={serviceLogo} alt="학습심리정서검사" className="h-6" />
         </button>
 
-        {/* GNB Tabs - 중앙 정렬, 둥근 테두리 + 화살표 */}
+        {/* GNB Tabs */}
         <nav className="absolute left-1/2 -translate-x-1/2 flex items-center bg-[#f2f1fb] rounded-full px-1 py-1">
           {GNB_ITEMS.map((item, index) => {
             const isActive = activeGNB === item.id;
@@ -222,9 +233,7 @@ const Header: React.FC = () => {
                 >
                   {item.label}
                 </button>
-                {!isLast && (
-                  <ChevronRight className="w-3.5 h-3.5 text-gray-400 mx-0.5" />
-                )}
+                {!isLast && <ChevronRight className="w-3.5 h-3.5 text-gray-400 mx-0.5" />}
               </div>
             );
           })}
@@ -237,18 +246,14 @@ const Header: React.FC = () => {
             onClick={() => {
               setActiveGNB('ai-assistant');
               setActiveSubTab(null);
-              navigate('/ai-assistant');
+              navigateWithScope('/ai-assistant');
             }}
             className={`transition-all hover:scale-105 ${
               activeGNB === 'ai-assistant' ? 'ring-2 ring-primary-400/50 rounded-xl' : ''
             }`}
             title="AI 어시스턴트"
           >
-            <img
-              src={aiOwlIcon}
-              alt="AI 어시스턴트"
-              className="w-11 h-11 rounded-xl object-cover"
-            />
+            <img src={aiOwlIcon} alt="AI 어시스턴트" className="w-11 h-11 rounded-xl object-cover" />
           </button>
 
           <div className="w-px h-5 bg-gray-200" />
@@ -288,75 +293,56 @@ const Header: React.FC = () => {
 };
 
 // ============================================
-// LNB (Left Navigation Bar)
+// LNB (Left Navigation Bar) - 아코디언 트리
 // ============================================
 
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const {
-    selectedClass,
-    setSelectedClass,
-    selectedStudent,
-    setSelectedStudent,
+    scope,
+    expandedClassId,
+    setExpandedClassId,
+    currentMenuConfig,
     activeGNB,
     setActiveGNB,
-    activeSubTab,
     setActiveSubTab,
+    selectAll,
+    selectClass,
+    selectStudent,
   } = useLayoutContext();
-
-  // 현재 GNB의 서브탭 정보
-  const currentGNB = GNB_ITEMS.find((item) => item.id === activeGNB);
-  const currentSubTab = currentGNB?.subTabs?.find((tab) => tab.id === activeSubTab);
-  const allowStudentSelect = currentSubTab?.allowStudentSelect ?? false;
 
   // 홈 클릭 핸들러
   const handleHomeClick = () => {
     setActiveGNB('');
-    setSelectedClass(null);
-    setSelectedStudent(null);
+    selectAll();
     setActiveSubTab(null);
     navigate('/home');
   };
 
-  // 반 클릭 핸들러
-  const handleClassClick = (cls: ClassInfo) => {
-    setSelectedClass(cls);
-    setSelectedStudent(null);
-    // GNB/서브탭 유지, 서브탭이 없으면 첫 번째로 설정
-    if (currentGNB?.subTabs && currentGNB.subTabs.length > 0 && !activeSubTab) {
-      const firstTab = currentGNB.subTabs[0];
-      setActiveSubTab(firstTab.id);
-      navigate(firstTab.path);
+  // 반 펼침/접힘 토글
+  const handleToggleExpand = (classId: string) => {
+    if (expandedClassId === classId) {
+      setExpandedClassId(null);
+    } else {
+      setExpandedClassId(classId);
     }
-  };
-
-  // 반 목록으로 돌아가기
-  const handleBackToClassList = () => {
-    setSelectedClass(null);
-    setSelectedStudent(null);
-    // GNB/서브탭 유지
-  };
-
-  // 학생 클릭 핸들러
-  const handleStudentClick = (student: StudentInfo) => {
-    if (allowStudentSelect) {
-      setSelectedStudent(student);
-    }
-  };
-
-  // 반 전체 클릭 핸들러
-  const handleClassTotalClick = () => {
-    setSelectedStudent(null);
   };
 
   return (
-    <aside className={`fixed left-0 top-[58px] bottom-0 ${isCollapsed ? 'w-16' : 'w-[210px]'} bg-[#fafafa] border-r border-gray-200 flex flex-col transition-all duration-200`}>
+    <aside
+      className={`fixed left-0 top-[58px] bottom-0 ${
+        isCollapsed ? 'w-16' : 'w-[210px]'
+      } bg-[#fafafa] border-r border-gray-200 flex flex-col transition-all duration-200`}
+    >
       {/* 상단 영역: 홈 버튼 + 접기 버튼 */}
       <div className="flex items-center justify-between px-3 py-4">
         <button
           onClick={handleHomeClick}
-          className={`p-2 rounded-[9px] hover:bg-gray-100 transition-colors ${activeGNB === '' ? 'bg-primary-100 text-primary-600' : 'text-gray-500'}`}
+          className={`p-2 rounded-[9px] hover:bg-gray-100 transition-colors ${
+            activeGNB === '' ? 'bg-primary-100 text-primary-600' : 'text-gray-500'
+          }`}
           title="홈"
         >
           <Home className="w-[18px] h-[18px]" />
@@ -366,117 +352,29 @@ const Sidebar: React.FC = () => {
           className="p-2 rounded-[8px] hover:bg-gray-100 text-gray-500"
           title={isCollapsed ? '펼치기' : '접기'}
         >
-          {isCollapsed ? <PanelLeft className="w-[18px] h-[18px]" /> : <PanelLeftClose className="w-[18px] h-[18px]" />}
+          {isCollapsed ? (
+            <PanelLeft className="w-[18px] h-[18px]" />
+          ) : (
+            <PanelLeftClose className="w-[18px] h-[18px]" />
+          )}
         </button>
       </div>
 
-      {/* 접힌 상태일 때는 내용 숨김 */}
+      {/* 접힌 상태일 때는 트리 숨김 */}
       {!isCollapsed && (
-        <div className="flex-1 overflow-y-auto px-3 pb-4">
-          {/* 상태 2: 학생 목록 (반 선택됨) */}
-          {selectedClass ? (
-            <>
-              {/* 뒤로가기 */}
-              <button
-                onClick={handleBackToClassList}
-                className="flex items-center gap-2 w-full px-[10px] py-[9px] text-[13.5px] text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-[9px] mb-2"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>반 목록</span>
-              </button>
-
-              <div className="border-t border-gray-200 my-3" />
-
-              {/* 선택된 반 */}
-              <div className="text-[11px] font-bold text-gray-400 tracking-wide px-[10px] mb-1">
-                {selectedClass.name}
-              </div>
-
-              {/* 반 전체 옵션 */}
-              <button
-                onClick={handleClassTotalClick}
-                className={`flex items-center justify-between w-full px-[10px] py-[9px] text-[13.5px] rounded-[9px] mb-1 ${
-                  !selectedStudent
-                    ? 'bg-primary-100 text-primary-600 font-semibold'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <div className="flex items-center gap-[10px]">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center ${!selectedStudent ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                    <Users className="w-3.5 h-3.5" />
-                  </span>
-                  <span>반 전체</span>
-                </div>
-                {!selectedStudent && <span className="w-2 h-2 rounded-full bg-primary-500" />}
-              </button>
-
-              <div className="border-t border-gray-200 my-3" />
-
-              {/* 학생 목록 */}
-              <div className="text-[11px] font-bold text-gray-400 tracking-wide px-[10px] mb-[6px]">학생</div>
-              <ul className="space-y-[2px]">
-                {MOCK_STUDENTS.map((student) => {
-                  const isSelected = selectedStudent?.id === student.id;
-                  const isDisabled = !allowStudentSelect;
-                  return (
-                    <li key={student.id}>
-                      <button
-                        onClick={() => handleStudentClick(student)}
-                        disabled={isDisabled}
-                        className={`flex items-center justify-between w-full px-[10px] py-[9px] text-[13.5px] rounded-[9px] ${
-                          isSelected
-                            ? 'bg-primary-100 text-primary-600 font-semibold'
-                            : isDisabled
-                            ? 'text-gray-400 cursor-not-allowed'
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`}
-                      >
-                        <div className="flex items-center gap-[10px]">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center ${isSelected ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                            <User className="w-3.5 h-3.5" />
-                          </span>
-                          <span>{student.name}</span>
-                        </div>
-                        {isSelected && <span className="w-2 h-2 rounded-full bg-primary-500" />}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          ) : (
-            /* 상태 1: 반 목록 (기본) */
-            <>
-              {/* 그룹관리 */}
-              <button
-                onClick={() => navigate('/group-management')}
-                className="flex items-center gap-[10px] w-full px-[10px] py-[9px] text-[13.5px] font-medium text-gray-600 hover:bg-gray-100 rounded-[9px] mb-2"
-              >
-                <Settings2 className="w-[18px] h-[18px]" />
-                <span>그룹관리</span>
-              </button>
-
-              <div className="border-t border-gray-200 my-3" />
-
-              {/* 반 목록 */}
-              <div className="text-[11px] font-bold text-gray-400 tracking-wide px-[10px] mb-[6px]">반 목록</div>
-              <ul className="space-y-[2px]">
-                {MOCK_CLASSES.map((cls) => (
-                  <li key={cls.id}>
-                    <button
-                      onClick={() => handleClassClick(cls)}
-                      className="flex items-center gap-[10px] w-full px-[10px] py-[9px] text-left hover:bg-gray-100 rounded-[9px]"
-                    >
-                      <span className="w-6 h-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center flex-shrink-0">
-                        <Users className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="text-[13.5px] font-medium text-gray-900">{cls.name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+        <div className="flex-1 overflow-hidden px-3 pb-4">
+          <ScopeTree
+            classes={MOCK_CLASSES}
+            students={MOCK_STUDENTS}
+            scope={scope}
+            menuConfig={currentMenuConfig}
+            expandedClassId={expandedClassId}
+            currentPath={location.pathname}
+            onSelectAll={selectAll}
+            onSelectClass={selectClass}
+            onSelectStudent={selectStudent}
+            onToggleExpand={handleToggleExpand}
+          />
         </div>
       )}
     </aside>
@@ -484,24 +382,26 @@ const Sidebar: React.FC = () => {
 };
 
 // ============================================
-// Sub Tabs (서브탭이 있는 GNB에서 항상 노출)
+// Sub Tabs
 // ============================================
 
 const SubTabs: React.FC = () => {
   const navigate = useNavigate();
-  const { activeGNB, activeSubTab, setActiveSubTab, setSelectedStudent } = useLayoutContext();
+  const [searchParams] = useSearchParams();
+  const { activeGNB, activeSubTab, setActiveSubTab } = useLayoutContext();
 
   const currentGNB = GNB_ITEMS.find((item) => item.id === activeGNB);
 
-  // 서브탭이 없으면 렌더링하지 않음 (반 선택 여부와 무관하게 표시)
   if (!currentGNB?.subTabs) {
     return null;
   }
 
   const handleSubTabClick = (tab: SubTab) => {
     setActiveSubTab(tab.id);
-    // 반/학생 선택 유지
-    navigate(tab.path);
+    // 현재 스코프 파라미터를 유지하면서 이동
+    const params = new URLSearchParams(searchParams);
+    const queryString = params.toString();
+    navigate(queryString ? `${tab.path}?${queryString}` : tab.path);
   };
 
   return (
@@ -532,31 +432,259 @@ const SubTabs: React.FC = () => {
 
 export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
-  const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
-  const [selectedStudent, setSelectedStudent] = useState<StudentInfo | null>(null);
-  const [activeGNB, setActiveGNB] = useState<string>('home');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // GNB/서브탭 상태
+  const [activeGNB, setActiveGNB] = useState<string>('');
   const [activeSubTab, setActiveSubTab] = useState<string | null>(null);
 
+  // 스코프 상태
+  const [scope, setScopeState] = useState<Scope>(INITIAL_SCOPE);
+  const [scopeMemory, setScopeMemory] = useState<ScopeMemory>(INITIAL_SCOPE_MEMORY);
+  const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
+
+  // 현재 메뉴의 스코프 설정
+  const currentMenuKey = useMemo(() => getMenuKeyFromPath(location.pathname), [location.pathname]);
+  const currentMenuConfig = useMemo(() => getMenuScopeConfig(currentMenuKey), [currentMenuKey]);
+
+  // URL 동기화 플래그
+  const isSyncingRef = useRef(false);
+  const lastScopeRef = useRef<Scope>(scope);
+  const lastPathRef = useRef<string>(location.pathname);
+
+  // ============================================
+  // URL에서 스코프 파싱
+  // ============================================
+  const parseScopeFromURL = useCallback((): Scope => {
+    const classId = searchParams.get('class');
+    const studentId = searchParams.get('student');
+
+    if (studentId && classId) {
+      return { level: 'student', classId, studentId };
+    }
+    if (classId) {
+      return { level: 'class', classId };
+    }
+    return { level: 'all' };
+  }, [searchParams]);
+
+  // ============================================
+  // 스코프를 URL에 반영
+  // ============================================
+  const updateURL = useCallback(
+    (newScope: Scope) => {
+      const params = new URLSearchParams(searchParams);
+      params.delete('class');
+      params.delete('student');
+
+      if (newScope.classId) {
+        params.set('class', newScope.classId);
+      }
+      if (newScope.studentId) {
+        params.set('student', newScope.studentId);
+      }
+
+      const newSearch = params.toString();
+      const currentSearch = searchParams.toString();
+
+      if (newSearch !== currentSearch) {
+        isSyncingRef.current = true;
+        setSearchParams(params, { replace: true });
+        setTimeout(() => {
+          isSyncingRef.current = false;
+        }, 0);
+      }
+    },
+    [searchParams, setSearchParams]
+  );
+
+  // ============================================
+  // 스코프 설정 (URL 동기화 포함)
+  // ============================================
+  const setScope = useCallback(
+    (newScope: Scope) => {
+      if (!isScopeEqual(newScope, scope)) {
+        setScopeState(newScope);
+        lastScopeRef.current = newScope;
+        updateURL(newScope);
+      }
+    },
+    [scope, updateURL]
+  );
+
+  // ============================================
+  // 스코프 액션
+  // ============================================
+  const selectAll = useCallback(() => {
+    setScope({ level: 'all' });
+    setExpandedClassId(null);
+  }, [setScope]);
+
+  const selectClass = useCallback(
+    (classId: string) => {
+      if (currentMenuConfig.class) {
+        setScope({ level: 'class', classId });
+      }
+    },
+    [setScope, currentMenuConfig]
+  );
+
+  const selectStudent = useCallback(
+    (classId: string, studentId: string) => {
+      if (currentMenuConfig.student) {
+        setScope({ level: 'student', classId, studentId });
+        // 메모리에 저장
+        setScopeMemory((prev) => ({
+          ...prev,
+          lastStudentId: studentId,
+          lastClassId: classId,
+        }));
+      }
+    },
+    [setScope, currentMenuConfig]
+  );
+
+  // ============================================
+  // 기존 호환성 유지: selectedClass, selectedStudent
+  // ============================================
+  const selectedClass = useMemo((): ClassInfo | null => {
+    if (scope.classId) {
+      return MOCK_CLASSES.find((c) => c.id === scope.classId) || null;
+    }
+    return null;
+  }, [scope.classId]);
+
+  const selectedStudent = useMemo((): StudentInfo | null => {
+    if (scope.studentId) {
+      return MOCK_STUDENTS.find((s) => s.id === scope.studentId) || null;
+    }
+    return null;
+  }, [scope.studentId]);
+
+  const setSelectedClass = useCallback(
+    (cls: ClassInfo | null) => {
+      if (cls) {
+        selectClass(cls.id);
+      } else {
+        selectAll();
+      }
+    },
+    [selectClass, selectAll]
+  );
+
+  const setSelectedStudent = useCallback(
+    (student: StudentInfo | null) => {
+      if (student && scope.classId) {
+        selectStudent(scope.classId, student.id);
+      } else if (scope.classId) {
+        selectClass(scope.classId);
+      }
+    },
+    [selectStudent, selectClass, scope.classId]
+  );
+
+  // ============================================
+  // URL 변경 감지 → 스코프 업데이트 (직접 URL 입력 시에만)
+  // ============================================
+  useEffect(() => {
+    if (isSyncingRef.current) return;
+
+    const urlScope = parseScopeFromURL();
+
+    // URL에 스코프 파라미터가 있고, 현재 스코프와 다른 경우에만 업데이트
+    // (URL 직접 입력 또는 브라우저 뒤로가기 대응)
+    const hasClassParam = searchParams.has('class');
+    const hasStudentParam = searchParams.has('student');
+
+    if (hasClassParam || hasStudentParam) {
+      if (!isScopeEqual(urlScope, lastScopeRef.current)) {
+        lastScopeRef.current = urlScope;
+        setScopeState(urlScope);
+
+        // 반이 선택되면 자동 펼침
+        if (urlScope.classId && currentMenuConfig.student) {
+          setExpandedClassId(urlScope.classId);
+        }
+      }
+    }
+  }, [parseScopeFromURL, currentMenuConfig.student, searchParams]);
+
+  // ============================================
+  // 메뉴 변경 시 스코프 자동 조정
+  // ============================================
+  useEffect(() => {
+    // pathname 변경 시에만 실행
+    if (lastPathRef.current === location.pathname) return;
+    lastPathRef.current = location.pathname;
+
+    const menuKey = getMenuKeyFromPath(location.pathname);
+    const menuConfig = getMenuScopeConfig(menuKey);
+
+    // 현재 스코프가 새 메뉴에서 지원되지 않으면 조정
+    const { adjustedScope, updatedMemory } = adjustScopeForMenu(scope, menuConfig, scopeMemory);
+
+    if (!isScopeEqual(adjustedScope, scope)) {
+      setScopeState(adjustedScope);
+      setScopeMemory(updatedMemory);
+      lastScopeRef.current = adjustedScope;
+      updateURL(adjustedScope);
+    }
+
+    // 학생 지원 메뉴에서 반이 선택되어 있으면 자동 펼침
+    if (adjustedScope.classId && menuConfig.student) {
+      setExpandedClassId(adjustedScope.classId);
+    } else if (!menuConfig.student) {
+      // 학생 미지원 메뉴에서는 펼침 해제
+      setExpandedClassId(null);
+    }
+  }, [location.pathname, scope, scopeMemory, updateURL]);
+
+  // ============================================
   // URL 변경 시 GNB 상태 동기화
-  useMemo(() => {
+  // ============================================
+  useEffect(() => {
     const path = location.pathname;
     const matchedGNB = GNB_ITEMS.find(
       (item) => path === item.path || path.startsWith(item.path + '/')
     );
     if (matchedGNB) {
       setActiveGNB(matchedGNB.id);
+      // 서브탭 동기화
+      if (matchedGNB.subTabs) {
+        const matchedSubTab = matchedGNB.subTabs.find(
+          (tab) => path === tab.path || path.startsWith(tab.path + '/')
+        );
+        if (matchedSubTab) {
+          setActiveSubTab(matchedSubTab.id);
+        }
+      }
     }
   }, [location.pathname]);
 
+  // ============================================
+  // Context Value
+  // ============================================
   const contextValue: LayoutContextType = {
+    // 기존 호환성
     selectedClass,
     setSelectedClass,
     selectedStudent,
     setSelectedStudent,
+    // GNB/서브탭
     activeGNB,
     setActiveGNB,
     activeSubTab,
     setActiveSubTab,
+    // 스코프
+    scope,
+    setScope,
+    expandedClassId,
+    setExpandedClassId,
+    currentMenuConfig,
+    // 스코프 액션
+    selectAll,
+    selectClass,
+    selectStudent,
   };
 
   return (
