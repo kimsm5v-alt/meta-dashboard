@@ -18,3 +18,7 @@ export { LearningStatusCard } from './LearningStatusCard';
 export { AIRecommendedQuestions } from './AIRecommendedQuestions';
 export { CounselingMemoEditor } from './CounselingMemoEditor';
 export { CounselingHistoryList } from './CounselingHistoryList';
+
+// 관찰 메모 & 통합 이력
+export { ObservationMemoEditor } from './ObservationMemoEditor';
+export { UnifiedHistoryList } from './UnifiedHistoryList';
