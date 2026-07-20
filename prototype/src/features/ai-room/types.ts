@@ -59,4 +59,6 @@ export interface Conversation {
   title: string;
   group: '오늘' | '지난 7일' | '이전';
   messages: ChatMessage[];
+  /** 플로팅 챗봇에서 시작된 대화의 화면 라벨 (예: '결과보기') — 있으면 히스토리에 화면 배지 표시 */
+  screen?: string;
 }

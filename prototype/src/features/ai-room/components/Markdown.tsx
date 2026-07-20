@@ -34,17 +34,17 @@ export const Markdown: React.FC<MarkdownProps> = ({ content, className = '' }) =
   const flushList = () => {
     if (!list) return;
     const items = list.items.map((it, i) => (
-      <li key={i} className="leading-relaxed">
+      <li key={i} className="leading-[1.85]">
         {renderInline(it)}
       </li>
     ));
     blocks.push(
       list.ordered ? (
-        <ol key={`b${key++}`} className="list-decimal pl-5 space-y-1 my-2">
+        <ol key={`b${key++}`} className="list-decimal pl-5 space-y-1.5 my-2">
           {items}
         </ol>
       ) : (
-        <ul key={`b${key++}`} className="list-disc pl-5 space-y-1 my-2">
+        <ul key={`b${key++}`} className="list-disc pl-5 space-y-1.5 my-2">
           {items}
         </ul>
       ),
@@ -89,7 +89,7 @@ export const Markdown: React.FC<MarkdownProps> = ({ content, className = '' }) =
     }
     if (line.trim() === '') return;
     blocks.push(
-      <p key={`b${key++}`} className="leading-relaxed my-1.5">
+      <p key={`b${key++}`} className="leading-[1.85] my-2">
         {renderInline(line)}
       </p>,
     );

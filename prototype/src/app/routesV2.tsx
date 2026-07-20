@@ -133,14 +133,12 @@ export const AppRoutesV2 = () => (
       {/* 수업 (TBD) */}
       <Route path="/lesson" element={<LessonPage />} />
 
+      {/* AI 어시스턴트 - GNB 유지, 전체폭 렌더 (LayoutV2에서 사이드바/서브탭 숨김) */}
+      <Route path="/ai-assistant" element={<AIAssistantPage />} />
+
       {/* 그룹관리 */}
       <Route path="/group-management" element={<GroupManagementPage />} />
     </Route>
-
-    {/* ========================================
-        AI 어시스턴트 - 전체화면 단독 페이지 (GNB 없음)
-    ======================================== */}
-    <Route path="/ai-assistant" element={<AIAssistantPage />} />
 
     {/* ========================================
         학생용 보호 라우트

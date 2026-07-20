@@ -242,7 +242,7 @@ const Header: React.FC = () => {
 
         {/* Right Section */}
         <div className="flex items-center gap-4">
-          {/* AI 어시스턴트 버튼 */}
+          {/* AI 어시스턴트 버튼 - 전체 페이지(B)로 이동 */}
           <button
             onClick={() => {
               setActiveGNB('ai-assistant');
@@ -688,22 +688,31 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
     selectStudent,
   };
 
+  // AI 어시스턴트 화면: GNB는 유지하되 좌측 스코프 사이드바/서브탭을 숨기고 전체폭으로 렌더
+  const isAssistant = location.pathname.startsWith('/ai-assistant');
+
   return (
     <LayoutContext.Provider value={contextValue}>
       <div className="min-h-screen bg-[#fbfbfc]">
         <Header />
-        <div className="flex">
-          <Sidebar />
-          <main className="flex-1 mt-[58px] ml-[210px] overflow-y-auto">
-            <div className="p-[30px_40px_60px]">
-              <SubTabs />
-              {children}
-            </div>
+        {isAssistant ? (
+          <main className="fixed top-[58px] left-0 right-0 bottom-0 overflow-hidden bg-white">
+            {children}
           </main>
-        </div>
+        ) : (
+          <div className="flex">
+            <Sidebar />
+            <main className="flex-1 mt-[58px] ml-[210px] overflow-y-auto">
+              <div className="p-[30px_40px_60px]">
+                <SubTabs />
+                {children}
+              </div>
+            </main>
+          </div>
+        )}
 
-        {/* 플로팅 AI 챗봇 - 모든 보호 화면 위에 오버레이 */}
-        <FloatingChatbot studentSelected={!!selectedStudent} />
+        {/* 플로팅 AI 챗봇 - 어시스턴트 전용 화면 제외한 모든 화면에 오버레이 */}
+        {!isAssistant && <FloatingChatbot studentSelected={!!selectedStudent} />}
       </div>
     </LayoutContext.Provider>
   );

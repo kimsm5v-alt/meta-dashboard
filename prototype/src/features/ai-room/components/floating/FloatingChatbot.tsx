@@ -9,13 +9,16 @@ import {
   PanelRight,
   Minus,
   ArrowRight,
+  Monitor,
+  Image as ImageIcon,
 } from 'lucide-react';
 import aiOwl from '@/assets/raon/ai-owl-icon.png';
 import { MessageList } from '../MessageList';
-import { CaptureOverlay } from './CaptureOverlay';
+import { CaptureOverlay, type CaptureData } from './CaptureOverlay';
 import { Toast } from './Toast';
 import { askAssistant } from '../../services/assistantService';
 import { useScreenContext } from '../../utils/useScreenContext';
+import { conversationStore } from '../../utils/conversationStore';
 import { nextId } from '../../utils/id';
 import type { ChatMessage, ChatbotViewMode, SuggestedQuestion } from '../../types';
 
@@ -67,10 +70,12 @@ export const FloatingChatbot: React.FC<FloatingChatbotProps> = ({ studentSelecte
   const [geo, setGeo] = useState<Geo>(initialGeo);
   const [modeOpen, setModeOpen] = useState(false);
   const [capturing, setCapturing] = useState(false);
-  const [captureAttached, setCaptureAttached] = useState(false);
+  const [capture, setCapture] = useState<CaptureData | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const dragRef = useRef<DragSession>(null);
+  // 히스토리 공유용: 현재 챗봇 세션이 저장된 conversation id
+  const chatbotConvIdRef = useRef<string | null>(null);
   const hasConversation = messages.length > 0;
 
   // ── 드래그 / 리사이즈 (코너 모드) ────────────────────────────
@@ -140,35 +145,57 @@ export const FloatingChatbot: React.FC<FloatingChatbotProps> = ({ studentSelecte
         id: nextId('u'),
         role: 'user',
         content: trimmed,
-        hasCapture: captureAttached || undefined,
+        hasCapture: capture ? true : undefined,
       };
       setMessages((prev) => [...prev, userMsg]);
+
+      // 히스토리 저장 (어시스턴트 페이지와 공유) — 첫 질문 시 화면 태그로 대화 생성
+      let convId = chatbotConvIdRef.current;
+      if (convId == null) {
+        convId = nextId('cf');
+        chatbotConvIdRef.current = convId;
+        const title = trimmed.length > 22 ? `${trimmed.slice(0, 22)}…` : trimmed;
+        conversationStore.update((prev) => [
+          { id: convId as string, title, group: '오늘', screen: screenLabel, messages: [userMsg] },
+          ...prev,
+        ]);
+      } else {
+        conversationStore.update((prev) =>
+          prev.map((c) => (c.id === convId ? { ...c, messages: [...c.messages, userMsg] } : c)),
+        );
+      }
+
       setInput('');
-      setCaptureAttached(false);
+      setCapture(null);
       // 버블/입력바에서 전송 시 코너로 전환
       setView((v) => (v === 'bubble' || v === 'inputbar' ? 'corner' : v));
       setIsTyping(true);
 
       const res = await askAssistant(trimmed, screenLabel);
-      setMessages((prev) => [
-        ...prev,
-        { id: nextId('b'), role: 'bot', content: res.content, isReference: res.isReference },
-      ]);
+      const botMsg: ChatMessage = { id: nextId('b'), role: 'bot', content: res.content, isReference: res.isReference };
+      setMessages((prev) => [...prev, botMsg]);
+      conversationStore.update((prev) =>
+        prev.map((c) => (c.id === convId ? { ...c, messages: [...c.messages, botMsg] } : c)),
+      );
       setIsTyping(false);
     },
-    [captureAttached, isTyping, screenLabel],
+    [capture, isTyping, screenLabel],
   );
 
-  const handleCaptureComplete = () => {
+  const handleCaptureComplete = (data: CaptureData) => {
     setCapturing(false);
-    setCaptureAttached(true);
+    setCapture(data);
     setView((v) => (v === 'bubble' || v === 'inputbar' ? 'corner' : v));
-    setInput((prev) => (prev ? prev : '선택한 영역에 대해 질문: '));
   };
 
   const closeToButtonBubble = () => {
     setView('bubble');
     setModeOpen(false);
+    // 세션 종료: 히스토리에는 이미 저장됨. 로컬 대화는 비워 다음 열림 시 새로 시작
+    setMessages([]);
+    setInput('');
+    setCapture(null);
+    chatbotConvIdRef.current = null;
   };
 
   // ── 렌더 ───────────────────────────────────────────────────
@@ -195,7 +222,7 @@ export const FloatingChatbot: React.FC<FloatingChatbotProps> = ({ studentSelecte
             onSend={() => send(input)}
             onCapture={() => setCapturing(true)}
             onExpand={() => setView('corner')}
-            onClose={() => setView('bubble')}
+            onClose={closeToButtonBubble}
           />
         )}
 
@@ -208,7 +235,7 @@ export const FloatingChatbot: React.FC<FloatingChatbotProps> = ({ studentSelecte
             messages={messages}
             isTyping={isTyping}
             input={input}
-            captureAttached={captureAttached}
+            capture={capture}
             hasConversation={hasConversation}
             modeOpen={modeOpen}
             onInput={setInput}
@@ -220,7 +247,7 @@ export const FloatingChatbot: React.FC<FloatingChatbotProps> = ({ studentSelecte
               setModeOpen(false);
             }}
             onClose={closeToButtonBubble}
-            onClearCapture={() => setCaptureAttached(false)}
+            onClearCapture={() => setCapture(null)}
             startDrag={startDrag}
           />
         )}
@@ -250,7 +277,11 @@ const InputBar: React.FC<InputBarProps> = ({ value, onChange, onSend, onCapture,
     className="pointer-events-auto absolute right-6 bottom-6 w-[388px] bg-white rounded-[14px] shadow-xl border border-gray-200 flex items-center gap-1.5 pl-3 pr-2 py-2 animate-[airoom-slideup_0.28s_cubic-bezier(0.16,1,0.3,1)]"
   >
     <img src={aiOwl} alt="AI 어시스턴트" className="w-[26px] h-[26px] object-contain flex-shrink-0" />
-    <button onClick={onCapture} className="p-1.5 text-gray-400 hover:text-primary-500" title="화면 캡처">
+    <button
+      onClick={onCapture}
+      className="p-1.5 rounded-lg text-primary-500 bg-primary-50 hover:bg-primary-100 flex-shrink-0"
+      title="화면 캡처해서 질문"
+    >
       <Scissors className="w-[17px] h-[17px]" />
     </button>
     <input
@@ -288,7 +319,7 @@ interface ChatPanelProps {
   messages: ChatMessage[];
   isTyping: boolean;
   input: string;
-  captureAttached: boolean;
+  capture: CaptureData | null;
   hasConversation: boolean;
   modeOpen: boolean;
   onInput: (v: string) => void;
@@ -309,7 +340,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   messages,
   isTyping,
   input,
-  captureAttached,
+  capture,
   hasConversation,
   modeOpen,
   onInput,
@@ -359,12 +390,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           isFull ? '' : 'cursor-move'
         }`}
       >
-        <div className="flex items-center gap-2">
-          <img src={aiOwl} alt="AI 어시스턴트" className="w-7 h-7 object-contain" />
-          <div className="leading-tight">
-            <div className="text-[14px] font-bold text-gray-900">AI 어시스턴트</div>
-            <div className="text-[11px] text-gray-400">{screenLabel} 화면</div>
-          </div>
+        <div className="flex items-center gap-2 min-w-0">
+          <img src={aiOwl} alt="AI 어시스턴트" className="w-7 h-7 object-contain flex-shrink-0" />
+          <span className="text-[14px] font-bold text-gray-900 flex-shrink-0">AI 어시스턴트</span>
+          <span
+            className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-primary-600 bg-primary-50 border border-primary-100 px-2 py-[3px] rounded-full max-w-[120px]"
+            title={`현재 화면: ${screenLabel}`}
+          >
+            <Monitor className="w-3 h-3 flex-shrink-0" />
+            <span className="truncate">{screenLabel}</span>
+          </span>
         </div>
         <div className="flex items-center gap-0.5">
           <button
@@ -391,7 +426,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       <div className={`flex-1 overflow-y-auto ${isFull ? 'px-0' : 'px-4'} py-4`}>
         <div className={isFull ? 'max-w-[760px] mx-auto px-4' : ''}>
           {!hasConversation ? (
-            <EmptyState questions={questions} onPick={onSend} />
+            <EmptyState questions={questions} onPick={onSend} onCapture={onCapture} />
           ) : (
             <MessageList messages={messages} isTyping={isTyping} variant="floating" />
           )}
@@ -406,7 +441,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           )}
           <Composer
             input={input}
-            captureAttached={captureAttached}
+            capture={capture}
             onInput={onInput}
             onSend={() => onSend(input)}
             onCapture={onCapture}
@@ -430,16 +465,39 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 // ============================================================
 // 빈 화면 (empty state) - 세로 리스트
 // ============================================================
-const EmptyState: React.FC<{ questions: SuggestedQuestion[]; onPick: (t: string) => void }> = ({
-  questions,
-  onPick,
-}) => (
+const EmptyState: React.FC<{
+  questions: SuggestedQuestion[];
+  onPick: (t: string) => void;
+  onCapture: () => void;
+}> = ({ questions, onPick, onCapture }) => (
   <div>
     <div className="text-center mb-5 mt-2">
       <img src={aiOwl} alt="AI 어시스턴트" className="w-16 h-16 mx-auto mb-3 object-contain" />
       <h3 className="text-[16px] font-bold text-gray-900">무엇이 궁금하세요?</h3>
       <p className="text-[13px] text-gray-400 mt-1">화면의 데이터에 대해 물어보세요</p>
     </div>
+
+    {/* 화면 캡처 질문 - 강조 CTA */}
+    <button
+      onClick={onCapture}
+      className="group w-full flex items-center gap-3 px-3.5 py-3 mb-3 rounded-xl border border-primary-200 bg-gradient-to-r from-primary-50 to-primary-50/40 hover:from-primary-100 hover:to-primary-50 transition-colors"
+    >
+      <span className="w-9 h-9 rounded-lg bg-primary-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+        <Scissors className="w-[18px] h-[18px] text-white" />
+      </span>
+      <span className="flex-1 text-left min-w-0">
+        <span className="block text-[13px] font-bold text-primary-700">화면 캡처해서 질문하기</span>
+        <span className="block text-[11px] text-gray-500 break-keep">궁금한 영역을 드래그하면 그 부분을 짚어 답해드려요</span>
+      </span>
+      <ArrowRight className="w-4 h-4 flex-shrink-0 text-primary-400 group-hover:translate-x-0.5 transition-transform" />
+    </button>
+
+    <div className="flex items-center gap-2 my-3">
+      <div className="flex-1 h-px bg-gray-100" />
+      <span className="text-[10.5px] text-gray-400">또는 추천 질문</span>
+      <div className="flex-1 h-px bg-gray-100" />
+    </div>
+
     <div className="space-y-2">
       {questions.map((q) => (
         <button
@@ -486,50 +544,81 @@ const FollowUpPills: React.FC<{ questions: SuggestedQuestion[]; onPick: (t: stri
 // ============================================================
 interface ComposerProps {
   input: string;
-  captureAttached: boolean;
+  capture: CaptureData | null;
   onInput: (v: string) => void;
   onSend: () => void;
   onCapture: () => void;
   onClearCapture: () => void;
 }
-const Composer: React.FC<ComposerProps> = ({ input, captureAttached, onInput, onSend, onCapture, onClearCapture }) => (
-  <div className="p-3">
-    {captureAttached && (
-      <div className="flex items-center gap-1.5 mb-2 text-[11.5px] text-primary-600 bg-primary-50 w-fit px-2.5 py-1 rounded-full">
-        <Scissors className="w-3 h-3" />
-        캡처 첨부됨
-        <button onClick={onClearCapture} className="ml-0.5 text-primary-400 hover:text-primary-600">
-          <X className="w-3 h-3" />
+const Composer: React.FC<ComposerProps> = ({ input, capture, onInput, onSend, onCapture, onClearCapture }) => {
+  // 선택 영역 비율에 맞춘 썸네일 폭 (높이 44 고정, 40~92 clamp)
+  const thumbW = capture ? Math.round(Math.min(92, Math.max(40, 44 * (capture.w / capture.h)))) : 0;
+
+  return (
+    <div className="p-3">
+      {/* 캡처 첨부 미리보기 카드 */}
+      {capture && (
+        <div className="flex items-center gap-2.5 mb-2 p-1.5 pr-2 bg-white border border-primary-200 rounded-xl w-fit max-w-full shadow-sm">
+          <div
+            className="relative rounded-lg overflow-hidden flex items-center justify-center bg-gradient-to-br from-primary-100 to-primary-200/70 border border-primary-200 flex-shrink-0"
+            style={{ height: 44, width: thumbW }}
+          >
+            <ImageIcon className="w-4 h-4 text-primary-500/80" />
+            <span className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-0.5 bg-black/45 text-white text-[8px] py-px">
+              <Scissors className="w-2 h-2" /> 캡처
+            </span>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[12px] font-semibold text-primary-700">화면 캡처 첨부됨</div>
+            <div className="text-[11px] text-gray-500">
+              {capture.w}×{capture.h}px 영역
+            </div>
+          </div>
+          <button
+            onClick={onClearCapture}
+            className="ml-1 p-1 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 flex-shrink-0"
+            title="첨부 제거"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      <div className="flex items-end gap-2 bg-gray-50 rounded-xl px-3 py-2 border border-gray-200 focus-within:border-primary-300">
+        {!capture && (
+          <button
+            onClick={onCapture}
+            className="flex items-center gap-1 text-[11.5px] font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 border border-primary-200 px-2 py-1 rounded-lg flex-shrink-0 self-end mb-0.5"
+            title="화면 캡처해서 질문"
+          >
+            <Scissors className="w-3.5 h-3.5" />
+            캡처
+          </button>
+        )}
+        <textarea
+          value={input}
+          onChange={(e) => onInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
+          rows={1}
+          placeholder={capture ? '이 영역에 대해 무엇이 궁금하세요?' : '메시지를 입력하세요'}
+          className="flex-1 min-w-0 bg-transparent text-[13.5px] outline-none resize-none max-h-24 py-1 placeholder:text-gray-400"
+        />
+        <button
+          onClick={onSend}
+          className="w-8 h-8 rounded-lg bg-primary-500 hover:bg-primary-600 text-white flex items-center justify-center flex-shrink-0"
+          title="전송"
+        >
+          <Send className="w-4 h-4" />
         </button>
       </div>
-    )}
-    <div className="flex items-end gap-2 bg-gray-50 rounded-xl px-3 py-2 border border-gray-200 focus-within:border-primary-300">
-      <button onClick={onCapture} className="p-1 text-gray-400 hover:text-primary-500 flex-shrink-0" title="화면 캡처">
-        <Scissors className="w-[17px] h-[17px]" />
-      </button>
-      <textarea
-        value={input}
-        onChange={(e) => onInput(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            onSend();
-          }
-        }}
-        rows={1}
-        placeholder="메시지를 입력하세요"
-        className="flex-1 min-w-0 bg-transparent text-[13.5px] outline-none resize-none max-h-24 py-1 placeholder:text-gray-400"
-      />
-      <button
-        onClick={onSend}
-        className="w-8 h-8 rounded-lg bg-primary-500 hover:bg-primary-600 text-white flex items-center justify-center flex-shrink-0"
-        title="전송"
-      >
-        <Send className="w-4 h-4" />
-      </button>
     </div>
-  </div>
-);
+  );
+};
 
 // ============================================================
 // 모드 선택 팝오버 (버블 제외)

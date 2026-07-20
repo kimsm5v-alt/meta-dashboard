@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Info, Scissors, Users } from 'lucide-react';
-import { RaonAvatar } from '@/shared/components';
+import aiOwl from '@/assets/raon/ai-owl-icon.png';
 import { Markdown } from './Markdown';
 import { TypingIndicator } from './TypingIndicator';
 import type { ChatMessage } from '../types';
@@ -8,9 +8,17 @@ import type { ChatMessage } from '../types';
 interface MessageListProps {
   messages: ChatMessage[];
   isTyping?: boolean;
-  /** 'floating': 봇 전체폭 블록 / 'page': 봇 아바타 + 카드 */
+  /** 봇 답변: 'floating'(전체폭 블록) / 'page'(부엉이 헤더 + 전체폭 블록) */
   variant?: 'floating' | 'page';
 }
+
+/** 봇 답변 헤더 - 부엉이 캐릭터 + 이름 */
+const BotHeader = () => (
+  <div className="flex items-center gap-2 mb-2.5">
+    <img src={aiOwl} alt="AI 어시스턴트" className="w-6 h-6 object-contain" />
+    <span className="text-[13px] font-bold text-gray-700">AI 어시스턴트</span>
+  </div>
+);
 
 /** 참고용 배지 */
 const ReferenceBadge = () => (
@@ -64,15 +72,13 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, isTyping, va
           );
         }
 
-        // bot
+        // bot - 전체폭 블록 (page: 부엉이 헤더 포함)
         if (variant === 'page') {
           return (
-            <div key={msg.id} className="flex gap-3">
-              <RaonAvatar state="answering" variant="head" size={34} className="flex-shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0 bg-white border border-gray-200 rounded-xl px-4 py-3">
-                <Markdown content={msg.content} />
-                {msg.isReference && <ReferenceBadge />}
-              </div>
+            <div key={msg.id} className="-mx-6 px-6 py-4 bg-[#FAFAFD] border-y border-gray-100">
+              <BotHeader />
+              <Markdown content={msg.content} />
+              {msg.isReference && <ReferenceBadge />}
             </div>
           );
         }
@@ -85,12 +91,17 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, isTyping, va
         );
       })}
 
-      {isTyping && (
-        <div className={variant === 'page' ? 'flex gap-3 items-center' : '-mx-4 px-4 py-3'}>
-          {variant === 'page' && <RaonAvatar state="thinking" variant="head" size={34} className="flex-shrink-0" />}
-          <TypingIndicator />
-        </div>
-      )}
+      {isTyping &&
+        (variant === 'page' ? (
+          <div className="-mx-6 px-6 py-4 bg-[#FAFAFD] border-y border-gray-100">
+            <BotHeader />
+            <TypingIndicator />
+          </div>
+        ) : (
+          <div className="-mx-4 px-4 py-3">
+            <TypingIndicator />
+          </div>
+        ))}
       <div ref={endRef} />
     </div>
   );

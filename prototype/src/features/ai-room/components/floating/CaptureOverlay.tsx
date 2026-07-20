@@ -1,7 +1,13 @@
 import { useState } from 'react';
 
+export interface CaptureData {
+  /** 선택 영역 픽셀 크기 */
+  w: number;
+  h: number;
+}
+
 interface CaptureOverlayProps {
-  onComplete: () => void;
+  onComplete: (data: CaptureData) => void;
   onCancel: () => void;
 }
 
@@ -37,7 +43,7 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({ onComplete, onCa
 
   const handleUp = () => {
     if (rect && rect.w >= 20 && rect.h >= 20) {
-      onComplete();
+      onComplete({ w: Math.round(rect.w), h: Math.round(rect.h) });
     } else {
       onCancel();
     }

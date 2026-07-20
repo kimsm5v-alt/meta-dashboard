@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Plus, Send, X, Users } from 'lucide-react';
 import { MessageList } from '../components/MessageList';
 import { TargetPicker, type TargetSelection } from '../components/TargetPicker';
-import { getTargetQuestions } from '../services/assistantService';
-import { emptySelection, getSelectedStudents, hasTarget, targetChips, targetLabel } from '../utils/targets';
+import { emptySelection, hasTarget, targetChips, targetLabel } from '../utils/targets';
 import type { ChatMessage } from '../types';
 
 interface AssistantChatTabProps {
@@ -20,12 +19,6 @@ export const AssistantChatTab: React.FC<AssistantChatTabProps> = ({ title, messa
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const hasConversation = messages.length > 0;
-  const selectedNames = useMemo(() => getSelectedStudents(selection).map((s) => s.name), [selection]);
-  const questions = useMemo(
-    () => getTargetQuestions(selectedNames, selection.wholeClass),
-    [selectedNames, selection.wholeClass],
-  );
-
   const chips = targetChips(selection);
 
   const handleSend = (text: string) => {
@@ -66,7 +59,7 @@ export const AssistantChatTab: React.FC<AssistantChatTabProps> = ({ title, messa
             <div className="text-center py-16">
               <h2 className="text-[22px] font-bold text-gray-900">무엇을 도와드릴까요?</h2>
               <p className="text-[14px] text-gray-400 mt-2">
-                대상을 고르면 해당 학급·학생 기준으로 답합니다. 아래 추천 질문으로 시작해 보세요.
+                대상을 고르면 해당 학급·학생 기준으로 답합니다. 궁금한 점을 입력해 보세요.
               </p>
             </div>
           ) : (
@@ -78,19 +71,6 @@ export const AssistantChatTab: React.FC<AssistantChatTabProps> = ({ title, messa
       {/* 하단 컴포저 */}
       <div className="border-t border-gray-100 bg-white">
         <div className="max-w-[760px] mx-auto px-6 py-4">
-          {/* 추천 질문 칩 */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            {questions.map((q) => (
-              <button
-                key={q.text}
-                onClick={() => handleSend(q.text)}
-                className="text-[12.5px] text-gray-600 bg-gray-100 hover:bg-primary-50 hover:text-primary-600 px-3 py-1.5 rounded-full transition-colors break-keep"
-              >
-                {q.emoji} {q.text}
-              </button>
-            ))}
-          </div>
-
           {/* 대상 칩 + ＋대상 */}
           <div className="relative flex flex-wrap items-center gap-1.5 mb-2">
             <button
@@ -127,7 +107,7 @@ export const AssistantChatTab: React.FC<AssistantChatTabProps> = ({ title, messa
           </div>
 
           {/* 입력창 */}
-          <div className="flex items-end gap-2 bg-gray-50 rounded-2xl px-4 py-3 border border-gray-200 focus-within:border-primary-300">
+          <div className="flex items-center gap-2 bg-gray-50 rounded-2xl px-4 py-2.5 border border-gray-200 focus-within:border-primary-300">
             <textarea
               value={input}
               onChange={(e) => handleInputChange(e.target.value)}
@@ -139,7 +119,7 @@ export const AssistantChatTab: React.FC<AssistantChatTabProps> = ({ title, messa
               }}
               rows={1}
               placeholder={`${title}에 이어서 질문하거나 @로 대상을 지정하세요`}
-              className="flex-1 min-w-0 bg-transparent text-[14px] outline-none resize-none max-h-32 py-1 placeholder:text-gray-400"
+              className="flex-1 min-w-0 bg-transparent text-[14px] leading-6 outline-none resize-none max-h-32 placeholder:text-gray-400"
             />
             <button
               onClick={() => handleSend(input)}
