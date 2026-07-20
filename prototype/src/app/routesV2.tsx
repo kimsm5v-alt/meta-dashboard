@@ -133,12 +133,14 @@ export const AppRoutesV2 = () => (
       {/* 수업 (TBD) */}
       <Route path="/lesson" element={<LessonPage />} />
 
-      {/* AI어시스턴트 (TBD) */}
-      <Route path="/ai-assistant" element={<AIAssistantPage />} />
-
       {/* 그룹관리 */}
       <Route path="/group-management" element={<GroupManagementPage />} />
     </Route>
+
+    {/* ========================================
+        AI 어시스턴트 - 전체화면 단독 페이지 (GNB 없음)
+    ======================================== */}
+    <Route path="/ai-assistant" element={<AIAssistantPage />} />
 
     {/* ========================================
         학생용 보호 라우트

@@ -20,8 +20,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { RaonAvatar } from '@/shared/components';
+import { FloatingChatbot } from '@/features/ai-room';
 import serviceLogo from '@/assets/logo_2.png';
-import aiOwlIcon from '@/assets/raon/ai-owl.svg';
+import aiOwlIcon from '@/assets/raon/ai-owl-icon.png';
 
 // ============================================
 // Types
@@ -572,6 +573,9 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
             </div>
           </main>
         </div>
+
+        {/* 플로팅 AI 챗봇 - 모든 보호 화면 위에 오버레이 */}
+        <FloatingChatbot studentSelected={!!selectedStudent} />
       </div>
     </LayoutContext.Provider>
   );
