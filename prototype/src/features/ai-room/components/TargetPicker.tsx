@@ -1,128 +1,228 @@
-import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, Minus, X, Search, Users } from 'lucide-react';
 import { MOCK_CLASSES } from '../data/mockClasses';
-import type { ClassItem } from '../types';
+import { emptySelection, getClass, getSelectedStudents } from '../utils/targets';
 
+/** 대상 선택: 학급 id → 선택된 학생 id 목록 (다중 학급 지원) */
 export interface TargetSelection {
-  classId: string;
-  /** 선택된 학생 id 집합 */
-  studentIds: string[];
-  /** 학급 전체 선택 여부 */
-  wholeClass: boolean;
+  byClass: Record<string, string[]>;
 }
 
 interface TargetPickerProps {
   selection: TargetSelection;
   onChange: (next: TargetSelection) => void;
   onClose: () => void;
-  /** 단일 선택 모드 (생활기록부 - 여러 명 담되 최종 1명 지정은 상위에서) */
   title?: string;
 }
 
-/** 학급/학생 선택 피커 팝오버 (264px) */
+/**
+ * 대상 선택 모달 (다중 학급 + 대인원 학생 대응)
+ * - 좌: 학급 목록(전체 체크 · 부분선택 표시 · 인원수), 클릭 시 우측에 학생 노출
+ * - 우: 선택 학급의 학생 그리드 + 검색 + 현재 목록 전체 선택
+ */
 export const TargetPicker: React.FC<TargetPickerProps> = ({ selection, onChange, onClose, title = '대상 선택' }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [classDropdownOpen, setClassDropdownOpen] = useState(false);
+  const [focusedId, setFocusedId] = useState<string>(MOCK_CLASSES[0].id);
+  const [search, setSearch] = useState('');
 
-  const currentClass: ClassItem = MOCK_CLASSES.find((c) => c.id === selection.classId) ?? MOCK_CLASSES[0];
+  const focusedClass = getClass(focusedId);
+  const idsOf = (classId: string) => selection.byClass[classId] ?? [];
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const setClass = (classId: string) => {
-    onChange({ classId, studentIds: [], wholeClass: false });
-    setClassDropdownOpen(false);
+  const setClassIds = (classId: string, ids: string[]) => {
+    const next = { ...selection.byClass };
+    if (ids.length) next[classId] = ids;
+    else delete next[classId];
+    onChange({ byClass: next });
   };
 
-  const toggleWhole = () => {
-    if (selection.wholeClass) {
-      onChange({ ...selection, wholeClass: false, studentIds: [] });
+  const toggleWholeClass = (classId: string) => {
+    const cls = getClass(classId);
+    const cur = idsOf(classId);
+    setClassIds(classId, cur.length === cls.students.length ? [] : cls.students.map((s) => s.id));
+  };
+
+  const toggleStudent = (classId: string, sid: string) => {
+    const cur = idsOf(classId);
+    setClassIds(classId, cur.includes(sid) ? cur.filter((x) => x !== sid) : [...cur, sid]);
+  };
+
+  const focusedIds = idsOf(focusedId);
+  const filtered = focusedClass.students.filter((s) => s.name.includes(search.trim()));
+  const allFilteredSelected = filtered.length > 0 && filtered.every((s) => focusedIds.includes(s.id));
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      setClassIds(focusedId, focusedIds.filter((id) => !filtered.some((s) => s.id === id)));
     } else {
-      onChange({ ...selection, wholeClass: true, studentIds: currentClass.students.map((s) => s.id) });
+      setClassIds(focusedId, Array.from(new Set([...focusedIds, ...filtered.map((s) => s.id)])));
     }
   };
 
-  const toggleStudent = (id: string) => {
-    const has = selection.studentIds.includes(id);
-    const nextIds = has ? selection.studentIds.filter((x) => x !== id) : [...selection.studentIds, id];
-    const whole = nextIds.length === currentClass.students.length;
-    onChange({ ...selection, studentIds: nextIds, wholeClass: whole });
+  const totalSelected = getSelectedStudents(selection).length;
+  const totalStudents = MOCK_CLASSES.reduce((n, c) => n + c.students.length, 0);
+  const allClassesSelected = totalStudents > 0 && MOCK_CLASSES.every((c) => idsOf(c.id).length === c.students.length);
+  const toggleAllClasses = () => {
+    if (allClassesSelected) onChange(emptySelection());
+    else onChange({ byClass: Object.fromEntries(MOCK_CLASSES.map((c) => [c.id, c.students.map((s) => s.id)])) });
   };
 
   return (
-    <div
-      ref={ref}
-      className="absolute bottom-full mb-2 left-0 w-[264px] bg-white rounded-xl shadow-xl border border-gray-200 z-30 overflow-hidden"
-    >
-      <div className="px-3.5 py-2.5 border-b border-gray-100 text-[12.5px] font-semibold text-gray-700">{title}</div>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-[720px] max-w-full h-[560px] max-h-[85vh] flex flex-col overflow-hidden">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
+          <h3 className="text-[15px] font-bold text-gray-900">{title}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100" title="닫기">
+            <X className="w-[18px] h-[18px]" />
+          </button>
+        </div>
 
-      {/* 학급 드롭다운 */}
-      <div className="px-3 pt-3 pb-2 relative">
-        <button
-          onClick={() => setClassDropdownOpen((v) => !v)}
-          className="w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium text-gray-800 bg-gray-50 hover:bg-gray-100 rounded-lg"
-        >
-          {currentClass.name}
-          <ChevronDown className="w-4 h-4 text-gray-400" />
-        </button>
-        {classDropdownOpen && (
-          <div className="absolute left-3 right-3 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-            {MOCK_CLASSES.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setClass(c.id)}
-                className="w-full text-left px-3 py-2 text-[13px] text-gray-700 hover:bg-primary-50 first:rounded-t-lg last:rounded-b-lg"
-              >
-                {c.name}
-              </button>
-            ))}
+        {/* 본문 2단 */}
+        <div className="flex-1 flex min-h-0">
+          {/* 좌: 학급 목록 */}
+          <div className="w-[210px] flex-shrink-0 border-r border-gray-100 overflow-y-auto py-2">
+            <div className="text-[11px] font-bold text-gray-400 tracking-wide px-4 mb-1">학급</div>
+            {/* 전체 학급 선택 */}
+            <div
+              onClick={toggleAllClasses}
+              className="flex items-center gap-2.5 mx-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-gray-50"
+            >
+              <CheckboxView checked={allClassesSelected} indeterminate={totalSelected > 0 && !allClassesSelected} />
+              <span className="flex-1 text-[13.5px] font-bold text-gray-800">전체 학급</span>
+              <span className="text-[11px] text-gray-400 flex-shrink-0">{totalStudents}</span>
+            </div>
+            <div className="border-t border-gray-100 mx-3 my-1.5" />
+            {MOCK_CLASSES.map((cls) => {
+              const ids = idsOf(cls.id);
+              const whole = ids.length > 0 && ids.length === cls.students.length;
+              const partial = ids.length > 0 && !whole;
+              const isFocused = focusedId === cls.id;
+              return (
+                <div
+                  key={cls.id}
+                  onClick={() => setFocusedId(cls.id)}
+                  className={`flex items-center gap-2.5 mx-2 px-2.5 py-2 rounded-lg cursor-pointer ${
+                    isFocused ? 'bg-primary-50' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleWholeClass(cls.id);
+                    }}
+                    className="flex-shrink-0"
+                    title="학급 전체 선택"
+                  >
+                    <CheckboxView checked={whole} indeterminate={partial} />
+                  </button>
+                  <span className={`flex-1 text-[13.5px] truncate ${isFocused ? 'font-bold text-primary-700' : 'font-medium text-gray-800'}`}>
+                    {cls.name}
+                  </span>
+                  <span className="text-[11px] text-gray-400 flex-shrink-0">
+                    {ids.length ? `${ids.length}/` : ''}
+                    {cls.students.length}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        )}
-      </div>
 
-      {/* 학급 전체 */}
-      <div className="px-3">
-        <label className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-          <Checkbox checked={selection.wholeClass} onChange={toggleWhole} />
-          <span className="text-[13px] font-semibold text-gray-800">학급 전체</span>
-        </label>
-      </div>
+          {/* 우: 학생 그리드 */}
+          <div className="flex-1 min-w-0 flex flex-col">
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={`${focusedClass.name} 학생 검색`}
+                  className="w-full pl-8 pr-3 py-1.5 text-[13px] bg-gray-50 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-primary-200"
+                />
+              </div>
+              <button
+                onClick={toggleSelectAllFiltered}
+                disabled={filtered.length === 0}
+                className="text-[12px] font-semibold text-primary-600 hover:bg-primary-50 disabled:opacity-40 px-2.5 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0"
+              >
+                {allFilteredSelected ? '전체 해제' : '전체 선택'}
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {filtered.length === 0 ? (
+                <div className="text-center text-gray-400 text-[13px] py-12">검색 결과가 없습니다</div>
+              ) : (
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5">
+                  {filtered.map((s) => {
+                    const checked = focusedIds.includes(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => toggleStudent(focusedId, s.id)}
+                        className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left ${
+                          checked ? 'bg-primary-50 border-primary-200' : 'border-transparent hover:bg-gray-50'
+                        }`}
+                      >
+                        <CheckboxView checked={checked} />
+                        <span className="text-[11px] text-gray-400 w-4 text-right flex-shrink-0">{s.no}</span>
+                        <span className="text-[13px] text-gray-700 truncate">{s.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
-      <div className="border-t border-gray-100 my-1.5" />
-
-      {/* 학생 목록 */}
-      <div className="max-h-[200px] overflow-y-auto px-3 pb-3">
-        {currentClass.students.map((s) => (
-          <label
-            key={s.id}
-            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"
-          >
-            <Checkbox checked={selection.studentIds.includes(s.id)} onChange={() => toggleStudent(s.id)} />
-            <span className="text-[12px] text-gray-400 w-4 text-right">{s.no}</span>
-            <span className="text-[13px] text-gray-700 flex-1">{s.name}</span>
-            {s.tag === '관심' && (
-              <span className="text-[10.5px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">관심</span>
+        {/* 푸터 */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50/60 flex-shrink-0">
+          <div className="flex items-center gap-1.5 text-[12.5px] text-gray-500">
+            <Users className="w-3.5 h-3.5" />
+            {totalSelected > 0 ? (
+              <span>
+                선택 <b className="text-primary-600">{totalSelected}</b>명
+              </span>
+            ) : (
+              '선택된 대상 없음'
             )}
-          </label>
-        ))}
+          </div>
+          <div className="flex items-center gap-2">
+            {totalSelected > 0 && (
+              <button onClick={() => onChange(emptySelection())} className="text-[13px] text-gray-500 hover:text-gray-700 px-3 py-1.5">
+                전체 해제
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-[13px] font-semibold text-white bg-primary-500 hover:bg-primary-600 px-4 py-1.5 rounded-lg"
+            >
+              완료
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-const Checkbox: React.FC<{ checked: boolean; onChange: () => void }> = ({ checked, onChange }) => (
-  <button
-    type="button"
-    onClick={onChange}
+const CheckboxView: React.FC<{ checked: boolean; indeterminate?: boolean }> = ({ checked, indeterminate }) => (
+  <span
     className={`w-[18px] h-[18px] rounded-[5px] border flex items-center justify-center flex-shrink-0 transition-colors ${
-      checked ? 'bg-primary-500 border-primary-500' : 'bg-white border-gray-300'
+      checked || indeterminate ? 'bg-primary-500 border-primary-500' : 'bg-white border-gray-300'
     }`}
   >
-    {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-  </button>
+    {checked ? (
+      <Check className="w-3 h-3 text-white" strokeWidth={3} />
+    ) : indeterminate ? (
+      <Minus className="w-3 h-3 text-white" strokeWidth={3} />
+    ) : null}
+  </span>
 );

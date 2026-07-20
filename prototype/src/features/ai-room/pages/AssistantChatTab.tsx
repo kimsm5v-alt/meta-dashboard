@@ -38,16 +38,12 @@ export const AssistantChatTab: React.FC<AssistantChatTabProps> = ({ title, messa
     setInput(v);
   };
 
-  const removeChip = (studentId?: string) => {
-    if (!studentId) {
-      setSelection((s) => ({ ...s, wholeClass: false, studentIds: [] }));
-    } else {
-      setSelection((s) => ({
-        ...s,
-        wholeClass: false,
-        studentIds: s.studentIds.filter((id) => id !== studentId),
-      }));
-    }
+  const removeChip = (classId: string) => {
+    setSelection((sel) => {
+      const next = { ...sel.byClass };
+      delete next[classId];
+      return { byClass: next };
+    });
   };
 
   return (
@@ -87,7 +83,7 @@ export const AssistantChatTab: React.FC<AssistantChatTabProps> = ({ title, messa
               >
                 <Users className="w-3 h-3" />
                 {chip.label}
-                <button onClick={() => removeChip(chip.studentId)} className="text-primary-400 hover:text-primary-600">
+                <button onClick={() => removeChip(chip.classId)} className="text-primary-400 hover:text-primary-600">
                   <X className="w-3 h-3" />
                 </button>
               </span>

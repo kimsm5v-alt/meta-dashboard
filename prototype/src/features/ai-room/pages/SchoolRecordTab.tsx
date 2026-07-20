@@ -67,7 +67,13 @@ export const SchoolRecordTab: React.FC = () => {
                 <span
                   onClick={(e) => {
                     e.stopPropagation();
-                    setSelection((sel) => ({ ...sel, wholeClass: false, studentIds: sel.studentIds.filter((id) => id !== s.id) }));
+                    setSelection((sel) => {
+                      const next = { ...sel.byClass };
+                      const remaining = (next[s.classId] ?? []).filter((id) => id !== s.id);
+                      if (remaining.length) next[s.classId] = remaining;
+                      else delete next[s.classId];
+                      return { byClass: next };
+                    });
                     if (activeStudentId === s.id) setActiveStudentId(null);
                   }}
                   className={activeStudentId === s.id ? 'text-white/70 hover:text-white' : 'text-primary-400 hover:text-primary-600'}
