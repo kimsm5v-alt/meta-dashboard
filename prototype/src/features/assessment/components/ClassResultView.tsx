@@ -13,7 +13,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, AlertCircle, Info, ChevronRight, AlertTriangle, Search, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, Info, Search, ArrowRight, FileText, X, Download } from 'lucide-react';
 import { useLayoutContext } from '@/app/LayoutV2';
 import type { ClassResultSummary, LPADistribution, ProfileFactor } from '@/features/class-dashboard/types';
 import type { StudentExamResult } from '../types';
@@ -154,22 +154,82 @@ export const ClassResultView: React.FC<ClassResultViewProps> = ({
     return result;
   }, [students, studentFilter, studentSearch]);
 
+  // 보고서 다운로드 모달 상태
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportType, setReportType] = useState<'class' | 'student'>('class');
+  const [reportRound, setReportRound] = useState<1 | 2>(1);
+  const [reportFormat, setReportFormat] = useState<'detail' | 'summary'>('detail');
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+
+  // 모달 학생 검색
+  const [modalStudentSearch, setModalStudentSearch] = useState('');
+  const modalFilteredStudents = useMemo(() => {
+    if (!students) return [];
+    if (!modalStudentSearch.trim()) return students;
+    const term = modalStudentSearch.toLowerCase();
+    return students.filter(
+      (s) => s.name.toLowerCase().includes(term) || s.number.toString().includes(term)
+    );
+  }, [students, modalStudentSearch]);
+
+  // 전체 선택 토글
+  const handleToggleAllStudents = () => {
+    if (!students) return;
+    if (selectedStudents.length === students.length) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(students.map((s) => s.id));
+    }
+  };
+
+  // 학생 선택 토글
+  const handleToggleStudent = (studentId: string) => {
+    setSelectedStudents((prev) =>
+      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
+    );
+  };
+
+  // 다운로드 실행
+  const handleConfirmDownload = () => {
+    const roundText = reportRound === 1 ? '1차' : '2차';
+    const typeText = reportType === 'class' ? '학급용' : '교사용';
+    const formatText = reportFormat === 'detail' ? '상세' : '요약';
+    const studentText =
+      reportType === 'class' ? `${selectedStudents.length}명` : '전체';
+
+    alert(
+      `${roundText} ${typeText} ${formatText} 보고서 다운로드\n대상: ${studentText}\n\n프로토타입에서는 실제 다운로드가 구현되지 않았습니다.`
+    );
+    setShowReportModal(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* 헤더 */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={onBack}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-500" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{className}</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {MOCK_SCHOOL_INFO.schoolName} · {MOCK_SCHOOL_INFO.eduLevel} {parseClassName(className)}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBack}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-500" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{className}</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {MOCK_SCHOOL_INFO.schoolName} · {MOCK_SCHOOL_INFO.eduLevel} {parseClassName(className)}
+            </p>
+          </div>
         </div>
+
+        {/* 보고서 다운로드 버튼 */}
+        <button
+          onClick={() => setShowReportModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          <FileText className="w-5 h-5" />
+          보고서 다운로드
+        </button>
       </div>
 
       {/* 1. 학급 요약 제공 (상단) */}
@@ -545,6 +605,201 @@ export const ClassResultView: React.FC<ClassResultViewProps> = ({
             })}
           </div>
           )}
+        </div>
+      )}
+
+      {/* 보고서 다운로드 모달 */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 shadow-2xl">
+            {/* 헤더 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">보고서 다운로드</h2>
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* 내용 */}
+            <div className="px-6 py-4 space-y-4">
+              {/* 보고서 종류 */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  보고서 종류
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setReportType('class')}
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      reportType === 'class'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    학급 개별 보고서
+                  </button>
+                  <button
+                    onClick={() => setReportType('student')}
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      reportType === 'student'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    교사용 보고서
+                  </button>
+                </div>
+              </div>
+
+              {/* 차수 */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">차수</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setReportRound(1)}
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      reportRound === 1
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    1차 검사
+                  </button>
+                  <button
+                    onClick={() => setReportRound(2)}
+                    disabled={resultData.round < 2}
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      reportRound === 2
+                        ? 'bg-indigo-600 text-white'
+                        : resultData.round >= 2
+                          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    2차 검사
+                  </button>
+                  <button
+                    onClick={() => setReportRound(1)}
+                    disabled={resultData.round < 2}
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      resultData.round >= 2
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    1차+2차
+                  </button>
+                </div>
+              </div>
+
+              {/* 형식 */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">형식</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setReportFormat('detail')}
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      reportFormat === 'detail'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    상세 보고서
+                  </button>
+                  <button
+                    onClick={() => setReportFormat('summary')}
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      reportFormat === 'summary'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    요약 보고서
+                  </button>
+                </div>
+              </div>
+
+              {/* 대상 학생 선택 (학급 개별 보고서일 때만) */}
+              {reportType === 'class' && students && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      대상 학생 선택
+                    </label>
+                    <button
+                      onClick={handleToggleAllStudents}
+                      className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      {selectedStudents.length === students.length ? '전체 선택 해제' : '전체 선택'}
+                    </button>
+                  </div>
+
+                  {/* 검색 */}
+                  <div className="relative mb-2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="이름 또는 번호 검색..."
+                      value={modalStudentSearch}
+                      onChange={(e) => setModalStudentSearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+
+                  {/* 학생 목록 */}
+                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                    <div className="grid grid-cols-2 gap-0">
+                      {modalFilteredStudents.map((student) => (
+                        <label
+                          key={student.id}
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-r border-gray-100"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedStudents.includes(student.id)}
+                            onChange={() => handleToggleStudent(student.id)}
+                            className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
+                          />
+                          <span className="text-sm text-gray-700">
+                            {student.number}. {student.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-500 mt-2">
+                    {selectedStudents.length}명 선택됨
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* 푸터 */}
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleConfirmDownload}
+                disabled={reportType === 'class' && selectedStudents.length === 0}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
+                  reportType === 'class' && selectedStudents.length === 0
+                    ? 'bg-gray-300 cursor-not-allowed'
+                    : 'bg-primary-600 hover:bg-primary-700'
+                }`}
+              >
+                <Download className="w-4 h-4" />
+                다운로드
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
