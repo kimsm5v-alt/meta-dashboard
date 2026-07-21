@@ -1,23 +1,31 @@
 /**
  * 수업 (수업 자료실) — /lesson 진입점.
- * - 인페이지 탭: 공유 자료실 / 나의 수업
+ * - GNB 2depth 3분할: 수업 자료실 / 나의 자료 / 수업 결과보기
  * - 스코프(전체/반)는 LayoutV2 selectedClass 에서 파생 (ResourcesProvider)
  * - 저작툴·배포·실시간 수업은 풀스크린 오버레이로 이 위에 뜸 (Phase 6·7)
+ *
+ * TODO(GNB 2depth): 아래 3탭은 공통 app/ GNB 하위메뉴로 등록 예정.
+ *   app/ 은 공통(menu-structure) 브랜치 영역이라 여기서는 미변경 → 인페이지 탭(activeTab)으로
+ *   동일 구조를 재현해 둔다. GNB 등록 시 각 탭을 별도 라우트로 승격.
+ *     수업 › 수업 자료실   → activeTab 'library'
+ *     수업 › 나의 자료     → activeTab 'myData'
+ *     수업 › 수업 결과보기 → activeTab 'results'
  *
  * @see prototype/docs/features/resources/everyclass-v2 1.html (기준 목업)
  * @see prototype/docs/features/resources/WORK_PLAN.md (진행표)
  */
 import { ResourcesProvider, useResources, type LessonTab } from '../store/ResourcesContext';
 import { LibraryView, ClassCurationView } from '../components/library';
-import { MlSubNav, MyDataView } from '../components/my-lessons';
+import { MyDataView } from '../components/my-lessons';
 import { ResultsView } from '../components/report';
 import { EditorOverlay } from '../components/editor';
 import { DeployOverlay } from '../components/deploy';
 import { ClassLiveOverlay } from '../components/live';
 
 const TABS: { id: LessonTab; label: string }[] = [
-  { id: 'library', label: '공유 자료실' },
-  { id: 'myLesson', label: '나의 수업' },
+  { id: 'library', label: '수업 자료실' },
+  { id: 'myData', label: '나의 자료' },
+  { id: 'results', label: '수업 결과보기' },
 ];
 
 /** 인페이지 탭 바 — LayoutV2 SubTabs 언더라인 스타일 재현 */
@@ -45,25 +53,6 @@ const LessonTabs = () => {
   );
 };
 
-/** 상단 브레드크럼: 수업 › {탭} [› {반}] */
-const Breadcrumb = () => {
-  const { activeTab, scope, isAll } = useResources();
-  const tabLabel = TABS.find((t) => t.id === activeTab)?.label ?? '';
-  return (
-    <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-400">
-      <span>수업</span>
-      <span>›</span>
-      <span className="text-gray-600">{tabLabel}</span>
-      {!isAll && (
-        <>
-          <span>›</span>
-          <span className="text-gray-600">{scope}</span>
-        </>
-      )}
-    </div>
-  );
-};
-
 /** 토스트 (목업 toast() 대체) */
 const Toast = () => {
   const { toastMsg } = useResources();
@@ -71,17 +60,6 @@ const Toast = () => {
   return (
     <div className="fixed bottom-8 left-1/2 z-[200] -translate-x-1/2 rounded-full bg-gray-900/90 px-5 py-2.5 text-sm font-medium text-white shadow-lg">
       {toastMsg}
-    </div>
-  );
-};
-
-/** 나의 수업 탭: 하위 탭(나의 자료 / 수업 결과보기) */
-const MyLessonTab = () => {
-  const { mlView } = useResources();
-  return (
-    <div>
-      <MlSubNav />
-      {mlView === 'myData' ? <MyDataView /> : <ResultsView />}
     </div>
   );
 };
@@ -103,12 +81,13 @@ const ResourceListInner = () => {
   const { activeTab, isAll } = useResources();
   return (
     <div>
-      <Breadcrumb />
       <LessonTabs />
       {activeTab === 'library' ? (
         isAll ? <LibraryView /> : <ClassCurationView />
+      ) : activeTab === 'myData' ? (
+        <MyDataView />
       ) : (
-        <MyLessonTab />
+        <ResultsView />
       )}
       <Toast />
       <OverlayHost />

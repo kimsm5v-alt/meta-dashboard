@@ -15,6 +15,10 @@ export const ResultsView = () => {
 
   return (
     <div>
+      <div className="mt-5">
+        <h2 className="text-lg font-extrabold tracking-tight text-gray-900">수업 결과보기</h2>
+        <p className="mt-0.5 text-sm text-gray-500">배포한 활동의 참여 현황을 한눈에 보고, 활동별 리포트로 상세 결과를 확인하세요.</p>
+      </div>
       <StatusPanel />
       <ReportFilterChips />
       <ReportCardGrid />
