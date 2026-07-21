@@ -48,7 +48,7 @@ export const StatusPanel = () => {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
         <Kpi label="현재 진행 중인 활동" value={inProgress} unit="건" hl />
         <Kpi label="이번 주 진행한 활동" value={thisWeek} unit="건" />
         <Kpi label="평균 참여율" value={avg} unit="%" />

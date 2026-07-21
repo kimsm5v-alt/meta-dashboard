@@ -2,9 +2,10 @@
  * 나의 자료 세트지 카드 (목업 renderMyData 카드 + statusBadge + deleteMy).
  * 편집 잠금: 배포됨/완료는 원본 보호 → 복제만.
  */
-import { GROUP_BG } from '../../mock-data';
 import { useResources } from '../../store/ResourcesContext';
 import type { MyLesson, MyStatus } from '../../types';
+import { CardThumb } from '../common/CardThumb';
+import { CARD_SHELL } from '../common/cardStyles';
 
 const STATUS_STYLE: Record<MyStatus, string> = {
   배포됨: 'bg-emerald-50 text-emerald-600',
@@ -17,27 +18,30 @@ export const MyLessonCard = ({ item }: { item: MyLesson }) => {
   const locked = item.status === '배포됨' || item.status === '완료';
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div className="relative flex h-24 items-center justify-center text-4xl" style={{ background: GROUP_BG[item.g] }}>
-        {item.em}
-        <button
-          onClick={() => {
-            deleteMy(item.id);
-            toast('삭제되었습니다');
-          }}
-          title="삭제"
-          aria-label="세트지 삭제"
-          className="absolute right-2 top-2 rounded-md bg-white/70 px-1.5 py-1 text-sm text-red-500 transition-colors hover:bg-white"
-        >
-          🗑️
-        </button>
-      </div>
-      <div className="flex flex-1 flex-col gap-1.5 p-4">
+    <div className={CARD_SHELL}>
+      <CardThumb
+        g={item.g}
+        em={item.em}
+        title={item.title}
+        overlay={
+          <button
+            onClick={() => {
+              deleteMy(item.id);
+              toast('삭제되었습니다');
+            }}
+            title="삭제"
+            aria-label="세트지 삭제"
+            className="absolute right-2 top-2 rounded-md bg-white/70 px-1.5 py-1 text-sm text-red-500 transition-colors hover:bg-white"
+          >
+            🗑️
+          </button>
+        }
+      />
+      <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-center gap-1.5">
           <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_STYLE[item.status]}`}>{item.status}</span>
           {locked && <span className="text-xs text-gray-400" title="원본 보호 · 복제만 가능">🔒</span>}
         </div>
-        <div className="text-sm font-bold leading-snug text-gray-900">{item.title}</div>
         <div className="text-xs text-gray-500">
           {item.cls ? `👥 ${item.cls}` : '미배포'} · 수정 {item.updated}
         </div>

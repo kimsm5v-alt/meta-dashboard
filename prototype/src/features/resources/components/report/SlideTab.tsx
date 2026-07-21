@@ -130,7 +130,7 @@ export const SlideTab = ({ report }: { report: Report }) => {
   const cur = rdSlide >= set.length ? 0 : rdSlide;
 
   return (
-    <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]">
+    <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-[300px_1fr]">
       <div className="flex flex-col gap-1.5 rounded-xl border border-gray-100 bg-white p-2">
         <div className="px-2 py-1.5 text-xs font-bold text-gray-500">슬라이드 <span className="font-semibold text-gray-400">({set.length})</span></div>
         {set.map((s, i) => {

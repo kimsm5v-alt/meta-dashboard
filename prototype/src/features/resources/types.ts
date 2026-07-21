@@ -160,14 +160,3 @@ export interface ContentPickItem {
   ic: string;
   bg: string;
 }
-
-// ============================================
-// 학생 모드
-// ============================================
-
-/** 학생에게 배포된 과제 */
-export interface StudentTask {
-  t: string;
-  st: '미제출' | '완료';
-  dd: string; // 마감 'MM/DD'
-}

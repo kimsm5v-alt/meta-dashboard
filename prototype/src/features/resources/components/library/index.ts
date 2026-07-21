@@ -1,6 +1,5 @@
 export { LibraryView } from './LibraryView';
 export { ClassCurationView } from './ClassCurationView';
-export { HeroBanner } from './HeroBanner';
 export { FilterPanel } from './FilterPanel';
 export { ResourceGrid } from './ResourceGrid';
 export { ResourceCard } from './ResourceCard';

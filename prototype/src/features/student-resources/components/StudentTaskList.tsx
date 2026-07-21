@@ -1,7 +1,7 @@
 /**
  * 학생 과제 목록 (목업 renderStudent 의 studentTasks).
  */
-import { STUDENT_TASKS } from '../../mock-data';
+import { STUDENT_TASKS } from '../mock-data';
 import { StudentTaskCard } from './StudentTaskCard';
 
 export const StudentTaskList = () => (

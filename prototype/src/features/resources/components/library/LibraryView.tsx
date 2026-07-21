@@ -6,7 +6,6 @@
 import { useMemo, useState } from 'react';
 import { LIB } from '../../mock-data';
 import type { LibItem } from '../../types';
-import { HeroBanner } from './HeroBanner';
 import { FilterPanel, EMPTY_FILTERS, type FilterAxis, type LibFilters, type SortKey } from './FilterPanel';
 import { ResourceGrid } from './ResourceGrid';
 
@@ -46,7 +45,6 @@ export const LibraryView = () => {
 
   return (
     <div className="mt-5 flex flex-col gap-5">
-      <HeroBanner />
       <FilterPanel filters={filters} onToggle={toggle} onClear={clear} sort={sort} onSort={setSort} />
       <div>
         <div className="mb-1 text-lg font-extrabold tracking-tight text-gray-900">전체 자료실</div>
