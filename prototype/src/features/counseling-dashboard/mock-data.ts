@@ -193,9 +193,9 @@ export const MOCK_CLASS_COACHING_DATA: ClassCoachingData = {
     totalStudents: 26,
     completedStudents: 24,
     distribution: {
-      '안전균형형': 9,
-      '몰입자원풍부형': 8,
-      '자원소진형': 7,
+      '자원소진형': 10,
+      '안전균형형': 8,
+      '몰입자원 풍부형': 6,
     },
   },
   dominantType: '자원소진형',
@@ -204,7 +204,7 @@ export const MOCK_CLASS_COACHING_DATA: ClassCoachingData = {
   recommendedStrategy: LPA_TYPE_STRATEGIES['자원소진형'],
   additionalStrategies: [
     LPA_TYPE_STRATEGIES['안전균형형'],
-    LPA_TYPE_STRATEGIES['몰입자원풍부형'],
+    LPA_TYPE_STRATEGIES['몰입자원 풍부형'],
   ],
 };
 

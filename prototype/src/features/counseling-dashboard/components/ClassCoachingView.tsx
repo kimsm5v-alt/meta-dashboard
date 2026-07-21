@@ -96,17 +96,24 @@ export const ClassCoachingView: React.FC<ClassCoachingViewProps> = ({
         </button>
       </div>
 
-      {/* ② 반별 학습 유형분포 - 가운데 정렬 */}
+      {/* ② 반별 학습 유형 분포 - 좌측 정렬 */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <h3 className="text-lg font-bold text-gray-900">반별 학습 유형분포</h3>
+        <div className="flex items-center gap-2 mb-6">
+          <h3 className="text-lg font-bold text-gray-900">반별 학습 유형 분포</h3>
           <div className="relative group">
             <Info className="w-4 h-4 text-gray-400 cursor-help" />
             <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-[420px] p-4 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-xl">
-              <p className="font-bold text-yellow-400 mb-3 text-sm">학생유형 분포</p>
+              <p className="font-bold text-yellow-400 mb-3 text-sm">학생유형 분포 비교</p>
               <p className="text-gray-200 leading-relaxed">
                 비상교육은 학생을 단순한 점수로 구분하지 않고, 학습 특성이 함께 나타나는 패턴을 분석하기 위해 LPA 기반 학습유형 분석을 도입했습니다.
               </p>
+              <p className="text-gray-200 leading-relaxed mt-2">
+                LPA는 최근 교육·심리·사회과학 연구에서 활용되는 통계 분석 기법으로, 학생의 학습 부담, 심리·정서적 자원, 학습 몰입을 종합적으로 살펴 유사한 학습 상태를 유형화합니다.
+              </p>
+              <p className="text-gray-200 leading-relaxed mt-2">
+                이를 통해 선생님께서는 학생의 현재 상태를 더 입체적으로 이해하고, 유형별로 필요한 지원 방향을 확인할 수 있습니다.
+              </p>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-8 border-transparent border-b-gray-900" />
             </div>
           </div>
         </div>
@@ -149,31 +156,6 @@ export const ClassCoachingView: React.FC<ClassCoachingViewProps> = ({
         </div>
       </div>
 
-      {/* ③ 한 번에 하나씩 — 실행 순서 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-6 text-center">한 번에 하나씩 — 실행 순서</h3>
-        <div className="flex items-center justify-between px-8">
-          <StepIndicator
-            step={1}
-            title="학급 대표 전략 코칭"
-            subtitle={`${recommendedStrategy.type} 중심`}
-            active
-          />
-          <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0 mx-4" />
-          <StepIndicator
-            step={2}
-            title="추가 코칭 1"
-            subtitle={additionalStrategies[0]?.type || ''}
-          />
-          <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0 mx-4" />
-          <StepIndicator
-            step={3}
-            title="추가 코칭 2"
-            subtitle={additionalStrategies[1]?.type || ''}
-          />
-        </div>
-      </div>
-
       {/* ④ 우리 반 우세 유형 특징 + 검사 결과 함께 보기 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-100 p-6">
@@ -197,23 +179,91 @@ export const ClassCoachingView: React.FC<ClassCoachingViewProps> = ({
         </div>
       </div>
 
-      {/* ⑤ STEP 1: 학급 대표 전략 코칭 */}
-      <MainStrategyCard
-        strategy={recommendedStrategy}
-        showAdvanced={showAdvanced}
-        onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
-        additionalStrategies={additionalStrategies}
-      />
-
-      {/* ⑥ STEP 2, 3: 추가 코칭 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {additionalStrategies.map((strategy, index) => (
-          <AdditionalStrategyCard
-            key={strategy.type}
-            step={index + 2}
-            strategy={strategy}
+      {/* ③ 한 번에 하나씩 — 실행 순서 */}
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-6">한 번에 하나씩 — 실행 순서</h3>
+        <div className="flex items-center justify-center gap-10">
+          <StepIndicator
+            step={1}
+            title="학급 대표 전략 코칭"
+            subtitle={`${recommendedStrategy.type} 중심`}
+            active
           />
-        ))}
+          <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0" />
+          <StepIndicator
+            step={2}
+            title="추가 코칭 1"
+            subtitle={additionalStrategies[0]?.type || ''}
+          />
+          <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0" />
+          <StepIndicator
+            step={3}
+            title="추가 코칭 2"
+            subtitle={additionalStrategies[1]?.type || ''}
+          />
+        </div>
+      </div>
+
+      {/* ⑤ STEP 1: 학급 대표 전략 코칭 */}
+      <div className="flex gap-4">
+        {/* 타임라인 좌측 */}
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+            1
+          </div>
+          <div className="w-px bg-gray-300 flex-1 my-2" />
+        </div>
+
+        {/* 우측 컨텐츠 */}
+        <div className="flex-1 space-y-4">
+          <h3 className="text-lg font-bold text-gray-900">우선 이것부터 시작하세요</h3>
+          <MainStrategyCard
+            strategy={recommendedStrategy}
+            showAdvanced={showAdvanced}
+            onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
+            additionalStrategies={additionalStrategies}
+          />
+        </div>
+      </div>
+
+      {/* ⑥ STEP 2: 추가 코칭 1 */}
+      <div className="flex gap-4">
+        {/* 타임라인 좌측 */}
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+            2
+          </div>
+          <div className="w-px bg-gray-300 flex-1 my-2" />
+        </div>
+
+        {/* 우측 컨텐츠 */}
+        <div className="flex-1 space-y-4">
+          <h3 className="text-lg font-bold text-gray-900">여유가 생기면 추가로</h3>
+          <AdditionalStrategyCard
+            step={2}
+            strategy={additionalStrategies[0]}
+          />
+        </div>
+      </div>
+
+      {/* ⑦ STEP 3: 추가 코칭 2 */}
+      <div className="flex gap-4">
+        {/* 타임라인 좌측 */}
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+            3
+          </div>
+          <div className="w-px bg-gray-300 flex-1 my-2" />
+        </div>
+
+        {/* 우측 컨텐츠 */}
+        <div className="flex-1 space-y-4">
+          <h3 className="text-lg font-bold text-gray-900">더 깊이 있게</h3>
+          <AdditionalStrategyCard
+            step={3}
+            strategy={additionalStrategies[1]}
+          />
+        </div>
       </div>
     </div>
   );
@@ -292,21 +342,42 @@ interface StepIndicatorProps {
 }
 
 const StepIndicator: React.FC<StepIndicatorProps> = ({ step, title, subtitle, active }) => {
+  // 단계별 색상 (항상 원색)
+  const getStepColor = () => {
+    switch (step) {
+      case 1:
+        return 'bg-violet-600 text-white';
+      case 2:
+        return 'bg-blue-500 text-white';
+      case 3:
+        return 'bg-green-500 text-white';
+      default:
+        return 'bg-primary-600 text-white';
+    }
+  };
+
+  const getTextColor = () => {
+    switch (step) {
+      case 1:
+        return 'text-violet-600';
+      case 2:
+        return 'text-blue-500';
+      case 3:
+        return 'text-green-500';
+      default:
+        return 'text-primary-600';
+    }
+  };
+
   return (
     <div className="flex flex-col items-center text-center min-w-[140px]">
-      <div
-        className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold mb-1 ${
-          active
-            ? 'bg-primary-600 text-white'
-            : 'bg-gray-100 text-gray-500'
-        }`}
-      >
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold mb-1 ${getStepColor()}`}>
         {step}
       </div>
-      <p className={`text-xs font-medium mb-0.5 ${active ? 'text-primary-600' : 'text-gray-500'}`}>
+      <p className={`text-xs font-medium mb-0.5 ${getTextColor()}`}>
         STEP {step}
       </p>
-      <p className={`text-sm font-medium ${active ? 'text-gray-900' : 'text-gray-600'}`}>
+      <p className="text-sm font-medium text-gray-900">
         {title}
       </p>
       <p className="text-xs text-gray-500">{subtitle}</p>
