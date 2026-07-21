@@ -27,7 +27,6 @@ export type LessonTab = 'library' | 'myLesson';
 export type MlView = 'myData' | 'results';
 export type RdTab = 'slide' | 'student';
 export type RsFilter = '전체' | ReportStatus;
-export type Role = 'teacher' | 'student';
 
 /** 풀스크린 오버레이 (저작툴·배포·실시간 수업) — Phase 6·7에서 확장 */
 export interface OverlayState {
@@ -46,7 +45,6 @@ interface ResourcesState {
   rdStu: string | null;
   rdSlide: number;
   overlay: OverlayState | null;
-  role: Role;
 }
 
 type Action =
@@ -61,8 +59,7 @@ type Action =
   | { type: 'SELECT_STUDENT'; name: string }
   | { type: 'RESET_REPORT' } // 스코프 전환 시 상세 이탈 (목업 pickScope)
   | { type: 'OPEN_OVERLAY'; overlay: OverlayState }
-  | { type: 'CLOSE_OVERLAY' }
-  | { type: 'SET_ROLE'; role: Role };
+  | { type: 'CLOSE_OVERLAY' };
 
 const initialState: ResourcesState = {
   myLessons: MY,
@@ -74,7 +71,6 @@ const initialState: ResourcesState = {
   rdStu: null,
   rdSlide: 0,
   overlay: null,
-  role: 'teacher',
 };
 
 function reducer(state: ResourcesState, action: Action): ResourcesState {
@@ -103,8 +99,6 @@ function reducer(state: ResourcesState, action: Action): ResourcesState {
       return { ...state, overlay: action.overlay };
     case 'CLOSE_OVERLAY':
       return { ...state, overlay: null };
-    case 'SET_ROLE':
-      return { ...state, role: action.role };
     default:
       return state;
   }
@@ -133,7 +127,6 @@ interface ResourcesContextValue extends ResourcesState {
   selectStudent: (name: string) => void;
   openOverlay: (overlay: OverlayState) => void;
   closeOverlay: () => void;
-  setRole: (role: Role) => void;
 }
 
 const ResourcesContext = createContext<ResourcesContextValue | null>(null);
@@ -188,7 +181,6 @@ export function ResourcesProvider({ children }: { children: ReactNode }) {
       selectStudent: (name) => dispatch({ type: 'SELECT_STUDENT', name }),
       openOverlay: (overlay) => dispatch({ type: 'OPEN_OVERLAY', overlay }),
       closeOverlay: () => dispatch({ type: 'CLOSE_OVERLAY' }),
-      setRole: (role) => dispatch({ type: 'SET_ROLE', role }),
     }),
     [state, scope, isAll, toastMsg, toast],
   );

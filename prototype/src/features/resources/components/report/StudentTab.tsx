@@ -49,7 +49,7 @@ export const StudentTab = ({ report }: { report: Report }) => {
   if (graded) tiles.push({ lbl: '정답률', val: `${st.gradedTotal ? Math.round((st.correctN / st.gradedTotal) * 100) : 0}%` });
 
   return (
-    <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[240px_1fr]">
+    <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-[240px_1fr]">
       {/* 학생 리스트 */}
       <div className="flex flex-col gap-1 rounded-xl border border-gray-100 bg-white p-2">
         <div className="px-2 py-1.5 text-xs font-bold text-gray-500">참여 학생 <span className="font-semibold text-gray-400">({sub.length}/{all.length})</span></div>

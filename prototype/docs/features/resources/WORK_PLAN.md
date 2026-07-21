@@ -4,8 +4,8 @@
 > 세션이 끊겨도 이 문서만 보면 어디까지 했는지 이어갈 수 있습니다. **다음 작업 = 아래 대시보드의 "현재 Phase" 첫 미완료 항목.**
 
 ## 진행 대시보드
-최종 업데이트: 2026-07-20 09:00
-현재 Phase: 완료 🎉 (전체 Phase 0~8 완료)
+최종 업데이트: 2026-07-21
+현재 Phase: 완료 🎉 (전체 Phase 0~8 완료) · 이후 후속 리팩터링 진행 중
 전체 진행률: 9/9 (100%)   ‹완료 Phase 수 / 전체 9개(Phase 0~8)›
 
 | Phase | 항목수 | 완료 | 상태 |
@@ -113,10 +113,23 @@
 - **오버레이 흐름 연결**: 카드/저작툴 [시작하기]→DeployОverlay → (과제)결과보기 이동 / (실시간)ClassLiveOverlay → 종료→결과보기.
 - **검증 완료**: `tsc --noEmit` 에러 0 · Vite 8개 모듈 200 OK.
 
-## Phase 8 — 학생 모드  ✅
+## Phase 8 — 학생 모드  ✅ (→ 이후 별도 feature 로 분리, 아래 후속 리팩터링 참조)
 - [x] `components/student/StudentView.tsx` — `renderStudent` (배너+목록)
 - [x] `components/student/StudentBanner.tsx` — 진행중 배너 (참여하기)
 - [x] `components/student/StudentTaskList.tsx` — 과제 목록 (`STUDENT_TASKS`)
 - [x] `components/student/StudentTaskCard.tsx` — 완료?dim+✓+다시보기 : 📝+풀기
 - 조건분기(부록B-P8) 반영: 역할 토글(교사/학생, store `role`+`setRole`), 과제카드 완료/미제출 분기, 배지 색 ✅
 - **검증 완료**: `tsc --noEmit` 에러 0 · Vite 모듈 200 OK.
+
+---
+
+## 후속 리팩터링 (2026-07-21) — 학생 모드 feature 분리
+프로젝트 컨벤션(교사/학생 feature 폴더 분리: `student-exam`·`student-dashboard`)에 맞춰 학생 모드를 **`features/student-resources/`** 로 이관.
+
+- **이동**: `resources/components/student/` 4개 컴포넌트 → `features/student-resources/components/` (StudentView·StudentBanner·StudentTaskList·StudentTaskCard).
+- **분리 이관**: `StudentTask` 타입 → `student-resources/types.ts`, `STUDENT_TASKS` mock → `student-resources/mock-data.ts` (resources 에서 제거).
+- **self-contained 스토어**: 교사용 `ResourcesContext` 의존 제거. `student-resources/store/StudentResourceContext.tsx` 가 경량 토스트만 제공 → `useStudentResource()`.
+- **진입점**: `student-resources/pages/StudentResourcePage.tsx` (Provider+Toast+StudentView), `features/student-resources/index.ts` 배럴.
+- **역할 토글 제거**: `ResourceListPage` 의 `RoleToggle`·역할 분기 삭제, 스토어에서 `role`/`setRole`/`Role`/`SET_ROLE` 제거 → resources 는 교사 전용으로 단순화.
+- **라우팅**: `app/routes` **미변경**. 학생 전용 경로 연결은 팀 논의 후 결정 → `StudentResourcePage`·`ResourceListPage` 에 `TODO(routing)` 주석으로 남김.
+- **검증 완료**: `tsc --noEmit` resources·student-resources 파일 에러 0 · Vite 모듈 200 OK.
