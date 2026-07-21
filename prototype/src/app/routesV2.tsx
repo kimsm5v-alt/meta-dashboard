@@ -16,14 +16,11 @@ import { useAuth } from '../features/auth/context/AuthContext';
 // 홈 → teacher-dashboard
 import { TeacherDashboardPage as HomePage } from '../features/teacher-dashboard';
 
-// 검사 > 검사관리/결과보기/학생 상담/변화추적 → assessment (서브탭별로 분기)
+// 검사 > 검사관리/결과보기/변화추적 → assessment (서브탭별로 분기)
 import { AssessmentPage as ExamPage_ } from '../features/assessment';
 const ExamManagementPage = ExamPage_;
 const ExamResultPage = ExamPage_;
 const ExamTrackingPage = ExamPage_;
-
-// 검사 > 학생 상담 → schedule (기존 상담·코칭에서 검사로 이동)
-import { SchedulePage as ExamCounselingPage } from '../features/schedule';
 
 // 코칭 > 학급 코칭/개별 코칭 → counseling-dashboard
 import { ClassCoachingPage, IndividualCoachingPage } from '../features/counseling-dashboard';
@@ -118,11 +115,10 @@ export const AppRoutesV2 = () => (
       {/* 홈 (로고 클릭 시 진입) */}
       <Route path="/home" element={<HomePage />} />
 
-      {/* 검사 (검사관리 · 결과보기 · 학생 상담 · 변화추적) */}
+      {/* 검사 (검사관리 · 결과보기 · 변화추적) */}
       <Route path="/exam" element={<Navigate to="/exam/management" replace />} />
       <Route path="/exam/management" element={<ExamManagementPage />} />
       <Route path="/exam/result" element={<ExamResultPage />} />
-      <Route path="/exam/counseling" element={<ExamCounselingPage />} />
       <Route path="/exam/tracking" element={<ExamTrackingPage />} />
 
       {/* 코칭 (학급 코칭 · 개별 코칭) - 독립 GNB */}

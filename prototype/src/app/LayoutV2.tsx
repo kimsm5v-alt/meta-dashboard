@@ -103,6 +103,7 @@ const MOCK_CLASSES: ClassInfo[] = [
   { id: 'group-1', name: '2-3반', status: '응시율 85% · 상담 3' },
   { id: 'group-2', name: '2-4반', status: '검사 배포 가능' },
   { id: 'group-3', name: '2-5반', status: '검사 배포 가능' },
+  { id: 'group-4', name: '2-6반', status: '검사 배포 가능' },
 ];
 
 const MOCK_STUDENTS: StudentInfo[] = [
@@ -147,7 +148,6 @@ const GNB_ITEMS: GNBItem[] = [
     subTabs: [
       { id: 'management', label: '검사관리', path: '/exam/management' },
       { id: 'result', label: '결과보기', path: '/exam/result' },
-      { id: 'counseling', label: '학생 상담', path: '/exam/counseling' },
       { id: 'tracking', label: '변화추적', path: '/exam/tracking' },
     ],
   },
