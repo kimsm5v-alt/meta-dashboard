@@ -199,50 +199,6 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
     });
   }, [classes]);
 
-  // 요약 패널용 아웃라이어 계산
-  const outliers = useMemo(() => {
-    const result: Array<{
-      cls: ClassSummary;
-      category: string;
-      t: number;
-      delta: number;
-      kind: 'warn' | 'good';
-    }> = [];
-
-    CATEGORY_ORDER.forEach((category) => {
-      const values = classes.map(
-        (c) => c.categoryAverages[category as keyof typeof c.categoryAverages]
-      );
-      const mean = values.reduce((s, v) => s + v, 0) / values.length;
-
-      classes.forEach((cls) => {
-        const t = cls.categoryAverages[category as keyof typeof cls.categoryAverages];
-        const delta = Math.round(t - mean);
-        // 학습걸림돌, 부정적공부마음은 낮을수록 좋음
-        const isNegative = category === '학습걸림돌' || category === '부정적공부마음';
-        const positiveSignal = isNegative ? delta < 0 : delta > 0;
-
-        if (Math.abs(delta) >= 3) {
-          result.push({
-            cls,
-            category,
-            t,
-            delta,
-            kind: positiveSignal ? 'good' : 'warn',
-          });
-        }
-      });
-    });
-
-    // 주의 우선, 편차 절댓값 큰 순 정렬
-    result.sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === 'warn' ? -1 : 1;
-      return Math.abs(b.delta) - Math.abs(a.delta);
-    });
-
-    return result.slice(0, 4);
-  }, [classes]);
-
   const completionRate =
     totalStats.totalStudents > 0
       ? Math.round((totalStats.assessedStudents / totalStats.totalStudents) * 100)
@@ -259,18 +215,13 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
       </div>
 
       {/* KPI 카드 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <p className="text-sm font-medium text-gray-500 mb-2">담당 반</p>
           <p className="text-3xl font-bold text-gray-900">
             {totalStats.totalClasses}
             <span className="text-lg font-medium text-gray-400 ml-1">개</span>
           </p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <p className="text-sm font-medium text-gray-500 mb-2">전체 평균 T점수</p>
-          <p className="text-3xl font-bold text-emerald-600">{totalStats.avgTScore}</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -284,7 +235,7 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <p className="text-sm font-medium text-gray-500 mb-2">관심 필요 학생</p>
+          <p className="text-sm font-medium text-gray-500 mb-2">상담 및 지도 필요</p>
           <p className="text-3xl font-bold text-red-500">
             {totalStats.needsAttentionCount}
             <span className="text-lg font-medium text-gray-400 ml-1">명</span>
@@ -342,8 +293,8 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
             </div>
 
             {/* 라인 차트 */}
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+            <ResponsiveContainer width="100%" height={500}>
+              <LineChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                 <XAxis
                   dataKey="category"
@@ -416,10 +367,9 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
             </ResponsiveContainer>
           </div>
 
-          {/* 우측 요약 패널 */}
-          <div className="w-80 border-l border-gray-100 bg-gray-50 p-5">
-            {selectedClass ? (
-              // 반 선택 시 요약
+          {/* 우측 요약 패널 - 반 선택 시에만 표시 */}
+          {selectedClass && (
+            <div className="w-80 border-l border-gray-100 bg-gray-50 p-5">
               <div className="space-y-5">
                 <div>
                   <div className="flex items-center gap-2">
@@ -448,7 +398,7 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
                     </p>
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-gray-200">
-                    <p className="text-xs text-gray-500 mb-1">관심 필요</p>
+                    <p className="text-xs text-gray-500 mb-1">상담 및 지도 필요</p>
                     <p className="text-xl font-bold text-red-600 tabular-nums">
                       {selectedClass.needsAttentionCount}명
                     </p>
@@ -499,51 +449,8 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
-            ) : (
-              // 전체 비교 요약
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900">전체 비교 요약</h3>
-                  <p className="text-sm text-gray-500 mt-1">학년 평균과 가장 차이 나는 지점이에요</p>
-                </div>
-
-                <div className="space-y-2">
-                  {outliers.length === 0 ? (
-                    <p className="text-sm text-gray-400">모든 반이 영역별로 고른 분포예요.</p>
-                  ) : (
-                    outliers.map((o, i) => (
-                      <button
-                        key={i}
-                        onClick={() => onClassClick(o.cls.id, o.cls.name)}
-                        className={`w-full flex items-start gap-3 p-3 rounded-lg text-left transition-colors ${
-                          o.kind === 'warn'
-                            ? 'bg-red-50 hover:bg-red-100'
-                            : 'bg-emerald-50 hover:bg-emerald-100'
-                        }`}
-                      >
-                        <span
-                          className={`text-lg ${o.kind === 'warn' ? 'text-red-500' : 'text-emerald-500'}`}
-                        >
-                          {o.kind === 'warn' ? '▼' : '▲'}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">
-                            {o.cls.grade}학년 {o.cls.classNumber}반 : {o.category}
-                          </p>
-                          <p
-                            className={`text-xs mt-0.5 ${o.kind === 'warn' ? 'text-red-600' : 'text-emerald-600'}`}
-                          >
-                            학년 평균보다 {o.delta > 0 ? '+' : ''}
-                            {o.delta} {o.delta >= 0 ? '높음' : '낮음'}
-                          </p>
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 

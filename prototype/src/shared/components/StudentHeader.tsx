@@ -5,7 +5,7 @@
  * 학생 선택 시 동일한 헤더를 표시합니다.
  *
  * 형식:
- * - n번 {학생명} `유형명`
+ * - n번 {학생명} (+ 유형 배지: showTypeBadge=true일 때만)
  * - 한빛중학교 · 중학교 2학년 3반
  */
 
@@ -25,13 +25,15 @@ export interface StudentHeaderProps {
   /** 학생 이름 */
   studentName: string;
   /** 학습 유형 (LPA) */
-  lpaType: string;
+  lpaType?: string;
   /** 반 이름 (예: "2-3반") */
   className: string;
   /** 뒤로가기 핸들러 */
   onBack: () => void;
   /** 추가 우측 컨텐츠 (보고서 버튼 등) */
   rightContent?: React.ReactNode;
+  /** 유형 배지 표시 여부 (기본값: false) */
+  showTypeBadge?: boolean;
 }
 
 export const StudentHeader: React.FC<StudentHeaderProps> = ({
@@ -41,6 +43,7 @@ export const StudentHeader: React.FC<StudentHeaderProps> = ({
   className,
   onBack,
   rightContent,
+  showTypeBadge = false,
 }) => {
   // className에서 반 번호 추출 (예: "2-3반" -> "3반")
   const classDisplayName = className.includes('-') ? className.split('-')[1] : className;
@@ -59,13 +62,15 @@ export const StudentHeader: React.FC<StudentHeaderProps> = ({
             <h1 className="text-2xl font-bold text-gray-900">
               {studentNumber}번 {studentName}
             </h1>
-            {/* 유형 배지 */}
-            <span
-              className="px-3 py-1 rounded-full text-sm font-semibold text-white"
-              style={{ backgroundColor: TYPE_COLORS[lpaType] || '#6B7280' }}
-            >
-              {lpaType}
-            </span>
+            {/* 유형 배지 (showTypeBadge=true일 때만 표시) */}
+            {showTypeBadge && lpaType && (
+              <span
+                className="px-3 py-1 rounded-full text-sm font-semibold text-white"
+                style={{ backgroundColor: TYPE_COLORS[lpaType] || '#6B7280' }}
+              >
+                {lpaType}
+              </span>
+            )}
           </div>
           <p className="text-sm text-gray-500 mt-1">
             {MOCK_SCHOOL_INFO.schoolName} · {MOCK_SCHOOL_INFO.eduLevel} {MOCK_SCHOOL_INFO.grade}학년 {classDisplayName}

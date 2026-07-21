@@ -1,15 +1,123 @@
 /**
- * 수업 > 수업 자료실
- * - 반 미선택: 전체 자료실
- * - 반 선택: 반 맞춤형 큐레이팅 (장점 추천 top3, 성장 로드맵), 전체 자료실
+ * 수업 (수업 자료실) — /lesson 진입점.
+ * - 인페이지 탭: 공유 자료실 / 나의 수업
+ * - 스코프(전체/반)는 LayoutV2 selectedClass 에서 파생 (ResourcesProvider)
+ * - 저작툴·배포·실시간 수업은 풀스크린 오버레이로 이 위에 뜸 (Phase 6·7)
  *
- * @see prototype-legacy/src/features/resources 참고
+ * @see prototype/docs/features/resources/everyclass-v2 1.html (기준 목업)
+ * @see prototype/docs/features/resources/WORK_PLAN.md (진행표)
  */
-export const ResourceListPage = () => {
+import { ResourcesProvider, useResources, type LessonTab } from '../store/ResourcesContext';
+import { LibraryView, ClassCurationView } from '../components/library';
+import { MlSubNav, MyDataView } from '../components/my-lessons';
+import { ResultsView } from '../components/report';
+import { EditorOverlay } from '../components/editor';
+import { DeployOverlay } from '../components/deploy';
+import { ClassLiveOverlay } from '../components/live';
+
+const TABS: { id: LessonTab; label: string }[] = [
+  { id: 'library', label: '공유 자료실' },
+  { id: 'myLesson', label: '나의 수업' },
+];
+
+/** 인페이지 탭 바 — LayoutV2 SubTabs 언더라인 스타일 재현 */
+const LessonTabs = () => {
+  const { activeTab, setTab } = useResources();
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-4">수업 자료실</h1>
-      <p className="text-gray-500">수업 자료실 페이지 (개발 예정)</p>
+    <div className="flex gap-1 border-b border-gray-200">
+      {TABS.map((t) => {
+        const active = activeTab === t.id;
+        return (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+              active
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
     </div>
   );
 };
+
+/** 상단 브레드크럼: 수업 › {탭} [› {반}] */
+const Breadcrumb = () => {
+  const { activeTab, scope, isAll } = useResources();
+  const tabLabel = TABS.find((t) => t.id === activeTab)?.label ?? '';
+  return (
+    <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-400">
+      <span>수업</span>
+      <span>›</span>
+      <span className="text-gray-600">{tabLabel}</span>
+      {!isAll && (
+        <>
+          <span>›</span>
+          <span className="text-gray-600">{scope}</span>
+        </>
+      )}
+    </div>
+  );
+};
+
+/** 토스트 (목업 toast() 대체) */
+const Toast = () => {
+  const { toastMsg } = useResources();
+  if (!toastMsg) return null;
+  return (
+    <div className="fixed bottom-8 left-1/2 z-[200] -translate-x-1/2 rounded-full bg-gray-900/90 px-5 py-2.5 text-sm font-medium text-white shadow-lg">
+      {toastMsg}
+    </div>
+  );
+};
+
+/** 나의 수업 탭: 하위 탭(나의 자료 / 수업 결과보기) */
+const MyLessonTab = () => {
+  const { mlView } = useResources();
+  return (
+    <div>
+      <MlSubNav />
+      {mlView === 'myData' ? <MyDataView /> : <ResultsView />}
+    </div>
+  );
+};
+
+/** 풀스크린 오버레이 마운트 (저작툴 · 배포 · 실시간 수업) */
+const OverlayHost = () => {
+  const { overlay } = useResources();
+  if (!overlay) return null;
+  if (overlay.kind === 'editor') return <EditorOverlay />;
+  if (overlay.kind === 'deploy') return <DeployOverlay />;
+  if (overlay.kind === 'live') return <ClassLiveOverlay />;
+  return null;
+};
+
+// 학생 모드는 features/student-resources 로 분리됨 (StudentResourcePage).
+// TODO(routing): 학생 전용 라우트 연결은 팀 논의 후 결정 (app/routes 미변경).
+
+const ResourceListInner = () => {
+  const { activeTab, isAll } = useResources();
+  return (
+    <div>
+      <Breadcrumb />
+      <LessonTabs />
+      {activeTab === 'library' ? (
+        isAll ? <LibraryView /> : <ClassCurationView />
+      ) : (
+        <MyLessonTab />
+      )}
+      <Toast />
+      <OverlayHost />
+    </div>
+  );
+};
+
+export const ResourceListPage = () => (
+  <ResourcesProvider>
+    <ResourceListInner />
+  </ResourcesProvider>
+);

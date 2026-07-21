@@ -22,11 +22,14 @@ export type LPATypeElementary =
 export type LPAType = LPATypeMiddle | LPATypeElementary;
 
 /** LPA 유형별 색상 */
-export const LPA_TYPE_COLORS: Record<LPAType, string> = {
-  // 초등
+export const LPA_TYPE_COLORS: Record<string, string> = {
+  // 초등 (공백 있는 버전)
   '자원소진형': '#EF4444',
   '안전 균형형': '#F59E0B',
   '몰입자원 풍부형': '#10B981',
+  // 초등 (공백 없는 버전 - mock 데이터 호환)
+  '안전균형형': '#F59E0B',
+  '몰입자원풍부형': '#10B981',
   // 중등
   '냉소적 무기력형': '#EF4444',
   '정서조절 취약형': '#F59E0B',
@@ -68,6 +71,19 @@ export interface LPATypeStrategy {
   /** 코칭 전략 설명 */
   strategyDescription: string;
   /** 실천 방법 리스트 */
+  actionItems: string[];
+  /** 성공 지표 (2주 후 변화 체크리스트) */
+  successIndicators?: string[];
+  /** 다른 유형에게는? 참고 노트 */
+  noteForOtherTypes?: string;
+  /** 심화 코칭 전략 */
+  advancedStrategies?: AdvancedStrategy[];
+}
+
+/** 심화 코칭 전략 */
+export interface AdvancedStrategy {
+  title: string;
+  description: string;
   actionItems: string[];
 }
 

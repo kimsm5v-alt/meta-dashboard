@@ -12,7 +12,9 @@
  */
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, AlertCircle, Info, ChevronRight, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Check, AlertCircle, Info, ChevronRight, AlertTriangle, Search, ArrowRight } from 'lucide-react';
+import { useLayoutContext } from '@/app/LayoutV2';
 import type { ClassResultSummary, LPADistribution, ProfileFactor } from '@/features/class-dashboard/types';
 import type { StudentExamResult } from '../types';
 import { TYPE_COLORS } from '@/shared/data/lpaProfiles';
@@ -67,6 +69,9 @@ const parseClassName = (name: string) => {
   return name;
 };
 
+// 학생 목록 필터 타입
+type StudentFilterType = 'all' | '신뢰도 주의' | '상담 및 지도 필요' | string;
+
 export const ClassResultView: React.FC<ClassResultViewProps> = ({
   className,
   onBack,
@@ -76,12 +81,20 @@ export const ClassResultView: React.FC<ClassResultViewProps> = ({
 }) => {
   const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
   const [hoveredType, setHoveredType] = useState<string | null>(null);
+  const [studentFilter, setStudentFilter] = useState<StudentFilterType>('all');
+  const [studentSearch, setStudentSearch] = useState('');
 
   // 응시율 계산
   const assessmentRate = useMemo(() => {
     if (resultData.totalCount === 0) return 0;
     return Math.round((resultData.assessedCount / resultData.totalCount) * 100);
   }, [resultData.assessedCount, resultData.totalCount]);
+
+  // 신뢰도 주의 학생 수 계산
+  const reliabilityWarningCount = useMemo(() => {
+    if (!students) return 0;
+    return students.filter((s) => s.hasReliabilityWarning).length;
+  }, [students]);
 
   // 중분류별 점수 계산 (mock data의 factorAverages 사용)
   const categoryScores = useMemo(() => {
@@ -92,6 +105,54 @@ export const ClassResultView: React.FC<ClassResultViewProps> = ({
     });
     return scores;
   }, [resultData.factorAverages]);
+
+  /**
+   * 학생 목록 필터 옵션 (유형명은 실제 데이터에서 동적 추출)
+   *
+   * [학교급별 LPA 유형명]
+   * - 초등: 자원소진형, 안전 균형형, 몰입자원 풍부형
+   * - 중등: 냉소적 무기력형, 정서조절 취약형, 자기주도 몰입형
+   *
+   * 유형별 색상은 TYPE_COLORS (lpaProfiles.ts) 참조
+   */
+  const uniqueTypes = useMemo(() => {
+    if (!students) return [];
+    const types = new Set<string>();
+    students.forEach((s) => {
+      if (s.lpaType1) types.add(s.lpaType1);
+      if (s.lpaType2) types.add(s.lpaType2);
+    });
+    return Array.from(types);
+  }, [students]);
+
+  // 필터링된 학생 목록
+  const filteredStudents = useMemo(() => {
+    if (!students) return [];
+
+    let result = students;
+
+    // 필터 적용
+    if (studentFilter === '신뢰도 주의') {
+      result = result.filter((s) => s.hasReliabilityWarning);
+    } else if (studentFilter === '상담 및 지도 필요') {
+      result = result.filter((s) => s.needsAttention);
+    } else if (studentFilter !== 'all') {
+      // 유형명 필터
+      result = result.filter(
+        (s) => s.lpaType1 === studentFilter || s.lpaType2 === studentFilter
+      );
+    }
+
+    // 검색어 적용
+    if (studentSearch.trim()) {
+      const query = studentSearch.trim().toLowerCase();
+      result = result.filter(
+        (s) => s.name.toLowerCase().includes(query) || String(s.number).includes(query)
+      );
+    }
+
+    return result;
+  }, [students, studentFilter, studentSearch]);
 
   return (
     <div className="space-y-6">
@@ -124,27 +185,27 @@ export const ClassResultView: React.FC<ClassResultViewProps> = ({
             <p className="text-xs text-primary-600 font-medium">{assessmentRate}%</p>
           </div>
 
-          {/* 평균 T점수 */}
-          <div className="p-4 bg-gray-50 rounded-xl">
-            <p className="text-xs text-gray-500 mb-1">평균 T점수</p>
-            <p className="text-lg font-semibold text-gray-900">{resultData.avgTScore}</p>
-            <p className="text-xs text-green-600 font-medium">
-              {resultData.avgTScore >= 55 ? '양호' : resultData.avgTScore >= 45 ? '보통' : '관심 필요'}
-            </p>
-          </div>
-
-          {/* 관심 필요 학생 */}
-          <div className="p-4 bg-gray-50 rounded-xl">
-            <p className="text-xs text-gray-500 mb-1">관심 필요 학생</p>
-            <p className="text-lg font-semibold text-gray-900">{resultData.riskStudents?.length || 0}명</p>
-            <p className="text-xs text-orange-600 font-medium">상담 권장</p>
-          </div>
-
           {/* 검사 회차 */}
           <div className="p-4 bg-gray-50 rounded-xl">
             <p className="text-xs text-gray-500 mb-1">검사 회차</p>
             <p className="text-lg font-semibold text-gray-900">{resultData.round}차 검사</p>
             <p className="text-xs text-blue-600 font-medium">완료</p>
+          </div>
+
+          {/* 상담 및 지도 필요 */}
+          <div className="p-4 bg-gray-50 rounded-xl">
+            <p className="text-xs text-gray-500 mb-1">상담 및 지도 필요</p>
+            <p className="text-lg font-semibold text-gray-900">{resultData.riskStudents?.length || 0}명</p>
+            <p className="text-xs text-orange-600 font-medium">상담 권장</p>
+          </div>
+
+          {/* 신뢰도 */}
+          <div className="p-4 bg-gray-50 rounded-xl">
+            <p className="text-xs text-gray-500 mb-1">신뢰도</p>
+            <p className="text-lg font-semibold text-gray-900">{reliabilityWarningCount}명</p>
+            <p className="text-xs text-orange-600 font-medium">
+              {reliabilityWarningCount > 0 ? '주의 필요' : '양호'}
+            </p>
           </div>
         </div>
       </div>
@@ -318,110 +379,206 @@ export const ClassResultView: React.FC<ClassResultViewProps> = ({
         </div>
       </div>
 
-      {/* 5. 학생 목록 (학생 클릭 시 학생 결과 화면으로 이동) - 4열 그리드 */}
+      {/* 5. 학생 목록 (학생 클릭 시 학생 결과 화면으로 이동) - 5열 그리드 */}
       {students && students.length > 0 && onStudentClick && (
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="text-base font-semibold text-gray-900 mb-3">학생 목록</h3>
-          <div className="grid grid-cols-4 gap-2">
-            {students.map((student) => {
+          {/* 헤더 */}
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold text-gray-900">학생 목록</h3>
+            <div className="relative group">
+              <Info className="w-4 h-4 text-gray-400 cursor-help" />
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-xl">
+                <p className="text-gray-200 leading-relaxed">
+                  툴팁 내용
+                </p>
+              </div>
+            </div>
+          </div>
+          <p className="text-sm text-gray-500 mt-1 mb-4">학생 이름을 클릭하면 개별 상세 분석으로 이동합니다.</p>
+
+          {/* 필터 및 검색 영역 */}
+          <div className="flex items-center justify-between mb-4">
+            {/* 필터 버튼 그룹 */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStudentFilter('all')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                  studentFilter === 'all'
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                전체
+              </button>
+              {uniqueTypes.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setStudentFilter(type)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                    studentFilter === type
+                      ? 'bg-primary-600 text-white border-primary-600'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+              <button
+                onClick={() => setStudentFilter('신뢰도 주의')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                  studentFilter === '신뢰도 주의'
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                신뢰도 주의
+              </button>
+              <button
+                onClick={() => setStudentFilter('상담 및 지도 필요')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                  studentFilter === '상담 및 지도 필요'
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                상담 및 지도 필요
+              </button>
+            </div>
+
+            {/* 검색창 */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="이름/번호 검색"
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                className="pl-9 pr-4 py-1.5 w-48 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+          {filteredStudents.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              해당 조건에 맞는 학생이 없습니다.
+            </div>
+          ) : (
+          <div className="grid grid-cols-5 gap-3">
+            {filteredStudents.map((student) => {
               const hasNoAssessment = !student.lpaType1 && !student.lpaType2;
               return (
                 <div
                   key={student.id}
-                  className="relative p-2.5 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors"
+                  onClick={() => onStudentClick(student.id)}
+                  className="p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors cursor-pointer"
                 >
-                  {/* 우측 상단 상태 배지 */}
-                  {!hasNoAssessment && (student.needsAttention || student.hasReliabilityWarning) && (
-                    <div className="absolute top-1.5 right-1.5 flex gap-0.5">
-                      {student.needsAttention && (
-                        <span
-                          className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700"
-                          title={student.attentionReason}
-                        >
-                          관심
-                        </span>
-                      )}
-                      {student.hasReliabilityWarning && (
-                        <span
-                          className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700"
-                          title={student.reliabilityWarningReason}
-                        >
-                          신뢰도 주의
-                        </span>
-                      )}
+                  {/* 첫 줄: 번호 + 이름 + 배지 */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm text-gray-500">{student.number}번</span>
+                      <span className="font-semibold text-sm text-gray-900">{student.name}</span>
+                    </div>
+                    {!hasNoAssessment && (student.needsAttention || student.hasReliabilityWarning) && (
+                      <div className="flex gap-1">
+                        {student.needsAttention && (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border border-amber-200 text-amber-600"
+                            title={student.attentionReason}
+                          >
+                            상담 및 지도 필요
+                          </span>
+                        )}
+                        {student.hasReliabilityWarning && (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border border-red-200 text-red-500"
+                            title={student.reliabilityWarningReason}
+                          >
+                            신뢰도
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 유형 정보 */}
+                  {hasNoAssessment ? (
+                    <span className="text-xs text-gray-400 italic">응시 전</span>
+                  ) : (
+                    <div className="space-y-1.5 text-xs">
+                      {/* 1차 유형 */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-400 shrink-0">1차</span>
+                        {student.lpaType1 ? (
+                          <span
+                            className="px-2 py-0.5 rounded-full text-xs font-medium truncate"
+                            style={{
+                              backgroundColor: `${TYPE_COLORS[student.lpaType1]}15`,
+                              color: TYPE_COLORS[student.lpaType1] || '#9CA3AF',
+                            }}
+                          >
+                            {student.lpaType1}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 italic">응시 전</span>
+                        )}
+                      </div>
+                      {/* 2차 유형 */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-400 shrink-0">2차</span>
+                        {student.lpaType2 ? (
+                          <span
+                            className="px-2 py-0.5 rounded-full text-xs font-medium truncate"
+                            style={{
+                              backgroundColor: `${TYPE_COLORS[student.lpaType2]}15`,
+                              color: TYPE_COLORS[student.lpaType2] || '#9CA3AF',
+                            }}
+                          >
+                            {student.lpaType2}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 italic">응시 전</span>
+                        )}
+                      </div>
                     </div>
                   )}
-
-                  <div className="flex items-start gap-2">
-                    {/* 번호 */}
-                    <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-medium flex items-center justify-center flex-shrink-0">
-                      {student.number}
-                    </span>
-
-                    {/* 이름 + 유형 */}
-                    <div className="flex-1 min-w-0">
-                      {/* 이름 */}
-                      <div className="font-semibold text-sm text-gray-900 mb-2">{student.name}</div>
-
-                      {/* 유형 (상하 배치) */}
-                      {hasNoAssessment ? (
-                        <span className="text-xs text-gray-400 italic">응시 전</span>
-                      ) : (
-                        <div className="space-y-1.5 text-xs">
-                          {/* 1차 유형 */}
-                          <div className="flex items-center gap-1">
-                            <span className="text-gray-400 w-5">1차</span>
-                            {student.lpaType1 ? (
-                              <span
-                                className="px-1.5 py-0.5 rounded font-medium"
-                                style={{
-                                  backgroundColor: `${TYPE_COLORS[student.lpaType1]}15`,
-                                  color: TYPE_COLORS[student.lpaType1] || '#9CA3AF',
-                                }}
-                              >
-                                {student.lpaType1}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 italic">응시 전</span>
-                            )}
-                          </div>
-                          {/* 2차 유형 */}
-                          <div className="flex items-center gap-1">
-                            <span className="text-gray-400 w-5">2차</span>
-                            {student.lpaType2 ? (
-                              <span
-                                className="px-1.5 py-0.5 rounded font-medium"
-                                style={{
-                                  backgroundColor: `${TYPE_COLORS[student.lpaType2]}15`,
-                                  color: TYPE_COLORS[student.lpaType2] || '#9CA3AF',
-                                }}
-                              >
-                                {student.lpaType2}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 italic">응시 전</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 더보기 버튼 */}
-                      <button
-                        onClick={() => onStudentClick(student.id)}
-                        className="mt-2 flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium"
-                      >
-                        <span>결과보기</span>
-                        <ChevronRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
                 </div>
               );
             })}
           </div>
+          )}
         </div>
       )}
+
+      {/* 코칭 연결 버튼 */}
+      <div className="flex justify-end pt-4 mt-2 border-t border-gray-100">
+        <ClassCoachingLinkButton className={className} />
+      </div>
     </div>
+  );
+};
+
+/** 코칭 연결 버튼 (학급 코칭으로 이동) */
+const ClassCoachingLinkButton: React.FC<{ className: string }> = () => {
+  const navigate = useNavigate();
+  const { scope } = useLayoutContext();
+
+  const handleClick = () => {
+    // 코칭 > 학급 코칭으로 이동 (URL 쿼리 파라미터 유지)
+    const params = new URLSearchParams();
+    if (scope.classId) params.set('class', scope.classId);
+    const queryString = params.toString();
+    navigate(`/coaching/class${queryString ? `?${queryString}` : ''}`);
+    // 스크롤 최상단으로 이동
+    window.scrollTo(0, 0);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
+    >
+      <span>학급 코칭 연결</span>
+      <ArrowRight className="w-4 h-4" />
+    </button>
   );
 };
 
@@ -445,7 +602,7 @@ const CategoryBarChart: React.FC<CategoryBarChartProps> = ({ scores }) => {
     return () => window.removeEventListener('resize', measure);
   }, []);
 
-  const pad = { l: 44, r: 16, t: 16, b: 90 };
+  const pad = { l: 70, r: 16, t: 16, b: 90 };
   const n = CATEGORY_ORDER.length;
   const colGap = 10;
   const innerW = containerWidth - pad.l - pad.r;
@@ -456,12 +613,26 @@ const CategoryBarChart: React.FC<CategoryBarChartProps> = ({ scores }) => {
 
   const yOf = (t: number) => pad.t + (1 - t / 100) * plotH;
 
+  // 막대 색상 결정 (polarity 고려) - 38개 요인 그래프와 동일한 로직
+  const getBarTone = (t: number, polarity: 'positive' | 'negative') => {
+    const isNormal = t >= 40 && t < 60;
+    if (isNormal) {
+      return { fill: '#EDEDF0', stroke: '#D4D4D8', labelColor: '#71717A' };
+    }
+    const isHigh = t >= 60;
+    const isGood = polarity === 'negative' ? !isHigh : isHigh;
+    if (isGood) {
+      return { fill: '#E3F4E9', stroke: '#A9DCBC', labelColor: '#16A34A' };
+    }
+    return { fill: '#FDE7E4', stroke: '#F0B5AC', labelColor: '#DC2626' };
+  };
+
   const bands = [
-    { from: 70, to: 100, label: '매우높음', fill: '#EAF6EE' },
-    { from: 60, to: 70, label: '높음', fill: '#F2FAF4' },
+    { from: 70, to: 100, label: '매우높음', fill: '#FFFFFF' },
+    { from: 60, to: 70, label: '높음', fill: '#FFFFFF' },
     { from: 40, to: 60, label: '보통', fill: '#F7F7F8' },
-    { from: 30, to: 40, label: '낮음', fill: '#FEF4EC' },
-    { from: 0, to: 30, label: '매우낮음', fill: '#FDEEEC' },
+    { from: 30, to: 40, label: '낮음', fill: '#FFFFFF' },
+    { from: 0, to: 30, label: '매우낮음', fill: '#FFFFFF' },
   ];
 
   // 영역별 그룹 생성
@@ -502,7 +673,7 @@ const CategoryBarChart: React.FC<CategoryBarChartProps> = ({ scores }) => {
           return (
             <g key={b.label}>
               <rect x={pad.l} y={y} width={innerW} height={h} fill={b.fill} />
-              <text x={pad.l + 6} y={y + 13} fontSize="10" fill="#A1A1A8" fontWeight="600">
+              <text x={pad.l - 32} y={y + h / 2 + 4} textAnchor="end" fontSize="10" fill="#A1A1A8" fontWeight="600">
                 {b.label}
               </text>
             </g>
@@ -517,7 +688,7 @@ const CategoryBarChart: React.FC<CategoryBarChartProps> = ({ scores }) => {
               y1={yOf(t)}
               x2={pad.l + innerW}
               y2={yOf(t)}
-              stroke={t === 50 ? '#9CA3AF' : '#E5E5E7'}
+              stroke={t === 50 ? '#C9A4ED' : '#E5E5E7'}
               strokeWidth={t === 50 ? 1.3 : 0.7}
               strokeDasharray={t === 50 ? '4 4' : '0'}
             />
@@ -527,6 +698,17 @@ const CategoryBarChart: React.FC<CategoryBarChartProps> = ({ scores }) => {
           </g>
         ))}
 
+        {/* 전국 평균 안내 텍스트 */}
+        <text
+          x={totalW - pad.r}
+          y={20}
+          textAnchor="end"
+          fontSize={11}
+          fill="#9CA3AF"
+        >
+          점선: T=50 (전국 평균)
+        </text>
+
         {/* 막대 */}
         {CATEGORY_ORDER.map((cat, idx) => {
           const t = scores[cat.id] || 50;
@@ -534,10 +716,21 @@ const CategoryBarChart: React.FC<CategoryBarChartProps> = ({ scores }) => {
           const barH = (t / 100) * plotH;
           const barX = x + (colW - barW) / 2;
           const y = yOf(t);
+          const areaInfo = AREA_INFO[cat.area];
+          const tone = getBarTone(t, areaInfo?.polarity || 'positive');
 
           return (
             <g key={cat.id}>
-              <rect x={barX} y={y} width={barW} height={barH} rx="3" fill={cat.color} opacity="0.9">
+              <rect
+                x={barX}
+                y={y}
+                width={barW}
+                height={barH}
+                rx="3"
+                fill={tone.fill}
+                stroke={tone.stroke}
+                strokeWidth={1}
+              >
                 <title>{`${cat.name} T ${t}`}</title>
               </rect>
               <text
@@ -546,7 +739,7 @@ const CategoryBarChart: React.FC<CategoryBarChartProps> = ({ scores }) => {
                 textAnchor="middle"
                 fontSize="10.5"
                 fontWeight="700"
-                fill={cat.color}
+                fill={tone.labelColor}
               >
                 {t}
               </text>
