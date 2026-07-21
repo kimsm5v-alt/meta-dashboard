@@ -699,12 +699,15 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
 
   // AI 어시스턴트 화면: GNB는 유지하되 좌측 스코프 사이드바/서브탭을 숨기고 전체폭으로 렌더
   const isAssistant = location.pathname.startsWith('/ai-assistant');
+  // 홈 화면: GNB는 유지하되 좌측 LNB/서브탭을 숨기고 전체폭으로 렌더
+  const isHome = location.pathname === '/home' || location.pathname === '/HOME';
+  const isFullWidth = isAssistant || isHome;
 
   return (
     <LayoutContext.Provider value={contextValue}>
       <div className="min-h-screen bg-[#fbfbfc]">
         <Header />
-        {isAssistant ? (
+        {isFullWidth ? (
           <main className="fixed top-[58px] left-0 right-0 bottom-0 overflow-hidden bg-white">
             {children}
           </main>

@@ -112,8 +112,9 @@ export const AppRoutesV2 = () => (
         교사용 보호 라우트 - 신규 IA 레이아웃
     ======================================== */}
     <Route element={<ProtectedLayoutV2 />}>
-      {/* 홈 (로고 클릭 시 진입) */}
+      {/* 홈 (로고 클릭 시 진입) - GNB는 유지, LNB만 숨김 */}
       <Route path="/home" element={<HomePage />} />
+      <Route path="/HOME" element={<HomePage />} />
 
       {/* 검사 (검사관리 · 결과보기 · 변화추적) */}
       <Route path="/exam" element={<Navigate to="/exam/management" replace />} />
