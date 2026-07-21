@@ -11,10 +11,13 @@ import { useResources } from '../../store/ResourcesContext';
 type DeployMode = 'period' | 'live';
 
 export const DeployOverlay = () => {
-  const { overlay, closeOverlay, openOverlay, toast, setTab, setMlView, scope } = useResources();
+  const { overlay, closeOverlay, openOverlay, toast, setTab, scope } = useResources();
   const contentId = overlay?.contentId ?? null;
   const item = contentId ? MY.find((x) => x.id === contentId) || findContent(contentId) : null;
   const deployItem = { title: item?.title ?? '제목 없는 활동', g: item?.g ?? 'g1', em: item?.em ?? '🧩' };
+  // 저작툴에서 넘어온 경우 → 헤더 브레드크럼으로 저작툴 복귀 제공
+  const fromEditor = overlay?.from === 'editor';
+  const backToEditor = () => openOverlay({ kind: 'editor', contentId });
 
   // #7 프리셋: scope 가 반이면 자동 선택
   const [classes, setClasses] = useState<string[]>(CLASSES.includes(scope) ? [scope] : []);
@@ -41,8 +44,7 @@ export const DeployOverlay = () => {
 
   const goToReports = () => {
     closeOverlay();
-    setTab('myLesson');
-    setMlView('results');
+    setTab('results');
     toast('수업 결과보기로 이동했어요');
   };
   const startLive = () => openOverlay({ kind: 'live', contentId });
@@ -50,13 +52,25 @@ export const DeployOverlay = () => {
   return (
     <div className="fixed inset-0 z-[110] flex flex-col bg-gray-100">
       <div className="flex flex-none items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
-        <button onClick={closeOverlay} className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100" aria-label="뒤로">‹</button>
-        <div className="text-base font-extrabold text-gray-900">활동 배포</div>
+        {fromEditor ? (
+          // 저작툴 › 활동 배포 — 클릭 시 저작툴로 복귀
+          <button onClick={backToEditor} className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-gray-100" aria-label="저작툴로 돌아가기">
+            <span className="text-sm font-semibold text-gray-500">‹ 저작툴</span>
+            <span className="text-gray-300">›</span>
+            <span className="text-base font-extrabold text-gray-900">활동 배포</span>
+          </button>
+        ) : (
+          <>
+            <button onClick={closeOverlay} className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100" aria-label="뒤로">‹</button>
+            <div className="text-base font-extrabold text-gray-900">활동 배포</div>
+          </>
+        )}
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-6 overflow-auto p-6">
+      <div className="flex min-h-0 flex-1 justify-center overflow-auto p-6">
+       <div className="flex w-full max-w-5xl gap-8">
         {/* 좌: 미리보기 */}
-        <div className="w-64 flex-none">
+        <div className="w-72 flex-none">
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <div className="flex h-28 items-center justify-center rounded-xl text-5xl" style={{ background: GROUP_BG[deployItem.g] }}>{deployItem.em}</div>
             <div className="mt-3 text-xs text-gray-400">슬라이드 이름 · 수정 불가</div>
@@ -75,7 +89,7 @@ export const DeployOverlay = () => {
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-xs text-white">1</span>
               대상 반 선택 <span className="font-normal text-gray-400">· 복수 선택 가능</span>
             </div>
-            <div className="relative max-w-md">
+            <div className="relative">
               <button onClick={() => setDropOpen((o) => !o)} className="flex w-full items-center justify-between rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
                 <span className={classes.length ? 'text-gray-800' : 'text-gray-400'}>{classes.length ? classes.join(', ') : '반을 선택하세요'}</span>
                 <span className="text-gray-400">▾</span>
@@ -99,7 +113,7 @@ export const DeployOverlay = () => {
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-xs text-white">2</span>
               시작 방식
             </div>
-            <div className="flex max-w-md flex-col gap-2">
+            <div className="flex flex-col gap-2">
               <button onClick={() => setMode('period')} className={`rounded-xl border-2 p-3 text-left ${mode === 'period' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}>
                 <div className="flex items-center gap-2">
                   <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${mode === 'period' ? 'bg-primary-500 text-white' : 'border border-gray-300 text-transparent'}`}>✓</span>
@@ -124,11 +138,11 @@ export const DeployOverlay = () => {
             </div>
           </div>
 
-          <div className="max-w-md rounded-lg bg-gray-50 px-3 py-2.5 text-xs text-gray-600">📤 배포하면 <b>QR · 참여 링크 · 학급 알림</b>이 자동으로 생성·발송됩니다.</div>
+          <div className="rounded-lg bg-gray-50 px-3 py-2.5 text-xs text-gray-600">📤 배포하면 <b>QR · 참여 링크 · 학급 알림</b>이 자동으로 생성·발송됩니다.</div>
 
           {/* 배포 결과 (isLive 분기) */}
           {deployed && (
-            <div className="mt-5 max-w-md rounded-2xl border border-gray-200 bg-white p-4">
+            <div className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
               <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
                 ✅ {deployed.isLive ? '학생들에게 배포가 완료되었습니다!' : '배포가 완료되었습니다!'}
               </div>
@@ -160,6 +174,7 @@ export const DeployOverlay = () => {
             </div>
           )}
         </div>
+       </div>
       </div>
 
       {!deployed && (

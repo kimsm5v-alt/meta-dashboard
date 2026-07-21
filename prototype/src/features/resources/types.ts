@@ -18,14 +18,8 @@ export type SelArea =
   | '관계기술'
   | '책임있는의사결정';
 
-/** 세트지(나의 자료) 상태 */
-export type MyStatus = '임시저장' | '배포됨' | '완료';
-
 /** 배포 수업(리포트) 상태 */
 export type ReportStatus = '진행예정' | '진행중' | '완료';
-
-/** 배포 진행 방식 */
-export type DeployType = '실시간' | '과제';
 
 /** 슬라이드 종류: 활동형(개방·정답없음) / 문항형(정답있음) */
 export type SlideKind = '활동형' | '문항형';
@@ -77,16 +71,16 @@ export interface RoadmapStage {
 // 나의 자료 (세트지) · 배포 수업 (리포트)
 // ============================================
 
-/** 나의 자료 = 세트지 */
+/**
+ * 나의 자료 = 세트지 (모두 배포 전 초안).
+ * 배포된 활동은 '수업 결과보기'의 Report 로 넘어가므로 여기엔 상태/대상반 필드가 없다.
+ */
 export interface MyLesson {
   id: string;
   title: string;
-  status: MyStatus;
-  cls: string | null; // 배포 대상 반 (미배포는 null)
   updated: string; // 'MM/DD'
   g: ColorGroup;
   em: string;
-  type: DeployType | null;
 }
 
 /** 배포된 수업(리포트) 메타 */

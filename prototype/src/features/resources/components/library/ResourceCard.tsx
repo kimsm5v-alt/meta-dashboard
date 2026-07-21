@@ -5,7 +5,7 @@
 import { useResources } from '../../store/ResourcesContext';
 import type { LibItem, Src } from '../../types';
 import { CardThumb } from '../common/CardThumb';
-import { CARD_SHELL } from '../common/cardStyles';
+import { CARD_SHELL, CARD_BTN_PRIMARY, CARD_BTN_SECONDARY } from '../common/cardStyles';
 
 const SRC_STYLE: Record<Src, string> = {
   검증: 'bg-emerald-50 text-emerald-600',
@@ -28,13 +28,13 @@ export const ResourceCard = ({ item }: { item: LibItem }) => {
         <div className="mt-auto flex gap-2 pt-1">
           <button
             onClick={() => openOverlay({ kind: 'editor', contentId: item.id })}
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className={`flex-1 ${CARD_BTN_SECONDARY}`}
           >
             수정하기
           </button>
           <button
             onClick={() => openOverlay({ kind: 'deploy', contentId: item.id })}
-            className="flex-1 rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-600"
+            className={`flex-1 ${CARD_BTN_PRIMARY}`}
           >
             시작하기
           </button>

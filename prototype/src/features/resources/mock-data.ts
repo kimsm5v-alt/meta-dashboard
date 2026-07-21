@@ -122,13 +122,14 @@ export const ROADMAP_CARDS: LibItem[] = ROADMAP.flatMap((s) => s.items);
 // ============================================
 // 나의 자료 (세트지) · 배포 수업 (리포트)
 // ============================================
+// 나의 자료 = 배포 전 초안만 (배포된 활동은 REPORTS 로 이동)
 export const MY: MyLesson[] = [
-  { id: 'm1', title: '감정 체크인 활동', status: '배포됨', cls: '2-3반', updated: '07/14', g: 'g1', em: '🎴', type: '실시간' },
-  { id: 'm2', title: '자기인식 워크시트', status: '배포됨', cls: '2-4반', updated: '07/12', g: 'g3', em: '📋', type: '과제' },
-  { id: 'm3', title: '관계 역할극', status: '임시저장', cls: null, updated: '07/13', g: 'g2', em: '🎭', type: null },
-  { id: 'm4', title: '갈등 해결 시나리오', status: '완료', cls: '2-3반', updated: '07/08', g: 'g4', em: '🤝', type: '과제' },
-  { id: 'm5', title: '우리 반 강점 찾기', status: '완료', cls: '2-5반', updated: '07/05', g: 'g6', em: '⭐', type: '실시간' },
-  { id: 'm6', title: '정서 안정 호흡', status: '임시저장', cls: null, updated: '07/15', g: 'g5', em: '🌿', type: null },
+  { id: 'm1', title: '감정 체크인 활동', updated: '07/14', g: 'g1', em: '🎴' },
+  { id: 'm2', title: '자기인식 워크시트', updated: '07/12', g: 'g3', em: '📋' },
+  { id: 'm3', title: '관계 역할극', updated: '07/13', g: 'g2', em: '🎭' },
+  { id: 'm4', title: '갈등 해결 시나리오', updated: '07/08', g: 'g4', em: '🤝' },
+  { id: 'm5', title: '우리 반 강점 찾기', updated: '07/05', g: 'g6', em: '⭐' },
+  { id: 'm6', title: '정서 안정 호흡', updated: '07/15', g: 'g5', em: '🌿' },
 ];
 
 export const REPORTS: Report[] = [

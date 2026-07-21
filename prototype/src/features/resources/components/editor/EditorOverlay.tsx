@@ -19,9 +19,8 @@ export interface EditorSlide {
 const PROP_TOGGLES = ['지문 보이기', '보기 보이기', '힌트 보이기', '모범 답안 보이기', '해설 보이기'];
 
 export const EditorOverlay = () => {
-  const { overlay, closeOverlay, toast, setTab, setMlView, openOverlay } = useResources();
+  const { overlay, closeOverlay, toast, setTab, openOverlay } = useResources();
   const contentId = overlay?.contentId ?? null;
-  const locked = overlay?.locked ?? false;
   const item = contentId ? MY.find((x) => x.id === contentId) || findContent(contentId) : null;
 
   const [title, setTitle] = useState(item?.title ?? '제목 없는 활동');
@@ -56,17 +55,14 @@ export const EditorOverlay = () => {
   const goMyData = () => {
     setSavedOpen(false);
     closeOverlay();
-    setTab('myLesson');
-    setMlView('myData');
+    setTab('myData');
   };
   const exit = () => {
     toast('자동 저장되었습니다');
     closeOverlay();
   };
-  const deploy = () => {
-    closeOverlay();
-    openOverlay({ kind: 'deploy', contentId, locked });
-  };
+  // 배포 화면으로 이동 (from:'editor' → 배포 헤더에서 저작툴로 복귀 가능)
+  const deploy = () => openOverlay({ kind: 'deploy', contentId, from: 'editor' });
 
   const cur = slides[active - 1] ?? { type: 'q' };
 
@@ -85,7 +81,6 @@ export const EditorOverlay = () => {
             onChange={(e) => setTitle(e.target.value)}
             className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-800 focus:border-primary-400 focus:outline-none"
           />
-          {locked && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-600">🔒 복제본</span>}
         </div>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-xs font-semibold text-emerald-600">☁ 저장됨</span>

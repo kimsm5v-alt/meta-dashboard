@@ -38,7 +38,7 @@ const SlideStage = ({ n, title }: { n: number; title: string }) => {
 };
 
 export const ClassLiveOverlay = () => {
-  const { overlay, closeOverlay, toast, setTab, setMlView, scope } = useResources();
+  const { overlay, closeOverlay, toast, setTab, scope } = useResources();
   const contentId = overlay?.contentId ?? null;
   const item = contentId ? MY.find((x) => x.id === contentId) || findContent(contentId) : null;
   const title = item?.title ?? '수업';
@@ -54,8 +54,7 @@ export const ClassLiveOverlay = () => {
 
   const endClass = () => {
     closeOverlay();
-    setTab('myLesson');
-    setMlView('results');
+    setTab('results');
     toast('수업 종료 · 결과가 리포트에 반영되었습니다');
   };
 

@@ -7,7 +7,7 @@ import { useResources } from '../../store/ResourcesContext';
 import type { Report } from '../../types';
 import { RsBadge, ClassBadge } from './badges';
 import { CardThumb } from '../common/CardThumb';
-import { CARD_SHELL } from '../common/cardStyles';
+import { CARD_SHELL, CARD_BTN_PRIMARY } from '../common/cardStyles';
 
 export const ReportCard = ({ report }: { report: Report }) => {
   const { openReport } = useResources();
@@ -30,11 +30,8 @@ export const ReportCard = ({ report }: { report: Report }) => {
         <div className="text-xs text-gray-500">
           📅 {report.start} ~ {report.end} · {metric}
         </div>
-        <button
-          onClick={open}
-          className="mt-auto rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-600"
-        >
-          📊 결과보기
+        <button onClick={open} className={`mt-auto ${CARD_BTN_PRIMARY}`}>
+          📊 리포트
         </button>
       </div>
     </div>

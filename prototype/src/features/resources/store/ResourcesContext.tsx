@@ -23,8 +23,8 @@ import type { MyLesson, ReportStatus, Scope } from '../types';
 // 상태 · 액션
 // ============================================
 
-export type LessonTab = 'library' | 'myLesson';
-export type MlView = 'myData' | 'results';
+/** GNB 2depth 3분할: 수업 자료실 / 나의 자료 / 수업 결과보기 */
+export type LessonTab = 'library' | 'myData' | 'results';
 export type RdTab = 'slide' | 'student';
 export type RsFilter = '전체' | ReportStatus;
 
@@ -32,13 +32,13 @@ export type RsFilter = '전체' | ReportStatus;
 export interface OverlayState {
   kind: 'editor' | 'deploy' | 'live';
   contentId?: string | null;
-  locked?: boolean;
+  /** 오버레이를 연 출처 (저작툴→배포 복귀용) */
+  from?: 'editor';
 }
 
 interface ResourcesState {
   myLessons: MyLesson[];
   activeTab: LessonTab;
-  mlView: MlView;
   rsFilter: RsFilter;
   rdReport: string | null; // 선택된 리포트 id
   rdTab: RdTab;
@@ -49,7 +49,6 @@ interface ResourcesState {
 
 type Action =
   | { type: 'SET_TAB'; tab: LessonTab }
-  | { type: 'SET_ML_VIEW'; view: MlView }
   | { type: 'SET_RS_FILTER'; filter: RsFilter }
   | { type: 'DELETE_MY'; id: string }
   | { type: 'OPEN_REPORT'; id: string; firstStudent: string | null }
@@ -64,7 +63,6 @@ type Action =
 const initialState: ResourcesState = {
   myLessons: MY,
   activeTab: 'library',
-  mlView: 'myData',
   rsFilter: '전체',
   rdReport: null,
   rdTab: 'slide',
@@ -76,9 +74,8 @@ const initialState: ResourcesState = {
 function reducer(state: ResourcesState, action: Action): ResourcesState {
   switch (action.type) {
     case 'SET_TAB':
-      return { ...state, activeTab: action.tab };
-    case 'SET_ML_VIEW':
-      return { ...state, mlView: action.view, rdReport: null };
+      // 탭 전환 시 리포트 상세 닫힘 (기존 SET_ML_VIEW 역할 흡수)
+      return { ...state, activeTab: action.tab, rdReport: null };
     case 'SET_RS_FILTER':
       return { ...state, rsFilter: action.filter };
     case 'DELETE_MY':
@@ -117,7 +114,6 @@ interface ResourcesContextValue extends ResourcesState {
   toast: (msg: string) => void;
   // 액션
   setTab: (tab: LessonTab) => void;
-  setMlView: (view: MlView) => void;
   setRsFilter: (filter: RsFilter) => void;
   deleteMy: (id: string) => void;
   openReport: (id: string, firstStudent: string | null) => void;
@@ -171,7 +167,6 @@ export function ResourcesProvider({ children }: { children: ReactNode }) {
       toastMsg,
       toast,
       setTab: (tab) => dispatch({ type: 'SET_TAB', tab }),
-      setMlView: (view) => dispatch({ type: 'SET_ML_VIEW', view }),
       setRsFilter: (filter) => dispatch({ type: 'SET_RS_FILTER', filter }),
       deleteMy: (id) => dispatch({ type: 'DELETE_MY', id }),
       openReport: (id, firstStudent) => dispatch({ type: 'OPEN_REPORT', id, firstStudent }),
