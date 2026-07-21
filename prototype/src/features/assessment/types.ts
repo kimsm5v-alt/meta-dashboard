@@ -10,14 +10,15 @@ import type { StudentType, SchoolLevel } from '@/shared/types';
 // 검사 상태
 // ============================================================
 
-/** 검사 진행 상태 */
-export type ExamStatus = 'not_started' | 'in_progress' | 'completed';
+/** 검사 진행 상태 (반 전체) */
+export type ExamStatus = 'not_started' | 'in_progress' | 'completed' | 'cancelled';
 
 /** 검사 상태 라벨 */
 export const EXAM_STATUS_LABELS: Record<ExamStatus, string> = {
   not_started: '미시작',
   in_progress: '진행중',
   completed: '완료',
+  cancelled: '취소됨',
 };
 
 /** 검사 상태 스타일 */
@@ -25,6 +26,47 @@ export const EXAM_STATUS_STYLES: Record<ExamStatus, { bg: string; text: string }
   not_started: { bg: 'bg-gray-100', text: 'text-gray-600' },
   in_progress: { bg: 'bg-amber-100', text: 'text-amber-700' },
   completed: { bg: 'bg-green-100', text: 'text-green-700' },
+  cancelled: { bg: 'bg-red-100', text: 'text-red-700' },
+};
+
+/**
+ * 학생 개별 응시 상태 (세분화된 5단계)
+ *
+ * 상태 결정 조건: dgnssAt, eakAt, submAt 3개 플래그 조합
+ * - dgnssAt: 검사 진행 여부 (교사가 제어)
+ * - eakAt: 학생 응시 시작 여부
+ * - submAt: 학생 제출 여부
+ */
+export type StudentExamDetailedStatus =
+  | 'waiting'        // 시작 전 (Y, N, N) - 응시 가능
+  | 'in_progress'    // 응시 중 (Y, Y, N) - 이어하기/새로하기
+  | 'completed'      // 제출 완료 (Y, Y, Y) - 결과 대기중
+  | 'result_ready'   // 검사 종료 (N, Y, Y) - 결과 보기 가능
+  | 'not_submitted'; // 미제출 (N, N, N) - 검사 종료됨
+
+/** 학생 상태 라벨 (학생에게 보이는 텍스트) */
+export const STUDENT_STATUS_LABELS: Record<StudentExamDetailedStatus, string> = {
+  waiting: '응시 가능',
+  in_progress: '이어하기',
+  completed: '결과 대기중',
+  result_ready: '결과 보기 가능',
+  not_submitted: '검사 종료됨',
+};
+
+/** 학생 상태 UI 표시 (교사 화면용 - 3분류) */
+export const getStudentDisplayStatus = (status: StudentExamDetailedStatus) => {
+  switch (status) {
+    case 'completed':
+    case 'result_ready':
+      return { label: '제출 완료', color: 'blue', icon: 'check' } as const;
+    case 'in_progress':
+      return { label: '응시 중', color: 'yellow', icon: 'clock' } as const;
+    case 'not_submitted':
+      return { label: '미제출', color: 'orange', icon: 'alert' } as const;
+    case 'waiting':
+    default:
+      return { label: '미제출', color: 'gray', icon: null } as const;
+  }
 };
 
 // ============================================================
@@ -40,11 +82,11 @@ export interface ExamOverviewRow {
   examName: string;
   /** 회차 (1 또는 2) */
   round: 1 | 2;
-  /** 응시 완료 학생 수 */
+  /** 제출 완료 학생 수 */
   submittedCount: number;
   /** 전체 학생 수 */
   totalCount: number;
-  /** 응시율 (0-100) */
+  /** 제출률 (0-100) */
   submissionRate: number;
   /** 검사 상태 */
   status: ExamStatus;
@@ -60,7 +102,7 @@ export interface ExamOverviewSummary {
   inProgressExams: number;
   /** 결과 확인 가능한 검사 수 */
   completedExams: number;
-  /** 미응시 학생 수 */
+  /** 미제출 학생 수 */
   pendingStudents: number;
 }
 
@@ -73,10 +115,12 @@ export interface StudentExamStatus {
   id: string;
   number: number;
   name: string;
-  /** 응시 완료 여부 */
+  /** 제출 완료 여부 (하위 호환성 유지) */
   submitted: boolean;
-  /** 응시 일시 */
+  /** 제출 일시 */
   submittedAt?: Date;
+  /** 세분화된 상태 (옵션) */
+  detailedStatus?: StudentExamDetailedStatus;
 }
 
 /** 반 검사 관리 데이터 */

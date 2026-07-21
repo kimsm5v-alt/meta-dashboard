@@ -18,7 +18,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Sparkles, Check, AlertTriangle, Calendar, ArrowRight } from 'lucide-react';
+import { Sparkles, Check, AlertTriangle, Calendar, ArrowRight, FileText, ChevronRight } from 'lucide-react';
 import { useLayoutContext } from '@/app/LayoutV2';
 import { StudentFactorAnalysis } from './StudentFactorAnalysis';
 import { TypeClassification } from './TypeClassification';
@@ -490,6 +490,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
   onNavigateStudent,
 }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
+  const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
 
   const hasRound2 = result.round === 2 && result.prevResult;
   const isCompare = viewMode === 'compare';
@@ -575,6 +576,13 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
     }).format(date);
   };
 
+  // 보고서 다운로드 핸들러
+  const handleDownloadReport = (round: 1 | 2, type: 'detail' | 'summary') => {
+    // Prototype: 실제 다운로드 기능은 구현하지 않고 알림만 표시
+    alert(`${round}차 ${type === 'detail' ? '상세' : '요약'} 보고서 다운로드 기능은 프로토타입에서 구현되지 않았습니다.`);
+    setReportDropdownOpen(false);
+  };
+
   // 우측 컨텐츠: 학생 네비게이션 + 보고서 다운로드
   const rightContent = (
     <>
@@ -598,11 +606,76 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
         </div>
       )}
 
-      {/* 보고서 다운로드 */}
-      <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
-        <Download className="w-4 h-4" />
-        보고서
-      </button>
+      {/* 보고서 다운로드 드롭다운 */}
+      <div className="relative">
+        <button
+          onClick={() => setReportDropdownOpen(!reportDropdownOpen)}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+        >
+          <FileText className="w-4 h-4" />
+          보고서 다운로드
+          <ChevronRight
+            className={`w-3.5 h-3.5 transition-transform ${reportDropdownOpen ? 'rotate-90' : ''}`}
+          />
+        </button>
+
+        {/* 드롭다운 메뉴 */}
+        {reportDropdownOpen && (
+          <>
+            {/* 배경 클릭 영역 */}
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setReportDropdownOpen(false)}
+            />
+
+            {/* 메뉴 */}
+            <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-2">
+              {/* 1차 검사 */}
+              <div className="px-3 py-1.5">
+                <p className="text-xs font-semibold text-gray-600 mb-1">1차 검사</p>
+                <button
+                  onClick={() => handleDownloadReport(1, 'detail')}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5 text-red-500" />
+                  상세 보고서
+                </button>
+                <button
+                  onClick={() => handleDownloadReport(1, 'summary')}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5 text-red-500" />
+                  요약 보고서
+                </button>
+              </div>
+
+              {/* 2차 검사 (있을 경우만) */}
+              {hasRound2 && (
+                <>
+                  <div className="border-t border-gray-100 my-1" />
+                  <div className="px-3 py-1.5">
+                    <p className="text-xs font-semibold text-gray-600 mb-1">2차 검사</p>
+                    <button
+                      onClick={() => handleDownloadReport(2, 'detail')}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded transition-colors"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-red-500" />
+                      상세 보고서
+                    </button>
+                    <button
+                      onClick={() => handleDownloadReport(2, 'summary')}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded transition-colors"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-red-500" />
+                      요약 보고서
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </>
   );
 
@@ -660,53 +733,60 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
           onClick={() => setViewMode('round1')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             viewMode === 'round1'
-              ? 'bg-primary-500 text-white'
+              ? 'bg-primary-600 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
         >
           1차 검사
         </button>
+        <button
+          onClick={() => hasRound2 && setViewMode('round2')}
+          disabled={!hasRound2}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            viewMode === 'round2'
+              ? 'bg-primary-600 text-white'
+              : hasRound2
+                ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+          }`}
+        >
+          2차 검사 {!hasRound2 && '(예정)'}
+        </button>
         {hasRound2 && (
-          <>
-            <button
-              onClick={() => setViewMode('round2')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === 'round2'
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              2차 검사
-            </button>
-            <button
-              onClick={() => setViewMode('compare')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === 'compare'
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              차수 변화
-            </button>
-          </>
+          <button
+            onClick={() => setViewMode('compare')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              viewMode === 'compare'
+                ? 'bg-primary-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            차수 변화
+          </button>
         )}
       </div>
 
       {/* ================================================================ */}
       {/* 섹션 1: 학습 현황 */}
       {/* ================================================================ */}
-      <div className="flex items-center gap-3 pt-2">
-        <div className="w-7 h-7 rounded-full bg-slate-600 flex items-center justify-center">
-          <span className="text-sm font-bold text-white">1</span>
+      <div className="flex gap-4">
+        {/* 타임라인 좌측 */}
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+            1
+          </div>
+          <div className="w-px bg-gray-300 flex-1 my-2" />
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-900">학습 현황</h2>
-          <p className="text-xs text-gray-500">학생이 직접 응답한 학습 상황입니다</p>
-        </div>
-      </div>
 
-      {/* 4. 개인 학습 현황 (설문 응답 기반) */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        {/* 우측 컨텐츠 */}
+        <div className="flex-1 space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">학습 현황</h2>
+            <p className="text-xs text-gray-500">학생이 직접 응답한 학습 상황입니다</p>
+          </div>
+
+          {/* 4. 개인 학습 현황 (설문 응답 기반) */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-base font-semibold text-gray-900">개인 학습 현황</h3>
           <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500">설문 응답</span>
@@ -743,30 +823,38 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
             </p>
           </div>
         </div>
+          </div>
+        </div>
       </div>
 
       {/* ================================================================ */}
       {/* 섹션 2: 요인 분석 */}
       {/* ================================================================ */}
-      <div className="flex items-center gap-3 pt-4 mt-2 border-t border-gray-100">
-        <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center">
-          <span className="text-sm font-bold text-white">2</span>
+      <div className="flex gap-4">
+        {/* 타임라인 좌측 */}
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+            2
+          </div>
+          <div className="w-px bg-gray-300 flex-1 my-2" />
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-900">요인 분석</h2>
-          <p className="text-xs text-gray-500">38개 학습 요인의 세부 점수를 분석합니다</p>
-        </div>
-      </div>
 
-      {/* 5. 38개 요인 분석 */}
-      <StudentFactorAnalysis
+        {/* 우측 컨텐츠 */}
+        <div className="flex-1 space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">요인 분석</h2>
+            <p className="text-xs text-gray-500">38개 학습 요인의 세부 점수를 분석합니다</p>
+          </div>
+
+          {/* 5. 38개 요인 분석 */}
+          <StudentFactorAnalysis
         tScores={tScores}
         prevTScores={prevTScores}
         showCompare={isCompare}
       />
 
-      {/* 6. 강점/보완점 Top 3 (반 결과보기와 동일한 UI) */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+          {/* 6. 강점/보완점 Top 3 (반 결과보기와 동일한 UI) */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-4">강점 / 보완점 Top 3</h3>
 
         <div className="flex gap-6">
@@ -861,46 +949,62 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
             </div>
           </div>
         </div>
+          </div>
+        </div>
       </div>
 
       {/* ================================================================ */}
       {/* 섹션 3: 학습 유형 */}
       {/* ================================================================ */}
-      <div className="flex items-center gap-3 pt-4 mt-2 border-t border-gray-100">
-        <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center">
-          <span className="text-sm font-bold text-white">3</span>
+      <div className="flex gap-4">
+        {/* 타임라인 좌측 */}
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+            3
+          </div>
+          <div className="w-px bg-gray-300 flex-1 my-2" />
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-900">학습 유형</h2>
-          <p className="text-xs text-gray-500">38개 요인 패턴을 종합하여 분류한 학습자 유형입니다</p>
-        </div>
-      </div>
 
-      {/* 7. 학습 유형 분류 (LPA) - TypeClassification 컴포넌트가 자체 카드 스타일 포함 */}
-      <TypeClassification
+        {/* 우측 컨텐츠 */}
+        <div className="flex-1 space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">학습 유형</h2>
+            <p className="text-xs text-gray-500">38개 요인 패턴을 종합하여 분류한 학습자 유형입니다</p>
+          </div>
+
+          {/* 7. 학습 유형 분류 (LPA) - TypeClassification 컴포넌트가 자체 카드 스타일 포함 */}
+          <TypeClassification
         predictedType={predictedType}
         typeProbabilities={typeProbabilities}
         schoolLevel={result.schoolLevel}
         showCompare={isCompare}
         prevType={prevType}
         prevTypeProbabilities={prevTypeProbabilities}
-      />
+          />
+        </div>
+      </div>
 
       {/* ================================================================ */}
       {/* 섹션 4: 상담 & 관찰 */}
       {/* ================================================================ */}
-      <div className="flex items-center gap-3 pt-4 mt-2 border-t border-gray-100">
-        <div className="w-7 h-7 rounded-full bg-emerald-600 flex items-center justify-center">
-          <span className="text-sm font-bold text-white">4</span>
+      <div className="flex gap-4">
+        {/* 타임라인 좌측 */}
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+            4
+          </div>
+          <div className="w-px bg-gray-300 flex-1 my-2" />
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-900">상담 & 관찰</h2>
-          <p className="text-xs text-gray-500">상담 기록과 관찰 메모를 작성하고 이력을 확인합니다</p>
-        </div>
-      </div>
 
-      {/* 8. 상담 기록 / 관찰 메모 (2열) + 통합 이력 (아래 1열) */}
-      <div className="space-y-4">
+        {/* 우측 컨텐츠 */}
+        <div className="flex-1 space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">상담 & 관찰</h2>
+            <p className="text-xs text-gray-500">상담 기록과 관찰 메모를 작성하고 이력을 확인합니다</p>
+          </div>
+
+          {/* 8. 상담 기록 / 관찰 메모 (2열) + 통합 이력 (아래 1열) */}
+          <div className="space-y-4">
         {/* 상단: 에디터 2열 */}
         <div className="grid grid-cols-2 gap-4">
           {/* 상담 기록 작성 */}
@@ -918,18 +1022,20 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
           />
         </div>
 
-        {/* 하단: 통합 이력 */}
-        <UnifiedHistoryList
-          counselingRecords={counselingRecords}
-          observationRecords={observationRecords}
-          studentName={result.name}
-        />
+            {/* 하단: 통합 이력 */}
+            <UnifiedHistoryList
+              counselingRecords={counselingRecords}
+              observationRecords={observationRecords}
+              studentName={result.name}
+            />
+          </div>
+        </div>
       </div>
 
       {/* ================================================================ */}
       {/* 코칭 연결 버튼 */}
       {/* ================================================================ */}
-      <div className="flex justify-end pt-4 mt-2 border-t border-gray-100">
+      <div className="flex justify-end pt-4 mt-2">
         <CoachingLinkButton studentNumber={result.number} studentName={result.name} />
       </div>
     </div>
