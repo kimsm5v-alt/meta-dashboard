@@ -1,10 +1,10 @@
 /**
  * 학생 진행중 배너 (목업 renderStudent 의 stu-banner).
  */
-import { useResources } from '../../store/ResourcesContext';
+import { useStudentResource } from '../store/StudentResourceContext';
 
 export const StudentBanner = () => {
-  const { toast } = useResources();
+  const { toast } = useStudentResource();
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
       <span className="h-2.5 w-2.5 flex-none animate-pulse rounded-full bg-emerald-500" />

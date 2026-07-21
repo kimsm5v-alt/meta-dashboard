@@ -7,8 +7,7 @@
  * @see prototype/docs/features/resources/everyclass-v2 1.html (기준 목업)
  * @see prototype/docs/features/resources/WORK_PLAN.md (진행표)
  */
-import { ResourcesProvider, useResources, type LessonTab, type Role } from '../store/ResourcesContext';
-import { StudentView } from '../components/student';
+import { ResourcesProvider, useResources, type LessonTab } from '../store/ResourcesContext';
 import { LibraryView, ClassCurationView } from '../components/library';
 import { MlSubNav, MyDataView } from '../components/my-lessons';
 import { ResultsView } from '../components/report';
@@ -65,30 +64,6 @@ const Breadcrumb = () => {
   );
 };
 
-/** 역할 토글 (목업 setRole) — 학생 화면 미리보기 */
-const ROLES: { id: Role; label: string }[] = [
-  { id: 'teacher', label: '👩‍🏫 교사' },
-  { id: 'student', label: '🧑‍🎓 학생' },
-];
-const RoleToggle = () => {
-  const { role, setRole } = useResources();
-  return (
-    <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs">
-      {ROLES.map((r) => (
-        <button
-          key={r.id}
-          onClick={() => setRole(r.id)}
-          className={`rounded-md px-2.5 py-1 font-semibold transition-colors ${
-            role === r.id ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          {r.label}
-        </button>
-      ))}
-    </div>
-  );
-};
-
 /** 토스트 (목업 toast() 대체) */
 const Toast = () => {
   const { toastMsg } = useResources();
@@ -121,26 +96,19 @@ const OverlayHost = () => {
   return null;
 };
 
+// 학생 모드는 features/student-resources 로 분리됨 (StudentResourcePage).
+// TODO(routing): 학생 전용 라우트 연결은 팀 논의 후 결정 (app/routes 미변경).
+
 const ResourceListInner = () => {
-  const { activeTab, isAll, role } = useResources();
-  const isStudent = role === 'student';
+  const { activeTab, isAll } = useResources();
   return (
     <div>
-      <div className="flex items-center justify-between">
-        {isStudent ? <div className="text-xs text-gray-400">수업 › 학생 화면</div> : <Breadcrumb />}
-        <RoleToggle />
-      </div>
-      {isStudent ? (
-        <StudentView />
+      <Breadcrumb />
+      <LessonTabs />
+      {activeTab === 'library' ? (
+        isAll ? <LibraryView /> : <ClassCurationView />
       ) : (
-        <>
-          <LessonTabs />
-          {activeTab === 'library' ? (
-            isAll ? <LibraryView /> : <ClassCurationView />
-          ) : (
-            <MyLessonTab />
-          )}
-        </>
+        <MyLessonTab />
       )}
       <Toast />
       <OverlayHost />

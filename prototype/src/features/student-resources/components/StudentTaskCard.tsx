@@ -2,11 +2,11 @@
  * 학생 과제 카드 (목업 renderStudent 의 lcard).
  * 완료 → dim + ✓ + 다시보기 / 미제출 → 📝 + 풀기.
  */
-import { useResources } from '../../store/ResourcesContext';
-import type { StudentTask } from '../../types';
+import { useStudentResource } from '../store/StudentResourceContext';
+import type { StudentTask } from '../types';
 
 export const StudentTaskCard = ({ task }: { task: StudentTask }) => {
-  const { toast } = useResources();
+  const { toast } = useStudentResource();
   const done = task.st === '완료';
 
   return (
