@@ -547,16 +547,31 @@ class LangGraphAgentService:
             as_node="call_model",
         )
 
+    @staticmethod
+    def _resolve_student_context_update(context_data: Optional[Dict[str, Any]]) -> Optional[dict]:
+        """legacy(MetaAgentService._build_messages)와 동일하게, 마스킹 결과가 빈 값이면
+        기존 student_context를 덮어쓰지 않도록 None을 반환한다.
+
+        context_data가 None이면 애초에 갱신 의도가 없는 것이고, {}처럼 falsy한
+        마스킹 결과도 "의미 있는 새 컨텍스트 없음"으로 취급해야 한다. student_context
+        reducer(_keep_or_update)는 None이 아닌 값을 받으면 무조건 덮어쓰므로, 여기서
+        None으로 정규화하지 않으면 이전 턴에 확립된 학생 프로필이 사라질 수 있다.
+        """
+        if context_data is None:
+            return None
+        masked = mask_pii_data(context_data)
+        return masked if masked else None
+
     async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
                          images: Optional[List[str]] = None):
-        masked_context = mask_pii_data(context_data) if context_data is not None else None
+        student_context_update = self._resolve_student_context_update(context_data)
         config = {"configurable": {"thread_id": session_id}, "recursion_limit": RECURSION_LIMIT}
 
         try:
             result = await self.graph.ainvoke(
                 {
                     "messages": [HumanMessage(content=text)],
-                    "student_context": masked_context,
+                    "student_context": student_context_update,
                     # 명시적으로 매 호출마다 덮어써서 이전 턴 이미지가 이번 턴에 새지 않게 한다
                     # (reducer가 없는 필드라 키를 생략하면 이전 체크포인트 값이 남을 수 있음).
                     "pending_images": images,
@@ -580,7 +595,7 @@ class LangGraphAgentService:
 
     async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
                                 images: Optional[List[str]] = None):
-        masked_context = mask_pii_data(context_data) if context_data is not None else None
+        student_context_update = self._resolve_student_context_update(context_data)
         config = {"configurable": {"thread_id": session_id}, "recursion_limit": RECURSION_LIMIT}
 
         yielded_any = False
@@ -588,7 +603,7 @@ class LangGraphAgentService:
             async for chunk in self.graph.astream(
                 {
                     "messages": [HumanMessage(content=text)],
-                    "student_context": masked_context,
+                    "student_context": student_context_update,
                     "pending_images": images,
                 },
                 config=config,
@@ -601,6 +616,10 @@ class LangGraphAgentService:
             logger.warning(f"Recursion limit reached for session {session_id} (stream)")
             await self._recover_from_recursion_limit(session_id)
             yield MAX_ITERATIONS_FALLBACK_MESSAGE
+            # 아래 "미생성" 폴백으로 흘러 들어가 메시지가 중복 전송되지 않도록 여기서 종료한다.
+            # (async generator에서 return은 함수 끝 도달과 동일하지 않다 — 이 아래에 실행될
+            # 코드가 남아있는 한 return 없이는 반드시 폴스루된다.)
+            return
 
         if not yielded_any:
             yield "응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."

@@ -108,13 +108,68 @@ AgentService → ROUTER_MODEL_NAME ("meta-agent-primary")
 - 제한: 턴당 최대 3장, 장당 최대 5MB(`app/utils/image_validation.py`).
 - **비영속(턴 한정)**: 이미지는 그 턴의 LLM 호출에만 포함되고 세션 히스토리/체크포인트에는 저장되지 않습니다. 즉 다음 턴에는 자동으로 사라지며, 계속 참조하려면 매 턴 다시 보내야 합니다(토큰·메모리 비용 방지를 위한 설계).
 - Legacy/LangGraph 두 백엔드 모두 동일하게 지원됩니다.
+- `image_url` 타입을 쓰지만 실제 값은 URL이 아니라 base64 data URI입니다 — OpenAI Chat Completions의 멀티모달 콘텐츠 블록 스펙(`{"type": "image_url", "image_url": {"url": "data:..."}}`)을 그대로 따른 것으로, `url` 필드가 HTTP(S) 링크와 data URI를 모두 허용하기 때문입니다. 원격 이미지 URL을 직접 넘기는 방식은 이 프로젝트에서 지원하지 않습니다(학생 개인정보가 포함된 이미지를 외부에서 fetch 가능하게 노출하지 않기 위한 설계 선택).
 
+**로컬 이미지 파일을 data URI로 변환** (테스트용):
+```bash
+# macOS
+echo "data:image/png;base64,$(base64 -i photo.png)"
+# Linux
+echo "data:image/png;base64,$(base64 -w0 photo.png)"
+```
+
+**1) 단일 이미지 + 텍스트만 (POST /chat)**
 ```json
 {
   "text": "이 검사지 사진을 보고 특이사항이 있는지 알려줘",
   "session_id": "std_001_session",
   "images": ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="]
 }
+```
+
+**2) 이미지 여러 장(최대 3장) + `context_data` 병행 전달**
+
+학생 컨텍스트와 검사지 사진을 함께 분석시키는 실제 사용 시나리오입니다. `images`는 매 요청마다 새로 보내야 하는 턴 한정 필드이므로, `context_data`(세션에 누적 저장)와 성격이 다르다는 점에 유의하세요.
+```json
+{
+  "text": "첨부한 두 장의 검사지 사진에서 이전 회차 대비 달라진 점을 학생 컨텍스트 기준으로 짚어줘",
+  "session_id": "std_001_session",
+  "context_data": {
+    "profile": { "schoolLevel": "middle", "predictedType": "자원소진형" },
+    "context": "## 학생 정보\n- T점수: 인지조절 45, 동기조절 38, 정서조절 52"
+  },
+  "images": [
+    "data:image/png;base64,iVBORw0KGgo...(1회차 검사지)",
+    "data:image/jpeg;base64,/9j/4AAQSkZJRg...(2회차 검사지)"
+  ]
+}
+```
+
+**3) 스트리밍 + 이미지 (POST /chat/stream)**
+
+이미지 파라미터는 `/chat`과 완전히 동일하게 사용하며, 응답만 SSE로 순차 전달됩니다.
+```bash
+curl -N -s -X POST http://localhost:8000/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "이 이미지를 보고 실시간으로 분석해줘",
+    "session_id": "std_001_session",
+    "images": ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="]
+  }'
+```
+
+**4) 검증 실패 시 응답 (400 Bad Request)**
+
+`app/utils/image_validation.py`가 형식·개수·크기 위반을 API 경계(main.py)에서 LLM 호출 전에 즉시 차단하므로 불필요한 비용이 들지 않습니다.
+```jsonc
+// 4장 이상 첨부 (개수 초과)
+{ "detail": "이미지는 최대 3장까지 첨부할 수 있습니다." }
+
+// data URI 형식이 아님 (예: 순수 https:// URL, 잘못된 MIME, base64 누락)
+{ "detail": "이미지는 data:image/(png|jpeg|webp|gif);base64,... 형식의 data URI여야 합니다." }
+
+// 장당 5MB 초과
+{ "detail": "이미지 크기는 장당 최대 5MB까지 허용됩니다." }
 ```
 
 ### 3.3 세션 초기화 (DELETE /chat/{session_id})
@@ -281,7 +336,30 @@ curl -s -X POST http://localhost:8000/chat \
   }' | python3 -m json.tool
 ```
 
-**6. 세션 초기화**
+**6. 멀티모달 + 스트리밍 조합**
+```bash
+curl -N -s -X POST http://localhost:8000/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "이 이미지를 보고 실시간으로 분석해줘",
+    "session_id": "test_session_003",
+    "images": ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="]
+  }'
+```
+
+**7. 이미지 검증 실패 재현 (400 확인용)**
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "이 이미지를 참고해서 답변해줘",
+    "session_id": "test_session_003",
+    "images": ["not-a-data-uri"]
+  }'
+# -> 400
+```
+
+**8. 세션 초기화**
 ```bash
 curl -s -X DELETE http://localhost:8000/chat/test_session_001 | python3 -m json.tool
 ```
