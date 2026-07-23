@@ -5,10 +5,15 @@ MySQL(superplatform_meta) 도구 모듈
 Agent의 LLM Tool Calling으로 제공한다. neo4j_tools.py와 동일한 패턴
 (싱글톤 연결 관리자 + 구조화된 에러 dict 반환)을 따른다.
 
-설계 근거 및 스키마 조인 관계는 실제 dev DB에 직접 접속해 검증했다:
+설계 근거 및 스키마 조인 관계는 실제 dev DB 및 backend 소스(DDL/MyBatis 매퍼)로 검증했다:
 - stdt_id(학생 UUID)는 tb_dgnss_answer.MEM_ID / tb_dgnss_lpa_result.mem_id와 동일 값
 - tb_dgnss_answer.ANSWER_IDX가 tb_dgnss_answer_report.ANSWER_IDX / tb_dgnss_lpa_result.answer_idx를 연결
 - tb_dgnss_section.DEPTH=5 AND USE_YN='N' 조합이 정확히 "38개 요인"(공식 T점수 세트)과 일치함을 실측 확인
+- tb_dgnss_section.DEPTH=4 AND USE_YN='N' 조합이 "11개 중분류"(38개 요인의 상위 그룹핑)와 일치
+  (frontend dashboardService.ts의 extractMidCategoryScores와 동일한 소스/컬럼 규칙)
+- tb_dgnss_info.paper_idx('1'=학습종합검사/'2'=자기조절학습검사) + UNIQUE KEY(cla_id, paper_idx, ord_no)
+  확인 — ord_no는 학급 내에서도 검사 종류별로만 유일하므로, paper_idx 없이 MAX(ord_no)만
+  구하면 최신 회차를 잘못 고르거나 응시 인원이 이중 집계될 수 있다(_LEARNING_PAPER_IDX 참고)
 
 [중요: 미해결 리스크 — 구현 전 반드시 인지할 것]
 1. 읽기 전용 DB 계정: 이 모듈은 SELECT만 실행하도록 코드로 방어(_assert_select_only)하지만,
@@ -44,9 +49,24 @@ DEFAULT_QUERY_TIMEOUT = float(os.getenv("MYSQL_TOOL_TIMEOUT", "5.0"))
 # (tb_dgnss_answer_report가 참조하는 SECTION_ID 전부가 이 조건과 정확히 일치).
 _FACTOR_SECTION_FILTER = "s.DEPTH = 5 AND s.USE_YN = 'N'"
 
+# 11개 중분류(38개 요인의 상위 그룹핑) = DEPTH 4, USE_YN='N' 조합. frontend의
+# extractMidCategoryScores(dashboardService.ts, MID_CATEGORY_SECTION_ID_MAP)가 동일한
+# tb_dgnss_answer_report 데이터에서 DEPTH만 4로 바꿔 추출하는 것과 동일한 소스/컬럼 규칙을 따른다.
+_MID_CATEGORY_SECTION_FILTER = "s.DEPTH = 4 AND s.USE_YN = 'N'"
+
 # "주의" 등급 LPA 유형(문서 4-2절 위험도 표 기준: 자원소진형/냉소적 무기력형/정서조절 취약형).
 # class_id는 school_level에 관계없이 동일하게 부여되므로 값만으로 판별 가능.
 _RISK_LPA_CLASS_IDS = ("Class1", "Class4", "Class5")
+
+# tb_dgnss_info.paper_idx: '1'=학습종합검사(LPA/38요인/11중분류), '2'=자기조절학습검사.
+# UNIQUE KEY가 (cla_id, paper_idx, ord_no) 조합이라 ord_no는 학급 내에서도 검사 종류별로만
+# 유일하다 — 즉 같은 학급의 학습종합검사 2차와 자기조절학습검사 2차가 동시에 ord_no=2일 수 있다.
+# 이 모듈의 학급/교사 요약 Tool은 전부 "학습종합검사(LPA·38요인)" 도메인 전용이므로,
+# paper_idx 필터 없이 "그 학급의 MAX(ord_no)"만 구하면 자기조절학습검사 캠페인이 섞여
+# 최신 회차를 잘못 고르거나 응시 인원이 이중 집계될 수 있다. 아래 Tool들은 반드시 이 필터를
+# 함께 사용한다: query_class_dgnss_overview, query_class_midcategory_scores, query_class_roster,
+# query_teacher_classes_overview, query_class_risk_students.
+_LEARNING_PAPER_IDX = "1"
 
 _SELECT_PREFIX_RE = re.compile(r"^\s*SELECT\b", re.IGNORECASE)
 
@@ -203,19 +223,24 @@ async def query_student_lpa_and_scores(stdt_id: str, cla_id: str) -> Dict[str, A
 # Tool 2: 학급 검사 진행 현황 + LPA 유형 분포 조회
 # ---------------------------------------------------------------------------
 @tool
-async def query_class_dgnss_overview(cla_id: str) -> Dict[str, Any]:
-    """학급의 검사 시행 이력과 최신 회차 LPA 유형 분포를 조회한다.
+async def query_class_dgnss_overview(cla_id: str, ord_no: Optional[int] = None) -> Dict[str, Any]:
+    """학급의 검사 시행 이력과 특정 회차 LPA 유형 분포를 조회한다.
 
     학급 L2 대시보드, LPA 분포 파이/도넛 차트 캡처에 대한 질문 시 호출한다.
+    `sessions`에는 항상 그 학급의 전체 회차 목록(ord_no 포함)이 담기므로, 몇 차까지
+    검사가 있었는지는 이 필드로 먼저 확인한다. "1차 대비 2차 뭐가 달라졌어?"처럼
+    회차를 비교하는 질문이면, sessions에서 확인한 ord_no 값으로 이 도구를 두 번
+    (예: ord_no=1, ord_no=2) 호출해 두 결과를 비교한다.
 
     Args:
         cla_id: 학급 고유 ID (UUID).
+        ord_no: 유형 분포를 조회할 회차 번호 (선택). 생략 시 가장 최근 회차를 사용한다.
 
     Returns:
-        dict: {"sessions": [...], "latest_distribution": [...]} 형태.
+        dict: {"sessions": [...], "ord_no": 실제 사용된 회차, "distribution": [...]} 형태.
           sessions: 회차별 [{ord_no, dgnss_at(Y=진행중/N=종료), st_dt, ed_dt,
                               total, not_submitted, in_progress, completed}, ...]
-          latest_distribution: 최신 회차의 [{type_name, school_level, count}, ...]
+          distribution: 지정(또는 최신) 회차의 [{type_name, school_level, count}, ...]
     """
     sessions = await _execute_query(
         """
@@ -227,18 +252,18 @@ async def query_class_dgnss_overview(cla_id: str) -> Dict[str, Any]:
                COUNT(ri.id) AS total
         FROM tb_dgnss_info di
         LEFT JOIN tb_dgnss_result_info ri ON ri.dgnss_id = di.id
-        WHERE di.cla_id = %s
+        WHERE di.cla_id = %s AND di.paper_idx = %s
         GROUP BY di.id, di.ord_no, di.dgnss_at, di.dgnss_st_dt, di.dgnss_ed_dt
         ORDER BY di.ord_no DESC
         """,
-        (cla_id,),
+        (cla_id, _LEARNING_PAPER_IDX),
     )
     if sessions and sessions[0].get("error"):
         return {"error": sessions[0]["error"], "message": sessions[0]["message"]}
     if not sessions:
-        return {"sessions": [], "latest_distribution": []}
+        return {"sessions": [], "ord_no": None, "distribution": []}
 
-    latest_ord_no = sessions[0]["ord_no"]
+    resolved_ord_no = ord_no if ord_no is not None else sessions[0]["ord_no"]
     distribution = await _execute_query(
         """
         SELECT lr.type_name, lr.school_level, COUNT(*) AS count
@@ -246,17 +271,77 @@ async def query_class_dgnss_overview(cla_id: str) -> Dict[str, Any]:
         JOIN tb_dgnss_answer a ON a.ANSWER_IDX = lr.answer_idx
         JOIN tb_dgnss_result_info ri ON ri.id = a.DGNSS_RESULT_ID
         JOIN tb_dgnss_info di ON di.id = ri.dgnss_id
-        WHERE di.cla_id = %s AND di.ord_no = %s AND lr.status = 'COMPLETED'
+        WHERE di.cla_id = %s AND di.ord_no = %s AND di.paper_idx = %s AND lr.status = 'COMPLETED'
         GROUP BY lr.type_name, lr.school_level
         ORDER BY count DESC
         """,
-        (cla_id, latest_ord_no),
+        (cla_id, resolved_ord_no, _LEARNING_PAPER_IDX),
     )
-    return {"sessions": sessions, "latest_distribution": distribution}
+    if distribution and distribution[0].get("error"):
+        return {"error": distribution[0]["error"], "message": distribution[0]["message"]}
+    return {"sessions": sessions, "ord_no": resolved_ord_no, "distribution": distribution}
 
 
 # ---------------------------------------------------------------------------
-# Tool 3: 학생 관찰 메모 조회
+# Tool 3: 학급 11개 중분류 반 평균 T점수 조회
+# ---------------------------------------------------------------------------
+@tool
+async def query_class_midcategory_scores(cla_id: str, ord_no: Optional[int] = None) -> Dict[str, Any]:
+    """학급의 11개 중분류(38개 요인의 상위 그룹핑) 반 평균 T점수를 회차별로 조회한다.
+
+    "종합 결과 요약" 막대그래프(11개 중분류 하위요인의 반 평균 T점수) 캡처에 대한
+    질문 시 호출한다. query_student_lpa_and_scores의 scores(38개 요인, 학생 개별)보다
+    상위 그룹핑된 학급 평균값이라는 점에 유의한다.
+
+    ord_no를 생략하면 최신 회차를 사용한다. "1차 대비 2차 뭐가 달라졌어?"처럼 회차를
+    비교하는 질문이면, query_class_dgnss_overview의 sessions에서 확인한 ord_no로
+    이 도구를 두 번(예: ord_no=1, ord_no=2) 호출해 두 결과를 비교한다.
+
+    Args:
+        cla_id: 학급 고유 ID (UUID).
+        ord_no: 조회할 회차 번호 (선택). 생략 시 해당 학급의 가장 최근 회차.
+
+    Returns:
+        dict: {"ord_no": 실제 사용된 회차, "scores": [...]} 형태.
+          scores: [{section_nm, section_nm_full, avg_t_score, student_count}, ...]
+          (student_count는 해당 중분류 점수가 산출된 학생 수 — 응시 완료 인원과 다를 수 있음)
+        회차 자체가 없으면 {"ord_no": None, "scores": []} 반환.
+    """
+    resolved_ord_no = ord_no
+    if resolved_ord_no is None:
+        latest = await _execute_query(
+            "SELECT MAX(ord_no) AS ord_no FROM tb_dgnss_info WHERE cla_id = %s AND paper_idx = %s",
+            (cla_id, _LEARNING_PAPER_IDX),
+        )
+        if latest and latest[0].get("error"):
+            return {"error": latest[0]["error"], "message": latest[0]["message"]}
+        if not latest or latest[0]["ord_no"] is None:
+            return {"ord_no": None, "scores": []}
+        resolved_ord_no = latest[0]["ord_no"]
+
+    scores = await _execute_query(
+        f"""
+        SELECT s.SECTION_NM AS section_nm, s.SECTION_NM_FULL AS section_nm_full,
+               ROUND(AVG(ar.T_SCORE), 1) AS avg_t_score,
+               COUNT(DISTINCT ar.ANSWER_IDX) AS student_count
+        FROM tb_dgnss_answer_report ar
+        JOIN tb_dgnss_section s ON s.SECTION_ID = ar.SECTION_ID
+        JOIN tb_dgnss_answer a ON a.ANSWER_IDX = ar.ANSWER_IDX
+        JOIN tb_dgnss_result_info ri ON ri.id = a.DGNSS_RESULT_ID
+        JOIN tb_dgnss_info di ON di.id = ri.dgnss_id
+        WHERE di.cla_id = %s AND di.ord_no = %s AND di.paper_idx = %s AND {_MID_CATEGORY_SECTION_FILTER}
+        GROUP BY s.SECTION_ID, s.SECTION_NM, s.SECTION_NM_FULL
+        ORDER BY s.SECTION_NM
+        """,
+        (cla_id, resolved_ord_no, _LEARNING_PAPER_IDX),
+    )
+    if scores and scores[0].get("error"):
+        return {"error": scores[0]["error"], "message": scores[0]["message"]}
+    return {"ord_no": resolved_ord_no, "scores": scores}
+
+
+# ---------------------------------------------------------------------------
+# Tool 4: 학생 관찰 메모 조회
 # ---------------------------------------------------------------------------
 @tool
 async def query_student_memos(stdt_id: str, cla_id: str, limit: int = 20) -> List[Dict[str, Any]]:
@@ -290,13 +375,15 @@ async def query_student_memos(stdt_id: str, cla_id: str, limit: int = 20) -> Lis
 
 
 # ---------------------------------------------------------------------------
-# Tool 4: 상담 이력 조회
+# Tool 5: 상담 이력 조회
 # ---------------------------------------------------------------------------
 @tool
 async def query_counseling_history(
     cla_id: Optional[str] = None,
     stdt_id: Optional[str] = None,
     tc_id: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     limit: int = 20,
 ) -> List[Dict[str, Any]]:
     """상담 일정 및 기록을 최신순으로 조회한다.
@@ -304,6 +391,10 @@ async def query_counseling_history(
     stdt_id가 주어지면 해당 학생 대상 상담만, cla_id만 있으면 학급 전체,
     tc_id만 있으면 해당 교사가 담당하는 모든 학급의 상담을 반환한다(cla_id/tc_id 중 하나는 필수).
     상담 일정표 캡처, "이달 상담 완료율은?", "이번 주 내 상담 일정 전부 보여줘" 같은 질문 시 호출한다.
+    "이번 주 상담이 몇 건이야?"처럼 특정 기간이 언급되면 반드시 start_date/end_date를
+    함께 지정한다 — 생략하면 최신순 limit건만 반환되어 기간 밖의 데이터가 섞이거나
+    기간 내 데이터가 잘릴 수 있다. 반별/전체 건수 집계만 필요하면 이 도구 대신
+    query_counseling_summary가 더 적합하다.
 
     주의: summary/reason/next_steps는 교사가 직접 작성한 자유 텍스트라 학생 실명이
     포함될 수 있다. 답변 생성 시 실명을 그대로 노출하지 말 것.
@@ -312,54 +403,124 @@ async def query_counseling_history(
         cla_id: 학급 고유 ID (선택, UUID). 학급 단위 조회 시 사용.
         stdt_id: 학생 고유 ID (선택, UUID). 지정 시 해당 학생 상담만 필터링 (cla_id 필요).
         tc_id: 교사 고유 ID (선택). 지정 시 이 교사가 담당하는 모든 학급의 상담을 조회.
+        start_date: 조회 시작일 (선택, "YYYY-MM-DD"). scheduled_at 기준.
+        end_date: 조회 종료일 (선택, "YYYY-MM-DD", 포함). scheduled_at 기준.
         limit: 반환할 최대 건수 (기본 20, 최대 100).
 
     Returns:
         list[dict]: [{cla_id, scheduled_at, status, types, areas, methods, summary, next_steps}, ...].
+          types는 ["urgent","regular"]와 같은 JSON 배열 문자열이며, "urgent"가 포함되면
+          긴급상담, "follow-up"이 포함되면 후속상담을 의미한다(프론트 ScheduleType과 동일).
         cla_id/tc_id가 모두 없으면 [{"error": "MISSING_SCOPE", ...}] 반환.
     """
     if not cla_id and not tc_id:
         return [{"error": "MISSING_SCOPE", "message": "cla_id 또는 tc_id 중 하나는 반드시 지정해야 합니다."}]
 
     safe_limit = max(1, min(int(limit), MAX_LIMIT))
+    date_clause = ""
+    date_params: tuple = ()
+    if start_date:
+        date_clause += " AND ci.scheduled_at >= %s"
+        date_params += (start_date,)
+    if end_date:
+        date_clause += " AND ci.scheduled_at <= %s"
+        date_params += (f"{end_date} 23:59:59",)
+
     if stdt_id and cla_id:
         return await _execute_query(
-            """
+            f"""
             SELECT ci.cla_id, ci.scheduled_at, ci.status, ci.types, ci.areas, ci.methods,
                    ci.summary, ci.next_steps
             FROM counseling_info ci
             JOIN counseling_student cs ON cs.counseling_id = ci.id
-            WHERE ci.cla_id = %s AND cs.stdt_id = %s AND ci.use_yn = 'Y'
+            WHERE ci.cla_id = %s AND cs.stdt_id = %s AND ci.use_yn = 'Y'{date_clause}
             ORDER BY ci.scheduled_at DESC
             LIMIT %s
             """,
-            (cla_id, stdt_id, safe_limit),
+            (cla_id, stdt_id, *date_params, safe_limit),
         )
     if cla_id:
         return await _execute_query(
-            """
+            f"""
             SELECT ci.cla_id, ci.scheduled_at, ci.status, ci.types, ci.areas, ci.methods, ci.summary
             FROM counseling_info ci
-            WHERE ci.cla_id = %s AND ci.use_yn = 'Y'
+            WHERE ci.cla_id = %s AND ci.use_yn = 'Y'{date_clause}
             ORDER BY ci.scheduled_at DESC
             LIMIT %s
             """,
-            (cla_id, safe_limit),
+            (cla_id, *date_params, safe_limit),
         )
     return await _execute_query(
-        """
+        f"""
         SELECT ci.cla_id, ci.scheduled_at, ci.status, ci.types, ci.areas, ci.methods, ci.summary
         FROM counseling_info ci
-        WHERE ci.tc_id = %s AND ci.use_yn = 'Y'
+        WHERE ci.tc_id = %s AND ci.use_yn = 'Y'{date_clause}
         ORDER BY ci.scheduled_at DESC
         LIMIT %s
         """,
-        (tc_id, safe_limit),
+        (tc_id, *date_params, safe_limit),
     )
 
 
 # ---------------------------------------------------------------------------
-# Tool 5: 생활기록부 조회
+# Tool 6: 상담 건수 집계 (학급별 전체/긴급/후속 건수)
+# ---------------------------------------------------------------------------
+@tool
+async def query_counseling_summary(
+    cla_id: Optional[str] = None,
+    tc_id: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """학급별 상담 건수를 전체/긴급/후속 상담으로 집계한다.
+
+    상담일정 화면의 학급 요약 카드("6학년 3반 7건 · 긴급 1")에 대한 질문 시 호출한다.
+    tc_id만 주면 그 교사가 담당하는 모든 학급을 cla_id별로 집계해서 반환하고,
+    cla_id를 주면 해당 학급 하나만 반환한다(cla_id/tc_id 중 하나는 필수).
+    개별 상담 건의 상세 내용(요약/다음 단계 등)이 필요하면 query_counseling_history를 사용한다.
+
+    Args:
+        cla_id: 학급 고유 ID (선택, UUID).
+        tc_id: 교사 고유 ID (선택). 여러 학급을 아우르는 질문 시 사용.
+        start_date: 집계 시작일 (선택, "YYYY-MM-DD"). scheduled_at 기준.
+        end_date: 집계 종료일 (선택, "YYYY-MM-DD", 포함). scheduled_at 기준.
+
+    Returns:
+        list[dict]: [{cla_id, total(전체 건수), urgent_count(긴급상담 건수),
+                       follow_up_count(후속상담 건수)}, ...].
+        cla_id/tc_id가 모두 없으면 [{"error": "MISSING_SCOPE", ...}] 반환.
+    """
+    if not cla_id and not tc_id:
+        return [{"error": "MISSING_SCOPE", "message": "cla_id 또는 tc_id 중 하나는 반드시 지정해야 합니다."}]
+
+    scope_clause = "ci.cla_id = %s" if cla_id else "ci.tc_id = %s"
+    scope_param = cla_id if cla_id else tc_id
+
+    date_clause = ""
+    date_params: tuple = ()
+    if start_date:
+        date_clause += " AND ci.scheduled_at >= %s"
+        date_params += (start_date,)
+    if end_date:
+        date_clause += " AND ci.scheduled_at <= %s"
+        date_params += (f"{end_date} 23:59:59",)
+
+    return await _execute_query(
+        f"""
+        SELECT ci.cla_id,
+               COUNT(*) AS total,
+               SUM(ci.types LIKE '%%"urgent"%%') AS urgent_count,
+               SUM(ci.types LIKE '%%"follow-up"%%') AS follow_up_count
+        FROM counseling_info ci
+        WHERE {scope_clause} AND ci.use_yn = 'Y'{date_clause}
+        GROUP BY ci.cla_id
+        """,
+        (scope_param, *date_params),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tool 7: 생활기록부 조회
 # ---------------------------------------------------------------------------
 @tool
 async def query_school_records(stdt_id: str, cla_id: str) -> List[Dict[str, Any]]:
@@ -388,7 +549,7 @@ async def query_school_records(stdt_id: str, cla_id: str) -> List[Dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
-# Tool 6: 학급 전체 명단 (검사 미배정/미응시 학생 포함)
+# Tool 8: 학급 전체 명단 (검사 미배정/미응시 학생 포함)
 # ---------------------------------------------------------------------------
 @tool
 async def query_class_roster(cla_id: str) -> List[Dict[str, Any]]:
@@ -411,40 +572,44 @@ async def query_class_roster(cla_id: str) -> List[Dict[str, Any]]:
         FROM group_member gm
         JOIN group_info gi ON gi.group_id = gm.group_id
         LEFT JOIN (
-            SELECT cla_id, MAX(ord_no) AS ord_no FROM tb_dgnss_info GROUP BY cla_id
+            SELECT cla_id, MAX(ord_no) AS ord_no FROM tb_dgnss_info
+            WHERE paper_idx = %s GROUP BY cla_id
         ) latest ON latest.cla_id = gi.cla_id
         LEFT JOIN tb_dgnss_info di ON di.cla_id = gi.cla_id AND di.ord_no = latest.ord_no
+            AND di.paper_idx = %s
         LEFT JOIN tb_dgnss_result_info ri ON ri.dgnss_id = di.id AND ri.stdt_id = gm.stdt_id
         WHERE gi.cla_id = %s
         ORDER BY gm.member_no
         """,
-        (cla_id,),
+        (_LEARNING_PAPER_IDX, _LEARNING_PAPER_IDX, cla_id),
     )
 
 
 # ---------------------------------------------------------------------------
-# Tool 7: 교사 담당 전체 학급 현황 (L1 대시보드)
+# Tool 9: 교사 담당 전체 학급 현황 (L1 대시보드)
 # ---------------------------------------------------------------------------
 @tool
 async def query_teacher_classes_overview(tc_id: str) -> List[Dict[str, Any]]:
-    """교사가 담당하는 모든 학급의 최신 회차 진행 현황을 조회한다. (L1 전체 대시보드)
+    """교사가 담당하는 모든 학급의 최신 회차(학습종합검사 기준) 진행 현황을 조회한다. (L1 전체 대시보드)
 
     "내가 담당하는 반 중에 검사 미완료인 반 있어?", "어느 반이 위험 학생이 제일 많아?" 같은
     여러 학급을 아우르는 질문 시 호출한다. 특정 학급 하나만 알고 싶다면
-    query_class_dgnss_overview(cla_id)가 더 적합하다.
+    query_class_dgnss_overview(cla_id)가 더 적합하다. 그룹 초대 코드나 자기조절학습검사를
+    포함한 여러 캠페인의 진행/완료 개수(예: "검사하기" 화면의 "진행 중 2개")가 필요하면
+    query_class_exam_campaigns를 사용한다 — 이 도구는 학습종합검사 최신 회차 하나만 본다.
 
     Args:
         tc_id: 교사 고유 ID.
 
     Returns:
-        list[dict]: [{cla_id, school_level, grade, class_number, school_name,
-                       ord_no(최신 회차), total, not_submitted, in_progress, completed,
-                       at_risk_count(주의 등급 LPA 유형 학생 수)}, ...].
+        list[dict]: [{cla_id, invite_code(그룹 초대 코드), school_level, grade, class_number,
+                       school_name, ord_no(학습종합검사 최신 회차), total, not_submitted,
+                       in_progress, completed, at_risk_count(주의 등급 LPA 유형 학생 수)}, ...].
         담당 학급이 없으면 [].
     """
     classes = await _execute_query(
         """
-        SELECT gi.cla_id, gi.school_level, gi.grade, gi.class_number, gi.school_name,
+        SELECT gi.cla_id, gi.invite_code, gi.school_level, gi.grade, gi.class_number, gi.school_name,
                latest.ord_no,
                COALESCE(SUM(ri.eak_stts_cd = 1), 0) AS not_submitted,
                COALESCE(SUM(ri.eak_stts_cd = 2), 0) AS in_progress,
@@ -453,15 +618,18 @@ async def query_teacher_classes_overview(tc_id: str) -> List[Dict[str, Any]]:
         FROM group_info gi
         JOIN user u ON u.user_no = gi.host_user_no
         LEFT JOIN (
-            SELECT cla_id, MAX(ord_no) AS ord_no FROM tb_dgnss_info GROUP BY cla_id
+            SELECT cla_id, MAX(ord_no) AS ord_no FROM tb_dgnss_info
+            WHERE paper_idx = %s GROUP BY cla_id
         ) latest ON latest.cla_id = gi.cla_id
         LEFT JOIN tb_dgnss_info di ON di.cla_id = gi.cla_id AND di.ord_no = latest.ord_no
+            AND di.paper_idx = %s
         LEFT JOIN tb_dgnss_result_info ri ON ri.dgnss_id = di.id
         WHERE u.tc_id = %s AND gi.use_yn = 'Y'
-        GROUP BY gi.cla_id, gi.school_level, gi.grade, gi.class_number, gi.school_name, latest.ord_no
+        GROUP BY gi.cla_id, gi.invite_code, gi.school_level, gi.grade, gi.class_number,
+                 gi.school_name, latest.ord_no
         ORDER BY gi.school_name, gi.grade, gi.class_number
         """,
-        (tc_id,),
+        (_LEARNING_PAPER_IDX, _LEARNING_PAPER_IDX, tc_id),
     )
     if classes and classes[0].get("error"):
         return classes
@@ -490,7 +658,85 @@ async def query_teacher_classes_overview(tc_id: str) -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Tool 8: 학급 내 긴급/관찰 필요 학생 목록
+# Tool 10: 학급 검사 캠페인(회차 x 검사종류) 목록 + 그룹 초대 코드
+# ---------------------------------------------------------------------------
+@tool
+async def query_class_exam_campaigns(
+    cla_id: Optional[str] = None,
+    tc_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """학급의 검사 캠페인(회차 x 검사종류) 목록과 그룹 초대 코드를 조회한다.
+
+    "검사하기" 화면(그룹 카드의 초대 코드, "진행 중 N개"/"완료 M개" 뱃지)에 대한
+    질문 시 호출한다. 한 학급은 회차(ord_no)와 검사종류(paper_idx)의 조합마다 별도의
+    캠페인을 가질 수 있다 — 학습종합검사 1·2차 + 자기조절학습검사 1·2차, 최대 4개까지
+    동시에 존재할 수 있다. query_class_dgnss_overview/query_teacher_classes_overview는
+    학습종합검사 "최신 회차 하나"만 집계하므로, 이 화면처럼 여러 캠페인을 함께 세야 하는
+    질문에는 반드시 이 도구를 사용해야 한다(대체 불가).
+
+    주의: 자기조절학습검사(paper_idx=2)는 이 도구로 캠페인 존재/진행상태 확인까지만
+    가능하다. 그 세부 결과(3대 전략/6개 중분류 점수 등)는 어떤 Tool로도 조회할 수 없으므로,
+    그런 세부 내용을 묻는 질문에는 "아직 데이터로 확인할 수 없다"고 안내하고 창작하지 말 것.
+
+    cla_id만 주면 그 학급의 캠페인만, tc_id만 주면 해당 교사가 담당하는 모든 학급의
+    캠페인을 반환한다(cla_id/tc_id 중 하나는 필수).
+
+    Args:
+        cla_id: 학급 고유 ID (선택, UUID).
+        tc_id: 교사 고유 ID (선택). 여러 학급을 아우르는 질문 시 사용.
+
+    Returns:
+        list[dict]: [{cla_id, invite_code(그룹 초대 코드), paper_idx("1"/"2"),
+                       paper_name(학습종합검사/자기조절학습검사), ord_no, campaign_status
+                       (진행중/완료), st_dt, ed_dt, not_submitted, in_progress_students,
+                       completed_students, total_students}, ...].
+        같은 학급/교사 범위에서 "진행 중"/"완료" 캠페인이 몇 개인지는 campaign_status
+        값으로 직접 세면 된다. cla_id/tc_id가 모두 없으면 [{"error": "MISSING_SCOPE", ...}] 반환.
+    """
+    if not cla_id and not tc_id:
+        return [{"error": "MISSING_SCOPE", "message": "cla_id 또는 tc_id 중 하나는 반드시 지정해야 합니다."}]
+
+    select_body = """
+        SELECT gi.cla_id, gi.invite_code,
+               di.paper_idx,
+               CASE di.paper_idx
+                   WHEN '1' THEN '학습종합검사'
+                   WHEN '2' THEN '자기조절학습검사'
+                   ELSE di.paper_idx
+               END AS paper_name,
+               di.ord_no,
+               CASE di.dgnss_at
+                   WHEN 'Y' THEN '진행중'
+                   WHEN 'N' THEN '완료'
+                   ELSE di.dgnss_at
+               END AS campaign_status,
+               di.dgnss_st_dt AS st_dt, di.dgnss_ed_dt AS ed_dt,
+               SUM(ri.eak_stts_cd = 1) AS not_submitted,
+               SUM(ri.eak_stts_cd = 2) AS in_progress_students,
+               SUM(ri.eak_stts_cd = 3) AS completed_students,
+               COUNT(ri.id) AS total_students
+        FROM group_info gi
+        JOIN tb_dgnss_info di ON di.cla_id = gi.cla_id
+        LEFT JOIN tb_dgnss_result_info ri ON ri.dgnss_id = di.id
+        WHERE {scope_clause} AND gi.use_yn = 'Y'
+        GROUP BY gi.cla_id, gi.invite_code, di.id, di.paper_idx, di.ord_no,
+                 di.dgnss_at, di.dgnss_st_dt, di.dgnss_ed_dt
+        ORDER BY gi.cla_id, di.paper_idx, di.ord_no
+    """
+    if cla_id:
+        return await _execute_query(
+            select_body.format(scope_clause="gi.cla_id = %s"),
+            (cla_id,),
+        )
+    return await _execute_query(
+        select_body.format(scope_clause="gi.cla_id IN (SELECT gi2.cla_id FROM group_info gi2 "
+                                         "JOIN user u ON u.user_no = gi2.host_user_no WHERE u.tc_id = %s)"),
+        (tc_id,),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tool 11: 학급 내 긴급/관찰 필요 학생 목록
 # ---------------------------------------------------------------------------
 @tool
 async def query_class_risk_students(cla_id: str) -> List[Dict[str, Any]]:
@@ -522,9 +768,11 @@ async def query_class_risk_students(cla_id: str) -> List[Dict[str, Any]]:
         FROM group_member gm
         JOIN group_info gi ON gi.group_id = gm.group_id
         JOIN (
-            SELECT cla_id, MAX(ord_no) AS ord_no FROM tb_dgnss_info GROUP BY cla_id
+            SELECT cla_id, MAX(ord_no) AS ord_no FROM tb_dgnss_info
+            WHERE paper_idx = %s GROUP BY cla_id
         ) latest ON latest.cla_id = gi.cla_id
         JOIN tb_dgnss_info di ON di.cla_id = gi.cla_id AND di.ord_no = latest.ord_no
+            AND di.paper_idx = %s
         JOIN tb_dgnss_result_info ri ON ri.dgnss_id = di.id AND ri.stdt_id = gm.stdt_id
         JOIN tb_dgnss_answer a ON a.DGNSS_RESULT_ID = ri.id
         LEFT JOIN tb_dgnss_lpa_result lr ON lr.answer_idx = a.ANSWER_IDX AND lr.status = 'COMPLETED'
@@ -537,7 +785,7 @@ async def query_class_risk_students(cla_id: str) -> List[Dict[str, Any]]:
           )
         ORDER BY gm.member_no
         """,
-        (*_RISK_LPA_CLASS_IDS, cla_id, *_RISK_LPA_CLASS_IDS),
+        (*_RISK_LPA_CLASS_IDS, _LEARNING_PAPER_IDX, _LEARNING_PAPER_IDX, cla_id, *_RISK_LPA_CLASS_IDS),
     )
 
 
@@ -547,10 +795,13 @@ async def query_class_risk_students(cla_id: str) -> List[Dict[str, Any]]:
 mysql_tools_list = [
     query_student_lpa_and_scores,
     query_class_dgnss_overview,
+    query_class_midcategory_scores,
     query_student_memos,
     query_counseling_history,
+    query_counseling_summary,
     query_school_records,
     query_class_roster,
     query_teacher_classes_overview,
+    query_class_exam_campaigns,
     query_class_risk_students,
 ]

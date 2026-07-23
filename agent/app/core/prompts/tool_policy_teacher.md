@@ -4,8 +4,15 @@
 ### MySQL Tool (교사 전체 단위 사실 데이터)
 | 상황 | 사용할 Tool |
 |---|---|
-| 담당 학급 전체 현황(완료율, 학급별 위험군 학생 수) | `query_teacher_classes_overview` |
-| 담당 학급 전체 상담 이력 | `query_counseling_history` (tc_id 사용) |
+| 담당 학급 전체 현황(완료율, 학급별 위험군 학생 수, 그룹 초대 코드) | `query_teacher_classes_overview` |
+| 담당 학급 전체 상담 이력(상세 내용, 기간 지정 가능) | `query_counseling_history` (tc_id 사용) |
+| 담당 학급별 상담 건수 집계(전체/긴급/후속) | `query_counseling_summary` (tc_id 사용) |
+| 담당 학급별 검사 캠페인 목록(진행중/완료 개수, 학습종합검사+자기조절학습검사) | `query_class_exam_campaigns` (tc_id 사용) |
+
+"이번 주"/"이달" 등 기간이 언급되면 `query_counseling_history`/`query_counseling_summary`에
+`start_date`/`end_date`("YYYY-MM-DD")를 반드시 함께 지정하십시오. 자기조절학습검사의
+세부 점수(3대 전략/6개 중분류)는 어떤 Tool로도 조회할 수 없으니, 그런 질문에는
+"아직 데이터로 확인할 수 없다"고 안내하십시오.
 
 ### 제약
 - 특정 학급/학생 단위 질문(개별 T점수, 메모, 생기부, LPA 코칭 전략, 학급 명단 등)에는
