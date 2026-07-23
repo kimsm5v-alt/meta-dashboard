@@ -5,6 +5,7 @@ import { MessageCircleQuestion, X, Sparkles } from 'lucide-react';
 import { DataHelperQuestions } from './DataHelperQuestions';
 import { DataHelperAnswer } from './DataHelperAnswer';
 import { getDataHelperAnswer, type StudentData, type QuestionId } from '../api/dataHelperService';
+import { useCaptureStore } from '@shared/store/useCaptureStore';
 import type { StudentType, SchoolLevel, FactorDeviation } from '@shared/types';
 
 const FabButton = styled.button<{ $isOpen: boolean }>`
@@ -150,6 +151,14 @@ export const DataHelperChatbot: React.FC<DataHelperChatbotProps> = ({
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // 우측 하단 코너 점유를 전역 스토어에 등록 — 전역 FloatingCaptureButton이
+  // 겹치지 않고 이 FAB 위로 쌓이도록 한다(마운트 시 +1, 언마운트 시 -1).
+  useEffect(() => {
+    const { registerBottomRightFab, unregisterBottomRightFab } = useCaptureStore.getState();
+    registerBottomRightFab();
+    return () => unregisterBottomRightFab();
+  }, []);
 
   // 학생이 변경되면 캐시 초기화
   useEffect(() => {

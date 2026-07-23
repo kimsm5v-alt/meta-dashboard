@@ -3,10 +3,15 @@ import { Scissors } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useCaptureStore } from '@shared/store/useCaptureStore';
 
-const Button = styled.button`
+const Button = styled.button<{ $raised: boolean }>`
   position: fixed;
-  right: ${({ theme }) => theme.spacing.xl};
-  bottom: ${({ theme }) => theme.spacing.xl};
+  /* 페이지 전용 우측 하단 FAB(예: DataHelperChatbot: right 1.5rem, 크기 3.5rem)가 있으면
+     그 위로 올려 세로로 쌓되, 가로 중심선을 챗봇 FAB와 맞춘다.
+     - 챗봇 중심 = 오른쪽에서 1.5rem + 3.5rem/2 = 3.25rem
+     - 캡처 버튼(폭 52px=3.25rem)의 중심을 여기에 맞추려면 right = 3.25rem - 1.625rem = 1.625rem
+     - 세로: 챗봇 bottom 1.5rem + 높이 3.5rem + 간격 0.75rem = 5.75rem */
+  right: ${({ $raised, theme }) => ($raised ? '1.625rem' : theme.spacing.xl)};
+  bottom: ${({ $raised, theme }) => ($raised ? '5.75rem' : theme.spacing.xl)};
   z-index: ${({ theme }) => theme.zIndex.sticky};
   display: flex;
   align-items: center;
@@ -34,6 +39,7 @@ const Button = styled.button`
  */
 export const FloatingCaptureButton = () => {
   const openOverlay = useCaptureStore((s) => s.openOverlay);
+  const bottomRightFabCount = useCaptureStore((s) => s.bottomRightFabCount);
   const location = useLocation();
 
   if (location.pathname.startsWith('/ai-room')) return null;
@@ -42,6 +48,7 @@ export const FloatingCaptureButton = () => {
     <Button
       type='button'
       data-capture-ignore='true'
+      $raised={bottomRightFabCount > 0}
       onClick={openOverlay}
       aria-label='화면 캡처해서 AI에게 질문'
     >
