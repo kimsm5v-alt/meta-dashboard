@@ -283,10 +283,15 @@ async def query_class_dgnss_overview(cla_id: str, ord_no: Optional[int] = None) 
     if ord_no is not None:
         resolved_ord_no = ord_no
     else:
-        latest = await _resolve_latest_ord_no(cla_id)
-        if latest and latest[0].get("error"):
-            return {"error": latest[0]["error"], "message": latest[0]["message"]}
-        resolved_ord_no = latest[0]["ord_no"] if latest else None
+        # 이 지점에서 sessions는 비어있지 않음이 보장되고, ORDER BY di.ord_no DESC로
+        # 정렬돼 있으며 _resolve_latest_ord_no와 동일한 테이블·필터(cla_id + paper_idx)를
+        # 조회한다. 따라서 sessions[0]["ord_no"]가 곧 최신 회차이므로, 별도 헬퍼 호출로
+        # 같은 테이블을 다시 조회(중복 라운드트립)하지 않고 이를 재사용한다.
+        resolved_ord_no = sessions[0]["ord_no"]
+        # ord_no가 모두 NULL인 예외적 데이터 상태에서는 최신 회차를 특정할 수 없으므로,
+        # query_class_midcategory_scores와 동일하게 조기 return으로 일관 처리한다.
+        if resolved_ord_no is None:
+            return {"sessions": sessions, "ord_no": None, "distribution": []}
 
     distribution = await _execute_query(
         """
