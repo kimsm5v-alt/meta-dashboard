@@ -159,6 +159,23 @@ async def _execute_query(query: str, params: tuple) -> List[Dict[str, Any]]:
         return [{"error": "UNKNOWN", "message": str(e)}]
 
 
+async def _resolve_latest_ord_no(cla_id: str, paper_idx: str = _LEARNING_PAPER_IDX) -> List[Dict[str, Any]]:
+    """cla_id + paper_idx 조합의 가장 최근 ord_no를 조회한다.
+
+    "최신 회차"의 정의(현재는 단순 MAX(ord_no))를 이 함수 하나로 통일해서,
+    query_class_dgnss_overview/query_class_midcategory_scores가 각자 다른 방식으로
+    최신 회차를 판단하다 향후 정의가 바뀔 때 서로 어긋나는 것을 방지한다.
+
+    Returns:
+        list[dict]: _execute_query와 동일한 에러 규약 — [{"ord_no": int 또는 None}]
+        또는 [{"error": ..., "message": ...}].
+    """
+    return await _execute_query(
+        "SELECT MAX(ord_no) AS ord_no FROM tb_dgnss_info WHERE cla_id = %s AND paper_idx = %s",
+        (cla_id, paper_idx),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tool 1: 학생 LPA 유형 + 38개 요인 T점수 조회
 # ---------------------------------------------------------------------------
@@ -263,7 +280,14 @@ async def query_class_dgnss_overview(cla_id: str, ord_no: Optional[int] = None) 
     if not sessions:
         return {"sessions": [], "ord_no": None, "distribution": []}
 
-    resolved_ord_no = ord_no if ord_no is not None else sessions[0]["ord_no"]
+    if ord_no is not None:
+        resolved_ord_no = ord_no
+    else:
+        latest = await _resolve_latest_ord_no(cla_id)
+        if latest and latest[0].get("error"):
+            return {"error": latest[0]["error"], "message": latest[0]["message"]}
+        resolved_ord_no = latest[0]["ord_no"] if latest else None
+
     distribution = await _execute_query(
         """
         SELECT lr.type_name, lr.school_level, COUNT(*) AS count
@@ -309,10 +333,7 @@ async def query_class_midcategory_scores(cla_id: str, ord_no: Optional[int] = No
     """
     resolved_ord_no = ord_no
     if resolved_ord_no is None:
-        latest = await _execute_query(
-            "SELECT MAX(ord_no) AS ord_no FROM tb_dgnss_info WHERE cla_id = %s AND paper_idx = %s",
-            (cla_id, _LEARNING_PAPER_IDX),
-        )
+        latest = await _resolve_latest_ord_no(cla_id)
         if latest and latest[0].get("error"):
             return {"error": latest[0]["error"], "message": latest[0]["message"]}
         if not latest or latest[0]["ord_no"] is None:
@@ -442,7 +463,8 @@ async def query_counseling_history(
     if cla_id:
         return await _execute_query(
             f"""
-            SELECT ci.cla_id, ci.scheduled_at, ci.status, ci.types, ci.areas, ci.methods, ci.summary
+            SELECT ci.cla_id, ci.scheduled_at, ci.status, ci.types, ci.areas, ci.methods,
+                   ci.summary, ci.next_steps
             FROM counseling_info ci
             WHERE ci.cla_id = %s AND ci.use_yn = 'Y'{date_clause}
             ORDER BY ci.scheduled_at DESC
@@ -452,7 +474,8 @@ async def query_counseling_history(
         )
     return await _execute_query(
         f"""
-        SELECT ci.cla_id, ci.scheduled_at, ci.status, ci.types, ci.areas, ci.methods, ci.summary
+        SELECT ci.cla_id, ci.scheduled_at, ci.status, ci.types, ci.areas, ci.methods,
+               ci.summary, ci.next_steps
         FROM counseling_info ci
         WHERE ci.tc_id = %s AND ci.use_yn = 'Y'{date_clause}
         ORDER BY ci.scheduled_at DESC
@@ -509,8 +532,8 @@ async def query_counseling_summary(
         f"""
         SELECT ci.cla_id,
                COUNT(*) AS total,
-               SUM(ci.types LIKE '%%"urgent"%%') AS urgent_count,
-               SUM(ci.types LIKE '%%"follow-up"%%') AS follow_up_count
+               SUM(JSON_CONTAINS(ci.types, '"urgent"')) AS urgent_count,
+               SUM(JSON_CONTAINS(ci.types, '"follow-up"')) AS follow_up_count
         FROM counseling_info ci
         WHERE {scope_clause} AND ci.use_yn = 'Y'{date_clause}
         GROUP BY ci.cla_id
@@ -696,7 +719,39 @@ async def query_class_exam_campaigns(
     if not cla_id and not tc_id:
         return [{"error": "MISSING_SCOPE", "message": "cla_id 또는 tc_id 중 하나는 반드시 지정해야 합니다."}]
 
-    select_body = """
+    if cla_id:
+        return await _execute_query(
+            """
+            SELECT gi.cla_id, gi.invite_code,
+                   di.paper_idx,
+                   CASE di.paper_idx
+                       WHEN '1' THEN '학습종합검사'
+                       WHEN '2' THEN '자기조절학습검사'
+                       ELSE di.paper_idx
+                   END AS paper_name,
+                   di.ord_no,
+                   CASE di.dgnss_at
+                       WHEN 'Y' THEN '진행중'
+                       WHEN 'N' THEN '완료'
+                       ELSE di.dgnss_at
+                   END AS campaign_status,
+                   di.dgnss_st_dt AS st_dt, di.dgnss_ed_dt AS ed_dt,
+                   SUM(ri.eak_stts_cd = 1) AS not_submitted,
+                   SUM(ri.eak_stts_cd = 2) AS in_progress_students,
+                   SUM(ri.eak_stts_cd = 3) AS completed_students,
+                   COUNT(ri.id) AS total_students
+            FROM group_info gi
+            JOIN tb_dgnss_info di ON di.cla_id = gi.cla_id
+            LEFT JOIN tb_dgnss_result_info ri ON ri.dgnss_id = di.id
+            WHERE gi.cla_id = %s AND gi.use_yn = 'Y'
+            GROUP BY gi.cla_id, gi.invite_code, di.id, di.paper_idx, di.ord_no,
+                     di.dgnss_at, di.dgnss_st_dt, di.dgnss_ed_dt
+            ORDER BY gi.cla_id, di.paper_idx, di.ord_no
+            """,
+            (cla_id,),
+        )
+    return await _execute_query(
+        """
         SELECT gi.cla_id, gi.invite_code,
                di.paper_idx,
                CASE di.paper_idx
@@ -716,21 +771,14 @@ async def query_class_exam_campaigns(
                SUM(ri.eak_stts_cd = 3) AS completed_students,
                COUNT(ri.id) AS total_students
         FROM group_info gi
+        JOIN user u ON u.user_no = gi.host_user_no
         JOIN tb_dgnss_info di ON di.cla_id = gi.cla_id
         LEFT JOIN tb_dgnss_result_info ri ON ri.dgnss_id = di.id
-        WHERE {scope_clause} AND gi.use_yn = 'Y'
+        WHERE u.tc_id = %s AND gi.use_yn = 'Y'
         GROUP BY gi.cla_id, gi.invite_code, di.id, di.paper_idx, di.ord_no,
                  di.dgnss_at, di.dgnss_st_dt, di.dgnss_ed_dt
         ORDER BY gi.cla_id, di.paper_idx, di.ord_no
-    """
-    if cla_id:
-        return await _execute_query(
-            select_body.format(scope_clause="gi.cla_id = %s"),
-            (cla_id,),
-        )
-    return await _execute_query(
-        select_body.format(scope_clause="gi.cla_id IN (SELECT gi2.cla_id FROM group_info gi2 "
-                                         "JOIN user u ON u.user_no = gi2.host_user_no WHERE u.tc_id = %s)"),
+        """,
         (tc_id,),
     )
 
