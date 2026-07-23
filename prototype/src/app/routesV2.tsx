@@ -16,14 +16,11 @@ import { useAuth } from '../features/auth/context/AuthContext';
 // 홈 → teacher-dashboard
 import { TeacherDashboardPage as HomePage } from '../features/teacher-dashboard';
 
-// 검사 > 검사관리/결과보기/학생 상담/변화추적 → assessment (서브탭별로 분기)
+// 검사 > 검사관리/결과보기/변화추적 → assessment (서브탭별로 분기)
 import { AssessmentPage as ExamPage_ } from '../features/assessment';
 const ExamManagementPage = ExamPage_;
 const ExamResultPage = ExamPage_;
 const ExamTrackingPage = ExamPage_;
-
-// 검사 > 학생 상담 → schedule (기존 상담·코칭에서 검사로 이동)
-import { SchedulePage as ExamCounselingPage } from '../features/schedule';
 
 // 코칭 > 학급 코칭/개별 코칭 → counseling-dashboard
 import { ClassCoachingPage, IndividualCoachingPage } from '../features/counseling-dashboard';
@@ -115,14 +112,14 @@ export const AppRoutesV2 = () => (
         교사용 보호 라우트 - 신규 IA 레이아웃
     ======================================== */}
     <Route element={<ProtectedLayoutV2 />}>
-      {/* 홈 (로고 클릭 시 진입) */}
+      {/* 홈 (로고 클릭 시 진입) - GNB는 유지, LNB만 숨김 */}
       <Route path="/home" element={<HomePage />} />
+      <Route path="/HOME" element={<HomePage />} />
 
-      {/* 검사 (검사관리 · 결과보기 · 학생 상담 · 변화추적) */}
+      {/* 검사 (검사관리 · 결과보기 · 변화추적) */}
       <Route path="/exam" element={<Navigate to="/exam/management" replace />} />
       <Route path="/exam/management" element={<ExamManagementPage />} />
       <Route path="/exam/result" element={<ExamResultPage />} />
-      <Route path="/exam/counseling" element={<ExamCounselingPage />} />
       <Route path="/exam/tracking" element={<ExamTrackingPage />} />
 
       {/* 코칭 (학급 코칭 · 개별 코칭) - 독립 GNB */}
@@ -133,7 +130,7 @@ export const AppRoutesV2 = () => (
       {/* 수업 (TBD) */}
       <Route path="/lesson" element={<LessonPage />} />
 
-      {/* AI어시스턴트 (TBD) */}
+      {/* AI 어시스턴트 - GNB 유지, 전체폭 렌더 (LayoutV2에서 사이드바/서브탭 숨김) */}
       <Route path="/ai-assistant" element={<AIAssistantPage />} />
 
       {/* 그룹관리 */}

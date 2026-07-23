@@ -30,6 +30,15 @@ public class TrialMonitorController {
             "이상희", "김소현", "유상은", "이화수", "류은수", "장소정", "정혜윤", "김재희", "김민지",
             "이소현", "이선경", "유지선", "이정현", "신동선", "이소연", "강서영", "이선화", "전서영"
     );
+    /**
+     * 명단과 다른 이름으로 가입한 체험단 교사를 이메일로 식별 (이메일 → 실제 교사 이름).
+     * 예: 류은수="은근히 즐거운 수's일상", 김민지="MJ Kim" 으로 가입.
+     */
+    private static final Map<String, String> EMAIL_TO_NAME = Map.of(
+            "fly0328@gmail.com", "류은수",
+            "mind9108@gmail.com", "김민지"
+    );
+
     /** 가입일 하한 (platform_user.created_at 기준). */
     private static final String SIGNUP_FROM = "2026-07-01 00:00:00";
 
@@ -37,8 +46,8 @@ public class TrialMonitorController {
 
     @GetMapping
     public String dashboard(Model model) {
-        List<Map<String, Object>> accounts =
-                trialMonitorMapper.selectTrialTeacherAccounts(TEACHER_NAMES, SIGNUP_FROM);
+        List<Map<String, Object>> accounts = trialMonitorMapper.selectTrialTeacherAccounts(
+                TEACHER_NAMES, new ArrayList<>(EMAIL_TO_NAME.keySet()), SIGNUP_FROM);
 
         // 이름 기준 집계 — 명단 순서 유지, 미매칭 이름도 '미가입'으로 노출
         Map<String, Map<String, Object>> byName = new LinkedHashMap<>();
@@ -52,7 +61,15 @@ public class TrialMonitorController {
             byName.put(name, row);
         }
         for (Map<String, Object> acc : accounts) {
-            Map<String, Object> row = byName.get((String) acc.get("name"));
+            // 이름이 명단과 다르게 가입한 계정은 이메일로 실제 교사 이름에 재매핑
+            String bucketName = (String) acc.get("name");
+            if (!byName.containsKey(bucketName)) {
+                String mapped = EMAIL_TO_NAME.get((String) acc.get("email"));
+                if (mapped != null) {
+                    bucketName = mapped;
+                }
+            }
+            Map<String, Object> row = byName.get(bucketName);
             if (row == null) {
                 continue; // 명단 밖(동명이인 등) 방어
             }

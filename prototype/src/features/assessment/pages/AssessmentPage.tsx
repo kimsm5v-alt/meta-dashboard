@@ -82,19 +82,26 @@ export const AssessmentPage = () => {
   }, [setSelectedStudent]);
 
   // 학생 클릭 핸들러 (결과보기 > 반에서 학생 선택 시)
+  // MOCK_STUDENT_RESULTS의 id(sr1-1)와 LNB의 MOCK_STUDENTS id(s1)가 다름
+  // 학생 번호(number)를 기반으로 s{number} 형태로 변환하여 LNB와 동기화
   const handleStudentClick = useCallback((studentId: string) => {
     if (!selectedClass) return;
     const results = MOCK_STUDENT_RESULTS[selectedClass.id];
     const studentResult = results?.find(r => r.id === studentId);
     if (studentResult) {
-      setSelectedStudent({ id: studentId, name: studentResult.name });
+      // LNB MOCK_STUDENTS와 호환되는 id 형태로 변환 (s1, s2, ...)
+      const lnbStudentId = `s${studentResult.number}`;
+      setSelectedStudent({ id: lnbStudentId, name: studentResult.name });
       setSelectedStudentResult(studentResult);
+      // 학생 결과보기로 이동 시 스크롤 최상단으로
+      window.scrollTo(0, 0);
     }
   }, [selectedClass, setSelectedStudent]);
 
-  // 학생 네비게이션 핸들러
+  // 학생 네비게이션 핸들러 (이전/다음 학생 이동)
   const handleNavigateStudent = useCallback((studentId: string) => {
     handleStudentClick(studentId);
+    // handleStudentClick 내부에서 scrollTo 처리됨
   }, [handleStudentClick]);
 
   // 이전/다음 학생 계산

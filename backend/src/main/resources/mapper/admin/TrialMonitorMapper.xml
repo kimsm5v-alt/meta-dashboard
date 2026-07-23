@@ -2,11 +2,13 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.vs.meta.admin.mapper.TrialMonitorMapper">
 
-    <!-- 체험단 교사 계정(코호트). 이름 IN + TEACHER + 가입일 조건. 이름당 계정 여러 개 가능.
+    <!-- 체험단 교사 계정(코호트). (이름 IN OR 이메일 IN) + TEACHER + 가입일 조건. 이름당 계정 여러 개 가능.
+         이메일 조건: 명단과 다른 이름으로 가입한 교사를 이메일로 추가 식별(류은수/김민지 등).
          PII/이름은 SSO 스키마(superteacher_core), 가입완료 판정은 superplatform_meta.user 존재 여부. -->
     <select id="selectTrialTeacherAccounts" resultType="map">
         /* TrialMonitorMapper.selectTrialTeacherAccounts */
         SELECT pu.name           AS name
+             , pu.email          AS email
              , pu.public_user_id AS publicUserId
              , pu.created_at      AS createdAt
              , u.user_no          AS userNo
@@ -15,10 +17,18 @@
             LEFT JOIN superplatform_meta.`user` u ON u.sp_user_id = pu.public_user_id
         WHERE pu.user_type = 'TEACHER'
           AND pu.created_at <![CDATA[>=]]> #{signupFrom}
-          AND pu.name IN
-          <foreach item="nm" collection="names" open="(" separator="," close=")">
-              #{nm}
-          </foreach>
+          AND (
+              pu.name IN
+              <foreach item="nm" collection="names" open="(" separator="," close=")">
+                  #{nm}
+              </foreach>
+              <if test="emails != null and !emails.isEmpty()">
+                  OR pu.email IN
+                  <foreach item="em" collection="emails" open="(" separator="," close=")">
+                      #{em}
+                  </foreach>
+              </if>
+          )
         ORDER BY pu.name, pu.created_at
     </select>
 

@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { ThumbsUp, MessageSquare, Lightbulb, Info } from 'lucide-react';
+import { ThumbsUp, MessageSquare, Lightbulb, Info, ChevronRight } from 'lucide-react';
 import type { StudentCoachingData } from '../types';
 import { LPA_TYPE_COLORS } from '../types';
 
@@ -67,6 +67,7 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
   className,
 }) => {
   const { lpaData, typeInfo, strengthPraises, coachingPathway } = data;
+  const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
 
   const topProb = Math.round(lpaData.probabilities[lpaData.predictedType] || 0);
 
@@ -79,17 +80,85 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
     }))
     .sort((a, b) => b.value - a.value);
 
+  // 2차 검사 데이터 존재 여부 (임시로 false)
+  const isRound2Available = false;
+
   return (
     <div className={`space-y-6 ${className || ''}`}>
-      {/* ① 학습 유형 알아보기 - TypeClassification 디자인 적용 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="p-5 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-bold text-gray-900">학습 유형 분류</h3>
-            <LpaInfoTooltip />
-          </div>
+      {/* ① 차수 선택 버튼 */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setSelectedRound(1)}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            selectedRound === 1
+              ? 'bg-primary-600 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          1차 검사
+        </button>
+        <button
+          onClick={() => setSelectedRound(2)}
+          disabled={!isRound2Available}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            selectedRound === 2
+              ? 'bg-primary-600 text-white'
+              : isRound2Available
+                ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+          }`}
+        >
+          2차 검사 {!isRound2Available && '(예정)'}
+        </button>
+      </div>
+
+      {/* ② 개별 코칭 가이드 */}
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-6">개별 코칭 가이드</h3>
+        <div className="flex items-center justify-center gap-10">
+          <StepIndicator
+            step={1}
+            title="진단 검사 결과 확인"
+            subtitle=""
+            active
+          />
+          <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0" />
+          <StepIndicator
+            step={2}
+            title="유형 특징 확인 및 강점 칭찬"
+            subtitle=""
+          />
+          <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0" />
+          <StepIndicator
+            step={3}
+            title="맞춤 코칭 실행"
+            subtitle=""
+          />
         </div>
-        <div className="p-5">
+      </div>
+
+      {/* STEP 1: 학습 유형 알아보기 */}
+      <div className="flex gap-4">
+        {/* 타임라인 좌측 */}
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+            1
+          </div>
+          <div className="w-px bg-gray-300 flex-1 my-2" />
+        </div>
+
+        {/* 우측 컨텐츠 */}
+        <div className="flex-1 space-y-4">
+          <h3 className="text-lg font-bold text-gray-900">진단 검사 결과 확인</h3>
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="p-5 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-gray-900">학습 유형 분류</h3>
+                <LpaInfoTooltip />
+              </div>
+            </div>
+            <div className="p-5">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
             {/* 좌측: 도넛 그래프 (Recharts) */}
             <div className="md:col-span-2 flex items-center justify-center">
@@ -205,16 +274,31 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
             </div>
           </div>
         </div>
+          </div>
+        </div>
       </div>
 
-      {/* ② 이 학생만의 강점, 칭찬해주세요 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <ThumbsUp className="w-5 h-5 text-green-600" />
-          <h3 className="text-base font-semibold text-gray-900">
-            이 학생만의 강점, 칭찬해주세요
-          </h3>
+      {/* STEP 2: 이 학생만의 칭찬 포인트, 인정해 주세요 */}
+      <div className="flex gap-4">
+        {/* 타임라인 좌측 */}
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+            2
+          </div>
+          <div className="w-px bg-gray-300 flex-1 my-2" />
         </div>
+
+        {/* 우측 컨텐츠 */}
+        <div className="flex-1 space-y-4">
+          <h3 className="text-lg font-bold text-gray-900">유형 특징 확인 및 강점 칭찬</h3>
+
+          <div className="bg-white rounded-xl border border-gray-100 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <ThumbsUp className="w-5 h-5 text-green-600" />
+              <h3 className="text-base font-semibold text-gray-900">
+                이 학생만의 칭찬 포인트, 인정해 주세요
+              </h3>
+            </div>
 
         <div className="space-y-4">
           {strengthPraises.map((praise, index) => (
@@ -222,10 +306,10 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
               key={index}
               className="bg-green-50 rounded-lg p-4 border border-green-100"
             >
-              {/* 강점 요인 */}
+              {/* 인정 요인 */}
               <div className="flex items-center gap-2 mb-2">
                 <span className="px-2 py-0.5 bg-green-600 text-white text-xs font-medium rounded">
-                  강점 {index + 1}
+                  인정 {index + 1}
                 </span>
                 <span className="text-sm font-medium text-gray-900">{praise.factor}</span>
                 <span className="text-xs text-gray-500">({praise.area})</span>
@@ -246,16 +330,31 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
             </div>
           ))}
         </div>
+          </div>
+        </div>
       </div>
 
-      {/* ③ 이 학생에게 맞는 코칭, 이렇게 해보세요 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Lightbulb className="w-5 h-5 text-amber-600" />
-          <h3 className="text-base font-semibold text-gray-900">
-            이 학생에게 맞는 코칭, 이렇게 해보세요
-          </h3>
+      {/* STEP 3: 이 학생에게 맞는 코칭, 이렇게 해보세요 */}
+      <div className="flex gap-4">
+        {/* 타임라인 좌측 */}
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+            3
+          </div>
+          <div className="w-px bg-gray-300 flex-1 my-2" />
         </div>
+
+        {/* 우측 컨텐츠 */}
+        <div className="flex-1 space-y-4">
+          <h3 className="text-lg font-bold text-gray-900">맞춤 코칭 실행</h3>
+
+          <div className="bg-white rounded-xl border border-gray-100 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Lightbulb className="w-5 h-5 text-amber-600" />
+              <h3 className="text-base font-semibold text-gray-900">
+                이 학생에게 맞는 코칭, 이렇게 해보세요
+              </h3>
+            </div>
 
         {/* 상단 설명문 */}
         <div className="bg-amber-50 rounded-lg p-4 border border-amber-100 mb-4">
@@ -267,7 +366,7 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
           </div>
           <div className="flex items-center gap-2 mb-2">
             <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
-              보완점
+              맞춤
             </span>
             <span className="text-sm font-medium text-gray-900">{coachingPathway.weakFactor}</span>
             <span className="text-xs text-gray-500">({coachingPathway.area})</span>
@@ -302,7 +401,61 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
             </div>
           ))}
         </div>
+          </div>
+        </div>
       </div>
+    </div>
+  );
+};
+
+/** 스텝 인디케이터 컴포넌트 */
+interface StepIndicatorProps {
+  step: number;
+  title: string;
+  subtitle: string;
+  active?: boolean;
+}
+
+const StepIndicator: React.FC<StepIndicatorProps> = ({ step, title, subtitle, active }) => {
+  // 단계별 색상 (항상 원색)
+  const getStepColor = () => {
+    switch (step) {
+      case 1:
+        return 'bg-violet-600 text-white';
+      case 2:
+        return 'bg-blue-500 text-white';
+      case 3:
+        return 'bg-green-500 text-white';
+      default:
+        return 'bg-primary-600 text-white';
+    }
+  };
+
+  const getTextColor = () => {
+    switch (step) {
+      case 1:
+        return 'text-violet-600';
+      case 2:
+        return 'text-blue-500';
+      case 3:
+        return 'text-green-500';
+      default:
+        return 'text-primary-600';
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center text-center min-w-[140px]">
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold mb-1 ${getStepColor()}`}>
+        {step}
+      </div>
+      <p className={`text-xs font-medium mb-0.5 ${getTextColor()}`}>
+        STEP {step}
+      </p>
+      <p className="text-sm font-medium text-gray-900">
+        {title}
+      </p>
+      {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
     </div>
   );
 };

@@ -12,7 +12,7 @@ import type { StudentType } from '@/shared/types';
 // ============================================================
 
 export const MOCK_EXAM_OVERVIEW_SUMMARY: ExamOverviewSummary = {
-  totalClasses: 3,
+  totalClasses: 4,
   inProgressExams: 2,
   completedExams: 4,
   pendingStudents: 8,
@@ -84,6 +84,28 @@ export const MOCK_EXAM_OVERVIEW_ROWS: ExamOverviewRow[] = [
     submissionRate: 100,
     status: 'completed',
     groupId: 'group-3',
+  },
+  {
+    id: '7',
+    className: '2-6반',
+    examName: '학습종합검사',
+    round: 1,
+    submittedCount: 0,
+    totalCount: 25,
+    submissionRate: 0,
+    status: 'not_started',
+    groupId: 'group-4',
+  },
+  {
+    id: '8',
+    className: '2-6반',
+    examName: '학습종합검사',
+    round: 2,
+    submittedCount: 0,
+    totalCount: 25,
+    submissionRate: 0,
+    status: 'not_started',
+    groupId: 'group-4',
   },
 ];
 
@@ -234,6 +256,36 @@ export const MOCK_CLASS_EXAM_DATA: Record<string, ClassExamData> = {
       },
     ],
   },
+  'group-4': {
+    groupId: 'group-4',
+    className: '2-6반',
+    rounds: [
+      {
+        round: 1,
+        status: 'not_started',
+        submittedCount: 0,
+        totalCount: 25,
+        students: MOCK_STUDENTS_CLASS_1.slice(0, 25).map((s, i) => ({
+          ...s,
+          id: `s4-${i + 1}`,
+          submitted: false,
+          submittedAt: undefined,
+        })),
+      },
+      {
+        round: 2,
+        status: 'not_started',
+        submittedCount: 0,
+        totalCount: 25,
+        students: MOCK_STUDENTS_CLASS_1.slice(0, 25).map((s, i) => ({
+          ...s,
+          id: `s4-r2-${i + 1}`,
+          submitted: false,
+          submittedAt: undefined,
+        })),
+      },
+    ],
+  },
 };
 
 // ============================================================
@@ -380,6 +432,10 @@ export const MOCK_STUDENT_RESULTS: Record<string, StudentExamResult[]> = {
   // group-3: 1차/2차 모두 완료
   'group-3': MOCK_STUDENTS_CLASS_1.slice(0, 24).map((s, i) =>
     generateStudentResult(`sr3-${i + 1}`, s.number, s.name, 2)
+  ),
+  // group-4: 1차/2차 모두 미시작
+  'group-4': MOCK_STUDENTS_CLASS_1.slice(0, 25).map((s, i) =>
+    generateStudentResult(`sr4-${i + 1}`, s.number, s.name, 0)
   ),
 };
 

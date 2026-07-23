@@ -22,6 +22,7 @@ public interface TrialMonitorMapper {
      * user_no 가 NULL 이면 학심정(superplatform_meta) 미가입 계정.
      */
     List<Map<String, Object>> selectTrialTeacherAccounts(@Param("names") List<String> names,
+                                                         @Param("emails") List<String> emails,
                                                          @Param("signupFrom") String signupFrom);
 
     /** ② 교사(host_user_no)들이 생성한 그룹 목록 + 그룹별 학생 수. */

@@ -41,6 +41,16 @@ export const COUNSELING_STATUS_LABELS: Record<CounselingStatus, string> = {
   cancelled: '취소',
 };
 
+/** 상담 방법 */
+export type CounselingMethod = 'face-to-face' | 'phone' | 'video' | 'group';
+
+export const COUNSELING_METHOD_LABELS: Record<CounselingMethod, string> = {
+  'face-to-face': '대면상담',
+  phone: '전화상담',
+  video: '화상상담',
+  group: '집단상담',
+};
+
 // ============================================================
 // 상담 기록
 // ============================================================
@@ -318,4 +328,55 @@ export interface LearningStatus {
   selfStudyTime: SelfStudyTime;
   /** 학습고민상담사 (124번) */
   learningCounselor: LearningCounselor;
+}
+
+// ============================================================
+// 관찰 메모
+// ============================================================
+
+/** 관찰 카테고리 */
+export type ObservationCategory = 'behavior' | 'academic' | 'social' | 'emotion' | 'other';
+
+export const OBSERVATION_CATEGORY_LABELS: Record<ObservationCategory, string> = {
+  behavior: '행동',
+  academic: '학습',
+  social: '또래관계',
+  emotion: '정서',
+  other: '기타',
+};
+
+/** 관찰 메모 기록 */
+export interface ObservationRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentNumber: number;
+  classId: string;
+  className: string;
+  category: ObservationCategory;
+  title: string;
+  content: string;
+  observedAt: Date;
+  createdAt: Date;
+}
+
+// ============================================================
+// 통합 이력 (상담 + 관찰)
+// ============================================================
+
+/** 통합 이력 아이템 타입 */
+export type RecordType = 'counseling' | 'observation';
+
+/** 통합 이력 아이템 */
+export interface UnifiedRecord {
+  id: string;
+  type: RecordType;
+  studentId: string;
+  date: Date;
+  /** 상담: area, 관찰: category */
+  category: string;
+  /** 상담: summary, 관찰: content */
+  content: string;
+  /** 원본 데이터 참조 */
+  originalRecord: CounselingRecord | ObservationRecord;
 }

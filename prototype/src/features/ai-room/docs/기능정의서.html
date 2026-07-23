@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 어시스턴트 기능 정의서</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: #f5f6fa; color: #1f2430;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', system-ui, sans-serif;
+  line-height: 1.7; -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px 96px; }
+.doc { background: #fff; border: 1px solid #ececf3; border-radius: 16px; padding: 48px 56px; box-shadow: 0 1px 3px rgba(20,20,50,.04); }
+h1 { font-size: 30px; font-weight: 800; margin: 0 0 8px; letter-spacing: -.02em; }
+h2 { font-size: 22px; font-weight: 800; margin: 44px 0 14px; padding-bottom: 8px; border-bottom: 2px solid #f0eff7; letter-spacing: -.01em; }
+h3 { font-size: 17px; font-weight: 700; margin: 28px 0 10px; color: #2a2f3c; }
+h4 { font-size: 15px; font-weight: 700; margin: 20px 0 8px; color: #4b5162; }
+p { margin: 10px 0; }
+a { color: #6d28d9; text-decoration: none; }
+a:hover { text-decoration: underline; }
+ul, ol { margin: 10px 0; padding-left: 22px; }
+li { margin: 4px 0; }
+blockquote { margin: 14px 0; padding: 10px 16px; background: #faf7ff; border-left: 3px solid #c9b8f5; border-radius: 0 8px 8px 0; color: #555; }
+blockquote p { margin: 4px 0; }
+code { background: #f4f2fb; color: #6d28d9; padding: 2px 6px; border-radius: 5px; font-size: .9em; font-family: 'SFMono-Regular', Menlo, Consolas, monospace; }
+pre { background: #1e1b2e; color: #e7e3f5; padding: 16px 18px; border-radius: 12px; overflow-x: auto; font-size: 13px; line-height: 1.6; }
+pre code { background: none; color: inherit; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 14px; display: block; overflow-x: auto; }
+th, td { border: 1px solid #ececf3; padding: 9px 12px; text-align: left; vertical-align: top; }
+th { background: #f7f6fc; font-weight: 700; }
+tr:nth-child(even) td { background: #fbfaff; }
+hr { border: 0; border-top: 1px solid #ecebf3; margin: 36px 0; }
+img { max-width: 100%; height: auto; border: 1px solid #e6e6ef; border-radius: 12px; margin: 14px 0 6px; box-shadow: 0 6px 24px rgba(30,20,60,.08); display: block; }
+.doc > p > img { margin-top: 8px; }
+</style></head>
+<body><div class="wrap"><article class="doc"><h1>AI 어시스턴트 기능 정의서</h1>
+<blockquote>
+<p>META 학습심리정서검사 교사용 <strong>AI 어시스턴트</strong> 프로토타입 기능 정의서
+대상: 개발 리뷰용 | 작성 기준: prototype</p>
+</blockquote>
+<hr>
+<h2>0. 개요</h2>
+<p>교사가 검사 결과 화면 맥락에서 즉시 질문하거나(플로팅 챗봇), 전용 페이지에서 대화를 수행할 수 있는 AI 어시스턴트입니다. 구성은 두 가지입니다.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>기능</th>
+<th>형태</th>
+<th>진입점</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>A</strong></td>
+<td>플로팅 챗봇</td>
+<td>서비스 화면 위 오버레이</td>
+<td>우측 하단 플로팅 버블</td>
+</tr>
+<tr>
+<td><strong>B</strong></td>
+<td>AI 어시스턴트 페이지</td>
+<td>GNB 하위 전체폭 단독 화면</td>
+<td>상단 GNB의 부엉이 아이콘</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>A와 B는 대화 히스토리를 공유</strong>합니다. 플로팅 챗봇에서 나눈 대화가 어시스턴트 페이지 히스토리에 남습니다.</li>
+<li>코드 위치: <code>prototype/src/features/ai-room/</code></li>
+</ul>
+<h3>현재 구현 성격 (중요)</h3>
+<ul>
+<li><strong>AI 응답은 mock</strong>입니다. <code>services/assistantService.ts</code>가 지연 후 정해진 마크다운을 반환합니다. <strong>실제 LLM(Gemini) 연동은 미구현</strong>이며, 반환 형태(<code>{ content, isReference }</code>)만 유지하면 UI 수정 없이 교체 가능합니다.</li>
+<li><strong>학급/학생 데이터는 mock</strong>입니다(<code>data/mockClasses.ts</code>, 3개 반). 실제 API 연동 필요.</li>
+<li><strong>화면 캡처는 영역 선택까지만</strong> 구현(실제 픽셀 캡처 아님). 상세는 A-5 참고.</li>
+</ul>
+<hr>
+<h2>1. 공통 사항</h2>
+<h3>1-1. 데이터 모델 (<code>types.ts</code>)</h3>
+<pre><code class="language-ts">interface ChatMessage {
+  id: string;
+  role: &#39;user&#39; | &#39;bot&#39;;
+  content: string;          // 마크다운 문자열
+  targets?: string;         // 질문 대상 표기 (예: &#39;6학년 1반 전체&#39;)
+  hasCapture?: boolean;     // 화면 캡처 첨부 여부
+  isReference?: boolean;    // &#39;AI 분석 · 참고용&#39; 배지
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  group: &#39;오늘&#39; | &#39;지난 7일&#39; | &#39;이전&#39;;
+  messages: ChatMessage[];
+  screen?: string;          // 플로팅 챗봇에서 질의한 화면 라벨 (예: &#39;결과보기&#39;)
+}
+
+// 봇 응답 (API 교체 시 이 형태만 유지)
+interface BotResponse { content: string; isReference?: boolean; }
+</code></pre>
+<h3>1-2. 대화 히스토리 공유 스토어 (<code>utils/conversationStore.ts</code>)</h3>
+<ul>
+<li>모듈 레벨 스토어 + <code>useSyncExternalStore</code> 구독. A/B가 동일한 대화 목록을 공유합니다.</li>
+<li>API: <code>conversationStore.get()</code>, <code>.subscribe()</code>, <code>.update(updater)</code>, <code>useConversations()</code></li>
+<li><strong>주의</strong>: 새로고침 시 초기 시드로 리셋(영속화 미구현). 실제 구현 시 서버/스토리지 연동 필요.</li>
+</ul>
+<h3>1-3. AI 서비스 경계 (<code>services/assistantService.ts</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>함수</th>
+<th>역할</th>
+<th>교체 지점</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>askAssistant(question, context?)</code></td>
+<td>대화 응답</td>
+<td>→ 실제 LLM 호출로 교체</td>
+</tr>
+<tr>
+<td><code>generateSchoolRecord(name, tone)</code></td>
+<td>생기부 문구 초안</td>
+<td>(생기부 탭은 현재 &#39;준비 중&#39;)</td>
+</tr>
+<tr>
+<td><code>getTargetQuestions(...)</code></td>
+<td>대상별 추천질문</td>
+<td>현재 미사용(참고용)</td>
+</tr>
+</tbody></table>
+<h3>1-4. 화면 컨텍스트 · 화면별 추천 질문 (<code>utils/useScreenContext.ts</code>, <code>data/screenQuestions.ts</code>)</h3>
+<ul>
+<li>현재 라우트에서 화면 키를 파생(<code>pathToScreenKey</code>)해 화면 라벨과 추천 질문을 제공합니다.</li>
+<li><strong>결과보기·학생상담</strong>은 LNB에서 학생 선택 시 학생 단위 질문으로 교체됩니다(<code>resolveScreenQuestions(screenKey, hasStudent)</code>).</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>화면</th>
+<th>라우트</th>
+<th align="center">학생 선택 반영</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>홈 / 검사관리 / 변화추적 / 학급코칭 / 수업자료실</td>
+<td>각 라우트</td>
+<td align="center">—</td>
+</tr>
+<tr>
+<td>결과보기</td>
+<td><code>/exam/result</code></td>
+<td align="center">✅</td>
+</tr>
+<tr>
+<td>학생 상담</td>
+<td><code>/exam/counseling</code></td>
+<td align="center">✅</td>
+</tr>
+<tr>
+<td>개별 코칭</td>
+<td><code>/coaching/individual</code></td>
+<td align="center">(학생 단위 고정)</td>
+</tr>
+</tbody></table>
+<h3>1-5. 개인정보(PII) 정책</h3>
+<ul>
+<li>정책상 이름·학번·생년월일·학교명은 AI 전송 시 마스킹 대상입니다(프로젝트 공통 규칙).</li>
+<li><strong>현 프로토타입은 mock 응답이라 실제 전송/마스킹 로직 미적용</strong>. 실제 API 연동 시 <code>shared/utils/piiMasking.ts</code> 등과 연계 필요.</li>
+</ul>
+<hr>
+<h2>2. A. 플로팅 챗봇</h2>
+<p>파일: <code>components/floating/FloatingChatbot.tsx</code> (+ <code>CaptureOverlay.tsx</code>, <code>Toast.tsx</code>)
+마운트: <code>app/LayoutV2.tsx</code>에서 보호 화면 위에 오버레이 (단, <code>/ai-assistant</code> 화면 제외)</p>
+<h3>A-1. 보기 모드 (4종)</h3>
+<table>
+<thead>
+<tr>
+<th>모드</th>
+<th>설명</th>
+<th>치수·동작</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>버블</td>
+<td>접힌 진입점</td>
+<td>52×52, 우하단 고정. 클릭 시 <strong>코너 모드로 열림</strong></td>
+</tr>
+<tr>
+<td>입력바</td>
+<td>한 줄 빠른 질문</td>
+<td>폭 388. 로고·캡처·입력·전송·⊞·✕</td>
+</tr>
+<tr>
+<td>코너</td>
+<td>기본 대화 패널</td>
+<td>폭 388(최소), 높이 <code>100vh−GNB−여백</code>. <strong>이동·리사이즈 가능</strong></td>
+</tr>
+<tr>
+<td>전체화면</td>
+<td>몰입 모드</td>
+<td><code>min(920px,92vw)</code>, 딤 배경, 내용 760 중앙. 이동·리사이즈 불가</td>
+</tr>
+</tbody></table>
+<ul>
+<li>모드 전환: 헤더 <code>⊞</code> 팝오버(버블 제외). <code>✕</code>는 세션 종료 후 버블 복귀.</li>
+<li>버블/입력바에서 <strong>질문 전송 시 자동으로 코너 모드</strong>로 전환.</li>
+</ul>
+<h3>A-2. 창 조작 (코너 전용)</h3>
+<ul>
+<li><strong>이동</strong>: 헤더 드래그(뷰포트 clamp). <strong>높이</strong>: 상단 핸들(하단 고정, 최소 240). <strong>폭</strong>: 좌측 핸들(우측 고정, 최소 388).</li>
+</ul>
+<h3>A-3. 추천 질문 (하이브리드)</h3>
+<ul>
+<li><strong>빈 화면</strong>: 인사말 + <strong>화면 캡처 CTA</strong>(강조) + 화면별 추천 질문 세로 리스트.</li>
+<li><strong>대화 중</strong>: 입력창 위 <code>이어서 물어보기</code> 가로 칩. <strong>이미 물어본 질문은 제외</strong>.</li>
+<li>화면 이동/학생 선택 시 질문 세트 즉시 교체(1-4 참조).</li>
+</ul>
+<h3>A-4. 메시지 UI</h3>
+<ul>
+<li>사용자: 우측 말풍선. 봇: 전체폭 블록(<code>--c-bg-hover</code> 배경 + 상하 보더) + 마크다운 + <code>AI 분석 · 참고용</code> 배지.</li>
+<li>타이핑 인디케이터: 점 3개 + <code>분석 중</code>.</li>
+</ul>
+<h3>A-5. 화면 캡처 질문</h3>
+<ol>
+<li><code>✂ 캡처</code> 클릭 → 전체화면 crosshair 오버레이(<code>질문할 영역을 드래그하세요 · ESC로 취소</code>).</li>
+<li>드래그로 영역 선택(최소 20×20). 선택 영역 크기(w×h) 기록.</li>
+<li>완료 시 <strong>첨부 미리보기 카드</strong>(영역 비율 썸네일 + <code>{w}×{h}px</code>) 표시, 입력창 placeholder가 <code>이 영역에 대해 무엇이 궁금하세요?</code>로 전환.</li>
+<li>전송 메시지에 <code>캡처 포함</code> 배지.</li>
+</ol>
+<ul>
+<li><strong>미구현</strong>: 실제 화면 픽셀 캡처(현재 영역 선택·치수만). 실제 구현 시 <code>html2canvas</code> 등 또는 백엔드 캡처 연동 필요.</li>
+</ul>
+<h3>A-6. 히스토리 저장 (화면 태그)</h3>
+<ul>
+<li>챗봇에서 첫 질문 시 공유 스토어에 대화 생성, <strong>질의한 화면 라벨을 <code>screen</code>으로 태그</strong>. 이후 메시지는 해당 대화에 누적.</li>
+<li><code>✕</code>(세션 종료) 시 로컬 대화는 초기화(히스토리에는 이미 저장). 재오픈 시 새 대화로 시작.</li>
+</ul>
+<h3>A-7. 현재 화면 표시</h3>
+<ul>
+<li>헤더에 <code>🖥 {화면명}</code> 배지로 현재 보고 있는 화면을 표시.</li>
+</ul>
+<hr>
+<h2>3. B. AI 어시스턴트 페이지</h2>
+<p>파일: <code>pages/AIRoomPage.tsx</code> (+ <code>AssistantChatTab.tsx</code>, <code>SchoolRecordTab.tsx</code>)
+라우트: <code>/ai-assistant</code> (레거시 <code>/ai-room</code> → 리다이렉트)</p>
+<h3>B-1. 진입 · 레이아웃</h3>
+<ul>
+<li>GNB의 <strong>부엉이 아이콘</strong> 클릭 → <code>/ai-assistant</code>. <strong>상단 GNB는 그대로 유지</strong>되고, 좌측 스코프 사이드바·서브탭은 숨긴 채 전체폭으로 렌더(<code>LayoutV2</code>가 라우트 인지 처리).</li>
+<li>구조: 좌측 LNB(240px) + 본문(현재 대화 제목 바 + 탭 콘텐츠).</li>
+</ul>
+<h3>B-2. 좌측 LNB</h3>
+<ol>
+<li><strong>＋ 새 대화</strong> — 비어있는 &#39;새 대화&#39;가 있으면 재사용.</li>
+<li><strong>모드 내비</strong> — <code>AI 대화</code> / <code>생활기록부 작성</code>.</li>
+<li><strong>대화 히스토리</strong> — <code>오늘 / 지난 7일 / 이전</code> 그룹. 항목 hover 시 <strong>⋮ 메뉴</strong>:<ul>
+<li><strong>제목 편집</strong>(인라인 입력, Enter 저장/Esc 취소), <strong>삭제</strong>(활성 대화 삭제 시 자동 전환, 전부 삭제 시 새 대화 생성).</li>
+</ul>
+</li>
+</ol>
+<h3>B-3. 탭 1 — AI 대화</h3>
+<ul>
+<li><strong>메시지 UI</strong>: 사용자 말풍선 / 봇은 <strong>부엉이 헤더 + 전체폭 블록 + 마크다운 + 참고용 배지</strong>.</li>
+<li><strong>대상 선택</strong>: 입력창 위 <code>＋ 대상</code>(솔리드 보라 알약) → <strong>대상 선택 모달</strong>(3-1). <code>@</code> 입력 시에도 모달 오픈. 선택 결과는 <strong>학급 단위 요약 칩</strong>(<code>6학년 1반 전체</code>, <code>6학년 2반 3명</code>, ✕로 제거). 전송 메시지에 <code>👥 대상명</code> 표기.</li>
+<li><strong>대화 내보내기</strong>: 제목 바 우측 <code>↓ 내보내기</code> → 대화 내용을 <strong>마크다운(.md) 파일로 다운로드</strong>(질문/답변/대상/질의화면 포함).</li>
+</ul>
+<h4>3-1. 대상 선택 모달 (<code>components/TargetPicker.tsx</code>)</h4>
+<p>다중 학급 + 대인원 대응 모달(720px).</p>
+<ul>
+<li><strong>좌: 학급 목록</strong> — 최상단 <code>전체 학급</code>(모든 학급 일괄) + 학급별 체크박스(학급 전체) · <strong>부분 선택 표시</strong>(indeterminate) · 인원수(<code>n/total</code>). 행 클릭 시 우측에 해당 학급 학생 노출.</li>
+<li><strong>우: 학생 그리드</strong> — 2~3열 + <strong>검색</strong>(이름 필터) + <strong>전체 선택/해제</strong>(현재 검색 결과 일괄).</li>
+<li><strong>하단</strong>: <code>선택 N명</code> 요약 + <code>전체 해제</code> + <code>완료</code>. 배경 클릭·ESC로 닫기.</li>
+<li>선택 모델: <code>TargetSelection = { byClass: Record&lt;classId, studentIds[]&gt; }</code> (학급 전체는 전원 id로 표현).</li>
+</ul>
+<h3>B-4. 탭 2 — 생활기록부 작성 (준비 중)</h3>
+<ul>
+<li>현재 <strong>&#39;준비 중인 기능입니다&#39; 안내 + 화면 블러 가림 처리</strong>로 노출(<code>SchoolRecordTab</code> 위에 오버레이).</li>
+<li>정식 오픈 시 오버레이 제거 + 실제 생성 로직 연동.</li>
+</ul>
+<hr>
+<h2>4. 기능 목록 · 상태</h2>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>기능</th>
+<th align="center">상태</th>
+<th>주요 파일</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A</td>
+<td>4모드 보기 전환</td>
+<td align="center">✅</td>
+<td><code>floating/FloatingChatbot.tsx</code></td>
+</tr>
+<tr>
+<td>A</td>
+<td>코너 이동·리사이즈</td>
+<td align="center">✅</td>
+<td>〃</td>
+</tr>
+<tr>
+<td>A</td>
+<td>화면별 추천 질문(학생선택 반영)</td>
+<td align="center">✅</td>
+<td><code>useScreenContext.ts</code>, <code>data/screenQuestions.ts</code></td>
+</tr>
+<tr>
+<td>A</td>
+<td>화면 캡처 질문</td>
+<td align="center">🟡 영역선택만</td>
+<td><code>floating/CaptureOverlay.tsx</code></td>
+</tr>
+<tr>
+<td>A</td>
+<td>히스토리 저장(화면 태그)</td>
+<td align="center">✅</td>
+<td><code>utils/conversationStore.ts</code></td>
+</tr>
+<tr>
+<td>B</td>
+<td>GNB 유지 전체폭 렌더</td>
+<td align="center">✅</td>
+<td><code>app/LayoutV2.tsx</code></td>
+</tr>
+<tr>
+<td>B</td>
+<td>대화 히스토리(편집/삭제)</td>
+<td align="center">✅</td>
+<td><code>pages/AIRoomPage.tsx</code></td>
+</tr>
+<tr>
+<td>B</td>
+<td>대화 내보내기(.md)</td>
+<td align="center">✅</td>
+<td>〃</td>
+</tr>
+<tr>
+<td>B</td>
+<td>대상 선택 모달(다중 학급)</td>
+<td align="center">✅</td>
+<td><code>components/TargetPicker.tsx</code></td>
+</tr>
+<tr>
+<td>B</td>
+<td>생활기록부 작성</td>
+<td align="center">🟥 준비 중</td>
+<td><code>pages/SchoolRecordTab.tsx</code></td>
+</tr>
+<tr>
+<td>공통</td>
+<td>AI 응답</td>
+<td align="center">🟡 mock</td>
+<td><code>services/assistantService.ts</code></td>
+</tr>
+<tr>
+<td>공통</td>
+<td>학급/학생 데이터</td>
+<td align="center">🟡 mock</td>
+<td><code>data/mockClasses.ts</code></td>
+</tr>
+<tr>
+<td>공통</td>
+<td>PII 마스킹</td>
+<td align="center">🟥 미적용</td>
+<td>(연동 필요)</td>
+</tr>
+</tbody></table>
+<p>✅ 구현 완료 · 🟡 부분/mock · 🟥 미구현</p>
+<hr>
+<h2>5. 개발 이관 시 확인사항</h2>
+<ol>
+<li><strong>AI 응답 연동</strong>: <code>askAssistant</code>를 실제 LLM 호출로 교체. 반환 형태(<code>{ content, isReference }</code>)·마크다운 유지 시 UI 무수정.</li>
+<li><strong>학급/학생 데이터</strong>: <code>mockClasses.ts</code> → 실제 API. <code>TargetSelection</code>(classId→studentIds) 구조 확인.</li>
+<li><strong>히스토리 영속화</strong>: <code>conversationStore</code>는 메모리 스토어. 서버/스토리지 연동 필요.</li>
+<li><strong>화면 캡처</strong>: 실제 픽셀 캡처 방식 결정(FE 라이브러리 vs 백엔드).</li>
+<li><strong>PII 마스킹</strong>: 실제 전송 경로에 마스킹 적용.</li>
+<li><strong>생활기록부</strong>: 오버레이 제거 시점·실제 생성 로직.</li>
+<li><strong>공용 영역 의존</strong>: <code>app/LayoutV2.tsx</code>, <code>app/routesV2.tsx</code>(라우트·스코프 시스템)와 결합. 스코프의 <code>selectedStudent</code>를 플로팅 챗봇 추천질문에 사용.</li>
+</ol>
+<hr>
+<p><strong>작성</strong>: 기획 · 프로토타입 기준 | 스크린샷은 <code>스토리보드(SB).md</code> 참조</p>
+</article></div></body></html>
