@@ -96,7 +96,7 @@ export async function fetchExamList(
   _tcId: string,
   _paperIdx?: string,
 ): Promise<ExamListItem[]> {
-  let endpoint = `/api/dgnss/tc/info?claId=${claId}`;
+  const endpoint = `/api/dgnss/tc/info?claId=${claId}`;
 
   const res = await apiClient.get<ExamListResponse | ExamListItem[]>(endpoint);
   const resultData = res.resultData;
@@ -123,7 +123,7 @@ export async function fetchExamDetail(dgnssId: number): Promise<ExamDetailRespon
  * 검사 종료
  * POST /api/dgnss/tc/end
  */
-export async function endExam(dgnssId: number, _paperIdx?: string): Promise<void> {
+export async function endExam(dgnssId: number): Promise<void> {
   await apiClient.post('/api/dgnss/tc/end', { dgnssId });
 }
 
@@ -174,7 +174,9 @@ export async function downloadSampleExcel(dgnssId: number): Promise<void> {
     responseType: 'blob',
   });
   const blob = new Blob([res.data as BlobPart], {
-    type: res.headers['content-type'] ?? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    type:
+      res.headers['content-type'] ??
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

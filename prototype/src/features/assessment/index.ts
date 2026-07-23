@@ -1,7 +1,3 @@
 export { AssessmentPage } from './pages/AssessmentPage';
-export {
-  GeneralSection,
-  AssessmentList,
-  CreateAssessmentModal,
-  AssessmentCodeModal,
-} from './components';
+export * from './components';
+export * from './types';

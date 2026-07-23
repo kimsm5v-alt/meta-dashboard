@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { initAuth } from '@shared/lib/authClient';
 import { App } from '@app/App';
 
-const PUBLIC_PATHS = ['/', '/guest', '/group/join', '/join', '/exam', '/login', '/auth/complete-profile'];
+const PUBLIC_PATHS = ['/', '/guest', '/group/join', '/join', '/exam', '/login'];
 
 async function bootstrap() {
   // 1) SDK 초기화
@@ -21,17 +21,12 @@ async function bootstrap() {
           { headers: { Authorization: `Bearer ${auth.getAccessToken()}` } },
         );
         const data = await res.json();
-        if (data.resultData?.needsProfile) {
-          // 학심정 user 미등록 → 프로필 입력 페이지로
-          const originalPath = result.returnPath || '/dashboard';
-          window.history.replaceState(null, '', `/auth/complete-profile?redirect=${encodeURIComponent(originalPath)}`);
-        } else {
-          // 등록된 사용자 → returnPath 또는 역할 기반 리다이렉트
-          const defaultPath = data.resultData?.roleCode === 'STUDENT' ? '/student/exams' : '/dashboard';
-          window.history.replaceState(null, '', result.returnPath || defaultPath);
-        }
+        // 등록 여부는 BE resolveOrProvision 이 자동 처리 → returnPath 또는 역할 기반 리다이렉트
+        const defaultPath =
+          data.resultData?.roleCode === 'STUDENT' ? '/student/exams' : '/assessment';
+        window.history.replaceState(null, '', result.returnPath || defaultPath);
       } catch {
-        window.history.replaceState(null, '', result.returnPath || '/dashboard');
+        window.history.replaceState(null, '', result.returnPath || '/assessment');
       }
     } else {
       window.history.replaceState(null, '', '/login');

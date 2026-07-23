@@ -33,7 +33,8 @@ build_image:meta-dashboard-front:
     - when: never
   variables:
     APP_NAME: "meta-dashboard-fe"
-    DOCKERFILE_PATH: "frontend/Dockerfile"
+    # vs-develop(GitLab CI)은 dev 전용 Dockerfile로 빌드 → .env.development 사용
+    DOCKERFILE_PATH: "frontend/Dockerfile.dev"
 
 update_manifest:meta-dashboard-backend:
   extends: update_manifest

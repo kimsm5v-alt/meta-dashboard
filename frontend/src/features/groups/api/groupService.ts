@@ -29,10 +29,13 @@ interface BackendGroupListItem {
   grade: string;
   classNumber: number;
   schoolName?: string;
+  schoolCode?: string;
   inviteCode: string;
   myRole: 'HOST' | 'STUDENT';
   memberCount: number;
   createdAt: string;
+  /** 본인(학생) 출석번호 — findGroupList 가 본인 멤버 행을 JOIN 해 내려줌. HOST/미가입이면 없음 */
+  memberNo?: number;
 }
 
 /** GET /group/detail 응답의 groupInfo 필드 (SQL 쿼리 반환값) */
@@ -63,6 +66,8 @@ interface BackendGroupMember {
   memberNo?: number;
   memberType: 'STUDENT' | 'GUEST';
   status: 'ACTIVE' | 'LEFT' | 'KICKED' | 'ARCHIVED';
+  /** Auth PII 마스킹 사유 (NONE/NOT_CONSENTED/WITHDRAWN/NOT_FOUND). 미동의자는 name/email null. */
+  maskedReason?: string;
   joinedAt?: string;
   leftAt?: string;
 }
@@ -112,11 +117,13 @@ const toFrontendGroup = (item: BackendGroupListItem): Group => ({
   grade: parseInt(item.grade, 10),
   classNumber: item.classNumber,
   schoolName: item.schoolName,
+  schoolCode: item.schoolCode,
   inviteCode: item.inviteCode,
   ownerId: '',
   ownerName: '',
   memberCount: item.memberCount,
   myRole: item.myRole === 'HOST' ? 'owner' : 'member',
+  memberNo: item.memberNo,
   createdAt: new Date(item.createdAt),
 });
 
@@ -142,8 +149,9 @@ const toFrontendMember = (m: BackendGroupMember): GroupMember => ({
   groupId: '',
   userId: m.userNo != null ? String(m.userNo) : null,
   stdtId: m.stdtId,
-  name: m.nickname,
+  name: m.nickname ?? '', // 미동의(NOT_CONSENTED) 멤버는 Auth 가 name=null → 패널에서 '비공개' 표시
   email: m.email,
+  maskedReason: m.maskedReason as GroupMember['maskedReason'],
   gender: m.gender === 'M' || m.gender === 'F' ? m.gender : undefined,
   memberNo: m.memberNo,
   memberType: m.memberType === 'GUEST' ? 'guest' : 'member',
@@ -207,10 +215,7 @@ export const createGroup = async (
  * 내 그룹 목록 조회
  * @param includeInactive true면 탈퇴/방출된 그룹도 포함
  */
-export const getMyGroups = async (
-  _userId: string,
-  includeInactive = false,
-): Promise<Group[]> => {
+export const getMyGroups = async (_userId: string, includeInactive = false): Promise<Group[]> => {
   const url = includeInactive ? '/group/list?includeInactive=true' : '/group/list';
   const res = await apiClient.get<BackendGroupListItem[]>(url);
   return (res.resultData ?? []).map(toFrontendGroup);

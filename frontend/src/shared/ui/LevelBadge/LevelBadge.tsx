@@ -17,6 +17,7 @@ interface ColorConfig {
  * 정적 요인: 높을수록 좋음 → 높음=초록, 낮음=빨강
  * 부적 요인: 낮을수록 좋음 → 높음=빨강, 낮음=초록 (색상 반전)
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const COLORS_POSITIVE: Record<TLevel, ColorConfig> = {
   매우높음: { bg: '#d1fae5', text: '#047857' },
   높음: { bg: '#d1f4e0', text: '#059669' },
@@ -25,6 +26,7 @@ export const COLORS_POSITIVE: Record<TLevel, ColorConfig> = {
   매우낮음: { bg: '#fee2e2', text: '#b91c1c' },
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const COLORS_NEGATIVE: Record<TLevel, ColorConfig> = {
   매우높음: { bg: '#fee2e2', text: '#b91c1c' },
   높음: { bg: '#fed7aa', text: '#ea580c' },

@@ -33,7 +33,7 @@ spring:
       max-lifetime: 1800000
       leak-detection-threshold: 0
       master:
-        driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME}
+        driver-class-name: net.sf.log4jdbc.sql.jdbcapi.DriverSpy
         jdbc-url: ${META_API_DATASOURCE_MASTER_URL}
         username: ${META_API_DATASOURCE_MASTER_USERNAME}
         password: ${META_API_DATASOURCE_MASTER_PASSWORD}
@@ -41,7 +41,7 @@ spring:
         maximum-pool-size: 50
         minimum-idle: 10
       slave:
-        driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME}
+        driver-class-name: net.sf.log4jdbc.sql.jdbcapi.DriverSpy
         jdbc-url: ${META_API_DATASOURCE_SLAVE_URL}
         username: ${META_API_DATASOURCE_SLAVE_USERNAME}
         password: ${META_API_DATASOURCE_SLAVE_PASSWORD}
@@ -156,6 +156,18 @@ sso:
     enabled: ${SSO_POLL_ENABLED:false}
     limit: ${SSO_POLL_LIMIT:500}
 
+# ===== IDP 그룹 동기화 (group-from-idp) =====
+# enabled        : 그룹 동기화 활성화. 기본 false — ENV 로 켠다 (점진 배포).
+#                  사전조건: IdP oauth2_client.scopes 에 groups:read 부여
+#                          + migrations/01-sync-prep.sql 적용 (sp_group_id, provisioned, GROUP_CHANGES 커서).
+# snapshot-limit : 부트스트랩/전체 재동기화 page size (IdP max 500).
+# feed-limit     : 변경 피드 page size (IdP max 1000).
+# 주기는 GroupSyncScheduler(1분) / GroupFullResyncScheduler(일 1회 04시) @Scheduled cron 고정.
+group-sync:
+  enabled: ${GROUP_SYNC_ENABLED:false}
+  snapshot-limit: ${GROUP_SYNC_SNAPSHOT_LIMIT:100}
+  feed-limit: ${GROUP_SYNC_FEED_LIMIT:500}
+
 key:
   salt:
     main: ${KEY_SALT_MAIN:}
@@ -210,6 +222,12 @@ neo4j:
   uri: ${DGNSS_NEO4J_URI:bolt://localhost:7687}
   username: ${DGNSS_NEO4J_USERNAME:neo4j}
   password: ${DGNSS_NEO4J_PASSWORD:test1234}
+
+# ===== NEIS 학교기본정보 Open API =====
+# 검사 기본정보 입력의 학교 검색 모달이 프록시 호출. api-key 는 시크릿 — 개발/운영 env(NEIS_API_KEY)로 주입(하드코딩 금지).
+neis:
+  base-url: ${NEIS_BASE_URL:https://open.neis.go.kr}
+  api-key: ${NEIS_API_KEY:}
 
 # ===== QCH(Quality Coverage Hub) 외부 로그 적재 =====
 # 모든 API 호출을 QCH /api/v1/ingest/trace 로 best-effort 비동기 발행. 가이드: backend/docs/doc-1444.md

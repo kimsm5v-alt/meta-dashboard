@@ -92,7 +92,8 @@ const buildStudentContextMarkdown = (data: StudentData): string => {
   const typeInfo = getTypeInfo(data.predictedType, data.schoolLevel);
   const typeProb = Math.round(data.typeProbabilities[data.predictedType] || 0);
 
-  const schoolData = LPA_PROFILE_DATA[data.schoolLevel];
+  const schoolLevel2 = data.schoolLevel === '고등' ? '중등' : (data.schoolLevel as '초등' | '중등');
+  const schoolData = LPA_PROFILE_DATA[schoolLevel2];
   const allTypesInfo = schoolData.types
     .map((t) => {
       const priorProb = Math.round((schoolData.priors[t.name] ?? 0) * 100);
@@ -212,6 +213,20 @@ const buildQuestion = (questionId: QuestionId, data: StudentData): string => {
 // 메인 함수
 // ============================================================
 
+export const getDataHelperFreeAnswer = async (
+  question: string,
+  data: StudentData,
+  userId?: string,
+): Promise<string> => {
+  const studentContext = buildStudentContextMarkdown(data);
+  const sessionId = `data-helper-free-${Date.now()}`;
+  const contextData = {
+    context: `${SYSTEM_PROMPT_DATA_HELPER}\n\n---\n\n${studentContext}`,
+  };
+  const response = await agentChat(question, sessionId, contextData, undefined, undefined, userId);
+  return response.response;
+};
+
 /**
  * 질문 ID에 맞는 AI 답변 생성
  *
@@ -223,6 +238,7 @@ const buildQuestion = (questionId: QuestionId, data: StudentData): string => {
 export const getDataHelperAnswer = async (
   questionId: QuestionId,
   data: StudentData,
+  userId?: string,
 ): Promise<string> => {
   const questionText = buildQuestion(questionId, data);
   const studentContext = buildStudentContextMarkdown(data);
@@ -236,6 +252,6 @@ export const getDataHelperAnswer = async (
     }),
   };
 
-  const response = await agentChat(questionText, sessionId, contextData);
+  const response = await agentChat(questionText, sessionId, contextData, undefined, undefined, userId);
   return response.response;
 };

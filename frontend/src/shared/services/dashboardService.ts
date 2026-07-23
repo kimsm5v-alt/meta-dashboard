@@ -11,9 +11,17 @@
  */
 
 import { apiRequest } from './apiClient';
-import type { SchoolLevel, SchoolLevelCode, StudentType } from '@shared/types';
+import type {
+  Assessment,
+  Class,
+  SchoolLevel,
+  SchoolLevelCode,
+  Student,
+  StudentType,
+} from '@shared/types';
 import { classifyStudent, getTypeDeviations } from '@shared/utils/lpaClassifier';
 import { checkAttention } from '@shared/utils/attentionChecker';
+import { createSubmittedStudentIdSet, hasSubmittedRound } from './roundSubmissions';
 
 // ============================================================
 // API 응답 타입
@@ -129,6 +137,26 @@ export interface ModerationPath {
   className?: string;
   schoolLevel?: string;
   classDescription?: string;
+  category?: string; // '강점' | '보완점'
+  zFactorType?: 'positive' | 'negative'; // Z 요인 성질
+}
+
+export interface Weakness {
+  factorName: string;
+  factorType: 'positive' | 'negative';
+  individualT: number;
+  groupT: number;
+  deviation: number;
+  direction: 'positive' | 'negative';
+}
+
+export interface Strength {
+  factorName: string;
+  factorType: 'positive' | 'negative';
+  individualT: number;
+  groupT: number;
+  deviation: number;
+  direction: 'positive' | 'negative';
 }
 
 export interface GraphRecommendation {
@@ -145,6 +173,8 @@ export interface GraphRecommendation {
   };
   recommendationCount: number;
   moderationPaths: ModerationPath[];
+  strengths?: Strength[];
+  weaknesses?: Weakness[];
 }
 
 export type RecommendationByOrd = Record<string, GraphRecommendation>;
@@ -292,6 +322,52 @@ function convertSectionsToTScores(sections: AnalysisSectionItem[]): number[] {
   return tScores;
 }
 
+// ============================================================
+// 자기조절학습검사(paperIdx='2') SECTION_ID → 요인 인덱스 매핑 (20개)
+// shared/data/selfregFactors.ts의 index 순서와 일치
+// ============================================================
+
+const SELFREG_SECTION_ID_TO_INDEX: Record<string, number> = {
+  // 동기전략
+  '20-22-01-01-01-0': 0, // 성장마인드셋
+  '20-22-01-01-02-0': 1, // 학업효능감
+  '20-22-01-01-03-0': 2, // 학습동기
+  '20-22-01-02-01-0': 3, // 성적부담조절
+  '20-22-01-02-02-0': 4, // 공부부담조절
+  '20-22-01-02-03-0': 5, // 실패부담조절
+  // 인지전략
+  '20-22-02-01-01-0': 6, // 계획능력
+  '20-22-02-01-02-0': 7, // 점검능력
+  '20-22-02-01-03-0': 8, // 조절능력
+  '20-22-02-02-01-0': 9, // 이해기술
+  '20-22-02-02-02-0': 10, // 기억기술
+  '20-22-02-02-03-0': 11, // 집중기술
+  // 행동전략
+  '20-22-03-01-01-0': 12, // 자기칭찬
+  '20-22-03-01-02-0': 13, // 도움구하기
+  '20-22-03-01-03-0': 14, // 학습지속성
+  '20-22-03-02-01-0': 15, // 공부환경
+  '20-22-03-02-02-0': 16, // 시간관리
+  '20-22-03-02-03-0': 17, // 수업태도
+  '20-22-03-02-04-0': 18, // 노트하기
+  '20-22-03-02-05-0': 19, // 시험준비
+};
+
+function convertSelfregSectionsToTScores(sections: AnalysisSectionItem[]): number[] {
+  const tScores: number[] = new Array(20).fill(50);
+
+  for (const section of sections) {
+    if (section.DEPTH !== 5) continue;
+
+    const index = SELFREG_SECTION_ID_TO_INDEX[section.SECTION_ID];
+    if (index !== undefined) {
+      tScores[index] = Math.round(section.tScore);
+    }
+  }
+
+  return tScores;
+}
+
 function getReliabilityWarnings(info: StudentInfoItem | AnalysisSectionItem): string[] {
   const warnings: string[] = [];
 
@@ -384,6 +460,65 @@ export async function fetchClassAnalysisRaw(
   );
 
   return response.resultData[String(ordNo)] ?? [];
+}
+
+/**
+ * 자기조절 반 집계 응답의 명명 키 → 요인 인덱스 (0~19)
+ * 교사 tc/analysis 는 학생 st/analysis(SECTION_ID 배열)와 달리 명명 키 객체를 반환한다.
+ * selfregFactors.ts의 index 순서와 일치.
+ */
+const SELFREG_CLASS_KEYS: string[] = [
+  // 동기전략
+  'mindSet', // 0 성장마인드셋
+  'efficacy', // 1 학업효능감
+  'motivation', // 2 학습동기
+  'gradeLvl', // 3 성적부담조절
+  'styLvl', // 4 공부부담조절
+  'failLvl', // 5 실패부담조절
+  // 인지전략
+  'planAbil', // 6 계획능력
+  'inspecAbil', // 7 점검능력
+  'contrlAbil', // 8 조절능력
+  'compreSkil', // 9 이해기술
+  'memrySkil', // 10 기억기술
+  'intenSkil', // 11 집중기술
+  // 행동전략
+  'selfPraise', // 12 자기칭찬
+  'help', // 13 도움구하기
+  'lrnConti', // 14 학습지속성
+  'styEnvi', // 15 공부환경
+  'timeCtrl', // 16 시간관리
+  'styAtti', // 17 수업태도
+  'note', // 18 노트하기
+  'test', // 19 시험준비
+];
+
+/**
+ * 자기조절학습검사(paperIdx='2') 반 평균 분석
+ * 20개 요인 class-average T-score 반환 (값이 없으면 null)
+ */
+export async function fetchSelfregClassAnalysis(
+  claId: string,
+  ordNo: number = 1,
+): Promise<number[] | null> {
+  const response = await apiRequest<AnalysisResponse>(
+    `/api/dgnss/tc/analysis?claId=${claId}&paperIdx=2&ordNo=${ordNo}`,
+  );
+
+  // 반 집계는 명명 키 객체 형태 (배열 아님)
+  const roundData = response.resultData[String(ordNo)] as unknown as
+    | Record<string, number>
+    | undefined;
+  if (!roundData || typeof roundData !== 'object') return null;
+
+  const tScores = SELFREG_CLASS_KEYS.map((key) => {
+    const v = roundData[key];
+    return typeof v === 'number' ? Math.round(v) : 50;
+  });
+
+  // 전부 기본값(50)이면 데이터 없음으로 간주
+  if (!tScores.some((t) => t !== 50)) return null;
+  return tScores;
 }
 
 export async function fetchStudentAnalysis(
@@ -495,7 +630,7 @@ export async function fetchStudentFullAnalysis(
     if (!tScores.some((t) => t !== 50)) return null;
 
     const lpaTopEntry = lpaTopMap?.[String(ordNo)];
-    const recEntry = (recommendationByOrd?.[String(ordNo)]) as GraphRecommendation | undefined;
+    const recEntry = recommendationByOrd?.[String(ordNo)] as GraphRecommendation | undefined;
     const rawLpaTypeName = lpaTopEntry?.lpaTypeName ?? null;
     const apiTypeProbabilities = lpaTopEntry ? buildApiTypeProbabilities(lpaTopEntry) : null;
     return {
@@ -506,6 +641,55 @@ export async function fetchStudentFullAnalysis(
       midCategoryScores: extractMidCategoryScores(roundData),
       answerIdx: lpaTopEntry?.answerIdx ?? recEntry?.answerIdx ?? null,
       recommendations: recommendationByOrd,
+    };
+  };
+
+  return {
+    round1: parseRound(1),
+    round2: parseRound(2),
+  };
+}
+
+// ============================================================
+// 자기조절학습검사(paperIdx='2') 분석 조회
+// 종합검사와 달리 20개 요인, LPA 유형 없음
+// ============================================================
+
+export interface SelfregRoundAnalysis {
+  /** 자기조절 20개 요인 T-score (index 0~19) */
+  tScores: number[];
+  reliabilityWarnings: string[];
+  answerIdx: number | null;
+}
+
+export async function fetchSelfregFullAnalysis(
+  classId: string,
+  stdtId: string,
+  graphYn: 'Y' | 'N' = 'N',
+): Promise<{ round1: SelfregRoundAnalysis | null; round2: SelfregRoundAnalysis | null }> {
+  const response = await apiRequest<AnalysisResponse>(
+    `/api/dgnss/st/analysis?claId=${classId}&stdtId=${stdtId}&paperIdx=2&ordNo=2&graphYn=${graphYn}`,
+  );
+
+  const rawResultData = response.resultData as Record<string, unknown>;
+  const lpaTopMap = rawResultData['lpaTop'] as Record<string, LpaTopData> | undefined;
+  const recommendationByOrd = rawResultData['recommendationByOrd'] as
+    | RecommendationByOrd
+    | undefined;
+
+  const parseRound = (ordNo: 1 | 2): SelfregRoundAnalysis | null => {
+    const roundData = response.resultData[String(ordNo)];
+    if (!roundData || roundData.length === 0) return null;
+
+    const tScores = convertSelfregSectionsToTScores(roundData);
+    if (!tScores.some((t) => t !== 50)) return null;
+
+    const lpaTopEntry = lpaTopMap?.[String(ordNo)];
+    const recEntry = recommendationByOrd?.[String(ordNo)] as GraphRecommendation | undefined;
+    return {
+      tScores,
+      reliabilityWarnings: getReliabilityWarnings(roundData[0]),
+      answerIdx: lpaTopEntry?.answerIdx ?? recEntry?.answerIdx ?? null,
     };
   };
 
@@ -534,7 +718,7 @@ export function convertToAssessment(
     | null
     | undefined,
   schoolLevel: SchoolLevel,
-): import('@shared/types').Assessment {
+): Assessment {
   const tScores = data?.tScores;
   const reliabilityWarnings = data?.reliabilityWarnings ?? [];
   const midCategoryScores = data?.midCategoryScores ?? null;
@@ -543,8 +727,9 @@ export function convertToAssessment(
     tScores && Array.isArray(tScores) && tScores.length === 38 ? tScores : new Array(38).fill(50);
 
   const classification = classifyStudent(safeTScores, schoolLevel);
-  // 백엔드가 계산한 유형명이 있으면 우선 사용, 없으면 프론트엔드 재계산 결과 사용
-  const predictedType = (data?.lpaTypeName ?? classification.predictedType) as StudentType;
+  // 백엔드가 계산한 유형명이 있으면 우선 사용
+  // lpaTypeName이 없으면 프론트엔드 계산값 사용 (고등학교는 "미지원")
+  const predictedType = (data?.lpaTypeName || classification.predictedType) as StudentType;
   // API lpaTop 확률이 있으면 우선 사용 — 유형명과 확률 출처를 일치시켜 카드/도넛 불일치 방지
   const typeProbabilities = data?.apiTypeProbabilities ?? classification.allProbabilities;
   const deviations = getTypeDeviations(safeTScores, predictedType, schoolLevel, 3);
@@ -567,6 +752,37 @@ export function convertToAssessment(
   };
 }
 
+/**
+ * 자기조절학습검사(20요인) 전용 Assessment 변환
+ * 종합검사와 달리 LPA 유형/도형 분류가 없으므로 유형 관련 필드는 비워둔다.
+ */
+export function convertSelfregToAssessment(
+  studentId: string,
+  round: 1 | 2,
+  data: (SelfregRoundAnalysis & { answerIdx?: number | null }) | null | undefined,
+): Assessment {
+  const tScores =
+    data?.tScores && Array.isArray(data.tScores) && data.tScores.length === 20
+      ? data.tScores
+      : new Array(20).fill(50);
+
+  return {
+    id: `${studentId}-r${round}`,
+    studentId,
+    round,
+    assessedAt: new Date(),
+    tScores,
+    predictedType: '미지원' as StudentType, // 자기조절검사는 유형 미제공
+    typeConfidence: 0,
+    typeProbabilities: {},
+    deviations: [],
+    reliabilityWarnings: data?.reliabilityWarnings ?? [],
+    attentionResult: { needsAttention: false, reasons: [] },
+    midCategoryScores: null,
+    answerIdx: data?.answerIdx ?? null,
+  };
+}
+
 export async function buildClassFromAPI(
   claId: string,
   grade: number,
@@ -575,12 +791,20 @@ export async function buildClassFromAPI(
   dgnssId: number,
   round2DgnssId?: number,
   schoolLevelCode?: SchoolLevelCode,
-): Promise<import('@shared/types').Class | null> {
+): Promise<Class | null> {
   try {
     const studentInfoList = await fetchStudentInfoList(dgnssId, '1', 1);
     if (studentInfoList.length === 0) {
       return null;
     }
+
+    const round2StudentInfoList = round2DgnssId
+      ? round2DgnssId === dgnssId
+        ? studentInfoList
+        : await fetchStudentInfoList(round2DgnssId, '1', 1)
+      : [];
+    const round2SubmittedStudentIds = createSubmittedStudentIdSet(round2StudentInfoList);
+    const hasRound1Exam = !round2DgnssId || round2DgnssId !== dgnssId;
 
     const studentPromises = studentInfoList.map(async (info) => {
       const fullAnalysis = await fetchStudentFullAnalysis(claId, info.stdtId, '1');
@@ -589,22 +813,31 @@ export async function buildClassFromAPI(
 
     const studentResults = await Promise.all(studentPromises);
 
-    const students: import('@shared/types').Student[] = studentResults
-      .filter(({ fullAnalysis }) => {
+    const students: Student[] = studentResults
+      .filter(({ info, fullAnalysis }) => {
         const hasValidR1 =
-          fullAnalysis.round1?.tScores && Array.isArray(fullAnalysis.round1.tScores);
+          hasRound1Exam &&
+          fullAnalysis.round1?.tScores &&
+          Array.isArray(fullAnalysis.round1.tScores);
         const hasValidR2 =
-          fullAnalysis.round2?.tScores && Array.isArray(fullAnalysis.round2.tScores);
+          round2DgnssId &&
+          hasSubmittedRound(info.stdtId, round2SubmittedStudentIds) &&
+          fullAnalysis.round2?.tScores &&
+          Array.isArray(fullAnalysis.round2.tScores);
         return hasValidR1 || hasValidR2;
       })
       .map(({ info, fullAnalysis }) => {
-        const assessments: import('@shared/types').Assessment[] = [];
+        const assessments: Assessment[] = [];
 
-        if (fullAnalysis.round1?.tScores) {
+        if (hasRound1Exam && fullAnalysis.round1?.tScores) {
           assessments.push(convertToAssessment(info.stdtId, 1, fullAnalysis.round1, schoolLevel));
         }
 
-        if (fullAnalysis.round2?.tScores) {
+        if (
+          round2DgnssId &&
+          hasSubmittedRound(info.stdtId, round2SubmittedStudentIds) &&
+          fullAnalysis.round2?.tScores
+        ) {
           assessments.push(convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel));
         }
 
@@ -643,6 +876,12 @@ export async function buildClassFromAPI(
     const needAttentionCount = students.filter((s) =>
       s.assessments.some((a) => a.attentionResult.needsAttention),
     ).length;
+    const round1SubmittedCount = students.filter((s) =>
+      s.assessments.some((a) => a.round === 1),
+    ).length;
+    const round2SubmittedCount = students.filter((s) =>
+      s.assessments.some((a) => a.round === 2),
+    ).length;
 
     return {
       id: claId,
@@ -657,16 +896,13 @@ export async function buildClassFromAPI(
         assessedStudents,
         typeDistribution,
         needAttentionCount,
-        round1Completed: assessedStudents > 0,
-        round2Completed: students.some((s) => s.assessments.some((a) => a.round === 2)),
+        round1Completed: round1SubmittedCount > 0,
+        round2Completed: round2SubmittedCount > 0,
         examStatus: {
-          round1: assessedStudents > 0 ? '종료' : '시작전',
-          round2: students.some((s) => s.assessments.some((a) => a.round === 2))
-            ? '종료'
-            : '시작전',
+          round1: round1SubmittedCount > 0 ? '종료' : '시작전',
+          round2: round2SubmittedCount > 0 ? '종료' : '시작전',
         },
-        round2SubmittedCount: students.filter((s) => s.assessments.some((a) => a.round === 2))
-          .length,
+        round2SubmittedCount,
         dgnssIds: {
           round1: dgnssId,
           round2: round2DgnssId,
@@ -688,7 +924,7 @@ export interface L2DashboardData {
   studentInfoList: StudentInfoItem[];
   classTScores: number[];
   needAttention: NeedStudentsResponse;
-  students: import('@shared/types').Student[];
+  students: Student[];
 }
 
 export async function fetchL2DashboardData(
@@ -696,35 +932,49 @@ export async function fetchL2DashboardData(
   claId: string,
   schoolLevel: SchoolLevel,
   grade: number,
+  paperIdx: '1' | '2' = '1', // '1': 학습심리정서검사, '2': 자기조절학습검사
 ): Promise<L2DashboardData> {
+  const isSelfreg = paperIdx === '2';
+
+  // 자기조절검사(paperIdx=2)는 반/학생 집계 구조가 종합검사와 달라 전용 함수 사용
   const [examDetail, studentInfoList, classTScores, needAttention] = await Promise.all([
     fetchExamDetail(dgnssId),
-    fetchStudentInfoList(dgnssId, '1', 1),
-    fetchClassAnalysis(claId, '1', 1),
-    fetchNeedAttentionStudents(dgnssId, '1'),
+    fetchStudentInfoList(dgnssId, paperIdx, 1),
+    isSelfreg
+      ? fetchSelfregClassAnalysis(claId, 1).then((r) => r ?? new Array(20).fill(50))
+      : fetchClassAnalysis(claId, paperIdx, 1),
+    fetchNeedAttentionStudents(dgnssId, paperIdx),
   ]);
 
-  const studentAnalysisPromises = studentInfoList.map(async (info) => {
-    const fullAnalysis = await fetchStudentFullAnalysis(claId, info.stdtId, '1');
-    return { info, fullAnalysis };
-  });
+  const students: Student[] = await Promise.all(
+    studentInfoList.map(async (info) => {
+      const assessments: Assessment[] = [];
 
-  const studentResults = await Promise.all(studentAnalysisPromises);
-
-  const students: import('@shared/types').Student[] = studentResults.map(
-    ({ info, fullAnalysis }) => {
-      const assessments: import('@shared/types').Assessment[] = [];
-
-      if (fullAnalysis.round1?.tScores) {
-        const r1data = {
-          ...fullAnalysis.round1,
-          answerIdx: fullAnalysis.round1.answerIdx ?? info.answerIdx ?? null,
-        };
-        assessments.push(convertToAssessment(info.stdtId, 1, r1data, schoolLevel));
-      }
-
-      if (fullAnalysis.round2?.tScores) {
-        assessments.push(convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel));
+      if (isSelfreg) {
+        const selfreg = await fetchSelfregFullAnalysis(claId, info.stdtId);
+        if (selfreg.round1?.tScores) {
+          assessments.push(
+            convertSelfregToAssessment(info.stdtId, 1, {
+              ...selfreg.round1,
+              answerIdx: selfreg.round1.answerIdx ?? info.answerIdx ?? null,
+            }),
+          );
+        }
+        if (selfreg.round2?.tScores) {
+          assessments.push(convertSelfregToAssessment(info.stdtId, 2, selfreg.round2));
+        }
+      } else {
+        const fullAnalysis = await fetchStudentFullAnalysis(claId, info.stdtId, paperIdx);
+        if (fullAnalysis.round1?.tScores) {
+          const r1data = {
+            ...fullAnalysis.round1,
+            answerIdx: fullAnalysis.round1.answerIdx ?? info.answerIdx ?? null,
+          };
+          assessments.push(convertToAssessment(info.stdtId, 1, r1data, schoolLevel));
+        }
+        if (fullAnalysis.round2?.tScores) {
+          assessments.push(convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel));
+        }
       }
 
       const infoReliabilityWarnings = getReliabilityWarnings(info);
@@ -742,7 +992,7 @@ export async function fetchL2DashboardData(
         grade,
         assessments,
       };
-    },
+    }),
   );
 
   return {

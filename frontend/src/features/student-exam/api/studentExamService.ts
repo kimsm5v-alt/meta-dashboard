@@ -14,11 +14,15 @@ function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListIte
   const status = mapExamStatus(item.dgnssAt, item.submAt, item.eakAt);
   const isFinished = status === 'completed' || status === 'result_ready';
 
+  // 검사지 종류에 따라 검사명 생성 (응시 플로우 색상 구분 및 카드 표시에 사용)
+  const paperLabel = item.paperIdx === '2' ? '자기조절학습검사' : '학습종합검사';
+
   return {
     dgnssId: item.dgnssId,
     dgnssResultId: item.dgnssResultId,
     ordNo,
-    name: `${ordNo}차 학습심리정서검사`,
+    paperIdx: item.paperIdx,
+    name: `${ordNo}차 ${paperLabel}`,
     status,
     progress: isFinished ? 100 : 0,
     answeredCount: isFinished ? TOTAL_QUESTIONS : 0,

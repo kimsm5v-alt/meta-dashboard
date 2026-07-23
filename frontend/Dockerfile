@@ -14,8 +14,10 @@ RUN npm install && npm install @rollup/rollup-linux-x64-musl --optional
 # 3) 빌드에 필요한 frontend 소스만 복사
 COPY frontend/ ./frontend/
 
-# 4) 빌드
-RUN npm run build --workspace=frontend
+# 4) 빌드 (운영 모드 고정 → .env.production 사용)
+#    운영(vs-prod, Jenkins)은 이 파일을 사용한다.
+#    개발(vs-develop, GitLab CI)은 frontend/Dockerfile.dev = build:dev 사용.
+RUN npm run build:prod --workspace=frontend
 
 # Production stage
 FROM nginx:stable-alpine

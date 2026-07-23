@@ -3,7 +3,7 @@
  * 학생이 자신의 검사 현황을 확인하고 응시/결과 조회하는 페이지
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
@@ -13,6 +13,7 @@ import {
   RefreshCw as Restart,
   CheckCircle2,
   Clock,
+  Brain,
 } from 'lucide-react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
@@ -20,6 +21,41 @@ import { useAuth } from '@features/auth/model/AuthContext';
 import { getMyGroups } from '@features/groups/api/groupService';
 import { getStudentExamList, getStatusLabel, getStatusColor } from '../api/studentExamService';
 import type { StudentExamListItem } from '../types';
+
+// ============================================================
+// 검사 섹션 정의
+// ============================================================
+
+interface ExamSectionDef {
+  paperIdx: string;
+  label: string;
+  desc: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  resultPath: (exam: StudentExamListItem) => string;
+}
+
+const EXAM_SECTIONS: ExamSectionDef[] = [
+  {
+    paperIdx: '1',
+    label: '학습종합검사',
+    desc: '학습심리·정서 38개 요인 종합 분석',
+    color: '#7c3aed',
+    bgColor: '#ede9fe',
+    borderColor: '#c4b5fd',
+    resultPath: (e) => `/student/result/comprehensive/${e.dgnssResultId}`,
+  },
+  {
+    paperIdx: '2',
+    label: '자기조절학습검사',
+    desc: '자기조절 학습전략 20개 요인 분석',
+    color: '#009F88',
+    bgColor: '#f0fdf4',
+    borderColor: '#86efac',
+    resultPath: (e) => `/student/result/selfreg/${e.dgnssResultId}`,
+  },
+];
 
 // ============================================================
 // Styled Components
@@ -284,6 +320,63 @@ const HintBox = styled.div`
   color: #1d4ed8;
 `;
 
+const SectionBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.md};
+`;
+
+const SectionHeader = styled.div<{ $color: string; $bg: string; $border: string }>`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
+  background: ${({ $bg }) => $bg};
+  border: 1px solid ${({ $border }) => $border};
+  border-radius: ${({ theme }) => theme.radius.xl};
+`;
+
+const SectionIconBox = styled.div<{ $color: string }>`
+  width: 32px;
+  height: 32px;
+  border-radius: ${({ theme }) => theme.radius.lg};
+  background: ${({ $color }) => $color}22;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    color: ${({ $color }) => $color};
+  }
+`;
+
+const SectionLabel = styled.span<{ $color: string }>`
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  color: ${({ $color }) => $color};
+`;
+
+const SectionDesc = styled.span`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin-left: ${({ theme }) => theme.spacing.xs};
+`;
+
+const SectionCount = styled.span<{ $color: string }>`
+  margin-left: auto;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  color: ${({ $color }) => $color};
+`;
+
+const SectionsStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.xl};
+`;
+
 // ============================================================
 // ExamCard
 // ============================================================
@@ -388,12 +481,33 @@ const ExamCard: React.FC<ExamCardProps> = ({
 // Page Component
 // ============================================================
 
+interface ExamGroupInfo {
+  schoolName?: string;
+  schoolCode?: string;
+  schoolLevel?: string;
+  grade?: number;
+  classNumber?: number;
+  /** 본인 출석번호 — 검사 시작 화면 번호칸 prefill 용 */
+  memberNo?: number;
+}
+
 export const MyExamListPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [exams, setExams] = useState<StudentExamListItem[]>([]);
+  const [examGroupMap, setExamGroupMap] = useState<Map<number, ExamGroupInfo>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // paperIdx 기준 섹션 그룹화 (존재하는 섹션만)
+  const sections = useMemo(
+    () =>
+      EXAM_SECTIONS.map((def) => ({
+        def,
+        exams: exams.filter((e) => e.paperIdx === def.paperIdx).sort((a, b) => a.ordNo - b.ordNo),
+      })).filter((s) => s.exams.length > 0),
+    [exams],
+  );
 
   const loadExams = useCallback(
     async (showRefreshIndicator = false) => {
@@ -418,17 +532,36 @@ export const MyExamListPage: React.FC = () => {
           return;
         }
 
-        const results = await Promise.all(
-          groups.map((g) => getStudentExamList(g.claId, user.stdtId!)),
+        const resultsWithGroups = await Promise.all(
+          groups.map(async (g) => ({
+            group: g,
+            exams: await getStudentExamList(g.claId, user.stdtId!),
+          })),
         );
 
-        // 중복 제거 (dgnssResultId 기준)
+        // 중복 제거 (dgnssResultId 기준) + 그룹 매핑 구축
         const seen = new Set<number>();
-        const flat = results.flat().filter((e) => {
-          if (seen.has(e.dgnssResultId)) return false;
-          seen.add(e.dgnssResultId);
-          return true;
-        });
+        const flat: StudentExamListItem[] = [];
+        const groupMap = new Map<number, ExamGroupInfo>();
+
+        for (const { group, exams: groupExams } of resultsWithGroups) {
+          for (const e of groupExams) {
+            if (!seen.has(e.dgnssResultId)) {
+              seen.add(e.dgnssResultId);
+              flat.push(e);
+              groupMap.set(e.dgnssResultId, {
+                schoolName: group.schoolName,
+                schoolCode: group.schoolCode,
+                schoolLevel: group.schoolLevel as string | undefined,
+                grade: group.grade,
+                classNumber: group.classNumber,
+                memberNo: group.memberNo,
+              });
+            }
+          }
+        }
+
+        setExamGroupMap(groupMap);
         setExams(flat);
       } catch {
         setExams([]);
@@ -441,6 +574,7 @@ export const MyExamListPage: React.FC = () => {
   );
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadExams();
   }, [loadExams]);
 
@@ -450,7 +584,9 @@ export const MyExamListPage: React.FC = () => {
         dgnssResultId: exam.dgnssResultId,
         dgnssId: exam.dgnssId,
         ordNo: exam.ordNo,
+        paperIdx: exam.paperIdx,
         examName: exam.name,
+        groupInfo: examGroupMap.get(exam.dgnssResultId),
         ...extra,
       },
     });
@@ -492,7 +628,7 @@ export const MyExamListPage: React.FC = () => {
         </RefreshButton>
       </PageHeader>
 
-      {exams.length === 0 ? (
+      {sections.length === 0 ? (
         <EmptyState>
           <EmptyIconCircle>
             <ClipboardList />
@@ -501,18 +637,39 @@ export const MyExamListPage: React.FC = () => {
           <EmptyDesc>선생님이 검사를 시작하면 여기에 표시됩니다.</EmptyDesc>
         </EmptyState>
       ) : (
-        <ExamList>
-          {exams.map((exam) => (
-            <ExamCard
-              key={exam.dgnssResultId}
-              exam={exam}
-              onStartExam={(e) => navigate2Exam(e)}
-              onResumeExam={(e) => navigate2Exam(e, { resume: true })}
-              onRestartExam={(e) => navigate2Exam(e, { restart: true })}
-              onViewResult={(e) => navigate(`/student/result/${e.dgnssResultId}`)}
-            />
-          ))}
-        </ExamList>
+        <SectionsStack>
+          {sections.map(({ def, exams: sectionExams }) => {
+            const readyCount = sectionExams.filter((e) => e.hasResult).length;
+            return (
+              <SectionBlock key={def.paperIdx}>
+                <SectionHeader $color={def.color} $bg={def.bgColor} $border={def.borderColor}>
+                  <SectionIconBox $color={def.color}>
+                    {def.paperIdx === '2' ? <Brain /> : <ClipboardList />}
+                  </SectionIconBox>
+                  <div>
+                    <SectionLabel $color={def.color}>{def.label}</SectionLabel>
+                    <SectionDesc>{def.desc}</SectionDesc>
+                  </div>
+                  {readyCount > 0 && (
+                    <SectionCount $color={def.color}>결과 {readyCount}건</SectionCount>
+                  )}
+                </SectionHeader>
+                <ExamList>
+                  {sectionExams.map((exam) => (
+                    <ExamCard
+                      key={exam.dgnssResultId}
+                      exam={exam}
+                      onStartExam={(e) => navigate2Exam(e)}
+                      onResumeExam={(e) => navigate2Exam(e, { resume: true })}
+                      onRestartExam={(e) => navigate2Exam(e, { restart: true })}
+                      onViewResult={(e) => navigate(def.resultPath(e))}
+                    />
+                  ))}
+                </ExamList>
+              </SectionBlock>
+            );
+          })}
+        </SectionsStack>
       )}
 
       <HintBox>

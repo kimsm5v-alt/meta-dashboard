@@ -56,7 +56,7 @@ public class DrawPdfService {
                 pioPdfVO.drawTextC((String) userInfo.get("RSPNS_DT_KO"), x, pioPdfVO.px2mm(633f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                 pioPdfVO.drawTextC((String) userInfo.get("SCH_NM"), x, pioPdfVO.px2mm(665f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                 pioPdfVO.drawTextC(userInfo.get("MEM_GRADE_NM") + " " + userInfo.get("CLASS_NM"), x, pioPdfVO.px2mm(695f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
-                pioPdfVO.drawTextC(userInfo.get("CLASS_NO").toString() + "번", x, pioPdfVO.px2mm(727f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
+                pioPdfVO.drawTextC((String.valueOf(userInfo.getOrDefault("CLASS_NO", "")).isBlank() ? "-" : userInfo.get("CLASS_NO") + "번"), x, pioPdfVO.px2mm(727f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
 
                 // pioPdfVO.drawPicture("./assets/imgs/dgnss/logo/school_snu.png", 5f, 250f, 2*23.0f, 2*17.4f );
             }
@@ -1322,7 +1322,7 @@ public class DrawPdfService {
                 // 학급
                 pioPdfVO.drawTextC(userInfo.get("MEM_GRADE_NM") + " " + userInfo.get("CLASS_NM"), x, pioPdfVO.px2mm(695f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
                 // 번호(현재는 해석전문가)
-                pioPdfVO.drawTextC(userInfo.get("CLASS_NO").toString() + "번", x, pioPdfVO.px2mm(727f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
+                pioPdfVO.drawTextC((String.valueOf(userInfo.getOrDefault("CLASS_NO", "")).isBlank() ? "-" : userInfo.get("CLASS_NO") + "번"), x, pioPdfVO.px2mm(727f - fontHeight, "Y"), width, "Pretendard Medium", fontSize, false, false, Color.BLACK, -0.58f);
 
 
             } else if (page == 4) {
@@ -2155,7 +2155,7 @@ public class DrawPdfService {
                 for (int i = 0; i < dgnssReportLS.size(); i++) {
 
                     if (dgnssReportLS.get(i).get("CLASS_NO") == null)
-                        pioPdfVO.drawTextC("?", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
+                        pioPdfVO.drawTextC("-", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
                     else
                         pioPdfVO.drawTextC(dgnssReportLS.get(i).get("CLASS_NO").toString(), x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
 
@@ -2371,7 +2371,7 @@ public class DrawPdfService {
                     }
 
                     if (dgnssReportLS.get(i).get("CLASS_NO") == null)
-                        pioPdfVO.drawTextC("?", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
+                        pioPdfVO.drawTextC("-", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
                     else
                         pioPdfVO.drawTextC(dgnssReportLS.get(i).get("CLASS_NO").toString(), x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
 
@@ -2728,7 +2728,7 @@ public class DrawPdfService {
                 for (int i = 0; i < dgnssReportLS.size(); i++) {
 
                     if (dgnssReportLS.get(i).get("CLASS_NO") == null)
-                        pioPdfVO.drawTextC("?", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
+                        pioPdfVO.drawTextC("-", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
                     else
                         pioPdfVO.drawTextC(dgnssReportLS.get(i).get("CLASS_NO").toString(), x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
 
@@ -3014,7 +3014,7 @@ public class DrawPdfService {
                     }
 
                     if (dgnssReportLS.get(i).get("CLASS_NO") == null)
-                        pioPdfVO.drawTextC("?", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
+                        pioPdfVO.drawTextC("-", x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
                     else
                         pioPdfVO.drawTextC(dgnssReportLS.get(i).get("CLASS_NO").toString(), x[0], y[i] + textHeight, x[1] - x[0], "", fontSize);
 
@@ -4395,7 +4395,7 @@ public class DrawPdfService {
             }
 
             // 검사해석 전문가
-            String teacherNm = MapUtils.getString(userInfo, "teacherNm", "김비상");
+            String teacherNm = MapUtils.getString(userInfo, "tcNm", "김비상");
             pioPdf.drawText("검사 해석 전문가 : " + teacherNm, 14.5f, 7.5f, "Pretendard Medium", 9f, true, false, pioPdf.hexa2Color("#00B298"), -0.58f);
         }
 

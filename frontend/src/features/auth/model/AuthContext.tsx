@@ -81,6 +81,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // SDK가 Truth — 현재 로그인한 사용자의 name/email이 localStorage 잔존 데이터를 덮어씀
       // A → 로그아웃 → B 로그인 시 A 이름 잔존 방지
       const merged = storedUser ? { ...storedUser, ...user } : user;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState({ user: merged, isAuthenticated: true, isLoading: false });
     } else {
       setState({ user: null, isAuthenticated: false, isLoading: false });
@@ -196,6 +197,7 @@ function loadStoredUser(): User | null {
 // Hook
 // ============================================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {

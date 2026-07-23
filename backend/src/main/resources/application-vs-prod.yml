@@ -4,11 +4,13 @@ app:
     allowed-origins: https://meta-service.vsaidt.com
 
 # ===== QCH 적재 (prod) =====
+# 기본 ON — 같은 파일의 notification/sso/group-sync 운영 토글과 일관.
+# 끄려면 배포 env 에 QCH_ENABLED=false 주입.
 qch:
-  enabled: ${QCH_ENABLED:false}
+  enabled: ${QCH_ENABLED:true}
   base-url: ${QCH_BASE_URL:https://qch.vsaidt.com}
   service-key: ${QCH_SERVICE_KEY:meta-api}
-  env: ${QCH_ENV:PROD}
+  env: ${QCH_ENV:prod}
 
 # ===== 알림 Pub/Sub + ShedLock (prod: ON) =====
 # 사전조건: Redis 인프라(Pub/Sub) + MySQL shedlock 테이블.
@@ -24,3 +26,31 @@ notification:
 sso:
   poll:
     enabled: true
+
+# ===== SuperPlatform Auth (SSO) =====
+# 비밀 아닌 값(주소/issuer/client-id)은 yml 명시 — env 누락 시 base 의 localhost 기본값으로 떨어지는 사고 방지.
+# client-secret 만 시크릿이라 env(SP_AUTH_CLIENT_SECRET) 주입 필수(default 없음 → 미주입 시 기동 실패로 조기 발견).
+spring.security.oauth2.resourceserver.jwt:
+  jwk-set-uri: https://auth-api.vschool.at/.well-known/jwks.json
+  issuer-uri: superplatform
+
+superplatform:
+  auth:
+    server-url: https://auth-api.vschool.at
+    client-id: ${SP_AUTH_CLIENT_ID:meta}
+    client-secret: ${SP_AUTH_CLIENT_SECRET}
+
+# ===== IDP 그룹 동기화 (prod: ON) — group-from-idp =====
+# 사전조건: migrations/01-sync-prep.sql 적용(sp_group_id/provisioned/GROUP_CHANGES 커서)
+#          + IdP 운영 oauth2_client(meta) 에 groups:read scope 부여.
+group-sync:
+  enabled: true
+
+# ===== Redis username override (NCP Cloud DB Redis — password-only AUTH) =====
+# 현상: 기동 시 Redis WRONGPASS (notification pubsub/shedlock 가 Redis 연결 시도).
+# 원인: 주입된 STAT_SPRING_REDIS_USERNAME 이 NCP Redis ACL 에 없는 값이라 AUTH <user> <pass> 거부.
+# 조치: username 을 빈 문자열로 강제 → password-only AUTH (dev 와 동일). STAT_SPRING_REDIS_PASSWORD 는 정확해야 함.
+spring:
+  data:
+    redis:
+      username: ""

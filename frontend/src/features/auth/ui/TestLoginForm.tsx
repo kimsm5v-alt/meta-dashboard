@@ -194,15 +194,18 @@ const GradeButton = styled.button<{ $isSelected: boolean }>`
   padding: 0.75rem ${({ theme }) => theme.spacing.md};
   border-radius: 0.75rem;
   border: 2px solid
-    ${({ $isSelected, theme }) => ($isSelected ? theme.colors.primary[500] : theme.colors.gray[200])};
+    ${({ $isSelected, theme }) =>
+      $isSelected ? theme.colors.primary[500] : theme.colors.gray[200]};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
   transition: all 0.15s ease;
   cursor: pointer;
   background: ${({ $isSelected, theme }) => ($isSelected ? theme.colors.primary[50] : 'white')};
-  color: ${({ $isSelected, theme }) => ($isSelected ? theme.colors.primary[700] : theme.colors.gray[600])};
+  color: ${({ $isSelected, theme }) =>
+    $isSelected ? theme.colors.primary[700] : theme.colors.gray[600]};
 
   &:hover:not(:disabled) {
-    border-color: ${({ $isSelected, theme }) => ($isSelected ? theme.colors.primary[500] : theme.colors.gray[300])};
+    border-color: ${({ $isSelected, theme }) =>
+      $isSelected ? theme.colors.primary[500] : theme.colors.gray[300]};
   }
 
   &:disabled {
@@ -348,9 +351,13 @@ export const TestLoginForm: React.FC<TestLoginFormProps> = ({ onLogin, isLoading
   useEffect(() => {
     if (selectedAccountIndex >= 0 && selectedAccountIndex < testAccounts.length) {
       const account = testAccounts[selectedAccountIndex];
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTeacherId(account.teacherId);
+
       setClassId(account.classId);
+
       setGradeLevel(account.gradeLevel);
+
       setJwtToken(account.jwtToken);
     }
   }, [selectedAccountIndex, testAccounts]);

@@ -1,478 +1,183 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, ShieldAlert, AlertTriangle, Clock, Loader2 } from 'lucide-react';
-import { Card, Badge } from '@/shared/components';
-import { useData } from '@/shared/contexts/DataContext';
-import { useClassStudents, useApiConfig } from '@/shared/hooks/useApiData';
-import type { Student, Assessment, Class } from '@/shared/types';
+/**
+ * 결과보기 페이지 (GNB: 검사 > 서브탭: 결과보기)
+ *
+ * - 반 전체: 종합 결과 요약, 요인별 분포, 위험군, 유형별(LPA), 강점/보완점 - 화면 3번
+ * - 학생 선택: 학생 요약, 요인별 점수, 유형 설명, AI 총평, 강점/보완점 - 화면 4번
+ *
+ * @see prototype/docs/features/EXAM_COUNSELING.md
+ */
+
+import { useState, useCallback } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import {
-  TypeChangeChart,
-  ClassInsights,
-  SortableHeader,
-  ChangeFilterButtons,
+  ClassSummaryCard,
+  LPADistributionChart,
+  RiskStudentsList,
+  StrengthWeaknessCard,
+  StudentSummaryHeader,
+  AISummaryCard,
+  TypeDescriptionCard,
 } from '../components';
-import type { SortField, ChangeFilter } from '../components';
-import { getTypeChangeScore } from '../utils/typeUtils';
-import { formatAttentionTooltip } from '@/shared/utils/attentionChecker';
+import { MOCK_CLASS_RESULT, MOCK_STUDENTS, getStudentById } from '../mock-data';
+import type { StudentResult } from '../types';
 
 export const ClassDashboardPage = () => {
-  const { classId } = useParams<{ classId: string }>();
-  const navigate = useNavigate();
-  const { getClassById } = useData();
-  const { hasJwtToken } = useApiConfig();
-  // l2Data: 검사 상세 정보, 학급 평균 T점수 등 (향후 활용 가능)
-  const { students: apiStudents, l2Data: _l2Data, isLoading, error } = useClassStudents(classId);
+  // 선택된 학생 ID (null = 반 전체)
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [changeFilter, setChangeFilter] = useState<ChangeFilter>('all');
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-
-  // API 모드: useClassStudents에서 가져온 학생 데이터 사용
-  // Mock 모드: DataContext에서 가져온 데이터 사용
-  const baseClassData = classId ? getClassById(classId) : undefined;
-
-  // API 모드에서 학생 데이터가 있으면 classData 구성
-  const classData: Class | undefined = useMemo(() => {
-    // API 모드이고 학생 데이터가 있으면 API 데이터로 학급 구성
-    if (hasJwtToken && apiStudents.length > 0 && classId) {
-      // 첫 번째 학생에서 schoolLevel, grade 추출
-      const firstStudent = apiStudents[0];
-      const schoolLevel = firstStudent?.schoolLevel ?? '초등';
-      const grade = firstStudent?.grade ?? 1;
-
-      // classId에서 classNumber 추출 시도 (예: "6-2" → 2)
-      const parts = classId.split('-');
-      const classNumber = parseInt(parts[1], 10) || 1;
-
-      // 통계 계산
-      const assessedStudents = apiStudents.filter(s => s.assessments.length > 0).length;
-      const typeDistribution: Record<string, { count: number; percentage: number }> = {};
-
-      for (const student of apiStudents) {
-        const latestAssessment = student.assessments[student.assessments.length - 1];
-        if (latestAssessment) {
-          const type = latestAssessment.predictedType;
-          if (!typeDistribution[type]) {
-            typeDistribution[type] = { count: 0, percentage: 0 };
-          }
-          typeDistribution[type].count++;
-        }
-      }
-
-      for (const type of Object.keys(typeDistribution)) {
-        typeDistribution[type].percentage = assessedStudents > 0
-          ? Math.round((typeDistribution[type].count / assessedStudents) * 100)
-          : 0;
-      }
-
-      const needAttentionCount = apiStudents.filter(
-        s => s.assessments.some(a => a.attentionResult.needsAttention)
-      ).length;
-
-      return {
-        id: classId,
-        schoolLevel,
-        grade,
-        classNumber,
-        teacherId: '',
-        students: apiStudents,
-        stats: {
-          totalStudents: apiStudents.length,
-          assessedStudents,
-          typeDistribution,
-          needAttentionCount,
-          round1Completed: assessedStudents > 0,
-          round2Completed: apiStudents.some(s => s.assessments.some(a => a.round === 2)),
-          examStatus: {
-            round1: assessedStudents > 0 ? '종료' : '시작전',
-            round2: apiStudents.some(s => s.assessments.some(a => a.round === 2)) ? '종료' : '시작전',
-          },
-          round2SubmittedCount: apiStudents.filter(s => s.assessments.some(a => a.round === 2)).length,
-        },
-      };
-    }
-
-    // Mock 모드 또는 API 데이터 없음: DataContext 사용
-    return baseClassData;
-  }, [baseClassData, hasJwtToken, apiStudents, classId]);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
+  // 학생 선택 핸들러
+  const handleStudentClick = useCallback((studentId: string) => {
+    setSelectedStudentId(studentId);
   }, []);
 
-  // API 모드 로딩 상태
-  if (hasJwtToken && isLoading) {
+  // 반 전체로 돌아가기
+  const handleBackToClass = useCallback(() => {
+    setSelectedStudentId(null);
+  }, []);
+
+  // 상담하기 클릭
+  const handleCounselingClick = useCallback(() => {
+    console.log('상담하기:', selectedStudentId);
+    // TODO: 상담 페이지로 이동
+  }, [selectedStudentId]);
+
+  // 코칭 전략 클릭
+  const handleCoachingClick = useCallback(() => {
+    console.log('코칭 전략:', selectedStudentId);
+    // TODO: 코칭 페이지로 이동
+  }, [selectedStudentId]);
+
+  // 학생 선택 상태: 학생 개인 결과 (화면 4번)
+  if (selectedStudentId) {
+    const student = getStudentById(selectedStudentId);
+
+    if (!student) {
+      return (
+        <div className="p-6">
+          <button
+            onClick={handleBackToClass}
+            className="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            반 전체로 돌아가기
+          </button>
+          <p className="text-gray-500">해당 학생을 찾을 수 없습니다.</p>
+        </div>
+      );
+    }
+
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-primary-500 animate-spin mx-auto mb-2" />
-          <p className="text-gray-500">학급 데이터를 불러오는 중...</p>
+      <div className="p-6 space-y-6">
+        {/* 헤더 */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleBackToClass}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-500" />
+          </button>
+          <div>
+            <p className="text-sm text-gray-500">{MOCK_CLASS_RESULT.className} · 결과보기</p>
+          </div>
+        </div>
+
+        {/* 학생 요약 (상단) */}
+        <StudentSummaryHeader
+          student={student}
+          onCounselingClick={handleCounselingClick}
+          onCoachingClick={handleCoachingClick}
+        />
+
+        {/* AI 총평 */}
+        <AISummaryCard
+          summary={student.aiSummary}
+          studentName={student.name}
+        />
+
+        <div className="grid grid-cols-2 gap-6">
+          {/* 유형 설명 */}
+          <TypeDescriptionCard
+            lpaType={student.lpaType}
+            description={student.typeDescription}
+            characteristics={student.typeCharacteristics}
+          />
+
+          {/* 강점/보완점 */}
+          <StrengthWeaknessCard
+            strengths={student.strengths.map((s) => s.name)}
+            weaknesses={student.weaknesses.map((w) => w.name)}
+            title="개인 강점 / 보완점"
+          />
+        </div>
+
+        {/* TODO: 요인별 점수 차트 (38개 요인 T점수 레이더/바 차트) */}
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <h3 className="text-base font-semibold text-gray-900 mb-4">요인별 점수</h3>
+          <p className="text-gray-500 text-sm">요인별 T점수 차트 (개발 예정)</p>
         </div>
       </div>
     );
   }
 
-  // API 에러 상태
-  if (hasJwtToken && error) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-          <p className="text-gray-500">데이터 로드 실패: {error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!classData) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">학급을 찾을 수 없습니다.</p>
-      </div>
-    );
-  }
-
-  // 신뢰도 경고 상태 계산
-  const reliabilityWarningOnly = (() => {
-    const studentsWithRound1 = classData.students.filter(s =>
-      s.assessments.some(a => a.round === 1)
-    );
-    if (studentsWithRound1.length === 0) return false;
-
-    const reliableStudents = studentsWithRound1.filter(s => {
-      const r1 = s.assessments.find(a => a.round === 1);
-      return r1 && r1.reliabilityWarnings.length === 0;
-    });
-    return reliableStudents.length === 0;
-  })();
-
-  // 필터링 및 정렬
-  const filteredAndSortedStudents = (() => {
-    let filtered = classData.students.filter((s) => {
-      if (searchTerm && !s.name.includes(searchTerm) && !s.number.toString().includes(searchTerm)) {
-        return false;
-      }
-
-      const r1 = s.assessments.find(a => a.round === 1);
-      const r2 = s.assessments.find(a => a.round === 2);
-      const typeChange = getTypeChangeScore(r1?.predictedType, r2?.predictedType);
-
-      if (changeFilter === 'positive' && typeChange !== 1) return false;
-      if (changeFilter === 'negative' && typeChange !== -1) return false;
-      if (changeFilter === 'not-assessed' && r2) return false;
-
-      if (changeFilter === 'reliability-warning') {
-        const hasWarning = s.assessments.some(a => a.reliabilityWarnings.length > 0);
-        if (!hasWarning) return false;
-      }
-
-      if (changeFilter === 'need-attention') {
-        const hasAttention = s.assessments.some(a => a.attentionResult.needsAttention);
-        if (!hasAttention) return false;
-      }
-
-      return true;
-    });
-
-    if (sortField) {
-      filtered = [...filtered].sort((a, b) => {
-        const getValue = (student: Student) => {
-          const r1 = student.assessments.find(r => r.round === 1);
-          const r2 = student.assessments.find(r => r.round === 2);
-
-          switch (sortField) {
-            case 'number': return student.number;
-            case 'name': return student.name;
-            case 'type1': return r1?.predictedType || '';
-            case 'type2': return r2?.predictedType || '';
-          }
-        };
-
-        const aValue = getValue(a);
-        const bValue = getValue(b);
-
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-        }
-
-        return sortDirection === 'asc'
-          ? String(aValue).localeCompare(String(bValue))
-          : String(bValue).localeCompare(String(aValue));
-      });
-    }
-
-    return filtered;
-  })();
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
-  // 차수별 상태 배지 렌더링
-  const renderStatusBadges = (assessment: Assessment | undefined) => {
-    if (!assessment) return <span className="text-gray-300 text-xs">-</span>;
-
-    const hasReliability = assessment.reliabilityWarnings.length > 0;
-    const hasAttention = assessment.attentionResult.needsAttention;
-
-    if (!hasReliability && !hasAttention) {
-      return <span className="text-gray-400 text-xs">-</span>;
-    }
-
-    return (
-      <div className="flex flex-wrap gap-1">
-        {hasAttention && (
-          <span
-            className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-amber-50 text-amber-600 border-amber-200"
-            title={formatAttentionTooltip(assessment.attentionResult)}
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            관심
-          </span>
-        )}
-        {hasReliability && (
-          <span
-            className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-red-50 text-red-600 border-red-200"
-            title={`신뢰도 주의: ${assessment.reliabilityWarnings.join(', ')}`}
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            신뢰도
-          </span>
-        )}
-      </div>
-    );
-  };
-
-  // 변화 인디케이터 렌더링
-  const renderChangeIndicator = (typeChange: number, hasRound2: boolean) => {
-    if (!hasRound2) {
-      return <span className="text-xs text-gray-300">--</span>;
-    }
-    if (typeChange === 1) {
-      return (
-        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 text-sm font-bold">
-          +
-        </span>
-      );
-    }
-    if (typeChange === -1) {
-      return (
-        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-600 text-sm font-bold">
-          -
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400 text-sm font-bold">
-        =
-      </span>
-    );
-  };
-
+  // 반 전체 상태: 반 종합 결과 (화면 3번)
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {classData.grade}학년 {classData.classNumber}반
-          </h1>
-          <p className="text-gray-500">
-            학생 {classData.stats?.totalStudents}명 | 검사 완료 {classData.stats?.assessedStudents}명
-          </p>
-        </div>
-
+    <div className="p-6 space-y-6">
+      {/* 페이지 헤더 */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">결과보기</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          반 전체 검사 결과를 확인하고, 학생별 상세 분석을 볼 수 있습니다.
+        </p>
       </div>
 
-      {/* 2차 검사 진행중 배너 */}
-      {classData.stats?.examStatus?.round2 === '진행중' && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
-          <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
-          <div>
-            <p className="font-semibold text-amber-800 text-sm">2차 검사 진행 중</p>
-            <p className="text-xs text-amber-600">
-              {classData.stats.round2SubmittedCount}/{classData.stats.totalStudents}명 제출 완료.
-              검사 종료 후 결과를 확인할 수 있습니다.
-            </p>
-          </div>
-        </div>
-      )}
+      {/* 종합 결과 요약 */}
+      <ClassSummaryCard summary={MOCK_CLASS_RESULT} />
 
-      {/* 신뢰도 경고 배너 */}
-      {reliabilityWarningOnly && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-          <ShieldAlert className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-amber-800">
-              모든 학생이 신뢰도 주의 상태입니다
-            </p>
-            <p className="text-sm text-amber-700 mt-1">
-              신뢰도 양호 학생이 없어 전체 학생 데이터를 기반으로 분석 결과를 표시합니다.
-              결과 해석에 주의가 필요합니다.
-            </p>
-          </div>
-        </div>
-      )}
+      <div className="grid grid-cols-2 gap-6">
+        {/* LPA 유형 분포 */}
+        <LPADistributionChart
+          distribution={MOCK_CLASS_RESULT.lpaDistribution}
+          totalCount={MOCK_CLASS_RESULT.assessedCount}
+        />
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TypeChangeChart classData={classData} />
-        <ClassInsights classData={classData} />
+        {/* 위험군 현황 */}
+        <RiskStudentsList
+          students={MOCK_CLASS_RESULT.riskStudents}
+          onStudentClick={handleStudentClick}
+        />
       </div>
 
-      {/* 학생 목록 */}
-      <div className="grid grid-cols-1 gap-6 items-start">
+      {/* 강점/보완점 */}
+      <StrengthWeaknessCard
+        strengths={MOCK_CLASS_RESULT.strengths.map((s) => s.factorName)}
+        weaknesses={MOCK_CLASS_RESULT.weaknesses.map((w) => w.factorName)}
+        title="반 전체 강점 / 보완점"
+      />
 
-      {/* Student Table */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">학생 목록</h2>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="이름/번호 검색"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-4 py-2 border rounded-lg text-sm"
-            />
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="mb-4 pb-4 border-b">
-          <div className="flex items-center gap-3">
-            <p className="text-sm text-gray-600 font-medium">필터:</p>
-            <ChangeFilterButtons value={changeFilter} onChange={setChangeFilter} />
-          </div>
-
-          <div className="flex items-center justify-between text-sm pt-3">
-            <span className="text-gray-600">
-              {filteredAndSortedStudents.length}명 표시
-              {changeFilter !== 'all' && (
-                <span className="text-gray-400 ml-1">(전체 {classData.students.length}명)</span>
+      {/* 학생 목록 (간략) */}
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <h3 className="text-base font-semibold text-gray-900 mb-4">학생별 결과</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {MOCK_STUDENTS.map((student) => (
+            <button
+              key={student.id}
+              onClick={() => handleStudentClick(student.id)}
+              className="flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors text-left"
+            >
+              <span className="w-8 h-8 rounded-full bg-gray-200 text-gray-700 text-sm font-medium flex items-center justify-center">
+                {student.number}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 truncate">{student.name}</p>
+                <p className="text-xs text-gray-500 truncate">{student.lpaType}</p>
+              </div>
+              {student.needsAttention && (
+                <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
               )}
-            </span>
-            {changeFilter !== 'all' && (
-              <button
-                onClick={() => setChangeFilter('all')}
-                className="text-primary-600 hover:text-primary-700 font-medium"
-              >
-                필터 초기화
-              </button>
-            )}
-          </div>
+            </button>
+          ))}
         </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 text-gray-600 text-sm">
-                <th className="text-left py-3 px-3 w-16">
-                  <SortableHeader
-                    field="number"
-                    label="번호"
-                    currentField={sortField}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                </th>
-                <th className="text-left py-3 px-3 w-24">
-                  <SortableHeader
-                    field="name"
-                    label="이름"
-                    currentField={sortField}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                </th>
-                <th className="text-left py-3 px-3 w-32">
-                  <SortableHeader
-                    field="type1"
-                    label="1차 유형"
-                    currentField={sortField}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                </th>
-                <th className="text-left py-3 px-3 w-36">1차 상태</th>
-                <th className="text-center py-3 px-3 w-16">변화</th>
-                <th className="text-left py-3 px-3 w-32">
-                  <SortableHeader
-                    field="type2"
-                    label="2차 유형"
-                    currentField={sortField}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                </th>
-                <th className="text-left py-3 px-3 w-36">2차 상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAndSortedStudents.map((student) => {
-                const r1 = student.assessments.find(a => a.round === 1);
-                const r2 = student.assessments.find(a => a.round === 2);
-                const typeChange = getTypeChangeScore(r1?.predictedType, r2?.predictedType);
-
-                return (
-                  <tr
-                    key={student.id}
-                    onClick={() => navigate(`/dashboard/class/${classId}/student/${student.id}`)}
-                    className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
-                  >
-                    <td className="py-3.5 px-3">
-                      <span className="text-gray-500">{student.number}</span>
-                    </td>
-                    <td className="py-3.5 px-3">
-                      <span className="font-medium text-gray-900">{student.name}</span>
-                    </td>
-                    <td className="py-3.5 px-3">
-                      {r1 ? (
-                        <Badge type={r1.predictedType}>{r1.predictedType}</Badge>
-                      ) : (
-                        <span className="text-gray-300 text-xs">-</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3">
-                      {renderStatusBadges(r1)}
-                    </td>
-                    <td className="py-3.5 px-3 text-center">
-                      {renderChangeIndicator(typeChange, !!r2)}
-                    </td>
-                    <td className="py-3.5 px-3">
-                      {r2 ? (
-                        <Badge type={r2.predictedType}>{r2.predictedType}</Badge>
-                      ) : classData.stats?.examStatus?.round2 === '진행중' && student.round2Submitted ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold bg-blue-50 text-blue-600 border-blue-200">
-                          제출 완료
-                        </span>
-                      ) : (
-                        <span className="text-gray-300 text-xs">-</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3">
-                      {renderStatusBadges(r2)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      </div>{/* grid wrapper 닫기 */}
+      </div>
     </div>
   );
 };

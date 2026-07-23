@@ -14,17 +14,19 @@ const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
   const is403 = isApiError && err.statusCode === 403;
   const is5xx = isApiError && err.statusCode >= 500;
 
-  const title = is401 || is403
-    ? '접근 권한이 없습니다'
-    : is5xx
-      ? '서버 오류가 발생했습니다'
-      : '오류가 발생했습니다';
+  const title =
+    is401 || is403
+      ? '접근 권한이 없습니다'
+      : is5xx
+        ? '서버 오류가 발생했습니다'
+        : '오류가 발생했습니다';
 
-  const description = is401 || is403
-    ? '로그인 정보를 확인해주세요.'
-    : is5xx
-      ? '잠시 후 다시 시도해주세요.'
-      : err.message || '알 수 없는 오류입니다.';
+  const description =
+    is401 || is403
+      ? '로그인 정보를 확인해주세요.'
+      : is5xx
+        ? '잠시 후 다시 시도해주세요.'
+        : err.message || '알 수 없는 오류입니다.';
 
   return (
     <div
@@ -50,9 +52,7 @@ const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
           boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
         }}
       >
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>
-          {is5xx ? '🔧' : '⚠️'}
-        </div>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>{is5xx ? '🔧' : '⚠️'}</div>
         <h2
           style={{
             fontSize: '20px',
@@ -63,9 +63,7 @@ const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
         >
           {title}
         </h2>
-        <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>
-          {description}
-        </p>
+        <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>{description}</p>
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
           <button
             onClick={resetErrorBoundary}

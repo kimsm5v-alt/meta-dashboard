@@ -44,6 +44,17 @@ public class DgnssController {
     private final DgnssLpaService dgnssLpaService;
     private final DgnssMapper dgnssMapper;
 
+    @RequestMapping(value = "/api/dgnss/tc/overview", method = {RequestMethod.GET})
+    @Operation(summary = "(선생님) 본인 전체 학급 진단검사 현황 (한 번에)",
+            description = "인증된 교사(JWT) 본인이 소유한 모든 학급의 진단검사 현황을 한 번에 반환. "
+                    + "학급별 tc/info 반복 호출 대체. 파라미터 없음 — 교사 식별자는 JWT 에서만 도출(IDOR 방지).")
+    public ResponseDTO<CustomBody> tchMetaOverview(
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        Map<String, Object> result = dgnssService.selectTcDgnssOverview();
+        return AidtCommonUtil.makeResultSuccess(paramData, result, "(선생님) 전체 학급 진단검사 현황");
+    }
+
     @RequestMapping(value = {"/api/dgnss/tc/info","/api/dgnss/tc/list"}, method = {RequestMethod.GET})
     @Operation(summary = "(선생님) 학습심리정서검사 목록 조회", description = "")
     @Parameter(name = "claId", description = "학급 ID",
@@ -180,7 +191,8 @@ public class DgnssController {
     }
 
     @RequestMapping(value = "/api/dgnss/st/new", method = {RequestMethod.GET})
-    @Operation(summary = "(학생)심리검사 새로하기", description = "")
+    @Operation(summary = "(학생)심리검사 새로하기",
+            description = "schoolName/schoolCode/grade/classNumber/gender/nickname을 함께 넘기면 st/start와 동일하게 tb_dgnss_result_info에 저장된다(전달된 값만). grade/classNumber는 숫자만 저장, gender는 'M'/'F'.")
     @Parameter(name = "dgnssResultId", description = "심리검사 상세 ID",
             examples = {
                     @ExampleObject(name = "math", value = "12509", description = "수학 환경"),
@@ -492,6 +504,16 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
+    @RequestMapping(value = "/api/dgnss/graph/load", method = {RequestMethod.POST})
+    @Operation(summary = "(그래프) LPA 그래프 Cypher 적재",
+            description = "lpa_graph_all_merge_safe.cypher(초등+중등 통합)를 Neo4j에 MERGE 적재한다. 멱등이라 반복 실행 가능. 운영 시드/갱신용")
+    public ResponseDTO<CustomBody> loadLpaGraph(
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        Map<String, Object> result = dgnssGraphService.loadLpaGraph();
+        return AidtCommonUtil.makeResultSuccess(paramData, result, "LPA 그래프 적재 완료");
+    }
+
     @GetMapping(value = "/api/dgnss/graph/classes/{className}/moderation-paths")
     @Operation(summary = "(그래프) 유형별 ModerationPath 조회", description = "")
     @Parameter(name = "className", description = "LPA 유형명", required = true)
@@ -650,7 +672,8 @@ public class DgnssController {
     }
 
     @PostMapping(value = {"/api/dgnss/st/start", "/api/dgnss/stnt/start/update"})
-    @Operation(summary = "(학생)META 자기조절학습 시작", description = "")
+    @Operation(summary = "(학생)META 자기조절학습 시작",
+            description = "schoolName/grade/classNo/gender는 선택값. 교사 그룹정보 미입력 시 학생 입력값을 시작 시 1회만 전송하면 tb_dgnss_result_info에 저장된다(페이지 이동 호출에는 미전송 권장). gender는 'M'/'F'만 허용.")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(examples = {
                     @ExampleObject(name = "파라미터", value = """
@@ -658,7 +681,13 @@ public class DgnssController {
                                 "dgnssResultId": 12509,
                                 "paperIdx": 1,
                                 "page": 0,
-                                "size": 20
+                                "size": 20,
+                                "schoolName": "비상중학교",
+                                "schoolCode": "B000012345",
+                                "grade": "2",
+                                "classNumber": "3",
+                                "gender": "M",
+                                "nickname": "홍길동"
                             }
                             """)
             }))

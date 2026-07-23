@@ -43,10 +43,7 @@ export function calculate4StepDiagnosis(
  * @param apiMidScores - API 중분류 점수 (우선 사용)
  * @returns 11개 중분류 점수
  */
-function calculateMidCategories(
-  tScores: number[],
-  apiMidScores?: Record<string, number> | null,
-) {
+function calculateMidCategories(tScores: number[], apiMidScores?: Record<string, number> | null) {
   const calcAverage = (indices: number[]) => {
     const sum = indices.reduce((acc, idx) => acc + tScores[idx], 0);
     return sum / indices.length;

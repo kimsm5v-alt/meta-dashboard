@@ -172,20 +172,20 @@ public class GroupService {
             paramData.put("stdtId", existing.getStdtId());
             paramData.put("memberId", existing.getId());
 
-            Integer activeDgnssId = registerActiveDgnssIfNeeded(
+            List<Integer> assignedDgnssIds = registerActiveDgnssIfNeeded(
                     groupInfo.getClaId(),
                     groupInfo.getSchoolLevel(),
                     existing.getStdtId()
             );
-            if (activeDgnssId != null) {
-                paramData.put("dgnssId", activeDgnssId);
+            if (!assignedDgnssIds.isEmpty()) {
+                paramData.put("dgnssIds", assignedDgnssIds);
             }
 
             log.info("회원 그룹 재가입: groupId={}, userNo={}, memberId={}", groupId, userNo, existing.getId());
             // Phase 4: nickname 컬럼 제거, IDP enrich 후 name 사용
             existing.setSpUserId(user.getSpUserId());
             userInfoEnricher.enrich(existing);
-            publishStudentJoined(groupInfo, existing.getName());
+            publishStudentJoined(groupInfo, existing.getName(), user.getSpUserId());
             return paramData;
         }
 
@@ -213,20 +213,20 @@ public class GroupService {
         paramData.put("stdtId", user.getStdtId());
         paramData.put("memberId", member.getId());
 
-        Integer activeDgnssId = registerActiveDgnssIfNeeded(
+        List<Integer> assignedDgnssIds = registerActiveDgnssIfNeeded(
                 groupInfo.getClaId(),
                 groupInfo.getSchoolLevel(),
                 user.getStdtId()
         );
-        if (activeDgnssId != null) {
-            paramData.put("dgnssId", activeDgnssId);
+        if (!assignedDgnssIds.isEmpty()) {
+            paramData.put("dgnssIds", assignedDgnssIds);
         }
 
         log.info("회원 그룹 참가: groupId={}, userNo={}, memberNo={}", groupId, userNo, memberNo);
         // Phase 3: User.spUserId로 enrich — user 객체가 이 시점에 살아있으므로 UserSlot 경유
         UserSlot joinSlot = new UserSlot(user.getSpUserId());
         userInfoEnricher.enrich(joinSlot);
-        publishStudentJoined(groupInfo, joinSlot.getName());
+        publishStudentJoined(groupInfo, joinSlot.getName(), user.getSpUserId());
         return paramData;
     }
 
@@ -235,35 +235,34 @@ public class GroupService {
      * T1 알림 이벤트 발행 — 그룹 오너 교사에게.
      * hostUserNo가 없는 경우는 건너뛴다.
      */
-    private void publishStudentJoined(GroupInfo groupInfo, String studentNickname) {
+    private void publishStudentJoined(GroupInfo groupInfo, String studentNickname, String studentPublicUserId) {
         if (groupInfo == null || groupInfo.getHostUserNo() == null) return;
         eventPublisher.publishEvent(new StudentJoinedGroupEvent(
                 groupInfo.getHostUserNo(),
                 groupInfo.getClaId(),
                 groupInfo.getGroupNm(),
-                studentNickname
+                studentNickname,
+                studentPublicUserId
         ));
     }
 
-    private Integer registerActiveDgnssIfNeeded(String claId, String schoolLevel, String stdtId) throws Exception {
-        Integer activeDgnssId = groupQueryMapper.findActiveDgnssId(claId);
-        if (activeDgnssId == null || stdtId == null || stdtId.isBlank()) {
-            return activeDgnssId;
+    /**
+     * 그룹 가입 시 진행 중인 학심정 검사를 가입 학생에게 배부한다.
+     * 종합(paperIdx=1)/자기조절(paperIdx=2) 모두 대상이며, 다른 학급 응시 이력자는 제외된다.
+     * 그룹 동기화(MEMBER_ADD 반영, group-from-idp)에서도 호출되므로 public.
+     *
+     * @return 배부된 검사들의 dgnssId 목록 (없으면 빈 목록)
+     */
+    public List<Integer> registerActiveDgnssIfNeeded(String claId, String schoolLevel, String stdtId) throws Exception {
+        if (stdtId == null || stdtId.isBlank()) {
+            return List.of();
         }
-
-        if (dgnssService.existsDgnssResult(activeDgnssId, stdtId)) {
-            log.info("검사 결과 중복 건너뜀: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
-            return activeDgnssId;
-        }
-
         String legacyGrade = SchoolLevel.fromCode(schoolLevel).getLegacyGrade();
-        Map<String, Object> restartParam = new HashMap<>();
-        restartParam.put("dgnssId", activeDgnssId);
-        restartParam.put("claId", claId);
-        restartParam.put("grade", legacyGrade);
-        dgnssService.tcDgnssRestart(restartParam);
-        log.info("활성 검사 자동 등록: dgnssId={}, stdtId={}", activeDgnssId, stdtId);
-        return activeDgnssId;
+        List<Integer> assignedDgnssIds = dgnssService.assignActiveDgnssToStudent(claId, legacyGrade, stdtId);
+        if (!assignedDgnssIds.isEmpty()) {
+            log.info("가입 시 활성 검사 자동 배부: claId={}, stdtId={}, dgnssIds={}", claId, stdtId, assignedDgnssIds);
+        }
+        return assignedDgnssIds;
     }
 
     @Transactional(readOnly = true)
@@ -531,9 +530,12 @@ public class GroupService {
             if (slot != null) {
                 m.put(nicknameKey, slot.getName());
                 m.put(emailKey, slot.getEmail());
+                // 미동의(NOT_CONSENTED)/탈퇴(WITHDRAWN) 등 사유 — FE 가 마스킹 표시·안내 툴팁 분기에 사용
+                m.put("maskedReason", slot.getMaskedReason());
             } else {
                 m.put(nicknameKey, "(탈퇴 회원)");
                 m.put(emailKey, null);
+                m.put("maskedReason", "NOT_FOUND");
             }
         });
     }

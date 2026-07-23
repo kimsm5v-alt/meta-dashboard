@@ -429,10 +429,16 @@ export const CounselingDashboardPage: React.FC = () => {
           <ChartCardHeader>
             <ChartTitle>상담 분포</ChartTitle>
             <ChartViewButtons>
-              <ChartViewButton $isActive={chartView === 'type'} onClick={() => setChartView('type')}>
+              <ChartViewButton
+                $isActive={chartView === 'type'}
+                onClick={() => setChartView('type')}
+              >
                 유형별
               </ChartViewButton>
-              <ChartViewButton $isActive={chartView === 'area'} onClick={() => setChartView('area')}>
+              <ChartViewButton
+                $isActive={chartView === 'area'}
+                onClick={() => setChartView('area')}
+              >
                 영역별
               </ChartViewButton>
             </ChartViewButtons>

@@ -9,6 +9,7 @@
         <result property="tcId" column="tc_id"/>
         <result property="stdtId" column="stdt_id"/>
         <result property="status" column="status"/>
+        <result property="provisioned" column="provisioned"/>
         <result property="lastLoginAt" column="last_login_at"/>
         <result property="createdBy" column="created_by"/>
         <result property="updatedBy" column="updated_by"/>
@@ -18,7 +19,7 @@
 
     <sql id="userColumns">
         user_no, sp_user_id, role_code, tc_id, stdt_id,
-        status, last_login_at, created_by, updated_by, created_at, updated_at
+        status, provisioned, last_login_at, created_by, updated_by, created_at, updated_at
     </sql>
 
     <select id="findByUserNo" resultMap="userResultMap">
@@ -40,8 +41,8 @@
 
     <insert id="insertUser" parameterType="com.vs.meta.domain.User" useGeneratedKeys="true" keyProperty="userNo">
         /* UserMapper.insertUser */
-        INSERT INTO `user` (sp_user_id, role_code, tc_id, stdt_id, status, last_login_at, created_by, updated_by, created_at, updated_at)
-        VALUES (#{spUserId}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+        INSERT INTO `user` (sp_user_id, role_code, tc_id, stdt_id, status, provisioned, last_login_at, created_by, updated_by, created_at, updated_at)
+        VALUES (#{spUserId}, #{roleCode}, #{tcId}, #{stdtId}, #{status}, COALESCE(#{provisioned}, 'N'), #{lastLoginAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="updateUser" parameterType="com.vs.meta.domain.User">
@@ -52,6 +53,7 @@
             tc_id = #{tcId},
             stdt_id = #{stdtId},
             status = #{status},
+            provisioned = COALESCE(#{provisioned}, provisioned),
             last_login_at = #{lastLoginAt},
             updated_by = #{updatedBy},
             updated_at = #{updatedAt}
@@ -71,5 +73,17 @@
             updated_at  = NOW()
         WHERE user_no = #{userNo}
     </update>
+
+    <delete id="deleteOrphanProvisionedUsers">
+        /* UserMapper.deleteOrphanProvisionedUsers */
+        <!-- 호스트 체크에 use_yn 조건을 걸지 않는 이유: fk_group_host 가 ON DELETE RESTRICT 라
+             비활성 그룹이라도 호스트 user 삭제 시 FK 위반. 호스트 이력이 있으면 행 보존. -->
+        DELETE u FROM `user` u
+        WHERE u.provisioned = 'Y'
+          AND NOT EXISTS (SELECT 1 FROM group_member gm
+                           WHERE gm.user_no = u.user_no AND gm.status = 'ACTIVE')
+          AND NOT EXISTS (SELECT 1 FROM group_info gi
+                           WHERE gi.host_user_no = u.user_no)
+    </delete>
 
 </mapper>

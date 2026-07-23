@@ -1,64 +1,64 @@
-import type { Student, Class } from '@/shared/types';
+/**
+ * AI 어시스턴트 공통 타입
+ * @see FEATURES 복사본.md - D. 데이터 구조
+ */
 
-// 컨텍스트 모드
-export type ContextMode = 'all' | 'class' | 'student';
-
-// 채팅 메시지
+/** 챗봇/페이지 공통 메시지 */
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'bot';
   content: string;
-  timestamp: Date;
+  /** 질문 대상 표기 (예: '6학년 1반 전체', '고우진') */
+  targets?: string;
+  /** 화면 캡처 첨부 여부 */
+  hasCapture?: boolean;
+  /** 참고용(AI 분석) 배지 노출 여부 */
+  isReference?: boolean;
 }
 
-// AI 전송용 컨텍스트 데이터
-export interface AllContextData {
-  mode: 'all';
-  classCount: number;
-  totalStudents: number;
-  typeDistribution: Record<string, number>;
+/** 봇 응답 (API 교체 시 이 형태만 유지하면 UI 수정 불필요) */
+export interface BotResponse {
+  content: string;
+  isReference?: boolean;
 }
 
-export interface ClassContextData {
-  mode: 'class';
-  classId: string;
-  grade: number;
-  classNumber: number;
-  studentCount: number;
-  typeDistribution: Record<string, number>;
-  averageTScores?: number[];
+/** 학생 */
+export interface StudentItem {
+  id: string;
+  no: number;
+  name: string;
+  /** '' | '관심' */
+  tag: '' | '관심';
 }
 
-export interface StudentContextData {
-  mode: 'student';
-  students: {
-    alias: string; // student_A, student_B, etc.
-    type: string;
-    tScores: number[];
-    keywords: string[];
-  }[];
+/** 학급 */
+export interface ClassItem {
+  id: string;
+  name: string;
+  students: StudentItem[];
 }
 
-export type AIContextData = AllContextData | ClassContextData | StudentContextData;
-
-// 선택 상태
-export interface SelectionState {
-  mode: ContextMode;
-  selectedClass: Class | null;
-  selectedStudents: Student[];
+/** 추천 질문 */
+export interface SuggestedQuestion {
+  emoji: string;
+  text: string;
 }
 
-// 학생 별칭 매핑 (이름 치환용)
-export interface StudentAliasMap {
-  [alias: string]: string; // { "student_A": "김민준", "student_B": "이서연" }
-}
+/** 플로팅 챗봇 보기 모드 */
+export type ChatbotViewMode = 'bubble' | 'inputbar' | 'corner' | 'fullscreen';
 
-// 대화 기록
+/** 어시스턴트 페이지 좌측 모드 */
+export type AssistantMode = 'chat' | 'record';
+
+/** 생활기록부 문구 유형 */
+export type RecordToneType = '종합' | '강점 중심' | '행동·태도';
+
+/** 대화 히스토리 항목 */
 export interface Conversation {
   id: string;
   title: string;
+  group: '오늘' | '지난 7일' | '이전';
   messages: ChatMessage[];
-  createdAt: Date;
-  mode: ContextMode;
-  contextLabel?: string;
+  /** 플로팅 챗봇에서 시작된 대화의 화면 라벨 (예: '결과보기') — 있으면 히스토리에 화면 배지 표시 */
+  screen?: string;
 }

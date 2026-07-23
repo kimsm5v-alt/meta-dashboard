@@ -50,6 +50,7 @@ export const AIRoomPage = () => {
     handleSend,
     handleQuickPrompt,
     getConversationMode,
+    getConversationSelection,
   } = useConversations({
     classes,
     mode,
@@ -68,8 +69,24 @@ export const AIRoomPage = () => {
 
   const handleSelectConversation = (convId: string) => {
     rawHandleSelectConversation(convId);
+
+    // 같은 세션에서 대화했던 컨텍스트 선택(모드/반/학생)까지 복원.
+    // 복원하지 않으면 이전 대화의 선택이 남아 헤더 표시와 AI 답변 대상이 어긋난다.
+    const selection = getConversationSelection(convId);
+    if (selection) {
+      contextMode.restoreSelections(
+        selection.mode,
+        selection.selectedClass,
+        selection.selectedStudents,
+      );
+      return;
+    }
+
+    // 캐시가 없는 대화(새로고침 후 등)는 모드만 알 수 있으므로
+    // class/students를 초기화한 채 복원한다. 같은 mode끼리 전환 시
+    // 이전 대화의 반/학생이 잔존하면 엉뚱한 컨텍스트로 전송되는 버그 방지.
     const convMode = getConversationMode(convId);
-    if (convMode) contextMode.setMode(convMode);
+    if (convMode) contextMode.restoreSelections(convMode, null, []);
   };
 
   return (

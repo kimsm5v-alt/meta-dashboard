@@ -5,7 +5,6 @@ import { ArrowRight, Lightbulb, BookOpen } from 'lucide-react';
 import type { Class } from '@shared/types';
 import { useClassProfile } from '../model/useClassProfile';
 import type { ClassProfileItem } from '../model/useClassProfile';
-import { SUB_CATEGORY_SCRIPTS } from '@shared/data/subCategoryScripts';
 import { DOMAIN_COLORS } from '@shared/data/lpaProfiles';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_ACTIVITIES_BY_PROFILE } from '@shared/data/apiDefinitions';
@@ -267,16 +266,11 @@ interface ClassInsightsProps {
 // Utilities
 // ============================================================
 
-/** 중분류 표시명 (SUB_CATEGORY_SCRIPTS.name 사용) */
-function getCategoryDisplayName(category: string): string {
-  return SUB_CATEGORY_SCRIPTS[category]?.name ?? category;
-}
-
 // ============================================================
 // Sub-Components
 // ============================================================
 
-/** 프로파일 아이템 렌더링 (컴팩트, 중분류명 + summary) */
+/** 프로파일 아이템 렌더링 (컴팩트, 소분류명 + 조작적 정의) */
 const ProfileItem: React.FC<{
   item: ClassProfileItem;
   rank: number;
@@ -291,9 +285,9 @@ const ProfileItem: React.FC<{
       )}
       <ProfileItemHeader>
         <ProfileRank $accent={accent}>{rank}</ProfileRank>
-        <ProfileName>{getCategoryDisplayName(item.category)}</ProfileName>
+        <ProfileName>{item.factorName}</ProfileName>
       </ProfileItemHeader>
-      {item.categoryScript && <ProfileDescription>{item.categoryScript}</ProfileDescription>}
+      {item.definition && <ProfileDescription>{item.definition}</ProfileDescription>}
     </ProfileItemCard>
   );
 };
@@ -354,7 +348,7 @@ export const ClassInsights: React.FC<ClassInsightsProps> = ({ classData }) => {
               </SectionTitle>
               <ProfileGrid>
                 {profile.strengths.map((item, idx) => (
-                  <ProfileItem key={item.category} item={item} rank={idx + 1} accent='emerald' />
+                  <ProfileItem key={item.factorName} item={item} rank={idx + 1} accent='emerald' />
                 ))}
               </ProfileGrid>
             </div>
@@ -367,7 +361,7 @@ export const ClassInsights: React.FC<ClassInsightsProps> = ({ classData }) => {
               </SectionTitle>
               <ProfileGrid>
                 {profile.weaknesses.map((item, idx) => (
-                  <ProfileItem key={item.category} item={item} rank={idx + 1} accent='red' />
+                  <ProfileItem key={item.factorName} item={item} rank={idx + 1} accent='red' />
                 ))}
               </ProfileGrid>
             </div>

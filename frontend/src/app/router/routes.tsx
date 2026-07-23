@@ -11,7 +11,6 @@ import { FEATURES } from '@shared/config/features';
 // Page imports from pages layer
 import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
 import { SsePocPage } from '@pages/dev/SsePocPage';
-import { CompleteProfilePage } from '@pages/auth/CompleteProfilePage';
 import {
   LandingPage,
   LoginPage,
@@ -19,12 +18,12 @@ import {
   ClassDashboardPage,
   ClassDetailAnalysisPage,
   StudentDashboardPage,
+  SelfregStudentDashboardPage,
   AIRoomPage,
-  AssessmentPageV2,
+  AssessmentPage,
   SchedulePage,
   ExamCodeEntryPage,
   ExamPage,
-  JoinGroupPage,
   CounselingDashboardPage,
   ResourceListPage,
   ResourceDetailPage,
@@ -36,6 +35,7 @@ import {
   StudentGroupsPage,
   MyExamListPage,
   MyResultPage,
+  MySelfregResultPage,
 } from '@pages/index';
 
 // ============================================================
@@ -62,7 +62,7 @@ const PublicLayout = () => (
  */
 const ProtectedLayout = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
+  const { isChecking } = useProfileCheck(isAuthenticated);
 
   if (isLoading || isChecking) {
     return <PageLoading text='로딩 중...' />;
@@ -70,10 +70,6 @@ const ProtectedLayout = () => {
 
   if (!isAuthenticated) {
     return <Navigate to='/login' replace />;
-  }
-
-  if (needsProfile) {
-    return <Navigate to='/auth/complete-profile' replace />;
   }
 
   // 학생이 교사 경로 접근 시 학생 전용 경로로 강제 이동
@@ -95,7 +91,7 @@ const ProtectedLayout = () => {
  */
 const StudentProtectedLayout = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const { needsProfile, isChecking } = useProfileCheck(isAuthenticated);
+  const { isChecking } = useProfileCheck(isAuthenticated);
 
   if (isLoading || isChecking) {
     return <PageLoading text='로딩 중...' />;
@@ -103,10 +99,6 @@ const StudentProtectedLayout = () => {
 
   if (!isAuthenticated) {
     return <Navigate to='/login' replace />;
-  }
-
-  if (needsProfile) {
-    return <Navigate to='/auth/complete-profile' replace />;
   }
 
   // 교사가 학생 경로 접근 시 교사 대시보드로 강제 이동
@@ -145,10 +137,9 @@ export const AppRoutes = () => (
     {/* 공개 라우트 - 사이드바 없음 */}
     <Route element={<PublicLayout />}>
       <Route path='/login' element={<LoginPage />} />
-      <Route path='/auth/complete-profile' element={<CompleteProfilePage />} />
       <Route path='/exam' element={<ExamCodeEntryPage />} />
       <Route path='/exam/:code' element={<ExamPage />} />
-      <Route path='/join/:code' element={<JoinGroupPage />} />
+      {/* /join/:code 제거 — 그룹 참여(초대링크)는 mypage(SSO)로 이관 (group-from-idp) */}
     </Route>
 
     {/* 보호 라우트 - 사이드바 있음 */}
@@ -156,13 +147,25 @@ export const AppRoutes = () => (
       {/* 검사 영역 */}
       <Route path='/groups' element={<Navigate to='/assessment' replace />} />
       <Route path='/groups/:groupId' element={<GroupDetailRedirect />} />
-      <Route path='/assessment' element={<AssessmentPageV2 />} />
-      <Route path='/assessment/:groupId' element={<AssessmentPageV2 />} />
-      <Route path='/dashboard' element={<TeacherDashboardPage />} />
-      <Route path='/dashboard/class/:classId' element={<ClassDashboardPage />} />
-      <Route path='/dashboard/class/:classId/analysis' element={<ClassDetailAnalysisPage />} />
+      <Route path='/assessment' element={<AssessmentPage />} />
+      <Route path='/assessment/:groupId' element={<AssessmentPage />} />
+
+      {/* 대시보드 — testId 분기 */}
+      <Route path='/dashboard' element={<Navigate to='/dashboard/comprehensive' replace />} />
+      <Route path='/dashboard/comprehensive' element={<TeacherDashboardPage />} />
+      <Route path='/dashboard/selfreg' element={<TeacherDashboardPage />} />
+      <Route path='/dashboard/:testId/class/:classId' element={<ClassDashboardPage />} />
       <Route
-        path='/dashboard/class/:classId/student/:studentId'
+        path='/dashboard/:testId/class/:classId/analysis'
+        element={<ClassDetailAnalysisPage />}
+      />
+      {/* 자기조절검사 학생 상세 — selfreg 전용 (generic 라우트보다 먼저 등록) */}
+      <Route
+        path='/dashboard/selfreg/class/:classId/student/:studentId'
+        element={<SelfregStudentDashboardPage />}
+      />
+      <Route
+        path='/dashboard/:testId/class/:classId/student/:studentId'
         element={<StudentDashboardPage />}
       />
 
@@ -202,8 +205,14 @@ export const AppRoutes = () => (
     <Route element={<StudentProtectedLayout />}>
       <Route path='/student/groups' element={<StudentGroupsPage />} />
       <Route path='/student/exams' element={<MyExamListPage />} />
-      <Route path='/student/result' element={<MyResultPage />} />
-      <Route path='/student/result/:resultId' element={<MyResultPage />} />
+      <Route
+        path='/student/result'
+        element={<Navigate to='/student/result/comprehensive' replace />}
+      />
+      <Route path='/student/result/comprehensive' element={<MyResultPage />} />
+      <Route path='/student/result/comprehensive/:resultId' element={<MyResultPage />} />
+      <Route path='/student/result/selfreg' element={<MySelfregResultPage />} />
+      <Route path='/student/result/selfreg/:resultId' element={<MySelfregResultPage />} />
       <Route path='/exam/student' element={<ExamPage />} />
     </Route>
 

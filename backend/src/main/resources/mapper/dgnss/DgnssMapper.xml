@@ -104,6 +104,74 @@
 		GROUP BY a1.id
 	</select>
 
+	<!-- 교사) 본인 소유(host_user_no) 전체 학급의 진단검사 현황 한 번에 조회.
+	     기존 selectTcDgnssInfo 와 동일 집계이나 WHERE 를 학급(claId) 대신 교사(userNo=host_user_no) 로,
+	     그룹 정보(group_nm/school_level/grade/class_number)를 함께 반환. -->
+	<select id="selectTcDgnssOverview" parameterType="map" resultType="map">
+		/* DgnssMapper.selectTcDgnssOverview */
+		SELECT a1.id AS dgnssId
+		     , a1.ord_no AS ordNo
+		     , a1.cla_id AS claId
+		     , a1.dgnss_at AS dgnssAt
+		     , a1.paper_idx AS paperIdx
+		     , DATE_FORMAT(a1.dgnss_st_dt, '%Y. %m. %d.') AS dgnssStDt
+		     , DATE_FORMAT(a1.dgnss_ed_dt, '%Y. %m. %d.') AS dgnssEdDt
+		     , gi.group_nm AS groupNm
+		     , gi.school_level AS schoolLevel
+		     , gi.grade AS grade
+		     , gi.class_number AS classNumber
+		     , COUNT(
+		        DISTINCT CASE
+		                     WHEN b1.subm_at = 'Y' THEN b1.stdt_id
+		                 END
+		       ) AS stSubmCnt
+		     , (
+		        SELECT COUNT(DISTINCT gm2.stdt_id)
+		        FROM group_info gi2
+		        	INNER JOIN group_member gm2
+		        		ON gi2.group_id = gm2.group_id
+		        WHERE gi2.cla_id = a1.cla_id
+		       ) AS stTotalCnt
+		     , (
+		        SELECT COUNT(DISTINCT gm2.stdt_id)
+		        FROM group_info gi2
+		        	INNER JOIN group_member gm2
+		        		ON gi2.group_id = gm2.group_id
+		        WHERE gi2.cla_id = a1.cla_id
+		          AND NOT EXISTS (
+		          	SELECT 1
+		          	FROM tb_dgnss_result_info b2
+		          	WHERE b2.stdt_id = gm2.stdt_id
+		          	  AND b2.dgnss_id = a1.id
+		          )
+		       ) AS notDgnssStartCnt
+		     , (
+		        SELECT GROUP_CONCAT(DISTINCT gm2.stdt_id)
+		        FROM group_info gi2
+		        	INNER JOIN group_member gm2
+		        		ON gi2.group_id = gm2.group_id
+		        WHERE gi2.cla_id = a1.cla_id
+		          AND NOT EXISTS (
+		          	SELECT 1
+		          	FROM tb_dgnss_result_info b2
+		          	WHERE b2.stdt_id = gm2.stdt_id
+		          	  AND b2.dgnss_id = a1.id
+		          )
+		       ) AS notDgnssStartList
+		     , a1.tc_id AS tcId
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1
+				ON a1.id = b1.dgnss_id
+			INNER JOIN group_info gi
+				ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm
+				ON gi.group_id = gm.group_id
+				AND b1.stdt_id = gm.stdt_id
+		WHERE gi.host_user_no = #{userNo}
+		GROUP BY a1.id
+		ORDER BY a1.cla_id, a1.paper_idx, a1.ord_no
+	</select>
+
 	<select id="selectActvStdtCnt" parameterType="map" resultType="int">
 		/* DgnssMapper.selectActvStdtCnt */
 		SELECT COUNT(*)
@@ -174,6 +242,10 @@
 		  	  AND tdi_other.cla_id != #{claId}
 		  	  AND tdri_other.stdt_id = gm.stdt_id
 		  )
+		  <!-- 그룹 가입 단일 학생 적격성 확인 시: 해당 학생으로 한정 (교사 시작 플로우에선 미전달 → 전체) -->
+		  <if test="stdtId != null and stdtId != ''">
+		  AND gm.stdt_id = #{stdtId}
+		  </if>
 		ORDER BY gm.member_no
 	</select>
 
@@ -223,6 +295,10 @@
 		  	  AND gi_other.host_user_no != gi.host_user_no
 		  	  AND tdri_other1.stdt_id = gm.stdt_id
 		  )
+		  <!-- 그룹 가입 단일 학생 적격성 확인 시: 해당 학생으로 한정 (교사 시작 플로우에선 미전달 → 전체) -->
+		  <if test="stdtId != null and stdtId != ''">
+		  AND gm.stdt_id = #{stdtId}
+		  </if>
 		ORDER BY gm.member_no
 	</select>
 
@@ -450,6 +526,18 @@
 
 		WHERE a1.id = #{dgnssId}
 		GROUP BY a1.id
+	</select>
+
+	<select id="findActiveDgnssListByClaId" resultType="map">
+		/* DgnssMapper.findActiveDgnssListByClaId */
+		SELECT id        AS dgnssId
+		     , ord_no    AS ordNo
+		     , paper_idx AS paperIdx
+		     , cla_id    AS claId
+		FROM tb_dgnss_info
+		WHERE cla_id = #{claId}
+		  AND dgnss_at = 'Y'
+		ORDER BY paper_idx
 	</select>
 
 	<select id="selectSubmitNotificationInfo" parameterType="int" resultType="map">
@@ -886,13 +974,13 @@
 		           WHEN gi.school_level = 'elementary' THEN '초등'
 		           WHEN gi.school_level = 'middle' THEN '중등'
 		           WHEN gi.school_level = 'high' THEN '고등'
-		           ELSE ''
+		           ELSE '-'
 		       END AS MEM_GRADE_NM
 		     , CASE
 		           WHEN gi.group_nm IS NULL THEN '-'
 		           ELSE gi.group_nm
 		       END AS CLASS_NM
-		     , IFNULL(gi.school_name, '') AS SCH_NM
+		     , IFNULL(NULLIF(gi.school_name, ''), '-') AS SCH_NM
 		     , a1.ord_no AS TEST_ORD
 		     , (
 		        SELECT DATE_FORMAT(d1.dgnss_ed_dt, '%Y-%m-%d')
@@ -1813,13 +1901,14 @@
 		     , DA.COCH_DGNSS_QESITM03_SCORE, DA.COCH_DGNSS_QESITM03_MARK
 		     , DA.COCH_DGNSS_QESITM04_SCORE, DA.COCH_DGNSS_QESITM04_MARK
 		     , DRI.stdt_id AS MEM_ID
+		     , DRI.nickname AS nickname
 		     , IFNULL(DA.SCH_GRADE, '') AS SCH_GRADE
-		     , IFNULL(gi.school_name, '') AS SCH_NM
+		     , IFNULL(NULLIF(gi.school_name, ''), IFNULL(DRI.school_name, '')) AS SCH_NM
 		     , IFNULL(gi.school_level, '') AS MEM_GRADE
-		     , CASE
-		           WHEN gi.school_level = 'elementary' THEN '초등'
-		           WHEN gi.school_level = 'middle' THEN '중등'
-		           WHEN gi.school_level = 'high' THEN '고등'
+		     , CASE DA.SCH_GRADE
+		           WHEN 'CMM13001' THEN '초등'
+		           WHEN 'CMM13002' THEN '중등'
+		           WHEN 'CMM13003' THEN '고등'
 		           ELSE ''
 		       END AS MEM_GRADE_NM
 		     , CASE
@@ -1847,26 +1936,30 @@
 		     , DRI.file_url AS fileURL
 		     , DRI.id AS dgnssResultId
 		     , CASE
-		           WHEN gi.group_nm IS NULL THEN '-'
-		           ELSE gi.group_nm
+		           WHEN COALESCE(NULLIF(gi.grade, '0'), NULLIF(DRI.grade, '')) IS NOT NULL
+		                AND COALESCE(NULLIF(gi.class_number, 0), NULLIF(DRI.class_number, '')) IS NOT NULL
+		           THEN CONCAT(COALESCE(NULLIF(gi.grade, '0'), NULLIF(DRI.grade, '')), '학년 ', COALESCE(NULLIF(gi.class_number, 0), NULLIF(DRI.class_number, '')), '반')
+		           ELSE '-'
 		       END AS CLASS_NM
 		     , tdi2.cla_id AS claId
 		     , tdi2.paper_idx AS paperIdx
 		     , tu.sp_user_id AS teacherSpUserId
 		     , tdi2.tc_id AS tcId
 		     , DRI.summary_file_url AS summaryFileURL
-		     , CASE
-		           WHEN gi.school_level = 'elementary' THEN '초등'
-		           WHEN gi.school_level = 'middle' THEN '중등'
-		           WHEN gi.school_level = 'high' THEN '고등'
+		     , CASE DA.SCH_GRADE
+		           WHEN 'CMM13001' THEN '초등'
+		           WHEN 'CMM13002' THEN '중등'
+		           WHEN 'CMM13003' THEN '고등'
 		           ELSE ''
 		       END AS stdtGrade
 		     , CASE
-		           WHEN gi.group_nm IS NULL THEN ''
-		           ELSE gi.group_nm
+		           WHEN COALESCE(NULLIF(gi.grade, '0'), NULLIF(DRI.grade, '')) IS NOT NULL
+		                AND COALESCE(NULLIF(gi.class_number, 0), NULLIF(DRI.class_number, '')) IS NOT NULL
+		           THEN CONCAT(COALESCE(NULLIF(gi.grade, '0'), NULLIF(DRI.grade, '')), '학년 ', COALESCE(NULLIF(gi.class_number, 0), NULLIF(DRI.class_number, '')), '반')
+		           ELSE ''
 		       END AS stdtClassNm
 		     , CASE
-		           WHEN gm.member_no IS NULL THEN ''
+		           WHEN gm.member_no IS NULL THEN '-'
 		           ELSE CONCAT(gm.member_no, '번')
 		       END AS stdtNo
 		     , gm.member_type AS memberType
@@ -2044,6 +2137,13 @@
 		SET eak_stts_cd = 2
 			, eak_at = 'Y'
 			, eak_st_dt = NOW()
+			<!-- 학생 입력 식별정보: 값이 전달된 경우에만 갱신(시작 시 1회 전송, 페이지 호출 시 미전송이면 보존) -->
+			<if test="schoolName != null and schoolName != ''">, school_name = #{schoolName}</if>
+			<if test="schoolCode != null and schoolCode != ''">, school_code = #{schoolCode}</if>
+			<if test="grade != null and grade != ''">, grade = #{grade}</if>
+			<if test="classNumber != null and classNumber != ''">, class_number = #{classNumber}</if>
+			<if test="gender != null and gender != ''">, gender = #{gender}</if>
+			<if test="nickname != null and nickname != ''">, nickname = #{nickname}</if>
 		WHERE id = #{dgnssResultId}
 	</update>
 
@@ -2100,11 +2200,6 @@
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, lpa.class_id AS lpaClassId
-			, lpa.type_name AS lpaTypeName
-			, lpa.confidence AS lpaConfidence
-			, lpa.status AS lpaStatus
-			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, CASE WHEN c1.LS_ANS01 = 1 THEN '매우 낮음'
 				WHEN c1.LS_ANS01 = 2 THEN '낮음'
 				WHEN c1.LS_ANS01 = 3 THEN '보통'
@@ -2477,11 +2572,6 @@
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, lpa.class_id AS lpaClassId
-			, lpa.type_name AS lpaTypeName
-			, lpa.confidence AS lpaConfidence
-			, lpa.status AS lpaStatus
-			, lpa.probabilities_json AS lpaProbabilitiesJson
 			, CASE WHEN c1.LS_ANS01 = 1 THEN '매우 낮음'
 				WHEN c1.LS_ANS01 = 2 THEN '낮음'
 				WHEN c1.LS_ANS01 = 3 THEN '보통'
@@ -2964,22 +3054,15 @@
 
 	<select id="selectStLernAnalysis" parameterType="map" resultType="map">
 		/* DgnssMapper.selectStLernAnalysis */
-		SELECT b1.id AS dgnssResultId
-			, c1.ANSWER_IDX AS answerIdx
+		SELECT c1.ANSWER_IDX AS answerIdx
 			, d1.SECTION_ID
 			, d1.`DEPTH`
-			, e1.SECTION_NM
 			, IF(d1.T_SCORE <![CDATA[<]]> 0, 0, d1.T_SCORE) AS tScore
 			, a1.ord_no
-			, a1.cla_id AS claId
-			, gi.group_nm AS groupNm
 			, c1.COCH_DGNSS_QESITM01_MARK AS reaction
 			, c1.COCH_DGNSS_QESITM02_MARK AS desirable
 			, c1.REPEATED_RESPONSE_YN AS repeatResponse
-			, lpa.class_id AS lpaClassId
 			, lpa.type_name AS lpaTypeName
-			, lpa.confidence AS lpaConfidence
-			, lpa.status AS lpaStatus
 			, lpa.probabilities_json AS lpaProbabilitiesJson
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
@@ -3672,6 +3755,15 @@
 		     , status
 		FROM tb_dgnss_lpa_result
 		WHERE answer_idx = #{answerIdx}
+	</select>
+
+	<select id="selectFactorScoresByAnswerIdx" resultType="map">
+		/* DgnssMapper.selectFactorScoresByAnswerIdx */
+		SELECT e1.SECTION_NM AS sectionNm
+		     , IF(d1.T_SCORE <![CDATA[<]]> 0, 0, d1.T_SCORE) AS tScore
+		FROM tb_dgnss_answer_report d1
+			INNER JOIN tb_dgnss_section e1 ON d1.SECTION_ID = e1.SECTION_ID
+		WHERE d1.ANSWER_IDX = #{answerIdx}
 	</select>
 
 	<select id="selectOmrListForSampleExcel" parameterType="int" resultType="map">

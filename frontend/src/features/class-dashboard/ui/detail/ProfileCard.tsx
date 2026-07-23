@@ -1,13 +1,13 @@
 import type React from 'react';
 import styled from '@emotion/styled';
 import type { ClassProfileItem } from '../../model/useClassProfile';
-import { SUB_CATEGORY_SCRIPTS } from '@shared/data/subCategoryScripts';
 import { DOMAIN_COLORS } from '@shared/data/lpaProfiles';
 
 // ============================================================
 // 스타일 상수
 // ============================================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const ACCENT_STYLES = {
   emerald: {
     cardBg: 'rgba(16, 185, 129, 0.05)',
@@ -72,13 +72,7 @@ const Delta = styled.span<{ $isPositive: boolean; $isIncrease: boolean }>`
   margin-left: 0.25rem;
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   color: ${({ $isPositive, $isIncrease }) =>
-    $isIncrease
-      ? $isPositive
-        ? '#059669'
-        : '#ef4444'
-      : $isPositive
-        ? '#ef4444'
-        : '#059669'};
+    $isIncrease ? ($isPositive ? '#059669' : '#ef4444') : $isPositive ? '#ef4444' : '#059669'};
 `;
 
 const SimpleScoreText = styled.p<{ $accent: 'emerald' | 'red' }>`
@@ -92,14 +86,6 @@ const Description = styled.p`
   color: ${({ theme }) => theme.colors.gray[500]};
   line-height: 1.625;
 `;
-
-// ============================================================
-// 유틸리티
-// ============================================================
-
-function getCategoryDisplayName(category: string): string {
-  return SUB_CATEGORY_SCRIPTS[category]?.name ?? category;
-}
 
 // ============================================================
 // Props
@@ -120,10 +106,10 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ item, idx, accent, pre
   const prevMap: Record<string, number> = {};
   if (prevItems) {
     for (const p of prevItems) {
-      prevMap[p.category] = p.avgT;
+      prevMap[p.factorName] = p.avgT;
     }
   }
-  const prevT = prevMap[item.category];
+  const prevT = prevMap[item.factorName];
   const hasPrev = prevT != null;
   const delta = hasPrev ? Math.round(item.avgT - prevT) : 0;
 
@@ -136,7 +122,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ item, idx, accent, pre
       )}
       <HeaderRow>
         <RankNumber $accent={accent}>{idx + 1}</RankNumber>
-        <CategoryName>{getCategoryDisplayName(item.category)}</CategoryName>
+        <CategoryName>{item.factorName}</CategoryName>
       </HeaderRow>
       {hasPrev ? (
         <ScoreText>
@@ -151,7 +137,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ item, idx, accent, pre
       ) : (
         <SimpleScoreText $accent={accent}>T {item.avgT}</SimpleScoreText>
       )}
-      {item.categoryScript && <Description>{item.categoryScript}</Description>}
+      {item.definition && <Description>{item.definition}</Description>}
     </Card>
   );
 };

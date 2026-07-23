@@ -59,17 +59,17 @@ export const axiosInstance: AxiosInstance = axios.create({
 
 // 인증 불필요 엔드포인트 (토큰 전송 제외)
 const PUBLIC_ENDPOINTS = [
-  '/api/v1/auth/',          // SSO 프록시
+  '/api/v1/auth/', // SSO 프록시
   '/guest/exists',
   '/guest/auth',
-  '/member/send-code',      // 게스트 이메일 인증 (유지)
-  '/member/verify-code',    // 게스트 이메일 인증 (유지)
+  '/member/send-code', // 게스트 이메일 인증 (유지)
+  '/member/verify-code', // 게스트 이메일 인증 (유지)
   '/group/join-guest',
 ];
 
 // 정확한 경로 매칭이 필요한 엔드포인트 (includes 대신 정확 비교)
 const PUBLIC_EXACT_ENDPOINTS = [
-  '/group/invite',          // 초대 링크 조회 (비로그인 허용) — /group/invite/list 등은 인증 필요
+  '/group/invite', // 초대 링크 조회 (비로그인 허용) — /group/invite/list 등은 인증 필요
 ];
 
 // ============================================================

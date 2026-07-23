@@ -175,6 +175,7 @@ interface CompletionModalProps {
   data: CompletionData;
   onChange: (data: CompletionData) => void;
   onComplete: () => void;
+  isCompleting?: boolean;
   onClose: () => void;
 }
 
@@ -183,6 +184,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
   data,
   onChange,
   onComplete,
+  isCompleting = false,
   onClose,
 }) => {
   return (
@@ -245,9 +247,11 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
         </FormContent>
 
         <Actions>
-          <CancelButton onClick={onClose}>취소</CancelButton>
-          <SubmitButton onClick={onComplete} disabled={!data.summary.trim()}>
-            완료 처리
+          <CancelButton onClick={onClose} disabled={isCompleting}>
+            취소
+          </CancelButton>
+          <SubmitButton onClick={onComplete} disabled={!data.summary.trim() || isCompleting}>
+            {isCompleting ? '처리 중...' : '완료 처리'}
           </SubmitButton>
         </Actions>
       </ModalContainer>

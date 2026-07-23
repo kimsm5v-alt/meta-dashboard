@@ -9,7 +9,9 @@ import type {
 } from '@features/ai-room/types';
 import type { AssistantResponse } from '@features/ai-room/api/assistantService';
 import { callAssistantStream } from '@features/ai-room/api/assistantService';
+import { buildRAGContext } from '@features/ai-room/api/contextBuilder';
 import { agentResetSession } from '@features/ai-room/api/agentApiService';
+import { useAuth } from '@features/auth';
 import {
   createConversation as createConversationApi,
   addMessageWithRetry as addMessageApi,
@@ -17,7 +19,10 @@ import {
   getMessages as getMessagesApi,
   deleteConversation as deleteConversationApi,
 } from '@features/ai-room/api/chatApiService';
-import type { Message, Conversation as ServerConversation } from '@features/ai-room/api/chatApiService';
+import type {
+  Message,
+  Conversation as ServerConversation,
+} from '@features/ai-room/api/chatApiService';
 
 // ============================================================================
 // Constants
@@ -90,7 +95,6 @@ const convertConversation = (serverConv: ServerConversation): Conversation => ({
   messages: [INITIAL_MESSAGE], // 초기값, 나중에 getMessages로 채움
 });
 
-
 // ============================================================================
 // Hook Interface
 // ============================================================================
@@ -121,6 +125,14 @@ interface UseConversationsReturn {
   handleSend: () => Promise<void>;
   handleQuickPrompt: (prompt: string) => void;
   getConversationMode: (convId: string) => ContextMode | undefined;
+  /** 같은 세션에서 대화했던 컨텍스트 선택(모드/반/학생) 조회 — 대화 전환 시 복원용 */
+  getConversationSelection: (convId: string) =>
+    | {
+        mode: ContextMode;
+        selectedClass: Class | null;
+        selectedStudents: Student[];
+      }
+    | undefined;
 }
 
 // ============================================================================
@@ -135,6 +147,8 @@ export const useConversations = ({
   getContextLabel,
   authTcId,
 }: UseConversationsParams): UseConversationsReturn => {
+  const { user } = useAuth();
+
   // ---------------------------------------------------------------------------
   // State (서버 중심)
   // ---------------------------------------------------------------------------
@@ -150,11 +164,23 @@ export const useConversations = ({
   /**
    * 세션별 RAG 컨텍스트 캐시
    * - 첫 메시지에서 빌드(API 호출), 이후 메시지는 재사용
+   * - signature: 캐시 생성 시점의 컨텍스트 선택(모드/반/학생). 전송 시점의 선택과
+   *   다르면 캐시 미스로 취급해 재빌드·재전송한다 (대화 중 선택 변경 시 낡은
+   *   컨텍스트로 답변하는 버그 방지)
+   * - selection: 대화 전환 시 해당 대화의 선택 상태를 복원하는 데 사용
    * - 대화 삭제 시 해당 세션 캐시도 제거
    */
-  const contextCacheRef = useRef<
-    Map<string, NonNullable<AssistantResponse['builtContext']>>
-  >(new Map());
+  interface CachedConversationContext {
+    ragContext: string;
+    aliasMap: StudentAliasMap;
+    signature: string;
+    selection: {
+      mode: ContextMode;
+      selectedClass: Class | null;
+      selectedStudents: Student[];
+    };
+  }
+  const contextCacheRef = useRef<Map<string, CachedConversationContext>>(new Map());
 
   // ---------------------------------------------------------------------------
   // Computed
@@ -222,9 +248,7 @@ export const useConversations = ({
           const messagesWithInitial = prependInitialMessage(convertedMessages);
 
           setConversations((prev) =>
-            prev.map((c) =>
-              c.id === firstConvId ? { ...c, messages: messagesWithInitial } : c,
-            ),
+            prev.map((c) => (c.id === firstConvId ? { ...c, messages: messagesWithInitial } : c)),
           );
 
           console.log(`✅ 메시지 ${messagesWithInitial.length}개 로드 완료 (INITIAL 포함)`);
@@ -302,9 +326,7 @@ export const useConversations = ({
       const messagesWithInitial = prependInitialMessage(convertedMessages);
 
       setConversations((prev) =>
-        prev.map((c) =>
-          c.id === convId ? { ...c, messages: messagesWithInitial } : c,
-        ),
+        prev.map((c) => (c.id === convId ? { ...c, messages: messagesWithInitial } : c)),
       );
 
       console.log(`✅ 메시지 ${messagesWithInitial.length}개 로드 완료 (INITIAL 포함)`);
@@ -317,6 +339,9 @@ export const useConversations = ({
     return conversations.find((c) => c.id === convId)?.mode;
   };
 
+  const getConversationSelection = (convId: string) => {
+    return contextCacheRef.current.get(convId)?.selection;
+  };
 
   const handleSend = async () => {
     if ((!input.trim() && !pendingImage) || isLoading) return;
@@ -340,7 +365,55 @@ export const useConversations = ({
     const convId = activeConversationId;
     const isTempConv = convId.startsWith('temp-');
 
+    // 현재 컨텍스트 선택의 시그니처 — 캐시 유효성 판정 기준
+    const selectionSignature = [
+      mode,
+      selectedClass?.id ?? '',
+      selectedStudents
+        .map((s) => s.id)
+        .sort()
+        .join(','),
+    ].join('|');
+
+    // 캐시 저장 헬퍼 — 컨텍스트와 함께 당시 선택 상태를 기록
+    const cacheContext = (id: string, built: NonNullable<AssistantResponse['builtContext']>) => {
+      contextCacheRef.current.set(id, {
+        ...built,
+        signature: selectionSignature,
+        selection: { mode, selectedClass, selectedStudents },
+      });
+    };
+
     try {
+      // 임시 대화: 에이전트 호출 전에 서버 대화방을 먼저 생성해 세션 ID를 고정
+      // (temp ID로 첫 턴을 보내면 에이전트가 이력·컨텍스트를 temp 키로 저장해
+      //  서버 ID로 바뀌는 두 번째 턴부터 찾지 못함)
+      let serverConvId: string | null = null;
+      let prebuiltContext: NonNullable<AssistantResponse['builtContext']> | null = null;
+      if (isTempConv) {
+        const convTitle = currentInput.trim()
+          ? currentInput.slice(0, 20) + (currentInput.length > 20 ? '...' : '')
+          : '화면 캡처 질문';
+        try {
+          // 대화방 생성 시 contextData를 함께 저장하기 위해 RAG 컨텍스트를 먼저 빌드
+          // (빌드 결과는 아래 에이전트 호출에 재사용 — 중복 빌드 방지)
+          const built = await buildRAGContext({ mode, classes, selectedClass, selectedStudents });
+          prebuiltContext = { ragContext: built.context, aliasMap: built.aliasMap };
+
+          const created = await createConversationApi(
+            mode,
+            getContextLabel(),
+            convTitle,
+            [],
+            prebuiltContext,
+          );
+          serverConvId = created.conversation.id.toString();
+          console.log('대화 생성 완료 (contextData 포함, 세션 ID 고정):', serverConvId);
+        } catch (err) {
+          console.error('대화 생성 실패, 임시 세션으로 진행:', err);
+        }
+      }
+
       // ✅ 사용자 메시지 저장 → 서버 messageId 반영 (실제 대화방만)
       if (!isTempConv) {
         addMessageApi(parseInt(convId, 10), 'user', currentInput)
@@ -364,15 +437,20 @@ export const useConversations = ({
           .catch((err) => console.warn('사용자 메시지 저장 실패:', err));
       }
 
-      // 세션 캐시 조회 — 있으면 API 재호출 없이 재사용
-      const cachedContext = contextCacheRef.current.get(convId) ?? null;
+      // 세션 캐시 조회 — 시그니처(현재 선택)가 일치할 때만 재사용.
+      // 대화 중 선택이 바뀌었으면 캐시 미스로 취급 → 재빌드 후 context_data 재전송
+      const cached = contextCacheRef.current.get(convId);
+      const cachedContext =
+        cached && cached.signature === selectionSignature
+          ? { ragContext: cached.ragContext, aliasMap: cached.aliasMap }
+          : null;
 
       let tempAiMsgId = '';
       let finalAccumulated = '';
 
       const result = await callAssistantStream(
         {
-          sessionId: convId,
+          sessionId: serverConvId ?? convId,
           mode,
           classes,
           selectedClass,
@@ -382,6 +460,8 @@ export const useConversations = ({
           cachedContext,
           images: currentImages,
           authTcId,
+          prebuiltContext,
+          userId: user?.email,
         },
         (accumulated, isFinal) => {
           setStreamingContent(accumulated);
@@ -423,84 +503,69 @@ export const useConversations = ({
         },
       );
 
-      // 임시 대화: 첫 메시지 완료 후 서버에 대화방 생성 (contextData 포함)
-      if (isTempConv) {
-        const convTitle = currentInput.trim()
-          ? currentInput.slice(0, 20) + (currentInput.length > 20 ? '...' : '')
-          : '화면 캡처 질문';
-        try {
-          const created = await createConversationApi(
-            mode,
-            getContextLabel(),
-            convTitle,
-            [],
-            result.builtContext ?? undefined,
-          );
-          const serverConvId = created.conversation.id.toString();
+      // 임시 대화: 스트림 완료 후 임시 ID → 서버 ID 교체 및 메시지 저장
+      // (대화방은 에이전트 호출 전에 이미 생성됨 — 세션 ID 고정 목적)
+      if (isTempConv && serverConvId) {
+        const finalConvId = serverConvId;
 
-          // 임시 ID → 서버 ID 교체
-          setConversations((prev) =>
-            prev.map((c) => (c.id === convId ? { ...c, id: serverConvId } : c)),
-          );
-          setActiveConversationId(serverConvId);
+        // 임시 ID → 서버 ID 교체
+        setConversations((prev) =>
+          prev.map((c) => (c.id === convId ? { ...c, id: finalConvId } : c)),
+        );
+        setActiveConversationId(finalConvId);
 
-          // 컨텍스트 캐시 (서버 ID로 저장)
-          if (result.builtContext) {
-            contextCacheRef.current.set(serverConvId, result.builtContext);
-          }
+        // 컨텍스트 캐시 (서버 ID로 저장)
+        if (result.builtContext) {
+          cacheContext(finalConvId, result.builtContext);
+        }
 
-          // 사용자 메시지 저장
-          addMessageApi(parseInt(serverConvId, 10), 'user', currentInput)
+        // 사용자 메시지 저장
+        addMessageApi(parseInt(finalConvId, 10), 'user', currentInput)
+          .then((res) => {
+            const msgServerId = res.messages?.[res.messages.length - 1]?.id?.toString();
+            if (msgServerId) {
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c.id !== finalConvId
+                    ? c
+                    : {
+                        ...c,
+                        messages: c.messages.map((m) =>
+                          m.id === tempUserMsgId ? { ...m, id: msgServerId } : m,
+                        ),
+                      },
+                ),
+              );
+            }
+          })
+          .catch((err) => console.warn('사용자 메시지 저장 실패:', err));
+
+        // AI 메시지 저장
+        if (finalAccumulated) {
+          addMessageApi(parseInt(finalConvId, 10), 'assistant', finalAccumulated)
             .then((res) => {
               const msgServerId = res.messages?.[res.messages.length - 1]?.id?.toString();
-              if (msgServerId) {
+              if (msgServerId && tempAiMsgId) {
                 setConversations((prev) =>
                   prev.map((c) =>
-                    c.id !== serverConvId
+                    c.id !== finalConvId
                       ? c
                       : {
                           ...c,
                           messages: c.messages.map((m) =>
-                            m.id === tempUserMsgId ? { ...m, id: msgServerId } : m,
+                            m.id === tempAiMsgId ? { ...m, id: msgServerId } : m,
                           ),
                         },
                   ),
                 );
               }
             })
-            .catch((err) => console.warn('사용자 메시지 저장 실패:', err));
-
-          // AI 메시지 저장
-          if (finalAccumulated) {
-            addMessageApi(parseInt(serverConvId, 10), 'assistant', finalAccumulated)
-              .then((res) => {
-                const msgServerId = res.messages?.[res.messages.length - 1]?.id?.toString();
-                if (msgServerId && tempAiMsgId) {
-                  setConversations((prev) =>
-                    prev.map((c) =>
-                      c.id !== serverConvId
-                        ? c
-                        : {
-                            ...c,
-                            messages: c.messages.map((m) =>
-                              m.id === tempAiMsgId ? { ...m, id: msgServerId } : m,
-                            ),
-                          },
-                    ),
-                  );
-                }
-              })
-              .catch((err) => console.warn('AI 응답 저장 실패:', err));
-          }
-
-          console.log('✅ 대화 생성 완료 (contextData 포함):', serverConvId);
-        } catch (err) {
-          console.error('❌ 대화 생성 실패:', err);
+            .catch((err) => console.warn('AI 응답 저장 실패:', err));
         }
-      } else {
-        // 기존 대화: 컨텍스트 캐시 저장
+      } else if (!isTempConv) {
+        // 기존 대화: 컨텍스트 캐시 저장 (선택 변경으로 재빌드된 경우 새 시그니처로 갱신)
         if (result.builtContext) {
-          contextCacheRef.current.set(convId, result.builtContext);
+          cacheContext(convId, result.builtContext);
         }
       }
 
@@ -551,5 +616,6 @@ export const useConversations = ({
     handleSend,
     handleQuickPrompt,
     getConversationMode,
+    getConversationSelection,
   };
 };

@@ -4,7 +4,12 @@ import { ArrowRight, Loader2 } from 'lucide-react';
 
 const Container = styled.div`
   min-height: 100vh;
-  background: linear-gradient(to bottom right, ${({ theme }) => theme.colors.primary[50]}, #ffffff, #eef2ff);
+  background: linear-gradient(
+    to bottom right,
+    ${({ theme }) => theme.colors.primary[50]},
+    #ffffff,
+    #eef2ff
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -196,9 +201,7 @@ export const NumberEntryStep: React.FC<NumberEntryStepProps> = ({
               autoFocus
               disabled={isLoading}
             />
-            <Hint>
-              출석 번호를 입력하세요 (1~{maxStudentNumber}번)
-            </Hint>
+            <Hint>출석 번호를 입력하세요 (1~{maxStudentNumber}번)</Hint>
             {error && <ErrorText>{error}</ErrorText>}
           </InputSection>
 

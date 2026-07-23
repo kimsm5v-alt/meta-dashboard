@@ -43,6 +43,7 @@ public class UserInfoEnricher {
             UserInfo info = infos.getOrDefault(item.getSpUserId(), UserInfo.placeholder(item.getSpUserId()));
             item.setName(info.name());
             item.setEmail(info.email());
+            item.setMaskedReason(info.maskedReason());
         });
     }
 }

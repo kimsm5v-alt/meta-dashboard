@@ -12,6 +12,8 @@ import java.util.Map;
 public interface DgnssMapper {
     // 교사) META 자기조절학습 목록 전달
     List<Map<String, Object>> selectTcDgnssInfo(Map<String, Object> param);
+    // 교사) 본인(host_user_no) 소유 전체 학급의 진단검사 현황 한 번에 조회 (tc/overview)
+    List<Map<String, Object>> selectTcDgnssOverview(@Param("userNo") Long userNo);
     void deleteTargetStListResultInfo(List<String> stList);
     void deleteTargetStListAnswer(List<String> stList);
     // 교사) META 자기조절학습 마스터 INSERT
@@ -25,6 +27,8 @@ public interface DgnssMapper {
     Map<String, Object> selectTcDgnssInfoOne(Map<String, Object> param);
     // 교사) UPDATE 할 META 자기조절학습 Info 테이블 검색(dgnssId로 탐색)
     Map<String, Object> selectTcDgnssInfoOneWithDgnssId(Map<String, Object> param);
+    // 그룹 가입) 학급에서 진행 중(dgnss_at='Y')인 검사 전체 조회 — 종합(paperIdx=1)/자기조절(paperIdx=2) 모두
+    List<Map<String, Object>> findActiveDgnssListByClaId(@Param("claId") String claId);
     // 교사) 학생들의 OMR 카드 정보 가져오기
     List<LinkedHashMap<String, Object>> selectStOmrInfo(Map<String, Object> param);
     // 교사) 제출한 모든 학생의 이름 가져오기
@@ -158,6 +162,9 @@ public interface DgnssMapper {
     int countDgnssResultByDgnssIdAndStdtId(@Param("dgnssId") int dgnssId, @Param("stdtId") String stdtId);
 
     Map<String, Object> selectLpaResultByAnswerIdx(@Param("answerIdx") int answerIdx);
+
+    // 그래프 추천 개인화) answerIdx의 요인(섹션)별 T점수 조회 — 약점 요인 산출용
+    List<Map<String, Object>> selectFactorScoresByAnswerIdx(@Param("answerIdx") int answerIdx);
 
     // 교사) 샘플 엑셀용 OMR 목록 조회
     List<Map<String, Object>> selectOmrListForSampleExcel(@Param("dgnssId") int dgnssId);

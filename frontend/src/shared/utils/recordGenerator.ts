@@ -258,8 +258,12 @@ export const analyzeChanges = (student: Student): AnalysisResult => {
 /**
  * SchoolLevel을 SchoolLevelKr로 변환
  */
-export const toSchoolLevelKr = (schoolLevel: '초등' | '중등', grade?: number): SchoolLevelKr => {
+export const toSchoolLevelKr = (
+  schoolLevel: '초등' | '중등' | '고등',
+  grade?: number,
+): SchoolLevelKr => {
   if (schoolLevel === '초등') return '초등';
+  if (schoolLevel === '고등') return '고등';
   // 중등이면서 고등학교 학년(1~3)이면 고등으로
   if (grade && grade >= 1 && grade <= 3) {
     // 실제 고등학생인지 판단하는 로직이 필요할 수 있음

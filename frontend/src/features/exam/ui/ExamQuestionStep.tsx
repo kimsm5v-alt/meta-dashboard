@@ -135,6 +135,7 @@ interface ExamQuestionStepProps {
   onSubmit: () => void;
   isLastPage: boolean;
   isSubmitting: boolean;
+  paperIdx?: string;
 }
 
 export const ExamQuestionStep: React.FC<ExamQuestionStepProps> = ({
@@ -151,15 +152,17 @@ export const ExamQuestionStep: React.FC<ExamQuestionStepProps> = ({
   onSubmit,
   isLastPage,
   isSubmitting,
+  paperIdx = '1',
 }) => {
   // 현재 페이지의 모든 문항이 응답되었는지 확인
   const allCurrentPageAnswered = questions.every((q) => answers[q.NO]);
 
   // 마지막 페이지에서 제출 가능 여부:
-  // - 현재 페이지 모든 문항 응답 완료
-  // - 응답 수가 총 문항 수 이상 (API의 fullCount가 부정확할 수 있음)
+  // - 학습종합검사(1): API fullCount가 부정확할 수 있어 124 fallback 유지
+  // - 자기조절검사(2+): totalQuestions가 API 응답 기반으로 정확하므로 그대로 사용
   const canSubmit =
-    allCurrentPageAnswered && (answeredCount >= totalQuestions || answeredCount >= 124);
+    allCurrentPageAnswered &&
+    (answeredCount >= totalQuestions || (paperIdx === '1' && answeredCount >= 124));
 
   return (
     <Container>
@@ -169,6 +172,7 @@ export const ExamQuestionStep: React.FC<ExamQuestionStepProps> = ({
         totalPages={totalPages}
         answeredCount={answeredCount}
         totalQuestions={totalQuestions}
+        paperIdx={paperIdx}
       />
 
       {/* 문항 목록 */}
@@ -219,7 +223,9 @@ export const ExamQuestionStep: React.FC<ExamQuestionStepProps> = ({
         </NavBarInner>
 
         {/* 미응답 안내 */}
-        {!allCurrentPageAnswered && <Warning>모든 문항에 응답해야 다음으로 넘어갈 수 있습니다.</Warning>}
+        {!allCurrentPageAnswered && (
+          <Warning>모든 문항에 응답해야 다음으로 넘어갈 수 있습니다.</Warning>
+        )}
       </NavBar>
     </Container>
   );

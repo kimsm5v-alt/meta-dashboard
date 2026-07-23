@@ -5,12 +5,12 @@ app:
 
 # ===== SuperPlatform Auth (SSO) =====
 spring.security.oauth2.resourceserver.jwt:
-  jwk-set-uri: https://t-auth-superplatform-api.vsaidt.com/.well-known/jwks.json
+  jwk-set-uri: https://t-auth-api.vschool.at/.well-known/jwks.json
   issuer-uri: superplatform
 
 superplatform:
   auth:
-    server-url: https://t-auth-superplatform-api.vsaidt.com
+    server-url: https://t-auth-api.vschool.at
     client-id: ${SP_AUTH_CLIENT_ID:test-service}
     client-secret: ${SP_AUTH_CLIENT_SECRET:test-secret-1234!}
     # internal-api.base-url 은 공통 application.yml 에서 server-url 기반으로 자동 derive.
@@ -37,6 +37,13 @@ notification:
 sso:
   poll:
     enabled: true
+
+# ===== IDP 그룹 동기화 (dev: ON) — group-from-idp =====
+# 사전조건: migrations/01-sync-prep.sql 적용(sp_group_id/provisioned/GROUP_CHANGES 커서)
+#          + IdP oauth2_client 에 groups:read scope 부여.
+# 부트스트랩(커서 NULL) → 1분 폴링 → 일1회(04시) 전체 재동기화. ShedLock 으로 단일 인스턴스 실행.
+group-sync:
+  enabled: true
 
 # /actuator/health 응답에 components 상세 노출 (dev 진단용).
 # prod 는 base default(never) 유지.

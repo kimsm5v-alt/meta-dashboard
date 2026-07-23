@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>체험단 모니터링 - Meta Admin</title>
+    <th:block th:replace="admin/fragments :: css" />
+    <style>
+        .kpi .small-box .inner h3 { font-size: 1.7rem; }
+        .kpi .small-box .inner .unit { font-size: .95rem; color:#94a3b8; font-weight:600; }
+        .row-alert > td { background: #fff5f5 !important; }
+        .sec-title { display:flex; align-items:center; gap:8px; }
+        .sec-no { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px;
+                  background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; font-size:.75rem; font-weight:700; }
+        .progress { background:#eef2f7 !important; border-radius:6px; }
+        .progress-bar { background:linear-gradient(90deg,#3b82f6,#6366f1); font-weight:600; font-size:.72rem; }
+        .progress-bar.done { background:linear-gradient(90deg,#22c55e,#10b981); }
+        .mini-muted { font-size:.72rem; color:#94a3b8; }
+        .num-danger { color:#dc2626; font-weight:700; }
+        .num-zero { color:#cbd5e1; }
+        /* 교사 컴팩트 칩 그리드 */
+        .teacher-chip { background:#fff; border:1px solid #e2e8f0; border-left:3px solid #22c55e; border-radius:10px;
+                        padding:7px 12px; margin-bottom:10px; min-height:50px; }
+        .teacher-chip.unreg { border-left-color:#ef4444; background:#fff7f7; }
+        .tc-name { font-weight:700; font-size:.9rem; color:#0f172a; display:flex; align-items:center; gap:6px; }
+        .tc-stat { font-size:.76rem; color:#64748b; display:flex; gap:12px; margin-top:2px; }
+        .tc-stat b { color:#3b82f6; font-size:.85rem; }
+    </style>
+</head>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
+    <nav th:replace="admin/fragments :: navbar"></nav>
+    <aside th:replace="admin/fragments :: sidebar(menu='trial')"></aside>
+
+    <div class="content-wrapper">
+        <section class="content-header">
+            <div class="container-fluid">
+                <h1>체험단 모니터링</h1>
+                <p class="text-muted"
+                   th:text="'교사 ' + ${totalTeachers} + '명 · 가입일 ≥ ' + ${signupFrom} + ' · 이름 기준 집계(한 교사의 여러 계정 통합)'"></p>
+            </div>
+        </section>
+
+        <section class="content">
+            <div class="container-fluid">
+
+                <!-- ===== KPI 요약 ===== -->
+                <div class="row kpi">
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="small-box bg-info">
+                            <div class="inner"><h3 th:text="${registeredTeachers}"></h3><p>가입 완료 <span class="unit" th:text="'/ ' + ${totalTeachers} + '명'"></span></p></div>
+                            <div class="icon"><i class="fas fa-user-check"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="small-box bg-info">
+                            <div class="inner"><h3 th:text="${totalGroups}"></h3><p>생성 그룹</p></div>
+                            <div class="icon"><i class="fas fa-layer-group"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="small-box bg-success">
+                            <div class="inner"><h3 th:text="${totalStudents}"></h3><p>학생(ACTIVE)</p></div>
+                            <div class="icon"><i class="fas fa-users"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="small-box bg-success">
+                            <div class="inner"><h3 th:text="${examSubmitted}"></h3><p>제출 <span class="unit" th:text="'/ ' + ${examTotal}"></span></p></div>
+                            <div class="icon"><i class="fas fa-file-signature"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="small-box bg-warning">
+                            <div class="inner"><h3 th:text="${submitRatePct} + '%'"></h3><p>제출률</p></div>
+                            <div class="icon"><i class="fas fa-percent"></i></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="small-box" th:classappend="${anomalyTotal > 0} ? 'bg-danger' : 'bg-success'">
+                            <div class="inner"><h3 th:text="${anomalyTotal}"></h3><p>이상 건수</p></div>
+                            <div class="icon"><i class="fas fa-triangle-exclamation"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 이상 요약 알림 -->
+                <div th:if="${anomalyTotal > 0}" class="alert alert-danger">
+                    <i class="fas fa-triangle-exclamation"></i> <strong>점검 필요</strong> —
+                    요인 미달 <b th:text="${anomalyFactor}"></b>건 ·
+                    LPA 누락 <b th:text="${anomalyLpaMissing}"></b>건
+                    <span class="text-muted" th:if="${reliabilityWarn > 0}" th:text="'(신뢰도 주의 ' + ${reliabilityWarn} + '건)'"></span>
+                </div>
+                <div th:if="${anomalyTotal == 0}" class="alert alert-success">
+                    <i class="fas fa-circle-check"></i> 데이터 정합성 이상 없음
+                    <span class="text-muted" th:if="${reliabilityWarn > 0}" th:text="'· 신뢰도 주의 ' + ${reliabilityWarn} + '건'"></span>
+                </div>
+
+                <!-- ===== ① 교사별 요약 (그룹 수 · 총 학생 수) ===== -->
+                <div class="card card-primary card-outline">
+                    <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">1</span> 교사별 요약
+                        <small class="text-muted" th:text="'· 그룹 ' + ${totalGroups} + '개 · 학생 ' + ${totalStudents} + '명'"></small></h3></div>
+                    <div class="card-body pb-1">
+                        <div class="row">
+                            <div class="col-xl-2 col-lg-3 col-md-4 col-6" th:each="t : ${teacherSummary}">
+                                <div class="teacher-chip" th:classappend="${!t.registered} ? 'unreg'">
+                                    <div class="tc-name">
+                                        <span th:text="${t.name}"></span>
+                                        <span th:unless="${t.registered}" class="badge badge-danger" style="font-size:.62rem; padding:2px 6px;">미가입</span>
+                                    </div>
+                                    <div class="tc-stat">
+                                        <span><b th:text="${t.groupCount}"></b> 그룹</span>
+                                        <span><b th:text="${t.studentCount}"></b> 명</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== ③ 검사 진행 ===== -->
+                <div class="card card-primary card-outline">
+                    <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">2</span> 검사 진행 현황</h3>
+                        <small class="text-muted d-block mt-1">이탈=응시 중(미제출) · PDF/요약은 다운로드 클릭 시 생성 → '생성/제출' 수 (미생성은 정상)</small></div>
+                    <div class="card-body table-responsive p-0">
+                        <table class="table table-hover mb-0">
+                            <thead class="thead-light"><tr>
+                                <th>교사</th><th>그룹</th><th>종류</th><th>회차</th>
+                                <th style="min-width:160px;">제출률</th>
+                                <th class="text-right">이탈</th><th class="text-right">PDF 생성</th><th class="text-right">요약 생성</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr th:each="e : ${examProgress}">
+                                    <td th:if="${e.firstOfTeacher}" th:rowspan="${e.teacherRowspan}"
+                                        style="vertical-align:middle; font-weight:600; background:#fafbfc;" th:text="${e.teacherName}"></td>
+                                    <td th:text="${e.groupNm}"></td>
+                                    <td><span class="badge" th:classappend="${#strings.toString(e.paperIdx) == '1'} ? 'badge-info' : 'badge-purple'"
+                                              th:text="${#strings.toString(e.paperIdx) == '1' ? '종합' : '자기조절'}"></span></td>
+                                    <td th:text="${e.ordNo} + '회차'"></td>
+                                    <td>
+                                        <div class="progress" style="height:16px;">
+                                            <div class="progress-bar" role="progressbar"
+                                                 th:style="'width:' + ${e.submitRate} + '%'"
+                                                 th:classappend="${e.submitRate == 100} ? 'done'"
+                                                 th:text="${e.submitRate} + '%'"></div>
+                                        </div>
+                                        <span class="mini-muted" th:text="${e.submittedCount} + ' / ' + ${e.totalCount} + ' 제출'"></span>
+                                    </td>
+                                    <td class="text-right" th:text="${e.inProgressCount}"></td>
+                                    <td class="text-right mini-muted" th:text="${e.pdfGenerated} + ' / ' + ${e.submittedCount}"></td>
+                                    <td class="text-right mini-muted" th:text="${e.summaryGenerated} + ' / ' + ${e.submittedCount}"></td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(examProgress)}"><td colspan="8" class="text-muted text-center py-3">검사 없음</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ===== ④ 데이터 정합성 ===== -->
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card card-danger card-outline">
+                            <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">3</span> 데이터 정합성</h3>
+                                <small class="text-muted d-block mt-1">요인 미달(종합38/자기조절20 미만)·LPA 누락=점검 필요 · 미지원=고등(정상)</small></div>
+                            <div class="card-body table-responsive p-0">
+                                <table class="table table-hover mb-0">
+                                    <thead class="thead-light"><tr>
+                                        <th>교사</th><th>종류</th><th>회차</th><th class="text-right">제출</th>
+                                        <th class="text-right">요인미달</th><th class="text-right">LPA정상</th>
+                                        <th class="text-right">미지원</th><th class="text-right">LPA누락</th><th class="text-right">신뢰도주의</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <tr th:each="i : ${integrity}" th:classappend="${i.hasAnomaly} ? 'row-alert'">
+                                            <td th:text="${i.teacherName}"></td>
+                                            <td><span class="badge" th:classappend="${#strings.toString(i.paperIdx) == '1'} ? 'badge-info' : 'badge-purple'"
+                                                      th:text="${#strings.toString(i.paperIdx) == '1' ? '종합' : '자기조절'}"></span></td>
+                                            <td th:text="${i.ordNo} + '회차'"></td>
+                                            <td class="text-right" th:text="${i.submittedAnswerCount}"></td>
+                                            <td class="text-right" th:classappend="${i.factorIncompleteCount != null and i.factorIncompleteCount > 0} ? 'num-danger'" th:text="${i.factorIncompleteCount}"></td>
+                                            <td class="text-right" th:text="${i.lpaCompletedCount}"></td>
+                                            <td class="text-right text-muted" th:text="${i.lpaUnsupportedCount}"></td>
+                                            <td class="text-right" th:classappend="${i.lpaMissingCount != null and i.lpaMissingCount > 0} ? 'num-danger'" th:text="${i.lpaMissingCount}"></td>
+                                            <td class="text-right" th:classappend="${i.reliabilityWarnCount != null and i.reliabilityWarnCount > 0} ? 'text-warning font-weight-bold'" th:text="${i.reliabilityWarnCount}"></td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(integrity)}"><td colspan="9" class="text-muted text-center py-3">제출 데이터 없음</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- LPA 유형 분포 -->
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header"><h3 class="card-title">LPA 유형 분포 <small class="text-muted">종합·COMPLETED</small></h3></div>
+                            <div class="card-body table-responsive p-0">
+                                <table class="table table-hover mb-0">
+                                    <thead class="thead-light"><tr><th>유형</th><th class="text-right">인원</th></tr></thead>
+                                    <tbody>
+                                        <tr th:each="d : ${lpaTypeDist}">
+                                            <td th:text="${d.typeName}"></td>
+                                            <td class="text-right" th:text="${d.cnt}"></td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(lpaTypeDist)}"><td colspan="2" class="text-muted text-center py-3">데이터 없음</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </div>
+</div>
+<th:block th:replace="admin/fragments :: js" />
+</body>
+</html>

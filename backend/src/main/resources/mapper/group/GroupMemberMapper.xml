@@ -60,6 +60,14 @@
         /* GroupMemberMapper.insertGroupMember */
         INSERT INTO group_member (group_id, user_no, stdt_id, member_type, member_no, status, joined_at, created_by, updated_by, created_at, updated_at)
         VALUES (#{groupId}, #{userNo}, #{stdtId}, #{memberType}, #{memberNo}, #{status}, #{joinedAt}, #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+        /*
+         * 멱등화 — on-demand sync 가 멀티인스턴스/폴링과 동시에 같은 그룹을 처리하면
+         * (group_id, user_no) read-then-insert 경쟁으로 uk_gm_group_user 중복이 발생한다.
+         * 예외가 나면 이름기반 TransactionAspect(sync*) 가 트랜잭션을 rollback-only 로 만들어
+         * syncMyGroups 가 예외를 흡수해도 커밋 시 UnexpectedRollbackException → /group/list 500.
+         * id = id no-op 으로 경쟁 승자의 행을 건드리지 않고 조용히 무시 (상태 전이는 update 경로가 담당).
+         */
+        ON DUPLICATE KEY UPDATE id = id
     </insert>
 
     <update id="updateGroupMember" parameterType="com.vs.meta.domain.GroupMember">
@@ -92,6 +100,14 @@
         LIMIT 1
     </select>
 
+
+    <select id="findByGroupId" resultMap="groupMemberResultMap">
+        /* GroupMemberMapper.findByGroupId */
+        SELECT <include refid="groupMemberColumns"/>
+        FROM group_member gm
+        LEFT JOIN `user` u ON u.user_no = gm.user_no
+        WHERE gm.group_id = #{groupId}
+    </select>
 
     <update id="withdrawByUserNo">
         /* GroupMemberMapper.withdrawByUserNo */

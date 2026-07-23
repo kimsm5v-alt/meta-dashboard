@@ -40,6 +40,25 @@ public class SecurityUtil {
     }
 
     /**
+     * 현재 요청의 Authorization 헤더에서 raw Bearer 토큰을 추출한다.
+     *
+     * <p>그룹 on-demand 동기화(group-from-idp)에서 사용자 본인 AT 를 Auth user API
+     * ({@code /api/v1/groups}, {@code /api/v1/groups/my}) 로 forward 할 때 사용.
+     * principal(SpAuthenticatedUser)에는 raw 토큰이 없으므로 헤더에서 직접 읽는다.
+     *
+     * @return "Bearer " 접두어를 제거한 토큰. 없으면 null
+     */
+    public static String getCurrentBearerToken() {
+        HttpServletRequest request = getCurrentRequest();
+        if (request == null) return null;
+        String header = request.getHeader("Authorization");
+        if (header == null || !header.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return null;
+        }
+        return header.substring(7).trim();
+    }
+
+    /**
      * 현재 인증된 사용자 번호(userNo)를 가져온다.
      *
      * <p>SP JWT 인증: SpUserMappingFilter가 request attribute에 캐싱한 userNo를 읽는다.

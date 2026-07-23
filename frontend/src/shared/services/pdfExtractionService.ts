@@ -172,7 +172,7 @@ const parseJsonFromResponse = (content: string): unknown => {
 /**
  * 공백/하이픈 제거 정규화 (dataTransformer.ts와 동일)
  */
-const normalizeName = (name: string): string => name.replace(/[\s\-]/g, '');
+const normalizeName = (name: string): string => name.replace(/[\s-]/g, '');
 
 /**
  * 유효한 신뢰도 경고 항목

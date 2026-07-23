@@ -6,11 +6,12 @@ import { ArrowLeft, Loader2, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useData } from '@shared/contexts/DataContext';
 import { useClassProfile } from '@features/class-dashboard/model/useClassProfile';
 import { useClassDetailData } from '@features/class-dashboard/model/useClassDetailData';
-import { useClassStudents, useApiConfig } from '@features/api';
+import { useClassStudents, useApiConfig, useSelfregClassAnalysis } from '@features/api';
 import { ClassSummarySection } from '@features/class-dashboard/ui/detail/ClassSummarySection';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
 import { RiskStudentsSection } from '@features/class-dashboard/ui/detail/RiskStudentsSection';
 import { StrategySection } from '@features/class-dashboard/ui/detail/StrategySection';
+import { SelfregFactorAnalysis } from '@features/student-dashboard';
 import type { Class } from '@shared/types';
 
 const PageContainer = styled.div`
@@ -184,9 +185,10 @@ const ErrorText = styled.p`
 interface ClassDetailContentProps {
   classData: Class;
   classId: string;
+  testId: string;
 }
 
-const ClassDetailContent: React.FC<ClassDetailContentProps> = ({ classData, classId }) => {
+const ClassDetailContent: React.FC<ClassDetailContentProps> = ({ classData, classId, testId }) => {
   const navigate = useNavigate();
 
   const hasRound2 = classData.students.some((s) => s.assessments.some((a) => a.round === 2));
@@ -212,7 +214,7 @@ const ClassDetailContent: React.FC<ClassDetailContentProps> = ({ classData, clas
     <PageContainer>
       {/* Header — L2와 동일한 패턴 */}
       <HeaderSection>
-        <BackButton onClick={() => navigate(`/dashboard/class/${classId}`)}>
+        <BackButton onClick={() => navigate(`/dashboard/${testId}/class/${classId}`)}>
           <BackIcon />
         </BackButton>
         <HeaderContent>
@@ -236,7 +238,11 @@ const ClassDetailContent: React.FC<ClassDetailContentProps> = ({ classData, clas
               ]
             : []),
         ].map(({ mode, label }) => (
-          <ViewModeButton key={mode} onClick={() => setViewMode(mode)} $isActive={viewMode === mode}>
+          <ViewModeButton
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            $isActive={viewMode === mode}
+          >
             {label}
           </ViewModeButton>
         ))}
@@ -310,10 +316,12 @@ const ClassDetailContent: React.FC<ClassDetailContentProps> = ({ classData, clas
 };
 
 // ============================================================
-// 메인 컴포넌트: 로딩/에러/null 체크 후 ClassDetailContent 렌더링
+// 종합검사 메인 컴포넌트: 로딩/에러/null 체크 후 ClassDetailContent 렌더링
 // ============================================================
-export const ClassDetailAnalysisPage: React.FC = () => {
-  const { classId } = useParams<{ classId: string }>();
+const ComprehensiveClassDetailPage: React.FC<{ classId?: string; testId: string }> = ({
+  classId,
+  testId,
+}) => {
   const { getClassById } = useData();
   const { hasJwtToken } = useApiConfig();
 
@@ -419,7 +427,108 @@ export const ClassDetailAnalysisPage: React.FC = () => {
   }
 
   // classData가 확정된 후에만 ClassDetailContent 렌더링
-  return <ClassDetailContent classData={classData} classId={classId} />;
+  return <ClassDetailContent classData={classData} classId={classId} testId={testId} />;
+};
+
+// ============================================================
+// 자기조절학습검사 반 상세 분석 (20요인 반 평균)
+// ============================================================
+const SelfregClassDetailPage: React.FC<{ classId?: string }> = ({ classId }) => {
+  const navigate = useNavigate();
+  const { round1, round2, isLoading, error } = useSelfregClassAnalysis(classId);
+
+  type ViewMode = 'round1' | 'round2' | 'compare';
+  const [viewMode, setViewMode] = useState<ViewMode>('round1');
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <CenterContainer>
+        <LoadingContainer>
+          <LoadingSpinner />
+          <LoadingText>자기조절학습검사 분석 데이터를 불러오는 중...</LoadingText>
+        </LoadingContainer>
+      </CenterContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <CenterContainer>
+        <LoadingContainer>
+          <ErrorIcon />
+          <ErrorText>데이터 로드 실패: {error}</ErrorText>
+        </LoadingContainer>
+      </CenterContainer>
+    );
+  }
+
+  if (!round1 && !round2) {
+    return (
+      <CenterContainer>
+        <ErrorText>아직 시행한 자기조절학습검사 결과가 없습니다.</ErrorText>
+      </CenterContainer>
+    );
+  }
+
+  const hasRound2 = round2 !== null;
+  const isCompare = viewMode === 'compare';
+  const current = viewMode === 'round2' && round2 ? round2 : (round1 ?? round2)!;
+  const prev = isCompare ? (round1 ?? undefined) : undefined;
+
+  return (
+    <PageContainer>
+      <HeaderSection>
+        <BackButton onClick={() => navigate(`/dashboard/selfreg/class/${classId}`)}>
+          <BackIcon />
+        </BackButton>
+        <HeaderContent>
+          <PageTitle>자기조절학습검사 학급 상세 분석</PageTitle>
+          <PageSubtitle>학급 평균 20개 요인 분석</PageSubtitle>
+        </HeaderContent>
+      </HeaderSection>
+
+      <ViewModeSelector>
+        {[
+          { mode: 'round1' as ViewMode, label: '1차 검사' },
+          ...(hasRound2
+            ? [
+                { mode: 'round2' as ViewMode, label: '2차 검사' },
+                { mode: 'compare' as ViewMode, label: '차수 변화' },
+              ]
+            : []),
+        ].map(({ mode, label }) => (
+          <ViewModeButton
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            $isActive={viewMode === mode}
+          >
+            {label}
+          </ViewModeButton>
+        ))}
+      </ViewModeSelector>
+
+      <Section>
+        <SectionTitle>20개 세부 요인 분석</SectionTitle>
+        <SelfregFactorAnalysis tScores={current} prevTScores={prev} showCompare={isCompare} />
+      </Section>
+    </PageContainer>
+  );
+};
+
+// ============================================================
+// 라우트 진입점: testId에 따라 종합/자기조절 분기
+// ============================================================
+export const ClassDetailAnalysisPage: React.FC = () => {
+  const { classId, testId = 'comprehensive' } = useParams<{ classId: string; testId: string }>();
+
+  if (testId === 'selfreg') {
+    return <SelfregClassDetailPage classId={classId} />;
+  }
+  return <ComprehensiveClassDetailPage classId={classId} testId={testId} />;
 };
 
 export default ClassDetailAnalysisPage;

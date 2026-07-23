@@ -45,6 +45,13 @@ export interface AssistantRequest {
    * 빈 문자열로 내려오므로, 인증 사용자 id를 tcId의 권위 있는 소스로 사용한다.
    */
   authTcId?: string | null;
+  /**
+   * 사전 빌드된 RAG 컨텍스트 (첫 턴용) — cachedContext처럼 빌드는 건너뛰지만,
+   * 아직 에이전트에 전송된 적이 없으므로 context_data는 함께 전송합니다.
+   * (대화방 생성 시 contextData 저장을 위해 먼저 빌드한 결과를 재사용하는 용도)
+   */
+  prebuiltContext?: { ragContext: string; aliasMap: StudentAliasMap } | null;
+  userId?: string;
 }
 
 export interface AssistantResponse {
@@ -166,12 +173,15 @@ export const callAssistant = async (request: AssistantRequest): Promise<Assistan
     cachedContext,
     images,
     authTcId,
+    prebuiltContext,
+    userId,
   } = request;
 
   try {
-    // 1. RAG 컨텍스트 — 캐시가 있으면 재사용, 없으면 빌드 (API 호출 발생)
-    const { context: ragContext, aliasMap } = cachedContext
-      ? { context: cachedContext.ragContext, aliasMap: cachedContext.aliasMap }
+    // 1. RAG 컨텍스트 — 캐시/사전 빌드가 있으면 재사용, 없으면 빌드 (API 호출 발생)
+    const knownContext = cachedContext ?? prebuiltContext;
+    const { context: ragContext, aliasMap } = knownContext
+      ? { context: knownContext.ragContext, aliasMap: knownContext.aliasMap }
       : await buildRAGContext({ mode, classes, selectedClass, selectedStudents });
 
     // 2. 사용자 메시지 별칭 처리
@@ -188,8 +198,8 @@ export const callAssistant = async (request: AssistantRequest): Promise<Assistan
     // 4. 직전까지의 대화 이력(정본=DB)을 replay용으로 구성
     const history = buildAgentHistory(messages, aliasMap);
 
-    // 5. 에이전트 API 호출
-    const agentResponse = await agentChat(maskedUserMessage, sessionId, contextData, history, images);
+    // 5. 에이전트 API 호출 (userId: vs-develop 신규 — 교사 식별자 전달)
+    const agentResponse = await agentChat(maskedUserMessage, sessionId, contextData, history, images, userId);
 
     // 5. 응답에서 별칭 → 이름 복원
     const restoredContent = restoreNames(agentResponse.response, aliasMap);
@@ -231,12 +241,15 @@ export const callAssistantStream = async (
     cachedContext,
     images,
     authTcId,
+    prebuiltContext,
+    userId,
   } = request;
 
   try {
-    // 1. RAG 컨텍스트 — 캐시가 있으면 재사용, 없으면 빌드 (API 호출 발생)
-    const { context: ragContext, aliasMap } = cachedContext
-      ? { context: cachedContext.ragContext, aliasMap: cachedContext.aliasMap }
+    // 1. RAG 컨텍스트 — 캐시/사전 빌드가 있으면 재사용, 없으면 빌드 (API 호출 발생)
+    const knownContext = cachedContext ?? prebuiltContext;
+    const { context: ragContext, aliasMap } = knownContext
+      ? { context: knownContext.ragContext, aliasMap: knownContext.aliasMap }
       : await buildRAGContext({ mode, classes, selectedClass, selectedStudents });
 
     // 2. 사용자 메시지 별칭 처리
@@ -267,6 +280,7 @@ export const callAssistantStream = async (
       contextData,
       history,
       images,
+      userId,
     );
 
     const finalContent = restoreNames(accumulated, aliasMap);

@@ -350,8 +350,24 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
   } | null>(null);
 
   // 학교급에 따라 유형 순서 결정
+  const isHighSchool = classData.schoolLevel === '고등';
   const isMiddleSchool = classData.schoolLevel === '중등';
   const TYPE_ORDER = isMiddleSchool ? TYPE_ORDER_MIDDLE : TYPE_ORDER_ELEMENTARY;
+
+  // 고등학교는 LPA 유형 분석을 제공하지 않음
+  if (isHighSchool) {
+    return (
+      <Container>
+        <Header>
+          <Title>검사별 유형 분포</Title>
+          <Subtitle>1차와 2차 검사 결과를 비교하여 학생들의 유형 변화를 확인하세요</Subtitle>
+        </Header>
+        <NotAvailableMessage>
+          <MessageText>고등학교는 LPA 유형 분석을 제공하지 않습니다.</MessageText>
+        </NotAvailableMessage>
+      </Container>
+    );
+  }
 
   // 분포 계산
   type Distribution = Record<string, Student[]>;
@@ -524,7 +540,12 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
                   y={midY - 7}
                   textAnchor={calloutAnchor}
                   dominantBaseline='middle'
-                  style={{ fontSize: '11px', fontWeight: 700, fill: '#374151', pointerEvents: 'none' }}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    fill: '#374151',
+                    pointerEvents: 'none',
+                  }}
                 >
                   {isEnabled ? segment.type : '미실시'}
                 </text>
@@ -533,7 +554,12 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
                   y={midY + 8}
                   textAnchor={calloutAnchor}
                   dominantBaseline='middle'
-                  style={{ fontSize: '11px', fontWeight: 600, fill: '#6B7280', pointerEvents: 'none' }}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    fill: '#6B7280',
+                    pointerEvents: 'none',
+                  }}
                 >
                   {segment.count}명
                 </text>
@@ -724,7 +750,8 @@ export const TypeChangeChart: React.FC<TypeChangeChartProps> = ({ classData }) =
         {/* 세그먼트 선택 툴팁 (fixed position — 카드 높이에 영향 없음) */}
         {selectedSegment &&
           (() => {
-            const typeData = LPA_PROFILE_DATA[classData.schoolLevel].types.find(
+            const schoolLevel = classData.schoolLevel as '초등' | '중등';
+            const typeData = LPA_PROFILE_DATA[schoolLevel].types.find(
               (t) => t.name === selectedSegment.type,
             );
             const studentList =

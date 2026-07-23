@@ -179,7 +179,8 @@ interface DataHelperAnswerProps {
  * 간단한 마크다운 렌더러
  * 볼드(**), 리스트(-), 소제목(###), 줄바꿈 처리
  */
-const renderMarkdown = (content: string): React.ReactNode => {
+// eslint-disable-next-line react-refresh/only-export-components
+export const renderMarkdown = (content: string): React.ReactNode => {
   const lines = content.split('\n');
   const elements: React.ReactNode[] = [];
   let keyIdx = 0;

@@ -72,7 +72,9 @@ export function SubSection({ title, level, isNegativeSection = false, children }
     <Container>
       <Header>
         <Title>{title}</Title>
-        <Badge $bg={badgeColor.bg} $text={badgeColor.text}>{level}</Badge>
+        <Badge $bg={badgeColor.bg} $text={badgeColor.text}>
+          {level}
+        </Badge>
         {isNegativeSection && <HintText>↓ 낮을수록 좋아요</HintText>}
       </Header>
       <Content>{children}</Content>

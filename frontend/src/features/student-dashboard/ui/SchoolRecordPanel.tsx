@@ -28,6 +28,7 @@ import {
 import type { ExampleSentence } from '@shared/data/schoolRecordSentences';
 import { buildSimpleRecordMessages, validateSchoolRecordOutput } from '@shared/data/aiPrompts';
 import { agentChatStream } from '@features/ai-room/api/agentApiService';
+import { useAuth } from '@features/auth';
 
 // ============================================================
 // Styled Components
@@ -542,6 +543,7 @@ interface ValidationResult {
 }
 
 export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, assessment }) => {
+  const { user } = useAuth();
   const [selectedSentences, setSelectedSentences] = useState<string[]>([]);
   const [generatedText, setGeneratedText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -569,13 +571,29 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
 
   const changeAnalysis = useMemo(() => analyzeChanges(student), [student]);
 
+  const loadSavedContent = async () => {
+    try {
+      const saved = await schoolRecordService.getSavedByStudentId(student.id);
+      setSavedRecords(saved);
+      // 현재 편집 중인 내용이 없을 때만 최신 저장본 자동 로드
+      if (saved.length > 0 && !generatedText) {
+        setGeneratedText(saved[0].content);
+      }
+    } catch {
+      // 에러 무시
+    }
+  };
+
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSavedContent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student.id]);
 
   useEffect(() => {
     if (generatedText) {
       const result = validateSchoolRecordOutput(generatedText);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setValidationResult({
         isValid: result.isValid,
         wordCountResult: {
@@ -590,19 +608,6 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
       setValidationResult(null);
     }
   }, [generatedText]);
-
-  const loadSavedContent = async () => {
-    try {
-      const saved = await schoolRecordService.getSavedByStudentId(student.id);
-      setSavedRecords(saved);
-      // 현재 편집 중인 내용이 없을 때만 최신 저장본 자동 로드
-      if (saved.length > 0 && !generatedText) {
-        setGeneratedText(saved[0].content);
-      }
-    } catch {
-      // 에러 무시
-    }
-  };
 
   const handleLoadRecord = (record: SavedSchoolRecord) => {
     setGeneratedText(record.content);
@@ -677,10 +682,18 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
       const sessionId = `school-record-${student.id}`;
 
       let accumulated = '';
-      await agentChatStream(fullPrompt, sessionId, (chunk) => {
-        accumulated += chunk;
-        setGeneratedText(accumulated);
-      });
+      await agentChatStream(
+        fullPrompt,
+        sessionId,
+        (chunk) => {
+          accumulated += chunk;
+          setGeneratedText(accumulated);
+        },
+        null,
+        undefined,
+        undefined,
+        user?.email,
+      );
 
       if (!accumulated) throw new Error('empty response');
     } catch {

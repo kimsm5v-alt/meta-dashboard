@@ -197,6 +197,7 @@ interface ScheduledRecordCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onUpdateReason: (reason: string) => void;
+  isActionPending?: boolean;
 }
 
 export const ScheduledRecordCard: React.FC<ScheduledRecordCardProps> = ({
@@ -205,11 +206,13 @@ export const ScheduledRecordCard: React.FC<ScheduledRecordCardProps> = ({
   onEdit,
   onDelete,
   onUpdateReason,
+  isActionPending = false,
 }) => {
   const [isEditingReason, setIsEditingReason] = useState(false);
   const [reasonText, setReasonText] = useState(record.reason || '');
 
   const handleSaveReason = () => {
+    if (isActionPending) return;
     onUpdateReason(reasonText);
     setIsEditingReason(false);
   };
@@ -228,10 +231,10 @@ export const ScheduledRecordCard: React.FC<ScheduledRecordCardProps> = ({
           )}
         </DateSection>
         <ActionButtons>
-          <IconButton onClick={onEdit}>
+          <IconButton onClick={onEdit} disabled={isActionPending}>
             <Edit2 className='w-3.5 h-3.5' />
           </IconButton>
-          <IconButton onClick={onDelete} $isDelete>
+          <IconButton onClick={onDelete} $isDelete disabled={isActionPending}>
             <Trash2 className='w-3.5 h-3.5' />
           </IconButton>
         </ActionButtons>
@@ -268,7 +271,7 @@ export const ScheduledRecordCard: React.FC<ScheduledRecordCardProps> = ({
             >
               취소
             </MemoButton>
-            <MemoButton onClick={handleSaveReason} $isPrimary>
+            <MemoButton onClick={handleSaveReason} $isPrimary disabled={isActionPending}>
               저장
             </MemoButton>
           </MemoActions>
@@ -280,7 +283,7 @@ export const ScheduledRecordCard: React.FC<ScheduledRecordCardProps> = ({
       )}
 
       {/* 완료 버튼 */}
-      <CompleteButton onClick={onComplete}>
+      <CompleteButton onClick={onComplete} disabled={isActionPending}>
         <Check className='w-3.5 h-3.5' />
         완료 처리
       </CompleteButton>

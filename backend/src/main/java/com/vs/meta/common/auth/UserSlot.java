@@ -13,6 +13,7 @@ public class UserSlot implements HasUserInfo {
     private final String spUserId;
     private String name;
     private String email;
+    private String maskedReason;
 
     public UserSlot(String spUserId) {
         this.spUserId = spUserId;
@@ -33,11 +34,20 @@ public class UserSlot implements HasUserInfo {
         this.email = email;
     }
 
+    @Override
+    public void setMaskedReason(String maskedReason) {
+        this.maskedReason = maskedReason;
+    }
+
     public String getName() {
         return name;
     }
 
     public String getEmail() {
         return email;
+    }
+
+    public String getMaskedReason() {
+        return maskedReason;
     }
 }

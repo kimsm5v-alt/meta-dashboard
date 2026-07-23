@@ -18,7 +18,8 @@ const ClassButton = styled.button<{ $isSelected: boolean }>`
   padding: ${({ theme }) => theme.spacing.md};
   border-radius: ${({ theme }) => theme.radius.lg};
   border: 2px solid
-    ${({ $isSelected, theme }) => ($isSelected ? theme.colors.primary[500] : theme.colors.gray[200])};
+    ${({ $isSelected, theme }) =>
+      $isSelected ? theme.colors.primary[500] : theme.colors.gray[200]};
   background: ${({ $isSelected, theme }) =>
     $isSelected ? theme.colors.primary[50] : theme.colors.background.paper};
   transition: all 0.15s ease;

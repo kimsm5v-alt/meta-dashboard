@@ -1,200 +1,114 @@
-/**
- * AI Room 어시스턴트 서비스
- *
- * AI Room에서 교사의 질문에 AI가 응답하는 서비스입니다.
- * RAG 컨텍스트와 PII 마스킹을 적용하여 안전하고 맥락 있는 응답을 생성합니다.
- */
-
-import { callAI, type AIMessage } from '@/shared/services/ai';
-import { buildAssistantPrompt } from '@/shared/data/aiPrompts';
-import {
-  buildRAGContext,
-  restoreNames,
-  applyAliases,
-} from './contextBuilder';
-import type { ChatMessage, ContextMode, StudentAliasMap } from '../types';
-import type { Class, Student } from '@/shared/types';
-
-// ============================================================
-// 타입 정의
-// ============================================================
-
-export interface AssistantRequest {
-  mode: ContextMode;
-  classes: Class[];
-  selectedClass: Class | null;
-  selectedStudents: Student[];
-  messages: ChatMessage[];
-  userMessage: string;
-}
-
-export interface AssistantResponse {
-  success: boolean;
-  content: string;
-  error?: string;
-  aliasMap: StudentAliasMap;
-}
-
-// ============================================================
-// 메인 서비스 함수
-// ============================================================
+import type { BotResponse, RecordToneType, SuggestedQuestion } from '../types';
 
 /**
- * AI 어시스턴트 호출
+ * AI 어시스턴트 서비스 (프로토타입 mock)
  *
- * 처리 흐름:
- * 1. 별칭 맵 생성 (학생 이름 → student_A)
- * 2. RAG 컨텍스트 생성 (T_SCRIPT 기반)
- * 3. 시스템 프롬프트에 컨텍스트 주입
- * 4. 대화 히스토리 마스킹
- * 5. AI 호출
- * 6. 응답에서 별칭 → 이름 복원
+ * 실제 API 연동 시 아래 함수 시그니처만 유지하면 UI 수정 없이 교체 가능.
+ * 봇 응답은 항상 { content: 마크다운, isReference } 형태로 반환한다.
  */
-export const callAssistant = async (
-  request: AssistantRequest
-): Promise<AssistantResponse> => {
-  const {
-    mode,
-    classes,
-    selectedClass,
-    selectedStudents,
-    messages,
-    userMessage,
-  } = request;
 
-  try {
-    // 1. RAG 컨텍스트 생성 (별칭 맵도 함께 반환)
-    const { context: ragContext, aliasMap } = await buildRAGContext({
-      mode,
-      classes,
-      selectedClass,
-      selectedStudents,
-    });
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // 2. 시스템 프롬프트 생성 (RAG 컨텍스트 주입)
-    const systemPrompt = buildAssistantPrompt(ragContext);
+/** 간단한 결정적 유사난수 (Math.random 미사용, 문자열 → 0~n) */
+const pick = <T,>(seed: string, arr: T[]): T => {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return arr[h % arr.length];
+};
 
-    // 3. 대화 히스토리 변환 (이름 → 별칭 마스킹)
-    const maskedHistory = messages
-      .filter((msg) => msg.id !== '1') // 초기 안내 메시지 제외
-      .map((msg) => ({
-        role: msg.role as 'user' | 'assistant',
-        content: applyAliases(msg.content, aliasMap),
-      }));
+const OPENERS = [
+  '질문 주신 내용을 검사 데이터 기준으로 정리했습니다.',
+  '요청하신 관점에서 결과를 살펴봤습니다.',
+  '아래와 같이 핵심만 짚어 드릴게요.',
+];
 
-    // 4. 현재 사용자 메시지 마스킹
-    const maskedUserMessage = applyAliases(userMessage, aliasMap);
+/**
+ * 대화 응답 생성 (mock)
+ * @param question 사용자 질문
+ * @param context  대상/화면 등 부가 컨텍스트 (표기용)
+ */
+export async function askAssistant(question: string, context?: string): Promise<BotResponse> {
+  await delay(700 + (question.length % 5) * 120);
 
-    // 5. AI 메시지 배열 구성
-    const aiMessages: AIMessage[] = [
-      { role: 'system', content: systemPrompt },
-      ...maskedHistory,
-      { role: 'user', content: maskedUserMessage },
+  const opener = pick(question, OPENERS);
+  const scope = context ? `**대상**: ${context}\n\n` : '';
+
+  const content = `${scope}${opener}
+
+- **핵심 요약**: "${question}" 에 대해, 검사 결과의 5대 영역 중 **자아강점**과 **학습디딤돌**을 먼저 살펴보는 것을 권합니다.
+- **근거**: T점수 분포상 평균(50) 대비 편차가 큰 요인이 해석의 출발점이 됩니다.
+- **다음 단계**:
+  1. 강점 영역을 먼저 확인해 대화의 물꼬를 트기
+  2. 보완이 필요한 요인은 **성장 관점**으로 제시
+  3. 필요 시 개별 코칭 전략으로 연결
+
+> 검사 결과는 **상대평가가 아닌 참고 자료**입니다. 학생의 실제 맥락과 함께 해석해 주세요.`;
+
+  return { content, isReference: true };
+}
+
+const RECORD_TONE_INTRO: Record<RecordToneType, string> = {
+  종합: '전반적인 학습심리정서 특성을 균형 있게 서술한 초안입니다.',
+  '강점 중심': '두드러진 강점을 앞세워 서술한 초안입니다.',
+  '행동·태도': '수업·학습 장면에서의 행동과 태도 중심으로 서술한 초안입니다.',
+};
+
+/**
+ * 생활기록부 문구 초안 생성 (mock)
+ * - 문어체(~함/~음), 강점 우선 서술
+ */
+export async function generateSchoolRecord(
+  studentName: string,
+  tone: RecordToneType,
+): Promise<string> {
+  await delay(900);
+
+  const strengthSentences = [
+    '수업 중 궁금한 점을 스스로 정리해 질문하는 태도가 돋보임.',
+    '과제를 계획적으로 나누어 꾸준히 수행하는 성실함이 두드러짐.',
+    '모둠 활동에서 친구의 의견을 경청하고 조율하는 협력적 태도를 보임.',
+  ];
+  const growthSentences = [
+    '새로운 과제에 대한 부담을 성장의 계기로 삼도록 지속적인 격려가 도움이 될 것으로 보임.',
+    '결과를 스스로 점검하는 습관을 더한다면 학습의 완성도가 한층 높아질 것으로 기대됨.',
+  ];
+
+  const s1 = pick(studentName + tone, strengthSentences);
+  const s2 = pick(studentName + tone + '2', strengthSentences.filter((s) => s !== s1));
+  const g1 = pick(studentName + tone, growthSentences);
+
+  const body =
+    tone === '강점 중심'
+      ? `${s1} ${s2}`
+      : tone === '행동·태도'
+        ? `${s1} 학습 상황에서 자신의 감정을 조절하며 과제에 집중하는 모습을 보임.`
+        : `${s1} ${g1}`;
+
+  return `${RECORD_TONE_INTRO[tone]}\n\n${body}`;
+}
+
+/**
+ * 어시스턴트 페이지 - 선택 대상에 따른 동적 추천 질문 (B-3)
+ */
+export function getTargetQuestions(selectedStudentNames: string[], isWholeClass: boolean): SuggestedQuestion[] {
+  if (isWholeClass || selectedStudentNames.length === 0) {
+    return [
+      { emoji: '📊', text: '우리 반 전체 경향을 요약해줘' },
+      { emoji: '🔔', text: '관심이 필요한 학생은 누구인가요?' },
+      { emoji: '🏅', text: '우리 반 강점 TOP 3는 무엇인가요?' },
     ];
-
-    // 6. AI 호출 (AI Room은 이미 별칭 처리했으므로 PII 마스킹 비활성화)
-    const response = await callAI({
-      messages: aiMessages,
-      temperature: 0.7,
-      maskPII: false,
-    });
-
-    // 7. 응답에서 별칭 → 이름 복원
-    const restoredContent = restoreNames(response.content, aliasMap);
-
-    return {
-      success: response.success,
-      content: response.success ? restoredContent : response.content,
-      error: response.error,
-      aliasMap,
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
-    return {
-      success: false,
-      content: '',
-      error: `AI 응답 생성 중 오류가 발생했습니다: ${errorMessage}`,
-      aliasMap: {},
-    };
   }
-};
-
-/**
- * 스트리밍 응답용 (향후 구현)
- */
-export const callAssistantStream = async (
-  request: AssistantRequest,
-  _onChunk: (chunk: string) => void
-): Promise<AssistantResponse> => {
-  // TODO: 스트리밍 지원 시 구현
-  // 현재는 일반 호출 사용
-  return callAssistant(request);
-};
-
-// ============================================================
-// 유틸리티 함수
-// ============================================================
-
-/**
- * 빠른 프롬프트 생성 (QuickPrompts 컴포넌트용)
- */
-export const getQuickPromptContext = (
-  mode: ContextMode,
-  selectedStudentCount: number
-): { category: string; prompts: { label: string; prompt: string }[] } => {
-  switch (mode) {
-    case 'all':
-      return {
-        category: '전체 분석',
-        prompts: [
-          { label: '전체 현황', prompt: '현재 담당하는 학급들의 전체 현황을 분석해주세요.' },
-          { label: '관심 학생', prompt: '관심이 필요한 학생들을 알려주세요.' },
-          { label: '반별 비교', prompt: '반별 특성을 비교 분석해주세요.' },
-          { label: '변화 추이', prompt: '1차와 2차 검사 결과의 변화 추이를 분석해주세요.' },
-        ],
-      };
-
-    case 'class':
-      return {
-        category: '반 분석',
-        prompts: [
-          { label: '반 분석', prompt: '이 반의 전체적인 특성을 분석해주세요.' },
-          { label: '유형 분포', prompt: '이 반의 학습유형 분포와 그 의미를 설명해주세요.' },
-          { label: '좌석 배치', prompt: '학습유형을 고려한 좌석 배치를 추천해주세요.' },
-          { label: '또래 매칭', prompt: '서로 도움이 될 수 있는 또래 짝을 추천해주세요.' },
-        ],
-      };
-
-    case 'student':
-      if (selectedStudentCount === 1) {
-        return {
-          category: '개별 분석',
-          prompts: [
-            { label: '결과 요약', prompt: '이 학생의 검사 결과를 요약해주세요.' },
-            { label: '상담 기법', prompt: '이 학생에게 적합한 상담 기법을 알려주세요.' },
-            { label: '생기부 문구', prompt: '이 학생의 생활기록부에 쓸 수 있는 문구를 작성해주세요.' },
-            { label: '가정 연계', prompt: '가정에서 할 수 있는 지원 방법을 알려주세요.' },
-          ],
-        };
-      } else {
-        return {
-          category: '다중 분석',
-          prompts: [
-            { label: '관계성 분석', prompt: '선택한 학생들의 관계성을 분석해주세요.' },
-            { label: '결과 비교', prompt: '선택한 학생들의 검사 결과를 비교해주세요.' },
-            { label: '그룹 상담', prompt: '선택한 학생들을 위한 그룹 상담 방법을 제안해주세요.' },
-            { label: '모둠 구성', prompt: '선택한 학생들로 효과적인 모둠을 구성해주세요.' },
-          ],
-        };
-      }
-
-    default:
-      return { category: '', prompts: [] };
+  if (selectedStudentNames.length === 1) {
+    const name = selectedStudentNames[0];
+    return [
+      { emoji: '🧠', text: `${name} 결과를 종합적으로 해석해줘` },
+      { emoji: '🎯', text: `${name}에게 맞는 코칭 전략은?` },
+      { emoji: '👨‍👩‍👧', text: `${name} 학부모 상담 화법을 제안해줘` },
+    ];
   }
-};
-
-export default {
-  callAssistant,
-  callAssistantStream,
-  getQuickPromptContext,
-};
+  return [
+    { emoji: '🔗', text: '선택한 학생들의 공통 관심 영역은?' },
+    { emoji: '👥', text: '이 학생들을 위한 그룹 지도 전략은?' },
+    { emoji: '📊', text: '선택한 학생들의 강점을 비교해줘' },
+  ];
+}

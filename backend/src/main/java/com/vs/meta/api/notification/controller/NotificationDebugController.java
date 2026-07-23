@@ -93,7 +93,7 @@ public class NotificationDebugController {
     @Transactional
     public ResponseDTO<CustomBody> fireT1(@RequestBody T1Body body) {
         eventPublisher.publishEvent(new StudentJoinedGroupEvent(
-                body.teacherUserNo, body.claId, body.groupName, body.studentNickname
+                body.teacherUserNo, body.claId, body.groupName, body.studentNickname, null
         ));
         log.info("[Debug] T1 published: {}", body);
         return AidtCommonUtil.makeResultSuccess(null, echo("T1", body), "published");

@@ -59,7 +59,9 @@ const SsoButton = styled.button`
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  &:hover { background: ${({ theme }) => theme.colors.primary[600]}; }
+  &:hover {
+    background: ${({ theme }) => theme.colors.primary[600]};
+  }
 `;
 /* 게스트 기능 제외
 const GuestButton = styled.button`...`;
@@ -82,9 +84,7 @@ export const ExamAuthStep: React.FC<ExamAuthStepProps> = ({ examName, examCode }
         </HeaderSection>
 
         <FormCard>
-          <SsoButton onClick={handleLogin}>
-            로그인 / 회원가입
-          </SsoButton>
+          <SsoButton onClick={handleLogin}>로그인 / 회원가입</SsoButton>
           {/* 게스트 기능 제외 (기획 결정) */}
         </FormCard>
       </ContentWrapper>

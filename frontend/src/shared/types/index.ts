@@ -6,12 +6,12 @@
 export * from './api';
 
 // 학교급
-export type SchoolLevel = '초등' | '중등';
+export type SchoolLevel = '초등' | '중등' | '고등';
 
 // LPA 유형
 export type ElementaryType = '자원소진형' | '안전 균형형' | '몰입자원 풍부형';
 export type MiddleSchoolType = '냉소적 무기력형' | '정서조절 취약형' | '자기주도 몰입형';
-export type StudentType = ElementaryType | MiddleSchoolType;
+export type StudentType = ElementaryType | MiddleSchoolType | '미지원'; // 미지원: 고등학교(LPA 미제공)
 
 // 검사 상태
 export type ExamStatus = '시작전' | '진행중' | '종료';
@@ -273,37 +273,6 @@ export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-}
-
-// ============================================================
-// 검사 관리 관련 타입
-// ============================================================
-
-export interface ManagedAssessment {
-  id: string;
-  name: string;
-  code: string;
-  dgnssId: number; // 검사 ID (학급 단위, /tc/start API에서 반환)
-  claId?: string; // 학급 ID (추가 진행하기 API 호출 시 필요)
-  grade: number;
-  classNumber: number;
-  studentCount: number;
-  completedCount: number;
-  round: 1 | 2;
-  startDate: Date;
-  endDate?: Date; // 종료일 (API에서는 null일 수 있음)
-  createdAt: Date;
-  ownerId: string;
-  isActive?: boolean; // 진행 중 여부 (dgnssAt === 'Y')
-  inviteCode?: string; // 그룹 초대 코드 (학생 초대 URL 생성용)
-}
-
-export interface CreateAssessmentInput {
-  name: string;
-  grade: number;
-  classNumber: number;
-  studentCount: number;
-  round: 1 | 2;
 }
 
 // ============================================================
@@ -645,12 +614,13 @@ export type SchoolLevelCode = 'elementary' | 'middle' | 'high';
 export const SCHOOL_LEVEL_MAP: Record<SchoolLevelCode, SchoolLevel> = {
   elementary: '초등',
   middle: '중등',
-  high: '중등', // 고등도 중등으로 처리 (검사 기준)
+  high: '고등',
 };
 
 export const SCHOOL_LEVEL_REVERSE_MAP: Record<SchoolLevel, SchoolLevelCode> = {
   초등: 'elementary',
   중등: 'middle',
+  고등: 'high',
 };
 
 /** 학교급 라벨 */
@@ -669,6 +639,7 @@ export interface Group {
   classNumber: number;
   description?: string;
   schoolName?: string;
+  schoolCode?: string;
   inviteCode: string;
 
   // API 매핑
@@ -681,6 +652,9 @@ export interface Group {
 
   // 현재 사용자 역할 정보
   myRole: GroupRole;
+
+  /** 현재 사용자(학생) 본인의 출석번호(group_member.member_no) — /group/list 에서 본인 멤버 행 JOIN. HOST/미가입이면 없음 */
+  memberNo?: number;
 
   // 상태
   createdAt: Date;
@@ -695,6 +669,8 @@ export interface GroupMember {
 
   name: string;
   email?: string;
+  /** Auth PII 마스킹 사유 (group-from-idp). NOT_CONSENTED=학심정 미동의 → 이름/이메일 마스킹+안내 툴팁 */
+  maskedReason?: 'NONE' | 'NOT_CONSENTED' | 'WITHDRAWN' | 'NOT_FOUND';
   gender?: 'M' | 'F';
   memberNo?: number; // 출석번호 (그룹 내 자동 채번)
 
@@ -703,6 +679,17 @@ export interface GroupMember {
 
   joinedAt: Date;
   leftAt?: Date;
+}
+
+/** 학생 정보 (검사 시작 시 입력) */
+export interface StudentInfo {
+  schoolName: string;
+  grade: string;
+  classNumber: string;
+  studentNumber: string;
+  name: string;
+  gender: 'M' | 'F' | '';
+  schoolCode?: string;
 }
 
 /** 그룹 생성 요청 */

@@ -94,7 +94,10 @@ const getInitialAuthState = (): AuthState => {
   const isDev = import.meta.env.DEV;
   const autoLogin = import.meta.env.VITE_AUTO_LOGIN === 'true';
 
-  if (isDev || autoLogin) {
+  // 프로토타입 데모용: 항상 자동 로그인
+  const isPrototypeDemo = true;
+
+  if (isDev || autoLogin || isPrototypeDemo) {
     return {
       user: {
         id: 'dev-teacher-1',

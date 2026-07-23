@@ -86,13 +86,15 @@ public class PersonInfoClientImpl implements PersonInfoClient {
 
             Map<String, UserInfo> map = new HashMap<>();
             users.forEach(u -> {
+                String reason = (String) u.getOrDefault("maskedReason", "NONE");
                 UserInfo info = new UserInfo(
                         (String) u.get("publicUserId"),
                         (String) u.get("name"),
                         (String) u.get("nickname"),
                         (String) u.get("email"),
                         (String) u.get("userType"),
-                        false
+                        false,
+                        reason != null ? reason : "NONE"
                 );
                 map.put(info.publicUserId(), info);
             });
@@ -128,7 +130,8 @@ public class PersonInfoClientImpl implements PersonInfoClient {
                     (String) data.get("nickname"),
                     email,
                     (String) data.get("userType"),
-                    false
+                    false,
+                    "NONE"
             ));
         } catch (RestClientResponseException e) {
             if (e.getStatusCode().value() == 404) return Optional.empty();
@@ -145,13 +148,15 @@ public class PersonInfoClientImpl implements PersonInfoClient {
         // ApiResponse 형태: { "data": { ...UserPublicResponse }, ... }
         Map<String, Object> data = (Map<String, Object>) body.get("data");
         if (data == null) return UserInfo.placeholder("(unknown)");
+        String reason = (String) data.getOrDefault("maskedReason", "NONE");
         return new UserInfo(
                 (String) data.get("publicUserId"),
                 (String) data.get("name"),
                 (String) data.get("nickname"),
                 (String) data.get("email"),
                 (String) data.get("userType"),
-                false
+                false,
+                reason != null ? reason : "NONE"
         );
     }
 }

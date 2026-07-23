@@ -291,7 +291,7 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
             <ProfileCards>
               {profile.strengths.map((item, idx) => (
                 <ProfileCard
-                  key={item.category}
+                  key={item.factorName}
                   item={item}
                   idx={idx}
                   accent='emerald'
@@ -315,7 +315,7 @@ export const ClassSummarySection: React.FC<ClassSummarySectionProps> = ({
             <ProfileCards>
               {profile.weaknesses.map((item, idx) => (
                 <ProfileCard
-                  key={item.category}
+                  key={item.factorName}
                   item={item}
                   idx={idx}
                   accent='red'

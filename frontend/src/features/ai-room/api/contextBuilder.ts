@@ -287,10 +287,8 @@ const formatClassProfile = (classData: Class, round: 1 | 2 = 1): string => {
   const formatItems = (items: typeof profile.strengths) =>
     items
       .map((item, i) => {
-        let line = `${i + 1}. ${item.category} [${item.parentCategory}] (평균 T=${item.avgT})`;
-        if (item.categoryScript) line += `: ${item.categoryScript}`;
-        line += `\n   - 대표 요인: ${item.topFactor} (T=${item.topFactorT})`;
-        if (item.topFactorScript) line += `: ${item.topFactorScript}`;
+        let line = `${i + 1}. ${item.factorName} [${item.parentCategory} > ${item.subCategory}] (평균 T=${item.avgT})`;
+        if (item.definition) line += `: ${item.definition}`;
         return line;
       })
       .join('\n');
@@ -361,10 +359,10 @@ const buildAllContext = async (classes: Class[]): Promise<string> => {
 
     const profile = computeClassProfile(cls);
     const strengths = profile
-      ? profile.strengths.map((s) => `${s.category}(T=${s.avgT})`).join(', ')
+      ? profile.strengths.map((s) => `${s.factorName}(T=${s.avgT})`).join(', ')
       : '-';
     const weaknesses = profile
-      ? profile.weaknesses.map((w) => `${w.category}(T=${w.avgT})`).join(', ')
+      ? profile.weaknesses.map((w) => `${w.factorName}(T=${w.avgT})`).join(', ')
       : '-';
 
     return `### ${cls.grade}학년 ${cls.classNumber}반 (${cls.students.length}명)

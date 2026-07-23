@@ -14,6 +14,7 @@ import com.vs.meta.common.service.FileService;
 import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.common.utils.PagingInfo;
 import com.vs.meta.common.utils.PagingParam;
+import com.vs.meta.common.utils.SecurityUtil;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -101,6 +102,51 @@ public class DgnssService {
             pdfQueryPool.shutdownNow();
             Thread.currentThread().interrupt();
         }
+    }
+
+    /**
+     * 교사 본인(JWT 인증) 소유 전체 학급의 진단검사 현황을 한 번에 조회한다.
+     * 클라이언트 파라미터 없음 — 교사 식별자(user_no)는 JWT(SecurityContext)에서만 도출(IDOR 방지).
+     * 기존 tc/info 를 학급마다 호출하던 것을 대체. 학급(claId) 기준으로 검사 목록을 중첩 구조로 반환.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> selectTcDgnssOverview() {
+        Long userNo = SecurityUtil.requireCurrentUserNo();
+        List<Map<String, Object>> rows = dgnssMapper.selectTcDgnssOverview(userNo);
+
+        // 학급(claId) 기준 그룹핑 → classes: [ { 학급정보, dgnssList: [검사...] } ]
+        Map<String, Map<String, Object>> byCla = new LinkedHashMap<>();
+        for (Map<String, Object> r : rows) {
+            String claId = MapUtils.getString(r, "claId", "");
+            Map<String, Object> cls = byCla.computeIfAbsent(claId, k -> {
+                Map<String, Object> c = new LinkedHashMap<>();
+                c.put("claId", claId);
+                c.put("groupNm", r.get("groupNm"));
+                c.put("schoolLevel", r.get("schoolLevel"));
+                c.put("grade", r.get("grade"));
+                c.put("classNumber", r.get("classNumber"));
+                c.put("dgnssList", new ArrayList<Map<String, Object>>());
+                return c;
+            });
+            Map<String, Object> exam = new LinkedHashMap<>();
+            exam.put("dgnssId", r.get("dgnssId"));
+            exam.put("paperIdx", r.get("paperIdx"));
+            exam.put("ordNo", r.get("ordNo"));
+            exam.put("dgnssAt", r.get("dgnssAt"));
+            exam.put("dgnssStDt", r.get("dgnssStDt"));
+            exam.put("dgnssEdDt", r.get("dgnssEdDt"));
+            exam.put("stTotalCnt", r.get("stTotalCnt"));
+            exam.put("stSubmCnt", r.get("stSubmCnt"));
+            exam.put("notDgnssStartCnt", r.get("notDgnssStartCnt"));
+            exam.put("notDgnssStartList", r.get("notDgnssStartList"));
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> dgnssList = (List<Map<String, Object>>) cls.get("dgnssList");
+            dgnssList.add(exam);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("classes", new ArrayList<>(byCla.values()));
+        return result;
     }
 
     public Map<String, Object> selectTcDgnssInfo(Map<String, Object> paramMap) {
@@ -378,14 +424,10 @@ public class DgnssService {
             targetMap.put("paperIdx", MapUtils.getInteger(dgnssInfoMap, "paperIdx", 0));
 
             String grade = MapUtils.getString(param, "grade", "");
-            if (StringUtils.equals(grade, "el")) {
-                targetMap.put("schGrade", "CMM13001");
-            } else if (StringUtils.equals(grade, "mi")) {
-                targetMap.put("schGrade", "CMM13002");
-            } else if (StringUtils.equals(grade, "hi")) {
-                targetMap.put("schGrade", "CMM13003");
+            String schGrade = resolveSchGrade(grade);
+            if (schGrade != null) {
+                targetMap.put("schGrade", schGrade);
             }
-
 
             for (String stdtId : targetStList) {
                 targetMap.put("stdtId", stdtId);
@@ -400,6 +442,106 @@ public class DgnssService {
         dgnssMapper.updateDgnssStatus(param);
         resultMap.put("result", "ok");
         return resultMap;
+    }
+
+    /**
+     * 그룹 가입 시 해당 학생에게 진행 중인 학심정(학습심리정서검사) 시험지를 배부한다.
+     * <ul>
+     *   <li>학급에 진행 중(dgnss_at='Y')인 검사 전체 — 종합(paperIdx=1)/자기조절(paperIdx=2) — 를 대상으로 한다.</li>
+     *   <li>이미 해당 검사에 등록된 경우, 또는 다른 학급 응시 이력으로 차단 대상인 경우 건너뛴다.</li>
+     *   <li>{@link #tcDgnssRestart(Map)} 와 달리 학급 전체가 아니라 가입한 단일 학생만 등록한다.</li>
+     * </ul>
+     *
+     * @param claId  학급 ID
+     * @param grade  레거시 학교급 코드(el/mi/hi)
+     * @param stdtId 가입 학생 ID
+     * @return 실제로 배부(등록)된 검사들의 dgnssId 목록
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public List<Integer> assignActiveDgnssToStudent(String claId, String grade, String stdtId) {
+        List<Integer> assignedDgnssIds = new ArrayList<>();
+        if (StringUtils.isBlank(claId) || StringUtils.isBlank(stdtId)) {
+            return assignedDgnssIds;
+        }
+
+        List<Map<String, Object>> activeDgnssList = dgnssMapper.findActiveDgnssListByClaId(claId);
+        if (CollectionUtils.isEmpty(activeDgnssList)) {
+            return assignedDgnssIds;
+        }
+
+        String schGrade = resolveSchGrade(grade);
+
+        for (Map<String, Object> activeDgnss : activeDgnssList) {
+            int dgnssId = MapUtils.getIntValue(activeDgnss, "dgnssId", 0);
+            int paperIdx = MapUtils.getIntValue(activeDgnss, "paperIdx", 0);
+            int ordNo = MapUtils.getIntValue(activeDgnss, "ordNo", 0);
+            if (dgnssId <= 0) {
+                continue;
+            }
+
+            // 1) 이미 이 검사에 등록되어 있으면 건너뜀(중복 방지)
+            if (existsDgnssResult(dgnssId, stdtId)) {
+                log.info("가입 검사 배부 - 이미 등록됨 건너뜀: dgnssId={}, stdtId={}", dgnssId, stdtId);
+                continue;
+            }
+
+            // 2) 다른 학급에서 이미 응시(진행/완료)한 이력이 있으면 배부 제외
+            if (!isStudentEligibleForJoin(claId, stdtId, paperIdx, ordNo)) {
+                log.info("가입 검사 배부 - 타학급 이력으로 제외: dgnssId={}, stdtId={}, paperIdx={}, ordNo={}",
+                        dgnssId, stdtId, paperIdx, ordNo);
+                continue;
+            }
+
+            // 3) 시험지 INSERT (OMR / 결과 / 답안) — paperIdx 별 컬럼 분기는 매퍼 XML에서 처리
+            Map<String, Object> targetMap = new HashMap<>();
+            targetMap.put("dgnssId", dgnssId);
+            targetMap.put("claId", claId);
+            targetMap.put("ordNo", ordNo);
+            targetMap.put("paperIdx", paperIdx);
+            if (schGrade != null) {
+                targetMap.put("schGrade", schGrade);
+            }
+            targetMap.put("stdtId", stdtId);
+
+            dgnssMapper.insertDgnssOmr(targetMap);
+            dgnssMapper.insertDgnssResult(targetMap);
+            dgnssMapper.insertDgnssAnswer(targetMap);
+
+            assignedDgnssIds.add(dgnssId);
+            log.info("가입 검사 배부 완료: dgnssId={}, stdtId={}, paperIdx={}, ordNo={}",
+                    dgnssId, stdtId, paperIdx, ordNo);
+        }
+
+        return assignedDgnssIds;
+    }
+
+    /**
+     * 가입 학생 1명이 특정 검사(회차/시험지)에 응시 가능한지 — 다른 학급 응시 이력 기준.
+     * 교사 검사 시작과 동일한 적격성 규칙(selectEligibleTargetStListForOrd1/2)을 stdtId 로 한정해 재사용한다.
+     */
+    private boolean isStudentEligibleForJoin(String claId, String stdtId, int paperIdx, int ordNo) {
+        Map<String, Object> param = new HashMap<>();
+        param.put("claId", claId);
+        param.put("paperIdx", paperIdx);
+        param.put("stdtId", stdtId);
+
+        List<String> eligibleStdtIds = (ordNo == 2)
+                ? dgnssMapper.selectEligibleTargetStListForOrd2(param)
+                : dgnssMapper.selectEligibleTargetStListForOrd1(param);
+
+        return eligibleStdtIds != null && eligibleStdtIds.contains(stdtId);
+    }
+
+    /** 레거시 학교급 코드(el/mi/hi) → 검사 응시용 SCH_GRADE 코드 매핑. 매칭 없으면 null. */
+    private String resolveSchGrade(String grade) {
+        if (StringUtils.equals(grade, "el")) {
+            return "CMM13001";
+        } else if (StringUtils.equals(grade, "mi")) {
+            return "CMM13002";
+        } else if (StringUtils.equals(grade, "hi")) {
+            return "CMM13003";
+        }
+        return null;
     }
 
     private int resolveExpectedQuestionCount(String paperIdx) {
@@ -542,8 +684,12 @@ public class DgnssService {
             Map<String, Object> tcUserInfo = dgnssMapper.selectTcUserInfo(paramData);
             log.info("[PDF 성능] 교사 정보 조회: {}ms", System.currentTimeMillis() - dbStart);
 
-            if (StringUtils.isNotEmpty(MapUtils.getString(tcUserInfo, "fileUrl", ""))) {
-                result.put("url", MapUtils.getString(tcUserInfo, "fileUrl", ""));
+            String existingTcUrl = MapUtils.getString(tcUserInfo, "fileUrl", "");
+            if (StringUtils.isNotEmpty(existingTcUrl)) {
+                // 신규 생성 없이 기존 저장값을 그대로 반환 → 기존 값이 비정상이면 응답도 비정상이 된다.
+                log.info("[pdfDownload] 기존 교사 file_url 재사용(생성 생략): urlLen={}, url=[{}]",
+                        existingTcUrl.length(), existingTcUrl);
+                result.put("url", existingTcUrl);
                 return result;
             }
 
@@ -554,11 +700,15 @@ public class DgnssService {
             Map<String, Object> stUserInfo = dgnssMapper.selectStUserInfo(paramData);
             // Phase 3: memberSpUserId → MEM_NM/email, teacherSpUserId → tcNm 복원
             enrichStUserInfo(stUserInfo);
+            applyNicknameOverride(stUserInfo); // 학생 입력 닉네임이 있으면 표시 이름으로 사용
             log.info("[PDF 성능] 학생 정보 조회: {}ms", System.currentTimeMillis() - dbStart);
 
             String fileUrl = MapUtils.getString(stUserInfo, "fileURL", "");
 
             if (StringUtils.isNotEmpty(fileUrl)) {
+                // 신규 생성 없이 기존 저장값을 그대로 반환 → 기존 값이 비정상이면 응답도 비정상이 된다.
+                log.info("[pdfDownload] 기존 학생 file_url 재사용(생성 생략): dgnssResultId={}, urlLen={}, url=[{}]",
+                        MapUtils.getString(stUserInfo, "dgnssResultId", ""), fileUrl.length(), fileUrl);
                 result.put("url", fileUrl);
                 return result;
             }
@@ -572,6 +722,9 @@ public class DgnssService {
             result.put("error", "fail");
         }
 
+        // 응답으로 내려가는 최종 url/error 추적 — 서버 200 이지만 클라이언트에서 오류로 보이는 경우 값 확인용
+        log.info("[pdfDownload 응답] userType={}, urlLen={}, url=[{}], error={}",
+                userType, url == null ? 0 : url.length(), result.get("url"), result.get("error"));
         log.info("[PDF 성능] 전체 소요시간: {}ms (userId: {}, userType: {})",
                 System.currentTimeMillis() - totalStart, userId, userType);
         return result;
@@ -709,11 +862,16 @@ public class DgnssService {
         log.info("[PDF 성능] 교사용 PDF 렌더링+업로드: {}ms", System.currentTimeMillis() - pdfStart);
 
         long updateStart = System.currentTimeMillis();
-        Map<String, Object> updateMap = new HashMap<>();
-        updateMap.put("fileUrl", url);
-        updateMap.put("dgnssId", MapUtils.getString(param, "TEST_IDX", ""));
-        dgnssMapper.updateFileUrlTch(updateMap);
-        log.info("[PDF 성능] 교사용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
+        if (isStorableFileUrl(url)) {
+            Map<String, Object> updateMap = new HashMap<>();
+            updateMap.put("fileUrl", url);
+            updateMap.put("dgnssId", MapUtils.getString(param, "TEST_IDX", ""));
+            dgnssMapper.updateFileUrlTch(updateMap);
+            log.info("[PDF 성능] 교사용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
+        } else {
+            log.warn("[file_url 저장 생략] 유효하지 않은 업로드 URL: dgnssId={}, urlLen={}, url={}",
+                    MapUtils.getString(param, "TEST_IDX", ""), url == null ? 0 : url.length(), url);
+        }
 
         log.info("[PDF 성능] 교사용 makeTcPdf 총합: {}ms", System.currentTimeMillis() - methodStart);
         return url;
@@ -768,17 +926,48 @@ public class DgnssService {
         log.info("[PDF 성능] 학생용 PDF 렌더링+업로드: {}ms", System.currentTimeMillis() - pdfStart);
 
         long updateStart = System.currentTimeMillis();
-        Map<String, Object> updateMap = new HashMap<>();
-        updateMap.put("fileUrl", url);
-        updateMap.put("dgnssResultId", MapUtils.getString(stUserInfo, "dgnssResultId", ""));
-        dgnssMapper.updateFileUrl(updateMap);
-        log.info("[PDF 성능] 학생용 URL 저장: {}ms", System.currentTimeMillis() - updateStart);
+        if (isStorableFileUrl(url)) {
+            Map<String, Object> updateMap = new HashMap<>();
+            updateMap.put("fileUrl", url);
+            updateMap.put("dgnssResultId", MapUtils.getString(stUserInfo, "dgnssResultId", ""));
+            dgnssMapper.updateFileUrl(updateMap);
+            log.info("[PDF 성능] 학생용 URL 저장: {}ms (file_url=[{}])", System.currentTimeMillis() - updateStart, url);
+        } else {
+            // 업로드 실패/비정상 URL → file_url 저장 생략 (잘못된 값 영구 저장 방지). 원인은 상위 업로드 로그 참조.
+            log.warn("[file_url 저장 생략] 유효하지 않은 업로드 URL: dgnssResultId={}, urlLen={}, url={}",
+                    MapUtils.getString(stUserInfo, "dgnssResultId", ""), url == null ? 0 : url.length(), url);
+        }
 
         log.info("[PDF 성능] 학생용 makeStPdf 총합: {}ms", System.currentTimeMillis() - methodStart);
         return url;
     }
 
+    /**
+     * 업로드된 PDF 경로(file_url/summary_file_url)로 저장해도 되는 값인지 검증한다.
+     * 업로드 실패/부분 실패 시 비정상 값(빈 값, 컬럼 길이 초과로 잘린 값, pfile-download 같은 API URL,
+     * 쿼리스트링/토큰 포함 값)이 그대로 저장되는 것을 막는다.
+     */
+    private boolean isStorableFileUrl(String url) {
+        if (StringUtils.isBlank(url)) {
+            return false;
+        }
+        if (url.length() > 200) { // 컬럼 길이(varchar 200) 초과 → 잘린 값 방지
+            return false;
+        }
+        if (StringUtils.containsAny(url, "?", " ", "\n", "\r", "\t")) { // 쿼리/토큰/공백 포함 → 비정상
+            return false;
+        }
+        if (StringUtils.contains(url, "pfile-download")) { // 다운로드 API URL 오저장 방지
+            return false;
+        }
+        return StringUtils.endsWithIgnoreCase(url, ".pdf");
+    }
+
     public Map<String, Object> selectNewOmr(Map<String, Object> param, Pageable pageable) {
+        // st/start와 동일: 학생 입력 식별정보 정규화 (gender M/F, grade·classNumber 숫자만) — 저장은 하단 updateStStart에서
+        normalizeAndValidateGender(param);
+        normalizeNumericInput(param, "grade");
+        normalizeNumericInput(param, "classNumber");
         Map<String, Object> resultMap = new HashMap<>();
         Map<String, Object> targetMap = dgnssMapper.selectPastOmrInfo(param);
         int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
@@ -917,8 +1106,13 @@ public class DgnssService {
         resultMap.put("stInfoList", stInfoList);
         resultMap.put("type", type);
 
-        enrichLpaTop3(stInfoList);
-        moveSectionScoresToScoresMap(stInfoList);
+        // type=1(신뢰도)은 FE가 LPA top3·섹션점수(scores)를 사용하지 않으므로 보강을 생략한다.
+        // (신뢰도 쿼리에는 LPA 확률 JSON·섹션점수 컬럼 자체가 없어 빈 값만 추가될 뿐이다.)
+        // type 2~6(전략)은 scores 맵이 필요하므로 기존대로 보강한다.
+        if (type != 1) {
+            enrichLpaTop3(stInfoList);
+            moveSectionScoresToScoresMap(stInfoList);
+        }
         return resultMap;
     }
 
@@ -1023,6 +1217,7 @@ public class DgnssService {
 
         for (Map<String, Object> map : stInfoList) {
             int ordNoInt = MapUtils.getInteger(map, "ord_no", 0);
+            map.remove("ord_no"); // FE 미사용 — 회차는 응답 키("1"/"2")로 구분
             if (ordNoInt == 1) {
                 ord1List.add(map);
             } else if (ordNoInt == 2) {
@@ -1277,17 +1472,17 @@ public class DgnssService {
         }
         enrichLpaTop3(stAnalysisList);
         Map<String, Map<String, Object>> lpaTopByOrd = extractLpaTopByOrd(stAnalysisList);
+        // 그래프 추천은 종합검사(paperIdx=1)에서만 — 자기조절(2) 등은 recommendationByOrd 자체를 응답에서 제외
         boolean includeGraphRecommendation = StringUtils.equalsIgnoreCase(
                 MapUtils.getString(param, "graphYn", "N"),
                 "Y"
-        );
+        ) && StringUtils.equals(resolvedPaperIdx, "1");
         Map<String, Object> recommendationByOrd = includeGraphRecommendation
                 ? fetchGraphRecommendationByOrd(stAnalysisList)
                 : new LinkedHashMap<>();
         removeLpaTopFromRows(stAnalysisList);
 
         Map<String, Object> resultMap = new LinkedHashMap<>();
-        resultMap.put("stUserInfo", stUserInfo);
         resultMap.put("lpaTop", lpaTopByOrd);
         if (includeGraphRecommendation) {
             resultMap.put("recommendationByOrd", recommendationByOrd);
@@ -1495,6 +1690,11 @@ public class DgnssService {
         List<Integer> allDgnssIdList = dgnssMapper.selectDgnssIdxList(param);
         List<Integer> targetDgnssIdList = resolveTargetDgnssIdListForAnalysis(paperIdx, ordNo, allDgnssIdList);
 
+        // selectClassTotalReport(dgnssId)는 평균 루프와 아래 lpa 루프에서 동일하게 호출되므로
+        // 호출당 1회만 조회하도록 캐시한다. value=조회결과, notExistsUsed=실제 사용된 분기('N'/'Y').
+        Map<Integer, List<Map<String, Object>>> classTotalReportCache = new HashMap<>();
+        Map<Integer, String> classTotalReportNotExistsUsed = new HashMap<>();
+
         // META자기조절학습검사
         if (StringUtils.equals(paperIdx, "2")) {
             List<String> sessionList = putSession(0);
@@ -1502,16 +1702,9 @@ public class DgnssService {
             ObjectMapper mapper = new ObjectMapper();
 
             for (int dgnssId : targetDgnssIdList) {
-                Map<String, Object> paramMap = new HashMap<>();
-                paramMap.put("dgnssId", dgnssId);
-                paramMap.put("notExistsYn", "N");
-                // 초기에는 신뢰도 지표 기준 '주의'가 없는 데이터만 조회
-                // 데이터 조회를 했음에도 데이터가 없는 경우 신뢰도 '주의'제거 후 재 조회
-                List<Map<String, Object>> claInfoList = dgnssMapper.selectClassTotalReport(paramMap);
-                if (CollectionUtils.isEmpty(claInfoList)) {
-                    paramMap.put("notExistsYn", "Y");
-                    claInfoList = dgnssMapper.selectClassTotalReport(paramMap);
-                }
+                // 초기에는 신뢰도 '주의'가 없는 데이터만, 없으면 '주의' 제거 후 재조회 (캐시 내부 처리).
+                List<Map<String, Object>> claInfoList =
+                        fetchClassTotalReportCached(dgnssId, classTotalReportCache, classTotalReportNotExistsUsed);
                 Map<String, Double> sessionTotalMap = new HashMap<>();
                 Map<String, Integer> sessionSizeMap = new HashMap<>();
                 if (CollectionUtils.isNotEmpty(claInfoList)) {
@@ -1599,14 +1792,10 @@ public class DgnssService {
         boolean exposeLernReport = StringUtils.equals(paperIdx, "1");
         ObjectMapper lernJsonParser = new ObjectMapper();
         for (int dgnssId : targetDgnssIdList) {
-            Map<String, Object> lpaParam = new HashMap<>();
-            lpaParam.put("dgnssId", dgnssId);
-            lpaParam.put("notExistsYn", "N");
-            List<Map<String, Object>> lpaRows = dgnssMapper.selectClassTotalReport(lpaParam);
-            if (CollectionUtils.isEmpty(lpaRows)) {
-                lpaParam.put("notExistsYn", "Y");
-                lpaRows = dgnssMapper.selectClassTotalReport(lpaParam);
-            }
+            List<Map<String, Object>> cachedRows =
+                    fetchClassTotalReportCached(dgnssId, classTotalReportCache, classTotalReportNotExistsUsed);
+            // 캐시 원본 오염 방지: source 부여·fallback addAll·enrichLpaTop3 등 변형은 복사본 리스트에서 수행.
+            List<Map<String, Object>> lpaRows = new ArrayList<>(cachedRows);
             for (Map<String, Object> row : lpaRows) {
                 row.put("source", "IN_CLASS");
             }
@@ -1624,7 +1813,7 @@ public class DgnssService {
                 fallbackParam.put("paperIdx", paperIdx);
                 fallbackParam.put("ordNo", currentOrdNo);
                 fallbackParam.put("stdtIds", missingStudents);
-                fallbackParam.put("notExistsYn", MapUtils.getString(lpaParam, "notExistsYn", "N"));
+                fallbackParam.put("notExistsYn", classTotalReportNotExistsUsed.getOrDefault(dgnssId, "N"));
                 List<Map<String, Object>> fallbackRows = dgnssMapper.selectClassTotalReportFromOtherClasses(fallbackParam);
                 if (CollectionUtils.isNotEmpty(fallbackRows)) {
                     for (Map<String, Object> row : fallbackRows) {
@@ -1645,10 +1834,8 @@ public class DgnssService {
                     Map<String, Object> lpaRow = new LinkedHashMap<>();
                     lpaRow.put("stdtId", MapUtils.getString(row, "stdtId", ""));
                     lpaRow.put("source", MapUtils.getString(row, "source", "IN_CLASS"));
-                    lpaRow.put("lpaClassId", row.get("lpaClassId"));
+                    // lpaClassId/lpaConfidence/lpaStatus 는 FE 미사용이라 응답에서 제외 (lpaTypeName + top3 만 노출).
                     lpaRow.put("lpaTypeName", row.get("lpaTypeName"));
-                    lpaRow.put("lpaConfidence", row.get("lpaConfidence"));
-                    lpaRow.put("lpaStatus", row.get("lpaStatus"));
                     lpaRow.put("lpaTop1TypeName", row.get("lpaTop1TypeName"));
                     lpaRow.put("lpaTop1Probability", row.get("lpaTop1Probability"));
                     lpaRow.put("lpaTop2TypeName", row.get("lpaTop2TypeName"));
@@ -1723,6 +1910,36 @@ public class DgnssService {
         }
 
         return resultMap;
+    }
+
+    /**
+     * selectClassTotalReport(dgnssId) 를 호출당 1회만 조회하도록 캐시한다.
+     * '주의' 제외(N) 조회 후 데이터가 없으면 '주의' 포함(Y)으로 재조회하며, 실제 사용된 분기값을 함께 캐시한다.
+     * 평균 루프(읽기 전용)와 lpa 루프가 같은 dgnssId 를 공유하므로, 반환 리스트는 호출 측에서 변형 전 복사할 것.
+     */
+    private List<Map<String, Object>> fetchClassTotalReportCached(
+            int dgnssId,
+            Map<Integer, List<Map<String, Object>>> cache,
+            Map<Integer, String> notExistsUsedCache) {
+        if (cache.containsKey(dgnssId)) {
+            return cache.get(dgnssId);
+        }
+        Map<String, Object> p = new HashMap<>();
+        p.put("dgnssId", dgnssId);
+        p.put("notExistsYn", "N");
+        List<Map<String, Object>> rows = dgnssMapper.selectClassTotalReport(p);
+        String used = "N";
+        if (CollectionUtils.isEmpty(rows)) {
+            p.put("notExistsYn", "Y");
+            rows = dgnssMapper.selectClassTotalReport(p);
+            used = "Y";
+        }
+        if (rows == null) {
+            rows = new ArrayList<>();
+        }
+        cache.put(dgnssId, rows);
+        notExistsUsedCache.put(dgnssId, used);
+        return rows;
     }
 
     private List<Integer> resolveTargetDgnssIdListForAnalysis(String paperIdx, String ordNo, List<Integer> allDgnssIdList) {
@@ -2048,6 +2265,9 @@ public class DgnssService {
 
     public Map<String, Object> selectStDgnssStart(Map<String, Object> param, Pageable pageable) {
         pageable = resolvePageable(param, pageable);
+        normalizeAndValidateGender(param);
+        normalizeNumericInput(param, "grade");
+        normalizeNumericInput(param, "classNumber");
         Map<String, Object> resultMap = new HashMap<>();
         int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
         String eakAt = "";
@@ -2141,6 +2361,31 @@ public class DgnssService {
         return resultMap;
     }
 
+    /** 학생 입력 성별(gender)이 있으면 대문자 정규화 후 M/F만 허용. 미입력 시 무시(미저장). */
+    private void normalizeAndValidateGender(Map<String, Object> param) {
+        String gender = MapUtils.getString(param, "gender", null);
+        if (StringUtils.isBlank(gender)) {
+            return;
+        }
+        String normalized = gender.trim().toUpperCase();
+        if (!"M".equals(normalized) && !"F".equals(normalized)) {
+            throw new IllegalArgumentException("gender는 'M' 또는 'F'만 허용됩니다: " + gender);
+        }
+        param.put("gender", normalized);
+    }
+
+    /**
+     * 학생 입력 숫자 필드(grade/classNumber)에서 선행 숫자만 남기고 뒤 문자열("학년"/"반" 등)을 제거.
+     * 예) "2학년" → "2", "3반" → "3", "2" → "2". 숫자가 없으면 빈 값(→ 저장 시 미반영).
+     */
+    private void normalizeNumericInput(Map<String, Object> param, String key) {
+        String value = MapUtils.getString(param, key, null);
+        if (StringUtils.isBlank(value)) {
+            return;
+        }
+        param.put(key, value.trim().replaceAll("[^0-9].*$", ""));
+    }
+
     private Pageable resolvePageable(Map<String, Object> param, Pageable pageable) {
         int defaultPage = pageable != null ? pageable.getPageNumber() : 0;
         int defaultSize = pageable != null ? pageable.getPageSize() : 20;
@@ -2229,6 +2474,7 @@ public class DgnssService {
         Map<String, Object> dgnssAnswer = dgnssMapper.selectStUserInfo(paramData);
         // Phase 3: memberSpUserId → MEM_NM/email, teacherSpUserId → tcNm 복원
         enrichStUserInfo(dgnssAnswer);
+        applyNicknameOverride(dgnssAnswer); // 학생 입력 닉네임이 있으면 표시 이름으로 사용
         if (StringUtils.isNotEmpty(MapUtils.getString(dgnssAnswer, "summaryFileURL", ""))) {
             result.put("summaryUrl", MapUtils.getString(dgnssAnswer, "summaryFileURL", ""));
         }
@@ -2251,10 +2497,15 @@ public class DgnssService {
 
         String url = pdfService.createDgnssSummaryByTemplate(new File(fileName), dgnssData, request);
 
-        Map<String, Object> updateMap = new HashMap<>();
-        updateMap.put("fileUrl", url);
-        updateMap.put("dgnssResultId", MapUtils.getString(dgnssAnswer, "dgnssResultId", ""));
-        dgnssMapper.updateSummaryFileUrl(updateMap);
+        if (isStorableFileUrl(url)) {
+            Map<String, Object> updateMap = new HashMap<>();
+            updateMap.put("fileUrl", url);
+            updateMap.put("dgnssResultId", MapUtils.getString(dgnssAnswer, "dgnssResultId", ""));
+            dgnssMapper.updateSummaryFileUrl(updateMap);
+        } else {
+            log.warn("[summary_file_url 저장 생략] 유효하지 않은 업로드 URL: dgnssResultId={}, urlLen={}, url={}",
+                    MapUtils.getString(dgnssAnswer, "dgnssResultId", ""), url == null ? 0 : url.length(), url);
+        }
 
         result.put("summaryUrl", url);
         return result;
@@ -2435,10 +2686,7 @@ public class DgnssService {
             }
 
             Map<String, Object> lpaTop = new LinkedHashMap<>();
-            lpaTop.put("lpaClassId", row.get("lpaClassId"));
             lpaTop.put("lpaTypeName", row.get("lpaTypeName"));
-            lpaTop.put("lpaConfidence", row.get("lpaConfidence"));
-            lpaTop.put("lpaStatus", row.get("lpaStatus"));
             lpaTop.put("lpaTop1TypeName", row.get("lpaTop1TypeName"));
             lpaTop.put("lpaTop1Probability", row.get("lpaTop1Probability"));
             lpaTop.put("lpaTop2TypeName", row.get("lpaTop2TypeName"));
@@ -3032,6 +3280,15 @@ public class DgnssService {
         if (stUserInfo == null) return;
         enrichMap(stUserInfo, "memberSpUserId", "MEM_NM", "email");
         enrichMap(stUserInfo, "teacherSpUserId", "tcNm", null);
+    }
+
+    /** PDF 표시 이름(MEM_NM)을 학생 입력 닉네임(tb_dgnss_result_info.nickname)으로 우선 대체. 없으면 기존 값 유지. */
+    private void applyNicknameOverride(Map<String, Object> stUserInfo) {
+        if (stUserInfo == null) return;
+        String nickname = MapUtils.getString(stUserInfo, "nickname", "");
+        if (StringUtils.isNotBlank(nickname)) {
+            stUserInfo.put("MEM_NM", nickname);
+        }
     }
 
     // -----------------------------------------------------------------------

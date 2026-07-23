@@ -1,2 +1,5 @@
-// Counseling Dashboard Feature - 상담 대시보드
 export { CounselingDashboardPage } from './pages/CounselingDashboardPage';
+export { ClassCoachingPage } from './pages/ClassCoachingPage';
+export { IndividualCoachingPage } from './pages/IndividualCoachingPage';
+export * from './components';
+export * from './types';

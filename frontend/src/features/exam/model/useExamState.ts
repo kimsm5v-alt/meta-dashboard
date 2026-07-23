@@ -7,11 +7,11 @@ const initialState: ExamState = {
   dgnssResultId: null,
   currentPage: 0,
   answers: {},
-  totalQuestions: 124,
+  totalQuestions: 0,
   omrIdx: null,
   isSubmitting: false,
   questions: [],
-  totalPages: 7, // 124 / 20 = 6.2 → 7 페이지
+  totalPages: 0,
   answeredCount: 0,
 };
 

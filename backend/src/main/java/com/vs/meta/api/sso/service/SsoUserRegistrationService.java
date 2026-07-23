@@ -36,6 +36,11 @@ public class SsoUserRegistrationService {
     public User register(SpAuthenticatedUser spUser, String roleCode) {
         User existing = userMapper.findBySpUserId(spUser.spUserId());
         if (existing != null) {
+            if ("Y".equals(existing.getProvisioned())) {
+                // 그룹 동기화가 선제 생성한 행 — 첫 로그인(=동의) 시점에 정식 사용자로 합류.
+                // 신규 INSERT 하면 sp_user_id UNIQUE 충돌 → 기존 행 재사용 (group-from-idp 02 §7)
+                return adoptProvisionedUser(existing, spUser, roleCode);
+            }
             throw new IllegalStateException("이미 등록된 사용자입니다: " + spUser.spUserId());
         }
 
@@ -67,6 +72,34 @@ public class SsoUserRegistrationService {
 
         userMapper.insertUser(user);
         log.info("SSO 신규 사용자 생성: userNo={}, spUserId={}, roleCode={}",
+                user.getUserNo(), spUser.spUserId(), finalRoleCode);
+        return user;
+    }
+
+    /**
+     * 프로비저닝 행 → 정식 사용자 합류 (group-from-idp 02 §7).
+     *
+     * <p>역할은 로그인 기반 정보(roleCode/userType)가 우선 — 동기화 추정값을 덮어쓴다.
+     * 단 기존 채번된 tc_id/stdt_id 는 보존(검사·상담 등이 이미 참조 중일 수 있음)하고,
+     * 역할에 맞는 식별자가 비어 있으면 보충 채번.
+     */
+    private User adoptProvisionedUser(User user, SpAuthenticatedUser spUser, String roleCode) {
+        String finalRoleCode = roleCode;
+        if (finalRoleCode == null || finalRoleCode.isBlank()) {
+            finalRoleCode = mapUserType(spUser.userType());
+        }
+        user.setRoleCode(finalRoleCode);
+        if (IdGenerator.isTeacherRole(finalRoleCode) && user.getTcId() == null) {
+            user.setTcId(IdGenerator.generateTcId());
+        } else if ("STUDENT".equals(finalRoleCode) && user.getStdtId() == null) {
+            user.setStdtId(IdGenerator.generateStdtId());
+        }
+        user.setProvisioned("N");
+        user.setLastLoginAt(LocalDateTime.now());
+        user.setUpdatedBy(0L);
+        user.setUpdatedAt(LocalDateTime.now());
+        userMapper.updateUser(user);
+        log.info("SSO 프로비저닝 사용자 합류(첫 로그인): userNo={}, spUserId={}, roleCode={}",
                 user.getUserNo(), spUser.spUserId(), finalRoleCode);
         return user;
     }

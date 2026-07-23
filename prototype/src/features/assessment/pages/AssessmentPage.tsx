@@ -1,417 +1,323 @@
 /**
- * 검사 관리 페이지 (교사용)
+ * 검사 페이지 (GNB: 검사)
  *
- * - 그룹(학급) 선택 후 검사 생성
- * - 검사 조회/종료/취소
- * - QR 코드 생성 및 표시
- * - PDF 결과 업로드
+ * - 반 미선택: 전체 현황 (요약 카드, 검사 현황 테이블) - 화면 1번
+ * - 반 선택 + 검사관리: 응시 현황, 회차 관리, 학생 목록 - 화면 2번
+ *
+ * LayoutV2의 context를 사용하여 LNB와 상태 동기화
+ *
+ * @see prototype/docs/features/EXAM_COUNSELING.md
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
-
-import { useAuth } from '@/features/auth';
-import type { ManagedAssessment, Group } from '@/shared/types';
-import { AlertModal } from '@/shared/components';
+import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { SummaryCards, ExamOverviewTable, ExamManagementView, ClassResultView, StudentResultView } from '../components';
 import {
-  GeneralSection,
-  CreateAssessmentModal,
-  AssessmentCodeModal,
-  PdfUploadModal,
-  type AssessmentFormData,
-} from '../components';
-import { registerExamCode } from '@/features/exam/services/examService';
-import {
-  startExam,
-  fetchExamList,
-  endExam,
-  cancelExam,
-  type ExamListItem,
-} from '../services/assessmentService';
-import { getMyGroups } from '@/features/groups/services/groupService';
-import { APIError } from '@/shared/services/apiClient';
-import {
-  generateExamCode,
-  schoolLevelToGradeLevel,
-} from '../config';
-import {
-  saveAssessmentMeta,
-  getAssessmentMeta,
-} from '../services/assessmentMetaStorage';
+  MOCK_EXAM_OVERVIEW_SUMMARY,
+  MOCK_EXAM_OVERVIEW_ROWS,
+  MOCK_CLASS_EXAM_DATA,
+  MOCK_STUDENT_RESULTS,
+} from '../mock-data';
+import type { ExamOverviewRow, StudentExamResult } from '../types';
+import { useLayoutContext } from '@/app/LayoutV2';
+import { ResultOverviewView, MOCK_CLASS_RESULT } from '@/features/class-dashboard';
+import { StudentHeader } from '@/shared/components';
 
-// ============================================================
-// 유틸리티
-// ============================================================
+export const AssessmentPage = () => {
+  const location = useLocation();
+  // LayoutV2 context 사용
+  const { selectedClass, setSelectedClass, selectedStudent, setSelectedStudent, activeSubTab, setActiveSubTab } = useLayoutContext();
 
-/** API 검사 목록 → ManagedAssessment 변환 */
-function convertExamListItem(item: ExamListItem, groups: Group[]): ManagedAssessment {
-  const shortCode = generateExamCode(item.claId, item.dgnssId);
-  registerExamCode(shortCode, item.claId);
+  // 학생 결과 상태
+  const [selectedStudentResult, setSelectedStudentResult] = useState<StudentExamResult | null>(null);
 
-  // localStorage에서 학년/반/그룹 정보 조회
-  const meta = getAssessmentMeta(item.dgnssId);
 
-  // 그룹에서 claId로 찾기
-  const group = groups.find(g => g.claId === item.claId);
-  const groupName = meta?.groupName || group?.name;
-  const inviteCode = group?.inviteCode;
-
-  return {
-    id: `assessment-${item.dgnssId}`,
-    name: meta?.groupName ? `${meta.groupName} ${item.ordNo}차 검사` : `${item.ordNo}차 검사`,
-    code: shortCode,
-    dgnssId: item.dgnssId,
-    grade: meta?.grade ?? 0,
-    classNumber: meta?.classNumber ?? 0,
-    studentCount: item.stTotalCnt,
-    completedCount: item.stSubmCnt,
-    round: item.ordNo as 1 | 2,
-    startDate: new Date(item.dgnssStDt),
-    endDate: item.dgnssEdDt ? new Date(item.dgnssEdDt) : undefined,
-    createdAt: new Date(item.dgnssStDt),
-    ownerId: item.tcId,
-    isActive: item.dgnssAt === 'Y',
-    groupName,
-    claId: item.claId,
-    inviteCode,
-  };
-}
-
-// ============================================================
-// 컴포넌트
-// ============================================================
-
-export const AssessmentPage: React.FC = () => {
-  const { user, credentials } = useAuth();
-
-  // credentials에서 ID 추출
-  const tcId = credentials?.teacherId ?? user?.tcId ?? '';
-  const hasCredentials = !!(credentials || user?.tcId);
-
-  // 상태
-  const [assessments, setAssessments] = useState<ManagedAssessment[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // 모달 상태
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [selectedAssessment, setSelectedAssessment] = useState<ManagedAssessment | null>(null);
-
-  // 알럿 모달 상태
-  const [alertModal, setAlertModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-  }>({ isOpen: false, title: '', message: '' });
-
-  // ============================================================
-  // 그룹 로드
-  // ============================================================
-
+  // URL path에 따라 activeSubTab 동기화
   useEffect(() => {
-    const loadGroups = async () => {
-      if (!user) return;
-      setIsLoadingGroups(true);
-      try {
-        const userId = user.id;
-        const result = await getMyGroups(userId);
-        // 교사가 소유한 그룹만 (myRole === 'owner')
-        setGroups(result.filter(g => g.myRole === 'owner'));
-      } catch {
-        // 그룹 로드 실패 시 빈 목록
-      } finally {
-        setIsLoadingGroups(false);
+    const path = location.pathname;
+    if (path === '/exam/management' || path === '/exam') {
+      setActiveSubTab('management');
+    } else if (path === '/exam/result') {
+      setActiveSubTab('result');
+    } else if (path === '/exam/tracking') {
+      setActiveSubTab('tracking');
+    }
+  }, [location.pathname, setActiveSubTab]);
+
+  // LNB에서 학생 선택 시 selectedStudentResult 자동 설정
+  useEffect(() => {
+    if (selectedStudent && selectedClass && activeSubTab === 'result') {
+      const results = MOCK_STUDENT_RESULTS[selectedClass.id];
+      // LNB의 학생 ID (s1, s2...)를 MOCK_STUDENT_RESULTS의 ID (sr1-1, sr2-1...)와 매칭
+      // LNB 학생 이름으로 찾기
+      const studentResult = results?.find(r => r.name === selectedStudent.name);
+      if (studentResult) {
+        setSelectedStudentResult(studentResult);
       }
+    }
+  }, [selectedStudent, selectedClass, activeSubTab]);
+
+  // 결과보기 클릭 핸들러
+  const handleViewResult = useCallback((row: ExamOverviewRow) => {
+    // 반 선택 + 결과보기 서브탭으로 이동
+    setSelectedClass({ id: row.groupId, name: row.className, status: '' });
+  }, [setSelectedClass]);
+
+  // 검사관리 클릭 핸들러
+  const handleManageExam = useCallback((row: ExamOverviewRow) => {
+    setSelectedClass({ id: row.groupId, name: row.className, status: '' });
+  }, [setSelectedClass]);
+
+  // 전체 현황으로 돌아가기
+  const handleBackToOverview = useCallback(() => {
+    setSelectedClass(null);
+    setSelectedStudent(null);
+    setSelectedStudentResult(null);
+  }, [setSelectedClass, setSelectedStudent]);
+
+  // 반 결과로 돌아가기 (학생 결과에서)
+  const handleBackToClassResult = useCallback(() => {
+    setSelectedStudent(null);
+    setSelectedStudentResult(null);
+  }, [setSelectedStudent]);
+
+  // 학생 클릭 핸들러 (결과보기 > 반에서 학생 선택 시)
+  // MOCK_STUDENT_RESULTS의 id(sr1-1)와 LNB의 MOCK_STUDENTS id(s1)가 다름
+  // 학생 번호(number)를 기반으로 s{number} 형태로 변환하여 LNB와 동기화
+  const handleStudentClick = useCallback((studentId: string) => {
+    if (!selectedClass) return;
+    const results = MOCK_STUDENT_RESULTS[selectedClass.id];
+    const studentResult = results?.find(r => r.id === studentId);
+    if (studentResult) {
+      // LNB MOCK_STUDENTS와 호환되는 id 형태로 변환 (s1, s2, ...)
+      const lnbStudentId = `s${studentResult.number}`;
+      setSelectedStudent({ id: lnbStudentId, name: studentResult.name });
+      setSelectedStudentResult(studentResult);
+      // 학생 결과보기로 이동 시 스크롤 최상단으로
+      window.scrollTo(0, 0);
+    }
+  }, [selectedClass, setSelectedStudent]);
+
+  // 학생 네비게이션 핸들러 (이전/다음 학생 이동)
+  const handleNavigateStudent = useCallback((studentId: string) => {
+    handleStudentClick(studentId);
+    // handleStudentClick 내부에서 scrollTo 처리됨
+  }, [handleStudentClick]);
+
+  // 이전/다음 학생 계산
+  const getAdjacentStudents = useCallback(() => {
+    if (!selectedClass || !selectedStudentResult) return { prev: undefined, next: undefined };
+    const results = MOCK_STUDENT_RESULTS[selectedClass.id] || [];
+    const currentIdx = results.findIndex(r => r.id === selectedStudentResult.id);
+    return {
+      prev: currentIdx > 0 ? { id: results[currentIdx - 1].id, name: results[currentIdx - 1].name } : undefined,
+      next: currentIdx < results.length - 1 ? { id: results[currentIdx + 1].id, name: results[currentIdx + 1].name } : undefined,
     };
-    loadGroups();
-  }, [user]);
+  }, [selectedClass, selectedStudentResult]);
 
-  // ============================================================
-  // 검사 목록 로드 (모든 그룹)
-  // ============================================================
+  // 검사 시작/종료/취소/재검사 핸들러
+  const handleStartExam = useCallback((round: 1 | 2) => {
+    console.log('검사 시작:', round);
+    // TODO: API 호출
+  }, []);
 
-  const loadExamList = useCallback(async () => {
-    if (!hasCredentials) {
-      setIsLoading(false);
-      return;
+  const handleEndExam = useCallback((round: 1 | 2) => {
+    console.log('검사 종료:', round);
+    // TODO: API 호출
+  }, []);
+
+  const handleCancelExam = useCallback((round: 1 | 2) => {
+    console.log('검사 취소:', round);
+    // TODO: API 호출
+  }, []);
+
+  const handleRestartExam = useCallback((round: 1 | 2) => {
+    console.log('재검사:', round);
+    // TODO: API 호출
+  }, []);
+
+  // 서브탭별 페이지 제목 및 설명
+  const getPageInfo = () => {
+    switch (activeSubTab) {
+      case 'result':
+        return { title: '결과보기', desc: '반별 검사 결과를 확인할 수 있습니다.' };
+      case 'tracking':
+        return { title: '변화추적', desc: '학생들의 검사 결과 변화를 추적할 수 있습니다.' };
+      case 'management':
+      default:
+        return { title: '검사관리', desc: '반별 검사 현황을 확인하고 관리할 수 있습니다.' };
     }
-
-    // 그룹이 아직 로딩 중이면 대기
-    if (isLoadingGroups) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // 그룹이 있으면 각 그룹의 claId로 검사 목록 조회
-      const claIds = groups.length > 0
-        ? groups.map(g => g.claId)
-        : credentials?.classId ? [credentials.classId] : [];
-
-      const allItems: ExamListItem[] = [];
-      for (const cId of claIds) {
-        try {
-          const items = await fetchExamList(cId, tcId, '1');
-          allItems.push(...items);
-        } catch {
-          // 개별 그룹 에러는 무시
-        }
-      }
-
-      setAssessments(allItems.map(item => convertExamListItem(item, groups)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '검사 목록 조회에 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [hasCredentials, groups, isLoadingGroups, tcId, credentials?.classId]);
-
-  useEffect(() => {
-    loadExamList();
-  }, [loadExamList]);
-
-  // ============================================================
-  // 검사 생성
-  // ============================================================
-
-  const handleCreateAssessment = useCallback(async (data: AssessmentFormData) => {
-    if (!hasCredentials) return;
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      const gradeLevel = schoolLevelToGradeLevel(data.schoolLevel);
-
-      // 선택된 그룹의 claId 사용
-      const result = await startExam(
-        data.claId,
-        tcId,
-        data.round,
-        gradeLevel,
-        '1'
-      );
-
-      // 검사 코드 생성: claId + dgnssId 기반
-      const shortCode = generateExamCode(data.claId, result.dgnssId);
-      registerExamCode(shortCode, data.claId);
-
-      // 그룹 조회 (이름 + 초대코드)
-      const group = groups.find(g => g.id === data.groupId);
-      const groupName = group?.name;
-
-      // 학년/반/그룹 정보를 localStorage에 저장
-      saveAssessmentMeta(result.dgnssId, {
-        grade: data.grade,
-        classNumber: data.classNumber,
-        groupName,
-        claId: data.claId,
-      });
-
-      const newAssessment: ManagedAssessment = {
-        id: `assessment-${result.dgnssId}`,
-        name: data.name,
-        code: shortCode,
-        dgnssId: result.dgnssId,
-        grade: data.grade,
-        classNumber: data.classNumber,
-        studentCount: data.studentCount,
-        completedCount: 0,
-        round: data.round,
-        startDate: new Date(),
-        createdAt: new Date(),
-        ownerId: user?.id ?? '',
-        isActive: true,
-        groupName,
-        claId: data.claId,
-        inviteCode: group?.inviteCode,
-      };
-
-      setAssessments(prev => [newAssessment, ...prev]);
-      setSelectedAssessment(newAssessment);
-      setIsCodeModalOpen(true);
-    } catch (err) {
-      if (err instanceof APIError && err.isDuplicateKeyError()) {
-        const existingExam = assessments.find(a => a.round === data.round && a.claId === data.claId);
-        const isActive = existingExam?.isActive ?? false;
-        const examLabel = `${data.grade}학년 ${data.classNumber}반 ${data.round}차 검사`;
-
-        if (isActive) {
-          setAlertModal({
-            isOpen: true,
-            title: '진행 중인 검사',
-            message: `${examLabel}는 현재 진행 중이에요.\n재시작을 원한다면 검사를 [취소]하고 다시 시작해보세요.`,
-          });
-        } else {
-          setAlertModal({
-            isOpen: true,
-            title: '완료된 검사',
-            message: `${examLabel}는 이미 완료된 검사예요.\n재응시를 원한다면 검사를 [취소]하고 다시 시작해보세요.`,
-          });
-        }
-      } else {
-        setError(err instanceof Error ? err.message : '검사 생성에 실패했습니다.');
-      }
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [user?.id, hasCredentials, tcId, groups, assessments]);
-
-  // ============================================================
-  // 검사 종료
-  // ============================================================
-
-  const handleEndExam = useCallback(async (assessment: ManagedAssessment) => {
-    if (!assessment.dgnssId) return;
-
-    if (assessment.completedCount === 0) {
-      setAlertModal({
-        isOpen: true,
-        title: '검사 종료 불가',
-        message: `제출 인원이 ${assessment.completedCount}명입니다.\n검사 취소만 가능합니다.`,
-      });
-      return;
-    }
-
-    if (!confirm(`"${assessment.name}" 검사를 종료하시겠습니까?`)) return;
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      await endExam(assessment.dgnssId, '1');
-      await loadExamList();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '검사 종료에 실패했습니다.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [loadExamList]);
-
-  // ============================================================
-  // 검사 취소
-  // ============================================================
-
-  const handleCancelExam = useCallback(async (assessment: ManagedAssessment) => {
-    if (!assessment.dgnssId) return;
-
-    const confirmed = confirm(
-      `"${assessment.name}" 검사를 취소하시겠습니까?\n\n⚠️ 주의: 모든 응답 데이터가 삭제되며 복구할 수 없습니다.`
-    );
-    if (!confirmed) return;
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      await cancelExam(assessment.dgnssId);
-      await loadExamList();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '검사 취소에 실패했습니다.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [loadExamList]);
-
-  // ============================================================
-  // 핸들러
-  // ============================================================
-
-  const handleViewCode = (assessment: ManagedAssessment) => {
-    setSelectedAssessment(assessment);
-    setIsCodeModalOpen(true);
   };
 
-  // ============================================================
-  // 렌더링
-  // ============================================================
+  const pageInfo = getPageInfo();
 
-  return (
-    <div className="max-w-5xl">
-      {/* 페이지 헤더 */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">검사하기</h1>
-        <p className="text-gray-600">
-          그룹을 선택하여 검사 코드를 생성하고, 학생들에게 배포하세요.
-        </p>
-      </div>
+  // 반 클릭 핸들러 (결과보기 전체 현황에서 반 선택 시)
+  const handleClassClick = useCallback((classId: string, className: string) => {
+    setSelectedClass({ id: classId, name: className, status: '' });
+  }, [setSelectedClass]);
 
-      {/* 에러 메시지 */}
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
+  // 반 미선택 상태: 서브탭별 전체 현황
+  if (!selectedClass) {
+    // 결과보기 서브탭: 화면 3번 - ResultOverviewView 렌더링
+    if (activeSubTab === 'result') {
+      return (
+        <div className="p-6">
+          <ResultOverviewView onClassClick={handleClassClick} />
         </div>
-      )}
+      );
+    }
 
-      {/* 처리 중 오버레이 */}
-      {isProcessing && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 flex items-center gap-3">
-            <Loader2 className="w-6 h-6 text-primary-500 animate-spin" />
-            <span className="text-gray-700">처리 중...</span>
+    // 변화추적 서브탭: 화면 6번 (추후 구현)
+    if (activeSubTab === 'tracking') {
+      return (
+        <div className="p-6 space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{pageInfo.title}</h1>
+            <p className="mt-1 text-sm text-gray-500">{pageInfo.desc}</p>
+          </div>
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 text-center">
+            <p className="text-amber-700">
+              변화추적 전체 현황 화면은 추후 구현 예정입니다.
+            </p>
           </div>
         </div>
-      )}
+      );
+    }
 
-      {/* credentials 없음 경고 */}
-      {!hasCredentials && (
-        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3 text-amber-700">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <span>로그인 시 입력한 credentials가 없습니다. 다시 로그인해주세요.</span>
+    // 검사관리 서브탭: 화면 1번
+    return (
+      <div className="p-6 space-y-6">
+        {/* 페이지 헤더 */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{pageInfo.title}</h1>
+          <p className="mt-1 text-sm text-gray-500">{pageInfo.desc}</p>
         </div>
-      )}
 
-      {/* 로딩 상태 */}
-      {isLoading && hasCredentials && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
-          <span className="ml-3 text-gray-600">검사 목록을 불러오는 중...</span>
-        </div>
-      )}
+        {/* 요약 카드 */}
+        <SummaryCards summary={MOCK_EXAM_OVERVIEW_SUMMARY} />
 
-      {/* 검사 관리 섹션 */}
-      {!isLoading && hasCredentials && (
-        <GeneralSection
-          assessments={assessments}
-          onCreateClick={() => setIsCreateModalOpen(true)}
-          onUploadClick={() => setIsUploadModalOpen(true)}
-          onViewCode={handleViewCode}
-          onEndExam={handleEndExam}
-          onCancelExam={handleCancelExam}
+        {/* 검사 현황 테이블 */}
+        <ExamOverviewTable
+          rows={MOCK_EXAM_OVERVIEW_ROWS}
+          onViewResult={handleViewResult}
+          onManageExam={handleManageExam}
         />
-      )}
+      </div>
+    );
+  }
 
-      {/* 모달 */}
-      <CreateAssessmentModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onCreate={handleCreateAssessment}
-        groups={groups}
-        isLoadingGroups={isLoadingGroups}
-      />
-      <AssessmentCodeModal
-        isOpen={isCodeModalOpen}
-        onClose={() => setIsCodeModalOpen(false)}
-        assessment={selectedAssessment}
-      />
-      <PdfUploadModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-      />
+  // 반 선택 상태: 서브탭별 분기
+  const classData = MOCK_CLASS_EXAM_DATA[selectedClass.id];
 
-      {/* 알럿 모달 */}
-      <AlertModal
-        isOpen={alertModal.isOpen}
-        onClose={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
-        title={alertModal.title}
-        message={alertModal.message}
-        type="warning"
+  // 결과보기 서브탭 + 반 선택: ClassResultView (화면 3-1) 또는 StudentResultView (화면 5번)
+  if (activeSubTab === 'result') {
+    // 학생 선택 상태: StudentResultView (화면 5번)
+    if (selectedStudent && selectedStudentResult) {
+      const { prev, next } = getAdjacentStudents();
+      return (
+        <div className="p-6">
+          <StudentResultView
+            result={selectedStudentResult}
+            className={selectedClass.name}
+            onBack={handleBackToClassResult}
+            prevStudent={prev}
+            nextStudent={next}
+            onNavigateStudent={handleNavigateStudent}
+          />
+        </div>
+      );
+    }
+
+    // Mock 데이터에서 className을 사용하여 결과 데이터 생성
+    const classResultData = {
+      ...MOCK_CLASS_RESULT,
+      className: selectedClass.name,
+    };
+
+    return (
+      <div className="p-6">
+        <ClassResultView
+          className={selectedClass.name}
+          onBack={handleBackToOverview}
+          resultData={classResultData}
+          onStudentClick={handleStudentClick}
+          students={MOCK_STUDENT_RESULTS[selectedClass.id]}
+        />
+      </div>
+    );
+  }
+
+  // 변화추적 서브탭 + 반 선택 (추후 구현)
+  if (activeSubTab === 'tracking') {
+    // 학생 선택 시 학생 헤더 표시
+    if (selectedStudent && selectedStudentResult) {
+      return (
+        <div className="p-6 space-y-6">
+          <StudentHeader
+            studentNumber={selectedStudentResult.number}
+            studentName={selectedStudentResult.name}
+            lpaType={selectedStudentResult.predictedType}
+            className={selectedClass.name}
+            onBack={handleBackToClassResult}
+          />
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 text-center">
+            <p className="text-amber-700">
+              변화추적 학생 상세 화면은 추후 구현 예정입니다.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleBackToOverview}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            ← 전체 현황
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">{selectedClass.name} 변화추적</h1>
+        </div>
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 text-center">
+          <p className="text-amber-700">
+            변화추적 반별 상세 화면은 추후 구현 예정입니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 검사관리 서브탭 + 반 선택: ExamManagementView (화면 2)
+  if (!classData) {
+    return (
+      <div className="p-6">
+        <button
+          onClick={handleBackToOverview}
+          className="text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          ← 전체 현황
+        </button>
+        <p className="mt-4 text-gray-500">해당 반의 데이터를 찾을 수 없습니다.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <ExamManagementView
+        className={classData.className}
+        groupId={classData.groupId}
+        rounds={classData.rounds}
+        onBack={handleBackToOverview}
+        onStartExam={handleStartExam}
+        onEndExam={handleEndExam}
+        onCancelExam={handleCancelExam}
+        onRestartExam={handleRestartExam}
       />
     </div>
   );
 };
+
+export default AssessmentPage;

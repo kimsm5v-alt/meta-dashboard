@@ -13,12 +13,16 @@ public class GroupInfo {
 
     private Long groupId;
     private String claId;
+    /** Auth(IDP) group_info.id — 동기화 upsert 키. NULL=학심정 자체 생성(레거시) (group-from-idp) */
+    private Long spGroupId;
     private Long hostUserNo;
     private String groupNm;
     private String groupDesc;
     private String schoolLevel;
     private String grade;
     private Integer classNumber;
+    /** 과목 (Auth 자유텍스트, 표시용) (group-from-idp) */
+    private String subject;
     private String schoolCode;
     private String schoolName;
     private String inviteCode;
