@@ -1,4 +1,5 @@
 import json
+import os
 import litellm
 from typing import Any, Dict
 import logging
@@ -7,7 +8,9 @@ from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.utils.function_calling import convert_to_openai_tool
 import langsmith
 from langsmith import traceable
+from langgraph.errors import GraphRecursionError
 from app.core.llm_router import llm_router, ROUTER_MODEL_NAME
+from app.core.agent_graph import compiled_graph, RECURSION_LIMIT, MAX_ITERATIONS_FALLBACK_MESSAGE
 from app.utils.pii_filter import mask_pii_data
 from app.tools import neo4j_tools_list
 from app.core.tracing import is_enabled as langsmith_is_enabled
@@ -491,4 +494,106 @@ class MetaAgentService:
                 _trace_ctx.__exit__(None, None, None)
 
 
-meta_agent_service = MetaAgentService()
+class LangGraphAgentService:
+    """LangGraph StateGraph 기반 구현 (병행 운영용).
+
+    MetaAgentService(레거시)와 동일한 인터페이스(run_agent/run_agent_stream/clear_session)를
+    제공하여 main.py 수정 없이 AGENT_BACKEND 플래그로 전환할 수 있게 한다.
+    설계 근거: agent/docs/LANGGRAPH_MIGRATION_PLAN.md
+    """
+
+    def __init__(self):
+        self.graph = compiled_graph
+
+    @staticmethod
+    def _history_count(messages: list) -> int:
+        """레거시 ChatMessageHistory와 동일한 의미(사용자 턴 + 최종 답변 턴 수)로 카운트한다.
+
+        LangGraph는 tool-call 중간 AIMessage/ToolMessage도 함께 영속화하므로
+        전체 messages 길이를 그대로 쓰면 레거시 대비 값이 부풀려진다.
+        """
+        return sum(
+            1
+            for m in messages
+            if isinstance(m, HumanMessage)
+            or (isinstance(m, AIMessage) and not m.tool_calls)
+        )
+
+    async def _recover_from_recursion_limit(self, session_id: str) -> None:
+        """GraphRecursionError 발생 시 레거시와 동일한 폴백 메시지를 이력에 남기고
+        thread 상태를 "완료됨"으로 되돌린다 (as_node="call_model" -> tools_condition이
+        tool_calls 없는 메시지를 보고 END로 라우팅). 이렇게 하지 않으면 체크포인트가
+        중단된 지점(tools 재실행 대기)에 멈춰 있어 다음 턴이 정상적으로 시작되지 않는다.
+        """
+        config = {"configurable": {"thread_id": session_id}}
+        await self.graph.aupdate_state(
+            config,
+            {"messages": [AIMessage(content=MAX_ITERATIONS_FALLBACK_MESSAGE)]},
+            as_node="call_model",
+        )
+
+    async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+        masked_context = mask_pii_data(context_data) if context_data is not None else None
+        config = {"configurable": {"thread_id": session_id}, "recursion_limit": RECURSION_LIMIT}
+
+        try:
+            result = await self.graph.ainvoke(
+                {"messages": [HumanMessage(content=text)], "student_context": masked_context},
+                config=config,
+            )
+            answer = result["messages"][-1].content or "응답을 생성하지 못했습니다."
+            messages_for_count = result["messages"]
+        except GraphRecursionError:
+            logger.warning(f"Recursion limit reached for session {session_id}")
+            await self._recover_from_recursion_limit(session_id)
+            answer = MAX_ITERATIONS_FALLBACK_MESSAGE
+            snapshot = await self.graph.aget_state({"configurable": {"thread_id": session_id}})
+            messages_for_count = snapshot.values["messages"]
+
+        return {
+            "output": answer,
+            "session_id": session_id,
+            "history_count": self._history_count(messages_for_count),
+        }
+
+    async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+        masked_context = mask_pii_data(context_data) if context_data is not None else None
+        config = {"configurable": {"thread_id": session_id}, "recursion_limit": RECURSION_LIMIT}
+
+        yielded_any = False
+        try:
+            async for chunk in self.graph.astream(
+                {"messages": [HumanMessage(content=text)], "student_context": masked_context},
+                config=config,
+                stream_mode="custom",
+            ):
+                if chunk.get("type") == "token" and chunk.get("text"):
+                    yielded_any = True
+                    yield chunk["text"]
+        except GraphRecursionError:
+            logger.warning(f"Recursion limit reached for session {session_id} (stream)")
+            await self._recover_from_recursion_limit(session_id)
+            yield MAX_ITERATIONS_FALLBACK_MESSAGE
+            return
+
+        if not yielded_any:
+            yield "응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
+
+    def clear_session(self, session_id: str) -> bool:
+        """특정 세션(thread)의 체크포인트 이력을 삭제한다."""
+        config = {"configurable": {"thread_id": session_id}}
+        existed = self.graph.checkpointer.get_tuple(config) is not None
+        self.graph.checkpointer.delete_thread(session_id)
+        return existed
+
+
+# AGENT_BACKEND=langgraph 이면 신규 LangGraph 구현, 그 외(기본값 "legacy")면 기존 구현을 사용한다.
+# 병행 운영 전략: agent/docs/LANGGRAPH_MIGRATION_PLAN.md 4장 참고.
+AGENT_BACKEND = os.getenv("AGENT_BACKEND", "legacy").strip().lower()
+
+if AGENT_BACKEND == "langgraph":
+    logger.info("AGENT_BACKEND=langgraph: LangGraph 기반 MetaAgentService 사용")
+    meta_agent_service = LangGraphAgentService()
+else:
+    logger.info("AGENT_BACKEND=legacy: 기존 수작업 ReAct 루프 기반 MetaAgentService 사용")
+    meta_agent_service = MetaAgentService()

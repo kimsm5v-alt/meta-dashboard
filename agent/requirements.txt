@@ -3,6 +3,7 @@ uvicorn
 gunicorn
 langchain>=0.3.0
 langchain-community>=0.3.0
+langgraph>=1.0.5,<2.0.0
 litellm>=1.85.0
 langsmith>=0.7.18,<1.0.0  # RunTree.outputs API 안정화 버전. 1.x 릴리스 시 호환성 확인 후 상한 조정
 python-dotenv
