@@ -11,8 +11,9 @@ from langsmith import traceable
 from langgraph.errors import GraphRecursionError
 from app.core.llm_router import llm_router, ROUTER_MODEL_NAME
 from app.core.agent_graph import compiled_graph, RECURSION_LIMIT, MAX_ITERATIONS_FALLBACK_MESSAGE
+from app.core.prompts import load_prompt
 from app.utils.pii_filter import mask_pii_data
-from app.tools import neo4j_tools_list
+from app.tools import all_tools_list
 from app.core.tracing import is_enabled as langsmith_is_enabled
 
 logger = logging.getLogger(__name__)
@@ -32,8 +33,8 @@ class MetaAgentService:
     def __init__(self):
         # LiteLLM Router 인스턴스 사용 (멀티 LLM 오케스트레이션)
         self.router = llm_router
-        self.tools = [convert_to_openai_tool(t) for t in neo4j_tools_list]
-        self.tool_map = {t.name: t for t in neo4j_tools_list}
+        self.tools = [convert_to_openai_tool(t) for t in all_tools_list]
+        self.tool_map = {t.name: t for t in all_tools_list}
         self.max_iterations = 8
 
     @traceable(run_type="llm", name="LiteLLM")
@@ -93,58 +94,70 @@ class MetaAgentService:
 
     @staticmethod
     def _build_system_prompt(masked_context: dict | None) -> str:
-        """profile 기반으로 Tool 호출 가이드 및 할루시네이션 방지 규칙을 포함한 시스템 프롬프트를 생성한다."""
-        profile = (masked_context or {}).get("profile") or {}
-        context_text = (masked_context or {}).get("context") or "No additional context provided."
+        """mode + profile 기반으로 Tool 호출 가이드 및 할루시네이션 방지 규칙을 포함한 시스템 프롬프트를 생성한다.
+
+        mode(student/class/all)는 프론트엔드 AI Room이 명시적으로 보내는 컨텍스트 모드다.
+        mode가 없는 호출자(예: dataHelperService처럼 profile만 보내는 기존 연동)와의 하위 호환을 위해,
+        mode가 없거나 "student"면 기존과 동일하게 schoolLevel+predictedType 존재 여부로 판단한다.
+        """
+        ctx = masked_context or {}
+        mode = ctx.get("mode")
+        profile = ctx.get("profile") or {}
+        context_text = ctx.get("context") or "No additional context provided."
+
         school_level = profile.get("schoolLevel")
         predicted_type = profile.get("predictedType")
+        stdt_id = profile.get("stdtId")
+        cla_id = profile.get("claId")
+        tc_id = profile.get("tcId")
+        grade = profile.get("grade")
+        class_number = profile.get("classNumber")
+        is_high_school = profile.get("schoolLevelCode") == "high"
 
-        # profile에 schoolLevel + predictedType이 모두 있을 때만 Tool 호출 유도
-        profile_block = ""
-        if school_level and predicted_type:
+        high_school_notice = (
+            "- ⚠️ 실제 학교급: 고등학교 (위 schoolLevel은 고등학생 전용 심리유형 모델이 아직 없어 "
+            "중등 모델을 재사용한 값입니다. 답변 시 반드시 고지하십시오)\n"
+        )
+
+        if mode in (None, "student") and school_level and predicted_type:
             profile_block = (
                 "\n## 분석 대상 학생 식별자 (Tool 호출 인자로 그대로 사용)\n"
                 f"- className: \"{predicted_type}\"\n"
                 f"- schoolLevel: \"{school_level}\"\n"
             )
-            tool_policy = (
-                "학생의 LPA 유형 기반 분석(강/약점, 개입 전략, 조절·매개 경로, 집단 평균 T점수 비교)이 "
-                "필요한 경우 반드시 Neo4j Tool을 호출하여 실제 데이터를 확보한 후 답변하십시오. "
-                "처음에는 `get_lpa_overview`를 1회 호출하여 전반을 파악하고, "
-                "세부 질문에는 개별 Tool을 추가 호출하십시오. "
-                "Tool을 호출하기 전에 반드시 호출 이유를 한 문장으로 먼저 서술하십시오. "
-                "Tool 결과가 빈 목록([])이거나 오류를 반환하면 "
-                "'해당 데이터를 현재 조회할 수 없습니다'라고 안내하고, 임의로 내용을 창작하지 마십시오.\n"
-            )
+            if stdt_id:
+                profile_block += f"- stdt_id: \"{stdt_id}\"\n"
+            if cla_id:
+                profile_block += f"- cla_id: \"{cla_id}\"\n"
+            if tc_id:
+                profile_block += f"- tc_id: \"{tc_id}\"\n"
+            if is_high_school:
+                profile_block += high_school_notice
+            tool_policy = load_prompt("tool_policy_student")
+        elif mode == "class" and cla_id:
+            profile_block = "\n## 분석 대상 학급 식별자 (Tool 호출 인자로 그대로 사용)\n" f"- cla_id: \"{cla_id}\"\n"
+            if tc_id:
+                profile_block += f"- tc_id: \"{tc_id}\"\n"
+            if school_level:
+                profile_block += f"- schoolLevel: \"{school_level}\"\n"
+            if grade:
+                profile_block += f"- grade: \"{grade}\"\n"
+            if class_number:
+                profile_block += f"- classNumber: \"{class_number}\"\n"
+            if is_high_school:
+                profile_block += high_school_notice
+            tool_policy = load_prompt("tool_policy_class")
+        elif mode == "all" and tc_id:
+            profile_block = "\n## 담당 교사 식별자 (Tool 호출 인자로 그대로 사용)\n" f"- tc_id: \"{tc_id}\"\n"
+            tool_policy = load_prompt("tool_policy_teacher")
         else:
-            tool_policy = (
-                "현재 단일 학생 식별자(schoolLevel + predictedType)가 없으므로 "
-                "Neo4j Tool을 호출하지 마십시오. "
-                "주어진 텍스트 컨텍스트만을 근거로 답변하십시오.\n"
-            )
+            profile_block = ""
+            tool_policy = load_prompt("tool_policy_none")
 
         return (
-            "# 역할 및 운영 원칙\n"
-            "귀하는 비상교육 **학습심리정서검사(LPA) 시스템**의 상담 보조 AI입니다.\n"
-            "교사가 학생의 검사 결과를 이해하고 올바른 교육적 개입을 할 수 있도록 돕는 것이 유일한 목적입니다.\n\n"
-
-            "## 답변 범위 및 데이터 우선순위\n"
-            "답변은 반드시 아래 순서의 데이터 소스에만 근거하십시오:\n"
-            "1. **학생 컨텍스트** (아래 마크다운에 제공된 T점수, 4단계 진단, 상담기록 등)\n"
-            "2. **Neo4j Tool 조회 결과** (LPA 유형 특성, 조절·매개 경로, 집단 평균 T점수)\n"
-            "3. **학습심리정서 도메인 일반 지식** — 위 두 소스를 보완하는 수준에서만 제한적으로 활용\n\n"
-
-            "## 할루시네이션 방지 규칙 (반드시 준수)\n"
-            "- **창작 금지**: 컨텍스트에 없는 학생의 개인정보, 성격, 가정환경, 성적 등을 추측하거나 창작하지 마십시오.\n"
-            "- **불확실성 명시**: 컨텍스트나 Tool 데이터에서 확인할 수 없는 내용은 "
-            "'제공된 데이터에서 확인할 수 없습니다'라고 명시하십시오.\n"
-            "- **근거 표기**: 핵심 판단의 근거가 컨텍스트 T점수인지, Neo4j Tool 결과인지 간략히 밝히십시오. "
-            "(예: 'T점수 기준', '조절 경로 데이터 기준')\n"
-            "- **도메인 한정**: 학습심리정서검사와 무관한 질문(일반 교과 지식, 외부 이슈 등)에는 "
-            "'이 시스템의 학습심리정서검사 범위 외의 질문입니다'라고 안내하십시오.\n\n"
-
+            f"{load_prompt('role_and_rules')}\n\n"
             f"{profile_block}"
-            f"## Neo4j Tool 호출 정책\n{tool_policy}"
+            f"## Tool 호출 정책\n{tool_policy}\n"
             "\n## 학생 컨텍스트 (마크다운)\n"
             f"{context_text}"
         )

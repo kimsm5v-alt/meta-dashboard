@@ -9,7 +9,7 @@ import logging
 import json
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
-from app.tools import Neo4jConnectionManager
+from app.tools import Neo4jConnectionManager, MySQLConnectionManager
 from app.core import tracing
 
 # 환경 변수 로드 (.env 파일이 없어도 시스템 환경 변수 우선 인식)
@@ -32,17 +32,24 @@ async def lifespan(app: FastAPI):
         tracing.initialize()
     except Exception as e:
         logger.warning(f"LangSmith 트레이싱 초기화 실패, 비활성화 모드로 계속: {e}")
-    # Startup: Neo4j 연결 검증 (실패해도 텍스트 추론은 가능하므로 degraded mode로 가동)
+    # Startup: Neo4j/MySQL 연결 검증 (실패해도 텍스트 추론은 가능하므로 degraded mode로 가동)
     logger.info("Starting up: Verifying Neo4j connection...")
     try:
         await Neo4jConnectionManager.verify()
         logger.info("Neo4j connectivity OK.")
     except Exception as e:
         logger.warning(f"Neo4j unavailable at startup, will operate in degraded mode: {e}")
+    logger.info("Starting up: Verifying MySQL connection...")
+    try:
+        await MySQLConnectionManager.verify()
+        logger.info("MySQL connectivity OK.")
+    except Exception as e:
+        logger.warning(f"MySQL unavailable at startup, will operate in degraded mode: {e}")
     yield
     # Shutdown: 리소스 해제
-    logger.info("Shutting down: Closing Neo4j connection...")
+    logger.info("Shutting down: Closing Neo4j/MySQL connections...")
     await Neo4jConnectionManager.close()
+    await MySQLConnectionManager.close()
 
 app = FastAPI(
     title="Meta Dashboard AI Agent", 

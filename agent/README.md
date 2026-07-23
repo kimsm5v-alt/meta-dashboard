@@ -9,6 +9,8 @@
 - **Service Layer (`MetaAgentService` / `LangGraphAgentService`)**: 비즈니스 로직 및 대화 세션 식별을 담당하며, 싱글톤 패턴으로 구현되어 효율적인 리소스 관리를 수행합니다. `AGENT_BACKEND` 값에 따라 둘 중 하나가 `meta_agent_service`로 선택됩니다(1.3절).
 - **Security Layer (PII Filter)**: 모든 외부 데이터(context_data) 유입 시 학생 이름, 학번 등 개인식별정보(PII)를 자동으로 마스킹하여 보안 가이드라인을 준수합니다.
 - **Orchestration Layer (LiteLLM Router)**: 다중 LLM 프로바이더 및 다중 API 키를 하나의 풀(Pool)로 관리하여 부하 분산과 가용성을 책임집니다.
+- **Tool Layer (Neo4j / MySQL)**: `app/tools/all_tools_list`로 통합 등록되는 LLM Tool Calling 대상. `neo4j_tools.py`(LPA 유형·경로·요인점수, 5종)와 `mysql_tools.py`(학생/학급 검사 결과·메모·상담·생기부·교사 전체 학급 현황·위험군 학생, 8종)로 구성되며 두 백엔드 모두 동일한 목록을 사용합니다.
+- **Prompt Layer (`app/core/prompts/`)**: 시스템 프롬프트/Tool 정책 문구는 코드가 아닌 `.md` 파일로 분리되어 있어, 기획자가 Python 코드를 몰라도 문구만 수정할 수 있습니다. 파일은 요청마다 새로 읽으므로 서버 재시작 없이 즉시 반영됩니다. `context_data.mode`(student/class/all)에 따라 `tool_policy_student.md`/`tool_policy_class.md`/`tool_policy_teacher.md` 중 하나가 선택되며, 식별자가 전혀 없으면 `tool_policy_none.md`가 쓰입니다(`mode` 미전달 시 하위 호환으로 student 취급). 단, Tool 함수의 docstring(`app/tools/*.py`)은 LLM 함수 호출 스키마 자체라 여기 포함하지 않습니다 — 그 문구를 수정하면 Tool 호출이 깨질 수 있어 개발자가 코드로 관리합니다.
 
 ### 1.2 고가용성 설계 (Load Balancing & Failover)
 - **다중 API 키 지원**: 동일한 프로바이더에 대해 여러 개의 API 키를 등록하여 할당량(Quota)을 대폭 확장할 수 있습니다.
@@ -69,32 +71,46 @@ AgentService → ROUTER_MODEL_NAME ("meta-agent-primary")
 ### 3.1 AI 에이전트 대화 (POST /chat)
 사용자 질문을 처리하며, 세션 기반 메모리와 실시간 콘텍스트 주입을 지원합니다.
 
-`context_data`는 반드시 다음 구조를 따라야 합니다:
-- `profile.schoolLevel` + `profile.predictedType`: Neo4j Tool 호출 여부를 결정하는 학생 식별자. 두 값이 모두 있어야 DB 조회가 활성화됩니다.
-- `context`: LLM에 전달할 학생 컨텍스트 본문(마크다운 문자열). `name` 등 PII 필드는 보안 레이어에서 자동 마스킹됩니다.
+`context_data`는 다음 구조를 따릅니다. **`mode`를 반드시 명시하는 것을 권장합니다** — 생략 시 하위 호환 목적으로 `profile.schoolLevel`+`predictedType` 존재 여부만으로 student 모드처럼 처리되지만, 신규 연동에서는 명시적으로 지정해야 의도한 Tool 범위가 정확히 활성화됩니다.
+
+| mode | 필요한 `profile` 필드 | 활성화되는 Tool |
+|---|---|---|
+| `student` | `schoolLevel` + `predictedType` 필수. `stdtId`/`claId`/`tcId`/`schoolLevelCode`/`grade`/`classNumber`는 있는 만큼 추가 활성화 | Neo4j 5종 + 학생 단위 MySQL 4종 |
+| `class` | `claId` 필수 (`tcId`/`schoolLevel`/`grade`/`classNumber` 선택) | 학급 단위 MySQL 3종 |
+| `all` | `tcId` 필수 | 교사 전체 현황 MySQL 1종 |
+
+- `context`: LLM에 전달할 학생/학급 컨텍스트 본문(마크다운 문자열). `name` 등 PII 필드는 보안 레이어에서 자동 마스킹됩니다(단, 자유 텍스트 안에 섞인 실명까지는 걸러내지 못합니다).
+- `profile.schoolLevel`에는 **`"elementary"` 또는 `"middle"`만 유효**합니다. 고등학생은 `schoolLevel: "middle"`(중등 모델 재사용) + `schoolLevelCode: "high"`(원본 학교급, 답변에 "중등 규준 기준" 자동 고지) 조합으로 보내야 합니다. `"high"`를 `schoolLevel`에 직접 넣으면 Neo4j Tool이 전부 실패합니다.
+- `profile.predictedType`은 정확히 6개 유형명 중 하나여야 합니다(공백 포함 정확히 일치): `elementary` → `자원소진형`/`안전 균형형`/`몰입자원 풍부형`, `middle` → `냉소적 무기력형`/`정서조절 취약형`/`자기주도 몰입형`.
 
 `images`(선택, 하위 호환): 멀티모달 컨텍스트로 사용할 base64 이미지 목록입니다. 자세한 내용은 3.2절 참고.
 
-**요청 (Request):**
+**요청 (Request) — student 모드:**
 ```json
 {
   "text": "이 학생의 보완점과 지도 방향을 알려줘",
   "session_id": "std_001_session",
   "context_data": {
+    "mode": "student",
+    "context": "## 학생 정보\n- 이름: 김철수\n- T점수: 인지조절 45, 동기조절 38, 정서조절 52\n- 4단계 진단: 위험\n- 최근 상담 기록: 수업 집중도 저하, 학습 의욕 감소",
     "profile": {
       "schoolLevel": "middle",
-      "predictedType": "자원소진형"
-    },
-    "context": "## 학생 정보\n- 이름: 김철수\n- T점수: 인지조절 45, 동기조절 38, 정서조절 52\n- 4단계 진단: 위험\n- 최근 상담 기록: 수업 집중도 저하, 학습 의욕 감소"
+      "predictedType": "냉소적 무기력형",
+      "grade": 2,
+      "classNumber": 3,
+      "stdtId": "stdt_00123",
+      "claId": "cla_00045",
+      "tcId": "tc_00007"
+    }
   }
 }
 ```
-*참고: `context` 내의 `이름` 등 개인정보는 보안 레이어에서 자동으로 `김**` 형태로 마스킹되어 LLM에 전달됩니다.*
+*참고: `context` 내의 `이름` 등 개인정보는 보안 레이어에서 자동으로 `김**` 형태로 마스킹되어 LLM에 전달됩니다. `stdtId`/`claId`/`tcId`는 MySQL Tool(`query_student_lpa_and_scores` 등) 호출에 쓰이며, 없어도 Neo4j Tool(유형 기반 코칭 전략)까지는 정상 동작합니다.*
 
 **응답 (Response):**
 ```json
 {
-  "response": "분석 결과, 김** 학생은 현재 학습 소진도가 높습니다. 정서적 지지가 우선되어야 하며...",
+  "response": "T점수 기준으로 볼 때 김** 학생은 현재 학습 소진도가 높습니다. 정서적 지지가 우선되어야 하며...",
   "session_id": "std_001_session",
   "history_count": 2
 }
@@ -280,14 +296,20 @@ LANGSMITH_ENV=dev   # 프로젝트명이 meta-dashboard-agent-{ENV}로 자동 �
 
 ### 5.5 Quick Test (cURL)
 
-서버 실행 후, 아래 명령어를 복사하여 터미널에서 즉시 API를 테스트할 수 있습니다.
+서버 실행 후, 아래 명령어를 복사하여 터미널에서 즉시 API를 테스트할 수 있습니다. IP·포트는 로컬 기준(`http://localhost:8000`)이며, `profile.predictedType`/`schoolLevel` 조합과 `stdtId`/`claId`/`tcId`는 모두 3.1절 표에 따른 유효한 예시(placeholder ID)입니다.
 
 **1. 상태 확인 (Health Check)**
 ```bash
 curl -s -X GET http://localhost:8000/ | python3 -m json.tool
 ```
+응답:
+```json
+{
+  "message": "Meta Dashboard AI Agent is running with LangChain & LiteLLM"
+}
+```
 
-**2. 에이전트 대화 (Context 주입)**
+**2. 학생 모드 대화 (mode: student, Context 주입)**
 ```bash
 curl -s -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
@@ -295,26 +317,102 @@ curl -s -X POST http://localhost:8000/chat \
     "text": "이 학생의 보완점과 지도 방향을 알려줘.",
     "session_id": "test_session_001",
     "context_data": {
+      "mode": "student",
+      "context": "## 학생 정보\n- 이름: 홍길동\n- T점수: 인지조절 45, 동기조절 38, 정서조절 52\n- 4단계 진단: 위험\n- 최근 상담 기록: 수업 집중도 저하, 학습 의욕 감소",
       "profile": {
         "schoolLevel": "middle",
-        "predictedType": "자원소진형"
-      },
-      "context": "## 학생 정보\n- 이름: 홍길동\n- T점수: 인지조절 45, 동기조절 38, 정서조절 52\n- 4단계 진단: 위험\n- 최근 상담 기록: 수업 집중도 저하, 학습 의욕 감소"
+        "predictedType": "냉소적 무기력형",
+        "grade": 2,
+        "classNumber": 3,
+        "stdtId": "stdt_00123",
+        "claId": "cla_00045",
+        "tcId": "tc_00007"
+      }
     }
   }' | python3 -m json.tool
 ```
+응답:
+```json
+{
+  "response": "T점수 기준으로 볼 때 홍** 학생은 냉소적 무기력형에 가까운 양상을 보입니다. 정서조절(52)은 양호하나 동기조절(38)이 낮아 학습 참여 유도가 우선되어야 하며, 4단계 진단이 '위험' 단계인 만큼 담임/상담 교사와의 개별 면담을 권장합니다...",
+  "session_id": "test_session_001",
+  "history_count": 2
+}
+```
 
-**3. 메모리 기반 후속 질문 (이전 대화 문맥 유지 확인)**
+**3. 학급 모드 대화 (mode: class, 학급 단위 MySQL Tool 활성화)**
 ```bash
 curl -s -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{
-    "text": "내가 방금 물어본 학생의 수학 점수가 몇 점이었지?",
+    "text": "이 학급의 진단 결과 분포와 위험군 학생 현황을 알려줘.",
+    "session_id": "test_session_class_001",
+    "context_data": {
+      "mode": "class",
+      "context": "## 학급 정보\n- 2학년 3반, 담임: 김** 교사\n- 전체 학생 수: 28명",
+      "profile": {
+        "claId": "cla_00045",
+        "tcId": "tc_00007",
+        "schoolLevel": "middle",
+        "grade": 2,
+        "classNumber": 3
+      }
+    }
+  }' | python3 -m json.tool
+```
+응답:
+```json
+{
+  "response": "2학년 3반은 전체 28명 중 24명이 검사를 완료했습니다(응답률 85.7%). 4단계 진단 기준 위험군은 3명이며, 냉소적 무기력형 비중이 상대적으로 높게 나타납니다. 위험군 학생에 대해서는 개별 상담을 우선 배정하는 것을 권장합니다...",
+  "session_id": "test_session_class_001",
+  "history_count": 2
+}
+```
+
+**4. 교사 전체 현황 모드 대화 (mode: all, `tcId` 필수)**
+```bash
+curl -s -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "내가 담당하는 학급들 중에서 우선적으로 살펴봐야 할 학급이 있을까?",
+    "session_id": "test_session_teacher_001",
+    "context_data": {
+      "mode": "all",
+      "context": "## 교사 정보\n- 담당 학급 수: 4개",
+      "profile": {
+        "tcId": "tc_00007"
+      }
+    }
+  }' | python3 -m json.tool
+```
+응답:
+```json
+{
+  "response": "담당하신 4개 학급 중 2학년 3반의 위험군 비율(10.7%)이 가장 높아 우선 확인을 권장합니다. 나머지 학급은 대체로 안정적인 분포를 보입니다...",
+  "session_id": "test_session_teacher_001",
+  "history_count": 2
+}
+```
+
+**5. 메모리 기반 후속 질문 (이전 대화 문맥 유지 확인)**
+```bash
+curl -s -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "내가 방금 물어본 학생의 정서조절 점수가 몇 점이었지?",
     "session_id": "test_session_001"
   }' | python3 -m json.tool
 ```
+응답:
+```json
+{
+  "response": "네, 방금 말씀드린 홍** 학생의 정서조절 T점수는 52점이었습니다.",
+  "session_id": "test_session_001",
+  "history_count": 4
+}
+```
 
-**4. 실시간 스트리밍 대화 (SSE)**
+**6. 실시간 스트리밍 대화 (SSE)**
 버퍼링을 방지하기 위해 `-N` (또는 `--no-buffer`) 옵션을 사용하여 실시간으로 생성되는 텍스트 청크를 확인할 수 있습니다.
 ```bash
 curl -N -s -X POST http://localhost:8000/chat/stream \
@@ -324,8 +422,20 @@ curl -N -s -X POST http://localhost:8000/chat/stream \
     "session_id": "test_session_002"
   }'
 ```
+응답 (SSE, 각 청크는 `data: {"text": "...", "is_final": false}\n\n` 형태의 JSON으로 패킹되어 전송되고, 마지막에 `is_final: true`인 빈 텍스트 청크로 종료됩니다):
+```
+data: {"text": "네, ", "is_final": false}
 
-**5. 멀티모달 이미지 입력 (선택, 3.2절 참고)**
+data: {"text": "실시간 ", "is_final": false}
+
+data: {"text": "응답 테스트를 ", "is_final": false}
+
+data: {"text": "진행하겠습니다.", "is_final": false}
+
+data: {"text": "", "is_final": true}
+```
+
+**7. 멀티모달 이미지 입력 (선택, 3.2절 참고)**
 ```bash
 curl -s -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
@@ -335,8 +445,16 @@ curl -s -X POST http://localhost:8000/chat \
     "images": ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="]
   }' | python3 -m json.tool
 ```
+응답:
+```json
+{
+  "response": "첨부해주신 이미지를 확인했습니다. 해당 이미지에서는...",
+  "session_id": "test_session_003",
+  "history_count": 2
+}
+```
 
-**6. 멀티모달 + 스트리밍 조합**
+**8. 멀티모달 + 스트리밍 조합**
 ```bash
 curl -N -s -X POST http://localhost:8000/chat/stream \
   -H "Content-Type: application/json" \
@@ -346,8 +464,18 @@ curl -N -s -X POST http://localhost:8000/chat/stream \
     "images": ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="]
   }'
 ```
+응답 (SSE, 형식은 6번과 동일):
+```
+data: {"text": "네, ", "is_final": false}
 
-**7. 이미지 검증 실패 재현 (400 확인용)**
+data: {"text": "첨부하신 이미지를 ", "is_final": false}
+
+data: {"text": "분석해보겠습니다...", "is_final": false}
+
+data: {"text": "", "is_final": true}
+```
+
+**9. 이미지 검증 실패 재현 (400 확인용)**
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
@@ -358,10 +486,20 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8000/chat \
   }'
 # -> 400
 ```
+응답 본문(위 명령은 상태 코드만 출력하도록 `-o /dev/null -w`를 사용했습니다. 본문까지 보려면 `-o`/`-w` 옵션을 빼고 실행하세요):
+```json
+{ "detail": "이미지는 data:image/(png|jpeg|webp|gif);base64,... 형식의 data URI여야 합니다." }
+```
 
-**8. 세션 초기화**
+**10. 세션 초기화**
 ```bash
 curl -s -X DELETE http://localhost:8000/chat/test_session_001 | python3 -m json.tool
+```
+응답:
+```json
+{
+  "message": "Session test_session_001 has been reset."
+}
 ```
 
 

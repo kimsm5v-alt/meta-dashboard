@@ -11,4 +11,5 @@ pydantic
 tiktoken
 requests
 neo4j>=5.0.0,<6.0.0
+aiomysql>=0.2.0,<0.3.0
 pytest
