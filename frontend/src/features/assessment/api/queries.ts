@@ -62,10 +62,9 @@ const useInvalidateAssessmentGroup = () => {
   const queryClient = useQueryClient();
 
   return async (claId: string, userId: string) => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: assessmentKeys.examSlots(claId, userId) }),
-      queryClient.invalidateQueries({ queryKey: ['group-dgnss-status'] }),
-    ]);
+    // 사이드바(useTeacherClassList)도 이제 examSlots 키를 공유하므로 이 무효화 하나로
+    // 검사 페이지 + 사이드바가 함께 갱신됨. (구 ['group-dgnss-status'] 키 제거)
+    await queryClient.invalidateQueries({ queryKey: assessmentKeys.examSlots(claId, userId) });
   };
 };
 

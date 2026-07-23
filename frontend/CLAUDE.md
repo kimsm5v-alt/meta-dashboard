@@ -192,7 +192,7 @@ await apiClient.post('/student/exam', { examData });
 - **로컬 state는 UI 상태만**: 모달 열림, 입력값, 선택 탭, 드롭다운, hover 같은 화면 상호작용만 `useState`에 둔다.
 - **`useEffect` fetch 금지**: 마운트 시 `loadXxx()`를 호출해 `setData`/`setLoading` 하는 패턴은 새 코드에서 사용하지 않는다. 외부 시스템 동기화(SSE, DOM observer 등)에만 `useEffect`를 쓴다.
 - **query key factory 우선**: 신규 서버 상태는 기능별 `queryKeys.ts`의 key factory를 사용한다. ad-hoc 문자열 key를 새로 만들지 않는다.
-- **mutation 후 최소 무효화**: 생성/수정/삭제/상태 변경 성공 시 관련 key만 invalidate한다. 예: 검사 액션(`useInvalidateAssessmentGroup`)은 해당 `claId`의 슬롯 query(`examSlots(claId, userId)`)와 레거시 키 `['group-dgnss-status']`만 갱신한다.
+- **mutation 후 최소 무효화**: 생성/수정/삭제/상태 변경 성공 시 관련 key만 invalidate한다. 예: 검사 액션(`useInvalidateAssessmentGroup`)은 해당 `claId`의 슬롯 query(`examSlots(claId, userId)`)만 갱신한다.
 - **optimistic update는 선별 적용**: 알림 읽음 처리처럼 즉시 반응성이 중요한 경우에만 사용하고, 검사/메모/상담은 기본적으로 성공 후 invalidate를 사용한다.
 
 ---
@@ -247,9 +247,9 @@ await apiClient.post('/student/exam', { examData });
 
 ## 🐛 알려진 이슈
 
-- **useProfileCheck**: 매 라우트마다 `/api/v1/user/status` 호출 (캐싱 필요)
 - **SDK CDN**: 로드 실패 시 앱 전체 사용 불가
 - **SSE 연결**: 네트워크 불안정 시 3회 재시도 후 종료
+- **useProfileCheck 창 포커스 리페치**: `refetchOnWindowFocus: true`이며 쿼리가 stale한 상태에서 탭 복귀 시 `/api/v1/user/status` 재호출(`staleTime: 5분`)
 
 ---
 
