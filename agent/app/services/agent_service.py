@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 import litellm
 from typing import Any, Dict, List, Optional
 import logging
@@ -162,18 +163,51 @@ class MetaAgentService:
             f"{context_text}"
         )
 
+    @staticmethod
+    def _append_user_turn(messages: list, text: str, images: Optional[List[str]]) -> None:
+        """현재 사용자 발화를 messages에 추가한다. images가 있으면 멀티모달 블록으로 얹는다."""
+        if images:
+            messages.append({
+                "role": "user",
+                "content": [{"type": "text", "text": text}] + [
+                    {"type": "image_url", "image_url": {"url": img}} for img in images
+                ],
+            })
+        else:
+            messages.append({"role": "user", "content": text})
+
     def _build_messages(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
-                         images: Optional[List[str]] = None):
+                        images: Optional[List[str]] = None,
+                        history: Optional[List[Any]] = None):
         """LLM에 전달할 메시지 목록을 구성한다.
 
-        context_data는 첫 메시지에만 전달되므로, 마스킹 후 세션 단위로 저장하여
-        이후 턴에서도 동일한 학생 컨텍스트와 Tool 호출 권한을 유지한다.
+        두 가지 모드로 동작한다:
+        - 무상태(stateless) 모드: history가 주어지면(빈 리스트 포함) 대화 이력의 정본은
+          백엔드 DB이며, 여기서는 전달받은 history로 컨텍스트를 구성한다. 인메모리
+          세션(session_store/session_context_store)을 읽거나 쓰지 않는다. context_data는
+          매 턴 전달되므로 마스킹 후 시스템 프롬프트에 그대로 반영한다.
+          반환하는 session_history는 None이다(영속 대상 없음).
+        - 레거시(in-memory) 모드: history가 None이면 기존과 동일하게 session_store에
+          누적된 이력을 사용하고, context_data는 첫 턴에만 전달되어 세션에 캐시된다.
 
-        images는 이번 턴에만 사용되는 휘발성 입력이다 — LLM 전송용 messages에는
-        포함되지만 history(세션 영속 이력)에는 절대 저장되지 않는다(run_agent/
-        run_agent_stream에서 history.add_user_message(text)로 텍스트만 남김).
+        images는 이번 턴에만 쓰이는 휘발성 입력이다 — LLM 전송용 messages에는 포함되지만
+        어떤 이력에도 저장되지 않는다(텍스트만 남긴다).
         """
-        history = get_session_history(session_id)
+        # --- 무상태 모드: 이력의 정본은 DB, 프론트가 매 턴 replay ---
+        if history is not None:
+            masked = mask_pii_data(context_data) if context_data else None
+            system_prompt = self._build_system_prompt(masked)
+            messages = [{"role": "system", "content": system_prompt}]
+            for msg in history:
+                role = getattr(msg, "role", None)
+                content = getattr(msg, "content", None)
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": content})
+            self._append_user_turn(messages, text, images)
+            return messages, None
+
+        # --- 레거시(in-memory) 모드 ---
+        session_history = get_session_history(session_id)
 
         if context_data is not None:
             masked = mask_pii_data(context_data)
@@ -184,27 +218,23 @@ class MetaAgentService:
         system_prompt = self._build_system_prompt(effective_context)
 
         messages = [{"role": "system", "content": system_prompt}]
-        for msg in history.messages:
+        for msg in session_history.messages:
             if isinstance(msg, HumanMessage):
                 messages.append({"role": "user", "content": msg.content})
             elif isinstance(msg, AIMessage):
                 messages.append({"role": "assistant", "content": msg.content})
 
-        if images:
-            messages.append({
-                "role": "user",
-                "content": [{"type": "text", "text": text}] + [
-                    {"type": "image_url", "image_url": {"url": img}} for img in images
-                ],
-            })
-        else:
-            messages.append({"role": "user", "content": text})
-        return messages, history
+        self._append_user_turn(messages, text, images)
+        return messages, session_history
 
     async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
-                         images: Optional[List[str]] = None):
+                         images: Optional[List[str]] = None,
+                         history: Optional[List[Any]] = None):
         """
         LiteLLM Router를 통해 에이전트 실행 (Tool Calling 자동화 포함)
+
+        history가 주어지면 요청 단위 무상태 모드로 동작한다(이력 정본=DB). 생략 시
+        기존 인메모리 세션 모드로 폴백한다. 자세한 내용은 _build_messages 참고.
 
         LangSmith 구조:
           langsmith.trace("meta-agent-run")       최상위 Run (메타데이터, 태그 포함)
@@ -218,7 +248,8 @@ class MetaAgentService:
         answer = "응답을 생성하지 못했습니다."
 
         # trace inputs에 system_prompt를 포함하기 위해 trace 진입 전에 먼저 빌드
-        messages, history = self._build_messages(text, session_id, context_data, images)
+        # session_history는 무상태 모드에서 None (영속 대상 없음)
+        messages, session_history = self._build_messages(text, session_id, context_data, images, history)
 
         # 초기 메시지 수 기록: outputs에서 에이전트가 추가한 메시지만 슬라이싱하기 위해
         _initial_msg_len = len(messages)
@@ -319,19 +350,29 @@ class MetaAgentService:
                     )
                 _trace_ctx.__exit__(None, None, None)
 
-        history.add_user_message(text)
-        history.add_ai_message(answer)
+        # 무상태 모드(session_history is None)에서는 이력 정본이 DB이므로 여기서 저장하지 않는다.
+        if session_history is not None:
+            session_history.add_user_message(text)
+            session_history.add_ai_message(answer)
+            history_count = len(session_history.messages)
+        else:
+            # 전달받은 이력(직전 턴들) + 이번 사용자 발화 + 이번 답변
+            history_count = len(history) + 2
 
         return {
             "output": answer,
             "session_id": session_id,
-            "history_count": len(history.messages)
+            "history_count": history_count,
         }
 
     async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
-                                images: Optional[List[str]] = None):
+                                images: Optional[List[str]] = None,
+                                history: Optional[List[Any]] = None):
         """
         LiteLLM Router를 통해 Tool Calling을 지원하는 스트리밍 오케스트레이션.
+
+        history가 주어지면 요청 단위 무상태 모드로 동작한다(이력 정본=DB). 생략 시
+        기존 인메모리 세션 모드로 폴백한다. 자세한 내용은 _build_messages 참고.
 
         LangSmith 구조:
           langsmith.trace("meta-agent-stream")     최상위 Run (스트리밍 전체)
@@ -345,7 +386,15 @@ class MetaAgentService:
         _langsmith_error: str | None = None
 
         # trace inputs에 system_prompt를 포함하기 위해 trace 진입 전에 먼저 빌드
-        messages, history = self._build_messages(text, session_id, context_data, images)
+        # session_history는 무상태 모드에서 None (영속 대상 없음)
+        messages, session_history = self._build_messages(text, session_id, context_data, images, history)
+
+        def _persist(ai_text: str) -> None:
+            """레거시 인메모리 모드에서만 이번 턴을 세션 이력에 저장한다.
+            무상태 모드(session_history is None)에서는 이력 정본이 DB이므로 no-op."""
+            if session_history is not None:
+                session_history.add_user_message(text)
+                session_history.add_ai_message(ai_text)
 
         # 초기 메시지 수 기록: outputs에서 에이전트가 추가한 메시지만 슬라이싱하기 위해
         _initial_msg_len = len(messages)
@@ -409,8 +458,7 @@ class MetaAgentService:
                         _stream_output = final_content
                         # 최종 AI 응답을 messages에 추가해야 LangSmith Output에 assistant 턴이 표시됨
                         messages.append({"role": "assistant", "content": final_content})
-                        history.add_user_message(text)
-                        history.add_ai_message(final_content)
+                        _persist(final_content)
                         break
 
                     # 버퍼에 모인 Tool Call 내역으로 메시지 업데이트
@@ -452,8 +500,7 @@ class MetaAgentService:
                     max_iter_message = "에이전트가 최대 허용 횟수 내에 답변을 완료하지 못했습니다."
                     _stream_output = max_iter_message
                     messages.append({"role": "assistant", "content": max_iter_message})
-                    history.add_user_message(text)
-                    history.add_ai_message(max_iter_message)
+                    _persist(max_iter_message)
                     yield max_iter_message
 
             except litellm.exceptions.AuthenticationError as e:
@@ -461,39 +508,34 @@ class MetaAgentService:
                 msg = "API 키 인증 오류가 발생했습니다. 관리자에게 문의하세요."
                 _stream_output = msg
                 _langsmith_error = f"AuthenticationError: {e}"
-                history.add_user_message(text)
-                history.add_ai_message(msg)
+                _persist(msg)
                 yield msg
             except litellm.exceptions.RateLimitError as e:
                 logger.error(f"Rate limit error: {str(e)}")
                 msg = "현재 요청이 많아 일시적으로 서비스 제한이 발생했습니다."
                 _stream_output = msg
                 _langsmith_error = f"RateLimitError: {e}"
-                history.add_user_message(text)
-                history.add_ai_message(msg)
+                _persist(msg)
                 yield msg
             except litellm.exceptions.Timeout as e:
                 logger.error(f"Timeout error: {str(e)}")
                 msg = "응답 시간이 초과되었습니다."
                 _stream_output = msg
                 _langsmith_error = f"Timeout: {e}"
-                history.add_user_message(text)
-                history.add_ai_message(msg)
+                _persist(msg)
                 yield msg
             except litellm.exceptions.APIError as e:
                 logger.error(f"API error: {str(e)}")
                 msg = "AI 서비스 연동 중 오류가 발생했습니다."
                 _stream_output = msg
                 _langsmith_error = f"APIError: {e}"
-                history.add_user_message(text)
-                history.add_ai_message(msg)
+                _persist(msg)
                 yield msg
             except Exception as e:
                 logger.error(f"Streaming error in agent service: {str(e)}", exc_info=True)
                 _stream_output = fallback_message
                 _langsmith_error = f"UnexpectedError: {e}"
-                history.add_user_message(text)
-                history.add_ai_message(fallback_message)
+                _persist(fallback_message)
                 yield fallback_message
 
         except BaseException:
@@ -547,13 +589,42 @@ class LangGraphAgentService:
             or (isinstance(m, AIMessage) and not m.tool_calls)
         )
 
-    async def _recover_from_recursion_limit(self, session_id: str) -> None:
+    @staticmethod
+    def _history_to_lc_messages(history: List[Any]) -> list:
+        """프론트가 replay한 이력(role/content)을 LangChain 메시지로 변환한다.
+        무상태 모드에서 그래프 초기 state["messages"]로 주입된다."""
+        lc_messages: list = []
+        for msg in history:
+            role = getattr(msg, "role", None)
+            content = getattr(msg, "content", None)
+            if not content:
+                continue
+            if role == "user":
+                lc_messages.append(HumanMessage(content=content))
+            elif role == "assistant":
+                lc_messages.append(AIMessage(content=content))
+        return lc_messages
+
+    def _prepare_invocation(self, text: str, session_id: str, history: Optional[List[Any]]):
+        """(thread_id, initial_messages, ephemeral) 3-튜플을 구성한다.
+
+        history가 주어지면(무상태 모드) 이번 요청 전용 ephemeral thread_id를 사용해
+        체크포인트가 턴 간에 누적/병합되지 않게 하고, 이력은 초기 messages로 주입한다.
+        ephemeral=True인 경우 호출부가 사용 후 delete_thread로 정리해야 메모리 누수가 없다.
+        """
+        if history is not None:
+            thread_id = f"{session_id}:{uuid.uuid4().hex}"
+            initial_messages = self._history_to_lc_messages(history) + [HumanMessage(content=text)]
+            return thread_id, initial_messages, True
+        return session_id, [HumanMessage(content=text)], False
+
+    async def _recover_from_recursion_limit(self, thread_id: str) -> None:
         """GraphRecursionError 발생 시 레거시와 동일한 폴백 메시지를 이력에 남기고
         thread 상태를 "완료됨"으로 되돌린다 (as_node="call_model" -> tools_condition이
         tool_calls 없는 메시지를 보고 END로 라우팅). 이렇게 하지 않으면 체크포인트가
         중단된 지점(tools 재실행 대기)에 멈춰 있어 다음 턴이 정상적으로 시작되지 않는다.
         """
-        config = {"configurable": {"thread_id": session_id}}
+        config = {"configurable": {"thread_id": thread_id}}
         await self.graph.aupdate_state(
             config,
             {"messages": [AIMessage(content=MAX_ITERATIONS_FALLBACK_MESSAGE)]},
@@ -576,29 +647,36 @@ class LangGraphAgentService:
         return masked if masked else None
 
     async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
-                         images: Optional[List[str]] = None):
+                         images: Optional[List[str]] = None,
+                         history: Optional[List[Any]] = None):
         student_context_update = self._resolve_student_context_update(context_data)
-        config = {"configurable": {"thread_id": session_id}, "recursion_limit": RECURSION_LIMIT}
+        thread_id, initial_messages, ephemeral = self._prepare_invocation(text, session_id, history)
+        config = {"configurable": {"thread_id": thread_id}, "recursion_limit": RECURSION_LIMIT}
 
         try:
-            result = await self.graph.ainvoke(
-                {
-                    "messages": [HumanMessage(content=text)],
-                    "student_context": student_context_update,
-                    # 명시적으로 매 호출마다 덮어써서 이전 턴 이미지가 이번 턴에 새지 않게 한다
-                    # (reducer가 없는 필드라 키를 생략하면 이전 체크포인트 값이 남을 수 있음).
-                    "pending_images": images,
-                },
-                config=config,
-            )
-            answer = result["messages"][-1].content or "응답을 생성하지 못했습니다."
-            messages_for_count = result["messages"]
-        except GraphRecursionError:
-            logger.warning(f"Recursion limit reached for session {session_id}")
-            await self._recover_from_recursion_limit(session_id)
-            answer = MAX_ITERATIONS_FALLBACK_MESSAGE
-            snapshot = await self.graph.aget_state(config)
-            messages_for_count = snapshot.values["messages"]
+            try:
+                result = await self.graph.ainvoke(
+                    {
+                        "messages": initial_messages,
+                        "student_context": student_context_update,
+                        # 명시적으로 매 호출마다 덮어써서 이전 턴 이미지가 이번 턴에 새지 않게 한다
+                        # (reducer가 없는 필드라 키를 생략하면 이전 체크포인트 값이 남을 수 있음).
+                        "pending_images": images,
+                    },
+                    config=config,
+                )
+                answer = result["messages"][-1].content or "응답을 생성하지 못했습니다."
+                messages_for_count = result["messages"]
+            except GraphRecursionError:
+                logger.warning(f"Recursion limit reached for session {session_id}")
+                await self._recover_from_recursion_limit(thread_id)
+                answer = MAX_ITERATIONS_FALLBACK_MESSAGE
+                snapshot = await self.graph.aget_state(config)
+                messages_for_count = snapshot.values["messages"]
+        finally:
+            # 무상태 모드의 ephemeral thread는 재사용하지 않으므로 즉시 정리(메모리 누수 방지)
+            if ephemeral:
+                self.graph.checkpointer.delete_thread(thread_id)
 
         return {
             "output": answer,
@@ -607,32 +685,38 @@ class LangGraphAgentService:
         }
 
     async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
-                                images: Optional[List[str]] = None):
+                                images: Optional[List[str]] = None,
+                                history: Optional[List[Any]] = None):
         student_context_update = self._resolve_student_context_update(context_data)
-        config = {"configurable": {"thread_id": session_id}, "recursion_limit": RECURSION_LIMIT}
+        thread_id, initial_messages, ephemeral = self._prepare_invocation(text, session_id, history)
+        config = {"configurable": {"thread_id": thread_id}, "recursion_limit": RECURSION_LIMIT}
 
         yielded_any = False
         try:
-            async for chunk in self.graph.astream(
-                {
-                    "messages": [HumanMessage(content=text)],
-                    "student_context": student_context_update,
-                    "pending_images": images,
-                },
-                config=config,
-                stream_mode="custom",
-            ):
-                if chunk.get("type") == "token" and chunk.get("text"):
-                    yielded_any = True
-                    yield chunk["text"]
-        except GraphRecursionError:
-            logger.warning(f"Recursion limit reached for session {session_id} (stream)")
-            await self._recover_from_recursion_limit(session_id)
-            yield MAX_ITERATIONS_FALLBACK_MESSAGE
-            # 아래 "미생성" 폴백으로 흘러 들어가 메시지가 중복 전송되지 않도록 여기서 종료한다.
-            # (async generator에서 return은 함수 끝 도달과 동일하지 않다 — 이 아래에 실행될
-            # 코드가 남아있는 한 return 없이는 반드시 폴스루된다.)
-            return
+            try:
+                async for chunk in self.graph.astream(
+                    {
+                        "messages": initial_messages,
+                        "student_context": student_context_update,
+                        "pending_images": images,
+                    },
+                    config=config,
+                    stream_mode="custom",
+                ):
+                    if chunk.get("type") == "token" and chunk.get("text"):
+                        yielded_any = True
+                        yield chunk["text"]
+            except GraphRecursionError:
+                logger.warning(f"Recursion limit reached for session {session_id} (stream)")
+                await self._recover_from_recursion_limit(thread_id)
+                yield MAX_ITERATIONS_FALLBACK_MESSAGE
+                # 아래 "미생성" 폴백으로 흘러 들어가 메시지가 중복 전송되지 않도록 여기서 종료한다.
+                # (async generator에서 return은 함수 끝 도달과 동일하지 않다 — 이 아래에 실행될
+                # 코드가 남아있는 한 return 없이는 반드시 폴스루된다.)
+                return
+        finally:
+            if ephemeral:
+                self.graph.checkpointer.delete_thread(thread_id)
 
         if not yielded_any:
             yield "응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."

@@ -97,7 +97,8 @@ async def chat(query: AgentQuery):
             text=query.text,
             session_id=query.session_id,
             context_data=query.context_data,
-            images=images
+            images=images,
+            history=query.history,
         )
 
         return AgentResponse(
@@ -128,7 +129,8 @@ async def chat_stream(query: AgentQuery):
                 text=query.text,
                 session_id=query.session_id,
                 context_data=query.context_data,
-                images=images
+                images=images,
+                history=query.history,
             ):
                 # 클라이언트 수신 편의성을 위해 JSON 패킹
                 data = json.dumps({"text": chunk, "is_final": False}, ensure_ascii=False)
