@@ -11,7 +11,7 @@ import { callAssistantStream } from '@features/ai-room/api/assistantService';
 import { agentResetSession } from '@features/ai-room/api/agentApiService';
 import {
   createConversation as createConversationApi,
-  addMessage as addMessageApi,
+  addMessageWithRetry as addMessageApi,
   getConversations as getConversationsApi,
   getMessages as getMessagesApi,
   deleteConversation as deleteConversationApi,

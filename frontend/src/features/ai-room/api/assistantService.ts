@@ -15,6 +15,7 @@
 
 import { buildRAGContext, applyAliases, restoreNames, getLatestAssessment } from './contextBuilder';
 import { agentChat, agentChatStream } from './agentApiService';
+import type { AgentHistoryMessage } from './agentApiService';
 import type { ChatMessage, ContextMode, StudentAliasMap } from '../types';
 import type { Class, Student } from '@shared/types';
 import { SCHOOL_LEVEL_REVERSE_MAP } from '@shared/types';
@@ -47,6 +48,31 @@ export interface AssistantResponse {
   /** 이번 호출에서 빌드된 RAG 컨텍스트 — 캐시가 없었을 때만 값이 있음 */
   builtContext?: { ragContext: string; aliasMap: StudentAliasMap };
 }
+
+/**
+ * 에이전트에 replay할 최근 대화 이력 개수 상한.
+ * 이력 정본은 백엔드 DB이며, 매 턴 이 이력을 실어 보내므로 토큰 폭증을 막기 위해 절단한다.
+ */
+const MAX_HISTORY_MESSAGES = 30;
+
+/**
+ * 프론트 대화 메시지 → 에이전트 replay 이력으로 변환한다.
+ * - 그리팅(INITIAL_MESSAGE, id='1')과 system 메시지는 제외
+ * - 최근 MAX_HISTORY_MESSAGES개만 유지(윈도잉)
+ * - PII 마스킹이 켜진 경우 라이브 발화와 동일하게 aliasMap을 적용해 정합성을 맞춘다
+ * 현재 사용자 발화는 호출부에서 text로 별도 전송하므로 여기 포함되지 않아야 한다.
+ */
+const buildAgentHistory = (
+  messages: ChatMessage[],
+  aliasMap: StudentAliasMap,
+): AgentHistoryMessage[] =>
+  messages
+    .filter((m) => m.id !== '1' && (m.role === 'user' || m.role === 'assistant'))
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: applyAliases(m.content, aliasMap),
+    }));
 
 // ============================================================
 // 컨텍스트 프로필 빌드 (Neo4j/MySQL Tool 호출용)
@@ -119,7 +145,7 @@ const buildContextProfile = (
  * AI 어시스턴트 호출 (일반 응답)
  */
 export const callAssistant = async (request: AssistantRequest): Promise<AssistantResponse> => {
-  const { sessionId, mode, classes, selectedClass, selectedStudents, userMessage, cachedContext } =
+  const { sessionId, mode, classes, selectedClass, selectedStudents, messages, userMessage, cachedContext } =
     request;
 
   try {
@@ -131,14 +157,19 @@ export const callAssistant = async (request: AssistantRequest): Promise<Assistan
     // 2. 사용자 메시지 별칭 처리
     const maskedUserMessage = applyAliases(userMessage, aliasMap);
 
-    // 3. context_data — 첫 메시지(캐시 없음)일 때만 context + profile 포함, 이후엔 null
+    // 3. context_data — 무상태 에이전트를 위해 매 턴 전송(캐시가 있어도 재사용해 재빌드만 회피)
     const profile = buildContextProfile(mode, selectedStudents, classes, selectedClass);
-    const contextData: Record<string, unknown> | null = cachedContext
-      ? null
-      : { mode, context: ragContext, ...(profile !== null ? { profile } : {}) };
+    const contextData: Record<string, unknown> = {
+      mode,
+      context: ragContext,
+      ...(profile !== null ? { profile } : {}),
+    };
 
-    // 4. 에이전트 API 호출
-    const agentResponse = await agentChat(maskedUserMessage, sessionId, contextData);
+    // 4. 직전까지의 대화 이력(정본=DB)을 replay용으로 구성
+    const history = buildAgentHistory(messages, aliasMap);
+
+    // 5. 에이전트 API 호출
+    const agentResponse = await agentChat(maskedUserMessage, sessionId, contextData, history);
 
     // 5. 응답에서 별칭 → 이름 복원
     const restoredContent = restoreNames(agentResponse.response, aliasMap);
@@ -175,6 +206,7 @@ export const callAssistantStream = async (
     classes,
     selectedClass,
     selectedStudents,
+    messages,
     userMessage,
     cachedContext,
   } = request;
@@ -188,13 +220,18 @@ export const callAssistantStream = async (
     // 2. 사용자 메시지 별칭 처리
     const maskedUserMessage = applyAliases(userMessage, aliasMap);
 
-    // 3. context_data — 첫 메시지(캐시 없음)일 때만 context + profile 포함, 이후엔 null
+    // 3. context_data — 무상태 에이전트를 위해 매 턴 전송(캐시가 있어도 재사용해 재빌드만 회피)
     const profile = buildContextProfile(mode, selectedStudents, classes, selectedClass);
-    const contextData: Record<string, unknown> | null = cachedContext
-      ? null
-      : { mode, context: ragContext, ...(profile !== null ? { profile } : {}) };
+    const contextData: Record<string, unknown> = {
+      mode,
+      context: ragContext,
+      ...(profile !== null ? { profile } : {}),
+    };
 
-    // 4. 스트리밍 호출 — 누적하며 별칭 복원 후 콜백
+    // 4. 직전까지의 대화 이력(정본=DB)을 replay용으로 구성
+    const history = buildAgentHistory(messages, aliasMap);
+
+    // 5. 스트리밍 호출 — 누적하며 별칭 복원 후 콜백
     let accumulated = '';
 
     await agentChatStream(
@@ -206,6 +243,7 @@ export const callAssistantStream = async (
         onChunk(restored, isFinal);
       },
       contextData,
+      history,
     );
 
     const finalContent = restoreNames(accumulated, aliasMap);

@@ -186,6 +186,35 @@ export const addMessage = async (
 };
 
 /**
+ * 메시지 추가 (재시도 포함)
+ *
+ * ai_message는 대화 이력의 정본(Single Source of Truth)이므로, 일시적 네트워크/서버
+ * 오류로 저장이 누락되면 재로딩 시 화면·에이전트 컨텍스트와 어긋난다. 이를 줄이기 위해
+ * 짧은 백오프로 재시도한다. 낙관적 UI(로컬 상태 선반영)는 그대로 유지되며, 최종 실패
+ * 시에는 예외를 던져 호출부가 로깅/알림할 수 있게 한다.
+ */
+export const addMessageWithRetry = async (
+  conversationId: number,
+  role: 'user' | 'assistant' | 'system',
+  content: string,
+  retries: number = 2,
+): Promise<AddMessageResponse> => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await addMessage(conversationId, role, content);
+    } catch (err) {
+      lastError = err;
+      if (attempt < retries) {
+        // 300ms, 600ms 백오프
+        await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastError;
+};
+
+/**
  * 대화방 삭제 (Soft Delete)
  */
 export const deleteConversation = async (
