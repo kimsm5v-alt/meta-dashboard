@@ -12,7 +12,7 @@ const PageContainer = styled.div`
 `;
 
 export const AIRoomPage = () => {
-  const { classes } = useTeacherClasses();
+  const { classes, user } = useTeacherClasses();
 
   // Context mode hook
   const contextMode = useContextMode();
@@ -56,6 +56,8 @@ export const AIRoomPage = () => {
     selectedClass,
     selectedStudents,
     getContextLabel,
+    // 로그인 교사 id를 tcId 권위 소스로 전달 (Class.teacherId가 빈 문자열로 내려오는 경로 대비)
+    authTcId: user?.id ?? null,
   });
 
   // Wrapped handlers

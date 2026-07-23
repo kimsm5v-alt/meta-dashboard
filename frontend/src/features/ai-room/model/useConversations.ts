@@ -101,6 +101,8 @@ interface UseConversationsParams {
   selectedClass: Class | null;
   selectedStudents: Student[];
   getContextLabel: () => string;
+  /** 로그인 교사 식별자(tcId). context_data.profile.tcId의 권위 있는 소스. */
+  authTcId?: string | null;
 }
 
 interface UseConversationsReturn {
@@ -131,6 +133,7 @@ export const useConversations = ({
   selectedClass,
   selectedStudents,
   getContextLabel,
+  authTcId,
 }: UseConversationsParams): UseConversationsReturn => {
   // ---------------------------------------------------------------------------
   // State (서버 중심)
@@ -378,6 +381,7 @@ export const useConversations = ({
           userMessage: currentInput,
           cachedContext,
           images: currentImages,
+          authTcId,
         },
         (accumulated, isFinal) => {
           setStreamingContent(accumulated);

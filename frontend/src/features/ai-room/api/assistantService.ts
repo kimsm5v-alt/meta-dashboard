@@ -40,6 +40,11 @@ export interface AssistantRequest {
   cachedContext?: { ragContext: string; aliasMap: StudentAliasMap } | null;
   /** 첨부할 스크린샷 캡처 이미지(data URI 목록). PII 별칭 처리 대상이 아니다. */
   images?: string[];
+  /**
+   * 로그인 교사 식별자(tcId). Class.teacherId는 일부 데이터 경로(buildClassFromAPI 등)에서
+   * 빈 문자열로 내려오므로, 인증 사용자 id를 tcId의 권위 있는 소스로 사용한다.
+   */
+  authTcId?: string | null;
 }
 
 export interface AssistantResponse {
@@ -96,7 +101,10 @@ const buildContextProfile = (
   selectedStudents: Student[],
   classes: Class[],
   selectedClass: Class | null,
+  authTcId?: string | null,
 ): Record<string, unknown> | null => {
+  // Class.teacherId는 buildClassFromAPI 등 주요 데이터 경로에서 빈 문자열로 내려오므로,
+  // 로그인 교사 id(authTcId)를 최종 fallback으로 사용해 tcId가 항상 채워지도록 한다.
   if (mode === 'student') {
     if (selectedStudents.length !== 1) return null;
 
@@ -116,7 +124,7 @@ const buildContextProfile = (
       classNumber: cls?.classNumber ?? null,
       stdtId: student.id,
       claId: student.classId,
-      tcId: cls?.teacherId ?? null,
+      tcId: cls?.teacherId || authTcId || null,
     };
   }
 
@@ -129,12 +137,12 @@ const buildContextProfile = (
       grade: selectedClass.grade,
       classNumber: selectedClass.classNumber,
       claId: selectedClass.id,
-      tcId: selectedClass.teacherId || null,
+      tcId: selectedClass.teacherId || authTcId || null,
     };
   }
 
   // mode === 'all': 특정 학급/학생 없이 담당 교사 ID만 전달
-  const tcId = classes[0]?.teacherId || null;
+  const tcId = classes[0]?.teacherId || authTcId || null;
   if (!tcId) return null;
   return { tcId };
 };
@@ -147,8 +155,18 @@ const buildContextProfile = (
  * AI 어시스턴트 호출 (일반 응답)
  */
 export const callAssistant = async (request: AssistantRequest): Promise<AssistantResponse> => {
-  const { sessionId, mode, classes, selectedClass, selectedStudents, messages, userMessage, cachedContext, images } =
-    request;
+  const {
+    sessionId,
+    mode,
+    classes,
+    selectedClass,
+    selectedStudents,
+    messages,
+    userMessage,
+    cachedContext,
+    images,
+    authTcId,
+  } = request;
 
   try {
     // 1. RAG 컨텍스트 — 캐시가 있으면 재사용, 없으면 빌드 (API 호출 발생)
@@ -160,7 +178,7 @@ export const callAssistant = async (request: AssistantRequest): Promise<Assistan
     const maskedUserMessage = applyAliases(userMessage, aliasMap);
 
     // 3. context_data — 무상태 에이전트를 위해 매 턴 전송(캐시가 있어도 재사용해 재빌드만 회피)
-    const profile = buildContextProfile(mode, selectedStudents, classes, selectedClass);
+    const profile = buildContextProfile(mode, selectedStudents, classes, selectedClass, authTcId);
     const contextData: Record<string, unknown> = {
       mode,
       context: ragContext,
@@ -212,6 +230,7 @@ export const callAssistantStream = async (
     userMessage,
     cachedContext,
     images,
+    authTcId,
   } = request;
 
   try {
@@ -224,7 +243,7 @@ export const callAssistantStream = async (
     const maskedUserMessage = applyAliases(userMessage, aliasMap);
 
     // 3. context_data — 무상태 에이전트를 위해 매 턴 전송(캐시가 있어도 재사용해 재빌드만 회피)
-    const profile = buildContextProfile(mode, selectedStudents, classes, selectedClass);
+    const profile = buildContextProfile(mode, selectedStudents, classes, selectedClass, authTcId);
     const contextData: Record<string, unknown> = {
       mode,
       context: ragContext,
