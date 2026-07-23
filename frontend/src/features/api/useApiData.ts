@@ -420,6 +420,8 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         const round2 = completedExams.find((d) => d.ordNo === 2);
         const primaryDgnssId = round1?.dgnssId ?? round2?.dgnssId;
         const schoolLevel: SchoolLevel = SCHOOL_LEVEL_MAP[group.schoolLevel] ?? credSchoolLevel;
+        // group.schoolLevel(SchoolLevelCode)은 위에서 '중등'으로 뭉개지기 전의 원본 값('high' 포함)이다.
+        // AI 에이전트 등 다운스트림이 실제 학교급을 알 수 있도록 그대로 흘려보낸다.
 
         if (primaryDgnssId) {
           return buildClassFromAPI(
@@ -429,6 +431,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
             schoolLevel,
             primaryDgnssId,
             round2?.dgnssId,
+            group.schoolLevel,
           );
         }
 
@@ -436,6 +439,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         const simpleClass: Class = {
           id: group.claId,
           schoolLevel,
+          schoolLevelCode: group.schoolLevel,
           grade: group.grade,
           classNumber: group.classNumber,
           teacherId: user.id,
