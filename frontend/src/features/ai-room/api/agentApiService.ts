@@ -29,6 +29,8 @@ interface AgentQuery {
   context_data?: Record<string, unknown> | null;
   /** 직전까지의 대화 이력 — 에이전트는 이 값으로 컨텍스트를 구성한다(현재 발화 text는 미포함) */
   history?: AgentHistoryMessage[] | null;
+  /** 첨부 이미지(data URI 목록, 최대 3장). 해당 턴에만 사용되며 세션에는 저장되지 않는다. */
+  images?: string[] | null;
 }
 
 export interface AgentChatResponse {
@@ -52,12 +54,14 @@ export const agentChat = async (
   sessionId: string,
   contextData?: Record<string, unknown> | null,
   history?: AgentHistoryMessage[] | null,
+  images?: string[] | null,
 ): Promise<AgentChatResponse> => {
   const body: AgentQuery = {
     text,
     session_id: sessionId,
     context_data: contextData ?? null,
     history: history ?? null,
+    images: images ?? null,
   };
 
   const res = await fetch(`${BASE_URL}/chat`, {
@@ -84,12 +88,14 @@ export const agentChatStream = async (
   onChunk: (chunk: string, isFinal: boolean) => void,
   contextData?: Record<string, unknown> | null,
   history?: AgentHistoryMessage[] | null,
+  images?: string[] | null,
 ): Promise<void> => {
   const body: AgentQuery = {
     text,
     session_id: sessionId,
     context_data: contextData ?? null,
     history: history ?? null,
+    images: images ?? null,
   };
 
   const res = await fetch(`${BASE_URL}/chat/stream`, {

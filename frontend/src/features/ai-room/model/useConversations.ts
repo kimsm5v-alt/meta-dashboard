@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import type { Class, Student } from '@shared/types';
+import { useCaptureStore } from '@shared/store/useCaptureStore';
 import type {
   ContextMode,
   ChatMessage,
@@ -138,6 +139,8 @@ export const useConversations = ({
   const [activeConversationId, setActiveConversationId] = useState<string>('');
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const pendingImage = useCaptureStore((s) => s.pendingImage);
+  const clearPendingImage = useCaptureStore((s) => s.clearPendingImage);
   const [streamingContent, setStreamingContent] = useState('');
   const [responseAliasMap, setResponseAliasMap] = useState<StudentAliasMap>({});
 
@@ -313,18 +316,21 @@ export const useConversations = ({
 
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !pendingImage) || isLoading) return;
 
+    const currentImages = pendingImage ? [pendingImage] : undefined;
     const tempUserMsgId = `user-${Date.now()}`;
     const userMessage: ChatMessage = {
       id: tempUserMsgId,
       role: 'user',
       content: input,
       timestamp: new Date(),
+      images: currentImages,
     };
     setMessages((prev) => [...prev, userMessage]);
     const currentInput = input;
     setInput('');
+    clearPendingImage();
     setIsLoading(true);
     setStreamingContent('');
 
@@ -371,6 +377,7 @@ export const useConversations = ({
           messages: messages.filter((m) => m.id !== '1'),
           userMessage: currentInput,
           cachedContext,
+          images: currentImages,
         },
         (accumulated, isFinal) => {
           setStreamingContent(accumulated);
@@ -414,7 +421,9 @@ export const useConversations = ({
 
       // 임시 대화: 첫 메시지 완료 후 서버에 대화방 생성 (contextData 포함)
       if (isTempConv) {
-        const convTitle = currentInput.slice(0, 20) + (currentInput.length > 20 ? '...' : '');
+        const convTitle = currentInput.trim()
+          ? currentInput.slice(0, 20) + (currentInput.length > 20 ? '...' : '')
+          : '화면 캡처 질문';
         try {
           const created = await createConversationApi(
             mode,
