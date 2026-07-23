@@ -547,7 +547,7 @@ class LangGraphAgentService:
             logger.warning(f"Recursion limit reached for session {session_id}")
             await self._recover_from_recursion_limit(session_id)
             answer = MAX_ITERATIONS_FALLBACK_MESSAGE
-            snapshot = await self.graph.aget_state({"configurable": {"thread_id": session_id}})
+            snapshot = await self.graph.aget_state(config)
             messages_for_count = snapshot.values["messages"]
 
         return {
@@ -574,7 +574,6 @@ class LangGraphAgentService:
             logger.warning(f"Recursion limit reached for session {session_id} (stream)")
             await self._recover_from_recursion_limit(session_id)
             yield MAX_ITERATIONS_FALLBACK_MESSAGE
-            return
 
         if not yielded_any:
             yield "응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
