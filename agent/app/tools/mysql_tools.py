@@ -843,6 +843,132 @@ async def query_class_risk_students(cla_id: str) -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Tool 12: 교사 담당 전체 학급 x 학생 검사결과 요약 (tc_id 단위 원스톱)
+# ---------------------------------------------------------------------------
+@tool
+async def query_teacher_student_results_summary(tc_id: str) -> List[Dict[str, Any]]:
+    """교사가 담당하는 모든 학급의 학생별 검사결과 요약과 학급 중분류 평균을 한 번에 조회한다.
+
+    특정 학급/학생을 선택하지 않은 상태(교사 전체 단위)에서 "우리 반들 학생 검사결과
+    요약해줘", "학급별로 학생 유형이랑 완료 여부, 중분류 평균까지 정리해줘"처럼 담당
+    학급 전반의 학생 결과를 한꺼번에 훑는 질문에 사용한다. 학습종합검사(LPA·38요인)의
+    각 학급 최신 회차를 기준으로 집계한다.
+
+    개별 학생 1명의 38개 요인 상세 T점수가 필요하면 query_student_lpa_and_scores를,
+    특정 학급 하나의 유형 분포/명단/위험군만 필요하면 query_class_dgnss_overview /
+    query_class_roster / query_class_risk_students를 사용하는 것이 더 가볍다.
+
+    Args:
+        tc_id: 교사 고유 ID.
+
+    Returns:
+        list[dict]: 학급별 요약. 각 원소는
+          {
+            cla_id, school_name, grade, class_number,
+            ord_no(학습종합검사 최신 회차 — 회차가 없으면 None),
+            students: [{stdt_id, member_no, completed(bool: 최신 회차 응시 완료 여부),
+                        type_name(LPA 유형명 — 미완료/미산출이면 None)}, ...],
+            midcategory_avg: [{section_nm, section_nm_full, avg_t_score, student_count}, ...]
+                             (11개 중분류의 반 평균 T점수 — 완료 학생이 없으면 [])
+          }
+        담당 학급이 없으면 []. student_count는 해당 중분류 점수가 산출된 학생 수.
+    """
+    # 1) 담당 학급 목록 + 학급별 학습종합검사 최신 회차
+    classes = await _execute_query(
+        """
+        SELECT gi.cla_id, gi.school_name, gi.grade, gi.class_number, latest.ord_no
+        FROM group_info gi
+        JOIN user u ON u.user_no = gi.host_user_no
+        LEFT JOIN (
+            SELECT cla_id, MAX(ord_no) AS ord_no FROM tb_dgnss_info
+            WHERE paper_idx = %s GROUP BY cla_id
+        ) latest ON latest.cla_id = gi.cla_id
+        WHERE u.tc_id = %s AND gi.use_yn = 'Y'
+        ORDER BY gi.school_name, gi.grade, gi.class_number
+        """,
+        (_LEARNING_PAPER_IDX, tc_id),
+    )
+    if classes and classes[0].get("error"):
+        return classes
+    if not classes:
+        return []
+
+    cla_ids = [c["cla_id"] for c in classes]
+    placeholders = ",".join(["%s"] * len(cla_ids))
+
+    # 2) 학급별 학생 명단 + 최신 회차 응시 완료 여부 + LPA 유형명
+    student_rows = await _execute_query(
+        f"""
+        SELECT gi.cla_id, gm.stdt_id, gm.member_no, ri.eak_stts_cd, lr.type_name
+        FROM group_member gm
+        JOIN group_info gi ON gi.group_id = gm.group_id
+        LEFT JOIN (
+            SELECT cla_id, MAX(ord_no) AS ord_no FROM tb_dgnss_info
+            WHERE paper_idx = %s GROUP BY cla_id
+        ) latest ON latest.cla_id = gi.cla_id
+        LEFT JOIN tb_dgnss_info di ON di.cla_id = gi.cla_id AND di.ord_no = latest.ord_no
+            AND di.paper_idx = %s
+        LEFT JOIN tb_dgnss_result_info ri ON ri.dgnss_id = di.id AND ri.stdt_id = gm.stdt_id
+        LEFT JOIN tb_dgnss_answer a ON a.DGNSS_RESULT_ID = ri.id
+        LEFT JOIN tb_dgnss_lpa_result lr ON lr.answer_idx = a.ANSWER_IDX AND lr.status = 'COMPLETED'
+        WHERE gi.cla_id IN ({placeholders}) AND gm.status = 'ACTIVE'
+        ORDER BY gi.cla_id, gm.member_no
+        """,
+        (_LEARNING_PAPER_IDX, _LEARNING_PAPER_IDX, *cla_ids),
+    )
+    if student_rows and student_rows[0].get("error"):
+        return student_rows
+
+    # 3) 학급별 11개 중분류 반 평균 T점수
+    midcat_rows = await _execute_query(
+        f"""
+        SELECT di.cla_id, s.SECTION_NM AS section_nm, s.SECTION_NM_FULL AS section_nm_full,
+               ROUND(AVG(ar.T_SCORE), 1) AS avg_t_score,
+               COUNT(DISTINCT ar.ANSWER_IDX) AS student_count
+        FROM tb_dgnss_answer_report ar
+        JOIN tb_dgnss_section s ON s.SECTION_ID = ar.SECTION_ID
+        JOIN tb_dgnss_answer a ON a.ANSWER_IDX = ar.ANSWER_IDX
+        JOIN tb_dgnss_result_info ri ON ri.id = a.DGNSS_RESULT_ID
+        JOIN tb_dgnss_info di ON di.id = ri.dgnss_id
+        JOIN (
+            SELECT cla_id, MAX(ord_no) AS ord_no FROM tb_dgnss_info
+            WHERE paper_idx = %s GROUP BY cla_id
+        ) latest ON latest.cla_id = di.cla_id AND di.ord_no = latest.ord_no
+        WHERE di.cla_id IN ({placeholders}) AND di.paper_idx = %s AND {_MID_CATEGORY_SECTION_FILTER}
+        GROUP BY di.cla_id, s.SECTION_ID, s.SECTION_NM, s.SECTION_NM_FULL
+        ORDER BY di.cla_id, s.SECTION_NM
+        """,
+        (_LEARNING_PAPER_IDX, *cla_ids, _LEARNING_PAPER_IDX),
+    )
+    if midcat_rows and midcat_rows[0].get("error"):
+        return midcat_rows
+
+    # 4) cla_id 기준으로 학생/중분류를 학급에 조립
+    students_by_cla: Dict[str, List[Dict[str, Any]]] = {}
+    for r in student_rows:
+        students_by_cla.setdefault(r["cla_id"], []).append({
+            "stdt_id": r["stdt_id"],
+            "member_no": r["member_no"],
+            "completed": r["eak_stts_cd"] == 3,
+            "type_name": r["type_name"],
+        })
+
+    midcat_by_cla: Dict[str, List[Dict[str, Any]]] = {}
+    for r in midcat_rows:
+        midcat_by_cla.setdefault(r["cla_id"], []).append({
+            "section_nm": r["section_nm"],
+            "section_nm_full": r["section_nm_full"],
+            "avg_t_score": r["avg_t_score"],
+            "student_count": r["student_count"],
+        })
+
+    for c in classes:
+        c["students"] = students_by_cla.get(c["cla_id"], [])
+        c["midcategory_avg"] = midcat_by_cla.get(c["cla_id"], [])
+    return classes
+
+
+# ---------------------------------------------------------------------------
 # Tool 목록 (app/tools/__init__.py에서 참조)
 # ---------------------------------------------------------------------------
 mysql_tools_list = [
@@ -857,4 +983,5 @@ mysql_tools_list = [
     query_teacher_classes_overview,
     query_class_exam_campaigns,
     query_class_risk_students,
+    query_teacher_student_results_summary,
 ]
