@@ -9,8 +9,15 @@ class AgentQuery(BaseModel):
     text: str = Field(..., description="사용자의 질문 내용")
     session_id: str = Field(..., description="대화 세션 ID (메모리 관리용)")
     context_data: Optional[Dict[str, Any]] = Field(
-        None, 
+        None,
         description="추가적으로 전달할 콘텍스트 데이터 (예: 학생 정보, 설정값 등)"
+    )
+    images: Optional[List[str]] = Field(
+        None,
+        description=(
+            "멀티모달 컨텍스트로 사용할 이미지 목록 (data URI 형식: data:image/png;base64,...). "
+            "최대 3장, 장당 5MB. 해당 턴에서만 사용되며 세션 히스토리에는 저장되지 않습니다."
+        ),
     )
 
 class AgentResponse(BaseModel):

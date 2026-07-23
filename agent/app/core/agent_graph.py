@@ -38,6 +38,10 @@ def _keep_or_update(old: Optional[dict], new: Optional[dict]) -> Optional[dict]:
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
     student_context: Annotated[Optional[dict], _keep_or_update]
+    # 이번 턴에만 쓰이는 휘발성 이미지 입력 (data URI 목록). reducer 없음 = 매 invoke마다
+    # 전달한 값으로 덮어쓰기(overwrite)되므로, 다음 턴에 생략/None으로 넘기면 자동으로 사라진다.
+    # state["messages"]에는 포함되지 않으므로 체크포인트(세션 히스토리)에도 남지 않는다.
+    pending_images: Optional[list]
 
 
 _TOOLS = neo4j_tools_list
@@ -151,6 +155,23 @@ async def _stream_llm_call(messages: list, tools: list):
         yield chunk
 
 
+def _inject_pending_images(openai_messages: list, pending_images: Optional[list]) -> None:
+    """가장 최근 user 메시지의 content를 멀티모달 블록으로 변환해 이미지를 주입한다.
+
+    state["messages"]는 텍스트만 저장하므로(비영속 정책), 이미지는 여기서 LLM 전송
+    직전에만 얹는다. tool-call 왕복 중에는 마지막 메시지가 role="tool"일 수 있으므로
+    뒤에서부터 가장 최근 role="user" 메시지를 찾아 주입한다(이번 턴의 원본 질문).
+    """
+    if not pending_images:
+        return
+    for msg in reversed(openai_messages):
+        if msg.get("role") == "user":
+            text_content = msg["content"]
+            image_blocks = [{"type": "image_url", "image_url": {"url": img}} for img in pending_images]
+            msg["content"] = [{"type": "text", "text": text_content}] + image_blocks
+            break
+
+
 async def call_model_node(state: AgentState) -> dict:
     """LiteLLM Router를 스트리밍 모드로 호출하고, 토큰은 커스텀 스트림으로 흘려보낸 뒤
     최종 결과를 LangChain AIMessage로 변환해 반환한다.
@@ -164,6 +185,7 @@ async def call_model_node(state: AgentState) -> dict:
     openai_messages = [{"role": "system", "content": system_prompt}] + convert_to_openai_messages(
         state["messages"]
     )
+    _inject_pending_images(openai_messages, state.get("pending_images"))
 
     try:
         content_buffer = ""

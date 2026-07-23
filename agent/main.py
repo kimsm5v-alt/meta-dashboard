@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.models.schemas import AgentQuery, AgentResponse
 from app.services.agent_service import meta_agent_service
+from app.utils import validate_images, ImageValidationError
 import logging
 import json
 from dotenv import load_dotenv
@@ -78,20 +79,26 @@ async def chat(query: AgentQuery):
     - 서비스 레이어의 싱글톤 인스턴스를 활용하여 비즈니스 로직 수행
     """
     try:
+        images = validate_images(query.images)
+    except ImageValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    try:
         logger.info(f"Received query for session {query.session_id}: {query.text}")
-        
+
         result = await meta_agent_service.run_agent(
             text=query.text,
             session_id=query.session_id,
-            context_data=query.context_data
+            context_data=query.context_data,
+            images=images
         )
-        
+
         return AgentResponse(
             response=result["output"],
             session_id=result["session_id"],
             history_count=result["history_count"]
         )
-        
+
     except Exception as e:
         logger.error(f"Error processing agent query: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
@@ -103,12 +110,18 @@ async def chat_stream(query: AgentQuery):
     - 클라이언트는 SSE(Server-Sent Events) 방식으로 데이터를 수신합니다.
     - 데이터는 JSON 형식으로 패킹되어 전달되며, is_final 플래그로 종료를 알립니다.
     """
+    try:
+        images = validate_images(query.images)
+    except ImageValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     async def event_generator():
         try:
             async for chunk in meta_agent_service.run_agent_stream(
                 text=query.text,
                 session_id=query.session_id,
-                context_data=query.context_data
+                context_data=query.context_data,
+                images=images
             ):
                 # 클라이언트 수신 편의성을 위해 JSON 패킹
                 data = json.dumps({"text": chunk, "is_final": False}, ensure_ascii=False)

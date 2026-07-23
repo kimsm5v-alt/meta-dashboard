@@ -1,12 +1,12 @@
 # Meta Dashboard AI Agent Service
 
-이 서비스는 맞춤형 학습 분석 대시보드를 위한 고성능 AI 에이전트 백엔드입니다. LangChain과 LiteLLM을 결합하여 대규모 트래픽 수용이 가능한 엔터프라이즈급 아키텍처를 지향합니다.
+이 서비스는 맞춤형 학습 분석 대시보드를 위한 고성능 AI 에이전트 백엔드입니다. LangChain과 LiteLLM을 결합하여 대규모 트래픽 수용이 가능한 엔터프라이즈급 아키텍처를 지향하며, 오케스트레이션 레이어는 기존 수작업 ReAct 루프(Legacy)와 LangGraph `StateGraph` 구현을 `AGENT_BACKEND` 환경 변수로 전환하며 병행 운영할 수 있습니다(1.3절 참고).
 
 ## 1. 아키텍처 및 핵심 기능
 
 ### 1.1 계층 구조
 - **API Layer (FastAPI)**: RESTful 엔드포인트를 제공하며, 비동기 처리를 통해 높은 처리량(Throughput)을 보장합니다.
-- **Service Layer (MetaAgentService)**: 비즈니스 로직 및 대화 세션 식별을 담당하며, 싱글톤 패턴으로 구현되어 효율적인 리소스 관리를 수행합니다.
+- **Service Layer (`MetaAgentService` / `LangGraphAgentService`)**: 비즈니스 로직 및 대화 세션 식별을 담당하며, 싱글톤 패턴으로 구현되어 효율적인 리소스 관리를 수행합니다. `AGENT_BACKEND` 값에 따라 둘 중 하나가 `meta_agent_service`로 선택됩니다(1.3절).
 - **Security Layer (PII Filter)**: 모든 외부 데이터(context_data) 유입 시 학생 이름, 학번 등 개인식별정보(PII)를 자동으로 마스킹하여 보안 가이드라인을 준수합니다.
 - **Orchestration Layer (LiteLLM Router)**: 다중 LLM 프로바이더 및 다중 API 키를 하나의 풀(Pool)로 관리하여 부하 분산과 가용성을 책임집니다.
 
@@ -14,6 +14,26 @@
 - **다중 API 키 지원**: 동일한 프로바이더에 대해 여러 개의 API 키를 등록하여 할당량(Quota)을 대폭 확장할 수 있습니다.
 - **자동 장애 복구 (Failover)**: 특정 모델이나 키가 응답 불능 또는 속도 제한(429)에 걸릴 경우, 라우터가 즉시 다른 가용 리소스로 요청을 우회시킵니다.
 - **지능형 라우팅 (`least-busy`)**: 현재 요청량이 가장 적고 응답이 빠른 엔드포인트를 실시간으로 선택하여 응답 지연(Latency)을 최소화합니다.
+
+### 1.3 에이전트 오케스트레이션 백엔드 (Legacy / LangGraph, 병행 운영)
+
+`app/services/agent_service.py`는 `AGENT_BACKEND` 환경 변수(기본값 `legacy`)에 따라 두 구현 중 하나를 `meta_agent_service` 싱글톤으로 노출합니다. 두 구현 모두 API 계약(`/chat`, `/chat/stream`, `DELETE /chat/{session_id}`의 요청·응답 스키마)이 완전히 동일하므로 `main.py`나 클라이언트 코드는 전혀 수정할 필요가 없습니다.
+
+| | `legacy` (기본값) | `langgraph` |
+|---|---|---|
+| 구현체 | `MetaAgentService` | `LangGraphAgentService` (`app/core/agent_graph.py`) |
+| 오케스트레이션 | 수작업 while 루프 기반 ReAct | LangGraph `StateGraph`(`call_model` ↔ `tools` 노드) |
+| 세션 상태 | 인메모리 `dict`(`session_store`) | LangGraph `MemorySaver` 체크포인터 (`thread_id = session_id`) |
+| LLM 호출 | `litellm.Router`(멀티 키 로테이션 + OpenAI→Gemini 폴백) 직접 호출 — 두 구현 모두 동일하게 재사용 |
+| LangSmith 트레이싱 | 수동 `langsmith.trace()` + `@traceable` | 그래프 자동 트레이싱 + `@traceable`로 감싼 스트리밍 LLM nested span |
+
+전환 방법(재시작 필요, 런타임 토글 아님):
+```bash
+# .env
+AGENT_BACKEND=langgraph   # 또는 legacy (기본값)
+```
+
+설계 배경, 마이그레이션 단계별 계획, 호환성 검증 결과(세션 격리·병렬 Tool 호출·litellm 예외 매핑·recursion limit 등)는 [`agent/docs/LANGGRAPH_MIGRATION_PLAN.md`](docs/LANGGRAPH_MIGRATION_PLAN.md)에 상세히 정리되어 있습니다.
 
 ## 2. LiteLLM 구현 현황
 
@@ -53,6 +73,8 @@ AgentService → ROUTER_MODEL_NAME ("meta-agent-primary")
 - `profile.schoolLevel` + `profile.predictedType`: Neo4j Tool 호출 여부를 결정하는 학생 식별자. 두 값이 모두 있어야 DB 조회가 활성화됩니다.
 - `context`: LLM에 전달할 학생 컨텍스트 본문(마크다운 문자열). `name` 등 PII 필드는 보안 레이어에서 자동 마스킹됩니다.
 
+`images`(선택, 하위 호환): 멀티모달 컨텍스트로 사용할 base64 이미지 목록입니다. 자세한 내용은 3.2절 참고.
+
 **요청 (Request):**
 ```json
 {
@@ -78,7 +100,24 @@ AgentService → ROUTER_MODEL_NAME ("meta-agent-primary")
 }
 ```
 
-### 3.2 세션 초기화 (DELETE /chat/{session_id})
+### 3.2 멀티모달 이미지 입력 (선택, POST /chat, /chat/stream)
+
+`AgentQuery.images`에 base64 data URI 목록을 담아 보내면 해당 턴에 한해 이미지가 LLM 컨텍스트로 함께 전달됩니다(vision 지원 모델 필요, 기본 설정된 `gpt-4.1`/`gemini-3.5-flash` 기준).
+
+- 형식: `data:image/(png|jpeg|jpg|webp|gif);base64,...` — 형식이 다르면 `400 Bad Request`.
+- 제한: 턴당 최대 3장, 장당 최대 5MB(`app/utils/image_validation.py`).
+- **비영속(턴 한정)**: 이미지는 그 턴의 LLM 호출에만 포함되고 세션 히스토리/체크포인트에는 저장되지 않습니다. 즉 다음 턴에는 자동으로 사라지며, 계속 참조하려면 매 턴 다시 보내야 합니다(토큰·메모리 비용 방지를 위한 설계).
+- Legacy/LangGraph 두 백엔드 모두 동일하게 지원됩니다.
+
+```json
+{
+  "text": "이 검사지 사진을 보고 특이사항이 있는지 알려줘",
+  "session_id": "std_001_session",
+  "images": ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="]
+}
+```
+
+### 3.3 세션 초기화 (DELETE /chat/{session_id})
 특정 세션의 대화 메모리를 명시적으로 삭제합니다.
 
 ## 4. 환경 변수 및 설정 (Config)
@@ -106,6 +145,15 @@ NEO4J_PASSWORD=your_password
 PORT=8000
 HOST=0.0.0.0
 DEBUG=False
+
+# 에이전트 오케스트레이션 백엔드 (1.3절 참고) — legacy(기본값) 또는 langgraph
+# 프로세스 기동 시 1회만 평가되므로 전환 시 재시작 필요
+AGENT_BACKEND=legacy
+
+# LangSmith Observability (선택)
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=your_langsmith_api_key_here
+LANGSMITH_ENV=dev   # 프로젝트명이 meta-dashboard-agent-{ENV}로 자동 구성됨
 ```
 
 > `_2`, `_3` ... `_N` 접미사 키는 `llm_router.py`의 `get_api_keys()` 함수가 자동으로 탐색하여 LiteLLM Router에 등록합니다. 키 추가 시 코드 수정 없이 환경 변수만 설정하면 됩니다.
@@ -175,7 +223,7 @@ DEBUG=False
      pytest agent/tests/test_pii_filter.py
      ```
 
-### 5.1 Quick Test (cURL)
+### 5.5 Quick Test (cURL)
 
 서버 실행 후, 아래 명령어를 복사하여 터미널에서 즉시 API를 테스트할 수 있습니다.
 
@@ -222,7 +270,18 @@ curl -N -s -X POST http://localhost:8000/chat/stream \
   }'
 ```
 
-**5. 세션 초기화**
+**5. 멀티모달 이미지 입력 (선택, 3.2절 참고)**
+```bash
+curl -s -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "이 이미지를 참고해서 답변해줘",
+    "session_id": "test_session_003",
+    "images": ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="]
+  }' | python3 -m json.tool
+```
+
+**6. 세션 초기화**
 ```bash
 curl -s -X DELETE http://localhost:8000/chat/test_session_001 | python3 -m json.tool
 ```
@@ -277,6 +336,7 @@ data:
   OPENAI_MODEL: "gpt-4.1"
   GEMINI_MODEL: "gemini-3.5-flash"
   LOG_LEVEL: "INFO"
+  AGENT_BACKEND: "legacy"   # 또는 "langgraph" (1.3절 참고)
 ```
 
 **Secret 예시 (`agent-secret.yaml`):**

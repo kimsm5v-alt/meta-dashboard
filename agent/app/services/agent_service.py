@@ -1,7 +1,7 @@
 import json
 import os
 import litellm
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 import logging
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory
@@ -149,11 +149,16 @@ class MetaAgentService:
             f"{context_text}"
         )
 
-    def _build_messages(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+    def _build_messages(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
+                         images: Optional[List[str]] = None):
         """LLM에 전달할 메시지 목록을 구성한다.
 
         context_data는 첫 메시지에만 전달되므로, 마스킹 후 세션 단위로 저장하여
         이후 턴에서도 동일한 학생 컨텍스트와 Tool 호출 권한을 유지한다.
+
+        images는 이번 턴에만 사용되는 휘발성 입력이다 — LLM 전송용 messages에는
+        포함되지만 history(세션 영속 이력)에는 절대 저장되지 않는다(run_agent/
+        run_agent_stream에서 history.add_user_message(text)로 텍스트만 남김).
         """
         history = get_session_history(session_id)
 
@@ -172,10 +177,19 @@ class MetaAgentService:
             elif isinstance(msg, AIMessage):
                 messages.append({"role": "assistant", "content": msg.content})
 
-        messages.append({"role": "user", "content": text})
+        if images:
+            messages.append({
+                "role": "user",
+                "content": [{"type": "text", "text": text}] + [
+                    {"type": "image_url", "image_url": {"url": img}} for img in images
+                ],
+            })
+        else:
+            messages.append({"role": "user", "content": text})
         return messages, history
 
-    async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+    async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
+                         images: Optional[List[str]] = None):
         """
         LiteLLM Router를 통해 에이전트 실행 (Tool Calling 자동화 포함)
 
@@ -191,7 +205,7 @@ class MetaAgentService:
         answer = "응답을 생성하지 못했습니다."
 
         # trace inputs에 system_prompt를 포함하기 위해 trace 진입 전에 먼저 빌드
-        messages, history = self._build_messages(text, session_id, context_data)
+        messages, history = self._build_messages(text, session_id, context_data, images)
 
         # 초기 메시지 수 기록: outputs에서 에이전트가 추가한 메시지만 슬라이싱하기 위해
         _initial_msg_len = len(messages)
@@ -301,7 +315,8 @@ class MetaAgentService:
             "history_count": len(history.messages)
         }
 
-    async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+    async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
+                                images: Optional[List[str]] = None):
         """
         LiteLLM Router를 통해 Tool Calling을 지원하는 스트리밍 오케스트레이션.
 
@@ -317,7 +332,7 @@ class MetaAgentService:
         _langsmith_error: str | None = None
 
         # trace inputs에 system_prompt를 포함하기 위해 trace 진입 전에 먼저 빌드
-        messages, history = self._build_messages(text, session_id, context_data)
+        messages, history = self._build_messages(text, session_id, context_data, images)
 
         # 초기 메시지 수 기록: outputs에서 에이전트가 추가한 메시지만 슬라이싱하기 위해
         _initial_msg_len = len(messages)
@@ -532,13 +547,20 @@ class LangGraphAgentService:
             as_node="call_model",
         )
 
-    async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+    async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
+                         images: Optional[List[str]] = None):
         masked_context = mask_pii_data(context_data) if context_data is not None else None
         config = {"configurable": {"thread_id": session_id}, "recursion_limit": RECURSION_LIMIT}
 
         try:
             result = await self.graph.ainvoke(
-                {"messages": [HumanMessage(content=text)], "student_context": masked_context},
+                {
+                    "messages": [HumanMessage(content=text)],
+                    "student_context": masked_context,
+                    # 명시적으로 매 호출마다 덮어써서 이전 턴 이미지가 이번 턴에 새지 않게 한다
+                    # (reducer가 없는 필드라 키를 생략하면 이전 체크포인트 값이 남을 수 있음).
+                    "pending_images": images,
+                },
                 config=config,
             )
             answer = result["messages"][-1].content or "응답을 생성하지 못했습니다."
@@ -556,14 +578,19 @@ class LangGraphAgentService:
             "history_count": self._history_count(messages_for_count),
         }
 
-    async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+    async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
+                                images: Optional[List[str]] = None):
         masked_context = mask_pii_data(context_data) if context_data is not None else None
         config = {"configurable": {"thread_id": session_id}, "recursion_limit": RECURSION_LIMIT}
 
         yielded_any = False
         try:
             async for chunk in self.graph.astream(
-                {"messages": [HumanMessage(content=text)], "student_context": masked_context},
+                {
+                    "messages": [HumanMessage(content=text)],
+                    "student_context": masked_context,
+                    "pending_images": images,
+                },
                 config=config,
                 stream_mode="custom",
             ):
