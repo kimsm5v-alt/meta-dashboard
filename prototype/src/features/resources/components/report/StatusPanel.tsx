@@ -3,7 +3,7 @@
  * 부록A 스코프 분기:
  *  #2 타이틀        전체 "전체 학습현황" / 반 "{반} 학습현황"
  *  #3 scope-pill    "전체 반 기준" / "{반} 기준"
- *  #4 미제출 칩+리마인드  반 선택 & (완료|진행중 리포트 존재) 시에만
+ *  #4 미제출 칩       반 선택 & (완료|진행중 리포트 존재) 시에만
  *  #5 KPI 미제출 값  전체 12 / 반 5 (mock)
  */
 import { STUDENTS } from '../../mock-data';
@@ -22,7 +22,7 @@ const Kpi = ({ label, value, unit, hl }: { label: string; value: number; unit: s
 );
 
 export const StatusPanel = () => {
-  const { scope, isAll, toast } = useResources();
+  const { scope, isAll } = useResources();
   const rs = scopedReports(scope);
 
   const inProgress = rs.filter((r) => r.rstatus === '진행중').length;
@@ -64,12 +64,6 @@ export const StatusPanel = () => {
                 {s}
               </span>
             ))}
-            <button
-              onClick={() => toast('미제출 리마인드 발송')}
-              className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-            >
-              🔔 리마인드
-            </button>
           </div>
         </div>
       )}
