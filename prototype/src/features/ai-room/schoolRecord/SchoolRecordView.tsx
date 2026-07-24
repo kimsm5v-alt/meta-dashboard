@@ -49,6 +49,7 @@ export const SchoolRecordView: React.FC = () => {
     setView('bulk');
   };
 
+  // 일괄 생성 결과 자동 저장 (생성 완료 시 즉시 반영, 화면 이동 없이 결과 검토 유지)
   const applyBulk = (updates: { id: string; text: string; source: GenerationSource }[]) => {
     setClasses((prev) =>
       prev.map((c) =>
@@ -63,7 +64,6 @@ export const SchoolRecordView: React.FC = () => {
             },
       ),
     );
-    setView('class');
   };
 
   const active = students.find((s) => s.id === activeId);

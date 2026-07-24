@@ -30,7 +30,6 @@ export const BulkGenerateView: React.FC<Props> = ({ students, onBack, onApply, o
   // 진행/결과
   const [doneIds, setDoneIds] = useState<string[]>([]);
   const [results, setResults] = useState<Record<string, string>>({});
-  const [checked, setChecked] = useState<string[]>([]);
 
   const commonBehaviorOpts = useMemo(() => SITUATION_BEHAVIORS[commonSituation] ?? [], [commonSituation]);
 
@@ -61,7 +60,8 @@ export const BulkGenerateView: React.FC<Props> = ({ students, onBack, onApply, o
       setResults({ ...out });
       setDoneIds((p) => [...p, s.id]);
     }
-    setChecked(students.map((s) => s.id));
+    // 생성 완료 → 즉시 자동 저장
+    onApply(students.map((s) => ({ id: s.id, text: out[s.id], source: method })));
     setPhase('result');
   };
 
@@ -185,44 +185,30 @@ export const BulkGenerateView: React.FC<Props> = ({ students, onBack, onApply, o
     );
   }
 
-  // ── 결과 ───────────────────────────────────────────────
+  // ── 결과 (자동 저장됨) ─────────────────────────────────
   return (
     <Frame onBack={onBack}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[18px] font-bold text-gray-900">생성 결과 · 완료 {students.length}명</h2>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onApply(checked.map((id) => ({ id, text: results[id], source: method })))}
-            disabled={checked.length === 0}
-            className="text-[13px] font-semibold text-primary-600 border border-primary-200 hover:bg-primary-50 disabled:opacity-40 px-3 py-2 rounded-lg"
-          >
-            선택 저장 ({checked.length})
-          </button>
-          <button
-            onClick={() => onApply(students.map((s) => ({ id: s.id, text: results[s.id], source: method })))}
-            className="text-[13px] font-semibold text-white bg-primary-500 hover:bg-primary-600 px-3.5 py-2 rounded-lg"
-          >
-            전체 저장
-          </button>
+      <div className="flex items-start justify-between mb-1.5">
+        <div>
+          <h2 className="text-[18px] font-bold text-gray-900">생성 완료 · {students.length}명</h2>
+          <p className="mt-1 inline-flex items-center gap-1 text-[12.5px] text-emerald-600">
+            <Check className="w-3.5 h-3.5" /> 생성한 문구가 자동 저장되었습니다. 필요하면 학생별로 수정할 수 있어요.
+          </p>
         </div>
+        <button onClick={onBack} className="flex-shrink-0 text-[13px] font-semibold text-white bg-primary-500 hover:bg-primary-600 px-4 py-2 rounded-lg">
+          목록으로
+        </button>
       </div>
-      <div className="border border-gray-200 rounded-xl divide-y divide-gray-100">
+      <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 mt-4">
         {students.map((s) => (
-          <div key={s.id} className="flex items-start gap-3 px-3 py-3">
-            <input
-              type="checkbox"
-              checked={checked.includes(s.id)}
-              onChange={() => setChecked((p) => (p.includes(s.id) ? p.filter((x) => x !== s.id) : [...p, s.id]))}
-              className="w-4 h-4 accent-primary-500 mt-1 flex-shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[13px] font-semibold text-gray-800">{s.no}번 {s.name}</span>
-                <span className="text-[10.5px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{SOURCE_LABEL[method]}</span>
-                <button onClick={() => onEditStudent(s.id)} className="text-[11.5px] text-primary-600 hover:underline ml-auto">수정</button>
-              </div>
-              <p className="text-[13px] leading-relaxed text-gray-700 break-keep">{results[s.id]}</p>
+          <div key={s.id} className="px-3.5 py-3">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[13px] font-semibold text-gray-800">{s.no}번 {s.name}</span>
+              <span className="text-[10.5px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{SOURCE_LABEL[method]}</span>
+              <span className="inline-flex items-center gap-0.5 text-[11px] text-emerald-600"><Check className="w-3 h-3" /> 저장됨</span>
+              <button onClick={() => onEditStudent(s.id)} className="text-[11.5px] text-primary-600 hover:underline ml-auto">수정</button>
             </div>
+            <p className="text-[13px] leading-relaxed text-gray-700 break-keep">{results[s.id]}</p>
           </div>
         ))}
       </div>

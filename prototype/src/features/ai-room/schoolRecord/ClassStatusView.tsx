@@ -65,10 +65,14 @@ export const ClassStatusView: React.FC<Props> = ({ classes, selectedClassId, onS
     return () => document.removeEventListener('keydown', h);
   }, [previewOpen]);
 
+  const hasText = (s: RecordStudent) => (s.savedText ?? '').trim().length > 0;
   // 선택 학생 중 생성 문구가 있는 학생만 다운로드 대상
-  const downloadTargets = students.filter((s) => selected.includes(s.id) && (s.savedText ?? '').trim().length > 0);
-  // 미리보기 대상 — 반 전체 중 생성 문구가 있는 학생
-  const previewTargets = students.filter((s) => (s.savedText ?? '').trim().length > 0);
+  const downloadTargets = students.filter((s) => selected.includes(s.id) && hasText(s));
+  // 미리보기: 선택이 있으면 선택 학생, 없으면 반 전체 중 생성 문구가 있는 학생
+  const selectedStudents = students.filter((s) => selected.includes(s.id));
+  const selectedHasEmpty = selectedStudents.some((s) => !hasText(s));
+  const previewList = selected.length > 0 ? selectedStudents.filter(hasText) : students.filter(hasText);
+  const canPreview = selected.length > 0 ? selectedStudents.length > 0 && !selectedHasEmpty : previewList.length > 0;
   const download = (targets: RecordStudent[]) => {
     if (targets.length === 0) return;
     downloadCsv(`생활기록부_문구_${selectedClass.group}_${selectedClass.name.replace(/\s/g, '')}.csv`, buildRecordsCsv(targets));
@@ -144,7 +148,9 @@ export const ClassStatusView: React.FC<Props> = ({ classes, selectedClassId, onS
             )}
             <button
               onClick={() => setPreviewOpen(true)}
-              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 px-3.5 py-2 rounded-lg"
+              disabled={!canPreview}
+              title={!canPreview ? (selectedHasEmpty ? '미작성 학생이 포함되어 미리보기할 수 없습니다' : '생성된 문구가 없습니다') : undefined}
+              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:text-gray-300 disabled:border-gray-200 disabled:hover:bg-white px-3.5 py-2 rounded-lg"
             >
               <Eye className="w-4 h-4" />
               문구 미리보기
@@ -219,17 +225,17 @@ export const ClassStatusView: React.FC<Props> = ({ classes, selectedClassId, onS
                 <div className="flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-primary-500" />
                   <span className="text-[14.5px] font-bold text-gray-900">문구 미리보기</span>
-                  <span className="text-[12px] font-medium text-gray-400">{previewTargets.length}명</span>
+                  <span className="text-[12px] font-medium text-gray-400">{previewList.length}명</span>
                 </div>
-                <p className="text-[12px] text-gray-400 mt-1">{selectedClass.group} · {selectedClass.name} · 생성 완료 문구</p>
+                <p className="text-[12px] text-gray-400 mt-1">{selectedClass.group} · {selectedClass.name} · {selected.length > 0 ? '선택 학생 문구' : '생성 완료 문구'}</p>
               </div>
               <button onClick={() => setPreviewOpen(false)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex-1 overflow-y-auto px-5 space-y-2.5">
-              {previewTargets.length === 0 ? (
+              {previewList.length === 0 ? (
                 <div className="text-center text-gray-400 text-[13px] py-12 break-keep">아직 생성된 문구가 없습니다.</div>
               ) : (
-                previewTargets.map((s) => (
+                previewList.map((s) => (
                   <div key={s.id} className="border border-gray-200 rounded-xl p-3.5">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[13px] font-semibold text-gray-800">{s.no}번 {s.name}{s.savedAt ? <span className="ml-1.5 text-[11px] font-normal text-gray-400">· {s.savedAt}</span> : null}</span>
@@ -249,11 +255,11 @@ export const ClassStatusView: React.FC<Props> = ({ classes, selectedClassId, onS
             <div className="flex items-center justify-end gap-2 p-5 pt-3 mt-2.5 border-t border-gray-100">
               <button onClick={() => setPreviewOpen(false)} className="text-[13px] font-medium text-gray-600 hover:bg-gray-100 px-3.5 py-2 rounded-lg">닫기</button>
               <button
-                onClick={() => download(previewTargets)}
-                disabled={previewTargets.length === 0}
+                onClick={() => download(previewList)}
+                disabled={previewList.length === 0}
                 className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 px-3.5 py-2 rounded-lg"
               >
-                <Download className="w-4 h-4" /> 전체 다운로드
+                <Download className="w-4 h-4" /> {selected.length > 0 ? '다운로드' : '전체 다운로드'}
               </button>
             </div>
           </div>
