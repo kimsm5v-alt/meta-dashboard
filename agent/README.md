@@ -257,6 +257,36 @@ LANGSMITH_ENV=dev   # 프로젝트명이 meta-dashboard-agent-{ENV}로 자동 �
    pip install -r requirements.txt
    ```
 
+### 5.1.1 Windows(PowerShell/Git Bash)에서 다른 점
+
+위 5.1 안내는 macOS/Linux 기준이라, Windows에서는 아래 차이를 감안해야 합니다.
+
+- **가상환경 활성화**: `source .venv/bin/activate` 대신
+  ```powershell
+  .venv\Scripts\activate
+  ```
+- **`VAR=값 명령어` 문법 불가**: bash/zsh 전용 문법이라 PowerShell에서는 안 먹힙니다. PowerShell에서는
+  `$env:VAR=값; 명령어` 형태로, 또는 Git Bash를 열어서 원래 문법 그대로 씁니다.
+  ```powershell
+  $env:LOCAL_PORT=5006; bash scripts/db_tunnel.sh
+  ```
+- **`scripts/db_tunnel.sh` 줄바꿈(CRLF) 문제**: Windows에서 체크아웃한 `.sh`가 CRLF로 저장되면
+  `bash`가 `line 16: $'\r': command not found` 에러를 냅니다. 최초 1회 LF로 변환하세요.
+  ```bash
+  sed -i 's/\r$//' scripts/db_tunnel.sh
+  ```
+- **`requirements.txt`의 `litellm` 빌드 실패**: 일부 `litellm` 버전은 Windows용 prebuilt wheel이 없어
+  pip가 소스 빌드를 시도하다 Rust/Cargo 요구 에러(`Preparing metadata (pyproject.toml) ... error`)로
+  실패할 수 있습니다. 이 경우 `litellm`만 wheel이 있는 버전으로 강제 설치합니다.
+  ```bash
+  .venv/Scripts/python.exe -m pip install --only-binary=litellm -r requirements.txt
+  ```
+- **`requirements.txt`의 한글 주석 때문에 pip가 cp949로 읽다 깨지는 경우**
+  (`UnicodeDecodeError: 'cp949' codec can't decode byte ...`): `PYTHONUTF8=1`을 붙여 우회합니다.
+  ```bash
+  PYTHONUTF8=1 .venv/Scripts/python.exe -m pip install --only-binary=litellm -r requirements.txt
+  ```
+
 ### 5.2 서비스 실행
 
 1. **기동 명령어**:
@@ -264,6 +294,13 @@ LANGSMITH_ENV=dev   # 프로젝트명이 meta-dashboard-agent-{ENV}로 자동 �
    npm run agent
    ```
    *(참고: 루트 디렉토리의 package.json에 정의된 스크립트로, `cd agent && python main.py`를 수행합니다.)*
+
+   > **Windows 참고**: `main.py`(`manage_venv.py`)는 실행할 때마다 `pip install -r requirements.txt`를
+   > 재실행하므로, 5.1.1에서 우회했던 `litellm` 버전으로 다시 갱신을 시도하다 실패할 수 있습니다.
+   > 재기동 시에는 uvicorn을 직접 실행하는 편이 안전합니다.
+   > ```bash
+   > .venv/Scripts/uvicorn.exe main:app --host 0.0.0.0 --port 8000 --reload
+   > ```
 ### 5.3 채팅 프론트엔드 실행 (Streamlit)
 
 웹 브라우저를 통해 AI 에이전트와 대화할 수 있는 인터페이스를 제공합니다.
