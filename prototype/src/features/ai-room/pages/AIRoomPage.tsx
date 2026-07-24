@@ -6,9 +6,9 @@
  * @see FEATURES 복사본.md - B
  */
 import { useMemo, useState } from 'react';
-import { Plus, MessageSquare, FileText, MessageCircle, MoreVertical, Pencil, Trash2, Download, Monitor, Wrench } from 'lucide-react';
+import { Plus, MessageSquare, FileText, MessageCircle, MoreVertical, Pencil, Trash2, Download, Monitor } from 'lucide-react';
 import { AssistantChatTab } from './AssistantChatTab';
-import { SchoolRecordTab } from './SchoolRecordTab';
+import { SchoolRecordView } from '../schoolRecord/SchoolRecordView';
 import { askAssistant } from '../services/assistantService';
 import { nextId } from '../utils/id';
 import { conversationStore, useConversations } from '../utils/conversationStore';
@@ -308,21 +308,7 @@ export const AIRoomPage = () => {
                 onSend={handleSend}
               />
             ) : (
-              /* 생활기록부 작성 - 준비 중: 화면 가림(블러) + 안내 */
-              <div className="relative h-full">
-                <div className="h-full overflow-hidden pointer-events-none select-none" aria-hidden>
-                  <SchoolRecordTab />
-                </div>
-                <div className="absolute inset-0 bg-white/55 backdrop-blur-[3px] flex flex-col items-center justify-center gap-3 text-center px-6">
-                  <span className="w-14 h-14 rounded-2xl bg-primary-50 border border-primary-100 flex items-center justify-center">
-                    <Wrench className="w-6 h-6 text-primary-500" />
-                  </span>
-                  <div className="text-[16px] font-bold text-gray-800">준비 중인 기능입니다</div>
-                  <div className="text-[13px] text-gray-500 max-w-[280px] break-keep">
-                    생활기록부 작성 기능은 곧 제공될 예정입니다.
-                  </div>
-                </div>
-              </div>
+              <SchoolRecordView />
             )}
           </div>
         </main>
