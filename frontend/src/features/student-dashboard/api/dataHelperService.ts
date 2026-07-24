@@ -16,7 +16,8 @@ import { SYSTEM_PROMPT_DATA_HELPER } from '@shared/data/aiPrompts';
 import { getSubCategoryResults, type SubCategoryResult } from '@shared/utils/summaryGenerator';
 import { getTypeInfo } from '@shared/utils/lpaClassifier';
 import { LPA_PROFILE_DATA } from '@shared/data/lpaProfiles';
-import type { SchoolLevel, StudentType, FactorDeviation } from '@shared/types';
+import { SCHOOL_LEVEL_REVERSE_MAP } from '@shared/types';
+import type { SchoolLevel, SchoolLevelCode, StudentType, FactorDeviation } from '@shared/types';
 
 // ============================================================
 // 타입 정의
@@ -28,7 +29,37 @@ export interface StudentData {
   typeProbabilities: Record<string, number>;
   schoolLevel: SchoolLevel;
   deviations: FactorDeviation[];
+  /**
+   * MySQL/Neo4j Tool 호출용 실제 DB 식별자 (ai-room의 buildContextProfile과 동일한 목적).
+   * 없으면(옵셔널) profile에서 해당 필드를 생략한다 — Tool 호출 범위만 좁아질 뿐 기존 동작(마크다운
+   * context 기반 답변)은 그대로 유지된다.
+   */
+  stdtId?: string;
+  claId?: string;
+  tcId?: string | null;
+  schoolLevelCode?: SchoolLevelCode;
+  grade?: number;
+  classNumber?: number;
 }
+
+/**
+ * StudentData의 식별자 필드로 ai-room과 동일한 student 모드 profile을 구성한다.
+ * stdtId/claId가 없으면 null을 반환해 profile 자체를 생략한다(Tool 호출 불가 상태로 폴백).
+ */
+const buildProfile = (data: StudentData): Record<string, unknown> | null => {
+  if (!data.stdtId || !data.claId) return null;
+  return {
+    // 에이전트는 'elementary'/'middle'(영문) 값을 기대한다 — data.schoolLevel은 한글 라벨이라 변환 필요
+    schoolLevel: SCHOOL_LEVEL_REVERSE_MAP[data.schoolLevel],
+    schoolLevelCode: data.schoolLevelCode ?? null,
+    predictedType: data.predictedType,
+    grade: data.grade ?? null,
+    classNumber: data.classNumber ?? null,
+    stdtId: data.stdtId,
+    claId: data.claId,
+    tcId: data.tcId ?? null,
+  };
+};
 
 export type QuestionId =
   | 'diagnosis-1'
@@ -220,8 +251,11 @@ export const getDataHelperFreeAnswer = async (
 ): Promise<string> => {
   const studentContext = buildStudentContextMarkdown(data);
   const sessionId = `data-helper-free-${Date.now()}`;
+  const profile = buildProfile(data);
   const contextData = {
+    mode: 'student',
     context: `${SYSTEM_PROMPT_DATA_HELPER}\n\n---\n\n${studentContext}`,
+    ...(profile !== null ? { profile } : {}),
   };
   const response = await agentChat(question, sessionId, contextData, undefined, undefined, userId);
   return response.response;
@@ -244,12 +278,11 @@ export const getDataHelperAnswer = async (
   const studentContext = buildStudentContextMarkdown(data);
   const sessionId = `data-helper-${questionId}-${Date.now()}`;
 
+  const profile = buildProfile(data);
   const contextData = {
+    mode: 'student',
     context: `${SYSTEM_PROMPT_DATA_HELPER}\n\n---\n\n${studentContext}`,
-    // type-* 질문만 Neo4j Tool 호출 허용
-    ...(questionId.startsWith('type-') && {
-      profile: { schoolLevel: data.schoolLevel, predictedType: data.predictedType },
-    }),
+    ...(profile !== null ? { profile } : {}),
   };
 
   const response = await agentChat(questionText, sessionId, contextData, undefined, undefined, userId);
