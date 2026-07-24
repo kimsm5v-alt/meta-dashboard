@@ -11,9 +11,21 @@ interface CaptureState {
   /** AI Room 컴포저에 첨부 대기 중인 캡처 이미지(data URI). 턴 한정 데이터라 persist하지 않음 */
   pendingImage: string | null;
   pendingMeta: CaptureMeta | null;
+  /**
+   * AI Room 진입 시 새 대화방을 열어 캡처를 붙일지 여부.
+   * 대시보드 등 /ai-room 밖에서 캡처한 뒤 이동할 때 true로 설정된다.
+   * AI Room 안에서 캡처하면 현재 대화에 붙이므로 false.
+   * 해제는 clearPendingImage/reset(전송·첨부 제거·로그아웃)에서만 한다 —
+   * 방 생성 직후 끄면 미전송 캡처로 재진입 시 기존 첫 대화에 붙는 문제가 생긴다.
+   */
+  openInNewConversation: boolean;
   openOverlay: () => void;
   closeOverlay: () => void;
-  setPendingImage: (dataUri: string, meta: CaptureMeta) => void;
+  setPendingImage: (
+    dataUri: string,
+    meta: CaptureMeta,
+    options?: { openInNewConversation?: boolean },
+  ) => void;
   clearPendingImage: () => void;
   /**
    * 현재 화면에서 우측 하단 코너를 이미 점유한 페이지 전용 FAB 개수
@@ -34,15 +46,28 @@ export const useCaptureStore = create<CaptureState>()((set) => ({
   overlayOpen: false,
   pendingImage: null,
   pendingMeta: null,
+  openInNewConversation: false,
   bottomRightFabCount: 0,
   openOverlay: () => set({ overlayOpen: true }),
   closeOverlay: () => set({ overlayOpen: false }),
-  setPendingImage: (dataUri, meta) =>
-    set({ pendingImage: dataUri, pendingMeta: meta, overlayOpen: false }),
-  clearPendingImage: () => set({ pendingImage: null, pendingMeta: null }),
+  setPendingImage: (dataUri, meta, options) =>
+    set({
+      pendingImage: dataUri,
+      pendingMeta: meta,
+      overlayOpen: false,
+      openInNewConversation: options?.openInNewConversation ?? false,
+    }),
+  clearPendingImage: () =>
+    set({ pendingImage: null, pendingMeta: null, openInNewConversation: false }),
   registerBottomRightFab: () =>
     set((s) => ({ bottomRightFabCount: s.bottomRightFabCount + 1 })),
   unregisterBottomRightFab: () =>
     set((s) => ({ bottomRightFabCount: Math.max(0, s.bottomRightFabCount - 1) })),
-  reset: () => set({ overlayOpen: false, pendingImage: null, pendingMeta: null }),
+  reset: () =>
+    set({
+      overlayOpen: false,
+      pendingImage: null,
+      pendingMeta: null,
+      openInNewConversation: false,
+    }),
 }));

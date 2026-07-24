@@ -219,43 +219,59 @@ export const useConversations = ({
   // 초기 로드: 서버에서 대화 목록 불러오기
   // ---------------------------------------------------------------------------
   useEffect(() => {
+    let cancelled = false;
+
     const loadConversations = async () => {
       try {
         console.log('📥 대화 목록 불러오기 시작...');
         const result = await getConversationsApi(0, 50);
+        if (cancelled) return;
+
+        // await 이후 스토어를 재확인한다.
+        // - 로딩 중 칩을 지우면(clearPendingImage) pending/플래그가 함께 사라지므로 빈 temp 방을 만들지 않음
+        // - 플래그는 전송·첨부 제거 전까지 유지해, 미전송 캡처로 재진입해도 새 방에 다시 붙음
+        const { openInNewConversation, pendingImage } = useCaptureStore.getState();
+        const openNewForCapture = openInNewConversation && !!pendingImage;
 
         if (result.items.length === 0) {
-          // 서버에 대화가 없으면 새 대화 생성
           console.log('💬 저장된 대화 없음, 새 대화 생성');
           const newConv = createNewConversation();
           setConversations([newConv]);
           setActiveConversationId(newConv.id);
         } else {
-          // 서버 대화를 프론트 형식으로 변환
           const converted = result.items.map(convertConversation);
+
+          // 대시보드 등에서 캡처 후 진입: 기존 첫 대화가 아니라 새 임시 방에 첨부
+          if (openNewForCapture) {
+            const newConv = createNewConversation();
+            setConversations([newConv, ...converted]);
+            setActiveConversationId(newConv.id);
+            console.log(`캡처 첨부용 새 대화 생성: ${newConv.id} (기존 ${converted.length}개)`);
+            return;
+          }
+
           setConversations(converted);
 
-          // 첫 번째 대화 자동 선택 후 메시지 로드
           const firstConvId = converted[0].id;
           setActiveConversationId(firstConvId);
 
-          console.log(`✅ 대화 ${result.items.length}개 로드, 첫 대화 선택: ${firstConvId}`);
+          console.log(`대화 ${result.items.length}개 로드, 첫 대화 선택: ${firstConvId}`);
 
-          // 첫 대화의 메시지 로드
           const messagesResult = await getMessagesApi(parseInt(firstConvId, 10));
+          if (cancelled) return;
+
           const convertedMessages = messagesResult.messages.map(convertMessage);
-          // INITIAL_MESSAGE를 앞에 추가 (서버에는 저장 안 함)
           const messagesWithInitial = prependInitialMessage(convertedMessages);
 
           setConversations((prev) =>
             prev.map((c) => (c.id === firstConvId ? { ...c, messages: messagesWithInitial } : c)),
           );
 
-          console.log(`✅ 메시지 ${messagesWithInitial.length}개 로드 완료 (INITIAL 포함)`);
+          console.log(`메시지 ${messagesWithInitial.length}개 로드 완료 (INITIAL 포함)`);
         }
       } catch (err) {
-        console.error('❌ 대화 목록 로드 실패:', err);
-        // 실패 시 새 대화 생성
+        if (cancelled) return;
+        console.error('대화 목록 로드 실패:', err);
         const newConv = createNewConversation();
         setConversations([newConv]);
         setActiveConversationId(newConv.id);
@@ -263,6 +279,9 @@ export const useConversations = ({
     };
 
     loadConversations();
+    return () => {
+      cancelled = true;
+    };
   }, []); // 마운트 시 1회만 실행
 
   // ---------------------------------------------------------------------------
@@ -284,7 +303,7 @@ export const useConversations = ({
     // 백엔드 대화방 soft delete (임시 대화는 제외)
     if (!convId.startsWith('temp-')) {
       deleteConversationApi(parseInt(convId, 10)).catch((err) => {
-        console.error('❌ 대화 삭제 실패:', err);
+        console.error('대화 삭제 실패:', err);
       });
     }
 
@@ -314,12 +333,12 @@ export const useConversations = ({
     const targetConv = conversations.find((c) => c.id === convId);
     if (targetConv && targetConv.messages.length > 1) {
       // INITIAL_MESSAGE(id='1') 외에 다른 메시지가 있으면 이미 로드된 것
-      console.log('✅ 메시지 이미 로드됨, 스킵:', convId);
+      console.log('메시지 이미 로드됨, 스킵:', convId);
       return;
     }
 
     try {
-      console.log('📥 메시지 로드 시작:', convId);
+      console.log('메시지 로드 시작:', convId);
       const result = await getMessagesApi(parseInt(convId, 10));
       const convertedMessages = result.messages.map(convertMessage);
       // INITIAL_MESSAGE를 앞에 추가 (서버에는 저장 안 함)
@@ -329,9 +348,9 @@ export const useConversations = ({
         prev.map((c) => (c.id === convId ? { ...c, messages: messagesWithInitial } : c)),
       );
 
-      console.log(`✅ 메시지 ${messagesWithInitial.length}개 로드 완료 (INITIAL 포함)`);
+      console.log(`메시지 ${messagesWithInitial.length}개 로드 완료 (INITIAL 포함)`);
     } catch (err) {
-      console.error('❌ 메시지 로드 실패:', err);
+      console.error('메시지 로드 실패:', err);
     }
   };
 
@@ -414,7 +433,7 @@ export const useConversations = ({
         }
       }
 
-      // ✅ 사용자 메시지 저장 → 서버 messageId 반영 (실제 대화방만)
+      // 사용자 메시지 저장 → 서버 messageId 반영 (실제 대화방만)
       if (!isTempConv) {
         addMessageApi(parseInt(convId, 10), 'user', currentInput)
           .then((res) => {
@@ -477,7 +496,7 @@ export const useConversations = ({
             setMessages((prev) => [...prev, aiMsg]);
             setStreamingContent('');
 
-            // ✅ AI 응답 저장 (실제 대화방만 — 임시 대화는 아래에서 처리)
+            // AI 응답 저장 (실제 대화방만 — 임시 대화는 아래에서 처리)
             if (!isTempConv) {
               addMessageApi(parseInt(convId, 10), 'assistant', accumulated)
                 .then((res) => {

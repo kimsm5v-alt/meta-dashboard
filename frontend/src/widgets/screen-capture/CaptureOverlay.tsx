@@ -132,7 +132,10 @@ export const CaptureOverlay = () => {
     try {
       const result = await captureRegion(rect);
       if (captureTokenRef.current !== myToken) return; // 그 사이 취소되었거나 새 시도로 대체됨
-      setPendingImage(result.dataUri, { w: result.w, h: result.h });
+      setPendingImage(result.dataUri, { w: result.w, h: result.h }, {
+        // AI Room 밖에서 캡처하면 새 대화방에 붙이고, Room 안에서는 현재 대화에 유지
+        openInNewConversation: !location.pathname.startsWith('/ai-room'),
+      });
       if (!location.pathname.startsWith('/ai-room')) {
         navigate('/ai-room');
       }
