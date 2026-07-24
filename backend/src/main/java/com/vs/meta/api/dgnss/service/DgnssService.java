@@ -14,6 +14,7 @@ import com.vs.meta.common.service.FileService;
 import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.common.utils.PagingInfo;
 import com.vs.meta.common.utils.PagingParam;
+import com.vs.meta.common.utils.SecurityUtil;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -101,6 +102,51 @@ public class DgnssService {
             pdfQueryPool.shutdownNow();
             Thread.currentThread().interrupt();
         }
+    }
+
+    /**
+     * 교사 본인(JWT 인증) 소유 전체 학급의 진단검사 현황을 한 번에 조회한다.
+     * 클라이언트 파라미터 없음 — 교사 식별자(user_no)는 JWT(SecurityContext)에서만 도출(IDOR 방지).
+     * 기존 tc/info 를 학급마다 호출하던 것을 대체. 학급(claId) 기준으로 검사 목록을 중첩 구조로 반환.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> selectTcDgnssOverview() {
+        Long userNo = SecurityUtil.requireCurrentUserNo();
+        List<Map<String, Object>> rows = dgnssMapper.selectTcDgnssOverview(userNo);
+
+        // 학급(claId) 기준 그룹핑 → classes: [ { 학급정보, dgnssList: [검사...] } ]
+        Map<String, Map<String, Object>> byCla = new LinkedHashMap<>();
+        for (Map<String, Object> r : rows) {
+            String claId = MapUtils.getString(r, "claId", "");
+            Map<String, Object> cls = byCla.computeIfAbsent(claId, k -> {
+                Map<String, Object> c = new LinkedHashMap<>();
+                c.put("claId", claId);
+                c.put("groupNm", r.get("groupNm"));
+                c.put("schoolLevel", r.get("schoolLevel"));
+                c.put("grade", r.get("grade"));
+                c.put("classNumber", r.get("classNumber"));
+                c.put("dgnssList", new ArrayList<Map<String, Object>>());
+                return c;
+            });
+            Map<String, Object> exam = new LinkedHashMap<>();
+            exam.put("dgnssId", r.get("dgnssId"));
+            exam.put("paperIdx", r.get("paperIdx"));
+            exam.put("ordNo", r.get("ordNo"));
+            exam.put("dgnssAt", r.get("dgnssAt"));
+            exam.put("dgnssStDt", r.get("dgnssStDt"));
+            exam.put("dgnssEdDt", r.get("dgnssEdDt"));
+            exam.put("stTotalCnt", r.get("stTotalCnt"));
+            exam.put("stSubmCnt", r.get("stSubmCnt"));
+            exam.put("notDgnssStartCnt", r.get("notDgnssStartCnt"));
+            exam.put("notDgnssStartList", r.get("notDgnssStartList"));
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> dgnssList = (List<Map<String, Object>>) cls.get("dgnssList");
+            dgnssList.add(exam);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("classes", new ArrayList<>(byCla.values()));
+        return result;
     }
 
     public Map<String, Object> selectTcDgnssInfo(Map<String, Object> paramMap) {

@@ -12,6 +12,8 @@ import java.util.Map;
 public interface DgnssMapper {
     // 교사) META 자기조절학습 목록 전달
     List<Map<String, Object>> selectTcDgnssInfo(Map<String, Object> param);
+    // 교사) 본인(host_user_no) 소유 전체 학급의 진단검사 현황 한 번에 조회 (tc/overview)
+    List<Map<String, Object>> selectTcDgnssOverview(@Param("userNo") Long userNo);
     void deleteTargetStListResultInfo(List<String> stList);
     void deleteTargetStListAnswer(List<String> stList);
     // 교사) META 자기조절학습 마스터 INSERT

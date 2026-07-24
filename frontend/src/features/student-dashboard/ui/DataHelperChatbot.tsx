@@ -1,7 +1,8 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { X, Sparkles, Eye, MessageSquare, ClipboardList } from 'lucide-react';
+import { useCaptureStore } from '@shared/store/useCaptureStore';
 import type { PanelTab } from './RightPanel';
 
 const SpeedDialContainer = styled.div<{ $panelOpen: boolean }>`
@@ -113,6 +114,14 @@ export const DataHelperChatbot: React.FC<DataHelperChatbotProps> = ({
   isPanelOpen,
 }) => {
   const [isDialOpen, setIsDialOpen] = useState(false);
+
+  // 우측 하단 코너 점유를 전역 스토어에 등록 — 전역 FloatingCaptureButton이
+  // 겹치지 않고 이 FAB 위로 쌓이도록 한다(마운트 시 +1, 언마운트 시 -1).
+  useEffect(() => {
+    const { registerBottomRightFab, unregisterBottomRightFab } = useCaptureStore.getState();
+    registerBottomRightFab();
+    return () => unregisterBottomRightFab();
+  }, []);
 
   const handleFabClick = () => {
     if (isPanelOpen) {

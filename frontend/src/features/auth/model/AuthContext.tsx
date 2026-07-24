@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { User, AuthState } from '@shared/types';
 import { getAuth } from '@shared/lib/authClient';
 import type { AuthUser } from '@shared/lib/authClient';
+import { useCaptureStore } from '@shared/store/useCaptureStore';
 
 // ============================================================
 // Context 타입 정의
@@ -146,6 +147,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     // 사용자 전환(A 로그아웃 → B 로그인) 시 stale 프로필 캐시 노출 방지
     queryClient.removeQueries({ queryKey: ['profile-status'] });
+    // 이전 사용자가 첨부 대기 중이던 캡처 이미지가 다음 사용자 세션으로 넘어가지 않도록 초기화
+    useCaptureStore.getState().reset();
     const auth = getAuth();
     auth.logout(); // 브라우저 리다이렉트 발생 (페이지 이동 후 플래그 자동 리셋)
   }, [queryClient]);

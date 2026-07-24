@@ -4,11 +4,12 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.models.schemas import AgentQuery, AgentResponse
 from app.services.agent_service import meta_agent_service
+from app.utils import validate_images, ImageValidationError
 import logging
 import json
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
-from app.tools import Neo4jConnectionManager
+from app.tools import Neo4jConnectionManager, MySQLConnectionManager
 from app.core import tracing
 
 # 환경 변수 로드 (.env 파일이 없어도 시스템 환경 변수 우선 인식)
@@ -31,17 +32,24 @@ async def lifespan(app: FastAPI):
         tracing.initialize()
     except Exception as e:
         logger.warning(f"LangSmith 트레이싱 초기화 실패, 비활성화 모드로 계속: {e}")
-    # Startup: Neo4j 연결 검증 (실패해도 텍스트 추론은 가능하므로 degraded mode로 가동)
+    # Startup: Neo4j/MySQL 연결 검증 (실패해도 텍스트 추론은 가능하므로 degraded mode로 가동)
     logger.info("Starting up: Verifying Neo4j connection...")
     try:
         await Neo4jConnectionManager.verify()
         logger.info("Neo4j connectivity OK.")
     except Exception as e:
         logger.warning(f"Neo4j unavailable at startup, will operate in degraded mode: {e}")
+    logger.info("Starting up: Verifying MySQL connection...")
+    try:
+        await MySQLConnectionManager.verify()
+        logger.info("MySQL connectivity OK.")
+    except Exception as e:
+        logger.warning(f"MySQL unavailable at startup, will operate in degraded mode: {e}")
     yield
     # Shutdown: 리소스 해제
-    logger.info("Shutting down: Closing Neo4j connection...")
+    logger.info("Shutting down: Closing Neo4j/MySQL connections...")
     await Neo4jConnectionManager.close()
+    await MySQLConnectionManager.close()
 
 app = FastAPI(
     title="Meta Dashboard AI Agent", 
@@ -78,20 +86,27 @@ async def chat(query: AgentQuery):
     - 서비스 레이어의 싱글톤 인스턴스를 활용하여 비즈니스 로직 수행
     """
     try:
+        images = validate_images(query.images)
+    except ImageValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    try:
         logger.info(f"Received query for session {query.session_id}: {query.text}")
-        
+
         result = await meta_agent_service.run_agent(
             text=query.text,
             session_id=query.session_id,
-            context_data=query.context_data
+            context_data=query.context_data,
+            images=images,
+            history=query.history,
         )
-        
+
         return AgentResponse(
             response=result["output"],
             session_id=result["session_id"],
             history_count=result["history_count"]
         )
-        
+
     except Exception as e:
         logger.error(f"Error processing agent query: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
@@ -103,12 +118,19 @@ async def chat_stream(query: AgentQuery):
     - 클라이언트는 SSE(Server-Sent Events) 방식으로 데이터를 수신합니다.
     - 데이터는 JSON 형식으로 패킹되어 전달되며, is_final 플래그로 종료를 알립니다.
     """
+    try:
+        images = validate_images(query.images)
+    except ImageValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     async def event_generator():
         try:
             async for chunk in meta_agent_service.run_agent_stream(
                 text=query.text,
                 session_id=query.session_id,
-                context_data=query.context_data
+                context_data=query.context_data,
+                images=images,
+                history=query.history,
             ):
                 # 클라이언트 수신 편의성을 위해 JSON 패킹
                 data = json.dumps({"text": chunk, "is_final": False}, ensure_ascii=False)

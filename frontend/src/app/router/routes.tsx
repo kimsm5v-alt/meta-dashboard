@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { MainLayout } from '@widgets/layout/MainLayout';
 import { MinimalLayout } from '@widgets/layout/MinimalLayout';
 import { StudentLayout } from '@widgets/layout/StudentLayout';
+import { CaptureOverlay, FloatingCaptureButton } from '@widgets/screen-capture';
 import { PageLoading } from '@shared/ui/Loading';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { useProfileCheck } from '@shared/hooks/useProfileCheck';
@@ -79,6 +80,8 @@ const ProtectedLayout = () => {
   return (
     <MainLayout>
       <Outlet />
+      <FloatingCaptureButton />
+      <CaptureOverlay />
     </MainLayout>
   );
 };

@@ -44,6 +44,17 @@ public class DgnssController {
     private final DgnssLpaService dgnssLpaService;
     private final DgnssMapper dgnssMapper;
 
+    @RequestMapping(value = "/api/dgnss/tc/overview", method = {RequestMethod.GET})
+    @Operation(summary = "(선생님) 본인 전체 학급 진단검사 현황 (한 번에)",
+            description = "인증된 교사(JWT) 본인이 소유한 모든 학급의 진단검사 현황을 한 번에 반환. "
+                    + "학급별 tc/info 반복 호출 대체. 파라미터 없음 — 교사 식별자는 JWT 에서만 도출(IDOR 방지).")
+    public ResponseDTO<CustomBody> tchMetaOverview(
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        Map<String, Object> result = dgnssService.selectTcDgnssOverview();
+        return AidtCommonUtil.makeResultSuccess(paramData, result, "(선생님) 전체 학급 진단검사 현황");
+    }
+
     @RequestMapping(value = {"/api/dgnss/tc/info","/api/dgnss/tc/list"}, method = {RequestMethod.GET})
     @Operation(summary = "(선생님) 학습심리정서검사 목록 조회", description = "")
     @Parameter(name = "claId", description = "학급 ID",

@@ -1,15 +1,20 @@
 import json
+import os
+import uuid
 import litellm
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 import logging
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.utils.function_calling import convert_to_openai_tool
 import langsmith
 from langsmith import traceable
+from langgraph.errors import GraphRecursionError
 from app.core.llm_router import llm_router, ROUTER_MODEL_NAME
+from app.core.agent_graph import compiled_graph, RECURSION_LIMIT, MAX_ITERATIONS_FALLBACK_MESSAGE
+from app.core.prompts import load_prompt
 from app.utils.pii_filter import mask_pii_data
-from app.tools import neo4j_tools_list
+from app.tools import all_tools_list
 from app.core.tracing import is_enabled as langsmith_is_enabled
 
 logger = logging.getLogger(__name__)
@@ -29,8 +34,8 @@ class MetaAgentService:
     def __init__(self):
         # LiteLLM Router 인스턴스 사용 (멀티 LLM 오케스트레이션)
         self.router = llm_router
-        self.tools = [convert_to_openai_tool(t) for t in neo4j_tools_list]
-        self.tool_map = {t.name: t for t in neo4j_tools_list}
+        self.tools = [convert_to_openai_tool(t) for t in all_tools_list]
+        self.tool_map = {t.name: t for t in all_tools_list}
         self.max_iterations = 8
 
     @traceable(run_type="llm", name="LiteLLM")
@@ -90,69 +95,119 @@ class MetaAgentService:
 
     @staticmethod
     def _build_system_prompt(masked_context: dict | None) -> str:
-        """profile 기반으로 Tool 호출 가이드 및 할루시네이션 방지 규칙을 포함한 시스템 프롬프트를 생성한다."""
-        profile = (masked_context or {}).get("profile") or {}
-        context_text = (masked_context or {}).get("context") or "No additional context provided."
+        """mode + profile 기반으로 Tool 호출 가이드 및 할루시네이션 방지 규칙을 포함한 시스템 프롬프트를 생성한다.
+
+        mode(student/class/all)는 프론트엔드 AI Room이 명시적으로 보내는 컨텍스트 모드다.
+        mode가 없는 호출자(예: dataHelperService처럼 profile만 보내는 기존 연동)와의 하위 호환을 위해,
+        mode가 없거나 "student"면 기존과 동일하게 schoolLevel+predictedType 존재 여부로 판단한다.
+        """
+        ctx = masked_context or {}
+        mode = ctx.get("mode")
+        profile = ctx.get("profile") or {}
+        context_text = ctx.get("context") or "No additional context provided."
+
         school_level = profile.get("schoolLevel")
         predicted_type = profile.get("predictedType")
+        stdt_id = profile.get("stdtId")
+        cla_id = profile.get("claId")
+        tc_id = profile.get("tcId")
+        grade = profile.get("grade")
+        class_number = profile.get("classNumber")
+        is_high_school = profile.get("schoolLevelCode") == "high"
 
-        # profile에 schoolLevel + predictedType이 모두 있을 때만 Tool 호출 유도
-        profile_block = ""
-        if school_level and predicted_type:
+        high_school_notice = (
+            "- ⚠️ 실제 학교급: 고등학교 (위 schoolLevel은 고등학생 전용 심리유형 모델이 아직 없어 "
+            "중등 모델을 재사용한 값입니다. 답변 시 반드시 고지하십시오)\n"
+        )
+
+        if mode in (None, "student") and school_level and predicted_type:
             profile_block = (
                 "\n## 분석 대상 학생 식별자 (Tool 호출 인자로 그대로 사용)\n"
                 f"- className: \"{predicted_type}\"\n"
                 f"- schoolLevel: \"{school_level}\"\n"
             )
-            tool_policy = (
-                "학생의 LPA 유형 기반 분석(강/약점, 개입 전략, 조절·매개 경로, 집단 평균 T점수 비교)이 "
-                "필요한 경우 반드시 Neo4j Tool을 호출하여 실제 데이터를 확보한 후 답변하십시오. "
-                "처음에는 `get_lpa_overview`를 1회 호출하여 전반을 파악하고, "
-                "세부 질문에는 개별 Tool을 추가 호출하십시오. "
-                "Tool을 호출하기 전에 반드시 호출 이유를 한 문장으로 먼저 서술하십시오. "
-                "Tool 결과가 빈 목록([])이거나 오류를 반환하면 "
-                "'해당 데이터를 현재 조회할 수 없습니다'라고 안내하고, 임의로 내용을 창작하지 마십시오.\n"
-            )
+            if stdt_id:
+                profile_block += f"- stdt_id: \"{stdt_id}\"\n"
+            if cla_id:
+                profile_block += f"- cla_id: \"{cla_id}\"\n"
+            if tc_id:
+                profile_block += f"- tc_id: \"{tc_id}\"\n"
+            if is_high_school:
+                profile_block += high_school_notice
+            tool_policy = load_prompt("tool_policy_student")
+        elif mode == "class" and cla_id:
+            profile_block = "\n## 분석 대상 학급 식별자 (Tool 호출 인자로 그대로 사용)\n" f"- cla_id: \"{cla_id}\"\n"
+            if tc_id:
+                profile_block += f"- tc_id: \"{tc_id}\"\n"
+            if school_level:
+                profile_block += f"- schoolLevel: \"{school_level}\"\n"
+            if grade:
+                profile_block += f"- grade: \"{grade}\"\n"
+            if class_number:
+                profile_block += f"- classNumber: \"{class_number}\"\n"
+            if is_high_school:
+                profile_block += high_school_notice
+            tool_policy = load_prompt("tool_policy_class")
+        elif mode == "all" and tc_id:
+            profile_block = "\n## 담당 교사 식별자 (Tool 호출 인자로 그대로 사용)\n" f"- tc_id: \"{tc_id}\"\n"
+            tool_policy = load_prompt("tool_policy_teacher")
         else:
-            tool_policy = (
-                "현재 단일 학생 식별자(schoolLevel + predictedType)가 없으므로 "
-                "Neo4j Tool을 호출하지 마십시오. "
-                "주어진 텍스트 컨텍스트만을 근거로 답변하십시오.\n"
-            )
+            profile_block = ""
+            tool_policy = load_prompt("tool_policy_none")
 
         return (
-            "# 역할 및 운영 원칙\n"
-            "귀하는 비상교육 **학습심리정서검사(LPA) 시스템**의 상담 보조 AI입니다.\n"
-            "교사가 학생의 검사 결과를 이해하고 올바른 교육적 개입을 할 수 있도록 돕는 것이 유일한 목적입니다.\n\n"
-
-            "## 답변 범위 및 데이터 우선순위\n"
-            "답변은 반드시 아래 순서의 데이터 소스에만 근거하십시오:\n"
-            "1. **학생 컨텍스트** (아래 마크다운에 제공된 T점수, 4단계 진단, 상담기록 등)\n"
-            "2. **Neo4j Tool 조회 결과** (LPA 유형 특성, 조절·매개 경로, 집단 평균 T점수)\n"
-            "3. **학습심리정서 도메인 일반 지식** — 위 두 소스를 보완하는 수준에서만 제한적으로 활용\n\n"
-
-            "## 할루시네이션 방지 규칙 (반드시 준수)\n"
-            "- **창작 금지**: 컨텍스트에 없는 학생의 개인정보, 성격, 가정환경, 성적 등을 추측하거나 창작하지 마십시오.\n"
-            "- **불확실성 명시**: 컨텍스트나 Tool 데이터에서 확인할 수 없는 내용은 "
-            "'제공된 데이터에서 확인할 수 없습니다'라고 명시하십시오.\n"
-            "- **근거 표기**: 핵심 판단의 근거가 컨텍스트 T점수인지, Neo4j Tool 결과인지 간략히 밝히십시오. "
-            "(예: 'T점수 기준', '조절 경로 데이터 기준')\n"
-            "- **도메인 한정**: 학습심리정서검사와 무관한 질문(일반 교과 지식, 외부 이슈 등)에는 "
-            "'이 시스템의 학습심리정서검사 범위 외의 질문입니다'라고 안내하십시오.\n\n"
-
+            f"{load_prompt('role_and_rules')}\n\n"
             f"{profile_block}"
-            f"## Neo4j Tool 호출 정책\n{tool_policy}"
+            f"## Tool 호출 정책\n{tool_policy}\n"
             "\n## 학생 컨텍스트 (마크다운)\n"
             f"{context_text}"
         )
 
-    def _build_messages(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+    @staticmethod
+    def _append_user_turn(messages: list, text: str, images: Optional[List[str]]) -> None:
+        """현재 사용자 발화를 messages에 추가한다. images가 있으면 멀티모달 블록으로 얹는다."""
+        if images:
+            messages.append({
+                "role": "user",
+                "content": [{"type": "text", "text": text}] + [
+                    {"type": "image_url", "image_url": {"url": img}} for img in images
+                ],
+            })
+        else:
+            messages.append({"role": "user", "content": text})
+
+    def _build_messages(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
+                        images: Optional[List[str]] = None,
+                        history: Optional[List[Any]] = None):
         """LLM에 전달할 메시지 목록을 구성한다.
 
-        context_data는 첫 메시지에만 전달되므로, 마스킹 후 세션 단위로 저장하여
-        이후 턴에서도 동일한 학생 컨텍스트와 Tool 호출 권한을 유지한다.
+        두 가지 모드로 동작한다:
+        - 무상태(stateless) 모드: history가 주어지면(빈 리스트 포함) 대화 이력의 정본은
+          백엔드 DB이며, 여기서는 전달받은 history로 컨텍스트를 구성한다. 인메모리
+          세션(session_store/session_context_store)을 읽거나 쓰지 않는다. context_data는
+          매 턴 전달되므로 마스킹 후 시스템 프롬프트에 그대로 반영한다.
+          반환하는 session_history는 None이다(영속 대상 없음).
+        - 레거시(in-memory) 모드: history가 None이면 기존과 동일하게 session_store에
+          누적된 이력을 사용하고, context_data는 첫 턴에만 전달되어 세션에 캐시된다.
+
+        images는 이번 턴에만 쓰이는 휘발성 입력이다 — LLM 전송용 messages에는 포함되지만
+        어떤 이력에도 저장되지 않는다(텍스트만 남긴다).
         """
-        history = get_session_history(session_id)
+        # --- 무상태 모드: 이력의 정본은 DB, 프론트가 매 턴 replay ---
+        if history is not None:
+            masked = mask_pii_data(context_data) if context_data else None
+            system_prompt = self._build_system_prompt(masked)
+            messages = [{"role": "system", "content": system_prompt}]
+            for msg in history:
+                role = getattr(msg, "role", None)
+                content = getattr(msg, "content", None)
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": content})
+            self._append_user_turn(messages, text, images)
+            return messages, None
+
+        # --- 레거시(in-memory) 모드 ---
+        session_history = get_session_history(session_id)
 
         if context_data is not None:
             masked = mask_pii_data(context_data)
@@ -163,18 +218,23 @@ class MetaAgentService:
         system_prompt = self._build_system_prompt(effective_context)
 
         messages = [{"role": "system", "content": system_prompt}]
-        for msg in history.messages:
+        for msg in session_history.messages:
             if isinstance(msg, HumanMessage):
                 messages.append({"role": "user", "content": msg.content})
             elif isinstance(msg, AIMessage):
                 messages.append({"role": "assistant", "content": msg.content})
 
-        messages.append({"role": "user", "content": text})
-        return messages, history
+        self._append_user_turn(messages, text, images)
+        return messages, session_history
 
-    async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+    async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
+                         images: Optional[List[str]] = None,
+                         history: Optional[List[Any]] = None):
         """
         LiteLLM Router를 통해 에이전트 실행 (Tool Calling 자동화 포함)
+
+        history가 주어지면 요청 단위 무상태 모드로 동작한다(이력 정본=DB). 생략 시
+        기존 인메모리 세션 모드로 폴백한다. 자세한 내용은 _build_messages 참고.
 
         LangSmith 구조:
           langsmith.trace("meta-agent-run")       최상위 Run (메타데이터, 태그 포함)
@@ -188,7 +248,8 @@ class MetaAgentService:
         answer = "응답을 생성하지 못했습니다."
 
         # trace inputs에 system_prompt를 포함하기 위해 trace 진입 전에 먼저 빌드
-        messages, history = self._build_messages(text, session_id, context_data)
+        # session_history는 무상태 모드에서 None (영속 대상 없음)
+        messages, session_history = self._build_messages(text, session_id, context_data, images, history)
 
         # 초기 메시지 수 기록: outputs에서 에이전트가 추가한 메시지만 슬라이싱하기 위해
         _initial_msg_len = len(messages)
@@ -289,18 +350,29 @@ class MetaAgentService:
                     )
                 _trace_ctx.__exit__(None, None, None)
 
-        history.add_user_message(text)
-        history.add_ai_message(answer)
+        # 무상태 모드(session_history is None)에서는 이력 정본이 DB이므로 여기서 저장하지 않는다.
+        if session_history is not None:
+            session_history.add_user_message(text)
+            session_history.add_ai_message(answer)
+            history_count = len(session_history.messages)
+        else:
+            # 전달받은 이력(직전 턴들) + 이번 사용자 발화 + 이번 답변
+            history_count = len(history) + 2
 
         return {
             "output": answer,
             "session_id": session_id,
-            "history_count": len(history.messages)
+            "history_count": history_count,
         }
 
-    async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None):
+    async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
+                                images: Optional[List[str]] = None,
+                                history: Optional[List[Any]] = None):
         """
         LiteLLM Router를 통해 Tool Calling을 지원하는 스트리밍 오케스트레이션.
+
+        history가 주어지면 요청 단위 무상태 모드로 동작한다(이력 정본=DB). 생략 시
+        기존 인메모리 세션 모드로 폴백한다. 자세한 내용은 _build_messages 참고.
 
         LangSmith 구조:
           langsmith.trace("meta-agent-stream")     최상위 Run (스트리밍 전체)
@@ -314,7 +386,15 @@ class MetaAgentService:
         _langsmith_error: str | None = None
 
         # trace inputs에 system_prompt를 포함하기 위해 trace 진입 전에 먼저 빌드
-        messages, history = self._build_messages(text, session_id, context_data)
+        # session_history는 무상태 모드에서 None (영속 대상 없음)
+        messages, session_history = self._build_messages(text, session_id, context_data, images, history)
+
+        def _persist(ai_text: str) -> None:
+            """레거시 인메모리 모드에서만 이번 턴을 세션 이력에 저장한다.
+            무상태 모드(session_history is None)에서는 이력 정본이 DB이므로 no-op."""
+            if session_history is not None:
+                session_history.add_user_message(text)
+                session_history.add_ai_message(ai_text)
 
         # 초기 메시지 수 기록: outputs에서 에이전트가 추가한 메시지만 슬라이싱하기 위해
         _initial_msg_len = len(messages)
@@ -378,8 +458,7 @@ class MetaAgentService:
                         _stream_output = final_content
                         # 최종 AI 응답을 messages에 추가해야 LangSmith Output에 assistant 턴이 표시됨
                         messages.append({"role": "assistant", "content": final_content})
-                        history.add_user_message(text)
-                        history.add_ai_message(final_content)
+                        _persist(final_content)
                         break
 
                     # 버퍼에 모인 Tool Call 내역으로 메시지 업데이트
@@ -421,8 +500,7 @@ class MetaAgentService:
                     max_iter_message = "에이전트가 최대 허용 횟수 내에 답변을 완료하지 못했습니다."
                     _stream_output = max_iter_message
                     messages.append({"role": "assistant", "content": max_iter_message})
-                    history.add_user_message(text)
-                    history.add_ai_message(max_iter_message)
+                    _persist(max_iter_message)
                     yield max_iter_message
 
             except litellm.exceptions.AuthenticationError as e:
@@ -430,39 +508,34 @@ class MetaAgentService:
                 msg = "API 키 인증 오류가 발생했습니다. 관리자에게 문의하세요."
                 _stream_output = msg
                 _langsmith_error = f"AuthenticationError: {e}"
-                history.add_user_message(text)
-                history.add_ai_message(msg)
+                _persist(msg)
                 yield msg
             except litellm.exceptions.RateLimitError as e:
                 logger.error(f"Rate limit error: {str(e)}")
                 msg = "현재 요청이 많아 일시적으로 서비스 제한이 발생했습니다."
                 _stream_output = msg
                 _langsmith_error = f"RateLimitError: {e}"
-                history.add_user_message(text)
-                history.add_ai_message(msg)
+                _persist(msg)
                 yield msg
             except litellm.exceptions.Timeout as e:
                 logger.error(f"Timeout error: {str(e)}")
                 msg = "응답 시간이 초과되었습니다."
                 _stream_output = msg
                 _langsmith_error = f"Timeout: {e}"
-                history.add_user_message(text)
-                history.add_ai_message(msg)
+                _persist(msg)
                 yield msg
             except litellm.exceptions.APIError as e:
                 logger.error(f"API error: {str(e)}")
                 msg = "AI 서비스 연동 중 오류가 발생했습니다."
                 _stream_output = msg
                 _langsmith_error = f"APIError: {e}"
-                history.add_user_message(text)
-                history.add_ai_message(msg)
+                _persist(msg)
                 yield msg
             except Exception as e:
                 logger.error(f"Streaming error in agent service: {str(e)}", exc_info=True)
                 _stream_output = fallback_message
                 _langsmith_error = f"UnexpectedError: {e}"
-                history.add_user_message(text)
-                history.add_ai_message(fallback_message)
+                _persist(fallback_message)
                 yield fallback_message
 
         except BaseException:
@@ -491,4 +564,178 @@ class MetaAgentService:
                 _trace_ctx.__exit__(None, None, None)
 
 
-meta_agent_service = MetaAgentService()
+class LangGraphAgentService:
+    """LangGraph StateGraph 기반 구현 (병행 운영용).
+
+    MetaAgentService(레거시)와 동일한 인터페이스(run_agent/run_agent_stream/clear_session)를
+    제공하여 main.py 수정 없이 AGENT_BACKEND 플래그로 전환할 수 있게 한다.
+    설계 근거: agent/docs/LANGGRAPH_MIGRATION_PLAN.md
+    """
+
+    def __init__(self):
+        self.graph = compiled_graph
+
+    @staticmethod
+    def _history_count(messages: list) -> int:
+        """레거시 ChatMessageHistory와 동일한 의미(사용자 턴 + 최종 답변 턴 수)로 카운트한다.
+
+        LangGraph는 tool-call 중간 AIMessage/ToolMessage도 함께 영속화하므로
+        전체 messages 길이를 그대로 쓰면 레거시 대비 값이 부풀려진다.
+        """
+        return sum(
+            1
+            for m in messages
+            if isinstance(m, HumanMessage)
+            or (isinstance(m, AIMessage) and not m.tool_calls)
+        )
+
+    @staticmethod
+    def _history_to_lc_messages(history: List[Any]) -> list:
+        """프론트가 replay한 이력(role/content)을 LangChain 메시지로 변환한다.
+        무상태 모드에서 그래프 초기 state["messages"]로 주입된다."""
+        lc_messages: list = []
+        for msg in history:
+            role = getattr(msg, "role", None)
+            content = getattr(msg, "content", None)
+            if not content:
+                continue
+            if role == "user":
+                lc_messages.append(HumanMessage(content=content))
+            elif role == "assistant":
+                lc_messages.append(AIMessage(content=content))
+        return lc_messages
+
+    def _prepare_invocation(self, text: str, session_id: str, history: Optional[List[Any]]):
+        """(thread_id, initial_messages, ephemeral) 3-튜플을 구성한다.
+
+        history가 주어지면(무상태 모드) 이번 요청 전용 ephemeral thread_id를 사용해
+        체크포인트가 턴 간에 누적/병합되지 않게 하고, 이력은 초기 messages로 주입한다.
+        ephemeral=True인 경우 호출부가 사용 후 delete_thread로 정리해야 메모리 누수가 없다.
+        """
+        if history is not None:
+            thread_id = f"{session_id}:{uuid.uuid4().hex}"
+            initial_messages = self._history_to_lc_messages(history) + [HumanMessage(content=text)]
+            return thread_id, initial_messages, True
+        return session_id, [HumanMessage(content=text)], False
+
+    async def _recover_from_recursion_limit(self, thread_id: str) -> None:
+        """GraphRecursionError 발생 시 레거시와 동일한 폴백 메시지를 이력에 남기고
+        thread 상태를 "완료됨"으로 되돌린다 (as_node="call_model" -> tools_condition이
+        tool_calls 없는 메시지를 보고 END로 라우팅). 이렇게 하지 않으면 체크포인트가
+        중단된 지점(tools 재실행 대기)에 멈춰 있어 다음 턴이 정상적으로 시작되지 않는다.
+        """
+        config = {"configurable": {"thread_id": thread_id}}
+        await self.graph.aupdate_state(
+            config,
+            {"messages": [AIMessage(content=MAX_ITERATIONS_FALLBACK_MESSAGE)]},
+            as_node="call_model",
+        )
+
+    @staticmethod
+    def _resolve_student_context_update(context_data: Optional[Dict[str, Any]]) -> Optional[dict]:
+        """legacy(MetaAgentService._build_messages)와 동일하게, 마스킹 결과가 빈 값이면
+        기존 student_context를 덮어쓰지 않도록 None을 반환한다.
+
+        context_data가 None이면 애초에 갱신 의도가 없는 것이고, {}처럼 falsy한
+        마스킹 결과도 "의미 있는 새 컨텍스트 없음"으로 취급해야 한다. student_context
+        reducer(_keep_or_update)는 None이 아닌 값을 받으면 무조건 덮어쓰므로, 여기서
+        None으로 정규화하지 않으면 이전 턴에 확립된 학생 프로필이 사라질 수 있다.
+        """
+        if context_data is None:
+            return None
+        masked = mask_pii_data(context_data)
+        return masked if masked else None
+
+    async def run_agent(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
+                         images: Optional[List[str]] = None,
+                         history: Optional[List[Any]] = None):
+        student_context_update = self._resolve_student_context_update(context_data)
+        thread_id, initial_messages, ephemeral = self._prepare_invocation(text, session_id, history)
+        config = {"configurable": {"thread_id": thread_id}, "recursion_limit": RECURSION_LIMIT}
+
+        try:
+            try:
+                result = await self.graph.ainvoke(
+                    {
+                        "messages": initial_messages,
+                        "student_context": student_context_update,
+                        # 명시적으로 매 호출마다 덮어써서 이전 턴 이미지가 이번 턴에 새지 않게 한다
+                        # (reducer가 없는 필드라 키를 생략하면 이전 체크포인트 값이 남을 수 있음).
+                        "pending_images": images,
+                    },
+                    config=config,
+                )
+                answer = result["messages"][-1].content or "응답을 생성하지 못했습니다."
+                messages_for_count = result["messages"]
+            except GraphRecursionError:
+                logger.warning(f"Recursion limit reached for session {session_id}")
+                await self._recover_from_recursion_limit(thread_id)
+                answer = MAX_ITERATIONS_FALLBACK_MESSAGE
+                snapshot = await self.graph.aget_state(config)
+                messages_for_count = snapshot.values["messages"]
+        finally:
+            # 무상태 모드의 ephemeral thread는 재사용하지 않으므로 즉시 정리(메모리 누수 방지)
+            if ephemeral:
+                self.graph.checkpointer.delete_thread(thread_id)
+
+        return {
+            "output": answer,
+            "session_id": session_id,
+            "history_count": self._history_count(messages_for_count),
+        }
+
+    async def run_agent_stream(self, text: str, session_id: str, context_data: Dict[str, Any] = None,
+                                images: Optional[List[str]] = None,
+                                history: Optional[List[Any]] = None):
+        student_context_update = self._resolve_student_context_update(context_data)
+        thread_id, initial_messages, ephemeral = self._prepare_invocation(text, session_id, history)
+        config = {"configurable": {"thread_id": thread_id}, "recursion_limit": RECURSION_LIMIT}
+
+        yielded_any = False
+        try:
+            try:
+                async for chunk in self.graph.astream(
+                    {
+                        "messages": initial_messages,
+                        "student_context": student_context_update,
+                        "pending_images": images,
+                    },
+                    config=config,
+                    stream_mode="custom",
+                ):
+                    if chunk.get("type") == "token" and chunk.get("text"):
+                        yielded_any = True
+                        yield chunk["text"]
+            except GraphRecursionError:
+                logger.warning(f"Recursion limit reached for session {session_id} (stream)")
+                await self._recover_from_recursion_limit(thread_id)
+                yield MAX_ITERATIONS_FALLBACK_MESSAGE
+                # 아래 "미생성" 폴백으로 흘러 들어가 메시지가 중복 전송되지 않도록 여기서 종료한다.
+                # (async generator에서 return은 함수 끝 도달과 동일하지 않다 — 이 아래에 실행될
+                # 코드가 남아있는 한 return 없이는 반드시 폴스루된다.)
+                return
+        finally:
+            if ephemeral:
+                self.graph.checkpointer.delete_thread(thread_id)
+
+        if not yielded_any:
+            yield "응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
+
+    def clear_session(self, session_id: str) -> bool:
+        """특정 세션(thread)의 체크포인트 이력을 삭제한다."""
+        config = {"configurable": {"thread_id": session_id}}
+        existed = self.graph.checkpointer.get_tuple(config) is not None
+        self.graph.checkpointer.delete_thread(session_id)
+        return existed
+
+
+# AGENT_BACKEND=langgraph 이면 신규 LangGraph 구현, 그 외(기본값 "legacy")면 기존 구현을 사용한다.
+# 병행 운영 전략: agent/docs/LANGGRAPH_MIGRATION_PLAN.md 4장 참고.
+AGENT_BACKEND = os.getenv("AGENT_BACKEND", "legacy").strip().lower()
+
+if AGENT_BACKEND == "langgraph":
+    logger.info("AGENT_BACKEND=langgraph: LangGraph 기반 MetaAgentService 사용")
+    meta_agent_service = LangGraphAgentService()
+else:
+    logger.info("AGENT_BACKEND=legacy: 기존 수작업 ReAct 루프 기반 MetaAgentService 사용")
+    meta_agent_service = MetaAgentService()
