@@ -74,7 +74,7 @@ export const BulkGenerateView: React.FC<Props> = ({ students, onBack, onApply, o
     ];
     return (
       <Frame onBack={onBack}>
-        <h2 className="text-[18px] font-bold text-gray-900 mb-1">선택한 {students.length}명의 문구를 어떻게 만들까요?</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">선택한 {students.length}명의 문구를 어떻게 만들까요?</h2>
         <p className="text-[13px] text-gray-400 mb-5">추천은 안내이며 방식을 강제하지 않습니다.</p>
         <div className="space-y-2.5">
           {methods.map((m) => (
@@ -110,7 +110,7 @@ export const BulkGenerateView: React.FC<Props> = ({ students, onBack, onApply, o
   if (phase === 'commonForm') {
     return (
       <Frame onBack={() => setPhase('method')}>
-        <h2 className="text-[18px] font-bold text-gray-900 mb-4">공통 상황을 입력하세요</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">공통 상황을 입력하세요</h2>
         <label className="block text-[13px] font-semibold text-gray-700 mb-2">공통 상황</label>
         <div className="flex flex-wrap gap-1.5 mb-4">
           {SITUATIONS.filter((s) => s.code !== 'ETC').map((s) => (
@@ -161,7 +161,7 @@ export const BulkGenerateView: React.FC<Props> = ({ students, onBack, onApply, o
   if (phase === 'progress') {
     return (
       <Frame onBack={onBack}>
-        <h2 className="text-[18px] font-bold text-gray-900 mb-1">{students.length}명의 문구를 만들고 있습니다</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">{students.length}명의 문구를 만들고 있습니다</h2>
         <p className="text-[13px] text-primary-600 font-semibold mb-4">{doneIds.length} / {students.length} 완료</p>
         <div className="space-y-1.5">
           {students.map((s) => {
@@ -190,7 +190,7 @@ export const BulkGenerateView: React.FC<Props> = ({ students, onBack, onApply, o
     <Frame onBack={onBack}>
       <div className="flex items-start justify-between mb-1.5">
         <div>
-          <h2 className="text-[18px] font-bold text-gray-900">생성 완료 · {students.length}명</h2>
+          <h2 className="text-2xl font-bold text-gray-900">생성 완료 · {students.length}명</h2>
           <p className="mt-1 inline-flex items-center gap-1 text-[12.5px] text-emerald-600">
             <Check className="w-3.5 h-3.5" /> 생성한 문구가 자동 저장되었습니다. 필요하면 학생별로 수정할 수 있어요.
           </p>
@@ -218,8 +218,8 @@ export const BulkGenerateView: React.FC<Props> = ({ students, onBack, onApply, o
 };
 
 const Frame: React.FC<{ onBack: () => void; children: React.ReactNode }> = ({ onBack, children }) => (
-  <div className="h-full overflow-y-auto">
-    <div className="max-w-[760px] mx-auto px-6 py-6">
+  <div>
+    <div className="max-w-[760px] mx-auto">
       <button onClick={onBack} className="inline-flex items-center gap-1 text-[13px] text-gray-500 hover:text-gray-800 mb-4">
         <ArrowLeft className="w-4 h-4" /> 뒤로
       </button>

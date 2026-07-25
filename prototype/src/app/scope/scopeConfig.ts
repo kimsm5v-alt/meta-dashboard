@@ -55,6 +55,7 @@ export const MENU_SCOPE_MATRIX: Record<MenuKey, MenuScopeConfig> = {
   'exam/result': { all: true, class: true, student: true },
   'exam/counseling': { all: true, class: true, student: true },
   'exam/tracking': { all: true, class: true, student: true },
+  'exam/record': { all: true, class: true, student: true },
   // 코칭 - 둘 다 전체 표시, 클릭 시 메뉴 자동 전환
   'coaching/class': { all: true, class: true, student: true },
   'coaching/individual': { all: true, class: true, student: true },

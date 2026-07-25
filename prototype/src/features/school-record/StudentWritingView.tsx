@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ArrowLeft, Sparkles, Copy, Check, RotateCcw, Pencil, AlertTriangle, History, MessageSquareText, Save } from 'lucide-react';
+import { ArrowLeft, Sparkles, Copy, Check, RotateCcw, Pencil, AlertTriangle, History, Save } from 'lucide-react';
 import { LpaBadge, FactorTag } from './shared';
+import { classSubtitle } from './schoolInfo';
 import { FACTOR_INFO, FREETEXT_PLACEHOLDER, MOCK_COUNSELING } from './data';
 import { generateRecordText, checkForbiddenWords, countChars, type RecordAction } from './service';
 import type { ObservationInput, RecordStudent } from './types';
@@ -10,6 +11,15 @@ interface Props {
   onBack: () => void;
   onPatch: (patch: Partial<RecordStudent>) => void;
 }
+
+/** 생성 기준 입력 시그니처 — 요인·행동·장면·상담 선택이 바뀌면 값이 달라짐 */
+const inputSig = (inp: ObservationInput): string =>
+  JSON.stringify({
+    f: [...inp.factorCodes].sort(),
+    b: [...inp.behaviorCodes].sort(),
+    t: (inp.freeText ?? '').trim(),
+    c: [...(inp.counselingRefs ?? [])].sort(),
+  });
 
 export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }) => {
   const [input, setInput] = useState<ObservationInput>(student.input);
@@ -22,9 +32,11 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
   const [copied, setCopied] = useState(false);
   const [showPrev, setShowPrev] = useState(false);
   const [tempSaved, setTempSaved] = useState(false);
+  // 결과 생성 시점의 입력 시그니처 (이후 입력이 바뀌면 '다시 생성' 안내)
+  const [genSig, setGenSig] = useState<string | null>(student.savedText ? inputSig(student.input) : null);
 
   const allFactors = [...student.strengths, ...student.improvements];
-  const counselingRecords = MOCK_COUNSELING[student.id] ?? [];
+  const counselingRecords = MOCK_COUNSELING[student.scopeId] ?? [];
   const reflectedRefs = input.counselingRefs ?? [];
 
   // 입력은 로컬 상태로만 유지 (자동저장 X) — 임시저장/생성/저장 시에만 반영
@@ -57,7 +69,7 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
   // 임시저장 — 누른 경우에만 '작성 중'으로 표시 (기존 완료 상태는 유지)
   const handleTempSave = () => {
     if (!hasDraftInput) return;
-    onPatch({ input, status: student.status === 'EMPTY' ? 'INPUTTING' : student.status });
+    onPatch({ input, status: student.status === 'EMPTY' ? 'INPUTTING' : student.status, savedAt: '방금' });
     setTempSaved(true);
     setTimeout(() => setTempSaved(false), 2500);
   };
@@ -69,6 +81,7 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
     const counselingTexts = counselingRecords.filter((r) => reflectedRefs.includes(r.id)).map((r) => r.summary);
     const res = await generateRecordText(student, input, action, counselingTexts);
     setResult({ text: res.text, tags: res.referencedTags });
+    setGenSig(inputSig(input));
     setEditMode(false);
     setGenerating(false);
     onPatch({ generatedText: res.text, status: 'DRAFT', input });
@@ -93,6 +106,7 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
     if (!prev) return;
     onPatch({ savedText: prev, previousSavedText: student.savedText, status: 'DRAFT' });
     setResult({ text: prev, tags: [] });
+    setGenSig(inputSig(input));
     setEditMode(false);
     setShowPrev(false);
   };
@@ -101,23 +115,31 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
     const cleared = { factorCodes: [], situationCodes: [], behaviorCodes: [], freeText: '', counselingRefs: [] };
     setInput(cleared);
     setResult(null);
+    setGenSig(null);
     setEditMode(false);
     onPatch({ input: cleared, generatedText: undefined, status: 'EMPTY' });
   };
 
   const currentText = editMode ? editText : result?.text ?? '';
   const forbidden = currentText ? checkForbiddenWords(currentText) : [];
+  // 생성 이후 입력이 바뀌면 결과가 오래됨 → 다시 생성 안내
+  const stale = Boolean(result) && genSig !== null && inputSig(input) !== genSig;
 
   return (
-    <div className="h-full overflow-y-auto bg-[#f5f6f8]">
-      <div className="max-w-[760px] mx-auto px-6 py-5">
-        <button onClick={onBack} className="inline-flex items-center gap-1 text-[13px] text-gray-500 hover:text-gray-800 mb-2.5">
-          <ArrowLeft className="w-4 h-4" /> 학급 현황
-        </button>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-[17px] font-bold text-gray-900">{student.className} {student.no}번 {student.name}</span>
-            <LpaBadge type={student.lpaType} />
+    <div className="p-6">
+      <div>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-4">
+            <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="학급 현황">
+              <ArrowLeft className="w-5 h-5 text-gray-500" />
+            </button>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-2xl font-bold text-gray-900">{student.no}번 {student.name}</h1>
+                <LpaBadge type={student.lpaType} />
+              </div>
+              <p className="text-sm text-gray-500 mt-1">{classSubtitle(student.className)}</p>
+            </div>
           </div>
           {hasInput && (
             <button onClick={reset} className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-gray-600">
@@ -129,30 +151,51 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
         <div className="space-y-3.5">
         {/* ① 검사 결과 요인 선택 + 선생님이 관찰한 모습 (한 박스, 구분선) */}
         <Section step="1" title="검사 결과에서 살펴볼 요인" subtitle="실제로 관찰한 요인을 선택하면 아래에 관찰 질문이 나타납니다.">
-          <FactorPickRow label="강점 요인 TOP 3" factors={student.strengths} selected={input.factorCodes} onToggle={toggleFactor} />
-          <FactorPickRow label="보완 요인 TOP 3" factors={student.improvements} selected={input.factorCodes} onToggle={toggleFactor} />
+          <div className="space-y-4">
+            <FactorPickRow label="강점 요인 TOP 3" factors={student.strengths} selected={input.factorCodes} onToggle={toggleFactor} />
+            <FactorPickRow label="보완 요인 TOP 3" factors={student.improvements} selected={input.factorCodes} onToggle={toggleFactor} />
+          </div>
 
           <div className="border-t border-gray-100 mt-4 pt-4">
-            <h4 className="text-[14px] font-bold text-gray-900">선생님이 관찰한 모습</h4>
-            <p className="text-[12px] text-gray-400 mt-0.5 mb-3 break-keep">선택한 요인의 관찰 질문에 답하고, 필요하면 구체적 장면을 적어 주세요.</p>
+            <header className="flex items-start gap-2.5 mb-3.5">
+              <span className="w-7 h-7 rounded-full bg-primary-500 text-white flex items-center justify-center text-[13px] font-bold flex-shrink-0">2</span>
+              <div className="pt-0.5">
+                <h4 className="text-[15px] font-bold text-gray-900 leading-none">선생님이 관찰한 모습</h4>
+                <p className="text-[12px] text-gray-400 mt-1.5 break-keep">선택한 요인의 관찰 질문에 답하고, 필요하면 구체적 장면을 적어 주세요.</p>
+              </div>
+            </header>
             {selectedFactors.length === 0 ? (
               <div className="text-center py-6 text-[13px] text-gray-400 bg-gray-50 rounded-xl break-keep">위에서 관찰한 요인을 선택하면 질문이 나타납니다.</div>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {selectedFactors.map((f) => {
                   const info = FACTOR_INFO[f];
                   if (!info) return null;
                   return (
-                    <div key={f} className="rounded-xl border border-gray-200 p-3">
-                      <div className="flex items-center gap-2 mb-1.5">
+                    <div key={f} className="rounded-xl border border-gray-200 p-4">
+                      <div className="flex items-center gap-2 mb-2.5">
                         <FactorTag label={f} />
-                        <span className="text-[13px] text-gray-700 break-keep">{info.question}</span>
+                        <span className="text-[13.5px] font-medium text-gray-800 break-keep">{info.question}</span>
                       </div>
-                      <ChipRow>
-                        {info.recommendedBehaviors.map((b) => (
-                          <Chip key={b} active={input.behaviorCodes.includes(b)} onClick={() => toggleBehavior(b)}>{b}</Chip>
-                        ))}
-                      </ChipRow>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {info.recommendedBehaviors.map((b) => {
+                          const on = input.behaviorCodes.includes(b);
+                          return (
+                            <button
+                              key={b}
+                              onClick={() => toggleBehavior(b)}
+                              className={`flex items-center gap-2 text-left text-[13px] px-3 py-2.5 rounded-lg border transition-colors ${
+                                on ? 'border-primary-300 bg-primary-50 text-primary-700 font-semibold' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              <span className={`w-4 h-4 rounded-[4px] border flex items-center justify-center flex-shrink-0 ${on ? 'bg-primary-500 border-primary-500' : 'bg-white border-gray-300'}`}>
+                                {on && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                              </span>
+                              <span className="break-keep">{b}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
@@ -190,15 +233,12 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
         {/* ② 상담·관찰 기록 (참고) */}
         {counselingRecords.length > 0 && (
           <section className="bg-[#f3f6fb] border border-blue-100 rounded-2xl p-5">
-            <header className="flex items-start gap-2.5 mb-3">
-              <span className="w-7 h-7 rounded-full bg-primary-500 text-white flex items-center justify-center text-[13px] font-bold flex-shrink-0">2</span>
-              <div className="pt-0.5">
-                <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-900 leading-none">
-                  <MessageSquareText className="w-4 h-4 text-blue-500" /> 상담·관찰 기록
-                  <span className="text-[11px] font-medium text-gray-400">참고 · {counselingRecords.length}건</span>
-                </h3>
-                <p className="text-[12px] text-gray-400 mt-1.5 break-keep">문구에 반영할 기록을 선택하세요.</p>
-              </div>
+            <header className="mb-3">
+              <h3 className="flex items-center gap-1.5 text-[15px] font-bold text-gray-900 leading-none">
+                상담·관찰 기록
+                <span className="text-[11px] font-medium text-gray-400">참고 · {counselingRecords.length}건</span>
+              </h3>
+              <p className="text-[12px] text-gray-400 mt-1.5 break-keep">문구에 반영할 기록을 선택하세요.</p>
             </header>
             <div className="space-y-1.5">
               {counselingRecords.map((r) => {
@@ -217,7 +257,27 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
         )}
 
         {/* AI 생성 문구 — 결과물이므로 번호 없음 */}
-        <Section title="AI 생성 문구" subtitle="선택한 정보로 참고 문구를 생성합니다. 생성 후 편집·저장할 수 있어요.">
+        <Section
+          title="AI 생성 문구"
+          subtitle="선택한 정보로 참고 문구를 생성합니다. 생성 후 편집·저장할 수 있어요."
+          headerRight={student.previousSavedText ? (
+            <button onClick={() => setShowPrev((v) => !v)} className="inline-flex items-center gap-1 text-[12.5px] text-gray-500 hover:text-primary-600">
+              <History className="w-3.5 h-3.5" /> 이전 문구 보기
+            </button>
+          ) : undefined}
+        >
+          {/* 직전 문구 확인·복원 (헤더 '이전 문구 보기' 토글) */}
+          {showPrev && student.previousSavedText && (
+            <div className="mb-3 p-3 rounded-xl border border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[12px] font-semibold text-gray-500">이전 저장 문구{student.savedAt ? ` · ${student.savedAt} 저장` : ''}</span>
+                <button onClick={handleRestore} className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary-600 hover:bg-primary-50 px-2 py-1 rounded-lg">
+                  <RotateCcw className="w-3 h-3" /> 현재 문구로 복원
+                </button>
+              </div>
+              <p className="text-[13px] leading-relaxed text-gray-600 break-keep">{student.previousSavedText}</p>
+            </div>
+          )}
           {!result && (
             <div className="mb-3">
               <button onClick={() => runGenerate('generate')} disabled={!canGenerate || generating} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-white bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 px-4 py-2 rounded-lg">
@@ -225,6 +285,20 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
                 {generating ? '문구 생성 중…' : '문구 생성'}
               </button>
               {!canGenerate && <p className="text-[12px] text-gray-400 mt-2">관찰한 요인을 선택하고 관련 행동을 1개 이상 골라 주세요.</p>}
+            </div>
+          )}
+          {stale && (
+            <div className="mb-2.5 flex items-center justify-between gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2">
+              <span className="inline-flex items-center gap-1.5 text-[12px] text-primary-700 break-keep">
+                <RotateCcw className="w-3.5 h-3.5 flex-shrink-0" /> 입력 내용이 바뀌었어요. 최신 내용으로 다시 생성할 수 있어요.
+              </span>
+              <button
+                onClick={() => runGenerate('generate')}
+                disabled={generating || !canGenerate}
+                className="inline-flex items-center gap-1.5 flex-shrink-0 text-[12.5px] font-semibold text-white bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 px-3 py-1.5 rounded-lg"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> {generating ? '생성 중…' : '다시 생성'}
+              </button>
             </div>
           )}
           {!result ? (
@@ -242,17 +316,8 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
                   <span>기재 유의 표현: {forbidden.map((f) => `‘${f.match}’(${f.label})`).join(', ')}</span>
                 </div>
               )}
-              {result.tags.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 mt-3">
-                  <span className="text-[11px] text-gray-400 mr-1">참고한 정보</span>
-                  {result.tags.map((t, i) => (
-                    <span key={i} className="text-[11px] text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">{t}</span>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-center justify-between mt-2">
-                <p className="text-[11.5px] text-gray-400 break-keep">검사 결과와 선택 정보로 만든 참고 문구입니다. 실제 학생의 모습에 맞게 활용해 주세요.</p>
-                <span className="text-[11px] text-gray-400 flex-shrink-0 ml-2">{countChars(currentText)}자</span>
+              <div className="flex justify-end mt-2">
+                <span className="text-[11px] text-gray-400">{countChars(currentText)}자</span>
               </div>
             </div>
           )}
@@ -273,27 +338,6 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
               <button onClick={handleSave} className="text-[13px] font-semibold text-white bg-primary-500 hover:bg-primary-600 px-3.5 py-2 rounded-lg">저장</button>
             </div>
           )}
-
-          {/* 직전 문구 확인·복원 */}
-          {student.previousSavedText && (
-            <div className="mt-3">
-              <button onClick={() => setShowPrev((v) => !v)} className="inline-flex items-center gap-1 text-[12.5px] text-gray-500 hover:text-primary-600">
-                <History className="w-3.5 h-3.5" /> 이전 문구 보기
-              </button>
-              {showPrev && (
-                <div className="mt-2 p-3 rounded-xl border border-gray-200 bg-gray-50">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[12px] font-semibold text-gray-500">이전 저장 문구{student.savedAt ? ` · ${student.savedAt} 저장` : ''}</span>
-                    <button onClick={handleRestore} className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary-600 hover:bg-primary-50 px-2 py-1 rounded-lg">
-                      <RotateCcw className="w-3 h-3" /> 현재 문구로 복원
-                    </button>
-                  </div>
-                  <p className="text-[13px] leading-relaxed text-gray-600 break-keep">{student.previousSavedText}</p>
-                </div>
-              )}
-            </div>
-          )}
-
         </Section>
         </div>
       </div>
@@ -302,14 +346,17 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
 };
 
 // ── 서브 컴포넌트 ──────────────────────────────────────────
-const Section: React.FC<{ step?: string; title: string; subtitle?: string; children: React.ReactNode }> = ({ step, title, subtitle, children }) => (
+const Section: React.FC<{ step?: string; title: string; subtitle?: string; headerRight?: React.ReactNode; children: React.ReactNode }> = ({ step, title, subtitle, headerRight, children }) => (
   <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-[0_1px_2px_rgba(20,20,50,0.04)]">
-    <header className="flex items-start gap-2.5 mb-3.5">
-      {step && <span className="w-7 h-7 rounded-full bg-primary-500 text-white flex items-center justify-center text-[13px] font-bold flex-shrink-0">{step}</span>}
-      <div className="pt-0.5">
-        <h3 className="text-[15px] font-bold text-gray-900 leading-none">{title}</h3>
-        {subtitle && <p className="text-[12px] text-gray-400 mt-1.5 break-keep">{subtitle}</p>}
+    <header className="flex items-start justify-between gap-2.5 mb-3.5">
+      <div className="flex items-start gap-2.5">
+        {step && <span className="w-7 h-7 rounded-full bg-primary-500 text-white flex items-center justify-center text-[13px] font-bold flex-shrink-0">{step}</span>}
+        <div className="pt-0.5">
+          <h3 className="text-[15px] font-bold text-gray-900 leading-none">{title}</h3>
+          {subtitle && <p className="text-[12px] text-gray-400 mt-1.5 break-keep">{subtitle}</p>}
+        </div>
       </div>
+      {headerRight && <div className="flex-shrink-0">{headerRight}</div>}
     </header>
     {children}
   </section>
@@ -317,19 +364,6 @@ const Section: React.FC<{ step?: string; title: string; subtitle?: string; child
 
 const StepLabel: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <div className={`text-[13.5px] font-semibold text-gray-700 mb-2 ${className}`}>{children}</div>
-);
-
-const ChipRow: React.FC<{ children: React.ReactNode }> = ({ children }) => <div className="flex flex-wrap gap-1.5">{children}</div>;
-
-const Chip: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
-  <button
-    onClick={onClick}
-    className={`inline-flex items-center gap-1 text-[12.5px] px-2.5 py-1.5 rounded-full border transition-colors break-keep ${
-      active ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-    }`}
-  >
-    {children}
-  </button>
 );
 
 const ActionBtn: React.FC<{ onClick: () => void; disabled?: boolean; children: React.ReactNode }> = ({ onClick, disabled, children }) => (
@@ -340,24 +374,27 @@ const ActionBtn: React.FC<{ onClick: () => void; disabled?: boolean; children: R
 
 /** 강점/보완 요인 선택 (체크박스 칩) */
 const FactorPickRow: React.FC<{ label: string; factors: string[]; selected: string[]; onToggle: (f: string) => void }> = ({ label, factors, selected, onToggle }) => (
-  <div className="mb-3 last:mb-0">
-    <div className="text-[12px] font-bold text-gray-500 mb-1.5">{label}</div>
-    <div className="flex flex-wrap gap-1.5">
+  <div>
+    <div className="text-[12px] font-bold text-gray-500 mb-2">{label}</div>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
       {factors.map((f) => {
         const on = selected.includes(f);
+        const desc = FACTOR_INFO[f]?.description;
         return (
           <button
             key={f}
             onClick={() => onToggle(f)}
-            title={FACTOR_INFO[f]?.description}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12.5px] transition-colors ${
-              on ? 'border-primary-300 bg-primary-50 text-primary-700 font-semibold' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+            className={`w-full flex items-start gap-2.5 text-left px-3 py-2.5 rounded-lg border transition-colors ${
+              on ? 'border-primary-300 bg-primary-50' : 'border-gray-200 bg-white hover:bg-gray-50'
             }`}
           >
-            <span className={`w-4 h-4 rounded-[4px] border flex items-center justify-center flex-shrink-0 ${on ? 'bg-primary-500 border-primary-500' : 'bg-white border-gray-300'}`}>
+            <span className={`mt-0.5 w-4 h-4 rounded-[4px] border flex items-center justify-center flex-shrink-0 ${on ? 'bg-primary-500 border-primary-500' : 'bg-white border-gray-300'}`}>
               {on && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
             </span>
-            {f}
+            <span className="min-w-0">
+              <span className={`block text-[13px] ${on ? 'font-semibold text-primary-700' : 'font-medium text-gray-800'}`}>{f}</span>
+              {desc && <span className="block text-[11.5px] text-gray-400 mt-0.5 leading-snug break-keep">{desc}</span>}
+            </span>
           </button>
         );
       })}

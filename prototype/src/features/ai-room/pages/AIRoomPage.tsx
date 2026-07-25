@@ -1,18 +1,17 @@
 /**
  * AI 어시스턴트 페이지 (B) — GNB 유지, 전체폭 렌더 (LayoutV2 content 영역)
- * - 좌측 LNB(240px): ＋새 대화 · 모드(AI 대화/생활기록부) · 대화 히스토리(제목편집·삭제·화면배지)
- * - 본문: AI 대화 / 생활기록부 작성 탭, 대화 내용 내보내기
+ * - 좌측 LNB(240px): ＋새 대화 · 대화 히스토리(제목편집·삭제·화면배지)
+ * - 본문: AI 대화, 대화 내용 내보내기
  * - 히스토리는 플로팅 챗봇과 공유 (conversationStore)
  * @see FEATURES 복사본.md - B
  */
 import { useMemo, useState } from 'react';
-import { Plus, MessageSquare, FileText, MessageCircle, MoreVertical, Pencil, Trash2, Download, Monitor } from 'lucide-react';
+import { Plus, MessageSquare, MessageCircle, MoreVertical, Pencil, Trash2, Download, Monitor } from 'lucide-react';
 import { AssistantChatTab } from './AssistantChatTab';
-import { SchoolRecordView } from '../schoolRecord/SchoolRecordView';
 import { askAssistant } from '../services/assistantService';
 import { nextId } from '../utils/id';
 import { conversationStore, useConversations } from '../utils/conversationStore';
-import type { AssistantMode, ChatMessage, Conversation } from '../types';
+import type { ChatMessage, Conversation } from '../types';
 
 const GROUP_ORDER: Conversation['group'][] = ['오늘', '지난 7일', '이전'];
 const NEW_TITLE = '새 대화';
@@ -47,7 +46,6 @@ export const AIRoomPage = () => {
   const setConversations = conversationStore.update;
 
   const [activeId, setActiveId] = useState<string>('c1');
-  const [mode, setMode] = useState<AssistantMode>('chat');
   const [isTyping, setIsTyping] = useState(false);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -64,7 +62,6 @@ export const AIRoomPage = () => {
 
   // ＋ 새 대화 — 비어있는 "새 대화"가 있으면 재사용 (B-2)
   const handleNewConversation = () => {
-    setMode('chat');
     const emptyNew = conversations.find((c) => c.title === NEW_TITLE && c.messages.length === 0);
     if (emptyNew) {
       setActiveId(emptyNew.id);
@@ -77,7 +74,6 @@ export const AIRoomPage = () => {
 
   const handleSelectConversation = (id: string) => {
     setActiveId(id);
-    setMode('chat');
   };
 
   // 제목 편집
@@ -102,7 +98,6 @@ export const AIRoomPage = () => {
       const fresh: Conversation = { id: nextId('c'), title: NEW_TITLE, group: '오늘', messages: [] };
       setConversations([fresh]);
       setActiveId(fresh.id);
-      setMode('chat');
       return;
     }
     setConversations(next);
@@ -166,22 +161,6 @@ export const AIRoomPage = () => {
             </button>
           </div>
 
-          {/* 모드 내비 */}
-          <nav className="px-3 space-y-1">
-            <ModeButton
-              active={mode === 'chat'}
-              icon={<MessageSquare className="w-[18px] h-[18px]" />}
-              label="AI 대화"
-              onClick={() => setMode('chat')}
-            />
-            <ModeButton
-              active={mode === 'record'}
-              icon={<FileText className="w-[18px] h-[18px]" />}
-              label="생활기록부 작성"
-              onClick={() => setMode('record')}
-            />
-          </nav>
-
           <div className="border-t border-gray-200 mx-3 my-3" />
 
           {/* 대화 히스토리 */}
@@ -191,7 +170,7 @@ export const AIRoomPage = () => {
                 <div className="text-[11px] font-bold text-gray-400 tracking-wide px-2 mb-1">{group}</div>
                 <ul className="space-y-0.5">
                   {items.map((c) => {
-                    const isActive = activeId === c.id && mode === 'chat';
+                    const isActive = activeId === c.id;
                     if (editingId === c.id) {
                       return (
                         <li key={c.id}>
@@ -272,44 +251,29 @@ export const AIRoomPage = () => {
           {/* 현재 대화 제목 바 (50px) */}
           <div className="h-[50px] flex-shrink-0 flex items-center justify-between px-6 border-b border-gray-100">
             <div className="flex items-center gap-2 min-w-0">
-              {mode === 'chat' ? (
-                <>
-                  <MessageSquare className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                  <span className="text-[14px] font-semibold text-gray-800 truncate">{active.title}</span>
-                  {active.screen && <ScreenBadge screen={active.screen} />}
-                </>
-              ) : (
-                <>
-                  <FileText className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                  <span className="text-[14px] font-semibold text-gray-800">생활기록부 작성</span>
-                </>
-              )}
+              <MessageSquare className="w-4 h-4 text-primary-500 flex-shrink-0" />
+              <span className="text-[14px] font-semibold text-gray-800 truncate">{active.title}</span>
+              {active.screen && <ScreenBadge screen={active.screen} />}
             </div>
-            {mode === 'chat' && (
-              <button
-                onClick={handleExport}
-                disabled={active.messages.length === 0}
-                className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-gray-600 hover:text-primary-600 border border-gray-200 hover:border-primary-300 px-2.5 py-1.5 rounded-lg disabled:opacity-40 disabled:hover:text-gray-600 disabled:hover:border-gray-200 transition-colors flex-shrink-0"
-                title="대화 내용 내보내기"
-              >
-                <Download className="w-3.5 h-3.5" />
-                내보내기
-              </button>
-            )}
+            <button
+              onClick={handleExport}
+              disabled={active.messages.length === 0}
+              className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-gray-600 hover:text-primary-600 border border-gray-200 hover:border-primary-300 px-2.5 py-1.5 rounded-lg disabled:opacity-40 disabled:hover:text-gray-600 disabled:hover:border-gray-200 transition-colors flex-shrink-0"
+              title="대화 내용 내보내기"
+            >
+              <Download className="w-3.5 h-3.5" />
+              내보내기
+            </button>
           </div>
 
           <div className="flex-1 min-h-0">
-            {mode === 'chat' ? (
-              <AssistantChatTab
-                key={active.id}
-                title={active.title}
-                messages={active.messages}
-                isTyping={isTyping}
-                onSend={handleSend}
-              />
-            ) : (
-              <SchoolRecordView />
-            )}
+            <AssistantChatTab
+              key={active.id}
+              title={active.title}
+              messages={active.messages}
+              isTyping={isTyping}
+              onSend={handleSend}
+            />
           </div>
         </main>
       </div>
@@ -319,20 +283,3 @@ export const AIRoomPage = () => {
     </div>
   );
 };
-
-const ModeButton: React.FC<{ active: boolean; icon: React.ReactNode; label: string; onClick: () => void }> = ({
-  active,
-  icon,
-  label,
-  onClick,
-}) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13.5px] transition-colors ${
-      active ? 'bg-primary-100 text-primary-700 font-bold' : 'text-gray-600 hover:bg-gray-100'
-    }`}
-  >
-    {icon}
-    {label}
-  </button>
-);
