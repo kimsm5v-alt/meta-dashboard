@@ -22,6 +22,9 @@ const ExamManagementPage = ExamPage_;
 const ExamResultPage = ExamPage_;
 const ExamTrackingPage = ExamPage_;
 
+// 검사 > 생활기록부 작성 → school-record
+import { SchoolRecordPage } from '../features/school-record';
+
 // 코칭 > 학급 코칭/개별 코칭 → counseling-dashboard
 import { ClassCoachingPage, IndividualCoachingPage } from '../features/counseling-dashboard';
 
@@ -121,6 +124,7 @@ export const AppRoutesV2 = () => (
       <Route path="/exam/management" element={<ExamManagementPage />} />
       <Route path="/exam/result" element={<ExamResultPage />} />
       <Route path="/exam/tracking" element={<ExamTrackingPage />} />
+      <Route path="/exam/record" element={<SchoolRecordPage />} />
 
       {/* 코칭 (학급 코칭 · 개별 코칭) - 독립 GNB */}
       <Route path="/coaching" element={<Navigate to="/coaching/class" replace />} />

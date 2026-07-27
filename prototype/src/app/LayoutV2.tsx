@@ -149,6 +149,7 @@ const GNB_ITEMS: GNBItem[] = [
       { id: 'management', label: '검사관리', path: '/exam/management' },
       { id: 'result', label: '결과보기', path: '/exam/result' },
       { id: 'tracking', label: '변화추적', path: '/exam/tracking' },
+      { id: 'record', label: '생활기록부 작성', path: '/exam/record' },
     ],
   },
   {
