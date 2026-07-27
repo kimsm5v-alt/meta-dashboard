@@ -22,8 +22,8 @@ const ExamManagementPage = ExamPage_;
 const ExamResultPage = ExamPage_;
 const ExamTrackingPage = ExamPage_;
 
-// 코칭 > 학급 코칭/개별 코칭 → counseling-dashboard
-import { ClassCoachingPage, IndividualCoachingPage } from '../features/counseling-dashboard';
+// 코칭 > 통합 코칭 페이지 (반/학생 선택에 따라 자동 전환)
+import { CoachingPage, ClassCoachingPage, IndividualCoachingPage } from '../features/counseling-dashboard';
 
 // 수업 → resources (TBD)
 import { ResourceListPage as LessonPage } from '../features/resources';
@@ -121,8 +121,9 @@ export const AppRoutesV2 = () => (
       <Route path="/exam/result" element={<ExamResultPage />} />
       <Route path="/exam/tracking" element={<ExamTrackingPage />} />
 
-      {/* 코칭 (학급 코칭 · 개별 코칭) - 독립 GNB */}
-      <Route path="/coaching" element={<Navigate to="/coaching/class" replace />} />
+      {/* 코칭 - 통합 페이지 (반/학생 선택에 따라 자동 전환) */}
+      <Route path="/coaching" element={<CoachingPage />} />
+      {/* 레거시 경로 호환 */}
       <Route path="/coaching/class" element={<ClassCoachingPage />} />
       <Route path="/coaching/individual" element={<IndividualCoachingPage />} />
 
