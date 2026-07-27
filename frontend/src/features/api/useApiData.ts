@@ -27,6 +27,7 @@ import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth';
 import { groupService } from '@features/groups/api/groupService';
 import { dgnssService } from '@features/groups/api/dgnssService';
+import { groupKeys } from '@features/groups/api/queryKeys';
 import { useAssessmentSlotsQueries } from '@features/assessment/api/queries';
 
 // ============================================================
@@ -536,13 +537,13 @@ export function useTeacherClasses(): UseTeacherClassesResult {
 // ============================================================
 
 /**
- * 그룹 목록 쿼리 — 캐시 공유 + 사용자별 격리
+ * 그룹 목록 쿼리 — groupKeys 캐시 공유 + 사용자별 격리
  * - 사이드바(useTeacherClassList)와 검사하기(AssessmentPage)가 캐시 공유
  * - userId를 queryKey에 포함하여 멀티 사용자 환경에서 캐시 격리 보장
  */
 function useMyGroups(userId: string | undefined) {
   return useQuery<Group[]>({
-    queryKey: ['my-groups', userId], // userId 포함으로 캐시 격리
+    queryKey: groupKeys.myGroups(userId ?? ''),
     queryFn: () => groupService.getMyGroups(userId!),
     enabled: !!userId,
     staleTime: 0,
@@ -576,7 +577,7 @@ export function useTeacherClassList(): UseTeacherClassListResult {
   const { user } = useAuth();
   const { schoolLevel: credSchoolLevel } = useCredentials();
 
-  // 그룹 목록: ['my-groups'] 캐시 공유
+  // 그룹 목록: groupKeys.myGroups 캐시 공유
   const { data: groups = [], isLoading: groupsLoading } = useMyGroups(user?.id);
 
   // 검사 상태: 검사 페이지(AssessmentPage)와 동일한 exam-slots 쿼리를 공유해

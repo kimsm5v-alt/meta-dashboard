@@ -5,6 +5,7 @@ import styled from '@emotion/styled';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { useMyGroupsQuery } from '@features/api';
+import { useGroupMembersQuery } from '@features/groups';
 import {
   EmptyState,
   GroupListView,
@@ -14,7 +15,6 @@ import {
 import { AlertModal } from '@shared/ui/AlertModal/AlertModal';
 import { EXAM_SLOTS } from '@features/assessment/constants';
 import {
-  useAssessmentGroupMembersQuery,
   useAssessmentSlotsQueries,
   useCancelExamMutation,
   useDownloadSampleExcelMutation,
@@ -88,7 +88,7 @@ export const AssessmentPage = () => {
   const { groupId: urlGroupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
 
-  // 그룹 목록: ['my-groups'] 캐시 공유 (사이드바 useTeacherClassList와 동일 캐시)
+  // 그룹 목록: groupKeys.myGroups 캐시 공유 (사이드바 useTeacherClassList와 동일 캐시)
   const {
     data: rawGroups = [],
     isLoading: isGroupsLoading,
@@ -118,7 +118,7 @@ export const AssessmentPage = () => {
     return exists ? urlGroupId : null;
   }, [urlGroupId, groups, isBaseLoading]);
 
-  const membersQuery = useAssessmentGroupMembersQuery(selectedGroupId, user?.id);
+  const membersQuery = useGroupMembersQuery(selectedGroupId, user?.id);
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
   const isMembersLoading = !!selectedGroupId && membersQuery.isLoading;
   const isLoading = isBaseLoading;

@@ -14,12 +14,18 @@ export function adjustScopeForMenu(
   const updatedMemory: ScopeMemory = { ...scopeMemory };
 
   if (level === 'all' && menuConfig.all) {
+    updatedMemory.current = adjustedScope;
     return { adjustedScope, updatedMemory };
   }
   if (level === 'class' && menuConfig.class) {
+    updatedMemory.current = adjustedScope;
+    updatedMemory.lastClassId = classId;
     return { adjustedScope, updatedMemory };
   }
   if (level === 'student' && menuConfig.student) {
+    updatedMemory.current = adjustedScope;
+    updatedMemory.lastClassId = classId;
+    updatedMemory.lastStudentId = studentId;
     return { adjustedScope, updatedMemory };
   }
 
@@ -41,7 +47,12 @@ export function adjustScopeForMenu(
       updatedMemory.lastClassId = classId;
     }
 
-    if (menuConfig.student && classId && scopeMemory.lastStudentId) {
+    if (
+      menuConfig.student &&
+      classId &&
+      scopeMemory.lastClassId === classId &&
+      scopeMemory.lastStudentId
+    ) {
       adjustedScope = {
         level: 'student',
         classId,
@@ -87,6 +98,14 @@ export function isScopeEqual(a: Scope, b: Scope): boolean {
   if (a.classId !== b.classId) return false;
   if (a.studentId !== b.studentId) return false;
   return true;
+}
+
+export function isScopeMemoryEqual(a: ScopeMemory, b: ScopeMemory): boolean {
+  return (
+    isScopeEqual(a.current, b.current) &&
+    a.lastClassId === b.lastClassId &&
+    a.lastStudentId === b.lastStudentId
+  );
 }
 
 export function getClassIdFromScope(scope: Scope): string | undefined {

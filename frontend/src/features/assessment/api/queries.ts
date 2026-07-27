@@ -1,5 +1,4 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getGroupDetail } from '@features/groups/api/groupService';
+import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import { getExamSlots } from '@features/assessment/api/examSlotService';
 import {
   cancelExam,
@@ -44,19 +43,6 @@ export const useAssessmentSlotsQueries = (groups: readonly Group[], userId: stri
     },
   };
 };
-
-export const useAssessmentGroupMembersQuery = (
-  groupId: string | null | undefined,
-  userId: string | undefined,
-) =>
-  useQuery({
-    queryKey: assessmentKeys.groupMembers(groupId ?? '', userId ?? ''),
-    enabled: !!groupId && !!userId,
-    queryFn: async () => {
-      const result = await getGroupDetail(groupId!, userId!);
-      return result?.members ?? [];
-    },
-  });
 
 const useInvalidateAssessmentGroup = () => {
   const queryClient = useQueryClient();

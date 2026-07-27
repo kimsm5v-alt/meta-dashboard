@@ -1,14 +1,6 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type React from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 
 import {
   adjustScopeForMenu,
@@ -17,7 +9,8 @@ import {
   INITIAL_SCOPE,
   INITIAL_SCOPE_MEMORY,
   isScopeEqual,
-  parseScopeFromSearchParams,
+  isScopeMemoryEqual,
+  useScopeSync,
 } from '@shared/scope';
 import type { MenuScopeConfig, Scope, ScopeMemory } from '@shared/scope';
 
@@ -36,7 +29,7 @@ const LayoutContext = createContext<LayoutContextValue | null>(null);
 
 export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { urlScope, updateURL } = useScopeSync();
 
   const [scope, setScopeState] = useState<Scope>(INITIAL_SCOPE);
   const [scopeMemory, setScopeMemory] = useState<ScopeMemory>(INITIAL_SCOPE_MEMORY);
@@ -45,39 +38,9 @@ export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const currentMenuKey = useMemo(() => getMenuKeyFromPath(location.pathname), [location.pathname]);
   const currentMenuConfig = useMemo(() => getMenuScopeConfig(currentMenuKey), [currentMenuKey]);
 
-  const isSyncingRef = useRef(false);
-  const lastScopeRef = useRef<Scope>(scope);
-  const lastPathRef = useRef(location.pathname);
-
-  const updateURL = useCallback(
-    (newScope: Scope) => {
-      const params = new URLSearchParams(searchParams);
-      params.delete('class');
-      params.delete('student');
-
-      if (newScope.classId) {
-        params.set('class', newScope.classId);
-      }
-      if (newScope.studentId) {
-        params.set('student', newScope.studentId);
-      }
-
-      if (params.toString() !== searchParams.toString()) {
-        isSyncingRef.current = true;
-        void setSearchParams(params, { replace: true });
-        setTimeout(() => {
-          isSyncingRef.current = false;
-        }, 0);
-      }
-    },
-    [searchParams, setSearchParams],
-  );
-
   const setScope = useCallback(
     (newScope: Scope) => {
       if (!isScopeEqual(newScope, scope)) {
-        setScopeState(newScope);
-        lastScopeRef.current = newScope;
         updateURL(newScope);
       }
     },
@@ -115,46 +78,20 @@ export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   /* eslint-disable react-hooks/set-state-in-effect -- URL and pathname are external router state
      that must synchronize the provider state. */
   useEffect(() => {
-    if (isSyncingRef.current) return;
-
-    const hasClassParam = searchParams.has('class');
-    const hasStudentParam = searchParams.has('student');
-
-    if (hasClassParam || hasStudentParam) {
-      const urlScope = parseScopeFromSearchParams(searchParams);
-
-      if (!isScopeEqual(urlScope, lastScopeRef.current)) {
-        lastScopeRef.current = urlScope;
-        setScopeState(urlScope);
-
-        if (urlScope.classId && currentMenuConfig.student) {
-          setExpandedClassId(urlScope.classId);
-        }
-      }
-    }
-  }, [currentMenuConfig.student, searchParams]);
-
-  useEffect(() => {
-    if (lastPathRef.current === location.pathname) return;
-    lastPathRef.current = location.pathname;
-
-    const urlScope = parseScopeFromSearchParams(searchParams);
-    const hasUrlParams = searchParams.has('class') || searchParams.has('student');
-    const baseScope = hasUrlParams ? urlScope : scope;
     const { adjustedScope, updatedMemory } = adjustScopeForMenu(
-      baseScope,
+      urlScope,
       currentMenuConfig,
       scopeMemory,
     );
 
-    if (hasUrlParams || !isScopeEqual(adjustedScope, scope)) {
+    if (!isScopeEqual(adjustedScope, scope)) {
       setScopeState(adjustedScope);
+    }
+    if (!isScopeMemoryEqual(updatedMemory, scopeMemory)) {
       setScopeMemory(updatedMemory);
-      lastScopeRef.current = adjustedScope;
-
-      if (!hasUrlParams) {
-        updateURL(adjustedScope);
-      }
+    }
+    if (!isScopeEqual(adjustedScope, urlScope)) {
+      updateURL(adjustedScope);
     }
 
     if (adjustedScope.classId && currentMenuConfig.student) {
@@ -162,7 +99,7 @@ export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } else if (!currentMenuConfig.student) {
       setExpandedClassId(null);
     }
-  }, [currentMenuConfig, location.pathname, scope, scopeMemory, searchParams, updateURL]);
+  }, [currentMenuConfig, scope, scopeMemory, updateURL, urlScope]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const contextValue = useMemo<LayoutContextValue>(
