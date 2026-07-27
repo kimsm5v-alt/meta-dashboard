@@ -1,4 +1,5 @@
 // 코칭 - 새 구조 (학급 코칭 / 학생 코칭)
+export { CoachingOverviewView } from './CoachingOverviewView';
 export { ClassCoachingView } from './ClassCoachingView';
 export { StudentCoachingView } from './StudentCoachingView';
 
