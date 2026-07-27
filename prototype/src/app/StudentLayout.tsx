@@ -68,7 +68,7 @@ const StudentHeader = () => {
 
   // [PROTOTYPE MOCK] 교사 계정으로 전환
   const handleSwitchToTeacher = () => {
-    navigate('/dashboard');
+    navigate('/home');
   };
 
   return (
