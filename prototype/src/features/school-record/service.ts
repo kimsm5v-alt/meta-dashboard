@@ -18,7 +18,7 @@ export interface GenerateResult {
 }
 
 export async function generateRecordText(
-  student: RecordStudent,
+  _student: RecordStudent,
   input: ObservationInput,
   action: RecordAction,
   counselingTexts: string[] = [],

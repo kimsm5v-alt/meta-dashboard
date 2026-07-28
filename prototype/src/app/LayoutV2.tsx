@@ -12,6 +12,7 @@ import {
   Home,
   PanelLeftClose,
   PanelLeft,
+  ArrowRightLeft,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
@@ -149,6 +150,7 @@ const GNB_ITEMS: GNBItem[] = [
       { id: 'management', label: '검사관리', path: '/exam/management' },
       { id: 'result', label: '결과보기', path: '/exam/result' },
       { id: 'tracking', label: '변화추적', path: '/exam/tracking' },
+      { id: 'record', label: '생활기록부 작성', path: '/exam/record' },
     ],
   },
   {
@@ -242,6 +244,16 @@ const Header: React.FC = () => {
 
         {/* Right Section */}
         <div className="flex items-center gap-4">
+          {/* [PROTOTYPE] 교사/학생 전환 버튼 */}
+          <button
+            onClick={() => navigate('/student/exams')}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors"
+            title="학생 화면으로 전환 (프로토타입용)"
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5" />
+            <span>학생 전환</span>
+          </button>
+
           {/* AI 어시스턴트 버튼 - 전체 페이지(B)로 이동 */}
           <button
             onClick={() => {

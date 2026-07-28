@@ -170,9 +170,11 @@ const empty = () => ({ factorCodes: [], situationCodes: [], behaviorCodes: [], f
 
 type Seed = [name: string, lpa: string, str: string[], imp: string[], status: RecordStudent['status'], extra?: Partial<RecordStudent>];
 
-const buildStudents = (classId: string, className: string, level: RecordStudent['schoolLevel'], seeds: Seed[]): RecordStudent[] =>
+// startIndex: LNB(스코프) 학생 목록(s1~s26)에서의 시작 인덱스 — 학생명 순서가 LNB와 동일
+const buildStudents = (classId: string, className: string, level: RecordStudent['schoolLevel'], startIndex: number, seeds: Seed[]): RecordStudent[] =>
   seeds.map(([name, lpa, str, imp, status, extra], i) => ({
     id: `${classId}-${i + 1}`,
+    scopeId: `s${startIndex + i + 1}`,
     no: i + 1,
     name,
     className,
@@ -185,71 +187,67 @@ const buildStudents = (classId: string, className: string, level: RecordStudent[
     ...extra,
   }));
 
-// ── 학급 mock (복수 학급 — AI 대화 대상 선택과 동일 구성) ──
-export const MOCK_RECORD_CLASSES: RecordClass[] = [
-  {
-    id: '6-1',
-    group: '햇살반',
-    name: '6학년 1반',
-    schoolLevel: '초등',
-    students: buildStudents('6-1', '6학년 1반', '초등', [
-      ['고우진', '자원소진형', ['성장마인드셋', '관계성', '자아존중감'], ['시간관리', '수업태도', '점검능력'], 'EDITED',
-        { input: { factorCodes: ['성장마인드셋'], situationCodes: ['CHALLENGE'], behaviorCodes: ['쉽게 포기하지 않고 다시 시도함'], continuityCode: 'IMPROVING', freeText: '' }, savedText: '어려운 과제에도 쉽게 포기하지 않고 다시 시도하는 끈기를 보이며, 스스로 방법을 바꾸어 해결하려는 태도가 점차 향상되고 있음.', previousSavedText: '어려운 과제에 다시 도전하는 모습을 보임.', savedAt: '2026.07.23 16:20', source: 'INDIVIDUAL_OBSERVATION' }],
-      ['김서연', '안전균형형', ['계획능력', '자기효능감', '수업태도'], ['자기정서조절', '점검능력', '관계성'], 'DRAFT',
-        { input: { factorCodes: ['수업태도'], situationCodes: ['CLASS_PARTICIPATION'], behaviorCodes: ['설명을 집중하여 들음', '궁금한 내용을 질문함'], continuityCode: 'CONSISTENT', freeText: '' }, savedText: '수업 시간에 교사의 설명을 집중하여 듣고 궁금한 내용을 스스로 질문하며 배움에 적극적으로 참여하는 태도가 꾸준히 나타남.', savedAt: '2026.07.24 14:32', source: 'INDIVIDUAL_OBSERVATION' }],
-      ['박지호', '안전균형형', ['자아존중감', '관계성', '계획능력'], ['자기효능감', '시간관리', '점검능력'], 'INPUTTING',
-        { input: { factorCodes: ['관계성'], situationCodes: ['GROUP_ACTIVITY'], behaviorCodes: [], freeText: '' } }],
-      ['최수아', '안전균형형', ['타인공감능력', '관계성', '자아존중감'], ['시간관리', '계획능력', '점검능력'], 'DRAFT',
-        { input: { factorCodes: ['타인공감능력'], situationCodes: ['PEER_RELATIONSHIP'], behaviorCodes: ['친구의 고민이나 이야기를 들어줌', '어려움을 겪는 친구를 도와줌'], continuityCode: 'CONSISTENT', freeText: '' }, savedText: '친구의 고민을 진심으로 들어주고 어려움을 겪는 친구를 먼저 도와주는 등 상대의 감정을 살피며 배려하는 모습이 꾸준히 나타남.', savedAt: '2026.07.24 11:05', source: 'INDIVIDUAL_OBSERVATION' }],
-      ['정예준', '몰입자원풍부형', ['수업태도', '계획능력', '성장마인드셋'], ['타인공감능력', '자기정서조절', '관계성'], 'EMPTY'],
-      ['강하은', '몰입자원풍부형', ['계획능력', '점검능력', '자기효능감'], ['타인공감능력', '관계성', '자기정서조절'], 'EMPTY'],
-      ['조민서', '안전균형형', ['계획능력', '수업태도', '관계성'], ['자아존중감', '자기효능감', '시간관리'], 'EMPTY'],
-      ['윤시우', '자원소진형', ['성장마인드셋', '자기효능감', '수업태도'], ['자기정서조절', '관계성', '점검능력'], 'EMPTY'],
-      ['장도윤', '몰입자원풍부형', ['타인공감능력', '수업태도', '성장마인드셋'], ['시간관리', '점검능력', '자기정서조절'], 'EMPTY'],
-      ['임지아', '몰입자원풍부형', ['수업태도', '성장마인드셋', '점검능력'], ['타인공감능력', '자기정서조절', '관계성'], 'EMPTY'],
-    ]),
-  },
-  {
-    id: '6-2',
-    group: '바다반',
-    name: '6학년 2반',
-    schoolLevel: '초등',
-    students: buildStudents('6-2', '6학년 2반', '초등', [
-      ['한서준', '몰입자원풍부형', ['자기효능감', '계획능력', '점검능력'], ['타인공감능력', '관계성', '자기정서조절'], 'EMPTY'],
-      ['오하린', '안전균형형', ['관계성', '타인공감능력', '자아존중감'], ['시간관리', '점검능력', '계획능력'], 'DRAFT',
-        { input: { factorCodes: ['관계성'], situationCodes: ['GROUP_ACTIVITY'], behaviorCodes: ['서로 다른 의견을 조율함', '모둠의 목표 달성에 기여함'], continuityCode: 'MORE_FREQUENT', freeText: '' }, savedText: '모둠 활동에서 서로 다른 의견을 조율하고 공동의 목표 달성에 기여하는 모습이 최근 더욱 자주 나타남.', savedAt: '2026.07.24 09:40', source: 'INDIVIDUAL_OBSERVATION' }],
-      ['신유나', '안전균형형', ['자아존중감', '수업태도', '관계성'], ['자기효능감', '시간관리', '점검능력'], 'EMPTY'],
-      ['권준우', '자원소진형', ['성장마인드셋', '자기효능감', '계획능력'], ['자기정서조절', '수업태도', '점검능력'], 'INPUTTING',
-        { input: { factorCodes: ['성장마인드셋'], situationCodes: ['CHALLENGE'], behaviorCodes: [], freeText: '' } }],
-      ['송지원', '몰입자원풍부형', ['수업태도', '성장마인드셋', '점검능력'], ['타인공감능력', '자기정서조절', '관계성'], 'EMPTY'],
-      ['백서윤', '안전균형형', ['타인공감능력', '관계성', '수업태도'], ['시간관리', '계획능력', '자기정서조절'], 'EMPTY'],
-      ['고은우', '몰입자원풍부형', ['계획능력', '점검능력', '수업태도'], ['타인공감능력', '관계성', '자아존중감'], 'EMPTY'],
-      ['문채원', '안전균형형', ['관계성', '자아존중감', '계획능력'], ['자기효능감', '점검능력', '시간관리'], 'EMPTY'],
-    ]),
-  },
-  {
-    id: '5-3',
-    group: '나무반',
-    name: '5학년 3반',
-    schoolLevel: '초등',
-    students: buildStudents('5-3', '5학년 3반', '초등', [
-      ['양시온', '몰입자원풍부형', ['수업태도', '계획능력', '성장마인드셋'], ['타인공감능력', '자기정서조절', '관계성'], 'EMPTY'],
-      ['배하율', '자원소진형', ['성장마인드셋', '자아존중감', '자기효능감'], ['시간관리', '수업태도', '점검능력'], 'EMPTY'],
-      ['허지후', '안전균형형', ['타인공감능력', '관계성', '자아존중감'], ['자기정서조절', '시간관리', '점검능력'], 'EMPTY'],
-      ['남윤서', '몰입자원풍부형', ['수업태도', '점검능력', '계획능력'], ['타인공감능력', '관계성', '자기정서조절'], 'EMPTY'],
-      ['심현우', '안전균형형', ['계획능력', '관계성', '수업태도'], ['자아존중감', '자기효능감', '시간관리'], 'EMPTY'],
-      ['안소율', '몰입자원풍부형', ['자기효능감', '타인공감능력', '점검능력'], ['시간관리', '자기정서조절', '계획능력'], 'EMPTY'],
-    ]),
-  },
+// ── 공통 학생 로스터 (LNB 스코프의 s1~s26과 동일) ──
+// 앱 전역 규칙상 모든 반이 같은 26명 로스터를 공유한다 (LNB·검사 mock과 동일).
+const ROSTER: Seed[] = [
+  ['김민준', '자원소진형', ['성장마인드셋', '관계성', '자아존중감'], ['시간관리', '수업태도', '점검능력'], 'EDITED',
+    { input: { factorCodes: ['성장마인드셋'], situationCodes: ['CHALLENGE'], behaviorCodes: ['쉽게 포기하지 않고 다시 시도함'], continuityCode: 'IMPROVING', freeText: '' }, savedText: '어려운 과제에도 쉽게 포기하지 않고 다시 시도하는 끈기를 보이며, 스스로 방법을 바꾸어 해결하려는 태도가 점차 향상되고 있음.', previousSavedText: '어려운 과제에 다시 도전하는 모습을 보임.', savedAt: '2026.07.23 16:20', source: 'INDIVIDUAL_OBSERVATION' }],
+  ['이서연', '안전균형형', ['계획능력', '자기효능감', '수업태도'], ['자기정서조절', '점검능력', '관계성'], 'DRAFT',
+    { input: { factorCodes: ['수업태도'], situationCodes: ['CLASS_PARTICIPATION'], behaviorCodes: ['설명을 집중하여 들음', '궁금한 내용을 질문함'], continuityCode: 'CONSISTENT', freeText: '' }, savedText: '수업 시간에 교사의 설명을 집중하여 듣고 궁금한 내용을 스스로 질문하며 배움에 적극적으로 참여하는 태도가 꾸준히 나타남.', savedAt: '2026.07.24 14:32', source: 'INDIVIDUAL_OBSERVATION' }],
+  ['박지호', '안전균형형', ['자아존중감', '관계성', '계획능력'], ['자기효능감', '시간관리', '점검능력'], 'INPUTTING',
+    { input: { factorCodes: ['관계성'], situationCodes: ['GROUP_ACTIVITY'], behaviorCodes: [], freeText: '' }, savedAt: '2026.07.24 10:15' }],
+  ['최수아', '안전균형형', ['타인공감능력', '관계성', '자아존중감'], ['시간관리', '계획능력', '점검능력'], 'DRAFT',
+    { input: { factorCodes: ['타인공감능력'], situationCodes: ['PEER_RELATIONSHIP'], behaviorCodes: ['친구의 고민이나 이야기를 들어줌', '어려움을 겪는 친구를 도와줌'], continuityCode: 'CONSISTENT', freeText: '' }, savedText: '친구의 고민을 진심으로 들어주고 어려움을 겪는 친구를 먼저 도와주는 등 상대의 감정을 살피며 배려하는 모습이 꾸준히 나타남.', savedAt: '2026.07.24 11:05', source: 'INDIVIDUAL_OBSERVATION' }],
+  ['정예준', '몰입자원풍부형', ['수업태도', '계획능력', '성장마인드셋'], ['타인공감능력', '자기정서조절', '관계성'], 'EMPTY'],
+  ['강하은', '몰입자원풍부형', ['계획능력', '점검능력', '자기효능감'], ['타인공감능력', '관계성', '자기정서조절'], 'EMPTY'],
+  ['조민서', '안전균형형', ['계획능력', '수업태도', '관계성'], ['자아존중감', '자기효능감', '시간관리'], 'EMPTY'],
+  ['윤시우', '자원소진형', ['성장마인드셋', '자기효능감', '수업태도'], ['자기정서조절', '관계성', '점검능력'], 'EMPTY'],
+  ['장도윤', '몰입자원풍부형', ['타인공감능력', '수업태도', '성장마인드셋'], ['시간관리', '점검능력', '자기정서조절'], 'EMPTY'],
+  ['임지아', '몰입자원풍부형', ['수업태도', '성장마인드셋', '점검능력'], ['타인공감능력', '자기정서조절', '관계성'], 'EMPTY'],
+  ['한서준', '몰입자원풍부형', ['자기효능감', '계획능력', '점검능력'], ['타인공감능력', '관계성', '자기정서조절'], 'EMPTY'],
+  ['오하린', '안전균형형', ['관계성', '타인공감능력', '자아존중감'], ['시간관리', '점검능력', '계획능력'], 'DRAFT',
+    { input: { factorCodes: ['관계성'], situationCodes: ['GROUP_ACTIVITY'], behaviorCodes: ['서로 다른 의견을 조율함', '모둠의 목표 달성에 기여함'], continuityCode: 'MORE_FREQUENT', freeText: '' }, savedText: '모둠 활동에서 서로 다른 의견을 조율하고 공동의 목표 달성에 기여하는 모습이 최근 더욱 자주 나타남.', savedAt: '2026.07.24 09:40', source: 'INDIVIDUAL_OBSERVATION' }],
+  ['신유나', '안전균형형', ['자아존중감', '수업태도', '관계성'], ['자기효능감', '시간관리', '점검능력'], 'EMPTY'],
+  ['권준우', '자원소진형', ['성장마인드셋', '자기효능감', '계획능력'], ['자기정서조절', '수업태도', '점검능력'], 'INPUTTING',
+    { input: { factorCodes: ['성장마인드셋'], situationCodes: ['CHALLENGE'], behaviorCodes: [], freeText: '' }, savedAt: '2026.07.23 15:40' }],
+  ['송지원', '몰입자원풍부형', ['수업태도', '성장마인드셋', '점검능력'], ['타인공감능력', '자기정서조절', '관계성'], 'EMPTY'],
+  ['백서윤', '안전균형형', ['타인공감능력', '관계성', '수업태도'], ['시간관리', '계획능력', '자기정서조절'], 'EMPTY'],
+  ['고은우', '몰입자원풍부형', ['계획능력', '점검능력', '수업태도'], ['타인공감능력', '관계성', '자아존중감'], 'EMPTY'],
+  ['문채원', '안전균형형', ['관계성', '자아존중감', '계획능력'], ['자기효능감', '점검능력', '시간관리'], 'EMPTY'],
+  ['양시온', '몰입자원풍부형', ['수업태도', '계획능력', '성장마인드셋'], ['타인공감능력', '자기정서조절', '관계성'], 'EMPTY'],
+  ['배하율', '자원소진형', ['성장마인드셋', '자아존중감', '자기효능감'], ['시간관리', '수업태도', '점검능력'], 'EMPTY'],
+  ['허지후', '안전균형형', ['타인공감능력', '관계성', '자아존중감'], ['자기정서조절', '시간관리', '점검능력'], 'EMPTY'],
+  ['남윤서', '몰입자원풍부형', ['수업태도', '점검능력', '계획능력'], ['타인공감능력', '관계성', '자기정서조절'], 'EMPTY'],
+  ['심현우', '안전균형형', ['계획능력', '관계성', '수업태도'], ['자아존중감', '자기효능감', '시간관리'], 'EMPTY'],
+  ['안소율', '몰입자원풍부형', ['자기효능감', '타인공감능력', '점검능력'], ['시간관리', '자기정서조절', '계획능력'], 'EMPTY'],
+  ['유건우', '안전균형형', ['자기효능감', '계획능력', '수업태도'], ['자기정서조절', '관계성', '점검능력'], 'EMPTY'],
+  ['노이서', '몰입자원풍부형', ['성장마인드셋', '수업태도', '계획능력'], ['타인공감능력', '시간관리', '관계성'], 'EMPTY'],
 ];
 
+// ── 학급 mock (LNB 스코프의 학급/학생과 동일 구성 — group-1~4 / 2-3~2-6반, 로스터 공유) ──
+const RECORD_CLASS_META: { id: string; name: string }[] = [
+  { id: 'group-1', name: '2-3반' },
+  { id: 'group-2', name: '2-4반' },
+  { id: 'group-3', name: '2-5반' },
+  { id: 'group-4', name: '2-6반' },
+];
+
+export const MOCK_RECORD_CLASSES: RecordClass[] = RECORD_CLASS_META.map(({ id, name }) => ({
+  id,
+  group: name,
+  name,
+  schoolLevel: '초등',
+  students: buildStudents(id, name, '초등', 0, ROSTER),
+}));
+
 // ── 상담·관찰 기록 mock (학생 id 기준) ─────────────────────
+// 학생(스코프 id) 기준 상담·관찰 기록 — 로스터를 공유하므로 반과 무관하게 학생을 따라감
 export const MOCK_COUNSELING: Record<string, CounselingRecord[]> = {
-  '6-1-1': [{ id: 'c1', date: '2026.04.28', category: '학습 상담', summary: '한 번 실패한 과제를 방식을 바꿔 다시 시도해 완성함.' }],
-  '6-1-2': [
+  s1: [{ id: 'c1', date: '2026.04.28', category: '학습 상담', summary: '한 번 실패한 과제를 방식을 바꿔 다시 시도해 완성함.' }],
+  s2: [
     { id: 'c2', date: '2026.05.12', category: '학습 상담', summary: '모둠 과제에서 친구들의 의견을 정리해 발표를 맡음. 역할에 책임감을 보임.' },
     { id: 'c3', date: '2026.06.03', category: '관찰 메모', summary: '어려워하는 짝을 도와 문제 풀이를 함께 진행하는 모습을 관찰함.' },
   ],
-  '6-1-4': [{ id: 'c4', date: '2026.06.10', category: '관찰 메모', summary: '다툰 친구에게 먼저 다가가 사과하고 관계를 회복함.' }],
-  '6-2-2': [{ id: 'c5', date: '2026.05.20', category: '정서 상담', summary: '발표 전 긴장을 호소했으나, 심호흡 후 차분하게 발표를 마침.' }],
+  s4: [{ id: 'c4', date: '2026.06.10', category: '관찰 메모', summary: '다툰 친구에게 먼저 다가가 사과하고 관계를 회복함.' }],
+  s12: [{ id: 'c5', date: '2026.05.20', category: '정서 상담', summary: '발표 전 긴장을 호소했으나, 심호흡 후 차분하게 발표를 마침.' }],
 };

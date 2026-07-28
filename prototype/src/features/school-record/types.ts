@@ -42,6 +42,8 @@ export interface RecordClass {
 /** 학생 (작성 현황 + 작성 상태 포함) */
 export interface RecordStudent {
   id: string;
+  /** LNB(스코프) 학생 id — 좌측 사이드바 선택 연동용 */
+  scopeId: string;
   no: number;
   name: string;
   className: string;
