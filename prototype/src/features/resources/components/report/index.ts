@@ -6,6 +6,6 @@ export { ReportCard } from './ReportCard';
 export { ReportDetail } from './ReportDetail';
 export { ReportSummary } from './ReportSummary';
 export { RdTabBar } from './RdTabBar';
-export { SlideTab } from './SlideTab';
+export { PageTab } from './PageTab';
 export { StudentTab } from './StudentTab';
-export { RsBadge, ClassBadge } from './badges';
+export { RsBadge, ClassBadge, NatureBadge, ErrataBadge, StatusBadge } from './badges';

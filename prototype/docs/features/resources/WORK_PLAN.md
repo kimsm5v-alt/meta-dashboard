@@ -133,3 +133,81 @@
 - **역할 토글 제거**: `ResourceListPage` 의 `RoleToggle`·역할 분기 삭제, 스토어에서 `role`/`setRole`/`Role`/`SET_ROLE` 제거 → resources 는 교사 전용으로 단순화.
 - **라우팅**: `app/routes` **미변경**. 학생 전용 경로 연결은 팀 논의 후 결정 → `StudentResourcePage`·`ResourceListPage` 에 `TODO(routing)` 주석으로 남김.
 - **검증 완료**: `tsc --noEmit` resources·student-resources 파일 에러 0 · Vite 모듈 200 OK.
+
+---
+
+## 리포트 리팩터링 (2026-07-28) — REPORT_SPEC_v2 기준
+기존 해시 기반 슬라이드 모델(`Slide`/`SlideResponse`/`SLIDE_SETS`)을 실제 학심정 데이터 모델(`Article`/`ResponseData`/`StudentActivity`)로 교체. 사양서: `docs/features/resources/REPORT_SPEC_v2.md`.
+방침: 프로젝트 규칙 최우선(primary-500, Tailwind, 신규코드 이모지 금지=Lucide, `@/` 절대임포트) · 범위 `resources/`+`student-resources/` · `app/`·라우팅 미변경(TODO). 상세 데이터=공용 단일 데이터셋(참여 리포트 공유, 진행예정 빈상태). 컴파일 안전 위해 R1 additive → R5에서 레거시 제거.
+
+| Phase | 내용 | 상태 |
+|---|---|---|
+| R1 기반 | 타입·mock·집계(additive) | ✅ 완료 |
+| R2 화면1 | StatusPanel/ReportCard 집계 소스 교체 | ✅ 완료 |
+| R3 화면2 | ReportDetail/ReportSummary + badges/format | ✅ 완료 |
+| R4 화면3 | PageTab + 성격별 6뷰 (SlideTab 교체) | ✅ 완료 |
+| R5 화면4 | StudentTab 교체 + 레거시 제거 | ✅ 완료 |
+| R6 화면5 | student-resources 학생 리포트 2종 | ✅ 완료 |
+| R7 배선 | 학생 LNB "수업 결과보기" + /student/lesson (app/ 예외 승인) | ✅ 완료 |
+
+### R1 — 타입·mock·집계 (기반) ✅
+- [x] `types.ts` — `Article`/`ResponseData`/`StudentActivity`/`ClassReportSummary`/`StudentSummary` + `Nature`/`Errata`/`GradingType`/`StatusCd` 추가, `Report` 상세필드(articles/students/responses/selFactors/activityMode) 확장. 레거시 Slide 타입 `@deprecated` 유지(R5 제거).
+- [x] `mock-data.ts` — `REPORT_ARTICLES`(6)/`REPORT_STUDENTS`(5)/`REPORT_RESPONSES` 공용셋 추가, 참여 리포트(r1·r2·r4·r5·r6)에 연결. 레거시 `SLIDE_SETS`/`STUDENTS` 유지(R5 제거).
+- [x] `utils/aggregation.ts` — canonical 신규 함수 추가: `articlesOf`/`studentsOf`/`responsesOf`/`responseOf`/`assignedCount`/`participantCount`/`unsubmittedCount`/`submitRate`/`gradableArticles`/`hasGradedItems`/`avgCorrectRate`/`avgDurationSec`/`articleResponded`/`choiceDist`/`articleAccuracy`/`studentSummary`. 레거시 slide 함수 유지(R5 제거).
+- **정합성**: 공용셋 계산값 = 사양서 mockClassSummary와 일치(참여 4/배정 5/제출률 80%/평균정답률 75%/평균시간 340초).
+- **검증 완료**: `tsc --noEmit` 편집파일(types·mock-data·aggregation) 에러 **0**. (기존 `app/routes.tsx`의 `ResourceDetailPage` 에러는 Phase 0 이전부터 존재 · 범위 밖) · R1 additive라 런타임 무변화(/lesson 기존과 동일).
+
+### R2 — 결과보기 상단(화면1) ✅
+- [x] `StatusPanel.tsx` — 집계 소스 교체(`participation`/`STUDENTS` → `submitRate`/`unsubmittedCount`/`studentsOf`). `missing` 하드코딩(전체12/반5) 제거 → 배포 리포트 `unsubmittedCount` 합계. 미제출 칩 = 배포 리포트 statusCd=2 학생명(중복 제거). 헤더 이모지 📈 → Lucide `TrendingUp`.
+- [x] `ReportCard.tsx` — 참여 표시 `participation/total` → `participantCount/assignedCount`. 상세 진입 시드 `submitters[0]` → `studentsOf[0].studentName`. 이모지 📅·📊 → Lucide `Calendar`·`BarChart3`.
+- **검증**: `tsc --noEmit` 신규 에러 0. 수치: 전체(진행중2·이번주5·평균80%·미제출5) / 2-3반(진행중1·이번주2·평균80%·미제출2·칩[박도윤]) / 카드 "참여 4/5명"·진행예정 "시작 전".
+
+### R3 — 리포트 상세 상단(화면2) ✅
+- [x] `badges.tsx` — 신규 `NatureBadge`(개념 gray·활동 emerald·문항 primary)·`ErrataBadge`(O 파랑/X 빨강/△ 주황/– 회색)·`StatusBadge`(완료·진행중·제출·미제출) 추가. 기존 `RsBadge`/`ClassBadge` 이모지(🟢🟡⬜👥) 제거 → 색 도트/Lucide `Users`. 색상은 프로젝트 기준.
+- [x] `format.ts` — `pct(part,whole)` 헬퍼 추가.
+- [x] `ReportSummary.tsx` — 요약카드 4종(참여 인원 n/m명·% / 평균 정답률 / 제출률 / 평균 활동 시간) 신규 집계로 교체, SEL 역량 배지·activityMode 배지·활동정보 헤더. 이모지(📅📝🎨) → Lucide `Calendar`. "N개 슬라이드" → "N개 페이지".
+- [x] `report/index.ts` — 신규 배지 export 추가.
+- [x] `ReportDetail.tsx` — 변경 없음(활동정보·SEL·요약은 ReportSummary로 흡수, 탭 스위치는 R4에서 PageTab 연동).
+- **검증**: `tsc --noEmit` resources·student-resources 에러 **0** (전체 176은 전부 app/·타 feature = 범위 밖). 참여 정합성 유지(카드 4/5 = 상세 4/5).
+
+### R4 — 페이지별 보기(화면3) ✅
+- [x] `SlideTab.tsx` 삭제 → `PageTab.tsx`(좌 PageList + 우 PageContent, 참여 0이면 빈상태).
+- [x] `PageList.tsx` — 페이지 목록(번호 + 성격 배지 + 응답 n/배정).
+- [x] `PageContent.tsx` — 선택 페이지 정보 + 성격/유형별 뷰 매핑 디스패치.
+- [x] `page-views/` 6종: `ConceptView`(봄/안봄, Eye/EyeOff) · `TextResponseList`(활동 텍스트 / 문항 서술·단답 graded 비교+정오) · `DrawingGrid`(캡처 placeholder + 활동 보기 토스트) · `AudioList`(audio/video 재생 토스트+길이) · `ChoiceDistribution`(보기 분포 바 + 정답 + 학생별 정오) · `OXResultList`(O/X + 정오). + `shared.tsx`(submittedRows/NoResponses).
+- [x] 배선: `RdTabBar` 라벨 "페이지별 보기"(id는 'slide' 유지, 이모지→Lucide FileText/User), `ReportDetail` PageTab 연동, `report/index.ts` export 교체.
+- **이모지**: 신규 6뷰 전부 Lucide 아이콘(Eye/EyeOff/Image/Play/Clock)·색 도트만 사용, 이모지 0.
+- **검증**: `tsc --noEmit` resources 에러 0 · Vite dev `/lesson` 200 · 신규 10개 모듈 트랜스폼 전부 200(에러 로그 없음).
+
+### R5 — 학생별 보기(화면4) + 레거시 제거 ✅
+- [x] `StudentTab.tsx` 교체 — 좌 학생 리스트(StatusBadge) / 우 학습 요약 3카드(활동 페이지 · 정답률·맞춘 문제 · 활동시간·제출시각) + 페이지별 캡처 타임라인(placeholder + 정오 뱃지 + drawing/audio/video "보기"). 선택 식별자 studentId 로 통일(ReportCard 시드도 studentId). 이모지(🕒🧑✓!🖼▶) 전부 Lucide.
+- [x] **레거시 제거**: `aggregation.ts` slide 함수 13종·구 타입 import 삭제(Article 기반만 유지). `mock-data.ts` `SLIDE_SETS`/`DEFAULT_SLIDES`·`Slide` import 삭제. `types.ts` `Slide`/`OpenSlide`/`GradedSlide`/`SlideResponse`/`StudentStats`/`SlideDist`/`SlideKind` 삭제.
+- [x] **STUDENTS 유지** — `components/live/MonitorPanel.tsx`(Phase 7 실시간 수업)가 사용 중이라 보존(리포트 범위 밖).
+- **검증**: `tsc --noEmit` resources·student-resources 에러 **0** · 레거시 식별자 잔존 참조 **0** · Vite dev `/lesson`·StudentTab·mock·aggregation·types 트랜스폼 200(에러 없음).
+
+### R6 — 학생 리포트(화면5) ✅
+- [x] `student-resources/types.ts` — self-contained 학생 타입 추가(`StudentReportItem`/`StudentArticle`/`StudentResponse`/`StudentReportDetail`/`Nature`/`Errata`/`StudentStatus`). 기존 `StudentTask` 유지.
+- [x] `student-resources/mock-data.ts` — `STUDENT_REPORTS`(배정 4건)·`STUDENT_REPORT_DETAILS`(sr-1 갈등해결 6페이지=김서준 응답, sr-4 정서안정 활동중심) 추가. 기존 `STUDENT_TASKS` 유지.
+- [x] `components/badges.tsx`(신규, self-contained) — `StudentStatusBadge`/`NatureBadge`/`ErrataBadge`.
+- [x] `components/StudentReportDashboard.tsx`(5-1) — 배정 활동 리스트 + 제출상태 배지 + 마감일 + 정답률. 완료 활동만 상세 진입, 미제출은 토스트.
+- [x] `components/StudentDetailReport.tsx`(5-2) — 요약 3카드(활동 페이지·정답률·활동시간/제출) + 페이지별 내 캡처 placeholder + 정오 뱃지 + 내 답 vs 정답.
+- [x] `pages/StudentResourcePage.tsx` — 대시보드↔상세 내부 state 전환(배너 유지). `StudentBanner` 이모지(🟢) 제거.
+- [x] 배럴(`components/index.ts`) 갱신. 이모지 0(Lucide만).
+
+### R7 — 학생 라우팅 배선 (app/ 예외 · 사용자 승인) ✅
+- [x] `app/StudentLayout.tsx` — 학생 LNB `studentNavItems` 에 "수업 결과보기"(`/student/lesson`, Lucide `Presentation`) 추가.
+- [x] `app/routesV2.tsx`(활성 라우터) — `StudentResourcePage` import + `<Route path="/student/lesson">` 추가(StudentProtectedLayout 하위).
+- **검증**: `tsc --noEmit` student-resources·StudentLayout 에러 **0**. routesV2 는 신규 `<Route>` 가 기존 systemic 에러(`TS2786 Route cannot be used as a JSX component`, 병합 유입 React/react-router 타입 불일치 — 전 Route 공통, 범위 밖)를 1건 상속(내 코드 결함 아님, import 정상). Vite dev `/student/lesson` 200 · 신규 6개 학생 모듈 + StudentLayout·routesV2 트랜스폼 200(에러 없음).
+- **⚠️ app/ 수정 사유**: "app/ 건들지 마" 규칙의 예외 — 사용자가 학생 화면 접근을 위해 명시 승인. 담당 규칙상 app/ 은 메뉴구조 브랜치(공통) 영역이므로 병합 시 팀 공유 필요.
+
+**리포트 리팩터링 R1~R7 전체 완료** 🎉 · resources·student-resources tsc 에러 0 · 리포트 subsystem 신 데이터 모델 전면 교체 + 학생 화면 라우팅 연결.
+
+### R8 — 리포트 상세 통일 (학생별/페이지별 정리) ✅
+사용자 요청: 탭 순서 학생별→페이지별, 성격(개념/문항/활동)별 제각각 렌더를 통일, 레퍼런스(평가 리포트 답안 표) 참고. 컨펌: 집계=요약 strip 유지 · 정오 요약 표=학생별에만 · 통일 범위=교사+학생 둘 다.
+- [x] **신규 공용** `components/report/detail/`: `UnifiedResponseCard`(고정 4-슬롯: 캡처·주라벨+성격+응답값·정오슬롯·활동보기슬롯, 해당 없으면 비활성 회색) · `SummaryStrip`(페이지별 성격별 집계: 문항 정답률+분포/활동 제출/개념 조회) · `ErrataSummaryTable`(학생별 정오 요약 표, 열=페이지·행=[반평균, 내결과], overflow-x + sticky) · `shared.tsx`(submittedRows/NoResponses/`responseCell` 매핑).
+- [x] **재작성** `StudentTab`(학생 카드 리스트 / 요약3카드 → 정오 요약 표 → 페이지별 통일 카드) · `PageContent`(페이지 정보 → SummaryStrip → 학생별 통일 카드).
+- [x] **탭 순서** `RdTabBar` 학생별→페이지별, **기본 탭** store `rdTab:'student'`(initialState+OPEN_REPORT).
+- [x] **삭제** `page-views/` 6종(ConceptView·TextResponseList·DrawingGrid·AudioList·ChoiceDistribution·OXResultList)+`page-views/shared.tsx` → detail/로 흡수. 잔존 참조 0.
+- [x] **학생 화면5** `StudentDetailReport` 페이지 내역을 동일 4-슬롯(정오·활동보기 슬롯 항상 표기, N/A 비활성)으로 정렬.
+- **검증**: `tsc --noEmit` resources·student-resources 에러 **0**(전체 177은 전부 app/·타 feature 범위 밖) · Vite dev 신규 detail 4모듈+재작성 5모듈 트랜스폼 200 · `/lesson`·`/student/lesson` 200 · 에러 로그 없음.
+- **R8 조정(피드백)**: ① 페이지별 카드는 성격 배지 숨김(`UnifiedResponseCard showNature` prop, 페이지별=false — 상단 페이지 정보에 성격 이미 표기, 중복 제거). ② '보기' 버튼은 유형 무관 **제출 시 활성**(제출=캡처 저장 → 캡처 보기; `replayable` 게이팅 제거, teacher·학생화면5 공통). ③ SummaryStrip 통계(분포바·정답률%) 제거 → **정오 있으면 정오 개수(정답/오답/부분), 아니면 제출·조회 수만**.

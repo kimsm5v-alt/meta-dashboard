@@ -6,7 +6,7 @@ import { REPORTS } from '../../mock-data';
 import { useResources } from '../../store/ResourcesContext';
 import { ReportSummary } from './ReportSummary';
 import { RdTabBar } from './RdTabBar';
-import { SlideTab } from './SlideTab';
+import { PageTab } from './PageTab';
 import { StudentTab } from './StudentTab';
 
 export const ReportDetail = () => {
@@ -27,7 +27,7 @@ export const ReportDetail = () => {
 
       <ReportSummary report={report} />
       <RdTabBar />
-      {rdTab === 'slide' ? <SlideTab report={report} /> : <StudentTab report={report} />}
+      {rdTab === 'slide' ? <PageTab report={report} /> : <StudentTab report={report} />}
     </div>
   );
 };
