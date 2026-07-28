@@ -21,9 +21,6 @@ export type SelArea =
 /** 배포 수업(리포트) 상태 */
 export type ReportStatus = '진행예정' | '진행중' | '완료';
 
-/** 슬라이드 종류: 활동형(개방·정답없음) / 문항형(정답있음) */
-export type SlideKind = '활동형' | '문항형';
-
 /** 색상 그룹 키 (썸네일 배경) — 목업 g1~g6 */
 export type ColorGroup = 'g1' | 'g2' | 'g3' | 'g4' | 'g5' | 'g6';
 
@@ -89,57 +86,92 @@ export interface Report {
   title: string;
   cls: string;
   rstatus: ReportStatus;
-  total: number; // 반 전체 인원
+  total: number; // 반 전체 인원 (상세 미연결 리포트의 fallback 배정 인원)
   g: ColorGroup;
   em: string;
   start: string; // 'MM/DD'
   end: string;
+  // === 리포트 상세 (REPORT_SPEC_v2) — 참여 리포트만 연결, 진행예정은 미연결 ===
+  activityMode?: '수업' | '과제'; // 실시간 수업 / 비실시간 과제
+  selFactors?: string[]; // 세트지에 포함된 SEL 역량요인
+  articles?: Article[]; // 페이지(아티클) 정의
+  students?: StudentActivity[]; // 학생 × 세트지 활동
+  responses?: ResponseData[]; // 학생 × 아티클 응답
 }
 
 // ============================================
-// 리포트 상세 — 슬라이드 정의
+// 실제 리포트 데이터 모델 (REPORT_SPEC_v2 / 엑셀 학습데이터_260728)
 // ============================================
 
-/** 활동형 슬라이드(개방형, 정답 없음) */
-export interface OpenSlide {
-  t: string;
-  k: '활동형';
-  pool: string[]; // 응답 표본 풀
+/** 콘텐츠 성격 */
+export type Nature = '개념' | '활동' | '문항';
+
+/** 정오 코드: 1=정답, 2=오답, 3=부분정답, 4=채점불가 */
+export type Errata = 1 | 2 | 3 | 4;
+
+/** 채점 방식: 1=자동, 2=참여(교사 수동), 3=측정 */
+export type GradingType = 1 | 2 | 3;
+
+/** 학생 활동 상태: 2=대기, 3=제출, 4=진행중, 5=완료 */
+export type StatusCd = 2 | 3 | 4 | 5;
+
+/**
+ * 아티클(페이지) 정의.
+ * itemType(열린 집합, 엑셀 시트2): choice·ox·tf·short·essay·drawing·audio·video·board·chain·quiz·sequence·matching·'-'.
+ */
+export interface Article {
+  id: string;
+  order: number; // 페이지 번호
+  nature: Nature; // 개념 / 활동 / 문항
+  itemType: string;
+  title: string;
+  correctAnswer?: string; // 문항(정답 있는 유형)만
+  selFactor?: string; // SEL 역량요인
+  gradingType: GradingType;
 }
 
-/** 문항형 슬라이드(정답 있음) */
-export interface GradedSlide {
-  t: string;
-  k: '문항형';
-  options: string[];
-  correct: number; // 정답 인덱스
+/** 응답 데이터 (학생 × 아티클) */
+export interface ResponseData {
+  articleId: string;
+  studentId: string;
+  submitAnswer: string; // 유형별 값 상이 (보기번호 / O·X / 텍스트 / 파일참조 등)
+  errata: Errata;
+  itemType: string;
+  gradingType: GradingType;
+  captureImage?: string; // 뷰어 캡처 (저장 방식 미확정 → placeholder)
 }
 
-export type Slide = OpenSlide | GradedSlide;
-
-/** 한 학생의 특정 슬라이드 응답(결정적 mock) */
-export interface SlideResponse {
-  submitted: boolean;
-  value: string | null;
-  correct: boolean | null; // 문항형만 유의미
-  timeSec: number;
+/** 세트지 데이터 (학생 × 세트지) */
+export interface StudentActivity {
+  studentId: string;
+  studentName: string;
+  statusCd: StatusCd;
+  period: { start: string; end: string };
+  score?: number; // 100점 환산
+  submittedAt?: string; // 제출 시각
+  duration?: number; // 소요 시간(초)
 }
 
-/** 한 학생의 리포트 종합 통계 */
-export interface StudentStats {
-  resps: SlideResponse[];
-  answered: number;
-  total: number;
-  gradedTotal: number;
-  correctN: number;
-  timeSec: number;
-  joined: boolean;
+/** 수업 데이터 (수업 참여 학생 × 세트지) 집계 요약 */
+export interface ClassReportSummary {
+  activityMode: '수업' | '과제';
+  participantCount: number; // 하나라도 제출한 학생 수 (statusCd ∈ {3,4,5})
+  assignedCount: number; // 배정 전체
+  submitRate: number; // 참여/배정 × 100
+  avgCorrectRate: number; // 정답 있는 문항만 평균
+  unsubmittedCount: number; // statusCd=2
+  avgDuration?: number; // 평균 활동 시간(초)
 }
 
-/** 문항형 슬라이드 선택지 분포 */
-export interface SlideDist {
-  counts: number[];
-  answered: number;
+/** 한 학생의 리포트 요약 (학생별 보기 · 학생 리포트용) */
+export interface StudentSummary {
+  submittedArticles: number; // 제출한 아티클 수
+  totalArticles: number; // 전체 아티클 수
+  correctN: number; // 정답 수 (문항)
+  gradedN: number; // 채점 가능 문항 수
+  duration: number; // 소요 시간(초)
+  submittedAt?: string;
+  statusCd: StatusCd;
 }
 
 // ============================================
