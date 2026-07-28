@@ -65,7 +65,7 @@ const initialState: ResourcesState = {
   activeTab: 'library',
   rsFilter: '전체',
   rdReport: null,
-  rdTab: 'slide',
+  rdTab: 'student',
   rdStu: null,
   rdSlide: 0,
   overlay: null,
@@ -81,7 +81,7 @@ function reducer(state: ResourcesState, action: Action): ResourcesState {
     case 'DELETE_MY':
       return { ...state, myLessons: state.myLessons.filter((x) => x.id !== action.id) };
     case 'OPEN_REPORT':
-      return { ...state, rdReport: action.id, rdTab: 'slide', rdSlide: 0, rdStu: action.firstStudent };
+      return { ...state, rdReport: action.id, rdTab: 'student', rdSlide: 0, rdStu: action.firstStudent };
     case 'CLOSE_REPORT':
       return { ...state, rdReport: null };
     case 'SET_RD_TAB':

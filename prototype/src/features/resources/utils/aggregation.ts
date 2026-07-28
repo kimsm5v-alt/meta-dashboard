@@ -1,147 +1,127 @@
 /**
- * 리포트 집계 — 순수 함수 (기획서 6장 "집계 API").
- * 목업 everyclass-v2 1.html 의 결정적 mock 응답 생성/집계 로직 이식.
- * 목록 카드·상세 요약·슬라이드/학생 뷰가 모두 이 함수들을 단일 소스로 사용 → 수치 정합.
+ * 리포트 집계 — 순수 함수 (REPORT_SPEC_v2, Article/ResponseData/StudentActivity 기반).
+ * 목록 카드·상세 요약·페이지/학생 뷰가 이 함수들을 단일 소스로 사용 → 수치 정합.
  */
-import { hashKey } from './hash';
-import { SLIDE_SETS, DEFAULT_SLIDES, STUDENTS } from '../mock-data';
-import type { Report, Slide, SlideResponse, StudentStats, SlideDist } from '../types';
+import type { Report, Article, StudentActivity, ResponseData, StudentSummary } from '../types';
 
-/** 세트지 슬라이드 정의 조회 */
-export function slideSet(r: Report): Slide[] {
-  return SLIDE_SETS[r.id] || DEFAULT_SLIDES;
+/** 아티클(페이지) 정의 — 미연결(진행예정) 리포트는 빈 배열 */
+export function articlesOf(r: Report): Article[] {
+  return r.articles ?? [];
 }
 
-/** 문항형 슬라이드 포함 여부 (정답률 표시 조건) */
-export function hasGraded(r: Report): boolean {
-  return slideSet(r).some((s) => s.k === '문항형');
+/** 학생 활동 목록 */
+export function studentsOf(r: Report): StudentActivity[] {
+  return r.students ?? [];
 }
 
-/** 반 전체 참여 인원 (진행예정=0, 완료≈82%+, 진행중≈55%+) */
-export function participation(r: Report): number {
-  if (r.rstatus === '진행예정') return 0;
-  const h = hashKey(r.id + r.cls);
-  const ratio = r.rstatus === '완료' ? 0.82 + (h % 16) / 100 : 0.55 + (h % 30) / 100;
-  return Math.min(r.total, Math.round(r.total * ratio));
+/** 응답 목록 */
+export function responsesOf(r: Report): ResponseData[] {
+  return r.responses ?? [];
 }
 
-/** 제출 학생 표본 (participation 비율과 정합, STUDENTS 8명 기준) */
-export function submitters(r: Report): string[] {
-  const all = STUDENTS[r.cls] || [];
-  const n = Math.min(all.length, Math.round((participation(r) / Math.max(1, r.total)) * all.length));
-  return all
-    .map((s) => ({ s, h: hashKey(r.id + s) }))
-    .sort((a, b) => a.h - b.h)
-    .slice(0, n)
-    .map((x) => x.s);
+/** 특정 학생의 특정 아티클 응답 */
+export function responseOf(r: Report, articleId: string, studentId: string): ResponseData | undefined {
+  return responsesOf(r).find((x) => x.articleId === articleId && x.studentId === studentId);
 }
 
-/** 한 학생의 특정 슬라이드 응답 (결정적) */
-export function slideResponse(r: Report, sIdx: number, student: string): SlideResponse {
-  const slide = slideSet(r)[sIdx];
-  const joined = submitters(r).includes(student);
-  const h = hashKey(r.id + '|' + sIdx + '|' + student);
-  if (!joined || h % 100 >= 88) return { submitted: false, value: null, correct: null, timeSec: 0 };
-  const timeSec = 18 + (h % 150);
-  if (slide.k === '문항형') {
-    const correct = h % 100 < 68; // 약 68% 정답
-    let pick = slide.correct;
-    if (!correct && slide.options.length > 1) {
-      const wrongs = slide.options.map((_, i) => i).filter((i) => i !== slide.correct);
-      pick = wrongs[h % wrongs.length];
-    }
-    return { submitted: true, value: slide.options[pick], correct: pick === slide.correct, timeSec };
-  }
-  const pool = slide.pool.length ? slide.pool : ['응답'];
-  return { submitted: true, value: pool[h % pool.length], correct: null, timeSec };
+/** 배정 인원 (상세 연결 시 학생 수, 아니면 total fallback) */
+export function assignedCount(r: Report): number {
+  return studentsOf(r).length || r.total;
 }
 
-/** 한 학생 종합 통계 */
-export function studentStats(r: Report, student: string): StudentStats {
-  const set = slideSet(r);
-  const resps = set.map((_, i) => slideResponse(r, i, student));
-  const answered = resps.filter((x) => x.submitted).length;
-  const graded = resps.filter((x, i) => set[i].k === '문항형' && x.submitted);
-  const correctN = graded.filter((x) => x.correct).length;
-  const timeSec = resps.reduce((a, x) => a + x.timeSec, 0);
-  return { resps, answered, total: set.length, gradedTotal: graded.length, correctN, timeSec, joined: answered > 0 };
+/** 참여 인원 = 하나라도 제출 (statusCd ∈ {3,4,5}) */
+export function participantCount(r: Report): number {
+  return studentsOf(r).filter((s) => s.statusCd === 3 || s.statusCd === 4 || s.statusCd === 5).length;
 }
 
-/** 응답 완성도(%) — 제출 학생 평균 응답 비율 */
-export function completeness(r: Report): number {
-  const sub = submitters(r);
-  if (!sub.length) return 0;
-  const arr = sub.map((s) => studentStats(r, s));
-  return Math.round((arr.reduce((a, st) => a + st.answered / st.total, 0) / arr.length) * 100);
+/** 미제출 학생 수 (statusCd=2) */
+export function unsubmittedCount(r: Report): number {
+  return studentsOf(r).filter((s) => s.statusCd === 2).length;
 }
 
-/** 평균 활동 시간(초) */
-export function avgTime(r: Report): number {
-  const sub = submitters(r);
-  if (!sub.length) return 0;
-  const arr = sub.map((s) => studentStats(r, s));
-  return Math.round(arr.reduce((a, st) => a + st.timeSec, 0) / arr.length);
+/** 제출률(%) = 참여/배정 × 100 */
+export function submitRate(r: Report): number {
+  const a = studentsOf(r).length;
+  return a ? Math.round((participantCount(r) / a) * 100) : 0;
 }
 
-/** 정답률(%) — student 지정 시 개인, 미지정 시 전체. 문항형 없으면 null */
-export function accuracy(r: Report, student?: string): number | null {
-  if (!hasGraded(r)) return null;
-  const list = student ? [student] : submitters(r);
-  let c = 0;
-  let t = 0;
-  list.forEach((s) => {
-    const st = studentStats(r, s);
-    c += st.correctN;
-    t += st.gradedTotal;
-  });
-  return t ? Math.round((c / t) * 100) : 0;
+/** 정답 있는 문항(채점 가능) */
+export function gradableArticles(r: Report): Article[] {
+  return articlesOf(r).filter((a) => a.nature === '문항' && a.correctAnswer != null);
 }
 
-/** 슬라이드별 응답 인원 (반 전체 스케일, ≤ total) */
-export function slideResponded(r: Report, sIdx: number): number {
-  const p = participation(r);
-  if (!p) return 0;
-  const h = hashKey(r.id + 'S' + sIdx);
-  const ratio = 0.72 + (h % 26) / 100;
-  return Math.min(p, Math.round(p * ratio));
+/** 채점 가능 문항 존재 여부 (정답률 표시 조건) */
+export function hasGradedItems(r: Report): boolean {
+  return gradableArticles(r).length > 0;
 }
 
-/** 문항형 슬라이드 선택지 분포 (표본 기준) */
-export function slideDist(r: Report, sIdx: number): SlideDist {
-  const slide = slideSet(r)[sIdx];
-  if (slide.k !== '문항형') return { counts: [], answered: 0 };
-  const sub = submitters(r);
-  const counts = slide.options.map(() => 0);
+/** 평균 정답률(%) — 정답 있는 문항만. 없으면 null */
+export function avgCorrectRate(r: Report): number | null {
+  const arts = gradableArticles(r);
+  if (!arts.length) return null;
+  const ids = new Set(arts.map((a) => a.id));
+  const rs = responsesOf(r).filter((x) => ids.has(x.articleId));
+  if (!rs.length) return 0;
+  const correct = rs.filter((x) => x.errata === 1).length;
+  return Math.round((correct / rs.length) * 100);
+}
+
+/** 평균 활동 시간(초) — duration 있는 학생 평균 */
+export function avgDurationSec(r: Report): number {
+  const subs = studentsOf(r).filter((s) => s.duration != null);
+  if (!subs.length) return 0;
+  return Math.round(subs.reduce((a, s) => a + (s.duration ?? 0), 0) / subs.length);
+}
+
+/** 아티클 단위 응답 인원 */
+export function articleResponded(r: Report, articleId: string): number {
+  return responsesOf(r).filter((x) => x.articleId === articleId).length;
+}
+
+/**
+ * 선택형(choice) 보기별 분포.
+ * Article 에 보기 목록이 없어 보기 4개(1~4) 고정 가정 — submitAnswer 번호로 집계.
+ */
+export function choiceDist(r: Report, article: Article): { labels: string[]; counts: number[]; answered: number; correctIdx: number } {
+  const labels = ['1', '2', '3', '4'];
+  const counts = labels.map(() => 0);
   let answered = 0;
-  sub.forEach((s) => {
-    const rr = slideResponse(r, sIdx, s);
-    if (rr.submitted && rr.value != null) {
-      answered++;
-      const i = slide.options.indexOf(rr.value);
-      if (i >= 0) counts[i]++;
-    }
-  });
-  return { counts, answered };
+  responsesOf(r)
+    .filter((x) => x.articleId === article.id)
+    .forEach((x) => {
+      const i = labels.indexOf(x.submitAnswer.trim());
+      if (i >= 0) {
+        counts[i]++;
+        answered++;
+      }
+    });
+  const correctIdx = article.correctAnswer ? labels.indexOf(article.correctAnswer) : -1;
+  return { labels, counts, answered, correctIdx };
 }
 
-/** 활동형 슬라이드 응답 표본 (이름:응답값) */
-export function slideSamples(r: Report, sIdx: number, limit = 6): { s: string; v: string }[] {
-  const out: { s: string; v: string }[] = [];
-  for (const s of submitters(r)) {
-    const rr = slideResponse(r, sIdx, s);
-    if (rr.submitted && rr.value != null) {
-      out.push({ s, v: rr.value });
-      if (out.length >= limit) break;
-    }
-  }
-  return out;
+/** 아티클 단위 정답률(%) — 문항만, 없으면 null */
+export function articleAccuracy(r: Report, articleId: string): number | null {
+  const art = articlesOf(r).find((a) => a.id === articleId);
+  if (!art || art.nature !== '문항' || art.correctAnswer == null) return null;
+  const rs = responsesOf(r).filter((x) => x.articleId === articleId);
+  if (!rs.length) return 0;
+  return Math.round((rs.filter((x) => x.errata === 1).length / rs.length) * 100);
 }
 
-/** 슬라이드 단위 정답률(%) — 문항형만 */
-export function slideAccuracy(r: Report, sIdx: number): number | null {
-  const slide = slideSet(r)[sIdx];
-  if (slide.k !== '문항형') return null;
-  const d = slideDist(r, sIdx);
-  const ans = Math.max(1, d.answered);
-  return Math.round((d.counts[slide.correct] / ans) * 100);
+/** 한 학생의 리포트 요약 (학생별 보기) */
+export function studentSummary(r: Report, studentId: string): StudentSummary {
+  const arts = articlesOf(r);
+  const mine = responsesOf(r).filter((x) => x.studentId === studentId);
+  const stu = studentsOf(r).find((s) => s.studentId === studentId);
+  const gradable = new Set(gradableArticles(r).map((a) => a.id));
+  const gradedResp = mine.filter((x) => gradable.has(x.articleId));
+  return {
+    submittedArticles: mine.length,
+    totalArticles: arts.length,
+    correctN: gradedResp.filter((x) => x.errata === 1).length,
+    gradedN: gradedResp.length,
+    duration: stu?.duration ?? 0,
+    submittedAt: stu?.submittedAt,
+    statusCd: stu?.statusCd ?? 2,
+  };
 }

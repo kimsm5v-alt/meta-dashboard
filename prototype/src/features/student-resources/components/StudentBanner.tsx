@@ -9,7 +9,7 @@ export const StudentBanner = () => {
     <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
       <span className="h-2.5 w-2.5 flex-none animate-pulse rounded-full bg-emerald-500" />
       <div className="flex-1">
-        <div className="text-sm font-bold text-gray-900">🟢 수업이 진행 중이에요</div>
+        <div className="text-sm font-bold text-gray-900">수업이 진행 중이에요</div>
         <div className="text-xs text-gray-600">감정 체크인 활동 · 김민지 선생님</div>
       </div>
       <button

@@ -11,6 +11,11 @@ export function fmtTime(sec: number): string {
   return `${m}분 ${String(s).padStart(2, '0')}초`;
 }
 
+/** 비율(%) — whole 0 이면 0 */
+export function pct(part: number, whole: number): number {
+  return whole ? Math.round((part / whole) * 100) : 0;
+}
+
 /**
  * LayoutV2 선택 반명 → 목업 스코프 문자열.
  * LayoutV2 MOCK_CLASSES 의 name('2-3반' 등)이 목업 CLASSES 와 일치하므로 그대로 사용.
