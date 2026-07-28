@@ -142,7 +142,7 @@ export const BulkGenerateView: React.FC<Props> = ({ students, onBack, onApply, o
             </button>
           ))}
         </div>
-        <p className="text-[11.5px] text-gray-400 break-keep">공통 상황이 모든 학생에게 동일한 행동을 의미하지 않도록, 실제 참여한 학생에게만 적용해 주세요.</p>
+        <p className="text-[11.5px] text-gray-400 break-keep">실제 참여한 학생에게만 적용해 주세요.</p>
         <div className="flex justify-end gap-2 mt-6">
           <button onClick={() => setPhase('method')} className="text-[13.5px] text-gray-500 px-4 py-2">이전</button>
           <button
