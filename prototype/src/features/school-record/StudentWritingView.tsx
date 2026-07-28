@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft, Sparkles, Copy, Check, RotateCcw, Pencil, AlertTriangle, History, Save } from 'lucide-react';
-import { LpaBadge, FactorTag } from './shared';
+import { FactorTag } from './shared';
 import { classSubtitle } from './schoolInfo';
 import { FACTOR_INFO, FREETEXT_PLACEHOLDER, MOCK_COUNSELING } from './data';
 import { generateRecordText, checkForbiddenWords, countChars, type RecordAction } from './service';
@@ -136,7 +136,6 @@ export const StudentWritingView: React.FC<Props> = ({ student, onBack, onPatch }
             <div>
               <div className="flex items-center gap-2.5">
                 <h1 className="text-2xl font-bold text-gray-900">{student.no}번 {student.name}</h1>
-                <LpaBadge type={student.lpaType} />
               </div>
               <p className="text-sm text-gray-500 mt-1">{classSubtitle(student.className)}</p>
             </div>

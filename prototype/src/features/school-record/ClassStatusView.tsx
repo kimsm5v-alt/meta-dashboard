@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Sparkles, Download, Copy, Check, Eye, X, ArrowLeft, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
-import { StatusBadge, LpaBadge, FactorTag, displayStatus, type DisplayStatusKey } from './shared';
+import { StatusBadge, FactorTag, displayStatus, type DisplayStatusKey } from './shared';
 import { classSubtitle } from './schoolInfo';
 import { buildRecordsCsv, downloadCsv } from './download';
 import type { RecordClass, RecordStudent } from './types';
 
-type SortKey = 'no' | 'name' | 'lpa' | 'strength' | 'improvement' | 'status' | 'updated';
+type SortKey = 'no' | 'name' | 'strength' | 'improvement' | 'status' | 'updated';
 type SortState = { key: SortKey; dir: 'asc' | 'desc' };
 const STATUS_ORDER: Record<DisplayStatusKey, number> = { empty: 0, inprogress: 1, done: 2 };
 
@@ -59,7 +59,6 @@ export const ClassStatusView: React.FC<Props> = ({ selectedClass, students, onOp
     switch (sort.key) {
       case 'no': return s.no;
       case 'name': return s.name;
-      case 'lpa': return s.lpaType;
       case 'strength': return s.strengths[0] ?? '';
       case 'improvement': return s.improvements[0] ?? '';
       case 'status': return STATUS_ORDER[displayStatus(s.status).key];
@@ -95,11 +94,11 @@ export const ClassStatusView: React.FC<Props> = ({ selectedClass, students, onOp
   const hasText = (s: RecordStudent) => (s.savedText ?? '').trim().length > 0;
   // 선택 학생 중 생성 문구가 있는 학생만 다운로드 대상
   const downloadTargets = students.filter((s) => selected.includes(s.id) && hasText(s));
-  // 미리보기: 선택이 있으면 선택 학생, 없으면 반 전체 중 생성 문구가 있는 학생
+  // 미리보기: 선택이 있으면 선택 학생 중 문구 보유자, 없으면 반 전체 중 문구 보유자
   const selectedStudents = students.filter((s) => selected.includes(s.id));
-  const selectedHasEmpty = selectedStudents.some((s) => !hasText(s));
   const previewList = selected.length > 0 ? selectedStudents.filter(hasText) : students.filter(hasText);
-  const canPreview = selected.length > 0 ? selectedStudents.length > 0 && !selectedHasEmpty : previewList.length > 0;
+  // 선택 중 1명 이상 문구가 있으면 활성(모두 없을 때만 비활성)
+  const canPreview = previewList.length > 0;
   const download = (targets: RecordStudent[]) => {
     if (targets.length === 0) return;
     downloadCsv(`생활기록부_문구_${selectedClass.name.replace(/\s/g, '')}.csv`, buildRecordsCsv(targets));
@@ -119,15 +118,10 @@ export const ClassStatusView: React.FC<Props> = ({ selectedClass, students, onOp
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {selected.length > 0 && (
-            <button onClick={() => setSelected([])} className="text-[12.5px] text-gray-500 hover:text-gray-700 px-2 py-1.5">
-              {selected.length}명 선택 해제
-            </button>
-          )}
           <button
             onClick={() => setPreviewOpen(true)}
             disabled={!canPreview}
-            title={!canPreview ? (selectedHasEmpty ? '미작성 학생이 포함되어 미리보기할 수 없습니다' : '생성된 문구가 없습니다') : undefined}
+            title={!canPreview ? '생성된 문구가 있는 학생이 없습니다' : undefined}
             className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:text-gray-300 disabled:border-gray-200 disabled:hover:bg-white px-3.5 py-2 rounded-lg"
           >
             <Eye className="w-4 h-4" />
@@ -168,7 +162,6 @@ export const ClassStatusView: React.FC<Props> = ({ selectedClass, students, onOp
                 </th>
                 <SortableTh label="번호" sortKey="no" sort={sort} onSort={toggleSort} className="whitespace-nowrap" />
                 <SortableTh label="이름" sortKey="name" sort={sort} onSort={toggleSort} className="whitespace-nowrap" />
-                <SortableTh label="LPA 유형" sortKey="lpa" sort={sort} onSort={toggleSort} className="whitespace-nowrap" />
                 <SortableTh label="강점 요인 TOP 3" sortKey="strength" sort={sort} onSort={toggleSort} className="w-[26%]" />
                 <SortableTh label="보완 요인 TOP 3" sortKey="improvement" sort={sort} onSort={toggleSort} className="w-[26%]" />
                 <SortableTh label="작성 상태" sortKey="status" sort={sort} onSort={toggleSort} className="whitespace-nowrap" />
@@ -188,7 +181,6 @@ export const ClassStatusView: React.FC<Props> = ({ selectedClass, students, onOp
                       {s.name}
                     </button>
                   </td>
-                  <td className="px-4 py-4"><LpaBadge type={s.lpaType} /></td>
                   <td className="px-4 py-4"><div className="flex flex-wrap gap-1">{s.strengths.map((f) => <FactorTag key={f} label={f} />)}</div></td>
                   <td className="px-4 py-4"><div className="flex flex-wrap gap-1">{s.improvements.map((f) => <FactorTag key={f} label={f} />)}</div></td>
                   <td className="px-4 py-4"><StatusBadge status={s.status} /></td>
