@@ -5,6 +5,7 @@
  * - 반 선택 + 검사관리: 응시 현황, 회차 관리, 학생 목록 - 화면 2번
  *
  * LayoutV2의 context를 사용하여 LNB와 상태 동기화
+ * examType에 따라 학습종합검사(comp) / 자기조절학습검사(self) 분기
  *
  * @see prototype/docs/features/EXAM_COUNSELING.md
  */
@@ -12,6 +13,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { SummaryCards, ExamOverviewTable, ExamManagementView, ClassResultView, StudentResultView } from '../components';
+import { SelfregAssessmentPage } from './SelfregAssessmentPage';
 import {
   MOCK_EXAM_OVERVIEW_SUMMARY,
   MOCK_EXAM_OVERVIEW_ROWS,
@@ -26,7 +28,12 @@ import { StudentHeader } from '@/shared/components';
 export const AssessmentPage = () => {
   const location = useLocation();
   // LayoutV2 context 사용
-  const { selectedClass, setSelectedClass, selectedStudent, setSelectedStudent, activeSubTab, setActiveSubTab } = useLayoutContext();
+  const { selectedClass, setSelectedClass, selectedStudent, setSelectedStudent, activeSubTab, setActiveSubTab, prototypeMode } = useLayoutContext();
+
+  // 자기조절학습검사인 경우 별도 페이지 렌더링
+  if (prototypeMode.examType === 'self') {
+    return <SelfregAssessmentPage />;
+  }
 
   // 학생 결과 상태
   const [selectedStudentResult, setSelectedStudentResult] = useState<StudentExamResult | null>(null);

@@ -168,9 +168,6 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
 }) => {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
-  // 선택된 반 정보
-  const selectedClass = selectedClassId ? classes.find((c) => c.id === selectedClassId) : null;
-
   // 전체 통계
   const totalStats = useMemo(
     () => ({
@@ -255,202 +252,114 @@ export const ResultOverviewView: React.FC<ResultOverviewViewProps> = ({
           </div>
         </div>
 
-        {/* 메인 콘텐츠: 차트 + 요약 */}
-        <div className="flex">
-          {/* 라인차트 영역 */}
-          <div className="flex-1 p-5">
-            {/* 반 선택 칩 */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              <button
-                onClick={() => setSelectedClassId(null)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-full transition-colors flex items-center gap-1.5 ${
-                  selectedClassId === null
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-gray-400" />
-                전체 ({totalStats.totalStudents}명)
-              </button>
-              {classes.map((cls, idx) => {
-                const color = CLASS_COLORS[idx % CLASS_COLORS.length];
-                const isSelected = selectedClassId === cls.id;
-                return (
-                  <button
-                    key={cls.id}
-                    onClick={() => setSelectedClassId(isSelected ? null : cls.id)}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-full transition-colors flex items-center gap-1.5 ${
-                      isSelected
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                    {cls.grade}학년 {cls.classNumber}반 ({cls.assessedStudents}명)
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* 라인 차트 */}
-            <ResponsiveContainer width="100%" height={500}>
-              <LineChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis
-                  dataKey="category"
-                  angle={-25}
-                  textAnchor="end"
-                  height={80}
-                  tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 500 }}
-                  axisLine={{ stroke: '#D1D5DB', strokeWidth: 1.5 }}
-                  tickLine={false}
-                  padding={{ left: 40, right: 40 }}
-                />
-                <YAxis
-                  domain={[30, 70]}
-                  tick={{ fontSize: 11, fill: '#6B7280' }}
-                  axisLine={{ stroke: '#D1D5DB', strokeWidth: 1.5 }}
-                  tickLine={false}
-                  ticks={[30, 40, 50, 60, 70]}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-                    padding: '12px 16px',
-                    fontSize: '13px',
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{ paddingTop: '16px', fontSize: '13px', fontWeight: 500 }}
-                  iconType="line"
-                />
-                <ReferenceLine
-                  y={50}
-                  stroke="#9CA3AF"
-                  strokeDasharray="5 5"
-                  strokeWidth={2}
-                  label={{
-                    value: '전국 평균 (50)',
-                    position: 'right',
-                    fontSize: 11,
-                    fill: '#6B7280',
-                  }}
-                />
-                {classes.map((cls, idx) => {
-                  const className = `${cls.grade}학년 ${cls.classNumber}반`;
-                  const isSelected = selectedClassId === cls.id;
-                  const hasSelection = selectedClassId !== null;
-                  const color = CLASS_COLORS[idx % CLASS_COLORS.length];
-
-                  return (
-                    <Line
-                      key={className}
-                      type="linear"
-                      dataKey={className}
-                      stroke={color}
-                      strokeWidth={isSelected ? 4 : hasSelection ? 2 : 3}
-                      strokeOpacity={isSelected ? 1 : hasSelection ? 0.25 : 0.9}
-                      dot={{
-                        r: isSelected ? 6 : hasSelection ? 3 : 5,
-                        fill: color,
-                        strokeWidth: 2,
-                        stroke: '#fff',
-                      }}
-                      activeDot={{ r: 8, fill: color, strokeWidth: 3, stroke: '#fff' }}
-                    />
-                  );
-                })}
-              </LineChart>
-            </ResponsiveContainer>
+        {/* 메인 콘텐츠: 차트 */}
+        <div className="p-5">
+          {/* 반 선택 칩 */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              onClick={() => setSelectedClassId(null)}
+              className={`px-3 py-1.5 text-sm font-medium rounded-full transition-colors flex items-center gap-1.5 ${
+                selectedClassId === null
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-gray-400" />
+              전체 ({totalStats.totalStudents}명)
+            </button>
+            {classes.map((cls, idx) => {
+              const color = CLASS_COLORS[idx % CLASS_COLORS.length];
+              const isSelected = selectedClassId === cls.id;
+              return (
+                <button
+                  key={cls.id}
+                  onClick={() => setSelectedClassId(isSelected ? null : cls.id)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-full transition-colors flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                  {cls.grade}학년 {cls.classNumber}반 ({cls.assessedStudents}명)
+                </button>
+              );
+            })}
           </div>
 
-          {/* 우측 요약 패널 - 반 선택 시에만 표시 */}
-          {selectedClass && (
-            <div className="w-80 border-l border-gray-100 bg-gray-50 p-5">
-              <div className="space-y-5">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        backgroundColor:
-                          CLASS_COLORS[classes.findIndex((c) => c.id === selectedClass.id) % 5],
-                      }}
-                    />
-                    <h3 className="text-base font-semibold text-gray-900">
-                      {selectedClass.grade}학년 {selectedClass.classNumber}반 분석 요약
-                    </h3>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    학생 {selectedClass.assessedStudents}명 · 검사 완료
-                  </p>
-                </div>
+          {/* 라인 차트 */}
+          <ResponsiveContainer width="100%" height={500}>
+            <LineChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+              <XAxis
+                dataKey="category"
+                angle={-25}
+                textAnchor="end"
+                height={80}
+                tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 500 }}
+                axisLine={{ stroke: '#D1D5DB', strokeWidth: 1.5 }}
+                tickLine={false}
+                padding={{ left: 40, right: 40 }}
+              />
+              <YAxis
+                domain={[30, 70]}
+                tick={{ fontSize: 11, fill: '#6B7280' }}
+                axisLine={{ stroke: '#D1D5DB', strokeWidth: 1.5 }}
+                tickLine={false}
+                ticks={[30, 40, 50, 60, 70]}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                }}
+              />
+              <Legend
+                wrapperStyle={{ paddingTop: '16px', fontSize: '13px', fontWeight: 500 }}
+                iconType="line"
+              />
+              <ReferenceLine
+                y={50}
+                stroke="#9CA3AF"
+                strokeDasharray="5 5"
+                strokeWidth={2}
+                label={{
+                  value: '전국 평균 (50)',
+                  position: 'right',
+                  fontSize: 11,
+                  fill: '#6B7280',
+                }}
+              />
+              {classes.map((cls, idx) => {
+                const className = `${cls.grade}학년 ${cls.classNumber}반`;
+                const isSelected = selectedClassId === cls.id;
+                const hasSelection = selectedClassId !== null;
+                const color = CLASS_COLORS[idx % CLASS_COLORS.length];
 
-                {/* KPI */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white rounded-lg p-3 border border-gray-200">
-                    <p className="text-xs text-gray-500 mb-1">평균 T점수</p>
-                    <p className="text-xl font-bold text-gray-900 tabular-nums">
-                      {selectedClass.avgTScore}.0
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-gray-200">
-                    <p className="text-xs text-gray-500 mb-1">상담 및 지도 필요</p>
-                    <p className="text-xl font-bold text-red-600 tabular-nums">
-                      {selectedClass.needsAttentionCount}명
-                    </p>
-                  </div>
-                </div>
-
-                {/* LPA 분포 */}
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                    유형 분포
-                  </p>
-                  <div className="flex h-6 rounded-lg overflow-hidden bg-gray-100">
-                    {selectedClass.lpaDistribution.map((item) => (
-                      <div
-                        key={item.type}
-                        className="flex items-center justify-center text-[10px] text-white font-medium"
-                        style={{
-                          width: `${item.percentage}%`,
-                          backgroundColor: LPA_COLORS[item.type] || '#9CA3AF',
-                        }}
-                      >
-                        {item.percentage > 15 && `${item.count}명`}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="space-y-1.5 mt-2">
-                    {selectedClass.lpaDistribution.map((item) => (
-                      <div key={item.type} className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-1.5 text-gray-600">
-                          <span
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: LPA_COLORS[item.type] }}
-                          />
-                          {item.type}
-                        </span>
-                        <span className="text-gray-500 tabular-nums">{item.count}명</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 상세 보기 버튼 */}
-                <button
-                  onClick={() => onClassClick(selectedClass.id, selectedClass.name)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                  {selectedClass.grade}학년 {selectedClass.classNumber}반 상세 분석 보기
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
+                return (
+                  <Line
+                    key={className}
+                    type="linear"
+                    dataKey={className}
+                    stroke={color}
+                    strokeWidth={isSelected ? 4 : hasSelection ? 2 : 3}
+                    strokeOpacity={isSelected ? 1 : hasSelection ? 0.25 : 0.9}
+                    dot={{
+                      r: isSelected ? 6 : hasSelection ? 3 : 5,
+                      fill: color,
+                      strokeWidth: 2,
+                      stroke: '#fff',
+                    }}
+                    activeDot={{ r: 8, fill: color, strokeWidth: 3, stroke: '#fff' }}
+                  />
+                );
+              })}
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
