@@ -31,6 +31,9 @@ import { CoachingPage, ClassCoachingPage, IndividualCoachingPage } from '../feat
 // 수업 → resources (TBD)
 import { ResourceListPage as LessonPage } from '../features/resources';
 
+// 학생 수업 결과보기 → student-resources
+import { StudentResourcePage } from '../features/student-resources';
+
 // AI어시스턴트 → ai-room
 import { AIRoomPage as AIAssistantPage } from '../features/ai-room';
 
@@ -154,6 +157,7 @@ export const AppRoutesV2 = () => (
       <Route path="/student/result/comprehensive/:resultId" element={<MyResultPage />} />
       <Route path="/student/result/selfreg" element={<MySelfregResultPage />} />
       <Route path="/student/result/selfreg/:resultId" element={<MySelfregResultPage />} />
+      <Route path="/student/lesson" element={<StudentResourcePage />} />
       <Route path="/exam/student" element={<ExamPage />} />
     </Route>
 

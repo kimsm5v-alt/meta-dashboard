@@ -1,14 +1,15 @@
 /**
- * 학생 수업 자료실 페이지 — 학생 모드 진입점.
+ * 학생 수업 자료실(수업 결과보기) 페이지 — 학생 모드 진입점.
  * 교사용 resources(/lesson)에서 분리한 학생 전용 feature.
  *
- * TODO(routing): app/routes 연결은 팀 논의 후 결정.
- *   - 교사 /lesson 과 분리된 학생 전용 경로 필요 (예: /student/lesson).
- *   - student-exam·student-dashboard 처럼 학생 라우트 그룹/레이아웃에 편입.
- *   - 라우팅 확정 전까지 이 페이지는 어느 라우트에도 마운트되지 않음.
+ * 화면5: 대시보드(5-1) ↔ 상세(5-2) 를 내부 state 로 전환.
+ * 라우팅: /student/lesson (StudentLayout LNB "수업 결과보기"). — app/routesV2 연결.
  */
+import { useState } from 'react';
 import { StudentResourceProvider, useStudentResource } from '../store/StudentResourceContext';
-import { StudentView } from '../components';
+import { StudentBanner } from '../components';
+import { StudentReportDashboard } from '../components/StudentReportDashboard';
+import { StudentDetailReport } from '../components/StudentDetailReport';
 
 /** 토스트 (목업 toast() 대체) */
 const Toast = () => {
@@ -21,10 +22,29 @@ const Toast = () => {
   );
 };
 
+const StudentResourceInner = () => {
+  const [detailId, setDetailId] = useState<string | null>(null);
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <div className="text-xs text-gray-400">수업 › 수업 결과보기</div>
+      <div className="mt-5 flex flex-col gap-5">
+        {detailId ? (
+          <StudentDetailReport id={detailId} onBack={() => setDetailId(null)} />
+        ) : (
+          <>
+            <StudentBanner />
+            <StudentReportDashboard onOpen={setDetailId} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const StudentResourcePage = () => (
   <StudentResourceProvider>
-    <div className="text-xs text-gray-400">수업 › 학생 화면</div>
-    <StudentView />
+    <StudentResourceInner />
     <Toast />
   </StudentResourceProvider>
 );
