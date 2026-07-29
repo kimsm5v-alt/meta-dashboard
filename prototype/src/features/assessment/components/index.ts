@@ -15,3 +15,6 @@ export { ClassResultView } from './ClassResultView';
 export { StudentFactorAnalysis } from './StudentFactorAnalysis';
 export { TypeClassification } from './TypeClassification';
 export { StudentResultView } from './StudentResultView';
+
+// 자기조절학습검사용 컴포넌트
+export { SelfregStudentResultView } from './SelfregStudentResultView';

@@ -36,4 +36,13 @@ public interface TrialMonitorMapper {
 
     /** ④ LPA 유형 분포 (paperIdx=1 종합검사, COMPLETED 만). */
     List<Map<String, Object>> selectLpaTypeDistribution(@Param("userNos") List<Long> userNos);
+
+    /** 팝업: 교사(owner_user_no)들의 AI 어시스턴트 대화 목록 (ai_conversation). */
+    List<Map<String, Object>> selectAiConversationsByOwnerUserNos(@Param("userNos") List<Long> userNos);
+
+    /** 팝업: 위 대화들의 메시지 전체 (ai_message) — 대화별로 그룹핑해 nest 한다. */
+    List<Map<String, Object>> selectAiMessagesByOwnerUserNos(@Param("userNos") List<Long> userNos);
+
+    /** 팝업: 교사(tc_id=user.tc_id)들의 상담 내역 (counseling_info + 대상 학생). */
+    List<Map<String, Object>> selectCounselingsByHostUserNos(@Param("userNos") List<Long> userNos);
 }

@@ -12,6 +12,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
   BarChart3,
+  Presentation,
   Users,
   Bell,
   Settings,
@@ -55,6 +56,7 @@ const studentNavItems: NavItem[] = [
   { icon: Users, label: '나의 그룹', path: '/student/groups' },
   { icon: ClipboardList, label: '검사하기', path: '/student/exams' },
   { icon: BarChart3, label: '결과보기', path: '/student/result', hasSubMenu: true },
+  { icon: Presentation, label: '수업 결과보기', path: '/student/lesson' },
 ];
 
 const StudentHeader = () => {
@@ -68,7 +70,7 @@ const StudentHeader = () => {
 
   // [PROTOTYPE MOCK] 교사 계정으로 전환
   const handleSwitchToTeacher = () => {
-    navigate('/dashboard');
+    navigate('/home');
   };
 
   return (

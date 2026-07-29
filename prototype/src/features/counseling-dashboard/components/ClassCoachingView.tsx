@@ -96,7 +96,47 @@ export const ClassCoachingView: React.FC<ClassCoachingViewProps> = ({
         </button>
       </div>
 
-      {/* ② 반별 학습 유형 분포 - 좌측 정렬 */}
+      {/* ② 코칭 준비 안내 */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">
+              코칭 준비: 우리 반 학습 유형 분포와 우세 유형 특징을 확인하세요.
+            </p>
+            <p className="text-sm text-amber-700 mt-1">
+              우리 반 검사 결과 함께 보기로 학생들이 스스로 결과를 해석하고, 자기이해를 돕는 활동을 진행하시는 것을 추천합니다.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ③ 학급 코칭 제안 */}
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-6">학급 코칭 제안</h3>
+        <div className="flex items-center justify-center gap-10">
+          <StepIndicator
+            step={1}
+            title="학급 대표 전략 코칭"
+            subtitle={`(${recommendedStrategy.type} 중심)`}
+            active
+          />
+          <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0" />
+          <StepIndicator
+            step={2}
+            title="추가 코칭 1"
+            subtitle={`(${additionalStrategies[0]?.type || ''})`}
+          />
+          <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0" />
+          <StepIndicator
+            step={3}
+            title="추가 코칭 2"
+            subtitle={`(${additionalStrategies[1]?.type || ''})`}
+          />
+        </div>
+      </div>
+
+      {/* ④ 반별 학습 유형 분포 - 좌측 정렬 */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
         <div className="flex items-center gap-2 mb-6">
           <h3 className="text-lg font-bold text-gray-900">반별 학습 유형 분포</h3>
@@ -176,31 +216,6 @@ export const ClassCoachingView: React.FC<ClassCoachingViewProps> = ({
             활동지 살펴보기
             <ChevronRight className="w-4 h-4" />
           </button>
-        </div>
-      </div>
-
-      {/* ③ 한 번에 하나씩 — 실행 순서 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-6">한 번에 하나씩 — 실행 순서</h3>
-        <div className="flex items-center justify-center gap-10">
-          <StepIndicator
-            step={1}
-            title="학급 대표 전략 코칭"
-            subtitle={`${recommendedStrategy.type} 중심`}
-            active
-          />
-          <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0" />
-          <StepIndicator
-            step={2}
-            title="추가 코칭 1"
-            subtitle={additionalStrategies[0]?.type || ''}
-          />
-          <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0" />
-          <StepIndicator
-            step={3}
-            title="추가 코칭 2"
-            subtitle={additionalStrategies[1]?.type || ''}
-          />
         </div>
       </div>
 
@@ -380,7 +395,7 @@ const StepIndicator: React.FC<StepIndicatorProps> = ({ step, title, subtitle, ac
       <p className="text-sm font-medium text-gray-900">
         {title}
       </p>
-      <p className="text-xs text-gray-500">{subtitle}</p>
+      {subtitle && <p className="text-sm font-medium text-gray-900">{subtitle}</p>}
     </div>
   );
 };

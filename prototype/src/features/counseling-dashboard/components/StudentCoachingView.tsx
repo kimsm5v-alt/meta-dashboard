@@ -112,27 +112,42 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
         </button>
       </div>
 
-      {/* ② 개별 코칭 가이드 */}
+      {/* ② 코칭 준비 안내 */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">
+              코칭 준비: 학생 진단 검사 결과를 먼저 확인하세요
+            </p>
+            <p className="text-sm text-amber-700 mt-1">
+              검사 결과만으로 판단하기 어려운 부분은 학생과의 대화(질문)를 통해 다시 한번 확인한 후 코칭을 진행하세요.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ③ 코칭 진행 순서 */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-6">개별 코칭 가이드</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-6">코칭 진행 순서</h3>
         <div className="flex items-center justify-center gap-10">
           <StepIndicator
             step={1}
-            title="진단 검사 결과 확인"
-            subtitle=""
+            title="학생의 유형과"
+            subtitle="주요 특징 확인"
             active
           />
           <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0" />
           <StepIndicator
             step={2}
-            title="유형 특징 확인 및 강점 칭찬"
-            subtitle=""
+            title="유형 대비 강점"
+            subtitle="확인과 인정"
           />
           <ChevronRight className="w-6 h-6 text-gray-300 flex-shrink-0" />
           <StepIndicator
             step={3}
-            title="맞춤 코칭 실행"
-            subtitle=""
+            title="맞춤 코칭 제안"
+            subtitle="확인 및 실행"
           />
         </div>
       </div>
@@ -149,7 +164,7 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
 
         {/* 우측 컨텐츠 */}
         <div className="flex-1 space-y-4">
-          <h3 className="text-lg font-bold text-gray-900">진단 검사 결과 확인</h3>
+          <h3 className="text-lg font-bold text-gray-900">학생의 유형과 주요 특징 확인</h3>
 
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="p-5 border-b border-gray-100">
@@ -290,7 +305,7 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
 
         {/* 우측 컨텐츠 */}
         <div className="flex-1 space-y-4">
-          <h3 className="text-lg font-bold text-gray-900">유형 특징 확인 및 강점 칭찬</h3>
+          <h3 className="text-lg font-bold text-gray-900">유형 대비 강점 확인과 인정</h3>
 
           <div className="bg-white rounded-xl border border-gray-100 p-6">
             <div className="flex items-center gap-2 mb-4">
@@ -346,7 +361,7 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
 
         {/* 우측 컨텐츠 */}
         <div className="flex-1 space-y-4">
-          <h3 className="text-lg font-bold text-gray-900">맞춤 코칭 실행</h3>
+          <h3 className="text-lg font-bold text-gray-900">맞춤 코칭 제안 확인 및 실행</h3>
 
           <div className="bg-white rounded-xl border border-gray-100 p-6">
             <div className="flex items-center gap-2 mb-4">
@@ -455,7 +470,7 @@ const StepIndicator: React.FC<StepIndicatorProps> = ({ step, title, subtitle, ac
       <p className="text-sm font-medium text-gray-900">
         {title}
       </p>
-      {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
+      {subtitle && <p className="text-sm font-medium text-gray-900">{subtitle}</p>}
     </div>
   );
 };
