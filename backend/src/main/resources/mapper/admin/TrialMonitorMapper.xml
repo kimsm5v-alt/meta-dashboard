@@ -172,8 +172,11 @@
              , ci.summary    AS summary
              , ci.next_steps AS nextSteps
              , DATE_FORMAT(ci.created_at, '%Y-%m-%d %H:%i') AS createdAt
-             , (SELECT GROUP_CONCAT(cs.stdt_name ORDER BY cs.stdt_number SEPARATOR ', ')
-                  FROM counseling_student cs WHERE cs.counseling_id = ci.id AND cs.use_yn = 'Y') AS studentNames
+             , (SELECT GROUP_CONCAT(COALESCE(pu2.name, u2.stdt_id) ORDER BY cs.id SEPARATOR ', ')
+                  FROM counseling_student cs
+                      LEFT JOIN `user` u2 ON u2.stdt_id = cs.stdt_id
+                      LEFT JOIN superteacher_core.platform_user pu2 ON pu2.public_user_id = u2.sp_user_id
+                  WHERE cs.counseling_id = ci.id AND cs.use_yn = 'Y') AS studentNames
              , (SELECT COUNT(*)
                   FROM counseling_student cs WHERE cs.counseling_id = ci.id AND cs.use_yn = 'Y') AS studentCount
         FROM counseling_info ci
