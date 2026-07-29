@@ -25,6 +25,35 @@
         .tc-name { font-weight:700; font-size:.9rem; color:#0f172a; display:flex; align-items:center; gap:6px; }
         .tc-stat { font-size:.76rem; color:#64748b; display:flex; gap:12px; margin-top:2px; }
         .tc-stat b { color:#3b82f6; font-size:.85rem; }
+        /* AI 대화 채팅 말풍선 */
+        .chat-log { display:flex; flex-direction:column; gap:10px; padding:10px 4px 4px; }
+        .chat-row { display:flex; }
+        .chat-row.user { justify-content:flex-end; }
+        .chat-row.assistant { justify-content:flex-start; }
+        .chat-row.system { justify-content:center; }
+        .chat-wrap { display:flex; flex-direction:column; max-width:80%; }
+        .chat-row.user .chat-wrap { align-items:flex-end; }
+        .chat-row.assistant .chat-wrap { align-items:flex-start; }
+        .chat-row.system .chat-wrap { max-width:92%; align-items:center; }
+        .chat-meta { font-size:.66rem; color:#94a3b8; margin:0 6px 3px; }
+        .chat-bubble { max-width:100%; padding:8px 12px; border-radius:14px; font-size:.85rem;
+                       white-space:pre-wrap; word-break:break-word; line-height:1.5; }
+        .chat-row.user .chat-bubble { background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; border-bottom-right-radius:4px; }
+        .chat-row.assistant .chat-bubble { background:#f1f5f9; color:#0f172a; border:1px solid #e2e8f0; border-bottom-left-radius:4px; }
+        .chat-row.system .chat-bubble { background:#fffbeb; color:#92400e; border:1px dashed #fcd34d;
+                                        font-size:.78rem; text-align:center; border-radius:10px; }
+        /* 메시지 펼치기 토글 */
+        .chat-toggle { cursor:pointer; outline:none; list-style:none; display:flex; align-items:center; gap:8px;
+                       margin-top:8px; padding:8px 14px; border-radius:8px; font-size:.82rem; font-weight:600;
+                       color:#3b82f6; background:#eff6ff; border:1px solid #bfdbfe; transition:background .15s; }
+        .chat-toggle::-webkit-details-marker { display:none; }
+        .chat-toggle:hover { background:#dbeafe; }
+        details[open] > .chat-toggle { background:#dbeafe; border-bottom-left-radius:0; border-bottom-right-radius:0; }
+        .chat-toggle .chev { transition:transform .2s; font-size:.72rem; }
+        details[open] > .chat-toggle .chev { transform:rotate(90deg); }
+        .chat-toggle .lbl-close, details[open] > .chat-toggle .lbl-open { display:none; }
+        details[open] > .chat-toggle .lbl-close { display:inline; }
+        details[open] > .chat-log { border:1px solid #bfdbfe; border-top:none; border-radius:0 0 8px 8px; }
     </style>
 </head>
 <body class="hold-transition sidebar-mini">
@@ -267,16 +296,22 @@
             if (!list || !list.length) return '<p class="text-muted text-center py-3">AI 대화 내역 없음</p>';
             return list.map(function (c) {
                 var msgs = (c.messages || []).map(function (m) {
-                    var who = m.role === 'user'
-                        ? '<span class="badge badge-primary">사용자</span>'
-                        : (m.role === 'assistant' ? '<span class="badge badge-success">AI</span>'
-                                                  : '<span class="badge badge-secondary">시스템</span>');
-                    return '<div style="margin:6px 0"><div class="mini-muted">' + who + ' <span>' + esc(m.messageAt) + '</span></div>'
-                        + '<div style="white-space:pre-wrap;word-break:break-word">' + esc(m.content) + '</div></div>';
+                    var role = (m.role === 'user' || m.role === 'assistant') ? m.role : 'system';
+                    var label = role === 'user' ? '사용자' : (role === 'assistant' ? 'AI' : '시스템');
+                    return '<div class="chat-row ' + role + '"><div class="chat-wrap">'
+                        + '<div class="chat-meta">' + label + ' · ' + esc(m.messageAt) + '</div>'
+                        + '<div class="chat-bubble">' + esc(m.content) + '</div>'
+                        + '</div></div>';
                 }).join('');
                 var body = msgs
-                    ? '<details><summary class="mini-muted" style="cursor:pointer;outline:none">메시지 ' + ((c.messages || []).length) + '건 펼치기</summary>'
-                      + '<div style="border-left:3px solid #e2e8f0;padding-left:10px;margin-top:6px">' + msgs + '</div></details>'
+                    ? '<details><summary class="chat-toggle">'
+                      + '<i class="fas fa-chevron-right chev"></i>'
+                      + '<i class="fas fa-comment-dots"></i>'
+                      + '<span>메시지 ' + ((c.messages || []).length) + '건</span>'
+                      + '<span class="lbl-open ml-auto"><i class="fas fa-angle-down"></i> 펼치기</span>'
+                      + '<span class="lbl-close ml-auto"><i class="fas fa-angle-up"></i> 접기</span>'
+                      + '</summary>'
+                      + '<div class="chat-log">' + msgs + '</div></details>'
                     : '';
                 return '<div class="card card-body p-2 mb-2">'
                     + '<div><b>' + esc(c.title || '(제목 없음)') + '</b> '
