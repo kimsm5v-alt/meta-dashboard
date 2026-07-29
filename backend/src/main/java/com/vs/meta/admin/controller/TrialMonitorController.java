@@ -103,11 +103,17 @@ public class TrialMonitorController {
         List<Map<String, Object>> examProgress = new ArrayList<>();
         List<Map<String, Object>> integrity = new ArrayList<>();
         List<Map<String, Object>> lpaTypeDist = new ArrayList<>();
+        List<Map<String, Object>> aiConversations = new ArrayList<>();
+        List<Map<String, Object>> aiMessages = new ArrayList<>();
+        List<Map<String, Object>> counselings = new ArrayList<>();
         if (!allUserNos.isEmpty()) {
             groups = trialMonitorMapper.selectGroupsByHostUserNos(allUserNos);
             examProgress = trialMonitorMapper.selectExamProgressByHostUserNos(allUserNos);
             integrity = trialMonitorMapper.selectIntegrityByHostUserNos(allUserNos);
             lpaTypeDist = trialMonitorMapper.selectLpaTypeDistribution(allUserNos);
+            aiConversations = trialMonitorMapper.selectAiConversationsByOwnerUserNos(allUserNos);
+            aiMessages = trialMonitorMapper.selectAiMessagesByOwnerUserNos(allUserNos);
+            counselings = trialMonitorMapper.selectCounselingsByHostUserNos(allUserNos);
             labelTeacher(groups, userNoToName);
             labelTeacher(examProgress, userNoToName);
             labelTeacher(integrity, userNoToName);
@@ -157,6 +163,49 @@ public class TrialMonitorController {
             row.put("studentCount", sCount);
             teacherSummary.add(row);
         }
+
+        // ===== 팝업 상세: 교사별 AI 대화 내역 + 상담 내역 =====
+        // 메시지를 대화(conversationId)별로 묶어 각 대화에 nest
+        Map<Long, List<Map<String, Object>>> messagesByConv = new HashMap<>();
+        for (Map<String, Object> m : aiMessages) {
+            messagesByConv.computeIfAbsent(num(m.get("conversationId")), k -> new ArrayList<>()).add(m);
+        }
+        for (Map<String, Object> c : aiConversations) {
+            c.put("messages", messagesByConv.getOrDefault(num(c.get("conversationId")), new ArrayList<>()));
+        }
+        // ownerUserNo → 교사 이름 기준으로 대화/상담 그룹핑 (명단 순서 유지)
+        Map<String, List<Map<String, Object>>> aiByName = new LinkedHashMap<>();
+        Map<String, List<Map<String, Object>>> counselByName = new LinkedHashMap<>();
+        for (String name : TEACHER_NAMES) {
+            aiByName.put(name, new ArrayList<>());
+            counselByName.put(name, new ArrayList<>());
+        }
+        for (Map<String, Object> c : aiConversations) {
+            String name = userNoToName.get(num(c.get("ownerUserNo")));
+            if (name != null && aiByName.containsKey(name)) {
+                aiByName.get(name).add(c);
+            }
+        }
+        for (Map<String, Object> c : counselings) {
+            String name = userNoToName.get(num(c.get("ownerUserNo")));
+            if (name != null && counselByName.containsKey(name)) {
+                counselByName.get(name).add(c);
+            }
+        }
+        // teacherSummary 에 카운트 부여 + 이름별 상세 맵(팝업용) 구성
+        Map<String, Map<String, Object>> teacherDetails = new LinkedHashMap<>();
+        for (Map<String, Object> r : teacherSummary) {
+            String name = (String) r.get("name");
+            List<Map<String, Object>> ai = aiByName.getOrDefault(name, new ArrayList<>());
+            List<Map<String, Object>> co = counselByName.getOrDefault(name, new ArrayList<>());
+            r.put("aiConvCount", ai.size());
+            r.put("counselingCount", co.size());
+            Map<String, Object> detail = new LinkedHashMap<>();
+            detail.put("aiConversations", ai);
+            detail.put("counselings", co);
+            teacherDetails.put(name, detail);
+        }
+        model.addAttribute("teacherDetails", teacherDetails);
 
         model.addAttribute("teacherSummary", teacherSummary);
         model.addAttribute("totalTeachers", TEACHER_NAMES.size());

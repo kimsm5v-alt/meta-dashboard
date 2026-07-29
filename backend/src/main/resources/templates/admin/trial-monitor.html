@@ -99,18 +99,24 @@
                 <!-- ===== ① 교사별 요약 (그룹 수 · 총 학생 수) ===== -->
                 <div class="card card-primary card-outline">
                     <div class="card-header"><h3 class="card-title sec-title"><span class="sec-no">1</span> 교사별 요약
-                        <small class="text-muted" th:text="'· 그룹 ' + ${totalGroups} + '개 · 학생 ' + ${totalStudents} + '명'"></small></h3></div>
+                        <small class="text-muted" th:text="'· 그룹 ' + ${totalGroups} + '개 · 학생 ' + ${totalStudents} + '명 · 카드 클릭 시 AI 대화·상담 내역'"></small></h3></div>
                     <div class="card-body pb-1">
                         <div class="row">
                             <div class="col-xl-2 col-lg-3 col-md-4 col-6" th:each="t : ${teacherSummary}">
-                                <div class="teacher-chip" th:classappend="${!t.registered} ? 'unreg'">
+                                <div class="teacher-chip" th:classappend="${!t.registered} ? 'unreg'"
+                                     th:attr="data-teacher=${t.name}" style="cursor:pointer" title="클릭하여 상세 내역 보기">
                                     <div class="tc-name">
                                         <span th:text="${t.name}"></span>
                                         <span th:unless="${t.registered}" class="badge badge-danger" style="font-size:.62rem; padding:2px 6px;">미가입</span>
+                                        <i class="fas fa-chevron-right ml-auto mini-muted"></i>
                                     </div>
                                     <div class="tc-stat">
                                         <span><b th:text="${t.groupCount}"></b> 그룹</span>
                                         <span><b th:text="${t.studentCount}"></b> 명</span>
+                                    </div>
+                                    <div class="tc-stat">
+                                        <span><i class="fas fa-robot" style="color:#6366f1"></i> AI <b th:text="${t.aiConvCount}"></b></span>
+                                        <span><i class="fas fa-comments" style="color:#0ea5e9"></i> 상담 <b th:text="${t.counselingCount}"></b></span>
                                     </div>
                                 </div>
                             </div>
@@ -211,7 +217,111 @@
             </div>
         </section>
     </div>
+
+    <!-- ===== 교사 상세 팝업 (AI 대화 / 상담) ===== -->
+    <div class="modal fade" id="trialDetailModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title"><i class="fas fa-user-circle text-primary"></i>
+                        <span id="tdName"></span> <small class="text-muted">상세 내역</small></h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span>&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs" id="tdTabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-toggle="tab" href="#tdAi" role="tab">
+                                <i class="fas fa-robot"></i> AI 대화 <span class="badge badge-secondary" id="tdAiCount">0</span></a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-toggle="tab" href="#tdCo" role="tab">
+                                <i class="fas fa-comments"></i> 상담 <span class="badge badge-secondary" id="tdCoCount">0</span></a>
+                        </li>
+                    </ul>
+                    <div class="tab-content pt-3">
+                        <div class="tab-pane fade show active" id="tdAi" role="tabpanel"></div>
+                        <div class="tab-pane fade" id="tdCo" role="tabpanel"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 <th:block th:replace="admin/fragments :: js" />
+<script th:inline="javascript">
+    /* 교사 이름 → { aiConversations:[{title,mode,contextLabel,messageCount,createdAt,lastMessageAt,messages:[{role,content,messageAt}]}],
+                     counselings:[{status,scheduledAt,claId,studentNames,studentCount,reason,summary,nextSteps,createdAt}] } */
+    var teacherDetails = /*[[${teacherDetails}]]*/ {};
+    (function () {
+        function esc(s) {
+            if (s == null) return '';
+            return String(s).replace(/[&<>"']/g, function (c) {
+                return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+            });
+        }
+        var MODE = {all: '전체', 'class': '학급', student: '학생'};
+        var STATUS = {scheduled: '예정', completed: '완료', cancelled: '취소'};
+        var STBADGE = {scheduled: 'badge-info', completed: 'badge-success', cancelled: 'badge-secondary'};
+
+        function renderAi(list) {
+            if (!list || !list.length) return '<p class="text-muted text-center py-3">AI 대화 내역 없음</p>';
+            return list.map(function (c) {
+                var msgs = (c.messages || []).map(function (m) {
+                    var who = m.role === 'user'
+                        ? '<span class="badge badge-primary">사용자</span>'
+                        : (m.role === 'assistant' ? '<span class="badge badge-success">AI</span>'
+                                                  : '<span class="badge badge-secondary">시스템</span>');
+                    return '<div style="margin:6px 0"><div class="mini-muted">' + who + ' <span>' + esc(m.messageAt) + '</span></div>'
+                        + '<div style="white-space:pre-wrap;word-break:break-word">' + esc(m.content) + '</div></div>';
+                }).join('');
+                var body = msgs
+                    ? '<details><summary class="mini-muted" style="cursor:pointer;outline:none">메시지 ' + ((c.messages || []).length) + '건 펼치기</summary>'
+                      + '<div style="border-left:3px solid #e2e8f0;padding-left:10px;margin-top:6px">' + msgs + '</div></details>'
+                    : '';
+                return '<div class="card card-body p-2 mb-2">'
+                    + '<div><b>' + esc(c.title || '(제목 없음)') + '</b> '
+                    + '<span class="badge badge-light">' + (MODE[c.mode] || esc(c.mode)) + '</span> '
+                    + (c.contextLabel ? '<span class="mini-muted">' + esc(c.contextLabel) + '</span>' : '') + '</div>'
+                    + '<div class="mini-muted">메시지 ' + esc(c.messageCount) + '건 · 생성 ' + esc(c.createdAt)
+                    + ' · 최근 ' + esc(c.lastMessageAt) + '</div>'
+                    + body + '</div>';
+            }).join('');
+        }
+
+        function renderCo(list) {
+            if (!list || !list.length) return '<p class="text-muted text-center py-3">상담 내역 없음</p>';
+            return list.map(function (c) {
+                var st = '<span class="badge ' + (STBADGE[c.status] || 'badge-light') + '">' + (STATUS[c.status] || esc(c.status)) + '</span>';
+                var fields = '';
+                if (c.reason) fields += '<div><span class="mini-muted">사유</span> ' + esc(c.reason) + '</div>';
+                if (c.summary) fields += '<div><span class="mini-muted">요약</span> ' + esc(c.summary) + '</div>';
+                if (c.nextSteps) fields += '<div><span class="mini-muted">다음 단계</span> ' + esc(c.nextSteps) + '</div>';
+                return '<div class="card card-body p-2 mb-2">'
+                    + '<div>' + st + ' <b>' + esc(c.scheduledAt || c.createdAt) + '</b> '
+                    + '<span class="mini-muted">학급 ' + esc(c.claId) + '</span></div>'
+                    + '<div class="mini-muted">대상: ' + esc(c.studentNames || ('학생 ' + (c.studentCount || 0) + '명')) + '</div>'
+                    + fields + '</div>';
+            }).join('');
+        }
+
+        window.openTrialDetail = function (name) {
+            var d = teacherDetails[name] || {aiConversations: [], counselings: []};
+            document.getElementById('tdName').textContent = name;
+            document.getElementById('tdAiCount').textContent = (d.aiConversations || []).length;
+            document.getElementById('tdCoCount').textContent = (d.counselings || []).length;
+            document.getElementById('tdAi').innerHTML = renderAi(d.aiConversations);
+            document.getElementById('tdCo').innerHTML = renderCo(d.counselings);
+            $('#trialDetailModal').modal('show');
+        };
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.teacher-chip[data-teacher]').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    openTrialDetail(el.getAttribute('data-teacher'));
+                });
+            });
+        });
+    })();
+</script>
 </body>
 </html>
