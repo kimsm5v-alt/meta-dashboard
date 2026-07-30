@@ -146,6 +146,7 @@
                                     <div class="tc-stat">
                                         <span><i class="fas fa-robot" style="color:#6366f1"></i> AI <b th:text="${t.aiConvCount}"></b></span>
                                         <span><i class="fas fa-comments" style="color:#0ea5e9"></i> 상담 <b th:text="${t.counselingCount}"></b></span>
+                                        <span><i class="fas fa-address-card" style="color:#10b981"></i> 생기부 <b th:text="${t.schoolRecordCount}"></b></span>
                                     </div>
                                 </div>
                             </div>
@@ -266,10 +267,15 @@
                             <a class="nav-link" data-toggle="tab" href="#tdCo" role="tab">
                                 <i class="fas fa-comments"></i> 상담 <span class="badge badge-secondary" id="tdCoCount">0</span></a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-toggle="tab" href="#tdSr" role="tab">
+                                <i class="fas fa-address-card"></i> 생활기록부 <span class="badge badge-secondary" id="tdSrCount">0</span></a>
+                        </li>
                     </ul>
                     <div class="tab-content pt-3">
                         <div class="tab-pane fade show active" id="tdAi" role="tabpanel"></div>
                         <div class="tab-pane fade" id="tdCo" role="tabpanel"></div>
+                        <div class="tab-pane fade" id="tdSr" role="tabpanel"></div>
                     </div>
                 </div>
             </div>
@@ -339,13 +345,25 @@
             }).join('');
         }
 
+        function renderSr(list) {
+            if (!list || !list.length) return '<p class="text-muted text-center py-3">생활기록부 내역 없음</p>';
+            return list.map(function (r) {
+                return '<div class="card card-body p-2 mb-2">'
+                    + '<div><span class="badge badge-success"><i class="fas fa-user-graduate"></i> ' + esc(r.studentName) + '</span> '
+                    + '<span class="mini-muted">학급 ' + esc(r.claId) + ' · ' + esc(r.createdAt) + '</span></div>'
+                    + '<div style="white-space:pre-wrap;word-break:break-word;margin-top:4px">' + esc(r.content) + '</div></div>';
+            }).join('');
+        }
+
         window.openTrialDetail = function (name) {
-            var d = teacherDetails[name] || {aiConversations: [], counselings: []};
+            var d = teacherDetails[name] || {aiConversations: [], counselings: [], schoolRecords: []};
             document.getElementById('tdName').textContent = name;
             document.getElementById('tdAiCount').textContent = (d.aiConversations || []).length;
             document.getElementById('tdCoCount').textContent = (d.counselings || []).length;
+            document.getElementById('tdSrCount').textContent = (d.schoolRecords || []).length;
             document.getElementById('tdAi').innerHTML = renderAi(d.aiConversations);
             document.getElementById('tdCo').innerHTML = renderCo(d.counselings);
+            document.getElementById('tdSr').innerHTML = renderSr(d.schoolRecords);
             $('#trialDetailModal').modal('show');
         };
 

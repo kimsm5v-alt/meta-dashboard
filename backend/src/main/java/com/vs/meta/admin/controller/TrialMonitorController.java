@@ -106,6 +106,7 @@ public class TrialMonitorController {
         List<Map<String, Object>> aiConversations = new ArrayList<>();
         List<Map<String, Object>> aiMessages = new ArrayList<>();
         List<Map<String, Object>> counselings = new ArrayList<>();
+        List<Map<String, Object>> schoolRecords = new ArrayList<>();
         if (!allUserNos.isEmpty()) {
             groups = trialMonitorMapper.selectGroupsByHostUserNos(allUserNos);
             examProgress = trialMonitorMapper.selectExamProgressByHostUserNos(allUserNos);
@@ -114,6 +115,7 @@ public class TrialMonitorController {
             aiConversations = trialMonitorMapper.selectAiConversationsByOwnerUserNos(allUserNos);
             aiMessages = trialMonitorMapper.selectAiMessagesByOwnerUserNos(allUserNos);
             counselings = trialMonitorMapper.selectCounselingsByHostUserNos(allUserNos);
+            schoolRecords = trialMonitorMapper.selectSchoolRecordsByHostUserNos(allUserNos);
             labelTeacher(groups, userNoToName);
             labelTeacher(examProgress, userNoToName);
             labelTeacher(integrity, userNoToName);
@@ -173,12 +175,14 @@ public class TrialMonitorController {
         for (Map<String, Object> c : aiConversations) {
             c.put("messages", messagesByConv.getOrDefault(num(c.get("conversationId")), new ArrayList<>()));
         }
-        // ownerUserNo → 교사 이름 기준으로 대화/상담 그룹핑 (명단 순서 유지)
+        // ownerUserNo → 교사 이름 기준으로 대화/상담/생기부 그룹핑 (명단 순서 유지)
         Map<String, List<Map<String, Object>>> aiByName = new LinkedHashMap<>();
         Map<String, List<Map<String, Object>>> counselByName = new LinkedHashMap<>();
+        Map<String, List<Map<String, Object>>> recordByName = new LinkedHashMap<>();
         for (String name : TEACHER_NAMES) {
             aiByName.put(name, new ArrayList<>());
             counselByName.put(name, new ArrayList<>());
+            recordByName.put(name, new ArrayList<>());
         }
         for (Map<String, Object> c : aiConversations) {
             String name = userNoToName.get(num(c.get("ownerUserNo")));
@@ -192,17 +196,26 @@ public class TrialMonitorController {
                 counselByName.get(name).add(c);
             }
         }
+        for (Map<String, Object> c : schoolRecords) {
+            String name = userNoToName.get(num(c.get("ownerUserNo")));
+            if (name != null && recordByName.containsKey(name)) {
+                recordByName.get(name).add(c);
+            }
+        }
         // teacherSummary 에 카운트 부여 + 이름별 상세 맵(팝업용) 구성
         Map<String, Map<String, Object>> teacherDetails = new LinkedHashMap<>();
         for (Map<String, Object> r : teacherSummary) {
             String name = (String) r.get("name");
             List<Map<String, Object>> ai = aiByName.getOrDefault(name, new ArrayList<>());
             List<Map<String, Object>> co = counselByName.getOrDefault(name, new ArrayList<>());
+            List<Map<String, Object>> sr = recordByName.getOrDefault(name, new ArrayList<>());
             r.put("aiConvCount", ai.size());
             r.put("counselingCount", co.size());
+            r.put("schoolRecordCount", sr.size());
             Map<String, Object> detail = new LinkedHashMap<>();
             detail.put("aiConversations", ai);
             detail.put("counselings", co);
+            detail.put("schoolRecords", sr);
             teacherDetails.put(name, detail);
         }
         model.addAttribute("teacherDetails", teacherDetails);
