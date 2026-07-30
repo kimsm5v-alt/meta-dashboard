@@ -6,12 +6,14 @@ import {
   User,
   LogOut,
   ChevronRight,
+  ChevronDown,
   ClipboardList,
   Heart,
   BookOpen,
   Home,
   PanelLeftClose,
   PanelLeft,
+  ArrowRightLeft,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
@@ -40,6 +42,25 @@ import { ScopeTree, type ClassInfo, type StudentInfo } from './components';
 interface LayoutProps {
   children: ReactNode;
 }
+
+/** 검사 유형 */
+export type ExamType = 'comp' | 'self';
+
+/** 역할 유형 */
+export type RoleType = 'teacher' | 'student';
+
+/** 프로토타입 모드 (역할 + 검사 유형 조합) */
+export interface PrototypeMode {
+  role: RoleType;
+  examType: ExamType;
+}
+
+const PROTOTYPE_MODE_OPTIONS: { value: PrototypeMode; label: string; color: string }[] = [
+  { value: { role: 'teacher', examType: 'comp' }, label: '교사 - 학습종합검사', color: '#9D53E1' },
+  { value: { role: 'teacher', examType: 'self' }, label: '교사 - 자기조절학습검사', color: '#009F88' },
+  { value: { role: 'student', examType: 'comp' }, label: '학생 - 학습종합검사', color: '#9D53E1' },
+  { value: { role: 'student', examType: 'self' }, label: '학생 - 자기조절학습검사', color: '#009F88' },
+];
 
 interface GNBItem {
   id: string;
@@ -83,6 +104,10 @@ interface LayoutContextType {
   selectAll: () => void;
   selectClass: (classId: string) => void;
   selectStudent: (classId: string, studentId: string) => void;
+
+  // 프로토타입 모드 (역할 + 검사 유형)
+  prototypeMode: PrototypeMode;
+  setPrototypeMode: (mode: PrototypeMode) => void;
 }
 
 const LayoutContext = createContext<LayoutContextType | null>(null);
@@ -136,10 +161,11 @@ const MOCK_STUDENTS: StudentInfo[] = [
 ];
 
 // ============================================
-// GNB Configuration
+// GNB Configuration (검사 유형별)
 // ============================================
 
-const GNB_ITEMS: GNBItem[] = [
+/** 학습종합검사용 GNB */
+const GNB_ITEMS_COMP: GNBItem[] = [
   {
     id: 'exam',
     label: '검사',
@@ -149,6 +175,7 @@ const GNB_ITEMS: GNBItem[] = [
       { id: 'management', label: '검사관리', path: '/exam/management' },
       { id: 'result', label: '결과보기', path: '/exam/result' },
       { id: 'tracking', label: '변화추적', path: '/exam/tracking' },
+      { id: 'record', label: '생활기록부 작성', path: '/exam/record' },
     ],
   },
   {
@@ -169,6 +196,34 @@ const GNB_ITEMS: GNBItem[] = [
   },
 ];
 
+/** 자기조절학습검사용 GNB (코칭 메뉴 없음 - LPA 유형 미지원) */
+const GNB_ITEMS_SELF: GNBItem[] = [
+  {
+    id: 'exam',
+    label: '검사',
+    icon: ClipboardList,
+    path: '/exam',
+    subTabs: [
+      { id: 'management', label: '검사관리', path: '/exam/management' },
+      { id: 'result', label: '결과보기', path: '/exam/result' },
+      { id: 'tracking', label: '변화추적', path: '/exam/tracking' },
+      { id: 'record', label: '생활기록부 작성', path: '/exam/record' },
+    ],
+  },
+  // 자기조절학습검사는 LPA 유형이 없으므로 코칭 메뉴 제외
+  {
+    id: 'lesson',
+    label: '수업',
+    icon: BookOpen,
+    path: '/lesson',
+  },
+];
+
+/** 검사 유형에 따른 GNB 반환 */
+const getGNBItems = (examType: ExamType): GNBItem[] => {
+  return examType === 'comp' ? GNB_ITEMS_COMP : GNB_ITEMS_SELF;
+};
+
 // ============================================
 // Header (GNB)
 // ============================================
@@ -177,7 +232,20 @@ const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { activeGNB, setActiveGNB, setActiveSubTab, selectAll } = useLayoutContext();
+  const { activeGNB, setActiveGNB, setActiveSubTab, selectAll, prototypeMode, setPrototypeMode } = useLayoutContext();
+  const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
+  const modeDropdownRef = useRef<HTMLDivElement>(null);
+
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modeDropdownRef.current && !modeDropdownRef.current.contains(event.target as Node)) {
+        setIsModeDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -190,6 +258,9 @@ const Header: React.FC = () => {
     const queryString = params.toString();
     navigate(queryString ? `${path}?${queryString}` : path);
   };
+
+  // 현재 검사 유형에 맞는 GNB 아이템
+  const gnbItems = getGNBItems(prototypeMode.examType);
 
   const handleGNBClick = (item: GNBItem) => {
     setActiveGNB(item.id);
@@ -209,6 +280,23 @@ const Header: React.FC = () => {
     navigate('/home');
   };
 
+  const handleModeChange = (mode: PrototypeMode) => {
+    setPrototypeMode(mode);
+    setIsModeDropdownOpen(false);
+
+    // 역할 변경 시 적절한 페이지로 이동
+    if (mode.role === 'student') {
+      navigate('/student/exams');
+    } else {
+      navigate('/home');
+    }
+  };
+
+  // 현재 선택된 모드 라벨
+  const currentModeOption = PROTOTYPE_MODE_OPTIONS.find(
+    opt => opt.value.role === prototypeMode.role && opt.value.examType === prototypeMode.examType
+  );
+
   return (
     <header className="fixed top-0 left-0 right-0 h-[58px] bg-white border-b border-gray-200 z-50">
       <div className="flex items-center justify-between h-full px-7">
@@ -219,9 +307,9 @@ const Header: React.FC = () => {
 
         {/* GNB Tabs */}
         <nav className="absolute left-1/2 -translate-x-1/2 flex items-center bg-[#f2f1fb] rounded-full px-1 py-1">
-          {GNB_ITEMS.map((item, index) => {
+          {gnbItems.map((item, index) => {
             const isActive = activeGNB === item.id;
-            const isLast = index === GNB_ITEMS.length - 1;
+            const isLast = index === gnbItems.length - 1;
             return (
               <div key={item.id} className="flex items-center">
                 <button
@@ -242,6 +330,48 @@ const Header: React.FC = () => {
 
         {/* Right Section */}
         <div className="flex items-center gap-4">
+          {/* [PROTOTYPE] 역할/검사 유형 선택 드롭다운 */}
+          <div className="relative" ref={modeDropdownRef}>
+            <button
+              onClick={() => setIsModeDropdownOpen(!isModeDropdownOpen)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-lg transition-colors border"
+              style={{
+                color: currentModeOption?.color,
+                backgroundColor: `${currentModeOption?.color}10`,
+                borderColor: `${currentModeOption?.color}30`,
+              }}
+              title="프로토타입 모드 전환"
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              <span>{currentModeOption?.label}</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isModeDropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                {PROTOTYPE_MODE_OPTIONS.map((option, idx) => {
+                  const isSelected = option.value.role === prototypeMode.role && option.value.examType === prototypeMode.examType;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => handleModeChange(option.value)}
+                      className={`w-full px-4 py-2.5 text-left text-sm transition-colors flex items-center gap-2 ${
+                        isSelected ? 'bg-gray-50 font-semibold' : 'hover:bg-gray-50'
+                      } ${idx > 0 ? 'border-t border-gray-100' : ''}`}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: option.color }}
+                      />
+                      <span style={{ color: isSelected ? option.color : '#374151' }}>
+                        {option.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* AI 어시스턴트 버튼 - 전체 페이지(B)로 이동 */}
           <button
             onClick={() => {
@@ -389,9 +519,11 @@ const Sidebar: React.FC = () => {
 const SubTabs: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { activeGNB, activeSubTab, setActiveSubTab } = useLayoutContext();
+  const { activeGNB, activeSubTab, setActiveSubTab, prototypeMode } = useLayoutContext();
 
-  const currentGNB = GNB_ITEMS.find((item) => item.id === activeGNB);
+  // 검사 유형에 맞는 GNB 아이템에서 현재 GNB 찾기
+  const gnbItems = getGNBItems(prototypeMode.examType);
+  const currentGNB = gnbItems.find((item) => item.id === activeGNB);
 
   if (!currentGNB?.subTabs) {
     return null;
@@ -438,6 +570,9 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
   // GNB/서브탭 상태
   const [activeGNB, setActiveGNB] = useState<string>('');
   const [activeSubTab, setActiveSubTab] = useState<string | null>(null);
+
+  // 프로토타입 모드 (역할 + 검사 유형)
+  const [prototypeMode, setPrototypeMode] = useState<PrototypeMode>({ role: 'teacher', examType: 'comp' });
 
   // 스코프 상태
   const [scope, setScopeState] = useState<Scope>(INITIAL_SCOPE);
@@ -654,7 +789,8 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
   // ============================================
   useEffect(() => {
     const path = location.pathname;
-    const matchedGNB = GNB_ITEMS.find(
+    const gnbItems = getGNBItems(prototypeMode.examType);
+    const matchedGNB = gnbItems.find(
       (item) => path === item.path || path.startsWith(item.path + '/')
     );
     if (matchedGNB) {
@@ -669,7 +805,7 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
         }
       }
     }
-  }, [location.pathname]);
+  }, [location.pathname, prototypeMode.examType]);
 
   // ============================================
   // Context Value
@@ -695,6 +831,9 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
     selectAll,
     selectClass,
     selectStudent,
+    // 프로토타입 모드
+    prototypeMode,
+    setPrototypeMode,
   };
 
   // AI 어시스턴트 화면: GNB는 유지하되 좌측 스코프 사이드바/서브탭을 숨기고 전체폭으로 렌더

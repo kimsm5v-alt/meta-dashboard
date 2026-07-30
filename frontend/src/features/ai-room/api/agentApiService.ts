@@ -14,10 +14,20 @@ const CHAT_BASE_URL = ENV.CHAT_API_URL;
 // 타입 정의
 // ============================================================
 
+/** 에이전트에 replay하는 직전 대화 이력 1턴 (정본은 백엔드 DB) */
+export interface AgentHistoryMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 interface AgentQuery {
   text: string;
   session_id: string;
   context_data?: Record<string, unknown> | null;
+  /** 직전까지의 대화 이력 — 에이전트는 이 값으로 컨텍스트를 구성한다(현재 발화 text는 미포함) */
+  history?: AgentHistoryMessage[] | null;
+  /** 첨부 이미지(data URI 목록, 최대 3장). 해당 턴에만 사용되며 세션에는 저장되지 않는다. */
+  images?: string[] | null;
   userId?: string;
 }
 
@@ -41,12 +51,16 @@ export const agentChat = async (
   text: string,
   sessionId: string,
   contextData?: Record<string, unknown> | null,
+  history?: AgentHistoryMessage[] | null,
+  images?: string[] | null,
   userId?: string,
 ): Promise<AgentChatResponse> => {
   const body: AgentQuery = {
     text,
     session_id: sessionId,
     context_data: contextData ?? null,
+    history: history ?? null,
+    images: images ?? null,
     userId,
   };
 
@@ -73,12 +87,16 @@ export const agentChatStream = async (
   sessionId: string,
   onChunk: (chunk: string, isFinal: boolean) => void,
   contextData?: Record<string, unknown> | null,
+  history?: AgentHistoryMessage[] | null,
+  images?: string[] | null,
   userId?: string,
 ): Promise<void> => {
   const body: AgentQuery = {
     text,
     session_id: sessionId,
     context_data: contextData ?? null,
+    history: history ?? null,
+    images: images ?? null,
     userId,
   };
 

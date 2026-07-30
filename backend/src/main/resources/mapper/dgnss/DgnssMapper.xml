@@ -104,6 +104,74 @@
 		GROUP BY a1.id
 	</select>
 
+	<!-- 교사) 본인 소유(host_user_no) 전체 학급의 진단검사 현황 한 번에 조회.
+	     기존 selectTcDgnssInfo 와 동일 집계이나 WHERE 를 학급(claId) 대신 교사(userNo=host_user_no) 로,
+	     그룹 정보(group_nm/school_level/grade/class_number)를 함께 반환. -->
+	<select id="selectTcDgnssOverview" parameterType="map" resultType="map">
+		/* DgnssMapper.selectTcDgnssOverview */
+		SELECT a1.id AS dgnssId
+		     , a1.ord_no AS ordNo
+		     , a1.cla_id AS claId
+		     , a1.dgnss_at AS dgnssAt
+		     , a1.paper_idx AS paperIdx
+		     , DATE_FORMAT(a1.dgnss_st_dt, '%Y. %m. %d.') AS dgnssStDt
+		     , DATE_FORMAT(a1.dgnss_ed_dt, '%Y. %m. %d.') AS dgnssEdDt
+		     , gi.group_nm AS groupNm
+		     , gi.school_level AS schoolLevel
+		     , gi.grade AS grade
+		     , gi.class_number AS classNumber
+		     , COUNT(
+		        DISTINCT CASE
+		                     WHEN b1.subm_at = 'Y' THEN b1.stdt_id
+		                 END
+		       ) AS stSubmCnt
+		     , (
+		        SELECT COUNT(DISTINCT gm2.stdt_id)
+		        FROM group_info gi2
+		        	INNER JOIN group_member gm2
+		        		ON gi2.group_id = gm2.group_id
+		        WHERE gi2.cla_id = a1.cla_id
+		       ) AS stTotalCnt
+		     , (
+		        SELECT COUNT(DISTINCT gm2.stdt_id)
+		        FROM group_info gi2
+		        	INNER JOIN group_member gm2
+		        		ON gi2.group_id = gm2.group_id
+		        WHERE gi2.cla_id = a1.cla_id
+		          AND NOT EXISTS (
+		          	SELECT 1
+		          	FROM tb_dgnss_result_info b2
+		          	WHERE b2.stdt_id = gm2.stdt_id
+		          	  AND b2.dgnss_id = a1.id
+		          )
+		       ) AS notDgnssStartCnt
+		     , (
+		        SELECT GROUP_CONCAT(DISTINCT gm2.stdt_id)
+		        FROM group_info gi2
+		        	INNER JOIN group_member gm2
+		        		ON gi2.group_id = gm2.group_id
+		        WHERE gi2.cla_id = a1.cla_id
+		          AND NOT EXISTS (
+		          	SELECT 1
+		          	FROM tb_dgnss_result_info b2
+		          	WHERE b2.stdt_id = gm2.stdt_id
+		          	  AND b2.dgnss_id = a1.id
+		          )
+		       ) AS notDgnssStartList
+		     , a1.tc_id AS tcId
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1
+				ON a1.id = b1.dgnss_id
+			INNER JOIN group_info gi
+				ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm
+				ON gi.group_id = gm.group_id
+				AND b1.stdt_id = gm.stdt_id
+		WHERE gi.host_user_no = #{userNo}
+		GROUP BY a1.id
+		ORDER BY a1.cla_id, a1.paper_idx, a1.ord_no
+	</select>
+
 	<select id="selectActvStdtCnt" parameterType="map" resultType="int">
 		/* DgnssMapper.selectActvStdtCnt */
 		SELECT COUNT(*)

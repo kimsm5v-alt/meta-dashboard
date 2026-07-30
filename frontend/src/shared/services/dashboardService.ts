@@ -11,7 +11,14 @@
  */
 
 import { apiRequest } from './apiClient';
-import type { Assessment, Class, SchoolLevel, Student, StudentType } from '@shared/types';
+import type {
+  Assessment,
+  Class,
+  SchoolLevel,
+  SchoolLevelCode,
+  Student,
+  StudentType,
+} from '@shared/types';
 import { classifyStudent, getTypeDeviations } from '@shared/utils/lpaClassifier';
 import { checkAttention } from '@shared/utils/attentionChecker';
 import { createSubmittedStudentIdSet, hasSubmittedRound } from './roundSubmissions';
@@ -783,6 +790,7 @@ export async function buildClassFromAPI(
   schoolLevel: SchoolLevel,
   dgnssId: number,
   round2DgnssId?: number,
+  schoolLevelCode?: SchoolLevelCode,
 ): Promise<Class | null> {
   try {
     const studentInfoList = await fetchStudentInfoList(dgnssId, '1', 1);
@@ -839,6 +847,7 @@ export async function buildClassFromAPI(
           number: info.rowNum,
           name: info.stdtNm ?? info.nickname ?? `학생${info.rowNum}`,
           schoolLevel,
+          schoolLevelCode,
           grade,
           assessments,
         };
@@ -877,6 +886,7 @@ export async function buildClassFromAPI(
     return {
       id: claId,
       schoolLevel,
+      schoolLevelCode,
       grade,
       classNumber,
       teacherId: '',

@@ -22,7 +22,7 @@ import {
   type L2DashboardData,
 } from '@shared/services/dashboardService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
-import type { SchoolLevel, Student, Class, Assessment, User, Group } from '@shared/types';
+import type { SchoolLevel, SchoolLevelCode, Student, Class, Assessment, User, Group } from '@shared/types';
 import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth';
 import { groupService } from '@features/groups/api/groupService';
@@ -50,7 +50,14 @@ function useCredentials() {
 interface UseStudentAnalysisResult {
   student: Student | undefined;
   classStudents: Student[];
-  classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel } | undefined;
+  classInfo:
+    | {
+        grade: number;
+        classNumber: number;
+        schoolLevel: SchoolLevel;
+        schoolLevelCode?: SchoolLevelCode;
+      }
+    | undefined;
   dgnssIds: { round1?: number; round2?: number };
   isLoading: boolean;
   error: string | null;
@@ -91,6 +98,7 @@ export function useStudentAnalysis(
                 grade: classData.grade,
                 classNumber: classData.classNumber,
                 schoolLevel: classData.schoolLevel,
+                schoolLevelCode: classData.schoolLevelCode,
               }
             : undefined,
           dgnssIds: {},
@@ -109,6 +117,8 @@ export function useStudentAnalysis(
       const schoolLevel: SchoolLevel = matchedGroup
         ? (SCHOOL_LEVEL_MAP[matchedGroup.schoolLevel] ?? credSchoolLevel)
         : credSchoolLevel;
+      // 원본 SchoolLevelCode(고등 포함) — 에이전트가 고등학생 중등 규준 고지에 사용
+      const schoolLevelCode: SchoolLevelCode | undefined = matchedGroup?.schoolLevel;
       const completedR1 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 1);
       const completedR2 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 2);
       const dgnssIds = { round1: completedR1?.dgnssId, round2: completedR2?.dgnssId };
@@ -144,10 +154,10 @@ export function useStudentAnalysis(
         const fallbackStudent = getStudentById(classId, studentId);
         return {
           student: fallbackStudent
-            ? { ...fallbackStudent, name: studentName || fallbackStudent.name }
+            ? { ...fallbackStudent, name: studentName || fallbackStudent.name, schoolLevelCode }
             : undefined,
           classStudents: classData?.students ?? [],
-          classInfo: { grade, classNumber, schoolLevel },
+          classInfo: { grade, classNumber, schoolLevel, schoolLevelCode },
           dgnssIds,
         };
       }
@@ -167,11 +177,12 @@ export function useStudentAnalysis(
           number: studentNumber,
           name: studentName,
           schoolLevel,
+          schoolLevelCode,
           grade,
           assessments,
         },
         classStudents: classStudents ?? [],
-        classInfo: { grade, classNumber, schoolLevel },
+        classInfo: { grade, classNumber, schoolLevel, schoolLevelCode },
         dgnssIds,
       };
     },
@@ -471,6 +482,8 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         const round2 = completedExams.find((d) => d.ordNo === 2);
         const primaryDgnssId = round1?.dgnssId ?? round2?.dgnssId;
         const schoolLevel: SchoolLevel = SCHOOL_LEVEL_MAP[group.schoolLevel] ?? credSchoolLevel;
+        // group.schoolLevel(SchoolLevelCode)은 위에서 '중등'으로 뭉개지기 전의 원본 값('high' 포함)이다.
+        // AI 에이전트 등 다운스트림이 실제 학교급을 알 수 있도록 그대로 흘려보낸다.
 
         if (primaryDgnssId) {
           return buildClassFromAPI(
@@ -480,6 +493,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
             schoolLevel,
             primaryDgnssId,
             round2?.dgnssId,
+            group.schoolLevel,
           );
         }
 
@@ -487,6 +501,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         const simpleClass: Class = {
           id: group.claId,
           schoolLevel,
+          schoolLevelCode: group.schoolLevel,
           grade: group.grade,
           classNumber: group.classNumber,
           teacherId: user.id,

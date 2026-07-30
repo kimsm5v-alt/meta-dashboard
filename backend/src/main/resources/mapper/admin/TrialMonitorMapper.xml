@@ -123,4 +123,87 @@
         ORDER BY cnt DESC
     </select>
 
+    <!-- 팝업: 교사(owner_user_no)들의 AI 어시스턴트 대화 목록. owner_user_no = user.user_no(= host_user_no) 직접 매칭. -->
+    <select id="selectAiConversationsByOwnerUserNos" resultType="map">
+        /* TrialMonitorMapper.selectAiConversationsByOwnerUserNos */
+        SELECT c.id            AS conversationId
+             , c.owner_user_no AS ownerUserNo
+             , c.title         AS title
+             , c.mode          AS mode
+             , c.context_label AS contextLabel
+             , DATE_FORMAT(c.created_at, '%Y-%m-%d %H:%i')      AS createdAt
+             , DATE_FORMAT(c.last_message_at, '%Y-%m-%d %H:%i') AS lastMessageAt
+             , (SELECT COUNT(*) FROM ai_message m WHERE m.conversation_id = c.id) AS messageCount
+        FROM ai_conversation c
+        WHERE c.use_yn = 'Y'
+          AND c.owner_user_no IN
+          <foreach item="uno" collection="userNos" open="(" separator="," close=")">#{uno}</foreach>
+        ORDER BY c.owner_user_no, c.last_message_at DESC
+    </select>
+
+    <!-- 팝업: 위 대화들의 메시지 전체. 대화(conversation_id)별로 그룹핑해 nest 한다. -->
+    <select id="selectAiMessagesByOwnerUserNos" resultType="map">
+        /* TrialMonitorMapper.selectAiMessagesByOwnerUserNos */
+        SELECT m.conversation_id AS conversationId
+             , m.role            AS `role`
+             , m.content         AS content
+             , DATE_FORMAT(m.message_at, '%Y-%m-%d %H:%i') AS messageAt
+        FROM ai_message m
+            INNER JOIN ai_conversation c ON c.id = m.conversation_id
+        WHERE c.use_yn = 'Y'
+          AND c.owner_user_no IN
+          <foreach item="uno" collection="userNos" open="(" separator="," close=")">#{uno}</foreach>
+        ORDER BY m.conversation_id, m.message_at
+    </select>
+
+    <!-- 팝업: 교사들의 상담 내역. counseling_info.tc_id = user.tc_id 로 교사 user_no 에 연결, 대상 학생명 GROUP_CONCAT. -->
+    <select id="selectCounselingsByHostUserNos" resultType="map">
+        /* TrialMonitorMapper.selectCounselingsByHostUserNos */
+        SELECT ci.id         AS counselingId
+             , u.user_no     AS ownerUserNo
+             , ci.cla_id     AS claId
+             , ci.status     AS status
+             , DATE_FORMAT(ci.scheduled_at, '%Y-%m-%d %H:%i') AS scheduledAt
+             , ci.duration   AS duration
+             , ci.types      AS types
+             , ci.areas      AS areas
+             , ci.methods    AS methods
+             , ci.reason     AS reason
+             , ci.summary    AS summary
+             , ci.next_steps AS nextSteps
+             , DATE_FORMAT(ci.created_at, '%Y-%m-%d %H:%i') AS createdAt
+             , (SELECT GROUP_CONCAT(COALESCE(pu2.name, u2.stdt_id) ORDER BY cs.id SEPARATOR ', ')
+                  FROM counseling_student cs
+                      LEFT JOIN `user` u2 ON u2.stdt_id = cs.stdt_id
+                      LEFT JOIN superteacher_core.platform_user pu2 ON pu2.public_user_id = u2.sp_user_id
+                  WHERE cs.counseling_id = ci.id AND cs.use_yn = 'Y') AS studentNames
+             , (SELECT COUNT(*)
+                  FROM counseling_student cs WHERE cs.counseling_id = ci.id AND cs.use_yn = 'Y') AS studentCount
+        FROM counseling_info ci
+            INNER JOIN `user` u ON u.tc_id = ci.tc_id
+        WHERE ci.use_yn = 'Y'
+          AND u.user_no IN
+          <foreach item="uno" collection="userNos" open="(" separator="," close=")">#{uno}</foreach>
+        ORDER BY u.user_no, ci.scheduled_at DESC
+    </select>
+
+    <!-- 팝업: 교사들의 생활기록부 내역. school_record_info.tc_id = user.tc_id 로 교사 user_no 에 연결, 대상 학생 실명 SSO 조인. -->
+    <select id="selectSchoolRecordsByHostUserNos" resultType="map">
+        /* TrialMonitorMapper.selectSchoolRecordsByHostUserNos */
+        SELECT sr.id      AS recordId
+             , u.user_no  AS ownerUserNo
+             , sr.cla_id  AS claId
+             , sr.content AS content
+             , DATE_FORMAT(sr.created_at, '%Y-%m-%d %H:%i') AS createdAt
+             , COALESCE(pu.name, u2.stdt_id) AS studentName
+        FROM school_record_info sr
+            INNER JOIN `user` u ON u.tc_id = sr.tc_id
+            LEFT JOIN `user` u2 ON u2.stdt_id = sr.stdt_id
+            LEFT JOIN superteacher_core.platform_user pu ON pu.public_user_id = u2.sp_user_id
+        WHERE sr.use_yn = 'Y'
+          AND u.user_no IN
+          <foreach item="uno" collection="userNos" open="(" separator="," close=")">#{uno}</foreach>
+        ORDER BY u.user_no, sr.created_at DESC
+    </select>
+
 </mapper>

@@ -7,6 +7,7 @@
 
 import type { ExamOverviewRow, ExamStatus } from '../types';
 import { EXAM_STATUS_LABELS, EXAM_STATUS_STYLES } from '../types';
+import { useLayoutContext } from '@/app/LayoutV2';
 
 /** 반별로 그룹화된 데이터 타입 */
 interface GroupedClassData {
@@ -90,11 +91,19 @@ const groupByClass = (rows: ExamOverviewRow[]): GroupedClassData[] => {
   return Array.from(grouped.values());
 };
 
+/** 검사 유형에 따른 검사지 이름 */
+const EXAM_TYPE_LABELS = {
+  comp: '학습종합검사',
+  self: '자기조절학습검사',
+} as const;
+
 export const ExamOverviewTable: React.FC<ExamOverviewTableProps> = ({
   rows,
   onViewResult,
   onManageExam,
 }) => {
+  const { prototypeMode } = useLayoutContext();
+  const examTypeName = EXAM_TYPE_LABELS[prototypeMode.examType];
   const groupedData = groupByClass(rows);
 
   // 결과보기 가능 여부 (1차 또는 2차 중 하나라도 completed인 경우)
@@ -130,7 +139,7 @@ export const ExamOverviewTable: React.FC<ExamOverviewTableProps> = ({
               <th className="w-24 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 반
               </th>
-              <th className="w-32 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="w-40 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 검사지
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -150,7 +159,7 @@ export const ExamOverviewTable: React.FC<ExamOverviewTableProps> = ({
                 <td className="px-4 py-4">
                   <span className="font-medium text-gray-900 whitespace-nowrap">{group.className}</span>
                 </td>
-                <td className="px-4 py-4 text-gray-600 text-sm">학습종합검사</td>
+                <td className="px-4 py-4 text-gray-600 text-sm whitespace-nowrap">{examTypeName}</td>
                 <td className="px-4 py-4">
                   {group.round1 ? (
                     <RoundProgressBar

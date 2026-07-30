@@ -9,6 +9,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
+  /** 첨부된 스크린샷 캡처 이미지(data URI). 턴 한정이라 서버에는 저장되지 않는다. */
+  images?: string[];
 }
 
 // AI 전송용 컨텍스트 데이터

@@ -690,6 +690,8 @@ export const SchoolRecordPanel: React.FC<SchoolRecordPanelProps> = ({ student, a
           setGeneratedText(accumulated);
         },
         null,
+        undefined,
+        undefined,
         user?.email,
       );
 

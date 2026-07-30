@@ -25,6 +25,13 @@ export interface ExamPeriodStatus {
 export interface Class {
   id: string;
   schoolLevel: SchoolLevel;
+  /**
+   * 백엔드가 내려준 원본 SchoolLevelCode('elementary'|'middle'|'high').
+   * `schoolLevel`은 'high'를 '중등'으로 뭉개서 저장하므로(검사 모델이 중등 기준을
+   * 재사용하기 때문), 이 값이 없으면 AI 에이전트 등 다운스트림에서 고등학생을
+   * 중등으로 오인한다.
+   */
+  schoolLevelCode?: SchoolLevelCode;
   grade: number;
   classNumber: number;
   teacherId: string;
@@ -62,6 +69,8 @@ export interface Student {
   number: number;
   name: string;
   schoolLevel: SchoolLevel;
+  /** Class.schoolLevelCode 참고 — 중등으로 뭉개지기 전 원본 SchoolLevelCode. */
+  schoolLevelCode?: SchoolLevelCode;
   grade: number;
   assessments: Assessment[];
   round2Submitted?: boolean;

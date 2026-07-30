@@ -8,8 +8,10 @@ import type {
   RoadmapStage,
   MyLesson,
   Report,
-  Slide,
   ContentPickItem,
+  Article,
+  StudentActivity,
+  ResponseData,
 } from './types';
 
 /** 목업 기준일 */
@@ -143,44 +145,67 @@ export const REPORTS: Report[] = [
 ];
 
 // ============================================
-// 리포트 상세 — 슬라이드 정의 (활동형/문항형)
+// 리포트 상세 — 공용 데이터셋 (REPORT_SPEC_v2 / 사양서 mockData)
+// 참여 리포트(진행중/완료)가 공유. 진행예정은 미연결(빈 상태).
 // ============================================
-export const SLIDE_SETS: Record<string, Slide[]> = {
-  r1: [
-    { t: '오늘의 감정 고르기', k: '활동형', pool: ['설렘', '불안', '뿌듯', '평온', '답답', '기대'] },
-    { t: '그 감정을 느낀 이유', k: '활동형', pool: ['친구랑 화해해서', '시험이 걱정돼서', '칭찬을 받아서', '푹 자서 개운해', '할 일이 많아서'] },
-    { t: '감정 온도계 (0~10)', k: '활동형', pool: ['3점', '5점', '6점', '8점', '9점'] },
-    { t: '친구에게 한마디', k: '활동형', pool: ['오늘도 고마워', '같이 놀자', '힘내!', '네 덕분에 즐거웠어'] },
-  ],
-  r2: [
-    { t: '나를 표현하는 단어', k: '활동형', pool: ['성실함', '호기심', '유머', '배려', '끈기'] },
-    { t: '내가 잘하는 것', k: '활동형', pool: ['그림 그리기', '달리기', '친구 돕기', '이야기 만들기'] },
-    { t: '감정 조절 O/X 퀴즈', k: '문항형', options: ['그렇다', '아니다'], correct: 0 },
-    { t: '이번 주 나에게 한마디', k: '활동형', pool: ['잘하고 있어', '조금만 더 힘내', '충분히 멋져'] },
-  ],
-  r4: [
-    { t: '갈등 상황 이해하기', k: '문항형', options: ['내 입장만 말한다', '상대 말을 먼저 듣는다', '자리를 피한다', '크게 화낸다'], correct: 1 },
-    { t: '올바른 대처 고르기 (O/X)', k: '문항형', options: ['맞다', '틀리다'], correct: 0 },
-    { t: '내가 쓸 대사 적기', k: '활동형', pool: ['미안해, 내가 오해했어', '네 생각도 듣고 싶어', '같이 방법을 찾아보자'] },
-    { t: '오늘의 다짐', k: '활동형', pool: ['먼저 사과하기', '끝까지 들어주기', '화나면 심호흡하기'] },
-  ],
-  r5: [
-    { t: '우리 반의 강점', k: '활동형', pool: ['잘 도와줌', '밝음', '협동을 잘함', '포기하지 않음'] },
-    { t: '친구 칭찬하기', k: '활동형', pool: ['○○는 친절해', '△△는 발표를 잘해', '□□는 잘 웃어'] },
-    { t: '우리 반에서 내 역할', k: '활동형', pool: ['분위기 메이커', '조용한 조력자', '아이디어 뱅크'] },
-  ],
-  r6: [
-    { t: '지금 나의 기분', k: '활동형', pool: ['긴장됨', '차분함', '졸림', '편안함'] },
-    { t: '호흡 후 변화 (0~10)', k: '활동형', pool: ['+1', '+2', '+3', '변화 없음'] },
-    { t: '활동 소감', k: '활동형', pool: ['마음이 가라앉았다', '생각보다 좋았다', '또 하고 싶다'] },
-  ],
-};
 
-export const DEFAULT_SLIDES: Slide[] = [
-  { t: '오늘의 감정 고르기', k: '활동형', pool: ['설렘', '평온', '불안', '뿌듯'] },
-  { t: '활동 소감 적기', k: '활동형', pool: ['재밌었다', '새로웠다', '어려웠다'] },
-  { t: '이해도 확인 (O/X)', k: '문항형', options: ['그렇다', '아니다'], correct: 0 },
+/** 세트지에 포함된 SEL 역량요인 */
+export const REPORT_SEL_FACTORS = ['자기인식', '관계기술'];
+
+/** 아티클(페이지) 정의 — 개념/문항/활동 성격별 유형 예시 포함 */
+export const REPORT_ARTICLES: Article[] = [
+  { id: 'art-1', order: 1, nature: '개념', itemType: '-', title: '갈등이란 무엇일까?', selFactor: '자기인식', gradingType: 2 },
+  { id: 'art-2', order: 2, nature: '문항', itemType: 'choice', title: '갈등 상황 파악하기', correctAnswer: '3', selFactor: '자기인식', gradingType: 1 },
+  { id: 'art-3', order: 3, nature: '활동', itemType: 'essay', title: '나의 갈등 경험 쓰기', selFactor: '자기인식', gradingType: 2 },
+  { id: 'art-4', order: 4, nature: '활동', itemType: 'drawing', title: '갈등 해결 방법 그리기', selFactor: '관계기술', gradingType: 2 },
+  { id: 'art-5', order: 5, nature: '문항', itemType: 'ox', title: '갈등 해결 O/X 퀴즈', correctAnswer: 'O', selFactor: '관계기술', gradingType: 1 },
+  { id: 'art-6', order: 6, nature: '활동', itemType: 'audio', title: '친구에게 사과 녹음하기', selFactor: '관계기술', gradingType: 2 },
 ];
+
+const REPORT_PERIOD = { start: '2026-07-15', end: '2026-07-22' };
+
+/** 학생 × 세트지 활동 (statusCd 2=대기,3=제출,4=진행중,5=완료) */
+export const REPORT_STUDENTS: StudentActivity[] = [
+  { studentId: 's1', studentName: '김서준', statusCd: 5, period: REPORT_PERIOD, score: 80, duration: 320, submittedAt: '2026-07-18 14:23' },
+  { studentId: 's2', studentName: '이하은', statusCd: 5, period: REPORT_PERIOD, score: 100, duration: 280, submittedAt: '2026-07-17 09:15' },
+  { studentId: 's3', studentName: '박도윤', statusCd: 2, period: REPORT_PERIOD },
+  { studentId: 's4', studentName: '최지우', statusCd: 5, period: REPORT_PERIOD, score: 60, duration: 450, submittedAt: '2026-07-19 16:42' },
+  { studentId: 's5', studentName: '정민재', statusCd: 5, period: REPORT_PERIOD, score: 80, duration: 310, submittedAt: '2026-07-18 11:05' },
+];
+
+/** 응답 데이터 (학생 × 아티클) — errata 1=정답,2=오답,3=부분,4=채점불가 */
+export const REPORT_RESPONSES: ResponseData[] = [
+  // 김서준 (s1)
+  { articleId: 'art-1', studentId: 's1', submitAnswer: '', errata: 4, itemType: '-', gradingType: 2, captureImage: '개념 슬라이드 캡처' },
+  { articleId: 'art-2', studentId: 's1', submitAnswer: '3', errata: 1, itemType: 'choice', gradingType: 1, captureImage: '선택형 캡처' },
+  { articleId: 'art-3', studentId: 's1', submitAnswer: '친구와 다퉜을 때 먼저 사과했다', errata: 4, itemType: 'essay', gradingType: 2, captureImage: '서술형 캡처' },
+  { articleId: 'art-4', studentId: 's1', submitAnswer: 'drawing-url-001', errata: 4, itemType: 'drawing', gradingType: 2, captureImage: '그리기 캡처' },
+  { articleId: 'art-5', studentId: 's1', submitAnswer: 'O', errata: 1, itemType: 'ox', gradingType: 1, captureImage: 'OX 캡처' },
+  { articleId: 'art-6', studentId: 's1', submitAnswer: 'audio-url-001', errata: 4, itemType: 'audio', gradingType: 2, captureImage: '녹음 캡처' },
+  // 이하은 (s2)
+  { articleId: 'art-2', studentId: 's2', submitAnswer: '3', errata: 1, itemType: 'choice', gradingType: 1, captureImage: '선택형 캡처' },
+  { articleId: 'art-3', studentId: 's2', submitAnswer: '동생과 장난감을 나눠 쓰기로 했다', errata: 4, itemType: 'essay', gradingType: 2, captureImage: '서술형 캡처' },
+  { articleId: 'art-4', studentId: 's2', submitAnswer: 'drawing-url-002', errata: 4, itemType: 'drawing', gradingType: 2, captureImage: '그리기 캡처' },
+  { articleId: 'art-5', studentId: 's2', submitAnswer: 'X', errata: 2, itemType: 'ox', gradingType: 1, captureImage: 'OX 캡처' },
+  // 최지우 (s4)
+  { articleId: 'art-2', studentId: 's4', submitAnswer: '1', errata: 2, itemType: 'choice', gradingType: 1, captureImage: '선택형 캡처' },
+  { articleId: 'art-3', studentId: 's4', submitAnswer: '아직 화해하지 못했다', errata: 4, itemType: 'essay', gradingType: 2, captureImage: '서술형 캡처' },
+  { articleId: 'art-5', studentId: 's4', submitAnswer: 'O', errata: 1, itemType: 'ox', gradingType: 1, captureImage: 'OX 캡처' },
+  // 정민재 (s5)
+  { articleId: 'art-2', studentId: 's5', submitAnswer: '3', errata: 1, itemType: 'choice', gradingType: 1, captureImage: '선택형 캡처' },
+  { articleId: 'art-4', studentId: 's5', submitAnswer: 'drawing-url-005', errata: 4, itemType: 'drawing', gradingType: 2, captureImage: '그리기 캡처' },
+  { articleId: 'art-5', studentId: 's5', submitAnswer: 'O', errata: 1, itemType: 'ox', gradingType: 1, captureImage: 'OX 캡처' },
+];
+
+// 참여 리포트(진행예정 제외)에 공용 상세 데이터셋 연결.
+REPORTS.forEach((r) => {
+  if (r.rstatus === '진행예정') return;
+  r.activityMode = '과제';
+  r.selFactors = REPORT_SEL_FACTORS;
+  r.articles = REPORT_ARTICLES;
+  r.students = REPORT_STUDENTS;
+  r.responses = REPORT_RESPONSES;
+});
 
 // ============================================
 // 저작툴 콘텐츠 담기

@@ -108,6 +108,21 @@ const MessageText = styled.p`
   line-height: 1.6;
 `;
 
+const MessageImages = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.xs};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+`;
+
+const MessageImage = styled.img`
+  max-width: 220px;
+  max-height: 220px;
+  border-radius: ${({ theme }) => theme.radius.lg};
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+`;
+
 const LoadingRow = styled.div`
   display: flex;
   gap: 0.75rem;
@@ -682,7 +697,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </BubbleWrapper>
               ) : (
                 <MessageBubble $isUser={true}>
-                  <MessageText>{displayContent}</MessageText>
+                  {msg.images && msg.images.length > 0 && (
+                    <MessageImages>
+                      {msg.images.map((src, idx) => (
+                        <MessageImage key={`${msg.id}-img-${idx}`} src={src} alt='첨부한 화면 캡처' />
+                      ))}
+                    </MessageImages>
+                  )}
+                  {displayContent && <MessageText>{displayContent}</MessageText>}
                 </MessageBubble>
               )}
             </MessageRow>

@@ -61,29 +61,57 @@ export interface ClassLPADistribution {
   distribution: Record<string, number>; // 유형명: 인원수
 }
 
-/** 유형별 특징 및 코칭 전략 */
+/**
+ * 유형별 특징 및 코칭 전략
+ *
+ * [학급전략DB 엑셀 필드 매핑]
+ * - characteristics: 섹션=유형특징, 항목=본문
+ * - strategyTitle: 섹션=대표전략, 항목=제목
+ * - strategyDescription: 섹션=대표전략, 항목=리드
+ * - actionItems[0]: 섹션=대표전략, 항목=단계(수업 도입부), 순번=1
+ * - actionItems[1]: 섹션=대표전략, 항목=단계(학급 운영), 순번=2
+ * - actionItems[2]: 섹션=대표전략, 항목=단계(교사의 말·피드백), 순번=3
+ * - successIndicators: 섹션=관찰지표, 항목=2주 관찰 지표 (3건)
+ * - noteForOtherTypes: 섹션=타유형영향, 항목=운영 유의점
+ * - advancedStrategies: 섹션=심화코칭1, 심화코칭2 (각 제목+리드+단계4개)
+ */
 export interface LPATypeStrategy {
   type: LPAType;
-  /** 유형 특징 설명 */
+  /** [유형특징 > 본문] 유형 특징 설명 */
   characteristics: string;
-  /** 코칭 전략 제목 */
+  /** [대표전략 > 제목] 코칭 전략 제목 */
   strategyTitle: string;
-  /** 코칭 전략 설명 */
+  /** [대표전략 > 리드] 코칭 전략 설명 (STEP 1에만 노출, STEP 2,3 미노출) */
   strategyDescription: string;
-  /** 실천 방법 리스트 */
+  /**
+   * [대표전략 > 단계] 실천 방법 리스트 (순서 고정)
+   * - [0]: 단계(수업 도입부) - 순번 1
+   * - [1]: 단계(학급 운영) - 순번 2
+   * - [2]: 단계(교사의 말·피드백) - 순번 3
+   */
   actionItems: string[];
-  /** 성공 지표 (2주 후 변화 체크리스트) */
+  /** [관찰지표 > 2주 관찰 지표] 성공 지표 (순번 1~3, STEP 1에만 노출) */
   successIndicators?: string[];
-  /** 다른 유형에게는? 참고 노트 */
+  /** [타유형영향 > 운영 유의점] 다른 유형에게 미치는 영향 */
   noteForOtherTypes?: string;
-  /** 심화 코칭 전략 */
+  /** [심화코칭1, 심화코칭2] 심화 코칭 전략 (STEP 1에만 노출, 접이식) */
   advancedStrategies?: AdvancedStrategy[];
 }
 
-/** 심화 코칭 전략 */
+/**
+ * 심화 코칭 전략
+ *
+ * [학급전략DB 엑셀 필드 매핑 - 섹션=심화코칭1 또는 심화코칭2]
+ * - title: 항목=제목
+ * - description: 항목=리드
+ * - actionItems: 항목=단계, 순번=1~4 (4개)
+ */
 export interface AdvancedStrategy {
+  /** [심화코칭 > 제목] */
   title: string;
+  /** [심화코칭 > 리드] */
   description: string;
+  /** [심화코칭 > 단계] 순번 1~4 (4개) */
   actionItems: string[];
 }
 

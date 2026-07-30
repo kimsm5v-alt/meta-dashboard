@@ -208,6 +208,8 @@ interface AiChatPanelProps {
 
 export const AiChatPanel: React.FC<AiChatPanelProps> = ({ data }) => {
   const { user } = useAuth();
+  // MySQL/Neo4j Tool 호출용 담당 교사 ID — ai-room의 authTcId 폴백과 동일한 패턴
+  const enrichedData: StudentData = { ...data, tcId: user?.tcId ?? null };
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -245,8 +247,8 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ data }) => {
 
     try {
       const answer = questionId
-        ? await getDataHelperAnswer(questionId, data, user?.email)
-        : await getDataHelperFreeAnswer(userText, data, user?.email);
+        ? await getDataHelperAnswer(questionId, enrichedData, user?.email)
+        : await getDataHelperFreeAnswer(userText, enrichedData, user?.email);
 
       setMessages((prev) =>
         prev.map((m) => (m.id === loadingId ? { ...m, content: answer, loading: false } : m)),

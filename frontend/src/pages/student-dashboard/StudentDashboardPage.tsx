@@ -856,6 +856,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
           typeProbabilities: current.typeProbabilities,
           schoolLevel: student.schoolLevel,
           deviations: current.deviations,
+          stdtId: studentId,
+          claId: classId,
+          schoolLevelCode: student.schoolLevelCode,
+          grade: classInfo.grade,
+          classNumber: classInfo.classNumber,
         }}
       />
     </MainLayout>

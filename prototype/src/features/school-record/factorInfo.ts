@@ -1,0 +1,692 @@
+/**
+ * 생활기록부 작성 지원 — 38개 요인 관찰 질문·행동 선택지
+ *
+ * tier: 'A' 생기부 문구 생성 가능 / 'B' 조건부 생성 / 'C' 생기부 생성 제외(코칭·상담 전용)
+ */
+
+export type FactorTier = 'A' | 'B' | 'C';
+export type FactorType = 'positive' | 'negative';
+
+export interface FactorInfo {
+  factorCode: string;
+  label: string;
+  factorType: FactorType;
+  sectionMajor: string;
+  sectionMinor: string;
+  tier: FactorTier;
+  description: string;
+  question: string;
+  questionElementary?: string;
+  recommendedBehaviors: string[];
+}
+
+export const FACTOR_INFO: Record<string, FactorInfo> = {
+  SELF_ESTEEM: {
+    factorCode: 'SELF_ESTEEM',
+    label: '자아존중감',
+    factorType: 'positive',
+    sectionMajor: '자아 강점',
+    sectionMinor: '긍정적 자아',
+    tier: 'A',
+    description: '자신의 능력과 가치에 대한 전반적인 평가와 태도',
+    question: '자신이 잘하는 점을 알고 자신 있게 행동한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '자신이 잘하는 점을 알고 활용함',
+      '자신의 생각을 분명하게 밝힘',
+      '새로운 역할을 맡는 것을 주저하지 않음',
+      '자신의 결과물을 스스로 소개함',
+    ],
+  },
+
+  SELF_EFFICACY: {
+    factorCode: 'SELF_EFFICACY',
+    label: '자기효능감',
+    factorType: 'positive',
+    sectionMajor: '자아 강점',
+    sectionMinor: '긍정적 자아',
+    tier: 'A',
+    description: '자신이 어떤 일을 성공적으로 수행할 수 있는 능력이 있다고 믿는 기대와 신념',
+    question: '해본 적 없는 과제에도 할 수 있다는 태도로 시작한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '처음 해보는 과제에 먼저 도전함',
+      '할 수 있다고 말하며 시작함',
+      '어려운 단계에서도 스스로 해결하려 함',
+      '도움을 요청한 뒤 다시 스스로 시도함',
+    ],
+  },
+
+  GROWTH_MINDSET: {
+    factorCode: 'GROWTH_MINDSET',
+    label: '성장마인드셋',
+    factorType: 'positive',
+    sectionMajor: '자아 강점',
+    sectionMinor: '긍정적 자아',
+    tier: 'A',
+    description: '지능이나 능력이 노력을 통해 변화하고 성장할 수 있다고 생각하는 정도',
+    question: '실수하거나 틀린 뒤 원인을 확인하고 다시 시도한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '틀린 이유를 확인하고 다시 시도함',
+      '연습을 반복하여 이전보다 나아진 모습을 보임',
+      '노력하면 나아진다는 말을 하며 임함',
+      '어려운 부분을 피하지 않고 계속 붙잡고 함',
+    ],
+  },
+
+  SELF_EMOTION_AWARENESS: {
+    factorCode: 'SELF_EMOTION_AWARENESS',
+    label: '자기정서인식',
+    factorType: 'positive',
+    sectionMajor: '자아 강점',
+    sectionMinor: '대인관계능력',
+    tier: 'A',
+    description: '나의 정서적 상태를 알아차릴 수 있는 정도',
+    question: '자신의 기분이나 감정을 알아차리고 말로 표현한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '지금 느끼는 감정을 말로 표현함',
+      '기분 변화를 스스로 알아차림',
+      '감정의 이유를 말로 설명함',
+      '컨디션이 좋지 않을 때 미리 알림',
+    ],
+  },
+
+  SELF_EMOTION_REGULATION: {
+    factorCode: 'SELF_EMOTION_REGULATION',
+    label: '자기정서조절',
+    factorType: 'positive',
+    sectionMajor: '자아 강점',
+    sectionMinor: '대인관계능력',
+    tier: 'A',
+    description: '자신의 감정을 상황에 맞게 조절하고 대처할 수 있는 정도',
+    question: '속상하거나 화가 나는 상황에서 감정을 가라앉히고 대응한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '화가 났을 때 잠시 멈추고 진정함',
+      '속상한 상황에서도 말투를 조절함',
+      '갈등이 있을 때 상대의 입장을 살핌',
+      '대화를 통해 관계를 회복함',
+    ],
+  },
+
+  OTHER_EMOTION_AWARENESS: {
+    factorCode: 'OTHER_EMOTION_AWARENESS',
+    label: '타인정서인식',
+    factorType: 'positive',
+    sectionMajor: '자아 강점',
+    sectionMinor: '대인관계능력',
+    tier: 'A',
+    description: '상대방의 기분이나 처한 상황에서 느끼는 감정을 이해할 수 있는 정도',
+    question: '친구의 감정이나 기분 변화를 먼저 알아차린 모습이 있었나요?',
+    recommendedBehaviors: [
+      '친구의 표정과 말투 변화를 살핌',
+      '힘들어하는 친구를 먼저 알아차림',
+      '상대의 기분에 맞추어 반응함',
+      '분위기를 살펴 행동을 조절함',
+    ],
+  },
+
+  EMPATHY: {
+    factorCode: 'EMPATHY',
+    label: '타인공감능력',
+    factorType: 'positive',
+    sectionMajor: '자아 강점',
+    sectionMinor: '대인관계능력',
+    tier: 'A',
+    description: '상대방의 감정, 의견, 주장 등에 대하여 자신도 동일하게 느끼는 정도',
+    question: '친구의 감정이나 입장에 공감하며 반응한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '친구의 이야기를 끝까지 들어줌',
+      '친구의 마음에 공감하는 말을 건넴',
+      '어려움을 겪는 친구를 도와줌',
+      '친구의 입장에서 상황을 설명함',
+    ],
+  },
+
+  PLANNING: {
+    factorCode: 'PLANNING',
+    label: '계획능력',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '메타인지',
+    tier: 'A',
+    description: '공부 목표를 세우고, 목표에 따라 순차적으로 학습을 계획하는 능력',
+    question: '과제를 시작하기 전에 할 일과 순서를 정한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '무엇부터 할지 우선순위를 정함',
+      '과제를 단계로 나누어 정리함',
+      '목표를 정하고 그에 맞게 준비함',
+      '활동 전 필요한 자료를 미리 찾아둠',
+    ],
+  },
+
+  MONITORING: {
+    factorCode: 'MONITORING',
+    label: '점검능력',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '메타인지',
+    tier: 'A',
+    description: '공부 목표 달성 정도와 공부 방법이 적절했는지를 전반적으로 파악할 수 있는 능력',
+    question: '자신이 한 것을 다시 확인하고 부족한 부분을 찾은 모습이 있었나요?',
+    recommendedBehaviors: [
+      '완성한 결과물을 다시 확인함',
+      '빠뜨린 부분을 스스로 찾아냄',
+      '목표한 만큼 했는지 스스로 확인함',
+      '잘된 점과 부족한 점을 구분해 말함',
+    ],
+  },
+
+  REGULATION_STRATEGY: {
+    factorCode: 'REGULATION_STRATEGY',
+    label: '조절능력',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '메타인지',
+    tier: 'A',
+    description: '공부 과정 중에 나타난 문제를 반복하지 않도록 더 나은 공부방법을 찾아 조정하는 능력',
+    question: '하던 방법이 잘 되지 않을 때 다른 방법으로 바꾸어 본 모습이 있었나요?',
+    recommendedBehaviors: [
+      '막히는 부분에서 방법을 바꾸어 봄',
+      '같은 실수를 되풀이하지 않으려 함',
+      '더 나은 방법을 찾아 적용함',
+      '집중이 흐트러질 때 스스로 다잡음',
+    ],
+  },
+
+  STUDY_ENVIRONMENT: {
+    factorCode: 'STUDY_ENVIRONMENT',
+    label: '공부환경',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '학습기술',
+    tier: 'A',
+    description: '학습에 최적화된 공부환경이 될 수 있도록 정리, 정돈하는 습관',
+    question: '활동에 집중할 수 있도록 자리와 도구를 정돈한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '활동 전 책상 위를 정리함',
+      '사용한 도구를 제자리에 정리함',
+      '집중을 방해하는 물건을 치움',
+      '정리된 상태를 끝까지 유지함',
+    ],
+  },
+
+  TIME_MANAGEMENT: {
+    factorCode: 'TIME_MANAGEMENT',
+    label: '시간관리',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '학습기술',
+    tier: 'A',
+    description: '규칙적으로 공부할 수 있는 시간을 계획하고, 관리하는 습관',
+    question: '정해진 시간 안에 활동을 마치기 위해 시간을 조절한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '정해진 시간 안에 과제를 마침',
+      '남은 시간을 확인하며 속도를 조절함',
+      '제출 기한을 지킴',
+      '쉬는 시간과 활동 시간을 구분해 사용함',
+    ],
+  },
+
+  CLASS_ATTITUDE: {
+    factorCode: 'CLASS_ATTITUDE',
+    label: '수업태도',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '학습기술',
+    tier: 'A',
+    description: '수업에 집중하여 선생님 말씀을 경청하고, 수업에 필요한 물품을 사전에 준비하는 습관',
+    question: '수업에 집중하고 필요한 준비를 갖춘 모습이 있었나요?',
+    recommendedBehaviors: [
+      '설명을 집중하여 들음',
+      '수업 준비물을 미리 챙김',
+      '궁금한 내용을 질문함',
+      '교사의 안내를 바로 반영함',
+    ],
+  },
+
+  NOTE_TAKING: {
+    factorCode: 'NOTE_TAKING',
+    label: '노트하기',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '학습기술',
+    tier: 'A',
+    description: '학습한 핵심 내용을 정리하여 기록하고, 기억하기 위해 활용하는 공부습관',
+    question: '배운 내용을 자신의 방식으로 정리해 기록한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '핵심 내용을 자신의 말로 정리함',
+      '중요한 부분을 표시하며 기록함',
+      '정리한 내용을 다시 찾아 활용함',
+      '그림이나 표로 내용을 정리함',
+    ],
+  },
+
+  EXAM_PREPARATION: {
+    factorCode: 'EXAM_PREPARATION',
+    label: '시험준비',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '학습기술',
+    tier: 'A',
+    description: '시험을 체계적으로 준비하는 능력',
+    question: '평가를 앞두고 미리 계획을 세워 준비한 모습이 있었나요?',
+    questionElementary: '배운 내용을 스스로 점검하며 준비한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '평가 전 준비 계획을 세워 실천함',
+      '틀린 문제를 다시 풀어봄',
+      '이해가 부족한 부분을 반복해 익힘',
+      '배운 내용을 스스로 정리해 확인함',
+    ],
+  },
+
+  PARENT_COMMUNICATION: {
+    factorCode: 'PARENT_COMMUNICATION',
+    label: '부모 의사소통',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '지지적 관계',
+    tier: 'C',
+    description: '부모님과 자신의 생활과 생각에 대해 편안하게 대화하는 정도',
+    question: '학생이 가정에서 학교생활이나 고민을 편하게 이야기한다고 말하나요?',
+    recommendedBehaviors: [
+      '학교생활을 가정에서 이야기한다고 말함',
+      '고민을 가족과 상의한다고 말함',
+      '가족과의 대화를 편하게 여긴다고 말함',
+      '힘든 일을 가정에 알린다고 말함',
+    ],
+  },
+
+  PARENT_ACADEMIC_SUPPORT: {
+    factorCode: 'PARENT_ACADEMIC_SUPPORT',
+    label: '부모 학업지지',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '지지적 관계',
+    tier: 'C',
+    description: '부모님이 공부와 관련하여 자신의 의견과 노력을 지지한다고 생각하는 정도',
+    question: '학생이 가정의 관심과 지지를 느끼며 학습한다고 말하나요?',
+    recommendedBehaviors: [
+      '가정에서 정한 학습 습관을 지킨다고 말함',
+      '학습에 대해 격려를 받는다고 말함',
+      '어려울 때 가정에서 도움을 받는다고 말함',
+      '배운 내용을 가정에서 복습한다고 말함',
+    ],
+  },
+
+  PEER_SUPPORT: {
+    factorCode: 'PEER_SUPPORT',
+    label: '친구 정서지지',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '지지적 관계',
+    tier: 'B',
+    description: '친구들이 자신의 의견과 고민을 잘 이해하고, 들어준다고 생각하는 정도',
+    question: '친구들과 서로 힘이 되어주며 지낸 모습이 있었나요?',
+    recommendedBehaviors: [
+      '힘들어하는 친구를 격려함',
+      '친구와 서로 도우며 활동함',
+      '친구의 좋은 점을 인정하고 말해줌',
+      '여러 친구와 두루 어울림',
+    ],
+  },
+
+  TEACHER_SUPPORT: {
+    factorCode: 'TEACHER_SUPPORT',
+    label: '교사 정서지지',
+    factorType: 'positive',
+    sectionMajor: '학습 디딤돌',
+    sectionMinor: '지지적 관계',
+    tier: 'B',
+    description: '교사가 자신의 의견과 고민을 잘 이해하며, 격려한다고 생각하는 정도',
+    question: '선생님에게 도움을 구하거나 조언을 받아들여 실천한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '어려울 때 선생님께 도움을 요청함',
+      '받은 조언을 실제로 실천함',
+      '수업 이후에도 찾아와 확인함',
+      '안내받은 방법을 다음 활동에 적용함',
+    ],
+  },
+
+  GRADE_PRESSURE: {
+    factorCode: 'GRADE_PRESSURE',
+    label: '성적부담',
+    factorType: 'negative',
+    sectionMajor: '학습 걸림돌',
+    sectionMinor: '학업스트레스',
+    tier: 'B',
+    description: '기대와 목표에 비해 성적이 낮게 나올 수 있다는 부담을 느끼는 정도',
+    question: '평가 결과에 대한 걱정 속에서도 학습을 이어간 모습이 있었나요?',
+    recommendedBehaviors: [
+      '결과보다 과정에 집중하려 함',
+      '걱정될 때 도움을 요청함',
+      '자신만의 방법으로 마음을 다잡음',
+      '결과를 확인한 뒤 다음 계획을 세움',
+    ],
+  },
+
+  STUDY_PRESSURE: {
+    factorCode: 'STUDY_PRESSURE',
+    label: '공부부담',
+    factorType: 'negative',
+    sectionMajor: '학습 걸림돌',
+    sectionMinor: '학업스트레스',
+    tier: 'B',
+    description: '공부의 필요성과 공부 방법을 알지 못하거나, 공부 양이 많아 부담을 느끼는 정도',
+    question: '해야 할 학습량이 많을 때 스스로 조절하며 이어간 모습이 있었나요?',
+    recommendedBehaviors: [
+      '할 일을 작게 나누어 시작함',
+      '무리하지 않도록 계획을 조정함',
+      '하루에 할 분량을 정해 지킴',
+      '중간에 멈추었다가도 다시 이어감',
+    ],
+  },
+
+  CLASS_PRESSURE: {
+    factorCode: 'CLASS_PRESSURE',
+    label: '수업부담',
+    factorType: 'negative',
+    sectionMajor: '학습 걸림돌',
+    sectionMinor: '학업스트레스',
+    tier: 'B',
+    description: '수업 내용이 어렵거나 지루하여 답답함이나 부담을 느끼는 정도',
+    question: '수업 내용이 어렵게 느껴질 때에도 참여를 이어간 모습이 있었나요?',
+    recommendedBehaviors: [
+      '이해되지 않는 부분을 그때그때 물어봄',
+      '어려운 내용에도 활동에 계속 참여함',
+      '수업 후 부족한 부분을 보충함',
+      '알게 된 부분을 확인하며 따라감',
+    ],
+  },
+
+  SMARTPHONE_DEPENDENCE: {
+    factorCode: 'SMARTPHONE_DEPENDENCE',
+    label: '스마트폰 의존',
+    factorType: 'negative',
+    sectionMajor: '학습 걸림돌',
+    sectionMinor: '학습방해물',
+    tier: 'C',
+    description: '스마트폰 의존도가 높아서 일상생활과 공부에 방해 받는 정도',
+    question: '학습 중 스마트폰 사용을 스스로 조절하려는 시도가 있나요?',
+    recommendedBehaviors: [
+      '학습 중 사용을 스스로 줄임',
+      '사용 시간을 정해 지키려 함',
+      '집중이 필요할 때 멀리 둠',
+      '사용 시간을 스스로 기록해 봄',
+    ],
+  },
+
+  GAME_OVERUSE: {
+    factorCode: 'GAME_OVERUSE',
+    label: '게임 과몰입',
+    factorType: 'negative',
+    sectionMajor: '학습 걸림돌',
+    sectionMinor: '학습방해물',
+    tier: 'C',
+    description: '인터넷 게임 의존도가 높아서 일상생활과 공부에 방해 받는 정도',
+    question: '게임 시간과 학습 시간의 균형을 잡으려는 시도가 있나요?',
+    recommendedBehaviors: [
+      '정한 시간만큼만 하려 함',
+      '할 일을 마친 뒤 여가를 가짐',
+      '스스로 시간을 정해 조절함',
+      '다른 활동으로 관심을 돌려 봄',
+    ],
+  },
+
+  PARENT_GRADE_PRESSURE: {
+    factorCode: 'PARENT_GRADE_PRESSURE',
+    label: '부모 성적압력',
+    factorType: 'negative',
+    sectionMajor: '학습 걸림돌',
+    sectionMinor: '학업관계 스트레스',
+    tier: 'C',
+    description: '성적과 관련된 부모님의 높은 기대나 꾸중에 대해 부담감을 느끼는 정도',
+    question: '가정의 기대 속에서도 자기 기준을 지키며 학습하나요?',
+    recommendedBehaviors: [
+      '자신이 정한 목표에 집중함',
+      '부담을 느낄 때 마음을 표현함',
+      '자기 속도로 꾸준히 함',
+      '결과보다 노력에 의미를 둠',
+    ],
+  },
+
+  PARENT_STUDY_PRESSURE: {
+    factorCode: 'PARENT_STUDY_PRESSURE',
+    label: '부모 공부부담',
+    factorType: 'negative',
+    sectionMajor: '학습 걸림돌',
+    sectionMinor: '학업관계 스트레스',
+    tier: 'C',
+    description: '공부와 관련된 부모님의 비교와 압박으로 인해 부담감을 느끼는 정도',
+    question: '가정의 학습 요구가 부담될 때 균형을 잡으려 하나요?',
+    recommendedBehaviors: [
+      '할 수 있는 만큼 계획을 세움',
+      '힘든 마음을 신뢰하는 어른에게 말함',
+      '자신의 페이스를 지킴',
+      '필요할 때 조정을 요청함',
+    ],
+  },
+
+  PEER_COMPARISON: {
+    factorCode: 'PEER_COMPARISON',
+    label: '친구 공부비교',
+    factorType: 'negative',
+    sectionMajor: '학습 걸림돌',
+    sectionMinor: '학업관계 스트레스',
+    tier: 'B',
+    description: '친구에 비해 성적이 떨어지는 것을 불안해 하거나 열등감을 느끼는 정도',
+    question: '친구와 비교되는 상황에서도 자신의 목표에 집중한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '다른 사람의 결과에 흔들리지 않고 계속함',
+      '이전의 자신과 견주어 성장을 확인함',
+      '친구의 잘한 점을 인정하고 배움',
+      '자신의 과정을 스스로 돌아봄',
+    ],
+  },
+
+  TEACHER_GRADE_PRESSURE: {
+    factorCode: 'TEACHER_GRADE_PRESSURE',
+    label: '교사 성적압력',
+    factorType: 'negative',
+    sectionMajor: '학습 걸림돌',
+    sectionMinor: '학업관계 스트레스',
+    tier: 'C',
+    description: '교사의 성적비교, 꾸중에 대한 불안감, 기대에 부응하지 못한 성적으로 인한 좌절감의 정도',
+    question: '평가에 대한 부담 속에서도 배움에 임하나요?',
+    recommendedBehaviors: [
+      '부담보다 배우는 것에 집중하려 함',
+      '어려울 때 교사에게 도움을 구함',
+      '자신의 성장에 초점을 둠',
+      '평가 결과를 학습의 참고로 삼음',
+    ],
+  },
+
+  TEACHER_CLASS_PRESSURE: {
+    factorCode: 'TEACHER_CLASS_PRESSURE',
+    label: '교사 수업부담',
+    factorType: 'negative',
+    sectionMajor: '학습 걸림돌',
+    sectionMinor: '학업관계 스트레스',
+    tier: 'B',
+    description: '수업 중 교사의 질문에 답을 못하거나 수업 내용을 잘 이해하지 못할까봐 부담을 느끼는 정도',
+    question: '발표나 질문에 답하는 상황이 부담될 때에도 참여한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '긴장되는 상황에서도 대답을 시도함',
+      '틀릴 수 있어도 손을 들어 참여함',
+      '발표 전 미리 준비해 둠',
+      '답하지 못한 내용을 나중에 확인함',
+    ],
+  },
+
+  VIGOR: {
+    factorCode: 'VIGOR',
+    label: '활기',
+    factorType: 'positive',
+    sectionMajor: '긍정적 공부마음',
+    sectionMinor: '학업열의',
+    tier: 'A',
+    description: '공부를 할 때 힘이 나거나 재미와 즐거움을 느끼는 정도',
+    question: '학습이나 활동에 힘 있게 참여한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '활동을 시작할 때 의욕을 보임',
+      '밝은 표정으로 활동에 참여함',
+      '새로운 활동에 관심을 보임',
+      '활동 내내 에너지를 유지함',
+    ],
+  },
+
+  ABSORPTION: {
+    factorCode: 'ABSORPTION',
+    label: '몰두',
+    factorType: 'positive',
+    sectionMajor: '긍정적 공부마음',
+    sectionMinor: '학업열의',
+    tier: 'A',
+    description: '시간과 장소에 관계없이 공부에 집중할 수 있는 정도',
+    question: '한 가지 활동에 깊이 집중한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '맡은 과제에 오래 집중함',
+      '주변 상황에 흔들리지 않고 이어감',
+      '시작한 활동을 끝까지 집중해 마무리함',
+      '쉬는 시간에도 하던 활동을 이어감',
+    ],
+  },
+
+  MEANING: {
+    factorCode: 'MEANING',
+    label: '의미감',
+    factorType: 'positive',
+    sectionMajor: '긍정적 공부마음',
+    sectionMinor: '학업열의',
+    tier: 'A',
+    description: '공부하는 의미와 목적을 알고, 보람을 느끼는 정도',
+    question: '배우는 이유나 의미를 스스로 말하거나 연결한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '배우는 이유를 스스로 말함',
+      '자신의 관심사와 학습을 연결함',
+      '배운 내용을 생활 속 사례로 설명함',
+      '활동의 목적을 이해하고 참여함',
+    ],
+  },
+
+  AUTONOMY: {
+    factorCode: 'AUTONOMY',
+    label: '자율성',
+    factorType: 'positive',
+    sectionMajor: '긍정적 공부마음',
+    sectionMinor: '성장력',
+    tier: 'A',
+    description: '자기 스스로의 원칙에 따라 어떤 일을 주체적으로 결정하는 특성',
+    question: '스스로 정하고 주도적으로 학습을 이끈 모습이 있었나요?',
+    recommendedBehaviors: [
+      '스스로 학습 목표를 정함',
+      '시키지 않아도 먼저 시작함',
+      '자기 방식으로 과제를 해결함',
+      '활동 방향을 스스로 선택함',
+    ],
+  },
+
+  COMPETENCE: {
+    factorCode: 'COMPETENCE',
+    label: '유능성',
+    factorType: 'positive',
+    sectionMajor: '긍정적 공부마음',
+    sectionMinor: '성장력',
+    tier: 'A',
+    description: '어떤 일을 해낼 수 있는 능력이 있다는 느낌',
+    question: '과제를 해내며 스스로 할 수 있다는 자신감을 보인 모습이 있었나요?',
+    recommendedBehaviors: [
+      '맡은 일을 끝까지 해냄',
+      '해낸 경험을 바탕으로 다음 과제에 도전함',
+      '자신의 성취를 스스로 확인함',
+      '익힌 방법을 다른 활동에 적용함',
+    ],
+  },
+
+  RELATEDNESS: {
+    factorCode: 'RELATEDNESS',
+    label: '관계성',
+    factorType: 'positive',
+    sectionMajor: '긍정적 공부마음',
+    sectionMinor: '성장력',
+    tier: 'A',
+    description: '사람들 사이에서 관심을 주고 받으며, 그 속에서 소속감을 느끼는 정도',
+    question: '학급이나 모둠 안에서 함께한다는 느낌으로 참여한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '학급 활동에 빠지지 않고 참여함',
+      '모둠의 목표 달성에 기여함',
+      '서로 다른 의견을 조율함',
+      '다른 학생과 역할을 나누어 협력함',
+    ],
+  },
+
+  EXHAUSTION: {
+    factorCode: 'EXHAUSTION',
+    label: '고갈',
+    factorType: 'negative',
+    sectionMajor: '부정적 공부마음',
+    sectionMinor: '학업소진',
+    tier: 'B',
+    description: '공부 때문에 지쳐서 아무 즐거움이나 흥미가 없는 피로 상태',
+    question: '지쳐 보이는 상황에서도 다시 참여하려 한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '잠시 쉬었다가 다시 시작함',
+      '힘들 때 도움을 요청함',
+      '작은 것부터 다시 시도함',
+      '컨디션이 좋지 않아도 활동에 참여함',
+    ],
+  },
+
+  INEFFICACY: {
+    factorCode: 'INEFFICACY',
+    label: '무능감',
+    factorType: 'negative',
+    sectionMajor: '부정적 공부마음',
+    sectionMinor: '학업소진',
+    tier: 'B',
+    description: '노력해도 성적이 만족스럽지 않고, 노력한만큼 좋은 결과가 나오지 않아 실망감을 느끼는 상태',
+    question: '어렵게 느끼던 일에서 작은 성공을 통해 자신감을 회복한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '작은 목표부터 하나씩 해냄',
+      '해낸 경험을 스스로 확인함',
+      '도움을 받아 다시 도전함',
+      '이전에 못하던 것을 해내는 모습을 보임',
+    ],
+  },
+
+  CYNICISM: {
+    factorCode: 'CYNICISM',
+    label: '반감-냉소',
+    factorType: 'negative',
+    sectionMajor: '부정적 공부마음',
+    sectionMinor: '학업소진',
+    tier: 'B',
+    description: '공부 흥미가 줄거나 하기 싫다고 느끼며, 공부의 필요성을 느끼지 못하는 정도',
+    question: '관심이 적던 활동에 다시 참여하기 시작한 모습이 있었나요?',
+    recommendedBehaviors: [
+      '관심 있는 부분부터 참여함',
+      '참여 횟수가 점차 늘어남',
+      '작은 흥미를 학습으로 이어감',
+      '이전보다 활동에 오래 머무름',
+    ],
+  },
+};
+
+/** 생기부 문구 생성 대상 요인 (tier C 제외) */
+export const RECORD_ELIGIBLE_FACTORS = Object.values(FACTOR_INFO).filter(
+  (f) => f.tier !== 'C',
+);
+
+/** 한글 요인명 → factorCode 매핑 (검사 데이터 연동용) */
+export const FACTOR_CODE_BY_LABEL: Record<string, string> = Object.fromEntries(
+  Object.values(FACTOR_INFO).map((f) => [f.label, f.factorCode]),
+);
+
+/** 학교급별 관찰 질문 조회 */
+export const getFactorQuestion = (
+  factorCode: string,
+  schoolLevel: '초등' | '중등' | '고등',
+): string => {
+  const factor = FACTOR_INFO[factorCode];
+  if (!factor) return '';
+  return schoolLevel === '초등' && factor.questionElementary
+    ? factor.questionElementary
+    : factor.question;
+};
