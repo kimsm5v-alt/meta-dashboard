@@ -45,4 +45,7 @@ public interface TrialMonitorMapper {
 
     /** 팝업: 교사(tc_id=user.tc_id)들의 상담 내역 (counseling_info + 대상 학생). */
     List<Map<String, Object>> selectCounselingsByHostUserNos(@Param("userNos") List<Long> userNos);
+
+    /** 팝업: 교사(tc_id=user.tc_id)들의 생활기록부 내역 (school_record_info + 대상 학생 실명). */
+    List<Map<String, Object>> selectSchoolRecordsByHostUserNos(@Param("userNos") List<Long> userNos);
 }

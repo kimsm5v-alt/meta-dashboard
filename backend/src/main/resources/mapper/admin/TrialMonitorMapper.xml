@@ -187,4 +187,23 @@
         ORDER BY u.user_no, ci.scheduled_at DESC
     </select>
 
+    <!-- 팝업: 교사들의 생활기록부 내역. school_record_info.tc_id = user.tc_id 로 교사 user_no 에 연결, 대상 학생 실명 SSO 조인. -->
+    <select id="selectSchoolRecordsByHostUserNos" resultType="map">
+        /* TrialMonitorMapper.selectSchoolRecordsByHostUserNos */
+        SELECT sr.id      AS recordId
+             , u.user_no  AS ownerUserNo
+             , sr.cla_id  AS claId
+             , sr.content AS content
+             , DATE_FORMAT(sr.created_at, '%Y-%m-%d %H:%i') AS createdAt
+             , COALESCE(pu.name, u2.stdt_id) AS studentName
+        FROM school_record_info sr
+            INNER JOIN `user` u ON u.tc_id = sr.tc_id
+            LEFT JOIN `user` u2 ON u2.stdt_id = sr.stdt_id
+            LEFT JOIN superteacher_core.platform_user pu ON pu.public_user_id = u2.sp_user_id
+        WHERE sr.use_yn = 'Y'
+          AND u.user_no IN
+          <foreach item="uno" collection="userNos" open="(" separator="," close=")">#{uno}</foreach>
+        ORDER BY u.user_no, sr.created_at DESC
+    </select>
+
 </mapper>
