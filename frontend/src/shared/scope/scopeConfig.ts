@@ -28,6 +28,7 @@ export type MenuKey =
   | 'exam/management'
   | 'exam/result'
   | 'exam/tracking'
+  | 'exam/record'
   | 'coaching/class'
   | 'coaching/individual'
   | 'lesson'
@@ -40,6 +41,8 @@ export const MENU_SCOPE_MATRIX: Record<MenuKey, MenuScopeConfig> = {
   'exam/management': { all: true, class: true, student: false },
   'exam/result': { all: true, class: true, student: true },
   'exam/tracking': { all: true, class: true, student: true },
+  // 생활기록부 작성: 전체·반·학생 모두 지원 (확정 IA)
+  'exam/record': { all: true, class: true, student: true },
   // 코칭
   'coaching/class': { all: true, class: true, student: false },
   'coaching/individual': { all: true, class: false, student: true },
