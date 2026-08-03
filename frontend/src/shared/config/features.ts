@@ -5,6 +5,9 @@
  */
 
 export const FEATURES = {
+  /** v2 정보구조(GNB + scope LNB). 점진 전환 완료 전까지 기본 비활성화 */
+  IA_V2: false,
+
   /** 대시보드 (L1, L2, L3) */
   DASHBOARD: true,
 

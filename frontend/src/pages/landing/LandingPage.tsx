@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FEATURES } from '@shared/config/features';
 import styled from '@emotion/styled';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { useSpAuth } from '@shared/hooks/useSpAuth';
@@ -104,7 +105,8 @@ export const LandingPage = () => {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      const path = user?.roleCode === 'STUDENT' ? '/student/exams' : '/assessment';
+      const path =
+        user?.roleCode === 'STUDENT' ? '/student/exams' : FEATURES.IA_V2 ? '/home' : '/assessment';
       navigate(path, { replace: true });
     }
   }, [isAuthenticated, isLoading, user, navigate]);
