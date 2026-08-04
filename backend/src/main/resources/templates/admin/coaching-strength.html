@@ -47,6 +47,7 @@
                                 <select name="lpaClass" class="form-control form-control-sm">
                                     <option value="">전체</option>
                                     <option th:each="c : ${classOptions}" th:value="${c.lpaClass}"
+                                            th:attr="data-level=${c.schoolLevel}"
                                             th:text="${c.lpaClass}" th:selected="${lpaClass == c.lpaClass}"></option>
                                 </select>
                             </div>
@@ -71,7 +72,8 @@
                             </tr></thead>
                             <tbody>
                                 <tr th:each="r : ${rows}">
-                                    <td><span class="badge badge-info k-badge" th:text="${r.schoolLevel == 'elementary' ? '초등' : '중등'}"></span></td>
+                                    <td><span class="badge k-badge" th:classappend="${r.schoolLevel == 'elementary'} ? 'badge-info' : 'badge-warning'"
+                                              th:text="${r.schoolLevel == 'elementary' ? '초등' : '중등'}"></span></td>
                                     <td th:text="${r.lpaClass}"></td>
                                     <td><b th:text="${r.factor}"></b></td>
                                     <td class="cell-text" th:text="${#strings.abbreviate(r.observation, 70)}"></td>
@@ -129,6 +131,22 @@
 </div>
 <th:block th:replace="admin/fragments :: js" />
 <script>
+    (function () {
+        var levelSel = document.querySelector('select[name="schoolLevel"]');
+        var classSel = document.querySelector('select[name="lpaClass"]');
+        function filterClasses() {
+            var lv = levelSel.value;
+            Array.prototype.forEach.call(classSel.options, function (opt) {
+                if (!opt.value) { opt.hidden = false; return; }
+                var show = !lv || opt.getAttribute('data-level') === lv;
+                opt.hidden = !show;
+                if (!show && opt.selected) { classSel.value = ''; }
+            });
+        }
+        levelSel.addEventListener('change', filterClasses);
+        filterClasses();
+    })();
+
     document.querySelectorAll('.btn-edit').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var d = btn.dataset;
