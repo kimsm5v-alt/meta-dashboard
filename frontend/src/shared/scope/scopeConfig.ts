@@ -16,6 +16,8 @@ export interface ScopeMemory {
   lastStudentId?: string;
   /** 전체 범위로 이동해도 마지막 학급 선택을 기억합니다. */
   lastClassId?: string;
+  /** 학생 미지원 메뉴에서 자동 강등된 경우에만 학생 범위를 복원합니다. */
+  shouldRestoreStudent?: boolean;
 }
 
 export interface MenuScopeConfig {

@@ -55,6 +55,12 @@ export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const selectClass = useCallback(
     (classId: string) => {
       if (currentMenuConfig.class) {
+        setScopeMemory((previousMemory) => ({
+          ...previousMemory,
+          lastClassId: classId,
+          lastStudentId: undefined,
+          shouldRestoreStudent: false,
+        }));
         setScope({ level: 'class', classId });
       }
     },
@@ -69,6 +75,7 @@ export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           ...previousMemory,
           lastStudentId: studentId,
           lastClassId: classId,
+          shouldRestoreStudent: false,
         }));
       }
     },
@@ -121,11 +128,16 @@ export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useLayoutContext(): LayoutContextValue {
-  const context = useContext(LayoutContext);
+  const context = useOptionalLayoutContext();
 
   if (!context) {
     throw new Error('useLayoutContext must be used within a LayoutProvider');
   }
 
   return context;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOptionalLayoutContext(): LayoutContextValue | null {
+  return useContext(LayoutContext);
 }

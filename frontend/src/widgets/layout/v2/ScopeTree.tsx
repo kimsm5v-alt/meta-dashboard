@@ -119,7 +119,9 @@ const ClassHeaderButton = styled.button<{ $active: boolean }>`
   }
 `;
 
-const ExpandIcon = styled(ChevronRight)<{ $expanded: boolean }>`
+const ExpandIcon = styled(ChevronRight, {
+  shouldForwardProp: (prop) => prop !== '$expanded',
+})<{ $expanded: boolean }>`
   width: 16px;
   height: 16px;
   flex-shrink: 0;

@@ -17,6 +17,24 @@ export function adjustScopeForMenu(
     updatedMemory.current = adjustedScope;
     return { adjustedScope, updatedMemory };
   }
+  if (
+    level === 'class' &&
+    menuConfig.class &&
+    menuConfig.student &&
+    classId &&
+    scopeMemory.lastClassId === classId &&
+    scopeMemory.lastStudentId &&
+    scopeMemory.shouldRestoreStudent
+  ) {
+    adjustedScope = {
+      level: 'student',
+      classId,
+      studentId: scopeMemory.lastStudentId,
+    };
+    updatedMemory.current = adjustedScope;
+    updatedMemory.shouldRestoreStudent = false;
+    return { adjustedScope, updatedMemory };
+  }
   if (level === 'class' && menuConfig.class) {
     updatedMemory.current = adjustedScope;
     updatedMemory.lastClassId = classId;
@@ -26,6 +44,7 @@ export function adjustScopeForMenu(
     updatedMemory.current = adjustedScope;
     updatedMemory.lastClassId = classId;
     updatedMemory.lastStudentId = studentId;
+    updatedMemory.shouldRestoreStudent = false;
     return { adjustedScope, updatedMemory };
   }
 
@@ -36,6 +55,7 @@ export function adjustScopeForMenu(
     if (classId) {
       updatedMemory.lastClassId = classId;
     }
+    updatedMemory.shouldRestoreStudent = true;
 
     adjustedScope = menuConfig.class && classId ? { level: 'class', classId } : { level: 'all' };
     updatedMemory.current = adjustedScope;
@@ -51,13 +71,15 @@ export function adjustScopeForMenu(
       menuConfig.student &&
       classId &&
       scopeMemory.lastClassId === classId &&
-      scopeMemory.lastStudentId
+      scopeMemory.lastStudentId &&
+      scopeMemory.shouldRestoreStudent
     ) {
       adjustedScope = {
         level: 'student',
         classId,
         studentId: scopeMemory.lastStudentId,
       };
+      updatedMemory.shouldRestoreStudent = false;
     } else {
       adjustedScope = { level: 'all' };
     }
@@ -104,7 +126,8 @@ export function isScopeMemoryEqual(a: ScopeMemory, b: ScopeMemory): boolean {
   return (
     isScopeEqual(a.current, b.current) &&
     a.lastClassId === b.lastClassId &&
-    a.lastStudentId === b.lastStudentId
+    a.lastStudentId === b.lastStudentId &&
+    a.shouldRestoreStudent === b.shouldRestoreStudent
   );
 }
 
