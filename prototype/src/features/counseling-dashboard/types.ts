@@ -146,36 +146,59 @@ export interface LPATypeInfo {
   characteristics: string[];
 }
 
-/** 강점 칭찬 포인트 */
+/**
+ * 강점 칭찬 포인트
+ *
+ * [그래프DB 속성 매핑 - GROUP_TSCORE 관계]
+ * - factor: f.name (요인명)
+ * - area: 요인 특성 (정적요인/개인요인 등)
+ * - observation: r.strength_observation (강점 관찰)
+ * - praiseLine: r.strength_line (칭찬 멘트)
+ * - praiseQuestion: r.strength_question (강점 질문, v4 신규)
+ */
 export interface StrengthPraise {
-  /** 강점 요인명 */
+  /** 강점 요인명 (f.name) */
   factor: string;
-  /** 영역 */
+  /** 영역 (요인 특성: 정적요인/개인요인 등) */
   area: string;
-  /** 칭찬 이유 (조작적 정의 기반) */
-  reason: string;
-  /** 칭찬 멘트 예시 (따옴표 포함) */
-  praiseScript: string;
+  /** 강점 관찰 (r.strength_observation) - [학생명] 치환 포함, "다행히" 표현 */
+  observation: string;
+  /** 칭찬 멘트 (r.strength_line) - 프론트에서 따옴표 렌더링 */
+  praiseLine: string;
+  /** 강점 질문 (r.strength_question) - v4 신규 속성, 프론트에서 따옴표 렌더링 */
+  praiseQuestion: string;
 }
 
-/** 코칭 포인트 */
-export interface CoachingPoint {
-  /** 코칭 방법 */
-  method: string;
-  /** 교사 활용 멘트 (따옴표 포함) */
-  teacherScript: string;
-}
-
-/** 학생 코칭 경로 정보 */
+/**
+ * 학생 코칭 경로 정보 (보완점 기반 맞춤 코칭)
+ *
+ * [그래프DB 속성 매핑 - ModerationPath 노드]
+ * - weakFactor: f.name (Z보완점)
+ * - focusFactor: x.name (X초점요인)
+ * - targetFactor: Y (학업성취도 등)
+ * - interpretation: p.interpretation (해석)
+ * - coaching1Method: p.coaching1_method
+ * - coaching1Line: p.coaching1_line
+ * - coaching2Action: p.coaching2_action
+ * - coaching2Line: p.coaching2_line
+ */
 export interface CoachingPathway {
-  /** 약점 요인명 */
+  /** Z보완점 요인명 (f.name) - 배지 옆 굵은 요인명 */
   weakFactor: string;
-  /** 영역 */
-  area: string;
-  /** 경로 설명 (X→Y 경로의 의미) */
-  pathwayDescription: string;
-  /** 코칭 포인트 */
-  coachingPoints: CoachingPoint[];
+  /** X초점요인 (x.name) - 괄호 안 부제 첫번째 */
+  focusFactor: string;
+  /** Y 타겟요인 (학업성취도 등) - 괄호 안 부제 두번째 */
+  targetFactor: string;
+  /** 해석 (p.interpretation) - [학생명] 치환 포함, 본문 문단 */
+  interpretation: string;
+  /** 코칭1 방법 (p.coaching1_method) - 번호① 텍스트 */
+  coaching1Method: string;
+  /** 코칭1 멘트 (p.coaching1_line) - 번호① 말풍선, 프론트에서 따옴표 렌더링 */
+  coaching1Line: string;
+  /** 코칭2 행동 (p.coaching2_action) - 번호② 텍스트 */
+  coaching2Action: string;
+  /** 코칭2 멘트 (p.coaching2_line) - 번호② 말풍선, 프론트에서 따옴표 렌더링 */
+  coaching2Line: string;
 }
 
 /** 학생 코칭 데이터 */
