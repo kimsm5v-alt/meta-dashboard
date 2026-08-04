@@ -1787,9 +1787,10 @@ public class DgnssService {
         }
 
         Map<String, List<Map<String, Object>>> lpaByOrd = new LinkedHashMap<>();
-        // paperIdx=1 LERN 학습영역: 학생별 fallback source 노출용. 같은 lpaRows 의 json 컬럼을 파싱.
+        // LERN 학습영역(학생별 fallback source·제출상태 노출): 같은 lpaRows 의 json 컬럼을 파싱.
+        // paperIdx=1(학습종합)·2(자기조절) 모두 노출.
         Map<String, List<Map<String, Object>>> lernReportByOrd = new LinkedHashMap<>();
-        boolean exposeLernReport = StringUtils.equals(paperIdx, "1");
+        boolean exposeLernReport = StringUtils.equalsAny(paperIdx, "1", "2");
         ObjectMapper lernJsonParser = new ObjectMapper();
         for (int dgnssId : targetDgnssIdList) {
             List<Map<String, Object>> cachedRows =
