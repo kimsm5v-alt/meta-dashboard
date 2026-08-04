@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.admin.mapper.CoachingAdminMapper">
+
+    <!-- ===================== 강점 (coaching_strength) ===================== -->
+
+    <sql id="strengthWhere">
+        WHERE cs.use_yn = 'Y'
+        <if test="schoolLevel != null and schoolLevel != ''">AND cs.school_level = #{schoolLevel}</if>
+        <if test="lpaClass != null and lpaClass != ''">AND cs.lpa_class = #{lpaClass}</if>
+        <if test="factor != null and factor != ''">AND cs.factor LIKE CONCAT('%', #{factor}, '%')</if>
+    </sql>
+
+    <select id="countStrength" resultType="long">
+        /* CoachingAdminMapper.countStrength */
+        SELECT COUNT(*) FROM coaching_strength cs
+        <include refid="strengthWhere"/>
+    </select>
+
+    <select id="selectStrengthList" resultType="map">
+        /* CoachingAdminMapper.selectStrengthList */
+        SELECT cs.id           AS id
+             , cs.school_level  AS schoolLevel
+             , cs.lpa_class     AS lpaClass
+             , cs.factor        AS factor
+             , cs.observation   AS observation
+             , cs.`line`        AS `line`
+             , cs.question      AS question
+             , DATE_FORMAT(cs.updated_at, '%Y-%m-%d %H:%i') AS updatedAt
+        FROM coaching_strength cs
+        <include refid="strengthWhere"/>
+        ORDER BY cs.school_level, cs.lpa_class, cs.id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="selectStrengthById" resultType="map">
+        /* CoachingAdminMapper.selectStrengthById */
+        SELECT id, school_level AS schoolLevel, lpa_class AS lpaClass, factor,
+               observation, `line` AS `line`, question,
+               DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i') AS updatedAt
+        FROM coaching_strength WHERE id = #{id}
+    </select>
+
+    <select id="selectStrengthLpaClasses" resultType="map">
+        /* CoachingAdminMapper.selectStrengthLpaClasses */
+        SELECT DISTINCT school_level AS schoolLevel, lpa_class AS lpaClass
+        FROM coaching_strength WHERE use_yn = 'Y'
+        ORDER BY school_level, lpa_class
+    </select>
+
+    <!-- 수정 직전 현재값을 이력에 스냅샷(pre-image) -->
+    <insert id="insertStrengthHistoryFromCurrent">
+        /* CoachingAdminMapper.insertStrengthHistoryFromCurrent */
+        INSERT INTO coaching_strength_history
+            (strength_id, action, school_level, lpa_class, factor, observation, `line`, question,
+             factor_trait, factor_trait2, use_yn, changed_by, changed_at)
+        SELECT id, #{action}, school_level, lpa_class, factor, observation, `line`, question,
+               factor_trait, factor_trait2, use_yn, #{changedBy}, NOW()
+        FROM coaching_strength WHERE id = #{id}
+    </insert>
+
+    <update id="updateStrength">
+        /* CoachingAdminMapper.updateStrength */
+        UPDATE coaching_strength
+        SET observation = #{observation}, `line` = #{line}, question = #{question},
+            updated_by = #{updatedBy}, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectStrengthHistory" resultType="map">
+        /* CoachingAdminMapper.selectStrengthHistory */
+        SELECT history_id AS historyId, action, observation, `line` AS `line`, question,
+               changed_by AS changedBy, DATE_FORMAT(changed_at, '%Y-%m-%d %H:%i:%s') AS changedAt
+        FROM coaching_strength_history
+        WHERE strength_id = #{strengthId}
+        ORDER BY history_id DESC
+    </select>
+
+    <select id="selectStrengthHistoryById" resultType="map">
+        /* CoachingAdminMapper.selectStrengthHistoryById */
+        SELECT history_id AS historyId, strength_id AS strengthId, observation, `line` AS `line`, question
+        FROM coaching_strength_history WHERE history_id = #{historyId}
+    </select>
+
+    <!-- ===================== 보완점 (coaching_moderation) ===================== -->
+
+    <sql id="moderationWhere">
+        WHERE cm.use_yn = 'Y'
+        <if test="schoolLevel != null and schoolLevel != ''">AND cm.school_level = #{schoolLevel}</if>
+        <if test="lpaClass != null and lpaClass != ''">AND cm.lpa_class = #{lpaClass}</if>
+        <if test="keyword != null and keyword != ''">
+            AND (cm.z_factor LIKE CONCAT('%', #{keyword}, '%')
+                 OR cm.x_factor LIKE CONCAT('%', #{keyword}, '%')
+                 OR cm.case_id  LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+    </sql>
+
+    <select id="countModeration" resultType="long">
+        /* CoachingAdminMapper.countModeration */
+        SELECT COUNT(*) FROM coaching_moderation cm
+        <include refid="moderationWhere"/>
+    </select>
+
+    <select id="selectModerationList" resultType="map">
+        /* CoachingAdminMapper.selectModerationList */
+        SELECT cm.id               AS id
+             , cm.moderation_id     AS moderationId
+             , cm.case_id           AS caseId
+             , cm.school_level       AS schoolLevel
+             , cm.lpa_class          AS lpaClass
+             , cm.x_factor           AS xFactor
+             , cm.z_factor           AS zFactor
+             , cm.y_factor           AS yFactor
+             , cm.path_type          AS pathType
+             , cm.interpretation     AS interpretation
+             , cm.coaching1_method   AS coaching1Method
+             , cm.coaching1_line     AS coaching1Line
+             , cm.coaching2_action   AS coaching2Action
+             , cm.coaching2_line     AS coaching2Line
+             , DATE_FORMAT(cm.updated_at, '%Y-%m-%d %H:%i') AS updatedAt
+        FROM coaching_moderation cm
+        <include refid="moderationWhere"/>
+        ORDER BY cm.school_level, cm.lpa_class, cm.id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="selectModerationById" resultType="map">
+        /* CoachingAdminMapper.selectModerationById */
+        SELECT id, moderation_id AS moderationId, case_id AS caseId, school_level AS schoolLevel,
+               lpa_class AS lpaClass, x_factor AS xFactor, z_factor AS zFactor, y_factor AS yFactor,
+               path_type AS pathType, interpretation,
+               coaching1_method AS coaching1Method, coaching1_line AS coaching1Line,
+               coaching2_action AS coaching2Action, coaching2_line AS coaching2Line,
+               DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i') AS updatedAt
+        FROM coaching_moderation WHERE id = #{id}
+    </select>
+
+    <select id="selectModerationLpaClasses" resultType="map">
+        /* CoachingAdminMapper.selectModerationLpaClasses */
+        SELECT DISTINCT school_level AS schoolLevel, lpa_class AS lpaClass
+        FROM coaching_moderation WHERE use_yn = 'Y'
+        ORDER BY school_level, lpa_class
+    </select>
+
+    <insert id="insertModerationHistoryFromCurrent">
+        /* CoachingAdminMapper.insertModerationHistoryFromCurrent */
+        INSERT INTO coaching_moderation_history
+            (moderation_row_id, moderation_id, action, case_id, school_level, lpa_class,
+             x_factor, z_factor, y_factor, path_type, interpretation,
+             coaching1_method, coaching1_line, coaching2_action, coaching2_line, use_yn, changed_by, changed_at)
+        SELECT id, moderation_id, #{action}, case_id, school_level, lpa_class,
+               x_factor, z_factor, y_factor, path_type, interpretation,
+               coaching1_method, coaching1_line, coaching2_action, coaching2_line, use_yn, #{changedBy}, NOW()
+        FROM coaching_moderation WHERE id = #{id}
+    </insert>
+
+    <update id="updateModeration">
+        /* CoachingAdminMapper.updateModeration */
+        UPDATE coaching_moderation
+        SET interpretation = #{interpretation},
+            coaching1_method = #{coaching1Method}, coaching1_line = #{coaching1Line},
+            coaching2_action = #{coaching2Action}, coaching2_line = #{coaching2Line},
+            updated_by = #{updatedBy}, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectModerationHistory" resultType="map">
+        /* CoachingAdminMapper.selectModerationHistory */
+        SELECT history_id AS historyId, action, interpretation,
+               coaching1_method AS coaching1Method, coaching1_line AS coaching1Line,
+               coaching2_action AS coaching2Action, coaching2_line AS coaching2Line,
+               changed_by AS changedBy, DATE_FORMAT(changed_at, '%Y-%m-%d %H:%i:%s') AS changedAt
+        FROM coaching_moderation_history
+        WHERE moderation_row_id = #{moderationRowId}
+        ORDER BY history_id DESC
+    </select>
+
+    <select id="selectModerationHistoryById" resultType="map">
+        /* CoachingAdminMapper.selectModerationHistoryById */
+        SELECT history_id AS historyId, moderation_row_id AS moderationRowId, interpretation,
+               coaching1_method AS coaching1Method, coaching1_line AS coaching1Line,
+               coaching2_action AS coaching2Action, coaching2_line AS coaching2Line
+        FROM coaching_moderation_history WHERE history_id = #{historyId}
+    </select>
+
+</mapper>
