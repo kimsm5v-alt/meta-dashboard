@@ -514,6 +514,17 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, result, "LPA 그래프 적재 완료");
     }
 
+    @RequestMapping(value = "/api/dgnss/graph/lpa/coaching-v2", method = {RequestMethod.POST})
+    @Operation(summary = "(그래프) 개인화 코칭 v2 Cypher 적재",
+            description = "강점(GROUP_TSCORE strength_observation/line/question) · 보완점(ModerationPath interpretation/coaching1·2, strategy 제거) 패치(초·중)를 Neo4j에 적재한다. "
+                    + "MATCH 기반 in-place 업데이트라 멱등이며, 파일별 updated_count(기대 114)를 반환한다. base 그래프가 먼저 적재돼 있어야 하며 truncate 하지 않는다.")
+    public ResponseDTO<CustomBody> loadCoachingV2(
+            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
+    ) throws Exception {
+        Map<String, Object> result = dgnssGraphService.loadCoachingV2();
+        return AidtCommonUtil.makeResultSuccess(paramData, result, "개인화 코칭 v2 적재 완료");
+    }
+
     @GetMapping(value = "/api/dgnss/graph/classes/{className}/moderation-paths")
     @Operation(summary = "(그래프) 유형별 ModerationPath 조회", description = "")
     @Parameter(name = "className", description = "LPA 유형명", required = true)

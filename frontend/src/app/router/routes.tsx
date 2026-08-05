@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { MainLayout } from '@widgets/layout/MainLayout';
+import { MainLayoutV2 } from '@widgets/layout/v2/MainLayoutV2';
+import { V2Placeholder } from '@widgets/layout/v2/V2Placeholder';
 import { MinimalLayout } from '@widgets/layout/MinimalLayout';
 import { StudentLayout } from '@widgets/layout/StudentLayout';
 import { CaptureOverlay, FloatingCaptureButton } from '@widgets/screen-capture';
@@ -45,7 +47,11 @@ import {
 /** /groups/:groupId → /assessment/:groupId 리다이렉트 */
 const GroupDetailRedirect = () => {
   const { groupId } = useParams<{ groupId: string }>();
-  return <Navigate to={`/assessment/${groupId}`} replace />;
+  return FEATURES.IA_V2 ? (
+    <Navigate to={`/exam/management?class=${encodeURIComponent(groupId ?? '')}`} replace />
+  ) : (
+    <Navigate to={`/assessment/${groupId}`} replace />
+  );
 };
 
 /**
@@ -77,12 +83,14 @@ const ProtectedLayout = () => {
     return <Navigate to='/student/exams' replace />;
   }
 
+  const TeacherLayout = FEATURES.IA_V2 ? MainLayoutV2 : MainLayout;
+
   return (
-    <MainLayout>
+    <TeacherLayout>
       <Outlet />
       <FloatingCaptureButton />
       <CaptureOverlay />
-    </MainLayout>
+    </TeacherLayout>
   );
 };
 
@@ -145,13 +153,22 @@ export const AppRoutes = () => (
     {/* 보호 라우트 - 사이드바 있음 */}
     <Route element={<ProtectedLayout />}>
       {/* 검사 영역 */}
-      <Route path='/groups' element={<Navigate to='/assessment' replace />} />
+      <Route
+        path='/groups'
+        element={<Navigate to={FEATURES.IA_V2 ? '/exam/management' : '/assessment'} replace />}
+      />
       <Route path='/groups/:groupId' element={<GroupDetailRedirect />} />
-      <Route path='/assessment' element={<AssessmentPage />} />
+      <Route
+        path='/assessment'
+        element={FEATURES.IA_V2 ? <Navigate to='/exam/management' replace /> : <AssessmentPage />}
+      />
       <Route path='/assessment/:groupId' element={<AssessmentPage />} />
 
       {/* 대시보드 — testId 분기 */}
-      <Route path='/dashboard' element={<Navigate to='/dashboard/comprehensive' replace />} />
+      <Route
+        path='/dashboard'
+        element={<Navigate to={FEATURES.IA_V2 ? '/home' : '/dashboard/comprehensive'} replace />}
+      />
       <Route path='/dashboard/comprehensive' element={<TeacherDashboardPage />} />
       <Route path='/dashboard/selfreg' element={<TeacherDashboardPage />} />
       <Route path='/dashboard/:testId/class/:classId' element={<ClassDashboardPage />} />
@@ -191,7 +208,39 @@ export const AppRoutes = () => (
       )}
 
       {/* AI */}
-      <Route path='/ai-room' element={<AIRoomPage />} />
+      <Route
+        path='/ai-room'
+        element={FEATURES.IA_V2 ? <Navigate to='/ai-assistant' replace /> : <AIRoomPage />}
+      />
+
+      {FEATURES.IA_V2 && (
+        <>
+          {/* v2 IA shell. 상세 화면은 각 후속 phase에서 교체한다. */}
+          <Route
+            path='/home'
+            element={
+              <V2Placeholder
+                title='META 대시보드'
+                description='검사·코칭·수업을 한 곳에서 확인하는 홈 화면입니다.'
+              />
+            }
+          />
+
+          <Route path='/exam/management' element={<AssessmentPage />} />
+          <Route path='/exam/result' element={<TeacherDashboardPage />} />
+          <Route path='/exam/tracking' element={<V2Placeholder title='변화추적' />} />
+          <Route path='/exam/record' element={<V2Placeholder title='생활기록부 작성' />} />
+
+          <Route path='/coaching/class' element={<V2Placeholder title='학급 코칭' />} />
+          <Route path='/coaching/individual' element={<V2Placeholder title='개별 코칭' />} />
+
+          <Route path='/lesson/library' element={<V2Placeholder title='수업 자료실' />} />
+          <Route path='/lesson/my' element={<V2Placeholder title='나의 자료' />} />
+          <Route path='/lesson/result' element={<V2Placeholder title='수업 결과 보기' />} />
+
+          <Route path='/ai-assistant' element={<AIRoomPage />} />
+        </>
+      )}
     </Route>
 
     {/* 게스트 라우트 비활성화 (기획 결정: 게스트 기능 제외) */}

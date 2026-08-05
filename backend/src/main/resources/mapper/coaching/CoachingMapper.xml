@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.coaching.mapper.CoachingMapper">
+
+    <!-- 강점 문구: (school_level, lpa_class, factor) 다건 조회. [학생명] placeholder는 그대로 반환(프론트 치환). -->
+    <select id="selectStrengthTexts" resultType="map">
+        /* CoachingMapper.selectStrengthTexts */
+        SELECT factor        AS factor
+             , observation   AS observation
+             , `line`        AS `line`
+             , question      AS question
+        FROM coaching_strength
+        WHERE use_yn = 'Y'
+          AND school_level = #{schoolLevel}
+          AND lpa_class = #{lpaClass}
+          AND factor IN
+          <foreach item="f" collection="factors" open="(" separator="," close=")">#{f}</foreach>
+    </select>
+
+    <!-- 보완점(코칭) 문구: moderation_id 단건 조회. -->
+    <select id="selectModerationText" resultType="map">
+        /* CoachingMapper.selectModerationText */
+        SELECT moderation_id    AS moderationId
+             , case_id          AS caseId
+             , x_factor         AS xFactor
+             , y_factor         AS yFactor
+             , z_factor         AS zFactor
+             , path_type        AS pathType
+             , interpretation   AS interpretation
+             , coaching1_method AS coaching1Method
+             , coaching1_line   AS coaching1Line
+             , coaching2_action AS coaching2Action
+             , coaching2_line   AS coaching2Line
+        FROM coaching_moderation
+        WHERE use_yn = 'Y'
+          AND moderation_id = #{moderationId}
+        LIMIT 1
+    </select>
+
+</mapper>

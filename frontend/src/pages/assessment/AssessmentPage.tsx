@@ -5,16 +5,18 @@ import styled from '@emotion/styled';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { useMyGroupsQuery } from '@features/api';
+import { useGroupMembersQuery } from '@features/groups';
 import {
   EmptyState,
+  ExamManagementOverview,
   GroupListView,
   GroupDetailView,
   ExamStartPreviewModal,
 } from '@features/assessment/ui';
 import { AlertModal } from '@shared/ui/AlertModal/AlertModal';
+import { FEATURES } from '@shared/config/features';
 import { EXAM_SLOTS } from '@features/assessment/constants';
 import {
-  useAssessmentGroupMembersQuery,
   useAssessmentSlotsQueries,
   useCancelExamMutation,
   useDownloadSampleExcelMutation,
@@ -27,6 +29,7 @@ import {
 import type { ExamStartPreviewResponse } from '@features/assessment/api/assessmentService';
 import type { GroupWithExamState, ViewMode, ExamSlotState } from '@features/assessment/types';
 import type { Group, SchoolLevelCode } from '@shared/types';
+import { useOptionalLayoutContext } from '@widgets/layout/v2/LayoutContext';
 
 // ============================================================
 // 헬퍼
@@ -87,8 +90,10 @@ export const AssessmentPage = () => {
   const navigate = useNavigate();
   const { groupId: urlGroupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
+  const v2Layout = useOptionalLayoutContext();
+  const isV2Management = FEATURES.IA_V2 && v2Layout !== null;
 
-  // 그룹 목록: ['my-groups'] 캐시 공유 (사이드바 useTeacherClassList와 동일 캐시)
+  // 그룹 목록: groupKeys.myGroups 캐시 공유 (사이드바 useTeacherClassList와 동일 캐시)
   const {
     data: rawGroups = [],
     isLoading: isGroupsLoading,
@@ -113,12 +118,13 @@ export const AssessmentPage = () => {
 
   // URL 기반 derived state (React Compiler 최적화: useEffect 내 setState 방지)
   const selectedGroupId = useMemo(() => {
-    if (!urlGroupId || isBaseLoading) return null;
-    const exists = groups.some((g) => g.id === urlGroupId);
-    return exists ? urlGroupId : null;
-  }, [urlGroupId, groups, isBaseLoading]);
+    const requestedGroupId = isV2Management ? v2Layout.scope.classId : urlGroupId;
+    if (!requestedGroupId || isBaseLoading) return null;
+    const exists = groups.some((g) => g.id === requestedGroupId);
+    return exists ? requestedGroupId : null;
+  }, [isV2Management, v2Layout, urlGroupId, groups, isBaseLoading]);
 
-  const membersQuery = useAssessmentGroupMembersQuery(selectedGroupId, user?.id);
+  const membersQuery = useGroupMembersQuery(selectedGroupId, user?.id);
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
   const isMembersLoading = !!selectedGroupId && membersQuery.isLoading;
   const isLoading = isBaseLoading;
@@ -169,14 +175,26 @@ export const AssessmentPage = () => {
   // ============================================================
 
   const handleSelectGroup = (groupId: string) => {
+    if (isV2Management) {
+      v2Layout.selectClass(groupId);
+      return;
+    }
     navigate(`/assessment/${groupId}`);
   };
 
   const handleSwitchGroup = (groupId: string) => {
+    if (isV2Management) {
+      v2Layout.selectClass(groupId);
+      return;
+    }
     navigate(`/assessment/${groupId}`, { replace: true });
   };
 
   const handleBack = () => {
+    if (isV2Management) {
+      v2Layout.selectAll();
+      return;
+    }
     navigate('/assessment', { replace: true });
   };
 
@@ -355,7 +373,15 @@ export const AssessmentPage = () => {
   );
 
   const handleViewResult = (_slotId: string, _dgnssId: number) => {
+    if (isV2Management && selectedGroup) {
+      navigate(`/exam/result?class=${encodeURIComponent(selectedGroup.id)}`);
+      return;
+    }
     navigate('/dashboard');
+  };
+
+  const handleViewGroupResult = (groupId: string) => {
+    navigate(`/exam/result?class=${encodeURIComponent(groupId)}`);
   };
 
   const handleRestartExam = useCallback(
@@ -434,6 +460,12 @@ export const AssessmentPage = () => {
       {viewMode === 'list' &&
         (groups.length === 0 ? (
           <EmptyState />
+        ) : isV2Management ? (
+          <ExamManagementOverview
+            groups={groups}
+            onManageExam={handleSelectGroup}
+            onViewResult={handleViewGroupResult}
+          />
         ) : (
           <GroupListView groups={groups} onSelectGroup={handleSelectGroup} />
         ))}
