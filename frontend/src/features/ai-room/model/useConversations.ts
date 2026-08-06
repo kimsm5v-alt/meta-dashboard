@@ -23,6 +23,8 @@ import type {
   Message,
   Conversation as ServerConversation,
 } from '@features/ai-room/api/chatApiService';
+import { groupConversationsByDate } from '@features/ai-room/utils/groupConversations';
+import type { ConversationGroup } from '@features/ai-room/utils/groupConversations';
 
 // ============================================================================
 // Constants
@@ -111,6 +113,7 @@ interface UseConversationsParams {
 
 interface UseConversationsReturn {
   conversations: Conversation[];
+  groupedConversations: ConversationGroup[];
   activeConversationId: string;
   activeConversation: Conversation;
   messages: ChatMessage[];
@@ -122,6 +125,12 @@ interface UseConversationsReturn {
   handleNewConversation: () => void;
   handleDeleteConversation: (convId: string) => void;
   handleSelectConversation: (convId: string) => void;
+  /**
+   * 대화 제목 변경 — 로컬 상태만 갱신한다.
+   * 백엔드 AiConversationController에 title 수정 PATCH 엔드포인트가 없어
+   * 새로고침·재접속 시 서버가 내려주는 자동 생성 제목으로 되돌아간다.
+   */
+  handleRenameConversation: (convId: string, newTitle: string) => void;
   handleSend: () => Promise<void>;
   handleQuickPrompt: (prompt: string) => void;
   getConversationMode: (convId: string) => ContextMode | undefined;
@@ -190,6 +199,11 @@ export const useConversations = ({
     conversations[0] ||
     createNewConversation();
   const messages = activeConversation?.messages || [INITIAL_MESSAGE];
+
+  const groupedConversations = useMemo(
+    () => groupConversationsByDate(conversations),
+    [conversations],
+  );
 
   const localAliasMap = useMemo(() => createAliasMap(selectedStudents), [selectedStudents]);
   const aliasMap = useMemo(
@@ -352,6 +366,14 @@ export const useConversations = ({
     } catch (err) {
       console.error('메시지 로드 실패:', err);
     }
+  };
+
+  const handleRenameConversation = (convId: string, newTitle: string) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    setConversations((prev) =>
+      prev.map((conv) => (conv.id === convId ? { ...conv, title: trimmed } : conv)),
+    );
   };
 
   const getConversationMode = (convId: string): ContextMode | undefined => {
@@ -621,6 +643,7 @@ export const useConversations = ({
 
   return {
     conversations,
+    groupedConversations,
     activeConversationId,
     activeConversation,
     messages,
@@ -632,6 +655,7 @@ export const useConversations = ({
     handleNewConversation,
     handleDeleteConversation,
     handleSelectConversation,
+    handleRenameConversation,
     handleSend,
     handleQuickPrompt,
     getConversationMode,

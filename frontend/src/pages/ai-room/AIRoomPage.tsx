@@ -2,7 +2,7 @@ import styled from '@emotion/styled';
 import { StudentPickerModal } from '@features/ai-room/ui';
 import { useConversations } from '@features/ai-room/model/useConversations';
 import { useContextMode } from '@features/ai-room/model/useContextMode';
-import { AIRoomHeader, AIRoomChatArea } from '@widgets/ai-room';
+import { AIRoomChatArea } from '@widgets/ai-room';
 import { useTeacherClasses } from '@features/api';
 
 const PageContainer = styled.div`
@@ -20,23 +20,23 @@ export const AIRoomPage = () => {
     mode,
     selectedClass,
     selectedStudents,
-    setSelectedStudents,
-    isClassDropdownOpen,
-    setIsClassDropdownOpen,
     isStudentModalOpen,
     setIsStudentModalOpen,
-    classDropdownRef,
-    handleModeChange,
-    handleClassSelect,
-    removeStudent,
     getContextLabel,
-    isPromptDisabled,
     resetSelections,
+    applyTargetSelection,
+    removeClassSelection,
   } = contextMode;
+
+  // 대상 선택 모달을 다시 열었을 때 현재 적용된 선택 상태를 그대로 보여주기 위한 목록
+  // (mode==='class'일 땐 selectedStudents가 비어있고 selectedClass만 있으므로 반 학생 전원으로 환원)
+  const currentTargetStudents =
+    mode === 'class' && selectedClass ? selectedClass.students : selectedStudents;
 
   // Conversations hook
   const {
-    conversations,
+    activeConversation,
+    groupedConversations,
     activeConversationId,
     messages,
     streamingContent,
@@ -47,8 +47,8 @@ export const AIRoomPage = () => {
     handleNewConversation: rawHandleNewConversation,
     handleDeleteConversation,
     handleSelectConversation: rawHandleSelectConversation,
+    handleRenameConversation,
     handleSend,
-    handleQuickPrompt,
     getConversationMode,
     getConversationSelection,
   } = useConversations({
@@ -91,22 +91,9 @@ export const AIRoomPage = () => {
 
   return (
     <PageContainer>
-      <AIRoomHeader
-        mode={mode}
-        selectedClass={selectedClass}
-        selectedStudents={selectedStudents}
-        classes={classes}
-        isClassDropdownOpen={isClassDropdownOpen}
-        setIsClassDropdownOpen={setIsClassDropdownOpen}
-        classDropdownRef={classDropdownRef}
-        onModeChange={handleModeChange}
-        onClassSelect={handleClassSelect}
-        onRemoveStudent={removeStudent}
-        onOpenStudentModal={() => setIsStudentModalOpen(true)}
-      />
-
       <AIRoomChatArea
-        conversations={conversations}
+        groupedConversations={groupedConversations}
+        activeConversation={activeConversation}
         activeConversationId={activeConversationId}
         messages={messages}
         aliasMap={aliasMap}
@@ -115,24 +102,27 @@ export const AIRoomPage = () => {
         isLoading={isLoading}
         streamingContent={streamingContent}
         mode={mode}
-        selectedStudentCount={selectedStudents.length}
-        isPromptDisabled={isPromptDisabled}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         onDeleteConversation={handleDeleteConversation}
+        onRenameConversation={handleRenameConversation}
         onSend={handleSend}
-        onQuickPrompt={handleQuickPrompt}
         contextLabel={getContextLabel()}
         selectedStudentId={selectedStudents[0]?.id ?? null}
         selectedClassId={selectedClass?.id ?? null}
+        classes={classes}
+        selectedClass={selectedClass}
+        selectedStudents={selectedStudents}
+        onOpenTargetPicker={() => setIsStudentModalOpen(true)}
+        onRemoveClass={removeClassSelection}
       />
 
       <StudentPickerModal
         isOpen={isStudentModalOpen}
         onClose={() => setIsStudentModalOpen(false)}
         classes={classes}
-        selectedStudents={selectedStudents}
-        onConfirm={setSelectedStudents}
+        selectedStudents={currentTargetStudents}
+        onConfirm={(students) => applyTargetSelection(students, classes)}
       />
     </PageContainer>
   );
