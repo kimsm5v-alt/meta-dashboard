@@ -30,13 +30,13 @@ export const AssessmentPage = () => {
   // LayoutV2 context 사용
   const { selectedClass, setSelectedClass, selectedStudent, setSelectedStudent, activeSubTab, setActiveSubTab, prototypeMode } = useLayoutContext();
 
+  // 학생 결과 상태 - Hook은 조건부 return 전에 선언해야 함
+  const [selectedStudentResult, setSelectedStudentResult] = useState<StudentExamResult | null>(null);
+
   // 자기조절학습검사인 경우 별도 페이지 렌더링
   if (prototypeMode.examType === 'self') {
     return <SelfregAssessmentPage />;
   }
-
-  // 학생 결과 상태
-  const [selectedStudentResult, setSelectedStudentResult] = useState<StudentExamResult | null>(null);
 
 
   // URL path에 따라 activeSubTab 동기화
