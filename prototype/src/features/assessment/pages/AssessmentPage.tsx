@@ -11,22 +11,26 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { SummaryCards, ExamOverviewTable, ExamManagementView, ClassResultView, StudentResultView } from '../components';
+import { useLocation, useSearchParams } from 'react-router-dom';
+import { SummaryCards, ExamOverviewTable, ExamManagementView, ClassResultView, StudentResultView, ClassTrackingView, StudentTrackingView } from '../components';
 import { SelfregAssessmentPage } from './SelfregAssessmentPage';
 import {
   MOCK_EXAM_OVERVIEW_SUMMARY,
   MOCK_EXAM_OVERVIEW_ROWS,
   MOCK_CLASS_EXAM_DATA,
   MOCK_STUDENT_RESULTS,
+  MOCK_STUDENT_CHANGE_DATA,
+  MOCK_CLASS_CHANGE_SUMMARY,
+  MOCK_INTERVENTION_HISTORY,
+  MOCK_STUDENT_INTERVENTIONS,
 } from '../mock-data';
 import type { ExamOverviewRow, StudentExamResult } from '../types';
 import { useLayoutContext } from '@/app/LayoutV2';
 import { ResultOverviewView, MOCK_CLASS_RESULT } from '@/features/class-dashboard';
-import { StudentHeader } from '@/shared/components';
 
 export const AssessmentPage = () => {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   // LayoutV2 context 사용
   const { selectedClass, setSelectedClass, selectedStudent, setSelectedStudent, activeSubTab, setActiveSubTab, prototypeMode } = useLayoutContext();
 
@@ -50,6 +54,41 @@ export const AssessmentPage = () => {
       setActiveSubTab('tracking');
     }
   }, [location.pathname, setActiveSubTab]);
+
+  // URL 파라미터로 직접 학생 결과 페이지 접근 시 처리 (개입이력 바로가기에서 사용)
+  useEffect(() => {
+    const classParam = searchParams.get('class');
+    const studentParam = searchParams.get('student');
+    const scrollToParam = searchParams.get('scrollTo');
+
+    if (classParam && studentParam && activeSubTab === 'result') {
+      // 반 선택
+      const classData = MOCK_CLASS_EXAM_DATA[classParam];
+      if (classData) {
+        setSelectedClass({ id: classParam, name: classData.className, status: '' });
+      }
+
+      // 학생 선택
+      const results = MOCK_STUDENT_RESULTS[classParam];
+      const studentResult = results?.find(r => r.id === studentParam);
+      if (studentResult) {
+        const lnbStudentId = `s${studentResult.number}`;
+        setSelectedStudent({ id: lnbStudentId, name: studentResult.name });
+        setSelectedStudentResult(studentResult);
+
+        // 스크롤 위치 처리
+        if (scrollToParam === 'counseling') {
+          // 상담&관찰 섹션으로 스크롤 (약간의 딜레이 후)
+          setTimeout(() => {
+            const counselingSection = document.querySelector('[data-section="counseling"]');
+            if (counselingSection) {
+              counselingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }, 100);
+        }
+      }
+    }
+  }, [searchParams, activeSubTab, setSelectedClass, setSelectedStudent]);
 
   // LNB에서 학생 선택 시 selectedStudentResult 자동 설정
   useEffect(() => {
@@ -174,7 +213,7 @@ export const AssessmentPage = () => {
       );
     }
 
-    // 변화추적 서브탭: 화면 6번 (추후 구현)
+    // 변화추적 서브탭: 반 선택 필수 안내
     if (activeSubTab === 'tracking') {
       return (
         <div className="p-6 space-y-6">
@@ -182,9 +221,12 @@ export const AssessmentPage = () => {
             <h1 className="text-2xl font-bold text-gray-900">{pageInfo.title}</h1>
             <p className="mt-1 text-sm text-gray-500">{pageInfo.desc}</p>
           </div>
-          <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 text-center">
-            <p className="text-amber-700">
-              변화추적 전체 현황 화면은 추후 구현 예정입니다.
+          <div className="bg-primary-50 border border-primary-100 rounded-xl p-8 text-center">
+            <p className="text-primary-700 font-medium mb-2">
+              변화추적을 확인하려면 좌측 LNB에서 반을 선택해주세요.
+            </p>
+            <p className="text-sm text-primary-600">
+              1차/2차 검사가 완료된 반의 학생 변화를 추적할 수 있습니다.
             </p>
           </div>
         </div>
@@ -254,44 +296,77 @@ export const AssessmentPage = () => {
     );
   }
 
-  // 변화추적 서브탭 + 반 선택 (추후 구현)
+  // 변화추적 서브탭 + 반 선택
   if (activeSubTab === 'tracking') {
-    // 학생 선택 시 학생 헤더 표시
-    if (selectedStudent && selectedStudentResult) {
+    const changeData = MOCK_STUDENT_CHANGE_DATA[selectedClass.id];
+    const changeSummary = MOCK_CLASS_CHANGE_SUMMARY[selectedClass.id];
+    const interventions = MOCK_INTERVENTION_HISTORY[selectedClass.id] || [];
+
+    // 변화추적 데이터가 없는 반 (1차/2차 미완료)
+    if (!changeData || !changeSummary) {
       return (
         <div className="p-6 space-y-6">
-          <StudentHeader
-            studentNumber={selectedStudentResult.number}
-            studentName={selectedStudentResult.name}
-            lpaType={selectedStudentResult.predictedType}
-            className={selectedClass.name}
-            onBack={handleBackToClassResult}
-          />
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleBackToOverview}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              ← 전체 현황
+            </button>
+            <h1 className="text-2xl font-bold text-gray-900">{selectedClass.name} 변화추적</h1>
+          </div>
           <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 text-center">
             <p className="text-amber-700">
-              변화추적 학생 상세 화면은 추후 구현 예정입니다.
+              이 반은 아직 2차 검사가 완료되지 않아 변화추적을 확인할 수 없습니다.
             </p>
           </div>
         </div>
       );
     }
 
+    // 학생 선택 시 학생 변화 상세 화면
+    if (selectedStudent) {
+      const studentChangeData = changeData.find(s => s.name === selectedStudent.name);
+      const studentInterventions = studentChangeData
+        ? (MOCK_STUDENT_INTERVENTIONS[studentChangeData.id] || [])
+            .map(intId => interventions.find(i => i.id === intId))
+            .filter(Boolean) as typeof interventions
+        : [];
+
+      if (studentChangeData) {
+        return (
+          <div className="p-6">
+            <StudentTrackingView
+              student={studentChangeData}
+              className={selectedClass.name}
+              classId={selectedClass.id}
+              interventions={studentInterventions}
+              onBack={handleBackToClassResult}
+            />
+          </div>
+        );
+      }
+    }
+
+    // 반 선택 시 반 변화 요약 화면
+    const handleTrackingStudentClick = (studentId: string) => {
+      const studentData = changeData.find(s => s.id === studentId);
+      if (studentData) {
+        const lnbStudentId = `s${studentData.number}`;
+        setSelectedStudent({ id: lnbStudentId, name: studentData.name });
+      }
+    };
+
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleBackToOverview}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            ← 전체 현황
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">{selectedClass.name} 변화추적</h1>
-        </div>
-        <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 text-center">
-          <p className="text-amber-700">
-            변화추적 반별 상세 화면은 추후 구현 예정입니다.
-          </p>
-        </div>
+      <div className="p-6">
+        <ClassTrackingView
+          className={selectedClass.name}
+          onBack={handleBackToOverview}
+          changeSummary={changeSummary}
+          students={changeData}
+          interventions={interventions}
+          onStudentClick={handleTrackingStudentClick}
+        />
       </div>
     );
   }
