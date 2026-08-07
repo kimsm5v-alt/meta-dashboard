@@ -159,6 +159,159 @@ export const ASSESSMENT_SUBTAB_LABELS: Record<AssessmentSubTab, string> = {
 };
 
 // ============================================================
+// 변화추적 (화면 6번)
+// ============================================================
+
+/** 학생 변화 상태 */
+export type ChangeDirection = 'up' | 'same' | 'down';
+
+// ============================================================
+// 학습 현황 (Q120~Q124 설문 응답)
+// ============================================================
+
+/** 학업 성취도 */
+export type AcademicAchievement = 'very-low' | 'low' | 'mid' | 'high' | 'very-high';
+/** 성적 만족도 */
+export type GradeSatisfaction = 'very-low' | 'low' | 'mid' | 'high' | 'very-high';
+/** 학습 동기 */
+export type LearningMotivation = 'interest' | 'future' | 'parents' | 'comparison' | 'none';
+/** 혼자 공부 시간 */
+export type SelfStudyTime = 'none' | 'under1h' | '1-2h' | '2-3h' | 'over3h';
+/** 학습 고민 상담 대상 */
+export type LearningCounselor = 'parents' | 'teacher' | 'friend' | 'self' | 'none';
+
+/** 학습 현황 */
+export interface LearningStatus {
+  academicAchievement: AcademicAchievement;
+  gradeSatisfaction: GradeSatisfaction;
+  learningMotivation: LearningMotivation;
+  selfStudyTime: SelfStudyTime;
+  learningCounselor: LearningCounselor;
+}
+
+/** 학습 현황 라벨 */
+export const LEARNING_STATUS_LABELS = {
+  academicAchievement: {
+    'very-low': '하위 10%',
+    'low': '하위 30%',
+    'mid': '중위권',
+    'high': '상위 30%',
+    'very-high': '상위 10%',
+  },
+  gradeSatisfaction: {
+    'very-low': '매우 불만족',
+    'low': '불만족',
+    'mid': '보통',
+    'high': '만족',
+    'very-high': '매우 만족',
+  },
+  learningMotivation: {
+    'interest': '배움이 즐거워서',
+    'future': '미래/진로 위해',
+    'parents': '부모님 기대',
+    'comparison': '친구 비교',
+    'none': '동기 없음',
+  },
+  selfStudyTime: {
+    'none': '거의 안 함',
+    'under1h': '1시간 미만',
+    '1-2h': '1~2시간',
+    '2-3h': '2~3시간',
+    'over3h': '3시간 이상',
+  },
+  learningCounselor: {
+    'parents': '부모님',
+    'teacher': '선생님',
+    'friend': '친구',
+    'self': '혼자 해결',
+    'none': '상담 안 함',
+  },
+} as const;
+
+/** 학생 변화 추적 데이터 */
+export interface StudentChangeData {
+  id: string;
+  number: number;
+  name: string;
+  /** 1차 검사 점수 (평균 T점수) */
+  round1Score: number | null;
+  /** 2차 검사 점수 (평균 T점수) */
+  round2Score: number | null;
+  /** 변화량 */
+  change: number | null;
+  /** 변화 방향 */
+  changeDirection: ChangeDirection | null;
+  /** 1차 유형 */
+  round1Type: string | null;
+  /** 2차 유형 */
+  round2Type: string | null;
+  /** 유형 변화 여부 */
+  typeChanged: boolean;
+  /** 1차 요인별 T점수 (38개) */
+  round1TScores: number[] | null;
+  /** 2차 요인별 T점수 (38개) */
+  round2TScores: number[] | null;
+  /** 1차 유형 확률 (LPA) */
+  round1TypeProbabilities: Record<string, number> | null;
+  /** 2차 유형 확률 (LPA) */
+  round2TypeProbabilities: Record<string, number> | null;
+  /** 1차 학습 현황 */
+  round1LearningStatus: LearningStatus | null;
+  /** 2차 학습 현황 */
+  round2LearningStatus: LearningStatus | null;
+}
+
+/** 반 변화 요약 */
+export interface ClassChangeSummary {
+  /** 반 ID */
+  classId: string;
+  /** 반 이름 */
+  className: string;
+  /** 1차 평균 */
+  round1Avg: number;
+  /** 2차 평균 */
+  round2Avg: number;
+  /** 평균 변화량 */
+  avgChange: number;
+  /** 상승 학생 수 */
+  upCount: number;
+  /** 유지 학생 수 */
+  sameCount: number;
+  /** 하락 학생 수 */
+  downCount: number;
+  /** 전체 학생 수 */
+  totalCount: number;
+  /** 2차 응시 학생 수 */
+  round2Count: number;
+}
+
+/** 개입 유형 */
+export type InterventionType = 'counseling' | 'lesson' | 'class_coaching' | 'individual_coaching';
+
+/** 개입 유형 라벨 */
+export const INTERVENTION_TYPE_LABELS: Record<InterventionType, string> = {
+  counseling: '상담',
+  lesson: '수업',
+  class_coaching: '학급 코칭',
+  individual_coaching: '개별 코칭',
+};
+
+/** 코칭 유형 설명 */
+export const COACHING_TYPE_DESCRIPTIONS: Record<'class_coaching' | 'individual_coaching', string> = {
+  class_coaching: '학급 대표 전략 코칭',
+  individual_coaching: '유형 대비 강점 확인과 인정, 맞춤 코칭 제안',
+};
+
+/** 개입 이력 항목 */
+export interface InterventionHistory {
+  id: string;
+  date?: string;
+  type: InterventionType;
+  title: string;
+  description?: string;
+}
+
+// ============================================================
 // 결과보기 - 학생 결과 (화면 5번)
 // ============================================================
 
