@@ -27,6 +27,7 @@ public class AiConversationService {
     private static final int MAX_PAGE_SIZE = 100;
     private static final int DEFAULT_MESSAGE_SIZE = 50;
     private static final int MAX_MESSAGE_SIZE = 200;
+    private static final int MAX_TITLE_LENGTH = 200; // ai_conversation.title VARCHAR(200)
 
     private final AiConversationMapper aiConversationMapper;
     private final ObjectMapper objectMapper;
@@ -139,6 +140,26 @@ public class AiConversationService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("conversation", toConversationMap(conversation));
         result.put("messages", insertedMessages);
+        return result;
+    }
+
+    @Transactional
+    public Object updateTitle(Long conversationId, Map<String, Object> paramData, Long userNo) {
+        AiConversation conversation = requireOwnedConversation(conversationId, userNo);
+
+        String title = trimToNull((String) paramData.get("title"));
+        if (title == null) {
+            throw new IllegalArgumentException("title is required.");
+        }
+        if (title.length() > MAX_TITLE_LENGTH) {
+            title = title.substring(0, MAX_TITLE_LENGTH);
+        }
+
+        aiConversationMapper.updateConversationTitle(conversation.getId(), userNo, title);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("conversationId", conversationId);
+        result.put("title", title);
         return result;
     }
 
