@@ -131,7 +131,7 @@ interface UseConversationsReturn {
    * 새로고침·재접속 시 서버가 내려주는 자동 생성 제목으로 되돌아간다.
    */
   handleRenameConversation: (convId: string, newTitle: string) => void;
-  handleSend: () => Promise<void>;
+  handleSend: (overrideText?: string) => Promise<void>;
   handleQuickPrompt: (prompt: string) => void;
   getConversationMode: (convId: string) => ContextMode | undefined;
   /** 같은 세션에서 대화했던 컨텍스트 선택(모드/반/학생) 조회 — 대화 전환 시 복원용 */
@@ -368,20 +368,21 @@ export const useConversations = ({
     return contextCacheRef.current.get(convId)?.selection;
   };
 
-  const handleSend = async () => {
-    if ((!input.trim() && !pendingImage) || isLoading) return;
+  const handleSend = async (overrideText?: string) => {
+    const effectiveInput = overrideText ?? input;
+    if ((!effectiveInput.trim() && !pendingImage) || isLoading) return;
 
     const currentImages = pendingImage ? [pendingImage] : undefined;
     const tempUserMsgId = `user-${Date.now()}`;
     const userMessage: ChatMessage = {
       id: tempUserMsgId,
       role: 'user',
-      content: input,
+      content: effectiveInput,
       timestamp: new Date(),
       images: currentImages,
     };
     setMessages((prev) => [...prev, userMessage]);
-    const currentInput = input;
+    const currentInput = effectiveInput;
     setInput('');
     clearPendingImage();
     setIsLoading(true);
