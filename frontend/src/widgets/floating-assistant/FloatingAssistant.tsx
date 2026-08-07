@@ -645,10 +645,6 @@ export const FloatingAssistant = () => {
   const hasStudentTarget = mode === 'student' && selectedStudents.length > 0;
   const screenLabel = screenLabelFor(location.pathname);
   const questions = resolveScreenQuestions(location.pathname, hasStudentTarget);
-  const askedTexts = new Set(messages.filter((m) => m.role === 'user').map((m) => m.content));
-  const remainingQuestions = hasConversation
-    ? questions.filter((q) => !askedTexts.has(q.text))
-    : questions;
 
   // 캡처 완료 시 버블/입력바였다면 자동으로 코너 패널을 연다
   useEffect(() => {
@@ -868,7 +864,7 @@ export const FloatingAssistant = () => {
             <EmptyStateTitle>무엇이 궁금하세요?</EmptyStateTitle>
             <EmptyStateSubtitle>{screenLabel} 화면에 대해 물어보세요</EmptyStateSubtitle>
             <QuestionList>
-              {remainingQuestions.map((q) => (
+              {questions.map((q) => (
                 <QuestionCard key={q.text} onClick={() => handleQuestionPick(q.text)}>
                   <QuestionEmoji>{q.emoji}</QuestionEmoji>
                   <QuestionText>{q.text}</QuestionText>
@@ -885,7 +881,7 @@ export const FloatingAssistant = () => {
 
   return (
     <>
-      <Overlay>
+      <Overlay data-capture-ignore='true'>
         {view === 'bubble' && (
           <BubbleButton
             $raised={bottomRightFabCount > 0}
@@ -924,7 +920,7 @@ export const FloatingAssistant = () => {
         {view === 'corner' && panel}
       </Overlay>
 
-      {isFullscreen && <FullscreenBackdrop>{panel}</FullscreenBackdrop>}
+      {isFullscreen && <FullscreenBackdrop data-capture-ignore='true'>{panel}</FullscreenBackdrop>}
 
       <StudentPickerModal
         isOpen={isStudentModalOpen}
