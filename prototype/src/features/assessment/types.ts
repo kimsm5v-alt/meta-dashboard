@@ -169,16 +169,36 @@ export type ChangeDirection = 'up' | 'same' | 'down';
 // 학습 현황 (Q120~Q124 설문 응답)
 // ============================================================
 
-/** 학업 성취도 */
+/**
+ * 120. 내 학업 성적은 어느 정도인지 체크해 주세요.
+ * ① 매우 낮음 ② 낮음 ③ 보통 ④ 높음 ⑤ 매우 높음
+ */
 export type AcademicAchievement = 'very-low' | 'low' | 'mid' | 'high' | 'very-high';
-/** 성적 만족도 */
+
+/**
+ * 121. 나의 성적에 어느 정도 만족하는지 체크해 주세요.
+ * ① 매우 낮음 ② 낮음 ③ 보통 ④ 높음 ⑤ 매우 높음
+ */
 export type GradeSatisfaction = 'very-low' | 'low' | 'mid' | 'high' | 'very-high';
-/** 학습 동기 */
-export type LearningMotivation = 'interest' | 'future' | 'parents' | 'comparison' | 'none';
-/** 혼자 공부 시간 */
+
+/**
+ * 122. 다음 중 내가 공부하는 가장 중요한 이유 1가지를 체크해 주세요.
+ * ① 공부에 흥미를 느껴서 ② 나의 미래를 위해서 ③ 대학을 가기 위해서
+ * ④ 주변 사람들(부모님, 선생님)의 기대 때문에 ⑤ 솔직히 왜 하는지 모르겠다
+ */
+export type LearningMotivation = 'interest' | 'future' | 'college' | 'expectations' | 'unknown';
+
+/**
+ * 123. 학교 다닐 때, 혼자 공부하는 시간(온라인 학습 제외)이 하루 평균 어느 정도인지 체크해 보세요.
+ * ① 전혀 안함 ② 1시간 미만 ③ 1시간 이상~2시간 미만 ④ 2시간 이상~3시간 미만 ⑤ 3시간 이상
+ */
 export type SelfStudyTime = 'none' | 'under1h' | '1-2h' | '2-3h' | 'over3h';
-/** 학습 고민 상담 대상 */
-export type LearningCounselor = 'parents' | 'teacher' | 'friend' | 'self' | 'none';
+
+/**
+ * 124. 공부와 관련된 고민이 있을 때, 가장 많이 상담하는 사람 1명을 체크해 주세요.
+ * ① 친구 ② 선생님 ③ 가족 ④ 상담 전문가 ⑤ 기타
+ */
+export type LearningCounselor = 'friend' | 'teacher' | 'family' | 'counselor' | 'etc';
 
 /** 학습 현황 */
 export interface LearningStatus {
@@ -191,40 +211,45 @@ export interface LearningStatus {
 
 /** 학습 현황 라벨 */
 export const LEARNING_STATUS_LABELS = {
+  // 120. 내 학업 성적은 어느 정도인지 체크해 주세요.
   academicAchievement: {
-    'very-low': '하위 10%',
-    'low': '하위 30%',
-    'mid': '중위권',
-    'high': '상위 30%',
-    'very-high': '상위 10%',
-  },
-  gradeSatisfaction: {
-    'very-low': '매우 불만족',
-    'low': '불만족',
+    'very-low': '매우 낮음',
+    'low': '낮음',
     'mid': '보통',
-    'high': '만족',
-    'very-high': '매우 만족',
+    'high': '높음',
+    'very-high': '매우 높음',
   },
+  // 121. 나의 성적에 어느 정도 만족하는지 체크해 주세요.
+  gradeSatisfaction: {
+    'very-low': '매우 낮음',
+    'low': '낮음',
+    'mid': '보통',
+    'high': '높음',
+    'very-high': '매우 높음',
+  },
+  // 122. 다음 중 내가 공부하는 가장 중요한 이유 1가지를 체크해 주세요.
   learningMotivation: {
-    'interest': '배움이 즐거워서',
-    'future': '미래/진로 위해',
-    'parents': '부모님 기대',
-    'comparison': '친구 비교',
-    'none': '동기 없음',
+    'interest': '공부에 흥미를 느껴서',
+    'future': '나의 미래를 위해서',
+    'college': '대학을 가기 위해서',
+    'expectations': '주변 사람들의 기대 때문에',
+    'unknown': '솔직히 왜 하는지 모르겠다',
   },
+  // 123. 학교 다닐 때, 혼자 공부하는 시간(온라인 학습 제외)이 하루 평균 어느 정도인지 체크해 보세요.
   selfStudyTime: {
-    'none': '거의 안 함',
+    'none': '전혀 안함',
     'under1h': '1시간 미만',
-    '1-2h': '1~2시간',
-    '2-3h': '2~3시간',
+    '1-2h': '1시간 이상~2시간 미만',
+    '2-3h': '2시간 이상~3시간 미만',
     'over3h': '3시간 이상',
   },
+  // 124. 공부와 관련된 고민이 있을 때, 가장 많이 상담하는 사람 1명을 체크해 주세요.
   learningCounselor: {
-    'parents': '부모님',
-    'teacher': '선생님',
     'friend': '친구',
-    'self': '혼자 해결',
-    'none': '상담 안 함',
+    'teacher': '선생님',
+    'family': '가족',
+    'counselor': '상담 전문가',
+    'etc': '기타',
   },
 } as const;
 

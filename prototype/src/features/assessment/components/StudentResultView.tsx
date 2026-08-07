@@ -22,7 +22,8 @@ import { Sparkles, Check, AlertTriangle, Calendar, ArrowRight, FileText, Chevron
 import { useLayoutContext } from '@/app/LayoutV2';
 import { StudentFactorAnalysis } from './StudentFactorAnalysis';
 import { TypeClassification } from './TypeClassification';
-import type { StudentExamResult } from '../types';
+import type { StudentExamResult, LearningStatus } from '../types';
+import { LEARNING_STATUS_LABELS } from '../types';
 import { StudentHeader } from '@/shared/components';
 import type { StudentType } from '@/shared/types';
 import { CounselingMemoEditor, ObservationMemoEditor, UnifiedHistoryList } from '@/features/schedule/components';
@@ -81,67 +82,15 @@ const MOCK_AI_SUMMARIES: Record<StudentType, { summary: string; keywords: string
 };
 
 /**
- * 개인 학습 현황 Mock
+ * Mock 학습 현황 생성 (types.ts의 LearningStatus, LEARNING_STATUS_LABELS 사용)
  *
- * 실제 설문 문항:
- * 1. 내 학업 성적은 어느 정도인지 체크해 주세요. (매우 낮음/낮음/보통/높음/매우 높음)
- * 2. 나의 성적에 어느 정도 만족하는지 체크해 주세요. (매우 낮음/낮음/보통/높음/매우 높음)
- * 3. 다음 중 내가 공부하는 가장 중요한 이유 1가지를 체크해 주세요.
- * 4. 학교 다닐 때, 혼자 공부하는 시간(온라인 학습 제외)이 하루 평균 어느 정도인지 체크해 보세요.
- * 5. 공부와 관련된 고민이 있을 때, 가장 많이 상담하는 사람 1명을 체크해 주세요.
+ * 실제 설문 문항 (Q120~Q124):
+ * 120. 내 학업 성적은 어느 정도인지 체크해 주세요.
+ * 121. 나의 성적에 어느 정도 만족하는지 체크해 주세요.
+ * 122. 다음 중 내가 공부하는 가장 중요한 이유 1가지를 체크해 주세요.
+ * 123. 학교 다닐 때, 혼자 공부하는 시간(온라인 학습 제외)이 하루 평균 어느 정도인지 체크해 보세요.
+ * 124. 공부와 관련된 고민이 있을 때, 가장 많이 상담하는 사람 1명을 체크해 주세요.
  */
-interface LearningStatus {
-  /** 학업 성적 (매우 낮음~매우 높음) */
-  academicAchievement: 'very-low' | 'low' | 'mid' | 'high' | 'very-high';
-  /** 성적 만족도 (매우 낮음~매우 높음) */
-  gradeSatisfaction: 'very-low' | 'low' | 'mid' | 'high' | 'very-high';
-  /** 공부하는 가장 중요한 이유 */
-  learningMotivation: 'interest' | 'future' | 'college' | 'expectation' | 'unknown';
-  /** 혼자 공부하는 시간 (하루 평균) */
-  selfStudyTime: 'none' | 'under1h' | '1-2h' | '2-3h' | 'over3h';
-  /** 공부 고민 상담 대상 */
-  learningCounselor: 'friend' | 'teacher' | 'family' | 'counselor' | 'other';
-}
-
-const LEARNING_STATUS_LABELS = {
-  academicAchievement: {
-    'very-low': '매우 낮음',
-    low: '낮음',
-    mid: '보통',
-    high: '높음',
-    'very-high': '매우 높음',
-  },
-  gradeSatisfaction: {
-    'very-low': '매우 낮음',
-    low: '낮음',
-    mid: '보통',
-    high: '높음',
-    'very-high': '매우 높음',
-  },
-  learningMotivation: {
-    interest: '공부에 흥미를 느껴서',
-    future: '나의 미래를 위해서',
-    college: '대학을 가기 위해서',
-    expectation: '주변 사람들의 기대 때문에',
-    unknown: '솔직히 왜 하는지 모르겠다',
-  },
-  selfStudyTime: {
-    none: '전혀 안함',
-    under1h: '1시간 미만',
-    '1-2h': '1시간~2시간 미만',
-    '2-3h': '2시간~3시간 미만',
-    over3h: '3시간 이상',
-  },
-  learningCounselor: {
-    friend: '친구',
-    teacher: '선생님',
-    family: '가족',
-    counselor: '상담 전문가',
-    other: '기타',
-  },
-};
-
-/** Mock 학습 현황 생성 */
 const generateMockLearningStatus = (type: StudentType): LearningStatus => {
   // 자기주도/몰입형 (초등: 몰입자원 풍부형, 중등: 자기주도 몰입형)
   const isSelfDirected = type === '자기주도 몰입형' || type === '몰입자원 풍부형';
@@ -153,7 +102,7 @@ const generateMockLearningStatus = (type: StudentType): LearningStatus => {
     gradeSatisfaction: isSelfDirected ? 'high' : isStruggling ? 'low' : 'mid',
     learningMotivation: isSelfDirected ? 'interest' : isStruggling ? 'unknown' : 'future',
     selfStudyTime: isSelfDirected ? '2-3h' : isStruggling ? 'under1h' : '1-2h',
-    learningCounselor: isStruggling ? 'other' : 'family',
+    learningCounselor: isStruggling ? 'etc' : 'family',
   };
 };
 

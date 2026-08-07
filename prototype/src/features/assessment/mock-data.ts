@@ -465,18 +465,23 @@ const generateMockLearningStatus = (type: string, variation: number = 0): Learni
   const isSelfDirected = type === '자기주도 몰입형' || type === '몰입자원 풍부형';
   const isStruggling = type === '냉소적 무기력형' || type === '자원소진형';
 
+  // 120. 학업 성적: ① 매우 낮음 ② 낮음 ③ 보통 ④ 높음 ⑤ 매우 높음
   const achievements: AcademicAchievement[] = ['very-low', 'low', 'mid', 'high', 'very-high'];
+  // 121. 성적 만족도: ① 매우 낮음 ② 낮음 ③ 보통 ④ 높음 ⑤ 매우 높음
   const satisfactions: GradeSatisfaction[] = ['very-low', 'low', 'mid', 'high', 'very-high'];
-  const motivations: LearningMotivation[] = ['interest', 'future', 'parents', 'comparison', 'none'];
+  // 122. 공부 이유: ① 흥미 ② 미래 ③ 대학 ④ 기대 ⑤ 모르겠다
+  const motivations: LearningMotivation[] = ['interest', 'future', 'college', 'expectations', 'unknown'];
+  // 123. 혼자 공부 시간: ① 전혀 안함 ② 1시간 미만 ③ 1~2시간 ④ 2~3시간 ⑤ 3시간 이상
   const studyTimes: SelfStudyTime[] = ['none', 'under1h', '1-2h', '2-3h', 'over3h'];
-  const counselors: LearningCounselor[] = ['parents', 'teacher', 'friend', 'self', 'none'];
+  // 124. 상담 대상: ① 친구 ② 선생님 ③ 가족 ④ 상담 전문가 ⑤ 기타
+  const counselors: LearningCounselor[] = ['friend', 'teacher', 'family', 'counselor', 'etc'];
 
   // 기본 인덱스 (유형별)
   let achievementIdx = isSelfDirected ? 3 : isStruggling ? 1 : 2;
   let satisfactionIdx = isSelfDirected ? 3 : isStruggling ? 1 : 2;
   let motivationIdx = isSelfDirected ? 0 : isStruggling ? 4 : 1;
   let studyTimeIdx = isSelfDirected ? 3 : isStruggling ? 1 : 2;
-  let counselorIdx = isSelfDirected ? 0 : isStruggling ? 3 : 0;
+  let counselorIdx = isSelfDirected ? 2 : isStruggling ? 0 : 1; // 자기주도: 가족, 무기력: 친구, 기타: 선생님
 
   // variation으로 약간의 변화 적용
   achievementIdx = Math.max(0, Math.min(4, achievementIdx + variation));
