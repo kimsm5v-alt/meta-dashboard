@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { buildScopeQueryString } from '@shared/scope';
 import { useStreamGuardStore } from '@shared/store/useStreamGuardStore';
 import { StreamGuardDialog } from '@shared/ui/StreamGuardDialog';
+import { FloatingAssistant } from '@widgets/floating-assistant';
 
 import { GnbHeader, GNB_HEADER_HEIGHT } from './GnbHeader';
 import { GNB_ITEMS, getActiveGnbId, getActiveSubTabId } from './gnbConfig';
@@ -125,6 +126,7 @@ const MainLayoutV2Content: React.FC<MainLayoutV2Props> = ({ children }) => {
           </MainContent>
         </>
       )}
+      {!location.pathname.startsWith('/ai-assistant') && <FloatingAssistant />}
     </LayoutRoot>
   );
 };
