@@ -69,7 +69,7 @@ const getCompletedExamCount = () => {
 
 export const TeacherDashboardPage = () => {
   const navigate = useNavigate();
-  const teacherName = '김선생님';
+  const teacherName = '%이름%';
   const totalClasses = HOME_KEY_METRICS.totalClasses;
   const [activeTab, setActiveTab] = useState<TabType>('exam');
 
@@ -101,7 +101,7 @@ export const TeacherDashboardPage = () => {
         {/* 텍스트 */}
         <div className="relative z-10 max-w-7xl mx-auto">
           <h1 className="text-[26px] font-bold text-white leading-tight">
-            안녕하세요, {teacherName} 👋
+            안녕하세요, {teacherName} 선생님 👋
           </h1>
           <p className="text-sm text-violet-300 mt-2">
             {totalClasses}개 반의 학습 현황을 한눈에 확인하세요
