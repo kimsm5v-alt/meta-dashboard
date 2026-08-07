@@ -37,14 +37,15 @@ export const AssessmentPage = () => {
   // 학생 결과 상태 - Hook은 조건부 return 전에 선언해야 함
   const [selectedStudentResult, setSelectedStudentResult] = useState<StudentExamResult | null>(null);
 
-  // 자기조절학습검사인 경우 별도 페이지 렌더링
-  if (prototypeMode.examType === 'self') {
-    return <SelfregAssessmentPage />;
-  }
-
+  // ============================================
+  // 모든 useEffect는 조건부 return 전에 선언해야 함 (React Hook 규칙)
+  // ============================================
 
   // URL path에 따라 activeSubTab 동기화
   useEffect(() => {
+    // 자기조절학습검사는 별도 페이지에서 처리
+    if (prototypeMode.examType === 'self') return;
+
     const path = location.pathname;
     if (path === '/exam/management' || path === '/exam') {
       setActiveSubTab('management');
@@ -53,10 +54,13 @@ export const AssessmentPage = () => {
     } else if (path === '/exam/tracking') {
       setActiveSubTab('tracking');
     }
-  }, [location.pathname, setActiveSubTab]);
+  }, [location.pathname, setActiveSubTab, prototypeMode.examType]);
 
   // URL 파라미터로 직접 학생 결과 페이지 접근 시 처리 (개입이력 바로가기에서 사용)
   useEffect(() => {
+    // 자기조절학습검사는 별도 페이지에서 처리
+    if (prototypeMode.examType === 'self') return;
+
     const classParam = searchParams.get('class');
     const studentParam = searchParams.get('student');
     const scrollToParam = searchParams.get('scrollTo');
@@ -88,10 +92,13 @@ export const AssessmentPage = () => {
         }
       }
     }
-  }, [searchParams, activeSubTab, setSelectedClass, setSelectedStudent]);
+  }, [searchParams, activeSubTab, setSelectedClass, setSelectedStudent, prototypeMode.examType]);
 
   // LNB에서 학생 선택 시 selectedStudentResult 자동 설정
   useEffect(() => {
+    // 자기조절학습검사는 별도 페이지에서 처리
+    if (prototypeMode.examType === 'self') return;
+
     if (selectedStudent && selectedClass && activeSubTab === 'result') {
       const results = MOCK_STUDENT_RESULTS[selectedClass.id];
       // LNB의 학생 ID (s1, s2...)를 MOCK_STUDENT_RESULTS의 ID (sr1-1, sr2-1...)와 매칭
@@ -101,7 +108,12 @@ export const AssessmentPage = () => {
         setSelectedStudentResult(studentResult);
       }
     }
-  }, [selectedStudent, selectedClass, activeSubTab]);
+  }, [selectedStudent, selectedClass, activeSubTab, prototypeMode.examType]);
+
+  // 자기조절학습검사인 경우 별도 페이지 렌더링
+  if (prototypeMode.examType === 'self') {
+    return <SelfregAssessmentPage />;
+  }
 
   // 결과보기 클릭 핸들러
   const handleViewResult = useCallback((row: ExamOverviewRow) => {
