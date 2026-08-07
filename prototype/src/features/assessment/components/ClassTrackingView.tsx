@@ -11,7 +11,7 @@
  */
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Search, Calendar, MessageSquare, BookOpen, Lightbulb, Check, AlertTriangle, ArrowRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, MessageSquare, BookOpen, Lightbulb, Check, AlertTriangle, ArrowRight } from 'lucide-react';
 import type { StudentChangeData, ClassChangeSummary, InterventionHistory } from '../types';
 import { TYPE_COLORS } from '@/shared/data/lpaProfiles';
 
@@ -259,19 +259,11 @@ export const ClassTrackingView: React.FC<ClassTrackingViewProps> = ({
   return (
     <div className="space-y-6">
       {/* 헤더 */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={onBack}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-500" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{className} 변화추적</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            1차 검사와 2차 검사 결과를 비교하여 학생들의 변화를 확인합니다.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">{className} 변화추적</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          1차 검사와 2차 검사 결과를 비교하여 학생들의 변화를 확인합니다.
+        </p>
       </div>
 
       {/* 1. 요인별 변화 비교 차트 */}

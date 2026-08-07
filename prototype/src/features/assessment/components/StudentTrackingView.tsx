@@ -102,13 +102,13 @@ const LearningStatusItem: React.FC<LearningStatusItemProps> = ({
 }) => {
   return (
     <div className={`rounded-lg p-4 ${hasChanged ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}>
-      <p className="text-sm font-bold text-gray-900 mb-2 text-center">{label}</p>
+      <p className="text-sm font-bold text-gray-900 mb-3 text-center">{label}</p>
       <div className="flex items-center gap-2">
-        <span className={`text-sm flex-1 truncate ${hasChanged ? 'text-gray-500' : 'text-gray-700'}`} title={round1Value}>
+        <span className={`text-xs flex-1 text-center leading-tight ${hasChanged ? 'text-gray-500' : 'text-gray-700'}`}>
           {round1Value}
         </span>
         <ArrowRight className={`w-3.5 h-3.5 flex-shrink-0 ${hasChanged ? 'text-amber-500' : 'text-gray-300'}`} />
-        <span className={`text-sm font-semibold flex-1 truncate text-right ${hasChanged ? 'text-amber-700' : 'text-gray-900'}`} title={round2Value}>
+        <span className={`text-xs font-semibold flex-1 text-center leading-tight ${hasChanged ? 'text-amber-700' : 'text-gray-900'}`}>
           {round2Value}
         </span>
       </div>
