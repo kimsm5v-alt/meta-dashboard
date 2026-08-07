@@ -18,3 +18,7 @@ export { StudentResultView } from './StudentResultView';
 
 // 자기조절학습검사용 컴포넌트
 export { SelfregStudentResultView } from './SelfregStudentResultView';
+
+// 변화추적 (화면 6번)
+export { ClassTrackingView } from './ClassTrackingView';
+export { StudentTrackingView } from './StudentTrackingView';
