@@ -16,6 +16,7 @@ import serviceLogo from '@/assets/logo_2.png';
 import { useAuth } from '@features/auth';
 import { BellWithPanel } from '@features/notifications';
 import { buildScopeQueryString } from '@shared/scope';
+import { useStreamGuardStore } from '@shared/store/useStreamGuardStore';
 
 import { useLayoutContext } from './LayoutContext';
 import { GNB_ITEMS, getActiveGnbId, type GnbItem } from './gnbConfig';
@@ -208,6 +209,7 @@ export const GnbHeader: React.FC = () => {
   const { pathname } = useLocation();
   const { scope } = useLayoutContext();
   const { user, logout } = useAuth();
+  const guardedNavigate = useStreamGuardStore((s) => s.guardedNavigate);
 
   const activeGnbId = getActiveGnbId(pathname);
   const isAssistantActive = pathname === '/ai-assistant' || pathname.startsWith('/ai-assistant/');
@@ -215,7 +217,7 @@ export const GnbHeader: React.FC = () => {
 
   const handleGnbClick = (item: GnbItem) => {
     const target = item.subTabs[0]?.path ?? item.path;
-    navigate(`${target}${scopeQuery}`);
+    guardedNavigate(() => navigate(`${target}${scopeQuery}`));
   };
 
   const handleLogout = () => {
@@ -226,7 +228,7 @@ export const GnbHeader: React.FC = () => {
   return (
     <HeaderWrapper>
       <HeaderContent>
-        <LogoButton onClick={() => navigate('/home')} aria-label='홈'>
+        <LogoButton onClick={() => guardedNavigate(() => navigate('/home'))} aria-label='홈'>
           <LogoImage src={serviceLogo} alt='학습심리정서검사' />
         </LogoButton>
 
@@ -245,7 +247,7 @@ export const GnbHeader: React.FC = () => {
           <BellWithPanel />
           <OwlButton
             $active={isAssistantActive}
-            onClick={() => navigate(`/ai-assistant${scopeQuery}`)}
+            onClick={() => guardedNavigate(() => navigate(`/ai-assistant${scopeQuery}`))}
             title='AI 어시스턴트'
             aria-label='AI 어시스턴트'
           >

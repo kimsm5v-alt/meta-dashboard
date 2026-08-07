@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { buildScopeQueryString } from '@shared/scope';
+import { useStreamGuardStore } from '@shared/store/useStreamGuardStore';
+import { StreamGuardDialog } from '@shared/ui/StreamGuardDialog';
 
 import { GnbHeader, GNB_HEADER_HEIGHT } from './GnbHeader';
 import { GNB_ITEMS, getActiveGnbId, getActiveSubTabId } from './gnbConfig';
@@ -78,6 +80,7 @@ const MainLayoutV2Content: React.FC<MainLayoutV2Props> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { scope } = useLayoutContext();
+  const guardedNavigate = useStreamGuardStore((s) => s.guardedNavigate);
 
   const isFullWidth =
     location.pathname === '/home' || location.pathname.startsWith('/ai-assistant');
@@ -86,12 +89,13 @@ const MainLayoutV2Content: React.FC<MainLayoutV2Props> = ({ children }) => {
   const activeSubTabId = activeGnb ? getActiveSubTabId(activeGnb, location.pathname) : null;
 
   const handleSubTabClick = (path: string) => {
-    navigate(`${path}${buildScopeQueryString(scope)}`);
+    guardedNavigate(() => navigate(`${path}${buildScopeQueryString(scope)}`));
   };
 
   return (
     <LayoutRoot>
       <GnbHeader />
+      <StreamGuardDialog />
       {isFullWidth ? (
         <FullWidthContent>{children}</FullWidthContent>
       ) : (
