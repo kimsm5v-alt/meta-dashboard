@@ -117,7 +117,6 @@ export const ScopeTree: React.FC<ScopeTreeProps> = ({
 
   // 코칭 메뉴에서 학생 선택 시 핸들러
   const handleStudentSelect = (classId: string, studentId: string) => {
-    console.log('[ScopeTree] handleStudentSelect:', { classId, studentId, isCoachingClass });
     if (isCoachingClass) {
       // 학급코칭에서 학생 클릭 → 개별코칭으로 이동
       navigateWithScope('/coaching/individual', classId, studentId);

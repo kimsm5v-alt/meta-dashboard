@@ -34,8 +34,14 @@ export const AssessmentPage = () => {
   // LayoutV2 context 사용
   const { selectedClass, setSelectedClass, selectedStudent, setSelectedStudent, activeSubTab, setActiveSubTab, prototypeMode } = useLayoutContext();
 
-  // 학생 결과 상태 - Hook은 조건부 return 전에 선언해야 함
+  // 자기조절학습검사인 경우 별도 페이지 렌더링
+  if (prototypeMode.examType === 'self') {
+    return <SelfregAssessmentPage />;
+  }
+
+  // 학생 결과 상태
   const [selectedStudentResult, setSelectedStudentResult] = useState<StudentExamResult | null>(null);
+
 
   // URL path에 따라 activeSubTab 동기화
   useEffect(() => {
@@ -85,39 +91,17 @@ export const AssessmentPage = () => {
   }, [searchParams, activeSubTab, setSelectedClass, setSelectedStudent]);
 
   // LNB에서 학생 선택 시 selectedStudentResult 자동 설정
-  // 결과보기 탭에서만 StudentResultView 렌더링용 데이터 설정
-  // 변화추적 탭에서는 StudentTrackingView가 별도로 렌더링됨
   useEffect(() => {
-    console.log('[AssessmentPage] useEffect triggered:', {
-      selectedStudent: selectedStudent?.name,
-      selectedStudentId: selectedStudent?.id,
-      selectedClass: selectedClass?.id,
-      activeSubTab,
-      pathname: location.pathname,
-    });
-    if (selectedStudent && selectedClass) {
+    if (selectedStudent && selectedClass && activeSubTab === 'result') {
       const results = MOCK_STUDENT_RESULTS[selectedClass.id];
-      console.log('[AssessmentPage] Looking for student:', selectedStudent.name, 'in results:', results?.length);
       // LNB의 학생 ID (s1, s2...)를 MOCK_STUDENT_RESULTS의 ID (sr1-1, sr2-1...)와 매칭
       // LNB 학생 이름으로 찾기
       const studentResult = results?.find(r => r.name === selectedStudent.name);
-      console.log('[AssessmentPage] Found studentResult:', studentResult?.name, studentResult?.id);
       if (studentResult) {
         setSelectedStudentResult(studentResult);
-      } else {
-        // 학생을 찾지 못한 경우 null로 초기화
-        setSelectedStudentResult(null);
       }
-    } else if (!selectedStudent) {
-      // 학생 선택 해제 시 초기화
-      setSelectedStudentResult(null);
     }
-  }, [selectedStudent, selectedClass]);
-
-  // 자기조절학습검사인 경우 별도 페이지 렌더링
-  if (prototypeMode.examType === 'self') {
-    return <SelfregAssessmentPage />;
-  }
+  }, [selectedStudent, selectedClass, activeSubTab]);
 
   // 결과보기 클릭 핸들러
   const handleViewResult = useCallback((row: ExamOverviewRow) => {
@@ -276,11 +260,6 @@ export const AssessmentPage = () => {
 
   // 결과보기 서브탭 + 반 선택: ClassResultView (화면 3-1) 또는 StudentResultView (화면 5번)
   if (activeSubTab === 'result') {
-    console.log('[AssessmentPage] Rendering result tab:', {
-      selectedStudent,
-      selectedStudentResult: selectedStudentResult?.name,
-      selectedStudentResultId: selectedStudentResult?.id,
-    });
     // 학생 선택 상태: StudentResultView (화면 5번)
     if (selectedStudent && selectedStudentResult) {
       const { prev, next } = getAdjacentStudents();

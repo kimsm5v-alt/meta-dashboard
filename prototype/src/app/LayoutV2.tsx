@@ -667,7 +667,6 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
 
   const selectStudent = useCallback(
     (classId: string, studentId: string) => {
-      console.log('[LayoutV2] selectStudent:', { classId, studentId, menuConfigStudent: currentMenuConfig.student });
       if (currentMenuConfig.student) {
         setScope({ level: 'student', classId, studentId });
         // 메모리에 저장
@@ -676,8 +675,6 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
           lastStudentId: studentId,
           lastClassId: classId,
         }));
-      } else {
-        console.log('[LayoutV2] selectStudent BLOCKED - student not supported in menu');
       }
     },
     [setScope, currentMenuConfig]
@@ -759,15 +756,23 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
     const menuKey = getMenuKeyFromPath(location.pathname);
     const menuConfig = getMenuScopeConfig(menuKey);
 
-    // 현재 스코프가 새 메뉴에서 지원되지 않으면 조정
-    // 주의: 여기서는 현재 scope 상태만 사용 (URL 파라미터는 별도 useEffect에서 처리)
-    const { adjustedScope, updatedMemory } = adjustScopeForMenu(scope, menuConfig, scopeMemory);
+    // URL 파라미터가 있으면 그것을 우선 사용 (navigate로 이동한 경우)
+    const urlScope = parseScopeFromURL();
+    const hasUrlParams = searchParams.has('class') || searchParams.has('student');
+    const baseScope = hasUrlParams ? urlScope : scope;
 
-    if (!isScopeEqual(adjustedScope, scope)) {
+    // 현재 스코프가 새 메뉴에서 지원되지 않으면 조정
+    const { adjustedScope, updatedMemory } = adjustScopeForMenu(baseScope, menuConfig, scopeMemory);
+
+    // URL 파라미터가 있으면 항상 스코프 업데이트 (navigate로 이동한 경우)
+    if (hasUrlParams || !isScopeEqual(adjustedScope, scope)) {
       setScopeState(adjustedScope);
       setScopeMemory(updatedMemory);
       lastScopeRef.current = adjustedScope;
-      updateURL(adjustedScope);
+      // URL 파라미터가 이미 있는 경우에는 URL 업데이트 불필요
+      if (!hasUrlParams) {
+        updateURL(adjustedScope);
+      }
     }
 
     // 학생 지원 메뉴에서 반이 선택되어 있으면 자동 펼침
@@ -777,7 +782,7 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
       // 학생 미지원 메뉴에서는 펼침 해제
       setExpandedClassId(null);
     }
-  }, [location.pathname]);
+  }, [location.pathname, scope, scopeMemory, updateURL, parseScopeFromURL, searchParams]);
 
   // ============================================
   // URL 변경 시 GNB 상태 동기화
