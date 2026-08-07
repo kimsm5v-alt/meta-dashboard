@@ -241,12 +241,6 @@ export const useConversations = ({
         const result = await getConversationsApi(0, 50);
         if (cancelled) return;
 
-        // await 이후 스토어를 재확인한다.
-        // - 로딩 중 칩을 지우면(clearPendingImage) pending/플래그가 함께 사라지므로 빈 temp 방을 만들지 않음
-        // - 플래그는 전송·첨부 제거 전까지 유지해, 미전송 캡처로 재진입해도 새 방에 다시 붙음
-        const { openInNewConversation, pendingImage } = useCaptureStore.getState();
-        const openNewForCapture = openInNewConversation && !!pendingImage;
-
         if (result.items.length === 0) {
           console.log('💬 저장된 대화 없음, 새 대화 생성');
           const newConv = createNewConversation();
@@ -254,16 +248,6 @@ export const useConversations = ({
           setActiveConversationId(newConv.id);
         } else {
           const converted = result.items.map(convertConversation);
-
-          // 대시보드 등에서 캡처 후 진입: 기존 첫 대화가 아니라 새 임시 방에 첨부
-          if (openNewForCapture) {
-            const newConv = createNewConversation();
-            setConversations([newConv, ...converted]);
-            setActiveConversationId(newConv.id);
-            console.log(`캡처 첨부용 새 대화 생성: ${newConv.id} (기존 ${converted.length}개)`);
-            return;
-          }
-
           setConversations(converted);
 
           const firstConvId = converted[0].id;

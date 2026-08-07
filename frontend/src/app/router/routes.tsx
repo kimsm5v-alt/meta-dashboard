@@ -4,7 +4,7 @@ import { MainLayoutV2 } from '@widgets/layout/v2/MainLayoutV2';
 import { V2Placeholder } from '@widgets/layout/v2/V2Placeholder';
 import { MinimalLayout } from '@widgets/layout/MinimalLayout';
 import { StudentLayout } from '@widgets/layout/StudentLayout';
-import { CaptureOverlay, FloatingCaptureButton } from '@widgets/screen-capture';
+import { CaptureOverlay } from '@widgets/screen-capture';
 import { PageLoading } from '@shared/ui/Loading';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { useProfileCheck } from '@shared/hooks/useProfileCheck';
@@ -88,7 +88,6 @@ const ProtectedLayout = () => {
   return (
     <TeacherLayout>
       <Outlet />
-      <FloatingCaptureButton />
       <CaptureOverlay />
     </TeacherLayout>
   );
