@@ -343,7 +343,7 @@ Response `resultData` 예시:
 
 ## 6. 참고 DDL
 
-- [ai_chat_ddl.sql](./ai_chat_ddl.sql)
+- [ai_chat_ddl.sql](../ai_chat_ddl.sql)
 
 ---
 
@@ -391,4 +391,4 @@ const response = await fetch('/api/ai/conversations', {
 **버그 리포트 연동:**
 
 메시지 저장 응답의 `id`를 활용하여 버그 리포트 시 정확한 메시지 추적이 가능합니다.
-자세한 내용은 [ai-bug-report-api-spec.md](./ai-bug-report-api-spec.md)를 참고하세요.
+자세한 내용은 [ai-bug-report-api-spec.md](../ai-bug-report-api-spec.md)를 참고하세요.

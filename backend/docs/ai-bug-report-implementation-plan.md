@@ -180,6 +180,6 @@ VLMSAPI_CLOUD_AWS_CREDENTIALS_SECRETKEY=<secret-key>
 
 - DDL: `backend/docs/ai_bug_report_ddl.sql`
 - 기존 AI Chat DDL: `backend/docs/ai_chat_ddl.sql`
-- 기존 AI Chat API 명세: `backend/docs/ai-chat-api-spec.md`
+- 기존 AI Chat API 명세: `backend/docs/fe-handoff/ai-chat-api-spec.md`
 - NCP Storage 설정: `common/config/NcpObjectStorageConfig.java`
 - NCP Storage 서비스: `common/service/NcpStorageService.java`
