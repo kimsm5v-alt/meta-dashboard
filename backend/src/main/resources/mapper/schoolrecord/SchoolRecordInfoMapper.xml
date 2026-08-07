@@ -72,4 +72,44 @@
             updated_at        = NOW()
     </insert>
 
+    <!-- 고도화 리스트: 학급 단위 경량 조회(강점/보완 TOP3·상태·최근수정). observation_input 미포함. -->
+    <select id="selectDraftListByClass" resultType="map">
+        /* SchoolRecordInfoMapper.selectDraftListByClass */
+        SELECT stdt_id      AS studentId
+             , status       AS status
+             , strengths    AS strengths
+             , improvements AS improvements
+             , DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i') AS savedAt
+        FROM school_record_info
+        WHERE cla_id = #{claId}
+          AND tc_id = #{tcId}
+          AND category = 'comprehensive'
+          AND use_yn = 'Y'
+        ORDER BY updated_at DESC
+    </select>
+
+    <!-- 고도화 상세: 학생 1명 작업본 전체. -->
+    <select id="selectDraftByStudent" resultType="map">
+        /* SchoolRecordInfoMapper.selectDraftByStudent */
+        SELECT id                AS id
+             , stdt_id           AS studentId
+             , cla_id            AS classId
+             , status            AS status
+             , source            AS source
+             , content           AS content
+             , previous_content  AS previousContent
+             , generated_text    AS generatedText
+             , strengths         AS strengths
+             , improvements      AS improvements
+             , observation_input AS observationInput
+             , DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') AS createdAt
+             , DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i') AS savedAt
+        FROM school_record_info
+        WHERE stdt_id = #{stdtId}
+          AND tc_id = #{tcId}
+          AND category = 'comprehensive'
+          AND use_yn = 'Y'
+        LIMIT 1
+    </select>
+
 </mapper>

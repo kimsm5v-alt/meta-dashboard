@@ -57,6 +57,37 @@ public class SchoolRecordController {
         return AidtCommonUtil.makeResultSuccess(paramData, resultData, "생기부 저장 완료");
     }
 
+    @GetMapping(value = "/api/school-records/class/{classId}")
+    @Operation(summary = "생기부 작업본 리스트 조회(학급)",
+            description = "학급 단위 경량 리스트 — 학생별 강점/보완 TOP3·작성상태·최근수정. observation_input 등 상세는 미포함. "
+                    + "본인(tcId)이 작성한 종합의견 작업본만 반환.")
+    @Parameter(name = "classId", description = "학급 ID (cla_id)", required = true)
+    public ResponseDTO<CustomBody> getSchoolRecordDraftList(
+            @PathVariable String classId
+    ) throws Exception {
+        Map<String, Object> paramData = new HashMap<>();
+        paramData.put("classId", classId);
+        authTcIdResolver.enforceAuthTcId(paramData);
+        String tcId = (String) paramData.get("tcId");
+        Object resultData = schoolRecordService.getDraftListByClass(classId, tcId);
+        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "생기부 작업본 리스트 조회");
+    }
+
+    @GetMapping(value = "/api/school-records/student/{studentId}/draft")
+    @Operation(summary = "생기부 작업본 상세 조회(학생 1명)",
+            description = "학생 1명 작업본 전체(관찰입력·문구·이전문구 포함). 작업본이 없으면 resultData=null.")
+    @Parameter(name = "studentId", description = "학생 ID (stdt_id)", required = true)
+    public ResponseDTO<CustomBody> getSchoolRecordDraft(
+            @PathVariable String studentId
+    ) throws Exception {
+        Map<String, Object> paramData = new HashMap<>();
+        paramData.put("studentId", studentId);
+        authTcIdResolver.enforceAuthTcId(paramData);
+        String tcId = (String) paramData.get("tcId");
+        Object resultData = schoolRecordService.getDraftByStudent(studentId, tcId);
+        return AidtCommonUtil.makeResultSuccess(paramData, resultData, "생기부 작업본 상세 조회");
+    }
+
     @PostMapping(value = "/api/school-records/draft")
     @Operation(summary = "생기부 작업본 저장(UPSERT)",
             description = "생기부 작성 고도화 — 학생 1명 단위 작업본 저장. 학생당 1건(재저장 시 in-place 수정, 직전 문구는 previous_content 보존). "
