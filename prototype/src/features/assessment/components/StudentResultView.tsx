@@ -752,18 +752,6 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
         >
           2차 검사 {!hasRound2 && '(예정)'}
         </button>
-        {hasRound2 && (
-          <button
-            onClick={() => setViewMode('compare')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              viewMode === 'compare'
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            차수 변화
-          </button>
-        )}
       </div>
 
       {/* ================================================================ */}
@@ -987,7 +975,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
       {/* ================================================================ */}
       {/* 섹션 4: 상담 & 관찰 */}
       {/* ================================================================ */}
-      <div className="flex gap-4">
+      <div className="flex gap-4" data-section="counseling">
         {/* 타임라인 좌측 */}
         <div className="flex flex-col items-center">
           <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">

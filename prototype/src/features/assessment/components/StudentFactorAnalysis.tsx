@@ -241,25 +241,28 @@ export const StudentFactorAnalysis: React.FC<StudentFactorAnalysisProps> = ({
             </g>
           ))}
 
-          <text
-            x={containerWidth - 10}
-            y={20}
-            textAnchor="end"
-            fontSize={11}
-            fill="#9CA3AF"
-          >
-            점선: T=50 (전국 평균)
-          </text>
-
-          {/* 차수 비교 범례 */}
-          {showCompare && prevTScores && (
-            <g>
-              <rect x={10} y={8} width={12} height={12} rx={2} fill="#F0F0F2" stroke="#DADADE" />
-              <text x={28} y={18} fontSize={11} fill="#52525B">1차</text>
-              <rect x={60} y={8} width={12} height={12} rx={2} fill="#D6D6DC" stroke="#B6B6BE" />
-              <text x={78} y={18} fontSize={11} fill="#52525B">2차</text>
-            </g>
-          )}
+          {/* 오른쪽 상단 범례 영역 */}
+          <g>
+            {/* 차수 비교 범례 (showCompare일 때만) */}
+            {showCompare && prevTScores && (
+              <>
+                <rect x={containerWidth - 200} y={6} width={12} height={12} rx={2} fill="#F0F0F2" stroke="#DADADE" />
+                <text x={containerWidth - 184} y={16} fontSize={11} fill="#52525B">1차</text>
+                <rect x={containerWidth - 150} y={6} width={12} height={12} rx={2} fill="#D6D6DC" stroke="#B6B6BE" />
+                <text x={containerWidth - 134} y={16} fontSize={11} fill="#52525B">2차</text>
+              </>
+            )}
+            {/* 점선 안내 (항상 표시) */}
+            <text
+              x={containerWidth - 10}
+              y={16}
+              textAnchor="end"
+              fontSize={11}
+              fill="#9CA3AF"
+            >
+              점선: T=50
+            </text>
+          </g>
 
           {/* 요인별 막대 */}
           {(() => {
