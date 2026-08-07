@@ -413,13 +413,13 @@ export const generateStudentResult = (
 
 /** 반별 학생 결과 목록 */
 export const MOCK_STUDENT_RESULTS: Record<string, StudentExamResult[]> = {
-  // group-1: 1차만 완료된 반 (일부 학생 미응시)
+  // group-1: 1차/2차 완료 (변화추적 가능)
   'group-1': MOCK_STUDENTS_CLASS_1.slice(0, 26).map((s, i) => {
-    // 14번, 17번 학생은 미응시
+    // 14번, 17번 학생은 2차 미응시
     if (s.number === 14 || s.number === 17) {
-      return generateStudentResult(`sr1-${i + 1}`, s.number, s.name, 0);
+      return generateStudentResult(`sr1-${i + 1}`, s.number, s.name, 1);
     }
-    return generateStudentResult(`sr1-${i + 1}`, s.number, s.name, 1);
+    return generateStudentResult(`sr1-${i + 1}`, s.number, s.name, 2);
   }),
   // group-2: 1차 완료, 2차 진행중 (일부 2차 미응시)
   'group-2': MOCK_STUDENTS_CLASS_1.slice(0, 28).map((s, i) => {
@@ -548,6 +548,8 @@ const generateStudentChangeData = (
 
 /** 반별 학생 변화 데이터 */
 export const MOCK_STUDENT_CHANGE_DATA: Record<string, StudentChangeData[]> = {
+  // group-1: 2-3반 (1차 완료, 2차 진행중)
+  'group-1': MOCK_STUDENT_RESULTS['group-1'].map(generateStudentChangeData),
   // group-2: 1차 완료, 2차 진행중 (일부 2차 미응시)
   'group-2': MOCK_STUDENT_RESULTS['group-2'].map(generateStudentChangeData),
   // group-3: 1차/2차 모두 완료
@@ -587,12 +589,36 @@ const calculateClassChangeSummary = (
 
 /** 반 변화 요약 */
 export const MOCK_CLASS_CHANGE_SUMMARY: Record<string, ClassChangeSummary> = {
+  'group-1': calculateClassChangeSummary('group-1', '2-3반', MOCK_STUDENT_CHANGE_DATA['group-1']),
   'group-2': calculateClassChangeSummary('group-2', '2-4반', MOCK_STUDENT_CHANGE_DATA['group-2']),
   'group-3': calculateClassChangeSummary('group-3', '2-5반', MOCK_STUDENT_CHANGE_DATA['group-3']),
 };
 
 /** 개입 이력 Mock 데이터 */
 export const MOCK_INTERVENTION_HISTORY: Record<string, InterventionHistory[]> = {
+  'group-1': [
+    {
+      id: 'int-g1-1',
+      date: '2026-06-08',
+      type: 'counseling',
+      title: '1차 검사 결과 상담',
+      description: '1차 검사 결과 기반 학급 전체 상담',
+    },
+    {
+      id: 'int-g1-2',
+      date: '2026-06-22',
+      type: 'lesson',
+      title: 'SEL 수업 - 자기이해',
+      description: '자기정서인식 및 자기이해 역량 수업',
+    },
+    {
+      id: 'int-g1-3',
+      date: '2026-07-05',
+      type: 'counseling',
+      title: '학습 동기 상담',
+      description: '학습 동기 저하 학생 대상 개별 상담',
+    },
+  ],
   'group-2': [
     // 상담
     {
@@ -678,6 +704,10 @@ export const MOCK_INTERVENTION_HISTORY: Record<string, InterventionHistory[]> = 
  * - sr3-1 (1번 이서연): 상담 2회, 수업 2회, 코칭 1회 = 총 5건
  */
 export const MOCK_STUDENT_INTERVENTIONS: Record<string, string[]> = {
+  // group-1 학생들 (2-3반)
+  'sr1-1': ['int-g1-1', 'int-g1-2', 'int-g1-3'], // 1번 김민준 - 상담 2회, 수업 1회
+  'sr1-2': ['int-g1-1', 'int-g1-2'],
+  'sr1-3': ['int-g1-1', 'int-g1-3'],
   // group-2 학생들 (2-4반) - 상담/수업만 포함 (코칭은 바로가기로 제공)
   'sr2-1': ['int-1', 'int-2', 'int-8', 'int-3', 'int-9'], // 1번 김민준 - 상담 3회, 수업 2회
   'sr2-2': ['int-1', 'int-3'],
