@@ -84,6 +84,20 @@ public class AiConversationController {
         return AidtCommonUtil.makeResultSuccess(enriched, resultData, "AI messages saved");
     }
 
+    @PostMapping("/api/ai/conversations/{conversationId}/title")
+    @Operation(summary = "Update AI conversation title", description = "Rename conversation title (owner only)")
+    public ResponseDTO<CustomBody> updateConversationTitle(
+            @PathVariable Long conversationId,
+            @RequestBody Map<String, Object> paramData
+    ) {
+        Long userNo = SecurityUtil.requireCurrentUserNo();
+        Map<String, Object> enriched = new HashMap<>(paramData);
+        enriched.put("conversationId", conversationId);
+
+        Object resultData = aiConversationService.updateTitle(conversationId, paramData, userNo);
+        return AidtCommonUtil.makeResultSuccess(enriched, resultData, "AI conversation title updated");
+    }
+
     @PostMapping("/api/ai/conversations/{conversationId}/delete")
     @Operation(summary = "Delete AI conversation", description = "Soft delete conversation by setting useYn to N")
     public ResponseDTO<CustomBody> deleteConversation(@PathVariable Long conversationId) {

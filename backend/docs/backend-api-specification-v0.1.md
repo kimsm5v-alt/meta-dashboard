@@ -1609,7 +1609,7 @@ yyyy-MM-dd HH:mm:ss   (예: 2026-03-17 14:30:00)
 ## 14. AI Chat API
 
 > AI 어시스턴트 대화 저장/조회 API입니다. 상세 스펙은 별도 문서를 참조하세요.
-> 상세 문서: [ai-chat-api-spec.md](./ai-chat-api-spec.md)
+> 상세 문서: [ai-chat-api-spec.md](./fe-handoff/ai-chat-api-spec.md)
 > DDL: [ai_chat_ddl.sql](./ai_chat_ddl.sql)
 
 ### 엔드포인트 요약

@@ -133,6 +133,77 @@ Authorization: Bearer <JWT>
 - `strengths`/`improvements`/`observationInput`은 **JSON 그대로 전송**(서버가 JSON 컬럼에 저장). 문자열로 감싸서 보내지 마세요.
 - 일괄 생성 화면도 **학생별로 이 API를 반복 호출**해 저장하면 됩니다.
 
-## 7. 후속(미구현) — 참고
-- **조회(리스트/상세) API는 별도 예정**입니다. 현재 `GET /api/school-records/student/{studentId}`는 **구(舊) 필드만**(id/content/category/createdAt) 반환하며, 신규 필드(strengths/improvements/status/observationInput 등)는 아직 내려주지 않습니다.
-- 리스트에서는 `strengths`/`improvements`/`status`만 경량 조회하고, 상세에서 `observation_input`을 조회하는 형태로 설계 예정(확정 시 문서 갱신).
+## 7. 조회 API — 리스트 (학급 단위, 경량)
+
+```
+GET /api/school-records/class/{classId}
+Authorization: Bearer <JWT>
+```
+- 본인(`tcId`, JWT 도출)이 작성한 **종합의견 작업본**만 반환합니다.
+- **작업본이 있는 학생만** 내려갑니다(미작성 학생은 행 없음 → FE가 학급 로스터와 병합해 '미작성' 표시).
+- 무거운 `observationInput`은 **미포함**(상세에서 조회).
+
+**응답 `resultData`**: 배열, 각 원소
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `studentId` | string | 학생 ID |
+| `status` | string | 작성 상태 코드(§3-1) |
+| `strengths` | string[] \| null | 강점 TOP3 키워드 |
+| `improvements` | string[] \| null | 보완 TOP3 키워드 |
+| `savedAt` | string | 최근 수정일시(`YYYY-MM-DD HH:mm`) |
+
+```json
+{
+  "success": true,
+  "resultData": [
+    { "studentId": "a1b2...", "status": "3",
+      "strengths": ["자기효능감","시간관리"], "improvements": ["게임 과몰입"],
+      "savedAt": "2026-08-07 14:20" }
+  ]
+}
+```
+
+## 8. 조회 API — 상세 (학생 1명)
+
+```
+GET /api/school-records/student/{studentId}/draft
+Authorization: Bearer <JWT>
+```
+- 작업본이 없으면 `resultData: null`.
+
+**응답 `resultData`**: 객체
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `id` | number | 레코드 id |
+| `studentId` / `classId` | string | 학생 / 학급 ID |
+| `status` | string | 작성 상태 코드(§3-1) |
+| `source` | string \| null | 생성 방식 코드(§3-2) |
+| `content` | string | 최종 문구 |
+| `previousContent` | string \| null | 직전 저장 문구(복원용) |
+| `generatedText` | string \| null | AI 생성 원본(편집 전) |
+| `strengths` / `improvements` | string[] \| null | 강점 / 보완 TOP3 |
+| `observationInput` | object \| null | 관찰 입력(§3-3 구조) |
+| `createdAt` / `savedAt` | string | 생성 / 최근 수정일시 |
+
+```json
+{
+  "success": true,
+  "resultData": {
+    "id": 101, "studentId": "a1b2...", "classId": "abcd1234",
+    "status": "4", "source": "3",
+    "content": "학습에 대한 열의가 높고 ...",
+    "previousContent": "이전 저장 문구 ...",
+    "generatedText": "AI 초안 원본 ...",
+    "strengths": ["자기효능감","시간관리"], "improvements": ["게임 과몰입"],
+    "observationInput": {
+      "observations": [{"factor":"자기효능감","type":"strength","behaviorCodes":["b1","b2"]}],
+      "freeText": "모둠 발표에서 ...", "counselingRefs": [123]
+    },
+    "createdAt": "2026-08-05 09:10", "savedAt": "2026-08-07 14:20"
+  }
+}
+```
+
+## 9. 주의 — 기존(구) 조회 API와 구분
+- `GET /api/school-records/student/{studentId}` (경로 끝에 `/draft` 없음)는 **구(舊) 목록 API**로, 신규 필드를 내려주지 않습니다. **고도화에서는 위 §7(리스트)·§8(상세, `/draft`)를 사용**하세요.
+- `strengths`/`improvements`/`observationInput`은 응답에서 **이미 JSON 객체/배열로 파싱**되어 내려갑니다(문자열 아님).

@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { ArrowLeft, Bell } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { SegmentedRoundTabs } from './SegmentedRoundTabs';
 import { StudentStatusTable } from './StudentStatusTable';
 import type { ExamStatus, StudentExamStatus } from '../types';
@@ -142,20 +142,12 @@ export const ExamManagementView: React.FC<ExamManagementViewProps> = ({
   return (
     <div className="space-y-6">
       {/* 헤더 */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={onBack}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-500" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{className}</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {MOCK_SCHOOL_INFO.schoolName} · {MOCK_SCHOOL_INFO.eduLevel}{' '}
-            {parseClassName(className)}
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">{className}</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          {MOCK_SCHOOL_INFO.schoolName} · {MOCK_SCHOOL_INFO.eduLevel}{' '}
+          {parseClassName(className)}
+        </p>
       </div>
 
       {/* Pill 스타일 세그먼트 탭 */}

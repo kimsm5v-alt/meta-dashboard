@@ -142,6 +142,47 @@ public class SchoolRecordService {
         return result;
     }
 
+    /** 고도화 리스트 조회(학급 단위, 경량). strengths/improvements 는 JSON 배열로 파싱해 반환. */
+    @Transactional(readOnly = true)
+    public Object getDraftListByClass(String claId, String tcId) {
+        List<Map<String, Object>> rows = schoolRecordMapper.selectDraftListByClass(claId, tcId);
+        for (Map<String, Object> row : rows) {
+            row.put("strengths", parseJsonOrNull(row.get("strengths")));
+            row.put("improvements", parseJsonOrNull(row.get("improvements")));
+        }
+        return rows;
+    }
+
+    /** 고도화 상세 조회(학생 1명). 없으면 null. JSON 컬럼(strengths/improvements/observationInput)은 객체로 파싱. */
+    @Transactional(readOnly = true)
+    public Object getDraftByStudent(String stdtId, String tcId) {
+        Map<String, Object> row = schoolRecordMapper.selectDraftByStudent(stdtId, tcId);
+        if (row == null || row.isEmpty()) {
+            return null;
+        }
+        row.put("strengths", parseJsonOrNull(row.get("strengths")));
+        row.put("improvements", parseJsonOrNull(row.get("improvements")));
+        row.put("observationInput", parseJsonOrNull(row.get("observationInput")));
+        return row;
+    }
+
+    /** JSON 문자열을 객체(List/Map)로 파싱. null/빈문자/파싱실패 시 null. */
+    private Object parseJsonOrNull(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String s = value.toString();
+        if (s.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(s, Object.class);
+        } catch (Exception e) {
+            log.warn("생기부 JSON 파싱 실패: {}", e.getMessage());
+            return null;
+        }
+    }
+
     /** 값이 null/빈문자면 기본값 반환. */
     private String strOrDefault(Object value, String defaultValue) {
         if (value == null) {
