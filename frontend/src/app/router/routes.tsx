@@ -13,6 +13,7 @@ import { FEATURES } from '@shared/config/features';
 // Page imports from pages layer
 import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
 import { SsePocPage } from '@pages/dev/SsePocPage';
+import { HomePage } from '@pages/home/HomePage';
 import {
   LandingPage,
   LoginPage,
@@ -215,15 +216,7 @@ export const AppRoutes = () => (
       {FEATURES.IA_V2 && (
         <>
           {/* v2 IA shell. 상세 화면은 각 후속 phase에서 교체한다. */}
-          <Route
-            path='/home'
-            element={
-              <V2Placeholder
-                title='META 대시보드'
-                description='검사·코칭·수업을 한 곳에서 확인하는 홈 화면입니다.'
-              />
-            }
-          />
+          <Route path='/home' element={<HomePage />} />
 
           <Route path='/exam/management' element={<AssessmentPage />} />
           <Route path='/exam/result' element={<TeacherDashboardPage />} />
