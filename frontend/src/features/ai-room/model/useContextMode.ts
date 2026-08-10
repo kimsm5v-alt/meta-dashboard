@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { Class, Student } from '@shared/types';
 import type { ContextMode } from '@features/ai-room/types';
+import { getStudentSelectionKey } from '@features/ai-room/utils/studentSelectionKey';
 
 // ============================================================================
 // Hook Interface
@@ -79,14 +80,17 @@ export const useContextMode = (): UseContextModeReturn => {
 
   const applyTargetSelection = (students: Student[], allClasses: Class[]) => {
     const allStudentsFlat = allClasses.flatMap((c) => c.students);
-    const selectedIds = new Set(students.map((s) => s.id));
+    const selectedKeys = new Set(students.map(getStudentSelectionKey));
 
     const isEverySelected =
-      allStudentsFlat.length > 0 && allStudentsFlat.every((s) => selectedIds.has(s.id));
+      allStudentsFlat.length > 0 &&
+      allStudentsFlat.every((student) => selectedKeys.has(getStudentSelectionKey(student)));
     if (isEverySelected) {
       setMode('all');
       setSelectedClass(null);
-      setSelectedStudents([]);
+      // mode='all'은 대상 미선택 기본값으로도 쓰인다. 사용자가 전체 학급을
+      // 명시적으로 선택한 경우에는 학생 목록을 보존해 두 상태를 구분한다.
+      setSelectedStudents(allStudentsFlat);
       return;
     }
 
@@ -94,7 +98,7 @@ export const useContextMode = (): UseContextModeReturn => {
       (cls) =>
         cls.students.length > 0 &&
         cls.students.length === students.length &&
-        cls.students.every((s) => selectedIds.has(s.id)),
+        cls.students.every((student) => selectedKeys.has(getStudentSelectionKey(student))),
     );
     if (wholeClassMatch) {
       setMode('class');
@@ -112,11 +116,13 @@ export const useContextMode = (): UseContextModeReturn => {
     if (mode === 'class' && selectedClass?.id === classId) {
       setMode('all');
       setSelectedClass(null);
+      setSelectedStudents([]);
       return;
     }
     const next = selectedStudents.filter((s) => s.classId !== classId);
+    setMode(next.length > 0 ? 'student' : 'all');
+    setSelectedClass(null);
     setSelectedStudents(next);
-    if (next.length === 0 && mode === 'student') setMode('all');
   };
 
   return {

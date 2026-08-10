@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import type { Class, Student } from '@shared/types';
 import { useCaptureStore } from '@shared/store/useCaptureStore';
 import type {
@@ -18,6 +19,7 @@ import {
   getConversations as getConversationsApi,
   getMessages as getMessagesApi,
   deleteConversation as deleteConversationApi,
+  updateConversationTitle as updateConversationTitleApi,
 } from '@features/ai-room/api/chatApiService';
 import type {
   Message,
@@ -25,6 +27,7 @@ import type {
 } from '@features/ai-room/api/chatApiService';
 import { groupConversationsByDate } from '@features/ai-room/utils/groupConversations';
 import type { ConversationGroup } from '@features/ai-room/utils/groupConversations';
+import { getStudentSelectionKey } from '@features/ai-room/utils/studentSelectionKey';
 
 // ============================================================================
 // Constants
@@ -109,6 +112,8 @@ interface UseConversationsParams {
   getContextLabel: () => string;
   /** 로그인 교사 식별자(tcId). context_data.profile.tcId의 권위 있는 소스. */
   authTcId?: string | null;
+  /** 화면 위 플로팅 어시스턴트에서만 캡처 첨부를 허용한다. */
+  captureEnabled?: boolean;
 }
 
 interface UseConversationsReturn {
@@ -123,14 +128,10 @@ interface UseConversationsReturn {
   isLoading: boolean;
   aliasMap: StudentAliasMap;
   handleNewConversation: () => void;
-  handleDeleteConversation: (convId: string) => void;
+  handleDeleteConversation: (convId: string) => Promise<void>;
   handleSelectConversation: (convId: string) => void;
-  /**
-   * 대화 제목 변경 — 로컬 상태만 갱신한다.
-   * 백엔드 AiConversationController에 title 수정 PATCH 엔드포인트가 없어
-   * 새로고침·재접속 시 서버가 내려주는 자동 생성 제목으로 되돌아간다.
-   */
-  handleRenameConversation: (convId: string, newTitle: string) => void;
+  /** 대화 제목 변경 — 서버 대화는 API 반영, 임시 대화는 로컬에서만 변경 */
+  handleRenameConversation: (convId: string, newTitle: string) => Promise<void>;
   handleSend: (overrideText?: string) => Promise<void>;
   handleQuickPrompt: (prompt: string) => void;
   getConversationMode: (convId: string) => ContextMode | undefined;
@@ -155,6 +156,7 @@ export const useConversations = ({
   selectedStudents,
   getContextLabel,
   authTcId,
+  captureEnabled = true,
 }: UseConversationsParams): UseConversationsReturn => {
   const { user } = useAuth();
 
@@ -291,19 +293,23 @@ export const useConversations = ({
     setActiveConversationId(newConv.id);
   };
 
-  const handleDeleteConversation = (convId: string) => {
-    // 에이전트 서버 세션 + 로컬 컨텍스트 캐시 정리
+  const handleDeleteConversation = async (convId: string) => {
+    // 서버 삭제가 실패하면 화면의 대화를 유지해 새로고침 후 되살아나는 불일치를 막는다.
+    if (!convId.startsWith('temp-')) {
+      try {
+        await deleteConversationApi(parseInt(convId, 10));
+      } catch (err) {
+        console.error('대화 삭제 실패:', err);
+        toast.error('대화를 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.');
+        return;
+      }
+    }
+
+    // 삭제가 확정된 뒤 에이전트 세션과 로컬 컨텍스트를 정리한다.
     agentResetSession(convId).catch((err: unknown) => {
       console.warn('[AI] 세션 초기화 실패:', err);
     });
     contextCacheRef.current.delete(convId);
-
-    // 백엔드 대화방 soft delete (임시 대화는 제외)
-    if (!convId.startsWith('temp-')) {
-      deleteConversationApi(parseInt(convId, 10)).catch((err) => {
-        console.error('대화 삭제 실패:', err);
-      });
-    }
 
     if (conversations.length === 1) {
       const newConv = createNewConversation();
@@ -352,12 +358,31 @@ export const useConversations = ({
     }
   };
 
-  const handleRenameConversation = (convId: string, newTitle: string) => {
-    const trimmed = newTitle.trim();
+  const handleRenameConversation = async (convId: string, newTitle: string) => {
+    const trimmed = newTitle.trim().slice(0, 200);
     if (!trimmed) return;
+
+    const previousTitle = conversations.find((conv) => conv.id === convId)?.title;
     setConversations((prev) =>
       prev.map((conv) => (conv.id === convId ? { ...conv, title: trimmed } : conv)),
     );
+
+    if (convId.startsWith('temp-')) return;
+
+    try {
+      const updated = await updateConversationTitleApi(parseInt(convId, 10), trimmed);
+      setConversations((prev) =>
+        prev.map((conv) => (conv.id === convId ? { ...conv, title: updated.title } : conv)),
+      );
+    } catch (err) {
+      console.error('대화 제목 변경 실패:', err);
+      if (previousTitle !== undefined) {
+        setConversations((prev) =>
+          prev.map((conv) => (conv.id === convId ? { ...conv, title: previousTitle } : conv)),
+        );
+      }
+      toast.error('대화 제목을 변경하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    }
   };
 
   const getConversationMode = (convId: string): ContextMode | undefined => {
@@ -370,9 +395,10 @@ export const useConversations = ({
 
   const handleSend = async (overrideText?: string) => {
     const effectiveInput = overrideText ?? input;
-    if ((!effectiveInput.trim() && !pendingImage) || isLoading) return;
+    const attachedImage = captureEnabled ? pendingImage : null;
+    if ((!effectiveInput.trim() && !attachedImage) || isLoading) return;
 
-    const currentImages = pendingImage ? [pendingImage] : undefined;
+    const currentImages = attachedImage ? [attachedImage] : undefined;
     const tempUserMsgId = `user-${Date.now()}`;
     const userMessage: ChatMessage = {
       id: tempUserMsgId,
@@ -383,8 +409,10 @@ export const useConversations = ({
     };
     setMessages((prev) => [...prev, userMessage]);
     const currentInput = effectiveInput;
-    setInput('');
-    clearPendingImage();
+    if (overrideText === undefined) {
+      setInput('');
+    }
+    if (captureEnabled) clearPendingImage();
     setIsLoading(true);
     setStreamingContent('');
 
@@ -395,10 +423,7 @@ export const useConversations = ({
     const selectionSignature = [
       mode,
       selectedClass?.id ?? '',
-      selectedStudents
-        .map((s) => s.id)
-        .sort()
-        .join(','),
+      selectedStudents.map(getStudentSelectionKey).sort().join(','),
     ].join('|');
 
     // 캐시 저장 헬퍼 — 컨텍스트와 함께 당시 선택 상태를 기록

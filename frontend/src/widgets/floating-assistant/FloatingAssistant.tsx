@@ -12,6 +12,7 @@ import {
   Minus,
   Monitor,
   Plus,
+  ArrowRight,
 } from 'lucide-react';
 import aiOwlIcon from '@/assets/raon/ai-owl-icon.png';
 import { useAuth } from '@features/auth';
@@ -188,17 +189,10 @@ const FullscreenBackdrop = styled.div`
 
 const Panel = styled.div<{
   $fullscreen: boolean;
-  $x: number;
-  $y: number;
-  $w: number;
-  $h: number;
 }>`
   pointer-events: auto;
   position: ${({ $fullscreen }) => ($fullscreen ? 'relative' : 'fixed')};
-  ${({ $fullscreen, $x, $y, $w, $h }) =>
-    $fullscreen
-      ? `width: min(920px, 92vw); height: 94vh;`
-      : `left: ${$x}px; top: ${$y}px; width: ${$w}px; height: ${$h}px;`}
+  ${({ $fullscreen }) => ($fullscreen ? 'width: min(920px, 92vw); height: 94vh;' : '')}
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -465,19 +459,20 @@ const ComposerRow = styled.div`
 
 const ComposerCaptureButton = styled.button`
   flex-shrink: 0;
-  padding: 0;
-  width: 1.5rem;
-  height: 1.5rem;
-  background: transparent;
-  color: ${({ theme }) => theme.colors.gray[400]};
-  border: none;
-  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: ${({ theme }) => theme.colors.primary[50]};
+  color: ${({ theme }) => theme.colors.primary[600]};
+  border: 1px solid ${({ theme }) => theme.colors.primary[200]};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  font-size: 11.5px;
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  cursor: pointer;
 
   &:hover {
-    color: ${({ theme }) => theme.colors.primary[600]};
+    background: ${({ theme }) => theme.colors.primary[100]};
   }
 `;
 
@@ -546,6 +541,75 @@ const EmptyStateSubtitle = styled.p`
   margin-bottom: 20px;
 `;
 
+const EmptyCaptureButton = styled.button`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(
+    90deg,
+    ${({ theme }) => theme.colors.primary[50]},
+    rgba(250, 245, 255, 0.4)
+  );
+  border: 1px solid ${({ theme }) => theme.colors.primary[200]};
+  border-radius: ${({ theme }) => theme.radius.xl};
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.primary[100]};
+  }
+`;
+
+const EmptyCaptureIcon = styled.span`
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: ${({ theme }) => theme.colors.primary[500]};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  box-shadow: ${({ theme }) => theme.shadows.sm};
+`;
+
+const EmptyCaptureCopy = styled.span`
+  flex: 1;
+  min-width: 0;
+`;
+
+const EmptyCaptureTitle = styled.span`
+  display: block;
+  font-size: 13px;
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  color: ${({ theme }) => theme.colors.primary[700]};
+`;
+
+const EmptyCaptureDescription = styled.span`
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.gray[500]};
+  word-break: keep-all;
+`;
+
+const QuestionDivider = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 10.5px;
+  color: ${({ theme }) => theme.colors.gray[400]};
+`;
+
+const QuestionDividerLine = styled.span`
+  flex: 1;
+  height: 1px;
+  background: ${({ theme }) => theme.colors.gray[100]};
+`;
+
 const QuestionList = styled.div`
   display: flex;
   flex-direction: column;
@@ -604,7 +668,11 @@ export const FloatingAssistant = () => {
     removeClassSelection,
   } = contextMode;
   const currentTargetStudents =
-    mode === 'class' && selectedClass ? selectedClass.students : selectedStudents;
+    mode === 'all'
+      ? selectedStudents
+      : mode === 'class' && selectedClass
+        ? selectedClass.students
+        : selectedStudents;
 
   const {
     activeConversationId,
@@ -631,6 +699,7 @@ export const FloatingAssistant = () => {
   useEffect(() => () => setStreaming(false), [setStreaming]);
 
   const bottomRightFabCount = useCaptureStore((s) => s.bottomRightFabCount);
+  const overlayOpen = useCaptureStore((s) => s.overlayOpen);
   const openOverlay = useCaptureStore((s) => s.openOverlay);
   const pendingImage = useCaptureStore((s) => s.pendingImage);
   const pendingMeta = useCaptureStore((s) => s.pendingMeta);
@@ -639,24 +708,47 @@ export const FloatingAssistant = () => {
   const [view, setView] = useState<ViewMode>('bubble');
   const [geo, setGeo] = useState<Geo>(initialGeo);
   const [modeOpen, setModeOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragSession>(null);
+  const pendingGeoRef = useRef<Geo | null>(null);
+  const dragFrameRef = useRef<number | null>(null);
+  const captureRestoreViewRef = useRef<ViewMode | null>(null);
 
   const hasConversation = messages.length > 1;
   const hasStudentTarget = mode === 'student' && selectedStudents.length > 0;
   const screenLabel = screenLabelFor(location.pathname);
   const questions = resolveScreenQuestions(location.pathname, hasStudentTarget);
 
-  // 캡처 완료 시 버블/입력바였다면 자동으로 코너 패널을 연다
+  // 캡처가 완료·취소되면 캡처 직전 보기 모드로 복원한다.
   useEffect(() => {
-    if (pendingImage) {
-      // pendingImage는 useCaptureStore(외부 시스템)의 상태 — 그 변화에 반응해 로컬 뷰 모드를 동기화한다.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setView((v) => (v === 'bubble' || v === 'inputbar' ? 'corner' : v));
-    }
-  }, [pendingImage]);
+    if (overlayOpen || captureRestoreViewRef.current === null) return;
+    const restoreView = captureRestoreViewRef.current;
+    captureRestoreViewRef.current = null;
+    // overlayOpen은 캡처 오버레이(외부 시스템)의 상태다.
+
+    setView(restoreView);
+  }, [overlayOpen]);
 
   // ── 드래그 / 리사이즈 (코너 모드) ────────────────────────────
   useEffect(() => {
+    const applyGeometry = (next: Geo) => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      panel.style.left = `${next.x}px`;
+      panel.style.top = `${next.y}px`;
+      panel.style.width = `${next.width}px`;
+      panel.style.height = `${next.height}px`;
+    };
+
+    const scheduleGeometry = (next: Geo) => {
+      pendingGeoRef.current = next;
+      if (dragFrameRef.current !== null) return;
+      dragFrameRef.current = window.requestAnimationFrame(() => {
+        if (pendingGeoRef.current) applyGeometry(pendingGeoRef.current);
+        dragFrameRef.current = null;
+      });
+    };
+
     const onMove = (e: MouseEvent) => {
       const s = dragRef.current;
       if (!s) return;
@@ -665,26 +757,36 @@ export const FloatingAssistant = () => {
       if (s.type === 'move') {
         const x = Math.min(Math.max(0, s.geo.x + dx), window.innerWidth - s.geo.width);
         const y = Math.min(Math.max(GNB_H, s.geo.y + dy), window.innerHeight - 80);
-        setGeo((g) => ({ ...g, x, y }));
+        scheduleGeometry({ ...s.geo, x, y });
       } else if (s.type === 'resize-top') {
         const bottom = s.geo.y + s.geo.height;
         const height = Math.max(CORNER_MIN_H, bottom - (s.geo.y + dy));
         const y = bottom - height;
-        setGeo((g) => ({ ...g, y, height }));
+        scheduleGeometry({ ...s.geo, y, height });
       } else if (s.type === 'resize-left') {
         const right = s.geo.x + s.geo.width;
         const width = Math.max(CORNER_MIN_W, right - (s.geo.x + dx));
         const x = right - width;
-        setGeo((g) => ({ ...g, x, width }));
+        scheduleGeometry({ ...s.geo, x, width });
       }
     };
     const onUp = () => {
+      if (dragFrameRef.current !== null) {
+        window.cancelAnimationFrame(dragFrameRef.current);
+        dragFrameRef.current = null;
+      }
+      if (pendingGeoRef.current) {
+        applyGeometry(pendingGeoRef.current);
+        setGeo(pendingGeoRef.current);
+        pendingGeoRef.current = null;
+      }
       dragRef.current = null;
       document.body.style.userSelect = '';
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
+      if (dragFrameRef.current !== null) window.cancelAnimationFrame(dragFrameRef.current);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
@@ -696,8 +798,16 @@ export const FloatingAssistant = () => {
       if (type === 'move' && (e.target as HTMLElement).closest('button')) return;
       e.preventDefault();
       dragRef.current = { type, mx: e.clientX, my: e.clientY, geo };
+      pendingGeoRef.current = geo;
       document.body.style.userSelect = 'none';
     };
+
+  const handleOpenCapture = () => {
+    captureRestoreViewRef.current = view === 'inputbar' ? 'corner' : view;
+    setView('bubble');
+    setModeOpen(false);
+    openOverlay();
+  };
 
   // ── ESC로 모드 팝오버 닫기 ───────────────────────────────────
   useEffect(() => {
@@ -745,7 +855,7 @@ export const FloatingAssistant = () => {
           <Plus size={14} />
           대상
         </TargetButton>
-        {mode === 'all' ? (
+        {mode === 'all' && selectedStudents.length === 0 ? (
           <TargetHint>대상을 고르면 해당 학급·학생 기준으로 답합니다 (선택)</TargetHint>
         ) : (
           groupStudentsByClass(currentTargetStudents, classes).map((group) => {
@@ -753,7 +863,10 @@ export const FloatingAssistant = () => {
             return (
               <TargetChip key={group.classId}>
                 {group.className} {isWholeClass ? '전체' : `${group.students.length}명`}
-                <TargetChipRemoveButton onClick={() => removeClassSelection(group.classId)}>
+                <TargetChipRemoveButton
+                  onClick={() => removeClassSelection(group.classId)}
+                  aria-label={`${group.className} 대상 제거`}
+                >
                   <X size={12} />
                 </TargetChipRemoveButton>
               </TargetChip>
@@ -762,14 +875,17 @@ export const FloatingAssistant = () => {
         )}
       </TargetRow>
       <ComposerRow>
-        <ComposerCaptureButton
-          type='button'
-          onClick={openOverlay}
-          disabled={isLoading}
-          aria-label='화면 캡처해서 질문'
-        >
-          <Scissors size={15} />
-        </ComposerCaptureButton>
+        {!pendingImage && (
+          <ComposerCaptureButton
+            type='button'
+            onClick={handleOpenCapture}
+            disabled={isLoading}
+            aria-label='화면 캡처해서 질문'
+          >
+            <Scissors size={14} />
+            캡처
+          </ComposerCaptureButton>
+        )}
         <ComposerInput
           type='text'
           value={input}
@@ -815,7 +931,13 @@ export const FloatingAssistant = () => {
   );
 
   const panel = (
-    <Panel $fullscreen={isFullscreen} $x={geo.x} $y={geo.y} $w={geo.width} $h={geo.height}>
+    <Panel
+      ref={panelRef}
+      $fullscreen={isFullscreen}
+      style={
+        isFullscreen ? undefined : { left: geo.x, top: geo.y, width: geo.width, height: geo.height }
+      }
+    >
       {!isFullscreen && (
         <>
           <ResizeHandleTop onMouseDown={startDrag('resize-top')} />
@@ -863,6 +985,23 @@ export const FloatingAssistant = () => {
             <EmptyStateIcon src={aiOwlIcon} alt='AI 어시스턴트' />
             <EmptyStateTitle>무엇이 궁금하세요?</EmptyStateTitle>
             <EmptyStateSubtitle>{screenLabel} 화면에 대해 물어보세요</EmptyStateSubtitle>
+            <EmptyCaptureButton type='button' onClick={handleOpenCapture}>
+              <EmptyCaptureIcon>
+                <Scissors size={18} />
+              </EmptyCaptureIcon>
+              <EmptyCaptureCopy>
+                <EmptyCaptureTitle>화면 캡처해서 질문하기</EmptyCaptureTitle>
+                <EmptyCaptureDescription>
+                  궁금한 영역을 드래그하면 그 부분을 짚어 답해드려요
+                </EmptyCaptureDescription>
+              </EmptyCaptureCopy>
+              <ArrowRight size={16} />
+            </EmptyCaptureButton>
+            <QuestionDivider>
+              <QuestionDividerLine />
+              또는 추천 질문
+              <QuestionDividerLine />
+            </QuestionDivider>
             <QuestionList>
               {questions.map((q) => (
                 <QuestionCard key={q.text} onClick={() => handleQuestionPick(q.text)}>
@@ -895,7 +1034,7 @@ export const FloatingAssistant = () => {
         {view === 'inputbar' && (
           <InputBarWrapper>
             <InputBarIcon src={aiOwlIcon} alt='AI 어시스턴트' />
-            <InputBarIconButton onClick={openOverlay} title='화면 캡처해서 질문'>
+            <InputBarIconButton onClick={handleOpenCapture} title='화면 캡처해서 질문'>
               <Scissors size={15} />
             </InputBarIconButton>
             <InputBarField
@@ -922,13 +1061,15 @@ export const FloatingAssistant = () => {
 
       {isFullscreen && <FullscreenBackdrop data-capture-ignore='true'>{panel}</FullscreenBackdrop>}
 
-      <StudentPickerModal
-        isOpen={isStudentModalOpen}
-        onClose={() => setIsStudentModalOpen(false)}
-        classes={classes}
-        selectedStudents={currentTargetStudents}
-        onConfirm={(students) => applyTargetSelection(students, classes)}
-      />
+      {isStudentModalOpen && (
+        <StudentPickerModal
+          isOpen
+          onClose={() => setIsStudentModalOpen(false)}
+          classes={classes}
+          selectedStudents={currentTargetStudents}
+          onChange={(students) => applyTargetSelection(students, classes)}
+        />
+      )}
     </>
   );
 };

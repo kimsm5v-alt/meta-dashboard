@@ -40,13 +40,13 @@ const NewConversationButton = styled.button`
 
 const Divider = styled.div`
   border-top: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  margin: 0 0.75rem 0.5rem;
+  margin: 0.75rem;
 `;
 
 const HistoryList = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: 0 0.5rem 0.5rem;
+  padding: 0 0.75rem 0.75rem;
 `;
 
 const GroupSection = styled.div`
@@ -217,7 +217,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     <Container>
       <NewConversationWrapper>
         <NewConversationButton onClick={onNew}>
-          <Plus className='w-4 h-4' />새 대화
+          <Plus size={16} />새 대화
         </NewConversationButton>
       </NewConversationWrapper>
 
@@ -254,7 +254,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
               return (
                 <ConversationItem key={conv.id} $isActive={isActive}>
                   <ConversationButton onClick={() => onSelect(conv.id)} $isActive={isActive}>
-                    <MessageCircle className='w-3.5 h-3.5 flex-shrink-0 opacity-70' />
+                    <MessageCircle size={14} opacity={0.7} />
                     <ConversationTitle>{conv.title}</ConversationTitle>
                   </ConversationButton>
                   <MenuButton
@@ -262,12 +262,12 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                     onClick={() => setMenuId((prev) => (prev === conv.id ? null : conv.id))}
                     title='더보기'
                   >
-                    <MoreVertical className='w-4 h-4' />
+                    <MoreVertical size={16} />
                   </MenuButton>
                   {menuId === conv.id && (
                     <Dropdown>
                       <DropdownItem onClick={() => startEdit(conv.id, conv.title)}>
-                        <Pencil className='w-3.5 h-3.5' />
+                        <Pencil size={14} />
                         제목 편집
                       </DropdownItem>
                       <DropdownItem
@@ -277,7 +277,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                           onDelete(conv.id);
                         }}
                       >
-                        <Trash2 className='w-3.5 h-3.5' />
+                        <Trash2 size={14} />
                         삭제
                       </DropdownItem>
                     </Dropdown>

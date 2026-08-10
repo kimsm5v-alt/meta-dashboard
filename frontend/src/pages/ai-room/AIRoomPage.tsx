@@ -1,14 +1,21 @@
 import styled from '@emotion/styled';
+import { useEffect } from 'react';
 import { StudentPickerModal } from '@features/ai-room/ui';
 import { useConversations } from '@features/ai-room/model/useConversations';
 import { useContextMode } from '@features/ai-room/model/useContextMode';
 import { AIRoomChatArea } from '@widgets/ai-room';
 import { useTeacherClasses } from '@features/api';
+import { useStreamGuardStore } from '@shared/store/useStreamGuardStore';
 
 const PageContainer = styled.div`
-  height: calc(100vh - 7rem);
+  position: fixed;
+  top: 58px;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
+  background: ${({ theme }) => theme.colors.background.paper};
 `;
 
 export const AIRoomPage = () => {
@@ -23,6 +30,7 @@ export const AIRoomPage = () => {
     isStudentModalOpen,
     setIsStudentModalOpen,
     getContextLabel,
+    isPromptDisabled,
     resetSelections,
     applyTargetSelection,
     removeClassSelection,
@@ -31,7 +39,11 @@ export const AIRoomPage = () => {
   // 대상 선택 모달을 다시 열었을 때 현재 적용된 선택 상태를 그대로 보여주기 위한 목록
   // (mode==='class'일 땐 selectedStudents가 비어있고 selectedClass만 있으므로 반 학생 전원으로 환원)
   const currentTargetStudents =
-    mode === 'class' && selectedClass ? selectedClass.students : selectedStudents;
+    mode === 'all'
+      ? selectedStudents
+      : mode === 'class' && selectedClass
+        ? selectedClass.students
+        : selectedStudents;
 
   // Conversations hook
   const {
@@ -59,7 +71,14 @@ export const AIRoomPage = () => {
     getContextLabel,
     // 로그인 교사 id를 tcId 권위 소스로 전달 (Class.teacherId가 빈 문자열로 내려오는 경로 대비)
     authTcId: user?.id ?? null,
+    captureEnabled: false,
   });
+
+  const setStreaming = useStreamGuardStore((state) => state.setStreaming);
+  useEffect(() => {
+    setStreaming(isLoading);
+  }, [isLoading, setStreaming]);
+  useEffect(() => () => setStreaming(false), [setStreaming]);
 
   // Wrapped handlers
   const handleNewConversation = () => {
@@ -100,6 +119,7 @@ export const AIRoomPage = () => {
         input={input}
         setInput={setInput}
         isLoading={isLoading}
+        isPromptDisabled={isPromptDisabled}
         streamingContent={streamingContent}
         mode={mode}
         onSelectConversation={handleSelectConversation}
@@ -117,13 +137,15 @@ export const AIRoomPage = () => {
         onRemoveClass={removeClassSelection}
       />
 
-      <StudentPickerModal
-        isOpen={isStudentModalOpen}
-        onClose={() => setIsStudentModalOpen(false)}
-        classes={classes}
-        selectedStudents={currentTargetStudents}
-        onConfirm={(students) => applyTargetSelection(students, classes)}
-      />
+      {isStudentModalOpen && (
+        <StudentPickerModal
+          isOpen
+          onClose={() => setIsStudentModalOpen(false)}
+          classes={classes}
+          selectedStudents={currentTargetStudents}
+          onChange={(students) => applyTargetSelection(students, classes)}
+        />
+      )}
     </PageContainer>
   );
 };

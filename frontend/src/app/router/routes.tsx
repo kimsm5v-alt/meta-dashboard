@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { MainLayout } from '@widgets/layout/MainLayout';
 import { MainLayoutV2 } from '@widgets/layout/v2/MainLayoutV2';
 import { V2Placeholder } from '@widgets/layout/v2/V2Placeholder';
@@ -68,6 +68,7 @@ const PublicLayout = () => (
  * 보호 라우트 래퍼 - 교사용 (인증 필요 + 교사 사이드바)
  */
 const ProtectedLayout = () => {
+  const location = useLocation();
   const { isAuthenticated, isLoading, user } = useAuth();
   const { isChecking } = useProfileCheck(isAuthenticated);
 
@@ -89,7 +90,7 @@ const ProtectedLayout = () => {
   return (
     <TeacherLayout>
       <Outlet />
-      <CaptureOverlay />
+      {!location.pathname.startsWith('/ai-assistant') && <CaptureOverlay />}
     </TeacherLayout>
   );
 };

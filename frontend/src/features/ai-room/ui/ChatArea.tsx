@@ -10,7 +10,14 @@ import { ErrorReportModal, type ErrorCaptureContext } from './ErrorReportModal';
 const ChatContainer = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: ${({ theme }) => theme.spacing.md};
+`;
+
+const MessageColumn = styled.div`
+  width: 100%;
+  max-width: 760px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -37,8 +44,8 @@ const UserBubble = styled.div`
 /* 봇 답변 — 전체폭 블록(카드 아님), 프로토타입 MessageList variant='page'와 동일 */
 const BotBlock = styled.div`
   position: relative;
-  margin: 0 -${({ theme }) => theme.spacing.md};
-  padding: ${({ theme }) => theme.spacing.md};
+  margin: 0 -1.5rem;
+  padding: 1rem 1.5rem;
   background: #fafafd;
   border-top: 1px solid ${({ theme }) => theme.colors.gray[100]};
   border-bottom: 1px solid ${({ theme }) => theme.colors.gray[100]};
@@ -630,80 +637,82 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <>
       <ChatContainer ref={scrollRef}>
-        {messages.map((msg) => {
-          const displayContent =
-            msg.role === 'assistant' ? replaceAliases(msg.content, aliasMap) : msg.content;
+        <MessageColumn>
+          {messages.map((msg) => {
+            const displayContent =
+              msg.role === 'assistant' ? replaceAliases(msg.content, aliasMap) : msg.content;
 
-          if (msg.role === 'user') {
+            if (msg.role === 'user') {
+              return (
+                <UserRow key={msg.id}>
+                  <UserBubble>
+                    {msg.images && msg.images.length > 0 && (
+                      <MessageImages>
+                        {msg.images.map((src, idx) => (
+                          <MessageImage
+                            key={`${msg.id}-img-${idx}`}
+                            src={src}
+                            alt='첨부한 화면 캡처'
+                          />
+                        ))}
+                      </MessageImages>
+                    )}
+                    {displayContent}
+                  </UserBubble>
+                </UserRow>
+              );
+            }
+
             return (
-              <UserRow key={msg.id}>
-                <UserBubble>
-                  {msg.images && msg.images.length > 0 && (
-                    <MessageImages>
-                      {msg.images.map((src, idx) => (
-                        <MessageImage
-                          key={`${msg.id}-img-${idx}`}
-                          src={src}
-                          alt='첨부한 화면 캡처'
-                        />
-                      ))}
-                    </MessageImages>
-                  )}
-                  {displayContent}
-                </UserBubble>
-              </UserRow>
+              <BotBlock
+                key={msg.id}
+                onMouseEnter={() => setHoveredMsgId(msg.id)}
+                onMouseLeave={() => setHoveredMsgId(null)}
+              >
+                <BotHeader>
+                  <BotHeaderIcon src={aiOwlIcon} alt='AI 어시스턴트' />
+                  <BotHeaderName>AI 어시스턴트</BotHeaderName>
+                </BotHeader>
+                <MarkdownWrapper>{renderMarkdown(displayContent)}</MarkdownWrapper>
+                {hoveredMsgId === msg.id && conversationId && (
+                  <FlagButton onClick={() => handleFlagClick(msg)} title='오류 보고'>
+                    <MessageCircleWarning className='w-4 h-4' />
+                  </FlagButton>
+                )}
+              </BotBlock>
             );
-          }
+          })}
 
-          return (
-            <BotBlock
-              key={msg.id}
-              onMouseEnter={() => setHoveredMsgId(msg.id)}
-              onMouseLeave={() => setHoveredMsgId(null)}
-            >
+          {/* 스트리밍 중: 텍스트 실시간 표시 */}
+          {isLoading && streamingContent && (
+            <BotBlock>
               <BotHeader>
                 <BotHeaderIcon src={aiOwlIcon} alt='AI 어시스턴트' />
                 <BotHeaderName>AI 어시스턴트</BotHeaderName>
               </BotHeader>
-              <MarkdownWrapper>{renderMarkdown(displayContent)}</MarkdownWrapper>
-              {hoveredMsgId === msg.id && conversationId && (
-                <FlagButton onClick={() => handleFlagClick(msg)} title='오류 보고'>
-                  <MessageCircleWarning className='w-4 h-4' />
-                </FlagButton>
-              )}
+              <MarkdownWrapper>
+                {renderMarkdown(replaceAliases(streamingContent, aliasMap))}
+              </MarkdownWrapper>
             </BotBlock>
-          );
-        })}
+          )}
 
-        {/* 스트리밍 중: 텍스트 실시간 표시 */}
-        {isLoading && streamingContent && (
-          <BotBlock>
-            <BotHeader>
-              <BotHeaderIcon src={aiOwlIcon} alt='AI 어시스턴트' />
-              <BotHeaderName>AI 어시스턴트</BotHeaderName>
-            </BotHeader>
-            <MarkdownWrapper>
-              {renderMarkdown(replaceAliases(streamingContent, aliasMap))}
-            </MarkdownWrapper>
-          </BotBlock>
-        )}
-
-        {/* 스트리밍 대기 중 (아직 첫 청크 미수신): 점 로딩 표시 */}
-        {isLoading && !streamingContent && (
-          <BotBlock>
-            <BotHeader>
-              <BotHeaderIcon src={aiOwlIcon} alt='AI 어시스턴트' />
-              <BotHeaderName>AI 어시스턴트</BotHeaderName>
-            </BotHeader>
-            <LoadingDotsWrapper>
-              <LoadingDots>
-                <LoadingDot $delay='0s' $color='#c4b5fd' />
-                <LoadingDot $delay='0.1s' $color='#a78bfa' />
-                <LoadingDot $delay='0.2s' $color='#8b5cf6' />
-              </LoadingDots>
-            </LoadingDotsWrapper>
-          </BotBlock>
-        )}
+          {/* 스트리밍 대기 중 (아직 첫 청크 미수신): 점 로딩 표시 */}
+          {isLoading && !streamingContent && (
+            <BotBlock>
+              <BotHeader>
+                <BotHeaderIcon src={aiOwlIcon} alt='AI 어시스턴트' />
+                <BotHeaderName>AI 어시스턴트</BotHeaderName>
+              </BotHeader>
+              <LoadingDotsWrapper>
+                <LoadingDots>
+                  <LoadingDot $delay='0s' $color='#c4b5fd' />
+                  <LoadingDot $delay='0.1s' $color='#a78bfa' />
+                  <LoadingDot $delay='0.2s' $color='#8b5cf6' />
+                </LoadingDots>
+              </LoadingDotsWrapper>
+            </BotBlock>
+          )}
+        </MessageColumn>
       </ChatContainer>
 
       {reportTarget && (
