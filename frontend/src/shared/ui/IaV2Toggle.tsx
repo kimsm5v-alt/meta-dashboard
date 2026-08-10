@@ -1,8 +1,13 @@
 /**
  * 개발/스테이징 전용 IA_V2 온오프 토글.
  * 기획자가 배포된 개발서버에서 코드 수정 없이 v2 개편 화면을 켜고 끄며 검수할 수 있게 한다.
- * 클릭 시 localStorage 오버라이드를 쓰고 즉시 새로고침해 반영한다(9곳에서 FEATURES.IA_V2를
- * 읽는 코드를 전부 리액티브하게 바꾸는 대신, 새로고침으로 features.ts가 오버라이드를 다시 읽게 함).
+ * 클릭 시 localStorage 오버라이드를 쓰고 `/dashboard`로 이동해 반영한다(9곳에서 FEATURES.IA_V2를
+ * 읽는 코드를 전부 리액티브하게 바꾸는 대신, 새 로드로 features.ts가 오버라이드를 다시 읽게 함).
+ * 같은 URL에서 그대로 새로고침하지 않는 이유: v1/v2는 라우트 구조가 서로 다르다
+ * (예: `/exam/management`는 IA_V2 전용 라우트라 꺼지면 사라지고, 공개 라우트 `/exam/:code`가
+ * 대신 매칭되어 "management"를 검사 코드로 오인해 에러가 남). `/dashboard`는 두 모드 모두에서
+ * 안전하게 존재하며 내부적으로 플래그 값에 따라 `/home` 또는 `/dashboard/comprehensive`로
+ * 자동 분기되므로, 토글 후 항상 이 경로를 거쳐가게 한다.
  */
 
 import styled from '@emotion/styled';
@@ -40,7 +45,7 @@ export const IaV2Toggle = () => {
 
   const handleToggle = () => {
     window.localStorage.setItem(IA_V2_OVERRIDE_KEY, String(!isOn));
-    window.location.reload();
+    window.location.href = '/dashboard';
   };
 
   return (
@@ -48,7 +53,7 @@ export const IaV2Toggle = () => {
       type='button'
       $on={isOn}
       onClick={handleToggle}
-      title='IA_V2 (개발용, 클릭 시 새로고침)'
+      title='IA_V2 (개발용, 클릭 시 대시보드로 이동)'
       aria-label={`IA V2 ${isOn ? '끄기' : '켜기'}`}
     >
       <Dot $on={isOn} />
