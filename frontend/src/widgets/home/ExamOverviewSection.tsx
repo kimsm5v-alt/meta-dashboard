@@ -114,7 +114,6 @@ const StatusBadge = styled.span<{ $status: ExamSlotStatus }>`
   }};
   border-radius: ${({ theme }) => theme.radius.full};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
-}
 `;
 
 const Actions = styled.div`
@@ -195,6 +194,7 @@ export const ExamOverviewSection = () => {
       <Section id='exam-overview'>
         <CenterBox>
           <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} />
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
         </CenterBox>
       </Section>
     );
