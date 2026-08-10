@@ -26,10 +26,6 @@ const TYPE_COLOR_KEY: Record<string, TypeColorKey> = {
 const typeOrderFor = (types: { name: StudentType; count: number }[]): StudentType[] =>
   types.some((t) => MIDDLE_ORDER.includes(t.name)) ? MIDDLE_ORDER : ELEMENTARY_ORDER;
 
-const SectionWrapper = styled.div`
-  margin-top: ${({ theme }) => theme.spacing.lg};
-`;
-
 const Title = styled.h3`
   margin: 0 0 4px;
   color: ${({ theme }) => theme.colors.text.primary};
@@ -102,7 +98,13 @@ const Legend = styled.div`
   display: flex;
   gap: ${({ theme }) => theme.spacing.md};
   flex-wrap: wrap;
-  margin-top: ${({ theme }) => theme.spacing.md};
+  justify-content: center;
+  margin: ${({ theme }) => theme.spacing.md} -${({ theme }) => theme.spacing.lg} -${({ theme }) =>
+      theme.spacing.lg};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.lg};
+  background: ${({ theme }) => theme.colors.gray[50]};
+  border-top: 1px solid ${({ theme }) => theme.colors.gray[100]};
+  border-radius: 0 0 ${({ theme }) => theme.radius.xl} ${({ theme }) => theme.radius.xl};
 `;
 
 const LegendItem = styled.span`
@@ -177,29 +179,25 @@ export const TypeDistributionSection = () => {
 
   if (isLoading) {
     return (
-      <SectionWrapper>
-        <Card>
-          <CenterBox>
-            <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} />
-            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-          </CenterBox>
-        </Card>
-      </SectionWrapper>
+      <Card>
+        <CenterBox>
+          <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} />
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        </CenterBox>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <SectionWrapper>
-        <Card>
-          <CenterBox style={{ flexDirection: 'column' }}>
-            <p style={{ margin: 0 }}>학생 유형 분포를 불러오지 못했습니다.</p>
-            <RetryButton onClick={refetch}>
-              <RefreshCw size={14} /> 다시 시도
-            </RetryButton>
-          </CenterBox>
-        </Card>
-      </SectionWrapper>
+      <Card>
+        <CenterBox style={{ flexDirection: 'column' }}>
+          <p style={{ margin: 0 }}>학생 유형 분포를 불러오지 못했습니다.</p>
+          <RetryButton onClick={refetch}>
+            <RefreshCw size={14} /> 다시 시도
+          </RetryButton>
+        </CenterBox>
+      </Card>
     );
   }
 
@@ -214,43 +212,41 @@ export const TypeDistributionSection = () => {
   });
 
   return (
-    <SectionWrapper>
-      <Card>
-        <Title>학생 유형 분포</Title>
-        <Subtitle>반별 LPA 유형 비교</Subtitle>
-        <Table>
-          <thead>
-            <tr>
-              <th>반</th>
-              <th>1차 검사</th>
-              <th>2차 검사</th>
+    <Card>
+      <Title>학생 유형 분포</Title>
+      <Subtitle>반별 LPA 유형 비교</Subtitle>
+      <Table>
+        <thead>
+          <tr>
+            <th>반</th>
+            <th>1차 검사</th>
+            <th>2차 검사</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.classId}>
+              <td>
+                <ClassName>{row.className}</ClassName>
+              </td>
+              <td>
+                <DistributionBar round={row.round1} />
+              </td>
+              <td>
+                <DistributionBar round={row.round2} />
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.classId}>
-                <td>
-                  <ClassName>{row.className}</ClassName>
-                </td>
-                <td>
-                  <DistributionBar round={row.round1} />
-                </td>
-                <td>
-                  <DistributionBar round={row.round2} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-        <Legend>
-          {Array.from(allTypes).map((typeName) => (
-            <LegendItem key={typeName}>
-              <Dot $colorKey={TYPE_COLOR_KEY[typeName]} />
-              {typeName}
-            </LegendItem>
           ))}
-        </Legend>
-      </Card>
-    </SectionWrapper>
+        </tbody>
+      </Table>
+      <Legend>
+        {Array.from(allTypes).map((typeName) => (
+          <LegendItem key={typeName}>
+            <Dot $colorKey={TYPE_COLOR_KEY[typeName]} />
+            {typeName}
+          </LegendItem>
+        ))}
+      </Legend>
+    </Card>
   );
 };

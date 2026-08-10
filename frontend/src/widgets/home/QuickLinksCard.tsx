@@ -12,24 +12,34 @@ const Title = styled.h3`
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 `;
 
-const Grid = styled.div`
+const Stack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const Row = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: ${({ theme }) => theme.spacing.sm};
 `;
 
 const LinkButton = styled.button`
-  padding: 12px;
+  padding: 14px 12px;
   color: ${({ theme }) => theme.colors.text.primary};
   background: ${({ theme }) => theme.colors.gray[50]};
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   border-radius: ${({ theme }) => theme.radius.md};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  text-align: center;
   cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
 
   &:hover:not(:disabled) {
-    background: ${({ theme }) => theme.colors.gray[100]};
+    color: ${({ theme }) => theme.colors.primary[700]};
+    background: ${({ theme }) => theme.colors.primary[50]};
+    border-color: ${({ theme }) => theme.colors.primary[200]};
   }
 
   &:disabled {
@@ -50,21 +60,34 @@ export const QuickLinksCard = () => {
   return (
     <Card>
       <Title>바로가기</Title>
-      <Grid>
-        <LinkButton onClick={() => openMypageGroups('list')}>그룹관리</LinkButton>
-        <LinkButton disabled={!hasGroups} onClick={() => navigate(`/exam/management${scopeQuery}`)}>
-          검사관리
-        </LinkButton>
-        <LinkButton disabled={!hasGroups} onClick={() => navigate(`/exam/result${scopeQuery}`)}>
-          검사 결과
-        </LinkButton>
-        <LinkButton disabled={!hasGroups} onClick={() => navigate(`/coaching/class${scopeQuery}`)}>
-          코칭
-        </LinkButton>
-        <LinkButton disabled={!hasGroups} onClick={() => navigate(`/lesson/library${scopeQuery}`)}>
-          수업 자료실
-        </LinkButton>
-      </Grid>
+      <Stack>
+        <LinkButton onClick={() => openMypageGroups('list')}>그룹 관리</LinkButton>
+        <Row>
+          <LinkButton
+            disabled={!hasGroups}
+            onClick={() => navigate(`/exam/management${scopeQuery}`)}
+          >
+            검사 관리
+          </LinkButton>
+          <LinkButton disabled={!hasGroups} onClick={() => navigate(`/exam/result${scopeQuery}`)}>
+            검사 결과
+          </LinkButton>
+        </Row>
+        <Row>
+          <LinkButton
+            disabled={!hasGroups}
+            onClick={() => navigate(`/coaching/class${scopeQuery}`)}
+          >
+            코칭
+          </LinkButton>
+          <LinkButton
+            disabled={!hasGroups}
+            onClick={() => navigate(`/lesson/library${scopeQuery}`)}
+          >
+            수업 자료실
+          </LinkButton>
+        </Row>
+      </Stack>
     </Card>
   );
 };

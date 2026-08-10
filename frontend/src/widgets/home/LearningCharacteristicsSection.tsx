@@ -38,38 +38,30 @@ const RetryButton = styled.button`
   cursor: pointer;
 `;
 
-const SectionWrapper = styled.div`
-  margin-top: ${({ theme }) => theme.spacing.lg};
-`;
-
 export const LearningCharacteristicsSection = () => {
   const { classes, isLoading, error, refetch } = useHomeClassStats();
 
   if (isLoading) {
     return (
-      <SectionWrapper>
-        <Card>
-          <CenterBox>
-            <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} />
-            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-          </CenterBox>
-        </Card>
-      </SectionWrapper>
+      <Card>
+        <CenterBox>
+          <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} />
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        </CenterBox>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <SectionWrapper>
-        <Card>
-          <CenterBox style={{ flexDirection: 'column' }}>
-            <p style={{ margin: 0 }}>반별 학습 특성 데이터를 불러오지 못했습니다.</p>
-            <RetryButton onClick={refetch}>
-              <RefreshCw size={14} /> 다시 시도
-            </RetryButton>
-          </CenterBox>
-        </Card>
-      </SectionWrapper>
+      <Card>
+        <CenterBox style={{ flexDirection: 'column' }}>
+          <p style={{ margin: 0 }}>반별 학습 특성 데이터를 불러오지 못했습니다.</p>
+          <RetryButton onClick={refetch}>
+            <RefreshCw size={14} /> 다시 시도
+          </RetryButton>
+        </CenterBox>
+      </Card>
     );
   }
 
@@ -78,12 +70,10 @@ export const LearningCharacteristicsSection = () => {
   }
 
   return (
-    <SectionWrapper>
-      <Card>
-        <Title>반별 학습 특성 비교</Title>
-        <Subtitle>5대 영역별 평균 T점수 (점선 50 = 전국 평균)</Subtitle>
-        <CategoryComparisonChart classes={classes} />
-      </Card>
-    </SectionWrapper>
+    <Card>
+      <Title>반별 학습 특성 비교</Title>
+      <Subtitle>5대 영역별 평균 T점수 (점선 50 = 전국 평균)</Subtitle>
+      <CategoryComparisonChart classes={classes} />
+    </Card>
   );
 };
