@@ -15,8 +15,10 @@ import aiOwlIcon from '@/assets/raon/ai-owl-icon.png';
 import serviceLogo from '@/assets/logo_2.png';
 import { useAuth } from '@features/auth';
 import { BellWithPanel } from '@features/notifications';
+import { ENV } from '@shared/config/env';
 import { buildScopeQueryString } from '@shared/scope';
 import { useStreamGuardStore } from '@shared/store/useStreamGuardStore';
+import { IaV2Toggle } from '@shared/ui/IaV2Toggle';
 
 import { useLayoutContext } from './LayoutContext';
 import { GNB_ITEMS, getActiveGnbId, type GnbItem } from './gnbConfig';
@@ -244,6 +246,7 @@ export const GnbHeader: React.FC = () => {
         </GnbNav>
 
         <HeaderActions>
+          {ENV.IS_DEV_MODE && <IaV2Toggle />}
           <BellWithPanel />
           <OwlButton
             $active={isAssistantActive}

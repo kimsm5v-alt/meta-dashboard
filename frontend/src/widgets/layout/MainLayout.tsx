@@ -29,6 +29,7 @@ import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_TEACHER_ME } from '@shared/data/apiDefinitions';
 import { FEATURES, type FeatureKey } from '@shared/config/features';
 import { ENV } from '@shared/config/env';
+import { IaV2Toggle } from '@shared/ui/IaV2Toggle';
 import serviceLogo from '@/assets/logo_2.png';
 
 // ============================================================================
@@ -556,6 +557,7 @@ const Header = () => {
           <LogoImage src={serviceLogo} alt='학습심리정서검사' />
         </LogoButton>
         <HeaderActions>
+          {ENV.IS_DEV_MODE && <IaV2Toggle />}
           <BellWithPanel />
           <IconButton onClick={openMypage} title='내 정보 설정' aria-label='내 정보 설정'>
             <UserCog />
