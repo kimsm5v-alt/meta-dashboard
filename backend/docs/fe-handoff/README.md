@@ -8,5 +8,6 @@
 | 1 | [ai-chat-api-spec.md](./ai-chat-api-spec.md) | AI 어시스턴트 대화 | 생성·목록·메시지 + **대화방 제목 수정** `POST /api/ai/conversations/{id}/title` · **삭제** `POST .../delete` |
 | 2 | [school-record-fe-guide.md](./school-record-fe-guide.md) | 생활기록부 작성 고도화 | 저장 `POST /api/school-records/draft` · 리스트 `GET /class/{classId}` · 상세 `GET /student/{studentId}/draft` |
 | 3 | [tc-analysis-lernreport-fe-guide.md](./tc-analysis-lernreport-fe-guide.md) | 교사 분석 `lernReportByOrd` | `GET /api/dgnss/tc/analysis` 응답 변경(paperIdx=2 노출 + `reliabilityWarnings`) |
+| 4 | [paper-permission-fe-guide.md](./paper-permission-fe-guide.md) | 검사 유형 권한 | `GET /api/dgnss/paper-permission/me` (종합/자기조절 허용 → 메뉴·토글 노출) |
 
-> 최종 정리: 2026-08-07
+> 최종 정리: 2026-08-11
