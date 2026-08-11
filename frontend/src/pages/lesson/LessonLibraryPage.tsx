@@ -1,14 +1,11 @@
 import { useEffect, useRef } from 'react';
 import styled from '@emotion/styled';
 import { LessonLibraryHeader } from '@widgets/lesson';
+// import { LessonEditorEmbed } from './LessonEditorEmbed';
+// import { LessonViewerEmbed } from './LessonViewerEmbed';
 
 const Page = styled.section`
   /* padding: ${({ theme }) => theme.spacing.md} 20px 0; */
-`;
-
-const SlideContainer = styled.div`
-  height: 600px;
-  width: 100%;
 `;
 
 const EMBED_BASE_URL = 'https://t-everyclass.vsaidt.com';
@@ -57,7 +54,8 @@ export const LessonLibraryPage = () => {
   return (
     <Page>
       <LessonLibraryHeader />
-      {/* <SlideContainer ref={slideRef} id='slide' /> */}
+      {/* <LessonEditorEmbed /> */}
+      {/* <LessonViewerEmbed slideId={SLIDE_ID} /> */}
     </Page>
   );
 };
