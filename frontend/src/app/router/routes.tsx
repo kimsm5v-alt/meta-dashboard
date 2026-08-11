@@ -39,7 +39,10 @@ import {
   MyExamListPage,
   MyResultPage,
   MySelfregResultPage,
+  LessonLibraryPage,
 } from '@pages/index';
+import LessonMyPage from '@pages/lesson/LessonMyPage';
+import LessonResultPage from '@pages/lesson/LessonResultPage';
 
 // ============================================================
 // 레이아웃 래퍼
@@ -227,9 +230,9 @@ export const AppRoutes = () => (
           <Route path='/coaching/class' element={<V2Placeholder title='학급 코칭' />} />
           <Route path='/coaching/individual' element={<V2Placeholder title='개별 코칭' />} />
 
-          <Route path='/lesson/library' element={<V2Placeholder title='수업 자료실' />} />
-          <Route path='/lesson/my' element={<V2Placeholder title='나의 자료' />} />
-          <Route path='/lesson/result' element={<V2Placeholder title='수업 결과 보기' />} />
+          <Route path='/lesson/library' element={<LessonLibraryPage />} />
+          <Route path='/lesson/my' element={<LessonMyPage />} />
+          <Route path='/lesson/result' element={<LessonResultPage />} />
 
           <Route path='/ai-assistant' element={<AIRoomPage />} />
         </>
@@ -261,6 +264,8 @@ export const AppRoutes = () => (
     {/* 개발용 — 프로덕션 빌드에서도 접근 가능하지만 링크 미노출 */}
     <Route path='/dev/errors' element={<ErrorTestPage />} />
     <Route path='/dev/sse' element={<SsePocPage />} />
+
+    {/* <Route path='/lesson/library' element={<LessonLibraryPage />} /> */}
 
     {/* Fallback */}
     <Route path='*' element={<Navigate to='/' replace />} />
