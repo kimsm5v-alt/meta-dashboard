@@ -14,6 +14,7 @@ import { FEATURES } from '@shared/config/features';
 import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
 import { SsePocPage } from '@pages/dev/SsePocPage';
 import { HomePage } from '@pages/home/HomePage';
+import { ExamTrackingPage } from '@pages/exam-tracking/ExamTrackingPage';
 import {
   LandingPage,
   LoginPage,
@@ -221,7 +222,7 @@ export const AppRoutes = () => (
 
           <Route path='/exam/management' element={<AssessmentPage />} />
           <Route path='/exam/result' element={<TeacherDashboardPage />} />
-          <Route path='/exam/tracking' element={<V2Placeholder title='변화추적' />} />
+          <Route path='/exam/tracking' element={<ExamTrackingPage />} />
           <Route path='/exam/record' element={<V2Placeholder title='생활기록부 작성' />} />
 
           <Route path='/coaching/class' element={<V2Placeholder title='학급 코칭' />} />
