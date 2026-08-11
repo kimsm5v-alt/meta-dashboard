@@ -51,3 +51,6 @@ export { StudentGroupsPage } from './student-exam/StudentGroupsPage';
 export { MyExamListPage } from './student-exam/MyExamListPage';
 export { MyResultPage } from './student-exam/MyResultPage';
 export { MySelfregResultPage } from './student-exam/MySelfregResultPage';
+
+// Lesson
+export { LessonLibraryPage } from './lesson/LessonLibraryPage';
