@@ -13,7 +13,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, AlertCircle, Info, Search, ArrowRight, FileText, X, Download } from 'lucide-react';
+import { Check, AlertCircle, Info, Search, ArrowRight, FileText, X, Download } from 'lucide-react';
 import { useLayoutContext } from '@/app/LayoutV2';
 import type { ClassResultSummary, LPADistribution, ProfileFactor } from '@/features/class-dashboard/types';
 import type { StudentExamResult } from '../types';
@@ -207,19 +207,11 @@ export const ClassResultView: React.FC<ClassResultViewProps> = ({
     <div className="space-y-6">
       {/* 헤더 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-500" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{className}</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {MOCK_SCHOOL_INFO.schoolName} · {MOCK_SCHOOL_INFO.eduLevel} {parseClassName(className)}
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{className}</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {MOCK_SCHOOL_INFO.schoolName} · {MOCK_SCHOOL_INFO.eduLevel} {parseClassName(className)}
+          </p>
         </div>
 
         {/* 보고서 다운로드 버튼 */}

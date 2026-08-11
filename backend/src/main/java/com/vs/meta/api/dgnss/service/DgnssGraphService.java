@@ -39,6 +39,18 @@ public class DgnssGraphService {
     /** LPA 그래프 유니크 제약조건 Cypher 리소스(데이터 적재 전 선실행, IF NOT EXISTS 멱등). */
     private static final String LPA_CONSTRAINTS_RESOURCE_PATH = "data/lpa/constraints.cypher";
 
+    /**
+     * 개인화 코칭 v2 패치 리소스(강점 v3 / 보완점 v5, 초·중).
+     * 모두 MATCH 기반 in-place 업데이트라 멱등이며, base 그래프가 먼저 적재돼 있어야 한다.
+     * 적용 순서: 보완점(moderation) → 강점(strength).
+     */
+    private static final List<String> COACHING_V2_RESOURCE_PATHS = List.of(
+            "data/lpa/v2/elementary_moderation_path_update_v5.cypher",
+            "data/lpa/v2/middle_moderation_path_update_v5.cypher",
+            "data/lpa/v2/elementary_strength_groupTscore_update_v3.cypher",
+            "data/lpa/v2/middle_strength_groupTscore_update_v3.cypher"
+    );
+
     private final Driver neo4jDriver;
     private final DgnssMapper dgnssMapper;
 
@@ -76,6 +88,54 @@ public class DgnssGraphService {
         result.put("resource", LPA_GRAPH_RESOURCE_PATH);
         result.put("constraintCount", constraints.size());
         result.put("statementCount", statements.size());
+        result.put("status", "LOADED");
+        return result;
+    }
+
+    /**
+     * 개인화 코칭 v2 패치({@link #COACHING_V2_RESOURCE_PATHS})를 Neo4j에 적재한다.
+     * 각 파일은 단일 {@code UNWIND ... MATCH ... SET ... RETURN count} 구문이며, MATCH 기반 in-place
+     * 업데이트라 멱등이다(중복 노드/관계 생성 없음). 파일별 {@code updated_count}(기대 114)를 반환한다.
+     * <p><b>전제</b>: base 그래프({@value #LPA_GRAPH_RESOURCE_PATH})가 먼저 적재돼 있어야 한다. truncate 금지.
+     *
+     * @return 파일별 적재 결과(구문 수·업데이트 건수)와 총합
+     */
+    public Map<String, Object> loadCoachingV2() {
+        List<Map<String, Object>> fileResults = new ArrayList<>();
+        long totalUpdated = 0L;
+
+        try (Session session = neo4jDriver.session()) {
+            for (String resourcePath : COACHING_V2_RESOURCE_PATHS) {
+                List<String> statements = readCypherStatements(resourcePath);
+                if (statements.isEmpty()) {
+                    throw new IllegalStateException("적재할 Cypher 구문이 없습니다: " + resourcePath);
+                }
+                long updated = 0L;
+                for (String statement : statements) {
+                    final String stmt = statement;
+                    Integer count = session.executeWrite(tx -> {
+                        Result result = tx.run(stmt);
+                        return result.hasNext() ? result.next().get("updated_count").asInt(0) : 0;
+                    });
+                    updated += (count != null ? count : 0);
+                }
+                Map<String, Object> fileResult = new LinkedHashMap<>();
+                fileResult.put("resource", resourcePath);
+                fileResult.put("statementCount", statements.size());
+                fileResult.put("updatedCount", updated);
+                fileResults.add(fileResult);
+                totalUpdated += updated;
+                log.info("코칭 v2 적재. resource={}, statements={}, updated={}", resourcePath, statements.size(), updated);
+            }
+        } catch (Exception e) {
+            log.error("코칭 v2 그래프 적재 실패.", e);
+            throw new IllegalStateException("코칭 v2 그래프 적재 중 오류가 발생했습니다: " + e.getMessage(), e);
+        }
+
+        log.info("코칭 v2 적재 완료. totalUpdated={}", totalUpdated);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("files", fileResults);
+        result.put("totalUpdated", totalUpdated);
         result.put("status", "LOADED");
         return result;
     }
@@ -168,6 +228,9 @@ public class DgnssGraphService {
             result.put("weaknesses", new ArrayList<>());
             result.put("typeDeviations", new ArrayList<>());
             result.put("moderationPaths", fallback);
+            // 집단T 미확보라도 개인 T 절대값 기준 강점/약점은 계산 가능
+            result.put("absoluteStrengths", topFactorsByScore(studentTScores, SELECT_COUNT, true));
+            result.put("absoluteWeaknesses", topFactorsByScore(studentTScores, SELECT_COUNT, false));
             return result;
         }
 
@@ -196,6 +259,71 @@ public class DgnssGraphService {
         result.put("weaknesses", weaknesses);
         result.put("typeDeviations", buildTypeDeviations(deviations, SELECT_COUNT));
         result.put("moderationPaths", moderationPaths);
+        // 집단T 비교와 별개 — 개인 T 절대값 기준 최고/최저 N개 (명칭 미확정: absoluteStrengths/Weaknesses)
+        result.put("absoluteStrengths", topFactorsByScore(studentTScores, SELECT_COUNT, true));
+        result.put("absoluteWeaknesses", topFactorsByScore(studentTScores, SELECT_COUNT, false));
+        return result;
+    }
+
+    /**
+     * 개인화 코칭 v2(B2)용 선별 키 추출 — 텍스트는 조회하지 않고 <b>키만</b> 반환한다(코칭 문구는 RDB에서 조회).
+     * <ul>
+     *   <li>강점: 편차(need) 기준 강한 순 상위 2개 요인명</li>
+     *   <li>보완점: need 상위 1개 요인이 Z인 대표 ModerationPath (moderation_id + x/y/z/path_type)</li>
+     * </ul>
+     * 고등/미분류/개인·집단 점수 미확보 시 빈 선별을 반환한다.
+     *
+     * @return {answerIdx, lpaClass, schoolLevel, strengthFactors:[요인명], moderation:{moderationId,xFactor,yFactor,zFactor,pathType}}
+     */
+    public Map<String, Object> selectCoachingSelectionByAnswerIdx(int answerIdx) {
+        Map<String, Object> lpaResult = dgnssMapper.selectLpaResultByAnswerIdx(answerIdx);
+        String className = MapUtils.isEmpty(lpaResult) ? "" : MapUtils.getString(lpaResult, "typeName", "");
+        String schoolLevel = MapUtils.isEmpty(lpaResult) ? "" : MapUtils.getString(lpaResult, "schoolLevel", "");
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("answerIdx", answerIdx);
+        result.put("lpaClass", className);
+        result.put("schoolLevel", schoolLevel);
+        result.put("strengthFactors", new ArrayList<String>());
+        result.put("moderation", null);
+
+        if (StringUtils.isBlank(className)) {
+            return result; // 고등/미분류 등
+        }
+
+        Map<String, Double> studentTScores = loadStudentTScores(answerIdx);
+        List<Map<String, Object>> deviations =
+                computeFactorDeviations(studentTScores, queryGroupTScores(className, schoolLevel));
+        if (deviations.isEmpty()) {
+            return result;
+        }
+        // need 내림차순: 상위=보완 필요, 하위=강점
+        deviations.sort((a, b) -> Double.compare(
+                MapUtils.getDoubleValue(b, "need", 0d), MapUtils.getDoubleValue(a, "need", 0d)));
+
+        // 강점 top2 (need 하위 = 가장 강한 순)
+        int from = Math.max(0, deviations.size() - 2);
+        List<Map<String, Object>> strengthSrc = new ArrayList<>(deviations.subList(from, deviations.size()));
+        Collections.reverse(strengthSrc);
+        List<String> strengthFactors = new ArrayList<>();
+        for (Map<String, Object> d : strengthSrc) {
+            strengthFactors.add(MapUtils.getString(d, "factorName", ""));
+        }
+        result.put("strengthFactors", strengthFactors);
+
+        // 보완점 top1 → 대표 ModerationPath
+        List<Map<String, Object>> paths = queryModerationPathsByZFactor(
+                className, schoolLevel, MapUtils.getString(deviations.get(0), "factorName", ""));
+        if (!paths.isEmpty()) {
+            Map<String, Object> p = paths.get(0);
+            Map<String, Object> moderation = new LinkedHashMap<>();
+            moderation.put("moderationId", p.get("id"));
+            moderation.put("xFactor", p.get("x"));
+            moderation.put("yFactor", p.get("y"));
+            moderation.put("zFactor", p.get("z"));
+            moderation.put("pathType", p.get("pathType"));
+            result.put("moderation", moderation);
+        }
         return result;
     }
 
@@ -261,6 +389,29 @@ public class DgnssGraphService {
     }
 
     /**
+     * 개인 T점수 절대값 기준 상위/하위 N개 요인 (집단 비교 없음 — 개인 T 원점수만 사용).
+     * highest=true → T 높은 순(강점), false → T 낮은 순(약점). {factorName, individualT} 반환.
+     * 주의: 부적요인(스트레스·소진 등)도 그대로 섞이므로, 'T가 높다=좋다'가 아닐 수 있음(요인 성격 미보정).
+     */
+    private List<Map<String, Object>> topFactorsByScore(Map<String, Double> studentTScores, int n, boolean highest) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (studentTScores == null || studentTScores.isEmpty()) {
+            return out;
+        }
+        List<Map.Entry<String, Double>> entries = new ArrayList<>(studentTScores.entrySet());
+        entries.sort((a, b) -> highest
+                ? Double.compare(b.getValue(), a.getValue())
+                : Double.compare(a.getValue(), b.getValue()));
+        for (int i = 0; i < Math.min(n, entries.size()); i++) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("factorName", entries.get(i).getKey());
+            row.put("individualT", entries.get(i).getValue());
+            out.add(row);
+        }
+        return out;
+    }
+
+    /**
      * FE '유형별 특이점'(getTypeDeviations) 동일 방식 — GROUP_TSCORE 편차의 절댓값이 큰 상위 N개(강점·약점 혼합).
      * FE 렌더 필드명(factor/studentScore/typeMean/diff/direction)에 맞춰 반환한다.
      */
@@ -289,7 +440,8 @@ public class DgnssGraphService {
         return Math.round(value * 10.0) / 10.0;
     }
 
-    /** LPA 결과/유형이 없을 때(자기조절·미분류 등) 내려줄 빈 추천 응답. */
+    /** LPA 결과/유형이 없을 때(자기조절·미분류 등) 내려줄 빈 추천 응답.
+     *  집단T 기반 항목은 비우되, 개인 T 절대값 기준 강점/약점은 LPA 없이도 계산해 제공한다. */
     private Map<String, Object> emptyRecommendation(int answerIdx) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("answerIdx", answerIdx);
@@ -297,6 +449,9 @@ public class DgnssGraphService {
         result.put("weaknesses", new ArrayList<>());
         result.put("typeDeviations", new ArrayList<>());
         result.put("moderationPaths", new ArrayList<>());
+        Map<String, Double> studentTScores = loadStudentTScores(answerIdx);
+        result.put("absoluteStrengths", topFactorsByScore(studentTScores, SELECT_COUNT, true));
+        result.put("absoluteWeaknesses", topFactorsByScore(studentTScores, SELECT_COUNT, false));
         return result;
     }
 

@@ -137,23 +137,6 @@ export const ScopeTree: React.FC<ScopeTreeProps> = ({
 
       <div className="border-t border-gray-200 my-2" />
 
-      {/* 전체 항목 */}
-      <button
-        onClick={onSelectAll}
-        className={`flex items-center justify-between w-full px-[10px] py-[9px] text-[13.5px] font-semibold rounded-[9px] mb-1 ${
-          scope.level === 'all'
-            ? 'bg-primary-100 text-primary-600'
-            : 'text-gray-900 hover:bg-gray-100'
-        }`}
-      >
-        <span>전체</span>
-        {scope.level === 'all' && (
-          <span className="w-2 h-2 rounded-full bg-primary-500" />
-        )}
-      </button>
-
-      <div className="border-t border-gray-200 my-2" />
-
       {/* 반 목록 (스크롤 영역) */}
       <div className="flex-1 overflow-y-auto">
         <div className="text-[11px] font-bold text-gray-400 tracking-wide px-[10px] mb-[6px]">

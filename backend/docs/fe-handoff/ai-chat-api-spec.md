@@ -1,6 +1,6 @@
 # AI Chat API Specification
 
-> 최종 수정일: 2026-05-14
+> 최종 수정일: 2026-08-07
 
 ## 1. 개요
 
@@ -50,6 +50,8 @@
 2. `GET /api/ai/conversations` 대화방 목록 조회
 3. `GET /api/ai/conversations/{conversationId}/messages` 메시지 조회
 4. `POST /api/ai/conversations/{conversationId}/messages` 메시지 저장
+5. `POST /api/ai/conversations/{conversationId}/title` 대화방 제목 수정 **(v2026-08-07 추가)**
+6. `POST /api/ai/conversations/{conversationId}/delete` 대화방 삭제(소프트)
 
 ---
 
@@ -277,6 +279,59 @@ Response `resultData` 예시:
 
 ---
 
+### 4.5 POST `/api/ai/conversations/{conversationId}/title`
+
+대화방 제목 수정 (기본 자동 생성 제목을 사용자가 직접 변경). **본인 소유 대화방만 가능.**
+
+Path:
+
+- `conversationId`: 필수
+
+Request Body:
+
+```json
+{
+  "title": "관심 학생 분석 대화"
+}
+```
+
+규칙:
+
+- `title`: 필수(빈 문자열 불가). 200자 초과 시 200자로 잘려 저장됩니다.
+
+Response `resultData` 예시:
+
+```json
+{
+  "conversationId": 101,
+  "title": "관심 학생 분석 대화"
+}
+```
+
+---
+
+### 4.6 POST `/api/ai/conversations/{conversationId}/delete`
+
+대화방 삭제. **소프트 삭제**(`use_yn = 'N'`)로 처리되어 목록/조회에서 제외되며 데이터 자체는 보존됩니다. **본인 소유 대화방만 가능.**
+
+Path:
+
+- `conversationId`: 필수
+
+Request Body: 없음
+
+Response `resultData` 예시:
+
+```json
+{
+  "conversationId": 101,
+  "useYn": "N",
+  "deleted": true
+}
+```
+
+---
+
 ## 5. 에러 규칙
 
 - `mode` 잘못된 값: `all|class|student` 외 입력 시 400
@@ -288,11 +343,19 @@ Response `resultData` 예시:
 
 ## 6. 참고 DDL
 
-- [ai_chat_ddl.sql](./ai_chat_ddl.sql)
+- [ai_chat_ddl.sql](../ai_chat_ddl.sql)
 
 ---
 
 ## 7. 변경 이력
+
+### v2026-08-07
+
+**대화방 제목 수정 / 삭제 API 추가**
+
+- `POST /api/ai/conversations/{conversationId}/title` — 대화방 제목 수정(본인 소유만, 200자 제한).
+- `POST /api/ai/conversations/{conversationId}/delete` — 대화방 삭제(소프트, `use_yn='N'`). 기존에 구현돼 있던 API를 문서에 반영.
+- 두 API 모두 소유권 검증(다른 사용자 대화방 접근 시 오류).
 
 ### v2026-05-14
 
@@ -328,4 +391,4 @@ const response = await fetch('/api/ai/conversations', {
 **버그 리포트 연동:**
 
 메시지 저장 응답의 `id`를 활용하여 버그 리포트 시 정확한 메시지 추적이 가능합니다.
-자세한 내용은 [ai-bug-report-api-spec.md](./ai-bug-report-api-spec.md)를 참고하세요.
+자세한 내용은 [ai-bug-report-api-spec.md](../ai-bug-report-api-spec.md)를 참고하세요.

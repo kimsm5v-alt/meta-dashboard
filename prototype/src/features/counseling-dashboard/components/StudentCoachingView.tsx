@@ -315,31 +315,41 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
               </h3>
             </div>
 
-        <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
           {strengthPraises.map((praise, index) => (
             <div
               key={index}
-              className="bg-green-50 rounded-lg p-4 border border-green-100"
+              className="bg-green-50 rounded-lg p-4 border border-green-100 flex flex-col"
             >
-              {/* 인정 요인 */}
+              {/* 인정 요인 배지 + 요인명 */}
               <div className="flex items-center gap-2 mb-2">
                 <span className="px-2 py-0.5 bg-green-600 text-white text-xs font-medium rounded">
                   인정 {index + 1}
                 </span>
-                <span className="text-sm font-medium text-gray-900">{praise.factor}</span>
-                <span className="text-xs text-gray-500">({praise.area})</span>
+                <span className="text-sm font-bold text-gray-900">{praise.factor}</span>
               </div>
 
-              {/* 칭찬 이유 */}
+              {/* 강점 관찰 (observation) - [학생명] 치환 포함, "다행히" 표현 */}
               <p className="text-sm text-gray-700 mb-3 leading-relaxed">
-                {praise.reason}
+                {praise.observation}
               </p>
 
-              {/* 칭찬 멘트 */}
+              {/* 칭찬 멘트 (praiseLine) - 프론트에서 따옴표 렌더링 */}
               <div className="flex items-start gap-2 bg-white rounded-lg p-3 border border-green-200">
                 <MessageSquare className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-green-800 font-medium italic">
-                  {praise.praiseScript}
+                <p className="text-sm text-green-800 font-medium">
+                  "{praise.praiseLine}"
+                </p>
+              </div>
+
+              {/* 더 이야기하고 싶다면 이렇게 물어보세요 */}
+              <p className="text-xs text-gray-500 mt-3 mb-2">더 이야기하고 싶다면 이렇게 물어보세요</p>
+
+              {/* 강점 질문 (praiseQuestion) - v4 신규 속성, 프론트에서 따옴표 렌더링 */}
+              <div className="flex items-start gap-2 bg-white rounded-lg p-3 border border-green-200">
+                <MessageSquare className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-green-800 font-medium">
+                  "{praise.praiseQuestion}"
                 </p>
               </div>
             </div>
@@ -371,7 +381,7 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
               </h3>
             </div>
 
-        {/* 상단 설명문 */}
+        {/* 상단 설명문 - 보완점 해석 */}
         <div className="bg-amber-50 rounded-lg p-4 border border-amber-100 mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Info className="w-4 h-4 text-amber-600" />
@@ -379,42 +389,59 @@ export const StudentCoachingView: React.FC<StudentCoachingViewProps> = ({
               이 학생, 이것만 신경 써주세요
             </span>
           </div>
+          {/* 배지 "맞춤" + Z보완점 + (X초점요인 · Y타겟요인) */}
           <div className="flex items-center gap-2 mb-2">
             <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
               맞춤
             </span>
-            <span className="text-sm font-medium text-gray-900">{coachingPathway.weakFactor}</span>
-            <span className="text-xs text-gray-500">({coachingPathway.area})</span>
+            <span className="text-sm font-bold text-gray-900">{coachingPathway.weakFactor}</span>
+            <span className="text-xs text-gray-500">({coachingPathway.focusFactor} · {coachingPathway.targetFactor})</span>
           </div>
+          {/* 해석 (interpretation) - [학생명] 치환 포함 */}
           <p className="text-sm text-gray-700 leading-relaxed">
-            {coachingPathway.pathwayDescription}
+            {coachingPathway.interpretation}
           </p>
         </div>
 
-        {/* 코칭 포인트 */}
+        {/* 코칭 포인트 - coaching1, coaching2 분리 */}
         <div className="space-y-4">
-          {coachingPathway.coachingPoints.map((point, index) => (
-            <div
-              key={index}
-              className="bg-gray-50 rounded-lg p-4 border border-gray-200"
-            >
-              {/* 코칭 방법 */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-600 text-white text-xs flex items-center justify-center font-bold">
-                  {index + 1}
-                </span>
-                <p className="text-sm font-medium text-gray-900">{point.method}</p>
-              </div>
-
-              {/* 교사 활용 멘트 */}
-              <div className="flex items-start gap-2 bg-white rounded-lg p-3 border border-gray-200">
-                <MessageSquare className="w-4 h-4 text-primary-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-primary-800 font-medium italic">
-                  {point.teacherScript}
-                </p>
-              </div>
+          {/* 코칭 1 */}
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            {/* 코칭1 방법 (coaching1Method) */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-600 text-white text-xs flex items-center justify-center font-bold">
+                1
+              </span>
+              <p className="text-sm font-medium text-gray-900">{coachingPathway.coaching1Method}</p>
             </div>
-          ))}
+
+            {/* 코칭1 멘트 (coaching1Line) - 프론트에서 따옴표 렌더링 */}
+            <div className="flex items-start gap-2 bg-white rounded-lg p-3 border border-gray-200">
+              <MessageSquare className="w-4 h-4 text-primary-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-primary-800 font-medium">
+                "{coachingPathway.coaching1Line}"
+              </p>
+            </div>
+          </div>
+
+          {/* 코칭 2 */}
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            {/* 코칭2 행동 (coaching2Action) */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-600 text-white text-xs flex items-center justify-center font-bold">
+                2
+              </span>
+              <p className="text-sm font-medium text-gray-900">{coachingPathway.coaching2Action}</p>
+            </div>
+
+            {/* 코칭2 멘트 (coaching2Line) - 프론트에서 따옴표 렌더링 */}
+            <div className="flex items-start gap-2 bg-white rounded-lg p-3 border border-gray-200">
+              <MessageSquare className="w-4 h-4 text-primary-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-primary-800 font-medium">
+                "{coachingPathway.coaching2Line}"
+              </p>
+            </div>
+          </div>
         </div>
           </div>
         </div>
