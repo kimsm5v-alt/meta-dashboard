@@ -15,17 +15,28 @@ export function calculateSubCategoryAveragesByRound(
   );
   if (assessedStudents.length === 0) return null;
 
+  // Fix 1: Add reliability filtering (match computeClassProfile)
+  const reliableStudents = assessedStudents.filter((s) => {
+    const assessment = s.assessments.find((a) => a.round === round)!;
+    return assessment.reliabilityWarnings.length === 0;
+  });
+
+  const validStudents = reliableStudents.length > 0 ? reliableStudents : assessedStudents;
+
   const averages: Record<string, number> = {};
 
   for (const [sub, indices] of Object.entries(SUB_CATEGORY_FACTORS)) {
     let sum = 0;
     let count = 0;
-    for (const student of assessedStudents) {
+    for (const student of validStudents) {
       const assessment = student.assessments.find((a) => a.round === round);
       if (!assessment) continue;
-      const values = indices.map((i) => assessment.tScores[i]);
-      sum += values.reduce((a, b) => a + b, 0) / values.length;
-      count++;
+      // Fix 2: Add null guard on tScores (match computeClassProfile pattern)
+      const values = indices.map((i) => assessment.tScores[i]).filter((v) => v != null);
+      if (values.length > 0) {
+        sum += values.reduce((a, b) => a + b, 0) / values.length;
+        count++;
+      }
     }
     averages[sub] = count > 0 ? Math.round(sum / count) : 50;
   }
