@@ -326,12 +326,16 @@ export const ScopeTree: React.FC = () => {
 
       <Divider />
 
-      <RowButton $active={scope.level === 'all'} onClick={selectAll}>
-        <span>전체</span>
-        {scope.level === 'all' && <Dot />}
-      </RowButton>
+      {!currentMenuConfig.hideAllMenuItem && (
+        <>
+          <RowButton $active={scope.level === 'all'} onClick={selectAll}>
+            <span>전체</span>
+            {scope.level === 'all' && <Dot />}
+          </RowButton>
 
-      <Divider />
+          <Divider />
+        </>
+      )}
 
       <SectionLabel>반 목록</SectionLabel>
 
