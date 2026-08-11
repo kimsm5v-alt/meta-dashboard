@@ -47,11 +47,19 @@ public class DgnssController {
     @RequestMapping(value = "/api/dgnss/tc/overview", method = {RequestMethod.GET})
     @Operation(summary = "(선생님) 본인 전체 학급 진단검사 현황 (한 번에)",
             description = "인증된 교사(JWT) 본인이 소유한 모든 학급의 진단검사 현황을 한 번에 반환. "
-                    + "학급별 tc/info 반복 호출 대체. 파라미터 없음 — 교사 식별자는 JWT 에서만 도출(IDOR 방지).")
+                    + "학급별 tc/info 반복 호출 대체. 교사 식별자는 JWT 에서만 도출(IDOR 방지). "
+                    + "paperIdx 미전송/0 이면 1·2 모두, 전송 시 해당 검사 유형만 조회.")
+    @Parameter(name = "paperIdx", description = "검사 유형(1:종합학습검사, 2:자기조절). 미전송/0 이면 1·2 모두",
+            examples = {
+                    @ExampleObject(name = "전체", value = "0"),
+                    @ExampleObject(name = "종합", value = "1"),
+                    @ExampleObject(name = "자기조절", value = "2")
+            })
     public ResponseDTO<CustomBody> tchMetaOverview(
+            @RequestParam(name = "paperIdx", required = false) String paperIdx,
             @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
     ) throws Exception {
-        Map<String, Object> result = dgnssService.selectTcDgnssOverview();
+        Map<String, Object> result = dgnssService.selectTcDgnssOverview(paperIdx);
         return AidtCommonUtil.makeResultSuccess(paramData, result, "(선생님) 전체 학급 진단검사 현황");
     }
 
@@ -67,9 +75,11 @@ public class DgnssController {
                     @ExampleObject(name = "math", value = "rrmath016-t", description = "수학 환경"),
                     @ExampleObject(name = "engl", value = "appleeng19-t", description = "영어 환경")
             })
-    @Parameter(name = "paperIdx", description = "시험지 정보",
+    @Parameter(name = "paperIdx", description = "검사 유형(1:종합학습검사, 2:자기조절). 미전송/0 이면 1·2 모두 조회, 전송 시 해당 값만 조회",
             examples = {
-                    @ExampleObject(name = "both", value = "1", description = "수학/영어 환경")
+                    @ExampleObject(name = "전체", value = "0", description = "1·2 모두"),
+                    @ExampleObject(name = "종합", value = "1", description = "종합학습검사만"),
+                    @ExampleObject(name = "자기조절", value = "2", description = "자기조절만")
             })
     public ResponseDTO<CustomBody> tchMetaInfo(
             @RequestParam(name = "claId", required = false) String claId,
