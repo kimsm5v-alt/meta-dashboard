@@ -15,6 +15,8 @@ export const ENV = {
   // 기본은 빈 값 → buildGroupJoinUrl 이 window.location.origin 기준으로 자동 도출(환경별 자동).
   SP_STUDENT_RETURN_URL: (import.meta.env.VITE_SP_STUDENT_RETURN_URL as string | undefined) ?? '',
   IS_DEV: import.meta.env.DEV as boolean,
+  /** vite dev 서버뿐 아니라 `build:dev`(--mode development)로 배포된 개발/스테이징 서버에서도 true. 운영(production) 빌드에서만 false */
+  IS_DEV_MODE: import.meta.env.MODE !== 'production',
   SELFREG_HIDDEN: import.meta.env.VITE_SELFREG_HIDDEN === 'true',
   MANUAL_URL_COMPREHENSIVE:
     (import.meta.env.VITE_MANUAL_URL_COMPREHENSIVE as string | undefined) ?? '',

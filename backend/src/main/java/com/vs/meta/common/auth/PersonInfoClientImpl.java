@@ -144,6 +144,63 @@ public class PersonInfoClientImpl implements PersonInfoClient {
     }
 
     @SuppressWarnings("unchecked")
+    @Override
+    public UserSearchResult search(String keyword, String status, int page, int size) {
+        if (keyword == null || keyword.isBlank()) {
+            // 빈 keyword 는 전체 목록 우회(문서 §6 ②) — 호출 자체를 막는다.
+            return UserSearchResult.empty(page, size);
+        }
+        try {
+            // keyword 는 PII(이름) 이므로 로그에 남기지 않는다(문서 §6 ③).
+            Map<String, Object> body = personInfoRestClient.get()
+                    .uri(b -> {
+                        b.path("/users/search")
+                         .queryParam("keyword", keyword)
+                         .queryParam("page", page)
+                         .queryParam("size", size);
+                        if (status != null && !status.isBlank()) {
+                            b.queryParam("status", status);
+                        }
+                        return b.build();
+                    })
+                    .header("Authorization", "Bearer " + tokenProvider.getToken())
+                    .retrieve()
+                    .body(Map.class);
+
+            Map<String, Object> data = (Map<String, Object>) body.get("data");
+            if (data == null) {
+                return UserSearchResult.empty(page, size);
+            }
+            List<Map<String, Object>> items = (List<Map<String, Object>>) data.getOrDefault("items", List.of());
+            List<UserSearchResult.Item> parsed = items.stream()
+                    .map(m -> new UserSearchResult.Item(
+                            (String) m.get("publicUserId"),
+                            (String) m.get("name"),
+                            (String) m.get("nickname"),
+                            (String) m.get("userType"),
+                            (String) m.get("status")))
+                    .toList();
+            return new UserSearchResult(
+                    parsed,
+                    toInt(data.get("page"), page),
+                    toInt(data.get("size"), size),
+                    toLong(data.get("totalElements")),
+                    toInt(data.get("totalPages"), 0));
+        } catch (Exception e) {
+            log.warn("Auth users/search 실패: {}", e.getMessage());
+            return UserSearchResult.empty(page, size);
+        }
+    }
+
+    private static int toInt(Object o, int dflt) {
+        return (o instanceof Number n) ? n.intValue() : dflt;
+    }
+
+    private static long toLong(Object o) {
+        return (o instanceof Number n) ? n.longValue() : 0L;
+    }
+
+    @SuppressWarnings("unchecked")
     private UserInfo toUserInfo(Map<String, Object> body) {
         // ApiResponse 형태: { "data": { ...UserPublicResponse }, ... }
         Map<String, Object> data = (Map<String, Object>) body.get("data");

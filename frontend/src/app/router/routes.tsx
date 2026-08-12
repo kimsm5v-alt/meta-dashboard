@@ -1,10 +1,10 @@
-import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { MainLayout } from '@widgets/layout/MainLayout';
 import { MainLayoutV2 } from '@widgets/layout/v2/MainLayoutV2';
 import { V2Placeholder } from '@widgets/layout/v2/V2Placeholder';
 import { MinimalLayout } from '@widgets/layout/MinimalLayout';
 import { StudentLayout } from '@widgets/layout/StudentLayout';
-import { CaptureOverlay, FloatingCaptureButton } from '@widgets/screen-capture';
+import { CaptureOverlay } from '@widgets/screen-capture';
 import { PageLoading } from '@shared/ui/Loading';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { useProfileCheck } from '@shared/hooks/useProfileCheck';
@@ -13,6 +13,7 @@ import { FEATURES } from '@shared/config/features';
 // Page imports from pages layer
 import { ErrorTestPage } from '@pages/dev/ErrorTestPage';
 import { SsePocPage } from '@pages/dev/SsePocPage';
+import { HomePage } from '@pages/home/HomePage';
 import {
   LandingPage,
   LoginPage,
@@ -38,7 +39,10 @@ import {
   MyExamListPage,
   MyResultPage,
   MySelfregResultPage,
+  LessonLibraryPage,
 } from '@pages/index';
+import LessonMyPage from '@pages/lesson/LessonMyPage';
+import LessonResultPage from '@pages/lesson/LessonResultPage';
 
 // ============================================================
 // 레이아웃 래퍼
@@ -67,6 +71,7 @@ const PublicLayout = () => (
  * 보호 라우트 래퍼 - 교사용 (인증 필요 + 교사 사이드바)
  */
 const ProtectedLayout = () => {
+  const location = useLocation();
   const { isAuthenticated, isLoading, user } = useAuth();
   const { isChecking } = useProfileCheck(isAuthenticated);
 
@@ -88,8 +93,7 @@ const ProtectedLayout = () => {
   return (
     <TeacherLayout>
       <Outlet />
-      <FloatingCaptureButton />
-      <CaptureOverlay />
+      {!location.pathname.startsWith('/ai-assistant') && <CaptureOverlay />}
     </TeacherLayout>
   );
 };
@@ -216,15 +220,7 @@ export const AppRoutes = () => (
       {FEATURES.IA_V2 && (
         <>
           {/* v2 IA shell. 상세 화면은 각 후속 phase에서 교체한다. */}
-          <Route
-            path='/home'
-            element={
-              <V2Placeholder
-                title='META 대시보드'
-                description='검사·코칭·수업을 한 곳에서 확인하는 홈 화면입니다.'
-              />
-            }
-          />
+          <Route path='/home' element={<HomePage />} />
 
           <Route path='/exam/management' element={<AssessmentPage />} />
           <Route path='/exam/result' element={<TeacherDashboardPage />} />
@@ -234,9 +230,9 @@ export const AppRoutes = () => (
           <Route path='/coaching/class' element={<V2Placeholder title='학급 코칭' />} />
           <Route path='/coaching/individual' element={<V2Placeholder title='개별 코칭' />} />
 
-          <Route path='/lesson/library' element={<V2Placeholder title='수업 자료실' />} />
-          <Route path='/lesson/my' element={<V2Placeholder title='나의 자료' />} />
-          <Route path='/lesson/result' element={<V2Placeholder title='수업 결과 보기' />} />
+          <Route path='/lesson/library' element={<LessonLibraryPage />} />
+          <Route path='/lesson/my' element={<LessonMyPage />} />
+          <Route path='/lesson/result' element={<LessonResultPage />} />
 
           <Route path='/ai-assistant' element={<AIRoomPage />} />
         </>
@@ -268,6 +264,8 @@ export const AppRoutes = () => (
     {/* 개발용 — 프로덕션 빌드에서도 접근 가능하지만 링크 미노출 */}
     <Route path='/dev/errors' element={<ErrorTestPage />} />
     <Route path='/dev/sse' element={<SsePocPage />} />
+
+    {/* <Route path='/lesson/library' element={<LessonLibraryPage />} /> */}
 
     {/* Fallback */}
     <Route path='*' element={<Navigate to='/' replace />} />

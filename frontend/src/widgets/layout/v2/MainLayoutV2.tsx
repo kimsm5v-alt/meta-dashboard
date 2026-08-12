@@ -4,6 +4,9 @@ import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { buildScopeQueryString } from '@shared/scope';
+import { useStreamGuardStore } from '@shared/store/useStreamGuardStore';
+import { StreamGuardDialog } from '@shared/ui/StreamGuardDialog';
+import { FloatingAssistant } from '@widgets/floating-assistant';
 
 import { GnbHeader, GNB_HEADER_HEIGHT } from './GnbHeader';
 import { GNB_ITEMS, getActiveGnbId, getActiveSubTabId } from './gnbConfig';
@@ -12,8 +15,10 @@ import { ScopeTree } from './ScopeTree';
 
 const SCOPE_TREE_WIDTH = 210;
 
-const LayoutRoot = styled.div`
+const LayoutRoot = styled.div<{ $lockViewport: boolean }>`
   min-height: 100vh;
+  height: ${({ $lockViewport }) => ($lockViewport ? '100vh' : 'auto')};
+  overflow: ${({ $lockViewport }) => ($lockViewport ? 'hidden' : 'visible')};
   background-color: ${({ theme }) => theme.colors.gray[50]};
 `;
 
@@ -37,9 +42,12 @@ const MainContent = styled.main`
   padding: 0 40px 60px;
 `;
 
-const FullWidthContent = styled.main`
+const FullWidthContent = styled.main<{ $lockViewport: boolean }>`
   min-width: 0;
   min-height: calc(100vh - ${GNB_HEADER_HEIGHT}px);
+  height: ${({ $lockViewport }) =>
+    $lockViewport ? `calc(100vh - ${GNB_HEADER_HEIGHT}px)` : 'auto'};
+  overflow: ${({ $lockViewport }) => ($lockViewport ? 'hidden' : 'visible')};
   margin-top: ${GNB_HEADER_HEIGHT}px;
   background-color: ${({ theme }) => theme.colors.background.paper};
 `;
@@ -78,22 +86,25 @@ const MainLayoutV2Content: React.FC<MainLayoutV2Props> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { scope } = useLayoutContext();
+  const guardedNavigate = useStreamGuardStore((s) => s.guardedNavigate);
 
   const isFullWidth =
     location.pathname === '/home' || location.pathname.startsWith('/ai-assistant');
+  const isAiAssistant = location.pathname.startsWith('/ai-assistant');
   const activeGnbId = getActiveGnbId(location.pathname);
   const activeGnb = GNB_ITEMS.find((item) => item.id === activeGnbId);
   const activeSubTabId = activeGnb ? getActiveSubTabId(activeGnb, location.pathname) : null;
 
   const handleSubTabClick = (path: string) => {
-    navigate(`${path}${buildScopeQueryString(scope)}`);
+    guardedNavigate(() => navigate(`${path}${buildScopeQueryString(scope)}`));
   };
 
   return (
-    <LayoutRoot>
+    <LayoutRoot $lockViewport={isAiAssistant}>
       <GnbHeader />
+      <StreamGuardDialog />
       {isFullWidth ? (
-        <FullWidthContent>{children}</FullWidthContent>
+        <FullWidthContent $lockViewport={isAiAssistant}>{children}</FullWidthContent>
       ) : (
         <>
           <ScopeSidebar aria-label='조회 범위 선택'>
@@ -121,6 +132,7 @@ const MainLayoutV2Content: React.FC<MainLayoutV2Props> = ({ children }) => {
           </MainContent>
         </>
       )}
+      {!location.pathname.startsWith('/ai-assistant') && <FloatingAssistant />}
     </LayoutRoot>
   );
 };

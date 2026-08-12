@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import styled from '@emotion/styled';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { captureRegion } from '@shared/lib/captureRegion';
 import { useCaptureStore } from '@shared/store/useCaptureStore';
@@ -54,12 +53,9 @@ const toRect = (start: { x: number; y: number }, current: { x: number; y: number
   h: Math.abs(current.y - start.y),
 });
 
-export const CaptureOverlay = () => {
-  const overlayOpen = useCaptureStore((s) => s.overlayOpen);
+const OverlayContent = () => {
   const closeOverlay = useCaptureStore((s) => s.closeOverlay);
   const setPendingImage = useCaptureStore((s) => s.setPendingImage);
-  const navigate = useNavigate();
-  const location = useLocation();
 
   const [start, setStart] = useState<{ x: number; y: number } | null>(null);
   const [rect, setRect] = useState<DragRect | null>(null);
@@ -76,7 +72,6 @@ export const CaptureOverlay = () => {
   };
 
   useEffect(() => {
-    if (!overlayOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         invalidateCurrentCapture();
@@ -85,21 +80,10 @@ export const CaptureOverlay = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [overlayOpen, closeOverlay]);
-
-  useEffect(() => {
-    if (!overlayOpen) {
-      invalidateCurrentCapture();
-      setStart(null);
-      setRect(null);
-      setCapturing(false);
-    }
-  }, [overlayOpen]);
+  }, [closeOverlay]);
 
   // 언마운트 시(로그아웃 등으로 ProtectedLayout 자체가 사라지는 경우) 진행 중이던 캡처를 무효화
   useEffect(() => () => invalidateCurrentCapture(), []);
-
-  if (!overlayOpen) return null;
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (capturing) return;
@@ -132,13 +116,7 @@ export const CaptureOverlay = () => {
     try {
       const result = await captureRegion(rect);
       if (captureTokenRef.current !== myToken) return; // 그 사이 취소되었거나 새 시도로 대체됨
-      setPendingImage(result.dataUri, { w: result.w, h: result.h }, {
-        // AI Room 밖에서 캡처하면 새 대화방에 붙이고, Room 안에서는 현재 대화에 유지
-        openInNewConversation: !location.pathname.startsWith('/ai-room'),
-      });
-      if (!location.pathname.startsWith('/ai-room')) {
-        navigate('/ai-room');
-      }
+      setPendingImage(result.dataUri, { w: result.w, h: result.h });
     } catch (error) {
       if (captureTokenRef.current !== myToken) return;
       console.error('화면 캡처 실패:', error);
@@ -161,4 +139,11 @@ export const CaptureOverlay = () => {
       {capturing && <Hint>캡처 중입니다...</Hint>}
     </Backdrop>
   );
+};
+
+export const CaptureOverlay = () => {
+  const overlayOpen = useCaptureStore((s) => s.overlayOpen);
+
+  if (!overlayOpen) return null;
+  return <OverlayContent />;
 };

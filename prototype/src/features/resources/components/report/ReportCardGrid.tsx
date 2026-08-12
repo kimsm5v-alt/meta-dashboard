@@ -1,11 +1,18 @@
 /**
  * 리포트 카드 그리드 (목업 renderReportList). 부록A #6 스코프 필터 + 상태 필터.
+ * highlightStudent 가 있으면 그 학생이 미제출인 활동 카드에 테두리를 준다
+ * (요약 패널에서 학생 이름을 눌렀을 때 — 필터가 아니라 강조라 상태 필터와 충돌하지 않는다).
  */
 import { scopedReports } from '../../utils/format';
+import { studentsOf } from '../../utils/aggregation';
 import { useResources } from '../../store/ResourcesContext';
 import { ReportCard } from './ReportCard';
+import type { Report } from '../../types';
 
-export const ReportCardGrid = () => {
+const isPendingFor = (r: Report, name: string) =>
+  studentsOf(r).some((s) => s.studentName === name && s.statusCd === 2);
+
+export const ReportCardGrid = ({ highlightStudent }: { highlightStudent?: string | null }) => {
   const { scope, rsFilter } = useResources();
   let rs = scopedReports(scope); // #6 스코프 필터
   if (rsFilter !== '전체') rs = rs.filter((r) => r.rstatus === rsFilter);
@@ -20,9 +27,9 @@ export const ReportCardGrid = () => {
   }
 
   return (
-    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {rs.map((r) => (
-        <ReportCard key={r.id} report={r} />
+        <ReportCard key={r.id} report={r} highlight={!!highlightStudent && isPendingFor(r, highlightStudent)} />
       ))}
     </div>
   );

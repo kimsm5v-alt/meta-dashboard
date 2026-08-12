@@ -22,12 +22,19 @@ export const SlideStrip = ({
         <button
           key={n}
           onClick={() => onSelect(n)}
-          className={`flex items-center gap-2 rounded-lg border px-2.5 py-3 text-left text-xs font-semibold transition-colors ${
+          className={`flex flex-col gap-1.5 rounded-lg border p-1.5 text-left text-xs font-semibold transition-colors ${
             on ? 'border-primary-500 bg-white text-primary-600 shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
           }`}
         >
-          <span className={`flex h-5 w-5 flex-none items-center justify-center rounded text-[11px] ${on ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-500'}`}>{n}</span>
-          {s.type === 'q' ? '문항' : '빈 슬라이드'}
+          {s.type === 'page' && s.src && (
+            <div className="aspect-[16/9] w-full overflow-hidden rounded bg-gray-50">
+              <img src={s.src} alt="" className="h-full w-full object-cover" />
+            </div>
+          )}
+          <div className="flex items-center gap-2 px-1 pb-0.5">
+            <span className={`flex h-5 w-5 flex-none items-center justify-center rounded text-[11px] ${on ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-500'}`}>{n}</span>
+            {s.type === 'page' ? '페이지' : s.type === 'q' ? '문항' : '빈 슬라이드'}
+          </div>
         </button>
       );
     })}

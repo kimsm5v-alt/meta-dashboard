@@ -39,12 +39,6 @@ export function unsubmittedCount(r: Report): number {
   return studentsOf(r).filter((s) => s.statusCd === 2).length;
 }
 
-/** 제출률(%) = 참여/배정 × 100 */
-export function submitRate(r: Report): number {
-  const a = studentsOf(r).length;
-  return a ? Math.round((participantCount(r) / a) * 100) : 0;
-}
-
 /** 정답 있는 문항(채점 가능) */
 export function gradableArticles(r: Report): Article[] {
   return articlesOf(r).filter((a) => a.nature === '문항' && a.correctAnswer != null);
@@ -66,46 +60,22 @@ export function avgCorrectRate(r: Report): number | null {
   return Math.round((correct / rs.length) * 100);
 }
 
-/** 평균 활동 시간(초) — duration 있는 학생 평균 */
-export function avgDurationSec(r: Report): number {
-  const subs = studentsOf(r).filter((s) => s.duration != null);
-  if (!subs.length) return 0;
-  return Math.round(subs.reduce((a, s) => a + (s.duration ?? 0), 0) / subs.length);
+/**
+ * 교사 수동 채점 대상 응답 — 제출된 '활동'(gradingType=2).
+ * 개념은 조회 여부만 보므로 채점 대상에서 제외한다.
+ */
+export function manualGradingTargets(r: Report, articleId?: string): ResponseData[] {
+  const manual = new Set(
+    articlesOf(r)
+      .filter((a) => a.nature === '활동' && a.gradingType === 2)
+      .map((a) => a.id),
+  );
+  return responsesOf(r).filter((x) => manual.has(x.articleId) && (!articleId || x.articleId === articleId));
 }
 
 /** 아티클 단위 응답 인원 */
 export function articleResponded(r: Report, articleId: string): number {
   return responsesOf(r).filter((x) => x.articleId === articleId).length;
-}
-
-/**
- * 선택형(choice) 보기별 분포.
- * Article 에 보기 목록이 없어 보기 4개(1~4) 고정 가정 — submitAnswer 번호로 집계.
- */
-export function choiceDist(r: Report, article: Article): { labels: string[]; counts: number[]; answered: number; correctIdx: number } {
-  const labels = ['1', '2', '3', '4'];
-  const counts = labels.map(() => 0);
-  let answered = 0;
-  responsesOf(r)
-    .filter((x) => x.articleId === article.id)
-    .forEach((x) => {
-      const i = labels.indexOf(x.submitAnswer.trim());
-      if (i >= 0) {
-        counts[i]++;
-        answered++;
-      }
-    });
-  const correctIdx = article.correctAnswer ? labels.indexOf(article.correctAnswer) : -1;
-  return { labels, counts, answered, correctIdx };
-}
-
-/** 아티클 단위 정답률(%) — 문항만, 없으면 null */
-export function articleAccuracy(r: Report, articleId: string): number | null {
-  const art = articlesOf(r).find((a) => a.id === articleId);
-  if (!art || art.nature !== '문항' || art.correctAnswer == null) return null;
-  const rs = responsesOf(r).filter((x) => x.articleId === articleId);
-  if (!rs.length) return 0;
-  return Math.round((rs.filter((x) => x.errata === 1).length / rs.length) * 100);
 }
 
 /** 한 학생의 리포트 요약 (학생별 보기) */

@@ -101,6 +101,10 @@
 				AND b1.stdt_id = gm.stdt_id
 
 		WHERE a1.cla_id = #{claId}
+		<!-- paperIdx 미전송(없음/공백/0) → 1·2 모두 조회, 전송 시 해당 검사 유형만 조회 -->
+		<if test="paperIdx != null and paperIdx != '' and paperIdx != '0'">
+			AND a1.paper_idx = #{paperIdx}
+		</if>
 		GROUP BY a1.id
 	</select>
 
@@ -168,6 +172,10 @@
 				ON gi.group_id = gm.group_id
 				AND b1.stdt_id = gm.stdt_id
 		WHERE gi.host_user_no = #{userNo}
+		<!-- paperIdx 미전송(없음/공백/0) → 1·2 모두 조회, 전송 시 해당 검사 유형만 조회 -->
+		<if test="paperIdx != null and paperIdx != '' and paperIdx != '0'">
+			AND a1.paper_idx = #{paperIdx}
+		</if>
 		GROUP BY a1.id
 		ORDER BY a1.cla_id, a1.paper_idx, a1.ord_no
 	</select>

@@ -8,4 +8,5 @@ export { ReportSummary } from './ReportSummary';
 export { RdTabBar } from './RdTabBar';
 export { PageTab } from './PageTab';
 export { StudentTab } from './StudentTab';
+export { CaptureOverlay } from './CaptureOverlay';
 export { RsBadge, ClassBadge, NatureBadge, ErrataBadge, StatusBadge } from './badges';

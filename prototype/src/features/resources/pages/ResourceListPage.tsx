@@ -2,6 +2,7 @@
  * 수업 (수업 자료실) — /lesson 진입점.
  * - GNB 2depth 3분할: 수업 자료실 / 나의 자료 / 수업 결과보기
  * - 스코프(전체/반)는 LayoutV2 selectedClass 에서 파생 (ResourcesProvider)
+ * - 반 스코프: 반 맞춤 큐레이팅(상단) + 전체 자료실(하단)을 함께 노출 / 전체 스코프: 자료실 단독
  * - 저작툴·배포·실시간 수업은 풀스크린 오버레이로 이 위에 뜸 (Phase 6·7)
  *
  * TODO(GNB 2depth): 아래 3탭은 공통 app/ GNB 하위메뉴로 등록 예정.
@@ -17,7 +18,7 @@
 import { ResourcesProvider, useResources, type LessonTab } from '../store/ResourcesContext';
 import { LibraryView, ClassCurationView } from '../components/library';
 import { MyDataView } from '../components/my-lessons';
-import { ResultsView } from '../components/report';
+import { ResultsView, CaptureOverlay } from '../components/report';
 import { EditorOverlay } from '../components/editor';
 import { DeployOverlay } from '../components/deploy';
 import { ClassLiveOverlay } from '../components/live';
@@ -64,13 +65,14 @@ const Toast = () => {
   );
 };
 
-/** 풀스크린 오버레이 마운트 (저작툴 · 배포 · 실시간 수업) */
+/** 풀스크린 오버레이 마운트 (저작툴 · 배포 · 실시간 수업 · 제출 캡처) */
 const OverlayHost = () => {
   const { overlay } = useResources();
   if (!overlay) return null;
   if (overlay.kind === 'editor') return <EditorOverlay />;
   if (overlay.kind === 'deploy') return <DeployOverlay />;
   if (overlay.kind === 'live') return <ClassLiveOverlay />;
+  if (overlay.kind === 'capture') return <CaptureOverlay />;
   return null;
 };
 
@@ -83,7 +85,12 @@ const ResourceListInner = () => {
     <div>
       <LessonTabs />
       {activeTab === 'library' ? (
-        isAll ? <LibraryView /> : <ClassCurationView />
+        // 반 스코프: 큐레이팅(상단) + 전체 자료실(하단) 동시 노출.
+        // LibraryView 를 항상 같은 자식 슬롯에 두어 스코프 전환 시 리마운트(필터·정렬 초기화)를 막는다.
+        <>
+          {!isAll && <ClassCurationView />}
+          <LibraryView />
+        </>
       ) : activeTab === 'myData' ? (
         <MyDataView />
       ) : (
