@@ -336,6 +336,8 @@ interface StudentDashboardContentProps {
   testId: string;
   hasJwtToken: boolean;
   dgnssIds: { round1?: number; round2?: number };
+  onBackToClass?: () => void;
+  onStudentSelect?: (studentId: string) => void;
 }
 
 const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
@@ -347,6 +349,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   testId,
   hasJwtToken,
   dgnssIds,
+  onBackToClass,
+  onStudentSelect,
 }) => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
@@ -438,6 +442,20 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   const currentIdx = classStudents.findIndex((s) => s.id === studentId);
   const prev = currentIdx > 0 ? classStudents[currentIdx - 1] : null;
   const next = currentIdx < classStudents.length - 1 ? classStudents[currentIdx + 1] : null;
+  const handleBackToClass = () => {
+    if (onBackToClass) {
+      onBackToClass();
+      return;
+    }
+    navigate(`/dashboard/${testId}/class/${classId}`);
+  };
+  const handleStudentSelect = (nextStudentId: string) => {
+    if (onStudentSelect) {
+      onStudentSelect(nextStudentId);
+      return;
+    }
+    navigate(`/dashboard/${testId}/class/${classId}/student/${nextStudentId}`);
+  };
 
   // current가 없으면 검사 결과 없음 표시
   if (!current) {
@@ -472,7 +490,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
         {/* Header */}
         <HeaderSection>
           <HeaderLeft>
-            <BackButton onClick={() => navigate(`/dashboard/${testId}/class/${classId}`)}>
+            <BackButton onClick={handleBackToClass}>
               <BackIcon />
             </BackButton>
             <HeaderTitle>
@@ -511,9 +529,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
             {/* 학생 네비게이션 — 프로토타입: ‹ 이전 / X/N / 다음 › 텍스트 버튼 */}
             <NavigationSection>
               <NavButton
-                onClick={() =>
-                  prev && navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`)
-                }
+                onClick={() => prev && handleStudentSelect(prev.id)}
                 disabled={!prev}
                 style={{
                   display: 'flex',
@@ -534,9 +550,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 {currentIdx + 1} / {classStudents.length}
               </NavCounter>
               <NavButton
-                onClick={() =>
-                  next && navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`)
-                }
+                onClick={() => next && handleStudentSelect(next.id)}
                 disabled={!next}
                 style={{
                   display: 'flex',
@@ -870,12 +884,29 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 // ============================================================
 // 메인 컴포넌트: 로딩/에러/null 체크 후 StudentDashboardContent 렌더링
 // ============================================================
-export const StudentDashboardPage = () => {
+interface StudentDashboardPageProps {
+  classIdOverride?: string;
+  studentIdOverride?: string;
+  testIdOverride?: string;
+  onBackToClass?: () => void;
+  onStudentSelect?: (studentId: string) => void;
+}
+
+export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
+  classIdOverride,
+  studentIdOverride,
+  testIdOverride,
+  onBackToClass,
+  onStudentSelect,
+}) => {
   const {
-    classId,
-    studentId,
-    testId = 'comprehensive',
+    classId: routeClassId,
+    studentId: routeStudentId,
+    testId: routeTestId = 'comprehensive',
   } = useParams<{ classId: string; studentId: string; testId: string }>();
+  const classId = classIdOverride ?? routeClassId;
+  const studentId = studentIdOverride ?? routeStudentId;
+  const testId = testIdOverride ?? routeTestId;
   const { hasJwtToken } = useApiConfig();
 
   // API 모드: API에서 학생 데이터 + 학급 학생 목록 로드
@@ -928,6 +959,8 @@ export const StudentDashboardPage = () => {
       testId={testId}
       hasJwtToken={hasJwtToken}
       dgnssIds={dgnssIds}
+      onBackToClass={onBackToClass}
+      onStudentSelect={onStudentSelect}
     />
   );
 };

@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { ChevronRight } from 'lucide-react';
 import { useTeacherClasses, useApiConfig } from '@features/api';
+import { useAuth } from '@features/auth';
+import { useGroupMembersQuery } from '@features/groups';
 import { SelfregComparisonSection } from '@features/teacher-dashboard/ui';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_TEACHER_DASHBOARD, API_UPLOAD_LATEST } from '@shared/data/apiDefinitions';
@@ -15,6 +17,9 @@ import {
   ComparisonSection,
   LPAComparisonSection,
 } from '@widgets/teacher-dashboard';
+import { ClassDashboardV2Widget } from '@widgets/class-dashboard';
+import { useOptionalLayoutContext } from '@widgets/layout/v2/LayoutContext';
+import { StudentDashboardPage } from '../student-dashboard/StudentDashboardPage';
 
 const PageContainer = styled.div`
   display: flex;
@@ -67,6 +72,15 @@ const BreadcrumbText = styled.span`
 export const TeacherDashboardPage = () => {
   const { hasJwtToken } = useApiConfig();
   const { classes, isLoading, error, examStatus, user } = useTeacherClasses();
+  const { user: authUser } = useAuth();
+  const layoutContext = useOptionalLayoutContext();
+  const scope = layoutContext?.scope;
+  const selectClass = layoutContext?.selectClass;
+  const selectStudent = layoutContext?.selectStudent;
+  const { data: members = [] } = useGroupMembersQuery(
+    scope?.level === 'class' || scope?.level === 'student' ? scope.classId : null,
+    authUser?.id,
+  );
   const location = useLocation();
   const navigate = useNavigate();
   const testId: 'comprehensive' | 'selfreg' = location.pathname.includes('/selfreg')
@@ -88,6 +102,39 @@ export const TeacherDashboardPage = () => {
   if (hasJwtToken && examStatus === 'in-progress') return <InProgressState />;
   if (hasJwtToken && examStatus === 'no-exams') return <NoExamsState />;
   if (classes.length === 0) return <NoClassesState />;
+
+  if (scope?.level === 'class' && scope.classId) {
+    const classId = scope.classId;
+    const memberIdByStudentId = new Map(members.map((member) => [member.stdtId, member.id]));
+    return (
+      <ClassDashboardV2Widget
+        classIdOverride={classId}
+        onStudentSelect={(studentId) => {
+          const memberId = memberIdByStudentId.get(studentId);
+          if (memberId) selectStudent?.(classId, memberId);
+        }}
+      />
+    );
+  }
+
+  if (scope?.level === 'student' && scope.classId && scope.studentId) {
+    const classId = scope.classId;
+    const studentId = members.find((member) => member.id === scope.studentId)?.stdtId;
+
+    if (studentId) {
+      return (
+        <StudentDashboardPage
+          classIdOverride={classId}
+          studentIdOverride={studentId}
+          onBackToClass={() => selectClass?.(classId)}
+          onStudentSelect={(nextStudentId) => {
+            const memberId = members.find((member) => member.stdtId === nextStudentId)?.id;
+            if (memberId) selectStudent?.(classId, memberId);
+          }}
+        />
+      );
+    }
+  }
 
   const completionRate = Math.round((totalStats.assessedStudents / totalStats.totalStudents) * 100);
   const handleGoToClass = (classId: string) => navigate(`/dashboard/${testId}/class/${classId}`);

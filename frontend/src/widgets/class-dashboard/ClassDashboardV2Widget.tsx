@@ -1,16 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft,
-  ChevronRight,
-  Search,
-  Info,
-  BookOpen,
-  X,
-  ShieldAlert,
-  AlertTriangle,
-  Download,
-} from 'lucide-react';
+import { Search, Info, BookOpen, X, ShieldAlert, AlertTriangle, Download } from 'lucide-react';
 import styled from '@emotion/styled';
 import { Card } from '@shared/components';
 import { useData } from '@shared/contexts/DataContext';
@@ -139,51 +129,9 @@ const HeaderRow = styled.div`
   gap: 0.75rem;
 `;
 
-const BackBtn = styled.button`
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: ${({ theme }) => theme.colors.gray[500]};
-  margin-top: 0.25rem;
-  &:hover {
-    background: ${({ theme }) => theme.colors.gray[100]};
-  }
-`;
-
 const HeaderContent = styled.div`
   flex: 1;
   min-width: 0;
-`;
-
-const Breadcrumb = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-bottom: 0.375rem;
-`;
-
-const BreadcrumbBadge = styled.span<{ $color: string }>`
-  display: inline-flex;
-  align-items: center;
-  padding: 0.125rem 0.625rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #fff;
-  background: ${({ $color }) => $color};
-`;
-
-const BreadcrumbText = styled.span<{ $active?: boolean }>`
-  font-size: 0.8125rem;
-  color: ${({ $active, theme }) => ($active ? '#111827' : theme.colors.gray[500])};
-  font-weight: ${({ $active }) => ($active ? 500 : 400)};
 `;
 
 const PageTitle = styled.h1`
@@ -260,32 +208,6 @@ const KpiSub = styled.p`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   color: ${({ theme }) => theme.colors.gray[400]};
   margin-top: 0.25rem;
-`;
-
-// Pill Tabs
-const TabContainer = styled.div`
-  display: flex;
-  gap: 0.25rem;
-  background: ${({ theme }) => theme.colors.gray[100]};
-  border-radius: 999px;
-  padding: 0.25rem;
-  width: fit-content;
-`;
-
-const TabBtn = styled.button<{ $active: boolean }>`
-  padding: 0.5rem 1.25rem;
-  border-radius: 999px;
-  border: none;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  cursor: pointer;
-  transition: all 0.15s;
-  background: ${({ $active, theme }) => ($active ? theme.colors.background.paper : 'transparent')};
-  color: ${({ $active, theme }) => ($active ? theme.colors.gray[900] : theme.colors.gray[500])};
-  box-shadow: ${({ $active, theme }) => ($active ? theme.shadows.sm : 'none')};
-  &:hover {
-    color: ${({ theme }) => theme.colors.gray[900]};
-  }
 `;
 
 // Round Toggle
@@ -1542,6 +1464,9 @@ interface CoreSummaryTabProps {
   testId: TestId;
   selfregRound1?: number[] | null;
   selfregRound2?: number[] | null;
+  showActivities?: boolean;
+  showOverview?: boolean;
+  showDistribution?: boolean;
 }
 
 const CoreSummaryTab = ({
@@ -1549,6 +1474,9 @@ const CoreSummaryTab = ({
   testId,
   selfregRound1,
   selfregRound2,
+  showActivities = true,
+  showOverview = true,
+  showDistribution = true,
 }: CoreSummaryTabProps) => {
   const [summaryRound, setSummaryRound] = useState<1 | 2>(1);
   const handleActivityDownload = () => {
@@ -1712,8 +1640,8 @@ const CoreSummaryTab = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* LPA 유형 분포 — comprehensive + 고등 제외 */}
-      {testId === 'comprehensive' && classData.schoolLevel !== '고등' && (
-        <Card>
+      {showDistribution && testId === 'comprehensive' && classData.schoolLevel !== '고등' && (
+        <Card style={{ order: 1 }}>
           <div style={{ marginBottom: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <SectionTitle>검사별 유형 분포</SectionTitle>
@@ -1741,55 +1669,60 @@ const CoreSummaryTab = ({
       )}
 
       {/* 종합 결과 요약 — CategoryBarChart */}
-      <Card>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            marginBottom: '1rem',
-            gap: '1rem',
-          }}
-        >
-          <div>
-            <SectionTitle>종합 결과 요약</SectionTitle>
-            <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.25rem' }}>
-              {testId === 'selfreg' ? '6개' : '11개'} 중분류 하위요인의 반 평균 T점수입니다. 자세한
-              분석은 <strong>학습 상세</strong> 탭에서 볼 수 있습니다.
-            </p>
+      {showOverview && (
+        <Card style={{ order: 0 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: '1rem',
+              gap: '1rem',
+            }}
+          >
+            <div>
+              <SectionTitle>종합 결과 요약</SectionTitle>
+              <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.25rem' }}>
+                {testId === 'selfreg' ? '6개' : '11개'} 중분류 하위요인의 반 평균 T점수입니다.
+              </p>
+            </div>
+            <RoundToggle>
+              <RoundBtn $active={summaryRound === 1} onClick={() => setSummaryRound(1)}>
+                1차 검사
+              </RoundBtn>
+              <RoundBtn
+                $active={summaryRound === 2}
+                $disabled={!hasRound2}
+                onClick={() => hasRound2 && setSummaryRound(2)}
+              >
+                2차 검사{!hasRound2 && ' 예정'}
+              </RoundBtn>
+            </RoundToggle>
           </div>
-          <RoundToggle>
-            <RoundBtn $active={summaryRound === 1} onClick={() => setSummaryRound(1)}>
-              1차 검사
-            </RoundBtn>
-            <RoundBtn
-              $active={summaryRound === 2}
-              $disabled={!hasRound2}
-              onClick={() => hasRound2 && setSummaryRound(2)}
-            >
-              2차 검사{!hasRound2 && ' 예정'}
-            </RoundBtn>
-          </RoundToggle>
-        </div>
-        <CategoryBarChart scores={categoryScores} testId={testId} />
-      </Card>
+          <CategoryBarChart scores={categoryScores} testId={testId} />
+        </Card>
+      )}
 
       {/* 추천 학급 운영 활동 */}
-      <Card>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-          <BookOpen size={18} color='#4F46E5' />
-          <SectionTitle>추천 학급 운영 활동</SectionTitle>
-        </div>
-        <ActivitiesGrid>
-          {RECOMMENDED_ACTIVITIES.map((act) => (
-            <ActivityCard key={act.id}>
-              <ActivityTitle>{act.title}</ActivityTitle>
-              <ActivityDesc>{act.description}</ActivityDesc>
-              <ActivityBtn onClick={handleActivityDownload}>다운로드</ActivityBtn>
-            </ActivityCard>
-          ))}
-        </ActivitiesGrid>
-      </Card>
+      {showActivities && (
+        <Card>
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}
+          >
+            <BookOpen size={18} color='#4F46E5' />
+            <SectionTitle>추천 학급 운영 활동</SectionTitle>
+          </div>
+          <ActivitiesGrid>
+            {RECOMMENDED_ACTIVITIES.map((act) => (
+              <ActivityCard key={act.id}>
+                <ActivityTitle>{act.title}</ActivityTitle>
+                <ActivityDesc>{act.description}</ActivityDesc>
+                <ActivityBtn onClick={handleActivityDownload}>다운로드</ActivityBtn>
+              </ActivityCard>
+            ))}
+          </ActivitiesGrid>
+        </Card>
+      )}
     </div>
   );
 };
@@ -1811,6 +1744,7 @@ interface LearningDetailTabProps {
   testId: TestId;
   selfregRound1?: number[] | null;
   selfregRound2?: number[] | null;
+  top3Only?: boolean;
 }
 
 const ViewToggle = styled.div`
@@ -1855,6 +1789,7 @@ const LearningDetailTab = ({
   testId,
   selfregRound1,
   selfregRound2,
+  top3Only = false,
 }: LearningDetailTabProps) => {
   const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
   const [viewMode, setViewMode] = useState<'detail' | 'summary'>('detail');
@@ -2047,6 +1982,72 @@ const LearningDetailTab = ({
               : '매우낮음';
     return { label, isRisk };
   };
+
+  if (top3Only) {
+    return (
+      <SectionCard>
+        <SectionHeader>
+          <SectionTitle>우리 반 강점 / 보완점 Top 3</SectionTitle>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <RoundPill $active={selectedRound === 1} onClick={() => setSelectedRound(1)}>
+              1차 검사
+            </RoundPill>
+            <RoundPill
+              $active={selectedRound === 2}
+              disabled={!hasRound2}
+              onClick={() => hasRound2 && setSelectedRound(2)}
+            >
+              2차 검사{!hasRound2 && ' 예정'}
+            </RoundPill>
+          </div>
+        </SectionHeader>
+        {profile && (
+          <SectionBody>
+            <Top3Grid>
+              <div>
+                <Top3Header $variant='strength'>
+                  <Top3Icon $variant='strength'>✓</Top3Icon>
+                  주요 강점
+                </Top3Header>
+                <Top3Cards>
+                  {profile.strengths.slice(0, 3).map((item) => (
+                    <Top3Card key={item.category} $variant='strength'>
+                      <Top3Tag $color={DOMAIN_COLORS[item.parentCategory] || '#059669'}>
+                        #{item.parentCategory.replace(/\s/g, '')}
+                      </Top3Tag>
+                      <Top3Name>{item.category}</Top3Name>
+                      <Top3Desc>
+                        {item.categoryScript || '학년 평균을 상회하는 강점 영역입니다'}
+                      </Top3Desc>
+                    </Top3Card>
+                  ))}
+                </Top3Cards>
+              </div>
+              <div>
+                <Top3Header $variant='weakness'>
+                  <Top3Icon $variant='weakness'>!</Top3Icon>
+                  주요 보완점
+                </Top3Header>
+                <Top3Cards>
+                  {profile.weaknesses.slice(0, 3).map((item) => (
+                    <Top3Card key={item.category} $variant='weakness'>
+                      <Top3Tag $color={DOMAIN_COLORS[item.parentCategory] || '#EF4444'}>
+                        #{item.parentCategory.replace(/\s/g, '')}
+                      </Top3Tag>
+                      <Top3Name>{item.category}</Top3Name>
+                      <Top3Desc>
+                        {item.categoryScript || '학년 평균보다 낮아 보완이 필요한 영역입니다'}
+                      </Top3Desc>
+                    </Top3Card>
+                  ))}
+                </Top3Cards>
+              </div>
+            </Top3Grid>
+          </SectionBody>
+        )}
+      </SectionCard>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -2616,11 +2617,20 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
 // Main Widget
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const ClassDashboardV2Widget: React.FC = () => {
-  const { classId, testId: rawTestId = 'comprehensive' } = useParams<{
+interface ClassDashboardV2WidgetProps {
+  classIdOverride?: string;
+  onStudentSelect?: (studentId: string) => void;
+}
+
+export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
+  classIdOverride,
+  onStudentSelect,
+}) => {
+  const { classId: routeClassId, testId: rawTestId = 'comprehensive' } = useParams<{
     classId: string;
     testId: string;
   }>();
+  const classId = classIdOverride ?? routeClassId;
   const testId: TestId = rawTestId === 'selfreg' ? 'selfreg' : 'comprehensive';
   const navigate = useNavigate();
   const { getClassById } = useData();
@@ -2640,7 +2650,6 @@ export const ClassDashboardV2Widget: React.FC = () => {
     isLoading: selfregLoading,
   } = useSelfregClassAnalysis(testId === 'selfreg' ? classId : undefined);
 
-  const [activeTab, setActiveTab] = useState<'summary' | 'detail' | 'students'>('summary');
   const { user } = useAuth();
   const [downloadError, setDownloadError] = useState(false);
   const [allPdfProgress, setAllPdfProgress] = useState<{ current: number; total: number } | null>(
@@ -2952,201 +2961,107 @@ export const ClassDashboardV2Widget: React.FC = () => {
   const completionRate =
     totalStudents > 0 ? Math.round((assessedStudents / totalStudents) * 100) : 0;
   const needAttentionCount = classData.stats?.needAttentionCount ?? 0;
+  const reliabilityWarningCount = classData.students.filter((student) =>
+    student.assessments.some((assessment) => assessment.reliabilityWarnings.length > 0),
+  ).length;
+  const completedRound = classData.stats?.round2Completed ? 2 : 1;
 
-  let kpiAvgT = 0;
-  let kpiCard2Label = '';
-  let kpiCard2Value = '';
-  let kpiCard2Sub = '';
-
-  if (testId === 'selfreg') {
-    const activeArr = selfregRound1;
-    if (activeArr && activeArr.length > 0) {
-      kpiAvgT = Math.round(activeArr.reduce((a, b) => a + b, 0) / activeArr.length);
-    }
-    // Best subcategory
-    const subAvgs: { name: string; avg: number }[] = [];
-    if (activeArr) {
-      SELFREG_DOMAIN_STRUCTURE.forEach((domain) => {
-        domain.subCategories.forEach((subCat) => {
-          const vals = subCat.factors.map((f) => {
-            const idx = SELFREG_FACTOR_DEFINITIONS.findIndex((fd) => fd.name === f.name);
-            return activeArr[idx] ?? 50;
-          });
-          subAvgs.push({
-            name: subCat.name,
-            avg: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length),
-          });
-        });
-      });
-    }
-    const top = subAvgs.sort((a, b) => b.avg - a.avg)[0];
-    kpiCard2Label = '대표 강점';
-    kpiCard2Value = top?.name ?? '-';
-    kpiCard2Sub = top ? `T${top.avg}` : '-';
-  } else {
-    // Comprehensive
-    const assessed = classData.students.filter((s) => s.assessments.some((a) => a.round === 1));
-    if (assessed.length > 0) {
-      let sum = 0;
-      let count = 0;
-      assessed.forEach((s) => {
-        const a = s.assessments.find((a) => a.round === 1);
-        if (a) {
-          sum += a.tScores.reduce((x, y) => x + y, 0) / a.tScores.length;
-          count++;
-        }
-      });
-      kpiAvgT = Math.round(sum / count);
-    }
-    if (classData.schoolLevel === '고등') {
-      // 고등: LPA 유형 없음 → 대표 강점(하위요인 평균 최고값)으로 대체
-      const subAvgs: { name: string; avg: number }[] = [];
-      Object.entries(SUB_CATEGORY_FACTORS).forEach(([subCat, indices]) => {
-        const vals: number[] = [];
-        assessed.forEach((s) => {
-          const a = s.assessments.find((a) => a.round === 1);
-          if (a)
-            indices.forEach((i) => {
-              if (a.tScores[i] !== undefined) vals.push(a.tScores[i]);
-            });
-        });
-        if (vals.length > 0)
-          subAvgs.push({
-            name: subCat,
-            avg: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length),
-          });
-      });
-      const top = subAvgs.sort((a, b) => b.avg - a.avg)[0];
-      kpiCard2Label = '대표 강점';
-      kpiCard2Value = top?.name ?? '-';
-      kpiCard2Sub = top ? `T${top.avg}` : '-';
-    } else {
-      // Dominant LPA type
-      const dist = classData.stats?.typeDistribution ?? {};
-      const dominantType = Object.entries(dist).sort((a, b) => b[1].count - a[1].count)[0];
-      kpiCard2Label = '우세 유형';
-      kpiCard2Value = dominantType?.[0] === '미지원' ? '없음' : (dominantType?.[0] ?? '-');
-      kpiCard2Sub =
-        dominantType && dominantType[0] !== '미지원' ? `${dominantType[1].percentage}%` : '-';
-    }
-  }
-
-  const badgeColor = testId === 'selfreg' ? '#009f88' : '#4F46E5';
-  const badgeLabel = testId === 'selfreg' ? '자기조절검사' : '학습종합검사';
   const classTitle = `${classData.grade}학년 ${classData.classNumber}반`;
 
   return (
     <PageContainer>
       {/* Header */}
-      <div>
-        <HeaderRow>
-          <BackBtn onClick={() => navigate(`/dashboard/${testId}`)}>
-            <ArrowLeft size={18} />
-          </BackBtn>
-          <HeaderContent>
-            <Breadcrumb>
-              <BreadcrumbBadge $color={badgeColor}>{badgeLabel}</BreadcrumbBadge>
-              <ChevronRight size={13} color='#9CA3AF' />
-              <BreadcrumbText>결과보기</BreadcrumbText>
-              <ChevronRight size={13} color='#9CA3AF' />
-              <BreadcrumbText $active>{classTitle} 검사 분석</BreadcrumbText>
-            </Breadcrumb>
-            <PageTitle>{classTitle} 검사 분석</PageTitle>
-            <PageSubtitle>
-              {classData.schoolLevel} · {classTitle} · 학생 {totalStudents}명
-            </PageSubtitle>
-          </HeaderContent>
-          {hasJwtToken && (testId === 'comprehensive' || !!selfregDgnssIds.round1) && (
-            <HeaderActions>
-              {downloadError && (
-                <span style={{ fontSize: '0.75rem', color: '#EF4444' }}>다운로드 실패</span>
-              )}
-              <ReportBtn
-                disabled={!activeDgnssIds?.round1}
-                onClick={() => {
-                  setShowDownloadModal(true);
-                }}
-              >
-                <Download size={13} style={{ display: 'inline', marginRight: '0.25rem' }} />
-                보고서 다운로드
-              </ReportBtn>
-            </HeaderActions>
-          )}
-        </HeaderRow>
-      </div>
+      <HeaderRow>
+        <HeaderContent>
+          <PageTitle>{classTitle}</PageTitle>
+          <PageSubtitle>
+            {classData.schoolLevel} {classTitle}
+          </PageSubtitle>
+        </HeaderContent>
+        {hasJwtToken && (testId === 'comprehensive' || !!selfregDgnssIds.round1) && (
+          <HeaderActions>
+            {downloadError && (
+              <span style={{ fontSize: '0.75rem', color: '#EF4444' }}>다운로드 실패</span>
+            )}
+            <ReportBtn
+              disabled={!activeDgnssIds?.round1}
+              onClick={() => {
+                setShowDownloadModal(true);
+              }}
+            >
+              <Download size={13} style={{ display: 'inline', marginRight: '0.25rem' }} />
+              보고서 다운로드
+            </ReportBtn>
+          </HeaderActions>
+        )}
+      </HeaderRow>
 
-      {/* Pill Tabs — 프로토타입 기준: 탭이 KPI 위에 위치 */}
-      <TabContainer>
-        <TabBtn $active={activeTab === 'summary'} onClick={() => setActiveTab('summary')}>
-          핵심 요약
-        </TabBtn>
-        <TabBtn $active={activeTab === 'detail'} onClick={() => setActiveTab('detail')}>
-          학습 상세
-        </TabBtn>
-        <TabBtn $active={activeTab === 'students'} onClick={() => setActiveTab('students')}>
-          학생 목록
-        </TabBtn>
-      </TabContainer>
+      <Card>
+        <SectionTitle style={{ marginBottom: '1rem' }}>학급 요약</SectionTitle>
+        <KpiRow>
+          <KpiCard>
+            <KpiLabel>응시 현황</KpiLabel>
+            <KpiValue $small $color={testId === 'selfreg' ? '#009F88' : '#4F46E5'}>
+              {assessedStudents} / {totalStudents}명
+            </KpiValue>
+            <KpiSub>{completionRate}%</KpiSub>
+          </KpiCard>
+          <KpiCard>
+            <KpiLabel>검사 회차</KpiLabel>
+            <KpiValue $small>{completedRound}차 검사</KpiValue>
+            <KpiSub>완료</KpiSub>
+          </KpiCard>
+          <KpiCard>
+            <KpiLabel>상담 및 지도 필요</KpiLabel>
+            <KpiValue $color={needAttentionCount > 0 ? '#F97316' : undefined}>
+              {needAttentionCount}명
+            </KpiValue>
+            <KpiSub>상담 권장</KpiSub>
+          </KpiCard>
+          <KpiCard>
+            <KpiLabel>신뢰도</KpiLabel>
+            <KpiValue $color={reliabilityWarningCount > 0 ? '#F97316' : '#10B981'}>
+              {reliabilityWarningCount}명
+            </KpiValue>
+            <KpiSub>{reliabilityWarningCount > 0 ? '주의 필요' : '양호'}</KpiSub>
+          </KpiCard>
+        </KpiRow>
+      </Card>
 
-      {/* KPI Row — 탭 아래 항상 표시 */}
-      <KpiRow>
-        <KpiCard>
-          <KpiLabel>학급 평균 T점수</KpiLabel>
-          <KpiValue $color={badgeColor}>{kpiAvgT || '-'}</KpiValue>
-          <KpiSub>전체 {testId === 'selfreg' ? '20' : '38'}요인 평균</KpiSub>
-        </KpiCard>
-        <KpiCard>
-          <KpiLabel>{kpiCard2Label}</KpiLabel>
-          <KpiValue
-            $small
-            $color={testId === 'comprehensive' ? TYPE_COLORS[kpiCard2Value] : undefined}
-          >
-            {kpiCard2Value}
-          </KpiValue>
-          <KpiSub>{kpiCard2Sub}</KpiSub>
-        </KpiCard>
-        <KpiCard>
-          <KpiLabel>관심 필요 학생</KpiLabel>
-          <KpiValue $color={needAttentionCount > 0 ? '#EF4444' : undefined}>
-            {needAttentionCount}명
-          </KpiValue>
-          <KpiSub>{testId === 'selfreg' ? '20' : '38'}개 요인 기준</KpiSub>
-        </KpiCard>
-        <KpiCard>
-          <KpiLabel>검사 완료율</KpiLabel>
-          <KpiValue $color='#10B981'>{completionRate}%</KpiValue>
-          <KpiSub>
-            {assessedStudents}/{totalStudents}명 완료
-          </KpiSub>
-        </KpiCard>
-      </KpiRow>
-
-      {/* Tab Content */}
-      {activeTab === 'summary' && (
-        <CoreSummaryTab
-          classData={classData}
-          testId={testId}
-          selfregRound1={selfregRound1}
-          selfregRound2={selfregRound2}
-        />
-      )}
-      {activeTab === 'detail' && (
-        <LearningDetailTab
-          classData={classData}
-          testId={testId}
-          selfregRound1={selfregRound1}
-          selfregRound2={selfregRound2}
-        />
-      )}
-      {activeTab === 'students' && (
-        <StudentListTab
-          classData={classData}
-          testId={testId}
-          onNavigateToStudent={(studentId) =>
-            navigate(`/dashboard/${testId}/class/${classId}/student/${studentId}`)
+      <CoreSummaryTab
+        classData={classData}
+        testId={testId}
+        selfregRound1={selfregRound1}
+        selfregRound2={selfregRound2}
+        showActivities={false}
+        showDistribution={false}
+      />
+      <LearningDetailTab
+        classData={classData}
+        testId={testId}
+        selfregRound1={selfregRound1}
+        selfregRound2={selfregRound2}
+        top3Only
+      />
+      <CoreSummaryTab
+        classData={classData}
+        testId={testId}
+        selfregRound1={selfregRound1}
+        selfregRound2={selfregRound2}
+        showActivities={false}
+        showOverview={false}
+      />
+      <StudentListTab
+        classData={classData}
+        testId={testId}
+        onNavigateToStudent={(studentId) => {
+          if (onStudentSelect) {
+            onStudentSelect(studentId);
+            return;
           }
-        />
-      )}
+          navigate(`/dashboard/${testId}/class/${classId}/student/${studentId}`);
+        }}
+      />
 
       {/* PDF 생성 진행 오버레이 */}
       {allPdfProgress && (
