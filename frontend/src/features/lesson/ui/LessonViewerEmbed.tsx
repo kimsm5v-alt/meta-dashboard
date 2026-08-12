@@ -1,13 +1,13 @@
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/styled';
 import { ENV } from '@shared/config/env';
-import { fetchEmbedToken } from '../../api/embedTokenService';
-import { useEveryCanvasEmbed } from '../../lib/useEveryCanvasEmbed';
+import { fetchEmbedToken } from '../api/embedTokenService';
+import { useEveryCanvasEmbed } from '../lib/useEveryCanvasEmbed';
 import type {
   CompletedPayload,
   SlideChangedPayload,
   ThemeTokens,
-} from '../../lib/everyCanvasEmbedSdk';
+} from '../lib/everyCanvasEmbedSdk';
 
 const ViewerContainer = styled.div`
   position: fixed;

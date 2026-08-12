@@ -1,5 +1,5 @@
 import styled from '@emotion/styled';
-import type { FilterAxis, FilterPanelProps, LibFilters, SortKey } from '../../model/types';
+import type { FilterAxis, FilterPanelProps, LibFilters, SortKey } from '../model/types';
 import {
   DURATIONS,
   FACTORS,
@@ -11,7 +11,7 @@ import {
   SORT_AXIS_LABEL,
   SORT_KEYS,
   SORT_KEYS_LABELS,
-} from '../../model/filterTaxonomy';
+} from '../model/filterTaxonomy';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useState } from 'react';
 
