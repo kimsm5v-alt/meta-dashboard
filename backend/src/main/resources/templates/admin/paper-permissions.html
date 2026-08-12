@@ -36,6 +36,12 @@
                     <i class="fas fa-search"></i> 검색 결과 — 이름·이메일·닉네임 부분일치, <b>가입 최신순</b> 정렬
                     (권한 대상 교사만 표시)
                 </p>
+                <p class="text-muted" style="font-size:.76rem">
+                    개인정보 표기:
+                    <span class="badge badge-warning">미동의</span> 개인정보 제공 미동의(계정 존재) ·
+                    <span class="badge badge-secondary">탈퇴중</span> 탈퇴 grace 진행 ·
+                    <span class="badge badge-danger">조회불가</span> Auth 미조회/일시 오류
+                </p>
             </div>
         </section>
 
@@ -73,11 +79,15 @@
                             <tbody>
                                 <tr th:each="r : ${rows}" th:attr="data-user-no=${r.userNo}">
                                     <td>
-                                        <b th:text="${r.name}"></b>
-                                        <span th:if="${r.masked}" class="badge badge-secondary" style="font-size:.66rem"
-                                              title="Auth 미동의/탈퇴로 개인정보가 비공개인 계정">비공개</span>
+                                        <b th:if="${r.piiAvailable}" th:text="${r.name}"></b>
+                                        <span th:unless="${r.piiAvailable}" class="text-muted">이름 비공개</span>
+                                        <span th:unless="${r.piiAvailable}" class="badge" style="font-size:.66rem; cursor:help"
+                                              th:classappend="${r.reasonBadge}"
+                                              data-toggle="tooltip" data-placement="top"
+                                              th:title="${r.reasonTip}"
+                                              th:text="${r.reasonLabel}"></span>
                                     </td>
-                                    <td class="email-cell" th:text="${r.email}"></td>
+                                    <td class="email-cell" th:text="${r.email != null} ? ${r.email} : '-'"></td>
                                     <td class="text-muted" th:text="${r.createdAt}"></td>
                                     <td class="perm-cell">
                                         <input type="checkbox" class="perm-check" data-type="comprehensive"
@@ -104,6 +114,9 @@
 </div>
 <th:block th:replace="admin/fragments :: js" />
 <script>
+    // Bootstrap 툴팁 초기화 (AdminLTE 번들 jQuery + Bootstrap)
+    $(function () { $('[data-toggle="tooltip"]').tooltip(); });
+
     (function () {
         var csrfToken  = document.querySelector('meta[name="_csrf"]').getAttribute('content');
         var csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');

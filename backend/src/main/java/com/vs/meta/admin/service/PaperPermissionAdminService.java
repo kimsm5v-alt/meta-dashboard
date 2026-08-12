@@ -93,17 +93,42 @@ public class PaperPermissionAdminService {
         return new PageView(rows, page, Math.max(sr.totalPages(), 1), sr.totalElements());
     }
 
-    /** 로컬 교사 행 + Auth 회원정보(이름/이메일) 병합. masked/placeholder 는 대체 표기. */
+    /**
+     * 로컬 교사 행 + Auth 회원정보(이름/이메일) 병합.
+     * PII 미제공 시 사유별(미동의/탈퇴중/조회불가) 라벨·뱃지색을 함께 실어 준다.
+     */
     private Map<String, Object> toRow(Map<String, Object> local, UserInfo info) {
-        boolean masked = (info == null) || info.placeholder()
-                || !"NONE".equalsIgnoreCase(info.maskedReason());
-        String name = (info != null && StringUtils.isNotBlank(info.name())) ? info.name() : "(비공개)";
-        String email = (info != null && StringUtils.isNotBlank(info.email())) ? info.email() : "-";
+        boolean piiAvailable = info != null && !info.placeholder()
+                && "NONE".equalsIgnoreCase(info.maskedReason())
+                && StringUtils.isNotBlank(info.name());
+
+        String reason;
+        if (piiAvailable) {
+            reason = "NONE";
+        } else if (info == null || info.placeholder()) {
+            reason = "NOT_FOUND"; // notFound(다른 RP/삭제) 또는 호출 실패(장애 폴백)
+        } else {
+            String r = info.maskedReason();
+            reason = (StringUtils.isNotBlank(r) && !"NONE".equalsIgnoreCase(r)) ? r.toUpperCase() : "NOT_FOUND";
+        }
 
         Map<String, Object> row = new HashMap<>(local);
-        row.put("name", name);
-        row.put("email", email);
-        row.put("masked", masked);
+        row.put("piiAvailable", piiAvailable);
+        row.put("name", piiAvailable ? info.name() : null);
+        row.put("email", (piiAvailable && StringUtils.isNotBlank(info.email())) ? info.email() : null);
+        row.put("maskedReason", reason);
+
+        if (!piiAvailable) {
+            String label, badge, tip;
+            switch (reason) {
+                case "NOT_CONSENTED" -> { label = "미동의";   badge = "badge-warning";   tip = "학심정 계정은 있으나 개인정보 제공에 미동의한 계정"; }
+                case "WITHDRAWN"     -> { label = "탈퇴중";   badge = "badge-secondary"; tip = "탈퇴 grace(30일) 진행 중 — 개인정보 마스킹"; }
+                default              -> { label = "조회불가"; badge = "badge-danger";    tip = "Auth 미조회(다른 RP/삭제) 또는 회원정보 서비스 일시 오류"; }
+            }
+            row.put("reasonLabel", label);
+            row.put("reasonBadge", badge);
+            row.put("reasonTip", tip);
+        }
         return row;
     }
 }
