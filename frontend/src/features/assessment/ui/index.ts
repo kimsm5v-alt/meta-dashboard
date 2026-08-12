@@ -5,4 +5,5 @@ export { GroupDetailView } from './GroupDetailView';
 export { ExamTimelineCard } from './ExamTimelineCard';
 export { StudentManagementPanel } from './StudentManagementPanel';
 export { EmptyState } from './EmptyState';
+export { ExamManagementOverview } from './ExamManagementOverview';
 export { QRCodeModal } from './QRCodeModal';

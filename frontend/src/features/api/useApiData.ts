@@ -5,6 +5,7 @@
  * 토큰이 없을 때는 DataContext를 fallback으로 사용합니다.
  */
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { API_CONFIG } from '@shared/services/apiClient';
 import {
@@ -26,6 +27,8 @@ import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth';
 import { groupService } from '@features/groups/api/groupService';
 import { dgnssService } from '@features/groups/api/dgnssService';
+import { groupKeys } from '@features/groups/api/queryKeys';
+import { useAssessmentSlotsQueries } from '@features/assessment/api/queries';
 
 // ============================================================
 // Credentials 헬퍼 훅
@@ -549,16 +552,17 @@ export function useTeacherClasses(): UseTeacherClassesResult {
 // ============================================================
 
 /**
- * 그룹 목록 쿼리 — 캐시 공유 + 사용자별 격리
+ * 그룹 목록 쿼리 — groupKeys 캐시 공유 + 사용자별 격리
  * - 사이드바(useTeacherClassList)와 검사하기(AssessmentPage)가 캐시 공유
  * - userId를 queryKey에 포함하여 멀티 사용자 환경에서 캐시 격리 보장
  */
 function useMyGroups(userId: string | undefined) {
   return useQuery<Group[]>({
-    queryKey: ['my-groups', userId], // userId 포함으로 캐시 격리
+    queryKey: groupKeys.myGroups(userId ?? ''),
     queryFn: () => groupService.getMyGroups(userId!),
     enabled: !!userId,
     staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -588,53 +592,39 @@ export function useTeacherClassList(): UseTeacherClassListResult {
   const { user } = useAuth();
   const { schoolLevel: credSchoolLevel } = useCredentials();
 
-  // 그룹 목록: ['my-groups'] 캐시 공유
+  // 그룹 목록: groupKeys.myGroups 캐시 공유
   const { data: groups = [], isLoading: groupsLoading } = useMyGroups(user?.id);
 
-  // 검사 상태: queryKey에서 user?.id 제거 (auth 흐름 중복 호출 방지)
-  const dgnssQuery = useQuery<{ classes: TeacherClassMeta[]; examStatus: ExamStatus }>({
-    queryKey: ['group-dgnss-status', ...groups.map((g: Group) => g.claId)],
-    queryFn: async () => {
-      if (groups.length === 0) return { classes: [], examStatus: 'no-exams' as ExamStatus };
+  // 검사 상태: 검사 페이지(AssessmentPage)와 동일한 exam-slots 쿼리를 공유해
+  // /api/dgnss/tc/info 중복 호출 제거. 같은 queryKey/queryFn → React Query 자동 dedupe.
+  const { dataByClaId, isLoading: slotsLoading } = useAssessmentSlotsQueries(groups, user?.id);
 
-      const groupDgnssResults = await Promise.all(
-        groups.map(async (group) => {
-          try {
-            const dgnssList = await dgnssService.getDgnssList(group.claId);
-            return { group, dgnssList };
-          } catch {
-            return { group, dgnssList: [] };
-          }
-        }),
-      );
+  const { classes, examStatus } = useMemo(() => {
+    const allSlots = groups.flatMap((g: Group) => dataByClaId.get(g.claId) ?? []);
+    const hasActive = allSlots.some((s) => s.status === 'in_progress');
+    const hasCompleted = allSlots.some((s) => s.status === 'completed');
 
-      const hasActive = groupDgnssResults.some((r) => r.dgnssList.some((d) => d.dgnssAt === 'Y'));
-      const hasCompleted = groupDgnssResults.some((r) =>
-        r.dgnssList.some((d) => d.dgnssAt === 'N'),
-      );
+    let status: ExamStatus = 'no-exams';
+    if (hasActive && !hasCompleted) status = 'in-progress';
+    else if (hasCompleted) status = 'completed';
 
-      let examStatus: ExamStatus = 'no-exams';
-      if (hasActive && !hasCompleted) examStatus = 'in-progress';
-      else if (hasCompleted) examStatus = 'completed';
+    // 완료된 검사가 있는 그룹만 학급 목록에 노출 (기존 dgnssAt==='N' 필터와 동일)
+    const list: TeacherClassMeta[] = groups
+      .filter((g: Group) => (dataByClaId.get(g.claId) ?? []).some((s) => s.status === 'completed'))
+      .map((g: Group) => ({
+        id: g.claId,
+        grade: g.grade,
+        classNumber: g.classNumber,
+        schoolLevel: SCHOOL_LEVEL_MAP[g.schoolLevel] ?? credSchoolLevel,
+      }));
 
-      const classes: TeacherClassMeta[] = groupDgnssResults
-        .filter(({ dgnssList }) => dgnssList.some((d) => d.dgnssAt === 'N'))
-        .map(({ group }) => ({
-          id: group.claId,
-          grade: group.grade,
-          classNumber: group.classNumber,
-          schoolLevel: SCHOOL_LEVEL_MAP[group.schoolLevel] ?? credSchoolLevel,
-        }));
-
-      return { classes, examStatus };
-    },
-    enabled: groups.length > 0,
-  });
+    return { classes: list, examStatus: status };
+  }, [groups, dataByClaId, credSchoolLevel]);
 
   return {
-    classes: dgnssQuery.data?.classes ?? [],
-    isLoading: groupsLoading || dgnssQuery.isLoading,
-    examStatus: dgnssQuery.data?.examStatus ?? 'no-exams',
+    classes,
+    isLoading: groupsLoading || slotsLoading,
+    examStatus,
   };
 }
 

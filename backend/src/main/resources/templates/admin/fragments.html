@@ -321,6 +321,29 @@
                         <i class="nav-icon fas fa-flask"></i><p>체험단 모니터링</p>
                     </a>
                 </li>
+                <li class="nav-item" th:classappend="${menu == 'coaching-strength' or menu == 'coaching-moderation'} ? 'menu-open'">
+                    <a href="#" class="nav-link" th:classappend="${menu == 'coaching-strength' or menu == 'coaching-moderation'} ? 'active'">
+                        <i class="nav-icon fas fa-seedling"></i>
+                        <p>성장코칭 <i class="right fas fa-angle-left"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview" th:classappend="${menu == 'coaching-strength' or menu == 'coaching-moderation'} ? 'force-open'">
+                        <li class="nav-item">
+                            <a href="/admin/coaching/strength" class="nav-link" th:classappend="${menu == 'coaching-strength'} ? 'active'">
+                                <i class="far fa-circle nav-icon"></i><p>개인화 강점 코칭</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/admin/coaching/moderation" class="nav-link" th:classappend="${menu == 'coaching-moderation'} ? 'active'">
+                                <i class="far fa-circle nav-icon"></i><p>개인화 보완점 코칭</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a href="/admin/paper-permissions" class="nav-link" th:classappend="${menu == 'paper-permissions'} ? 'active'">
+                        <i class="nav-icon fas fa-user-shield"></i><p>검사 권한 관리</p>
+                    </a>
+                </li>
             </ul>
         </nav>
     </div>

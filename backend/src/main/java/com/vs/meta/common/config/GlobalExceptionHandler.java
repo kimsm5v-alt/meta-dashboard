@@ -78,6 +78,19 @@ public class GlobalExceptionHandler {
         return AidtCommonUtil.makeResultFail(null, errorData, e.getMessage());
     }
 
+    @ExceptionHandler(com.vs.meta.common.exception.PaperPermissionDeniedException.class)
+    public ResponseDTO<CustomBody> handlePaperPermissionDenied(
+            com.vs.meta.common.exception.PaperPermissionDeniedException e) {
+        log.warn("Paper permission denied: {}", e.getMessage());
+
+        Map<String, Object> errorData = new LinkedHashMap<>();
+        errorData.put("code", HttpStatus.FORBIDDEN.value());
+        errorData.put("name", "PAPER_NOT_ALLOWED");
+        errorData.put("message", e.getMessage());
+
+        return AidtCommonUtil.makeResultFail(null, errorData, e.getMessage());
+    }
+
     @ExceptionHandler(org.apache.catalina.connector.ClientAbortException.class)
     public void handleClientAbort(org.apache.catalina.connector.ClientAbortException e) {
         // 클라이언트 측 끊김 — ERROR 가 아니라 WARN 으로 가시화 (빈도 모니터링 용도, 스택트레이스 X)

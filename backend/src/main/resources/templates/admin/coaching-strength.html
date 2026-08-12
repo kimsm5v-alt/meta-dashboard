@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>개인화 강점 코칭 - Meta Admin</title>
+    <th:block th:replace="admin/fragments :: css" />
+    <style>
+        .cell-text { max-width:520px; color:#475569; font-size:.82rem; line-height:1.4; }
+        .modal-body label { font-weight:600; font-size:.8rem; color:#475569; margin-top:6px; }
+        .modal-body textarea { font-size:.85rem; }
+        .k-badge { font-size:.72rem; }
+    </style>
+</head>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
+    <nav th:replace="admin/fragments :: navbar"></nav>
+    <aside th:replace="admin/fragments :: sidebar(menu='coaching-strength')"></aside>
+
+    <div class="content-wrapper">
+        <section class="content-header">
+            <div class="container-fluid">
+                <h1>개인화 강점 코칭</h1>
+                <p class="text-muted">RDB(coaching_strength) 기준 조회·수정 · 총 <b th:text="${total}"></b>건 · 수정 시 이력 자동 기록</p>
+            </div>
+        </section>
+
+        <section class="content">
+            <div class="container-fluid">
+                <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+                <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+
+                <!-- 필터 -->
+                <div class="card">
+                    <div class="card-body">
+                        <form method="get" action="/admin/coaching/strength" class="filter-bar">
+                            <div class="form-group">
+                                <label>학교급</label>
+                                <select name="schoolLevel" class="form-control form-control-sm">
+                                    <option value="">전체</option>
+                                    <option value="elementary" th:selected="${schoolLevel == 'elementary'}">초등</option>
+                                    <option value="middle" th:selected="${schoolLevel == 'middle'}">중등</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>LPA 유형</label>
+                                <select name="lpaClass" class="form-control form-control-sm">
+                                    <option value="">전체</option>
+                                    <option th:each="c : ${classOptions}" th:value="${c.lpaClass}"
+                                            th:attr="data-level=${c.schoolLevel}"
+                                            th:text="${c.lpaClass}" th:selected="${lpaClass == c.lpaClass}"></option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>요인</label>
+                                <input type="text" name="factor" class="form-control form-control-sm" th:value="${factor}" placeholder="요인명 검색"/>
+                            </div>
+                            <div class="form-group">
+                                <button type="submit" class="btn btn-primary btn-sm">검색</button>
+                                <a href="/admin/coaching/strength" class="btn btn-default btn-sm">초기화</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 목록 -->
+                <div class="card">
+                    <div class="card-body table-responsive p-0">
+                        <table class="table table-hover mb-0">
+                            <thead class="thead-light"><tr>
+                                <th>학교급</th><th>LPA 유형</th><th>요인</th><th>강점 관찰(요약)</th><th>최근 수정</th><th class="text-right">관리</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr th:each="r : ${rows}">
+                                    <td><span class="badge k-badge" th:classappend="${r.schoolLevel == 'elementary'} ? 'badge-info' : 'badge-warning'"
+                                              th:text="${r.schoolLevel == 'elementary' ? '초등' : '중등'}"></span></td>
+                                    <td th:text="${r.lpaClass}"></td>
+                                    <td><b th:text="${r.factor}"></b></td>
+                                    <td class="cell-text" th:text="${#strings.abbreviate(r.observation, 70)}"></td>
+                                    <td class="text-muted" th:text="${r.updatedAt}"></td>
+                                    <td class="text-right" style="white-space:nowrap">
+                                        <button type="button" class="btn btn-sm btn-primary btn-edit"
+                                                th:attr="data-id=${r.id}, data-factor=${r.factor}, data-lpa=${r.lpaClass}, data-level=${r.schoolLevel},
+                                                         data-observation=${r.observation}, data-line=${r.line}, data-question=${r.question}">
+                                            <i class="fas fa-edit"></i> 편집
+                                        </button>
+                                        <a th:href="@{'/admin/coaching/strength/' + ${r.id} + '/history'}" class="btn btn-sm btn-default">
+                                            <i class="fas fa-history"></i> 이력
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(rows)}"><td colspan="6" class="text-muted text-center py-3">데이터 없음</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-footer">
+                        <div th:replace="admin/fragments :: pagination('/admin/coaching/strength', ${params})"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- 수정 모달 -->
+    <div class="modal fade" id="editModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+            <form method="post" id="editForm">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" name="backParams" th:value="${params}"/>
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title">강점 코칭 편집 <small class="text-muted" id="mMeta"></small></h4>
+                        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <label>강점 관찰 (observation) <span class="text-muted" style="font-weight:400">— [학생명] placeholder 유지</span></label>
+                        <textarea name="observation" id="mObservation" class="form-control" rows="5" required></textarea>
+                        <label>강점 멘트 (line)</label>
+                        <textarea name="line" id="mLine" class="form-control" rows="2" required></textarea>
+                        <label>강점 질문 (question)</label>
+                        <textarea name="question" id="mQuestion" class="form-control" rows="2" required></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">취소</button>
+                        <button type="submit" class="btn btn-primary">저장</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<th:block th:replace="admin/fragments :: js" />
+<script>
+    (function () {
+        var levelSel = document.querySelector('select[name="schoolLevel"]');
+        var classSel = document.querySelector('select[name="lpaClass"]');
+        function filterClasses() {
+            var lv = levelSel.value;
+            Array.prototype.forEach.call(classSel.options, function (opt) {
+                if (!opt.value) { opt.hidden = false; return; }
+                var show = !lv || opt.getAttribute('data-level') === lv;
+                opt.hidden = !show;
+                if (!show && opt.selected) { classSel.value = ''; }
+            });
+        }
+        levelSel.addEventListener('change', filterClasses);
+        filterClasses();
+    })();
+
+    document.querySelectorAll('.btn-edit').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var d = btn.dataset;
+            document.getElementById('editForm').setAttribute('action', '/admin/coaching/strength/' + d.id);
+            document.getElementById('mMeta').textContent =
+                (d.level === 'elementary' ? '초등' : '중등') + ' · ' + d.lpa + ' · ' + d.factor;
+            document.getElementById('mObservation').value = d.observation || '';
+            document.getElementById('mLine').value = d.line || '';
+            document.getElementById('mQuestion').value = d.question || '';
+            $('#editModal').modal('show');
+        });
+    });
+</script>
+</body>
+</html>

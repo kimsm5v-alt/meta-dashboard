@@ -121,15 +121,29 @@ export const SelfregFactorAnalysis: React.FC<SelfregFactorAnalysisProps> = ({
     return { fill: '#FDE7E4', stroke: '#F0B5AC', labelColor: '#DC2626' };
   };
 
-  // 차트 계산
-  const chartHeight = 260;
-  const baseY = 320;
-  const yOf = (t: number) => 40 + (1 - t / 100) * chartHeight;
+  // 차트 계산 (학습종합검사와 동일한 높이)
+  const padT = 16;
+  const padB = 90;
+  const svgHeight = 360;
+  const chartHeight = svgHeight - padT - padB; // 254px
+  const baseY = svgHeight - padB; // 270
+  const padL = 70; // 왼쪽 패딩 (라벨 공간 확보)
+  const padR = 16; // 오른쪽 패딩
+  const yOf = (t: number) => padT + (1 - t / 100) * chartHeight;
+
+  // 배경 bands (보통만 회색)
+  const bands = [
+    { from: 70, to: 100, label: '매우높음', fill: '#FFFFFF' },
+    { from: 60, to: 70, label: '높음', fill: '#FFFFFF' },
+    { from: 40, to: 60, label: '보통', fill: '#F7F7F8' },
+    { from: 30, to: 40, label: '낮음', fill: '#FFFFFF' },
+    { from: 0, to: 30, label: '매우낮음', fill: '#FFFFFF' },
+  ];
 
   // 막대 크기 계산
   const subCatCount = activeDomain.subCategories.length;
   const groupGap = 24;
-  const usableWidth = containerWidth - 20;
+  const usableWidth = containerWidth - padL - padR;
   const barsAreaWidth = usableWidth - (subCatCount - 1) * groupGap;
   const barSlotWidth = barsAreaWidth / activeDomain.factorCount;
   const barWidth = showCompare
@@ -193,21 +207,43 @@ export const SelfregFactorAnalysis: React.FC<SelfregFactorAnalysisProps> = ({
       <div ref={containerRef} className="p-5 pb-3">
         <svg
           width={containerWidth}
-          height={380}
+          height={svgHeight}
           style={{ display: 'block' }}
         >
-          {/* 전국 평균선 (T=50) */}
-          <line
-            x1={10}
-            y1={yOf(50)}
-            x2={containerWidth - 10}
-            y2={yOf(50)}
-            stroke="#C9A4ED"
-            strokeWidth={1.3}
-            strokeDasharray="5 5"
-          />
+          {/* 등급 배경 밴드 */}
+          {bands.map((b) => {
+            const y = yOf(b.to);
+            const h = yOf(b.from) - yOf(b.to);
+            return (
+              <g key={b.label}>
+                <rect x={padL} y={y} width={containerWidth - padL - padR} height={h} fill={b.fill} />
+                <text x={padL - 32} y={y + h / 2 + 4} textAnchor="end" fontSize="10" fill="#A1A1A8" fontWeight="600">
+                  {b.label}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* T점수 구간 경계선 및 Y축 숫자 */}
+          {[0, 20, 40, 50, 60, 80, 100].map(t => (
+            <g key={t}>
+              <line
+                x1={padL}
+                y1={yOf(t)}
+                x2={containerWidth - padR}
+                y2={yOf(t)}
+                stroke={t === 50 ? '#C9A4ED' : '#E5E5E7'}
+                strokeWidth={t === 50 ? 1.3 : 0.7}
+                strokeDasharray={t === 50 ? '4 4' : '0'}
+              />
+              <text x={padL - 8} y={yOf(t) + 4} textAnchor="end" fontSize="10.5" fill="#71717A">
+                {t}
+              </text>
+            </g>
+          ))}
+
           <text
-            x={containerWidth - 10}
+            x={containerWidth - padR}
             y={20}
             textAnchor="end"
             fontSize={11}
@@ -228,7 +264,7 @@ export const SelfregFactorAnalysis: React.FC<SelfregFactorAnalysisProps> = ({
 
           {/* 요인별 막대 */}
           {(() => {
-            let xOffset = 10;
+            let xOffset = padL;
             const elements: JSX.Element[] = [];
 
             activeDomain.subCategories.forEach((subCat, subIdx) => {

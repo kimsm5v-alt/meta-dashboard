@@ -14,6 +14,25 @@ META AI 학습심리정서검사 대시보드 프론트엔드 프로젝트.
 
 ---
 
+## 🎯 UI/UX 구현 기준 우선순위
+
+UI와 사용자 흐름을 구현하거나 수정할 때 다음 순서를 기준으로 판단합니다.
+
+1. **최신 확정 기획서/PPT**
+2. **`prototype/`의 실제 화면과 동작**
+3. **기능정의서**
+4. **기존 `frontend/` 구현**
+5. **개발자의 임의 판단**
+
+- 자료가 충돌하면 더 높은 순위의 자료를 따릅니다.
+- `prototype/`은 단순 참고가 아니라 UI 구성, 문구, 상태, 상호작용의 기준 구현입니다.
+- 작업 전 관련 라우트와 컴포넌트뿐 아니라 초기/선택/완료/해제 상태를 확인합니다.
+- 기준 자료에 없는 문구, 버튼, 아이콘, 칩, 상태, 동작을 임의로 추가하지 않습니다.
+- 기준이 없거나 충돌해 판단할 수 없으면 추측하지 말고 확인한 자료와 충돌 지점을 보고합니다.
+- 코드를 복사하지는 않습니다. 이 문서의 FSD 구조와 backend API 계약을 유지하면서 UI와 사용자 경험을 동등하게 구현합니다.
+
+---
+
 ## 🛠 기술 스택
 
 | 역할       | 라이브러리           | 버전 |
@@ -192,63 +211,19 @@ await apiClient.post('/student/exam', { examData });
 - **로컬 state는 UI 상태만**: 모달 열림, 입력값, 선택 탭, 드롭다운, hover 같은 화면 상호작용만 `useState`에 둔다.
 - **`useEffect` fetch 금지**: 마운트 시 `loadXxx()`를 호출해 `setData`/`setLoading` 하는 패턴은 새 코드에서 사용하지 않는다. 외부 시스템 동기화(SSE, DOM observer 등)에만 `useEffect`를 쓴다.
 - **query key factory 우선**: 신규 서버 상태는 기능별 `queryKeys.ts`의 key factory를 사용한다. ad-hoc 문자열 key를 새로 만들지 않는다.
-- **mutation 후 최소 무효화**: 생성/수정/삭제/상태 변경 성공 시 관련 key만 invalidate한다. 예: 검사 액션은 해당 `claId`의 슬롯 query와 검사 목록 query만 갱신한다.
+- **mutation 후 최소 무효화**: 생성/수정/삭제/상태 변경 성공 시 관련 key만 invalidate한다. 예: 검사 액션(`useInvalidateAssessmentGroup`)은 해당 `claId`의 슬롯 query(`examSlots(claId, userId)`)만 갱신한다.
 - **optimistic update는 선별 적용**: 알림 읽음 처리처럼 즉시 반응성이 중요한 경우에만 사용하고, 검사/메모/상담은 기본적으로 성공 후 invalidate를 사용한다.
 
 ---
 
-## ✅ 완료 작업
+## 🧩 주요 아키텍처 결정
 
-**2026-06-29**: 검사 시스템 Phase 2 + 환경 정비
-- **HSJ-61**: 교사 검사 종료 시 학생 대시보드 실시간 조회
-- **HSJ-62**: 로그인 후 기본 랜딩 → `/assessment` (`main.tsx` bootstrap + `LandingPage` 양쪽 수정)
-- **HSJ-64**: 그룹 상세 교사용 설명서 PDF 버튼 (`GroupDetailView`)
-- **HSJ-65**: 검사하기 QR코드 팝업 + 토스트 팝업
-- **HSJ-67**: 타 그룹 이력 학생 미제출 목록 클릭 오류 수정
-- **HSJ-73~76**: 자기조절학습검사 탑재 + 교사/학생 대시보드 UI/UX 개편
-- **HSJ-78**: 학생 대시보드 AI 챗봇 개선
-- **HSJ-82**: 학생 대시보드 유형별 특이점 + 색상
-- **HSJ-83**: 고등 학교급 LPA 유형 분포·추천코칭 미노출
-- **HSJ-87**: 검사 응시 전 기본정보 입력 항목 변경 + NEIS 학교 검색
-- **HSJ-91**: 자기조절학습 학생 보고서 다운로드 비활성화
-- **HSJ-96**: 학생 검사 학년 드롭다운 비활성화
-- **HSJ-97**: 추천 코칭 전략 구조 변경 (강점/보완점 카드 + 아코디언, 기본 접힘)
-- **HSJ-98**: 완료 검사 있는 경우에만 대시보드 리스트 노출
-- **HSJ-99/100**: 학생 검사 번호 입력 비활성화 + 식별정보 API 전달
-- **HSJ-102**: 교사용 설명서 PDF URL env 변수로 설정 (개발 `t-cdn` / 운영 `cdn`)
-- **HSJ-103**: 자기조절학습검사 운영서버 전용 숨김 (`VITE_SELFREG_HIDDEN`)
-- **group-from-IDP**: 그룹 생성/초대/QR 기능 mypage 이관, 미동의 멤버 PII 마스킹, on-demand 동기화
-- **AI env 정리**: `VITE_GEMINI_API_KEY` 제거 → `VITE_CHAT_API_URL`(GPT/DJ 서버) 명시적 설정
-- **SSO/CDN 도메인**: vschool.at 이전 + 콩(Kong) 게이트웨이 경유 통일
+코드만 봐서는 알기 어려운, "왜 이렇게 되어 있나"를 설명하는 결정들. (전체 작업 이력은 git log / Jira 참조)
 
-**2026-05-27**: 검사 시스템 이슈 수정 (Phase 1)
-- **HSJ-72**: 생기부 더보기 기능 — 2줄 clamp + 펼치기/접기 토글
-- **HSJ-71**: 탈퇴/방출 그룹 조회 수정 — `hasResult` 로직을 상태 기반으로 변경, KICKED 학생도 결과 조회 가능
-- **HSJ-70**: 학생 0명 시 검사 시작 팝업 — `AlertModal` 통합, 커스텀 모달 표시
-- **HSJ-66**: 검사 취소/종료 확인 알럿 — 2버튼 모드 구현, `window.confirm()` 제거
-- **AlertModal**: `onConfirm` async 지원, 확인/취소 2버튼 모드 추가
-- **React Hook**: 의존성 배열 수정 (`user?.id` → `user`), React Compiler 경고 해결
-
-**2026-05-08**: PDF 다운로드 기능
-- `shared/services/pdfDownloadService.ts` — 2단계 패턴 (POST→URL→`/files/pfile-download` blob)
-- `shared/assets/svgIcons.ts` — PDF 아이콘 SVG 공용 상수
-- **교사 클래스 대시보드** (`ClassDashboardWidget`): 학생별 PDF 버튼 활성화 (`pdf/search` answerIdx 맵), 전체 ZIP 일괄 다운로드 (미생성 선생성 → ZIP), 진행 모달
-- **교사 학생 상세** (`StudentDashboardPage`): 1/2차 상세·요약 보고서 버튼 4개
-- **학생 결과 페이지** (`MyResultPage`): 1/2차 결과 다운로드 버튼
-- **검사하기** (`GeneralSection`): 교사용 설명서 PDF 버튼 2개
-
-**2026-04-27**: SSE 알림 시스템 + Cookie 보안
-- SSE 연결 (`@microsoft/fetch-event-source`) + React Query 폴링
-- Optimistic Update + 벨 아이콘 UI
-- `tokenStorage: 'cookie'` + httpOnly 쿠키 (`ST_SESSION`)
-- localStorage RT 제거 → XSS 차단
-
-**2026-04-20**: 리팩토링
-- FSD Pages slim화 (1,372줄 → 3줄)
-- 번들 분리 (2,371kB → 1,827kB)
-- 환경변수 중앙화
-
-**API 연동**: L1/L2/L3 대시보드, AI 에이전트, 생기부, 상담 일정
+- **그룹 관리는 mypage(SSO)로 이관 (group-from-IDP)**: 그룹 생성/수정/삭제·학생 초대·초대코드/QR/링크 기능이 앱에서 제거되고 mypage로 이관됨. 앱은 그룹 **조회 + 검사 진행**만 담당. 미동의(NOT_CONSENTED) 멤버는 PII 마스킹, 그룹 데이터는 on-demand 동기화
+- **AI 서버 분리**: `VITE_GEMINI_API_KEY`(클라이언트 직접 호출) 제거 → `VITE_CHAT_API_URL`(GPT/DJ 서버)로 일원화. AI 호출은 서버 경유
+- **SSO/CDN 도메인**: vschool.at로 이전 + 콩(Kong) 게이트웨이 경유로 통일 (env는 `shared/config/env.ts`)
+- **검사 페이지 단일화**: 구형 V1 검사 관리 제거 후 `AssessmentPage`(구 V2) 하나만 존재. `features/assessment`로 통합됨 ("🧭 서버 상태 관리 원칙" 참고)
 
 ---
 
@@ -291,20 +266,9 @@ await apiClient.post('/student/exam', { examData });
 
 ## 🐛 알려진 이슈
 
-- **useProfileCheck**: 매 라우트마다 `/api/v1/user/status` 호출 (캐싱 필요)
 - **SDK CDN**: 로드 실패 시 앱 전체 사용 불가
 - **SSE 연결**: 네트워크 불안정 시 3회 재시도 후 종료
-
----
-
-## 📋 다음 작업
-
-**백로그**:
-- [ ] useProfileCheck React Query 캐싱 (매 라우트마다 `/api/v1/user/status` 호출)
-- [ ] MyResultPage 1차/2차 비교 모드
-- [ ] 에러 바운더리
-- [ ] features/counseling — 상담 기록
-- [ ] features/resources — 학습 자료
+- **useProfileCheck 창 포커스 리페치**: `refetchOnWindowFocus: true`이며 쿼리가 stale한 상태에서 탭 복귀 시 `/api/v1/user/status` 재호출(`staleTime: 5분`)
 
 ---
 
@@ -323,5 +287,5 @@ student-exam FSD  ████████████ 100%
 
 ---
 
-**최종 업데이트**: 2026-06-29 (Phase 2 완료 + group-from-IDP + HSJ-102/103)
+**최종 업데이트**: 2026-08-10 (UI/UX 구현 기준 우선순위 추가)
 **빌드 상태**: ✅ Production ready (tsc -b --noEmit 에러 없음)

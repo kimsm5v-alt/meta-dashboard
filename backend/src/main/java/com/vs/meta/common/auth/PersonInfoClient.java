@@ -17,4 +17,11 @@ public interface PersonInfoClient {
 
     /** 이메일 → publicUserId 매핑 (service AT 전용). 미등록 시 Optional.empty(). */
     Optional<UserInfo> lookupByEmail(String email);
+
+    /**
+     * 이름·이메일·닉네임 부분일치 검색 (service AT 전용, 가입최신순 고정).
+     * keyword 는 비우지 말 것(빈 값이면 전체 목록 우회). 응답에는 이메일이 없다 — 필요 시 {@link #getBatch}.
+     * 실패 시 빈 결과 반환.
+     */
+    UserSearchResult search(String keyword, String status, int page, int size);
 }

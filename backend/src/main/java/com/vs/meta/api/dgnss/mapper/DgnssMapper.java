@@ -13,7 +13,9 @@ public interface DgnssMapper {
     // 교사) META 자기조절학습 목록 전달
     List<Map<String, Object>> selectTcDgnssInfo(Map<String, Object> param);
     // 교사) 본인(host_user_no) 소유 전체 학급의 진단검사 현황 한 번에 조회 (tc/overview)
-    List<Map<String, Object>> selectTcDgnssOverview(@Param("userNo") Long userNo);
+    // paperIdx: 미전송(null/공백/0) 이면 1·2 모두, 값 있으면 해당 검사 유형만
+    List<Map<String, Object>> selectTcDgnssOverview(@Param("userNo") Long userNo,
+                                                    @Param("paperIdx") String paperIdx);
     void deleteTargetStListResultInfo(List<String> stList);
     void deleteTargetStListAnswer(List<String> stList);
     // 교사) META 자기조절학습 마스터 INSERT

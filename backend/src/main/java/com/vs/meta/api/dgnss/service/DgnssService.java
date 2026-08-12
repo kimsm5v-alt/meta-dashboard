@@ -15,6 +15,8 @@ import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.common.utils.PagingInfo;
 import com.vs.meta.common.utils.PagingParam;
 import com.vs.meta.common.utils.SecurityUtil;
+import com.vs.meta.api.permission.service.PaperPermissionService;
+import com.vs.meta.common.exception.PaperPermissionDeniedException;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,6 +63,7 @@ public class DgnssService {
     private final DgnssMapper dgnssMapper;
     private final DgnssLpaService dgnssLpaService;
     private final DgnssGraphService dgnssGraphService;
+    private final PaperPermissionService paperPermissionService;
     private final PdfService pdfService;
     private final FileService fileService;
     private final NcpMailSender ncpMailSender;
@@ -110,9 +113,9 @@ public class DgnssService {
      * 기존 tc/info 를 학급마다 호출하던 것을 대체. 학급(claId) 기준으로 검사 목록을 중첩 구조로 반환.
      */
     @Transactional(readOnly = true)
-    public Map<String, Object> selectTcDgnssOverview() {
+    public Map<String, Object> selectTcDgnssOverview(String paperIdx) {
         Long userNo = SecurityUtil.requireCurrentUserNo();
-        List<Map<String, Object>> rows = dgnssMapper.selectTcDgnssOverview(userNo);
+        List<Map<String, Object>> rows = dgnssMapper.selectTcDgnssOverview(userNo, paperIdx);
 
         // 학급(claId) 기준 그룹핑 → classes: [ { 학급정보, dgnssList: [검사...] } ]
         Map<String, Map<String, Object>> byCla = new LinkedHashMap<>();
@@ -278,6 +281,13 @@ public class DgnssService {
         int ordNo = MapUtils.getInteger(paramMap, "ordNo", 0);
         String tcId = MapUtils.getString(paramMap, "tcId", "");
         String claId = MapUtils.getString(paramMap, "claId", "");
+
+        // 검사 유형(paperIdx) 권한 검증 — 허용되지 않은 유형의 검사 생성 차단(403 PAPER_NOT_ALLOWED)
+        Long userNo = SecurityUtil.requireCurrentUserNo();
+        if (!paperPermissionService.isAllowed(userNo, String.valueOf(paperIdx))) {
+            throw new PaperPermissionDeniedException("해당 검사 유형에 대한 권한이 없습니다. paperIdx=" + paperIdx);
+        }
+
         int actvStdtCnt = dgnssMapper.selectActvStdtCnt(paramMap);
         if (actvStdtCnt == 0) {
             Map<String, Object> resultMap = new HashMap<>();
@@ -1787,9 +1797,10 @@ public class DgnssService {
         }
 
         Map<String, List<Map<String, Object>>> lpaByOrd = new LinkedHashMap<>();
-        // paperIdx=1 LERN 학습영역: 학생별 fallback source 노출용. 같은 lpaRows 의 json 컬럼을 파싱.
+        // LERN 학습영역(학생별 fallback source·제출상태 노출): 같은 lpaRows 의 json 컬럼을 파싱.
+        // paperIdx=1(학습종합)·2(자기조절) 모두 노출.
         Map<String, List<Map<String, Object>>> lernReportByOrd = new LinkedHashMap<>();
-        boolean exposeLernReport = StringUtils.equals(paperIdx, "1");
+        boolean exposeLernReport = StringUtils.equalsAny(paperIdx, "1", "2");
         ObjectMapper lernJsonParser = new ObjectMapper();
         for (int dgnssId : targetDgnssIdList) {
             List<Map<String, Object>> cachedRows =
@@ -1828,8 +1839,6 @@ public class DgnssService {
                 enrichLpaTop3(lpaRows);
                 String ordKey = Integer.toString(currentOrdNo);
                 List<Map<String, Object>> studentLpaList = new ArrayList<>();
-                List<Map<String, Object>> studentLernList = exposeLernReport ? new ArrayList<>() : null;
-                Set<String> lernIncludedStdtIds = exposeLernReport ? new HashSet<>() : null;
                 for (Map<String, Object> row : lpaRows) {
                     Map<String, Object> lpaRow = new LinkedHashMap<>();
                     lpaRow.put("stdtId", MapUtils.getString(row, "stdtId", ""));
@@ -1843,65 +1852,15 @@ public class DgnssService {
                     lpaRow.put("lpaTop3TypeName", row.get("lpaTop3TypeName"));
                     lpaRow.put("lpaTop3Probability", row.get("lpaTop3Probability"));
                     studentLpaList.add(lpaRow);
-
-                    if (studentLernList != null) {
-                        Map<String, Object> sectionScores = new LinkedHashMap<>();
-                        String jsonStr = MapUtils.getString(row, "json", "");
-                        if (StringUtils.isNotBlank(jsonStr)) {
-                            try {
-                                Map<String, Object> parsed = lernJsonParser.readValue(jsonStr, Map.class);
-                                sectionScores.putAll(parsed);
-                            } catch (Exception ex) {
-                                // json 파싱 실패 — 빈 sectionScores 로 응답. 데이터 없는 학생도 fallback 여부는 표기.
-                            }
-                        }
-                        String stdtIdValue = MapUtils.getString(row, "stdtId", "");
-                        Map<String, Object> lernRow = new LinkedHashMap<>();
-                        lernRow.put("stdtId", stdtIdValue);
-                        lernRow.put("source", MapUtils.getString(row, "source", "IN_CLASS"));
-                        lernRow.put("ord_no", currentOrdNo);
-                        // selectClassTotalReport / FromOtherClasses 양쪽 모두 b1.subm_at = 'Y' 필터링이라
-                        // lpaRows 에 들어온 학생은 모두 제출 완료 상태.
-                        lernRow.put("subm_at", "Y");
-                        lernRow.put("sectionScores", sectionScores);
-                        studentLernList.add(lernRow);
-                        if (StringUtils.isNotBlank(stdtIdValue)) {
-                            lernIncludedStdtIds.add(stdtIdValue);
-                        }
-                    }
                 }
-
-                // 타학급에서 응시 중(subm_at='N')이라 위 fallback 에 안 잡힌 학생도 lernReportByOrd 에 노출.
-                // FE 가 "다른 학급에서 응시 중(미제출)" 상태로 표시할 수 있도록.
-                if (studentLernList != null && CollectionUtils.isNotEmpty(missingStudents)) {
-                    Map<String, Object> statusParam = new HashMap<>();
-                    statusParam.put("claId", MapUtils.getString(param, "claId", ""));
-                    statusParam.put("paperIdx", paperIdx);
-                    statusParam.put("ordNo", currentOrdNo);
-                    statusParam.put("stdtIds", missingStudents);
-                    List<Map<String, Object>> statusRows =
-                            dgnssMapper.selectClassStudentsSubmStatusFromOtherClasses(statusParam);
-                    if (CollectionUtils.isNotEmpty(statusRows)) {
-                        for (Map<String, Object> sRow : statusRows) {
-                            String sId = MapUtils.getString(sRow, "stdtId", "");
-                            String sAt = MapUtils.getString(sRow, "submAt", "");
-                            if (StringUtils.isBlank(sId) || lernIncludedStdtIds.contains(sId)) continue;
-                            Map<String, Object> lernRow = new LinkedHashMap<>();
-                            lernRow.put("stdtId", sId);
-                            lernRow.put("source", "OTHER_CLASS");
-                            lernRow.put("ord_no", currentOrdNo);
-                            lernRow.put("subm_at", sAt);
-                            lernRow.put("sectionScores", new LinkedHashMap<>());
-                            studentLernList.add(lernRow);
-                            lernIncludedStdtIds.add(sId);
-                        }
-                    }
-                }
-
                 lpaByOrd.put(ordKey, studentLpaList);
-                if (studentLernList != null) {
-                    lernReportByOrd.put(ordKey, studentLernList);
-                }
+            }
+
+            // lernReportByOrd: 신뢰도 '주의' 학생도 포함(별도 조회라 평균/lpaByOrd 미영향) + reliabilityWarnings 배열.
+            // lpaRows(신뢰도 제외본)가 비어도 실행 — 타학급 응시중(N)/신뢰도주의 학생 누락 방지.
+            if (exposeLernReport) {
+                appendLernReportForOrd(dgnssId, currentOrdNo, missingStudents,
+                        MapUtils.getString(param, "claId", ""), paperIdx, lernJsonParser, lernReportByOrd);
             }
         }
         resultMap.put("lpaByOrd", lpaByOrd);
@@ -1940,6 +1899,121 @@ public class DgnssService {
         cache.put(dgnssId, rows);
         notExistsUsedCache.put(dgnssId, used);
         return rows;
+    }
+
+    /**
+     * lernReportByOrd(회차별 학생 학습영역 점수·제출상태)를 신뢰도 '주의' 학생까지 포함해 구성한다.
+     * 평균/lpaByOrd 경로(selectClassTotalReport 캐시)와 분리된 별도 조회(lernInclude='Y')라 그쪽에 영향이 없다.
+     * 각 row 에 reliabilityWarnings(신뢰도 '주의' 지표 라벨 배열, FE 컨벤션)을 부여한다. 종료검사 기준(dgnss_at='N')·subm_at='Y' 는 유지.
+     */
+    private void appendLernReportForOrd(int dgnssId, int currentOrdNo, List<String> missingStudents,
+                                        String claId, String paperIdx, ObjectMapper lernJsonParser,
+                                        Map<String, List<Map<String, Object>>> lernReportByOrd) {
+        // 현재 학급 제출(Y) — 신뢰도 '주의' 포함(lernInclude='Y')
+        Map<String, Object> inParam = new HashMap<>();
+        inParam.put("dgnssId", dgnssId);
+        inParam.put("notExistsYn", "N");
+        inParam.put("lernInclude", "Y");
+        List<Map<String, Object>> lernRows = new ArrayList<>(dgnssMapper.selectClassTotalReport(inParam));
+        for (Map<String, Object> row : lernRows) {
+            row.put("source", "IN_CLASS");
+        }
+        // 타학급 제출(Y) 폴백 — 신뢰도 '주의' 포함
+        if (CollectionUtils.isNotEmpty(missingStudents)) {
+            Map<String, Object> otherParam = new HashMap<>();
+            otherParam.put("claId", claId);
+            otherParam.put("paperIdx", paperIdx);
+            otherParam.put("ordNo", currentOrdNo);
+            otherParam.put("stdtIds", missingStudents);
+            otherParam.put("notExistsYn", "N");
+            otherParam.put("lernInclude", "Y");
+            List<Map<String, Object>> otherRows = dgnssMapper.selectClassTotalReportFromOtherClasses(otherParam);
+            if (CollectionUtils.isNotEmpty(otherRows)) {
+                for (Map<String, Object> row : otherRows) {
+                    row.put("source", "OTHER_CLASS");
+                }
+                lernRows.addAll(otherRows);
+                lernRows = deduplicateByStdtId(lernRows);
+            }
+        }
+
+        List<Map<String, Object>> studentLernList = new ArrayList<>();
+        Set<String> includedStdtIds = new HashSet<>();
+        for (Map<String, Object> row : lernRows) {
+            Map<String, Object> sectionScores = new LinkedHashMap<>();
+            String jsonStr = MapUtils.getString(row, "json", "");
+            if (StringUtils.isNotBlank(jsonStr)) {
+                try {
+                    Map<String, Object> parsed = lernJsonParser.readValue(jsonStr, Map.class);
+                    sectionScores.putAll(parsed);
+                } catch (Exception ex) {
+                    // json 파싱 실패 — 빈 sectionScores
+                }
+            }
+            String stdtIdValue = MapUtils.getString(row, "stdtId", "");
+            Map<String, Object> lernRow = new LinkedHashMap<>();
+            lernRow.put("stdtId", stdtIdValue);
+            lernRow.put("source", MapUtils.getString(row, "source", "IN_CLASS"));
+            lernRow.put("ord_no", currentOrdNo);
+            lernRow.put("subm_at", "Y");
+            lernRow.put("reliabilityWarnings", buildReliabilityWarnings(row));
+            lernRow.put("sectionScores", sectionScores);
+            studentLernList.add(lernRow);
+            if (StringUtils.isNotBlank(stdtIdValue)) {
+                includedStdtIds.add(stdtIdValue);
+            }
+        }
+
+        // 타학급에서 응시 중(subm_at='N')이라 위에 안 잡힌 학생 보강 (점수 없음, 신뢰도 판정 불가 → false)
+        if (CollectionUtils.isNotEmpty(missingStudents)) {
+            Map<String, Object> statusParam = new HashMap<>();
+            statusParam.put("claId", claId);
+            statusParam.put("paperIdx", paperIdx);
+            statusParam.put("ordNo", currentOrdNo);
+            statusParam.put("stdtIds", missingStudents);
+            List<Map<String, Object>> statusRows =
+                    dgnssMapper.selectClassStudentsSubmStatusFromOtherClasses(statusParam);
+            if (CollectionUtils.isNotEmpty(statusRows)) {
+                for (Map<String, Object> sRow : statusRows) {
+                    String sId = MapUtils.getString(sRow, "stdtId", "");
+                    String sAt = MapUtils.getString(sRow, "submAt", "");
+                    if (StringUtils.isBlank(sId) || includedStdtIds.contains(sId)) continue;
+                    Map<String, Object> lernRow = new LinkedHashMap<>();
+                    lernRow.put("stdtId", sId);
+                    lernRow.put("source", "OTHER_CLASS");
+                    lernRow.put("ord_no", currentOrdNo);
+                    lernRow.put("subm_at", sAt);
+                    lernRow.put("reliabilityWarnings", new ArrayList<>());
+                    lernRow.put("sectionScores", new LinkedHashMap<>());
+                    studentLernList.add(lernRow);
+                    includedStdtIds.add(sId);
+                }
+            }
+        }
+
+        if (CollectionUtils.isNotEmpty(studentLernList)) {
+            lernReportByOrd.put(Integer.toString(currentOrdNo), studentLernList);
+        }
+    }
+
+    /**
+     * 신뢰도 지표 마크에서 '주의' 항목만 라벨 배열로 구성한다 (FE reliabilityWarnings 컨벤션).
+     * desirable=COCH02(사회적바람직성), reaction=COCH01(반응일관성), repeatResponse=연속동일반응.
+     * 주의 없으면 빈 배열.
+     */
+    private List<String> buildReliabilityWarnings(Map<String, Object> row) {
+        List<String> warnings = new ArrayList<>();
+        if ("주의".equals(MapUtils.getString(row, "desirable", ""))) {
+            warnings.add("사회적바람직성");
+        }
+        if ("주의".equals(MapUtils.getString(row, "reaction", ""))) {
+            warnings.add("반응일관성");
+        }
+        String repeat = MapUtils.getString(row, "repeatResponse", "");
+        if ("Y".equals(repeat) || "주의".equals(repeat)) {
+            warnings.add("연속동일반응");
+        }
+        return warnings;
     }
 
     private List<Integer> resolveTargetDgnssIdListForAnalysis(String paperIdx, String ordNo, List<Integer> allDgnssIdList) {

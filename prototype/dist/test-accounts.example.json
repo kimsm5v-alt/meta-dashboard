@@ -1,0 +1,37 @@
+[
+  {
+    "label": "engreal51-t (중등)",
+    "teacherId": "engreal51-t",
+    "classId": "1c4379432acc4a37ad0b608fd3a16a5c",
+    "gradeLevel": "mi",
+    "jwtToken": "여기에_JWT_토큰_입력"
+  },
+  {
+    "label": "engreal52-t (중등)",
+    "teacherId": "engreal52-t",
+    "classId": "79b7443d6a2e47a7bb7e8f6306f45bed",
+    "gradeLevel": "mi",
+    "jwtToken": "여기에_JWT_토큰_입력"
+  },
+  {
+    "label": "engreal53-t (중등)",
+    "teacherId": "engreal53-t",
+    "classId": "9ce9a5fa274949ababalfeb4d1685e65",
+    "gradeLevel": "mi",
+    "jwtToken": "여기에_JWT_토큰_입력"
+  },
+  {
+    "label": "engreal54-t (중등)",
+    "teacherId": "engreal54-t",
+    "classId": "9724b4e2af654b38b488947a59a454e2",
+    "gradeLevel": "mi",
+    "jwtToken": "여기에_JWT_토큰_입력"
+  },
+  {
+    "label": "engreal55-t (중등)",
+    "teacherId": "engreal55-t",
+    "classId": "dc86c4c7e7e84c07b5e106d18240e602",
+    "gradeLevel": "mi",
+    "jwtToken": "여기에_JWT_토큰_입력"
+  }
+]

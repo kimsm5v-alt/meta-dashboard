@@ -159,6 +159,184 @@ export const ASSESSMENT_SUBTAB_LABELS: Record<AssessmentSubTab, string> = {
 };
 
 // ============================================================
+// 변화추적 (화면 6번)
+// ============================================================
+
+/** 학생 변화 상태 */
+export type ChangeDirection = 'up' | 'same' | 'down';
+
+// ============================================================
+// 학습 현황 (Q120~Q124 설문 응답)
+// ============================================================
+
+/**
+ * 120. 내 학업 성적은 어느 정도인지 체크해 주세요.
+ * ① 매우 낮음 ② 낮음 ③ 보통 ④ 높음 ⑤ 매우 높음
+ */
+export type AcademicAchievement = 'very-low' | 'low' | 'mid' | 'high' | 'very-high';
+
+/**
+ * 121. 나의 성적에 어느 정도 만족하는지 체크해 주세요.
+ * ① 매우 낮음 ② 낮음 ③ 보통 ④ 높음 ⑤ 매우 높음
+ */
+export type GradeSatisfaction = 'very-low' | 'low' | 'mid' | 'high' | 'very-high';
+
+/**
+ * 122. 다음 중 내가 공부하는 가장 중요한 이유 1가지를 체크해 주세요.
+ * ① 공부에 흥미를 느껴서 ② 나의 미래를 위해서 ③ 대학을 가기 위해서
+ * ④ 주변 사람들(부모님, 선생님)의 기대 때문에 ⑤ 솔직히 왜 하는지 모르겠다
+ */
+export type LearningMotivation = 'interest' | 'future' | 'college' | 'expectations' | 'unknown';
+
+/**
+ * 123. 학교 다닐 때, 혼자 공부하는 시간(온라인 학습 제외)이 하루 평균 어느 정도인지 체크해 보세요.
+ * ① 전혀 안함 ② 1시간 미만 ③ 1시간 이상~2시간 미만 ④ 2시간 이상~3시간 미만 ⑤ 3시간 이상
+ */
+export type SelfStudyTime = 'none' | 'under1h' | '1-2h' | '2-3h' | 'over3h';
+
+/**
+ * 124. 공부와 관련된 고민이 있을 때, 가장 많이 상담하는 사람 1명을 체크해 주세요.
+ * ① 친구 ② 선생님 ③ 가족 ④ 상담 전문가 ⑤ 기타
+ */
+export type LearningCounselor = 'friend' | 'teacher' | 'family' | 'counselor' | 'etc';
+
+/** 학습 현황 */
+export interface LearningStatus {
+  academicAchievement: AcademicAchievement;
+  gradeSatisfaction: GradeSatisfaction;
+  learningMotivation: LearningMotivation;
+  selfStudyTime: SelfStudyTime;
+  learningCounselor: LearningCounselor;
+}
+
+/** 학습 현황 라벨 */
+export const LEARNING_STATUS_LABELS = {
+  // 120. 내 학업 성적은 어느 정도인지 체크해 주세요.
+  academicAchievement: {
+    'very-low': '매우 낮음',
+    'low': '낮음',
+    'mid': '보통',
+    'high': '높음',
+    'very-high': '매우 높음',
+  },
+  // 121. 나의 성적에 어느 정도 만족하는지 체크해 주세요.
+  gradeSatisfaction: {
+    'very-low': '매우 낮음',
+    'low': '낮음',
+    'mid': '보통',
+    'high': '높음',
+    'very-high': '매우 높음',
+  },
+  // 122. 다음 중 내가 공부하는 가장 중요한 이유 1가지를 체크해 주세요.
+  learningMotivation: {
+    'interest': '공부에 흥미를 느껴서',
+    'future': '나의 미래를 위해서',
+    'college': '대학을 가기 위해서',
+    'expectations': '주변 사람들의 기대 때문에',
+    'unknown': '솔직히 왜 하는지 모르겠다',
+  },
+  // 123. 학교 다닐 때, 혼자 공부하는 시간(온라인 학습 제외)이 하루 평균 어느 정도인지 체크해 보세요.
+  selfStudyTime: {
+    'none': '전혀 안함',
+    'under1h': '1시간 미만',
+    '1-2h': '1시간 이상~2시간 미만',
+    '2-3h': '2시간 이상~3시간 미만',
+    'over3h': '3시간 이상',
+  },
+  // 124. 공부와 관련된 고민이 있을 때, 가장 많이 상담하는 사람 1명을 체크해 주세요.
+  learningCounselor: {
+    'friend': '친구',
+    'teacher': '선생님',
+    'family': '가족',
+    'counselor': '상담 전문가',
+    'etc': '기타',
+  },
+} as const;
+
+/** 학생 변화 추적 데이터 */
+export interface StudentChangeData {
+  id: string;
+  number: number;
+  name: string;
+  /** 1차 검사 점수 (평균 T점수) */
+  round1Score: number | null;
+  /** 2차 검사 점수 (평균 T점수) */
+  round2Score: number | null;
+  /** 변화량 */
+  change: number | null;
+  /** 변화 방향 */
+  changeDirection: ChangeDirection | null;
+  /** 1차 유형 */
+  round1Type: string | null;
+  /** 2차 유형 */
+  round2Type: string | null;
+  /** 유형 변화 여부 */
+  typeChanged: boolean;
+  /** 1차 요인별 T점수 (38개) */
+  round1TScores: number[] | null;
+  /** 2차 요인별 T점수 (38개) */
+  round2TScores: number[] | null;
+  /** 1차 유형 확률 (LPA) */
+  round1TypeProbabilities: Record<string, number> | null;
+  /** 2차 유형 확률 (LPA) */
+  round2TypeProbabilities: Record<string, number> | null;
+  /** 1차 학습 현황 */
+  round1LearningStatus: LearningStatus | null;
+  /** 2차 학습 현황 */
+  round2LearningStatus: LearningStatus | null;
+}
+
+/** 반 변화 요약 */
+export interface ClassChangeSummary {
+  /** 반 ID */
+  classId: string;
+  /** 반 이름 */
+  className: string;
+  /** 1차 평균 */
+  round1Avg: number;
+  /** 2차 평균 */
+  round2Avg: number;
+  /** 평균 변화량 */
+  avgChange: number;
+  /** 상승 학생 수 */
+  upCount: number;
+  /** 유지 학생 수 */
+  sameCount: number;
+  /** 하락 학생 수 */
+  downCount: number;
+  /** 전체 학생 수 */
+  totalCount: number;
+  /** 2차 응시 학생 수 */
+  round2Count: number;
+}
+
+/** 개입 유형 */
+export type InterventionType = 'counseling' | 'lesson' | 'class_coaching' | 'individual_coaching';
+
+/** 개입 유형 라벨 */
+export const INTERVENTION_TYPE_LABELS: Record<InterventionType, string> = {
+  counseling: '상담',
+  lesson: '수업',
+  class_coaching: '학급 코칭',
+  individual_coaching: '개별 코칭',
+};
+
+/** 코칭 유형 설명 */
+export const COACHING_TYPE_DESCRIPTIONS: Record<'class_coaching' | 'individual_coaching', string> = {
+  class_coaching: '학급 대표 전략 코칭',
+  individual_coaching: '유형 대비 강점 확인과 인정, 맞춤 코칭 제안',
+};
+
+/** 개입 이력 항목 */
+export interface InterventionHistory {
+  id: string;
+  date?: string;
+  type: InterventionType;
+  title: string;
+  description?: string;
+}
+
+// ============================================================
 // 결과보기 - 학생 결과 (화면 5번)
 // ============================================================
 

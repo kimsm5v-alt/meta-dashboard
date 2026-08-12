@@ -101,6 +101,10 @@
 				AND b1.stdt_id = gm.stdt_id
 
 		WHERE a1.cla_id = #{claId}
+		<!-- paperIdx 미전송(없음/공백/0) → 1·2 모두 조회, 전송 시 해당 검사 유형만 조회 -->
+		<if test="paperIdx != null and paperIdx != '' and paperIdx != '0'">
+			AND a1.paper_idx = #{paperIdx}
+		</if>
 		GROUP BY a1.id
 	</select>
 
@@ -168,6 +172,10 @@
 				ON gi.group_id = gm.group_id
 				AND b1.stdt_id = gm.stdt_id
 		WHERE gi.host_user_no = #{userNo}
+		<!-- paperIdx 미전송(없음/공백/0) → 1·2 모두 조회, 전송 시 해당 검사 유형만 조회 -->
+		<if test="paperIdx != null and paperIdx != '' and paperIdx != '0'">
+			AND a1.paper_idx = #{paperIdx}
+		</if>
 		GROUP BY a1.id
 		ORDER BY a1.cla_id, a1.paper_idx, a1.ord_no
 	</select>
@@ -3249,6 +3257,9 @@
 		, MAX(lpa.probabilities_json) AS lpaProbabilitiesJson
 		, CONCAT('{', GROUP_CONCAT(
 		CONCAT('"', d1.SECTION_ID, '"', ' : ', d1.T_SCORE)), '}') AS json
+		, MAX(c1.COCH_DGNSS_QESITM02_MARK) AS desirable
+		, MAX(c1.COCH_DGNSS_QESITM01_MARK) AS reaction
+		, MAX(c1.REPEATED_RESPONSE_YN) AS repeatResponse
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -3259,7 +3270,7 @@
 		WHERE a1.id = #{dgnssId}
 		AND a1.dgnss_at = 'N'
 		AND b1.subm_at = 'Y'
-		<if test='notExistsYn != null and notExistsYn == "N"'>
+		<if test='notExistsYn != null and notExistsYn == "N" and lernInclude != "Y"'>
 			AND c1.COCH_DGNSS_QESITM01_MARK <![CDATA[<>]]> '주의' AND c1.COCH_DGNSS_QESITM02_MARK <![CDATA[<>]]> '주의' AND c1.REPEATED_RESPONSE_YN <![CDATA[<>]]> 'Y'
 		</if>
 		AND IFNULL(c1.NO_ANS_CNT, 0) <![CDATA[<]]> 10
@@ -3303,6 +3314,9 @@
 			, MAX(lpa.status) AS lpaStatus
 			, MAX(lpa.probabilities_json) AS lpaProbabilitiesJson
 			, CONCAT('{', GROUP_CONCAT(CONCAT('"', d1.SECTION_ID, '"', ' : ', d1.T_SCORE)), '}') AS json
+			, MAX(c1.COCH_DGNSS_QESITM02_MARK) AS desirable
+			, MAX(c1.COCH_DGNSS_QESITM01_MARK) AS reaction
+			, MAX(c1.REPEATED_RESPONSE_YN) AS repeatResponse
 		FROM tb_dgnss_info a1
 			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
 			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
@@ -3317,7 +3331,7 @@
 			<foreach item="stdtId" collection="stdtIds" open="(" separator="," close=")">
 				#{stdtId}
 			</foreach>
-			<if test='notExistsYn != null and notExistsYn == "N"'>
+			<if test='notExistsYn != null and notExistsYn == "N" and lernInclude != "Y"'>
 				AND c1.COCH_DGNSS_QESITM01_MARK <![CDATA[<>]]> '주의' AND c1.COCH_DGNSS_QESITM02_MARK <![CDATA[<>]]> '주의' AND c1.REPEATED_RESPONSE_YN <![CDATA[<>]]> 'Y'
 			</if>
 			AND IFNULL(c1.NO_ANS_CNT, 0) <![CDATA[<]]> 10
@@ -3367,7 +3381,7 @@
 		AND a1.dgnss_at = 'N'
 		AND b1.subm_at = 'Y'
 		AND a1.ord_no = #{ordNo}
-		<if test='notExistsYn != null and notExistsYn == "N"'>
+		<if test='notExistsYn != null and notExistsYn == "N" and lernInclude != "Y"'>
 		    AND c1.COCH_DGNSS_QESITM01_MARK <![CDATA[<>]]> '주의' AND c1.COCH_DGNSS_QESITM02_MARK <![CDATA[<>]]> '주의' AND c1.REPEATED_RESPONSE_YN <![CDATA[<>]]> 'Y'
 		</if>
 		GROUP BY a1.id, d1.SECTION_ID
