@@ -91,13 +91,18 @@ const NoticeText = styled.p`
 
 interface StudentTrackingSectionProps {
   classId: string;
-  studentId: string;
+  assessmentStudentId: string;
+  recordStudentId: string;
 }
 
-export const StudentTrackingSection = ({ classId, studentId }: StudentTrackingSectionProps) => {
+export const StudentTrackingSection = ({
+  classId,
+  assessmentStudentId,
+  recordStudentId,
+}: StudentTrackingSectionProps) => {
   const { classData, student, isLoading, error, refetch } = useTrackingStudentData(
     classId,
-    studentId,
+    assessmentStudentId,
   );
 
   if (isLoading) {
@@ -186,7 +191,7 @@ export const StudentTrackingSection = ({ classId, studentId }: StudentTrackingSe
         <StudentFactorChangeList round1TScores={round1.tScores} round2TScores={round2.tScores} />
       )}
 
-      <InterventionTimeline studentId={student.id} classId={classData.id} />
+      <InterventionTimeline studentId={recordStudentId} classId={classData.id} />
     </Wrapper>
   );
 };

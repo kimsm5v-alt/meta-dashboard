@@ -2,9 +2,11 @@ import styled from '@emotion/styled';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Card } from '@shared/components';
 import { useTrackingClassData } from '@features/exam-tracking/model/useTrackingClassData';
-import { TypeChangeChart } from '@features/class-dashboard/ui/TypeChangeChart';
 import { TopChangeSummary } from './TopChangeSummary';
 import { CategoryChangeList } from './CategoryChangeList';
+import { SignificantFactorChanges } from './SignificantFactorChanges';
+import { TypeChangeStudents } from './TypeChangeStudents';
+import { ClassInterventionTimeline } from './ClassInterventionTimeline';
 
 const Wrapper = styled.div`
   padding: ${({ theme }) => theme.spacing.lg};
@@ -18,6 +20,12 @@ const Title = styled.h1`
   color: ${({ theme }) => theme.colors.text.primary};
   font-size: ${({ theme }) => theme.typography.fontSize['2xl']};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+`;
+
+const Description = styled.p`
+  margin: -${({ theme }) => theme.spacing.md} 0 0;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
 `;
 
 const CenterBox = styled.div`
@@ -98,9 +106,12 @@ export const ClassTrackingSection = ({ classId }: ClassTrackingSectionProps) => 
       <Title>
         {classData.grade}-{classData.classNumber}반 변화추적
       </Title>
-      <TypeChangeChart classData={classData} />
-      <TopChangeSummary classData={classData} />
+      <Description>1차 검사와 2차 검사 결과를 비교하여 학생들의 변화를 확인합니다.</Description>
       <CategoryChangeList classData={classData} />
+      <SignificantFactorChanges classData={classData} />
+      <TopChangeSummary classData={classData} />
+      <TypeChangeStudents classData={classData} />
+      <ClassInterventionTimeline classId={classData.id} />
     </Wrapper>
   );
 };
