@@ -1,7 +1,7 @@
 /**
- * 공유 자료실 — 전체 스코프 (목업 renderLibrary 의 전체 분기).
- * 히어로 배너 + 다축 필터 + 전체 자료실 그리드.
- * (반 스코프 큐레이팅은 Phase 2 ClassCurationView)
+ * 공유 자료실 — 전체 콘텐츠 탐색 (목업 renderLibrary 의 전체 분기).
+ * 제목 + 다축 필터 + 전체 자료실 그리드.
+ * 반 스코프에서는 ClassCurationView(맞춤 추천 패널) 아래에 이어 붙는다.
  */
 import { useMemo, useState } from 'react';
 import { LIB } from '../../mock-data';
@@ -44,13 +44,13 @@ export const LibraryView = () => {
   const items = useMemo(() => sortItems(LIB.filter((d) => matchLibF(d, filters)), sort), [filters, sort]);
 
   return (
-    <div className="mt-5 flex flex-col gap-5">
-      <FilterPanel filters={filters} onToggle={toggle} onClear={clear} sort={sort} onSort={setSort} />
+    <div className="mt-4 flex flex-col gap-3">
       <div>
-        <div className="mb-1 text-lg font-extrabold tracking-tight text-gray-900">전체 자료실</div>
-        <p className="mb-3 text-sm text-gray-500">검증 · 비검증 · 내외부 SEL 콘텐츠를 함께 탐색합니다.</p>
-        <ResourceGrid items={items} />
+        <div className="text-lg font-extrabold tracking-tight text-gray-900">전체 자료실</div>
+        <p className="mt-0.5 text-sm text-gray-500">검증 · 비검증 · 내외부 SEL 콘텐츠를 함께 탐색합니다.</p>
       </div>
+      <FilterPanel filters={filters} onToggle={toggle} onClear={clear} sort={sort} onSort={setSort} />
+      <ResourceGrid items={items} />
     </div>
   );
 };

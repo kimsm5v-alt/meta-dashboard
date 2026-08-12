@@ -9,8 +9,8 @@ export const CARD_SHELL =
 
 /** 카드 하단 CTA — primary(시작하기·리포트 등). flex-1 은 사용처에서 조합. */
 export const CARD_BTN_PRIMARY =
-  'rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-600';
+  'rounded-lg bg-primary-500 px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600';
 
 /** 카드 하단 CTA — secondary(수정하기 등 보조). */
 export const CARD_BTN_SECONDARY =
-  'rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50';
+  'rounded-lg border border-gray-300 px-2 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50';
