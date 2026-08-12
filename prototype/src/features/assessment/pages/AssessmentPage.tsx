@@ -57,6 +57,8 @@ export const AssessmentPage = () => {
   }, [location.pathname, setActiveSubTab, prototypeMode.examType]);
 
   // URL 파라미터로 직접 학생 결과 페이지 접근 시 처리 (개입이력 바로가기에서 사용)
+  // 주의: 이 useEffect는 scrollTo 파라미터가 있을 때만 실행 (직접 URL 접근 케이스)
+  // LNB에서 학생 선택 시에는 아래의 다른 useEffect에서 처리함
   useEffect(() => {
     // 자기조절학습검사는 별도 페이지에서 처리
     if (prototypeMode.examType === 'self') return;
@@ -65,7 +67,8 @@ export const AssessmentPage = () => {
     const studentParam = searchParams.get('student');
     const scrollToParam = searchParams.get('scrollTo');
 
-    if (classParam && studentParam && activeSubTab === 'result') {
+    // scrollTo 파라미터가 있을 때만 실행 (개입이력 바로가기 등 직접 URL 접근)
+    if (classParam && studentParam && scrollToParam && activeSubTab === 'result') {
       // 반 선택
       const classData = MOCK_CLASS_EXAM_DATA[classParam];
       if (classData) {
