@@ -8,6 +8,7 @@
 |------|------|------|
 | **추가계획1** | `FilterPanel` UI + 로컬 필터 상태 | Phase 1 완료 / API 미착수 |
 | **추가계획2** | Contents Description 아래 자료 목록(`ResourceCardList`) + 필터 연동(목업) | Phase A 완료 / Phase B 대기 |
+| **추가계획3** | `LessonMyPage` 나의 자료 목록 — `ResourceCardList` `variant="my"` + 목업 | Phase A 완료 / API 대기 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `POST .../api/contents/setSearch` (임시 스펙) | 초안 수신 · 확정 전 |
@@ -724,3 +725,105 @@ const items = useMemo(
 **수정**: 2026-08-12 — Phase A 구현 완료 (ResourceCardList/Card + 목업 필터 연동)  
 **수정**: 2026-08-12 — `ResourceGrid` → `ResourceCardList`, `features/lesson/ui` 평탄 구조  
 **상태**: Phase A 완료 / Phase B 스펙 초안(변경 가능)·미착수
+
+---
+
+# 추가계획3 — LessonMyPage 나의 자료 목록 (`ResourceCardList` 재사용)
+
+> **목표**: 프로토타입 `MyDataView`의 세트지 그리드(24–36행)를 `LessonMyPage`의 `ContentsHeader` **바로 아래**에 배치한다.  
+> **재사용**: 자료실과 동일 UI인 `ResourceCardList` / `ResourceCard`에 `variant` props로 모드 분기.  
+> **범위**: Phase A = UI + 목업. Phase B = 나의 자료 API(미정) 연동.  
+> **준수**: Emotion, 이모지 금지, FSD (`pages → features`)
+
+---
+
+## 1. 현황·갭
+
+### 프로토타입 (`MyDataView`)
+
+```
+헤더 (나의 자료 + 새로 만들기)
+└─ myLessons.length
+     ? grid → MyLessonCard × N
+     : 빈 상태 ("아직 만든 세트지가 없어요…")
+```
+
+`MyLessonCard`: 썸네일 + `수정 MM/DD` + [수정하기][시작하기] (src/SEL 뱃지 없음)
+
+### 프론트 (적용 후)
+
+```
+LessonMyPage
+├─ ContentsHeader (Title/Description + 새로 만들기)  ← 기존 유지
+├─ ResourceCardList variant="my" items={MOCK_LIBRARY_ITEMS}
+├─ Toolbar (수업하기)                                 ← 기존 유지
+└─ Embed (editor/viewer)                              ← 기존 유지
+```
+
+---
+
+## 2. 공통 컴포넌트 확장
+
+| props | 자료실 (`library`) | 나의 자료 (`my`) |
+|-------|-------------------|------------------|
+| `variant` | `'library'` (기본) | `'my'` |
+| 카드 본문 | src/SEL 뱃지 (+ reason) | `수정 {updated}` |
+| 빈 상태 문구 | 조건에 맞는 콘텐츠가 없습니다. | 아직 만든 세트지가 없어요. … |
+| 빈 상태 아이콘 | `SearchX` | `Inbox` |
+| CTA | 수정하기 / 시작하기 (UI만) | 동일 + 썸네일 삭제 버튼(`onDelete`) |
+
+```tsx
+<ResourceCardList items={items} variant="my" />
+// emptyMessage 로 문구 오버라이드 가능
+```
+
+- `LibItem.updated?: string` — my 모드 표시용
+- 목업: `features/lesson/model/mockLibraryItems.ts` (`MOCK_LIBRARY_ITEMS`, `updated` 포함)
+
+---
+
+## 3. Phase
+
+### Phase A — 목업 (완료)
+
+1. [x] `ResourceCardVariant`, `LibItem.updated`
+2. [x] `ResourceCard` / `ResourceCardList`에 `variant`·`emptyMessage`
+3. [x] `MOCK_LIBRARY_ITEMS`에 `updated` 통합 (별도 my 목업 파일 없음)
+4. [x] `LessonMyPage` ContentsHeader 아래 목록 배치 (Toolbar·Embed 유지)
+5. [x] barrel export
+6. [x] `tsc` / ESLint
+
+### Phase B — API (후속)
+
+1. 나의 자료 목록 API 확정 후 React Query 훅
+2. 목업 `useMemo`/상수 교체
+3. 카드 CTA → Editor Embed / 배포 플로우 연결
+4. 삭제 버튼 UI는 `variant=my`에 포함. API/목록 갱신은 Phase B
+
+---
+
+## 4. 하지 말 것
+
+| 금지 | 이유 |
+|------|------|
+| MyLessonCard 별도 복제 | `ResourceCard` variant로 충분 |
+| 빈 상태 이모지 | Lucide만 |
+| Phase A에서 실제 API | 스펙 미정·목업 우선 |
+| page에 카드 styled 중복 | feature UI 재사용 |
+
+---
+
+## 5. 참고 파일
+
+| 용도 | 경로 |
+|------|------|
+| 프로토타입 | `prototype/.../my-lessons/MyDataView.tsx`, `MyLessonCard.tsx` |
+| 목업 원본 | `prototype/.../mock-data.ts` (`MY`) |
+| 공통 목록 | `frontend/.../ui/ResourceCardList.tsx`, `ResourceCard.tsx` |
+| 목업 | `frontend/.../model/mockLibraryItems.ts` (`updated` 포함) |
+| 페이지 | `frontend/.../pages/lesson/LessonMyPage.tsx` |
+
+---
+
+**작성일**: 2026-08-12  
+**상태**: Phase A(목업) 완료 / Phase B(API) 대기
