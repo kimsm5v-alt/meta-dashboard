@@ -16,7 +16,11 @@ export const SlideCanvas = ({ slide, active, onAddContent }: { slide: EditorSlid
       <button onClick={onAddContent} title="템플릿 추가하기" className="rounded bg-primary-50 px-2 py-0.5 font-bold text-primary-600 hover:bg-primary-100">＋</button>
     </div>
     <div className="p-8">
-      {slide.type === 'q' ? (
+      {slide.type === 'page' && slide.src ? (
+        <div className="mx-auto aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+          <img src={slide.src} alt={`슬라이드 ${active}`} className="h-full w-full object-contain" />
+        </div>
+      ) : slide.type === 'q' ? (
         <QuestionTemplate n={active} />
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">

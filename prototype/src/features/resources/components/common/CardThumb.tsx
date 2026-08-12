@@ -1,7 +1,7 @@
 /**
- * 카드 상단 썸네일 (placeholder).
- * 실제 이미지 자산이 없어 GROUP_BG 파스텔 톤 위에 제목을 얹어 이미지 영역을 대체.
- * 고정 비율(aspect-[16/9])로 카드 간 비율을 통일한다.
+ * 카드 상단 썸네일.
+ * 실제 콘텐츠 이미지(public/lesson/…)를 16:9 로 채운다. 원본 활동지가 960×540 이라 비율이 맞다.
+ * thumb 가 없는 데이터는 GROUP_BG 파스텔 톤으로 fallback.
  * 3개 카드(ResourceCard·MyLessonCard·ReportCard) 공용.
  */
 import type { ReactNode } from 'react';
@@ -10,23 +10,17 @@ import type { ColorGroup } from '../../types';
 
 interface CardThumbProps {
   g: ColorGroup;
-  em: string;
-  title: string;
+  /** 콘텐츠 썸네일 이미지 경로 */
+  thumb?: string;
+  /** 이미지 대체 텍스트 (콘텐츠 제목) */
+  alt: string;
   /** 썸네일 위에 겹칠 요소 (예: 나의 자료 삭제 버튼) */
   overlay?: ReactNode;
 }
 
-export const CardThumb = ({ g, em, title, overlay }: CardThumbProps) => (
-  <div
-    className="relative flex aspect-[16/9] items-center justify-center overflow-hidden"
-    style={{ background: GROUP_BG[g] }}
-  >
-    <span className="absolute left-2 top-2 rounded-md bg-white/70 px-1.5 py-0.5 text-base leading-none">
-      {em}
-    </span>
-    <div className="line-clamp-2 px-4 text-center text-sm font-bold leading-snug text-gray-800">
-      {title}
-    </div>
+export const CardThumb = ({ g, thumb, alt, overlay }: CardThumbProps) => (
+  <div className="relative aspect-[16/9] overflow-hidden" style={{ background: GROUP_BG[g] }}>
+    {thumb && <img src={thumb} alt={alt} loading="lazy" className="h-full w-full object-cover" />}
     {overlay}
   </div>
 );
