@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.api.permission.mapper.PaperPermissionMapper">
+
+    <select id="selectByUserNo" resultType="map">
+        /* PaperPermissionMapper.selectByUserNo */
+        SELECT comprehensive_yn AS comprehensiveYn
+             , selfreg_yn       AS selfregYn
+        FROM account_paper_permission
+        WHERE user_no = #{userNo}
+    </select>
+
+</mapper>

@@ -42,7 +42,8 @@ export interface LibItem {
   src: Src;
   sel: string; // SelArea 또는 로드맵의 '1MONTH' 같은 라벨
   g: ColorGroup;
-  em: string; // 이모지 썸네일
+  em: string; // 구 이모지 썸네일 (카드에서 미렌더 — thumb 없을 때의 데이터 흔적으로만 유지)
+  thumb?: string; // 카드 썸네일 이미지 (public/lesson/...). 없으면 GROUP_BG 그라데이션 fallback
   views?: number;
   saves?: number;
   reason?: string; // 추천 근거(강점/검사요인/로드맵)
@@ -52,16 +53,6 @@ export interface LibItem {
   grade?: string[];
   duration?: string;
   factors?: string[];
-}
-
-/** 성장 로드맵 단계 */
-export interface RoadmapStage {
-  stage: string; // '1단계'
-  tier: string; // '펀더멘털 Ⅰ'
-  title: string;
-  months: string;
-  tone: 'green' | 'blue' | 'pink';
-  items: LibItem[];
 }
 
 // ============================================
@@ -78,6 +69,7 @@ export interface MyLesson {
   updated: string; // 'MM/DD'
   g: ColorGroup;
   em: string;
+  thumb?: string;
 }
 
 /** 배포된 수업(리포트) 메타 */
@@ -89,7 +81,8 @@ export interface Report {
   total: number; // 반 전체 인원 (상세 미연결 리포트의 fallback 배정 인원)
   g: ColorGroup;
   em: string;
-  start: string; // 'MM/DD'
+  thumb?: string;
+  start: string; // 'YYYY-MM-DD' (표시할 때 fmtDate 로 축약)
   end: string;
   // === 리포트 상세 (REPORT_SPEC_v2) — 참여 리포트만 연결, 진행예정은 미연결 ===
   activityMode?: '수업' | '과제'; // 실시간 수업 / 비실시간 과제
@@ -138,29 +131,20 @@ export interface ResponseData {
   errata: Errata;
   itemType: string;
   gradingType: GradingType;
-  captureImage?: string; // 뷰어 캡처 (저장 방식 미확정 → placeholder)
+  captureImage?: string; // 뷰어 캡처 (저장 방식 미확정 → mock 은 페이지 이미지로 대체)
+  mediaSec?: number; // 녹음·녹화 길이(초). 엑셀 미확정 항목 → mock 전용
 }
 
 /** 세트지 데이터 (학생 × 세트지) */
 export interface StudentActivity {
   studentId: string;
   studentName: string;
+  no: number; // 출석번호 (반 로스터 순번)
   statusCd: StatusCd;
   period: { start: string; end: string };
   score?: number; // 100점 환산
-  submittedAt?: string; // 제출 시각
+  submittedAt?: string; // 제출 시각 'YYYY-MM-DD HH:mm'
   duration?: number; // 소요 시간(초)
-}
-
-/** 수업 데이터 (수업 참여 학생 × 세트지) 집계 요약 */
-export interface ClassReportSummary {
-  activityMode: '수업' | '과제';
-  participantCount: number; // 하나라도 제출한 학생 수 (statusCd ∈ {3,4,5})
-  assignedCount: number; // 배정 전체
-  submitRate: number; // 참여/배정 × 100
-  avgCorrectRate: number; // 정답 있는 문항만 평균
-  unsubmittedCount: number; // statusCd=2
-  avgDuration?: number; // 평균 활동 시간(초)
 }
 
 /** 한 학생의 리포트 요약 (학생별 보기 · 학생 리포트용) */

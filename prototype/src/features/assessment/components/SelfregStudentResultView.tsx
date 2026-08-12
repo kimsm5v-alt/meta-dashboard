@@ -13,6 +13,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Sparkles, Check, AlertTriangle, Calendar, FileText, ChevronRight } from 'lucide-react';
 import { useLayoutContext } from '@/app/LayoutV2';
 import { SelfregFactorAnalysis } from '@/features/student-dashboard/components';
+import { SelfregOverviewChart } from './SelfregOverviewChart';
 import type { StudentExamResult, LearningStatus } from '../types';
 import { LEARNING_STATUS_LABELS } from '../types';
 import { StudentHeader } from '@/shared/components';
@@ -435,12 +436,36 @@ export const SelfregStudentResultView: React.FC<SelfregStudentResultViewProps> =
       </div>
 
       {/* ================================================================ */}
-      {/* 섹션 2: 요인 분석 (20개 요인) */}
+      {/* 섹션 2: 종합결과 (레이더 차트 + 도넛 차트) */}
+      {/* ================================================================ */}
+      <div className="flex gap-4">
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-cyan-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+            2
+          </div>
+          <div className="w-px bg-gray-300 flex-1 my-2" />
+        </div>
+
+        <div className="flex-1 space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">종합결과</h2>
+            <p className="text-xs text-gray-500">자기조절학습 관련 동기·인지·행동전략의 전체 수준을 확인합니다</p>
+          </div>
+
+          <SelfregOverviewChart
+            studentName={result.name}
+            selfregScores={selfregScores}
+          />
+        </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* 섹션 3: 요인 분석 (20개 요인) */}
       {/* ================================================================ */}
       <div className="flex gap-4">
         <div className="flex flex-col items-center">
           <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
-            2
+            3
           </div>
           <div className="w-px bg-gray-300 flex-1 my-2" />
         </div>
@@ -548,12 +573,12 @@ export const SelfregStudentResultView: React.FC<SelfregStudentResultViewProps> =
       </div>
 
       {/* ================================================================ */}
-      {/* 섹션 3: 상담 & 관찰 (LPA 유형 섹션 없음) */}
+      {/* 섹션 4: 상담 & 관찰 (LPA 유형 섹션 없음) */}
       {/* ================================================================ */}
       <div className="flex gap-4">
         <div className="flex flex-col items-center">
           <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
-            3
+            4
           </div>
           <div className="w-px bg-gray-300 flex-1 my-2" />
         </div>

@@ -22,4 +22,7 @@ export const ENV = {
     (import.meta.env.VITE_MANUAL_URL_COMPREHENSIVE as string | undefined) ?? '',
   MANUAL_URL_SELF_REGULATED:
     (import.meta.env.VITE_MANUAL_URL_SELF_REGULATED as string | undefined) ?? '',
+  /** everyCanvas Embed App / 정적 SDK 오리진 */
+  EVERYCLASS_EMBED_BASE_URL:
+    (import.meta.env.VITE_EVERYCLASS_EMBED_BASE_URL as string | undefined) ?? '',
 } as const;

@@ -750,7 +750,9 @@ export const LayoutV2: React.FC<LayoutProps> = ({ children }) => {
   // ============================================
   useEffect(() => {
     // pathname 변경 시에만 실행
-    if (lastPathRef.current === location.pathname) return;
+    if (lastPathRef.current === location.pathname) {
+      return;
+    }
     lastPathRef.current = location.pathname;
 
     const menuKey = getMenuKeyFromPath(location.pathname);
