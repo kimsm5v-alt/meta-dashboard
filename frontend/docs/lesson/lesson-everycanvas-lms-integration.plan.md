@@ -62,10 +62,13 @@ flowchart LR
 
 | 산출물 | 프론트 사용 방식 |
 | --- | --- |
-| Embed App | `embedBaseUrl` + iframe (`createEmbed`) |
-| 정적 SDK (embed) | `.../sdk/embed/index.js` 로 `createEmbed` import |
-| 정적 SDK (react) | `.../sdk/react/index.js` (번들러/사용 가능 여부 확인 필요) |
+| Embed App | `embedBaseUrl` + iframe (React SDK 내부 `createEmbed`) |
+| 정적 SDK (react) | `.../sdk/react/index.js` — **URL 동적 import 불가** (`react` bare specifier). npm 발행 또는 소스 vendoring 필요 |
+| 정적 SDK (embed) | `.../sdk/embed/index.js` → `createEmbed` (**1차 채택**, 얇은 React 훅으로 래핑) |
 | 정적 SDK (api) | `.../sdk/api/index.js` (필요 시) |
+
+컴포넌트 Props·이벤트 정본: [`everycanvas-react-sdk-components.html`](../../every-canvas-fe/docs/03-guide/everycanvas-react-sdk-components.html)  
+소비 방식: [`addAPI-소비팀-공지 §3.2`](../../every-canvas-fe/docs/03-guide/addAPI-소비팀-공지-t-everyclass.md) — React는 embed 코어 + 로컬 래퍼 권장.
 
 **핵심 원칙** ([`addAPI-integration-guide.md`](../../every-canvas-fe/docs/03-guide/addAPI-integration-guide.md)):
 
@@ -96,7 +99,7 @@ flowchart LR
 | 구분 | 상태 |
 | --- | --- |
 | embed token API | (보류) 토큰 호출/교환은 SSO 기반으로 전환 예정이라, 확정 전까지 경로는 보류 |
-| FE 임베드 컴포넌트 | ✅ `LessonEditorEmbed`, `LessonViewerEmbed` (현재 PoC는 임시 엔드포인트를 호출 중) |
+| FE 임베드 컴포넌트 | ✅ `features/lesson/ui/LessonEditorEmbed` · `LessonViewerEmbed` (React SDK + 공통 토큰/SDK 로더) |
 | LMS 프록시/BFF | ❌ 미구현 — FE가 LMS를 직접 부를지, meta BE 경유할지 결정 필요 |
 | `LessonMyPage` | 빈 페이지 (임시 버튼·목록 UI 추가 대상) |
 | `LessonLibraryPage` | FilterPanel UI만, 목록 API 미연동 |
@@ -178,41 +181,89 @@ LMS 규격서에 **「수업자료실」이라는 이름의 API는 없다**. 프
 - **수업하기**: `LessonViewerEmbed` — PoC용 고정 `slideId` 또는 ref-set 목록에서 선택한 `lcmsSetId` ↔ Platform `slideId` 매핑 확정 후 연결
 - 한 컨테이너에 embed **한 번만** 마운트 (탭/모드 전환 시 cleanup → `destroy()`)
 
-### 4.2 FSD 배치 (AGENTS.md)
+### 4.2 FSD 배치 (AGENTS.md) — 반영 완료
+
+임시로 `pages/lesson/*Embed.tsx`에 두었던 SDK·fetch·styled를 **features**로 이동했다. pages는 조합만 담당.
+
+```
+features/lesson/
+├── api/
+│   └── embedTokenService.ts     # getToken → BE embed-token 조달 (공통)
+├── lib/
+│   ├── everyCanvasEmbedSdk.ts   # /sdk/embed/index.js 1회 로드 + 타입
+│   ├── useEveryCanvasEmbed.ts   # createEmbed 얇은 React 훅 (공식 권장 패턴)
+│   └── getSsoAccessToken.ts     # SlideEditor 전용 getSsoToken
+├── ui/
+│   ├── LessonEditorEmbed/       # editor mode 래퍼 (Props는 SlideEditor 스펙 준수)
+│   └── LessonViewerEmbed/       # viewer mode 래퍼 (Props는 SlideViewer 스펙 준수)
+└── index.ts                     # public export
+```
 
 | 레이어 | 파일 | 역할 |
 | --- | --- | --- |
-| `pages/lesson/LessonMyPage.tsx` | 페이지 | `슬라이드 저작` / `수업하기` 버튼 + `LessonEditorEmbed`/`LessonViewerEmbed` 마운트(임시 PoC) |
-| `pages/lesson/LessonEditorEmbed.tsx` | pages | iframe 마운트 (기존 재사용) |
-| `pages/lesson/LessonViewerEmbed.tsx` | pages | iframe 마운트 (기존 재사용) |
-| `shared/config/env.ts` | shared | `EVERYCLASS_EMBED_BASE_URL` 추가 검토 (하드코드 URL 제거) |
+| `pages/lesson/LessonMyPage.tsx` | pages | 임시 버튼 + feature embed 마운트만 |
+| `features/lesson/ui/LessonEditorEmbed` | features | editor embed + `getToken`/`getSsoToken` |
+| `features/lesson/ui/LessonViewerEmbed` | features | viewer embed + `getToken` (SSO 미전달) |
+| `features/lesson/lib/everyCanvasEmbedSdk.ts` | features | embed 코어 SDK 동적 import 단일화 |
+| `features/lesson/lib/useEveryCanvasEmbed.ts` | features | createEmbed 마운트/cleanup 공통 훅 |
+| `features/lesson/api/embedTokenService.ts` | features | embed token fetch 단일화 |
+| `shared/config/env.ts` | shared | `ENV.EVERYCLASS_EMBED_BASE_URL` |
 
-**금지**: page에 styled 대형 블록·fetch 로직·React Query 훅 직접 배치.
+**금지**: page에 SDK import·fetch·대형 styled·React Query 훅 직접 배치.  
+**참고**: `LessonLibraryPage`에 남아 있던 미사용 `createEmbed` PoC 코드는 제거함.
 
-### 4.3 embed token 호출 (기존 계약)
+### 4.3 getToken / getSsoToken — 토큰 전달 구조
 
-프론트 `getToken` → **임베드 토큰(단기 토큰) 발급**
+React SDK 기준 ([`everycanvas-react-sdk-components.html`](../../every-canvas-fe/docs/03-guide/everycanvas-react-sdk-components.html)):
 
-> 토큰 호출/교환은 요청하신 전제대로 **SSO 인증 토큰 기반**으로 전환합니다.
-> 현재 문서는 SSO 기반 경로의 확정 전까지 **보류**로 두고, 확정 항목으로 분리합니다.
+| 콜백 | 대상 | 역할 | 구현 |
+| --- | --- | --- | --- |
+| `getToken` | **전 컴포넌트 필수** | 자사 BE가 Platform `POST /v1/embed-tokens`로 발급한 **단기 embed token** | `fetchEmbedToken` (공통) |
+| `getSsoToken` | **`<SlideEditor>` only** (optional) | CBS 완성형 콘텐츠 조회용 **v-school SSO AT** | `getSsoAccessToken` — Viewer에는 **전달하지 않음** |
 
-응답 token 추출 (`resultData.token` 폴백 처리는 `LessonEditorEmbed`/`LessonViewerEmbed`에 이미 부분 처리 형태가 있음):
+#### 4.3.1 getToken — BE embed token
 
 ```ts
-const json = await res.json();
-return json.resultData?.token ?? json.token;
+// features/lesson/api/embedTokenService.ts
+getToken={() => fetchEmbedToken({ scope: 'editor' | 'viewer', slideId })}
 ```
 
 | mode | scope | slideId |
 | --- | --- | --- |
-| editor | `editor` | 선택 (신규 생략) |
-| viewer | `viewer` | **필수** |
+| editor (`SlideEditor`) | `editor` | 선택 (신규 생략) |
+| viewer (`SlideViewer`) | `viewer` | **필수** |
 
-#### 확정 필요 항목 (보류)
+미확정 항목:
+- [ ] BE `/api/everyclass/embed-token` 경로·파라미터(`scope`, `slideId`) 확정
+- [ ] M2M 설정 (`everyclass.m2m.*`) 및 origin 등록
 
-- [ ] SSO access token을 프론트에서 어떤 방식으로 변환/교환해 단기 embed token을 받는지 (meta BE 경유인지, 직접 호출인지)
-- [ ] 단기 embed token 발급 API 경로/요청 파라미터 (`scope`, `slideId`) 정합성
-- [ ] `LessonEditorEmbed`/`LessonViewerEmbed`의 현재 구현이 새 흐름으로 업데이트되어야 하는지 여부
+#### 4.3.2 getSsoToken — SlideEditor 전용 (구현 완료)
+
+embed token과 **별개**. 생략 시 기본 저작은 동작하고 CBS 목록만 비활성.
+
+```ts
+// features/lesson/lib/getSsoAccessToken.ts → <SlideEditor getSsoToken={getSsoAccessToken} />
+```
+
+#### 4.3.3 토큰 만료·에러 흐름 (React SDK)
+
+- 핸드셰이크 시 `getToken`(+ editor면 `getSsoToken`) 호출
+- embed token 만료 시 Frame → `onError({ code: 'TOKEN_EXPIRED' })` → Host가 **재발급 후 재마운트**
+- FE에서 `setInterval`로 토큰을 밀어넣지 않음
+
+#### 4.3.4 FE가 직접 처리하지 않아도 되는 것
+
+| 처리 주체 | 내용 |
+| --- | --- |
+| everyCanvas React SDK | iframe 마운트·핸드셰이크·이벤트 브리지 |
+| SSO SDK (`getAuth()`) | AT 갱신, 실패 시 로그아웃 |
+| `authorizedFetch` / axios 인터셉터 | BE 경유 401 갱신 |
+
+#### 4.3.5 확정 필요 항목
+
+- [ ] BE `/api/everyclass/embed-token` 경로 확정
+- [ ] Host `onError`에서 `TOKEN_EXPIRED` 시 remount UX
+- [ ] embed token 실제 TTL 확인 (가이드: 기본 15분, 최대 1시간)
 
 ### 4.4 선행 조건 체크리스트
 
@@ -224,9 +275,10 @@ return json.resultData?.token ?? json.token;
 ### 4.5 Phase 1 완료 기준
 
 - [ ] `LessonMyPage` 임시 버튼 → Editor/Viewer 전환
-- [ ] editor: 저장 `saved` 이벤트 콘솔 또는 토스트 확인
-- [ ] viewer: `slideChanged` / `completed` 이벤트 확인
-- [ ] `npx tsc -b --noEmit`, eslint 통과
+- [ ] editor: `onSaved` 콜백 확인 (신규 저장 시 `slideId` 발급)
+- [ ] viewer: `onSlideChanged` / `onCompleted` 확인
+- [x] FSD: embed는 `features/lesson`, pages는 조합만
+- [x] `npx tsc -b --noEmit`, eslint 통과
 
 ---
 
@@ -295,7 +347,7 @@ export function useRefSetList() {
 
 ### 5.2 수업자료실 (API 소스 확정 후)
 
-[`lesson-library-filter.plan.md`](./lesson-library-filter.plan.md) Phase 2와 통합:
+[`lesson-library.plan.md`](./lesson-library.plan.md) Phase 2와 통합:
 
 1. `useLibraryFilters()` (로컬) + `useLibraryResources({ filters, sort })` (React Query)
 2. `queryKey`에 filters/sort 포함
@@ -330,10 +382,10 @@ export function useRefSetList() {
 
 `shared/config/env.ts`에 추가 검토:
 
-| 변수 | 용도 | 예시 |
-| --- | --- | --- |
-| `VITE_EVERYCLASS_EMBED_BASE_URL` | iframe base | `https://t-everyclass.vsaidt.com` |
-| `VITE_LMS_API_URL` | LMS 직접 호출 시 (BFF 없을 때) | `https://t-gw.vschool.at/v1/lms` |
+| 변수 | 용도 | 상태 | 예시 |
+| --- | --- | --- | --- |
+| `VITE_EVERYCLASS_EMBED_BASE_URL` | Embed App + `/sdk/react` 오리진 | ✅ `ENV.EVERYCLASS_EMBED_BASE_URL` | `https://t-everyclass.vsaidt.com` |
+| `VITE_LMS_API_URL` | LMS 직접 호출 시 (BFF 없을 때) | 미추가 | `https://t-gw.vschool.at/v1/lms` |
 
 M2M·Platform URL은 **FE env에 넣지 않음** (meta BE `everyclass.*`만).
 
@@ -352,11 +404,11 @@ M2M·Platform URL은 **FE env에 넣지 않음** (meta BE `everyclass.*`만).
 
 ### Phase 1 — 임베드 PoC
 
-1. [ ] `EVERYCLASS_EMBED_BASE_URL` env 정리 (선택)
-2. [x] `LessonMyPage` — `슬라이드 저작` / `수업하기` 버튼 + `LessonEditorEmbed`/`LessonViewerEmbed` 마운트
-3. [ ] 기존 `LessonEditorEmbed` / `LessonViewerEmbed` — SSO 토큰 기반 교환/발급 경로 확정 후 연동 정리
-4. [ ] 로컬 token 교환/발급 + origin 등록 확인
-5. [x] tsc / eslint 통과 ( `npm run build` 는 미확인 )
+1. [x] `ENV.EVERYCLASS_EMBED_BASE_URL` (`VITE_EVERYCLASS_EMBED_BASE_URL`)
+2. [x] `LessonMyPage` — 임시 버튼 + feature embed 마운트
+3. [x] FSD 이동: `pages/*Embed` → `features/lesson` + embed 코어(`createEmbed`) + `useEveryCanvasEmbed` 공통 훅 (React SDK URL import는 bare `react`로 불가)
+4. [ ] 로컬 token 교환/발급 + origin 등록 확인 (BE 경로 확정 후)
+5. [x] tsc / eslint 통과 (`npm run build` 는 미확인)
 
 ### Phase 2a — 나의 자료 API
 
@@ -369,7 +421,7 @@ M2M·Platform URL은 **FE env에 넣지 않음** (meta BE `everyclass.*`만).
 
 1. [ ] 자료실 데이터 소스(CMS / Platform / BFF) 확정
 2. [ ] `useLibraryResources` + `LessonLibraryPage` 그리드
-3. [ ] 필터 → query param 매핑 (`lesson-library-filter.plan.md` Phase 2)
+3. [ ] 필터 → query param 매핑 (`lesson-library.plan.md` Phase 2)
 
 ### 후속 (문서에만 기록, 구현은 별도 추가)
 
@@ -421,6 +473,7 @@ npm run build
 | 문서 | 용도 |
 | --- | --- |
 | [`addAPI-integration-guide.md`](../../every-canvas-fe/docs/03-guide/addAPI-integration-guide.md) | end-to-end 통합 |
+| [`everycanvas-react-sdk-components.html`](../../every-canvas-fe/docs/03-guide/everycanvas-react-sdk-components.html) | SlideEditor/Viewer/Join/Report Props·이벤트 정본 |
 | [`addAPI-소비팀-온보딩.md`](../../every-canvas-fe/docs/03-guide/addAPI-소비팀-온보딩.md) | 전달물·4단계 |
 | [`addAPI-소비팀-공지-t-everyclass.md`](../../every-canvas-fe/docs/03-guide/addAPI-소비팀-공지-t-everyclass.md) | 스테이징 URL |
 | [`addAPI-versioning-policy.md`](../../every-canvas-fe/docs/03-guide/addAPI-versioning-policy.md) | v1 호환 |
@@ -440,7 +493,7 @@ npm run build
 | --- | --- |
 | [`AGENTS.md`](../AGENTS.md) | FSD, React Query, 인증 |
 | [`everyclass-embed-수업-저작.md`](./everyclass-embed-수업-저작.md) | embed PoC 상세 |
-| [`lesson-library-filter.plan.md`](./lesson-library-filter.plan.md) | 자료실 필터 UI |
+| [`lesson-library.plan.md`](./lesson-library.plan.md) | 자료실 필터 UI |
 
 ---
 
@@ -450,3 +503,7 @@ npm run build
 | --- | --- |
 | 2026-08-11 | 1차 작성: Phase 1(임베드 PoC), Phase 2(나의 자료 ref-set, 수업자료실 API 후보), API 명칭 매핑 |
 | 2026-08-11 | npm 패키지 부재 전제 반영, 정적 SDK URL 명시, 토큰 호출/교환은 SSO 기반 전환 예정(보류) |
+| 2026-08-12 | §4.3 SSO getToken 분석 추가 (방향 A/B, 10분 만료 갱신 흐름), 참조 파일명 lesson-library.plan.md로 변경 |
+| 2026-08-12 | §4.3 구조 확정 — getToken(embed token, stub)·getSsoToken(SSO AT, 구현완료) 분리 반영 |
+| 2026-08-12 | FSD 정리: pages Embed → `features/lesson`, React SDK(`SlideEditor`/`SlideViewer`) 공통 로더·토큰 서비스 추출, `getSsoToken`은 Editor 전용, `ENV.EVERYCLASS_EMBED_BASE_URL` 반영 |
+| 2026-08-12 | `/sdk/react` URL import 실패(bare `react`) 확인 → 소비팀 공지대로 `/sdk/embed` `createEmbed` + `useEveryCanvasEmbed` 로컬 래퍼로 전환 |

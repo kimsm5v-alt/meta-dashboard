@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import styled from '@emotion/styled';
 import { Button } from '@shared/ui/Button/Button';
-import { LessonEditorEmbed } from './LessonEditorEmbed';
-import { LessonViewerEmbed } from './LessonViewerEmbed';
+import { LessonEditorEmbed, LessonViewerEmbed } from '@features/lesson';
 
-const Page = styled.section`
-  /* padding: ${({ theme }) => theme.spacing.md} 20px 0; */
+const Page = styled.section``;
+
+const Toolbar = styled.div`
+  display: flex;
+  gap: 12px;
+  margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
 export const LessonMyPage = () => {
@@ -16,7 +19,7 @@ export const LessonMyPage = () => {
 
   return (
     <Page>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+      <Toolbar>
         <Button
           variant={mode === 'editor' ? 'primary' : 'outline'}
           size='md'
@@ -34,9 +37,9 @@ export const LessonMyPage = () => {
         >
           수업하기
         </Button>
-      </div>
+      </Toolbar>
 
-      {mode === 'editor' && <LessonEditorEmbed /*slideId={SLIDE_ID}*/ />}
+      {mode === 'editor' && <LessonEditorEmbed />}
       {mode === 'viewer' && <LessonViewerEmbed slideId={SLIDE_ID} />}
     </Page>
   );
