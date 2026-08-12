@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react';
 import styled from '@emotion/styled';
-import { LessonLibraryHeader } from '@widgets/lesson';
-// import { LessonEditorEmbed } from './LessonEditorEmbed';
-// import { LessonViewerEmbed } from './LessonViewerEmbed';
+import { LessonLibraryContents, LessonLibraryHeader } from '@widgets/lesson';
 
 const Page = styled.section`
   /* padding: ${({ theme }) => theme.spacing.md} 20px 0; */
@@ -54,8 +52,7 @@ export const LessonLibraryPage = () => {
   return (
     <Page>
       <LessonLibraryHeader />
-      {/* <LessonEditorEmbed /> */}
-      {/* <LessonViewerEmbed slideId={SLIDE_ID} /> */}
+      <LessonLibraryContents />
     </Page>
   );
 };
