@@ -9,6 +9,8 @@ export type { LessonViewerEmbedProps } from './ui/LessonViewerEmbed';
 export { useLibraryFilters } from './model/useLibraryFilters';
 export { matchLibraryItem, sortLibraryItems } from './model/matchLibraryFilters';
 export { MOCK_LIBRARY_ITEMS } from './model/mockLibraryItems';
+export { useRefSetListQuery, useRegisterRefSetMutation } from './api/queries';
+export type { RefSetItem, RegisterRefSetBody, RefSetListData } from './api/lmsRefSetService';
 export type {
   FilterAxis,
   LibFilters,

@@ -11,6 +11,7 @@
 | **추가계획3** | `LessonMyPage` 나의 자료 목록 — `ResourceCardList` `variant="my"` + 목업 | Phase A 완료 / API 대기 |
 | **추가계획4** | `ResourceCard` 시작하기 버튼 → 활동 배포 페이지 (`DeployPage`) 라우트 연결 | 계획 수립 완료 / 구현 대기 |
 | **추가계획5** | Editor/Viewer embed 독립 라우트 페이지 전환 + LessonEditorEmbed features 활성화 | 구현 완료 |
+| **추가계획6** | `onSaved` → `POST /api/ref-set` 자동 등록 + `LessonMyPage` `GET /api/ref-set` 목록 연동 | 구현 완료 (ResourceCardList 연결 제외) |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `POST .../api/contents/setSearch` (임시 스펙) | 초안 수신 · 확정 전 |
@@ -1240,3 +1241,318 @@ export type { ..., StartLessonPayload } from './lib/everyCanvasEmbedSdk';
 - [x] Editor iframe 내 '나가기' 클릭 → 이전 페이지 복귀
 - [x] Editor iframe 내 '수업하기' 클릭 → `onStartLesson` 콜백 실행 (현재 console.log)
 - [ ] `npx tsc -b --noEmit`, eslint 통과
+
+---
+
+# 추가계획6 — LMS ref-set API 연동 (`onSaved` 자동 등록 + 목록 조회)
+
+> **참조**: [`lesson-everycanvas-lms-integration.plan.md §3(나의 자료), §5.1, §5.3`](./lesson-everycanvas-lms-integration.plan.md)  
+> **상태**: 구현 완료 (ResourceCardList 연결 제외 — 추후 Phase)
+
+## 1. 현황 및 목표
+
+### 현황
+
+| 항목 | 현재 상태 |
+|------|-----------|
+| `LessonEditorPage.onSaved` | navigate 처리만. LMS 미연동 |
+| `LessonMyPage` 목록 | `MOCK_LIBRARY_ITEMS` 사용 중 |
+| `features/lesson/api/` | `embedTokenService.ts`만 존재. queryKeys·service·queries 없음 |
+| `shared/config/env.ts` | `VITE_SP_LMS_API_URL` 미추가 → **추가 완료** |
+
+### 목표
+
+1. `onSaved(p)` → `p.lcmsSetId` 있을 때 `POST /api/ref-set` 자동 등록 (중복 방지 포함)
+2. `LessonMyPage`에서 `GET /api/ref-set` 실제 데이터 조회 — `resultData.list` 취득까지만
+   - `ResourceCardList` 연결(mapper 포함)은 **추후 별도 확인 후 연동** (§4.4 참조)
+3. 기존 API 패턴(`queryKeys.ts` / service / `queries.ts`)에 맞는 구조로 구현
+
+## 2. 연동 흐름
+
+```
+[저작 저장 흐름]
+LessonEditorPage
+  └─ onSaved(p: SavedPayload)
+      ├─ p.lcmsSetId 있으면
+      │   ├─ GET cache 에서 동일 lcmsSetId 존재 여부 확인 (중복 방지)
+      │   ├─ 없으면 → registerRefSet({ lcmsSetId, title, subjectCd, schoolLevelCd, makeMethod })
+      │   │       └─ POST {ENV.SP_LMS_API_URL}/api/ref-set
+      │   │           └─ 성공 → lessonKeys.refSets() invalidate → 목록 자동 갱신
+      │   └─ 이미 있으면 → skip (중복 POST 방지)
+      └─ !slideId && p.slideId 있으면
+          └─ navigate(`/lesson/editor/${p.slideId}`, { replace: true }) (기존 로직 유지)
+
+[목록 조회 흐름]
+LessonMyPage (마운트)
+  └─ useRefSetListQuery()
+      └─ GET {ENV.SP_LMS_API_URL}/api/ref-set
+          └─ resultData.list → 취득 완료 (여기까지만 구현)
+              └─ ResourceCardList 연결 → 추후 별도 Phase (§4.4)
+```
+
+## 3. LMS 호출 경로 (확정)
+
+**직접 LMS 호출** 사용.
+
+| 항목 | 값 |
+|------|----|
+| LMS 도메인 | `http://t-gw.vschool.at/v1/lms` |
+| GET 엔드포인트 | `{ENV.SP_LMS_API_URL}/api/ref-set` |
+| POST 엔드포인트 | `{ENV.SP_LMS_API_URL}/api/ref-set` |
+| 인증 | SSO Bearer JWT (`getAuth().authorizedFetch`) |
+| env 변수 | `ENV.SP_LMS_API_URL` (기본값 `http://t-gw.vschool.at/v1/lms`) → **env.ts 추가 완료** |
+
+> `apiClient`(meta-dashboard BE 전용, `ENV.API_URL` base)를 사용할 수 없으므로 `getAuth().authorizedFetch`로 직접 호출한다. 응답은 LMS envelope(`{ success, resultCode, resultData }`) 구조.
+
+## 4. 신규 파일
+
+### 4.1 `features/lesson/api/queryKeys.ts`
+
+기존 `assessmentKeys`, `groupKeys` 패턴과 동일한 factory 구조.
+
+```ts
+export const lessonKeys = {
+  all: ['lesson'] as const,
+  refSets: () => [...lessonKeys.all, 'ref-set'] as const,
+};
+```
+
+### 4.2 `features/lesson/api/lmsRefSetService.ts`
+
+```ts
+import { getAuth } from '@shared/lib/authClient';
+import { ENV } from '@shared/config/env';
+
+const BASE = `${ENV.SP_LMS_API_URL}/api/ref-set`;
+
+// LMS envelope 공통 구조
+interface LmsEnvelope<T> {
+  success: boolean;
+  resultCode: number;
+  resultMessage: string;
+  resultData: T;
+}
+
+/** GET /api/ref-set 응답 아이템 */
+export interface RefSetItem {
+  refSetId: string;
+  lcmsSetId: string;
+  title: string;
+  subjectCd: string;
+  schoolLevelCd: string;
+  makeMethod: number;
+  status: number;
+  createdAt: string;
+}
+
+export interface RefSetListData {
+  totalCount: number;
+  list: RefSetItem[];
+}
+
+/** POST /api/ref-set 요청 body */
+export interface RegisterRefSetBody {
+  lcmsSetId: string;
+  title?: string;
+  subjectCd?: string;
+  schoolLevelCd?: string;
+  /**
+   * 1:신규직접 2:완성형가공 3:자료실 4:AI생성 5:AI가공
+   * SavedPayload.lessonMeta.makeMethod 미전달 시 기본값 3(자료실) 사용
+   */
+  makeMethod?: number;
+}
+
+export interface RegisterRefSetResponse {
+  refSetId: string;
+}
+
+async function lmsFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const auth = getAuth();
+  const res = await auth.authorizedFetch(input, init);
+  if (!res.ok) throw new Error(`LMS API 실패: ${res.status}`);
+  const json = (await res.json()) as LmsEnvelope<T>;
+  if (!json.success) throw new Error(json.resultMessage ?? 'LMS API Error');
+  return json.resultData;
+}
+
+export async function getRefSetList(): Promise<RefSetListData> {
+  return lmsFetch<RefSetListData>(BASE);
+}
+
+export async function registerRefSet(body: RegisterRefSetBody): Promise<RegisterRefSetResponse> {
+  return lmsFetch<RegisterRefSetResponse>(BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+```
+
+### 4.3 `features/lesson/api/queries.ts`
+
+중복 방지: mutation 호출 전 cache에서 동일 `lcmsSetId` 존재 여부를 확인하고, 이미 등록된 경우 skip한다.
+
+```ts
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getRefSetList, registerRefSet } from './lmsRefSetService';
+import type { RegisterRefSetBody, RefSetListData } from './lmsRefSetService';
+import { lessonKeys } from './queryKeys';
+
+export function useRefSetListQuery() {
+  return useQuery({
+    queryKey: lessonKeys.refSets(),
+    queryFn: getRefSetList,
+  });
+}
+
+export function useRegisterRefSetMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RegisterRefSetBody) => {
+      // 중복 방지: cache에 동일 lcmsSetId 이미 있으면 skip
+      const cached = queryClient.getQueryData<RefSetListData>(lessonKeys.refSets());
+      const alreadyRegistered = cached?.list.some(
+        (item) => item.lcmsSetId === body.lcmsSetId,
+      );
+      if (alreadyRegistered) return Promise.resolve({ refSetId: '' });
+      return registerRefSet(body);
+    },
+    onSuccess: async (_data, variables) => {
+      // skip 분기(refSetId 빈 값)도 invalidate해 목록 최신화
+      if (variables.lcmsSetId) {
+        await queryClient.invalidateQueries({ queryKey: lessonKeys.refSets() });
+      }
+    },
+  });
+}
+```
+
+> **cache miss 시**: `useRefSetListQuery`가 마운트 전이거나 아직 fetch 전이면 cached가 없어 중복 체크가 불가하다. 이 경우 POST가 실행되며, LMS가 같은 `lcmsSetId`로 중복 행을 허용하는지는 추가 확인 필요 (→ 미확정 항목 #2).
+
+### 4.4 `features/lesson/model/mapRefSetToLibItem.ts` — **추후 연동 Phase**
+
+`RefSetItem`(LMS DTO) → `LibItem`(UI view-model) 변환이 필요하나, `subjectCd` ↔ `selArea` taxonomy 매핑 등 LMS와 프론트 규격 간 불일치가 있어 **이번 구현 범위에서 제외**.
+
+임시 파일 골격만 작성해 두고, ResourceCardList 연결 전 팀 협의 후 채운다.
+
+```ts
+import type { RefSetItem } from '../api/lmsRefSetService';
+import type { LibItem, LibraryColorGroup } from './types';
+
+const COLOR_GROUPS: LibraryColorGroup[] = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6'];
+
+function pickColorGroup(id: string): LibraryColorGroup {
+  const code = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return COLOR_GROUPS[code % COLOR_GROUPS.length];
+}
+
+/**
+ * TODO: subjectCd → selArea 매핑 테이블 별도 확정 후 교체 (추후 변동 가능)
+ * 현재는 subjectCd 값을 selArea에 그대로 전달.
+ */
+export function mapRefSetToLibItem(item: RefSetItem): LibItem {
+  const date = new Date(item.createdAt);
+  const updated = `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+  return {
+    id: item.refSetId,
+    title: item.title,
+    src: 'internal',
+    selArea: item.subjectCd, // TODO: taxonomy 확정 전 임시. 추후 변동 가능
+    colorGroup: pickColorGroup(item.refSetId),
+    updated,
+  };
+}
+```
+
+## 5. 기존 파일 변경
+
+### 5.1 `pages/lesson/LessonEditorPage.tsx`
+
+`useRegisterRefSetMutation` 훅 추가, `onSaved`에서 `lcmsSetId` 있을 때 mutate 호출.
+
+- `makeMethod`: `SavedPayload.lessonMeta.makeMethod`(`string | undefined`)를 `Number()`로 변환. **미전달 시 기본값 `3`(자료실)** 사용 — `보관함-등록(POST ref-set)` 스펙 기준.
+- `subjectCd` / `schoolLevelCd`: `lessonMeta.subject` / `lessonMeta.schoolLevel` 에서 전달 (LMS 코드값과 일치 여부 확인 필요 → 미확정 항목 #4).
+
+```tsx
+import { useRegisterRefSetMutation } from '@features/lesson';
+
+const { mutate: registerRefSet } = useRegisterRefSetMutation();
+
+onSaved={(p: SavedPayload) => {
+  if (p.lcmsSetId) {
+    registerRefSet({
+      lcmsSetId: p.lcmsSetId,
+      title: p.title,
+      subjectCd: p.lessonMeta?.subject,
+      schoolLevelCd: p.lessonMeta?.schoolLevel,
+      makeMethod: p.lessonMeta?.makeMethod !== undefined
+        ? Number(p.lessonMeta.makeMethod)
+        : 3,  // 기본값: 3(자료실)
+    });
+  }
+  if (!slideId && p.slideId) {
+    navigate(`/lesson/editor/${p.slideId}`, { replace: true });
+  }
+}}
+```
+
+### 5.2 `pages/lesson/LessonMyPage.tsx` — GET 조회만 (ResourceCardList 연결 제외)
+
+`useRefSetListQuery()`로 데이터 조회까지만 구현. `data.list` → `ResourceCardList` 연결은 **이번 범위 제외**.  
+기존 `MOCK_LIBRARY_ITEMS` / `useState<LibItem[]>` 는 mapper 연동 전까지 **유지**한다.
+
+```tsx
+import { useRefSetListQuery } from '@features/lesson';
+
+// 조회 훅 마운트 (데이터 확인용)
+const { data: refSetData, isLoading, isError } = useRefSetListQuery();
+
+// TODO: refSetData?.list → mapRefSetToLibItem → ResourceCardList 연결 (추후 Phase)
+// 현재는 기존 MOCK_LIBRARY_ITEMS + useState items 유지
+```
+
+> ResourceCardList 연결 전에 `subjectCd → selArea` 매핑, `LibItem` 타입 불일치 필드 처리를 별도 확인한다.
+
+### 5.3 `features/lesson/index.ts`
+
+신규 훅·타입 export 추가. mapper(`mapRefSetToLibItem`)는 ResourceCardList 연결 전까지 export 보류.
+
+```ts
+export { useRefSetListQuery, useRegisterRefSetMutation } from './api/queries';
+export type { RefSetItem, RegisterRefSetBody, RefSetListData } from './api/lmsRefSetService';
+```
+
+## 6. 변경 파일 목록
+
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `shared/config/env.ts` | **수정 완료** | `SP_LMS_API_URL` 추가 (기본값 `http://t-gw.vschool.at/v1/lms`) |
+| `features/lesson/api/queryKeys.ts` | **구현 완료** | `lessonKeys` factory |
+| `features/lesson/api/lmsRefSetService.ts` | **구현 완료** | `lmsFetch` 헬퍼, `getRefSetList`, `registerRefSet`, DTO 타입 |
+| `features/lesson/api/queries.ts` | **구현 완료** | `useRefSetListQuery`, `useRegisterRefSetMutation` (cache 기반 중복 방지) |
+| `features/lesson/model/mapRefSetToLibItem.ts` | **신규(골격) 구현 완료** | skeleton만 작성. ResourceCardList 연결 전까지 export 보류 |
+| `pages/lesson/LessonEditorPage.tsx` | **수정 완료** | `useRegisterRefSetMutation` + `onSaved` 중복 방지 로직 |
+| `pages/lesson/LessonMyPage.tsx` | **수정 완료** | `useRefSetListQuery` 마운트 추가 (데이터 확인용). MOCK 유지 |
+| `features/lesson/index.ts` | **수정 완료** | 신규 훅·타입 export (mapper 제외) |
+
+## 7. 확정·미확정 항목
+
+| # | 항목 | 상태 | 내용 |
+|---|------|------|------|
+| 1 | **LMS 호출 경로** | **확정** | 직접 LMS. `ENV.SP_LMS_API_URL`(`http://t-gw.vschool.at/v1/lms`) + `getAuth().authorizedFetch` |
+| 2 | **POST 중복 등록** | 중복 방지 포함 | DB 단순 INSERT 구조 → cache 기반 중복 체크 구현. cache miss 시 동작 미확인 — LMS 중복 허용 여부 추가 확인 필요 |
+| 3 | **makeMethod 기본값** | **확정** | `SavedPayload.lessonMeta.makeMethod` 미전달 시 기본값 `3`(자료실) 사용. LMS POST ref-set 스펙(`보관함-등록`) 기준 |
+| 4 | **subjectCd / schoolLevelCd 매핑** | 추후 변동 가능 | `lessonMeta.subject` / `lessonMeta.schoolLevel` 값이 LMS 코드(`"MA"`, `"E"` 등)와 일치하는지 확인 필요. 현재는 그대로 전달. `selArea` taxonomy 매핑도 확정 전 임시 처리. **추후 변동 가능** |
+| 5 | **DELETE ref-set** | **보류** | API 스펙 미수령. 삭제 기능은 별도 계획으로 분리 |
+| 6 | **ResourceCardList 연결** | **추후 Phase** | `RefSetItem` → `LibItem` mapper 연동은 taxonomy 매핑 협의 후 별도 구현 |
+
+## 8. 완료 기준
+
+- [x] `shared/config/env.ts`: `ENV.SP_LMS_API_URL` 추가 확인
+- [x] `LessonEditorPage`: `onSaved` + `lcmsSetId` → `POST /api/ref-set` 호출 확인 (네트워크 탭)
+- [x] 동일 `lcmsSetId` 재저장 시 중복 POST 미발생 확인
+- [x] `LessonMyPage`: `useRefSetListQuery` 마운트 → `GET /api/ref-set` 호출 확인 (네트워크 탭)
+- [x] `POST` 성공 후 `lessonKeys.refSets()` invalidate → GET 자동 refetch 확인
+- [x] `lessonKeys` factory 사용, 임의 문자열 query key 없음
+- [x] `npx tsc -b --noEmit`, eslint 통과

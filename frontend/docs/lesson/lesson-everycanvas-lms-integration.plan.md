@@ -306,7 +306,7 @@ embed token과 **별개**. 생략 시 기본 저작은 동작하고 CBS 목록�
 
 | 방식 | 장점 | FE 호출 |
 | --- | --- | --- |
-| **직접 LMS** | BFF 없이 빠른 PoC | `ENV.LMS_API_URL` + Bearer (게이트웨이 CORS 확인) |
+| **직접 LMS** | BFF 없이 빠른 PoC | `ENV.SP_LMS_API_URL` + Bearer (게이트웨이 CORS 확인) |
 | **meta BE BFF** | 토큰·client_id 일원화, CMS 집계 가능 | `GET /api/lms/ref-set` (신규) |
 
 AGENTS.md: *「API 타입과 연동 방식을 정하기 전에 backend Controller, DTO, 서비스 계약을 확인」* → **meta BE에 BFF 추가 시 backend DTO 먼저 확인**.
@@ -401,7 +401,7 @@ export function useRefSetList() {
 | 변수 | 용도 | 상태 | 예시 |
 | --- | --- | --- | --- |
 | `VITE_EVERYCLASS_EMBED_BASE_URL` | Embed App + `/sdk/react` 오리진 | ✅ `ENV.EVERYCLASS_EMBED_BASE_URL` | `https://t-everyclass.vsaidt.com` |
-| `VITE_LMS_API_URL` | LMS 직접 호출 시 (BFF 없을 때) | 미추가 | `https://t-gw.vschool.at/v1/lms` |
+| `VITE_SP_LMS_API_URL` | LMS 직접 호출 시 (BFF 없을 때) | 미추가 | `https://t-gw.vschool.at/v1/lms` |
 
 M2M·Platform URL은 **FE env에 넣지 않음** (meta BE `everyclass.*`만).
 

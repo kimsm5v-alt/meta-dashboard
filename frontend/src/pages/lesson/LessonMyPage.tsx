@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { toast } from 'sonner';
 import { Button } from '@shared/ui/Button/Button';
-import { MOCK_LIBRARY_ITEMS, ResourceCardList } from '@features/lesson';
+import { MOCK_LIBRARY_ITEMS, ResourceCardList, useRefSetListQuery } from '@features/lesson';
 import type { LibItem } from '@features/lesson';
 
 const SLIDE_ID = 'slide_123';
@@ -46,6 +46,12 @@ const Toolbar = styled.div`
 export const LessonMyPage = () => {
   const navigate = useNavigate();
   const [items, setItems] = useState<LibItem[]>(MOCK_LIBRARY_ITEMS);
+
+  // GET /api/ref-set 데이터 확인용 (ResultData.list 취득까지만 구현)
+  // TODO: refSetData?.list -> mapRefSetToLibItem -> ResourceCardList 연결 (추후 Phase)
+  const { data: refSetData, isLoading: isRefSetLoading, isError: isRefSetError } = useRefSetListQuery();
+
+  console.log('[LessonMyPage] refSetData', refSetData, { isRefSetLoading, isRefSetError });
 
   const handleDelete = (id: string) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
