@@ -300,7 +300,7 @@ export const DeployPage = () => {
 const Page = styled.section`
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh);
+  min-height: 100vh;
   background: ${({ theme }) => theme.colors.gray[100]};
 `;
 

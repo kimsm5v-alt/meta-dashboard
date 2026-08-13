@@ -7,8 +7,8 @@ import { useEveryCanvasEmbed } from '../lib/useEveryCanvasEmbed';
 import type { SavedPayload, StartLessonPayload, ThemeTokens } from '../lib/everyCanvasEmbedSdk';
 
 const EditorContainer = styled.div`
-  width: 100%;
-  height: 100%;
+  position: fixed;
+  inset: 0;
   background: ${({ theme }) => theme.colors.background.paper};
 `;
 

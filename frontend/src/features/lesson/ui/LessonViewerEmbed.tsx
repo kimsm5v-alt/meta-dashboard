@@ -10,8 +10,8 @@ import type {
 } from '../lib/everyCanvasEmbedSdk';
 
 const ViewerContainer = styled.div`
-  width: 100%;
-  height: 100%;
+  position: fixed;
+  inset: 0;
   background: ${({ theme }) => theme.colors.background.paper};
 `;
 
