@@ -1,10 +1,22 @@
+import { useState } from 'react';
 import styled from '@emotion/styled';
-import { ArrowLeft, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react';
 import { Card, FactorHeatmapSection } from '@shared/components';
 import { useTrackingStudentData } from '@features/exam-tracking/model/useTrackingStudentData';
 import { FACTOR_DEFINITIONS } from '@shared/data/factors';
 import { TypeClassification } from '@features/student-dashboard/ui';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
+import { getLevel } from '@shared/data/subCategoryScripts';
 import { InterventionTimeline } from './InterventionTimeline';
 
 const Wrapper = styled.div`
@@ -70,13 +82,102 @@ const SectionDescription = styled.p`
 const TypeChangeCard = styled(Card)`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
+`;
+
+const LearningStatusCard = styled(Card)`
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+`;
+
+const LearningStatusGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+`;
+
+const LearningStatusItem = styled.div<{ $changed: boolean }>`
+  padding: 1rem;
+  border: 1px solid ${({ $changed }) => ($changed ? '#FDE68A' : 'transparent')};
+  border-radius: 0.5rem;
+  background: ${({ $changed, theme }) => ($changed ? '#FFFBEB' : theme.colors.gray[50])};
+`;
+
+const LearningStatusLabel = styled.p`
+  margin: 0 0 0.75rem;
+  color: ${({ theme }) => theme.colors.gray[900]};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  text-align: center;
+`;
+
+const LearningStatusValues = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const LearningStatusValue = styled.span<{ $current?: boolean }>`
+  flex: 1;
+  color: ${({ $current, theme }) => ($current ? '#B45309' : theme.colors.gray[500])};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ $current, theme }) =>
+    $current ? theme.typography.fontWeight.semibold : theme.typography.fontWeight.normal};
+  line-height: 1.4;
+  text-align: center;
+  word-break: keep-all;
 `;
 
 const ChangesCard = styled(Card)`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
+  gap: 1.5rem;
+`;
+
+const ChangeSectionHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+`;
+
+const ChangeSummary = styled.span`
+  color: ${({ theme }) => theme.colors.gray[400]};
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  white-space: nowrap;
+`;
+
+const ChangeBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const ChangeBlockHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const ChangeBlockTitle = styled.h3`
+  margin: 0;
+  color: ${({ theme }) => theme.colors.gray[800]};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+`;
+
+const ChangeBlockCount = styled.span<{ $secondary?: boolean }>`
+  padding: 0.125rem 0.5rem;
+  color: ${({ $secondary }) => ($secondary ? '#52525B' : '#B45309')};
+  background: ${({ $secondary }) => ($secondary ? '#E5E7EB' : '#FEF3C7')};
+  border-radius: 999px;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+`;
+
+const ChangeBlockDescription = styled.span`
+  color: ${({ theme }) => theme.colors.gray[500]};
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
 const ChangeColumns = styled.div`
@@ -90,49 +191,141 @@ const ChangeColumns = styled.div`
 `;
 
 const ChangeColumn = styled.div<{ $tone: 'improved' | 'attention' }>`
-  padding: ${({ theme }) => theme.spacing.md};
-  border: 1px solid
-    ${({ theme, $tone }) =>
-      $tone === 'improved' ? theme.colors.success.light : theme.colors.warning.light};
-  border-radius: ${({ theme }) => theme.radius.lg};
+  overflow: hidden;
+  border: 1px solid ${({ $tone }) => ($tone === 'improved' ? '#D1FAE5' : '#FEE2E2')};
+  border-radius: ${({ theme }) => theme.radius.xl};
+  background: white;
 `;
 
-const ChangeColumnTitle = styled.h3<{ $tone: 'improved' | 'attention' }>`
-  margin: 0 0 ${({ theme }) => theme.spacing.sm};
-  color: ${({ theme, $tone }) =>
-    $tone === 'improved' ? theme.colors.success.dark : theme.colors.warning.dark};
+const ChangeColumnHeader = styled.div<{ $tone: 'improved' | 'attention' }>`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: ${({ $tone }) => ($tone === 'improved' ? '#065F46' : '#991B1B')};
+  background: ${({ $tone }) => ($tone === 'improved' ? '#ECFDF5' : '#FEF2F2')};
+`;
+
+const ChangeColumnIcon = styled.span<{ $tone: 'improved' | 'attention' }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: ${({ $tone }) => ($tone === 'improved' ? '#059669' : '#DC2626')};
+  background: ${({ $tone }) => ($tone === 'improved' ? '#D1FAE5' : '#FEE2E2')};
+  border-radius: 50%;
+`;
+
+const ChangeColumnTitle = styled.h4`
+  margin: 0;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+`;
+
+const ChangeColumnCount = styled.span<{ $tone: 'improved' | 'attention' }>`
+  margin-left: auto;
+  padding: 0.125rem 0.5rem;
+  color: ${({ $tone }) => ($tone === 'improved' ? '#047857' : '#B91C1C')};
+  background: ${({ $tone }) => ($tone === 'improved' ? '#D1FAE5' : '#FEE2E2')};
+  border-radius: 999px;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
 `;
 
 const ChangeList = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 `;
 
 const ChangeItem = styled.li`
-  display: flex;
+  display: grid;
+  grid-template-columns: 5rem 2.25rem 6.25rem minmax(5rem, 1fr) 3rem;
   align-items: center;
-  justify-content: space-between;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[100]};
   color: ${({ theme }) => theme.colors.text.primary};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
+
+  &:last-child {
+    border-bottom: 0;
+  }
+`;
+
+const ChangeFactorName = styled.span`
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+`;
+
+const NegativeBadge = styled.span`
+  width: fit-content;
+  padding: 0.125rem 0.375rem;
+  color: ${({ theme }) => theme.colors.gray[600]};
+  background: ${({ theme }) => theme.colors.gray[200]};
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+`;
+
+const LevelChange = styled.span`
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: ${({ theme }) => theme.colors.gray[500]};
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  white-space: nowrap;
+`;
+
+const LevelBadge = styled.span<{ $tone: 'improved' | 'attention' }>`
+  padding: 0.125rem 0.375rem;
+  color: ${({ $tone }) => ($tone === 'improved' ? '#047857' : '#B91C1C')};
+  background: ${({ $tone }) => ($tone === 'improved' ? '#D1FAE5' : '#FEE2E2')};
+  border-radius: 0.25rem;
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+`;
+
+const ChangeTrack = styled.span`
+  overflow: hidden;
+  height: 0.5rem;
+  background: ${({ theme }) => theme.colors.gray[100]};
+  border-radius: 999px;
+`;
+
+const ChangeBar = styled.span<{ $tone: 'improved' | 'attention'; $width: number }>`
+  display: block;
+  width: ${({ $width }) => $width}%;
+  height: 100%;
+  background: ${({ $tone }) => ($tone === 'improved' ? '#6EE7B7' : '#FCA5A5')};
+  border-radius: inherit;
 `;
 
 const ChangeScore = styled.span<{ $tone: 'improved' | 'attention' }>`
-  color: ${({ theme, $tone }) =>
-    $tone === 'improved' ? theme.colors.success.dark : theme.colors.warning.dark};
+  color: ${({ $tone }) => ($tone === 'improved' ? '#059669' : '#DC2626')};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  text-align: right;
 `;
 
 const NoChangeText = styled.p`
   margin: 0;
+  padding: 1rem;
   color: ${({ theme }) => theme.colors.text.secondary};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
+`;
+
+const MoreButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  color: ${({ theme }) => theme.colors.gray[500]};
+  background: white;
+  border: 0;
+  border-top: 1px solid ${({ theme }) => theme.colors.gray[100]};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  cursor: pointer;
 `;
 
 const AiSummaryCard = styled(Card)`
@@ -201,6 +394,100 @@ const NoticeText = styled.p`
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
 
+type ChangeTone = 'improved' | 'attention';
+
+interface FactorChangeItem {
+  index: number;
+  name: string;
+  delta: number;
+  isPositive: boolean;
+  previousLevel: ReturnType<typeof getLevel>;
+  currentLevel: ReturnType<typeof getLevel>;
+  levelChanged: boolean;
+  tone: ChangeTone;
+}
+
+const TEMP_LEARNING_STATUS: ReadonlyArray<{
+  label: string;
+  previous: string;
+  current: string;
+}> = [
+  { label: '학업 성취도', previous: '높음', current: '보통' },
+  { label: '성적 만족도', previous: '높음', current: '보통' },
+  { label: '학습 동기', previous: '공부에 흥미를 느껴서', current: '나의 미래를 위해서' },
+  { label: '혼자 공부 시간', previous: '2시간 이상~3시간 미만', current: '1시간 이상~2시간 미만' },
+  { label: '학습 고민 상담', previous: '가족', current: '선생님' },
+];
+
+interface ChangeFactorColumnProps {
+  factors: FactorChangeItem[];
+  tone: ChangeTone;
+  showLevelChange: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+const ChangeFactorColumn = ({
+  factors,
+  tone,
+  showLevelChange,
+  expanded,
+  onToggle,
+}: ChangeFactorColumnProps) => {
+  const visibleFactors = expanded ? factors : factors.slice(0, 5);
+  const hiddenCount = Math.max(factors.length - 5, 0);
+  const maxDelta = Math.max(...factors.map(({ delta }) => Math.abs(delta)), 1);
+  const Icon = tone === 'improved' ? TrendingUp : TrendingDown;
+
+  return (
+    <ChangeColumn $tone={tone}>
+      <ChangeColumnHeader $tone={tone}>
+        <ChangeColumnIcon $tone={tone}>
+          <Icon size={16} />
+        </ChangeColumnIcon>
+        <ChangeColumnTitle>{tone === 'improved' ? '개선' : '주의'}</ChangeColumnTitle>
+        <ChangeColumnCount $tone={tone}>{factors.length}개</ChangeColumnCount>
+      </ChangeColumnHeader>
+      {visibleFactors.length > 0 ? (
+        <ChangeList>
+          {visibleFactors.map((factor) => (
+            <ChangeItem key={factor.index}>
+              <ChangeFactorName>{factor.name}</ChangeFactorName>
+              <span>{!factor.isPositive && <NegativeBadge>부적</NegativeBadge>}</span>
+              <LevelChange>
+                {showLevelChange ? (
+                  <>
+                    {factor.previousLevel}
+                    <ArrowRight size={12} />
+                    <LevelBadge $tone={tone}>{factor.currentLevel}</LevelBadge>
+                  </>
+                ) : (
+                  `${factor.previousLevel} 유지`
+                )}
+              </LevelChange>
+              <ChangeTrack>
+                <ChangeBar $tone={tone} $width={(Math.abs(factor.delta) / maxDelta) * 100} />
+              </ChangeTrack>
+              <ChangeScore $tone={tone}>
+                {factor.delta > 0 ? '+' : ''}
+                {Math.round(factor.delta)}
+              </ChangeScore>
+            </ChangeItem>
+          ))}
+        </ChangeList>
+      ) : (
+        <NoChangeText>해당 요인 없음</NoChangeText>
+      )}
+      {hiddenCount > 0 && (
+        <MoreButton onClick={onToggle}>
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          {expanded ? '접기' : `${hiddenCount}개 더보기`}
+        </MoreButton>
+      )}
+    </ChangeColumn>
+  );
+};
+
 interface StudentTrackingSectionProps {
   classId: string;
   assessmentStudentId: string;
@@ -214,6 +501,7 @@ export const StudentTrackingSection = ({
   recordStudentId,
   onBack,
 }: StudentTrackingSectionProps) => {
+  const [expandedChanges, setExpandedChanges] = useState<Record<string, boolean>>({});
   const { classData, student, isLoading, error, refetch } = useTrackingStudentData(
     classId,
     assessmentStudentId,
@@ -266,15 +554,34 @@ export const StudentTrackingSection = ({
           const before = round1.tScores[factor.index];
           const after = round2.tScores[factor.index];
           const delta = after - before;
-          const improved = factor.isPositive ? delta > 0 : delta < 0;
+          const tone: ChangeTone = factor.isPositive
+            ? delta > 0
+              ? 'improved'
+              : 'attention'
+            : delta < 0
+              ? 'improved'
+              : 'attention';
+          const previousLevel = getLevel(before);
+          const currentLevel = getLevel(after);
 
-          return { factor, delta, improved };
+          return {
+            index: factor.index,
+            name: factor.name,
+            delta,
+            isPositive: factor.isPositive,
+            previousLevel,
+            currentLevel,
+            levelChanged: previousLevel !== currentLevel,
+            tone,
+          } satisfies FactorChangeItem;
         })
           .filter(({ delta }) => Number.isFinite(delta) && Math.abs(delta) >= 5)
           .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
       : [];
-  const improvedChanges = factorChanges.filter(({ improved }) => improved).slice(0, 3);
-  const attentionChanges = factorChanges.filter(({ improved }) => !improved).slice(0, 3);
+  const improvedChanges = factorChanges.filter(({ tone }) => tone === 'improved');
+  const attentionChanges = factorChanges.filter(({ tone }) => tone === 'attention');
+  const levelChanged = factorChanges.filter(({ levelChanged: changed }) => changed);
+  const withinLevel = factorChanges.filter(({ levelChanged: changed }) => !changed);
   const scoreDelta =
     factorChanges.reduce((sum, { delta }) => sum + delta, 0) / Math.max(factorChanges.length, 1);
   const aiSummary =
@@ -334,6 +641,27 @@ export const StudentTrackingSection = ({
       )}
 
       {round1 && (
+        <LearningStatusCard>
+          <SectionTitle>학습 현황 변화</SectionTitle>
+          <LearningStatusGrid>
+            {TEMP_LEARNING_STATUS.map((item) => {
+              const changed = item.previous !== item.current;
+              return (
+                <LearningStatusItem key={item.label} $changed={changed}>
+                  <LearningStatusLabel>{item.label}</LearningStatusLabel>
+                  <LearningStatusValues>
+                    <LearningStatusValue>{item.previous}</LearningStatusValue>
+                    <ArrowRight size={14} color={changed ? '#F59E0B' : '#D1D5DB'} />
+                    <LearningStatusValue $current>{item.current}</LearningStatusValue>
+                  </LearningStatusValues>
+                </LearningStatusItem>
+              );
+            })}
+          </LearningStatusGrid>
+        </LearningStatusCard>
+      )}
+
+      {round1 && (
         <Card>
           <SectionHeading style={{ marginBottom: '16px' }}>
             <SectionTitle>38개 요인 분석</SectionTitle>
@@ -348,52 +676,87 @@ export const StudentTrackingSection = ({
 
       {round1 && (
         <ChangesCard>
-          <SectionHeading>
+          <ChangeSectionHeader>
             <SectionTitle>주요 변화 요인</SectionTitle>
-            <SectionDescription>
-              1차 대비 2차 검사에서 5점 이상 변화한 요인입니다. 부적 요인은 점수가 낮아질수록
-              개선으로 봅니다.
-            </SectionDescription>
-          </SectionHeading>
+            <ChangeSummary>
+              1차 대비 2차 검사에서 5점 이상 변화 · 부적 요인은 점수가 낮아질수록 개선
+            </ChangeSummary>
+          </ChangeSectionHeader>
           {factorChanges.length > 0 ? (
-            <ChangeColumns>
-              <ChangeColumn $tone='improved'>
-                <ChangeColumnTitle $tone='improved'>개선</ChangeColumnTitle>
-                {improvedChanges.length > 0 ? (
-                  <ChangeList>
-                    {improvedChanges.map(({ factor, delta }) => (
-                      <ChangeItem key={factor.index}>
-                        {factor.name}
-                        <ChangeScore $tone='improved'>
-                          {delta > 0 ? '+' : ''}
-                          {delta}점
-                        </ChangeScore>
-                      </ChangeItem>
-                    ))}
-                  </ChangeList>
-                ) : (
-                  <NoChangeText>해당하는 요인이 없습니다.</NoChangeText>
-                )}
-              </ChangeColumn>
-              <ChangeColumn $tone='attention'>
-                <ChangeColumnTitle $tone='attention'>주의</ChangeColumnTitle>
-                {attentionChanges.length > 0 ? (
-                  <ChangeList>
-                    {attentionChanges.map(({ factor, delta }) => (
-                      <ChangeItem key={factor.index}>
-                        {factor.name}
-                        <ChangeScore $tone='attention'>
-                          {delta > 0 ? '+' : ''}
-                          {delta}점
-                        </ChangeScore>
-                      </ChangeItem>
-                    ))}
-                  </ChangeList>
-                ) : (
-                  <NoChangeText>해당하는 요인이 없습니다.</NoChangeText>
-                )}
-              </ChangeColumn>
-            </ChangeColumns>
+            <>
+              {levelChanged.length > 0 && (
+                <ChangeBlock>
+                  <ChangeBlockHeader>
+                    <ChangeBlockTitle>구간 변화</ChangeBlockTitle>
+                    <ChangeBlockCount>{levelChanged.length}개</ChangeBlockCount>
+                    <ChangeBlockDescription>구간이 달라진 요인입니다.</ChangeBlockDescription>
+                  </ChangeBlockHeader>
+                  <ChangeColumns>
+                    <ChangeFactorColumn
+                      factors={levelChanged.filter(({ tone }) => tone === 'improved')}
+                      tone='improved'
+                      showLevelChange
+                      expanded={!!expandedChanges['level-improved']}
+                      onToggle={() =>
+                        setExpandedChanges((current) => ({
+                          ...current,
+                          'level-improved': !current['level-improved'],
+                        }))
+                      }
+                    />
+                    <ChangeFactorColumn
+                      factors={levelChanged.filter(({ tone }) => tone === 'attention')}
+                      tone='attention'
+                      showLevelChange
+                      expanded={!!expandedChanges['level-attention']}
+                      onToggle={() =>
+                        setExpandedChanges((current) => ({
+                          ...current,
+                          'level-attention': !current['level-attention'],
+                        }))
+                      }
+                    />
+                  </ChangeColumns>
+                </ChangeBlock>
+              )}
+              {withinLevel.length > 0 && (
+                <ChangeBlock>
+                  <ChangeBlockHeader>
+                    <ChangeBlockTitle>구간 내 변화</ChangeBlockTitle>
+                    <ChangeBlockCount $secondary>{withinLevel.length}개</ChangeBlockCount>
+                    <ChangeBlockDescription>
+                      구간은 그대로지만 점수가 5점 이상 변화한 요인입니다.
+                    </ChangeBlockDescription>
+                  </ChangeBlockHeader>
+                  <ChangeColumns>
+                    <ChangeFactorColumn
+                      factors={withinLevel.filter(({ tone }) => tone === 'improved')}
+                      tone='improved'
+                      showLevelChange={false}
+                      expanded={!!expandedChanges['within-improved']}
+                      onToggle={() =>
+                        setExpandedChanges((current) => ({
+                          ...current,
+                          'within-improved': !current['within-improved'],
+                        }))
+                      }
+                    />
+                    <ChangeFactorColumn
+                      factors={withinLevel.filter(({ tone }) => tone === 'attention')}
+                      tone='attention'
+                      showLevelChange={false}
+                      expanded={!!expandedChanges['within-attention']}
+                      onToggle={() =>
+                        setExpandedChanges((current) => ({
+                          ...current,
+                          'within-attention': !current['within-attention'],
+                        }))
+                      }
+                    />
+                  </ChangeColumns>
+                </ChangeBlock>
+              )}
+            </>
           ) : (
             <EmptyText>5점 이상 변화한 요인이 없습니다.</EmptyText>
           )}
@@ -402,10 +765,6 @@ export const StudentTrackingSection = ({
 
       {round1 && (
         <TypeChangeCard>
-          <SectionHeading>
-            <SectionTitle>학습 유형 분류</SectionTitle>
-            <SectionDescription>1차와 2차 검사 결과의 학습 유형입니다.</SectionDescription>
-          </SectionHeading>
           <TypeClassification
             predictedType={round2.predictedType}
             typeProbabilities={round2.typeProbabilities}

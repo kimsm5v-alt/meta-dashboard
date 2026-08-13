@@ -28,31 +28,66 @@ const InfoTooltip = styled.span`
   display: inline-flex;
   color: ${({ theme }) => theme.colors.gray[400]};
   cursor: help;
+`;
 
-  &::after {
-    position: absolute;
-    top: calc(100% + 0.5rem);
-    left: 0;
-    z-index: 30;
-    width: 24rem;
-    padding: 0.75rem;
-    color: white;
-    background: #111827;
-    border-radius: 0.5rem;
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
-    content: '학생의 학습 부담, 심리·정서적 자원, 학습 몰입을 종합해 유사한 학습 상태를 유형화한 결과입니다.';
-    font-size: 0.75rem;
-    line-height: 1.5;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.15s;
-  }
+const InfoTooltipPanel = styled.span`
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 50;
+  width: 26.25rem;
+  padding: 1rem;
+  color: white;
+  background: #111827;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
+  pointer-events: none;
 
-  &:hover::after {
+  ${InfoTooltip}:hover & {
     opacity: 1;
     visibility: visible;
   }
 `;
+
+const InfoTooltipTitle = styled.strong`
+  display: block;
+  margin-bottom: 0.75rem;
+  color: #facc15;
+  font-size: 0.875rem;
+`;
+
+const InfoTooltipText = styled.span`
+  display: block;
+  margin-top: 0.5rem;
+  color: #e5e7eb;
+`;
+
+const LpaInfo = () => (
+  <InfoTooltip aria-label='학습 유형 분류 안내'>
+    <Info size={16} />
+    <InfoTooltipPanel>
+      <InfoTooltipTitle>학생유형 분포 비교</InfoTooltipTitle>
+      <InfoTooltipText>
+        비상교육은 학생을 단순한 점수로 구분하지 않고, 학습 특성이 함께 나타나는 패턴을 분석하기
+        위해 LPA 기반 학습유형 분석을 도입했습니다.
+      </InfoTooltipText>
+      <InfoTooltipText>
+        학생의 학습 부담, 심리·정서적 자원, 학습 몰입을 종합적으로 살펴 유사한 학습 상태를
+        유형화합니다.
+      </InfoTooltipText>
+      <InfoTooltipText>
+        이를 통해 학생의 현재 상태를 입체적으로 이해하고 유형별 지원 방향을 확인할 수 있습니다.
+      </InfoTooltipText>
+    </InfoTooltipPanel>
+  </InfoTooltip>
+);
 
 const Grid = styled.div`
   display: grid;
@@ -447,13 +482,19 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
 
   if (showCompare && prevType && prevTypeProbabilities) {
     return (
-      <LpaCompareView
-        prevType={prevType}
-        prevProbs={prevTypeProbabilities}
-        currType={predictedType}
-        currProbs={typeProbabilities}
-        schoolLevel={schoolLevel}
-      />
+      <Container>
+        <TitleRow>
+          <Title>학습 유형 분류</Title>
+          <LpaInfo />
+        </TitleRow>
+        <LpaCompareView
+          prevType={prevType}
+          prevProbs={prevTypeProbabilities}
+          currType={predictedType}
+          currProbs={typeProbabilities}
+          schoolLevel={schoolLevel}
+        />
+      </Container>
     );
   }
 
@@ -469,9 +510,7 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
     <Container>
       <TitleRow>
         <Title>학습 유형 분류</Title>
-        <InfoTooltip aria-label='학습 유형 분류 안내'>
-          <Info size={16} />
-        </InfoTooltip>
+        <LpaInfo />
       </TitleRow>
 
       <Grid>

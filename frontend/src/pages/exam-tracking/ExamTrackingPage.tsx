@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useLayoutContext } from '@widgets/layout/v2/LayoutContext';
 import { useAuth } from '@features/auth';
 import { useGroupMembersQuery } from '@features/groups';
@@ -8,6 +9,7 @@ import {
 } from '@widgets/exam-tracking';
 
 export const ExamTrackingPage = () => {
+  const navigate = useNavigate();
   const { scope } = useLayoutContext();
   const { user } = useAuth();
   const { data: members = [] } = useGroupMembersQuery(
@@ -22,6 +24,7 @@ export const ExamTrackingPage = () => {
         classId={scope.classId}
         assessmentStudentId={member?.stdtId ?? scope.studentId}
         recordStudentId={scope.studentId}
+        onBack={() => navigate(`/exam/tracking?class=${scope.classId}`)}
       />
     );
   }
