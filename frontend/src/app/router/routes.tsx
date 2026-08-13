@@ -68,11 +68,8 @@ const PublicLayout = () => (
   </MinimalLayout>
 );
 
-/**
- * 보호 라우트 래퍼 - 교사용 (인증 필요 + 교사 사이드바)
- */
-const ProtectedLayout = () => {
-  const location = useLocation();
+/** 교사 라우트 공통 인증/권한 검사. 화면 레이아웃은 하위 Route에서 선택한다. */
+const TeacherAuthGuard = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const { isChecking } = useProfileCheck(isAuthenticated);
 
@@ -89,6 +86,12 @@ const ProtectedLayout = () => {
     return <Navigate to='/student/exams' replace />;
   }
 
+  return <Outlet />;
+};
+
+/** GNB와 LNB를 사용하는 일반 교사 화면 레이아웃. */
+const TeacherShellLayout = () => {
+  const location = useLocation();
   const TeacherLayout = FEATURES.IA_V2 ? MainLayoutV2 : MainLayout;
 
   return (
@@ -98,6 +101,16 @@ const ProtectedLayout = () => {
     </TeacherLayout>
   );
 };
+
+/**
+ * GNB, LNB, 플로팅 어시스턴트, 화면 캡처가 없는 집중형 교사 화면 레이아웃.
+ * 수업 실행/발표/미리보기처럼 전체 화면이 필요한 라우트를 이 레이아웃 아래에 둔다.
+ */
+export const TeacherFullscreenLayout = () => (
+  <MinimalLayout>
+    <Outlet />
+  </MinimalLayout>
+);
 
 /**
  * 보호 라우트 래퍼 - 학생용 (인증 필요 + 학생 사이드바)
@@ -155,89 +168,94 @@ export const AppRoutes = () => (
       {/* /join/:code 제거 — 그룹 참여(초대링크)는 mypage(SSO)로 이관 (group-from-idp) */}
     </Route>
 
-    {/* 보호 라우트 - 사이드바 있음 */}
-    <Route element={<ProtectedLayout />}>
-      {/* 검사 영역 */}
-      <Route
-        path='/groups'
-        element={<Navigate to={FEATURES.IA_V2 ? '/exam/management' : '/assessment'} replace />}
-      />
-      <Route path='/groups/:groupId' element={<GroupDetailRedirect />} />
-      <Route
-        path='/assessment'
-        element={FEATURES.IA_V2 ? <Navigate to='/exam/management' replace /> : <AssessmentPage />}
-      />
-      <Route path='/assessment/:groupId' element={<AssessmentPage />} />
+    {/* 보호 라우트 - 교사 인증/권한을 먼저 검사하고 화면별 레이아웃을 선택 */}
+    <Route element={<TeacherAuthGuard />}>
+      {/* 일반 교사 화면: GNB + LNB */}
+      <Route element={<TeacherShellLayout />}>
+        {/* 검사 영역 */}
+        <Route
+          path='/groups'
+          element={<Navigate to={FEATURES.IA_V2 ? '/exam/management' : '/assessment'} replace />}
+        />
+        <Route path='/groups/:groupId' element={<GroupDetailRedirect />} />
+        <Route
+          path='/assessment'
+          element={FEATURES.IA_V2 ? <Navigate to='/exam/management' replace /> : <AssessmentPage />}
+        />
+        <Route path='/assessment/:groupId' element={<AssessmentPage />} />
 
-      {/* 대시보드 — testId 분기 */}
-      <Route
-        path='/dashboard'
-        element={<Navigate to={FEATURES.IA_V2 ? '/home' : '/dashboard/comprehensive'} replace />}
-      />
-      <Route path='/dashboard/comprehensive' element={<TeacherDashboardPage />} />
-      <Route path='/dashboard/selfreg' element={<TeacherDashboardPage />} />
-      <Route path='/dashboard/:testId/class/:classId' element={<ClassDashboardPage />} />
-      <Route
-        path='/dashboard/:testId/class/:classId/analysis'
-        element={<ClassDetailAnalysisPage />}
-      />
-      {/* 자기조절검사 학생 상세 — selfreg 전용 (generic 라우트보다 먼저 등록) */}
-      <Route
-        path='/dashboard/selfreg/class/:classId/student/:studentId'
-        element={<SelfregStudentDashboardPage />}
-      />
-      <Route
-        path='/dashboard/:testId/class/:classId/student/:studentId'
-        element={<StudentDashboardPage />}
-      />
+        {/* 대시보드 — testId 분기 */}
+        <Route
+          path='/dashboard'
+          element={<Navigate to={FEATURES.IA_V2 ? '/home' : '/dashboard/comprehensive'} replace />}
+        />
+        <Route path='/dashboard/comprehensive' element={<TeacherDashboardPage />} />
+        <Route path='/dashboard/selfreg' element={<TeacherDashboardPage />} />
+        <Route path='/dashboard/:testId/class/:classId' element={<ClassDashboardPage />} />
+        <Route
+          path='/dashboard/:testId/class/:classId/analysis'
+          element={<ClassDetailAnalysisPage />}
+        />
+        {/* 자기조절검사 학생 상세 — selfreg 전용 (generic 라우트보다 먼저 등록) */}
+        <Route
+          path='/dashboard/selfreg/class/:classId/student/:studentId'
+          element={<SelfregStudentDashboardPage />}
+        />
+        <Route
+          path='/dashboard/:testId/class/:classId/student/:studentId'
+          element={<StudentDashboardPage />}
+        />
 
-      {/* 상담 영역 */}
-      <Route path='/schedule' element={<SchedulePage />} />
-      {FEATURES.COUNSELING_DASHBOARD && (
-        <Route path='/counseling-dashboard' element={<CounselingDashboardPage />} />
-      )}
+        {/* 상담 영역 */}
+        <Route path='/schedule' element={<SchedulePage />} />
+        {FEATURES.COUNSELING_DASHBOARD && (
+          <Route path='/counseling-dashboard' element={<CounselingDashboardPage />} />
+        )}
 
-      {/* 콘텐츠 영역 */}
-      {FEATURES.RESOURCES && (
-        <>
-          <Route path='/resources' element={<ResourceListPage />} />
-          <Route path='/resources/:resourceId' element={<ResourceDetailPage />} />
-        </>
-      )}
-      {FEATURES.COMMUNITY && (
-        <>
-          <Route path='/community' element={<CommunityListPage />} />
-          <Route path='/community/write' element={<CommunityWritePage />} />
-          <Route path='/community/:postId' element={<CommunityDetailPage />} />
-        </>
-      )}
+        {/* 콘텐츠 영역 */}
+        {FEATURES.RESOURCES && (
+          <>
+            <Route path='/resources' element={<ResourceListPage />} />
+            <Route path='/resources/:resourceId' element={<ResourceDetailPage />} />
+          </>
+        )}
+        {FEATURES.COMMUNITY && (
+          <>
+            <Route path='/community' element={<CommunityListPage />} />
+            <Route path='/community/write' element={<CommunityWritePage />} />
+            <Route path='/community/:postId' element={<CommunityDetailPage />} />
+          </>
+        )}
 
-      {/* AI */}
-      <Route
-        path='/ai-room'
-        element={FEATURES.IA_V2 ? <Navigate to='/ai-assistant' replace /> : <AIRoomPage />}
-      />
+        {/* AI */}
+        <Route
+          path='/ai-room'
+          element={FEATURES.IA_V2 ? <Navigate to='/ai-assistant' replace /> : <AIRoomPage />}
+        />
 
-      {FEATURES.IA_V2 && (
-        <>
-          {/* v2 IA shell. 상세 화면은 각 후속 phase에서 교체한다. */}
-          <Route path='/home' element={<HomePage />} />
+        {FEATURES.IA_V2 && (
+          <>
+            {/* v2 IA shell. 상세 화면은 각 후속 phase에서 교체한다. */}
+            <Route path='/home' element={<HomePage />} />
 
-          <Route path='/exam/management' element={<AssessmentPage />} />
-          <Route path='/exam/result' element={<TeacherDashboardPage />} />
-          <Route path='/exam/tracking' element={<ExamTrackingPage />} />
-          <Route path='/exam/record' element={<V2Placeholder title='생활기록부 작성' />} />
+            <Route path='/exam/management' element={<AssessmentPage />} />
+            <Route path='/exam/result' element={<TeacherDashboardPage />} />
+            <Route path='/exam/tracking' element={<ExamTrackingPage />} />
+            <Route path='/exam/record' element={<V2Placeholder title='생활기록부 작성' />} />
 
-          <Route path='/coaching/class' element={<V2Placeholder title='학급 코칭' />} />
-          <Route path='/coaching/individual' element={<V2Placeholder title='개별 코칭' />} />
+            <Route path='/coaching/class' element={<V2Placeholder title='학급 코칭' />} />
+            <Route path='/coaching/individual' element={<V2Placeholder title='개별 코칭' />} />
 
-          <Route path='/lesson/library' element={<LessonLibraryPage />} />
-          <Route path='/lesson/my' element={<LessonMyPage />} />
-          <Route path='/lesson/result' element={<LessonResultPage />} />
+            <Route path='/lesson/library' element={<LessonLibraryPage />} />
+            <Route path='/lesson/my' element={<LessonMyPage />} />
+            <Route path='/lesson/result' element={<LessonResultPage />} />
 
-          <Route path='/ai-assistant' element={<AIRoomPage />} />
-        </>
-      )}
+            <Route path='/ai-assistant' element={<AIRoomPage />} />
+          </>
+        )}
+      </Route>
+
+      {/* 집중형 교사 화면은 확정된 수업 라우트를 TeacherFullscreenLayout으로 감싸서 추가한다. */}
     </Route>
 
     {/* 게스트 라우트 비활성화 (기획 결정: 게스트 기능 제외) */}
