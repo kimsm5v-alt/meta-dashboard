@@ -10,6 +10,7 @@
 | **추가계획2** | Contents Description 아래 자료 목록(`ResourceCardList`) + 필터 연동(목업) | Phase A 완료 / Phase B 대기 |
 | **추가계획3** | `LessonMyPage` 나의 자료 목록 — `ResourceCardList` `variant="my"` + 목업 | Phase A 완료 / API 대기 |
 | **추가계획4** | `ResourceCard` 시작하기 버튼 → 활동 배포 페이지 (`DeployPage`) 라우트 연결 | 계획 수립 완료 / 구현 대기 |
+| **추가계획5** | Editor/Viewer embed 독립 라우트 페이지 전환 + LessonEditorEmbed features 활성화 | 구현 완료 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `POST .../api/contents/setSearch` (임시 스펙) | 초안 수신 · 확정 전 |
@@ -1085,3 +1086,157 @@ const [classes, setClasses] = useState<string[]>(
 **작성일**: 2026-08-13  
 **최종 수정**: 2026-08-13 (11-A·11-B 구현 완료, validClasses 파생 검증 로직 추가)  
 **상태**: Phase A(목업) 완료 / 11-A·11-B 구현 완료
+
+---
+
+# 추가계획5 — Editor / Viewer embed 독립 라우트 페이지 전환
+
+> **참조**: [`lesson-everycanvas-lms-integration.plan.md §4`](./lesson-everycanvas-lms-integration.plan.md), 특히 **§4.3.3 features 플래그 지침**  
+> **상태**: 구현 완료 (2026-08-13)
+
+## 1. 현황 및 문제점
+
+현재 `LessonMyPage`는 로컬 `mode` state로 embed 컴포넌트를 **인라인 렌더링**하고 있다.
+
+```
+LessonMyPage (GNB + LNB 있음)
+└─ mode === 'editor' → <LessonEditorEmbed>  (position:fixed + z-index:9999 오버레이)
+└─ mode === 'viewer' → <LessonViewerEmbed>  (position:fixed + z-index:9999 오버레이)
+```
+
+- GNB/LNB가 있는 Shell 레이아웃 위에 `z-index: 9999` fixed overlay로 가리는 방식 — 레이아웃 계층 의미상 부자연스럽고 포커스 트랩·접근성 문제 발생 가능
+- embed 컴포넌트가 직접 full-viewport styled 요소를 갖고 있어 다른 맥락에서 재사용하기 어려움
+- `TeacherFullscreenLayout`(GNB/LNB 없는 MinimalLayout)이 이미 존재하며, `LessonDeployPage` 등에서 활용 중
+
+## 2. 목표
+
+1. `LessonEditorEmbed` / `LessonViewerEmbed`를 **독립 route 페이지**로 분리 → `TeacherFullscreenLayout` 적용
+2. `slideId` 유무에 따라 editor 라우트 경로를 분기, viewer는 `slideId` 필수로 URL에 포함
+3. `LessonEditorEmbed`에 `features.showStartLesson`·`features.showExit` 활성화 (§4.3.3 지침 반영 — 독립 fullscreen 페이지에서는 Host UI 버튼 없으므로 iframe 내 버튼 노출이 적합)
+4. `LessonMyPage`에서 inline embed 제거 → `navigate`로 라우트 전환
+
+## 3. 라우트 설계
+
+| 화면 | 경로 | slideId | 비고 |
+|------|------|---------|------|
+| Editor (신규) | `/lesson/editor` | 없음 | `editor/new` 라우트로 연결 |
+| Editor (편집) | `/lesson/editor/:slideId` | 선택 | ID가 URL에 포함 |
+| Viewer | `/lesson/viewer/:slideId` | **필수** | ID 없으면 404 or 목록으로 리다이렉트 |
+
+> Editor는 `/lesson/editor`와 `/lesson/editor/:slideId` 두 경로를 같은 `LessonEditorPage`에 매핑한다. `useParams`로 `slideId` 존재 여부를 판단해 신규/편집 분기.
+
+## 4. 신규 Page 컴포넌트
+
+### 4.1 `pages/lesson/LessonEditorPage.tsx`
+
+```
+역할: SlideEditor 전용 fullscreen 페이지
+- useParams<{ slideId?: string }>()로 slideId 읽기
+- <LessonEditorEmbed slideId={slideId} … /> 마운트
+```
+
+| 이벤트 | Host 처리 |
+|--------|-----------|
+| `onExitRequested` | `navigate(-1)` — 이전 페이지(LessonMyPage)로 복귀 |
+| `onSaved` | 신규 첫 저장 시 `slideId` 발급 → `navigate('/lesson/editor/' + p.slideId, { replace: true })`로 URL 교체 (뒤로가기 스택 오염 방지) |
+| `onStartLesson` | 현재는 `console.log` 기록 후 no-op. 수업 화면 라우트 확정 후 `navigate('/lesson/viewer/' + p.lcmsSetId)` 등으로 교체 예정 |
+
+### 4.2 `pages/lesson/LessonViewerPage.tsx`
+
+```
+역할: SlideViewer 전용 fullscreen 페이지
+- useParams<{ slideId: string }>()로 slideId 읽기
+- slideId 미확보 시 <Navigate to="/lesson/my" replace />
+- <LessonViewerEmbed slideId={slideId} … /> 마운트
+```
+
+| 이벤트 | Host 처리 |
+|--------|-----------|
+| `onExitRequested` | `navigate(-1)` |
+| `onCompleted` | 현재는 no-op (결과 페이지 연동은 후속 Phase) |
+
+## 5. `app/router/routes.tsx` 변경
+
+`TeacherFullscreenLayout` 블록에 다음 3개 Route를 추가한다.
+
+```tsx
+<Route element={<TeacherFullscreenLayout />}>
+  <Route path='/lesson/deploy/:itemId' element={<LessonDeployPage />} />
+  {/* 추가계획5 */}
+  <Route path='/lesson/editor' element={<LessonEditorPage />} />
+  <Route path='/lesson/editor/:slideId' element={<LessonEditorPage />} />
+  <Route path='/lesson/viewer/:slideId' element={<LessonViewerPage />} />
+</Route>
+```
+
+> `@pages/index` 또는 직접 import 방식은 기존 `LessonDeployPage` 패턴(`import LessonDeployPage from '@pages/lesson/LessonDeployPage'`)을 따른다.
+
+## 6. `LessonMyPage.tsx` 변경
+
+| 현재 | 변경 후 |
+|------|---------|
+| `const [mode, setMode] = useState<Mode>('idle')` | 제거 |
+| `{mode === 'editor' && <LessonEditorEmbed />}` | 제거 |
+| `{mode === 'viewer' && <LessonViewerEmbed slideId={SLIDE_ID} />}` | 제거 |
+| `<Button onClick={() => setMode('editor')}>+ 새로 만들기</Button>` | `navigate('/lesson/editor')` |
+| `<Button onClick={() => setMode('viewer')}>수업하기</Button>` | `navigate('/lesson/viewer/' + SLIDE_ID)` |
+
+- `LessonEditorEmbed`, `LessonViewerEmbed` import 제거
+- `useNavigate` 추가
+
+## 7. `features/lesson/ui/LessonEditorEmbed.tsx` 변경 (요청 3)
+
+독립 fullscreen 페이지 전환에 따라 **Host 외부 버튼이 없으므로** iframe 내 '수업하기'·'나가기' 버튼을 활성화한다. (§4.3.3 지침 — 소비 서비스 자체 버튼과 중복 아닐 때만 켤 것)
+
+```tsx
+options: {
+  ...
+  features: {
+    showStartLesson: true,  // SDK 1.3.0 — '수업하기' 버튼 노출
+    showExit: true,         // SDK 1.4.0 — '나가기' 버튼 노출
+  },
+}
+```
+
+또한, `LessonEditorEmbed`에 `onExitRequested` prop을 배선하여 iframe 내 '나가기' 버튼 클릭 시 이전 페이지로 복귀하도록 한다. Page 레이어(`LessonEditorPage`)에서 아래와 같이 처리한다.
+
+```tsx
+<LessonEditorEmbed
+  slideId={slideId}
+  onExitRequested={() => navigate(-1)}
+  ...
+/>
+```
+
+아울러, `EditorContainer`의 `position: fixed; z-index: 9999` 스타일은 **독립 라우트 페이지에서는 불필요**하다. `TeacherFullscreenLayout`이 이미 전체 화면을 제공하므로, styled 컴포넌트를 단순 `width:100%; height:100%` 레이아웃으로 교체한다. (`LessonViewerEmbed`도 동일하게 정리 필요)
+
+## 8. `features/lesson/index.ts` 변경
+
+새 타입 `StartLessonPayload`가 페이지 레이어에서 필요하므로 export 추가.
+
+```ts
+export type { ..., StartLessonPayload } from './lib/everyCanvasEmbedSdk';
+```
+
+## 9. 변경 파일 목록
+
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `pages/lesson/LessonEditorPage.tsx` | **신규** | `useParams` → `LessonEditorEmbed` 마운트, 이벤트 → navigate |
+| `pages/lesson/LessonViewerPage.tsx` | **신규** | `useParams` → `LessonViewerEmbed` 마운트, 이벤트 → navigate |
+| `pages/lesson/LessonMyPage.tsx` | 수정 | `mode` state 제거, inline embed 제거, `useNavigate` 전환 |
+| `app/router/routes.tsx` | 수정 | `TeacherFullscreenLayout` 블록에 editor/viewer 3개 Route 추가 |
+| `features/lesson/ui/LessonEditorEmbed.tsx` | 수정 | `features.showStartLesson·showExit: true`, fixed overlay 스타일 제거 |
+| `features/lesson/ui/LessonViewerEmbed.tsx` | 수정 | fixed overlay 스타일 제거 (EditorEmbed와 동일 정리) |
+| `features/lesson/index.ts` | 수정 | `StartLessonPayload` export 추가 |
+
+## 10. 완료 기준
+
+- [x] `/lesson/editor` 접속 시 GNB/LNB 없는 전체 화면 Editor iframe 노출
+- [x] `/lesson/editor/:slideId` 접속 시 해당 슬라이드 편집 Editor iframe 노출
+- [x] `/lesson/viewer/:slideId` 접속 시 GNB/LNB 없는 전체 화면 Viewer iframe 노출
+- [x] `LessonMyPage` '+ 새로 만들기' 클릭 → `/lesson/editor` 이동
+- [x] `LessonMyPage` '수업하기' 클릭 → `/lesson/viewer/:slideId` 이동
+- [x] Editor iframe 내 '나가기' 클릭 → 이전 페이지 복귀
+- [x] Editor iframe 내 '수업하기' 클릭 → `onStartLesson` 콜백 실행 (현재 console.log)
+- [ ] `npx tsc -b --noEmit`, eslint 통과

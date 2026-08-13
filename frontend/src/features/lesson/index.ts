@@ -26,6 +26,7 @@ export type {
   SlideChangedPayload,
   CompletedPayload,
   EmbedError,
+  StartLessonPayload,
 } from './lib/everyCanvasEmbedSdk';
 export {
   FILTER_AXIS_LABELS,

@@ -41,10 +41,12 @@ import {
   MyResultPage,
   MySelfregResultPage,
   LessonLibraryPage,
+  LessonMyPage,
+  LessonResultPage,
+  LessonDeployPage,
+  LessonEditorPage,
+  LessonViewerPage,
 } from '@pages/index';
-import LessonMyPage from '@pages/lesson/LessonMyPage';
-import LessonResultPage from '@pages/lesson/LessonResultPage';
-import LessonDeployPage from '@pages/lesson/LessonDeployPage';
 
 // ============================================================
 // 레이아웃 래퍼
@@ -259,6 +261,9 @@ export const AppRoutes = () => (
       {/* 집중형 교사 화면은 확정된 수업 라우트를 TeacherFullscreenLayout으로 감싸서 추가한다. */}
       <Route element={<TeacherFullscreenLayout />}>
         <Route path='/lesson/deploy/:itemId' element={<LessonDeployPage />} />
+        <Route path='/lesson/editor' element={<LessonEditorPage />} />
+        <Route path='/lesson/editor/:slideId' element={<LessonEditorPage />} />
+        <Route path='/lesson/viewer/:slideId' element={<LessonViewerPage />} />
       </Route>
     </Route>
 

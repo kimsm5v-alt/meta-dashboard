@@ -8,15 +8,10 @@ import type {
   SlideChangedPayload,
   ThemeTokens,
 } from '../lib/everyCanvasEmbedSdk';
-import { getSsoAccessToken } from '../lib/getSsoAccessToken';
 
 const ViewerContainer = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 9999;
+  width: 100%;
+  height: 100%;
   background: ${({ theme }) => theme.colors.background.paper};
 `;
 
@@ -49,7 +44,6 @@ export const LessonViewerEmbed = ({
       mode: 'viewer',
       slideId,
       // getToken: () => fetchEmbedToken({ scope: 'viewer', slideId }),
-      getSsoToken: getSsoAccessToken,
       locale: 'ko-KR',
       theme: embedTheme,
     },

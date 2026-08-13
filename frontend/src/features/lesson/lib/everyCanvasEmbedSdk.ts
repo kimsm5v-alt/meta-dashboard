@@ -10,7 +10,38 @@ export type EmbedError = {
   detail?: Record<string, unknown>;
 };
 
-export type SavedPayload = { slideId: string; thumbnail?: string };
+/** everyCanvas 저작 화면의 학습설정 (전부 optional, 미설정 필드는 payload에서 생략) */
+export type LessonMeta = {
+  schoolLevel?: string;
+  subject?: string;
+  textbookSubject?: string;
+  curriculumVersion?: string;
+  curriculum?: string;
+  makeMethod?: string;
+};
+
+/**
+ * onSaved 콜백 페이로드.
+ * lcmsSetId·title·lessonMeta 는 SDK 1.2.0 비파괴 추가 — slideId 만 읽던 기존 코드 그대로 동작.
+ */
+export type SavedPayload = {
+  slideId: string;
+  thumbnail?: string;
+  lcmsSetId?: string;
+  title?: string;
+  lessonMeta?: LessonMeta;
+};
+
+/**
+ * onStartLesson 콜백 페이로드 (SDK 1.2.0).
+ * everyCanvas는 수업을 실행하지 않고 값만 전달 — Host가 수업 화면을 직접 실행해야 함.
+ */
+export type StartLessonPayload = {
+  lcmsSetId?: string;
+  title?: string;
+  lessonMeta?: LessonMeta;
+};
+
 export type SlideChangedPayload = {
   index: number;
   slideId: string;

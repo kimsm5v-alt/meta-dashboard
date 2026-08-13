@@ -245,13 +245,29 @@ embed token과 **별개**. 생략 시 기본 저작은 동작하고 CBS 목록�
 // features/lesson/lib/getSsoAccessToken.ts → <SlideEditor getSsoToken={getSsoAccessToken} />
 ```
 
-#### 4.3.3 토큰 만료·에러 흐름 (React SDK)
+#### 4.3.3 SlideEditor features 플래그 (showStartLesson · showExit) — SDK 1.3 / 1.4
+
+[`everycanvas-react-sdk-components.html §4`](../../every-canvas-fe/docs/03-guide/everycanvas-react-sdk-components.html) 기준:
+
+| 플래그 | 기본값 | 설명 | 발행 이벤트 | SDK |
+| --- | --- | --- | --- | --- |
+| `features.showStartLesson` | `false` (숨김) | 저작 iframe 헤더의 '수업하기' 버튼 노출 토글 | `onStartLesson(p)` | 1.3.0 |
+| `features.showExit` | `false` (숨김) | 저작 iframe 헤더의 '나가기' 버튼 노출 토글 | `onExitRequested(p)` | 1.4.0 |
+
+**meta-dashboard 적용 지침**:
+
+- §4.1의 임시 버튼(Host UI)이 이미 '수업하기' 역할을 하므로 → `showStartLesson` **활성화 불필요** (중복 방지)
+- Host UI에 별도 닫기 버튼이 있으면 → `showExit` **활성화 불필요**
+- `onStartLesson` 콜백 페이로드: `{ lcmsSetId?, title?, lessonMeta? }` — everyCanvas는 수업을 실행하지 않고 값만 전달, **Host가 수업 화면을 직접 실행**해야 함
+- `lessonMeta` 구조: `{ schoolLevel?; subject?; textbookSubject?; curriculumVersion?; curriculum?; makeMethod? }` (미설정 필드는 payload에서 생략)
+
+#### 4.3.4 토큰 만료·에러 흐름 (React SDK)
 
 - 핸드셰이크 시 `getToken`(+ editor면 `getSsoToken`) 호출
 - embed token 만료 시 Frame → `onError({ code: 'TOKEN_EXPIRED' })` → Host가 **재발급 후 재마운트**
 - FE에서 `setInterval`로 토큰을 밀어넣지 않음
 
-#### 4.3.4 FE가 직접 처리하지 않아도 되는 것
+#### 4.3.5 FE가 직접 처리하지 않아도 되는 것
 
 | 처리 주체 | 내용 |
 | --- | --- |
@@ -259,7 +275,7 @@ embed token과 **별개**. 생략 시 기본 저작은 동작하고 CBS 목록�
 | SSO SDK (`getAuth()`) | AT 갱신, 실패 시 로그아웃 |
 | `authorizedFetch` / axios 인터셉터 | BE 경유 401 갱신 |
 
-#### 4.3.5 확정 필요 항목
+#### 4.3.6 확정 필요 항목
 
 - [ ] BE `/api/everyclass/embed-token` 경로 확정
 - [ ] Host `onError`에서 `TOKEN_EXPIRED` 시 remount UX
@@ -507,3 +523,4 @@ npm run build
 | 2026-08-12 | §4.3 구조 확정 — getToken(embed token, stub)·getSsoToken(SSO AT, 구현완료) 분리 반영 |
 | 2026-08-12 | FSD 정리: pages Embed → `features/lesson`, React SDK(`SlideEditor`/`SlideViewer`) 공통 로더·토큰 서비스 추출, `getSsoToken`은 Editor 전용, `ENV.EVERYCLASS_EMBED_BASE_URL` 반영 |
 | 2026-08-12 | `/sdk/react` URL import 실패(bare `react`) 확인 → 소비팀 공지대로 `/sdk/embed` `createEmbed` + `useEveryCanvasEmbed` 로컬 래퍼로 전환 |
+| 2026-08-13 | SDK 레퍼런스(`everycanvas-react-sdk-components.html`) 갱신 반영: §4.3.3 `features.showStartLesson`(SDK 1.3.0)·`features.showExit`(SDK 1.4.0) 플래그 및 `onStartLesson` 콜백 페이로드·`lessonMeta` 구조 추가. 기존 §4.3.3~5 → §4.3.4~6 재번호 |

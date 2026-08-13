@@ -1,14 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { toast } from 'sonner';
 import { Button } from '@shared/ui/Button/Button';
-import {
-  LessonEditorEmbed,
-  LessonViewerEmbed,
-  MOCK_LIBRARY_ITEMS,
-  ResourceCardList,
-} from '@features/lesson';
+import { MOCK_LIBRARY_ITEMS, ResourceCardList } from '@features/lesson';
 import type { LibItem } from '@features/lesson';
+
+const SLIDE_ID = 'slide_123';
 
 const Page = styled.section``;
 
@@ -46,10 +44,7 @@ const Toolbar = styled.div`
 `;
 
 export const LessonMyPage = () => {
-  const SLIDE_ID = 'slide_123';
-
-  type Mode = 'idle' | 'editor' | 'viewer';
-  const [mode, setMode] = useState<Mode>('idle');
+  const navigate = useNavigate();
   const [items, setItems] = useState<LibItem[]>(MOCK_LIBRARY_ITEMS);
 
   const handleDelete = (id: string) => {
@@ -77,7 +72,12 @@ export const LessonMyPage = () => {
           <Title>나의 자료</Title>
           <Description>직접 만든 세트지를 편집하거나 반에 배포하세요.</Description>
         </ContentsHeaderLeft>
-        <Button variant='primary' size='md' onClick={() => setMode('editor')} type='button'>
+        <Button
+          variant='primary'
+          size='md'
+          onClick={() => navigate('/lesson/editor')}
+          type='button'
+        >
           + 새로 만들기
         </Button>
       </ContentsHeader>
@@ -88,17 +88,14 @@ export const LessonMyPage = () => {
 
       <Toolbar>
         <Button
-          variant={mode === 'viewer' ? 'primary' : 'outline'}
+          variant='outline'
           size='md'
-          onClick={() => setMode('viewer')}
+          onClick={() => navigate(`/lesson/viewer/${SLIDE_ID}`)}
           type='button'
         >
           수업하기
         </Button>
       </Toolbar>
-
-      {mode === 'editor' && <LessonEditorEmbed />}
-      {mode === 'viewer' && <LessonViewerEmbed slideId={SLIDE_ID} />}
     </Page>
   );
 };

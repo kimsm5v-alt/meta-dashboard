@@ -11,6 +11,7 @@ type EmbedEventHandlers = {
   phaseChanged?: (payload: unknown) => void;
   submitted?: (payload: unknown) => void;
   progress?: (payload: unknown) => void;
+  startLesson?: (payload: unknown) => void;
 };
 
 type UseEveryCanvasEmbedParams = {
@@ -32,6 +33,7 @@ const KNOWN_EVENTS = [
   'submitted',
   'progress',
   'exitRequested',
+  'startLesson',
 ] as const;
 
 /**
