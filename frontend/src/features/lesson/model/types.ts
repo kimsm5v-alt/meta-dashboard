@@ -46,6 +46,8 @@ export interface LibItem {
   id: string;
   refSetId?: string;
   title: string;
+  /** CMS 썸네일 URL — 선택. UI 반영은 추후 */
+  thumbnailUrl?: string;
   src: LibrarySrc;
   selArea: string;
   colorGroup: LibraryColorGroup;

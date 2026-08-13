@@ -16,7 +16,8 @@ export function mapRefSetToLibItem(item: RefSetItem): LibItem {
   const date = new Date(item.createdAt);
   const updated = `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
   return {
-    id: item.refSetId,
+    id: item.lcmsSetId,
+    refSetId: item.refSetId,
     title: item.title,
     src: 'internal',
     selArea: item.subjectCd, // TODO: taxonomy 확정 전 임시. 추후 변동 가능

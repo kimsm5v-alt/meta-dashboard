@@ -1,5 +1,6 @@
 import styled from '@emotion/styled';
 import { Inbox, SearchX } from 'lucide-react';
+import { Loading } from '@shared/ui/Loading';
 import type { LibItem, ResourceCardVariant } from '../model/types';
 import { ResourceCard } from './ResourceCard';
 
@@ -15,6 +16,8 @@ interface ResourceCardListProps {
   /** 미지정 시 variant별 기본 문구 */
   emptyMessage?: string;
   onDelete?: (id: string) => void;
+  /** API 조회/재조회 중 로딩 표시 */
+  isLoading?: boolean;
 }
 
 export const ResourceCardList = ({
@@ -22,7 +25,16 @@ export const ResourceCardList = ({
   variant = 'library',
   emptyMessage,
   onDelete,
+  isLoading = false,
 }: ResourceCardListProps) => {
+  if (isLoading && items.length === 0) {
+    return (
+      <LoadingWrap role='status' aria-busy='true'>
+        <Loading size='md' text='불러오는 중...' />
+      </LoadingWrap>
+    );
+  }
+
   if (items.length === 0) {
     const EmptyIconMark = variant === 'my' ? Inbox : SearchX;
     return (
@@ -36,13 +48,41 @@ export const ResourceCardList = ({
   }
 
   return (
-    <Grid>
-      {items.map((item) => (
-        <ResourceCard key={item.id} item={item} variant={variant} onDelete={onDelete} />
-      ))}
-    </Grid>
+    <ListShell>
+      {isLoading ? (
+        <RefetchBar role='status' aria-busy='true'>
+          <Loading size='sm' text='목록 갱신 중...' />
+        </RefetchBar>
+      ) : null}
+      <Grid>
+        {items.map((item) => (
+          <ResourceCard key={item.id} item={item} variant={variant} onDelete={onDelete} />
+        ))}
+      </Grid>
+    </ListShell>
   );
 };
+
+const LoadingWrap = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: ${({ theme }) => theme.spacing.xl} ${({ theme }) => theme.spacing.md};
+`;
+
+const ListShell = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const RefetchBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: ${({ theme }) => theme.spacing.xs} 0;
+`;
 
 const Grid = styled.div`
   display: grid;

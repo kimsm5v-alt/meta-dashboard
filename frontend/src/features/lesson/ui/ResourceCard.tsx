@@ -55,7 +55,13 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
           </>
         )}
         <Actions>
-          <Button type='button' variant='outline' size='md' fullWidth>
+          <Button
+            type='button'
+            variant='outline'
+            size='md'
+            fullWidth
+            onClick={() => navigate(`/lesson/editor/${item.id}`)}
+          >
             수정하기
           </Button>
           <Button

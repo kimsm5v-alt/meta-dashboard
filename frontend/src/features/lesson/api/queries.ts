@@ -1,7 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getCmsSetList } from './cmsSetService';
 import { getRefSetList, registerRefSet } from './lmsRefSetService';
 import type { RegisterRefSetBody, RefSetListData } from './lmsRefSetService';
+import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
+
+const CMS_SETS_DEFAULT = {
+  pageNo: 0,
+  pageSize: 10,
+  brandId: 18,
+  serviceType: 131132,
+} as const;
 
 export function useRefSetListQuery() {
   return useQuery({
@@ -27,5 +36,14 @@ export function useRegisterRefSetMutation() {
         await queryClient.invalidateQueries({ queryKey: lessonKeys.refSets() });
       }
     },
+  });
+}
+
+/** filters/sort는 queryKey 트리거용. 이번 Phase에서는 API param에 매핑하지 않음 */
+export function useCmsSetListQuery(filters: LibFilters, sort: SortKey) {
+  return useQuery({
+    queryKey: [...lessonKeys.cmsSets(), filters, sort],
+    queryFn: ({ signal }) => getCmsSetList({ ...CMS_SETS_DEFAULT }, signal),
+    placeholderData: keepPreviousData,
   });
 }
