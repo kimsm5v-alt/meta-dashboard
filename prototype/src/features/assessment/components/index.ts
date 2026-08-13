@@ -18,6 +18,11 @@ export { StudentResultView } from './StudentResultView';
 
 // 자기조절학습검사용 컴포넌트
 export { SelfregStudentResultView } from './SelfregStudentResultView';
+export { SelfregOverviewChart } from './SelfregOverviewChart';
+
+// 학습전략검사 결과 리포트
+export { StrategyReport, StrategyRadarChart, StrategyCard, DonutGauge } from './StrategyReport';
+export type { ReportData, Score, DomainResult, LevelType } from './StrategyReport';
 
 // 변화추적 (화면 6번)
 export { ClassTrackingView } from './ClassTrackingView';

@@ -50,8 +50,8 @@ export const SELFREG_MAIN_CATEGORIES: SelfregCategory[] = [
 // 대분류별 색상
 export const SELFREG_DOMAIN_COLORS: Record<SelfregCategory, string> = {
   '동기전략': '#9F91F8',
-  '인지전략': '#4BC1FF',
-  '행동전략': '#FF8A94',
+  '인지전략': '#4AC1FF',
+  '행동전략': '#FF8993',
 };
 
 export const SELFREG_DOMAIN_SOFT_COLORS: Record<SelfregCategory, string> = {

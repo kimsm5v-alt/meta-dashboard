@@ -14,7 +14,7 @@ export const DeployOverlay = () => {
   const { overlay, closeOverlay, openOverlay, toast, setTab, scope } = useResources();
   const contentId = overlay?.contentId ?? null;
   const item = contentId ? MY.find((x) => x.id === contentId) || findContent(contentId) : null;
-  const deployItem = { title: item?.title ?? '제목 없는 활동', g: item?.g ?? 'g1', em: item?.em ?? '🧩' };
+  const deployItem = { title: item?.title ?? '제목 없는 활동', g: item?.g ?? 'g1', thumb: item?.thumb };
   // 저작툴에서 넘어온 경우 → 헤더 브레드크럼으로 저작툴 복귀 제공
   const fromEditor = overlay?.from === 'editor';
   const backToEditor = () => openOverlay({ kind: 'editor', contentId });
@@ -72,7 +72,9 @@ export const DeployOverlay = () => {
         {/* 좌: 미리보기 */}
         <div className="w-72 flex-none">
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <div className="flex h-28 items-center justify-center rounded-xl text-5xl" style={{ background: GROUP_BG[deployItem.g] }}>{deployItem.em}</div>
+            <div className="aspect-[16/9] w-full overflow-hidden rounded-xl" style={{ background: GROUP_BG[deployItem.g] }}>
+              {deployItem.thumb && <img src={deployItem.thumb} alt={deployItem.title} className="h-full w-full object-cover" />}
+            </div>
             <div className="mt-3 text-xs text-gray-400">슬라이드 이름 · 수정 불가</div>
             <div className="mt-0.5 text-base font-bold text-gray-900">{deployItem.title}</div>
             <div className="mt-2 flex flex-wrap gap-1 text-xs text-gray-500">

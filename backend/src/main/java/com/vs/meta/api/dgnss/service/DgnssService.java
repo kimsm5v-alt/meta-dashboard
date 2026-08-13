@@ -15,6 +15,8 @@ import com.vs.meta.common.utils.NcpMailSender;
 import com.vs.meta.common.utils.PagingInfo;
 import com.vs.meta.common.utils.PagingParam;
 import com.vs.meta.common.utils.SecurityUtil;
+import com.vs.meta.api.permission.service.PaperPermissionService;
+import com.vs.meta.common.exception.PaperPermissionDeniedException;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,6 +63,7 @@ public class DgnssService {
     private final DgnssMapper dgnssMapper;
     private final DgnssLpaService dgnssLpaService;
     private final DgnssGraphService dgnssGraphService;
+    private final PaperPermissionService paperPermissionService;
     private final PdfService pdfService;
     private final FileService fileService;
     private final NcpMailSender ncpMailSender;
@@ -110,9 +113,9 @@ public class DgnssService {
      * 기존 tc/info 를 학급마다 호출하던 것을 대체. 학급(claId) 기준으로 검사 목록을 중첩 구조로 반환.
      */
     @Transactional(readOnly = true)
-    public Map<String, Object> selectTcDgnssOverview() {
+    public Map<String, Object> selectTcDgnssOverview(String paperIdx) {
         Long userNo = SecurityUtil.requireCurrentUserNo();
-        List<Map<String, Object>> rows = dgnssMapper.selectTcDgnssOverview(userNo);
+        List<Map<String, Object>> rows = dgnssMapper.selectTcDgnssOverview(userNo, paperIdx);
 
         // 학급(claId) 기준 그룹핑 → classes: [ { 학급정보, dgnssList: [검사...] } ]
         Map<String, Map<String, Object>> byCla = new LinkedHashMap<>();
@@ -278,6 +281,13 @@ public class DgnssService {
         int ordNo = MapUtils.getInteger(paramMap, "ordNo", 0);
         String tcId = MapUtils.getString(paramMap, "tcId", "");
         String claId = MapUtils.getString(paramMap, "claId", "");
+
+        // 검사 유형(paperIdx) 권한 검증 — 허용되지 않은 유형의 검사 생성 차단(403 PAPER_NOT_ALLOWED)
+        Long userNo = SecurityUtil.requireCurrentUserNo();
+        if (!paperPermissionService.isAllowed(userNo, String.valueOf(paperIdx))) {
+            throw new PaperPermissionDeniedException("해당 검사 유형에 대한 권한이 없습니다. paperIdx=" + paperIdx);
+        }
+
         int actvStdtCnt = dgnssMapper.selectActvStdtCnt(paramMap);
         if (actvStdtCnt == 0) {
             Map<String, Object> resultMap = new HashMap<>();

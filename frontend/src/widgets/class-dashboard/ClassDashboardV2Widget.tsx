@@ -1,8 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
-  ChevronRight,
   Search,
   Info,
   BookOpen,
@@ -10,6 +8,9 @@ import {
   ShieldAlert,
   AlertTriangle,
   Download,
+  FileText,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
 import styled from '@emotion/styled';
 import { Card } from '@shared/components';
@@ -139,51 +140,9 @@ const HeaderRow = styled.div`
   gap: 0.75rem;
 `;
 
-const BackBtn = styled.button`
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: ${({ theme }) => theme.colors.gray[500]};
-  margin-top: 0.25rem;
-  &:hover {
-    background: ${({ theme }) => theme.colors.gray[100]};
-  }
-`;
-
 const HeaderContent = styled.div`
   flex: 1;
   min-width: 0;
-`;
-
-const Breadcrumb = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-bottom: 0.375rem;
-`;
-
-const BreadcrumbBadge = styled.span<{ $color: string }>`
-  display: inline-flex;
-  align-items: center;
-  padding: 0.125rem 0.625rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #fff;
-  background: ${({ $color }) => $color};
-`;
-
-const BreadcrumbText = styled.span<{ $active?: boolean }>`
-  font-size: 0.8125rem;
-  color: ${({ $active, theme }) => ($active ? '#111827' : theme.colors.gray[500])};
-  font-weight: ${({ $active }) => ($active ? 500 : 400)};
 `;
 
 const PageTitle = styled.h1`
@@ -205,22 +164,22 @@ const HeaderActions = styled.div`
   flex-shrink: 0;
 `;
 
-const ReportBtn = styled.button<{ $primary?: boolean }>`
+const ReportBtn = styled.button`
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.875rem;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s;
-  border: ${({ $primary }) => ($primary ? 'none' : `1px solid #E5E7EB`)};
-  background: ${({ $primary }) => ($primary ? '#4F46E5' : 'white')};
-  color: ${({ $primary }) => ($primary ? '#fff' : '#374151')};
+  border: none;
+  background: #5b21b6;
+  color: #fff;
   &:hover {
-    opacity: 0.9;
+    background: #4c1d95;
   }
   &:disabled {
     opacity: 0.4;
@@ -229,63 +188,43 @@ const ReportBtn = styled.button<{ $primary?: boolean }>`
 `;
 
 // KPI Cards
-const KpiRow = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  @media (max-width: 900px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
+const SummaryCard = styled.div`
+  padding: 1.5rem;
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border-radius: ${({ theme }) => theme.radius.xl};
+  background: ${({ theme }) => theme.colors.background.paper};
 `;
 
-const KpiCard = styled(Card)`
-  padding: 1.25rem 1.5rem;
+const KpiRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+`;
+
+const KpiCard = styled.div`
+  padding: 1rem;
+  border-radius: ${({ theme }) => theme.radius.xl};
+  background: ${({ theme }) => theme.colors.gray[50]};
 `;
 
 const KpiLabel = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
   color: ${({ theme }) => theme.colors.gray[500]};
-  margin-bottom: 0.375rem;
+  margin-bottom: 0.25rem;
 `;
 
-const KpiValue = styled.p<{ $color?: string; $small?: boolean }>`
-  font-size: ${({ $small, theme }) =>
-    $small ? theme.typography.fontSize.xl : theme.typography.fontSize['2xl']};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+const KpiValue = styled.p<{ $color?: string }>`
+  font-size: ${({ theme }) => theme.typography.fontSize.lg};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   color: ${({ $color, theme }) => $color ?? theme.colors.gray[900]};
   line-height: 1.2;
 `;
 
-const KpiSub = styled.p`
+const KpiSub = styled.p<{ $color?: string }>`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[400]};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  color: ${({ $color, theme }) => $color ?? theme.colors.gray[400]};
   margin-top: 0.25rem;
-`;
-
-// Pill Tabs
-const TabContainer = styled.div`
-  display: flex;
-  gap: 0.25rem;
-  background: ${({ theme }) => theme.colors.gray[100]};
-  border-radius: 999px;
-  padding: 0.25rem;
-  width: fit-content;
-`;
-
-const TabBtn = styled.button<{ $active: boolean }>`
-  padding: 0.5rem 1.25rem;
-  border-radius: 999px;
-  border: none;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  cursor: pointer;
-  transition: all 0.15s;
-  background: ${({ $active, theme }) => ($active ? theme.colors.background.paper : 'transparent')};
-  color: ${({ $active, theme }) => ($active ? theme.colors.gray[900] : theme.colors.gray[500])};
-  box-shadow: ${({ $active, theme }) => ($active ? theme.shadows.sm : 'none')};
-  &:hover {
-    color: ${({ theme }) => theme.colors.gray[900]};
-  }
 `;
 
 // Round Toggle
@@ -298,17 +237,20 @@ const RoundToggle = styled.div`
 `;
 
 const RoundBtn = styled.button<{ $active: boolean; $disabled?: boolean }>`
-  padding: 0.375rem 0.875rem;
+  padding: 0.375rem 1rem;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   border-radius: ${({ theme }) => theme.radius.md};
   border: none;
   cursor: ${({ $disabled }) => ($disabled ? 'not-allowed' : 'pointer')};
-  opacity: ${({ $disabled }) => ($disabled ? 0.4 : 1)};
   transition: all 150ms;
-  background: ${({ $active, theme }) => ($active ? theme.colors.background.paper : 'transparent')};
-  color: ${({ $active, theme }) => ($active ? theme.colors.gray[900] : theme.colors.gray[600])};
-  box-shadow: ${({ $active, theme }) => ($active ? theme.shadows.sm : 'none')};
+  background: ${({ $active }) => ($active ? '#5b21b6' : 'transparent')};
+  color: ${({ $active, $disabled, theme }) =>
+    $active ? '#fff' : $disabled ? theme.colors.gray[400] : theme.colors.gray[600]};
+  &:hover {
+    background: ${({ $active, $disabled, theme }) =>
+      $active ? '#5b21b6' : $disabled ? 'transparent' : theme.colors.gray[200]};
+  }
 `;
 
 // Note box
@@ -330,6 +272,11 @@ const Top3Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
+
+  > div + div {
+    border-left: 1px solid ${({ theme }) => theme.colors.gray[200]};
+    padding-left: 1.5rem;
+  }
 `;
 
 const Top3Header = styled.div<{ $variant: 'strength' | 'weakness' }>`
@@ -337,20 +284,17 @@ const Top3Header = styled.div<{ $variant: 'strength' | 'weakness' }>`
   align-items: center;
   gap: 0.375rem;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: 800;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
   margin-bottom: 0.75rem;
-  background: ${({ $variant }) => ($variant === 'strength' ? '#F2FBF6' : '#FFF5F3')};
-  color: ${({ $variant }) => ($variant === 'strength' ? '#059669' : '#EF4444')};
+  color: ${({ $variant }) => ($variant === 'strength' ? '#065F46' : '#991B1B')};
 `;
 
 const Top3Icon = styled.span<{ $variant: 'strength' | 'weakness' }>`
-  width: 1.125rem;
-  height: 1.125rem;
-  border-radius: 50%;
-  background: white;
-  color: ${({ $variant }) => ($variant === 'strength' ? '#059669' : '#EF4444')};
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.25rem;
+  background: ${({ $variant }) => ($variant === 'strength' ? '#D1FAE5' : '#FEE2E2')};
+  color: ${({ $variant }) => ($variant === 'strength' ? '#059669' : '#DC2626')};
   display: grid;
   place-items: center;
   font-size: 0.6875rem;
@@ -379,10 +323,22 @@ const Top3Tag = styled.div<{ $color: string }>`
 
 const Top3Name = styled.div`
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: 800;
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
   letter-spacing: -0.01em;
-  color: ${({ theme }) => theme.colors.gray[900]};
+  color: ${({ theme }) => theme.colors.gray[800]};
+`;
+
+const Top3NameRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
   margin-bottom: 0.25rem;
+`;
+
+const Top3Rank = styled.span<{ $variant: 'strength' | 'weakness' }>`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  color: ${({ $variant }) => ($variant === 'strength' ? '#10B981' : '#EF4444')};
 `;
 
 const Top3Desc = styled.div`
@@ -532,19 +488,17 @@ const FilterRow = styled.div`
 `;
 
 const FilterPill = styled.button<{ $active: boolean }>`
-  padding: 0.375rem 0.875rem;
-  border-radius: 999px;
-  border: 1px solid ${({ $active, theme }) => ($active ? '#4F46E5' : theme.colors.gray[200])};
-  background: ${({ $active }) => ($active ? '#EEF2FF' : 'white')};
-  color: ${({ $active, theme }) => ($active ? '#4F46E5' : theme.colors.gray[600])};
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid ${({ $active, theme }) => ($active ? '#5B21B6' : theme.colors.gray[200])};
+  background: ${({ $active }) => ($active ? '#5B21B6' : 'white')};
+  color: ${({ $active, theme }) => ($active ? 'white' : theme.colors.gray[700])};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ $active, theme }) =>
-    $active ? theme.typography.fontWeight.semibold : theme.typography.fontWeight.normal};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
   cursor: pointer;
   transition: all 0.12s;
   &:hover {
-    border-color: #4f46e5;
-    color: #4f46e5;
+    background: ${({ $active, theme }) => ($active ? '#5B21B6' : theme.colors.gray[50])};
   }
 `;
 
@@ -1175,7 +1129,7 @@ const CategoryBarChart = ({ scores, testId = 'comprehensive' }: CategoryBarChart
   const categoryOrder = testId === 'selfreg' ? SELFREG_CATEGORY_ORDER : COMP_CATEGORY_ORDER;
   const areaMetaMap = testId === 'selfreg' ? SELFREG_AREA_META : AREA_META;
 
-  const pad = { l: 44, r: 16, t: 16, b: 90 };
+  const pad = { l: 70, r: 16, t: 16, b: 90 };
   const n = categoryOrder.length;
   const colGap = 10;
   const innerW = containerWidth - pad.l - pad.r;
@@ -1185,12 +1139,23 @@ const CategoryBarChart = ({ scores, testId = 'comprehensive' }: CategoryBarChart
   const plotH = height - pad.t - pad.b;
   const yOf = (t: number) => pad.t + (1 - t / 100) * plotH;
 
+  const getBarTone = (score: number, polarity: 'positive' | 'negative') => {
+    if (score >= 40 && score < 60) {
+      return { fill: '#EDEDF0', stroke: '#D4D4D8', labelColor: '#71717A' };
+    }
+    const isHigh = score >= 60;
+    const isGood = polarity === 'negative' ? !isHigh : isHigh;
+    return isGood
+      ? { fill: '#E3F4E9', stroke: '#A9DCBC', labelColor: '#16A34A' }
+      : { fill: '#FDE7E4', stroke: '#F0B5AC', labelColor: '#DC2626' };
+  };
+
   const bands = [
-    { from: 70, to: 100, label: '매우높음', fill: '#EAF6EE' },
-    { from: 60, to: 70, label: '높음', fill: '#F2FAF4' },
+    { from: 70, to: 100, label: '매우높음', fill: '#FFFFFF' },
+    { from: 60, to: 70, label: '높음', fill: '#FFFFFF' },
     { from: 40, to: 60, label: '보통', fill: '#F7F7F8' },
-    { from: 30, to: 40, label: '낮음', fill: '#FEF4EC' },
-    { from: 0, to: 30, label: '매우낮음', fill: '#FDEEEC' },
+    { from: 30, to: 40, label: '낮음', fill: '#FFFFFF' },
+    { from: 0, to: 30, label: '매우낮음', fill: '#FFFFFF' },
   ];
 
   const areaGroups = useMemo(() => {
@@ -1235,7 +1200,14 @@ const CategoryBarChart = ({ scores, testId = 'comprehensive' }: CategoryBarChart
           return (
             <g key={b.label}>
               <rect x={pad.l} y={y} width={innerW} height={h} fill={b.fill} />
-              <text x={pad.l + 6} y={y + 13} fontSize='10' fill='#A1A1A8' fontWeight='600'>
+              <text
+                x={pad.l - 32}
+                y={y + h / 2 + 4}
+                textAnchor='end'
+                fontSize='10'
+                fill='#A1A1A8'
+                fontWeight='600'
+              >
                 {b.label}
               </text>
             </g>
@@ -1248,7 +1220,7 @@ const CategoryBarChart = ({ scores, testId = 'comprehensive' }: CategoryBarChart
               y1={yOf(t)}
               x2={pad.l + innerW}
               y2={yOf(t)}
-              stroke={t === 50 ? '#9CA3AF' : '#E5E5E7'}
+              stroke={t === 50 ? '#C9A4ED' : '#E5E5E7'}
               strokeWidth={t === 50 ? 1.3 : 0.7}
               strokeDasharray={t === 50 ? '4 4' : '0'}
             />
@@ -1257,6 +1229,9 @@ const CategoryBarChart = ({ scores, testId = 'comprehensive' }: CategoryBarChart
             </text>
           </g>
         ))}
+        <text x={totalW - pad.r} y={20} textAnchor='end' fontSize='11' fill='#9CA3AF'>
+          점선: T=50 (전국 평균)
+        </text>
         {categoryOrder.map((cat, idx) => {
           const t = scores[cat.name] ?? 50;
           const x = pad.l + idx * (colW + colGap);
@@ -1264,9 +1239,19 @@ const CategoryBarChart = ({ scores, testId = 'comprehensive' }: CategoryBarChart
           const barX = x + (colW - barW) / 2;
           const y = yOf(t);
           const mid = Math.ceil(cat.name.length / 2);
+          const tone = getBarTone(t, areaMetaMap[cat.area]?.polarity ?? 'positive');
           return (
             <g key={cat.name}>
-              <rect x={barX} y={y} width={barW} height={barH} rx='3' fill={cat.color} opacity='0.9'>
+              <rect
+                x={barX}
+                y={y}
+                width={barW}
+                height={barH}
+                rx='3'
+                fill={tone.fill}
+                stroke={tone.stroke}
+                strokeWidth='1'
+              >
                 <title>
                   {cat.name} T {t}
                 </title>
@@ -1277,7 +1262,7 @@ const CategoryBarChart = ({ scores, testId = 'comprehensive' }: CategoryBarChart
                 textAnchor='middle'
                 fontSize='10.5'
                 fontWeight='700'
-                fill={cat.color}
+                fill={tone.labelColor}
               >
                 {t}
               </text>
@@ -1358,17 +1343,18 @@ const CategoryBarChart = ({ scores, testId = 'comprehensive' }: CategoryBarChart
 // CoreSummaryTab
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SectionCard = styled(Card)`
-  padding: 0;
+const SectionCard = styled.div`
   overflow: hidden;
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border-radius: ${({ theme }) => theme.radius.xl};
+  background: ${({ theme }) => theme.colors.background.paper};
 `;
 
 const SectionHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[100]};
+  padding: 1.5rem 1.5rem 1rem;
 `;
 
 const SectionTitle = styled.h3`
@@ -1378,7 +1364,7 @@ const SectionTitle = styled.h3`
 `;
 
 const SectionBody = styled.div`
-  padding: 1.5rem;
+  padding: 0 1.5rem 1.5rem;
 `;
 
 const DonutWrap = styled.div`
@@ -1542,6 +1528,9 @@ interface CoreSummaryTabProps {
   testId: TestId;
   selfregRound1?: number[] | null;
   selfregRound2?: number[] | null;
+  showActivities?: boolean;
+  showOverview?: boolean;
+  showDistribution?: boolean;
 }
 
 const CoreSummaryTab = ({
@@ -1549,6 +1538,9 @@ const CoreSummaryTab = ({
   testId,
   selfregRound1,
   selfregRound2,
+  showActivities = true,
+  showOverview = true,
+  showDistribution = true,
 }: CoreSummaryTabProps) => {
   const [summaryRound, setSummaryRound] = useState<1 | 2>(1);
   const handleActivityDownload = () => {
@@ -1712,8 +1704,8 @@ const CoreSummaryTab = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* LPA 유형 분포 — comprehensive + 고등 제외 */}
-      {testId === 'comprehensive' && classData.schoolLevel !== '고등' && (
-        <Card>
+      {showDistribution && testId === 'comprehensive' && classData.schoolLevel !== '고등' && (
+        <Card style={{ order: 1 }}>
           <div style={{ marginBottom: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <SectionTitle>검사별 유형 분포</SectionTitle>
@@ -1741,55 +1733,60 @@ const CoreSummaryTab = ({
       )}
 
       {/* 종합 결과 요약 — CategoryBarChart */}
-      <Card>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            marginBottom: '1rem',
-            gap: '1rem',
-          }}
-        >
-          <div>
-            <SectionTitle>종합 결과 요약</SectionTitle>
-            <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.25rem' }}>
-              {testId === 'selfreg' ? '6개' : '11개'} 중분류 하위요인의 반 평균 T점수입니다. 자세한
-              분석은 <strong>학습 상세</strong> 탭에서 볼 수 있습니다.
-            </p>
+      {showOverview && (
+        <Card style={{ order: 0 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: '1rem',
+              gap: '1rem',
+            }}
+          >
+            <div>
+              <SectionTitle>종합 결과 요약</SectionTitle>
+              <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.25rem' }}>
+                {testId === 'selfreg' ? '6개' : '11개'} 중분류 하위요인의 반 평균 T점수입니다.
+              </p>
+            </div>
+            <RoundToggle>
+              <RoundBtn $active={summaryRound === 1} onClick={() => setSummaryRound(1)}>
+                1차 검사
+              </RoundBtn>
+              <RoundBtn
+                $active={summaryRound === 2}
+                $disabled={!hasRound2}
+                onClick={() => hasRound2 && setSummaryRound(2)}
+              >
+                2차 검사{!hasRound2 && ' 예정'}
+              </RoundBtn>
+            </RoundToggle>
           </div>
-          <RoundToggle>
-            <RoundBtn $active={summaryRound === 1} onClick={() => setSummaryRound(1)}>
-              1차 검사
-            </RoundBtn>
-            <RoundBtn
-              $active={summaryRound === 2}
-              $disabled={!hasRound2}
-              onClick={() => hasRound2 && setSummaryRound(2)}
-            >
-              2차 검사{!hasRound2 && ' 예정'}
-            </RoundBtn>
-          </RoundToggle>
-        </div>
-        <CategoryBarChart scores={categoryScores} testId={testId} />
-      </Card>
+          <CategoryBarChart scores={categoryScores} testId={testId} />
+        </Card>
+      )}
 
       {/* 추천 학급 운영 활동 */}
-      <Card>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-          <BookOpen size={18} color='#4F46E5' />
-          <SectionTitle>추천 학급 운영 활동</SectionTitle>
-        </div>
-        <ActivitiesGrid>
-          {RECOMMENDED_ACTIVITIES.map((act) => (
-            <ActivityCard key={act.id}>
-              <ActivityTitle>{act.title}</ActivityTitle>
-              <ActivityDesc>{act.description}</ActivityDesc>
-              <ActivityBtn onClick={handleActivityDownload}>다운로드</ActivityBtn>
-            </ActivityCard>
-          ))}
-        </ActivitiesGrid>
-      </Card>
+      {showActivities && (
+        <Card>
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}
+          >
+            <BookOpen size={18} color='#4F46E5' />
+            <SectionTitle>추천 학급 운영 활동</SectionTitle>
+          </div>
+          <ActivitiesGrid>
+            {RECOMMENDED_ACTIVITIES.map((act) => (
+              <ActivityCard key={act.id}>
+                <ActivityTitle>{act.title}</ActivityTitle>
+                <ActivityDesc>{act.description}</ActivityDesc>
+                <ActivityBtn onClick={handleActivityDownload}>다운로드</ActivityBtn>
+              </ActivityCard>
+            ))}
+          </ActivitiesGrid>
+        </Card>
+      )}
     </div>
   );
 };
@@ -1811,6 +1808,7 @@ interface LearningDetailTabProps {
   testId: TestId;
   selfregRound1?: number[] | null;
   selfregRound2?: number[] | null;
+  top3Only?: boolean;
 }
 
 const ViewToggle = styled.div`
@@ -1855,6 +1853,7 @@ const LearningDetailTab = ({
   testId,
   selfregRound1,
   selfregRound2,
+  top3Only = false,
 }: LearningDetailTabProps) => {
   const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
   const [viewMode, setViewMode] = useState<'detail' | 'summary'>('detail');
@@ -2048,6 +2047,83 @@ const LearningDetailTab = ({
     return { label, isRisk };
   };
 
+  if (top3Only) {
+    return (
+      <SectionCard>
+        <SectionHeader>
+          <SectionTitle>우리 반 강점 / 보완점 Top 3</SectionTitle>
+          <RoundToggle>
+            <RoundBtn $active={selectedRound === 1} onClick={() => setSelectedRound(1)}>
+              1차 검사
+            </RoundBtn>
+            <RoundBtn
+              $active={selectedRound === 2}
+              $disabled={!hasRound2}
+              disabled={!hasRound2}
+              onClick={() => hasRound2 && setSelectedRound(2)}
+            >
+              2차 검사{!hasRound2 && ' 예정'}
+            </RoundBtn>
+          </RoundToggle>
+        </SectionHeader>
+        {profile && (
+          <SectionBody>
+            <Top3Grid>
+              <div>
+                <Top3Header $variant='strength'>
+                  <Top3Icon $variant='strength'>
+                    <Check size={12} strokeWidth={3} />
+                  </Top3Icon>
+                  주요 강점
+                </Top3Header>
+                <Top3Cards>
+                  {profile.strengths.slice(0, 3).map((item, index) => (
+                    <Top3Card key={item.category} $variant='strength'>
+                      <Top3Tag $color={DOMAIN_COLORS[item.parentCategory] || '#059669'}>
+                        #{item.parentCategory.replace(/\s/g, '')}
+                      </Top3Tag>
+                      <Top3NameRow>
+                        <Top3Rank $variant='strength'>{index + 1}</Top3Rank>
+                        <Top3Name>{item.category}</Top3Name>
+                      </Top3NameRow>
+                      <Top3Desc>
+                        {item.categoryScript || '학년 평균을 상회하는 강점 영역입니다'}
+                      </Top3Desc>
+                    </Top3Card>
+                  ))}
+                </Top3Cards>
+              </div>
+              <div>
+                <Top3Header $variant='weakness'>
+                  <Top3Icon $variant='weakness'>
+                    <AlertCircle size={12} strokeWidth={3} />
+                  </Top3Icon>
+                  주요 보완점
+                </Top3Header>
+                <Top3Cards>
+                  {profile.weaknesses.slice(0, 3).map((item, index) => (
+                    <Top3Card key={item.category} $variant='weakness'>
+                      <Top3Tag $color={DOMAIN_COLORS[item.parentCategory] || '#EF4444'}>
+                        #{item.parentCategory.replace(/\s/g, '')}
+                      </Top3Tag>
+                      <Top3NameRow>
+                        <Top3Rank $variant='weakness'>{index + 1}</Top3Rank>
+                        <Top3Name>{item.category}</Top3Name>
+                      </Top3NameRow>
+                      <Top3Desc>
+                        {item.categoryScript || '학년 평균보다 낮아 보완이 필요한 영역입니다'}
+                      </Top3Desc>
+                    </Top3Card>
+                  ))}
+                </Top3Cards>
+              </div>
+            </Top3Grid>
+          </SectionBody>
+        )}
+      </SectionCard>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Round selector */}
@@ -2067,11 +2143,13 @@ const LearningDetailTab = ({
         <Top3Grid>
           <div>
             <Top3Header $variant='strength'>
-              <Top3Icon $variant='strength'>✓</Top3Icon>
+              <Top3Icon $variant='strength'>
+                <Check size={12} strokeWidth={3} />
+              </Top3Icon>
               우리 반의 강점 TOP 3
             </Top3Header>
             <Top3Cards>
-              {profile.strengths.slice(0, 3).map((item) => {
+              {profile.strengths.slice(0, 3).map((item, index) => {
                 const color =
                   testId === 'selfreg'
                     ? SELFREG_DOMAIN_COLORS[
@@ -2081,7 +2159,10 @@ const LearningDetailTab = ({
                 return (
                   <Top3Card key={item.category} $variant='strength'>
                     <Top3Tag $color={color}>#{item.parentCategory.replace(/\s/g, '')}</Top3Tag>
-                    <Top3Name>{item.category}</Top3Name>
+                    <Top3NameRow>
+                      <Top3Rank $variant='strength'>{index + 1}</Top3Rank>
+                      <Top3Name>{item.category}</Top3Name>
+                    </Top3NameRow>
                     <Top3Desc>
                       {item.categoryScript || '학년 평균을 상회하는 강점 영역입니다'}
                     </Top3Desc>
@@ -2092,11 +2173,13 @@ const LearningDetailTab = ({
           </div>
           <div>
             <Top3Header $variant='weakness'>
-              <Top3Icon $variant='weakness'>!</Top3Icon>
+              <Top3Icon $variant='weakness'>
+                <AlertCircle size={12} strokeWidth={3} />
+              </Top3Icon>
               우리 반의 보완점 TOP 3
             </Top3Header>
             <Top3Cards>
-              {profile.weaknesses.slice(0, 3).map((item) => {
+              {profile.weaknesses.slice(0, 3).map((item, index) => {
                 const color =
                   testId === 'selfreg'
                     ? SELFREG_DOMAIN_COLORS[
@@ -2106,7 +2189,10 @@ const LearningDetailTab = ({
                 return (
                   <Top3Card key={item.category} $variant='weakness'>
                     <Top3Tag $color={color}>#{item.parentCategory.replace(/\s/g, '')}</Top3Tag>
-                    <Top3Name>{item.category}</Top3Name>
+                    <Top3NameRow>
+                      <Top3Rank $variant='weakness'>{index + 1}</Top3Rank>
+                      <Top3Name>{item.category}</Top3Name>
+                    </Top3NameRow>
                     <Top3Desc>
                       {item.categoryScript || '학년 평균보다 낮아 보완이 필요한 영역입니다'}
                     </Top3Desc>
@@ -2333,7 +2419,7 @@ const LearningDetailTab = ({
 // StudentListTab
 // ─────────────────────────────────────────────────────────────────────────────
 
-type StudentFilter = 'all' | 'attention' | 'reliability' | 'type-change';
+type StudentFilter = 'all' | 'attention' | 'reliability' | `type:${string}`;
 
 interface StudentListTabProps {
   classData: Class;
@@ -2344,7 +2430,16 @@ interface StudentListTabProps {
 const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListTabProps) => {
   const [filter, setFilter] = useState<StudentFilter>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [badgeModalOpen, setBadgeModalOpen] = useState(false);
+
+  const uniqueTypes = useMemo(() => {
+    const types = new Set<string>();
+    classData.students.forEach((student) => {
+      student.assessments.forEach((assessment) => {
+        if (assessment.predictedType) types.add(assessment.predictedType);
+      });
+    });
+    return Array.from(types);
+  }, [classData.students]);
 
   const filteredStudents = useMemo(() => {
     let list = classData.students;
@@ -2354,27 +2449,26 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
       list = list.filter((s) => s.assessments.some((a) => a.attentionResult.needsAttention));
     else if (filter === 'reliability')
       list = list.filter((s) => s.assessments.some((a) => a.reliabilityWarnings.length > 0));
-    else if (filter === 'type-change') {
-      list = list.filter((s) => {
-        const r1 = s.assessments.find((a) => a.round === 1);
-        const r2 = s.assessments.find((a) => a.round === 2);
-        return r1 && r2 && r1.predictedType !== r2.predictedType;
-      });
+    else if (filter.startsWith('type:')) {
+      const selectedType = filter.slice('type:'.length);
+      list = list.filter((s) =>
+        s.assessments.some((assessment) => assessment.predictedType === selectedType),
+      );
     }
     return list;
   }, [classData.students, filter, searchTerm]);
 
   const compFilters: { key: StudentFilter; label: string }[] = [
-    { key: 'all', label: `전체 ${classData.students.length}명` },
+    { key: 'all', label: '전체' },
+    ...uniqueTypes.map((type) => ({ key: `type:${type}` as StudentFilter, label: type })),
     { key: 'reliability', label: '신뢰도 주의' },
-    { key: 'attention', label: '관심 필요' },
-    { key: 'type-change', label: '유형 변화' },
+    { key: 'attention', label: '상담 및 지도 필요' },
   ];
 
   const selfregFilters: { key: StudentFilter; label: string }[] = [
-    { key: 'all', label: `전체 ${classData.students.length}명` },
+    { key: 'all', label: '전체' },
     { key: 'reliability', label: '신뢰도 주의' },
-    { key: 'attention', label: '관심 필요' },
+    { key: 'attention', label: '상담 및 지도 필요' },
   ];
 
   const filters = testId === 'selfreg' ? selfregFilters : compFilters;
@@ -2400,7 +2494,7 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
             {hasAttention && (
               <MiniAttnBadge>
                 <AlertTriangle size={9} style={{ display: 'inline', marginRight: 2 }} />
-                관심
+                상담 및 지도 필요
               </MiniAttnBadge>
             )}
             {hasReliability && (
@@ -2459,7 +2553,7 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* Student list card — 프로토타입과 동일하게 Card로 감싸기 */}
-      <Card style={{ padding: 0, overflow: 'hidden' }}>
+      <Card style={{ padding: 0, overflow: 'visible' }}>
         {/* 섹션 헤더: 학생 목록 N명 ⓘ */}
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #F3F4F6' }}>
           <div
@@ -2486,24 +2580,22 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
                   </span>
                 )}
               </h3>
-              <button
-                onClick={() => setBadgeModalOpen(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '1.25rem',
-                  height: '1.25rem',
-                  borderRadius: '50%',
-                  background: '#E5E7EB',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
-                title='배지 기준 안내'
-              >
-                <Info size={11} color='#6B7280' />
-              </button>
+              <LpaInfoWrapper>
+                <Info size={16} color='#9CA3AF' style={{ cursor: 'help' }} />
+                <LpaInfoTooltip>
+                  <LpaTooltipTitle>학생 상태 배지 안내</LpaTooltipTitle>
+                  <LpaTooltipList>
+                    <LpaTooltipItem>
+                      <strong>상담 및 지도 필요</strong>: 정적 요인 T점수가 39 이하이거나 부적 요인
+                      T점수가 60 이상인 학생입니다.
+                    </LpaTooltipItem>
+                    <LpaTooltipItem>
+                      <strong>신뢰도 주의</strong>: 신뢰도 지표 중 하나 이상이 주의 기준을 초과한
+                      학생입니다.
+                    </LpaTooltipItem>
+                  </LpaTooltipList>
+                </LpaInfoTooltip>
+              </LpaInfoWrapper>
             </div>
           </div>
           <p style={{ fontSize: '0.8125rem', color: '#6B7280', margin: 0 }}>
@@ -2550,64 +2642,6 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
           )}
         </div>
       </Card>
-
-      {/* Badge info modal */}
-      {badgeModalOpen && (
-        <ModalOverlay onClick={() => setBadgeModalOpen(false)}>
-          <ModalBox style={{ maxWidth: '28rem' }} onClick={(e) => e.stopPropagation()}>
-            <ModalHeader>
-              <div
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-              >
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827' }}>배지 안내</h3>
-                <ModalCloseBtn onClick={() => setBadgeModalOpen(false)}>
-                  <X size={14} />
-                </ModalCloseBtn>
-              </div>
-            </ModalHeader>
-            <ModalBody style={{ padding: '1.25rem 1.5rem' }}>
-              <div style={{ marginBottom: '1rem' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    marginBottom: '0.5rem',
-                  }}
-                >
-                  <MiniAttnBadge>관심</MiniAttnBadge>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
-                    관심 필요 배지
-                  </span>
-                </div>
-                <p style={{ fontSize: '0.875rem', color: '#6B7280', lineHeight: 1.6 }}>
-                  정적 요인(자아강점·학습디딤돌·긍정적공부마음)에서 T ≤ 39이거나, 부적
-                  요인(학습걸림돌·부정적공부마음)에서 T ≥ 60인 학생입니다.
-                </p>
-              </div>
-              <div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    marginBottom: '0.5rem',
-                  }}
-                >
-                  <MiniRelBadge>신뢰도</MiniRelBadge>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
-                    신뢰도 주의 배지
-                  </span>
-                </div>
-                <p style={{ fontSize: '0.875rem', color: '#6B7280', lineHeight: 1.6 }}>
-                  사회적 바람직성, 반응 일관성, 연속 동일 반응 3가지 신뢰도 지표 중 하나 이상 주의
-                  기준을 초과한 학생입니다.
-                </p>
-              </div>
-            </ModalBody>
-          </ModalBox>
-        </ModalOverlay>
-      )}
     </div>
   );
 };
@@ -2616,11 +2650,20 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
 // Main Widget
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const ClassDashboardV2Widget: React.FC = () => {
-  const { classId, testId: rawTestId = 'comprehensive' } = useParams<{
+interface ClassDashboardV2WidgetProps {
+  classIdOverride?: string;
+  onStudentSelect?: (studentId: string) => void;
+}
+
+export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
+  classIdOverride,
+  onStudentSelect,
+}) => {
+  const { classId: routeClassId, testId: rawTestId = 'comprehensive' } = useParams<{
     classId: string;
     testId: string;
   }>();
+  const classId = classIdOverride ?? routeClassId;
   const testId: TestId = rawTestId === 'selfreg' ? 'selfreg' : 'comprehensive';
   const navigate = useNavigate();
   const { getClassById } = useData();
@@ -2640,7 +2683,6 @@ export const ClassDashboardV2Widget: React.FC = () => {
     isLoading: selfregLoading,
   } = useSelfregClassAnalysis(testId === 'selfreg' ? classId : undefined);
 
-  const [activeTab, setActiveTab] = useState<'summary' | 'detail' | 'students'>('summary');
   const { user } = useAuth();
   const [downloadError, setDownloadError] = useState(false);
   const [allPdfProgress, setAllPdfProgress] = useState<{ current: number; total: number } | null>(
@@ -2952,201 +2994,105 @@ export const ClassDashboardV2Widget: React.FC = () => {
   const completionRate =
     totalStudents > 0 ? Math.round((assessedStudents / totalStudents) * 100) : 0;
   const needAttentionCount = classData.stats?.needAttentionCount ?? 0;
+  const reliabilityWarningCount = classData.students.filter((student) =>
+    student.assessments.some((assessment) => assessment.reliabilityWarnings.length > 0),
+  ).length;
+  const completedRound = classData.stats?.round2Completed ? 2 : 1;
 
-  let kpiAvgT = 0;
-  let kpiCard2Label = '';
-  let kpiCard2Value = '';
-  let kpiCard2Sub = '';
-
-  if (testId === 'selfreg') {
-    const activeArr = selfregRound1;
-    if (activeArr && activeArr.length > 0) {
-      kpiAvgT = Math.round(activeArr.reduce((a, b) => a + b, 0) / activeArr.length);
-    }
-    // Best subcategory
-    const subAvgs: { name: string; avg: number }[] = [];
-    if (activeArr) {
-      SELFREG_DOMAIN_STRUCTURE.forEach((domain) => {
-        domain.subCategories.forEach((subCat) => {
-          const vals = subCat.factors.map((f) => {
-            const idx = SELFREG_FACTOR_DEFINITIONS.findIndex((fd) => fd.name === f.name);
-            return activeArr[idx] ?? 50;
-          });
-          subAvgs.push({
-            name: subCat.name,
-            avg: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length),
-          });
-        });
-      });
-    }
-    const top = subAvgs.sort((a, b) => b.avg - a.avg)[0];
-    kpiCard2Label = '대표 강점';
-    kpiCard2Value = top?.name ?? '-';
-    kpiCard2Sub = top ? `T${top.avg}` : '-';
-  } else {
-    // Comprehensive
-    const assessed = classData.students.filter((s) => s.assessments.some((a) => a.round === 1));
-    if (assessed.length > 0) {
-      let sum = 0;
-      let count = 0;
-      assessed.forEach((s) => {
-        const a = s.assessments.find((a) => a.round === 1);
-        if (a) {
-          sum += a.tScores.reduce((x, y) => x + y, 0) / a.tScores.length;
-          count++;
-        }
-      });
-      kpiAvgT = Math.round(sum / count);
-    }
-    if (classData.schoolLevel === '고등') {
-      // 고등: LPA 유형 없음 → 대표 강점(하위요인 평균 최고값)으로 대체
-      const subAvgs: { name: string; avg: number }[] = [];
-      Object.entries(SUB_CATEGORY_FACTORS).forEach(([subCat, indices]) => {
-        const vals: number[] = [];
-        assessed.forEach((s) => {
-          const a = s.assessments.find((a) => a.round === 1);
-          if (a)
-            indices.forEach((i) => {
-              if (a.tScores[i] !== undefined) vals.push(a.tScores[i]);
-            });
-        });
-        if (vals.length > 0)
-          subAvgs.push({
-            name: subCat,
-            avg: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length),
-          });
-      });
-      const top = subAvgs.sort((a, b) => b.avg - a.avg)[0];
-      kpiCard2Label = '대표 강점';
-      kpiCard2Value = top?.name ?? '-';
-      kpiCard2Sub = top ? `T${top.avg}` : '-';
-    } else {
-      // Dominant LPA type
-      const dist = classData.stats?.typeDistribution ?? {};
-      const dominantType = Object.entries(dist).sort((a, b) => b[1].count - a[1].count)[0];
-      kpiCard2Label = '우세 유형';
-      kpiCard2Value = dominantType?.[0] === '미지원' ? '없음' : (dominantType?.[0] ?? '-');
-      kpiCard2Sub =
-        dominantType && dominantType[0] !== '미지원' ? `${dominantType[1].percentage}%` : '-';
-    }
-  }
-
-  const badgeColor = testId === 'selfreg' ? '#009f88' : '#4F46E5';
-  const badgeLabel = testId === 'selfreg' ? '자기조절검사' : '학습종합검사';
   const classTitle = `${classData.grade}학년 ${classData.classNumber}반`;
 
   return (
     <PageContainer>
       {/* Header */}
-      <div>
-        <HeaderRow>
-          <BackBtn onClick={() => navigate(`/dashboard/${testId}`)}>
-            <ArrowLeft size={18} />
-          </BackBtn>
-          <HeaderContent>
-            <Breadcrumb>
-              <BreadcrumbBadge $color={badgeColor}>{badgeLabel}</BreadcrumbBadge>
-              <ChevronRight size={13} color='#9CA3AF' />
-              <BreadcrumbText>결과보기</BreadcrumbText>
-              <ChevronRight size={13} color='#9CA3AF' />
-              <BreadcrumbText $active>{classTitle} 검사 분석</BreadcrumbText>
-            </Breadcrumb>
-            <PageTitle>{classTitle} 검사 분석</PageTitle>
-            <PageSubtitle>
-              {classData.schoolLevel} · {classTitle} · 학생 {totalStudents}명
-            </PageSubtitle>
-          </HeaderContent>
-          {hasJwtToken && (testId === 'comprehensive' || !!selfregDgnssIds.round1) && (
-            <HeaderActions>
-              {downloadError && (
-                <span style={{ fontSize: '0.75rem', color: '#EF4444' }}>다운로드 실패</span>
-              )}
-              <ReportBtn
-                disabled={!activeDgnssIds?.round1}
-                onClick={() => {
-                  setShowDownloadModal(true);
-                }}
-              >
-                <Download size={13} style={{ display: 'inline', marginRight: '0.25rem' }} />
-                보고서 다운로드
-              </ReportBtn>
-            </HeaderActions>
-          )}
-        </HeaderRow>
-      </div>
+      <HeaderRow>
+        <HeaderContent>
+          <PageTitle>{classTitle}</PageTitle>
+          <PageSubtitle>
+            {classData.schoolLevel} {classTitle}
+          </PageSubtitle>
+        </HeaderContent>
+        {hasJwtToken && (testId === 'comprehensive' || !!selfregDgnssIds.round1) && (
+          <HeaderActions>
+            {downloadError && (
+              <span style={{ fontSize: '0.75rem', color: '#EF4444' }}>다운로드 실패</span>
+            )}
+            <ReportBtn
+              disabled={!activeDgnssIds?.round1}
+              onClick={() => {
+                setShowDownloadModal(true);
+              }}
+            >
+              <FileText size={20} />
+              보고서 다운로드
+            </ReportBtn>
+          </HeaderActions>
+        )}
+      </HeaderRow>
 
-      {/* Pill Tabs — 프로토타입 기준: 탭이 KPI 위에 위치 */}
-      <TabContainer>
-        <TabBtn $active={activeTab === 'summary'} onClick={() => setActiveTab('summary')}>
-          핵심 요약
-        </TabBtn>
-        <TabBtn $active={activeTab === 'detail'} onClick={() => setActiveTab('detail')}>
-          학습 상세
-        </TabBtn>
-        <TabBtn $active={activeTab === 'students'} onClick={() => setActiveTab('students')}>
-          학생 목록
-        </TabBtn>
-      </TabContainer>
+      <SummaryCard>
+        <SectionTitle style={{ marginBottom: '1rem' }}>학급 요약</SectionTitle>
+        <KpiRow>
+          <KpiCard>
+            <KpiLabel>응시 현황</KpiLabel>
+            <KpiValue>
+              {assessedStudents} / {totalStudents}명
+            </KpiValue>
+            <KpiSub $color='#5B21B6'>{completionRate}%</KpiSub>
+          </KpiCard>
+          <KpiCard>
+            <KpiLabel>검사 회차</KpiLabel>
+            <KpiValue>{completedRound}차 검사</KpiValue>
+            <KpiSub $color='#2563EB'>완료</KpiSub>
+          </KpiCard>
+          <KpiCard>
+            <KpiLabel>상담 및 지도 필요</KpiLabel>
+            <KpiValue>{needAttentionCount}명</KpiValue>
+            <KpiSub $color='#EA580C'>상담 권장</KpiSub>
+          </KpiCard>
+          <KpiCard>
+            <KpiLabel>신뢰도</KpiLabel>
+            <KpiValue>{reliabilityWarningCount}명</KpiValue>
+            <KpiSub $color={reliabilityWarningCount > 0 ? '#EA580C' : '#16A34A'}>
+              {reliabilityWarningCount > 0 ? '주의 필요' : '양호'}
+            </KpiSub>
+          </KpiCard>
+        </KpiRow>
+      </SummaryCard>
 
-      {/* KPI Row — 탭 아래 항상 표시 */}
-      <KpiRow>
-        <KpiCard>
-          <KpiLabel>학급 평균 T점수</KpiLabel>
-          <KpiValue $color={badgeColor}>{kpiAvgT || '-'}</KpiValue>
-          <KpiSub>전체 {testId === 'selfreg' ? '20' : '38'}요인 평균</KpiSub>
-        </KpiCard>
-        <KpiCard>
-          <KpiLabel>{kpiCard2Label}</KpiLabel>
-          <KpiValue
-            $small
-            $color={testId === 'comprehensive' ? TYPE_COLORS[kpiCard2Value] : undefined}
-          >
-            {kpiCard2Value}
-          </KpiValue>
-          <KpiSub>{kpiCard2Sub}</KpiSub>
-        </KpiCard>
-        <KpiCard>
-          <KpiLabel>관심 필요 학생</KpiLabel>
-          <KpiValue $color={needAttentionCount > 0 ? '#EF4444' : undefined}>
-            {needAttentionCount}명
-          </KpiValue>
-          <KpiSub>{testId === 'selfreg' ? '20' : '38'}개 요인 기준</KpiSub>
-        </KpiCard>
-        <KpiCard>
-          <KpiLabel>검사 완료율</KpiLabel>
-          <KpiValue $color='#10B981'>{completionRate}%</KpiValue>
-          <KpiSub>
-            {assessedStudents}/{totalStudents}명 완료
-          </KpiSub>
-        </KpiCard>
-      </KpiRow>
-
-      {/* Tab Content */}
-      {activeTab === 'summary' && (
-        <CoreSummaryTab
-          classData={classData}
-          testId={testId}
-          selfregRound1={selfregRound1}
-          selfregRound2={selfregRound2}
-        />
-      )}
-      {activeTab === 'detail' && (
-        <LearningDetailTab
-          classData={classData}
-          testId={testId}
-          selfregRound1={selfregRound1}
-          selfregRound2={selfregRound2}
-        />
-      )}
-      {activeTab === 'students' && (
-        <StudentListTab
-          classData={classData}
-          testId={testId}
-          onNavigateToStudent={(studentId) =>
-            navigate(`/dashboard/${testId}/class/${classId}/student/${studentId}`)
+      <CoreSummaryTab
+        classData={classData}
+        testId={testId}
+        selfregRound1={selfregRound1}
+        selfregRound2={selfregRound2}
+        showActivities={false}
+        showDistribution={false}
+      />
+      <LearningDetailTab
+        classData={classData}
+        testId={testId}
+        selfregRound1={selfregRound1}
+        selfregRound2={selfregRound2}
+        top3Only
+      />
+      <CoreSummaryTab
+        classData={classData}
+        testId={testId}
+        selfregRound1={selfregRound1}
+        selfregRound2={selfregRound2}
+        showActivities={false}
+        showOverview={false}
+      />
+      <StudentListTab
+        classData={classData}
+        testId={testId}
+        onNavigateToStudent={(studentId) => {
+          if (onStudentSelect) {
+            onStudentSelect(studentId);
+            return;
           }
-        />
-      )}
+          navigate(`/dashboard/${testId}/class/${classId}/student/${studentId}`);
+        }}
+      />
 
       {/* PDF 생성 진행 오버레이 */}
       {allPdfProgress && (

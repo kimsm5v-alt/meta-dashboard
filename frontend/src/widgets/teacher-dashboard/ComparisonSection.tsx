@@ -358,6 +358,8 @@ interface ComparisonSectionProps {
   selectedClassId: string | null;
   onClassSelect: (classId: string | null) => void;
   onGoToClass: (classId: string) => void;
+  showDrillToggle?: boolean;
+  showSidePanel?: boolean;
 }
 
 export const ComparisonSection = ({
@@ -365,6 +367,8 @@ export const ComparisonSection = ({
   selectedClassId,
   onClassSelect,
   onGoToClass,
+  showDrillToggle = true,
+  showSidePanel = true,
 }: ComparisonSectionProps) => {
   const [drillLevel, setDrillLevel] = useState<'5areas' | '11categories'>('5areas');
 
@@ -457,17 +461,19 @@ export const ComparisonSection = ({
           <CardTitle>반별 비교 분석</CardTitle>
           <CardSubtitle>{drillSubtitle}</CardSubtitle>
         </div>
-        <DrillToggle>
-          <DrillBtn $active={drillLevel === '5areas'} onClick={() => setDrillLevel('5areas')}>
-            5대 영역
-          </DrillBtn>
-          <DrillBtn
-            $active={drillLevel === '11categories'}
-            onClick={() => setDrillLevel('11categories')}
-          >
-            11개 요인
-          </DrillBtn>
-        </DrillToggle>
+        {showDrillToggle && (
+          <DrillToggle>
+            <DrillBtn $active={drillLevel === '5areas'} onClick={() => setDrillLevel('5areas')}>
+              5대 영역
+            </DrillBtn>
+            <DrillBtn
+              $active={drillLevel === '11categories'}
+              onClick={() => setDrillLevel('11categories')}
+            >
+              11개 요인
+            </DrillBtn>
+          </DrillToggle>
+        )}
       </CardHeader>
 
       {/* Body */}
@@ -505,145 +511,151 @@ export const ComparisonSection = ({
         </ChartArea>
 
         {/* Side Panel */}
-        <SidePanel>
-          {!selectedClass || !selectedAvg ? (
-            /* 전체 비교 요약 */
-            <>
-              <div>
-                <PanelTitle>전체 비교 요약</PanelTitle>
-                <PanelSubtitle>학년 평균과 가장 차이 나는 지점이에요</PanelSubtitle>
-              </div>
-              <div>
-                {callouts.length === 0 ? (
-                  <EmptyText>모든 반이 고른 분포예요.</EmptyText>
-                ) : (
-                  callouts.map((c, i) => (
-                    <OutlierItem
-                      key={i}
-                      $kind={c.kind}
-                      onClick={() => onGoToClass(c.cls.id)}
-                      style={{ marginBottom: '0.5rem' }}
-                    >
-                      <OutlierArrow $kind={c.kind}>{c.kind === 'warn' ? '▼' : '▲'}</OutlierArrow>
-                      <div>
-                        <OutlierLabel>
-                          {c.cls.grade}학년 {c.cls.classNumber}반 : {c.category}
-                        </OutlierLabel>
-                        <OutlierDelta $kind={c.kind}>
-                          학년 평균보다 {c.delta > 0 ? '+' : ''}
-                          {c.delta || 1} {c.delta >= 0 ? '높음' : '낮음'}
-                        </OutlierDelta>
-                      </div>
-                    </OutlierItem>
-                  ))
-                )}
-              </div>
-            </>
-          ) : (
-            /* 선택된 반 요약 */
-            <>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span
-                    style={{
-                      width: '0.5rem',
-                      height: '0.5rem',
-                      borderRadius: '50%',
-                      background: '#6366F1',
-                      display: 'inline-block',
-                    }}
-                  />
-                  <PanelTitle>
-                    {selectedClass.grade}학년 {selectedClass.classNumber}반 분석 요약
-                  </PanelTitle>
-                </div>
-                <PanelSubtitle>
-                  학생 {selectedClass.stats?.assessedStudents || 0}명 · 검사 완료
-                </PanelSubtitle>
-              </div>
-
-              <KpiGrid>
-                <KpiBox>
-                  <KpiBoxLabel>평균 T점수</KpiBoxLabel>
-                  <KpiBoxValue>{avgT ?? '-'}</KpiBoxValue>
-                  <KpiBoxSub>
-                    전국 대비 {avgT != null ? (avgT - 50 >= 0 ? '+' : '') + (avgT - 50) : '-'}
-                  </KpiBoxSub>
-                </KpiBox>
-                <KpiBox>
-                  <KpiBoxLabel>관심 필요</KpiBoxLabel>
-                  <KpiBoxValue $color='#DC2626'>
-                    {selectedClass.stats?.needAttentionCount ?? 0}명
-                  </KpiBoxValue>
-                  <KpiBoxSub>
-                    {selectedClass.stats?.totalStudents
-                      ? Math.round(
-                          ((selectedClass.stats.needAttentionCount ?? 0) /
-                            selectedClass.stats.totalStudents) *
-                            100,
-                        )
-                      : 0}
-                    %
-                  </KpiBoxSub>
-                </KpiBox>
-              </KpiGrid>
-
-              {concerns.length > 0 && (
+        {showSidePanel && (
+          <SidePanel>
+            {!selectedClass || !selectedAvg ? (
+              /* 전체 비교 요약 */
+              <>
                 <div>
-                  <SectionLabel>관심 영역 ({concerns.length})</SectionLabel>
-                  {concerns.map((a) => (
-                    <ConcernItem key={a.category}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span
-                          style={{
-                            width: '0.375rem',
-                            height: '0.375rem',
-                            borderRadius: '50%',
-                            background: AREA_COLORS[a.category],
-                            display: 'inline-block',
-                          }}
-                        />
-                        <span style={{ fontSize: '0.875rem', color: '#1F2937' }}>{a.category}</span>
-                      </div>
-                      <span style={{ fontSize: '0.875rem', color: '#6B7280' }}>
-                        T {a.t}{' '}
-                        <span style={{ color: a.polarity === 'negative' ? '#EF4444' : '#3B82F6' }}>
-                          {a.polarity === 'negative' ? '↑' : '↓'}
+                  <PanelTitle>전체 비교 요약</PanelTitle>
+                  <PanelSubtitle>학년 평균과 가장 차이 나는 지점이에요</PanelSubtitle>
+                </div>
+                <div>
+                  {callouts.length === 0 ? (
+                    <EmptyText>모든 반이 고른 분포예요.</EmptyText>
+                  ) : (
+                    callouts.map((c, i) => (
+                      <OutlierItem
+                        key={i}
+                        $kind={c.kind}
+                        onClick={() => onGoToClass(c.cls.id)}
+                        style={{ marginBottom: '0.5rem' }}
+                      >
+                        <OutlierArrow $kind={c.kind}>{c.kind === 'warn' ? '▼' : '▲'}</OutlierArrow>
+                        <div>
+                          <OutlierLabel>
+                            {c.cls.grade}학년 {c.cls.classNumber}반 : {c.category}
+                          </OutlierLabel>
+                          <OutlierDelta $kind={c.kind}>
+                            학년 평균보다 {c.delta > 0 ? '+' : ''}
+                            {c.delta || 1} {c.delta >= 0 ? '높음' : '낮음'}
+                          </OutlierDelta>
+                        </div>
+                      </OutlierItem>
+                    ))
+                  )}
+                </div>
+              </>
+            ) : (
+              /* 선택된 반 요약 */
+              <>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span
+                      style={{
+                        width: '0.5rem',
+                        height: '0.5rem',
+                        borderRadius: '50%',
+                        background: '#6366F1',
+                        display: 'inline-block',
+                      }}
+                    />
+                    <PanelTitle>
+                      {selectedClass.grade}학년 {selectedClass.classNumber}반 분석 요약
+                    </PanelTitle>
+                  </div>
+                  <PanelSubtitle>
+                    학생 {selectedClass.stats?.assessedStudents || 0}명 · 검사 완료
+                  </PanelSubtitle>
+                </div>
+
+                <KpiGrid>
+                  <KpiBox>
+                    <KpiBoxLabel>평균 T점수</KpiBoxLabel>
+                    <KpiBoxValue>{avgT ?? '-'}</KpiBoxValue>
+                    <KpiBoxSub>
+                      전국 대비 {avgT != null ? (avgT - 50 >= 0 ? '+' : '') + (avgT - 50) : '-'}
+                    </KpiBoxSub>
+                  </KpiBox>
+                  <KpiBox>
+                    <KpiBoxLabel>관심 필요</KpiBoxLabel>
+                    <KpiBoxValue $color='#DC2626'>
+                      {selectedClass.stats?.needAttentionCount ?? 0}명
+                    </KpiBoxValue>
+                    <KpiBoxSub>
+                      {selectedClass.stats?.totalStudents
+                        ? Math.round(
+                            ((selectedClass.stats.needAttentionCount ?? 0) /
+                              selectedClass.stats.totalStudents) *
+                              100,
+                          )
+                        : 0}
+                      %
+                    </KpiBoxSub>
+                  </KpiBox>
+                </KpiGrid>
+
+                {concerns.length > 0 && (
+                  <div>
+                    <SectionLabel>관심 영역 ({concerns.length})</SectionLabel>
+                    {concerns.map((a) => (
+                      <ConcernItem key={a.category}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span
+                            style={{
+                              width: '0.375rem',
+                              height: '0.375rem',
+                              borderRadius: '50%',
+                              background: AREA_COLORS[a.category],
+                              display: 'inline-block',
+                            }}
+                          />
+                          <span style={{ fontSize: '0.875rem', color: '#1F2937' }}>
+                            {a.category}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '0.875rem', color: '#6B7280' }}>
+                          T {a.t}{' '}
+                          <span
+                            style={{ color: a.polarity === 'negative' ? '#EF4444' : '#3B82F6' }}
+                          >
+                            {a.polarity === 'negative' ? '↑' : '↓'}
+                          </span>
                         </span>
-                      </span>
-                    </ConcernItem>
-                  ))}
-                </div>
-              )}
+                      </ConcernItem>
+                    ))}
+                  </div>
+                )}
 
-              {selectedClass.stats?.typeDistribution && (
-                <div>
-                  <SectionLabel>유형 분포</SectionLabel>
-                  <TypeBar>
-                    {Object.entries(selectedClass.stats.typeDistribution).map(([type, data]) => {
-                      const color = TYPE_COLORS[type] ?? '#9CA3AF';
-                      if (data.percentage === 0) return null;
-                      return (
-                        <TypeBarSegment
-                          key={type}
-                          $pct={data.percentage}
-                          $color={color}
-                          title={`${type}: ${data.count}명`}
-                        >
-                          {data.percentage > 15 && `${data.count}명`}
-                        </TypeBarSegment>
-                      );
-                    })}
-                  </TypeBar>
-                </div>
-              )}
+                {selectedClass.stats?.typeDistribution && (
+                  <div>
+                    <SectionLabel>유형 분포</SectionLabel>
+                    <TypeBar>
+                      {Object.entries(selectedClass.stats.typeDistribution).map(([type, data]) => {
+                        const color = TYPE_COLORS[type] ?? '#9CA3AF';
+                        if (data.percentage === 0) return null;
+                        return (
+                          <TypeBarSegment
+                            key={type}
+                            $pct={data.percentage}
+                            $color={color}
+                            title={`${type}: ${data.count}명`}
+                          >
+                            {data.percentage > 15 && `${data.count}명`}
+                          </TypeBarSegment>
+                        );
+                      })}
+                    </TypeBar>
+                  </div>
+                )}
 
-              <GoToClassBtn onClick={() => onGoToClass(selectedClass.id)}>
-                {selectedClass.grade}학년 {selectedClass.classNumber}반 상세 분석 →
-              </GoToClassBtn>
-            </>
-          )}
-        </SidePanel>
+                <GoToClassBtn onClick={() => onGoToClass(selectedClass.id)}>
+                  {selectedClass.grade}학년 {selectedClass.classNumber}반 상세 분석 →
+                </GoToClassBtn>
+              </>
+            )}
+          </SidePanel>
+        )}
       </CardBody>
     </CardOuter>
   );

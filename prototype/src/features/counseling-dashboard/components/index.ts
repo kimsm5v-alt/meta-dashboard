@@ -2,6 +2,7 @@
 export { CoachingOverviewView } from './CoachingOverviewView';
 export { ClassCoachingView } from './ClassCoachingView';
 export { StudentCoachingView } from './StudentCoachingView';
+export { NoExamResultCTA } from './NoExamResultCTA';
 
 // 코칭 - 반 전체 (화면 10번) - 레거시
 export { ClassCharacteristicsCard } from './ClassCharacteristicsCard';
