@@ -1,5 +1,6 @@
 import styled from '@emotion/styled';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { Info } from 'lucide-react';
 import { TYPE_COLORS } from '../../../shared/data/lpaProfiles';
 import { getTypeInfo } from '../../../shared/utils/lpaClassifier';
 import { getLpaTypeDescriptions } from '../../../shared/data/lpaTooltipContent';
@@ -8,9 +9,49 @@ import type { StudentType, SchoolLevel } from '../../../shared/types';
 const Container = styled.div``;
 
 const Title = styled.h3`
-  font-size: ${({ theme }) => theme.typography.fontSize.lg};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  margin-bottom: ${({ theme }) => theme.spacing.md};
+  font-size: ${({ theme }) => theme.typography.fontSize.base};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  margin: 0;
+`;
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: -1.5rem -1.5rem 1.5rem;
+  padding: 1.25rem;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[100]};
+`;
+
+const InfoTooltip = styled.span`
+  position: relative;
+  display: inline-flex;
+  color: ${({ theme }) => theme.colors.gray[400]};
+  cursor: help;
+
+  &::after {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    z-index: 30;
+    width: 24rem;
+    padding: 0.75rem;
+    color: white;
+    background: #111827;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+    content: '학생의 학습 부담, 심리·정서적 자원, 학습 몰입을 종합해 유사한 학습 상태를 유형화한 결과입니다.';
+    font-size: 0.75rem;
+    line-height: 1.5;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s;
+  }
+
+  &:hover::after {
+    opacity: 1;
+    visibility: visible;
+  }
 `;
 
 const Grid = styled.div`
@@ -34,6 +75,10 @@ const ChartSection = styled.div`
 `;
 
 const ChartWrapper = styled.div`
+  width: 100%;
+`;
+
+const ChartCanvas = styled.div`
   width: 100%;
   height: 18rem;
 `;
@@ -191,18 +236,20 @@ const LegendItem = styled.div`
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.625rem;
+  gap: 0.375rem;
+  min-width: 0;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
   color: ${({ theme }) => theme.colors.gray[600]};
   cursor: help;
 `;
 
 const LegendDot = styled.span<{ $color: string }>`
-  width: 0.5rem;
-  height: 0.5rem;
+  width: 0.625rem;
+  height: 0.625rem;
   border-radius: 50%;
   background: ${({ $color }) => $color};
   display: inline-block;
+  flex-shrink: 0;
 `;
 
 const ChartLegend = styled.div`
@@ -210,7 +257,6 @@ const ChartLegend = styled.div`
   justify-content: center;
   gap: 1rem;
   margin-top: 0.5rem;
-  flex-wrap: wrap;
 `;
 
 const TypeTooltip = styled.div`
@@ -291,7 +337,6 @@ function LpaDonutMini({ type, probs, label, typeDescriptions }: LpaDonutMiniProp
   let acc = 0;
   const segments = sortedData.map((d) => {
     const seg = { ...d, offset: acc };
-    // eslint-disable-next-line react-hooks/immutability
     acc += d.prob;
     return seg;
   });
@@ -422,85 +467,87 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
 
   return (
     <Container>
-      <Title>학습 유형 분류</Title>
+      <TitleRow>
+        <Title>학습 유형 분류</Title>
+        <InfoTooltip aria-label='학습 유형 분류 안내'>
+          <Info size={16} />
+        </InfoTooltip>
+      </TitleRow>
 
       <Grid>
         {/* 좌측: 도넛 그래프 (40%) */}
         <ChartSection>
           <ChartWrapper>
-            <ResponsiveContainer width='100%' height='100%'>
-              <PieChart>
-                <defs>
-                  {chartData.map((entry, index) => (
-                    <linearGradient
-                      key={`gradient-${index}`}
-                      id={`gradient-${index}`}
-                      x1='0'
-                      y1='0'
-                      x2='0'
-                      y2='1'
-                    >
-                      <stop offset='0%' stopColor={entry.color} stopOpacity={0.9} />
-                      <stop offset='100%' stopColor={entry.color} stopOpacity={0.7} />
-                    </linearGradient>
-                  ))}
-                </defs>
-                <Pie
-                  data={chartData}
-                  cx='50%'
-                  cy='50%'
-                  labelLine={false}
-                  label={false}
-                  innerRadius='45%'
-                  outerRadius='75%'
-                  fill='#8884d8'
-                  dataKey='value'
-                  paddingAngle={2}
-                  cornerRadius={4}
-                >
-                  {chartData.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={`url(#gradient-${index})`}
-                      stroke='white'
-                      strokeWidth={2}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const data = payload[0].payload as { name: string; value: number };
-                    return (
-                      <TypeTooltipPanel>
-                        <TypeTooltipName>{data.name}</TypeTooltipName>
-                        <TypeTooltipPercent>{data.value}%</TypeTooltipPercent>
-                        <TypeTooltipText>{typeDescriptions[data.name]}</TypeTooltipText>
-                      </TypeTooltipPanel>
-                    );
-                  }}
-                />
-                <Legend
-                  layout='horizontal'
-                  verticalAlign='bottom'
-                  align='center'
-                  content={() => (
-                    <ChartLegend>
-                      {chartData.map((item) => (
-                        <LegendItem key={item.name}>
-                          <LegendDot $color={item.color} />
-                          {item.name} {item.value}%
-                          <TypeTooltip>
-                            <TypeTooltipName>{item.name}</TypeTooltipName>
-                            <TypeTooltipText>{typeDescriptions[item.name]}</TypeTooltipText>
-                          </TypeTooltip>
-                        </LegendItem>
-                      ))}
-                    </ChartLegend>
-                  )}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <ChartCanvas>
+              <ResponsiveContainer width='100%' height='100%'>
+                <PieChart>
+                  <defs>
+                    {chartData.map((entry, index) => (
+                      <linearGradient
+                        key={`gradient-${index}`}
+                        id={`gradient-${index}`}
+                        x1='0'
+                        y1='0'
+                        x2='0'
+                        y2='1'
+                      >
+                        <stop offset='0%' stopColor={entry.color} stopOpacity={0.9} />
+                        <stop offset='100%' stopColor={entry.color} stopOpacity={0.7} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <Pie
+                    data={chartData}
+                    cx='50%'
+                    cy='50%'
+                    labelLine={false}
+                    label={false}
+                    innerRadius='45%'
+                    outerRadius='75%'
+                    fill='#8884d8'
+                    dataKey='value'
+                    paddingAngle={2}
+                    cornerRadius={4}
+                  >
+                    {chartData.map((_, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={`url(#gradient-${index})`}
+                        stroke='white'
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const data = payload[0].payload as { name: string; value: number };
+                      return (
+                        <TypeTooltipPanel>
+                          <TypeTooltipName>{data.name}</TypeTooltipName>
+                          <TypeTooltipPercent>{data.value}%</TypeTooltipPercent>
+                          <TypeTooltipText>{typeDescriptions[data.name]}</TypeTooltipText>
+                        </TypeTooltipPanel>
+                      );
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCanvas>
+            <ChartLegend>
+              {chartData.map((item) => (
+                <LegendItem key={item.name}>
+                  <LegendDot $color={item.color} />
+                  <span>
+                    {item.name} {item.value}%
+                  </span>
+                  <TypeTooltip>
+                    <TypeTooltipName>{item.name}</TypeTooltipName>
+                    <TypeTooltipText>{typeDescriptions[item.name]}</TypeTooltipText>
+                  </TypeTooltip>
+                </LegendItem>
+              ))}
+            </ChartLegend>
           </ChartWrapper>
         </ChartSection>
 
