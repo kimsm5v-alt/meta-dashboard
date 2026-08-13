@@ -1,11 +1,18 @@
 import { fetchExamList } from '@features/assessment/api/assessmentService';
 import { EXAM_SLOTS } from '../constants';
-import type { ExamSlotState } from '../types';
+import type { ExamSlotState, PaperIdx } from '../types';
 
-export async function getExamSlots(claId: string, tcId: string): Promise<ExamSlotState[]> {
-  const items = await fetchExamList(claId, tcId);
+export async function getExamSlots(
+  claId: string,
+  tcId: string,
+  paperIdx?: PaperIdx,
+): Promise<ExamSlotState[]> {
+  const items = await fetchExamList(claId, tcId, paperIdx);
+  const slotDefinitions = paperIdx
+    ? EXAM_SLOTS.filter((slot) => slot.paperIdx === paperIdx)
+    : EXAM_SLOTS;
 
-  return EXAM_SLOTS.map((slotDef) => {
+  return slotDefinitions.map((slotDef) => {
     const item = items.find((i) => i.ordNo === slotDef.ordNo && i.paperIdx === slotDef.paperIdx);
 
     if (!item) {
