@@ -1,13 +1,14 @@
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/styled';
 import { ENV } from '@shared/config/env';
-import { fetchEmbedToken } from '../api/embedTokenService';
+// import { fetchEmbedToken } from '../api/embedTokenService';
 import { useEveryCanvasEmbed } from '../lib/useEveryCanvasEmbed';
 import type {
   CompletedPayload,
   SlideChangedPayload,
   ThemeTokens,
 } from '../lib/everyCanvasEmbedSdk';
+import { getSsoAccessToken } from '../lib/getSsoAccessToken';
 
 const ViewerContainer = styled.div`
   position: fixed;
@@ -47,7 +48,8 @@ export const LessonViewerEmbed = ({
       embedBaseUrl: ENV.EVERYCLASS_EMBED_BASE_URL,
       mode: 'viewer',
       slideId,
-      getToken: () => fetchEmbedToken({ scope: 'viewer', slideId }),
+      // getToken: () => fetchEmbedToken({ scope: 'viewer', slideId }),
+      getSsoToken: getSsoAccessToken,
       locale: 'ko-KR',
       theme: embedTheme,
     },

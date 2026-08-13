@@ -1,7 +1,7 @@
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/styled';
 import { ENV } from '@shared/config/env';
-import { fetchEmbedToken } from '../api/embedTokenService';
+// import { fetchEmbedToken } from '../api/embedTokenService';
 import { getSsoAccessToken } from '../lib/getSsoAccessToken';
 import { useEveryCanvasEmbed } from '../lib/useEveryCanvasEmbed';
 import type { SavedPayload, ThemeTokens } from '../lib/everyCanvasEmbedSdk';
@@ -45,7 +45,7 @@ export const LessonEditorEmbed = ({
       embedBaseUrl: ENV.EVERYCLASS_EMBED_BASE_URL,
       mode: 'editor',
       ...(slideId ? { slideId } : {}),
-      getToken: () => fetchEmbedToken({ scope: 'editor', slideId }),
+      // getToken: () => fetchEmbedToken({ scope: 'editor', slideId }),
       getSsoToken: getSsoAccessToken,
       locale: 'ko-KR',
       theme: embedTheme,

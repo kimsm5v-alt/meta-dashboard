@@ -26,7 +26,7 @@ export type EmbedMode = 'viewer' | 'editor' | 'activity-join' | 'activity-report
 export type CreateEmbedOptions = {
   embedBaseUrl: string;
   mode: EmbedMode;
-  getToken: () => string | Promise<string>;
+  getToken?: () => string | Promise<string>;
   getSsoToken?: () => string | Promise<string>;
   slideId?: string;
   activityId?: string;

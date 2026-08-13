@@ -250,7 +250,6 @@ export const AppRoutes = () => (
             <Route path='/lesson/library' element={<LessonLibraryPage />} />
             <Route path='/lesson/my' element={<LessonMyPage />} />
             <Route path='/lesson/result' element={<LessonResultPage />} />
-            <Route path='/lesson/deploy/:itemId' element={<LessonDeployPage />} />
 
             <Route path='/ai-assistant' element={<AIRoomPage />} />
           </>
@@ -258,6 +257,9 @@ export const AppRoutes = () => (
       </Route>
 
       {/* 집중형 교사 화면은 확정된 수업 라우트를 TeacherFullscreenLayout으로 감싸서 추가한다. */}
+      <Route element={<TeacherFullscreenLayout />}>
+        <Route path='/lesson/deploy/:itemId' element={<LessonDeployPage />} />
+      </Route>
     </Route>
 
     {/* 게스트 라우트 비활성화 (기획 결정: 게스트 기능 제외) */}

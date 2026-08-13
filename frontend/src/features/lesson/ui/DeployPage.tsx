@@ -91,7 +91,9 @@ export const DeployPage = () => {
           </BackButton>
           <SubHeaderTitle>활동 배포</SubHeaderTitle>
         </SubHeader>
-        <EmptyState>해당 콘텐츠를 찾을 수 없습니다.</EmptyState>
+        <Body>
+          <EmptyState>해당 콘텐츠를 찾을 수 없습니다.</EmptyState>
+        </Body>
       </Page>
     );
   }
@@ -245,7 +247,7 @@ export const DeployPage = () => {
                     : '설정한 기간 동안 학생이 들어와 제출합니다.'}
                 </ResultDesc>
                 <ResultRow>
-                  <QrPlaceholder>QR</QrPlaceholder>
+                  <QrPlaceholder>▨</QrPlaceholder>
                   <ResultInfo>
                     <ResultInfoTitle>
                       QR·참여 링크·학급 알림이 자동 생성·발송되었어요!
@@ -278,31 +280,37 @@ export const DeployPage = () => {
                 </ActionButton>
               </ResultCard>
             )}
-
-            {!deployed && (
-              <DeployButton type='button' onClick={doDeploy}>
-                배포하기
-              </DeployButton>
-            )}
           </SettingsPanel>
         </Inner>
       </Body>
+
+      {!deployed && (
+        <DeployFooter>
+          <DeployButton type='button' onClick={doDeploy}>
+            배포하기
+          </DeployButton>
+        </DeployFooter>
+      )}
     </Page>
   );
 };
 
+/* ==================== 레이아웃 ==================== */
+
 const Page = styled.section`
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  min-height: calc(100vh);
+  background: ${({ theme }) => theme.colors.gray[100]};
 `;
 
 const SubHeader = styled.div`
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  padding-bottom: ${({ theme }) => theme.spacing.md};
-  margin-bottom: ${({ theme }) => theme.spacing.lg};
+  gap: 12px;
+  padding: 12px 40px;
+  background: ${({ theme }) => theme.colors.background.paper};
   border-bottom: 1px solid ${({ theme }) => theme.colors.gray[200]};
 `;
 
@@ -310,9 +318,9 @@ const BackButton = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: ${({ theme }) => theme.spacing.xs};
+  padding: 6px;
   border: none;
-  border-radius: ${({ theme }) => theme.radius.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
   background: transparent;
   color: ${({ theme }) => theme.colors.gray[500]};
   cursor: pointer;
@@ -320,25 +328,29 @@ const BackButton = styled.button`
 
   &:hover {
     background: ${({ theme }) => theme.colors.gray[100]};
-    color: ${({ theme }) => theme.colors.gray[700]};
   }
 `;
 
 const SubHeaderTitle = styled.h2`
   margin: 0;
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: ${({ theme }) => theme.colors.gray[900]};
   font-size: ${({ theme }) => theme.typography.fontSize.base};
   font-weight: ${({ theme }) => theme.typography.fontWeight.extraBold};
 `;
 
 const Body = styled.div`
   flex: 1;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  padding: 24px 40px;
 `;
 
 const Inner = styled.div`
   display: flex;
-  gap: ${({ theme }) => theme.spacing['2xl']};
-  max-width: 1080px;
+  gap: 32px;
+  width: 100%;
+  max-width: 1024px;
 `;
 
 const EmptyState = styled.p`
@@ -352,30 +364,32 @@ const EmptyState = styled.p`
 
 const PreviewPanel = styled.div`
   flex-shrink: 0;
-  width: 260px;
+  width: 288px;
 `;
 
 const PreviewCard = styled.div`
-  border-radius: ${({ theme }) => theme.radius.xl};
+  border-radius: ${({ theme }) => theme.radius['2xl']};
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   background: ${({ theme }) => theme.colors.background.paper};
-  overflow: hidden;
-  box-shadow: ${({ theme }) => theme.shadows.sm};
+  padding: ${({ theme }) => theme.spacing.md};
 `;
 
 const Thumb = styled.div<{ $group: LibraryColorGroup }>`
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  overflow: hidden;
+  border-radius: ${({ theme }) => theme.radius.xl};
+  background: ${({ $group }) => COLOR_GROUP_BG[$group]};
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 120px;
-  background: ${({ $group }) => COLOR_GROUP_BG[$group]};
-  padding: ${({ theme }) => theme.spacing.md};
 `;
 
 const ThumbTitle = styled.span`
   display: -webkit-box;
   max-width: 100%;
   overflow: hidden;
+  padding: 0 ${({ theme }) => theme.spacing.md};
   color: ${({ theme }) => theme.colors.gray[800]};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
@@ -386,17 +400,17 @@ const ThumbTitle = styled.span`
 `;
 
 const PreviewMeta = styled.div`
-  padding: ${({ theme }) => theme.spacing.md};
+  margin-top: 12px;
 `;
 
 const MetaHint = styled.p`
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   color: ${({ theme }) => theme.colors.gray[400]};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
 const MetaTitle = styled.p`
-  margin: 0 0 ${({ theme }) => theme.spacing.sm};
+  margin: 2px 0 ${({ theme }) => theme.spacing.sm};
   color: ${({ theme }) => theme.colors.text.primary};
   font-size: ${({ theme }) => theme.typography.fontSize.base};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
@@ -406,15 +420,11 @@ const MetaTitle = styled.p`
 const MetaBadges = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
+  margin-top: ${({ theme }) => theme.spacing.sm};
 `;
 
 const MetaBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: ${({ theme }) => theme.radius.full};
-  background: ${({ theme }) => theme.colors.gray[100]};
   color: ${({ theme }) => theme.colors.gray[500]};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
@@ -424,22 +434,19 @@ const MetaBadge = styled.span`
 const SettingsPanel = styled.div`
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.lg};
 `;
 
+/* mb-5 방식으로 각 섹션이 20px 간격을 가짐 */
 const Section = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.sm};
+  margin-bottom: 20px;
 `;
 
 const SectionLabel = styled.div`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  color: ${({ theme }) => theme.colors.text.primary};
+  gap: 8px;
+  margin-bottom: 8px;
+  color: ${({ theme }) => theme.colors.gray[800]};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 `;
@@ -451,7 +458,7 @@ const StepBadge = styled.span`
   width: 20px;
   height: 20px;
   border-radius: ${({ theme }) => theme.radius.full};
-  background: ${({ theme }) => theme.colors.primary[600]};
+  background: ${({ theme }) => theme.colors.primary[500]};
   color: #fff;
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
@@ -474,7 +481,7 @@ const DropTrigger = styled.button`
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 10px ${({ theme }) => theme.spacing.md};
+  padding: 10px 12px;
   border-radius: ${({ theme }) => theme.radius.lg};
   border: 1px solid ${({ theme }) => theme.colors.gray[300]};
   background: ${({ theme }) => theme.colors.background.paper};
@@ -489,8 +496,7 @@ const DropTrigger = styled.button`
 `;
 
 const DropTriggerText = styled.span<{ $hasValue: boolean }>`
-  color: ${({ theme, $hasValue }) =>
-    $hasValue ? theme.colors.text.primary : theme.colors.text.disabled};
+  color: ${({ theme, $hasValue }) => ($hasValue ? theme.colors.gray[800] : theme.colors.gray[400])};
 `;
 
 const DropMenu = styled.div`
@@ -503,12 +509,12 @@ const DropMenu = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   background: ${({ theme }) => theme.colors.background.paper};
   padding: 6px;
-  box-shadow: ${({ theme }) => theme.shadows.md};
+  box-shadow: ${({ theme }) => theme.shadows.lg};
 `;
 
 const DropMenuStatus = styled.p<{ $error?: boolean }>`
   margin: 0;
-  padding: ${({ theme }) => `${theme.spacing.sm} 10px`};
+  padding: 8px 10px;
   color: ${({ theme, $error }) => ($error ? theme.colors.error.main : theme.colors.text.disabled)};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
@@ -516,7 +522,7 @@ const DropMenuStatus = styled.p<{ $error?: boolean }>`
 const DropMenuErrorWrap = styled.div`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: 8px;
   padding: 2px 0;
 `;
 
@@ -540,9 +546,9 @@ const DropMenuRetry = styled.button`
 const DropItem = styled.button<{ $selected: boolean }>`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: 8px;
   width: 100%;
-  padding: ${({ theme }) => `${theme.spacing.sm} 10px`};
+  padding: 8px 10px;
   border: none;
   border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme, $selected }) => ($selected ? theme.colors.primary[50] : 'transparent')};
@@ -579,14 +585,14 @@ const Checkbox = styled.span<{ $checked: boolean }>`
 const ModeList = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: 8px;
 `;
 
 const ModeOption = styled.button<{ $selected: boolean }>`
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: ${({ theme }) => theme.spacing.md};
+  padding: 12px;
   border-radius: ${({ theme }) => theme.radius.xl};
   border: 2px solid
     ${({ theme, $selected }) => ($selected ? theme.colors.primary[500] : theme.colors.gray[200])};
@@ -607,7 +613,7 @@ const ModeOption = styled.button<{ $selected: boolean }>`
 const ModeRow = styled.div`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: 8px;
 `;
 
 const ModeCheck = styled.span<{ $selected: boolean }>`
@@ -626,7 +632,7 @@ const ModeCheck = styled.span<{ $selected: boolean }>`
 `;
 
 const ModeTitle = styled.span`
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: ${({ theme }) => theme.colors.gray[800]};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 `;
@@ -634,21 +640,21 @@ const ModeTitle = styled.span`
 const ModeDesc = styled.span`
   display: block;
   padding-left: 28px;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  color: ${({ theme }) => theme.colors.gray[500]};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
 const DateRow = styled.div`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: 8px;
   padding-left: 28px;
-  margin-top: ${({ theme }) => theme.spacing.sm};
+  margin-top: 8px;
 `;
 
 const DateInput = styled.input`
-  padding: 6px 10px;
-  border-radius: ${({ theme }) => theme.radius.md};
+  padding: 6px 8px;
+  border-radius: ${({ theme }) => theme.radius.lg};
   border: 1px solid ${({ theme }) => theme.colors.gray[300]};
   background: ${({ theme }) => theme.colors.background.paper};
   color: ${({ theme }) => theme.colors.text.primary};
@@ -668,7 +674,7 @@ const DateSep = styled.span`
 /* 안내 박스 */
 
 const InfoBox = styled.div`
-  padding: 10px ${({ theme }) => theme.spacing.md};
+  padding: 10px 12px;
   border-radius: ${({ theme }) => theme.radius.lg};
   background: ${({ theme }) => theme.colors.gray[50]};
   color: ${({ theme }) => theme.colors.gray[600]};
@@ -681,15 +687,23 @@ const InfoBox = styled.div`
   }
 `;
 
-/* 배포하기 버튼 */
+/* ==================== 배포하기 footer ==================== */
+
+const DeployFooter = styled.div`
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding: 12px 40px;
+  background: ${({ theme }) => theme.colors.background.paper};
+  border-top: 1px solid ${({ theme }) => theme.colors.gray[200]};
+`;
 
 const DeployButton = styled.button`
-  align-self: center;
   min-width: 150px;
-  padding: 10px ${({ theme }) => theme.spacing.lg};
+  padding: 10px 24px;
   border: none;
   border-radius: ${({ theme }) => theme.radius.lg};
-  background: ${({ theme }) => theme.colors.primary[600]};
+  background: ${({ theme }) => theme.colors.primary[500]};
   color: #fff;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
@@ -697,25 +711,22 @@ const DeployButton = styled.button`
   transition: background-color ${({ theme }) => theme.transitions.fast};
 
   &:hover {
-    background: ${({ theme }) => theme.colors.primary[500]};
+    background: ${({ theme }) => theme.colors.primary[600]};
   }
 `;
 
 /* ==================== 배포 결과 ==================== */
 
 const ResultCard = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
+  margin-top: 20px;
   padding: ${({ theme }) => theme.spacing.md};
-  border-radius: ${({ theme }) => theme.radius.xl};
+  border-radius: ${({ theme }) => theme.radius['2xl']};
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   background: ${({ theme }) => theme.colors.background.paper};
-  box-shadow: ${({ theme }) => theme.shadows.sm};
 `;
 
 const ResultBanner = styled.div<{ $isLive: boolean }>`
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
+  padding: 8px 12px;
   border-radius: ${({ theme }) => theme.radius.lg};
   background: ${({ theme }) => theme.colors.success.light};
   color: ${({ theme }) => theme.colors.success.dark};
@@ -724,8 +735,8 @@ const ResultBanner = styled.div<{ $isLive: boolean }>`
 `;
 
 const ResultDesc = styled.p`
-  margin: 0;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  margin: 8px 0 0;
+  color: ${({ theme }) => theme.colors.gray[600]};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   line-height: ${({ theme }) => theme.typography.lineHeight.normal};
 
@@ -737,7 +748,8 @@ const ResultDesc = styled.p`
 const ResultRow = styled.div`
   display: flex;
   align-items: flex-start;
-  gap: ${({ theme }) => theme.spacing.md};
+  gap: 12px;
+  margin-top: 12px;
 `;
 
 const QrPlaceholder = styled.div`
@@ -750,8 +762,7 @@ const QrPlaceholder = styled.div`
   border-radius: ${({ theme }) => theme.radius.lg};
   background: ${({ theme }) => theme.colors.gray[900]};
   color: #fff;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  font-size: 30px;
 `;
 
 const ResultInfo = styled.div`
@@ -771,26 +782,26 @@ const ResultInfoTitle = styled.p`
 
 const LinkRow = styled.div`
   display: flex;
-  gap: 6px;
+  gap: 4px;
 `;
 
 const LinkInput = styled.input`
   flex: 1;
   min-width: 0;
-  padding: 4px 10px;
-  border-radius: ${({ theme }) => theme.radius.md};
+  padding: 4px 8px;
+  border-radius: ${({ theme }) => theme.radius.lg};
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  background: ${({ theme }) => theme.colors.gray[50]};
+  background: transparent;
   color: ${({ theme }) => theme.colors.gray[500]};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
 const CopyButton = styled.button`
   flex-shrink: 0;
-  padding: 4px 10px;
-  border-radius: ${({ theme }) => theme.radius.md};
+  padding: 4px 8px;
+  border-radius: ${({ theme }) => theme.radius.lg};
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  background: ${({ theme }) => theme.colors.background.paper};
+  background: transparent;
   color: ${({ theme }) => theme.colors.gray[600]};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
@@ -830,11 +841,12 @@ const RangeTxt = styled.p`
 `;
 
 const ActionButton = styled.button`
+  margin-top: 16px;
   width: 100%;
   padding: 10px;
   border: none;
   border-radius: ${({ theme }) => theme.radius.lg};
-  background: ${({ theme }) => theme.colors.primary[600]};
+  background: ${({ theme }) => theme.colors.primary[500]};
   color: #fff;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
@@ -842,6 +854,6 @@ const ActionButton = styled.button`
   transition: background-color ${({ theme }) => theme.transitions.fast};
 
   &:hover {
-    background: ${({ theme }) => theme.colors.primary[500]};
+    background: ${({ theme }) => theme.colors.primary[600]};
   }
 `;
