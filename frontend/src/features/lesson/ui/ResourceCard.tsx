@@ -1,5 +1,6 @@
 import styled from '@emotion/styled';
 import { Trash2 } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@shared/ui/Button/Button';
 import type { LibItem, LibraryColorGroup, LibrarySrc, ResourceCardVariant } from '../model/types';
 import { LIBRARY_SRC_LABELS } from '../model/types';
@@ -20,12 +21,12 @@ interface ResourceCardProps {
 }
 
 export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCardProps) => {
-  // const initial = item.title.trim().charAt(0) || '?';
+  const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <Shell>
       <Thumb $group={item.colorGroup}>
-        {/* <ThumbMark aria-hidden>{initial}</ThumbMark> */}
         {variant === 'my' ? (
           <DeleteButton
             type='button'
@@ -57,7 +58,13 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
           <Button type='button' variant='outline' size='md' fullWidth>
             수정하기
           </Button>
-          <Button type='button' variant='primary' size='md' fullWidth>
+          <Button
+            type='button'
+            variant='primary'
+            size='md'
+            fullWidth
+            onClick={() => navigate(`/lesson/deploy/${item.id}${location.search}`)}
+          >
             시작하기
           </Button>
         </Actions>

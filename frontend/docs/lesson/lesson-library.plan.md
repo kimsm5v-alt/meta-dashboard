@@ -9,6 +9,7 @@
 | **추가계획1** | `FilterPanel` UI + 로컬 필터 상태 | Phase 1 완료 / API 미착수 |
 | **추가계획2** | Contents Description 아래 자료 목록(`ResourceCardList`) + 필터 연동(목업) | Phase A 완료 / Phase B 대기 |
 | **추가계획3** | `LessonMyPage` 나의 자료 목록 — `ResourceCardList` `variant="my"` + 목업 | Phase A 완료 / API 대기 |
+| **추가계획4** | `ResourceCard` 시작하기 버튼 → 활동 배포 페이지 (`DeployPage`) 라우트 연결 | 계획 수립 완료 / 구현 대기 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `POST .../api/contents/setSearch` (임시 스펙) | 초안 수신 · 확정 전 |
@@ -827,3 +828,260 @@ LessonMyPage
 
 **작성일**: 2026-08-12  
 **상태**: Phase A(목업) 완료 / Phase B(API) 대기
+
+---
+
+# 추가계획4 — 활동 배포 페이지 (DeployPage) 연결
+
+> **목표**: `ResourceCard`의 시작하기 버튼 클릭 시 활동 배포 전용 페이지(`DeployPage`)가 열리도록 라우트를 구성하고, 프로토타입 `DeployOverlay.tsx`를 `frontend` FSD 구조로 구현한다.
+> **범위**: 라우트 추가 + 페이지 컴포넌트 + 기능 UI 컴포넌트. 실제 API 연동·배포 실행은 후속 Phase.
+> **준수**: `frontend/AGENTS.md` (FSD Lite, Emotion, 서버/로컬 상태 분리)
+
+---
+
+## 1. 현황 요약
+
+| 구분 | 위치 | 비고 |
+|------|------|------|
+| 프로토타입 기준 | `prototype/.../deploy/DeployOverlay.tsx` | Tailwind. UI 구성·문구·상태 기준. 코드 복사 금지 |
+| 시작하기 버튼 | `features/lesson/ui/ResourceCard.tsx` (60~62번 줄) | 현재 `onClick` 없음 |
+| 기존 자료 라우트 | `/lesson/library`, `/lesson/my`, `/lesson/result` | `routes.tsx` IA_V2 블록 내 |
+| 카드 모델 | `features/lesson/model/types.ts` — `LibItem.id: string` | itemId 기준 URL 구성 |
+
+---
+
+## 2. URL 구조
+
+```
+/lesson/deploy/:itemId
+```
+
+- `:itemId` = `LibItem.id` (카드 단위 고유 식별자)
+- `ResourceCard`의 시작하기 버튼이 `useNavigate('/lesson/deploy/${item.id}')` 로 이동
+- 추후 API 연동 시 이 `itemId`를 기준으로 콘텐츠 상세 조회
+
+---
+
+## 3. FSD 배치
+
+```
+pages/lesson/LessonDeployPage.tsx          (신규 — 라우트 진입점, 레이아웃 조합만)
+features/lesson/ui/DeployPage.tsx          (신규 — 활동 배포 UI 전체 구현)
+features/lesson/ui/index.ts               (기존 — DeployPage barrel export 추가)
+pages/index.ts                            (기존 — LessonDeployPage barrel export 추가)
+app/router/routes.tsx                     (기존 — /lesson/deploy/:itemId 라우트 추가)
+features/lesson/ui/ResourceCard.tsx       (기존 — 시작하기 버튼에 useNavigate 연결)
+```
+
+- `pages/lesson/LessonDeployPage.tsx`는 얇게 유지. styled component·로직 없음
+- `features/lesson/ui/DeployPage.tsx`가 실질적인 UI·상태를 담당
+
+---
+
+## 4. 프로토타입 → frontend 변환 기준
+
+| 프로토타입 요소 | frontend 처리 방침 |
+|------|------|
+| `overlay`, `closeOverlay`, `openOverlay` (Context) | 불필요. 독립 페이지이므로 `useNavigate(-1)`로 뒤로 이동 |
+| `fromEditor` 분기 (저작툴 브레드크럼) | Phase4 범위 외. 뒤로가기 버튼 단일 처리 |
+| `GROUP_BG`, `CLASSES`, `MY`, `findContent` (목업 임포트) | `useParams`로 `itemId` 획득 후 `MOCK_LIBRARY_ITEMS`에서 `item` 조회 |
+| Tailwind 클래스 | Emotion styled-component 또는 인라인 Emotion css로 재구현 |
+| `toast()` | `sonner`의 `toast` 또는 프로젝트 공통 토스트 방식 사용 |
+| `startLive` (`openOverlay({ kind: 'live' })`) | `() => {}` 로 남김 (SlideViewer 추후 구현) |
+| `goToReports` | `/lesson/result`로 `navigate` |
+| `doDeploy` | 로컬 상태만 변경 (목업). 실제 배포 API는 Phase B |
+
+---
+
+## 5. 뒤로가기 동작
+
+프로토타입 `DeployOverlay`의 `closeOverlay` / `backToEditor` 분기를 단순화한다.
+
+- 헤더 좌측 뒤로가기 버튼 클릭 → `navigate(-1)` (React Router)
+- 직접 URL 진입 시에도 브라우저 뒤로가기로 자연스럽게 이전 화면 복귀
+
+---
+
+## 6. 수업 시작하기 버튼 처리
+
+프로토타입 167~174번 줄의 `startLive` 호출 부분:
+
+```tsx
+// SlideViewer 연결은 추후 구현
+onClick={() => {}}
+```
+
+- 배포 완료 후 `deployed.isLive === true`인 경우 표시되는 버튼
+- 현재는 빈 핸들러로 남기고, 추후 SlideViewer 라우트 확정 시 연결
+
+---
+
+## 7. 상태 관리
+
+| 상태 | 종류 | 이유 |
+|------|------|------|
+| `itemId` 기반 아이템 조회 | 로컬 상수 (목업 단계) / React Query (API 단계) | 서버 상태로 전환 예정 |
+| `classes` (대상 반) | `useState` | 페이지 로컬 UI 상태 |
+| `dropOpen` | `useState` | 드롭다운 열림 여부 |
+| `mode` (period / live) | `useState` | 배포 방식 선택 |
+| `start`, `end` (기간) | `useState` | 날짜 선택 |
+| `deployed` (배포 결과) | `useState` | 배포 완료 후 결과 표시 |
+
+- 배포 반 목록(`CLASSES` 해당)은 목업 단계에서 상수로 관리
+
+---
+
+## 8. 구현 Phase
+
+### Phase A — 목업 (다음 구현 대상)
+
+1. `features/lesson/ui/DeployPage.tsx` 신규 작성 (Emotion, 프로토타입 UI 동등 구현)
+2. `pages/lesson/LessonDeployPage.tsx` 신규 작성 (얇은 페이지)
+3. `app/router/routes.tsx` — `/lesson/deploy/:itemId` 라우트 추가 (IA_V2 블록 내)
+4. `pages/index.ts` — `LessonDeployPage` barrel export 추가
+5. `features/lesson/ui/index.ts` — `DeployPage` barrel export 추가
+6. `features/lesson/ui/ResourceCard.tsx` — 시작하기 버튼에 `useNavigate` 연결
+7. `tsc` / ESLint 검증
+
+### Phase B — API (후속)
+
+1. 콘텐츠 상세 API (`GET /lesson/contents/:itemId`) 연동 → React Query
+2. 배포 실행 API (`POST /lesson/deploy`) 연동 → useMutation
+3. 실제 반 목록 API 연동
+4. 수업 시작하기 버튼 → SlideViewer 라우트 연결
+
+---
+
+## 9. 하지 말 것
+
+| 금지 | 이유 |
+|------|------|
+| `fromEditor` 분기 구현 | 저작툴 연동 범위 외 |
+| Tailwind 클래스 그대로 복사 | `frontend`는 Emotion 사용 |
+| `overlay` Context 재현 | 독립 페이지로 설계 변경됨 |
+| 수업 시작하기에 임시 경로 연결 | SlideViewer 스펙 미확정 |
+| Phase A에서 실제 배포 API | 스펙 미정·목업 우선 |
+
+---
+
+## 10. 참고 파일
+
+| 용도 | 경로 |
+|------|------|
+| 프로토타입 기준 | `prototype/src/features/resources/components/deploy/DeployOverlay.tsx` |
+| 카드 모델 | `frontend/src/features/lesson/model/types.ts` |
+| 목업 데이터 | `frontend/src/features/lesson/model/mockLibraryItems.ts` |
+| 라우트 | `frontend/src/app/router/routes.tsx` |
+| 기존 자료실 페이지 | `frontend/src/pages/lesson/LessonLibraryPage.tsx` |
+
+---
+
+## 11. 추가 구현 계획 — 실제 반 목록 API 연동 + LNB 선택 반 프리셋
+
+> **목표**: DeployPage의 MOCK_CLASSES를 실제 API 반 목록으로 교체하고, LNB에서 반이 선택된 채로 시작하기를 누르면 해당 반이 배포 대상으로 자동 선택된 상태로 진입한다.
+
+### 11-A. 실제 반 목록 API 연동
+
+**현황**
+
+`DeployPage.tsx`의 `MOCK_CLASSES`는 `['1반', '2반', '3반', '4반']` 문자열 상수다.
+실제 반 목록은 `useMyGroupsQuery`(`@features/api`)가 반환하는 `Group[]`를 사용한다.
+
+`Group` 타입 (`shared/types/index.ts`):
+
+```ts
+interface Group {
+  id: string;       // claId (= URL의 ?class= 값)
+  name: string;     // 반 이름 (표시용)
+  grade: number;
+  classNumber: number;
+  schoolName?: string;
+  // ...
+}
+```
+
+**구현 방식**
+
+- `DeployPage` 마운트 시 `useMyGroupsQuery`를 호출한다.
+  - `refetch`도 함께 구조분해한다(`refetch: refetchGroups`).
+  - 이 훅은 이미 React Query 캐시(`groupKeys.myGroups(userId)`)를 사용하므로, ScopeTree·AssessmentPage 등이 먼저 호출한 경우 네트워크 요청 없이 캐시에서 즉시 반환된다.
+  - `select`(드롭다운) 펼칠 때마다 API를 재호출하지 않는다. 훅 호출은 마운트 1회에 그친다.
+- 드롭다운 항목: `groups`를 순회하여 `g.id`(값) / `g.name`(표시) 기반으로 렌더링한다.
+- `classes` state는 `string[]`로 유지하되, 값은 `Group.id`(= `claId`)를 저장한다.
+- 드롭다운 상태별 표시:
+  - 로딩 중(`groupsLoading`): "반 목록 불러오는 중…"
+  - 오류(`groupsError`): "반 목록을 불러오지 못했습니다" + **다시 시도** 버튼 → `refetchGroups()` 호출
+  - 빈 목록(`groups.length === 0`): "반이 없습니다"
+  - 정상: `groups` 항목 렌더링
+
+**변경 파일**
+
+| 파일 | 변경 |
+|------|------|
+| `features/lesson/ui/DeployPage.tsx` | `MOCK_CLASSES` 상수 제거, `useMyGroupsQuery` 훅 추가, 드롭다운 항목 Group 기반으로 교체 |
+
+---
+
+### 11-B. LNB 선택 반 → DeployPage 프리셋
+
+**현황**
+
+- LNB(ScopeTree)에서 반을 선택하면 현재 페이지 URL에 `?class={claId}` 쿼리 파라미터가 붙는다.
+  예: `/lesson/library?class=abc-123`
+- `ResourceCard`의 시작하기 버튼은 현재 `navigate('/lesson/deploy/${item.id}')` 로 이동하며, `?class=` 정보를 전달하지 않는다.
+
+**구현 방식**
+
+#### Step 1 — ResourceCard: `?class=` 파라미터 전달
+
+`ResourceCard`에서 `useLocation`(react-router-dom)으로 현재 URL의 `search` 문자열을 그대로 읽어, 배포 페이지 이동 시 쿼리 파라미터 전체를 보존한다.
+
+```tsx
+const location = useLocation();
+
+// 시작하기 버튼 onClick
+navigate(`/lesson/deploy/${item.id}${location.search}`);
+```
+
+- `location.search`는 `?class=abc&student=xyz` 등 현재 URL의 쿼리 문자열 전체를 그대로 포함한다.
+- 쿼리 파라미터가 없는 경우(`location.search === ''`) 배포 페이지 URL에 쿼리 없이 이동한다.
+- `class`, `student` 파라미터를 개별적으로 처리하지 않으므로 향후 파라미터가 추가되어도 자동으로 전달된다.
+
+#### Step 2 — DeployPage: URL `?class=` 값으로 초기 선택 상태 구성
+
+`DeployPage` 마운트 시 `useSearchParams`로 `class` 파라미터를 읽고, 이를 `classes` state의 초기값으로 사용한다.
+
+```tsx
+const [searchParams] = useSearchParams();
+const presetClassId = searchParams.get('class') ?? '';
+
+const [classes, setClasses] = useState<string[]>(
+  presetClassId ? [presetClassId] : []
+);
+```
+
+- `useState` 초기값은 마운트 시 1회만 평가되므로 `useEffect` 없이 URL 파라미터를 반영할 수 있다.
+- 이 방식은 서버 상태가 아닌 UI 초기 선택값을 URL에서 가져오는 것이므로 AGENTS.md의 "effect로 만들지 않는다" 원칙과 충돌하지 않는다.
+- **`validClasses` 파생 계산**: `classes` state를 그대로 사용하지 않고, 렌더 시점에 `groups`에 실제 존재하는 항목만 필터링한 `validClasses`를 파생한다.
+  ```tsx
+  const validClasses = groupsLoading
+    ? classes               // 로딩 중에는 프리셋 유지
+    : classes.filter((id) => groups.some((g) => g.id === id));
+  ```
+  - 로딩 중에는 프리셋을 그대로 유지하여 UX 단절 없음.
+  - 로딩 완료 후 `groups`에 없는 ID(권한 없는 반 등)는 트리거 표시·배포 실행 모두에서 제외.
+- 드롭다운 트리거 텍스트, `$hasValue` 판정, `doDeploy` 검증·classesStr 모두 `validClasses` 기준으로 처리한다.
+- 사용자가 드롭다운에서 추가/제거하면 `classes` state가 일반적인 방식으로 업데이트된다.
+
+**변경 파일**
+
+| 파일 | 변경 |
+|------|------|
+| `features/lesson/ui/ResourceCard.tsx` | `useSearchParams` 추가, `navigate` 호출 시 `?class=` 파라미터 전달 |
+| `features/lesson/ui/DeployPage.tsx` | `useSearchParams` 추가, `classes` 초기값 URL 파라미터 기반으로 변경 |
+
+---
+
+**작성일**: 2026-08-13  
+**최종 수정**: 2026-08-13 (11-A·11-B 구현 완료, validClasses 파생 검증 로직 추가)  
+**상태**: Phase A(목업) 완료 / 11-A·11-B 구현 완료

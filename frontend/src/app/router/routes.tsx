@@ -43,6 +43,7 @@ import {
 } from '@pages/index';
 import LessonMyPage from '@pages/lesson/LessonMyPage';
 import LessonResultPage from '@pages/lesson/LessonResultPage';
+import LessonDeployPage from '@pages/lesson/LessonDeployPage';
 
 // ============================================================
 // 레이아웃 래퍼
@@ -233,6 +234,7 @@ export const AppRoutes = () => (
           <Route path='/lesson/library' element={<LessonLibraryPage />} />
           <Route path='/lesson/my' element={<LessonMyPage />} />
           <Route path='/lesson/result' element={<LessonResultPage />} />
+          <Route path='/lesson/deploy/:itemId' element={<LessonDeployPage />} />
 
           <Route path='/ai-assistant' element={<AIRoomPage />} />
         </>

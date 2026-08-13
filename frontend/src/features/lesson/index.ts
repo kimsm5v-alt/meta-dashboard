@@ -1,4 +1,5 @@
 export { FilterPanel } from './ui/FilterPanel';
+export { DeployPage } from './ui/DeployPage';
 export { ResourceCardList } from './ui/ResourceCardList';
 export { ResourceCard } from './ui/ResourceCard';
 export { LessonEditorEmbed } from './ui/LessonEditorEmbed';
