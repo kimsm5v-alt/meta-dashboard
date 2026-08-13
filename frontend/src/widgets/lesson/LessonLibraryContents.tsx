@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import styled from '@emotion/styled';
 import {
   ResourceCardList,
