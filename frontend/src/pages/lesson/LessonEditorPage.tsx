@@ -12,16 +12,15 @@ export const LessonEditorPage = () => {
     <LessonEditorEmbed
       slideId={slideId}
       onSaved={(p: SavedPayload) => {
-        if (p.lcmsSetId) {
+        if (p.lcmsSetId && p.title) {
           registerRefSet({
             lcmsSetId: p.lcmsSetId,
-            title: p.title,
-            subjectCd: p.lessonMeta?.subject,
-            schoolLevelCd: p.lessonMeta?.schoolLevel,
             makeMethod:
-              p.lessonMeta?.makeMethod !== undefined
-                ? Number(p.lessonMeta.makeMethod)
-                : 3,
+              p.lessonMeta?.makeMethod !== undefined ? Number(p.lessonMeta.makeMethod) : 3,
+            options: {
+              title: p.title,
+              ...(p.thumbnail ? { thumbnailUrl: p.thumbnail } : {}),
+            },
           });
         }
         if (!slideId && p.slideId) {

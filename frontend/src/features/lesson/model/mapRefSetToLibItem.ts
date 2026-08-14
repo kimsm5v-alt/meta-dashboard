@@ -9,8 +9,8 @@ function pickColorGroup(id: string): LibraryColorGroup {
 }
 
 /**
- * TODO: subjectCd -> selArea 매핑 테이블 별도 확정 후 교체 (추후 변동 가능)
- * 현재는 subjectCd 값을 selArea에 그대로 전달.
+ * LMS RefSetItem → LibItem.
+ * 카드 제목·썸네일은 `options`(meta-dashboard 계약)에서 읽는다.
  */
 export function mapRefSetToLibItem(item: RefSetItem): LibItem {
   const date = new Date(item.createdAt);
@@ -18,9 +18,9 @@ export function mapRefSetToLibItem(item: RefSetItem): LibItem {
   return {
     id: item.lcmsSetId,
     refSetId: item.refSetId,
-    title: item.title,
+    title: item.options?.title ?? '',
+    thumbnailUrl: item.options?.thumbnailUrl,
     src: 'internal',
-    selArea: item.subjectCd, // TODO: taxonomy 확정 전 임시. 추후 변동 가능
     colorGroup: pickColorGroup(item.refSetId),
     updated,
   };

@@ -112,7 +112,7 @@ export const DeployPage = () => {
           {/* 좌: 미리보기 */}
           <PreviewPanel>
             <PreviewCard>
-              <Thumb $group={item.colorGroup}>
+              <Thumb $group={item.colorGroup ?? 'g1'}>
                 <ThumbTitle>{item.title}</ThumbTitle>
               </Thumb>
               <PreviewMeta>

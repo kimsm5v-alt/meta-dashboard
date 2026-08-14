@@ -120,14 +120,16 @@ UI(GNB) 명칭과 LMS API 명칭이 **다르다**. 연동 전 아래 표를 기�
 
 ### 나의 자료 — LMS `GET /api/ref-set`
 
-([`보관함-목록 (GET ref-set).md`](../../superplatform-lms/docs/03-API연동규격서/07-세트문항참조-LCMS연동/보관함-목록%20(GET%20ref-set).md))
+([`보관함-목록 (GET ref-set).md`](../../superplatform-lms/docs/03-API연동규격서/07-세트문항참조-LCMS연동/보관함-목록%20(GET%20ref-set).md) · `ContentRefController#list`)
+
+**Request**: 쿼리/바디 없음. 신원은 토큰 `sub`(author)·`client_id`로 스코핑.
 
 ```http
 GET /api/ref-set
 Authorization: Bearer {JWT}
 ```
 
-응답 (`resultData`):
+응답 (`resultData`) — LMS는 **참조 키 + 서비스 옵션만** 반환. CMS 메타 컬럼은 없음. meta-dashboard는 등록 시 `options`에 카드용 메타를 넣어 store-and-echo:
 
 ```json
 {
@@ -135,18 +137,36 @@ Authorization: Bearer {JWT}
   "list": [{
     "refSetId": "a2b3...",
     "lcmsSetId": "L-SET-123",
-    "title": "분수의 덧셈 진단",
-    "subjectCd": "MA",
-    "schoolLevelCd": "E",
     "makeMethod": 3,
     "status": 1,
+    "options": {
+      "title": "분수의 덧셈 진단",
+      "thumbnailUrl": "https://cdn.example.com/thumbs/L-SET-123.png"
+    },
     "createdAt": "2026-07-21T09:00:00"
   }]
 }
 ```
 
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `totalCount` | int | 보관함 세트 수 |
+| `list[].refSetId` | string | 보관함 참조 ID |
+| `list[].lcmsSetId` | string | CMS 세트 ID (본문 로드 키) |
+| `list[].makeMethod` | int | 1신규직접 / 2완성형 / 3자료실 / 4AI생성 / 5AI가공 |
+| `list[].status` | int | 상태 (`status_cd`) |
+| `list[].options` | object \| null | 서비스 자유 KV (store-and-echo). **meta-dashboard 계약** 아래 표 |
+| `list[].createdAt` | string | 등록 시각 |
+
+**`options` (meta-dashboard 계약)** — LMS는 스키마 검증 없이 그대로 저장·반환. FE가 아래 키를 사용한다:
+
+| 키 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `title` | string | ✅ | 카드 제목 |
+| `thumbnailUrl` | string |  | 카드 썸네일 URL |
+
 - `author_id` / `client_id`는 토큰에서 자동 주입 (body 불필요)
-- 카드 썸네일·슬라이드 미리보기는 **`lcmsSetId`로 CMS/everyCanvas에서 추가 조회** (협의 중, [`서비스-연동-온보딩 §6`](../../superplatform-lms/docs/03-API연동규격서/서비스-연동-온보딩.md))
+- 세트 본문·슬라이드 미리보기는 **`lcmsSetId`로 CMS/everyCanvas에서 추가 조회** ([`서비스-연동-온보딩 §6`](../../superplatform-lms/docs/03-API연동규격서/서비스-연동-온보딩.md)). 카드 제목·썸네일은 `options`에서 읽음
 
 ### 수업 자료실 — API 후보 (확인 필요)
 
@@ -322,7 +342,7 @@ features/lesson/
 │   ├── lmsLibraryService.ts  # (소스 확정 후)
 │   └── queries.ts            # useRefSetList(), useLibraryList(...)
 ├── model/
-│   └── mapRefSetToCard.ts    # UI 카드 view-model (lcmsSetId, title, ...)
+│   └── mapRefSetToCard.ts    # UI 카드 view-model (lcmsSetId + CMS 메타/options)
 └── ui/
     └── MyDataGrid/           # 나의 자료 카드 목록
 ```
@@ -373,15 +393,31 @@ export function useRefSetList() {
 
 ### 5.3 저장·등록 흐름 (나의 자료에 담기)
 
-자료실 → 나의 자료 저장 시 LMS 호출 ([`POST /api/ref-set`](../../superplatform-lms/docs/03-API연동규격서/07-세트문항참조-LCMS연동/보관함-등록%20(POST%20ref-set).md)):
+자료실 → 나의 자료 저장 시 LMS 호출 ([`POST /api/ref-set`](../../superplatform-lms/docs/03-API연동규격서/07-세트문항참조-LCMS연동/보관함-등록%20(POST%20ref-set).md) · `RefSetRegisterRequest`):
 
 ```json
 {
-  "lcmsSetId": "cms-set-123",
-  "title": "세트 제목",
-  "makeMethod": 3
+  "lcmsSetId": "L-SET-123",
+  "makeMethod": 3,
+  "options": {
+    "title": "분수의 덧셈 진단",
+    "thumbnailUrl": "https://cdn.example.com/thumbs/L-SET-123.png"
+  }
 }
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `lcmsSetId` | string | ✅ | CMS 세트 ID |
+| `makeMethod` | int |  | 미지정 시 기본 `3`(자료실) |
+| `options` | object | ✅ | 서비스 자유 옵션(store-and-echo). **meta-dashboard**: `title`(필수), `thumbnailUrl`(선택) |
+
+| `options` 키 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `title` | string | ✅ | 카드 제목 (GET 목록에서 그대로 사용) |
+| `thumbnailUrl` | string |  | 카드 썸네일 URL |
+
+응답: `resultData.refSetId` (이후 `POST /api/activity`의 `refSetId`).
 
 저작 완료(`onSaved` → `slideId`) 후 **CMS 세트 ID와의 매핑**을 meta BE 또는 everyCanvas Platform 메타에서 가져와 `ref-set` 등록 — **팀 협의 필요**.
 
@@ -524,3 +560,5 @@ npm run build
 | 2026-08-12 | FSD 정리: pages Embed → `features/lesson`, React SDK(`SlideEditor`/`SlideViewer`) 공통 로더·토큰 서비스 추출, `getSsoToken`은 Editor 전용, `ENV.EVERYCLASS_EMBED_BASE_URL` 반영 |
 | 2026-08-12 | `/sdk/react` URL import 실패(bare `react`) 확인 → 소비팀 공지대로 `/sdk/embed` `createEmbed` + `useEveryCanvasEmbed` 로컬 래퍼로 전환 |
 | 2026-08-13 | SDK 레퍼런스(`everycanvas-react-sdk-components.html`) 갱신 반영: §4.3.3 `features.showStartLesson`(SDK 1.3.0)·`features.showExit`(SDK 1.4.0) 플래그 및 `onStartLesson` 콜백 페이로드·`lessonMeta` 구조 추가. 기존 §4.3.3~5 → §4.3.4~6 재번호 |
+| 2026-08-14 | §3 `GET /api/ref-set`·§5.3 `POST /api/ref-set`를 LMS 코드(`ContentRefController`/`RefSetRegisterRequest`/`toView`)·규격서에 맞춤: 응답에서 `title`/`subjectCd`/`schoolLevelCd` 제거, `options` 추가. CMS 메타는 `lcmsSetId`로 로드 |
+| 2026-08-14 | meta-dashboard `options` 계약 고정: `title`(필수)·`thumbnailUrl`(선택). GET/POST `/api/ref-set` 예시·표 반영 |

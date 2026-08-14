@@ -23,10 +23,11 @@ interface ResourceCardProps {
 export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCardProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const colorGroup = item.colorGroup ?? 'g1';
 
   return (
     <Shell>
-      <Thumb $group={item.colorGroup}>
+      <Thumb $group={colorGroup}>
         {variant === 'my' ? (
           <DeleteButton
             type='button'
@@ -47,10 +48,14 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
           <UpdatedMeta>수정 {item.updated ?? '-'}</UpdatedMeta>
         ) : (
           <>
-            <Badges>
-              <SrcBadge $src={item.src}>{LIBRARY_SRC_LABELS[item.src]}</SrcBadge>
-              <SelBadge>{item.selArea}</SelBadge>
-            </Badges>
+            {item.src || item.selArea ? (
+              <Badges>
+                {item.src ? (
+                  <SrcBadge $src={item.src}>{LIBRARY_SRC_LABELS[item.src]}</SrcBadge>
+                ) : null}
+                {item.selArea ? <SelBadge>{item.selArea}</SelBadge> : null}
+              </Badges>
+            ) : null}
             {item.reason ? <Reason>{item.reason}</Reason> : null}
           </>
         )}
