@@ -1,9 +1,10 @@
-import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getExamSlots } from '@features/assessment/api/examSlotService';
 import {
   cancelExam,
   downloadSampleExcel,
   endExam,
+  fetchPaperPermission,
   previewExamStart,
   restartExam,
   startExam,
@@ -12,13 +13,27 @@ import {
 } from './assessmentService';
 import { assessmentKeys } from './queryKeys';
 import type { Group } from '@shared/types';
+import type { PaperIdx } from '../types';
 
-export const useAssessmentSlotsQueries = (groups: readonly Group[], userId: string | undefined) => {
+export const usePaperPermissionQuery = (userId: string | undefined) =>
+  useQuery({
+    queryKey: assessmentKeys.paperPermission(userId ?? ''),
+    queryFn: fetchPaperPermission,
+    enabled: !!userId,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+
+export const useAssessmentSlotsQueries = (
+  groups: readonly Group[],
+  userId: string | undefined,
+  paperIdx?: PaperIdx,
+  enabled = true,
+) => {
   const results = useQueries({
     queries: groups.map((group) => ({
-      queryKey: assessmentKeys.examSlots(group.claId, userId ?? ''),
-      queryFn: () => getExamSlots(group.claId, userId!),
-      enabled: !!userId && !!group.claId,
+      queryKey: assessmentKeys.examSlots(group.claId, userId ?? '', paperIdx),
+      queryFn: () => getExamSlots(group.claId, userId!, paperIdx),
+      enabled: enabled && !!userId && !!group.claId,
     })),
   });
 
@@ -50,7 +65,9 @@ const useInvalidateAssessmentGroup = () => {
   return async (claId: string, userId: string) => {
     // 사이드바(useTeacherClassList)도 이제 examSlots 키를 공유하므로 이 무효화 하나로
     // 검사 페이지 + 사이드바가 함께 갱신됨. (구 ['group-dgnss-status'] 키 제거)
-    await queryClient.invalidateQueries({ queryKey: assessmentKeys.examSlots(claId, userId) });
+    await queryClient.invalidateQueries({
+      queryKey: [...assessmentKeys.all, 'exam-slots', claId, userId],
+    });
   };
 };
 

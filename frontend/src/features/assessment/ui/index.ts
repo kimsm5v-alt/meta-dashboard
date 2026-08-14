@@ -6,4 +6,5 @@ export { ExamTimelineCard } from './ExamTimelineCard';
 export { StudentManagementPanel } from './StudentManagementPanel';
 export { EmptyState } from './EmptyState';
 export { ExamManagementOverview } from './ExamManagementOverview';
+export { ExamClassManagementView } from './ExamClassManagementView';
 export { QRCodeModal } from './QRCodeModal';

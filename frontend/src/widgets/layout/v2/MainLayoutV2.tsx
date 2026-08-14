@@ -1,6 +1,8 @@
 import styled from '@emotion/styled';
 import type React from 'react';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
+import { Home, PanelLeft, PanelLeftClose } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { buildScopeQueryString } from '@shared/scope';
@@ -14,32 +16,73 @@ import { LayoutProvider, useLayoutContext } from './LayoutContext';
 import { ScopeTree } from './ScopeTree';
 
 const SCOPE_TREE_WIDTH = 210;
+const COLLAPSED_SCOPE_TREE_WIDTH = 64;
 
 const LayoutRoot = styled.div<{ $lockViewport: boolean }>`
   min-height: 100vh;
   height: ${({ $lockViewport }) => ($lockViewport ? '100vh' : 'auto')};
   overflow: ${({ $lockViewport }) => ($lockViewport ? 'hidden' : 'visible')};
-  background-color: ${({ theme }) => theme.colors.gray[50]};
+  background-color: #fbfbfc;
 `;
 
-const ScopeSidebar = styled.aside`
+const ScopeSidebar = styled.aside<{ $collapsed: boolean }>`
   position: fixed;
   top: ${GNB_HEADER_HEIGHT}px;
   left: 0;
   bottom: 0;
-  width: ${SCOPE_TREE_WIDTH}px;
-  padding: ${({ theme }) => theme.spacing.md};
-  background-color: ${({ theme }) => theme.colors.background.paper};
+  display: flex;
+  flex-direction: column;
+  width: ${({ $collapsed }) => ($collapsed ? COLLAPSED_SCOPE_TREE_WIDTH : SCOPE_TREE_WIDTH)}px;
+  background-color: #fafafa;
   border-right: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  overflow: hidden;
+  transition: width 200ms ease;
+`;
+
+const SidebarControls = styled.div<{ $collapsed: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: ${({ $collapsed }) => ($collapsed ? 'center' : 'space-between')};
+  padding: ${({ theme }) => theme.spacing.md} 12px;
+`;
+
+const SidebarControlButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: ${({ theme }) => theme.colors.gray[500]};
+  background-color: transparent;
+  border: none;
+  border-radius: ${({ theme }) => theme.radius.md};
+  cursor: pointer;
+  transition:
+    color ${({ theme }) => theme.transitions.fast},
+    background-color ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.gray[100]};
+  }
+`;
+
+const ScopeTreeArea = styled.div`
+  flex: 1;
+  min-height: 0;
+  padding: 0 12px ${({ theme }) => theme.spacing.md};
   overflow: hidden;
 `;
 
-const MainContent = styled.main`
+const MainContent = styled.main<{ $sidebarCollapsed: boolean }>`
   min-width: 0;
   min-height: calc(100vh - ${GNB_HEADER_HEIGHT}px);
   margin-top: ${GNB_HEADER_HEIGHT}px;
-  margin-left: ${SCOPE_TREE_WIDTH}px;
+  margin-left: ${({ $sidebarCollapsed }) =>
+    $sidebarCollapsed ? COLLAPSED_SCOPE_TREE_WIDTH : SCOPE_TREE_WIDTH}px;
   padding: 0 40px 60px;
+  transition: margin-left 200ms ease;
 `;
 
 const FullWidthContent = styled.main<{ $lockViewport: boolean }>`
@@ -85,7 +128,8 @@ interface MainLayoutV2Props {
 const MainLayoutV2Content: React.FC<MainLayoutV2Props> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { scope } = useLayoutContext();
+  const { scope, selectAll } = useLayoutContext();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const guardedNavigate = useStreamGuardStore((s) => s.guardedNavigate);
 
   const isFullWidth =
@@ -99,6 +143,13 @@ const MainLayoutV2Content: React.FC<MainLayoutV2Props> = ({ children }) => {
     guardedNavigate(() => navigate(`${path}${buildScopeQueryString(scope)}`));
   };
 
+  const handleHomeClick = () => {
+    guardedNavigate(() => {
+      selectAll();
+      navigate('/home');
+    });
+  };
+
   return (
     <LayoutRoot $lockViewport={isAiAssistant}>
       <GnbHeader />
@@ -107,10 +158,39 @@ const MainLayoutV2Content: React.FC<MainLayoutV2Props> = ({ children }) => {
         <FullWidthContent $lockViewport={isAiAssistant}>{children}</FullWidthContent>
       ) : (
         <>
-          <ScopeSidebar aria-label='조회 범위 선택'>
-            <ScopeTree />
+          <ScopeSidebar $collapsed={isSidebarCollapsed} aria-label='조회 범위 선택'>
+            <SidebarControls $collapsed={isSidebarCollapsed}>
+              {!isSidebarCollapsed && (
+                <SidebarControlButton
+                  type='button'
+                  title='홈'
+                  aria-label='홈'
+                  onClick={handleHomeClick}
+                >
+                  <Home size={18} aria-hidden='true' />
+                </SidebarControlButton>
+              )}
+              <SidebarControlButton
+                type='button'
+                title={isSidebarCollapsed ? '펼치기' : '접기'}
+                aria-label={isSidebarCollapsed ? 'LNB 펼치기' : 'LNB 접기'}
+                aria-expanded={!isSidebarCollapsed}
+                onClick={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
+              >
+                {isSidebarCollapsed ? (
+                  <PanelLeft size={18} aria-hidden='true' />
+                ) : (
+                  <PanelLeftClose size={18} aria-hidden='true' />
+                )}
+              </SidebarControlButton>
+            </SidebarControls>
+            {!isSidebarCollapsed && (
+              <ScopeTreeArea>
+                <ScopeTree />
+              </ScopeTreeArea>
+            )}
           </ScopeSidebar>
-          <MainContent>
+          <MainContent $sidebarCollapsed={isSidebarCollapsed}>
             {activeGnb && activeGnb.subTabs.length > 0 && (
               <SubTabNav aria-label={`${activeGnb.label} 하위 메뉴`}>
                 {activeGnb.subTabs.map((tab) => {

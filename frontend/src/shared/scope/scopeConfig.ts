@@ -24,12 +24,6 @@ export interface MenuScopeConfig {
   all: boolean;
   class: boolean;
   student: boolean;
-  /**
-   * true면 LNB에 "전체" 메뉴 항목을 숨긴다(SB 확정: 검사관리·검사결과 LNB에서 "전체" 라벨 제거).
-   * `all`(스코프 레벨 자체의 유효성)과는 별개 — 반을 선택하지 않은 기본 상태는 여전히
-   * 전체 학급 데이터를 보여준다. LNB에서 누를 수 있는 버튼만 사라진다.
-   */
-  hideAllMenuItem?: boolean;
 }
 
 export type MenuKey =
@@ -45,9 +39,9 @@ export type MenuKey =
   | 'ai-assistant';
 
 export const MENU_SCOPE_MATRIX: Record<MenuKey, MenuScopeConfig> = {
-  // 검사 — SB 확정: LNB "전체" 항목 제거(반을 선택하지 않으면 여전히 전체 학급 데이터를 보여줌)
-  'exam/management': { all: true, class: true, student: false, hideAllMenuItem: true },
-  'exam/result': { all: true, class: true, student: true, hideAllMenuItem: true },
+  // 검사 — 반을 선택하지 않으면 전체 학급 데이터를 보여주되 LNB에는 별도 "전체" 항목을 두지 않는다.
+  'exam/management': { all: true, class: true, student: false },
+  'exam/result': { all: true, class: true, student: true },
   'exam/tracking': { all: true, class: true, student: true },
   // 생활기록부 작성: 전체·반·학생 모두 지원 (확정 IA)
   'exam/record': { all: true, class: true, student: true },

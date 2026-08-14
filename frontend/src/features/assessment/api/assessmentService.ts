@@ -5,6 +5,7 @@
  */
 
 import { apiClient, axiosInstance } from '@shared/api';
+import type { PaperIdx } from '../types';
 
 // ============================================================
 // 타입 정의
@@ -12,6 +13,11 @@ import { apiClient, axiosInstance } from '@shared/api';
 
 /** 학년군 */
 export type GradeLevel = 'el' | 'mi' | 'hi';
+
+export interface PaperPermission {
+  comprehensive: boolean;
+  selfreg: boolean;
+}
 
 /** 검사 시작 응답 */
 export interface StartExamResponse {
@@ -87,6 +93,12 @@ export async function startExam(
   return res.resultData;
 }
 
+/** 현재 로그인 교사의 검사 유형 권한 조회 */
+export async function fetchPaperPermission(): Promise<PaperPermission> {
+  const res = await apiClient.get<PaperPermission>('/api/dgnss/paper-permission/me');
+  return res.resultData;
+}
+
 /**
  * 검사 목록 조회
  * GET /api/dgnss/tc/info
@@ -94,9 +106,11 @@ export async function startExam(
 export async function fetchExamList(
   claId: string,
   _tcId: string,
-  _paperIdx?: string,
+  paperIdx?: PaperIdx,
 ): Promise<ExamListItem[]> {
-  const endpoint = `/api/dgnss/tc/info?claId=${claId}`;
+  const params = new URLSearchParams({ claId });
+  if (paperIdx) params.set('paperIdx', paperIdx);
+  const endpoint = `/api/dgnss/tc/info?${params.toString()}`;
 
   const res = await apiClient.get<ExamListResponse | ExamListItem[]>(endpoint);
   const resultData = res.resultData;

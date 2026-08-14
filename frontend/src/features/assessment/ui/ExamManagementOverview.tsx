@@ -1,10 +1,13 @@
 import styled from '@emotion/styled';
 
 import { EXAM_STATUS_LABELS } from '../constants';
-import type { ExamSlotState, ExamSlotStatus, GroupWithExamState } from '../types';
+import type { ExamSlotState, ExamSlotStatus, GroupWithExamState, PaperIdx } from '../types';
 
 interface ExamManagementOverviewProps {
   groups: GroupWithExamState[];
+  paperIdx: PaperIdx;
+  canSwitchPaper: boolean;
+  onPaperChange: (paperIdx: PaperIdx) => void;
   onManageExam: (groupId: string) => void;
   onViewResult: (groupId: string) => void;
 }
@@ -22,7 +25,34 @@ const Page = styled.section`
 `;
 
 const Header = styled.header`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.lg};
   margin-bottom: ${({ theme }) => theme.spacing.lg};
+`;
+
+const PaperSwitch = styled.div`
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 4px;
+  background: ${({ theme }) => theme.colors.gray[100]};
+  border-radius: ${({ theme }) => theme.radius.lg};
+`;
+
+const PaperButton = styled.button<{ $active: boolean; $paperIdx: PaperIdx }>`
+  padding: 8px 13px;
+  color: ${({ $active, $paperIdx, theme }) =>
+    $active ? ($paperIdx === '2' ? '#007d6c' : theme.colors.primary[600]) : theme.colors.gray[500]};
+  background: ${({ $active, theme }) => ($active ? theme.colors.background.paper : 'transparent')};
+  border: 0;
+  border-radius: ${({ theme }) => theme.radius.md};
+  box-shadow: ${({ $active, theme }) => ($active ? theme.shadows.sm : 'none')};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme, $active }) =>
+    $active ? theme.typography.fontWeight.bold : theme.typography.fontWeight.medium};
+  cursor: pointer;
 `;
 
 const Title = styled.h1`
@@ -273,8 +303,10 @@ const getRate = (slot?: ExamSlotState): number => {
   return Math.round((slot.submittedCount / slot.totalCount) * 100);
 };
 
-const getLearningSlot = (group: GroupWithExamState, round: 1 | 2) =>
-  group.examSlots.find((slot) => slot.slotId === (round === 1 ? 'L1' : 'L2'));
+const getPaperSlot = (group: GroupWithExamState, paperIdx: PaperIdx, round: 1 | 2) => {
+  const prefix = paperIdx === '1' ? 'L' : 'S';
+  return group.examSlots.find((slot) => slot.slotId === `${prefix}${round}`);
+};
 
 const RoundProgress = ({ slot }: { slot?: ExamSlotState }) => {
   if (!slot) return <span>-</span>;
@@ -298,22 +330,25 @@ const RoundProgress = ({ slot }: { slot?: ExamSlotState }) => {
 
 export const ExamManagementOverview = ({
   groups,
+  paperIdx,
+  canSwitchPaper,
+  onPaperChange,
   onManageExam,
   onViewResult,
 }: ExamManagementOverviewProps) => {
   const rows: OverviewRow[] = groups.map((group) => ({
     group,
-    round1: getLearningSlot(group, 1),
-    round2: getLearningSlot(group, 2),
+    round1: getPaperSlot(group, paperIdx, 1),
+    round2: getPaperSlot(group, paperIdx, 2),
   }));
-  const learningSlots = rows.flatMap(({ round1, round2 }) =>
+  const paperSlots = rows.flatMap(({ round1, round2 }) =>
     [round1, round2].filter((slot): slot is ExamSlotState => slot !== undefined),
   );
   const summary = {
     totalClasses: groups.length,
-    inProgressExams: learningSlots.filter((slot) => slot.status === 'in_progress').length,
-    completedExams: learningSlots.filter((slot) => slot.status === 'completed').length,
-    pendingStudents: learningSlots
+    inProgressExams: paperSlots.filter((slot) => slot.status === 'in_progress').length,
+    completedExams: paperSlots.filter((slot) => slot.status === 'completed').length,
+    pendingStudents: paperSlots
       .filter((slot) => slot.status === 'in_progress')
       .reduce((total, slot) => total + Math.max(slot.totalCount - slot.submittedCount, 0), 0),
   };
@@ -321,8 +356,28 @@ export const ExamManagementOverview = ({
   return (
     <Page>
       <Header>
-        <Title>검사관리</Title>
-        <Description>반별 검사 현황을 확인하고 관리할 수 있습니다.</Description>
+        <div>
+          <Title>검사관리</Title>
+          <Description>반별 검사 현황을 확인하고 관리할 수 있습니다.</Description>
+        </div>
+        {canSwitchPaper && (
+          <PaperSwitch aria-label='검사 유형 선택'>
+            <PaperButton
+              $active={paperIdx === '1'}
+              $paperIdx='1'
+              onClick={() => onPaperChange('1')}
+            >
+              학습종합검사
+            </PaperButton>
+            <PaperButton
+              $active={paperIdx === '2'}
+              $paperIdx='2'
+              onClick={() => onPaperChange('2')}
+            >
+              자기조절학습검사
+            </PaperButton>
+          </PaperSwitch>
+        )}
       </Header>
 
       <SummaryGrid>
@@ -386,7 +441,7 @@ export const ExamManagementOverview = ({
                       <td>
                         <ClassName>{group.name}</ClassName>
                       </td>
-                      <td>학습종합검사</td>
+                      <td>{paperIdx === '1' ? '학습종합검사' : '자기조절학습검사'}</td>
                       <td>
                         <RoundProgress slot={round1} />
                       </td>
