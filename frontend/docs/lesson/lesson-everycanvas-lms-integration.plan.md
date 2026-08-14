@@ -197,8 +197,8 @@ LMS 규격서에 **「수업자료실」이라는 이름의 API는 없다**. 프
 (선택 시) LessonEditorEmbed | LessonViewerEmbed
 ```
 
-- **슬라이드 저작**: `LessonEditorEmbed` — `slideId` 없으면 신규(`/embed/editor/new`)
-- **수업하기**: `LessonViewerEmbed` — PoC용 고정 `slideId` 또는 ref-set 목록에서 선택한 `lcmsSetId` ↔ Platform `slideId` 매핑 확정 후 연결
+- **슬라이드 저작**: `LessonEditorEmbed` — **SDK 1.5.0**: 기존 `slideId` URL 편집 → **`openSet(lcmsSetId)`** 또는 신규(`/embed/editor/new`). (§4.3)
+- **수업하기**: `LessonViewerEmbed` — **변경 없음**. Platform `slideId` 필수 (`/embed/viewer/:slideId`)
 - 한 컨테이너에 embed **한 번만** 마운트 (탭/모드 전환 시 cleanup → `destroy()`)
 
 ### 4.2 FSD 배치 (AGENTS.md) — 반영 완료
@@ -222,8 +222,8 @@ features/lesson/
 | 레이어 | 파일 | 역할 |
 | --- | --- | --- |
 | `pages/lesson/LessonMyPage.tsx` | pages | 임시 버튼 + feature embed 마운트만 |
-| `features/lesson/ui/LessonEditorEmbed` | features | editor embed + `getToken`/`getSsoToken` |
-| `features/lesson/ui/LessonViewerEmbed` | features | viewer embed + `getToken` (SSO 미전달) |
+| `features/lesson/ui/LessonEditorEmbed` | features | editor embed + `getToken`/`getSsoToken` (**목표**: `openSet`, `onSaved` 제거) |
+| `features/lesson/ui/LessonViewerEmbed` | features | viewer embed + `getToken` (SSO 미전달, `slideId` 유지) |
 | `features/lesson/lib/everyCanvasEmbedSdk.ts` | features | embed 코어 SDK 동적 import 단일화 |
 | `features/lesson/lib/useEveryCanvasEmbed.ts` | features | createEmbed 마운트/cleanup 공통 훅 |
 | `features/lesson/api/embedTokenService.ts` | features | embed token fetch 단일화 |
@@ -232,74 +232,204 @@ features/lesson/
 **금지**: page에 SDK import·fetch·대형 styled·React Query 훅 직접 배치.  
 **참고**: `LessonLibraryPage`에 남아 있던 미사용 `createEmbed` PoC 코드는 제거함.
 
-### 4.3 getToken / getSsoToken — 토큰 전달 구조
+### 4.3 SlideEditor / SlideViewer 호출 방법 (SDK 1.5.0 · openSet)
 
-React SDK 기준 ([`everycanvas-react-sdk-components.html`](../../every-canvas-fe/docs/03-guide/everycanvas-react-sdk-components.html)):
+> **참조**  
+> - [`everycanvas-react-sdk-components.html`](../../every-canvas-fe/frontend/public/docs/everycanvas-react-sdk-components.html) (v1.5.0, 2026-08-14)  
+> - [`everycanvas-openset-notice.html`](../../every-canvas-fe/frontend/public/docs/everycanvas-openset-notice.html)  
+> - [`everycanvas-openset-changes.html`](../../every-canvas-fe/frontend/public/docs/everycanvas-openset-changes.html)  
+> - [`everycanvas-openset-editor-ux-guide.html`](../../every-canvas-fe/frontend/public/docs/everycanvas-openset-editor-ux-guide.html)  
+>
+> **코드 상태**: 아래는 **신규 계약**. 현재 `LessonEditorEmbed` / `LessonViewerEmbed`는 **구계약**( `slideId`·`onSaved` )으로 동작 중 — **당장 코드 수정하지 않음**. 마이그레이션 시 §4.3.7 체크리스트 따름.
 
-| 콜백 | 대상 | 역할 | 구현 |
-| --- | --- | --- | --- |
-| `getToken` | **전 컴포넌트 필수** | 자사 BE가 Platform `POST /v1/embed-tokens`로 발급한 **단기 embed token** | `fetchEmbedToken` (공통) |
-| `getSsoToken` | **`<SlideEditor>` only** (optional) | CBS 완성형 콘텐츠 조회용 **v-school SSO AT** | `getSsoAccessToken` — Viewer에는 **전달하지 않음** |
+#### 4.3.0 Before → After (중대 변경)
 
-#### 4.3.1 getToken — BE embed token
-
-```ts
-// features/lesson/api/embedTokenService.ts
-getToken={() => fetchEmbedToken({ scope: 'editor' | 'viewer', slideId })}
-```
-
-| mode | scope | slideId |
+| 구분 | Before (현재 FE 코드) | After (SDK 1.5.0) |
 | --- | --- | --- |
-| editor (`SlideEditor`) | `editor` | 선택 (신규 생략) |
-| viewer (`SlideViewer`) | `viewer` | **필수** |
+| Editor 진입 | `mode:'editor'` + optional `slideId` → `/embed/editor/{slideId}` 또는 `/new` | **`slideId`로 기존 문서 로드 폐지**. `/embed/editor` + **`openSet(setId)`** 또는 `/embed/editor/new`(빈 신규) |
+| setId 의미 | Platform slideId | **CBS 세트지 id** (= meta의 `lcmsSetId` / CMS `setId`) |
+| 저장 | Platform `/v1/slides` → Host `onSaved` / `onDirty` | **중앙 저장 제거** (로컬 편집만). `onSaved`·`onDirty` **제거** |
+| 편집 결과 보존 | `onSaved({ slideId, lcmsSetId, title, … })` | Host가 **`onStartLesson` / `onExitRequested`** 시점에 스냅샷·LMS 등록 등 처리 |
+| Viewer | `/embed/viewer/:slideId` | **변경 없음** |
+| ActivityJoin / Report | 임베드 모드 존재 | **제거** (타입만 하위호환, Frame capability 없음) |
 
-미확정 항목:
-- [ ] BE `/api/everyclass/embed-token` 경로·파라미터(`scope`, `slideId`) 확정
-- [ ] M2M 설정 (`everyclass.m2m.*`) 및 origin 등록
+#### 4.3.1 토큰 콜백 (유지 · 역할 강화)
 
-#### 4.3.2 getSsoToken — SlideEditor 전용 (구현 완료)
+| 콜백 | 대상 | 역할 | meta 구현 |
+| --- | --- | --- | --- |
+| `getToken` | Editor·Viewer **필수** | Platform `POST /v1/embed-tokens` 단기 **embed token** | `fetchEmbedToken` (scope `editor` \| `viewer`) |
+| `getSsoToken` | **Editor only** | CBS 세트지·완성형 콘텐츠 조회용 **v-school SSO AT** | `getSsoAccessToken` |
 
-embed token과 **별개**. 생략 시 기본 저작은 동작하고 CBS 목록만 비활성.
+- embed token ≠ SSO token. URL에 넣지 말 것 (`ec:init` 페이로드만).
+- **`openSet` 사용 시 `getSsoToken` 필수** — 미전달이면 CBS 조회 실패 → `OPEN_SET_FAILED` / 빈 화면.
+- 신규 저작(`/new`)만 하면 `getSsoToken`은 optional (단 CBS 콘텐츠 목록 비활성).
+- Viewer에는 `getSsoToken` **전달하지 않음**.
 
 ```ts
-// features/lesson/lib/getSsoAccessToken.ts → <SlideEditor getSsoToken={getSsoAccessToken} />
+// Editor
+getToken={() => fetchEmbedToken({ scope: 'editor' })}
+getSsoToken={getSsoAccessToken}   // openSet 시 필수
+
+// Viewer
+getToken={() => fetchEmbedToken({ scope: 'viewer', slideId })}
 ```
 
-#### 4.3.3 SlideEditor features 플래그 (showStartLesson · showExit) — SDK 1.3 / 1.4
+#### 4.3.2 `<SlideEditor>` — 권장 사용법
 
-[`everycanvas-react-sdk-components.html §4`](../../every-canvas-fe/docs/03-guide/everycanvas-react-sdk-components.html) 기준:
+**진입 2가지**
 
-| 플래그 | 기본값 | 설명 | 발행 이벤트 | SDK |
-| --- | --- | --- | --- | --- |
-| `features.showStartLesson` | `false` (숨김) | 저작 iframe 헤더의 '수업하기' 버튼 노출 토글 | `onStartLesson(p)` | 1.3.0 |
-| `features.showExit` | `false` (숨김) | 저작 iframe 헤더의 '나가기' 버튼 노출 토글 | `onExitRequested(p)` | 1.4.0 |
+| 목적 | React prop / createEmbed | Frame 경로 |
+| --- | --- | --- |
+| 기존 CBS 세트 열기 | `openSet="{lcmsSetId}"` 또는 ready 후 `embed.openSet(setId)` | `/embed/editor` (slideId 없음) |
+| 빈 신규 저작 | `openSet` 생략 | `/embed/editor/new` |
 
-**meta-dashboard 적용 지침**:
+**React SDK 예시**
 
-- §4.1의 임시 버튼(Host UI)이 이미 '수업하기' 역할을 하므로 → `showStartLesson` **활성화 불필요** (중복 방지)
-- Host UI에 별도 닫기 버튼이 있으면 → `showExit` **활성화 불필요**
-- `onStartLesson` 콜백 페이로드: `{ lcmsSetId?, title?, lessonMeta? }` — everyCanvas는 수업을 실행하지 않고 값만 전달, **Host가 수업 화면을 직접 실행**해야 함
-- `lessonMeta` 구조: `{ schoolLevel?; subject?; textbookSubject?; curriculumVersion?; curriculum?; makeMethod? }` (미설정 필드는 payload에서 생략)
+```tsx
+// ① 세트지 열기 (자료실·나의 자료 → 편집)
+<SlideEditor
+  embedBaseUrl={ENV.EVERYCLASS_EMBED_BASE_URL}
+  openSet={lcmsSetId}                 // CBS setId / LMS lcmsSetId
+  getToken={() => fetchEmbedToken({ scope: 'editor' })}
+  getSsoToken={getSsoAccessToken}     // openSet 시 필수
+  features={{ showExit: true }}       // Host 닫기 UI 없으면
+  locale="ko-KR"
+  onStartLesson={(p) => {/* Host가 수업 화면 실행 */}}
+  onExitRequested={() => {/* iframe 종료 + 필요 시 상태 보존 */}}
+  onError={(e) => {
+    if (e.code === 'TOKEN_EXPIRED') remount();
+    // OPEN_SET_INVALID | OPEN_SET_EMPTY | OPEN_SET_FAILED
+  }}
+/>
 
-#### 4.3.4 토큰 만료·에러 흐름 (React SDK)
+// ② 신규 저작
+<SlideEditor
+  embedBaseUrl={ENV.EVERYCLASS_EMBED_BASE_URL}
+  getToken={() => fetchEmbedToken({ scope: 'editor' })}
+  getSsoToken={getSsoAccessToken}     // CBS 콘텐츠 추가 시 권장
+  onExitRequested={() => closeEditor()}
+/>
+```
 
-- 핸드셰이크 시 `getToken`(+ editor면 `getSsoToken`) 호출
-- embed token 만료 시 Frame → `onError({ code: 'TOKEN_EXPIRED' })` → Host가 **재발급 후 재마운트**
-- FE에서 `setInterval`로 토큰을 밀어넣지 않음
+**meta 패턴 (`createEmbed` + `useEveryCanvasEmbed`) 예시**
 
-#### 4.3.5 FE가 직접 처리하지 않아도 되는 것
+```ts
+// options: mode 'editor', slideId 넣지 않음
+const handle = createEmbed(container, {
+  embedBaseUrl,
+  mode: 'editor',
+  // src는 SDK가 /embed/editor 구성 (slideId 파라미터 없음)
+  getToken,
+  getSsoToken, // openSet 시 필수
+  features: { showStartLesson: false, showExit: true },
+  locale: 'ko-KR',
+});
+
+handle.onReady(() => {
+  if (lcmsSetId) handle.openSet?.(lcmsSetId); // EmbedHandle에 openSet 추가 필요(마이그레이션)
+});
+
+handle.on('startLesson', (p) => onStartLesson?.(p));
+handle.on('exitRequested', (p) => onExitRequested?.(p));
+handle.onError((e) => { /* OPEN_SET_* / TOKEN_* */ });
+```
+
+| Prop / 이벤트 | 필수 | 설명 |
+| --- | --- | --- |
+| `openSet` |  | CBS 세트지 id. 생략 = 신규 |
+| `getToken` | ✅ | embed token |
+| `getSsoToken` | ✅* | *openSet 시 필수 |
+| `onStartLesson` |  | `{ lcmsSetId?, title?, lessonMeta? }` — **수업 실행은 Host** |
+| `onExitRequested` |  | iframe 종료 위임 |
+| `onError` |  | `OPEN_SET_*`, `TOKEN_*` 등 |
+| ~~`slideId`~~ | — | **Editor에서 폐기** (Viewer만 사용) |
+| ~~`onSaved` / `onDirty`~~ | — | **제거** |
+
+`lessonMeta`: `{ schoolLevel?; subject?; textbookSubject?; curriculumVersion?; curriculum?; makeMethod? }`
+
+#### 4.3.3 `<SlideViewer>` — 변경 없음
+
+```tsx
+<SlideViewer
+  embedBaseUrl={ENV.EVERYCLASS_EMBED_BASE_URL}
+  slideId={slideId}                   // Platform slideId 필수
+  getToken={() => fetchEmbedToken({ scope: 'viewer', slideId })}
+  locale="ko-KR"
+  onSlideChanged={(p) => …}
+  onCompleted={(p) => …}
+  onExitRequested={() => …}
+/>
+```
+
+| Prop | 필수 | 설명 |
+| --- | --- | --- |
+| `slideId` | ✅ | viewer 대상 Platform 슬라이드 ID |
+| `getToken` | ✅ | scope=`viewer` |
+| `onSlideChanged` / `onCompleted` / `onExitRequested` |  | 기존과 동일 |
+
+> **주의**: Editor의 `openSet(setId)` ≠ Viewer의 `slideId`. 세트(CBS) vs 슬라이드(Platform) 키가 다름. 수업 재생에 Platform `slideId`가 필요하면 Host가 매핑을 유지해야 함.
+
+#### 4.3.4 features 플래그 (Editor)
+
+| 플래그 | 기본 | 설명 | 이벤트 |
+| --- | --- | --- | --- |
+| `features.showStartLesson` | `false` | 헤더 '수업하기' | `onStartLesson` |
+| `features.showExit` | `false` | 헤더 '나가기' | `onExitRequested` |
+| `features.readonly` | — | 조회만 (편집 UI 비활성) — UX 가이드 | |
+| `features.autoResize` | — | Host 높이 동적 조절 | `onResize` |
+
+**meta 지침**: Host에 자체 수업하기·닫기 UI가 있으면 `showStartLesson` / `showExit`를 켜지 말 것(중복). 풀스크린 Embed만 띄울 때는 `showExit: true` 권장.
+
+#### 4.3.5 openSet 계약 · 오류 · UX
+
+| 항목 | 값 |
+| --- | --- |
+| 커맨드 | `ec:command` / `action: 'openSet'` / `payload: { setId }` |
+| capability | `content.openSet` (`ec:ready`에 광고) |
+| 재호출 | 다른 setId로 재호출 → 슬라이드 **누적 추가** |
+| 성공 | fire-and-forget (별도 success 이벤트 없음, 슬라이드 전개) |
+
+| `onError` code | 의미 | 대응 |
+| --- | --- | --- |
+| `OPEN_SET_INVALID` | setId 누락·형식 오류 | payload 확인 |
+| `OPEN_SET_EMPTY` | 세트에 열 콘텐츠 없음 | ⚠️ CBS `GET /api/sets/{id}` → `slides:[]` 결함 가능 |
+| `OPEN_SET_FAILED` | CBS 조회 실패 | `getSsoToken`·네트워크 |
+| `TOKEN_INVALID` / `TOKEN_EXPIRED` | embed token | 재발급 후 remount |
+
+편집 화면 UX(대기→로딩→4영역): [`everycanvas-openset-editor-ux-guide.html`](../../every-canvas-fe/frontend/public/docs/everycanvas-openset-editor-ux-guide.html)
+
+#### 4.3.6 토큰 만료 · Host가 안 해도 되는 것
+
+- 핸드셰이크 시 `getToken`(+ Editor면 `getSsoToken`) 호출
+- `TOKEN_EXPIRED` → Host **재발급 후 재마운트** (`setInterval`로 토큰 푸시 금지)
 
 | 처리 주체 | 내용 |
 | --- | --- |
-| everyCanvas React SDK | iframe 마운트·핸드셰이크·이벤트 브리지 |
-| SSO SDK (`getAuth()`) | AT 갱신, 실패 시 로그아웃 |
-| `authorizedFetch` / axios 인터셉터 | BE 경유 401 갱신 |
+| everyCanvas SDK | iframe·핸드셰이크·`openSet` 브리지 |
+| SSO SDK (`getAuth()`) | AT 갱신 |
+| Host | LMS `POST /api/ref-set`, 수업 화면 실행, iframe 종료 |
 
-#### 4.3.6 확정 필요 항목
+#### 4.3.7 meta FE 마이그레이션 체크리스트 (코드 변경 시)
 
-- [ ] BE `/api/everyclass/embed-token` 경로 확정
-- [ ] Host `onError`에서 `TOKEN_EXPIRED` 시 remount UX
-- [ ] embed token 실제 TTL 확인 (가이드: 기본 15분, 최대 1시간)
+현재 → 목표. **지금은 문서만.**
+
+- [ ] `LessonEditorEmbed`: `slideId` prop 제거/대체 → `openSet?: string` (`lcmsSetId`)
+- [ ] `createEmbed` options에서 editor `slideId` 전달 중단; ready 후 `openSet` 또는 SDK prop
+- [ ] `EmbedHandle` 타입에 `openSet?(setId: string)` 추가 (`everyCanvasEmbedSdk.ts`)
+- [ ] handlers: `saved` / `dirty` 제거; `startLesson` / `exitRequested` / `onError` 중심으로 재배선
+- [ ] `LessonEditorPage.onSaved` → LMS `registerRefSet` 트리거를 **`onStartLesson` 또는 별도 Host 저장 UX**로 재설계 (SDK가 `onSaved` 안 줌)
+- [ ] `LessonViewerEmbed`: 유지 (`slideId` + `getToken`). Viewer용 Platform slideId 확보 경로 재확인
+- [ ] ActivityJoin/Report 참조 있으면 제거
+- [ ] `OPEN_SET_*` 에러 UI + CBS `slides:[]` 제약 인지
+
+#### 4.3.8 확정 필요 항목
+
+- [ ] BE `/api/everyclass/embed-token` 경로·파라미터 확정
+- [ ] Host `TOKEN_EXPIRED` remount UX
+- [ ] embed token TTL 확인 (가이드: 15분~1시간)
+- [ ] **편집 결과 영속화 정책**: LMS/CMS 어디에 무엇을 언제 저장할지 (SDK 저장 없음)
+- [ ] Viewer용 Platform `slideId` ↔ CBS `lcmsSetId` 매핑
+- [ ] CBS `GET /api/sets/{setId}.slides` 빈배열 결함 해소 (everyCanvas/CBS팀)
 
 ### 4.4 선행 조건 체크리스트
 
@@ -311,10 +441,11 @@ embed token과 **별개**. 생략 시 기본 저작은 동작하고 CBS 목록�
 ### 4.5 Phase 1 완료 기준
 
 - [ ] `LessonMyPage` 임시 버튼 → Editor/Viewer 전환
-- [ ] editor: `onSaved` 콜백 확인 (신규 저장 시 `slideId` 발급)
-- [ ] viewer: `onSlideChanged` / `onCompleted` 확인
+- [ ] editor (SDK 1.5): `openSet(lcmsSetId)` 또는 신규 `/new` + `onStartLesson` / `onExitRequested` 확인 (**`onSaved` 의존 제거**)
+- [ ] viewer: `onSlideChanged` / `onCompleted` 확인 (기존과 동일)
 - [x] FSD: embed는 `features/lesson`, pages는 조합만
 - [x] `npx tsc -b --noEmit`, eslint 통과
+- [ ] §4.3.7 마이그레이션 체크리스트 반영 (코드 작업 시)
 
 ---
 
@@ -562,3 +693,4 @@ npm run build
 | 2026-08-13 | SDK 레퍼런스(`everycanvas-react-sdk-components.html`) 갱신 반영: §4.3.3 `features.showStartLesson`(SDK 1.3.0)·`features.showExit`(SDK 1.4.0) 플래그 및 `onStartLesson` 콜백 페이로드·`lessonMeta` 구조 추가. 기존 §4.3.3~5 → §4.3.4~6 재번호 |
 | 2026-08-14 | §3 `GET /api/ref-set`·§5.3 `POST /api/ref-set`를 LMS 코드(`ContentRefController`/`RefSetRegisterRequest`/`toView`)·규격서에 맞춤: 응답에서 `title`/`subjectCd`/`schoolLevelCd` 제거, `options` 추가. CMS 메타는 `lcmsSetId`로 로드 |
 | 2026-08-14 | meta-dashboard `options` 계약 고정: `title`(필수)·`thumbnailUrl`(선택). GET/POST `/api/ref-set` 예시·표 반영 |
+| 2026-08-14 | §4.3 SDK 1.5.0(`openSet`·저장 제거·Activity 제거) 반영. Editor는 `openSet(lcmsSetId)`/`/new`, Viewer는 `slideId` 유지. 현재 FE 코드는 구계약 — 마이그레이션 체크리스트만 문서화(코드 미변경) |

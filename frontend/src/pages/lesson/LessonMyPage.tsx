@@ -49,7 +49,11 @@ export const LessonMyPage = () => {
 
   // GET /api/ref-set 데이터 확인용 (ResultData.list 취득까지만 구현)
   // TODO: refSetData?.list -> mapRefSetToLibItem -> ResourceCardList 연결 (추후 Phase)
-  const { data: refSetData, isLoading: isRefSetLoading, isError: isRefSetError } = useRefSetListQuery();
+  const {
+    data: refSetData,
+    isLoading: isRefSetLoading,
+    isError: isRefSetError,
+  } = useRefSetListQuery();
 
   console.log('[LessonMyPage] refSetData', refSetData, { isRefSetLoading, isRefSetError });
 

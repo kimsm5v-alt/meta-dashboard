@@ -32,10 +32,10 @@ export { EMPTY_FILTERS, LIBRARY_SRC_LABELS } from './model/types';
 export type { FilterOption } from './model/filterTaxonomy';
 export type {
   SavedPayload,
+  StartLessonPayload,
   SlideChangedPayload,
   CompletedPayload,
   EmbedError,
-  StartLessonPayload,
 } from './lib/everyCanvasEmbedSdk';
 export {
   FILTER_AXIS_LABELS,

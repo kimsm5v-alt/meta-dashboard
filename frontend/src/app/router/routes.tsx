@@ -265,7 +265,7 @@ export const AppRoutes = () => (
           <>
             <Route path='/lesson/deploy/:itemId' element={<LessonDeployPage />} />
             <Route path='/lesson/editor' element={<LessonEditorPage />} />
-            <Route path='/lesson/editor/:slideId' element={<LessonEditorPage />} />
+            <Route path='/lesson/editor/:setId' element={<LessonEditorPage />} />
             <Route path='/lesson/viewer/:slideId' element={<LessonViewerPage />} />
           </>
         )}
