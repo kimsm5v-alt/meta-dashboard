@@ -6,8 +6,6 @@ import { Button } from '@shared/ui/Button/Button';
 import { MOCK_LIBRARY_ITEMS, ResourceCardList, useRefSetListQuery } from '@features/lesson';
 import type { LibItem } from '@features/lesson';
 
-const SLIDE_ID = 'slide_123';
-
 const Page = styled.section``;
 
 const ContentsHeader = styled.div`
@@ -34,12 +32,6 @@ const Description = styled.p`
 `;
 
 const ListWrap = styled.div`
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
-
-const Toolbar = styled.div`
-  display: flex;
-  gap: 12px;
   margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
@@ -95,7 +87,7 @@ export const LessonMyPage = () => {
       <ListWrap>
         <ResourceCardList items={items} variant='my' onDelete={handleDelete} />
       </ListWrap>
-
+      {/* 
       <Toolbar>
         <Button
           variant='outline'
@@ -105,7 +97,7 @@ export const LessonMyPage = () => {
         >
           수업하기
         </Button>
-      </Toolbar>
+      </Toolbar> */}
     </Page>
   );
 };

@@ -14,6 +14,7 @@
 | **추가계획6** | `onSaved` → `POST /api/ref-set` 자동 등록 + `LessonMyPage` `GET /api/ref-set` 목록 연동 | 구현 완료 (ResourceCardList 연결 제외) |
 | **추가계획7** | `ResourceCard` 수정하기 → `/lesson/editor/:slideId` 이동 (`item.id`) | 구현 완료 |
 | **추가계획8** | 전체 자료실 CMS `GET /api/sets` 연동 + 필터 재조회/레이스 처리 + loading UI | 구현 완료 |
+| **추가계획9** | `DeployPage` 실시간 수업 → Viewer + `ResourceCard`→deploy `state.item` 전달 | 구현 완료 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `GET .../api/sets` (`brandId=18`, `serviceType=131132`) | 추가계획8 스펙 확정 · 필터 매핑 미적용 |
@@ -2118,3 +2119,66 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 - [x] `CmsSetListData` 페이지 객체 파싱
 - [x] MOCK 경로 주석으로 코드 보존
 - [x] `npx tsc -b --noEmit`, eslint 통과
+
+---
+
+# 추가계획9 — DeployPage 실시간 수업 → Viewer 이동 + item state 전달
+
+> **상태**: 구현 완료  
+> **범위**:  
+> 1) 배포 완료 후 `deployed.isLive` → `/lesson/viewer/:itemId`  
+> 2) `ResourceCard` 「시작하기」 → deploy 시 `navigate(..., { state: { item } })` 로 `LibItem` 전달, `DeployPage`가 `location.state`으로 수신  
+> mock find·`!item` early return은 **보류(주석)**.  
+> **비범위**: Viewer Platform `slideId` 매핑, 배포 API, URL만으로 진입 시 item 재조회
+
+## 1. 목표
+
+1. 실시간 수업 시작: `navigate(\`/lesson/viewer/${itemId}\`)` (`useParams.itemId`)
+2. `ResourceCard` → `DeployPage`로 **카드 `LibItem`을 location state로 전달**해 미리보기·메타에 사용
+3. mock `MOCK_LIBRARY_ITEMS.find` / early return은 주석 보류 (state 없을 때 title fallback = `itemId`)
+
+## 2. 변경
+
+### `ResourceCard.tsx`
+
+```tsx
+navigate(`/lesson/deploy/${item.id}${location.search}`, {
+  state: { item }, // DeployPageLocationState
+});
+```
+
+### `DeployPage.tsx`
+
+```tsx
+export type DeployPageLocationState = { item?: LibItem };
+
+const location = useLocation();
+const stateItem = (location.state as DeployPageLocationState | null)?.item;
+const item =
+  stateItem && (!itemId || stateItem.id === itemId) ? stateItem : undefined;
+// mock find 보류
+
+// 미리보기: item?.title ?? itemId
+// 실시간: navigate(`/lesson/viewer/${itemId}`)
+```
+
+| 항목 | 내용 |
+|------|------|
+| 기간 배포 | → `/lesson/result` |
+| 실시간 배포 | → `/lesson/viewer/${itemId}` |
+| item 소스 | **1순위** `location.state.item` / mock find 보류 |
+| URL만 진입 | state 없음 → 제목 `itemId` fallback |
+
+## 3. 후속
+
+- [ ] Viewer `slideId` ↔ CBS/setId 매핑
+- [ ] URL 직접 진입 시 CMS/ref-set로 item 재조회
+- [ ] mock early return 복구 여부
+
+## 4. 완료 기준
+
+- [x] `deployed.isLive` → `/lesson/viewer/${itemId}`
+- [x] `ResourceCard` `state: { item }` 전달
+- [x] `DeployPage` `location.state.item` 수신·미리보기 반영
+- [x] mock find / early return 주석 보류
+- [x] `npx tsc -b --noEmit` 통과

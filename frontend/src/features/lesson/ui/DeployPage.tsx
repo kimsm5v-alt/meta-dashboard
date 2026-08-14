@@ -1,13 +1,19 @@
 import { useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMyGroupsQuery } from '@features/api';
-import { MOCK_LIBRARY_ITEMS } from '../model/mockLibraryItems';
-import type { LibraryColorGroup } from '../model/types';
+// 보류: mock 콘텐츠 조회 (추가계획9)
+// import { MOCK_LIBRARY_ITEMS } from '../model/mockLibraryItems';
+import type { LibItem, LibraryColorGroup } from '../model/types';
 
 type DeployMode = 'period' | 'live';
+
+/** ResourceCard 「시작하기」 navigate state */
+export type DeployPageLocationState = {
+  item?: LibItem;
+};
 
 interface DeployedState {
   isLive: boolean;
@@ -32,6 +38,7 @@ nextWeek.setDate(today.getDate() + 7);
 export const DeployPage = () => {
   const { itemId } = useParams<{ itemId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
   const {
@@ -41,7 +48,11 @@ export const DeployPage = () => {
     refetch: refetchGroups,
   } = useMyGroupsQuery();
 
-  const item = MOCK_LIBRARY_ITEMS.find((x) => x.id === itemId);
+  // ResourceCard navigate state.item 우선. mock find는 보류(추가계획9).
+  const stateItem = (location.state as DeployPageLocationState | null)?.item;
+  const item: LibItem | undefined =
+    stateItem && (!itemId || stateItem.id === itemId) ? stateItem : undefined;
+  // const item = MOCK_LIBRARY_ITEMS.find((x) => x.id === itemId);
 
   const presetClassId = searchParams.get('class') ?? '';
   const [classes, setClasses] = useState<string[]>(presetClassId ? [presetClassId] : []);
@@ -82,21 +93,24 @@ export const DeployPage = () => {
 
   const goToReports = () => navigate('/lesson/result');
 
-  if (!item) {
-    return (
-      <Page>
-        <SubHeader>
-          <BackButton type='button' onClick={() => navigate(-1)} aria-label='뒤로'>
-            <ChevronLeft size={20} />
-          </BackButton>
-          <SubHeaderTitle>활동 배포</SubHeaderTitle>
-        </SubHeader>
-        <Body>
-          <EmptyState>해당 콘텐츠를 찾을 수 없습니다.</EmptyState>
-        </Body>
-      </Page>
-    );
-  }
+  // 보류: mock 미존재 시 early return (추가계획9) — 콘텐츠 소스 확정 후 복구
+  // if (!item) {
+  //   return (
+  //     <Page>
+  //       <SubHeader>
+  //         <BackButton type='button' onClick={() => navigate(-1)} aria-label='뒤로'>
+  //           <ChevronLeft size={20} />
+  //         </BackButton>
+  //         <SubHeaderTitle>활동 배포</SubHeaderTitle>
+  //       </SubHeader>
+  //       <Body>
+  //         <EmptyState>해당 콘텐츠를 찾을 수 없습니다.</EmptyState>
+  //       </Body>
+  //     </Page>
+  //   );
+  // }
+
+  const previewTitle = item?.title ?? itemId ?? '콘텐츠';
 
   return (
     <Page>
@@ -112,18 +126,18 @@ export const DeployPage = () => {
           {/* 좌: 미리보기 */}
           <PreviewPanel>
             <PreviewCard>
-              <Thumb $group={item.colorGroup ?? 'g1'}>
-                <ThumbTitle>{item.title}</ThumbTitle>
+              <Thumb $group={item?.colorGroup ?? 'g1'}>
+                <ThumbTitle>{previewTitle}</ThumbTitle>
               </Thumb>
               <PreviewMeta>
                 <MetaHint>슬라이드 이름 · 수정 불가</MetaHint>
-                <MetaTitle>{item.title}</MetaTitle>
+                <MetaTitle>{previewTitle}</MetaTitle>
                 <MetaBadges>
-                  {item.level?.map((l) => (
+                  {item?.level?.map((l) => (
                     <MetaBadge key={l}>{l}</MetaBadge>
                   ))}
-                  {item.selArea ? <MetaBadge>{item.selArea}</MetaBadge> : null}
-                  {item.duration ? <MetaBadge>{item.duration}</MetaBadge> : null}
+                  {item?.selArea ? <MetaBadge>{item.selArea}</MetaBadge> : null}
+                  {item?.duration ? <MetaBadge>{item.duration}</MetaBadge> : null}
                 </MetaBadges>
               </PreviewMeta>
             </PreviewCard>
@@ -275,7 +289,20 @@ export const DeployPage = () => {
                     </RangeTxt>
                   </ResultInfo>
                 </ResultRow>
-                <ActionButton type='button' onClick={deployed.isLive ? () => {} : goToReports}>
+                <ActionButton
+                  type='button'
+                  onClick={
+                    deployed.isLive
+                      ? () => {
+                          if (!itemId) {
+                            toast.error('콘텐츠 ID가 없습니다');
+                            return;
+                          }
+                          navigate(`/lesson/viewer/${itemId}`);
+                        }
+                      : goToReports
+                  }
+                >
                   {deployed.isLive ? '수업 시작하기' : '수업 결과보기로 이동'}
                 </ActionButton>
               </ResultCard>
@@ -353,12 +380,13 @@ const Inner = styled.div`
   max-width: 1024px;
 `;
 
-const EmptyState = styled.p`
-  padding: ${({ theme }) => theme.spacing.xl};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  text-align: center;
-`;
+// 보류: mock 미존재 early return용 (추가계획9)
+// const EmptyState = styled.p`
+//   padding: ${({ theme }) => theme.spacing.xl};
+//   color: ${({ theme }) => theme.colors.text.secondary};
+//   font-size: ${({ theme }) => theme.typography.fontSize.sm};
+//   text-align: center;
+// `;
 
 /* ==================== 좌: 미리보기 ==================== */
 

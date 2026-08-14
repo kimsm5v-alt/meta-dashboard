@@ -70,7 +70,11 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
             variant='primary'
             size='xs'
             fullWidth
-            onClick={() => navigate(`/lesson/deploy/${item.id}${location.search}`)}
+            onClick={() =>
+              navigate(`/lesson/deploy/${item.id}${location.search}`, {
+                state: { item },
+              })
+            }
           >
             시작하기
           </Button>
