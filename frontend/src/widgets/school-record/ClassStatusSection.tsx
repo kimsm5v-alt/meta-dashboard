@@ -89,6 +89,7 @@ const PrimaryButton = styled(ActionButton)`
   }
 
   &:disabled {
+    color: ${({ theme }) => theme.colors.background.paper};
     background: ${({ theme }) => theme.colors.gray[300]};
   }
 `;
