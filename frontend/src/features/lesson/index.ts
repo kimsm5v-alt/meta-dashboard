@@ -16,7 +16,7 @@ export type {
   RefSetListData,
   RefSetOptions,
 } from './api/lmsRefSetService';
-export type { CmsSetItem, CmsSetListParams } from './api/cmsSetService';
+export type { CmsSetItem, CmsSetListData, CmsSetListParams } from './api/cmsSetService';
 export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 export type {
   FilterAxis,

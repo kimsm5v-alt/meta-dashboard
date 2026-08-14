@@ -1674,7 +1674,7 @@ export type {
 
 # 추가계획8 — 전체 자료실 CMS `GET /api/sets` 연동
 
-> **상태**: 구현 완료  
+> **상태**: 구현 완료 (2026-08-14 응답 페이지 객체 `{ list, pageNo, pageSize, totalCount }` 반영)  
 > **범위**: `LessonLibraryContents` mock → CMS 세트 목록 API 교체. FilterPanel 값은 아직 API 파라미터에 매핑하지 않음(동일 쿼리 재호출). MOCK 코드는 주석으로 보존.  
 > **비범위**: 필터 taxonomy ↔ CMS metaId 매핑, 무한 스크롤(페이지네이션 고도화), 썸네일 UI 렌더(타입만 추가)
 
@@ -1684,10 +1684,10 @@ export type {
 
 | 항목 | 현재 상태 |
 |------|-----------|
-| `LessonLibraryContents` | `MOCK_LIBRARY_ITEMS` + `matchLibraryItem` / `sortLibraryItems` 로컬 필터 |
-| `LessonLibraryPage` | `useLibraryFilters` + `FilterPanel` (로컬 상태만) |
-| CMS sets API | 미연동. env에 CMS base URL 없음 |
-| `LibItem` | `thumbnailUrl` 필드 없음 |
+| `LessonLibraryContents` | `useCmsSetListQuery` → `data.list` → `mapCmsSetToLibItem` → `ResourceCardList` |
+| `LessonLibraryPage` | `useLibraryFilters` + `FilterPanel` (로컬 상태만, API param 미매핑) |
+| CMS sets API | `ENV.CMS_API_URL` + `getCmsSetList` → `CmsSetListData` |
+| `LibItem` | `thumbnailUrl?` 포함. `id`/`title` 필수, 나머지 선택 |
 
 ### 목표
 
@@ -1695,7 +1695,7 @@ export type {
 2. FilterPanel 버튼은 **모두 동일한 request param**으로 호출 (필터→CMS 파라미터 매핑은 추후)
 3. 연속 클릭 시 **마지막 요청 응답만** UI에 반영 (레이스 방지)
 4. 조회 중 loading(레이지/스켈레톤) UI
-5. CMS DTO → `LibItem` 최소 매핑 (`setId`/`title`/`thumbnailUrl`). 나머지 필수 필드는 임시값 + **TO FIX** 표기
+5. CMS DTO → `LibItem` 최소 매핑 (`setId`/`title`/`thumbnailUrl`). 나머지 필드는 임시값 + **TO FIX** 표기
 6. `MOCK_LIBRARY_ITEMS` 경로는 주석으로 남겨 즉시 복구 가능하게 유지
 
 ## 2. API 스펙
@@ -1725,22 +1725,45 @@ export type {
 
 ### 성공 응답 (200)
 
-배열 본문 (LMS envelope이 아님에 주의):
+페이지 객체 본문 (LMS envelope이 아님에 주의). 실측 응답(2026-08-14):
 
 ```json
-[
-  {
-    "setId": "set-001",
-    "title": "일차함수 세트",
-    "thumbnailUrl": "string",
-    "slideCount": 12,
-    "metas": [
-      { "id": 1101, "code": "MATH_M1_2022", "name": "curriBook", "val": "중학교 1학년 수학" }
-    ],
-    "createdAt": "2026-08-13T15:47:01.563Z"
-  }
-]
+{
+  "list": [
+    {
+      "createdAt": "2026-08-13T10:29:58.000",
+      "setId": "27042",
+      "slideCount": 0,
+      "thumbnailUrl": "upload/6/thumbnail/set-sample.png",
+      "title": "일차함수 세트"
+    },
+    {
+      "createdAt": "2026-08-13T16:21:43.000",
+      "setId": "27047",
+      "slideCount": 1,
+      "thumbnailUrl": "upload/6/thumbnail/sample.png",
+      "title": "정식 저장 세트 테스트(PUT)"
+    }
+  ],
+  "pageNo": 0,
+  "pageSize": 10,
+  "totalCount": 23
+}
 ```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `list` | object[] | 세트 목록 |
+| `list[].setId` | string | CMS 세트 ID |
+| `list[].title` | string | 제목 |
+| `list[].thumbnailUrl` | string | 썸네일 상대/절대 경로 (없을 수 있음) |
+| `list[].slideCount` | number | 슬라이드 수 |
+| `list[].createdAt` | string | 생성 시각 |
+| `pageNo` | number | 현재 페이지 (0부터) |
+| `pageSize` | number | 페이지 크기 |
+| `totalCount` | number | 전체 건수 |
+
+> 초기 스펙의 배열 본문·`metas[]` 형태와 다름. 실측 기준은 위 페이지 객체. FE는 `CmsSetListData`로 파싱 후 `list`를 매핑한다.
 
 ### 실패 응답 (400 / 500)
 
@@ -1839,20 +1862,21 @@ export const lessonKeys = {
 import { getAuth } from '@shared/lib/authClient';
 import { ENV } from '@shared/config/env';
 
-export interface CmsSetMeta {
-  id: number;
-  code: string;
-  name: string;
-  val: string;
-}
-
+/** GET /api/sets list[] 아이템 (실측 2026-08-14) */
 export interface CmsSetItem {
   setId: string;
   title: string;
   thumbnailUrl?: string;
   slideCount?: number;
-  metas?: CmsSetMeta[];
   createdAt?: string;
+}
+
+/** GET /api/sets 페이지 응답 */
+export interface CmsSetListData {
+  list: CmsSetItem[];
+  pageNo: number;
+  pageSize: number;
+  totalCount: number;
 }
 
 export interface CmsSetListParams {
@@ -1872,7 +1896,7 @@ export interface CmsSetListParams {
 export async function getCmsSetList(
   params: CmsSetListParams,
   signal?: AbortSignal,
-): Promise<CmsSetItem[]> {
+): Promise<CmsSetListData> {
   const qs = new URLSearchParams({
     pageNo: String(params.pageNo),
     pageSize: String(params.pageSize),
@@ -1890,7 +1914,7 @@ export async function getCmsSetList(
     // 400/500 error body의 message 활용 시도
     throw new Error(`CMS sets 조회 실패: ${res.status}`);
   }
-  return (await res.json()) as CmsSetItem[];
+  return (await res.json()) as CmsSetListData;
 }
 ```
 
@@ -1927,9 +1951,9 @@ export interface LibItem {
   title: string;
   /** CMS 썸네일 URL — 선택. UI 반영은 추후 */
   thumbnailUrl?: string;
-  src: LibrarySrc;
-  selArea: string;
-  colorGroup: LibraryColorGroup;
+  src?: LibrarySrc;
+  selArea?: string;
+  colorGroup?: LibraryColorGroup;
   // ...기존 필드
 }
 ```
@@ -1950,7 +1974,7 @@ function pickColorGroup(id: string): LibraryColorGroup {
 /**
  * CMS Set → LibItem 최소 매핑.
  * 호환 확정: setId→id, title→title, thumbnailUrl→thumbnailUrl
- * 그 외 필수 필드는 임시값 (**TO FIX**)
+ * 그 외는 임시값 (**TO FIX**) — 실측 응답에 metas 없음
  */
 export function mapCmsSetToLibItem(item: CmsSetItem): LibItem {
   return {
@@ -1959,7 +1983,7 @@ export function mapCmsSetToLibItem(item: CmsSetItem): LibItem {
     thumbnailUrl: item.thumbnailUrl,
     // ---- TO FIX: CMS 스펙/taxonomy 매핑 확정 전 임시값 ----
     src: 'verified', // TO FIX
-    selArea: item.metas?.[0]?.val ?? '-', // TO FIX
+    selArea: undefined, // TO FIX
     colorGroup: pickColorGroup(item.setId), // TO FIX (썸네일 없을 때 fallback용)
     // -------------------------------------------------------
   };
@@ -1970,9 +1994,9 @@ export function mapCmsSetToLibItem(item: CmsSetItem): LibItem {
 
 ```tsx
 export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsProps) => {
-  const { data, isPending, isFetching, isError } = useCmsSetListQuery(filters, sort);
+  const { data, isPending, isFetching, isError, error } = useCmsSetListQuery(filters, sort);
   const items = useMemo(
-    () => (data ?? []).map(mapCmsSetToLibItem),
+    () => (data?.list ?? []).map(mapCmsSetToLibItem),
     [data],
   );
 
@@ -1987,14 +2011,19 @@ export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsPr
   // );
   // -----------------------------------------------------------
 
-  if (isPending && items.length === 0) {
-    return <Contents>{/* loading UI */}</Contents>;
+  if (isError && items.length === 0) {
+    return (
+      <Contents>
+        <ErrorText role='alert'>
+          {error instanceof Error ? error.message : '세트 목록을 불러오지 못했습니다.'}
+        </ErrorText>
+      </Contents>
+    );
   }
 
   return (
     <Contents>
-      {/* 재조회 중 오버레이/인디케이터: isFetching && !isPending */}
-      <ResourceCardList items={items} isLoading={isFetching} />
+      <ResourceCardList items={items} isLoading={isPending || isFetching} />
     </Contents>
   );
 };
@@ -2012,7 +2041,7 @@ export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsPr
 
 ```ts
 export { useCmsSetListQuery } from './api/queries';
-export type { CmsSetItem, CmsSetListParams } from './api/cmsSetService';
+export type { CmsSetItem, CmsSetListData, CmsSetListParams } from './api/cmsSetService';
 export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 ```
 
@@ -2022,13 +2051,13 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 |------|------|-----------|
 | `shared/config/env.ts` | **수정 완료** | `CMS_API_URL` 추가 |
 | `features/lesson/api/queryKeys.ts` | **수정 완료** | `cmsSets()` 추가 |
-| `features/lesson/api/cmsSetService.ts` | **구현 완료** | `getCmsSetList` + DTO |
+| `features/lesson/api/cmsSetService.ts` | **수정 완료** | `CmsSetListData` 페이지 응답 파싱 (`list`/`pageNo`/`pageSize`/`totalCount`) |
 | `features/lesson/api/queries.ts` | **수정 완료** | `useCmsSetListQuery` (signal + keepPreviousData) |
-| `features/lesson/model/types.ts` | **수정 완료** | `LibItem.thumbnailUrl?` |
-| `features/lesson/model/mapCmsSetToLibItem.ts` | **구현 완료** | 최소 매핑 + TO FIX 임시 필드 |
-| `widgets/lesson/LessonLibraryContents.tsx` | **수정 완료** | CMS 연동, MOCK 주석 보존, loading |
+| `features/lesson/model/types.ts` | **수정 완료** | `LibItem.thumbnailUrl?`, 선택 필드화 |
+| `features/lesson/model/mapCmsSetToLibItem.ts` | **수정 완료** | 최소 매핑 + TO FIX (metas 제거) |
+| `widgets/lesson/LessonLibraryContents.tsx` | **수정 완료** | `data.list` 매핑, MOCK 주석 보존, loading |
 | `features/lesson/ui/ResourceCardList.tsx` | **수정 완료** | optional `isLoading` |
-| `features/lesson/index.ts` | **수정 완료** | 훅·타입·mapper export |
+| `features/lesson/index.ts` | **수정 완료** | `CmsSetListData` export 포함 |
 | `.env.development` | **수정 완료** | `VITE_CMS_API_URL` |
 
 ## 7. 확정·미확정
@@ -2037,12 +2066,13 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 |---|------|------|------|
 | 1 | CMS base URL | 확정 | `https://t2-public-cmsapi.vsaidt.com` → env |
 | 2 | 고정 query | 확정 | `pageNo=0&pageSize=10&brandId=18&serviceType=131132` |
-| 3 | 필터→API 매핑 | 미적용 | 모든 필터 클릭 = 동일 API 재호출. taxonomy/metaId 매핑은 추후 |
-| 4 | 레이스 처리 | 확정 | queryKey(filters,sort) + fetch AbortSignal. **구조 가능** |
-| 5 | LibItem 매핑 | 부분 | id/title/thumbnailUrl만 호환. src/selArea/colorGroup은 **TO FIX** 임시값 |
-| 6 | thumbnail UI | 보류 | 타입만 추가. `ResourceCard` Thumb에 이미지 렌더는 별도 |
-| 7 | 페이지네이션 | 보류 | pageSize=10 고정. 더보기/무한스크롤 미포함 |
-| 8 | CORS / 인증 | **확정** | `getAuth().authorizedFetch`로 Bearer JWT 전달 |
+| 3 | 응답 형태 | **확정(실측)** | `{ list, pageNo, pageSize, totalCount }` (배열·`metas` 아님) |
+| 4 | 필터→API 매핑 | 미적용 | 모든 필터 클릭 = 동일 API 재호출. taxonomy/metaId 매핑은 추후 |
+| 5 | 레이스 처리 | 확정 | queryKey(filters,sort) + fetch AbortSignal |
+| 6 | LibItem 매핑 | 부분 | id/title/thumbnailUrl만 호환. src/selArea/colorGroup은 **TO FIX** |
+| 7 | thumbnail UI | 보류 | 타입만 추가. `ResourceCard` Thumb에 이미지 렌더는 별도 |
+| 8 | 페이지네이션 | 보류 | pageSize=10 고정. `totalCount`는 수신만. 더보기/무한스크롤 미포함 |
+| 9 | CORS / 인증 | **확정** | `getAuth().authorizedFetch`로 Bearer JWT 전달 |
 
 ## 8. 완료 기준
 
@@ -2050,6 +2080,7 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 - [x] FilterPanel 토글/정렬/초기화 시마다 동일 param으로 재호출
 - [x] 연속 클릭 시 이전 요청 abort 또는 무시 → 마지막 응답만 목록 반영
 - [x] 로딩 중 UI 표시 (초기 + 재조회)
-- [x] `setId`/`title`/`thumbnailUrl` 매핑, 나머지 필수 필드 임시값 + TO FIX 주석
+- [x] 응답 `list` → `setId`/`title`/`thumbnailUrl` 매핑, 나머지 임시값 + TO FIX
+- [x] `CmsSetListData` 페이지 객체 파싱
 - [x] MOCK 경로 주석으로 코드 보존
 - [x] `npx tsc -b --noEmit`, eslint 통과

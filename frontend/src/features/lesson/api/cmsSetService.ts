@@ -1,20 +1,21 @@
 import { getAuth } from '@shared/lib/authClient';
 import { ENV } from '@shared/config/env';
 
-export interface CmsSetMeta {
-  id: number;
-  code: string;
-  name: string;
-  val: string;
-}
-
+/** GET /api/sets list[] 아이템 (실측 2026-08-14) */
 export interface CmsSetItem {
   setId: string;
   title: string;
   thumbnailUrl?: string;
   slideCount?: number;
-  metas?: CmsSetMeta[];
   createdAt?: string;
+}
+
+/** GET /api/sets 페이지 응답 */
+export interface CmsSetListData {
+  list: CmsSetItem[];
+  pageNo: number;
+  pageSize: number;
+  totalCount: number;
 }
 
 export interface CmsSetListParams {
@@ -34,7 +35,7 @@ export interface CmsSetListParams {
 export async function getCmsSetList(
   params: CmsSetListParams,
   signal?: AbortSignal,
-): Promise<CmsSetItem[]> {
+): Promise<CmsSetListData> {
   const qs = new URLSearchParams({
     pageNo: String(params.pageNo),
     pageSize: String(params.pageSize),
@@ -65,5 +66,5 @@ export async function getCmsSetList(
     }
     throw new Error(message);
   }
-  return (await res.json()) as CmsSetItem[];
+  return (await res.json()) as CmsSetListData;
 }

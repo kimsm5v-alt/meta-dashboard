@@ -11,7 +11,7 @@ function pickColorGroup(id: string): LibraryColorGroup {
 /**
  * CMS Set → LibItem 최소 매핑.
  * 호환 확정: setId→id, title→title, thumbnailUrl→thumbnailUrl
- * 그 외 필수 필드는 임시값 (**TO FIX**)
+ * 그 외는 임시값 (**TO FIX**) — 실측 응답에 metas 없음
  */
 export function mapCmsSetToLibItem(item: CmsSetItem): LibItem {
   return {
@@ -20,7 +20,7 @@ export function mapCmsSetToLibItem(item: CmsSetItem): LibItem {
     thumbnailUrl: item.thumbnailUrl,
     // ---- TO FIX: CMS 스펙/taxonomy 매핑 확정 전 임시값 ----
     src: 'verified', // TO FIX
-    selArea: item.metas?.[0]?.val ?? '', // TO FIX
+    selArea: undefined, // TO FIX — 실측 list 아이템에 metas 없음
     colorGroup: pickColorGroup(item.setId), // TO FIX (썸네일 없을 때 fallback용)
     // -------------------------------------------------------
   };
