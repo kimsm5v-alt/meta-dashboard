@@ -440,19 +440,6 @@ export const StudentWritingSection = ({
     deleteDraft,
   } = useSchoolRecordStudentData(classId, studentId);
 
-  const initialInput: LocalInput = draft?.observationInput
-    ? {
-        factorCodes: draft.observationInput.observations.map((o) => o.factor),
-        behaviorCodes: draft.observationInput.observations.flatMap((o) => o.behaviorCodes),
-        freeText: draft.observationInput.freeText,
-        continuityCode: null,
-        counselingRefs: draft.observationInput.counselingRefs,
-      }
-    : emptyInput;
-
-  const [input, setInput] = useState<LocalInput>(initialInput);
-  const [tempSaved, setTempSaved] = useState(false);
-
   if (isLoading) {
     return (
       <Wrapper>
@@ -471,6 +458,63 @@ export const StudentWritingSection = ({
       </Wrapper>
     );
   }
+
+  return (
+    <StudentWritingForm
+      user={user}
+      classData={classData}
+      student={student}
+      profile={profile}
+      draft={draft}
+      counselingOptions={counselingOptions}
+      saveDraft={saveDraft}
+      isSaving={isSaving}
+      deleteDraft={deleteDraft}
+      onBack={onBack}
+    />
+  );
+};
+
+// 로딩/미존재 가드를 통과한 뒤에만 마운트되는 폼 본체.
+// draft가 이 시점엔 이미 resolve된 값(null 또는 실제 초안)이므로
+// useState(initialInput)의 lazy init이 첫 렌더에서 정확한 값을 사용한다.
+type SchoolRecordStudentData = ReturnType<typeof useSchoolRecordStudentData>;
+
+interface StudentWritingFormProps extends Pick<
+  SchoolRecordStudentData,
+  'draft' | 'counselingOptions' | 'saveDraft' | 'isSaving' | 'deleteDraft'
+> {
+  user: ReturnType<typeof useAuth>['user'];
+  classData: NonNullable<SchoolRecordStudentData['classData']>;
+  student: NonNullable<SchoolRecordStudentData['student']>;
+  profile: NonNullable<SchoolRecordStudentData['profile']>;
+  onBack: () => void;
+}
+
+const StudentWritingForm = ({
+  user,
+  classData,
+  student,
+  profile,
+  draft,
+  counselingOptions,
+  saveDraft,
+  isSaving,
+  deleteDraft,
+  onBack,
+}: StudentWritingFormProps) => {
+  const initialInput: LocalInput = draft?.observationInput
+    ? {
+        factorCodes: draft.observationInput.observations.map((o) => o.factor),
+        behaviorCodes: draft.observationInput.observations.flatMap((o) => o.behaviorCodes),
+        freeText: draft.observationInput.freeText,
+        continuityCode: null,
+        counselingRefs: draft.observationInput.counselingRefs,
+      }
+    : emptyInput;
+
+  const [input, setInput] = useState<LocalInput>(initialInput);
+  const [tempSaved, setTempSaved] = useState(false);
 
   const strengths = profile.strengths.map((item) => item.factorName);
   const improvements = profile.weaknesses.map((item) => item.factorName);
