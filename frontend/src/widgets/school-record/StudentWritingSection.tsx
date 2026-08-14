@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import styled from '@emotion/styled';
 import { ArrowLeft, Check, Loader2, RotateCcw, Save } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@features/auth';
 import { useSchoolRecordStudentData } from '@features/school-record/model/useSchoolRecordStudentData';
 import { buildObservationInput } from '@features/school-record/utils/buildObservationInput';
@@ -65,6 +66,11 @@ const ResetButton = styled.button`
 
   &:hover {
     color: ${({ theme }) => theme.colors.text.secondary};
+  }
+
+  &:disabled {
+    color: ${({ theme }) => theme.colors.gray[300]};
+    cursor: not-allowed;
   }
 `;
 
@@ -395,9 +401,26 @@ const SavedContentText = styled.p`
 
 const CenterBox = styled.div`
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   padding: 64px 0;
+`;
+
+const ErrorMessage = styled.p`
+  margin: 0;
+  color: ${({ theme }) => theme.colors.error.main};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+`;
+
+const RetryButton = styled.button`
+  padding: 7px 14px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  background: ${({ theme }) => theme.colors.background.paper};
+  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
+  border-radius: ${({ theme }) => theme.radius.md};
+  cursor: pointer;
 `;
 
 export interface StudentWritingSectionProps {
@@ -435,9 +458,12 @@ export const StudentWritingSection = ({
     draft,
     counselingOptions,
     isLoading,
+    error,
     saveDraft,
     isSaving,
     deleteDraft,
+    isDeleting,
+    retry,
   } = useSchoolRecordStudentData(classId, studentId);
 
   if (isLoading) {
@@ -446,6 +472,19 @@ export const StudentWritingSection = ({
         <CenterBox>
           <Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} />
           <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        </CenterBox>
+      </Wrapper>
+    );
+  }
+
+  if (error) {
+    return (
+      <Wrapper>
+        <CenterBox role='alert'>
+          <ErrorMessage>생활기록부 작성 정보를 불러오지 못했습니다.</ErrorMessage>
+          <RetryButton type='button' onClick={retry}>
+            다시 시도
+          </RetryButton>
         </CenterBox>
       </Wrapper>
     );
@@ -470,6 +509,7 @@ export const StudentWritingSection = ({
       saveDraft={saveDraft}
       isSaving={isSaving}
       deleteDraft={deleteDraft}
+      isDeleting={isDeleting}
       onBack={onBack}
     />
   );
@@ -482,7 +522,7 @@ type SchoolRecordStudentData = ReturnType<typeof useSchoolRecordStudentData>;
 
 interface StudentWritingFormProps extends Pick<
   SchoolRecordStudentData,
-  'draft' | 'counselingOptions' | 'saveDraft' | 'isSaving' | 'deleteDraft'
+  'draft' | 'counselingOptions' | 'saveDraft' | 'isSaving' | 'deleteDraft' | 'isDeleting'
 > {
   user: ReturnType<typeof useAuth>['user'];
   classData: NonNullable<SchoolRecordStudentData['classData']>;
@@ -501,6 +541,7 @@ const StudentWritingForm = ({
   saveDraft,
   isSaving,
   deleteDraft,
+  isDeleting,
   onBack,
 }: StudentWritingFormProps) => {
   const initialInput: LocalInput = draft?.observationInput
@@ -563,7 +604,7 @@ const StudentWritingForm = ({
     input.counselingRefs.length > 0;
 
   const handleTempSave = async () => {
-    if (!hasDraftInput) return;
+    if (!hasDraftInput || isSaving || isDeleting) return;
     const observationInput = buildObservationInput({
       strengthFactors: strengths,
       factorCodes: input.factorCodes,
@@ -572,19 +613,29 @@ const StudentWritingForm = ({
       counselingRefs: input.counselingRefs,
       factorInfo: FACTOR_INFO,
     });
-    await saveDraft({
-      status: draft && draft.status !== 'EMPTY' ? draft.status : 'INPUTTING',
-      strengths,
-      improvements,
-      observationInput,
-    });
-    setTempSaved(true);
-    setTimeout(() => setTempSaved(false), 2500);
+    try {
+      await saveDraft({
+        status: draft && draft.status !== 'EMPTY' ? draft.status : 'INPUTTING',
+        strengths,
+        improvements,
+        observationInput,
+      });
+      setTempSaved(true);
+      setTimeout(() => setTempSaved(false), 2500);
+    } catch {
+      toast.error('임시저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }
   };
 
   const handleReset = async () => {
-    setInput(emptyInput);
-    await deleteDraft();
+    if (isDeleting || isSaving) return;
+    try {
+      await deleteDraft();
+      setInput(emptyInput);
+      setTempSaved(false);
+    } catch {
+      toast.error('작성 내용을 초기화하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }
   };
 
   const hasInput = hasDraftInput || Boolean(draft?.content);
@@ -612,8 +663,8 @@ const StudentWritingForm = ({
           </div>
         </HeaderLeft>
         {hasInput && (
-          <ResetButton onClick={handleReset}>
-            <RotateCcw size={14} /> 처음부터
+          <ResetButton onClick={handleReset} disabled={isSaving || isDeleting}>
+            <RotateCcw size={14} /> {isDeleting ? '초기화 중…' : '처음부터'}
           </ResetButton>
         )}
       </HeaderRow>
@@ -753,8 +804,11 @@ const StudentWritingForm = ({
                 <Check size={14} /> 임시저장되었습니다
               </SavedNotice>
             )}
-            <TempSaveButton onClick={handleTempSave} disabled={!hasDraftInput || isSaving}>
-              <Save size={14} /> 임시저장
+            <TempSaveButton
+              onClick={handleTempSave}
+              disabled={!hasDraftInput || isSaving || isDeleting}
+            >
+              <Save size={14} /> {isSaving ? '저장 중…' : '임시저장'}
             </TempSaveButton>
           </SaveRow>
         </Section>

@@ -21,7 +21,7 @@ export interface UseSchoolRecordStudentDataResult {
   isSaving: boolean;
   deleteDraft: () => Promise<void>;
   isDeleting: boolean;
-  refetchDraft: () => void;
+  retry: () => void;
 }
 
 export function useSchoolRecordStudentData(
@@ -29,7 +29,12 @@ export function useSchoolRecordStudentData(
   studentId: string | undefined,
 ): UseSchoolRecordStudentDataResult {
   const queryClient = useQueryClient();
-  const { classes, isLoading: classesLoading, error } = useTeacherClasses();
+  const {
+    classes,
+    isLoading: classesLoading,
+    error,
+    refetch: refetchClasses,
+  } = useTeacherClasses();
   const classData = classId ? (classes.find((c) => c.id === classId) ?? null) : null;
   const student =
     classData && studentId ? (classData.students.find((s) => s.id === studentId) ?? null) : null;
@@ -97,6 +102,9 @@ export function useSchoolRecordStudentData(
       }
     },
     isDeleting: deleteMutation.isPending,
-    refetchDraft: draftQuery.refetch,
+    retry: () => {
+      refetchClasses();
+      void draftQuery.refetch();
+    },
   };
 }
