@@ -248,6 +248,7 @@ export const ClassStatusSection = ({ classId, onOpenStudent, onBulk }: ClassStat
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewStudents, setPreviewStudents] = useState<PreviewStudent[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const toggleSort = (key: SortKey) =>
     setSort((current) =>
@@ -315,10 +316,9 @@ export const ClassStatusSection = ({ classId, onOpenStudent, onBulk }: ClassStat
   const downloadTargetIds = selected.length > 0 ? selectedDoneIds : doneStudentIds;
   const canPreview = downloadTargetIds.length > 0;
 
-  const loadPreviewTargets = async (studentIds: string[]) => {
-    setPreviewLoading(true);
+  const fetchPreviewStudents = async (studentIds: string[]): Promise<PreviewStudent[]> => {
     const details = await Promise.all(studentIds.map((id) => schoolRecordApi.getStudentDraft(id)));
-    const students: PreviewStudent[] = studentIds
+    return studentIds
       .map((studentId, index) => {
         const row = rows.find((r) => r.studentId === studentId);
         const detail = details[index];
@@ -332,6 +332,11 @@ export const ClassStatusSection = ({ classId, onOpenStudent, onBulk }: ClassStat
         };
       })
       .filter((item): item is PreviewStudent => item !== null);
+  };
+
+  const loadPreviewTargets = async (studentIds: string[]) => {
+    setPreviewLoading(true);
+    const students = await fetchPreviewStudents(studentIds);
     setPreviewStudents(students);
     setPreviewLoading(false);
   };
@@ -343,21 +348,26 @@ export const ClassStatusSection = ({ classId, onOpenStudent, onBulk }: ClassStat
 
   const classLabel = `${classData.grade}-${classData.classNumber}반`;
 
-  const download = (rowIds: string[]) => {
-    const targets = previewStudents.filter((s) => rowIds.includes(s.studentId));
-    if (targets.length === 0) return;
-    const csvRows = targets.map((student) => {
-      const row = rows.find((r) => r.studentId === student.studentId);
-      return {
-        no: student.no,
-        name: student.name,
-        strengths: row?.strengths ?? [],
-        improvements: row?.improvements ?? [],
-        statusLabel: displayStatus(row?.status ?? 'EMPTY').label,
-        content: student.content,
-      };
-    });
-    downloadCsv(`생활기록부_문구_${classLabel.replace(/\s/g, '')}.csv`, buildRecordsCsv(csvRows));
+  const download = async (rowIds: string[]) => {
+    setDownloading(true);
+    try {
+      const targets = await fetchPreviewStudents(rowIds);
+      if (targets.length === 0) return;
+      const csvRows = targets.map((student) => {
+        const row = rows.find((r) => r.studentId === student.studentId);
+        return {
+          no: student.no,
+          name: student.name,
+          strengths: row?.strengths ?? [],
+          improvements: row?.improvements ?? [],
+          statusLabel: displayStatus(row?.status ?? 'EMPTY').label,
+          content: student.content,
+        };
+      });
+      downloadCsv(`생활기록부_문구_${classLabel.replace(/\s/g, '')}.csv`, buildRecordsCsv(csvRows));
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -379,8 +389,8 @@ export const ClassStatusSection = ({ classId, onOpenStudent, onBulk }: ClassStat
             <Eye size={16} /> 문구 미리보기
           </ActionButton>
           <ActionButton
-            onClick={() => download(downloadTargetIds)}
-            disabled={downloadTargetIds.length === 0}
+            onClick={() => void download(downloadTargetIds)}
+            disabled={downloadTargetIds.length === 0 || downloading}
           >
             <Download size={16} /> 문구 다운로드
             {downloadTargetIds.length > 0 ? ` (${downloadTargetIds.length})` : ''}
@@ -486,7 +496,7 @@ export const ClassStatusSection = ({ classId, onOpenStudent, onBulk }: ClassStat
           hasSelection={selected.length > 0}
           students={previewStudents}
           onClose={() => setPreviewOpen(false)}
-          onDownloadAll={() => download(previewStudents.map((s) => s.studentId))}
+          onDownloadAll={() => void download(previewStudents.map((s) => s.studentId))}
         />
       )}
     </Wrapper>
