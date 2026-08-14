@@ -134,6 +134,11 @@ const ItemRow = styled.div<{ $tone: 'strength' | 'weakness'; $isNew: boolean }>`
   border-radius: ${({ theme }) => theme.radius.sm};
 `;
 
+const TitleRow = styled.div`
+  display: flex;
+  gap: 4px;
+`;
+
 const Rank = styled.span`
   grid-row: span 2;
   display: flex;
@@ -168,12 +173,13 @@ const Definition = styled.p`
   line-height: ${({ theme }) => theme.typography.lineHeight.normal};
 `;
 
-const NewBadge = styled.span`
-  padding: 1px 6px;
+const NewBadge = styled.span<{ $tone: 'strength' | 'weakness' }>`
+  padding: 4px 4px;
   color: white;
-  background: ${({ theme }) => theme.colors.success.main};
-  border-radius: ${({ theme }) => theme.radius.full};
-  font-size: 10px;
+  background: ${({ theme, $tone }) =>
+    $tone === 'strength' ? theme.colors.success.main : theme.colors.error.main};
+  border-radius: ${({ theme }) => theme.radius.md};
+  font-size: 8px;
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 `;
 
@@ -199,11 +205,11 @@ const TopList = ({
     {items.map((item, index) => (
       <ItemRow key={item.factorName} $tone={tone} $isNew={item.isNew}>
         <Rank>{index + 1}</Rank>
-        <div>
+        <TitleRow>
           <ItemName>{item.factorName}</ItemName>
-          {item.isNew && <NewBadge>NEW</NewBadge>}
-        </div>
-        <Category $tone={tone}>#{item.parentCategory}</Category>
+          <Category $tone={tone}>#{item.parentCategory}</Category>
+          {item.isNew && <NewBadge $tone={tone}>NEW</NewBadge>}
+        </TitleRow>
         <Definition>{item.definition}</Definition>
       </ItemRow>
     ))}

@@ -1,7 +1,8 @@
 /**
  * v2 LNB 스코프 트리 (P1-5)
  *
- * 전체 → 반(아코디언) → 학생 3레벨. 선택은 LayoutContext의 selectAll/selectClass/selectStudent로,
+ * LNB에는 반(아코디언) → 학생만 노출하고, 반 미선택 상태는 내부적으로 전체 스코프를 유지한다.
+ * 선택은 LayoutContext의 selectClass/selectStudent로,
  * 데이터는 React Query(useMyGroupsQuery/useGroupMembersQuery)로 직접 소비한다.
  * 현재 메뉴가 학생 스코프를 지원하지 않으면(currentMenuConfig.student=false) 반 펼침·학생 목록을 숨긴다.
  * 프로토타입의 MOCK 데이터는 이식하지 않는다.
@@ -60,29 +61,6 @@ const SectionLabel = styled.div`
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
   color: ${({ theme }) => theme.colors.gray[400]};
   letter-spacing: 0.02em;
-`;
-
-const RowButton = styled.button<{ $active: boolean }>`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 9px 10px;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  text-align: left;
-  background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.primary[100] : 'transparent'};
-  color: ${({ theme, $active }) => ($active ? theme.colors.primary[600] : theme.colors.gray[900])};
-  border: none;
-  border-radius: ${({ theme }) => theme.radius.md};
-  cursor: pointer;
-  transition: background-color ${({ theme }) => theme.transitions.fast};
-
-  &:hover {
-    background-color: ${({ theme, $active }) =>
-      $active ? theme.colors.primary[100] : theme.colors.gray[100]};
-  }
 `;
 
 const ClassScrollArea = styled.div`
@@ -269,7 +247,6 @@ export const ScopeTree: React.FC = () => {
   const {
     scope,
     currentMenuConfig,
-    selectAll,
     selectClass,
     selectStudent,
     expandedClassId,
@@ -325,17 +302,6 @@ export const ScopeTree: React.FC = () => {
       <GroupMgmtButton onClick={() => openMypageGroups('list')}>그룹관리</GroupMgmtButton>
 
       <Divider />
-
-      {!currentMenuConfig.hideAllMenuItem && (
-        <>
-          <RowButton $active={scope.level === 'all'} onClick={selectAll}>
-            <span>전체</span>
-            {scope.level === 'all' && <Dot />}
-          </RowButton>
-
-          <Divider />
-        </>
-      )}
 
       <SectionLabel>반 목록</SectionLabel>
 
