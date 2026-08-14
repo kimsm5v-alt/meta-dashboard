@@ -35,7 +35,7 @@ interface RawDraftDetail {
 export interface SaveDraftPayload {
   studentId: string;
   classId: string;
-  status: DraftStatus;
+  status: Exclude<DraftStatus, 'EMPTY'>;
   content?: string;
   strengths?: string[];
   improvements?: string[];
@@ -87,7 +87,7 @@ export const schoolRecordApi = {
       studentId: payload.studentId,
       classId: payload.classId,
       // EMPTY는 서버에 행이 없는 상태를 뜻하는 프런트 전용 값이라 절대 전송되지 않는다(types.ts 주석 참고).
-      status: DRAFT_STATUS_CODE[payload.status as Exclude<DraftStatus, 'EMPTY'>],
+      status: DRAFT_STATUS_CODE[payload.status],
       content: payload.content,
       strengths: payload.strengths,
       improvements: payload.improvements,
