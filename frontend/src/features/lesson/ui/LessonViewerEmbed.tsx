@@ -21,8 +21,7 @@ const EmbedHost = styled.div`
 `;
 
 export type LessonViewerEmbedProps = {
-  /** Platform slideId (Viewer 전용 — Editor openSet/CBS setId와 다름) */
-  slideId: string;
+  setId: string;
   onSlideChanged?: (payload: SlideChangedPayload) => void;
   onCompleted?: (payload: CompletedPayload) => void;
   onExitRequested?: (payload: { reason?: 'userClose' | 'done' }) => void;
@@ -35,7 +34,7 @@ export type LessonViewerEmbedProps = {
  * getSsoToken / openSet 미사용.
  */
 export const LessonViewerEmbed = ({
-  slideId,
+  setId,
   onSlideChanged,
   onCompleted,
   onExitRequested,
@@ -51,7 +50,7 @@ export const LessonViewerEmbed = ({
     options: {
       embedBaseUrl: ENV.EVERYCLASS_EMBED_BASE_URL,
       mode: 'viewer',
-      slideId,
+      slideId: setId,
       // getToken: () => fetchEmbedToken({ scope: 'viewer', slideId }),
       locale: 'ko-KR',
       theme: embedTheme,
@@ -63,7 +62,7 @@ export const LessonViewerEmbed = ({
     },
     onReady,
     onError,
-    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, slideId],
+    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, setId],
   });
 
   return (

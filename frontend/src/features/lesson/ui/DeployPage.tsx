@@ -36,7 +36,7 @@ const nextWeek = new Date(today);
 nextWeek.setDate(today.getDate() + 7);
 
 export const DeployPage = () => {
-  const { itemId } = useParams<{ itemId: string }>();
+  const { setId } = useParams<{ setId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -51,8 +51,8 @@ export const DeployPage = () => {
   // ResourceCard navigate state.item 우선. mock find는 보류(추가계획9).
   const stateItem = (location.state as DeployPageLocationState | null)?.item;
   const item: LibItem | undefined =
-    stateItem && (!itemId || stateItem.id === itemId) ? stateItem : undefined;
-  // const item = MOCK_LIBRARY_ITEMS.find((x) => x.id === itemId);
+    stateItem && (!setId || stateItem.id === setId) ? stateItem : undefined;
+  // const item = MOCK_LIBRARY_ITEMS.find((x) => x.id === setId);
 
   const presetClassId = searchParams.get('class') ?? '';
   const [classes, setClasses] = useState<string[]>(presetClassId ? [presetClassId] : []);
@@ -110,7 +110,7 @@ export const DeployPage = () => {
   //   );
   // }
 
-  const previewTitle = item?.title ?? itemId ?? '콘텐츠';
+  const previewTitle = item?.title ?? setId ?? '콘텐츠';
 
   return (
     <Page>
@@ -294,11 +294,11 @@ export const DeployPage = () => {
                   onClick={
                     deployed.isLive
                       ? () => {
-                          if (!itemId) {
+                          if (!setId) {
                             toast.error('콘텐츠 ID가 없습니다');
                             return;
                           }
-                          navigate(`/lesson/viewer/${itemId}`);
+                          navigate(`/lesson/viewer/${setId}`);
                         }
                       : goToReports
                   }

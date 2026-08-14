@@ -26,7 +26,7 @@ export type LessonEditorEmbedProps = {
    * CBS 세트지 id (= LMS `lcmsSetId` / CMS `setId`).
    * 있으면 ready 후 `openSet(setId)`. 없으면 신규(`/embed/editor/new`).
    */
-  openSet?: string;
+  setId?: string;
   onSaved?: (payload: SavedPayload) => void;
   onStartLesson?: (payload: StartLessonPayload) => void;
   onExitRequested?: (payload: { reason?: 'userClose' | 'done' }) => void;
@@ -35,11 +35,11 @@ export type LessonEditorEmbedProps = {
 };
 
 /**
- * everyCanvas SlideEditor 래퍼 (SDK 1.5.0 · openSet).
+ * everyCanvas SlideEditor 래퍼 (SDK 1.5.0 · setId -> openSet).
  * Host는 `onSaved`로 LMS 등록 등을 처리한다.
  */
 export const LessonEditorEmbed = ({
-  openSet,
+  setId,
   onSaved,
   onStartLesson,
   onExitRequested,
@@ -64,7 +64,7 @@ export const LessonEditorEmbed = ({
         showExit: true,
       },
     },
-    openSetId: openSet,
+    setId: setId,
     handlers: {
       saved: (p) => onSaved?.(p as SavedPayload),
       startLesson: (p) => onStartLesson?.(p as StartLessonPayload),
@@ -72,7 +72,7 @@ export const LessonEditorEmbed = ({
     },
     onReady,
     onError,
-    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, openSet ?? '__new__'],
+    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, setId ?? '__new__'],
   });
 
   return (

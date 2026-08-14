@@ -37,14 +37,14 @@ export const LessonEditorPage = () => {
   };
 
   const handleError = (error: EmbedError) => {
-    if (import.meta.env.DEV) {
-      console.warn('[LessonEditorPage] embed error', error.code, error.message);
-    }
+    // if (import.meta.env.DEV) {
+    console.warn('[LessonEditorPage] embed error', error.code, error.message);
+    // }
   };
 
   return (
     <LessonEditorEmbed
-      openSet={setId}
+      setId={setId}
       onSaved={handleSaved}
       onStartLesson={handleStartLesson}
       onExitRequested={() => navigate(-1)}

@@ -17,7 +17,7 @@ type UseEveryCanvasEmbedParams = {
    * Editor(SDK 1.5): ready 후 `handle.openSet(setId)` 호출.
    * CBS 세트지 id (= lcmsSetId). 없으면 신규(`/embed/editor/new` 경로).
    */
-  openSetId?: string;
+  setId?: string;
   onReady?: () => void;
   onError?: (error: EmbedError) => void;
   onResize?: (payload: { height: number }) => void;
@@ -40,7 +40,7 @@ const KNOWN_EVENTS = [
 export function useEveryCanvasEmbed({
   options,
   handlers = {},
-  openSetId,
+  setId,
   onReady,
   onError,
   onResize,
@@ -49,7 +49,7 @@ export function useEveryCanvasEmbed({
   const containerRef = useRef<HTMLDivElement>(null);
   const optionsRef = useRef(options);
   const handlersRef = useRef(handlers);
-  const openSetIdRef = useRef(openSetId);
+  const openSetIdRef = useRef(setId);
   const onReadyRef = useRef(onReady);
   const onErrorRef = useRef(onError);
   const onResizeRef = useRef(onResize);
@@ -57,7 +57,7 @@ export function useEveryCanvasEmbed({
   useEffect(() => {
     optionsRef.current = options;
     handlersRef.current = handlers;
-    openSetIdRef.current = openSetId;
+    openSetIdRef.current = setId;
     onReadyRef.current = onReady;
     onErrorRef.current = onError;
     onResizeRef.current = onResize;
@@ -95,6 +95,7 @@ export function useEveryCanvasEmbed({
         handle.onReady(() => {
           onReadyRef.current?.();
           const setId = openSetIdRef.current;
+          console.log('[useEveryCanvasEmbed] onReady] ', setId, handle?.openSet);
           if (setId && typeof handle?.openSet === 'function') {
             void handle.openSet(setId);
           }

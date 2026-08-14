@@ -87,17 +87,6 @@ export const LessonMyPage = () => {
       <ListWrap>
         <ResourceCardList items={items} variant='my' onDelete={handleDelete} />
       </ListWrap>
-      {/* 
-      <Toolbar>
-        <Button
-          variant='outline'
-          size='md'
-          onClick={() => navigate(`/lesson/viewer/${SLIDE_ID}`)}
-          type='button'
-        >
-          수업하기
-        </Button>
-      </Toolbar> */}
     </Page>
   );
 };
