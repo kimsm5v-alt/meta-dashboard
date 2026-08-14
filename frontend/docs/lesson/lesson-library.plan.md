@@ -492,21 +492,48 @@ FilterPanel과 동일: 공통 불일치 시 feature 로컬 Emotion.
 
 ### 6.1 `LibItem` (프론트 모델)
 
-프로토타입 필드를 참고하되 API 대비 영문/안정 키로 정리.
+프로토타입 `LibItem`(`prototype/.../types.ts` · `mock-data.ts` `LIB`)을 참고하되, API/FE는 영문·안정 키로 정리.
+
+**프로토타입 → FE 필드 매핑**
+
+| prototype | FE | 비고 |
+| --- | --- | --- |
+| `id` | `id` | CMS `setId` / 목업 id |
+| — | `refSetId?` | 나의 자료(LMS ref-set) 전용. prototype `LIB`에는 없음 |
+| `title` | `title` | |
+| `thumb?` | `thumbnailUrl?` | 카드 썸네일 URL. 없으면 `colorGroup` 그라데이션 fallback |
+| `src` | `src?` | prototype은 한글(`검증`…), FE는 `'verified' \| …` |
+| `sel` | `selArea?` | |
+| `g` | `colorGroup?` | `'g1'`…`'g6'` |
+| `em` | (미이식) | 구 이모지 썸네일. 카드 미렌더 — FE에 두지 않음 |
+| `views?` / `saves?` / `reason?` | 동명 optional | |
+| `provider?` / `level?` / `grade?` / `duration?` / `factors?` | 동명 optional | LIB back-fill · taxonomy 필터용 |
+| — | `createdAt?` | LMS/CMS 생성 시각. prototype `MyLesson.updated`(MM/DD) 대체 |
+
+**필수(필요) 필드**: `id`, `refSetId?`(나의 자료 시), `title`, `thumbnailUrl?`  
+**그 외**: 모두 선택. DTO/mapper가 채울 수 있을 때만 설정.
 
 ```ts
 export type LibrarySrc = 'verified' | 'unverified' | 'external' | 'internal';
 // 표시 라벨: 검증 / 비검증 / 외부 / 내부
 
+export type LibraryColorGroup = 'g1' | 'g2' | 'g3' | 'g4' | 'g5' | 'g6';
+
 export interface LibItem {
+  // --- 필요 필드 (카드·연동 최소) ---
   id: string;
+  refSetId?: string;       // 나의 자료(LMS ref-set). 자료실 CMS 목록에는 없음
   title: string;
-  src: LibrarySrc;
-  selArea: string;       // prototype: sel
-  colorGroup?: string;   // 썸네일 톤
+  thumbnailUrl?: string;   // prototype: thumb. CMS/options 썸네일
+
+  // --- 선택 (필터·배지·톤·통계) ---
+  src?: LibrarySrc;        // prototype: src (한글 → 영문 코드)
+  selArea?: string;        // prototype: sel
+  colorGroup?: LibraryColorGroup; // prototype: g — thumb 없을 때 fallback
   views?: number;
   saves?: number;
   reason?: string;
+  createdAt?: string;      // LMS/CMS 생성 시각 (ISO). UI는 필요 시 MM/DD 포맷
   provider?: string;
   level?: string[];
   grade?: string[];
@@ -515,7 +542,15 @@ export interface LibItem {
 }
 ```
 
-DTO가 확정되면 service mapper만 교체. Grid/Card props는 `LibItem[]` 유지.
+DTO가 확정되면 service mapper만 교체. Grid/Card props는 `LibItem[]` 유지.  
+> **코드 반영**: `types.ts` / `ResourceCard` thumb 렌더 등은 별도 작업. 본 절은 계약 문서 갱신.
+
+프로토타입 `LIB` 예시(참고):
+
+```ts
+{ id: 'l1', title: '언제나 처음은 낯설다', src: '검증', sel: '자기관리',
+  views: 1240, saves: 328, g: 'g1', em: '🌱', thumb: '/lesson/theme-1/thumb.jpg' }
+```
 
 ### 6.2 목업 데이터
 
@@ -772,7 +807,7 @@ LessonMyPage
 | props | 자료실 (`library`) | 나의 자료 (`my`) |
 |-------|-------------------|------------------|
 | `variant` | `'library'` (기본) | `'my'` |
-| 카드 본문 | src/SEL 뱃지 (+ reason) | `수정 {updated}` |
+| 카드 본문 | src/SEL 뱃지 (+ reason) | `수정 {createdAt}` (표시 시 MM/DD 포맷 가능) |
 | 빈 상태 문구 | 조건에 맞는 콘텐츠가 없습니다. | 아직 만든 세트지가 없어요. … |
 | 빈 상태 아이콘 | `SearchX` | `Inbox` |
 | CTA | 수정하기 / 시작하기 (UI만) | 동일 + 썸네일 삭제 버튼(`onDelete`) |
@@ -782,8 +817,8 @@ LessonMyPage
 // emptyMessage 로 문구 오버라이드 가능
 ```
 
-- `LibItem.updated?: string` — my 모드 표시용
-- 목업: `features/lesson/model/mockLibraryItems.ts` (`MOCK_LIBRARY_ITEMS`, `updated` 포함)
+- `LibItem.createdAt?: string` — my 모드 표시용 (LMS/CMS ISO). prototype `updated`(MM/DD) 대체
+- 목업: `features/lesson/model/mockLibraryItems.ts` (`MOCK_LIBRARY_ITEMS`, `createdAt` 포함)
 
 ---
 
@@ -791,9 +826,9 @@ LessonMyPage
 
 ### Phase A — 목업 (완료)
 
-1. [x] `ResourceCardVariant`, `LibItem.updated`
+1. [x] `ResourceCardVariant`, `LibItem.createdAt` (`updated` → `createdAt`)
 2. [x] `ResourceCard` / `ResourceCardList`에 `variant`·`emptyMessage`
-3. [x] `MOCK_LIBRARY_ITEMS`에 `updated` 통합 (별도 my 목업 파일 없음)
+3. [x] `MOCK_LIBRARY_ITEMS`에 `createdAt` 통합 (별도 my 목업 파일 없음)
 4. [x] `LessonMyPage` ContentsHeader 아래 목록 배치 (Toolbar·Embed 유지)
 5. [x] barrel export
 6. [x] `tsc` / ESLint
@@ -825,7 +860,7 @@ LessonMyPage
 | 프로토타입 | `prototype/.../my-lessons/MyDataView.tsx`, `MyLessonCard.tsx` |
 | 목업 원본 | `prototype/.../mock-data.ts` (`MY`) |
 | 공통 목록 | `frontend/.../ui/ResourceCardList.tsx`, `ResourceCard.tsx` |
-| 목업 | `frontend/.../model/mockLibraryItems.ts` (`updated` 포함) |
+| 목업 | `frontend/.../model/mockLibraryItems.ts` (`createdAt` 포함) |
 | 페이지 | `frontend/.../pages/lesson/LessonMyPage.tsx` |
 
 ---
@@ -1464,7 +1499,8 @@ export function useRegisterRefSetMutation() {
 
 ### 4.4 `features/lesson/model/mapRefSetToLibItem.ts` — **추후 연동 Phase**
 
-`RefSetItem`(LMS DTO) → `LibItem`(UI view-model). 카드 제목·썸네일은 `options`에서 읽는다.  
+`RefSetItem`(LMS `GET /api/ref-set`) → `LibItem`.  
+매핑: `id←lcmsSetId`, `refSetId←refSetId`, `title←options.title`, `thumbnailUrl←options.thumbnailUrl`, `createdAt←createdAt`.  
 `ResourceCardList` 연결은 **이번 구현 범위에서 제외**(골격만).
 
 ```ts
@@ -1479,16 +1515,14 @@ function pickColorGroup(id: string): LibraryColorGroup {
 }
 
 export function mapRefSetToLibItem(item: RefSetItem): LibItem {
-  const date = new Date(item.createdAt);
-  const updated = `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
   return {
     id: item.lcmsSetId,
     refSetId: item.refSetId,
     title: item.options?.title ?? '',
     thumbnailUrl: item.options?.thumbnailUrl,
+    createdAt: item.createdAt,
     src: 'internal',
     colorGroup: pickColorGroup(item.refSetId),
-    updated,
   };
 }
 ```
@@ -1496,7 +1530,7 @@ export function mapRefSetToLibItem(item: RefSetItem): LibItem {
 ### 4.5 `LibItem` (`features/lesson/model/types.ts`)
 
 필수: `id`, `title`. `refSetId`는 나의 자료(ref-set) 연동 시 사용(선택).  
-`src` / `selArea` / `colorGroup` 포함 그 외 필드는 모두 선택.
+`src` / `selArea` / `colorGroup` 포함 그 외 필드는 모두 선택. (`updated` → `createdAt` 로 통일)
 
 ```ts
 export interface LibItem {
@@ -1510,7 +1544,7 @@ export interface LibItem {
   views?: number;
   saves?: number;
   reason?: string;
-  updated?: string;
+  createdAt?: string;
   provider?: string;
   level?: string[];
   grade?: string[];
@@ -1590,8 +1624,8 @@ export type {
 | `features/lesson/api/queryKeys.ts` | **구현 완료** | `lessonKeys` factory |
 | `features/lesson/api/lmsRefSetService.ts` | **수정 완료** | `RefSetOptions`·`options` 계약. `title`/`subjectCd`/`schoolLevelCd` 제거 |
 | `features/lesson/api/queries.ts` | **구현 완료** | `useRefSetListQuery`, `useRegisterRefSetMutation` (cache 기반 중복 방지) |
-| `features/lesson/model/types.ts` | **수정 완료** | `LibItem`: `id`·`title` 필수, `src`/`selArea`/`colorGroup` 등 선택 |
-| `features/lesson/model/mapRefSetToLibItem.ts` | **수정 완료** | `options.title`/`thumbnailUrl` 매핑 |
+| `features/lesson/model/mapRefSetToLibItem.ts` | **수정 완료** | `id←lcmsSetId`, `refSetId`, `title/thumbnailUrl←options`, `createdAt←createdAt` |
+| `features/lesson/model/types.ts` | **수정 완료** | `LibItem`: `id`·`title` 필수, `updated`→`createdAt`, 나머지 선택 |
 | `features/lesson/ui/ResourceCard.tsx` | **수정 완료** | optional `src`/`selArea`/`colorGroup` 가드 |
 | `features/lesson/model/matchLibraryFilters.ts` | **수정 완료** | optional `selArea` 가드 |
 | `pages/lesson/LessonEditorPage.tsx` | **수정 완료** | `options: { title, thumbnailUrl? }` POST |

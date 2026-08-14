@@ -10,18 +10,16 @@ function pickColorGroup(id: string): LibraryColorGroup {
 
 /**
  * LMS RefSetItem → LibItem.
- * 카드 제목·썸네일은 `options`(meta-dashboard 계약)에서 읽는다.
+ * id←lcmsSetId, refSetId←refSetId, title/thumbnailUrl←options, createdAt←createdAt
  */
 export function mapRefSetToLibItem(item: RefSetItem): LibItem {
-  const date = new Date(item.createdAt);
-  const updated = `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
   return {
     id: item.lcmsSetId,
     refSetId: item.refSetId,
     title: item.options?.title ?? '',
     thumbnailUrl: item.options?.thumbnailUrl,
+    createdAt: item.createdAt,
     src: 'internal',
     colorGroup: pickColorGroup(item.refSetId),
-    updated,
   };
 }

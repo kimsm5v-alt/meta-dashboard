@@ -2,8 +2,8 @@ import styled from '@emotion/styled';
 import { Trash2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@shared/ui/Button/Button';
-import type { LibItem, LibraryColorGroup, LibrarySrc, ResourceCardVariant } from '../model/types';
-import { LIBRARY_SRC_LABELS } from '../model/types';
+import { formatCreatedAt } from '../lib/formatCreatedAt';
+import type { LibItem, LibraryColorGroup, ResourceCardVariant } from '../model/types';
 
 const COLOR_GROUP_BG: Record<LibraryColorGroup, string> = {
   g1: 'linear-gradient(135deg, #e7f8f2, #f0fbf7)',
@@ -20,6 +20,11 @@ interface ResourceCardProps {
   onDelete?: (id: string) => void;
 }
 
+/**
+ * 자료실/나의 자료 카드.
+ * prototype ResourceCard · MyLessonCard · CardThumb UI 동등 (Emotion 재구현).
+ * 썸네일(이미지 또는 colorGroup fallback) → 제목 → (my: 수정일) → 액션.
+ */
 export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCardProps) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,6 +33,9 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
   return (
     <Shell>
       <Thumb $group={colorGroup}>
+        {item.thumbnailUrl ? (
+          <ThumbImage src={item.thumbnailUrl} alt={item.title} loading='lazy' />
+        ) : null}
         {variant === 'my' ? (
           <DeleteButton
             type='button'
@@ -41,29 +49,17 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
             <Trash2 size={14} strokeWidth={2} aria-hidden />
           </DeleteButton>
         ) : null}
-        <ThumbTitle>{item.title}</ThumbTitle>
       </Thumb>
-      <Body>
+      <Body $variant={variant}>
+        <Title title={item.title}>{item.title}</Title>
         {variant === 'my' ? (
-          <UpdatedMeta>수정 {item.updated ?? '-'}</UpdatedMeta>
-        ) : (
-          <>
-            {item.src || item.selArea ? (
-              <Badges>
-                {item.src ? (
-                  <SrcBadge $src={item.src}>{LIBRARY_SRC_LABELS[item.src]}</SrcBadge>
-                ) : null}
-                {item.selArea ? <SelBadge>{item.selArea}</SelBadge> : null}
-              </Badges>
-            ) : null}
-            {item.reason ? <Reason>{item.reason}</Reason> : null}
-          </>
-        )}
+          <UpdatedMeta>수정 {formatCreatedAt(item.createdAt)}</UpdatedMeta>
+        ) : null}
         <Actions>
           <Button
             type='button'
             variant='outline'
-            size='md'
+            size='xs'
             fullWidth
             onClick={() => navigate(`/lesson/editor/${item.id}`)}
           >
@@ -72,7 +68,7 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
           <Button
             type='button'
             variant='primary'
-            size='md'
+            size='xs'
             fullWidth
             onClick={() => navigate(`/lesson/deploy/${item.id}${location.search}`)}
           >
@@ -106,12 +102,16 @@ const Shell = styled.article`
 
 const Thumb = styled.div<{ $group: LibraryColorGroup }>`
   position: relative;
-  display: flex;
   aspect-ratio: 16 / 9;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
   background: ${({ $group }) => COLOR_GROUP_BG[$group]};
+`;
+
+const ThumbImage = styled.img`
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 `;
 
 const DeleteButton = styled.button`
@@ -125,7 +125,7 @@ const DeleteButton = styled.button`
   padding: ${({ theme }) => theme.spacing.xs};
   border: none;
   border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.colors.background.paper}b3;
+  background: ${({ theme }) => theme.colors.background.paper}cc;
   color: ${({ theme }) => theme.colors.error.main};
   cursor: pointer;
   transition: background-color ${({ theme }) => theme.transitions.fast};
@@ -135,77 +135,22 @@ const DeleteButton = styled.button`
   }
 `;
 
-const ThumbTitle = styled.div`
-  display: -webkit-box;
-  max-width: 100%;
-  padding: 0 ${({ theme }) => theme.spacing.md};
-  overflow: hidden;
-  color: ${({ theme }) => theme.colors.gray[800]};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  line-height: ${({ theme }) => theme.typography.lineHeight.tight};
-  text-align: center;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-`;
-
-const Body = styled.div`
+const Body = styled.div<{ $variant: ResourceCardVariant }>`
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: ${({ theme, $variant }) => ($variant === 'my' ? '6px' : theme.spacing.sm)};
   padding: ${({ theme }) => theme.spacing.md};
 `;
 
-const Badges = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-`;
-
-const SrcBadge = styled.span<{ $src: LibrarySrc }>`
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: ${({ theme }) => theme.radius.full};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-
-  ${({ $src, theme }) => {
-    switch ($src) {
-      case 'verified':
-        return `
-          background: ${theme.colors.success.light};
-          color: ${theme.colors.success.dark};
-        `;
-      case 'unverified':
-        return `
-          background: ${theme.colors.warning.light};
-          color: ${theme.colors.warning.dark};
-        `;
-      case 'external':
-        return `
-          background: ${theme.colors.info.light};
-          color: ${theme.colors.info.dark};
-        `;
-      default:
-        return `
-          background: ${theme.colors.gray[100]};
-          color: ${theme.colors.gray[600]};
-        `;
-    }
-  }}
-`;
-
-const SelBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: ${({ theme }) => theme.radius.full};
-  background: ${({ theme }) => theme.colors.primary[50]};
-  color: ${({ theme }) => theme.colors.primary[600]};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+const Title = styled.div`
+  overflow: hidden;
+  color: ${({ theme }) => theme.colors.gray[900]};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  line-height: ${({ theme }) => theme.typography.lineHeight.tight};
+  white-space: nowrap;
+  text-overflow: ellipsis;
 `;
 
 const UpdatedMeta = styled.p`
@@ -214,20 +159,9 @@ const UpdatedMeta = styled.p`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
-const Reason = styled.p`
-  margin: 0;
-  display: -webkit-box;
-  overflow: hidden;
-  color: ${({ theme }) => theme.colors.gray[500]};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  line-height: ${({ theme }) => theme.typography.lineHeight.relaxed};
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-`;
-
 const Actions = styled.div`
   display: flex;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: 6px;
   margin-top: auto;
   padding-top: ${({ theme }) => theme.spacing.xs};
 `;
