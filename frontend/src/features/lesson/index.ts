@@ -1,4 +1,5 @@
 export { FilterPanel } from './ui/FilterPanel';
+export { DeployPage } from './ui/DeployPage';
 export { ResourceCardList } from './ui/ResourceCardList';
 export { ResourceCard } from './ui/ResourceCard';
 export { LessonEditorEmbed } from './ui/LessonEditorEmbed';
@@ -8,6 +9,10 @@ export type { LessonViewerEmbedProps } from './ui/LessonViewerEmbed';
 export { useLibraryFilters } from './model/useLibraryFilters';
 export { matchLibraryItem, sortLibraryItems } from './model/matchLibraryFilters';
 export { MOCK_LIBRARY_ITEMS } from './model/mockLibraryItems';
+export { useRefSetListQuery, useRegisterRefSetMutation, useCmsSetListQuery } from './api/queries';
+export type { RefSetItem, RegisterRefSetBody, RefSetListData } from './api/lmsRefSetService';
+export type { CmsSetItem, CmsSetListParams } from './api/cmsSetService';
+export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 export type {
   FilterAxis,
   LibFilters,
@@ -25,6 +30,7 @@ export type {
   SlideChangedPayload,
   CompletedPayload,
   EmbedError,
+  StartLessonPayload,
 } from './lib/everyCanvasEmbedSdk';
 export {
   FILTER_AXIS_LABELS,

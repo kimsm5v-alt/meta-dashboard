@@ -44,7 +44,10 @@ export type LibraryColorGroup = 'g1' | 'g2' | 'g3' | 'g4' | 'g5' | 'g6';
 /** 자료실 목록 카드 모델 (API DTO와 분리 — Phase B에서 mapper로 채움) */
 export interface LibItem {
   id: string;
+  refSetId?: string;
   title: string;
+  /** CMS 썸네일 URL — 선택. UI 반영은 추후 */
+  thumbnailUrl?: string;
   src: LibrarySrc;
   selArea: string;
   colorGroup: LibraryColorGroup;

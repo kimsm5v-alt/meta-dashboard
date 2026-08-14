@@ -2,6 +2,9 @@ import { useMemo } from 'react';
 import styled from '@emotion/styled';
 import {
   ResourceCardList,
+  useCmsSetListQuery,
+  mapCmsSetToLibItem,
+  // MOCK 복구 시 아래 import 주석 해제
   MOCK_LIBRARY_ITEMS,
   matchLibraryItem,
   sortLibraryItems,
@@ -14,44 +17,51 @@ interface LessonLibraryContentsProps {
 }
 
 const Contents = styled.div`
-  margin-bottom: ${({ theme }) => theme.spacing.lg};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
-const Title = styled.h1`
+const ErrorText = styled.p`
   margin: 0;
-  color: ${({ theme }) => theme.colors.text.primary};
-  font-size: ${({ theme }) => theme.typography.fontSize.lg};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.extraBold};
-  line-height: ${({ theme }) => theme.typography.lineHeight.tight};
-`;
-
-const Description = styled.p`
-  margin: ${({ theme }) => theme.spacing.sm} 0 0;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  padding: ${({ theme }) => theme.spacing.md};
+  color: ${({ theme }) => theme.colors.error.main};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-`;
-
-const GridWrap = styled.div`
-  margin-top: ${({ theme }) => theme.spacing.md};
+  text-align: center;
 `;
 
 export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsProps) => {
-  const items = useMemo(
-    () =>
-      sortLibraryItems(
-        MOCK_LIBRARY_ITEMS.filter((item) => matchLibraryItem(item, filters)),
-        sort,
-      ),
-    [filters, sort],
-  );
+  const { data, isPending, isFetching, isError, error } = useCmsSetListQuery(filters, sort);
+  const items = useMemo(() => {
+    if (data) return data.map(mapCmsSetToLibItem);
+    return sortLibraryItems(
+      MOCK_LIBRARY_ITEMS.filter((item) => matchLibraryItem(item, filters)),
+      sort,
+    )
+  }, [data, filters, sort]);
+
+  // --- MOCK 경로 (필요 시 아래 주석 해제 + 위 CMS 훅 비활성) ---
+  // const items = useMemo(
+  //   () =>
+  //     sortLibraryItems(
+  //       MOCK_LIBRARY_ITEMS.filter((item) => matchLibraryItem(item, filters)),
+  //       sort,
+  //     ),
+  //   [filters, sort],
+  // );
+  // -----------------------------------------------------------
+
+  if (isError && items.length === 0) {
+    return (
+      <Contents>
+        <ErrorText role='alert'>
+          {error instanceof Error ? error.message : '세트 목록을 불러오지 못했습니다.'}
+        </ErrorText>
+      </Contents>
+    );
+  }
 
   return (
     <Contents>
-      <Title>전체 자료실</Title>
-      <Description>검증 · 비검증 · 내외부 SEL 콘텐츠를 함께 탐색합니다.</Description>
-      <GridWrap>
-        <ResourceCardList items={items} />
-      </GridWrap>
+      <ResourceCardList items={items} isLoading={isPending || isFetching} />
     </Contents>
   );
 };

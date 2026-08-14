@@ -9,9 +9,14 @@
 | **추가계획1** | `FilterPanel` UI + 로컬 필터 상태 | Phase 1 완료 / API 미착수 |
 | **추가계획2** | Contents Description 아래 자료 목록(`ResourceCardList`) + 필터 연동(목업) | Phase A 완료 / Phase B 대기 |
 | **추가계획3** | `LessonMyPage` 나의 자료 목록 — `ResourceCardList` `variant="my"` + 목업 | Phase A 완료 / API 대기 |
+| **추가계획4** | `ResourceCard` 시작하기 버튼 → 활동 배포 페이지 (`DeployPage`) 라우트 연결 | 계획 수립 완료 / 구현 대기 |
+| **추가계획5** | Editor/Viewer embed 독립 라우트 페이지 전환 + LessonEditorEmbed features 활성화 | 구현 완료 |
+| **추가계획6** | `onSaved` → `POST /api/ref-set` 자동 등록 + `LessonMyPage` `GET /api/ref-set` 목록 연동 | 구현 완료 (ResourceCardList 연결 제외) |
+| **추가계획7** | `ResourceCard` 수정하기 → `/lesson/editor/:slideId` 이동 (`item.id`) | 구현 완료 |
+| **추가계획8** | 전체 자료실 CMS `GET /api/sets` 연동 + 필터 재조회/레이스 처리 + loading UI | 구현 완료 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
-| **목록 API** | CMS `POST .../api/contents/setSearch` (임시 스펙) | 초안 수신 · 확정 전 |
+| **목록 API** | CMS `GET .../api/sets` (`brandId=18`, `serviceType=131132`) | 추가계획8 스펙 확정 · 필터 매핑 미적용 |
 
 ---
 
@@ -827,3 +832,1163 @@ LessonMyPage
 
 **작성일**: 2026-08-12  
 **상태**: Phase A(목업) 완료 / Phase B(API) 대기
+
+---
+
+# 추가계획4 — 활동 배포 페이지 (DeployPage) 연결
+
+> **목표**: `ResourceCard`의 시작하기 버튼 클릭 시 활동 배포 전용 페이지(`DeployPage`)가 열리도록 라우트를 구성하고, 프로토타입 `DeployOverlay.tsx`를 `frontend` FSD 구조로 구현한다.
+> **범위**: 라우트 추가 + 페이지 컴포넌트 + 기능 UI 컴포넌트. 실제 API 연동·배포 실행은 후속 Phase.
+> **준수**: `frontend/AGENTS.md` (FSD Lite, Emotion, 서버/로컬 상태 분리)
+
+---
+
+## 1. 현황 요약
+
+| 구분 | 위치 | 비고 |
+|------|------|------|
+| 프로토타입 기준 | `prototype/.../deploy/DeployOverlay.tsx` | Tailwind. UI 구성·문구·상태 기준. 코드 복사 금지 |
+| 시작하기 버튼 | `features/lesson/ui/ResourceCard.tsx` (60~62번 줄) | 현재 `onClick` 없음 |
+| 기존 자료 라우트 | `/lesson/library`, `/lesson/my`, `/lesson/result` | `routes.tsx` IA_V2 블록 내 |
+| 카드 모델 | `features/lesson/model/types.ts` — `LibItem.id: string` | itemId 기준 URL 구성 |
+
+---
+
+## 2. URL 구조
+
+```
+/lesson/deploy/:itemId
+```
+
+- `:itemId` = `LibItem.id` (카드 단위 고유 식별자)
+- `ResourceCard`의 시작하기 버튼이 `useNavigate('/lesson/deploy/${item.id}')` 로 이동
+- 추후 API 연동 시 이 `itemId`를 기준으로 콘텐츠 상세 조회
+
+---
+
+## 3. FSD 배치
+
+```
+pages/lesson/LessonDeployPage.tsx          (신규 — 라우트 진입점, 레이아웃 조합만)
+features/lesson/ui/DeployPage.tsx          (신규 — 활동 배포 UI 전체 구현)
+features/lesson/ui/index.ts               (기존 — DeployPage barrel export 추가)
+pages/index.ts                            (기존 — LessonDeployPage barrel export 추가)
+app/router/routes.tsx                     (기존 — /lesson/deploy/:itemId 라우트 추가)
+features/lesson/ui/ResourceCard.tsx       (기존 — 시작하기 버튼에 useNavigate 연결)
+```
+
+- `pages/lesson/LessonDeployPage.tsx`는 얇게 유지. styled component·로직 없음
+- `features/lesson/ui/DeployPage.tsx`가 실질적인 UI·상태를 담당
+
+---
+
+## 4. 프로토타입 → frontend 변환 기준
+
+| 프로토타입 요소 | frontend 처리 방침 |
+|------|------|
+| `overlay`, `closeOverlay`, `openOverlay` (Context) | 불필요. 독립 페이지이므로 `useNavigate(-1)`로 뒤로 이동 |
+| `fromEditor` 분기 (저작툴 브레드크럼) | Phase4 범위 외. 뒤로가기 버튼 단일 처리 |
+| `GROUP_BG`, `CLASSES`, `MY`, `findContent` (목업 임포트) | `useParams`로 `itemId` 획득 후 `MOCK_LIBRARY_ITEMS`에서 `item` 조회 |
+| Tailwind 클래스 | Emotion styled-component 또는 인라인 Emotion css로 재구현 |
+| `toast()` | `sonner`의 `toast` 또는 프로젝트 공통 토스트 방식 사용 |
+| `startLive` (`openOverlay({ kind: 'live' })`) | `() => {}` 로 남김 (SlideViewer 추후 구현) |
+| `goToReports` | `/lesson/result`로 `navigate` |
+| `doDeploy` | 로컬 상태만 변경 (목업). 실제 배포 API는 Phase B |
+
+---
+
+## 5. 뒤로가기 동작
+
+프로토타입 `DeployOverlay`의 `closeOverlay` / `backToEditor` 분기를 단순화한다.
+
+- 헤더 좌측 뒤로가기 버튼 클릭 → `navigate(-1)` (React Router)
+- 직접 URL 진입 시에도 브라우저 뒤로가기로 자연스럽게 이전 화면 복귀
+
+---
+
+## 6. 수업 시작하기 버튼 처리
+
+프로토타입 167~174번 줄의 `startLive` 호출 부분:
+
+```tsx
+// SlideViewer 연결은 추후 구현
+onClick={() => {}}
+```
+
+- 배포 완료 후 `deployed.isLive === true`인 경우 표시되는 버튼
+- 현재는 빈 핸들러로 남기고, 추후 SlideViewer 라우트 확정 시 연결
+
+---
+
+## 7. 상태 관리
+
+| 상태 | 종류 | 이유 |
+|------|------|------|
+| `itemId` 기반 아이템 조회 | 로컬 상수 (목업 단계) / React Query (API 단계) | 서버 상태로 전환 예정 |
+| `classes` (대상 반) | `useState` | 페이지 로컬 UI 상태 |
+| `dropOpen` | `useState` | 드롭다운 열림 여부 |
+| `mode` (period / live) | `useState` | 배포 방식 선택 |
+| `start`, `end` (기간) | `useState` | 날짜 선택 |
+| `deployed` (배포 결과) | `useState` | 배포 완료 후 결과 표시 |
+
+- 배포 반 목록(`CLASSES` 해당)은 목업 단계에서 상수로 관리
+
+---
+
+## 8. 구현 Phase
+
+### Phase A — 목업 (다음 구현 대상)
+
+1. `features/lesson/ui/DeployPage.tsx` 신규 작성 (Emotion, 프로토타입 UI 동등 구현)
+2. `pages/lesson/LessonDeployPage.tsx` 신규 작성 (얇은 페이지)
+3. `app/router/routes.tsx` — `/lesson/deploy/:itemId` 라우트 추가 (IA_V2 블록 내)
+4. `pages/index.ts` — `LessonDeployPage` barrel export 추가
+5. `features/lesson/ui/index.ts` — `DeployPage` barrel export 추가
+6. `features/lesson/ui/ResourceCard.tsx` — 시작하기 버튼에 `useNavigate` 연결
+7. `tsc` / ESLint 검증
+
+### Phase B — API (후속)
+
+1. 콘텐츠 상세 API (`GET /lesson/contents/:itemId`) 연동 → React Query
+2. 배포 실행 API (`POST /lesson/deploy`) 연동 → useMutation
+3. 실제 반 목록 API 연동
+4. 수업 시작하기 버튼 → SlideViewer 라우트 연결
+
+---
+
+## 9. 하지 말 것
+
+| 금지 | 이유 |
+|------|------|
+| `fromEditor` 분기 구현 | 저작툴 연동 범위 외 |
+| Tailwind 클래스 그대로 복사 | `frontend`는 Emotion 사용 |
+| `overlay` Context 재현 | 독립 페이지로 설계 변경됨 |
+| 수업 시작하기에 임시 경로 연결 | SlideViewer 스펙 미확정 |
+| Phase A에서 실제 배포 API | 스펙 미정·목업 우선 |
+
+---
+
+## 10. 참고 파일
+
+| 용도 | 경로 |
+|------|------|
+| 프로토타입 기준 | `prototype/src/features/resources/components/deploy/DeployOverlay.tsx` |
+| 카드 모델 | `frontend/src/features/lesson/model/types.ts` |
+| 목업 데이터 | `frontend/src/features/lesson/model/mockLibraryItems.ts` |
+| 라우트 | `frontend/src/app/router/routes.tsx` |
+| 기존 자료실 페이지 | `frontend/src/pages/lesson/LessonLibraryPage.tsx` |
+
+---
+
+## 11. 추가 구현 계획 — 실제 반 목록 API 연동 + LNB 선택 반 프리셋
+
+> **목표**: DeployPage의 MOCK_CLASSES를 실제 API 반 목록으로 교체하고, LNB에서 반이 선택된 채로 시작하기를 누르면 해당 반이 배포 대상으로 자동 선택된 상태로 진입한다.
+
+### 11-A. 실제 반 목록 API 연동
+
+**현황**
+
+`DeployPage.tsx`의 `MOCK_CLASSES`는 `['1반', '2반', '3반', '4반']` 문자열 상수다.
+실제 반 목록은 `useMyGroupsQuery`(`@features/api`)가 반환하는 `Group[]`를 사용한다.
+
+`Group` 타입 (`shared/types/index.ts`):
+
+```ts
+interface Group {
+  id: string;       // claId (= URL의 ?class= 값)
+  name: string;     // 반 이름 (표시용)
+  grade: number;
+  classNumber: number;
+  schoolName?: string;
+  // ...
+}
+```
+
+**구현 방식**
+
+- `DeployPage` 마운트 시 `useMyGroupsQuery`를 호출한다.
+  - `refetch`도 함께 구조분해한다(`refetch: refetchGroups`).
+  - 이 훅은 이미 React Query 캐시(`groupKeys.myGroups(userId)`)를 사용하므로, ScopeTree·AssessmentPage 등이 먼저 호출한 경우 네트워크 요청 없이 캐시에서 즉시 반환된다.
+  - `select`(드롭다운) 펼칠 때마다 API를 재호출하지 않는다. 훅 호출은 마운트 1회에 그친다.
+- 드롭다운 항목: `groups`를 순회하여 `g.id`(값) / `g.name`(표시) 기반으로 렌더링한다.
+- `classes` state는 `string[]`로 유지하되, 값은 `Group.id`(= `claId`)를 저장한다.
+- 드롭다운 상태별 표시:
+  - 로딩 중(`groupsLoading`): "반 목록 불러오는 중…"
+  - 오류(`groupsError`): "반 목록을 불러오지 못했습니다" + **다시 시도** 버튼 → `refetchGroups()` 호출
+  - 빈 목록(`groups.length === 0`): "반이 없습니다"
+  - 정상: `groups` 항목 렌더링
+
+**변경 파일**
+
+| 파일 | 변경 |
+|------|------|
+| `features/lesson/ui/DeployPage.tsx` | `MOCK_CLASSES` 상수 제거, `useMyGroupsQuery` 훅 추가, 드롭다운 항목 Group 기반으로 교체 |
+
+---
+
+### 11-B. LNB 선택 반 → DeployPage 프리셋
+
+**현황**
+
+- LNB(ScopeTree)에서 반을 선택하면 현재 페이지 URL에 `?class={claId}` 쿼리 파라미터가 붙는다.
+  예: `/lesson/library?class=abc-123`
+- `ResourceCard`의 시작하기 버튼은 현재 `navigate('/lesson/deploy/${item.id}')` 로 이동하며, `?class=` 정보를 전달하지 않는다.
+
+**구현 방식**
+
+#### Step 1 — ResourceCard: `?class=` 파라미터 전달
+
+`ResourceCard`에서 `useLocation`(react-router-dom)으로 현재 URL의 `search` 문자열을 그대로 읽어, 배포 페이지 이동 시 쿼리 파라미터 전체를 보존한다.
+
+```tsx
+const location = useLocation();
+
+// 시작하기 버튼 onClick
+navigate(`/lesson/deploy/${item.id}${location.search}`);
+```
+
+- `location.search`는 `?class=abc&student=xyz` 등 현재 URL의 쿼리 문자열 전체를 그대로 포함한다.
+- 쿼리 파라미터가 없는 경우(`location.search === ''`) 배포 페이지 URL에 쿼리 없이 이동한다.
+- `class`, `student` 파라미터를 개별적으로 처리하지 않으므로 향후 파라미터가 추가되어도 자동으로 전달된다.
+
+#### Step 2 — DeployPage: URL `?class=` 값으로 초기 선택 상태 구성
+
+`DeployPage` 마운트 시 `useSearchParams`로 `class` 파라미터를 읽고, 이를 `classes` state의 초기값으로 사용한다.
+
+```tsx
+const [searchParams] = useSearchParams();
+const presetClassId = searchParams.get('class') ?? '';
+
+const [classes, setClasses] = useState<string[]>(
+  presetClassId ? [presetClassId] : []
+);
+```
+
+- `useState` 초기값은 마운트 시 1회만 평가되므로 `useEffect` 없이 URL 파라미터를 반영할 수 있다.
+- 이 방식은 서버 상태가 아닌 UI 초기 선택값을 URL에서 가져오는 것이므로 AGENTS.md의 "effect로 만들지 않는다" 원칙과 충돌하지 않는다.
+- **`validClasses` 파생 계산**: `classes` state를 그대로 사용하지 않고, 렌더 시점에 `groups`에 실제 존재하는 항목만 필터링한 `validClasses`를 파생한다.
+  ```tsx
+  const validClasses = groupsLoading
+    ? classes               // 로딩 중에는 프리셋 유지
+    : classes.filter((id) => groups.some((g) => g.id === id));
+  ```
+  - 로딩 중에는 프리셋을 그대로 유지하여 UX 단절 없음.
+  - 로딩 완료 후 `groups`에 없는 ID(권한 없는 반 등)는 트리거 표시·배포 실행 모두에서 제외.
+- 드롭다운 트리거 텍스트, `$hasValue` 판정, `doDeploy` 검증·classesStr 모두 `validClasses` 기준으로 처리한다.
+- 사용자가 드롭다운에서 추가/제거하면 `classes` state가 일반적인 방식으로 업데이트된다.
+
+**변경 파일**
+
+| 파일 | 변경 |
+|------|------|
+| `features/lesson/ui/ResourceCard.tsx` | `useSearchParams` 추가, `navigate` 호출 시 `?class=` 파라미터 전달 |
+| `features/lesson/ui/DeployPage.tsx` | `useSearchParams` 추가, `classes` 초기값 URL 파라미터 기반으로 변경 |
+
+---
+
+**작성일**: 2026-08-13  
+**최종 수정**: 2026-08-13 (11-A·11-B 구현 완료, validClasses 파생 검증 로직 추가)  
+**상태**: Phase A(목업) 완료 / 11-A·11-B 구현 완료
+
+---
+
+# 추가계획5 — Editor / Viewer embed 독립 라우트 페이지 전환
+
+> **참조**: [`lesson-everycanvas-lms-integration.plan.md §4`](./lesson-everycanvas-lms-integration.plan.md), 특히 **§4.3.3 features 플래그 지침**  
+> **상태**: 구현 완료 (2026-08-13)
+
+## 1. 현황 및 문제점
+
+현재 `LessonMyPage`는 로컬 `mode` state로 embed 컴포넌트를 **인라인 렌더링**하고 있다.
+
+```
+LessonMyPage (GNB + LNB 있음)
+└─ mode === 'editor' → <LessonEditorEmbed>  (position:fixed + z-index:9999 오버레이)
+└─ mode === 'viewer' → <LessonViewerEmbed>  (position:fixed + z-index:9999 오버레이)
+```
+
+- GNB/LNB가 있는 Shell 레이아웃 위에 `z-index: 9999` fixed overlay로 가리는 방식 — 레이아웃 계층 의미상 부자연스럽고 포커스 트랩·접근성 문제 발생 가능
+- embed 컴포넌트가 직접 full-viewport styled 요소를 갖고 있어 다른 맥락에서 재사용하기 어려움
+- `TeacherFullscreenLayout`(GNB/LNB 없는 MinimalLayout)이 이미 존재하며, `LessonDeployPage` 등에서 활용 중
+
+## 2. 목표
+
+1. `LessonEditorEmbed` / `LessonViewerEmbed`를 **독립 route 페이지**로 분리 → `TeacherFullscreenLayout` 적용
+2. `slideId` 유무에 따라 editor 라우트 경로를 분기, viewer는 `slideId` 필수로 URL에 포함
+3. `LessonEditorEmbed`에 `features.showStartLesson`·`features.showExit` 활성화 (§4.3.3 지침 반영 — 독립 fullscreen 페이지에서는 Host UI 버튼 없으므로 iframe 내 버튼 노출이 적합)
+4. `LessonMyPage`에서 inline embed 제거 → `navigate`로 라우트 전환
+
+## 3. 라우트 설계
+
+| 화면 | 경로 | slideId | 비고 |
+|------|------|---------|------|
+| Editor (신규) | `/lesson/editor` | 없음 | `editor/new` 라우트로 연결 |
+| Editor (편집) | `/lesson/editor/:slideId` | 선택 | ID가 URL에 포함 |
+| Viewer | `/lesson/viewer/:slideId` | **필수** | ID 없으면 404 or 목록으로 리다이렉트 |
+
+> Editor는 `/lesson/editor`와 `/lesson/editor/:slideId` 두 경로를 같은 `LessonEditorPage`에 매핑한다. `useParams`로 `slideId` 존재 여부를 판단해 신규/편집 분기.
+
+## 4. 신규 Page 컴포넌트
+
+### 4.1 `pages/lesson/LessonEditorPage.tsx`
+
+```
+역할: SlideEditor 전용 fullscreen 페이지
+- useParams<{ slideId?: string }>()로 slideId 읽기
+- <LessonEditorEmbed slideId={slideId} … /> 마운트
+```
+
+| 이벤트 | Host 처리 |
+|--------|-----------|
+| `onExitRequested` | `navigate(-1)` — 이전 페이지(LessonMyPage)로 복귀 |
+| `onSaved` | 신규 첫 저장 시 `slideId` 발급 → `navigate('/lesson/editor/' + p.slideId, { replace: true })`로 URL 교체 (뒤로가기 스택 오염 방지) |
+| `onStartLesson` | 현재는 `console.log` 기록 후 no-op. 수업 화면 라우트 확정 후 `navigate('/lesson/viewer/' + p.lcmsSetId)` 등으로 교체 예정 |
+
+### 4.2 `pages/lesson/LessonViewerPage.tsx`
+
+```
+역할: SlideViewer 전용 fullscreen 페이지
+- useParams<{ slideId: string }>()로 slideId 읽기
+- slideId 미확보 시 <Navigate to="/lesson/my" replace />
+- <LessonViewerEmbed slideId={slideId} … /> 마운트
+```
+
+| 이벤트 | Host 처리 |
+|--------|-----------|
+| `onExitRequested` | `navigate(-1)` |
+| `onCompleted` | 현재는 no-op (결과 페이지 연동은 후속 Phase) |
+
+## 5. `app/router/routes.tsx` 변경
+
+`TeacherFullscreenLayout` 블록에 다음 3개 Route를 추가한다.
+
+```tsx
+<Route element={<TeacherFullscreenLayout />}>
+  <Route path='/lesson/deploy/:itemId' element={<LessonDeployPage />} />
+  {/* 추가계획5 */}
+  <Route path='/lesson/editor' element={<LessonEditorPage />} />
+  <Route path='/lesson/editor/:slideId' element={<LessonEditorPage />} />
+  <Route path='/lesson/viewer/:slideId' element={<LessonViewerPage />} />
+</Route>
+```
+
+> `@pages/index` 또는 직접 import 방식은 기존 `LessonDeployPage` 패턴(`import LessonDeployPage from '@pages/lesson/LessonDeployPage'`)을 따른다.
+
+## 6. `LessonMyPage.tsx` 변경
+
+| 현재 | 변경 후 |
+|------|---------|
+| `const [mode, setMode] = useState<Mode>('idle')` | 제거 |
+| `{mode === 'editor' && <LessonEditorEmbed />}` | 제거 |
+| `{mode === 'viewer' && <LessonViewerEmbed slideId={SLIDE_ID} />}` | 제거 |
+| `<Button onClick={() => setMode('editor')}>+ 새로 만들기</Button>` | `navigate('/lesson/editor')` |
+| `<Button onClick={() => setMode('viewer')}>수업하기</Button>` | `navigate('/lesson/viewer/' + SLIDE_ID)` |
+
+- `LessonEditorEmbed`, `LessonViewerEmbed` import 제거
+- `useNavigate` 추가
+
+## 7. `features/lesson/ui/LessonEditorEmbed.tsx` 변경 (요청 3)
+
+독립 fullscreen 페이지 전환에 따라 **Host 외부 버튼이 없으므로** iframe 내 '수업하기'·'나가기' 버튼을 활성화한다. (§4.3.3 지침 — 소비 서비스 자체 버튼과 중복 아닐 때만 켤 것)
+
+```tsx
+options: {
+  ...
+  features: {
+    showStartLesson: true,  // SDK 1.3.0 — '수업하기' 버튼 노출
+    showExit: true,         // SDK 1.4.0 — '나가기' 버튼 노출
+  },
+}
+```
+
+또한, `LessonEditorEmbed`에 `onExitRequested` prop을 배선하여 iframe 내 '나가기' 버튼 클릭 시 이전 페이지로 복귀하도록 한다. Page 레이어(`LessonEditorPage`)에서 아래와 같이 처리한다.
+
+```tsx
+<LessonEditorEmbed
+  slideId={slideId}
+  onExitRequested={() => navigate(-1)}
+  ...
+/>
+```
+
+아울러, `EditorContainer`의 `position: fixed; z-index: 9999` 스타일은 **독립 라우트 페이지에서는 불필요**하다. `TeacherFullscreenLayout`이 이미 전체 화면을 제공하므로, styled 컴포넌트를 단순 `width:100%; height:100%` 레이아웃으로 교체한다. (`LessonViewerEmbed`도 동일하게 정리 필요)
+
+## 8. `features/lesson/index.ts` 변경
+
+새 타입 `StartLessonPayload`가 페이지 레이어에서 필요하므로 export 추가.
+
+```ts
+export type { ..., StartLessonPayload } from './lib/everyCanvasEmbedSdk';
+```
+
+## 9. 변경 파일 목록
+
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `pages/lesson/LessonEditorPage.tsx` | **신규** | `useParams` → `LessonEditorEmbed` 마운트, 이벤트 → navigate |
+| `pages/lesson/LessonViewerPage.tsx` | **신규** | `useParams` → `LessonViewerEmbed` 마운트, 이벤트 → navigate |
+| `pages/lesson/LessonMyPage.tsx` | 수정 | `mode` state 제거, inline embed 제거, `useNavigate` 전환 |
+| `app/router/routes.tsx` | 수정 | `TeacherFullscreenLayout` 블록에 editor/viewer 3개 Route 추가 |
+| `features/lesson/ui/LessonEditorEmbed.tsx` | 수정 | `features.showStartLesson·showExit: true`, fixed overlay 스타일 제거 |
+| `features/lesson/ui/LessonViewerEmbed.tsx` | 수정 | fixed overlay 스타일 제거 (EditorEmbed와 동일 정리) |
+| `features/lesson/index.ts` | 수정 | `StartLessonPayload` export 추가 |
+
+## 10. 완료 기준
+
+- [x] `/lesson/editor` 접속 시 GNB/LNB 없는 전체 화면 Editor iframe 노출
+- [x] `/lesson/editor/:slideId` 접속 시 해당 슬라이드 편집 Editor iframe 노출
+- [x] `/lesson/viewer/:slideId` 접속 시 GNB/LNB 없는 전체 화면 Viewer iframe 노출
+- [x] `LessonMyPage` '+ 새로 만들기' 클릭 → `/lesson/editor` 이동
+- [x] `LessonMyPage` '수업하기' 클릭 → `/lesson/viewer/:slideId` 이동
+- [x] Editor iframe 내 '나가기' 클릭 → 이전 페이지 복귀
+- [x] Editor iframe 내 '수업하기' 클릭 → `onStartLesson` 콜백 실행 (현재 console.log)
+- [ ] `npx tsc -b --noEmit`, eslint 통과
+
+---
+
+# 추가계획6 — LMS ref-set API 연동 (`onSaved` 자동 등록 + 목록 조회)
+
+> **참조**: [`lesson-everycanvas-lms-integration.plan.md §3(나의 자료), §5.1, §5.3`](./lesson-everycanvas-lms-integration.plan.md)  
+> **상태**: 구현 완료 (ResourceCardList 연결 제외 — 추후 Phase)
+
+## 1. 현황 및 목표
+
+### 현황
+
+| 항목 | 현재 상태 |
+|------|-----------|
+| `LessonEditorPage.onSaved` | navigate 처리만. LMS 미연동 |
+| `LessonMyPage` 목록 | `MOCK_LIBRARY_ITEMS` 사용 중 |
+| `features/lesson/api/` | `embedTokenService.ts`만 존재. queryKeys·service·queries 없음 |
+| `shared/config/env.ts` | `VITE_SP_LMS_API_URL` 미추가 → **추가 완료** |
+
+### 목표
+
+1. `onSaved(p)` → `p.lcmsSetId` 있을 때 `POST /api/ref-set` 자동 등록 (중복 방지 포함)
+2. `LessonMyPage`에서 `GET /api/ref-set` 실제 데이터 조회 — `resultData.list` 취득까지만
+   - `ResourceCardList` 연결(mapper 포함)은 **추후 별도 확인 후 연동** (§4.4 참조)
+3. 기존 API 패턴(`queryKeys.ts` / service / `queries.ts`)에 맞는 구조로 구현
+
+## 2. 연동 흐름
+
+```
+[저작 저장 흐름]
+LessonEditorPage
+  └─ onSaved(p: SavedPayload)
+      ├─ p.lcmsSetId 있으면
+      │   ├─ GET cache 에서 동일 lcmsSetId 존재 여부 확인 (중복 방지)
+      │   ├─ 없으면 → registerRefSet({ lcmsSetId, title, subjectCd, schoolLevelCd, makeMethod })
+      │   │       └─ POST {ENV.SP_LMS_API_URL}/api/ref-set
+      │   │           └─ 성공 → lessonKeys.refSets() invalidate → 목록 자동 갱신
+      │   └─ 이미 있으면 → skip (중복 POST 방지)
+      └─ !slideId && p.slideId 있으면
+          └─ navigate(`/lesson/editor/${p.slideId}`, { replace: true }) (기존 로직 유지)
+
+[목록 조회 흐름]
+LessonMyPage (마운트)
+  └─ useRefSetListQuery()
+      └─ GET {ENV.SP_LMS_API_URL}/api/ref-set
+          └─ resultData.list → 취득 완료 (여기까지만 구현)
+              └─ ResourceCardList 연결 → 추후 별도 Phase (§4.4)
+```
+
+## 3. LMS 호출 경로 (확정)
+
+**직접 LMS 호출** 사용.
+
+| 항목 | 값 |
+|------|----|
+| LMS 도메인 | `http://t-gw.vschool.at/v1/lms` |
+| GET 엔드포인트 | `{ENV.SP_LMS_API_URL}/api/ref-set` |
+| POST 엔드포인트 | `{ENV.SP_LMS_API_URL}/api/ref-set` |
+| 인증 | SSO Bearer JWT (`getAuth().authorizedFetch`) |
+| env 변수 | `ENV.SP_LMS_API_URL` (기본값 `http://t-gw.vschool.at/v1/lms`) → **env.ts 추가 완료** |
+
+> `apiClient`(meta-dashboard BE 전용, `ENV.API_URL` base)를 사용할 수 없으므로 `getAuth().authorizedFetch`로 직접 호출한다. 응답은 LMS envelope(`{ success, resultCode, resultData }`) 구조.
+
+## 4. 신규 파일
+
+### 4.1 `features/lesson/api/queryKeys.ts`
+
+기존 `assessmentKeys`, `groupKeys` 패턴과 동일한 factory 구조.
+
+```ts
+export const lessonKeys = {
+  all: ['lesson'] as const,
+  refSets: () => [...lessonKeys.all, 'ref-set'] as const,
+};
+```
+
+### 4.2 `features/lesson/api/lmsRefSetService.ts`
+
+```ts
+import { getAuth } from '@shared/lib/authClient';
+import { ENV } from '@shared/config/env';
+
+const BASE = `${ENV.SP_LMS_API_URL}/api/ref-set`;
+
+// LMS envelope 공통 구조
+interface LmsEnvelope<T> {
+  success: boolean;
+  resultCode: number;
+  resultMessage: string;
+  resultData: T;
+}
+
+/** GET /api/ref-set 응답 아이템 */
+export interface RefSetItem {
+  refSetId: string;
+  lcmsSetId: string;
+  title: string;
+  subjectCd: string;
+  schoolLevelCd: string;
+  makeMethod: number;
+  status: number;
+  createdAt: string;
+}
+
+export interface RefSetListData {
+  totalCount: number;
+  list: RefSetItem[];
+}
+
+/** POST /api/ref-set 요청 body */
+export interface RegisterRefSetBody {
+  lcmsSetId: string;
+  title?: string;
+  subjectCd?: string;
+  schoolLevelCd?: string;
+  /**
+   * 1:신규직접 2:완성형가공 3:자료실 4:AI생성 5:AI가공
+   * SavedPayload.lessonMeta.makeMethod 미전달 시 기본값 3(자료실) 사용
+   */
+  makeMethod?: number;
+}
+
+export interface RegisterRefSetResponse {
+  refSetId: string;
+}
+
+async function lmsFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const auth = getAuth();
+  const res = await auth.authorizedFetch(input, init);
+  if (!res.ok) throw new Error(`LMS API 실패: ${res.status}`);
+  const json = (await res.json()) as LmsEnvelope<T>;
+  if (!json.success) throw new Error(json.resultMessage ?? 'LMS API Error');
+  return json.resultData;
+}
+
+export async function getRefSetList(): Promise<RefSetListData> {
+  return lmsFetch<RefSetListData>(BASE);
+}
+
+export async function registerRefSet(body: RegisterRefSetBody): Promise<RegisterRefSetResponse> {
+  return lmsFetch<RegisterRefSetResponse>(BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+```
+
+### 4.3 `features/lesson/api/queries.ts`
+
+중복 방지: mutation 호출 전 cache에서 동일 `lcmsSetId` 존재 여부를 확인하고, 이미 등록된 경우 skip한다.
+
+```ts
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getRefSetList, registerRefSet } from './lmsRefSetService';
+import type { RegisterRefSetBody, RefSetListData } from './lmsRefSetService';
+import { lessonKeys } from './queryKeys';
+
+export function useRefSetListQuery() {
+  return useQuery({
+    queryKey: lessonKeys.refSets(),
+    queryFn: getRefSetList,
+  });
+}
+
+export function useRegisterRefSetMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RegisterRefSetBody) => {
+      // 중복 방지: cache에 동일 lcmsSetId 이미 있으면 skip
+      const cached = queryClient.getQueryData<RefSetListData>(lessonKeys.refSets());
+      const alreadyRegistered = cached?.list.some(
+        (item) => item.lcmsSetId === body.lcmsSetId,
+      );
+      if (alreadyRegistered) return Promise.resolve({ refSetId: '' });
+      return registerRefSet(body);
+    },
+    onSuccess: async (_data, variables) => {
+      // skip 분기(refSetId 빈 값)도 invalidate해 목록 최신화
+      if (variables.lcmsSetId) {
+        await queryClient.invalidateQueries({ queryKey: lessonKeys.refSets() });
+      }
+    },
+  });
+}
+```
+
+> **cache miss 시**: `useRefSetListQuery`가 마운트 전이거나 아직 fetch 전이면 cached가 없어 중복 체크가 불가하다. 이 경우 POST가 실행되며, LMS가 같은 `lcmsSetId`로 중복 행을 허용하는지는 추가 확인 필요 (→ 미확정 항목 #2).
+
+### 4.4 `features/lesson/model/mapRefSetToLibItem.ts` — **추후 연동 Phase**
+
+`RefSetItem`(LMS DTO) → `LibItem`(UI view-model) 변환이 필요하나, `subjectCd` ↔ `selArea` taxonomy 매핑 등 LMS와 프론트 규격 간 불일치가 있어 **이번 구현 범위에서 제외**.
+
+임시 파일 골격만 작성해 두고, ResourceCardList 연결 전 팀 협의 후 채운다.
+
+```ts
+import type { RefSetItem } from '../api/lmsRefSetService';
+import type { LibItem, LibraryColorGroup } from './types';
+
+const COLOR_GROUPS: LibraryColorGroup[] = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6'];
+
+function pickColorGroup(id: string): LibraryColorGroup {
+  const code = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return COLOR_GROUPS[code % COLOR_GROUPS.length];
+}
+
+/**
+ * TODO: subjectCd → selArea 매핑 테이블 별도 확정 후 교체 (추후 변동 가능)
+ * 현재는 subjectCd 값을 selArea에 그대로 전달.
+ */
+export function mapRefSetToLibItem(item: RefSetItem): LibItem {
+  const date = new Date(item.createdAt);
+  const updated = `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+  return {
+    id: item.refSetId,
+    title: item.title,
+    src: 'internal',
+    selArea: item.subjectCd, // TODO: taxonomy 확정 전 임시. 추후 변동 가능
+    colorGroup: pickColorGroup(item.refSetId),
+    updated,
+  };
+}
+```
+
+## 5. 기존 파일 변경
+
+### 5.1 `pages/lesson/LessonEditorPage.tsx`
+
+`useRegisterRefSetMutation` 훅 추가, `onSaved`에서 `lcmsSetId` 있을 때 mutate 호출.
+
+- `makeMethod`: `SavedPayload.lessonMeta.makeMethod`(`string | undefined`)를 `Number()`로 변환. **미전달 시 기본값 `3`(자료실)** 사용 — `보관함-등록(POST ref-set)` 스펙 기준.
+- `subjectCd` / `schoolLevelCd`: `lessonMeta.subject` / `lessonMeta.schoolLevel` 에서 전달 (LMS 코드값과 일치 여부 확인 필요 → 미확정 항목 #4).
+
+```tsx
+import { useRegisterRefSetMutation } from '@features/lesson';
+
+const { mutate: registerRefSet } = useRegisterRefSetMutation();
+
+onSaved={(p: SavedPayload) => {
+  if (p.lcmsSetId) {
+    registerRefSet({
+      lcmsSetId: p.lcmsSetId,
+      title: p.title,
+      subjectCd: p.lessonMeta?.subject,
+      schoolLevelCd: p.lessonMeta?.schoolLevel,
+      makeMethod: p.lessonMeta?.makeMethod !== undefined
+        ? Number(p.lessonMeta.makeMethod)
+        : 3,  // 기본값: 3(자료실)
+    });
+  }
+  if (!slideId && p.slideId) {
+    navigate(`/lesson/editor/${p.slideId}`, { replace: true });
+  }
+}}
+```
+
+### 5.2 `pages/lesson/LessonMyPage.tsx` — GET 조회만 (ResourceCardList 연결 제외)
+
+`useRefSetListQuery()`로 데이터 조회까지만 구현. `data.list` → `ResourceCardList` 연결은 **이번 범위 제외**.  
+기존 `MOCK_LIBRARY_ITEMS` / `useState<LibItem[]>` 는 mapper 연동 전까지 **유지**한다.
+
+```tsx
+import { useRefSetListQuery } from '@features/lesson';
+
+// 조회 훅 마운트 (데이터 확인용)
+const { data: refSetData, isLoading, isError } = useRefSetListQuery();
+
+// TODO: refSetData?.list → mapRefSetToLibItem → ResourceCardList 연결 (추후 Phase)
+// 현재는 기존 MOCK_LIBRARY_ITEMS + useState items 유지
+```
+
+> ResourceCardList 연결 전에 `subjectCd → selArea` 매핑, `LibItem` 타입 불일치 필드 처리를 별도 확인한다.
+
+### 5.3 `features/lesson/index.ts`
+
+신규 훅·타입 export 추가. mapper(`mapRefSetToLibItem`)는 ResourceCardList 연결 전까지 export 보류.
+
+```ts
+export { useRefSetListQuery, useRegisterRefSetMutation } from './api/queries';
+export type { RefSetItem, RegisterRefSetBody, RefSetListData } from './api/lmsRefSetService';
+```
+
+## 6. 변경 파일 목록
+
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `shared/config/env.ts` | **수정 완료** | `SP_LMS_API_URL` 추가 (기본값 `http://t-gw.vschool.at/v1/lms`) |
+| `features/lesson/api/queryKeys.ts` | **구현 완료** | `lessonKeys` factory |
+| `features/lesson/api/lmsRefSetService.ts` | **구현 완료** | `lmsFetch` 헬퍼, `getRefSetList`, `registerRefSet`, DTO 타입 |
+| `features/lesson/api/queries.ts` | **구현 완료** | `useRefSetListQuery`, `useRegisterRefSetMutation` (cache 기반 중복 방지) |
+| `features/lesson/model/mapRefSetToLibItem.ts` | **신규(골격) 구현 완료** | skeleton만 작성. ResourceCardList 연결 전까지 export 보류 |
+| `pages/lesson/LessonEditorPage.tsx` | **수정 완료** | `useRegisterRefSetMutation` + `onSaved` 중복 방지 로직 |
+| `pages/lesson/LessonMyPage.tsx` | **수정 완료** | `useRefSetListQuery` 마운트 추가 (데이터 확인용). MOCK 유지 |
+| `features/lesson/index.ts` | **수정 완료** | 신규 훅·타입 export (mapper 제외) |
+
+## 7. 확정·미확정 항목
+
+| # | 항목 | 상태 | 내용 |
+|---|------|------|------|
+| 1 | **LMS 호출 경로** | **확정** | 직접 LMS. `ENV.SP_LMS_API_URL`(`http://t-gw.vschool.at/v1/lms`) + `getAuth().authorizedFetch` |
+| 2 | **POST 중복 등록** | 중복 방지 포함 | DB 단순 INSERT 구조 → cache 기반 중복 체크 구현. cache miss 시 동작 미확인 — LMS 중복 허용 여부 추가 확인 필요 |
+| 3 | **makeMethod 기본값** | **확정** | `SavedPayload.lessonMeta.makeMethod` 미전달 시 기본값 `3`(자료실) 사용. LMS POST ref-set 스펙(`보관함-등록`) 기준 |
+| 4 | **subjectCd / schoolLevelCd 매핑** | 추후 변동 가능 | `lessonMeta.subject` / `lessonMeta.schoolLevel` 값이 LMS 코드(`"MA"`, `"E"` 등)와 일치하는지 확인 필요. 현재는 그대로 전달. `selArea` taxonomy 매핑도 확정 전 임시 처리. **추후 변동 가능** |
+| 5 | **DELETE ref-set** | **보류** | API 스펙 미수령. 삭제 기능은 별도 계획으로 분리 |
+| 6 | **ResourceCardList 연결** | **추후 Phase** | `RefSetItem` → `LibItem` mapper 연동은 taxonomy 매핑 협의 후 별도 구현 |
+
+## 8. 완료 기준
+
+- [x] `shared/config/env.ts`: `ENV.SP_LMS_API_URL` 추가 확인
+- [x] `LessonEditorPage`: `onSaved` + `lcmsSetId` → `POST /api/ref-set` 호출 확인 (네트워크 탭)
+- [x] 동일 `lcmsSetId` 재저장 시 중복 POST 미발생 확인
+- [x] `LessonMyPage`: `useRefSetListQuery` 마운트 → `GET /api/ref-set` 호출 확인 (네트워크 탭)
+- [x] `POST` 성공 후 `lessonKeys.refSets()` invalidate → GET 자동 refetch 확인
+- [x] `lessonKeys` factory 사용, 임의 문자열 query key 없음
+- [x] `npx tsc -b --noEmit`, eslint 통과
+
+
+---
+
+# 추가계획7 — ResourceCard 수정하기 → Editor 라우트 이동
+
+> **상태**: 구현 완료  
+> **범위**: `ResourceCard` '수정하기' 클릭 시 `/lesson/editor/:slideId` 이동. `slideId` = `item.id`
+
+## 1. 현황
+
+- `ResourceCard` '시작하기'는 이미 `/lesson/deploy/${item.id}` (+ `location.search`) navigate 연결됨
+- '수정하기' 버튼(`ResourceCard.tsx` 57–60행)은 `onClick` 없음
+- Editor 라우트는 추가계획5에서 `TeacherFullscreenLayout` 하위에 구성 완료
+  - `/lesson/editor` — 신규
+  - `/lesson/editor/:slideId` — 기존 세트 편집
+
+## 2. 구현 방법
+
+### 2.1 `features/lesson/ui/ResourceCard.tsx`
+
+'수정하기' 버튼에 `onClick` 추가:
+
+```tsx
+<Button
+  type='button'
+  variant='outline'
+  size='md'
+  fullWidth
+  onClick={() => navigate(`/lesson/editor/${item.id}`)}
+>
+  수정하기
+</Button>
+```
+
+- `slideId`는 사용자 지시에 따라 **`item.id`** 사용
+- `variant`(library / my) 구분 없이 동일 동작 (카드가 렌더되는 모든 화면에서 편집 진입)
+- 배포 라우트와 달리 `location.search` 전달은 불필요 (Editor는 쿼리 의존 없음)
+
+### 2.2 변경 파일
+
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `features/lesson/ui/ResourceCard.tsx` | **수정 완료** | 수정하기 → `/lesson/editor/${item.id}` navigate |
+
+### 2.3 완료 기준
+
+- [x] library / my 카드 '수정하기' 클릭 시 `/lesson/editor/:slideId` 이동
+- [x] URL의 `:slideId`가 `item.id`와 일치
+- [x] GNB/LNB 없는 TeacherFullscreenLayout으로 Editor 노출
+
+---
+
+# 추가계획8 — 전체 자료실 CMS `GET /api/sets` 연동
+
+> **상태**: 구현 완료  
+> **범위**: `LessonLibraryContents` mock → CMS 세트 목록 API 교체. FilterPanel 값은 아직 API 파라미터에 매핑하지 않음(동일 쿼리 재호출). MOCK 코드는 주석으로 보존.  
+> **비범위**: 필터 taxonomy ↔ CMS metaId 매핑, 무한 스크롤(페이지네이션 고도화), 썸네일 UI 렌더(타입만 추가)
+
+## 1. 현황 및 목표
+
+### 현황
+
+| 항목 | 현재 상태 |
+|------|-----------|
+| `LessonLibraryContents` | `MOCK_LIBRARY_ITEMS` + `matchLibraryItem` / `sortLibraryItems` 로컬 필터 |
+| `LessonLibraryPage` | `useLibraryFilters` + `FilterPanel` (로컬 상태만) |
+| CMS sets API | 미연동. env에 CMS base URL 없음 |
+| `LibItem` | `thumbnailUrl` 필드 없음 |
+
+### 목표
+
+1. `GET {CMS}/api/sets` 로 전체 자료실 목록 조회 (마운트 시 1회 + 필터 조작 시마다 재조회)
+2. FilterPanel 버튼은 **모두 동일한 request param**으로 호출 (필터→CMS 파라미터 매핑은 추후)
+3. 연속 클릭 시 **마지막 요청 응답만** UI에 반영 (레이스 방지)
+4. 조회 중 loading(레이지/스켈레톤) UI
+5. CMS DTO → `LibItem` 최소 매핑 (`setId`/`title`/`thumbnailUrl`). 나머지 필수 필드는 임시값 + **TO FIX** 표기
+6. `MOCK_LIBRARY_ITEMS` 경로는 주석으로 남겨 즉시 복구 가능하게 유지
+
+## 2. API 스펙
+
+| 항목 | 값 |
+|------|----|
+| Base | `https://t2-public-cmsapi.vsaidt.com` → `ENV.CMS_API_URL` |
+| Method / Path | `GET /api/sets` |
+| 인증 | SSO Bearer JWT (`getAuth().authorizedFetch`) |
+| 기본 고정 param | `pageNo=0`, `pageSize=10`, `brandId=18`, `serviceType=131132` |
+
+### Query params
+
+| param | 타입 | 설명 | 이번 Phase |
+|-------|------|------|------------|
+| `pageNo` | string | 페이지 번호(0부터) | 고정 `0` |
+| `pageSize` | string | 페이지 크기 | 고정 `10` |
+| `keyword` | string | 검색어 | 미사용 |
+| `metaId` | string | 메타 ID | 미사용 |
+| `brandId` | int64 | 브랜드 ID | 고정 `18` |
+| `curriYear` | int64 | 교육과정 메타 ID | 미사용 |
+| `curriSchool` | int64 | 학교급 메타 ID | 미사용 |
+| `curriSubject` | int64 | 교과목 메타 ID | 미사용 |
+| `curriBook` | int64 | 교과 메타 ID | 미사용 |
+| `curriUnit1` | int64 | 교과과정 코드 | 미사용 |
+| `serviceType` | int64 | 서비스 타입 메타 ID | 고정 `131132` |
+
+### 성공 응답 (200)
+
+배열 본문 (LMS envelope이 아님에 주의):
+
+```json
+[
+  {
+    "setId": "set-001",
+    "title": "일차함수 세트",
+    "thumbnailUrl": "string",
+    "slideCount": 12,
+    "metas": [
+      { "id": 1101, "code": "MATH_M1_2022", "name": "curriBook", "val": "중학교 1학년 수학" }
+    ],
+    "createdAt": "2026-08-13T15:47:01.563Z"
+  }
+]
+```
+
+### 실패 응답 (400 / 500)
+
+```json
+{
+  "timestamp": "...",
+  "status": 400,
+  "code": "INVALID_REQUEST",
+  "message": "필수값 누락",
+  "path": "/api/slides",
+  "requestId": "...",
+  "violations": [{ "field": "userId", "message": "필수값입니다." }]
+}
+```
+
+> 스펙 문서상 500 예시 body가 400과 동일하게 적혀 있음. 구현은 `!res.ok` 시 status + message로 throw.
+
+## 3. 필터 재조회 + 레이스 처리 — 가능 여부
+
+**결론: 가능한 구조.** TanStack Query v5 + `AbortSignal`로 "마지막 요청만 반영"을 구현한다.
+
+### 왜 동일 param인데 필터마다 호출하나?
+
+- 이번 Phase는 FilterPanel ↔ CMS meta 매핑이 없어 **request query는 항상 동일**
+- 그래도 UX상 "필터를 누를 때마다 목록을 다시 가져온다"가 요구이므로, **filters/sort 변경을 refetch 트리거**로 사용한다
+
+### 권장 패턴
+
+```ts
+useQuery({
+  // filters/sort를 key에 넣어 토글마다 새 fetch (값은 API에 안 넣음)
+  queryKey: [...lessonKeys.cmsSets(), filters, sort],
+  queryFn: ({ signal }) =>
+    getCmsSetList(
+      { pageNo: 0, pageSize: 10, brandId: 18, serviceType: 131132 },
+      signal,
+    ),
+  placeholderData: keepPreviousData, // 로딩 중 이전 목록 유지(깜빡임 완화). 초기 마운트는 빈 상태 + loading
+})
+```
+
+| 이슈 | 처리 |
+|------|------|
+| 연속 클릭 레이스 | `queryFn`의 `signal`을 `fetch`에 전달 → queryKey 변경 시 이전 요청 abort. 응답이 와도 stale 옵저버에 반영되지 않음 |
+| 동일 param 캐시 | key에 filters가 포함되므로 조합별로 캐시. 데이터는 같아도 무방. 추후 실제 param 매핑 시 그대로 확장 |
+| 마운트 시 조회 | `LessonLibraryPage` 진입 → Contents 마운트 → `useQuery` 자동 fetch |
+| 안 되는 경우 | 고정 queryKey + `refetch()`만 쓰면 in-flight 여러 개가 겹칠 수 있음 → **이 패턴은 비권장**. signal 없는 raw fetch도 비권장 |
+
+> FilterPanel의 `onToggle`/`onClear`/`onSort`는 기존 `useLibraryFilters` 유지. Contents가 filters/sort를 props로 받아 queryKey에 넣으면 Page 쪽 추가 로직 없이 재조회된다.
+
+## 4. 연동 흐름
+
+```
+[마운트]
+LessonLibraryPage
+  └─ LessonLibraryContents(filters, sort)
+      └─ useCmsSetListQuery(filters, sort)
+          └─ GET {ENV.CMS_API_URL}/api/sets?pageNo=0&pageSize=10&brandId=18&serviceType=131132
+              └─ mapCmsSetToLibItem[] → ResourceCardList
+
+[필터/정렬 클릭]
+FilterPanel onToggle/onClear/onSort
+  └─ filters/sort state 변경
+      └─ queryKey 변경 → 이전 fetch abort → 동일 param으로 새 GET
+          └─ isFetching 중 loading UI
+              └─ 마지막 성공 응답만 목록 반영
+
+[MOCK 복구]
+LessonLibraryContents 내 주석 처리된 MOCK 경로 주석 해제 + CMS 훅 비활성
+```
+
+## 5. 신규·수정 파일
+
+### 5.1 `shared/config/env.ts`
+
+```ts
+/** public CMS API 기본 URL */
+CMS_API_URL:
+  (import.meta.env.VITE_CMS_API_URL as string | undefined) ??
+  'https://t2-public-cmsapi.vsaidt.com',
+```
+
+### 5.2 `features/lesson/api/queryKeys.ts`
+
+```ts
+export const lessonKeys = {
+  all: ['lesson'] as const,
+  refSets: () => [...lessonKeys.all, 'ref-set'] as const,
+  cmsSets: () => [...lessonKeys.all, 'cms-sets'] as const,
+};
+```
+
+### 5.3 `features/lesson/api/cmsSetService.ts` (신규)
+
+```ts
+import { getAuth } from '@shared/lib/authClient';
+import { ENV } from '@shared/config/env';
+
+export interface CmsSetMeta {
+  id: number;
+  code: string;
+  name: string;
+  val: string;
+}
+
+export interface CmsSetItem {
+  setId: string;
+  title: string;
+  thumbnailUrl?: string;
+  slideCount?: number;
+  metas?: CmsSetMeta[];
+  createdAt?: string;
+}
+
+export interface CmsSetListParams {
+  pageNo: number;
+  pageSize: number;
+  brandId: number;
+  serviceType: number;
+  keyword?: string;
+  metaId?: string;
+  curriYear?: number;
+  curriSchool?: number;
+  curriSubject?: number;
+  curriBook?: number;
+  curriUnit1?: number;
+}
+
+export async function getCmsSetList(
+  params: CmsSetListParams,
+  signal?: AbortSignal,
+): Promise<CmsSetItem[]> {
+  const qs = new URLSearchParams({
+    pageNo: String(params.pageNo),
+    pageSize: String(params.pageSize),
+    brandId: String(params.brandId),
+    serviceType: String(params.serviceType),
+  });
+  // optional params는 값이 있을 때만 append
+
+  const auth = getAuth();
+  const res = await auth.authorizedFetch(`${ENV.CMS_API_URL}/api/sets?${qs}`, {
+    signal,
+    headers: { accept: '*/*' },
+  });
+  if (!res.ok) {
+    // 400/500 error body의 message 활용 시도
+    throw new Error(`CMS sets 조회 실패: ${res.status}`);
+  }
+  return (await res.json()) as CmsSetItem[];
+}
+```
+
+### 5.4 `features/lesson/api/queries.ts` — `useCmsSetListQuery` 추가
+
+```ts
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { getCmsSetList } from './cmsSetService';
+import type { LibFilters, SortKey } from '../model/types';
+
+const CMS_SETS_DEFAULT = {
+  pageNo: 0,
+  pageSize: 10,
+  brandId: 18,
+  serviceType: 131132,
+} as const;
+
+/** filters/sort는 queryKey 트리거용. 이번 Phase에서는 API param에 매핑하지 않음 */
+export function useCmsSetListQuery(filters: LibFilters, sort: SortKey) {
+  return useQuery({
+    queryKey: [...lessonKeys.cmsSets(), filters, sort],
+    queryFn: ({ signal }) => getCmsSetList({ ...CMS_SETS_DEFAULT }, signal),
+    placeholderData: keepPreviousData,
+  });
+}
+```
+
+### 5.5 `features/lesson/model/types.ts` — `thumbnailUrl` 추가
+
+```ts
+export interface LibItem {
+  id: string;
+  refSetId?: string;
+  title: string;
+  /** CMS 썸네일 URL — 선택. UI 반영은 추후 */
+  thumbnailUrl?: string;
+  src: LibrarySrc;
+  selArea: string;
+  colorGroup: LibraryColorGroup;
+  // ...기존 필드
+}
+```
+
+### 5.6 `features/lesson/model/mapCmsSetToLibItem.ts` (신규)
+
+```ts
+import type { CmsSetItem } from '../api/cmsSetService';
+import type { LibItem, LibraryColorGroup } from './types';
+
+const COLOR_GROUPS: LibraryColorGroup[] = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6'];
+
+function pickColorGroup(id: string): LibraryColorGroup {
+  const code = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return COLOR_GROUPS[code % COLOR_GROUPS.length];
+}
+
+/**
+ * CMS Set → LibItem 최소 매핑.
+ * 호환 확정: setId→id, title→title, thumbnailUrl→thumbnailUrl
+ * 그 외 필수 필드는 임시값 (**TO FIX**)
+ */
+export function mapCmsSetToLibItem(item: CmsSetItem): LibItem {
+  return {
+    id: item.setId,
+    title: item.title,
+    thumbnailUrl: item.thumbnailUrl,
+    // ---- TO FIX: CMS 스펙/taxonomy 매핑 확정 전 임시값 ----
+    src: 'verified', // TO FIX
+    selArea: item.metas?.[0]?.val ?? '-', // TO FIX
+    colorGroup: pickColorGroup(item.setId), // TO FIX (썸네일 없을 때 fallback용)
+    // -------------------------------------------------------
+  };
+}
+```
+
+### 5.7 `widgets/lesson/LessonLibraryContents.tsx`
+
+```tsx
+export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsProps) => {
+  const { data, isPending, isFetching, isError } = useCmsSetListQuery(filters, sort);
+  const items = useMemo(
+    () => (data ?? []).map(mapCmsSetToLibItem),
+    [data],
+  );
+
+  // --- MOCK 경로 (필요 시 아래 주석 해제 + 위 CMS 훅 비활성) ---
+  // const items = useMemo(
+  //   () =>
+  //     sortLibraryItems(
+  //       MOCK_LIBRARY_ITEMS.filter((item) => matchLibraryItem(item, filters)),
+  //       sort,
+  //     ),
+  //   [filters, sort],
+  // );
+  // -----------------------------------------------------------
+
+  if (isPending && items.length === 0) {
+    return <Contents>{/* loading UI */}</Contents>;
+  }
+
+  return (
+    <Contents>
+      {/* 재조회 중 오버레이/인디케이터: isFetching && !isPending */}
+      <ResourceCardList items={items} isLoading={isFetching} />
+    </Contents>
+  );
+};
+```
+
+### 5.8 Loading(레이지) UI
+
+- **의미**: 무한 스크롤이 아니라 **API 호출 중 로딩 표시**
+- 초기 진입(`isPending`): 목록 영역 스켈레톤 또는 중앙 로딩
+- 필터 재조회(`isFetching` + `keepPreviousData`): 이전 목록 유지 + 상단/오버레이 로딩 인디케이터
+- 구현 위치: `ResourceCardList`에 optional `isLoading?: boolean` 추가하거나 Contents에서 분기
+- 기존 shared Spinner/Skeleton 패턴이 있으면 재사용, 없으면 Contents 내 최소 로딩 마크업
+
+### 5.9 `features/lesson/index.ts`
+
+```ts
+export { useCmsSetListQuery } from './api/queries';
+export type { CmsSetItem, CmsSetListParams } from './api/cmsSetService';
+export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
+```
+
+## 6. 변경 파일 목록
+
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `shared/config/env.ts` | **수정 완료** | `CMS_API_URL` 추가 |
+| `features/lesson/api/queryKeys.ts` | **수정 완료** | `cmsSets()` 추가 |
+| `features/lesson/api/cmsSetService.ts` | **구현 완료** | `getCmsSetList` + DTO |
+| `features/lesson/api/queries.ts` | **수정 완료** | `useCmsSetListQuery` (signal + keepPreviousData) |
+| `features/lesson/model/types.ts` | **수정 완료** | `LibItem.thumbnailUrl?` |
+| `features/lesson/model/mapCmsSetToLibItem.ts` | **구현 완료** | 최소 매핑 + TO FIX 임시 필드 |
+| `widgets/lesson/LessonLibraryContents.tsx` | **수정 완료** | CMS 연동, MOCK 주석 보존, loading |
+| `features/lesson/ui/ResourceCardList.tsx` | **수정 완료** | optional `isLoading` |
+| `features/lesson/index.ts` | **수정 완료** | 훅·타입·mapper export |
+| `.env.development` | **수정 완료** | `VITE_CMS_API_URL` |
+
+## 7. 확정·미확정
+
+| # | 항목 | 상태 | 내용 |
+|---|------|------|------|
+| 1 | CMS base URL | 확정 | `https://t2-public-cmsapi.vsaidt.com` → env |
+| 2 | 고정 query | 확정 | `pageNo=0&pageSize=10&brandId=18&serviceType=131132` |
+| 3 | 필터→API 매핑 | 미적용 | 모든 필터 클릭 = 동일 API 재호출. taxonomy/metaId 매핑은 추후 |
+| 4 | 레이스 처리 | 확정 | queryKey(filters,sort) + fetch AbortSignal. **구조 가능** |
+| 5 | LibItem 매핑 | 부분 | id/title/thumbnailUrl만 호환. src/selArea/colorGroup은 **TO FIX** 임시값 |
+| 6 | thumbnail UI | 보류 | 타입만 추가. `ResourceCard` Thumb에 이미지 렌더는 별도 |
+| 7 | 페이지네이션 | 보류 | pageSize=10 고정. 더보기/무한스크롤 미포함 |
+| 8 | CORS / 인증 | **확정** | `getAuth().authorizedFetch`로 Bearer JWT 전달 |
+
+## 8. 완료 기준
+
+- [x] `LessonLibraryPage` 최초 진입 시 `GET /api/sets?...brandId=18&serviceType=131132` 호출
+- [x] FilterPanel 토글/정렬/초기화 시마다 동일 param으로 재호출
+- [x] 연속 클릭 시 이전 요청 abort 또는 무시 → 마지막 응답만 목록 반영
+- [x] 로딩 중 UI 표시 (초기 + 재조회)
+- [x] `setId`/`title`/`thumbnailUrl` 매핑, 나머지 필수 필드 임시값 + TO FIX 주석
+- [x] MOCK 경로 주석으로 코드 보존
+- [x] `npx tsc -b --noEmit`, eslint 통과

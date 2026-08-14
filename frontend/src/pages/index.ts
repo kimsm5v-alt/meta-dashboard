@@ -54,3 +54,8 @@ export { MySelfregResultPage } from './student-exam/MySelfregResultPage';
 
 // Lesson
 export { LessonLibraryPage } from './lesson/LessonLibraryPage';
+export { LessonMyPage } from './lesson/LessonMyPage';
+export { LessonResultPage } from './lesson/LessonResultPage';
+export { LessonDeployPage } from './lesson/LessonDeployPage';
+export { LessonEditorPage } from './lesson/LessonEditorPage';
+export { LessonViewerPage } from './lesson/LessonViewerPage';

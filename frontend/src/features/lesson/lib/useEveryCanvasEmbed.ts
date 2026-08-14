@@ -11,6 +11,7 @@ type EmbedEventHandlers = {
   phaseChanged?: (payload: unknown) => void;
   submitted?: (payload: unknown) => void;
   progress?: (payload: unknown) => void;
+  startLesson?: (payload: unknown) => void;
 };
 
 type UseEveryCanvasEmbedParams = {
@@ -32,6 +33,7 @@ const KNOWN_EVENTS = [
   'submitted',
   'progress',
   'exitRequested',
+  'startLesson',
 ] as const;
 
 /**
@@ -76,7 +78,8 @@ export function useEveryCanvasEmbed({
       handle = createEmbed(containerRef.current, {
         ...optionsRef.current,
         // TOKEN_EXPIRED 재발급 시 최신 콜백을 쓰도록 래핑 (공식 React SDK와 동일)
-        getToken: () => optionsRef.current.getToken(),
+        getToken: () => optionsRef.current.getToken?.() ?? Promise.resolve(''),
+        getSsoToken: () => optionsRef.current.getSsoToken?.() ?? Promise.resolve(''),
       });
 
       for (const event of KNOWN_EVENTS) {

@@ -1,0 +1,49 @@
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getCmsSetList } from './cmsSetService';
+import { getRefSetList, registerRefSet } from './lmsRefSetService';
+import type { RegisterRefSetBody, RefSetListData } from './lmsRefSetService';
+import type { LibFilters, SortKey } from '../model/types';
+import { lessonKeys } from './queryKeys';
+
+const CMS_SETS_DEFAULT = {
+  pageNo: 0,
+  pageSize: 10,
+  brandId: 18,
+  serviceType: 131132,
+} as const;
+
+export function useRefSetListQuery() {
+  return useQuery({
+    queryKey: lessonKeys.refSets(),
+    queryFn: getRefSetList,
+  });
+}
+
+export function useRegisterRefSetMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RegisterRefSetBody) => {
+      // cache 기반 중복 방지: 동일 lcmsSetId 이미 등록된 경우 skip
+      const cached = queryClient.getQueryData<RefSetListData>(lessonKeys.refSets());
+      const alreadyRegistered = cached?.list.some(
+        (item) => item.lcmsSetId === body.lcmsSetId,
+      );
+      if (alreadyRegistered) return Promise.resolve({ refSetId: '' });
+      return registerRefSet(body);
+    },
+    onSuccess: async (_data, variables) => {
+      if (variables.lcmsSetId) {
+        await queryClient.invalidateQueries({ queryKey: lessonKeys.refSets() });
+      }
+    },
+  });
+}
+
+/** filters/sort는 queryKey 트리거용. 이번 Phase에서는 API param에 매핑하지 않음 */
+export function useCmsSetListQuery(filters: LibFilters, sort: SortKey) {
+  return useQuery({
+    queryKey: [...lessonKeys.cmsSets(), filters, sort],
+    queryFn: ({ signal }) => getCmsSetList({ ...CMS_SETS_DEFAULT }, signal),
+    placeholderData: keepPreviousData,
+  });
+}
