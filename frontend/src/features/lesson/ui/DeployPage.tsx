@@ -11,6 +11,7 @@ import { mapRefSetToLibItem } from '../model/mapRefSetToLibItem';
 // 보류: mock 콘텐츠 조회 (추가계획9)
 // import { MOCK_LIBRARY_ITEMS } from '../model/mockLibraryItems';
 import type { LibItem, LibraryColorGroup } from '../model/types';
+import { ENV } from '@shared/config/env';
 
 type DeployMode = 'period' | 'live';
 
@@ -155,6 +156,8 @@ export const DeployPage = () => {
   }
 
   const previewTitle = item.title;
+  const thumbnailUrl = item.thumbnailUrl?.startsWith('/') ? `${ENV.CMS_FILE_URL}${item.thumbnailUrl}` : `${ENV.CMS_FILE_URL}/${item.thumbnailUrl}`;
+
 
   return (
     <Page>
@@ -171,7 +174,9 @@ export const DeployPage = () => {
           <PreviewPanel>
             <PreviewCard>
               <Thumb $group={item.colorGroup ?? 'g1'}>
-                <ThumbTitle>{previewTitle}</ThumbTitle>
+                {item.thumbnailUrl ? (
+                  <ThumbImage src={thumbnailUrl} alt={item.title} loading='lazy' />
+                ) : null}
               </Thumb>
               <PreviewMeta>
                 <MetaHint>슬라이드 이름 · 수정 불가</MetaHint>
@@ -457,18 +462,11 @@ const Thumb = styled.div<{ $group: LibraryColorGroup }>`
   justify-content: center;
 `;
 
-const ThumbTitle = styled.span`
-  display: -webkit-box;
-  max-width: 100%;
-  overflow: hidden;
-  padding: 0 ${({ theme }) => theme.spacing.md};
-  color: ${({ theme }) => theme.colors.gray[800]};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  line-height: ${({ theme }) => theme.typography.lineHeight.tight};
-  text-align: center;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+const ThumbImage = styled.img`
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 `;
 
 const PreviewMeta = styled.div`

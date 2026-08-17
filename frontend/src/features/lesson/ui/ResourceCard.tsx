@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@shared/ui/Button/Button';
 import { formatCreatedAt } from '../lib/formatCreatedAt';
 import type { LibItem, LibraryColorGroup, ResourceCardVariant } from '../model/types';
+import { ENV } from '@shared/config/env';
 
 const COLOR_GROUP_BG: Record<LibraryColorGroup, string> = {
   g1: 'linear-gradient(135deg, #e7f8f2, #f0fbf7)',
@@ -29,12 +30,13 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
   const navigate = useNavigate();
   const location = useLocation();
   const colorGroup = item.colorGroup ?? 'g1';
+  const thumbnailUrl = item.thumbnailUrl?.startsWith('/') ? `${ENV.CMS_FILE_URL}${item.thumbnailUrl}` : `${ENV.CMS_FILE_URL}/${item.thumbnailUrl}`;
 
   return (
     <Shell>
       <Thumb $group={colorGroup}>
         {item.thumbnailUrl ? (
-          <ThumbImage src={item.thumbnailUrl} alt={item.title} loading='lazy' />
+          <ThumbImage src={thumbnailUrl} alt={item.title} loading='lazy' />
         ) : null}
         {variant === 'my' && item.refSetId && onDelete ? (
           <DeleteButton
