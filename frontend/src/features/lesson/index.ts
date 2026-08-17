@@ -10,7 +10,12 @@ export type { LessonViewerEmbedProps } from './ui/LessonViewerEmbed';
 export { useLibraryFilters } from './model/useLibraryFilters';
 export { matchLibraryItem, sortLibraryItems } from './model/matchLibraryFilters';
 export { MOCK_LIBRARY_ITEMS } from './model/mockLibraryItems';
-export { useRefSetListQuery, useRegisterRefSetMutation, useCmsSetListQuery } from './api/queries';
+export {
+  useRefSetListQuery,
+  useRegisterRefSetMutation,
+  useCmsSetListQuery,
+  useDeleteRefSetMutation,
+} from './api/queries';
 export type {
   RefSetItem,
   RegisterRefSetBody,
@@ -19,6 +24,7 @@ export type {
 } from './api/lmsRefSetService';
 export type { CmsSetItem, CmsSetListData, CmsSetListParams } from './api/cmsSetService';
 export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
+export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 export type {
   FilterAxis,
   LibFilters,

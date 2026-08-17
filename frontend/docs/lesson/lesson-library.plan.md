@@ -15,7 +15,7 @@
 | **추가계획7** | `ResourceCard` 수정하기 → `/lesson/editor/:slideId` 이동 (`item.id`) | 구현 완료 |
 | **추가계획8** | 전체 자료실 CMS `GET /api/sets` 연동 + 필터 재조회/레이스 처리 + loading UI | 구현 완료 |
 | **추가계획9** | `DeployPage` 실시간 수업 → Viewer + `ResourceCard`→deploy `state.item` + URL 직접 진입 시 item 재조회 | 1차 완료 / 2차(URL 재조회) 계획 수정 · 구현 대기 |
-| **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 계획 수립 완료 / 구현 대기 |
+| **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 구현 완료 |
 | **추가계획11** | DeployPage·저작툴 시작하기 — 활동 시작/종료 API + QR·참여링크 연동 | 타이틀만 / 상세 미작성 |
 | **추가계획12** | 학생용 수업 뷰어 라우트 (QR·참여링크 진입, SlideViewer 재사용) | 타이틀만 / 상세 미작성 · 추가계획11 완료 후 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
@@ -2521,7 +2521,7 @@ cmsSet: (setId: string) => [...lessonKeys.cmsSets(), setId] as const,
 
 # 추가계획10 — 나의 자료 실제 API 연동 + 삭제 기능
 
-> **상태**: 계획 수립 완료 / 구현 대기  
+> **상태**: 구현 완료  
 > **범위**:  
 > 1) `LessonMyPage` mock → LMS `GET /api/ref-set` 실제 목록 연동 (`mapRefSetToLibItem` 적용)  
 > 2) `ResourceCard` 삭제 버튼 → LMS `DELETE /api/ref-set/{refSetId}` 호출 + 목록 갱신  
@@ -2535,11 +2535,11 @@ cmsSet: (setId: string) => [...lessonKeys.cmsSets(), setId] as const,
 
 || 항목 | 현재 상태 |
 ||------|-----------|
-|| `LessonMyPage` 목록 | `MOCK_LIBRARY_ITEMS` 사용 중. `useRefSetListQuery` 마운트만 되어 있음 (추가계획6) |
-|| `ResourceCard` 삭제 | `handleDelete` 에서 로컬 state만 제거 + toast 메시지 (API 호출 없음) |
-|| LMS ref-set API | `GET /api/ref-set` — 구현 완료 (추가계획6)<br>`DELETE /api/ref-set/{refSetId}` — 미구현 |
-|| `mapRefSetToLibItem` | 파일 존재, 목록 미연결 (추가계획6 TODO 42-43행) |
-|| 빈 상태 / 에러 | 전체 자료실(`LessonLibraryContents`)에만 구현됨 |
+|| `LessonMyPage` 목록 | `useRefSetListQuery` + `mapRefSetToLibItem` 연동 완료. MOCK 경로 주석 보존 |
+|| `ResourceCard` 삭제 | `variant="my"` 삭제 → `useDeleteRefSetMutation` → `DELETE /api/ref-set/{refSetId}` |
+|| LMS ref-set API | `GET /api/ref-set` — 구현 완료 (추가계획6)<br>`DELETE /api/ref-set/{refSetId}` — 구현 완료 (추가계획10) |
+|| `mapRefSetToLibItem` | `LessonMyPage` 목록 연동 완료 |
+|| 빈 상태 / 에러 | 나의 자료·전체 자료실 모두 loading / 0건 / API 실패 분리 표시 |
 
 ### 목표
 
@@ -2889,16 +2889,16 @@ export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 
 ## 7. 완료 기준
 
-- [ ] `LessonMyPage` 진입 시 `GET /api/ref-set` 호출 → `mapRefSetToLibItem` 적용
-- [ ] MOCK 경로 주석 처리 (복구 가능)
-- [ ] API 조회 중 loading UI (레이지 로딩)
-- [ ] 목록 0건: "아직 만든 자료가 없습니다" 표시
-- [ ] API 실패: "자료 목록을 불러오지 못했습니다" 표시 (0건과 구분)
-- [ ] `ResourceCard` (variant="my") 삭제 버튼 클릭 → `DELETE /api/ref-set/{refSetId}`
-- [ ] 삭제 성공 → toast "삭제되었습니다" (기존 스타일) + 목록 자동 갱신
-- [ ] 삭제 실패 → toast "삭제에 실패했습니다"
-- [ ] 전체 자료실도 "자료가 없습니다" (0건) vs "자료 목록을 불러오지 못했습니다" (에러) 분리
-- [ ] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
+- [x] `LessonMyPage` 진입 시 `GET /api/ref-set` 호출 → `mapRefSetToLibItem` 적용
+- [x] MOCK 경로 주석 처리 (복구 가능)
+- [x] API 조회 중 loading UI (레이지 로딩)
+- [x] 목록 0건: "아직 만든 자료가 없습니다" 표시
+- [x] API 실패: "자료 목록을 불러오지 못했습니다" 표시 (0건과 구분)
+- [x] `ResourceCard` (variant="my") 삭제 버튼 클릭 → `DELETE /api/ref-set/{refSetId}`
+- [x] 삭제 성공 → toast "삭제되었습니다" (기존 스타일) + 목록 자동 갱신
+- [x] 삭제 실패 → toast "삭제에 실패했습니다"
+- [x] 전체 자료실도 "자료가 없습니다" (0건) vs "자료 목록을 불러오지 못했습니다" (에러) 분리
+- [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
 
 ---
 
@@ -2918,7 +2918,8 @@ export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 ---
 
 **작성일**: 2026-08-14  
-**상태**: 계획 수립 완료 / 구현 대기
+**구현 완료일**: 2026-08-17  
+**상태**: 구현 완료
 
 ---
 

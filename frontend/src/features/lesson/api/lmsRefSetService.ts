@@ -68,3 +68,9 @@ export async function registerRefSet(body: RegisterRefSetBody): Promise<Register
     body: JSON.stringify(body),
   });
 }
+
+export async function deleteRefSet(refSetId: string): Promise<void> {
+  await lmsFetch<null>(`${BASE}/${refSetId}`, {
+    method: 'DELETE',
+  });
+}

@@ -12,6 +12,7 @@ export const LessonEditorPage = () => {
   const { mutate: registerRefSet } = useRegisterRefSetMutation();
 
   const handleSaved = (p: SavedPayload) => {
+    console.log('LessonEditorPage handleSaved', p);
     if (p.lcmsSetId && p.title) {
       registerRefSet({
         lcmsSetId: p.lcmsSetId,

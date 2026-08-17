@@ -17,7 +17,7 @@ const COLOR_GROUP_BG: Record<LibraryColorGroup, string> = {
 interface ResourceCardProps {
   item: LibItem;
   variant?: ResourceCardVariant;
-  onDelete?: (id: string) => void;
+  onDelete?: (refSetId: string) => void;
 }
 
 /**
@@ -36,14 +36,14 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
         {item.thumbnailUrl ? (
           <ThumbImage src={item.thumbnailUrl} alt={item.title} loading='lazy' />
         ) : null}
-        {variant === 'my' ? (
+        {variant === 'my' && item.refSetId && onDelete ? (
           <DeleteButton
             type='button'
             title='삭제'
             aria-label='세트지 삭제'
             onClick={(event) => {
               event.stopPropagation();
-              onDelete?.(item.id);
+              onDelete(item.refSetId!);
             }}
           >
             <Trash2 size={14} strokeWidth={2} aria-hidden />

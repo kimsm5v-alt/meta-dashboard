@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCmsSetList } from './cmsSetService';
-import { getRefSetList, registerRefSet } from './lmsRefSetService';
+import { deleteRefSet, getRefSetList, registerRefSet } from './lmsRefSetService';
 import type { RegisterRefSetBody, RefSetListData } from './lmsRefSetService';
 import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
@@ -25,9 +25,7 @@ export function useRegisterRefSetMutation() {
     mutationFn: (body: RegisterRefSetBody) => {
       // cache 기반 중복 방지: 동일 lcmsSetId 이미 등록된 경우 skip
       const cached = queryClient.getQueryData<RefSetListData>(lessonKeys.refSets());
-      const alreadyRegistered = cached?.list.some(
-        (item) => item.lcmsSetId === body.lcmsSetId,
-      );
+      const alreadyRegistered = cached?.list.some((item) => item.lcmsSetId === body.lcmsSetId);
       if (alreadyRegistered) return Promise.resolve({ refSetId: '' });
       return registerRefSet(body);
     },
@@ -35,6 +33,16 @@ export function useRegisterRefSetMutation() {
       if (variables.lcmsSetId) {
         await queryClient.invalidateQueries({ queryKey: lessonKeys.refSets() });
       }
+    },
+  });
+}
+
+export function useDeleteRefSetMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (refSetId: string) => deleteRefSet(refSetId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: lessonKeys.refSets() });
     },
   });
 }

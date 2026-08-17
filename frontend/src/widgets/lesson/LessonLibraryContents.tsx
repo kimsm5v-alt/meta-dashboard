@@ -56,7 +56,7 @@ export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsPr
     return (
       <Contents>
         <ErrorText role='alert'>
-          {error instanceof Error ? error.message : '세트 목록을 불러오지 못했습니다.'}
+          {error instanceof Error ? error.message : '자료 목록을 불러오지 못했습니다.'}
         </ErrorText>
       </Contents>
     );
@@ -64,7 +64,11 @@ export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsPr
 
   return (
     <Contents>
-      <ResourceCardList items={items} isLoading={isPending || isFetching} />
+      <ResourceCardList
+        items={items}
+        isLoading={isPending || isFetching}
+        emptyMessage='자료가 없습니다'
+      />
     </Contents>
   );
 };
