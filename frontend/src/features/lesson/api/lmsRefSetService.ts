@@ -61,6 +61,10 @@ export async function getRefSetList(): Promise<RefSetListData> {
   return lmsFetch<RefSetListData>(BASE);
 }
 
+export async function getRefSet(refSetId: string, signal?: AbortSignal): Promise<RefSetItem> {
+  return lmsFetch<RefSetItem>(`${BASE}/${refSetId}`, { signal });
+}
+
 export async function registerRefSet(body: RegisterRefSetBody): Promise<RegisterRefSetResponse> {
   return lmsFetch<RegisterRefSetResponse>(BASE, {
     method: 'POST',

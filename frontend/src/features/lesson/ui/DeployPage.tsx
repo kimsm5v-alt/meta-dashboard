@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMyGroupsQuery } from '@features/api';
+import { PageLoading } from '@shared/ui/Loading';
+import { useCmsSetDetailQuery, useRefSetQuery } from '../api/queries';
+import { mapCmsSetToLibItem } from '../model/mapCmsSetToLibItem';
+import { mapRefSetToLibItem } from '../model/mapRefSetToLibItem';
 // 보류: mock 콘텐츠 조회 (추가계획9)
 // import { MOCK_LIBRARY_ITEMS } from '../model/mockLibraryItems';
 import type { LibItem, LibraryColorGroup } from '../model/types';
@@ -36,10 +40,11 @@ const nextWeek = new Date(today);
 nextWeek.setDate(today.getDate() + 7);
 
 export const DeployPage = () => {
-  const { setId } = useParams<{ setId: string }>();
+  const { setId, refSetId } = useParams<{ setId: string; refSetId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const failHandledRef = useRef(false);
 
   const {
     data: groups = [],
@@ -50,9 +55,47 @@ export const DeployPage = () => {
 
   // ResourceCard navigate state.item 우선. mock find는 보류(추가계획9).
   const stateItem = (location.state as DeployPageLocationState | null)?.item;
-  const item: LibItem | undefined =
-    stateItem && (!setId || stateItem.id === setId) ? stateItem : undefined;
+  const hasStateItem = Boolean(stateItem && (!setId || stateItem.id === setId));
+
+  const refSetQuery = useRefSetQuery(refSetId, {
+    enabled: !hasStateItem && Boolean(refSetId),
+  });
+  const cmsSetQuery = useCmsSetDetailQuery(setId, {
+    enabled: !hasStateItem && Boolean(setId) && !refSetId,
+  });
+
+  const item = useMemo((): LibItem | undefined => {
+    if (hasStateItem && stateItem) return stateItem;
+    if (refSetId && refSetQuery.data) return mapRefSetToLibItem(refSetQuery.data);
+    if (!refSetId && cmsSetQuery.data) return mapCmsSetToLibItem(cmsSetQuery.data);
+    return undefined;
+  }, [hasStateItem, stateItem, refSetId, refSetQuery.data, cmsSetQuery.data]);
+
   // const item = MOCK_LIBRARY_ITEMS.find((x) => x.id === setId);
+
+  const isItemLoading =
+    !hasStateItem &&
+    ((Boolean(refSetId) && refSetQuery.isPending) ||
+      (Boolean(setId) && !refSetId && cmsSetQuery.isPending));
+
+  const isItemFailed =
+    !setId ||
+    (!hasStateItem &&
+      !isItemLoading &&
+      (refSetId
+        ? refSetQuery.isError || (refSetQuery.isSuccess && !item)
+        : cmsSetQuery.isError || (cmsSetQuery.isSuccess && !item)));
+
+  useEffect(() => {
+    if (!isItemFailed || failHandledRef.current) return;
+    failHandledRef.current = true;
+    toast.error('콘텐츠 조회에 실패했습니다');
+    if (location.key === 'default') {
+      navigate('/lesson/library', { replace: true });
+    } else {
+      navigate(-1);
+    }
+  }, [isItemFailed, location.key, navigate]);
 
   const presetClassId = searchParams.get('class') ?? '';
   const [classes, setClasses] = useState<string[]>(presetClassId ? [presetClassId] : []);
@@ -93,24 +136,25 @@ export const DeployPage = () => {
 
   const goToReports = () => navigate('/lesson/result');
 
-  // 보류: mock 미존재 시 early return (추가계획9) — 콘텐츠 소스 확정 후 복구
-  // if (!item) {
-  //   return (
-  //     <Page>
-  //       <SubHeader>
-  //         <BackButton type='button' onClick={() => navigate(-1)} aria-label='뒤로'>
-  //           <ChevronLeft size={20} />
-  //         </BackButton>
-  //         <SubHeaderTitle>활동 배포</SubHeaderTitle>
-  //       </SubHeader>
-  //       <Body>
-  //         <EmptyState>해당 콘텐츠를 찾을 수 없습니다.</EmptyState>
-  //       </Body>
-  //     </Page>
-  //   );
-  // }
+  if (isItemLoading) {
+    return (
+      <Page>
+        <SubHeader>
+          <BackButton type='button' onClick={() => navigate(-1)} aria-label='뒤로'>
+            <ChevronLeft size={20} />
+          </BackButton>
+          <SubHeaderTitle>활동 배포</SubHeaderTitle>
+        </SubHeader>
+        <PageLoading text='콘텐츠를 불러오는 중...' />
+      </Page>
+    );
+  }
 
-  const previewTitle = item?.title ?? setId ?? '콘텐츠';
+  if (isItemFailed || !item) {
+    return null;
+  }
+
+  const previewTitle = item.title;
 
   return (
     <Page>
@@ -126,18 +170,18 @@ export const DeployPage = () => {
           {/* 좌: 미리보기 */}
           <PreviewPanel>
             <PreviewCard>
-              <Thumb $group={item?.colorGroup ?? 'g1'}>
+              <Thumb $group={item.colorGroup ?? 'g1'}>
                 <ThumbTitle>{previewTitle}</ThumbTitle>
               </Thumb>
               <PreviewMeta>
                 <MetaHint>슬라이드 이름 · 수정 불가</MetaHint>
                 <MetaTitle>{previewTitle}</MetaTitle>
                 <MetaBadges>
-                  {item?.level?.map((l) => (
+                  {item.level?.map((l) => (
                     <MetaBadge key={l}>{l}</MetaBadge>
                   ))}
-                  {item?.selArea ? <MetaBadge>{item.selArea}</MetaBadge> : null}
-                  {item?.duration ? <MetaBadge>{item.duration}</MetaBadge> : null}
+                  {item.selArea ? <MetaBadge>{item.selArea}</MetaBadge> : null}
+                  {item.duration ? <MetaBadge>{item.duration}</MetaBadge> : null}
                 </MetaBadges>
               </PreviewMeta>
             </PreviewCard>

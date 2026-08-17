@@ -65,18 +65,18 @@ export const LessonMyPage = () => {
     deleteRefSet(refSetId, {
       onSuccess: () => {
         toast.message('삭제되었습니다', {
-          position: 'bottom-center',
-          unstyled: true,
-          style: {
-            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '9999px',
-            padding: '10px 20px',
-            fontSize: '14px',
-            fontWeight: 500,
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
-          },
+          // position: 'bottom-center',
+          // unstyled: true,
+          // style: {
+          //   backgroundColor: 'rgba(15, 23, 42, 0.9)',
+          //   color: '#ffffff',
+          //   border: 'none',
+          //   borderRadius: '9999px',
+          //   padding: '10px 20px',
+          //   fontSize: '14px',
+          //   fontWeight: 500,
+          //   boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          // },
         });
       },
       onError: () => {

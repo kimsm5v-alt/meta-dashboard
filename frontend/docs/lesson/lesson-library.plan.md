@@ -14,7 +14,7 @@
 | **추가계획6** | `onSaved` → `POST /api/ref-set` 자동 등록 + `LessonMyPage` `GET /api/ref-set` 목록 연동 | 구현 완료 (ResourceCardList 연결 제외) |
 | **추가계획7** | `ResourceCard` 수정하기 → `/lesson/editor/:slideId` 이동 (`item.id`) | 구현 완료 |
 | **추가계획8** | 전체 자료실 CMS `GET /api/sets` 연동 + 필터 재조회/레이스 처리 + loading UI | 구현 완료 |
-| **추가계획9** | `DeployPage` 실시간 수업 → Viewer + `ResourceCard`→deploy `state.item` + URL 직접 진입 시 item 재조회 | 1차 완료 / 2차(URL 재조회) 계획 수정 · 구현 대기 |
+| **추가계획9** | `DeployPage` 실시간 수업 → Viewer + `ResourceCard`→deploy `state.item` + URL 직접 진입 시 item 재조회 | 구현 완료 |
 | **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 구현 완료 |
 | **추가계획11** | DeployPage·저작툴 시작하기 — 활동 시작/종료 API + QR·참여링크 연동 | 타이틀만 / 상세 미작성 |
 | **추가계획12** | 학생용 수업 뷰어 라우트 (QR·참여링크 진입, SlideViewer 재사용) | 타이틀만 / 상세 미작성 · 추가계획11 완료 후 |
@@ -2127,12 +2127,12 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 
 # 추가계획9 — DeployPage 실시간 수업 → Viewer 이동 + item 전달/재조회
 
-> **상태**: 1차 구현 완료 / **2차 계획 수정 · 구현 대기** (코드 미착수)  
+> **상태**: 1차·2차 구현 완료  
 > **범위**:  
 > 1) `ResourceCard` 「시작하기」 → **DeployPage** (`/lesson/deploy/:setId` 또는 `/lesson/deploy/:setId/:refSetId`) + `state.item`  
 > 2) 배포 완료 후 `deployed.isLive` → `/lesson/viewer/:setId` (1차 완료)  
 > 3) URL 직접 진입(state 없음) 시 `refSetId`/`setId`로 item API 재조회 + 로딩/실패 UX  
-> **비범위**: Viewer Platform `slideId` 매핑, 배포 API, `LessonMyPage` ResourceCardList API 연결(추가계획6 잔여)
+> **비범위**: Viewer Platform `slideId` 매핑, 배포 API, `LessonMyPage` ResourceCardList API 연결(추가계획6 잔여 → 추가계획10에서 완료)
 
 ---
 
@@ -2141,9 +2141,7 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 | 차수 | 내용 |
 |------|------|
 | 1차 | 실시간 배포 → Viewer, `ResourceCard` `state.item` 전달. mock find / `!item` early return 주석 보류. URL 직접 진입은 title fallback만 |
-| **2차 (이번)** | param 명칭 `itemId` → `setId` 통일. library/my `LibItem` 형식 확인. URL 직접 진입 시 LMS/CMS 단건 조회. 조회 중 로딩, 실패 시 toast + 이전 페이지 |
-
-코드는 2차 범위 확정 후 착수. 본 문서는 구현 스펙이다.
+| **2차** | param 명칭 `itemId` → `setId` 통일. library/my `LibItem` 형식 확인. URL 직접 진입 시 LMS/CMS 단건 조회. 조회 중 로딩, 실패 시 toast + 이전 페이지 — **구현 완료 (2026-08-17)** |
 
 ---
 
@@ -2160,20 +2158,20 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 
 ---
 
-## 2. 현황 (1차 구현 기준)
+## 2. 현황 (2차 구현 기준)
 
 | 항목 | 현재 |
 |------|------|
-| 라우트 | `/lesson/deploy/:setId`, `/lesson/deploy/:setId/:refSetId` 이미 존재 (`routes.tsx`) |
-| `DeployPage` params | `useParams<{ setId: string }>()` — **`refSetId` 미수신** |
-| `ResourceCard` 시작하기 | `navigate(\`/lesson/deploy/${item.id}${location.search}\`, { state: { item } })` — **`refSetId` path 미포함** |
-| item 소스 | `location.state.item`만. mock find / `!item` early return 주석 보류 |
-| URL만 진입 | API 없음. `previewTitle = item?.title ?? setId ?? '콘텐츠'` |
+| 라우트 | `/lesson/deploy/:setId`, `/lesson/deploy/:setId/:refSetId` (`routes.tsx`) |
+| `DeployPage` params | `useParams<{ setId; refSetId }>()` — 수신·재조회 연동 완료 |
+| `ResourceCard` 시작하기 | `refSetId` 있으면 `/lesson/deploy/${id}/${refSetId}`, 없으면 `/lesson/deploy/${id}` + `state.item` |
+| item 소스 | 1) `location.state.item` 2) LMS/CMS 단건 조회. mock find 주석 보류 |
+| URL만 진입 | `GET /api/ref-set/{refSetId}` 또는 `GET /api/sets/{setId}` + 로딩/실패 UX |
 | 실시간 Viewer | `navigate(\`/lesson/viewer/${setId}\`)` 구현됨 |
 | 자료실 목록 | CMS `GET /api/sets` → `mapCmsSetToLibItem` |
-| 나의 자료 목록 | mock `MOCK_LIBRARY_ITEMS`. `mapRefSetToLibItem`은 파일만 있고 목록 미연결 (추가계획6 TODO) |
-| LMS 단건 | `getRefSetList`만 있음. `GET /api/ref-set/{refSetId}` **미구현** |
-| CMS 단건 | `getCmsSetList`만 있음. `GET /api/sets/{setId}` **미구현** |
+| 나의 자료 목록 | LMS `GET /api/ref-set` → `mapRefSetToLibItem` (추가계획10) |
+| LMS 단건 | `getRefSet(refSetId)` + `useRefSetQuery` |
+| CMS 단건 | `getCmsSet(setId)` + `useCmsSetDetailQuery` |
 
 ---
 
@@ -2454,7 +2452,7 @@ cmsSet: (setId: string) => [...lessonKeys.cmsSets(), setId] as const,
 
 ---
 
-## 9. 변경 파일 (2차 구현 시)
+## 9. 변경 파일 (2차 구현 완료)
 
 | 파일 | 유형 | 핵심 변경 |
 |------|------|-----------|
@@ -2465,10 +2463,10 @@ cmsSet: (setId: string) => [...lessonKeys.cmsSets(), setId] as const,
 | `features/lesson/api/queryKeys.ts` | 수정 | `refSet(id)`, `cmsSet(id)` |
 | `features/lesson/api/queries.ts` | 수정 | `useRefSetQuery`, `useCmsSetDetailQuery` |
 | `features/lesson/model/mapCmsSetToLibItem.ts` | 수정 | 상세 DTO 최소 필드 매핑 재사용 |
-| `features/lesson/index.ts` | 수정 | 훅·타입 export. `mapRefSetToLibItem` 필요 시 export |
+| `features/lesson/index.ts` | 수정 | 훅·타입 export |
 | `app/router/routes.tsx` | 변경 없음 | path 이미 `setId`/`refSetId` |
 
-`LessonMyPage` 목록 API 연결·`mapRefSetToLibItem` 목록 적용은 **이번 범위 밖** (추가계획6 잔여).
+`LessonMyPage` 목록 API 연결·`mapRefSetToLibItem` 목록 적용은 추가계획10에서 완료.
 
 ---
 
@@ -2497,25 +2495,30 @@ cmsSet: (setId: string) => [...lessonKeys.cmsSets(), setId] as const,
 - [x] 라우트 param 명칭 `setId` (구 itemId)
 - [x] `npx tsc -b --noEmit` 통과
 
-### 2차 (이번 구현 대상)
+### 2차 (구현 완료)
 
-- [ ] 「시작하기」는 DeployPage만. `refSetId` 있으면 path에 포함
-- [ ] library/my 모두 `LibItem` + 동일 `ResourceCard`. `refSetId`만 path 분기로 처리
-- [ ] URL 직접 진입 + `refSetId` → `GET /api/ref-set/{refSetId}` → `mapRefSetToLibItem`
-- [ ] URL 직접 진입 + `setId`만 → `GET /api/sets/{setId}` → LibItem 매핑
-- [ ] 조회 중 `PageLoading`(또는 동등 Loading)
-- [ ] 실패 시 toast `'콘텐츠 조회에 실패했습니다'` + `navigate(-1)` (history 없으면 `/lesson/library`)
-- [ ] state 진입 시 단건 API 미호출
-- [ ] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
+- [x] 「시작하기」는 DeployPage만. `refSetId` 있으면 path에 포함
+- [x] library/my 모두 `LibItem` + 동일 `ResourceCard`. `refSetId`만 path 분기로 처리
+- [x] URL 직접 진입 + `refSetId` → `GET /api/ref-set/{refSetId}` → `mapRefSetToLibItem`
+- [x] URL 직접 진입 + `setId`만 → `GET /api/sets/{setId}` → LibItem 매핑
+- [x] 조회 중 `PageLoading`(또는 동등 Loading)
+- [x] 실패 시 toast `'콘텐츠 조회에 실패했습니다'` + `navigate(-1)` (history 없으면 `/lesson/library`)
+- [x] state 진입 시 단건 API 미호출
+- [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
 
 ---
 
 ## 12. 후속 (이번 비범위)
 
 - [ ] Viewer `slideId` ↔ CBS/setId 매핑 (`GET /api/sets/{setId}`의 `slides` 활용 가능)
-- [ ] `LessonMyPage` `refSetData.list` → `mapRefSetToLibItem` → `ResourceCardList` 연결
+- [x] `LessonMyPage` `refSetData.list` → `mapRefSetToLibItem` → `ResourceCardList` 연결 — 추가계획10에서 완료
 - [ ] LMS `options.title` 공백일 때 CMS 단건으로 title 보강할지 여부
-- [ ] mock early return UI 복구 여부 — 2차에서 실패 이탈로 대체, 복구하지 않음
+- [x] mock early return UI 복구 여부 — 2차에서 실패 이탈로 대체, 복구하지 않음
+
+---
+
+**2차 구현 완료일**: 2026-08-17  
+**상태**: 1차·2차 구현 완료
 
 ---
 

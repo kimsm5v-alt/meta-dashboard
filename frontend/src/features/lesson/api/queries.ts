@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCmsSetList } from './cmsSetService';
-import { deleteRefSet, getRefSetList, registerRefSet } from './lmsRefSetService';
+import { getCmsSet, getCmsSetList } from './cmsSetService';
+import { deleteRefSet, getRefSet, getRefSetList, registerRefSet } from './lmsRefSetService';
 import type { RegisterRefSetBody, RefSetListData } from './lmsRefSetService';
 import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
@@ -16,6 +16,14 @@ export function useRefSetListQuery() {
   return useQuery({
     queryKey: lessonKeys.refSets(),
     queryFn: getRefSetList,
+  });
+}
+
+export function useRefSetQuery(refSetId: string | undefined, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: lessonKeys.refSet(refSetId ?? ''),
+    queryFn: ({ signal }) => getRefSet(refSetId!, signal),
+    enabled: Boolean(refSetId) && (options?.enabled ?? true),
   });
 }
 
@@ -53,5 +61,13 @@ export function useCmsSetListQuery(filters: LibFilters, sort: SortKey) {
     queryKey: [...lessonKeys.cmsSets(), filters, sort],
     queryFn: ({ signal }) => getCmsSetList({ ...CMS_SETS_DEFAULT }, signal),
     placeholderData: keepPreviousData,
+  });
+}
+
+export function useCmsSetDetailQuery(setId: string | undefined, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: lessonKeys.cmsSet(setId ?? ''),
+    queryFn: ({ signal }) => getCmsSet(setId!, signal),
+    enabled: Boolean(setId) && (options?.enabled ?? true),
   });
 }

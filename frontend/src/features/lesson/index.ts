@@ -12,8 +12,10 @@ export { matchLibraryItem, sortLibraryItems } from './model/matchLibraryFilters'
 export { MOCK_LIBRARY_ITEMS } from './model/mockLibraryItems';
 export {
   useRefSetListQuery,
+  useRefSetQuery,
   useRegisterRefSetMutation,
   useCmsSetListQuery,
+  useCmsSetDetailQuery,
   useDeleteRefSetMutation,
 } from './api/queries';
 export type {
@@ -22,7 +24,12 @@ export type {
   RefSetListData,
   RefSetOptions,
 } from './api/lmsRefSetService';
-export type { CmsSetItem, CmsSetListData, CmsSetListParams } from './api/cmsSetService';
+export type {
+  CmsSetItem,
+  CmsSetDetail,
+  CmsSetListData,
+  CmsSetListParams,
+} from './api/cmsSetService';
 export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 export type {

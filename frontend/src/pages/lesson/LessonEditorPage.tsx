@@ -12,7 +12,7 @@ export const LessonEditorPage = () => {
   const { mutate: registerRefSet } = useRegisterRefSetMutation();
 
   const handleSaved = (p: SavedPayload) => {
-    console.log('LessonEditorPage handleSaved', p);
+    console.log('[LessonEditorPage] handleSaved', p);
     if (p.lcmsSetId && p.title) {
       registerRefSet({
         lcmsSetId: p.lcmsSetId,
@@ -32,9 +32,9 @@ export const LessonEditorPage = () => {
 
   const handleStartLesson = (p: StartLessonPayload) => {
     // TODO: Host 수업 화면 실행 (Viewer/Deploy). openSet setId ≠ Platform slideId.
-    if (import.meta.env.DEV) {
+    // if (import.meta.env.DEV) {
       console.log('[LessonEditorPage] onStartLesson', p);
-    }
+    // }
   };
 
   const handleError = (error: EmbedError) => {
