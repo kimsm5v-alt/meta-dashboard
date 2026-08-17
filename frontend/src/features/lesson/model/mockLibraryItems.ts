@@ -4,7 +4,7 @@ import type { LibItem } from './types';
  * 자료실·나의 자료 공통 목업 (프로토타입 LIB/MY 상당).
  * Phase B API 연동 시 제거하거나 Story/테스트용으로만 유지.
  * taxonomy value(`filterTaxonomy`)와 맞춰 두어 칩 필터가 동작한다.
- * `updated`는 variant=my 카드 표시용.
+ * `createdAt`은 variant=my 카드 표시용 (ISO).
  */
 export const MOCK_LIBRARY_ITEMS: LibItem[] = [
   {
@@ -15,7 +15,7 @@ export const MOCK_LIBRARY_ITEMS: LibItem[] = [
     colorGroup: 'g1',
     views: 1240,
     saves: 328,
-    updated: '07/14',
+    createdAt: '2026-07-14T00:00:00',
     provider: '피어나다',
     level: ['초'],
     grade: ['초3'],
@@ -30,7 +30,7 @@ export const MOCK_LIBRARY_ITEMS: LibItem[] = [
     colorGroup: 'g2',
     views: 980,
     saves: 210,
-    updated: '07/13',
+    createdAt: '2026-07-13T00:00:00',
     provider: '온리원',
     level: ['중'],
     grade: ['중1'],
@@ -45,7 +45,7 @@ export const MOCK_LIBRARY_ITEMS: LibItem[] = [
     colorGroup: 'g3',
     views: 540,
     saves: 96,
-    updated: '07/12',
+    createdAt: '2026-07-12T00:00:00',
     provider: '비상',
     level: ['초'],
     grade: ['초5'],
@@ -60,7 +60,7 @@ export const MOCK_LIBRARY_ITEMS: LibItem[] = [
     colorGroup: 'g4',
     views: 1520,
     saves: 441,
-    updated: '07/08',
+    createdAt: '2026-07-08T00:00:00',
     provider: '연구단',
     level: ['중'],
     grade: ['중2'],
@@ -75,7 +75,7 @@ export const MOCK_LIBRARY_ITEMS: LibItem[] = [
     colorGroup: 'g5',
     views: 320,
     saves: 58,
-    updated: '07/15',
+    createdAt: '2026-07-15T00:00:00',
     provider: '교육청',
     level: ['고'],
     grade: ['고1'],
@@ -90,7 +90,7 @@ export const MOCK_LIBRARY_ITEMS: LibItem[] = [
     colorGroup: 'g6',
     views: 210,
     saves: 44,
-    updated: '07/05',
+    createdAt: '2026-07-05T00:00:00',
     provider: '피어나다',
     level: ['초'],
     grade: ['초6'],

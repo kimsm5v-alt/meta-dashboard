@@ -5,9 +5,9 @@ import {
   useCmsSetListQuery,
   mapCmsSetToLibItem,
   // MOCK 복구 시 아래 import 주석 해제
-  MOCK_LIBRARY_ITEMS,
-  matchLibraryItem,
-  sortLibraryItems,
+  // MOCK_LIBRARY_ITEMS,
+  // matchLibraryItem,
+  // sortLibraryItems,
 } from '@features/lesson';
 import type { LibFilters, SortKey } from '@features/lesson';
 
@@ -30,15 +30,18 @@ const ErrorText = styled.p`
 
 export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsProps) => {
   const { data, isPending, isFetching, isError, error } = useCmsSetListQuery(filters, sort);
-  const items = useMemo(() => {
-    if (data) return data.map(mapCmsSetToLibItem);
-    return sortLibraryItems(
-      MOCK_LIBRARY_ITEMS.filter((item) => matchLibraryItem(item, filters)),
-      sort,
-    )
-  }, [data, filters, sort]);
+  const items = useMemo(() => (data?.list ?? []).map(mapCmsSetToLibItem), [data]);
 
   // --- MOCK 경로 (필요 시 아래 주석 해제 + 위 CMS 훅 비활성) ---
+  // const items = useMemo(() => {
+  //   if (data) {
+  //     return data?.list.map(mapCmsSetToLibItem);
+  //   }
+  //   return sortLibraryItems(
+  //     MOCK_LIBRARY_ITEMS.filter((item) => matchLibraryItem(item, filters)),
+  //     sort,
+  //   );
+  // }, [data, filters, sort]);
   // const items = useMemo(
   //   () =>
   //     sortLibraryItems(
@@ -53,7 +56,7 @@ export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsPr
     return (
       <Contents>
         <ErrorText role='alert'>
-          {error instanceof Error ? error.message : '세트 목록을 불러오지 못했습니다.'}
+          {error instanceof Error ? error.message : '자료 목록을 불러오지 못했습니다.'}
         </ErrorText>
       </Contents>
     );
@@ -61,7 +64,11 @@ export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsPr
 
   return (
     <Contents>
-      <ResourceCardList items={items} isLoading={isPending || isFetching} />
+      <ResourceCardList
+        items={items}
+        isLoading={isPending || isFetching}
+        emptyMessage='자료가 없습니다'
+      />
     </Contents>
   );
 };

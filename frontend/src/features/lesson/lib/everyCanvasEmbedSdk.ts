@@ -21,8 +21,8 @@ export type LessonMeta = {
 };
 
 /**
- * onSaved 콜백 페이로드.
- * lcmsSetId·title·lessonMeta 는 SDK 1.2.0 비파괴 추가 — slideId 만 읽던 기존 코드 그대로 동작.
+ * onSaved 콜백 페이로드 (Host LMS 등록 등).
+ * SDK 1.5 공지상 제거됐으나, Frame이 `saved`를 발행하면 Host에서 수신한다.
  */
 export type SavedPayload = {
   slideId: string;
@@ -33,7 +33,7 @@ export type SavedPayload = {
 };
 
 /**
- * onStartLesson 콜백 페이로드 (SDK 1.2.0).
+ * onStartLesson 콜백 페이로드 (SDK 1.2.0+).
  * everyCanvas는 수업을 실행하지 않고 값만 전달 — Host가 수업 화면을 직접 실행해야 함.
  */
 export type StartLessonPayload = {
@@ -47,11 +47,13 @@ export type SlideChangedPayload = {
   slideId: string;
   totalSlides: number;
 };
+
 export type CompletedPayload = {
   viewedSlideIds: string[];
   totalLearnTimeMs: number;
 };
 
+/** SDK 1.5.0: activity-* Frame capability 제거. 타입만 하위호환 잔존 가능. */
 export type EmbedMode = 'viewer' | 'editor' | 'activity-join' | 'activity-report';
 
 export type CreateEmbedOptions = {
@@ -59,6 +61,7 @@ export type CreateEmbedOptions = {
   mode: EmbedMode;
   getToken?: () => string | Promise<string>;
   getSsoToken?: () => string | Promise<string>;
+  /** Viewer 전용 Platform slideId. Editor에서는 사용하지 않음(SDK 1.5 openSet). */
   slideId?: string;
   activityId?: string;
   theme?: ThemeTokens;
@@ -73,6 +76,9 @@ export type EmbedHandle = {
   onReady: (listener: () => void) => () => void;
   onResize: (listener: (height: number) => void) => () => void;
   destroy: () => void;
+  /** SDK 1.5.0 — CBS 세트지(수업자료) id로 슬라이드 전개. Editor ready 이후 호출 */
+  openSet?: (setId: string) => void | Promise<void>;
+  /** Frame이 capability 미광고 시 UNSUPPORTED_COMMAND */
   save?: () => Promise<unknown>;
   goToSlide?: (target: { index?: number; slideId?: string }) => Promise<unknown>;
 };

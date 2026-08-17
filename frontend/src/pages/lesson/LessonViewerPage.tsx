@@ -1,26 +1,29 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { LessonViewerEmbed } from '@features/lesson';
+import { LessonViewerEmbed, type EmbedError } from '@features/lesson';
 
 export const LessonViewerPage = () => {
-  const { slideId } = useParams<{ slideId: string }>();
+  const { setId } = useParams<{ setId: string }>();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!slideId) {
+    if (!setId) {
       navigate(-1);
     }
-  }, [slideId, navigate]);
+  }, [setId, navigate]);
 
-  if (!slideId) {
+  if (!setId) {
     return null;
   }
 
+  const handleError = (error: EmbedError) => {
+    // if (import.meta.env.DEV) {
+    console.warn('[LessonViewerPage] embed error', error.code, error.message);
+    // }
+  };
+
   return (
-    <LessonViewerEmbed
-      slideId={slideId}
-      onExitRequested={() => navigate(-1)}
-    />
+    <LessonViewerEmbed setId={setId} onExitRequested={() => navigate(-1)} onError={handleError} />
   );
 };
 

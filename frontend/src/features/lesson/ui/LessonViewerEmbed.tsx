@@ -1,10 +1,10 @@
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/styled';
 import { ENV } from '@shared/config/env';
-// import { fetchEmbedToken } from '../api/embedTokenService';
 import { useEveryCanvasEmbed } from '../lib/useEveryCanvasEmbed';
 import type {
   CompletedPayload,
+  EmbedError,
   SlideChangedPayload,
   ThemeTokens,
 } from '../lib/everyCanvasEmbedSdk';
@@ -21,17 +21,25 @@ const EmbedHost = styled.div`
 `;
 
 export type LessonViewerEmbedProps = {
-  slideId: string;
+  setId: string;
   onSlideChanged?: (payload: SlideChangedPayload) => void;
   onCompleted?: (payload: CompletedPayload) => void;
   onExitRequested?: (payload: { reason?: 'userClose' | 'done' }) => void;
+  onError?: (error: EmbedError) => void;
+  onReady?: () => void;
 };
 
+/**
+ * everyCanvas SlideViewer 래퍼 (SDK 1.5.0 — Viewer 계약 변경 없음).
+ * getSsoToken / openSet 미사용.
+ */
 export const LessonViewerEmbed = ({
-  slideId,
+  setId,
   onSlideChanged,
   onCompleted,
   onExitRequested,
+  onError,
+  onReady,
 }: LessonViewerEmbedProps) => {
   const appTheme = useTheme();
   const embedTheme: ThemeTokens = {
@@ -42,7 +50,7 @@ export const LessonViewerEmbed = ({
     options: {
       embedBaseUrl: ENV.EVERYCLASS_EMBED_BASE_URL,
       mode: 'viewer',
-      slideId,
+      slideId: setId,
       // getToken: () => fetchEmbedToken({ scope: 'viewer', slideId }),
       locale: 'ko-KR',
       theme: embedTheme,
@@ -52,7 +60,9 @@ export const LessonViewerEmbed = ({
       completed: (p) => onCompleted?.(p as CompletedPayload),
       exitRequested: (p) => onExitRequested?.(p as { reason?: 'userClose' | 'done' }),
     },
-    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, slideId],
+    onReady,
+    onError,
+    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, setId],
   });
 
   return (

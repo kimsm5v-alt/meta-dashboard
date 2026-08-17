@@ -1,20 +1,21 @@
 import { getAuth } from '@shared/lib/authClient';
 import { ENV } from '@shared/config/env';
 
-export interface CmsSetMeta {
-  id: number;
-  code: string;
-  name: string;
-  val: string;
-}
-
+/** GET /api/sets list[] 아이템 (실측 2026-08-14) */
 export interface CmsSetItem {
   setId: string;
   title: string;
   thumbnailUrl?: string;
   slideCount?: number;
-  metas?: CmsSetMeta[];
   createdAt?: string;
+}
+
+/** GET /api/sets 페이지 응답 */
+export interface CmsSetListData {
+  list: CmsSetItem[];
+  pageNo: number;
+  pageSize: number;
+  totalCount: number;
 }
 
 export interface CmsSetListParams {
@@ -31,10 +32,49 @@ export interface CmsSetListParams {
   curriUnit1?: number;
 }
 
+/** GET /api/sets/{setId} 단건 응답 (DeployPage 미리보기용 최소 필드 + 후속 slides/metas) */
+export interface CmsSetDetail {
+  setId: string;
+  title: string;
+  description?: string;
+  thumbnailUrl?: string;
+  slides?: Array<{
+    slideId: string;
+    title: string;
+    order: number;
+    article?: {
+      articleId: string;
+      title: string;
+      contents?: string;
+      json?: string;
+      type?: string;
+    };
+  }>;
+  metas?: Array<{
+    id: number;
+    code: string;
+    name: string;
+    val: string;
+  }>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+async function parseCmsError(res: Response, fallback: string): Promise<never> {
+  let message = fallback;
+  try {
+    const body = (await res.json()) as { message?: string };
+    if (body.message) message = body.message;
+  } catch {
+    // ignore parse error
+  }
+  throw new Error(message);
+}
+
 export async function getCmsSetList(
   params: CmsSetListParams,
   signal?: AbortSignal,
-): Promise<CmsSetItem[]> {
+): Promise<CmsSetListData> {
   const qs = new URLSearchParams({
     pageNo: String(params.pageNo),
     pageSize: String(params.pageSize),
@@ -56,14 +96,19 @@ export async function getCmsSetList(
     headers: { accept: '*/*' },
   });
   if (!res.ok) {
-    let message = `CMS sets 조회 실패: ${res.status}`;
-    try {
-      const body = (await res.json()) as { message?: string };
-      if (body.message) message = body.message;
-    } catch {
-      // ignore parse error
-    }
-    throw new Error(message);
+    await parseCmsError(res, `CMS sets 조회 실패: ${res.status}`);
   }
-  return (await res.json()) as CmsSetItem[];
+  return (await res.json()) as CmsSetListData;
+}
+
+export async function getCmsSet(setId: string, signal?: AbortSignal): Promise<CmsSetDetail> {
+  const auth = getAuth();
+  const res = await auth.authorizedFetch(`${ENV.CMS_API_URL}/api/sets/${setId}`, {
+    signal,
+    headers: { accept: '*/*' },
+  });
+  if (!res.ok) {
+    await parseCmsError(res, `CMS set 조회 실패: ${res.status}`);
+  }
+  return (await res.json()) as CmsSetDetail;
 }
