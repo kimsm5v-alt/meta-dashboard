@@ -17,7 +17,7 @@ import { useState } from 'react';
 
 const Panel = styled.div`
   margin-bottom: ${({ theme }) => theme.spacing.md};
-  border-radius: ${({ theme }) => theme.radius.xl};
+  border-radius: ${({ theme }) => theme.radius.lg};
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   background: ${({ theme }) => theme.colors.background.paper};
   padding: ${({ theme }) => theme.spacing.md};
@@ -58,7 +58,7 @@ const Group = styled.div<{ $compact?: boolean }>`
   display: flex;
   flex-wrap: wrap;
   align-items: ${({ $compact }) => ($compact ? 'center' : 'flex-start')};
-  gap: ${({ $compact, theme }) => ($compact ? '6px' : theme.spacing.md)};
+  gap: ${({ $compact }) => ($compact ? '6px' : '12px')};
   padding: ${({ $compact, theme }) => ($compact ? '0' : `${theme.spacing.sm} 0`)};
 `;
 
@@ -117,7 +117,7 @@ const PanelButton = styled.button<{ $pushEnd?: boolean }>`
   gap: 4px;
   margin-left: ${({ $pushEnd }) => ($pushEnd ? 'auto' : '0')};
   padding: 4px 10px;
-  border-radius: ${({ theme }) => theme.radius.lg};
+  border-radius: ${({ theme }) => theme.radius.md};
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   background: transparent;
   font-size: ${({ theme }) => theme.typography.fontSize.xs};

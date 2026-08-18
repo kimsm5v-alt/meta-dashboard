@@ -67,7 +67,7 @@ export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsPr
       <ResourceCardList
         items={items}
         isLoading={isPending || isFetching}
-        emptyMessage='자료가 없습니다'
+        emptyMessage='조회된 자료가 없습니다'
       />
     </Contents>
   );

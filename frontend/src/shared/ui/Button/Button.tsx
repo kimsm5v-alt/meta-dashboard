@@ -1,4 +1,5 @@
 import styled from '@emotion/styled';
+import type { CSSObject } from '@emotion/react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
@@ -9,6 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: ButtonSize;
   fullWidth?: boolean;
   children: ReactNode;
+  css?: CSSObject;
 }
 
 const StyledButton = styled.button<{
