@@ -164,7 +164,7 @@ class SchoolRecordService:
         if student.strengths:
             lines.append("\n# 검사 결과 — 강점 요인")
             for factor in student.strengths:
-                lines.append(f"- {factor.name}: {t_score_to_level(factor.t_score)}")
+                lines.append(f"- {factor.name}: {t_score_to_level(factor.t_score, factor.is_positive)}")
 
         if student.improvements:
             lines.append("\n# 검사 결과 — 성장이 기대되는 요인")
@@ -172,7 +172,7 @@ class SchoolRecordService:
                 "(이 요인들은 부족한 점이 아니라, 스스로 조절하고 노력한 모습으로 서술할 대상입니다)"
             )
             for factor in student.improvements:
-                lines.append(f"- {factor.name}: {t_score_to_level(factor.t_score)}")
+                lines.append(f"- {factor.name}: {t_score_to_level(factor.t_score, factor.is_positive)}")
 
         if student.round2_available and student.round_changes:
             lines.append("\n# 1차 → 2차 변화")

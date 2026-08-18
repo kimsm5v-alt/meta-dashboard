@@ -103,15 +103,24 @@ def get_type_guide(lpa_type: str) -> TypeWritingGuide | None:
     return TYPE_WRITING_GUIDES.get(lpa_type)
 
 
-def t_score_to_level(t_score: float) -> str:
-    """T점수 → 5단계 레벨. 원문 수치는 LLM에 전달하지 않는다(정책상 점수 기재 금지)."""
-    if t_score >= 70:
+def t_score_to_level(t_score: float, is_positive: bool = True) -> str:
+    """T점수 → 5단계 '질적 수준' 레벨. 원문 수치는 LLM에 전달하지 않는다(정책상 점수 기재 금지).
+
+    is_positive=False(부적 요인, 예: 점수가 낮을수록 긍정적인 요인)는 점수를 뒤집어(100-t_score)
+    매핑한다 — frontend/src/features/school-record/model/computeStudentProfile.ts의
+    meritScore(factor.isPositive ? avgT : 100-avgT) 계산과 동일한 보정 방식이다.
+    그 결과 반환되는 레벨은 항상 "이 요인이 얼마나 긍정적으로 나타나는가"를 의미하며,
+    요인명의 원래 방향(예: 불안이 높다/낮다)과는 반대일 수 있다 — LLM이 38개 요인 각각의
+    심리학적 해석 방향을 스스로 추측하지 않아도 되도록, 방향 판단을 여기서 미리 끝낸다.
+    """
+    effective = t_score if is_positive else (100 - t_score)
+    if effective >= 70:
         return "매우높음"
-    if t_score >= 60:
+    if effective >= 60:
         return "높음"
-    if t_score >= 40:
+    if effective >= 40:
         return "보통"
-    if t_score >= 30:
+    if effective >= 30:
         return "낮음"
     return "매우낮음"
 
