@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import styled from '@emotion/styled';
 import { Inbox, SearchX } from 'lucide-react';
 import { Loading } from '@shared/ui/Loading';
@@ -18,6 +19,12 @@ interface ResourceCardListProps {
   onDelete?: (refSetId: string) => void;
   /** API 조회/재조회 중 로딩 표시 */
   isLoading?: boolean;
+  /** 하단 센티널 노출 여부(무한 스크롤) */
+  hasMore?: boolean;
+  /** 다음 페이지 로딩 상태 */
+  isFetchingMore?: boolean;
+  /** 하단 센티널 진입 시 호출 */
+  onEndReached?: () => void;
 }
 
 export const ResourceCardList = ({
@@ -26,7 +33,34 @@ export const ResourceCardList = ({
   emptyMessage,
   onDelete,
   isLoading = false,
+  hasMore = false,
+  isFetchingMore = false,
+  onEndReached,
 }: ResourceCardListProps) => {
+  const observerTargetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!hasMore || isFetchingMore || !onEndReached) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          onEndReached();
+        }
+      },
+      { threshold: 1.0 },
+    );
+
+    const target = observerTargetRef.current;
+    if (target) {
+      observer.observe(target);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, isFetchingMore, onEndReached]);
+
   if (isLoading && items.length === 0) {
     return (
       <LoadingWrap role='status' aria-busy='true'>
@@ -59,6 +93,12 @@ export const ResourceCardList = ({
           <ResourceCard key={item.id} item={item} variant={variant} onDelete={onDelete} />
         ))}
       </Grid>
+      {hasMore ? <ObserverTarget ref={observerTargetRef} aria-hidden /> : null}
+      {isFetchingMore ? (
+        <FetchMoreBar role='status' aria-busy='true'>
+          <Loading size='sm' text='추가 불러오는 중...' />
+        </FetchMoreBar>
+      ) : null}
     </ListShell>
   );
 };
@@ -82,6 +122,18 @@ const RefetchBar = styled.div`
   align-items: center;
   justify-content: center;
   padding: ${({ theme }) => theme.spacing.xs} 0;
+`;
+
+const FetchMoreBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: ${({ theme }) => theme.spacing.sm} 0;
+`;
+
+const ObserverTarget = styled.div`
+  width: 100%;
+  height: 1px;
 `;
 
 const Grid = styled.div`

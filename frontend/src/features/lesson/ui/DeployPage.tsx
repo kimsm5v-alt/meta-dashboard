@@ -105,6 +105,7 @@ export const DeployPage = () => {
   const [start, setStart] = useState(formatDate(today));
   const [end, setEnd] = useState(formatDate(nextWeek));
   const [deployed, setDeployed] = useState<DeployedState | null>(null);
+  const [imgFailed, setImgFailed] = useState(false);
 
   const resolveGroupName = (id: string) => groups.find((g) => g.id === id)?.name ?? id;
 
@@ -156,8 +157,9 @@ export const DeployPage = () => {
   }
 
   const previewTitle = item.title;
-  const thumbnailUrl = item.thumbnailUrl?.startsWith('/') ? `${ENV.CMS_FILE_URL}${item.thumbnailUrl}` : `${ENV.CMS_FILE_URL}/${item.thumbnailUrl}`;
-
+  const thumbnailUrl = item.thumbnailUrl?.startsWith('/')
+    ? `${ENV.CMS_FILE_URL}${item.thumbnailUrl}`
+    : `${ENV.CMS_FILE_URL}/${item.thumbnailUrl}`;
 
   return (
     <Page>
@@ -174,9 +176,15 @@ export const DeployPage = () => {
           <PreviewPanel>
             <PreviewCard>
               <Thumb $group={item.colorGroup ?? 'g1'}>
-                {item.thumbnailUrl ? (
-                  <ThumbImage src={thumbnailUrl} alt={item.title} loading='lazy' />
+                {item.thumbnailUrl && !imgFailed ? (
+                  <ThumbImage
+                    src={thumbnailUrl}
+                    alt={item.title}
+                    loading='lazy'
+                    onError={() => setImgFailed(true)}
+                  />
                 ) : null}
+                {imgFailed ? <ThumbTitle title={item.title}>{item.title}</ThumbTitle> : null}
               </Thumb>
               <PreviewMeta>
                 <MetaHint>슬라이드 이름 · 수정 불가</MetaHint>
@@ -467,6 +475,24 @@ const ThumbImage = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover;
+`;
+
+const ThumbTitle = styled.p`
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 ${({ theme }) => theme.spacing.md};
+  overflow: hidden;
+  color: ${({ theme }) => theme.colors.gray[800]};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  line-height: ${({ theme }) => theme.typography.lineHeight.tight};
+  text-align: center;
+  text-overflow: ellipsis;
 `;
 
 const PreviewMeta = styled.div`
