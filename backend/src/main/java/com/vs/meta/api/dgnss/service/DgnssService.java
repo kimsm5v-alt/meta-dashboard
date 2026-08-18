@@ -1126,6 +1126,43 @@ public class DgnssService {
         return resultMap;
     }
 
+    // 학습현황(LSANS01~05) 원본 숫자(1~5) → FE 고정 코드값. 정본: DrawPdfService 라벨.
+    private static final Map<Integer, String> LS_ACHIEVEMENT =
+            Map.of(1, "very-low", 2, "low", 3, "mid", 4, "high", 5, "very-high");   // LSANS01/02
+    private static final Map<Integer, String> LS_MOTIVATION =
+            Map.of(1, "interest", 2, "future", 3, "college", 4, "expectations", 5, "unknown"); // LSANS03
+    private static final Map<Integer, String> LS_STUDY_TIME =
+            Map.of(1, "none", 2, "under1h", 3, "1-2h", 4, "2-3h", 5, "over3h");      // LSANS04
+    private static final Map<Integer, String> LS_COUNSELOR =
+            Map.of(1, "friend", 2, "teacher", 3, "family", 4, "counselor", 5, "etc"); // LSANS05
+
+    /**
+     * 변화추적 학생 개인 화면용 — 학생(stdt_id)의 회차(ord_no)별 학습현황을 코드값으로 반환.
+     * 기본 종합검사(paperIdx=1). 미응시/미제출 회차는 결과에 포함되지 않는다.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getStudentLearningStatus(String stdtId, String claId, Integer paperIdx) {
+        List<Map<String, Object>> rows = dgnssMapper.selectStudentLearningStatus(stdtId, claId, paperIdx);
+
+        List<Map<String, Object>> rounds = new ArrayList<>();
+        for (Map<String, Object> r : rows) {
+            Map<String, Object> round = new LinkedHashMap<>();
+            round.put("round", MapUtils.getInteger(r, "ordNo"));
+            round.put("answerIdx", MapUtils.getInteger(r, "answerIdx"));
+            round.put("academicAchievement", LS_ACHIEVEMENT.get(MapUtils.getInteger(r, "ls01", 0)));
+            round.put("gradeSatisfaction", LS_ACHIEVEMENT.get(MapUtils.getInteger(r, "ls02", 0)));
+            round.put("learningMotivation", LS_MOTIVATION.get(MapUtils.getInteger(r, "ls03", 0)));
+            round.put("selfStudyTime", LS_STUDY_TIME.get(MapUtils.getInteger(r, "ls04", 0)));
+            round.put("learningCounselor", LS_COUNSELOR.get(MapUtils.getInteger(r, "ls05", 0)));
+            rounds.add(round);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("studentId", stdtId);
+        result.put("rounds", rounds);
+        return result;
+    }
+
     /**
      * /tc/stinfolist 응답에 다른 학급에서 응시한 학생을 보강.
      * 기존 row 에 source=IN_CLASS, 보강 row 에 source=OTHER_CLASS 부여 후 stdtId 기준 dedup.

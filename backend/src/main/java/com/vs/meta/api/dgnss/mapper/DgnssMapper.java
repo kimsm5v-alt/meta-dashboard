@@ -36,6 +36,8 @@ public interface DgnssMapper {
     // 교사) 제출한 모든 학생의 이름 가져오기
     List<String> selectSubmitStList(Map<String, Object> param);
     List<Long> selectSubmittedStudentUserNoListByDgnssId(@Param("dgnssId") int dgnssId);
+    // 독려) dgnssId 의 ACTIVE 학생 중 미제출 학생 user_no (탈퇴/미매핑 제외)
+    List<Long> selectUnsubmittedStudentUserNoListByDgnssId(@Param("dgnssId") int dgnssId);
     List<String> selectDgnssStdtList(Map<String, Object> param);
     // 교사) META 자기조절학습 result_info에 insert할 학생 ID 탐색
     List<String> selectTargetStList(Map<String, Object> param);
@@ -104,6 +106,10 @@ public interface DgnssMapper {
     String selectPaperIdxFromResultId(Map<String, Object> param);
     LinkedHashMap<String, Object> selectStDgnssOmr(Map<String, Object> param);
     List<Map<String, Object>> selectDgnssAnswerReliability(Map<String, Object> param);
+    // 변화추적) 학생(stdt_id) 회차(ord_no)별 학습현황 원본값(LSANS01~05). paperIdx<=0 이면 전체.
+    List<Map<String, Object>> selectStudentLearningStatus(@Param("stdtId") String stdtId,
+                                                          @Param("claId") String claId,
+                                                          @Param("paperIdx") Integer paperIdx);
     List<Map<String, Object>> selectLernType2(Map<String, Object> param);
     List<Map<String, Object>> selectLernType3(Map<String, Object> param);
     List<Map<String, Object>> selectLernType4(Map<String, Object> param);

@@ -8,6 +8,7 @@ import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import com.vs.meta.api.dgnss.service.DgnssGraphService;
 import com.vs.meta.api.dgnss.service.DgnssLpaService;
 import com.vs.meta.api.dgnss.service.DgnssService;
+import com.vs.meta.api.dgnss.service.ExamReminderService;
 import org.springframework.web.multipart.MultipartFile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -43,6 +44,7 @@ public class DgnssController {
     private final DgnssGraphService dgnssGraphService;
     private final DgnssLpaService dgnssLpaService;
     private final DgnssMapper dgnssMapper;
+    private final ExamReminderService examReminderService;
 
     @RequestMapping(value = "/api/dgnss/tc/overview", method = {RequestMethod.GET})
     @Operation(summary = "(선생님) 본인 전체 학급 진단검사 현황 (한 번에)",
@@ -322,6 +324,36 @@ public class DgnssController {
         Map<String, Object> result = dgnssService.selectStInfoList(paramData);
         String resultMessage = "대시보드 - 학생 목록";
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
+    }
+
+    @RequestMapping(value = "/api/dgnss/students/{studentId}/learning-status", method = {RequestMethod.GET})
+    @Operation(summary = "(변화추적) 학생 회차별 학습현황",
+            description = "학생(stdt_id)의 회차(ord_no)별 학습현황(LSANS01~05)을 고정 코드값으로 반환. "
+                    + "기본 종합검사(paperIdx=1). 미응시/미제출 회차는 제외.")
+    @Parameter(name = "studentId", description = "학생 stdt_id", example = "abc123")
+    @Parameter(name = "claId", description = "학급 ID", example = "class-uuid")
+    @Parameter(name = "paperIdx", description = "검사 유형(1=종합, 2=자기조절). 0/음수면 전체", example = "1")
+    public ResponseDTO<CustomBody> studentLearningStatus(
+            @PathVariable("studentId") String studentId,
+            @RequestParam(name = "claId") String claId,
+            @RequestParam(name = "paperIdx", required = false, defaultValue = "1") int paperIdx
+    ) {
+        Map<String, Object> result = dgnssService.getStudentLearningStatus(studentId, claId, paperIdx);
+        return AidtCommonUtil.makeResultSuccess(new HashMap<>(), result, "학생 회차별 학습현황");
+    }
+
+    @RequestMapping(value = "/api/dgnss/tc/reminder", method = {RequestMethod.POST})
+    @Operation(summary = "(교사) 미제출 학생 독려 알림 발송",
+            description = "dgnssId 기준으로 미제출 학생을 재조회해 학심정 내부 알림을 발송. "
+                    + "담당교사·진행중 검증 후 발송. 결과 code: OK/NOT_FOUND/NOT_OWNER/NOT_IN_PROGRESS/NO_TARGET. "
+                    + "재발송 제한은 FE 버튼 비활성화로 처리.")
+    public ResponseDTO<CustomBody> sendUnsubmittedReminder(@RequestBody Map<String, Object> body) {
+        int dgnssId = MapUtils.getInteger(body, "dgnssId", 0);
+        if (dgnssId <= 0) {
+            throw new IllegalArgumentException("dgnssId는 필수입니다.");
+        }
+        Map<String, Object> result = examReminderService.sendUnsubmittedReminder(dgnssId);
+        return AidtCommonUtil.makeResultSuccess(new HashMap<>(), result, "미제출 학생 독려 알림 발송");
     }
 
     @RequestMapping(value = "/api/dgnss/tc/detail", method = {RequestMethod.GET})
