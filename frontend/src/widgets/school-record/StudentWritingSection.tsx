@@ -549,7 +549,7 @@ const StudentWritingForm = ({
         factorCodes: draft.observationInput.observations.map((o) => o.factor),
         behaviorCodes: draft.observationInput.observations.flatMap((o) => o.behaviorCodes),
         freeText: draft.observationInput.freeText,
-        continuityCode: null,
+        continuityCode: draft.observationInput.continuityCode,
         counselingRefs: draft.observationInput.counselingRefs,
       }
     : emptyInput;
@@ -610,6 +610,7 @@ const StudentWritingForm = ({
       factorCodes: input.factorCodes,
       behaviorCodes: input.behaviorCodes,
       freeText: input.freeText,
+      continuityCode: input.continuityCode,
       counselingRefs: input.counselingRefs,
       factorInfo: FACTOR_INFO,
     });

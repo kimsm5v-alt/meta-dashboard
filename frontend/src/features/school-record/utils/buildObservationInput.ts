@@ -8,6 +8,7 @@ export interface BuildObservationInputParams {
   /** 선택한 관찰 행동(요인 구분 없이 평평한 목록) */
   behaviorCodes: string[];
   freeText: string;
+  continuityCode: string | null;
   counselingRefs: string[];
   factorInfo: Record<string, FactorInfo>;
 }
@@ -30,6 +31,7 @@ export function buildObservationInput(params: BuildObservationInputParams): Obse
   return {
     observations,
     freeText: params.freeText.trim(),
+    continuityCode: params.continuityCode,
     counselingRefs: params.counselingRefs,
   };
 }
