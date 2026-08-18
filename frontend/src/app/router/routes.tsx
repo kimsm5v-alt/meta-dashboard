@@ -16,6 +16,7 @@ import { SsePocPage } from '@pages/dev/SsePocPage';
 import { HomePage } from '@pages/home/HomePage';
 import { ExamTrackingPage } from '@pages/exam-tracking/ExamTrackingPage';
 import { SchoolRecordPage } from '@pages/school-record/SchoolRecordPage';
+import { CoachingClassPage } from '@pages/coaching/CoachingClassPage';
 import {
   LandingPage,
   LoginPage,
@@ -247,7 +248,7 @@ export const AppRoutes = () => (
             <Route path='/exam/tracking' element={<ExamTrackingPage />} />
             <Route path='/exam/record' element={<SchoolRecordPage />} />
 
-            <Route path='/coaching/class' element={<V2Placeholder title='학급 코칭' />} />
+            <Route path='/coaching/class' element={<CoachingClassPage />} />
             <Route path='/coaching/individual' element={<V2Placeholder title='개별 코칭' />} />
 
             <Route path='/lesson/library' element={<LessonLibraryPage />} />
