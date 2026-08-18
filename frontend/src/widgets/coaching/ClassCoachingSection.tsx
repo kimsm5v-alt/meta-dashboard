@@ -349,11 +349,11 @@ export const ClassCoachingSection = ({ classId }: ClassCoachingSectionProps) => 
     );
   }
 
-  const orderedForStep = selectedType
-    ? [
-        rankedTypes.find((item) => item.type === selectedType)!,
-        ...rankedTypes.filter((item) => item.type !== selectedType),
-      ]
+  const selectedRanked = selectedType
+    ? rankedTypes.find((item) => item.type === selectedType)
+    : undefined;
+  const orderedForStep = selectedRanked
+    ? [selectedRanked, ...rankedTypes.filter((item) => item.type !== selectedType)]
     : rankedTypes;
 
   const selected = orderedForStep[0];
@@ -362,10 +362,23 @@ export const ClassCoachingSection = ({ classId }: ClassCoachingSectionProps) => 
   return (
     <Wrapper>
       <RoundToggleRow>
-        <RoundButton $active={round === 1} onClick={() => setRound(1)}>
+        <RoundButton
+          $active={round === 1}
+          onClick={() => {
+            setRound(1);
+            setSelectedType(null);
+          }}
+        >
           1차 검사
         </RoundButton>
-        <RoundButton $active={round === 2} disabled={!round2Available} onClick={() => setRound(2)}>
+        <RoundButton
+          $active={round === 2}
+          disabled={!round2Available}
+          onClick={() => {
+            setRound(2);
+            setSelectedType(null);
+          }}
+        >
           2차 검사{!round2Available && ' (예정)'}
         </RoundButton>
       </RoundToggleRow>
