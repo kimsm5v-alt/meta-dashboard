@@ -1,5 +1,12 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { getCmsSet, getCmsSetList } from './cmsSetService';
+import type { CmsSetListData } from './cmsSetService';
 import { deleteRefSet, getRefSet, getRefSetList, registerRefSet } from './lmsRefSetService';
 import type { RegisterRefSetBody, RefSetListData } from './lmsRefSetService';
 import type { LibFilters, SortKey } from '../model/types';
@@ -9,7 +16,7 @@ const CMS_SETS_DEFAULT = {
   pageNo: 0,
   pageSize: 10,
   brandId: 18,
-  serviceType: 131132,
+  serviceType: 131132, // 추후 수정 필요
 } as const;
 
 export function useRefSetListQuery() {
@@ -57,9 +64,17 @@ export function useDeleteRefSetMutation() {
 
 /** filters/sort는 queryKey 트리거용. 이번 Phase에서는 API param에 매핑하지 않음 */
 export function useCmsSetListQuery(filters: LibFilters, sort: SortKey) {
-  return useQuery({
+  return useInfiniteQuery<CmsSetListData>({
     queryKey: [...lessonKeys.cmsSets(), filters, sort],
-    queryFn: ({ signal }) => getCmsSetList({ ...CMS_SETS_DEFAULT }, signal),
+    queryFn: ({ pageParam, signal }) =>
+      getCmsSetList({ ...CMS_SETS_DEFAULT, pageNo: Number(pageParam) }, signal),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loadedCount = allPages.reduce((sum, page) => sum + page.list.length, 0);
+      if (loadedCount >= lastPage.totalCount) return undefined;
+      if (lastPage.list.length === 0) return undefined;
+      return lastPage.pageNo + 1;
+    },
     placeholderData: keepPreviousData,
   });
 }

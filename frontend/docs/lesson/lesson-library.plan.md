@@ -8,16 +8,17 @@
 |------|------|------|
 | **추가계획1** | `FilterPanel` UI + 로컬 필터 상태 | Phase 1 완료 / API 미착수 |
 | **추가계획2** | Contents Description 아래 자료 목록(`ResourceCardList`) + 필터 연동(목업) | Phase A 완료 / Phase B 대기 |
-| **추가계획3** | `LessonMyPage` 나의 자료 목록 — `ResourceCardList` `variant="my"` + 목업 | Phase A 완료 / API 대기 |
+| **추가계획3** | `LessonMyPage` 나의 자료 목록 — `ResourceCardList` `variant="my"` + 목업 | 구현 완료 (Phase B API는 추가계획6·10) |
 | **추가계획4** | `ResourceCard` 시작하기 버튼 → 활동 배포 페이지 (`DeployPage`) 라우트 연결 | 계획 수립 완료 / 구현 대기 |
 | **추가계획5** | Editor/Viewer embed 독립 라우트 페이지 전환 + LessonEditorEmbed features 활성화 | 구현 완료 |
-| **추가계획6** | `onSaved` → `POST /api/ref-set` 자동 등록 + `LessonMyPage` `GET /api/ref-set` 목록 연동 | 구현 완료 (ResourceCardList 연결 제외) |
+| **추가계획6** | `onSaved` → `POST /api/ref-set` 자동 등록 + `LessonMyPage` `GET /api/ref-set` 목록 연동 | 구현 완료 (ResourceCardList 연결은 추가계획10) |
 | **추가계획7** | `ResourceCard` 수정하기 → `/lesson/editor/:slideId` 이동 (`item.id`) | 구현 완료 |
 | **추가계획8** | 전체 자료실 CMS `GET /api/sets` 연동 + 필터 재조회/레이스 처리 + loading UI | 구현 완료 |
 | **추가계획9** | `DeployPage` 실시간 수업 → Viewer + `ResourceCard`→deploy `state.item` + URL 직접 진입 시 item 재조회 | 구현 완료 |
 | **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 구현 완료 |
 | **추가계획11** | DeployPage·저작툴 시작하기 — 활동 시작/종료 API + QR·참여링크 연동 | 타이틀만 / 상세 미작성 |
 | **추가계획12** | 학생용 수업 뷰어 라우트 (QR·참여링크 진입, SlideViewer 재사용) | 타이틀만 / 상세 미작성 · 추가계획11 완료 후 |
+| **추가계획13** | 전체 자료실 CMS 목록 무한 스크롤(`pageSize=10`) + 나의 자료 ref-set 페이지네이션은 API 대기 | Phase A 구현 완료 / Phase B API 대기 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `GET .../api/sets` (`brandId=18`, `serviceType=131132`) | 추가계획8 스펙 확정 · 필터 매핑 미적용 |
@@ -776,7 +777,7 @@ const items = useMemo(
 
 > **목표**: 프로토타입 `MyDataView`의 세트지 그리드(24–36행)를 `LessonMyPage`의 `ContentsHeader` **바로 아래**에 배치한다.  
 > **재사용**: 자료실과 동일 UI인 `ResourceCardList` / `ResourceCard`에 `variant` props로 모드 분기.  
-> **범위**: Phase A = UI + 목업. Phase B = 나의 자료 API(미정) 연동.  
+> **범위**: Phase A = UI + 목업. Phase B = 나의 자료 API 연동 (추가계획6·10에서 완료).  
 > **준수**: Emotion, 이모지 금지, FSD (`pages → features`)
 
 ---
@@ -837,12 +838,12 @@ LessonMyPage
 5. [x] barrel export
 6. [x] `tsc` / ESLint
 
-### Phase B — API (후속)
+### Phase B — API (추가계획6·10에서 완료)
 
-1. 나의 자료 목록 API 확정 후 React Query 훅
-2. 목업 `useMemo`/상수 교체
-3. 카드 CTA → Editor Embed / 배포 플로우 연결
-4. 삭제 버튼 UI는 `variant=my`에 포함. API/목록 갱신은 Phase B
+1. [x] 나의 자료 목록 API 확정 후 React Query 훅 — `useRefSetListQuery` (추가계획6)
+2. [x] 목업 `useMemo`/상수 교체 — `mapRefSetToLibItem` → `ResourceCardList` (추가계획10)
+3. [x] 카드 CTA → Editor / 배포 플로우 연결 — 추가계획4·7·9
+4. [x] 삭제 API/목록 갱신 — `DELETE /api/ref-set/{refSetId}` (추가계획10)
 
 ---
 
@@ -870,7 +871,8 @@ LessonMyPage
 ---
 
 **작성일**: 2026-08-12  
-**상태**: Phase A(목업) 완료 / Phase B(API) 대기
+**수정**: 2026-08-18 — Phase B(API)는 추가계획6·10과 동일 범위. 추가계획10에서 구현 완료로 확인  
+**상태**: 구현 완료
 
 ---
 
@@ -1288,8 +1290,9 @@ export type { ..., StartLessonPayload } from './lib/everyCanvasEmbedSdk';
 # 추가계획6 — LMS ref-set API 연동 (`onSaved` 자동 등록 + 목록 조회)
 
 > **참조**: [`lesson-everycanvas-lms-integration.plan.md §3(나의 자료), §5.1, §5.3`](./lesson-everycanvas-lms-integration.plan.md)  
-> **상태**: 구현 완료 (ResourceCardList 연결 제외 — 추후 Phase)  
-> **2026-08-14 갱신**: LMS 참조-only 계약 반영 — `title`/`subjectCd`/`schoolLevelCd` 컬럼 제거, meta-dashboard `options`(`title` 필수 · `thumbnailUrl` 선택) store-and-echo. `LibItem`은 `id`·`title` 필수, 나머지 선택.
+> **상태**: 구현 완료 (`ResourceCardList` 연결은 추가계획10에서 완료)  
+> **2026-08-14 갱신**: LMS 참조-only 계약 반영 — `title`/`subjectCd`/`schoolLevelCd` 컬럼 제거, meta-dashboard `options`(`title` 필수 · `thumbnailUrl` 선택) store-and-echo. `LibItem`은 `id`·`title` 필수, 나머지 선택.  
+> **2026-08-18 갱신**: 추가계획3 Phase B · 추가계획6 잔여(`ResourceCardList` 연결) · 추가계획10이 동일 범위임을 확인하고 구현 완료로 통일.
 
 ## 1. 현황 및 목표
 
@@ -1298,15 +1301,15 @@ export type { ..., StartLessonPayload } from './lib/everyCanvasEmbedSdk';
 | 항목 | 현재 상태 |
 |------|-----------|
 | `LessonEditorPage.onSaved` | `lcmsSetId` + `title` 있을 때 `POST /api/ref-set` (`options` 포함) |
-| `LessonMyPage` 목록 | `MOCK_LIBRARY_ITEMS` 사용 중 (`useRefSetListQuery` 마운트만) |
+| `LessonMyPage` 목록 | `useRefSetListQuery` + `mapRefSetToLibItem` → `ResourceCardList` (추가계획10에서 연결 완료) |
 | `features/lesson/api/` | `queryKeys` · `lmsRefSetService` · `queries` 구현 완료 |
 | `shared/config/env.ts` | `VITE_SP_LMS_API_URL` / `ENV.SP_LMS_API_URL` 추가 완료 |
 
 ### 목표
 
 1. `onSaved(p)` → `p.lcmsSetId` + `p.title` 있을 때 `POST /api/ref-set` 자동 등록 (중복 방지 포함)
-2. `LessonMyPage`에서 `GET /api/ref-set` 실제 데이터 조회 — `resultData.list` 취득까지만
-   - `ResourceCardList` 연결(mapper 포함)은 **추후 별도 확인 후 연동** (§4.4 참조)
+2. `LessonMyPage`에서 `GET /api/ref-set` 실제 데이터 조회
+   - `ResourceCardList` 연결(mapper 포함)은 추가계획10에서 완료 (§4.4 참조)
 3. 기존 API 패턴(`queryKeys.ts` / service / `queries.ts`)에 맞는 구조로 구현
 
 ## 2. 연동 흐름
@@ -1332,8 +1335,7 @@ LessonEditorPage
 LessonMyPage (마운트)
   └─ useRefSetListQuery()
       └─ GET {ENV.SP_LMS_API_URL}/api/ref-set
-          └─ resultData.list → 취득 완료 (여기까지만 구현)
-              └─ ResourceCardList 연결 → 추후 별도 Phase (§4.4)
+          └─ resultData.list → mapRefSetToLibItem → ResourceCardList (추가계획10에서 연결 완료)
 ```
 
 ## 3. LMS 호출 경로 (확정)
@@ -1501,11 +1503,11 @@ export function useRegisterRefSetMutation() {
 
 > **cache miss 시**: `useRefSetListQuery`가 마운트 전이거나 아직 fetch 전이면 cached가 없어 중복 체크가 불가하다. 이 경우 POST가 실행되며, LMS가 같은 `lcmsSetId`로 중복 행을 허용하는지는 추가 확인 필요 (→ 미확정 항목 #2).
 
-### 4.4 `features/lesson/model/mapRefSetToLibItem.ts` — **추후 연동 Phase**
+### 4.4 `features/lesson/model/mapRefSetToLibItem.ts` — **추가계획10에서 연결 완료**
 
 `RefSetItem`(LMS `GET /api/ref-set`) → `LibItem`.  
 매핑: `id←lcmsSetId`, `refSetId←refSetId`, `title←options.title`, `thumbnailUrl←options.thumbnailUrl`, `createdAt←createdAt`.  
-`ResourceCardList` 연결은 **이번 구현 범위에서 제외**(골격만).
+`ResourceCardList` 연결은 추가계획10에서 완료.
 
 ```ts
 import type { RefSetItem } from '../api/lmsRefSetService';
@@ -1591,24 +1593,21 @@ onSaved={(p: SavedPayload) => {
 }}
 ```
 
-### 5.2 `pages/lesson/LessonMyPage.tsx` — GET 조회만 (ResourceCardList 연결 제외)
+### 5.2 `pages/lesson/LessonMyPage.tsx` — GET 조회 + ResourceCardList 연결 (추가계획10)
 
-`useRefSetListQuery()`로 데이터 조회까지만 구현. `data.list` → `ResourceCardList` 연결은 **이번 범위 제외**.  
-기존 `MOCK_LIBRARY_ITEMS` / `useState<LibItem[]>` 는 mapper 연동 전까지 **유지**한다.
+`useRefSetListQuery()`로 조회한 `data.list`를 `mapRefSetToLibItem`으로 변환해 `ResourceCardList`에 전달.  
+MOCK 경로는 주석으로 보존.
 
 ```tsx
-import { useRefSetListQuery } from '@features/lesson';
+import { useRefSetListQuery, mapRefSetToLibItem } from '@features/lesson';
 
-// 조회 훅 마운트 (데이터 확인용)
-const { data: refSetData, isLoading, isError } = useRefSetListQuery();
-
-// TODO: refSetData?.list → mapRefSetToLibItem → ResourceCardList 연결 (추후 Phase)
-// 현재는 기존 MOCK_LIBRARY_ITEMS + useState items 유지
+const { data: refSetData, isPending, isError } = useRefSetListQuery();
+const items = useMemo(() => (refSetData?.list ?? []).map(mapRefSetToLibItem), [refSetData]);
 ```
 
 ### 5.3 `features/lesson/index.ts`
 
-신규 훅·타입 export. mapper(`mapRefSetToLibItem`)는 ResourceCardList 연결 전까지 export 보류.
+신규 훅·타입·mapper export. `mapRefSetToLibItem`은 추가계획10에서 `ResourceCardList` 연동과 함께 export 완료.
 
 ```ts
 export { useRefSetListQuery, useRegisterRefSetMutation } from './api/queries';
@@ -1633,8 +1632,8 @@ export type {
 | `features/lesson/ui/ResourceCard.tsx` | **수정 완료** | optional `src`/`selArea`/`colorGroup` 가드 |
 | `features/lesson/model/matchLibraryFilters.ts` | **수정 완료** | optional `selArea` 가드 |
 | `pages/lesson/LessonEditorPage.tsx` | **수정 완료** | `options: { title, thumbnailUrl? }` POST |
-| `pages/lesson/LessonMyPage.tsx` | **수정 완료** | `useRefSetListQuery` 마운트 (MOCK 유지) |
-| `features/lesson/index.ts` | **수정 완료** | 훅·타입 export (`RefSetOptions` 포함) |
+| `pages/lesson/LessonMyPage.tsx` | **수정 완료** | `useRefSetListQuery` + `mapRefSetToLibItem` → `ResourceCardList` (추가계획10) |
+| `features/lesson/index.ts` | **수정 완료** | 훅·타입·`mapRefSetToLibItem` export (`RefSetOptions` 포함) |
 
 ## 7. 확정·미확정 항목
 
@@ -1645,8 +1644,8 @@ export type {
 | 3 | **makeMethod 기본값** | **확정** | 미전달 시 `3`(자료실) |
 | 4 | **options 계약** | **확정** | `title`(필수)·`thumbnailUrl`(선택). LMS 스키마 검증 없음(store-and-echo) |
 | 5 | **subjectCd / schoolLevelCd** | **폐기** | LMS 컬럼 아님. POST body·GET 응답에서 제거 |
-| 6 | **DELETE ref-set** | **보류** | API 스펙 미수령 |
-| 7 | **ResourceCardList 연결** | **추후 Phase** | `mapRefSetToLibItem` → `ResourceCardList` 별도 연동 |
+| 6 | **DELETE ref-set** | **완료** | 추가계획10 — `DELETE /api/ref-set/{refSetId}` |
+| 7 | **ResourceCardList 연결** | **완료** | 추가계획10 — `mapRefSetToLibItem` → `ResourceCardList` |
 
 ## 8. 완료 기준
 
@@ -1658,6 +1657,12 @@ export type {
 - [x] `lessonKeys` factory 사용, 임의 문자열 query key 없음
 - [x] DTO/`LibItem`을 options 계약·선택 필드에 맞춤
 - [x] `npx tsc -b --noEmit`, eslint 통과
+- [x] `refSetData.list` → `mapRefSetToLibItem` → `ResourceCardList` 연결 — 추가계획10에서 완료
+
+---
+
+**수정**: 2026-08-18 — `ResourceCardList` 연결·DELETE는 추가계획10에서 완료. 추가계획3 Phase B와 동일 범위.  
+**상태**: 구현 완료
 
 ---
 
@@ -1714,7 +1719,7 @@ export type {
 
 > **상태**: 구현 완료 (2026-08-14 응답 페이지 객체 `{ list, pageNo, pageSize, totalCount }` 반영)  
 > **범위**: `LessonLibraryContents` mock → CMS 세트 목록 API 교체. FilterPanel 값은 아직 API 파라미터에 매핑하지 않음(동일 쿼리 재호출). MOCK 코드는 주석으로 보존.  
-> **비범위**: 필터 taxonomy ↔ CMS metaId 매핑, 무한 스크롤(페이지네이션 고도화), 썸네일 UI 렌더(타입만 추가)
+> **비범위**: 필터 taxonomy ↔ CMS metaId 매핑, 무한 스크롤(페이지네이션 고도화 → 추가계획13), 썸네일 UI 렌더(타입만 추가)
 
 ## 1. 현황 및 목표
 
@@ -2109,7 +2114,7 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 | 5 | 레이스 처리 | 확정 | queryKey(filters,sort) + fetch AbortSignal |
 | 6 | LibItem 매핑 | 부분 | id/title/thumbnailUrl만 호환. src/selArea/colorGroup은 **TO FIX** |
 | 7 | thumbnail UI | 보류 | 타입만 추가. `ResourceCard` Thumb에 이미지 렌더는 별도 |
-| 8 | 페이지네이션 | 보류 | pageSize=10 고정. `totalCount`는 수신만. 더보기/무한스크롤 미포함 |
+| 8 | 페이지네이션 | 보류 → 추가계획13 | pageSize=10 고정. `totalCount`는 수신만. 무한스크롤은 추가계획13 |
 | 9 | CORS / 인증 | **확정** | `getAuth().authorizedFetch`로 Bearer JWT 전달 |
 
 ## 8. 완료 기준
@@ -2525,6 +2530,7 @@ cmsSet: (setId: string) => [...lessonKeys.cmsSets(), setId] as const,
 # 추가계획10 — 나의 자료 실제 API 연동 + 삭제 기능
 
 > **상태**: 구현 완료  
+> **동일 범위**: 추가계획3 Phase B(API 대기) · 추가계획6 잔여(`ResourceCardList` 연결)와 동일. 본 계획에서 일괄 완료.  
 > **범위**:  
 > 1) `LessonMyPage` mock → LMS `GET /api/ref-set` 실제 목록 연동 (`mapRefSetToLibItem` 적용)  
 > 2) `ResourceCard` 삭제 버튼 → LMS `DELETE /api/ref-set/{refSetId}` 호출 + 목록 갱신  
@@ -2922,6 +2928,7 @@ export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 
 **작성일**: 2026-08-14  
 **구현 완료일**: 2026-08-17  
+**수정**: 2026-08-18 — 추가계획3 Phase B · 추가계획6 잔여(`ResourceCardList` 연결)와 동일 범위 확인  
 **상태**: 구현 완료
 
 ---
@@ -2944,3 +2951,312 @@ export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 
 1. QR 생성·참여링크를 통해 학생이 들어갈 수 있는 학생용 수업 뷰어 route 화면 구성
    - SlideViewer 동일하게 사용 예정
+
+---
+
+# 추가계획13 — 전체 자료실 무한 스크롤 + 나의 자료 페이지네이션(예정)
+
+> **상태**: Phase A 구현 완료 / Phase B API 대기  
+> **선행**: 추가계획8 (CMS `GET /api/sets`), 추가계획10 (나의 자료 `GET /api/ref-set`)  
+> **범위**:  
+> 1) 전체 자료실 — `useCmsSetListQuery`를 `useInfiniteQuery`로 바꿔 `pageSize=10`씩 하단 스크롤 시 다음 페이지 추가. `totalCount`가 상한.  
+> 2) `serviceType: 131132` 하드코딩은 **이번 미변경**. 추후 수정 필요.  
+> 3) 나의 자료 — 동일 UX를 적용할 예정이지만 `GET /api/ref-set`에 `pageNo`/`pageSize`가 없어 **구현 예정만**.
+
+---
+
+## 1. 현황
+
+| 항목 | 현재 상태 |
+|------|-----------|
+| CMS 목록 훅 | `useCmsSetListQuery` — `useInfiniteQuery`. `CMS_SETS_DEFAULT` 기반 `pageNo=0`부터 시작 |
+| CMS 호출 위치 | `LessonLibraryContents` → `data.pages.flatMap` → `mapCmsSetToLibItem` → `ResourceCardList` |
+| CMS 응답 | `{ list, pageNo, pageSize, totalCount }` (추가계획8 실측) |
+| LMS 목록 훅 | `useRefSetListQuery` — `useQuery` 1회. `getRefSetList()` 쿼리 없음 |
+| LMS 호출 위치 | `LessonMyPage` → `data.list` → `mapRefSetToLibItem` → `ResourceCardList` |
+| LMS 응답 | `{ totalCount, list }` — `pageNo`/`pageSize` 없음 |
+| 목록 UI | `ResourceCardList` — `onEndReached`/`hasMore`/`isFetchingMore` + 하단 센티널/추가 로딩 |
+| 스크롤 컨테이너 | `MainLayoutV2` `MainContent`는 `overflow` 없음. 문서(viewport) 스크롤 |
+| 기존 참고 구현 | 알림 `useInfiniteQuery` + `IntersectionObserver` (`NotificationList`). 학교검색은 `totalCount` 기준 `getNextPageParam` |
+
+### 현재 CMS 고정 호출 (`queries.ts`)
+
+```ts
+const CMS_SETS_DEFAULT = {
+  pageNo: 0,
+  pageSize: 10,
+  brandId: 18,
+  serviceType: 131132, // 추후 수정 필요
+} as const;
+
+export function useCmsSetListQuery(filters: LibFilters, sort: SortKey) {
+  return useQuery({
+    queryKey: [...lessonKeys.cmsSets(), filters, sort],
+    queryFn: ({ signal }) => getCmsSetList({ ...CMS_SETS_DEFAULT }, signal),
+    placeholderData: keepPreviousData,
+  });
+}
+```
+
+`getCmsSetList`는 이미 `pageNo`/`pageSize`를 받으므로 서비스 함수 시그니처는 유지하고, 훅만 `pageParam`으로 `pageNo`를 넘기면 된다.
+
+---
+
+## 2. `serviceType: 131132` — 추후 수정 필요
+
+이번 계획에서 **값을 바꾸거나 env로 빼지 않는다.** 무한 스크롤 구현 시에도 동일 상수를 그대로 둔다.
+
+| 항목 | 내용 |
+|------|------|
+| 위치 | `features/lesson/api/queries.ts` `CMS_SETS_DEFAULT.serviceType` |
+| 현재 값 | `131132` (추가계획8 고정 param) |
+| 이번 계획 | 하드코딩 유지 |
+| 후속 | **추후 수정 필요** — 출처(브랜드/서비스 설정, env, 로그인 컨텍스트 등) 미정. 확정 후 `CMS_SETS_DEFAULT`에서 분리 |
+
+`brandId: 18`도 같은 상수에 하드코딩되어 있으나 이번 범위 밖. `serviceType`만 후속 수정 대상으로 명시한다.
+
+구현 시 상수 옆에 주석만 추가한다.
+
+```ts
+serviceType: 131132, // 추후 수정 필요
+```
+
+---
+
+## 3. Phase A — 전체 자료실 CMS 무한 스크롤 (이번 구현 대상)
+
+### 3.1 목표
+
+1. 최초: `GET /api/sets?pageNo=0&pageSize=10&brandId=18&serviceType=131132`
+2. 목록 하단으로 스크롤하면 `pageNo=1, 2, …` 를 `pageSize=10`으로 **추가** 호출 (교체 아님)
+3. 누적 `list.length >= totalCount` 이면 다음 요청 중단
+4. 필터/정렬 변경 시 page 0부터 다시 조회 (기존 queryKey `filters`/`sort` 유지)
+5. 초기 로딩 / 다음 페이지 로딩 / 필터 재조회 로딩을 구분
+
+### 3.2 종료 조건 (`totalCount` 상한)
+
+응답 `totalCount`가 전체 건수다. 누적 아이템 수가 이 값에 도달하면 `hasNextPage=false`.
+
+```
+loaded = pages.reduce(sum, page.list.length)
+다음 pageNo = lastPage.pageNo + 1  (0-based)
+
+hasNextPage = loaded < totalCount && lastPage.list.length > 0
+```
+
+| 예시 (`pageSize=10`) | 동작 |
+|----------------------|------|
+| `totalCount=0` | 첫 응답 후 중단. 빈 상태 |
+| `totalCount=10` | page 0만. `loaded=10`으로 중단 |
+| `totalCount=23` | page 0(10) → page 1(10) → page 2(3) 후 `loaded=23` 중단 |
+| 마지막 페이지 `list=[]` | `totalCount` 미달이어도 중단 (무한 루프 방지) |
+
+`pageNo`는 응답 값(`lastPage.pageNo + 1`)을 쓰고, `(pageNo+1)*pageSize`로 추정하지 않는다. 마지막 페이지가 10건 미만일 수 있다.
+
+### 3.3 훅 — `useQuery` → `useInfiniteQuery`
+
+TanStack Query v5. 프로젝트 기존 패턴: 알림(`useNotifications`) + 학교검색(`useSchoolSearch`의 `totalCount` 비교).
+
+```ts
+export function useCmsSetListQuery(filters: LibFilters, sort: SortKey) {
+  return useInfiniteQuery({
+    queryKey: [...lessonKeys.cmsSets(), filters, sort],
+    queryFn: ({ pageParam, signal }) =>
+      getCmsSetList({ ...CMS_SETS_DEFAULT, pageNo: pageParam }, signal),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((sum, page) => sum + page.list.length, 0);
+      if (loaded >= lastPage.totalCount) return undefined;
+      if (lastPage.list.length === 0) return undefined;
+      return lastPage.pageNo + 1;
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+```
+
+- `pageSize`/`brandId`/`serviceType`은 `CMS_SETS_DEFAULT` 유지. `pageNo`만 `pageParam`.
+- `queryKey`에 `pageNo`를 넣지 않는다. infinite query가 `pageParams`로 관리한다.
+- 필터 토글 시 key 변경 → page 0부터 새 시리즈. 이전 in-flight는 `signal` abort (추가계획8 레이스 처리 유지).
+- `lessonKeys.cmsSets()` 팩토리 유지. 임의 문자열 key 금지.
+
+`LessonLibraryContents` 소비:
+
+```ts
+const {
+  data,
+  isPending,
+  isFetching,
+  isFetchingNextPage,
+  hasNextPage,
+  fetchNextPage,
+  isError,
+  error,
+} = useCmsSetListQuery(filters, sort);
+
+const items = useMemo(
+  () => (data?.pages ?? []).flatMap((page) => page.list).map(mapCmsSetToLibItem),
+  [data],
+);
+```
+
+단일 `data.list` 가정은 깨진다. `pages.flatMap`이 필수.
+
+### 3.4 스크롤 트리거
+
+레이아웃은 viewport 스크롤이므로 `IntersectionObserver` 기본 `root`(viewport)면 충분하다. `ResourceCardList` 그리드 **아래 1px 센티널**을 관찰한다. 알림 `NotificationList`와 동일.
+
+권장 props (`ResourceCardList`):
+
+| prop | 역할 |
+|------|------|
+| `onEndReached?: () => void` | 센티널 교차 시. Contents에서 `hasNextPage && !isFetchingNextPage`일 때만 `fetchNextPage()` |
+| `hasMore?: boolean` | `hasNextPage`. false면 센티널 미마운트 |
+| `isFetchingMore?: boolean` | `isFetchingNextPage`. 하단 로딩만 |
+
+- 훅/API는 `ResourceCardList`에 두지 않는다 (feature UI).
+- Page는 얇게 유지. 조합은 기존대로 `LessonLibraryContents`.
+- 내부 스크롤 컨테이너를 새로 만들지 않는다. 현재 `MainContent` 문서 스크롤을 쓴다.
+- `threshold`는 알림과 같이 `1.0`이거나, 카드 그리드가 커서 조기 로드가 필요하면 `0` + `rootMargin: '200px'` — 구현 시 한 번만 확인.
+
+### 3.5 로딩 UI 분리
+
+지금은 Contents가 `isLoading={isPending || isFetching}`이라 다음 페이지 fetch에도 **목록 전체**가 "목록 갱신 중..."이 된다. 무한 스크롤과 맞지 않다.
+
+| 상태 | 표시 |
+|------|------|
+| `isPending` (아이템 0) | 기존 중앙 `Loading` |
+| `isFetchingNextPage` | 그리드 하단 작은 로딩. 기존 카드 유지 |
+| 필터 재조회 (`isFetching && !isFetchingNextPage`) | 기존 `RefetchBar` 유지 가능 |
+| 빈 목록 | 기존 `emptyMessage` |
+| 에러 + 아이템 0 | 기존 에러 문구 |
+| 에러 + 이미 일부 로드 | 기존 목록 유지. 다음 페이지 실패는 toast 또는 하단 문구 — 구현 시 기존 에러 패턴에 맞출 것 |
+
+### 3.6 필터/정렬
+
+추가계획8과 동일: FilterPanel 값은 API param에 매핑하지 않는다. `filters`/`sort`는 queryKey 트리거만.
+
+필터 변경 → infinite cache 리셋 → `pageNo=0`만 다시 호출. 누적 목록을 이어 붙이지 않는다.
+
+### 3.7 데이터 일관성 정책
+
+| 상황 | 정책 |
+|------|------|
+| 같은 필터/정렬 + 스크롤 하강 | `pageNo=0,1,2...` 순서로 append |
+| 필터/정렬 변경 | 예외 없이 `pageNo=0`부터 재조회 (결과 집합 변경) |
+| 같은 필터 상태에서 신규 데이터 유입 | 즉시 0부터 강제 리셋하지 않음. 현재 스크롤 유지 |
+| 신규 데이터 감지/배너 | **미적용** (필터가 항상 최신순이 아니어서 정확한 신규 판별이 어려움) |
+
+- 정렬 기준이 고정 최신순이 아닐 수 있으므로 `새 항목 N개` 배너 정책은 적용하지 않는다.
+- 대신 필터/정렬 변경 시에만 `pageNo=0`부터 재조회하고, 그 외에는 현재 스크롤 맥락을 유지한다.
+
+---
+
+## 4. Phase B — 나의 자료 `GET /api/ref-set` (구현 예정)
+
+2와 같은 무한 스크롤을 `useRefSetListQuery` / `LessonMyPage`에 적용할 예정이다. **지금은 API가 페이지 파라미터를 받지 않아 구현하지 않는다.**
+
+### 4.1 현재 API
+
+```ts
+export async function getRefSetList(): Promise<RefSetListData> {
+  return lmsFetch<RefSetListData>(BASE); // GET /api/ref-set — 쿼리 없음
+}
+```
+
+| 항목 | 상태 |
+|------|------|
+| `GET /api/ref-set` query | 없음 (`pageNo`/`pageSize` 미지원) |
+| 응답 `totalCount` | 있음 (`RefSetListData.totalCount`) |
+| 응답 `pageNo`/`pageSize` | 없음 |
+| 호출 | 목록 전체를 한 번에 받는 것으로 가정 |
+
+응답에 `totalCount`만 있고 요청에 페이지가 없으면, FE에서 10개씩 잘라 보여 주는 것은 **서버 페이징이 아니다.** 이번 계획에서 클라이언트 슬라이스는 하지 않는다.
+
+### 4.2 LMS 스펙 수신 후 적용안 (미구현)
+
+CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스펙 확정 후**.
+
+1. `getRefSetList({ pageNo, pageSize }, signal)` — `URLSearchParams` 추가
+2. `RefSetListData`에 `pageNo`/`pageSize` 추가 (응답에 있으면). 없으면 요청값으로 `getNextPageParam` 계산
+3. `useRefSetListQuery` → `useInfiniteQuery`, `pageSize=10`, `initialPageParam=0` (스펙이 1-based면 맞춤)
+4. `getNextPageParam`: 누적 `list.length >= totalCount` 이면 `undefined`
+5. `LessonMyPage`: `pages.flatMap` → `mapRefSetToLibItem` → `ResourceCardList`에 `onEndReached`/`hasMore`/`isFetchingMore`
+6. 삭제·등록 후 `invalidateQueries({ queryKey: lessonKeys.refSets() })`는 prefix라 infinite여도 유효
+
+**캐시 형태 주의**: 지금은 `useRegisterRefSetMutation`이 `getQueryData<RefSetListData>(lessonKeys.refSets())`로 `cached.list`를 본다. infinite로 바꾸면 `{ pages, pageParams }`가 되므로 중복 방지 로직을 `pages.flatMap(p => p.list)`로 함께 고쳐야 한다.
+
+### 4.3 Phase B 완료 기준 (스펙 수신 전 체크 불가)
+
+- [ ] LMS `GET /api/ref-set`에 `pageNo`/`pageSize` 스펙 확정
+- [ ] `getRefSetList`가 해당 쿼리를 전달
+- [ ] `useRefSetListQuery` infinite + `totalCount` 상한
+- [ ] `LessonMyPage` 하단 스크롤 시 다음 10건 추가
+- [ ] 등록/삭제 invalidate 후 목록 일관성 (`list` → `pages` 캐시 변경 포함)
+
+---
+
+## 5. 하지 말 것
+
+| 금지 | 이유 |
+|------|------|
+| 이번 작업에서 `serviceType` 값 변경/env 분리 | 추후 수정 필요. 출처 미정 |
+| `GET /api/ref-set`에 임의 `pageNo` 쿼리 추가 | API 미지원. Phase B 대기 |
+| 나의 자료 클라이언트 10건 슬라이스 | 서버 페이징이 아님. UX만 흉내 냄 |
+| Page에 observer/infinite 로직 | FSD: Page는 조합만 |
+| `ResourceCardList`에서 CMS/LMS fetch | feature UI. 훅은 Contents/MyPage |
+| 목록을 내부 `overflow-y` 박스로 가두기 | 현재는 문서 스크롤. 레이아웃 변경은 비범위 |
+| 필터 taxonomy ↔ CMS param 매핑 | 추가계획8 후속. 이번 비범위 |
+| MOCK 경로 삭제 | 주석 보존 |
+
+---
+
+## 6. 변경 파일 (Phase A 완료)
+
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `features/lesson/api/queries.ts` | **수정 완료** | `useCmsSetListQuery` → `useInfiniteQuery`. `pageNo=pageParam`. `serviceType` 주석(추후 수정 필요) |
+| `features/lesson/api/cmsSetService.ts` | 유지 | `getCmsSetList` 시그니처 그대로 재사용 |
+| `features/lesson/ui/ResourceCardList.tsx` | **수정 완료** | `onEndReached` / `hasMore` / `isFetchingMore` + 센티널 + 하단 로딩 |
+| `widgets/lesson/LessonLibraryContents.tsx` | **수정 완료** | `pages.flatMap`, `fetchNextPage` 연결. `isFetching` 전체 로딩 제거 |
+| `pages/lesson/LessonMyPage.tsx` | 유지 | Phase B까지 변경 없음 |
+| `features/lesson/api/lmsRefSetService.ts` | 유지 | Phase B까지 쿼리 추가 없음 |
+
+---
+
+## 7. 확정·미확정
+
+| # | 항목 | 상태 | 내용 |
+|---|------|------|------|
+| 1 | CMS `pageSize` | **확정** | `10` 유지. 하단 스크롤 시 다음 10건 |
+| 2 | CMS `pageNo` | **확정** | 0부터. 스크롤마다 +1 |
+| 3 | 상한 | **확정** | 누적 건수 `>= totalCount` 이면 중단 |
+| 4 | `serviceType: 131132` | **추후 수정 필요** | 이번 하드코딩 유지 |
+| 5 | `brandId: 18` | 유지 | 이번 범위 밖 |
+| 6 | 스크롤 root | **확정(현재 레이아웃)** | viewport. `MainLayoutV2` 문서 스크롤 |
+| 7 | LMS 페이지 파라미터 | **미수신** | Phase B. 임의 쿼리 금지 |
+| 8 | 필터→CMS 매핑 | 미적용 | 추가계획8과 동일 |
+
+---
+
+## 8. 완료 기준
+
+### Phase A (CMS — 구현 완료)
+
+- [x] 자료실 진입 시 `pageNo=0&pageSize=10` 1회
+- [x] 하단 도달 시 `pageNo=1` 추가 호출. 기존 카드 유지한 채 10건 append
+- [x] 누적 건수가 `totalCount`에 도달하면 추가 호출 없음
+- [x] 필터/정렬 변경 시 page 0부터 재조회 (이어 붙이지 않음)
+- [x] 다음 페이지 로딩이 목록 전체를 스켈레톤/갱신바로 바꾸지 않음
+- [x] `serviceType: 131132` 하드코딩 유지 + 추후 수정 필요 주석
+- [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
+
+### Phase B (LMS — 스펙 대기)
+
+- [ ] 섹션 4.3. `pageNo`/`pageSize` 스펙 오기 전에는 착수하지 않음
+
+---
+
+**작성일**: 2026-08-18  
+**수정**: 2026-08-18 — Phase A(CMS 무한 스크롤) 구현 완료  
+**상태**: Phase A 구현 완료 / Phase B API 대기
