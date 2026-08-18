@@ -94,7 +94,7 @@ export async function streamSchoolRecordGeneration(
   options: StreamOptions,
 ): Promise<void> {
   const token = getAuth().getAccessToken();
-  let receivedDone = false;
+  let receivedTerminalEvent = false;
   let eventChain = Promise.resolve();
 
   await fetchEventSource(`${ENV.AGENT_API_URL}/school-record/generate/stream`, {
@@ -122,11 +122,11 @@ export async function streamSchoolRecordGeneration(
       if (!isGenerationEvent(parsed)) {
         throw new Error('생활기록부 생성 응답 형식이 올바르지 않습니다.');
       }
-      if (parsed.type === 'done') receivedDone = true;
+      if (parsed.type === 'done' || parsed.type === 'error') receivedTerminalEvent = true;
       eventChain = eventChain.then(() => options.onEvent(parsed));
     },
     onclose() {
-      if (!receivedDone) {
+      if (!receivedTerminalEvent) {
         throw new Error('생활기록부 생성 연결이 완료 전에 종료되었습니다.');
       }
     },
