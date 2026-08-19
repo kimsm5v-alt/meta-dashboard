@@ -76,7 +76,7 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
             size='xs'
             fullWidth
             css={CARD_BTN_SECONDARY_CSS}
-            onClick={() => navigate(`/lesson/editor/${item.id}`)}
+            onClick={() => navigate(`/lesson/editor/${item.id}${location.search}`)}
           >
             수정하기
           </Button>

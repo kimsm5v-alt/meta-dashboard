@@ -92,11 +92,11 @@ export const DeployPage = () => {
     failHandledRef.current = true;
     toast.error('콘텐츠 조회에 실패했습니다');
     if (location.key === 'default') {
-      navigate('/lesson/library', { replace: true });
+      navigate(`/lesson/library${location.search}`, { replace: true });
     } else {
       navigate(-1);
     }
-  }, [isItemFailed, location.key, navigate]);
+  }, [isItemFailed, location.key, navigate, location.search]);
 
   const presetClassId = searchParams.get('class') ?? '';
   const [classes, setClasses] = useState<string[]>(presetClassId ? [presetClassId] : []);
@@ -136,7 +136,7 @@ export const DeployPage = () => {
     toast.success('배포되었습니다');
   };
 
-  const goToReports = () => navigate('/lesson/result');
+  const goToReports = () => navigate(`/lesson/result${location.search}`);
 
   if (isItemLoading) {
     return (

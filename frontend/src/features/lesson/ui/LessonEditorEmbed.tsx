@@ -27,6 +27,11 @@ export type LessonEditorEmbedProps = {
    * 있으면 ready 후 `openSet(setId)`. 없으면 신규(`/embed/editor/new`).
    */
   setId?: string;
+  /**
+   * embed 마운트 identity. URL param과 분리해 저장 후 replace navigate 시 리마운트를 막는다.
+   * 미전달 시 `setId ?? '__new__'`.
+   */
+  embedIdentityKey?: string;
   onSaved?: (payload: SavedPayload) => void;
   onStartLesson?: (payload: StartLessonPayload) => void;
   onExitRequested?: (payload: { reason?: 'userClose' | 'done' }) => void;
@@ -40,6 +45,7 @@ export type LessonEditorEmbedProps = {
  */
 export const LessonEditorEmbed = ({
   setId,
+  embedIdentityKey,
   onSaved,
   onStartLesson,
   onExitRequested,
@@ -69,10 +75,12 @@ export const LessonEditorEmbed = ({
       saved: (p) => onSaved?.(p as SavedPayload),
       startLesson: (p) => onStartLesson?.(p as StartLessonPayload),
       exitRequested: (p) => onExitRequested?.(p as { reason?: 'userClose' | 'done' }),
+      onStartLesson: (p) => onStartLesson?.(p as StartLessonPayload),
+      startLessonRequested: (p) => onStartLesson?.(p as StartLessonPayload),
     },
     onReady,
     onError,
-    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, setId ?? '__new__'],
+    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, embedIdentityKey ?? setId ?? '__new__'],
   });
 
   return (
