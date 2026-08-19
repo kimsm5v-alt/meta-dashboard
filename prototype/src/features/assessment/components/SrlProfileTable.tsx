@@ -212,9 +212,9 @@ export const SrlProfileTable: React.FC<SrlProfileTableProps> = ({
 
   // 소분류별 행 범위 계산 (세로 병합용)
   const subCategorySpans = useMemo(() => {
-    // 동기전략: 학습원동력(3) + 정서조절(3)
-    // 인지전략: 메타인지(3) + 인지적학습기술(3)
-    // 행동전략: 행동조절(3) + 행동적학습기술(5)
+    // 동기전략: 학습 원동력(3) + 정서조절(3)
+    // 인지전략: 메타 인지(3) + 인지적 학습기술(3)
+    // 행동전략: 행동 조절(3) + 행동적 학습기술(5)
     return {
       '동기전략': [
         { label: '학습 원동력', count: 3 },

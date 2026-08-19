@@ -68,22 +68,22 @@ type StudentFilterType = 'all' | '신뢰도 주의' | '상담 및 지도 필요'
 
 // 6개 중분류 정의 (학습종합검사 CategoryBarChart와 동일한 형식)
 const SELFREG_SUB_CATEGORY_ORDER = [
-  { id: 'learningMotivation', name: '학습원동력', area: '동기전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['동기전략'] },
+  { id: 'learningMotivation', name: '학습 원동력', area: '동기전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['동기전략'] },
   { id: 'emotionControl', name: '정서조절', area: '동기전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['동기전략'] },
-  { id: 'metaCognition', name: '메타인지', area: '인지전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['인지전략'] },
-  { id: 'cognitiveLearningSkill', name: '인지적학습기술', area: '인지전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['인지전략'], breakLine: ['인지적', '학습기술'] },
-  { id: 'behaviorControl', name: '행동조절', area: '행동전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['행동전략'] },
-  { id: 'behavioralLearningSkill', name: '행동적학습기술', area: '행동전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['행동전략'], breakLine: ['행동적', '학습기술'] },
+  { id: 'metaCognition', name: '메타 인지', area: '인지전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['인지전략'] },
+  { id: 'cognitiveLearningSkill', name: '인지적 학습기술', area: '인지전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['인지전략'], breakLine: ['인지적', '학습기술'] },
+  { id: 'behaviorControl', name: '행동 조절', area: '행동전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['행동전략'] },
+  { id: 'behavioralLearningSkill', name: '행동적 학습기술', area: '행동전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['행동전략'], breakLine: ['행동적', '학습기술'] },
 ];
 
 // 중분류별 하위요인 인덱스 매핑 (SELFREG_SUB_CATEGORY_FACTORS와 동일)
 const SUB_CATEGORY_TO_FACTOR_INDICES: Record<string, number[]> = {
-  '학습원동력': [0, 1, 2],
+  '학습 원동력': [0, 1, 2],
   '정서조절': [3, 4, 5],
-  '메타인지': [6, 7, 8],
-  '인지적학습기술': [9, 10, 11],
-  '행동조절': [12, 13, 14],
-  '행동적학습기술': [15, 16, 17, 18, 19],
+  '메타 인지': [6, 7, 8],
+  '인지적 학습기술': [9, 10, 11],
+  '행동 조절': [12, 13, 14],
+  '행동적 학습기술': [15, 16, 17, 18, 19],
 };
 
 export const SelfregClassResultView: React.FC<SelfregClassResultViewProps> = ({
