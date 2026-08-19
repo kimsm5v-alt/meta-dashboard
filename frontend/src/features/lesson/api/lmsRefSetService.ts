@@ -10,15 +10,22 @@ interface LmsEnvelope<T> {
   resultData: T;
 }
 
+/**
+ * meta-dashboard `options` 계약 (LMS store-and-echo).
+ * title 필수, thumbnailUrl 선택.
+ */
+export interface RefSetOptions {
+  title: string;
+  thumbnailUrl?: string;
+}
+
 /** GET /api/ref-set 응답 아이템 */
 export interface RefSetItem {
   refSetId: string;
   lcmsSetId: string;
-  title: string;
-  subjectCd: string;
-  schoolLevelCd: string;
   makeMethod: number;
   status: number;
+  options: RefSetOptions | null;
   createdAt: string;
 }
 
@@ -33,10 +40,8 @@ export interface RefSetListData {
  */
 export interface RegisterRefSetBody {
   lcmsSetId: string;
-  title?: string;
-  subjectCd?: string;
-  schoolLevelCd?: string;
   makeMethod?: number;
+  options: RefSetOptions;
 }
 
 export interface RegisterRefSetResponse {
@@ -56,12 +61,20 @@ export async function getRefSetList(): Promise<RefSetListData> {
   return lmsFetch<RefSetListData>(BASE);
 }
 
-export async function registerRefSet(
-  body: RegisterRefSetBody,
-): Promise<RegisterRefSetResponse> {
+export async function getRefSet(refSetId: string, signal?: AbortSignal): Promise<RefSetItem> {
+  return lmsFetch<RefSetItem>(`${BASE}/${refSetId}`, { signal });
+}
+
+export async function registerRefSet(body: RegisterRefSetBody): Promise<RegisterRefSetResponse> {
   return lmsFetch<RegisterRefSetResponse>(BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  });
+}
+
+export async function deleteRefSet(refSetId: string): Promise<void> {
+  await lmsFetch<null>(`${BASE}/${refSetId}`, {
+    method: 'DELETE',
   });
 }

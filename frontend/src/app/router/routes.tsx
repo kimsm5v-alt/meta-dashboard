@@ -261,13 +261,13 @@ export const AppRoutes = () => (
 
       {/* 집중형 교사 화면은 확정된 수업 라우트를 TeacherFullscreenLayout으로 감싸서 추가한다. */}
       <Route element={<TeacherFullscreenLayout />}>
-      
-      {FEATURES.IA_V2 && (
+        {FEATURES.IA_V2 && (
           <>
-            <Route path='/lesson/deploy/:itemId' element={<LessonDeployPage />} />
+            <Route path='/lesson/deploy/:setId' element={<LessonDeployPage />} />
+            <Route path='/lesson/deploy/:setId/:refSetId' element={<LessonDeployPage />} />
             <Route path='/lesson/editor' element={<LessonEditorPage />} />
-            <Route path='/lesson/editor/:slideId' element={<LessonEditorPage />} />
-            <Route path='/lesson/viewer/:slideId' element={<LessonViewerPage />} />
+            <Route path='/lesson/editor/:setId' element={<LessonEditorPage />} />
+            <Route path='/lesson/viewer/:setId' element={<LessonViewerPage />} />
           </>
         )}
       </Route>

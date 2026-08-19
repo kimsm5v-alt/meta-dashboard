@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { useAuth } from '@features/auth';
 import { useGroupMembersQuery } from '@features/groups';
+import { computeStudentProfile } from '@features/school-record/model/computeStudentProfile';
 import { useSchoolRecordClassData } from '@features/school-record/model/useSchoolRecordClassData';
 import {
   BulkGenerateSection,
@@ -47,7 +48,7 @@ const SchoolRecordScopeContent = () => {
   } = useGroupMembersQuery(scope.classId, user?.id);
 
   const {
-    rows: classRows,
+    classData,
     isLoading: classRowsLoading,
     error: classRowsError,
     refetch: refetchClassRows,
@@ -148,11 +149,15 @@ const SchoolRecordScopeContent = () => {
       );
     }
 
-    const bulkStudents = classRows
-      .filter((row) => bulkIds.includes(row.studentId))
-      .map((row) => ({ studentId: row.studentId, no: row.no, name: row.name }));
+    const bulkStudents = (classData?.students ?? [])
+      .filter((student) => bulkIds.includes(student.id))
+      .map((student) => {
+        const profile = computeStudentProfile(student);
+        return profile ? { student, profile } : null;
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
 
-    if (bulkStudents.length !== bulkIds.length) {
+    if (!classData || bulkStudents.length !== bulkIds.length) {
       return (
         <StatusBox role='alert'>
           선택한 학생 정보를 찾을 수 없습니다.
@@ -163,7 +168,14 @@ const SchoolRecordScopeContent = () => {
       );
     }
 
-    return <BulkGenerateSection students={bulkStudents} onBack={() => setBulkIds([])} />;
+    return (
+      <BulkGenerateSection
+        classData={classData}
+        students={bulkStudents}
+        onBack={() => setBulkIds([])}
+        onEditStudent={(studentId) => void openStudent(studentId)}
+      />
+    );
   }
 
   return (

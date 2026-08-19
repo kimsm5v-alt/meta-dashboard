@@ -3,6 +3,7 @@ import {
   DRAFT_STATUS_CODE,
   DRAFT_STATUS_FROM_CODE,
   type DraftStatus,
+  type GenerationSource,
   type ObservationPayload,
   type RecordDraftDetail,
   type RecordDraftSummary,
@@ -32,11 +33,19 @@ interface RawDraftDetail {
   savedAt: string;
 }
 
+const SOURCE_FROM_CODE = {
+  '1': 'TEST_ONLY',
+  '2': 'COMMON_CONTEXT',
+  '3': 'INDIVIDUAL_OBSERVATION',
+} as const;
+
 export interface SaveDraftPayload {
   studentId: string;
   classId: string;
   status: Exclude<DraftStatus, 'EMPTY'>;
+  source?: GenerationSource;
   content?: string;
+  generatedText?: string;
   strengths?: string[];
   improvements?: string[];
   observationInput?: ObservationPayload;
@@ -55,7 +64,9 @@ const toDetail = (raw: RawDraftDetail): RecordDraftDetail => ({
   studentId: raw.studentId,
   classId: raw.classId,
   status: DRAFT_STATUS_FROM_CODE[raw.status] ?? 'EMPTY',
-  source: raw.source as RecordDraftDetail['source'],
+  source: raw.source
+    ? (SOURCE_FROM_CODE[raw.source as keyof typeof SOURCE_FROM_CODE] ?? null)
+    : null,
   content: raw.content,
   previousContent: raw.previousContent,
   generatedText: raw.generatedText,
@@ -88,7 +99,13 @@ export const schoolRecordApi = {
       classId: payload.classId,
       // EMPTY는 서버에 행이 없는 상태를 뜻하는 프런트 전용 값이라 절대 전송되지 않는다(types.ts 주석 참고).
       status: DRAFT_STATUS_CODE[payload.status],
+      source: payload.source
+        ? ({ TEST_ONLY: '1', COMMON_CONTEXT: '2', INDIVIDUAL_OBSERVATION: '3' } as const)[
+            payload.source
+          ]
+        : undefined,
       content: payload.content,
+      generatedText: payload.generatedText,
       strengths: payload.strengths,
       improvements: payload.improvements,
       observationInput: payload.observationInput,

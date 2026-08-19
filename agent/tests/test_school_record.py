@@ -100,6 +100,17 @@ def test_t_score_to_level():
     print("✅ t_score_to_level")
 
 
+def test_t_score_to_level_reverses_for_negative_factors():
+    """is_positive=False(부적 요인)는 100-t_score로 뒤집혀 '질적 수준'으로 매핑된다 —
+    frontend computeStudentProfile.ts의 meritScore 계산과 동일한 보정."""
+    assert t_score_to_level(25, is_positive=False) == "매우높음"  # 100-25=75
+    assert t_score_to_level(63, is_positive=False) == "낮음"  # 100-63=37
+    assert t_score_to_level(75, is_positive=False) == "매우낮음"  # 100-75=25
+    # is_positive 미지정(기본 True) 시 기존 동작과 동일해야 한다
+    assert t_score_to_level(75) == t_score_to_level(75, is_positive=True)
+    print("✅ t_score_to_level (부적 요인 방향 보정)")
+
+
 def test_type_guide_unsupported_returns_none():
     """고등학교는 predictedType이 '미지원'. 원본처럼 '안전 균형형'으로 fallback하면
     고등학생 전원에게 엉뚱한 서사가 붙는다."""
@@ -196,7 +207,9 @@ def test_user_message_hides_raw_tscore():
     assert "68.4" not in message
     assert "63" not in message
     assert "자기효능감: 높음" in message
-    assert "시험불안: 높음" in message
+    # 시험불안(t_score=63.0, is_positive=False)은 100-63=37로 뒤집혀 "낮음"으로 표기된다 —
+    # 부적 요인이라 원점수가 높을수록(불안이 심할수록) 오히려 레벨은 낮게 나와야 맞다.
+    assert "시험불안: 낮음" in message
     assert "모둠 발표 준비를 맡음" in message
     assert "학습 방법에 대해 상담함" in message
     print("✅ user 메시지 (T점수 미노출)")

@@ -15,7 +15,7 @@ interface ResourceCardListProps {
   variant?: ResourceCardVariant;
   /** 미지정 시 variant별 기본 문구 */
   emptyMessage?: string;
-  onDelete?: (id: string) => void;
+  onDelete?: (refSetId: string) => void;
   /** API 조회/재조회 중 로딩 표시 */
   isLoading?: boolean;
 }
@@ -97,8 +97,12 @@ const Grid = styled.div`
     grid-template-columns: repeat(3, 1fr);
   }
 
-  @media (min-width: ${({ theme }) => theme.breakpoints.xl}) {
+  @media (min-width: ${({ theme }) => theme.breakpoints.lg}) {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  @media (min-width: ${({ theme }) => theme.breakpoints.xl}) {
+    grid-template-columns: repeat(5, 1fr);
   }
 `;
 

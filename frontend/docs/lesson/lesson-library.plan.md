@@ -14,6 +14,10 @@
 | **추가계획6** | `onSaved` → `POST /api/ref-set` 자동 등록 + `LessonMyPage` `GET /api/ref-set` 목록 연동 | 구현 완료 (ResourceCardList 연결 제외) |
 | **추가계획7** | `ResourceCard` 수정하기 → `/lesson/editor/:slideId` 이동 (`item.id`) | 구현 완료 |
 | **추가계획8** | 전체 자료실 CMS `GET /api/sets` 연동 + 필터 재조회/레이스 처리 + loading UI | 구현 완료 |
+| **추가계획9** | `DeployPage` 실시간 수업 → Viewer + `ResourceCard`→deploy `state.item` + URL 직접 진입 시 item 재조회 | 구현 완료 |
+| **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 구현 완료 |
+| **추가계획11** | DeployPage·저작툴 시작하기 — 활동 시작/종료 API + QR·참여링크 연동 | 타이틀만 / 상세 미작성 |
+| **추가계획12** | 학생용 수업 뷰어 라우트 (QR·참여링크 진입, SlideViewer 재사용) | 타이틀만 / 상세 미작성 · 추가계획11 완료 후 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `GET .../api/sets` (`brandId=18`, `serviceType=131132`) | 추가계획8 스펙 확정 · 필터 매핑 미적용 |
@@ -492,21 +496,48 @@ FilterPanel과 동일: 공통 불일치 시 feature 로컬 Emotion.
 
 ### 6.1 `LibItem` (프론트 모델)
 
-프로토타입 필드를 참고하되 API 대비 영문/안정 키로 정리.
+프로토타입 `LibItem`(`prototype/.../types.ts` · `mock-data.ts` `LIB`)을 참고하되, API/FE는 영문·안정 키로 정리.
+
+**프로토타입 → FE 필드 매핑**
+
+| prototype | FE | 비고 |
+| --- | --- | --- |
+| `id` | `id` | CMS `setId` / 목업 id |
+| — | `refSetId?` | 나의 자료(LMS ref-set) 전용. prototype `LIB`에는 없음 |
+| `title` | `title` | |
+| `thumb?` | `thumbnailUrl?` | 카드 썸네일 URL. 없으면 `colorGroup` 그라데이션 fallback |
+| `src` | `src?` | prototype은 한글(`검증`…), FE는 `'verified' \| …` |
+| `sel` | `selArea?` | |
+| `g` | `colorGroup?` | `'g1'`…`'g6'` |
+| `em` | (미이식) | 구 이모지 썸네일. 카드 미렌더 — FE에 두지 않음 |
+| `views?` / `saves?` / `reason?` | 동명 optional | |
+| `provider?` / `level?` / `grade?` / `duration?` / `factors?` | 동명 optional | LIB back-fill · taxonomy 필터용 |
+| — | `createdAt?` | LMS/CMS 생성 시각. prototype `MyLesson.updated`(MM/DD) 대체 |
+
+**필수(필요) 필드**: `id`, `refSetId?`(나의 자료 시), `title`, `thumbnailUrl?`  
+**그 외**: 모두 선택. DTO/mapper가 채울 수 있을 때만 설정.
 
 ```ts
 export type LibrarySrc = 'verified' | 'unverified' | 'external' | 'internal';
 // 표시 라벨: 검증 / 비검증 / 외부 / 내부
 
+export type LibraryColorGroup = 'g1' | 'g2' | 'g3' | 'g4' | 'g5' | 'g6';
+
 export interface LibItem {
+  // --- 필요 필드 (카드·연동 최소) ---
   id: string;
+  refSetId?: string;       // 나의 자료(LMS ref-set). 자료실 CMS 목록에는 없음
   title: string;
-  src: LibrarySrc;
-  selArea: string;       // prototype: sel
-  colorGroup?: string;   // 썸네일 톤
+  thumbnailUrl?: string;   // prototype: thumb. CMS/options 썸네일
+
+  // --- 선택 (필터·배지·톤·통계) ---
+  src?: LibrarySrc;        // prototype: src (한글 → 영문 코드)
+  selArea?: string;        // prototype: sel
+  colorGroup?: LibraryColorGroup; // prototype: g — thumb 없을 때 fallback
   views?: number;
   saves?: number;
   reason?: string;
+  createdAt?: string;      // LMS/CMS 생성 시각 (ISO). UI는 필요 시 MM/DD 포맷
   provider?: string;
   level?: string[];
   grade?: string[];
@@ -515,7 +546,15 @@ export interface LibItem {
 }
 ```
 
-DTO가 확정되면 service mapper만 교체. Grid/Card props는 `LibItem[]` 유지.
+DTO가 확정되면 service mapper만 교체. Grid/Card props는 `LibItem[]` 유지.  
+> **코드 반영**: `types.ts` / `ResourceCard` thumb 렌더 등은 별도 작업. 본 절은 계약 문서 갱신.
+
+프로토타입 `LIB` 예시(참고):
+
+```ts
+{ id: 'l1', title: '언제나 처음은 낯설다', src: '검증', sel: '자기관리',
+  views: 1240, saves: 328, g: 'g1', em: '🌱', thumb: '/lesson/theme-1/thumb.jpg' }
+```
 
 ### 6.2 목업 데이터
 
@@ -772,7 +811,7 @@ LessonMyPage
 | props | 자료실 (`library`) | 나의 자료 (`my`) |
 |-------|-------------------|------------------|
 | `variant` | `'library'` (기본) | `'my'` |
-| 카드 본문 | src/SEL 뱃지 (+ reason) | `수정 {updated}` |
+| 카드 본문 | src/SEL 뱃지 (+ reason) | `수정 {createdAt}` (표시 시 MM/DD 포맷 가능) |
 | 빈 상태 문구 | 조건에 맞는 콘텐츠가 없습니다. | 아직 만든 세트지가 없어요. … |
 | 빈 상태 아이콘 | `SearchX` | `Inbox` |
 | CTA | 수정하기 / 시작하기 (UI만) | 동일 + 썸네일 삭제 버튼(`onDelete`) |
@@ -782,8 +821,8 @@ LessonMyPage
 // emptyMessage 로 문구 오버라이드 가능
 ```
 
-- `LibItem.updated?: string` — my 모드 표시용
-- 목업: `features/lesson/model/mockLibraryItems.ts` (`MOCK_LIBRARY_ITEMS`, `updated` 포함)
+- `LibItem.createdAt?: string` — my 모드 표시용 (LMS/CMS ISO). prototype `updated`(MM/DD) 대체
+- 목업: `features/lesson/model/mockLibraryItems.ts` (`MOCK_LIBRARY_ITEMS`, `createdAt` 포함)
 
 ---
 
@@ -791,9 +830,9 @@ LessonMyPage
 
 ### Phase A — 목업 (완료)
 
-1. [x] `ResourceCardVariant`, `LibItem.updated`
+1. [x] `ResourceCardVariant`, `LibItem.createdAt` (`updated` → `createdAt`)
 2. [x] `ResourceCard` / `ResourceCardList`에 `variant`·`emptyMessage`
-3. [x] `MOCK_LIBRARY_ITEMS`에 `updated` 통합 (별도 my 목업 파일 없음)
+3. [x] `MOCK_LIBRARY_ITEMS`에 `createdAt` 통합 (별도 my 목업 파일 없음)
 4. [x] `LessonMyPage` ContentsHeader 아래 목록 배치 (Toolbar·Embed 유지)
 5. [x] barrel export
 6. [x] `tsc` / ESLint
@@ -825,7 +864,7 @@ LessonMyPage
 | 프로토타입 | `prototype/.../my-lessons/MyDataView.tsx`, `MyLessonCard.tsx` |
 | 목업 원본 | `prototype/.../mock-data.ts` (`MY`) |
 | 공통 목록 | `frontend/.../ui/ResourceCardList.tsx`, `ResourceCard.tsx` |
-| 목업 | `frontend/.../model/mockLibraryItems.ts` (`updated` 포함) |
+| 목업 | `frontend/.../model/mockLibraryItems.ts` (`createdAt` 포함) |
 | 페이지 | `frontend/.../pages/lesson/LessonMyPage.tsx` |
 
 ---
@@ -1249,7 +1288,8 @@ export type { ..., StartLessonPayload } from './lib/everyCanvasEmbedSdk';
 # 추가계획6 — LMS ref-set API 연동 (`onSaved` 자동 등록 + 목록 조회)
 
 > **참조**: [`lesson-everycanvas-lms-integration.plan.md §3(나의 자료), §5.1, §5.3`](./lesson-everycanvas-lms-integration.plan.md)  
-> **상태**: 구현 완료 (ResourceCardList 연결 제외 — 추후 Phase)
+> **상태**: 구현 완료 (ResourceCardList 연결 제외 — 추후 Phase)  
+> **2026-08-14 갱신**: LMS 참조-only 계약 반영 — `title`/`subjectCd`/`schoolLevelCd` 컬럼 제거, meta-dashboard `options`(`title` 필수 · `thumbnailUrl` 선택) store-and-echo. `LibItem`은 `id`·`title` 필수, 나머지 선택.
 
 ## 1. 현황 및 목표
 
@@ -1257,14 +1297,14 @@ export type { ..., StartLessonPayload } from './lib/everyCanvasEmbedSdk';
 
 | 항목 | 현재 상태 |
 |------|-----------|
-| `LessonEditorPage.onSaved` | navigate 처리만. LMS 미연동 |
-| `LessonMyPage` 목록 | `MOCK_LIBRARY_ITEMS` 사용 중 |
-| `features/lesson/api/` | `embedTokenService.ts`만 존재. queryKeys·service·queries 없음 |
-| `shared/config/env.ts` | `VITE_SP_LMS_API_URL` 미추가 → **추가 완료** |
+| `LessonEditorPage.onSaved` | `lcmsSetId` + `title` 있을 때 `POST /api/ref-set` (`options` 포함) |
+| `LessonMyPage` 목록 | `MOCK_LIBRARY_ITEMS` 사용 중 (`useRefSetListQuery` 마운트만) |
+| `features/lesson/api/` | `queryKeys` · `lmsRefSetService` · `queries` 구현 완료 |
+| `shared/config/env.ts` | `VITE_SP_LMS_API_URL` / `ENV.SP_LMS_API_URL` 추가 완료 |
 
 ### 목표
 
-1. `onSaved(p)` → `p.lcmsSetId` 있을 때 `POST /api/ref-set` 자동 등록 (중복 방지 포함)
+1. `onSaved(p)` → `p.lcmsSetId` + `p.title` 있을 때 `POST /api/ref-set` 자동 등록 (중복 방지 포함)
 2. `LessonMyPage`에서 `GET /api/ref-set` 실제 데이터 조회 — `resultData.list` 취득까지만
    - `ResourceCardList` 연결(mapper 포함)은 **추후 별도 확인 후 연동** (§4.4 참조)
 3. 기존 API 패턴(`queryKeys.ts` / service / `queries.ts`)에 맞는 구조로 구현
@@ -1275,9 +1315,13 @@ export type { ..., StartLessonPayload } from './lib/everyCanvasEmbedSdk';
 [저작 저장 흐름]
 LessonEditorPage
   └─ onSaved(p: SavedPayload)
-      ├─ p.lcmsSetId 있으면
+      ├─ p.lcmsSetId && p.title 있으면
       │   ├─ GET cache 에서 동일 lcmsSetId 존재 여부 확인 (중복 방지)
-      │   ├─ 없으면 → registerRefSet({ lcmsSetId, title, subjectCd, schoolLevelCd, makeMethod })
+      │   ├─ 없으면 → registerRefSet({
+      │   │       lcmsSetId,
+      │   │       makeMethod,
+      │   │       options: { title, thumbnailUrl? }   // thumbnail ← SavedPayload.thumbnail
+      │   │     })
       │   │       └─ POST {ENV.SP_LMS_API_URL}/api/ref-set
       │   │           └─ 성공 → lessonKeys.refSets() invalidate → 목록 자동 갱신
       │   └─ 이미 있으면 → skip (중복 POST 방지)
@@ -1306,6 +1350,30 @@ LessonMyPage (마운트)
 
 > `apiClient`(meta-dashboard BE 전용, `ENV.API_URL` base)를 사용할 수 없으므로 `getAuth().authorizedFetch`로 직접 호출한다. 응답은 LMS envelope(`{ success, resultCode, resultData }`) 구조.
 
+### API 계약 (LMS 코드·규격서 + meta-dashboard options)
+
+**GET `/api/ref-set`** — Request 파라미터 없음. `resultData.list[]`:
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `refSetId` | string | 보관함 참조 ID |
+| `lcmsSetId` | string | CMS 세트 ID |
+| `makeMethod` | number | 1~5 |
+| `status` | number | 상태 |
+| `options` | object \| null | store-and-echo. meta: `title`(필수), `thumbnailUrl`(선택) |
+| `createdAt` | string | 등록 시각 |
+
+**POST `/api/ref-set`** body:
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `lcmsSetId` | string | ✅ | CMS 세트 ID |
+| `makeMethod` | number |  | 미지정 시 3(자료실) |
+| `options.title` | string | ✅ | 카드 제목 |
+| `options.thumbnailUrl` | string |  | 카드 썸네일 URL |
+
+> LMS 컬럼에 `title`/`subjectCd`/`schoolLevelCd` 없음. 카드 메타는 `options`에만 담는다.
+
 ## 4. 신규 파일
 
 ### 4.1 `features/lesson/api/queryKeys.ts`
@@ -1327,7 +1395,6 @@ import { ENV } from '@shared/config/env';
 
 const BASE = `${ENV.SP_LMS_API_URL}/api/ref-set`;
 
-// LMS envelope 공통 구조
 interface LmsEnvelope<T> {
   success: boolean;
   resultCode: number;
@@ -1335,15 +1402,19 @@ interface LmsEnvelope<T> {
   resultData: T;
 }
 
+/** meta-dashboard options 계약 (LMS store-and-echo) */
+export interface RefSetOptions {
+  title: string;
+  thumbnailUrl?: string;
+}
+
 /** GET /api/ref-set 응답 아이템 */
 export interface RefSetItem {
   refSetId: string;
   lcmsSetId: string;
-  title: string;
-  subjectCd: string;
-  schoolLevelCd: string;
   makeMethod: number;
   status: number;
+  options: RefSetOptions | null;
   createdAt: string;
 }
 
@@ -1355,14 +1426,12 @@ export interface RefSetListData {
 /** POST /api/ref-set 요청 body */
 export interface RegisterRefSetBody {
   lcmsSetId: string;
-  title?: string;
-  subjectCd?: string;
-  schoolLevelCd?: string;
   /**
    * 1:신규직접 2:완성형가공 3:자료실 4:AI생성 5:AI가공
    * SavedPayload.lessonMeta.makeMethod 미전달 시 기본값 3(자료실) 사용
    */
   makeMethod?: number;
+  options: RefSetOptions;
 }
 
 export interface RegisterRefSetResponse {
@@ -1434,9 +1503,9 @@ export function useRegisterRefSetMutation() {
 
 ### 4.4 `features/lesson/model/mapRefSetToLibItem.ts` — **추후 연동 Phase**
 
-`RefSetItem`(LMS DTO) → `LibItem`(UI view-model) 변환이 필요하나, `subjectCd` ↔ `selArea` taxonomy 매핑 등 LMS와 프론트 규격 간 불일치가 있어 **이번 구현 범위에서 제외**.
-
-임시 파일 골격만 작성해 두고, ResourceCardList 연결 전 팀 협의 후 채운다.
+`RefSetItem`(LMS `GET /api/ref-set`) → `LibItem`.  
+매핑: `id←lcmsSetId`, `refSetId←refSetId`, `title←options.title`, `thumbnailUrl←options.thumbnailUrl`, `createdAt←createdAt`.  
+`ResourceCardList` 연결은 **이번 구현 범위에서 제외**(골격만).
 
 ```ts
 import type { RefSetItem } from '../api/lmsRefSetService';
@@ -1449,21 +1518,42 @@ function pickColorGroup(id: string): LibraryColorGroup {
   return COLOR_GROUPS[code % COLOR_GROUPS.length];
 }
 
-/**
- * TODO: subjectCd → selArea 매핑 테이블 별도 확정 후 교체 (추후 변동 가능)
- * 현재는 subjectCd 값을 selArea에 그대로 전달.
- */
 export function mapRefSetToLibItem(item: RefSetItem): LibItem {
-  const date = new Date(item.createdAt);
-  const updated = `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
   return {
-    id: item.refSetId,
-    title: item.title,
+    id: item.lcmsSetId,
+    refSetId: item.refSetId,
+    title: item.options?.title ?? '',
+    thumbnailUrl: item.options?.thumbnailUrl,
+    createdAt: item.createdAt,
     src: 'internal',
-    selArea: item.subjectCd, // TODO: taxonomy 확정 전 임시. 추후 변동 가능
     colorGroup: pickColorGroup(item.refSetId),
-    updated,
   };
+}
+```
+
+### 4.5 `LibItem` (`features/lesson/model/types.ts`)
+
+필수: `id`, `title`. `refSetId`는 나의 자료(ref-set) 연동 시 사용(선택).  
+`src` / `selArea` / `colorGroup` 포함 그 외 필드는 모두 선택. (`updated` → `createdAt` 로 통일)
+
+```ts
+export interface LibItem {
+  id: string;
+  refSetId?: string;
+  title: string;
+  thumbnailUrl?: string;
+  src?: LibrarySrc;
+  selArea?: string;
+  colorGroup?: LibraryColorGroup;
+  views?: number;
+  saves?: number;
+  reason?: string;
+  createdAt?: string;
+  provider?: string;
+  level?: string[];
+  grade?: string[];
+  duration?: string;
+  factors?: string[];
 }
 ```
 
@@ -1471,10 +1561,11 @@ export function mapRefSetToLibItem(item: RefSetItem): LibItem {
 
 ### 5.1 `pages/lesson/LessonEditorPage.tsx`
 
-`useRegisterRefSetMutation` 훅 추가, `onSaved`에서 `lcmsSetId` 있을 때 mutate 호출.
+`useRegisterRefSetMutation` 훅 추가, `onSaved`에서 `lcmsSetId` + `title` 있을 때 mutate 호출.
 
-- `makeMethod`: `SavedPayload.lessonMeta.makeMethod`(`string | undefined`)를 `Number()`로 변환. **미전달 시 기본값 `3`(자료실)** 사용 — `보관함-등록(POST ref-set)` 스펙 기준.
-- `subjectCd` / `schoolLevelCd`: `lessonMeta.subject` / `lessonMeta.schoolLevel` 에서 전달 (LMS 코드값과 일치 여부 확인 필요 → 미확정 항목 #4).
+- `makeMethod`: `SavedPayload.lessonMeta.makeMethod`를 `Number()`로 변환. **미전달 시 기본값 `3`(자료실)**
+- `options.title`: `p.title` (필수 — 없으면 POST skip)
+- `options.thumbnailUrl`: `p.thumbnail` 있을 때만 포함
 
 ```tsx
 import { useRegisterRefSetMutation } from '@features/lesson';
@@ -1482,15 +1573,16 @@ import { useRegisterRefSetMutation } from '@features/lesson';
 const { mutate: registerRefSet } = useRegisterRefSetMutation();
 
 onSaved={(p: SavedPayload) => {
-  if (p.lcmsSetId) {
+  if (p.lcmsSetId && p.title) {
     registerRefSet({
       lcmsSetId: p.lcmsSetId,
-      title: p.title,
-      subjectCd: p.lessonMeta?.subject,
-      schoolLevelCd: p.lessonMeta?.schoolLevel,
       makeMethod: p.lessonMeta?.makeMethod !== undefined
         ? Number(p.lessonMeta.makeMethod)
         : 3,  // 기본값: 3(자료실)
+      options: {
+        title: p.title,
+        ...(p.thumbnail ? { thumbnailUrl: p.thumbnail } : {}),
+      },
     });
   }
   if (!slideId && p.slideId) {
@@ -1514,51 +1606,58 @@ const { data: refSetData, isLoading, isError } = useRefSetListQuery();
 // 현재는 기존 MOCK_LIBRARY_ITEMS + useState items 유지
 ```
 
-> ResourceCardList 연결 전에 `subjectCd → selArea` 매핑, `LibItem` 타입 불일치 필드 처리를 별도 확인한다.
-
 ### 5.3 `features/lesson/index.ts`
 
-신규 훅·타입 export 추가. mapper(`mapRefSetToLibItem`)는 ResourceCardList 연결 전까지 export 보류.
+신규 훅·타입 export. mapper(`mapRefSetToLibItem`)는 ResourceCardList 연결 전까지 export 보류.
 
 ```ts
 export { useRefSetListQuery, useRegisterRefSetMutation } from './api/queries';
-export type { RefSetItem, RegisterRefSetBody, RefSetListData } from './api/lmsRefSetService';
+export type {
+  RefSetItem,
+  RegisterRefSetBody,
+  RefSetListData,
+  RefSetOptions,
+} from './api/lmsRefSetService';
 ```
 
 ## 6. 변경 파일 목록
 
 | 파일 | 유형 | 핵심 변경 |
 |------|------|-----------|
-| `shared/config/env.ts` | **수정 완료** | `SP_LMS_API_URL` 추가 (기본값 `http://t-gw.vschool.at/v1/lms`) |
+| `shared/config/env.ts` | **수정 완료** | `SP_LMS_API_URL` 추가 |
 | `features/lesson/api/queryKeys.ts` | **구현 완료** | `lessonKeys` factory |
-| `features/lesson/api/lmsRefSetService.ts` | **구현 완료** | `lmsFetch` 헬퍼, `getRefSetList`, `registerRefSet`, DTO 타입 |
+| `features/lesson/api/lmsRefSetService.ts` | **수정 완료** | `RefSetOptions`·`options` 계약. `title`/`subjectCd`/`schoolLevelCd` 제거 |
 | `features/lesson/api/queries.ts` | **구현 완료** | `useRefSetListQuery`, `useRegisterRefSetMutation` (cache 기반 중복 방지) |
-| `features/lesson/model/mapRefSetToLibItem.ts` | **신규(골격) 구현 완료** | skeleton만 작성. ResourceCardList 연결 전까지 export 보류 |
-| `pages/lesson/LessonEditorPage.tsx` | **수정 완료** | `useRegisterRefSetMutation` + `onSaved` 중복 방지 로직 |
-| `pages/lesson/LessonMyPage.tsx` | **수정 완료** | `useRefSetListQuery` 마운트 추가 (데이터 확인용). MOCK 유지 |
-| `features/lesson/index.ts` | **수정 완료** | 신규 훅·타입 export (mapper 제외) |
+| `features/lesson/model/mapRefSetToLibItem.ts` | **수정 완료** | `id←lcmsSetId`, `refSetId`, `title/thumbnailUrl←options`, `createdAt←createdAt` |
+| `features/lesson/model/types.ts` | **수정 완료** | `LibItem`: `id`·`title` 필수, `updated`→`createdAt`, 나머지 선택 |
+| `features/lesson/ui/ResourceCard.tsx` | **수정 완료** | optional `src`/`selArea`/`colorGroup` 가드 |
+| `features/lesson/model/matchLibraryFilters.ts` | **수정 완료** | optional `selArea` 가드 |
+| `pages/lesson/LessonEditorPage.tsx` | **수정 완료** | `options: { title, thumbnailUrl? }` POST |
+| `pages/lesson/LessonMyPage.tsx` | **수정 완료** | `useRefSetListQuery` 마운트 (MOCK 유지) |
+| `features/lesson/index.ts` | **수정 완료** | 훅·타입 export (`RefSetOptions` 포함) |
 
 ## 7. 확정·미확정 항목
 
 | # | 항목 | 상태 | 내용 |
 |---|------|------|------|
-| 1 | **LMS 호출 경로** | **확정** | 직접 LMS. `ENV.SP_LMS_API_URL`(`http://t-gw.vschool.at/v1/lms`) + `getAuth().authorizedFetch` |
-| 2 | **POST 중복 등록** | 중복 방지 포함 | DB 단순 INSERT 구조 → cache 기반 중복 체크 구현. cache miss 시 동작 미확인 — LMS 중복 허용 여부 추가 확인 필요 |
-| 3 | **makeMethod 기본값** | **확정** | `SavedPayload.lessonMeta.makeMethod` 미전달 시 기본값 `3`(자료실) 사용. LMS POST ref-set 스펙(`보관함-등록`) 기준 |
-| 4 | **subjectCd / schoolLevelCd 매핑** | 추후 변동 가능 | `lessonMeta.subject` / `lessonMeta.schoolLevel` 값이 LMS 코드(`"MA"`, `"E"` 등)와 일치하는지 확인 필요. 현재는 그대로 전달. `selArea` taxonomy 매핑도 확정 전 임시 처리. **추후 변동 가능** |
-| 5 | **DELETE ref-set** | **보류** | API 스펙 미수령. 삭제 기능은 별도 계획으로 분리 |
-| 6 | **ResourceCardList 연결** | **추후 Phase** | `RefSetItem` → `LibItem` mapper 연동은 taxonomy 매핑 협의 후 별도 구현 |
+| 1 | **LMS 호출 경로** | **확정** | 직접 LMS. `ENV.SP_LMS_API_URL` + `getAuth().authorizedFetch` |
+| 2 | **POST 중복 등록** | 중복 방지 포함 | cache 기반 중복 체크. cache miss 시 LMS 중복 허용 여부 추가 확인 필요 |
+| 3 | **makeMethod 기본값** | **확정** | 미전달 시 `3`(자료실) |
+| 4 | **options 계약** | **확정** | `title`(필수)·`thumbnailUrl`(선택). LMS 스키마 검증 없음(store-and-echo) |
+| 5 | **subjectCd / schoolLevelCd** | **폐기** | LMS 컬럼 아님. POST body·GET 응답에서 제거 |
+| 6 | **DELETE ref-set** | **보류** | API 스펙 미수령 |
+| 7 | **ResourceCardList 연결** | **추후 Phase** | `mapRefSetToLibItem` → `ResourceCardList` 별도 연동 |
 
 ## 8. 완료 기준
 
 - [x] `shared/config/env.ts`: `ENV.SP_LMS_API_URL` 추가 확인
-- [x] `LessonEditorPage`: `onSaved` + `lcmsSetId` → `POST /api/ref-set` 호출 확인 (네트워크 탭)
+- [x] `LessonEditorPage`: `onSaved` + `lcmsSetId`/`title` → `POST /api/ref-set` (`options`) 호출
 - [x] 동일 `lcmsSetId` 재저장 시 중복 POST 미발생 확인
-- [x] `LessonMyPage`: `useRefSetListQuery` 마운트 → `GET /api/ref-set` 호출 확인 (네트워크 탭)
+- [x] `LessonMyPage`: `useRefSetListQuery` 마운트 → `GET /api/ref-set` 호출 확인
 - [x] `POST` 성공 후 `lessonKeys.refSets()` invalidate → GET 자동 refetch 확인
 - [x] `lessonKeys` factory 사용, 임의 문자열 query key 없음
+- [x] DTO/`LibItem`을 options 계약·선택 필드에 맞춤
 - [x] `npx tsc -b --noEmit`, eslint 통과
-
 
 ---
 
@@ -1613,7 +1712,7 @@ export type { RefSetItem, RegisterRefSetBody, RefSetListData } from './api/lmsRe
 
 # 추가계획8 — 전체 자료실 CMS `GET /api/sets` 연동
 
-> **상태**: 구현 완료  
+> **상태**: 구현 완료 (2026-08-14 응답 페이지 객체 `{ list, pageNo, pageSize, totalCount }` 반영)  
 > **범위**: `LessonLibraryContents` mock → CMS 세트 목록 API 교체. FilterPanel 값은 아직 API 파라미터에 매핑하지 않음(동일 쿼리 재호출). MOCK 코드는 주석으로 보존.  
 > **비범위**: 필터 taxonomy ↔ CMS metaId 매핑, 무한 스크롤(페이지네이션 고도화), 썸네일 UI 렌더(타입만 추가)
 
@@ -1623,10 +1722,10 @@ export type { RefSetItem, RegisterRefSetBody, RefSetListData } from './api/lmsRe
 
 | 항목 | 현재 상태 |
 |------|-----------|
-| `LessonLibraryContents` | `MOCK_LIBRARY_ITEMS` + `matchLibraryItem` / `sortLibraryItems` 로컬 필터 |
-| `LessonLibraryPage` | `useLibraryFilters` + `FilterPanel` (로컬 상태만) |
-| CMS sets API | 미연동. env에 CMS base URL 없음 |
-| `LibItem` | `thumbnailUrl` 필드 없음 |
+| `LessonLibraryContents` | `useCmsSetListQuery` → `data.list` → `mapCmsSetToLibItem` → `ResourceCardList` |
+| `LessonLibraryPage` | `useLibraryFilters` + `FilterPanel` (로컬 상태만, API param 미매핑) |
+| CMS sets API | `ENV.CMS_API_URL` + `getCmsSetList` → `CmsSetListData` |
+| `LibItem` | `thumbnailUrl?` 포함. `id`/`title` 필수, 나머지 선택 |
 
 ### 목표
 
@@ -1634,7 +1733,7 @@ export type { RefSetItem, RegisterRefSetBody, RefSetListData } from './api/lmsRe
 2. FilterPanel 버튼은 **모두 동일한 request param**으로 호출 (필터→CMS 파라미터 매핑은 추후)
 3. 연속 클릭 시 **마지막 요청 응답만** UI에 반영 (레이스 방지)
 4. 조회 중 loading(레이지/스켈레톤) UI
-5. CMS DTO → `LibItem` 최소 매핑 (`setId`/`title`/`thumbnailUrl`). 나머지 필수 필드는 임시값 + **TO FIX** 표기
+5. CMS DTO → `LibItem` 최소 매핑 (`setId`/`title`/`thumbnailUrl`). 나머지 필드는 임시값 + **TO FIX** 표기
 6. `MOCK_LIBRARY_ITEMS` 경로는 주석으로 남겨 즉시 복구 가능하게 유지
 
 ## 2. API 스펙
@@ -1664,22 +1763,45 @@ export type { RefSetItem, RegisterRefSetBody, RefSetListData } from './api/lmsRe
 
 ### 성공 응답 (200)
 
-배열 본문 (LMS envelope이 아님에 주의):
+페이지 객체 본문 (LMS envelope이 아님에 주의). 실측 응답(2026-08-14):
 
 ```json
-[
-  {
-    "setId": "set-001",
-    "title": "일차함수 세트",
-    "thumbnailUrl": "string",
-    "slideCount": 12,
-    "metas": [
-      { "id": 1101, "code": "MATH_M1_2022", "name": "curriBook", "val": "중학교 1학년 수학" }
-    ],
-    "createdAt": "2026-08-13T15:47:01.563Z"
-  }
-]
+{
+  "list": [
+    {
+      "createdAt": "2026-08-13T10:29:58.000",
+      "setId": "27042",
+      "slideCount": 0,
+      "thumbnailUrl": "upload/6/thumbnail/set-sample.png",
+      "title": "일차함수 세트"
+    },
+    {
+      "createdAt": "2026-08-13T16:21:43.000",
+      "setId": "27047",
+      "slideCount": 1,
+      "thumbnailUrl": "upload/6/thumbnail/sample.png",
+      "title": "정식 저장 세트 테스트(PUT)"
+    }
+  ],
+  "pageNo": 0,
+  "pageSize": 10,
+  "totalCount": 23
+}
 ```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `list` | object[] | 세트 목록 |
+| `list[].setId` | string | CMS 세트 ID |
+| `list[].title` | string | 제목 |
+| `list[].thumbnailUrl` | string | 썸네일 상대/절대 경로 (없을 수 있음) |
+| `list[].slideCount` | number | 슬라이드 수 |
+| `list[].createdAt` | string | 생성 시각 |
+| `pageNo` | number | 현재 페이지 (0부터) |
+| `pageSize` | number | 페이지 크기 |
+| `totalCount` | number | 전체 건수 |
+
+> 초기 스펙의 배열 본문·`metas[]` 형태와 다름. 실측 기준은 위 페이지 객체. FE는 `CmsSetListData`로 파싱 후 `list`를 매핑한다.
 
 ### 실패 응답 (400 / 500)
 
@@ -1778,20 +1900,21 @@ export const lessonKeys = {
 import { getAuth } from '@shared/lib/authClient';
 import { ENV } from '@shared/config/env';
 
-export interface CmsSetMeta {
-  id: number;
-  code: string;
-  name: string;
-  val: string;
-}
-
+/** GET /api/sets list[] 아이템 (실측 2026-08-14) */
 export interface CmsSetItem {
   setId: string;
   title: string;
   thumbnailUrl?: string;
   slideCount?: number;
-  metas?: CmsSetMeta[];
   createdAt?: string;
+}
+
+/** GET /api/sets 페이지 응답 */
+export interface CmsSetListData {
+  list: CmsSetItem[];
+  pageNo: number;
+  pageSize: number;
+  totalCount: number;
 }
 
 export interface CmsSetListParams {
@@ -1811,7 +1934,7 @@ export interface CmsSetListParams {
 export async function getCmsSetList(
   params: CmsSetListParams,
   signal?: AbortSignal,
-): Promise<CmsSetItem[]> {
+): Promise<CmsSetListData> {
   const qs = new URLSearchParams({
     pageNo: String(params.pageNo),
     pageSize: String(params.pageSize),
@@ -1829,7 +1952,7 @@ export async function getCmsSetList(
     // 400/500 error body의 message 활용 시도
     throw new Error(`CMS sets 조회 실패: ${res.status}`);
   }
-  return (await res.json()) as CmsSetItem[];
+  return (await res.json()) as CmsSetListData;
 }
 ```
 
@@ -1866,9 +1989,9 @@ export interface LibItem {
   title: string;
   /** CMS 썸네일 URL — 선택. UI 반영은 추후 */
   thumbnailUrl?: string;
-  src: LibrarySrc;
-  selArea: string;
-  colorGroup: LibraryColorGroup;
+  src?: LibrarySrc;
+  selArea?: string;
+  colorGroup?: LibraryColorGroup;
   // ...기존 필드
 }
 ```
@@ -1889,7 +2012,7 @@ function pickColorGroup(id: string): LibraryColorGroup {
 /**
  * CMS Set → LibItem 최소 매핑.
  * 호환 확정: setId→id, title→title, thumbnailUrl→thumbnailUrl
- * 그 외 필수 필드는 임시값 (**TO FIX**)
+ * 그 외는 임시값 (**TO FIX**) — 실측 응답에 metas 없음
  */
 export function mapCmsSetToLibItem(item: CmsSetItem): LibItem {
   return {
@@ -1898,7 +2021,7 @@ export function mapCmsSetToLibItem(item: CmsSetItem): LibItem {
     thumbnailUrl: item.thumbnailUrl,
     // ---- TO FIX: CMS 스펙/taxonomy 매핑 확정 전 임시값 ----
     src: 'verified', // TO FIX
-    selArea: item.metas?.[0]?.val ?? '-', // TO FIX
+    selArea: undefined, // TO FIX
     colorGroup: pickColorGroup(item.setId), // TO FIX (썸네일 없을 때 fallback용)
     // -------------------------------------------------------
   };
@@ -1909,9 +2032,9 @@ export function mapCmsSetToLibItem(item: CmsSetItem): LibItem {
 
 ```tsx
 export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsProps) => {
-  const { data, isPending, isFetching, isError } = useCmsSetListQuery(filters, sort);
+  const { data, isPending, isFetching, isError, error } = useCmsSetListQuery(filters, sort);
   const items = useMemo(
-    () => (data ?? []).map(mapCmsSetToLibItem),
+    () => (data?.list ?? []).map(mapCmsSetToLibItem),
     [data],
   );
 
@@ -1926,14 +2049,19 @@ export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsPr
   // );
   // -----------------------------------------------------------
 
-  if (isPending && items.length === 0) {
-    return <Contents>{/* loading UI */}</Contents>;
+  if (isError && items.length === 0) {
+    return (
+      <Contents>
+        <ErrorText role='alert'>
+          {error instanceof Error ? error.message : '세트 목록을 불러오지 못했습니다.'}
+        </ErrorText>
+      </Contents>
+    );
   }
 
   return (
     <Contents>
-      {/* 재조회 중 오버레이/인디케이터: isFetching && !isPending */}
-      <ResourceCardList items={items} isLoading={isFetching} />
+      <ResourceCardList items={items} isLoading={isPending || isFetching} />
     </Contents>
   );
 };
@@ -1951,7 +2079,7 @@ export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsPr
 
 ```ts
 export { useCmsSetListQuery } from './api/queries';
-export type { CmsSetItem, CmsSetListParams } from './api/cmsSetService';
+export type { CmsSetItem, CmsSetListData, CmsSetListParams } from './api/cmsSetService';
 export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 ```
 
@@ -1961,13 +2089,13 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 |------|------|-----------|
 | `shared/config/env.ts` | **수정 완료** | `CMS_API_URL` 추가 |
 | `features/lesson/api/queryKeys.ts` | **수정 완료** | `cmsSets()` 추가 |
-| `features/lesson/api/cmsSetService.ts` | **구현 완료** | `getCmsSetList` + DTO |
+| `features/lesson/api/cmsSetService.ts` | **수정 완료** | `CmsSetListData` 페이지 응답 파싱 (`list`/`pageNo`/`pageSize`/`totalCount`) |
 | `features/lesson/api/queries.ts` | **수정 완료** | `useCmsSetListQuery` (signal + keepPreviousData) |
-| `features/lesson/model/types.ts` | **수정 완료** | `LibItem.thumbnailUrl?` |
-| `features/lesson/model/mapCmsSetToLibItem.ts` | **구현 완료** | 최소 매핑 + TO FIX 임시 필드 |
-| `widgets/lesson/LessonLibraryContents.tsx` | **수정 완료** | CMS 연동, MOCK 주석 보존, loading |
+| `features/lesson/model/types.ts` | **수정 완료** | `LibItem.thumbnailUrl?`, 선택 필드화 |
+| `features/lesson/model/mapCmsSetToLibItem.ts` | **수정 완료** | 최소 매핑 + TO FIX (metas 제거) |
+| `widgets/lesson/LessonLibraryContents.tsx` | **수정 완료** | `data.list` 매핑, MOCK 주석 보존, loading |
 | `features/lesson/ui/ResourceCardList.tsx` | **수정 완료** | optional `isLoading` |
-| `features/lesson/index.ts` | **수정 완료** | 훅·타입·mapper export |
+| `features/lesson/index.ts` | **수정 완료** | `CmsSetListData` export 포함 |
 | `.env.development` | **수정 완료** | `VITE_CMS_API_URL` |
 
 ## 7. 확정·미확정
@@ -1976,12 +2104,13 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 |---|------|------|------|
 | 1 | CMS base URL | 확정 | `https://t2-public-cmsapi.vsaidt.com` → env |
 | 2 | 고정 query | 확정 | `pageNo=0&pageSize=10&brandId=18&serviceType=131132` |
-| 3 | 필터→API 매핑 | 미적용 | 모든 필터 클릭 = 동일 API 재호출. taxonomy/metaId 매핑은 추후 |
-| 4 | 레이스 처리 | 확정 | queryKey(filters,sort) + fetch AbortSignal. **구조 가능** |
-| 5 | LibItem 매핑 | 부분 | id/title/thumbnailUrl만 호환. src/selArea/colorGroup은 **TO FIX** 임시값 |
-| 6 | thumbnail UI | 보류 | 타입만 추가. `ResourceCard` Thumb에 이미지 렌더는 별도 |
-| 7 | 페이지네이션 | 보류 | pageSize=10 고정. 더보기/무한스크롤 미포함 |
-| 8 | CORS / 인증 | **확정** | `getAuth().authorizedFetch`로 Bearer JWT 전달 |
+| 3 | 응답 형태 | **확정(실측)** | `{ list, pageNo, pageSize, totalCount }` (배열·`metas` 아님) |
+| 4 | 필터→API 매핑 | 미적용 | 모든 필터 클릭 = 동일 API 재호출. taxonomy/metaId 매핑은 추후 |
+| 5 | 레이스 처리 | 확정 | queryKey(filters,sort) + fetch AbortSignal |
+| 6 | LibItem 매핑 | 부분 | id/title/thumbnailUrl만 호환. src/selArea/colorGroup은 **TO FIX** |
+| 7 | thumbnail UI | 보류 | 타입만 추가. `ResourceCard` Thumb에 이미지 렌더는 별도 |
+| 8 | 페이지네이션 | 보류 | pageSize=10 고정. `totalCount`는 수신만. 더보기/무한스크롤 미포함 |
+| 9 | CORS / 인증 | **확정** | `getAuth().authorizedFetch`로 Bearer JWT 전달 |
 
 ## 8. 완료 기준
 
@@ -1989,6 +2118,829 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 - [x] FilterPanel 토글/정렬/초기화 시마다 동일 param으로 재호출
 - [x] 연속 클릭 시 이전 요청 abort 또는 무시 → 마지막 응답만 목록 반영
 - [x] 로딩 중 UI 표시 (초기 + 재조회)
-- [x] `setId`/`title`/`thumbnailUrl` 매핑, 나머지 필수 필드 임시값 + TO FIX 주석
+- [x] 응답 `list` → `setId`/`title`/`thumbnailUrl` 매핑, 나머지 임시값 + TO FIX
+- [x] `CmsSetListData` 페이지 객체 파싱
 - [x] MOCK 경로 주석으로 코드 보존
 - [x] `npx tsc -b --noEmit`, eslint 통과
+
+---
+
+# 추가계획9 — DeployPage 실시간 수업 → Viewer 이동 + item 전달/재조회
+
+> **상태**: 1차·2차 구현 완료  
+> **범위**:  
+> 1) `ResourceCard` 「시작하기」 → **DeployPage** (`/lesson/deploy/:setId` 또는 `/lesson/deploy/:setId/:refSetId`) + `state.item`  
+> 2) 배포 완료 후 `deployed.isLive` → `/lesson/viewer/:setId` (1차 완료)  
+> 3) URL 직접 진입(state 없음) 시 `refSetId`/`setId`로 item API 재조회 + 로딩/실패 UX  
+> **비범위**: Viewer Platform `slideId` 매핑, 배포 API, `LessonMyPage` ResourceCardList API 연결(추가계획6 잔여 → 추가계획10에서 완료)
+
+---
+
+## 0. 문서 이력
+
+| 차수 | 내용 |
+|------|------|
+| 1차 | 실시간 배포 → Viewer, `ResourceCard` `state.item` 전달. mock find / `!item` early return 주석 보류. URL 직접 진입은 title fallback만 |
+| **2차** | param 명칭 `itemId` → `setId` 통일. library/my `LibItem` 형식 확인. URL 직접 진입 시 LMS/CMS 단건 조회. 조회 중 로딩, 실패 시 toast + 이전 페이지 — **구현 완료 (2026-08-17)** |
+
+---
+
+## 1. 목표
+
+1. **카드 「시작하기」** → DeployPage. Viewer가 아니다.  
+   - path: `/lesson/deploy/${setId}` 또는 `/lesson/deploy/${setId}/${refSetId}`  
+   - `useParams` 키는 `setId` / `refSetId` (구 `itemId` 폐기)
+2. **실시간 배포 완료 후 「수업 시작하기」** → Viewer `navigate(\`/lesson/viewer/${setId}\`)` (1차 유지)
+3. DeployPage 미리보기용 `LibItem`  
+   - **1순위** `location.state.item` (시작하기 버튼)  
+   - **2순위** URL 직접 진입 시 API 단건 조회
+4. 조회 실패·item 없음 → toast `'콘텐츠 조회에 실패했습니다'` 후 이전 페이지
+
+---
+
+## 2. 현황 (2차 구현 기준)
+
+| 항목 | 현재 |
+|------|------|
+| 라우트 | `/lesson/deploy/:setId`, `/lesson/deploy/:setId/:refSetId` (`routes.tsx`) |
+| `DeployPage` params | `useParams<{ setId; refSetId }>()` — 수신·재조회 연동 완료 |
+| `ResourceCard` 시작하기 | `refSetId` 있으면 `/lesson/deploy/${id}/${refSetId}`, 없으면 `/lesson/deploy/${id}` + `state.item` |
+| item 소스 | 1) `location.state.item` 2) LMS/CMS 단건 조회. mock find 주석 보류 |
+| URL만 진입 | `GET /api/ref-set/{refSetId}` 또는 `GET /api/sets/{setId}` + 로딩/실패 UX |
+| 실시간 Viewer | `navigate(\`/lesson/viewer/${setId}\`)` 구현됨 |
+| 자료실 목록 | CMS `GET /api/sets` → `mapCmsSetToLibItem` |
+| 나의 자료 목록 | LMS `GET /api/ref-set` → `mapRefSetToLibItem` (추가계획10) |
+| LMS 단건 | `getRefSet(refSetId)` + `useRefSetQuery` |
+| CMS 단건 | `getCmsSet(setId)` + `useCmsSetDetailQuery` |
+
+---
+
+## 3. 라우트 · 파라미터
+
+기존 `itemId`는 폐기하고 CMS 세트 ID와 맞춘다. 라우트 path는 이미 `setId`다.
+
+```
+/lesson/deploy/:setId
+/lesson/deploy/:setId/:refSetId
+```
+
+| param | 출처 | 필수 | 설명 |
+|-------|------|------|------|
+| `setId` | `LibItem.id` (= CMS `setId` / LMS `lcmsSetId`) | ✅ | CMS 세트 ID |
+| `refSetId` | `LibItem.refSetId` (나의 자료·보관함) | 자료실 없음 / 나의 자료 있음 | LMS 보관함 참조 ID |
+
+```tsx
+const { setId, refSetId } = useParams<{ setId: string; refSetId: string }>();
+```
+
+Viewer는 변경 없음: `/lesson/viewer/:setId`.
+
+---
+
+## 4. ResourceCard 「시작하기」 → DeployPage
+
+**진입은 DeployPage.** `/lesson/viewer/...` 로 바로 가지 않는다. Viewer는 배포 완료 후 실시간 분기다.
+
+```tsx
+const deployPath = item.refSetId
+  ? `/lesson/deploy/${item.id}/${item.refSetId}`
+  : `/lesson/deploy/${item.id}`;
+
+navigate(`${deployPath}${location.search}`, {
+  state: { item }, // DeployPageLocationState
+});
+```
+
+| 출처 | path | state |
+|------|------|-------|
+| 자료실 `/lesson/library` | `/lesson/deploy/${item.id}` | `{ item }` |
+| 나의 자료 `/lesson/my` (`refSetId` 있음) | `/lesson/deploy/${item.id}/${item.refSetId}` | `{ item }` |
+| 나의 자료 mock (현재 `refSetId` 없음) | `/lesson/deploy/${item.id}` | `{ item }` |
+
+`location.search` 유지 (LNB 반 프리셋 `?class=`).
+
+---
+
+## 5. library vs my `LibItem` 형식 확인 (1-1)
+
+둘 다 **같은 컴포넌트** `features/lesson/ui/ResourceCard.tsx`, **같은 타입** `LibItem`. 컴포넌트가 두 개가 아니다. `variant`만 `'library' | 'my'`로 UI(삭제·수정일)가 갈린다.
+
+### 5.1 공통 타입
+
+```ts
+interface LibItem {
+  id: string;          // 필수. CMS setId (= LMS lcmsSetId)
+  refSetId?: string;   // 선택. LMS 보관함 ID
+  title: string;       // 필수
+  thumbnailUrl?: string;
+  createdAt?: string;
+  // src, selArea, colorGroup, views, ... 카드 표시용 선택 필드
+}
+```
+
+DeployPage가 쓰는 최소 필드: `id`, `title`, `thumbnailUrl`, `refSetId?`. 나머지는 미리보기에 불필요.
+
+### 5.2 매퍼 비교
+
+| 필드 | 자료실 `mapCmsSetToLibItem` | 나의 자료 `mapRefSetToLibItem` | 동일? |
+|------|----------------------------|-------------------------------|-------|
+| `id` | CMS `setId` | LMS `lcmsSetId` (CMS 세트 ID) | **의미 동일** (CMS setId) |
+| `refSetId` | 없음 (`undefined`) | LMS `refSetId` | **다름** — my만 존재 |
+| `title` | CMS `title` | `options.title` (없으면 `''`) | 소스만 다름, 타입 동일 |
+| `thumbnailUrl` | CMS `thumbnailUrl` | `options.thumbnailUrl` | 동일 (optional) |
+| `createdAt` | 목록 매퍼 미매핑 | LMS `createdAt` | my만 채움. Deploy 미리보기 비사용 |
+| `src` | `'verified'` (TO FIX) | `'internal'` | 값만 다름. Deploy 비사용 |
+| `colorGroup` | `setId` 해시 | `refSetId` 해시 | 알고리즘 동일, 시드만 다름 |
+
+### 5.3 결론 — 처리가 필요한가?
+
+- **타입·카드 props는 동일** → `state: { item }` 그대로 전달해도 DeployPage 타입 이슈 없음.
+- **반드시 처리할 차이**: `refSetId` 유무.  
+  - 있으면 path에 넣고, URL 재진입 시 LMS 단건 조회.  
+  - 없으면 `setId`만으로 CMS 단건 조회.
+- `stateItem.id === setId` 가드는 양쪽 모두 `id`가 CMS setId라 그대로 유효.
+- **현재 나의 자료는 mock**이라 `refSetId`가 없다. 목록을 `mapRefSetToLibItem`에 연결하면(추가계획6 잔여) 시작하기 path에 `refSetId`가 붙는다. 이번 범위에서 목록 연결은 하지 않는다. ResourceCard는 `item.refSetId`가 있을 때만 path에 넣으면 된다.
+
+---
+
+## 6. DeployPage item 해석 우선순위
+
+```
+1) location.state.item 있고, item.id === setId (또는 setId 없음)
+     → API 호출 없이 사용 (시작하기 버튼 진입)
+2) state 없음(또는 id 불일치)
+     2-a) refSetId 있음 → LMS GET /api/ref-set/{refSetId} → mapRefSetToLibItem
+     2-b) refSetId 없음 + setId 있음 → CMS GET /api/sets/{setId} → LibItem 매핑
+3) 조회 실패 / 매핑 결과 없음
+     → toast + 이전 페이지. 화면을 빈 배포 UI로 그리지 않음
+```
+
+- mock `MOCK_LIBRARY_ITEMS.find` 는 계속 주석 보류. API가 대체한다.
+- 1차의 `item?.title ?? setId` fallback은 **폐기**. 로딩이 끝나면 item이 있거나, 실패 시 이탈한다.
+- state가 있어도 `id !== setId`이면 state를 버리고 2)로 간다 (URL 조작 방지).
+
+React Query `enabled`:
+
+```ts
+const hasStateItem = Boolean(stateItem && (!setId || stateItem.id === setId));
+
+useRefSetQuery(refSetId, { enabled: !hasStateItem && Boolean(refSetId) });
+useCmsSetDetailQuery(setId, { enabled: !hasStateItem && Boolean(setId) && !refSetId });
+```
+
+두 훅이 동시에 돌지 않게 한다.
+
+---
+
+## 7. URL 직접 진입 — API 스펙
+
+시작하기를 거치지 않고 주소창·새로고침·북마크로 `/lesson/deploy/...` 에 들어온 경우. `location.state`는 없다.
+
+### 7.1 LMS `GET /api/ref-set/{refSetId}` — refSetId 있을 때
+
+> 참조: `superplatform-lms/docs/03-API연동규격서/07-세트문항참조-LCMS연동/보관함-단건 (GET ref-set-{id}).md`
+
+| 항목 | 값 |
+|------|----|
+| 서비스 | superplatform-lms |
+| Method / URL | `GET {ENV.SP_LMS_API_URL}/api/ref-set/{refSetId}` |
+| 인증 | Required (교사, 소유자만) — `getAuth().authorizedFetch` |
+| 응답 | LMS envelope (`CustomBody`) |
+
+**성공 `resultData` (기존 `RefSetItem`과 동일):**
+
+```json
+{
+  "refSetId": "a2b3...",
+  "lcmsSetId": "L-SET-123",
+  "makeMethod": 3,
+  "status": 1,
+  "options": { "title": "...", "thumbnailUrl": "..." },
+  "createdAt": "2026-07-21T09:00:00"
+}
+```
+
+- 매핑: 기존 `mapRefSetToLibItem` 재사용 (`id←lcmsSetId`, `refSetId`, `title/thumbnailUrl←options`).
+- CMS title/thumbnail은 LMS 컬럼이 아니다. `options`에 없으면 title이 `''`가 될 수 있다. 이번 Phase는 options 기준으로 미리보기하고, CMS 추가 로드는 하지 않는다.
+- 없거나 내 것 아니면 404 → 실패 UX.
+- LMS 실패 시 CMS `GET /api/sets/{setId}`로 **폴백하지 않는다**.
+
+신규: `lmsRefSetService.getRefSet(refSetId)` — 기존 `lmsFetch` 재사용.
+
+```ts
+export async function getRefSet(refSetId: string): Promise<RefSetItem> {
+  return lmsFetch<RefSetItem>(`${BASE}/${refSetId}`);
+}
+```
+
+### 7.2 CMS `GET /api/sets/{setId}` — setId만 있을 때
+
+| 항목 | 값 |
+|------|----|
+| 서비스 | CMS (`ENV.CMS_API_URL`) |
+| Method / URL | `GET {ENV.CMS_API_URL}/api/sets/{setId}` |
+| 인증 | SSO Bearer JWT (`getAuth().authorizedFetch`) |
+| 응답 | LMS envelope **아님**. 본문이 곧 DTO (목록 API와 동일) |
+
+**Path param**
+
+| param | 타입 | 필수 | 설명 |
+|-------|------|------|------|
+| `setId` | string | ✅ | 세트 ID |
+
+**성공 200**
+
+```json
+{
+  "setId": "set-001",
+  "title": "일차함수 세트",
+  "description": "string",
+  "thumbnailUrl": "string",
+  "slides": [
+    {
+      "slideId": "slide-001",
+      "title": "일차함수의 그래프",
+      "order": 1,
+      "article": {
+        "articleId": "1",
+        "title": "일차함수의 그래프",
+        "contents": "string",
+        "json": "string",
+        "type": "123456"
+      }
+    }
+  ],
+  "metas": [
+    {
+      "id": 1101,
+      "code": "MATH_M1_2022",
+      "name": "curriBook",
+      "val": "중학교 1학년 수학"
+    }
+  ],
+  "createdAt": "2026-08-14T08:49:10.908Z",
+  "updatedAt": "2026-08-14T08:49:10.908Z"
+}
+```
+
+DeployPage `LibItem`에 쓰는 필드만 매핑한다. `slides` / `metas` / `description`은 이번 범위에서 미사용 (Viewer slideId 매핑은 후속).
+
+| CMS 필드 | LibItem |
+|----------|---------|
+| `setId` | `id` |
+| `title` | `title` |
+| `thumbnailUrl` | `thumbnailUrl` |
+| `createdAt` | `createdAt` |
+
+목록 매퍼 `mapCmsSetToLibItem`과 최소 필드가 같다. 상세 DTO(`CmsSetDetail`)를 받도록 시그니처를 맞추거나, `{ setId, title, thumbnailUrl, createdAt? }` Pick으로 재사용한다. `colorGroup`은 기존과 같이 `setId` 해시(TO FIX).
+
+**실패 400 (setId 누락) / 500 (세트 조회 실패)** — 둘 다 실패 UX.
+
+```json
+{
+  "timestamp": "2026-08-14T08:49:10.911Z",
+  "status": 400,
+  "code": "INVALID_REQUEST",
+  "message": "필수값 누락",
+  "path": "/api/slides",
+  "requestId": "7f4fd5f1d9d84e9a",
+  "violations": [
+    { "field": "userId", "message": "필수값입니다." }
+  ]
+}
+```
+
+신규: `cmsSetService.getCmsSet(setId, signal?)`. `!res.ok`면 `body.message` 또는 기본 메시지로 throw. 목록 API와 같은 에러 파싱 패턴.
+
+### 7.3 queryKey
+
+```ts
+// queryKeys.ts
+refSet: (refSetId: string) => [...lessonKeys.refSets(), refSetId] as const,
+cmsSet: (setId: string) => [...lessonKeys.cmsSets(), setId] as const,
+```
+
+훅: `useRefSetQuery(refSetId)`, `useCmsSetDetailQuery(setId)`. `queryFn`에 `AbortSignal` 전달.
+
+---
+
+## 8. 로딩 · 실패 UX
+
+### 8.1 로딩 (state 없이 API 조회 중)
+
+- 의미: 무한 스크롤이 아니라 **단건 조회 중 페이지 로딩**.
+- 조건: `!hasStateItem && (refSetQuery.isPending || cmsSetQuery.isPending)`
+- UI: 기존 `@shared/ui/Loading`의 `PageLoading` (또는 `Loading` size=`md`) 재사용. 새 스피너 컴포넌트 만들지 않음.
+- 조회가 끝날 때까지 배포 폼·미리보기를 그리지 않음. 헤더 뒤로가기는 로딩 중에도 둘 수 있다.
+
+### 8.2 실패
+
+조건 (하나라도):
+
+- `setId` 없음 (비정상 진입)
+- 해당 훅 `isError`
+- 응답은 왔지만 매핑 결과가 없음 (`title` 등 최소 필드 불가 포함 — 구현 시 `!mapped`로 통일)
+- `refSetId`도 `setId`도 없음
+
+동작:
+
+1. `toast.error('콘텐츠 조회에 실패했습니다')` — 기존 DeployPage `sonner` `toast` 사용
+2. 이전 페이지로 이동: `navigate(-1)`
+3. history가 없으면(새 탭 직접 진입) `navigate('/lesson/library', { replace: true })` 폴백
+4. toast·navigate는 **1회만** (`useEffect` + 가드). 렌더 중 호출 금지
+5. 1차 주석의 mock empty (`해당 콘텐츠를 찾을 수 없습니다`) UI는 쓰지 않음. 실패 시 페이지에 머물지 않음
+
+---
+
+## 9. 변경 파일 (2차 구현 완료)
+
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `features/lesson/ui/ResourceCard.tsx` | 수정 | `item.refSetId` 있으면 `/lesson/deploy/:setId/:refSetId` |
+| `features/lesson/ui/DeployPage.tsx` | 수정 | `refSetId` params, state 없을 때 단건 조회, 로딩/실패 UX. title fallback 폐기 |
+| `features/lesson/api/lmsRefSetService.ts` | 수정 | `getRefSet(refSetId)` |
+| `features/lesson/api/cmsSetService.ts` | 수정 | `CmsSetDetail` + `getCmsSet(setId)` |
+| `features/lesson/api/queryKeys.ts` | 수정 | `refSet(id)`, `cmsSet(id)` |
+| `features/lesson/api/queries.ts` | 수정 | `useRefSetQuery`, `useCmsSetDetailQuery` |
+| `features/lesson/model/mapCmsSetToLibItem.ts` | 수정 | 상세 DTO 최소 필드 매핑 재사용 |
+| `features/lesson/index.ts` | 수정 | 훅·타입 export |
+| `app/router/routes.tsx` | 변경 없음 | path 이미 `setId`/`refSetId` |
+
+`LessonMyPage` 목록 API 연결·`mapRefSetToLibItem` 목록 적용은 추가계획10에서 완료.
+
+---
+
+## 10. 하지 말 것
+
+| 금지 | 이유 |
+|------|------|
+| 「시작하기」에서 `/lesson/viewer/:setId` 로 이동 | Viewer는 실시간 배포 완료 후 |
+| LMS 실패 시 CMS 단건 폴백 | 소유/스코프가 다른 리소스 |
+| state 있을 때 불필요한 단건 API | 카드에서 이미 LibItem 전달 |
+| mock find 주석 해제 | API가 대체 |
+| 실패 후 빈 DeployPage 잔류 | toast + 이탈이 요구사항 |
+| 새 로딩 컴포넌트 추가 | `PageLoading` / `Loading` 재사용 |
+| `slides`/`metas`로 Viewer 매핑 | 후속 |
+
+---
+
+## 11. 완료 기준
+
+### 1차 (유지)
+
+- [x] `deployed.isLive` → `/lesson/viewer/${setId}`
+- [x] `ResourceCard` `state: { item }` 전달
+- [x] `DeployPage` `location.state.item` 수신·미리보기 반영
+- [x] mock find / early return 주석 보류
+- [x] 라우트 param 명칭 `setId` (구 itemId)
+- [x] `npx tsc -b --noEmit` 통과
+
+### 2차 (구현 완료)
+
+- [x] 「시작하기」는 DeployPage만. `refSetId` 있으면 path에 포함
+- [x] library/my 모두 `LibItem` + 동일 `ResourceCard`. `refSetId`만 path 분기로 처리
+- [x] URL 직접 진입 + `refSetId` → `GET /api/ref-set/{refSetId}` → `mapRefSetToLibItem`
+- [x] URL 직접 진입 + `setId`만 → `GET /api/sets/{setId}` → LibItem 매핑
+- [x] 조회 중 `PageLoading`(또는 동등 Loading)
+- [x] 실패 시 toast `'콘텐츠 조회에 실패했습니다'` + `navigate(-1)` (history 없으면 `/lesson/library`)
+- [x] state 진입 시 단건 API 미호출
+- [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
+
+---
+
+## 12. 후속 (이번 비범위)
+
+- [ ] Viewer `slideId` ↔ CBS/setId 매핑 (`GET /api/sets/{setId}`의 `slides` 활용 가능)
+- [x] `LessonMyPage` `refSetData.list` → `mapRefSetToLibItem` → `ResourceCardList` 연결 — 추가계획10에서 완료
+- [ ] LMS `options.title` 공백일 때 CMS 단건으로 title 보강할지 여부
+- [x] mock early return UI 복구 여부 — 2차에서 실패 이탈로 대체, 복구하지 않음
+
+---
+
+**2차 구현 완료일**: 2026-08-17  
+**상태**: 1차·2차 구현 완료
+
+---
+
+# 추가계획10 — 나의 자료 실제 API 연동 + 삭제 기능
+
+> **상태**: 구현 완료  
+> **범위**:  
+> 1) `LessonMyPage` mock → LMS `GET /api/ref-set` 실제 목록 연동 (`mapRefSetToLibItem` 적용)  
+> 2) `ResourceCard` 삭제 버튼 → LMS `DELETE /api/ref-set/{refSetId}` 호출 + 목록 갱신  
+> 3) 로딩 UI (lazy loading), 빈 상태, API 실패 분리 표시
+
+---
+
+## 1. 현황 및 목표
+
+### 현황
+
+|| 항목 | 현재 상태 |
+||------|-----------|
+|| `LessonMyPage` 목록 | `useRefSetListQuery` + `mapRefSetToLibItem` 연동 완료. MOCK 경로 주석 보존 |
+|| `ResourceCard` 삭제 | `variant="my"` 삭제 → `useDeleteRefSetMutation` → `DELETE /api/ref-set/{refSetId}` |
+|| LMS ref-set API | `GET /api/ref-set` — 구현 완료 (추가계획6)<br>`DELETE /api/ref-set/{refSetId}` — 구현 완료 (추가계획10) |
+|| `mapRefSetToLibItem` | `LessonMyPage` 목록 연동 완료 |
+|| 빈 상태 / 에러 | 나의 자료·전체 자료실 모두 loading / 0건 / API 실패 분리 표시 |
+
+### 목표
+
+1. **나의 자료 목록 실제 연동**  
+   - `MOCK_LIBRARY_ITEMS` → `useRefSetListQuery` + `mapRefSetToLibItem`  
+   - MOCK 코드는 주석 처리로 보존 (언제든 복구 가능)
+   - API 조회 중 loading UI (레이지 로딩)
+   - 목록 0건: "아직 만든 자료가 없습니다" (기존 빈 상태 메시지 유지)
+
+2. **ResourceCard 삭제 → LMS DELETE API**  
+   - `variant="my"` 카드의 삭제 버튼 클릭 시 `DELETE /api/ref-set/{refSetId}` 호출
+   - 성공 시 React Query 캐시 무효화(`lessonKeys.refSets()`) → 목록 자동 갱신
+   - 기존 toast 메시지 유지
+
+3. **전체 자료실 UX 개선** (보너스)  
+   - 목록 0건(`items.length === 0` + `!isError`): "자료가 없습니다"
+   - API 실패(`isError`): "자료 목록을 불러오지 못했습니다" (기존 유지)
+   - 두 상태를 명확히 구분
+
+---
+
+## 2. LMS DELETE API 스펙
+
+> 참조: `superplatform-lms/docs/03-API연동규격서/07-세트문항참조-LCMS연동/보관함-삭제 (DELETE ref-set-{id}).md`
+
+|| 항목 | 값 |
+||------|----|
+|| 서비스 | superplatform-lms |
+|| Method / URL | `DELETE {ENV.SP_LMS_API_URL}/api/ref-set/{refSetId}` |
+|| 인증 | Required (교사, 소유자만) — `getAuth().authorizedFetch` |
+|| 응답 | LMS envelope (`CustomBody`) |
+
+### Path params
+
+|| param | 타입 | 필수 | 설명 |
+||-------|------|------|------|
+|| `refSetId` | string | ✅ | 삭제할 보관함 참조 ID |
+
+### 성공 200
+
+```json
+{
+  "success": true,
+  "resultCode": 200,
+  "resultMessage": "삭제 성공",
+  "resultData": null
+}
+```
+
+### 실패 400 / 404 / 500
+
+```json
+{
+  "success": false,
+  "resultCode": 404,
+  "resultMessage": "보관함 항목을 찾을 수 없습니다"
+}
+```
+
+- 404: `refSetId` 없거나 소유자 아님
+- 400: `refSetId` 형식 오류
+- 500: 서버 에러
+
+---
+
+## 3. 구현 흐름
+
+### 3.1 나의 자료 목록 연동
+
+```
+LessonMyPage (마운트)
+  └─ useRefSetListQuery()
+      └─ GET {ENV.SP_LMS_API_URL}/api/ref-set
+          └─ resultData.list → mapRefSetToLibItem[] → setState(items)
+              ├─ isPending → loading UI
+              ├─ isError → "자료 목록을 불러오지 못했습니다"
+              └─ items.length === 0 → "아직 만든 자료가 없습니다"
+```
+
+기존 `useState<LibItem[]>` 제거, `useRefSetListQuery`로 대체.  
+MOCK 경로는 주석으로 보존:
+
+```tsx
+// --- MOCK 경로 (필요 시 아래 주석 해제 + 위 API 훅 비활성) ---
+// const [items, setItems] = useState<LibItem[]>(MOCK_LIBRARY_ITEMS);
+// -----------------------------------------------------------
+```
+
+### 3.2 ResourceCard 삭제
+
+```
+ResourceCard (variant="my") 삭제 버튼 클릭
+  └─ onDelete(item.refSetId)  (페이지→카드로 props 전달)
+      └─ useDeleteRefSetMutation().mutate(refSetId)
+          └─ DELETE {ENV.SP_LMS_API_URL}/api/ref-set/{refSetId}
+              ├─ onSuccess
+              │   ├─ toast.message('삭제되었습니다')  (기존 스타일 유지)
+              │   └─ queryClient.invalidateQueries(lessonKeys.refSets())
+              │       → 목록 자동 refetch
+              └─ onError
+                  └─ toast.error('삭제에 실패했습니다')
+```
+
+`ResourceCard`에 `onDelete?: (refSetId: string) => void` props 추가 (variant="my"일 때만 전달).  
+`LessonMyPage`에서 mutation 훅 호출 + `onDelete` 핸들러 전달.
+
+---
+
+## 4. 신규·수정 파일
+
+### 4.1 `features/lesson/api/lmsRefSetService.ts` (수정)
+
+```ts
+export async function deleteRefSet(refSetId: string): Promise<void> {
+  await lmsFetch<null>(`${BASE}/${refSetId}`, {
+    method: 'DELETE',
+  });
+}
+```
+
+### 4.2 `features/lesson/api/queries.ts` (수정)
+
+```ts
+export function useDeleteRefSetMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (refSetId: string) => deleteRefSet(refSetId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: lessonKeys.refSets() });
+    },
+  });
+}
+```
+
+### 4.3 `pages/lesson/LessonMyPage.tsx` (수정)
+
+```tsx
+import { useRefSetListQuery, useDeleteRefSetMutation, mapRefSetToLibItem } from '@features/lesson';
+
+export const LessonMyPage = () => {
+  const { data, isPending, isError, error } = useRefSetListQuery();
+  const { mutate: deleteRefSet } = useDeleteRefSetMutation();
+
+  const items = useMemo(
+    () => (data?.list ?? []).map(mapRefSetToLibItem),
+    [data],
+  );
+
+  // --- MOCK 경로 (필요 시 아래 주석 해제 + 위 API 훅 비활성) ---
+  // const [items, setItems] = useState<LibItem[]>(MOCK_LIBRARY_ITEMS);
+  // -----------------------------------------------------------
+
+  const handleDelete = (refSetId: string) => {
+    if (!refSetId) return;
+    deleteRefSet(refSetId, {
+      onSuccess: () => {
+        toast.message('삭제되었습니다', {
+          position: 'bottom-center',
+          unstyled: true,
+          style: {
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '9999px',
+            padding: '10px 20px',
+            fontSize: '14px',
+            fontWeight: 500,
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          },
+        });
+      },
+      onError: () => {
+        toast.error('삭제에 실패했습니다');
+      },
+    });
+  };
+
+  // Loading
+  if (isPending) {
+    return <div>로딩 중...</div>; // 또는 <PageLoading /> / Skeleton
+  }
+
+  // Error
+  if (isError) {
+    return (
+      <ErrorContainer>
+        <ErrorText role='alert'>
+          {error instanceof Error ? error.message : '자료 목록을 불러오지 못했습니다.'}
+        </ErrorText>
+      </ErrorContainer>
+    );
+  }
+
+  // Empty (목록 0건)
+  if (items.length === 0) {
+    return (
+      <EmptyContainer>
+        <EmptyText>아직 만든 자료가 없습니다</EmptyText>
+      </EmptyContainer>
+    );
+  }
+
+  return (
+    <>
+      <ResourceCardList items={items} variant="my" onDelete={handleDelete} />
+      {/* ... 기존 Toolbar, Embed 등 */}
+    </>
+  );
+};
+```
+
+### 4.4 `features/lesson/ui/ResourceCard.tsx` (수정)
+
+```tsx
+interface ResourceCardProps {
+  item: LibItem;
+  variant?: 'library' | 'my';
+  onDelete?: (refSetId: string) => void;  // 신규
+}
+
+export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCardProps) => {
+  // ...기존 코드
+
+  // variant="my" 삭제 버튼
+  {variant === 'my' && item.refSetId && onDelete && (
+    <DeleteButton
+      onClick={(e) => {
+        e.stopPropagation();
+        onDelete(item.refSetId!);
+      }}
+      aria-label="삭제"
+    >
+      <X size={16} />
+    </DeleteButton>
+  )}
+};
+```
+
+`onDelete`는 `variant="my"`이고 `refSetId`가 있을 때만 렌더. 삭제 버튼 위치·스타일은 프로토타입 `MyLessonCard` 참조 (우상단 X 버튼 등).
+
+### 4.5 `features/lesson/ui/ResourceCardList.tsx` (수정)
+
+```tsx
+interface ResourceCardListProps {
+  items: LibItem[];
+  variant?: 'library' | 'my';
+  emptyMessage?: string;
+  isLoading?: boolean;
+  onDelete?: (refSetId: string) => void;  // 신규
+}
+
+export const ResourceCardList = ({
+  items,
+  variant = 'library',
+  emptyMessage,
+  isLoading,
+  onDelete,
+}: ResourceCardListProps) => {
+  // ...
+
+  return (
+    <Grid>
+      {items.map((item) => (
+        <ResourceCard
+          key={item.id}
+          item={item}
+          variant={variant}
+          onDelete={onDelete}  // 전달
+        />
+      ))}
+    </Grid>
+  );
+};
+```
+
+### 4.6 `widgets/lesson/LessonLibraryContents.tsx` (수정)
+
+전체 자료실도 빈 상태와 에러를 분리한다.
+
+```tsx
+export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsProps) => {
+  const { data, isPending, isFetching, isError, error } = useCmsSetListQuery(filters, sort);
+  const items = useMemo(
+    () => (data?.list ?? []).map(mapCmsSetToLibItem),
+    [data],
+  );
+
+  // Error
+  if (isError && items.length === 0) {
+    return (
+      <Contents>
+        <ErrorText role='alert'>
+          {error instanceof Error ? error.message : '자료 목록을 불러오지 못했습니다.'}
+        </ErrorText>
+      </Contents>
+    );
+  }
+
+  return (
+    <Contents>
+      <ResourceCardList
+        items={items}
+        isLoading={isPending || isFetching}
+        emptyMessage="자료가 없습니다"  // 0건일 때 표시
+      />
+    </Contents>
+  );
+};
+```
+
+`ResourceCardList`에서 `items.length === 0 && !isLoading` 일 때 `emptyMessage` 표시.
+
+### 4.7 `features/lesson/index.ts` (수정)
+
+```ts
+export { useDeleteRefSetMutation } from './api/queries';
+export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
+```
+
+---
+
+## 5. 변경 파일 목록
+
+|| 파일 | 유형 | 핵심 변경 |
+||------|------|-----------|
+|| `features/lesson/api/lmsRefSetService.ts` | 수정 | `deleteRefSet(refSetId)` |
+|| `features/lesson/api/queries.ts` | 수정 | `useDeleteRefSetMutation` + invalidate |
+|| `pages/lesson/LessonMyPage.tsx` | 수정 | `useRefSetListQuery` + `mapRefSetToLibItem` 적용, MOCK 주석, loading/error/empty, `handleDelete` → mutation |
+|| `features/lesson/ui/ResourceCard.tsx` | 수정 | `onDelete` props, variant="my" 삭제 버튼 |
+|| `features/lesson/ui/ResourceCardList.tsx` | 수정 | `onDelete` props 전달, `emptyMessage` 표시 |
+|| `widgets/lesson/LessonLibraryContents.tsx` | 수정 | `emptyMessage="자료가 없습니다"` 전달 (0건 vs 에러 분리) |
+|| `features/lesson/index.ts` | 수정 | `useDeleteRefSetMutation`, `mapRefSetToLibItem` export |
+
+---
+
+## 6. 하지 말 것
+
+|| 금지 | 이유 |
+||------|------|
+|| MOCK 코드 완전 삭제 | 주석 처리만 (언제든 복구 가능) |
+|| 삭제 전 확인 모달 | 이번 범위 외 (필요 시 후속) |
+|| `variant="library"` 카드에 삭제 버튼 | 자료실은 삭제 불가 (나의 자료만) |
+|| Page에 삭제 버튼 styled | `ResourceCard`에 이미 구현 (X 아이콘) |
+|| 낙관적 업데이트 | invalidate로 충분. 복잡도↑ |
+
+---
+
+## 7. 완료 기준
+
+- [x] `LessonMyPage` 진입 시 `GET /api/ref-set` 호출 → `mapRefSetToLibItem` 적용
+- [x] MOCK 경로 주석 처리 (복구 가능)
+- [x] API 조회 중 loading UI (레이지 로딩)
+- [x] 목록 0건: "아직 만든 자료가 없습니다" 표시
+- [x] API 실패: "자료 목록을 불러오지 못했습니다" 표시 (0건과 구분)
+- [x] `ResourceCard` (variant="my") 삭제 버튼 클릭 → `DELETE /api/ref-set/{refSetId}`
+- [x] 삭제 성공 → toast "삭제되었습니다" (기존 스타일) + 목록 자동 갱신
+- [x] 삭제 실패 → toast "삭제에 실패했습니다"
+- [x] 전체 자료실도 "자료가 없습니다" (0건) vs "자료 목록을 불러오지 못했습니다" (에러) 분리
+- [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
+
+---
+
+## 8. 참고 파일
+
+|| 용도 | 경로 |
+||------|------|
+|| 프로토타입 삭제 UI | `prototype/.../my-lessons/MyLessonCard.tsx` |
+|| LMS DELETE 규격서 | `superplatform-lms/docs/.../보관함-삭제 (DELETE ref-set-{id}).md` |
+|| 나의 자료 페이지 | `frontend/src/pages/lesson/LessonMyPage.tsx` |
+|| 카드 컴포넌트 | `frontend/src/features/lesson/ui/ResourceCard.tsx` |
+|| 목록 컴포넌트 | `frontend/src/features/lesson/ui/ResourceCardList.tsx` |
+|| 전체 자료실 위젯 | `frontend/src/widgets/lesson/LessonLibraryContents.tsx` |
+|| 매퍼 | `frontend/src/features/lesson/model/mapRefSetToLibItem.ts` |
+|| LMS 서비스 | `frontend/src/features/lesson/api/lmsRefSetService.ts` |
+
+---
+
+**작성일**: 2026-08-14  
+**구현 완료일**: 2026-08-17  
+**상태**: 구현 완료
+
+---
+
+# 추가계획11 — DeployPage·저작툴 활동 시작/종료 API 연동
+
+> **상태**: 타이틀만 / 상세 미작성  
+> **선행**: 추가계획9 (DeployPage item·Viewer 이동)
+
+1. DeployPage에서 수업 시작, 활동 시작(QR 발급, 참여링크) API 연동
+   - 시작하기 시 활동 시작 및 종료 API 연결 (뷰어에서 활동 종료)
+   - 저작툴 `LessonEditorPage` `handleStartLesson` (`onStartLesson`)에서도 동일 연결
+
+---
+
+# 추가계획12 — 학생용 수업 뷰어 라우트
+
+> **상태**: 타이틀만 / 상세 미작성  
+> **선행**: 추가계획11 완료
+
+1. QR 생성·참여링크를 통해 학생이 들어갈 수 있는 학생용 수업 뷰어 route 화면 구성
+   - SlideViewer 동일하게 사용 예정

@@ -4,7 +4,7 @@ import type { FilterAxis, LibFilters, LibItem, SortKey } from './types';
 export const matchLibraryItem = (item: LibItem, filters: LibFilters): boolean => {
   const axisValues: Record<FilterAxis, string[]> = {
     provider: item.provider ? [item.provider] : [],
-    selArea: [item.selArea],
+    selArea: item.selArea ? [item.selArea] : [],
     level: item.level ?? [],
     grade: item.grade ?? [],
     duration: item.duration ? [item.duration] : [],

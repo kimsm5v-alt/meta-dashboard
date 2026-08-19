@@ -41,21 +41,25 @@ export const LIBRARY_SRC_LABELS: Record<LibrarySrc, string> = {
 /** 썸네일 파스텔 톤 그룹 */
 export type LibraryColorGroup = 'g1' | 'g2' | 'g3' | 'g4' | 'g5' | 'g6';
 
-/** 자료실 목록 카드 모델 (API DTO와 분리 — Phase B에서 mapper로 채움) */
+/**
+ * 자료실·나의 자료 카드 모델 (API DTO와 분리 — mapper로 채움).
+ * 필요: `id`, `title`, `refSetId`는 나의 자료(ref-set) 연동 시 사용, `thumbnailUrl?`.
+ * 그 외(src·selArea·colorGroup·createdAt 포함)는 선택.
+ */
 export interface LibItem {
   id: string;
   refSetId?: string;
   title: string;
-  /** CMS 썸네일 URL — 선택. UI 반영은 추후 */
+  /** 카드 썸네일 URL — 선택 */
   thumbnailUrl?: string;
-  src: LibrarySrc;
-  selArea: string;
-  colorGroup: LibraryColorGroup;
+  src?: LibrarySrc;
+  selArea?: string;
+  colorGroup?: LibraryColorGroup;
   views?: number;
   saves?: number;
   reason?: string;
-  /** 나의 자료(variant=my) 수정일 표시용 — 예: '07/14' */
-  updated?: string;
+  /** LMS/CMS 생성 시각 (ISO). UI는 필요 시 MM/DD 포맷 */
+  createdAt?: string;
   provider?: string;
   level?: string[];
   grade?: string[];
