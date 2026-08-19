@@ -59,3 +59,4 @@ export { LessonResultPage } from './lesson/LessonResultPage';
 export { LessonDeployPage } from './lesson/LessonDeployPage';
 export { LessonEditorPage } from './lesson/LessonEditorPage';
 export { LessonViewerPage } from './lesson/LessonViewerPage';
+export { LessonJoinPage } from './lesson/LessonJoinPage';

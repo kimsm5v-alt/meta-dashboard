@@ -7,7 +7,10 @@ type EmbedEventHandlers = {
   completed?: (payload: unknown) => void;
   saved?: (payload: unknown) => void;
   exitRequested?: (payload: unknown) => void;
-  startLesson?: (payload: unknown) => void;
+  startLessonRequested?: (payload: unknown) => void;
+  submitted?: (payload: unknown) => void;
+  phaseChanged?: (payload: unknown) => void;
+  progress?: (payload: unknown) => void;
 };
 
 type UseEveryCanvasEmbedParams = {
@@ -30,7 +33,10 @@ const KNOWN_EVENTS = [
   'completed',
   'saved',
   'exitRequested',
-  'startLesson',
+  'startLessonRequested',
+  'submitted',
+  'phaseChanged',
+  'progress',
 ] as const;
 
 /**
@@ -96,7 +102,8 @@ export function useEveryCanvasEmbed({
           onReadyRef.current?.();
           const setId = openSetIdRef.current;
           console.log('[useEveryCanvasEmbed] onReady] ', setId, handle?.openSet);
-          if (setId && typeof handle?.openSet === 'function') {
+          const mode = optionsRef.current.mode;
+          if (mode === 'editor' && setId && typeof handle?.openSet === 'function') {
             void handle.openSet(setId);
           }
         }),
