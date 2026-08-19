@@ -19,6 +19,7 @@ export { StudentResultView } from './StudentResultView';
 // 자기조절학습검사용 컴포넌트
 export { SelfregStudentResultView } from './SelfregStudentResultView';
 export { SelfregOverviewChart } from './SelfregOverviewChart';
+export { SrlProfileTable } from './SrlProfileTable';
 
 // 학습전략검사 결과 리포트
 export { StrategyReport, StrategyRadarChart, StrategyCard, DonutGauge } from './StrategyReport';
@@ -27,3 +28,8 @@ export type { ReportData, Score, DomainResult, LevelType } from './StrategyRepor
 // 변화추적 (화면 6번)
 export { ClassTrackingView } from './ClassTrackingView';
 export { StudentTrackingView } from './StudentTrackingView';
+
+// 자기조절학습검사 변화추적
+export { SelfregClassTrackingView } from './SelfregClassTrackingView';
+export type { SelfregStudentChangeData, SelfregClassChangeSummary } from './SelfregClassTrackingView';
+export { SelfregStudentTrackingView } from './SelfregStudentTrackingView';
