@@ -10,11 +10,11 @@ import type { LevelType } from '../types';
 
 /** 등급 구간 정의 (나중에 교체 가능하도록 테이블화) */
 export const LEVEL_BANDS: { min: number; max: number; level: LevelType }[] = [
-  { min: 70, max: Infinity, level: '매우 높음' },
+  { min: 70, max: 100, level: '매우 높음' },
   { min: 60, max: 69, level: '높음' },
-  { min: 41, max: 59, level: '보통' },
-  { min: 31, max: 40, level: '낮음' },
-  { min: -Infinity, max: 30, level: '매우 낮음' },
+  { min: 40, max: 59, level: '보통' },
+  { min: 30, max: 39, level: '낮음' },
+  { min: 0, max: 29, level: '매우 낮음' },
 ];
 
 /**
