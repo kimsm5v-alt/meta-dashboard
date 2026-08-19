@@ -74,7 +74,7 @@ export const LessonEditorPage = () => {
           },
         },
         {
-          onSuccess: () => setSavedOpen(true),
+          onSuccess: () => (p.trigger === 'manual' ? setSavedOpen(true) : undefined),
           onError: () => toast.error('나의 자료 등록에 실패했습니다'),
         },
       );
@@ -86,9 +86,7 @@ export const LessonEditorPage = () => {
   };
 
   const handleStartLesson = (p: StartLessonPayload) => {
-    // if (import.meta.env.DEV) {
     console.log('[LessonEditorPage] onStartLesson', p);
-    // }
     const nextSetId = p.lcmsSetId;
     if (nextSetId) {
       navigate(`/lesson/deploy/${nextSetId}${location.search}`);
@@ -113,7 +111,7 @@ export const LessonEditorPage = () => {
         embedIdentityKey={embedIdentityKey}
         onSaved={handleSaved}
         onStartLesson={handleStartLesson}
-        onExitRequested={() => navigate(-1)}
+        onExit={() => navigate(-1)}
         onError={handleError}
       />
 

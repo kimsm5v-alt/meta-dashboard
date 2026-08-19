@@ -7,7 +7,7 @@ type EmbedEventHandlers = {
   completed?: (payload: unknown) => void;
   saved?: (payload: unknown) => void;
   exitRequested?: (payload: unknown) => void;
-  startLesson?: (payload: unknown) => void;
+  startLessonRequested?: (payload: unknown) => void;
   submitted?: (payload: unknown) => void;
   phaseChanged?: (payload: unknown) => void;
   progress?: (payload: unknown) => void;
@@ -33,7 +33,7 @@ const KNOWN_EVENTS = [
   'completed',
   'saved',
   'exitRequested',
-  'startLesson',
+  'startLessonRequested',
   'submitted',
   'phaseChanged',
   'progress',
