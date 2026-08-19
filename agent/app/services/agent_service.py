@@ -155,8 +155,16 @@ class MetaAgentService:
             profile_block = ""
             tool_policy = load_prompt("tool_policy_none")
 
+        domain_knowledge = (
+            f"{load_prompt('domain_knowledge_basic_info')}\n\n"
+            f"{load_prompt('domain_knowledge_operations')}\n\n"
+            f"{load_prompt('domain_knowledge_ai_assistant')}"
+        )
+
         return (
             f"{load_prompt('role_and_rules')}\n\n"
+            "## 학습심리정서 도메인 참고 문서\n"
+            f"{domain_knowledge}\n\n"
             f"{profile_block}"
             f"## Tool 호출 정책\n{tool_policy}\n"
             "\n## 학생 컨텍스트 (마크다운)\n"
