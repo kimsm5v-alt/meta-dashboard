@@ -78,7 +78,6 @@ export const LessonEditorPage = () => {
           onError: () => toast.error('나의 자료 등록에 실패했습니다'),
         },
       );
-      setSavedOpen(true);
     }
     if (!routeSetId && p.lcmsSetId) {
       // 신규 저장 시 url 주소 변경 // 깜빡임 발생 시 제거 필요
