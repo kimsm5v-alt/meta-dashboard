@@ -41,7 +41,7 @@ def test_build_test_logic_chunks_handles_empty_input():
 
 
 def test_build_teacher_guide_chunks_extracts_slide_text():
-    """슬라이드 blocks에서 content/description/text_in_image를 뽑아 searchableText로 합치고, report_fixed_phrases를 슬라이드 없는 합성 청크로 추가하는지 확인"""
+    """슬라이드 blocks에서 content/description/text_in_image를 뽑아 searchableText로 합치고, report_fixed_phrases를 최상위 키별 슬라이드 없는 청크(title=키 이름)로 추가하는지 확인"""
     raw = {
         "slides": [
             {
@@ -64,6 +64,7 @@ def test_build_teacher_guide_chunks_extracts_slide_text():
     assert "로고 이미지" in chunks[0]["searchableText"]
     assert chunks[1]["slide"] is None
     assert chunks[1]["section"] == "리포트 고정문구"
+    assert chunks[1]["title"] == "인사말"
     assert "학부모님께 안내드립니다" in chunks[1]["searchableText"]
     print("✅ build_teacher_guide_chunks 테스트 통과")
 

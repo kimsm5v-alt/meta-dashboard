@@ -67,7 +67,7 @@
 
 ### 1.3 AI 에이전트 Tool 기능
 
-AI 에이전트는 총 **17개 Tool**(Neo4j 5 + MySQL 12)을 사용합니다.
+AI 에이전트는 총 **19개 Tool**(Neo4j 5 + MySQL 12 + 도메인지식 검색 2)을 사용합니다.
 
 **Neo4j Tool — LPA 유형 분석**
 
@@ -96,7 +96,14 @@ AI 에이전트는 총 **17개 Tool**(Neo4j 5 + MySQL 12)을 사용합니다.
 | `query_teacher_classes_overview` | 담당 학급 전체 현황 |
 | `query_teacher_student_results_summary` | 담당 학급별 학생 검사결과 요약 |
 
-> Tool 등록: `agent/app/tools/__init__.py`(`all_tools_list = neo4j_tools_list + mysql_tools_list`). 학생/학급/교사 선택 여부에 따라 호출 가능한 Tool이 tool_policy로 제한됩니다(§2.3).
+**도메인지식 검색 Tool — 검사로직 정의서 / 교사용 설명서**
+
+| Tool 이름 | 용도 |
+|----------|------|
+| `search_test_logic_reference` | 검사로직 정의서(요인별 조작적 정의, 문항 구성, T점수 산출식, 등급표, 신뢰도 지표 등) 키워드 검색 |
+| `search_teacher_guide` | 교사용 설명서(검사 개념, 척도 정의, 점수 체계, 해석 절차, 리포트 고정문구) 키워드 검색 |
+
+> Tool 등록: `agent/app/tools/__init__.py`(`all_tools_list = neo4j_tools_list + mysql_tools_list + domain_knowledge_tools_list`). 학생/학급/교사 선택 여부에 따라 호출 가능한 Tool이 tool_policy로 제한됩니다(§2.3).
 
 ### 1.4 기능별 AI 프롬프트
 
@@ -202,7 +209,7 @@ AI 에이전트는 총 **17개 Tool**(Neo4j 5 + MySQL 12)을 사용합니다.
        └── 이메일 → h***@***.com
 
 3. 시스템 프롬프트 구성
-   └── role_and_rules + 식별자 블록 + tool_policy(모드별) + 학생 컨텍스트
+   └── role_and_rules + 도메인 참고 문서 + 식별자 블록 + tool_policy(모드별) + 학생 컨텍스트
 
 4. LLM 호출 (LiteLLM Router)
    ├── Primary: OpenAI GPT-4.1
@@ -210,7 +217,7 @@ AI 에이전트는 총 **17개 Tool**(Neo4j 5 + MySQL 12)을 사용합니다.
 
 5. Tool Calling 루프 (최대 8회)
    ├── Tool 호출 필요?
-   │   ├── Yes → Neo4j/MySQL Tool 실행 → 결과 추가 → LLM 재호출
+   │   ├── Yes → Neo4j/MySQL/도메인지식 검색 Tool 실행 → 결과 추가 → LLM 재호출
    │   └── No → 최종 응답 생성
    └── Tool 타임아웃: 5초/Tool (기본값)
 
@@ -230,10 +237,18 @@ AI 에이전트는 총 **17개 Tool**(Neo4j 5 + MySQL 12)을 사용합니다.
 [역할 및 운영 원칙]  ← role_and_rules.md
 - 귀하는 비상교육 학습심리정서검사(LPA) 시스템의 상담 보조 AI입니다.
 - 데이터 우선순위:
-   ① 학생 컨텍스트(T점수, 4단계 진단, 상담기록 등)
-   ② Neo4j Tool 조회 결과(LPA 유형 특성, 조절·매개 경로, 집단 평균 T점수)
-   ③ 학습심리정서 도메인 일반 지식(위 두 소스를 보완하는 수준에서만)
+   1. 학생 컨텍스트(T점수, 4단계 진단, 상담기록 등)
+   2. Neo4j Tool 조회 결과(LPA 유형 특성, 조절·매개 경로, 집단 평균 T점수)
+   3. 학습심리정서 도메인 일반 지식(아래 "학습심리정서 도메인 참고 문서" 섹션, 위 두 소스를
+      보완하는 수준에서만 제한적으로 활용)
+   4. 검사로직 정의서/교사용 설명서 검색 결과(search_test_logic_reference/search_teacher_guide
+      Tool 호출, 위 세 소스로도 부족할 때만 사용)
 - 할루시네이션 방지: 창작 금지 / 불확실성 명시 / 근거 표기(T점수·Neo4j) / 도메인 한정
+
+[학습심리정서 도메인 참고 문서]  ← domain_knowledge_{basic_info,operations,ai_assistant}.md
+- 검사 개요·운영 정책·AI 기능 정보 등 도메인 일반 지식(우선순위 3)
+- 검사로직 정의서/교사용 설명서는 이 문서에 전문이 포함되지 않으며, 필요 시
+  search_test_logic_reference/search_teacher_guide Tool로 검색(우선순위 4)
 
 [분석 대상 식별자 블록]
 - schoolLevel + predictedType, stdt_id / cla_id / tc_id (모드에 따라 주입)

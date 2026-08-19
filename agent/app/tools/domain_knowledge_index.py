@@ -56,7 +56,11 @@ def _block_text(block: Dict[str, Any]) -> Optional[str]:
 
 
 def build_teacher_guide_chunks(raw: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """02번 원본 dict를 슬라이드 단위 청크 리스트로 변환한다(+ report_fixed_phrases 합성 청크 1개).
+    """02번 원본 dict를 슬라이드 단위 청크 리스트로 변환한다(+ report_fixed_phrases 최상위 키별 청크).
+
+    report_fixed_phrases는 통째로 청크 1개에 담지 않고, 최상위 키(예: "인사말")마다
+    별도 청크로 분할한다(title에 키 이름이 담긴다). 하나의 거대 청크가 검색 점수를
+    독식하고 그 큰 블록 전체가 LLM 컨텍스트로 들어가는 것을 방지하기 위함.
 
     각 청크: {"slide": int|None, "section": str|None, "title": str|None,
               "slideKind": str|None, "blockTexts": list[str], "searchableText": str(소문자)}
@@ -75,22 +79,27 @@ def build_teacher_guide_chunks(raw: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     fixed_phrases = raw.get("report_fixed_phrases")
     if fixed_phrases:
-        phrase_text = json.dumps(fixed_phrases, ensure_ascii=False)
-        chunks.append({
-            "slide": None,
-            "section": "리포트 고정문구",
-            "title": None,
-            "slideKind": None,
-            "blockTexts": [phrase_text],
-            "searchableText": phrase_text.lower(),
-        })
+        for key, value in fixed_phrases.items():
+            phrase_text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+            chunks.append({
+                "slide": None,
+                "section": "리포트 고정문구",
+                "title": key,
+                "slideKind": None,
+                "blockTexts": [phrase_text],
+                "searchableText": phrase_text.lower(),
+            })
     return chunks
 
 
 def search_chunks(chunks: List[Dict[str, Any]], keyword: str, limit: int) -> List[Dict[str, Any]]:
     """청크 리스트에서 keyword(공백 분리 다중 검색어)를 매칭 개수 기준으로 검색한다.
 
-    score>0인 청크만, score 내림차순으로 최대 limit개 반환한다.
+    score>0인 청크만, score(서로 다른 검색어가 매칭된 개수) 내림차순으로 최대 limit개
+    반환한다. 동점(score 동일)일 때는 검색어 총 출현 횟수(occurrence count)를 내부
+    타이브레이커로 사용해 더 밀도 높게 매칭된 청크를 우선한다(단일 키워드 검색에서
+    score가 항상 1이 되어 VALID_SHEETS/슬라이드 순서 등 입력 순서로만 정렬되는 문제 방지).
+    occurrence count는 반환 dict에 노출하지 않는다 — "score"만 기존 의미 그대로 유지.
     원본 청크 dict를 복사해 "score" 키를 얹어 반환한다(원본은 변경하지 않음).
     """
     terms = [t for t in keyword.lower().split() if t]
@@ -99,9 +108,10 @@ def search_chunks(chunks: List[Dict[str, Any]], keyword: str, limit: int) -> Lis
         text = chunk["searchableText"]
         score = sum(1 for term in terms if term in text)
         if score > 0:
-            scored.append({**chunk, "score": score})
-    scored.sort(key=lambda c: c["score"], reverse=True)
-    return scored[:limit]
+            occurrences = sum(text.count(term) for term in terms)
+            scored.append((score, occurrences, {**chunk, "score": score}))
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return [c for _, _, c in scored[:limit]]
 
 
 class DomainKnowledgeIndex:
