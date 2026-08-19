@@ -832,10 +832,7 @@ export const SelfregOverviewChart: React.FC<SelfregOverviewChartProps> = ({
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 bg-teal-500 rounded-full" />
-            <h3 className="text-base font-bold text-gray-900">종합결과</h3>
-          </div>
+          <h3 className="text-base font-bold text-gray-900 mb-2">종합 결과</h3>
           <p className="text-sm text-gray-600">{descriptionText}</p>
         </div>
 
