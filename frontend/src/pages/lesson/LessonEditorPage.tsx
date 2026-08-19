@@ -74,11 +74,10 @@ export const LessonEditorPage = () => {
           },
         },
         {
-          onSuccess: () => setSavedOpen(true),
+          onSuccess: () => (p.trigger === 'manual' ? setSavedOpen(true) : undefined),
           onError: () => toast.error('나의 자료 등록에 실패했습니다'),
         },
       );
-      setSavedOpen(true);
     }
     if (!routeSetId && p.lcmsSetId) {
       // 신규 저장 시 url 주소 변경 // 깜빡임 발생 시 제거 필요
@@ -87,9 +86,7 @@ export const LessonEditorPage = () => {
   };
 
   const handleStartLesson = (p: StartLessonPayload) => {
-    // if (import.meta.env.DEV) {
     console.log('[LessonEditorPage] onStartLesson', p);
-    // }
     const nextSetId = p.lcmsSetId;
     if (nextSetId) {
       navigate(`/lesson/deploy/${nextSetId}${location.search}`);
@@ -114,7 +111,7 @@ export const LessonEditorPage = () => {
         embedIdentityKey={embedIdentityKey}
         onSaved={handleSaved}
         onStartLesson={handleStartLesson}
-        onExitRequested={() => navigate(-1)}
+        onExit={() => navigate(-1)}
         onError={handleError}
       />
 

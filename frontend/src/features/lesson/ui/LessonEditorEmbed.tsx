@@ -34,7 +34,7 @@ export type LessonEditorEmbedProps = {
   embedIdentityKey?: string;
   onSaved?: (payload: SavedPayload) => void;
   onStartLesson?: (payload: StartLessonPayload) => void;
-  onExitRequested?: (payload: { reason?: 'userClose' | 'done' }) => void;
+  onExit?: (payload: { reason?: 'userClose' | 'done' }) => void;
   onError?: (error: EmbedError) => void;
   onReady?: () => void;
 };
@@ -48,7 +48,7 @@ export const LessonEditorEmbed = ({
   embedIdentityKey,
   onSaved,
   onStartLesson,
-  onExitRequested,
+  onExit,
   onError,
   onReady,
 }: LessonEditorEmbedProps) => {
@@ -73,10 +73,8 @@ export const LessonEditorEmbed = ({
     setId: setId,
     handlers: {
       saved: (p) => onSaved?.(p as SavedPayload),
-      startLesson: (p) => onStartLesson?.(p as StartLessonPayload),
-      exitRequested: (p) => onExitRequested?.(p as { reason?: 'userClose' | 'done' }),
-      // onStartLesson: (p) => onStartLesson?.(p as StartLessonPayload),
-      // startLessonRequested: (p) => onStartLesson?.(p as StartLessonPayload),
+      startLessonRequested: (p) => onStartLesson?.(p as StartLessonPayload),
+      exitRequested: (p) => onExit?.(p as { reason?: 'userClose' | 'done' }),
     },
     onReady,
     onError,
