@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import type { CSSObject } from '@emotion/react';
 import { toast } from 'sonner';
@@ -70,6 +70,7 @@ const ErrorText = styled.p`
 
 export const LessonMyPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { data, isPending, isError, error } = useRefSetListQuery();
   const { mutate: deleteRefSet } = useDeleteRefSetMutation();
 
@@ -114,7 +115,7 @@ export const LessonMyPage = () => {
         <Button
           variant='primary'
           size='md'
-          onClick={() => navigate('/lesson/editor')}
+          onClick={() => navigate(`/lesson/editor${location.search}`)}
           type='button'
           css={BUTTON_PRIMARY_CSS}
         >
