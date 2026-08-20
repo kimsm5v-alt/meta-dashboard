@@ -1,6 +1,8 @@
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/styled';
+import { useAuth } from '@features/auth';
 import { ENV } from '@shared/config/env';
+import { PageLoading } from '@shared/ui/Loading';
 import { useEveryCanvasEmbed } from '../lib/useEveryCanvasEmbed';
 import type {
   CompletedPayload,
@@ -29,18 +31,47 @@ export type LessonViewerEmbedProps = {
   onReady?: () => void;
 };
 
+type EmbedUserRole = 'teacher' | 'student' | 'guest';
+
+function mapRoleCodeToEmbedUserRole(roleCode: string): EmbedUserRole {
+  return roleCode === 'STUDENT' ? 'student' : roleCode === 'TEACHER' ? 'teacher' : 'guest';
+}
+
+type LessonViewerEmbedReadyProps = LessonViewerEmbedProps & {
+  userRole: EmbedUserRole;
+};
+
 /**
  * everyCanvas SlideViewer 래퍼 (SDK 1.5.0 — Viewer 계약 변경 없음).
  * getSsoToken / openSet 미사용.
+ * 인증/roleCode가 준비되기 전에는 embed를 만들지 않는다.
  */
-export const LessonViewerEmbed = ({
+export const LessonViewerEmbed = (props: LessonViewerEmbedProps) => {
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const roleCode = user?.roleCode?.trim();
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <ViewerContainer>
+        <PageLoading text='로딩 중...' />
+      </ViewerContainer>
+    );
+  }
+
+  return (
+    <LessonViewerEmbedReady {...props} userRole={mapRoleCodeToEmbedUserRole(roleCode ?? '')} />
+  );
+};
+
+const LessonViewerEmbedReady = ({
   setId,
+  userRole,
   onSlideChanged,
   onCompleted,
   onExitRequested,
   onError,
   onReady,
-}: LessonViewerEmbedProps) => {
+}: LessonViewerEmbedReadyProps) => {
   const appTheme = useTheme();
   const embedTheme: ThemeTokens = {
     '--ec-color-accent': appTheme.colors.primary[500],
@@ -54,6 +85,7 @@ export const LessonViewerEmbed = ({
       // getToken: () => fetchEmbedToken({ scope: 'viewer', slideId }),
       locale: 'ko-KR',
       theme: embedTheme,
+      features: { userRole },
     },
     handlers: {
       slideChanged: (p) => onSlideChanged?.(p as SlideChangedPayload),
@@ -62,7 +94,7 @@ export const LessonViewerEmbed = ({
     },
     onReady,
     onError,
-    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, setId],
+    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, setId, userRole],
   });
 
   return (
