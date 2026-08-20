@@ -156,8 +156,7 @@ const RoundToggleRow = styled.div`
 const RoundButton = styled.button<{ $active: boolean }>`
   padding: 8px 16px;
   color: ${({ $active, theme }) => ($active ? 'white' : theme.colors.text.secondary)};
-  background: ${({ $active, theme }) =>
-    $active ? theme.colors.primary[600] : theme.colors.gray[100]};
+  background: ${({ $active, theme }) => ($active ? '#7C3AED' : theme.colors.gray[100])};
   border: none;
   border-radius: ${({ theme }) => theme.radius.md};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
@@ -190,15 +189,14 @@ const StepColumn = styled.div`
 
 const StepLabel = styled.p<{ $tone: 1 | 2 | 3 }>`
   margin: 4px 0 0;
-  color: ${({ $tone, theme }) =>
-    $tone === 1 ? theme.colors.primary[600] : $tone === 2 ? '#3B82F6' : '#22C55E'};
+  color: ${({ $tone }) => ($tone === 1 ? '#7C3AED' : $tone === 2 ? '#3B82F6' : '#22C55E')};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
 
 const StepFixedTitle = styled.p`
   margin: 0;
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: #111827;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
@@ -206,13 +204,13 @@ const StepFixedTitle = styled.p`
 const Section = styled.div`
   padding: ${({ theme }) => theme.spacing.lg};
   background: ${({ theme }) => theme.colors.background.paper};
-  border: 1px solid ${({ theme }) => theme.colors.gray[100]};
-  border-radius: ${({ theme }) => theme.radius.xl};
+  border: 1px solid #f3f4f6;
+  border-radius: 12px;
 `;
 
 const SectionTitle = styled.h3`
   margin: 0 0 20px;
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: #111827;
   font-size: ${({ theme }) => theme.typography.fontSize.lg};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 `;
@@ -233,7 +231,7 @@ const ContentSectionHeader = styled.div`
 
 const ContentSectionTitle = styled.h3`
   margin: 0;
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: #111827;
   font-size: ${({ theme }) => theme.typography.fontSize.base};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
 `;
@@ -252,9 +250,9 @@ const StrengthCard = styled.div`
   display: flex;
   flex-direction: column;
   padding: ${({ theme }) => theme.spacing.md};
-  background: ${({ theme }) => theme.colors.success.light};
-  border: 1px solid ${({ theme }) => theme.colors.success.main};
-  border-radius: ${({ theme }) => theme.radius.lg};
+  background: #f0fdf4;
+  border: 1px solid #dcfce7;
+  border-radius: 8px;
 `;
 
 const StrengthBadgeRow = styled.div`
@@ -267,23 +265,23 @@ const StrengthBadgeRow = styled.div`
 const StrengthBadge = styled.span`
   padding: 2px 8px;
   color: white;
-  background: ${({ theme }) => theme.colors.success.dark};
+  background: #16a34a;
   border-radius: ${({ theme }) => theme.radius.sm};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
 
 const StrengthFactor = styled.span`
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: #111827;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 `;
 
 const StrengthObservation = styled.p`
   margin: 0 0 12px;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  color: #374151;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  line-height: 1.6;
+  line-height: 1.625;
 `;
 
 const SpeechBubble = styled.div`
@@ -293,8 +291,8 @@ const SpeechBubble = styled.div`
   padding: 12px;
   margin-bottom: 8px;
   background: ${({ theme }) => theme.colors.background.paper};
-  border: 1px solid ${({ theme }) => theme.colors.success.main};
-  border-radius: ${({ theme }) => theme.radius.md};
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
 
   &:last-child {
     margin-bottom: 0;
@@ -306,28 +304,28 @@ const SpeechIcon = styled(MessageSquare)`
   width: 16px;
   height: 16px;
   margin-top: 2px;
-  color: ${({ theme }) => theme.colors.success.dark};
+  color: #16a34a;
 `;
 
 const SpeechText = styled.p`
   margin: 0;
-  color: ${({ theme }) => theme.colors.success.dark};
+  color: #166534;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
 
 const SpeechHint = styled.p`
   margin: 12px 0 8px;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  color: #6b7280;
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
 const PathwayNotice = styled.div`
   padding: ${({ theme }) => theme.spacing.md};
   margin-bottom: 16px;
-  background: ${({ theme }) => theme.colors.warning.light};
-  border: 1px solid ${({ theme }) => theme.colors.warning.main};
-  border-radius: ${({ theme }) => theme.radius.lg};
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 8px;
 `;
 
 const PathwayNoticeHeader = styled.div`
@@ -338,7 +336,7 @@ const PathwayNoticeHeader = styled.div`
 `;
 
 const PathwayNoticeLabel = styled.span`
-  color: ${({ theme }) => theme.colors.warning.dark};
+  color: #92400e;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
@@ -361,31 +359,31 @@ const PathwayBadge = styled.span`
 `;
 
 const PathwayFactor = styled.span`
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: #111827;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 `;
 
 const PathwaySubFactors = styled.span`
-  color: ${({ theme }) => theme.colors.gray[500]};
+  color: #6b7280;
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
 const PathwayInterpretation = styled.p`
   margin: 0;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  color: #374151;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  line-height: 1.6;
+  line-height: 1.625;
 `;
 
 const CoachingStepCard = styled.div`
   padding: ${({ theme }) => theme.spacing.md};
-  background: ${({ theme }) => theme.colors.gray[50]};
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  border-radius: ${({ theme }) => theme.radius.lg};
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
 
   & + & {
-    margin-top: 12px;
+    margin-top: 16px;
   }
 `;
 
@@ -404,7 +402,7 @@ const CoachingStepNumber = styled.span`
   width: 24px;
   height: 24px;
   color: white;
-  background: ${({ theme }) => theme.colors.primary[600]};
+  background: #7c3aed;
   border-radius: ${({ theme }) => theme.radius.full};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
@@ -412,7 +410,7 @@ const CoachingStepNumber = styled.span`
 
 const CoachingStepText = styled.p`
   margin: 0;
-  color: ${({ theme }) => theme.colors.text.primary};
+  color: #111827;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
@@ -423,8 +421,8 @@ const CoachingStepBubble = styled.div`
   gap: 8px;
   padding: 12px;
   background: ${({ theme }) => theme.colors.background.paper};
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  border-radius: ${({ theme }) => theme.radius.md};
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
 `;
 
 const CoachingStepBubbleIcon = styled(MessageSquare)`
@@ -432,12 +430,12 @@ const CoachingStepBubbleIcon = styled(MessageSquare)`
   width: 16px;
   height: 16px;
   margin-top: 2px;
-  color: ${({ theme }) => theme.colors.primary[600]};
+  color: #7c3aed;
 `;
 
 const CoachingStepBubbleText = styled.p`
   margin: 0;
-  color: ${({ theme }) => theme.colors.primary[700]};
+  color: #3b0f7a;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
@@ -677,7 +675,7 @@ export const IndividualCoachingSection = ({
                 </ContentSectionHeader>
                 <PathwayNotice>
                   <PathwayNoticeHeader>
-                    <Info size={16} color='#B45309' />
+                    <Info size={16} color='#D97706' />
                     <PathwayNoticeLabel>이 학생, 이것만 신경 써주세요</PathwayNoticeLabel>
                   </PathwayNoticeHeader>
                   <PathwayBadgeRow>
