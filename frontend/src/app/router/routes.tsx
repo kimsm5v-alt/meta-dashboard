@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { MainLayout } from '@widgets/layout/MainLayout';
 import { MainLayoutV2 } from '@widgets/layout/v2/MainLayoutV2';
-import { V2Placeholder } from '@widgets/layout/v2/V2Placeholder';
 import { MinimalLayout } from '@widgets/layout/MinimalLayout';
 import { StudentLayout } from '@widgets/layout/StudentLayout';
 import { CaptureOverlay } from '@widgets/screen-capture';
@@ -17,6 +16,7 @@ import { HomePage } from '@pages/home/HomePage';
 import { ExamTrackingPage } from '@pages/exam-tracking/ExamTrackingPage';
 import { SchoolRecordPage } from '@pages/school-record/SchoolRecordPage';
 import { CoachingClassPage } from '@pages/coaching/CoachingClassPage';
+import { CoachingIndividualPage } from '@pages/coaching/CoachingIndividualPage';
 import {
   LandingPage,
   LoginPage,
@@ -249,7 +249,7 @@ export const AppRoutes = () => (
             <Route path='/exam/record' element={<SchoolRecordPage />} />
 
             <Route path='/coaching/class' element={<CoachingClassPage />} />
-            <Route path='/coaching/individual' element={<V2Placeholder title='개별 코칭' />} />
+            <Route path='/coaching/individual' element={<CoachingIndividualPage />} />
 
             <Route path='/lesson/library' element={<LessonLibraryPage />} />
             <Route path='/lesson/my' element={<LessonMyPage />} />
