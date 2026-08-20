@@ -1,3 +1,18 @@
+export { buildLessonJoinUrl } from './lib/buildLessonJoinUrl';
+export {
+  deployLessonActivity,
+  createActivity,
+  putActivityAssignees,
+  publishActivity,
+  LmsHttpError,
+} from './api/lmsActivityService';
+export type {
+  CreateActivityBody,
+  ActivityDetail,
+  DeployFailedStep,
+  DeployLessonActivityFailure,
+  DeployLessonActivityResult,
+} from './api/lmsActivityService';
 export { FilterPanel } from './ui/FilterPanel';
 export { DeployPage } from './ui/DeployPage';
 export { ResourceCardList } from './ui/ResourceCardList';

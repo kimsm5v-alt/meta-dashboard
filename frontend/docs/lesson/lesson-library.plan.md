@@ -16,7 +16,7 @@
 | **추가계획8** | 전체 자료실 CMS `GET /api/sets` 연동 + 필터 재조회/레이스 처리 + loading UI | 구현 완료 |
 | **추가계획9** | `DeployPage` 실시간 수업 → Viewer + `ResourceCard`→deploy `state.item` + URL 직접 진입 시 item 재조회 | 구현 완료 |
 | **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 구현 완료 |
-| **추가계획11** | DeployPage·저작툴 시작하기 — `POST /api/v1/activities` + `publish` → `accessKey` + QR·참여링크 조립 | 상세 작성 (2026-08-19) · Phase A 구현 가능 / POST 본문 대기 |
+| **추가계획11** | DeployPage·저작툴 시작하기 — `POST /activities` + assignees + `publish` → `accessKey` + QR·참여링크 · 중도실패 toast/재시도 | Phase A·B 구현 완료 (2026-08-20) · assignees 전달값 보류 |
 | **추가계획12** | 학생용 `/student/lesson/:activityId` — `GET /entry/{accessKey}` + `POST /participations` → `activity-join` embed | Phase A 구현 완료 (2026-08-19) / Phase B API 대기 |
 | **추가계획13** | 전체 자료실 CMS 목록 무한 스크롤(`pageSize=10`) + 나의 자료 `GET /api/v1/library-items` 페이지네이션 | Phase A 구현 완료 / Phase B 구현 완료 |
 | **추가계획14** | 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) · `handleSaved` POST/PATCH · editor navigate `libraryItemId` state | **Phase 1 구현 완료** (2026-08-20) · Phase 2(페이지네이션) 구현 완료 |
@@ -2936,7 +2936,7 @@ export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 
 # 추가계획11 — DeployPage·저작툴 활동 시작 → 참여키(`activityId`)·QR·링크
 
-> **상태**: 상세 작성 (2026-08-19) · Phase A 구현 가능 / `POST /activities` 스펙 대기  
+> **상태**: Phase A·B 구현 완료 (2026-08-20) · `assigneeSubs` 전달값 보류  
 > **선행**: 추가계획9 (DeployPage item·교사 Viewer 이동)  
 > **후행**: 추가계획12 (학생 `/student/lesson/:activityId`)  
 > **범위**: 교사가 배포/시작 시 활동을 만들고, 학생에게 줄 **참여 링크·QR**을 FE에서 조립한다. 학생 화면·SDK는 추가계획12.
@@ -2947,7 +2947,7 @@ API가 아직 확정되지 않았다. **경로·본문·필드명을 추측해 �
 
 ## 1. 한 줄 요약
 
-교사 DeployPage에서 배포(시작하기) → `POST /activities`(미확정)가 `activityId`를 주면, 그 값이 **학생 참여 키**다. FE는 아래 URL을 만들어 QR·복사에 쓴다.
+교사 DeployPage에서 배포(시작하기) → Phase A에서는 `POST /activities` 응답 `id`를 임시 학생 참여 키로 쓰고, Phase B에서는 `publish` 응답의 `accessKey`로 QR·복사 URL을 갱신한다. FE는 아래 URL을 만들어 QR·복사에 쓴다.
 
 ```
 {origin}/student/lesson/{activityId}
@@ -2961,7 +2961,7 @@ LMS 키트 문서의 `accessKey`(`act-…`)와 **지금은 구분하지 않는�
 
 | 담당 | 하는 일 | 안 하는 일 |
 |------|---------|------------|
-| **추가계획11 (교사 FE)** | 활동 생성 호출(스펙 오면), `activityId`로 참여 URL 조립, QR·복사 표시. 저작툴은 DeployPage로 보낸다 | 학생 iframe, 참여 가능 여부 판정 |
+| **추가계획11 (교사 FE)** | 활동 생성 호출(스펙 오면), Phase A 임시 키(`activityId`)로 참여 URL 조립 후 Phase B에서 `accessKey`로 갱신, QR·복사 표시. 저작툴은 DeployPage로 보낸다 | 학생 iframe, 참여 가능 여부 판정 |
 | **추가계획12 (학생 FE)** | `/student/lesson/:activityId` 진입, 참여 가능 확인, `activity-join` embed | `POST /activities`, QR 생성 |
 | **LMS** | `activityId` 발급 (스펙 확정 후) | 완성된 URL 문자열 |
 | **everyCanvas SDK** | 학생 화면 렌더 (`activity-join`) | 참여 링크 발급 |
@@ -2988,11 +2988,11 @@ LMS 키트 문서의 `accessKey`(`act-…`)와 **지금은 구분하지 않는�
 
 | 항목 | 현재 |
 |------|------|
-| DeployPage `doDeploy` | 로컬 `setDeployed` + toast. API 없음 |
-| 결과 링크 | 목업 URL. 복사도 toast만 |
-| QR | `QrPlaceholder` (`▨`). `qrcode.react`는 assessment `QRCodeModal`에 이미 있음 |
+| DeployPage `doDeploy` | `POST /activities` → `publish` 순차 호출. 실패 toast·재시도. assignees 보류 |
+| 결과 링크 | `buildLessonJoinUrl(accessKey)` 실 URL + QR + 클립보드 복사 |
+| QR | `QRCodeCanvas` (`qrcode.react`) — `joinUrl` 인코딩 |
 | 실시간 「수업 시작하기」 | `navigate(\`/lesson/viewer/${setId}\`)` — **교사 Viewer**. 유지 |
-| `LessonEditorPage.handleStartLesson` | `console.log` no-op |
+| `LessonEditorPage.handleStartLesson` | `/lesson/deploy/${lcmsSetId}` 이동 (POST 없음) |
 
 ---
 
@@ -3008,10 +3008,10 @@ LMS 키트 문서의 `accessKey`(`act-…`)와 **지금은 구분하지 않는�
 
 ### Phase B — 스펙 수신 후 (이번 금지)
 
-1. `POST /activities` 실호출. 응답 `activityId`로 결과 카드·QR 갱신
-2. 요청 본문 (`lcmsSetId`, 반 명단, 기간/`openAt`·`closeAt`, `audienceType` 등) 스펙 대로
-3. 활동 종료(`close`) — 교사 Viewer/배포 화면. 경로 미정
-4. LMS가 `accessKey`를 따로 주면 join path를 `activityId` → 그 키로 교체 (추가계획12와 한 번에)
+1. 요청 본문을 스펙 대로 구성한 뒤 `POST /api/v1/activities` 실호출 (draft 생성) → 응답 `activityId` 확보
+2. (조건) `audienceType: 'ASSIGNED'`이면 `PUT /api/v1/activities/{id}/assignees` 로 배정 명단 준비
+3. `POST /api/v1/activities/{id}/publish` 실호출 → 응답 `accessKey` 수신, 결과 카드·QR 갱신
+4. 활동 종료는 `POST /api/v1/activities/{id}/close` (+ 필요 시 `reopen`)로 처리
 
 ---
 
@@ -3024,11 +3024,11 @@ LMS 키트 문서의 `accessKey`(`act-…`)와 **지금은 구분하지 않는�
                                       ▼
                                「배포하기」
                                       │
-                    Phase B: POST /activities ──▶ activityId
+                    Phase B: POST /activities ──▶ activityId(draft) → publish ──▶ accessKey
                     Phase A: 임시 activityId = setId (개발용)
                                       │
                                       ▼
-                    참여 URL = {origin}/student/lesson/{activityId}
+                    참여 URL = {origin}/student/lesson/{accessKey}
                     QR = 그 URL 인코딩
                                       │
                     실시간 모드 「수업 시작하기」
@@ -3060,23 +3060,24 @@ LMS 키트 문서의 `accessKey`(`act-…`)와 **지금은 구분하지 않는�
 ```ts
 // features/lesson/api/lmsActivityService.ts — Phase B 구현 시 사용
 export type CreateActivityBody = {
-  source: {
-    libraryItemId: string;      // 보관함(library-items)에 등록된 ID. 미등록이면 담기 먼저
-  };
+  source:
+    | { type: 'LIBRARY_ITEM'; libraryItemId: string } // 보관함(library-items)에 등록된 ID
+    | { type: 'LCMS_SET'; lcmsSetId: string }; // (대체 케이스) CMS 세트 id
   items: Array<{
     lcmsArticleId: string;      // CMS 문항 ID (문자열)
-    maxScore: number;           // 배점. 정답은 보내지 않음 (절대 규칙 1)
-    options?: Record<string, unknown>; // 서비스 고유 값
+    seq?: number;              // 1 이상. 전부 보내거나 전부 생략
+    maxScore?: number;        // gradingPolicy != NONE 일 때만 필요
   }>;
-  title?: string;
+  title: string; // 200자 제한
   audienceType: 'ASSIGNED' | 'OPEN';
   allowedIdentityTypes: Array<'MEMBER' | 'GUEST_TOKEN' | 'PARTICIPATION_HANDLE'>;
-  openAt?: string;              // ISO 8601. 없으면 발행 즉시 OPEN
-  closeAt?: string;             // PARTICIPATION_HANDLE 쓰면 필수
-  attemptPolicy?: 'SINGLE' | 'UNLIMITED';
+  openAt?: string;              // ISO 8601. 없으면 발행 시 즉시 OPEN
+  closeAt?: string;             // ISO 8601. openAt ≤ closeAt
+  maxAttempts?: number;         // 1 이상. 기본 1
   resultVisibility?: 'IMMEDIATE' | 'AFTER_CLOSE' | 'HIDDEN';
   gradingPolicy?: 'NONE' | 'CLIENT_ALLOWED' | 'TRUSTED_ONLY';
-  options?: Record<string, unknown>;
+  labels?: string[];
+  options?: Record<string, unknown>; // (선택) 서버는 해석하지 않음(64KB 이하)
 };
 ```
 
@@ -3106,19 +3107,88 @@ export async function createActivity(_body: CreateActivityBody): Promise<{ activ
 
 ### Phase B 구현 순서
 
-1. `POST /api/v1/activities` 실호출 (items·source 포함)
-2. `POST /api/v1/activities/{id}/publish` → `accessKey` 수신
-3. `buildLessonJoinUrl(accessKey)` — **`activityId` 대신 `accessKey`**
-4. 결과 카드·QR에 `accessKey` 기반 URL 표시
-5. 활동 종료: `POST /api/v1/activities/{id}/close`
+1. `POST /api/v1/activities` 실호출 (items·source 포함) → 응답 `activityId` 확보
+2. (조건) `audienceType: 'ASSIGNED'`이면 `PUT /api/v1/activities/{activityId}/assignees` 로 배정 명단 준비
+3. `POST /api/v1/activities/{activityId}/publish` → `accessKey` 수신
+4. `buildLessonJoinUrl(accessKey)` — **학생 링크 키는 `accessKey`**
+5. 결과 카드·QR에 `accessKey` 기반 URL 표시
+6. 활동 종료: `POST /api/v1/activities/{activityId}/close` (멱등: 이미 마감이어도 200)
+7. (교사가 다시 열 때) `POST /api/v1/activities/{activityId}/reopen` — `closeAt` 바디 필요
+
+> **경로 주의**: assignees/publish path param은 **`activityId`(출제 응답 id)** 이다.  
+> `libraryItemId`가 아니다. (`/api/v1/activities/{activityId}/assignees`, `/api/v1/activities/{activityId}/publish`)
+
+추가 구현 주의
+  - `publish`는 멱등이며, 재발행해도 `accessKey`는 바뀌지 않습니다(200).
+  - `gradingPolicy != NONE`이면 `maxScore` 등 필수 검증이 들어가므로, 화면에서 배점 계산 로직과 정책 값 매핑이 필요합니다.
+  - 응답 헤더의 `ETag`는 `publish/close/reopen` 에서 `If-Match` 로 재사용하는 것을 권장합니다(서버 동시성/정책 검증 강화 대응).
+
+### Phase B — 순차 호출 중도 실패 처리
+
+`doDeploy`는 아래 3단계를 **순서대로** 호출한다. **한 단계라도 실패하면 이후 단계는 호출하지 않는다.**
+
+| 단계 | API | 실패 toast (확정) |
+|------|-----|-------------------|
+| 1 출제 | `POST /api/v1/activities` | `출제 실패했습니다. [{status}]` 예: `출제 실패했습니다. [400]` |
+| 2 배정 | `PUT /api/v1/activities/{activityId}/assignees` | `학생 배정에 실패했습니다. [{status}]` 예: `학생 배정에 실패했습니다. [400]` |
+| 3 발행 | `POST /api/v1/activities/{activityId}/publish` | `문제 발행에 실패했습니다. [{status}]` 예: `문제 발행에 실패했습니다. [400]` |
+
+규칙
+
+1. toast는 `toast.error(...)`. `status`는 HTTP status code 숫자.
+2. **성공 완료 전**에는 배포 결과 카드(QR·참여 링크)를 넣지 않는다. (`deployed`/`accessKey` 미설정)
+3. 1단계(출제)에서 받은 `activityId`가 있어도 2·3이 실패하면 **성공 UI로 올리지 않는다.** (부분 성공 상태를 성공처럼 보이게 하지 않음)
+4. 실패 후 교사가 다시 시도할 수 있어야 한다.
+   - 실시간 모드 결과 영역 ActionButton 문구: **`다시 수업 시작하기`** (기존 `수업 시작하기` 재시도 표기)
+   - 클릭 시 viewer navigate가 아니라 **동일 순차 API(`doDeploy`)를 재실행**한다.
+   - 기간 모드도 동일하게 재시도 가능해야 하면, 버튼 문구는 `다시 배포하기` 등으로 맞춘다(실시간과 구분).
+5. 재시도 시
+   - 이전에 1단계만 성공했다면: 새 `POST /activities`를 다시 칠지, 기존 `activityId`로 assignees/publish만 재시도할지 정책이 필요하다.
+   - **기본안(권장)**: 실패 시 `activityId`를 로컬에 남겨 두고, 재시도는 **실패한 단계부터** 이어간다.
+     - 출제 실패 → 1부터
+     - 배정 실패 → 같은 `activityId`로 2부터
+     - 발행 실패 → 같은 `activityId`로 3부터
+   - `publish`는 멱등이므로 3단계 재시도는 안전하다. assignees도 같은 명단 재전송은 자연 멱등이다.
+
+### `PUT .../assignees` — `assigneeSubs` 값 (LMS 스펙 확인 결과)
+
+> 출처: `superplatform-lms/docs/guide/api-spec.md` § `PUT /api/v1/activities/{activityId}/assignees`  
+> README 예: `{ "assigneeSubs": ["user-1", "user-2", "user-3"] }`
+
+| 항목 | 내용 |
+|------|------|
+| 필드 | `assigneeSubs: string[]` (필수) |
+| 의미 | **회원 Auth JWT의 `sub`** 목록. 게스트는 불가 |
+| 제한 | 최대 1,000명 × 64자. `[]` = 전원 해제 |
+| path | `{activityId}` (출제 응답 id). **`libraryItemId` 아님** |
+| 동작 | **전체 교체(PUT)**. 안 보낸 사람은 명단에서 빠짐 |
+
+LMS 문서에 **작성되어 있는 것**
+
+- 보내는 값의 **타입/의미**: 회원 `sub` 문자열 배열
+- 예시 placeholder: `"user-1"`, `"user-2"` (실제 운영 값이 아님)
+
+LMS/plan에 **아직 비어 있는 것 (FE 매핑 미결)**
+
+- DeployPage는 현재 **반(group) id**만 고른다 (`useMyGroupsQuery` → `classes: string[]`).
+- 반 선택 → 그 반 소속 학생들의 **Auth `sub` 목록**을 어떻게 얻는지는 **추가계획11에 미작성**.
+- 학심정 `stdtId` / 그룹 멤버 id ≠ LMS `sub`일 수 있다. `spUserId`/`publicUserId`와의 매핑 API·필드가 FE에 확정돼 있지 않으면 assignees 호출을 구현할 수 없다.
+
+Phase B 착수 전 확정 필요
+
+1. 선택한 `classes`별로 학생 `sub` 목록을 가져오는 API(또는 기존 학급 학생 조회의 어느 필드가 Auth `sub`인지)
+2. 여러 반을 고른 경우 `assigneeSubs`는 **합집합**(중복 제거)
+3. 명단이 비면 `ASSIGNED` 활동은 publish가 409이므로, 배정형일 때 빈 명단이면 assignees/publish 전에 FE에서 막을지 여부
+
+`audienceType: 'OPEN'`이면 assignees 호출을 생략한다 (명단 불필요).
 
 ---
 
 ## 8. 참여 링크 조립
 
 ```ts
-export function buildLessonJoinUrl(activityId: string): string {
-  const path = `/student/lesson/${encodeURIComponent(activityId)}`;
+export function buildLessonJoinUrl(joinKey: string): string {
+  const path = `/student/lesson/${encodeURIComponent(joinKey)}`;
   if (typeof window === 'undefined') return path;
   return `${window.location.origin}${path}`;
 }
@@ -3127,7 +3197,7 @@ export function buildLessonJoinUrl(activityId: string): string {
 | 규칙 | 내용 |
 |------|------|
 | origin | 현재 앱 origin. `class.visang.co.kr` 하드코딩 금지 |
-| path | 추가계획12와 동일 `/student/lesson/:activityId` |
+| path | 추가계획12와 동일 `/student/lesson/:activityId` (route param 이름만 activityId로 고정) |
 | QR | `qrcode.react` `QRCodeCanvas`에 **완성 URL** (`value={joinUrl}`) |
 | 복사 | `navigator.clipboard.writeText(joinUrl)` 후 기존 toast `'링크가 복사되었습니다'` |
 
@@ -3137,15 +3207,15 @@ assessment `QRCodeModal`을 lesson에서 import하지 않는다 (FSD: feature �
 
 ## 9. DeployPage 변경
 
-`doDeploy` 성공 후 `deployed`에 `activityId`·`joinUrl`을 넣는다.
+`doDeploy` 성공 후 `deployed`에 `activityId`·`accessKey`·`joinUrl`을 넣는다.
 
 | UI | Phase A | Phase B |
 |----|---------|---------|
-| 링크 input | `buildLessonJoinUrl(activityId)` (임시 `activityId=setId`) | 응답 `activityId` |
+| 링크 input | `buildLessonJoinUrl(activityId)` (임시 `activityId=setId`) | `publish` 응답의 `accessKey`로 조립 |
 | QR | `QRCodeCanvas` `value={joinUrl}` | 동일, 키만 실값 |
 | 복사 | 실 URL 클립보드 | 동일 |
-| 실시간 「수업 시작하기」 | `/lesson/viewer/:setId` 유지 | 유지. 학생 join과 섞지 않음 |
-| `POST /activities` | 호출 안 함 | `doDeploy`에서 호출. 실패 시 toast, 결과 카드 비표시 |
+| 실시간 ActionButton | `/lesson/viewer/:setId` 유지 | **성공 후** Viewer 이동은 유지. **중도 실패 후 재시도** 시 라벨을 `다시 수업 시작하기`로 바꾸고 `doDeploy` 재실행 |
+| `POST /activities` 파이프라인 | 호출 안 함 | `doDeploy`에서 순차 호출. 단계별 toast(§7 중도 실패). 전체 성공 전 결과 카드 비표시 |
 
 배포 실패(Phase B)와 콘텐츠 조회 실패(추가계획9)를 구분한다. 조회 실패 문구는 바꾸지 않는다.
 
@@ -3179,26 +3249,27 @@ const handleStartLesson = (p: StartLessonPayload) => {
 | 금지 | 이유 |
 |------|------|
 | 미확정 `POST /activities` 경로·본문으로 fetch | 잘못된 계약이 고정됨 |
-| 학생 URL에 `setId`만 넣기 | 같은 세트 다중 활동과 키가 충돌. 이번 키는 `activityId` |
+| 학생 URL에 `setId`만 넣기 | 같은 세트 다중 활동과 키가 충돌. 이번 키는 `accessKey` |
 | 교사 `/lesson/viewer/:setId`를 학생 링크로 쓰기 | 교사 레이아웃·인증. 추가계획12와 분리 |
 | LMS가 완성 URL을 준다는 가정 | 스펙상 키만 옴. URL은 FE 조립 |
 | Editor에서 활동 생성 API 직접 호출 | DeployPage 단일 입구 |
-| 활동 종료 API 이번 구현 | 경로 미정. Phase B |
+| 활동 종료 API 이번 구현 | `POST /api/v1/activities/{id}/close` (+ 필요 시 `reopen`). Phase A에서는 호출하지 않음 |
 | lesson → assessment `QRCodeModal` import | FSD feature 경계 |
 
 ---
 
-## 12. 변경 파일 (Phase A)
+## 12. 변경 파일 (Phase A·B)
 
 | 파일 | 유형 | 핵심 변경 |
 |------|------|-----------|
 | `features/lesson/lib/buildLessonJoinUrl.ts` | 신규 | origin + `/student/lesson/:activityId` |
-| `features/lesson/api/lmsActivityService.ts` | 신규 | `createActivity` 스켈레톤. throw. 실호출 없음 |
-| `features/lesson/ui/DeployPage.tsx` | 수정 | `activityId`/`joinUrl` 상태, QR·복사 실URL, 목업 링크 제거 |
+| `features/lesson/model/buildDeployActivityBody.ts` | 신규 | DeployPage → `CreateActivityBody` 변환. assignees 보류 시 `OPEN` |
+| `features/lesson/api/lmsActivityService.ts` | 신규·구현 | `createActivity` · `putActivityAssignees` · `publishActivity` · `deployLessonActivity` |
+| `features/lesson/ui/DeployPage.tsx` | 수정 | 순차 API · QR(`qrcode.react`) · 복사 · 중도 실패 toast · 재시도 |
 | `pages/lesson/LessonEditorPage.tsx` | 수정 | `onStartLesson` → `/lesson/deploy/${lcmsSetId}` |
-| `features/lesson/index.ts` | 수정 | `buildLessonJoinUrl` export |
+| `features/lesson/index.ts` | 수정 | `buildLessonJoinUrl` · activity service export |
 
-Phase B에서 `queries.ts` mutation·`doDeploy` 실호출을 추가한다.
+`assigneeSubs`/`PUT assignees` 전달값 확정 전: `deployLessonActivity`는 assignees 단계 생략, `audienceType: 'OPEN'`.
 
 ---
 
@@ -3219,24 +3290,29 @@ Phase B에서 `queries.ts` mutation·`doDeploy` 실호출을 추가한다.
 
 ### Phase A (이번 구현 대상)
 
-- [ ] `buildLessonJoinUrl`이 현재 origin 기준 `/student/lesson/{activityId}` 반환
-- [ ] DeployPage 배포 후 링크 input이 그 URL. 목업 도메인 없음
-- [ ] QR이 같은 URL을 인코딩. 복사 시 클립보드에 그 URL
-- [ ] Editor 「수업하기」→ `/lesson/deploy/{lcmsSetId}` (POST 없음)
-- [ ] `createActivity` 스켈레톤은 있고, 런타임에 호출되지 않음
-- [ ] 실시간 「수업 시작하기」는 기존 교사 Viewer 유지
-- [ ] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
+- [x] `buildLessonJoinUrl`이 현재 origin 기준 `/student/lesson/{activityId}` 반환
+- [x] DeployPage 배포 후 링크 input이 그 URL. 목업 도메인 없음
+- [x] QR이 같은 URL을 인코딩. 복사 시 클립보드에 그 URL
+- [x] Editor 「수업하기」→ `/lesson/deploy/{lcmsSetId}` (POST 없음)
+- [x] `createActivity` 등 LMS activity 서비스 구현 (`lmsActivityService.ts`)
+- [x] 실시간 「수업 시작하기」는 기존 교사 Viewer 유지
+- [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
 
-### Phase B (스펙 대기 — 착수하지 않음)
+### Phase B (스펙 수신 후 — assignees 전달값 제외 완료)
 
-- [ ] `doDeploy` → `POST /activities` → 응답 `activityId`로 링크/QR 갱신
-- [ ] 실패 toast. 성공 전에는 결과 카드에 키를 넣지 않음
-- [ ] (선택) 종료 API. 스펙 오기 전 금지
+- [x] `doDeploy` → `POST /activities` → `publish` → 응답 `accessKey`로 링크/QR 갱신
+- [x] 단계별 중도 실패 toast (`출제 실패했습니다. [{status}]` / `학생 배정에 실패했습니다. [{status}]` / `문제 발행에 실패했습니다. [{status}]`)
+- [x] 실패 시 결과 카드 비표시 + 재시도 UX (`다시 수업 시작하기` / `다시 배포하기`). 실패 단계부터 재개
+- [ ] `assigneeSubs` = 선택한 반 학생들의 Auth `sub` 매핑 소스 확정 후 `PUT /assignees` 연동 (전달값 보류 중)
+- [ ] `assigneeSubs` 확정 후 `audienceType: 'ASSIGNED'` 로 전환 (현재는 `OPEN` 임시)
+- [ ] 활동 종료(및 필요 시 reopen) API 호출 시나리오 확정 후 적용
 
 ---
 
 **작성일**: 2026-08-19  
-**상태**: 상세 작성 · Phase A 구현 가능 / POST 스펙 대기
+**수정**: 2026-08-20 — Phase B 중도 실패 toast·재시도 UX · `assigneeSubs`(=회원 `sub`) 스펙 확인 및 FE 매핑 미결 명시  
+**구현 완료일**: 2026-08-20 — Phase A·B (`assigneeSubs`/`PUT assignees` 전달값 보류, `audienceType: OPEN` 임시)  
+**상태**: Phase A·B 구현 완료 · assignees 전달값 확정 후 문서·연동 재요청
 
 ---
 
@@ -3399,9 +3475,9 @@ identity: [ENV.EVERYCLASS_EMBED_BASE_URL, activityId, setId],
 |------|-----------|------|------|
 | 1 | `GET /api/v1/entry/{accessKey}` | **진입** — 무슨 활동인지 확인 | **인증 불필요**. `availability` 값으로 참여 가능 판단 |
 | 2 | `POST /api/v1/participations` | **참여 시작** — 회차 생성 또는 기존 회차 반환 | 구조적 멱등 (진행 중이면 200 반환). `activityId` + 신원 |
-| 3 | `GET /api/v1/participations/{id}` | 이어하기 — 저장된 응답 복원 | |
-| 4 | `PATCH /api/v1/participations/{id}` | 자동저장 | `Idempotency-Key` 불필요 (자연 멱등) |
-| 5 | `POST /api/v1/participations/{id}/submit` | 제출 확정 | `Idempotency-Key` 필수 |
+| 3 | `GET /api/v1/participations/{id}` | 이어하기 — 저장된 응답 복원 | 저장 상태 복원. (필요 시 `X-Participation-Handle` 조건부) |
+| 4 | `PATCH /api/v1/participations/{id}` | 자동저장 | `Idempotency-Key` 불필요. 여러 번 호출 정상 |
+| 5 | `POST /api/v1/participations/{id}/submit` | 제출 확정 | **본문 없음**, `Idempotency-Key` 필수(재시도 시 같은 키) |
 | 6 | `GET /api/v1/participations/{id}/result` | 내 결과 | `resultVisibility` 정책에 따라 보임 |
 
 ### `GET /api/v1/entry/{accessKey}` 응답 (`Entry` 타입)
@@ -3461,8 +3537,8 @@ Phase A 페이지:
 
 1. URL param을 `:accessKey`로 교체 (추가계획11과 동시)
 2. `getActivityJoinEligibility` → `GET /api/v1/entry/{accessKey}` 실호출. 응답 `availability`로 분기
-3. `getActivityJoinSetId` → `POST /api/v1/participations` 실호출. 응답에서 `participationId` + 콘텐츠 ID
-4. embed `onSubmitted` → `POST /api/v1/participations/{id}/submit`
+3. `getActivityJoinSetId` → `POST /api/v1/participations` 실호출. 응답에서 `participationId` + `data.content.lcmsSetId` 취득 (= embed용 `setId`)
+4. embed `onSubmitted` → `POST /api/v1/participations/{id}/submit` (Idempotency-Key 필수, request body 없음)
 5. 응답 봉투: `{ success, data, errorCode }` — `data`만 언랩 (옛 `resultData` 아님)
 6. 에러 분기: `errorCode`로 처리 (예: `ACTIVITY_NOT_AVAILABLE`, `PARTICIPATION_LIMIT_REACHED`)
 
@@ -3474,10 +3550,12 @@ everyCanvas 공지는 `ActivityJoin`에 `activityId`가 필수이고, 우리 수
 
 | prop | 출처 | Phase A | Phase B |
 |------|------|---------|---------|
-| `activityId` | URL param | 그대로 | 그대로 (키가 `accessKey`로 바뀌면 param 이름만) |
-| `setId` | 조회 API | 임시 = URL `activityId` | API 응답 |
+| `activityId` | URL param / 조회 API | (임시) URL `activityId` | `GET /api/v1/entry/{accessKey}` 응답 `data.activityId` |
+| `setId` | 조회 API | 임시 = URL `activityId` | `POST /api/v1/participations` 응답 `data.content.lcmsSetId` (= embed용 `setId`) |
 
-LMS `activityId`와 everyCanvas 활동 id가 **다른 ID 공간**일 수 있다. 지금은 같은 문자열을 넣는다고 가정하고, 스펙이 두 개를 주면 Embed props를 나눈다. Phase A에서 everyCanvas `POST /activities`(Platform)를 호출하지 않는다.
+LMS `activityId`와 everyCanvas 활동 id가 **다른 ID 공간**일 수 있다. 다만 Phase B에서는 `GET /entry/{accessKey}`가 제공하는 `data.activityId`를 everyCanvas `activityId`로 매핑하는 것으로 진행한다(스펙 확정 후 분리 가능).
+
+Phase B에서는 `accessKey`로 API를 시작하지만, embed props는 `activityId`/`lcmsSetId`로 분리해 전달한다.
 
 ---
 
@@ -3542,9 +3620,9 @@ LMS `activityId`와 everyCanvas 활동 id가 **다른 ID 공간**일 수 있다.
 
 - [ ] URL param `:activityId` → `:accessKey` 교체 (추가계획11 Phase B와 동시)
 - [ ] `GET /api/v1/entry/{accessKey}` 실호출 → `availability` 분기
-- [ ] `POST /api/v1/participations` 실호출 → `participationId` + 콘텐츠 setId 취득
-- [ ] embed `onSubmitted` → `POST /api/v1/participations/{id}/submit` (`Idempotency-Key` 필수)
-- [ ] 자동저장 `PATCH /api/v1/participations/{id}`
+- [ ] `POST /api/v1/participations` 실호출 → `participationId` + `data.content.lcmsSetId` (= setId) 취득
+- [ ] embed `onSubmitted` → `POST /api/v1/participations/{id}/submit` (본문 없음 + `Idempotency-Key` 헤더)
+- [ ] 자동저장 `PATCH /api/v1/participations/{id}`는 여러 번 호출 가능. `responses[]` + `payload`를 요청에 담는다
 - [ ] 결과 보기 `GET /api/v1/participations/{id}/result`
 - [ ] 응답 봉투 `data` 언랩 + `errorCode` 분기
 - [ ] (후속) `getToken` · embed 활동 토큰 계약
