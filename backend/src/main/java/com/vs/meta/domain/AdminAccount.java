@@ -15,7 +15,9 @@ public class AdminAccount {
     private String email;
     private String password;
     private String nickname;
-    private String status;
+    private String role;                 // SUPER_ADMIN / ADMIN
+    private String status;               // ACTIVE / SUSPENDED
+    private String mustChangePassword;   // Y / N (최초·초기화 후 변경 필요)
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

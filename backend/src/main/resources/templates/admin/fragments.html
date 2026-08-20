@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <!-- Head: CSS + AdminLTE CDN + Hybrid Theme -->
 <th:block th:fragment="css">
@@ -295,6 +295,9 @@
             <span class="nav-link" th:text="'관리자: ' + ${#authentication.name}"></span>
         </li>
         <li class="nav-item">
+            <a class="nav-link" href="/admin/account/password"><i class="fas fa-key"></i> 비밀번호 변경</a>
+        </li>
+        <li class="nav-item">
             <form th:action="@{/admin/logout}" method="post" style="display:inline">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <button type="submit" class="nav-link btn btn-link" style="color:#f87171 !important; border:none; cursor:pointer;"><i class="fas fa-sign-out-alt"></i> 로그아웃</button>
@@ -342,6 +345,11 @@
                 <li class="nav-item">
                     <a href="/admin/paper-permissions" class="nav-link" th:classappend="${menu == 'paper-permissions'} ? 'active'">
                         <i class="nav-icon fas fa-user-shield"></i><p>검사 권한 관리</p>
+                    </a>
+                </li>
+                <li class="nav-item" sec:authorize="hasRole('SUPER_ADMIN')">
+                    <a href="/admin/accounts" class="nav-link" th:classappend="${menu == 'accounts'} ? 'active'">
+                        <i class="nav-icon fas fa-users-cog"></i><p>계정 관리</p>
                     </a>
                 </li>
             </ul>
