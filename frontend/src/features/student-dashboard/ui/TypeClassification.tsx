@@ -210,6 +210,7 @@ interface TypeClassificationProps {
   predictedType: StudentType;
   typeProbabilities: Record<string, number>;
   schoolLevel: SchoolLevel;
+  showDetailIcons?: boolean;
   showCompare?: boolean;
   prevType?: StudentType;
   prevTypeProbabilities?: Record<string, number>;
@@ -467,6 +468,7 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
   predictedType,
   typeProbabilities,
   schoolLevel,
+  showDetailIcons = true,
   showCompare = false,
   prevType,
   prevTypeProbabilities,
@@ -602,12 +604,12 @@ export const TypeClassification: React.FC<TypeClassificationProps> = ({
             {typeInfo && (
               <DetailsList>
                 <DetailBox>
-                  <DetailTitle>📋 유형 설명</DetailTitle>
+                  <DetailTitle>{showDetailIcons ? '📋 유형 설명' : '유형 설명'}</DetailTitle>
                   <DetailText>{typeInfo.description}</DetailText>
                 </DetailBox>
                 {typeInfo.characteristics && typeInfo.characteristics.length > 0 && (
                   <DetailBox>
-                    <DetailTitle>✨ 주요 특성</DetailTitle>
+                    <DetailTitle>{showDetailIcons ? '✨ 주요 특성' : '주요 특성'}</DetailTitle>
                     <CharacteristicsList>
                       {typeInfo.characteristics.map((char, i) => (
                         <CharacteristicItem key={i}>

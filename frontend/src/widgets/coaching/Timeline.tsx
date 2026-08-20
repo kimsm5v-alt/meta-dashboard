@@ -4,14 +4,20 @@ export const StepDot = styled.div<{ $tone: 1 | 2 | 3 }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   color: white;
   background: ${({ $tone, theme }) =>
     $tone === 1 ? theme.colors.primary[600] : $tone === 2 ? '#3B82F6' : '#22C55E'};
   border-radius: ${({ theme }) => theme.radius.full};
   font-size: ${({ theme }) => theme.typography.fontSize.base};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+`;
+
+export const OverviewStepDot = styled(StepDot)`
+  width: 48px;
+  height: 48px;
+  font-size: ${({ theme }) => theme.typography.fontSize.lg};
 `;
 
 export const TimelineList = styled.div`

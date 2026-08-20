@@ -6,6 +6,7 @@ import { useClassCoachingData } from '@features/coaching/model/useClassCoachingD
 import { CLASS_STRATEGY_CONTENT } from '@features/coaching/data/classStrategyContent';
 import { StrategyCard } from './StrategyCard';
 import {
+  OverviewStepDot,
   StepDot,
   TimelineList,
   TimelineRow,
@@ -119,7 +120,7 @@ const StepStrip = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 32px;
+  gap: 40px;
   flex-wrap: wrap;
 `;
 
@@ -318,6 +319,11 @@ const RankType = styled.span`
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
 
+const RankMarker = styled.span`
+  font-size: ${({ theme }) => theme.typography.fontSize.base};
+  line-height: 1;
+`;
+
 const RankCount = styled.span`
   margin-left: auto;
   color: ${({ theme }) => theme.colors.text.primary};
@@ -368,8 +374,8 @@ const WorksheetButton = styled.button`
   gap: 4px;
   align-self: flex-start;
   padding: 8px 16px;
-  color: ${({ theme }) => theme.colors.gray[400]};
-  background: ${({ theme }) => theme.colors.gray[100]};
+  color: ${({ theme }) => theme.colors.primary[600]};
+  background: transparent;
   border: none;
   border-radius: ${({ theme }) => theme.radius.md};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
@@ -389,6 +395,15 @@ const DONUT_COLORS: Record<string, string> = {
   '냉소적 무기력형': '#EF4444',
   '정서조절 취약형': '#F59E0B',
   '자기주도 몰입형': '#10B981',
+};
+
+const TYPE_MARKERS: Record<string, string> = {
+  자원소진형: '🔴',
+  '안전 균형형': '🟡',
+  '몰입자원 풍부형': '🟢',
+  '냉소적 무기력형': '🔴',
+  '정서조절 취약형': '🟡',
+  '자기주도 몰입형': '🟢',
 };
 
 /** LPA 유형 설명 — 순위 항목·안내 툴팁에 노출 (프로토타입 ClassCoachingView.tsx 기준) */
@@ -571,14 +586,14 @@ export const ClassCoachingSection = ({ classId }: ClassCoachingSectionProps) => 
             return (
               <div key={item.type} style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
                 <StepColumn>
-                  <StepDot $tone={stepNumber}>{stepNumber}</StepDot>
+                  <OverviewStepDot $tone={stepNumber}>{stepNumber}</OverviewStepDot>
                   <StepLabel $tone={stepNumber}>{STEP_LABEL_TEXT[stepNumber]}</StepLabel>
                   <StepFixedTitle>{STEP_FIXED_TITLE[stepNumber]}</StepFixedTitle>
                   <StepSubtitle>
                     {stepNumber === 1 ? `(${item.type} 중심)` : `(${item.type})`}
                   </StepSubtitle>
                 </StepColumn>
-                {index < stepItems.length - 1 && <ChevronRight size={20} color='#D1D5DB' />}
+                {index < stepItems.length - 1 && <ChevronRight size={24} color='#D1D5DB' />}
               </div>
             );
           })}
@@ -614,10 +629,11 @@ export const ClassCoachingSection = ({ classId }: ClassCoachingSectionProps) => 
             {rankedTypes.map((item, index) => (
               <RankItemWrap key={item.type}>
                 <RankRow
-                  $active={selected.type === item.type}
+                  $active={selectedType === item.type}
                   onClick={() => setSelectedType(item.type)}
                 >
                   <RankBadge>{index + 1}위</RankBadge>
+                  <RankMarker>{TYPE_MARKERS[item.type] ?? '⚪'}</RankMarker>
                   <RankType>{item.type}</RankType>
                   <RankCount>
                     {item.count}명 · {total > 0 ? Math.round((item.count / total) * 100) : 0}%
@@ -650,7 +666,7 @@ export const ClassCoachingSection = ({ classId }: ClassCoachingSectionProps) => 
               수업이에요.
             </WorksheetText>
             <WorksheetButton type='button' disabled title='활동지 콘텐츠 연동 준비 중입니다'>
-              <Info size={14} /> 활동지 살펴보기 (준비 중)
+              활동지 살펴보기 <ChevronRight size={16} />
             </WorksheetButton>
           </WorksheetRow>
         </Section>

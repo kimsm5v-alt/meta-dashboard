@@ -1,12 +1,11 @@
-import styled from '@emotion/styled';
-import { CoachingOverviewSection, IndividualCoachingSection } from '@widgets/coaching';
+import {
+  CoachingOverviewSection,
+  CoachingPageFrame,
+  IndividualCoachingSection,
+} from '@widgets/coaching';
 import { useLayoutContext } from '@widgets/layout/v2/LayoutContext';
 import { useGroupMembersQuery } from '@features/groups';
 import { useAuth } from '@features/auth';
-
-const Wrapper = styled.div`
-  padding: ${({ theme }) => theme.spacing.lg};
-`;
 
 export const CoachingIndividualPage = () => {
   const { scope } = useLayoutContext();
@@ -17,13 +16,13 @@ export const CoachingIndividualPage = () => {
   const stdtId = members.find((member) => member.id === scope.studentId)?.stdtId;
 
   return (
-    <Wrapper>
+    <CoachingPageFrame title='개별 코칭'>
       {scope.classId && stdtId ? (
         <IndividualCoachingSection key={stdtId} classId={scope.classId} studentId={stdtId} />
       ) : (
         <CoachingOverviewSection />
       )}
-    </Wrapper>
+    </CoachingPageFrame>
   );
 };
 

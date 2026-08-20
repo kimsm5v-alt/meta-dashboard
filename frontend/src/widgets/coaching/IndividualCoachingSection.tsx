@@ -1,12 +1,22 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
-import { FileSearch, ArrowRight, Info, Loader2, MessageSquare } from 'lucide-react';
+import {
+  ArrowRight,
+  ChevronRight,
+  FileSearch,
+  Info,
+  Lightbulb,
+  Loader2,
+  MessageSquare,
+  ThumbsUp,
+} from 'lucide-react';
 import { useStudentAnalysis } from '@features/api';
 import { TypeClassification } from '@features/student-dashboard/ui';
-import { getIndividualTypeCharacteristics } from '@features/coaching/data/individualTypeCharacteristics';
 import { mapStudentCoachingContent } from '@features/coaching/data/individualCoachingContent';
 import { useStudentCoachingQuery } from '@features/coaching/api/queries';
 import {
+  OverviewStepDot,
   StepDot,
   TimelineList,
   TimelineRow,
@@ -138,11 +148,34 @@ const PrepNoticeText = styled.p`
   line-height: 1.6;
 `;
 
+const RoundToggleRow = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+
+const RoundButton = styled.button<{ $active: boolean }>`
+  padding: 8px 16px;
+  color: ${({ $active, theme }) => ($active ? 'white' : theme.colors.text.secondary)};
+  background: ${({ $active, theme }) =>
+    $active ? theme.colors.primary[600] : theme.colors.gray[100]};
+  border: none;
+  border-radius: ${({ theme }) => theme.radius.md};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  cursor: pointer;
+
+  &:disabled {
+    color: ${({ theme }) => theme.colors.gray[400]};
+    background: ${({ theme }) => theme.colors.gray[50]};
+    cursor: not-allowed;
+  }
+`;
+
 const StepStrip = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 32px;
+  gap: 40px;
   flex-wrap: wrap;
 `;
 
@@ -177,12 +210,32 @@ const Section = styled.div`
   border-radius: ${({ theme }) => theme.radius.xl};
 `;
 
-const CharacteristicsList = styled.ul`
-  margin: 16px 0 0;
-  padding-left: 20px;
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  line-height: 1.8;
+const SectionTitle = styled.h3`
+  margin: 0 0 20px;
+  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: ${({ theme }) => theme.typography.fontSize.lg};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+`;
+
+const StepArrow = styled(ChevronRight)`
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  color: ${({ theme }) => theme.colors.gray[300]};
+`;
+
+const ContentSectionHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+`;
+
+const ContentSectionTitle = styled.h3`
+  margin: 0;
+  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: ${({ theme }) => theme.typography.fontSize.base};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
 `;
 
 const StrengthGrid = styled.div`
@@ -416,18 +469,19 @@ export const IndividualCoachingSection = ({
   studentId,
 }: IndividualCoachingSectionProps) => {
   const navigate = useNavigate();
+  const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
   const { student, classInfo, isLoading, error, refetch } = useStudentAnalysis(classId, studentId);
 
   const r1 = student?.assessments.find((a) => a.round === 1);
   const r2 = student?.assessments.find((a) => a.round === 2);
-  const current = r2 ?? r1;
+  const selectedAssessment = selectedRound === 2 ? r2 : (r1 ?? r2);
 
   const {
     data: coachingData,
     isLoading: isCoachingLoading,
     error: coachingError,
     refetch: refetchCoaching,
-  } = useStudentCoachingQuery(current?.answerIdx);
+  } = useStudentCoachingQuery(selectedAssessment?.answerIdx);
 
   if (isLoading) {
     return (
@@ -463,7 +517,7 @@ export const IndividualCoachingSection = ({
     );
   }
 
-  if (!current) {
+  if (!r1 && !r2) {
     return (
       <NoExamWrap>
         <NoExamIcon>
@@ -498,10 +552,6 @@ export const IndividualCoachingSection = ({
     );
   }
 
-  const characteristics = getIndividualTypeCharacteristics(
-    classInfo.schoolLevel,
-    current.predictedType,
-  );
   const { strengthPraises, coachingPathway } = coachingData
     ? mapStudentCoachingContent(coachingData, student.name || '학생')
     : { strengthPraises: [], coachingPathway: null };
@@ -516,6 +566,19 @@ export const IndividualCoachingSection = ({
 
   return (
     <Wrapper>
+      <RoundToggleRow>
+        <RoundButton $active={selectedRound === 1} onClick={() => setSelectedRound(1)}>
+          1차 검사
+        </RoundButton>
+        <RoundButton
+          $active={selectedRound === 2}
+          disabled={!r2}
+          onClick={() => setSelectedRound(2)}
+        >
+          2차 검사{!r2 && ' (예정)'}
+        </RoundButton>
+      </RoundToggleRow>
+
       <PrepNotice>
         <PrepNoticeIcon />
         <div>
@@ -528,14 +591,18 @@ export const IndividualCoachingSection = ({
       </PrepNotice>
 
       <Section>
+        <SectionTitle>코칭 진행 순서</SectionTitle>
         <StepStrip>
-          {([1, 2, 3] as const).map((step) => (
-            <StepColumn key={step}>
-              <StepDot $tone={step}>{step}</StepDot>
-              <StepLabel $tone={step}>{STEP_LABEL_TEXT[step]}</StepLabel>
-              <StepFixedTitle>{STEP_FIXED_TITLE[step]}</StepFixedTitle>
-              <StepFixedTitle>{STEP_SUBTITLE[step]}</StepFixedTitle>
-            </StepColumn>
+          {([1, 2, 3] as const).map((step, index) => (
+            <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
+              <StepColumn>
+                <OverviewStepDot $tone={step}>{step}</OverviewStepDot>
+                <StepLabel $tone={step}>{STEP_LABEL_TEXT[step]}</StepLabel>
+                <StepFixedTitle>{STEP_FIXED_TITLE[step]}</StepFixedTitle>
+                <StepFixedTitle>{STEP_SUBTITLE[step]}</StepFixedTitle>
+              </StepColumn>
+              {index < 2 && <StepArrow />}
+            </div>
           ))}
         </StepStrip>
       </Section>
@@ -550,20 +617,11 @@ export const IndividualCoachingSection = ({
             <TimelineHeading>{TIMELINE_HEADING[1]}</TimelineHeading>
             <Section>
               <TypeClassification
-                predictedType={current.predictedType}
-                typeProbabilities={current.typeProbabilities}
+                predictedType={selectedAssessment!.predictedType}
+                typeProbabilities={selectedAssessment!.typeProbabilities}
                 schoolLevel={classInfo.schoolLevel}
-                showCompare={!!r1 && !!r2}
-                prevType={r1?.predictedType}
-                prevTypeProbabilities={r1?.typeProbabilities}
+                showDetailIcons={false}
               />
-              {characteristics.length > 0 && (
-                <CharacteristicsList>
-                  {characteristics.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </CharacteristicsList>
-              )}
             </Section>
           </TimelineContent>
         </TimelineRow>
@@ -576,6 +634,10 @@ export const IndividualCoachingSection = ({
           <TimelineContent>
             <TimelineHeading>{TIMELINE_HEADING[2]}</TimelineHeading>
             <Section>
+              <ContentSectionHeader>
+                <ThumbsUp size={20} color='#16A34A' />
+                <ContentSectionTitle>이 학생만의 칭찬 포인트, 인정해 주세요</ContentSectionTitle>
+              </ContentSectionHeader>
               <StrengthGrid>
                 {strengthPraises.map((praise, index) => (
                   <StrengthCard key={praise.factor}>
@@ -603,11 +665,16 @@ export const IndividualCoachingSection = ({
         <TimelineRow>
           <TimelineTrack>
             <StepDot $tone={3}>3</StepDot>
+            <TimelineLine />
           </TimelineTrack>
           <TimelineContent>
             <TimelineHeading>{TIMELINE_HEADING[3]}</TimelineHeading>
             {coachingPathway ? (
               <Section>
+                <ContentSectionHeader>
+                  <Lightbulb size={20} color='#D97706' />
+                  <ContentSectionTitle>이 학생에게 맞는 코칭, 이렇게 해보세요</ContentSectionTitle>
+                </ContentSectionHeader>
                 <PathwayNotice>
                   <PathwayNoticeHeader>
                     <Info size={16} color='#B45309' />

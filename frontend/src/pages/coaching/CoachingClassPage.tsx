@@ -1,22 +1,21 @@
-import styled from '@emotion/styled';
-import { ClassCoachingSection, CoachingOverviewSection } from '@widgets/coaching';
+import {
+  ClassCoachingSection,
+  CoachingOverviewSection,
+  CoachingPageFrame,
+} from '@widgets/coaching';
 import { useLayoutContext } from '@widgets/layout/v2/LayoutContext';
-
-const Wrapper = styled.div`
-  padding: ${({ theme }) => theme.spacing.lg};
-`;
 
 export const CoachingClassPage = () => {
   const { scope } = useLayoutContext();
 
   return (
-    <Wrapper>
+    <CoachingPageFrame title='학급 코칭'>
       {scope.classId ? (
         <ClassCoachingSection key={scope.classId} classId={scope.classId} />
       ) : (
         <CoachingOverviewSection />
       )}
-    </Wrapper>
+    </CoachingPageFrame>
   );
 };
 
