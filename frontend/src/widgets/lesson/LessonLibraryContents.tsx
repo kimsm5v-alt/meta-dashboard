@@ -29,8 +29,20 @@ const ErrorText = styled.p`
 `;
 
 export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsProps) => {
-  const { data, isPending, isFetching, isError, error } = useCmsSetListQuery(filters, sort);
-  const items = useMemo(() => (data?.list ?? []).map(mapCmsSetToLibItem), [data]);
+  const {
+    data,
+    isPending,
+    isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    isError,
+    error,
+  } = useCmsSetListQuery(filters, sort);
+  const items = useMemo(
+    () => (data?.pages ?? []).flatMap((page) => page.list).map(mapCmsSetToLibItem),
+    [data],
+  );
 
   // --- MOCK 경로 (필요 시 아래 주석 해제 + 위 CMS 훅 비활성) ---
   // const items = useMemo(() => {
@@ -66,8 +78,15 @@ export const LessonLibraryContents = ({ filters, sort }: LessonLibraryContentsPr
     <Contents>
       <ResourceCardList
         items={items}
-        isLoading={isPending || isFetching}
-        emptyMessage='자료가 없습니다'
+        isLoading={isPending || (isFetching && !isFetchingNextPage)}
+        hasMore={Boolean(hasNextPage)}
+        isFetchingMore={isFetchingNextPage}
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+          }
+        }}
+        emptyMessage='조회된 자료가 없습니다'
       />
     </Contents>
   );

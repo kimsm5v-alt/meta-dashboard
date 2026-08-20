@@ -27,6 +27,10 @@ export const LessonLibraryPage = () => {
 
   return (
     <Page>
+      <ContentsHeader>
+        <Title>전체 자료실</Title>
+        <Description>검증 · 비검증 · 내외부 SEL 콘텐츠를 함께 탐색합니다.</Description>
+      </ContentsHeader>
       <FilterPanel
         filters={filters}
         sort={sort}
@@ -34,10 +38,6 @@ export const LessonLibraryPage = () => {
         onClear={onClear}
         onSort={onSort}
       />
-      <ContentsHeader>
-        <Title>전체 자료실</Title>
-        <Description>검증 · 비검증 · 내외부 SEL 콘텐츠를 함께 탐색합니다.</Description>
-      </ContentsHeader>
       <LessonLibraryContents filters={filters} sort={sort} />
     </Page>
   );

@@ -7,6 +7,8 @@ export { LessonEditorEmbed } from './ui/LessonEditorEmbed';
 export type { LessonEditorEmbedProps } from './ui/LessonEditorEmbed';
 export { LessonViewerEmbed } from './ui/LessonViewerEmbed';
 export type { LessonViewerEmbedProps } from './ui/LessonViewerEmbed';
+export { LessonActivityJoinEmbed } from './ui/LessonActivityJoinEmbed';
+export type { LessonActivityJoinEmbedProps } from './ui/LessonActivityJoinEmbed';
 export { useLibraryFilters } from './model/useLibraryFilters';
 export { matchLibraryItem, sortLibraryItems } from './model/matchLibraryFilters';
 export { MOCK_LIBRARY_ITEMS } from './model/mockLibraryItems';

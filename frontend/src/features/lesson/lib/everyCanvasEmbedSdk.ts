@@ -25,10 +25,11 @@ export type LessonMeta = {
  * SDK 1.5 공지상 제거됐으나, Frame이 `saved`를 발행하면 Host에서 수신한다.
  */
 export type SavedPayload = {
+  trigger: 'manual' | 'auto';
   slideId: string;
+  lcmsSetId: string;
+  title: string;
   thumbnail?: string;
-  lcmsSetId?: string;
-  title?: string;
   lessonMeta?: LessonMeta;
 };
 

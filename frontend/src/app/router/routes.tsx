@@ -48,6 +48,7 @@ import {
   LessonDeployPage,
   LessonEditorPage,
   LessonViewerPage,
+  LessonJoinPage,
 } from '@pages/index';
 
 // ============================================================
@@ -141,6 +142,35 @@ const StudentProtectedLayout = () => {
     <StudentLayout>
       <Outlet />
     </StudentLayout>
+  );
+};
+
+/**
+ * 인증 필요, 사이드바 없는 풀스크린 학생 화면 레이아웃
+ */
+const StudentFullscreenLayout = () => {
+  const location = useLocation();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isChecking } = useProfileCheck(isAuthenticated);
+
+  if (isLoading || isChecking) {
+    return <PageLoading text='로딩 중...' />;
+  }
+
+  if (!isAuthenticated) {
+    const redirect = encodeURIComponent(`${location.pathname}${location.search}`);
+    return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
+
+  // 교사가 학생 경로 접근 시 교사 대시보드로 강제 이동
+  if (user?.roleCode && user.roleCode !== 'STUDENT') {
+    return <Navigate to='/dashboard' replace />;
+  }
+
+  return (
+    <MinimalLayout>
+      <Outlet />
+    </MinimalLayout>
   );
 };
 
@@ -294,6 +324,11 @@ export const AppRoutes = () => (
       <Route path='/student/result/selfreg' element={<MySelfregResultPage />} />
       <Route path='/student/result/selfreg/:resultId' element={<MySelfregResultPage />} />
       <Route path='/exam/student' element={<ExamPage />} />
+    </Route>
+
+    {/* 학생 라우트 - 풀스크린(사이드바 없음), 일반 인증 필요 */}
+    <Route element={<StudentFullscreenLayout />}>
+      <Route path='/student/lesson/:activityId' element={<LessonJoinPage />} />
     </Route>
 
     {/* 개발용 — 프로덕션 빌드에서도 접근 가능하지만 링크 미노출 */}

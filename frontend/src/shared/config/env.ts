@@ -26,11 +26,8 @@ export const ENV = {
   EVERYCLASS_EMBED_BASE_URL:
     (import.meta.env.VITE_EVERYCLASS_EMBED_BASE_URL as string | undefined) ?? '',
   /** superplatform-lms API 게이트웨이 기본 URL */
-  SP_LMS_API_URL:
-    (import.meta.env.VITE_SP_LMS_API_URL as string | undefined) ?? '',
+  SP_LMS_API_URL: (import.meta.env.VITE_SP_LMS_API_URL as string | undefined) ?? '',
   /** public CMS API 기본 URL */
-  CMS_API_URL:
-    (import.meta.env.VITE_CMS_API_URL as string | undefined) ?? '',
-  CMS_FILE_URL:
-    (import.meta.env.VITE_CMS_FILE_URL as string | undefined) ?? '',
+  CMS_API_URL: (import.meta.env.VITE_CMS_API_URL as string | undefined) ?? '',
+  CMS_FILE_URL: (import.meta.env.VITE_CMS_FILE_URL as string | undefined) ?? '',
 } as const;

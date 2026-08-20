@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
+import type { CSSObject } from '@emotion/react';
 import { toast } from 'sonner';
+import { theme } from '@app/styles/theme';
 import { Button } from '@shared/ui/Button/Button';
 import {
   ResourceCardList,
@@ -22,6 +24,23 @@ const ContentsHeader = styled.div`
 `;
 
 const ContentsHeaderLeft = styled.div``;
+
+const BUTTON_PRIMARY_CSS: CSSObject = {
+  flex: 'none',
+  borderRadius: '8px',
+  border: 'none',
+  padding: '8px 14px',
+  fontSize: theme.typography.fontSize.sm,
+  fontWeight: theme.typography.fontWeight.semibold,
+  color: '#ffffff',
+  background: theme.colors.primary[500],
+  transform: 'none',
+  transition: 'color 150ms ease, background-color 150ms ease',
+  '&:hover:not(:disabled)': {
+    background: theme.colors.primary[600],
+    transform: 'none',
+  },
+};
 
 const Title = styled.h1`
   margin: 0;
@@ -51,6 +70,7 @@ const ErrorText = styled.p`
 
 export const LessonMyPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { data, isPending, isError, error } = useRefSetListQuery();
   const { mutate: deleteRefSet } = useDeleteRefSetMutation();
 
@@ -95,8 +115,9 @@ export const LessonMyPage = () => {
         <Button
           variant='primary'
           size='md'
-          onClick={() => navigate('/lesson/editor')}
+          onClick={() => navigate(`/lesson/editor${location.search}`)}
           type='button'
+          css={BUTTON_PRIMARY_CSS}
         >
           + 새로 만들기
         </Button>
@@ -113,7 +134,7 @@ export const LessonMyPage = () => {
             variant='my'
             onDelete={handleDelete}
             isLoading={isPending}
-            emptyMessage='아직 만든 자료가 없습니다'
+            emptyMessage='저장된 자료가 없습니다'
           />
         )}
       </ListWrap>

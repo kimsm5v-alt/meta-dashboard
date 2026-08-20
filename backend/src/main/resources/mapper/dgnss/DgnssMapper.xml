@@ -667,6 +667,26 @@
 		  AND gm.user_no IS NOT NULL
 	</select>
 
+	<!-- 독려) dgnssId 의 ACTIVE 학생 중 미제출(subm_at='Y' 없음) 학생 user_no. 탈퇴/미매핑 자동 제외. -->
+	<select id="selectUnsubmittedStudentUserNoListByDgnssId" resultType="long">
+		/* DgnssMapper.selectUnsubmittedStudentUserNoListByDgnssId */
+		SELECT DISTINCT gm.user_no
+		FROM tb_dgnss_info tdi
+			INNER JOIN group_info gi ON tdi.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id
+		WHERE tdi.id = #{dgnssId}
+		  AND gm.status = 'ACTIVE'
+		  AND gm.member_type = 'STUDENT'
+		  AND gm.user_no IS NOT NULL
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM tb_dgnss_result_info tdri
+			WHERE tdri.dgnss_id = tdi.id
+			  AND tdri.stdt_id = gm.stdt_id
+			  AND tdri.subm_at = 'Y'
+		  )
+	</select>
+
 	<update id="updateStSubmit" parameterType="int">
 		/* DgnssMapper.updateStSubmit */
 		UPDATE tb_dgnss_result_info
@@ -2250,6 +2270,30 @@
 			AND a1.dgnss_at = 'N'
 			AND b1.subm_at = 'Y'
 		ORDER BY gm.member_no
+	</select>
+
+	<!-- 변화추적) 학생(stdt_id) 회차(ord_no)별 학습현황 원본값(LSANS01~05). 코드 매핑은 서비스에서 수행.
+	     기본 종합검사(paper_idx=1) — 자기조절과 ord_no 충돌 방지. paperIdx<=0 이면 전체. -->
+	<select id="selectStudentLearningStatus" resultType="map">
+		/* DgnssMapper.selectStudentLearningStatus */
+		SELECT a1.ord_no    AS ordNo
+			 , c1.ANSWER_IDX AS answerIdx
+			 , c1.LS_ANS01   AS ls01
+			 , c1.LS_ANS02   AS ls02
+			 , c1.LS_ANS03   AS ls03
+			 , c1.LS_ANS04   AS ls04
+			 , c1.LS_ANS05   AS ls05
+		FROM tb_dgnss_info a1
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id
+			INNER JOIN tb_dgnss_answer c1 ON b1.id = c1.DGNSS_RESULT_ID
+		WHERE a1.cla_id = #{claId}
+			AND b1.stdt_id = #{stdtId}
+			AND a1.dgnss_at = 'N'
+			AND b1.subm_at = 'Y'
+			<if test="paperIdx != null and paperIdx > 0">
+				AND a1.paper_idx = #{paperIdx}
+			</if>
+		ORDER BY a1.ord_no
 	</select>
 
 	<select id="selectLernType2" resultType="map" parameterType="map">

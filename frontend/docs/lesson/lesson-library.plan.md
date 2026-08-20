@@ -8,16 +8,18 @@
 |------|------|------|
 | **추가계획1** | `FilterPanel` UI + 로컬 필터 상태 | Phase 1 완료 / API 미착수 |
 | **추가계획2** | Contents Description 아래 자료 목록(`ResourceCardList`) + 필터 연동(목업) | Phase A 완료 / Phase B 대기 |
-| **추가계획3** | `LessonMyPage` 나의 자료 목록 — `ResourceCardList` `variant="my"` + 목업 | Phase A 완료 / API 대기 |
+| **추가계획3** | `LessonMyPage` 나의 자료 목록 — `ResourceCardList` `variant="my"` + 목업 | 구현 완료 (Phase B API는 추가계획6·10) |
 | **추가계획4** | `ResourceCard` 시작하기 버튼 → 활동 배포 페이지 (`DeployPage`) 라우트 연결 | 계획 수립 완료 / 구현 대기 |
 | **추가계획5** | Editor/Viewer embed 독립 라우트 페이지 전환 + LessonEditorEmbed features 활성화 | 구현 완료 |
-| **추가계획6** | `onSaved` → `POST /api/ref-set` 자동 등록 + `LessonMyPage` `GET /api/ref-set` 목록 연동 | 구현 완료 (ResourceCardList 연결 제외) |
+| **추가계획6** | `onSaved` → `POST /api/ref-set` 자동 등록 + `LessonMyPage` `GET /api/ref-set` 목록 연동 | 구현 완료 (ResourceCardList 연결은 추가계획10) |
 | **추가계획7** | `ResourceCard` 수정하기 → `/lesson/editor/:slideId` 이동 (`item.id`) | 구현 완료 |
 | **추가계획8** | 전체 자료실 CMS `GET /api/sets` 연동 + 필터 재조회/레이스 처리 + loading UI | 구현 완료 |
 | **추가계획9** | `DeployPage` 실시간 수업 → Viewer + `ResourceCard`→deploy `state.item` + URL 직접 진입 시 item 재조회 | 구현 완료 |
 | **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 구현 완료 |
-| **추가계획11** | DeployPage·저작툴 시작하기 — 활동 시작/종료 API + QR·참여링크 연동 | 타이틀만 / 상세 미작성 |
-| **추가계획12** | 학생용 수업 뷰어 라우트 (QR·참여링크 진입, SlideViewer 재사용) | 타이틀만 / 상세 미작성 · 추가계획11 완료 후 |
+| **추가계획11** | DeployPage·저작툴 시작하기 — `POST /api/v1/activities` + `publish` → `accessKey` + QR·참여링크 조립 | 상세 작성 (2026-08-19) · Phase A 구현 가능 / POST 본문 대기 |
+| **추가계획12** | 학생용 `/student/lesson/:activityId` — `GET /entry/{accessKey}` + `POST /participations` → `activity-join` embed | Phase A 구현 완료 (2026-08-19) / Phase B API 대기 |
+| **추가계획13** | 전체 자료실 CMS 목록 무한 스크롤(`pageSize=10`) + 나의 자료 `GET /api/v1/library-items` 페이지네이션 | Phase A 구현 완료 / Phase B API 대기 |
+| **추가계획14** | 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) 마이그레이션 | 분석 완료 (2026-08-19) · 미착수 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `GET .../api/sets` (`brandId=18`, `serviceType=131132`) | 추가계획8 스펙 확정 · 필터 매핑 미적용 |
@@ -776,7 +778,7 @@ const items = useMemo(
 
 > **목표**: 프로토타입 `MyDataView`의 세트지 그리드(24–36행)를 `LessonMyPage`의 `ContentsHeader` **바로 아래**에 배치한다.  
 > **재사용**: 자료실과 동일 UI인 `ResourceCardList` / `ResourceCard`에 `variant` props로 모드 분기.  
-> **범위**: Phase A = UI + 목업. Phase B = 나의 자료 API(미정) 연동.  
+> **범위**: Phase A = UI + 목업. Phase B = 나의 자료 API 연동 (추가계획6·10에서 완료).  
 > **준수**: Emotion, 이모지 금지, FSD (`pages → features`)
 
 ---
@@ -837,12 +839,12 @@ LessonMyPage
 5. [x] barrel export
 6. [x] `tsc` / ESLint
 
-### Phase B — API (후속)
+### Phase B — API (추가계획6·10에서 완료)
 
-1. 나의 자료 목록 API 확정 후 React Query 훅
-2. 목업 `useMemo`/상수 교체
-3. 카드 CTA → Editor Embed / 배포 플로우 연결
-4. 삭제 버튼 UI는 `variant=my`에 포함. API/목록 갱신은 Phase B
+1. [x] 나의 자료 목록 API 확정 후 React Query 훅 — `useRefSetListQuery` (추가계획6)
+2. [x] 목업 `useMemo`/상수 교체 — `mapRefSetToLibItem` → `ResourceCardList` (추가계획10)
+3. [x] 카드 CTA → Editor / 배포 플로우 연결 — 추가계획4·7·9
+4. [x] 삭제 API/목록 갱신 — `DELETE /api/ref-set/{refSetId}` (추가계획10)
 
 ---
 
@@ -870,7 +872,8 @@ LessonMyPage
 ---
 
 **작성일**: 2026-08-12  
-**상태**: Phase A(목업) 완료 / Phase B(API) 대기
+**수정**: 2026-08-18 — Phase B(API)는 추가계획6·10과 동일 범위. 추가계획10에서 구현 완료로 확인  
+**상태**: 구현 완료
 
 ---
 
@@ -1288,8 +1291,9 @@ export type { ..., StartLessonPayload } from './lib/everyCanvasEmbedSdk';
 # 추가계획6 — LMS ref-set API 연동 (`onSaved` 자동 등록 + 목록 조회)
 
 > **참조**: [`lesson-everycanvas-lms-integration.plan.md §3(나의 자료), §5.1, §5.3`](./lesson-everycanvas-lms-integration.plan.md)  
-> **상태**: 구현 완료 (ResourceCardList 연결 제외 — 추후 Phase)  
-> **2026-08-14 갱신**: LMS 참조-only 계약 반영 — `title`/`subjectCd`/`schoolLevelCd` 컬럼 제거, meta-dashboard `options`(`title` 필수 · `thumbnailUrl` 선택) store-and-echo. `LibItem`은 `id`·`title` 필수, 나머지 선택.
+> **상태**: 구현 완료 (`ResourceCardList` 연결은 추가계획10에서 완료)  
+> **2026-08-14 갱신**: LMS 참조-only 계약 반영 — `title`/`subjectCd`/`schoolLevelCd` 컬럼 제거, meta-dashboard `options`(`title` 필수 · `thumbnailUrl` 선택) store-and-echo. `LibItem`은 `id`·`title` 필수, 나머지 선택.  
+> **2026-08-18 갱신**: 추가계획3 Phase B · 추가계획6 잔여(`ResourceCardList` 연결) · 추가계획10이 동일 범위임을 확인하고 구현 완료로 통일.
 
 ## 1. 현황 및 목표
 
@@ -1298,15 +1302,15 @@ export type { ..., StartLessonPayload } from './lib/everyCanvasEmbedSdk';
 | 항목 | 현재 상태 |
 |------|-----------|
 | `LessonEditorPage.onSaved` | `lcmsSetId` + `title` 있을 때 `POST /api/ref-set` (`options` 포함) |
-| `LessonMyPage` 목록 | `MOCK_LIBRARY_ITEMS` 사용 중 (`useRefSetListQuery` 마운트만) |
+| `LessonMyPage` 목록 | `useRefSetListQuery` + `mapRefSetToLibItem` → `ResourceCardList` (추가계획10에서 연결 완료) |
 | `features/lesson/api/` | `queryKeys` · `lmsRefSetService` · `queries` 구현 완료 |
 | `shared/config/env.ts` | `VITE_SP_LMS_API_URL` / `ENV.SP_LMS_API_URL` 추가 완료 |
 
 ### 목표
 
 1. `onSaved(p)` → `p.lcmsSetId` + `p.title` 있을 때 `POST /api/ref-set` 자동 등록 (중복 방지 포함)
-2. `LessonMyPage`에서 `GET /api/ref-set` 실제 데이터 조회 — `resultData.list` 취득까지만
-   - `ResourceCardList` 연결(mapper 포함)은 **추후 별도 확인 후 연동** (§4.4 참조)
+2. `LessonMyPage`에서 `GET /api/ref-set` 실제 데이터 조회
+   - `ResourceCardList` 연결(mapper 포함)은 추가계획10에서 완료 (§4.4 참조)
 3. 기존 API 패턴(`queryKeys.ts` / service / `queries.ts`)에 맞는 구조로 구현
 
 ## 2. 연동 흐름
@@ -1332,8 +1336,7 @@ LessonEditorPage
 LessonMyPage (마운트)
   └─ useRefSetListQuery()
       └─ GET {ENV.SP_LMS_API_URL}/api/ref-set
-          └─ resultData.list → 취득 완료 (여기까지만 구현)
-              └─ ResourceCardList 연결 → 추후 별도 Phase (§4.4)
+          └─ resultData.list → mapRefSetToLibItem → ResourceCardList (추가계획10에서 연결 완료)
 ```
 
 ## 3. LMS 호출 경로 (확정)
@@ -1501,11 +1504,11 @@ export function useRegisterRefSetMutation() {
 
 > **cache miss 시**: `useRefSetListQuery`가 마운트 전이거나 아직 fetch 전이면 cached가 없어 중복 체크가 불가하다. 이 경우 POST가 실행되며, LMS가 같은 `lcmsSetId`로 중복 행을 허용하는지는 추가 확인 필요 (→ 미확정 항목 #2).
 
-### 4.4 `features/lesson/model/mapRefSetToLibItem.ts` — **추후 연동 Phase**
+### 4.4 `features/lesson/model/mapRefSetToLibItem.ts` — **추가계획10에서 연결 완료**
 
 `RefSetItem`(LMS `GET /api/ref-set`) → `LibItem`.  
 매핑: `id←lcmsSetId`, `refSetId←refSetId`, `title←options.title`, `thumbnailUrl←options.thumbnailUrl`, `createdAt←createdAt`.  
-`ResourceCardList` 연결은 **이번 구현 범위에서 제외**(골격만).
+`ResourceCardList` 연결은 추가계획10에서 완료.
 
 ```ts
 import type { RefSetItem } from '../api/lmsRefSetService';
@@ -1591,24 +1594,21 @@ onSaved={(p: SavedPayload) => {
 }}
 ```
 
-### 5.2 `pages/lesson/LessonMyPage.tsx` — GET 조회만 (ResourceCardList 연결 제외)
+### 5.2 `pages/lesson/LessonMyPage.tsx` — GET 조회 + ResourceCardList 연결 (추가계획10)
 
-`useRefSetListQuery()`로 데이터 조회까지만 구현. `data.list` → `ResourceCardList` 연결은 **이번 범위 제외**.  
-기존 `MOCK_LIBRARY_ITEMS` / `useState<LibItem[]>` 는 mapper 연동 전까지 **유지**한다.
+`useRefSetListQuery()`로 조회한 `data.list`를 `mapRefSetToLibItem`으로 변환해 `ResourceCardList`에 전달.  
+MOCK 경로는 주석으로 보존.
 
 ```tsx
-import { useRefSetListQuery } from '@features/lesson';
+import { useRefSetListQuery, mapRefSetToLibItem } from '@features/lesson';
 
-// 조회 훅 마운트 (데이터 확인용)
-const { data: refSetData, isLoading, isError } = useRefSetListQuery();
-
-// TODO: refSetData?.list → mapRefSetToLibItem → ResourceCardList 연결 (추후 Phase)
-// 현재는 기존 MOCK_LIBRARY_ITEMS + useState items 유지
+const { data: refSetData, isPending, isError } = useRefSetListQuery();
+const items = useMemo(() => (refSetData?.list ?? []).map(mapRefSetToLibItem), [refSetData]);
 ```
 
 ### 5.3 `features/lesson/index.ts`
 
-신규 훅·타입 export. mapper(`mapRefSetToLibItem`)는 ResourceCardList 연결 전까지 export 보류.
+신규 훅·타입·mapper export. `mapRefSetToLibItem`은 추가계획10에서 `ResourceCardList` 연동과 함께 export 완료.
 
 ```ts
 export { useRefSetListQuery, useRegisterRefSetMutation } from './api/queries';
@@ -1633,8 +1633,8 @@ export type {
 | `features/lesson/ui/ResourceCard.tsx` | **수정 완료** | optional `src`/`selArea`/`colorGroup` 가드 |
 | `features/lesson/model/matchLibraryFilters.ts` | **수정 완료** | optional `selArea` 가드 |
 | `pages/lesson/LessonEditorPage.tsx` | **수정 완료** | `options: { title, thumbnailUrl? }` POST |
-| `pages/lesson/LessonMyPage.tsx` | **수정 완료** | `useRefSetListQuery` 마운트 (MOCK 유지) |
-| `features/lesson/index.ts` | **수정 완료** | 훅·타입 export (`RefSetOptions` 포함) |
+| `pages/lesson/LessonMyPage.tsx` | **수정 완료** | `useRefSetListQuery` + `mapRefSetToLibItem` → `ResourceCardList` (추가계획10) |
+| `features/lesson/index.ts` | **수정 완료** | 훅·타입·`mapRefSetToLibItem` export (`RefSetOptions` 포함) |
 
 ## 7. 확정·미확정 항목
 
@@ -1645,8 +1645,8 @@ export type {
 | 3 | **makeMethod 기본값** | **확정** | 미전달 시 `3`(자료실) |
 | 4 | **options 계약** | **확정** | `title`(필수)·`thumbnailUrl`(선택). LMS 스키마 검증 없음(store-and-echo) |
 | 5 | **subjectCd / schoolLevelCd** | **폐기** | LMS 컬럼 아님. POST body·GET 응답에서 제거 |
-| 6 | **DELETE ref-set** | **보류** | API 스펙 미수령 |
-| 7 | **ResourceCardList 연결** | **추후 Phase** | `mapRefSetToLibItem` → `ResourceCardList` 별도 연동 |
+| 6 | **DELETE ref-set** | **완료** | 추가계획10 — `DELETE /api/ref-set/{refSetId}` |
+| 7 | **ResourceCardList 연결** | **완료** | 추가계획10 — `mapRefSetToLibItem` → `ResourceCardList` |
 
 ## 8. 완료 기준
 
@@ -1658,6 +1658,12 @@ export type {
 - [x] `lessonKeys` factory 사용, 임의 문자열 query key 없음
 - [x] DTO/`LibItem`을 options 계약·선택 필드에 맞춤
 - [x] `npx tsc -b --noEmit`, eslint 통과
+- [x] `refSetData.list` → `mapRefSetToLibItem` → `ResourceCardList` 연결 — 추가계획10에서 완료
+
+---
+
+**수정**: 2026-08-18 — `ResourceCardList` 연결·DELETE는 추가계획10에서 완료. 추가계획3 Phase B와 동일 범위.  
+**상태**: 구현 완료
 
 ---
 
@@ -1714,7 +1720,7 @@ export type {
 
 > **상태**: 구현 완료 (2026-08-14 응답 페이지 객체 `{ list, pageNo, pageSize, totalCount }` 반영)  
 > **범위**: `LessonLibraryContents` mock → CMS 세트 목록 API 교체. FilterPanel 값은 아직 API 파라미터에 매핑하지 않음(동일 쿼리 재호출). MOCK 코드는 주석으로 보존.  
-> **비범위**: 필터 taxonomy ↔ CMS metaId 매핑, 무한 스크롤(페이지네이션 고도화), 썸네일 UI 렌더(타입만 추가)
+> **비범위**: 필터 taxonomy ↔ CMS metaId 매핑, 무한 스크롤(페이지네이션 고도화 → 추가계획13), 썸네일 UI 렌더(타입만 추가)
 
 ## 1. 현황 및 목표
 
@@ -2109,7 +2115,7 @@ export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 | 5 | 레이스 처리 | 확정 | queryKey(filters,sort) + fetch AbortSignal |
 | 6 | LibItem 매핑 | 부분 | id/title/thumbnailUrl만 호환. src/selArea/colorGroup은 **TO FIX** |
 | 7 | thumbnail UI | 보류 | 타입만 추가. `ResourceCard` Thumb에 이미지 렌더는 별도 |
-| 8 | 페이지네이션 | 보류 | pageSize=10 고정. `totalCount`는 수신만. 더보기/무한스크롤 미포함 |
+| 8 | 페이지네이션 | 보류 → 추가계획13 | pageSize=10 고정. `totalCount`는 수신만. 무한스크롤은 추가계획13 |
 | 9 | CORS / 인증 | **확정** | `getAuth().authorizedFetch`로 Bearer JWT 전달 |
 
 ## 8. 완료 기준
@@ -2525,6 +2531,7 @@ cmsSet: (setId: string) => [...lessonKeys.cmsSets(), setId] as const,
 # 추가계획10 — 나의 자료 실제 API 연동 + 삭제 기능
 
 > **상태**: 구현 완료  
+> **동일 범위**: 추가계획3 Phase B(API 대기) · 추가계획6 잔여(`ResourceCardList` 연결)와 동일. 본 계획에서 일괄 완료.  
 > **범위**:  
 > 1) `LessonMyPage` mock → LMS `GET /api/ref-set` 실제 목록 연동 (`mapRefSetToLibItem` 적용)  
 > 2) `ResourceCard` 삭제 버튼 → LMS `DELETE /api/ref-set/{refSetId}` 호출 + 목록 갱신  
@@ -2922,25 +2929,1150 @@ export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 
 **작성일**: 2026-08-14  
 **구현 완료일**: 2026-08-17  
+**수정**: 2026-08-18 — 추가계획3 Phase B · 추가계획6 잔여(`ResourceCardList` 연결)와 동일 범위 확인  
 **상태**: 구현 완료
 
 ---
 
-# 추가계획11 — DeployPage·저작툴 활동 시작/종료 API 연동
+# 추가계획11 — DeployPage·저작툴 활동 시작 → 참여키(`activityId`)·QR·링크
 
-> **상태**: 타이틀만 / 상세 미작성  
-> **선행**: 추가계획9 (DeployPage item·Viewer 이동)
+> **상태**: 상세 작성 (2026-08-19) · Phase A 구현 가능 / `POST /activities` 스펙 대기  
+> **선행**: 추가계획9 (DeployPage item·교사 Viewer 이동)  
+> **후행**: 추가계획12 (학생 `/student/lesson/:activityId`)  
+> **범위**: 교사가 배포/시작 시 활동을 만들고, 학생에게 줄 **참여 링크·QR**을 FE에서 조립한다. 학생 화면·SDK는 추가계획12.
 
-1. DeployPage에서 수업 시작, 활동 시작(QR 발급, 참여링크) API 연동
-   - 시작하기 시 활동 시작 및 종료 API 연결 (뷰어에서 활동 종료)
-   - 저작툴 `LessonEditorPage` `handleStartLesson` (`onStartLesson`)에서도 동일 연결
+API가 아직 확정되지 않았다. **경로·본문·필드명을 추측해 호출하지 않는다.** 이번 구현은 링크 계약·UI 배선·서비스 스켈레톤까지다.
 
 ---
 
-# 추가계획12 — 학생용 수업 뷰어 라우트
+## 1. 한 줄 요약
 
-> **상태**: 타이틀만 / 상세 미작성  
-> **선행**: 추가계획11 완료
+교사 DeployPage에서 배포(시작하기) → `POST /activities`(미확정)가 `activityId`를 주면, 그 값이 **학생 참여 키**다. FE는 아래 URL을 만들어 QR·복사에 쓴다.
 
-1. QR 생성·참여링크를 통해 학생이 들어갈 수 있는 학생용 수업 뷰어 route 화면 구성
-   - SlideViewer 동일하게 사용 예정
+```
+{origin}/student/lesson/{activityId}
+```
+
+LMS 키트 문서의 `accessKey`(`act-…`)와 **지금은 구분하지 않는다.** 확정되면 path param 이름만 바꾸면 되도록, 학생 라우트는 `:activityId`로 고정한다.
+
+---
+
+## 2. 역할 분리 (11 vs 12)
+
+| 담당 | 하는 일 | 안 하는 일 |
+|------|---------|------------|
+| **추가계획11 (교사 FE)** | 활동 생성 호출(스펙 오면), `activityId`로 참여 URL 조립, QR·복사 표시. 저작툴은 DeployPage로 보낸다 | 학생 iframe, 참여 가능 여부 판정 |
+| **추가계획12 (학생 FE)** | `/student/lesson/:activityId` 진입, 참여 가능 확인, `activity-join` embed | `POST /activities`, QR 생성 |
+| **LMS** | `activityId` 발급 (스펙 확정 후) | 완성된 URL 문자열 |
+| **everyCanvas SDK** | 학생 화면 렌더 (`activity-join`) | 참여 링크 발급 |
+
+링크에 SDK가 들어 있지 않다. 링크는 **추가계획12 페이지 주소**이고, 그 페이지가 embed를 마운트한다.
+
+---
+
+## 3. 식별자 가정 (이번 작업 고정 · API 확정 시 재검토)
+
+| 값 | 이번 가정 | 비고 |
+|----|-----------|------|
+| `activityId` | `POST /api/v1/activities` 응답 `id`. 내부 식별자 | Phase A 임시 학생 키. Phase B에서 `accessKey`로 교체 |
+| `accessKey` | `POST /api/v1/activities/{id}/publish` 응답 | **학생 참여 키 (정식)**. Phase B에서 join URL param을 이 값으로 교체 |
+| `setId` / `lcmsSetId` | 콘텐츠(CBS 세트) | 교사 Viewer(`/lesson/viewer/:setId`)·배포 path에 사용. **학생 URL에 넣지 않음** |
+| `libraryItemId` | `POST /api/v1/library-items` 응답 | 보관함 ID. 활동 출제 시 `source.libraryItemId`로 전달 |
+| 참여 링크 | `buildLessonJoinUrl(accessKey)` | origin은 `window.location.origin`. 하드코딩 도메인 금지 |
+
+배포 결과 카드의 목업 `https://class.visang.co.kr/viewer/6ab0…` 는 제거한다.
+
+---
+
+## 4. 현황
+
+| 항목 | 현재 |
+|------|------|
+| DeployPage `doDeploy` | 로컬 `setDeployed` + toast. API 없음 |
+| 결과 링크 | 목업 URL. 복사도 toast만 |
+| QR | `QrPlaceholder` (`▨`). `qrcode.react`는 assessment `QRCodeModal`에 이미 있음 |
+| 실시간 「수업 시작하기」 | `navigate(\`/lesson/viewer/${setId}\`)` — **교사 Viewer**. 유지 |
+| `LessonEditorPage.handleStartLesson` | `console.log` no-op |
+
+---
+
+## 5. 이번 / 다음
+
+### Phase A — API 없이 구현 (이번)
+
+1. `buildLessonJoinUrl(activityId)` — `features/lesson/lib/buildLessonJoinUrl.ts`
+2. DeployPage 결과 카드: `activityId`가 있으면 실 URL + QR(`qrcode.react` `QRCodeCanvas`) + 복사
+3. `createActivity` 서비스 **스켈레톤만** (함수·타입·주석). **실제 fetch 금지** — 경로/본문 미확정
+4. 저작툴 `onStartLesson` → DeployPage 이동 (`/lesson/deploy/${lcmsSetId}`). 활동 생성은 DeployPage에서만
+5. Phase A 개발 확인: `activityId` 자리에 **임시로 `setId`** 를 넣을 수 있다. 주석 `임시 — POST /activities 응답 activityId로 교체`. 프로덕션 분기처럼 숨기지 말 것
+
+### Phase B — 스펙 수신 후 (이번 금지)
+
+1. `POST /activities` 실호출. 응답 `activityId`로 결과 카드·QR 갱신
+2. 요청 본문 (`lcmsSetId`, 반 명단, 기간/`openAt`·`closeAt`, `audienceType` 등) 스펙 대로
+3. 활동 종료(`close`) — 교사 Viewer/배포 화면. 경로 미정
+4. LMS가 `accessKey`를 따로 주면 join path를 `activityId` → 그 키로 교체 (추가계획12와 한 번에)
+
+---
+
+## 6. 교사 흐름
+
+```
+자료실/나의 자료 「시작하기」  ──┐
+저작툴 onStartLesson          ──┴─▶ /lesson/deploy/:setId[/:refSetId]
+                                      │
+                                      ▼
+                               「배포하기」
+                                      │
+                    Phase B: POST /activities ──▶ activityId
+                    Phase A: 임시 activityId = setId (개발용)
+                                      │
+                                      ▼
+                    참여 URL = {origin}/student/lesson/{activityId}
+                    QR = 그 URL 인코딩
+                                      │
+                    실시간 모드 「수업 시작하기」
+                      → 교사 /lesson/viewer/:setId   (추가계획9 유지)
+                    기간 모드 「수업 결과보기로 이동」
+                      → /lesson/result               (유지)
+```
+
+학생이 여는 주소와 교사가 여는 Viewer는 **입구가 다르다.**
+
+---
+
+## 7. LMS API 매핑 (새 API 스펙 기반)
+
+> 출처: `superplatform-lms/docs/guide/api-spec.md`, `docs/aihelper/ai-연동-작업지침.md`
+
+### 교사 배포 흐름에 사용할 API
+
+| 순서 | 엔드포인트 | 역할 | 비고 |
+|------|-----------|------|------|
+| 1 | `POST /api/v1/activities` | **출제 (초안 생성)** — DRAFT 상태로 활동 생성 | `source.libraryItemId` 필수. items(문항) 스냅샷 포함 |
+| 2 | `PUT /api/v1/activities/{id}/assignees` | 배정 명단 전체 교체 (선택) | `audienceType: 'ASSIGNED'`일 때만 |
+| 3 | `POST /api/v1/activities/{id}/publish` | **발행** — `accessKey` 발급. PUBLISHED 상태 | **이 응답의 `accessKey`가 학생 참여 키** |
+| — | `POST /api/v1/activities/{id}/close` | 마감 (Phase B) | 수업 종료 시 |
+| — | `POST /api/v1/activities/{id}/reopen` | 마감 해제 (Phase B) | 교사가 다시 열 때 |
+
+### `POST /api/v1/activities` 요청 본문 (스펙 확인됨)
+
+```ts
+// features/lesson/api/lmsActivityService.ts — Phase B 구현 시 사용
+export type CreateActivityBody = {
+  source: {
+    libraryItemId: string;      // 보관함(library-items)에 등록된 ID. 미등록이면 담기 먼저
+  };
+  items: Array<{
+    lcmsArticleId: string;      // CMS 문항 ID (문자열)
+    maxScore: number;           // 배점. 정답은 보내지 않음 (절대 규칙 1)
+    options?: Record<string, unknown>; // 서비스 고유 값
+  }>;
+  title?: string;
+  audienceType: 'ASSIGNED' | 'OPEN';
+  allowedIdentityTypes: Array<'MEMBER' | 'GUEST_TOKEN' | 'PARTICIPATION_HANDLE'>;
+  openAt?: string;              // ISO 8601. 없으면 발행 즉시 OPEN
+  closeAt?: string;             // PARTICIPATION_HANDLE 쓰면 필수
+  attemptPolicy?: 'SINGLE' | 'UNLIMITED';
+  resultVisibility?: 'IMMEDIATE' | 'AFTER_CLOSE' | 'HIDDEN';
+  gradingPolicy?: 'NONE' | 'CLIENT_ALLOWED' | 'TRUSTED_ONLY';
+  options?: Record<string, unknown>;
+};
+```
+
+### `POST /api/v1/activities/{id}/publish` 응답
+
+```ts
+export type PublishActivityResult = {
+  accessKey: string;  // 학생 참여 키. 이걸로 join URL 조립
+  // availability: 'OPEN' | 'NOT_STARTED' 등
+};
+```
+
+> **핵심 변경**: 이전 가정에서는 `POST /activities` 응답의 `activityId`를 학생 키로 썼다. 새 스펙에서는 **`publish` 응답의 `accessKey`**가 학생 키다. Phase B에서 join URL을 `accessKey` 기반으로 교체한다.
+
+### Phase A (현재) — 스켈레톤
+
+```ts
+export async function createActivity(_body: CreateActivityBody): Promise<{ activityId: string }> {
+  throw new Error('POST /activities 스펙 대기 — 호출하지 말 것');
+}
+```
+
+- `lmsFetch` 패턴은 `lmsRefSetService`와 같게 둔다 (base `ENV.SP_LMS_API_URL`).
+- 현재 `lmsRefSetService`는 **옛 API**(`/api/ref-set`, 봉투 `resultData`)를 쓰고 있다. 추가계획14에서 새 API로 마이그레이션한다.
+- TanStack Query mutation은 **Phase B**에서 `useCreateActivityMutation`으로 추가. Phase A에서 훅을 만들어 죽은 경로를 호출하지 말 것.
+- DeployPage `doDeploy`는 Phase A에서 기존처럼 로컬 `setDeployed`를 유지하되, 결과 카드에 넣을 `activityId`를 상태로 둔다 (임시 = `setId`).
+
+### Phase B 구현 순서
+
+1. `POST /api/v1/activities` 실호출 (items·source 포함)
+2. `POST /api/v1/activities/{id}/publish` → `accessKey` 수신
+3. `buildLessonJoinUrl(accessKey)` — **`activityId` 대신 `accessKey`**
+4. 결과 카드·QR에 `accessKey` 기반 URL 표시
+5. 활동 종료: `POST /api/v1/activities/{id}/close`
+
+---
+
+## 8. 참여 링크 조립
+
+```ts
+export function buildLessonJoinUrl(activityId: string): string {
+  const path = `/student/lesson/${encodeURIComponent(activityId)}`;
+  if (typeof window === 'undefined') return path;
+  return `${window.location.origin}${path}`;
+}
+```
+
+| 규칙 | 내용 |
+|------|------|
+| origin | 현재 앱 origin. `class.visang.co.kr` 하드코딩 금지 |
+| path | 추가계획12와 동일 `/student/lesson/:activityId` |
+| QR | `qrcode.react` `QRCodeCanvas`에 **완성 URL** (`value={joinUrl}`) |
+| 복사 | `navigator.clipboard.writeText(joinUrl)` 후 기존 toast `'링크가 복사되었습니다'` |
+
+assessment `QRCodeModal`을 lesson에서 import하지 않는다 (FSD: feature 간 의존 금지). `qrcode.react`만 재사용한다.
+
+---
+
+## 9. DeployPage 변경
+
+`doDeploy` 성공 후 `deployed`에 `activityId`·`joinUrl`을 넣는다.
+
+| UI | Phase A | Phase B |
+|----|---------|---------|
+| 링크 input | `buildLessonJoinUrl(activityId)` (임시 `activityId=setId`) | 응답 `activityId` |
+| QR | `QRCodeCanvas` `value={joinUrl}` | 동일, 키만 실값 |
+| 복사 | 실 URL 클립보드 | 동일 |
+| 실시간 「수업 시작하기」 | `/lesson/viewer/:setId` 유지 | 유지. 학생 join과 섞지 않음 |
+| `POST /activities` | 호출 안 함 | `doDeploy`에서 호출. 실패 시 toast, 결과 카드 비표시 |
+
+배포 실패(Phase B)와 콘텐츠 조회 실패(추가계획9)를 구분한다. 조회 실패 문구는 바꾸지 않는다.
+
+기간 모드도 같은 참여 링크를 만든다. 학생이 나중에 join하는 입구는 모드와 무관하게 `/student/lesson/:activityId`다.
+
+---
+
+## 10. 저작툴 `handleStartLesson`
+
+활동 POST를 Editor에서 중복 호출하지 않는다. DeployPage와 **같은 배포 화면**으로 보낸다.
+
+```ts
+const handleStartLesson = (p: StartLessonPayload) => {
+  const nextSetId = p.lcmsSetId;
+  if (!nextSetId) {
+    toast.error('콘텐츠 ID가 없습니다');
+    return;
+  }
+  navigate(`/lesson/deploy/${nextSetId}`);
+};
+```
+
+- URL 직접 진입과 같이 DeployPage가 CMS/LMS로 item을 재조회한다 (추가계획9).
+- `p.lcmsSetId` 없음 → 이동하지 않음.
+- 여기서 `createActivity` 호출 금지.
+
+---
+
+## 11. 하지 말 것
+
+| 금지 | 이유 |
+|------|------|
+| 미확정 `POST /activities` 경로·본문으로 fetch | 잘못된 계약이 고정됨 |
+| 학생 URL에 `setId`만 넣기 | 같은 세트 다중 활동과 키가 충돌. 이번 키는 `activityId` |
+| 교사 `/lesson/viewer/:setId`를 학생 링크로 쓰기 | 교사 레이아웃·인증. 추가계획12와 분리 |
+| LMS가 완성 URL을 준다는 가정 | 스펙상 키만 옴. URL은 FE 조립 |
+| Editor에서 활동 생성 API 직접 호출 | DeployPage 단일 입구 |
+| 활동 종료 API 이번 구현 | 경로 미정. Phase B |
+| lesson → assessment `QRCodeModal` import | FSD feature 경계 |
+
+---
+
+## 12. 변경 파일 (Phase A)
+
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `features/lesson/lib/buildLessonJoinUrl.ts` | 신규 | origin + `/student/lesson/:activityId` |
+| `features/lesson/api/lmsActivityService.ts` | 신규 | `createActivity` 스켈레톤. throw. 실호출 없음 |
+| `features/lesson/ui/DeployPage.tsx` | 수정 | `activityId`/`joinUrl` 상태, QR·복사 실URL, 목업 링크 제거 |
+| `pages/lesson/LessonEditorPage.tsx` | 수정 | `onStartLesson` → `/lesson/deploy/${lcmsSetId}` |
+| `features/lesson/index.ts` | 수정 | `buildLessonJoinUrl` export |
+
+Phase B에서 `queries.ts` mutation·`doDeploy` 실호출을 추가한다.
+
+---
+
+## 13. 확정·미확정
+
+| # | 항목 | 상태 | 내용 |
+|---|------|------|------|
+| 1 | 학생 path | **이번 확정** | `/student/lesson/:activityId` |
+| 2 | URL 조립 주체 | **이번 확정** | 교사 FE (`buildLessonJoinUrl`) |
+| 3 | 참여 키 | **작업 가정** | `activityId`. LMS `accessKey` 확정 시 교체 |
+| 4 | `POST /activities` | **미확정** | 경로·본문·응답. Phase A 호출 금지 |
+| 5 | 활동 종료 | **미확정** | Phase B |
+| 6 | 임시 키 | **Phase A만** | `activityId = setId`. 주석 필수 |
+
+---
+
+## 14. 완료 기준
+
+### Phase A (이번 구현 대상)
+
+- [ ] `buildLessonJoinUrl`이 현재 origin 기준 `/student/lesson/{activityId}` 반환
+- [ ] DeployPage 배포 후 링크 input이 그 URL. 목업 도메인 없음
+- [ ] QR이 같은 URL을 인코딩. 복사 시 클립보드에 그 URL
+- [ ] Editor 「수업하기」→ `/lesson/deploy/{lcmsSetId}` (POST 없음)
+- [ ] `createActivity` 스켈레톤은 있고, 런타임에 호출되지 않음
+- [ ] 실시간 「수업 시작하기」는 기존 교사 Viewer 유지
+- [ ] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
+
+### Phase B (스펙 대기 — 착수하지 않음)
+
+- [ ] `doDeploy` → `POST /activities` → 응답 `activityId`로 링크/QR 갱신
+- [ ] 실패 toast. 성공 전에는 결과 카드에 키를 넣지 않음
+- [ ] (선택) 종료 API. 스펙 오기 전 금지
+
+---
+
+**작성일**: 2026-08-19  
+**상태**: 상세 작성 · Phase A 구현 가능 / POST 스펙 대기
+
+---
+
+# 추가계획12 — 학생용 `/student/lesson/:activityId` + activity-join embed
+
+> **상태**: Phase A 구현 완료 (2026-08-19) / Phase B 참여확인·setId 조회 API 대기  
+> **선행**: 추가계획11의 **링크 계약** (`/student/lesson/:activityId`). 교사 POST Phase B를 기다리지 않아도 라우트는 만들 수 있다  
+> **범위**: 학생이 QR/링크로 들어와 참여 가능하면 `activity-join` SDK를 보여 준다. Viewer(`LessonViewerEmbed`)를 학생 입구로 재사용하지 않는다.
+
+---
+
+## 1. 한 줄 요약
+
+```
+/student/lesson/:activityId
+  → (API 미정) 이 학생이 참여 가능인지
+  → 불가: 메시지
+  → 가능: (API 미정) activityId → setId
+  → LessonActivityJoinEmbed (mode: 'activity-join', activityId + setId)
+```
+
+문제 풀기 UI는 everyCanvas `activity-join`이다. Host는 라우트·권한 게이트·id 주입만 한다.
+
+---
+
+## 2. 현황 및 왜 Viewer를 안 쓰나
+
+| 화면 | 경로 | 레이아웃 | SDK mode | URL 키 |
+|------|------|----------|----------|--------|
+| 교사 Viewer (있음) | `/lesson/viewer/:setId` | `TeacherFullscreenLayout` | `viewer` | 콘텐츠 `setId` |
+| 교사 Editor (있음) | `/lesson/editor/:setId` | 동일 | `editor` | `setId` |
+| **학생 참여 (이번)** | `/student/lesson/:activityId` | 학생 풀스크린 (신규) | **`activity-join`** | **활동 `activityId`** |
+
+`LessonViewerEmbed`는 교사 미리보기/실시간 수업용이다. 학생 제출 계약은 everyCanvas `activity-join` (`/embed/activity/:activityId/join`). Editor/Viewer와 **같은 래퍼 패턴**으로 새 Embed를 만든다. Viewer를 학생 라우트에 마운트하지 않는다.
+
+로컬 SDK 타입은 이미 `EmbedMode`에 `'activity-join'`이 있다. `CreateEmbedOptions.activityId`도 있다.
+
+---
+
+## 3. 이번 / 다음
+
+### Phase A — API 없이 구현 (이번)
+
+1. 라우트 `/student/lesson/:activityId` + `LessonJoinPage`
+2. 학생 인증 + **사이드바 없는** 풀스크린 레이아웃 (`StudentLayout` 사용 금지)
+3. `LessonActivityJoinEmbed` — `LessonEditorEmbed` / `LessonViewerEmbed`와 동일 구조 (`useEveryCanvasEmbed`, `mode: 'activity-join'`)
+4. 페이지 상태 머신: 로딩 / 참여불가 / 준비됨(embed) / 에러
+5. 참여 가능·setId 조회는 **서비스 스켈레톤 + 페이지 분기 UI**. 실호출 금지
+6. Phase A 개발 확인: 조회 API 전엔 `setId = activityId`(URL 값)로 embed에 넣을 수 있다. 주석 `임시 — activityId→setId 조회 응답으로 교체`
+
+### Phase B — 스펙 수신 후 (이번 금지)
+
+1. 참여 가능 여부 API 실호출. 불가면 embed 없이 문구만
+2. `activityId` → `setId` 조회 실호출. 받은 `setId`를 embed에 전달
+3. embed `getToken` / Result 서버 — everyCanvas 활동 토큰 계약이 오면 그때
+
+---
+
+## 4. 라우트·레이아웃
+
+`TeacherAuthGuard` 안에 두지 않는다. 교사가 열면 학생 경로 가드가 대시보드로 보낸다. QR은 학생용이다.
+
+```tsx
+// routes.tsx — Teacher 블록이 아님
+<Route element={<StudentJoinLayout />}>
+  <Route path='/student/lesson/:activityId' element={<LessonJoinPage />} />
+</Route>
+```
+
+`StudentJoinLayout` (이름 가칭):
+
+| 요구 | 내용 |
+|------|------|
+| 인증 | 필요. 미인증 → `/login`. **가능하면** 로그인 후 `/student/lesson/:activityId`로 복귀 (`location.pathname` 유지). 기존 가드가 `replace`만 하면 QR 진입이 끊기므로, join 레이아웃에서 redirect를 명시 |
+| 역할 | `STUDENT`만. 교사는 기존처럼 교사 홈으로 |
+| 레이아웃 | `MinimalLayout` (GNB/LNB/학생 사이드바 없음). Embed 전체 화면 |
+| 게스트 | 기존 기획(게스트 제외) 유지. 게스트 라우트 부활 금지 |
+
+`pages/index.ts`에 `LessonJoinPage` export. `FEATURES.IA_V2` 가드가 교사 lesson과 같다면 join도 동일 플래그 안에 둔다.
+
+---
+
+## 5. 페이지 흐름 (`LessonJoinPage`)
+
+```
+activityId 없음 → 이전 페이지 또는 안내
+        │
+        ▼
+참여 가능 확인 (Phase B API / Phase A는 스켈레톤·임시 허용)
+        │
+        ├─ 불가 → 「참여할 수 없는 활동입니다」 (embed 마운트 금지)
+        ├─ 로딩 → PageLoading
+        ├─ 에러 → 조회 실패 문구 (불가와 구분)
+        └─ 가능
+              │
+              ▼
+         setId 조회 (Phase B API / Phase A 임시 setId=activityId)
+              │
+              ├─ 없음/실패 → 에러 문구. embed 금지
+              └─ 있음 → <LessonActivityJoinEmbed activityId setId />
+```
+
+Page는 얇게: params, 조회 훅(Phase B), 상태 분기, Embed 마운트. 스타일·SDK 옵션은 feature UI에 둔다.
+
+불가 메시지는 toast만 쓰지 않는다. 풀스크린에서 본문이 비면 학생이 이유를 못 본다. **페이지 중앙 문구**로 둔다. 문안 Phase A 고정:
+
+- 참여 불가: `이 활동에 참여할 수 없습니다`
+- 조회 실패: `활동 정보를 불러오지 못했습니다` (0건/불가와 구분)
+- `activityId` 없음: embed 없이 종료
+
+---
+
+## 6. Embed — `LessonActivityJoinEmbed`
+
+`LessonViewerEmbed` / `LessonEditorEmbed` 복사 후 mode·id만 바꾼다.
+
+```tsx
+export type LessonActivityJoinEmbedProps = {
+  activityId: string;
+  setId: string; // activityId 조회 API(미정) 응답. Phase A 임시 = URL activityId
+  onExitRequested?: (payload: { reason?: 'userClose' | 'done' }) => void;
+  onSubmitted?: (payload: unknown) => void; // Phase B. 이번 저장 연동 없음
+  onError?: (error: EmbedError) => void;
+  onReady?: () => void;
+};
+
+// useEveryCanvasEmbed
+options: {
+  embedBaseUrl: ENV.EVERYCLASS_EMBED_BASE_URL,
+  mode: 'activity-join',
+  activityId,
+  slideId: setId, // SDK가 activity-join에서 slideId를 어떻게 쓰는지는 미정. Host는 둘 다 넣는다
+  locale: 'ko-KR',
+  theme: { '--ec-color-accent': appTheme.colors.primary[500] },
+  // getToken: Phase B
+},
+identity: [ENV.EVERYCLASS_EMBED_BASE_URL, activityId, setId],
+```
+
+| 규칙 | 내용 |
+|------|------|
+| `openSet` | **호출하지 않음.** `openSet`은 Editor(SDK 1.5)용. activity-join에서 setId는 options로만 |
+| `getSsoToken` | Viewer와 같이 이번 미사용. Editor만 유지 |
+| `getToken` | 주석 자리만. Viewer와 동일. 발급 API 오면 Phase B |
+| 이벤트 | `exitRequested` → `navigate(-1)` 또는 빈 안내. `submitted` / `phaseChanged` / `progress`는 훅에 구독만, 저장 API 없음 |
+
+`useEveryCanvasEmbed`의 `KNOWN_EVENTS`에 activity-join용 `submitted`·`phaseChanged`·`progress`를 추가한다. 핸들러가 없으면 no-op. Editor/Viewer 기존 이벤트는 유지.
+
+참여 가능 확인 **전**에 Embed를 마운트하지 않는다. 불가인데 iframe이 뜨면 안 된다.
+
+---
+
+## 7. LMS API 매핑 (새 API 스펙 기반)
+
+> 출처: `superplatform-lms/docs/guide/api-spec.md` § 진입·참여
+
+### 학생 참여 흐름에 사용할 API
+
+| 순서 | 엔드포인트 | 역할 | 비고 |
+|------|-----------|------|------|
+| 1 | `GET /api/v1/entry/{accessKey}` | **진입** — 무슨 활동인지 확인 | **인증 불필요**. `availability` 값으로 참여 가능 판단 |
+| 2 | `POST /api/v1/participations` | **참여 시작** — 회차 생성 또는 기존 회차 반환 | 구조적 멱등 (진행 중이면 200 반환). `activityId` + 신원 |
+| 3 | `GET /api/v1/participations/{id}` | 이어하기 — 저장된 응답 복원 | |
+| 4 | `PATCH /api/v1/participations/{id}` | 자동저장 | `Idempotency-Key` 불필요 (자연 멱등) |
+| 5 | `POST /api/v1/participations/{id}/submit` | 제출 확정 | `Idempotency-Key` 필수 |
+| 6 | `GET /api/v1/participations/{id}/result` | 내 결과 | `resultVisibility` 정책에 따라 보임 |
+
+### `GET /api/v1/entry/{accessKey}` 응답 (`Entry` 타입)
+
+```ts
+type Entry = {
+  activityId: string;
+  title: string | null;
+  availability: 'NOT_AVAILABLE' | 'NOT_STARTED' | 'OPEN' | 'CLOSED';
+  audienceType: 'ASSIGNED' | 'OPEN';
+  allowedIdentityTypes: Array<'MEMBER' | 'GUEST_TOKEN' | 'PARTICIPATION_HANDLE'>;
+  openAt: string | null;
+  closeAt: string | null;
+  itemCount: number;
+};
+```
+
+> **참여 가능 판단**: `availability === 'OPEN'`이면 참여 가능. `NOT_STARTED` / `CLOSED`는 불가 문구 표시.
+
+### Phase A (현재) vs Phase B 매핑
+
+| 기능 | Phase A (현재) | Phase B (새 API) |
+|------|---------------|-----------------|
+| URL param | `:activityId` (임시) | `:accessKey` (publish 응답 값) |
+| 참여 가능 확인 | 임시 `allowed=true` | `GET /entry/{accessKey}` → `availability === 'OPEN'` |
+| setId 조회 | `setId = activityId` (임시) | `POST /participations` 응답에서 콘텐츠 ID 취득 |
+| 제출 | `onSubmitted` 구독만 | `POST /participations/{id}/submit` |
+| 자동저장 | 없음 | `PATCH /participations/{id}` |
+| 결과 보기 | 없음 | `GET /participations/{id}/result` |
+
+### Phase A 스켈레톤 (현재 코드)
+
+```ts
+// features/lesson/api/lmsActivityService.ts — Phase A: 시그니처만, 실호출 금지
+
+export async function getActivityJoinEligibility(_activityId: string): Promise<{
+  allowed: boolean;
+}> {
+  throw new Error('참여 가능 확인 API 스펙 대기 — 호출하지 말 것');
+}
+
+export async function getActivityJoinSetId(_activityId: string): Promise<{
+  setId: string;
+}> {
+  throw new Error('activityId→setId 조회 API 스펙 대기 — 호출하지 말 것');
+}
+```
+
+Phase A 페이지:
+
+- 위 함수를 `queryFn`에 넣지 않는다.
+- `allowed`는 임시 `true`.
+- `setId`는 임시 `activityId`(URL).
+- 불가 UI는 **임시 `allowed=false`를 코드에서 켜 볼 수 있게** 분기는 구현해 둔다.
+
+### Phase B 구현 시 변경 사항
+
+1. URL param을 `:accessKey`로 교체 (추가계획11과 동시)
+2. `getActivityJoinEligibility` → `GET /api/v1/entry/{accessKey}` 실호출. 응답 `availability`로 분기
+3. `getActivityJoinSetId` → `POST /api/v1/participations` 실호출. 응답에서 `participationId` + 콘텐츠 ID
+4. embed `onSubmitted` → `POST /api/v1/participations/{id}/submit`
+5. 응답 봉투: `{ success, data, errorCode }` — `data`만 언랩 (옛 `resultData` 아님)
+6. 에러 분기: `errorCode`로 처리 (예: `ACTIVITY_NOT_AVAILABLE`, `PARTICIPATION_LIMIT_REACHED`)
+
+---
+
+## 8. SDK에 넣는 값
+
+everyCanvas 공지는 `ActivityJoin`에 `activityId`가 필수이고, 우리 수업 콘텐츠는 `setId`(CBS)다. Host는 둘 다 넘긴다.
+
+| prop | 출처 | Phase A | Phase B |
+|------|------|---------|---------|
+| `activityId` | URL param | 그대로 | 그대로 (키가 `accessKey`로 바뀌면 param 이름만) |
+| `setId` | 조회 API | 임시 = URL `activityId` | API 응답 |
+
+LMS `activityId`와 everyCanvas 활동 id가 **다른 ID 공간**일 수 있다. 지금은 같은 문자열을 넣는다고 가정하고, 스펙이 두 개를 주면 Embed props를 나눈다. Phase A에서 everyCanvas `POST /activities`(Platform)를 호출하지 않는다.
+
+---
+
+## 9. 하지 말 것
+
+| 금지 | 이유 |
+|------|------|
+| 학생 라우트에 `LessonViewerEmbed` | mode `viewer`, 교사 계약. 제출은 `activity-join` |
+| `TeacherFullscreenLayout` 아래 join | 학생 QR이 교사 가드에 막힘 |
+| `StudentLayout` 사이드바 | 풀스크린 embed |
+| 참여 확인 전에 embed 마운트 | 불가 학생에게 iframe 노출 |
+| 미확정 eligibility/setId API fetch | 11과 동일 |
+| 게스트 레이아웃 부활 | 기획 제외 |
+| Result 서버·제출 저장 이번 구현 | `onSubmitted` 구독만 |
+| join URL에 `setId` 쿼리를 필수화 | 키는 `activityId`. setId는 서버 조회 |
+
+---
+
+## 10. 변경 파일 (Phase A)
+
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `pages/lesson/LessonJoinPage.tsx` | **신규 완료** | params, 로딩/불가/에러/embed 분기. Phase A `resolveJoinViewState` |
+| `features/lesson/ui/LessonActivityJoinEmbed.tsx` | **신규 완료** | `mode: 'activity-join'`, `activityId` + `setId` |
+| `features/lesson/lib/useEveryCanvasEmbed.ts` | **수정 완료** | `submitted`·`phaseChanged`·`progress` 구독. `openSet`은 editor만 |
+| `features/lesson/api/lmsActivityService.ts` | **신규 완료** | eligibility / setId 스켈레톤 throw |
+| `app/router/routes.tsx` | **수정 완료** | `StudentJoinLayout` + `/student/lesson/:activityId` |
+| `pages/index.ts` | **수정 완료** | `LessonJoinPage` export |
+| `features/lesson/index.ts` | **수정 완료** | `LessonActivityJoinEmbed` export |
+
+`useEveryCanvasEmbed`의 `openSet`: Editor만. `options.mode === 'editor'`일 때만 `openSet(setId)`. activity-join/viewer는 options의 `slideId`/`activityId`로 Frame이 연다.
+
+---
+
+## 11. 확정·미확정
+
+| # | 항목 | 상태 | 내용 |
+|---|------|------|------|
+| 1 | 학생 path | **확정** | `/student/lesson/:activityId` (11과 동일) |
+| 2 | 학생 SDK | **확정** | `activity-join` 새 Embed. Viewer 재사용 안 함 |
+| 3 | 불가 UX | **확정** | embed 없이 페이지 메시지 |
+| 4 | 참여 가능 API | **미정** | 스켈레톤만 |
+| 5 | setId 조회 API | **미정** | 스켈레톤만. Phase A 임시 `setId=activityId` |
+| 6 | embed token | **미정** | `getToken` 주석 |
+| 7 | 로그인 복귀 | **Phase A에서 가능한 한** | join URL이 로그인에 삼켜지지 않게 |
+
+---
+
+## 12. 완료 기준
+
+### Phase A (구현 완료)
+
+- [x] `/student/lesson/:activityId` 가 학생 풀스크린으로 열린다 (교사 가드·학생 사이드바 없음)
+- [x] `StudentJoinLayout`: 학생 인증 + `MinimalLayout`, 미인증 시 `/login?redirect=...`
+- [x] `LessonActivityJoinEmbed`가 `mode: 'activity-join'` + `activityId` + `setId`로 `createEmbed`
+- [x] 참여 불가 분기 UI (`이 활동에 참여할 수 없습니다`) — Phase A는 `ready`만 진입
+- [x] 조회 실패 문구 (`활동 정보를 불러오지 못했습니다`) — `activityId` 없을 때
+- [x] 미확정 API fetch 없음. `setId` 임시 = URL `activityId`
+- [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
+
+### Phase B (새 LMS API 연동)
+
+- [ ] URL param `:activityId` → `:accessKey` 교체 (추가계획11 Phase B와 동시)
+- [ ] `GET /api/v1/entry/{accessKey}` 실호출 → `availability` 분기
+- [ ] `POST /api/v1/participations` 실호출 → `participationId` + 콘텐츠 setId 취득
+- [ ] embed `onSubmitted` → `POST /api/v1/participations/{id}/submit` (`Idempotency-Key` 필수)
+- [ ] 자동저장 `PATCH /api/v1/participations/{id}`
+- [ ] 결과 보기 `GET /api/v1/participations/{id}/result`
+- [ ] 응답 봉투 `data` 언랩 + `errorCode` 분기
+- [ ] (후속) `getToken` · embed 활동 토큰 계약
+
+---
+
+**작성일**: 2026-08-19  
+**구현 완료일**: 2026-08-19 (Phase A)  
+**상태**: Phase A 구현 완료 / Phase B 새 LMS API 연동 대기
+
+---
+
+
+# 추가계획13 — 전체 자료실 무한 스크롤 + 나의 자료 페이지네이션(예정)
+
+> **상태**: Phase A 구현 완료 / Phase B API 대기  
+> **선행**: 추가계획8 (CMS `GET /api/sets`), 추가계획10 (나의 자료 `GET /api/ref-set`)  
+> **범위**:  
+> 1) 전체 자료실 — `useCmsSetListQuery`를 `useInfiniteQuery`로 바꿔 `pageSize=10`씩 하단 스크롤 시 다음 페이지 추가. `totalCount`가 상한.  
+> 2) `serviceType: 131132` 하드코딩은 **이번 미변경**. 추후 수정 필요.  
+> 3) 나의 자료 — 동일 UX를 적용할 예정이지만 `GET /api/ref-set`에 `pageNo`/`pageSize`가 없어 **구현 예정만**.
+
+---
+
+## 1. 현황
+
+| 항목 | 현재 상태 |
+|------|-----------|
+| CMS 목록 훅 | `useCmsSetListQuery` — `useInfiniteQuery`. `CMS_SETS_DEFAULT` 기반 `pageNo=0`부터 시작 |
+| CMS 호출 위치 | `LessonLibraryContents` → `data.pages.flatMap` → `mapCmsSetToLibItem` → `ResourceCardList` |
+| CMS 응답 | `{ list, pageNo, pageSize, totalCount }` (추가계획8 실측) |
+| LMS 목록 훅 | `useRefSetListQuery` — `useQuery` 1회. `getRefSetList()` 쿼리 없음 |
+| LMS 호출 위치 | `LessonMyPage` → `data.list` → `mapRefSetToLibItem` → `ResourceCardList` |
+| LMS 응답 | `{ totalCount, list }` — `pageNo`/`pageSize` 없음 |
+| 목록 UI | `ResourceCardList` — `onEndReached`/`hasMore`/`isFetchingMore` + 하단 센티널/추가 로딩 |
+| 스크롤 컨테이너 | `MainLayoutV2` `MainContent`는 `overflow` 없음. 문서(viewport) 스크롤 |
+| 기존 참고 구현 | 알림 `useInfiniteQuery` + `IntersectionObserver` (`NotificationList`). 학교검색은 `totalCount` 기준 `getNextPageParam` |
+
+### 현재 CMS 고정 호출 (`queries.ts`)
+
+```ts
+const CMS_SETS_DEFAULT = {
+  pageNo: 0,
+  pageSize: 10,
+  brandId: 18,
+  serviceType: 131132, // 추후 수정 필요
+} as const;
+
+export function useCmsSetListQuery(filters: LibFilters, sort: SortKey) {
+  return useQuery({
+    queryKey: [...lessonKeys.cmsSets(), filters, sort],
+    queryFn: ({ signal }) => getCmsSetList({ ...CMS_SETS_DEFAULT }, signal),
+    placeholderData: keepPreviousData,
+  });
+}
+```
+
+`getCmsSetList`는 이미 `pageNo`/`pageSize`를 받으므로 서비스 함수 시그니처는 유지하고, 훅만 `pageParam`으로 `pageNo`를 넘기면 된다.
+
+---
+
+## 2. `serviceType: 131132` — 추후 수정 필요
+
+이번 계획에서 **값을 바꾸거나 env로 빼지 않는다.** 무한 스크롤 구현 시에도 동일 상수를 그대로 둔다.
+
+| 항목 | 내용 |
+|------|------|
+| 위치 | `features/lesson/api/queries.ts` `CMS_SETS_DEFAULT.serviceType` |
+| 현재 값 | `131132` (추가계획8 고정 param) |
+| 이번 계획 | 하드코딩 유지 |
+| 후속 | **추후 수정 필요** — 출처(브랜드/서비스 설정, env, 로그인 컨텍스트 등) 미정. 확정 후 `CMS_SETS_DEFAULT`에서 분리 |
+
+`brandId: 18`도 같은 상수에 하드코딩되어 있으나 이번 범위 밖. `serviceType`만 후속 수정 대상으로 명시한다.
+
+구현 시 상수 옆에 주석만 추가한다.
+
+```ts
+serviceType: 131132, // 추후 수정 필요
+```
+
+---
+
+## 3. Phase A — 전체 자료실 CMS 무한 스크롤 (이번 구현 대상)
+
+### 3.1 목표
+
+1. 최초: `GET /api/sets?pageNo=0&pageSize=10&brandId=18&serviceType=131132`
+2. 목록 하단으로 스크롤하면 `pageNo=1, 2, …` 를 `pageSize=10`으로 **추가** 호출 (교체 아님)
+3. 누적 `list.length >= totalCount` 이면 다음 요청 중단
+4. 필터/정렬 변경 시 page 0부터 다시 조회 (기존 queryKey `filters`/`sort` 유지)
+5. 초기 로딩 / 다음 페이지 로딩 / 필터 재조회 로딩을 구분
+
+### 3.2 종료 조건 (`totalCount` 상한)
+
+응답 `totalCount`가 전체 건수다. 누적 아이템 수가 이 값에 도달하면 `hasNextPage=false`.
+
+```
+loaded = pages.reduce(sum, page.list.length)
+다음 pageNo = lastPage.pageNo + 1  (0-based)
+
+hasNextPage = loaded < totalCount && lastPage.list.length > 0
+```
+
+| 예시 (`pageSize=10`) | 동작 |
+|----------------------|------|
+| `totalCount=0` | 첫 응답 후 중단. 빈 상태 |
+| `totalCount=10` | page 0만. `loaded=10`으로 중단 |
+| `totalCount=23` | page 0(10) → page 1(10) → page 2(3) 후 `loaded=23` 중단 |
+| 마지막 페이지 `list=[]` | `totalCount` 미달이어도 중단 (무한 루프 방지) |
+
+`pageNo`는 응답 값(`lastPage.pageNo + 1`)을 쓰고, `(pageNo+1)*pageSize`로 추정하지 않는다. 마지막 페이지가 10건 미만일 수 있다.
+
+### 3.3 훅 — `useQuery` → `useInfiniteQuery`
+
+TanStack Query v5. 프로젝트 기존 패턴: 알림(`useNotifications`) + 학교검색(`useSchoolSearch`의 `totalCount` 비교).
+
+```ts
+export function useCmsSetListQuery(filters: LibFilters, sort: SortKey) {
+  return useInfiniteQuery({
+    queryKey: [...lessonKeys.cmsSets(), filters, sort],
+    queryFn: ({ pageParam, signal }) =>
+      getCmsSetList({ ...CMS_SETS_DEFAULT, pageNo: pageParam }, signal),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((sum, page) => sum + page.list.length, 0);
+      if (loaded >= lastPage.totalCount) return undefined;
+      if (lastPage.list.length === 0) return undefined;
+      return lastPage.pageNo + 1;
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+```
+
+- `pageSize`/`brandId`/`serviceType`은 `CMS_SETS_DEFAULT` 유지. `pageNo`만 `pageParam`.
+- `queryKey`에 `pageNo`를 넣지 않는다. infinite query가 `pageParams`로 관리한다.
+- 필터 토글 시 key 변경 → page 0부터 새 시리즈. 이전 in-flight는 `signal` abort (추가계획8 레이스 처리 유지).
+- `lessonKeys.cmsSets()` 팩토리 유지. 임의 문자열 key 금지.
+
+`LessonLibraryContents` 소비:
+
+```ts
+const {
+  data,
+  isPending,
+  isFetching,
+  isFetchingNextPage,
+  hasNextPage,
+  fetchNextPage,
+  isError,
+  error,
+} = useCmsSetListQuery(filters, sort);
+
+const items = useMemo(
+  () => (data?.pages ?? []).flatMap((page) => page.list).map(mapCmsSetToLibItem),
+  [data],
+);
+```
+
+단일 `data.list` 가정은 깨진다. `pages.flatMap`이 필수.
+
+### 3.4 스크롤 트리거
+
+레이아웃은 viewport 스크롤이므로 `IntersectionObserver` 기본 `root`(viewport)면 충분하다. `ResourceCardList` 그리드 **아래 1px 센티널**을 관찰한다. 알림 `NotificationList`와 동일.
+
+권장 props (`ResourceCardList`):
+
+| prop | 역할 |
+|------|------|
+| `onEndReached?: () => void` | 센티널 교차 시. Contents에서 `hasNextPage && !isFetchingNextPage`일 때만 `fetchNextPage()` |
+| `hasMore?: boolean` | `hasNextPage`. false면 센티널 미마운트 |
+| `isFetchingMore?: boolean` | `isFetchingNextPage`. 하단 로딩만 |
+
+- 훅/API는 `ResourceCardList`에 두지 않는다 (feature UI).
+- Page는 얇게 유지. 조합은 기존대로 `LessonLibraryContents`.
+- 내부 스크롤 컨테이너를 새로 만들지 않는다. 현재 `MainContent` 문서 스크롤을 쓴다.
+- `threshold`는 알림과 같이 `1.0`이거나, 카드 그리드가 커서 조기 로드가 필요하면 `0` + `rootMargin: '200px'` — 구현 시 한 번만 확인.
+
+### 3.5 로딩 UI 분리
+
+지금은 Contents가 `isLoading={isPending || isFetching}`이라 다음 페이지 fetch에도 **목록 전체**가 "목록 갱신 중..."이 된다. 무한 스크롤과 맞지 않다.
+
+| 상태 | 표시 |
+|------|------|
+| `isPending` (아이템 0) | 기존 중앙 `Loading` |
+| `isFetchingNextPage` | 그리드 하단 작은 로딩. 기존 카드 유지 |
+| 필터 재조회 (`isFetching && !isFetchingNextPage`) | 기존 `RefetchBar` 유지 가능 |
+| 빈 목록 | 기존 `emptyMessage` |
+| 에러 + 아이템 0 | 기존 에러 문구 |
+| 에러 + 이미 일부 로드 | 기존 목록 유지. 다음 페이지 실패는 toast 또는 하단 문구 — 구현 시 기존 에러 패턴에 맞출 것 |
+
+### 3.6 필터/정렬
+
+추가계획8과 동일: FilterPanel 값은 API param에 매핑하지 않는다. `filters`/`sort`는 queryKey 트리거만.
+
+필터 변경 → infinite cache 리셋 → `pageNo=0`만 다시 호출. 누적 목록을 이어 붙이지 않는다.
+
+### 3.7 데이터 일관성 정책
+
+| 상황 | 정책 |
+|------|------|
+| 같은 필터/정렬 + 스크롤 하강 | `pageNo=0,1,2...` 순서로 append |
+| 필터/정렬 변경 | 예외 없이 `pageNo=0`부터 재조회 (결과 집합 변경) |
+| 같은 필터 상태에서 신규 데이터 유입 | 즉시 0부터 강제 리셋하지 않음. 현재 스크롤 유지 |
+| 신규 데이터 감지/배너 | **미적용** (필터가 항상 최신순이 아니어서 정확한 신규 판별이 어려움) |
+
+- 정렬 기준이 고정 최신순이 아닐 수 있으므로 `새 항목 N개` 배너 정책은 적용하지 않는다.
+- 대신 필터/정렬 변경 시에만 `pageNo=0`부터 재조회하고, 그 외에는 현재 스크롤 맥락을 유지한다.
+
+---
+
+## 4. Phase B — 나의 자료 LMS 페이지네이션 (구현 예정)
+
+2와 같은 무한 스크롤을 `useRefSetListQuery` / `LessonMyPage`에 적용할 예정이다.
+
+> **새 API에서는 `GET /api/v1/library-items`가 페이지네이션을 지원한다.** 추가계획14에서 옛 API를 마이그레이션한 뒤 이 Phase B를 진행한다.
+
+### 4.1 현재 API (옛 API — 마이그레이션 대상)
+
+```ts
+export async function getRefSetList(): Promise<RefSetListData> {
+  return lmsFetch<RefSetListData>(BASE); // GET /api/ref-set — 쿼리 없음
+}
+```
+
+| 항목 | 상태 |
+|------|------|
+| `GET /api/ref-set` query | 없음 (`pageNo`/`pageSize` 미지원) |
+| 응답 `totalCount` | 있음 (`RefSetListData.totalCount`) |
+
+### 4.2 새 API — `GET /api/v1/library-items`
+
+새 LMS API는 `hasNext` 기반 페이지네이션을 지원한다:
+
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| `cursor` | string | 다음 페이지 커서 (이전 응답 `cursor`) |
+| `size` | number | 페이지 크기 (기본 20) |
+| `keyword` | string | 검색어 |
+| `labels` | string[] | 라벨 필터 (`subject:math` 등) |
+| `withTotal` | boolean | `true`면 첫 요청에 `total` 포함 |
+| `sort` | string | 정렬 |
+
+응답: `PageResponse<LibraryItem>` — `{ items, hasNext, cursor, total? }`
+
+> 추가계획14의 마이그레이션이 선행되어야 한다. 옛 API를 유지한 채 페이지네이션만 추가할 수 없다.
+| 응답 `pageNo`/`pageSize` | 없음 |
+| 호출 | 목록 전체를 한 번에 받는 것으로 가정 |
+
+응답에 `totalCount`만 있고 요청에 페이지가 없으면, FE에서 10개씩 잘라 보여 주는 것은 **서버 페이징이 아니다.** 이번 계획에서 클라이언트 슬라이스는 하지 않는다.
+
+### 4.2 LMS 스펙 수신 후 적용안 (미구현)
+
+CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스펙 확정 후**.
+
+1. `getRefSetList({ pageNo, pageSize }, signal)` — `URLSearchParams` 추가
+2. `RefSetListData`에 `pageNo`/`pageSize` 추가 (응답에 있으면). 없으면 요청값으로 `getNextPageParam` 계산
+3. `useRefSetListQuery` → `useInfiniteQuery`, `pageSize=10`, `initialPageParam=0` (스펙이 1-based면 맞춤)
+4. `getNextPageParam`: 누적 `list.length >= totalCount` 이면 `undefined`
+5. `LessonMyPage`: `pages.flatMap` → `mapRefSetToLibItem` → `ResourceCardList`에 `onEndReached`/`hasMore`/`isFetchingMore`
+6. 삭제·등록 후 `invalidateQueries({ queryKey: lessonKeys.refSets() })`는 prefix라 infinite여도 유효
+
+**캐시 형태 주의**: 지금은 `useRegisterRefSetMutation`이 `getQueryData<RefSetListData>(lessonKeys.refSets())`로 `cached.list`를 본다. infinite로 바꾸면 `{ pages, pageParams }`가 되므로 중복 방지 로직을 `pages.flatMap(p => p.list)`로 함께 고쳐야 한다.
+
+### 4.3 Phase B 완료 기준 (스펙 수신 전 체크 불가)
+
+- [ ] LMS `GET /api/ref-set`에 `pageNo`/`pageSize` 스펙 확정
+- [ ] `getRefSetList`가 해당 쿼리를 전달
+- [ ] `useRefSetListQuery` infinite + `totalCount` 상한
+- [ ] `LessonMyPage` 하단 스크롤 시 다음 10건 추가
+- [ ] 등록/삭제 invalidate 후 목록 일관성 (`list` → `pages` 캐시 변경 포함)
+
+---
+
+## 5. 하지 말 것
+
+| 금지 | 이유 |
+|------|------|
+| 이번 작업에서 `serviceType` 값 변경/env 분리 | 추후 수정 필요. 출처 미정 |
+| `GET /api/ref-set`에 임의 `pageNo` 쿼리 추가 | API 미지원. Phase B 대기 |
+| 나의 자료 클라이언트 10건 슬라이스 | 서버 페이징이 아님. UX만 흉내 냄 |
+| Page에 observer/infinite 로직 | FSD: Page는 조합만 |
+| `ResourceCardList`에서 CMS/LMS fetch | feature UI. 훅은 Contents/MyPage |
+| 목록을 내부 `overflow-y` 박스로 가두기 | 현재는 문서 스크롤. 레이아웃 변경은 비범위 |
+| 필터 taxonomy ↔ CMS param 매핑 | 추가계획8 후속. 이번 비범위 |
+| MOCK 경로 삭제 | 주석 보존 |
+
+---
+
+## 6. 변경 파일 (Phase A 완료)
+
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `features/lesson/api/queries.ts` | **수정 완료** | `useCmsSetListQuery` → `useInfiniteQuery`. `pageNo=pageParam`. `serviceType` 주석(추후 수정 필요) |
+| `features/lesson/api/cmsSetService.ts` | 유지 | `getCmsSetList` 시그니처 그대로 재사용 |
+| `features/lesson/ui/ResourceCardList.tsx` | **수정 완료** | `onEndReached` / `hasMore` / `isFetchingMore` + 센티널 + 하단 로딩 |
+| `widgets/lesson/LessonLibraryContents.tsx` | **수정 완료** | `pages.flatMap`, `fetchNextPage` 연결. `isFetching` 전체 로딩 제거 |
+| `pages/lesson/LessonMyPage.tsx` | 유지 | Phase B까지 변경 없음 |
+| `features/lesson/api/lmsRefSetService.ts` | 유지 | Phase B까지 쿼리 추가 없음 |
+
+---
+
+## 7. 확정·미확정
+
+| # | 항목 | 상태 | 내용 |
+|---|------|------|------|
+| 1 | CMS `pageSize` | **확정** | `10` 유지. 하단 스크롤 시 다음 10건 |
+| 2 | CMS `pageNo` | **확정** | 0부터. 스크롤마다 +1 |
+| 3 | 상한 | **확정** | 누적 건수 `>= totalCount` 이면 중단 |
+| 4 | `serviceType: 131132` | **추후 수정 필요** | 이번 하드코딩 유지 |
+| 5 | `brandId: 18` | 유지 | 이번 범위 밖 |
+| 6 | 스크롤 root | **확정(현재 레이아웃)** | viewport. `MainLayoutV2` 문서 스크롤 |
+| 7 | LMS 페이지 파라미터 | **미수신** | Phase B. 임의 쿼리 금지 |
+| 8 | 필터→CMS 매핑 | 미적용 | 추가계획8과 동일 |
+
+---
+
+## 8. 완료 기준
+
+### Phase A (CMS — 구현 완료)
+
+- [x] 자료실 진입 시 `pageNo=0&pageSize=10` 1회
+- [x] 하단 도달 시 `pageNo=1` 추가 호출. 기존 카드 유지한 채 10건 append
+- [x] 누적 건수가 `totalCount`에 도달하면 추가 호출 없음
+- [x] 필터/정렬 변경 시 page 0부터 재조회 (이어 붙이지 않음)
+- [x] 다음 페이지 로딩이 목록 전체를 스켈레톤/갱신바로 바꾸지 않음
+- [x] `serviceType: 131132` 하드코딩 유지 + 추후 수정 필요 주석
+- [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
+
+### Phase B (LMS — 스펙 대기)
+
+- [ ] 섹션 4.3. `pageNo`/`pageSize` 스펙 오기 전에는 착수하지 않음
+
+---
+
+**작성일**: 2026-08-18  
+**수정**: 2026-08-19 — Phase B LMS 새 API 정보 추가  
+**상태**: Phase A 구현 완료 / Phase B 추가계획14 마이그레이션 후 진행
+
+---
+
+
+# 추가계획14 — 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) 마이그레이션
+
+> **상태**: 분석 완료 (2026-08-19) · 미착수  
+> **선행**: 없음 (독립)  
+> **후행**: 추가계획13 Phase B (나의 자료 페이지네이션), 추가계획11 Phase B (활동 생성)  
+> **범위**: `lmsRefSetService.ts`의 옛 API 호출을 새 API로 교체. 응답 봉투·경로·필드명·에러 처리 전부 변경.  
+> **출처**: `superplatform-lms/docs/aihelper/as-is-to-be.md`, `docs/guide/api-spec.md`
+
+---
+
+## 1. 한 줄 요약
+
+`/api/ref-set` → `/api/v1/library-items`. 응답 봉투 `resultData` → `data`. ID `refSetId` → `libraryItemId`. 에러는 `errorCode`로 분기.
+
+---
+
+## 2. 변경 대상 분석
+
+### 현재 사용 중인 옛 API (`lmsRefSetService.ts`)
+
+| 함수 | 옛 엔드포인트 | 사용 위치 |
+|------|-------------|-----------|
+| `getRefSetList()` | `GET /api/ref-set` | `LessonMyPage` 나의 자료 목록 |
+| `getRefSet(refSetId)` | `GET /api/ref-set/{refSetId}` | `DeployPage` 아이템 재조회 |
+| `registerRefSet(body)` | `POST /api/ref-set` | `LessonEditorPage` 저장 시 등록 |
+| `deleteRefSet(refSetId)` | `DELETE /api/ref-set/{refSetId}` | `LessonMyPage` 카드 삭제 |
+
+### 새 API 매핑
+
+| 옛 | 새 | 주요 변경 |
+|----|-----|----------|
+| `GET /api/ref-set` | `GET /api/v1/library-items` | 페이지네이션(`cursor`/`size`/`hasNext`) 추가. 검색(`keyword`)/라벨 필터 지원 |
+| `GET /api/ref-set/{refSetId}` | `GET /api/v1/library-items/{libraryItemId}` | ID명 변경 |
+| `POST /api/ref-set` | `POST /api/v1/library-items` | `refSetId` → `libraryItemId`. body 필드 확인 필요 |
+| `DELETE /api/ref-set/{refSetId}` | `DELETE /api/v1/library-items/{libraryItemId}` | 동일 |
+| — (신규) | `PATCH /api/v1/library-items/{libraryItemId}` | 수정 기능 추가 |
+
+---
+
+## 3. 봉투·에러 변경
+
+### 응답 봉투
+
+| 항목 | 옛 (as-is) | 새 (to-be) |
+|------|-----------|-----------|
+| 봉투 타입 | `{ success, resultCode, resultMessage, resultData }` | `{ success, message, data, errorCode }` |
+| 언랩 키 | `resultData` | `data` |
+| 에러 분기 | `resultCode` / HTTP status | `errorCode` (26종) |
+
+### 현재 `lmsFetch` (변경 필요)
+
+```ts
+// 현재 — 옛 봉투
+interface LmsEnvelope<T> {
+  success: boolean;
+  resultCode: number;
+  resultMessage: string;
+  resultData: T;        // ← 변경 대상
+}
+
+async function lmsFetch<T>(input, init): Promise<T> {
+  // ...
+  const json = await res.json() as LmsEnvelope<T>;
+  if (!json.success) throw new Error(json.resultMessage ?? 'LMS API Error');
+  return json.resultData;   // ← 변경 대상
+}
+```
+
+### 변경 후 `lmsFetch`
+
+```ts
+// 새 봉투
+interface LmsApiResponse<T> {
+  success: boolean;
+  message: string | null;
+  data: T;
+  errorCode: string | null;
+}
+
+async function lmsFetch<T>(input, init): Promise<T> {
+  // ...
+  const json = await res.json() as LmsApiResponse<T>;
+  if (!json.success) {
+    const err = new Error(json.message ?? 'LMS API Error');
+    (err as any).errorCode = json.errorCode;
+    throw err;
+  }
+  return json.data;
+}
+```
+
+---
+
+## 4. ID 필드 변경
+
+| 옛 | 새 | 영향 범위 |
+|----|-----|----------|
+| `refSetId` | `libraryItemId` | `RefSetItem` 타입, `mapRefSetToLibItem`, `LessonMyPage` 삭제, `DeployPage` 재조회 |
+| `refSetId` (함수 인자) | `libraryItemId` | `getRefSet()`, `deleteRefSet()` |
+| `POST` 응답 `refSetId` | `libraryItemId` | `RegisterRefSetResponse` → `registerRefSet` mutation `onSuccess` |
+
+---
+
+## 5. BASE URL 변경
+
+```ts
+// 현재
+const BASE = `${ENV.SP_LMS_API_URL}/api/ref-set`;
+
+// 변경 후
+const BASE = `${ENV.SP_LMS_API_URL}/api/v1/library-items`;
+```
+
+---
+
+## 6. 구현 계획
+
+### Phase 1 — `lmsFetch` 봉투 교체 + 경로 변경
+
+1. `LmsEnvelope` → `LmsApiResponse` (봉투 타입)
+2. `resultData` → `data`, `resultMessage` → `message` + `errorCode`
+3. BASE 경로 `/api/ref-set` → `/api/v1/library-items`
+4. ID 필드명 `refSetId` → `libraryItemId` (타입·함수·사용처)
+
+### Phase 2 — 페이지네이션 적용 (추가계획13 Phase B와 합류)
+
+1. `getRefSetList()` → `getLibraryItems({ cursor, size, keyword, labels })`
+2. `useRefSetListQuery` → `useLibraryItemListQuery` (useInfiniteQuery)
+3. `LessonMyPage` 무한 스크롤 적용
+
+### Phase 3 — 신규 기능 활용 (선택)
+
+1. `PATCH /api/v1/library-items/{id}` — 제목/옵션 수정
+2. 검색(`keyword`), 라벨 필터 적용
+
+---
+
+## 7. 영향 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `features/lesson/api/lmsRefSetService.ts` | 봉투·경로·ID 전부 교체. 파일명도 `lmsLibraryItemService.ts`로 변경 고려 |
+| `features/lesson/api/queries.ts` | query key, 함수명 갱신 |
+| `features/lesson/index.ts` | export 갱신 |
+| `pages/lesson/LessonMyPage.tsx` | `refSetId` → `libraryItemId` 사용처 |
+| `pages/lesson/LessonDeployPage.tsx` | `getRefSet` → `getLibraryItem` |
+| `pages/lesson/LessonEditorPage.tsx` | `registerRefSet` → `registerLibraryItem` (또는 함수명 유지 후 내부만 교체) |
+
+---
+
+## 8. 절대 규칙 (새 API 연동 시)
+
+> `superplatform-lms/docs/aihelper/ai-연동-작업지침.md` § 1 참조
+
+1. **참조-only**: LMS는 정답·문항 본문을 저장하지 않는다. CMS 키(`lcmsSetId`)만 참조
+2. **CMS 키는 문자열**: 숫자 auto-increment PK를 `lcmsSetId`로 쓰지 않는다
+3. **신원은 토큰에서만**: `sub`·`client_id`를 body로 보내지 않는다
+4. **응답 봉투 언랩**: `data`만 꺼낸다
+5. **스펙에 없는 파라미터 = 400**: 필드를 지어내지 않는다
+6. **서비스 고유 값은 `options` JSON**: 코어 필드로 올리지 않는다
+
+---
+
+## 9. 확정·미확정
+
+| # | 항목 | 상태 | 내용 |
+|---|------|------|------|
+| 1 | 새 경로 | **확정** | `/api/v1/library-items` |
+| 2 | 새 봉투 | **확정** | `{ success, message, data, errorCode }` |
+| 3 | ID명 | **확정** | `libraryItemId` |
+| 4 | 페이지네이션 | **확정** | `cursor`/`size`/`hasNext` |
+| 5 | 에러코드 | **확정** | 26종 `errorCode` |
+| 6 | body 변경 | **스펙 확인 필요** | `POST /api/v1/library-items` 요청 본문 정확한 필드 |
+
+---
+
+## 10. 완료 기준
+
+- [ ] `lmsRefSetService.ts` → 새 경로·봉투·ID 교체 완료
+- [ ] 기존 기능(목록 조회, 단건 조회, 등록, 삭제) 정상 동작
+- [ ] 응답 `data` 언랩 확인
+- [ ] 에러 발생 시 `errorCode` 전달
+- [ ] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
+- [ ] (Phase 2) 페이지네이션 적용 → 추가계획13 Phase B와 합류
+
+---
+
+**작성일**: 2026-08-19  
+**상태**: 분석 완료 · 미착수

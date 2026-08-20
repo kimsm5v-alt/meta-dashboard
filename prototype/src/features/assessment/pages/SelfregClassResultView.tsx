@@ -8,9 +8,7 @@
  */
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, AlertCircle, Info, Search, ArrowRight, FileText, X, Download } from 'lucide-react';
-import { useLayoutContext } from '@/app/LayoutV2';
+import { ArrowLeft, Check, AlertCircle, Info, Search, FileText, X, Download } from 'lucide-react';
 import type { StudentExamResult } from '../types';
 import {
   SELFREG_FACTOR_DEFINITIONS,
@@ -20,6 +18,7 @@ import {
   SELFREG_SUB_CATEGORY_FACTORS,
   type SelfregCategory,
 } from '@/shared/data/selfregFactors';
+import { SelfregOverviewChart, SrlProfileTable } from '../components';
 
 interface SelfregClassResultViewProps {
   className: string;
@@ -69,22 +68,22 @@ type StudentFilterType = 'all' | '신뢰도 주의' | '상담 및 지도 필요'
 
 // 6개 중분류 정의 (학습종합검사 CategoryBarChart와 동일한 형식)
 const SELFREG_SUB_CATEGORY_ORDER = [
-  { id: 'learningMotivation', name: '학습원동력', area: '동기전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['동기전략'] },
+  { id: 'learningMotivation', name: '학습 원동력', area: '동기전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['동기전략'] },
   { id: 'emotionControl', name: '정서조절', area: '동기전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['동기전략'] },
-  { id: 'metaCognition', name: '메타인지', area: '인지전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['인지전략'] },
-  { id: 'cognitiveLearningSkill', name: '인지적학습기술', area: '인지전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['인지전략'], breakLine: ['인지적', '학습기술'] },
-  { id: 'behaviorControl', name: '행동조절', area: '행동전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['행동전략'] },
-  { id: 'behavioralLearningSkill', name: '행동적학습기술', area: '행동전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['행동전략'], breakLine: ['행동적', '학습기술'] },
+  { id: 'metaCognition', name: '메타 인지', area: '인지전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['인지전략'] },
+  { id: 'cognitiveLearningSkill', name: '인지적 학습기술', area: '인지전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['인지전략'], breakLine: ['인지적', '학습기술'] },
+  { id: 'behaviorControl', name: '행동 조절', area: '행동전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['행동전략'] },
+  { id: 'behavioralLearningSkill', name: '행동적 학습기술', area: '행동전략' as SelfregCategory, color: SELFREG_DOMAIN_COLORS['행동전략'], breakLine: ['행동적', '학습기술'] },
 ];
 
 // 중분류별 하위요인 인덱스 매핑 (SELFREG_SUB_CATEGORY_FACTORS와 동일)
 const SUB_CATEGORY_TO_FACTOR_INDICES: Record<string, number[]> = {
-  '학습원동력': [0, 1, 2],
+  '학습 원동력': [0, 1, 2],
   '정서조절': [3, 4, 5],
-  '메타인지': [6, 7, 8],
-  '인지적학습기술': [9, 10, 11],
-  '행동조절': [12, 13, 14],
-  '행동적학습기술': [15, 16, 17, 18, 19],
+  '메타 인지': [6, 7, 8],
+  '인지적 학습기술': [9, 10, 11],
+  '행동 조절': [12, 13, 14],
+  '행동적 학습기술': [15, 16, 17, 18, 19],
 };
 
 export const SelfregClassResultView: React.FC<SelfregClassResultViewProps> = ({
@@ -117,7 +116,7 @@ export const SelfregClassResultView: React.FC<SelfregClassResultViewProps> = ({
     return students.filter(s => s.needsAttention).length;
   }, [students]);
 
-  // 반 평균 T점수 계산 (20개 요인)
+  // 반 평균 T점수 계산 (20개 요인) - 1차 검사
   const classAverageScores = useMemo(() => {
     if (students.length === 0) return Array(20).fill(50);
 
@@ -131,6 +130,20 @@ export const SelfregClassResultView: React.FC<SelfregClassResultViewProps> = ({
 
     return avgScores;
   }, [students]);
+
+  // 반 평균 T점수 계산 (20개 요인) - 2차 검사 (Mock: 1차 대비 ±5 변화)
+  const classAverageScoresRound2 = useMemo(() => {
+    if (!hasRound2) return undefined;
+    return classAverageScores.map(score => {
+      const change = Math.floor(Math.random() * 11) - 5; // -5 ~ +5
+      return Math.max(20, Math.min(80, score + change));
+    });
+  }, [hasRound2, classAverageScores]);
+
+  // 현재 선택된 회차의 점수
+  const currentRoundScores = selectedRound === 2 && classAverageScoresRound2
+    ? classAverageScoresRound2
+    : classAverageScores;
 
   // 영역별 평균 계산 (대분류)
   const domainAverages = useMemo(() => {
@@ -309,82 +322,39 @@ export const SelfregClassResultView: React.FC<SelfregClassResultViewProps> = ({
         </div>
       </div>
 
-      {/* 2. 종합 결과 요약 (6개 중분류 막대 그래프) */}
+      {/* 2. 종합 결과 (레이더 차트 + 척도 테이블) */}
+      <SelfregOverviewChart
+        studentName={className}
+        selfregScores={classAverageScores}
+        isClassView={true}
+        hasRound2={hasRound2}
+        round2Scores={classAverageScoresRound2}
+        selectedRound={selectedRound}
+        onRoundChange={setSelectedRound}
+      />
+
+      {/* 3. 종합 해석 (프로파일 테이블) */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">종합 결과 요약</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              6개 중분류 하위요인의 반 평균 T점수입니다.
-            </p>
-          </div>
-          {/* 회차 토글 */}
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setSelectedRound(1)}
-              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${
-                selectedRound === 1
-                  ? 'bg-teal-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              1차 검사
-            </button>
-            <button
-              onClick={() => setSelectedRound(2)}
-              disabled={!hasRound2}
-              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${
-                selectedRound === 2
-                  ? 'bg-teal-600 text-white'
-                  : hasRound2
-                    ? 'text-gray-600 hover:bg-gray-200'
-                    : 'text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              2차 검사 {!hasRound2 && '예정'}
-            </button>
-          </div>
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-gray-900">종합 해석</h3>
+          <p className="text-sm text-gray-500 mt-1">전체 요인의 T점수를 선형 눈금으로 비교합니다</p>
         </div>
 
-        {/* 막대 차트 */}
-        <SelfregSubCategoryBarChart scores={subCategoryScores} />
-
-        {/* 참고 문구 */}
-        <div className="mt-4 px-4 py-2 bg-gray-50 rounded-lg text-xs text-gray-600">
-          <strong className="text-gray-700">참고!</strong> T점수 50은 전국 평균입니다. 50 이상이면 평균 이상, 이하이면 평균 이하입니다.
-        </div>
+        <SrlProfileTable
+          selfregScores={classAverageScores}
+          sessions={hasRound2 && classAverageScoresRound2 ? [
+            { round: 1, scores: classAverageScores },
+            { round: 2, scores: classAverageScoresRound2 },
+          ] : undefined}
+          viewMode={selectedRound === 2 ? 'round2' : 'round1'}
+        />
       </div>
 
-      {/* 3. 우리 반 강점/보완점 Top 3 + 학생 목록 (통합 섹션) */}
+      {/* 4. 우리 반 강점/보완점 Top 3 + 학생 목록 (통합 섹션) */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        {/* 섹션 헤더 - 회차 토글 */}
-        <div className="flex items-center justify-between mb-5">
+        {/* 섹션 헤더 */}
+        <div className="mb-5">
           <h3 className="text-base font-semibold text-gray-900">학급 분석 및 학생 목록</h3>
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setSelectedRound(1)}
-              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${
-                selectedRound === 1
-                  ? 'bg-teal-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              1차 검사
-            </button>
-            <button
-              onClick={() => setSelectedRound(2)}
-              disabled={!hasRound2}
-              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${
-                selectedRound === 2
-                  ? 'bg-teal-600 text-white'
-                  : hasRound2
-                    ? 'text-gray-600 hover:bg-gray-200'
-                    : 'text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              2차 검사 {!hasRound2 && '예정'}
-            </button>
-          </div>
         </div>
 
         {/* 우리 반 강점/보완점 Top 3 */}
@@ -775,35 +745,7 @@ export const SelfregClassResultView: React.FC<SelfregClassResultViewProps> = ({
         </div>
       )}
 
-      {/* 코칭 연결 버튼 */}
-      <div className="flex justify-end pt-4 mt-2 border-t border-gray-100">
-        <ClassCoachingLinkButton className={className} />
-      </div>
     </div>
-  );
-};
-
-/** 코칭 연결 버튼 */
-const ClassCoachingLinkButton: React.FC<{ className: string }> = () => {
-  const navigate = useNavigate();
-  const { scope } = useLayoutContext();
-
-  const handleClick = () => {
-    const params = new URLSearchParams();
-    if (scope.classId) params.set('class', scope.classId);
-    const queryString = params.toString();
-    navigate(`/coaching/class${queryString ? `?${queryString}` : ''}`);
-    window.scrollTo(0, 0);
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
-    >
-      <span>학급 코칭 연결</span>
-      <ArrowRight className="w-4 h-4" />
-    </button>
   );
 };
 

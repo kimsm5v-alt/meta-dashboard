@@ -11,9 +11,10 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, Share2 } from 'lucide-react';
 import { SegmentedRoundTabs } from './SegmentedRoundTabs';
 import { StudentStatusTable } from './StudentStatusTable';
+import { ExamShareModal } from './ExamShareModal';
 import type { ExamStatus, StudentExamStatus } from '../types';
 import { EXAM_STATUS_LABELS } from '../types';
 
@@ -74,6 +75,17 @@ const getStatusBadgeStyle = (status: ExamStatus) => {
   }
 };
 
+// Mock 검사 코드/링크 생성
+const generateExamCode = (groupId: string, round: 1 | 2) => {
+  const base = groupId.replace('group-', '');
+  return `HB${base}R${round}`.toUpperCase();
+};
+
+const generateExamLink = (groupId: string, round: 1 | 2) => {
+  const code = generateExamCode(groupId, round);
+  return `https://meta.vsquare.kr/exam/${code}`;
+};
+
 export const ExamManagementView: React.FC<ExamManagementViewProps> = ({
   className,
   groupId,
@@ -87,6 +99,7 @@ export const ExamManagementView: React.FC<ExamManagementViewProps> = ({
   onContinueExam,
 }) => {
   const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // 현재 선택된 회차 데이터
   const currentRoundData = rounds.find((r) => r.round === selectedRound) || rounds[0];
@@ -253,6 +266,14 @@ export const ExamManagementView: React.FC<ExamManagementViewProps> = ({
             {currentRoundData.status === 'in_progress' && (
               <>
                 <button
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="flex items-center gap-1.5 px-5 py-[9px] rounded-[9px] text-[13.5px] font-bold text-white hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: '#10B981' }}
+                >
+                  <Share2 className="w-4 h-4" />
+                  검사 공유
+                </button>
+                <button
                   onClick={() => onEndExam(selectedRound)}
                   className="min-w-[120px] px-6 py-[9px] rounded-[9px] text-[13.5px] font-bold text-white hover:opacity-90 transition-opacity"
                   style={{ backgroundColor: '#6B46F2' }}
@@ -372,6 +393,16 @@ export const ExamManagementView: React.FC<ExamManagementViewProps> = ({
           <StudentStatusTable students={currentRoundData.students} />
         )}
       </div>
+
+      {/* 검사 공유 모달 */}
+      <ExamShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        examCode={generateExamCode(groupId, selectedRound)}
+        examLink={generateExamLink(groupId, selectedRound)}
+        className={className}
+        round={selectedRound}
+      />
     </div>
   );
 };
