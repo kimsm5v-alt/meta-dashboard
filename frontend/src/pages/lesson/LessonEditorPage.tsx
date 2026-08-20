@@ -2,10 +2,16 @@ import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { toast } from 'sonner';
-import { LessonEditorEmbed, useSyncLibraryItemOnSaveMutation } from '@features/lesson';
+import {
+  LessonEditorEmbed,
+  mapLibraryItemToLibItem,
+  useSyncLibraryItemOnSaveMutation,
+} from '@features/lesson';
 import type {
   EmbedError,
   LessonEditorPageLocationState,
+  LibItem,
+  LibraryItem,
   SavedPayload,
   StartLessonPayload,
 } from '@features/lesson';
@@ -66,6 +72,8 @@ export const LessonEditorPage = () => {
     const state = location.state as LessonEditorPageLocationState | null;
     return state?.libraryItemId ?? null;
   });
+  /** POST/PATCH 응답 LibraryItem — deploy state·labels/options 변환용 */
+  const [libraryItem, setLibraryItem] = useState<LibraryItem | null>(null);
 
   /** 마운트 시점 고정 — 저장 후 replace navigate로 URL만 바꿀 때 embed 리마운트 방지 */
   const [embedSetId] = useState(() => routeSetId);
@@ -85,6 +93,7 @@ export const LessonEditorPage = () => {
       {
         onSuccess: (item) => {
           setLibraryItemId(item.libraryItemId);
+          setLibraryItem(item);
           if (p.trigger === 'manual') setSavedOpen(true);
           if (!routeSetId && p.lcmsSetId) {
             // 신규 저장 시 url 주소 변경 // 깜빡임 발생 시 제거 필요
@@ -102,9 +111,27 @@ export const LessonEditorPage = () => {
   const handleStartLesson = (p: StartLessonPayload) => {
     console.log('[LessonEditorPage] onStartLesson', p);
     const nextSetId = p.lcmsSetId;
-    if (nextSetId) {
-      navigate(`/lesson/deploy/${nextSetId}${location.search}`);
+    if (!nextSetId) return;
+
+    if (libraryItemId) {
+      const item: LibItem = libraryItem
+        ? {
+            ...mapLibraryItemToLibItem(libraryItem),
+            title: p.title ?? libraryItem.alias ?? '',
+          }
+        : {
+            id: nextSetId,
+            libraryItemId,
+            title: p.title ?? '',
+            src: 'internal',
+          };
+      navigate(`/lesson/deploy/${nextSetId}/${libraryItemId}${location.search}`, {
+        state: { item },
+      });
+      return;
     }
+
+    navigate(`/lesson/deploy/${nextSetId}${location.search}`);
   };
 
   const handleError = (error: EmbedError) => {
