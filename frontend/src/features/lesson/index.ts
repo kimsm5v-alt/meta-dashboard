@@ -13,6 +13,7 @@ export { matchLibraryItem, sortLibraryItems } from './model/matchLibraryFilters'
 export { MOCK_LIBRARY_ITEMS } from './model/mockLibraryItems';
 export {
   useLibraryItemListQuery,
+  useLibraryItemInfiniteListQuery,
   useLibraryItemQuery,
   useSyncLibraryItemOnSaveMutation,
   useCmsSetListQuery,

@@ -54,7 +54,9 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
             onError={() => setImgFailed(true)}
           />
         ) : null}
-        {imgFailed ? <ThumbTitle title={item.title}>{item.title}</ThumbTitle> : null}
+        {!item.thumbnailUrl || imgFailed ? (
+          <ThumbTitle title={item.title}>{item.title}</ThumbTitle>
+        ) : null}
         {variant === 'my' && item.libraryItemId && onDelete ? (
           <DeleteButton
             type='button'

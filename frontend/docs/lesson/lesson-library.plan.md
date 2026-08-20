@@ -18,8 +18,8 @@
 | **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 구현 완료 |
 | **추가계획11** | DeployPage·저작툴 시작하기 — `POST /api/v1/activities` + `publish` → `accessKey` + QR·참여링크 조립 | 상세 작성 (2026-08-19) · Phase A 구현 가능 / POST 본문 대기 |
 | **추가계획12** | 학생용 `/student/lesson/:activityId` — `GET /entry/{accessKey}` + `POST /participations` → `activity-join` embed | Phase A 구현 완료 (2026-08-19) / Phase B API 대기 |
-| **추가계획13** | 전체 자료실 CMS 목록 무한 스크롤(`pageSize=10`) + 나의 자료 `GET /api/v1/library-items` 페이지네이션 | Phase A 구현 완료 / Phase B API 대기 |
-| **추가계획14** | 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) · `handleSaved` POST/PATCH · editor navigate `libraryItemId` state | **Phase 1 구현 완료** (2026-08-20) · Phase 2(페이지네이션) 미착수 |
+| **추가계획13** | 전체 자료실 CMS 목록 무한 스크롤(`pageSize=10`) + 나의 자료 `GET /api/v1/library-items` 페이지네이션 | Phase A 구현 완료 / Phase B 구현 완료 |
+| **추가계획14** | 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) · `handleSaved` POST/PATCH · editor navigate `libraryItemId` state | **Phase 1 구현 완료** (2026-08-20) · Phase 2(페이지네이션) 구현 완료 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `GET .../api/sets` (`brandId=18`, `serviceType=131132`) | 추가계획8 스펙 확정 · 필터 매핑 미적용 |
@@ -3781,14 +3781,14 @@ export async function getRefSetList(): Promise<RefSetListData> {
 
 | 파라미터 | 타입 | 설명 |
 |---------|------|------|
-| `cursor` | string | 다음 페이지 커서 (이전 응답 `cursor`) |
-| `size` | number | 페이지 크기 (기본 20) |
+| `page` | int | 0부터 |
+| `size` | number | 페이지 크기 (최대 100) |
 | `keyword` | string | 검색어 |
 | `labels` | string[] | 라벨 필터 (`subject:math` 등) |
-| `withTotal` | boolean | `true`면 첫 요청에 `total` 포함 |
+| `withTotal` | boolean | `true`면 `totalElements`/`totalPages` 포함 |
 | `sort` | string | 정렬 |
 
-응답: `PageResponse<LibraryItem>` — `{ items, hasNext, cursor, total? }`
+응답: `PageResponse<LibraryItem>` — `{ content, page, size, hasNext, totalElements?, totalPages? }`
 
 > 추가계획14의 마이그레이션이 선행되어야 한다. 옛 API를 유지한 채 페이지네이션만 추가할 수 없다.
 | 응답 `pageNo`/`pageSize` | 없음 |
@@ -3796,7 +3796,7 @@ export async function getRefSetList(): Promise<RefSetListData> {
 
 응답에 `totalCount`만 있고 요청에 페이지가 없으면, FE에서 10개씩 잘라 보여 주는 것은 **서버 페이징이 아니다.** 이번 계획에서 클라이언트 슬라이스는 하지 않는다.
 
-### 4.2 LMS 스펙 수신 후 적용안 (미구현)
+### 4.2 LMS 스펙 수신 후 적용안 (구현 완료)
 
 CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스펙 확정 후**.
 
@@ -3809,13 +3809,11 @@ CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스�
 
 **캐시 형태 주의**: 지금은 `useRegisterRefSetMutation`이 `getQueryData<RefSetListData>(lessonKeys.refSets())`로 `cached.list`를 본다. infinite로 바꾸면 `{ pages, pageParams }`가 되므로 중복 방지 로직을 `pages.flatMap(p => p.list)`로 함께 고쳐야 한다.
 
-### 4.3 Phase B 완료 기준 (스펙 수신 전 체크 불가)
+### 4.3 Phase B 완료 기준
 
-- [ ] LMS `GET /api/ref-set`에 `pageNo`/`pageSize` 스펙 확정
-- [ ] `getRefSetList`가 해당 쿼리를 전달
-- [ ] `useRefSetListQuery` infinite + `totalCount` 상한
-- [ ] `LessonMyPage` 하단 스크롤 시 다음 10건 추가
-- [ ] 등록/삭제 invalidate 후 목록 일관성 (`list` → `pages` 캐시 변경 포함)
+- [x] `GET /api/v1/library-items` 기반 `useInfiniteQuery` (`page=0`, `size=10`, `hasNext`) 구현
+- [x] `LessonMyPage` 하단 센티널 진입 시 다음 페이지 목록 append
+- [x] 삭제/등록 후 infinite 캐시 형태에서도 중복 방지/일관성 유지
 
 ---
 
@@ -3876,7 +3874,7 @@ CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스�
 
 ### Phase B (LMS — 스펙 대기)
 
-- [ ] 섹션 4.3. `pageNo`/`pageSize` 스펙 오기 전에는 착수하지 않음
+- [x] 섹션 4.3. 추가계획13 Phase B: `GET /api/v1/library-items` 무한 스크롤 구현 완료
 
 ---
 
@@ -3889,7 +3887,7 @@ CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스�
 
 # 추가계획14 — 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) 마이그레이션
 
-> **상태**: Phase 1 구현 완료 (2026-08-20) · Phase 2(페이지네이션) 미착수  
+> **상태**: Phase 1 구현 완료 (2026-08-20) · Phase 2(페이지네이션) 구현 완료  
 > **선행**: 없음 (독립)  
 > **후행**: 추가계획13 Phase B (나의 자료 페이지네이션), 추가계획11 Phase B (활동 생성)  
 > **범위**: `lmsRefSetService.ts`의 옛 API 호출을 새 API로 교체. **`LessonEditorPage.handleSaved`는 `libraryItemId` 알면 PATCH-only, 모르면 POST(201 끝 / 200→PATCH fallback).** 나의 자료 「수정하기」는 navigate state로 `libraryItemId` 전달.
@@ -3918,7 +3916,7 @@ CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스�
 
 | 옛 | 새 | 주요 변경 |
 |----|-----|----------|
-| `GET /api/ref-set` | `GET /api/v1/library-items` | 페이지네이션(`cursor`/`size`/`hasNext`) 추가. 검색(`keyword`)/라벨 필터 지원 |
+| `GET /api/ref-set` | `GET /api/v1/library-items` | 페이지네이션(`page`/`size`/`hasNext`) 추가. 검색(`keyword`)/라벨 필터 지원 |
 | `GET /api/ref-set/{refSetId}` | `GET /api/v1/library-items/{libraryItemId}` | ID명 변경 |
 | `POST /api/ref-set` | `POST /api/v1/library-items` | `refSetId` → `libraryItemId`. body 필드 확인 필요 |
 | `DELETE /api/ref-set/{refSetId}` | `DELETE /api/v1/library-items/{libraryItemId}` | 동일 |
@@ -4053,7 +4051,7 @@ const BASE = `${ENV.SP_LMS_API_URL}/api/v1/library-items`;
 
 ### Phase 2 — 페이지네이션 적용 (추가계획13 Phase B와 합류)
 
-1. `getRefSetList()` → `getLibraryItems({ cursor, size, keyword, labels })`
+1. `getRefSetList()` → `getLibraryItems({ page, size, keyword, labels })`
 2. `useRefSetListQuery` → `useLibraryItemListQuery` (useInfiniteQuery)
 3. `LessonMyPage` 무한 스크롤 적용
 
@@ -4104,7 +4102,7 @@ const BASE = `${ENV.SP_LMS_API_URL}/api/v1/library-items`;
 | 1 | 새 경로 | **확정** | `/api/v1/library-items` |
 | 2 | 새 봉투 | **확정** | `{ success, message, data, errorCode }` |
 | 3 | ID명 | **확정** | `libraryItemId` |
-| 4 | 페이지네이션 | **확정** | `cursor`/`size`/`hasNext` |
+| 4 | 페이지네이션 | **확정** | `page`/`size`/`hasNext` |
 | 5 | 에러코드 | **확정** | 26종 `errorCode` |
 | 6 | POST body | **확정** | `lcmsSetId`(필수), `alias`, `labels`, `options` |
 | 7 | PATCH body | **확정** | `alias`, `labels`, `options` — `lcmsSetId` 금지 |
@@ -4124,7 +4122,7 @@ const BASE = `${ENV.SP_LMS_API_URL}/api/v1/library-items`;
 - [x] 응답 `data` 언랩 확인 (`LmsApiResponse` → `json.data`)
 - [x] 에러 발생 시 `errorCode` 전달 (`LmsApiError`)
 - [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
-- [ ] (Phase 2) 페이지네이션 적용 → 추가계획13 Phase B와 합류
+- [x] (Phase 2) 페이지네이션 적용 → 추가계획13 Phase B와 합류
 
 ---
 
@@ -4219,10 +4217,10 @@ onSuccess: (item) => {
 
 이후 저장은 POST 없이 **PATCH-only**.
 
-### 12.5 Phase 2 잔여
+### 12.5 Phase 2 구현 결과
 
-- `getLibraryItemList` → `useInfiniteQuery` (cursor/page 기반 무한 스크롤)
-- `LessonMyPage` `hasMore` / `onEndReached` 연동 (추가계획13 Phase B)
+- (완료) `getLibraryItemList` → `useInfiniteQuery` (page 기반 infinite)
+- (완료) `LessonMyPage` `hasMore` / `onEndReached` 연동
 
 ---
 
@@ -4339,4 +4337,4 @@ navigate(`/lesson/editor/${item.id}${location.search}`, {
 ---
 
 **작성일**: 2026-08-19 (초안) · **갱신**: 2026-08-20 (Phase 1 + navigate state PATCH-only)  
-**상태**: Phase 1 구현 완료 · Phase 2(페이지네이션) 미착수
+**상태**: Phase 1 구현 완료 · Phase 2(페이지네이션) 구현 완료

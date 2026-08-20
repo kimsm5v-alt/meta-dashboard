@@ -26,6 +26,12 @@ const CMS_SETS_DEFAULT = {
   serviceType: 131132, // 추후 수정 필요
 } as const;
 
+const LIBRARY_ITEMS_DEFAULT = {
+  page: 0,
+  size: 10,
+  withTotal: true,
+} as const;
+
 export type SyncLibraryItemOnSaveInput = {
   lcmsSetId: string;
   alias: string;
@@ -50,8 +56,18 @@ function findLibraryItemInCache(
   queryClient: QueryClient,
   lcmsSetId: string,
 ): LibraryItem | undefined {
-  const cached = queryClient.getQueryData<LibraryItemListData>(lessonKeys.libraryItems());
-  return cached?.list.find((item) => item.lcmsSetId === lcmsSetId);
+  const cached = queryClient.getQueryData<unknown>(lessonKeys.libraryItems());
+
+  // useQuery 형태: { list, totalCount, hasNext }
+  const singleList = (cached as LibraryItemListData | null | undefined)?.list;
+  if (Array.isArray(singleList)) {
+    return singleList.find((item) => item.lcmsSetId === lcmsSetId);
+  }
+
+  // useInfiniteQuery 형태: { pages: [{ list, ... }, ...] }
+  const pages = (cached as { pages?: Array<LibraryItemListData> } | null | undefined)?.pages;
+  const mergedList = pages?.flatMap((p) => p.list) ?? [];
+  return mergedList.find((item) => item.lcmsSetId === lcmsSetId);
 }
 
 function resolveKnownLibraryItemId(
@@ -67,6 +83,24 @@ export function useLibraryItemListQuery() {
   return useQuery({
     queryKey: lessonKeys.libraryItems(),
     queryFn: ({ signal }) => getLibraryItemList(undefined, signal),
+  });
+}
+
+export function useLibraryItemInfiniteListQuery() {
+  return useInfiniteQuery<LibraryItemListData>({
+    queryKey: lessonKeys.libraryItems(),
+    queryFn: ({ pageParam, signal }) =>
+      getLibraryItemList(
+        {
+          page: Number(pageParam),
+          size: LIBRARY_ITEMS_DEFAULT.size,
+          withTotal: LIBRARY_ITEMS_DEFAULT.withTotal,
+        },
+        signal,
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => (lastPage.hasNext ? allPages.length : undefined),
+    placeholderData: keepPreviousData,
   });
 }
 
