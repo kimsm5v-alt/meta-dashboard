@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -7,8 +8,14 @@ import {
 } from '@tanstack/react-query';
 import { getCmsSet, getCmsSetList } from './cmsSetService';
 import type { CmsSetListData } from './cmsSetService';
-import { deleteRefSet, getRefSet, getRefSetList, registerRefSet } from './lmsRefSetService';
-import type { RegisterRefSetBody, RefSetListData } from './lmsRefSetService';
+import {
+  createLibraryItem,
+  deleteLibraryItem,
+  getLibraryItem,
+  getLibraryItemList,
+  updateLibraryItem,
+} from './lmsLibraryItemService';
+import type { LibraryItem, LibraryItemListData, LibraryItemOptions } from './lmsLibraryItemService';
 import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
 
@@ -19,45 +26,97 @@ const CMS_SETS_DEFAULT = {
   serviceType: 131132, // 추후 수정 필요
 } as const;
 
-export function useRefSetListQuery() {
+export type SyncLibraryItemOnSaveInput = {
+  lcmsSetId: string;
+  alias: string;
+  labels?: string[];
+  options?: LibraryItemOptions;
+  libraryItemId?: string | null;
+};
+
+function buildSavePayload(input: SyncLibraryItemOnSaveInput): {
+  alias: string;
+  labels?: string[];
+  options?: LibraryItemOptions;
+} {
+  return {
+    alias: input.alias,
+    ...(input.labels ? { labels: input.labels } : {}),
+    ...(input.options ? { options: input.options } : {}),
+  };
+}
+
+function findLibraryItemInCache(
+  queryClient: QueryClient,
+  lcmsSetId: string,
+): LibraryItem | undefined {
+  const cached = queryClient.getQueryData<LibraryItemListData>(lessonKeys.libraryItems());
+  return cached?.list.find((item) => item.lcmsSetId === lcmsSetId);
+}
+
+function resolveKnownLibraryItemId(
+  queryClient: QueryClient,
+  lcmsSetId: string,
+  libraryItemId?: string | null,
+): string | undefined {
+  if (libraryItemId) return libraryItemId;
+  return findLibraryItemInCache(queryClient, lcmsSetId)?.libraryItemId;
+}
+
+export function useLibraryItemListQuery() {
   return useQuery({
-    queryKey: lessonKeys.refSets(),
-    queryFn: getRefSetList,
+    queryKey: lessonKeys.libraryItems(),
+    queryFn: ({ signal }) => getLibraryItemList(undefined, signal),
   });
 }
 
-export function useRefSetQuery(refSetId: string | undefined, options?: { enabled?: boolean }) {
+export function useLibraryItemQuery(
+  libraryItemId: string | undefined,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
-    queryKey: lessonKeys.refSet(refSetId ?? ''),
-    queryFn: ({ signal }) => getRefSet(refSetId!, signal),
-    enabled: Boolean(refSetId) && (options?.enabled ?? true),
+    queryKey: lessonKeys.libraryItem(libraryItemId ?? ''),
+    queryFn: ({ signal }) => getLibraryItem(libraryItemId!, signal),
+    enabled: Boolean(libraryItemId) && (options?.enabled ?? true),
   });
 }
 
-export function useRegisterRefSetMutation() {
+export function useSyncLibraryItemOnSaveMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: RegisterRefSetBody) => {
-      // cache 기반 중복 방지: 동일 lcmsSetId 이미 등록된 경우 skip
-      const cached = queryClient.getQueryData<RefSetListData>(lessonKeys.refSets());
-      const alreadyRegistered = cached?.list.some((item) => item.lcmsSetId === body.lcmsSetId);
-      if (alreadyRegistered) return Promise.resolve({ refSetId: '' });
-      return registerRefSet(body);
-    },
-    onSuccess: async (_data, variables) => {
-      if (variables.lcmsSetId) {
-        await queryClient.invalidateQueries({ queryKey: lessonKeys.refSets() });
+    mutationFn: async (input: SyncLibraryItemOnSaveInput) => {
+      const savePayload = buildSavePayload(input);
+
+      const knownId = resolveKnownLibraryItemId(queryClient, input.lcmsSetId, input.libraryItemId);
+
+      if (knownId) {
+        return updateLibraryItem(knownId, savePayload);
       }
+
+      const { item, created } = await createLibraryItem({
+        lcmsSetId: input.lcmsSetId,
+        ...savePayload,
+      });
+
+      if (created) {
+        return item;
+      }
+
+      // POST 200 — 이미 담긴 항목. body alias/options 무시 → PATCH로 동기화
+      return updateLibraryItem(item.libraryItemId, savePayload);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: lessonKeys.libraryItems() });
     },
   });
 }
 
-export function useDeleteRefSetMutation() {
+export function useDeleteLibraryItemMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (refSetId: string) => deleteRefSet(refSetId),
+    mutationFn: (libraryItemId: string) => deleteLibraryItem(libraryItemId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: lessonKeys.refSets() });
+      await queryClient.invalidateQueries({ queryKey: lessonKeys.libraryItems() });
     },
   });
 }

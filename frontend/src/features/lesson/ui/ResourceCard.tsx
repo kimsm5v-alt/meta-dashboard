@@ -6,7 +6,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { theme } from '@app/styles/theme';
 import { Button } from '@shared/ui/Button/Button';
 import { formatCreatedAt } from '../lib/formatCreatedAt';
-import type { LibItem, LibraryColorGroup, ResourceCardVariant } from '../model/types';
+import type {
+  LibItem,
+  LibraryColorGroup,
+  LessonEditorPageLocationState,
+  ResourceCardVariant,
+} from '../model/types';
 import { ENV } from '@shared/config/env';
 
 const COLOR_GROUP_BG: Record<LibraryColorGroup, string> = {
@@ -21,7 +26,7 @@ const COLOR_GROUP_BG: Record<LibraryColorGroup, string> = {
 interface ResourceCardProps {
   item: LibItem;
   variant?: ResourceCardVariant;
-  onDelete?: (refSetId: string) => void;
+  onDelete?: (libraryItemId: string) => void;
 }
 
 /**
@@ -50,14 +55,14 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
           />
         ) : null}
         {imgFailed ? <ThumbTitle title={item.title}>{item.title}</ThumbTitle> : null}
-        {variant === 'my' && item.refSetId && onDelete ? (
+        {variant === 'my' && item.libraryItemId && onDelete ? (
           <DeleteButton
             type='button'
             title='삭제'
             aria-label='세트지 삭제'
             onClick={(event) => {
               event.stopPropagation();
-              onDelete(item.refSetId!);
+              onDelete(item.libraryItemId!);
             }}
           >
             <Trash2 size={14} strokeWidth={2} aria-hidden />
@@ -76,7 +81,12 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
             size='xs'
             fullWidth
             css={CARD_BTN_SECONDARY_CSS}
-            onClick={() => navigate(`/lesson/editor/${item.id}${location.search}`)}
+            onClick={() => {
+              const editorState: LessonEditorPageLocationState | undefined = item.libraryItemId
+                ? { libraryItemId: item.libraryItemId }
+                : undefined;
+              navigate(`/lesson/editor/${item.id}${location.search}`, { state: editorState });
+            }}
           >
             수정하기
           </Button>
@@ -87,8 +97,8 @@ export const ResourceCard = ({ item, variant = 'library', onDelete }: ResourceCa
             fullWidth
             css={CARD_BTN_PRIMARY_CSS}
             onClick={() => {
-              const deployPath = item.refSetId
-                ? `/lesson/deploy/${item.id}/${item.refSetId}`
+              const deployPath = item.libraryItemId
+                ? `/lesson/deploy/${item.id}/${item.libraryItemId}`
                 : `/lesson/deploy/${item.id}`;
               navigate(`${deployPath}${location.search}`, {
                 state: { item },

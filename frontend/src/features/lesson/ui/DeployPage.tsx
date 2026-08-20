@@ -5,20 +5,15 @@ import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMyGroupsQuery } from '@features/api';
 import { PageLoading } from '@shared/ui/Loading';
-import { useCmsSetDetailQuery, useRefSetQuery } from '../api/queries';
+import { useCmsSetDetailQuery, useLibraryItemQuery } from '../api/queries';
 import { mapCmsSetToLibItem } from '../model/mapCmsSetToLibItem';
-import { mapRefSetToLibItem } from '../model/mapRefSetToLibItem';
+import { mapLibraryItemToLibItem } from '../model/mapLibraryItemToLibItem';
 // 보류: mock 콘텐츠 조회 (추가계획9)
 // import { MOCK_LIBRARY_ITEMS } from '../model/mockLibraryItems';
-import type { LibItem, LibraryColorGroup } from '../model/types';
+import type { DeployPageLocationState, LibItem, LibraryColorGroup } from '../model/types';
 import { ENV } from '@shared/config/env';
 
 type DeployMode = 'period' | 'live';
-
-/** ResourceCard 「시작하기」 navigate state */
-export type DeployPageLocationState = {
-  item?: LibItem;
-};
 
 interface DeployedState {
   isLive: boolean;
@@ -41,7 +36,7 @@ const nextWeek = new Date(today);
 nextWeek.setDate(today.getDate() + 7);
 
 export const DeployPage = () => {
-  const { setId, refSetId } = useParams<{ setId: string; refSetId: string }>();
+  const { setId, libraryItemId } = useParams<{ setId: string; libraryItemId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -58,33 +53,34 @@ export const DeployPage = () => {
   const stateItem = (location.state as DeployPageLocationState | null)?.item;
   const hasStateItem = Boolean(stateItem && (!setId || stateItem.id === setId));
 
-  const refSetQuery = useRefSetQuery(refSetId, {
-    enabled: !hasStateItem && Boolean(refSetId),
+  const libraryItemQuery = useLibraryItemQuery(libraryItemId, {
+    enabled: !hasStateItem && Boolean(libraryItemId),
   });
   const cmsSetQuery = useCmsSetDetailQuery(setId, {
-    enabled: !hasStateItem && Boolean(setId) && !refSetId,
+    enabled: !hasStateItem && Boolean(setId) && !libraryItemId,
   });
 
   const item = useMemo((): LibItem | undefined => {
     if (hasStateItem && stateItem) return stateItem;
-    if (refSetId && refSetQuery.data) return mapRefSetToLibItem(refSetQuery.data);
-    if (!refSetId && cmsSetQuery.data) return mapCmsSetToLibItem(cmsSetQuery.data);
+    if (libraryItemId && libraryItemQuery.data)
+      return mapLibraryItemToLibItem(libraryItemQuery.data);
+    if (!libraryItemId && cmsSetQuery.data) return mapCmsSetToLibItem(cmsSetQuery.data);
     return undefined;
-  }, [hasStateItem, stateItem, refSetId, refSetQuery.data, cmsSetQuery.data]);
+  }, [hasStateItem, stateItem, libraryItemId, libraryItemQuery.data, cmsSetQuery.data]);
 
   // const item = MOCK_LIBRARY_ITEMS.find((x) => x.id === setId);
 
   const isItemLoading =
     !hasStateItem &&
-    ((Boolean(refSetId) && refSetQuery.isPending) ||
-      (Boolean(setId) && !refSetId && cmsSetQuery.isPending));
+    ((Boolean(libraryItemId) && libraryItemQuery.isPending) ||
+      (Boolean(setId) && !libraryItemId && cmsSetQuery.isPending));
 
   const isItemFailed =
     !setId ||
     (!hasStateItem &&
       !isItemLoading &&
-      (refSetId
-        ? refSetQuery.isError || (refSetQuery.isSuccess && !item)
+      (libraryItemId
+        ? libraryItemQuery.isError || (libraryItemQuery.isSuccess && !item)
         : cmsSetQuery.isError || (cmsSetQuery.isSuccess && !item)));
 
   useEffect(() => {

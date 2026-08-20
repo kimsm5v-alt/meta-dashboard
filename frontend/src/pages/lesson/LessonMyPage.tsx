@@ -7,9 +7,9 @@ import { theme } from '@app/styles/theme';
 import { Button } from '@shared/ui/Button/Button';
 import {
   ResourceCardList,
-  useRefSetListQuery,
-  useDeleteRefSetMutation,
-  mapRefSetToLibItem,
+  useLibraryItemListQuery,
+  useDeleteLibraryItemMutation,
+  mapLibraryItemToLibItem,
   // MOCK_LIBRARY_ITEMS,
 } from '@features/lesson';
 // import type { LibItem } from '@features/lesson';
@@ -71,18 +71,18 @@ const ErrorText = styled.p`
 export const LessonMyPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { data, isPending, isError, error } = useRefSetListQuery();
-  const { mutate: deleteRefSet } = useDeleteRefSetMutation();
+  const { data, isPending, isError, error } = useLibraryItemListQuery();
+  const { mutate: deleteLibraryItem } = useDeleteLibraryItemMutation();
 
-  const items = useMemo(() => (data?.list ?? []).map(mapRefSetToLibItem), [data]);
+  const items = useMemo(() => (data?.list ?? []).map(mapLibraryItemToLibItem), [data]);
 
   // --- MOCK 경로 (필요 시 아래 주석 해제 + 위 API 훅 비활성) ---
   // const [items, setItems] = useState<LibItem[]>(MOCK_LIBRARY_ITEMS);
   // -----------------------------------------------------------
 
-  const handleDelete = (refSetId: string) => {
-    if (!refSetId) return;
-    deleteRefSet(refSetId, {
+  const handleDelete = (libraryItemId: string) => {
+    if (!libraryItemId) return;
+    deleteLibraryItem(libraryItemId, {
       onSuccess: () => {
         toast.message('삭제되었습니다', {
           // position: 'bottom-center',
