@@ -18,8 +18,8 @@
 | **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 구현 완료 |
 | **추가계획11** | DeployPage·저작툴 시작하기 — `POST /api/v1/activities` + `publish` → `accessKey` + QR·참여링크 조립 | 상세 작성 (2026-08-19) · Phase A 구현 가능 / POST 본문 대기 |
 | **추가계획12** | 학생용 `/student/lesson/:activityId` — `GET /entry/{accessKey}` + `POST /participations` → `activity-join` embed | Phase A 구현 완료 (2026-08-19) / Phase B API 대기 |
-| **추가계획13** | 전체 자료실 CMS 목록 무한 스크롤(`pageSize=10`) + 나의 자료 `GET /api/v1/library-items` 페이지네이션 | Phase A 구현 완료 / Phase B API 대기 |
-| **추가계획14** | 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) 마이그레이션 | 분석 완료 (2026-08-19) · 미착수 |
+| **추가계획13** | 전체 자료실 CMS 목록 무한 스크롤(`pageSize=10`) + 나의 자료 `GET /api/v1/library-items` 페이지네이션 | Phase A 구현 완료 / Phase B 구현 완료 |
+| **추가계획14** | 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) · `handleSaved` POST/PATCH · editor navigate `libraryItemId` state | **Phase 1 구현 완료** (2026-08-20) · Phase 2(페이지네이션) 구현 완료 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `GET .../api/sets` (`brandId=18`, `serviceType=131132`) | 추가계획8 스펙 확정 · 필터 매핑 미적용 |
@@ -3781,14 +3781,14 @@ export async function getRefSetList(): Promise<RefSetListData> {
 
 | 파라미터 | 타입 | 설명 |
 |---------|------|------|
-| `cursor` | string | 다음 페이지 커서 (이전 응답 `cursor`) |
-| `size` | number | 페이지 크기 (기본 20) |
+| `page` | int | 0부터 |
+| `size` | number | 페이지 크기 (최대 100) |
 | `keyword` | string | 검색어 |
 | `labels` | string[] | 라벨 필터 (`subject:math` 등) |
-| `withTotal` | boolean | `true`면 첫 요청에 `total` 포함 |
+| `withTotal` | boolean | `true`면 `totalElements`/`totalPages` 포함 |
 | `sort` | string | 정렬 |
 
-응답: `PageResponse<LibraryItem>` — `{ items, hasNext, cursor, total? }`
+응답: `PageResponse<LibraryItem>` — `{ content, page, size, hasNext, totalElements?, totalPages? }`
 
 > 추가계획14의 마이그레이션이 선행되어야 한다. 옛 API를 유지한 채 페이지네이션만 추가할 수 없다.
 | 응답 `pageNo`/`pageSize` | 없음 |
@@ -3796,7 +3796,7 @@ export async function getRefSetList(): Promise<RefSetListData> {
 
 응답에 `totalCount`만 있고 요청에 페이지가 없으면, FE에서 10개씩 잘라 보여 주는 것은 **서버 페이징이 아니다.** 이번 계획에서 클라이언트 슬라이스는 하지 않는다.
 
-### 4.2 LMS 스펙 수신 후 적용안 (미구현)
+### 4.2 LMS 스펙 수신 후 적용안 (구현 완료)
 
 CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스펙 확정 후**.
 
@@ -3809,13 +3809,11 @@ CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스�
 
 **캐시 형태 주의**: 지금은 `useRegisterRefSetMutation`이 `getQueryData<RefSetListData>(lessonKeys.refSets())`로 `cached.list`를 본다. infinite로 바꾸면 `{ pages, pageParams }`가 되므로 중복 방지 로직을 `pages.flatMap(p => p.list)`로 함께 고쳐야 한다.
 
-### 4.3 Phase B 완료 기준 (스펙 수신 전 체크 불가)
+### 4.3 Phase B 완료 기준
 
-- [ ] LMS `GET /api/ref-set`에 `pageNo`/`pageSize` 스펙 확정
-- [ ] `getRefSetList`가 해당 쿼리를 전달
-- [ ] `useRefSetListQuery` infinite + `totalCount` 상한
-- [ ] `LessonMyPage` 하단 스크롤 시 다음 10건 추가
-- [ ] 등록/삭제 invalidate 후 목록 일관성 (`list` → `pages` 캐시 변경 포함)
+- [x] `GET /api/v1/library-items` 기반 `useInfiniteQuery` (`page=0`, `size=10`, `hasNext`) 구현
+- [x] `LessonMyPage` 하단 센티널 진입 시 다음 페이지 목록 append
+- [x] 삭제/등록 후 infinite 캐시 형태에서도 중복 방지/일관성 유지
 
 ---
 
@@ -3876,7 +3874,7 @@ CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스�
 
 ### Phase B (LMS — 스펙 대기)
 
-- [ ] 섹션 4.3. `pageNo`/`pageSize` 스펙 오기 전에는 착수하지 않음
+- [x] 섹션 4.3. 추가계획13 Phase B: `GET /api/v1/library-items` 무한 스크롤 구현 완료
 
 ---
 
@@ -3889,17 +3887,17 @@ CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스�
 
 # 추가계획14 — 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) 마이그레이션
 
-> **상태**: 분석 완료 (2026-08-19) · 미착수  
+> **상태**: Phase 1 구현 완료 (2026-08-20) · Phase 2(페이지네이션) 구현 완료  
 > **선행**: 없음 (독립)  
 > **후행**: 추가계획13 Phase B (나의 자료 페이지네이션), 추가계획11 Phase B (활동 생성)  
-> **범위**: `lmsRefSetService.ts`의 옛 API 호출을 새 API로 교체. 응답 봉투·경로·필드명·에러 처리 전부 변경.  
+> **범위**: `lmsRefSetService.ts`의 옛 API 호출을 새 API로 교체. **`LessonEditorPage.handleSaved`는 `libraryItemId` 알면 PATCH-only, 모르면 POST(201 끝 / 200→PATCH fallback).** 나의 자료 「수정하기」는 navigate state로 `libraryItemId` 전달.
 > **출처**: `superplatform-lms/docs/aihelper/as-is-to-be.md`, `docs/guide/api-spec.md`
 
 ---
 
 ## 1. 한 줄 요약
 
-`/api/ref-set` → `/api/v1/library-items`. 응답 봉투 `resultData` → `data`. ID `refSetId` → `libraryItemId`. 에러는 `errorCode`로 분기.
+`/api/ref-set` → `/api/v1/library-items`. 응답 봉투 `resultData` → `data`. ID `refSetId` → `libraryItemId`. **신규 담기는 `POST`, 제목·썸네일 갱신은 `PATCH`.** 에러는 `errorCode`로 분기.
 
 ---
 
@@ -3918,11 +3916,51 @@ CMS와 대칭으로 맞춘다. 파라미터 이름·0-based 여부는 **LMS 스�
 
 | 옛 | 새 | 주요 변경 |
 |----|-----|----------|
-| `GET /api/ref-set` | `GET /api/v1/library-items` | 페이지네이션(`cursor`/`size`/`hasNext`) 추가. 검색(`keyword`)/라벨 필터 지원 |
+| `GET /api/ref-set` | `GET /api/v1/library-items` | 페이지네이션(`page`/`size`/`hasNext`) 추가. 검색(`keyword`)/라벨 필터 지원 |
 | `GET /api/ref-set/{refSetId}` | `GET /api/v1/library-items/{libraryItemId}` | ID명 변경 |
 | `POST /api/ref-set` | `POST /api/v1/library-items` | `refSetId` → `libraryItemId`. body 필드 확인 필요 |
 | `DELETE /api/ref-set/{refSetId}` | `DELETE /api/v1/library-items/{libraryItemId}` | 동일 |
-| — (신규) | `PATCH /api/v1/library-items/{libraryItemId}` | 수정 기능 추가 |
+| — (신규) | `PATCH /api/v1/library-items/{libraryItemId}` | `alias`·`labels`·`options` 수정. **`lcmsSetId` 변경 불가** |
+
+### 2.1 POST vs PATCH — 역할 분리 (스펙 확정)
+
+| 동작 | 메서드 | 언제 | 서버 동작 |
+|------|--------|------|-----------|
+| **담기(신규)** | `POST /api/v1/library-items` | 보관함에 해당 `lcmsSetId`가 **없을 때** | `201 Created` — 새 `LibraryItem` 반환 |
+| **멱등 담기** | `POST` (동일 body) | 이미 **활성** 상태로 담긴 `lcmsSetId` | `200 OK` — **기존 값 그대로**. body의 `alias`·`labels`·`options` **무시** |
+| **메타 갱신** | `PATCH /api/v1/library-items/{libraryItemId}` | 이미 담긴 항목의 제목·썸네일 등 변경 | `200 OK` — 수정된 `LibraryItem` 반환 |
+
+> **핵심**: 저작툴에서 **저장할 때마다 POST만 호출하면**, 두 번째 저장부터는 제목·썸네일이 LMS 나의 자료에 반영되지 않는다.  
+> `useRegisterRefSetMutation`의 cache skip(중복 POST 생략)도 같은 문제 — **갱신 경로가 없음**.
+
+### 2.2 요청 body 필드 매핑 (옛 → 새)
+
+| 옛 (`POST /api/ref-set`) | 새 | 비고 |
+|--------------------------|-----|------|
+| `lcmsSetId` | `lcmsSetId` | POST 필수. PATCH body에 넣으면 `400 UNKNOWN_PARAMETER` |
+| `options.title` | **`alias`** | **최상위 필드로 이동**. `?keyword=` 검색 대상 |
+| `options.thumbnailUrl` | `options.thumbnailUrl` | store-and-echo 유지 |
+| `makeMethod` | **(없음)** | 새 API 코어 필드 아님. 필요 시 `options.makeMethod`로 echo만 (스펙 미정) |
+| — | `labels` | 선택. Phase 1에서는 미전송 |
+
+**POST 예시** (`api-spec.md`):
+
+```jsonc
+{
+  "lcmsSetId": "set-456",
+  "alias": "3단원 형성평가",
+  "options": { "thumbnailUrl": "https://..." }
+}
+```
+
+**PATCH 예시** — 보낸 필드만 교체. `options`는 **객체 전체 교체**:
+
+```jsonc
+{
+  "alias": "새 이름",
+  "options": { "thumbnailUrl": "https://..." }
+}
+```
 
 ---
 
@@ -4013,14 +4051,21 @@ const BASE = `${ENV.SP_LMS_API_URL}/api/v1/library-items`;
 
 ### Phase 2 — 페이지네이션 적용 (추가계획13 Phase B와 합류)
 
-1. `getRefSetList()` → `getLibraryItems({ cursor, size, keyword, labels })`
+1. `getRefSetList()` → `getLibraryItems({ page, size, keyword, labels })`
 2. `useRefSetListQuery` → `useLibraryItemListQuery` (useInfiniteQuery)
 3. `LessonMyPage` 무한 스크롤 적용
 
-### Phase 3 — 신규 기능 활용 (선택)
+### Phase 1b — `handleSaved` POST/PATCH upsert (Phase 1과 동시 착수)
 
-1. `PATCH /api/v1/library-items/{id}` — 제목/옵션 수정
-2. 검색(`keyword`), 라벨 필터 적용
+1. `createLibraryItem(body)` — POST
+2. `updateLibraryItem(libraryItemId, body)` — PATCH
+3. `useSyncLibraryItemOnSaveMutation()` — 저장 시 upsert (§11 참조)
+4. `LessonEditorPage.handleSaved` — mutation 교체 + `libraryItemId` 상태 보관
+
+### Phase 3 — 부가 기능 (선택)
+
+1. 검색(`keyword`), 라벨 필터 적용
+2. `makeMethod`를 `options`에 echo할지 여부 결정
 
 ---
 
@@ -4028,12 +4073,12 @@ const BASE = `${ENV.SP_LMS_API_URL}/api/v1/library-items`;
 
 | 파일 | 변경 내용 |
 |------|----------|
-| `features/lesson/api/lmsRefSetService.ts` | 봉투·경로·ID 전부 교체. 파일명도 `lmsLibraryItemService.ts`로 변경 고려 |
-| `features/lesson/api/queries.ts` | query key, 함수명 갱신 |
-| `features/lesson/index.ts` | export 갱신 |
-| `pages/lesson/LessonMyPage.tsx` | `refSetId` → `libraryItemId` 사용처 |
-| `pages/lesson/LessonDeployPage.tsx` | `getRefSet` → `getLibraryItem` |
-| `pages/lesson/LessonEditorPage.tsx` | `registerRefSet` → `registerLibraryItem` (또는 함수명 유지 후 내부만 교체) |
+| `features/lesson/api/lmsLibraryItemService.ts` | **구현 완료** — 봉투·경로·ID·POST/PATCH/DELETE |
+| `features/lesson/api/queries.ts` | **구현 완료** — `useSyncLibraryItemOnSaveMutation` upsert |
+| `features/lesson/index.ts` | **구현 완료** — export 갱신 |
+| `pages/lesson/LessonMyPage.tsx` | **구현 완료** — `libraryItemId` 사용처 |
+| `pages/lesson/LessonDeployPage.tsx` | **구현 완료** — `getLibraryItem` / `useLibraryItemQuery` |
+| `pages/lesson/LessonEditorPage.tsx` | **구현 완료** — `useSyncLibraryItemOnSaveMutation` (POST/PATCH 분기, §11) |
 
 ---
 
@@ -4057,22 +4102,239 @@ const BASE = `${ENV.SP_LMS_API_URL}/api/v1/library-items`;
 | 1 | 새 경로 | **확정** | `/api/v1/library-items` |
 | 2 | 새 봉투 | **확정** | `{ success, message, data, errorCode }` |
 | 3 | ID명 | **확정** | `libraryItemId` |
-| 4 | 페이지네이션 | **확정** | `cursor`/`size`/`hasNext` |
+| 4 | 페이지네이션 | **확정** | `page`/`size`/`hasNext` |
 | 5 | 에러코드 | **확정** | 26종 `errorCode` |
-| 6 | body 변경 | **스펙 확인 필요** | `POST /api/v1/library-items` 요청 본문 정확한 필드 |
+| 6 | POST body | **확정** | `lcmsSetId`(필수), `alias`, `labels`, `options` |
+| 7 | PATCH body | **확정** | `alias`, `labels`, `options` — `lcmsSetId` 금지 |
+| 8 | POST 멱등 | **확정** | 이미 있으면 `200` + 기존값. **덮어쓰지 않음** → 갱신은 PATCH |
+| 9 | `makeMethod` | **미확정** | 새 API 코어 필드 없음. `options` echo 여부는 product 결정 |
+| 10 | editor navigate state | **확정** | `{ libraryItemId }` — PATCH-only 진입. 없으면 POST fallback |
 
 ---
 
 ## 10. 완료 기준
 
-- [ ] `lmsRefSetService.ts` → 새 경로·봉투·ID 교체 완료
-- [ ] 기존 기능(목록 조회, 단건 조회, 등록, 삭제) 정상 동작
-- [ ] 응답 `data` 언랩 확인
-- [ ] 에러 발생 시 `errorCode` 전달
-- [ ] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
-- [ ] (Phase 2) 페이지네이션 적용 → 추가계획13 Phase B와 합류
+- [x] `lmsRefSetService.ts` → `lmsLibraryItemService.ts` 새 경로·봉투·ID 교체 완료
+- [x] 기존 기능(목록 조회, 단건 조회, 등록, 삭제) 정상 동작
+- [x] **`handleSaved`: `libraryItemId` 있으면 PATCH-only, 없으면 POST → 200 시 PATCH fallback**
+- [x] **나의 자료 → 수정하기: navigate state `{ libraryItemId }` 전달**
+- [x] **신규 저장 후 replace navigate: `onSuccess`에서 state에 `libraryItemId` 포함**
+- [x] 응답 `data` 언랩 확인 (`LmsApiResponse` → `json.data`)
+- [x] 에러 발생 시 `errorCode` 전달 (`LmsApiError`)
+- [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
+- [x] (Phase 2) 페이지네이션 적용 → 추가계획13 Phase B와 합류
 
 ---
 
-**작성일**: 2026-08-19  
-**상태**: 분석 완료 · 미착수
+## 12. 구현 결과 (2026-08-20)
+
+### 12.1 변경 파일
+
+| 파일 | 내용 |
+|------|------|
+| `api/lmsLibraryItemService.ts` | GET/POST/PATCH/DELETE. `createLibraryItem` → `{ item, created }` (HTTP 201/200 구분) |
+| `api/lmsRefSetService.ts` | **삭제** |
+| `api/queries.ts` | `useSyncLibraryItemOnSaveMutation` — PATCH-only / POST fallback |
+| `api/queryKeys.ts` | `libraryItems` / `libraryItem` 키 |
+| `model/mapLibraryItemToLibItem.ts` | `alias`→title, `libraryItemId` |
+| `model/types.ts` | `LibItem.libraryItemId`, `LessonEditorPageLocationState`, `DeployPageLocationState` |
+| `pages/lesson/LessonEditorPage.tsx` | `location.state.libraryItemId` 초기화 · `onSuccess` replace navigate |
+| `pages/lesson/LessonMyPage.tsx` | 새 훅·mapper 연동 |
+| `ui/ResourceCard.tsx` | 수정하기 navigate 시 `{ libraryItemId }` state 전달 |
+| `ui/DeployPage.tsx` | `useLibraryItemQuery`, route param `libraryItemId` |
+| `app/router/routes.tsx` | `/lesson/deploy/:setId/:libraryItemId` |
+| `features/lesson/index.ts` | export 갱신 |
+
+### 12.2 `libraryItemId` 확보 — navigate state (1차)
+
+**타입** (`model/types.ts`):
+
+```ts
+export type LessonEditorPageLocationState = {
+  libraryItemId?: string;
+};
+```
+
+**ResourceCard 「수정하기」** — `libraryItemId`가 있으면 state로 전달:
+
+```ts
+navigate(`/lesson/editor/${item.id}${location.search}`, {
+  state: item.libraryItemId ? { libraryItemId: item.libraryItemId } : undefined,
+});
+```
+
+**LessonEditorPage** — 마운트 시 state에서 초기화:
+
+```ts
+const [libraryItemId, setLibraryItemId] = useState<string | null>(() => {
+  const state = location.state as LessonEditorPageLocationState | null;
+  return state?.libraryItemId ?? null;
+});
+```
+
+| 진입 경로 | navigate state | 첫 저장 API |
+|-----------|----------------|-------------|
+| 나의 자료 → 수정하기 | `{ libraryItemId }` | **PATCH만** |
+| `/lesson/editor` 신규 | 없음 | POST |
+| URL 직접 접근 / 새로고침 | **유실** | POST (fallback) |
+
+> Route param `:setId`는 **CMS `lcmsSetId`**. `libraryItemId`(UUID)는 **state 또는 page state**로만 전달한다.
+
+### 12.3 `useSyncLibraryItemOnSaveMutation` 동작
+
+**`libraryItemId` lookup 우선순위** (GET 호출 없음):
+
+1. mutation input `libraryItemId` — page state (navigate state 또는 이전 저장 `onSuccess`)
+2. React Query cache — `lessonKeys.libraryItems()` 목록에서 `lcmsSetId` 매칭 (보조)
+
+```
+libraryItemId 알고 있음?
+  └─ YES → PATCH { alias, labels?, options }
+
+  └─ NO  → POST { lcmsSetId, alias, labels?, options }
+             ├─ 201 (created) → 끝 (body 반영됨)
+             └─ 200 (이미 담김) → PATCH { alias, labels?, options }  ← URL 직접 접근 fallback
+```
+
+성공 시 `lessonKeys.libraryItems()` invalidate.
+
+### 12.4 신규 저장 후 URL 변경 — state 유지
+
+`/lesson/editor` → `/lesson/editor/:lcmsSetId` 는 **서로 다른 Route**라 컴ponent **리마운트**된다.  
+`replace` navigate를 **`onSuccess` 안**에서 실행하고, 응답 `libraryItemId`를 state에 실어 보낸다:
+
+```ts
+onSuccess: (item) => {
+  setLibraryItemId(item.libraryItemId);
+  if (!routeSetId && p.lcmsSetId) {
+    navigate(`/lesson/editor/${p.lcmsSetId}${location.search}`, {
+      replace: true,
+      state: { libraryItemId: item.libraryItemId },
+    });
+  }
+},
+```
+
+이후 저장은 POST 없이 **PATCH-only**.
+
+### 12.5 Phase 2 구현 결과
+
+- (완료) `getLibraryItemList` → `useInfiniteQuery` (page 기반 infinite)
+- (완료) `LessonMyPage` `hasMore` / `onEndReached` 연동
+
+---
+
+## 11. `LessonEditorPage.handleSaved` 개선 분석
+
+> **상태**: 구현 완료 (2026-08-20)  
+> **대상**: `pages/lesson/LessonEditorPage.tsx`, `features/lesson/api/queries.ts`, `ui/ResourceCard.tsx`
+
+### 11.1 AS-IS (마이그레이션 전 — 참고용)
+
+옛 구현은 POST만 사용 + cache skip으로 두 번째 저장부터 LMS 메타가 stale해지는 문제가 있었다. (상세는 초안 §11.2)
+
+### 11.2 TO-BE 흐름 (구현됨)
+
+```
+[진입]
+ResourceCard 수정하기 ── state: { libraryItemId? } ──▶ LessonEditorPage
+  └─ useState(() => location.state?.libraryItemId ?? null)
+
+[저장 onSaved(p)]
+  guard: !p.lcmsSetId || !p.title → return
+  syncLibraryItem({ lcmsSetId, alias, labels?, options: { thumbnailUrl? }, libraryItemId })
+    ├─ libraryItemId 있음 (state / cache) → PATCH
+    └─ libraryItemId 없음 → POST
+          ├─ 201 → 끝
+          └─ 200 → PATCH (fallback)
+  onSuccess:
+    setLibraryItemId(item.libraryItemId)
+    !routeSetId → replace navigate + state: { libraryItemId }
+    manual trigger → savedOpen 모달
+```
+
+### 11.3 `libraryItemId` lookup (확정 — GET 없음)
+
+| 우선순위 | 출처 | 용도 |
+|---------|------|------|
+| 1 | navigate `location.state.libraryItemId` | 나의 자료 → 수정하기 |
+| 2 | page `libraryItemId` state | 동일 세션 2번째 저장 이후 |
+| 3 | React Query cache (`libraryItems` 목록) | state 없어도 목록 cache hit 시 PATCH-only |
+| — | POST 응답 `item.libraryItemId` | **fallback** — URL 직접 접근·새로고침 |
+
+~~GET `/library-items?lcmsSetIds=`~~ — **사용하지 않음**. POST가 membership + id 확보를 담당.
+
+### 11.4 구현 코드 (현행)
+
+**Mutation** (`queries.ts`):
+
+```ts
+const knownId = resolveKnownLibraryItemId(queryClient, input.lcmsSetId, input.libraryItemId);
+if (knownId) return updateLibraryItem(knownId, { alias, labels?, options });
+
+const { item, created } = await createLibraryItem({ lcmsSetId, alias, labels?, options });
+if (created) return item; // 201
+return updateLibraryItem(item.libraryItemId, { alias, labels?, options }); // 200 fallback
+```
+
+**Page** (`LessonEditorPage.tsx`):
+
+```ts
+const [libraryItemId, setLibraryItemId] = useState<string | null>(() =>
+  (location.state as LessonEditorPageLocationState | null)?.libraryItemId ?? null,
+);
+
+syncLibraryItem({ lcmsSetId, alias, labels?, options: { thumbnailUrl? }, libraryItemId }, {
+  onSuccess: (item) => {
+    setLibraryItemId(item.libraryItemId);
+    if (p.trigger === 'manual') setSavedOpen(true);
+    if (!routeSetId && p.lcmsSetId) {
+      navigate(`/lesson/editor/${p.lcmsSetId}${location.search}`, {
+        replace: true,
+        state: { libraryItemId: item.libraryItemId },
+      });
+    }
+  },
+});
+```
+
+**ResourceCard**:
+
+```ts
+navigate(`/lesson/editor/${item.id}${location.search}`, {
+  state: item.libraryItemId ? { libraryItemId: item.libraryItemId } : undefined,
+});
+```
+
+### 11.5 `mapRefSetToLibItem` 연동
+
+| 옛 | 새 |
+|----|-----|
+| `options?.title` | `item.alias ?? ''` |
+| `refSetId` | `libraryItemId` |
+| `makeMethod` | 제거 또는 `options?.makeMethod` |
+
+### 11.6 `trigger`별 UX
+
+| `trigger` | LMS 동작 | UI |
+|-----------|----------|-----|
+| `auto` | POST 또는 PATCH (동일 upsert) | 모달 없음 |
+| `manual` | POST 또는 PATCH (동일 upsert) | 성공 시 `savedOpen` 모달 |
+
+자동·수동 저장 모두 **메타 동기화**는 동일. 차이는 모달 표시뿐.
+
+### 11.7 엣지 케이스
+
+| 케이스 | 처리 |
+|--------|------|
+| 나의 자료 → 수정하기 | navigate state `{ libraryItemId }` → **PATCH-only** (POST 생략) |
+| `/lesson/editor` 신규 첫 저장 | POST **201** → `onSuccess`에서 replace navigate + state |
+| URL 직접 접근 / 새로고침 | state 유실 → POST. **200**이면 응답 id로 PATCH (fallback) |
+| 신규 저장 후 리마운트 | `onSuccess` replace navigate에 `state: { libraryItemId }` → PATCH-only 유지 |
+| 나의 자료에서 삭제 후 재저장 | POST **201** (복원) |
+| `options` PATCH | **전체 교체** — 현재 `LessonEditorPage`에서 `options.thumbnailUrl`만 채움 |
+
+---
+
+**작성일**: 2026-08-19 (초안) · **갱신**: 2026-08-20 (Phase 1 + navigate state PATCH-only)  
+**상태**: Phase 1 구현 완료 · Phase 2(페이지네이션) 구현 완료

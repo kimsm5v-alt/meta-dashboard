@@ -295,7 +295,7 @@ export const AppRoutes = () => (
         {FEATURES.IA_V2 && (
           <>
             <Route path='/lesson/deploy/:setId' element={<LessonDeployPage />} />
-            <Route path='/lesson/deploy/:setId/:refSetId' element={<LessonDeployPage />} />
+            <Route path='/lesson/deploy/:setId/:libraryItemId' element={<LessonDeployPage />} />
             <Route path='/lesson/editor' element={<LessonEditorPage />} />
             <Route path='/lesson/editor/:setId' element={<LessonEditorPage />} />
             <Route path='/lesson/viewer/:setId' element={<LessonViewerPage />} />
