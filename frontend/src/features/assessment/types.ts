@@ -5,6 +5,15 @@ export type PaperIdx = '1' | '2';
 export type ExamSlotStatus = 'not_started' | 'in_progress' | 'completed' | 'locked';
 export type ViewMode = 'list' | 'detail';
 export type ModalType = 'create_group' | 'edit_group' | 'delete_group' | null;
+export type ExamReminderCode = 'OK' | 'NO_TARGET' | 'NOT_IN_PROGRESS' | 'NOT_OWNER' | 'NOT_FOUND';
+
+export interface ExamReminderResponse {
+  code: ExamReminderCode;
+  requestedCount: number;
+  sentCount: number;
+  failedCount: number;
+  lastSentAt: string | null;
+}
 
 export interface ExamSlotDefinition {
   id: 'L1' | 'S1' | 'L2' | 'S2';

@@ -7,6 +7,7 @@ import {
   fetchPaperPermission,
   previewExamStart,
   restartExam,
+  sendExamReminder,
   startExam,
   uploadAnswersExcel,
   type GradeLevel,
@@ -156,4 +157,9 @@ export const useUploadAnswersExcelMutation = () => {
 export const useDownloadSampleExcelMutation = () =>
   useMutation({
     mutationFn: (variables: { dgnssId: number }) => downloadSampleExcel(variables.dgnssId),
+  });
+
+export const useExamReminderMutation = () =>
+  useMutation({
+    mutationFn: (variables: { dgnssId: number }) => sendExamReminder(variables.dgnssId),
   });

@@ -4,6 +4,7 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { Card } from '@shared/components';
 import { buildScopeQueryString } from '@shared/scope';
 import { EXAM_STATUS_LABELS } from '@features/assessment/constants';
+import { useExamReminderAction } from '@features/assessment/model/useExamReminderAction';
 import { useHomeExamStats, getLearningSlot } from '@features/home/model/useHomeExamStats';
 import type { ExamSlotState, ExamSlotStatus, GroupWithExamState } from '@features/assessment/types';
 
@@ -180,6 +181,7 @@ const RoundProgress = ({ slot }: { slot?: ExamSlotState }) => {
 export const ExamStatusSection = () => {
   const navigate = useNavigate();
   const { groups, isLoading, error, refetch } = useHomeExamStats();
+  const reminderAction = useExamReminderAction();
 
   const goToResult = (group: GroupWithExamState) =>
     navigate(`/exam/result${buildScopeQueryString({ level: 'class', classId: group.id })}`);
@@ -232,6 +234,15 @@ export const ExamStatusSection = () => {
                 const round2 = getLearningSlot(group, 2);
                 const hasCompleted =
                   round1?.status === 'completed' || round2?.status === 'completed';
+                const reminderSlot =
+                  round2?.status === 'in_progress'
+                    ? round2
+                    : round1?.status === 'in_progress'
+                      ? round1
+                      : undefined;
+                const hasPendingStudents = reminderSlot
+                  ? reminderSlot.submittedCount < reminderSlot.totalCount
+                  : false;
                 return (
                   <tr key={group.id}>
                     <td>
@@ -253,7 +264,23 @@ export const ExamStatusSection = () => {
                           결과보기
                         </ActionButton>
                         <ActionButton onClick={() => goToManagement(group)}>검사관리</ActionButton>
-                        <ActionButton disabled title='준비 중'>
+                        <ActionButton
+                          disabled={
+                            !reminderSlot?.dgnssId ||
+                            !hasPendingStudents ||
+                            reminderAction.isBlocked(reminderSlot.dgnssId)
+                          }
+                          title={
+                            reminderSlot?.dgnssId && reminderAction.isBlocked(reminderSlot.dgnssId)
+                              ? '중복 발송 방지를 위해 전송 처리 후 5초 뒤 다시 전송할 수 있습니다'
+                              : undefined
+                          }
+                          onClick={() => {
+                            if (reminderSlot?.dgnssId) {
+                              void reminderAction.sendReminder(reminderSlot.dgnssId);
+                            }
+                          }}
+                        >
                           독려알림
                         </ActionButton>
                       </Actions>
