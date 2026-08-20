@@ -111,7 +111,10 @@ export const LessonEditorPage = () => {
   const handleStartLesson = (p: StartLessonPayload) => {
     console.log('[LessonEditorPage] onStartLesson', p);
     const nextSetId = p.lcmsSetId;
-    if (!nextSetId) return;
+    if (!nextSetId) {
+      toast.error('콘텐츠 ID가 없습니다');
+      return;
+    }
 
     if (libraryItemId) {
       const item: LibItem = libraryItem

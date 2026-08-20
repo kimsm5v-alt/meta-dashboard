@@ -21,30 +21,38 @@ const MessageScreen = styled.div`
   font-size: ${({ theme }) => theme.typography.fontSize.base};
 `;
 
-function resolveJoinViewState(activityId: string | undefined): JoinViewState {
+function resolveJoinViewState(
+  activityId: string | undefined,
+  setIdFromUrl: string | undefined,
+): JoinViewState {
   const trimmedId = activityId?.trim();
   if (!trimmedId) {
     return { kind: 'error' };
   }
 
-  // Phase A: 참여 가능·setId API 미연동 — 허용 후 setId=activityId(임시)
-  // Phase B: getActivityJoinEligibility / getActivityJoinSetId 결과로 분기
+  const trimmedSetId = setIdFromUrl?.trim();
+
+  // Phase A: 참여 가능 API 미연동 — 허용 후 embed
+  // 임시: URL /student/lesson/:activityId/:setId 에서 setId 전달 (Phase B 전 확인용)
+  // Phase B: getActivityJoinEligibility + GET /activities lcmsSetId
   return {
     kind: 'ready',
     activityId: trimmedId,
-    // 임시 — activityId→setId 조회 API 응답으로 교체
-    setId: trimmedId,
+    setId: trimmedSetId || trimmedId,
   };
 }
 
 /**
  * 학생 수업 참여 풀스크린.
- * 라우트 `/student/lesson/:activityId`
+ * 라우트 `/student/lesson/:activityId` · 임시 `/student/lesson/:activityId/:setId`
  */
 export const LessonJoinPage = () => {
-  const { activityId } = useParams<{ activityId: string }>();
+  const { activityId, setId: setIdParam } = useParams<{ activityId: string; setId?: string }>();
   const navigate = useNavigate();
-  const viewState = useMemo(() => resolveJoinViewState(activityId), [activityId]);
+  const viewState = useMemo(
+    () => resolveJoinViewState(activityId, setIdParam),
+    [activityId, setIdParam],
+  );
 
   const handleError = (error: EmbedError) => {
     console.warn('[LessonJoinPage] embed error', error.code, error.message);
