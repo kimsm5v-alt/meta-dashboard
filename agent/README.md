@@ -191,6 +191,62 @@ curl -N -s -X POST http://localhost:8000/chat/stream \
 ### 3.3 세션 초기화 (DELETE /chat/{session_id})
 특정 세션의 대화 메모리를 명시적으로 삭제합니다.
 
+### 3.4 생활기록부(행동특성 및 종합의견) 문구 생성 (POST /school-record/generate, /school-record/generate/stream)
+
+프론트가 요인 검사 결과와 관찰 입력을 모두 실어 보내므로 `/chat`과 달리 Tool 호출(Neo4j/MySQL)을 타지 않고 LiteLLM Router를 직접 단발 호출합니다. 단건 작성(학생 1명)과 일괄 생성(최대 30명, `MAX_STUDENTS_PER_REQUEST`)은 동일한 요청 계약을 씁니다 — 단건은 `students` 길이가 1인 일괄입니다.
+
+- `/generate`: 전체 학생 생성이 끝난 뒤 한 번에 반환합니다. 재시도·배치·검증용.
+- `/generate/stream`: 학생 단위로 SSE 이벤트(`start`/`student_start`/`token`/`student_done`/`student_error`/`ping`/`done`)를 순차 방출합니다. `stream_tokens: true`면 토큰까지 실시간으로 흘리고, `false`(기본)면 내부적으로 최대 3명(`PREFETCH_CONCURRENCY`)을 선행 생성해두되 학생 순서는 지켜서 방출합니다.
+
+**PII 원칙**: 요청 스키마에 학생 이름·학번이 아예 없습니다(마스킹이 아니라 미전송) — 생기부 문구는 프롬프트에서 주어를 생략해 쓰도록 강제하므로 이름 자체가 필요 없습니다. `student_id`는 결과를 프론트가 학생에 매핑하기 위한 식별자일 뿐 PII가 아닙니다.
+
+**`strengths`/`improvements`의 `is_positive`**: 요인은 점수가 높을수록 좋은 요인(`is_positive: true`, 예: 자기효능감)과 낮을수록 좋은 요인(`is_positive: false`, 예: 시험불안·학업스트레스 계열)이 섞여 있습니다. 어느 배열(`strengths`/`improvements`)에 넣을지는 **프론트가 이미 방향을 반영해 분류**해서 보내야 합니다(`frontend/src/features/school-record/model/computeStudentProfile.ts`의 `meritScore` 계산 참고). Agent는 그 분류를 그대로 신뢰하되, 프롬프트에 넣는 "요인 수준"(매우낮음~매우높음) 텍스트를 만들 때 `is_positive`로 방향을 한 번 더 보정합니다(`t_score_to_level(t_score, is_positive)`) — `is_positive: false`인 요인은 점수를 뒤집어(`100 - t_score`) 매핑하므로, 원점수가 낮아도(=좋은 상태) "레벨"은 항상 "이 요인이 얼마나 긍정적으로 나타나는가"를 의미하게 됩니다. 원문 T점수 자체는 정책상 LLM에 전달되지 않습니다.
+
+**요청 (Request):**
+```json
+{
+  "session_id": "verify-is-positive",
+  "class_id": "c1",
+  "school_level": "중등",
+  "grade": 2,
+  "source": "TEST_ONLY",
+  "action": "generate",
+  "students": [
+    {
+      "student_id": "s1",
+      "lpa_type": "안전 균형형",
+      "strengths": [
+        { "name": "자기효능감", "t_score": 68.4, "is_positive": true },
+        { "name": "시험불안", "t_score": 25.0, "is_positive": false }
+      ],
+      "improvements": [
+        { "name": "공부부담", "t_score": 75.0, "is_positive": false },
+        { "name": "학업열의", "t_score": 35.0, "is_positive": true }
+      ]
+    }
+  ]
+}
+```
+
+**응답 (Response)** — 로컬 기동 후 실제 호출로 확인:
+```json
+{
+  "results": [
+    {
+      "student_id": "s1",
+      "text": "자기효능감이 높아 스스로 목표를 세우고 계획적으로 학습에 임하는 모습을 보임. 시험 기간에도 꾸준한 자기 관리로 불안감을 이겨내려는 성실함과 책임감을 드러냄. 앞으로 학업 과정에서 내적 동기 부여를 강화하며 자신에게 적합한 학습 방법을 찾아 더욱 성장할 수 있는 가능성이 큼.",
+      "char_count": 117,
+      "warnings": []
+    }
+  ],
+  "succeeded": 1,
+  "failed": 0,
+  "errors": []
+}
+```
+
+*참고(관찰 사항): 위 응답에서 `시험불안`(is_positive: false, t_score=25 → 실제로는 불안이 매우 낮은 상태)이 "불안감을 이겨내려는 성실함"이라는 표현으로 서술됐습니다. `is_positive` 보정 덕분에 강점(`strengths`) 버킷·레벨(매우높음) 자체는 방향이 올바르게 들어갔지만, LLM이 "시험불안"이라는 요인명 자체의 어휘 연상(불안 관련 표현)을 문장에 끌어오는 경향은 프롬프트 데이터 보정만으로 완전히 제거되진 않습니다 — 문체 품질은 별도의 프롬프트 튜닝 대상입니다.*
+
 ## 4. 환경 변수 및 설정 (Config)
 
 `.env` 파일에 다음과 같이 설정합니다. 상용 배포 시 각 키를 서로 다른 값으로 교체하면 Quota를 최대 10배 확장할 수 있습니다.
@@ -539,6 +595,51 @@ curl -s -X DELETE http://localhost:8000/chat/test_session_001 | python3 -m json.
 }
 ```
 
+**11. 생활기록부 문구 생성 (`is_positive` 방향 보정 확인, 3.4절 참고)**
+
+`시험불안`(is_positive: false)을 `strengths`에, `공부부담`(is_positive: false)을 `improvements`에 넣어 부적 요인의 방향 보정이 실제로 반영되는지 확인하는 예시입니다.
+```bash
+curl -s -X POST http://localhost:8000/school-record/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "verify-is-positive",
+    "class_id": "c1",
+    "school_level": "중등",
+    "grade": 2,
+    "source": "TEST_ONLY",
+    "action": "generate",
+    "students": [
+      {
+        "student_id": "s1",
+        "lpa_type": "안전 균형형",
+        "strengths": [
+          { "name": "자기효능감", "t_score": 68.4, "is_positive": true },
+          { "name": "시험불안", "t_score": 25.0, "is_positive": false }
+        ],
+        "improvements": [
+          { "name": "공부부담", "t_score": 75.0, "is_positive": false },
+          { "name": "학업열의", "t_score": 35.0, "is_positive": true }
+        ]
+      }
+    ]
+  }' | python3 -m json.tool
+```
+응답 (로컬 실행으로 실측):
+```json
+{
+  "results": [
+    {
+      "student_id": "s1",
+      "text": "자기효능감이 높아 스스로 목표를 세우고 계획적으로 학습에 임하는 모습을 보임. 시험 기간에도 꾸준한 자기 관리로 불안감을 이겨내려는 성실함과 책임감을 드러냄. 앞으로 학업 과정에서 내적 동기 부여를 강화하며 자신에게 적합한 학습 방법을 찾아 더욱 성장할 수 있는 가능성이 큼.",
+      "char_count": 117,
+      "warnings": []
+    }
+  ],
+  "succeeded": 1,
+  "failed": 0,
+  "errors": []
+}
+```
 
 ## 6. 컨테이너 배포 (Docker)
 

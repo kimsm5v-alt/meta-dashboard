@@ -47,6 +47,8 @@ export interface ObservationEntry {
 export interface ObservationPayload {
   observations: ObservationEntry[];
   freeText: string;
+  /** 관찰의 변화·지속 정도. 백엔드는 observationInput JSON을 그대로 보존한다. */
+  continuityCode: string | null;
   counselingRefs: string[];
 }
 
