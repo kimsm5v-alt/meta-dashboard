@@ -27,7 +27,10 @@
              , cs.`line`        AS `line`
              , cs.question      AS question
              , DATE_FORMAT(cs.updated_at, '%Y-%m-%d %H:%i') AS updatedAt
+             , cs.updated_by    AS updatedBy
+             , aa.nickname      AS updatedByName
         FROM coaching_strength cs
+        LEFT JOIN admin_account aa ON aa.id = cs.updated_by
         <include refid="strengthWhere"/>
         ORDER BY cs.school_level, cs.lpa_class, cs.id
         LIMIT #{limit} OFFSET #{offset}
@@ -69,11 +72,13 @@
 
     <select id="selectStrengthHistory" resultType="map">
         /* CoachingAdminMapper.selectStrengthHistory */
-        SELECT history_id AS historyId, action, observation, `line` AS `line`, question,
-               changed_by AS changedBy, DATE_FORMAT(changed_at, '%Y-%m-%d %H:%i:%s') AS changedAt
-        FROM coaching_strength_history
-        WHERE strength_id = #{strengthId}
-        ORDER BY history_id DESC
+        SELECT h.history_id AS historyId, h.action, h.observation, h.`line` AS `line`, h.question,
+               h.changed_by AS changedBy, aa.nickname AS changedByName,
+               DATE_FORMAT(h.changed_at, '%Y-%m-%d %H:%i:%s') AS changedAt
+        FROM coaching_strength_history h
+        LEFT JOIN admin_account aa ON aa.id = h.changed_by
+        WHERE h.strength_id = #{strengthId}
+        ORDER BY h.history_id DESC
     </select>
 
     <select id="selectStrengthHistoryById" resultType="map">
@@ -118,7 +123,10 @@
              , cm.coaching2_action   AS coaching2Action
              , cm.coaching2_line     AS coaching2Line
              , DATE_FORMAT(cm.updated_at, '%Y-%m-%d %H:%i') AS updatedAt
+             , cm.updated_by         AS updatedBy
+             , aa.nickname           AS updatedByName
         FROM coaching_moderation cm
+        LEFT JOIN admin_account aa ON aa.id = cm.updated_by
         <include refid="moderationWhere"/>
         ORDER BY cm.school_level, cm.lpa_class, cm.id
         LIMIT #{limit} OFFSET #{offset}
@@ -166,13 +174,15 @@
 
     <select id="selectModerationHistory" resultType="map">
         /* CoachingAdminMapper.selectModerationHistory */
-        SELECT history_id AS historyId, action, interpretation,
-               coaching1_method AS coaching1Method, coaching1_line AS coaching1Line,
-               coaching2_action AS coaching2Action, coaching2_line AS coaching2Line,
-               changed_by AS changedBy, DATE_FORMAT(changed_at, '%Y-%m-%d %H:%i:%s') AS changedAt
-        FROM coaching_moderation_history
-        WHERE moderation_row_id = #{moderationRowId}
-        ORDER BY history_id DESC
+        SELECT h.history_id AS historyId, h.action, h.interpretation,
+               h.coaching1_method AS coaching1Method, h.coaching1_line AS coaching1Line,
+               h.coaching2_action AS coaching2Action, h.coaching2_line AS coaching2Line,
+               h.changed_by AS changedBy, aa.nickname AS changedByName,
+               DATE_FORMAT(h.changed_at, '%Y-%m-%d %H:%i:%s') AS changedAt
+        FROM coaching_moderation_history h
+        LEFT JOIN admin_account aa ON aa.id = h.changed_by
+        WHERE h.moderation_row_id = #{moderationRowId}
+        ORDER BY h.history_id DESC
     </select>
 
     <select id="selectModerationHistoryById" resultType="map">

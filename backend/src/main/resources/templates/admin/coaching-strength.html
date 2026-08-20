@@ -68,7 +68,7 @@
                     <div class="card-body table-responsive p-0">
                         <table class="table table-hover mb-0">
                             <thead class="thead-light"><tr>
-                                <th>학교급</th><th>LPA 유형</th><th>요인</th><th>강점 관찰(요약)</th><th>최근 수정</th><th class="text-right">관리</th>
+                                <th>학교급</th><th>LPA 유형</th><th>요인</th><th>강점 관찰(요약)</th><th>최근 수정</th><th>수정자</th><th class="text-right">관리</th>
                             </tr></thead>
                             <tbody>
                                 <tr th:each="r : ${rows}">
@@ -78,6 +78,7 @@
                                     <td><b th:text="${r.factor}"></b></td>
                                     <td class="cell-text" th:text="${#strings.abbreviate(r.observation, 70)}"></td>
                                     <td class="text-muted" th:text="${r.updatedAt}"></td>
+                                    <td class="text-muted" th:text="${r.updatedByName != null} ? ${r.updatedByName} : (${r.updatedBy} == 0 ? '시스템' : '-')"></td>
                                     <td class="text-right" style="white-space:nowrap">
                                         <button type="button" class="btn btn-sm btn-primary btn-edit"
                                                 th:attr="data-id=${r.id}, data-factor=${r.factor}, data-lpa=${r.lpaClass}, data-level=${r.schoolLevel},
@@ -89,7 +90,7 @@
                                         </a>
                                     </td>
                                 </tr>
-                                <tr th:if="${#lists.isEmpty(rows)}"><td colspan="6" class="text-muted text-center py-3">데이터 없음</td></tr>
+                                <tr th:if="${#lists.isEmpty(rows)}"><td colspan="7" class="text-muted text-center py-3">데이터 없음</td></tr>
                             </tbody>
                         </table>
                     </div>
