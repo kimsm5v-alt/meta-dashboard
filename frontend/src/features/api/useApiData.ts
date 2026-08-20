@@ -150,13 +150,20 @@ export function useStudentAnalysis(
       }
 
       if (!fullAnalysis.round1 && !fullAnalysis.round2) {
-        const classData = getClassById(classId);
-        const fallbackStudent = getStudentById(classId, studentId);
+        // 아직 검사를 완료하지 않은 학생 — student/classInfo는 실데이터로 채우고
+        // assessments만 비워서, 위젯이 "검사 미완료" 분기(학생 없음 아님)로 처리하게 한다.
         return {
-          student: fallbackStudent
-            ? { ...fallbackStudent, name: studentName || fallbackStudent.name, schoolLevelCode }
-            : undefined,
-          classStudents: classData?.students ?? [],
+          student: {
+            id: studentId,
+            classId,
+            number: studentNumber,
+            name: studentName,
+            schoolLevel,
+            schoolLevelCode,
+            grade,
+            assessments: [],
+          },
+          classStudents: classStudents ?? [],
           classInfo: { grade, classNumber, schoolLevel, schoolLevelCode },
           dgnssIds,
         };
