@@ -4,7 +4,8 @@ import { FileSearch, ArrowRight, Info, Loader2, MessageSquare } from 'lucide-rea
 import { useStudentAnalysis } from '@features/api';
 import { TypeClassification } from '@features/student-dashboard/ui';
 import { getIndividualTypeCharacteristics } from '@features/coaching/data/individualTypeCharacteristics';
-import { getIndividualCoachingContent } from '@features/coaching/data/individualCoachingContent';
+import { mapStudentCoachingContent } from '@features/coaching/data/individualCoachingContent';
+import { useStudentCoachingQuery } from '@features/coaching/api/queries';
 import {
   StepDot,
   TimelineList,
@@ -417,6 +418,17 @@ export const IndividualCoachingSection = ({
   const navigate = useNavigate();
   const { student, classInfo, isLoading, error, refetch } = useStudentAnalysis(classId, studentId);
 
+  const r1 = student?.assessments.find((a) => a.round === 1);
+  const r2 = student?.assessments.find((a) => a.round === 2);
+  const current = r2 ?? r1;
+
+  const {
+    data: coachingData,
+    isLoading: isCoachingLoading,
+    error: coachingError,
+    refetch: refetchCoaching,
+  } = useStudentCoachingQuery(current?.answerIdx);
+
   if (isLoading) {
     return (
       <CenterBox>
@@ -451,10 +463,6 @@ export const IndividualCoachingSection = ({
     );
   }
 
-  const r1 = student.assessments.find((a) => a.round === 1);
-  const r2 = student.assessments.find((a) => a.round === 2);
-  const current = r2 ?? r1;
-
   if (!current) {
     return (
       <NoExamWrap>
@@ -472,11 +480,39 @@ export const IndividualCoachingSection = ({
     );
   }
 
+  if (isCoachingLoading) {
+    return (
+      <CenterBox>
+        <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} />
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </CenterBox>
+    );
+  }
+
+  if (coachingError) {
+    return (
+      <CenterBox style={{ flexDirection: 'column', gap: 12 }}>
+        <span>코칭 콘텐츠를 불러오지 못했습니다.</span>
+        <RetryButton onClick={() => void refetchCoaching()}>다시 시도</RetryButton>
+      </CenterBox>
+    );
+  }
+
   const characteristics = getIndividualTypeCharacteristics(
     classInfo.schoolLevel,
     current.predictedType,
   );
-  const { strengthPraises, coachingPathway } = getIndividualCoachingContent(student.name || '학생');
+  const { strengthPraises, coachingPathway } = coachingData
+    ? mapStudentCoachingContent(coachingData, student.name || '학생')
+    : { strengthPraises: [], coachingPathway: null };
+
+  if (strengthPraises.length === 0 && !coachingPathway) {
+    return (
+      <NoticeBox>
+        <p>이 학생의 코칭 콘텐츠가 아직 준비되지 않았습니다.</p>
+      </NoticeBox>
+    );
+  }
 
   return (
     <Wrapper>
@@ -570,48 +606,54 @@ export const IndividualCoachingSection = ({
           </TimelineTrack>
           <TimelineContent>
             <TimelineHeading>{TIMELINE_HEADING[3]}</TimelineHeading>
-            <Section>
-              <PathwayNotice>
-                <PathwayNoticeHeader>
-                  <Info size={16} color='#B45309' />
-                  <PathwayNoticeLabel>이 학생, 이것만 신경 써주세요</PathwayNoticeLabel>
-                </PathwayNoticeHeader>
-                <PathwayBadgeRow>
-                  <PathwayBadge>맞춤</PathwayBadge>
-                  <PathwayFactor>{coachingPathway.weakFactor}</PathwayFactor>
-                  <PathwaySubFactors>
-                    ({coachingPathway.focusFactor} · {coachingPathway.targetFactor})
-                  </PathwaySubFactors>
-                </PathwayBadgeRow>
-                <PathwayInterpretation>{coachingPathway.interpretation}</PathwayInterpretation>
-              </PathwayNotice>
+            {coachingPathway ? (
+              <Section>
+                <PathwayNotice>
+                  <PathwayNoticeHeader>
+                    <Info size={16} color='#B45309' />
+                    <PathwayNoticeLabel>이 학생, 이것만 신경 써주세요</PathwayNoticeLabel>
+                  </PathwayNoticeHeader>
+                  <PathwayBadgeRow>
+                    <PathwayBadge>맞춤</PathwayBadge>
+                    <PathwayFactor>{coachingPathway.weakFactor}</PathwayFactor>
+                    <PathwaySubFactors>
+                      ({coachingPathway.focusFactor} · {coachingPathway.targetFactor})
+                    </PathwaySubFactors>
+                  </PathwayBadgeRow>
+                  <PathwayInterpretation>{coachingPathway.interpretation}</PathwayInterpretation>
+                </PathwayNotice>
 
-              <CoachingStepCard>
-                <CoachingStepHeader>
-                  <CoachingStepNumber>1</CoachingStepNumber>
-                  <CoachingStepText>{coachingPathway.coaching1Method}</CoachingStepText>
-                </CoachingStepHeader>
-                <CoachingStepBubble>
-                  <CoachingStepBubbleIcon />
-                  <CoachingStepBubbleText>
-                    &ldquo;{coachingPathway.coaching1Line}&rdquo;
-                  </CoachingStepBubbleText>
-                </CoachingStepBubble>
-              </CoachingStepCard>
+                <CoachingStepCard>
+                  <CoachingStepHeader>
+                    <CoachingStepNumber>1</CoachingStepNumber>
+                    <CoachingStepText>{coachingPathway.coaching1Method}</CoachingStepText>
+                  </CoachingStepHeader>
+                  <CoachingStepBubble>
+                    <CoachingStepBubbleIcon />
+                    <CoachingStepBubbleText>
+                      &ldquo;{coachingPathway.coaching1Line}&rdquo;
+                    </CoachingStepBubbleText>
+                  </CoachingStepBubble>
+                </CoachingStepCard>
 
-              <CoachingStepCard>
-                <CoachingStepHeader>
-                  <CoachingStepNumber>2</CoachingStepNumber>
-                  <CoachingStepText>{coachingPathway.coaching2Action}</CoachingStepText>
-                </CoachingStepHeader>
-                <CoachingStepBubble>
-                  <CoachingStepBubbleIcon />
-                  <CoachingStepBubbleText>
-                    &ldquo;{coachingPathway.coaching2Line}&rdquo;
-                  </CoachingStepBubbleText>
-                </CoachingStepBubble>
-              </CoachingStepCard>
-            </Section>
+                <CoachingStepCard>
+                  <CoachingStepHeader>
+                    <CoachingStepNumber>2</CoachingStepNumber>
+                    <CoachingStepText>{coachingPathway.coaching2Action}</CoachingStepText>
+                  </CoachingStepHeader>
+                  <CoachingStepBubble>
+                    <CoachingStepBubbleIcon />
+                    <CoachingStepBubbleText>
+                      &ldquo;{coachingPathway.coaching2Line}&rdquo;
+                    </CoachingStepBubbleText>
+                  </CoachingStepBubble>
+                </CoachingStepCard>
+              </Section>
+            ) : (
+              <NoticeBox>
+                <p>맞춤 코칭 콘텐츠가 아직 준비되지 않았습니다.</p>
+              </NoticeBox>
+            )}
           </TimelineContent>
         </TimelineRow>
       </TimelineList>
