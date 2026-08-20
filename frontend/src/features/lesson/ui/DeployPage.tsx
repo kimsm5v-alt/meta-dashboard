@@ -189,7 +189,7 @@ export const DeployPage = () => {
           : undefined,
       });
 
-      const joinUrl = buildLessonJoinUrl(result.accessKey);
+      const joinUrl = buildLessonJoinUrl(result.accessKey, setId);
       setDeployResume(null);
       setDeployed({
         isLive,
