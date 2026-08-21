@@ -112,8 +112,7 @@ export const LessonJoinPage = () => {
 
   return (
     <LessonActivityJoinEmbed
-      // everyCanvas activityId — 계약 확정 전까지 accessKey 전달
-      activityId={accessKey}
+      accessKey={accessKey}
       setId={lcmsSetId}
       onExitRequested={() => navigate(-1)}
       onError={handleError}
