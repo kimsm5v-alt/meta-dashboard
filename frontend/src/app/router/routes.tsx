@@ -327,8 +327,8 @@ export const AppRoutes = () => (
 
     {/* 학생 라우트 - 풀스크린(사이드바 없음), 일반 인증 필요 */}
     <Route element={<StudentFullscreenLayout />}>
-      <Route path='/student/lesson/:activityId/:setId' element={<LessonJoinPage />} />
-      <Route path='/student/lesson/:activityId' element={<LessonJoinPage />} />
+      <Route path='/student/lesson/:accessKey/:setId' element={<LessonJoinPage />} />
+      <Route path='/student/lesson/:accessKey' element={<LessonJoinPage />} />
     </Route>
 
     {/* 개발용 — 프로덕션 빌드에서도 접근 가능하지만 링크 미노출 */}

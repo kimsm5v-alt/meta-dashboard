@@ -8,7 +8,7 @@ type JoinViewState =
   | { kind: 'loading' }
   | { kind: 'not_allowed' }
   | { kind: 'error' }
-  | { kind: 'ready'; activityId: string; setId: string };
+  | { kind: 'ready'; accessKey: string; setId: string };
 
 const MessageScreen = styled.div`
   display: flex;
@@ -22,36 +22,36 @@ const MessageScreen = styled.div`
 `;
 
 function resolveJoinViewState(
-  activityId: string | undefined,
+  accessKey: string | undefined,
   setIdFromUrl: string | undefined,
 ): JoinViewState {
-  const trimmedId = activityId?.trim();
-  if (!trimmedId) {
+  const trimmedKey = accessKey?.trim();
+  if (!trimmedKey) {
     return { kind: 'error' };
   }
 
   const trimmedSetId = setIdFromUrl?.trim();
 
   // Phase A: 참여 가능 API 미연동 — 허용 후 embed
-  // 임시: URL /student/lesson/:activityId/:setId 에서 setId 전달 (Phase B 전 확인용)
-  // Phase B: getActivityJoinEligibility + GET /activities lcmsSetId
+  // 임시: URL /student/lesson/:accessKey/:setId 에서 setId 전달 (Phase B 전 확인용)
+  // Phase B: GET /entry/{accessKey} + GET /activities/{activityId} → lcmsSetId
   return {
     kind: 'ready',
-    activityId: trimmedId,
-    setId: trimmedSetId || trimmedId,
+    accessKey: trimmedKey,
+    setId: trimmedSetId || trimmedKey,
   };
 }
 
 /**
  * 학생 수업 참여 풀스크린.
- * 라우트 `/student/lesson/:activityId` · 임시 `/student/lesson/:activityId/:setId`
+ * 라우트 `/student/lesson/:accessKey` · 임시 `/student/lesson/:accessKey/:setId`
  */
 export const LessonJoinPage = () => {
-  const { activityId, setId: setIdParam } = useParams<{ activityId: string; setId?: string }>();
+  const { accessKey, setId: setIdParam } = useParams<{ accessKey: string; setId?: string }>();
   const navigate = useNavigate();
   const viewState = useMemo(
-    () => resolveJoinViewState(activityId, setIdParam),
-    [activityId, setIdParam],
+    () => resolveJoinViewState(accessKey, setIdParam),
+    [accessKey, setIdParam],
   );
 
   const handleError = (error: EmbedError) => {
@@ -72,7 +72,8 @@ export const LessonJoinPage = () => {
 
   return (
     <LessonActivityJoinEmbed
-      activityId={viewState.activityId}
+      // 임시: URL accessKey를 embed activityId로 전달. Phase B에서 LMS/everyCanvas 계약에 맞게 교체
+      activityId={viewState.accessKey}
       setId={viewState.setId}
       onExitRequested={() => navigate(-1)}
       onError={handleError}

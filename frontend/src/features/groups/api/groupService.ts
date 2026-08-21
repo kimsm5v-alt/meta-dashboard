@@ -70,6 +70,7 @@ interface BackendGroupMember {
   maskedReason?: string;
   joinedAt?: string;
   leftAt?: string;
+  spUserId?: string;
 }
 
 interface BackendGroupDetail {
@@ -149,6 +150,7 @@ const toFrontendMember = (m: BackendGroupMember): GroupMember => ({
   groupId: '',
   userId: m.userNo != null ? String(m.userNo) : null,
   stdtId: m.stdtId,
+  spUserId: m.spUserId?.trim() || undefined,
   name: m.nickname ?? '', // 미동의(NOT_CONSENTED) 멤버는 Auth 가 name=null → 패널에서 '비공개' 표시
   email: m.email,
   maskedReason: m.maskedReason as GroupMember['maskedReason'],
