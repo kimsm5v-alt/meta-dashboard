@@ -207,8 +207,6 @@ LMS 규격서에 **「수업자료실」이라는 이름의 API는 없다**. 프
 
 ```
 features/lesson/
-├── api/
-│   └── embedTokenService.ts     # getToken → BE embed-token 조달 (공통)
 ├── lib/
 │   ├── everyCanvasEmbedSdk.ts   # /sdk/embed/index.js 1회 로드 + 타입
 │   ├── useEveryCanvasEmbed.ts   # createEmbed 얇은 React 훅 (공식 권장 패턴)
@@ -226,7 +224,6 @@ features/lesson/
 | `features/lesson/ui/LessonViewerEmbed` | features | viewer embed + `getToken` (SSO 미전달, `slideId` 유지) |
 | `features/lesson/lib/everyCanvasEmbedSdk.ts` | features | embed 코어 SDK 동적 import 단일화 |
 | `features/lesson/lib/useEveryCanvasEmbed.ts` | features | createEmbed 마운트/cleanup 공통 훅 |
-| `features/lesson/api/embedTokenService.ts` | features | embed token fetch 단일화 |
 | `shared/config/env.ts` | shared | `ENV.EVERYCLASS_EMBED_BASE_URL` |
 
 **금지**: page에 SDK import·fetch·대형 styled·React Query 훅 직접 배치.  

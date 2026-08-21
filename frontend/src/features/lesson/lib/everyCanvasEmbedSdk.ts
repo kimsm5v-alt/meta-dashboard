@@ -60,11 +60,11 @@ export type EmbedMode = 'viewer' | 'editor' | 'activity-join' | 'activity-report
 export type CreateEmbedOptions = {
   embedBaseUrl: string;
   mode: EmbedMode;
-  getToken?: () => string | Promise<string>;
   getSsoToken?: () => string | Promise<string>;
   /** Viewer 전용 Platform slideId. Editor에서는 사용하지 않음(SDK 1.5 openSet). */
-  slideId?: string;
-  activityId?: string;
+  slideId?: string; // mode: viewer 전용
+  accessKey?: string;
+  activityId?: string; // mode: activity-join 전용
   theme?: ThemeTokens;
   features?: Record<string, boolean | string | Record<string, boolean> | undefined>;
   locale?: string;

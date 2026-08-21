@@ -16,7 +16,7 @@ const EmbedHost = styled.div`
 `;
 
 export type LessonActivityJoinEmbedProps = {
-  activityId: string;
+  accessKey: string;
   /** POST /participations → data.content.lcmsSetId. embed slideId */
   setId: string;
   onExitRequested?: (payload: { reason?: 'userClose' | 'done' }) => void;
@@ -30,7 +30,7 @@ export type LessonActivityJoinEmbedProps = {
  * 학생 QR/링크 진입 전용 — SlideViewer(`LessonViewerEmbed`)와 분리.
  */
 export const LessonActivityJoinEmbed = ({
-  activityId,
+  accessKey,
   setId,
   onExitRequested,
   onSubmitted,
@@ -46,7 +46,8 @@ export const LessonActivityJoinEmbed = ({
     options: {
       embedBaseUrl: ENV.EVERYCLASS_EMBED_BASE_URL,
       mode: 'activity-join',
-      activityId,
+      accessKey,
+      activityId: accessKey,
       slideId: setId,
       locale: 'ko-KR',
       theme: embedTheme,
@@ -60,7 +61,7 @@ export const LessonActivityJoinEmbed = ({
     },
     onReady,
     onError,
-    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, activityId, setId],
+    identity: [ENV.EVERYCLASS_EMBED_BASE_URL, accessKey, setId],
   });
 
   return (
