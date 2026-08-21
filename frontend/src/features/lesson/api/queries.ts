@@ -16,6 +16,7 @@ import {
   updateLibraryItem,
 } from './lmsLibraryItemService';
 import type { LibraryItem, LibraryItemListData, LibraryItemOptions } from './lmsLibraryItemService';
+import { fetchActivityEntry, startParticipation } from './lmsActivityService';
 import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
 
@@ -177,5 +178,34 @@ export function useCmsSetDetailQuery(setId: string | undefined, options?: { enab
     queryKey: lessonKeys.cmsSet(setId ?? ''),
     queryFn: ({ signal }) => getCmsSet(setId!, signal),
     enabled: Boolean(setId) && (options?.enabled ?? true),
+  });
+}
+
+/** GET /entry/{accessKey} */
+export function useActivityEntryQuery(
+  accessKey: string | undefined,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: lessonKeys.activityEntry(accessKey ?? ''),
+    queryFn: ({ signal }) => fetchActivityEntry(accessKey!, signal),
+    enabled: Boolean(accessKey) && (options?.enabled ?? true),
+    retry: false,
+  });
+}
+
+/**
+ * POST /participations — entry availability === OPEN 일 때만.
+ * content.lcmsSetId → embed slideId.
+ */
+export function useStartParticipationQuery(
+  accessKey: string | undefined,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: lessonKeys.participation(accessKey ?? ''),
+    queryFn: () => startParticipation(accessKey!),
+    enabled: Boolean(accessKey) && (options?.enabled ?? true),
+    retry: false,
   });
 }

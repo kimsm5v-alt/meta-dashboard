@@ -17,7 +17,7 @@ const EmbedHost = styled.div`
 
 export type LessonActivityJoinEmbedProps = {
   activityId: string;
-  /** activityId 조회 API(미정) 응답. Phase A 임시 = URL activityId */
+  /** POST /participations → data.content.lcmsSetId. embed slideId */
   setId: string;
   onExitRequested?: (payload: { reason?: 'userClose' | 'done' }) => void;
   onSubmitted?: (payload: unknown) => void;
