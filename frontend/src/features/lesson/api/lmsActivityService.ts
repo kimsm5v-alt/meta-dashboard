@@ -63,7 +63,7 @@ export type DeployFailedStep = 'create' | 'assign' | 'publish';
 
 export type DeployLessonActivityInput = {
   body: CreateActivityBody;
-  /** assigneeSubs 매핑 확정 후 전달. 비어 있으면 assignees 단계 생략 */
+  /** 선택한 반 학생 spUserId 합집합. ASSIGNED 이면 필수 */
   assigneeSubs?: string[];
   resume?: {
     activityId: string;
@@ -103,7 +103,7 @@ export async function createActivity(body: CreateActivityBody): Promise<Activity
   });
 }
 
-/** PUT /activities/{activityId}/assignees — assigneeSubs 전달값은 추후 확정 */
+/** PUT /activities/{activityId}/assignees — assigneeSubs = group member spUserId */
 export async function putActivityAssignees(
   activityId: string,
   assigneeSubs: string[],

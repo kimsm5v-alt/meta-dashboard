@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { toast } from 'sonner';
 import { useMyGroupsQuery } from '@features/api';
+import { useAuth } from '@features/auth';
 import { PageLoading } from '@shared/ui/Loading';
 import {
   deployLessonActivity,
@@ -14,6 +15,7 @@ import {
 import { useCmsSetDetailQuery, useLibraryItemQuery } from '../api/queries';
 import { buildLessonJoinUrl } from '../lib/buildLessonJoinUrl';
 import { buildDeployActivityBody } from '../model/buildDeployActivityBody';
+import { collectAssigneeSubsFromGroups } from '../model/collectAssigneeSubsFromGroups';
 import { mapCmsSetToLibItem } from '../model/mapCmsSetToLibItem';
 import { mapLibraryItemToLibItem } from '../model/mapLibraryItemToLibItem';
 // 보류: mock 콘텐츠 조회 (추가계획9)
@@ -63,6 +65,7 @@ export const DeployPage = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const failHandledRef = useRef(false);
+  const { user } = useAuth();
 
   const {
     data: groups = [],
@@ -162,6 +165,10 @@ export const DeployPage = () => {
       toast.error('콘텐츠 ID가 없습니다');
       return;
     }
+    if (!user?.id) {
+      toast.error('로그인 정보가 없습니다');
+      return;
+    }
 
     const isLive = mode === 'live';
     const classesStr = validClasses.map(resolveGroupName).join(', ');
@@ -169,21 +176,27 @@ export const DeployPage = () => {
       ? '실시간 수업 · 지금 시작'
       : `${start.replace(/-/g, '.')} ~ ${end.replace(/-/g, '.')}`;
 
-    const body = buildDeployActivityBody({
-      title: item.title,
-      mode,
-      startDate: start,
-      endDate: end,
-      libraryItemId: resolvedLibraryItemId,
-      lcmsSetId: setId,
-      cmsSetDetail: cmsSetQuery.data,
-    });
-
     setIsDeploying(true);
     try {
+      const assigneeSubs = await collectAssigneeSubsFromGroups(validClasses, user.id);
+      if (assigneeSubs.length === 0) {
+        toast.error('배정할 학생이 없습니다');
+        return;
+      }
+
+      const body = buildDeployActivityBody({
+        title: item.title,
+        mode,
+        startDate: start,
+        endDate: end,
+        libraryItemId: resolvedLibraryItemId,
+        lcmsSetId: setId,
+        cmsSetDetail: cmsSetQuery.data,
+      });
+
       const result = await deployLessonActivity({
         body,
-        // assigneeSubs: 반→Auth sub 매핑 확정 후 연동 (보류)
+        assigneeSubs,
         resume: deployResume?.activityId
           ? { activityId: deployResume.activityId, failedStep: deployResume.failedStep }
           : undefined,
@@ -202,12 +215,16 @@ export const DeployPage = () => {
       toast.success('배포되었습니다');
     } catch (error) {
       const failure = error as DeployLessonActivityFailure;
-      const status = failure.status ?? 0;
-      toast.error(`${DEPLOY_FAIL_TOAST[failure.failedStep]} [${status}]`);
-      setDeployResume({
-        activityId: failure.activityId,
-        failedStep: failure.failedStep,
-      });
+      if (failure?.failedStep) {
+        const status = failure.status ?? 0;
+        toast.error(`${DEPLOY_FAIL_TOAST[failure.failedStep]} [${status}]`);
+        setDeployResume({
+          activityId: failure.activityId,
+          failedStep: failure.failedStep,
+        });
+      } else {
+        toast.error('학생 배정 명단을 불러오지 못했습니다');
+      }
       setDeployed(null);
     } finally {
       setIsDeploying(false);

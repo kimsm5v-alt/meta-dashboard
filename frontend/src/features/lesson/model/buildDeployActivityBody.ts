@@ -13,9 +13,6 @@ export type BuildDeployActivityBodyInput = {
   cmsSetDetail?: CmsSetDetail;
 };
 
-/** assigneeSubs 매핑 확정 전 — OPEN 으로 publish 가능하게 둔다. */
-const ASSIGNEES_MAPPING_PENDING = true;
-
 function toIsoStartOfDay(dateStr: string): string {
   return `${dateStr}T00:00:00.000Z`;
 }
@@ -44,7 +41,7 @@ export function buildDeployActivityBody(input: BuildDeployActivityBodyInput): Cr
   const body: CreateActivityBody = {
     source,
     title: input.title.slice(0, 200),
-    audienceType: ASSIGNEES_MAPPING_PENDING ? 'OPEN' : 'ASSIGNED',
+    audienceType: 'ASSIGNED',
     allowedIdentityTypes: ['MEMBER'],
     maxAttempts: 1,
     resultVisibility: input.mode === 'live' ? 'IMMEDIATE' : 'AFTER_CLOSE',
