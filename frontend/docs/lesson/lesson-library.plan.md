@@ -17,7 +17,7 @@
 | **추가계획9** | `DeployPage` 실시간 수업 → Viewer + `ResourceCard`→deploy `state.item` + URL 직접 진입 시 item 재조회 | 구현 완료 |
 | **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 구현 완료 |
 | **추가계획11** | DeployPage·저작툴 시작하기 — `POST /activities` + assignees(`spUserId`) + `publish` → `accessKey` + QR·참여링크 | Phase A·B 구현 완료 (2026-08-21) · assignees=`spUserId` 연동 완료 |
-| **추가계획12** | 학생용 `/student/lesson/:accessKey` — `GET /entry` + `POST /participations` → `content.lcmsSetId` embed · **임시** `/:setId` path | Phase A 완료 / Phase B 스펙 정정 (2026-08-21) · **임시 setId URL 적용 중 (제거 예정)** |
+| **추가계획12** | 학생용 `/student/lesson/:accessKey` — `GET /entry` + `POST /participations` → `content.lcmsSetId` embed | Phase A·B 구현 완료 (2026-08-21) · 임시 `:setId` path 제거 · PATCH/submit/result는 후속 |
 | **추가계획13** | 전체 자료실 CMS 목록 무한 스크롤(`pageSize=10`) + 나의 자료 `GET /api/v1/library-items` 페이지네이션 | Phase A 구현 완료 / Phase B 구현 완료 |
 | **추가계획14** | 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) · `handleSaved` POST/PATCH · editor navigate `libraryItemId` state | **Phase 1 구현 완료** (2026-08-20) · Phase 2(페이지네이션) 구현 완료 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
@@ -2945,11 +2945,10 @@ export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 
 ## 1. 한 줄 요약
 
-교사 DeployPage에서 배포(시작하기) → `publish` 응답의 `accessKey`(`act-…`)로 `buildLessonJoinUrl(accessKey, setId)` QR·복사 URL을 만든다. **`setId` path segment는 임시** — Phase B에서 제거 (추가계획12 §3.1).
+교사 DeployPage에서 배포(시작하기) → `publish` 응답의 `accessKey`(`act-…`)로 `buildLessonJoinUrl(accessKey)` QR·복사 URL을 만든다.
 
 ```
-{origin}/student/lesson/{accessKey}/{setId}   ← 임시 (Phase B 제거)
-{origin}/student/lesson/{accessKey}           ← 정식
+{origin}/student/lesson/{accessKey}
 ```
 
 학생 라우트 param 이름은 **`:accessKey`**. LMS 내부 UUID(`POST /activities` 응답 `activityId`)와 혼동하지 않는다.
@@ -2960,7 +2959,7 @@ export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 
 | 담당 | 하는 일 | 안 하는 일 |
 |------|---------|------------|
-| **추가계획11 (교사 FE)** | `publish` 후 `buildLessonJoinUrl(accessKey, setId)` QR·복사 (**임시** setId path) | 학생 iframe, 참여 가능 여부 판정 |
+| **추가계획11 (교사 FE)** | `publish` 후 `buildLessonJoinUrl(accessKey)` QR·복사 | 학생 iframe, 참여 가능 여부 판정 |
 | **추가계획12 (학생 FE)** | `/student/lesson/:accessKey` 진입, `entry` + `POST /participations` → embed | `POST /activities`, QR 생성, `GET /activities` |
 | **LMS** | `publish` 시 `accessKey` 발급 | 완성된 URL 문자열 |
 | **everyCanvas SDK** | 학생 화면 렌더 (`activity-join`) | 참여 링크 발급 |
@@ -2975,9 +2974,9 @@ export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 |----|------|------|
 | `activityId` | `POST /api/v1/activities` 응답 UUID | LMS **내부** 식별자. assignees/publish path에 사용. **학생 URL에 넣지 않음** |
 | `accessKey` | `publish` 응답 (`act-…`) | **학생 참여 키**. URL param·`buildLessonJoinUrl` 첫 인자 |
-| `setId` / `lcmsSetId` | 콘텐츠(CBS 세트) | embed `slideId`. **정식 학생 URL에 넣지 않음** (임시 path만 §3.1) |
+| `setId` / `lcmsSetId` | 콘텐츠(CBS 세트) | embed `slideId`. **학생 URL에 넣지 않음** (학생은 `POST /participations` → `content.lcmsSetId`) |
 | `libraryItemId` | `POST /api/v1/library-items` 응답 | 보관함 ID. 활동 출제 시 `source.libraryItemId`로 전달 |
-| 참여 링크 | `buildLessonJoinUrl(accessKey)` · **임시** `buildLessonJoinUrl(accessKey, lcmsSetId)` | **임시** 2번째 인자 Phase B **제거** (추가계획12 §3.1) |
+| 참여 링크 | `buildLessonJoinUrl(accessKey)` | `/student/lesson/:accessKey` 만 |
 
 배포 결과 카드의 목업 `https://class.visang.co.kr/viewer/6ab0…` 는 제거한다.
 
@@ -2988,7 +2987,7 @@ export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
 | 항목 | 현재 |
 |------|------|
 | DeployPage `doDeploy` | `POST /activities` → assignees(`spUserId`) → `publish`. 실패 toast·재시도 |
-| 결과 링크 | `buildLessonJoinUrl(result.accessKey, setId)` (**임시** `setId` path) | Phase B: `buildLessonJoinUrl(result.accessKey)` 단일 인자 |
+| 결과 링크 | `buildLessonJoinUrl(result.accessKey)` → `/student/lesson/:accessKey` |
 | QR | `QRCodeCanvas` (`qrcode.react`) — `joinUrl` 인코딩 |
 | 실시간 「수업 시작하기」 | `navigate(\`/lesson/viewer/${setId}\`)` — **교사 Viewer**. 유지 |
 | `LessonEditorPage.handleStartLesson` | `/lesson/deploy/${lcmsSetId}` 이동 (POST 없음) |
@@ -3216,8 +3215,7 @@ export function buildLessonJoinUrl(accessKey: string, lcmsSetId?: string): strin
 | 규칙 | 내용 |
 |------|------|
 | origin | 현재 앱 origin. `class.visang.co.kr` 하드코딩 금지 |
-| path (정식) | `/student/lesson/:accessKey` |
-| path (**임시** · Phase B **제거**) | `/student/lesson/:accessKey/:lcmsSetId` — DeployPage `setId` 전달. 추가계획12 §3.1 |
+| path | `/student/lesson/:accessKey` |
 | QR | `qrcode.react` `QRCodeCanvas`에 **완성 URL** (`value={joinUrl}`) |
 | 복사 | `navigator.clipboard.writeText(joinUrl)` 후 기존 toast `'링크가 복사되었습니다'` |
 
@@ -3229,17 +3227,17 @@ assessment `QRCodeModal`을 lesson에서 import하지 않는다 (FSD: feature �
 
 `doDeploy` 성공 후 `deployed`에 `activityId`·`accessKey`·`joinUrl`을 넣는다.
 
-| UI | Phase A | Phase B |
-|----|---------|---------|
-| 링크 input | `buildLessonJoinUrl(accessKey, setId)` (**임시**) | `buildLessonJoinUrl(accessKey)` 단일 인자. `:setId` path **제거** |
-| QR | `QRCodeCanvas` `value={joinUrl}` | 동일, 키만 실값 |
-| 복사 | 실 URL 클립보드 | 동일 |
-| 실시간 ActionButton | `/lesson/viewer/:setId` 유지 | **성공 후** Viewer 이동은 유지. **중도 실패 후 재시도** 시 라벨을 `다시 수업 시작하기`로 바꾸고 `doDeploy` 재실행 |
-| `POST /activities` 파이프라인 | 호출 안 함 | `doDeploy`에서 순차 호출. 단계별 toast(§7 중도 실패). 전체 성공 전 결과 카드 비표시 |
+| UI | 내용 |
+|----|------|
+| 링크 input | `buildLessonJoinUrl(accessKey)` |
+| QR | `QRCodeCanvas` `value={joinUrl}` |
+| 복사 | 실 URL 클립보드 |
+| 실시간 ActionButton | `/lesson/viewer/:setId` 유지. **중도 실패 후 재시도** 시 라벨을 `다시 수업 시작하기`로 바꾸고 `doDeploy` 재실행 |
+| `POST /activities` 파이프라인 | `doDeploy`에서 순차 호출. 단계별 toast(§7 중도 실패). 전체 성공 전 결과 카드 비표시 |
 
-배포 실패(Phase B)와 콘텐츠 조회 실패(추가계획9)를 구분한다. 조회 실패 문구는 바꾸지 않는다.
+배포 실패와 콘텐츠 조회 실패(추가계획9)를 구분한다. 조회 실패 문구는 바꾸지 않는다.
 
-기간 모드도 같은 참여 링크를 만든다. 학생 join 입구는 `/student/lesson/:accessKey` (정식). **현재 임시** `/:setId` 포함 — 추가계획12 §3.1.
+기간 모드도 같은 참여 링크를 만든다. 학생 join 입구는 `/student/lesson/:accessKey`.
 
 ---
 
@@ -3270,7 +3268,7 @@ const handleStartLesson = (p: StartLessonPayload) => {
 |------|------|
 | 미확정 `POST /activities` 경로·본문으로 fetch | 잘못된 계약이 고정됨 |
 | 학생 URL에 `setId`만 넣기 | 같은 세트 다중 활동과 키가 충돌. 이번 키는 publish `accessKey` |
-| 학생 URL path에 `setId` **영구** 포함 | **임시 dev만** (추가계획12 §3.1). Phase B `POST /participations` 연동 후 path segment **제거** |
+| 학생 URL path에 `setId` 포함 | 학생 URL은 `accessKey`만. `lcmsSetId`는 `POST /participations`에서 취득 |
 | 교사 `/lesson/viewer/:setId`를 학생 링크로 쓰기 | 교사 레이아웃·인증. 추가계획12와 분리 |
 | LMS가 완성 URL을 준다는 가정 | 스펙상 키만 옴. URL은 FE 조립 |
 | Editor에서 활동 생성 API 직접 호출 | DeployPage 단일 입구 |
@@ -3344,13 +3342,12 @@ const handleStartLesson = (p: StartLessonPayload) => {
 
 # 추가계획12 — 학생용 `/student/lesson/:accessKey` + activity-join embed
 
-> **상태**: Phase A 구현 완료 (2026-08-19) / Phase B 스펙 정정 (2026-08-21) · 구현 대기  
+> **상태**: Phase A·B 구현 완료 (2026-08-21)  
 > **선행**: 추가계획11의 **링크 계약** (`/student/lesson/:accessKey`). 교사 `publish` → `accessKey`를 URL에 넣는다  
 > **범위**: 학생이 QR/링크로 들어와 참여 가능하면 `activity-join` SDK를 보여 준다. Viewer(`LessonViewerEmbed`)를 학생 입구로 재사용하지 않는다.  
 > **학생 흐름 기준**: `superplatform-lms/docs/guide/README.md` — 「따라 해보기 (학생) — 들어가서 풀고 내기」  
-> **Phase B (embed 마운트까지)**: `GET /entry` → `POST /participations` → `data.content.lcmsSetId`로 embed  
+> **Phase B (완료)**: `GET /entry` → `POST /participations` → `data.content.lcmsSetId`로 embed. 임시 `:setId` path 제거  
 > **후속(별도 추가계획)**: `PATCH` 자동저장 · `submit` · `result` Host 연동  
-> **임시 (2026-08-20)**: Phase B API 연동 전 embed 확인용으로 URL path에 `:setId`를 붙임 — **Phase B 착수 시 제거**.  
 > **명칭 (2026-08-21 정정)**: 학생 URL param은 **`accessKey`** (이전 문서의 `:activityId` 표기는 오표기). LMS 내부 UUID `activityId`와 구분.  
 > **정정 (2026-08-21)**: 학생은 **`GET /activities/{activityId}`를 호출하지 않는다** (교사용). `lcmsSetId`는 `POST /participations` 응답 `data.content.lcmsSetId`.
 
@@ -3389,7 +3386,7 @@ const handleStartLesson = (p: StartLessonPayload) => {
 |------|------|----------|----------|--------|
 | 교사 Viewer (있음) | `/lesson/viewer/:setId` | `TeacherFullscreenLayout` | `viewer` | 콘텐츠 `setId` |
 | 교사 Editor (있음) | `/lesson/editor/:setId` | 동일 | `editor` | `setId` |
-| **학생 참여 (이번)** | `/student/lesson/:accessKey` · **임시** `…/:setId` | 학생 풀스크린 (신규) | **`activity-join`** | **publish `accessKey`** · **임시** path 2번째 segment = `lcmsSetId` |
+| **학생 참여 (이번)** | `/student/lesson/:accessKey` | 학생 풀스크린 (신규) | **`activity-join`** | **publish `accessKey`** |
 
 `LessonViewerEmbed`는 교사 미리보기/실시간 수업용이다. 학생 제출 계약은 everyCanvas `activity-join` (`/embed/activity/:activityId/join`). Editor/Viewer와 **같은 래퍼 패턴**으로 새 Embed를 만든다. Viewer를 학생 라우트에 마운트하지 않는다.
 
@@ -3408,42 +3405,33 @@ const handleStartLesson = (p: StartLessonPayload) => {
 5. 참여 가능·setId 조회는 **서비스 스켈레톤 + 페이지 분기 UI**. 실호출 금지
 6. Phase A 개발 확인: 조회 API 전엔 embed `setId`를 URL에서 받거나 `accessKey` fallback (§3.1 임시 path)
 
-### 3.1 임시 — URL path에 `setId` (Phase B 전 dev · **제거 예정**)
+### 3.1 임시 — URL path에 `setId` (**제거 완료** · 2026-08-21)
 
-Phase B API(`POST /participations` → `data.content.lcmsSetId`) 연동 전, 배포 직후 학생 embed를 확인하기 위한 **단기 우회**다. 정식 계약이 아니다.
+Phase B API 연동 전 embed 확인용 **단기 우회**였다. Phase B에서 제거 완료.
 
-| 항목 | 임시 동작 | Phase B에서 |
-|------|-----------|-------------|
+| 항목 | 임시(제거됨) | 현재 (Phase B) |
+|------|--------------|----------------|
 | 참여 URL | `{origin}/student/lesson/{accessKey}/{lcmsSetId}` | `{origin}/student/lesson/{accessKey}` **만** |
-| `buildLessonJoinUrl` | `buildLessonJoinUrl(accessKey, lcmsSetId)` — DeployPage `setId` 전달 | 두 번째 인자 **삭제** |
-| 라우트 | `/student/lesson/:accessKey/:setId` + 기존 단일 param 라우트 | `:setId` 라우트 **삭제** |
-| `LessonJoinPage` | URL `:setId` 있으면 embed `setId`로 사용. 없으면 `accessKey` fallback | `POST /participations` 응답 `data.content.lcmsSetId` 사용. URL `:setId` 분기 **삭제** |
+| `buildLessonJoinUrl` | `buildLessonJoinUrl(accessKey, lcmsSetId)` | `buildLessonJoinUrl(accessKey)` |
+| 라우트 | `/student/lesson/:accessKey/:setId` | `/student/lesson/:accessKey` |
+| `LessonJoinPage` | URL `:setId` / `accessKey` fallback | `POST /participations` → `data.content.lcmsSetId` |
 
-```ts
-// DeployPage — 임시
-const joinUrl = buildLessonJoinUrl(result.accessKey, setId);
+**제거 체크리스트**:
 
-// LessonJoinPage — 임시
-setId: setIdParam?.trim() || accessKey;
-// embed activityId prop: 임시로 URL accessKey 전달
-```
+- [x] `buildLessonJoinUrl`에서 `lcmsSetId` optional param 제거
+- [x] `DeployPage` `buildLessonJoinUrl(result.accessKey)` 단일 인자로 복귀
+- [x] `routes.tsx` `/student/lesson/:accessKey/:setId` Route 삭제
+- [x] `LessonJoinPage` `setId` param·fallback 분기 삭제 → `POST /participations` 조회로 대체
 
-**제거 체크리스트 (Phase B 착수 시)**:
-
-- [ ] `buildLessonJoinUrl`에서 `lcmsSetId` optional param 제거
-- [ ] `DeployPage` `buildLessonJoinUrl(result.accessKey)` 단일 인자로 복귀
-- [ ] `routes.tsx` `/student/lesson/:accessKey/:setId` Route 삭제
-- [ ] `LessonJoinPage` `setId` param·fallback 분기 삭제 → `POST /participations` 조회로 대체
-
-### Phase B — LMS API 연동 (스펙 정정 · 구현 대기)
+### Phase B — LMS API 연동 (**구현 완료** · 2026-08-21)
 
 가이드 순서: **들어가서** (`entry` → `POST /participations`) → embed. **풀고 내기**는 후속.
 
-1. `GET /api/v1/entry/{accessKey}` 실호출 — **인증 불필요**. `availability`별 페이지 메시지 (§5.1)
-2. `availability === 'OPEN'`일 때만 `POST /api/v1/participations` body `{ accessKey }` → `data.content.lcmsSetId` 취득 후 embed 마운트  
+1. [x] `GET /api/v1/entry/{accessKey}` 실호출 — **인증 불필요**. `availability`별 페이지 메시지 (§5.1)
+2. [x] `availability === 'OPEN'`일 때만 `POST /api/v1/participations` body `{ accessKey }` → `data.content.lcmsSetId` 취득 후 embed 마운트  
    (`201` 새 회차 · `200` 이어하기 — 본문으로 구분 불가. 상태 코드로만 구분)
-3. embed options: everyCanvas `slideId`(`content.lcmsSetId`) + `activityId`(everyCanvas 계약에 따름). **`getToken` 전달 안 함**
-4. **학생은 `GET /api/v1/activities/{activityId}`를 호출하지 않는다** (교사용)
+3. [x] embed options: everyCanvas `slideId`(`content.lcmsSetId`) + `activityId`(현재 `accessKey` 전달 · everyCanvas 계약 확정 시 교체). **`getToken` 전달 안 함**
+4. [x] **학생은 `GET /api/v1/activities/{activityId}`를 호출하지 않는다** (교사용)
 5. `PATCH` 자동저장 · `submit` · `result` — **후속 추가계획**. 이번 Phase B 미포함
 ---
 
@@ -3454,8 +3442,6 @@ setId: setIdParam?.trim() || accessKey;
 ```tsx
 // routes.tsx — Teacher 블록이 아님
 <Route element={<StudentJoinLayout />}>
-  {/* 임시 — Phase B에서 :setId 라우트 제거 */}
-  <Route path='/student/lesson/:accessKey/:setId' element={<LessonJoinPage />} />
   <Route path='/student/lesson/:accessKey' element={<LessonJoinPage />} />
 </Route>
 ```
@@ -3512,7 +3498,7 @@ Page는 얇게: params, 조회 훅(Phase B), 상태 분기, Embed 마운트. 스
 - 조회 실패(404·네트워크·`POST /participations` 실패): `활동 정보를 불러오지 못했습니다` (§5.1 불가 문구와 구분)
 - `accessKey` 없음: embed 없이 종료
 
-Phase A (현재): API 미연동. **임시** URL `:setId`가 있으면 embed에 전달, 없으면 `setId = accessKey` fallback. Phase B에서 §5.1 + `POST /participations`로 교체하고 **URL `:setId` path는 제거**.
+Phase B: §5.1 + `POST /participations` → `content.lcmsSetId`. URL `:setId` path **제거 완료**.
 
 ---
 
@@ -3623,39 +3609,40 @@ type Entry = {
 | `201` vs `200` | `201` 새 회차 · `200` 이어하기. **본문으로 구분 불가** — 상태 코드로만 |
 | 교사 API 금지 | [`ActivityDetail`](#activitydetail) / `GET /activities/{id}`로 `lcmsSetId`를 가져오지 않음 |
 
-### Phase A (현재) vs Phase B 매핑
+### Phase A vs Phase B 매핑
 
-| 기능 | Phase A (현재) | Phase B |
-|------|---------------|---------|
-| URL param | `:accessKey` · **임시** `:setId` | `:accessKey` **만** (`:setId` path **제거**) |
+| 기능 | Phase A | Phase B (현재) |
+|------|---------|----------------|
+| URL param | `:accessKey` · **임시** `:setId` | `:accessKey` **만** (`:setId` path **제거 완료**) |
 | 진입 확인 | 임시 `OPEN` 가정 | `GET /entry/{accessKey}` → §5.1 분기 |
 | 참여 시작 · `lcmsSetId` | **임시** URL `:setId` 또는 `accessKey` fallback | `POST /participations` → `data.content.lcmsSetId` |
-| embed `activityId` | 임시 = URL `accessKey` | Phase B everyCanvas 계약에 따름 |
+| embed `activityId` | 임시 = URL `accessKey` | 현재 `accessKey` 전달 (everyCanvas 계약 확정 시 교체) |
 | embed `slideId` | 임시 = URL `:setId` / fallback | `content.lcmsSetId` |
 | `getToken` | 미전달 | **미전달 (확정)** |
 | 자동저장·제출·결과 | `onSubmitted` 구독만 | **후속 추가계획** |
 
-### Phase B service 시그니처 (구현 예정)
+### Phase B service 시그니처 (**구현 완료**)
 
 ```ts
 // features/lesson/api/lmsActivityService.ts
 
 /** GET /entry/{accessKey} — 인증 불필요 */
-export async function fetchActivityEntry(accessKey: string): Promise<Entry>;
+export async function fetchActivityEntry(accessKey: string, signal?: AbortSignal): Promise<Entry>;
 
 /** POST /participations — Bearer. body { accessKey }. content.lcmsSetId 포함 */
 export async function startParticipation(accessKey: string): Promise<ParticipationDetail>;
 ```
 
-Phase A 스켈레톤(`getActivityJoinEligibility` / `getActivityJoinSetId`)은 Phase B 구현 시 위 함수로 **대체**.  
-~~`fetchActivityLcmsSetId` / `GET /activities/{activityId}`~~ — **학생 경로에서 사용하지 않음** (삭제·미구현).
+훅: `useActivityEntryQuery` · `useStartParticipationQuery` (`features/lesson/api/queries.ts`).  
+Phase A 스켈레톤(`getActivityJoinEligibility` / `getActivityJoinSetId`) **삭제**.  
+~~`fetchActivityLcmsSetId` / `GET /activities/{activityId}`~~ — **학생 경로에서 사용하지 않음**.
 
-### Phase B 구현 순서
+### Phase B 구현 순서 (**완료**)
 
-1. `fetchActivityEntry(accessKey)` — `GET /entry/{accessKey}`. `availability` → §5.1 UI
-2. `OPEN`이면 `startParticipation(accessKey)` — `POST /participations` → `data.content.lcmsSetId`
-3. `LessonActivityJoinEmbed`에 `setId`(`content.lcmsSetId`) 전달. **`getToken` 없음**. embed `activityId`는 everyCanvas 계약에 따름
-4. 응답 봉투: `{ success, data, errorCode }` — `data`만 언랩
+1. [x] `fetchActivityEntry(accessKey)` — `GET /entry/{accessKey}`. `availability` → §5.1 UI
+2. [x] `OPEN`이면 `startParticipation(accessKey)` — `POST /participations` → `data.content.lcmsSetId`
+3. [x] `LessonActivityJoinEmbed`에 `setId`(`content.lcmsSetId`) 전달. **`getToken` 없음**. embed `activityId`는 현재 `accessKey`
+4. [x] 응답 봉투: `{ success, data, errorCode }` — `data`만 언랩
 
 ### API `errorCode` → UX (미확정)
 
@@ -3665,10 +3652,10 @@ Phase A 스켈레톤(`getActivityJoinEligibility` / `getActivityJoinSetId`)은 P
 
 ## 8. SDK에 넣는 값
 
-| prop (embed options) | 출처 | Phase A (현재) | Phase B |
-|------|------|---------|---------|
-| `activityId` | everyCanvas | **임시** URL `accessKey` | LMS/everyCanvas 계약에 따름 |
-| `slideId` (`setId` prop) | embed 입력 | **임시** URL `:setId` · 없으면 `accessKey` | `POST /participations` → `data.content.lcmsSetId` |
+| prop (embed options) | 출처 | Phase A | Phase B (현재) |
+|------|------|---------|----------------|
+| `activityId` | everyCanvas | URL `accessKey` | `accessKey` 전달 (계약 확정 시 교체) |
+| `slideId` (`setId` prop) | embed 입력 | URL `:setId` · 없으면 `accessKey` | `POST /participations` → `data.content.lcmsSetId` |
 
 `getToken`은 **전달하지 않음** (2026-08-20 확정).
 
@@ -3697,22 +3684,27 @@ Phase A 스켈레톤(`getActivityJoinEligibility` / `getActivityJoinSetId`)은 P
 
 | 파일 | 유형 | 핵심 변경 |
 |------|------|-----------|
-| `pages/lesson/LessonJoinPage.tsx` | **신규 완료** | params, 로딩/불가/에러/embed 분기. Phase A `resolveJoinViewState` |
+| `pages/lesson/LessonJoinPage.tsx` | **신규 완료** | params, 로딩/불가/에러/embed 분기 |
 | `features/lesson/ui/LessonActivityJoinEmbed.tsx` | **신규 완료** | `mode: 'activity-join'`, `activityId` + `setId` |
 | `features/lesson/lib/useEveryCanvasEmbed.ts` | **수정 완료** | `submitted`·`phaseChanged`·`progress` 구독. `openSet`은 editor만 |
-| `features/lesson/api/lmsActivityService.ts` | **신규 완료** | eligibility / setId 스켈레톤 throw |
-| `app/router/routes.tsx` | **수정 완료** | `StudentJoinLayout` + `/student/lesson/:accessKey` |
+| `features/lesson/api/lmsActivityService.ts` | **신규 완료** | 교사 deploy API + (Phase A) eligibility 스켈레톤 |
+| `app/router/routes.tsx` | **수정 완료** | `StudentFullscreenLayout` + `/student/lesson/:accessKey` |
 | `pages/index.ts` | **수정 완료** | `LessonJoinPage` export |
 | `features/lesson/index.ts` | **수정 완료** | `LessonActivityJoinEmbed` export |
 
-### 임시 dev (2026-08-20 · Phase B에서 **제거**)
+### Phase B (구현 완료 · 2026-08-21)
 
-| 파일 | 변경 | 제거 시 |
-|------|------|---------|
-| `features/lesson/lib/buildLessonJoinUrl.ts` | `lcmsSetId?` optional → path `/{setId}` | 두 번째 인자·path segment 삭제 |
-| `features/lesson/ui/DeployPage.tsx` | `buildLessonJoinUrl(result.accessKey, setId)` | `setId` 인자 삭제 |
-| `app/router/routes.tsx` | `/student/lesson/:accessKey/:setId` Route 추가 | 해당 Route 삭제 |
-| `pages/lesson/LessonJoinPage.tsx` | `accessKey`·`setId` param 읽어 embed 전달 | `setId` param·fallback 분기 삭제 → API |
+| 파일 | 유형 | 핵심 변경 |
+|------|------|-----------|
+| `features/lesson/api/lmsActivityService.ts` | **수정** | `fetchActivityEntry` · `startParticipation`. 스켈레톤 삭제 |
+| `features/lesson/api/queryKeys.ts` | **수정** | `activityEntry` · `participation` keys |
+| `features/lesson/api/queries.ts` | **수정** | `useActivityEntryQuery` · `useStartParticipationQuery` |
+| `pages/lesson/LessonJoinPage.tsx` | **수정** | entry → participations → §5.1 / embed. `:setId` 제거 |
+| `features/lesson/lib/buildLessonJoinUrl.ts` | **수정** | `accessKey` 단일 인자 |
+| `features/lesson/ui/DeployPage.tsx` | **수정** | `buildLessonJoinUrl(result.accessKey)` |
+| `app/router/routes.tsx` | **수정** | `:setId` Route 삭제 |
+| `features/lesson/ui/LessonActivityJoinEmbed.tsx` | **수정** | `setId` 주석 · `getToken` 없음 유지 |
+| `features/lesson/index.ts` | **수정** | entry/participation export |
 
 `useEveryCanvasEmbed`의 `openSet`: Editor만. `options.mode === 'editor'`일 때만 `openSet(setId)`. activity-join/viewer는 options의 `slideId`/`activityId`로 Frame이 연다.
 
@@ -3722,17 +3714,18 @@ Phase A 스켈레톤(`getActivityJoinEligibility` / `getActivityJoinSetId`)은 P
 
 | # | 항목 | 상태 | 내용 |
 |---|------|------|------|
-| 1 | 학생 path·param | **확정** | `/student/lesson/:accessKey` (값 = publish `accessKey`). **임시** `/:setId` — §3.1, Phase B **제거** |
+| 1 | 학생 path·param | **확정·구현** | `/student/lesson/:accessKey` (값 = publish `accessKey`). 임시 `/:setId` **제거 완료** |
 | 2 | `accessKey` vs `activityId` | **확정** | URL·entry·participations body = `accessKey`. LMS UUID `activityId`는 **교사** activities path. 학생은 activities 단건 조회 금지 |
-| 3 | 학생 SDK | **확정** | `activity-join` Embed. Viewer 재사용 안 함 |
-| 4 | 불가 UX | **확정** | §5.1 `availability`별 페이지 메시지. embed 없음 |
-| 5 | 진입 API | **확정** | `GET /entry/{accessKey}`. **인증 불필요**. 문항·lcmsSetId 없음 |
-| 6 | `lcmsSetId` 조회 | **확정** | Phase B: `POST /participations` → `data.content.lcmsSetId`. **임시**: URL `:setId` (§3.1) |
-| 7 | `getToken` | **확정** | **전달 안 함**. 삭제 |
+| 3 | 학생 SDK | **확정·구현** | `activity-join` Embed. Viewer 재사용 안 함 |
+| 4 | 불가 UX | **확정·구현** | §5.1 `availability`별 페이지 메시지. embed 없음 |
+| 5 | 진입 API | **확정·구현** | `GET /entry/{accessKey}`. **인증 불필요**. 문항·lcmsSetId 없음 |
+| 6 | `lcmsSetId` 조회 | **확정·구현** | `POST /participations` → `data.content.lcmsSetId` |
+| 7 | `getToken` | **확정·구현** | **전달 안 함** |
 | 8 | 풀고 내기 (PATCH/submit/result) | **후속** | 가이드 순서상 맞으나 Host 연동은 별도 추가계획 |
-| 9 | API `errorCode` UX | **미확정** | `ACTIVITY_NOT_AVAILABLE` 등 출처·문구 미정. 1차는 §5.1 + participations 실패만 |
+| 9 | API `errorCode` UX | **미확정** | 1차는 §5.1 + participations 실패 공통 문구만 |
 | 10 | 로그인 복귀 | **Phase A에서 가능한 한** | join URL이 로그인에 삼켜지지 않게 |
-| 11 | URL `:setId` path | **임시·제거 예정** | embed dev 확인용. Phase B API 연동 시 §3.1 제거 체크리스트 수행 |
+| 11 | URL `:setId` path | **제거 완료** | 2026-08-21 Phase B |
+| 12 | embed `activityId` | **임시 유지** | 현재 `accessKey` 전달. everyCanvas 계약 확정 시 교체 |
 
 ---
 
@@ -3743,28 +3736,27 @@ Phase A 스켈레톤(`getActivityJoinEligibility` / `getActivityJoinSetId`)은 P
 - [x] `/student/lesson/:accessKey` 가 학생 풀스크린으로 열린다 (교사 가드·학생 사이드바 없음)
 - [x] `StudentJoinLayout`: 학생 인증 + `MinimalLayout`, 미인증 시 `/login?redirect=...`
 - [x] `LessonActivityJoinEmbed`가 `mode: 'activity-join'` + `activityId` + `setId`로 `createEmbed`
-- [x] 참여 불가 분기 UI 골격 — Phase A는 `ready`만 진입. Phase B에서 §5.1 문구로 교체
-- [x] 조회 실패 문구 (`활동 정보를 불러오지 못했습니다`) — `accessKey` 없을 때
-- [x] 미확정 API fetch 없음. embed `setId`는 URL `:setId` 임시 또는 `accessKey` fallback (§3.1)
+- [x] 참여 불가 분기 UI 골격 — Phase B에서 §5.1 문구로 교체 완료
+- [x] 조회 실패 문구 (`활동 정보를 불러오지 못했습니다`)
+- [x] Phase A: 미확정 API fetch 없음 (이후 Phase B에서 실호출)
 
-### 임시 dev (2026-08-20 · Phase B에서 **제거**)
+### 임시 setId path (**제거 완료** · 2026-08-21)
 
-- [x] `buildLessonJoinUrl(accessKey, lcmsSetId)` — 배포 QR/링크에 `/{setId}` 포함
-- [x] 라우트 `/student/lesson/:accessKey/:setId`
-- [x] `LessonJoinPage` URL `:setId` → embed `setId` prop
-- [x] route param 명칭 `:activityId` → `:accessKey` (2026-08-21)
+- [x] `buildLessonJoinUrl(accessKey)` 단일 인자
+- [x] 라우트 `/student/lesson/:accessKey` 만 유지 (`:setId` Route 삭제)
+- [x] `LessonJoinPage` API `lcmsSetId` → embed `setId`
+- [x] route param 명칭 `:accessKey` (2026-08-21)
 
-### Phase B (LMS API 연동 — 들어가서 · embed 마운트까지)
+### Phase B (LMS API 연동 — **구현 완료** · 2026-08-21)
 
-- [ ] §3.1 임시 URL `:setId` path **제거** (`buildLessonJoinUrl`·Route·LessonJoinPage param)
-
-- [ ] `GET /api/v1/entry/{accessKey}` 실호출 → §5.1 `availability` 분기 (`NOT_STARTED` 시 `openAt` 표기)
-- [ ] `POST /api/v1/participations` 실호출 → `data.content.lcmsSetId` → embed `slideId`
-- [ ] 학생이 `GET /api/v1/activities/{activityId}` **호출하지 않음** 확인
-- [ ] `LessonJoinPage` React Query 훅 + 로딩/불가/에러/embed 분기
-- [ ] `LessonActivityJoinEmbed` — `getToken` 제거
-- [ ] 응답 봉투 `data` 언랩
-- [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외) — Phase A 기준
+- [x] §3.1 임시 URL `:setId` path **제거**
+- [x] `GET /api/v1/entry/{accessKey}` 실호출 → §5.1 `availability` 분기 (`NOT_STARTED` 시 `openAt` 표기)
+- [x] `POST /api/v1/participations` 실호출 → `data.content.lcmsSetId` → embed `slideId`
+- [x] 학생이 `GET /api/v1/activities/{activityId}` **호출하지 않음**
+- [x] `LessonJoinPage` React Query 훅 + 로딩/불가/에러/embed 분기
+- [x] `LessonActivityJoinEmbed` — `getToken` 없음
+- [x] 응답 봉투 `data` 언랩
+- [x] `npx tsc -b --noEmit`, eslint 통과 (`no-unused-vars` 제외)
 
 ### Phase B 후속 (풀고 내기 — 별도 추가계획 · 이번 미포함)
 
@@ -3779,8 +3771,9 @@ Phase A 스켈레톤(`getActivityJoinEligibility` / `getActivityJoinSetId`)은 P
 **수정**: 2026-08-20 — **임시** URL `/student/lesson/:accessKey/:setId` (embed dev 확인용, Phase B **제거** 예정)  
 **수정**: 2026-08-21 — 학생 path·param 명칭 `:activityId` → **`:accessKey`** 정정 (코드·문서)  
 **수정**: 2026-08-21 — 학생 흐름 정정: 가이드(들어가서 풀고 내기) 기준으로 `GET /entry` → `POST /participations` → `content.lcmsSetId`. **`GET /activities` 학생 호출 제거** (교사용). PATCH/submit/result는 후속  
-**구현 완료일**: 2026-08-19 (Phase A) · 2026-08-20 (임시 setId URL) · 2026-08-21 (`:accessKey` rename)  
-**상태**: Phase A + 임시 setId URL + `:accessKey` rename / Phase B API 연동·임시 path 제거 대기
+**수정**: 2026-08-21 — **Phase B 구현 완료**: entry + participations 실호출 · §5.1 UX · 임시 `:setId` path 제거  
+**구현 완료일**: 2026-08-19 (Phase A) · 2026-08-20 (임시 setId URL) · 2026-08-21 (`:accessKey` rename · Phase B API)  
+**상태**: Phase A·B 구현 완료 / 풀고 내기(PATCH·submit·result) 후속
 
 ---
 

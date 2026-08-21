@@ -4,6 +4,8 @@ export {
   createActivity,
   putActivityAssignees,
   publishActivity,
+  fetchActivityEntry,
+  startParticipation,
   LmsHttpError,
 } from './api/lmsActivityService';
 export type {
@@ -12,6 +14,10 @@ export type {
   DeployFailedStep,
   DeployLessonActivityFailure,
   DeployLessonActivityResult,
+  Entry,
+  EntryAvailability,
+  ParticipationDetail,
+  ParticipationContent,
 } from './api/lmsActivityService';
 export { FilterPanel } from './ui/FilterPanel';
 export { DeployPage } from './ui/DeployPage';
@@ -34,6 +40,8 @@ export {
   useCmsSetListQuery,
   useCmsSetDetailQuery,
   useDeleteLibraryItemMutation,
+  useActivityEntryQuery,
+  useStartParticipationQuery,
 } from './api/queries';
 export type { SyncLibraryItemOnSaveInput } from './api/queries';
 export type {

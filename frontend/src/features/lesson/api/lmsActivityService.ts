@@ -186,16 +186,73 @@ export async function deployLessonActivity(
   throw toFailure('publish', new LmsHttpError('publish 단계 미실행', 0), activityId);
 }
 
-/** 이 로그인 학생이 activityId 활동에 참여 가능한지 — 추가계획12 Phase B */
-export async function getActivityJoinEligibility(_activityId: string): Promise<{
-  allowed: boolean;
-}> {
-  throw new Error('참여 가능 확인 API 스펙 대기 — 호출하지 말 것');
+// ─── 학생 진입·참여 시작 ─────────────────────────────
+
+const ENTRY_BASE = `${ENV.SP_LMS_API_URL}/api/v1/entry`;
+const PARTICIPATIONS_BASE = `${ENV.SP_LMS_API_URL}/api/v1/participations`;
+
+export type EntryAvailability = 'NOT_AVAILABLE' | 'NOT_STARTED' | 'OPEN' | 'CLOSED';
+
+export type Entry = {
+  title: string | null;
+  availability: EntryAvailability;
+  openAt: string | null;
+  closeAt: string | null;
+  allowedIdentityTypes: Array<'MEMBER' | 'GUEST_TOKEN' | 'PARTICIPATION_HANDLE'>;
+  itemCount: number;
+};
+
+export type ParticipationContent = {
+  title: string;
+  lcmsSetId: string;
+  lcmsSetVersion?: number;
+  gradingPolicy: string;
+  items: Array<{
+    activityItemId: string;
+    seq: number;
+    lcmsArticleId: string;
+    lcmsArticleVersion?: number;
+    maxScore?: number;
+  }>;
+};
+
+export type ParticipationDetail = {
+  participationId: string;
+  attempt: number;
+  attemptLimit: number;
+  canRetry: boolean;
+  status: 'IN_PROGRESS' | 'SUBMITTED';
+  availability: EntryAvailability | string;
+  content: ParticipationContent;
+};
+
+/** GET /entry/{accessKey} — 인증 불필요 */
+async function lmsPublicFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, init);
+  if (!res.ok) {
+    throw new LmsHttpError(`LMS API 실패: ${res.status}`, res.status);
+  }
+  const json = (await res.json()) as LmsApiResponse<T>;
+  if (!json.success) {
+    throw new LmsHttpError(json.message ?? 'LMS API Error', res.status, json.errorCode);
+  }
+  return json.data;
 }
 
-/** 참여 가능한 뒤, embed에 넣을 콘텐츠 id — 추가계획12 Phase B */
-export async function getActivityJoinSetId(_activityId: string): Promise<{
-  setId: string;
-}> {
-  throw new Error('activityId→setId 조회 API 스펙 대기 — 호출하지 말 것');
+/** GET /api/v1/entry/{accessKey} — 인증 불필요. 문항·lcmsSetId 없음 */
+export async function fetchActivityEntry(accessKey: string, signal?: AbortSignal): Promise<Entry> {
+  return lmsPublicFetch<Entry>(`${ENTRY_BASE}/${encodeURIComponent(accessKey)}`, { signal });
+}
+
+/**
+ * POST /api/v1/participations — Bearer.
+ * 201 새 회차 · 200 이어하기. content.lcmsSetId → embed slideId.
+ * 학생은 GET /activities/{id} 를 호출하지 않는다.
+ */
+export async function startParticipation(accessKey: string): Promise<ParticipationDetail> {
+  return lmsFetch<ParticipationDetail>(PARTICIPATIONS_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accessKey }),
+  });
 }
