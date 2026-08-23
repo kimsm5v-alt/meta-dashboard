@@ -1,6 +1,26 @@
+export { buildLessonJoinUrl } from './lib/buildLessonJoinUrl';
+export {
+  deployLessonActivity,
+  createActivity,
+  putActivityAssignees,
+  publishActivity,
+  fetchActivityEntry,
+  startParticipation,
+  LmsHttpError,
+} from './api/lmsActivityService';
+export type {
+  CreateActivityBody,
+  ActivityDetail,
+  DeployFailedStep,
+  DeployLessonActivityFailure,
+  DeployLessonActivityResult,
+  Entry,
+  EntryAvailability,
+  ParticipationDetail,
+  ParticipationContent,
+} from './api/lmsActivityService';
 export { FilterPanel } from './ui/FilterPanel';
 export { DeployPage } from './ui/DeployPage';
-export type { DeployPageLocationState } from './ui/DeployPage';
 export { ResourceCardList } from './ui/ResourceCardList';
 export { ResourceCard } from './ui/ResourceCard';
 export { LessonEditorEmbed } from './ui/LessonEditorEmbed';
@@ -13,19 +33,25 @@ export { useLibraryFilters } from './model/useLibraryFilters';
 export { matchLibraryItem, sortLibraryItems } from './model/matchLibraryFilters';
 export { MOCK_LIBRARY_ITEMS } from './model/mockLibraryItems';
 export {
-  useRefSetListQuery,
-  useRefSetQuery,
-  useRegisterRefSetMutation,
+  useLibraryItemListQuery,
+  useLibraryItemInfiniteListQuery,
+  useLibraryItemQuery,
+  useSyncLibraryItemOnSaveMutation,
   useCmsSetListQuery,
   useCmsSetDetailQuery,
-  useDeleteRefSetMutation,
+  useDeleteLibraryItemMutation,
+  useActivityEntryQuery,
+  useStartParticipationQuery,
 } from './api/queries';
+export type { SyncLibraryItemOnSaveInput } from './api/queries';
 export type {
-  RefSetItem,
-  RegisterRefSetBody,
-  RefSetListData,
-  RefSetOptions,
-} from './api/lmsRefSetService';
+  LibraryItem,
+  LibraryItemListData,
+  LibraryItemOptions,
+  CreateLibraryItemBody,
+  UpdateLibraryItemBody,
+  LmsApiError,
+} from './api/lmsLibraryItemService';
 export type {
   CmsSetItem,
   CmsSetDetail,
@@ -33,7 +59,7 @@ export type {
   CmsSetListParams,
 } from './api/cmsSetService';
 export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
-export { mapRefSetToLibItem } from './model/mapRefSetToLibItem';
+export { mapLibraryItemToLibItem, mapRefSetToLibItem } from './model/mapLibraryItemToLibItem';
 export type {
   FilterAxis,
   LibFilters,
@@ -43,6 +69,8 @@ export type {
   LibraryColorGroup,
   LibItem,
   ResourceCardVariant,
+  LessonEditorPageLocationState,
+  DeployPageLocationState,
 } from './model/types';
 export { EMPTY_FILTERS, LIBRARY_SRC_LABELS } from './model/types';
 export type { FilterOption } from './model/filterTaxonomy';

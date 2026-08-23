@@ -666,6 +666,7 @@ export interface GroupMember {
   groupId: string;
   userId: string | null; // 게스트면 null
   stdtId: string;
+  spUserId?: string;
 
   name: string;
   email?: string;

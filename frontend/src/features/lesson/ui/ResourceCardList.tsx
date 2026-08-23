@@ -16,7 +16,7 @@ interface ResourceCardListProps {
   variant?: ResourceCardVariant;
   /** 미지정 시 variant별 기본 문구 */
   emptyMessage?: string;
-  onDelete?: (refSetId: string) => void;
+  onDelete?: (libraryItemId: string) => void;
   /** API 조회/재조회 중 로딩 표시 */
   isLoading?: boolean;
   /** 하단 센티널 노출 여부(무한 스크롤) */

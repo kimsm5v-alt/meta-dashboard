@@ -1,30 +1,49 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { toast } from 'sonner';
 import { useMyGroupsQuery } from '@features/api';
+import { useAuth } from '@features/auth';
 import { PageLoading } from '@shared/ui/Loading';
-import { useCmsSetDetailQuery, useRefSetQuery } from '../api/queries';
+import {
+  deployLessonActivity,
+  type DeployFailedStep,
+  type DeployLessonActivityFailure,
+} from '../api/lmsActivityService';
+import { useCmsSetDetailQuery, useLibraryItemQuery } from '../api/queries';
+import { buildLessonJoinUrl } from '../lib/buildLessonJoinUrl';
+import { buildDeployActivityBody } from '../model/buildDeployActivityBody';
+import { collectAssigneeSubsFromGroups } from '../model/collectAssigneeSubsFromGroups';
 import { mapCmsSetToLibItem } from '../model/mapCmsSetToLibItem';
-import { mapRefSetToLibItem } from '../model/mapRefSetToLibItem';
+import { mapLibraryItemToLibItem } from '../model/mapLibraryItemToLibItem';
 // 보류: mock 콘텐츠 조회 (추가계획9)
 // import { MOCK_LIBRARY_ITEMS } from '../model/mockLibraryItems';
-import type { LibItem, LibraryColorGroup } from '../model/types';
+import type { DeployPageLocationState, LibItem, LibraryColorGroup } from '../model/types';
 import { ENV } from '@shared/config/env';
 
 type DeployMode = 'period' | 'live';
-
-/** ResourceCard 「시작하기」 navigate state */
-export type DeployPageLocationState = {
-  item?: LibItem;
-};
 
 interface DeployedState {
   isLive: boolean;
   classesStr: string;
   rangeTxt: string;
+  activityId: string;
+  accessKey: string;
+  joinUrl: string;
 }
+
+interface DeployResumeState {
+  activityId?: string;
+  failedStep: DeployFailedStep;
+}
+
+const DEPLOY_FAIL_TOAST: Record<DeployFailedStep, string> = {
+  create: '출제 실패했습니다.',
+  assign: '학생 배정에 실패했습니다.',
+  publish: '문제 발행에 실패했습니다.',
+};
 
 const COLOR_GROUP_BG: Record<LibraryColorGroup, string> = {
   g1: 'linear-gradient(135deg, #e7f8f2, #f0fbf7)',
@@ -41,11 +60,12 @@ const nextWeek = new Date(today);
 nextWeek.setDate(today.getDate() + 7);
 
 export const DeployPage = () => {
-  const { setId, refSetId } = useParams<{ setId: string; refSetId: string }>();
+  const { setId, libraryItemId } = useParams<{ setId: string; libraryItemId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const failHandledRef = useRef(false);
+  const { user } = useAuth();
 
   const {
     data: groups = [],
@@ -58,33 +78,34 @@ export const DeployPage = () => {
   const stateItem = (location.state as DeployPageLocationState | null)?.item;
   const hasStateItem = Boolean(stateItem && (!setId || stateItem.id === setId));
 
-  const refSetQuery = useRefSetQuery(refSetId, {
-    enabled: !hasStateItem && Boolean(refSetId),
+  const libraryItemQuery = useLibraryItemQuery(libraryItemId, {
+    enabled: !hasStateItem && Boolean(libraryItemId),
   });
   const cmsSetQuery = useCmsSetDetailQuery(setId, {
-    enabled: !hasStateItem && Boolean(setId) && !refSetId,
+    enabled: !hasStateItem && Boolean(setId),
   });
 
   const item = useMemo((): LibItem | undefined => {
     if (hasStateItem && stateItem) return stateItem;
-    if (refSetId && refSetQuery.data) return mapRefSetToLibItem(refSetQuery.data);
-    if (!refSetId && cmsSetQuery.data) return mapCmsSetToLibItem(cmsSetQuery.data);
+    if (libraryItemId && libraryItemQuery.data)
+      return mapLibraryItemToLibItem(libraryItemQuery.data);
+    if (!libraryItemId && cmsSetQuery.data) return mapCmsSetToLibItem(cmsSetQuery.data);
     return undefined;
-  }, [hasStateItem, stateItem, refSetId, refSetQuery.data, cmsSetQuery.data]);
+  }, [hasStateItem, stateItem, libraryItemId, libraryItemQuery.data, cmsSetQuery.data]);
 
   // const item = MOCK_LIBRARY_ITEMS.find((x) => x.id === setId);
 
   const isItemLoading =
     !hasStateItem &&
-    ((Boolean(refSetId) && refSetQuery.isPending) ||
-      (Boolean(setId) && !refSetId && cmsSetQuery.isPending));
+    ((Boolean(libraryItemId) && libraryItemQuery.isPending) ||
+      (Boolean(setId) && !libraryItemId && cmsSetQuery.isPending));
 
   const isItemFailed =
     !setId ||
     (!hasStateItem &&
       !isItemLoading &&
-      (refSetId
-        ? refSetQuery.isError || (refSetQuery.isSuccess && !item)
+      (libraryItemId
+        ? libraryItemQuery.isError || (libraryItemQuery.isSuccess && !item)
         : cmsSetQuery.isError || (cmsSetQuery.isSuccess && !item)));
 
   useEffect(() => {
@@ -105,6 +126,8 @@ export const DeployPage = () => {
   const [start, setStart] = useState(formatDate(today));
   const [end, setEnd] = useState(formatDate(nextWeek));
   const [deployed, setDeployed] = useState<DeployedState | null>(null);
+  const [deployResume, setDeployResume] = useState<DeployResumeState | null>(null);
+  const [isDeploying, setIsDeploying] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
 
   const resolveGroupName = (id: string) => groups.find((g) => g.id === id)?.name ?? id;
@@ -122,18 +145,90 @@ export const DeployPage = () => {
   const toggleClass = (id: string) =>
     setClasses((cs) => (cs.includes(id) ? cs.filter((x) => x !== id) : [...cs, id]));
 
-  const doDeploy = () => {
+  const resolvedLibraryItemId = libraryItemId ?? item?.libraryItemId;
+
+  const copyJoinUrl = useCallback(async (joinUrl: string) => {
+    try {
+      await navigator.clipboard.writeText(joinUrl);
+      toast.success('링크가 복사되었습니다');
+    } catch {
+      toast.error('링크 복사에 실패했습니다');
+    }
+  }, []);
+
+  const doDeploy = async () => {
     if (validClasses.length === 0) {
       toast.error('대상 반을 선택하세요');
       return;
     }
+    if (!setId || !item) {
+      toast.error('콘텐츠 ID가 없습니다');
+      return;
+    }
+    if (!user?.id) {
+      toast.error('로그인 정보가 없습니다');
+      return;
+    }
+
     const isLive = mode === 'live';
     const classesStr = validClasses.map(resolveGroupName).join(', ');
     const rangeTxt = isLive
       ? '실시간 수업 · 지금 시작'
       : `${start.replace(/-/g, '.')} ~ ${end.replace(/-/g, '.')}`;
-    setDeployed({ isLive, classesStr, rangeTxt });
-    toast.success('배포되었습니다');
+
+    setIsDeploying(true);
+    try {
+      const assigneeSubs = await collectAssigneeSubsFromGroups(validClasses, user.id);
+      if (assigneeSubs.length === 0) {
+        toast.error('배정할 학생이 없습니다');
+        return;
+      }
+
+      const body = buildDeployActivityBody({
+        title: item.title,
+        mode,
+        startDate: start,
+        endDate: end,
+        libraryItemId: resolvedLibraryItemId,
+        lcmsSetId: setId,
+        cmsSetDetail: cmsSetQuery.data,
+      });
+
+      const result = await deployLessonActivity({
+        body,
+        assigneeSubs,
+        resume: deployResume?.activityId
+          ? { activityId: deployResume.activityId, failedStep: deployResume.failedStep }
+          : undefined,
+      });
+
+      const joinUrl = buildLessonJoinUrl(result.accessKey);
+      setDeployResume(null);
+      setDeployed({
+        isLive,
+        classesStr,
+        rangeTxt,
+        activityId: result.activityId,
+        accessKey: result.accessKey,
+        joinUrl,
+      });
+      toast.success('배포되었습니다');
+    } catch (error) {
+      const failure = error as DeployLessonActivityFailure;
+      if (failure?.failedStep) {
+        const status = failure.status ?? 0;
+        toast.error(`${DEPLOY_FAIL_TOAST[failure.failedStep]} [${status}]`);
+        setDeployResume({
+          activityId: failure.activityId,
+          failedStep: failure.failedStep,
+        });
+      } else {
+        toast.error('학생 배정 명단을 불러오지 못했습니다');
+      }
+      setDeployed(null);
+    } finally {
+      setIsDeploying(false);
+    }
   };
 
   const goToReports = () => navigate(`/lesson/result${location.search}`);
@@ -318,21 +413,16 @@ export const DeployPage = () => {
                     : '설정한 기간 동안 학생이 들어와 제출합니다.'}
                 </ResultDesc>
                 <ResultRow>
-                  <QrPlaceholder>▨</QrPlaceholder>
+                  <QrWrap aria-hidden>
+                    <QRCodeCanvas value={deployed.joinUrl} size={80} level='M' />
+                  </QrWrap>
                   <ResultInfo>
                     <ResultInfoTitle>
                       QR·참여 링크·학급 알림이 자동 생성·발송되었어요!
                     </ResultInfoTitle>
                     <LinkRow>
-                      <LinkInput
-                        readOnly
-                        value='https://class.visang.co.kr/viewer/6ab0…'
-                        aria-label='참여 링크'
-                      />
-                      <CopyButton
-                        type='button'
-                        onClick={() => toast.success('링크가 복사되었습니다')}
-                      >
+                      <LinkInput readOnly value={deployed.joinUrl} aria-label='참여 링크' />
+                      <CopyButton type='button' onClick={() => void copyJoinUrl(deployed.joinUrl)}>
                         복사
                       </CopyButton>
                     </LinkRow>
@@ -370,8 +460,14 @@ export const DeployPage = () => {
 
       {!deployed && (
         <DeployFooter>
-          <DeployButton type='button' onClick={doDeploy}>
-            배포하기
+          <DeployButton type='button' onClick={() => void doDeploy()} disabled={isDeploying}>
+            {isDeploying
+              ? '배포 중…'
+              : deployResume
+                ? mode === 'live'
+                  ? '다시 수업 시작하기'
+                  : '다시 배포하기'
+                : '배포하기'}
           </DeployButton>
         </DeployFooter>
       )}
@@ -806,8 +902,13 @@ const DeployButton = styled.button`
   cursor: pointer;
   transition: background-color ${({ theme }) => theme.transitions.fast};
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: ${({ theme }) => theme.colors.primary[600]};
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 `;
 
@@ -848,7 +949,7 @@ const ResultRow = styled.div`
   margin-top: 12px;
 `;
 
-const QrPlaceholder = styled.div`
+const QrWrap = styled.div`
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -856,9 +957,8 @@ const QrPlaceholder = styled.div`
   width: 80px;
   height: 80px;
   border-radius: ${({ theme }) => theme.radius.lg};
-  background: ${({ theme }) => theme.colors.gray[900]};
-  color: #fff;
-  font-size: 30px;
+  overflow: hidden;
+  background: #fff;
 `;
 
 const ResultInfo = styled.div`

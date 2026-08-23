@@ -1,9 +1,20 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { toast } from 'sonner';
-import { LessonEditorEmbed, useRegisterRefSetMutation } from '@features/lesson';
-import type { EmbedError, SavedPayload, StartLessonPayload } from '@features/lesson';
+import {
+  LessonEditorEmbed,
+  mapLibraryItemToLibItem,
+  useSyncLibraryItemOnSaveMutation,
+} from '@features/lesson';
+import type {
+  EmbedError,
+  LessonEditorPageLocationState,
+  LibItem,
+  LibraryItem,
+  SavedPayload,
+  StartLessonPayload,
+} from '@features/lesson';
 import { Button } from '@shared/ui/Button';
 
 const SavedModalOverlay = styled.div`
@@ -53,9 +64,16 @@ const SavedModalActions = styled.div`
  */
 export const LessonEditorPage = () => {
   const { setId: routeSetId } = useParams<{ setId?: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
-  const { mutate: registerRefSet } = useRegisterRefSetMutation();
+  const { mutate: syncLibraryItem } = useSyncLibraryItemOnSaveMutation();
   const [savedOpen, setSavedOpen] = useState(false);
+  const [libraryItemId, setLibraryItemId] = useState<string | null>(() => {
+    const state = location.state as LessonEditorPageLocationState | null;
+    return state?.libraryItemId ?? null;
+  });
+  /** POST/PATCH 응답 LibraryItem — deploy state·labels/options 변환용 */
+  const [libraryItem, setLibraryItem] = useState<LibraryItem | null>(null);
 
   /** 마운트 시점 고정 — 저장 후 replace navigate로 URL만 바꿀 때 embed 리마운트 방지 */
   const [embedSetId] = useState(() => routeSetId);
@@ -63,34 +81,60 @@ export const LessonEditorPage = () => {
 
   const handleSaved = (p: SavedPayload) => {
     console.log('[LessonEditorPage] handleSaved', p);
-    if (p.lcmsSetId) {
-      registerRefSet(
-        {
-          lcmsSetId: p.lcmsSetId,
-          makeMethod: p.lessonMeta?.makeMethod !== undefined ? Number(p.lessonMeta.makeMethod) : 3,
-          options: {
-            title: p.title ?? '',
-            ...(p.thumbnail ? { thumbnailUrl: p.thumbnail } : {}),
-          },
+    if (!p.lcmsSetId || !p.title) return;
+
+    syncLibraryItem(
+      {
+        lcmsSetId: p.lcmsSetId,
+        alias: p.title,
+        ...(p.thumbnail ? { options: { thumbnailUrl: p.thumbnail } } : {}),
+        libraryItemId,
+      },
+      {
+        onSuccess: (item) => {
+          setLibraryItemId(item.libraryItemId);
+          setLibraryItem(item);
+          if (p.trigger === 'manual') setSavedOpen(true);
+          if (!routeSetId && p.lcmsSetId) {
+            // 신규 저장 시 url 주소 변경 // 깜빡임 발생 시 제거 필요
+            navigate(`/lesson/editor/${p.lcmsSetId}${location.search}`, {
+              replace: true,
+              state: { libraryItemId: item.libraryItemId },
+            });
+          }
         },
-        {
-          onSuccess: () => (p.trigger === 'manual' ? setSavedOpen(true) : undefined),
-          onError: () => toast.error('나의 자료 등록에 실패했습니다'),
-        },
-      );
-    }
-    if (!routeSetId && p.lcmsSetId) {
-      // 신규 저장 시 url 주소 변경 // 깜빡임 발생 시 제거 필요
-      navigate(`/lesson/editor/${p.lcmsSetId}${location.search}`, { replace: true });
-    }
+        onError: () => toast.error('나의 자료 저장에 실패했습니다'),
+      },
+    );
   };
 
   const handleStartLesson = (p: StartLessonPayload) => {
     console.log('[LessonEditorPage] onStartLesson', p);
     const nextSetId = p.lcmsSetId;
-    if (nextSetId) {
-      navigate(`/lesson/deploy/${nextSetId}${location.search}`);
+    if (!nextSetId) {
+      toast.error('콘텐츠 ID가 없습니다');
+      return;
     }
+
+    if (libraryItemId) {
+      const item: LibItem = libraryItem
+        ? {
+            ...mapLibraryItemToLibItem(libraryItem),
+            title: p.title ?? libraryItem.alias ?? '',
+          }
+        : {
+            id: nextSetId,
+            libraryItemId,
+            title: p.title ?? '',
+            src: 'internal',
+          };
+      navigate(`/lesson/deploy/${nextSetId}/${libraryItemId}${location.search}`, {
+        state: { item },
+      });
+      return;
+    }
+
+    navigate(`/lesson/deploy/${nextSetId}${location.search}`);
   };
 
   const handleError = (error: EmbedError) => {

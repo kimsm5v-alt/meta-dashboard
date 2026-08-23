@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -7,8 +8,15 @@ import {
 } from '@tanstack/react-query';
 import { getCmsSet, getCmsSetList } from './cmsSetService';
 import type { CmsSetListData } from './cmsSetService';
-import { deleteRefSet, getRefSet, getRefSetList, registerRefSet } from './lmsRefSetService';
-import type { RegisterRefSetBody, RefSetListData } from './lmsRefSetService';
+import {
+  createLibraryItem,
+  deleteLibraryItem,
+  getLibraryItem,
+  getLibraryItemList,
+  updateLibraryItem,
+} from './lmsLibraryItemService';
+import type { LibraryItem, LibraryItemListData, LibraryItemOptions } from './lmsLibraryItemService';
+import { fetchActivityEntry, startParticipation } from './lmsActivityService';
 import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
 
@@ -19,45 +27,131 @@ const CMS_SETS_DEFAULT = {
   serviceType: 131132, // 추후 수정 필요
 } as const;
 
-export function useRefSetListQuery() {
+const LIBRARY_ITEMS_DEFAULT = {
+  page: 0,
+  size: 10,
+  withTotal: true,
+} as const;
+
+export type SyncLibraryItemOnSaveInput = {
+  lcmsSetId: string;
+  alias: string;
+  labels?: string[];
+  options?: LibraryItemOptions;
+  libraryItemId?: string | null;
+};
+
+function buildSavePayload(input: SyncLibraryItemOnSaveInput): {
+  alias: string;
+  labels?: string[];
+  options?: LibraryItemOptions;
+} {
+  return {
+    alias: input.alias,
+    ...(input.labels ? { labels: input.labels } : {}),
+    ...(input.options ? { options: input.options } : {}),
+  };
+}
+
+function findLibraryItemInCache(
+  queryClient: QueryClient,
+  lcmsSetId: string,
+): LibraryItem | undefined {
+  const cached = queryClient.getQueryData<unknown>(lessonKeys.libraryItems());
+
+  // useQuery 형태: { list, totalCount, hasNext }
+  const singleList = (cached as LibraryItemListData | null | undefined)?.list;
+  if (Array.isArray(singleList)) {
+    return singleList.find((item) => item.lcmsSetId === lcmsSetId);
+  }
+
+  // useInfiniteQuery 형태: { pages: [{ list, ... }, ...] }
+  const pages = (cached as { pages?: Array<LibraryItemListData> } | null | undefined)?.pages;
+  const mergedList = pages?.flatMap((p) => p.list) ?? [];
+  return mergedList.find((item) => item.lcmsSetId === lcmsSetId);
+}
+
+function resolveKnownLibraryItemId(
+  queryClient: QueryClient,
+  lcmsSetId: string,
+  libraryItemId?: string | null,
+): string | undefined {
+  if (libraryItemId) return libraryItemId;
+  return findLibraryItemInCache(queryClient, lcmsSetId)?.libraryItemId;
+}
+
+export function useLibraryItemListQuery() {
   return useQuery({
-    queryKey: lessonKeys.refSets(),
-    queryFn: getRefSetList,
+    queryKey: lessonKeys.libraryItems(),
+    queryFn: ({ signal }) => getLibraryItemList(undefined, signal),
   });
 }
 
-export function useRefSetQuery(refSetId: string | undefined, options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: lessonKeys.refSet(refSetId ?? ''),
-    queryFn: ({ signal }) => getRefSet(refSetId!, signal),
-    enabled: Boolean(refSetId) && (options?.enabled ?? true),
+export function useLibraryItemInfiniteListQuery() {
+  return useInfiniteQuery<LibraryItemListData>({
+    queryKey: lessonKeys.libraryItems(),
+    queryFn: ({ pageParam, signal }) =>
+      getLibraryItemList(
+        {
+          page: Number(pageParam),
+          size: LIBRARY_ITEMS_DEFAULT.size,
+          withTotal: LIBRARY_ITEMS_DEFAULT.withTotal,
+        },
+        signal,
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => (lastPage.hasNext ? allPages.length : undefined),
+    placeholderData: keepPreviousData,
   });
 }
 
-export function useRegisterRefSetMutation() {
+export function useLibraryItemQuery(
+  libraryItemId: string | undefined,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: lessonKeys.libraryItem(libraryItemId ?? ''),
+    queryFn: ({ signal }) => getLibraryItem(libraryItemId!, signal),
+    enabled: Boolean(libraryItemId) && (options?.enabled ?? true),
+  });
+}
+
+export function useSyncLibraryItemOnSaveMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: RegisterRefSetBody) => {
-      // cache 기반 중복 방지: 동일 lcmsSetId 이미 등록된 경우 skip
-      const cached = queryClient.getQueryData<RefSetListData>(lessonKeys.refSets());
-      const alreadyRegistered = cached?.list.some((item) => item.lcmsSetId === body.lcmsSetId);
-      if (alreadyRegistered) return Promise.resolve({ refSetId: '' });
-      return registerRefSet(body);
-    },
-    onSuccess: async (_data, variables) => {
-      if (variables.lcmsSetId) {
-        await queryClient.invalidateQueries({ queryKey: lessonKeys.refSets() });
+    mutationFn: async (input: SyncLibraryItemOnSaveInput) => {
+      const savePayload = buildSavePayload(input);
+
+      const knownId = resolveKnownLibraryItemId(queryClient, input.lcmsSetId, input.libraryItemId);
+
+      if (knownId) {
+        return updateLibraryItem(knownId, savePayload);
       }
+
+      const { item, created } = await createLibraryItem({
+        lcmsSetId: input.lcmsSetId,
+        ...savePayload,
+      });
+
+      if (created) {
+        return item;
+      }
+
+      // POST 200 — 이미 담긴 항목. body alias/options 무시 → PATCH로 동기화
+      return updateLibraryItem(item.libraryItemId, savePayload);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: lessonKeys.libraryItems() });
     },
   });
 }
 
-export function useDeleteRefSetMutation() {
+export function useDeleteLibraryItemMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (refSetId: string) => deleteRefSet(refSetId),
+    mutationFn: (libraryItemId: string) => deleteLibraryItem(libraryItemId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: lessonKeys.refSets() });
+      await queryClient.invalidateQueries({ queryKey: lessonKeys.libraryItems() });
     },
   });
 }
@@ -84,5 +178,34 @@ export function useCmsSetDetailQuery(setId: string | undefined, options?: { enab
     queryKey: lessonKeys.cmsSet(setId ?? ''),
     queryFn: ({ signal }) => getCmsSet(setId!, signal),
     enabled: Boolean(setId) && (options?.enabled ?? true),
+  });
+}
+
+/** GET /entry/{accessKey} */
+export function useActivityEntryQuery(
+  accessKey: string | undefined,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: lessonKeys.activityEntry(accessKey ?? ''),
+    queryFn: ({ signal }) => fetchActivityEntry(accessKey!, signal),
+    enabled: Boolean(accessKey) && (options?.enabled ?? true),
+    retry: false,
+  });
+}
+
+/**
+ * POST /participations — entry availability === OPEN 일 때만.
+ * content.lcmsSetId → embed slideId.
+ */
+export function useStartParticipationQuery(
+  accessKey: string | undefined,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: lessonKeys.participation(accessKey ?? ''),
+    queryFn: () => startParticipation(accessKey!),
+    enabled: Boolean(accessKey) && (options?.enabled ?? true),
+    retry: false,
   });
 }

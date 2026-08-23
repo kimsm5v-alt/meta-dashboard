@@ -43,12 +43,12 @@ export type LibraryColorGroup = 'g1' | 'g2' | 'g3' | 'g4' | 'g5' | 'g6';
 
 /**
  * 자료실·나의 자료 카드 모델 (API DTO와 분리 — mapper로 채움).
- * 필요: `id`, `title`, `refSetId`는 나의 자료(ref-set) 연동 시 사용, `thumbnailUrl?`.
+ * 필요: `id`, `title`, `libraryItemId`는 나의 자료(library-items) 연동 시 사용, `thumbnailUrl?`.
  * 그 외(src·selArea·colorGroup·createdAt 포함)는 선택.
  */
 export interface LibItem {
   id: string;
-  refSetId?: string;
+  libraryItemId?: string;
   title: string;
   /** 카드 썸네일 URL — 선택 */
   thumbnailUrl?: string;
@@ -66,6 +66,16 @@ export interface LibItem {
   duration?: string;
   factors?: string[];
 }
+
+/** ResourceCard / LessonEditorPage navigate state */
+export type LessonEditorPageLocationState = {
+  libraryItemId?: string;
+};
+
+/** ResourceCard 「시작하기」 navigate state */
+export type DeployPageLocationState = {
+  item?: LibItem;
+};
 
 /** ResourceCard / ResourceCardList 표시 모드 */
 export type ResourceCardVariant = 'library' | 'my';
