@@ -27,6 +27,7 @@ import {
   getStatusColor,
   getStatusMessage,
 } from '../api/studentExamService';
+import { deriveLockedStatus } from '../utils/deriveExamMeta';
 import type { StudentExamListItem } from '../types';
 
 // ============================================================
@@ -603,7 +604,7 @@ export const MyExamListPage: React.FC = () => {
         }
 
         setExamGroupMap(groupMap);
-        setExams(flat);
+        setExams(deriveLockedStatus(flat));
       } catch {
         setExams([]);
       } finally {

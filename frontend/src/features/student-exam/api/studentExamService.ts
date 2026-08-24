@@ -7,7 +7,7 @@ import { fetchStudentExamList } from '@features/exam/api/examService';
 import type { StudentExamItem } from '@features/exam/types';
 import type { StudentExamListItem, ExamStatus } from '../types';
 import { mapExamStatus } from '../types';
-import { withRecommendedMonth, deriveLockedStatus } from '../utils/deriveExamMeta';
+import { withRecommendedMonth } from '../utils/deriveExamMeta';
 
 const TOTAL_QUESTIONS = 124;
 
@@ -34,14 +34,17 @@ function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListIte
   };
 }
 
-/** 학생/게스트 검사 목록 조회 — 권장월/잠금 파생까지 적용해서 반환 */
+/** 학생/게스트 검사 목록 조회 — 권장월 파생까지 적용해서 반환.
+ * 잠금(locked) 파생은 여기서 하지 않는다 — 한 반(claId) 응답만으로는
+ * 학생이 다른 반에서 1차를 제출했는지 알 수 없으므로, 여러 반을 병합한
+ * 뒤(MyExamListPage.tsx의 loadExams)에 한 번만 적용해야 한다. */
 export async function getStudentExamList(
   claId: string,
   stdtId: string,
 ): Promise<StudentExamListItem[]> {
   const items = await fetchStudentExamList(claId, stdtId);
   const mapped = items.map((item) => mapToListItem(item, item.ordNo));
-  return withRecommendedMonth(deriveLockedStatus(mapped));
+  return withRecommendedMonth(mapped);
 }
 
 /** 검사 상태 라벨 */

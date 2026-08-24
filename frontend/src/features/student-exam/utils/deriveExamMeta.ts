@@ -27,6 +27,9 @@ export function withRecommendedMonth(items: StudentExamListItem[]): StudentExamL
  * "완료"의 기준은 1차 제출 자체(둘 다 이후 회차 응시 가능해지는 시점)이므로
  * status가 'completed'(제출완료, 결과대기중) 또는 'result_ready'(결과확인가능)
  * 인 경우 모두 "제출 완료"로 취급한다.
+ *
+ * 단, 이미 제출/완료된 2차 항목은 1차 제출 여부와 무관하게 잠그지 않는다
+ * (1차 미제출 후 2차만 완료한 학생의 결과가 가려지는 걸 방지).
  */
 export function deriveLockedStatus(items: StudentExamListItem[]): StudentExamListItem[] {
   const firstRoundSubmitted = new Set<string>();
@@ -37,7 +40,8 @@ export function deriveLockedStatus(items: StudentExamListItem[]): StudentExamLis
   }
 
   return items.map((item) => {
-    if (item.ordNo === 2 && !firstRoundSubmitted.has(item.paperIdx)) {
+    const alreadySubmitted = item.status === 'completed' || item.status === 'result_ready';
+    if (item.ordNo === 2 && !alreadySubmitted && !firstRoundSubmitted.has(item.paperIdx)) {
       return { ...item, status: 'locked' as const };
     }
     return item;
