@@ -61,7 +61,7 @@ export type CreateEmbedOptions = {
   embedBaseUrl: string;
   mode: EmbedMode;
   getSsoToken?: () => string | Promise<string>;
-  brandId: number;
+  brandId?: number;
   /** Viewer 전용 Platform slideId. Editor에서는 사용하지 않음(SDK 1.5 openSet). */
   slideId?: string; // mode: viewer 전용
   accessKey?: string;

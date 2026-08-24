@@ -17,6 +17,7 @@ import {
 } from './lmsLibraryItemService';
 import type { LibraryItem, LibraryItemListData, LibraryItemOptions } from './lmsLibraryItemService';
 import { fetchActivityEntry, startParticipation } from './lmsActivityService';
+// import { CMS_BRAND_ID } from '../model/constants';
 import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
 
@@ -24,6 +25,7 @@ const CMS_SETS_DEFAULT = {
   pageNo: 0,
   pageSize: 10,
   brandId: 18,
+  // brandId: CMS_BRAND_ID,
   serviceType: 131132, // 추후 수정 필요
 } as const;
 

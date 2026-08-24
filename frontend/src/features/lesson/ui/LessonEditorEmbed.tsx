@@ -61,7 +61,6 @@ export const LessonEditorEmbed = ({
     options: {
       embedBaseUrl: ENV.EVERYCLASS_EMBED_BASE_URL,
       mode: 'editor',
-      // getToken: () => fetchEmbedToken({ scope: 'editor' }),
       getSsoToken: getSsoAccessToken,
       locale: 'ko-KR',
       theme: embedTheme,

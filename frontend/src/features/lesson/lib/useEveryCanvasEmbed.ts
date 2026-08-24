@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { CMS_BRAND_ID } from '../model/constants';
 import { loadEveryCanvasEmbedSdk } from './everyCanvasEmbedSdk';
 import type { CreateEmbedOptions, EmbedError, EmbedHandle } from './everyCanvasEmbedSdk';
 
@@ -14,10 +15,8 @@ type EmbedEventHandlers = {
 };
 
 type UseEveryCanvasEmbedParams = {
-  /** 빌드에러 임시처리*/
-  options: Omit<CreateEmbedOptions, 'brandId'>;
+  options: CreateEmbedOptions;
   handlers?: EmbedEventHandlers;
-  brandId?: number;
   /**
    * Editor(SDK 1.5): ready 후 `handle.openSet(setId)` 호출.
    * CBS 세트지 id (= lcmsSetId). 없으면 신규(`/embed/editor/new` 경로).
@@ -48,7 +47,6 @@ const KNOWN_EVENTS = [
 export function useEveryCanvasEmbed({
   options,
   handlers = {},
-  brandId = 21,
   setId,
   onReady,
   onError,
@@ -58,7 +56,6 @@ export function useEveryCanvasEmbed({
   const containerRef = useRef<HTMLDivElement>(null);
   const optionsRef = useRef(options);
   const handlersRef = useRef(handlers);
-  const brandIdRef = useRef(brandId);
   const openSetIdRef = useRef(setId);
   const onReadyRef = useRef(onReady);
   const onErrorRef = useRef(onError);
@@ -67,7 +64,6 @@ export function useEveryCanvasEmbed({
   useEffect(() => {
     optionsRef.current = options;
     handlersRef.current = handlers;
-    brandIdRef.current = brandId;
     openSetIdRef.current = setId;
     onReadyRef.current = onReady;
     onErrorRef.current = onError;
@@ -88,7 +84,7 @@ export function useEveryCanvasEmbed({
 
       handle = createEmbed(containerRef.current, {
         ...optionsRef.current,
-        brandId: brandIdRef.current,
+        brandId: optionsRef.current.brandId ?? CMS_BRAND_ID,
         getSsoToken: () => optionsRef.current.getSsoToken?.() ?? Promise.resolve(''),
       });
 
