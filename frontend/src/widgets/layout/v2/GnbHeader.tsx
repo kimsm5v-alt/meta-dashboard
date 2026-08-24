@@ -59,8 +59,8 @@ const LogoButton = styled.button`
 `;
 
 const LogoImage = styled.img`
-  height: 22px;
-  width: auto;
+  height: 35px;
+  width: 150px;
 `;
 
 // --- 중앙 GNB pill ---
