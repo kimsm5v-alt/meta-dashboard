@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import styled from '@emotion/styled';
 import { Check, Info } from 'lucide-react';
 import {
@@ -6,7 +6,10 @@ import {
   SELFREG_FACTOR_DEFINITIONS,
   type SelfregCategory,
 } from '@shared/data/selfregFactors';
-import { SELFREG_FACTOR_DEFINITIONS_TEXT } from '@shared/data/selfregFactorDefinitions';
+import {
+  SELFREG_FACTOR_DEFINITIONS_TEXT,
+  SELFREG_SUBCATEGORY_DEFINITIONS_TEXT,
+} from '@shared/data/selfregFactorDefinitions';
 
 type ResultRound = 1 | 2;
 
@@ -178,9 +181,108 @@ const InfoHint = styled.button`
   cursor: help;
 `;
 
+const InfoTooltipRoot = styled.span`
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+`;
+
+const InfoTooltipPanel = styled.span`
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 0.5rem);
+  z-index: 50;
+  display: block;
+  width: max-content;
+  max-width: 22.5rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: #1e293b;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+  color: #ffffff;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-50%);
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
+  pointer-events: none;
+
+  &::before {
+    position: absolute;
+    top: 50%;
+    left: -0.25rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    background: #1e293b;
+    content: '';
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  ${InfoTooltipRoot}:hover &,
+  ${InfoTooltipRoot}:focus-within & {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  @media (max-width: 900px) {
+    top: calc(100% + 0.5rem);
+    left: 0;
+    transform: none;
+
+    &::before {
+      top: -0.25rem;
+      left: 0.25rem;
+      transform: rotate(45deg);
+    }
+  }
+`;
+
+const InfoTooltipTitle = styled.strong`
+  display: block;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #475569;
+  font-size: 0.875rem;
+`;
+
+const InfoTooltipText = styled.span`
+  display: block;
+
+  & + & {
+    margin-top: 0.375rem;
+  }
+`;
+
+const SelfregInfoTooltip = ({
+  label,
+  content,
+  size = 12,
+}: {
+  label: string;
+  content: ReactNode;
+  size?: number;
+}) => {
+  const tooltipId = useId();
+
+  return (
+    <InfoTooltipRoot>
+      <InfoHint type='button' aria-label={label} aria-describedby={tooltipId}>
+        <Info size={size} />
+      </InfoHint>
+      <InfoTooltipPanel id={tooltipId} role='tooltip'>
+        {content}
+      </InfoTooltipPanel>
+    </InfoTooltipRoot>
+  );
+};
+
 const ScaleHead = styled.div`
   display: grid;
-  grid-template-columns: minmax(9rem, 1.2fr) minmax(24rem, 4fr);
+  grid-template-columns: 9rem minmax(24rem, 1fr);
   align-items: stretch;
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   color: ${({ theme }) => theme.colors.gray[500]};
@@ -217,11 +319,11 @@ const GradeLabels = styled.div`
   }
 `;
 
-const ScoreRow = styled.div`
+const ScoreRow = styled.div<{ $factor?: boolean }>`
   display: grid;
-  grid-template-columns: minmax(9rem, 1.2fr) minmax(24rem, 4fr);
+  grid-template-columns: 9rem minmax(24rem, 1fr);
   align-items: center;
-  min-height: 2.75rem;
+  min-height: ${({ $factor }) => ($factor ? '2.5rem' : '3rem')};
   border-right: 1px solid ${({ theme }) => theme.colors.gray[200]};
   border-bottom: 1px solid ${({ theme }) => theme.colors.gray[200]};
   border-left: 1px solid ${({ theme }) => theme.colors.gray[200]};
@@ -240,27 +342,26 @@ const FactorLabel = styled.div<{ $sub?: boolean }>`
     $sub ? theme.typography.fontWeight.normal : theme.typography.fontWeight.semibold};
 `;
 
-const Track = styled.div<{ $color: string }>`
+const Track = styled.div<{ $color: string; $muted?: boolean }>`
   position: relative;
-  height: 1.25rem;
-  margin: 0 0.75rem;
-  border-radius: 999px;
-  overflow: hidden;
-  background: #f3f4f6;
+  height: ${({ $muted }) => ($muted ? '1.25rem' : '1.5rem')};
+  margin: 0 0.5rem;
+  border-radius: 0.25rem;
+  overflow: visible;
+  background: ${({ $muted }) => ($muted ? '#F9FAFB' : '#F3F4F6')};
 
   span {
     position: absolute;
     inset: 0 auto 0 0;
     border-radius: inherit;
-    background: ${({ $color }) => $color};
-    opacity: 0.82;
+    background: ${({ $color, $muted }) => ($muted ? `${$color}59` : $color)};
 
     em {
       position: absolute;
-      right: 0.375rem;
+      right: ${({ $muted }) => ($muted ? '0.375rem' : '0.5rem')};
       top: 50%;
-      color: #fff;
-      font-size: 0.6875rem;
+      color: ${({ $muted }) => ($muted ? '#374151' : '#FFFFFF')};
+      font-size: ${({ $muted }) => ($muted ? '0.625rem' : '0.75rem')};
       font-style: normal;
       font-weight: 600;
       transform: translateY(-50%);
@@ -278,8 +379,22 @@ const formatSubCategoryName = (name: string) =>
     행동적학습기술: '행동적 학습기술',
   })[name] ?? name;
 
-const clampScore = (score: number) => Math.max(20, Math.min(80, score));
-const scorePosition = (score: number) => ((clampScore(score) - 20) / 60) * 100;
+const OVERVIEW_LEVEL_BANDS = [
+  { min: 20, max: 30 },
+  { min: 31, max: 40 },
+  { min: 41, max: 59 },
+  { min: 60, max: 69 },
+  { min: 70, max: 80 },
+];
+
+const overviewBarPosition = (score: number) => {
+  const clamped = Math.max(20, Math.min(80, score));
+  const bandIndex = OVERVIEW_LEVEL_BANDS.findIndex((band) => clamped <= band.max);
+  const index = bandIndex < 0 ? OVERVIEW_LEVEL_BANDS.length - 1 : bandIndex;
+  const band = OVERVIEW_LEVEL_BANDS[index];
+  const progress = (clamped - band.min) / (band.max - band.min + 1);
+  return Math.max(2, ((index + Math.max(0, Math.min(1, progress))) / 5) * 100);
+};
 const percentile = (score: number) => {
   const z = (score - 50) / 10;
   const sign = z < 0 ? -1 : 1;
@@ -547,9 +662,26 @@ export const SelfregResultOverview = ({
               <ScoreScaleHead>
                 <span>
                   T점수(백분위)
-                  <InfoHint aria-label='정보 보기' title='T점수와 백분위 해석 기준'>
-                    <Info size={12} />
-                  </InfoHint>
+                  <SelfregInfoTooltip
+                    label='T점수와 백분위 해석 기준'
+                    size={14}
+                    content={
+                      <>
+                        <InfoTooltipTitle>심리검사 점수 값 해석</InfoTooltipTitle>
+                        <InfoTooltipText>
+                          · 심리검사 결과는 T점수와 백분위로 제공됩니다.
+                        </InfoTooltipText>
+                        <InfoTooltipText>
+                          1) T점수: 평균이 50, 표준편차가 10인 점수로 전체 평균에서 어느 정도 높고
+                          낮은지를 상대적으로 비교할 수 있습니다.
+                        </InfoTooltipText>
+                        <InfoTooltipText>
+                          2) 백분위: 전체를 100으로 볼 때, 한 학생의 점수가 아래부터 몇 번째에
+                          해당하는지를 나타냅니다.
+                        </InfoTooltipText>
+                      </>
+                    }
+                  />
                 </span>
                 <GradeLabels>
                   <span>매우 낮음</span>
@@ -569,12 +701,13 @@ export const SelfregResultOverview = ({
                 <ScoreRow key={subCategory.name}>
                   <FactorLabel>
                     {formatSubCategoryName(subCategory.name)}
-                    <InfoHint aria-label='정보 보기' title='하위 요인의 평균 T점수입니다.'>
-                      <Info size={12} />
-                    </InfoHint>
+                    <SelfregInfoTooltip
+                      label={`${formatSubCategoryName(subCategory.name)} 설명`}
+                      content={SELFREG_SUBCATEGORY_DEFINITIONS_TEXT[subCategory.name]}
+                    />
                   </FactorLabel>
                   <Track $color={domain.color}>
-                    <span style={{ width: `${scorePosition(average)}%` }}>
+                    <span style={{ width: `${overviewBarPosition(average)}%` }}>
                       <em>
                         {average}({percentile(average)})
                       </em>
@@ -584,18 +717,17 @@ export const SelfregResultOverview = ({
                 ...subCategory.factors.map((factor) => {
                   const score = currentScores[factor.index] ?? 50;
                   return (
-                    <ScoreRow key={factor.name}>
+                    <ScoreRow key={factor.name} $factor>
                       <FactorLabel $sub>
                         · {factor.name}
-                        <InfoHint
-                          aria-label='정보 보기'
-                          title={SELFREG_FACTOR_DEFINITIONS_TEXT[factor.name]}
-                        >
-                          <Info size={12} />
-                        </InfoHint>
+                        <SelfregInfoTooltip
+                          label={`${factor.name} 설명`}
+                          size={10}
+                          content={SELFREG_FACTOR_DEFINITIONS_TEXT[factor.name]}
+                        />
                       </FactorLabel>
-                      <Track $color={domain.color}>
-                        <span style={{ width: `${scorePosition(score)}%`, opacity: 0.45 }}>
+                      <Track $color={domain.color} $muted>
+                        <span style={{ width: `${overviewBarPosition(score)}%` }}>
                           <em>
                             {score}({percentile(score)})
                           </em>
@@ -807,7 +939,7 @@ export const SelfregProfileTable = ({
                     <span>매우 높음</span>
                   </ProfileScaleLabels>
                 </th>
-                <th rowSpan={2} style={{ background: '#F9FAFB' }}>
+                <th rowSpan={2} style={{ background: '#F9FAFB', borderLeft: '1px solid #E5E7EB' }}>
                   1차
                 </th>
                 <th rowSpan={2} style={{ background: '#F9FAFB' }}>
@@ -870,14 +1002,12 @@ export const SelfregProfileTable = ({
                       ref={domain.id === SELFREG_DOMAIN_STRUCTURE[0].id ? chartAreaRef : undefined}
                       style={{ position: 'relative', padding: 0 }}
                     >
-                      <LinearCell>
-                        <SummaryBar
-                          $color={domain.color}
-                          style={{
-                            width: `${profilePosition(selectedRound === 2 && round2Average != null ? round2Average : average)}%`,
-                          }}
-                        />
-                      </LinearCell>
+                      <SummaryBar
+                        $color={domain.color}
+                        style={{
+                          width: `${profilePosition(selectedRound === 2 && round2Average != null ? round2Average : average)}%`,
+                        }}
+                      />
                     </td>
                     <td>{average}</td>
                     <td>{round2Average ?? '-'}</td>
