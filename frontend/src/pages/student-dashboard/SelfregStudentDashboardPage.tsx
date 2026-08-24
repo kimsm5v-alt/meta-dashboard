@@ -11,15 +11,23 @@ import {
   Loader2,
   FileText,
   ChevronDown,
+  Calendar,
 } from 'lucide-react';
 import { useClassStudents } from '@features/api';
+import { useStudentLearningStatusQuery } from '@features/exam-tracking/api/queries';
+import { fetchStudentExamList } from '@features/exam/api/examService';
 import {
   fetchSelfregFullAnalysis,
   fetchTeacherExams,
   fetchStudentInfoList,
 } from '@shared/services/dashboardService';
 import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
-import { SelfregProfileTable, SelfregResultOverview } from '@features/student-dashboard/ui';
+import {
+  SelfregInsightSummary,
+  SelfregLearningStatusCard,
+  SelfregProfileTable,
+  SelfregResultOverview,
+} from '@features/student-dashboard/ui';
 
 // ============================================================
 // Types
@@ -30,9 +38,10 @@ interface SelfregRound {
   tScores: number[];
   reliabilityWarnings: string[];
   answerIdx: number | null;
+  assessedAt: string | null;
 }
 
-type ViewMode = 'round1' | 'round2' | 'compare';
+type ViewMode = 'round1' | 'round2';
 
 // ============================================================
 // Styled Components
@@ -93,15 +102,6 @@ const TitleRow = styled.div`
   flex-wrap: wrap;
 `;
 
-const ExamBadge = styled.span`
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: #ffffff;
-  background: #009f88;
-`;
-
 const PageTitle = styled.h1`
   font-size: ${({ theme }) => theme.typography.fontSize['2xl']};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
@@ -158,11 +158,19 @@ const NavBtn = styled.button`
   }
 `;
 
-const NavCounter = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+const AssessmentDates = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-left: 3.5rem;
   color: ${({ theme }) => theme.colors.gray[500]};
-  min-width: 3rem;
-  text-align: center;
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
 `;
 
 const TabGroup = styled.div`
@@ -214,6 +222,55 @@ const ContentRoot = styled.div`
   gap: 1.5rem;
 `;
 
+const StepSection = styled.section`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const StepNumber = styled.span`
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: #334155;
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+`;
+
+const StepContent = styled.div`
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 0.25rem;
+`;
+
+const StepHeading = styled.div`
+  min-height: 2rem;
+
+  > div {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  h2 {
+    margin: 0;
+    color: ${({ theme }) => theme.colors.gray[900]};
+    font-size: ${({ theme }) => theme.typography.fontSize.lg};
+  }
+
+  p {
+    margin: 0.25rem 0 0 2.5rem;
+    color: ${({ theme }) => theme.colors.gray[500]};
+    font-size: 0.75rem;
+  }
+`;
+
 // ============================================================
 // Page
 // ============================================================
@@ -245,6 +302,7 @@ export const SelfregStudentDashboardPage: React.FC<SelfregStudentDashboardPagePr
   const navigate = useNavigate();
 
   const { students, classInfo, isLoading: studentsLoading } = useClassStudents(classId, '2');
+  const learningStatusQuery = useStudentLearningStatusQuery(classId, studentId, 2);
 
   const [rounds, setRounds] = useState<SelfregRound[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -274,10 +332,27 @@ export const SelfregStudentDashboardPage: React.FC<SelfregStudentDashboardPagePr
 
     const loadData = async () => {
       try {
-        const result = await fetchSelfregFullAnalysis(classId, studentId, 'N');
+        const [result, studentExams] = await Promise.all([
+          fetchSelfregFullAnalysis(classId, studentId, 'N'),
+          fetchStudentExamList(classId, studentId),
+        ]);
         const parsed: SelfregRound[] = [];
-        if (result.round1) parsed.push({ round: 1, ...result.round1 });
-        if (result.round2) parsed.push({ round: 2, ...result.round2 });
+        if (result.round1)
+          parsed.push({
+            round: 1,
+            ...result.round1,
+            assessedAt:
+              studentExams.find((exam) => exam.paperIdx === '2' && exam.ordNo === 1)?.submDt ??
+              null,
+          });
+        if (result.round2)
+          parsed.push({
+            round: 2,
+            ...result.round2,
+            assessedAt:
+              studentExams.find((exam) => exam.paperIdx === '2' && exam.ordNo === 2)?.submDt ??
+              null,
+          });
         setRounds(parsed);
       } catch {
         setError('데이터를 불러오는데 실패했습니다.');
@@ -374,8 +449,15 @@ export const SelfregStudentDashboardPage: React.FC<SelfregStudentDashboardPagePr
   const r1 = rounds.find((r) => r.round === 1);
   const r2 = rounds.find((r) => r.round === 2);
   const selectedRound: 1 | 2 = viewMode === 'round1' ? 1 : 2;
-  const isCompare = viewMode === 'compare';
   const current = selectedRound === 2 && r2 ? r2 : r1;
+  const currentLearningStatus = learningStatusQuery.data?.rounds.find(
+    (round) => round.ordNo === selectedRound,
+  );
+  const formatAssessmentDate = (date?: string | null) => {
+    if (!date) return '-';
+    const parts = date.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+    return parts ? `${parts[1]}년 ${Number(parts[2])}월 ${Number(parts[3])}일` : date;
+  };
 
   const classLabel = classInfo ? `${classInfo.grade}학년 ${classInfo.classNumber}반` : '';
 
@@ -425,7 +507,6 @@ export const SelfregStudentDashboardPage: React.FC<SelfregStudentDashboardPagePr
           </BackButton>
           <TitleArea>
             <TitleRow>
-              <ExamBadge>자기조절학습검사</ExamBadge>
               <PageTitle>{student ? `${student.number}번 ${student.name}` : '학생'}</PageTitle>
               {current.reliabilityWarnings.length > 0 && (
                 <WarnBadge $variant='reliability'>
@@ -439,6 +520,26 @@ export const SelfregStudentDashboardPage: React.FC<SelfregStudentDashboardPagePr
         </HeaderLeft>
 
         <NavSection>
+          <NavBtn
+            disabled={!prev}
+            onClick={() => {
+              if (!prev) return;
+              if (onStudentSelect) onStudentSelect(prev.id);
+              else navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`);
+            }}
+          >
+            <ChevronLeft size={14} /> 이전
+          </NavBtn>
+          <NavBtn
+            disabled={!next}
+            onClick={() => {
+              if (!next) return;
+              if (onStudentSelect) onStudentSelect(next.id);
+              else navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`);
+            }}
+          >
+            다음 <ChevronRight size={14} />
+          </NavBtn>
           {/* 보고서 다운로드 */}
           <div style={{ position: 'relative' }}>
             <button
@@ -448,7 +549,7 @@ export const SelfregStudentDashboardPage: React.FC<SelfregStudentDashboardPagePr
                 alignItems: 'center',
                 gap: '0.375rem',
                 padding: '0.5rem 0.875rem',
-                background: '#4F46E5',
+                background: '#0F9F8F',
                 color: 'white',
                 border: 'none',
                 borderRadius: '0.5rem',
@@ -625,63 +726,85 @@ export const SelfregStudentDashboardPage: React.FC<SelfregStudentDashboardPagePr
               </>
             )}
           </div>
-          <NavBtn
-            disabled={!prev}
-            onClick={() => {
-              if (!prev) return;
-              if (onStudentSelect) onStudentSelect(prev.id);
-              else navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`);
-            }}
-          >
-            <ChevronLeft size={14} /> 이전
-          </NavBtn>
-          <NavCounter>
-            {currentIdx + 1} / {students.length}
-          </NavCounter>
-          <NavBtn
-            disabled={!next}
-            onClick={() => {
-              if (!next) return;
-              if (onStudentSelect) onStudentSelect(next.id);
-              else navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`);
-            }}
-          >
-            다음 <ChevronRight size={14} />
-          </NavBtn>
         </NavSection>
       </PageHeader>
 
-      {/* Round Tabs */}
-      <TabGroup>
-        {[
-          { mode: 'round1' as ViewMode, label: '1차 검사' },
-          ...(r2
-            ? [
-                { mode: 'round2' as ViewMode, label: '2차 검사' },
-                { mode: 'compare' as ViewMode, label: '차수 변화' },
-              ]
-            : []),
-        ].map(({ mode, label }) => (
-          <TabBtn key={mode} $isActive={viewMode === mode} onClick={() => setViewMode(mode)}>
-            {label}
-          </TabBtn>
-        ))}
-      </TabGroup>
+      <AssessmentDates>
+        <span>
+          <Calendar size={16} />
+          1차 검사: {formatAssessmentDate(r1?.assessedAt)}
+        </span>
+        {r2 && (
+          <span>
+            <Calendar size={16} />
+            2차 검사: {formatAssessmentDate(r2.assessedAt)}
+          </span>
+        )}
+      </AssessmentDates>
 
       {/* Content */}
       <ContentRoot>
-        <SelfregResultOverview
-          subjectName={student ? `${student.name} 학생` : '학생'}
-          scores={r1?.tScores ?? current.tScores}
-          round2Scores={r2?.tScores}
-          selectedRound={selectedRound}
-          onRoundChange={(round) => setViewMode(round === 1 ? 'round1' : 'round2')}
-        />
-        <SelfregProfileTable
-          scores={r1?.tScores ?? current.tScores}
-          round2Scores={r2?.tScores}
-          selectedRound={isCompare ? 2 : selectedRound}
-        />
+        <SelfregInsightSummary studentName={student?.name ?? '학생'} scores={current.tScores} />
+        <TabGroup>
+          {[
+            { mode: 'round1' as ViewMode, label: '1차 검사' },
+            ...(r2 ? [{ mode: 'round2' as ViewMode, label: '2차 검사' }] : []),
+          ].map(({ mode, label }) => (
+            <TabBtn key={mode} $isActive={viewMode === mode} onClick={() => setViewMode(mode)}>
+              {label}
+            </TabBtn>
+          ))}
+        </TabGroup>
+        <StepSection>
+          <StepContent>
+            <StepHeading>
+              <div>
+                <StepNumber>1</StepNumber>
+                <h2>학습 현황</h2>
+              </div>
+              <p>학생이 직접 응답한 학습 상황입니다</p>
+            </StepHeading>
+            <SelfregLearningStatusCard
+              status={currentLearningStatus}
+              isLoading={learningStatusQuery.isLoading}
+            />
+          </StepContent>
+        </StepSection>
+        <StepSection>
+          <StepContent>
+            <StepHeading>
+              <div>
+                <StepNumber>2</StepNumber>
+                <h2>종합 결과</h2>
+              </div>
+              <p>자기조절학습 관련 동기·인지·행동전략의 전체 수준을 확인합니다</p>
+            </StepHeading>
+            <SelfregResultOverview
+              subjectName={student ? `${student.name} 학생` : '학생'}
+              scores={r1?.tScores ?? current.tScores}
+              round2Scores={r2?.tScores}
+              selectedRound={selectedRound}
+              onRoundChange={(round) => setViewMode(round === 1 ? 'round1' : 'round2')}
+            />
+          </StepContent>
+        </StepSection>
+        <StepSection>
+          <StepContent>
+            <StepHeading>
+              <div>
+                <StepNumber>3</StepNumber>
+                <h2>종합 해석</h2>
+              </div>
+              <p>전체 요인의 T점수를 선형 눈금으로 비교합니다</p>
+            </StepHeading>
+            <SelfregProfileTable
+              scores={r1?.tScores ?? current.tScores}
+              round2Scores={r2?.tScores}
+              selectedRound={selectedRound}
+              showHeader={false}
+            />
+          </StepContent>
+        </StepSection>
       </ContentRoot>
     </PageRoot>
   );

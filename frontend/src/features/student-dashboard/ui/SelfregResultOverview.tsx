@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import styled from '@emotion/styled';
-import { Info } from 'lucide-react';
+import { Check, Info } from 'lucide-react';
 import {
   SELFREG_DOMAIN_STRUCTURE,
   SELFREG_FACTOR_DEFINITIONS,
   type SelfregCategory,
 } from '@shared/data/selfregFactors';
+import { SELFREG_FACTOR_DEFINITIONS_TEXT } from '@shared/data/selfregFactorDefinitions';
 
 type ResultRound = 1 | 2;
 
@@ -30,8 +31,7 @@ const Header = styled.div`
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.5rem;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[100]};
+  padding: 1.5rem 1.5rem 0;
 `;
 
 const Title = styled.h3`
@@ -75,13 +75,15 @@ const RoundButton = styled.button<{ $active: boolean }>`
 const Tabs = styled.div`
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.5rem 0;
+  gap: 0.25rem;
+  margin: 0 1.5rem;
+  padding-top: 1rem;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[200]};
 `;
 
 const Tab = styled.button<{ $active: boolean; $color: string }>`
   position: relative;
-  padding: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
   border: 0;
   background: transparent;
   color: ${({ $active, theme }) => ($active ? theme.colors.gray[900] : theme.colors.gray[500])};
@@ -89,6 +91,13 @@ const Tab = styled.button<{ $active: boolean; $color: string }>`
   font-weight: ${({ $active, theme }) =>
     $active ? theme.typography.fontWeight.bold : theme.typography.fontWeight.medium};
   cursor: pointer;
+
+  svg {
+    position: absolute;
+    top: -0.125rem;
+    left: 50%;
+    transform: translateX(-50%);
+  }
 
   &::after {
     position: absolute;
@@ -102,20 +111,40 @@ const Tab = styled.button<{ $active: boolean; $color: string }>`
   }
 `;
 
+const TabSeparator = styled.span`
+  color: ${({ theme }) => theme.colors.gray[300]};
+`;
+
 const Body = styled.div`
   padding: 1.25rem 1.5rem 1.5rem;
 `;
 
+const OverviewLayout = styled.div`
+  display: grid;
+  grid-template-columns: minmax(21rem, 26.25rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 2rem;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const RadarPane = styled.div`
+  display: flex;
+  justify-content: center;
+`;
+
+const DetailPane = styled.div`
+  min-width: 0;
+`;
+
 const DomainIntro = styled.div<{ $color: string }>`
   margin-bottom: 1rem;
-  padding: 1rem;
-  border-left: 4px solid ${({ $color }) => $color};
-  border-radius: 0.5rem;
-  background: ${({ $color }) => `${$color}12`};
 
   h4 {
     margin: 0 0 0.375rem;
-    color: ${({ theme }) => theme.colors.gray[900]};
+    color: ${({ $color }) => $color};
     font-size: ${({ theme }) => theme.typography.fontSize.sm};
   }
 
@@ -133,75 +162,121 @@ const Insight = styled.p`
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
 `;
 
+const InsightFactor = styled.strong<{ $color: string }>`
+  color: ${({ $color }) => $color};
+`;
+
+const InfoHint = styled.button`
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.gray[400]};
+  cursor: help;
+`;
+
 const ScaleHead = styled.div`
   display: grid;
-  grid-template-columns: minmax(9rem, 1.2fr) minmax(24rem, 4fr) 5.5rem;
-  align-items: end;
-  padding: 0.625rem 0.75rem;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  grid-template-columns: minmax(9rem, 1.2fr) minmax(24rem, 4fr);
+  align-items: stretch;
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   color: ${({ theme }) => theme.colors.gray[500]};
   font-size: 0.75rem;
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+
+  > span {
+    display: flex;
+    align-items: center;
+    padding: 0.625rem 0.75rem;
+    border-right: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  }
+`;
+
+const ScoreScaleHead = styled.div`
+  > span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  }
 `;
 
 const GradeLabels = styled.div`
   display: grid;
   grid-template-columns: repeat(5, 1fr);
+  min-height: 1.75rem;
+  align-items: center;
   text-align: center;
+
+  span + span {
+    border-left: 1px solid ${({ theme }) => theme.colors.gray[100]};
+  }
 `;
 
 const ScoreRow = styled.div`
   display: grid;
-  grid-template-columns: minmax(9rem, 1.2fr) minmax(24rem, 4fr) 5.5rem;
+  grid-template-columns: minmax(9rem, 1.2fr) minmax(24rem, 4fr);
   align-items: center;
   min-height: 2.75rem;
-  padding: 0 0.75rem;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[100]};
+  border-right: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border-left: 1px solid ${({ theme }) => theme.colors.gray[200]};
 `;
 
 const FactorLabel = styled.div<{ $sub?: boolean }>`
-  padding-left: ${({ $sub }) => ($sub ? '1rem' : 0)};
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem 0 ${({ $sub }) => ($sub ? '1.25rem' : '0.75rem')};
+  border-right: 1px solid ${({ theme }) => theme.colors.gray[200]};
   color: ${({ $sub, theme }) => ($sub ? theme.colors.gray[600] : theme.colors.gray[800])};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  gap: 0.25rem;
   font-weight: ${({ $sub, theme }) =>
     $sub ? theme.typography.fontWeight.normal : theme.typography.fontWeight.semibold};
 `;
 
 const Track = styled.div<{ $color: string }>`
   position: relative;
-  height: 0.625rem;
+  height: 1.25rem;
+  margin: 0 0.75rem;
   border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    #f3f4f6 0 20%,
-    #e5e7eb 20% 40%,
-    #d1fae5 40% 60%,
-    #e5e7eb 60% 80%,
-    #f3f4f6 80% 100%
-  );
+  overflow: hidden;
+  background: #f3f4f6;
 
   span {
     position: absolute;
-    top: 50%;
-    width: 0.875rem;
-    height: 0.875rem;
-    border: 2px solid #fff;
-    border-radius: 50%;
+    inset: 0 auto 0 0;
+    border-radius: inherit;
     background: ${({ $color }) => $color};
-    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.24);
-    transform: translate(-50%, -50%);
+    opacity: 0.82;
+
+    em {
+      position: absolute;
+      right: 0.375rem;
+      top: 50%;
+      color: #fff;
+      font-size: 0.6875rem;
+      font-style: normal;
+      font-weight: 600;
+      transform: translateY(-50%);
+      white-space: nowrap;
+    }
   }
 `;
 
-const Score = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.25rem;
-  color: ${({ theme }) => theme.colors.gray[800]};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-`;
+const formatSubCategoryName = (name: string) =>
+  ({
+    학습원동력: '학습 원동력',
+    메타인지: '메타 인지',
+    인지적학습기술: '인지적 학습기술',
+    행동조절: '행동 조절',
+    행동적학습기술: '행동적 학습기술',
+  })[name] ?? name;
 
 const clampScore = (score: number) => Math.max(20, Math.min(80, score));
 const scorePosition = (score: number) => ((clampScore(score) - 20) / 60) * 100;
@@ -218,7 +293,166 @@ const percentile = (score: number) => {
         Math.exp(-x * x));
   return Math.max(1, Math.min(99, Math.round(((1 + erf) / 2) * 100)));
 };
-const profilePosition = (score: number) => ((Math.max(10, Math.min(90, score)) - 10) / 80) * 100;
+const profilePosition = (score: number) => Math.max(0, Math.min(100, score));
+
+const RADAR_AXES: Array<{
+  label: string;
+  category: SelfregCategory;
+  indices: number[];
+  angle: number;
+}> = [
+  { label: '행동 조절', category: '행동전략', indices: [12, 13, 14], angle: 0 },
+  { label: '행동적\n학습기술', category: '행동전략', indices: [15, 16, 17, 18, 19], angle: 60 },
+  { label: '학습 원동력', category: '동기전략', indices: [0, 1, 2], angle: 120 },
+  { label: '정서조절', category: '동기전략', indices: [3, 4, 5], angle: 180 },
+  { label: '메타 인지', category: '인지전략', indices: [6, 7, 8], angle: 240 },
+  { label: '인지적\n학습기술', category: '인지전략', indices: [9, 10, 11], angle: 300 },
+];
+
+const polarPoint = (center: number, radius: number, angle: number) => {
+  const radians = (angle * Math.PI) / 180;
+  return { x: center + radius * Math.cos(radians), y: center - radius * Math.sin(radians) };
+};
+
+const SelfregRadar = ({
+  scores,
+  activeDomain,
+}: {
+  scores: number[];
+  activeDomain: SelfregCategory;
+}) => {
+  const size = 420;
+  const center = size / 2;
+  const outerRadius = size * 0.48;
+  const innerRadius = size * 0.43;
+  const labelRadius = size * 0.3;
+  const dataRadius = size * 0.24;
+  const axisScores = RADAR_AXES.map((axis) =>
+    Math.round(
+      axis.indices.reduce((sum, index) => sum + (scores[index] ?? 50), 0) / axis.indices.length,
+    ),
+  );
+  const polygon = RADAR_AXES.map((axis, index) => {
+    const point = polarPoint(
+      center,
+      (Math.max(0, Math.min(80, axisScores[index])) / 80) * dataRadius,
+      axis.angle,
+    );
+    return `${point.x},${point.y}`;
+  }).join(' ');
+  const segments: Array<{ category: SelfregCategory; start: number; end: number }> = [
+    { category: '행동전략', start: 330, end: 90 },
+    { category: '동기전략', start: 90, end: 210 },
+    { category: '인지전략', start: 210, end: 330 },
+  ];
+
+  return (
+    <svg
+      width='100%'
+      height='auto'
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ maxWidth: size }}
+      aria-label='자기조절학습 영역별 레이더 차트'
+    >
+      <circle cx={center} cy={center} r={innerRadius} fill='#FFFFFF' />
+      {[20, 40, 60, 80].map((tick) => (
+        <circle
+          key={tick}
+          cx={center}
+          cy={center}
+          r={(tick / 80) * dataRadius}
+          fill='none'
+          stroke='#E8E8E8'
+        />
+      ))}
+      {RADAR_AXES.map((axis) => {
+        const end = polarPoint(center, dataRadius, axis.angle);
+        return (
+          <line
+            key={axis.label}
+            x1={center}
+            y1={center}
+            x2={end.x}
+            y2={end.y}
+            stroke='#E0E0E0'
+            strokeDasharray='3 3'
+          />
+        );
+      })}
+      {[90, 210, 330].map((angle) => {
+        const end = polarPoint(center, innerRadius, angle);
+        return (
+          <line
+            key={angle}
+            x1={center}
+            y1={center}
+            x2={end.x}
+            y2={end.y}
+            stroke='#D0D0D0'
+            strokeDasharray='4 3'
+          />
+        );
+      })}
+      <polygon points={polygon} fill='none' stroke='#F5A623' strokeWidth='2' />
+      {RADAR_AXES.map((axis, index) => {
+        const point = polarPoint(
+          center,
+          (Math.max(0, Math.min(80, axisScores[index])) / 80) * dataRadius,
+          axis.angle,
+        );
+        return (
+          <circle
+            key={`score-${axis.label}`}
+            cx={point.x}
+            cy={point.y}
+            r='4.5'
+            fill='#F5A623'
+            stroke='#FFF'
+            strokeWidth='2'
+          />
+        );
+      })}
+      {segments.map((segment) => {
+        const outerStart = polarPoint(center, outerRadius, segment.start);
+        const outerEnd = polarPoint(center, outerRadius, segment.end);
+        const innerStart = polarPoint(center, innerRadius, segment.start);
+        const innerEnd = polarPoint(center, innerRadius, segment.end);
+        const color = SELFREG_DOMAIN_STRUCTURE.find((item) => item.id === segment.category)!.color;
+        const opacity = activeDomain === segment.category ? 1 : 0.35;
+        const path = `M ${outerStart.x} ${outerStart.y} A ${outerRadius} ${outerRadius} 0 0 0 ${outerEnd.x} ${outerEnd.y} L ${innerEnd.x} ${innerEnd.y} A ${innerRadius} ${innerRadius} 0 0 1 ${innerStart.x} ${innerStart.y} Z`;
+        return <path key={segment.category} d={path} fill={color} opacity={opacity} />;
+      })}
+      {RADAR_AXES.map((axis) => {
+        const point = polarPoint(center, labelRadius, axis.angle);
+        const color = SELFREG_DOMAIN_STRUCTURE.find((item) => item.id === axis.category)!.color;
+        const lines = axis.label.split('\n');
+        return (
+          <text
+            key={`label-${axis.label}`}
+            x={point.x}
+            y={point.y}
+            textAnchor='middle'
+            dominantBaseline='middle'
+            fontSize='13'
+            fontWeight={activeDomain === axis.category ? 700 : 500}
+            fill={color}
+            opacity={activeDomain === axis.category ? 1 : 0.42}
+          >
+            {lines.map((line, index) => (
+              <tspan
+                key={line}
+                x={point.x}
+                dy={index === 0 ? (lines.length > 1 ? '-0.45em' : 0) : '1.1em'}
+              >
+                {line}
+              </tspan>
+            ))}
+          </text>
+        );
+      })}
+    </svg>
+  );
+};
 
 export const SelfregResultOverview = ({
   subjectName,
@@ -256,82 +490,124 @@ export const SelfregResultOverview = ({
             {isClassView ? '평균 수준' : '수준'}을 확인합니다.
           </Description>
         </div>
-        <RoundSwitch aria-label='검사 회차 선택'>
-          <RoundButton $active={selectedRound === 1} onClick={() => changeRound(1)}>
-            1차 검사
-          </RoundButton>
-          <RoundButton
-            $active={selectedRound === 2}
-            disabled={!round2Scores}
-            onClick={() => changeRound(2)}
-          >
-            2차 검사{!round2Scores && ' 예정'}
-          </RoundButton>
-        </RoundSwitch>
+        {isClassView && (
+          <RoundSwitch aria-label='검사 회차 선택'>
+            <RoundButton $active={selectedRound === 1} onClick={() => changeRound(1)}>
+              1차 검사
+            </RoundButton>
+            <RoundButton
+              $active={selectedRound === 2}
+              disabled={!round2Scores}
+              onClick={() => changeRound(2)}
+            >
+              2차 검사{!round2Scores && ' 예정'}
+            </RoundButton>
+          </RoundSwitch>
+        )}
       </Header>
       <Tabs>
         {SELFREG_DOMAIN_STRUCTURE.map((item) => (
-          <Tab
-            key={item.id}
-            $active={activeDomain === item.id}
-            $color={item.color}
-            onClick={() => setActiveDomain(item.id)}
-          >
-            {item.name}
-          </Tab>
+          <div key={item.id} style={{ display: 'flex', alignItems: 'center' }}>
+            {item.id !== SELFREG_DOMAIN_STRUCTURE[0].id && <TabSeparator>|</TabSeparator>}
+            <Tab
+              $active={activeDomain === item.id}
+              $color={item.color}
+              onClick={() => setActiveDomain(item.id)}
+            >
+              {activeDomain === item.id && <Check size={13} color={item.color} />}
+              {item.name}
+            </Tab>
+          </div>
         ))}
       </Tabs>
       <Body>
-        <DomainIntro $color={domain.color}>
-          <h4>{domain.name}이란</h4>
-          <p>{domain.description}입니다.</p>
-          {isClassView && (
-            <Insight>
-              {subjectName}의 강점 요인은 {strengths.map((factor) => factor.name).join(', ')}{' '}
-              입니다.
-            </Insight>
-          )}
-        </DomainIntro>
-        <ScaleHead>
-          <span>척도</span>
-          <GradeLabels>
-            <span>매우 낮음</span>
-            <span>낮음</span>
-            <span>보통</span>
-            <span>높음</span>
-            <span>매우 높음</span>
-          </GradeLabels>
-          <span style={{ textAlign: 'right' }}>T점수(백분위)</span>
-        </ScaleHead>
-        {domain.subCategories.flatMap((subCategory) => {
-          const values = subCategory.factors.map((factor) => currentScores[factor.index] ?? 50);
-          const average = Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
-          return [
-            <ScoreRow key={subCategory.name}>
-              <FactorLabel>{subCategory.name}</FactorLabel>
-              <Track $color={domain.color}>
-                <span style={{ left: `${scorePosition(average)}%` }} />
-              </Track>
-              <Score>
-                {average}({percentile(average)}) <Info size={13} color='#9CA3AF' />
-              </Score>
-            </ScoreRow>,
-            ...subCategory.factors.map((factor) => {
-              const score = currentScores[factor.index] ?? 50;
-              return (
-                <ScoreRow key={factor.name}>
-                  <FactorLabel $sub>· {factor.name}</FactorLabel>
-                  <Track $color={domain.color}>
-                    <span style={{ left: `${scorePosition(score)}%` }} />
-                  </Track>
-                  <Score>
-                    {score}({percentile(score)}) <Info size={13} color='#9CA3AF' />
-                  </Score>
-                </ScoreRow>
+        <OverviewLayout>
+          <RadarPane>
+            <SelfregRadar scores={currentScores} activeDomain={activeDomain} />
+          </RadarPane>
+          <DetailPane>
+            <DomainIntro $color={domain.color}>
+              <h4>{domain.name}이란</h4>
+              <p>{domain.description}입니다.</p>
+              {isClassView && (
+                <Insight>
+                  {subjectName}의 강점 요인은{' '}
+                  {strengths.map((factor, index) => (
+                    <span key={factor.name}>
+                      {index > 0 && ', '}
+                      <InsightFactor $color={domain.color}>{factor.name}</InsightFactor>
+                    </span>
+                  ))}
+                  입니다.
+                </Insight>
+              )}
+            </DomainIntro>
+            <ScaleHead>
+              <span>척도</span>
+              <ScoreScaleHead>
+                <span>
+                  T점수(백분위)
+                  <InfoHint aria-label='정보 보기' title='T점수와 백분위 해석 기준'>
+                    <Info size={12} />
+                  </InfoHint>
+                </span>
+                <GradeLabels>
+                  <span>매우 낮음</span>
+                  <span>낮음</span>
+                  <span>보통</span>
+                  <span>높음</span>
+                  <span>매우 높음</span>
+                </GradeLabels>
+              </ScoreScaleHead>
+            </ScaleHead>
+            {domain.subCategories.flatMap((subCategory) => {
+              const values = subCategory.factors.map((factor) => currentScores[factor.index] ?? 50);
+              const average = Math.round(
+                values.reduce((sum, value) => sum + value, 0) / values.length,
               );
-            }),
-          ];
-        })}
+              return [
+                <ScoreRow key={subCategory.name}>
+                  <FactorLabel>
+                    {formatSubCategoryName(subCategory.name)}
+                    <InfoHint aria-label='정보 보기' title='하위 요인의 평균 T점수입니다.'>
+                      <Info size={12} />
+                    </InfoHint>
+                  </FactorLabel>
+                  <Track $color={domain.color}>
+                    <span style={{ width: `${scorePosition(average)}%` }}>
+                      <em>
+                        {average}({percentile(average)})
+                      </em>
+                    </span>
+                  </Track>
+                </ScoreRow>,
+                ...subCategory.factors.map((factor) => {
+                  const score = currentScores[factor.index] ?? 50;
+                  return (
+                    <ScoreRow key={factor.name}>
+                      <FactorLabel $sub>
+                        · {factor.name}
+                        <InfoHint
+                          aria-label='정보 보기'
+                          title={SELFREG_FACTOR_DEFINITIONS_TEXT[factor.name]}
+                        >
+                          <Info size={12} />
+                        </InfoHint>
+                      </FactorLabel>
+                      <Track $color={domain.color}>
+                        <span style={{ width: `${scorePosition(score)}%`, opacity: 0.45 }}>
+                          <em>
+                            {score}({percentile(score)})
+                          </em>
+                        </span>
+                      </Track>
+                    </ScoreRow>
+                  );
+                }),
+              ];
+            })}
+          </DetailPane>
+        </OverviewLayout>
       </Body>
     </Card>
   );
@@ -341,6 +617,7 @@ interface SelfregProfileTableProps {
   scores: number[];
   round2Scores?: number[] | null;
   selectedRound?: ResultRound;
+  showHeader?: boolean;
 }
 
 const ProfileBody = styled.div`
@@ -356,10 +633,16 @@ const ProfileTable = styled.table`
 
   th,
   td {
-    height: 2.5rem;
-    padding: 0.375rem 0.625rem;
-    border-bottom: 1px solid ${({ theme }) => theme.colors.gray[100]};
+    height: 2rem;
+    padding: 0.25rem 0.5rem;
+    border-right: 1px solid ${({ theme }) => theme.colors.gray[200]};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.gray[200]};
     text-align: center;
+  }
+
+  th:last-child,
+  td:last-child {
+    border-right: 0;
   }
 
   th {
@@ -369,11 +652,41 @@ const ProfileTable = styled.table`
   }
 `;
 
+const ProfileScaleLabels = styled.div`
+  display: grid;
+  grid-template-columns: 30% 10% 20% 10% 30%;
+  align-items: center;
+  height: 1.75rem;
+
+  span {
+    color: ${({ theme }) => theme.colors.gray[500]};
+    font-size: 0.625rem;
+    font-weight: 400;
+  }
+
+  span + span {
+    border-left: 1px solid ${({ theme }) => theme.colors.gray[100]};
+  }
+`;
+
+const ProfileTicks = styled.div`
+  position: relative;
+  height: 1.25rem;
+
+  span {
+    position: absolute;
+    top: 50%;
+    color: ${({ theme }) => theme.colors.gray[400]};
+    font-size: 0.625rem;
+    transform: translate(-50%, -50%);
+  }
+`;
+
 const LinearCell = styled.div`
   position: relative;
-  height: 1.125rem;
-  border-radius: 0.25rem;
-  background: linear-gradient(to right, transparent 0 37%, #ecfdf5 37% 63%, transparent 63% 100%);
+  height: 2rem;
+  margin: -0.25rem -0.5rem;
+  background: linear-gradient(to right, transparent 0 40%, #e5e7eb 40% 60%, transparent 60% 100%);
 
   &::before {
     position: absolute;
@@ -384,6 +697,13 @@ const LinearCell = styled.div`
     background: ${({ theme }) => theme.colors.gray[200]};
     content: '';
   }
+`;
+
+const SummaryBar = styled.span<{ $color: string }>`
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 0 0.25rem 0.25rem 0;
+  background: ${({ $color }) => $color};
 `;
 
 const LinearPoint = styled.span<{ $color: string; $muted?: boolean }>`
@@ -398,39 +718,99 @@ const LinearPoint = styled.span<{ $color: string; $muted?: boolean }>`
   transform: translate(-50%, -50%);
 `;
 
+const ProfileSegment = ({ from, to, color }: { from: number; to?: number; color: string }) =>
+  to == null ? null : (
+    <svg
+      viewBox='0 0 100 40'
+      preserveAspectRatio='none'
+      aria-hidden='true'
+      style={{
+        position: 'absolute',
+        top: '50%',
+        left: 0,
+        zIndex: 1,
+        width: '100%',
+        height: '40px',
+        overflow: 'visible',
+        pointerEvents: 'none',
+      }}
+    >
+      <line
+        x1={profilePosition(from)}
+        y1='0'
+        x2={profilePosition(to)}
+        y2='40'
+        stroke={color}
+        strokeWidth='1.5'
+        vectorEffect='non-scaling-stroke'
+      />
+    </svg>
+  );
+
 export const SelfregProfileTable = ({
   scores,
   round2Scores,
   selectedRound = 1,
+  showHeader = true,
 }: SelfregProfileTableProps) => (
   <Card>
-    <Header>
-      <div>
-        <Title>종합 해석</Title>
-        <Description>전체 요인의 T점수를 선형 눈금으로 비교합니다</Description>
-      </div>
-    </Header>
+    {showHeader && (
+      <Header>
+        <div>
+          <Title>종합 해석</Title>
+          <Description>전체 요인의 T점수를 선형 눈금으로 비교합니다</Description>
+        </div>
+      </Header>
+    )}
     <ProfileBody>
       <ProfileTable>
         <thead>
           <tr>
-            <th style={{ width: '8rem' }}>영역</th>
-            <th style={{ width: '10rem' }}>요인</th>
-            <th>매우 낮음 · 낮음 · 보통 · 높음 · 매우 높음</th>
-            <th style={{ width: '3.5rem' }}>1차</th>
-            <th style={{ width: '3.5rem' }}>2차</th>
-            <th style={{ width: '3.5rem' }}>변화</th>
+            <th colSpan={3} rowSpan={2} style={{ width: '20rem', background: '#F9FAFB' }}>
+              영역
+            </th>
+            <th style={{ padding: 0, background: '#F9FAFB' }}>
+              <ProfileScaleLabels>
+                <span>매우 낮음</span>
+                <span>낮음</span>
+                <span>보통</span>
+                <span>높음</span>
+                <span>매우 높음</span>
+              </ProfileScaleLabels>
+            </th>
+            <th rowSpan={2} style={{ width: '3.5rem', background: '#F9FAFB' }}>
+              1차
+            </th>
+            <th rowSpan={2} style={{ width: '3.5rem', background: '#F9FAFB' }}>
+              2차
+            </th>
+            <th rowSpan={2} style={{ width: '3.5rem', background: '#F9FAFB' }}>
+              변화
+            </th>
           </tr>
           <tr>
-            <th colSpan={2} />
-            <th>10 · 20 · 30 · 40 · 50 · 60 · 70 · 80 · 90</th>
-            <th colSpan={3} />
+            <th style={{ padding: 0, background: '#F9FAFB' }}>
+              <ProfileTicks>
+                {[10, 20, 30, 40, 50, 60, 70, 80, 90].map((tick) => (
+                  <span key={tick} style={{ left: `${tick}%` }}>
+                    {tick}
+                  </span>
+                ))}
+              </ProfileTicks>
+            </th>
           </tr>
         </thead>
         <tbody>
           {SELFREG_DOMAIN_STRUCTURE.flatMap((domain) => {
             const factors = SELFREG_FACTOR_DEFINITIONS.filter(
               (factor) => factor.category === domain.id,
+            );
+            const subCategoryCounts = new Map<string, number>();
+            factors.forEach((factor) =>
+              subCategoryCounts.set(
+                factor.subCategory,
+                (subCategoryCounts.get(factor.subCategory) ?? 0) + 1,
+              ),
             );
             const average = Math.round(
               factors.reduce((sum, factor) => sum + (scores[factor.index] ?? 50), 0) /
@@ -444,14 +824,26 @@ export const SelfregProfileTable = ({
               : null;
             return [
               <tr key={`${domain.id}-summary`}>
-                <td style={{ color: domain.color, fontWeight: 700 }}>{domain.name}</td>
-                <td style={{ fontWeight: 600 }}>종합</td>
+                <td
+                  rowSpan={factors.length + 1}
+                  style={{
+                    width: '6rem',
+                    background: domain.color,
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                  }}
+                >
+                  {domain.name}
+                </td>
+                <td colSpan={2} style={{ fontWeight: 600 }}>
+                  종합
+                </td>
                 <td>
                   <LinearCell>
-                    <LinearPoint
+                    <SummaryBar
                       $color={domain.color}
                       style={{
-                        left: `${profilePosition(selectedRound === 2 && round2Average != null ? round2Average : average)}%`,
+                        width: `${profilePosition(selectedRound === 2 && round2Average != null ? round2Average : average)}%`,
                       }}
                     />
                   </LinearCell>
@@ -470,16 +862,32 @@ export const SelfregProfileTable = ({
                 const first = scores[factor.index] ?? 50;
                 const second = round2Scores?.[factor.index];
                 const current = selectedRound === 2 && second != null ? second : first;
+                const isFirstSubCategory =
+                  index === 0 || factors[index - 1]?.subCategory !== factor.subCategory;
+                const nextFactor = factors[index + 1];
+                const nextFirst = nextFactor ? (scores[nextFactor.index] ?? 50) : undefined;
+                const nextSecond = nextFactor ? round2Scores?.[nextFactor.index] : undefined;
+                const nextCurrent =
+                  nextFactor?.subCategory === factor.subCategory ||
+                  nextFactor?.category === factor.category
+                    ? selectedRound === 2 && nextSecond != null
+                      ? nextSecond
+                      : nextFirst
+                    : undefined;
                 return (
                   <tr key={factor.name}>
-                    <td>
-                      {index === 0 || factors[index - 1]?.subCategory !== factor.subCategory
-                        ? factor.subCategory
-                        : ''}
-                    </td>
-                    <td style={{ textAlign: 'left' }}>{factor.name}</td>
+                    {isFirstSubCategory && (
+                      <td
+                        rowSpan={subCategoryCounts.get(factor.subCategory)}
+                        style={{ width: '7.5rem', color: '#4B5563' }}
+                      >
+                        {factor.subCategory}
+                      </td>
+                    )}
+                    <td style={{ width: '6.5rem' }}>{factor.name}</td>
                     <td>
                       <LinearCell>
+                        <ProfileSegment from={current} to={nextCurrent} color={domain.color} />
                         {selectedRound === 2 && second != null && (
                           <LinearPoint
                             $color={domain.color}
@@ -489,7 +897,7 @@ export const SelfregProfileTable = ({
                         )}
                         <LinearPoint
                           $color={domain.color}
-                          style={{ left: `${profilePosition(current)}%` }}
+                          style={{ left: `${profilePosition(current)}%`, zIndex: 2 }}
                         />
                       </LinearCell>
                     </td>
