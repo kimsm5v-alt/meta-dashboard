@@ -30,7 +30,7 @@ import { API_TEACHER_ME } from '@shared/data/apiDefinitions';
 import { FEATURES, type FeatureKey } from '@shared/config/features';
 import { ENV } from '@shared/config/env';
 import { IaV2Toggle } from '@shared/ui/IaV2Toggle';
-import serviceLogo from '@/assets/logo_2.png';
+import serviceLogo from '@/assets/allvia-sel-teal.svg';
 
 // ============================================================================
 // Types
@@ -140,6 +140,7 @@ const LogoButton = styled.button`
 
 const LogoImage = styled.img`
   height: 20px;
+  width: auto;
 `;
 
 const HeaderActions = styled.div`
@@ -554,7 +555,7 @@ const Header = () => {
     <HeaderWrapper>
       <HeaderContent>
         <LogoButton onClick={() => navigate('/')}>
-          <LogoImage src={serviceLogo} alt='학습심리정서검사' />
+          <LogoImage src={serviceLogo} alt='AllviA SEL' />
         </LogoButton>
         <HeaderActions>
           {ENV.IS_DEV_MODE && <IaV2Toggle />}

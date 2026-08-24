@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { useTeacherClasses, useApiConfig } from '@features/api';
 import { useAuth } from '@features/auth';
 import { useGroupMembersQuery } from '@features/groups';
+import { usePaperPermissionQuery } from '@features/assessment/api/queries';
+import type { PaperIdx } from '@features/assessment/types';
 import { SelfregComparisonSection } from '@features/teacher-dashboard/ui';
 import { Card } from '@shared/components';
 import {
@@ -18,6 +20,7 @@ import {
 import { ClassDashboardV2Widget } from '@widgets/class-dashboard';
 import { useOptionalLayoutContext } from '@widgets/layout/v2/LayoutContext';
 import { StudentDashboardPage } from '../student-dashboard/StudentDashboardPage';
+import { SelfregStudentDashboardPage } from '../student-dashboard/SelfregStudentDashboardPage';
 
 const PageContainer = styled.div`
   display: flex;
@@ -73,8 +76,28 @@ const SummarySub = styled.p`
 
 export const TeacherDashboardPage = () => {
   const { hasJwtToken } = useApiConfig();
-  const { classes, isLoading, error, examStatus } = useTeacherClasses();
   const { user: authUser } = useAuth();
+  const [searchParams] = useSearchParams();
+  const paperPermissionQuery = usePaperPermissionQuery(authUser?.id);
+  const allowedPaperIndices = useMemo<PaperIdx[]>(() => {
+    const permission = paperPermissionQuery.data;
+    if (!permission) return [];
+    return [
+      ...(permission.comprehensive ? (['1'] as const) : []),
+      ...(permission.selfreg ? (['2'] as const) : []),
+    ];
+  }, [paperPermissionQuery.data]);
+  const requestedPaperIdx = searchParams.get('paperIdx');
+  const activePaperIdx: PaperIdx | null =
+    (requestedPaperIdx === '1' || requestedPaperIdx === '2') &&
+    allowedPaperIndices.includes(requestedPaperIdx)
+      ? requestedPaperIdx
+      : (allowedPaperIndices[0] ?? null);
+  const testId: 'comprehensive' | 'selfreg' = activePaperIdx === '2' ? 'selfreg' : 'comprehensive';
+  const { classes, isLoading, error, examStatus } = useTeacherClasses(
+    activePaperIdx ?? '1',
+    paperPermissionQuery.isSuccess && activePaperIdx !== null,
+  );
   const layoutContext = useOptionalLayoutContext();
   const scope = layoutContext?.scope;
   const selectClass = layoutContext?.selectClass;
@@ -83,11 +106,7 @@ export const TeacherDashboardPage = () => {
     scope?.level === 'class' || scope?.level === 'student' ? scope.classId : null,
     authUser?.id,
   );
-  const location = useLocation();
   const navigate = useNavigate();
-  const testId: 'comprehensive' | 'selfreg' = location.pathname.includes('/selfreg')
-    ? 'selfreg'
-    : 'comprehensive';
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   const totalStats = useMemo(
@@ -100,7 +119,11 @@ export const TeacherDashboardPage = () => {
   );
 
   // Loading states (API mode)
-  if (hasJwtToken && isLoading) return <LoadingState />;
+  if (paperPermissionQuery.isLoading || (hasJwtToken && isLoading)) return <LoadingState />;
+  if (paperPermissionQuery.error) return <ErrorState error='검사 권한을 불러오지 못했습니다.' />;
+  if (paperPermissionQuery.isSuccess && activePaperIdx === null) {
+    return <NoExamsState />;
+  }
   if (hasJwtToken && error) return <ErrorState error={error} />;
   if (hasJwtToken && examStatus === 'in-progress') return <InProgressState />;
   if (hasJwtToken && examStatus === 'no-exams') return <NoExamsState />;
@@ -112,6 +135,7 @@ export const TeacherDashboardPage = () => {
     return (
       <ClassDashboardV2Widget
         classIdOverride={classId}
+        testIdOverride={testId}
         onStudentSelect={(studentId) => {
           const memberId = memberIdByStudentId.get(studentId);
           if (memberId) selectStudent?.(classId, memberId);
@@ -125,6 +149,19 @@ export const TeacherDashboardPage = () => {
     const studentId = members.find((member) => member.id === scope.studentId)?.stdtId;
 
     if (studentId) {
+      if (testId === 'selfreg') {
+        return (
+          <SelfregStudentDashboardPage
+            classIdOverride={classId}
+            studentIdOverride={studentId}
+            onBackToClass={() => selectClass?.(classId)}
+            onStudentSelect={(nextStudentId) => {
+              const memberId = members.find((member) => member.stdtId === nextStudentId)?.id;
+              if (memberId) selectStudent?.(classId, memberId);
+            }}
+          />
+        );
+      }
       return (
         <StudentDashboardPage
           classIdOverride={classId}

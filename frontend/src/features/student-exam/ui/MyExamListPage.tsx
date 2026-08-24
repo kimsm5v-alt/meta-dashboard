@@ -13,13 +13,20 @@ import {
   RefreshCw as Restart,
   CheckCircle2,
   Clock,
+  Lock,
+  XCircle,
   Brain,
 } from 'lucide-react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { getMyGroups } from '@features/groups/api/groupService';
-import { getStudentExamList, getStatusLabel, getStatusColor } from '../api/studentExamService';
+import {
+  getStudentExamList,
+  getStatusLabel,
+  getStatusColor,
+  getStatusMessage,
+} from '../api/studentExamService';
 import type { StudentExamListItem } from '../types';
 
 // ============================================================
@@ -249,6 +256,25 @@ const ExamName = styled.h3`
   color: ${({ theme }) => theme.colors.text.primary};
 `;
 
+const RecommendedMonthTag = styled.span`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin-left: ${({ theme }) => theme.spacing.xs};
+`;
+
+/** 같은 회차(ordNo)의 검사가 2개 이상(N:N 다중 그룹 소속) 조회될 때만 표시되는 소속 반 보조 라벨 */
+const GroupLabelTag = styled.span`
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin-left: ${({ theme }) => theme.spacing.xs};
+`;
+
+const StatusMessage = styled.p`
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin-top: ${({ theme }) => theme.spacing.sm};
+`;
+
 const StatusBadge = styled.span<{ $bg: string; $text: string }>`
   display: inline-flex;
   align-items: center;
@@ -383,6 +409,8 @@ const SectionsStack = styled.div`
 
 interface ExamCardProps {
   exam: StudentExamListItem;
+  /** 같은 회차 검사가 여러 그룹(N:N 소속)에서 조회될 때만 전달되는 소속 반 표시 (예: "6학년 2반") */
+  groupLabel?: string;
   onStartExam: (exam: StudentExamListItem) => void;
   onResumeExam: (exam: StudentExamListItem) => void;
   onRestartExam: (exam: StudentExamListItem) => void;
@@ -391,6 +419,7 @@ interface ExamCardProps {
 
 const ExamCard: React.FC<ExamCardProps> = ({
   exam,
+  groupLabel,
   onStartExam,
   onResumeExam,
   onRestartExam,
@@ -398,6 +427,7 @@ const ExamCard: React.FC<ExamCardProps> = ({
 }) => {
   const statusColor = getStatusColor(exam.status);
   const statusLabel = getStatusLabel(exam.status);
+  const statusMessage = getStatusMessage(exam.status);
 
   const renderStatusIcon = () => {
     switch (exam.status) {
@@ -408,6 +438,10 @@ const ExamCard: React.FC<ExamCardProps> = ({
       case 'completed':
       case 'result_ready':
         return <CheckCircle2 />;
+      case 'not_submitted':
+        return <XCircle />;
+      case 'locked':
+        return <Lock />;
       default:
         return null;
     }
@@ -465,13 +499,20 @@ const ExamCard: React.FC<ExamCardProps> = ({
       </ExamIconBox>
       <ExamCardBody>
         <ExamCardTop>
-          <ExamName>{exam.name}</ExamName>
+          <div>
+            <ExamName>{exam.name}</ExamName>
+            {groupLabel && <GroupLabelTag>{groupLabel}</GroupLabelTag>}
+            {exam.recommendedMonth && (
+              <RecommendedMonthTag>권장 {exam.recommendedMonth}</RecommendedMonthTag>
+            )}
+          </div>
           <StatusBadge $bg={statusColor.bg} $text={statusColor.text}>
             {renderStatusIcon()}
             {statusLabel}
           </StatusBadge>
         </ExamCardTop>
         <ExamActions>{renderActions()}</ExamActions>
+        {statusMessage && <StatusMessage>{statusMessage}</StatusMessage>}
       </ExamCardBody>
     </ExamCardRoot>
   );
@@ -574,7 +615,6 @@ export const MyExamListPage: React.FC = () => {
   );
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadExams();
   }, [loadExams]);
 
@@ -639,7 +679,15 @@ export const MyExamListPage: React.FC = () => {
       ) : (
         <SectionsStack>
           {sections.map(({ def, exams: sectionExams }) => {
-            const readyCount = sectionExams.filter((e) => e.hasResult).length;
+            const completedCount = sectionExams.filter(
+              (e) => e.status === 'completed' || e.status === 'result_ready',
+            ).length;
+            // 같은 회차(ordNo)가 2건 이상이면 N:N 다중 그룹 소속으로 같은 회차 검사가
+            // 여러 반에서 각각 조회된 것 — 카드 구분을 위해 소속 반 라벨을 붙인다.
+            const ordNoCounts = new Map<number, number>();
+            for (const e of sectionExams) {
+              ordNoCounts.set(e.ordNo, (ordNoCounts.get(e.ordNo) ?? 0) + 1);
+            }
             return (
               <SectionBlock key={def.paperIdx}>
                 <SectionHeader $color={def.color} $bg={def.bgColor} $border={def.borderColor}>
@@ -650,21 +698,30 @@ export const MyExamListPage: React.FC = () => {
                     <SectionLabel $color={def.color}>{def.label}</SectionLabel>
                     <SectionDesc>{def.desc}</SectionDesc>
                   </div>
-                  {readyCount > 0 && (
-                    <SectionCount $color={def.color}>결과 {readyCount}건</SectionCount>
-                  )}
+                  <SectionCount $color={def.color}>
+                    {completedCount}/{sectionExams.length} 완료
+                  </SectionCount>
                 </SectionHeader>
                 <ExamList>
-                  {sectionExams.map((exam) => (
-                    <ExamCard
-                      key={exam.dgnssResultId}
-                      exam={exam}
-                      onStartExam={(e) => navigate2Exam(e)}
-                      onResumeExam={(e) => navigate2Exam(e, { resume: true })}
-                      onRestartExam={(e) => navigate2Exam(e, { restart: true })}
-                      onViewResult={(e) => navigate(def.resultPath(e))}
-                    />
-                  ))}
+                  {sectionExams.map((exam) => {
+                    const isDuplicateRound = (ordNoCounts.get(exam.ordNo) ?? 0) > 1;
+                    const groupInfo = examGroupMap.get(exam.dgnssResultId);
+                    const groupLabel =
+                      isDuplicateRound && groupInfo?.grade && groupInfo?.classNumber
+                        ? `${groupInfo.grade}학년 ${groupInfo.classNumber}반`
+                        : undefined;
+                    return (
+                      <ExamCard
+                        key={exam.dgnssResultId}
+                        exam={exam}
+                        groupLabel={groupLabel}
+                        onStartExam={(e) => navigate2Exam(e)}
+                        onResumeExam={(e) => navigate2Exam(e, { resume: true })}
+                        onRestartExam={(e) => navigate2Exam(e, { restart: true })}
+                        onViewResult={(e) => navigate(def.resultPath(e))}
+                      />
+                    );
+                  })}
                 </ExamList>
               </SectionBlock>
             );
@@ -673,8 +730,8 @@ export const MyExamListPage: React.FC = () => {
       )}
 
       <HintBox>
-        <strong>안내:</strong> 검사는 중간에 저장되므로, 나중에 이어서 응시할 수 있습니다. 모든
-        문항에 응답한 후 제출하면 결과를 확인할 수 있습니다.
+        선생님이 검사를 시작하면 응시할 수 있고, 중간에 멈춰도 저장되어 이어서 할 수 있어요. 제출 후
+        선생님이 검사를 종료하면 결과를 확인할 수 있어요.
       </HintBox>
     </PageRoot>
   );

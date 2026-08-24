@@ -11,12 +11,14 @@ import {
   FileText,
   Check,
   AlertCircle,
+  ArrowLeft,
 } from 'lucide-react';
 import styled from '@emotion/styled';
 import { Card } from '@shared/components';
 import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { useClassStudents, useSelfregClassAnalysis, useApiConfig } from '@features/api';
+import { SelfregProfileTable, SelfregResultOverview } from '@features/student-dashboard/ui';
 import { computeClassProfile } from '@features/class-dashboard/model/useClassProfile';
 import { FACTOR_DEFINITIONS, DOMAIN_GROUPS, SUB_CATEGORY_FACTORS } from '@shared/data/factors';
 import {
@@ -24,7 +26,9 @@ import {
   SELFREG_DOMAIN_STRUCTURE,
   SELFREG_DOMAIN_COLORS,
   SELFREG_SUB_CATEGORY_FACTORS,
+  type SelfregCategory,
 } from '@shared/data/selfregFactors';
+import { SELFREG_FACTOR_DEFINITIONS_TEXT } from '@shared/data/selfregFactorDefinitions';
 import { TYPE_COLORS } from '@shared/data/lpaProfiles';
 import {
   LPA_TOOLTIP_LINES,
@@ -145,6 +149,23 @@ const HeaderContent = styled.div`
   min-width: 0;
 `;
 
+const BackButton = styled.button`
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  margin-top: 0.125rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.gray[500]};
+  cursor: pointer;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.gray[100]};
+  }
+`;
+
 const PageTitle = styled.h1`
   font-size: ${({ theme }) => theme.typography.fontSize['2xl']};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
@@ -164,7 +185,7 @@ const HeaderActions = styled.div`
   flex-shrink: 0;
 `;
 
-const ReportBtn = styled.button`
+const ReportBtn = styled.button<{ $selfreg?: boolean }>`
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -176,10 +197,10 @@ const ReportBtn = styled.button`
   white-space: nowrap;
   transition: all 0.15s;
   border: none;
-  background: #5b21b6;
+  background: ${({ $selfreg }) => ($selfreg ? '#0F9F8F' : '#5B21B6')};
   color: #fff;
   &:hover {
-    background: #4c1d95;
+    background: ${({ $selfreg }) => ($selfreg ? '#0B7F73' : '#4C1D95')};
   }
   &:disabled {
     opacity: 0.4;
@@ -487,18 +508,64 @@ const FilterRow = styled.div`
   flex-wrap: wrap;
 `;
 
-const FilterPill = styled.button<{ $active: boolean }>`
+const FilterPill = styled.button<{ $active: boolean; $selfreg?: boolean }>`
   padding: 0.375rem 0.75rem;
   border-radius: 0.5rem;
-  border: 1px solid ${({ $active, theme }) => ($active ? '#5B21B6' : theme.colors.gray[200])};
-  background: ${({ $active }) => ($active ? '#5B21B6' : 'white')};
+  border: 1px solid
+    ${({ $active, $selfreg, theme }) =>
+      $active ? ($selfreg ? '#0F9F8F' : '#5B21B6') : theme.colors.gray[200]};
+  background: ${({ $active, $selfreg }) =>
+    $active ? ($selfreg ? '#0F9F8F' : '#5B21B6') : 'white'};
   color: ${({ $active, theme }) => ($active ? 'white' : theme.colors.gray[700])};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
   cursor: pointer;
   transition: all 0.12s;
   &:hover {
-    background: ${({ $active, theme }) => ($active ? '#5B21B6' : theme.colors.gray[50])};
+    background: ${({ $active, $selfreg, theme }) =>
+      $active ? ($selfreg ? '#0B7F73' : '#5B21B6') : theme.colors.gray[50]};
+  }
+`;
+
+const IntegratedAnalysisCard = styled(Card)`
+  padding: 1.5rem;
+
+  > h3 {
+    margin: 0 0 1.25rem;
+    color: ${({ theme }) => theme.colors.gray[900]};
+    font-size: ${({ theme }) => theme.typography.fontSize.base};
+  }
+
+  > div,
+  > div > div {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  > div:first-of-type > div,
+  > div:nth-of-type(2) > div > div {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  > div:first-of-type > div:first-of-type {
+    padding-top: 0;
+    border-bottom: 0;
+  }
+
+  > div:nth-of-type(2) {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid ${({ theme }) => theme.colors.gray[100]};
+  }
+
+  > div:nth-of-type(2) > div > div:nth-of-type(2) {
+    background: #fff;
+  }
+
+  > div:nth-of-type(2) > div > div:first-of-type {
+    border-bottom: 0;
   }
 `;
 
@@ -1809,6 +1876,7 @@ interface LearningDetailTabProps {
   selfregRound1?: number[] | null;
   selfregRound2?: number[] | null;
   top3Only?: boolean;
+  selectedRoundOverride?: 1 | 2;
 }
 
 const ViewToggle = styled.div`
@@ -1854,8 +1922,10 @@ const LearningDetailTab = ({
   selfregRound1,
   selfregRound2,
   top3Only = false,
+  selectedRoundOverride,
 }: LearningDetailTabProps) => {
-  const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
+  const [internalSelectedRound, setSelectedRound] = useState<1 | 2>(1);
+  const selectedRound = selectedRoundOverride ?? internalSelectedRound;
   const [viewMode, setViewMode] = useState<'detail' | 'summary'>('detail');
   const [factorModal, setFactorModal] = useState<FactorModalData | null>(null);
 
@@ -1962,23 +2032,13 @@ const LearningDetailTab = ({
     if (testId === 'selfreg') {
       const activeArr = selectedRound === 1 ? selfregRound1 : (selfregRound2 ?? selfregRound1);
       if (!activeArr) return null;
-      const items: ProfileItem[] = [];
-      SELFREG_DOMAIN_STRUCTURE.forEach((domain) => {
-        domain.subCategories.forEach((subCat) => {
-          const vals = subCat.factors.map((f) => {
-            const idx = SELFREG_FACTOR_DEFINITIONS.findIndex((fd) => fd.name === f.name);
-            return activeArr[idx] ?? 50;
-          });
-          const avgT = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
-          items.push({
-            category: subCat.name,
-            parentCategory: domain.name,
-            avgT,
-            isPositive: true,
-            categoryScript: '',
-          });
-        });
-      });
+      const items: ProfileItem[] = SELFREG_FACTOR_DEFINITIONS.map((factor) => ({
+        category: factor.name,
+        parentCategory: factor.category,
+        avgT: Math.round(activeArr[factor.index] ?? 50),
+        isPositive: true,
+        categoryScript: SELFREG_FACTOR_DEFINITIONS_TEXT[factor.name] ?? '',
+      }));
       const sorted = [...items].sort((a, b) => b.avgT - a.avgT);
       return { strengths: sorted.slice(0, 3), weaknesses: sorted.slice(-3).reverse() };
     } else {
@@ -2052,19 +2112,21 @@ const LearningDetailTab = ({
       <SectionCard>
         <SectionHeader>
           <SectionTitle>우리 반 강점 / 보완점 Top 3</SectionTitle>
-          <RoundToggle>
-            <RoundBtn $active={selectedRound === 1} onClick={() => setSelectedRound(1)}>
-              1차 검사
-            </RoundBtn>
-            <RoundBtn
-              $active={selectedRound === 2}
-              $disabled={!hasRound2}
-              disabled={!hasRound2}
-              onClick={() => hasRound2 && setSelectedRound(2)}
-            >
-              2차 검사{!hasRound2 && ' 예정'}
-            </RoundBtn>
-          </RoundToggle>
+          {testId !== 'selfreg' && (
+            <RoundToggle>
+              <RoundBtn $active={selectedRound === 1} onClick={() => setSelectedRound(1)}>
+                1차 검사
+              </RoundBtn>
+              <RoundBtn
+                $active={selectedRound === 2}
+                $disabled={!hasRound2}
+                disabled={!hasRound2}
+                onClick={() => hasRound2 && setSelectedRound(2)}
+              >
+                2차 검사{!hasRound2 && ' 예정'}
+              </RoundBtn>
+            </RoundToggle>
+          )}
         </SectionHeader>
         {profile && (
           <SectionBody>
@@ -2079,7 +2141,13 @@ const LearningDetailTab = ({
                 <Top3Cards>
                   {profile.strengths.slice(0, 3).map((item, index) => (
                     <Top3Card key={item.category} $variant='strength'>
-                      <Top3Tag $color={DOMAIN_COLORS[item.parentCategory] || '#059669'}>
+                      <Top3Tag
+                        $color={
+                          testId === 'selfreg'
+                            ? SELFREG_DOMAIN_COLORS[item.parentCategory as SelfregCategory]
+                            : (DOMAIN_COLORS[item.parentCategory] ?? '#059669')
+                        }
+                      >
                         #{item.parentCategory.replace(/\s/g, '')}
                       </Top3Tag>
                       <Top3NameRow>
@@ -2103,7 +2171,13 @@ const LearningDetailTab = ({
                 <Top3Cards>
                   {profile.weaknesses.slice(0, 3).map((item, index) => (
                     <Top3Card key={item.category} $variant='weakness'>
-                      <Top3Tag $color={DOMAIN_COLORS[item.parentCategory] || '#EF4444'}>
+                      <Top3Tag
+                        $color={
+                          testId === 'selfreg'
+                            ? SELFREG_DOMAIN_COLORS[item.parentCategory as SelfregCategory]
+                            : (DOMAIN_COLORS[item.parentCategory] ?? '#EF4444')
+                        }
+                      >
                         #{item.parentCategory.replace(/\s/g, '')}
                       </Top3Tag>
                       <Top3NameRow>
@@ -2476,6 +2550,15 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
   const renderStudentCard = (student: Student) => {
     const r1 = student.assessments.find((a) => a.round === 1);
     const r2 = student.assessments.find((a) => a.round === 2);
+    const selfregAssessment = r2 ?? r1;
+    const selfregRankedFactors = selfregAssessment
+      ? [...SELFREG_FACTOR_DEFINITIONS].sort(
+          (a, b) =>
+            (selfregAssessment.tScores[b.index] ?? 50) - (selfregAssessment.tScores[a.index] ?? 50),
+        )
+      : [];
+    const representativeStrength = selfregRankedFactors[0];
+    const representativeWeakness = selfregRankedFactors.at(-1);
     const hasAttention = student.assessments.some((a) => a.attentionResult.needsAttention);
     const hasReliability = student.assessments.some((a) => a.reliabilityWarnings.length > 0);
 
@@ -2539,12 +2622,60 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
             {!r1 && !r2 && <span style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>미응시</span>}
           </div>
         ) : (
-          <p style={{ fontSize: '0.75rem', color: '#9CA3AF', marginTop: '0.25rem' }}>
-            {r1 ? '1차 ✓' : ''}
-            {r1 && r2 ? ' · ' : ''}
-            {r2 ? '2차 ✓' : ''}
-            {!r1 && !r2 && '미응시'}
-          </p>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.375rem',
+              marginTop: '0.5rem',
+              fontSize: '0.75rem',
+            }}
+          >
+            {selfregAssessment ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ color: '#9CA3AF', flexShrink: 0 }}>대표 강점</span>
+                  <strong
+                    style={{
+                      padding: '0.125rem 0.375rem',
+                      borderRadius: '999px',
+                      background: representativeStrength
+                        ? `${SELFREG_DOMAIN_COLORS[representativeStrength.category]}18`
+                        : '#F3F4F6',
+                      color: representativeStrength
+                        ? SELFREG_DOMAIN_COLORS[representativeStrength.category]
+                        : '#374151',
+                      fontSize: '0.625rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {representativeStrength?.name}
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ color: '#9CA3AF', flexShrink: 0 }}>대표 보완점</span>
+                  <strong
+                    style={{
+                      padding: '0.125rem 0.375rem',
+                      borderRadius: '999px',
+                      background: representativeWeakness
+                        ? `${SELFREG_DOMAIN_COLORS[representativeWeakness.category]}18`
+                        : '#F3F4F6',
+                      color: representativeWeakness
+                        ? SELFREG_DOMAIN_COLORS[representativeWeakness.category]
+                        : '#374151',
+                      fontSize: '0.625rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {representativeWeakness?.name}
+                  </strong>
+                </div>
+              </>
+            ) : (
+              <span style={{ color: '#9CA3AF' }}>미응시</span>
+            )}
+          </div>
         )}
       </StudentCard>
     );
@@ -2565,9 +2696,16 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h3 style={{ fontSize: '1.0625rem', fontWeight: 700, color: '#111827', margin: 0 }}>
-                학생 목록 {filteredStudents.length}명
-                {filter !== 'all' && (
+              <h3
+                style={{
+                  fontSize: testId === 'selfreg' ? '0.875rem' : '1.0625rem',
+                  fontWeight: testId === 'selfreg' ? 600 : 700,
+                  color: testId === 'selfreg' ? '#374151' : '#111827',
+                  margin: 0,
+                }}
+              >
+                {testId === 'selfreg' ? '학생 목록' : `학생 목록 ${filteredStudents.length}명`}
+                {testId !== 'selfreg' && filter !== 'all' && (
                   <span
                     style={{
                       fontSize: '0.8125rem',
@@ -2599,7 +2737,9 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
             </div>
           </div>
           <p style={{ fontSize: '0.8125rem', color: '#6B7280', margin: 0 }}>
-            학생 이름을 클릭하면 개별 상세 분석으로 이동합니다.
+            {testId === 'selfreg'
+              ? '학생별 강점/보완점 요인을 확인하세요. 카드 클릭 시 상세 분석으로 이동합니다.'
+              : '학생 이름을 클릭하면 개별 상세 분석으로 이동합니다.'}
           </p>
         </div>
 
@@ -2607,7 +2747,7 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
         <div
           style={{
             padding: '0.875rem 1.5rem',
-            background: '#F9FAFB',
+            background: testId === 'selfreg' ? '#FFFFFF' : '#F9FAFB',
             borderBottom: '1px solid #F3F4F6',
             display: 'flex',
             alignItems: 'center',
@@ -2618,7 +2758,12 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
         >
           <FilterRow>
             {filters.map((f) => (
-              <FilterPill key={f.key} $active={filter === f.key} onClick={() => setFilter(f.key)}>
+              <FilterPill
+                key={f.key}
+                $active={filter === f.key}
+                $selfreg={testId === 'selfreg'}
+                onClick={() => setFilter(f.key)}
+              >
                 {f.label}
               </FilterPill>
             ))}
@@ -2652,11 +2797,13 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
 
 interface ClassDashboardV2WidgetProps {
   classIdOverride?: string;
+  testIdOverride?: TestId;
   onStudentSelect?: (studentId: string) => void;
 }
 
 export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
   classIdOverride,
+  testIdOverride,
   onStudentSelect,
 }) => {
   const { classId: routeClassId, testId: rawTestId = 'comprehensive' } = useParams<{
@@ -2664,7 +2811,8 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
     testId: string;
   }>();
   const classId = classIdOverride ?? routeClassId;
-  const testId: TestId = rawTestId === 'selfreg' ? 'selfreg' : 'comprehensive';
+  const testId: TestId = testIdOverride ?? (rawTestId === 'selfreg' ? 'selfreg' : 'comprehensive');
+  const reportAccent = testId === 'selfreg' ? '#0F9F8F' : '#4F46E5';
   const navigate = useNavigate();
   const { getClassById } = useData();
   const { hasJwtToken } = useApiConfig();
@@ -2685,6 +2833,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
 
   const { user } = useAuth();
   const [downloadError, setDownloadError] = useState(false);
+  const [selfregResultRound, setSelfregResultRound] = useState<1 | 2>(1);
   const [allPdfProgress, setAllPdfProgress] = useState<{ current: number; total: number } | null>(
     null,
   );
@@ -2999,16 +3148,26 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
   ).length;
   const completedRound = classData.stats?.round2Completed ? 2 : 1;
 
-  const classTitle = `${classData.grade}학년 ${classData.classNumber}반`;
+  const detailedClassTitle = `${classData.grade}학년 ${classData.classNumber}반`;
+  const classTitle =
+    testId === 'selfreg' ? `${classData.grade}-${classData.classNumber}반` : detailedClassTitle;
 
   return (
     <PageContainer>
       {/* Header */}
       <HeaderRow>
+        {testId === 'selfreg' && (
+          <BackButton
+            aria-label='결과보기 전체로 돌아가기'
+            onClick={() => navigate('/exam/result?paperIdx=2')}
+          >
+            <ArrowLeft size={20} />
+          </BackButton>
+        )}
         <HeaderContent>
           <PageTitle>{classTitle}</PageTitle>
           <PageSubtitle>
-            {classData.schoolLevel} {classTitle}
+            {classData.schoolLevel} {detailedClassTitle}
           </PageSubtitle>
         </HeaderContent>
         {hasJwtToken && (testId === 'comprehensive' || !!selfregDgnssIds.round1) && (
@@ -3017,6 +3176,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
               <span style={{ fontSize: '0.75rem', color: '#EF4444' }}>다운로드 실패</span>
             )}
             <ReportBtn
+              $selfreg={testId === 'selfreg'}
               disabled={!activeDgnssIds?.round1}
               onClick={() => {
                 setShowDownloadModal(true);
@@ -3037,7 +3197,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
             <KpiValue>
               {assessedStudents} / {totalStudents}명
             </KpiValue>
-            <KpiSub $color='#5B21B6'>{completionRate}%</KpiSub>
+            <KpiSub $color={testId === 'selfreg' ? '#0F9F8F' : '#5B21B6'}>{completionRate}%</KpiSub>
           </KpiCard>
           <KpiCard>
             <KpiLabel>검사 회차</KpiLabel>
@@ -3059,40 +3219,84 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
         </KpiRow>
       </SummaryCard>
 
-      <CoreSummaryTab
-        classData={classData}
-        testId={testId}
-        selfregRound1={selfregRound1}
-        selfregRound2={selfregRound2}
-        showActivities={false}
-        showDistribution={false}
-      />
-      <LearningDetailTab
-        classData={classData}
-        testId={testId}
-        selfregRound1={selfregRound1}
-        selfregRound2={selfregRound2}
-        top3Only
-      />
-      <CoreSummaryTab
-        classData={classData}
-        testId={testId}
-        selfregRound1={selfregRound1}
-        selfregRound2={selfregRound2}
-        showActivities={false}
-        showOverview={false}
-      />
-      <StudentListTab
-        classData={classData}
-        testId={testId}
-        onNavigateToStudent={(studentId) => {
-          if (onStudentSelect) {
-            onStudentSelect(studentId);
-            return;
-          }
-          navigate(`/dashboard/${testId}/class/${classId}/student/${studentId}`);
-        }}
-      />
+      {testId === 'selfreg' && selfregRound1 ? (
+        <>
+          <SelfregResultOverview
+            subjectName={classTitle}
+            scores={selfregRound1}
+            round2Scores={selfregRound2}
+            isClassView
+            selectedRound={selfregResultRound}
+            onRoundChange={setSelfregResultRound}
+          />
+          <SelfregProfileTable
+            scores={selfregRound1}
+            round2Scores={selfregRound2}
+            selectedRound={selfregResultRound}
+          />
+          <IntegratedAnalysisCard>
+            <h3>학급 분석 및 학생 목록</h3>
+            <LearningDetailTab
+              classData={classData}
+              testId={testId}
+              selfregRound1={selfregRound1}
+              selfregRound2={selfregRound2}
+              top3Only
+              selectedRoundOverride={selfregResultRound}
+            />
+            <StudentListTab
+              classData={classData}
+              testId={testId}
+              onNavigateToStudent={(studentId) => {
+                if (onStudentSelect) {
+                  onStudentSelect(studentId);
+                  return;
+                }
+                navigate(`/dashboard/${testId}/class/${classId}/student/${studentId}`);
+              }}
+            />
+          </IntegratedAnalysisCard>
+        </>
+      ) : (
+        <>
+          <CoreSummaryTab
+            classData={classData}
+            testId={testId}
+            selfregRound1={selfregRound1}
+            selfregRound2={selfregRound2}
+            showActivities={false}
+            showDistribution={false}
+          />
+          <LearningDetailTab
+            classData={classData}
+            testId={testId}
+            selfregRound1={selfregRound1}
+            selfregRound2={selfregRound2}
+            top3Only
+          />
+          <CoreSummaryTab
+            classData={classData}
+            testId={testId}
+            selfregRound1={selfregRound1}
+            selfregRound2={selfregRound2}
+            showActivities={false}
+            showOverview={false}
+          />
+        </>
+      )}
+      {testId !== 'selfreg' && (
+        <StudentListTab
+          classData={classData}
+          testId={testId}
+          onNavigateToStudent={(studentId) => {
+            if (onStudentSelect) {
+              onStudentSelect(studentId);
+              return;
+            }
+            navigate(`/dashboard/${testId}/class/${classId}/student/${studentId}`);
+          }}
+        />
+      )}
 
       {/* PDF 생성 진행 오버레이 */}
       {allPdfProgress && (
@@ -3162,7 +3366,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
                         padding: '0.625rem 1rem',
                         borderRadius: '0.5rem',
                         border: reportType === type ? 'none' : '1px solid #E5E7EB',
-                        background: reportType === type ? '#4F46E5' : '#fff',
+                        background: reportType === type ? reportAccent : '#fff',
                         color: reportType === type ? '#fff' : '#374151',
                         fontSize: '0.875rem',
                         fontWeight: 500,
@@ -3218,7 +3422,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
                         background: disabled
                           ? '#F9FAFB'
                           : reportRound === value
-                            ? '#4F46E5'
+                            ? reportAccent
                             : '#fff',
                         color: disabled ? '#D1D5DB' : reportRound === value ? '#fff' : '#374151',
                         fontSize: '0.875rem',
@@ -3261,7 +3465,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
                           padding: '0.625rem 1rem',
                           borderRadius: '0.5rem',
                           border: reportFormat === value ? 'none' : '1px solid #E5E7EB',
-                          background: reportFormat === value ? '#4F46E5' : '#fff',
+                          background: reportFormat === value ? reportAccent : '#fff',
                           color: reportFormat === value ? '#fff' : '#374151',
                           fontSize: '0.875rem',
                           fontWeight: 500,
@@ -3294,7 +3498,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
                       onClick={() => toggleAllStudents()}
                       style={{
                         fontSize: '0.75rem',
-                        color: '#4F46E5',
+                        color: reportAccent,
                         fontWeight: 500,
                         background: 'none',
                         border: 'none',
@@ -3341,7 +3545,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
                             checked={selectedStudentIds.has(student.id)}
                             onChange={() => toggleStudent(student.id)}
                             style={{
-                              accentColor: '#4F46E5',
+                              accentColor: reportAccent,
                               width: '1rem',
                               height: '1rem',
                               cursor: 'pointer',
@@ -3390,7 +3594,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
                   background:
                     reportType === 'student' && selectedStudentIds.size === 0
                       ? '#E5E7EB'
-                      : '#4F46E5',
+                      : reportAccent,
                   color:
                     reportType === 'student' && selectedStudentIds.size === 0 ? '#9CA3AF' : '#fff',
                   fontSize: '0.875rem',

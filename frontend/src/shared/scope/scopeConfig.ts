@@ -45,7 +45,7 @@ export const MENU_SCOPE_MATRIX: Record<MenuKey, MenuScopeConfig> = {
   'exam/tracking': { all: true, class: true, student: true },
   // 생활기록부 작성: 전체·반·학생 모두 지원 (확정 IA)
   'exam/record': { all: true, class: true, student: true },
-  // 코칭
+  // 코칭 — wiki 확정 SB 매트릭스 기준(coaching/class.student=true인 프로토타입 값은 충돌·미채택).
   'coaching/class': { all: true, class: true, student: false },
   'coaching/individual': { all: true, class: false, student: true },
   // 수업 (separate FE team owns this; sub-tab keys to be split later. Single key for now, no student level)

@@ -6,6 +6,9 @@
  * 데이터는 React Query(useMyGroupsQuery/useGroupMembersQuery)로 직접 소비한다.
  * 현재 메뉴가 학생 스코프를 지원하지 않으면(currentMenuConfig.student=false) 반 펼침·학생 목록을 숨긴다.
  * 프로토타입의 MOCK 데이터는 이식하지 않는다.
+ *
+ * 코칭 메뉴는 wiki 확정 SB 기준 학급코칭=반만/개별코칭=학생만 지원(scopeConfig 참고) —
+ * 프로토타입의 학급↔개별 교차이동은 확정 스펙과 충돌해 이식하지 않는다.
  */
 
 import styled from '@emotion/styled';
@@ -252,7 +255,6 @@ export const ScopeTree: React.FC = () => {
     expandedClassId,
     setExpandedClassId,
   } = useLayoutContext();
-
   const [searchQuery, setSearchQuery] = useState('');
 
   const {

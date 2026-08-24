@@ -13,6 +13,14 @@ import {
 } from 'lucide-react';
 import { Card, FactorHeatmapSection } from '@shared/components';
 import { useTrackingStudentData } from '@features/exam-tracking/model/useTrackingStudentData';
+import { useStudentLearningStatusQuery } from '@features/exam-tracking/api/queries';
+import type {
+  LearningCounselor,
+  LearningMotivation,
+  LearningStatusLevel,
+  SelfStudyTime,
+  StudentLearningStatusRound,
+} from '@features/exam-tracking/api/studentLearningStatusService';
 import { FACTOR_DEFINITIONS } from '@shared/data/factors';
 import { TypeClassification } from '@features/student-dashboard/ui';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
@@ -126,6 +134,17 @@ const LearningStatusValue = styled.span<{ $current?: boolean }>`
   line-height: 1.4;
   text-align: center;
   word-break: keep-all;
+`;
+
+const LearningStatusMessage = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  text-align: center;
 `;
 
 const ChangesCard = styled(Card)`
@@ -407,16 +426,75 @@ interface FactorChangeItem {
   tone: ChangeTone;
 }
 
-const TEMP_LEARNING_STATUS: ReadonlyArray<{
-  label: string;
-  previous: string;
-  current: string;
-}> = [
-  { label: '학업 성취도', previous: '높음', current: '보통' },
-  { label: '성적 만족도', previous: '높음', current: '보통' },
-  { label: '학습 동기', previous: '공부에 흥미를 느껴서', current: '나의 미래를 위해서' },
-  { label: '혼자 공부 시간', previous: '2시간 이상~3시간 미만', current: '1시간 이상~2시간 미만' },
-  { label: '학습 고민 상담', previous: '가족', current: '선생님' },
+const LEVEL_LABELS: Record<LearningStatusLevel, string> = {
+  'very-low': '매우 낮음',
+  low: '낮음',
+  mid: '보통',
+  high: '높음',
+  'very-high': '매우 높음',
+};
+
+const MOTIVATION_LABELS: Record<LearningMotivation, string> = {
+  interest: '흥미를 느껴서',
+  future: '미래를 위해서',
+  college: '대학 진학',
+  expectations: '주변 기대 때문에',
+  unknown: '모르겠음',
+};
+
+const STUDY_TIME_LABELS: Record<SelfStudyTime, string> = {
+  none: '전혀 안 함',
+  under1h: '1시간 미만',
+  '1-2h': '1~2시간',
+  '2-3h': '2~3시간',
+  over3h: '3시간 이상',
+};
+
+const COUNSELOR_LABELS: Record<LearningCounselor, string> = {
+  friend: '친구',
+  teacher: '선생님',
+  family: '가족',
+  counselor: '상담 전문가',
+  etc: '기타',
+};
+
+const getLearningStatusItems = (
+  previous: StudentLearningStatusRound,
+  current: StudentLearningStatusRound,
+) => [
+  {
+    label: '학업 성취도',
+    previous: previous.academicAchievement
+      ? LEVEL_LABELS[previous.academicAchievement]
+      : '응답 없음',
+    current: current.academicAchievement ? LEVEL_LABELS[current.academicAchievement] : '응답 없음',
+  },
+  {
+    label: '성적 만족도',
+    previous: previous.gradeSatisfaction ? LEVEL_LABELS[previous.gradeSatisfaction] : '응답 없음',
+    current: current.gradeSatisfaction ? LEVEL_LABELS[current.gradeSatisfaction] : '응답 없음',
+  },
+  {
+    label: '학습 동기',
+    previous: previous.learningMotivation
+      ? MOTIVATION_LABELS[previous.learningMotivation]
+      : '응답 없음',
+    current: current.learningMotivation
+      ? MOTIVATION_LABELS[current.learningMotivation]
+      : '응답 없음',
+  },
+  {
+    label: '혼자 공부 시간',
+    previous: previous.selfStudyTime ? STUDY_TIME_LABELS[previous.selfStudyTime] : '응답 없음',
+    current: current.selfStudyTime ? STUDY_TIME_LABELS[current.selfStudyTime] : '응답 없음',
+  },
+  {
+    label: '학습 고민 상담',
+    previous: previous.learningCounselor
+      ? COUNSELOR_LABELS[previous.learningCounselor]
+      : '응답 없음',
+    current: current.learningCounselor ? COUNSELOR_LABELS[current.learningCounselor] : '응답 없음',
+  },
 ];
 
 interface ChangeFactorColumnProps {
@@ -506,6 +584,7 @@ export const StudentTrackingSection = ({
     classId,
     assessmentStudentId,
   );
+  const learningStatusQuery = useStudentLearningStatusQuery(classId, assessmentStudentId);
 
   if (isLoading) {
     return (
@@ -547,6 +626,12 @@ export const StudentTrackingSection = ({
 
   const round1 = student.assessments.find((a) => a.round === 1);
   const round2 = student.assessments.find((a) => a.round === 2);
+  const previousLearningStatus = learningStatusQuery.data?.rounds.find(({ ordNo }) => ordNo === 1);
+  const currentLearningStatus = learningStatusQuery.data?.rounds.find(({ ordNo }) => ordNo === 2);
+  const learningStatusItems =
+    previousLearningStatus && currentLearningStatus
+      ? getLearningStatusItems(previousLearningStatus, currentLearningStatus)
+      : [];
 
   const factorChanges =
     round1 && round2
@@ -643,21 +728,34 @@ export const StudentTrackingSection = ({
       {round1 && (
         <LearningStatusCard>
           <SectionTitle>학습 현황 변화</SectionTitle>
-          <LearningStatusGrid>
-            {TEMP_LEARNING_STATUS.map((item) => {
-              const changed = item.previous !== item.current;
-              return (
-                <LearningStatusItem key={item.label} $changed={changed}>
-                  <LearningStatusLabel>{item.label}</LearningStatusLabel>
-                  <LearningStatusValues>
-                    <LearningStatusValue>{item.previous}</LearningStatusValue>
-                    <ArrowRight size={14} color={changed ? '#F59E0B' : '#D1D5DB'} />
-                    <LearningStatusValue $current>{item.current}</LearningStatusValue>
-                  </LearningStatusValues>
-                </LearningStatusItem>
-              );
-            })}
-          </LearningStatusGrid>
+          {learningStatusQuery.isLoading ? (
+            <LearningStatusMessage>학습 현황을 불러오는 중입니다.</LearningStatusMessage>
+          ) : learningStatusQuery.error ? (
+            <LearningStatusMessage>
+              학습 현황을 불러오지 못했습니다.
+              <RetryButton onClick={() => void learningStatusQuery.refetch()}>
+                <RefreshCw size={14} /> 다시 시도
+              </RetryButton>
+            </LearningStatusMessage>
+          ) : learningStatusItems.length === 0 ? (
+            <LearningStatusMessage>비교할 회차별 학습 현황이 없습니다.</LearningStatusMessage>
+          ) : (
+            <LearningStatusGrid>
+              {learningStatusItems.map((item) => {
+                const changed = item.previous !== item.current;
+                return (
+                  <LearningStatusItem key={item.label} $changed={changed}>
+                    <LearningStatusLabel>{item.label}</LearningStatusLabel>
+                    <LearningStatusValues>
+                      <LearningStatusValue>{item.previous}</LearningStatusValue>
+                      <ArrowRight size={14} color={changed ? '#F59E0B' : '#D1D5DB'} />
+                      <LearningStatusValue $current>{item.current}</LearningStatusValue>
+                    </LearningStatusValues>
+                  </LearningStatusItem>
+                );
+              })}
+            </LearningStatusGrid>
+          )}
         </LearningStatusCard>
       )}
 

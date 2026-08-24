@@ -62,12 +62,13 @@
                     <div class="card-body p-0">
                         <table class="table mb-0">
                             <thead class="thead-light"><tr>
-                                <th style="width:150px;">변경 시각</th><th style="width:90px;">구분</th><th>스냅샷</th><th style="width:120px;" class="text-right">되돌리기</th>
+                                <th style="width:150px;">변경 시각</th><th style="width:90px;">구분</th><th style="width:130px;">수정자</th><th>스냅샷</th><th style="width:120px;" class="text-right">되돌리기</th>
                             </tr></thead>
                             <tbody>
                                 <tr th:each="h : ${history}">
                                     <td class="text-muted" th:text="${h.changedAt}"></td>
                                     <td><span class="badge" th:classappend="${h.action == 'ROLLBACK'} ? 'badge-warning' : 'badge-secondary'" th:text="${h.action}"></span></td>
+                                    <td th:text="${h.changedByName != null} ? ${h.changedByName} : (${h.changedBy} == 0 ? '시스템' : ('#' + ${h.changedBy}))"></td>
                                     <td>
                                         <th:block th:if="${type == 'strength'}">
                                             <div class="snap-label">관찰</div><div class="snap mb-1" th:text="${h.observation}"></div>
@@ -88,7 +89,7 @@
                                         </form>
                                     </td>
                                 </tr>
-                                <tr th:if="${#lists.isEmpty(history)}"><td colspan="4" class="text-muted text-center py-3">변경 이력이 없습니다.</td></tr>
+                                <tr th:if="${#lists.isEmpty(history)}"><td colspan="5" class="text-muted text-center py-3">변경 이력이 없습니다.</td></tr>
                             </tbody>
                         </table>
                     </div>

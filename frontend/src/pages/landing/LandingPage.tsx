@@ -6,7 +6,7 @@ import { useAuth } from '@features/auth/model/AuthContext';
 import { useSpAuth } from '@shared/hooks/useSpAuth';
 import { Button } from '@shared/components';
 import { HeroSection, FeaturesSection } from '@features/landing/ui';
-import serviceLogo from '@/assets/logo_2.png';
+import serviceLogo from '@/assets/allvia-sel-teal.svg';
 
 const PageContainer = styled.div`
   min-height: 100vh;
@@ -35,6 +35,7 @@ const HeaderContent = styled.div`
 
 const Logo = styled.img`
   height: 20px;
+  width: auto;
 `;
 
 const NavButtons = styled.div`
@@ -73,7 +74,7 @@ const FooterInner = styled.div`
 
 const FooterLogo = styled.img`
   height: 20px;
-  filter: brightness(0) invert(1);
+  width: auto;
 `;
 
 const FooterLinks = styled.div`
@@ -120,7 +121,7 @@ export const LandingPage = () => {
       <Header>
         <HeaderContent>
           <div>
-            <Logo src={serviceLogo} alt='학습심리정서검사' />
+            <Logo src={serviceLogo} alt='AllviA SEL' />
           </div>
           <NavButtons>
             <Button variant='outline' size='sm' onClick={handleLogin}>
@@ -142,7 +143,7 @@ export const LandingPage = () => {
         <FooterContent>
           <FooterInner>
             <div>
-              <FooterLogo src={serviceLogo} alt='학습심리정서검사' />
+              <FooterLogo src={serviceLogo} alt='AllviA SEL' />
             </div>
             <FooterLinks>
               <FooterLink href='#'>이용약관</FooterLink>

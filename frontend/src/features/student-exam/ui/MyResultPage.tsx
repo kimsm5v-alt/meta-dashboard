@@ -7,12 +7,19 @@
  * 3. 학생 네비게이션 (이전/다음 학생)
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
-import { ArrowLeft, ShieldAlert, AlertTriangle, Clock, Loader2 } from 'lucide-react';
-import { PDF_ICON_SVG_URL } from '@shared/assets/svgIcons';
+import {
+  ArrowLeft,
+  ShieldAlert,
+  AlertTriangle,
+  Clock,
+  Loader2,
+  Download,
+  ChevronDown,
+} from 'lucide-react';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
@@ -44,12 +51,6 @@ const Section = styled.section`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing.md};
-`;
-
-const SectionTitle = styled.h2`
-  font-size: ${({ theme }) => theme.typography.fontSize.xl};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ theme }) => theme.colors.text.primary};
 `;
 
 const SectionCard = styled.div`
@@ -86,9 +87,7 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
 
   return (
     <ContentRoot>
-      {/* 1. 진단결과 한눈에 보기 */}
       <Section>
-        <SectionTitle>나의 진단 결과</SectionTitle>
         <SectionCard>
           <SectionContent>
             <DiagnosisSummary tScores={assessment.tScores} studentType={assessment.predictedType} />
@@ -179,6 +178,7 @@ const HeaderTitleRow = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.sm};
+  flex-wrap: wrap;
 `;
 
 const PageTitle = styled.h1`
@@ -205,42 +205,83 @@ const Badge = styled.span<{ $bg: string; $text: string }>`
   }
 `;
 
+const ExamTypeBadge = styled.span`
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  color: #ffffff;
+  background: #9d53e1;
+`;
+
 const PageSubtitle = styled.p`
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   color: ${({ theme }) => theme.colors.text.secondary};
 `;
 
-const PDFButton = styled.button`
+const DropdownWrapper = styled.div`
+  position: relative;
+`;
+
+const DropdownTrigger = styled.button`
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
+  gap: 6px;
+  padding: 8px 14px;
   background: white;
   border: 1px solid ${({ theme }) => theme.colors.gray[300]};
-  border-radius: 0.5rem;
+  border-radius: ${({ theme }) => theme.radius.lg};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
   color: ${({ theme }) => theme.colors.gray[700]};
   cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: all 0.15s;
 
-  &::before {
-    content: '';
-    width: 18px;
-    height: 22px;
-    background-image: ${PDF_ICON_SVG_URL};
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    flex-shrink: 0;
+  &:hover {
+    background: ${({ theme }) => theme.colors.gray[50]};
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
+const DropdownMenu = styled.div`
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 160px;
+  background: white;
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  box-shadow: ${({ theme }) => theme.shadows.md};
+  z-index: 10;
+  overflow: hidden;
+`;
+
+const DropdownItem = styled.button`
+  width: 100%;
+  padding: 10px 16px;
+  text-align: left;
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  color: ${({ theme }) => theme.colors.text.primary};
+  background: none;
+  border: none;
+  border-top: 1px solid ${({ theme }) => theme.colors.gray[100]};
+  cursor: pointer;
+  transition: background ${({ theme }) => theme.transitions.fast};
+
+  &:first-of-type {
+    border-top: none;
+  }
   &:hover:not(:disabled) {
     background: ${({ theme }) => theme.colors.gray[50]};
-    border-color: ${({ theme }) => theme.colors.gray[400]};
   }
-
   &:disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -383,12 +424,24 @@ export const MyResultPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isPdfDownloading, setIsPdfDownloading] = useState<1 | 2 | null>(null);
   const [pdfError, setPdfError] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!pdfError) return;
     const id = setTimeout(() => setPdfError(false), 4000);
     return () => clearTimeout(id);
   }, [pdfError]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const loadResult = async () => {
@@ -505,6 +558,7 @@ export const MyResultPage: React.FC = () => {
     if (!dgnssId || assessment?.answerIdx == null || !user?.stdtId) return;
     setIsPdfDownloading(round);
     setPdfError(false);
+    setIsDropdownOpen(false);
     try {
       await downloadStudentPdf({
         userId: user.stdtId,
@@ -581,6 +635,7 @@ export const MyResultPage: React.FC = () => {
           </BackButton>
           <HeaderContent>
             <HeaderTitleRow>
+              <ExamTypeBadge>학습종합검사</ExamTypeBadge>
               <PageTitle>나의 검사 결과</PageTitle>
               {current.reliabilityWarnings.length > 0 && (
                 <Badge
@@ -603,28 +658,48 @@ export const MyResultPage: React.FC = () => {
                 </Badge>
               )}
             </HeaderTitleRow>
-            <PageSubtitle>{user?.name || student.name}님의 학습심리정서검사 결과</PageSubtitle>
+            <PageSubtitle>{user?.name || student.name}님의 학습종합검사 결과</PageSubtitle>
           </HeaderContent>
         </HeaderLeft>
 
         {/* PDF 다운로드 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <PDFButton
-            onClick={() => void handleDownloadPdf(1)}
-            disabled={isPdfDownloading !== null || !r1 || r1.answerIdx == null}
-          >
-            {isPdfDownloading === 1 && <SpinningLoader />}
-            1차 결과 다운로드
-          </PDFButton>
-          {r2 && (
-            <PDFButton
-              onClick={() => void handleDownloadPdf(2)}
-              disabled={isPdfDownloading !== null || r2.answerIdx == null}
+          <DropdownWrapper ref={dropdownRef}>
+            <DropdownTrigger
+              onClick={() => setIsDropdownOpen((p) => !p)}
+              disabled={isPdfDownloading !== null}
             >
-              {isPdfDownloading === 2 && <SpinningLoader />}
-              2차 결과 다운로드
-            </PDFButton>
-          )}
+              {isPdfDownloading && <SpinningLoader />}
+              <Download />
+              보고서 다운로드
+              <ChevronDown
+                style={{
+                  width: 16,
+                  height: 16,
+                  transition: 'transform 0.2s',
+                  transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                }}
+              />
+            </DropdownTrigger>
+            {isDropdownOpen && (
+              <DropdownMenu>
+                <DropdownItem
+                  onClick={() => void handleDownloadPdf(1)}
+                  disabled={!r1 || r1.answerIdx == null}
+                >
+                  1차 보고서
+                </DropdownItem>
+                {r2 && (
+                  <DropdownItem
+                    onClick={() => void handleDownloadPdf(2)}
+                    disabled={r2.answerIdx == null}
+                  >
+                    2차 보고서
+                  </DropdownItem>
+                )}
+              </DropdownMenu>
+            )}
+          </DropdownWrapper>
           {pdfError && <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>다운로드 실패</span>}
         </div>
       </PageHeader>

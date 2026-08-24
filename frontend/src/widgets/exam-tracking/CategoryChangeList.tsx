@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import styled from '@emotion/styled';
 import { Card } from '@shared/components';
 import { SUB_CATEGORY_ORDER } from '@shared/utils/classComparisonUtils';
@@ -62,14 +62,27 @@ export const CategoryChangeList = ({ classData }: CategoryChangeListProps) => {
   const round1 = calculateSubCategoryAveragesByRound(classData, 1);
   const round2 = calculateSubCategoryAveragesByRound(classData, 2);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = containerRef.current;
     if (!element) return;
-    const updateWidth = () => setContainerWidth(element.offsetWidth);
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
+
+    const updateWidth = (width: number) => {
+      const nextWidth = Math.round(width);
+      setContainerWidth((currentWidth) => (currentWidth === nextWidth ? currentWidth : nextWidth));
+    };
+    const measureWidth = () => updateWidth(element.getBoundingClientRect().width);
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) updateWidth(entry.contentRect.width);
+    });
+
+    measureWidth();
     observer.observe(element);
-    return () => observer.disconnect();
+    window.addEventListener('resize', measureWidth);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measureWidth);
+    };
   }, []);
 
   const areaGroups = useMemo(() => {

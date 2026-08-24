@@ -391,7 +391,7 @@ export const AIRoomChatArea = ({
                 disabled={isLoading || isPromptDisabled}
               />
               <SendButton
-                onClick={onSend}
+                onClick={() => onSend()}
                 disabled={isLoading || isPromptDisabled || !input.trim()}
               >
                 <Send size={16} />

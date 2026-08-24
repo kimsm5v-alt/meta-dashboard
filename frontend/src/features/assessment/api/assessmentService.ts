@@ -5,7 +5,7 @@
  */
 
 import { apiClient, axiosInstance } from '@shared/api';
-import type { PaperIdx } from '../types';
+import type { ExamReminderResponse, PaperIdx } from '../types';
 
 // ============================================================
 // 타입 정의
@@ -177,6 +177,12 @@ export async function fetchNotSubmittedStudents(dgnssId: number): Promise<NotSub
     `/api/dgnss/tc/notsubm?dgnssId=${dgnssId}`,
   );
   return res.resultData ?? [];
+}
+
+/** 미제출 학생 독려 알림 발송 */
+export async function sendExamReminder(dgnssId: number): Promise<ExamReminderResponse> {
+  const res = await apiClient.post<ExamReminderResponse>('/api/dgnss/tc/reminder', { dgnssId });
+  return res.resultData;
 }
 
 /**

@@ -25,6 +25,7 @@ import { useAuth } from '@features/auth/model/AuthContext';
 import { getMyGroups } from '@features/groups/api/groupService';
 import { openMypageGroups } from '@shared/lib/mypage';
 import { ENV } from '@shared/config/env';
+import serviceLogo from '@/assets/allvia-sel-teal.svg';
 
 // ============================================================
 // 타입
@@ -81,12 +82,17 @@ const StyledHeader = styled.header`
 `;
 
 const HeaderTitle = styled.button`
+  display: flex;
+  align-items: center;
   background: none;
   border: none;
   cursor: pointer;
-  font-size: ${({ theme }) => theme.typography.fontSize.lg};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ theme }) => theme.colors.primary[600]};
+  padding: 0;
+`;
+
+const HeaderLogo = styled.img`
+  height: 35px;
+  width: 150px;
 `;
 
 const HeaderRight = styled.div`
@@ -401,7 +407,9 @@ const StudentHeader = () => {
 
   return (
     <StyledHeader>
-      <HeaderTitle onClick={() => navigate('/student/exams')}>학습심리정서검사</HeaderTitle>
+      <HeaderTitle onClick={() => navigate('/student/exams')} aria-label='학생 검사 홈'>
+        <HeaderLogo src={serviceLogo} alt='AllviA SEL' />
+      </HeaderTitle>
       <HeaderRight>
         <BellWithPanel />
         <MypageButton onClick={openMypage} title='내 정보 설정' aria-label='내 정보 설정'>

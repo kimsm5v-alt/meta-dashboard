@@ -3,6 +3,7 @@ import styled from '@emotion/styled';
 import { Bell, Check, Clock, Search } from 'lucide-react';
 
 import { EXAM_SLOTS, EXAM_STATUS_LABELS } from '../constants';
+import { useExamReminderAction } from '../model/useExamReminderAction';
 import { calculateProgress, getSlotStatus } from '../utils';
 import type {
   ExamSlotDefinition,
@@ -453,6 +454,7 @@ export const ExamClassManagementView = ({
   const [selectedRound, setSelectedRound] = useState<1 | 2>(1);
   const [filter, setFilter] = useState<StudentFilter>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const reminderAction = useExamReminderAction();
   const definitions = EXAM_SLOTS.filter((slot) => slot.paperIdx === paperIdx);
   const selectedDefinition =
     definitions.find((slot) => slot.round === selectedRound) ?? definitions[0];
@@ -649,7 +651,19 @@ export const ExamClassManagementView = ({
                 </PendingChip>
               ))}
             </PendingStudents>
-            <NotificationButton disabled title='미제출 학생 알림 API 준비 중'>
+            <NotificationButton
+              disabled={!selectedSlot?.dgnssId || reminderAction.isBlocked(selectedSlot.dgnssId)}
+              title={
+                selectedSlot?.dgnssId && reminderAction.isBlocked(selectedSlot.dgnssId)
+                  ? '중복 발송 방지를 위해 전송 처리 후 5초 뒤 다시 전송할 수 있습니다'
+                  : undefined
+              }
+              onClick={() => {
+                if (selectedSlot?.dgnssId) {
+                  void reminderAction.sendReminder(selectedSlot.dgnssId);
+                }
+              }}
+            >
               <Bell size={14} /> 알림 전송
             </NotificationButton>
           </PendingBanner>

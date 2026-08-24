@@ -24,10 +24,15 @@ public class AdminUserDetailsService implements UserDetailsService {
             throw new UsernameNotFoundException("관리자 계정을 찾을 수 없습니다: " + email);
         }
 
+        // role 컬럼 기반 권한 부여 (미설정 시 ADMIN). SUPER_ADMIN > ADMIN 계층은 SecurityConfig 의 RoleHierarchy 로 처리.
+        String role = admin.getRole();
+        if (role == null || role.isBlank()) {
+            role = "ADMIN";
+        }
         return new org.springframework.security.core.userdetails.User(
                 admin.getEmail(),
                 admin.getPassword(),
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
         );
     }
 }
