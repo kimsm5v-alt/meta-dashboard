@@ -12,7 +12,7 @@ import { ChevronRight, LogOut, User } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import aiOwlIcon from '@/assets/raon/ai-owl-icon.png';
-import serviceLogo from '@/assets/logo_2.png';
+import serviceLogo from '@/assets/allvia-sel-teal.svg';
 import { useAuth } from '@features/auth';
 import { BellWithPanel } from '@features/notifications';
 import { ENV } from '@shared/config/env';
@@ -60,6 +60,7 @@ const LogoButton = styled.button`
 
 const LogoImage = styled.img`
   height: 22px;
+  width: auto;
 `;
 
 // --- 중앙 GNB pill ---
@@ -231,7 +232,7 @@ export const GnbHeader: React.FC = () => {
     <HeaderWrapper>
       <HeaderContent>
         <LogoButton onClick={() => guardedNavigate(() => navigate('/home'))} aria-label='홈'>
-          <LogoImage src={serviceLogo} alt='학습심리정서검사' />
+          <LogoImage src={serviceLogo} alt='AllviA SEL' />
         </LogoButton>
 
         <GnbNav aria-label='주요 메뉴'>
