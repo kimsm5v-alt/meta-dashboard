@@ -17,6 +17,7 @@ import { Card } from '@shared/components';
 import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { useClassStudents, useSelfregClassAnalysis, useApiConfig } from '@features/api';
+import { SelfregProfileTable, SelfregResultOverview } from '@features/student-dashboard/ui';
 import { computeClassProfile } from '@features/class-dashboard/model/useClassProfile';
 import { FACTOR_DEFINITIONS, DOMAIN_GROUPS, SUB_CATEGORY_FACTORS } from '@shared/data/factors';
 import {
@@ -24,7 +25,9 @@ import {
   SELFREG_DOMAIN_STRUCTURE,
   SELFREG_DOMAIN_COLORS,
   SELFREG_SUB_CATEGORY_FACTORS,
+  type SelfregCategory,
 } from '@shared/data/selfregFactors';
+import { SELFREG_FACTOR_DEFINITIONS_TEXT } from '@shared/data/selfregFactorDefinitions';
 import { TYPE_COLORS } from '@shared/data/lpaProfiles';
 import {
   LPA_TOOLTIP_LINES,
@@ -1962,23 +1965,13 @@ const LearningDetailTab = ({
     if (testId === 'selfreg') {
       const activeArr = selectedRound === 1 ? selfregRound1 : (selfregRound2 ?? selfregRound1);
       if (!activeArr) return null;
-      const items: ProfileItem[] = [];
-      SELFREG_DOMAIN_STRUCTURE.forEach((domain) => {
-        domain.subCategories.forEach((subCat) => {
-          const vals = subCat.factors.map((f) => {
-            const idx = SELFREG_FACTOR_DEFINITIONS.findIndex((fd) => fd.name === f.name);
-            return activeArr[idx] ?? 50;
-          });
-          const avgT = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
-          items.push({
-            category: subCat.name,
-            parentCategory: domain.name,
-            avgT,
-            isPositive: true,
-            categoryScript: '',
-          });
-        });
-      });
+      const items: ProfileItem[] = SELFREG_FACTOR_DEFINITIONS.map((factor) => ({
+        category: factor.name,
+        parentCategory: factor.category,
+        avgT: Math.round(activeArr[factor.index] ?? 50),
+        isPositive: true,
+        categoryScript: SELFREG_FACTOR_DEFINITIONS_TEXT[factor.name] ?? '',
+      }));
       const sorted = [...items].sort((a, b) => b.avgT - a.avgT);
       return { strengths: sorted.slice(0, 3), weaknesses: sorted.slice(-3).reverse() };
     } else {
@@ -2079,7 +2072,13 @@ const LearningDetailTab = ({
                 <Top3Cards>
                   {profile.strengths.slice(0, 3).map((item, index) => (
                     <Top3Card key={item.category} $variant='strength'>
-                      <Top3Tag $color={DOMAIN_COLORS[item.parentCategory] || '#059669'}>
+                      <Top3Tag
+                        $color={
+                          testId === 'selfreg'
+                            ? SELFREG_DOMAIN_COLORS[item.parentCategory as SelfregCategory]
+                            : (DOMAIN_COLORS[item.parentCategory] ?? '#059669')
+                        }
+                      >
                         #{item.parentCategory.replace(/\s/g, '')}
                       </Top3Tag>
                       <Top3NameRow>
@@ -2103,7 +2102,13 @@ const LearningDetailTab = ({
                 <Top3Cards>
                   {profile.weaknesses.slice(0, 3).map((item, index) => (
                     <Top3Card key={item.category} $variant='weakness'>
-                      <Top3Tag $color={DOMAIN_COLORS[item.parentCategory] || '#EF4444'}>
+                      <Top3Tag
+                        $color={
+                          testId === 'selfreg'
+                            ? SELFREG_DOMAIN_COLORS[item.parentCategory as SelfregCategory]
+                            : (DOMAIN_COLORS[item.parentCategory] ?? '#EF4444')
+                        }
+                      >
                         #{item.parentCategory.replace(/\s/g, '')}
                       </Top3Tag>
                       <Top3NameRow>
@@ -2652,11 +2657,13 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
 
 interface ClassDashboardV2WidgetProps {
   classIdOverride?: string;
+  testIdOverride?: TestId;
   onStudentSelect?: (studentId: string) => void;
 }
 
 export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
   classIdOverride,
+  testIdOverride,
   onStudentSelect,
 }) => {
   const { classId: routeClassId, testId: rawTestId = 'comprehensive' } = useParams<{
@@ -2664,7 +2671,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
     testId: string;
   }>();
   const classId = classIdOverride ?? routeClassId;
-  const testId: TestId = rawTestId === 'selfreg' ? 'selfreg' : 'comprehensive';
+  const testId: TestId = testIdOverride ?? (rawTestId === 'selfreg' ? 'selfreg' : 'comprehensive');
   const navigate = useNavigate();
   const { getClassById } = useData();
   const { hasJwtToken } = useApiConfig();
@@ -2685,6 +2692,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
 
   const { user } = useAuth();
   const [downloadError, setDownloadError] = useState(false);
+  const [selfregResultRound, setSelfregResultRound] = useState<1 | 2>(1);
   const [allPdfProgress, setAllPdfProgress] = useState<{ current: number; total: number } | null>(
     null,
   );
@@ -3059,29 +3067,56 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
         </KpiRow>
       </SummaryCard>
 
-      <CoreSummaryTab
-        classData={classData}
-        testId={testId}
-        selfregRound1={selfregRound1}
-        selfregRound2={selfregRound2}
-        showActivities={false}
-        showDistribution={false}
-      />
-      <LearningDetailTab
-        classData={classData}
-        testId={testId}
-        selfregRound1={selfregRound1}
-        selfregRound2={selfregRound2}
-        top3Only
-      />
-      <CoreSummaryTab
-        classData={classData}
-        testId={testId}
-        selfregRound1={selfregRound1}
-        selfregRound2={selfregRound2}
-        showActivities={false}
-        showOverview={false}
-      />
+      {testId === 'selfreg' && selfregRound1 ? (
+        <>
+          <SelfregResultOverview
+            subjectName={classTitle}
+            scores={selfregRound1}
+            round2Scores={selfregRound2}
+            isClassView
+            selectedRound={selfregResultRound}
+            onRoundChange={setSelfregResultRound}
+          />
+          <SelfregProfileTable
+            scores={selfregRound1}
+            round2Scores={selfregRound2}
+            selectedRound={selfregResultRound}
+          />
+          <LearningDetailTab
+            classData={classData}
+            testId={testId}
+            selfregRound1={selfregRound1}
+            selfregRound2={selfregRound2}
+            top3Only
+          />
+        </>
+      ) : (
+        <>
+          <CoreSummaryTab
+            classData={classData}
+            testId={testId}
+            selfregRound1={selfregRound1}
+            selfregRound2={selfregRound2}
+            showActivities={false}
+            showDistribution={false}
+          />
+          <LearningDetailTab
+            classData={classData}
+            testId={testId}
+            selfregRound1={selfregRound1}
+            selfregRound2={selfregRound2}
+            top3Only
+          />
+          <CoreSummaryTab
+            classData={classData}
+            testId={testId}
+            selfregRound1={selfregRound1}
+            selfregRound2={selfregRound2}
+            showActivities={false}
+            showOverview={false}
+          />
+        </>
+      )}
       <StudentListTab
         classData={classData}
         testId={testId}

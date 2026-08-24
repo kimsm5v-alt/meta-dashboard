@@ -16,3 +16,4 @@ export { DataHelperChatbot } from './DataHelperChatbot';
 
 // 자기조절학습검사 요인 분석
 export { SelfregFactorAnalysis } from './SelfregFactorAnalysis';
+export { SelfregProfileTable, SelfregResultOverview } from './SelfregResultOverview';

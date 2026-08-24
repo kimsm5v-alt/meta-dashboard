@@ -22,7 +22,15 @@ import {
   type L2DashboardData,
 } from '@shared/services/dashboardService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
-import type { SchoolLevel, SchoolLevelCode, Student, Class, Assessment, User, Group } from '@shared/types';
+import type {
+  SchoolLevel,
+  SchoolLevelCode,
+  Student,
+  Class,
+  Assessment,
+  User,
+  Group,
+} from '@shared/types';
 import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth';
 import { groupService } from '@features/groups/api/groupService';
@@ -447,13 +455,16 @@ type TeacherClassesData = {
   examStatus: ExamStatus;
 };
 
-export function useTeacherClasses(): UseTeacherClassesResult {
+export function useTeacherClasses(
+  paperIdx: '1' | '2' = '1',
+  enabled = true,
+): UseTeacherClassesResult {
   const { classes: mockClasses } = useData();
   const { user } = useAuth();
   const { schoolLevel: credSchoolLevel } = useCredentials();
 
   const query = useQuery<TeacherClassesData>({
-    queryKey: ['teacher', 'classes', user?.id],
+    queryKey: ['teacher', 'classes', user?.id, paperIdx],
     queryFn: async (): Promise<TeacherClassesData> => {
       if (!user) return { classes: mockClasses, examStatus: 'no-exams' };
 
@@ -466,7 +477,9 @@ export function useTeacherClasses(): UseTeacherClassesResult {
       const groupDgnssResults = await Promise.all(
         groups.map(async (group) => {
           try {
-            const dgnssList = await dgnssService.getDgnssList(group.claId);
+            const dgnssList = (await dgnssService.getDgnssList(group.claId)).filter(
+              (exam) => String(exam.paperIdx) === paperIdx,
+            );
             return { group, dgnssList };
           } catch {
             return { group, dgnssList: [] };
@@ -492,7 +505,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         // group.schoolLevel(SchoolLevelCode)은 위에서 '중등'으로 뭉개지기 전의 원본 값('high' 포함)이다.
         // AI 에이전트 등 다운스트림이 실제 학교급을 알 수 있도록 그대로 흘려보낸다.
 
-        if (primaryDgnssId) {
+        if (primaryDgnssId && paperIdx === '1') {
           return buildClassFromAPI(
             group.claId,
             group.grade,
@@ -505,6 +518,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         }
 
         const activeExam = dgnssList.find((d) => d.dgnssAt === 'Y');
+        const latestCompletedExam = round2 ?? round1;
         const simpleClass: Class = {
           id: group.claId,
           schoolLevel,
@@ -513,18 +527,23 @@ export function useTeacherClasses(): UseTeacherClassesResult {
           classNumber: group.classNumber,
           teacherId: user.id,
           students: [],
-          stats: activeExam
-            ? {
-                totalStudents: activeExam.stTotalCnt,
-                assessedStudents: activeExam.stSubmCnt,
-                typeDistribution: {},
-                needAttentionCount: 0,
-                round1Completed: false,
-                round2Completed: false,
-                examStatus: { round1: '진행중', round2: '시작전' },
-                round2SubmittedCount: 0,
-              }
-            : undefined,
+          stats:
+            activeExam || latestCompletedExam
+              ? {
+                  totalStudents: (latestCompletedExam ?? activeExam)!.stTotalCnt,
+                  assessedStudents: (latestCompletedExam ?? activeExam)!.stSubmCnt,
+                  typeDistribution: {},
+                  needAttentionCount: 0,
+                  round1Completed: !!round1,
+                  round2Completed: !!round2,
+                  examStatus: {
+                    round1: round1 ? '종료' : activeExam?.ordNo === 1 ? '진행중' : '시작전',
+                    round2: round2 ? '종료' : activeExam?.ordNo === 2 ? '진행중' : '시작전',
+                  },
+                  round2SubmittedCount: round2?.stSubmCnt ?? 0,
+                  dgnssIds: { round1: round1?.dgnssId, round2: round2?.dgnssId },
+                }
+              : undefined,
         };
         return simpleClass;
       });
@@ -534,7 +553,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
 
       return { classes: validClasses, examStatus };
     },
-    enabled: !!user,
+    enabled: enabled && !!user,
   });
 
   const classes =

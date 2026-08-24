@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
@@ -19,12 +19,7 @@ import {
   fetchStudentInfoList,
 } from '@shared/services/dashboardService';
 import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
-import { SelfregFactorAnalysis } from '@features/student-dashboard/ui';
-import {
-  SELFREG_DOMAIN_STRUCTURE,
-  SELFREG_DOMAIN_COLORS,
-  type SelfregCategory,
-} from '@shared/data/selfregFactors';
+import { SelfregProfileTable, SelfregResultOverview } from '@features/student-dashboard/ui';
 
 // ============================================================
 // Types
@@ -219,119 +214,34 @@ const ContentRoot = styled.div`
   gap: 1.5rem;
 `;
 
-// ── 영역별 요약 카드 ──────────────────────────────────────────
-
-const SummaryCard = styled.div`
-  background: ${({ theme }) => theme.colors.background.paper};
-  border-radius: ${({ theme }) => theme.radius.xl};
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  padding: ${({ theme }) => theme.spacing.lg};
-`;
-
-const SummaryTitle = styled.h3`
-  font-size: ${({ theme }) => theme.typography.fontSize.base};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ theme }) => theme.colors.text.primary};
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
-
-const DomainGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: ${({ theme }) => theme.spacing.md};
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const DomainTile = styled.div<{ $color: string }>`
-  border: 1px solid ${({ $color }) => `${$color}40`};
-  background: ${({ $color }) => `${$color}12`};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  padding: ${({ theme }) => theme.spacing.md};
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-`;
-
-const DomainName = styled.span<{ $color: string }>`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ $color }) => $color};
-`;
-
-const DomainScoreRow = styled.div`
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-`;
-
-const DomainScoreValue = styled.span`
-  font-size: 1.5rem;
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ theme }) => theme.colors.text.primary};
-`;
-
-const DomainGrade = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[500]};
-`;
-
-// ============================================================
-// 영역별 요약 (MySelfregResultPage와 동일 로직)
-// ============================================================
-
-const gradeLabel = (t: number) => {
-  if (t >= 70) return '매우높음';
-  if (t >= 60) return '높음';
-  if (t >= 40) return '보통';
-  if (t >= 30) return '낮음';
-  return '매우낮음';
-};
-
-const SelfregDomainSummary: React.FC<{ tScores: number[] }> = ({ tScores }) => {
-  const domainAverages = useMemo(
-    () =>
-      SELFREG_DOMAIN_STRUCTURE.map((domain) => {
-        const indices = domain.subCategories.flatMap((s) => s.factors.map((f) => f.index));
-        const avg = indices.reduce((sum, i) => sum + (tScores[i] ?? 50), 0) / (indices.length || 1);
-        return { id: domain.id as SelfregCategory, name: domain.name, avg: Math.round(avg) };
-      }),
-    [tScores],
-  );
-
-  return (
-    <SummaryCard>
-      <SummaryTitle>영역별 요약</SummaryTitle>
-      <DomainGrid>
-        {domainAverages.map((d) => (
-          <DomainTile key={d.id} $color={SELFREG_DOMAIN_COLORS[d.id]}>
-            <DomainName $color={SELFREG_DOMAIN_COLORS[d.id]}>{d.name}</DomainName>
-            <DomainScoreRow>
-              <DomainScoreValue>{d.avg}</DomainScoreValue>
-              <DomainGrade>{gradeLabel(d.avg)}</DomainGrade>
-            </DomainScoreRow>
-          </DomainTile>
-        ))}
-      </DomainGrid>
-    </SummaryCard>
-  );
-};
-
 // ============================================================
 // Page
 // ============================================================
 
-export const SelfregStudentDashboardPage: React.FC = () => {
+interface SelfregStudentDashboardPageProps {
+  classIdOverride?: string;
+  studentIdOverride?: string;
+  onBackToClass?: () => void;
+  onStudentSelect?: (studentId: string) => void;
+}
+
+export const SelfregStudentDashboardPage: React.FC<SelfregStudentDashboardPageProps> = ({
+  classIdOverride,
+  studentIdOverride,
+  onBackToClass,
+  onStudentSelect,
+}) => {
   const {
-    classId,
-    studentId,
+    classId: routeClassId,
+    studentId: routeStudentId,
     testId = 'selfreg',
   } = useParams<{
     classId: string;
     studentId: string;
     testId: string;
   }>();
+  const classId = classIdOverride ?? routeClassId;
+  const studentId = studentIdOverride ?? routeStudentId;
   const navigate = useNavigate();
 
   const { students, classInfo, isLoading: studentsLoading } = useClassStudents(classId, '2');
@@ -353,13 +263,11 @@ export const SelfregStudentDashboardPage: React.FC = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setViewMode('round1');
   }, [studentId]);
 
   useEffect(() => {
     if (!classId || !studentId) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
 
     setError(null);
@@ -508,7 +416,11 @@ export const SelfregStudentDashboardPage: React.FC = () => {
       {/* Header */}
       <PageHeader>
         <HeaderLeft>
-          <BackButton onClick={() => navigate(`/dashboard/${testId}/class/${classId}`)}>
+          <BackButton
+            onClick={() =>
+              onBackToClass ? onBackToClass() : navigate(`/dashboard/${testId}/class/${classId}`)
+            }
+          >
             <ArrowLeft />
           </BackButton>
           <TitleArea>
@@ -715,9 +627,11 @@ export const SelfregStudentDashboardPage: React.FC = () => {
           </div>
           <NavBtn
             disabled={!prev}
-            onClick={() =>
-              prev && navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`)
-            }
+            onClick={() => {
+              if (!prev) return;
+              if (onStudentSelect) onStudentSelect(prev.id);
+              else navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`);
+            }}
           >
             <ChevronLeft size={14} /> 이전
           </NavBtn>
@@ -726,9 +640,11 @@ export const SelfregStudentDashboardPage: React.FC = () => {
           </NavCounter>
           <NavBtn
             disabled={!next}
-            onClick={() =>
-              next && navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`)
-            }
+            onClick={() => {
+              if (!next) return;
+              if (onStudentSelect) onStudentSelect(next.id);
+              else navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`);
+            }}
           >
             다음 <ChevronRight size={14} />
           </NavBtn>
@@ -754,11 +670,17 @@ export const SelfregStudentDashboardPage: React.FC = () => {
 
       {/* Content */}
       <ContentRoot>
-        <SelfregDomainSummary tScores={current.tScores} />
-        <SelfregFactorAnalysis
-          tScores={current.tScores}
-          prevTScores={isCompare && r1 ? r1.tScores : undefined}
-          showCompare={isCompare}
+        <SelfregResultOverview
+          subjectName={student ? `${student.name} 학생` : '학생'}
+          scores={r1?.tScores ?? current.tScores}
+          round2Scores={r2?.tScores}
+          selectedRound={selectedRound}
+          onRoundChange={(round) => setViewMode(round === 1 ? 'round1' : 'round2')}
+        />
+        <SelfregProfileTable
+          scores={r1?.tScores ?? current.tScores}
+          round2Scores={r2?.tScores}
+          selectedRound={isCompare ? 2 : selectedRound}
         />
       </ContentRoot>
     </PageRoot>
