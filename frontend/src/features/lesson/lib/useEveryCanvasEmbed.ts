@@ -14,7 +14,8 @@ type EmbedEventHandlers = {
 };
 
 type UseEveryCanvasEmbedParams = {
-  options: CreateEmbedOptions;
+  /** 빌드에러 임시처리*/
+  options: Omit<CreateEmbedOptions, 'brandId'>;
   handlers?: EmbedEventHandlers;
   brandId?: number;
   /**
