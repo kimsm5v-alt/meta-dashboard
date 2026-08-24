@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import styled from '@emotion/styled';
 import { Check, Info } from 'lucide-react';
 import {
@@ -625,15 +625,23 @@ const ProfileBody = styled.div`
   overflow-x: auto;
 `;
 
+const ProfileTableWrap = styled.div`
+  position: relative;
+  min-width: 900px;
+  overflow: hidden;
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border-radius: ${({ theme }) => theme.radius.xl};
+`;
+
 const ProfileTable = styled.table`
   width: 100%;
-  min-width: 780px;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
 
   th,
   td {
-    height: 2rem;
+    box-sizing: border-box;
     padding: 0.25rem 0.5rem;
     border-right: 1px solid ${({ theme }) => theme.colors.gray[200]};
     border-bottom: 1px solid ${({ theme }) => theme.colors.gray[200]};
@@ -649,6 +657,18 @@ const ProfileTable = styled.table`
     color: ${({ theme }) => theme.colors.gray[500]};
     font-size: 0.75rem;
     font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  }
+
+  thead tr:first-of-type {
+    height: 28px;
+  }
+
+  thead tr:last-of-type {
+    height: 20px;
+  }
+
+  tbody tr {
+    height: 32px;
   }
 `;
 
@@ -683,240 +703,296 @@ const ProfileTicks = styled.div`
 `;
 
 const LinearCell = styled.div`
-  position: relative;
-  height: 2rem;
-  margin: -0.25rem -0.5rem;
+  position: absolute;
+  inset: 0;
   background: linear-gradient(to right, transparent 0 40%, #e5e7eb 40% 60%, transparent 60% 100%);
-
-  &::before {
-    position: absolute;
-    top: 50%;
-    right: 0;
-    left: 0;
-    height: 1px;
-    background: ${({ theme }) => theme.colors.gray[200]};
-    content: '';
-  }
 `;
 
 const SummaryBar = styled.span<{ $color: string }>`
   position: absolute;
-  inset: 0 auto 0 0;
+  inset: 4px auto 4px 0;
   border-radius: 0 0.25rem 0.25rem 0;
   background: ${({ $color }) => $color};
 `;
 
-const LinearPoint = styled.span<{ $color: string; $muted?: boolean }>`
-  position: absolute;
-  top: 50%;
-  width: ${({ $muted }) => ($muted ? '0.5rem' : '0.75rem')};
-  height: ${({ $muted }) => ($muted ? '0.5rem' : '0.75rem')};
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: ${({ $color, $muted }) => ($muted ? '#9CA3AF' : $color)};
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
-  transform: translate(-50%, -50%);
-`;
-
-const ProfileSegment = ({ from, to, color }: { from: number; to?: number; color: string }) =>
-  to == null ? null : (
-    <svg
-      viewBox='0 0 100 40'
-      preserveAspectRatio='none'
-      aria-hidden='true'
-      style={{
-        position: 'absolute',
-        top: '50%',
-        left: 0,
-        zIndex: 1,
-        width: '100%',
-        height: '40px',
-        overflow: 'visible',
-        pointerEvents: 'none',
-      }}
-    >
-      <line
-        x1={profilePosition(from)}
-        y1='0'
-        x2={profilePosition(to)}
-        y2='40'
-        stroke={color}
-        strokeWidth='1.5'
-        vectorEffect='non-scaling-stroke'
-      />
-    </svg>
-  );
+const PROFILE_ROW_HEIGHT = 32;
+const PROFILE_HEADER_HEIGHT = 56;
+const PROFILE_LABEL_WIDTH = 320;
+const PROFILE_ROWS = SELFREG_DOMAIN_STRUCTURE.flatMap((domain) => [
+  { type: 'summary' as const, domain: domain.id },
+  ...domain.subCategories.flatMap((subCategory) =>
+    subCategory.factors.map((factor) => ({
+      type: 'factor' as const,
+      domain: domain.id,
+      factorIndex: factor.index,
+    })),
+  ),
+]);
 
 export const SelfregProfileTable = ({
   scores,
   round2Scores,
   selectedRound = 1,
   showHeader = true,
-}: SelfregProfileTableProps) => (
-  <Card>
-    {showHeader && (
-      <Header>
-        <div>
-          <Title>종합 해석</Title>
-          <Description>전체 요인의 T점수를 선형 눈금으로 비교합니다</Description>
-        </div>
-      </Header>
-    )}
-    <ProfileBody>
-      <ProfileTable>
-        <thead>
-          <tr>
-            <th colSpan={3} rowSpan={2} style={{ width: '20rem', background: '#F9FAFB' }}>
-              영역
-            </th>
-            <th style={{ padding: 0, background: '#F9FAFB' }}>
-              <ProfileScaleLabels>
-                <span>매우 낮음</span>
-                <span>낮음</span>
-                <span>보통</span>
-                <span>높음</span>
-                <span>매우 높음</span>
-              </ProfileScaleLabels>
-            </th>
-            <th rowSpan={2} style={{ width: '3.5rem', background: '#F9FAFB' }}>
-              1차
-            </th>
-            <th rowSpan={2} style={{ width: '3.5rem', background: '#F9FAFB' }}>
-              2차
-            </th>
-            <th rowSpan={2} style={{ width: '3.5rem', background: '#F9FAFB' }}>
-              변화
-            </th>
-          </tr>
-          <tr>
-            <th style={{ padding: 0, background: '#F9FAFB' }}>
-              <ProfileTicks>
-                {[10, 20, 30, 40, 50, 60, 70, 80, 90].map((tick) => (
-                  <span key={tick} style={{ left: `${tick}%` }}>
-                    {tick}
-                  </span>
-                ))}
-              </ProfileTicks>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {SELFREG_DOMAIN_STRUCTURE.flatMap((domain) => {
-            const factors = SELFREG_FACTOR_DEFINITIONS.filter(
-              (factor) => factor.category === domain.id,
-            );
-            const subCategoryCounts = new Map<string, number>();
-            factors.forEach((factor) =>
-              subCategoryCounts.set(
-                factor.subCategory,
-                (subCategoryCounts.get(factor.subCategory) ?? 0) + 1,
-              ),
-            );
-            const average = Math.round(
-              factors.reduce((sum, factor) => sum + (scores[factor.index] ?? 50), 0) /
-                factors.length,
-            );
-            const round2Average = round2Scores
-              ? Math.round(
-                  factors.reduce((sum, factor) => sum + (round2Scores[factor.index] ?? 50), 0) /
+}: SelfregProfileTableProps) => {
+  const chartAreaRef = useRef<HTMLTableCellElement>(null);
+  const [chartAreaWidth, setChartAreaWidth] = useState(0);
+
+  useEffect(() => {
+    const chartArea = chartAreaRef.current;
+    if (!chartArea) return;
+
+    const updateWidth = () => setChartAreaWidth(chartArea.offsetWidth);
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(chartArea);
+    return () => observer.disconnect();
+  }, []);
+
+  const makeProfileLines = (profileScores: number[]) =>
+    SELFREG_DOMAIN_STRUCTURE.map((domain) => ({
+      domain,
+      points: PROFILE_ROWS.flatMap((row, rowIndex) => {
+        if (row.type !== 'factor' || row.domain !== domain.id) return [];
+        return [
+          {
+            x: profilePosition(profileScores[row.factorIndex] ?? 50),
+            y: rowIndex * PROFILE_ROW_HEIGHT + PROFILE_ROW_HEIGHT / 2,
+          },
+        ];
+      }),
+    }));
+
+  const firstProfileLines = useMemo(() => makeProfileLines(scores), [scores]);
+  const secondProfileLines = useMemo(
+    () => (round2Scores ? makeProfileLines(round2Scores) : []),
+    [round2Scores],
+  );
+  const currentProfileLines =
+    selectedRound === 2 && round2Scores ? secondProfileLines : firstProfileLines;
+
+  return (
+    <Card>
+      {showHeader && (
+        <Header style={{ paddingBottom: '1rem' }}>
+          <div>
+            <Title>종합 해석</Title>
+            <Description>전체 요인의 T점수를 선형 눈금으로 비교합니다</Description>
+          </div>
+        </Header>
+      )}
+      <ProfileBody>
+        <ProfileTableWrap>
+          <ProfileTable>
+            <colgroup>
+              <col style={{ width: '96px' }} />
+              <col style={{ width: '120px' }} />
+              <col style={{ width: '104px' }} />
+              <col />
+              <col style={{ width: '56px' }} />
+              <col style={{ width: '56px' }} />
+              <col style={{ width: '56px' }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th colSpan={3} rowSpan={2} style={{ background: '#F9FAFB' }}>
+                  영역
+                </th>
+                <th style={{ padding: 0, background: '#F9FAFB' }}>
+                  <ProfileScaleLabels>
+                    <span>매우 낮음</span>
+                    <span>낮음</span>
+                    <span>보통</span>
+                    <span>높음</span>
+                    <span>매우 높음</span>
+                  </ProfileScaleLabels>
+                </th>
+                <th rowSpan={2} style={{ background: '#F9FAFB' }}>
+                  1차
+                </th>
+                <th rowSpan={2} style={{ background: '#F9FAFB' }}>
+                  2차
+                </th>
+                <th rowSpan={2} style={{ background: '#F9FAFB' }}>
+                  변화
+                </th>
+              </tr>
+              <tr>
+                <th style={{ padding: 0, background: '#F9FAFB' }}>
+                  <ProfileTicks>
+                    {[10, 20, 30, 40, 50, 60, 70, 80, 90].map((tick) => (
+                      <span key={tick} style={{ left: `${tick}%` }}>
+                        {tick}
+                      </span>
+                    ))}
+                  </ProfileTicks>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {SELFREG_DOMAIN_STRUCTURE.flatMap((domain) => {
+                const factors = SELFREG_FACTOR_DEFINITIONS.filter(
+                  (factor) => factor.category === domain.id,
+                );
+                const subCategoryCounts = new Map<string, number>();
+                factors.forEach((factor) =>
+                  subCategoryCounts.set(
+                    factor.subCategory,
+                    (subCategoryCounts.get(factor.subCategory) ?? 0) + 1,
+                  ),
+                );
+                const average = Math.round(
+                  factors.reduce((sum, factor) => sum + (scores[factor.index] ?? 50), 0) /
                     factors.length,
-                )
-              : null;
-            return [
-              <tr key={`${domain.id}-summary`}>
-                <td
-                  rowSpan={factors.length + 1}
-                  style={{
-                    width: '6rem',
-                    background: domain.color,
-                    color: '#FFFFFF',
-                    fontWeight: 700,
-                  }}
-                >
-                  {domain.name}
-                </td>
-                <td colSpan={2} style={{ fontWeight: 600 }}>
-                  종합
-                </td>
-                <td>
-                  <LinearCell>
-                    <SummaryBar
-                      $color={domain.color}
+                );
+                const round2Average = round2Scores
+                  ? Math.round(
+                      factors.reduce((sum, factor) => sum + (round2Scores[factor.index] ?? 50), 0) /
+                        factors.length,
+                    )
+                  : null;
+                return [
+                  <tr key={`${domain.id}-summary`} style={{ background: '#F9FAFB' }}>
+                    <td
+                      rowSpan={factors.length + 1}
                       style={{
-                        width: `${profilePosition(selectedRound === 2 && round2Average != null ? round2Average : average)}%`,
+                        background: domain.color,
+                        color: '#FFFFFF',
+                        fontWeight: 700,
                       }}
-                    />
-                  </LinearCell>
-                </td>
-                <td>{average}</td>
-                <td>{round2Average ?? '-'}</td>
-                <td>
-                  {round2Average == null
-                    ? '-'
-                    : round2Average - average > 0
-                      ? `+${round2Average - average}`
-                      : round2Average - average}
-                </td>
-              </tr>,
-              ...factors.map((factor, index) => {
-                const first = scores[factor.index] ?? 50;
-                const second = round2Scores?.[factor.index];
-                const current = selectedRound === 2 && second != null ? second : first;
-                const isFirstSubCategory =
-                  index === 0 || factors[index - 1]?.subCategory !== factor.subCategory;
-                const nextFactor = factors[index + 1];
-                const nextFirst = nextFactor ? (scores[nextFactor.index] ?? 50) : undefined;
-                const nextSecond = nextFactor ? round2Scores?.[nextFactor.index] : undefined;
-                const nextCurrent =
-                  nextFactor?.subCategory === factor.subCategory ||
-                  nextFactor?.category === factor.category
-                    ? selectedRound === 2 && nextSecond != null
-                      ? nextSecond
-                      : nextFirst
-                    : undefined;
-                return (
-                  <tr key={factor.name}>
-                    {isFirstSubCategory && (
-                      <td
-                        rowSpan={subCategoryCounts.get(factor.subCategory)}
-                        style={{ width: '7.5rem', color: '#4B5563' }}
-                      >
-                        {factor.subCategory}
-                      </td>
-                    )}
-                    <td style={{ width: '6.5rem' }}>{factor.name}</td>
-                    <td>
+                    >
+                      {domain.name}
+                    </td>
+                    <td colSpan={2} style={{ fontWeight: 600 }}>
+                      종합
+                    </td>
+                    <td
+                      ref={domain.id === SELFREG_DOMAIN_STRUCTURE[0].id ? chartAreaRef : undefined}
+                      style={{ position: 'relative', padding: 0 }}
+                    >
                       <LinearCell>
-                        <ProfileSegment from={current} to={nextCurrent} color={domain.color} />
-                        {selectedRound === 2 && second != null && (
-                          <LinearPoint
-                            $color={domain.color}
-                            $muted
-                            style={{ left: `${profilePosition(first)}%` }}
-                          />
-                        )}
-                        <LinearPoint
+                        <SummaryBar
                           $color={domain.color}
-                          style={{ left: `${profilePosition(current)}%`, zIndex: 2 }}
+                          style={{
+                            width: `${profilePosition(selectedRound === 2 && round2Average != null ? round2Average : average)}%`,
+                          }}
                         />
                       </LinearCell>
                     </td>
-                    <td>{first}</td>
-                    <td>{second ?? '-'}</td>
+                    <td>{average}</td>
+                    <td>{round2Average ?? '-'}</td>
                     <td>
-                      {second == null
+                      {round2Average == null
                         ? '-'
-                        : second - first > 0
-                          ? `+${second - first}`
-                          : second - first}
+                        : round2Average - average > 0
+                          ? `+${round2Average - average}`
+                          : round2Average - average}
                     </td>
-                  </tr>
-                );
-              }),
-            ];
-          })}
-        </tbody>
-      </ProfileTable>
-    </ProfileBody>
-  </Card>
-);
+                  </tr>,
+                  ...factors.map((factor, index) => {
+                    const first = scores[factor.index] ?? 50;
+                    const second = round2Scores?.[factor.index];
+                    const isFirstSubCategory =
+                      index === 0 || factors[index - 1]?.subCategory !== factor.subCategory;
+                    return (
+                      <tr key={factor.name}>
+                        {isFirstSubCategory && (
+                          <td
+                            rowSpan={subCategoryCounts.get(factor.subCategory)}
+                            style={{ color: '#4B5563' }}
+                          >
+                            {formatSubCategoryName(factor.subCategory)}
+                          </td>
+                        )}
+                        <td>{factor.name}</td>
+                        <td style={{ position: 'relative', padding: 0 }}>
+                          <LinearCell />
+                        </td>
+                        <td>{first}</td>
+                        <td>{second ?? '-'}</td>
+                        <td>
+                          {second == null
+                            ? '-'
+                            : second - first > 0
+                              ? `+${second - first}`
+                              : second - first}
+                        </td>
+                      </tr>
+                    );
+                  }),
+                ];
+              })}
+            </tbody>
+          </ProfileTable>
+          {chartAreaWidth > 0 && (
+            <svg
+              aria-hidden='true'
+              style={{
+                position: 'absolute',
+                top: PROFILE_HEADER_HEIGHT,
+                left: PROFILE_LABEL_WIDTH,
+                width: chartAreaWidth,
+                height: PROFILE_ROWS.length * PROFILE_ROW_HEIGHT,
+                overflow: 'visible',
+                pointerEvents: 'none',
+              }}
+            >
+              {selectedRound === 2 &&
+                round2Scores &&
+                firstProfileLines.map(({ domain, points }) => (
+                  <g key={`first-${domain.id}`}>
+                    <polyline
+                      points={points
+                        .map(({ x, y }) => `${(x / 100) * chartAreaWidth},${y}`)
+                        .join(' ')}
+                      fill='none'
+                      stroke='#D1D5DB'
+                      strokeWidth='1.5'
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                    />
+                    {points.map(({ x, y }, index) => (
+                      <circle
+                        key={index}
+                        cx={(x / 100) * chartAreaWidth}
+                        cy={y}
+                        r='3.5'
+                        fill='#D1D5DB'
+                        stroke='#FFFFFF'
+                        strokeWidth='1.5'
+                      />
+                    ))}
+                  </g>
+                ))}
+              {currentProfileLines.map(({ domain, points }) => (
+                <g key={domain.id}>
+                  <polyline
+                    points={points
+                      .map(({ x, y }) => `${(x / 100) * chartAreaWidth},${y}`)
+                      .join(' ')}
+                    fill='none'
+                    stroke={domain.color}
+                    strokeWidth='2'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                  />
+                  {points.map(({ x, y }, index) => (
+                    <circle
+                      key={index}
+                      cx={(x / 100) * chartAreaWidth}
+                      cy={y}
+                      r='5'
+                      fill={domain.color}
+                      stroke='#FFFFFF'
+                      strokeWidth='2'
+                    />
+                  ))}
+                </g>
+              ))}
+            </svg>
+          )}
+        </ProfileTableWrap>
+      </ProfileBody>
+    </Card>
+  );
+};
