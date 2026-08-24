@@ -7,6 +7,7 @@ import { fetchStudentExamList } from '@features/exam/api/examService';
 import type { StudentExamItem } from '@features/exam/types';
 import type { StudentExamListItem, ExamStatus } from '../types';
 import { mapExamStatus } from '../types';
+import { withRecommendedMonth, deriveLockedStatus } from '../utils/deriveExamMeta';
 
 const TOTAL_QUESTIONS = 124;
 
@@ -33,13 +34,14 @@ function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListIte
   };
 }
 
-/** 학생/게스트 검사 목록 조회 */
+/** 학생/게스트 검사 목록 조회 — 권장월/잠금 파생까지 적용해서 반환 */
 export async function getStudentExamList(
   claId: string,
   stdtId: string,
 ): Promise<StudentExamListItem[]> {
   const items = await fetchStudentExamList(claId, stdtId);
-  return items.map((item) => mapToListItem(item, item.ordNo));
+  const mapped = items.map((item) => mapToListItem(item, item.ordNo));
+  return withRecommendedMonth(deriveLockedStatus(mapped));
 }
 
 /** 검사 상태 라벨 */
@@ -82,6 +84,18 @@ export function getStatusColor(status: ExamStatus): {
       return { bg: '#f3f4f6', text: '#9ca3af' };
     default:
       return { bg: '#f3f4f6', text: '#4b5563' };
+  }
+}
+
+/** 상태별 안내 문구 — 프로토타입 EXAM_STATUS_MESSAGE와 동일 문구 사용 */
+export function getStatusMessage(status: ExamStatus): string | null {
+  switch (status) {
+    case 'not_submitted':
+      return '응시 기간이 종료되어 미응시 처리되었어요';
+    case 'locked':
+      return '1차를 제출하면 응시할 수 있어요';
+    default:
+      return null;
   }
 }
 
