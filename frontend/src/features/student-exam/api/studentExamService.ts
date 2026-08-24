@@ -29,6 +29,7 @@ function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListIte
     totalQuestions: TOTAL_QUESTIONS,
     submittedAt: item.submDt,
     hasResult: status === 'result_ready',
+    recommendedMonth: '',
   };
 }
 
@@ -54,6 +55,8 @@ export function getStatusLabel(status: ExamStatus): string {
       return '결과 확인 가능';
     case 'not_submitted':
       return '미응시';
+    case 'locked':
+      return '잠금';
     default:
       return '알 수 없음';
   }
@@ -75,6 +78,8 @@ export function getStatusColor(status: ExamStatus): {
       return { bg: '#dcfce7', text: '#15803d' };
     case 'not_submitted':
       return { bg: '#fee2e2', text: '#b91c1c' };
+    case 'locked':
+      return { bg: '#f3f4f6', text: '#9ca3af' };
     default:
       return { bg: '#f3f4f6', text: '#4b5563' };
   }

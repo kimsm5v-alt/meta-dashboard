@@ -8,7 +8,8 @@ export type ExamStatus =
   | 'in_progress' // 응시 중 (eakAt=Y, submAt=N, dgnssAt=Y)
   | 'completed' // 제출 완료 (eakAt=Y, submAt=Y, dgnssAt=Y)
   | 'result_ready' // 검사 종료 (eakAt=Y, submAt=Y, dgnssAt=N)
-  | 'not_submitted'; // 미제출 (eakAt=N, submAt=N, dgnssAt=N)
+  | 'not_submitted' // 미제출 (eakAt=N, submAt=N, dgnssAt=N)
+  | 'locked'; // 잠금 — 프론트엔드 파생 상태(같은 paperIdx의 1차가 미제출인데 2차가 조회되는 경우), 백엔드 응답엔 없음
 
 /** 학생 검사 목록 아이템 (UI용) */
 export interface StudentExamListItem {
@@ -32,6 +33,8 @@ export interface StudentExamListItem {
   submittedAt: string | null;
   /** 결과 조회 가능 여부 */
   hasResult: boolean;
+  /** 권장 응시 월 — 프론트엔드 파생(고정값), 백엔드 응답엔 없음 */
+  recommendedMonth: string;
 }
 
 /** API 응답 → UI 상태 변환 헬퍼 */
