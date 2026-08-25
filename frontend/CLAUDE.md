@@ -264,28 +264,5 @@ await apiClient.post('/student/exam', { examData });
 
 ---
 
-## 🐛 알려진 이슈
-
-- **SDK CDN**: 로드 실패 시 앱 전체 사용 불가
-- **SSE 연결**: 네트워크 불안정 시 3회 재시도 후 종료
-- **useProfileCheck 창 포커스 리페치**: `refetchOnWindowFocus: true`이며 쿼리가 stale한 상태에서 탭 복귀 시 `/api/v1/user/status` 재호출(`staleTime: 5분`)
-
----
-
-## 📊 진행 상태
-
-```
-SSO 인증 통합     ████████████ 100%
-SSE 알림 시스템   ████████████ 100%
-Cookie 보안       ████████████ 100%
-FSD Pages 정리    ████████████ 100%
-TanStack Query    ████████████ 100%
-번들 분리          ████████████ 100%
-PDF 다운로드      ████████████ 100%
-student-exam FSD  ████████████ 100%
-```
-
----
-
-**최종 업데이트**: 2026-08-10 (UI/UX 구현 기준 우선순위 추가)
+**최종 업데이트**: 2026-08-25 (v2 IA 개편 현황·알려진 이슈·진행 상태는 wiki로 이전 — `wiki/projects/meta-dashboard/V2_검사영역_구현_인수인계_2026_08.md` 참고)
 **빌드 상태**: ✅ Production ready (tsc -b --noEmit 에러 없음)
