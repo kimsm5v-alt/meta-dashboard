@@ -52,7 +52,6 @@ const InsightText = styled.p`
   color: ${({ theme }) => theme.colors.gray[700]};
   font-size: 0.9375rem;
   line-height: 1.7;
-  white-space: pre-line;
 `;
 
 const spin = keyframes`
@@ -142,7 +141,7 @@ export const SelfregInsightSummary = ({ scores }: { scores: number[] }) => {
             <Spinner /> AI가 분석 중입니다...
           </SummaryLoading>
         ) : (
-          <InsightText>{summary}</InsightText>
+          <InsightText>{summary.replace(/\s+/g, ' ')}</InsightText>
         )}
         <Tags>
           {strengths.map((factor) => (
