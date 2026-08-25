@@ -362,7 +362,7 @@ const MySelfregResultContent: React.FC<ContentProps> = ({ round, prevRound, isCo
 
 export const MySelfregResultPage: React.FC = () => {
   const navigate = useNavigate();
-  const { resultId: _resultId } = useParams<{ resultId: string }>();
+  const { resultId } = useParams<{ resultId: string }>();
   const { user } = useAuth();
 
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
@@ -411,14 +411,19 @@ export const MySelfregResultPage: React.FC = () => {
 
         let foundResult: SelfregResult | null = null;
         let foundDgnssIds: { round1?: number; round2?: number } = {};
+        let foundRound: 1 | 2 = 1;
+        const requestedResultId = resultId ? Number(resultId) : null;
 
         for (const group of groups) {
           try {
             // paperIdx='2' 자기조절학습검사만 필터링
             const examList = await getStudentExamList(group.claId, user.stdtId);
             const selfregExams = examList.filter((e) => e.paperIdx === '2');
-            const hasResults = selfregExams.some((e) => e.hasResult);
-            if (!hasResults) continue;
+            const resultExams = selfregExams.filter((e) => e.hasResult);
+            const requestedExam = requestedResultId
+              ? resultExams.find((e) => e.dgnssResultId === requestedResultId)
+              : resultExams[0];
+            if (!requestedExam) continue;
 
             const r1Exam = selfregExams.find((e) => e.hasResult && e.ordNo === 1);
             const r2Exam = selfregExams.find((e) => e.hasResult && e.ordNo === 2);
@@ -477,6 +482,7 @@ export const MySelfregResultPage: React.FC = () => {
               rounds,
             };
             foundDgnssIds = { round1: r1Exam?.dgnssId, round2: r2Exam?.dgnssId };
+            foundRound = requestedExam.ordNo === 2 ? 2 : 1;
             break;
           } catch (err) {
             console.warn(`[MySelfregResultPage] 그룹 ${group.claId} 조회 실패:`, err);
@@ -484,11 +490,16 @@ export const MySelfregResultPage: React.FC = () => {
         }
 
         if (!foundResult) {
-          setError('아직 시행한 자기조절학습검사 결과가 없습니다.');
+          setError(
+            requestedResultId
+              ? '선택한 검사 결과를 찾을 수 없습니다.'
+              : '아직 시행한 자기조절학습검사 결과가 없습니다.',
+          );
           return;
         }
 
         setDgnssIds(foundDgnssIds);
+        setViewMode(foundRound === 2 ? 'round2' : 'round1');
         setResult(foundResult);
       } catch (err) {
         console.error('[MySelfregResultPage] 결과 로드 실패:', err);
@@ -499,7 +510,7 @@ export const MySelfregResultPage: React.FC = () => {
     };
 
     loadResult();
-  }, [user]);
+  }, [resultId, user]);
 
   useEffect(() => {
     window.scrollTo(0, 0);

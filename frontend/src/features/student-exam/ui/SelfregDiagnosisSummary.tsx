@@ -4,19 +4,44 @@ import { keyframes } from '@emotion/react';
 import { Sparkles } from 'lucide-react';
 import { generateSelfregAISummary } from '@shared/utils/selfregSummaryGenerator';
 
-const Container = styled.div``;
+const Container = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.md};
+  align-items: flex-start;
+  padding: ${({ theme }) => theme.spacing.lg};
+  background: linear-gradient(to bottom right, #eef2ff, #dbeafe, #f3e8ff);
+  border-radius: ${({ theme }) => theme.radius.xl};
+  border: 1px solid #e0e7ff;
+  box-shadow: ${({ theme }) => theme.shadows.sm};
+`;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.xs};
 `;
 
 const HeaderIcon = styled(Sparkles)`
   width: 1.25rem;
   height: 1.25rem;
-  color: #6366f1;
+  color: white;
+`;
+
+const IconCircle = styled.div`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #6366f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+`;
+
+const SummaryBody = styled.div`
+  flex: 1;
+  min-width: 0;
 `;
 
 const HeaderTitle = styled.h3`
@@ -29,7 +54,7 @@ const LoadingContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 8rem;
+  min-height: 3rem;
 `;
 
 const LoadingContent = styled.div`
@@ -57,15 +82,6 @@ const LoadingText = styled.p`
   color: ${({ theme }) => theme.colors.gray[500]};
 `;
 
-const SummaryCard = styled.div`
-  position: relative;
-  background: linear-gradient(to bottom right, #eef2ff, #dbeafe, #f3e8ff);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  border: 1px solid #e0e7ff;
-  box-shadow: ${({ theme }) => theme.shadows.sm};
-`;
-
 const SummaryText = styled.p`
   color: ${({ theme }) => theme.colors.gray[800]};
   white-space: pre-line;
@@ -82,39 +98,45 @@ export const SelfregDiagnosisSummary: React.FC<SelfregDiagnosisSummaryProps> = (
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
     const fetchSummary = async () => {
       setLoading(true);
       try {
         const aiSummary = await generateSelfregAISummary(tScores);
-        setSummary(aiSummary);
+        if (active) setSummary(aiSummary);
       } catch {
-        setSummary('총평을 생성하는 중 오류가 발생했습니다.');
+        if (active) setSummary('총평을 생성하는 중 오류가 발생했습니다.');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     fetchSummary();
+    return () => {
+      active = false;
+    };
   }, [tScores]);
 
   return (
     <Container>
-      <Header>
+      <IconCircle>
         <HeaderIcon />
-        <HeaderTitle>AI 분석 총평</HeaderTitle>
-      </Header>
-      {loading ? (
-        <LoadingContainer>
-          <LoadingContent>
-            <Spinner />
-            <LoadingText>AI가 분석 중입니다...</LoadingText>
-          </LoadingContent>
-        </LoadingContainer>
-      ) : (
-        <SummaryCard>
+      </IconCircle>
+      <SummaryBody>
+        <Header>
+          <HeaderTitle>AI 분석 총평</HeaderTitle>
+        </Header>
+        {loading ? (
+          <LoadingContainer>
+            <LoadingContent>
+              <Spinner />
+              <LoadingText>AI가 분석 중입니다...</LoadingText>
+            </LoadingContent>
+          </LoadingContainer>
+        ) : (
           <SummaryText>{summary}</SummaryText>
-        </SummaryCard>
-      )}
+        )}
+      </SummaryBody>
     </Container>
   );
 };

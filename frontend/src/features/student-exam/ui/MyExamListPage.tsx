@@ -11,11 +11,9 @@ import {
   Play,
   RotateCcw,
   RefreshCw as Restart,
-  CheckCircle2,
-  Clock,
+  BarChart3,
   Lock,
-  XCircle,
-  Brain,
+  Info,
 } from 'lucide-react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
@@ -37,10 +35,7 @@ import type { StudentExamListItem } from '../types';
 interface ExamSectionDef {
   paperIdx: string;
   label: string;
-  desc: string;
   color: string;
-  bgColor: string;
-  borderColor: string;
   resultPath: (exam: StudentExamListItem) => string;
 }
 
@@ -48,19 +43,13 @@ const EXAM_SECTIONS: ExamSectionDef[] = [
   {
     paperIdx: '1',
     label: '학습종합검사',
-    desc: '학습심리·정서 38개 요인 종합 분석',
     color: '#7c3aed',
-    bgColor: '#ede9fe',
-    borderColor: '#c4b5fd',
     resultPath: (e) => `/student/result/comprehensive/${e.dgnssResultId}`,
   },
   {
     paperIdx: '2',
     label: '자기조절학습검사',
-    desc: '자기조절 학습전략 20개 요인 분석',
     color: '#009F88',
-    bgColor: '#f0fdf4',
-    borderColor: '#86efac',
     resultPath: (e) => `/student/result/selfreg/${e.dgnssResultId}`,
   },
 ];
@@ -86,28 +75,6 @@ const PageHeader = styled.div`
   justify-content: space-between;
 `;
 
-const HeaderLeft = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-`;
-
-const HeaderIconBox = styled.div`
-  width: 40px;
-  height: 40px;
-  border-radius: ${({ theme }) => theme.radius.xl};
-  background: #ede9fe;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  svg {
-    width: 20px;
-    height: 20px;
-    color: ${({ theme }) => theme.colors.primary[600]};
-  }
-`;
-
 const PageTitle = styled.h1`
   font-size: ${({ theme }) => theme.typography.fontSize['2xl']};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
@@ -125,8 +92,8 @@ const RefreshButton = styled.button`
   align-items: center;
   gap: ${({ theme }) => theme.spacing.xs};
   padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  background: none;
-  border: none;
+  background: white;
+  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
   border-radius: ${({ theme }) => theme.radius.lg};
   color: ${({ theme }) => theme.colors.text.secondary};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
@@ -204,26 +171,30 @@ const ExamList = styled.div`
   gap: ${({ theme }) => theme.spacing.md};
 `;
 
-const ExamCardRoot = styled.div`
+const ExamCardRoot = styled.div<{ $isLocked: boolean }>`
   background: ${({ theme }) => theme.colors.background.paper};
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   border-radius: ${({ theme }) => theme.radius.xl};
-  padding: ${({ theme }) => theme.spacing.xl};
+  padding: ${({ theme }) => theme.spacing.md};
   display: flex;
   align-items: flex-start;
   gap: ${({ theme }) => theme.spacing.md};
+  opacity: ${({ $isLocked }) => ($isLocked ? 0.6 : 1)};
+  box-shadow:
+    0 1px 2px rgba(20, 24, 44, 0.04),
+    0 6px 20px rgba(20, 24, 44, 0.05);
 `;
 
-const ExamIconBox = styled.div<{ $status: string }>`
-  width: 48px;
-  height: 48px;
+const ExamIconBox = styled.div<{ $paperIdx: string; $isLocked: boolean }>`
+  width: 56px;
+  height: 56px;
   border-radius: ${({ theme }) => theme.radius.xl};
-  background: ${({ $status }) =>
-    $status === 'completed' || $status === 'result_ready'
-      ? '#dcfce7'
-      : $status === 'in_progress'
-        ? '#fef3c7'
-        : '#ede9fe'};
+  background: ${({ $paperIdx, $isLocked }) =>
+    $isLocked
+      ? '#eef0f4'
+      : $paperIdx === '2'
+        ? 'rgba(0, 159, 136, 0.12)'
+        : 'rgba(157, 83, 225, 0.12)'};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -232,12 +203,8 @@ const ExamIconBox = styled.div<{ $status: string }>`
   svg {
     width: 24px;
     height: 24px;
-    color: ${({ $status }) =>
-      $status === 'completed' || $status === 'result_ready'
-        ? '#16a34a'
-        : $status === 'in_progress'
-          ? '#d97706'
-          : '#7c3aed'};
+    color: ${({ $paperIdx, $isLocked }) =>
+      $isLocked ? '#9ca3af' : $paperIdx === '2' ? '#009f88' : '#9d53e1'};
   }
 `;
 
@@ -257,17 +224,28 @@ const ExamName = styled.h3`
   color: ${({ theme }) => theme.colors.text.primary};
 `;
 
+const ExamTitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  flex-wrap: wrap;
+`;
+
 const RecommendedMonthTag = styled.span`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   color: ${({ theme }) => theme.colors.text.secondary};
-  margin-left: ${({ theme }) => theme.spacing.xs};
+  background: ${({ theme }) => theme.colors.gray[100]};
+  padding: 2px 8px;
+  border-radius: ${({ theme }) => theme.radius.full};
 `;
 
 /** 같은 회차(ordNo)의 검사가 2개 이상(N:N 다중 그룹 소속) 조회될 때만 표시되는 소속 반 보조 라벨 */
 const GroupLabelTag = styled.span`
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   color: ${({ theme }) => theme.colors.text.secondary};
-  margin-left: ${({ theme }) => theme.spacing.xs};
+  background: ${({ theme }) => theme.colors.gray[100]};
+  padding: 2px 8px;
+  border-radius: ${({ theme }) => theme.radius.full};
 `;
 
 const StatusMessage = styled.p`
@@ -279,18 +257,12 @@ const StatusMessage = styled.p`
 const StatusBadge = styled.span<{ $bg: string; $text: string }>`
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   padding: 3px 10px;
   border-radius: 9999px;
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
   background: ${({ $bg }) => $bg};
   color: ${({ $text }) => $text};
-
-  svg {
-    width: 12px;
-    height: 12px;
-  }
 `;
 
 const ExamActions = styled.div`
@@ -299,7 +271,10 @@ const ExamActions = styled.div`
   margin-top: ${({ theme }) => theme.spacing.sm};
 `;
 
-const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'success' }>`
+const ActionButton = styled.button<{
+  $variant?: 'primary' | 'secondary' | 'success';
+  $paperIdx?: string;
+}>`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.xs};
@@ -309,13 +284,20 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'succe
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
   cursor: pointer;
   transition: all ${({ theme }) => theme.transitions.fast};
-  border: none;
-  background: ${({ $variant, theme }) =>
+  border: ${({ $variant, theme }) =>
     $variant === 'success'
-      ? '#dcfce7'
+      ? '2px solid #16a34a'
       : $variant === 'secondary'
-        ? theme.colors.gray[100]
-        : theme.colors.primary[600]};
+        ? `1px solid ${theme.colors.gray[300]}`
+        : 'none'};
+  background: ${({ $variant, $paperIdx }) =>
+    $variant === 'success'
+      ? 'transparent'
+      : $variant === 'secondary'
+        ? 'white'
+        : $paperIdx === '2'
+          ? '#009f88'
+          : '#9d53e1'};
   color: ${({ $variant, theme }) =>
     $variant === 'success'
       ? '#15803d'
@@ -324,12 +306,14 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'succe
         : 'white'};
 
   &:hover {
-    background: ${({ $variant, theme }) =>
+    background: ${({ $variant, $paperIdx, theme }) =>
       $variant === 'success'
-        ? '#bbf7d0'
+        ? 'rgba(22, 163, 74, 0.08)'
         : $variant === 'secondary'
           ? theme.colors.gray[200]
-          : theme.colors.primary[700]};
+          : $paperIdx === '2'
+            ? '#008a76'
+            : '#8a45c8'};
   }
 
   svg {
@@ -339,12 +323,22 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'succe
 `;
 
 const HintBox = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: ${({ theme }) => theme.spacing.sm};
   background: #eff6ff;
   border: 1px solid #bfdbfe;
   border-radius: ${({ theme }) => theme.radius.lg};
   padding: ${({ theme }) => theme.spacing.md};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   color: #1d4ed8;
+
+  svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
 `;
 
 const SectionBlock = styled.div`
@@ -353,49 +347,39 @@ const SectionBlock = styled.div`
   gap: ${({ theme }) => theme.spacing.md};
 `;
 
-const SectionHeader = styled.div<{ $color: string; $bg: string; $border: string }>`
+const SectionHeader = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.sm};
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  background: ${({ $bg }) => $bg};
-  border: 1px solid ${({ $border }) => $border};
-  border-radius: ${({ theme }) => theme.radius.xl};
 `;
 
-const SectionIconBox = styled.div<{ $color: string }>`
-  width: 32px;
-  height: 32px;
-  border-radius: ${({ theme }) => theme.radius.lg};
-  background: ${({ $color }) => $color}22;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  svg {
-    width: 16px;
-    height: 16px;
-    color: ${({ $color }) => $color};
-  }
+const SectionDot = styled.span<{ $color: string }>`
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: ${({ $color }) => $color};
 `;
 
 const SectionLabel = styled.span<{ $color: string }>`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-size: ${({ theme }) => theme.typography.fontSize.lg};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ $color }) => $color};
-`;
-
-const SectionDesc = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  margin-left: ${({ theme }) => theme.spacing.xs};
+  color: ${({ theme }) => theme.colors.text.primary};
 `;
 
 const SectionCount = styled.span<{ $color: string }>`
-  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: ${({ theme }) => theme.radius.full};
+  background: ${({ theme }) => theme.colors.gray[100]};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ $color }) => $color};
+  color: ${({ theme }) => theme.colors.gray[600]};
+`;
+
+const SectionLine = styled.div`
+  height: 1px;
+  flex: 1;
+  background: ${({ theme }) => theme.colors.gray[200]};
 `;
 
 const SectionsStack = styled.div`
@@ -430,29 +414,11 @@ const ExamCard: React.FC<ExamCardProps> = ({
   const statusLabel = getStatusLabel(exam.status);
   const statusMessage = getStatusMessage(exam.status);
 
-  const renderStatusIcon = () => {
-    switch (exam.status) {
-      case 'waiting':
-        return <Clock />;
-      case 'in_progress':
-        return <RotateCcw />;
-      case 'completed':
-      case 'result_ready':
-        return <CheckCircle2 />;
-      case 'not_submitted':
-        return <XCircle />;
-      case 'locked':
-        return <Lock />;
-      default:
-        return null;
-    }
-  };
-
   const renderActions = () => {
     switch (exam.status) {
       case 'waiting':
         return (
-          <ActionButton onClick={() => onStartExam(exam)}>
+          <ActionButton $paperIdx={exam.paperIdx} onClick={() => onStartExam(exam)}>
             <Play />
             검사 시작
           </ActionButton>
@@ -460,7 +426,7 @@ const ExamCard: React.FC<ExamCardProps> = ({
       case 'in_progress':
         return (
           <>
-            <ActionButton onClick={() => onResumeExam(exam)}>
+            <ActionButton $paperIdx={exam.paperIdx} onClick={() => onResumeExam(exam)}>
               <RotateCcw />
               이어하기
             </ActionButton>
@@ -471,11 +437,7 @@ const ExamCard: React.FC<ExamCardProps> = ({
           </>
         );
       case 'completed':
-        return (
-          <ActionButton $variant='secondary' disabled>
-            결과 대기 중
-          </ActionButton>
-        );
+        return null;
       case 'result_ready':
         return (
           <ActionButton
@@ -484,7 +446,7 @@ const ExamCard: React.FC<ExamCardProps> = ({
               onViewResult(exam);
             }}
           >
-            <CheckCircle2 />
+            <BarChart3 />
             결과 보기
           </ActionButton>
         );
@@ -494,21 +456,20 @@ const ExamCard: React.FC<ExamCardProps> = ({
   };
 
   return (
-    <ExamCardRoot>
-      <ExamIconBox $status={exam.status}>
-        <ClipboardList />
+    <ExamCardRoot $isLocked={exam.status === 'locked'}>
+      <ExamIconBox $paperIdx={exam.paperIdx} $isLocked={exam.status === 'locked'}>
+        {exam.status === 'locked' ? <Lock /> : <ClipboardList />}
       </ExamIconBox>
       <ExamCardBody>
         <ExamCardTop>
-          <div>
+          <ExamTitleRow>
             <ExamName>{exam.name}</ExamName>
             {groupLabel && <GroupLabelTag>{groupLabel}</GroupLabelTag>}
             {exam.recommendedMonth && (
               <RecommendedMonthTag>권장 {exam.recommendedMonth}</RecommendedMonthTag>
             )}
-          </div>
+          </ExamTitleRow>
           <StatusBadge $bg={statusColor.bg} $text={statusColor.text}>
-            {renderStatusIcon()}
             {statusLabel}
           </StatusBadge>
         </ExamCardTop>
@@ -524,6 +485,7 @@ const ExamCard: React.FC<ExamCardProps> = ({
 // ============================================================
 
 interface ExamGroupInfo {
+  claId: string;
   schoolName?: string;
   schoolCode?: string;
   schoolLevel?: string;
@@ -592,6 +554,7 @@ export const MyExamListPage: React.FC = () => {
               seen.add(e.dgnssResultId);
               flat.push(e);
               groupMap.set(e.dgnssResultId, {
+                claId: group.claId,
                 schoolName: group.schoolName,
                 schoolCode: group.schoolCode,
                 schoolLevel: group.schoolLevel as string | undefined,
@@ -604,7 +567,7 @@ export const MyExamListPage: React.FC = () => {
         }
 
         setExamGroupMap(groupMap);
-        setExams(deriveLockedStatus(flat));
+        setExams(deriveLockedStatus(flat, (exam) => groupMap.get(exam.dgnssResultId)?.claId ?? ''));
       } catch {
         setExams([]);
       } finally {
@@ -654,15 +617,10 @@ export const MyExamListPage: React.FC = () => {
   return (
     <PageRoot>
       <PageHeader>
-        <HeaderLeft>
-          <HeaderIconBox>
-            <ClipboardList />
-          </HeaderIconBox>
-          <div>
-            <PageTitle>나의 검사</PageTitle>
-            <PageSubtitle>검사 현황을 확인하고 응시하세요</PageSubtitle>
-          </div>
-        </HeaderLeft>
+        <div>
+          <PageTitle>나의 검사</PageTitle>
+          <PageSubtitle>검사 현황을 확인하고 응시하세요</PageSubtitle>
+        </div>
         <RefreshButton onClick={() => loadExams(true)} disabled={isRefreshing}>
           <RefreshCw />
           새로고침
@@ -691,17 +649,13 @@ export const MyExamListPage: React.FC = () => {
             }
             return (
               <SectionBlock key={def.paperIdx}>
-                <SectionHeader $color={def.color} $bg={def.bgColor} $border={def.borderColor}>
-                  <SectionIconBox $color={def.color}>
-                    {def.paperIdx === '2' ? <Brain /> : <ClipboardList />}
-                  </SectionIconBox>
-                  <div>
-                    <SectionLabel $color={def.color}>{def.label}</SectionLabel>
-                    <SectionDesc>{def.desc}</SectionDesc>
-                  </div>
+                <SectionHeader>
+                  <SectionDot $color={def.color} />
+                  <SectionLabel $color={def.color}>{def.label}</SectionLabel>
                   <SectionCount $color={def.color}>
                     {completedCount}/{sectionExams.length} 완료
                   </SectionCount>
+                  <SectionLine />
                 </SectionHeader>
                 <ExamList>
                   {sectionExams.map((exam) => {
@@ -731,8 +685,11 @@ export const MyExamListPage: React.FC = () => {
       )}
 
       <HintBox>
-        선생님이 검사를 시작하면 응시할 수 있고, 중간에 멈춰도 저장되어 이어서 할 수 있어요. 제출 후
-        선생님이 검사를 종료하면 결과를 확인할 수 있어요.
+        <Info />
+        <span>
+          선생님이 검사를 시작하면 응시할 수 있고, 중간에 멈춰도 저장되어 이어서 할 수 있어요. 제출
+          후 선생님이 검사를 종료하면 결과를 확인할 수 있어요.
+        </span>
       </HintBox>
     </PageRoot>
   );

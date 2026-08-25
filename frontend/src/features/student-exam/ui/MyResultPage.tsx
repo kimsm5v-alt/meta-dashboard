@@ -47,12 +47,6 @@ const ContentRoot = styled.div`
   gap: ${({ theme }) => theme.spacing.xl};
 `;
 
-const Section = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
-`;
-
 const SectionCard = styled.div`
   background: ${({ theme }) => theme.colors.background.paper};
   border-radius: ${({ theme }) => theme.radius.lg};
@@ -63,6 +57,13 @@ const SectionCard = styled.div`
 
 const SectionContent = styled.div`
   padding: ${({ theme }) => theme.spacing.xl};
+`;
+
+const SectionTitle = styled.h2`
+  padding: ${({ theme }) => theme.spacing.lg} ${({ theme }) => theme.spacing.xl};
+  font-size: ${({ theme }) => theme.typography.fontSize.lg};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  color: ${({ theme }) => theme.colors.text.primary};
 `;
 
 const SectionDivider = styled.div`
@@ -87,17 +88,14 @@ const MyResultContent: React.FC<MyResultContentProps> = ({
 
   return (
     <ContentRoot>
-      <Section>
-        <SectionCard>
-          <SectionContent>
-            <DiagnosisSummary tScores={assessment.tScores} studentType={assessment.predictedType} />
-          </SectionContent>
-          <SectionDivider />
-          <SectionContent>
-            <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
-          </SectionContent>
-        </SectionCard>
-      </Section>
+      <DiagnosisSummary tScores={assessment.tScores} studentType={assessment.predictedType} />
+      <SectionCard>
+        <SectionTitle>38개 요인 분석</SectionTitle>
+        <SectionDivider />
+        <SectionContent>
+          <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
+        </SectionContent>
+      </SectionCard>
 
       {/* 2. 학습 유형 알아보기 */}
       {/* <Section>
@@ -414,7 +412,7 @@ const ErrorButton = styled.button`
 
 export const MyResultPage: React.FC = () => {
   const navigate = useNavigate();
-  const { resultId: _resultId } = useParams<{ resultId: string }>();
+  const { resultId } = useParams<{ resultId: string }>();
   const { user } = useAuth();
 
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
@@ -468,24 +466,26 @@ export const MyResultPage: React.FC = () => {
           schoolLevel: SCHOOL_LEVEL_MAP[g.schoolLevel] ?? '중등',
         }));
 
-        // 모든 그룹에서 검사 목록 조회
-        let hasAnyResults = false;
-        const allAnalyses: Array<{
+        const requestedResultId = resultId ? Number(resultId) : null;
+        let selectedGroup: {
           claId: string;
           analysis: Awaited<ReturnType<typeof fetchStudentFullAnalysis>>;
           schoolLevel: SchoolLevel;
           dgnssIds: { round1?: number; round2?: number };
-        }> = [];
+          selectedRound: 1 | 2;
+        } | null = null;
 
         for (const group of groupsToCheck) {
           try {
             const examList = await getStudentExamList(group.claId, user.stdtId);
-            const hasResults = examList.some((e) => e.hasResult === true);
+            const comprehensiveExams = examList.filter((e) => e.paperIdx === '1' && e.hasResult);
+            const requestedExam = requestedResultId
+              ? comprehensiveExams.find((e) => e.dgnssResultId === requestedResultId)
+              : comprehensiveExams[0];
 
-            if (hasResults) {
-              hasAnyResults = true;
-              const r1Exam = examList.find((e) => e.hasResult && e.ordNo === 1);
-              const r2Exam = examList.find((e) => e.hasResult && e.ordNo === 2);
+            if (requestedExam) {
+              const r1Exam = comprehensiveExams.find((e) => e.ordNo === 1);
+              const r2Exam = comprehensiveExams.find((e) => e.ordNo === 2);
               const groupDgnssIds = { round1: r1Exam?.dgnssId, round2: r2Exam?.dgnssId };
               const fullAnalysis = await fetchStudentFullAnalysis(
                 group.claId,
@@ -494,12 +494,14 @@ export const MyResultPage: React.FC = () => {
                 'Y',
               );
               if (fullAnalysis.round1 || fullAnalysis.round2) {
-                allAnalyses.push({
+                selectedGroup = {
                   claId: group.claId,
                   analysis: fullAnalysis,
                   schoolLevel: group.schoolLevel,
                   dgnssIds: groupDgnssIds,
-                });
+                  selectedRound: requestedExam.ordNo === 2 ? 2 : 1,
+                };
+                break;
               }
             }
           } catch (err) {
@@ -508,14 +510,17 @@ export const MyResultPage: React.FC = () => {
           }
         }
 
-        if (!hasAnyResults || allAnalyses.length === 0) {
-          setError('아직 시행한 검사 결과가 없습니다.');
+        if (!selectedGroup) {
+          setError(
+            requestedResultId
+              ? '선택한 검사 결과를 찾을 수 없습니다.'
+              : '아직 시행한 검사 결과가 없습니다.',
+          );
           return;
         }
 
-        // 첫 번째 그룹의 데이터 사용 (여러 그룹이 있으면 첫 번째 선택)
-        const selectedGroup = allAnalyses[0];
         setDgnssIds(selectedGroup.dgnssIds);
+        setViewMode(selectedGroup.selectedRound === 2 ? 'round2' : 'round1');
         const { analysis: fullAnalysis, schoolLevel } = selectedGroup;
 
         const assessments: Assessment[] = [];
@@ -546,7 +551,7 @@ export const MyResultPage: React.FC = () => {
     };
 
     loadResult();
-  }, [user]);
+  }, [resultId, user]);
 
   useEffect(() => {
     window.scrollTo(0, 0);

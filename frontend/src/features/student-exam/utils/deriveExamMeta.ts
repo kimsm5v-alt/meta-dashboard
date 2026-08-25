@@ -31,17 +31,21 @@ export function withRecommendedMonth(items: StudentExamListItem[]): StudentExamL
  * 단, 이미 제출/완료된 2차 항목은 1차 제출 여부와 무관하게 잠그지 않는다
  * (1차 미제출 후 2차만 완료한 학생의 결과가 가려지는 걸 방지).
  */
-export function deriveLockedStatus(items: StudentExamListItem[]): StudentExamListItem[] {
+export function deriveLockedStatus(
+  items: StudentExamListItem[],
+  getScopeKey: (item: StudentExamListItem) => string = () => '',
+): StudentExamListItem[] {
   const firstRoundSubmitted = new Set<string>();
   for (const item of items) {
     if (item.ordNo === 1 && (item.status === 'completed' || item.status === 'result_ready')) {
-      firstRoundSubmitted.add(item.paperIdx);
+      firstRoundSubmitted.add(`${getScopeKey(item)}:${item.paperIdx}`);
     }
   }
 
   return items.map((item) => {
     const alreadySubmitted = item.status === 'completed' || item.status === 'result_ready';
-    if (item.ordNo === 2 && !alreadySubmitted && !firstRoundSubmitted.has(item.paperIdx)) {
+    const firstRoundKey = `${getScopeKey(item)}:${item.paperIdx}`;
+    if (item.ordNo === 2 && !alreadySubmitted && !firstRoundSubmitted.has(firstRoundKey)) {
       return { ...item, status: 'locked' as const };
     }
     return item;

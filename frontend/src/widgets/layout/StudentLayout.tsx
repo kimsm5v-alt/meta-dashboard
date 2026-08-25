@@ -453,7 +453,7 @@ const StudentSidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const { user } = useAuth();
 
   const isResultPath = location.pathname.startsWith('/student/result');
-  const [isResultsOpen, setIsResultsOpen] = useState(isResultPath);
+  const [isResultsOpen, setIsResultsOpen] = useState(true);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

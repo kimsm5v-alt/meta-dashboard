@@ -538,6 +538,7 @@ const TypeBadgeDescription = styled.span`
 const LegendRow = styled.div`
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.75rem;
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   color: ${({ theme }) => theme.colors.gray[500]};
@@ -561,8 +562,6 @@ const LegendColorBox = styled.span<{ $color: string }>`
 `;
 
 const ChartContainer = styled.div`
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  border-radius: ${({ theme }) => theme.radius.lg};
   overflow: hidden;
 `;
 
@@ -672,7 +671,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({
 
       {/* ===== 요인 유형 배지 ===== */}
       <TypeBadge $isPositive={domain.isPositive}>
-        <span>{domain.isPositive ? '정적요인' : '부적요인'}</span>
+        <span>{domain.isPositive ? '정적 요인' : '부적 요인'}</span>
         <TypeBadgeSeparator>·</TypeBadgeSeparator>
         <TypeBadgeDescription>
           {domain.isPositive
@@ -683,7 +682,7 @@ export const FactorHeatmapSection: React.FC<FactorHeatmapSectionProps> = ({
 
       {/* ===== 범례 ===== */}
       <LegendRow>
-        <span>보라색 점선: T=50 (전국 평균)</span>
+        <span>점선: T=50 (전국 평균)</span>
         {isCompare && (
           <>
             <LegendSeparator>|</LegendSeparator>

@@ -6,19 +6,44 @@ import { generateAISummary, getSubCategoryResults } from '../../../shared/utils/
 import type { StudentType } from '../../../shared/types';
 import { Sparkles } from 'lucide-react';
 
-const Container = styled.div``;
+const Container = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.md};
+  align-items: flex-start;
+  padding: ${({ theme }) => theme.spacing.lg};
+  background: linear-gradient(to bottom right, #eef2ff, #dbeafe, #f3e8ff);
+  border-radius: ${({ theme }) => theme.radius.xl};
+  border: 1px solid #e0e7ff;
+  box-shadow: ${({ theme }) => theme.shadows.sm};
+`;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.xs};
 `;
 
 const HeaderIcon = styled(Sparkles)`
-  width: 1.25rem;
-  height: 1.25rem;
-  color: #6366f1;
+  width: 20px;
+  height: 20px;
+  color: white;
+`;
+
+const IconCircle = styled.div`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #6366f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+`;
+
+const SummaryBody = styled.div`
+  flex: 1;
+  min-width: 0;
 `;
 
 const HeaderTitle = styled.h3`
@@ -31,7 +56,7 @@ const LoadingContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 8rem;
+  min-height: 3rem;
 `;
 
 const LoadingContent = styled.div`
@@ -63,46 +88,11 @@ const LoadingText = styled.p`
   color: ${({ theme }) => theme.colors.gray[500]};
 `;
 
-const SummaryCard = styled.div`
-  position: relative;
-  background: linear-gradient(to bottom right, #eef2ff, #dbeafe, #f3e8ff);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  border: 1px solid #e0e7ff;
-  box-shadow: ${({ theme }) => theme.shadows.sm};
-`;
-
-const BadgeContainer = styled.div`
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-`;
-
-const Badge = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(4px);
-  border-radius: ${({ theme }) => theme.radius.full};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-  color: #6366f1;
-  border: 1px solid #c7d2fe;
-`;
-
-const BadgeIcon = styled(Sparkles)`
-  width: 0.75rem;
-  height: 0.75rem;
-`;
-
 const SummaryText = styled.p`
   color: ${({ theme }) => theme.colors.gray[800]};
   white-space: pre-line;
   line-height: 1.625;
   font-size: 15px;
-  padding-right: 5rem;
 `;
 
 interface DiagnosisSummaryProps {
@@ -115,46 +105,46 @@ export const DiagnosisSummary: React.FC<DiagnosisSummaryProps> = ({ tScores, stu
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
     const fetchSummary = async () => {
       setLoading(true);
       try {
         const subCategoryResults = getSubCategoryResults(tScores);
         const aiSummary = await generateAISummary(subCategoryResults, studentType);
-        setSummary(aiSummary);
+        if (active) setSummary(aiSummary);
       } catch {
-        setSummary('총평을 생성하는 중 오류가 발생했습니다.');
+        if (active) setSummary('총평을 생성하는 중 오류가 발생했습니다.');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     fetchSummary();
+    return () => {
+      active = false;
+    };
   }, [tScores, studentType]);
 
   return (
     <Container>
-      <Header>
+      <IconCircle>
         <HeaderIcon />
-        <HeaderTitle>AI 분석 총평</HeaderTitle>
-      </Header>
-      {loading ? (
-        <LoadingContainer>
-          <LoadingContent>
-            <Spinner />
-            <LoadingText>AI가 분석 중입니다...</LoadingText>
-          </LoadingContent>
-        </LoadingContainer>
-      ) : (
-        <SummaryCard>
-          <BadgeContainer>
-            <Badge>
-              <BadgeIcon />
-              <span>AI Insight</span>
-            </Badge>
-          </BadgeContainer>
+      </IconCircle>
+      <SummaryBody>
+        <Header>
+          <HeaderTitle>AI 분석 총평</HeaderTitle>
+        </Header>
+        {loading ? (
+          <LoadingContainer>
+            <LoadingContent>
+              <Spinner />
+              <LoadingText>AI가 분석 중입니다...</LoadingText>
+            </LoadingContent>
+          </LoadingContainer>
+        ) : (
           <SummaryText>{summary}</SummaryText>
-        </SummaryCard>
-      )}
+        )}
+      </SummaryBody>
     </Container>
   );
 };

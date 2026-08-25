@@ -35,9 +35,8 @@ function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListIte
 }
 
 /** 학생/게스트 검사 목록 조회 — 권장월 파생까지 적용해서 반환.
- * 잠금(locked) 파생은 여기서 하지 않는다 — 한 반(claId) 응답만으로는
- * 학생이 다른 반에서 1차를 제출했는지 알 수 없으므로, 여러 반을 병합한
- * 뒤(MyExamListPage.tsx의 loadExams)에 한 번만 적용해야 한다. */
+ * 잠금(locked) 파생은 여러 반 결과를 합친 뒤에도 반별 범위를 구분해야 하므로
+ * MyExamListPage.tsx의 loadExams에서 그룹 매핑과 함께 적용한다. */
 export async function getStudentExamList(
   claId: string,
   stdtId: string,
@@ -55,7 +54,7 @@ export function getStatusLabel(status: ExamStatus): string {
     case 'in_progress':
       return '진행중';
     case 'completed':
-      return '완료';
+      return '결과 대기중';
     case 'result_ready':
       return '결과 확인 가능';
     case 'not_submitted':
@@ -78,7 +77,7 @@ export function getStatusColor(status: ExamStatus): {
     case 'in_progress':
       return { bg: '#fef3c7', text: '#b45309' };
     case 'completed':
-      return { bg: '#f3f4f6', text: '#4b5563' };
+      return { bg: '#edeefc', text: '#5b5fe0' };
     case 'result_ready':
       return { bg: '#dcfce7', text: '#15803d' };
     case 'not_submitted':
@@ -93,6 +92,8 @@ export function getStatusColor(status: ExamStatus): {
 /** 상태별 안내 문구 — 프로토타입 EXAM_STATUS_MESSAGE와 동일 문구 사용 */
 export function getStatusMessage(status: ExamStatus): string | null {
   switch (status) {
+    case 'completed':
+      return '선생님이 검사를 종료하면 결과를 확인할 수 있어요';
     case 'not_submitted':
       return '응시 기간이 종료되어 미응시 처리되었어요';
     case 'locked':

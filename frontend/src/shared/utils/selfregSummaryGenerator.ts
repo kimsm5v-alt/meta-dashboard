@@ -10,6 +10,7 @@ import { SYSTEM_PROMPT_SELFREG_ANALYSIS } from '../data/aiPrompts';
 import { callAI } from '../services/ai';
 
 const SUMMARY_CACHE_PREFIX = 'ai_summary_selfreg_v1_';
+const pendingSummaries = new Map<string, Promise<string>>();
 
 const getLevel = (t: number): string => {
   if (t >= 70) return '매우높음';
@@ -52,6 +53,9 @@ export const generateSelfregAISummary = async (tScores: number[]): Promise<strin
   const cached = sessionStorage.getItem(cacheKey);
   if (cached) return cached;
 
+  const pending = pendingSummaries.get(cacheKey);
+  if (pending) return pending;
+
   const domainLines = SELFREG_DOMAIN_STRUCTURE.map((domain) => {
     const subs = domain.subCategories
       .map((sub) => {
@@ -68,23 +72,30 @@ ${domainLines.join('\n')}
 
 위 결과를 바탕으로 3줄 총평을 작성해 주세요.`;
 
-  const response = await callAI({
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT_SELFREG_ANALYSIS },
-      { role: 'user', content: userPrompt },
-    ],
-    temperature: 0.3,
-  });
+  const request = (async () => {
+    const response = await callAI({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT_SELFREG_ANALYSIS },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.3,
+    });
 
-  const result = parseAISummary(response.content);
-
-  if (response.success) {
-    try {
-      sessionStorage.setItem(cacheKey, result);
-    } catch {
-      // storage quota 초과 등 무시
+    const result = parseAISummary(response.content);
+    if (response.success) {
+      try {
+        sessionStorage.setItem(cacheKey, result);
+      } catch {
+        // storage quota 초과 등 무시
+      }
     }
-  }
+    return result;
+  })();
 
-  return result;
+  pendingSummaries.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    pendingSummaries.delete(cacheKey);
+  }
 };
