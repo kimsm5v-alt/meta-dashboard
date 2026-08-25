@@ -1,5 +1,5 @@
-import { ErrorBoundary } from 'react-error-boundary';
-import type { FallbackProps } from 'react-error-boundary';
+import { ErrorBoundary } from '@suspensive/react';
+import type { ErrorBoundaryFallbackProps } from '@suspensive/react';
 import type { ReactNode } from 'react';
 import { ApiError } from '@shared/api/client';
 
@@ -7,8 +7,8 @@ import { ApiError } from '@shared/api/client';
 // 에러 폴백 UI
 // ============================================================
 
-const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
-  const err = error instanceof Error ? error : new Error(String(error));
+const ErrorFallback = ({ error, reset }: ErrorBoundaryFallbackProps) => {
+  const err = error;
   const isApiError = err instanceof ApiError;
   const is401 = isApiError && err.statusCode === 401;
   const is403 = isApiError && err.statusCode === 403;
@@ -66,7 +66,7 @@ const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
         <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>{description}</p>
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
           <button
-            onClick={resetErrorBoundary}
+            onClick={reset}
             style={{
               padding: '10px 20px',
               borderRadius: '12px',
@@ -114,7 +114,7 @@ interface ErrorBoundaryProviderProps {
 export const ErrorBoundaryProvider = ({ children }: ErrorBoundaryProviderProps) => {
   return (
     <ErrorBoundary
-      FallbackComponent={ErrorFallback}
+      fallback={ErrorFallback}
       onError={(error, info) => {
         // TODO: 에러 로깅 서비스 연동 (Sentry 등)
         console.error('[ErrorBoundary]', error, info.componentStack);
