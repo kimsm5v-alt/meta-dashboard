@@ -744,7 +744,7 @@ export const SelfregStudentDashboardPage: React.FC<SelfregStudentDashboardPagePr
 
       {/* Content */}
       <ContentRoot>
-        <SelfregInsightSummary studentName={student?.name ?? '학생'} scores={current.tScores} />
+        <SelfregInsightSummary scores={current.tScores} />
         <TabGroup>
           {[
             { mode: 'round1' as ViewMode, label: '1차 검사' },

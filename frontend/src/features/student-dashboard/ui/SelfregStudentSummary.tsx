@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
+import { keyframes } from '@emotion/react';
 import { Sparkles } from 'lucide-react';
 import { SELFREG_FACTOR_DEFINITIONS } from '@shared/data/selfregFactors';
-import { SELFREG_FACTOR_DEFINITIONS_TEXT } from '@shared/data/selfregFactorDefinitions';
+import { generateSelfregAISummary } from '@shared/utils/selfregSummaryGenerator';
 
 const InsightSection = styled.section``;
 
@@ -50,6 +52,30 @@ const InsightText = styled.p`
   color: ${({ theme }) => theme.colors.gray[700]};
   font-size: 0.9375rem;
   line-height: 1.7;
+  white-space: pre-line;
+`;
+
+const spin = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+const SummaryLoading = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  color: ${({ theme }) => theme.colors.gray[500]};
+  font-size: 0.875rem;
+`;
+
+const Spinner = styled.span`
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid ${({ theme }) => theme.colors.primary[200]};
+  border-top-color: ${({ theme }) => theme.colors.primary[600]};
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
 `;
 
 const Tags = styled.div`
@@ -69,18 +95,35 @@ const Tag = styled.span`
   font-weight: 600;
 `;
 
-export const SelfregInsightSummary = ({
-  studentName,
-  scores,
-}: {
-  studentName: string;
-  scores: number[];
-}) => {
+export const SelfregInsightSummary = ({ scores }: { scores: number[] }) => {
+  const [summary, setSummary] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const ranked = [...SELFREG_FACTOR_DEFINITIONS].sort(
     (a, b) => (scores[b.index] ?? 50) - (scores[a.index] ?? 50),
   );
   const strengths = ranked.slice(0, 2);
   const weaknesses = ranked.slice(-2).reverse();
+
+  useEffect(() => {
+    let active = true;
+
+    const loadSummary = async () => {
+      setIsLoading(true);
+      try {
+        const result = await generateSelfregAISummary(scores);
+        if (active) setSummary(result);
+      } catch {
+        if (active) setSummary('총평을 생성하는 중 오류가 발생했습니다.');
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    void loadSummary();
+    return () => {
+      active = false;
+    };
+  }, [scores]);
 
   return (
     <InsightSection>
@@ -94,14 +137,13 @@ export const SelfregInsightSummary = ({
         <p>AI가 분석한 학습 특성 요약입니다</p>
       </InsightHeader>
       <InsightCard>
-        <InsightText>
-          {studentName} 학생은 {strengths.map((factor) => factor.name).join('과 ')}에서 상대적인
-          강점을 보입니다. {weaknesses.map((factor) => factor.name).join('과 ')}은 보완이 필요한
-          요인으로,{' '}
-          {SELFREG_FACTOR_DEFINITIONS_TEXT[weaknesses[0]?.name ?? ''] ??
-            '학습 과정에서 구체적인 실행 방법을 함께 점검하는 지원'}
-          이 도움이 될 수 있습니다.
-        </InsightText>
+        {isLoading ? (
+          <SummaryLoading>
+            <Spinner /> AI가 분석 중입니다...
+          </SummaryLoading>
+        ) : (
+          <InsightText>{summary}</InsightText>
+        )}
         <Tags>
           {strengths.map((factor) => (
             <Tag key={factor.name}>#{factor.name} 강점</Tag>
