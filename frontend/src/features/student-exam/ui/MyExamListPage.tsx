@@ -43,7 +43,7 @@ const EXAM_SECTIONS: ExamSectionDef[] = [
   {
     paperIdx: '1',
     label: '학습종합검사',
-    color: '#7c3aed',
+    color: '#9d53e1',
     resultPath: (e) => `/student/result/comprehensive/${e.dgnssResultId}`,
   },
   {
@@ -66,7 +66,7 @@ const pulse = keyframes`
 const PageRoot = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.xl};
+  gap: 24px;
 `;
 
 const PageHeader = styled.div`
@@ -76,33 +76,36 @@ const PageHeader = styled.div`
 `;
 
 const PageTitle = styled.h1`
-  font-size: ${({ theme }) => theme.typography.fontSize['2xl']};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  color: #1e2230;
 `;
 
 const PageSubtitle = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  margin-top: 2px;
+  font-size: 16px;
+  line-height: 24px;
+  color: #565c6e;
+  margin-top: 4px;
 `;
 
 const RefreshButton = styled.button`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.xs};
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  background: white;
-  border: 1px solid ${({ theme }) => theme.colors.gray[300]};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  gap: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
   cursor: pointer;
   transition: all ${({ theme }) => theme.transitions.fast};
 
   &:hover {
-    background: ${({ theme }) => theme.colors.gray[100]};
+    background: #f9fafb;
   }
 
   &:disabled {
@@ -119,7 +122,7 @@ const RefreshButton = styled.button`
 const SkeletonStack = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
+  gap: 12px;
 `;
 
 const SkeletonCard = styled.div`
@@ -131,7 +134,7 @@ const SkeletonCard = styled.div`
 
 const EmptyState = styled.div`
   background: ${({ theme }) => theme.colors.background.paper};
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border: 1px solid #f3f4f6;
   border-radius: ${({ theme }) => theme.radius.xl};
   padding: 48px ${({ theme }) => theme.spacing.xl};
   text-align: center;
@@ -168,12 +171,12 @@ const EmptyDesc = styled.p`
 const ExamList = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
+  gap: 12px;
 `;
 
 const ExamCardRoot = styled.div<{ $isLocked: boolean }>`
   background: ${({ theme }) => theme.colors.background.paper};
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border: 1px solid #f3f4f6;
   border-radius: ${({ theme }) => theme.radius.xl};
   padding: ${({ theme }) => theme.spacing.md};
   display: flex;
@@ -216,12 +219,14 @@ const ExamCardTop = styled.div`
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: ${({ theme }) => theme.spacing.sm};
+  margin-bottom: 4px;
 `;
 
 const ExamName = styled.h3`
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  color: #111827;
 `;
 
 const ExamTitleRow = styled.div`
@@ -232,35 +237,45 @@ const ExamTitleRow = styled.div`
 `;
 
 const RecommendedMonthTag = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  background: ${({ theme }) => theme.colors.gray[100]};
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #f3f4f6;
   padding: 2px 8px;
   border-radius: ${({ theme }) => theme.radius.full};
 `;
 
 /** 같은 회차(ordNo)의 검사가 2개 이상(N:N 다중 그룹 소속) 조회될 때만 표시되는 소속 반 보조 라벨 */
 const GroupLabelTag = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  background: ${({ theme }) => theme.colors.gray[100]};
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #f3f4f6;
   padding: 2px 8px;
   border-radius: ${({ theme }) => theme.radius.full};
 `;
 
 const StatusMessage = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  margin-top: ${({ theme }) => theme.spacing.sm};
+  font-size: 14px;
+  line-height: 20px;
+  color: #6b7280;
+  margin: 4px 0 12px;
 `;
 
 const StatusBadge = styled.span<{ $bg: string; $text: string }>`
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  padding: 4px 10px;
   border-radius: 9999px;
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
   background: ${({ $bg }) => $bg};
   color: ${({ $text }) => $text};
 `;
@@ -268,7 +283,7 @@ const StatusBadge = styled.span<{ $bg: string; $text: string }>`
 const ExamActions = styled.div`
   display: flex;
   gap: ${({ theme }) => theme.spacing.sm};
-  margin-top: ${({ theme }) => theme.spacing.sm};
+  margin-top: 12px;
 `;
 
 const ActionButton = styled.button<{
@@ -277,18 +292,19 @@ const ActionButton = styled.button<{
 }>`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.xs};
-  padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.md}`};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
   cursor: pointer;
   transition: all ${({ theme }) => theme.transitions.fast};
-  border: ${({ $variant, theme }) =>
+  border: ${({ $variant }) =>
     $variant === 'success'
       ? '2px solid #16a34a'
       : $variant === 'secondary'
-        ? `1px solid ${theme.colors.gray[300]}`
+        ? '1px solid #d1d5db'
         : 'none'};
   background: ${({ $variant, $paperIdx }) =>
     $variant === 'success'
@@ -298,59 +314,61 @@ const ActionButton = styled.button<{
         : $paperIdx === '2'
           ? '#009f88'
           : '#9d53e1'};
-  color: ${({ $variant, theme }) =>
-    $variant === 'success'
-      ? '#15803d'
-      : $variant === 'secondary'
-        ? theme.colors.gray[700]
-        : 'white'};
+  color: ${({ $variant }) =>
+    $variant === 'success' ? '#16a34a' : $variant === 'secondary' ? '#374151' : 'white'};
 
   &:hover {
-    background: ${({ $variant, $paperIdx, theme }) =>
+    background: ${({ $variant, $paperIdx }) =>
       $variant === 'success'
         ? 'rgba(22, 163, 74, 0.08)'
         : $variant === 'secondary'
-          ? theme.colors.gray[200]
+          ? '#f9fafb'
           : $paperIdx === '2'
             ? '#008a76'
             : '#8a45c8'};
   }
 
   svg {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
   }
 `;
 
 const HintBox = styled.div`
   display: flex;
   align-items: flex-start;
-  gap: ${({ theme }) => theme.spacing.sm};
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  gap: 12px;
+  background: #e7f0fe;
+  border: 1px solid #bcd4fc;
   border-radius: ${({ theme }) => theme.radius.lg};
   padding: ${({ theme }) => theme.spacing.md};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: #1d4ed8;
+  color: #1e40af;
+
+  span {
+    font-size: 14px;
+    line-height: 20px;
+  }
 
   svg {
     width: 20px;
     height: 20px;
     flex-shrink: 0;
     margin-top: 2px;
+    color: #2563eb;
   }
 `;
 
 const SectionBlock = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
+  gap: 12px;
 `;
 
 const SectionHeader = styled.div`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: 12px;
 `;
 
 const SectionDot = styled.span<{ $color: string }>`
@@ -362,24 +380,26 @@ const SectionDot = styled.span<{ $color: string }>`
 `;
 
 const SectionLabel = styled.span<{ $color: string }>`
-  font-size: ${({ theme }) => theme.typography.fontSize.lg};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 700;
+  color: #111827;
 `;
 
 const SectionCount = styled.span<{ $color: string }>`
   padding: 2px 8px;
   border-radius: ${({ theme }) => theme.radius.full};
-  background: ${({ theme }) => theme.colors.gray[100]};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ theme }) => theme.colors.gray[600]};
+  background: #f3f4f6;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: #4b5563;
 `;
 
 const SectionLine = styled.div`
   height: 1px;
   flex: 1;
-  background: ${({ theme }) => theme.colors.gray[200]};
+  background: #e5e7eb;
 `;
 
 const SectionsStack = styled.div`
@@ -473,8 +493,8 @@ const ExamCard: React.FC<ExamCardProps> = ({
             {statusLabel}
           </StatusBadge>
         </ExamCardTop>
-        <ExamActions>{renderActions()}</ExamActions>
         {statusMessage && <StatusMessage>{statusMessage}</StatusMessage>}
+        <ExamActions>{renderActions()}</ExamActions>
       </ExamCardBody>
     </ExamCardRoot>
   );

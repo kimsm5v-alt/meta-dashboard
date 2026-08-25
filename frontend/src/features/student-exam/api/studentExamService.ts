@@ -73,15 +73,15 @@ export function getStatusColor(status: ExamStatus): {
 } {
   switch (status) {
     case 'waiting':
-      return { bg: '#dbeafe', text: '#1d4ed8' };
+      return { bg: '#eff6ff', text: '#2563eb' };
     case 'in_progress':
-      return { bg: '#fef3c7', text: '#b45309' };
+      return { bg: '#fffbeb', text: '#d97706' };
     case 'completed':
-      return { bg: '#edeefc', text: '#5b5fe0' };
+      return { bg: '#eef2ff', text: '#4f46e5' };
     case 'result_ready':
-      return { bg: '#dcfce7', text: '#15803d' };
+      return { bg: '#f0fdf4', text: '#16a34a' };
     case 'not_submitted':
-      return { bg: '#fee2e2', text: '#b91c1c' };
+      return { bg: '#fef2f2', text: '#dc2626' };
     case 'locked':
       return { bg: '#f3f4f6', text: '#9ca3af' };
     default:
