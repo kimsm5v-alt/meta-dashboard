@@ -2,12 +2,25 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initAuth } from '@shared/lib/authClient';
 import { App } from '@app/App';
+import { BootstrapErrorScreen } from '@app/providers/BootstrapErrorScreen';
 
 const PUBLIC_PATHS = ['/', '/guest', '/group/join', '/join', '/exam', '/login'];
+const AUTH_SDK_TIMEOUT_MS = 10_000;
+
+const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(
+        () => reject(new Error('Authentication SDK initialization timed out.')),
+        timeoutMs,
+      );
+    }),
+  ]);
 
 async function bootstrap() {
   // 1) SDK 초기화
-  const auth = await initAuth();
+  const auth = await withTimeout(initAuth(), AUTH_SDK_TIMEOUT_MS);
 
   // 2) 콜백 처리 + 세션 복구
   const result = await auth.handleRedirectResult();
@@ -52,4 +65,7 @@ async function bootstrap() {
   );
 }
 
-bootstrap();
+bootstrap().catch((error: unknown) => {
+  console.error('[Bootstrap]', error);
+  createRoot(document.getElementById('root')!).render(<BootstrapErrorScreen />);
+});
