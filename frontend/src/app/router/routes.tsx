@@ -331,9 +331,9 @@ export const AppRoutes = () => (
       <Route path='/student/lesson/:accessKey' element={<LessonJoinPage />} />
     </Route>
 
-    {/* 개발용 — 프로덕션 빌드에서도 접근 가능하지만 링크 미노출 */}
-    <Route path='/dev/errors' element={<ErrorTestPage />} />
-    <Route path='/dev/sse' element={<SsePocPage />} />
+    {/* 개발용 오류 검증 화면은 운영 번들에서 노출하지 않는다. */}
+    {import.meta.env.DEV && <Route path='/dev/errors' element={<ErrorTestPage />} />}
+    {import.meta.env.DEV && <Route path='/dev/sse' element={<SsePocPage />} />}
 
     {/* <Route path='/lesson/library' element={<LessonLibraryPage />} /> */}
 
