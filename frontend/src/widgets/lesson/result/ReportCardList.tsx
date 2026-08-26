@@ -33,7 +33,7 @@ const Grid = styled.div`
   margin-top: ${({ theme }) => theme.spacing.md};
   display: grid;
   grid-template-columns: 1fr;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: 12px;
 
   @media (min-width: ${({ theme }) => theme.breakpoints.sm}) {
     grid-template-columns: repeat(2, 1fr);
@@ -45,6 +45,10 @@ const Grid = styled.div`
 
   @media (min-width: ${({ theme }) => theme.breakpoints.lg}) {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  @media (min-width: ${({ theme }) => theme.breakpoints.xl}) {
+    grid-template-columns: repeat(5, 1fr);
   }
 `;
 
