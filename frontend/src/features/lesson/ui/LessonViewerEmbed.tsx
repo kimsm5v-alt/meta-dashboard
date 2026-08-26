@@ -82,7 +82,6 @@ const LessonViewerEmbedReady = ({
       embedBaseUrl: ENV.EVERYCLASS_EMBED_BASE_URL,
       mode: 'viewer',
       slideId: setId,
-      // getToken: () => fetchEmbedToken({ scope: 'viewer', slideId }),
       locale: 'ko-KR',
       theme: embedTheme,
       features: { userRole },

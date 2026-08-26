@@ -18,6 +18,7 @@ import {
   UserCircle,
   UserCog,
   type LucideIcon,
+  Presentation,
 } from 'lucide-react';
 import styled from '@emotion/styled';
 import { BellWithPanel } from '@features/notifications';
@@ -55,6 +56,7 @@ const studentNavItems: NavItem[] = [
   { icon: Users, label: '나의 그룹', path: '/student/groups', external: true },
   { icon: ClipboardList, label: '검사하기', path: '/student/exams' },
   { icon: BarChart3, label: '결과보기', path: '/student/result', subItems: RESULT_SUB_ITEMS },
+  { icon: Presentation, label: '수업 결과보기', path: '/student/lesson/result' },
 ];
 
 // ============================================================

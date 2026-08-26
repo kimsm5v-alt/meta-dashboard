@@ -20,6 +20,11 @@
 | **추가계획12** | 학생용 `/student/lesson/:accessKey` — `GET /entry` + `POST /participations` → `content.lcmsSetId` embed | Phase A·B 구현 완료 (2026-08-21) · 임시 `:setId` path 제거 · PATCH/submit/result는 후속 |
 | **추가계획13** | 전체 자료실 CMS 목록 무한 스크롤(`pageSize=10`) + 나의 자료 `GET /api/v1/library-items` 페이지네이션 | Phase A 구현 완료 / Phase B 구현 완료 |
 | **추가계획14** | 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) · `handleSaved` POST/PATCH · editor navigate `libraryItemId` state | **Phase 1 구현 완료** (2026-08-20) · Phase 2(페이지네이션) 구현 완료 |
+| **추가계획15** | `LessonResultPage` 수업 결과보기 UI (StatusPanel + 필터 + 카드) | 구현 완료 (2026-08-26) |
+| **추가계획16** | `LessonResultPage` API 연동 (`GET /api/v1/activities`) | 구현 완료 (2026-08-26) |
+| **추가계획17** | `ReportCard` 리포트 버튼 → 리포트 상세 페이지 (`ReportDetail` UI) | 구현 완료 (2026-08-26) |
+| **추가계획18** | `LessonReportDetailPage` 리포트 상세 API 연동 | 계획 수립 (상세 스펙 보류) |
+| **추가계획19** | 학생 `StudentLessonResultPage` — prototype `StudentResourcePage` UI/UX 동등 구현 | 구현 완료 (2026-08-26) |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `GET .../api/sets` (`brandId=18`, `serviceType=131132`) | 추가계획8 스펙 확정 · 필터 매핑 미적용 |
@@ -4558,3 +4563,1581 @@ navigate(`/lesson/editor/${item.id}${location.search}`, {
 
 **작성일**: 2026-08-19 (초안) · **갱신**: 2026-08-20 (Phase 1 + navigate state PATCH-only)  
 **상태**: Phase 1 구현 완료 · Phase 2(페이지네이션) 구현 완료
+
+---
+
+# 추가계획15 — LessonResultPage 수업 결과보기 UI 구현
+
+> **준수**: `frontend/AGENTS.md` (FSD Lite, Emotion, 서버/로컬 상태 분리)  
+> **프로토타입 참조**: UI/동작만. 코드 구조·Tailwind 복제 금지
+
+## 1. 목표
+
+`prototype/src/features/resources/components/report/ResultsView.tsx`의 화면 구성을  
+`frontend/src/pages/lesson/LessonResultPage.tsx`의 `ContentsHeader` 아래에 동등하게 구현한다.
+
+구현 대상은 `ResultsView` 중 **현황 + 목록 화면** (`rdReport`가 없는 경우의 브랜치):
+
+```
+ContentsHeader (기존 — 제목 + 설명 문구)
+├── StatusPanel   ← 학습현황 패널 (숫자 타일 3개 + 미제출 학생 목록)
+├── ReportFilterChips ← 상태 필터 칩 (전체 / 진행중 / 진행예정 / 완료)
+└── ReportCardGrid    ← 리포트 카드 그리드
+```
+
+> `ReportDetail` (rdReport 상세 화면) 은 이번 범위에서 제외한다. **→ 추가계획17**.
+
+## 2. 현황
+
+`LessonResultPage.tsx`에 `ContentsHeader`(제목·설명)만 존재하며, 그 아래에 아무것도 없다.
+
+## 3. 프로토타입 → frontend 변환 기준
+
+| prototype | frontend 변환 방향 |
+|-----------|-------------------|
+| Tailwind 클래스로 스타일 | Emotion `styled` 또는 인라인 `css` prop |
+| `useResources()` Context (scope, rsFilter 등) | API 준비 전이므로 로컬 상태(`useState`)로 대체. 추후 API 연동 시 React Query로 전환 |
+| `scopedReports(scope)` 목업 데이터 | 빈 배열(`[]`) 또는 목업 타입만 정의. 실제 API 연동은 후속 계획으로 분리 |
+| `lucide-react` 아이콘 | 기존 프로젝트에서 사용 중이면 그대로 사용, 아니면 동등한 공통 아이콘 대체 |
+| Tailwind 색상 토큰(`primary-*`, `amber-*` 등) | `app/styles/theme.ts` 토큰 우선. 없는 토큰은 가장 가까운 기존 토큰으로 대응 |
+
+## 4. FSD 배치
+
+```text
+pages/lesson/LessonResultPage.tsx         ← 라우트 조합 (ContentsHeader + 3개 섹션 조합)
+widgets/lesson-result/
+  ├── StatusPanel.tsx                     ← 학습현황 패널 (숫자 타일 + 미제출 학생)
+  ├── ReportFilterChips.tsx               ← 상태 필터 칩
+  └── ReportCardGrid.tsx                  ← 카드 그리드 + 빈 상태
+features/lesson-result/                   ← (향후 API 연동 시 query/model 위치)
+```
+
+`AGENTS.md` 아키텍처 규칙에 따라:
+- `pages`는 조합만 담당하고 styled component를 최소화한다.
+- 복잡한 UI 조각은 `widgets/lesson-result/` 아래에 위치시킨다.
+
+## 5. UI 스펙 (프로토타입 동등)
+
+### 5.1 StatusPanel
+
+- 최상단에 `TrendingUp` 아이콘 + "전체 학습현황" 제목 (향후 반 선택 시 "{반} 학습현황")
+- 숫자 타일 3개 균등 배치:
+  - 이번 주 진행 N건
+  - 진행 중 활동 N건 (강조색 배경)
+  - 미제출 N건
+- 하단 미제출 학생 태그 목록 (높이 고정, 넘치면 내부 스크롤)
+  - 학생 태그 클릭 시 선택/해제 토글
+  - 선택 시 `ReportFilterChips`를 "진행중"으로 자동 전환
+  - 학생 태그 선택 상태는 `LessonResultPage`에서 `highlightStudent` 로컬 상태로 소유
+
+### 5.2 ReportFilterChips
+
+- 필터 값: `전체` / `진행중` / `진행예정` / `완료`
+- 각 칩에 해당 상태 활동 수 뱃지 표시
+- 건수가 0이고 `전체`가 아니면 `disabled`
+- 활성 칩은 primary 색상, 비활성은 기본 border 스타일
+
+### 5.3 ReportCardGrid
+
+- 빈 상태: 점선 테두리 박스 + "해당 상태의 수업 결과가 없습니다." 문구
+- 데이터 있을 때: `grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4` (반응형)
+- 각 카드(`ReportCard`)에는:
+  - 썸네일
+  - 제목 (1줄 말줄임)
+  - 상태 뱃지 (`진행중` / `진행예정` / `완료`) + 반 뱃지
+  - 날짜 범위 + 참여 N/배정 N명 (진행예정이면 "시작 전")
+  - "리포트" 버튼 (향후 상세 화면 진입)
+  - `highlightStudent`가 미제출인 카드에 amber 테두리 강조
+
+## 6. 상태 관리 방침
+
+`AGENTS.md` 상태 배치 우선순위에 따라:
+
+| 상태 | 배치 | 이유 |
+|------|------|------|
+| `highlightStudent` | `LessonResultPage` 로컬 상태 | StatusPanel ↔ ReportCardGrid가 공유, API 상태 아님 |
+| `rsFilter` (필터 선택) | `LessonResultPage` 로컬 상태 | 단일 페이지 내 UI 상태, URL 상태는 추후 고려 |
+| 리포트 목록 데이터 | React Query (추후 API 연동 시) | 현재는 빈 배열 목업으로 대체 |
+
+> `useResources()` Context는 prototype 전용이며 frontend에 가져오지 않는다.  
+> 필요한 상태는 props로 전달하거나, 추후 API 연동 시 React Query로 대체한다.
+
+## 7. 타입 정의
+
+API 연동 전까지 임시 타입을 `widgets/lesson-result/types.ts` 또는 인라인으로 정의한다.
+
+```ts
+export type RsFilter = '전체' | '진행중' | '진행예정' | '완료';
+
+export interface ReportItem {
+  id: string;
+  title: string;
+  rstatus: '진행중' | '진행예정' | '완료';
+  cls: string;        // 반 이름
+  start: string;      // ISO 날짜
+  end: string;        // ISO 날짜
+  thumb?: string;
+  students: Array<{
+    studentId: string;
+    studentName: string;
+    statusCd: number; // 2: 미제출, 3: 제출, 5: 완료
+  }>;
+}
+```
+
+## 8. 하지 말 것
+
+- prototype의 `useResources()` Context나 `scopedReports()` 유틸을 그대로 복사하지 않는다.
+- Tailwind 클래스를 frontend에 사용하지 않는다 (`className="mt-5 grid-cols-3 ..."` 금지).
+- 임의 hex 색상(`#F59E0B` 등)을 흩뿌리지 않고 `theme.ts` 토큰을 우선 사용한다.
+- `ReportDetail` (상세 화면)은 이번 구현 범위에 포함하지 않는다. **→ 추가계획17**.
+- `any` 타입을 사용하지 않는다.
+- 요청과 무관한 기존 코드를 리팩터링하지 않는다.
+
+## 9. 구현 순서 (체크리스트)
+
+- [x] `widgets/lesson-result/` 디렉터리 생성 및 타입 정의
+- [x] `StatusPanel.tsx` — 숫자 타일 + 미제출 학생 태그 (Emotion)
+- [x] `ReportFilterChips.tsx` — 필터 칩 (Emotion)
+- [x] `ReportCard.tsx` — 단일 카드 (Emotion)
+- [x] `ReportCardGrid.tsx` — 그리드 + 빈 상태 (Emotion)
+- [x] `LessonResultPage.tsx` — `highlightStudent` / `rsFilter` 상태 추가, 위젯 조합
+- [x] `npx tsc -b --noEmit` + `npx eslint <변경 파일>` 통과 확인
+
+## 10. 완료 기준
+
+- `LessonResultPage` 진입 시 `ContentsHeader` 아래에 StatusPanel → ReportFilterChips → ReportCardGrid 순으로 렌더된다.
+- 빈 데이터 상태에서 각 섹션이 정상적으로 렌더된다 (빈 상태 메시지 표시).
+- TypeScript 에러 없음, ESLint 에러 없음.
+- prototype 화면과 레이아웃·문구·상호작용이 동등함을 육안으로 확인한다.
+
+## 11. 참고 파일
+
+| 역할 | 경로 |
+|------|------|
+| 프로토타입 결과보기 뷰 | `prototype/src/features/resources/components/report/ResultsView.tsx` |
+| 프로토타입 StatusPanel | `prototype/src/features/resources/components/report/StatusPanel.tsx` |
+| 프로토타입 ReportFilterChips | `prototype/src/features/resources/components/report/ReportFilterChips.tsx` |
+| 프로토타입 ReportCardGrid | `prototype/src/features/resources/components/report/ReportCardGrid.tsx` |
+| 프로토타입 ReportCard | `prototype/src/features/resources/components/report/ReportCard.tsx` |
+| 구현 대상 페이지 | `frontend/src/pages/lesson/LessonResultPage.tsx` |
+| 아키텍처 지침 | `frontend/AGENTS.md` |
+| 테마 토큰 | `frontend/src/app/styles/theme.ts` |
+
+---
+
+**작성일**: 2026-08-26  
+**상태**: 구현 완료 (2026-08-26)
+
+## 12. 구현 결과 (2026-08-26)
+
+### 신규 파일
+
+| 파일 | 역할 |
+|------|------|
+| `src/widgets/lesson-result/types.ts` | `RsFilter`, `ReportStatus`, `ReportStudent`, `ReportItem` 타입 |
+| `src/widgets/lesson-result/StatusPanel.tsx` | 학습현황 패널 (숫자 타일 3개 + 미제출 학생 태그) |
+| `src/widgets/lesson-result/ReportFilterChips.tsx` | 상태 필터 칩 (전체/진행중/진행예정/완료) |
+| `src/widgets/lesson-result/ReportCard.tsx` | 리포트 카드 (썸네일·뱃지·날짜·버튼) |
+| `src/widgets/lesson-result/ReportCardGrid.tsx` | 반응형 카드 그리드 + 빈 상태 |
+| `src/widgets/lesson-result/index.ts` | 위젯 barrel export |
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/pages/lesson/LessonResultPage.tsx` | `highlightStudent` / `rsFilter` 로컬 상태 추가, 3개 위젯 조합 |
+
+### 검증 결과
+
+- `npx tsc -b --noEmit` — 에러 없음
+- `npx eslint` — 에러 없음 (Prettier 포맷팅 `--fix` 적용)
+
+### 비고
+
+- 현재 `EMPTY_REPORTS = []`로 빈 데이터 상태. 추후 API 연동 시 React Query 훅으로 교체.
+- `ReportDetail` (상세 화면) 은 이번 범위에서 제외됨. **→ 추가계획17**.
+
+---
+
+# 추가계획16 — LessonResultPage API 연동 (StatusPanel + ReportCardList)
+
+> **선행**: 추가계획15 (LessonResultPage UI 구현) 완료 후 진행  
+> **준수**: `frontend/AGENTS.md` (FSD Lite, Emotion, React Query, 서버/로컬 상태 분리)  
+> **API 참조**: `GET /api/v1/activities` (superplatform-lms)
+
+---
+
+## 1. 목표
+
+추가계획15에서 빈 배열(`EMPTY_REPORTS = []`)로 구현된 `StatusPanel`과 `ReportCardList`(현재 `ReportCardGrid`)를  
+`GET /api/v1/activities` API와 연동해 실제 데이터를 표시한다.
+
+---
+
+## 2. API 분석 — `GET /api/v1/activities`
+
+### 2.1 사용 가능한 Query Parameters
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `keyword` | string | 제목 부분 일치, 대소문자 무시 |
+| `lifecycleStatus` | enum | `DRAFT` / `PUBLISHED` / `CLOSED` (저장된 상태) |
+| `availability` | enum | `NOT_AVAILABLE` / `NOT_STARTED` / `OPEN` / `CLOSED` (계산된 상태, 매 요청마다 서버 계산) |
+| `from` | ISO-8601 | 만든 시각 기준 `[from, to)`. 참여 가능 기간이 아님 |
+| `to` | ISO-8601 | 만든 시각 기준 `[from, to)`. 참여 가능 기간이 아님 |
+| `openFrom` | ISO-8601 | 참여 가능 기간이 이 구간과 겹치는 활동 |
+| `openTo` | ISO-8601 | 참여 가능 기간이 이 구간과 겹치는 활동 |
+| `lcmsSetIds` | string | 반복 파라미터, OR 매칭 |
+| `labels` | string[] | 반복 파라미터, AND 매칭 |
+| `page` | int | 0부터 (기본 `0`) |
+| `size` | int | 최대 100 (기본 `20`) |
+| `sort` | string | `createdAt` / `updatedAt` / `title` / `id` + `,asc\|desc` |
+| `withTotal` | boolean | `true`일 때만 `totalElements`·`totalPages` 포함 |
+
+### 2.2 응답 타입
+
+```ts
+// PageResponse<ActivitySummary>
+interface PageResponse<T> {
+  content: T[];
+  page: number;        // 0-based
+  size: number;
+  hasNext: boolean;    // 다음 페이지 존재 여부
+  totalElements?: number; // withTotal=true일 때만
+  totalPages?: number;    // withTotal=true일 때만
+}
+
+interface ActivitySummary {
+  // id, title, lifecycleStatus, availability, openAt, closeAt, createdAt 등
+  // items[] 는 없음 (목록 최적화)
+  availability: 'NOT_AVAILABLE' | 'NOT_STARTED' | 'OPEN' | 'CLOSED';
+  // ... 기타 필드
+}
+```
+
+> **주의**: 목록 응답에는 `items[]`(문항 목록)가 없다. 문항이 필요하면 단건 조회를 사용한다.  
+> **주의**: `availability`는 계산값이라 저장되지 않는다. 시간이 지나면 저절로 바뀐다.
+
+---
+
+## 3. StatusPanel API 연동 분석
+
+### 3.1 이번 주 진행 (이번 주 배포 건수)
+
+**API 호출**
+
+```
+GET /api/v1/activities?openFrom=<주_시작_ISO>&openTo=<주_끝_ISO>&withTotal=true&size=1
+```
+
+- `openFrom`: 이번 주 월요일 00:00:00 (UTC 변환)
+- `openTo`: 다음 주 월요일 00:00:00 (UTC 변환, exclusive)
+- `withTotal=true`: `totalElements` 포함
+- `size=1`: 건수만 필요하므로 실제 데이터는 최소화
+
+**응답에서 사용할 값**: `totalElements`
+
+> `openFrom`/`openTo`는 "참여 가능 기간이 이 구간과 겹치는 활동"을 필터링한다.  
+> `from`/`to`(생성 시각 기준)와 달리, 이번 주에 실제로 배포되어 참여 가능한 활동 수를 조회할 수 있다.
+
+**주 범위 계산 (프론트엔드)**
+
+```ts
+const getThisWeekRange = () => {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=일, 1=월, ...
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+  const nextMonday = new Date(monday);
+  nextMonday.setDate(monday.getDate() + 7);
+  return {
+    openFrom: monday.toISOString(),
+    openTo: nextMonday.toISOString(),
+  };
+};
+```
+
+### 3.2 진행 중 활동
+
+**API 호출**
+
+```
+GET /api/v1/activities?availability=OPEN&withTotal=true&size=1
+```
+
+**응답에서 사용할 값**: `totalElements`
+
+- `size=1`: 건수만 필요
+- ReportCardList의 "진행중" 탭과 데이터는 공유하지 않는다 (ReportCardList는 별도 무한스크롤 쿼리)
+
+### 3.3 미제출 / 미제출 학생 목록 — 보류
+
+**미제출 학생 수**를 구하려면 각 OPEN 활동마다 `GET /api/v1/activities/{id}/progress`를 별도 호출해야 한다.
+
+- `ActivityProgress.rows`에서 `status !== 'SUBMITTED'` 인 학생이 미제출에 해당
+- `assignedCount`는 `ASSIGNED` 활동에만 존재하며 `OPEN` 활동에는 아예 없음 → 모집단 파악 불가
+- 진행중 활동 N개 × 1회 API 호출 → 성능 이슈
+
+**결론**: 단일 API로 미제출 학생 수를 집계하는 방법이 없으므로 **구현 보류**.  
+`StatusPanel`의 "미제출 N건" 타일과 "미제출 학생" 태그 목록은 API 연동 전까지 현행(목업/빈 상태) 유지.
+
+---
+
+## 4. ReportCardList API 연동 분석
+
+### 4.1 필터 매핑
+
+| UI 필터 (`RsFilter`) | API `availability` 파라미터 |
+|---|---|
+| `'전체'` | 파라미터 미지정 (전체 조회) |
+| `'진행중'` | `availability=OPEN` |
+| `'진행예정'` | `availability=NOT_STARTED` |
+| `'완료'` | `availability=CLOSED` |
+
+### 4.2 클라이언트 필터링 vs. 서버 필터링 — 효율 판단
+
+**옵션 A: 서버 필터링 (필터별 API 호출)**  
+필터 탭 전환 시 `availability` query param을 달리해서 API를 새로 호출한다.
+
+| 항목 | 내용 |
+|---|---|
+| 무한스크롤 호환성 | 탭별로 독립적인 `page` 기준을 유지할 수 있어 자연스럽게 호환됨 |
+| 데이터 정확성 | 각 필터에 해당하는 항목만 정확히 가져옴 |
+| 탭 전환 비용 | 탭 전환마다 API 호출. React Query 캐싱으로 재전환 시 빠름 |
+| 탭별 카운트 표시 | `withTotal=true` 추가 시 가능하나 쿼리 비용 증가 |
+
+**옵션 B: 클라이언트 필터링 (한 번에 전체 조회 후 `availability` 필드로 분기)**  
+한 번에 전체를 가져와서 `content[].availability` 값으로 클라이언트에서 분기한다.
+
+| 항목 | 내용 |
+|---|---|
+| 무한스크롤 호환성 | **충돌함.** 예: `size=20`으로 가져왔을 때 진행중 0건이어도 다음 페이지에는 있을 수 있음 → 빈 탭인데 실제 데이터가 있는 상황 발생 |
+| 데이터 정확성 | 현재 페이지 범위 내에서만 필터링되어 부정확 |
+| 구현 단순성 | 쿼리 하나로 단순하나 페이지네이션과 조합이 복잡해짐 |
+
+**결론: 옵션 A (서버 필터링)** 채택.  
+무한스크롤(추가계획13 패턴)과 호환성이 필수적이므로, 필터별 `availability` query param을 달리해서 API를 호출한다.  
+React Query의 `queryKey`에 필터값을 포함시켜 필터 전환 시 독립적인 캐시로 관리한다.
+
+### 4.3 무한스크롤 (추가계획13 패턴 동일 적용)
+
+`useInfiniteQuery` 기반. 추가계획13의 `useCmsSetListQuery` 구현과 동일한 패턴을 사용한다.
+
+**종료 조건**: `PageResponse.hasNext === false`
+
+```ts
+// 개념 코드 (실제 구현 시 features/lesson-result/ 하위에 위치)
+export function useActivityListQuery(filter: RsFilter) {
+  const availability = filterToAvailability(filter); // filter → availability enum 변환
+
+  return useInfiniteQuery({
+    queryKey: ['activities', filter],
+    queryFn: ({ pageParam, signal }) =>
+      getActivities({ availability, page: pageParam, size: 20 }, signal),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.hasNext ? lastPage.page + 1 : undefined,
+    placeholderData: keepPreviousData,
+  });
+}
+```
+
+**스크롤 센티널**: `IntersectionObserver` + 하단 센티널 엘리먼트. 추가계획13 `ResourceCardList` 구현 참조.
+
+**필터 변경 시**: `queryKey`에 `filter`가 포함되어 있으므로 자동으로 page 0부터 재조회됨.
+
+---
+
+## 5. 타입 변경 계획
+
+현재 `ReportItem` 타입은 목업용으로 정의되어 있다. API 연동 후에는 `ActivitySummary`로 교체한다.
+
+```ts
+// 현재 목업 타입 (widgets/lesson-result/types.ts)
+export interface ReportItem {
+  id: string;
+  title: string;
+  rstatus: '진행중' | '진행예정' | '완료';
+  cls: string;
+  start: string;
+  end: string;
+  thumb?: string;
+  students: Array<{ studentId: string; studentName: string; statusCd: number }>;
+}
+
+// API 연동 후 대체 타입 (ActivitySummary 기반, 실제 필드는 API 응답 확인 후 결정)
+export interface ActivitySummaryItem {
+  id: string;
+  title: string;
+  availability: 'NOT_AVAILABLE' | 'NOT_STARTED' | 'OPEN' | 'CLOSED';
+  openAt?: string;
+  closeAt?: string;
+  createdAt: string;
+  // ... API 응답의 실제 필드
+}
+```
+
+`ReportCard.tsx`도 `ActivitySummaryItem` 기반으로 수정 필요. 상세 필드는 실제 API 응답을 확인 후 결정한다.
+
+---
+
+## 6. FSD 배치
+
+```text
+features/lesson-result/
+  ├── api/
+  │   ├── queries.ts       ← useActivityListQuery, useThisWeekCountQuery, useRunningCountQuery
+  │   ├── service.ts       ← getActivities() axios 호출
+  │   └── types.ts         ← ActivitySummaryItem, ActivitiesParams 등 API 타입
+widgets/lesson-result/
+  ├── StatusPanel.tsx      ← useThisWeekCountQuery, useRunningCountQuery 연결
+  ├── ReportCardList.tsx   ← useActivityListQuery + 무한스크롤 연결
+  └── types.ts             ← 목업 타입 → API 타입으로 교체
+```
+
+---
+
+## 7. 구현 순서 (체크리스트)
+
+- [x] `features/lesson-result/api/types.ts` — `ActivitySummaryItem`, `ActivitiesParams`, `ActivitiesResponse` 타입 정의
+- [x] `features/lesson-result/api/service.ts` — `getActivities()` 서비스 함수
+- [x] `features/lesson-result/api/queryKeys.ts` — `lessonResultKeys` 정의
+- [x] `features/lesson-result/api/queries.ts` — `useThisWeekCountQuery`, `useRunningCountQuery`, `useActivityListQuery`
+- [x] `features/lesson-result/index.ts` — barrel export
+- [x] `widgets/lesson-result/types.ts` — `ReportItem` 제거, `RsFilter`만 유지
+- [x] `widgets/lesson-result/ReportCard.tsx` — `ActivitySummaryItem` 기반 재작성, 썸네일 fallback 구현
+- [x] `widgets/lesson-result/StatusPanel.tsx` — `reports` prop 제거, `useThisWeekCountQuery`·`useRunningCountQuery` 연결. 미제출 타일/학생 태그는 빈 상태 유지(보류)
+- [x] `widgets/lesson-result/ReportFilterChips.tsx` — `reports` prop 제거, 탭별 건수 배지 제거
+- [x] `widgets/lesson-result/ReportCardList.tsx` — `useActivityListQuery` + 무한스크롤(IntersectionObserver) 연결
+- [x] `widgets/lesson-result/index.ts` — exports 업데이트
+- [x] `pages/lesson/LessonResultPage.tsx` — `EMPTY_REPORTS` 제거, `reports` prop 전달 제거
+- [x] `npx tsc -b --noEmit` + `npx eslint --fix` 통과 확인
+
+---
+
+## 8. 미결 사항
+
+| 항목 | 내용 |
+|---|---|
+| 미제출 학생 | `GET /activities/{id}/progress` N회 호출 이슈. 집계 API 추가 또는 보류 유지 |
+| `ActivitySummary` 실제 필드 | API 응답 실측 후 `ActivitySummaryItem` 타입 확정 필요 |
+| 탭별 카운트 배지 | `ReportFilterChips`에 탭별 건수 표시 시 `withTotal=true` 추가 쿼리 필요 (현재 범위 외) |
+
+---
+
+**작성일**: 2026-08-26  
+**상태**: 구현 완료 (2026-08-26)
+
+## 9. 구현 결과 (2026-08-26)
+
+### 신규 파일
+
+| 파일 | 역할 |
+|------|------|
+| `src/features/lesson-result/api/types.ts` | `ActivitySummaryItem`, `ActivityAvailability`, `ActivitiesPageResponse`, `GetActivitiesParams` 타입 |
+| `src/features/lesson-result/api/service.ts` | `getActivities()` — `GET /api/v1/activities` fetch 래퍼 |
+| `src/features/lesson-result/api/queryKeys.ts` | `lessonResultKeys` 쿼리 키 팩토리 |
+| `src/features/lesson-result/api/queries.ts` | `useThisWeekCountQuery`, `useRunningCountQuery`, `useActivityListQuery` |
+| `src/features/lesson-result/index.ts` | features barrel export |
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/widgets/lesson-result/types.ts` | `ReportItem`·`ReportStudent`·`ReportStatus` 제거. `RsFilter`만 유지 |
+| `src/widgets/lesson-result/ReportCard.tsx` | `ActivitySummaryItem` 기반 재작성. 썸네일 `imgFailed` fallback, availability → 상태 뱃지 매핑 |
+| `src/widgets/lesson-result/StatusPanel.tsx` | `reports` prop 제거. `useThisWeekCountQuery`·`useRunningCountQuery` 내부 사용. 미제출은 빈 상태 유지 |
+| `src/widgets/lesson-result/ReportFilterChips.tsx` | `reports` prop 제거. 탭별 건수 배지 제거 (보류) |
+| `src/widgets/lesson-result/ReportCardList.tsx` | `useActivityListQuery` + `IntersectionObserver` 무한스크롤 연결. `Loading` 컴포넌트 로딩·갱신·추가 로딩 상태 표시 |
+| `src/widgets/lesson-result/index.ts` | `ReportItem` export 제거 |
+| `src/pages/lesson/LessonResultPage.tsx` | `EMPTY_REPORTS` 제거. `reports` prop 전달 제거 |
+
+### 검증 결과
+
+- `npx tsc -b --noEmit` — 에러 없음
+- `npx eslint --fix` — 에러 없음 (Prettier 포맷팅 자동 수정)
+
+---
+
+# 추가계획17 — 리포트 상세 페이지 (`ReportDetail` UI)
+
+> **선행**: 추가계획15 (목록 UI), 추가계획16 (`ReportCard` + `ActivitySummaryItem`)  
+> **준수**: `frontend/AGENTS.md`, `frontend/CLAUDE.md` (FSD Lite, Emotion, 서버/로컬 상태 분리)  
+> **프로토타입 참조**: UI/동작만. 코드 구조·Tailwind 복제 금지 (`lesson-library.plan.md` 상단 준수 문구와 동일)  
+> **범위**: `ReportCard` 리포트 버튼 → 독립 상세 **페이지** 진입 + 프로토타입 `ReportDetail` 화면의 UI/UX 동등 구현. **API 연동 없음**.  
+> **경로**: 위젯은 `widgets/lesson/result/`, 타입·목업은 `features/lesson/model/` (중첩 슬라이스 `lesson-result` 없음)
+
+---
+
+## 1. 목표
+
+`widgets/lesson/result/ReportCard.tsx`의 **리포트** 버튼 클릭 시 리포트 상세 페이지로 이동한다.
+
+프로토타입 `prototype/src/features/resources/components/report/ReportDetail.tsx`의 화면 구성·문구·탭·빈 상태를  
+`frontend`에 FSD Lite + Emotion으로 동등하게 구현한다.
+
+프로토타입 `ReportDetail` 구성:
+
+```
+돌아가기 ("수업 결과보기로 돌아가기")
+├── ReportSummary     ← 좌: 썸네일·상태·제목·배포기간·SEL / 우: 참여 인원 · 평균 정답률
+├── RdTabBar          ← 학생별 보기 | 페이지별 보기
+└── StudentTab | PageTab
+```
+
+---
+
+## 2. 현황
+
+| 구분 | 위치 | 비고 |
+|------|------|------|
+| 목록 페이지 | `pages/lesson/LessonResultPage.tsx` | `/lesson/result`. StatusPanel + 필터 + `ReportCardList` |
+| 리포트 버튼 | `widgets/lesson/result/ReportCard.tsx` | `/lesson/result/{activityId}` + `location.search` 유지 |
+| 상세 라우트 | `app/router/routes.tsx` | `/lesson/result` + `/lesson/result/:activityId` |
+| 상세 페이지 | `pages/lesson/LessonReportDetailPage.tsx` | 얇은 조합. `ReportDetail` 위젯 |
+| 프로토타입 전환 | `ResultsView` + `useResources().rdReport` | 같은 뷰에서 목록↔상세 **인라인 교체**. Context |
+| 프로토타입 상세 | `report/ReportDetail.tsx` | 돌아가기 + 요약 + 탭 + `PageTab`/`StudentTab` |
+| 상세 API | — | 추가계획16에서 목록만 연동. progress/응답 상세는 보류 |
+
+---
+
+## 3. 프로토타입과의 구조 차이 (의도적)
+
+`AGENTS.md` / 본 문서 상단: prototype은 **UI·동작 기준**. 코드 구조·Context·Tailwind는 가져오지 않는다.
+
+| 프로토타입 | frontend (이번 계획) | 이유 |
+|------------|----------------------|------|
+| `rdReport`가 있으면 `ResultsView`가 `ReportDetail`로 교체 | **독립 라우트 페이지** | 사용자 요구: 리포트 버튼 클릭 시 **상세 페이지로 진입**. 추가계획4(오버레이→페이지)와 동일 패턴 |
+| `useResources()` (`rdReport`, `rdTab`, `rdStu`, `rdSlide`) | 페이지/위젯 **로컬 상태** 또는 `useParams` | Context/Zustand 전역 상태 금지 (로컬·URL로 해결 가능) |
+| `REPORTS.find` 목업 | 목록에서 넘긴 `ActivitySummaryItem` + 상세용 **로컬 목업** | `mock-data.ts` 복사 금지. API는 후속 |
+| Tailwind | Emotion `styled` + `theme.*` | CLAUDE.md / 본 문서 준수 |
+| `CaptureOverlay` (채점 뷰어) | **이번 비범위** | `ReportDetail.tsx` 밖(`ResourceListPage`)에서 마운트. 타일 클릭은 no-op |
+
+같은 대시보드 레이아웃(사이드바 있는 교사 셸)을 쓴다. `TeacherFullscreenLayout`에 넣지 않는다.
+
+---
+
+## 4. URL · 진입 · 나가기
+
+### 4.0 라우트 추가 (`routes.tsx`)
+
+IA_V2 블록, **기존 `/lesson/result`와 같은 부모 레이아웃** 아래에 상세 라우트를 추가한다.
+
+```
+목록  /lesson/result
+상세  /lesson/result/{activityId}
+```
+
+```tsx
+<Route path='/lesson/result' element={<LessonResultPage />} />
+<Route path='/lesson/result/:activityId' element={<LessonReportDetailPage />} />
+```
+
+- `{activityId}` = `ReportCardList`가 `items.map`으로 넘기는 `activity.activityId`  
+  (`widgets/lesson/result/ReportCardList.tsx` → `<ReportCard activity={activity} />`)
+- `TeacherFullscreenLayout`에 넣지 않는다
+- 쿼리스트링은 path가 아니라 **그대로 유지**한다 (아래 4.1·4.2)
+
+### 4.1 리포트 버튼 (목록 → 상세)
+
+`ReportCard` 리포트 버튼. 목록 URL의 query string이 있으면 상세 URL에도 **동일하게 붙인다**.
+
+```ts
+// 목록이 /lesson/result?class=xxx 이면
+// 상세는 /lesson/result/{activityId}?class=xxx
+navigate(`/lesson/result/${activity.activityId}${location.search}`, {
+  state: { activity },
+});
+```
+
+| 목록 URL | 이동할 상세 URL |
+|----------|-----------------|
+| `/lesson/result` | `/lesson/result/{activityId}` |
+| `/lesson/result?class=abc` | `/lesson/result/{activityId}?class=abc` |
+
+- `activity.activityId`는 `ReportCardList`의 `activity`와 동일 객체
+- `location.search`는 `DeployPage` `goToReports`·`ResourceCard`와 같은 방식 (`${path}${location.search}`)
+- query가 없으면 `location.search`는 `''` → path만 사용
+- `state.activity`는 요약 헤더용. **직접 URL 진입 시 없어도 화면은 렌더** (제목 fallback, 지표는 `–`)
+- 이번 범위에서 단건 API 재조회 없음
+
+### 4.2 돌아가기 (상세 → 목록)
+
+프로토타입 문구 그대로: `‹ 수업 결과보기로 돌아가기`
+
+상세 URL에 붙어 있던 query string을 목록으로 **그대로 옮긴다**. `navigate(-1)`은 쓰지 않는다 (직접 진입 시 앱 밖으로 나갈 수 있음).
+
+```ts
+// 상세가 /lesson/result/{activityId}?class=xxx 이면
+// 목록은 /lesson/result?class=xxx
+navigate(`/lesson/result${location.search}`);
+```
+
+| 상세 URL | 돌아갈 목록 URL |
+|----------|-----------------|
+| `/lesson/result/{activityId}` | `/lesson/result` |
+| `/lesson/result/{activityId}?class=abc` | `/lesson/result?class=abc` |
+
+프로토타입 `closeReport()` Context는 사용하지 않는다.
+
+### 4.3 페이지가 바꾸지 않는 것
+
+상세 페이지에는 목록의 `ContentsHeader` / `StatusPanel` / `ReportFilterChips` / `ReportCardList`를 **렌더하지 않는다**.  
+프로토타입이 상세일 때 목록을 통째로 교체하는 동작과 동등하다.
+
+---
+
+## 5. FSD 배치
+
+`pages → widgets → features → shared` 단방향.  
+**Pages는 얇게** — `useParams` + 위젯 조합만. styled·탭 로직을 page에 두지 않는다.
+
+```text
+pages/lesson/LessonReportDetailPage.tsx    ← 라우트 진입. params/state 전달만
+pages/index.ts
+app/router/routes.tsx                     ← /lesson/result + /lesson/result/:activityId (search 유지)
+
+widgets/lesson/result/                     ← 수업 결과보기 섹션 (목록 + 상세)
+  ReportCard.tsx                          ← 기존. 리포트 버튼 → navigate
+  ReportDetail.tsx                        ← 돌아가기 + 요약 + 탭바 + 탭 본문 조합
+  ReportSummary.tsx                       ← 상단 요약 카드
+  ReportDetailTabBar.tsx                  ← 학생별 / 페이지별
+  StudentTab.tsx                          ← 좌 학생 리스트 + 우 학습요약·페이지 격자
+  PageTab.tsx                             ← 빈 상태 또는 좌 페이지 목록 + 우 본문
+  PageList.tsx
+  PageContent.tsx
+  SummaryStrip.tsx                        ← 페이지별 보기 상단 제출/정오 strip
+  ResponseGrid.tsx                        ← 응답 타일 격자
+  reportBadges.tsx                        ← NatureBadge / StatusBadge / ErrataBadge (위젯 로컬)
+  index.ts                                ← @widgets/lesson 에서 re-export
+
+features/lesson/model/                     ← 상세 뷰 타입 + 로컬 목업 (API 훅 없음, 중첩 슬라이스 금지)
+  reportDetailTypes.ts
+  reportDetailMock.ts                     ← frontend 타입 목업. prototype mock-data 복사 금지
+```
+
+위젯이 features의 목업/타입만 import한다. features가 widgets를 import하지 않는다.
+
+---
+
+## 6. 프로토타입 → frontend 변환 기준
+
+| 프로토타입 | frontend 처리 |
+|------------|---------------|
+| Tailwind | Emotion `styled` 또는 `css`. `className="mt-5 grid-cols-..."` 금지 |
+| `useResources()` | 사용 금지. 탭/`selectedStudentId`/`selectedPageIndex`는 `ReportDetail` 또는 해당 탭 위젯 로컬 `useState` |
+| `REPORTS` / `scopedReports` | 복사 금지. `activity` (navigate state) + `reportDetailMock` |
+| 색상 (`primary-*`, `emerald-*`, `amber-*`) | `app/styles/theme.ts` 토큰 우선. 없는 값은 가장 가까운 기존 토큰 |
+| lucide (`Calendar`, `FileText`, `User`, `Clock`, `Image`, `Play`, `Maximize2`) | 프로젝트에서 사용 중이면 그대로 |
+| 이모지 | 넣지 않음 (프로토타입 빈 상태의 장식 이모지도 복제하지 않음) |
+| `CaptureOverlay` / `openCapture` / `setGrade` | 비범위. `ResponseGrid` 타일 `onOpen`은 no-op 또는 생략 |
+| 학생용 `StudentDetailReport.tsx` | **비범위** (교사 리포트 상세와 다른 화면) |
+
+### 6.1 공통 UI 재사용 (선행 점검)
+
+새 styled 전에 `shared/ui` 확인. FilterPanel·추가계획15와 같은 방침.
+
+| 후보 | 결론 |
+|------|------|
+| `Button` | 돌아가기는 텍스트+호버 링크형. outline/primary와 불일치 → **위젯 로컬** |
+| `Card` | padding/radius가 프로토타입(`p-5`, `rounded-2xl`)과 다를 수 있음 → **위젯 로컬** |
+| `Badge` / `TypeBadge` / `LevelBadge` | 성격·정오·제출상태 토큰이 다름 → **`reportBadges.tsx` 로컬** |
+| `PageTitle` | 상세는 돌아가기+요약이지 페이지 타이틀이 아님 → **미사용** |
+
+같은 배지가 2곳 이상에서 필요할 때만 `shared` 승격을 검토한다. 이번은 상세 화면 내부 재사용으로 충분하다.
+
+---
+
+## 7. UI 스펙 (프로토타입 동등)
+
+문구·탭 순서·빈 상태 문장은 프로토타입을 기준으로 한다. 없는 칩/버튼을 만들지 않는다.
+
+### 7.1 돌아가기
+
+- `text-sm` / semibold / gray 텍스트. hover 시 더 진한 gray
+- 좌측 `‹` (또는 lucide `ChevronLeft`) + `수업 결과보기로 돌아가기`
+
+### 7.2 ReportSummary
+
+한 카드, `md` 이상 2열.
+
+**좌 — 콘텐츠 요약**
+
+- 썸네일 (가로 고정, 세로 stretch, radius). 없으면 기존 `ReportCard`와 같이 제목 fallback
+- 상태 뱃지: 목록과 동일 매핑 (`OPEN`→진행중, `NOT_STARTED`→진행예정, `CLOSED`/`NOT_AVAILABLE`→완료)
+- 반 뱃지: 프로토타입에 있음. **값이 있을 때만** 표시. 목록 API에 `cls`가 없으면 **렌더하지 않음** (가짜 반 이름 금지)
+- 제목 (lg, extrabold)
+- `Calendar` + `배포 {start} ~ {end} · {N}개 페이지`
+- SEL 칩: 값이 있을 때만. 없으면 행 생략
+
+**우 — 핵심 지표 2칸** (`gray[50]` 배경, 세로 구분선)
+
+- 참여 인원: `{p}/{assigned}명 · {pct}%` — 목업 또는 `–`
+- 평균 정답률: 숫자+`%` 또는 `–` (정답 문항 없으면 `–`)
+
+### 7.3 ReportDetailTabBar
+
+- 기본 탭: **학생별 보기** (`student`). 프로토타입 store 초기값·`OPEN_REPORT`와 동일
+- 탭 순서: **학생별 보기** → **페이지별 보기** (아이콘 `User` / `FileText`)
+- 활성: 하단 2px primary + primary 텍스트. 비활성: transparent + gray, hover 시 진한 gray
+- 탭 id는 UI 라벨과 분리해도 된다 (`student` / `slide`). 라벨은 한글로 고정
+
+### 7.4 StudentTab (학생별 보기)
+
+참여 0이면 빈 상태:
+
+- 점선 테두리 + `gray[50]` + `Clock` 아이콘
+- 문구: **아직 참여한 학생이 없습니다.**
+
+데이터 있으면 `md: 260px | 1fr` 2열.
+
+**좌 — 학생 리스트** (max-height + 내부 스크롤)
+
+- 헤더: `참여 학생 (제출수/전체)`
+- 행: 번호 · 이름(말줄임) · 점수(`N점` 또는 `–`) · 제출 상태 뱃지
+- 선택 행: `primary` 연한 배경
+- 기본 선택: 완료(5) 또는 제출(3) 학생 우선. 없으면 첫 학생. 프로토타입 `StudentTab`과 동일
+
+**우 — 학생 상세**
+
+- 카드1: `{번호}. {이름}` + 상태 뱃지. 타일 2개 — `활동 페이지` `{submitted}/{total} p`, `정답률 / 맞춘 문제` (`{pct}%` + `{correct}/{graded}개`, 채점 문항 없으면 `–`)
+- 카드2: `페이지별 상세 ({N})` + `ResponseGrid` (`showSummary={false}` — 성격·채점 상태만, 본문은 캡처 뷰어 몫)
+
+### 7.5 PageTab (페이지별 보기)
+
+참여 0이면 빈 상태:
+
+- 동일 점선 박스 + `Clock`
+- 문구: **아직 제출된 응답이 없습니다.** (학생별 문구와 **다름**)
+
+데이터 있으면 `md: 300px | 1fr`.
+
+**PageList**
+
+- 헤더: `페이지 (N)`
+- 행: 순번 사각 뱃지 · `NatureBadge` · 제목 · `응답 {resp}/{assigned}`
+- 선택: 행 배경 + 순번 뱃지 primary
+
+**PageContent**
+
+- 순번 · 제목 · `NatureBadge` · (있으면) 페이지 SEL 칩
+- `SummaryStrip`: 문항+정답 있으면 정답/오답/부분 + 제출 n/N. 그 외 `조회` 또는 `제출` n/N명. 수동 채점 대상이면 `채점 n/N`
+- `학생별 응답 (N)` + `ResponseGrid` (`showSummary` 기본 true)
+
+### 7.6 ResponseGrid
+
+- 반응형 그리드 (1 / sm 2 / lg 3 / 2xl 4)
+- 타일: 16:9 캡처(없으면 `미제출`) + 주라벨 + (옵션) 성격 뱃지 + 정오/채점 슬롯
+- 제출된 타일만 클릭 가능. **이번 구현에서는 클릭 동작 없음** (캡처 오버레이 후속)
+- 학생별 보기: 타일 = 페이지(`{order}. {title}`), `showNature`
+- 페이지별 보기: 타일 = 학생(`{no}. {name}`), 성격 숨김
+
+상태 뱃지 라벨 (프로토타입 `StatusBadge`): 완료 / 진행중 / 제출 / 미제출.  
+성격: 개념 / 활동 / 문항.  
+정오: O / X / △ / –.
+
+---
+
+## 8. 상태 관리
+
+`AGENTS.md` 우선순위: 서버 상태(React Query) → 필요 시 URL → 로컬. Zustand/Context는 최후.
+
+| 상태 | 배치 | 이유 |
+|------|------|------|
+| `activityId` | URL `useParams` | `ReportCardList`의 `activity.activityId` |
+| 목록 query string | URL `location.search` | 상세 진입·돌아가기 때 path에 붙여 그대로 유지 |
+| 목록에서 넘긴 `activity` | `location.state` (선택) | 요약 헤더. 새로고침 시 없어도 UI는 유지 |
+| `rdTab` (`student` \| `slide`) | `ReportDetail` 로컬 `useState`, 기본 `'student'` | 단일 페이지 UI. URL 쿼리는 이번 필수 아님 |
+| `selectedStudentId` | `StudentTab` 로컬 | 탭 안에서만 사용 |
+| `selectedPageIndex` | `PageTab` / `PageList` 로컬 | 탭 안에서만 사용 |
+| 학생·페이지·응답 데이터 | 로컬 목업 상수 | API 없음. React Query 훅 신설 금지 |
+| 채점(`grades`) / overlay | **없음** | CaptureOverlay 비범위 |
+
+서버 응답을 `useState`에 복사하지 않는다. `useEffect`로 목업을 fetch하지 않는다.
+
+---
+
+## 9. 목업 · 타입 (API 전)
+
+백엔드 상세/progress가 없으므로 프로토타입 목업을 **frontend 타입으로 재구성**한다.  
+`prototype/.../mock-data.ts`의 `REPORTS` 배열을 복사하지 않는다.
+
+```ts
+export type ReportDetailTab = 'student' | 'slide';
+export type ArticleNature = '개념' | '활동' | '문항';
+export type StudentStatusCd = 2 | 3 | 4 | 5; // 미제출 / 제출 / 진행중 / 완료
+export type ErrataCd = 1 | 2 | 3 | 4;        // O / X / △ / –
+
+export interface ReportDetailStudent {
+  studentId: string;
+  no: number;
+  studentName: string;
+  statusCd: StudentStatusCd;
+  score: number | null;
+}
+
+export interface ReportDetailArticle {
+  id: string;
+  order: number;
+  title: string;
+  nature: ArticleNature;
+  selFactor?: string;
+  correctAnswer?: string | null;
+  gradingType?: number;
+}
+
+export interface ReportDetailResponse {
+  articleId: string;
+  studentId: string;
+  submitAnswer?: string;
+  errata?: ErrataCd | null;
+  captureImage?: string;
+  mediaSec?: number;
+}
+
+export interface ReportDetailView {
+  activityId: string;
+  pageCount: number;
+  participantCount: number;
+  assignedCount: number;
+  avgCorrectRate: number | null;
+  selFactors: string[];
+  className?: string;
+  students: ReportDetailStudent[];
+  articles: ReportDetailArticle[];
+  responses: ReportDetailResponse[];
+}
+```
+
+- `activityId`가 목업에 없으면: 요약은 `location.state`/`activityId` fallback, 탭 본문은 **해당 탭 빈 상태** (가짜 학생을 모든 id에 붙이지 않음)
+- 목업이 있는 경우에만 리스트·격자 레이아웃을 프로토타입과 동등하게 확인한다
+- `participantCount === 0` 분기는 반드시 구현한다
+
+---
+
+## 10. 하지 말 것
+
+- `prototype` 파일·폴더 구조, `useResources()`, `ResourcesContext` 복사
+- Tailwind 클래스, 임의 hex 남발 (`theme.ts` 우선)
+- `CaptureOverlay` · 교사 채점 mutation · 키보드 순회
+- `GET /api/v1/activities/{id}`, `GET .../progress`, 응답/캡처 API
+- 빈 React Query 훅 (`useEffect` fetch 포함)
+- 학생 화면 `StudentDetailReport` 구현
+- `any`, 요청과 무관한 리팩터링, 목록 페이지(`LessonResultPage`) 레이아웃 변경
+- 기준에 없는 문구·버튼·탭·아이콘 추가
+- 주석/UI에 이모지
+
+---
+
+## 11. 구현 순서 (체크리스트)
+
+- [x] `features/lesson/model/reportDetailTypes.ts` · `reportDetailMock.ts`
+- [x] `widgets/lesson/result/reportBadges.tsx`
+- [x] `ReportSummary.tsx` / `ReportDetailTabBar.tsx` (`widgets/lesson/result/`)
+- [x] `ResponseGrid.tsx` / `SummaryStrip.tsx`
+- [x] `StudentTab.tsx` / `PageList.tsx` + `PageContent.tsx` / `PageTab.tsx`
+- [x] `ReportDetail.tsx` — 돌아가기 + 조합, 탭 로컬 상태
+- [x] `pages/lesson/LessonReportDetailPage.tsx` — `useParams` + `useLocation` + `<ReportDetail />`만
+- [x] `pages/index.ts` export, `routes.tsx`에 `/lesson/result/:activityId` (목록과 동일 레이아웃)
+- [x] `widgets/lesson/result/ReportCard.tsx` 리포트 버튼 → `navigate(\`/lesson/result/${activity.activityId}${location.search}\`)` + `state.activity`
+- [x] 돌아가기 → `navigate(\`/lesson/result${location.search}\`)` (query 없으면 `/lesson/result`)
+- [x] `widgets/lesson/result/index.ts` 및 `widgets/lesson/index.ts` export
+- [x] `npx tsc -b --noEmit` + `npx eslint <변경 파일>` (`AGENTS.md` 검증)
+
+---
+
+## 12. 완료 기준
+
+- 수업 결과보기 카드에서 **리포트**를 누르면 `/lesson/result/{activityId}`로 이동한다. `activityId`는 `ReportCardList`의 `activity.activityId`
+- 목록에 query string이 있으면 상세 URL에도 동일하게 붙는다 (`/lesson/result/{activityId}?…`)
+- 돌아가기 시 `/lesson/result` + **같은 query string**으로 복귀한다. query가 없으면 `/lesson/result`
+- 프로토타입 `ReportDetail`과 동등한 레이아웃이 보인다 (StatusPanel·필터·카드는 상세에 없음)
+- 기본 탭은 학생별 보기, 탭 전환 시 페이지별 보기가 렌더된다
+- 참여 0 / 목업 있음 두 경로의 빈 상태·리스트 레이아웃이 프로토타입 문구와 맞다
+- Tailwind·Context 없음. page에 styled/탭 로직 없음
+- TypeScript · ESLint 에러 없음
+- 육안: 요약 2열, 탭 바, 학생별 2열, 페이지별 2열, 응답 격자
+
+캡처 확대·채점·progress API는 완료 조건이 아니다.
+
+---
+
+## 13. 후속 (이번 비범위)
+
+| 항목 | 내용 |
+|------|------|
+| 활동 단건 / progress / 문항·응답 API | React Query. 목업 제거 |
+| `CaptureOverlay` | 제출 캡처 확대 + 수동 채점. 프로토타입 `report/CaptureOverlay.tsx` |
+| 반·SEL·참여/정답률 실데이터 | 목록/상세 API 필드 확정 후 `ReportSummary` 슬롯 연결 |
+| 탭 URL (`?tab=`) | 필요하면 그때. 이번은 로컬 상태 |
+
+---
+
+## 14. 참고 파일
+
+| 역할 | 경로 |
+|------|------|
+| 프로토타입 상세 루트 | `prototype/src/features/resources/components/report/ReportDetail.tsx` |
+| 프로토타입 요약 | `.../report/ReportSummary.tsx` |
+| 프로토타입 탭 바 | `.../report/RdTabBar.tsx` |
+| 프로토타입 학생별 | `.../report/StudentTab.tsx` |
+| 프로토타입 페이지별 | `.../report/PageTab.tsx`, `PageList.tsx`, `PageContent.tsx` |
+| 프로토타입 격자·strip | `.../report/detail/ResponseGrid.tsx`, `SummaryStrip.tsx` |
+| 프로토타입 배지 | `.../report/badges.tsx` |
+| 프로토타입 목록→상세 | `.../report/ReportCard.tsx` (`openReport`), `ResultsView.tsx` |
+| 리포트 버튼 (구현 대상) | `frontend/src/widgets/lesson/result/ReportCard.tsx` |
+| activityId 출처 | `frontend/src/widgets/lesson/result/ReportCardList.tsx` (`activity.activityId`) |
+| query 유지 참고 | `frontend/src/features/lesson/ui/DeployPage.tsx`의 `goToReports` (`/lesson/result` + `location.search`) |
+| 목록 페이지 | `frontend/src/pages/lesson/LessonResultPage.tsx` |
+| 라우트 | `frontend/src/app/router/routes.tsx` |
+| 아키텍처 | `frontend/AGENTS.md`, `frontend/CLAUDE.md` |
+| 테마 | `frontend/src/app/styles/theme.ts` |
+
+---
+
+**작성일**: 2026-08-26  
+**상태**: 구현 완료 (2026-08-26)
+
+## 15. 구현 결과 (2026-08-26)
+
+### 신규 파일
+
+| 파일 | 역할 |
+|------|------|
+| `src/features/lesson/model/reportDetailTypes.ts` | 상세 뷰 타입 (`ReportDetailView`, 탭, 배지, `CellInfo`) |
+| `src/features/lesson/model/reportDetailUtils.ts` | 날짜·비율·응답 셀·학생 요약 파생 |
+| `src/features/lesson/model/reportDetailMock.ts` | `mock-report-detail` 전용 목업. 그 외 activityId는 빈 뷰 |
+| `src/widgets/lesson/result/reportBadges.tsx` | 활동상태·반·성격·정오·제출상태 뱃지 |
+| `src/widgets/lesson/result/ReportSummary.tsx` | 상단 요약 2열 |
+| `src/widgets/lesson/result/ReportDetailTabBar.tsx` | 학생별 / 페이지별 탭 (기본 학생별) |
+| `src/widgets/lesson/result/ResponseGrid.tsx` | 응답 타일 격자 (클릭 no-op) |
+| `src/widgets/lesson/result/SummaryStrip.tsx` | 페이지별 제출/정오 strip |
+| `src/widgets/lesson/result/PageList.tsx` | 페이지 목록 |
+| `src/widgets/lesson/result/PageContent.tsx` | 페이지 본문 + 학생별 응답 |
+| `src/widgets/lesson/result/PageTab.tsx` | 페이지별 보기 (빈 상태 문구 포함) |
+| `src/widgets/lesson/result/StudentTab.tsx` | 학생별 보기 (빈 상태 문구 포함) |
+| `src/widgets/lesson/result/ReportDetail.tsx` | 돌아가기 + 요약 + 탭 조합 |
+| `src/pages/lesson/LessonReportDetailPage.tsx` | 라우트 페이지. params/state만 전달 |
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/widgets/lesson/result/ReportCard.tsx` | 리포트 버튼 → `/lesson/result/{activityId}` + `location.search` |
+| `src/widgets/lesson/result/index.ts` | `ReportDetail` export |
+| `src/widgets/lesson/index.ts` | `ReportDetail` re-export |
+| `src/features/lesson/index.ts` | 상세 타입·목업·유틸 export |
+| `src/pages/index.ts` | `LessonReportDetailPage` export |
+| `src/app/router/routes.tsx` | `/lesson/result/:activityId` (목록과 동일 레이아웃) |
+
+### 라우트
+
+- 목록: `/lesson/result`
+- 상세: `/lesson/result/:activityId` (`activityId` = `ReportCardList`의 `activity.activityId`)
+- query string은 진입·돌아가기 모두 `location.search`로 유지
+- 돌아가기: `/lesson/result${location.search}` (`navigate(-1)` 미사용)
+
+### 검증 결과
+
+- `npx tsc -b --noEmit` — 에러 없음
+- `npx eslint --fix` — 에러 없음
+- `npx vite build` — 성공
+
+### 비고
+
+- 실제 활동 id에는 목업 학생을 붙이지 않음. 탭 본문은 빈 상태 (`아직 참여한 학생이 없습니다.` / `아직 제출된 응답이 없습니다.`)
+- 레이아웃 확인용 목업: `/lesson/result/mock-report-detail`
+- `CaptureOverlay`·progress API는 후속
+
+---
+
+# 추가계획18 — `LessonReportDetailPage` 리포트 상세 API 연동
+
+> **선행**: **추가계획17** (리포트 상세 페이지 UI). 17이 끝나지 않으면 착수하지 않는다.  
+> **준수**: `frontend/AGENTS.md`, `frontend/CLAUDE.md` (FSD Lite, Emotion, 서버/로컬 상태 분리)  
+> **대상 페이지**: `frontend/src/pages/lesson/LessonReportDetailPage.tsx`  
+> **범위**: 교사 리포트 상세에 **실제 API를 연결**하는 작업.  
+> **상세 내역**: **일단 보류**. 엔드포인트·요청/응답 필드·매핑·로딩/에러 UI·목업 제거 범위는 이 절에서 확정하지 않는다.
+
+---
+
+## 1. 목표
+
+추가계획17에서 만든 리포트 상세 화면(`LessonReportDetailPage` → `ReportDetail` 위젯)에 API를 연결한다.
+
+지금은 `activityId`·`location.state.activity`와 로컬 목업(`getReportDetailView`)만으로 그린다. 이 계획의 구현 시점에 그 데이터를 서버 조회로 바꾼다.
+
+---
+
+## 2. 선행 조건 (추가계획17)
+
+아래가 되어 있어야 이 계획에 들어간다.
+
+| 항목 | 위치 | 상태 (17 완료 기준) |
+|------|------|---------------------|
+| 목록 → 상세 이동 | `ReportCard` → `/lesson/result/:activityId` | 구현됨 |
+| 상세 페이지 | `pages/lesson/LessonReportDetailPage.tsx` | params/state만 전달 |
+| 상세 UI | `widgets/lesson/result/ReportDetail.tsx` 및 하위 | 요약 + 탭 + 빈 상태 |
+| 목업 | `features/lesson/model/reportDetailMock.ts` | `mock-report-detail`만 데이터, 그 외 빈 뷰 |
+
+17의 UI/라우트/돌아가기 계약을 깨지 않는다. API 연동은 **데이터 소스만** 교체하는 방향이 기본이다.
+
+---
+
+## 3. 현황 (API 없음)
+
+| 구분 | 현재 | API 연동 후 (방향만) |
+|------|------|----------------------|
+| 페이지 | `LessonReportDetailPage`가 `activityId` + `state.activity`를 `ReportDetail`에 전달 | 동일. 페이지는 얇게 유지 |
+| 상세 뷰 | `getReportDetailView(activityId)` 로컬 목업 | 서버 응답 → 기존 `ReportDetailView` (또는 후속 확정 타입)로 매핑 |
+| 요약 헤더 | `location.state.activity` fallback | 단건 조회 성공 시 state보다 서버 값 우선 검토 |
+| 탭 본문 | 실제 activityId는 빈 상태 | 참여/페이지/응답 데이터가 있으면 그리드·리스트 표시 |
+| 로딩·에러 | 없음 | 상세 스펙에서 정함 (보류) |
+
+---
+
+## 4. 이번 문서에서 정하는 것 / 보류하는 것
+
+### 정함
+
+- 작업 진입점은 **`LessonReportDetailPage.tsx`** (위젯 `ReportDetail`이 조회 결과를 받도록 연결)
+- **추가계획17 선행 필수**
+- 교사 화면만. 학생 결과보기(추가계획19)와 API를 섞지 않음
+- 빈 React Query 훅·`useEffect` fetch를 스펙 없이 먼저 넣지 않음
+
+### 보류 (상세 내역 — 구현 직전 이 절을 채워 확정)
+
+스펙을 나중에 적을 항목. 지금은 추정하지 않는다.
+
+- 호출 API (예: 활동 단건, progress, 문항/응답/캡처). 경로·쿼리·권한
+- request/response 타입과 `ReportDetailView` 매핑
+- `state.activity`와 서버 단건이 다를 때 우선순위
+- 로딩 / 에러 / 권한 없음 / 활동 없음 UI
+- `reportDetailMock` · `mock-report-detail` 유지 여부
+- `CaptureOverlay`·채점 mutation (17에서도 비범위)
+
+추가계획16 비고·추가계획17 §10에 적힌 `GET /api/v1/activities/{id}`, `GET .../progress`는 **후보 힌트일 뿐** 이 계획의 확정 스펙이 아니다.
+
+---
+
+## 5. FSD (바뀔 위치만, 파일 목록은 보류)
+
+```text
+pages/lesson/LessonReportDetailPage.tsx   ← 조합 유지. fetch를 page에 두지 않음
+widgets/lesson/result/ReportDetail.tsx    ← 조회 결과 props 또는 feature 훅 소비
+features/lesson/api/                      ← 서비스 + React Query (스펙 확정 후)
+features/lesson/model/                    ← 매퍼. 기존 reportDetailTypes 재사용 우선
+```
+
+`pages → widgets → features → shared` 단방향. 상세 파일 목록·훅 이름은 스펙 확정 때 적는다.
+
+---
+
+**작성일**: 2026-08-26  
+**상태**: 계획 수립 (상세 스펙 보류)
+
+---
+
+# 추가계획19 — 학생 수업 결과보기 (`StudentLessonResultPage`) UI/UX
+
+> **목표**: prototype `StudentResourcePage`의 화면 구성·문구·상호작용을  
+> `frontend/src/pages/student-lesson/StudentLessonResultPage.tsx`에 **동등하게** 구현한다.  
+> **준수**: `frontend/AGENTS.md`, `frontend/CLAUDE.md` (FSD Lite, Emotion, 서버/로컬 상태 분리)  
+> **프로토타입 참조**: UI/동작만. 코드 구조·Tailwind·Context 복제 금지  
+> **범위**: **UI + 로컬 목업**. API 연동 없음.  
+> **비범위**: 교사 `ReportDetail`(추가계획17), 상세 API(추가계획18), `StudentView`/`StudentTaskList`(이 페이지에 없음)
+
+---
+
+## 1. 목표
+
+학생 레이아웃 LNB **수업 결과보기** (`/student/lesson/result`)에, 프로토타입 학생 자료실(화면5)과 같은 UX를 넣는다.
+
+구현 기준 화면:
+
+`prototype/src/features/student-resources/pages/StudentResourcePage.tsx`
+
+구성(프로토타입 `StudentResourceInner`):
+
+```
+breadcrumb    "수업 › 수업 결과보기"
+└─ (목록일 때)
+    ├─ StudentBanner           ← 진행 중 수업 + 참여하기
+    └─ StudentReportDashboard  ← "나의 수업 결과" 리스트
+└─ (상세일 때)
+    └─ StudentDetailReport     ← 돌아가기 + 요약 타일 + 페이지별 내 활동
+(+ 토스트)
+```
+
+교사 `LessonResultPage`(StatusPanel + 필터 + 카드 그리드)와 **다른 화면**이다. 교사 위젯을 재배치해서 만들지 않는다.
+
+---
+
+## 2. 현황
+
+| 구분 | 위치 | 비고 |
+|------|------|------|
+| 학생 페이지 | `pages/student-lesson/StudentLessonResultPage.tsx` | `Page` 안에 문구 `"학생 결과보기 페이지"`만 있음 |
+| 라우트 | `app/router/routes.tsx` | `StudentProtectedLayout` 아래 `/student/lesson/result` |
+| LNB | `widgets/layout/StudentLayout.tsx` | `"수업 결과보기"` → `/student/lesson/result` |
+| 참여 풀스크린 | `/student/lesson/:accessKey` (`LessonJoinPage`) | `StudentFullscreenLayout`. 추가계획12. **이번 페이지와 레이아웃이 다름** |
+| 교사 결과 목록 | `/lesson/result` | 추가계획15·16 |
+| 교사 결과 상세 | `/lesson/result/:activityId` | 추가계획17. 학생 상세와 다름 |
+| 프로토타입 진입 | `StudentResourcePage` | Provider + Inner + Toast. `detailId` 로컬 state로 목록↔상세 |
+| 프로토타입 목록 | `StudentBanner` + `StudentReportDashboard` | 완료+상세 있는 행만 상세 진입 |
+| 프로토타입 상세 | `StudentDetailReport` | 본인 요약 + 페이지별 내 답/정답/정오/보기 |
+
+`pages/index.ts`에 `StudentLessonResultPage` export는 아직 없다. routes가 페이지 파일을 직접 import한다.
+
+---
+
+## 3. 프로토타입 화면 동작 (구현해야 할 UX)
+
+### 3.1 공통 셸
+
+- 콘텐츠 최대 너비 **896px** (`max-w-4xl` 동등), 가로 중앙
+- 상단 breadcrumb: `수업 › 수업 결과보기` (작은 글씨, gray)
+- breadcrumb **아래** `gap`이 있는 세로 스택. breadcrumb은 목록/상세 **모두** 유지
+- 교사 결과보기처럼 큰 페이지 타이틀+설명 문단을 **추가하지 않음** (프로토타입에 없음)
+
+### 3.2 진행 중 배너 (`StudentBanner`)
+
+한 줄 카드.
+
+- 좌: pulse 점 (success/emerald)
+- 중: 제목 **수업이 진행 중이에요** / 부제 **감정 체크인 활동 · 김민지 선생님** (목업 문구 그대로)
+- 우: **참여하기** 버튼 (success 배경, 흰 글자)
+
+클릭: 프로토타입은 Context toast `'활동 뷰어 접속 (QR/링크 · SSO 자동식별)'`.  
+frontend는 **sonner**로 동등 메시지. 이번 범위에서 `LessonJoinPage`로 가지 않음 (accessKey 목업을 만들지 않음). 실제 이동은 API 후속.
+
+목업 단계에서는 배너를 **항상** 보여 준다. 진행 중 활동이 없을 때 숨기는 분기는 API 후속.
+
+### 3.3 목록 (`StudentReportDashboard`)
+
+- 섹션 제목: **나의 수업 결과**
+- **세로 리스트** (교사 카드 그리드 아님). 행 사이 좁은 gap
+- 각 행은 왼쪽 정렬 버튼/카드:
+
+| 요소 | 동작 |
+|------|------|
+| 제목 | 1줄 말줄임, bold |
+| 상태 뱃지 | `완료` / `진행중` / `미제출` / `대기` |
+| `Calendar` + `마감 {MM/DD}` | 목업 `due` |
+| 정답률 | `status === '완료'` 이고 `correctRate`가 숫자일 때만 `정답률 {n}%` (emerald/success) |
+| `정답 없는 활동` | 완료인데 `correctRate == null` |
+| `ChevronRight` | **상세가 있는 행만** |
+
+클릭:
+
+- 상세 목업이 **있으면** 상세로 이동
+- **없으면** toast **아직 제출하지 않은 활동이에요.** (제출 전·대기 행)
+- 상세 없는 행: hover 강조 약하게, `opacity`로 비활성에 가깝게 (프로토타입 `opacity-80`)
+
+### 3.4 상세 (`StudentDetailReport`)
+
+교사 `ReportDetail`(학생별/페이지별 탭, 반 전체)과 **다른 화면**. 탭 바를 넣지 않는다.
+
+**돌아가기**
+
+- `ChevronLeft` + **나의 수업 결과로 돌아가기**
+- 목록으로 복귀. `navigate(-1)` 사용 금지 (직접 URL 진입 대비)
+
+**요약 카드**
+
+- 활동 제목 (lg, extrabold)
+- 타일 가로 균등 (`tiles.length`열):
+
+| 타일 | 값 | 서브 |
+|------|-----|------|
+| 활동 페이지 | `{pages}/{totalPages} p` | 없음 |
+| 정답률 / 맞춘 문제 | `{rate}%` | `{correctN}/{gradedN}개` — **채점 문항 있을 때만** (`gradedN > 0`) |
+| 활동 시간 / 제출 | `{n}분 {ss}초` (`durationSec`) | `submittedAt` 또는 **미제출** |
+
+**페이지별 내 활동**
+
+섹션 제목: **페이지별 내 활동**
+
+각 행:
+
+- 좌: 캡처 placeholder (`Image` 아이콘, gray 박스). 실제 이미지 없음
+- 중: 순번 · `NatureBadge`(개념/활동/문항) · 제목
+- 문항 + 응답 있음: `내 답 {submitAnswer \|\| '—'}` · 정답 있으면 `정답 {correctAnswer}`
+- 그 외: 개념은 **조회함**, 아니면 `submitAnswer` 또는 **제출함**
+- 우: 정오 + 보기
+  - 문항이고 정답이 있고 응답 있음 → `ErrataBadge` (1=O, 2=X, 3=△, 4=–)
+  - 아니면 회색 **–** (정오 대상 아님)
+  - 응답 있음 → **보기** 활성. 클릭 시 toast `{제목} 캡처 보기 (목업)`
+  - 응답 없음 → **보기** disabled
+
+캡처 확대 오버레이는 **비범위** (추가계획17과 동일).
+
+### 3.5 토스트
+
+프로토타입 `StudentResourceProvider` + 하단 고정 Toast는 **가져오지 않는다**.  
+프로젝트 기존 `sonner` (`toast.message` / `toast.info`)를 쓴다.
+
+대상 메시지:
+
+- 상세 없는 행 클릭: `아직 제출하지 않은 활동이에요.`
+- 참여하기: `활동 뷰어 접속 (QR/링크 · SSO 자동식별)`
+- 보기: `{페이지 제목} 캡처 보기 (목업)`
+
+---
+
+## 4. 프로토타입과의 구조 차이 (의도적)
+
+`AGENTS.md`: prototype은 UI·동작 기준. 구조·Context·Tailwind는 가져오지 않는다.  
+목록↔상세 전환은 추가계획17과 같은 **독립 라우트**로 한다.
+
+| 프로토타입 | frontend (이번 계획) | 이유 |
+|------------|----------------------|------|
+| `detailId` state로 같은 페이지에서 교체 | 목록 `/student/lesson/result`, 상세 `/student/lesson/result/:activityId` | URL·새로고침·뒤로가기. 추가계획17과 동일 패턴 |
+| `StudentResourceProvider` (toast만) | 없음. sonner | Context 금지, 기존 토스트 재사용 |
+| Tailwind | Emotion `styled` + `theme.*` | CLAUDE.md |
+| `STUDENT_REPORTS` / `STUDENT_REPORT_DETAILS` 직접 import | `features/lesson/model` 목업 | prototype `mock-data.ts` 복사 금지 |
+| `StudentView` + `StudentTaskList` | **비범위** | `StudentResourcePage`가 렌더하지 않음 |
+
+레이아웃은 **학생 사이드바** (`StudentProtectedLayout`)를 유지한다.  
+`StudentFullscreenLayout` / `LessonJoinPage`에 넣지 않는다.
+
+상세 URL에서도 breadcrumb는 보이고, 배너·목록은 **렌더하지 않는다** (프로토타입이 상세일 때 목록을 통째로 바꾸는 것과 동등).
+
+---
+
+## 5. URL · 진입 · 나가기
+
+### 5.0 라우트 (`routes.tsx`)
+
+`StudentProtectedLayout` 블록, 기존 목록과 **같은 부모** 아래.
+
+```
+목록  /student/lesson/result
+상세  /student/lesson/result/:activityId
+```
+
+```tsx
+<Route path='/student/lesson/result' element={<StudentLessonResultPage />} />
+<Route path='/student/lesson/result/:activityId' element={<StudentLessonResultDetailPage />} />
+```
+
+주의:
+
+- `/student/lesson/:accessKey`는 **다른 레이아웃 트리** (`StudentFullscreenLayout`). 상세 라우트를 그 트리에 넣으면 사이드바가 사라진다
+- `activityId` 세그먼트 `result`와 accessKey가 섞이지 않도록, 결과보기 경로는 지금처럼 `Protected` 쪽에만 둔다
+- LNB `pathname.startsWith('/student/lesson/result')`라 상세에서도 **수업 결과보기**가 활성으로 남는다 (유지)
+
+### 5.1 목록 → 상세
+
+```ts
+navigate(`/student/lesson/result/${item.id}`);
+```
+
+- `{activityId}` = 목록 목업 항목 `id` (프로토타입 `sr-1` 등)
+- 이번 범위에서 query string 유지 요구 없음 (교사 목록 필터가 없음)
+- `state`에 목록 항목을 넘겨 상세 제목 fallback에 쓸 수 있다. 없어도 화면은 렌더 (목업 없으며 상세 `null`에 가깝게 처리 — 아래 §8)
+
+### 5.2 상세 → 목록
+
+문구: `‹ 나의 수업 결과로 돌아가기`
+
+```ts
+navigate('/student/lesson/result');
+```
+
+`navigate(-1)` 금지.
+
+---
+
+## 6. FSD 배치
+
+`pages → widgets → features → shared` 단방향.  
+**Pages는 얇게** — 목록/상세 마크업·목업 조회를 page에 두지 않는다.
+
+교사 결과 위젯(`widgets/lesson/result/`)과 섞지 않도록 **학생 전용 폴더**를 둔다.
+
+```text
+pages/student-lesson/
+  StudentLessonResultPage.tsx          ← 목록 조합 (셸 + 배너 + 대시보드)
+  StudentLessonResultDetailPage.tsx    ← 상세 조합 (셸 + 상세 위젯). params만 전달
+pages/index.ts                         ← 두 페이지 export
+
+app/router/routes.tsx                  ← 목록 + 상세 (StudentProtectedLayout)
+
+widgets/lesson/student-result/
+  StudentLessonResultShell.tsx         ← max-width + breadcrumb + 세로 gap
+  StudentLessonBanner.tsx              ← 진행 중 배너
+  StudentReportDashboard.tsx           ← "나의 수업 결과" 리스트
+  StudentReportRow.tsx                 ← 한 행 (Dashboard 내부에 둬도 됨)
+  StudentDetailReport.tsx              ← 돌아가기 + 요약 + 페이지별 내 활동
+  studentResultBadges.tsx              ← 목록 상태 뱃지 (완료/진행중/미제출/대기)
+  index.ts
+
+widgets/lesson/index.ts                ← student-result re-export
+
+features/lesson/model/
+  studentReportTypes.ts                ← 목록/상세 타입 (아래 §8)
+  studentReportMock.ts                 ← frontend 목업. prototype 파일 복사 금지
+features/lesson/index.ts               ← 타입·목업·getter export
+```
+
+위젯이 features 목업/타입만 import한다. features가 widgets를 import하지 않는다.
+
+`pages/student-lesson`에 styled를 두지 않는다. 지금 파일의 `Page` styled는 셸 위젯으로 옮기거나 제거한다.
+
+---
+
+## 7. 프로토타입 → frontend 변환 기준
+
+| 프로토타입 | frontend 처리 |
+|------------|---------------|
+| Tailwind | Emotion `styled` 또는 `css`. `className="max-w-4xl"` 금지. 너비는 `896px` |
+| `useStudentResource()` | 사용 금지 |
+| `STUDENT_ME` / `STUDENT_TASKS` | 이 화면 비사용. 목업에 넣지 않음 |
+| 색상 (`emerald-*`, `primary-*`, `gray-*`) | `theme.ts` 토큰 우선 (success / primary / gray). 없는 값은 가장 가까운 기존 토큰 |
+| lucide (`Calendar`, `ChevronRight`, `ChevronLeft`, `Image`, `Play`) | 프로젝트에서 사용 중이면 그대로 |
+| 이모지 | 넣지 않음 |
+| 하단 커스텀 Toast | sonner |
+| 교사 `ReportCard` / `ReportDetail` / `StudentTab` | **재사용 금지** (다른 IA) |
+
+### 7.1 뱃지 재사용
+
+| 뱃지 | 처리 |
+|------|------|
+| `NatureBadge` (개념/활동/문항) | 추가계획17 `widgets/lesson/result/reportBadges.tsx` **재사용** |
+| `ErrataBadge` (O/X/△/–) | 동일 파일 **재사용** |
+| 목록 상태 `완료`/`진행중`/`미제출`/`대기` | 교사 `StudentStatusBadge`는 `statusCd`(2·3·4·5, 라벨에 `제출` 있음)라 **값이 다름** → `studentResultBadges.tsx`에 학생 목록 전용 |
+| 교사 `ActivityStatusBadge` (OPEN/…) | 사용 금지. 학생 목록은 제출 상태이지 활동 availability가 아님 |
+
+`@widgets/lesson`에서 `NatureBadge`/`ErrataBadge`를 export해 학생 위젯이 쓰게 한다. features로 승격은 아직 하지 않는다.
+
+### 7.2 공통 UI 선행 점검
+
+| 후보 | 결론 |
+|------|------|
+| `Button` | 참여하기는 success fill, 돌아가기·보기는 링크/작은 outline. 공용 Button과 불일치 → **위젯 로컬** |
+| `Card` | padding/radius가 `p-4`/`p-5`, `rounded-2xl`과 다를 수 있음 → **위젯 로컬** |
+| `PageTitle` | 이 화면은 breadcrumb + 섹션 h2 → **미사용** |
+| `Badge` / `TypeBadge` | 상태·성격 토큰이 다름 → **로컬/기존 reportBadges** |
+
+---
+
+## 8. 타입 · 목업
+
+프로토타입 `types.ts`를 frontend 이름으로 재구성한다. `mock-data.ts`를 복사하지 않는다.
+
+```ts
+export type StudentResultStatus = '완료' | '진행중' | '미제출' | '대기';
+
+export interface StudentReportListItem {
+  id: string;
+  title: string;
+  status: StudentResultStatus;
+  due: string; // 'MM/DD'
+  correctRate?: number | null;
+}
+
+export interface StudentReportDetailView {
+  id: string;
+  title: string;
+  summary: {
+    pages: number;
+    totalPages: number;
+    correctN: number;
+    gradedN: number;
+    durationSec: number;
+    submittedAt?: string;
+  };
+  articles: Array<{
+    id: string;
+    order: number;
+    nature: ArticleNature; // 기존 features/lesson 타입 재사용
+    itemType: string;
+    title: string;
+    correctAnswer?: string;
+  }>;
+  responses: Array<{
+    articleId: string;
+    submitAnswer: string;
+    errata: ErrataCd; // 기존 1\|2\|3\|4
+    captureImage?: string;
+  }>;
+}
+```
+
+목업 데이터는 프로토타입과 **같은 시나리오**로 구성한다 (문구·건수를 맞춰 UI 비교 가능하게).
+
+| id | 목록 | 상세 |
+|----|------|------|
+| `sr-1` | 갈등 해결 시나리오 / 완료 / 마감 07/22 / 정답률 100 | 있음 (페이지 6, 채점 2/2) |
+| `sr-2` | 자기인식 워크시트 / 미제출 / 07/24 | 없음 → toast |
+| `sr-3` | 자기관리 목표 세우기 / 대기 / 07/27 | 없음 → toast |
+| `sr-4` | 정서 안정 호흡 활동 / 완료 / 07/03 / `correctRate: null` | 있음 (정답 없는 활동, 채점 타일 없음) |
+
+getter:
+
+- `getStudentReportList(): StudentReportListItem[]`
+- `getStudentReportDetail(id: string): StudentReportDetailView | undefined`
+
+상세 페이지에서 목업이 없으면 **빈 화면(`null`)** 이 아니라, 돌아가기만 있는 안전한 빈 상태 또는 목록으로 되돌리기를 택한다. 가짜 상세를 모든 id에 붙이지 않는다. 빈 상태 **새 문구는 만들지 않음** — 프로토타입도 `if (!d) return null`. 직접 URL로 없는 id면 돌아가기만 보이게 한다.
+
+시간 표시: `durationSec` → `{floor(sec/60)}분 {pad2(sec%60)}초` (프로토타입 `fmt`와 동일).
+
+---
+
+## 9. 페이지 조합
+
+### 9.1 `StudentLessonResultPage`
+
+```tsx
+<StudentLessonResultShell>
+  <StudentLessonBanner />
+  <StudentReportDashboard />
+</StudentLessonResultShell>
+```
+
+### 9.2 `StudentLessonResultDetailPage`
+
+```tsx
+const { activityId } = useParams();
+if (!activityId) return null;
+return (
+  <StudentLessonResultShell>
+    <StudentDetailReport activityId={activityId} />
+  </StudentLessonResultShell>
+);
+```
+
+`StudentDetailReport`가 getter로 상세를 읽고, 돌아가기에서 `navigate('/student/lesson/result')`.
+
+---
+
+## 10. 하지 말 것
+
+- `prototype` 폴더 구조, `StudentResourceContext`, Tailwind 복사
+- 교사 `LessonResultPage` / `ReportCard` / `ReportDetail` / `StudentTab` / `PageTab` 재사용
+- `StudentView`, `StudentTaskList`, `StudentTaskCard`, `STUDENT_TASKS` (이 페이지 UI 아님)
+- 실제 활동 목록/상세/progress API, 빈 React Query 훅, `useEffect` fetch
+- `참여하기` → `/student/lesson/:accessKey` 이동 (accessKey 없이 가짜 키 생성 금지)
+- `CaptureOverlay`, 캡처 이미지 실제 표시, 그리기/녹음 플레이어
+- 추가계획18(교사 상세 API)과 학생 화면을 한 작업으로 섞기
+- 기준에 없는 문구·버튼·탭·필터 칩 추가 (교사식 StatusPanel/필터 금지)
+- 주석/UI 이모지
+- `any`, 요청과 무관한 리팩터링
+
+---
+
+## 11. 구현 순서 (체크리스트)
+
+- [x] `features/lesson/model/studentReportTypes.ts` · `studentReportMock.ts` · barrel export
+- [x] `widgets/lesson/student-result/StudentLessonResultShell.tsx` (896px + breadcrumb)
+- [x] `studentResultBadges.tsx` (목록 상태 4종)
+- [x] `StudentLessonBanner.tsx` (목업 문구 + 참여하기 toast)
+- [x] `StudentReportDashboard.tsx` (+ 행 UI)
+- [x] `StudentDetailReport.tsx` (요약 타일 + 페이지별 내 활동)
+- [x] `pages/student-lesson/StudentLessonResultPage.tsx` 조합으로 교체
+- [x] `pages/student-lesson/StudentLessonResultDetailPage.tsx` 추가
+- [x] `pages/index.ts` export, `routes.tsx`에 `/student/lesson/result/:activityId`
+- [x] `widgets/lesson/student-result/index.ts` 및 `widgets/lesson/index.ts`
+- [x] `NatureBadge` / `ErrataBadge`를 학생 상세에서 re-export로 사용
+- [x] `npx tsc -b --noEmit` + `npx eslint <변경 파일>` (`AGENTS.md` 검증)
+
+---
+
+## 12. 완료 기준
+
+- `/student/lesson/result`에서 breadcrumb + 배너 + **나의 수업 결과** 리스트가 프로토타입과 동등하게 보인다
+- 완료+상세 있는 행(sr-1, sr-4) 클릭 시 `/student/lesson/result/{id}`로 이동하고, 배너·목록 없이 상세가 보인다
+- 상세 없는 행 클릭 시 페이지 이동 없이 toast `아직 제출하지 않은 활동이에요.`
+- 완료+`correctRate: null` 행에 **정답 없는 활동**이 보이고, 상세에서는 정답률 타일이 없다
+- 돌아가기 시 `/student/lesson/result`로 복귀한다
+- 보기(활성) / 참여하기는 toast만. 캡처 오버레이·참여 embed 없음
+- Tailwind·StudentResource Context 없음. page에 목록/상세 마크업 없음
+- 학생 사이드바가 목록·상세 모두 유지된다
+- TypeScript · ESLint 에러 없음 (`no-unused-vars` 제외 규칙은 기존 eslint 설정)
+
+---
+
+## 13. 후속 (이번 비범위)
+
+- 학생 배정 활동 목록 API · 본인 리포트 상세 API
+- 배너: 실제 진행 중 활동이 없으면 숨김, **참여하기** → `/student/lesson/:accessKey`
+- 캡처 보기 실데이터
+- 추가계획18(교사 상세 API)과 응답 스키마를 맞출지 여부는 API 스펙 확정 때 판단
+
+---
+
+## 14. 참고 파일
+
+| 역할 | 경로 |
+|------|------|
+| 프로토타입 페이지 (기준) | `prototype/src/features/student-resources/pages/StudentResourcePage.tsx` |
+| 프로토타입 배너 | `.../components/StudentBanner.tsx` |
+| 프로토타입 목록 | `.../components/StudentReportDashboard.tsx` |
+| 프로토타입 상세 | `.../components/StudentDetailReport.tsx` |
+| 프로토타입 뱃지 | `.../components/badges.tsx` |
+| 프로토타입 타입·목업 | `.../types.ts`, `.../mock-data.ts` |
+| 구현 대상 목록 페이지 | `frontend/src/pages/student-lesson/StudentLessonResultPage.tsx` |
+| 학생 레이아웃·LNB | `frontend/src/widgets/layout/StudentLayout.tsx` |
+| 라우트 | `frontend/src/app/router/routes.tsx` |
+| 성격·정오 뱃지 (재사용) | `frontend/src/widgets/lesson/result/reportBadges.tsx` |
+| 교사 상세 (재사용 금지, 대조) | `frontend/src/pages/lesson/LessonReportDetailPage.tsx` |
+| 학생 참여 (배너 후속) | `frontend/src/pages/lesson/LessonJoinPage.tsx` |
+| 아키텍처 | `frontend/AGENTS.md`, `frontend/CLAUDE.md` |
+| 테마 | `frontend/src/app/styles/theme.ts` |
+
+---
+
+**작성일**: 2026-08-26  
+**상태**: 구현 완료 (2026-08-26)
+
+## 15. 구현 결과 (2026-08-26)
+
+### 신규 파일
+
+| 파일 | 역할 |
+|------|------|
+| `src/features/lesson/model/studentReportTypes.ts` | 학생 목록/상세 타입 |
+| `src/features/lesson/model/studentReportMock.ts` | 목록·상세 목업 + getter (`sr-1`·`sr-4`만 상세) |
+| `src/widgets/lesson/student-result/StudentLessonResultShell.tsx` | 896px + breadcrumb |
+| `src/widgets/lesson/student-result/StudentLessonBanner.tsx` | 진행 중 배너 + 참여하기 toast |
+| `src/widgets/lesson/student-result/StudentReportDashboard.tsx` | 나의 수업 결과 리스트 |
+| `src/widgets/lesson/student-result/StudentDetailReport.tsx` | 돌아가기 + 요약 타일 + 페이지별 내 활동 |
+| `src/widgets/lesson/student-result/studentResultBadges.tsx` | 목록 상태 뱃지 (완료/진행중/미제출/대기) |
+| `src/widgets/lesson/student-result/index.ts` | barrel |
+| `src/pages/student-lesson/StudentLessonResultDetailPage.tsx` | 상세 라우트 페이지. params만 전달 |
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/pages/student-lesson/StudentLessonResultPage.tsx` | 셸 + 배너 + 대시보드 조합 |
+| `src/pages/index.ts` | 목록·상세 페이지 export |
+| `src/app/router/routes.tsx` | `/student/lesson/result/:activityId` (`StudentProtectedLayout`) |
+| `src/features/lesson/index.ts` | 학생 리포트 타입·getter export |
+| `src/widgets/lesson/result/index.ts` | `NatureBadge` / `ErrataBadge` export |
+| `src/widgets/lesson/index.ts` | student-result · Nature/Errata re-export |
+
+### 라우트
+
+- 목록: `/student/lesson/result`
+- 상세: `/student/lesson/result/:activityId` (`sr-1`, `sr-4`)
+- 돌아가기: `/student/lesson/result` (`navigate(-1)` 미사용)
+- 레이아웃: 목록·상세 모두 `StudentProtectedLayout` (사이드바 유지)
+
+### 검증 결과
+
+- `npx tsc -b --noEmit` — 에러 없음
+- `npx eslint --fix` (변경 파일) — 에러 없음
+- `npx vite build` — 성공
+
+### 비고
+
+- API 없음. 목업 getter만 사용
+- 상세 없는 행(sr-2, sr-3)은 toast `아직 제출하지 않은 활동이에요.`
+- 참여하기·보기(활성)는 sonner toast만. 캡처 오버레이·`LessonJoinPage` 이동 없음
+- 없는 `activityId`로 직접 진입하면 돌아가기만 표시
+

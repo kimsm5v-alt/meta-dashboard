@@ -56,7 +56,12 @@ export { MySelfregResultPage } from './student-exam/MySelfregResultPage';
 export { LessonLibraryPage } from './lesson/LessonLibraryPage';
 export { LessonMyPage } from './lesson/LessonMyPage';
 export { LessonResultPage } from './lesson/LessonResultPage';
+export { LessonReportDetailPage } from './lesson/LessonReportDetailPage';
 export { LessonDeployPage } from './lesson/LessonDeployPage';
 export { LessonEditorPage } from './lesson/LessonEditorPage';
 export { LessonViewerPage } from './lesson/LessonViewerPage';
 export { LessonJoinPage } from './lesson/LessonJoinPage';
+
+// Student Lesson
+export { StudentLessonResultPage } from './student-lesson/StudentLessonResultPage';
+export { StudentLessonResultDetailPage } from './student-lesson/StudentLessonResultDetailPage';

@@ -49,6 +49,8 @@ export type CreateActivityBody = {
   options?: Record<string, unknown>;
 };
 
+export type ActivityAvailability = 'NOT_AVAILABLE' | 'NOT_STARTED' | 'OPEN' | 'CLOSED';
+
 export type ActivityDetail = {
   activityId: string;
   accessKey?: string;
@@ -58,6 +60,36 @@ export type ActivityDetail = {
   audienceType?: string;
   version?: number;
 };
+
+export interface ActivitySummaryItem {
+  activityId: string;
+  title: string;
+  lifecycleStatus: 'DRAFT' | 'PUBLISHED' | 'CLOSED';
+  availability: ActivityAvailability;
+  openAt?: string | null;
+  closeAt?: string | null;
+  createdAt: string;
+  labels?: string[];
+  options?: Record<string, unknown> | null;
+}
+
+export interface ActivitiesPageResponse {
+  content: ActivitySummaryItem[];
+  page: number;
+  size: number;
+  hasNext: boolean;
+  totalElements?: number;
+  totalPages?: number;
+}
+
+export interface GetActivitiesParams {
+  availability?: ActivityAvailability;
+  openFrom?: string;
+  openTo?: string;
+  page?: number;
+  size?: number;
+  withTotal?: boolean;
+}
 
 export type DeployFailedStep = 'create' | 'assign' | 'publish';
 
@@ -119,6 +151,25 @@ export async function publishActivity(activityId: string): Promise<ActivityDetai
   return lmsFetch<ActivityDetail>(`${BASE}/${activityId}/publish`, {
     method: 'POST',
   });
+}
+
+function buildActivitiesQuery(params: GetActivitiesParams): string {
+  const search = new URLSearchParams();
+  if (params.availability) search.set('availability', params.availability);
+  if (params.openFrom) search.set('openFrom', params.openFrom);
+  if (params.openTo) search.set('openTo', params.openTo);
+  search.set('page', String(params.page ?? 0));
+  search.set('size', String(params.size ?? 20));
+  if (params.withTotal) search.set('withTotal', 'true');
+  return search.toString();
+}
+
+/** GET /api/v1/activities — 발행함 목록 */
+export async function getActivities(
+  params: GetActivitiesParams,
+  signal?: AbortSignal,
+): Promise<ActivitiesPageResponse> {
+  return lmsFetch<ActivitiesPageResponse>(`${BASE}?${buildActivitiesQuery(params)}`, { signal });
 }
 
 function toFailure(
