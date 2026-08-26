@@ -69,6 +69,36 @@ export type {
 export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 export { mapLibraryItemToLibItem, mapRefSetToLibItem } from './model/mapLibraryItemToLibItem';
 export type {
+  ReportDetailTab,
+  ArticleNature,
+  StudentStatusCd,
+  ErrataCd,
+  RenderMode,
+  ReportDetailStudent,
+  ReportDetailArticle,
+  ReportDetailResponse,
+  ReportDetailView,
+  CellInfo,
+} from './model/reportDetailTypes';
+export {
+  getReportDetailView,
+  emptyReportDetail,
+  MOCK_REPORT_DETAIL_ACTIVITY_ID,
+} from './model/reportDetailMock';
+export {
+  SUBMITTED_STATUS,
+  pct,
+  fmtDotDate,
+  fmtDuration,
+  responseOf,
+  articleResponded,
+  hasGradedItems,
+  studentSummary,
+  renderMode,
+  responseCell,
+  submittedStudentCount,
+} from './model/reportDetailUtils';
+export type {
   FilterAxis,
   LibFilters,
   SortKey,

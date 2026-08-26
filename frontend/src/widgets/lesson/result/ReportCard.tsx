@@ -5,6 +5,7 @@
  */
 import { useState } from 'react';
 import styled from '@emotion/styled';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Calendar, BarChart3 } from 'lucide-react';
 import type { ActivitySummaryItem, ActivityAvailability } from '@features/lesson';
 
@@ -166,8 +167,11 @@ const BarIcon = styled(BarChart3)`
 `;
 
 export const ReportCard = ({ activity, highlight = false }: ReportCardProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [imgFailed, setImgFailed] = useState(false);
-  const thumbnailUrl = activity.options?.thumbnailUrl as string | undefined;
+  const thumbnailUrl =
+    typeof activity.options?.thumbnailUrl === 'string' ? activity.options.thumbnailUrl : undefined;
 
   const startStr = activity.openAt ? fmtDate(activity.openAt) : '';
   const endStr = activity.closeAt ? fmtDate(activity.closeAt) : '';
@@ -202,7 +206,14 @@ export const ReportCard = ({ activity, highlight = false }: ReportCardProps) => 
           <DateIcon />
           {dateStr}
         </DateRow>
-        <ReportButton type='button'>
+        <ReportButton
+          type='button'
+          onClick={() =>
+            navigate(`/lesson/result/${activity.activityId}${location.search}`, {
+              state: { activity },
+            })
+          }
+        >
           <BarIcon />
           리포트
         </ReportButton>
