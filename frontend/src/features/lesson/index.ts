@@ -4,13 +4,18 @@ export {
   createActivity,
   putActivityAssignees,
   publishActivity,
+  getActivities,
   fetchActivityEntry,
   startParticipation,
   LmsHttpError,
 } from './api/lmsActivityService';
 export type {
   CreateActivityBody,
+  ActivityAvailability,
   ActivityDetail,
+  ActivitySummaryItem,
+  ActivitiesPageResponse,
+  GetActivitiesParams,
   DeployFailedStep,
   DeployLessonActivityFailure,
   DeployLessonActivityResult,
@@ -42,6 +47,9 @@ export {
   useDeleteLibraryItemMutation,
   useActivityEntryQuery,
   useStartParticipationQuery,
+  useThisWeekCountQuery,
+  useRunningCountQuery,
+  useActivityListQuery,
 } from './api/queries';
 export type { SyncLibraryItemOnSaveInput } from './api/queries';
 export type {
@@ -60,6 +68,48 @@ export type {
 } from './api/cmsSetService';
 export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 export { mapLibraryItemToLibItem, mapRefSetToLibItem } from './model/mapLibraryItemToLibItem';
+export type {
+  ReportDetailTab,
+  ArticleNature,
+  StudentStatusCd,
+  ErrataCd,
+  RenderMode,
+  ReportDetailStudent,
+  ReportDetailArticle,
+  ReportDetailResponse,
+  ReportDetailView,
+  CellInfo,
+} from './model/reportDetailTypes';
+export {
+  getReportDetailView,
+  emptyReportDetail,
+  MOCK_REPORT_DETAIL_ACTIVITY_ID,
+} from './model/reportDetailMock';
+export type {
+  StudentResultStatus,
+  StudentReportListItem,
+  StudentReportArticle,
+  StudentReportResponse,
+  StudentReportDetailView,
+} from './model/studentReportTypes';
+export {
+  getStudentReportList,
+  getStudentReportDetail,
+  hasStudentReportDetail,
+} from './model/studentReportMock';
+export {
+  SUBMITTED_STATUS,
+  pct,
+  fmtDotDate,
+  fmtDuration,
+  responseOf,
+  articleResponded,
+  hasGradedItems,
+  studentSummary,
+  renderMode,
+  responseCell,
+  submittedStudentCount,
+} from './model/reportDetailUtils';
 export type {
   FilterAxis,
   LibFilters,

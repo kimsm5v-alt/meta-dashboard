@@ -3,6 +3,7 @@ import styled from '@emotion/styled';
 import { ENV } from '@shared/config/env';
 import { useEveryCanvasEmbed } from '../lib/useEveryCanvasEmbed';
 import type { EmbedError, ThemeTokens } from '../lib/everyCanvasEmbedSdk';
+import { getSsoAccessToken } from '../lib/getSsoAccessToken';
 
 const JoinContainer = styled.div`
   position: fixed;
@@ -49,6 +50,7 @@ export const LessonActivityJoinEmbed = ({
       accessKey,
       activityId: accessKey,
       slideId: setId,
+      getSsoToken: getSsoAccessToken,
       locale: 'ko-KR',
       theme: embedTheme,
     },

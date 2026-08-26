@@ -45,10 +45,13 @@ import {
   LessonLibraryPage,
   LessonMyPage,
   LessonResultPage,
+  LessonReportDetailPage,
   LessonDeployPage,
   LessonEditorPage,
   LessonViewerPage,
   LessonJoinPage,
+  StudentLessonResultPage,
+  StudentLessonResultDetailPage,
 } from '@pages/index';
 
 // ============================================================
@@ -284,6 +287,7 @@ export const AppRoutes = () => (
             <Route path='/lesson/library' element={<LessonLibraryPage />} />
             <Route path='/lesson/my' element={<LessonMyPage />} />
             <Route path='/lesson/result' element={<LessonResultPage />} />
+            <Route path='/lesson/result/:activityId' element={<LessonReportDetailPage />} />
 
             <Route path='/ai-assistant' element={<AIRoomPage />} />
           </>
@@ -324,6 +328,11 @@ export const AppRoutes = () => (
       <Route path='/student/result/selfreg' element={<MySelfregResultPage />} />
       <Route path='/student/result/selfreg/:resultId' element={<MySelfregResultPage />} />
       <Route path='/exam/student' element={<ExamPage />} />
+      <Route path='/student/lesson/result' element={<StudentLessonResultPage />} />
+      <Route
+        path='/student/lesson/result/:activityId'
+        element={<StudentLessonResultDetailPage />}
+      />
     </Route>
 
     {/* 학생 라우트 - 풀스크린(사이드바 없음), 일반 인증 필요 */}
