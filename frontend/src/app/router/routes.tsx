@@ -50,8 +50,9 @@ import {
   LessonEditorPage,
   LessonViewerPage,
   LessonJoinPage,
+  StudentLessonResultPage,
+  StudentLessonResultDetailPage,
 } from '@pages/index';
-import StudentLessonResultPage from '@pages/student-lesson/StudentLessonResultPage';
 
 // ============================================================
 // 레이아웃 래퍼
@@ -328,6 +329,10 @@ export const AppRoutes = () => (
       <Route path='/student/result/selfreg/:resultId' element={<MySelfregResultPage />} />
       <Route path='/exam/student' element={<ExamPage />} />
       <Route path='/student/lesson/result' element={<StudentLessonResultPage />} />
+      <Route
+        path='/student/lesson/result/:activityId'
+        element={<StudentLessonResultDetailPage />}
+      />
     </Route>
 
     {/* 학생 라우트 - 풀스크린(사이드바 없음), 일반 인증 필요 */}

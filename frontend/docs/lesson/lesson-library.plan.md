@@ -24,7 +24,7 @@
 | **추가계획16** | `LessonResultPage` API 연동 (`GET /api/v1/activities`) | 구현 완료 (2026-08-26) |
 | **추가계획17** | `ReportCard` 리포트 버튼 → 리포트 상세 페이지 (`ReportDetail` UI) | 구현 완료 (2026-08-26) |
 | **추가계획18** | `LessonReportDetailPage` 리포트 상세 API 연동 | 계획 수립 (상세 스펙 보류) |
-| **추가계획19** | 학생 `StudentLessonResultPage` — prototype `StudentResourcePage` UI/UX 동등 구현 | 계획 수립 완료 / 구현 대기 |
+| **추가계획19** | 학생 `StudentLessonResultPage` — prototype `StudentResourcePage` UI/UX 동등 구현 | 구현 완료 (2026-08-26) |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `GET .../api/sets` (`brandId=18`, `serviceType=131132`) | 추가계획8 스펙 확정 · 필터 매핑 미적용 |
@@ -6032,18 +6032,18 @@ return (
 
 ## 11. 구현 순서 (체크리스트)
 
-- [ ] `features/lesson/model/studentReportTypes.ts` · `studentReportMock.ts` · barrel export
-- [ ] `widgets/lesson/student-result/StudentLessonResultShell.tsx` (896px + breadcrumb)
-- [ ] `studentResultBadges.tsx` (목록 상태 4종)
-- [ ] `StudentLessonBanner.tsx` (목업 문구 + 참여하기 toast)
-- [ ] `StudentReportDashboard.tsx` (+ 행 UI)
-- [ ] `StudentDetailReport.tsx` (요약 타일 + 페이지별 내 활동)
-- [ ] `pages/student-lesson/StudentLessonResultPage.tsx` 조합으로 교체
-- [ ] `pages/student-lesson/StudentLessonResultDetailPage.tsx` 추가
-- [ ] `pages/index.ts` export, `routes.tsx`에 `/student/lesson/result/:activityId`
-- [ ] `widgets/lesson/student-result/index.ts` 및 `widgets/lesson/index.ts`
-- [ ] `NatureBadge` / `ErrataBadge`를 학생 상세에서 re-export로 사용
-- [ ] `npx tsc -b --noEmit` + `npx eslint <변경 파일>` (`AGENTS.md` 검증)
+- [x] `features/lesson/model/studentReportTypes.ts` · `studentReportMock.ts` · barrel export
+- [x] `widgets/lesson/student-result/StudentLessonResultShell.tsx` (896px + breadcrumb)
+- [x] `studentResultBadges.tsx` (목록 상태 4종)
+- [x] `StudentLessonBanner.tsx` (목업 문구 + 참여하기 toast)
+- [x] `StudentReportDashboard.tsx` (+ 행 UI)
+- [x] `StudentDetailReport.tsx` (요약 타일 + 페이지별 내 활동)
+- [x] `pages/student-lesson/StudentLessonResultPage.tsx` 조합으로 교체
+- [x] `pages/student-lesson/StudentLessonResultDetailPage.tsx` 추가
+- [x] `pages/index.ts` export, `routes.tsx`에 `/student/lesson/result/:activityId`
+- [x] `widgets/lesson/student-result/index.ts` 및 `widgets/lesson/index.ts`
+- [x] `NatureBadge` / `ErrataBadge`를 학생 상세에서 re-export로 사용
+- [x] `npx tsc -b --noEmit` + `npx eslint <변경 파일>` (`AGENTS.md` 검증)
 
 ---
 
@@ -6092,5 +6092,52 @@ return (
 ---
 
 **작성일**: 2026-08-26  
-**상태**: 계획 수립 완료 / 구현 대기
+**상태**: 구현 완료 (2026-08-26)
+
+## 15. 구현 결과 (2026-08-26)
+
+### 신규 파일
+
+| 파일 | 역할 |
+|------|------|
+| `src/features/lesson/model/studentReportTypes.ts` | 학생 목록/상세 타입 |
+| `src/features/lesson/model/studentReportMock.ts` | 목록·상세 목업 + getter (`sr-1`·`sr-4`만 상세) |
+| `src/widgets/lesson/student-result/StudentLessonResultShell.tsx` | 896px + breadcrumb |
+| `src/widgets/lesson/student-result/StudentLessonBanner.tsx` | 진행 중 배너 + 참여하기 toast |
+| `src/widgets/lesson/student-result/StudentReportDashboard.tsx` | 나의 수업 결과 리스트 |
+| `src/widgets/lesson/student-result/StudentDetailReport.tsx` | 돌아가기 + 요약 타일 + 페이지별 내 활동 |
+| `src/widgets/lesson/student-result/studentResultBadges.tsx` | 목록 상태 뱃지 (완료/진행중/미제출/대기) |
+| `src/widgets/lesson/student-result/index.ts` | barrel |
+| `src/pages/student-lesson/StudentLessonResultDetailPage.tsx` | 상세 라우트 페이지. params만 전달 |
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/pages/student-lesson/StudentLessonResultPage.tsx` | 셸 + 배너 + 대시보드 조합 |
+| `src/pages/index.ts` | 목록·상세 페이지 export |
+| `src/app/router/routes.tsx` | `/student/lesson/result/:activityId` (`StudentProtectedLayout`) |
+| `src/features/lesson/index.ts` | 학생 리포트 타입·getter export |
+| `src/widgets/lesson/result/index.ts` | `NatureBadge` / `ErrataBadge` export |
+| `src/widgets/lesson/index.ts` | student-result · Nature/Errata re-export |
+
+### 라우트
+
+- 목록: `/student/lesson/result`
+- 상세: `/student/lesson/result/:activityId` (`sr-1`, `sr-4`)
+- 돌아가기: `/student/lesson/result` (`navigate(-1)` 미사용)
+- 레이아웃: 목록·상세 모두 `StudentProtectedLayout` (사이드바 유지)
+
+### 검증 결과
+
+- `npx tsc -b --noEmit` — 에러 없음
+- `npx eslint --fix` (변경 파일) — 에러 없음
+- `npx vite build` — 성공
+
+### 비고
+
+- API 없음. 목업 getter만 사용
+- 상세 없는 행(sr-2, sr-3)은 toast `아직 제출하지 않은 활동이에요.`
+- 참여하기·보기(활성)는 sonner toast만. 캡처 오버레이·`LessonJoinPage` 이동 없음
+- 없는 `activityId`로 직접 진입하면 돌아가기만 표시
 

@@ -61,3 +61,7 @@ export { LessonDeployPage } from './lesson/LessonDeployPage';
 export { LessonEditorPage } from './lesson/LessonEditorPage';
 export { LessonViewerPage } from './lesson/LessonViewerPage';
 export { LessonJoinPage } from './lesson/LessonJoinPage';
+
+// Student Lesson
+export { StudentLessonResultPage } from './student-lesson/StudentLessonResultPage';
+export { StudentLessonResultDetailPage } from './student-lesson/StudentLessonResultDetailPage';

@@ -85,6 +85,18 @@ export {
   emptyReportDetail,
   MOCK_REPORT_DETAIL_ACTIVITY_ID,
 } from './model/reportDetailMock';
+export type {
+  StudentResultStatus,
+  StudentReportListItem,
+  StudentReportArticle,
+  StudentReportResponse,
+  StudentReportDetailView,
+} from './model/studentReportTypes';
+export {
+  getStudentReportList,
+  getStudentReportDetail,
+  hasStudentReportDetail,
+} from './model/studentReportMock';
 export {
   SUBMITTED_STATUS,
   pct,

@@ -45,7 +45,7 @@ export const emptyReportDetail = (activityId: string): ReportDetailView => ({
   responses: [],
 });
 
-export const getReportDetailView = (activityId: string): ReportDetailView => {
+export const getReportDetailView = (_activityId: string): ReportDetailView => {
   return MOCK_REPORT_DETAIL;
   // if (activityId === MOCK_REPORT_DETAIL.activityId) return MOCK_REPORT_DETAIL;
   // return emptyReportDetail(activityId);
