@@ -16,7 +16,8 @@ import {
   updateLibraryItem,
 } from './lmsLibraryItemService';
 import type { LibraryItem, LibraryItemListData, LibraryItemOptions } from './lmsLibraryItemService';
-import { fetchActivityEntry, startParticipation } from './lmsActivityService';
+import { fetchActivityEntry, getActivities, startParticipation } from './lmsActivityService';
+import type { ActivitiesPageResponse, ActivityAvailability } from './lmsActivityService';
 // import { CMS_BRAND_ID } from '../model/constants';
 import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
@@ -209,5 +210,56 @@ export function useStartParticipationQuery(
     queryFn: () => startParticipation(accessKey!),
     enabled: Boolean(accessKey) && (options?.enabled ?? true),
     retry: false,
+  });
+}
+
+function getThisWeekRange(): { openFrom: string; openTo: string } {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+  const nextMonday = new Date(monday);
+  nextMonday.setDate(monday.getDate() + 7);
+  return {
+    openFrom: monday.toISOString(),
+    openTo: nextMonday.toISOString(),
+  };
+}
+
+/** 이번 주 배포 건수 — openFrom/openTo 기준, totalElements만 사용 */
+export function useThisWeekCountQuery() {
+  const { openFrom, openTo } = getThisWeekRange();
+  return useQuery({
+    queryKey: lessonKeys.thisWeekCount(),
+    queryFn: ({ signal }) => getActivities({ openFrom, openTo, withTotal: true, size: 1 }, signal),
+    select: (data) => data.totalElements ?? 0,
+  });
+}
+
+/** 진행 중 활동 건수 — availability=OPEN, totalElements만 사용 */
+export function useRunningCountQuery() {
+  return useQuery({
+    queryKey: lessonKeys.runningCount(),
+    queryFn: ({ signal }) =>
+      getActivities({ availability: 'OPEN', withTotal: true, size: 1 }, signal),
+    select: (data) => data.totalElements ?? 0,
+  });
+}
+
+/**
+ * 활동 목록 무한 스크롤 쿼리.
+ * availability가 undefined이면 전체 조회 (필터 '전체').
+ * 필터 변경 시 queryKey가 바뀌어 page 0부터 재조회된다.
+ */
+export function useActivityListQuery(availability: ActivityAvailability | undefined) {
+  return useInfiniteQuery<ActivitiesPageResponse>({
+    queryKey: lessonKeys.activitiesByFilter(availability ?? 'ALL'),
+    queryFn: ({ pageParam, signal }) =>
+      getActivities({ availability, page: Number(pageParam), size: 20 }, signal),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.page + 1 : undefined),
+    placeholderData: keepPreviousData,
   });
 }

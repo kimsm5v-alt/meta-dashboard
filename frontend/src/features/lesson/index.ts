@@ -4,13 +4,18 @@ export {
   createActivity,
   putActivityAssignees,
   publishActivity,
+  getActivities,
   fetchActivityEntry,
   startParticipation,
   LmsHttpError,
 } from './api/lmsActivityService';
 export type {
   CreateActivityBody,
+  ActivityAvailability,
   ActivityDetail,
+  ActivitySummaryItem,
+  ActivitiesPageResponse,
+  GetActivitiesParams,
   DeployFailedStep,
   DeployLessonActivityFailure,
   DeployLessonActivityResult,
@@ -42,6 +47,9 @@ export {
   useDeleteLibraryItemMutation,
   useActivityEntryQuery,
   useStartParticipationQuery,
+  useThisWeekCountQuery,
+  useRunningCountQuery,
+  useActivityListQuery,
 } from './api/queries';
 export type { SyncLibraryItemOnSaveInput } from './api/queries';
 export type {
