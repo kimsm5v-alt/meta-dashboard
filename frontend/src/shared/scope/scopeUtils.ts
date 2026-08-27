@@ -8,6 +8,7 @@ export function adjustScopeForMenu(
   currentScope: Scope,
   menuConfig: MenuScopeConfig,
   scopeMemory: ScopeMemory,
+  firstClassId?: string,
 ): { adjustedScope: Scope; updatedMemory: ScopeMemory } {
   const { level, classId, studentId } = currentScope;
   let adjustedScope: Scope = { ...currentScope };
@@ -15,6 +16,17 @@ export function adjustScopeForMenu(
 
   if (level === 'all' && menuConfig.all) {
     updatedMemory.current = adjustedScope;
+    return { adjustedScope, updatedMemory };
+  }
+
+  // HSJ-119: "전체" 스코프를 지원하지 않는 메뉴는 미선택 상태를 유지하지 않고
+  // 첫 번째 반을 자동 선택한다(반 목록 로딩 전에는 firstClassId가 없어 'all'을 유지한다).
+  if (level === 'all' && !menuConfig.all) {
+    adjustedScope = firstClassId ? { level: 'class', classId: firstClassId } : { level: 'all' };
+    updatedMemory.current = adjustedScope;
+    if (firstClassId) {
+      updatedMemory.lastClassId = firstClassId;
+    }
     return { adjustedScope, updatedMemory };
   }
   if (

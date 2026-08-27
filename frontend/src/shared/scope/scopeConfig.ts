@@ -39,8 +39,8 @@ export type MenuKey =
   | 'ai-assistant';
 
 export const MENU_SCOPE_MATRIX: Record<MenuKey, MenuScopeConfig> = {
-  // 검사 — 반을 선택하지 않으면 전체 학급 데이터를 보여주되 LNB에는 별도 "전체" 항목을 두지 않는다.
-  'exam/management': { all: true, class: true, student: false },
+  // 검사관리: "전체" 스코프 미지원(HSJ-119) — LNB 미선택 상태에서는 첫 번째 반이 자동 선택된다.
+  'exam/management': { all: false, class: true, student: false },
   'exam/result': { all: true, class: true, student: true },
   'exam/tracking': { all: true, class: true, student: true },
   // 생활기록부 작성: 전체·반·학생 모두 지원 (확정 IA)

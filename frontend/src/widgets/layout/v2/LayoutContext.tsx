@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type React from 'react';
 import { useLocation } from 'react-router-dom';
 
+import { useMyGroupsQuery } from '@features/api';
 import {
   adjustScopeForMenu,
   getMenuKeyFromPath,
@@ -30,6 +31,10 @@ const LayoutContext = createContext<LayoutContextValue | null>(null);
 export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const { urlScope, updateURL } = useScopeSync();
+  // HSJ-119: "전체" 스코프 미지원 메뉴에서 첫 번째 반을 자동 선택하기 위해 필요.
+  // ScopeTree와 동일한 queryKey를 쓰므로(useMyGroupsQuery) 캐시를 공유해 중복 호출되지 않는다.
+  const { data: groups = [] } = useMyGroupsQuery();
+  const firstClassId = groups[0]?.id;
 
   const [scope, setScopeState] = useState<Scope>(INITIAL_SCOPE);
   const [scopeMemory, setScopeMemory] = useState<ScopeMemory>(INITIAL_SCOPE_MEMORY);
@@ -89,6 +94,7 @@ export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       urlScope,
       currentMenuConfig,
       scopeMemory,
+      firstClassId,
     );
 
     if (!isScopeEqual(adjustedScope, scope)) {
@@ -106,7 +112,7 @@ export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } else if (!currentMenuConfig.student) {
       setExpandedClassId(null);
     }
-  }, [currentMenuConfig, scope, scopeMemory, updateURL, urlScope]);
+  }, [currentMenuConfig, firstClassId, scope, scopeMemory, updateURL, urlScope]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const contextValue = useMemo<LayoutContextValue>(
