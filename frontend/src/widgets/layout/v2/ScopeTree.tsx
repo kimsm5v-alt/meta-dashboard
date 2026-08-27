@@ -20,6 +20,7 @@ import { useMyGroupsQuery } from '@features/api';
 import { useAuth } from '@features/auth';
 import { useGroupMembersQuery } from '@features/groups';
 import { openMypageGroups } from '@shared/lib/mypage';
+import { matchesNameSearch } from '@shared/utils/koreanNameSearch';
 
 import { useLayoutContext } from './LayoutContext';
 
@@ -279,7 +280,9 @@ export const ScopeTree: React.FC = () => {
   const filteredStudents = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
     if (!keyword) return activeStudents;
-    return activeStudents.filter((student) => (student.name || '').toLowerCase().includes(keyword));
+    return activeStudents.filter((student) =>
+      matchesNameSearch((student.name || '').toLowerCase(), keyword),
+    );
   }, [activeStudents, searchQuery]);
 
   const handleClassHeaderClick = (classId: string) => {

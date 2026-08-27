@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { Bell, Check, Clock, Search } from 'lucide-react';
 
+import { matchesNameSearch } from '@shared/utils/koreanNameSearch';
 import { EXAM_SLOTS, EXAM_STATUS_LABELS } from '../constants';
 import { useExamReminderAction } from '../model/useExamReminderAction';
 import { calculateProgress, getSlotStatus } from '../utils';
@@ -494,7 +495,7 @@ export const ExamClassManagementView = ({
     const term = searchTerm.trim().toLocaleLowerCase('ko-KR');
     return (
       !term ||
-      row.name.toLocaleLowerCase('ko-KR').includes(term) ||
+      matchesNameSearch(row.name.toLocaleLowerCase('ko-KR'), term) ||
       String(row.number).includes(term)
     );
   });

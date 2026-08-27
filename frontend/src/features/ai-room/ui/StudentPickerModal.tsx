@@ -2,6 +2,7 @@ import styled from '@emotion/styled';
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Minus, Search, Users, X } from 'lucide-react';
 import type { Class, Student } from '@shared/types';
+import { matchesNameSearch } from '@shared/utils/koreanNameSearch';
 import { getStudentSelectionKey } from '../utils/studentSelectionKey';
 
 const Overlay = styled.div`
@@ -364,7 +365,7 @@ export const StudentPickerModal: React.FC<StudentPickerModalProps> = ({
   const filteredStudents = useMemo(() => {
     const q = search.trim();
     if (!q) return students;
-    return students.filter((s) => s.name.includes(q));
+    return students.filter((s) => matchesNameSearch(s.name, q));
   }, [students, search]);
 
   const allStudentsAcrossClasses = useMemo(

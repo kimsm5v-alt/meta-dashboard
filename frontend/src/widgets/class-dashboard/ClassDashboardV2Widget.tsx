@@ -47,6 +47,7 @@ import {
   type StudentInfoItem,
 } from '@shared/services/dashboardService';
 import type { Class, Student } from '@shared/types';
+import { matchesNameSearch } from '@shared/utils/koreanNameSearch';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -2518,7 +2519,8 @@ const StudentListTab = ({ classData, testId, onNavigateToStudent }: StudentListT
   const filteredStudents = useMemo(() => {
     let list = classData.students;
     const term = searchTerm.trim();
-    if (term) list = list.filter((s) => s.name.includes(term) || String(s.number).includes(term));
+    if (term)
+      list = list.filter((s) => matchesNameSearch(s.name, term) || String(s.number).includes(term));
     if (filter === 'attention')
       list = list.filter((s) => s.assessments.some((a) => a.attentionResult.needsAttention));
     else if (filter === 'reliability')

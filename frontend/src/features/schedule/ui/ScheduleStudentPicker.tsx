@@ -6,6 +6,7 @@ import type { CounselingStudent } from '@shared/types';
 import type { ScheduleClass } from '@shared/data/mockUnifiedCounseling';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_CLASS_ALL_STUDENTS } from '@shared/data/apiDefinitions';
+import { matchesNameSearch } from '@shared/utils/koreanNameSearch';
 
 interface ScheduleStudentPickerProps {
   isOpen: boolean;
@@ -362,7 +363,7 @@ export const ScheduleStudentPicker: React.FC<ScheduleStudentPickerProps> = ({
     if (!searchQuery.trim()) return students;
     const query = searchQuery.toLowerCase();
     return students.filter(
-      (s) => s.name.toLowerCase().includes(query) || s.number.toString().includes(query),
+      (s) => matchesNameSearch(s.name.toLowerCase(), query) || s.number.toString().includes(query),
     );
   }, [students, searchQuery]);
 
