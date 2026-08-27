@@ -1004,6 +1004,7 @@ export async function buildClassFromAPI(
   dgnssId: number,
   round2DgnssId?: number,
   schoolLevelCode?: SchoolLevelCode,
+  name?: string,
 ): Promise<Class | null> {
   try {
     const studentInfoList = await fetchStudentInfoList(dgnssId, '1', 1);
@@ -1116,6 +1117,7 @@ export async function buildClassFromAPI(
 
     return {
       id: claId,
+      name,
       schoolLevel,
       schoolLevelCode,
       grade,

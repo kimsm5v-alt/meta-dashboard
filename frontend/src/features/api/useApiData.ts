@@ -514,6 +514,7 @@ export function useTeacherClasses(
             primaryDgnssId,
             round2?.dgnssId,
             group.schoolLevel,
+            group.name,
           );
         }
 
@@ -521,6 +522,7 @@ export function useTeacherClasses(
         const latestCompletedExam = round2 ?? round1;
         const simpleClass: Class = {
           id: group.claId,
+          name: group.name,
           schoolLevel,
           schoolLevelCode: group.schoolLevel,
           grade: group.grade,

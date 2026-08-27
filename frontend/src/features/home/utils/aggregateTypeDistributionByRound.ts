@@ -1,4 +1,5 @@
 import type { Class, StudentType } from '@shared/types';
+import { getClassDisplayName } from '@shared/utils/classDisplayName';
 
 export interface RoundTypeCounts {
   types: { name: StudentType; count: number }[] | null; // null = 해당 회차 검사 미실시
@@ -35,7 +36,7 @@ const countByType = (classData: Class, round: 1 | 2): RoundTypeCounts => {
 export function aggregateTypeDistributionByRound(classes: Class[]): ClassRoundDistribution[] {
   return classes.map((classData) => ({
     classId: classData.id,
-    className: `${classData.grade}-${classData.classNumber}반`,
+    className: getClassDisplayName(classData),
     round1: countByType(classData, 1),
     round2: countByType(classData, 2),
   }));

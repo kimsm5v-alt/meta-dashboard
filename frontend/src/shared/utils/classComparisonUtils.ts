@@ -1,5 +1,6 @@
 import type { Class, FactorCategory, ClassCategoryAverage, CategoryChartData } from '../types';
 import { SUB_CATEGORY_FACTORS } from '@shared/data/factors';
+import { getClassDisplayName } from './classDisplayName';
 
 // 5대 영역별 인덱스 매핑
 export const MAIN_CATEGORY_INDICES: Record<FactorCategory, number[]> = {
@@ -27,7 +28,7 @@ export const calculateCategoryAverages = (classData: Class): ClassCategoryAverag
   if (assessedStudents.length === 0) {
     return {
       classId: classData.id,
-      className: `${classData.grade}-${classData.classNumber}반`,
+      className: getClassDisplayName(classData),
       categoryAverages,
     };
   }
@@ -54,7 +55,7 @@ export const calculateCategoryAverages = (classData: Class): ClassCategoryAverag
 
   return {
     classId: classData.id,
-    className: `${classData.grade}-${classData.classNumber}반`,
+    className: getClassDisplayName(classData),
     categoryAverages,
   };
 };
@@ -128,7 +129,7 @@ export const calculateSubCategoryAverages = (classData: Class): SubCategoryAvera
     for (const sub of SUB_CATEGORY_ORDER) subCategoryAverages[sub] = 50;
     return {
       classId: classData.id,
-      className: `${classData.grade}-${classData.classNumber}반`,
+      className: getClassDisplayName(classData),
       subCategoryAverages,
     };
   }
@@ -147,7 +148,7 @@ export const calculateSubCategoryAverages = (classData: Class): SubCategoryAvera
 
   return {
     classId: classData.id,
-    className: `${classData.grade}-${classData.classNumber}반`,
+    className: getClassDisplayName(classData),
     subCategoryAverages,
   };
 };

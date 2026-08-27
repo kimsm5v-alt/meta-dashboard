@@ -19,6 +19,7 @@ import {
   calculateSubCategoryAverages,
   transformToSubCategoryChartData,
 } from '@shared/utils/classComparisonUtils';
+import { getClassDisplayName } from '@shared/utils/classDisplayName';
 
 interface CategoryComparisonChartProps {
   classes: Class[];
@@ -109,7 +110,7 @@ export const CategoryComparisonChart: React.FC<CategoryComparisonChartProps> = (
             iconType='line'
             iconSize={14}
             onClick={(e) => {
-              const cls = classes.find((c) => `${c.grade}-${c.classNumber}반` === e.value);
+              const cls = classes.find((c) => getClassDisplayName(c) === e.value);
               if (cls) handleLineClick(cls.id);
             }}
             style={{ cursor: 'pointer' }}
@@ -124,7 +125,7 @@ export const CategoryComparisonChart: React.FC<CategoryComparisonChartProps> = (
           />
 
           {classes.map((cls, idx) => {
-            const name = `${cls.grade}-${cls.classNumber}반`;
+            const name = getClassDisplayName(cls);
             const isSelected = selectedClassId === cls.id;
             const hasSelection = selectedClassId !== null;
             const color = CLASS_COLORS[idx % CLASS_COLORS.length];
