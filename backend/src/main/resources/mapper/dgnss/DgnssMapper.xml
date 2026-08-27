@@ -687,6 +687,22 @@
 		  )
 	</select>
 
+	<!-- 교사) dgnssId 기준 학급 학생 제출 현황(제출여부/제출일시). result_info 는 응시 학생마다 항상 존재 → INNER JOIN. -->
+	<select id="selectSubmissionsByDgnssId" parameterType="int" resultType="map">
+		/* DgnssMapper.selectSubmissionsByDgnssId */
+		SELECT b1.stdt_id AS stdtId
+		     , gm.member_no AS memberNo
+		     , b1.subm_at AS submAt
+		     , DATE_FORMAT(b1.subm_dt, '%Y-%m-%dT%H:%i:%s+09:00') AS submDt
+		FROM tb_dgnss_info a1
+			INNER JOIN group_info gi ON a1.cla_id = gi.cla_id
+			INNER JOIN group_member gm ON gi.group_id = gm.group_id
+				AND gm.status = 'ACTIVE' AND gm.member_type = 'STUDENT'
+			INNER JOIN tb_dgnss_result_info b1 ON a1.id = b1.dgnss_id AND b1.stdt_id = gm.stdt_id
+		WHERE a1.id = #{dgnssId}
+		ORDER BY gm.member_no
+	</select>
+
 	<update id="updateStSubmit" parameterType="int">
 		/* DgnssMapper.updateStSubmit */
 		UPDATE tb_dgnss_result_info

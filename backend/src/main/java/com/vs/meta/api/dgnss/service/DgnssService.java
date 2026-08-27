@@ -1163,6 +1163,14 @@ public class DgnssService {
         return result;
     }
 
+    /** 교사) dgnssId 기준 학급 학생 제출 현황(stdtId/submAt/submDt). 이름은 FE 가 Auth 로 조회. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> selectTcSubmissions(int dgnssId) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("students", dgnssMapper.selectSubmissionsByDgnssId(dgnssId));
+        return result;
+    }
+
     /**
      * /tc/stinfolist 응답에 다른 학급에서 응시한 학생을 보강.
      * 기존 row 에 source=IN_CLASS, 보강 row 에 source=OTHER_CLASS 부여 후 stdtId 기준 dedup.

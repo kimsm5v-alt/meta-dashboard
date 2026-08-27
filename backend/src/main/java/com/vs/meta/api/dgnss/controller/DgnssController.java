@@ -356,6 +356,21 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(new HashMap<>(), result, "미제출 학생 독려 알림 발송");
     }
 
+    @RequestMapping(value = "/api/dgnss/tc/submissions", method = {RequestMethod.GET})
+    @Operation(summary = "(교사) 학생 제출 현황 목록",
+            description = "dgnssId 기준 학급 학생들의 제출 여부(submAt Y/N)와 제출일시(submDt, 미제출 시 null)를 반환. "
+                    + "학생 이름은 FE 가 stdtId 로 Auth 조회.")
+    @Parameter(name = "dgnssId", description = "심리검사 ID", required = true, example = "1088")
+    public ResponseDTO<CustomBody> tchMetaSubmissions(
+            @RequestParam(name = "dgnssId") int dgnssId
+    ) {
+        if (dgnssId <= 0) {
+            throw new IllegalArgumentException("dgnssId는 필수입니다.");
+        }
+        Map<String, Object> result = dgnssService.selectTcSubmissions(dgnssId);
+        return AidtCommonUtil.makeResultSuccess(new HashMap<>(), result, "학생 제출 현황 목록");
+    }
+
     @RequestMapping(value = "/api/dgnss/tc/detail", method = {RequestMethod.GET})
     @Operation(summary = "(선생님)학습심리정서검사 상세 내용", description = "")
     @Parameter(name = "dgnssId", description = "심리검사 ID",
