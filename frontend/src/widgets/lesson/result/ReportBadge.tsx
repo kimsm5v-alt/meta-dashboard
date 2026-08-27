@@ -11,7 +11,7 @@ const AV_LABEL: Record<ActivityAvailability, string> = {
   OPEN: '진행중',
   NOT_STARTED: '진행예정',
   CLOSED: '완료',
-  NOT_AVAILABLE: '완료',
+  NOT_AVAILABLE: '발행 전',
 };
 
 const Pill = styled.span`

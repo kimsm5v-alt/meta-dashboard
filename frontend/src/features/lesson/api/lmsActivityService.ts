@@ -51,14 +51,105 @@ export type CreateActivityBody = {
 
 export type ActivityAvailability = 'NOT_AVAILABLE' | 'NOT_STARTED' | 'OPEN' | 'CLOSED';
 
+const ACTIVITY_AVAILABILITIES: ActivityAvailability[] = [
+  'NOT_AVAILABLE',
+  'NOT_STARTED',
+  'OPEN',
+  'CLOSED',
+];
+
+export const isActivityAvailability = (value: string): value is ActivityAvailability =>
+  ACTIVITY_AVAILABILITIES.includes(value as ActivityAvailability);
+
+export type ActivityItem = {
+  activityItemId: string;
+  seq: number;
+  lcmsArticleId: string;
+  lcmsArticleVersion?: number;
+  maxScore?: number;
+};
+
 export type ActivityDetail = {
   activityId: string;
   accessKey?: string;
   lifecycleStatus: string;
   availability: string;
+  libraryItemId?: string;
+  lcmsSetId?: string;
+  lcmsSetVersion?: number;
   title: string;
   audienceType?: string;
+  openAt?: string;
+  closeAt?: string;
+  labels?: string[];
+  options?: Record<string, unknown>;
+  items?: ActivityItem[];
   version?: number;
+};
+
+export type LmsErrata = 'CORRECT' | 'INCORRECT' | 'PARTIAL' | 'UNGRADABLE';
+
+export type ActivityProgressRow = {
+  participant: string;
+  displayName?: string;
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'SUBMITTED';
+  participationId?: string;
+  attempt?: number;
+  submittedAt?: string;
+  gradingStatus?: string;
+};
+
+export type ActivityProgress = {
+  assignedCount?: number;
+  startedCount: number;
+  submittedCount: number;
+  rows: ActivityProgressRow[];
+};
+
+export type ActivityStatisticsItem = {
+  activityItemId: string;
+  seq: number;
+  lcmsArticleId: string;
+  gradedCount: number;
+  correct: number;
+  incorrect: number;
+  partial: number;
+  ungradable: number;
+  averageScore?: number;
+  maxScore?: number;
+  averageTimeSpentMs?: number;
+};
+
+export type ActivityStatistics = {
+  submittedCount: number;
+  gradedParticipations: number;
+  averageScore?: number;
+  maxTotalScore?: number;
+  items: ActivityStatisticsItem[];
+};
+
+export type ParticipationResultItem = {
+  activityItemId: string;
+  seq: number;
+  lcmsArticleId: string;
+  lcmsArticleVersion?: number;
+  answer?: unknown;
+  errata?: LmsErrata;
+  awardedScore?: number;
+  maxScore?: number;
+  gradedBySource?: string;
+  comment?: string;
+  timeSpentMs?: number;
+};
+
+export type ParticipationResult = {
+  participationId: string;
+  attempt: number;
+  submittedAt: string;
+  gradingStatus: string;
+  totalScore?: number;
+  maxTotalScore?: number;
+  items: ParticipationResultItem[];
 };
 
 export interface ActivitySummaryItem {
@@ -114,15 +205,24 @@ export type DeployLessonActivityFailure = {
   activityId?: string;
 };
 
+async function parseLmsBody<T>(res: Response): Promise<LmsApiResponse<T> | null> {
+  try {
+    return (await res.json()) as LmsApiResponse<T>;
+  } catch {
+    return null;
+  }
+}
+
 async function lmsFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const auth = getAuth();
   const res = await auth.authorizedFetch(input, init);
-  if (!res.ok) {
-    throw new LmsHttpError(`LMS API 실패: ${res.status}`, res.status);
-  }
-  const json = (await res.json()) as LmsApiResponse<T>;
-  if (!json.success) {
-    throw new LmsHttpError(json.message ?? 'LMS API Error', res.status, json.errorCode);
+  const json = await parseLmsBody<T>(res);
+  if (!res.ok || !json?.success) {
+    throw new LmsHttpError(
+      json?.message ?? `LMS API 실패: ${res.status}`,
+      res.status,
+      json?.errorCode ?? null,
+    );
   }
   return json.data;
 }
@@ -170,6 +270,49 @@ export async function getActivities(
   signal?: AbortSignal,
 ): Promise<ActivitiesPageResponse> {
   return lmsFetch<ActivitiesPageResponse>(`${BASE}?${buildActivitiesQuery(params)}`, { signal });
+}
+
+/** GET /api/v1/activities/{activityId} — 단건 (items 포함) */
+export async function getActivity(
+  activityId: string,
+  signal?: AbortSignal,
+): Promise<ActivityDetail> {
+  return lmsFetch<ActivityDetail>(`${BASE}/${activityId}`, { signal });
+}
+
+/** GET /api/v1/activities/{activityId}/progress — 참여 현황 (사람 축) */
+export async function getActivityProgress(
+  activityId: string,
+  signal?: AbortSignal,
+): Promise<ActivityProgress> {
+  return lmsFetch<ActivityProgress>(`${BASE}/${activityId}/progress`, { signal });
+}
+
+/** GET /api/v1/activities/{activityId}/statistics — 정오·점수 집계 */
+export async function getActivityStatistics(
+  activityId: string,
+  signal?: AbortSignal,
+): Promise<ActivityStatistics> {
+  return lmsFetch<ActivityStatistics>(`${BASE}/${activityId}/statistics`, { signal });
+}
+
+/** GET /api/v1/activities/{activityId}/assignees — 배정 명단 (sub[]) */
+export async function getActivityAssignees(
+  activityId: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  return lmsFetch<string[]>(`${BASE}/${activityId}/assignees`, { signal });
+}
+
+/** GET /api/v1/activities/{activityId}/participations/{participationId} — 교사, 학생 1명 결과 */
+export async function getTeacherParticipationResult(
+  activityId: string,
+  participationId: string,
+  signal?: AbortSignal,
+): Promise<ParticipationResult> {
+  return lmsFetch<ParticipationResult>(`${BASE}/${activityId}/participations/${participationId}`, {
+    signal,
+  });
 }
 
 function toFailure(

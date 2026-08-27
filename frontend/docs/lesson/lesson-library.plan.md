@@ -23,7 +23,7 @@
 | **추가계획15** | `LessonResultPage` 수업 결과보기 UI (StatusPanel + 필터 + 카드) | 구현 완료 (2026-08-26) |
 | **추가계획16** | `LessonResultPage` API 연동 (`GET /api/v1/activities`) | 구현 완료 (2026-08-26) |
 | **추가계획17** | `ReportCard` 리포트 버튼 → 리포트 상세 페이지 (`ReportDetail` UI) | 구현 완료 (2026-08-26) |
-| **추가계획18** | `LessonReportDetailPage` 리포트 상세 API 연동 | 계획 수립 (상세 스펙 보류) |
+| **추가계획18** | `LessonReportDetailPage` 리포트 상세 API 연동 | 구현 완료 (2026-08-27) |
 | **추가계획19** | 학생 `StudentLessonResultPage` — prototype `StudentResourcePage` UI/UX 동등 구현 | 구현 완료 (2026-08-26) |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
@@ -5469,9 +5469,10 @@ export interface ReportDetailView {
 
 | 항목 | 내용 |
 |------|------|
-| 활동 단건 / progress / 문항·응답 API | React Query. 목업 제거 |
+| 활동 단건 / progress / 문항·응답 API | **추가계획18**에서 스펙 확정 |
 | `CaptureOverlay` | 제출 캡처 확대 + 수동 채점. 프로토타입 `report/CaptureOverlay.tsx` |
-| 반·SEL·참여/정답률 실데이터 | 목록/상세 API 필드 확정 후 `ReportSummary` 슬롯 연결 |
+| 반 배지 | 추가계획18에서도 보류 |
+| `PageTab` API | 추가계획18에서도 보류 |
 | 탭 URL (`?tab=`) | 필요하면 그때. 이번은 로컬 상태 |
 
 ---
@@ -5556,90 +5557,428 @@ export interface ReportDetailView {
 
 # 추가계획18 — `LessonReportDetailPage` 리포트 상세 API 연동
 
-> **선행**: **추가계획17** (리포트 상세 페이지 UI). 17이 끝나지 않으면 착수하지 않는다.  
+> **선행**: **추가계획17** (리포트 상세 페이지 UI). 이미 구현됨.  
 > **준수**: `frontend/AGENTS.md`, `frontend/CLAUDE.md` (FSD Lite, Emotion, 서버/로컬 상태 분리)  
-> **대상 페이지**: `frontend/src/pages/lesson/LessonReportDetailPage.tsx`  
-> **범위**: 교사 리포트 상세에 **실제 API를 연결**하는 작업.  
-> **상세 내역**: **일단 보류**. 엔드포인트·요청/응답 필드·매핑·로딩/에러 UI·목업 제거 범위는 이 절에서 확정하지 않는다.
+> **LMS 스펙**: `superplatform-lms/docs/guide/api-spec.md`  
+> **대상**: `LessonReportDetailPage` → `widgets/lesson/result/ReportDetail.tsx` 및 하위  
+> **범위**: 교사 리포트 상세에 **실제 API를 연결**. UI/라우트/돌아가기 계약(17)은 유지.  
+> **비범위**: `PageTab` API, 반 배지, 학생 리스트의 점수·진행상태, `CaptureOverlay`·수동 채점, 학생 결과보기(19)
+
+---
+
+## 0. FSD (구현 중 원칙)
+
+코드가 `pages → widgets → features → shared` 단방향에 맞지 않으면 **구현하면서 구조를 맞춘다.**  
+기존 `ReportDetailView` 목업 타입에 API를 억지로 끼워 넣지 않는다. 타입이 응답과 다르면 features 모델을 바꾼다.
+
+| 해야 함 | 하지 말 것 |
+|---------|------------|
+| fetch·React Query는 `features/lesson/api/` | `pages/` 에서 fetch, `useEffect`로 API 호출 |
+| 매퍼·집계는 `features/lesson/model/` | 위젯에 응답 필드 하드코딩 남발 |
+| 위젯은 훅 소비 또는 props로 결과만 표시 | 빈 React Query 훅을 미리 만들어 두기 |
+| LMS는 `ENV.SP_LMS_API_URL`, CMS는 `ENV.CMS_API_URL` | LMS 클라이언트에 CMS 경로를 섞기 |
+| 기존 `lmsActivityService.ts` / `cmsSetService.ts`(또는 article 서비스) 확장 | `widgets/` 에서 `authorizedFetch` 직접 호출 |
+
+페이지(`LessonReportDetailPage`)는 계속 얇게: `activityId` + `state.activity`만 넘긴다.
 
 ---
 
 ## 1. 목표
 
-추가계획17에서 만든 리포트 상세 화면(`LessonReportDetailPage` → `ReportDetail` 위젯)에 API를 연결한다.
+`ReportDetail` 진입 시 목업(`getReportDetailView`) 대신 LMS·CMS를 조회해 요약·학생 탭·응답 격자를 채운다.
 
-지금은 `activityId`·`location.state.activity`와 로컬 목업(`getReportDetailView`)만으로 그린다. 이 계획의 구현 시점에 그 데이터를 서버 조회로 바꾼다.
-
----
-
-## 2. 선행 조건 (추가계획17)
-
-아래가 되어 있어야 이 계획에 들어간다.
-
-| 항목 | 위치 | 상태 (17 완료 기준) |
-|------|------|---------------------|
-| 목록 → 상세 이동 | `ReportCard` → `/lesson/result/:activityId` | 구현됨 |
-| 상세 페이지 | `pages/lesson/LessonReportDetailPage.tsx` | params/state만 전달 |
-| 상세 UI | `widgets/lesson/result/ReportDetail.tsx` 및 하위 | 요약 + 탭 + 빈 상태 |
-| 목업 | `features/lesson/model/reportDetailMock.ts` | `mock-report-detail`만 데이터, 그 외 빈 뷰 |
-
-17의 UI/라우트/돌아가기 계약을 깨지 않는다. API 연동은 **데이터 소스만** 교체하는 방향이 기본이다.
+지금: `location.state.activity` + `getReportDetailView(activityId)`.  
+이후: 아래 확정 API. 서버 단건이 있으면 **state보다 서버 값 우선**.
 
 ---
 
-## 3. 현황 (API 없음)
+## 2. 선행·현황
 
-| 구분 | 현재 | API 연동 후 (방향만) |
-|------|------|----------------------|
-| 페이지 | `LessonReportDetailPage`가 `activityId` + `state.activity`를 `ReportDetail`에 전달 | 동일. 페이지는 얇게 유지 |
-| 상세 뷰 | `getReportDetailView(activityId)` 로컬 목업 | 서버 응답 → 기존 `ReportDetailView` (또는 후속 확정 타입)로 매핑 |
-| 요약 헤더 | `location.state.activity` fallback | 단건 조회 성공 시 state보다 서버 값 우선 검토 |
-| 탭 본문 | 실제 activityId는 빈 상태 | 참여/페이지/응답 데이터가 있으면 그리드·리스트 표시 |
-| 로딩·에러 | 없음 | 상세 스펙에서 정함 (보류) |
+| 항목 | 위치 | 현재 |
+|------|------|------|
+| 목록 → 상세 | `ReportCard` → `/lesson/result/:activityId` | 구현됨 |
+| 페이지 | `LessonReportDetailPage.tsx` | params/state만 |
+| 상세 UI | `ReportDetail.tsx` 및 하위 | 요약 + 탭 + 빈 상태 |
+| LMS 서비스 | `lmsActivityService.ts` | 단건/progress/statistics/GET assignees/교사 참여 결과 추가됨 |
+| CMS | `cmsSetService.ts` | `GET /api/articles/{articleId}` (`getCmsArticle`) |
+| 이름 조회 | `resolveAssigneeNamesFromGroups.ts` | 그룹 멤버 역방향 (임시) |
+| 목업 | `reportDetailMock.ts` | 실제 activityId 경로에서 미사용. `PageTab`만 빈 뷰 |
 
----
-
-## 4. 이번 문서에서 정하는 것 / 보류하는 것
-
-### 정함
-
-- 작업 진입점은 **`LessonReportDetailPage.tsx`** (위젯 `ReportDetail`이 조회 결과를 받도록 연결)
-- **추가계획17 선행 필수**
-- 교사 화면만. 학생 결과보기(추가계획19)와 API를 섞지 않음
-- 빈 React Query 훅·`useEffect` fetch를 스펙 없이 먼저 넣지 않음
-
-### 보류 (상세 내역 — 구현 직전 이 절을 채워 확정)
-
-스펙을 나중에 적을 항목. 지금은 추정하지 않는다.
-
-- 호출 API (예: 활동 단건, progress, 문항/응답/캡처). 경로·쿼리·권한
-- request/response 타입과 `ReportDetailView` 매핑
-- `state.activity`와 서버 단건이 다를 때 우선순위
-- 로딩 / 에러 / 권한 없음 / 활동 없음 UI
-- `reportDetailMock` · `mock-report-detail` 유지 여부
-- `CaptureOverlay`·채점 mutation (17에서도 비범위)
-
-추가계획16 비고·추가계획17 §10에 적힌 `GET /api/v1/activities/{id}`, `GET .../progress`는 **후보 힌트일 뿐** 이 계획의 확정 스펙이 아니다.
+실제 UUID 경로에서는 목업 학생을 쓰지 않는다.
 
 ---
 
-## 5. FSD (바뀔 위치만, 파일 목록은 보류)
+## 3. API 원본
 
-```text
-pages/lesson/LessonReportDetailPage.tsx   ← 조합 유지. fetch를 page에 두지 않음
-widgets/lesson/result/ReportDetail.tsx    ← 조회 결과 props 또는 feature 훅 소비
-features/lesson/api/                      ← 서비스 + React Query (스펙 확정 후)
-features/lesson/model/                    ← 매퍼. 기존 reportDetailTypes 재사용 우선
+LMS 필드·옵셔널 규칙·에러 코드는 `superplatform-lms/docs/guide/api-spec.md`를 따른다.  
+없는 키는 `null`이 아니라 **키 없음**. 옵셔널로 선언한다.
+
+인증: 회원 토큰. 남의 활동은 **404 `NOT_FOUND`**.
+
+| 화면 | Method | Path | `data` 타입 | 호출 시점 |
+|------|--------|------|-------------|-----------|
+| 요약 메타 | GET | `/api/v1/activities/{activityId}` | `ActivityDetail` | `ReportDetail` 마운트 |
+| 참여 인원 | GET | `/api/v1/activities/{activityId}/progress` | `ActivityProgress` | 마운트 (참여율 + `participationId`) |
+| 평균 점수 슬롯 | GET | `/api/v1/activities/{activityId}/statistics` | `ActivityStatistics` | 마운트 |
+| 학생 명단 | GET | `/api/v1/activities/{activityId}/assignees` | `string[]` (`sub` = `spUserId`) | 학생별 탭 |
+| 학생 1명 상세 | GET | `/api/v1/activities/{activityId}/participations/{participationId}` | `ParticipationResult` | 선택한 학생에 `participationId`가 있을 때 |
+| 격자 문항 목록 | GET | `/api/v1/activities/{activityId}` | `ActivityDetail.items` | 단건과 동일. **사람 축(progress)이 아님** |
+| 격자 제목·성격 | GET | `{CMS_API_URL}/api/articles/{articleId}` | ArticleInfo (아래 사용 필드만) | `items[].lcmsArticleId`로 조회 |
+
+`participationId`는 progress `rows[]`에서 고른다. 학생 본인용 `GET /api/v1/participations/{id}/result`를 교사 화면에 쓰지 않는다.
+
+---
+
+## 4. `ReportSummary` — 활동 단건
+
+**API**: `GET /api/v1/activities/{activityId}`  
+**파일**: `ReportSummary.tsx`
+
+`ActivityDetail.items`는 **단건에만** 있다. 목록 `ActivitySummary`에는 없다.
+
+### 4.1 메타 (194–211)
+
+| UI | 소스 | 표기 |
+|----|------|------|
+| 상태 배지 (196) | `availability` | 기존 `ActivityStatusBadge` |
+| 반 배지 (197) | — | **보류.** `ClassBadge`를 API로 채우지 않음. 목업 `view.className`도 실제 id에 쓰지 않음 |
+| 제목 (199) | `title` | 단건 `title`. 로딩 중만 state/activityId fallback |
+| 날짜 행 (200–203) | `openAt`, `closeAt`, `items.length` | `배포 {openAt} ~ {closeAt} · {items.length}개 페이지` |
+| 칩 행 (204–210) | `labels` | 배열 원소를 칩으로. 빈 배열이면 행 숨김. SEL 매핑 추정 금지 |
+
+날짜 포맷은 기존 `fmtDotDate`. `openAt`/`closeAt`이 없으면 그 구간은 생략한다. 둘 다 없으면 `배포` 범위 없이 `{n}개 페이지`만.
+
+### 4.2 참여 인원 (215–228)
+
+**API**: `GET /api/v1/activities/{activityId}/progress`
+
+```
+{startedCount}/{assignedCount}명 · {startedCount / assignedCount * 100}%
 ```
 
-`pages → widgets → features → shared` 단방향. 상세 파일 목록·훅 이름은 스펙 확정 때 적는다.
+- 비율은 기존 `pct` (분모 0이면 0, 그 외 반올림 정수).
+- **`assignedCount`는 `ASSIGNED`만.** `OPEN`에는 키가 없다. **0으로 채우지 않는다.** 키 없거나 분모 0이면 `–`.
+- `startedCount`만 있고 분모가 없으면 비율을 만들지 않는다.
+
+### 4.3 평균 정답률 슬롯 (229–241)
+
+**API**: `GET /api/v1/activities/{activityId}/statistics`  
+값: **`averageScore`**.
+
+- 레이블은 현행 「평균 정답률」 유지.
+- LMS `averageScore`는 **채점된 총점의 평균**이지 0–100 정답률이 아니다. `* 100` 하거나 `%`를 붙이지 않는다.
+- 키 없음(채점 없는 활동 등)이면 `–`.
 
 ---
 
-**작성일**: 2026-08-26  
-**상태**: 계획 수립 (상세 스펙 보류)
+## 5. `StudentTab` — 명단
+
+**API**: `GET /api/v1/activities/{activityId}/assignees`  
+**파일**: `StudentTab.tsx` (234–257)  
+**응답**: `string[]` — 배정된 회원 `sub` (`spUserId`). `OPEN`이면 `[]`.
+
+### 5.1 이름 (임시)
+
+LMS는 회원 이름을 주지 않는다. `DeployPage`의 `collectAssigneeSubsFromGroups` **역방향**으로 맞춘다.
+
+1. 교사 그룹 목록 (`useMyGroupsQuery` / `getMyGroups`)
+2. 그룹마다 `getGroupDetail` → `members[].spUserId` ↔ `name`(`nickname`), `memberNo`
+3. assignees의 `sub`로 조회해 리스트에 표시
+
+이름 해석 범위·API는 **추후 변경될 수 있음.** 이번은 배포와 같은 그룹 멤버 소스를 임시로 쓴다. 활동에 반 id가 없으므로(반 배지 보류) 교사의 그룹을 순회한다. 매칭 실패 시 이름을 지어내지 않는다(빈 이름 또는 `sub` 일부). 학심정 미동의 마스킹은 그룹 멤버 기존 규칙을 따른다.
+
+구현 위치: `features/lesson/model/` (예: `resolveAssigneeNamesFromGroups`). `features/groups`의 `getGroupDetail` 재사용. 위젯에서 그룹 API를 직접 돌리지 않는다.
+
+### 5.2 보류 (같은 234–257)
+
+| UI | 이번 |
+|----|------|
+| 점수 (`s.score`) | 보류. `–` 또는 슬롯 유지하고 값만 비움 |
+| 진행상태 (`StudentStatusBadge`) | 보류. progress `rows[].status`가 있어도 **연결하지 않음** |
+| 헤더 `({submittedCount}/{students.length})` | 보류. 명단 길이만 쓰거나 괄호를 빼도 됨. 제출 수를 추측하지 않음 |
+| 상세 헤더의 상태 배지 | 동일하게 보류 |
+
+빈 명단(`[]`)이면 기존 빈 상태 「아직 참여한 학생이 없습니다.」
 
 ---
+
+## 6. `StudentTab` — 선택 학생 상세
+
+리스트(234–257)가 아니라 **오른쪽 상세**(266–280)다.
+
+**API**: `GET /api/v1/activities/{activityId}/participations/{participationId}`  
+**`data`**: `ParticipationResult` (학생 결과와 같은 타입)
+
+### 6.1 `participationId`
+
+progress `rows[]`에서 `participant === 선택한 sub`인 행의 `participationId`.
+
+- 키 없음(`NOT_STARTED`): **호출하지 않음.** 상세 타일 `–`, 격자 빈 상태.
+- 호출했는데 409 `NOT_SUBMITTED`: 에러 토스트로 화면을 깨지 않음. 미제출로 취급.
+
+### 6.2 활동 페이지 (266–271)
+
+스펙 필드명은 `answers`가 아니라 **`answer`** (단수, 답을 냈을 때만 키 존재).
+
+```
+{ items 중 answer 키가 있는 개수 } / { items.length } p
+```
+
+### 6.3 정답률 / 맞춘 문제 (272–280)
+
+분모·분자는 `errata`가 `CORRECT` | `INCORRECT` | `PARTIAL` 인 항목만.  
+`UNGRADABLE`·키 없음(미채점)은 **넣지 않는다.** 미채점을 오답으로 세지 말라는 LMS 규칙과 같다.
+
+```
+채점집합 = errata ∈ {CORRECT, INCORRECT, PARTIAL}
+정답률 = (CORRECT 개수 / 채점집합 개수) * 100   → 기존 pct
+맞춘 문제 = CORRECT 개수 / 채점집합 개수
+```
+
+채점집합이 비면 `–` (현행 `graded` 분기와 동일).
+
+---
+
+## 7. `ResponseGrid` — 문항 목록 (활동 단건 `items`)
+
+**파일**: `ResponseGrid.tsx`
+
+격자는 **문항(페이지) 목록**이다. 사람 축인 `GET .../progress`가 아니라  
+**`GET /api/v1/activities/{activityId}`의 `items[]`** 를 기준으로 칸을 만든다.
+
+| LMS (단건) | 용도 |
+|------------|------|
+| `items[].seq` | 타일 번호 |
+| `items[].lcmsArticleId` | CMS 아티클 조회 키 |
+| `items[].activityItemId` | 선택 학생의 참여 결과와 짝맞출 때 (있으면) |
+
+제목·성격은 CMS `GET {CMS_API_URL}/api/articles/{articleId}` (`articleId` = `lcmsArticleId`).  
+호출·캐시는 `features/lesson/api/`. 위젯에서 CMS URL을 직접 치지 않는다.  
+중복 id는 React Query 캐시 + `useQueries`(또는 동등)로 묶는다. 실패 한 건이 격자 전체를 막지 않는다.
+
+이번 화면에서 **쓰는 필드만**:
+
+| CMS 필드 | 용도 |
+|----------|------|
+| `name` | 타일 제목 |
+| `articleType` | 성격 배지 (아래 매핑) |
+
+그 외(`description`, `url`, `metaMap`, 교육과정 메타 등)는 이 계획에서 표시하지 않는다. 전체 ArticleInfo 스키마를 프론트 타입에 복사하지 말고, 사용 필드만 선언한다.
+
+### 7.1 제목·번호 (250–253)
+
+| UI | 소스 |
+|----|------|
+| 제목 | CMS `name` (`items[].lcmsArticleId`로 조회) |
+| 번호 | `GET /api/v1/activities/{activityId}` 의 **`items[].seq`** (1부터) |
+
+Emotion 컴포넌트명 **`Primary` → `Title`**.  
+현재 `primary`에 `"{order}. {title}"`로 합쳐져 있다. 번호=`seq`, 제목=`name`으로 나눈다. 한 줄 유지 시 `{seq}. {name}`도 허용. `GridItem.primary` 이름도 맞춰 바꿔도 된다.
+
+문항 목록·순서는 **활동 단건 `items`만** 쓴다. `GET .../progress`에는 `items[]`가 없고 사람 축이라 격자에 쓰지 않는다. 배열 인덱스로 번호를 만들지 않는다 (`seq` 사용).
+
+### 7.2 성격 배지 (254–258)
+
+CMS `articleType` → 기존 `NatureBadge` (`ArticleNature`):
+
+| `articleType` | 표시 |
+|---------------|------|
+| 20 | 개념 |
+| 21 | 문항 |
+| 22 | 활동 |
+
+그 외·없음: 배지 숨김 (`showNature=false`). 값을 추측하지 않는다.
+
+> CMS OpenAPI 예시는 `articleType: 3001`처럼 메타 PK를 쓰기도 한다. **이 화면의 계약은 20/21/22.** 실응답이 다르면 계획을 고친 뒤 구현한다.
+
+### 7.3 격자에서 이번 안 하는 것
+
+- 캡처 이미지·`CaptureOverlay` (LMS에 캡처 필드 없음)
+- `PageTab`용 격자 API
+
+학생 결과 `errata`가 있으면 타일 `Mark`에 매핑할 수 있다. 없으면 숨김. LMS `errata`는 문자열 enum이다. 목업 `ErrataCd`(1–4)에 억지로 맞추지 말고 필요하면 타입을 바꾼다.
+
+---
+
+## 8. `PageTab` — 보류
+
+`PageTab.tsx` / `PageList` / `PageContent` / `SummaryStrip` API **없음**. 추가 예정.  
+빈 상태 또는 17 목업 레이아웃만. 이번 작업에서 페이지별 보기용 조회를 넣지 않는다.
+
+---
+
+## 9. FSD 배치 (예상)
+
+구현 중 레이어가 어긋나면 이 표보다 **FSD를 우선**해 옮긴다.
+
+```text
+pages/lesson/LessonReportDetailPage.tsx     ← 변경 최소. fetch 없음
+
+widgets/lesson/result/
+  ReportDetail.tsx      ← activityId로 훅 연결, 목업 제거
+  ReportSummary.tsx     ← 단건 + progress + statistics
+  StudentTab.tsx        ← assignees + 이름맵 + 선택 시 participation
+  ResponseGrid.tsx      ← 단건 items[] 목록. Primary→Title, seq, CMS name/articleType
+  PageTab.tsx           ← API 없음 (보류)
+
+features/lesson/api/
+  lmsActivityService.ts ← getActivity, getActivityProgress, getActivityStatistics,
+                          getActivityAssignees, getTeacherParticipationResult
+                          + ActivityDetail/Progress/Statistics/ParticipationResult 타입 확장
+  cmsSetService.ts 또는 cmsArticleService.ts
+                        ← getCmsArticle(articleId)  (ENV.CMS_API_URL)
+  queries.ts            ← 위 GET들의 useQuery / useQueries
+  queryKeys.ts          ← activity, progress, statistics, assignees,
+                          participation, cmsArticle
+
+features/lesson/model/
+  collectAssigneeSubsFromGroups.ts 기존 (배포)
+  (신규) 역방향: spUserId[] → 이름/출석번호
+  (신규) participation items → 활동페이지/정답률 집계
+  (신규) articleType 20/21/22 → ArticleNature
+  reportDetailTypes.ts  ← API에 맞게 수정 허용. 목업 전용 필드 제거 가능
+  reportDetailMock.ts   ← 실제 UUID 경로에서 사용 금지
+```
+
+`lessonKeys` 예:
+
+- `['lesson','activities', activityId]`
+- `[..., 'progress' | 'statistics' | 'assignees']`
+- `[..., 'participations', participationId]`
+- `['lesson','cms-article', articleId]`
+
+훅 `enabled`: 유효 `activityId`. 참여 결과는 `participationId`가 있을 때만.
+
+그룹 상세 N회 호출은 임시 이름 해석 비용이다. 캐시(`useMyGroupsQuery` 등)를 재사용한다.
+
+---
+
+## 10. 로딩·에러
+
+`frontend/AGENTS.md`: 로딩, 중복 방지, 실패 피드백.
+
+| 상황 | 처리 |
+|------|------|
+| 단건 로딩 | 요약 스켈레톤/플레이스홀더. 빈 목업 학생을 넣지 않음 |
+| 단건 404 | 없거나 내 활동 아님. 안내 문구. 가짜 데이터 없음 |
+| progress/statistics/assignees 실패 | 해당 슬롯 `–` 또는 탭 에러. 다른 슬롯은 유지 |
+| CMS 아티클 실패 | 제목 fallback(id 또는 빈 문자열). 배지 숨김 |
+| 참여 결과 409 `NOT_SUBMITTED` | 미제출. 화면 throw 금지 |
+| 중복 클릭 | React Query. 동일 key 재요청 남발 금지 |
+
+`state.activity`는 단건 성공 전 제목/썸네일 힌트만. 성공 후 덮어쓴다.
+
+---
+
+## 11. 하지 말 것
+
+- 페이지에 fetch / `useEffect` API
+- 빈 React Query 훅만 추가
+- `OPEN`의 `assignedCount` 없음 → 0
+- 미채점(`errata` 없음)·`UNGRADABLE`을 오답으로 세기
+- 반 배지·학생 점수/상태·`PageTab` API를 이번 범위에서 추정 구현
+- 교사 화면에 학생 `GET /participations/{id}/result` 사용
+- CMS ArticleInfo 전체 스키마 복사, 사용하지 않는 메타 표시
+- prototype 구조·Tailwind 복제, 주석 이모지
+- `CaptureOverlay`·채점 PATCH
+- 추가계획19 학생 화면과 한 작업으로 섞기
+- 실제 activityId에 `getReportDetailView` 목업 학생 연결
+- `ResponseGrid` 문항 목록을 `GET .../progress`나 `ParticipationResult.items`로 만들기 (단건 `items[]`만)
+
+---
+
+## 12. 구현 체크리스트
+
+- [x] `ActivityDetail`에 `openAt`/`closeAt`/`labels`/`items`(seq, lcmsArticleId) 등 스펙 필드 반영
+- [x] LMS GET 5종 서비스 + React Query (단건, progress, statistics, assignees, participation)
+- [x] CMS `GET /api/articles/{articleId}` + 캐시
+- [x] `ReportDetail` 마운트 시 단건 호출. 목업 뷰 제거
+- [x] `ReportSummary` 매핑 (반 배지 제외)
+- [x] 참여 인원: `startedCount`/`assignedCount` + %. `assignedCount` 없으면 `–`
+- [x] 평균 슬롯: `averageScore` (퍼센트 변환 없음)
+- [x] assignees → 그룹 멤버 역조회 이름 (임시) . 점수·상태 미연결
+- [x] 선택 학생: progress의 `participationId`로 교사 참여 결과
+- [x] 활동 페이지·정답률/맞춘 문제 집계 (answer / CORRECT·INCORRECT·PARTIAL)
+- [x] `ResponseGrid`: 단건 `items[]`로 칸 생성. `Title` 이름 변경, CMS `name`, `items[].seq`, articleType 20/21/22
+- [x] `PageTab` API 없음
+- [x] 로딩·404·부분 실패 UI
+- [x] FSD 어긋난 import/fetch 정리
+- [x] `tsc` / eslint (`no-unused-vars` 제외)
+
+---
+
+## 13. 완료 기준
+
+- `/lesson/result/{activityId}` 진입 시 단건·progress·statistics가 호출되고 요약이 스펙대로 채워진다.
+- 학생 탭에 assignees 명단이 이름과 함께 나오고, 선택 시 참여 결과로 활동 페이지·정답률이 계산된다.
+- 격자가 단건 `items[]` 문항 목록이고, CMS 제목·`seq`·articleType 성격이 나온다.
+- 보류 항목(반, 리스트 점수/상태, PageTab API)이 가짜 데이터로 채워지지 않는다.
+- 페이지는 얇고, 조회는 features API 훅이다.
+
+---
+
+## 14. 참고 파일
+
+| 역할 | 경로 |
+|------|------|
+| LMS 스펙 | `superplatform-lms/docs/guide/api-spec.md` (`ActivityDetail`, `ActivityProgress`, `ActivityStatistics`, `ParticipationResult`, assignees) |
+| 상세 조합 | `frontend/src/widgets/lesson/result/ReportDetail.tsx` |
+| 요약 | `frontend/src/widgets/lesson/result/ReportSummary.tsx` |
+| 학생 탭 | `frontend/src/widgets/lesson/result/StudentTab.tsx` |
+| 격자 | `frontend/src/widgets/lesson/result/ResponseGrid.tsx` |
+| 페이지별 탭 (보류) | `frontend/src/widgets/lesson/result/PageTab.tsx` |
+| LMS 서비스 | `frontend/src/features/lesson/api/lmsActivityService.ts` |
+| CMS 패턴 | `frontend/src/features/lesson/api/cmsSetService.ts` (`ENV.CMS_API_URL`) |
+| 배포 시 반→sub | `frontend/src/features/lesson/model/collectAssigneeSubsFromGroups.ts`, `DeployPage.tsx` |
+| 그룹 멤버 | `frontend/src/features/groups/api/groupService.ts` (`getGroupDetail`, `spUserId`) |
+| 목업 (실제 id 금지) | `frontend/src/features/lesson/model/reportDetailMock.ts` |
+
+---
+
+**작성일**: 2026-08-26 (스텁)  
+**갱신**: 2026-08-27 (API 매핑 확정 · 구현 완료)  
+**상태**: 구현 완료 (2026-08-27)
+
+---
+
+## 15. 구현 결과 (2026-08-27)
+
+페이지는 얇게 유지. 조회는 `features/lesson/api` React Query. 위젯이 훅을 소비한다.
+
+### 신규
+
+| 파일 | 역할 |
+|------|------|
+| `features/lesson/model/resolveAssigneeNamesFromGroups.ts` | 교사 그룹 멤버 `spUserId` → 이름/출석번호 (임시) |
+| `features/lesson/model/mapReportDetail.ts` | articleType 20/21/22, LMS errata, 참여 결과 집계 |
+
+### 수정
+
+| 파일 | 역할 |
+|------|------|
+| `lmsActivityService.ts` | `ActivityDetail` 확장. GET 단건/progress/statistics/assignees/교사 참여 결과 |
+| `cmsSetService.ts` | `getCmsArticle` |
+| `queryKeys.ts` / `queries.ts` | 상세 훅 + CMS article `useQueries` + 이름 디렉터리 |
+| `ReportDetail.tsx` | 단건·progress·statistics 훅. 목업 제거. 로딩/404 |
+| `ReportSummary.tsx` | 단건/progress/statistics 매핑. 반 배지 없음. `averageScore`에 `%` 없음 |
+| `StudentTab.tsx` | assignees + 이름. 점수/상태 보류. 선택 시 참여 결과 |
+| `ResponseGrid.tsx` | `Primary` → `Title`. 단건 `items[]` + CMS name/`seq`/성격 |
+| `LessonReportDetailPage.tsx` | debug `console.log` 제거. fetch 없음 |
+| `PageTab.tsx` | API 없음. 빈 뷰만 |
+
+### 검증
+
+- `npx tsc -b` 성공
+- 변경 파일 eslint `--fix` 후 통과
+- 로그인 교사 브라우저 클릭스루는 이 세션에서 도구가 없어 미실시
+
+### 보류 (계획과 동일)
+
+반 배지, 학생 리스트 점수·진행상태, `PageTab` API, `CaptureOverlay`
+
+---
+
+
 
 # 추가계획19 — 학생 수업 결과보기 (`StudentLessonResultPage`) UI/UX
 

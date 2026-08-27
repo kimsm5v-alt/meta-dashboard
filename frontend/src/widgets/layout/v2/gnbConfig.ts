@@ -49,7 +49,7 @@ export const GNB_ITEMS: GnbItem[] = [
     subTabs: [
       { id: 'library', label: '수업 자료실', path: '/lesson/library' },
       { id: 'my', label: '나의 자료', path: '/lesson/my' },
-      { id: 'result', label: '수업 결과 보기', path: '/lesson/result' },
+      { id: 'result', label: '수업 결과보기', path: '/lesson/result' },
     ],
   },
 ];

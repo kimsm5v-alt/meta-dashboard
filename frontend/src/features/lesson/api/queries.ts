@@ -3,11 +3,12 @@ import {
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { getCmsSet, getCmsSetList } from './cmsSetService';
-import type { CmsSetListData } from './cmsSetService';
+import { getCmsArticle, getCmsSet, getCmsSetList } from './cmsSetService';
+import type { CmsArticleInfo, CmsSetListData } from './cmsSetService';
 import {
   createLibraryItem,
   deleteLibraryItem,
@@ -16,11 +17,31 @@ import {
   updateLibraryItem,
 } from './lmsLibraryItemService';
 import type { LibraryItem, LibraryItemListData, LibraryItemOptions } from './lmsLibraryItemService';
-import { fetchActivityEntry, getActivities, startParticipation } from './lmsActivityService';
-import type { ActivitiesPageResponse, ActivityAvailability } from './lmsActivityService';
+import {
+  fetchActivityEntry,
+  getActivities,
+  getActivity,
+  getActivityAssignees,
+  getActivityProgress,
+  getActivityStatistics,
+  getTeacherParticipationResult,
+  LmsHttpError,
+  startParticipation,
+} from './lmsActivityService';
+import type {
+  ActivitiesPageResponse,
+  ActivityAvailability,
+  ActivityDetail,
+  ActivityProgress,
+  ActivityStatistics,
+  ParticipationResult,
+} from './lmsActivityService';
 // import { CMS_BRAND_ID } from '../model/constants';
 import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
+import { useAuth } from '@features/auth';
+import { resolveAssigneeNamesFromGroups } from '../model/resolveAssigneeNamesFromGroups';
+import type { AssigneeNameInfo } from '../model/resolveAssigneeNamesFromGroups';
 
 const CMS_SETS_DEFAULT = {
   pageNo: 0,
@@ -262,4 +283,91 @@ export function useActivityListQuery(availability: ActivityAvailability | undefi
     getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.page + 1 : undefined),
     placeholderData: keepPreviousData,
   });
+}
+
+const retryUnlessNotFound = (failureCount: number, error: unknown): boolean => {
+  if (error instanceof LmsHttpError && (error.status === 404 || error.status === 409)) {
+    return false;
+  }
+  return failureCount < 1;
+};
+
+export function useActivityDetailQuery(activityId: string | undefined) {
+  return useQuery<ActivityDetail>({
+    queryKey: lessonKeys.activityDetail(activityId ?? ''),
+    queryFn: ({ signal }) => getActivity(activityId!, signal),
+    enabled: Boolean(activityId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useActivityProgressQuery(activityId: string | undefined) {
+  return useQuery<ActivityProgress>({
+    queryKey: lessonKeys.activityProgress(activityId ?? ''),
+    queryFn: ({ signal }) => getActivityProgress(activityId!, signal),
+    enabled: Boolean(activityId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useActivityStatisticsQuery(activityId: string | undefined) {
+  return useQuery<ActivityStatistics>({
+    queryKey: lessonKeys.activityStatistics(activityId ?? ''),
+    queryFn: ({ signal }) => getActivityStatistics(activityId!, signal),
+    enabled: Boolean(activityId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useActivityAssigneesQuery(activityId: string | undefined) {
+  return useQuery<string[]>({
+    queryKey: lessonKeys.activityAssignees(activityId ?? ''),
+    queryFn: ({ signal }) => getActivityAssignees(activityId!, signal),
+    enabled: Boolean(activityId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useTeacherParticipationQuery(
+  activityId: string | undefined,
+  participationId: string | undefined,
+) {
+  return useQuery<ParticipationResult>({
+    queryKey: lessonKeys.activityParticipation(activityId ?? '', participationId ?? ''),
+    queryFn: ({ signal }) => getTeacherParticipationResult(activityId!, participationId!, signal),
+    enabled: Boolean(activityId) && Boolean(participationId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useAssigneeDirectoryQuery(enabled: boolean) {
+  const { user } = useAuth();
+  const userId = user?.id;
+  return useQuery<Map<string, AssigneeNameInfo>>({
+    queryKey: lessonKeys.assigneeDirectory(userId ?? ''),
+    queryFn: () => resolveAssigneeNamesFromGroups(userId!),
+    enabled: enabled && Boolean(userId),
+  });
+}
+
+export function useCmsArticleMapQuery(articleIds: string[]) {
+  const unique = [...new Set(articleIds.filter((id) => id.length > 0))];
+  const results = useQueries({
+    queries: unique.map((id) => ({
+      queryKey: lessonKeys.cmsArticle(id),
+      queryFn: ({ signal }: { signal?: AbortSignal }) => getCmsArticle(id, signal),
+      retry: 1,
+    })),
+  });
+
+  const map = new Map<string, CmsArticleInfo>();
+  unique.forEach((id, index) => {
+    const data = results[index]?.data;
+    if (data) map.set(id, data);
+  });
+
+  return {
+    map,
+    isPending: unique.length > 0 && results.some((result) => result.isPending),
+  };
 }

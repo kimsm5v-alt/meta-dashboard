@@ -1,23 +1,27 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { Clock } from 'lucide-react';
-import type { ReportDetailView } from '@features/lesson';
+import { Loading } from '@shared/ui/Loading';
+import type { ActivityItem, ActivityProgress } from '@features/lesson';
 import {
-  hasGradedItems,
-  pct,
-  renderMode,
-  responseCell,
-  responseOf,
-  studentSummary,
-  SUBMITTED_STATUS,
-  submittedStudentCount,
+  articleTypeToNature,
+  cellFromParticipationItem,
+  isNotSubmittedError,
+  participationItemOf,
+  sortActivityItems,
+  summarizeParticipation,
+  useActivityAssigneesQuery,
+  useAssigneeDirectoryQuery,
+  useCmsArticleMapQuery,
+  useTeacherParticipationQuery,
 } from '@features/lesson';
-import { StudentStatusBadge } from './reportBadges';
 import { ResponseGrid } from './ResponseGrid';
 import type { GridItem } from './ResponseGrid';
 
 interface StudentTabProps {
-  view: ReportDetailView;
+  activityId: string;
+  items: ActivityItem[];
+  progress?: ActivityProgress;
 }
 
 const Empty = styled.div`
@@ -42,6 +46,21 @@ const EmptyText = styled.div`
   color: ${({ theme }) => theme.colors.gray[500]};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+`;
+
+const LoadingBox = styled.div`
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  padding: 64px 0;
+`;
+
+const ErrorText = styled.div`
+  margin-top: 20px;
+  padding: ${({ theme }) => theme.spacing.lg};
+  color: ${({ theme }) => theme.colors.error.main};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  text-align: center;
 `;
 
 const Layout = styled.div`
@@ -194,14 +213,94 @@ const Count = styled.span`
   color: ${({ theme }) => theme.colors.gray[400]};
 `;
 
-export const StudentTab = ({ view }: StudentTabProps) => {
-  const students = view.students;
-  const firstDone = students.find((s) => s.statusCd === 5 || s.statusCd === 3);
-  const firstSubmitted = firstDone ?? students.find((s) => SUBMITTED_STATUS.includes(s.statusCd));
-  const defaultId = firstSubmitted?.studentId ?? students[0]?.studentId ?? '';
-  const [selectedId, setSelectedId] = useState(defaultId);
+const Dash = styled.span`
+  color: ${({ theme }) => theme.colors.gray[400]};
+`;
 
-  if (view.participantCount === 0) {
+type AssigneeRow = {
+  sub: string;
+  name: string;
+  memberNo?: number;
+};
+
+export const StudentTab = ({ activityId, items, progress }: StudentTabProps) => {
+  const assigneesQuery = useActivityAssigneesQuery(activityId);
+  const assignees = useMemo(() => assigneesQuery.data ?? [], [assigneesQuery.data]);
+  const directoryQuery = useAssigneeDirectoryQuery(assignees.length > 0);
+  const directory = directoryQuery.data;
+
+  const students = useMemo<AssigneeRow[]>(() => {
+    const rows = assignees.map((sub) => {
+      const info = directory?.get(sub);
+      return {
+        sub,
+        name: info?.name || sub,
+        memberNo: info?.memberNo,
+      };
+    });
+    return rows.sort((a, b) => {
+      const an = a.memberNo ?? Number.MAX_SAFE_INTEGER;
+      const bn = b.memberNo ?? Number.MAX_SAFE_INTEGER;
+      if (an !== bn) return an - bn;
+      return a.name.localeCompare(b.name, 'ko');
+    });
+  }, [assignees, directory]);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const curId = students.some((s) => s.sub === selectedId)
+    ? (selectedId as string)
+    : (students[0]?.sub ?? '');
+  const cur = students.find((s) => s.sub === curId);
+
+  const participationId = progress?.rows.find((row) => row.participant === curId)?.participationId;
+  const participationQuery = useTeacherParticipationQuery(activityId, participationId);
+  const participation =
+    participationQuery.isError && isNotSubmittedError(participationQuery.error)
+      ? undefined
+      : participationQuery.data;
+  const summary = summarizeParticipation(participation);
+
+  const activityItems = useMemo(() => sortActivityItems(items), [items]);
+  const articleIds = useMemo(
+    () => activityItems.map((item) => item.lcmsArticleId),
+    [activityItems],
+  );
+  const { map: articleMap } = useCmsArticleMapQuery(articleIds);
+
+  const gridItems: GridItem[] = activityItems.map((item) => {
+    const article = articleMap.get(item.lcmsArticleId);
+    const nature = articleTypeToNature(article?.articleType);
+    const name = article?.name?.trim() || item.lcmsArticleId;
+    const pItem = participationItemOf(participation, item.activityItemId);
+    return {
+      key: item.activityItemId,
+      title: `${item.seq}. ${name}`,
+      nature,
+      mode: 'plain',
+      cell: cellFromParticipationItem(pItem),
+      showNature: Boolean(nature),
+    };
+  });
+
+  if (assigneesQuery.isPending) {
+    return (
+      <LoadingBox role='status' aria-busy='true'>
+        <Loading size='md' text='불러오는 중...' />
+      </LoadingBox>
+    );
+  }
+
+  if (assigneesQuery.isError) {
+    return (
+      <ErrorText role='alert'>
+        {assigneesQuery.error instanceof Error
+          ? assigneesQuery.error.message
+          : '학생 명단을 불러오지 못했습니다.'}
+      </ErrorText>
+    );
+  }
+
+  if (students.length === 0) {
     return (
       <Empty>
         <EmptyIcon />
@@ -210,47 +309,20 @@ export const StudentTab = ({ view }: StudentTabProps) => {
     );
   }
 
-  const curId = students.some((s) => s.studentId === selectedId) ? selectedId : defaultId;
-  const cur = students.find((s) => s.studentId === curId);
-  const sum = studentSummary(view, curId);
-  const graded = hasGradedItems(view);
-  const submittedCount = submittedStudentCount(students);
-
-  const items: GridItem[] = view.articles.map((a) => {
-    const resp = responseOf(view, a.id, curId);
-    return {
-      key: a.id,
-      primary: `${a.order}. ${a.title}`,
-      nature: a.nature,
-      mode: renderMode(a),
-      cell: responseCell(a, resp),
-      capture: resp?.captureImage,
-      showNature: true,
-    };
-  });
-
   return (
     <Layout>
       <List>
         <ListHead>
-          참여 학생{' '}
-          <ListCount>
-            ({submittedCount}/{students.length})
-          </ListCount>
+          참여 학생 <ListCount>({students.length})</ListCount>
         </ListHead>
         {students.map((s) => {
-          const on = s.studentId === curId;
+          const on = s.sub === curId;
           return (
-            <StudentBtn
-              key={s.studentId}
-              type='button'
-              $on={on}
-              onClick={() => setSelectedId(s.studentId)}
-            >
-              <No>{s.no}</No>
-              <Name>{s.studentName}</Name>
-              <Score>{s.score != null ? `${s.score}점` : '–'}</Score>
-              <StudentStatusBadge statusCd={s.statusCd} />
+            <StudentBtn key={s.sub} type='button' $on={on} onClick={() => setSelectedId(s.sub)}>
+              <No>{s.memberNo ?? ''}</No>
+              <Name>{s.name}</Name>
+              <Score>–</Score>
+              {/* <StudentStatusBadge statusCd={s.statusCd} /> */}
             </StudentBtn>
           );
         })}
@@ -258,23 +330,23 @@ export const StudentTab = ({ view }: StudentTabProps) => {
       <DetailCol>
         <Card>
           <DetailHead>
-            <HeadNo>{cur?.no}.</HeadNo>
-            {cur?.studentName}
-            {cur ? <StudentStatusBadge statusCd={cur.statusCd} /> : null}
+            {cur?.memberNo != null ? <HeadNo>{cur.memberNo}.</HeadNo> : null}
+            {cur?.name}
+            {/* {cur ? <StudentStatusBadge statusCd={cur.statusCd} /> : null} */}
           </DetailHead>
           <TileGrid>
             <Tile>
               <TileLabel>활동 페이지</TileLabel>
               <TileValue>
-                {sum.submittedArticles}/{sum.totalArticles} p
+                {participation ? `${summary.answered}/${summary.total} p` : <Dash>–</Dash>}
               </TileValue>
             </Tile>
             <Tile>
               <TileLabel>정답률 / 맞춘 문제</TileLabel>
-              <TileValue>{graded ? `${pct(sum.correctN, sum.gradedN)}%` : '–'}</TileValue>
-              {graded ? (
+              <TileValue>{summary.hasGraded ? `${summary.rate}%` : <Dash>–</Dash>}</TileValue>
+              {summary.hasGraded ? (
                 <TileSub>
-                  {sum.correctN}/{sum.gradedN}개
+                  {summary.correctN}/{summary.gradedN}개
                 </TileSub>
               ) : null}
             </Tile>
@@ -282,9 +354,9 @@ export const StudentTab = ({ view }: StudentTabProps) => {
         </Card>
         <Card>
           <SectionTitle>
-            페이지별 상세 <Count>({items.length})</Count>
+            페이지별 상세 <Count>({gridItems.length})</Count>
           </SectionTitle>
-          <ResponseGrid items={items} showSummary={false} />
+          <ResponseGrid items={gridItems} showSummary={false} />
         </Card>
       </DetailCol>
     </Layout>
