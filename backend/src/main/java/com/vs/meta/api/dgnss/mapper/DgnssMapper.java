@@ -38,6 +38,8 @@ public interface DgnssMapper {
     List<Long> selectSubmittedStudentUserNoListByDgnssId(@Param("dgnssId") int dgnssId);
     // 독려) dgnssId 의 ACTIVE 학생 중 미제출 학생 user_no (탈퇴/미매핑 제외)
     List<Long> selectUnsubmittedStudentUserNoListByDgnssId(@Param("dgnssId") int dgnssId);
+    // 교사) dgnssId 기준 학급 학생 제출 현황(stdtId/submAt/submDt)
+    List<Map<String, Object>> selectSubmissionsByDgnssId(@Param("dgnssId") int dgnssId);
     List<String> selectDgnssStdtList(Map<String, Object> param);
     // 교사) META 자기조절학습 result_info에 insert할 학생 ID 탐색
     List<String> selectTargetStList(Map<String, Object> param);
