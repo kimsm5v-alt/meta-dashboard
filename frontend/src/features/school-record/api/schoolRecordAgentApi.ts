@@ -97,7 +97,7 @@ export async function streamSchoolRecordGeneration(
   let receivedTerminalEvent = false;
   let eventChain = Promise.resolve();
 
-  await fetchEventSource(`${ENV.AGENT_API_URL}/school-record/generate/stream`, {
+  await fetchEventSource(`${ENV.CHAT_API_URL}/school-record/generate/stream`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
