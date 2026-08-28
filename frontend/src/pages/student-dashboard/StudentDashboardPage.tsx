@@ -34,7 +34,7 @@ import { DiagnosisSummary, TypeClassification } from '@features/student-dashboar
 import { ResultCounselingObservationSection } from '@features/student-dashboard/ui/ResultCounselingObservationSection';
 import type { Student, SchoolLevel } from '@shared/types';
 
-type ViewMode = 'round1' | 'round2' | 'compare';
+type ViewMode = 'round1' | 'round2';
 
 const spin = keyframes`
   from {
@@ -554,18 +554,12 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
       setIsPdfDownloading(false);
     }
   };
-  const isCompare = viewMode === 'compare';
-
   const current = selectedRound === 2 && r2 ? r2 : r1;
 
   // useMemo는 항상 호출 (current가 없으면 빈 배열 사용)
   const domainData = useMemo(
     () => (current ? buildStudentDomainData(current.tScores, current.midCategoryScores) : []),
     [current],
-  );
-  const prevDomainData = useMemo(
-    () => (isCompare && r1 ? buildStudentDomainData(r1.tScores, r1.midCategoryScores) : undefined),
-    [isCompare, r1],
   );
   const factorRanking = useMemo(
     () =>
@@ -743,12 +737,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
           <RoundButtons>
             {[
               { mode: 'round1' as ViewMode, label: '1차 검사' },
-              ...(r2
-                ? [
-                    { mode: 'round2' as ViewMode, label: '2차 검사' },
-                    { mode: 'compare' as ViewMode, label: '차수 변화' },
-                  ]
-                : []),
+              ...(r2 ? [{ mode: 'round2' as ViewMode, label: '2차 검사' }] : []),
             ].map(({ mode, label }) => (
               <RoundButton
                 key={mode}
@@ -1020,7 +1009,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               <SectionCard>
                 <CardSection>
                   <h3 style={{ margin: '0 0 1rem', fontSize: '1rem' }}>38개 요인 분석</h3>
-                  <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
+                  <FactorHeatmapSection domainData={domainData} />
                 </CardSection>
               </SectionCard>
             </SectionContainer>
@@ -1117,7 +1106,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
               <SectionContainer>
                 <SectionHeader>
                   <div>
-                    <SectionTitle>{isCompare ? 'LPA 유형 변화' : '학습 유형'}</SectionTitle>
+                    <SectionTitle>학습 유형</SectionTitle>
                     <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#6B7280' }}>
                       38개 요인 패턴을 종합하여 분류한 학습자 유형입니다.
                     </p>
@@ -1130,9 +1119,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                       predictedType={current.predictedType}
                       typeProbabilities={current.typeProbabilities}
                       schoolLevel={student.schoolLevel}
-                      showCompare={isCompare && !!r1 && !!r2}
-                      prevType={r1?.predictedType}
-                      prevTypeProbabilities={r1?.typeProbabilities}
                     />
                   </CardSection>
                 </SectionCard>
