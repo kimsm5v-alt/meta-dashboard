@@ -68,6 +68,17 @@ export interface ExamDetailResponse {
   notSubmStdtName: string;
 }
 
+export interface ExamSubmission {
+  stdtId: string;
+  memberNo: number | null;
+  submAt: 'Y' | 'N';
+  submDt: string | null;
+}
+
+interface ExamSubmissionsResponse {
+  students: ExamSubmission[];
+}
+
 // ============================================================
 // 교사용 검사 API
 // ============================================================
@@ -131,6 +142,14 @@ export async function fetchExamList(
 export async function fetchExamDetail(dgnssId: number): Promise<ExamDetailResponse> {
   const res = await apiClient.get<ExamDetailResponse>(`/api/dgnss/tc/detail?dgnssId=${dgnssId}`);
   return res.resultData;
+}
+
+/** 검사별 학생 제출 여부와 제출일시 조회 */
+export async function fetchExamSubmissions(dgnssId: number): Promise<ExamSubmission[]> {
+  const res = await apiClient.get<ExamSubmissionsResponse>(
+    `/api/dgnss/tc/submissions?dgnssId=${dgnssId}`,
+  );
+  return res.resultData.students ?? [];
 }
 
 /**

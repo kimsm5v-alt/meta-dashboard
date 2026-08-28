@@ -4,6 +4,7 @@ import {
   cancelExam,
   downloadSampleExcel,
   endExam,
+  fetchExamSubmissions,
   fetchPaperPermission,
   previewExamStart,
   restartExam,
@@ -22,6 +23,14 @@ export const usePaperPermissionQuery = (userId: string | undefined) =>
     queryFn: fetchPaperPermission,
     enabled: !!userId,
     staleTime: Number.POSITIVE_INFINITY,
+  });
+
+export const useExamSubmissionsQuery = (dgnssId: number | undefined) =>
+  useQuery({
+    queryKey: assessmentKeys.examSubmissions(dgnssId ?? 0),
+    queryFn: () => fetchExamSubmissions(dgnssId!),
+    enabled: !!dgnssId,
+    staleTime: 0,
   });
 
 export const useAssessmentSlotsQueries = (

@@ -3,6 +3,7 @@ import styled from '@emotion/styled';
 import { Bell, Check, Clock, Search } from 'lucide-react';
 
 import { matchesNameSearch } from '@shared/utils/koreanNameSearch';
+import { useExamSubmissionsQuery } from '../api/queries';
 import { EXAM_SLOTS, EXAM_STATUS_LABELS } from '../constants';
 import { useExamReminderAction } from '../model/useExamReminderAction';
 import { calculateProgress, getSlotStatus } from '../utils';
@@ -435,6 +436,19 @@ const formatDateTime = (value?: Date) => {
   }).format(value);
 };
 
+const formatSubmissionDateTime = (value: string | null) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+};
+
 const getMemberName = (member: GroupMember) =>
   member.maskedReason && member.maskedReason !== 'NONE' ? '****' : member.name;
 
@@ -460,6 +474,7 @@ export const ExamClassManagementView = ({
   const selectedDefinition =
     definitions.find((slot) => slot.round === selectedRound) ?? definitions[0];
   const selectedSlot = group.examSlots.find((slot) => slot.slotId === selectedDefinition.id);
+  const submissionsQuery = useExamSubmissionsQuery(selectedSlot?.dgnssId);
   const status = getSlotStatus(selectedDefinition.id, selectedSlot, group.examSlots);
   const progress = calculateProgress(
     selectedSlot?.submittedCount ?? 0,
@@ -475,18 +490,25 @@ export const ExamClassManagementView = ({
     [members],
   );
   const missingIdentifiers = new Set(selectedSlot?.notSubmittedStudents ?? []);
+  const submissionsByStudentId = new Map(
+    (submissionsQuery.data ?? []).map((submission) => [submission.stdtId, submission]),
+  );
   const hasStarted = status === 'in_progress' || status === 'completed';
   const hasIdentifiableSubmissionState = missingIdentifiers.size > 0 || pendingCount === 0;
   const studentRows = activeMembers.map((member, index) => {
+    const submission = submissionsByStudentId.get(member.stdtId);
     const isMissing =
       missingIdentifiers.has(member.stdtId) ||
       missingIdentifiers.has(member.name) ||
       missingIdentifiers.has(getMemberName(member));
     return {
       member,
-      number: member.memberNo ?? index + 1,
+      number: submission?.memberNo ?? member.memberNo ?? index + 1,
       name: getMemberName(member),
-      submitted: hasStarted && hasIdentifiableSubmissionState && !isMissing,
+      submitted: submissionsQuery.isSuccess
+        ? submission?.submAt === 'Y'
+        : hasStarted && hasIdentifiableSubmissionState && !isMissing,
+      submittedAt: submission?.submDt ?? null,
     };
   });
   const filteredRows = studentRows.filter((row) => {
@@ -706,9 +728,16 @@ export const ExamClassManagementView = ({
               </tr>
             </thead>
             <tbody>
-              {isMembersLoading ? (
+              {isMembersLoading || submissionsQuery.isLoading ? (
                 <tr>
-                  <EmptyRow colSpan={4}>학생 목록을 불러오는 중입니다.</EmptyRow>
+                  <EmptyRow colSpan={4}>학생 제출 현황을 불러오는 중입니다.</EmptyRow>
+                </tr>
+              ) : submissionsQuery.isError ? (
+                <tr>
+                  <EmptyRow colSpan={4}>
+                    학생 제출 현황을 불러오지 못했습니다.{' '}
+                    <Button onClick={() => void submissionsQuery.refetch()}>다시 시도</Button>
+                  </EmptyRow>
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
@@ -727,7 +756,7 @@ export const ExamClassManagementView = ({
                         {row.submitted ? '제출 완료' : '미제출'}
                       </SubmissionBadge>
                     </td>
-                    <td>-</td>
+                    <td>{formatSubmissionDateTime(row.submittedAt)}</td>
                   </tr>
                 ))
               )}
