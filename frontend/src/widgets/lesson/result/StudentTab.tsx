@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { Clock } from 'lucide-react';
 import { Loading } from '@shared/ui/Loading';
-import type { ActivityItem, ActivityProgress } from '@features/lesson';
+import type { ActivityItem, ActivityParticipationRow, AssigneeNameInfo } from '@features/lesson';
 import {
   articleTypeToNature,
   cellFromParticipationItem,
@@ -10,18 +10,18 @@ import {
   participationItemOf,
   sortActivityItems,
   summarizeParticipation,
-  useActivityAssigneesQuery,
+  useActivityParticipationsQuery,
   useAssigneeDirectoryQuery,
   useCmsArticleMapQuery,
   useTeacherParticipationQuery,
 } from '@features/lesson';
 import { ResponseGrid } from './ResponseGrid';
 import type { GridItem } from './ResponseGrid';
+import { ParticipationStatusBadge } from './ReportBadge';
 
 interface StudentTabProps {
   activityId: string;
   items: ActivityItem[];
-  progress?: ActivityProgress;
 }
 
 const Empty = styled.div`
@@ -217,42 +217,59 @@ const Dash = styled.span`
   color: ${({ theme }) => theme.colors.gray[400]};
 `;
 
-type AssigneeRow = {
-  sub: string;
+type StudentRow = {
+  participant: string;
   name: string;
   memberNo?: number;
+  totalScore?: number | null;
+  status: ActivityParticipationRow['status'];
+  participationId?: string;
 };
 
-export const StudentTab = ({ activityId, items, progress }: StudentTabProps) => {
-  const assigneesQuery = useActivityAssigneesQuery(activityId);
-  const assignees = useMemo(() => assigneesQuery.data ?? [], [assigneesQuery.data]);
-  const directoryQuery = useAssigneeDirectoryQuery(assignees.length > 0);
+const rowName = (
+  row: ActivityParticipationRow,
+  directory: Map<string, AssigneeNameInfo> | undefined,
+): string => {
+  const info = directory?.get(row.participant);
+  if (info?.name) return info.name;
+  const displayName = row.displayName?.trim();
+  if (displayName) return displayName;
+  return row.participant;
+};
+
+export const StudentTab = ({ activityId, items }: StudentTabProps) => {
+  const participationsQuery = useActivityParticipationsQuery(activityId);
+  const rows = useMemo(() => participationsQuery.data ?? [], [participationsQuery.data]);
+  const directoryQuery = useAssigneeDirectoryQuery(rows.length > 0);
   const directory = directoryQuery.data;
 
-  const students = useMemo<AssigneeRow[]>(() => {
-    const rows = assignees.map((sub) => {
-      const info = directory?.get(sub);
+  const students = useMemo<StudentRow[]>(() => {
+    const mapped = rows.map((row) => {
+      const info = directory?.get(row.participant);
       return {
-        sub,
-        name: info?.name || sub,
+        participant: row.participant,
+        name: rowName(row, directory),
         memberNo: info?.memberNo,
+        totalScore: row.totalScore,
+        status: row.status,
+        participationId: row.participationId,
       };
     });
-    return rows.sort((a, b) => {
+    return mapped.sort((a, b) => {
       const an = a.memberNo ?? Number.MAX_SAFE_INTEGER;
       const bn = b.memberNo ?? Number.MAX_SAFE_INTEGER;
       if (an !== bn) return an - bn;
       return a.name.localeCompare(b.name, 'ko');
     });
-  }, [assignees, directory]);
+  }, [rows, directory]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const curId = students.some((s) => s.sub === selectedId)
+  const curId = students.some((s) => s.participant === selectedId)
     ? (selectedId as string)
-    : (students[0]?.sub ?? '');
-  const cur = students.find((s) => s.sub === curId);
+    : (students[0]?.participant ?? '');
+  const cur = students.find((s) => s.participant === curId);
 
-  const participationId = progress?.rows.find((row) => row.participant === curId)?.participationId;
+  const participationId = cur?.status === 'NOT_STARTED' ? undefined : cur?.participationId;
   const participationQuery = useTeacherParticipationQuery(activityId, participationId);
   const participation =
     participationQuery.isError && isNotSubmittedError(participationQuery.error)
@@ -282,7 +299,7 @@ export const StudentTab = ({ activityId, items, progress }: StudentTabProps) => 
     };
   });
 
-  if (assigneesQuery.isPending) {
+  if (participationsQuery.isPending) {
     return (
       <LoadingBox role='status' aria-busy='true'>
         <Loading size='md' text='불러오는 중...' />
@@ -290,11 +307,11 @@ export const StudentTab = ({ activityId, items, progress }: StudentTabProps) => 
     );
   }
 
-  if (assigneesQuery.isError) {
+  if (participationsQuery.isError) {
     return (
       <ErrorText role='alert'>
-        {assigneesQuery.error instanceof Error
-          ? assigneesQuery.error.message
+        {participationsQuery.error instanceof Error
+          ? participationsQuery.error.message
           : '학생 명단을 불러오지 못했습니다.'}
       </ErrorText>
     );
@@ -316,13 +333,18 @@ export const StudentTab = ({ activityId, items, progress }: StudentTabProps) => 
           참여 학생 <ListCount>({students.length})</ListCount>
         </ListHead>
         {students.map((s) => {
-          const on = s.sub === curId;
+          const on = s.participant === curId;
           return (
-            <StudentBtn key={s.sub} type='button' $on={on} onClick={() => setSelectedId(s.sub)}>
+            <StudentBtn
+              key={s.participant}
+              type='button'
+              $on={on}
+              onClick={() => setSelectedId(s.participant)}
+            >
               <No>{s.memberNo ?? ''}</No>
               <Name>{s.name}</Name>
-              <Score>–</Score>
-              {/* <StudentStatusBadge statusCd={s.statusCd} /> */}
+              <Score>{s.totalScore == null ? '–' : s.totalScore}</Score>
+              <ParticipationStatusBadge status={s.status} />
             </StudentBtn>
           );
         })}
@@ -332,7 +354,7 @@ export const StudentTab = ({ activityId, items, progress }: StudentTabProps) => 
           <DetailHead>
             {cur?.memberNo != null ? <HeadNo>{cur.memberNo}.</HeadNo> : null}
             {cur?.name}
-            {/* {cur ? <StudentStatusBadge statusCd={cur.statusCd} /> : null} */}
+            {cur ? <ParticipationStatusBadge status={cur.status} /> : null}
           </DetailHead>
           <TileGrid>
             <Tile>

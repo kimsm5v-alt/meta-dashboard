@@ -127,7 +127,6 @@ export const ReportDetail = ({ activityId, activity }: ReportDetailProps) => {
             <StudentTab
               activityId={activityId}
               items={detailQuery.data?.items ?? EMPTY_ACTIVITY_ITEMS}
-              progress={progressQuery.data}
             />
           )}
         </>

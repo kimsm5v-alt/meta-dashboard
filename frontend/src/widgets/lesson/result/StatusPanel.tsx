@@ -3,17 +3,24 @@
  * 미제출 학생 태그 목록.
  * 학생을 누르면 아래 카드 그리드에서 해당 학생이 미제출인 카드에 테두리가 표시된다.
  *
- * - 이번 주 진행: useThisWeekCountQuery (openFrom/openTo 기준)
- * - 진행 중 활동: useRunningCountQuery (availability=OPEN 기준)
- * - 미제출 / 미제출 학생: /progress API 연동 보류 — 빈 상태 유지
+ * - 이번 주 진행: useThisWeekCountQuery (openFrom/openTo + optFilter)
+ * - 진행 중 활동: useRunningCountQuery (availability=OPEN + optFilter)
+ * - 미제출: GET /activities/progress 묶음 조회
  */
 import styled from '@emotion/styled';
 import { TrendingUp } from 'lucide-react';
-import { useThisWeekCountQuery, useRunningCountQuery } from '@features/lesson';
+import {
+  useActivitiesProgressBundleQuery,
+  useAssigneeDirectoryQuery,
+  useRunningCountQuery,
+  useThisWeekCountQuery,
+} from '@features/lesson';
 
 interface StatusPanelProps {
+  classId: string;
+  className?: string;
   selected: string | null;
-  onSelect: (name: string | null) => void;
+  onSelect: (participant: string | null, missingActivityIds: string[]) => void;
 }
 
 const Panel = styled.div`
@@ -155,19 +162,21 @@ const AllSubmittedText = styled.span`
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
 
-export const StatusPanel = ({ selected, onSelect }: StatusPanelProps) => {
-  const { data: thisWeekCount, isPending: weekPending } = useThisWeekCountQuery();
-  const { data: runningCount, isPending: runningPending } = useRunningCountQuery();
-
-  // 미제출 학생 목록 — /progress API 연동 보류, 빈 상태 유지
-  const students: Array<{ name: string; n: number }> = [];
-  const missingCount = 0;
+export const StatusPanel = ({ classId, className, selected, onSelect }: StatusPanelProps) => {
+  const { data: thisWeekCount, isPending: weekPending } = useThisWeekCountQuery(classId);
+  const { data: runningCount, isPending: runningPending } = useRunningCountQuery(classId);
+  const bundleQuery = useActivitiesProgressBundleQuery(classId);
+  const students = bundleQuery.data?.notSubmittedStudents ?? [];
+  const directoryQuery = useAssigneeDirectoryQuery(students.length > 0);
+  const directory = directoryQuery.data;
+  const missingCount = bundleQuery.data?.notSubmittedStudentCount;
+  const title = className ? `${className} 학습현황` : '학습현황';
 
   return (
     <Panel>
       <PanelTitle>
         <TitleIcon />
-        전체 학습현황
+        {title}
       </PanelTitle>
 
       <StatGrid>
@@ -188,8 +197,8 @@ export const StatusPanel = ({ selected, onSelect }: StatusPanelProps) => {
         <StatTile>
           <StatLabel>미제출</StatLabel>
           <StatValue>
-            {missingCount}
-            <StatUnit>건</StatUnit>
+            {bundleQuery.isPending ? '--' : (missingCount ?? '–')}
+            {missingCount != null ? <StatUnit>건</StatUnit> : null}
           </StatValue>
         </StatTile>
       </StatGrid>
@@ -197,7 +206,9 @@ export const StatusPanel = ({ selected, onSelect }: StatusPanelProps) => {
       <Divider>
         <StudentHeader>
           <StudentLabel>미제출 학생</StudentLabel>
-          <StudentCount>{students.length}명</StudentCount>
+          <StudentCount>
+            {missingCount != null ? `${missingCount}명` : `${students.length}명`}
+          </StudentCount>
           <StudentHint>· 진행 중인 활동 기준</StudentHint>
           {students.length > 0 && (
             <StudentHint>이름을 누르면 진행중 목록에서 해당 활동이 표시됩니다</StudentHint>
@@ -205,17 +216,34 @@ export const StatusPanel = ({ selected, onSelect }: StatusPanelProps) => {
         </StudentHeader>
 
         <TagList>
-          {(runningCount ?? 0) === 0 && !runningPending ? (
+          {bundleQuery.isError ? (
+            <EmptyText>
+              {bundleQuery.error instanceof Error
+                ? bundleQuery.error.message
+                : '미제출 학생을 불러오지 못했습니다.'}
+            </EmptyText>
+          ) : bundleQuery.isPending || runningPending ? (
+            <EmptyText>불러오는 중...</EmptyText>
+          ) : (runningCount ?? 0) === 0 ? (
             <EmptyText>진행 중인 활동이 없습니다.</EmptyText>
           ) : students.length === 0 ? (
             <AllSubmittedText>진행 중인 활동을 모두 제출했어요.</AllSubmittedText>
           ) : (
             students.map((s) => {
-              const on = selected === s.name;
+              const on = selected === s.participant;
+              const info = directory?.get(s.participant);
+              const name = info?.name || s.displayName?.trim() || s.participant;
+              const n = s.missingActivityIds.length;
               return (
-                <Tag key={s.name} $on={on} onClick={() => onSelect(on ? null : s.name)}>
-                  {s.name}
-                  {s.n > 1 && <TagCount $on={on}>{s.n}</TagCount>}
+                <Tag
+                  key={s.participant}
+                  $on={on}
+                  onClick={() =>
+                    onSelect(on ? null : s.participant, on ? [] : s.missingActivityIds)
+                  }
+                >
+                  {name}
+                  {n > 1 && <TagCount $on={on}>{n}</TagCount>}
                 </Tag>
               );
             })

@@ -1,14 +1,21 @@
 import { useState } from 'react';
 import styled from '@emotion/styled';
 import { Calendar } from 'lucide-react';
+import { useMyGroupsQuery } from '@features/api';
 import type {
   ActivityDetail,
   ActivityProgress,
   ActivityStatistics,
   ActivitySummaryItem,
 } from '@features/lesson';
-import { fmtDotDate, isActivityAvailability, pct } from '@features/lesson';
-import { ActivityStatusBadge } from './ReportBadge';
+import {
+  classIdsFromOptions,
+  fmtDotDate,
+  isActivityAvailability,
+  pct,
+  resolveClassNames,
+} from '@features/lesson';
+import { ActivityStatusBadge, ClassBadge } from './ReportBadge';
 
 interface ReportSummaryProps {
   activityId: string;
@@ -195,6 +202,7 @@ export const ReportSummary = ({
   statistics,
 }: ReportSummaryProps) => {
   const [imgFailed, setImgFailed] = useState(false);
+  const { data: groups = [] } = useMyGroupsQuery();
   const title = detail?.title || fallback?.title || activityId;
   const thumbnailUrl = thumbnailOf(detail, fallback);
   const availability = detail?.availability ?? fallback?.availability;
@@ -203,6 +211,10 @@ export const ReportSummary = ({
   const labels = detail?.labels ?? [];
   const pageCount = detail?.items?.length ?? 0;
   const dateLine = buildDateLine(openAt ?? undefined, closeAt ?? undefined, pageCount);
+  const classNames = resolveClassNames(
+    classIdsFromOptions(detail?.options ?? fallback?.options),
+    groups,
+  );
 
   const assignedCount = progress?.assignedCount;
   const startedCount = progress?.startedCount;
@@ -225,6 +237,9 @@ export const ReportSummary = ({
             {availability && isActivityAvailability(availability) ? (
               <ActivityStatusBadge availability={availability} />
             ) : null}
+            {classNames.map((name) => (
+              <ClassBadge key={name} cls={name} />
+            ))}
           </BadgeRow>
           <Title>{title}</Title>
           <DateRow>

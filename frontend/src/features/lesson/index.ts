@@ -8,7 +8,9 @@ export {
   getActivity,
   getActivityProgress,
   getActivityStatistics,
-  getActivityAssignees,
+  getActivitiesProgressBundle,
+  getActivityParticipations,
+  getActivityParticipationsAll,
   getTeacherParticipationResult,
   fetchActivityEntry,
   startParticipation,
@@ -33,6 +35,11 @@ export type {
   ActivityProgress,
   ActivityProgressRow,
   ActivityStatistics,
+  ActivityParticipationSummary,
+  ActivityParticipationRow,
+  ActivitiesProgressBundle,
+  NotSubmittedStudent,
+  ParticipationStatus,
   ParticipationResult,
   ParticipationResultItem,
   LmsErrata,
@@ -66,7 +73,8 @@ export {
   useActivityDetailQuery,
   useActivityProgressQuery,
   useActivityStatisticsQuery,
-  useActivityAssigneesQuery,
+  useActivityParticipationsQuery,
+  useActivitiesProgressBundleQuery,
   useTeacherParticipationQuery,
   useAssigneeDirectoryQuery,
   useCmsArticleMapQuery,
@@ -142,6 +150,13 @@ export {
 } from './model/mapReportDetail';
 export type { ParticipationSummary } from './model/mapReportDetail';
 export type { AssigneeNameInfo } from './model/resolveAssigneeNamesFromGroups';
+export {
+  parseClassIds,
+  joinClassIds,
+  classIdLikeOptFilter,
+  classIdsFromOptions,
+  resolveClassNames,
+} from './model/classIdOptions';
 export type {
   FilterAxis,
   LibFilters,

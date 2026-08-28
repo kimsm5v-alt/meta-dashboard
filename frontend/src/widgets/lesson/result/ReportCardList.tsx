@@ -1,10 +1,11 @@
 /**
- * 리포트 카드 목록 — 서버 필터링(availability) + 무한스크롤.
+ * 리포트 카드 목록 — 서버 필터링(availability + optFilter) + 무한스크롤.
  * 필터 탭 전환 시 queryKey가 바뀌어 page 0부터 재조회된다.
- * highlightStudent: 미제출 학생 강조 — /progress API 연동 보류, 현재 미사용.
+ * highlightActivityIds: 미제출 학생 태그가 가리키는 활동 강조.
  */
 import { useEffect, useMemo, useRef } from 'react';
 import styled from '@emotion/styled';
+import { Inbox } from 'lucide-react';
 import { Loading } from '@shared/ui/Loading';
 import { useActivityListQuery } from '@features/lesson';
 import type { ActivityAvailability } from '@features/lesson';
@@ -12,8 +13,9 @@ import { ReportCard } from './ReportCard';
 import type { RsFilter } from './types';
 
 interface ReportCardListProps {
+  classId: string;
   filter: RsFilter;
-  highlightStudent: string | null;
+  highlightActivityIds: string[];
 }
 
 const FILTER_TO_AV: Record<RsFilter, ActivityAvailability | undefined> = {
@@ -88,9 +90,12 @@ const EmptyBox = styled.div`
   text-align: center;
 `;
 
-const EmptyIcon = styled.div`
-  font-size: 30px;
-  line-height: 1;
+const EmptyIcon = styled(Inbox)`
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin: 0 auto;
+  color: ${({ theme }) => theme.colors.gray[300]};
 `;
 
 const EmptyText = styled.div`
@@ -108,7 +113,7 @@ const ErrorText = styled.p`
   text-align: center;
 `;
 
-export const ReportCardList = ({ filter }: ReportCardListProps) => {
+export const ReportCardList = ({ classId, filter, highlightActivityIds }: ReportCardListProps) => {
   const availability = FILTER_TO_AV[filter];
   const {
     data,
@@ -119,7 +124,7 @@ export const ReportCardList = ({ filter }: ReportCardListProps) => {
     fetchNextPage,
     isError,
     error,
-  } = useActivityListQuery(availability);
+  } = useActivityListQuery(availability, classId);
 
   const items = useMemo(() => (data?.pages ?? []).flatMap((page) => page.content), [data]);
 
@@ -161,7 +166,7 @@ export const ReportCardList = ({ filter }: ReportCardListProps) => {
   if (items.length === 0) {
     return (
       <EmptyBox>
-        <EmptyIcon>📭</EmptyIcon>
+        <EmptyIcon />
         <EmptyText>해당 상태의 수업 결과가 없습니다.</EmptyText>
       </EmptyBox>
     );
@@ -176,7 +181,11 @@ export const ReportCardList = ({ filter }: ReportCardListProps) => {
       ) : null}
       <Grid>
         {items.map((activity) => (
-          <ReportCard key={activity.activityId} activity={activity} highlight={false} />
+          <ReportCard
+            key={activity.activityId}
+            activity={activity}
+            highlight={highlightActivityIds.includes(activity.activityId)}
+          />
         ))}
       </Grid>
       {hasNextPage ? <Sentinel ref={sentinelRef} aria-hidden /> : null}

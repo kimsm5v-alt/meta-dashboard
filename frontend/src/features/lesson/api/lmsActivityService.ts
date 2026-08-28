@@ -89,10 +89,12 @@ export type ActivityDetail = {
 
 export type LmsErrata = 'CORRECT' | 'INCORRECT' | 'PARTIAL' | 'UNGRADABLE';
 
+export type ParticipationStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'SUBMITTED';
+
 export type ActivityProgressRow = {
   participant: string;
   displayName?: string;
-  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'SUBMITTED';
+  status: ParticipationStatus;
   participationId?: string;
   attempt?: number;
   submittedAt?: string;
@@ -152,6 +154,12 @@ export type ParticipationResult = {
   items: ParticipationResultItem[];
 };
 
+export type ActivityParticipationSummary = {
+  assignedCount?: number;
+  startedCount: number;
+  submittedCount: number;
+};
+
 export interface ActivitySummaryItem {
   activityId: string;
   title: string;
@@ -162,6 +170,7 @@ export interface ActivitySummaryItem {
   createdAt: string;
   labels?: string[];
   options?: Record<string, unknown> | null;
+  participationSummary?: ActivityParticipationSummary;
 }
 
 export interface ActivitiesPageResponse {
@@ -180,6 +189,49 @@ export interface GetActivitiesParams {
   page?: number;
   size?: number;
   withTotal?: boolean;
+  optFilter?: string[];
+  withParticipationSummary?: boolean;
+}
+
+export type NotSubmittedStudent = {
+  participant: string;
+  missingActivityIds: string[];
+  displayName?: string | null;
+};
+
+export type ActivitiesProgressBundleActivity = {
+  activityId: string;
+  title: string;
+  assignedCount?: number;
+  submittedCount: number;
+  notSubmittedCount?: number;
+  submitted?: string[];
+  notSubmitted?: string[];
+};
+
+export type ActivitiesProgressBundle = {
+  activityCount: number;
+  activities: ActivitiesProgressBundleActivity[];
+  notSubmittedStudents: NotSubmittedStudent[];
+  notSubmittedStudentCount: number;
+};
+
+export type ActivityParticipationRow = {
+  participant: string;
+  displayName?: string | null;
+  status: ParticipationStatus;
+  participationId?: string;
+  attempt?: number;
+  totalScore?: number | null;
+  maxTotalScore?: number;
+  gradingStatus?: string;
+};
+
+export interface ActivityParticipationsPageResponse {
+  content: ActivityParticipationRow[];
+  page: number;
+  size: number;
+  hasNext: boolean;
 }
 
 export type DeployFailedStep = 'create' | 'assign' | 'publish';
@@ -253,6 +305,12 @@ export async function publishActivity(activityId: string): Promise<ActivityDetai
   });
 }
 
+function appendOptFilters(search: URLSearchParams, optFilter?: string[]): void {
+  for (const filter of optFilter ?? []) {
+    if (filter) search.append('optFilter', filter);
+  }
+}
+
 function buildActivitiesQuery(params: GetActivitiesParams): string {
   const search = new URLSearchParams();
   if (params.availability) search.set('availability', params.availability);
@@ -261,6 +319,8 @@ function buildActivitiesQuery(params: GetActivitiesParams): string {
   search.set('page', String(params.page ?? 0));
   search.set('size', String(params.size ?? 20));
   if (params.withTotal) search.set('withTotal', 'true');
+  if (params.withParticipationSummary) search.set('withParticipationSummary', 'true');
+  appendOptFilters(search, params.optFilter);
   return search.toString();
 }
 
@@ -288,6 +348,17 @@ export async function getActivityProgress(
   return lmsFetch<ActivityProgress>(`${BASE}/${activityId}/progress`, { signal });
 }
 
+/** GET /api/v1/activities/progress — 반 단위 미제출 묶음 조회 */
+export async function getActivitiesProgressBundle(
+  params: { availability?: ActivityAvailability; optFilter?: string[] },
+  signal?: AbortSignal,
+): Promise<ActivitiesProgressBundle> {
+  const search = new URLSearchParams();
+  if (params.availability) search.set('availability', params.availability);
+  appendOptFilters(search, params.optFilter);
+  return lmsFetch<ActivitiesProgressBundle>(`${BASE}/progress?${search}`, { signal });
+}
+
 /** GET /api/v1/activities/{activityId}/statistics — 정오·점수 집계 */
 export async function getActivityStatistics(
   activityId: string,
@@ -296,12 +367,35 @@ export async function getActivityStatistics(
   return lmsFetch<ActivityStatistics>(`${BASE}/${activityId}/statistics`, { signal });
 }
 
-/** GET /api/v1/activities/{activityId}/assignees — 배정 명단 (sub[]) */
-export async function getActivityAssignees(
+/** GET /api/v1/activities/{activityId}/participations — 전원 점수·진행상태 */
+export async function getActivityParticipations(
+  activityId: string,
+  params: { page?: number; size?: number } = {},
+  signal?: AbortSignal,
+): Promise<ActivityParticipationsPageResponse> {
+  const search = new URLSearchParams();
+  search.set('page', String(params.page ?? 0));
+  search.set('size', String(params.size ?? 100));
+  return lmsFetch<ActivityParticipationsPageResponse>(
+    `${BASE}/${activityId}/participations?${search}`,
+    { signal },
+  );
+}
+
+export async function getActivityParticipationsAll(
   activityId: string,
   signal?: AbortSignal,
-): Promise<string[]> {
-  return lmsFetch<string[]>(`${BASE}/${activityId}/assignees`, { signal });
+): Promise<ActivityParticipationRow[]> {
+  const rows: ActivityParticipationRow[] = [];
+  let page = 0;
+  for (;;) {
+    const res = await getActivityParticipations(activityId, { page, size: 100 }, signal);
+    rows.push(...(res.content ?? []));
+    if (!res.hasNext) break;
+    page += 1;
+    if (page > 50) break;
+  }
+  return rows;
 }
 
 /** GET /api/v1/activities/{activityId}/participations/{participationId} — 교사, 학생 1명 결과 */

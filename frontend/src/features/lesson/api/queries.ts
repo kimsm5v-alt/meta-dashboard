@@ -21,7 +21,8 @@ import {
   fetchActivityEntry,
   getActivities,
   getActivity,
-  getActivityAssignees,
+  getActivitiesProgressBundle,
+  getActivityParticipationsAll,
   getActivityProgress,
   getActivityStatistics,
   getTeacherParticipationResult,
@@ -30,8 +31,10 @@ import {
 } from './lmsActivityService';
 import type {
   ActivitiesPageResponse,
+  ActivitiesProgressBundle,
   ActivityAvailability,
   ActivityDetail,
+  ActivityParticipationRow,
   ActivityProgress,
   ActivityStatistics,
   ParticipationResult,
@@ -42,6 +45,7 @@ import { lessonKeys } from './queryKeys';
 import { useAuth } from '@features/auth';
 import { resolveAssigneeNamesFromGroups } from '../model/resolveAssigneeNamesFromGroups';
 import type { AssigneeNameInfo } from '../model/resolveAssigneeNamesFromGroups';
+import { classIdLikeOptFilter } from '../model/classIdOptions';
 
 const CMS_SETS_DEFAULT = {
   pageNo: 0,
@@ -250,22 +254,27 @@ function getThisWeekRange(): { openFrom: string; openTo: string } {
 }
 
 /** 이번 주 배포 건수 — openFrom/openTo 기준, totalElements만 사용 */
-export function useThisWeekCountQuery() {
+export function useThisWeekCountQuery(classId: string | undefined) {
   const { openFrom, openTo } = getThisWeekRange();
+  const optFilter = classId ? [classIdLikeOptFilter(classId)] : undefined;
   return useQuery({
-    queryKey: lessonKeys.thisWeekCount(),
-    queryFn: ({ signal }) => getActivities({ openFrom, openTo, withTotal: true, size: 1 }, signal),
+    queryKey: lessonKeys.thisWeekCount(classId ?? ''),
+    queryFn: ({ signal }) =>
+      getActivities({ openFrom, openTo, withTotal: true, size: 1, optFilter }, signal),
     select: (data) => data.totalElements ?? 0,
+    enabled: Boolean(classId),
   });
 }
 
 /** 진행 중 활동 건수 — availability=OPEN, totalElements만 사용 */
-export function useRunningCountQuery() {
+export function useRunningCountQuery(classId: string | undefined) {
+  const optFilter = classId ? [classIdLikeOptFilter(classId)] : undefined;
   return useQuery({
-    queryKey: lessonKeys.runningCount(),
+    queryKey: lessonKeys.runningCount(classId ?? ''),
     queryFn: ({ signal }) =>
-      getActivities({ availability: 'OPEN', withTotal: true, size: 1 }, signal),
+      getActivities({ availability: 'OPEN', withTotal: true, size: 1, optFilter }, signal),
     select: (data) => data.totalElements ?? 0,
+    enabled: Boolean(classId),
   });
 }
 
@@ -274,14 +283,28 @@ export function useRunningCountQuery() {
  * availability가 undefined이면 전체 조회 (필터 '전체').
  * 필터 변경 시 queryKey가 바뀌어 page 0부터 재조회된다.
  */
-export function useActivityListQuery(availability: ActivityAvailability | undefined) {
+export function useActivityListQuery(
+  availability: ActivityAvailability | undefined,
+  classId: string | undefined,
+) {
+  const optFilter = classId ? [classIdLikeOptFilter(classId)] : undefined;
   return useInfiniteQuery<ActivitiesPageResponse>({
-    queryKey: lessonKeys.activitiesByFilter(availability ?? 'ALL'),
+    queryKey: lessonKeys.activitiesByFilter(availability ?? 'ALL', classId ?? ''),
     queryFn: ({ pageParam, signal }) =>
-      getActivities({ availability, page: Number(pageParam), size: 20 }, signal),
+      getActivities(
+        {
+          availability,
+          page: Number(pageParam),
+          size: 20,
+          optFilter,
+          withParticipationSummary: true,
+        },
+        signal,
+      ),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.page + 1 : undefined),
     placeholderData: keepPreviousData,
+    enabled: Boolean(classId),
   });
 }
 
@@ -319,11 +342,22 @@ export function useActivityStatisticsQuery(activityId: string | undefined) {
   });
 }
 
-export function useActivityAssigneesQuery(activityId: string | undefined) {
-  return useQuery<string[]>({
-    queryKey: lessonKeys.activityAssignees(activityId ?? ''),
-    queryFn: ({ signal }) => getActivityAssignees(activityId!, signal),
+export function useActivityParticipationsQuery(activityId: string | undefined) {
+  return useQuery<ActivityParticipationRow[]>({
+    queryKey: lessonKeys.activityParticipations(activityId ?? ''),
+    queryFn: ({ signal }) => getActivityParticipationsAll(activityId!, signal),
     enabled: Boolean(activityId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useActivitiesProgressBundleQuery(classId: string | undefined) {
+  const optFilter = classId ? [classIdLikeOptFilter(classId)] : undefined;
+  return useQuery<ActivitiesProgressBundle>({
+    queryKey: lessonKeys.activitiesProgressBundle(classId ?? ''),
+    queryFn: ({ signal }) =>
+      getActivitiesProgressBundle({ availability: 'OPEN', optFilter }, signal),
+    enabled: Boolean(classId),
     retry: retryUnlessNotFound,
   });
 }

@@ -1,13 +1,15 @@
 /**
  * 리포트 카드 — 배포된 활동 1건의 요약 카드.
- * highlight가 true이면 amber 링 테두리로 강조한다
- * (미제출 학생 강조 기능 — 현재 보류, 추후 /progress API 연동 시 활성화).
+ * highlight가 true이면 amber 링 테두리로 강조한다.
  */
 import { useState } from 'react';
 import styled from '@emotion/styled';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Calendar, BarChart3 } from 'lucide-react';
+import { useMyGroupsQuery } from '@features/api';
 import type { ActivitySummaryItem, ActivityAvailability } from '@features/lesson';
+import { classIdsFromOptions, resolveClassNames } from '@features/lesson';
+import { ClassBadge } from './ReportBadge';
 
 interface ReportCardProps {
   activity: ActivitySummaryItem;
@@ -17,6 +19,16 @@ interface ReportCardProps {
 const fmtDate = (iso: string): string => {
   const d = new Date(iso);
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const participationCaption = (activity: ActivitySummaryItem): string => {
+  if (activity.availability === 'NOT_STARTED') return '시작 전';
+  const summary = activity.participationSummary;
+  if (!summary) return '–';
+  if (summary.assignedCount != null) {
+    return `참여 ${summary.startedCount}/${summary.assignedCount}명`;
+  }
+  return `참여 ${summary.startedCount}명`;
 };
 
 const AV_STYLE: Record<ActivityAvailability, { bg: string; color: string; dot: string }> = {
@@ -139,6 +151,11 @@ const DateIcon = styled(Calendar)`
   flex-shrink: 0;
 `;
 
+const ParticipationRow = styled.div`
+  color: ${({ theme }) => theme.colors.gray[500]};
+  font-size: ${({ theme }) => theme.typography.fontSize.xs};
+`;
+
 const ReportButton = styled.button`
   display: flex;
   align-items: center;
@@ -170,6 +187,8 @@ export const ReportCard = ({ activity, highlight = false }: ReportCardProps) => 
   const navigate = useNavigate();
   const location = useLocation();
   const [imgFailed, setImgFailed] = useState(false);
+  const { data: groups = [] } = useMyGroupsQuery();
+  const classNames = resolveClassNames(classIdsFromOptions(activity.options), groups);
   const thumbnailUrl =
     typeof activity.options?.thumbnailUrl === 'string' ? activity.options.thumbnailUrl : undefined;
 
@@ -201,11 +220,15 @@ export const ReportCard = ({ activity, highlight = false }: ReportCardProps) => 
             <StatusDot $av={av} />
             {AV_LABEL[av]}
           </StatusBadge>
+          {classNames.map((name) => (
+            <ClassBadge key={name} cls={name} />
+          ))}
         </BadgeRow>
         <DateRow>
           <DateIcon />
           {dateStr}
         </DateRow>
+        <ParticipationRow>{participationCaption(activity)}</ParticipationRow>
         <ReportButton
           type='button'
           onClick={() =>

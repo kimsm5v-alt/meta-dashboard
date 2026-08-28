@@ -25,6 +25,7 @@
 | **추가계획17** | `ReportCard` 리포트 버튼 → 리포트 상세 페이지 (`ReportDetail` UI) | 구현 완료 (2026-08-26) |
 | **추가계획18** | `LessonReportDetailPage` 리포트 상세 API 연동 | 구현 완료 (2026-08-27) |
 | **추가계획19** | 학생 `StudentLessonResultPage` — prototype `StudentResourcePage` UI/UX 동등 구현 | 구현 완료 (2026-08-26) |
+| **추가계획20** | 수업 반 스코프 · `optFilter`/`options.classId` · 미제출 묶음 조회 · 참여요약 · 학생 점수/상태 | 계획 수립 / 구현 대기 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `GET .../api/sets` (`brandId=18`, `serviceType=131132`) | 추가계획8 스펙 확정 · 필터 매핑 미적용 |
@@ -4881,8 +4882,9 @@ GET /api/v1/activities?availability=OPEN&withTotal=true&size=1
 - `assignedCount`는 `ASSIGNED` 활동에만 존재하며 `OPEN` 활동에는 아예 없음 → 모집단 파악 불가
 - 진행중 활동 N개 × 1회 API 호출 → 성능 이슈
 
-**결론**: 단일 API로 미제출 학생 수를 집계하는 방법이 없으므로 **구현 보류**.  
-`StatusPanel`의 "미제출 N건" 타일과 "미제출 학생" 태그 목록은 API 연동 전까지 현행(목업/빈 상태) 유지.
+**결론 (16 당시)**: 단일 API로 미제출 학생 수를 집계하는 방법이 없으므로 **구현 보류**.  
+`StatusPanel`의 "미제출 N건" 타일과 "미제출 학생" 태그 목록은 16에서는 빈 상태 유지.  
+→ **추가계획20**에서 묶음 조회 `GET /api/v1/activities/progress`로 해제.
 
 ---
 
@@ -5641,7 +5643,7 @@ LMS 필드·옵셔널 규칙·에러 코드는 `superplatform-lms/docs/guide/api
 | UI | 소스 | 표기 |
 |----|------|------|
 | 상태 배지 (196) | `availability` | 기존 `ActivityStatusBadge` |
-| 반 배지 (197) | — | **보류.** `ClassBadge`를 API로 채우지 않음. 목업 `view.className`도 실제 id에 쓰지 않음 |
+| 반 배지 (197) | — | **추가계획18 보류 → 추가계획20에서 해제.** `options.classId` → 반 이름 |
 | 제목 (199) | `title` | 단건 `title`. 로딩 중만 state/activityId fallback |
 | 날짜 행 (200–203) | `openAt`, `closeAt`, `items.length` | `배포 {openAt} ~ {closeAt} · {items.length}개 페이지` |
 | 칩 행 (204–210) | `labels` | 배열 원소를 칩으로. 빈 배열이면 행 숨김. SEL 매핑 추정 금지 |
@@ -6479,4 +6481,385 @@ return (
 - 상세 없는 행(sr-2, sr-3)은 toast `아직 제출하지 않은 활동이에요.`
 - 참여하기·보기(활성)는 sonner toast만. 캡처 오버레이·`LessonJoinPage` 이동 없음
 - 없는 `activityId`로 직접 진입하면 돌아가기만 표시
+
+---
+
+# 추가계획20 — 수업 반 스코프 · options.classId 필터 · 미제출 묶음 조회 · 참여요약 · 학생 점수/상태
+
+> **성격**: 추가계획15–18에서 **보류했거나**, 이미 동작하는 화면을 **반 단위로 바꾸는** 작업.  
+> **준수**: `frontend/AGENTS.md`, `frontend/CLAUDE.md` (FSD Lite, Emotion, React Query)  
+> **LMS 참조**  
+> - `superplatform-lms/docs/etc/work/20260827-options-필터-파라미터-규격-제안.md`  
+> - `superplatform-lms/docs/etc/work/20260827-FE-N+1-집계조회-회신.md`  
+> - `superplatform-lms/docs/guide/api-spec.md` (기존 목록/단건)
+
+---
+
+## 1. 목표
+
+수업 메뉴(`/lesson/library`, `/lesson/my`, `/lesson/result`)를 **사이드바에서 고른 반** 기준으로 맞춘다.
+
+- 반이 있으면 첫 반을 기본 선택
+- 결과보기는 반이 있어야 목록·현황을 보여 줌
+- 배포 시 `options.classId`에 선택한 반 id를 저장하고, 목록은 `optFilter=classId:like:{classId}` 로 그 반 활동만 조회
+- 16에서 보류한 미제출 학생, 18에서 보류한 반 배지, 15의 카드 참여 인원, 18의 학생 리스트 점수·상태를 이 계획에서 채움
+
+---
+
+## 2. 범위 / 비범위
+
+| 함 | 안 함 |
+|----|--------|
+| 수업 3개 경로의 반 기본 선택 | 검사·코칭·홈 메뉴 기본 스코프 변경 |
+| `/lesson/result` 반 없음/실패 가드 | library/my 를 반 없이 막기 |
+| `POST /activities` `options.classId` | LMS `options` 스키마를 우리가 해석하게 만들기 (store-and-echo 유지) |
+| 목록 `optFilter` + `withParticipationSummary` | 활동마다 `GET .../progress` N회 |
+| 묶음 조회 미제출 학생 | PageTab API, CaptureOverlay |
+| 학생 탭 명단을 `GET .../participations` 로 교체 | 학생 결과보기(19) |
+
+LMS 신규 2종(`GET /activities/progress` 묶음, `GET /activities/{id}/participations` 목록)은 회신 문서 기준. FE 구현 시 404면 빈 상태/에러로 두고 가짜 데이터를 만들지 않는다.
+
+---
+
+## 3. 현황 (바꿀 것)
+
+| 항목 | 지금 | 20 이후 |
+|------|------|---------|
+| 수업 LNB 스코프 | `lesson`: `all`+`class`. 기본 `INITIAL_SCOPE.level='all'` | 수업 3경로 진입 시 반 목록 첫 항목 `selectClass` |
+| `/lesson/result` 반 없음 | 교사 전체 활동 목록 | 안내 문구. 목록/현황 API 호출 안 함 |
+| StatusPanel 제목 | `전체 학습현황` | `{반이름} 학습현황` |
+| 이번 주/진행 중 건수 | 교사 전체 `getActivities` | 같은 반 `optFilter` 포함 |
+| ReportCardList | `availability`만 | + `optFilter=classId:like:{classId}` + `withParticipationSummary=true` |
+| Deploy `options` | 없음 (thumbnail 등만 후속) | `options.classId` = 선택한 반 id를 `, `로 join |
+| 반 배지 | 18 보류 | `options.classId` → 그룹 이름 |
+| 미제출 | 16 보류, 0건/빈 목록 | 묶음 조회 |
+| ReportCard 참여 인원 | 미표시 | `participationSummary` 또는 진행예정 `시작 전` |
+| StudentTab 명단 | `GET .../assignees` + 이름 역조회. 점수·상태 보류 | `GET .../participations` 전원 목록. 이름만 서비스 명단 매핑 |
+
+---
+
+## 4. 반 기본 선택 (항목 1)
+
+**대상 URL**: `/lesson/library`, `/lesson/my`, `/lesson/result` (및 그 하위 `/lesson/result/:activityId`).  
+`getMenuKeyFromPath` 상 모두 `lesson`.
+
+사이드바는 `ScopeTree` (302–402). 반 행 `group.id`가 `classId`.
+
+현재 선택된 학급:
+
+```ts
+const { scope, selectClass } = useLayoutContext();
+// scope.classId, scope.level === 'class'
+```
+
+### 규칙
+
+1. `useMyGroupsQuery`가 성공하고 `groups.length > 0` 일 때.
+2. 수업 메뉴이고, 아직 반이 없거나(`level === 'all'` / `classId` 없음) **또는** `classId`가 현재 반 목록에 없으면.
+3. `selectClass(groups[0].id)` — 목록 **첫 반**.
+4. 이미 유효한 반이 선택돼 있으면 **유지** (URL·`lastClassId`로 들어온 선택 덮지 않음).
+5. 검사/코칭 등 다른 메뉴에는 적용하지 않음.
+
+구현 위치: `ScopeTree` 또는 수업 레이아웃 한곳. 페이지 3개가 각자 `selectClass`를 부르지 않는다. 그룹 로드 후 한 번만. `useEffect`로 LMS fetch 하지 말 것 (그룹 훅 결과로 스코프만 맞춤).
+
+---
+
+## 5. 반 없음 · 반 목록 실패 (항목 2)
+
+### `/lesson/library`, `/lesson/my`
+
+반이 없거나 목록 로드가 실패해도 **지금처럼 자료실/나의 자료 화면을 보여 준다.** 활동 목록 API에 `optFilter`를 쓰지 않음.
+
+### `/lesson/result` (목록. 상세 `:activityId`는 단건이라 이 가드와 별개)
+
+| 상황 | UI | 재시도 |
+|------|-----|--------|
+| 반 목록 로딩 | 로딩 | — |
+| 반이 0개 | 「반을 선택해야 결과를 볼 수 있습니다」(또는 동등 안내). StatusPanel·필터·카드 목록 **숨김**. 활동 API **호출하지 않음** | 없음 (생성할 반이 없음) |
+| 반 목록 API 실패 | 같은 안내 + **다시 시도** | **있음.** `ScopeTree` `ScopeError`와 같이 `refetch` |
+
+반 목록 실패 시 재시도 버튼을 둔다. 반이 없는 것과 호출 실패를 같은 빈 화면으로 뭉개지 않는다.
+
+`scope.classId`가 생긴 뒤에만 StatusPanel / ReportCardList 쿼리 `enabled`.
+
+---
+
+## 6. StatusPanel 제목 (항목 3)
+
+`StatusPanel.tsx` 168–171 「전체 학습현황」 → **`{반이름} 학습현황`**.
+
+반 이름 = `useMyGroupsQuery`에서 `scope.classId === group.id` 인 `group.name`.  
+없으면 `scope.classId`를 제목으로 쓰지 않고 로딩/`–` 수준만.
+
+이번 주 진행 · 진행 중 활동 건수도 **같은 반**이어야 제목과 숫자가 맞다.  
+기존 `useThisWeekCountQuery` / `useRunningCountQuery`에 항목 4와 같은 `optFilter=classId:like:{classId}`를 붙인다. `classId` 없으면 `enabled: false`.
+
+---
+
+## 7. 활동 목록 필터 (항목 4 · 8의 쿼리)
+
+**파일**: `ReportCardList.tsx` → `useActivityListQuery` → `getActivities`.
+
+기존 쿼리(`availability`, `page`, `size`, `openFrom`/`openTo`, `withTotal` 등)는 유지하고 아래를 **추가**.
+
+```
+GET /api/v1/activities?{기존}&optFilter=classId:like:{classId}&withParticipationSummary=true
+```
+
+- `classId` = `scope.classId`.
+- 값만 `encodeURIComponent` (`20260827-options-필터-파라미터-규격-제안.md` §4).
+- `like`인 이유: 배포 시 `options.classId`가 `"idA, idB"` 같은 **한 문자열**이라 부분 일치로 해당 반을 찾는다 (`eq`는 다중 반 문자열 전체와만 맞음).
+- `queryKey`에 `classId`·`optFilter`·`withParticipationSummary`를 넣어 반 전환 시 목록을 처음부터 다시 받는다.
+- `classId` 없으면 호출하지 않음 (항목 2).
+
+`GetActivitiesParams`에 `optFilter`, `withParticipationSummary`를 추가한다. `optFilter`는 반복 가능(AND). 이번은 `classId:like:` 한 개.
+
+---
+
+## 8. 배포 시 `options.classId` (항목 5)
+
+**파일**: `DeployPage.tsx` 선택 반 (`validClasses` / `g.id`) → `buildDeployActivityBody` → `POST /api/v1/activities`.
+
+```json
+{
+  "options": {
+    "classId": "classIdA, classIdB"
+  }
+}
+```
+
+- 선택한 반 `group.id`를 **`, `**(콤마+공백)로 join.
+- LMS는 `options`를 해석하지 않고 저장·echo (`store-and-echo`).
+- 이미 `options.thumbnailUrl` 등을 넣으면 **merge**. `classId`만 넣느라 기존 키를 지우지 않음.
+- 반을 안 고르면 배포 자체가 막혀 있음(현행). `classId` 없는 배포를 새로 만들지 않음.
+
+이 값이 있어야 항목 4의 `like:{classId}`가 맞는다.
+
+---
+
+## 9. 반 배지 (항목 6) — 18 보류 해제
+
+추가계획18 §4.1 반 배지.
+
+소스: 목록/단건의 `options.classId` (문자열). split 후 trim → `group.id`와 매칭 → `group.name`.
+
+| 화면 | 표시 |
+|------|------|
+| `ReportSummary` | `ClassBadge`. 여러 반면 이름 나열 또는 배지 여러 개 |
+| `ReportCard` (목록) | 15 UI에 있던 반 뱃지. 동일 매핑 |
+
+매칭 실패 id는 이름을 지어내지 않음. 그룹 목록은 `useMyGroupsQuery` 캐시.
+
+결과 목록은 이미 현재 반으로 필터되지만, 활동이 여러 반에 배포됐으면 `options.classId`에 여러 id가 있다. **저장된 id 전부**를 이름으로 보여 준다.
+
+---
+
+## 10. 미제출 학생 (항목 7) — 16 보류 해제
+
+**참조**: `20260827-FE-N+1-집계조회-회신.md` (3) 묶음 조회. **신규 LMS API.**
+
+권장 (a) — 활동 id를 FE가 나열하지 않음:
+
+```
+GET /api/v1/activities/progress?optFilter=classId:like:{classId}&availability=OPEN
+```
+
+(`className:eq:` 예시는 회신 문서. 우리 저장 키는 **`classId`**. like는 항목 4와 동일.)
+
+응답에서 쓰는 필드:
+
+| UI | 필드 |
+|----|------|
+| 미제출 타일 (StatusPanel 188–194) | `notSubmittedStudentCount` + `건` |
+| 미제출 학생 태그 (198–205) | `notSubmittedStudents[]` |
+| 태그 이름 | `participant`(sub) → 그룹 멤버 이름. 게스트만 `displayName`이 있으면 그것 |
+| 태그 n | `missingActivityIds.length` (2개 이상일 때) |
+
+클릭:
+
+1. `LessonResultPage` 필터를 **진행중** (`RsFilter='진행중'`, `availability=OPEN`).
+2. `ReportCardList`에 그 학생의 `missingActivityIds`를 넘김.
+3. `ReportCard` `highlight={missingActivityIds.includes(activity.activityId)}`. 지금 `highlight={false}` 고정인 것을 교체.
+
+다시 같은 태그를 누르면 하이라이트 해제(현행 `onSelect` 토글).
+
+이름: LMS는 회원 이름을 안 줌. 18의 `resolveAssigneeNamesFromGroups` / 그룹 멤버 맵을 재사용. 위젯에서 그룹 API를 직접 돌리지 않음.
+
+OPEN 전용 활동은 회신대로 미제출 차집합이 없을 수 있음. 온 필드만 쓰고 0으로 채우지 않음.
+
+활동마다 단건 `GET .../{id}/progress`를 돌리지 않음.
+
+---
+
+## 11. ReportCard 참여 인원 (항목 8)
+
+목록에 `withParticipationSummary=true` (항목 4).
+
+`ActivitySummaryItem`에 옵셔널:
+
+```ts
+participationSummary?: {
+  assignedCount?: number; // ASSIGNED만. OPEN이면 키 없음
+  startedCount: number;
+  submittedCount: number;
+};
+```
+
+`ReportCard` 날짜 행(205–208) **아래**:
+
+| `availability` | 문구 |
+|----------------|------|
+| `NOT_STARTED` (뱃지 진행예정) | `시작 전` |
+| 그 외 + `assignedCount` 있음 | `참여 {startedCount}/{assignedCount}명` |
+| 그 외 + `assignedCount` 없음 | `참여 {startedCount}명` 또는 `–`. **0으로 분모를 만들지 않음** |
+
+`participationSummary`가 없으면 `–`.
+
+---
+
+## 12. StudentTab 명단 API 교체 (항목 9)
+
+**참조**: 회신 문서 §3 A안 (확정).
+
+```
+GET /api/v1/activities/{activityId}/participations
+```
+
+`PageResponse`. `content[i]`:
+
+| 화면 | 필드 |
+|------|------|
+| 이름 | `participant`(sub) → 서비스 명단 이름. 게스트·핸들은 `displayName` |
+| 점수 | `totalScore` — 없으면 `–` |
+| 진행 | `status`: `NOT_STARTED` 미제출 · `IN_PROGRESS` 진행중 · `SUBMITTED` 완료(또는 제출). 기존 `StudentStatusBadge` 코드를 이 enum에 맞게 바꾸거나 새 뱃지 |
+
+출석번호(`memberNo`)는 이 API에 없음. 명단 맵에 있으면 표시, 없으면 빈 칸. 순번을 지어내지 않음.
+
+### StudentTab에서 빼는 것
+
+명단용 **`GET /api/v1/activities/{activityId}/assignees`** 및 `useActivityAssigneesQuery`.  
+다른 곳이 안 쓰면 서비스 함수·훅도 삭제.
+
+선택 학생 **상세**(활동 페이지, 정답률, ResponseGrid)는 계속 단건  
+`GET /api/v1/activities/{activityId}/participations/{participationId}`.  
+목록 응답의 `participationId`로 호출. `status === 'NOT_STARTED'` 이거나 id 없으면 단건 생략.
+
+`GET .../assignees`로 명단을 채우던 흐름과, 명단만을 위한 progress row 매칭은 제거.  
+요약 카드 참여 인원용 **단건** `GET .../progress`는 ReportSummary에 남을 수 있음 (목록 요약과 별개).
+
+페이지네이션: 응답이 `hasNext`면 size를 키우거나 이어서 로드. 전원 점수가 목적. 한 페이지 20에 맞춰 잘라 보이지 말 것.
+
+---
+
+## 13. FSD
+
+```text
+pages/lesson/LessonResultPage.tsx     ← scope.classId만 전달. fetch 없음
+pages/lesson/LessonLibraryPage.tsx    ← 반 없어도 현행 유지
+pages/lesson/LessonMyPage.tsx         ← 헤더만. 목록 fetch 없음
+
+widgets/layout/v2/ScopeTree.tsx       ← 수업 메뉴 첫 반 selectClass (항목 1)
+widgets/lesson/result/LessonResultContents.tsx ← 반 없음/실패 가드
+widgets/lesson/result/StatusPanel.tsx ← 제목, 미제출 묶음 조회
+widgets/lesson/result/ReportCardList.tsx ← optFilter + withParticipationSummary + highlight ids
+widgets/lesson/result/ReportCard.tsx  ← 반 뱃지, 참여 N/M, highlight
+widgets/lesson/result/ReportSummary.tsx ← ClassBadge (options.classId)
+widgets/lesson/result/StudentTab.tsx  ← participations 목록으로 명단 교체
+widgets/lesson/library/LessonMyContents.tsx ← 나의 자료 목록 조회
+
+features/lesson/api/lmsActivityService.ts
+  getActivities params: optFilter[], withParticipationSummary
+  createActivity options.classId (Deploy body)
+  getActivitiesProgressBundle  ← GET /activities/progress (묶음)
+  getActivityParticipations    ← GET /activities/{id}/participations (목록)
+features/lesson/api/queries.ts / queryKeys.ts
+features/lesson/model/buildDeployActivityBody.ts ← classIds join
+features/lesson/model/classIdOptions.ts
+```
+
+`pages → widgets → features → shared`. 페이지가 `scope.classId`를 위젯에 넘긴다. 가드·조회는 위젯.
+
+---
+
+## 14. 하지 말 것
+
+- library/my를 반 없이 차단
+- `OPEN` 활동 `assignedCount` 없음을 0으로 채우기
+- 미제출을 활동마다 단건 progress N회
+- StudentTab 명단에 없는 점수/상태를 추정
+- `optFilter` 경로·연산자까지 `encodeURIComponent` (값은 값만)
+- `options`를 LMS가 classId를 이해한다고 가정하고 다른 키를 지우는 것
+- 페이지에서 fetch / 빈 React Query 훅
+- prototype/Tailwind 복제, 주석 이모지
+
+---
+
+## 15. 구현 체크리스트
+
+- [x] 수업 3경로: 반 목록 로드 후 첫 반 `selectClass` (유효 선택 유지)
+- [x] `/lesson/result` 반 0개 안내 / 목록 실패 시 다시 시도 / library·my는 통과
+- [x] StatusPanel 제목 `{반이름} 학습현황` + 건수 쿼리에 `optFilter`
+- [x] `getActivities`에 `optFilter=classId:like:` + `withParticipationSummary=true`
+- [x] Deploy `options.classId` 콤마 결합 (기존 options merge)
+- [x] ReportCard·ReportSummary 반 이름 (`options.classId`)
+- [x] 묶음 `GET /activities/progress` → 미제출 건수·태그·카드 highlight + 진행중 탭
+- [x] ReportCard `시작 전` / `참여 started/assigned명`
+- [x] StudentTab `GET .../participations` 명단. assignees 목록 호출 제거
+- [x] `tsc` / eslint (`no-unused-vars` 제외)
+
+---
+
+## 16. 완료 기준
+
+- `/lesson/library`·`/lesson/my`·`/lesson/result`에서 반이 있으면 사이드바 첫 반(또는 기존 유효 반)이 선택된 것처럼 보인다.
+- 반이 없는 교사는 library/my는 되고, result는 선택 안내만 보인다. 반 목록 실패에는 재시도가 있다.
+- 결과 목록·현황 숫자가 선택된 반의 `options.classId` like 필터와 맞다.
+- 배포한 활동이 그 반 필터에 걸린다.
+- 미제출 학생을 누르면 진행중 목록에서 `missingActivityIds` 카드가 강조된다.
+- 학생 탭에 이름·점수·진행상태가 목록 API로 나온다. assignees 명단 호출은 없다.
+
+---
+
+## 17. 참고 파일
+
+| 역할 | 경로 |
+|------|------|
+| options 필터 | `superplatform-lms/docs/etc/work/20260827-options-필터-파라미터-규격-제안.md` |
+| N+1 회신 | `superplatform-lms/docs/etc/work/20260827-FE-N+1-집계조회-회신.md` |
+| ScopeTree | `frontend/src/widgets/layout/v2/ScopeTree.tsx` |
+| LayoutContext | `frontend/src/widgets/layout/v2/LayoutContext.tsx` |
+| 수업 메뉴 스코프 | `frontend/src/shared/scope/scopeConfig.ts` (`lesson`) |
+| 결과보기 가드 | `frontend/src/widgets/lesson/result/LessonResultContents.tsx` |
+| StatusPanel | `frontend/src/widgets/lesson/result/StatusPanel.tsx` |
+| ReportCardList | `frontend/src/widgets/lesson/result/ReportCardList.tsx` |
+| ReportCard | `frontend/src/widgets/lesson/result/ReportCard.tsx` |
+| Deploy 반 선택 | `frontend/src/features/lesson/ui/DeployPage.tsx` |
+| create body | `frontend/src/features/lesson/model/buildDeployActivityBody.ts` |
+| StudentTab | `frontend/src/widgets/lesson/result/StudentTab.tsx` |
+| 나의 자료 목록 | `frontend/src/widgets/lesson/library/LessonMyContents.tsx` |
+| 18 반 배지 보류 | 이 파일 추가계획18 §4.1 |
+| 16 미제출 보류 | 이 파일 추가계획16 §3.3 |
+
+---
+
+**작성일**: 2026-08-28  
+**갱신**: 2026-08-28 (구현 완료)  
+**상태**: 구현 완료 (2026-08-28)
+
+---
+
+## 18. 구현 결과 (2026-08-28)
+
+페이지는 얇게 유지. 결과보기 가드·목록은 `LessonResultContents`, 나의 자료 목록은 `LessonMyContents`. 조회는 `features/lesson/api` React Query.
+
+- `ScopeTree`: `/lesson` 진입 시 반 목록 첫 항목 `selectClass`. 이미 유효한 `scope.classId`는 유지.
+- `/lesson/result`: 반 0개 안내, 반 목록 실패 시 다시 시도, `classId` 생기기 전에는 현황/목록 API 호출 안 함. library/my는 반 없이 통과.
+- 목록·이번 주·진행 중: `optFilter=classId:like:{classId}`. 목록은 `withParticipationSummary=true`.
+- 배포: `options.classId` = 선택한 `group.id`를 `, `로 join. 기존 options merge.
+- 반 배지: `options.classId` → `useMyGroupsQuery` 이름. ReportCard·ReportSummary.
+- 미제출: `GET /activities/progress` 묶음. 태그 클릭 시 진행중 필터 + `missingActivityIds` 카드 highlight.
+- ReportCard: `NOT_STARTED` → `시작 전`, 그 외 `참여 started/assigned명`. `assignedCount` 없으면 분모를 0으로 채우지 않음.
+- StudentTab: `GET .../participations` 전원 로드 (`size=100` + hasNext). `GET .../assignees` 및 `useActivityAssigneesQuery` 삭제.
+- FSD: `LessonMyPage` 목록 fetch를 위젯으로 이동. 결과보기 페이지는 `scope.classId`만 전달.
+
 

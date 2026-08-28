@@ -4,6 +4,7 @@ import type {
   ActivityAvailability,
   ArticleNature,
   ErrataCd,
+  ParticipationStatus,
   StudentStatusCd,
 } from '@features/lesson';
 
@@ -165,5 +166,19 @@ const StatusPill = styled(Pill)<{ $tone: 'success' | 'warning' | 'info' | 'gray'
 
 export const StudentStatusBadge = ({ statusCd }: { statusCd: StudentStatusCd }) => {
   const m = STATUS[statusCd];
+  return <StatusPill $tone={m.tone}>{m.label}</StatusPill>;
+};
+
+const PARTICIPATION_STATUS: Record<
+  ParticipationStatus,
+  { label: string; tone: 'success' | 'warning' | 'info' | 'gray' }
+> = {
+  SUBMITTED: { label: '완료', tone: 'success' },
+  IN_PROGRESS: { label: '진행중', tone: 'warning' },
+  NOT_STARTED: { label: '미제출', tone: 'gray' },
+};
+
+export const ParticipationStatusBadge = ({ status }: { status: ParticipationStatus }) => {
+  const m = PARTICIPATION_STATUS[status];
   return <StatusPill $tone={m.tone}>{m.label}</StatusPill>;
 };
