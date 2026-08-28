@@ -3,11 +3,12 @@ import {
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { getCmsSet, getCmsSetList } from './cmsSetService';
-import type { CmsSetListData } from './cmsSetService';
+import { getCmsArticle, getCmsSet, getCmsSetList } from './cmsSetService';
+import type { CmsArticleInfo, CmsSetListData } from './cmsSetService';
 import {
   createLibraryItem,
   deleteLibraryItem,
@@ -16,11 +17,35 @@ import {
   updateLibraryItem,
 } from './lmsLibraryItemService';
 import type { LibraryItem, LibraryItemListData, LibraryItemOptions } from './lmsLibraryItemService';
-import { fetchActivityEntry, getActivities, startParticipation } from './lmsActivityService';
-import type { ActivitiesPageResponse, ActivityAvailability } from './lmsActivityService';
+import {
+  fetchActivityEntry,
+  getActivities,
+  getActivity,
+  getActivitiesProgressBundle,
+  getActivityParticipationsAll,
+  getActivityProgress,
+  getActivityStatistics,
+  getTeacherParticipationResult,
+  LmsHttpError,
+  startParticipation,
+} from './lmsActivityService';
+import type {
+  ActivitiesPageResponse,
+  ActivitiesProgressBundle,
+  ActivityAvailability,
+  ActivityDetail,
+  ActivityParticipationRow,
+  ActivityProgress,
+  ActivityStatistics,
+  ParticipationResult,
+} from './lmsActivityService';
 // import { CMS_BRAND_ID } from '../model/constants';
 import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
+import { useAuth } from '@features/auth';
+import { resolveAssigneeNamesFromGroups } from '../model/resolveAssigneeNamesFromGroups';
+import type { AssigneeNameInfo } from '../model/resolveAssigneeNamesFromGroups';
+import { classIdLikeOptFilter } from '../model/classIdOptions';
 
 const CMS_SETS_DEFAULT = {
   pageNo: 0,
@@ -229,22 +254,27 @@ function getThisWeekRange(): { openFrom: string; openTo: string } {
 }
 
 /** 이번 주 배포 건수 — openFrom/openTo 기준, totalElements만 사용 */
-export function useThisWeekCountQuery() {
+export function useThisWeekCountQuery(classId: string | undefined) {
   const { openFrom, openTo } = getThisWeekRange();
+  const optFilter = classId ? [classIdLikeOptFilter(classId)] : undefined;
   return useQuery({
-    queryKey: lessonKeys.thisWeekCount(),
-    queryFn: ({ signal }) => getActivities({ openFrom, openTo, withTotal: true, size: 1 }, signal),
+    queryKey: lessonKeys.thisWeekCount(classId ?? ''),
+    queryFn: ({ signal }) =>
+      getActivities({ openFrom, openTo, withTotal: true, size: 1, optFilter }, signal),
     select: (data) => data.totalElements ?? 0,
+    enabled: Boolean(classId),
   });
 }
 
 /** 진행 중 활동 건수 — availability=OPEN, totalElements만 사용 */
-export function useRunningCountQuery() {
+export function useRunningCountQuery(classId: string | undefined) {
+  const optFilter = classId ? [classIdLikeOptFilter(classId)] : undefined;
   return useQuery({
-    queryKey: lessonKeys.runningCount(),
+    queryKey: lessonKeys.runningCount(classId ?? ''),
     queryFn: ({ signal }) =>
-      getActivities({ availability: 'OPEN', withTotal: true, size: 1 }, signal),
+      getActivities({ availability: 'OPEN', withTotal: true, size: 1, optFilter }, signal),
     select: (data) => data.totalElements ?? 0,
+    enabled: Boolean(classId),
   });
 }
 
@@ -253,13 +283,125 @@ export function useRunningCountQuery() {
  * availability가 undefined이면 전체 조회 (필터 '전체').
  * 필터 변경 시 queryKey가 바뀌어 page 0부터 재조회된다.
  */
-export function useActivityListQuery(availability: ActivityAvailability | undefined) {
+export function useActivityListQuery(
+  availability: ActivityAvailability | undefined,
+  classId: string | undefined,
+) {
+  const optFilter = classId ? [classIdLikeOptFilter(classId)] : undefined;
   return useInfiniteQuery<ActivitiesPageResponse>({
-    queryKey: lessonKeys.activitiesByFilter(availability ?? 'ALL'),
+    queryKey: lessonKeys.activitiesByFilter(availability ?? 'ALL', classId ?? ''),
     queryFn: ({ pageParam, signal }) =>
-      getActivities({ availability, page: Number(pageParam), size: 20 }, signal),
+      getActivities(
+        {
+          availability,
+          page: Number(pageParam),
+          size: 20,
+          optFilter,
+          withParticipationSummary: true,
+        },
+        signal,
+      ),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.page + 1 : undefined),
     placeholderData: keepPreviousData,
+    enabled: Boolean(classId),
   });
+}
+
+const retryUnlessNotFound = (failureCount: number, error: unknown): boolean => {
+  if (error instanceof LmsHttpError && (error.status === 404 || error.status === 409)) {
+    return false;
+  }
+  return failureCount < 1;
+};
+
+export function useActivityDetailQuery(activityId: string | undefined) {
+  return useQuery<ActivityDetail>({
+    queryKey: lessonKeys.activityDetail(activityId ?? ''),
+    queryFn: ({ signal }) => getActivity(activityId!, signal),
+    enabled: Boolean(activityId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useActivityProgressQuery(activityId: string | undefined) {
+  return useQuery<ActivityProgress>({
+    queryKey: lessonKeys.activityProgress(activityId ?? ''),
+    queryFn: ({ signal }) => getActivityProgress(activityId!, signal),
+    enabled: Boolean(activityId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useActivityStatisticsQuery(activityId: string | undefined) {
+  return useQuery<ActivityStatistics>({
+    queryKey: lessonKeys.activityStatistics(activityId ?? ''),
+    queryFn: ({ signal }) => getActivityStatistics(activityId!, signal),
+    enabled: Boolean(activityId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useActivityParticipationsQuery(activityId: string | undefined) {
+  return useQuery<ActivityParticipationRow[]>({
+    queryKey: lessonKeys.activityParticipations(activityId ?? ''),
+    queryFn: ({ signal }) => getActivityParticipationsAll(activityId!, signal),
+    enabled: Boolean(activityId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useActivitiesProgressBundleQuery(classId: string | undefined) {
+  const optFilter = classId ? [classIdLikeOptFilter(classId)] : undefined;
+  return useQuery<ActivitiesProgressBundle>({
+    queryKey: lessonKeys.activitiesProgressBundle(classId ?? ''),
+    queryFn: ({ signal }) =>
+      getActivitiesProgressBundle({ availability: 'OPEN', optFilter }, signal),
+    enabled: Boolean(classId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useTeacherParticipationQuery(
+  activityId: string | undefined,
+  participationId: string | undefined,
+) {
+  return useQuery<ParticipationResult>({
+    queryKey: lessonKeys.activityParticipation(activityId ?? '', participationId ?? ''),
+    queryFn: ({ signal }) => getTeacherParticipationResult(activityId!, participationId!, signal),
+    enabled: Boolean(activityId) && Boolean(participationId),
+    retry: retryUnlessNotFound,
+  });
+}
+
+export function useAssigneeDirectoryQuery(enabled: boolean) {
+  const { user } = useAuth();
+  const userId = user?.id;
+  return useQuery<Map<string, AssigneeNameInfo>>({
+    queryKey: lessonKeys.assigneeDirectory(userId ?? ''),
+    queryFn: () => resolveAssigneeNamesFromGroups(userId!),
+    enabled: enabled && Boolean(userId),
+  });
+}
+
+export function useCmsArticleMapQuery(articleIds: string[]) {
+  const unique = [...new Set(articleIds.filter((id) => id.length > 0))];
+  const results = useQueries({
+    queries: unique.map((id) => ({
+      queryKey: lessonKeys.cmsArticle(id),
+      queryFn: ({ signal }: { signal?: AbortSignal }) => getCmsArticle(id, signal),
+      retry: 1,
+    })),
+  });
+
+  const map = new Map<string, CmsArticleInfo>();
+  unique.forEach((id, index) => {
+    const data = results[index]?.data;
+    if (data) map.set(id, data);
+  });
+
+  return {
+    map,
+    isPending: unique.length > 0 && results.some((result) => result.isPending),
+  };
 }

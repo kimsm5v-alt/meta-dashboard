@@ -21,8 +21,6 @@ const activityFromState = (state: unknown): ActivitySummaryItem | undefined => {
 export const LessonReportDetailPage = () => {
   const { activityId } = useParams<{ activityId: string }>();
   const location = useLocation();
-  console.log('=========location.state', location.state);
-  console.log('=========activityId', activityId);
   if (!activityId) return null;
   return <ReportDetail activityId={activityId} activity={activityFromState(location.state)} />;
 };

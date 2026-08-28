@@ -51,14 +51,113 @@ export type CreateActivityBody = {
 
 export type ActivityAvailability = 'NOT_AVAILABLE' | 'NOT_STARTED' | 'OPEN' | 'CLOSED';
 
+const ACTIVITY_AVAILABILITIES: ActivityAvailability[] = [
+  'NOT_AVAILABLE',
+  'NOT_STARTED',
+  'OPEN',
+  'CLOSED',
+];
+
+export const isActivityAvailability = (value: string): value is ActivityAvailability =>
+  ACTIVITY_AVAILABILITIES.includes(value as ActivityAvailability);
+
+export type ActivityItem = {
+  activityItemId: string;
+  seq: number;
+  lcmsArticleId: string;
+  lcmsArticleVersion?: number;
+  maxScore?: number;
+};
+
 export type ActivityDetail = {
   activityId: string;
   accessKey?: string;
   lifecycleStatus: string;
   availability: string;
+  libraryItemId?: string;
+  lcmsSetId?: string;
+  lcmsSetVersion?: number;
   title: string;
   audienceType?: string;
+  openAt?: string;
+  closeAt?: string;
+  labels?: string[];
+  options?: Record<string, unknown>;
+  items?: ActivityItem[];
   version?: number;
+};
+
+export type LmsErrata = 'CORRECT' | 'INCORRECT' | 'PARTIAL' | 'UNGRADABLE';
+
+export type ParticipationStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'SUBMITTED';
+
+export type ActivityProgressRow = {
+  participant: string;
+  displayName?: string;
+  status: ParticipationStatus;
+  participationId?: string;
+  attempt?: number;
+  submittedAt?: string;
+  gradingStatus?: string;
+};
+
+export type ActivityProgress = {
+  assignedCount?: number;
+  startedCount: number;
+  submittedCount: number;
+  rows: ActivityProgressRow[];
+};
+
+export type ActivityStatisticsItem = {
+  activityItemId: string;
+  seq: number;
+  lcmsArticleId: string;
+  gradedCount: number;
+  correct: number;
+  incorrect: number;
+  partial: number;
+  ungradable: number;
+  averageScore?: number;
+  maxScore?: number;
+  averageTimeSpentMs?: number;
+};
+
+export type ActivityStatistics = {
+  submittedCount: number;
+  gradedParticipations: number;
+  averageScore?: number;
+  maxTotalScore?: number;
+  items: ActivityStatisticsItem[];
+};
+
+export type ParticipationResultItem = {
+  activityItemId: string;
+  seq: number;
+  lcmsArticleId: string;
+  lcmsArticleVersion?: number;
+  answer?: unknown;
+  errata?: LmsErrata;
+  awardedScore?: number;
+  maxScore?: number;
+  gradedBySource?: string;
+  comment?: string;
+  timeSpentMs?: number;
+};
+
+export type ParticipationResult = {
+  participationId: string;
+  attempt: number;
+  submittedAt: string;
+  gradingStatus: string;
+  totalScore?: number;
+  maxTotalScore?: number;
+  items: ParticipationResultItem[];
+};
+
+export type ActivityParticipationSummary = {
+  assignedCount?: number;
+  startedCount: number;
+  submittedCount: number;
 };
 
 export interface ActivitySummaryItem {
@@ -71,6 +170,7 @@ export interface ActivitySummaryItem {
   createdAt: string;
   labels?: string[];
   options?: Record<string, unknown> | null;
+  participationSummary?: ActivityParticipationSummary;
 }
 
 export interface ActivitiesPageResponse {
@@ -89,6 +189,49 @@ export interface GetActivitiesParams {
   page?: number;
   size?: number;
   withTotal?: boolean;
+  optFilter?: string[];
+  withParticipationSummary?: boolean;
+}
+
+export type NotSubmittedStudent = {
+  participant: string;
+  missingActivityIds: string[];
+  displayName?: string | null;
+};
+
+export type ActivitiesProgressBundleActivity = {
+  activityId: string;
+  title: string;
+  assignedCount?: number;
+  submittedCount: number;
+  notSubmittedCount?: number;
+  submitted?: string[];
+  notSubmitted?: string[];
+};
+
+export type ActivitiesProgressBundle = {
+  activityCount: number;
+  activities: ActivitiesProgressBundleActivity[];
+  notSubmittedStudents: NotSubmittedStudent[];
+  notSubmittedStudentCount: number;
+};
+
+export type ActivityParticipationRow = {
+  participant: string;
+  displayName?: string | null;
+  status: ParticipationStatus;
+  participationId?: string;
+  attempt?: number;
+  totalScore?: number | null;
+  maxTotalScore?: number;
+  gradingStatus?: string;
+};
+
+export interface ActivityParticipationsPageResponse {
+  content: ActivityParticipationRow[];
+  page: number;
+  size: number;
+  hasNext: boolean;
 }
 
 export type DeployFailedStep = 'create' | 'assign' | 'publish';
@@ -114,15 +257,24 @@ export type DeployLessonActivityFailure = {
   activityId?: string;
 };
 
+async function parseLmsBody<T>(res: Response): Promise<LmsApiResponse<T> | null> {
+  try {
+    return (await res.json()) as LmsApiResponse<T>;
+  } catch {
+    return null;
+  }
+}
+
 async function lmsFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const auth = getAuth();
   const res = await auth.authorizedFetch(input, init);
-  if (!res.ok) {
-    throw new LmsHttpError(`LMS API 실패: ${res.status}`, res.status);
-  }
-  const json = (await res.json()) as LmsApiResponse<T>;
-  if (!json.success) {
-    throw new LmsHttpError(json.message ?? 'LMS API Error', res.status, json.errorCode);
+  const json = await parseLmsBody<T>(res);
+  if (!res.ok || !json?.success) {
+    throw new LmsHttpError(
+      json?.message ?? `LMS API 실패: ${res.status}`,
+      res.status,
+      json?.errorCode ?? null,
+    );
   }
   return json.data;
 }
@@ -153,6 +305,12 @@ export async function publishActivity(activityId: string): Promise<ActivityDetai
   });
 }
 
+function appendOptFilters(search: URLSearchParams, optFilter?: string[]): void {
+  for (const filter of optFilter ?? []) {
+    if (filter) search.append('optFilter', filter);
+  }
+}
+
 function buildActivitiesQuery(params: GetActivitiesParams): string {
   const search = new URLSearchParams();
   if (params.availability) search.set('availability', params.availability);
@@ -161,6 +319,8 @@ function buildActivitiesQuery(params: GetActivitiesParams): string {
   search.set('page', String(params.page ?? 0));
   search.set('size', String(params.size ?? 20));
   if (params.withTotal) search.set('withTotal', 'true');
+  if (params.withParticipationSummary) search.set('withParticipationSummary', 'true');
+  appendOptFilters(search, params.optFilter);
   return search.toString();
 }
 
@@ -170,6 +330,83 @@ export async function getActivities(
   signal?: AbortSignal,
 ): Promise<ActivitiesPageResponse> {
   return lmsFetch<ActivitiesPageResponse>(`${BASE}?${buildActivitiesQuery(params)}`, { signal });
+}
+
+/** GET /api/v1/activities/{activityId} — 단건 (items 포함) */
+export async function getActivity(
+  activityId: string,
+  signal?: AbortSignal,
+): Promise<ActivityDetail> {
+  return lmsFetch<ActivityDetail>(`${BASE}/${activityId}`, { signal });
+}
+
+/** GET /api/v1/activities/{activityId}/progress — 참여 현황 (사람 축) */
+export async function getActivityProgress(
+  activityId: string,
+  signal?: AbortSignal,
+): Promise<ActivityProgress> {
+  return lmsFetch<ActivityProgress>(`${BASE}/${activityId}/progress`, { signal });
+}
+
+/** GET /api/v1/activities/progress — 반 단위 미제출 묶음 조회 */
+export async function getActivitiesProgressBundle(
+  params: { availability?: ActivityAvailability; optFilter?: string[] },
+  signal?: AbortSignal,
+): Promise<ActivitiesProgressBundle> {
+  const search = new URLSearchParams();
+  if (params.availability) search.set('availability', params.availability);
+  appendOptFilters(search, params.optFilter);
+  return lmsFetch<ActivitiesProgressBundle>(`${BASE}/progress?${search}`, { signal });
+}
+
+/** GET /api/v1/activities/{activityId}/statistics — 정오·점수 집계 */
+export async function getActivityStatistics(
+  activityId: string,
+  signal?: AbortSignal,
+): Promise<ActivityStatistics> {
+  return lmsFetch<ActivityStatistics>(`${BASE}/${activityId}/statistics`, { signal });
+}
+
+/** GET /api/v1/activities/{activityId}/participations — 전원 점수·진행상태 */
+export async function getActivityParticipations(
+  activityId: string,
+  params: { page?: number; size?: number } = {},
+  signal?: AbortSignal,
+): Promise<ActivityParticipationsPageResponse> {
+  const search = new URLSearchParams();
+  search.set('page', String(params.page ?? 0));
+  search.set('size', String(params.size ?? 100));
+  return lmsFetch<ActivityParticipationsPageResponse>(
+    `${BASE}/${activityId}/participations?${search}`,
+    { signal },
+  );
+}
+
+export async function getActivityParticipationsAll(
+  activityId: string,
+  signal?: AbortSignal,
+): Promise<ActivityParticipationRow[]> {
+  const rows: ActivityParticipationRow[] = [];
+  let page = 0;
+  for (;;) {
+    const res = await getActivityParticipations(activityId, { page, size: 100 }, signal);
+    rows.push(...(res.content ?? []));
+    if (!res.hasNext) break;
+    page += 1;
+    if (page > 50) break;
+  }
+  return rows;
+}
+
+/** GET /api/v1/activities/{activityId}/participations/{participationId} — 교사, 학생 1명 결과 */
+export async function getTeacherParticipationResult(
+  activityId: string,
+  participationId: string,
+  signal?: AbortSignal,
+): Promise<ParticipationResult> {
+  return lmsFetch<ParticipationResult>(`${BASE}/${activityId}/participations/${participationId}`, {
+    signal,
+  });
 }
 
 function toFailure(

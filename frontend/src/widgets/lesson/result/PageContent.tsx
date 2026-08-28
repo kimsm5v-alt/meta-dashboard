@@ -1,7 +1,7 @@
 import styled from '@emotion/styled';
 import type { ReportDetailView } from '@features/lesson';
 import { renderMode, responseCell, responseOf } from '@features/lesson';
-import { NatureBadge } from './reportBadges';
+import { NatureBadge } from './ReportBadge';
 import { SummaryStrip } from './SummaryStrip';
 import { ResponseGrid } from './ResponseGrid';
 import type { GridItem } from './ResponseGrid';
@@ -80,7 +80,7 @@ export const PageContent = ({ view, selectedIndex }: PageContentProps) => {
     const resp = responseOf(view, a.id, s.studentId);
     return {
       key: s.studentId,
-      primary: `${s.no}. ${s.studentName}`,
+      title: `${s.no}. ${s.studentName}`,
       nature: a.nature,
       mode,
       cell: responseCell(a, resp),

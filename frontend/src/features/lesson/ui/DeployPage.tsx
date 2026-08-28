@@ -192,6 +192,7 @@ export const DeployPage = () => {
         libraryItemId: resolvedLibraryItemId,
         lcmsSetId: setId,
         cmsSetDetail: cmsSetQuery.data,
+        classIds: validClasses,
       });
 
       const result = await deployLessonActivity({

@@ -112,3 +112,28 @@ export async function getCmsSet(setId: string, signal?: AbortSignal): Promise<Cm
   }
   return (await res.json()) as CmsSetDetail;
 }
+
+/** GET /api/articles/{articleId} — 리포트 격자에서 쓰는 필드만 */
+export interface CmsArticleInfo {
+  id?: string;
+  name?: string;
+  articleType?: number;
+}
+
+export async function getCmsArticle(
+  articleId: string,
+  signal?: AbortSignal,
+): Promise<CmsArticleInfo> {
+  const auth = getAuth();
+  const res = await auth.authorizedFetch(
+    `${ENV.CMS_API_URL}/api/articles/${encodeURIComponent(articleId)}`,
+    {
+      signal,
+      headers: { accept: '*/*' },
+    },
+  );
+  if (!res.ok) {
+    await parseCmsError(res, `CMS article 조회 실패: ${res.status}`);
+  }
+  return (await res.json()) as CmsArticleInfo;
+}
