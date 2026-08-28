@@ -108,77 +108,6 @@
 		GROUP BY a1.id
 	</select>
 
-	<!-- 교사) 본인 소유(host_user_no) 전체 학급의 진단검사 현황 한 번에 조회.
-	     기존 selectTcDgnssInfo 와 동일 집계이나 WHERE 를 학급(claId) 대신 교사(userNo=host_user_no) 로,
-	     그룹 정보(group_nm/school_level/grade/class_number)를 함께 반환. -->
-	<select id="selectTcDgnssOverview" parameterType="map" resultType="map">
-		/* DgnssMapper.selectTcDgnssOverview */
-		SELECT a1.id AS dgnssId
-		     , a1.ord_no AS ordNo
-		     , a1.cla_id AS claId
-		     , a1.dgnss_at AS dgnssAt
-		     , a1.paper_idx AS paperIdx
-		     , DATE_FORMAT(a1.dgnss_st_dt, '%Y. %m. %d.') AS dgnssStDt
-		     , DATE_FORMAT(a1.dgnss_ed_dt, '%Y. %m. %d.') AS dgnssEdDt
-		     , gi.group_nm AS groupNm
-		     , gi.school_level AS schoolLevel
-		     , gi.grade AS grade
-		     , gi.class_number AS classNumber
-		     , COUNT(
-		        DISTINCT CASE
-		                     WHEN b1.subm_at = 'Y' THEN b1.stdt_id
-		                 END
-		       ) AS stSubmCnt
-		     , (
-		        SELECT COUNT(DISTINCT gm2.stdt_id)
-		        FROM group_info gi2
-		        	INNER JOIN group_member gm2
-		        		ON gi2.group_id = gm2.group_id
-		        WHERE gi2.cla_id = a1.cla_id
-		       ) AS stTotalCnt
-		     , (
-		        SELECT COUNT(DISTINCT gm2.stdt_id)
-		        FROM group_info gi2
-		        	INNER JOIN group_member gm2
-		        		ON gi2.group_id = gm2.group_id
-		        WHERE gi2.cla_id = a1.cla_id
-		          AND NOT EXISTS (
-		          	SELECT 1
-		          	FROM tb_dgnss_result_info b2
-		          	WHERE b2.stdt_id = gm2.stdt_id
-		          	  AND b2.dgnss_id = a1.id
-		          )
-		       ) AS notDgnssStartCnt
-		     , (
-		        SELECT GROUP_CONCAT(DISTINCT gm2.stdt_id)
-		        FROM group_info gi2
-		        	INNER JOIN group_member gm2
-		        		ON gi2.group_id = gm2.group_id
-		        WHERE gi2.cla_id = a1.cla_id
-		          AND NOT EXISTS (
-		          	SELECT 1
-		          	FROM tb_dgnss_result_info b2
-		          	WHERE b2.stdt_id = gm2.stdt_id
-		          	  AND b2.dgnss_id = a1.id
-		          )
-		       ) AS notDgnssStartList
-		     , a1.tc_id AS tcId
-		FROM tb_dgnss_info a1
-			INNER JOIN tb_dgnss_result_info b1
-				ON a1.id = b1.dgnss_id
-			INNER JOIN group_info gi
-				ON a1.cla_id = gi.cla_id
-			INNER JOIN group_member gm
-				ON gi.group_id = gm.group_id
-				AND b1.stdt_id = gm.stdt_id
-		WHERE gi.host_user_no = #{userNo}
-		<!-- paperIdx 미전송(없음/공백/0) → 1·2 모두 조회, 전송 시 해당 검사 유형만 조회 -->
-		<if test="paperIdx != null and paperIdx != '' and paperIdx != '0'">
-			AND a1.paper_idx = #{paperIdx}
-		</if>
-		GROUP BY a1.id
-		ORDER BY a1.cla_id, a1.paper_idx, a1.ord_no
-	</select>
 
 	<select id="selectActvStdtCnt" parameterType="map" resultType="int">
 		/* DgnssMapper.selectActvStdtCnt */
@@ -3179,13 +3108,6 @@
 			AND a1.subm_at = 'N'
 	</select>
 
-	<update id="saveDgnssTextSave" parameterType="map">
-		/* DgnssMapper.saveDgnssTextSave */
-		UPDATE tb_dgnss_info
-		SET dgnss_text = #{dgnssText}
-		WHERE id = #{dgnssId}
-	</update>
-
 	<select id="selectTcTrustInfoList" parameterType="map" resultType="map">
 		/* DgnssMapper.selectTcTrustInfoList */
 		WITH base AS (
@@ -3749,64 +3671,6 @@
 		WHERE dri.dgnss_id = #{dgnssId}
 		  AND dri.subm_at = 'Y'
 		ORDER BY da.ANSWER_IDX
-	</select>
-
-	<select id="selectTcClassMetaStats" parameterType="map" resultType="map">
-		/* DgnssMapper.selectTcClassMetaStats */
-		SELECT gi.cla_id AS claId
-		     , IFNULL(gi.group_nm, '-') AS groupNm
-		     , COUNT(DISTINCT gm.stdt_id) AS totalStudentCount
-		     , COUNT(DISTINCT CASE WHEN tdri.subm_at = 'Y' THEN tdri.stdt_id END) AS submittedStudentCount
-		     , COUNT(
-		        DISTINCT CASE
-		                     WHEN tdri.subm_at = 'Y'
-		                      AND (
-		                        da.COCH_DGNSS_QESITM01_MARK = '주의'
-		                        OR da.COCH_DGNSS_QESITM02_MARK = '주의'
-		                        OR da.REPEATED_RESPONSE_YN = 'Y'
-		                      )
-		                     THEN tdri.stdt_id
-		                 END
-		       ) AS reliabilityAlertCount
-		FROM group_info gi
-			INNER JOIN user u ON gi.host_user_no = u.user_no
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id
-			LEFT JOIN tb_dgnss_info tdi ON tdi.cla_id = gi.cla_id
-				AND tdi.paper_idx = #{paperIdx}
-				AND tdi.ord_no IN (1, 2)
-			LEFT JOIN tb_dgnss_result_info tdri ON tdri.dgnss_id = tdi.id
-				AND tdri.stdt_id = gm.stdt_id
-			LEFT JOIN tb_dgnss_answer da ON da.DGNSS_RESULT_ID = tdri.id
-		WHERE u.tc_id = #{tcId}
-		<if test='claId != null and claId != ""'>
-			AND gi.cla_id = #{claId}
-		</if>
-		GROUP BY gi.cla_id, gi.group_nm
-		ORDER BY gi.group_nm
-	</select>
-
-	<select id="selectTcClassFactorAverages" parameterType="map" resultType="map">
-		/* DgnssMapper.selectTcClassFactorAverages */
-		SELECT gi.cla_id AS claId
-		     , dar.DEPTH AS depth
-		     , dar.SECTION_ID AS sectionId
-		     , ROUND(AVG(IF(dar.T_SCORE <![CDATA[<]]> 0, 0, dar.T_SCORE)), 1) AS avgTScore
-		FROM group_info gi
-			INNER JOIN user u ON gi.host_user_no = u.user_no
-			INNER JOIN group_member gm ON gi.group_id = gm.group_id
-			INNER JOIN tb_dgnss_info tdi ON tdi.cla_id = gi.cla_id
-				AND tdi.paper_idx = #{paperIdx}
-				AND tdi.ord_no IN (1, 2)
-			INNER JOIN tb_dgnss_result_info tdri ON tdri.dgnss_id = tdi.id
-				AND tdri.stdt_id = gm.stdt_id
-				AND tdri.subm_at = 'Y'
-			INNER JOIN tb_dgnss_answer da ON da.DGNSS_RESULT_ID = tdri.id
-			INNER JOIN tb_dgnss_answer_report dar ON dar.ANSWER_IDX = da.ANSWER_IDX
-		WHERE u.tc_id = #{tcId}
-		<if test='claId != null and claId != ""'>
-			AND gi.cla_id = #{claId}
-		</if>
-		GROUP BY gi.cla_id, dar.DEPTH, dar.SECTION_ID
 	</select>
 
 	<select id="countDgnssResultByDgnssIdAndStdtId" resultType="int">

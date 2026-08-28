@@ -2,7 +2,7 @@
 
 > 대상: 프론트엔드 개발자
 > 최종: 2026-08-12 · 상태: **백엔드 구현 완료(배포됨)**
-> 관련 API: `GET /api/dgnss/paper-permission/me`, `GET /api/dgnss/tc/info`, `GET /api/dgnss/tc/overview`, `POST /api/dgnss/tc/start`
+> 관련 API: `GET /api/dgnss/paper-permission/me`, `GET /api/dgnss/tc/info`, `POST /api/dgnss/tc/start`
 
 ---
 
@@ -81,11 +81,10 @@ Authorization: Bearer <JWT>
 
 ## 5. 검사 조회 시 `paperIdx` 파라미터
 
-교사용 검사 조회 API 2종이 **`paperIdx` 쿼리 파라미터**를 받습니다.
+교사용 검사 조회 API(`tc/info`)가 **`paperIdx` 쿼리 파라미터**를 받습니다.
 
 ```
 GET /api/dgnss/tc/info?paperIdx=1
-GET /api/dgnss/tc/overview?paperIdx=1
 ```
 
 | paperIdx | 동작 |
@@ -134,5 +133,5 @@ Body: { "claId": "...", "tcId": "...", "ordNo": ..., "grade": ..., "paperIdx": 2
 
 1. 부트스트랩에서 `GET /paper-permission/me` 호출 → `{comprehensive, selfreg}` 캐싱
 2. 조합에 따라 메뉴/토글 노출(§4), 현재 활성 `paperIdx` 결정
-3. `tc/info`·`tc/overview` 호출 시 활성 `paperIdx` 전달(전체가 필요하면 생략)
+3. `tc/info` 호출 시 활성 `paperIdx` 전달(전체가 필요하면 생략)
 4. `tc/start` 응답에서 `PAPER_NOT_ALLOWED` 방어 처리(권한 재조회 유도)
