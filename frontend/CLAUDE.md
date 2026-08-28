@@ -87,7 +87,7 @@ pages → widgets → features → shared
 
 ---
 
-## 🔐 인증 (SSO + Cookie Security)
+## 🔐 인증 (SSO + Cookieless Token Storage)
 
 ### SuperPlatform SSO 통합
 
@@ -98,24 +98,24 @@ pages → widgets → features → shared
 - **Auth 메서드**: `loginAsGuest`, `updateUser`, `logout` (3개만 제공)
 - **로그인**: `auth.login()` 호출 시 Auth 서버로 리다이렉트
 
-### Cookie Mode 보안 (XSS 방지)
+### 쿠키리스 토큰 저장 모드
 
-**목적**: Refresh Token을 localStorage에서 httpOnly 쿠키로 이동하여 XSS 공격 차단
+프론트와 인증 게이트웨이의 도메인이 달라도 Refresh Token 쿠키의 SameSite 제약을 받지 않도록 SDK의 `localStorage` 모드를 사용한다. Refresh Token 갱신 시 토큰은 요청 body로 전달하며, 일반 API 요청은 Access Token을 Bearer 헤더에 주입한다.
 
 **설정**:
 ```typescript
-// authClient.ts:99
-tokenStorage: 'cookie',  // RT는 httpOnly 쿠키에 저장
+// shared/lib/authClient.ts
+tokenStorage: 'localStorage',
 
-// client.ts:49
-withCredentials: true,   // 쿠키 자동 전송
+// shared/api/client.ts 요청 인터셉터
+config.headers.Authorization = `Bearer ${token}`;
 ```
 
-**검증**:
-- ✅ localStorage에 `auth_token`/`refresh_token` 없음
-- ✅ `ST_SESSION` 쿠키 (`httpOnly: true`, `secure: true`)
-- ✅ JavaScript로 RT 접근 불가 → XSS 공격 차단
-- ✅ SDK가 AT/RT 자동 관리
+**주의**:
+- 토큰을 애플리케이션 코드에서 별도 복사하거나 로그로 출력하지 않는다.
+- 일반 API 요청은 `shared/api/client.ts`의 공통 Axios 인스턴스를 사용하고, 401 갱신은 SDK의 `refreshAccessToken` 흐름을 따른다.
+- `withCredentials: true`는 Axios 공통 설정에 남아 있지만 현재 토큰 인증의 근거는 Bearer 헤더다.
+- localStorage 토큰은 JavaScript에서 접근 가능하므로 XSS 방어 원칙을 반드시 지킨다.
 
 ---
 
