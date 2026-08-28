@@ -19,7 +19,7 @@ import type {
   Student,
   StudentType,
 } from '@shared/types';
-import { classifyStudent, getTypeDeviations } from '@shared/utils/lpaClassifier';
+import { classifyStudent, getTypeDeviations, getTypeInfo } from '@shared/utils/lpaClassifier';
 import { checkAttention } from '@shared/utils/attentionChecker';
 import { createSubmittedStudentIdSet, hasSubmittedRound } from './roundSubmissions';
 
@@ -940,11 +940,20 @@ export function convertToAssessment(
     tScores && Array.isArray(tScores) && tScores.length === 38 ? tScores : new Array(38).fill(50);
 
   const classification = classifyStudent(safeTScores, schoolLevel);
-  // 백엔드가 계산한 유형명이 있으면 우선 사용
-  // lpaTypeName이 없으면 프론트엔드 계산값 사용 (고등학교는 "미지원")
-  const predictedType = (data?.lpaTypeName || classification.predictedType) as StudentType;
-  // API lpaTop 확률이 있으면 우선 사용 — 유형명과 확률 출처를 일치시켜 카드/도넛 불일치 방지
-  const typeProbabilities = data?.apiTypeProbabilities ?? classification.allProbabilities;
+  const apiTypeProbabilities = data?.apiTypeProbabilities;
+  const hasValidApiLpa =
+    !!data?.lpaTypeName &&
+    !!getTypeInfo(data.lpaTypeName, schoolLevel) &&
+    !!apiTypeProbabilities &&
+    apiTypeProbabilities[data.lpaTypeName] !== undefined &&
+    Object.keys(apiTypeProbabilities).every((typeName) => !!getTypeInfo(typeName, schoolLevel));
+
+  // 유형명과 확률은 같은 출처를 사용한다. 다른 학제의 LPA가 내려오거나 일부가 누락되면
+  // T점수 기반 재분류값 전체로 폴백해 도넛·유형명·설명 간 불일치를 막는다.
+  const predictedType = (
+    hasValidApiLpa ? data.lpaTypeName : classification.predictedType
+  ) as StudentType;
+  const typeProbabilities = hasValidApiLpa ? apiTypeProbabilities : classification.allProbabilities;
   const deviations = getTypeDeviations(safeTScores, predictedType, schoolLevel, 3);
   const attentionResult = checkAttention(safeTScores);
 
