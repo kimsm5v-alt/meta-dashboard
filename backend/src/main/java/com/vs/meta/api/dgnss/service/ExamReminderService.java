@@ -1,5 +1,6 @@
 package com.vs.meta.api.dgnss.service;
 
+import com.vs.meta.api.dgnss.dto.ReminderResult;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
 import com.vs.meta.api.notification.dispatcher.NotificationDispatcher;
 import com.vs.meta.api.notification.dto.NotificationDto;
@@ -46,7 +47,7 @@ public class ExamReminderService {
      * 미제출 학생 독려 알림 발송.
      * 결과 code: OK / NOT_FOUND / NOT_OWNER / NOT_IN_PROGRESS / NO_TARGET
      */
-    public Map<String, Object> sendUnsubmittedReminder(int dgnssId) {
+    public ReminderResult sendUnsubmittedReminder(int dgnssId) {
         long teacherUserNo = SecurityUtil.requireCurrentUserNo();
 
         Map<String, Object> info = dgnssMapper.selectTcDgnssInfoOneWithDgnssId(
@@ -89,13 +90,7 @@ public class ExamReminderService {
         return result("OK", targets.size(), notifications.size(), lastSentAt);
     }
 
-    private Map<String, Object> result(String code, int requested, int sent, String lastSentAt) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("code", code);
-        m.put("requestedCount", requested);
-        m.put("sentCount", sent);
-        m.put("failedCount", Math.max(0, requested - sent));
-        m.put("lastSentAt", lastSentAt);
-        return m;
+    private ReminderResult result(String code, int requested, int sent, String lastSentAt) {
+        return new ReminderResult(code, requested, sent, Math.max(0, requested - sent), lastSentAt);
     }
 }

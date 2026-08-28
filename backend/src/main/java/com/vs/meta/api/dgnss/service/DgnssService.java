@@ -3,6 +3,8 @@ package com.vs.meta.api.dgnss.service;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import com.vs.meta.api.notification.event.ExamSubmittedEvent;
+import com.vs.meta.api.dgnss.dto.StudentLearningStatusResponse;
+import com.vs.meta.api.dgnss.dto.TcSubmissionsResponse;
 import com.vs.meta.api.notification.event.StudentExamNotificationEvent;
 import com.vs.meta.api.notification.event.TeacherExamNotificationEvent;
 import com.vs.meta.common.auth.UserInfoEnricher;
@@ -1072,34 +1074,32 @@ public class DgnssService {
      * 기본 종합검사(paperIdx=1). 미응시/미제출 회차는 결과에 포함되지 않는다.
      */
     @Transactional(readOnly = true)
-    public Map<String, Object> getStudentLearningStatus(String stdtId, String claId, Integer paperIdx) {
-        List<Map<String, Object>> rows = dgnssMapper.selectStudentLearningStatus(stdtId, claId, paperIdx);
-
-        List<Map<String, Object>> rounds = new ArrayList<>();
-        for (Map<String, Object> r : rows) {
-            Map<String, Object> round = new LinkedHashMap<>();
-            round.put("round", MapUtils.getInteger(r, "ordNo"));
-            round.put("answerIdx", MapUtils.getInteger(r, "answerIdx"));
-            round.put("academicAchievement", LS_ACHIEVEMENT.get(MapUtils.getInteger(r, "ls01", 0)));
-            round.put("gradeSatisfaction", LS_ACHIEVEMENT.get(MapUtils.getInteger(r, "ls02", 0)));
-            round.put("learningMotivation", LS_MOTIVATION.get(MapUtils.getInteger(r, "ls03", 0)));
-            round.put("selfStudyTime", LS_STUDY_TIME.get(MapUtils.getInteger(r, "ls04", 0)));
-            round.put("learningCounselor", LS_COUNSELOR.get(MapUtils.getInteger(r, "ls05", 0)));
-            rounds.add(round);
+    public StudentLearningStatusResponse getStudentLearningStatus(String stdtId, String claId, Integer paperIdx) {
+        List<StudentLearningStatusResponse.Round> rounds = new ArrayList<>();
+        for (Map<String, Object> r : dgnssMapper.selectStudentLearningStatus(stdtId, claId, paperIdx)) {
+            rounds.add(new StudentLearningStatusResponse.Round(
+                    MapUtils.getInteger(r, "ordNo"),
+                    MapUtils.getInteger(r, "answerIdx"),
+                    LS_ACHIEVEMENT.get(MapUtils.getInteger(r, "ls01", 0)),
+                    LS_ACHIEVEMENT.get(MapUtils.getInteger(r, "ls02", 0)),
+                    LS_MOTIVATION.get(MapUtils.getInteger(r, "ls03", 0)),
+                    LS_STUDY_TIME.get(MapUtils.getInteger(r, "ls04", 0)),
+                    LS_COUNSELOR.get(MapUtils.getInteger(r, "ls05", 0))));
         }
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("studentId", stdtId);
-        result.put("rounds", rounds);
-        return result;
+        return new StudentLearningStatusResponse(stdtId, rounds);
     }
 
     /** 교사) dgnssId 기준 학급 학생 제출 현황(stdtId/submAt/submDt). 이름은 FE 가 Auth 로 조회. */
     @Transactional(readOnly = true)
-    public Map<String, Object> selectTcSubmissions(int dgnssId) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("students", dgnssMapper.selectSubmissionsByDgnssId(dgnssId));
-        return result;
+    public TcSubmissionsResponse selectTcSubmissions(int dgnssId) {
+        List<TcSubmissionsResponse.Student> students = dgnssMapper.selectSubmissionsByDgnssId(dgnssId).stream()
+                .map(r -> new TcSubmissionsResponse.Student(
+                        MapUtils.getString(r, "stdtId"),
+                        MapUtils.getInteger(r, "memberNo"),
+                        MapUtils.getString(r, "submAt"),
+                        MapUtils.getString(r, "submDt")))
+                .toList();
+        return new TcSubmissionsResponse(students);
     }
 
     /**

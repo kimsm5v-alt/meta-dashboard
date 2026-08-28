@@ -299,7 +299,7 @@ public class DgnssController {
             @RequestParam(name = "claId") String claId,
             @RequestParam(name = "paperIdx", required = false, defaultValue = "1") int paperIdx
     ) {
-        Map<String, Object> result = dgnssService.getStudentLearningStatus(studentId, claId, paperIdx);
+        var result = dgnssService.getStudentLearningStatus(studentId, claId, paperIdx);
         return AidtCommonUtil.makeResultSuccess(new HashMap<>(), result, "학생 회차별 학습현황");
     }
 
@@ -313,7 +313,7 @@ public class DgnssController {
         if (dgnssId <= 0) {
             throw new IllegalArgumentException("dgnssId는 필수입니다.");
         }
-        Map<String, Object> result = examReminderService.sendUnsubmittedReminder(dgnssId);
+        var result = examReminderService.sendUnsubmittedReminder(dgnssId);
         return AidtCommonUtil.makeResultSuccess(new HashMap<>(), result, "미제출 학생 독려 알림 발송");
     }
 
@@ -328,7 +328,7 @@ public class DgnssController {
         if (dgnssId <= 0) {
             throw new IllegalArgumentException("dgnssId는 필수입니다.");
         }
-        Map<String, Object> result = dgnssService.selectTcSubmissions(dgnssId);
+        var result = dgnssService.selectTcSubmissions(dgnssId);
         return AidtCommonUtil.makeResultSuccess(new HashMap<>(), result, "학생 제출 현황 목록");
     }
 
