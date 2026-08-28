@@ -48,6 +48,7 @@ import {
 } from '@shared/services/dashboardService';
 import type { Class, Student } from '@shared/types';
 import { matchesNameSearch } from '@shared/utils/koreanNameSearch';
+import { formatClassLocationLabel } from '@shared/utils/classDisplayName';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -3031,6 +3032,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
       const schoolLevel = apiClassInfo?.schoolLevel ?? apiStudents[0]?.schoolLevel ?? '초등';
       const grade = apiClassInfo?.grade ?? apiStudents[0]?.grade ?? 1;
       const classNumber = apiClassInfo?.classNumber ?? 1;
+      const schoolName = apiClassInfo?.schoolName;
       const assessedStudents = apiStudents.filter((s) => s.assessments.length > 0).length;
       const typeDistribution: Record<string, { count: number; percentage: number }> = {};
       for (const s of apiStudents) {
@@ -3055,6 +3057,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
       return {
         id: classId,
         schoolLevel,
+        schoolName,
         grade,
         classNumber,
         teacherId: '',
@@ -3088,6 +3091,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
       return {
         id: classId,
         schoolLevel: apiClassInfo.schoolLevel,
+        schoolName: apiClassInfo.schoolName,
         grade: apiClassInfo.grade,
         classNumber: apiClassInfo.classNumber,
         teacherId: '',
@@ -3168,9 +3172,7 @@ export const ClassDashboardV2Widget: React.FC<ClassDashboardV2WidgetProps> = ({
         )}
         <HeaderContent>
           <PageTitle>{classTitle}</PageTitle>
-          <PageSubtitle>
-            {classData.schoolLevel} {detailedClassTitle}
-          </PageSubtitle>
+          <PageSubtitle>{formatClassLocationLabel(classData)}</PageSubtitle>
         </HeaderContent>
         {hasJwtToken && (testId === 'comprehensive' || !!selfregDgnssIds.round1) && (
           <HeaderActions>

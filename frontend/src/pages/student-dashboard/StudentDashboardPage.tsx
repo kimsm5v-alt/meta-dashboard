@@ -26,7 +26,8 @@ import { fetchStudentInfoList } from '@shared/services/dashboardService';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
 import { FACTOR_DEFINITIONS } from '@shared/data/factors';
-import scriptsData from '@shared/data/scripts_depth3.json';
+import { FACTOR_OPERATIONAL_DEFINITIONS } from '@shared/data/factorDefinitions';
+import { formatClassLocationLabel } from '@shared/utils/classDisplayName';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_STUDENT_DETAIL } from '@shared/data/apiDefinitions';
@@ -354,24 +355,6 @@ const FactorTopCard = styled.div<{ $tone: 'strength' | 'weakness' }>`
   border-radius: ${({ theme }) => theme.radius.md};
 `;
 
-const getFactorSummary = (factorName: string, score: number) => {
-  const scripts = (
-    scriptsData as {
-      scripts: {
-        depth3: string;
-        tScore_lower: number | null;
-        tScore_upper: number | null;
-        summary: string;
-      }[];
-    }
-  ).scripts;
-  return scripts.find((script) => {
-    const lower = script.tScore_lower ?? -Infinity;
-    const upper = script.tScore_upper ?? Infinity;
-    return script.depth3 === factorName && score >= lower && score <= upper;
-  })?.summary;
-};
-
 const InfoAlert = styled.div`
   background: #eff6ff;
   border: 1px solid #bfdbfe;
@@ -443,7 +426,12 @@ const ErrorIcon = styled(AlertTriangle)`
 interface StudentDashboardContentProps {
   student: Student;
   classStudents: Student[];
-  classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel };
+  classInfo: {
+    grade: number;
+    classNumber: number;
+    schoolLevel: SchoolLevel;
+    schoolName?: string;
+  };
   classId: string;
   studentId: string;
   testId: string;
@@ -642,9 +630,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                   </WarningBadge>
                 )}
               </TitleRow>
-              <ClassInfo>
-                {classInfo.schoolLevel} {classInfo.grade}학년 {classInfo.classNumber}반
-              </ClassInfo>
+              <ClassInfo>{formatClassLocationLabel(classInfo)}</ClassInfo>
             </HeaderTitle>
           </HeaderLeft>
 
@@ -1037,7 +1023,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                           >
                             {index + 1}. {factor.name}
                           </p>
-                          {getFactorSummary(factor.name, factor.score) && (
+                          {FACTOR_OPERATIONAL_DEFINITIONS[factor.name] && (
                             <p
                               style={{
                                 margin: '0.5rem 0 0',
@@ -1046,7 +1032,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                                 lineHeight: 1.45,
                               }}
                             >
-                              {getFactorSummary(factor.name, factor.score)}
+                              {FACTOR_OPERATIONAL_DEFINITIONS[factor.name]}
                             </p>
                           )}
                         </FactorTopCard>
@@ -1074,7 +1060,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                           >
                             {index + 1}. {factor.name}
                           </p>
-                          {getFactorSummary(factor.name, factor.score) && (
+                          {FACTOR_OPERATIONAL_DEFINITIONS[factor.name] && (
                             <p
                               style={{
                                 margin: '0.5rem 0 0',
@@ -1083,7 +1069,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                                 lineHeight: 1.45,
                               }}
                             >
-                              {getFactorSummary(factor.name, factor.score)}
+                              {FACTOR_OPERATIONAL_DEFINITIONS[factor.name]}
                             </p>
                           )}
                         </FactorTopCard>

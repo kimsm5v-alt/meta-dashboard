@@ -64,6 +64,8 @@ interface UseStudentAnalysisResult {
         classNumber: number;
         schoolLevel: SchoolLevel;
         schoolLevelCode?: SchoolLevelCode;
+        /** HSJ-121: 결과보기 헤더 소속 표기용 학교명 */
+        schoolName?: string;
       }
     | undefined;
   dgnssIds: { round1?: number; round2?: number };
@@ -107,6 +109,7 @@ export function useStudentAnalysis(
                 classNumber: classData.classNumber,
                 schoolLevel: classData.schoolLevel,
                 schoolLevelCode: classData.schoolLevelCode,
+                schoolName: classData.schoolName,
               }
             : undefined,
           dgnssIds: {},
@@ -127,6 +130,8 @@ export function useStudentAnalysis(
         : credSchoolLevel;
       // 원본 SchoolLevelCode(고등 포함) — 에이전트가 고등학생 중등 규준 고지에 사용
       const schoolLevelCode: SchoolLevelCode | undefined = matchedGroup?.schoolLevel;
+      // HSJ-121: 결과보기 헤더 소속 표기용 학교명
+      const schoolName: string | undefined = matchedGroup?.schoolName;
       const completedR1 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 1);
       const completedR2 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 2);
       const dgnssIds = { round1: completedR1?.dgnssId, round2: completedR2?.dgnssId };
@@ -172,7 +177,7 @@ export function useStudentAnalysis(
             assessments: [],
           },
           classStudents: classStudents ?? [],
-          classInfo: { grade, classNumber, schoolLevel, schoolLevelCode },
+          classInfo: { grade, classNumber, schoolLevel, schoolLevelCode, schoolName },
           dgnssIds,
         };
       }
@@ -197,7 +202,7 @@ export function useStudentAnalysis(
           assessments,
         },
         classStudents: classStudents ?? [],
-        classInfo: { grade, classNumber, schoolLevel, schoolLevelCode },
+        classInfo: { grade, classNumber, schoolLevel, schoolLevelCode, schoolName },
         dgnssIds,
       };
     },
@@ -308,7 +313,15 @@ export function useSelfregClassAnalysis(
 interface UseClassStudentsResult {
   students: Student[];
   l2Data: L2DashboardData | null;
-  classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel } | undefined;
+  classInfo:
+    | {
+        grade: number;
+        classNumber: number;
+        schoolLevel: SchoolLevel;
+        /** HSJ-121: 결과보기 헤더 소속 표기용 학교명 */
+        schoolName?: string;
+      }
+    | undefined;
   dgnssIds: { round1?: number; round2?: number };
   isLoading: boolean;
   error: string | null;
@@ -346,6 +359,7 @@ export function useClassStudents(
                 grade: classData.grade,
                 classNumber: classData.classNumber,
                 schoolLevel: classData.schoolLevel,
+                schoolName: classData.schoolName,
               }
             : undefined,
           dgnssIds: {},
@@ -355,6 +369,7 @@ export function useClassStudents(
       let classSchoolLevel: SchoolLevel = credSchoolLevel;
       let grade = classData?.grade ?? 1;
       let classNumber = classData?.classNumber ?? 1;
+      let schoolName: string | undefined = classData?.schoolName;
       try {
         const groups = await groupService.getMyGroups(user?.id ?? '');
         const matchedGroup = groups.find((g) => g.claId === classId);
@@ -362,6 +377,7 @@ export function useClassStudents(
           classSchoolLevel = SCHOOL_LEVEL_MAP[matchedGroup.schoolLevel] ?? credSchoolLevel;
           grade = matchedGroup.grade;
           classNumber = matchedGroup.classNumber;
+          schoolName = matchedGroup.schoolName;
         }
       } catch {
         // 그룹 조회 실패 시 fallback 유지
@@ -380,7 +396,7 @@ export function useClassStudents(
         return {
           students: classData?.students ?? [],
           l2Data: null,
-          classInfo: { grade, classNumber, schoolLevel: classSchoolLevel },
+          classInfo: { grade, classNumber, schoolLevel: classSchoolLevel, schoolName },
           dgnssIds: classDgnssIds,
         };
       }
@@ -396,7 +412,7 @@ export function useClassStudents(
       return {
         students: data.students,
         l2Data: data,
-        classInfo: { grade, classNumber, schoolLevel: classSchoolLevel },
+        classInfo: { grade, classNumber, schoolLevel: classSchoolLevel, schoolName },
         dgnssIds: classDgnssIds,
       };
     },

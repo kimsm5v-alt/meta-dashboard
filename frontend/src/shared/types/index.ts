@@ -29,6 +29,8 @@ export interface Class {
    * (`${grade}-${classNumber}반` 형태 조합 금지). 없으면 호출부에서 조합값으로 폴백.
    */
   name?: string;
+  /** 그룹관리(mypage/SSO)에서 설정한 학교명. HSJ-121: 결과보기 반/학생 헤더 표기에 사용. */
+  schoolName?: string;
   schoolLevel: SchoolLevel;
   /**
    * 백엔드가 내려준 원본 SchoolLevelCode('elementary'|'middle'|'high').
