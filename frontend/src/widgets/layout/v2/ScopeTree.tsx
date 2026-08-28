@@ -13,7 +13,8 @@
 
 import styled from '@emotion/styled';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ChevronRight, Search } from 'lucide-react';
 
 import { useMyGroupsQuery } from '@features/api';
@@ -256,6 +257,7 @@ export const ScopeTree: React.FC = () => {
     expandedClassId,
     setExpandedClassId,
   } = useLayoutContext();
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
@@ -271,6 +273,15 @@ export const ScopeTree: React.FC = () => {
     isError: membersError,
     refetch: refetchMembers,
   } = useGroupMembersQuery(currentMenuConfig.student ? expandedClassId : null, user?.id);
+
+  useEffect(() => {
+    if (!location.pathname.startsWith('/lesson')) return;
+    if (groupsLoading || groupsError || groups.length === 0) return;
+    const isCurrentClassValid = groups.some((group) => group.id === scope.classId);
+    if (isCurrentClassValid) return;
+    const firstClassId = groups[0]?.id;
+    if (firstClassId) selectClass(firstClassId);
+  }, [groups, groupsError, groupsLoading, location.pathname, scope.classId, selectClass]);
 
   const activeStudents = useMemo(
     () => members.filter((member) => member.status === 'active'),

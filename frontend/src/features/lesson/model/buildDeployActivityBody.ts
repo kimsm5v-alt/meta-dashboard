@@ -1,5 +1,6 @@
 import type { CmsSetDetail } from '../api/cmsSetService';
 import type { CreateActivityBody } from '../api/lmsActivityService';
+import { joinClassIds } from './classIdOptions';
 
 export type DeployMode = 'period' | 'live';
 
@@ -11,6 +12,8 @@ export type BuildDeployActivityBodyInput = {
   libraryItemId?: string;
   lcmsSetId: string;
   cmsSetDetail?: CmsSetDetail;
+  classIds: string[];
+  options?: Record<string, unknown>;
 };
 
 function toIsoStartOfDay(dateStr: string): string {
@@ -52,6 +55,14 @@ export function buildDeployActivityBody(input: BuildDeployActivityBodyInput): Cr
   if (input.mode === 'period') {
     body.openAt = toIsoStartOfDay(input.startDate);
     body.closeAt = toIsoEndOfDay(input.endDate);
+  }
+
+  const classIdValue = joinClassIds(input.classIds);
+  if (classIdValue || input.options) {
+    body.options = {
+      ...(input.options ?? {}),
+      ...(classIdValue ? { classId: classIdValue } : {}),
+    };
   }
 
   return body;

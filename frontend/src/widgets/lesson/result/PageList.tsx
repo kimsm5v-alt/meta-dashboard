@@ -1,7 +1,7 @@
 import styled from '@emotion/styled';
 import type { ReportDetailView } from '@features/lesson';
 import { articleResponded } from '@features/lesson';
-import { NatureBadge } from './reportBadges';
+import { NatureBadge } from './ReportBadge';
 
 interface PageListProps {
   view: ReportDetailView;

@@ -2,12 +2,12 @@ import styled from '@emotion/styled';
 import { Image as ImageIcon, Maximize2, Play } from 'lucide-react';
 import type { ArticleNature, CellInfo, RenderMode } from '@features/lesson';
 import { fmtDuration } from '@features/lesson';
-import { ErrataBadge, NatureBadge } from './reportBadges';
+import { ErrataBadge, NatureBadge } from './ReportBadge';
 
 export interface GridItem {
   key: string;
-  primary: string;
-  nature: ArticleNature;
+  title: string;
+  nature?: ArticleNature;
   mode: RenderMode;
   cell: CellInfo;
   capture?: string;
@@ -132,7 +132,7 @@ const LabelRow = styled.div`
   gap: 6px;
 `;
 
-const Primary = styled.span`
+const Title = styled.span`
   min-width: 0;
   flex: 1;
   overflow: hidden;
@@ -232,26 +232,28 @@ export const ResponseGrid = ({ items, showSummary = true }: ResponseGridProps) =
           $highlight={Boolean(it.highlight)}
         >
           <Capture>
-            {clickable && it.capture ? (
+            {it.capture ? (
               <>
                 <CaptureImg src={it.capture} alt='' />
-                <HoverMask>
-                  <MaxIcon />
-                </HoverMask>
+                {clickable ? (
+                  <HoverMask>
+                    <MaxIcon />
+                  </HoverMask>
+                ) : null}
               </>
             ) : (
               <EmptyCapture>
                 <EmptyIcon />
-                <EmptyLabel>미제출</EmptyLabel>
+                {!it.cell.submitted ? <EmptyLabel>미제출</EmptyLabel> : null}
               </EmptyCapture>
             )}
           </Capture>
           <Body>
             <LabelRow>
-              <Primary>{it.primary}</Primary>
+              <Title>{it.title}</Title>
               <Mark cell={it.cell} />
             </LabelRow>
-            {it.showNature ? (
+            {it.showNature && it.nature ? (
               <div>
                 <NatureBadge nature={it.nature} />
               </div>

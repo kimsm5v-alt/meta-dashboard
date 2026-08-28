@@ -3,6 +3,8 @@ package com.vs.meta.api.dgnss.service;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import com.vs.meta.api.notification.event.ExamSubmittedEvent;
+import com.vs.meta.api.dgnss.dto.StudentLearningStatusResponse;
+import com.vs.meta.api.dgnss.dto.TcSubmissionsResponse;
 import com.vs.meta.api.notification.event.StudentExamNotificationEvent;
 import com.vs.meta.api.notification.event.TeacherExamNotificationEvent;
 import com.vs.meta.common.auth.UserInfoEnricher;
@@ -105,51 +107,6 @@ public class DgnssService {
             pdfQueryPool.shutdownNow();
             Thread.currentThread().interrupt();
         }
-    }
-
-    /**
-     * 교사 본인(JWT 인증) 소유 전체 학급의 진단검사 현황을 한 번에 조회한다.
-     * 클라이언트 파라미터 없음 — 교사 식별자(user_no)는 JWT(SecurityContext)에서만 도출(IDOR 방지).
-     * 기존 tc/info 를 학급마다 호출하던 것을 대체. 학급(claId) 기준으로 검사 목록을 중첩 구조로 반환.
-     */
-    @Transactional(readOnly = true)
-    public Map<String, Object> selectTcDgnssOverview(String paperIdx) {
-        Long userNo = SecurityUtil.requireCurrentUserNo();
-        List<Map<String, Object>> rows = dgnssMapper.selectTcDgnssOverview(userNo, paperIdx);
-
-        // 학급(claId) 기준 그룹핑 → classes: [ { 학급정보, dgnssList: [검사...] } ]
-        Map<String, Map<String, Object>> byCla = new LinkedHashMap<>();
-        for (Map<String, Object> r : rows) {
-            String claId = MapUtils.getString(r, "claId", "");
-            Map<String, Object> cls = byCla.computeIfAbsent(claId, k -> {
-                Map<String, Object> c = new LinkedHashMap<>();
-                c.put("claId", claId);
-                c.put("groupNm", r.get("groupNm"));
-                c.put("schoolLevel", r.get("schoolLevel"));
-                c.put("grade", r.get("grade"));
-                c.put("classNumber", r.get("classNumber"));
-                c.put("dgnssList", new ArrayList<Map<String, Object>>());
-                return c;
-            });
-            Map<String, Object> exam = new LinkedHashMap<>();
-            exam.put("dgnssId", r.get("dgnssId"));
-            exam.put("paperIdx", r.get("paperIdx"));
-            exam.put("ordNo", r.get("ordNo"));
-            exam.put("dgnssAt", r.get("dgnssAt"));
-            exam.put("dgnssStDt", r.get("dgnssStDt"));
-            exam.put("dgnssEdDt", r.get("dgnssEdDt"));
-            exam.put("stTotalCnt", r.get("stTotalCnt"));
-            exam.put("stSubmCnt", r.get("stSubmCnt"));
-            exam.put("notDgnssStartCnt", r.get("notDgnssStartCnt"));
-            exam.put("notDgnssStartList", r.get("notDgnssStartList"));
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> dgnssList = (List<Map<String, Object>>) cls.get("dgnssList");
-            dgnssList.add(exam);
-        }
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("classes", new ArrayList<>(byCla.values()));
-        return result;
     }
 
     public Map<String, Object> selectTcDgnssInfo(Map<String, Object> paramMap) {
@@ -1035,30 +992,6 @@ public class DgnssService {
         return resultMap;
     }
 
-    public Map<String, Object> sendStudentResultMailTest(Map<String, Object> param, HttpServletRequest request) throws Exception {
-        int dgnssResultId = MapUtils.getInteger(param, "dgnssResultId", 0);
-        if (dgnssResultId <= 0) {
-            throw new IllegalArgumentException("dgnssResultId는 필수입니다.");
-        }
-
-        int answerIdx = dgnssMapper.selectAnswerIdx(dgnssResultId);
-        String overrideEmail = StringUtils.trimToNull(MapUtils.getString(param, "toEmail", ""));
-        sendStudentResultMail(dgnssResultId, answerIdx, overrideEmail, request);
-
-        Map<String, Object> studentInfo = dgnssMapper.selectStUserInfo(Collections.singletonMap("answerIdx", answerIdx));
-        // Phase 3: memberSpUserId → MEM_NM/email, teacherSpUserId → tcNm 복원
-        enrichStUserInfo(studentInfo);
-        Map<String, Object> resultMap = new HashMap<>();
-        resultMap.put("dgnssResultId", dgnssResultId);
-        resultMap.put("answerIdx", answerIdx);
-        resultMap.put("studentName", MapUtils.getString(studentInfo, "MEM_NM", ""));
-        resultMap.put("toEmail", ObjectUtils.defaultIfNull(overrideEmail, MapUtils.getString(studentInfo, "email", "")));
-        resultMap.put("fileUrl", ensureStudentPdfUrl(answerIdx, request));
-        resultMap.put("sent", true);
-
-        return resultMap;
-    }
-
     @Transactional(readOnly = true)
     public Map<String, Object> selectStInfoList(Map<String, Object> param) {
         Map<String, Object> resultMap = new HashMap<>();
@@ -1141,34 +1074,32 @@ public class DgnssService {
      * 기본 종합검사(paperIdx=1). 미응시/미제출 회차는 결과에 포함되지 않는다.
      */
     @Transactional(readOnly = true)
-    public Map<String, Object> getStudentLearningStatus(String stdtId, String claId, Integer paperIdx) {
-        List<Map<String, Object>> rows = dgnssMapper.selectStudentLearningStatus(stdtId, claId, paperIdx);
-
-        List<Map<String, Object>> rounds = new ArrayList<>();
-        for (Map<String, Object> r : rows) {
-            Map<String, Object> round = new LinkedHashMap<>();
-            round.put("round", MapUtils.getInteger(r, "ordNo"));
-            round.put("answerIdx", MapUtils.getInteger(r, "answerIdx"));
-            round.put("academicAchievement", LS_ACHIEVEMENT.get(MapUtils.getInteger(r, "ls01", 0)));
-            round.put("gradeSatisfaction", LS_ACHIEVEMENT.get(MapUtils.getInteger(r, "ls02", 0)));
-            round.put("learningMotivation", LS_MOTIVATION.get(MapUtils.getInteger(r, "ls03", 0)));
-            round.put("selfStudyTime", LS_STUDY_TIME.get(MapUtils.getInteger(r, "ls04", 0)));
-            round.put("learningCounselor", LS_COUNSELOR.get(MapUtils.getInteger(r, "ls05", 0)));
-            rounds.add(round);
+    public StudentLearningStatusResponse getStudentLearningStatus(String stdtId, String claId, Integer paperIdx) {
+        List<StudentLearningStatusResponse.Round> rounds = new ArrayList<>();
+        for (Map<String, Object> r : dgnssMapper.selectStudentLearningStatus(stdtId, claId, paperIdx)) {
+            rounds.add(new StudentLearningStatusResponse.Round(
+                    MapUtils.getInteger(r, "ordNo"),
+                    MapUtils.getInteger(r, "answerIdx"),
+                    LS_ACHIEVEMENT.get(MapUtils.getInteger(r, "ls01", 0)),
+                    LS_ACHIEVEMENT.get(MapUtils.getInteger(r, "ls02", 0)),
+                    LS_MOTIVATION.get(MapUtils.getInteger(r, "ls03", 0)),
+                    LS_STUDY_TIME.get(MapUtils.getInteger(r, "ls04", 0)),
+                    LS_COUNSELOR.get(MapUtils.getInteger(r, "ls05", 0))));
         }
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("studentId", stdtId);
-        result.put("rounds", rounds);
-        return result;
+        return new StudentLearningStatusResponse(stdtId, rounds);
     }
 
     /** 교사) dgnssId 기준 학급 학생 제출 현황(stdtId/submAt/submDt). 이름은 FE 가 Auth 로 조회. */
     @Transactional(readOnly = true)
-    public Map<String, Object> selectTcSubmissions(int dgnssId) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("students", dgnssMapper.selectSubmissionsByDgnssId(dgnssId));
-        return result;
+    public TcSubmissionsResponse selectTcSubmissions(int dgnssId) {
+        List<TcSubmissionsResponse.Student> students = dgnssMapper.selectSubmissionsByDgnssId(dgnssId).stream()
+                .map(r -> new TcSubmissionsResponse.Student(
+                        MapUtils.getString(r, "stdtId"),
+                        MapUtils.getInteger(r, "memberNo"),
+                        MapUtils.getString(r, "submAt"),
+                        MapUtils.getString(r, "submDt")))
+                .toList();
+        return new TcSubmissionsResponse(students);
     }
 
     /**
@@ -1589,15 +1520,6 @@ public class DgnssService {
         return resultList;
     }
 
-    public Map<String, Object> tcDgnssTextSave(Map<String, Object> param) throws Exception {
-        Map<String, Object> resultMap = new HashMap<>();
-
-        dgnssMapper.saveDgnssTextSave(param);
-        resultMap.put("result", "ok");
-
-        return resultMap;
-    }
-
     @Transactional(readOnly = true)
     public Map<String, Object> selectTcNeedInfo(Map<String, Object> param) {
         Map<String, Object> resultMap = new HashMap<>();
@@ -1660,76 +1582,6 @@ public class DgnssService {
         return result;
     }
 
-    @Transactional(readOnly = true)
-    public Map<String, Object> selectTcClassFactorAvg(Map<String, Object> param) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        List<Map<String, Object>> classStats = dgnssMapper.selectTcClassMetaStats(param);
-        List<Map<String, Object>> factorAverages = dgnssMapper.selectTcClassFactorAverages(param);
-
-        Map<String, Map<String, Object>> classMap = new LinkedHashMap<>();
-        for (Map<String, Object> stat : classStats) {
-            String claId = MapUtils.getString(stat, "claId", "");
-            Map<String, Object> classRow = new LinkedHashMap<>();
-            classRow.put("claId", claId);
-            classRow.put("groupNm", MapUtils.getString(stat, "groupNm", "-"));
-            classRow.put("totalStudentCount", MapUtils.getInteger(stat, "totalStudentCount", 0));
-            classRow.put("submittedStudentCount", MapUtils.getInteger(stat, "submittedStudentCount", 0));
-            classRow.put("reliabilityAlertCount", MapUtils.getInteger(stat, "reliabilityAlertCount", 0));
-            classRow.put("factorScoresByDepth", createEmptyFactorScoresByDepth());
-            classMap.put(claId, classRow);
-        }
-
-        for (Map<String, Object> avg : factorAverages) {
-            String claId = MapUtils.getString(avg, "claId", "");
-            int depth = MapUtils.getInteger(avg, "depth", 0);
-            String sectionId = MapUtils.getString(avg, "sectionId", "");
-            Object avgTScore = avg.get("avgTScore");
-
-            Map<String, Object> classRow = classMap.get(claId);
-            if (classRow == null) {
-                classRow = new LinkedHashMap<>();
-                classRow.put("claId", claId);
-                classRow.put("groupNm", "-");
-                classRow.put("totalStudentCount", 0);
-                classRow.put("submittedStudentCount", 0);
-                classRow.put("reliabilityAlertCount", 0);
-                classRow.put("factorScoresByDepth", createEmptyFactorScoresByDepth());
-                classMap.put(claId, classRow);
-            }
-
-            Map<String, Object> factorScoresByDepth = (Map<String, Object>) classRow.get("factorScoresByDepth");
-            String depthKey = toDepthKey(depth);
-            if (depthKey == null) {
-                continue;
-            }
-            Map<String, Object> factorScores = (Map<String, Object>) factorScoresByDepth.get(depthKey);
-            factorScores.put(sectionId, avgTScore);
-        }
-
-        result.put("classList", new ArrayList<>(classMap.values()));
-        return result;
-    }
-
-    private Map<String, Object> createEmptyFactorScoresByDepth() {
-        Map<String, Object> byDepth = new LinkedHashMap<>();
-        byDepth.put("depth3", new LinkedHashMap<String, Object>());
-        byDepth.put("depth4", new LinkedHashMap<String, Object>());
-        byDepth.put("depth5", new LinkedHashMap<String, Object>());
-        return byDepth;
-    }
-
-    private String toDepthKey(int depth) {
-        if (depth == 3) {
-            return "depth3";
-        }
-        if (depth == 4) {
-            return "depth4";
-        }
-        if (depth == 5) {
-            return "depth5";
-        }
-        return null;
-    }
 
     @Transactional(readOnly = true)
     public Map<String, Object> selectTcAnalysis(Map<String, Object> param) {
@@ -2343,38 +2195,6 @@ public class DgnssService {
         } catch (Exception e) {
             log.warn("ExamAssignedEvent 발행 실패: claId={}", MapUtils.getString(paramMap, "claId", ""), e);
         }
-    }
-
-    @Transactional
-    public Map<String, Object> fillRandomAnswers(Map<String, Object> param) {
-        int omrIdx = MapUtils.getInteger(param, "omrIdx", 0);
-        int paperIdx = MapUtils.getInteger(param, "paperIdx", 0);
-
-        if (omrIdx <= 0) {
-            throw new IllegalArgumentException("omrIdx가 올바르지 않습니다.");
-        }
-        if (paperIdx != 1 && paperIdx != 2) {
-            throw new IllegalArgumentException("paperIdx는 1 또는 2만 가능합니다.");
-        }
-
-        int maxQuestionNo = paperIdx == 1 ? 124 : 77;
-        int updatedCount = 0;
-
-        for (int no = 1; no <= maxQuestionNo; no++) {
-            Map<String, Object> answerParam = new HashMap<>();
-            answerParam.put("omrIdx", omrIdx);
-            answerParam.put("no", no);
-            answerParam.put("answer", ThreadLocalRandom.current().nextInt(1, 6));
-            updatedCount += dgnssMapper.updateStntAnswer(answerParam);
-        }
-
-        Map<String, Object> resultMap = new HashMap<>();
-        resultMap.put("omrIdx", omrIdx);
-        resultMap.put("paperIdx", paperIdx);
-        resultMap.put("questionCount", maxQuestionNo);
-        resultMap.put("updatedCount", updatedCount);
-        resultMap.put("success", updatedCount == maxQuestionNo ? "success" : "partial");
-        return resultMap;
     }
 
     @Transactional(readOnly = true)

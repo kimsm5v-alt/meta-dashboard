@@ -1,14 +1,28 @@
 import { useState } from 'react';
 import styled from '@emotion/styled';
 import { Calendar } from 'lucide-react';
-import type { ActivitySummaryItem, ReportDetailView } from '@features/lesson';
-import { fmtDotDate, pct } from '@features/lesson';
-import { ActivityStatusBadge, ClassBadge } from './reportBadges';
+import { useMyGroupsQuery } from '@features/api';
+import type {
+  ActivityDetail,
+  ActivityProgress,
+  ActivityStatistics,
+  ActivitySummaryItem,
+} from '@features/lesson';
+import {
+  classIdsFromOptions,
+  fmtDotDate,
+  isActivityAvailability,
+  pct,
+  resolveClassNames,
+} from '@features/lesson';
+import { ActivityStatusBadge, ClassBadge } from './ReportBadge';
 
 interface ReportSummaryProps {
-  activity?: ActivitySummaryItem;
   activityId: string;
-  view: ReportDetailView;
+  fallback?: ActivitySummaryItem;
+  detail?: ActivityDetail;
+  progress?: ActivityProgress;
+  statistics?: ActivityStatistics;
 }
 
 const Card = styled.div`
@@ -162,24 +176,51 @@ const Dash = styled.span`
   color: ${({ theme }) => theme.colors.gray[400]};
 `;
 
-const thumbnailOf = (activity?: ActivitySummaryItem): string | undefined => {
-  const url = activity?.options?.thumbnailUrl;
-  return typeof url === 'string' && url.length > 0 ? url : undefined;
+const thumbnailOf = (
+  detail?: ActivityDetail,
+  fallback?: ActivitySummaryItem,
+): string | undefined => {
+  const fromDetail = detail?.options?.thumbnailUrl;
+  if (typeof fromDetail === 'string' && fromDetail.length > 0) return fromDetail;
+  const fromFallback = fallback?.options?.thumbnailUrl;
+  return typeof fromFallback === 'string' && fromFallback.length > 0 ? fromFallback : undefined;
 };
 
-export const ReportSummary = ({ activity, activityId, view }: ReportSummaryProps) => {
-  const [imgFailed, setImgFailed] = useState(false);
-  const title = activity?.title || activityId;
-  const thumbnailUrl = thumbnailOf(activity);
-  const startStr = activity?.openAt ? fmtDotDate(activity.openAt) : '';
-  const endStr = activity?.closeAt ? fmtDotDate(activity.closeAt) : '';
+const buildDateLine = (openAt?: string, closeAt?: string, pageCount = 0): string => {
+  const startStr = openAt ? fmtDotDate(openAt) : '';
+  const endStr = closeAt ? fmtDotDate(closeAt) : '';
   const range = [startStr, endStr].filter(Boolean).join(' ~ ');
-  const pageCount = view.pageCount;
-  const dateLine = range ? `배포 ${range} · ${pageCount}개 페이지` : `${pageCount}개 페이지`;
+  const pages = `${pageCount}개 페이지`;
+  return range ? `배포 ${range} · ${pages}` : pages;
+};
 
-  const assigned = view.assignedCount;
-  const participated = view.participantCount;
-  const rate = assigned > 0 ? pct(participated, assigned) : 0;
+export const ReportSummary = ({
+  activityId,
+  fallback,
+  detail,
+  progress,
+  statistics,
+}: ReportSummaryProps) => {
+  const [imgFailed, setImgFailed] = useState(false);
+  const { data: groups = [] } = useMyGroupsQuery();
+  const title = detail?.title || fallback?.title || activityId;
+  const thumbnailUrl = thumbnailOf(detail, fallback);
+  const availability = detail?.availability ?? fallback?.availability;
+  const openAt = detail?.openAt ?? fallback?.openAt ?? undefined;
+  const closeAt = detail?.closeAt ?? fallback?.closeAt ?? undefined;
+  const labels = detail?.labels ?? [];
+  const pageCount = detail?.items?.length ?? 0;
+  const dateLine = buildDateLine(openAt ?? undefined, closeAt ?? undefined, pageCount);
+  const classNames = resolveClassNames(
+    classIdsFromOptions(detail?.options ?? fallback?.options),
+    groups,
+  );
+
+  const assignedCount = progress?.assignedCount;
+  const startedCount = progress?.startedCount;
+  const showParticipation = assignedCount != null && assignedCount > 0 && startedCount != null;
+  const rate = showParticipation ? pct(startedCount, assignedCount) : 0;
+  const averageScore = statistics?.averageScore;
 
   return (
     <Card>
@@ -193,18 +234,22 @@ export const ReportSummary = ({ activity, activityId, view }: ReportSummaryProps
         </Thumb>
         <Meta>
           <BadgeRow>
-            {activity ? <ActivityStatusBadge availability={activity.availability} /> : null}
-            {view.className ? <ClassBadge cls={view.className} /> : null}
+            {availability && isActivityAvailability(availability) ? (
+              <ActivityStatusBadge availability={availability} />
+            ) : null}
+            {classNames.map((name) => (
+              <ClassBadge key={name} cls={name} />
+            ))}
           </BadgeRow>
           <Title>{title}</Title>
           <DateRow>
             <DateIcon />
             {dateLine}
           </DateRow>
-          {view.selFactors.length > 0 ? (
+          {labels.length > 0 ? (
             <SelRow>
-              {view.selFactors.map((f) => (
-                <SelChip key={f}>{f}</SelChip>
+              {labels.map((label) => (
+                <SelChip key={label}>{label}</SelChip>
               ))}
             </SelRow>
           ) : null}
@@ -214,30 +259,21 @@ export const ReportSummary = ({ activity, activityId, view }: ReportSummaryProps
         <Metric>
           <MetricLabel>참여 인원</MetricLabel>
           <MetricValue>
-            {assigned === 0 ? (
-              <Dash>–</Dash>
-            ) : (
+            {showParticipation ? (
               <>
-                {participated}
+                {startedCount}
                 <MetricSub>
-                  /{assigned}명 · {rate}%
+                  /{assignedCount}명 · {rate}%
                 </MetricSub>
               </>
+            ) : (
+              <Dash>–</Dash>
             )}
           </MetricValue>
         </Metric>
         <Metric>
           <MetricLabel>평균 정답률</MetricLabel>
-          <MetricValue>
-            {view.avgCorrectRate == null ? (
-              <Dash>–</Dash>
-            ) : (
-              <>
-                {view.avgCorrectRate}
-                <MetricSub>%</MetricSub>
-              </>
-            )}
-          </MetricValue>
+          <MetricValue>{averageScore == null ? <Dash>–</Dash> : averageScore}</MetricValue>
         </Metric>
       </Metrics>
     </Card>

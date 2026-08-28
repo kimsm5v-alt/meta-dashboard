@@ -115,7 +115,9 @@ public class ApiResponseAspect {
 
     /** 디버깅 가치가 큰 컨트롤러(파라미터 맵을 받거나 파일 처리 등)에 한해 진입 시 파라미터 로깅. */
     private static final List<String> PARAM_LOG_TARGETS = Arrays.asList(
-            "com.vs.meta.api.dgnss.controller.DgnssController",
+            "com.vs.meta.api.dgnss.controller.DgnssTeacherController",
+            "com.vs.meta.api.dgnss.controller.DgnssStudentController",
+            "com.vs.meta.api.dgnss.controller.DgnssGraphController",
             "com.vs.meta.common.controller.FileController"
     );
 

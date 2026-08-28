@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { ChevronLeft, Image as ImageIcon, Play } from 'lucide-react';
 import { fmtDuration, getStudentReportDetail, pct } from '@features/lesson';
 import type { StudentReportArticle, StudentReportDetailView } from '@features/lesson';
-import { ErrataBadge, NatureBadge } from '../result/reportBadges';
+import { ErrataBadge, NatureBadge } from '../result/ReportBadge';
 
 interface StudentDetailReportProps {
   activityId: string;

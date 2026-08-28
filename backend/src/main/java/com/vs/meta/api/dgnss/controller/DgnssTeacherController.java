@@ -5,8 +5,6 @@ import com.vs.meta.common.response.AidtCommonUtil;
 import com.vs.meta.common.response.ResponseDTO;
 import com.vs.meta.common.response.CustomBody;
 import com.vs.meta.api.dgnss.mapper.DgnssMapper;
-import com.vs.meta.api.dgnss.service.DgnssGraphService;
-import com.vs.meta.api.dgnss.service.DgnssLpaService;
 import com.vs.meta.api.dgnss.service.DgnssService;
 import com.vs.meta.api.dgnss.service.ExamReminderService;
 import org.springframework.web.multipart.MultipartFile;
@@ -36,36 +34,15 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@Tag(name = "대시보드 부가 기능 API", description = "META 자기조절학습")
+@Tag(name = "학습심리검사 교사 API", description = "교사 검사 관리·조회·PDF (학생: DgnssStudentController, 그래프/운영: DgnssGraphController)")
 @RequiredArgsConstructor
 @RequestMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-public class DgnssController {
+public class DgnssTeacherController {
     private final DgnssService dgnssService;
-    private final DgnssGraphService dgnssGraphService;
-    private final DgnssLpaService dgnssLpaService;
     private final DgnssMapper dgnssMapper;
     private final ExamReminderService examReminderService;
 
-    @RequestMapping(value = "/api/dgnss/tc/overview", method = {RequestMethod.GET})
-    @Operation(summary = "(선생님) 본인 전체 학급 진단검사 현황 (한 번에)",
-            description = "인증된 교사(JWT) 본인이 소유한 모든 학급의 진단검사 현황을 한 번에 반환. "
-                    + "학급별 tc/info 반복 호출 대체. 교사 식별자는 JWT 에서만 도출(IDOR 방지). "
-                    + "paperIdx 미전송/0 이면 1·2 모두, 전송 시 해당 검사 유형만 조회.")
-    @Parameter(name = "paperIdx", description = "검사 유형(1:종합학습검사, 2:자기조절). 미전송/0 이면 1·2 모두",
-            examples = {
-                    @ExampleObject(name = "전체", value = "0"),
-                    @ExampleObject(name = "종합", value = "1"),
-                    @ExampleObject(name = "자기조절", value = "2")
-            })
-    public ResponseDTO<CustomBody> tchMetaOverview(
-            @RequestParam(name = "paperIdx", required = false) String paperIdx,
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        Map<String, Object> result = dgnssService.selectTcDgnssOverview(paperIdx);
-        return AidtCommonUtil.makeResultSuccess(paramData, result, "(선생님) 전체 학급 진단검사 현황");
-    }
-
-    @RequestMapping(value = {"/api/dgnss/tc/info","/api/dgnss/tc/list"}, method = {RequestMethod.GET})
+    @RequestMapping(value = "/api/dgnss/tc/info", method = {RequestMethod.GET})
     @Operation(summary = "(선생님) 학습심리정서검사 목록 조회", description = "")
     @Parameter(name = "claId", description = "학급 ID",
             examples = {
@@ -202,101 +179,6 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
-    @RequestMapping(value = "/api/dgnss/st/new", method = {RequestMethod.GET})
-    @Operation(summary = "(학생)심리검사 새로하기",
-            description = "schoolName/schoolCode/grade/classNumber/gender/nickname을 함께 넘기면 st/start와 동일하게 tb_dgnss_result_info에 저장된다(전달된 값만). grade/classNumber는 숫자만 저장, gender는 'M'/'F'.")
-    @Parameter(name = "dgnssResultId", description = "심리검사 상세 ID",
-            examples = {
-                    @ExampleObject(name = "math", value = "12509", description = "수학 환경"),
-                    @ExampleObject(name = "engl", value = "2161", description = "영어 환경")
-            })
-    @Parameter(name = "paperIdx", description = "심리검사 종류",
-            examples = {
-                    @ExampleObject(name = "math", value = "1", description = "수학 환경"),
-                    @ExampleObject(name = "engl", value = "2", description = "영어 환경")
-            })
-    @Parameter(name = "page", description = "페이지번호", required = false,
-            examples = {
-                    @ExampleObject(name = "both", value = "0", description = "수학/영어 환경")
-            })
-    @Parameter(name = "size", description = "페이지크기", required = false,
-            examples = {
-                    @ExampleObject(name = "both", value = "20", description = "수학/영어 환경")
-            })
-    public ResponseDTO<CustomBody> stMetaNew(
-            @RequestParam(name = "dgnssResultId", required = false) int dgnssResultId,
-            @RequestParam(name = "paperIdx", required = false, defaultValue = "0") int paperIdx,
-            @Parameter(hidden = true) @PageableDefault(size = 20) Pageable pageable,
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        Map<String, Object> resultMap = dgnssService.selectNewOmr(paramData, pageable);
-        String resultMessage = "(학생)심리검사 새로하기";
-        return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
-    }
-
-    @RequestMapping(value = "/api/dgnss/st/submit", method = {RequestMethod.POST})
-    @Operation(summary = "(학생)심리검사 제출", description = "")
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            content = @Content(examples = {
-                    @ExampleObject(name = "파라미터", value = """
-                            {
-                                "dgnssResultId": 1
-                            }
-                            """)
-            }))
-    public ResponseDTO<CustomBody> stMetaSubmit(
-            @RequestBody Map<String, Object> paramData,
-            HttpServletRequest request
-    ) throws Exception {
-        Map<String, Object> result = dgnssService.updateStSubmit(paramData, request);
-        String resultMessage = "심리검사 제출";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
-    @RequestMapping(value = "/api/dgnss/lpa/reprocess", method = {RequestMethod.POST})
-    @Operation(summary = "(관리) LPA 유형 검사 단위 재분류",
-            description = "지정한 검사(dgnssId)에서 제출 완료한 학생 전원의 LPA 유형을 이미 저장된 T점수로 다시 분류하여 tb_dgnss_lpa_result 에 upsert 합니다. "
-                    + "T점수 재계산이나 제출 재처리(메일 발송 등)는 수행하지 않습니다.")
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            content = @Content(examples = {
-                    @ExampleObject(name = "파라미터", value = """
-                            {
-                                "dgnssId": 1088
-                            }
-                            """)
-            }))
-    public ResponseDTO<CustomBody> reprocessLpaByDgnssId(
-            @RequestBody Map<String, Object> paramData
-    ) throws Exception {
-        int dgnssId = MapUtils.getIntValue(paramData, "dgnssId", 0);
-        if (dgnssId <= 0) {
-            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락: dgnssId");
-        }
-        Map<String, Object> result = dgnssLpaService.reprocessByDgnssId(dgnssId);
-        String resultMessage = "(관리) LPA 유형 검사 단위 재분류";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
-    @RequestMapping(value = "/api/dgnss/mail/test", method = {RequestMethod.POST})
-    @Operation(summary = "학습심리검사 결과 메일 발송 테스트", description = "")
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            content = @Content(examples = {
-                    @ExampleObject(name = "파라미터", value = """
-                            {
-                                "dgnssResultId": 1,
-                                "toEmail": "tester@example.com"
-                            }
-                            """)
-            }))
-    public ResponseDTO<CustomBody> sendStudentResultMailTest(
-            @RequestBody Map<String, Object> paramData,
-            HttpServletRequest request
-    ) throws Exception {
-        Map<String, Object> result = dgnssService.sendStudentResultMailTest(paramData, request);
-        String resultMessage = "학습심리검사 결과 메일 발송 테스트";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
     @RequestMapping(value = "/api/dgnss/tc/stinfolist", method = {RequestMethod.GET})
     @Operation(summary = "(교사) 대시보드 - 학생 목록", description = "")
     @Parameter(name = "dgnssId", description = "심리검사 ID",
@@ -338,7 +220,7 @@ public class DgnssController {
             @RequestParam(name = "claId") String claId,
             @RequestParam(name = "paperIdx", required = false, defaultValue = "1") int paperIdx
     ) {
-        Map<String, Object> result = dgnssService.getStudentLearningStatus(studentId, claId, paperIdx);
+        var result = dgnssService.getStudentLearningStatus(studentId, claId, paperIdx);
         return AidtCommonUtil.makeResultSuccess(new HashMap<>(), result, "학생 회차별 학습현황");
     }
 
@@ -352,7 +234,7 @@ public class DgnssController {
         if (dgnssId <= 0) {
             throw new IllegalArgumentException("dgnssId는 필수입니다.");
         }
-        Map<String, Object> result = examReminderService.sendUnsubmittedReminder(dgnssId);
+        var result = examReminderService.sendUnsubmittedReminder(dgnssId);
         return AidtCommonUtil.makeResultSuccess(new HashMap<>(), result, "미제출 학생 독려 알림 발송");
     }
 
@@ -367,7 +249,7 @@ public class DgnssController {
         if (dgnssId <= 0) {
             throw new IllegalArgumentException("dgnssId는 필수입니다.");
         }
-        Map<String, Object> result = dgnssService.selectTcSubmissions(dgnssId);
+        var result = dgnssService.selectTcSubmissions(dgnssId);
         return AidtCommonUtil.makeResultSuccess(new HashMap<>(), result, "학생 제출 현황 목록");
     }
 
@@ -410,48 +292,7 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
-    @RequestMapping(value = "/api/dgnss/st/analysis", method = {RequestMethod.GET})
-    @Operation(summary = "(학생) 학습심리정서검사 결과보기", description = "")
-    @Parameter(name = "stdtId", description = "학생 ID",
-            examples = {
-                    @ExampleObject(name = "math", value = "rrmath016-s1", description = "수학 환경"),
-                    @ExampleObject(name = "engl", value = "appleeng19-s2", description = "영어 환경")
-            })
-    @Parameter(name = "paperIdx", description = "심리검사 종류",
-            examples = {
-                    @ExampleObject(name = "both", value = "1", description = "수학 환경"),
-                    @ExampleObject(name = "engl", value = "2", description = "영어 환경")
-            })
-    @Parameter(name = "ordNo", description = "현재 조회하는 회차",
-            examples = {
-                    @ExampleObject(name = "both", value = "1", description = "수학 환경"),
-                    @ExampleObject(name = "engl", value = "1", description = "영어 환경")
-            })
-    @Parameter(name = "dgnssResultId", description = "심리검사 상세 ID",
-            examples = {
-                    @ExampleObject(name = "math", value = "1", description = "수학 환경"),
-                    @ExampleObject(name = "engl", value = "1", description = "영어 환경")
-            })
-    @Parameter(name = "graphYn", description = "지식그래프 추천 포함 여부(Y/N, 기본 N)",
-            examples = {
-                    @ExampleObject(name = "off", value = "N", description = "지식그래프 조회 안함"),
-                    @ExampleObject(name = "on", value = "Y", description = "지식그래프 조회 포함")
-            })
-    public ResponseDTO<CustomBody> stMetaAnalysis(
-            @RequestParam(name = "dgnssResultId", required = false) String dgnssResultId,
-            @RequestParam(name = "paperIdx", required = false, defaultValue = "2") String paperIdx,
-            @RequestParam(name = "ordNo", required = false, defaultValue = "1") String ordNo,
-            @RequestParam(name = "stdtId", required = false) String stdtId,
-            @RequestParam(name = "claId", required = false) String claId,
-            @RequestParam(name = "graphYn", required = false, defaultValue = "N") String graphYn,
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        Map<String, Object> result = dgnssService.selectStAnalysis(paramData);
-        String resultMessage = "(학생) 학습심리정서검사 결과보기";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
-    @RequestMapping(value = {"/api/dgnss/tc/notsubm","/api/dgnss/tc/notsubm/list"}, method = {RequestMethod.GET})
+    @RequestMapping(value = "/api/dgnss/tc/notsubm", method = {RequestMethod.GET})
     @Operation(summary = "(선생님)학습심리정서검사 미제출 인원 목록", description = "")
     @Parameter(name = "dgnssId", description = "심리검사 ID",
             examples = {
@@ -465,25 +306,6 @@ public class DgnssController {
         List<Map<String, Object>> resultMap = dgnssService.selectTcDgnssNotSubmStList(paramData);
         String resultMessage = "학습심리정서검사 미제출 인원 목록";
         return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
-    }
-
-    @RequestMapping(value = "/api/dgnss/tc/text/save", method = {RequestMethod.POST})
-    @Operation(summary = "(선생님)학습심리정서검사 텍스트 저장", description = "")
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            content = @Content(examples = {
-                    @ExampleObject(name = "파라미터", value = """
-                            {
-                                "dgnssId": 882,
-                                "dgnssText": "텍스트 내용"
-                            }
-                            """)
-            }))
-    public ResponseDTO<CustomBody> tchTextUpdt(
-            @RequestBody Map<String, Object> paramData
-    ) throws Exception {
-        Map<String, Object> result = dgnssService.tcDgnssTextSave(paramData);
-        String resultMessage = "(선생님)학습심리정서검사 텍스트 저장";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
     @RequestMapping(value = "/api/dgnss/tc/need", method = {RequestMethod.GET})
@@ -538,105 +360,6 @@ public class DgnssController {
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
     }
 
-    @RequestMapping(value = "/api/dgnss/tc/class-factor-avg", method = {RequestMethod.GET})
-    @Operation(summary = "(교사) 학급별 요인 평균 및 제출/신뢰도 집계", description = "")
-    @Parameter(name = "tcId", description = "교사 ID", required = true)
-    @Parameter(name = "paperIdx", description = "심리검사 종류", required = true,
-            examples = {
-                    @ExampleObject(name = "learn", value = "1", description = "학습종합검사"),
-                    @ExampleObject(name = "meta", value = "2", description = "META자기조절학습검사")
-            })
-    @Parameter(name = "claId", description = "학급 ID(선택, 미입력 시 전체 학급)")
-    public ResponseDTO<CustomBody> tcClassFactorAvg(
-            @RequestParam(name = "tcId", required = false) String tcId,
-            @RequestParam(name = "paperIdx", required = false, defaultValue = "2") String paperIdx,
-            @RequestParam(name = "claId", required = false) String claId,
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        if (StringUtils.isBlank(tcId)) {
-            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
-        }
-        Map<String, Object> result = dgnssService.selectTcClassFactorAvg(paramData);
-        String resultMessage = "(교사) 학급별 요인 평균 및 제출/신뢰도 집계";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
-    @RequestMapping(value = "/api/dgnss/graph/load", method = {RequestMethod.POST})
-    @Operation(summary = "(그래프) LPA 그래프 Cypher 적재",
-            description = "lpa_graph_all_merge_safe.cypher(초등+중등 통합)를 Neo4j에 MERGE 적재한다. 멱등이라 반복 실행 가능. 운영 시드/갱신용")
-    public ResponseDTO<CustomBody> loadLpaGraph(
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        Map<String, Object> result = dgnssGraphService.loadLpaGraph();
-        return AidtCommonUtil.makeResultSuccess(paramData, result, "LPA 그래프 적재 완료");
-    }
-
-    @RequestMapping(value = "/api/dgnss/graph/lpa/coaching-v2", method = {RequestMethod.POST})
-    @Operation(summary = "(그래프) 개인화 코칭 v2 Cypher 적재",
-            description = "강점(GROUP_TSCORE strength_observation/line/question) · 보완점(ModerationPath interpretation/coaching1·2, strategy 제거) 패치(초·중)를 Neo4j에 적재한다. "
-                    + "MATCH 기반 in-place 업데이트라 멱등이며, 파일별 updated_count(기대 114)를 반환한다. base 그래프가 먼저 적재돼 있어야 하며 truncate 하지 않는다.")
-    public ResponseDTO<CustomBody> loadCoachingV2(
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        Map<String, Object> result = dgnssGraphService.loadCoachingV2();
-        return AidtCommonUtil.makeResultSuccess(paramData, result, "개인화 코칭 v2 적재 완료");
-    }
-
-    @GetMapping(value = "/api/dgnss/graph/classes/{className}/moderation-paths")
-    @Operation(summary = "(그래프) 유형별 ModerationPath 조회", description = "")
-    @Parameter(name = "className", description = "LPA 유형명", required = true)
-    @Parameter(name = "schoolLevel", description = "학교급(선택): elementary/middle")
-    @Parameter(name = "limit", description = "조회 개수 제한(기본 20, 최대 100)")
-    public ResponseDTO<CustomBody> graphModerationPathsByClass(
-            @PathVariable("className") String className,
-            @RequestParam(name = "schoolLevel", required = false, defaultValue = "") String schoolLevel,
-            @RequestParam(name = "limit", required = false, defaultValue = "20") int limit,
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        int boundedLimit = Math.max(1, Math.min(limit, 100));
-        Map<String, Object> result = dgnssGraphService.selectModerationPathsByClass(className, schoolLevel, boundedLimit);
-        String resultMessage = "(그래프) 유형별 ModerationPath 조회";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
-    @GetMapping(value = "/api/dgnss/graph/recommendation/by-answer/{answerIdx}")
-    @Operation(summary = "(그래프) answerIdx 기반 추천 조회", description = "")
-    @Parameter(name = "answerIdx", description = "답안 인덱스", required = true)
-    @Parameter(name = "limit", description = "조회 개수 제한(기본 5, 최대 100)")
-    public ResponseDTO<CustomBody> graphRecommendationByAnswerIdx(
-            @PathVariable("answerIdx") int answerIdx,
-            @RequestParam(name = "limit", required = false, defaultValue = "5") int limit,
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        if (answerIdx <= 0) {
-            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
-        }
-        int boundedLimit = Math.max(1, Math.min(limit, 100));
-        Map<String, Object> result = dgnssGraphService.selectRecommendationByAnswerIdx(answerIdx, boundedLimit);
-        String resultMessage = "(그래프) answerIdx 기반 추천 조회";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
-    @GetMapping(value = "/api/dgnss/graph/recommendation/by-type")
-    @Operation(summary = "(그래프) schoolLevel + typeName 기반 추천 조회", description = "")
-    @Parameter(name = "schoolLevel", description = "학교급 elementary/middle", required = true)
-    @Parameter(name = "typeName", description = "LPA 유형명", required = true)
-    @Parameter(name = "limit", description = "조회 개수 제한(기본 20, 최대 100)")
-    public ResponseDTO<CustomBody> graphRecommendationByType(
-            @RequestParam(name = "schoolLevel") String schoolLevel,
-            @RequestParam(name = "typeName") String typeName,
-            @RequestParam(name = "limit", required = false, defaultValue = "20") int limit,
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        if (StringUtils.isBlank(schoolLevel) || StringUtils.isBlank(typeName)) {
-            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
-        }
-        int boundedLimit = Math.max(1, Math.min(limit, 100));
-        Map<String, Object> result = dgnssGraphService.selectRecommendationByType(schoolLevel, typeName, boundedLimit);
-        String resultMessage = "(그래프) schoolLevel + typeName 기반 추천 조회";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
     @GetMapping(path = "/api/dgnss/dgnss-download-all")
     @Operation(summary = "학습심리정서검사 일괄다운로드",
             description = "대상 PDF 들을 zip 으로 묶어 NAS 에 저장하고 tb_dgnss_info 의 type 별 zip URL 컬럼에 등록한 뒤 "
@@ -676,123 +399,6 @@ public class DgnssController {
         Map<String, Object> result = dgnssService.selectMakePdfTargetList(paramData);
         String resultMessage = "학습심리정서검사 일괄다운로드 전 학생 조회";
         return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
-    @PostMapping(value = {"/api/dgnss/st/answer", "/api/dgnss/stnt/answer/save"})
-    @Operation(summary = "(학생)답 입력", description = "")
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            content = @Content(examples = {
-                    @ExampleObject(name = "파라미터", value = """
-                            {
-                                "omrIdx": 1,
-                                "no": 1,
-                                "answer": 1
-                            }
-                            """)
-            }))
-    public ResponseDTO<CustomBody> updateStntAnswer(
-            @RequestBody Map<String, Object> paramData
-    ) throws Exception {
-        int result = dgnssService.updateStntAnswer(paramData);
-        String resultMessage = "(학생)문제 풀이";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
-    @PostMapping(value = "/api/dgnss/st/answer/random")
-    @Operation(summary = "(학생)답안 무작위 일괄 입력", description = "")
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            content = @Content(examples = {
-                    @ExampleObject(name = "파라미터", value = """
-                            {
-                                "omrIdx": 1,
-                                "paperIdx": 1
-                            }
-                            """)
-            }))
-    public ResponseDTO<CustomBody> fillRandomAnswers(
-            @RequestBody Map<String, Object> paramData
-    ) throws Exception {
-        Map<String, Object> result = dgnssService.fillRandomAnswers(paramData);
-        String resultMessage = "(학생)답안 무작위 일괄 입력";
-        return AidtCommonUtil.makeResultSuccess(paramData, result, resultMessage);
-    }
-
-    @GetMapping(value = {"/api/dgnss/st/info", "/api/dgnss/stnt/list"})
-    @Operation(summary = "(학생)학습심리정서검사 목록 조회", description = "")
-    @Parameter(name = "claId", description = "클래스 ID",
-            examples = {
-                    @ExampleObject(name = "math", value = "eb1460dce8fc42889862e9a460beb4a0", description = "수학 환경"),
-                    @ExampleObject(name = "engl", value = "121c5ae5a3074de38fec3374c5fccd38", description = "영어 환경")
-            })
-    @Parameter(name = "stdtId", description = "학생 ID",
-            examples = {
-                    @ExampleObject(name = "math", value = "rrmath016-s1", description = "수학 환경"),
-                    @ExampleObject(name = "engl", value = "appleeng19-s2", description = "영어 환경")
-            })
-    public ResponseDTO<CustomBody> selectStntDgnssList(
-            @RequestParam(name = "claId", required = false) String claId,
-            @RequestParam(name = "stdtId", required = false) String stdtId,
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        List<Map<String, Object>> resultList = dgnssService.selectStntDgnssList(paramData);
-        String resultMessage = "(학생)학습심리정서검사 목록 조회";
-        return AidtCommonUtil.makeResultSuccess(paramData, resultList, resultMessage);
-    }
-
-    @PostMapping(value = {"/api/dgnss/st/start", "/api/dgnss/stnt/start/update"})
-    @Operation(summary = "(학생)META 자기조절학습 시작",
-            description = "schoolName/grade/classNo/gender는 선택값. 교사 그룹정보 미입력 시 학생 입력값을 시작 시 1회만 전송하면 tb_dgnss_result_info에 저장된다(페이지 이동 호출에는 미전송 권장). gender는 'M'/'F'만 허용.")
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            content = @Content(examples = {
-                    @ExampleObject(name = "파라미터", value = """
-                            {
-                                "dgnssResultId": 12509,
-                                "paperIdx": 1,
-                                "page": 0,
-                                "size": 20,
-                                "schoolName": "비상중학교",
-                                "schoolCode": "B000012345",
-                                "grade": "2",
-                                "classNumber": "3",
-                                "gender": "M",
-                                "nickname": "홍길동"
-                            }
-                            """)
-            }))
-    public ResponseDTO<CustomBody> stMetaStart(
-            @RequestBody Map<String, Object> paramData,
-            @Parameter(hidden = true) @PageableDefault(size = 20) Pageable pageable
-    ) throws Exception {
-        Map<String, Object> resultMap = dgnssService.selectStDgnssStart(paramData, pageable);
-        String resultMessage = "(학생)META 자기조절학습 시작";
-        return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
-    }
-
-    @GetMapping(value = "/api/dgnss/st/resume")
-    @Operation(summary = "(학생)META 자기조절학습 이어하기 진입 정보",
-            description = "중간에 종료한 학생이 이어하기 시 마지막으로 응답한 문항번호와 진입해야 할 페이지(0-base, 첫 페이지=0)를 반환한다. "
-                    + "반환된 page 는 /api/dgnss/st/start 의 page(0-base)에 그대로 전달할 수 있다.")
-    @Parameter(name = "dgnssResultId", description = "심리검사 상세 ID", required = true,
-            examples = {
-                    @ExampleObject(name = "학습종합", value = "12509", description = "학습종합검사"),
-                    @ExampleObject(name = "META자기조절", value = "2161", description = "META자기조절검사")
-            })
-    @Parameter(name = "paperIdx", description = "심리검사 종류(1:학습종합, 2:META자기조절)", required = true,
-            examples = {
-                    @ExampleObject(name = "학습종합", value = "1", description = "학습종합검사"),
-                    @ExampleObject(name = "META자기조절", value = "2", description = "META자기조절검사")
-            })
-    public ResponseDTO<CustomBody> stMetaResume(
-            @RequestParam(name = "dgnssResultId") int dgnssResultId,
-            @RequestParam(name = "paperIdx", required = false, defaultValue = "2") int paperIdx,
-            @Parameter(hidden = true) @RequestParam Map<String, Object> paramData
-    ) throws Exception {
-        if (dgnssResultId == 0) {
-            return AidtCommonUtil.makeResultFail(paramData, null, "필수 파라미터 누락");
-        }
-        Map<String, Object> resultMap = dgnssService.selectStDgnssResume(paramData);
-        String resultMessage = "(학생)META 자기조절학습 이어하기 진입 정보";
-        return AidtCommonUtil.makeResultSuccess(paramData, resultMap, resultMessage);
     }
 
     @RequestMapping(value = "/api/dgnss/summary/pdf", method = {RequestMethod.POST})

@@ -5,14 +5,23 @@ export {
   putActivityAssignees,
   publishActivity,
   getActivities,
+  getActivity,
+  getActivityProgress,
+  getActivityStatistics,
+  getActivitiesProgressBundle,
+  getActivityParticipations,
+  getActivityParticipationsAll,
+  getTeacherParticipationResult,
   fetchActivityEntry,
   startParticipation,
   LmsHttpError,
+  isActivityAvailability,
 } from './api/lmsActivityService';
 export type {
   CreateActivityBody,
   ActivityAvailability,
   ActivityDetail,
+  ActivityItem,
   ActivitySummaryItem,
   ActivitiesPageResponse,
   GetActivitiesParams,
@@ -23,6 +32,17 @@ export type {
   EntryAvailability,
   ParticipationDetail,
   ParticipationContent,
+  ActivityProgress,
+  ActivityProgressRow,
+  ActivityStatistics,
+  ActivityParticipationSummary,
+  ActivityParticipationRow,
+  ActivitiesProgressBundle,
+  NotSubmittedStudent,
+  ParticipationStatus,
+  ParticipationResult,
+  ParticipationResultItem,
+  LmsErrata,
 } from './api/lmsActivityService';
 export { FilterPanel } from './ui/FilterPanel';
 export { DeployPage } from './ui/DeployPage';
@@ -50,6 +70,14 @@ export {
   useThisWeekCountQuery,
   useRunningCountQuery,
   useActivityListQuery,
+  useActivityDetailQuery,
+  useActivityProgressQuery,
+  useActivityStatisticsQuery,
+  useActivityParticipationsQuery,
+  useActivitiesProgressBundleQuery,
+  useTeacherParticipationQuery,
+  useAssigneeDirectoryQuery,
+  useCmsArticleMapQuery,
 } from './api/queries';
 export type { SyncLibraryItemOnSaveInput } from './api/queries';
 export type {
@@ -65,6 +93,7 @@ export type {
   CmsSetDetail,
   CmsSetListData,
   CmsSetListParams,
+  CmsArticleInfo,
 } from './api/cmsSetService';
 export { mapCmsSetToLibItem } from './model/mapCmsSetToLibItem';
 export { mapLibraryItemToLibItem, mapRefSetToLibItem } from './model/mapLibraryItemToLibItem';
@@ -110,6 +139,24 @@ export {
   responseCell,
   submittedStudentCount,
 } from './model/reportDetailUtils';
+export {
+  articleTypeToNature,
+  lmsErrataToCd,
+  sortActivityItems,
+  summarizeParticipation,
+  participationItemOf,
+  cellFromParticipationItem,
+  isNotSubmittedError,
+} from './model/mapReportDetail';
+export type { ParticipationSummary } from './model/mapReportDetail';
+export type { AssigneeNameInfo } from './model/resolveAssigneeNamesFromGroups';
+export {
+  parseClassIds,
+  joinClassIds,
+  classIdLikeOptFilter,
+  classIdsFromOptions,
+  resolveClassNames,
+} from './model/classIdOptions';
 export type {
   FilterAxis,
   LibFilters,

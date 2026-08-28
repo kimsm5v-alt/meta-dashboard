@@ -2,12 +2,21 @@ import { useState } from 'react';
 import styled from '@emotion/styled';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
-import type { ActivitySummaryItem, ReportDetailTab } from '@features/lesson';
-import { getReportDetailView } from '@features/lesson';
+import { Loading } from '@shared/ui/Loading';
+import type { ActivityItem, ActivitySummaryItem, ReportDetailTab } from '@features/lesson';
+import {
+  emptyReportDetail,
+  LmsHttpError,
+  useActivityDetailQuery,
+  useActivityProgressQuery,
+  useActivityStatisticsQuery,
+} from '@features/lesson';
 import { ReportSummary } from './ReportSummary';
 import { ReportDetailTabBar } from './ReportDetailTabBar';
 import { StudentTab } from './StudentTab';
 import { PageTab } from './PageTab';
+
+const EMPTY_ACTIVITY_ITEMS: ActivityItem[] = [];
 
 interface ReportDetailProps {
   activityId: string;
@@ -48,11 +57,39 @@ const BackIcon = styled(ChevronLeft)`
   height: 16px;
 `;
 
+const LoadingBox = styled.div`
+  display: flex;
+  justify-content: center;
+  padding: 64px 0;
+`;
+
+const ErrorBox = styled.div`
+  margin-top: ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => theme.spacing.lg};
+  border: 1px dashed ${({ theme }) => theme.colors.gray[300]};
+  border-radius: ${({ theme }) => theme.radius.xl};
+  background: ${({ theme }) => theme.colors.gray[50]};
+  color: ${({ theme }) => theme.colors.error.main};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  text-align: center;
+`;
+
+const detailErrorMessage = (error: unknown): string => {
+  if (error instanceof LmsHttpError && error.status === 404) {
+    return '활동을 찾을 수 없거나 권한이 없습니다.';
+  }
+  if (error instanceof Error) return error.message;
+  return '활동을 불러오지 못했습니다.';
+};
+
 export const ReportDetail = ({ activityId, activity }: ReportDetailProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [tab, setTab] = useState<ReportDetailTab>('student');
-  const view = getReportDetailView(activityId);
+
+  const detailQuery = useActivityDetailQuery(activityId);
+  const progressQuery = useActivityProgressQuery(activityId);
+  const statisticsQuery = useActivityStatisticsQuery(activityId);
 
   const handleBack = () => {
     navigate(`/lesson/result${location.search}`);
@@ -66,9 +103,34 @@ export const ReportDetail = ({ activityId, activity }: ReportDetailProps) => {
           수업 결과보기로 돌아가기
         </BackButton>
       </BackRow>
-      <ReportSummary activity={activity} activityId={activityId} view={view} />
-      <ReportDetailTabBar tab={tab} onChange={setTab} />
-      {tab === 'slide' ? <PageTab view={view} /> : <StudentTab view={view} />}
+      {detailQuery.isPending ? (
+        <LoadingBox role='status' aria-busy='true'>
+          <Loading size='md' text='불러오는 중...' />
+        </LoadingBox>
+      ) : null}
+      {detailQuery.isError ? (
+        <ErrorBox role='alert'>{detailErrorMessage(detailQuery.error)}</ErrorBox>
+      ) : null}
+      {!detailQuery.isPending && !detailQuery.isError ? (
+        <>
+          <ReportSummary
+            activityId={activityId}
+            fallback={activity}
+            detail={detailQuery.data}
+            progress={progressQuery.data}
+            statistics={statisticsQuery.data}
+          />
+          <ReportDetailTabBar tab={tab} onChange={setTab} />
+          {tab === 'slide' ? (
+            <PageTab view={emptyReportDetail(activityId)} />
+          ) : (
+            <StudentTab
+              activityId={activityId}
+              items={detailQuery.data?.items ?? EMPTY_ACTIVITY_ITEMS}
+            />
+          )}
+        </>
+      ) : null}
     </Root>
   );
 };
