@@ -14,6 +14,13 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useStudentAnalysis, useApiConfig } from '@features/api';
+import { useStudentLearningStatusQuery } from '@features/exam-tracking/api/queries';
+import {
+  COUNSELOR_LABELS,
+  LEVEL_LABELS,
+  MOTIVATION_LABELS,
+  STUDY_TIME_LABELS,
+} from '@features/exam-tracking/api/studentLearningStatusService';
 import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
 import { fetchStudentInfoList } from '@shared/services/dashboardService';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
@@ -467,6 +474,43 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   }, [studentId]);
 
   const selectedRound: 1 | 2 = viewMode === 'round1' ? 1 : 2;
+
+  const learningStatusQuery = useStudentLearningStatusQuery(classId, studentId);
+  const learningStatusRound = learningStatusQuery.data?.rounds.find(
+    (round) => round.ordNo === selectedRound,
+  );
+  const learningStatusItems = [
+    {
+      label: '학업 성취도',
+      value: learningStatusRound?.academicAchievement
+        ? LEVEL_LABELS[learningStatusRound.academicAchievement]
+        : '응답 정보 없음',
+    },
+    {
+      label: '성적 만족도',
+      value: learningStatusRound?.gradeSatisfaction
+        ? LEVEL_LABELS[learningStatusRound.gradeSatisfaction]
+        : '응답 정보 없음',
+    },
+    {
+      label: '학습 동기',
+      value: learningStatusRound?.learningMotivation
+        ? MOTIVATION_LABELS[learningStatusRound.learningMotivation]
+        : '응답 정보 없음',
+    },
+    {
+      label: '혼자 공부 시간',
+      value: learningStatusRound?.selfStudyTime
+        ? STUDY_TIME_LABELS[learningStatusRound.selfStudyTime]
+        : '응답 정보 없음',
+    },
+    {
+      label: '학습 고민 상담',
+      value: learningStatusRound?.learningCounselor
+        ? COUNSELOR_LABELS[learningStatusRound.learningCounselor]
+        : '응답 정보 없음',
+    },
+  ];
 
   const [isPdfDownloading, setIsPdfDownloading] = useState(false);
   const [pdfError, setPdfError] = useState(false);
@@ -944,20 +988,12 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                   <SurveyBadge>설문 응답</SurveyBadge>
                 </SectionTitleRow>
                 <LearningStatusGrid>
-                  {[
-                    '학업 성취도',
-                    '성적 만족도',
-                    '학습 동기',
-                    '혼자 공부 시간',
-                    '학습 고민 상담',
-                  ].map((label) => (
+                  {learningStatusItems.map(({ label, value }) => (
                     <LearningStatusItem key={label}>
                       <p style={{ margin: '0 0 0.5rem', color: '#6B7280', fontSize: '0.75rem' }}>
                         {label}
                       </p>
-                      <strong style={{ fontSize: '0.875rem', color: '#374151' }}>
-                        응답 정보 없음
-                      </strong>
+                      <strong style={{ fontSize: '0.875rem', color: '#374151' }}>{value}</strong>
                     </LearningStatusItem>
                   ))}
                 </LearningStatusGrid>
