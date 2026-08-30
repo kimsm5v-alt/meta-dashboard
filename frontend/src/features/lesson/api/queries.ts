@@ -27,7 +27,10 @@ import {
   getActivityProgress,
   getActivityStatistics,
   getTeacherParticipationResult,
+  getMyActivities,
+  getParticipationResult,
   LmsHttpError,
+  patchParticipationGrading,
   startParticipation,
 } from './lmsActivityService';
 import type {
@@ -38,7 +41,9 @@ import type {
   ActivityParticipationRow,
   ActivityProgress,
   ActivityStatistics,
+  LmsErrata,
   ParticipationResult,
+  MyActivity,
 } from './lmsActivityService';
 // import { CMS_BRAND_ID } from '../model/constants';
 import type { LibFilters, SortKey } from '../model/types';
@@ -377,6 +382,36 @@ export function useTeacherParticipationQuery(
   });
 }
 
+export type PatchParticipationGradingInput = {
+  activityId: string;
+  participationId: string;
+  activityItemId: string;
+  errata: LmsErrata;
+  /** 사용자 행위(채점 버튼 클릭) 1회당 1개. 재시도 시 동일 키 유지 */
+  idempotencyKey: string;
+};
+
+export function usePatchParticipationGradingMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PatchParticipationGradingInput) =>
+      patchParticipationGrading(
+        input.activityId,
+        input.participationId,
+        [{ activityItemId: input.activityItemId, errata: input.errata }],
+        input.idempotencyKey,
+      ),
+    onSuccess: (_data, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: lessonKeys.activityParticipation(input.activityId, input.participationId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: lessonKeys.activityStatistics(input.activityId),
+      });
+    },
+  });
+}
+
 /** SUBMITTED 학생만 단건 결과를 병렬 조회. 미제출·미완료 id는 넘기지 말 것. */
 export function useTeacherParticipationsMapQuery(
   activityId: string | undefined,
@@ -447,4 +482,27 @@ export function useCmsArticleMapQuery(articleIds: string[]) {
     map,
     isPending: unique.length > 0 && results.some((result) => result.isPending),
   };
+}
+
+/** GET /api/v1/my-activities — 학생 수업 결과보기 목록 */
+export function useMyActivitiesQuery() {
+  return useQuery<MyActivity[]>({
+    queryKey: lessonKeys.myActivities(),
+    queryFn: ({ signal }) => getMyActivities(signal),
+  });
+}
+
+/** GET /api/v1/participations/{participationId}/result — 학생 본인 결과 */
+export function useParticipationResultQuery(participationId: string | undefined) {
+  return useQuery<ParticipationResult>({
+    queryKey: lessonKeys.participationResult(participationId ?? ''),
+    queryFn: ({ signal }) => getParticipationResult(participationId!, signal),
+    enabled: Boolean(participationId),
+    retry: (failureCount, error) => {
+      if (error instanceof LmsHttpError && (error.status === 403 || error.status === 404)) {
+        return false;
+      }
+      return failureCount < 1;
+    },
+  });
 }

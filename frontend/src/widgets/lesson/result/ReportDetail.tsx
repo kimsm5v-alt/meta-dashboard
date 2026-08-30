@@ -124,7 +124,12 @@ export const ReportDetail = ({ activityId, classId, activity }: ReportDetailProp
           />
           <ReportDetailTabBar tab={tab} onChange={setTab} />
           {tab === 'slide' ? (
-            <PageTab activityId={activityId} classId={classId} />
+            <PageTab
+              activityId={activityId}
+              classId={classId}
+              activityTitle={detailQuery.data?.title ?? ''}
+              progress={progressQuery.data}
+            />
           ) : detailQuery.data ? (
             <StudentTab
               activityId={activityId}
@@ -133,6 +138,7 @@ export const ReportDetail = ({ activityId, classId, activity }: ReportDetailProp
               cmsSet={cmsSetQuery.data}
               cmsSetPending={Boolean(detailQuery.data.lcmsSetId) && cmsSetQuery.isPending}
               cmsSetError={cmsSetQuery.error}
+              progress={progressQuery.data}
             />
           ) : null}
         </>

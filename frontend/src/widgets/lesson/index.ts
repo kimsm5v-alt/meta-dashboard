@@ -14,5 +14,4 @@ export {
   StudentLessonBanner,
   StudentReportDashboard,
   StudentDetailReport,
-  StudentResultStatusBadge,
 } from './student-result';

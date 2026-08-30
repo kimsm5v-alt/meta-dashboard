@@ -5,15 +5,15 @@ import { Loading } from '@shared/ui/Loading';
 import type {
   ActivityDetail,
   ActivityParticipationRow,
+  ActivityProgress,
   AssigneeNameInfo,
   CmsSetDetail,
+  ReportGridItem,
 } from '@features/lesson';
 import {
-  articleTypeToNature,
-  cellFromParticipationItem,
   filterParticipantsByClass,
-  participationItemByArticleId,
-  resolveCmsFileUrl,
+  mapStudentTabGridRows,
+  submittedReportGridItems,
   summarizeParticipation,
   useActivityParticipationsQuery,
   useAssigneeDirectoryQuery,
@@ -22,8 +22,8 @@ import {
   useTeacherParticipationQuery,
 } from '@features/lesson';
 import { ResponseGrid } from './ResponseGrid';
-import type { GridItem } from './ResponseGrid';
 import { ParticipationStatusBadge } from './ReportBadge';
+import { ResponseDetailOverlay } from './ResponseDetailOverlay';
 
 interface StudentTabProps {
   activityId: string;
@@ -32,6 +32,7 @@ interface StudentTabProps {
   cmsSet?: CmsSetDetail;
   cmsSetPending: boolean;
   cmsSetError: Error | null;
+  progress?: ActivityProgress;
 }
 
 const Empty = styled.div`
@@ -254,6 +255,7 @@ export const StudentTab = ({
   cmsSet,
   cmsSetPending,
   cmsSetError,
+  progress,
 }: StudentTabProps) => {
   const participationsQuery = useActivityParticipationsQuery(activityId);
   const classMembers = useClassMemberSubsQuery(classId);
@@ -288,6 +290,7 @@ export const StudentTab = ({
   }, [rows, directory]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [overlayIndex, setOverlayIndex] = useState<number | null>(null);
   const curId = students.some((s) => s.participant === selectedId)
     ? (selectedId as string)
     : (students[0]?.participant ?? '');
@@ -310,24 +313,34 @@ export const StudentTab = ({
   );
   const { map: articleMap } = useCmsArticleMapQuery(articleIds);
 
-  const gridItems: GridItem[] = slides.map((slide) => {
-    const articleId = slide.article?.articleId ?? slide.slideId;
-    const article = articleMap.get(articleId);
-    const nature = articleTypeToNature(article?.articleType);
-    const name = article?.name?.trim() || articleId;
-    const pItem = participation
-      ? participationItemByArticleId(participation, articleId)
-      : undefined;
-    return {
-      key: slide.slideId,
-      title: name,
-      nature,
-      mode: 'plain',
-      cell: cellFromParticipationItem(pItem),
-      capture: resolveCmsFileUrl(article?.thumbnail),
-      showNature: Boolean(nature),
-    };
-  });
+  const gridItems = useMemo(
+    () =>
+      mapStudentTabGridRows(
+        slides.map((slide) => ({
+          slideId: slide.slideId,
+          order: slide.order,
+          articleId: slide.article?.articleId ?? slide.slideId,
+        })),
+        articleMap,
+        participation,
+        cur
+          ? {
+              participant: cur.participant,
+              name: cur.name,
+              status: cur.status,
+              participationId: cur.participationId,
+            }
+          : undefined,
+      ),
+    [slides, articleMap, participation, cur],
+  );
+
+  const submittedItems = useMemo(() => submittedReportGridItems(gridItems), [gridItems]);
+
+  const handleGridItemClick = (item: ReportGridItem) => {
+    const idx = submittedItems.findIndex((s) => s.key === item.key);
+    if (idx >= 0) setOverlayIndex(idx);
+  };
 
   if (participationsQuery.isPending || classMembers.isPending) {
     return (
@@ -421,10 +434,22 @@ export const StudentTab = ({
                 : '세트 정보를 불러오지 못했습니다.'}
             </ErrorText>
           ) : (
-            <ResponseGrid items={gridItems} showSummary={false} />
+            <ResponseGrid items={gridItems} showSummary={false} onItemClick={handleGridItemClick} />
           )}
         </Card>
       </DetailCol>
+      {overlayIndex != null && cur ? (
+        <ResponseDetailOverlay
+          axis='student'
+          activityId={activityId}
+          activityTitle={detail.title}
+          siblings={submittedItems}
+          initialIndex={overlayIndex}
+          onClose={() => setOverlayIndex(null)}
+          progress={progress}
+          fixedStudentName={cur.name}
+        />
+      ) : null}
     </Layout>
   );
 };

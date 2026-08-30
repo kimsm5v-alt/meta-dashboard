@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { Clock } from 'lucide-react';
 import { Loading } from '@shared/ui/Loading';
+import type { ActivityProgress } from '@features/lesson';
 import {
   mapPageTabGridRows,
   mapPageTabStudents,
@@ -20,6 +21,8 @@ import { PageContent } from './PageContent';
 interface PageTabProps {
   activityId: string;
   classId?: string;
+  activityTitle: string;
+  progress?: ActivityProgress;
 }
 
 const Empty = styled.div`
@@ -72,7 +75,7 @@ const ErrorText = styled.div`
   text-align: center;
 `;
 
-export const PageTab = ({ activityId, classId }: PageTabProps) => {
+export const PageTab = ({ activityId, classId, activityTitle, progress }: PageTabProps) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const statsQuery = useActivityStatisticsQuery(activityId);
   const classMembers = useClassMemberSubsQuery(classId);
@@ -147,7 +150,14 @@ export const PageTab = ({ activityId, classId }: PageTabProps) => {
         selectedIndex={safeIndex}
         onSelect={setSelectedIndex}
       />
-      <PageContent page={selectedPage} assignedCount={assignedCount} gridRows={gridRows} />
+      <PageContent
+        activityId={activityId}
+        activityTitle={activityTitle}
+        page={selectedPage}
+        assignedCount={assignedCount}
+        gridRows={gridRows}
+        progress={progress}
+      />
     </Layout>
   );
 };

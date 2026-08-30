@@ -2,12 +2,12 @@ import styled from '@emotion/styled';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Calendar, ChevronRight } from 'lucide-react';
-import {
-  getStudentReportList,
-  hasStudentReportDetail,
-  type StudentReportListItem,
-} from '@features/lesson';
-import { StudentResultStatusBadge } from './studentResultBadges';
+import { fmtDotDate, type MyActivity } from '@features/lesson';
+import { ParticipationStatusBadge } from '../result/ReportBadge';
+
+interface StudentReportDashboardProps {
+  items: MyActivity[];
+}
 
 const Heading = styled.h2`
   margin: 0 0 12px;
@@ -92,15 +92,6 @@ const DueIcon = styled(Calendar)`
   color: ${({ theme }) => theme.colors.gray[400]};
 `;
 
-const Rate = styled.span`
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ theme }) => theme.colors.success.dark};
-`;
-
-const NoRate = styled.span`
-  color: ${({ theme }) => theme.colors.gray[400]};
-`;
-
 const Chevron = styled(ChevronRight)`
   flex: none;
   width: 16px;
@@ -108,14 +99,16 @@ const Chevron = styled(ChevronRight)`
   color: ${({ theme }) => theme.colors.gray[300]};
 `;
 
-const handleRow = (item: StudentReportListItem, open: (id: string) => void) => {
-  if (hasStudentReportDetail(item.id)) open(item.id);
+const canOpenDetail = (item: MyActivity): boolean =>
+  item.status === 'SUBMITTED' && Boolean(item.participationId);
+
+const handleRow = (item: MyActivity, open: (id: string) => void) => {
+  if (canOpenDetail(item)) open(item.activityId);
   else toast.message('아직 제출하지 않은 활동이에요.');
 };
 
-export const StudentReportDashboard = () => {
+export const StudentReportDashboard = ({ items }: StudentReportDashboardProps) => {
   const navigate = useNavigate();
-  const items = getStudentReportList();
 
   const open = (id: string) => {
     navigate(`/student/lesson/result/${id}`);
@@ -126,11 +119,10 @@ export const StudentReportDashboard = () => {
       <Heading>나의 수업 결과</Heading>
       <List>
         {items.map((item) => {
-          const hasDetail = hasStudentReportDetail(item.id);
-          const showRate = item.status === '완료' && typeof item.correctRate === 'number';
+          const hasDetail = canOpenDetail(item);
           return (
             <Row
-              key={item.id}
+              key={item.activityId}
               type='button'
               $hasDetail={hasDetail}
               onClick={() => handleRow(item, open)}
@@ -138,17 +130,18 @@ export const StudentReportDashboard = () => {
               <Body>
                 <TitleRow>
                   <Title>{item.title}</Title>
-                  <StudentResultStatusBadge status={item.status} />
+                  <ParticipationStatusBadge status={item.status} />
                 </TitleRow>
                 <Meta>
-                  <Due>
-                    <DueIcon />
-                    마감 {item.due}
-                  </Due>
-                  {showRate ? <Rate>정답률 {item.correctRate}%</Rate> : null}
-                  {item.status === '완료' && item.correctRate == null ? (
-                    <NoRate>정답 없는 활동</NoRate>
+                  {item.closeAt ? (
+                    <Due>
+                      <DueIcon />
+                      마감 {fmtDotDate(item.closeAt)}
+                    </Due>
                   ) : null}
+                  {/* <Rate>정답률 {item.correctRate}%</Rate>
+                  {item.status === '완료' && item.correctRate == null ? (
+                    <NoRate>정답 없는 활동</NoRate>) : null} */}
                 </Meta>
               </Body>
               {hasDetail ? <Chevron /> : null}

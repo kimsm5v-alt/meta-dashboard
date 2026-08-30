@@ -1,14 +1,19 @@
+import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
-import type { PageTabGridRow, PageTabListItem } from '@features/lesson';
+import type { ActivityProgress, PageTabListItem, ReportGridItem } from '@features/lesson';
+import { submittedReportGridItems } from '@features/lesson';
 import { NatureBadge } from './ReportBadge';
 import { SummaryStrip } from './SummaryStrip';
 import { ResponseGrid } from './ResponseGrid';
-import type { GridItem } from './ResponseGrid';
+import { ResponseDetailOverlay } from './ResponseDetailOverlay';
 
 interface PageContentProps {
+  activityId: string;
+  activityTitle: string;
   page: PageTabListItem;
   assignedCount: number;
-  gridRows: PageTabGridRow[];
+  gridRows: ReportGridItem[];
+  progress?: ActivityProgress;
 }
 
 const Shell = styled.div`
@@ -60,16 +65,22 @@ const Count = styled.span`
   color: ${({ theme }) => theme.colors.gray[400]};
 `;
 
-export const PageContent = ({ page, assignedCount, gridRows }: PageContentProps) => {
-  const items: GridItem[] = gridRows.map((row) => ({
-    key: row.key,
-    title: row.title,
-    nature: row.nature,
-    mode: 'plain',
-    cell: row.cell,
-    capture: row.capture,
-    showNature: false,
-  }));
+export const PageContent = ({
+  activityId,
+  activityTitle,
+  page,
+  assignedCount,
+  gridRows,
+  progress,
+}: PageContentProps) => {
+  const [overlayIndex, setOverlayIndex] = useState<number | null>(null);
+
+  const submitted = useMemo(() => submittedReportGridItems(gridRows), [gridRows]);
+
+  const handleItemClick = (item: ReportGridItem) => {
+    const idx = submitted.findIndex((s) => s.key === item.key);
+    if (idx >= 0) setOverlayIndex(idx);
+  };
 
   return (
     <Shell>
@@ -83,8 +94,20 @@ export const PageContent = ({ page, assignedCount, gridRows }: PageContentProps)
         <SectionTitle>
           학생별 응답 <Count>({assignedCount})</Count>
         </SectionTitle>
-        <ResponseGrid items={items} showSummary />
+        <ResponseGrid items={gridRows} showSummary onItemClick={handleItemClick} />
       </div>
+      {overlayIndex != null ? (
+        <ResponseDetailOverlay
+          axis='page'
+          activityId={activityId}
+          activityTitle={activityTitle}
+          siblings={submitted}
+          initialIndex={overlayIndex}
+          onClose={() => setOverlayIndex(null)}
+          progress={progress}
+          fixedPage={{ seq: page.seq, title: page.title, nature: page.nature }}
+        />
+      ) : null}
     </Shell>
   );
 };

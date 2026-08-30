@@ -1,6 +1,7 @@
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
-import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import type { MyActivity } from '@features/lesson';
 
 const pulse = keyframes`
   0%, 100% { opacity: 1; }
@@ -38,8 +39,11 @@ const Title = styled.div`
 `;
 
 const Sub = styled.div`
+  overflow: hidden;
   color: ${({ theme }) => theme.colors.gray[600]};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
 const JoinButton = styled.button`
@@ -59,9 +63,15 @@ const JoinButton = styled.button`
   }
 `;
 
-export const StudentLessonBanner = () => {
+interface StudentLessonBannerProps {
+  activity: MyActivity;
+}
+
+export const StudentLessonBanner = ({ activity }: StudentLessonBannerProps) => {
+  const navigate = useNavigate();
+
   const handleJoin = () => {
-    toast.message('활동 뷰어 접속 (QR/링크 · SSO 자동식별)');
+    navigate(`/student/lesson/${encodeURIComponent(activity.accessKey)}`);
   };
 
   return (
@@ -69,7 +79,7 @@ export const StudentLessonBanner = () => {
       <Dot />
       <Copy>
         <Title>수업이 진행 중이에요</Title>
-        <Sub>감정 체크인 활동 · 김민지 선생님</Sub>
+        <Sub>{activity.title}</Sub>
       </Copy>
       <JoinButton type='button' onClick={handleJoin}>
         참여하기

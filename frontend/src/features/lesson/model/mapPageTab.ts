@@ -7,6 +7,7 @@ import type {
   ParticipationStatus,
 } from '../api/lmsActivityService';
 import type { ArticleNature, CellInfo } from './reportDetailTypes';
+import type { ReportGridItem } from './reportGridTypes';
 import type { AssigneeNameInfo } from './resolveAssigneeNamesFromGroups';
 import {
   articleTypeToNature,
@@ -36,14 +37,6 @@ export type PageTabStudent = {
   memberNo?: number;
   status: ParticipationStatus;
   participationId?: string;
-};
-
-export type PageTabGridRow = {
-  key: string;
-  title: string;
-  nature?: ArticleNature;
-  cell: CellInfo;
-  capture?: string;
 };
 
 export function formatParticipationAnswer(answer: unknown): string {
@@ -110,7 +103,8 @@ export function mapPageTabStudents(
 }
 
 export function cellFromPageParticipationItem(item: ParticipationResultItem | undefined): CellInfo {
-  if (!item || item.errata == null) {
+  const answered = item != null && (item.answer !== undefined || item.errata != null);
+  if (!answered || !item) {
     return {
       submitted: false,
       value: '미제출',
@@ -118,20 +112,29 @@ export function cellFromPageParticipationItem(item: ParticipationResultItem | un
       manual: false,
     };
   }
+  const value = formatParticipationAnswer(item.answer) || '제출함';
   if (item.errata === 'UNGRADABLE') {
     return {
       submitted: true,
-      value: formatParticipationAnswer(item.answer) || '제출함',
+      value,
       gradable: false,
       manual: true,
     };
   }
+  if (item.errata != null) {
+    return {
+      submitted: true,
+      value,
+      gradable: true,
+      errata: lmsErrataToCd(item.errata),
+      manual: false,
+    };
+  }
   return {
     submitted: true,
-    value: formatParticipationAnswer(item.answer) || '제출함',
-    gradable: true,
-    errata: lmsErrataToCd(item.errata),
-    manual: false,
+    value,
+    gradable: false,
+    manual: true,
   };
 }
 
@@ -150,7 +153,7 @@ export function mapPageTabGridRows(
   students: PageTabStudent[],
   page: PageTabListItem,
   results: Map<string, ParticipationResult>,
-): PageTabGridRow[] {
+): ReportGridItem[] {
   return students.map((student) => {
     const canUseResult = student.status === 'SUBMITTED' && Boolean(student.participationId);
     const result =
@@ -160,8 +163,63 @@ export function mapPageTabGridRows(
       key: student.participant,
       title: student.name,
       nature: page.nature,
+      mode: 'plain',
       cell: cellFromPageParticipationItem(item),
       capture: page.thumbnail,
+      showNature: false,
+      participationId: student.participationId,
+      activityItemId: item?.activityItemId ?? page.activityItemId,
+      lcmsArticleId: page.lcmsArticleId,
+      participantSub: student.participant,
+      studentName: student.name,
+      pageSeq: page.seq,
+      pageTitle: page.title,
+      gradedBySource: item?.gradedBySource,
+      timeSpentMs: item?.timeSpentMs,
+      submittedAt: result?.submittedAt,
+      participationStatus: student.status,
+    };
+  });
+}
+
+export type StudentTabSlide = {
+  slideId: string;
+  order: number;
+  articleId: string;
+};
+
+export function mapStudentTabGridRows(
+  slides: StudentTabSlide[],
+  articleMap: Map<string, CmsArticleInfo>,
+  participation: ParticipationResult | undefined,
+  student: PageTabStudent | undefined,
+): ReportGridItem[] {
+  return slides.map((slide) => {
+    const article = articleMap.get(slide.articleId);
+    const nature = articleTypeToNature(article?.articleType);
+    const name = article?.name?.trim() || slide.articleId;
+    const pItem = participation
+      ? participationItemByArticleId(participation, slide.articleId)
+      : undefined;
+    return {
+      key: slide.slideId,
+      title: name,
+      nature,
+      mode: 'plain',
+      cell: cellFromPageParticipationItem(pItem),
+      capture: resolveCmsFileUrl(article?.thumbnail),
+      showNature: Boolean(nature),
+      participationId: student?.participationId,
+      activityItemId: pItem?.activityItemId,
+      lcmsArticleId: slide.articleId,
+      participantSub: student?.participant,
+      studentName: student?.name,
+      pageSeq: slide.order,
+      pageTitle: name,
+      gradedBySource: pItem?.gradedBySource,
+      timeSpentMs: pItem?.timeSpentMs,
+      submittedAt: participation?.submittedAt,
+      participationStatus: student?.status,
     };
   });
 }

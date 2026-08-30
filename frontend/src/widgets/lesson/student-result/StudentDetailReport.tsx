@@ -1,10 +1,25 @@
+import { useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ChevronLeft, Image as ImageIcon, Play } from 'lucide-react';
-import { fmtDuration, getStudentReportDetail, pct } from '@features/lesson';
-import type { StudentReportArticle, StudentReportDetailView } from '@features/lesson';
-import { ErrataBadge, NatureBadge } from '../result/ReportBadge';
+import {
+  articleTypeToNature,
+  fmtDateTime,
+  fmtDurationMs,
+  formatParticipationAnswer,
+  LessonActivityReportEmbed,
+  lmsErrataToCd,
+  LmsHttpError,
+  pct,
+  useCmsArticleMapQuery,
+  useMyActivitiesQuery,
+  useParticipationResultQuery,
+} from '@features/lesson';
+import type { ArticleNature, ParticipationResult, ParticipationResultItem } from '@features/lesson';
+import { ErrataBadge } from '../result/ReportBadge';
+import { ResponseNatureBadge } from '../result/ResponseGridSummary';
+import { PageLoading } from '@shared/ui/Loading';
 
 interface StudentDetailReportProps {
   activityId: string;
@@ -13,7 +28,6 @@ interface StudentDetailReportProps {
 interface SummaryTile {
   lbl: string;
   val: string;
-  sub?: string;
 }
 
 const BackButton = styled.button`
@@ -78,11 +92,6 @@ const TileValue = styled.div`
   color: ${({ theme }) => theme.colors.gray[900]};
   font-size: ${({ theme }) => theme.typography.fontSize.lg};
   font-weight: ${({ theme }) => theme.typography.fontWeight.extraBold};
-`;
-
-const TileSub = styled.div`
-  color: ${({ theme }) => theme.colors.gray[500]};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
 `;
 
 const PagesCard = styled(Card)`
@@ -165,11 +174,6 @@ const MyAnswer = styled.b`
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 `;
 
-const CorrectAnswer = styled.b`
-  color: ${({ theme }) => theme.colors.info.dark};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-`;
-
 const Actions = styled.div`
   display: flex;
   flex: none;
@@ -190,21 +194,21 @@ const NeutralMark = styled.span`
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 `;
 
-const ViewButton = styled.button<{ $on: boolean }>`
+const ViewButton = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 4px 6px;
-  border: 1px solid ${({ theme, $on }) => ($on ? theme.colors.gray[200] : theme.colors.gray[100])};
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
   border-radius: ${({ theme }) => theme.radius.sm};
   background: transparent;
-  color: ${({ theme, $on }) => ($on ? theme.colors.gray[600] : theme.colors.gray[300])};
+  color: ${({ theme }) => theme.colors.gray[600]};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  cursor: ${({ $on }) => ($on ? 'pointer' : 'not-allowed')};
+  cursor: pointer;
 
   &:hover {
-    background: ${({ theme, $on }) => ($on ? theme.colors.gray[50] : 'transparent')};
+    background: ${({ theme }) => theme.colors.gray[50]};
   }
 `;
 
@@ -213,40 +217,85 @@ const PlayIcon = styled(Play)`
   height: 12px;
 `;
 
-const buildTiles = (d: StudentReportDetailView): SummaryTile[] => {
-  const graded = d.summary.gradedN > 0;
+const buildTiles = (result: ParticipationResult): SummaryTile[] => {
+  const items = [...result.items].sort((a, b) => a.seq - b.seq);
+  const totalPages = items.length;
+  const gradedItems = items.filter((item) => item.errata != null);
+  const gradedPages = gradedItems.length;
+  const correctN = items.filter((item) => item.errata === 'CORRECT').length;
+  const totalMs = items.reduce((sum, item) => sum + (item.timeSpentMs ?? 0), 0);
+
   const tiles: SummaryTile[] = [
-    { lbl: '활동 페이지', val: `${d.summary.pages}/${d.summary.totalPages} p` },
+    { lbl: '활동 페이지', val: `${gradedPages}/${totalPages} p` },
+    {
+      lbl: '정답률',
+      val: gradedPages > 0 ? `${pct(correctN, gradedPages)}%` : '—',
+    },
+    { lbl: '맞춘 문제', val: String(correctN) },
+    { lbl: '활동 시간', val: fmtDurationMs(totalMs) },
+    { lbl: '제출', val: fmtDateTime(result.submittedAt) },
   ];
-  if (graded) {
-    tiles.push({
-      lbl: '정답률 / 맞춘 문제',
-      val: `${pct(d.summary.correctN, d.summary.gradedN)}%`,
-      sub: `${d.summary.correctN}/${d.summary.gradedN}개`,
-    });
-  }
-  tiles.push({
-    lbl: '활동 시간 / 제출',
-    val: fmtDuration(d.summary.durationSec),
-    sub: d.summary.submittedAt ?? '미제출',
-  });
+
   return tiles;
 };
 
-const answerText = (article: StudentReportArticle, submitAnswer: string | undefined) => {
-  if (article.nature === '개념') return '조회함';
-  return submitAnswer || '제출함';
+const answerLine = (nature: ArticleNature | undefined, item: ParticipationResultItem) => {
+  const answer = formatParticipationAnswer(item.answer);
+  if (nature === '개념') {
+    return answer ? '조회함' : '—';
+  }
+  if (nature === '문항') {
+    return (
+      <>
+        내 답 <MyAnswer>{answer || '—'}</MyAnswer>
+      </>
+    );
+  }
+  return answer || '—';
 };
 
 export const StudentDetailReport = ({ activityId }: StudentDetailReportProps) => {
   const navigate = useNavigate();
-  const detail = getStudentReportDetail(activityId);
+  const [showEmbed, setShowEmbed] = useState(false);
+  const activitiesQuery = useMyActivitiesQuery();
+  const activity = activitiesQuery.data?.find((item) => item.activityId === activityId);
+  const participationId = activity?.status === 'SUBMITTED' ? activity.participationId : undefined;
+  const resultQuery = useParticipationResultQuery(participationId);
+
+  const sortedItems = useMemo(
+    () => [...(resultQuery.data?.items ?? [])].sort((a, b) => a.seq - b.seq),
+    [resultQuery.data?.items],
+  );
+
+  const articleIds = useMemo(() => sortedItems.map((item) => item.lcmsArticleId), [sortedItems]);
+  const { map: articleMap, isPending: articlesPending } = useCmsArticleMapQuery(articleIds);
 
   const handleBack = () => {
     navigate('/student/lesson/result');
   };
 
-  if (!detail) {
+  useEffect(() => {
+    if (!resultQuery.isError) return;
+    const err = resultQuery.error;
+    if (err instanceof LmsHttpError && (err.status === 403 || err.status === 404)) {
+      toast.message('결과를 불러올 수 없어요.');
+      navigate('/student/lesson/result');
+    }
+  }, [resultQuery.isError, resultQuery.error, navigate]);
+
+  if (activitiesQuery.isPending) {
+    return (
+      <div>
+        <BackButton type='button' onClick={handleBack}>
+          <BackIcon />
+          나의 수업 결과로 돌아가기
+        </BackButton>
+        <PageLoading text='활동 정보를 불러오는 중...' />
+      </div>
+    );
+  }
+
+  if (!activity) {
     return (
       <div>
         <BackButton type='button' onClick={handleBack}>
@@ -257,7 +306,30 @@ export const StudentDetailReport = ({ activityId }: StudentDetailReportProps) =>
     );
   }
 
-  const tiles = buildTiles(detail);
+  if (resultQuery.isPending || articlesPending) {
+    return (
+      <div>
+        <BackButton type='button' onClick={handleBack}>
+          <BackIcon />
+          나의 수업 결과로 돌아가기
+        </BackButton>
+        <PageLoading text='결과를 불러오는 중...' />
+      </div>
+    );
+  }
+
+  if (!resultQuery.data) {
+    return (
+      <div>
+        <BackButton type='button' onClick={handleBack}>
+          <BackIcon />
+          나의 수업 결과로 돌아가기
+        </BackButton>
+      </div>
+    );
+  }
+
+  const tiles = buildTiles(resultQuery.data);
 
   return (
     <div>
@@ -267,13 +339,12 @@ export const StudentDetailReport = ({ activityId }: StudentDetailReportProps) =>
       </BackButton>
 
       <Card>
-        <Title>{detail.title}</Title>
+        <Title>{activity.title}</Title>
         <TileGrid $cols={tiles.length}>
           {tiles.map((t) => (
             <Tile key={t.lbl}>
               <TileLabel>{t.lbl}</TileLabel>
               <TileValue>{t.val}</TileValue>
-              {t.sub ? <TileSub>{t.sub}</TileSub> : null}
             </Tile>
           ))}
         </TileGrid>
@@ -282,61 +353,47 @@ export const StudentDetailReport = ({ activityId }: StudentDetailReportProps) =>
       <PagesCard>
         <PagesHeading>페이지별 내 활동</PagesHeading>
         <PageList>
-          {detail.articles.map((article) => {
-            const resp = detail.responses.find((r) => r.articleId === article.id);
-            const isQuestion = article.nature === '문항';
-            const showErrata = isQuestion && article.correctAnswer != null && resp != null;
+          {sortedItems.map((item, index) => {
+            const cms = articleMap.get(item.lcmsArticleId);
+            const nature = articleTypeToNature(cms?.articleType);
+            const pageTitle = activity.title;
+            const errataCd = item.errata != null ? lmsErrataToCd(item.errata) : undefined;
             return (
-              <PageRow key={article.id}>
+              <PageRow key={item.activityItemId}>
                 <Thumb>
                   <ThumbIcon />
                 </Thumb>
                 <PageBody>
                   <PageTitleRow>
-                    <Order>{article.order}</Order>
-                    <NatureBadge nature={article.nature} />
-                    <PageTitle>{article.title}</PageTitle>
+                    <Order>{index + 1}</Order>
+                    <ResponseNatureBadge nature={nature} />
+                    <PageTitle>{pageTitle}</PageTitle>
                   </PageTitleRow>
-                  {isQuestion && resp ? (
-                    <AnswerLine>
-                      내 답 <MyAnswer>{resp.submitAnswer || '—'}</MyAnswer>
-                      {article.correctAnswer ? (
-                        <>
-                          {' · '}정답 <CorrectAnswer>{article.correctAnswer}</CorrectAnswer>
-                        </>
-                      ) : null}
-                    </AnswerLine>
-                  ) : (
-                    <AnswerLine>{answerText(article, resp?.submitAnswer)}</AnswerLine>
-                  )}
+                  <AnswerLine>{answerLine(nature, item)}</AnswerLine>
                 </PageBody>
                 <Actions>
-                  {showErrata && resp ? (
-                    <ErrataBadge errata={resp.errata} />
+                  {errataCd != null ? (
+                    <ErrataBadge errata={errataCd} />
                   ) : (
                     <NeutralMark title='정오 대상 아님'>–</NeutralMark>
                   )}
-                  {resp ? (
-                    <ViewButton
-                      type='button'
-                      $on
-                      onClick={() => toast.message(`${article.title} 캡처 보기 (목업)`)}
-                    >
-                      <PlayIcon />
-                      보기
-                    </ViewButton>
-                  ) : (
-                    <ViewButton type='button' $on={false} disabled>
-                      <PlayIcon />
-                      보기
-                    </ViewButton>
-                  )}
+                  <ViewButton type='button' onClick={() => setShowEmbed(true)}>
+                    <PlayIcon />
+                    보기
+                  </ViewButton>
                 </Actions>
               </PageRow>
             );
           })}
         </PageList>
       </PagesCard>
+
+      {showEmbed ? (
+        <LessonActivityReportEmbed
+          activityId={activityId}
+          onExitRequested={() => setShowEmbed(false)}
+        />
+      ) : null}
     </div>
   );
 };

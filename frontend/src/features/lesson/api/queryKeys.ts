@@ -25,4 +25,7 @@ export const lessonKeys = {
     [...lessonKeys.activities(), 'progress-bundle', classId] as const,
   thisWeekCount: (classId: string) => [...lessonKeys.all, 'this-week-count', classId] as const,
   runningCount: (classId: string) => [...lessonKeys.all, 'running-count', classId] as const,
+  myActivities: () => [...lessonKeys.all, 'my-activities'] as const,
+  participationResult: (participationId: string) =>
+    [...lessonKeys.all, 'participation-result', participationId] as const,
 };
