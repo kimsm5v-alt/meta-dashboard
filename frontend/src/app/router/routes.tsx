@@ -45,7 +45,7 @@ import {
   LessonLibraryPage,
   LessonMyPage,
   LessonResultPage,
-  LessonReportDetailPage,
+  LessonResultDetailPage,
   LessonDeployPage,
   LessonEditorPage,
   LessonViewerPage,
@@ -287,7 +287,7 @@ export const AppRoutes = () => (
             <Route path='/lesson/library' element={<LessonLibraryPage />} />
             <Route path='/lesson/my' element={<LessonMyPage />} />
             <Route path='/lesson/result' element={<LessonResultPage />} />
-            <Route path='/lesson/result/:activityId' element={<LessonReportDetailPage />} />
+            <Route path='/lesson/result/:activityId' element={<LessonResultDetailPage />} />
 
             <Route path='/ai-assistant' element={<AIRoomPage />} />
           </>

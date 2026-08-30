@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import {
   keepPreviousData,
@@ -43,9 +44,11 @@ import type {
 import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
 import { useAuth } from '@features/auth';
+import { useGroupMembersQuery } from '@features/groups';
 import { resolveAssigneeNamesFromGroups } from '../model/resolveAssigneeNamesFromGroups';
 import type { AssigneeNameInfo } from '../model/resolveAssigneeNamesFromGroups';
 import { classIdLikeOptFilter } from '../model/classIdOptions';
+import { classMemberSubs } from '../model/classMemberSubs';
 
 const CMS_SETS_DEFAULT = {
   pageNo: 0,
@@ -374,6 +377,34 @@ export function useTeacherParticipationQuery(
   });
 }
 
+/** SUBMITTED 학생만 단건 결과를 병렬 조회. 미제출·미완료 id는 넘기지 말 것. */
+export function useTeacherParticipationsMapQuery(
+  activityId: string | undefined,
+  participationIds: string[],
+) {
+  const unique = [...new Set(participationIds.filter((id) => id.length > 0))];
+  const results = useQueries({
+    queries: unique.map((id) => ({
+      queryKey: lessonKeys.activityParticipation(activityId ?? '', id),
+      queryFn: ({ signal }: { signal?: AbortSignal }) =>
+        getTeacherParticipationResult(activityId!, id, signal),
+      enabled: Boolean(activityId) && Boolean(id),
+      retry: retryUnlessNotFound,
+    })),
+  });
+
+  const map = new Map<string, ParticipationResult>();
+  unique.forEach((id, index) => {
+    const data = results[index]?.data;
+    if (data) map.set(id, data);
+  });
+
+  return {
+    map,
+    isPending: unique.length > 0 && results.some((result) => result.isPending),
+  };
+}
+
 export function useAssigneeDirectoryQuery(enabled: boolean) {
   const { user } = useAuth();
   const userId = user?.id;
@@ -382,6 +413,18 @@ export function useAssigneeDirectoryQuery(enabled: boolean) {
     queryFn: () => resolveAssigneeNamesFromGroups(userId!),
     enabled: enabled && Boolean(userId),
   });
+}
+
+/** 사이드바에서 고른 반(classId)의 활성 학생 spUserId */
+export function useClassMemberSubsQuery(classId: string | undefined) {
+  const { user } = useAuth();
+  const query = useGroupMembersQuery(classId || null, user?.id);
+  const subs = useMemo(() => classMemberSubs(query.data), [query.data]);
+  return {
+    subs,
+    isPending: Boolean(classId) && Boolean(user?.id) && query.isPending,
+    isError: query.isError,
+  };
 }
 
 export function useCmsArticleMapQuery(articleIds: string[]) {

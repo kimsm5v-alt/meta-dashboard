@@ -25,7 +25,8 @@
 | **추가계획17** | `ReportCard` 리포트 버튼 → 리포트 상세 페이지 (`ReportDetail` UI) | 구현 완료 (2026-08-26) |
 | **추가계획18** | `LessonReportDetailPage` 리포트 상세 API 연동 | 구현 완료 (2026-08-27) |
 | **추가계획19** | 학생 `StudentLessonResultPage` — prototype `StudentResourcePage` UI/UX 동등 구현 | 구현 완료 (2026-08-26) |
-| **추가계획20** | 수업 반 스코프 · `optFilter`/`options.classId` · 미제출 묶음 조회 · 참여요약 · 학생 점수/상태 | 계획 수립 / 구현 대기 |
+| **추가계획20** | 수업 반 스코프 · `optFilter`/`options.classId` · 미제출 묶음 조회 · 참여요약 · 학생 점수/상태 · PageTab API(§19.12) | 1차·후속·PageTab 구현 완료 |
+| **추가계획21** | `LessonActivityReportEmbed` · `ResponseDetailOverlay` · ResponseGrid 클릭 상세 · 교사 수동 채점 PATCH | 계획 수립 / 구현 대기 |
 | **구조** | `Page → FilterPanel + LessonLibraryContents` (`LessonLibraryHeader` 위젯 제거) | 적용됨 |
 | **ui 레이아웃** | `features/lesson/ui/*.tsx` 평탄 구조 (`FilterPanel/FilterPanel.tsx` 중첩 제거) | 적용됨 |
 | **목록 API** | CMS `GET .../api/sets` (`brandId=18`, `serviceType=131132`) | 추가계획8 스펙 확정 · 필터 매핑 미적용 |
@@ -6514,7 +6515,7 @@ return (
 | `/lesson/result` 반 없음/실패 가드 | library/my 를 반 없이 막기 |
 | `POST /activities` `options.classId` | LMS `options` 스키마를 우리가 해석하게 만들기 (store-and-echo 유지) |
 | 목록 `optFilter` + `withParticipationSummary` | 활동마다 `GET .../progress` N회 |
-| 묶음 조회 미제출 학생 | PageTab API, CaptureOverlay |
+| 묶음 조회 미제출 학생 · PageTab API (§19.12) | CaptureOverlay |
 | 학생 탭 명단을 `GET .../participations` 로 교체 | 학생 결과보기(19) |
 
 LMS 신규 2종(`GET /activities/progress` 묶음, `GET /activities/{id}/participations` 목록)은 회신 문서 기준. FE 구현 시 404면 빈 상태/에러로 두고 가짜 데이터를 만들지 않는다.
@@ -6843,8 +6844,8 @@ features/lesson/model/classIdOptions.ts
 ---
 
 **작성일**: 2026-08-28  
-**갱신**: 2026-08-28 (구현 완료)  
-**상태**: 구현 완료 (2026-08-28)
+**갱신**: 2026-08-30 (후속 §19 · §19.12 PageTab API 구현 완료)  
+**상태**: 1차 구현 완료 (2026-08-28) / 후속 구현 완료 (2026-08-30) / PageTab API 구현 완료 (§19.12)
 
 ---
 
@@ -6861,5 +6862,685 @@ features/lesson/model/classIdOptions.ts
 - ReportCard: `NOT_STARTED` → `시작 전`, 그 외 `참여 started/assigned명`. `assignedCount` 없으면 분모를 0으로 채우지 않음.
 - StudentTab: `GET .../participations` 전원 로드 (`size=100` + hasNext). `GET .../assignees` 및 `useActivityAssigneesQuery` 삭제.
 - FSD: `LessonMyPage` 목록 fetch를 위젯으로 이동. 결과보기 페이지는 `scope.classId`만 전달.
+
+---
+
+## 19. 후속 — 선택 반 학생만 집계 · 미제출 단건 호출 금지 · 페이지별 상세 CMS
+
+> **성격**: 추가계획20 1차 구현 이후 보완.  
+> **준수**: `frontend/AGENTS.md`, `frontend/CLAUDE.md` (FSD Lite, Emotion, React Query)  
+> **반 기준**: §4 반 기본 선택. `scope.classId` (`useLayoutContext()` / `LessonResultContents`가 넘기는 `classId`).
+
+1차에서 묶음·목록 API는 반 `optFilter`로 활동을 거르지만, **사람 축**(미제출 태그, 참여 인원, 학생 탭 명단)은 활동에 묶인 전원이다. 사이드바에서 고른 반의 학생만 보여야 한다.
+
+---
+
+### 19.1 선택 반 학생 집합
+
+`scope.classId` = 사이드바에서 고른 `group.id` (§4).
+
+그 반의 그룹 멤버 `spUserId`(LMS `participant`와 동일)만 **현재 반 학생**으로 본다.
+
+- 멤버 소스는 기존 그룹 API (`useGroupMembersQuery` / `getGroupDetail`). 위젯에서 그룹 fetch를 직접 돌리지 않음.
+- `classId` 없으면 집계·명단을 비우고 API로 숫자를 지어내지 않음 (결과보기 가드와 동일).
+- 매칭 실패(게스트·다른 반)는 목록·건수에서 **제외**. 이름을 지어내거나 전원으로 폴백하지 않음.
+
+---
+
+### 19.2 StatusPanel 미제출 건 · 태그 (항목 1 · 2)
+
+**파일**: `StatusPanel.tsx`
+
+지금: 타일 건수 = `bundleQuery.data?.notSubmittedStudentCount`. 태그 = `notSubmittedStudents` 전원.
+
+바꿀 것: `notSubmittedStudentCount` **쓰지 않음.**  
+`notSubmittedStudents[]`에서 **현재 반 학생만** 남긴 배열을 쓴다.
+
+| UI | 값 |
+|----|----|
+| 미제출 타일 (197–203) | 필터된 배열 **length**. 단위 `건` 유지 |
+| 미제출 학생 n명 (207–216) | 같은 필터 배열 length |
+| 태그 목록 (232–249) | 같은 필터 배열. 이름·`missingActivityIds`·클릭 highlight 규칙은 1차와 동일 |
+
+번들 API는 그대로 (`GET /activities/progress?optFilter=classId:like:{classId}&availability=OPEN`). 응답 전체를 현재 반 멤버로 **한 번 더** 거른다. 서버 count를 반 인원으로 가정하지 않음.
+
+---
+
+### 19.3 ReportSummary 참여 인원 (항목 3)
+
+**파일**: `ReportSummary.tsx` (259–273)
+
+소스: 기존 단건 `GET /api/v1/activities/{activityId}/progress` 의 `rows`.  
+`participationSummary`·`assignedCount`/`startedCount` 집계 필드를 참여 인원 숫자에 쓰지 않음.
+
+`rows`에서 **현재 반 학생만** 남긴 뒤:
+
+| 화면 | 계산 |
+|------|------|
+| `{startedCount}` | 필터된 rows 중 `status !== 'NOT_STARTED'` 인 수 |
+| `{assignedCount}` | 필터된 rows **전체 수** |
+| `{rate}` | `새startedCount / 새assignedCount * 100` (기존 `pct` 헬퍼). 분모 0이면 `–`. 0으로 나누지 않음 |
+
+문구 형식은 유지: `{startedCount}/{assignedCount}명 · {rate}%`.
+
+---
+
+### 19.4 StudentTab 명단 (항목 4)
+
+**파일**: `StudentTab.tsx` (335–350)
+
+`GET /activities/{id}/participations` 전원 응답을 받은 뒤, **현재 반 학생만** 목록에 노출.
+
+- `participant` ∈ 현재 반 `spUserId`
+- 정렬·이름·점수·상태 뱃지는 1차와 동일
+- 반에 속한 행이 없으면 빈 상태
+
+---
+
+### 19.5 미제출·미완료 단건 호출 금지 (항목 5)
+
+**파일**: `StudentTab.tsx`
+
+지금: `status === 'NOT_STARTED'` 이거나 `participationId` 없을 때만 단건을 생략.
+
+바꿀 것: `status !== 'SUBMITTED'` 이면 단건을 **호출하지 않음**.
+
+```
+GET /api/v1/activities/{activityId}/participations/{participationId}
+```
+
+미제출(및 미완료)에서 호출하면 409:
+
+```json
+{
+  "success": false,
+  "message": "아직 제출하지 않은 참여입니다. 진행 상황은 현황(progress)에서 보세요.",
+  "errorCode": "NOT_SUBMITTED"
+}
+```
+
+`IN_PROGRESS`도 단건 생략. 409를 받아서 삼키지 않음.
+
+이 경우 상세 타일:
+
+| 타일 | 표시 |
+|------|------|
+| 활동 페이지 | `–` |
+| 정답률 / 맞춘 문제 | `–` (맞춘 개수 보조 문구도 숨김) |
+
+`SUBMITTED` 이고 `participationId`가 있을 때만 단건 호출. 격자 셀도 단건이 있을 때만 채움.
+
+---
+
+### 19.6 페이지별 상세 — CMS set → articles (항목 6)
+
+**파일**: `StudentTab.tsx` (377–382), `ResponseGrid.tsx` (234–250), `ReportDetail.tsx`
+
+지금: LMS `activity.items` + article 맵으로 격자를 채움. **이 경로를 버린다.**
+
+#### 조회
+
+1. 활동 단건 `detail.lcmsSetId`로 CMS `GET {CMS_API_URL}/api/sets/{setId}` (`getCmsSet` / `useCmsSetDetailQuery`).
+2. `slides[]`를 `order`로 정렬한 뒤 `article.articleId`만 뽑는다. 없는 slide는 건너뜀.
+3. 뽑은 id마다 CMS `GET {CMS_API_URL}/api/articles/{articleId}` (`getCmsArticle`). 위젯에서 `authorizedFetch` 하지 않음.
+
+`lcmsSetId` 없으면 격자 빈 상태. 가짜 슬라이드를 만들지 않음.
+
+세트 응답 예:
+
+```json
+{
+  "setId": "set-001",
+  "title": "일차함수 세트",
+  "slides": [
+    {
+      "slideId": "slide-001",
+      "title": "일차함수의 그래프",
+      "order": 1,
+      "article": {
+        "articleId": "1",
+        "title": "일차함수의 그래프",
+        "contents": "string",
+        "json": "string",
+        "type": "123456"
+      }
+    }
+  ]
+}
+```
+
+아티클 응답에서 쓰는 필드:
+
+| 격자 | 필드 |
+|------|------|
+| `ResponseGrid` Title | `name` |
+| `CaptureImg` (`ResponseGrid` 234–250) | `thumbnail` |
+
+`CmsArticleInfo`에 `thumbnail`을 추가한다. URL이 상대경로면 기존 CMS 에셋 규칙이 따르는 경우에만 붙이고, 없으면 빈 캡처(미제출 라벨 규칙은 현행).
+
+`StudentTab`은 `detail.lcmsSetId`(또는 동등 props)를 받아야 한다. `ReportDetail`이 단건 결과를 넘긴다. 페이지에 fetch를 두지 않음.
+
+`showSummary={false}` 유지. CaptureOverlay는 계속 비범위. PageTab API는 §19.12.
+
+---
+
+### 19.7 FSD
+
+```text
+pages/lesson/LessonReportDetailPage.tsx   ← 얇게. fetch 없음
+widgets/lesson/result/StatusPanel.tsx     ← 미제출 건·태그를 현재 반 학생으로 필터
+widgets/lesson/result/ReportSummary.tsx   ← progress.rows를 현재 반으로 재집계
+widgets/lesson/result/StudentTab.tsx      ← 명단 필터 + SUBMITTED만 단건 + CMS 격자
+widgets/lesson/result/ResponseGrid.tsx    ← title=name, capture=thumbnail
+widgets/lesson/result/ReportDetail.tsx    ← lcmsSetId를 StudentTab에 전달
+
+features/lesson/api/cmsSetService.ts      ← CmsArticleInfo.thumbnail
+features/lesson/api/queries.ts            ← 기존 set/article 훅 재사용
+features/groups (또는 기존 directory)    ← classId 멤버 spUserId
+```
+
+`pages → widgets → features → shared`. `classId`는 결과 목록과 같이 페이지/가드가 넘기거나 위젯이 layout scope를 읽는다. 같은 레이어 cross-import를 늘리지 않음.
+
+---
+
+### 19.8 하지 말 것
+
+- `notSubmittedStudentCount`를 미제출 타일/명 수에 다시 쓰기
+- progress/participations의 서버 집계 필드를 참여 인원에 쓰기
+- `status !== 'SUBMITTED'` 인데 단건 participations 호출 (409 유발)
+- LMS `activity.items`로 페이지별 상세 격자를 다시 채우기
+- 현재 반에 없는 학생을 목록·건수에 남기기
+- 페이지에서 CMS/LMS fetch
+- 가짜 데이터·이모지
+
+---
+
+### 19.9 구현 체크리스트
+
+- [x] StatusPanel 미제출 건 = 현재 반으로 필터한 `notSubmittedStudents.length` (`notSubmittedStudentCount` 미사용)
+- [x] StatusPanel 태그·n명 = 같은 필터 배열
+- [x] ReportSummary 참여 인원 = 현재 반 progress.rows 재집계 (`started` = `NOT_STARTED` 제외, `assigned` = 행 수, `rate` = 백분율)
+- [x] StudentTab 명단 = 현재 반 participations만
+- [x] `status !== 'SUBMITTED'` 이면 단건 participations 호출 안 함. 활동 페이지·정답률 `–`
+- [x] 페이지별 상세: `lcmsSetId` → `GET /api/sets/{setId}` → `slides[].article.articleId` → `GET /api/articles/{id}`. Title=`name`, CaptureImg=`thumbnail`
+- [x] `tsc` / eslint (`no-unused-vars` 제외)
+
+---
+
+### 19.10 완료 기준
+
+- 사이드바 반을 바꾸면 미제출 건·태그, 리포트 참여 인원, 학생 탭 명단이 그 반 학생만 보여 준다.
+- 미제출/진행중 학생을 골라도 단건 participations가 나가지 않고 타일은 `–`이다. 409가 콘솔/토스트로 나지 않는다.
+- 페이지별 상세 제목·썸네일이 CMS article `name`·`thumbnail`과 맞다.
+
+---
+
+### 19.11 구현 결과 (2026-08-30)
+
+- `useClassMemberSubsQuery` + `filterParticipantsByClass`: 반 멤버 `spUserId`로 사람 축을 한 번 더 거른다. `LessonResultDetailPage`가 `scope.classId`를 `ReportDetail`에 넘긴다.
+- StatusPanel: `notSubmittedStudentCount` 미사용. 필터된 `notSubmittedStudents.length`가 건·n명·태그.
+- ReportSummary: `progress.rows` 중 현재 반만. `started` = `NOT_STARTED` 제외, `assigned` = 행 수, `rate` = `pct`. 분모 0이면 `–`.
+- StudentTab: 현재 반 participations만. `SUBMITTED` + `participationId`일 때만 단건 호출.
+- 페이지별 상세: `detail.lcmsSetId` → `useCmsSetDetailQuery` → slides `articleId` → `useCmsArticleMapQuery`. Title=`name`, `capture`=`resolveCmsFileUrl(thumbnail)`. `CmsArticleInfo.thumbnail` 추가.
+
+---
+
+### 19.12 PageTab API 연동 — 페이지별 보기
+
+> **성격**: 추가계획18 §8 · §19.6에서 **보류**했던 `PageTab` / `PageList` / `PageContent` / `SummaryStrip` API 매핑.  
+> **선행**: §19.1 선택 반 학생 집합 · §19.4 StudentTab participations 명단 · §19.5 `SUBMITTED`만 단건 participations 호출.  
+> **준수**: `frontend/AGENTS.md`, `frontend/CLAUDE.md` (FSD Lite, Emotion, React Query)  
+> **LMS 참조**: `GET /api/v1/activities/{activityId}/statistics` · `GET /api/v1/activities/{activityId}/participations/{participationId}`  
+> **CMS 참조**: `GET /api/articles/{articleId}` (`articleType`, `name`, `thumbnail`)
+
+**대상 파일**
+
+| 파일 | 역할 |
+|------|------|
+| `PageTab.tsx` | 페이지별 보기 레이아웃 (`PageList` + `PageContent`) |
+| `PageList.tsx` | 좌측 페이지 목록 (103–120) |
+| `PageContent.tsx` | 우측 페이지 본문 — 헤더 · SummaryStrip · ResponseGrid |
+| `SummaryStrip.tsx` | 유형별 집계 스트립 |
+| `ResponseGrid.tsx` | 학생별 응답 격자 (**StudentTab과 공유**) |
+
+**공통 전제**
+
+- `assigned`(분모) = **현재 선택된 반의 학생 수** (§19.1 `useClassMemberSubsQuery` 집합 length).
+- statistics `items[]`는 활동 전체 집계이나, UI의 `resp`/`n`은 아래 스펙대로 `items[n].gradedCount`를 쓴다.
+- CMS `articleType` → `NatureBadge`: `articleTypeToNature` (`20` 개념 · `21` 문항 · `22` 활동). StudentTab·ResponseGrid 256–260과 동일.
+- ResponseGrid는 **PageContent(페이지별)** · **StudentTab(학생별)** 양쪽에서 쓰인다. PageTab용 props·매핑을 추가할 때 StudentTab 기존 동작을 깨지 않도록 분기한다.
+
+---
+
+#### 19.12.1 PageList — 페이지 목록 (`PageTab` > `PageList.tsx` 103–120)
+
+**조회 순서**
+
+1. LMS `GET /api/v1/activities/{activityId}/statistics` → `items[]`
+2. `items[n].lcmsArticleId`마다 CMS `GET /api/articles/{articleId}` (items 개수만큼 N회). 위젯에서 `authorizedFetch` 하지 않음.
+
+**행 매핑** (`PageList.tsx` 103–120)
+
+| UI | 소스 |
+|----|------|
+| `Order` | LMS `items[n].seq` |
+| `NatureBadge` (110–112) | CMS `articleType` → `articleTypeToNature` → `NatureBadge` (`ResponseGrid` 256–260과 동일) |
+| `Title` | CMS `name` |
+| `Meta` 응답 `resp` | LMS `items[n].gradedCount` |
+| `Meta` 응답 `assigned` | 현재 선택된 반의 학생 수 (§19.1) |
+
+표시 형식: `응답 {resp}/{assigned}` (기존 Meta 문구 유지).
+
+---
+
+#### 19.12.2 PageContent — 헤더 · SummaryStrip · 섹션 제목
+
+**헤더** (`PageContent.tsx` 94–99)
+
+| UI | 소스 |
+|----|------|
+| `Order` | 현재 선택 페이지의 LMS `items[n].seq` (§19.12.1 `Order`와 동일) |
+| `PageTitle` | 현재 선택 페이지의 CMS `name` |
+| `NatureBadge` | 현재 선택 페이지의 CMS `articleType` (`ResponseGrid` 257–259과 동일) |
+| `SelChip` (`selFactor`) | **보류** |
+
+**SummaryStrip** (`SummaryStrip.tsx`) — 현재 선택 페이지 = statistics `items[n]` + CMS article
+
+| `articleType` (유형) | 표시 |
+|---------------------|------|
+| **개념** (20) | `조회 n/m명` — `n`: `items[n].gradedCount`, `m`: 현재 반 학생 수 (§19.12.1 `resp`/`assigned`와 동일) |
+| **활동** (22) | `제출 n/m명` (`n`/`m` 위와 동일) · `채점 n/m명` — `n`: `items[n].gradedCount − items[n].ungradable`, `m`: `items[n].gradedCount` |
+| **문항** (21) | `정답` LMS `items[n].correct` · `오답` `items[n].incorrect` · `부분정답` `items[n].partial` (**신규 UI**) · `제출 n/m명` (`n`/`m` 위와 동일) |
+
+**학생별 응답 섹션** (`PageContent.tsx` 102–104)
+
+| UI | 소스 |
+|----|------|
+| `학생별 응답 (n)` | `n` = 현재 선택된 반의 학생 수 (§19.1) |
+
+---
+
+#### 19.12.3 ResponseGrid — 학생별 응답 격자 (`PageContent`에서 호출)
+
+**조회**
+
+- 현재 반 학생의 `participationId` 목록: §19.4 `GET /api/v1/activities/{activityId}/participations` → 현재 반 필터.
+- 학생 수만큼 LMS `GET /api/v1/activities/{activityId}/participations/{participationId}` — §19.5: `status === 'SUBMITTED'` 이고 `participationId` 있을 때만. 미제출·미완료는 호출하지 않음.
+
+**현재 선택 페이지 매칭**
+
+- participation 결과 `items[]`에서 **현재 선택 페이지** 행을 찾을 때 `activityItemId` 또는 `lcmsArticleId`로 statistics `items[n]`과 비교.
+
+**타일 매핑**
+
+| UI | 소스 |
+|----|------|
+| `CaptureImg` (235–244) | 현재 선택 페이지 CMS `thumbnail` (`resolveCmsFileUrl` 등 기존 CMS 에셋 규칙) |
+| `Title` (252–255) | 단건 participations API로 조회된 **학생 이름** (participations 목록·그룹 멤버 맵에서 해석) |
+| `Mark` (252–255) | 아래 §Mark 규칙 |
+| `Summary` (261–265) | 아래 §Summary 규칙. PageContent에서는 `showSummary={true}` (StudentTab은 `false` 유지) |
+
+**Mark**
+
+| `articleType` | 표시 |
+|---------------|------|
+| **개념** (20) | **보류** |
+| **활동** (22) · **문항** (21) | 현재 페이지 `response.items[…].errata`: `CORRECT` → O · `INCORRECT` → X · `PARTIAL` → △ · `UNGRADABLE` → 채점 필요. `errata` 없음(미제출) → **표기 생략** |
+
+**Summary**
+
+| `articleType` | 표시 |
+|---------------|------|
+| **개념** (20) | **보류** — `조회함` / `안봄` 구분 예정. 구분 조건 **보류** |
+| **활동** (22) | `errata` 값 존재 → `answer` 표기. `errata` 없음 → `미제출` |
+| **문항** (21) | `내답`: `answer` 표기 · `정답`: **보류** |
+
+미제출·단건 미호출 학생 타일: Capture는 CMS `thumbnail` 또는 빈 캡처, Mark 생략, Summary는 `미제출` 또는 `–` (StudentTab §19.5와 정합).
+
+---
+
+#### 19.12.4 ResponseGrid 공통 컴포넌트 주의
+
+`ResponseGrid`는 **StudentTab**(학생 1명 × 페이지 N)과 **PageContent**(페이지 1 × 학생 N)에서 **축이 반대**로 쓰인다.
+
+| 호출처 | 격자 축 | Capture | Title | Mark/Summary 소스 |
+|--------|---------|---------|-------|-------------------|
+| `StudentTab` | 페이지별 (CMS set → articles) | CMS `thumbnail` (§19.6) | CMS `name` | 선택 학생 단건 participation |
+| `PageContent` | 학생별 (현재 반) | CMS `thumbnail` (선택 페이지) | 학생 이름 | 학생별 단건 participation × 선택 페이지 |
+
+- props 또는 `GridItem` 필드로 **호출 맥락**(page-scoped / student-scoped)을 구분한다.
+- StudentTab 기존 `showSummary={false}` · CMS 기반 Title/Capture 동작을 유지한다.
+- PageTab용 Mark/Summary·participation N회 조회는 PageContent(또는 features mapper)에서 조립해 `items`로 넘긴다. ResponseGrid는 표시만.
+
+---
+
+#### 19.12.5 FSD
+
+```text
+widgets/lesson/result/PageTab.tsx       ← selectedIndex 로컬 상태 유지
+widgets/lesson/result/PageList.tsx      ← statistics + CMS article map
+widgets/lesson/result/PageContent.tsx ← 선택 item + SummaryStrip + ResponseGrid items 조립
+widgets/lesson/result/SummaryStrip.tsx  ← statistics item[n] + articleType 분기 (partial 신규)
+widgets/lesson/result/ResponseGrid.tsx  ← 공통. 맥락별 Mark/Summary 분기만
+widgets/lesson/result/ReportDetail.tsx  ← classId · activityId · statistics 훅 결과 전달
+
+features/lesson/api/lmsActivityService.ts   ← statistics (기존)
+features/lesson/api/queries.ts              ← useActivityStatisticsQuery + CMS article map 재사용
+features/lesson/model/mapPageTab*.ts        ← (신규) statistics items + CMS + participations → PageList/PageContent/GridItem
+```
+
+`pages → widgets → features → shared`. 페이지에 fetch 없음.
+
+---
+
+#### 19.12.6 하지 말 것
+
+- `status !== 'SUBMITTED'` 인데 단건 participations 호출 (409 · §19.5 위반)
+- statistics 없이 목업 `view.articles`로 PageTab을 계속 채우기
+- ResponseGrid 수정으로 StudentTab 격자 회귀
+- 미제출 Mark를 O/X/△/채점 필요로 표기
+- `assigned` 분모를 statistics 전체 제출 수로 대체
+- 페이지·위젯에서 CMS/LMS `authorizedFetch`
+- 가짜 데이터·이모지
+
+---
+
+#### 19.12.7 구현 체크리스트
+
+- [x] `GET .../statistics` → PageList Order/Title/NatureBadge/Meta(resp, assigned)
+- [x] `lcmsArticleId` → CMS `GET /api/articles/{id}` (items 수만큼)
+- [x] PageContent 헤더 Order/PageTitle/NatureBadge (selFactor 보류)
+- [x] SummaryStrip 개념·활동·문항 분기 + 문항 `partial`(부분정답) 신규
+- [x] PageContent 학생별 응답 count = 현재 반 학생 수
+- [x] 현재 반 participations → SUBMITTED만 단건 N회 → ResponseGrid items
+- [x] ResponseGrid Capture=선택 페이지 CMS thumbnail, Title=학생 이름, Mark/Summary 유형별 규칙
+- [x] ResponseGrid StudentTab / PageContent 맥락 분기 · StudentTab 회귀 없음
+- [x] `tsc` / eslint (`no-unused-vars` 제외)
+
+---
+
+#### 19.12.8 완료 기준
+
+- 페이지별 보기 좌측 목록이 statistics `items` + CMS article과 일치한다 (순서·유형·제목·응답 n/m).
+- 페이지 선택 시 헤더·SummaryStrip·학생 격자가 **같은 페이지** 기준으로 갱신된다.
+- 학생 타일 Mark/Summary가 participation `items[현재 페이지]`의 `errata`·`answer`와 맞고, 미제출은 Mark 생략.
+- StudentTab 페이지별 상세(§19.6) 동작이 그대로 유지된다.
+
+---
+
+#### 19.12.9 구현 결과 (2026-08-30)
+
+- `PageTab`이 `activityId`·`classId`로 statistics · CMS articles · 반 멤버 · participations를 조회한다. 목업 `emptyReportDetail` 경로는 제거.
+- PageList: `seq` / CMS `name` / `articleTypeToNature` / `응답 gradedCount/반학생수`.
+- SummaryStrip: 개념 `조회 n/m명` · 활동 `제출 n/m명` + `채점 (gradedCount-ungradable)/gradedCount` · 문항 정답/오답/부분정답 + 제출 n/m명. `selFactor` 미표시.
+- 학생 격자는 현재 반 전원. `SUBMITTED`만 `useTeacherParticipationsMapQuery`로 단건 N회. 매칭은 `activityItemId` 또는 `lcmsArticleId`.
+- ResponseGrid: `markMode`·`summaryKind`로 PageContent 맥락만 분기. StudentTab은 `showSummary={false}` 유지. Capture는 CMS thumbnail(미제출이어도 있으면 표시).
+- 매퍼: `features/lesson/model/mapPageTab.ts`.
+
+---
+
+# 추가계획21 — `LessonActivityReportEmbed` · `ResponseDetailOverlay` · ResponseGrid 클릭 상세 · 교사 수동 채점
+
+> **성격**: 추가계획17·18·20에서 **비범위**였던 `CaptureOverlay`(프로토타입)를 FE `ResponseDetailOverlay`로 구현. everyCanvas **`activity-report`** embed 추가.  
+> **선행**: 추가계획20 §19.4–19.5 (participations 명단 · `SUBMITTED`만 단건) · §19.12 PageTab API  
+> **준수**: `frontend/AGENTS.md`, `frontend/CLAUDE.md` (FSD Lite, Emotion, React Query)  
+> **everyCanvas 참조**: `every-canvas-fe/docs/03-guide/addAPI-integration-guide.md` §3 · §6 (`activity-report`)  
+> **LMS 참조**: `superplatform-lms/docs/public/guide/api-spec.md` — progress · participations · grading PATCH  
+> **프로토타입 UI 참조**: `prototype/.../report/CaptureOverlay.tsx` (Tailwind 복제 금지 · 레이아웃·동작만)
+
+---
+
+## 1. 목표
+
+1. `LessonActivityJoinEmbed` · `LessonEditorEmbed` · `LessonViewerEmbed`와 같은 패턴으로 **`LessonActivityReportEmbed`** (`mode: 'activity-report'`)를 추가한다.
+2. `ResponseGrid`에서 **답안 제출된 타일**(`cell.submitted`) 클릭 시 프로토타입 `CaptureOverlay`와 **동등한 UI**인 **`ResponseDetailOverlay`** 를 띄운다.
+3. 오버레이 안에서 **이전/다음**으로 제출된 항목만 순회하고, **활동** 유형은 교사 **수동 채점** PATCH를 연동한다.
+
+---
+
+## 2. 범위 / 비범위
+
+| 함 | 안 함 |
+|----|--------|
+| `LessonActivityReportEmbed` (`useEveryCanvasEmbed`, `mode: 'activity-report'`) | embed token 발급 백엔드 신규 구현 (기존 SSO·Platform 경로 재사용 가정) |
+| `ResponseDetailOverlay` (Emotion, 프로토타입 UI 동등) | 프로토타입 Tailwind·`ResourcesContext` 복제 |
+| `ResponseGrid` 타일 클릭 → 오버레이 open | 브라우저 히스토리 push (프로토타입은 context 연동 — FE는 로컬 state 또는 portal) |
+| clickable items만 prev/next 순회 · ← → 키 | 미제출 타일 클릭 |
+| progress `status` · participation `timeSpentMs`/`submittedAt` · grading PATCH | `awardedScore` · `comment` · 채점 해제 |
+| 제출 답안 = ResponseGrid `Summary` 동일 로직 | 정답 표시 · `selFactor` · activity-report를 overlay 필수 마운트 (embed는 인프라 추가) |
+| Capture 이미지 (임시: Grid `capture` URL) | Result 서버 실캡처 URL 연동 (후속) |
+
+---
+
+## 3. `LessonActivityReportEmbed`
+
+**파일**: `features/lesson/ui/LessonActivityReportEmbed.tsx` (신규)
+
+**참조**: `LessonActivityJoinEmbed.tsx` · `everyCanvasEmbedSdk.ts` (`EmbedMode`에 `'activity-report'` 이미 정의됨)
+
+| 항목 | 값 |
+|------|-----|
+| hook | `useEveryCanvasEmbed` |
+| `mode` | `'activity-report'` |
+| 필수 prop | `activityId` (활동 UUID) |
+| SSO | `getSsoToken: getSsoAccessToken` (Join/Editor/Viewer와 동일) |
+| base URL | `ENV.EVERYCLASS_EMBED_BASE_URL` |
+| theme / locale | Join embed와 동일 (`useTheme` → `--ec-color-accent`) |
+
+**everyCanvas 가이드** (`addAPI-integration-guide.md` §3 · §6)
+
+| scope | 필수 prop | 주요 이벤트 |
+|-------|-----------|-------------|
+| `activity-report` | `activityId` | `initialized`(resultCount), `exitRequested`, `error` |
+
+```tsx
+// 스케치 — Join embed와 동일 구조
+useEveryCanvasEmbed({
+  options: {
+    embedBaseUrl: ENV.EVERYCLASS_EMBED_BASE_URL,
+    mode: 'activity-report',
+    activityId,
+    getSsoToken: getSsoAccessToken,
+    locale: 'ko-KR',
+    theme: embedTheme,
+  },
+  handlers: {
+    exitRequested: (p) => onExitRequested?.(p),
+    // initialized → onReportLoaded?.(resultCount) 등 Host 콜백
+  },
+  onReady,
+  onError,
+  identity: [ENV.EVERYCLASS_EMBED_BASE_URL, activityId],
+});
+```
+
+**export**: `features/lesson/index.ts`에 Join/Editor/Viewer와 함께 export.
+
+**1차 사용처**: overlay 필수는 아님. Result 조회·미디어 재생 등 후속에서 마운트. 이번 계획에서는 **래퍼 추가 + export**까지.
+
+---
+
+## 4. `ResponseGrid` 클릭 → `ResponseDetailOverlay`
+
+**파일**: `widgets/lesson/result/ResponseGrid.tsx` (228–268)
+
+### 4.1 clickable 조건
+
+- **현행 유지**: `clickable = it.cell.submitted` (답안 제출된 상태).
+- 제출된 타일만 `disabled={false}` · hover mask · cursor pointer.
+
+### 4.2 open 동작
+
+- `ResponseGrid`에 `onItemClick?: (item: GridItem, index: number) => void` (또는 동등) 추가.
+- **`items` 중 `cell.submitted === true`인 항목만** `siblings`로 모아 순회 목록을 만든다.
+- 타일 클릭 → 부모(`StudentTab` / `PageContent`)가 `ResponseDetailOverlay` state를 연다.
+- `ResponseDetailOverlay`는 **`siblings` + `currentIndex`** 를 받아 94–113 prev/next를 구현.
+
+### 4.3 순회 축 (프로토타입 `axis` 대응)
+
+| 진입 | 축 | siblings 구성 |
+|------|-----|----------------|
+| **PageContent** (페이지별) | `page` | 같은 페이지(고정) · **제출한 학생** 순 (`cell.submitted`인 GridItem만) |
+| **StudentTab** (학생별) | `student` | 같은 학생(고정) · **제출한 페이지** 순 (`cell.submitted`인 GridItem만) |
+
+프로토타입 `CaptureOverlay` 7–8행 주석과 동일 의도: 페이지별에서 열면 학생 순, 학생별에서 열면 페이지 순.
+
+---
+
+## 5. `ResponseDetailOverlay` UI 매핑
+
+**파일**: `widgets/lesson/result/ResponseDetailOverlay.tsx` (신규)
+
+프로토타입 `CaptureOverlay.tsx` 레이아웃: **헤더** · **좌 캡처** · **우 사이드바**(학생 정보 · 페이지 정보 · 제출 답안 · 채점).
+
+### 5.1 헤더 (88–113)
+
+| UI | 소스 |
+|----|------|
+| **title** (88) | 활동 단건 `GET /api/v1/activities/{activityId}` 의 `title` (`ReportDetail` / `ReportSummary`와 동일) |
+| **부제** (89–91) | **StudentTab** 진입: `StudentTab` `{cur?.name}` (선택 학생 이름) · **PageContent** 진입: `PageContent` `<PageTitle>{page.title}</PageTitle>` 과 동일 (CMS `name`) |
+| **순번** (94–95) | `{idx + 1} / {siblings.length}` — siblings = 제출된 clickable items만 |
+| **이전/다음** (97–112) | siblings 배열에서 index ±1. 첫/끝 disabled. `←` `→` 키 · `Escape` 닫기 (프로토타입 63–71) |
+
+### 5.2 캡처 영역 (118–131)
+
+| UI | 소스 |
+|----|------|
+| **img** (119–124) | **(임시)** 클릭한 `GridItem`의 `capture` — `ResponseGrid` `<CaptureImg src={it.capture} />` 와 동일 URL |
+| **빈 상태** (126–129) | `capture` 없을 때 「제출 캡처가 없습니다.」 유지 |
+
+> 후속: Result 서버 / activity-report embed 실캡처 URL로 교체 가능. 이번에는 Grid thumbnail·placeholder 경로 유지.
+
+### 5.3 학생 정보 (135–141)
+
+| UI | 소스 |
+|----|------|
+| **studentName** (136) | 학생 이름 (participations 목록 · 그룹 멤버 맵) |
+| **StatusBadge** (137) | `ParticipationStatusBadge` — LMS `GET /api/v1/activities/{activityId}/progress` 의 해당 학생 `rows[]` **`status`** (`NOT_STARTED` · `IN_PROGRESS` · `SUBMITTED`) |
+| **활동** (140) | `GET .../participations/{participationId}` 의 **현재 페이지** `items[n].timeSpentMs` → `fmtDuration` (ms → 분/초) |
+| **제출** (141) | 동 API **`submittedAt`** → `fmtDateTime` |
+
+`items[n]` 매칭: §19.12와 동일 — `activityItemId` 또는 `lcmsArticleId`로 현재 overlay 페이지와 비교.
+
+### 5.4 페이지 정보 (147–155)
+
+| UI | 소스 |
+|----|------|
+| **order · title** (147–149) | **StudentTab** 진입: `ResponseGrid` `<Title>{it.title}</Title>` 과 동일 · **PageContent** 진입: `PageContent` `<PageTitle>{page.title}</PageTitle>` 과 동일 |
+| **NatureBadge** (150) | **StudentTab**: `ResponseGrid` `showNature` + `NatureBadge` (279–283) · **PageContent**: `PageContent` `NatureBadge` 와 동일 (`articleTypeToNature`) |
+| **selFactor** (151–155) | **보류** |
+
+### 5.5 제출 답안 (162–178)
+
+`ResponseGrid` `Summary` (285–287)와 **동일한 값·분기**:
+
+- `summaryKind` · `mode` · `cell` 을 GridItem에서 overlay props로 전달해 재사용 (컴포넌트 extract 권장: `ResponseSummary` 등).
+- 미제출 siblings에는 들어오지 않으나, 방어적으로 `!cell.submitted` → 「미제출」.
+- `mode === 'media'` → 재생 UI (프로토타입 Play 버튼 레이아웃). 1차는 `fmtDuration(cell.mediaSec)` 표기. embed 연동은 후속.
+
+### 5.6 정오 · 채점 출처 (180–192)
+
+| UI | 소스 |
+|----|------|
+| **정답** (182–183) | **보류** |
+| **ErrataBadge** (187) | `ResponseGrid` `<Mark cell={it.cell} markMode={it.markMode} />` 와 동일 — participation `items[n].errata` → `lmsErrataToCd` |
+| **채점 라벨** (188) | `items[n].gradedBySource`: `TEACHER` → **수동 채점** · `TRUSTED` · `CLIENT` → **자동 채점** (문항 유형 표시용) |
+
+문항(`articleType === 21`)은 ErrataBadge + 자동/수동 라벨. 개념은 Mark `markMode: 'hidden'` (§19.12) — overlay에서도 Mark/정오 블록 생략 가능.
+
+### 5.7 교사 수동 채점 (196–227)
+
+**표시 조건**: **활동** 유형(`articleType === 22`) · 제출됨 · (선택) `errata === 'UNGRADABLE'` 또는 미채점.
+
+**API**: `PATCH /api/v1/activities/{activityId}/participations/{participationId}/grading`  
+(`superplatform-lms/docs/public/guide/api-spec.md` — `Idempotency-Key` 필수)
+
+| 버튼 | request `errata` |
+|------|------------------|
+| O 잘함 | `CORRECT` |
+| △ 보통 | `PARTIAL` |
+| X 미흡 | `INCORRECT` |
+
+- `items[]`: `{ activityItemId, errata }` — **`awardedScore` 보류** · `comment` 보류.
+- 성공 후: 해당 participation 단건 invalidate/refetch → Grid·overlay Mark/Summary 갱신.
+- **채점 해제** · 「대기」 배지: 1차 **보류** (프로토타입 200–223 중 해제·대기는 후속).
+
+---
+
+## 6. FSD
+
+```text
+features/lesson/ui/LessonActivityReportEmbed.tsx   ← activity-report embed (신규)
+features/lesson/lib/everyCanvasEmbedSdk.ts         ← mode 타입 기존 정의
+features/lesson/api/lmsActivityService.ts          ← patchParticipationGrading (신규 또는 확장)
+features/lesson/api/queries.ts                     ← grading mutation
+
+widgets/lesson/result/ResponseGrid.tsx             ← onItemClick, submitted만 clickable
+widgets/lesson/result/ResponseDetailOverlay.tsx    ← overlay UI (신규)
+widgets/lesson/result/StudentTab.tsx               ← overlay state (axis=student)
+widgets/lesson/result/PageContent.tsx              ← overlay state (axis=page)
+widgets/lesson/result/ReportDetail.tsx             ← activityId · title · progress 훅 전달
+
+features/lesson/model/mapPageTab.ts                ← GridItem overlay용 필드 확장 (participationId, activityItemId, …)
+```
+
+- overlay open state·siblings 조립은 **StudentTab / PageContent** (또는 공통 hook). `ResponseGrid`는 click만 emit.
+- `pages → widgets → features → shared`. 페이지 fetch 없음.
+
+**GridItem 확장 (예시)**
+
+```ts
+participationId?: string;
+activityItemId?: string;
+participantSub?: string;
+studentName?: string;
+pageSeq?: number;
+pageTitle?: string;
+gradedBySource?: 'TEACHER' | 'TRUSTED' | 'CLIENT';
+```
+
+---
+
+## 7. 하지 말 것
+
+- 미제출 타일 클릭 · 미제출을 siblings에 포함
+- `status !== 'SUBMITTED'` 인데 단건 participations 호출 (409)
+- 프로토타입 Tailwind·`ResourcesContext`·`setGrade` 목업 그대로 이식
+- grading PATCH without `Idempotency-Key`
+- `awardedScore` 임의 전송 (보류)
+- ResponseGrid StudentTab/PageContent 회귀
+- 페이지에서 LMS/everyCanvas fetch
+- 가짜 capture URL · 이모지
+
+---
+
+## 8. 구현 체크리스트
+
+- [ ] `LessonActivityReportEmbed` — Join embed 패턴 · `mode: 'activity-report'` · export
+- [ ] `ResponseGrid` — submitted 타일 clickable · `onItemClick`
+- [ ] `ResponseDetailOverlay` — 프로토타입 CaptureOverlay UI 동등 (Emotion)
+- [ ] 헤더 title · 부제(StudentTab/PageContent 분기) · prev/next · 키보드
+- [ ] 캡처: Grid `capture` (임시) · 빈 상태 문구
+- [ ] progress `status` → `ParticipationStatusBadge` · participation `timeSpentMs`/`submittedAt`
+- [ ] 페이지 블록 order/title/NatureBadge (진입 축별) · selFactor 보류
+- [ ] 제출 답안 = ResponseGrid `Summary` 공유
+- [ ] ErrataBadge/Mark 동일 · gradedBySource 라벨 · 정답 보류
+- [ ] 활동 수동 채점 3버튼 → PATCH grading (`CORRECT`/`PARTIAL`/`INCORRECT`)
+- [ ] `tsc` / eslint (`no-unused-vars` 제외)
+
+---
+
+## 9. 완료 기준
+
+- editor · viewer · activity-join과 같이 **activity-report** embed 래퍼가 features에 존재하고 export된다.
+- StudentTab·PageContent 격자에서 **제출된 타일** 클릭 시 `ResponseDetailOverlay`가 열리고, **제출된 항목만** prev/next·키보드 순회된다.
+- overlay 우측 정보가 progress · participation · CMS 매핑과 일치한다.
+- 활동 유형에서 잘함/보통/미흡 채점 시 PATCH가 성공하고 Grid·overlay Mark가 갱신된다.
+- StudentTab `showSummary={false}` · PageTab §19.12 동작에 회귀가 없다.
+
+---
+
+**작성일**: 2026-08-30  
+**상태**: 계획 수립 / 구현 대기
 
 

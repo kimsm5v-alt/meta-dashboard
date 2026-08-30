@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { Calendar } from 'lucide-react';
 import { useMyGroupsQuery } from '@features/api';
@@ -10,15 +10,18 @@ import type {
 } from '@features/lesson';
 import {
   classIdsFromOptions,
+  filterParticipantsByClass,
   fmtDotDate,
   isActivityAvailability,
   pct,
   resolveClassNames,
+  useClassMemberSubsQuery,
 } from '@features/lesson';
 import { ActivityStatusBadge, ClassBadge } from './ReportBadge';
 
 interface ReportSummaryProps {
   activityId: string;
+  classId?: string;
   fallback?: ActivitySummaryItem;
   detail?: ActivityDetail;
   progress?: ActivityProgress;
@@ -196,6 +199,7 @@ const buildDateLine = (openAt?: string, closeAt?: string, pageCount = 0): string
 
 export const ReportSummary = ({
   activityId,
+  classId,
   fallback,
   detail,
   progress,
@@ -203,6 +207,7 @@ export const ReportSummary = ({
 }: ReportSummaryProps) => {
   const [imgFailed, setImgFailed] = useState(false);
   const { data: groups = [] } = useMyGroupsQuery();
+  const classMembers = useClassMemberSubsQuery(classId);
   const title = detail?.title || fallback?.title || activityId;
   const thumbnailUrl = thumbnailOf(detail, fallback);
   const availability = detail?.availability ?? fallback?.availability;
@@ -216,9 +221,14 @@ export const ReportSummary = ({
     groups,
   );
 
-  const assignedCount = progress?.assignedCount;
-  const startedCount = progress?.startedCount;
-  const showParticipation = assignedCount != null && assignedCount > 0 && startedCount != null;
+  const classRows = useMemo(
+    () =>
+      classMembers.isPending ? [] : filterParticipantsByClass(progress?.rows, classMembers.subs),
+    [classMembers.isPending, classMembers.subs, progress?.rows],
+  );
+  const assignedCount = classRows.length;
+  const startedCount = classRows.filter((row) => row.status !== 'NOT_STARTED').length;
+  const showParticipation = !classMembers.isPending && assignedCount > 0;
   const rate = showParticipation ? pct(startedCount, assignedCount) : 0;
   const averageScore = statistics?.averageScore;
 

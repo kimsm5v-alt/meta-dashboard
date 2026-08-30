@@ -2,17 +2,19 @@ import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { Clock } from 'lucide-react';
 import { Loading } from '@shared/ui/Loading';
-import type { ActivityItem, ActivityParticipationRow, AssigneeNameInfo } from '@features/lesson';
+import type { ActivityDetail, ActivityParticipationRow, AssigneeNameInfo } from '@features/lesson';
 import {
   articleTypeToNature,
   cellFromParticipationItem,
-  isNotSubmittedError,
-  participationItemOf,
-  sortActivityItems,
+  filterParticipantsByClass,
+  participationItemByArticleId,
+  resolveCmsFileUrl,
   summarizeParticipation,
   useActivityParticipationsQuery,
   useAssigneeDirectoryQuery,
+  useClassMemberSubsQuery,
   useCmsArticleMapQuery,
+  useCmsSetDetailQuery,
   useTeacherParticipationQuery,
 } from '@features/lesson';
 import { ResponseGrid } from './ResponseGrid';
@@ -21,7 +23,8 @@ import { ParticipationStatusBadge } from './ReportBadge';
 
 interface StudentTabProps {
   activityId: string;
-  items: ActivityItem[];
+  classId?: string;
+  detail: ActivityDetail;
 }
 
 const Empty = styled.div`
@@ -237,9 +240,16 @@ const rowName = (
   return row.participant;
 };
 
-export const StudentTab = ({ activityId, items }: StudentTabProps) => {
+export const StudentTab = ({ activityId, classId, detail }: StudentTabProps) => {
   const participationsQuery = useActivityParticipationsQuery(activityId);
-  const rows = useMemo(() => participationsQuery.data ?? [], [participationsQuery.data]);
+  const classMembers = useClassMemberSubsQuery(classId);
+  const rows = useMemo(
+    () =>
+      classMembers.isPending
+        ? []
+        : filterParticipantsByClass(participationsQuery.data, classMembers.subs),
+    [classMembers.isPending, classMembers.subs, participationsQuery.data],
+  );
   const directoryQuery = useAssigneeDirectoryQuery(rows.length > 0);
   const directory = directoryQuery.data;
 
@@ -269,37 +279,44 @@ export const StudentTab = ({ activityId, items }: StudentTabProps) => {
     : (students[0]?.participant ?? '');
   const cur = students.find((s) => s.participant === curId);
 
-  const participationId = cur?.status === 'NOT_STARTED' ? undefined : cur?.participationId;
+  const canFetchParticipation = cur?.status === 'SUBMITTED' && Boolean(cur.participationId);
+  const participationId = canFetchParticipation ? cur?.participationId : undefined;
   const participationQuery = useTeacherParticipationQuery(activityId, participationId);
-  const participation =
-    participationQuery.isError && isNotSubmittedError(participationQuery.error)
-      ? undefined
-      : participationQuery.data;
+  const participation = canFetchParticipation ? participationQuery.data : undefined;
   const summary = summarizeParticipation(participation);
 
-  const activityItems = useMemo(() => sortActivityItems(items), [items]);
+  const lcmsSetId = detail.lcmsSetId;
+  const setQuery = useCmsSetDetailQuery(lcmsSetId);
+  const slides = useMemo(() => {
+    const list = [...(setQuery.data?.slides ?? [])].sort((a, b) => a.order - b.order);
+    return list.filter((slide) => Boolean(slide.article?.articleId));
+  }, [setQuery.data?.slides]);
   const articleIds = useMemo(
-    () => activityItems.map((item) => item.lcmsArticleId),
-    [activityItems],
+    () => slides.map((slide) => slide.article?.articleId ?? '').filter((id) => id.length > 0),
+    [slides],
   );
   const { map: articleMap } = useCmsArticleMapQuery(articleIds);
 
-  const gridItems: GridItem[] = activityItems.map((item) => {
-    const article = articleMap.get(item.lcmsArticleId);
+  const gridItems: GridItem[] = slides.map((slide) => {
+    const articleId = slide.article?.articleId ?? slide.slideId;
+    const article = articleMap.get(articleId);
     const nature = articleTypeToNature(article?.articleType);
-    const name = article?.name?.trim() || item.lcmsArticleId;
-    const pItem = participationItemOf(participation, item.activityItemId);
+    const name = article?.name?.trim() || articleId;
+    const pItem = participation
+      ? participationItemByArticleId(participation, articleId)
+      : undefined;
     return {
-      key: item.activityItemId,
-      title: `${item.seq}. ${name}`,
+      key: slide.slideId,
+      title: name,
       nature,
       mode: 'plain',
       cell: cellFromParticipationItem(pItem),
+      capture: resolveCmsFileUrl(article?.thumbnail),
       showNature: Boolean(nature),
     };
   });
 
-  if (participationsQuery.isPending) {
+  if (participationsQuery.isPending || classMembers.isPending) {
     return (
       <LoadingBox role='status' aria-busy='true'>
         <Loading size='md' text='불러오는 중...' />
@@ -378,7 +395,21 @@ export const StudentTab = ({ activityId, items }: StudentTabProps) => {
           <SectionTitle>
             페이지별 상세 <Count>({gridItems.length})</Count>
           </SectionTitle>
-          <ResponseGrid items={gridItems} showSummary={false} />
+          {!lcmsSetId ? (
+            <EmptyText>세트 정보가 없습니다.</EmptyText>
+          ) : setQuery.isPending ? (
+            <LoadingBox role='status' aria-busy='true'>
+              <Loading size='sm' text='불러오는 중...' />
+            </LoadingBox>
+          ) : setQuery.isError ? (
+            <ErrorText role='alert'>
+              {setQuery.error instanceof Error
+                ? setQuery.error.message
+                : '세트 정보를 불러오지 못했습니다.'}
+            </ErrorText>
+          ) : (
+            <ResponseGrid items={gridItems} showSummary={false} />
+          )}
         </Card>
       </DetailCol>
     </Layout>

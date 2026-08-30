@@ -76,7 +76,9 @@ export {
   useActivityParticipationsQuery,
   useActivitiesProgressBundleQuery,
   useTeacherParticipationQuery,
+  useTeacherParticipationsMapQuery,
   useAssigneeDirectoryQuery,
+  useClassMemberSubsQuery,
   useCmsArticleMapQuery,
 } from './api/queries';
 export type { SyncLibraryItemOnSaveInput } from './api/queries';
@@ -145,9 +147,21 @@ export {
   sortActivityItems,
   summarizeParticipation,
   participationItemOf,
+  participationItemByArticleId,
   cellFromParticipationItem,
   isNotSubmittedError,
 } from './model/mapReportDetail';
+export { classMemberSubs, filterParticipantsByClass } from './model/classMemberSubs';
+export {
+  mapStatisticsToPageListItems,
+  mapPageTabStudents,
+  mapPageTabGridRows,
+  submittedParticipationIds,
+  cellFromPageParticipationItem,
+  formatParticipationAnswer,
+} from './model/mapPageTab';
+export type { PageTabListItem, PageTabStudent, PageTabGridRow } from './model/mapPageTab';
+export { resolveCmsFileUrl } from './model/cmsFileUrl';
 export type { ParticipationSummary } from './model/mapReportDetail';
 export type { AssigneeNameInfo } from './model/resolveAssigneeNamesFromGroups';
 export {

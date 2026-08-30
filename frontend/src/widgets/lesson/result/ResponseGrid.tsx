@@ -73,6 +73,7 @@ const Capture = styled.div`
 const CaptureImg = styled.img`
   width: 100%;
   height: 100%;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
 `;
 
@@ -186,28 +187,49 @@ const MediaLine = styled.span`
   font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
 `;
 
-const Summary = ({ cell, mode }: { cell: CellInfo; mode: RenderMode }) => {
-  if (!cell.submitted) return <Muted>{cell.value}</Muted>;
-  if (mode === 'media' && cell.mediaSec != null) {
-    return (
-      <MediaLine>
-        <PlayIcon />
-        {fmtDuration(cell.mediaSec)}
-      </MediaLine>
-    );
+const Summary = ({
+  cell,
+  mode,
+  nature,
+}: {
+  cell: CellInfo;
+  mode: RenderMode;
+  nature?: ArticleNature;
+}) => {
+  if (nature === '개념') return null;
+  if (!cell.submitted) return <Muted>{cell.value || '미제출'}</Muted>;
+
+  switch (nature) {
+    case '활동':
+      return <span>{cell.value}</span>;
+    case '문항':
+      return (
+        <>
+          내 답 <AnswerB>{cell.value}</AnswerB>
+        </>
+      );
+    default:
+      if (mode === 'media' && cell.mediaSec != null) {
+        return (
+          <MediaLine>
+            <PlayIcon />
+            {fmtDuration(cell.mediaSec)}
+          </MediaLine>
+        );
+      }
+      if (cell.correctAnswer) {
+        return (
+          <>
+            내 답 <AnswerB>{cell.value}</AnswerB> · 정답 <CorrectB>{cell.correctAnswer}</CorrectB>
+          </>
+        );
+      }
+      return <span>{cell.value}</span>;
   }
-  if (cell.correctAnswer) {
-    return (
-      <>
-        내 답 <AnswerB>{cell.value}</AnswerB> · 정답 <CorrectB>{cell.correctAnswer}</CorrectB>
-      </>
-    );
-  }
-  if (mode === 'text') return <span>{cell.value}</span>;
-  return <span>{cell.value}</span>;
 };
 
-const Mark = ({ cell }: { cell: CellInfo }) => {
+const Mark = ({ cell, nature }: { cell: CellInfo; nature?: ArticleNature }) => {
+  if (nature !== '활동' && nature !== '문항') return null;
   if (cell.manual) {
     return (
       <ManualMark $done={cell.errata != null}>
@@ -232,7 +254,7 @@ export const ResponseGrid = ({ items, showSummary = true }: ResponseGridProps) =
           $highlight={Boolean(it.highlight)}
         >
           <Capture>
-            {it.capture ? (
+            {it.capture && it.cell.submitted ? (
               <>
                 <CaptureImg src={it.capture} alt='' />
                 {clickable ? (
@@ -251,16 +273,16 @@ export const ResponseGrid = ({ items, showSummary = true }: ResponseGridProps) =
           <Body>
             <LabelRow>
               <Title>{it.title}</Title>
-              <Mark cell={it.cell} />
+              <Mark cell={it.cell} nature={it.nature} />
             </LabelRow>
             {it.showNature && it.nature ? (
               <div>
                 <NatureBadge nature={it.nature} />
               </div>
             ) : null}
-            {showSummary ? (
+            {showSummary && it.nature !== '개념' ? (
               <SummaryLine>
-                <Summary cell={it.cell} mode={it.mode} />
+                <Summary cell={it.cell} mode={it.mode} nature={it.nature} />
               </SummaryLine>
             ) : null}
           </Body>

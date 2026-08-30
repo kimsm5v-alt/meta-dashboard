@@ -72,6 +72,12 @@ export const participationItemOf = (
 ): ParticipationResultItem | undefined =>
   result?.items.find((item) => item.activityItemId === activityItemId);
 
+export const participationItemByArticleId = (
+  result: ParticipationResult | undefined,
+  lcmsArticleId: string,
+): ParticipationResultItem | undefined =>
+  result?.items.find((item) => item.lcmsArticleId === lcmsArticleId);
+
 export const cellFromParticipationItem = (item: ParticipationResultItem | undefined): CellInfo => {
   const submitted = item != null && hasParticipationAnswer(item);
   return {
