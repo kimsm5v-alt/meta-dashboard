@@ -2,7 +2,12 @@ import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { Clock } from 'lucide-react';
 import { Loading } from '@shared/ui/Loading';
-import type { ActivityDetail, ActivityParticipationRow, AssigneeNameInfo } from '@features/lesson';
+import type {
+  ActivityDetail,
+  ActivityParticipationRow,
+  AssigneeNameInfo,
+  CmsSetDetail,
+} from '@features/lesson';
 import {
   articleTypeToNature,
   cellFromParticipationItem,
@@ -14,7 +19,6 @@ import {
   useAssigneeDirectoryQuery,
   useClassMemberSubsQuery,
   useCmsArticleMapQuery,
-  useCmsSetDetailQuery,
   useTeacherParticipationQuery,
 } from '@features/lesson';
 import { ResponseGrid } from './ResponseGrid';
@@ -25,6 +29,9 @@ interface StudentTabProps {
   activityId: string;
   classId?: string;
   detail: ActivityDetail;
+  cmsSet?: CmsSetDetail;
+  cmsSetPending: boolean;
+  cmsSetError: Error | null;
 }
 
 const Empty = styled.div`
@@ -240,7 +247,14 @@ const rowName = (
   return row.participant;
 };
 
-export const StudentTab = ({ activityId, classId, detail }: StudentTabProps) => {
+export const StudentTab = ({
+  activityId,
+  classId,
+  detail,
+  cmsSet,
+  cmsSetPending,
+  cmsSetError,
+}: StudentTabProps) => {
   const participationsQuery = useActivityParticipationsQuery(activityId);
   const classMembers = useClassMemberSubsQuery(classId);
   const rows = useMemo(
@@ -286,11 +300,10 @@ export const StudentTab = ({ activityId, classId, detail }: StudentTabProps) => 
   const summary = summarizeParticipation(participation);
 
   const lcmsSetId = detail.lcmsSetId;
-  const setQuery = useCmsSetDetailQuery(lcmsSetId);
   const slides = useMemo(() => {
-    const list = [...(setQuery.data?.slides ?? [])].sort((a, b) => a.order - b.order);
+    const list = [...(cmsSet?.slides ?? [])].sort((a, b) => a.order - b.order);
     return list.filter((slide) => Boolean(slide.article?.articleId));
-  }, [setQuery.data?.slides]);
+  }, [cmsSet?.slides]);
   const articleIds = useMemo(
     () => slides.map((slide) => slide.article?.articleId ?? '').filter((id) => id.length > 0),
     [slides],
@@ -397,14 +410,14 @@ export const StudentTab = ({ activityId, classId, detail }: StudentTabProps) => 
           </SectionTitle>
           {!lcmsSetId ? (
             <EmptyText>세트 정보가 없습니다.</EmptyText>
-          ) : setQuery.isPending ? (
+          ) : cmsSetPending ? (
             <LoadingBox role='status' aria-busy='true'>
               <Loading size='sm' text='불러오는 중...' />
             </LoadingBox>
-          ) : setQuery.isError ? (
+          ) : cmsSetError ? (
             <ErrorText role='alert'>
-              {setQuery.error instanceof Error
-                ? setQuery.error.message
+              {cmsSetError instanceof Error
+                ? cmsSetError.message
                 : '세트 정보를 불러오지 못했습니다.'}
             </ErrorText>
           ) : (

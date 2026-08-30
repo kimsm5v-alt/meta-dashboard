@@ -9,6 +9,7 @@ import {
   useActivityDetailQuery,
   useActivityProgressQuery,
   useActivityStatisticsQuery,
+  useCmsSetDetailQuery,
 } from '@features/lesson';
 import { ReportSummary } from './ReportSummary';
 import { ReportDetailTabBar } from './ReportDetailTabBar';
@@ -88,6 +89,7 @@ export const ReportDetail = ({ activityId, classId, activity }: ReportDetailProp
   const detailQuery = useActivityDetailQuery(activityId);
   const progressQuery = useActivityProgressQuery(activityId);
   const statisticsQuery = useActivityStatisticsQuery(activityId);
+  const cmsSetQuery = useCmsSetDetailQuery(detailQuery.data?.lcmsSetId);
 
   const handleBack = () => {
     navigate(`/lesson/result${location.search}`);
@@ -116,6 +118,7 @@ export const ReportDetail = ({ activityId, classId, activity }: ReportDetailProp
             classId={classId}
             fallback={activity}
             detail={detailQuery.data}
+            cmsSet={cmsSetQuery.data}
             progress={progressQuery.data}
             statistics={statisticsQuery.data}
           />
@@ -123,7 +126,14 @@ export const ReportDetail = ({ activityId, classId, activity }: ReportDetailProp
           {tab === 'slide' ? (
             <PageTab activityId={activityId} classId={classId} />
           ) : detailQuery.data ? (
-            <StudentTab activityId={activityId} classId={classId} detail={detailQuery.data} />
+            <StudentTab
+              activityId={activityId}
+              classId={classId}
+              detail={detailQuery.data}
+              cmsSet={cmsSetQuery.data}
+              cmsSetPending={Boolean(detailQuery.data.lcmsSetId) && cmsSetQuery.isPending}
+              cmsSetError={cmsSetQuery.error}
+            />
           ) : null}
         </>
       ) : null}
