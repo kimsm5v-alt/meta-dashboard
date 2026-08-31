@@ -17,7 +17,7 @@
 | **추가계획9** | `DeployPage` 실시간 수업 → Viewer + `ResourceCard`→deploy `state.item` + URL 직접 진입 시 item 재조회 | 구현 완료 |
 | **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 구현 완료 |
 | **추가계획11** | DeployPage·저작툴 시작하기 — `POST /activities` + assignees(`spUserId`) + `publish` → `accessKey` + QR·참여링크 | Phase A·B 구현 완료 (2026-08-21) · assignees=`spUserId` 연동 완료 |
-| **추가계획12** | 학생용 `/student/lesson/:accessKey` — `GET /entry` + `POST /participations` → `content.lcmsSetId` embed | Phase A·B 구현 완료 (2026-08-21) · 임시 `:setId` path 제거 · PATCH/submit/result는 후속 |
+| **추가계획12** | 학생용 `/student/lesson/:accessKey` — entry + participations embed · Phase C PATCH/submit | Phase A·B·**C 구현 완료** (2026-08-31) |
 | **추가계획13** | 전체 자료실 CMS 목록 무한 스크롤(`pageSize=10`) + 나의 자료 `GET /api/v1/library-items` 페이지네이션 | Phase A 구현 완료 / Phase B 구현 완료 |
 | **추가계획14** | 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) · `handleSaved` POST/PATCH · editor navigate `libraryItemId` state | **Phase 1 구현 완료** (2026-08-20) · Phase 2(페이지네이션) 구현 완료 |
 | **추가계획15** | `LessonResultPage` 수업 결과보기 UI (StatusPanel + 필터 + 카드) | 구현 완료 (2026-08-26) |
@@ -3350,12 +3350,13 @@ const handleStartLesson = (p: StartLessonPayload) => {
 
 # 추가계획12 — 학생용 `/student/lesson/:accessKey` + activity-join embed
 
-> **상태**: Phase A·B 구현 완료 (2026-08-21)  
+> **상태**: Phase A·B·C 구현 완료 (Phase C: 2026-08-31)  
 > **선행**: 추가계획11의 **링크 계약** (`/student/lesson/:accessKey`). 교사 `publish` → `accessKey`를 URL에 넣는다  
 > **범위**: 학생이 QR/링크로 들어와 참여 가능하면 `activity-join` SDK를 보여 준다. Viewer(`LessonViewerEmbed`)를 학생 입구로 재사용하지 않는다.  
 > **학생 흐름 기준**: `superplatform-lms/docs/guide/README.md` — 「따라 해보기 (학생) — 들어가서 풀고 내기」  
 > **Phase B (완료)**: `GET /entry` → `POST /participations` → `data.content.lcmsSetId`로 embed. 임시 `:setId` path 제거  
-> **후속(별도 추가계획)**: `PATCH` 자동저장 · `submit` · `result` Host 연동  
+> **Phase C (완료)**: embed `answerSaved` → `PATCH /participations/{participationId}` 자동저장 · `submitted` → submit  
+> **후속(별도)**: `GET .../participations/{id}` 이어하기 · `result` (추가계획22 학생 상세에서 result 사용)
 > **명칭 (2026-08-21 정정)**: 학생 URL param은 **`accessKey`** (이전 문서의 `:activityId` 표기는 오표기). LMS 내부 UUID `activityId`와 구분.  
 > **정정 (2026-08-21)**: 학생은 **`GET /activities/{activityId}`를 호출하지 않는다** (교사용). `lcmsSetId`는 `POST /participations` 응답 `data.content.lcmsSetId`.
 
@@ -3371,7 +3372,8 @@ const handleStartLesson = (p: StartLessonPayload) => {
         POST /participations         ← Bearer. body { accessKey }. 참여 시작
         → data.content.lcmsSetId
         → LessonActivityJoinEmbed (mode: 'activity-join', slideId=lcmsSetId)
-  → (후속) PATCH /participations/{id} → POST .../submit → GET .../result
+  → (Phase C) answerSaved → PATCH /participations/{id}  ← embed 이벤트 → 문항 자동저장
+  → (후속) POST .../submit → GET .../result
 ```
 
 문제 풀기 UI는 everyCanvas `activity-join`이다. Host는 라우트·권한 게이트·참여 시작·id 주입을 한다.  
@@ -3440,7 +3442,7 @@ Phase B API 연동 전 embed 확인용 **단기 우회**였다. Phase B에서 �
    (`201` 새 회차 · `200` 이어하기 — 본문으로 구분 불가. 상태 코드로만 구분)
 3. [x] embed options: everyCanvas `slideId`(`content.lcmsSetId`) + `activityId`(현재 `accessKey` 전달 · everyCanvas 계약 확정 시 교체). **`getToken` 전달 안 함**
 4. [x] **학생은 `GET /api/v1/activities/{activityId}`를 호출하지 않는다** (교사용)
-5. `PATCH` 자동저장 · `submit` · `result` — **후속 추가계획**. 이번 Phase B 미포함
+5. `PATCH` 자동저장 (`answerSaved` → §6.1) — **Phase C 계획 수립** · `submit` · `result` — **후속**
 ---
 
 ## 4. 라우트·레이아웃
@@ -3540,11 +3542,347 @@ identity: [ENV.EVERYCLASS_EMBED_BASE_URL, activityId, setId],
 | 규칙 | 내용 |
 |------|------|
 | `openSet` | **호출하지 않음.** `openSet`은 Editor(SDK 1.5)용. activity-join에서 slideId는 options로만 |
-| `getSsoToken` | Viewer와 같이 이번 미사용. Editor만 유지 |
+| `getSsoToken` | activity-join에서 SSO 토큰 전달 (Join embed 현행) |
 | `getToken` | **전달하지 않음.** 주석·자리 제거 (2026-08-20 확정) |
-| 이벤트 | `exitRequested` → `navigate(-1)` 또는 빈 안내. `submitted` / `phaseChanged` / `progress`는 훅에 구독만, **Host 저장 API는 후속 추가계획** |
+| 이벤트 | `exitRequested` → `navigate(-1)` 또는 빈 안내. `submitted` / `phaseChanged` / `progress`는 구독만(1차 console). **`answerSaved` → §6.1 PATCH 자동저장 (Phase C)** |
 
-`useEveryCanvasEmbed`의 `KNOWN_EVENTS`에 activity-join용 `submitted`·`phaseChanged`·`progress`를 추가한다. 핸들러가 없으면 no-op. Editor/Viewer 기존 이벤트는 유지.
+`useEveryCanvasEmbed`의 `KNOWN_EVENTS`에 activity-join용 `submitted`·`phaseChanged`·`progress`·**`answerSaved`**를 포함한다. 핸들러가 없으면 no-op. Editor/Viewer 기존 이벤트는 유지.
+
+### 6.1 `answerSaved` → `PATCH /participations/{participationId}` 자동저장 (Phase C)
+
+> **참조**: `docs/lesson/2026-08-26-solve-question-to-answerSaved-가이드.md` §5 · LMS `superplatform-lms/docs/public/guide/api-spec.md` § `PATCH /api/v1/participations/{participationId}`  
+> **현황**: embed 구독·PATCH 자동저장·submit 연동 **구현 완료** (2026-08-31).
+
+#### 6.1.1 `useEveryCanvasEmbed` — 수정 필요 여부
+
+| 항목 | 상태 | 내용 |
+|------|------|------|
+| `EmbedEventHandlers.answerSaved` | **반영됨** | `features/lesson/lib/useEveryCanvasEmbed.ts` — `(payload: unknown) => void` |
+| `KNOWN_EVENTS` | **반영됨** | `'answerSaved'` 포함 · `handle.on('answerSaved', …)` 구독 |
+| **추가 수정** | **불필요** (필수) | 이벤트 wiring은 완료. Phase C에서 **payload 타입만** `AnswerSavedPayload`로 좁히면 됨 (선택) |
+
+즉 Host 쪽(`LessonActivityJoinEmbed` · `LessonJoinPage`)에서 PATCH를 연결하면 되고, 훅에 `answerSaved`를 **새로 추가할 필요는 없다**.
+
+#### 6.1.2 embed `answerSaved` 페이로드 타입
+
+everyCanvas activity-join Frame → Host SDK → `useEveryCanvasEmbed` handlers로 전달되는 값.
+
+```ts
+/** docs/lesson/2026-08-26-solve-question-to-answerSaved-가이드.md §5 */
+interface AnswerSavedPayload {
+  seq: number;         // 세트 슬라이드 순번 (0부터). 알면 전달
+  articleId: string;   // solve-question.id — content.items[].lcmsArticleId 와 매칭
+  sub_id: string;      // solve-question.sub_id (answer 안에 넣지 말 것)
+  answer: unknown;     // solve-question.subMitAnw 그대로 (문자열로 감싸지 말 것)
+  timeSpentMs: number; // 이 문항 누적 학습시간(ms)
+  evaluation?: {
+    errata: 'CORRECT' | 'INCORRECT' | 'PARTIAL' | 'UNGRADABLE';
+    awardedScore?: number;
+  };
+}
+```
+
+| 규칙 | 내용 |
+|------|------|
+| `participationId` | **페이로드에 없음** — Host(`LessonJoinPage`)가 `POST /participations` 응답에서 보유 |
+| `articleId` | `lcmsArticleId` — `content.items[]`에서 `activityItemId`로 매핑 |
+| `timeSpentMs` | **0을 보내지 않음** (LMS가 치환·리셋). 없으면 PATCH body에서 생략 |
+| `evaluation` | `gradingPolicy === 'CLIENT_ALLOWED'`일 때만 PATCH에 포함. 그 외 생략 |
+
+features 타입 배치 (예): `features/lesson/lib/everyCanvasEmbedSdk.ts` 또는 `features/lesson/model/answerSavedTypes.ts`에 `AnswerSavedPayload` export.
+
+#### 6.1.3 Host 연동 — `LessonActivityJoinEmbed`
+
+**현행 코드** (`LessonActivityJoinEmbed.tsx` 62–63):
+
+```tsx
+answerSaved: (p) => console.log('answerSaved', p),
+```
+
+**Phase C 목표**: `console.log` 제거 → LMS PATCH 호출.
+
+| prop (신규·확장) | 출처 | 용도 |
+|------------------|------|------|
+| `participationId` | `POST /participations` → `data.participationId` | PATCH path |
+| `contentItems` | `POST /participations` → `data.content.items[]` | `articleId` → `activityItemId` lookup |
+| `gradingPolicy` | `data.content.gradingPolicy` | `evaluation` 포함 여부 |
+| `onAnswerSaved?: (payload: AnswerSavedPayload) => void` | (선택) 페이지 테스트·로깅 |
+
+**권장**: PATCH mutation은 **페이지(`LessonJoinPage`) 또는 features service**에 두고, Embed는 `onAnswerSaved` prop으로 위임. (FSD: widget이 직접 fetch하지 않거나, `usePatchParticipationMutation`을 features에서 import)
+
+```tsx
+// 스케치 — LessonActivityJoinEmbed handlers
+answerSaved: (p) => {
+  const payload = p as AnswerSavedPayload;
+  onAnswerSaved?.(payload);
+},
+```
+
+#### 6.1.4 LMS `PATCH /api/v1/participations/{participationId}` 매핑
+
+**인증**: 참여 시작과 동일 Bearer  
+**Path**: `participationId` = `POST /participations` 응답  
+**Body** (보낸 문항만 갱신 — 전체 교체 아님):
+
+```ts
+// Request body (api-spec.md)
+{
+  responses: [{
+    activityItemId: string;  // 필수 — content.items에서 lcmsArticleId === payload.articleId
+    answer?: unknown;        // payload.answer
+    timeSpentMs?: number;    // payload.timeSpentMs (> 0 일 때만)
+    evaluation?: {          // gradingPolicy === 'CLIENT_ALLOWED' && payload.evaluation
+      errata: 'CORRECT' | 'INCORRECT' | 'PARTIAL' | 'UNGRADABLE';
+      awardedScore?: number;
+    };
+  }];
+}
+```
+
+**`articleId` → `activityItemId` lookup**:
+
+```ts
+const item = contentItems.find((i) => i.lcmsArticleId === payload.articleId);
+if (!item) return; // 매칭 실패 시 PATCH 호출하지 않음
+```
+
+| `AnswerSavedPayload` | PATCH `responses[]` | 비고 |
+|----------------------|---------------------|------|
+| — | `activityItemId` | `content.items[].lcmsArticleId === articleId` |
+| `answer` | `answer` | 그대로 |
+| `timeSpentMs` | `timeSpentMs` | `> 0` 일 때만 |
+| `evaluation` | `evaluation` | `CLIENT_ALLOWED`일 때만 |
+| `seq` · `sub_id` | — | LMS PATCH 스키마에 없음. Host 내부 매핑용 |
+
+**Errors (1차 UX)**:
+
+| 상태 | 처리 |
+|------|------|
+| `409 ALREADY_SUBMITTED` | toast + embed 종료 또는 읽기 전용 |
+| `409 ACTIVITY_CLOSED` | toast + §5.1 `CLOSED` 문구로 전환 |
+| `400 GRADING_NOT_ALLOWED` | `evaluation` 제외 후 재시도 (방어) |
+| 네트워크 | toast · in-flight 실패 시 pending 유지 후 재시도 (§6.1.5) |
+
+**service (신규 예시)**:
+
+```ts
+// lmsActivityService.ts
+export async function patchParticipation(
+  participationId: string,
+  body: { responses?: Array<{ activityItemId: string; answer?: unknown; timeSpentMs?: number; evaluation?: { errata: LmsErrata; awardedScore?: number } }>; payload?: unknown | null },
+  signal?: AbortSignal,
+): Promise<ParticipationDetail>;
+```
+
+훅: `usePatchParticipationMutation` + **`useParticipationAutosave`** (§6.1.5) — `answerSaved`마다 즉시 PATCH **하지 않음**.
+
+#### 6.1.5 연속 `answerSaved` · PATCH 디바운스·동시성 (Phase C)
+
+> **참조**: `docs/lesson/2026-08-26-solve-question-to-answerSaved-가이드.md` §1 · §7 · `2026-08-25-activity-join-answerSaved-요청.md`  
+> **원칙**: 디바운스·배치·재시도·동시성 제어는 **Host(meta-dashboard) 전용**. Frame(every-canvas-fe)은 이벤트마다 즉시 `answerSaved` 발행.
+
+##### 6.1.5.1 왜 Host에서 디바운스하나
+
+| 층 | 디바운스 | 이유 |
+|----|----------|------|
+| Frame (`every-canvas-fe`) | **하지 않음** | `solve-question` 수신 즉시 `answerSaved` 발행. Frame 디바운스 시 제출 직전 마지막 답이 타이머에 갇혀 유실될 수 있음 |
+| Host (`meta-dashboard`) | **여기서 함** | `participationId`·`activityItemId` 매핑 · `gradingPolicy` 필터 · PATCH 타이밍 · 재시도 · `submitted` 전 flush |
+
+`useEveryCanvasEmbed` / `LessonActivityJoinEmbed`에는 debounce를 넣지 않는다. **`LessonJoinPage` 또는 features 훅**에서 처리.
+
+##### 6.1.5.2 `answerSaved` 연속 발화 패턴
+
+Frame 계약 (`2026-08-26` 가이드 §7):
+
+- CBS 문항 **답 입력·수정·재채점** 시 `solve-question` → `answerSaved` (키 입력마다가 아니라 풀이/채점 시점)
+- **같은 문항**을 고치면 **그때마다** 다시 옴 — 중복 제거는 Host 책임
+- **다른 문항**으로 넘어가면 `articleId`(=`lcmsArticleId`)가 바뀜
+- `submitted` 전에 Frame이 미전송 답이 있으면 **먼저** `answerSaved`를 보냄
+
+Host가 받는 전형적 버스트:
+
+| 시나리오 | 이벤트 패턴 | 위험 (디바운스 없을 때) |
+|----------|-------------|-------------------------|
+| 같은 문항 답 여러 번 수정 | 동일 `articleId`+`sub_id` 짧은 간격 연속 | PATCH N회 · 마지막 이전 요청이 늦게 도착하면 **역전**(stale write) |
+| 슬라이드 이동 후 이전 문항 재수정 | 서로 다른 `articleId` 혼재 | 동시 다발 PATCH · 서버 부하 |
+| 제출 직전 | `answerSaved` 직후 `submitted` | debounce 타이머 안의 답이 PATCH 안 된 채 submit |
+| 탭 이탈·`exitRequested` | 마지막 `answerSaved` 직후 종료 | pending 답 유실 |
+
+LMS PATCH 특성 (api-spec.md)이 전략을 좌우함:
+
+- `responses[]`는 **보낸 문항만** 갱신 (부분 업데이트) → **여러 문항을 한 PATCH에 묶기 가능**
+- `timeSpentMs`는 **치환**(누적 더하기 아님) → 항상 **가장 최신 payload**만 보내야 함
+- 답 변경 시 기존 채점 무효화 → 최신 `answer`+`evaluation` 쌍이 서버에 도달해야 함
+- 동시 PATCH에 `If-Match` 없으면 **마지막 성공 응답이 이김** — in-flight 2개면 순서 보장 필요
+
+##### 6.1.5.3 권장 전략 — **문항별 coalesce + 단일 in-flight + trailing flush**
+
+Phase C 1차 구현안. 상수는 env/상수 파일로 조정 가능.
+
+```
+answerSaved 수신
+    │
+    ▼
+pending Map<saveKey, PatchResponseItem>  ← saveKey = activityItemId (또는 articleId+sub_id)
+    │  (같은 키면 최신 payload로 덮어씀 — Last-Write-Wins)
+    ▼
+per-key trailing debounce (600ms)  +  global maxWait (2500ms)
+    │
+    ▼
+flush(): pending 전체(또는 dirty 키) → PATCH 1회  (responses[] 배치)
+    │
+    ├─ in-flight 없음 → PATCH 시작
+    └─ in-flight 있음 → 완료 후 pending 재확인 → dirty 있으면 PATCH 1회 더 (chain)
+```
+
+| 요소 | 값(1차) | 설명 |
+|------|---------|------|
+| **coalesce 키** | `activityItemId` | `content.items` lookup 후 확정. lookup 실패 시 PATCH 스킵 |
+| **debounce 방식** | **trailing** (마지막 이벤트 기준) | 중간 상태는 버리고 최신 `answer`·`timeSpentMs`·`evaluation`만 서버에 반영 |
+| **debounce 지연** | **600ms** | CBS `solve-question` 버스트 흡수. 키입력 debounce가 아니므로 300ms 이하는 과도 |
+| **maxWait** | **2500ms** | 연속 수정 시에도 최대 2.5초 안에 1회는 반드시 PATCH (trailing만이면 영원히 미저장) |
+| **배치** | flush 시 **pending 전체**를 `responses[]` 한 요청 | 문항 A·B가 600ms 안에 올면 1 PATCH로 합침 (LMS 최대 1,000개) |
+| **in-flight** | **participationId당 동시 PATCH 1개** | 두 번째 flush는 첫 PATCH `await` 후 chain. stale 역전 방지 |
+| **재시도** | 네트워크/5xx만 1회 즉시 재시도 | `409`/`400`은 재시도 안 함 · §6.1.4 UX |
+
+**즉시 flush (debounce 무시)** — 아래 시점에는 `flushPending()`을 **동기적으로 await**:
+
+| 트리거 | 이유 |
+|--------|------|
+| embed `submitted` | submit body 없음 — **자동저장된 답만** 제출됨 |
+| embed `exitRequested` | 이탈 전 마지막 답 보존 |
+| `LessonJoinPage` unmount | 라우트 이탈 |
+| `visibilitychange` → `hidden` (선택) | 모바일 탭 전환·백그라운드 (1차 선택) |
+
+`submitted` 핸들러 순서 (필수):
+
+```text
+1. await autosave.flush()     // pending 전부 PATCH
+2. POST .../submit            // 본문 없음
+3. navigate / UI 전환
+```
+
+##### 6.1.5.4 구현 위치·API (스케치)
+
+**파일 (신규 권장)**: `features/lesson/model/useParticipationAutosave.ts` (또는 `features/lesson/api/useParticipationAutosave.ts`)
+
+```ts
+type AutosaveInput = {
+  participationId: string;
+  contentItems: ParticipationContent['items'];
+  gradingPolicy: string;
+};
+
+type UseParticipationAutosaveResult = {
+  /** LessonActivityJoinEmbed onAnswerSaved에 연결 */
+  enqueue: (payload: AnswerSavedPayload) => void;
+  /** submitted / exit / unmount 전 await */
+  flush: () => Promise<void>;
+  /** UI: 저장 중 표시 (선택) */
+  isSaving: boolean;
+  lastError: Error | null;
+};
+```
+
+**내부 상태**:
+
+```ts
+// pending: Map<activityItemId, PatchResponseItem>
+// debounceTimer: ReturnType<typeof setTimeout> | null
+// maxWaitTimer: ReturnType<typeof setTimeout> | null
+// inflight: Promise<void> | null
+// etag: string | null  // 후속: 응답 ETag → 다음 PATCH If-Match
+```
+
+**`enqueue` 흐름**:
+
+1. `payload` → `PatchResponseItem` 매핑 (§6.1.4 · `timeSpentMs > 0`만)
+2. `pending.set(activityItemId, item)` — 동일 키면 덮어씀
+3. trailing timer 리셋 (600ms)
+4. maxWait timer 없으면 시작 (2500ms 후 `flush`)
+
+**`flush` 흐름**:
+
+1. 타이머 전부 clear
+2. `pending` 비어 있으면 return
+3. `inflight` 있으면 await 후 2번부터 재귀 (chain)
+4. `responses = [...pending.values()]` · `pending.clear()`
+5. `patchParticipation(participationId, { responses })`
+6. 성공 시 `etag` 갱신 (후속) · 실패 시 실패한 `responses`를 `pending`에 merge-back (네트워크만)
+
+Embed 연결:
+
+```tsx
+// LessonJoinPage
+const autosave = useParticipationAutosave({ participationId, contentItems, gradingPolicy });
+
+<LessonActivityJoinEmbed
+  onAnswerSaved={autosave.enqueue}
+  onSubmitted={async () => {
+    await autosave.flush();
+    // POST submit …
+  }}
+  onExitRequested={async () => {
+    await autosave.flush();
+    navigate(...);
+  }}
+/>
+```
+
+##### 6.1.5.5 시나리오별 기대 동작
+
+| # | 학생 동작 | Frame | Host PATCH |
+|---|-----------|-------|------------|
+| 1 | 문항 A 답 3번 연속 수정 (2초 안) | `answerSaved` ×3 | **1회** (600ms trailing, 최신 답) |
+| 2 | A 수정 후 1초 뒤 B 수정 | ×2 (다른 키) | **1회** 배치 `{A, B}` 또는 trailing 2회 — maxWait 전이면 1회 배치 권장 |
+| 3 | 답 수정 직후 제출 클릭 | `answerSaved` → `submitted` | `flush()` 즉시 → submit |
+| 4 | PATCH in-flight 중 또 `answerSaved` | ×1 | in-flight 완료 후 **chain PATCH** (새 pending) |
+| 5 | `409 ACTIVITY_CLOSED` | — | pending 폐기 · autosave 중단 · §5.1 문구 |
+| 6 | 네트워크 끊김 | — | toast · pending 유지 · 다음 `answerSaved` 또는 flush 시 재시도 |
+
+##### 6.1.5.6 Phase C에서 하지 말 것
+
+| 금지 | 이유 |
+|------|------|
+| `answerSaved`마다 즉시 PATCH | 버스트 시 역전·과다 요청 |
+| Frame에 debounce 위임 | 마지막 답 유실·submit 레이스 |
+| 문항별 **독립 in-flight** PATCH 동시 2개+ | stale write 역전 |
+| debounce만 있고 **submit 전 flush 없음** | 미저장 제출 |
+| leading debounce (첫 이벤트만 저장) | 최신 답 누락 |
+| `timeSpentMs: 0` 전송 | LMS가 0으로 치환해 학습시간 리셋 |
+| PATCH 실패 시 pending 무조건 삭제 | 네트워크 오류 시 답 유실 |
+
+##### 6.1.5.7 후속 (Phase C+ · 필수 아님)
+
+| 항목 | 내용 |
+|------|------|
+| `If-Match` / ETag | `PATCH` 응답 `ETag` 저장 → 다음 PATCH 헤더. 낙관적 잠금 |
+| Host → Frame `answerSaveFailed` | PATCH `409` 등을 iframe UI에 반영 (요청문 §3 확인 필요) |
+| debounce 상수 원격 설정 | 반별 튜닝 |
+| `visibilitychange` flush | 모바일 백그라운드 보강 |
+
+#### 6.1.6 Phase C 체크리스트
+
+- [x] `useEveryCanvasEmbed` — `answerSaved` 이벤트 구독 (`KNOWN_EVENTS` · `EmbedEventHandlers`)
+- [x] `LessonActivityJoinEmbed` — `answerSaved` → `onAnswerSaved` 위임
+- [x] `AnswerSavedPayload` 타입 export (`answerSavedTypes.ts`)
+- [x] `patchParticipation` · `submitParticipation` service
+- [x] `useParticipationAutosave` — coalesce · trailing 600ms · maxWait 2.5s · single in-flight · 배치 PATCH (§6.1.5)
+- [x] `LessonJoinPage` / `LessonJoinSession` — participationId · content.items · gradingPolicy → autosave
+- [x] `answerSaved` → `enqueue` · `submitted`/`exit`/unmount/visibility `flush()` · submit
+- [x] `409`/`400` 에러 UX · 네트워크 실패 pending merge-back + 1회 재시도
+
+#### 6.1.7 Phase C 구현 결과 (2026-08-31)
+
+| 파일 | 변경 |
+|------|------|
+| `model/answerSavedTypes.ts` | `AnswerSavedPayload` · `isAnswerSavedPayload` |
+| `model/mapAnswerSaved.ts` | `mapAnswerSavedToPatchResponse` |
+| `model/useParticipationAutosave.ts` | debounce·coalesce·flush·PATCH chain |
+| `api/lmsActivityService.ts` | `patchParticipation` · `submitParticipation` |
+| `ui/LessonActivityJoinEmbed.tsx` | `onAnswerSaved` prop · `console.log` 제거 |
+| `pages/lesson/LessonJoinPage.tsx` | `LessonJoinSession` — autosave · submit · fatal 409 UX |
+| `features/lesson/index.ts` | export |
 
 참여 시작(`POST /participations`) **전**에 Embed를 마운트하지 않는다. 불가인데 iframe이 뜨면 안 된다.
 
@@ -3565,14 +3903,14 @@ identity: [ENV.EVERYCLASS_EMBED_BASE_URL, activityId, setId],
 > 학생 URL·entry·participations body는 **`accessKey`**.  
 > 🚫 **`GET /api/v1/activities/{activityId}`는 교사용.** 학생이 `lcmsSetId`를 얻을 때 호출하지 않는다.
 
-### 후속 추가계획 (풀고 내기 — 이번 Phase B 미포함)
+### 후속 추가계획 (풀고 내기)
 
-| 엔드포인트 | 역할 |
-|-----------|------|
-| `GET /api/v1/participations/{id}` | 이어하기 (응답에 `responses[]`·`content` 포함) |
-| `PATCH /api/v1/participations/{id}` | 자동저장 |
-| `POST /api/v1/participations/{id}/submit` | 제출 |
-| `GET /api/v1/participations/{id}/result` | 결과 |
+| 엔드포인트 | 역할 | 스펙 위치 |
+|-----------|------|-----------|
+| `PATCH /api/v1/participations/{id}` | 자동저장 | **§6.1** — **구현 완료** (Phase C) |
+| `POST /api/v1/participations/{id}/submit` | 제출 | **§6.1.7** — **구현 완료** (Phase C) |
+| `GET /api/v1/participations/{id}` | 이어하기 (응답에 `responses[]`·`content` 포함) | 후속 |
+| `GET /api/v1/participations/{id}/result` | 결과 | 후속 (추가계획22 학생 상세에서 사용) |
 
 ### `GET /api/v1/entry/{accessKey}` 응답 (`Entry` 타입)
 
@@ -3627,7 +3965,7 @@ type Entry = {
 | embed `activityId` | 임시 = URL `accessKey` | 현재 `accessKey` 전달 (everyCanvas 계약 확정 시 교체) |
 | embed `slideId` | 임시 = URL `:setId` / fallback | `content.lcmsSetId` |
 | `getToken` | 미전달 | **미전달 (확정)** |
-| 자동저장·제출·결과 | `onSubmitted` 구독만 | **후속 추가계획** |
+| 자동저장·제출·결과 | `onSubmitted` 구독만 | **PATCH**: §6.1 Phase C · **submit/result**: 후속 |
 
 ### Phase B service 시그니처 (**구현 완료**)
 
@@ -3729,7 +4067,7 @@ Phase A 스켈레톤(`getActivityJoinEligibility` / `getActivityJoinSetId`) **�
 | 5 | 진입 API | **확정·구현** | `GET /entry/{accessKey}`. **인증 불필요**. 문항·lcmsSetId 없음 |
 | 6 | `lcmsSetId` 조회 | **확정·구현** | `POST /participations` → `data.content.lcmsSetId` |
 | 7 | `getToken` | **확정·구현** | **전달 안 함** |
-| 8 | 풀고 내기 (PATCH/submit/result) | **후속** | 가이드 순서상 맞으나 Host 연동은 별도 추가계획 |
+| 8 | 풀고 내기 (PATCH/submit/result) | **Phase C 완료** | PATCH autosave · submit 구현. result는 추가계획22 |
 | 9 | API `errorCode` UX | **미확정** | 1차는 §5.1 + participations 실패 공통 문구만 |
 | 10 | 로그인 복귀 | **Phase A에서 가능한 한** | join URL이 로그인에 삼켜지지 않게 |
 | 11 | URL `:setId` path | **제거 완료** | 2026-08-21 Phase B |

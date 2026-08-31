@@ -14,6 +14,8 @@ export {
   getTeacherParticipationResult,
   fetchActivityEntry,
   startParticipation,
+  patchParticipation,
+  submitParticipation,
   getMyActivities,
   getParticipationResult,
   LmsHttpError,
@@ -34,6 +36,8 @@ export type {
   EntryAvailability,
   ParticipationDetail,
   ParticipationContent,
+  PatchParticipationResponseItem,
+  PatchParticipationBody,
   ActivityProgress,
   ActivityProgressRow,
   ActivityStatistics,
@@ -57,6 +61,14 @@ export { LessonViewerEmbed } from './ui/LessonViewerEmbed';
 export type { LessonViewerEmbedProps } from './ui/LessonViewerEmbed';
 export { LessonActivityJoinEmbed } from './ui/LessonActivityJoinEmbed';
 export type { LessonActivityJoinEmbedProps } from './ui/LessonActivityJoinEmbed';
+export { useParticipationAutosave } from './model/useParticipationAutosave';
+export type {
+  ParticipationAutosaveInput,
+  UseParticipationAutosaveResult,
+} from './model/useParticipationAutosave';
+export type { AnswerSavedPayload } from './model/answerSavedTypes';
+export { isAnswerSavedPayload } from './model/answerSavedTypes';
+export { mapAnswerSavedToPatchResponse } from './model/mapAnswerSaved';
 export { LessonActivityReportEmbed } from './ui/LessonActivityReportEmbed';
 export type { LessonActivityReportEmbedProps } from './ui/LessonActivityReportEmbed';
 export { useLibraryFilters } from './model/useLibraryFilters';

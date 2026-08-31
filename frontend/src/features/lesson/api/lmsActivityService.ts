@@ -571,6 +571,54 @@ export async function startParticipation(accessKey: string): Promise<Participati
   });
 }
 
+export type PatchParticipationResponseItem = {
+  activityItemId: string;
+  answer?: unknown;
+  timeSpentMs?: number;
+  evaluation?: {
+    errata: LmsErrata;
+    awardedScore?: number;
+  };
+};
+
+export type PatchParticipationBody = {
+  responses?: PatchParticipationResponseItem[];
+  payload?: unknown | null;
+};
+
+/** PATCH /api/v1/participations/{participationId} — 학생 자동저장 */
+export async function patchParticipation(
+  participationId: string,
+  body: PatchParticipationBody,
+  signal?: AbortSignal,
+): Promise<ParticipationDetail> {
+  return lmsFetch<ParticipationDetail>(
+    `${PARTICIPATIONS_BASE}/${encodeURIComponent(participationId)}`,
+    {
+      method: 'PATCH',
+      signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/** POST /api/v1/participations/{participationId}/submit — 학생 제출 */
+export async function submitParticipation(
+  participationId: string,
+  idempotencyKey: string,
+  signal?: AbortSignal,
+): Promise<ParticipationDetail> {
+  return lmsFetch<ParticipationDetail>(
+    `${PARTICIPATIONS_BASE}/${encodeURIComponent(participationId)}/submit`,
+    {
+      method: 'POST',
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+  );
+}
+
 // ─── 학생 홈 · 내 결과 ─────────────────────────────
 
 const MY_ACTIVITIES_BASE = `${ENV.SP_LMS_API_URL}/api/v1/my-activities`;
