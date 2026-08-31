@@ -1705,10 +1705,13 @@ public class DgnssService {
         boolean exposeLernReport = StringUtils.equalsAny(paperIdx, "1", "2");
         ObjectMapper lernJsonParser = new ObjectMapper();
         for (int dgnssId : targetDgnssIdList) {
-            List<Map<String, Object>> cachedRows =
-                    fetchClassTotalReportCached(dgnssId, classTotalReportCache, classTotalReportNotExistsUsed);
-            // 캐시 원본 오염 방지: source 부여·fallback addAll·enrichLpaTop3 등 변형은 복사본 리스트에서 수행.
-            List<Map<String, Object>> lpaRows = new ArrayList<>(cachedRows);
+            // lpaByOrd 는 신뢰도 '주의' 학생도 포함(lernInclude='Y') — 개별 API(st/analysis)와 정책 통일.
+            // 학급 평균 경로(fetchClassTotalReportCached, 주의 제외)와는 별개 조회라 평균에 영향 없음.
+            Map<String, Object> lpaInParam = new HashMap<>();
+            lpaInParam.put("dgnssId", dgnssId);
+            lpaInParam.put("notExistsYn", "N");
+            lpaInParam.put("lernInclude", "Y");
+            List<Map<String, Object>> lpaRows = new ArrayList<>(dgnssMapper.selectClassTotalReport(lpaInParam));
             for (Map<String, Object> row : lpaRows) {
                 row.put("source", "IN_CLASS");
             }
@@ -1726,7 +1729,8 @@ public class DgnssService {
                 fallbackParam.put("paperIdx", paperIdx);
                 fallbackParam.put("ordNo", currentOrdNo);
                 fallbackParam.put("stdtIds", missingStudents);
-                fallbackParam.put("notExistsYn", classTotalReportNotExistsUsed.getOrDefault(dgnssId, "N"));
+                fallbackParam.put("notExistsYn", "N");
+                fallbackParam.put("lernInclude", "Y");
                 List<Map<String, Object>> fallbackRows = dgnssMapper.selectClassTotalReportFromOtherClasses(fallbackParam);
                 if (CollectionUtils.isNotEmpty(fallbackRows)) {
                     for (Map<String, Object> row : fallbackRows) {
@@ -1753,6 +1757,8 @@ public class DgnssService {
                     lpaRow.put("lpaTop2Probability", row.get("lpaTop2Probability"));
                     lpaRow.put("lpaTop3TypeName", row.get("lpaTop3TypeName"));
                     lpaRow.put("lpaTop3Probability", row.get("lpaTop3Probability"));
+                    // 신뢰도 '주의'여도 LPA 는 제공하되, 어떤 지표가 '주의'인지 플래그로 함께 전달(FE 컨벤션).
+                    lpaRow.put("reliabilityWarnings", buildReliabilityWarnings(row));
                     studentLpaList.add(lpaRow);
                 }
                 lpaByOrd.put(ordKey, studentLpaList);
@@ -2637,6 +2643,8 @@ public class DgnssService {
             lpaTop.put("lpaTop2Probability", row.get("lpaTop2Probability"));
             lpaTop.put("lpaTop3TypeName", row.get("lpaTop3TypeName"));
             lpaTop.put("lpaTop3Probability", row.get("lpaTop3Probability"));
+            // 신뢰도 '주의'여도 LPA 제공 + 어떤 지표가 '주의'인지 플래그(벌크 tc/analysis 와 정책 통일).
+            lpaTop.put("reliabilityWarnings", buildReliabilityWarnings(row));
             result.put(ordKey, lpaTop);
         }
         return result;
