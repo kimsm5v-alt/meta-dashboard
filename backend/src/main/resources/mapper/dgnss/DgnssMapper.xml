@@ -3071,6 +3071,12 @@
 		WHERE a1.paper_idx = #{paperIdx}
 			AND b1.stdt_id = #{stdtId}
 			AND b1.subm_at = 'Y'
+			<!-- claId 전달 시 해당 학급 이력만(다른 학급 결과 혼입 방지). 미전달 시 전체 그룹 이력. -->
+			<if test="claId != null and claId != ''">
+				AND a1.cla_id = #{claId}
+			</if>
+		<!-- 동일 학생·회차에 결과가 여러 건이면 최신 검사(ANSWER_IDX 큰 값)가 회차 대표로 선택되도록 결정적 정렬 -->
+		ORDER BY a1.ord_no, c1.ANSWER_IDX DESC
 	</select>
 
 	<select id="selectFirstDgnssResultId" parameterType="map" resultType="string">

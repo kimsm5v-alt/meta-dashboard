@@ -1,6 +1,7 @@
 import { useLocation, useParams } from 'react-router-dom';
 import { ReportDetail } from '@widgets/lesson';
 import type { ActivitySummaryItem } from '@features/lesson';
+import { useLayoutContext } from '@widgets/layout/v2/LayoutContext';
 
 const isActivitySummary = (value: unknown): value is ActivitySummaryItem => {
   if (typeof value !== 'object' || value === null) return false;
@@ -18,11 +19,18 @@ const activityFromState = (state: unknown): ActivitySummaryItem | undefined => {
   return isActivitySummary(activity) ? activity : undefined;
 };
 
-export const LessonReportDetailPage = () => {
+export const LessonResultDetailPage = () => {
   const { activityId } = useParams<{ activityId: string }>();
   const location = useLocation();
+  const { scope } = useLayoutContext();
   if (!activityId) return null;
-  return <ReportDetail activityId={activityId} activity={activityFromState(location.state)} />;
+  return (
+    <ReportDetail
+      activityId={activityId}
+      classId={scope.classId}
+      activity={activityFromState(location.state)}
+    />
+  );
 };
 
-export default LessonReportDetailPage;
+export default LessonResultDetailPage;

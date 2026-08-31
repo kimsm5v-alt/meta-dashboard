@@ -4,6 +4,7 @@ import { ENV } from '@shared/config/env';
 import { useEveryCanvasEmbed } from '../lib/useEveryCanvasEmbed';
 import type { EmbedError, ThemeTokens } from '../lib/everyCanvasEmbedSdk';
 import { getSsoAccessToken } from '../lib/getSsoAccessToken';
+import { isAnswerSavedPayload } from '../model/answerSavedTypes';
 
 const JoinContainer = styled.div`
   position: fixed;
@@ -20,8 +21,9 @@ export type LessonActivityJoinEmbedProps = {
   accessKey: string;
   /** POST /participations → data.content.lcmsSetId. embed slideId */
   setId: string;
-  onExitRequested?: (payload: { reason?: 'userClose' | 'done' }) => void;
-  onSubmitted?: (payload: unknown) => void;
+  onExitRequested?: (payload: { reason?: 'userClose' | 'done' }) => void | Promise<void>;
+  onSubmitted?: (payload: unknown) => void | Promise<void>;
+  onAnswerSaved?: (payload: unknown) => void;
   onError?: (error: EmbedError) => void;
   onReady?: () => void;
 };
@@ -35,6 +37,7 @@ export const LessonActivityJoinEmbed = ({
   setId,
   onExitRequested,
   onSubmitted,
+  onAnswerSaved,
   onError,
   onReady,
 }: LessonActivityJoinEmbedProps) => {
@@ -55,8 +58,15 @@ export const LessonActivityJoinEmbed = ({
       theme: embedTheme,
     },
     handlers: {
-      exitRequested: (p) => onExitRequested?.(p as { reason?: 'userClose' | 'done' }),
-      submitted: (p) => onSubmitted?.(p),
+      exitRequested: (p) => {
+        void onExitRequested?.(p as { reason?: 'userClose' | 'done' });
+      },
+      submitted: (p) => {
+        void onSubmitted?.(p);
+      },
+      answerSaved: (p) => {
+        if (isAnswerSavedPayload(p)) onAnswerSaved?.(p);
+      },
       slideChanged: (p) => console.log('slideChanged', p),
       phaseChanged: (p) => console.log('phaseChanged', p),
       progress: (p) => console.log('progress', p),

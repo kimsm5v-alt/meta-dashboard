@@ -1,14 +1,19 @@
+import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
-import type { ReportDetailView } from '@features/lesson';
-import { renderMode, responseCell, responseOf } from '@features/lesson';
+import type { ActivityProgress, PageTabListItem, ReportGridItem } from '@features/lesson';
+import { submittedReportGridItems } from '@features/lesson';
 import { NatureBadge } from './ReportBadge';
 import { SummaryStrip } from './SummaryStrip';
 import { ResponseGrid } from './ResponseGrid';
-import type { GridItem } from './ResponseGrid';
+import { ResponseDetailOverlay } from './ResponseDetailOverlay';
 
 interface PageContentProps {
-  view: ReportDetailView;
-  selectedIndex: number;
+  activityId: string;
+  activityTitle: string;
+  page: PageTabListItem;
+  assignedCount: number;
+  gridRows: ReportGridItem[];
+  progress?: ActivityProgress;
 }
 
 const Shell = styled.div`
@@ -48,15 +53,6 @@ const PageTitle = styled.b`
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
 `;
 
-const SelChip = styled.span`
-  padding: 2px 8px;
-  border-radius: ${({ theme }) => theme.radius.full};
-  background: ${({ theme }) => theme.colors.primary[50]};
-  color: ${({ theme }) => theme.colors.primary[700]};
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-`;
-
 const SectionTitle = styled.div`
   margin-bottom: ${({ theme }) => theme.spacing.sm};
   color: ${({ theme }) => theme.colors.gray[700]};
@@ -69,41 +65,49 @@ const Count = styled.span`
   color: ${({ theme }) => theme.colors.gray[400]};
 `;
 
-export const PageContent = ({ view, selectedIndex }: PageContentProps) => {
-  const arts = view.articles;
-  const cur = selectedIndex >= arts.length ? 0 : selectedIndex;
-  const a = arts[cur];
-  if (!a) return null;
+export const PageContent = ({
+  activityId,
+  activityTitle,
+  page,
+  assignedCount,
+  gridRows,
+  progress,
+}: PageContentProps) => {
+  const [overlayIndex, setOverlayIndex] = useState<number | null>(null);
 
-  const mode = renderMode(a);
-  const items: GridItem[] = view.students.map((s) => {
-    const resp = responseOf(view, a.id, s.studentId);
-    return {
-      key: s.studentId,
-      title: `${s.no}. ${s.studentName}`,
-      nature: a.nature,
-      mode,
-      cell: responseCell(a, resp),
-      capture: resp?.captureImage,
-      showNature: false,
-    };
-  });
+  const submitted = useMemo(() => submittedReportGridItems(gridRows), [gridRows]);
+
+  const handleItemClick = (item: ReportGridItem) => {
+    const idx = submitted.findIndex((s) => s.key === item.key);
+    if (idx >= 0) setOverlayIndex(idx);
+  };
 
   return (
     <Shell>
       <Head>
-        <Order>{a.order}</Order>
-        <PageTitle>{a.title}</PageTitle>
-        <NatureBadge nature={a.nature} />
-        {a.selFactor ? <SelChip>{a.selFactor}</SelChip> : null}
+        <Order>{page.seq}</Order>
+        <PageTitle>{page.title}</PageTitle>
+        {page.nature ? <NatureBadge nature={page.nature} /> : null}
       </Head>
-      <SummaryStrip view={view} article={a} />
+      <SummaryStrip page={page} assignedCount={assignedCount} />
       <div>
         <SectionTitle>
-          학생별 응답 <Count>({items.length})</Count>
+          학생별 응답 <Count>({assignedCount})</Count>
         </SectionTitle>
-        <ResponseGrid items={items} />
+        <ResponseGrid items={gridRows} showSummary onItemClick={handleItemClick} />
       </div>
+      {overlayIndex != null ? (
+        <ResponseDetailOverlay
+          axis='page'
+          activityId={activityId}
+          activityTitle={activityTitle}
+          siblings={submitted}
+          initialIndex={overlayIndex}
+          onClose={() => setOverlayIndex(null)}
+          progress={progress}
+          fixedPage={{ seq: page.seq, title: page.title, nature: page.nature }}
+        />
+      ) : null}
     </Shell>
   );
 };

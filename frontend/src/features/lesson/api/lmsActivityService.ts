@@ -409,6 +409,32 @@ export async function getTeacherParticipationResult(
   });
 }
 
+export type PatchParticipationGradingItem = {
+  activityItemId: string;
+  errata: LmsErrata;
+  awardedScore?: number;
+  comment?: string;
+};
+
+/** PATCH /api/v1/activities/{activityId}/participations/{participationId}/grading — 교사 수동 채점 */
+export async function patchParticipationGrading(
+  activityId: string,
+  participationId: string,
+  items: PatchParticipationGradingItem[],
+  idempotencyKey: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await lmsFetch<null>(`${BASE}/${activityId}/participations/${participationId}/grading`, {
+    method: 'PATCH',
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
+    },
+    body: JSON.stringify({ items }),
+  });
+}
+
 function toFailure(
   failedStep: DeployFailedStep,
   error: unknown,
@@ -543,4 +569,86 @@ export async function startParticipation(accessKey: string): Promise<Participati
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ accessKey }),
   });
+}
+
+export type PatchParticipationResponseItem = {
+  activityItemId: string;
+  answer?: unknown;
+  timeSpentMs?: number;
+  evaluation?: {
+    errata: LmsErrata;
+    awardedScore?: number;
+  };
+};
+
+export type PatchParticipationBody = {
+  responses?: PatchParticipationResponseItem[];
+  payload?: unknown | null;
+};
+
+/** PATCH /api/v1/participations/{participationId} — 학생 자동저장 */
+export async function patchParticipation(
+  participationId: string,
+  body: PatchParticipationBody,
+  signal?: AbortSignal,
+): Promise<ParticipationDetail> {
+  return lmsFetch<ParticipationDetail>(
+    `${PARTICIPATIONS_BASE}/${encodeURIComponent(participationId)}`,
+    {
+      method: 'PATCH',
+      signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/** POST /api/v1/participations/{participationId}/submit — 학생 제출 */
+export async function submitParticipation(
+  participationId: string,
+  idempotencyKey: string,
+  signal?: AbortSignal,
+): Promise<ParticipationDetail> {
+  return lmsFetch<ParticipationDetail>(
+    `${PARTICIPATIONS_BASE}/${encodeURIComponent(participationId)}/submit`,
+    {
+      method: 'POST',
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+  );
+}
+
+// ─── 학생 홈 · 내 결과 ─────────────────────────────
+
+const MY_ACTIVITIES_BASE = `${ENV.SP_LMS_API_URL}/api/v1/my-activities`;
+
+/** 학생 홈 목록 한 줄 — 배정 + 참여 합친 항목 */
+export type MyActivity = {
+  activityId: string;
+  accessKey: string;
+  title: string;
+  availability: ActivityAvailability;
+  openAt?: string;
+  closeAt?: string;
+  status: ParticipationStatus;
+  participationId?: string;
+  attempt?: number;
+  submittedAt?: string;
+};
+
+/** GET /api/v1/my-activities — 학생 홈 목록 (배열) */
+export async function getMyActivities(signal?: AbortSignal): Promise<MyActivity[]> {
+  return lmsFetch<MyActivity[]>(MY_ACTIVITIES_BASE, { signal });
+}
+
+/** GET /api/v1/participations/{participationId}/result — 학생 본인 결과 */
+export async function getParticipationResult(
+  participationId: string,
+  signal?: AbortSignal,
+): Promise<ParticipationResult> {
+  return lmsFetch<ParticipationResult>(
+    `${PARTICIPATIONS_BASE}/${encodeURIComponent(participationId)}/result`,
+    { signal },
+  );
 }

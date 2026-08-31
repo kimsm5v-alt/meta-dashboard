@@ -118,6 +118,7 @@ export interface CmsArticleInfo {
   id?: string;
   name?: string;
   articleType?: number;
+  thumbnail?: string;
 }
 
 export async function getCmsArticle(

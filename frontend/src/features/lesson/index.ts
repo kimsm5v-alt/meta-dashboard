@@ -14,6 +14,10 @@ export {
   getTeacherParticipationResult,
   fetchActivityEntry,
   startParticipation,
+  patchParticipation,
+  submitParticipation,
+  getMyActivities,
+  getParticipationResult,
   LmsHttpError,
   isActivityAvailability,
 } from './api/lmsActivityService';
@@ -32,6 +36,8 @@ export type {
   EntryAvailability,
   ParticipationDetail,
   ParticipationContent,
+  PatchParticipationResponseItem,
+  PatchParticipationBody,
   ActivityProgress,
   ActivityProgressRow,
   ActivityStatistics,
@@ -43,6 +49,7 @@ export type {
   ParticipationResult,
   ParticipationResultItem,
   LmsErrata,
+  MyActivity,
 } from './api/lmsActivityService';
 export { FilterPanel } from './ui/FilterPanel';
 export { DeployPage } from './ui/DeployPage';
@@ -54,9 +61,18 @@ export { LessonViewerEmbed } from './ui/LessonViewerEmbed';
 export type { LessonViewerEmbedProps } from './ui/LessonViewerEmbed';
 export { LessonActivityJoinEmbed } from './ui/LessonActivityJoinEmbed';
 export type { LessonActivityJoinEmbedProps } from './ui/LessonActivityJoinEmbed';
+export { useParticipationAutosave } from './model/useParticipationAutosave';
+export type {
+  ParticipationAutosaveInput,
+  UseParticipationAutosaveResult,
+} from './model/useParticipationAutosave';
+export type { AnswerSavedPayload } from './model/answerSavedTypes';
+export { isAnswerSavedPayload } from './model/answerSavedTypes';
+export { mapAnswerSavedToPatchResponse } from './model/mapAnswerSaved';
+export { LessonActivityReportEmbed } from './ui/LessonActivityReportEmbed';
+export type { LessonActivityReportEmbedProps } from './ui/LessonActivityReportEmbed';
 export { useLibraryFilters } from './model/useLibraryFilters';
 export { matchLibraryItem, sortLibraryItems } from './model/matchLibraryFilters';
-export { MOCK_LIBRARY_ITEMS } from './model/mockLibraryItems';
 export {
   useLibraryItemListQuery,
   useLibraryItemInfiniteListQuery,
@@ -76,8 +92,13 @@ export {
   useActivityParticipationsQuery,
   useActivitiesProgressBundleQuery,
   useTeacherParticipationQuery,
+  useTeacherParticipationsMapQuery,
+  usePatchParticipationGradingMutation,
   useAssigneeDirectoryQuery,
+  useClassMemberSubsQuery,
   useCmsArticleMapQuery,
+  useMyActivitiesQuery,
+  useParticipationResultQuery,
 } from './api/queries';
 export type { SyncLibraryItemOnSaveInput } from './api/queries';
 export type {
@@ -114,23 +135,13 @@ export {
   emptyReportDetail,
   MOCK_REPORT_DETAIL_ACTIVITY_ID,
 } from './model/reportDetailMock';
-export type {
-  StudentResultStatus,
-  StudentReportListItem,
-  StudentReportArticle,
-  StudentReportResponse,
-  StudentReportDetailView,
-} from './model/studentReportTypes';
-export {
-  getStudentReportList,
-  getStudentReportDetail,
-  hasStudentReportDetail,
-} from './model/studentReportMock';
 export {
   SUBMITTED_STATUS,
   pct,
   fmtDotDate,
   fmtDuration,
+  fmtDurationMs,
+  fmtDateTime,
   responseOf,
   articleResponded,
   hasGradedItems,
@@ -145,9 +156,24 @@ export {
   sortActivityItems,
   summarizeParticipation,
   participationItemOf,
+  participationItemByArticleId,
   cellFromParticipationItem,
   isNotSubmittedError,
 } from './model/mapReportDetail';
+export { classMemberSubs, filterParticipantsByClass } from './model/classMemberSubs';
+export {
+  mapStatisticsToPageListItems,
+  mapPageTabStudents,
+  mapPageTabGridRows,
+  mapStudentTabGridRows,
+  submittedParticipationIds,
+  cellFromPageParticipationItem,
+  formatParticipationAnswer,
+} from './model/mapPageTab';
+export type { PageTabListItem, PageTabStudent, StudentTabSlide } from './model/mapPageTab';
+export { submittedReportGridItems, gradingSourceLabel } from './model/reportGridTypes';
+export type { ReportGridItem, ResponseOverlayAxis } from './model/reportGridTypes';
+export { resolveCmsFileUrl } from './model/cmsFileUrl';
 export type { ParticipationSummary } from './model/mapReportDetail';
 export type { AssigneeNameInfo } from './model/resolveAssigneeNamesFromGroups';
 export {

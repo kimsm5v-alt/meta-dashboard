@@ -25,6 +25,16 @@ export const fmtDuration = (sec: number): string => {
   return `${m}분 ${String(s).padStart(2, '0')}초`;
 };
 
+export const fmtDurationMs = (ms: number): string => fmtDuration(Math.floor(ms / 1000));
+
+export const fmtDateTime = (iso: string): string => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const date = fmtDotDate(iso);
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${date} ${time}`;
+};
+
 export const responseOf = (
   view: ReportDetailView,
   articleId: string,
