@@ -5,6 +5,7 @@
  */
 
 import { apiClient, axiosInstance } from '@shared/api';
+import type { ExamReminderResponse, PaperIdx } from '../types';
 
 // ============================================================
 // 타입 정의
@@ -12,6 +13,11 @@ import { apiClient, axiosInstance } from '@shared/api';
 
 /** 학년군 */
 export type GradeLevel = 'el' | 'mi' | 'hi';
+
+export interface PaperPermission {
+  comprehensive: boolean;
+  selfreg: boolean;
+}
 
 /** 검사 시작 응답 */
 export interface StartExamResponse {
@@ -62,6 +68,17 @@ export interface ExamDetailResponse {
   notSubmStdtName: string;
 }
 
+export interface ExamSubmission {
+  stdtId: string;
+  memberNo: number | null;
+  submAt: 'Y' | 'N';
+  submDt: string | null;
+}
+
+interface ExamSubmissionsResponse {
+  students: ExamSubmission[];
+}
+
 // ============================================================
 // 교사용 검사 API
 // ============================================================
@@ -87,6 +104,12 @@ export async function startExam(
   return res.resultData;
 }
 
+/** 현재 로그인 교사의 검사 유형 권한 조회 */
+export async function fetchPaperPermission(): Promise<PaperPermission> {
+  const res = await apiClient.get<PaperPermission>('/api/dgnss/paper-permission/me');
+  return res.resultData;
+}
+
 /**
  * 검사 목록 조회
  * GET /api/dgnss/tc/info
@@ -94,9 +117,11 @@ export async function startExam(
 export async function fetchExamList(
   claId: string,
   _tcId: string,
-  _paperIdx?: string,
+  paperIdx?: PaperIdx,
 ): Promise<ExamListItem[]> {
-  const endpoint = `/api/dgnss/tc/info?claId=${claId}`;
+  const params = new URLSearchParams({ claId });
+  if (paperIdx) params.set('paperIdx', paperIdx);
+  const endpoint = `/api/dgnss/tc/info?${params.toString()}`;
 
   const res = await apiClient.get<ExamListResponse | ExamListItem[]>(endpoint);
   const resultData = res.resultData;
@@ -117,6 +142,14 @@ export async function fetchExamList(
 export async function fetchExamDetail(dgnssId: number): Promise<ExamDetailResponse> {
   const res = await apiClient.get<ExamDetailResponse>(`/api/dgnss/tc/detail?dgnssId=${dgnssId}`);
   return res.resultData;
+}
+
+/** 검사별 학생 제출 여부와 제출일시 조회 */
+export async function fetchExamSubmissions(dgnssId: number): Promise<ExamSubmission[]> {
+  const res = await apiClient.get<ExamSubmissionsResponse>(
+    `/api/dgnss/tc/submissions?dgnssId=${dgnssId}`,
+  );
+  return res.resultData.students ?? [];
 }
 
 /**
@@ -163,6 +196,12 @@ export async function fetchNotSubmittedStudents(dgnssId: number): Promise<NotSub
     `/api/dgnss/tc/notsubm?dgnssId=${dgnssId}`,
   );
   return res.resultData ?? [];
+}
+
+/** 미제출 학생 독려 알림 발송 */
+export async function sendExamReminder(dgnssId: number): Promise<ExamReminderResponse> {
+  const res = await apiClient.post<ExamReminderResponse>('/api/dgnss/tc/reminder', { dgnssId });
+  return res.resultData;
 }
 
 /**

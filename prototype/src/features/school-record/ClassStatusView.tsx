@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sparkles, Download, Copy, Check, Eye, X, ArrowLeft, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Sparkles, Download, Copy, Check, Eye, X, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { StatusBadge, FactorTag, displayStatus, type DisplayStatusKey } from './shared';
 import { classSubtitle } from './schoolInfo';
 import { buildRecordsCsv, downloadCsv } from './download';
@@ -108,14 +108,9 @@ export const ClassStatusView: React.FC<Props> = ({ selectedClass, students, onOp
     <div className="p-6 space-y-6">
       {/* 페이지 헤더 (반 상세) + 우측 액션 버튼 */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <button onClick={onBackToAll} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="전체 반으로">
-            <ArrowLeft className="w-5 h-5 text-gray-500" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{selectedClass.name}</h1>
-            <p className="text-sm text-gray-500 mt-1">{classSubtitle(selectedClass.name)}</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{selectedClass.name}</h1>
+          <p className="text-sm text-gray-500 mt-1">{classSubtitle(selectedClass.name)}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button

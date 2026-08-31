@@ -1,5 +1,6 @@
 package com.vs.meta.api.coaching.service;
 
+import com.vs.meta.api.coaching.dto.CoachingResponse;
 import com.vs.meta.api.coaching.mapper.CoachingMapper;
 import com.vs.meta.api.dgnss.service.DgnssGraphService;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,25 +31,24 @@ public class SchoolCoachingService {
 
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
-    public Map<String, Object> getCoachingByAnswerIdx(int answerIdx) {
+    public CoachingResponse getCoachingByAnswerIdx(int answerIdx) {
         Map<String, Object> selection = dgnssGraphService.selectCoachingSelectionByAnswerIdx(answerIdx);
         String schoolLevel = MapUtils.getString(selection, "schoolLevel", "");
         String lpaClass = MapUtils.getString(selection, "lpaClass", "");
         List<String> strengthFactors = (List<String>) selection.getOrDefault("strengthFactors", new ArrayList<String>());
         Map<String, Object> moderation = (Map<String, Object>) selection.get("moderation");
 
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("answerIdx", answerIdx);
-        result.put("lpaClass", lpaClass);
-        result.put("schoolLevel", schoolLevel);
-        result.put("strengthCards", buildStrengthCards(schoolLevel, lpaClass, strengthFactors));
-        result.put("coachingCard", buildCoachingCard(moderation));
-        return result;
+        return new CoachingResponse(
+                answerIdx,
+                lpaClass,
+                schoolLevel,
+                buildStrengthCards(schoolLevel, lpaClass, strengthFactors),
+                buildCoachingCard(moderation));
     }
 
     /** 강점 카드 2개: 선별 요인 순서를 유지해 RDB 텍스트를 매핑. */
-    private List<Map<String, Object>> buildStrengthCards(String schoolLevel, String lpaClass, List<String> factors) {
-        List<Map<String, Object>> cards = new ArrayList<>();
+    private List<CoachingResponse.StrengthCard> buildStrengthCards(String schoolLevel, String lpaClass, List<String> factors) {
+        List<CoachingResponse.StrengthCard> cards = new ArrayList<>();
         if (CollectionUtils.isEmpty(factors) || StringUtils.isBlank(lpaClass)) {
             return cards;
         }
@@ -64,18 +63,17 @@ public class SchoolCoachingService {
                 log.warn("코칭 강점 텍스트 누락. schoolLevel={}, lpaClass={}, factor={}", schoolLevel, lpaClass, factor);
                 continue;
             }
-            Map<String, Object> card = new LinkedHashMap<>();
-            card.put("factor", factor);
-            card.put("observation", t.get("observation"));
-            card.put("line", t.get("line"));
-            card.put("question", t.get("question"));
-            cards.add(card);
+            cards.add(new CoachingResponse.StrengthCard(
+                    factor,
+                    MapUtils.getString(t, "observation"),
+                    MapUtils.getString(t, "line"),
+                    MapUtils.getString(t, "question")));
         }
         return cards;
     }
 
     /** 코칭 카드 1개: moderation_id로 RDB 텍스트 조회. */
-    private Map<String, Object> buildCoachingCard(Map<String, Object> moderation) {
+    private CoachingResponse.CoachingCard buildCoachingCard(Map<String, Object> moderation) {
         if (moderation == null) {
             return null;
         }
@@ -88,21 +86,13 @@ public class SchoolCoachingService {
             log.warn("코칭 보완점 텍스트 누락. moderationId={}", moderationId);
             return null;
         }
-        Map<String, Object> coaching1 = new LinkedHashMap<>();
-        coaching1.put("method", t.get("coaching1Method"));
-        coaching1.put("line", t.get("coaching1Line"));
-        Map<String, Object> coaching2 = new LinkedHashMap<>();
-        coaching2.put("action", t.get("coaching2Action"));
-        coaching2.put("line", t.get("coaching2Line"));
-
-        Map<String, Object> card = new LinkedHashMap<>();
-        card.put("zFactor", t.get("zFactor"));
-        card.put("xFactor", t.get("xFactor"));
-        card.put("yFactor", t.get("yFactor"));
-        card.put("pathType", t.get("pathType"));
-        card.put("interpretation", t.get("interpretation"));
-        card.put("coaching1", coaching1);
-        card.put("coaching2", coaching2);
-        return card;
+        return new CoachingResponse.CoachingCard(
+                MapUtils.getString(t, "zFactor"),
+                MapUtils.getString(t, "xFactor"),
+                MapUtils.getString(t, "yFactor"),
+                MapUtils.getString(t, "pathType"),
+                MapUtils.getString(t, "interpretation"),
+                new CoachingResponse.Coaching1(MapUtils.getString(t, "coaching1Method"), MapUtils.getString(t, "coaching1Line")),
+                new CoachingResponse.Coaching2(MapUtils.getString(t, "coaching2Action"), MapUtils.getString(t, "coaching2Line")));
     }
 }

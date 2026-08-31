@@ -1,6 +1,6 @@
 import '@app/styles/vj.css';
 import { useState, useCallback, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@features/auth/model/AuthContext';
@@ -8,6 +8,7 @@ import { useMyGroupsQuery } from '@features/api';
 import { useGroupMembersQuery } from '@features/groups';
 import {
   EmptyState,
+  ExamClassManagementView,
   ExamManagementOverview,
   GroupListView,
   GroupDetailView,
@@ -22,12 +23,18 @@ import {
   useDownloadSampleExcelMutation,
   useEndExamMutation,
   usePreviewExamStartMutation,
+  usePaperPermissionQuery,
   useRestartExamMutation,
   useStartExamMutation,
   useUploadAnswersExcelMutation,
 } from '@features/assessment/api/queries';
 import type { ExamStartPreviewResponse } from '@features/assessment/api/assessmentService';
-import type { GroupWithExamState, ViewMode, ExamSlotState } from '@features/assessment/types';
+import type {
+  GroupWithExamState,
+  ViewMode,
+  ExamSlotState,
+  PaperIdx,
+} from '@features/assessment/types';
 import type { Group, SchoolLevelCode } from '@shared/types';
 import { useOptionalLayoutContext } from '@widgets/layout/v2/LayoutContext';
 
@@ -49,8 +56,8 @@ const buildGroupWithExamState = (group: Group, examSlots: ExamSlotState[]): Grou
   activeMemberCount: group.memberCount,
 });
 
-const emptySlots = (): ExamSlotState[] =>
-  EXAM_SLOTS.map((def) => ({
+const emptySlots = (paperIdx: PaperIdx): ExamSlotState[] =>
+  EXAM_SLOTS.filter((def) => def.paperIdx === paperIdx).map((def) => ({
     slotId: def.id,
     status: 'not_started' as const,
     submittedCount: 0,
@@ -82,16 +89,63 @@ const ErrorBox = styled.div`
   gap: 14px;
 `;
 
+const AccessDeniedBox = styled(ErrorBox)`
+  padding: 32px;
+
+  h1 {
+    margin: 0;
+    color: ${({ theme }) => theme.colors.text.primary};
+    font-size: ${({ theme }) => theme.typography.fontSize.xl};
+  }
+
+  p {
+    margin: 0;
+    color: ${({ theme }) => theme.colors.text.secondary};
+  }
+`;
+
 // ============================================================
 // 컴포넌트
 // ============================================================
 
 export const AssessmentPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { groupId: urlGroupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
   const v2Layout = useOptionalLayoutContext();
   const isV2Management = FEATURES.IA_V2 && v2Layout !== null;
+
+  const paperPermissionQuery = usePaperPermissionQuery(user?.id);
+  const allowedPaperIndices = useMemo<PaperIdx[]>(() => {
+    const permission = paperPermissionQuery.data;
+    if (!permission) return [];
+    return [
+      ...(permission.comprehensive ? (['1'] as const) : []),
+      ...(permission.selfreg ? (['2'] as const) : []),
+    ];
+  }, [paperPermissionQuery.data]);
+  const requestedPaperIdx = searchParams.get('paperIdx');
+  const activePaperIdx = useMemo<PaperIdx | null>(() => {
+    if (
+      (requestedPaperIdx === '1' || requestedPaperIdx === '2') &&
+      allowedPaperIndices.includes(requestedPaperIdx)
+    ) {
+      return requestedPaperIdx;
+    }
+    return allowedPaperIndices[0] ?? null;
+  }, [requestedPaperIdx, allowedPaperIndices]);
+  const canSwitchPaper = allowedPaperIndices.length === 2;
+
+  const handlePaperChange = useCallback(
+    (paperIdx: PaperIdx) => {
+      if (!allowedPaperIndices.includes(paperIdx)) return;
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set('paperIdx', paperIdx);
+      setSearchParams(nextParams, { replace: true });
+    },
+    [allowedPaperIndices, searchParams, setSearchParams],
+  );
 
   // 그룹 목록: groupKeys.myGroups 캐시 공유 (사이드바 useTeacherClassList와 동일 캐시)
   const {
@@ -101,17 +155,27 @@ export const AssessmentPage = () => {
     refetch: refetchGroups,
   } = useMyGroupsQuery();
 
-  const slotsQueryState = useAssessmentSlotsQueries(rawGroups, user?.id);
-  const isBaseLoading = isGroupsLoading || slotsQueryState.isLoading;
+  const slotsQueryState = useAssessmentSlotsQueries(
+    rawGroups,
+    user?.id,
+    activePaperIdx ?? undefined,
+    paperPermissionQuery.isSuccess && activePaperIdx !== null,
+  );
+  const isBaseLoading =
+    isGroupsLoading || paperPermissionQuery.isLoading || slotsQueryState.isLoading;
   const slotError = slotsQueryState.error ? '검사 현황을 불러오는데 실패했습니다.' : null;
 
   // rawGroups + slot queries -> GroupWithExamState[]
   const groups = useMemo<GroupWithExamState[]>(
     () =>
       rawGroups.map((g: Group) =>
-        buildGroupWithExamState(g, slotsQueryState.dataByClaId.get(g.claId) ?? emptySlots()),
+        buildGroupWithExamState(
+          g,
+          slotsQueryState.dataByClaId.get(g.claId) ??
+            (activePaperIdx ? emptySlots(activePaperIdx) : []),
+        ),
       ),
-    [rawGroups, slotsQueryState.dataByClaId],
+    [rawGroups, slotsQueryState.dataByClaId, activePaperIdx],
   );
 
   // 그룹 생성/수정/삭제·QR 모달 state 제거 — mypage(SSO)로 이관 (group-from-idp)
@@ -119,10 +183,10 @@ export const AssessmentPage = () => {
   // URL 기반 derived state (React Compiler 최적화: useEffect 내 setState 방지)
   const selectedGroupId = useMemo(() => {
     const requestedGroupId = isV2Management ? v2Layout.scope.classId : urlGroupId;
-    if (!requestedGroupId || isBaseLoading) return null;
+    if (!requestedGroupId || isBaseLoading || activePaperIdx === null) return null;
     const exists = groups.some((g) => g.id === requestedGroupId);
     return exists ? requestedGroupId : null;
-  }, [isV2Management, v2Layout, urlGroupId, groups, isBaseLoading]);
+  }, [isV2Management, v2Layout, urlGroupId, groups, isBaseLoading, activePaperIdx]);
 
   const membersQuery = useGroupMembersQuery(selectedGroupId, user?.id);
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
@@ -130,7 +194,9 @@ export const AssessmentPage = () => {
   const isLoading = isBaseLoading;
   const error = groupsQueryError
     ? '그룹 목록을 불러오는데 실패했습니다.'
-    : slotError || (membersQuery.error ? '학생 목록을 불러오는데 실패했습니다.' : null);
+    : paperPermissionQuery.error
+      ? '검사 권한을 불러오는데 실패했습니다.'
+      : slotError || (membersQuery.error ? '학생 목록을 불러오는데 실패했습니다.' : null);
 
   const viewMode = useMemo<ViewMode>(() => {
     return selectedGroupId ? 'detail' : 'list';
@@ -217,8 +283,12 @@ export const AssessmentPage = () => {
       void membersQuery.refetch();
       return;
     }
+    if (paperPermissionQuery.error) {
+      void paperPermissionQuery.refetch();
+      return;
+    }
     slotsQueryState.refetchAll();
-  }, [groupsQueryError, refetchGroups, membersQuery, slotsQueryState]);
+  }, [groupsQueryError, refetchGroups, membersQuery, paperPermissionQuery, slotsQueryState]);
 
   // ============================================================
   // 검사 액션
@@ -254,9 +324,17 @@ export const AssessmentPage = () => {
         });
       } catch (err) {
         console.error('[doStartExam] Failed to start exam:', err);
+        if ((err as { resultCode?: number }).resultCode === 403) {
+          await paperPermissionQuery.refetch();
+          setAlertModal({
+            isOpen: true,
+            title: '검사 권한이 변경되었습니다',
+            message: '현재 권한으로 이 검사를 시작할 수 없습니다. 권한 정보를 다시 확인해주세요.',
+          });
+        }
       }
     },
-    [user, selectedGroup, startExamMutation],
+    [user, selectedGroup, startExamMutation, paperPermissionQuery],
   );
 
   const handleStartExam = useCallback(
@@ -373,15 +451,18 @@ export const AssessmentPage = () => {
   );
 
   const handleViewResult = (_slotId: string, _dgnssId: number) => {
-    if (isV2Management && selectedGroup) {
-      navigate(`/exam/result?class=${encodeURIComponent(selectedGroup.id)}`);
+    if (isV2Management && selectedGroup && activePaperIdx) {
+      navigate(
+        `/exam/result?class=${encodeURIComponent(selectedGroup.id)}&paperIdx=${activePaperIdx}`,
+      );
       return;
     }
     navigate('/dashboard');
   };
 
   const handleViewGroupResult = (groupId: string) => {
-    navigate(`/exam/result?class=${encodeURIComponent(groupId)}`);
+    const paperParam = activePaperIdx ? `&paperIdx=${activePaperIdx}` : '';
+    navigate(`/exam/result?class=${encodeURIComponent(groupId)}${paperParam}`);
   };
 
   const handleRestartExam = useCallback(
@@ -454,6 +535,15 @@ export const AssessmentPage = () => {
     );
   }
 
+  if (paperPermissionQuery.isSuccess && activePaperIdx === null) {
+    return (
+      <AccessDeniedBox>
+        <h1>사용 가능한 검사가 없습니다</h1>
+        <p>관리자에게 학습종합검사 또는 자기조절학습검사 권한을 요청해주세요.</p>
+      </AccessDeniedBox>
+    );
+  }
+
   return (
     <Wrapper>
       {/* 리스트 뷰 또는 빈 상태 */}
@@ -463,6 +553,9 @@ export const AssessmentPage = () => {
         ) : isV2Management ? (
           <ExamManagementOverview
             groups={groups}
+            paperIdx={activePaperIdx!}
+            canSwitchPaper={canSwitchPaper}
+            onPaperChange={handlePaperChange}
             onManageExam={handleSelectGroup}
             onViewResult={handleViewGroupResult}
           />
@@ -471,24 +564,42 @@ export const AssessmentPage = () => {
         ))}
 
       {/* 상세 뷰 */}
-      {viewMode === 'detail' && selectedGroup && (
-        <GroupDetailView
-          group={selectedGroup}
-          members={members}
-          allGroups={groups}
-          onBack={handleBack}
-          onSwitchGroup={handleSwitchGroup}
-          onStartExam={handleStartExam}
-          onEndExam={handleEndExam}
-          onCancelExam={handleCancelExam}
-          onViewResult={handleViewResult}
-          onRestartExam={handleRestartExam}
-          onExcelUpload={handleExcelUpload}
-          onTemplateDownload={handleTemplateDownload}
-          isMembersLoading={isMembersLoading}
-          isActionPending={isExamActionPending}
-        />
-      )}
+      {viewMode === 'detail' &&
+        selectedGroup &&
+        (isV2Management ? (
+          <ExamClassManagementView
+            key={`${selectedGroup.id}-${activePaperIdx}`}
+            group={selectedGroup}
+            members={members}
+            paperIdx={activePaperIdx!}
+            canSwitchPaper={canSwitchPaper}
+            onPaperChange={handlePaperChange}
+            onStartExam={handleStartExam}
+            onEndExam={handleEndExam}
+            onCancelExam={handleCancelExam}
+            onViewResult={handleViewResult}
+            onRestartExam={handleRestartExam}
+            isMembersLoading={isMembersLoading}
+            isActionPending={isExamActionPending}
+          />
+        ) : (
+          <GroupDetailView
+            group={selectedGroup}
+            members={members}
+            allGroups={groups}
+            onBack={handleBack}
+            onSwitchGroup={handleSwitchGroup}
+            onStartExam={handleStartExam}
+            onEndExam={handleEndExam}
+            onCancelExam={handleCancelExam}
+            onViewResult={handleViewResult}
+            onRestartExam={handleRestartExam}
+            onExcelUpload={handleExcelUpload}
+            onTemplateDownload={handleTemplateDownload}
+            isMembersLoading={isMembersLoading}
+            isActionPending={isExamActionPending}
+          />
+        ))}
 
       {/* 그룹 생성/수정/삭제 모달 제거 — mypage(SSO)로 이관 (group-from-idp) */}
 

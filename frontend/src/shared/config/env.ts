@@ -10,14 +10,24 @@ export const ENV = {
   SP_AUTH_URL: (import.meta.env.VITE_SP_AUTH_URL as string | undefined) ?? 'http://localhost:8080',
   SP_CLIENT_ID: (import.meta.env.VITE_SP_CLIENT_ID as string | undefined) ?? 'test-service',
   SP_MYPAGE_URL:
-    (import.meta.env.VITE_SP_MYPAGE_URL as string | undefined) ?? 'https://t-hub.vschool.at',
+    (import.meta.env.VITE_SP_MYPAGE_URL as string | undefined) ?? 'https://t-hub.allvia.org',
   // 학생 그룹참여(QR/링크) 복귀 URL 오버라이드 (group-from-idp).
   // 기본은 빈 값 → buildGroupJoinUrl 이 window.location.origin 기준으로 자동 도출(환경별 자동).
   SP_STUDENT_RETURN_URL: (import.meta.env.VITE_SP_STUDENT_RETURN_URL as string | undefined) ?? '',
   IS_DEV: import.meta.env.DEV as boolean,
+  /** vite dev 서버뿐 아니라 `build:dev`(--mode development)로 배포된 개발/스테이징 서버에서도 true. 운영(production) 빌드에서만 false */
+  IS_DEV_MODE: import.meta.env.MODE !== 'production',
   SELFREG_HIDDEN: import.meta.env.VITE_SELFREG_HIDDEN === 'true',
   MANUAL_URL_COMPREHENSIVE:
     (import.meta.env.VITE_MANUAL_URL_COMPREHENSIVE as string | undefined) ?? '',
   MANUAL_URL_SELF_REGULATED:
     (import.meta.env.VITE_MANUAL_URL_SELF_REGULATED as string | undefined) ?? '',
+  /** everyCanvas Embed App / 정적 SDK 오리진 */
+  EVERYCLASS_EMBED_BASE_URL:
+    (import.meta.env.VITE_EVERYCLASS_EMBED_BASE_URL as string | undefined) ?? '',
+  /** superplatform-lms API 게이트웨이 기본 URL */
+  SP_LMS_API_URL: (import.meta.env.VITE_SP_LMS_API_URL as string | undefined) ?? '',
+  /** public CMS API 기본 URL */
+  CMS_API_URL: (import.meta.env.VITE_CMS_API_URL as string | undefined) ?? '',
+  CMS_FILE_URL: (import.meta.env.VITE_CMS_FILE_URL as string | undefined) ?? '',
 } as const;

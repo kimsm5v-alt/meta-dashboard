@@ -113,6 +113,7 @@ export const getSubCategoryResults = (tScores: number[]): SubCategoryResult[] =>
 // ============================================================
 
 const SUMMARY_CACHE_PREFIX = 'ai_summary_v1_';
+const pendingSummaries = new Map<string, Promise<string>>();
 
 const getSummaryCacheKey = (subCategoryResults: SubCategoryResult[]): string => {
   const scores = subCategoryResults.map((r) => `${r.name}:${r.avgTScore}`).join(',');
@@ -134,6 +135,9 @@ export const generateAISummary = async (
   const cached = sessionStorage.getItem(cacheKey);
   if (cached) return cached;
 
+  const pending = pendingSummaries.get(cacheKey);
+  if (pending) return pending;
+
   // 사용자 프롬프트 구성 (명세 형식)
   const lines = subCategoryResults.map((r) => {
     const direction = r.isPositive ? '정적' : '부적';
@@ -146,28 +150,32 @@ ${lines.join('\n')}
 
 위 결과를 바탕으로 3줄 총평을 작성해 주세요.`;
 
-  // AI 호출 (시스템 프롬프트는 aiPrompts.ts에서 관리)
-  const response = await callAI({
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT_ANALYSIS },
-      { role: 'user', content: userPrompt },
-    ],
-    temperature: 0.3, // 일관성 있는 출력
-  });
+  const request = (async () => {
+    const response = await callAI({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT_ANALYSIS },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.3,
+    });
+    const result = parseAISummary(response.content);
 
-  // 응답 파싱 (줄바꿈이 있으면 공백으로 합치기)
-  const result = parseAISummary(response.content);
-
-  // 성공한 응답만 캐싱 (오류 메시지는 캐싱하지 않음)
-  if (response.success) {
-    try {
-      sessionStorage.setItem(cacheKey, result);
-    } catch {
-      // storage quota 초과 등 무시
+    if (response.success) {
+      try {
+        sessionStorage.setItem(cacheKey, result);
+      } catch {
+        // storage quota 초과 등 무시
+      }
     }
-  }
+    return result;
+  })();
 
-  return result;
+  pendingSummaries.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    pendingSummaries.delete(cacheKey);
+  }
 };
 
 /**

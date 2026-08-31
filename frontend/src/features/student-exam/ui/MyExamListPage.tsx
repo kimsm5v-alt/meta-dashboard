@@ -11,15 +11,21 @@ import {
   Play,
   RotateCcw,
   RefreshCw as Restart,
-  CheckCircle2,
-  Clock,
-  Brain,
+  BarChart3,
+  Lock,
+  Info,
 } from 'lucide-react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { getMyGroups } from '@features/groups/api/groupService';
-import { getStudentExamList, getStatusLabel, getStatusColor } from '../api/studentExamService';
+import {
+  getStudentExamList,
+  getStatusLabel,
+  getStatusColor,
+  getStatusMessage,
+} from '../api/studentExamService';
+import { deriveLockedStatus } from '../utils/deriveExamMeta';
 import type { StudentExamListItem } from '../types';
 
 // ============================================================
@@ -29,10 +35,7 @@ import type { StudentExamListItem } from '../types';
 interface ExamSectionDef {
   paperIdx: string;
   label: string;
-  desc: string;
   color: string;
-  bgColor: string;
-  borderColor: string;
   resultPath: (exam: StudentExamListItem) => string;
 }
 
@@ -40,19 +43,13 @@ const EXAM_SECTIONS: ExamSectionDef[] = [
   {
     paperIdx: '1',
     label: '학습종합검사',
-    desc: '학습심리·정서 38개 요인 종합 분석',
-    color: '#7c3aed',
-    bgColor: '#ede9fe',
-    borderColor: '#c4b5fd',
+    color: '#9d53e1',
     resultPath: (e) => `/student/result/comprehensive/${e.dgnssResultId}`,
   },
   {
     paperIdx: '2',
     label: '자기조절학습검사',
-    desc: '자기조절 학습전략 20개 요인 분석',
     color: '#009F88',
-    bgColor: '#f0fdf4',
-    borderColor: '#86efac',
     resultPath: (e) => `/student/result/selfreg/${e.dgnssResultId}`,
   },
 ];
@@ -69,7 +66,7 @@ const pulse = keyframes`
 const PageRoot = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.xl};
+  gap: 24px;
 `;
 
 const PageHeader = styled.div`
@@ -78,56 +75,37 @@ const PageHeader = styled.div`
   justify-content: space-between;
 `;
 
-const HeaderLeft = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-`;
-
-const HeaderIconBox = styled.div`
-  width: 40px;
-  height: 40px;
-  border-radius: ${({ theme }) => theme.radius.xl};
-  background: #ede9fe;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  svg {
-    width: 20px;
-    height: 20px;
-    color: ${({ theme }) => theme.colors.primary[600]};
-  }
-`;
-
 const PageTitle = styled.h1`
-  font-size: ${({ theme }) => theme.typography.fontSize['2xl']};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  color: #1e2230;
 `;
 
 const PageSubtitle = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  margin-top: 2px;
+  font-size: 16px;
+  line-height: 24px;
+  color: #565c6e;
+  margin-top: 4px;
 `;
 
 const RefreshButton = styled.button`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.xs};
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  background: none;
-  border: none;
-  border-radius: ${({ theme }) => theme.radius.lg};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  gap: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
   cursor: pointer;
   transition: all ${({ theme }) => theme.transitions.fast};
 
   &:hover {
-    background: ${({ theme }) => theme.colors.gray[100]};
+    background: #f9fafb;
   }
 
   &:disabled {
@@ -144,7 +122,7 @@ const RefreshButton = styled.button`
 const SkeletonStack = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
+  gap: 12px;
 `;
 
 const SkeletonCard = styled.div`
@@ -156,7 +134,7 @@ const SkeletonCard = styled.div`
 
 const EmptyState = styled.div`
   background: ${({ theme }) => theme.colors.background.paper};
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border: 1px solid #f3f4f6;
   border-radius: ${({ theme }) => theme.radius.xl};
   padding: 48px ${({ theme }) => theme.spacing.xl};
   text-align: center;
@@ -193,29 +171,33 @@ const EmptyDesc = styled.p`
 const ExamList = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
+  gap: 12px;
 `;
 
-const ExamCardRoot = styled.div`
+const ExamCardRoot = styled.div<{ $isLocked: boolean }>`
   background: ${({ theme }) => theme.colors.background.paper};
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border: 1px solid #f3f4f6;
   border-radius: ${({ theme }) => theme.radius.xl};
-  padding: ${({ theme }) => theme.spacing.xl};
+  padding: ${({ theme }) => theme.spacing.md};
   display: flex;
   align-items: flex-start;
   gap: ${({ theme }) => theme.spacing.md};
+  opacity: ${({ $isLocked }) => ($isLocked ? 0.6 : 1)};
+  box-shadow:
+    0 1px 2px rgba(20, 24, 44, 0.04),
+    0 6px 20px rgba(20, 24, 44, 0.05);
 `;
 
-const ExamIconBox = styled.div<{ $status: string }>`
-  width: 48px;
-  height: 48px;
+const ExamIconBox = styled.div<{ $paperIdx: string; $isLocked: boolean }>`
+  width: 56px;
+  height: 56px;
   border-radius: ${({ theme }) => theme.radius.xl};
-  background: ${({ $status }) =>
-    $status === 'completed' || $status === 'result_ready'
-      ? '#dcfce7'
-      : $status === 'in_progress'
-        ? '#fef3c7'
-        : '#ede9fe'};
+  background: ${({ $paperIdx, $isLocked }) =>
+    $isLocked
+      ? '#eef0f4'
+      : $paperIdx === '2'
+        ? 'rgba(0, 159, 136, 0.12)'
+        : 'rgba(157, 83, 225, 0.12)'};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -224,12 +206,8 @@ const ExamIconBox = styled.div<{ $status: string }>`
   svg {
     width: 24px;
     height: 24px;
-    color: ${({ $status }) =>
-      $status === 'completed' || $status === 'result_ready'
-        ? '#16a34a'
-        : $status === 'in_progress'
-          ? '#d97706'
-          : '#7c3aed'};
+    color: ${({ $paperIdx, $isLocked }) =>
+      $isLocked ? '#9ca3af' : $paperIdx === '2' ? '#009f88' : '#9d53e1'};
   }
 `;
 
@@ -241,134 +219,187 @@ const ExamCardTop = styled.div`
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: ${({ theme }) => theme.spacing.sm};
+  margin-bottom: 4px;
 `;
 
 const ExamName = styled.h3`
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  color: #111827;
+`;
+
+const ExamTitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  flex-wrap: wrap;
+`;
+
+const RecommendedMonthTag = styled.span`
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: ${({ theme }) => theme.radius.full};
+`;
+
+/** 같은 회차(ordNo)의 검사가 2개 이상(N:N 다중 그룹 소속) 조회될 때만 표시되는 소속 반 보조 라벨 */
+const GroupLabelTag = styled.span`
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: ${({ theme }) => theme.radius.full};
+`;
+
+const StatusMessage = styled.p`
+  font-size: 14px;
+  line-height: 20px;
+  color: #6b7280;
+  margin: 4px 0 12px;
 `;
 
 const StatusBadge = styled.span<{ $bg: string; $text: string }>`
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
+  padding: 4px 10px;
   border-radius: 9999px;
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
   background: ${({ $bg }) => $bg};
   color: ${({ $text }) => $text};
-
-  svg {
-    width: 12px;
-    height: 12px;
-  }
 `;
 
 const ExamActions = styled.div`
   display: flex;
   gap: ${({ theme }) => theme.spacing.sm};
-  margin-top: ${({ theme }) => theme.spacing.sm};
+  margin-top: 12px;
 `;
 
-const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'success' }>`
+const ActionButton = styled.button<{
+  $variant?: 'primary' | 'secondary' | 'success';
+  $paperIdx?: string;
+}>`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.xs};
-  padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.md}`};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
   cursor: pointer;
   transition: all ${({ theme }) => theme.transitions.fast};
-  border: none;
-  background: ${({ $variant, theme }) =>
+  border: ${({ $variant }) =>
     $variant === 'success'
-      ? '#dcfce7'
+      ? '2px solid #16a34a'
       : $variant === 'secondary'
-        ? theme.colors.gray[100]
-        : theme.colors.primary[600]};
-  color: ${({ $variant, theme }) =>
+        ? '1px solid #d1d5db'
+        : 'none'};
+  background: ${({ $variant, $paperIdx }) =>
     $variant === 'success'
-      ? '#15803d'
+      ? 'transparent'
       : $variant === 'secondary'
-        ? theme.colors.gray[700]
-        : 'white'};
+        ? 'white'
+        : $paperIdx === '2'
+          ? '#009f88'
+          : '#9d53e1'};
+  color: ${({ $variant }) =>
+    $variant === 'success' ? '#16a34a' : $variant === 'secondary' ? '#374151' : 'white'};
 
   &:hover {
-    background: ${({ $variant, theme }) =>
+    background: ${({ $variant, $paperIdx }) =>
       $variant === 'success'
-        ? '#bbf7d0'
+        ? 'rgba(22, 163, 74, 0.08)'
         : $variant === 'secondary'
-          ? theme.colors.gray[200]
-          : theme.colors.primary[700]};
+          ? '#f9fafb'
+          : $paperIdx === '2'
+            ? '#008a76'
+            : '#8a45c8'};
   }
 
   svg {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
   }
 `;
 
 const HintBox = styled.div`
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #e7f0fe;
+  border: 1px solid #bcd4fc;
   border-radius: ${({ theme }) => theme.radius.lg};
   padding: ${({ theme }) => theme.spacing.md};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  color: #1d4ed8;
+  color: #1e40af;
+
+  span {
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: #2563eb;
+  }
 `;
 
 const SectionBlock = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
+  gap: 12px;
 `;
 
-const SectionHeader = styled.div<{ $color: string; $bg: string; $border: string }>`
+const SectionHeader = styled.div`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  background: ${({ $bg }) => $bg};
-  border: 1px solid ${({ $border }) => $border};
-  border-radius: ${({ theme }) => theme.radius.xl};
+  gap: 12px;
 `;
 
-const SectionIconBox = styled.div<{ $color: string }>`
-  width: 32px;
-  height: 32px;
-  border-radius: ${({ theme }) => theme.radius.lg};
-  background: ${({ $color }) => $color}22;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  svg {
-    width: 16px;
-    height: 16px;
-    color: ${({ $color }) => $color};
-  }
+const SectionDot = styled.span<{ $color: string }>`
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: ${({ $color }) => $color};
 `;
 
 const SectionLabel = styled.span<{ $color: string }>`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ $color }) => $color};
-`;
-
-const SectionDesc = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  margin-left: ${({ theme }) => theme.spacing.xs};
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 700;
+  color: #111827;
 `;
 
 const SectionCount = styled.span<{ $color: string }>`
-  margin-left: auto;
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ $color }) => $color};
+  padding: 2px 8px;
+  border-radius: ${({ theme }) => theme.radius.full};
+  background: #f3f4f6;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: #4b5563;
+`;
+
+const SectionLine = styled.div`
+  height: 1px;
+  flex: 1;
+  background: #e5e7eb;
 `;
 
 const SectionsStack = styled.div`
@@ -383,6 +414,8 @@ const SectionsStack = styled.div`
 
 interface ExamCardProps {
   exam: StudentExamListItem;
+  /** 같은 회차 검사가 여러 그룹(N:N 소속)에서 조회될 때만 전달되는 소속 반 표시 (예: "6학년 2반") */
+  groupLabel?: string;
   onStartExam: (exam: StudentExamListItem) => void;
   onResumeExam: (exam: StudentExamListItem) => void;
   onRestartExam: (exam: StudentExamListItem) => void;
@@ -391,6 +424,7 @@ interface ExamCardProps {
 
 const ExamCard: React.FC<ExamCardProps> = ({
   exam,
+  groupLabel,
   onStartExam,
   onResumeExam,
   onRestartExam,
@@ -398,26 +432,13 @@ const ExamCard: React.FC<ExamCardProps> = ({
 }) => {
   const statusColor = getStatusColor(exam.status);
   const statusLabel = getStatusLabel(exam.status);
-
-  const renderStatusIcon = () => {
-    switch (exam.status) {
-      case 'waiting':
-        return <Clock />;
-      case 'in_progress':
-        return <RotateCcw />;
-      case 'completed':
-      case 'result_ready':
-        return <CheckCircle2 />;
-      default:
-        return null;
-    }
-  };
+  const statusMessage = getStatusMessage(exam.status);
 
   const renderActions = () => {
     switch (exam.status) {
       case 'waiting':
         return (
-          <ActionButton onClick={() => onStartExam(exam)}>
+          <ActionButton $paperIdx={exam.paperIdx} onClick={() => onStartExam(exam)}>
             <Play />
             검사 시작
           </ActionButton>
@@ -425,7 +446,7 @@ const ExamCard: React.FC<ExamCardProps> = ({
       case 'in_progress':
         return (
           <>
-            <ActionButton onClick={() => onResumeExam(exam)}>
+            <ActionButton $paperIdx={exam.paperIdx} onClick={() => onResumeExam(exam)}>
               <RotateCcw />
               이어하기
             </ActionButton>
@@ -436,11 +457,7 @@ const ExamCard: React.FC<ExamCardProps> = ({
           </>
         );
       case 'completed':
-        return (
-          <ActionButton $variant='secondary' disabled>
-            결과 대기 중
-          </ActionButton>
-        );
+        return null;
       case 'result_ready':
         return (
           <ActionButton
@@ -449,7 +466,7 @@ const ExamCard: React.FC<ExamCardProps> = ({
               onViewResult(exam);
             }}
           >
-            <CheckCircle2 />
+            <BarChart3 />
             결과 보기
           </ActionButton>
         );
@@ -459,18 +476,24 @@ const ExamCard: React.FC<ExamCardProps> = ({
   };
 
   return (
-    <ExamCardRoot>
-      <ExamIconBox $status={exam.status}>
-        <ClipboardList />
+    <ExamCardRoot $isLocked={exam.status === 'locked'}>
+      <ExamIconBox $paperIdx={exam.paperIdx} $isLocked={exam.status === 'locked'}>
+        {exam.status === 'locked' ? <Lock /> : <ClipboardList />}
       </ExamIconBox>
       <ExamCardBody>
         <ExamCardTop>
-          <ExamName>{exam.name}</ExamName>
+          <ExamTitleRow>
+            <ExamName>{exam.name}</ExamName>
+            {groupLabel && <GroupLabelTag>{groupLabel}</GroupLabelTag>}
+            {exam.recommendedMonth && (
+              <RecommendedMonthTag>권장 {exam.recommendedMonth}</RecommendedMonthTag>
+            )}
+          </ExamTitleRow>
           <StatusBadge $bg={statusColor.bg} $text={statusColor.text}>
-            {renderStatusIcon()}
             {statusLabel}
           </StatusBadge>
         </ExamCardTop>
+        {statusMessage && <StatusMessage>{statusMessage}</StatusMessage>}
         <ExamActions>{renderActions()}</ExamActions>
       </ExamCardBody>
     </ExamCardRoot>
@@ -482,6 +505,7 @@ const ExamCard: React.FC<ExamCardProps> = ({
 // ============================================================
 
 interface ExamGroupInfo {
+  claId: string;
   schoolName?: string;
   schoolCode?: string;
   schoolLevel?: string;
@@ -550,6 +574,7 @@ export const MyExamListPage: React.FC = () => {
               seen.add(e.dgnssResultId);
               flat.push(e);
               groupMap.set(e.dgnssResultId, {
+                claId: group.claId,
                 schoolName: group.schoolName,
                 schoolCode: group.schoolCode,
                 schoolLevel: group.schoolLevel as string | undefined,
@@ -562,7 +587,7 @@ export const MyExamListPage: React.FC = () => {
         }
 
         setExamGroupMap(groupMap);
-        setExams(flat);
+        setExams(deriveLockedStatus(flat, (exam) => groupMap.get(exam.dgnssResultId)?.claId ?? ''));
       } catch {
         setExams([]);
       } finally {
@@ -574,7 +599,6 @@ export const MyExamListPage: React.FC = () => {
   );
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadExams();
   }, [loadExams]);
 
@@ -613,15 +637,10 @@ export const MyExamListPage: React.FC = () => {
   return (
     <PageRoot>
       <PageHeader>
-        <HeaderLeft>
-          <HeaderIconBox>
-            <ClipboardList />
-          </HeaderIconBox>
-          <div>
-            <PageTitle>나의 검사</PageTitle>
-            <PageSubtitle>검사 현황을 확인하고 응시하세요</PageSubtitle>
-          </div>
-        </HeaderLeft>
+        <div>
+          <PageTitle>나의 검사</PageTitle>
+          <PageSubtitle>검사 현황을 확인하고 응시하세요</PageSubtitle>
+        </div>
         <RefreshButton onClick={() => loadExams(true)} disabled={isRefreshing}>
           <RefreshCw />
           새로고침
@@ -639,32 +658,45 @@ export const MyExamListPage: React.FC = () => {
       ) : (
         <SectionsStack>
           {sections.map(({ def, exams: sectionExams }) => {
-            const readyCount = sectionExams.filter((e) => e.hasResult).length;
+            const completedCount = sectionExams.filter(
+              (e) => e.status === 'completed' || e.status === 'result_ready',
+            ).length;
+            // 같은 회차(ordNo)가 2건 이상이면 N:N 다중 그룹 소속으로 같은 회차 검사가
+            // 여러 반에서 각각 조회된 것 — 카드 구분을 위해 소속 반 라벨을 붙인다.
+            const ordNoCounts = new Map<number, number>();
+            for (const e of sectionExams) {
+              ordNoCounts.set(e.ordNo, (ordNoCounts.get(e.ordNo) ?? 0) + 1);
+            }
             return (
               <SectionBlock key={def.paperIdx}>
-                <SectionHeader $color={def.color} $bg={def.bgColor} $border={def.borderColor}>
-                  <SectionIconBox $color={def.color}>
-                    {def.paperIdx === '2' ? <Brain /> : <ClipboardList />}
-                  </SectionIconBox>
-                  <div>
-                    <SectionLabel $color={def.color}>{def.label}</SectionLabel>
-                    <SectionDesc>{def.desc}</SectionDesc>
-                  </div>
-                  {readyCount > 0 && (
-                    <SectionCount $color={def.color}>결과 {readyCount}건</SectionCount>
-                  )}
+                <SectionHeader>
+                  <SectionDot $color={def.color} />
+                  <SectionLabel $color={def.color}>{def.label}</SectionLabel>
+                  <SectionCount $color={def.color}>
+                    {completedCount}/{sectionExams.length} 완료
+                  </SectionCount>
+                  <SectionLine />
                 </SectionHeader>
                 <ExamList>
-                  {sectionExams.map((exam) => (
-                    <ExamCard
-                      key={exam.dgnssResultId}
-                      exam={exam}
-                      onStartExam={(e) => navigate2Exam(e)}
-                      onResumeExam={(e) => navigate2Exam(e, { resume: true })}
-                      onRestartExam={(e) => navigate2Exam(e, { restart: true })}
-                      onViewResult={(e) => navigate(def.resultPath(e))}
-                    />
-                  ))}
+                  {sectionExams.map((exam) => {
+                    const isDuplicateRound = (ordNoCounts.get(exam.ordNo) ?? 0) > 1;
+                    const groupInfo = examGroupMap.get(exam.dgnssResultId);
+                    const groupLabel =
+                      isDuplicateRound && groupInfo?.grade && groupInfo?.classNumber
+                        ? `${groupInfo.grade}학년 ${groupInfo.classNumber}반`
+                        : undefined;
+                    return (
+                      <ExamCard
+                        key={exam.dgnssResultId}
+                        exam={exam}
+                        groupLabel={groupLabel}
+                        onStartExam={(e) => navigate2Exam(e)}
+                        onResumeExam={(e) => navigate2Exam(e, { resume: true })}
+                        onRestartExam={(e) => navigate2Exam(e, { restart: true })}
+                        onViewResult={(e) => navigate(def.resultPath(e))}
+                      />
+                    );
+                  })}
                 </ExamList>
               </SectionBlock>
             );
@@ -673,8 +705,11 @@ export const MyExamListPage: React.FC = () => {
       )}
 
       <HintBox>
-        <strong>안내:</strong> 검사는 중간에 저장되므로, 나중에 이어서 응시할 수 있습니다. 모든
-        문항에 응답한 후 제출하면 결과를 확인할 수 있습니다.
+        <Info />
+        <span>
+          선생님이 검사를 시작하면 응시할 수 있고, 중간에 멈춰도 저장되어 이어서 할 수 있어요. 제출
+          후 선생님이 검사를 종료하면 결과를 확인할 수 있어요.
+        </span>
       </HintBox>
     </PageRoot>
   );

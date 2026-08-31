@@ -9,6 +9,7 @@
  *   GET /api/ai/conversations         — 대화방 목록
  *   GET /api/ai/conversations/{id}/messages  — 메시지 조회
  *   POST /api/ai/conversations/{id}/messages — 메시지 추가
+ *   POST /api/ai/conversations/{id}/title    — 대화방 제목 수정
  *   POST /api/ai/conversations/{id}/delete   — 대화방 삭제 (Soft Delete)
  */
 
@@ -222,6 +223,21 @@ export const deleteConversation = async (
     useYn: string;
     deleted: boolean;
   }>(`/api/ai/conversations/${conversationId}/delete`, {});
+
+  return res.resultData;
+};
+
+/**
+ * 대화방 제목 수정
+ */
+export const updateConversationTitle = async (
+  conversationId: number,
+  title: string,
+): Promise<{ conversationId: number; title: string }> => {
+  const res = await apiClient.post<{ conversationId: number; title: string }>(
+    `/api/ai/conversations/${conversationId}/title`,
+    { title },
+  );
 
   return res.resultData;
 };

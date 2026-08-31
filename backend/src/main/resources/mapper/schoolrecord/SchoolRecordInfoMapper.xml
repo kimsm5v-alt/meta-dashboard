@@ -47,4 +47,69 @@
         UPDATE school_record_info SET use_yn = 'N', updated_by = #{updatedBy}, updated_at = NOW() WHERE id = #{id}
     </update>
 
+    <!-- 생기부 작성 고도화: 학생당 1건 작업본 UPSERT. 유니크키 (stdt_id, tc_id, category) 기준.
+         ON DUP 시 previous_content 를 먼저(=기존값) 보존한 뒤 content 갱신 순서 주의. -->
+    <insert id="upsertSchoolRecordDraft" parameterType="com.vs.meta.domain.SchoolRecordInfo">
+        /* SchoolRecordInfoMapper.upsertSchoolRecordDraft */
+        INSERT INTO school_record_info
+            (stdt_id, cla_id, tc_id, category, content, strengths, improvements, status,
+             observation_input, generated_text, source, use_yn, created_by, updated_by, created_at, updated_at)
+        VALUES
+            (#{stdtId}, #{claId}, #{tcId}, #{category}, #{content}, #{strengths}, #{improvements}, #{status},
+             #{observationInput}, #{generatedText}, #{source}, 'Y', #{createdBy}, #{updatedBy}, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            previous_content  = content,
+            cla_id            = VALUES(cla_id),
+            content           = VALUES(content),
+            strengths         = VALUES(strengths),
+            improvements      = VALUES(improvements),
+            status            = VALUES(status),
+            observation_input = VALUES(observation_input),
+            generated_text    = VALUES(generated_text),
+            source            = VALUES(source),
+            use_yn            = 'Y',
+            updated_by        = VALUES(updated_by),
+            updated_at        = NOW()
+    </insert>
+
+    <!-- 고도화 리스트: 학급 단위 경량 조회(강점/보완 TOP3·상태·최근수정). observation_input 미포함. -->
+    <select id="selectDraftListByClass" resultType="map">
+        /* SchoolRecordInfoMapper.selectDraftListByClass */
+        SELECT stdt_id      AS studentId
+             , status       AS status
+             , strengths    AS strengths
+             , improvements AS improvements
+             , DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i') AS savedAt
+        FROM school_record_info
+        WHERE cla_id = #{claId}
+          AND tc_id = #{tcId}
+          AND category = 'comprehensive'
+          AND use_yn = 'Y'
+        ORDER BY updated_at DESC
+    </select>
+
+    <!-- 고도화 상세: 학생 1명 작업본 전체. -->
+    <select id="selectDraftByStudent" resultType="map">
+        /* SchoolRecordInfoMapper.selectDraftByStudent */
+        SELECT id                AS id
+             , stdt_id           AS studentId
+             , cla_id            AS classId
+             , status            AS status
+             , source            AS source
+             , content           AS content
+             , previous_content  AS previousContent
+             , generated_text    AS generatedText
+             , strengths         AS strengths
+             , improvements      AS improvements
+             , observation_input AS observationInput
+             , DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') AS createdAt
+             , DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i') AS savedAt
+        FROM school_record_info
+        WHERE stdt_id = #{stdtId}
+          AND tc_id = #{tcId}
+          AND category = 'comprehensive'
+          AND use_yn = 'Y'
+        LIMIT 1
+    </select>
+
 </mapper>

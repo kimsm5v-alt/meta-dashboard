@@ -12,8 +12,6 @@ import java.util.Map;
 public interface DgnssMapper {
     // 교사) META 자기조절학습 목록 전달
     List<Map<String, Object>> selectTcDgnssInfo(Map<String, Object> param);
-    // 교사) 본인(host_user_no) 소유 전체 학급의 진단검사 현황 한 번에 조회 (tc/overview)
-    List<Map<String, Object>> selectTcDgnssOverview(@Param("userNo") Long userNo);
     void deleteTargetStListResultInfo(List<String> stList);
     void deleteTargetStListAnswer(List<String> stList);
     // 교사) META 자기조절학습 마스터 INSERT
@@ -34,6 +32,10 @@ public interface DgnssMapper {
     // 교사) 제출한 모든 학생의 이름 가져오기
     List<String> selectSubmitStList(Map<String, Object> param);
     List<Long> selectSubmittedStudentUserNoListByDgnssId(@Param("dgnssId") int dgnssId);
+    // 독려) dgnssId 의 ACTIVE 학생 중 미제출 학생 user_no (탈퇴/미매핑 제외)
+    List<Long> selectUnsubmittedStudentUserNoListByDgnssId(@Param("dgnssId") int dgnssId);
+    // 교사) dgnssId 기준 학급 학생 제출 현황(stdtId/submAt/submDt)
+    List<Map<String, Object>> selectSubmissionsByDgnssId(@Param("dgnssId") int dgnssId);
     List<String> selectDgnssStdtList(Map<String, Object> param);
     // 교사) META 자기조절학습 result_info에 insert할 학생 ID 탐색
     List<String> selectTargetStList(Map<String, Object> param);
@@ -102,6 +104,10 @@ public interface DgnssMapper {
     String selectPaperIdxFromResultId(Map<String, Object> param);
     LinkedHashMap<String, Object> selectStDgnssOmr(Map<String, Object> param);
     List<Map<String, Object>> selectDgnssAnswerReliability(Map<String, Object> param);
+    // 변화추적) 학생(stdt_id) 회차(ord_no)별 학습현황 원본값(LSANS01~05). paperIdx<=0 이면 전체.
+    List<Map<String, Object>> selectStudentLearningStatus(@Param("stdtId") String stdtId,
+                                                          @Param("claId") String claId,
+                                                          @Param("paperIdx") Integer paperIdx);
     List<Map<String, Object>> selectLernType2(Map<String, Object> param);
     List<Map<String, Object>> selectLernType3(Map<String, Object> param);
     List<Map<String, Object>> selectLernType4(Map<String, Object> param);
@@ -116,7 +122,6 @@ public interface DgnssMapper {
     String selectFirstDgnssResultId(Map<String, Object> param);
     String selectStAnalysis(Map<String, Object> param);
     List<Map<String, Object>> selectTcDgnssNotSubmStList(Map<String, Object> param);
-    void saveDgnssTextSave(Map<String, Object> param);
     List<Map<String, Object>> selectTcTrustInfoList(Map<String, Object> param);
     List<Map<String, Object>> selectLernEtcInfoList(Map<String, Object> param);
     List<Map<String, Object>> selectTcEtcInfoList(Map<String, Object> param);
@@ -154,10 +159,6 @@ public interface DgnssMapper {
 
     // LPA 재분류 대상: 검사(dgnssId) 단위로 제출 완료한 학생의 ANSWER_IDX 목록
     List<Integer> selectLpaTargetAnswerIdxByDgnssId(@Param("dgnssId") int dgnssId);
-
-    List<Map<String, Object>> selectTcClassMetaStats(Map<String, Object> param);
-
-    List<Map<String, Object>> selectTcClassFactorAverages(Map<String, Object> param);
 
     int countDgnssResultByDgnssIdAndStdtId(@Param("dgnssId") int dgnssId, @Param("stdtId") String stdtId);
 

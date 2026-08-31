@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vs.meta.admin.mapper.PaperPermissionAdminMapper">
+
+    <!-- 교사 계정 공통 SELECT (현재 권한 LEFT JOIN, 행 없으면 종합만: 종합 Y / 자기조절 N). -->
+    <sql id="teacherCols">
+        SELECT u.user_no                          AS userNo
+             , u.sp_user_id                       AS spUserId
+             , DATE_FORMAT(u.created_at, '%Y-%m-%d') AS createdAt
+             , IFNULL(app.comprehensive_yn, 'Y')  AS comprehensiveYn
+             , IFNULL(app.selfreg_yn, 'N')        AS selfregYn
+        FROM `user` u
+            LEFT JOIN account_paper_permission app ON app.user_no = u.user_no
+    </sql>
+
+    <!-- 교사 계정 수(tc_id 보유 = TEACHER 계열, ACTIVE). -->
+    <select id="countTeachers" resultType="long">
+        /* PaperPermissionAdminMapper.countTeachers */
+        SELECT COUNT(*)
+        FROM `user` u
+        WHERE u.tc_id IS NOT NULL
+          AND u.status = 'ACTIVE'
+    </select>
+
+    <!-- 기본 목록: 교사 계정 페이지. idx(user_no) DESC. -->
+    <select id="selectTeacherPage" resultType="map">
+        /* PaperPermissionAdminMapper.selectTeacherPage */
+        <include refid="teacherCols"/>
+        WHERE u.tc_id IS NOT NULL
+          AND u.status = 'ACTIVE'
+        ORDER BY u.user_no DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 검색 모드: Auth 검색 결과 publicUserId(=sp_user_id) 교집합. 정렬은 서비스단에서 검색 순서(가입최신순) 유지. -->
+    <select id="selectTeachersBySpUserIds" resultType="map">
+        /* PaperPermissionAdminMapper.selectTeachersBySpUserIds */
+        <include refid="teacherCols"/>
+        WHERE u.tc_id IS NOT NULL
+          AND u.status = 'ACTIVE'
+          AND u.sp_user_id IN
+          <foreach item="id" collection="spUserIds" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
+    <!-- 계정 권한 UPSERT. 체크박스 변경 시 두 플래그(종합/자기조절)를 함께 반영. -->
+    <insert id="upsertPaperPermission">
+        /* PaperPermissionAdminMapper.upsertPaperPermission */
+        INSERT INTO account_paper_permission (user_no, comprehensive_yn, selfreg_yn, updated_by)
+        VALUES (#{userNo}, #{comprehensiveYn}, #{selfregYn}, #{updatedBy})
+        ON DUPLICATE KEY UPDATE
+            comprehensive_yn = VALUES(comprehensive_yn),
+            selfreg_yn       = VALUES(selfreg_yn),
+            updated_by       = VALUES(updated_by),
+            updated_at       = NOW()
+    </insert>
+
+</mapper>

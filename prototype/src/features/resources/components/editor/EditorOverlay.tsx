@@ -3,7 +3,7 @@
  * 상태 소유: 슬라이드 목록·선택·제목·노트·속성 패널·모달.
  */
 import { useState } from 'react';
-import { MY } from '../../mock-data';
+import { MY, LESSON_DECKS } from '../../mock-data';
 import { findContent } from '../../utils/format';
 import { useResources } from '../../store/ResourcesContext';
 import type { ContentPickItem } from '../../types';
@@ -13,7 +13,9 @@ import { ContentPickModal } from './ContentPickModal';
 import { PreviewModal } from './PreviewModal';
 
 export interface EditorSlide {
-  type: 'q' | 'empty';
+  type: 'q' | 'empty' | 'page';
+  /** type==='page' 일 때 콘텐츠 페이지 이미지 (LESSON_DECKS) */
+  src?: string;
 }
 
 const PROP_TOGGLES = ['지문 보이기', '보기 보이기', '힌트 보이기', '모범 답안 보이기', '해설 보이기'];
@@ -23,8 +25,13 @@ export const EditorOverlay = () => {
   const contentId = overlay?.contentId ?? null;
   const item = contentId ? MY.find((x) => x.id === contentId) || findContent(contentId) : null;
 
+  // 실제 콘텐츠(PDF 활동지)면 페이지를 그대로 슬라이드로 펼쳐 연다. 없으면 빈 문항 1장.
+  const deck = contentId ? LESSON_DECKS[contentId] : undefined;
+
   const [title, setTitle] = useState(item?.title ?? '제목 없는 활동');
-  const [slides, setSlides] = useState<EditorSlide[]>([{ type: 'q' }]);
+  const [slides, setSlides] = useState<EditorSlide[]>(
+    deck?.length ? deck.map((src) => ({ type: 'page' as const, src })) : [{ type: 'q' }],
+  );
   const [active, setActive] = useState(1);
   const [notes, setNotes] = useState('');
   const [pickOpen, setPickOpen] = useState(false);
@@ -70,10 +77,14 @@ export const EditorOverlay = () => {
     <div className="fixed inset-0 z-[110] flex flex-col bg-gray-100">
       {/* 상단 바 */}
       <div className="flex flex-none items-center gap-4 border-b border-gray-200 bg-white px-4 py-2.5">
-        <div className="flex items-baseline gap-1.5">
+        <button
+          onClick={goMyData}
+          title="수업 › 나의 자료로 이동"
+          className="flex items-baseline gap-1.5 rounded-lg px-2 py-1 -ml-2 transition-colors hover:bg-gray-100"
+        >
           <span className="text-sm font-extrabold text-gray-900">학습심리정서검사</span>
           <span className="text-xs font-semibold text-gray-400">저작툴</span>
-        </div>
+        </button>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-500">제목 :</span>
           <input

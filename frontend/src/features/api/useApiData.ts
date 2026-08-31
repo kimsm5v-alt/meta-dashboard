@@ -22,7 +22,15 @@ import {
   type L2DashboardData,
 } from '@shared/services/dashboardService';
 import { SCHOOL_LEVEL_MAP } from '@shared/types';
-import type { SchoolLevel, SchoolLevelCode, Student, Class, Assessment, User, Group } from '@shared/types';
+import type {
+  SchoolLevel,
+  SchoolLevelCode,
+  Student,
+  Class,
+  Assessment,
+  User,
+  Group,
+} from '@shared/types';
 import { useData } from '@shared/contexts/DataContext';
 import { useAuth } from '@features/auth';
 import { groupService } from '@features/groups/api/groupService';
@@ -56,6 +64,8 @@ interface UseStudentAnalysisResult {
         classNumber: number;
         schoolLevel: SchoolLevel;
         schoolLevelCode?: SchoolLevelCode;
+        /** HSJ-121: 결과보기 헤더 소속 표기용 학교명 */
+        schoolName?: string;
       }
     | undefined;
   dgnssIds: { round1?: number; round2?: number };
@@ -99,6 +109,7 @@ export function useStudentAnalysis(
                 classNumber: classData.classNumber,
                 schoolLevel: classData.schoolLevel,
                 schoolLevelCode: classData.schoolLevelCode,
+                schoolName: classData.schoolName,
               }
             : undefined,
           dgnssIds: {},
@@ -119,6 +130,8 @@ export function useStudentAnalysis(
         : credSchoolLevel;
       // 원본 SchoolLevelCode(고등 포함) — 에이전트가 고등학생 중등 규준 고지에 사용
       const schoolLevelCode: SchoolLevelCode | undefined = matchedGroup?.schoolLevel;
+      // HSJ-121: 결과보기 헤더 소속 표기용 학교명
+      const schoolName: string | undefined = matchedGroup?.schoolName;
       const completedR1 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 1);
       const completedR2 = exams.find((e) => e.dgnssAt === 'N' && e.ordNo === 2);
       const dgnssIds = { round1: completedR1?.dgnssId, round2: completedR2?.dgnssId };
@@ -150,14 +163,21 @@ export function useStudentAnalysis(
       }
 
       if (!fullAnalysis.round1 && !fullAnalysis.round2) {
-        const classData = getClassById(classId);
-        const fallbackStudent = getStudentById(classId, studentId);
+        // 아직 검사를 완료하지 않은 학생 — student/classInfo는 실데이터로 채우고
+        // assessments만 비워서, 위젯이 "검사 미완료" 분기(학생 없음 아님)로 처리하게 한다.
         return {
-          student: fallbackStudent
-            ? { ...fallbackStudent, name: studentName || fallbackStudent.name, schoolLevelCode }
-            : undefined,
-          classStudents: classData?.students ?? [],
-          classInfo: { grade, classNumber, schoolLevel, schoolLevelCode },
+          student: {
+            id: studentId,
+            classId,
+            number: studentNumber,
+            name: studentName,
+            schoolLevel,
+            schoolLevelCode,
+            grade,
+            assessments: [],
+          },
+          classStudents: classStudents ?? [],
+          classInfo: { grade, classNumber, schoolLevel, schoolLevelCode, schoolName },
           dgnssIds,
         };
       }
@@ -182,7 +202,7 @@ export function useStudentAnalysis(
           assessments,
         },
         classStudents: classStudents ?? [],
-        classInfo: { grade, classNumber, schoolLevel, schoolLevelCode },
+        classInfo: { grade, classNumber, schoolLevel, schoolLevelCode, schoolName },
         dgnssIds,
       };
     },
@@ -293,7 +313,15 @@ export function useSelfregClassAnalysis(
 interface UseClassStudentsResult {
   students: Student[];
   l2Data: L2DashboardData | null;
-  classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel } | undefined;
+  classInfo:
+    | {
+        grade: number;
+        classNumber: number;
+        schoolLevel: SchoolLevel;
+        /** HSJ-121: 결과보기 헤더 소속 표기용 학교명 */
+        schoolName?: string;
+      }
+    | undefined;
   dgnssIds: { round1?: number; round2?: number };
   isLoading: boolean;
   error: string | null;
@@ -331,6 +359,7 @@ export function useClassStudents(
                 grade: classData.grade,
                 classNumber: classData.classNumber,
                 schoolLevel: classData.schoolLevel,
+                schoolName: classData.schoolName,
               }
             : undefined,
           dgnssIds: {},
@@ -340,6 +369,7 @@ export function useClassStudents(
       let classSchoolLevel: SchoolLevel = credSchoolLevel;
       let grade = classData?.grade ?? 1;
       let classNumber = classData?.classNumber ?? 1;
+      let schoolName: string | undefined = classData?.schoolName;
       try {
         const groups = await groupService.getMyGroups(user?.id ?? '');
         const matchedGroup = groups.find((g) => g.claId === classId);
@@ -347,6 +377,7 @@ export function useClassStudents(
           classSchoolLevel = SCHOOL_LEVEL_MAP[matchedGroup.schoolLevel] ?? credSchoolLevel;
           grade = matchedGroup.grade;
           classNumber = matchedGroup.classNumber;
+          schoolName = matchedGroup.schoolName;
         }
       } catch {
         // 그룹 조회 실패 시 fallback 유지
@@ -365,7 +396,7 @@ export function useClassStudents(
         return {
           students: classData?.students ?? [],
           l2Data: null,
-          classInfo: { grade, classNumber, schoolLevel: classSchoolLevel },
+          classInfo: { grade, classNumber, schoolLevel: classSchoolLevel, schoolName },
           dgnssIds: classDgnssIds,
         };
       }
@@ -381,7 +412,7 @@ export function useClassStudents(
       return {
         students: data.students,
         l2Data: data,
-        classInfo: { grade, classNumber, schoolLevel: classSchoolLevel },
+        classInfo: { grade, classNumber, schoolLevel: classSchoolLevel, schoolName },
         dgnssIds: classDgnssIds,
       };
     },
@@ -440,13 +471,16 @@ type TeacherClassesData = {
   examStatus: ExamStatus;
 };
 
-export function useTeacherClasses(): UseTeacherClassesResult {
+export function useTeacherClasses(
+  paperIdx: '1' | '2' = '1',
+  enabled = true,
+): UseTeacherClassesResult {
   const { classes: mockClasses } = useData();
   const { user } = useAuth();
   const { schoolLevel: credSchoolLevel } = useCredentials();
 
   const query = useQuery<TeacherClassesData>({
-    queryKey: ['teacher', 'classes', user?.id],
+    queryKey: ['teacher', 'classes', user?.id, paperIdx],
     queryFn: async (): Promise<TeacherClassesData> => {
       if (!user) return { classes: mockClasses, examStatus: 'no-exams' };
 
@@ -459,7 +493,9 @@ export function useTeacherClasses(): UseTeacherClassesResult {
       const groupDgnssResults = await Promise.all(
         groups.map(async (group) => {
           try {
-            const dgnssList = await dgnssService.getDgnssList(group.claId);
+            const dgnssList = (await dgnssService.getDgnssList(group.claId)).filter(
+              (exam) => String(exam.paperIdx) === paperIdx,
+            );
             return { group, dgnssList };
           } catch {
             return { group, dgnssList: [] };
@@ -485,7 +521,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
         // group.schoolLevel(SchoolLevelCode)은 위에서 '중등'으로 뭉개지기 전의 원본 값('high' 포함)이다.
         // AI 에이전트 등 다운스트림이 실제 학교급을 알 수 있도록 그대로 흘려보낸다.
 
-        if (primaryDgnssId) {
+        if (primaryDgnssId && paperIdx === '1') {
           return buildClassFromAPI(
             group.claId,
             group.grade,
@@ -494,30 +530,38 @@ export function useTeacherClasses(): UseTeacherClassesResult {
             primaryDgnssId,
             round2?.dgnssId,
             group.schoolLevel,
+            group.name,
           );
         }
 
         const activeExam = dgnssList.find((d) => d.dgnssAt === 'Y');
+        const latestCompletedExam = round2 ?? round1;
         const simpleClass: Class = {
           id: group.claId,
+          name: group.name,
           schoolLevel,
           schoolLevelCode: group.schoolLevel,
           grade: group.grade,
           classNumber: group.classNumber,
           teacherId: user.id,
           students: [],
-          stats: activeExam
-            ? {
-                totalStudents: activeExam.stTotalCnt,
-                assessedStudents: activeExam.stSubmCnt,
-                typeDistribution: {},
-                needAttentionCount: 0,
-                round1Completed: false,
-                round2Completed: false,
-                examStatus: { round1: '진행중', round2: '시작전' },
-                round2SubmittedCount: 0,
-              }
-            : undefined,
+          stats:
+            activeExam || latestCompletedExam
+              ? {
+                  totalStudents: (latestCompletedExam ?? activeExam)!.stTotalCnt,
+                  assessedStudents: (latestCompletedExam ?? activeExam)!.stSubmCnt,
+                  typeDistribution: {},
+                  needAttentionCount: 0,
+                  round1Completed: !!round1,
+                  round2Completed: !!round2,
+                  examStatus: {
+                    round1: round1 ? '종료' : activeExam?.ordNo === 1 ? '진행중' : '시작전',
+                    round2: round2 ? '종료' : activeExam?.ordNo === 2 ? '진행중' : '시작전',
+                  },
+                  round2SubmittedCount: round2?.stSubmCnt ?? 0,
+                  dgnssIds: { round1: round1?.dgnssId, round2: round2?.dgnssId },
+                }
+              : undefined,
         };
         return simpleClass;
       });
@@ -527,7 +571,7 @@ export function useTeacherClasses(): UseTeacherClassesResult {
 
       return { classes: validClasses, examStatus };
     },
-    enabled: !!user,
+    enabled: enabled && !!user,
   });
 
   const classes =

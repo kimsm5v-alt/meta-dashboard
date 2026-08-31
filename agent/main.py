@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.models.schemas import AgentQuery, AgentResponse
+from app.routers import school_record
 from app.services.agent_service import meta_agent_service
 from app.utils import validate_images, ImageValidationError
 import logging
@@ -73,6 +74,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 생활기록부 문구 생성 (/school-record/generate, /school-record/generate/stream)
+app.include_router(school_record.router)
 
 
 @app.get("/")

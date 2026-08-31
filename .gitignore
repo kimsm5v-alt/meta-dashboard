@@ -73,3 +73,9 @@ agent/certs/
 
 # SDD scratch (subagent-driven-development)
 .superpowers/
+
+# 기획 참고 자료 (커밋 제외)
+prototype/*.zip
+prototype/*.pdf
+prototype/*.xlsx
+prototype/개별코칭 수정 참고/

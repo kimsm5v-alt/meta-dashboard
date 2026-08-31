@@ -1,21 +1,27 @@
 /**
  * v2 LNB 스코프 트리 (P1-5)
  *
- * 전체 → 반(아코디언) → 학생 3레벨. 선택은 LayoutContext의 selectAll/selectClass/selectStudent로,
+ * LNB에는 반(아코디언) → 학생만 노출하고, 반 미선택 상태는 내부적으로 전체 스코프를 유지한다.
+ * 선택은 LayoutContext의 selectClass/selectStudent로,
  * 데이터는 React Query(useMyGroupsQuery/useGroupMembersQuery)로 직접 소비한다.
  * 현재 메뉴가 학생 스코프를 지원하지 않으면(currentMenuConfig.student=false) 반 펼침·학생 목록을 숨긴다.
  * 프로토타입의 MOCK 데이터는 이식하지 않는다.
+ *
+ * 코칭 메뉴는 wiki 확정 SB 기준 학급코칭=반만/개별코칭=학생만 지원(scopeConfig 참고) —
+ * 프로토타입의 학급↔개별 교차이동은 확정 스펙과 충돌해 이식하지 않는다.
  */
 
 import styled from '@emotion/styled';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ChevronRight, Search } from 'lucide-react';
 
 import { useMyGroupsQuery } from '@features/api';
 import { useAuth } from '@features/auth';
 import { useGroupMembersQuery } from '@features/groups';
 import { openMypageGroups } from '@shared/lib/mypage';
+import { matchesNameSearch } from '@shared/utils/koreanNameSearch';
 
 import { useLayoutContext } from './LayoutContext';
 
@@ -60,29 +66,6 @@ const SectionLabel = styled.div`
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
   color: ${({ theme }) => theme.colors.gray[400]};
   letter-spacing: 0.02em;
-`;
-
-const RowButton = styled.button<{ $active: boolean }>`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 9px 10px;
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  text-align: left;
-  background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.primary[100] : 'transparent'};
-  color: ${({ theme, $active }) => ($active ? theme.colors.primary[600] : theme.colors.gray[900])};
-  border: none;
-  border-radius: ${({ theme }) => theme.radius.md};
-  cursor: pointer;
-  transition: background-color ${({ theme }) => theme.transitions.fast};
-
-  &:hover {
-    background-color: ${({ theme, $active }) =>
-      $active ? theme.colors.primary[100] : theme.colors.gray[100]};
-  }
 `;
 
 const ClassScrollArea = styled.div`
@@ -269,13 +252,12 @@ export const ScopeTree: React.FC = () => {
   const {
     scope,
     currentMenuConfig,
-    selectAll,
     selectClass,
     selectStudent,
     expandedClassId,
     setExpandedClassId,
   } = useLayoutContext();
-
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
@@ -292,6 +274,15 @@ export const ScopeTree: React.FC = () => {
     refetch: refetchMembers,
   } = useGroupMembersQuery(currentMenuConfig.student ? expandedClassId : null, user?.id);
 
+  useEffect(() => {
+    if (!location.pathname.startsWith('/lesson')) return;
+    if (groupsLoading || groupsError || groups.length === 0) return;
+    const isCurrentClassValid = groups.some((group) => group.id === scope.classId);
+    if (isCurrentClassValid) return;
+    const firstClassId = groups[0]?.id;
+    if (firstClassId) selectClass(firstClassId);
+  }, [groups, groupsError, groupsLoading, location.pathname, scope.classId, selectClass]);
+
   const activeStudents = useMemo(
     () => members.filter((member) => member.status === 'active'),
     [members],
@@ -300,7 +291,9 @@ export const ScopeTree: React.FC = () => {
   const filteredStudents = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
     if (!keyword) return activeStudents;
-    return activeStudents.filter((student) => (student.name || '').toLowerCase().includes(keyword));
+    return activeStudents.filter((student) =>
+      matchesNameSearch((student.name || '').toLowerCase(), keyword),
+    );
   }, [activeStudents, searchQuery]);
 
   const handleClassHeaderClick = (classId: string) => {
@@ -323,13 +316,6 @@ export const ScopeTree: React.FC = () => {
   return (
     <Wrapper>
       <GroupMgmtButton onClick={() => openMypageGroups('list')}>그룹관리</GroupMgmtButton>
-
-      <Divider />
-
-      <RowButton $active={scope.level === 'all'} onClick={selectAll}>
-        <span>전체</span>
-        {scope.level === 'all' && <Dot />}
-      </RowButton>
 
       <Divider />
 

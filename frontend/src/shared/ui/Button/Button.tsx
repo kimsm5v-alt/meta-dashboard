@@ -1,14 +1,16 @@
 import styled from '@emotion/styled';
+import type { CSSObject } from '@emotion/react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
-type ButtonSize = 'sm' | 'md' | 'lg';
+type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   fullWidth?: boolean;
   children: ReactNode;
+  css?: CSSObject;
 }
 
 const StyledButton = styled.button<{
@@ -29,6 +31,11 @@ const StyledButton = styled.button<{
   /* Size variants */
   ${({ $size, theme }) => {
     switch ($size) {
+      case 'xs':
+        return `
+          padding: ${theme.spacing.xs} ${theme.spacing.xs};
+          font-size: ${theme.typography.fontSize.xs};
+        `;
       case 'sm':
         return `
           padding: ${theme.spacing.xs} ${theme.spacing.md};

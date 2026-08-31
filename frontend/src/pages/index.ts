@@ -51,3 +51,17 @@ export { StudentGroupsPage } from './student-exam/StudentGroupsPage';
 export { MyExamListPage } from './student-exam/MyExamListPage';
 export { MyResultPage } from './student-exam/MyResultPage';
 export { MySelfregResultPage } from './student-exam/MySelfregResultPage';
+
+// Lesson
+export { LessonLibraryPage } from './lesson/LessonLibraryPage';
+export { LessonMyPage } from './lesson/LessonMyPage';
+export { LessonResultPage } from './lesson/LessonResultPage';
+export { LessonResultDetailPage } from './lesson/LessonResultDetailPage';
+export { LessonDeployPage } from './lesson/LessonDeployPage';
+export { LessonEditorPage } from './lesson/LessonEditorPage';
+export { LessonViewerPage } from './lesson/LessonViewerPage';
+export { LessonJoinPage } from './lesson/LessonJoinPage';
+
+// Student Lesson
+export { StudentLessonResultPage } from './student-lesson/StudentLessonResultPage';
+export { StudentLessonResultDetailPage } from './student-lesson/StudentLessonResultDetailPage';

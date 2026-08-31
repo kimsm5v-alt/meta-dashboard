@@ -16,6 +16,7 @@ import {
 } from '@shared/services/pdfDownloadService';
 import { fetchStudentInfoList } from '@shared/services/dashboardService';
 import type { Student, Assessment, Class } from '@shared/types';
+import { matchesNameSearch } from '@shared/utils/koreanNameSearch';
 import {
   TypeChangeChart,
   ClassInsights,
@@ -667,7 +668,11 @@ export const ClassDashboardWidget: React.FC = () => {
 
   const filteredAndSortedStudents = (() => {
     let filtered = classData.students.filter((s) => {
-      if (searchTerm && !s.name.includes(searchTerm) && !s.number.toString().includes(searchTerm))
+      if (
+        searchTerm &&
+        !matchesNameSearch(s.name, searchTerm) &&
+        !s.number.toString().includes(searchTerm)
+      )
         return false;
 
       const r1 = s.assessments.find((a) => a.round === 1);

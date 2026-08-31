@@ -26,12 +26,12 @@ spring:
 # ===== SuperPlatform Auth (SSO) =====
 # 개발서버 Auth 사용 (로컬 Auth 사용 시 localhost:8080으로 변경)
 spring.security.oauth2.resourceserver.jwt:
-  jwk-set-uri: https://t-auth-superplatform-api.vsaidt.com/.well-known/jwks.json
+  jwk-set-uri: https://t-auth-api.allvia.org/.well-known/jwks.json
   issuer-uri: superplatform
 
 superplatform:
   auth:
-    server-url: https://t-auth-superplatform-api.vsaidt.com
+    server-url: https://t-auth-api.allvia.org
     client-id: test-service
     client-secret: test-secret-1234!
 

@@ -19,7 +19,7 @@ import type {
   Student,
   StudentType,
 } from '@shared/types';
-import { classifyStudent, getTypeDeviations } from '@shared/utils/lpaClassifier';
+import { classifyStudent, getTypeDeviations, getTypeInfo } from '@shared/utils/lpaClassifier';
 import { checkAttention } from '@shared/utils/attentionChecker';
 import { createSubmittedStudentIdSet, hasSubmittedRound } from './roundSubmissions';
 
@@ -118,6 +118,37 @@ export interface LpaTopData {
 }
 
 export type AnalysisResponse = Record<string, AnalysisSectionItem[]>;
+
+/**
+ * `/tc/analysis`(paperIdx=1 한정) 응답의 `lpaByOrd[ordNo][]` 항목.
+ * 필드 구성은 LpaTopData와 동일 + 학생 식별자/다학급 fallback 출처.
+ */
+export interface LpaByOrdRow extends LpaTopData {
+  stdtId: string;
+  source: 'IN_CLASS' | 'OTHER_CLASS';
+}
+
+/**
+ * `/tc/analysis`(paperIdx=1 한정) 응답의 `lernReportByOrd[ordNo][]` 항목.
+ * sectionScores는 SECTION_ID → tScore 플랫 맵(DEPTH 구분 없음).
+ */
+export interface LernReportRow {
+  stdtId: string;
+  source: 'IN_CLASS' | 'OTHER_CLASS';
+  ord_no: number;
+  subm_at: 'Y' | 'N';
+  sectionScores: Record<string, number>;
+}
+
+/**
+ * `fetchClassBulkAnalysis`가 반환하는, 반 전체 학생의 회차별 데이터를 담은 정규화 결과.
+ * ordNo("1"|"2") → stdtId → row 로 O(1) 조회 가능하게 Map화되어 있다.
+ */
+export interface ClassBulkAnalysis {
+  lpaByOrd: Map<string, Map<string, LpaByOrdRow>>;
+  lernReportByOrd: Map<string, Map<string, LernReportRow>>;
+  classTScoresRound1: number[];
+}
 
 // ============================================================
 // Neo4j 지식그래프 추천 타입 (2026-04-27 추가)
@@ -463,6 +494,188 @@ export async function fetchClassAnalysisRaw(
 }
 
 /**
+ * 반 전체 학생의 회차별 T점수·LPA유형을 한 번의 호출로 조회한다(paperIdx=1 종합검사 한정).
+ * `ordNo=2`로 요청해야 1·2회차 데이터(및 lpaByOrd/lernReportByOrd)가 모두 포함되어 온다 —
+ * fetchStudentFullAnalysis(학생 단위)와 동일한 이유·동일한 컨벤션.
+ * 학생별 st/analysis 개별 호출(N+1)을 대체하기 위한 벌크 조회 함수.
+ */
+export async function fetchClassBulkAnalysis(claId: string): Promise<ClassBulkAnalysis> {
+  const response = await apiRequest<AnalysisResponse>(
+    `/api/dgnss/tc/analysis?claId=${claId}&paperIdx=1&ordNo=2`,
+  );
+
+  const rawResultData = response.resultData as Record<string, unknown>;
+
+  const rawLernReportByOrd = rawResultData['lernReportByOrd'] as
+    | Record<string, LernReportRow[]>
+    | undefined;
+  if (!rawLernReportByOrd) {
+    // paperIdx=1 응답엔 항상 존재해야 하는 필드 — 계약 위반(백엔드 미배포/오설정)으로 간주해 상위 try/catch로 전파.
+    throw new Error('lernReportByOrd missing from /tc/analysis response (paperIdx=1)');
+  }
+  const rawLpaByOrd =
+    (rawResultData['lpaByOrd'] as Record<string, LpaByOrdRow[]> | undefined) ?? {};
+
+  const toStdtIdMap = <T extends { stdtId: string }>(rows: T[] | undefined): Map<string, T> => {
+    const map = new Map<string, T>();
+    for (const row of rows ?? []) {
+      map.set(row.stdtId, row);
+    }
+    return map;
+  };
+
+  const lpaByOrd = new Map<string, Map<string, LpaByOrdRow>>();
+  const lernReportByOrd = new Map<string, Map<string, LernReportRow>>();
+  for (const ordKey of ['1', '2']) {
+    lpaByOrd.set(ordKey, toStdtIdMap(rawLpaByOrd[ordKey]));
+    lernReportByOrd.set(ordKey, toStdtIdMap(rawLernReportByOrd[ordKey]));
+  }
+
+  const round1Data = response.resultData['1'] ?? [];
+  const classTScoresRound1 = convertSectionsToTScores(round1Data);
+
+  return { lpaByOrd, lernReportByOrd, classTScoresRound1 };
+}
+
+/**
+ * ClassBulkAnalysis에서 특정 학생·회차의 tScores/중분류/LPA유형을 순수 계산한다(HTTP 없음).
+ * 미제출(subm_at!=='Y')·sectionScores 없음·전부 매칭 실패 시 null(= 기존 "해당 회차 데이터 없음"과 동일 시맨틱).
+ */
+export function buildStudentRoundFromBulk(
+  stdtId: string,
+  ordNo: 1 | 2,
+  bulk: ClassBulkAnalysis,
+): {
+  tScores: number[];
+  midCategoryScores: Record<string, number> | null;
+  lpaTypeName: string | null;
+  apiTypeProbabilities: Record<string, number> | null;
+} | null {
+  const ordKey = String(ordNo);
+  const lernRow = bulk.lernReportByOrd.get(ordKey)?.get(stdtId);
+  if (!lernRow || lernRow.subm_at !== 'Y' || Object.keys(lernRow.sectionScores).length === 0) {
+    return null;
+  }
+
+  const tScores = new Array(38).fill(50);
+  let matchedAny = false;
+  for (const [sectionId, index] of Object.entries(SECTION_ID_TO_INDEX)) {
+    const value = lernRow.sectionScores[sectionId];
+    if (value !== undefined) {
+      tScores[index] = Math.round(value);
+      matchedAny = true;
+    }
+  }
+  if (!matchedAny) {
+    return null;
+  }
+
+  const midCategoryScores: Record<string, number> = {};
+  let foundMidCategory = false;
+  for (const [sectionId, label] of Object.entries(MID_CATEGORY_SECTION_ID_MAP)) {
+    const value = lernRow.sectionScores[sectionId];
+    if (value !== undefined) {
+      midCategoryScores[label] = value;
+      foundMidCategory = true;
+    }
+  }
+
+  const lpaRow = bulk.lpaByOrd.get(ordKey)?.get(stdtId);
+
+  return {
+    tScores,
+    midCategoryScores: foundMidCategory ? midCategoryScores : null,
+    lpaTypeName: normalizeLpaTypeName(lpaRow?.lpaTypeName ?? null),
+    apiTypeProbabilities: lpaRow ? buildApiTypeProbabilities(lpaRow) : null,
+  };
+}
+
+/**
+ * 반 전체 학생의 회차별 T점수를 한 번의 호출로 조회한다(paperIdx=2 자기조절검사 한정).
+ * fetchClassBulkAnalysis(종합검사)의 자기조절 버전 — lernReportByOrd의 sectionScores는
+ * 종합검사와 동일하게 SECTION_ID 키 형식(예: '20-22-01-01-01-0')으로 내려온다(2026-08-06
+ * 백엔드 반영 확인, 라이브 응답으로 검증됨). lpaByOrd는 자기조절검사에 개념이 없으므로 사용 안 함.
+ */
+export interface SelfregClassBulkAnalysis {
+  lernReportByOrd: Map<string, Map<string, LernReportRow>>;
+  classTScoresRound1: number[] | null;
+}
+
+export async function fetchSelfregClassBulkAnalysis(
+  claId: string,
+): Promise<SelfregClassBulkAnalysis> {
+  const response = await apiRequest<AnalysisResponse>(
+    `/api/dgnss/tc/analysis?claId=${claId}&paperIdx=2&ordNo=2`,
+  );
+
+  const rawResultData = response.resultData as Record<string, unknown>;
+
+  const rawLernReportByOrd = rawResultData['lernReportByOrd'] as
+    | Record<string, LernReportRow[]>
+    | undefined;
+  if (!rawLernReportByOrd) {
+    throw new Error('lernReportByOrd missing from /tc/analysis response (paperIdx=2)');
+  }
+
+  const toStdtIdMap = <T extends { stdtId: string }>(rows: T[] | undefined): Map<string, T> => {
+    const map = new Map<string, T>();
+    for (const row of rows ?? []) {
+      map.set(row.stdtId, row);
+    }
+    return map;
+  };
+
+  const lernReportByOrd = new Map<string, Map<string, LernReportRow>>();
+  for (const ordKey of ['1', '2']) {
+    lernReportByOrd.set(ordKey, toStdtIdMap(rawLernReportByOrd[ordKey]));
+  }
+
+  // 반 평균(1차)은 같은 응답의 resultData['1']에 명명 키 객체로 포함되어 있다 —
+  // fetchSelfregClassAnalysis를 별도 호출하지 않고 이 응답에서 바로 파싱한다.
+  const round1ClassAvg = rawResultData['1'] as Record<string, number> | undefined;
+  const classTScoresRound1 =
+    round1ClassAvg && typeof round1ClassAvg === 'object'
+      ? SELFREG_CLASS_KEYS.map((key) => {
+          const v = round1ClassAvg[key];
+          return typeof v === 'number' ? Math.round(v) : 50;
+        })
+      : null;
+
+  return { lernReportByOrd, classTScoresRound1 };
+}
+
+/**
+ * SelfregClassBulkAnalysis에서 특정 학생·회차의 tScores를 순수 계산한다(HTTP 없음).
+ * buildStudentRoundFromBulk(종합검사)의 자기조절 버전 — LPA 유형 개념이 없어 그 부분만 뺐다.
+ */
+export function buildSelfregStudentRoundFromBulk(
+  stdtId: string,
+  ordNo: 1 | 2,
+  bulk: SelfregClassBulkAnalysis,
+): { tScores: number[] } | null {
+  const ordKey = String(ordNo);
+  const lernRow = bulk.lernReportByOrd.get(ordKey)?.get(stdtId);
+  if (!lernRow || lernRow.subm_at !== 'Y' || Object.keys(lernRow.sectionScores).length === 0) {
+    return null;
+  }
+
+  const tScores = new Array(20).fill(50);
+  let matchedAny = false;
+  for (const [sectionId, index] of Object.entries(SELFREG_SECTION_ID_TO_INDEX)) {
+    const value = lernRow.sectionScores[sectionId];
+    if (value !== undefined) {
+      tScores[index] = Math.round(value);
+      matchedAny = true;
+    }
+  }
+  if (!matchedAny) {
+    return null;
+  }
+
+  return { tScores };
+}
+
+/**
  * 자기조절 반 집계 응답의 명명 키 → 요인 인덱스 (0~19)
  * 교사 tc/analysis 는 학생 st/analysis(SECTION_ID 배열)와 달리 명명 키 객체를 반환한다.
  * selfregFactors.ts의 index 순서와 일치.
@@ -727,11 +940,20 @@ export function convertToAssessment(
     tScores && Array.isArray(tScores) && tScores.length === 38 ? tScores : new Array(38).fill(50);
 
   const classification = classifyStudent(safeTScores, schoolLevel);
-  // 백엔드가 계산한 유형명이 있으면 우선 사용
-  // lpaTypeName이 없으면 프론트엔드 계산값 사용 (고등학교는 "미지원")
-  const predictedType = (data?.lpaTypeName || classification.predictedType) as StudentType;
-  // API lpaTop 확률이 있으면 우선 사용 — 유형명과 확률 출처를 일치시켜 카드/도넛 불일치 방지
-  const typeProbabilities = data?.apiTypeProbabilities ?? classification.allProbabilities;
+  const apiTypeProbabilities = data?.apiTypeProbabilities;
+  const hasValidApiLpa =
+    !!data?.lpaTypeName &&
+    !!getTypeInfo(data.lpaTypeName, schoolLevel) &&
+    !!apiTypeProbabilities &&
+    apiTypeProbabilities[data.lpaTypeName] !== undefined &&
+    Object.keys(apiTypeProbabilities).every((typeName) => !!getTypeInfo(typeName, schoolLevel));
+
+  // 유형명과 확률은 같은 출처를 사용한다. 다른 학제의 LPA가 내려오거나 일부가 누락되면
+  // T점수 기반 재분류값 전체로 폴백해 도넛·유형명·설명 간 불일치를 막는다.
+  const predictedType = (
+    hasValidApiLpa ? data.lpaTypeName : classification.predictedType
+  ) as StudentType;
+  const typeProbabilities = hasValidApiLpa ? apiTypeProbabilities : classification.allProbabilities;
   const deviations = getTypeDeviations(safeTScores, predictedType, schoolLevel, 3);
   const attentionResult = checkAttention(safeTScores);
 
@@ -791,6 +1013,7 @@ export async function buildClassFromAPI(
   dgnssId: number,
   round2DgnssId?: number,
   schoolLevelCode?: SchoolLevelCode,
+  name?: string,
 ): Promise<Class | null> {
   try {
     const studentInfoList = await fetchStudentInfoList(dgnssId, '1', 1);
@@ -805,13 +1028,31 @@ export async function buildClassFromAPI(
       : [];
     const round2SubmittedStudentIds = createSubmittedStudentIdSet(round2StudentInfoList);
     const hasRound1Exam = !round2DgnssId || round2DgnssId !== dgnssId;
+    const round2InfoByStdtId = new Map(round2StudentInfoList.map((info) => [info.stdtId, info]));
 
-    const studentPromises = studentInfoList.map(async (info) => {
-      const fullAnalysis = await fetchStudentFullAnalysis(claId, info.stdtId, '1');
-      return { info, fullAnalysis };
+    // 학생별 st/analysis 개별 호출(N+1) 대신 반 전체를 한 번에 조회한다(paperIdx=1 한정).
+    const bulk = await fetchClassBulkAnalysis(claId);
+
+    const studentResults = studentInfoList.map((info) => {
+      const round1Base = hasRound1Exam ? buildStudentRoundFromBulk(info.stdtId, 1, bulk) : null;
+      const round1 = round1Base && {
+        ...round1Base,
+        reliabilityWarnings: getReliabilityWarnings(info),
+        answerIdx: info.answerIdx,
+      };
+
+      const canHaveRound2 =
+        !!round2DgnssId && hasSubmittedRound(info.stdtId, round2SubmittedStudentIds);
+      const round2Base = canHaveRound2 ? buildStudentRoundFromBulk(info.stdtId, 2, bulk) : null;
+      const round2Info = round2InfoByStdtId.get(info.stdtId);
+      const round2 = round2Base && {
+        ...round2Base,
+        reliabilityWarnings: round2Info ? getReliabilityWarnings(round2Info) : [],
+        answerIdx: round2Info?.answerIdx ?? null,
+      };
+
+      return { info, fullAnalysis: { round1, round2 } };
     });
-
-    const studentResults = await Promise.all(studentPromises);
 
     const students: Student[] = studentResults
       .filter(({ info, fullAnalysis }) => {
@@ -885,6 +1126,7 @@ export async function buildClassFromAPI(
 
     return {
       id: claId,
+      name,
       schoolLevel,
       schoolLevelCode,
       grade,
@@ -936,44 +1178,71 @@ export async function fetchL2DashboardData(
 ): Promise<L2DashboardData> {
   const isSelfreg = paperIdx === '2';
 
-  // 자기조절검사(paperIdx=2)는 반/학생 집계 구조가 종합검사와 달라 전용 함수 사용
-  const [examDetail, studentInfoList, classTScores, needAttention] = await Promise.all([
+  // paperIdx=1(종합검사)/paperIdx=2(자기조절검사) 모두 반 전체를 벌크 조회 1회로 얻는다
+  // (반평균 classTScores + 학생별 sectionScores) — 학생별 st/analysis N+1 호출 제거.
+  // 두 검사는 반평균 파싱 방식(배열 vs 명명 키 객체)과 요인 개수(38 vs 20)가 달라 전용 함수를 쓴다.
+  const [examDetail, studentInfoList, needAttention, bulk, selfregBulk] = await Promise.all([
     fetchExamDetail(dgnssId),
     fetchStudentInfoList(dgnssId, paperIdx, 1),
-    isSelfreg
-      ? fetchSelfregClassAnalysis(claId, 1).then((r) => r ?? new Array(20).fill(50))
-      : fetchClassAnalysis(claId, paperIdx, 1),
     fetchNeedAttentionStudents(dgnssId, paperIdx),
+    isSelfreg ? Promise.resolve(null) : fetchClassBulkAnalysis(claId),
+    isSelfreg ? fetchSelfregClassBulkAnalysis(claId) : Promise.resolve(null),
   ]);
+
+  const classTScores = isSelfreg
+    ? (selfregBulk!.classTScoresRound1 ?? new Array(20).fill(50))
+    : bulk!.classTScoresRound1;
 
   const students: Student[] = await Promise.all(
     studentInfoList.map(async (info) => {
       const assessments: Assessment[] = [];
 
       if (isSelfreg) {
-        const selfreg = await fetchSelfregFullAnalysis(claId, info.stdtId);
-        if (selfreg.round1?.tScores) {
+        const round1 = buildSelfregStudentRoundFromBulk(info.stdtId, 1, selfregBulk!);
+        if (round1) {
           assessments.push(
             convertSelfregToAssessment(info.stdtId, 1, {
-              ...selfreg.round1,
-              answerIdx: selfreg.round1.answerIdx ?? info.answerIdx ?? null,
+              ...round1,
+              reliabilityWarnings: [],
+              answerIdx: info.answerIdx,
             }),
           );
         }
-        if (selfreg.round2?.tScores) {
-          assessments.push(convertSelfregToAssessment(info.stdtId, 2, selfreg.round2));
+        const round2 = buildSelfregStudentRoundFromBulk(info.stdtId, 2, selfregBulk!);
+        if (round2) {
+          assessments.push(
+            convertSelfregToAssessment(info.stdtId, 2, {
+              ...round2,
+              reliabilityWarnings: [],
+              answerIdx: null,
+            }),
+          );
         }
       } else {
-        const fullAnalysis = await fetchStudentFullAnalysis(claId, info.stdtId, paperIdx);
-        if (fullAnalysis.round1?.tScores) {
-          const r1data = {
-            ...fullAnalysis.round1,
-            answerIdx: fullAnalysis.round1.answerIdx ?? info.answerIdx ?? null,
-          };
-          assessments.push(convertToAssessment(info.stdtId, 1, r1data, schoolLevel));
+        // reliabilityWarnings/answerIdx는 lernReportByOrd에 없으므로 round1 info(stinfolist) 기반으로
+        // 통일하고, 아래 공통 merge 단계에서 채운다(round2 전용 소스가 없어 round1과 동일 적용 — 기존
+        // 대비 round2 고유 신뢰도 경고 일부가 빠질 수 있음, 확인된 트레이드오프).
+        const round1 = buildStudentRoundFromBulk(info.stdtId, 1, bulk!);
+        if (round1) {
+          assessments.push(
+            convertToAssessment(
+              info.stdtId,
+              1,
+              { ...round1, reliabilityWarnings: [], answerIdx: info.answerIdx },
+              schoolLevel,
+            ),
+          );
         }
-        if (fullAnalysis.round2?.tScores) {
-          assessments.push(convertToAssessment(info.stdtId, 2, fullAnalysis.round2, schoolLevel));
+        const round2 = buildStudentRoundFromBulk(info.stdtId, 2, bulk!);
+        if (round2) {
+          assessments.push(
+            convertToAssessment(
+              info.stdtId,
+              2,
+              { ...round2, reliabilityWarnings: [], answerIdx: info.answerIdx },
+              schoolLevel,
+            ),
+          );
         }
       }
 

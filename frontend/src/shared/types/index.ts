@@ -24,6 +24,13 @@ export interface ExamPeriodStatus {
 // 학급
 export interface Class {
   id: string;
+  /**
+   * 그룹관리(mypage/SSO)에서 설정한 그룹명. HSJ-118: 반 표기는 이 값으로 통일한다
+   * (`${grade}-${classNumber}반` 형태 조합 금지). 없으면 호출부에서 조합값으로 폴백.
+   */
+  name?: string;
+  /** 그룹관리(mypage/SSO)에서 설정한 학교명. HSJ-121: 결과보기 반/학생 헤더 표기에 사용. */
+  schoolName?: string;
   schoolLevel: SchoolLevel;
   /**
    * 백엔드가 내려준 원본 SchoolLevelCode('elementary'|'middle'|'high').
@@ -666,6 +673,7 @@ export interface GroupMember {
   groupId: string;
   userId: string | null; // 게스트면 null
   stdtId: string;
+  spUserId?: string;
 
   name: string;
   email?: string;

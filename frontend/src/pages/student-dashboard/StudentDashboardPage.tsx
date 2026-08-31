@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
@@ -9,34 +9,33 @@ import {
   FileText,
   ShieldAlert,
   AlertTriangle,
+  Check,
   Clock,
   Loader2,
 } from 'lucide-react';
 import { useStudentAnalysis, useApiConfig } from '@features/api';
+import { useStudentLearningStatusQuery } from '@features/exam-tracking/api/queries';
+import {
+  COUNSELOR_LABELS,
+  LEVEL_LABELS,
+  MOTIVATION_LABELS,
+  STUDY_TIME_LABELS,
+} from '@features/exam-tracking/api/studentLearningStatusService';
 import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
 import { fetchStudentInfoList } from '@shared/services/dashboardService';
 import { formatAttentionTooltip } from '@shared/utils/attentionChecker';
 import { buildStudentDomainData } from '@shared/utils/buildStudentDomainData';
+import { FACTOR_DEFINITIONS } from '@shared/data/factors';
+import { FACTOR_OPERATIONAL_DEFINITIONS } from '@shared/data/factorDefinitions';
+import { formatClassLocationLabel } from '@shared/utils/classDisplayName';
 import { FactorHeatmapSection } from '@shared/components/FactorHeatmapSection';
 import { ApiTooltip } from '@shared/components/api-tooltip';
 import { API_STUDENT_DETAIL } from '@shared/data/apiDefinitions';
-import {
-  DiagnosisSummary,
-  TypeClassification,
-  CoachingStrategy,
-  type PanelTab,
-  DataHelperChatbot,
-  RightPanel,
-} from '@features/student-dashboard/ui';
-import { useCoachingStrategy } from '@features/student-dashboard/api/useCoachingStrategy';
+import { DiagnosisSummary, TypeClassification } from '@features/student-dashboard/ui';
+import { ResultCounselingObservationSection } from '@features/student-dashboard/ui/ResultCounselingObservationSection';
 import type { Student, SchoolLevel } from '@shared/types';
 
-const TEST_META: Record<string, { name: string; color: string }> = {
-  comprehensive: { name: '학습종합검사', color: '#6366F1' },
-  selfreg: { name: '자기조절학습검사', color: '#009F88' },
-};
-
-type ViewMode = 'round1' | 'round2' | 'compare';
+type ViewMode = 'round1' | 'round2';
 
 const spin = keyframes`
   from {
@@ -67,14 +66,12 @@ const MainLayout = styled.div`
   gap: 1.5rem;
 `;
 
-const MainContent = styled.div<{ $panelOpen: boolean }>`
+const MainContent = styled.div`
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  transition: all 0.3s ease;
-  padding-right: ${({ $panelOpen }) => ($panelOpen ? '0' : undefined)};
 `;
 
 const HeaderSection = styled.div`
@@ -224,6 +221,140 @@ const RoundButton = styled.button<{ $isActive: boolean }>`
   `}
 `;
 
+const StepSection = styled.section`
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 1rem;
+`;
+
+const StepNumber = styled.div<{ $color: string }>`
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  background: ${({ $color }) => $color};
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+`;
+
+const StepRail = styled.div`
+  position: relative;
+  display: flex;
+  justify-content: center;
+
+  &::after {
+    position: absolute;
+    top: 2.5rem;
+    bottom: 0.5rem;
+    width: 1px;
+    background: ${({ theme }) => theme.colors.gray[300]};
+    content: '';
+  }
+`;
+
+const StepBody = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const LearningStatusGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+
+  @media (max-width: 960px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+`;
+
+const LearningStatusItem = styled.div`
+  padding: 1rem;
+  background: ${({ theme }) => theme.colors.gray[50]};
+  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  text-align: center;
+`;
+
+const FactorTopGrid = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+  gap: 1rem;
+`;
+
+const SectionTitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const SurveyBadge = styled.span`
+  padding: 0.125rem 0.5rem;
+  color: ${({ theme }) => theme.colors.gray[500]};
+  background: ${({ theme }) => theme.colors.gray[100]};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  font-size: 0.75rem;
+`;
+
+const CoachingLinkButton = styled.button`
+  align-self: flex-end;
+  padding: 0.625rem 1.25rem;
+  color: white;
+  background: linear-gradient(90deg, #7c3aed, #4f46e5);
+  border: 0;
+  border-radius: ${({ theme }) => theme.radius.lg};
+  font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
+  cursor: pointer;
+`;
+
+const FactorTopColumn = styled.div`
+  min-width: 0;
+`;
+
+const FactorTopDivider = styled.div`
+  width: 1px;
+  background: ${({ theme }) => theme.colors.gray[200]};
+`;
+
+const FactorTopHeading = styled.div<{ $tone: 'strength' | 'weakness' }>`
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
+  color: ${({ $tone }) => ($tone === 'strength' ? '#065F46' : '#991B1B')};
+  font-size: 0.875rem;
+  font-weight: 700;
+
+  > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 0.25rem;
+    background: ${({ $tone }) => ($tone === 'strength' ? '#D1FAE5' : '#FEE2E2')};
+  }
+`;
+
+const FactorTopCards = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+`;
+
+const FactorTopCard = styled.div<{ $tone: 'strength' | 'weakness' }>`
+  min-width: 0;
+  padding: 0.75rem;
+  background: ${({ $tone }) =>
+    $tone === 'strength' ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)'};
+  border: 1px solid ${({ $tone }) => ($tone === 'strength' ? '#A7F3D0' : '#FECACA')};
+  border-radius: ${({ theme }) => theme.radius.md};
+`;
+
 const InfoAlert = styled.div`
   background: #eff6ff;
   border: 1px solid #bfdbfe;
@@ -244,41 +375,6 @@ const InfoIcon = styled(Clock)`
 const InfoText = styled.p`
   font-size: 0.875rem;
   color: #1e40af;
-`;
-
-const BreadcrumbRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.25rem;
-`;
-
-const TestBadge = styled.span<{ $color: string }>`
-  padding: 2px 10px;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: white;
-  background: ${({ $color }) => $color};
-  flex-shrink: 0;
-`;
-
-const BreadcrumbNav = styled.nav`
-  font-size: 0.875rem;
-  color: ${({ theme }) => theme.colors.gray[500]};
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-`;
-
-const BreadcrumbSep = styled.span`
-  color: ${({ theme }) => theme.colors.gray[300]};
-  margin: 0 0.125rem;
-`;
-
-const BreadcrumbCurrent = styled.span`
-  color: ${({ theme }) => theme.colors.gray[800]};
-  font-weight: 500;
 `;
 
 const SectionContainer = styled.section``;
@@ -330,12 +426,19 @@ const ErrorIcon = styled(AlertTriangle)`
 interface StudentDashboardContentProps {
   student: Student;
   classStudents: Student[];
-  classInfo: { grade: number; classNumber: number; schoolLevel: SchoolLevel };
+  classInfo: {
+    grade: number;
+    classNumber: number;
+    schoolLevel: SchoolLevel;
+    schoolName?: string;
+  };
   classId: string;
   studentId: string;
   testId: string;
   hasJwtToken: boolean;
   dgnssIds: { round1?: number; round2?: number };
+  onBackToClass?: () => void;
+  onStudentSelect?: (studentId: string) => void;
 }
 
 const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
@@ -347,10 +450,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   testId,
   hasJwtToken,
   dgnssIds,
+  onBackToClass,
+  onStudentSelect,
 }) => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
-  const [panelTab, setPanelTab] = useState<PanelTab>(null);
   const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
 
   useEffect(() => {
@@ -359,25 +463,42 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 
   const selectedRound: 1 | 2 = viewMode === 'round1' ? 1 : 2;
 
-  // 코칭 전략 API 호출
-  const {
-    moderationPaths,
-    strengths,
-    weaknesses,
-    isLoading: isCoachingLoading,
-    fetchCoachingStrategy,
-  } = useCoachingStrategy(classId, studentId, selectedRound);
-
-  const coachingFetchKeyRef = useRef<string>('');
-
-  // 학생/차수 변경 시 코칭 전략 자동 로드 (StrictMode 이중 실행 방지)
-  useEffect(() => {
-    const key = `${studentId}-${selectedRound}`;
-    if (coachingFetchKeyRef.current === key) return;
-    coachingFetchKeyRef.current = key;
-    void fetchCoachingStrategy();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, selectedRound]);
+  const learningStatusQuery = useStudentLearningStatusQuery(classId, studentId);
+  const learningStatusRound = learningStatusQuery.data?.rounds.find(
+    (round) => round.ordNo === selectedRound,
+  );
+  const learningStatusItems = [
+    {
+      label: '학업 성취도',
+      value: learningStatusRound?.academicAchievement
+        ? LEVEL_LABELS[learningStatusRound.academicAchievement]
+        : '응답 정보 없음',
+    },
+    {
+      label: '성적 만족도',
+      value: learningStatusRound?.gradeSatisfaction
+        ? LEVEL_LABELS[learningStatusRound.gradeSatisfaction]
+        : '응답 정보 없음',
+    },
+    {
+      label: '학습 동기',
+      value: learningStatusRound?.learningMotivation
+        ? MOTIVATION_LABELS[learningStatusRound.learningMotivation]
+        : '응답 정보 없음',
+    },
+    {
+      label: '혼자 공부 시간',
+      value: learningStatusRound?.selfStudyTime
+        ? STUDY_TIME_LABELS[learningStatusRound.selfStudyTime]
+        : '응답 정보 없음',
+    },
+    {
+      label: '학습 고민 상담',
+      value: learningStatusRound?.learningCounselor
+        ? COUNSELOR_LABELS[learningStatusRound.learningCounselor]
+        : '응답 정보 없음',
+    },
+  ];
 
   const [isPdfDownloading, setIsPdfDownloading] = useState(false);
   const [pdfError, setPdfError] = useState(false);
@@ -421,8 +542,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
       setIsPdfDownloading(false);
     }
   };
-  const isCompare = viewMode === 'compare';
-
   const current = selectedRound === 2 && r2 ? r2 : r1;
 
   // useMemo는 항상 호출 (current가 없으면 빈 배열 사용)
@@ -430,14 +549,41 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
     () => (current ? buildStudentDomainData(current.tScores, current.midCategoryScores) : []),
     [current],
   );
-  const prevDomainData = useMemo(
-    () => (isCompare && r1 ? buildStudentDomainData(r1.tScores, r1.midCategoryScores) : undefined),
-    [isCompare, r1],
+  const factorRanking = useMemo(
+    () =>
+      FACTOR_DEFINITIONS.map((factor) => ({
+        ...factor,
+        score: current?.tScores[factor.index] ?? 50,
+        relativeScore: factor.isPositive
+          ? (current?.tScores[factor.index] ?? 50)
+          : 100 - (current?.tScores[factor.index] ?? 50),
+      })),
+    [current?.tScores],
   );
+  const topStrengths = [...factorRanking]
+    .sort((a, b) => b.relativeScore - a.relativeScore)
+    .slice(0, 3);
+  const topWeaknesses = [...factorRanking]
+    .sort((a, b) => a.relativeScore - b.relativeScore)
+    .slice(0, 3);
 
   const currentIdx = classStudents.findIndex((s) => s.id === studentId);
   const prev = currentIdx > 0 ? classStudents[currentIdx - 1] : null;
   const next = currentIdx < classStudents.length - 1 ? classStudents[currentIdx + 1] : null;
+  const handleBackToClass = () => {
+    if (onBackToClass) {
+      onBackToClass();
+      return;
+    }
+    navigate(`/dashboard/${testId}/class/${classId}`);
+  };
+  const handleStudentSelect = (nextStudentId: string) => {
+    if (onStudentSelect) {
+      onStudentSelect(nextStudentId);
+      return;
+    }
+    navigate(`/dashboard/${testId}/class/${classId}/student/${nextStudentId}`);
+  };
 
   // current가 없으면 검사 결과 없음 표시
   if (!current) {
@@ -451,28 +597,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
   return (
     <MainLayout>
       {/* 메인 콘텐츠 */}
-      <MainContent $panelOpen={panelTab !== null}>
-        {/* 브레드크럼 */}
-        <BreadcrumbRow>
-          <TestBadge $color={TEST_META[testId]?.color ?? '#6366F1'}>
-            {TEST_META[testId]?.name ?? testId}
-          </TestBadge>
-          <BreadcrumbNav>
-            결과보기
-            <BreadcrumbSep>›</BreadcrumbSep>
-            {TEST_META[testId]?.name ?? testId}
-            <BreadcrumbSep>›</BreadcrumbSep>
-            {classInfo.grade}학년 {classInfo.classNumber}반<BreadcrumbSep>›</BreadcrumbSep>
-            <BreadcrumbCurrent>
-              {student.number}번 {student.name}
-            </BreadcrumbCurrent>
-          </BreadcrumbNav>
-        </BreadcrumbRow>
-
+      <MainContent>
         {/* Header */}
         <HeaderSection>
           <HeaderLeft>
-            <BackButton onClick={() => navigate(`/dashboard/${testId}/class/${classId}`)}>
+            <BackButton onClick={handleBackToClass}>
               <BackIcon />
             </BackButton>
             <HeaderTitle>
@@ -501,9 +630,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                   </WarningBadge>
                 )}
               </TitleRow>
-              <ClassInfo>
-                {classInfo.schoolLevel} · {classInfo.grade}학년 {classInfo.classNumber}반
-              </ClassInfo>
+              <ClassInfo>{formatClassLocationLabel(classInfo)}</ClassInfo>
             </HeaderTitle>
           </HeaderLeft>
 
@@ -511,9 +638,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
             {/* 학생 네비게이션 — 프로토타입: ‹ 이전 / X/N / 다음 › 텍스트 버튼 */}
             <NavigationSection>
               <NavButton
-                onClick={() =>
-                  prev && navigate(`/dashboard/${testId}/class/${classId}/student/${prev.id}`)
-                }
+                onClick={() => prev && handleStudentSelect(prev.id)}
                 disabled={!prev}
                 style={{
                   display: 'flex',
@@ -534,9 +659,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 {currentIdx + 1} / {classStudents.length}
               </NavCounter>
               <NavButton
-                onClick={() =>
-                  next && navigate(`/dashboard/${testId}/class/${classId}/student/${next.id}`)
-                }
+                onClick={() => next && handleStudentSelect(next.id)}
                 disabled={!next}
                 style={{
                   display: 'flex',
@@ -554,20 +677,53 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                 다음 <ChevronRight size={14} />
               </NavButton>
             </NavigationSection>
+            {hasJwtToken && (
+              <button
+                onClick={() => setReportDropdownOpen((open) => !open)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                  padding: '0.5rem 0.875rem',
+                  background: '#4F46E5',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                <FileText size={15} />
+                보고서 다운로드
+                <ChevronRight size={14} />
+              </button>
+            )}
           </HeaderRight>
         </HeaderSection>
+
+        <div
+          style={{
+            display: 'flex',
+            gap: '1.5rem',
+            paddingLeft: '3.25rem',
+            fontSize: '0.875rem',
+            color: '#6B7280',
+          }}
+        >
+          {r1 && <span>1차 검사: {r1.assessedAt.toLocaleDateString('ko-KR')}</span>}
+          {r2 && <span>2차 검사: {r2.assessedAt.toLocaleDateString('ko-KR')}</span>}
+        </div>
+
+        {/* AI 분석 총평 */}
+        <DiagnosisSummary tScores={current.tScores} studentType={current.predictedType} />
 
         {/* Round Selector + 보고서 다운로드 드롭다운 + Panel Buttons */}
         <ControlsSection>
           <RoundButtons>
             {[
               { mode: 'round1' as ViewMode, label: '1차 검사' },
-              ...(r2
-                ? [
-                    { mode: 'round2' as ViewMode, label: '2차 검사' },
-                    { mode: 'compare' as ViewMode, label: '차수 변화' },
-                  ]
-                : []),
+              ...(r2 ? [{ mode: 'round2' as ViewMode, label: '2차 검사' }] : []),
             ].map(({ mode, label }) => (
               <RoundButton
                 key={mode}
@@ -596,6 +752,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                     fontSize: '0.875rem',
                     fontWeight: 500,
                     cursor: 'pointer',
+                    visibility: 'hidden',
                   }}
                 >
                   <FileText size={15} />
@@ -616,9 +773,9 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
                     />
                     <div
                       style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: 'calc(100% + 4px)',
+                        position: 'fixed',
+                        right: '2.5rem',
+                        top: '11rem',
                         width: '14rem',
                         background: 'white',
                         borderRadius: '0.625rem',
@@ -786,83 +943,203 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
           </InfoAlert>
         )}
 
-        {/* 1. 진단결과 한눈에 보기 */}
-        <SectionContainer>
-          <SectionHeader>
-            <SectionTitle>학생 진단 결과 해석</SectionTitle>
-          </SectionHeader>
-          <SectionCard>
-            {/* 총평 */}
-            <CardSection $hasBorder>
-              <DiagnosisSummary tScores={current.tScores} studentType={current.predictedType} />
-            </CardSection>
+        <StepSection>
+          <StepRail>
+            <StepNumber $color='#7C3AED'>1</StepNumber>
+          </StepRail>
+          <StepBody>
+            <SectionHeader>
+              <div>
+                <SectionTitle>학습 현황</SectionTitle>
+                <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#6B7280' }}>
+                  학생이 직접 응답한 학습 상황입니다.
+                </p>
+              </div>
+            </SectionHeader>
+            <SectionCard>
+              <CardSection>
+                <SectionTitleRow style={{ marginBottom: '1rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1rem' }}>개인 학습 현황</h3>
+                  <SurveyBadge>설문 응답</SurveyBadge>
+                </SectionTitleRow>
+                <LearningStatusGrid>
+                  {learningStatusItems.map(({ label, value }) => (
+                    <LearningStatusItem key={label}>
+                      <p style={{ margin: '0 0 0.5rem', color: '#6B7280', fontSize: '0.75rem' }}>
+                        {label}
+                      </p>
+                      <strong style={{ fontSize: '0.875rem', color: '#374151' }}>{value}</strong>
+                    </LearningStatusItem>
+                  ))}
+                </LearningStatusGrid>
+              </CardSection>
+            </SectionCard>
+          </StepBody>
+        </StepSection>
 
-            <CardSection>
-              <FactorHeatmapSection domainData={domainData} prevDomainData={prevDomainData} />
-            </CardSection>
-          </SectionCard>
-        </SectionContainer>
+        {/* 요인 분석 */}
+        <StepSection>
+          <StepRail>
+            <StepNumber $color='#3B82F6'>2</StepNumber>
+          </StepRail>
+          <StepBody>
+            <SectionContainer>
+              <SectionHeader>
+                <div>
+                  <SectionTitle>요인 분석</SectionTitle>
+                  <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#6B7280' }}>
+                    38개 학습 요인의 세부 점수를 분석합니다.
+                  </p>
+                </div>
+              </SectionHeader>
+              <SectionCard>
+                <CardSection>
+                  <h3 style={{ margin: '0 0 1rem', fontSize: '1rem' }}>38개 요인 분석</h3>
+                  <FactorHeatmapSection domainData={domainData} />
+                </CardSection>
+              </SectionCard>
+            </SectionContainer>
+            <SectionCard>
+              <CardSection>
+                <h3 style={{ margin: '0 0 1rem', fontSize: '1rem' }}>강점 / 보완점 Top 3</h3>
+                <FactorTopGrid>
+                  <FactorTopColumn>
+                    <FactorTopHeading $tone='strength'>
+                      <span>
+                        <Check size={12} strokeWidth={2.5} />
+                      </span>
+                      주요 강점
+                    </FactorTopHeading>
+                    <FactorTopCards>
+                      {topStrengths.map((factor, index) => (
+                        <FactorTopCard key={factor.index} $tone='strength'>
+                          <span
+                            style={{ color: '#059669', fontSize: '0.6875rem', fontWeight: 600 }}
+                          >
+                            #{factor.category}
+                          </span>
+                          <p
+                            style={{ margin: '0.375rem 0', fontSize: '0.875rem', fontWeight: 700 }}
+                          >
+                            {index + 1}. {factor.name}
+                          </p>
+                          {FACTOR_OPERATIONAL_DEFINITIONS[factor.name] && (
+                            <p
+                              style={{
+                                margin: '0.5rem 0 0',
+                                color: '#6B7280',
+                                fontSize: '0.6875rem',
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              {FACTOR_OPERATIONAL_DEFINITIONS[factor.name]}
+                            </p>
+                          )}
+                        </FactorTopCard>
+                      ))}
+                    </FactorTopCards>
+                  </FactorTopColumn>
+                  <FactorTopDivider />
+                  <FactorTopColumn>
+                    <FactorTopHeading $tone='weakness'>
+                      <span>
+                        <AlertTriangle size={12} strokeWidth={2.5} />
+                      </span>
+                      주요 보완점
+                    </FactorTopHeading>
+                    <FactorTopCards>
+                      {topWeaknesses.map((factor, index) => (
+                        <FactorTopCard key={factor.index} $tone='weakness'>
+                          <span
+                            style={{ color: '#EF4444', fontSize: '0.6875rem', fontWeight: 600 }}
+                          >
+                            #{factor.category}
+                          </span>
+                          <p
+                            style={{ margin: '0.375rem 0', fontSize: '0.875rem', fontWeight: 700 }}
+                          >
+                            {index + 1}. {factor.name}
+                          </p>
+                          {FACTOR_OPERATIONAL_DEFINITIONS[factor.name] && (
+                            <p
+                              style={{
+                                margin: '0.5rem 0 0',
+                                color: '#6B7280',
+                                fontSize: '0.6875rem',
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              {FACTOR_OPERATIONAL_DEFINITIONS[factor.name]}
+                            </p>
+                          )}
+                        </FactorTopCard>
+                      ))}
+                    </FactorTopCards>
+                  </FactorTopColumn>
+                </FactorTopGrid>
+              </CardSection>
+            </SectionCard>
+          </StepBody>
+        </StepSection>
 
         {/* 2. 학습 유형 알아보기 - 고등학교(LPA 미제공) 제외 */}
         {student.schoolLevel !== '고등' && current.predictedType !== '미지원' && (
-          <SectionContainer>
-            <SectionTitle>{isCompare ? 'LPA 유형 변화' : '학습 유형 알아보기'}</SectionTitle>
-            <SectionCard>
-              {/* 유형 분류 */}
-              <CardSection $hasBorder>
-                <TypeClassification
-                  predictedType={current.predictedType}
-                  typeProbabilities={current.typeProbabilities}
-                  schoolLevel={student.schoolLevel}
-                  showCompare={isCompare && !!r1 && !!r2}
-                  prevType={r1?.predictedType}
-                  prevTypeProbabilities={r1?.typeProbabilities}
-                />
-              </CardSection>
-            </SectionCard>
-          </SectionContainer>
+          <StepSection>
+            <StepRail>
+              <StepNumber $color='#22C55E'>3</StepNumber>
+            </StepRail>
+            <StepBody>
+              <SectionContainer>
+                <SectionHeader>
+                  <div>
+                    <SectionTitle>학습 유형</SectionTitle>
+                    <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#6B7280' }}>
+                      38개 요인 패턴을 종합하여 분류한 학습자 유형입니다.
+                    </p>
+                  </div>
+                </SectionHeader>
+                <SectionCard>
+                  {/* 유형 분류 */}
+                  <CardSection $hasBorder>
+                    <TypeClassification
+                      predictedType={current.predictedType}
+                      typeProbabilities={current.typeProbabilities}
+                      schoolLevel={student.schoolLevel}
+                    />
+                  </CardSection>
+                </SectionCard>
+              </SectionContainer>
+            </StepBody>
+          </StepSection>
         )}
 
-        {/* 코칭 전략 (강점/보완점 카드 + 아코디언 통합) - 고등학교(LPA 미제공) 제외, 운영서버 데이터 이슈로 임시 숨김(HSJ-108) */}
-        {import.meta.env.VITE_ENV !== 'prod' &&
-          student.schoolLevel !== '고등' &&
-          current.predictedType !== '미지원' && (
-            <CoachingStrategy
-              moderationPaths={moderationPaths}
-              strengths={strengths}
-              weaknesses={weaknesses}
-              typeName={current.predictedType}
-              isLoading={isCoachingLoading}
+        <StepSection>
+          <StepRail>
+            <StepNumber $color='#F59E0B'>4</StepNumber>
+          </StepRail>
+          <StepBody>
+            <SectionHeader>
+              <div>
+                <SectionTitle>상담 & 관찰</SectionTitle>
+                <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#6B7280' }}>
+                  상담 & 관찰 이력을 작성하고 확인합니다.
+                </p>
+              </div>
+            </SectionHeader>
+            <ResultCounselingObservationSection
+              studentId={studentId}
+              classId={classId}
+              studentName={student.name}
+              studentNumber={student.number}
             />
-          )}
-
-        {/* 데이터 해석 도우미 (스피드다이얼 FAB) */}
-        <DataHelperChatbot onOpenPanel={setPanelTab} isPanelOpen={panelTab !== null} />
+          </StepBody>
+        </StepSection>
+        <CoachingLinkButton
+          onClick={() => navigate(`/coaching/individual?class=${classId}&student=${studentId}`)}
+        >
+          코칭 연결
+        </CoachingLinkButton>
       </MainContent>
-
-      {/* 우측 푸시 패널 */}
-      <RightPanel
-        isOpen={panelTab !== null}
-        activeTab={panelTab}
-        onTabChange={setPanelTab}
-        onClose={() => setPanelTab(null)}
-        studentId={studentId}
-        classId={classId}
-        student={student}
-        assessment={current}
-        aiChatData={{
-          tScores: current.tScores,
-          predictedType: current.predictedType,
-          typeProbabilities: current.typeProbabilities,
-          schoolLevel: student.schoolLevel,
-          deviations: current.deviations,
-          stdtId: studentId,
-          claId: classId,
-          schoolLevelCode: student.schoolLevelCode,
-          grade: classInfo.grade,
-          classNumber: classInfo.classNumber,
-        }}
-      />
     </MainLayout>
   );
 };
@@ -870,12 +1147,29 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({
 // ============================================================
 // 메인 컴포넌트: 로딩/에러/null 체크 후 StudentDashboardContent 렌더링
 // ============================================================
-export const StudentDashboardPage = () => {
+interface StudentDashboardPageProps {
+  classIdOverride?: string;
+  studentIdOverride?: string;
+  testIdOverride?: string;
+  onBackToClass?: () => void;
+  onStudentSelect?: (studentId: string) => void;
+}
+
+export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
+  classIdOverride,
+  studentIdOverride,
+  testIdOverride,
+  onBackToClass,
+  onStudentSelect,
+}) => {
   const {
-    classId,
-    studentId,
-    testId = 'comprehensive',
+    classId: routeClassId,
+    studentId: routeStudentId,
+    testId: routeTestId = 'comprehensive',
   } = useParams<{ classId: string; studentId: string; testId: string }>();
+  const classId = classIdOverride ?? routeClassId;
+  const studentId = studentIdOverride ?? routeStudentId;
+  const testId = testIdOverride ?? routeTestId;
   const { hasJwtToken } = useApiConfig();
 
   // API 모드: API에서 학생 데이터 + 학급 학생 목록 로드
@@ -928,6 +1222,8 @@ export const StudentDashboardPage = () => {
       testId={testId}
       hasJwtToken={hasJwtToken}
       dgnssIds={dgnssIds}
+      onBackToClass={onBackToClass}
+      onStudentSelect={onStudentSelect}
     />
   );
 };

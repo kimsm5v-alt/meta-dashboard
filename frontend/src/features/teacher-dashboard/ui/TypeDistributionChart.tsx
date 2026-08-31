@@ -4,6 +4,7 @@ import styled from '@emotion/styled';
 import { ResponsiveBar } from '@nivo/bar';
 import type { BarCustomLayerProps, ComputedDatum } from '@nivo/bar';
 import type { Class } from '@shared/types';
+import { getClassDisplayName } from '@shared/utils/classDisplayName';
 
 type BarRecord = Record<string, string | number>;
 
@@ -77,10 +78,12 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
           (sum, key) => sum + (cls.stats?.typeDistribution?.[key]?.count || 0),
           0,
         );
+        const displayName = getClassDisplayName(cls);
         const row: BarRecord = {
-          name: `${cls.grade}-${cls.classNumber}반`,
-          label: `${cls.grade}-${cls.classNumber}반 (${total}명)`,
+          name: displayName,
+          label: `${displayName} (${total}명)`,
           classId: cls.id,
+          sortKey: cls.grade * 100 + cls.classNumber,
         };
         for (const key of typeKeys) {
           const count = cls.stats?.typeDistribution?.[key]?.count || 0;
@@ -90,11 +93,7 @@ export const TypeDistributionChart: React.FC<TypeDistributionChartProps> = ({
         }
         return row;
       })
-      .sort((a, b) => {
-        const aNum = parseInt((a.name as string).split('-')[1]);
-        const bNum = parseInt((b.name as string).split('-')[1]);
-        return aNum - bNum;
-      });
+      .sort((a, b) => (a.sortKey as number) - (b.sortKey as number));
   }, [classes, typeKeys]);
 
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Search, Users, Info } from 'lucide-react';
+import { matchesNameSearch } from '@shared/utils/koreanNameSearch';
 import type { GroupMember } from '../types';
 
 // 미동의(NOT_CONSENTED) 학생 마스킹 시 (i) 툴팁 문구 — 기획 고정
@@ -30,7 +31,7 @@ export const StudentManagementPanel = ({
     const term = searchTerm.toLowerCase();
     return activeMembers.filter(
       (m) =>
-        (m.name ?? '').toLowerCase().includes(term) ||
+        matchesNameSearch((m.name ?? '').toLowerCase(), term) ||
         (m.email && m.email.toLowerCase().includes(term)),
     );
   }, [activeMembers, searchTerm]);

@@ -14,6 +14,25 @@ META AI 학습심리정서검사 대시보드 프론트엔드 프로젝트.
 
 ---
 
+## 🎯 UI/UX 구현 기준 우선순위
+
+UI와 사용자 흐름을 구현하거나 수정할 때 다음 순서를 기준으로 판단합니다.
+
+1. **최신 확정 기획서/PPT**
+2. **`prototype/`의 실제 화면과 동작**
+3. **기능정의서**
+4. **기존 `frontend/` 구현**
+5. **개발자의 임의 판단**
+
+- 자료가 충돌하면 더 높은 순위의 자료를 따릅니다.
+- `prototype/`은 단순 참고가 아니라 UI 구성, 문구, 상태, 상호작용의 기준 구현입니다.
+- 작업 전 관련 라우트와 컴포넌트뿐 아니라 초기/선택/완료/해제 상태를 확인합니다.
+- 기준 자료에 없는 문구, 버튼, 아이콘, 칩, 상태, 동작을 임의로 추가하지 않습니다.
+- 기준이 없거나 충돌해 판단할 수 없으면 추측하지 말고 확인한 자료와 충돌 지점을 보고합니다.
+- 코드를 복사하지는 않습니다. 이 문서의 FSD 구조와 backend API 계약을 유지하면서 UI와 사용자 경험을 동등하게 구현합니다.
+
+---
+
 ## 🛠 기술 스택
 
 | 역할       | 라이브러리           | 버전 |
@@ -68,7 +87,7 @@ pages → widgets → features → shared
 
 ---
 
-## 🔐 인증 (SSO + Cookie Security)
+## 🔐 인증 (SSO + Cookieless Token Storage)
 
 ### SuperPlatform SSO 통합
 
@@ -79,24 +98,24 @@ pages → widgets → features → shared
 - **Auth 메서드**: `loginAsGuest`, `updateUser`, `logout` (3개만 제공)
 - **로그인**: `auth.login()` 호출 시 Auth 서버로 리다이렉트
 
-### Cookie Mode 보안 (XSS 방지)
+### 쿠키리스 토큰 저장 모드
 
-**목적**: Refresh Token을 localStorage에서 httpOnly 쿠키로 이동하여 XSS 공격 차단
+프론트와 인증 게이트웨이의 도메인이 달라도 Refresh Token 쿠키의 SameSite 제약을 받지 않도록 SDK의 `localStorage` 모드를 사용한다. Refresh Token 갱신 시 토큰은 요청 body로 전달하며, 일반 API 요청은 Access Token을 Bearer 헤더에 주입한다.
 
 **설정**:
 ```typescript
-// authClient.ts:99
-tokenStorage: 'cookie',  // RT는 httpOnly 쿠키에 저장
+// shared/lib/authClient.ts
+tokenStorage: 'localStorage',
 
-// client.ts:49
-withCredentials: true,   // 쿠키 자동 전송
+// shared/api/client.ts 요청 인터셉터
+config.headers.Authorization = `Bearer ${token}`;
 ```
 
-**검증**:
-- ✅ localStorage에 `auth_token`/`refresh_token` 없음
-- ✅ `ST_SESSION` 쿠키 (`httpOnly: true`, `secure: true`)
-- ✅ JavaScript로 RT 접근 불가 → XSS 공격 차단
-- ✅ SDK가 AT/RT 자동 관리
+**주의**:
+- 토큰을 애플리케이션 코드에서 별도 복사하거나 로그로 출력하지 않는다.
+- 일반 API 요청은 `shared/api/client.ts`의 공통 Axios 인스턴스를 사용하고, 401 갱신은 SDK의 `refreshAccessToken` 흐름을 따른다.
+- `withCredentials: true`는 Axios 공통 설정에 남아 있지만 현재 토큰 인증의 근거는 Bearer 헤더다.
+- localStorage 토큰은 JavaScript에서 접근 가능하므로 XSS 방어 원칙을 반드시 지킨다.
 
 ---
 
@@ -245,28 +264,5 @@ await apiClient.post('/student/exam', { examData });
 
 ---
 
-## 🐛 알려진 이슈
-
-- **SDK CDN**: 로드 실패 시 앱 전체 사용 불가
-- **SSE 연결**: 네트워크 불안정 시 3회 재시도 후 종료
-- **useProfileCheck 창 포커스 리페치**: `refetchOnWindowFocus: true`이며 쿼리가 stale한 상태에서 탭 복귀 시 `/api/v1/user/status` 재호출(`staleTime: 5분`)
-
----
-
-## 📊 진행 상태
-
-```
-SSO 인증 통합     ████████████ 100%
-SSE 알림 시스템   ████████████ 100%
-Cookie 보안       ████████████ 100%
-FSD Pages 정리    ████████████ 100%
-TanStack Query    ████████████ 100%
-번들 분리          ████████████ 100%
-PDF 다운로드      ████████████ 100%
-student-exam FSD  ████████████ 100%
-```
-
----
-
-**최종 업데이트**: 2026-07-16 (서버 상태 React Query 이전 + 구형 검사 관리 제거 + assessment 구조 통합)
+**최종 업데이트**: 2026-08-25 (v2 IA 개편 현황·알려진 이슈·진행 상태는 wiki로 이전 — `wiki/projects/meta-dashboard/V2_검사영역_구현_인수인계_2026_08.md` 참고)
 **빌드 상태**: ✅ Production ready (tsc -b --noEmit 에러 없음)

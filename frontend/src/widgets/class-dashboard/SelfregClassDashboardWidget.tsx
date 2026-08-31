@@ -16,6 +16,7 @@ import {
   LabelList,
 } from 'recharts';
 import { Card } from '@shared/components';
+import { matchesNameSearch } from '@shared/utils/koreanNameSearch';
 import { useSelfregClassAnalysis, useClassStudents } from '@features/api';
 
 // ============================================================
@@ -661,7 +662,9 @@ export const SelfregClassDashboardWidget: React.FC = () => {
   const filteredStudents = useMemo(() => {
     const term = searchTerm.trim();
     if (!term) return students;
-    return students.filter((s) => s.name.includes(term) || String(s.number).includes(term));
+    return students.filter(
+      (s) => matchesNameSearch(s.name, term) || String(s.number).includes(term),
+    );
   }, [students, searchTerm]);
 
   const isLoading = chartLoading && studentsLoading;

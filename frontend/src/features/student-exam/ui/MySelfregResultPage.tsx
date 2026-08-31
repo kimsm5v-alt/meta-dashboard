@@ -6,7 +6,7 @@
  * 미표시: LPA 유형 분류, 코칭 전략
  */
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
@@ -21,15 +21,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@features/auth/model/AuthContext';
 import { SelfregFactorAnalysis } from '@features/student-dashboard';
+import { SelfregDiagnosisSummary } from './SelfregDiagnosisSummary';
 import { getMyGroups } from '@features/groups/api/groupService';
 import { fetchSelfregFullAnalysis, fetchStudentInfoList } from '@shared/services/dashboardService';
 import { getStudentExamList } from '../api/studentExamService';
 import { downloadStudentPdf } from '@shared/services/pdfDownloadService';
-import {
-  SELFREG_DOMAIN_STRUCTURE,
-  SELFREG_DOMAIN_COLORS,
-  type SelfregCategory,
-} from '@shared/data/selfregFactors';
 
 type ViewMode = 'round1' | 'round2' | 'compare';
 
@@ -342,100 +338,6 @@ const ContentRoot = styled.div`
 // Content
 // ============================================================
 
-const SummaryCard = styled.div`
-  background: ${({ theme }) => theme.colors.background.paper};
-  border-radius: ${({ theme }) => theme.radius.xl};
-  border: 1px solid ${({ theme }) => theme.colors.gray[200]};
-  padding: ${({ theme }) => theme.spacing.lg};
-`;
-
-const SummaryTitle = styled.h3`
-  font-size: ${({ theme }) => theme.typography.fontSize.base};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ theme }) => theme.colors.text.primary};
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
-
-const DomainGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: ${({ theme }) => theme.spacing.md};
-
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const DomainTile = styled.div<{ $color: string }>`
-  border: 1px solid ${({ $color }) => `${$color}40`};
-  background: ${({ $color }) => `${$color}12`};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  padding: ${({ theme }) => theme.spacing.md};
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-`;
-
-const DomainName = styled.span<{ $color: string }>`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-  color: ${({ $color }) => $color};
-`;
-
-const DomainScore = styled.div`
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-`;
-
-const DomainScoreValue = styled.span`
-  font-size: 1.5rem;
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-  color: ${({ theme }) => theme.colors.text.primary};
-`;
-
-const DomainGrade = styled.span`
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.gray[500]};
-`;
-
-const gradeLabel = (t: number): string => {
-  if (t >= 70) return '매우높음';
-  if (t >= 60) return '높음';
-  if (t >= 40) return '보통';
-  if (t >= 30) return '낮음';
-  return '매우낮음';
-};
-
-const SelfregDomainSummary: React.FC<{ tScores: number[] }> = ({ tScores }) => {
-  const domainAverages = useMemo(
-    () =>
-      SELFREG_DOMAIN_STRUCTURE.map((domain) => {
-        const indices = domain.subCategories.flatMap((s) => s.factors.map((f) => f.index));
-        const avg = indices.reduce((sum, i) => sum + (tScores[i] ?? 50), 0) / (indices.length || 1);
-        return { id: domain.id as SelfregCategory, name: domain.name, avg: Math.round(avg) };
-      }),
-    [tScores],
-  );
-
-  return (
-    <SummaryCard>
-      <SummaryTitle>영역별 요약</SummaryTitle>
-      <DomainGrid>
-        {domainAverages.map((d) => (
-          <DomainTile key={d.id} $color={SELFREG_DOMAIN_COLORS[d.id]}>
-            <DomainName $color={SELFREG_DOMAIN_COLORS[d.id]}>{d.name}</DomainName>
-            <DomainScore>
-              <DomainScoreValue>{d.avg}</DomainScoreValue>
-              <DomainGrade>{gradeLabel(d.avg)}</DomainGrade>
-            </DomainScore>
-          </DomainTile>
-        ))}
-      </DomainGrid>
-    </SummaryCard>
-  );
-};
-
 interface ContentProps {
   round: SelfregRound;
   prevRound?: SelfregRound;
@@ -448,7 +350,7 @@ const MySelfregResultContent: React.FC<ContentProps> = ({ round, prevRound, isCo
 
   return (
     <ContentRoot>
-      <SelfregDomainSummary tScores={tScores} />
+      <SelfregDiagnosisSummary tScores={tScores} />
       <SelfregFactorAnalysis tScores={tScores} prevTScores={prevTScores} showCompare={isCompare} />
     </ContentRoot>
   );
@@ -460,7 +362,7 @@ const MySelfregResultContent: React.FC<ContentProps> = ({ round, prevRound, isCo
 
 export const MySelfregResultPage: React.FC = () => {
   const navigate = useNavigate();
-  const { resultId: _resultId } = useParams<{ resultId: string }>();
+  const { resultId } = useParams<{ resultId: string }>();
   const { user } = useAuth();
 
   const [viewMode, setViewMode] = useState<ViewMode>('round1');
@@ -509,14 +411,19 @@ export const MySelfregResultPage: React.FC = () => {
 
         let foundResult: SelfregResult | null = null;
         let foundDgnssIds: { round1?: number; round2?: number } = {};
+        let foundRound: 1 | 2 = 1;
+        const requestedResultId = resultId ? Number(resultId) : null;
 
         for (const group of groups) {
           try {
             // paperIdx='2' 자기조절학습검사만 필터링
             const examList = await getStudentExamList(group.claId, user.stdtId);
             const selfregExams = examList.filter((e) => e.paperIdx === '2');
-            const hasResults = selfregExams.some((e) => e.hasResult);
-            if (!hasResults) continue;
+            const resultExams = selfregExams.filter((e) => e.hasResult);
+            const requestedExam = requestedResultId
+              ? resultExams.find((e) => e.dgnssResultId === requestedResultId)
+              : resultExams[0];
+            if (!requestedExam) continue;
 
             const r1Exam = selfregExams.find((e) => e.hasResult && e.ordNo === 1);
             const r2Exam = selfregExams.find((e) => e.hasResult && e.ordNo === 2);
@@ -575,6 +482,7 @@ export const MySelfregResultPage: React.FC = () => {
               rounds,
             };
             foundDgnssIds = { round1: r1Exam?.dgnssId, round2: r2Exam?.dgnssId };
+            foundRound = requestedExam.ordNo === 2 ? 2 : 1;
             break;
           } catch (err) {
             console.warn(`[MySelfregResultPage] 그룹 ${group.claId} 조회 실패:`, err);
@@ -582,11 +490,16 @@ export const MySelfregResultPage: React.FC = () => {
         }
 
         if (!foundResult) {
-          setError('아직 시행한 자기조절학습검사 결과가 없습니다.');
+          setError(
+            requestedResultId
+              ? '선택한 검사 결과를 찾을 수 없습니다.'
+              : '아직 시행한 자기조절학습검사 결과가 없습니다.',
+          );
           return;
         }
 
         setDgnssIds(foundDgnssIds);
+        setViewMode(foundRound === 2 ? 'round2' : 'round1');
         setResult(foundResult);
       } catch (err) {
         console.error('[MySelfregResultPage] 결과 로드 실패:', err);
@@ -597,7 +510,7 @@ export const MySelfregResultPage: React.FC = () => {
     };
 
     loadResult();
-  }, [user]);
+  }, [resultId, user]);
 
   useEffect(() => {
     window.scrollTo(0, 0);

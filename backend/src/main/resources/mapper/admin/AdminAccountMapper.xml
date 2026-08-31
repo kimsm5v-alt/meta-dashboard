@@ -7,7 +7,9 @@
         <result property="email" column="email"/>
         <result property="password" column="password"/>
         <result property="nickname" column="nickname"/>
+        <result property="role" column="role"/>
         <result property="status" column="status"/>
+        <result property="mustChangePassword" column="must_change_password"/>
         <result property="lastLoginAt" column="last_login_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
@@ -15,14 +17,14 @@
 
     <select id="findByEmail" resultMap="adminAccountResultMap">
         /* AdminAccountMapper.findByEmail */
-        SELECT id, email, password, nickname, status, last_login_at, created_at, updated_at
+        SELECT id, email, password, nickname, role, status, must_change_password, last_login_at, created_at, updated_at
         FROM admin_account
         WHERE email = #{email} AND status = 'ACTIVE'
     </select>
 
     <select id="findById" resultMap="adminAccountResultMap">
         /* AdminAccountMapper.findById */
-        SELECT id, email, password, nickname, status, last_login_at, created_at, updated_at
+        SELECT id, email, password, nickname, role, status, must_change_password, last_login_at, created_at, updated_at
         FROM admin_account
         WHERE id = #{id}
     </select>
@@ -38,6 +40,58 @@
         /* AdminAccountMapper.updatePassword */
         UPDATE admin_account
         SET password = #{password}, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- ===== 계정 관리(SUPER_ADMIN) ===== -->
+
+    <sql id="accountWhere">
+        <if test="keyword != null and keyword != ''">
+            WHERE (email LIKE CONCAT('%', #{keyword}, '%')
+                   OR nickname LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+    </sql>
+
+    <select id="countByEmail" resultType="int">
+        /* AdminAccountMapper.countByEmail */
+        SELECT COUNT(*) FROM admin_account WHERE email = #{email}
+    </select>
+
+    <select id="countAccounts" resultType="long">
+        /* AdminAccountMapper.countAccounts */
+        SELECT COUNT(*) FROM admin_account
+        <include refid="accountWhere"/>
+    </select>
+
+    <select id="selectAccounts" resultMap="adminAccountResultMap">
+        /* AdminAccountMapper.selectAccounts */
+        SELECT id, email, password, nickname, role, status, must_change_password, last_login_at, created_at, updated_at
+        FROM admin_account
+        <include refid="accountWhere"/>
+        ORDER BY id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <insert id="insert" parameterType="com.vs.meta.domain.AdminAccount" useGeneratedKeys="true" keyProperty="id">
+        /* AdminAccountMapper.insert */
+        INSERT INTO admin_account (email, password, nickname, role, status, must_change_password, created_at, updated_at)
+        VALUES (#{email}, #{password}, #{nickname}, #{role}, #{status}, #{mustChangePassword}, NOW(), NOW())
+    </insert>
+
+    <update id="updateStatus">
+        /* AdminAccountMapper.updateStatus */
+        UPDATE admin_account SET status = #{status}, updated_at = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="updateRole">
+        /* AdminAccountMapper.updateRole */
+        UPDATE admin_account SET role = #{role}, updated_at = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="updatePasswordAndFlag">
+        /* AdminAccountMapper.updatePasswordAndFlag */
+        UPDATE admin_account
+        SET password = #{password}, must_change_password = #{mustChangePassword}, updated_at = NOW()
         WHERE id = #{id}
     </update>
 

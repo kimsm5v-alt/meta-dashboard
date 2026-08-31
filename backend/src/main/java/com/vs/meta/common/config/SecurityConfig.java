@@ -17,6 +17,8 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -57,6 +59,12 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /** 관리자 권한 계층: SUPER_ADMIN 은 ADMIN 권한을 포함(일반 admin 페이지도 접근). */
+    @Bean
+    public RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.fromHierarchy("ROLE_SUPER_ADMIN > ROLE_ADMIN");
     }
 
     /**
@@ -111,6 +119,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/admin/login").permitAll()
                 .requestMatchers("/admin/css/**", "/admin/js/**", "/admin/images/**").permitAll()
+                // 계정 관리는 최고관리자 전용 (SUPER_ADMIN > ADMIN 계층은 roleHierarchy 빈으로 처리)
+                .requestMatchers("/admin/accounts/**").hasRole("SUPER_ADMIN")
                 .anyRequest().hasRole("ADMIN")
             )
             .formLogin(form -> form

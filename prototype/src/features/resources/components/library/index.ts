@@ -5,6 +5,4 @@ export { ResourceGrid } from './ResourceGrid';
 export { ResourceCard } from './ResourceCard';
 export { RecommendCarousel } from './RecommendCarousel';
 export { RecommendTop3 } from './RecommendTop3';
-export { GrowthRoadmap } from './GrowthRoadmap';
-export { CurationGuide } from './CurationGuide';
 export { SectionHead } from './SectionHead';

@@ -1,4 +1,28 @@
 import type { ExamSlotState, ExamSlotStatus, GroupWithExamState } from './types';
+import type { ExamReminderResponse } from './types';
+
+export type ExamReminderFeedbackTone = 'success' | 'info' | 'error';
+
+export function getExamReminderFeedback(result: ExamReminderResponse): {
+  tone: ExamReminderFeedbackTone;
+  message: string;
+} {
+  switch (result.code) {
+    case 'OK':
+      return {
+        tone: 'success',
+        message: `${result.sentCount}명에게 독려 알림을 전송했습니다.`,
+      };
+    case 'NO_TARGET':
+      return { tone: 'info', message: '발송할 미제출 학생이 없습니다.' };
+    case 'NOT_IN_PROGRESS':
+      return { tone: 'error', message: '진행 중인 검사만 알림을 전송할 수 있습니다.' };
+    case 'NOT_OWNER':
+      return { tone: 'error', message: '담당 교사만 알림을 전송할 수 있습니다.' };
+    case 'NOT_FOUND':
+      return { tone: 'error', message: '검사 정보를 찾을 수 없습니다.' };
+  }
+}
 
 export function getSlotStatus(
   slotId: string,

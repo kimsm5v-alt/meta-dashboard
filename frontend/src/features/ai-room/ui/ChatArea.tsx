@@ -1,7 +1,8 @@
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { useRef, useEffect, useState } from 'react';
-import { Bot, User, Sparkles, MessageCircleWarning } from 'lucide-react';
+import { MessageCircleWarning } from 'lucide-react';
+import aiOwlIcon from '@/assets/raon/ai-owl-icon.png';
 import type { ChatMessage, StudentAliasMap, ContextMode } from '../types';
 import { useAuth } from '@features/auth';
 import { ErrorReportModal, type ErrorCaptureContext } from './ErrorReportModal';
@@ -9,71 +10,73 @@ import { ErrorReportModal, type ErrorCaptureContext } from './ErrorReportModal';
 const ChatContainer = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: ${({ theme }) => theme.spacing.md};
+`;
+
+const MessageColumn = styled.div`
+  width: 100%;
+  max-width: 760px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 `;
 
-const MessageRow = styled.div<{ $isUser: boolean }>`
+/* 사용자 메시지 — 우측 정렬 말풍선(꼬리 모양), 프로토타입 AssistantChatTab과 동일 */
+const UserRow = styled.div`
   display: flex;
-  gap: 0.75rem;
-  flex-direction: ${({ $isUser }) => ($isUser ? 'row-reverse' : 'row')};
+  justify-content: flex-end;
 `;
 
-const AvatarWrapper = styled.div`
+const UserBubble = styled.div`
   position: relative;
-  flex-shrink: 0;
-`;
-
-const UserAvatar = styled.div`
-  width: 2rem;
-  height: 2rem;
-  border-radius: ${({ theme }) => theme.radius.full};
-  background: ${({ theme }) => theme.colors.gray[200]};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
-const BotAvatar = styled.div`
-  width: 2rem;
-  height: 2rem;
-  border-radius: ${({ theme }) => theme.radius.xl};
+  max-width: 78%;
+  padding: 0.625rem 0.875rem;
+  border-radius: 14px 14px 4px 14px;
   background: ${({ theme }) => theme.colors.primary[500]};
+  color: #ffffff;
+  font-size: 13.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+`;
+
+/* 봇 답변 — 전체폭 블록(카드 아님), 프로토타입 MessageList variant='page'와 동일 */
+const BotBlock = styled.div`
+  position: relative;
+  margin: 0 -1.5rem;
+  padding: 1rem 1.5rem;
+  background: #fafafd;
+  border-top: 1px solid ${({ theme }) => theme.colors.gray[100]};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.gray[100]};
+`;
+
+const BotHeader = styled.div`
   display: flex;
   align-items: center;
-  justify-content: center;
-  box-shadow: ${({ theme }) => theme.shadows.md};
+  gap: 0.5rem;
+  margin-bottom: 0.625rem;
 `;
 
-const MessageBubble = styled.div<{ $isUser: boolean }>`
-  max-width: ${({ $isUser }) => ($isUser ? '75%' : '100%')};
-  padding: ${({ theme }) => theme.spacing.md};
-  border-radius: ${({ theme }) => theme.radius['2xl']};
-  box-shadow: ${({ theme }) => theme.shadows.sm};
-  background: ${({ $isUser, theme }) =>
-    $isUser ? theme.colors.primary[500] : theme.colors.background.paper};
-  border: ${({ $isUser, theme }) => ($isUser ? 'none' : `1px solid ${theme.colors.gray[100]}`)};
-  color: ${({ $isUser, theme }) => ($isUser ? '#ffffff' : theme.colors.gray[900])};
-  ${({ $isUser }) =>
-    $isUser ? 'border-top-right-radius: 0.125rem;' : 'border-top-left-radius: 0.125rem;'}
+const BotHeaderIcon = styled.img`
+  width: 1.5rem;
+  height: 1.5rem;
+  object-fit: contain;
 `;
 
-const BubbleWrapper = styled.div`
-  position: relative;
-  max-width: 75%;
+const BotHeaderName = styled.span`
+  font-size: 13px;
+  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
+  color: ${({ theme }) => theme.colors.gray[700]};
 `;
 
 const FlagButton = styled.button`
   position: absolute;
-  bottom: 0;
-  right: -2.6rem;
-  width: 1.5rem;
-  height: 1.5rem;
+  top: ${({ theme }) => theme.spacing.md};
+  right: ${({ theme }) => theme.spacing.md};
+  width: 28px;
+  height: 28px;
   padding: 5px;
-  width: 40px;
-  height: 40px;
   border-radius: ${({ theme }) => theme.radius.full};
   background: white;
   border: 1px solid ${({ theme }) => theme.colors.gray[200]};
@@ -92,22 +95,6 @@ const FlagButton = styled.button`
   }
 `;
 
-const AIBadge = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-bottom: 0.5rem;
-  font-size: ${({ theme }) => theme.typography.fontSize.xs};
-  color: ${({ theme }) => theme.colors.primary[500]};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
-`;
-
-const MessageText = styled.p`
-  font-size: ${({ theme }) => theme.typography.fontSize.sm};
-  white-space: pre-wrap;
-  line-height: 1.6;
-`;
-
 const MessageImages = styled.div`
   display: flex;
   flex-direction: column;
@@ -123,18 +110,9 @@ const MessageImage = styled.img`
   border: 1px solid rgba(255, 255, 255, 0.3);
 `;
 
-const LoadingRow = styled.div`
+const LoadingDotsWrapper = styled.div`
   display: flex;
-  gap: 0.75rem;
-`;
-
-const LoadingBubble = styled.div`
-  background: ${({ theme }) => theme.colors.background.paper};
-  border: 1px solid ${({ theme }) => theme.colors.gray[100]};
-  border-radius: ${({ theme }) => theme.radius['2xl']};
-  border-top-left-radius: 0.125rem;
-  padding: ${({ theme }) => theme.spacing.md};
-  box-shadow: ${({ theme }) => theme.shadows.sm};
+  align-items: center;
 `;
 
 const bounce = keyframes`
@@ -659,95 +637,82 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <>
       <ChatContainer ref={scrollRef}>
-        {messages.map((msg) => {
-          const displayContent =
-            msg.role === 'assistant' ? replaceAliases(msg.content, aliasMap) : msg.content;
+        <MessageColumn>
+          {messages.map((msg) => {
+            const displayContent =
+              msg.role === 'assistant' ? replaceAliases(msg.content, aliasMap) : msg.content;
 
-          return (
-            <MessageRow key={msg.id} $isUser={msg.role === 'user'}>
-              <AvatarWrapper>
-                {msg.role === 'user' ? (
-                  <UserAvatar>
-                    <User className='w-4 h-4 text-gray-600' />
-                  </UserAvatar>
-                ) : (
-                  <BotAvatar>
-                    <Bot className='w-4 h-4 text-white' />
-                  </BotAvatar>
+            if (msg.role === 'user') {
+              return (
+                <UserRow key={msg.id}>
+                  <UserBubble>
+                    {msg.images && msg.images.length > 0 && (
+                      <MessageImages>
+                        {msg.images.map((src, idx) => (
+                          <MessageImage
+                            key={`${msg.id}-img-${idx}`}
+                            src={src}
+                            alt='첨부한 화면 캡처'
+                          />
+                        ))}
+                      </MessageImages>
+                    )}
+                    {displayContent}
+                  </UserBubble>
+                </UserRow>
+              );
+            }
+
+            return (
+              <BotBlock
+                key={msg.id}
+                onMouseEnter={() => setHoveredMsgId(msg.id)}
+                onMouseLeave={() => setHoveredMsgId(null)}
+              >
+                <BotHeader>
+                  <BotHeaderIcon src={aiOwlIcon} alt='AI 어시스턴트' />
+                  <BotHeaderName>AI 어시스턴트</BotHeaderName>
+                </BotHeader>
+                <MarkdownWrapper>{renderMarkdown(displayContent)}</MarkdownWrapper>
+                {hoveredMsgId === msg.id && conversationId && (
+                  <FlagButton onClick={() => handleFlagClick(msg)} title='오류 보고'>
+                    <MessageCircleWarning className='w-4 h-4' />
+                  </FlagButton>
                 )}
-              </AvatarWrapper>
+              </BotBlock>
+            );
+          })}
 
-              {msg.role === 'assistant' ? (
-                <BubbleWrapper
-                  onMouseEnter={() => setHoveredMsgId(msg.id)}
-                  onMouseLeave={() => setHoveredMsgId(null)}
-                >
-                  <MessageBubble $isUser={false}>
-                    <AIBadge>
-                      <Sparkles className='w-3 h-3' />
-                      <span>AI 분석</span>
-                    </AIBadge>
-                    <MarkdownWrapper>{renderMarkdown(displayContent)}</MarkdownWrapper>
-                  </MessageBubble>
-                  {hoveredMsgId === msg.id && conversationId && (
-                    <FlagButton onClick={() => handleFlagClick(msg)} title='오류 보고'>
-                      <MessageCircleWarning className='w-7 h-7' />
-                    </FlagButton>
-                  )}
-                </BubbleWrapper>
-              ) : (
-                <MessageBubble $isUser={true}>
-                  {msg.images && msg.images.length > 0 && (
-                    <MessageImages>
-                      {msg.images.map((src, idx) => (
-                        <MessageImage key={`${msg.id}-img-${idx}`} src={src} alt='첨부한 화면 캡처' />
-                      ))}
-                    </MessageImages>
-                  )}
-                  {displayContent && <MessageText>{displayContent}</MessageText>}
-                </MessageBubble>
-              )}
-            </MessageRow>
-          );
-        })}
-
-        {/* 스트리밍 중: 텍스트 실시간 표시 */}
-        {isLoading && streamingContent && (
-          <LoadingRow>
-            <BotAvatar>
-              <Bot className='w-4 h-4 text-white' />
-            </BotAvatar>
-            <MessageBubble $isUser={false}>
-              <AIBadge>
-                <Sparkles className='w-3 h-3' />
-                <span>AI 분석</span>
-              </AIBadge>
+          {/* 스트리밍 중: 텍스트 실시간 표시 */}
+          {isLoading && streamingContent && (
+            <BotBlock>
+              <BotHeader>
+                <BotHeaderIcon src={aiOwlIcon} alt='AI 어시스턴트' />
+                <BotHeaderName>AI 어시스턴트</BotHeaderName>
+              </BotHeader>
               <MarkdownWrapper>
                 {renderMarkdown(replaceAliases(streamingContent, aliasMap))}
               </MarkdownWrapper>
-            </MessageBubble>
-          </LoadingRow>
-        )}
+            </BotBlock>
+          )}
 
-        {/* 스트리밍 대기 중 (아직 첫 청크 미수신): 점 로딩 표시 */}
-        {isLoading && !streamingContent && (
-          <LoadingRow>
-            <BotAvatar>
-              <Bot className='w-4 h-4 text-white' />
-            </BotAvatar>
-            <LoadingBubble>
-              <AIBadge>
-                <Sparkles className='w-3 h-3' />
-                <span>분석 중...</span>
-              </AIBadge>
-              <LoadingDots>
-                <LoadingDot $delay='0s' $color='#c4b5fd' />
-                <LoadingDot $delay='0.1s' $color='#a78bfa' />
-                <LoadingDot $delay='0.2s' $color='#8b5cf6' />
-              </LoadingDots>
-            </LoadingBubble>
-          </LoadingRow>
-        )}
+          {/* 스트리밍 대기 중 (아직 첫 청크 미수신): 점 로딩 표시 */}
+          {isLoading && !streamingContent && (
+            <BotBlock>
+              <BotHeader>
+                <BotHeaderIcon src={aiOwlIcon} alt='AI 어시스턴트' />
+                <BotHeaderName>AI 어시스턴트</BotHeaderName>
+              </BotHeader>
+              <LoadingDotsWrapper>
+                <LoadingDots>
+                  <LoadingDot $delay='0s' $color='#c4b5fd' />
+                  <LoadingDot $delay='0.1s' $color='#a78bfa' />
+                  <LoadingDot $delay='0.2s' $color='#8b5cf6' />
+                </LoadingDots>
+              </LoadingDotsWrapper>
+            </BotBlock>
+          )}
+        </MessageColumn>
       </ChatContainer>
 
       {reportTarget && (

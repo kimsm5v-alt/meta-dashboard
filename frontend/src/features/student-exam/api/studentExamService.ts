@@ -7,6 +7,7 @@ import { fetchStudentExamList } from '@features/exam/api/examService';
 import type { StudentExamItem } from '@features/exam/types';
 import type { StudentExamListItem, ExamStatus } from '../types';
 import { mapExamStatus } from '../types';
+import { withRecommendedMonth } from '../utils/deriveExamMeta';
 
 const TOTAL_QUESTIONS = 124;
 
@@ -29,16 +30,20 @@ function mapToListItem(item: StudentExamItem, ordNo: number): StudentExamListIte
     totalQuestions: TOTAL_QUESTIONS,
     submittedAt: item.submDt,
     hasResult: status === 'result_ready',
+    recommendedMonth: '',
   };
 }
 
-/** 학생/게스트 검사 목록 조회 */
+/** 학생/게스트 검사 목록 조회 — 권장월 파생까지 적용해서 반환.
+ * 잠금(locked) 파생은 여러 반 결과를 합친 뒤에도 반별 범위를 구분해야 하므로
+ * MyExamListPage.tsx의 loadExams에서 그룹 매핑과 함께 적용한다. */
 export async function getStudentExamList(
   claId: string,
   stdtId: string,
 ): Promise<StudentExamListItem[]> {
   const items = await fetchStudentExamList(claId, stdtId);
-  return items.map((item) => mapToListItem(item, item.ordNo));
+  const mapped = items.map((item) => mapToListItem(item, item.ordNo));
+  return withRecommendedMonth(mapped);
 }
 
 /** 검사 상태 라벨 */
@@ -49,11 +54,13 @@ export function getStatusLabel(status: ExamStatus): string {
     case 'in_progress':
       return '진행중';
     case 'completed':
-      return '완료';
+      return '결과 대기중';
     case 'result_ready':
       return '결과 확인 가능';
     case 'not_submitted':
       return '미응시';
+    case 'locked':
+      return '잠금';
     default:
       return '알 수 없음';
   }
@@ -66,17 +73,33 @@ export function getStatusColor(status: ExamStatus): {
 } {
   switch (status) {
     case 'waiting':
-      return { bg: '#dbeafe', text: '#1d4ed8' };
+      return { bg: '#eff6ff', text: '#2563eb' };
     case 'in_progress':
-      return { bg: '#fef3c7', text: '#b45309' };
+      return { bg: '#fffbeb', text: '#d97706' };
     case 'completed':
-      return { bg: '#f3f4f6', text: '#4b5563' };
+      return { bg: '#eef2ff', text: '#4f46e5' };
     case 'result_ready':
-      return { bg: '#dcfce7', text: '#15803d' };
+      return { bg: '#f0fdf4', text: '#16a34a' };
     case 'not_submitted':
-      return { bg: '#fee2e2', text: '#b91c1c' };
+      return { bg: '#fef2f2', text: '#dc2626' };
+    case 'locked':
+      return { bg: '#f3f4f6', text: '#9ca3af' };
     default:
       return { bg: '#f3f4f6', text: '#4b5563' };
+  }
+}
+
+/** 상태별 안내 문구 — 프로토타입 EXAM_STATUS_MESSAGE와 동일 문구 사용 */
+export function getStatusMessage(status: ExamStatus): string | null {
+  switch (status) {
+    case 'completed':
+      return '선생님이 검사를 종료하면 결과를 확인할 수 있어요';
+    case 'not_submitted':
+      return '응시 기간이 종료되어 미응시 처리되었어요';
+    case 'locked':
+      return '1차를 제출하면 응시할 수 있어요';
+    default:
+      return null;
   }
 }
 

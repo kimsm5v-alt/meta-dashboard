@@ -23,7 +23,8 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { ChevronRight } from 'lucide-react';
-import { SummaryCards, ExamOverviewTable, ExamManagementView, SelfregStudentResultView } from '../components';
+import { SummaryCards, ExamOverviewTable, ExamManagementView, SelfregStudentResultView, SelfregClassTrackingView, SelfregStudentTrackingView } from '../components';
+import type { SelfregStudentChangeData, SelfregClassChangeSummary } from '../components';
 import {
   MOCK_EXAM_OVERVIEW_SUMMARY,
   MOCK_EXAM_OVERVIEW_ROWS,
@@ -55,9 +56,9 @@ export const SelfregAssessmentPage = () => {
     }
   }, [location.pathname, setActiveSubTab]);
 
-  // LNB에서 학생 선택 시 selectedStudentResult 자동 설정
+  // LNB에서 학생 선택 시 selectedStudentResult 자동 설정 (결과보기, 변화추적 탭 모두)
   useEffect(() => {
-    if (selectedStudent && selectedClass && activeSubTab === 'result') {
+    if (selectedStudent && selectedClass && (activeSubTab === 'result' || activeSubTab === 'tracking')) {
       const results = MOCK_STUDENT_RESULTS[selectedClass.id];
       const studentResult = results?.find(r => r.name === selectedStudent.name);
       if (studentResult) {
@@ -238,40 +239,110 @@ export const SelfregAssessmentPage = () => {
 
   // 변화추적 서브탭 + 반 선택
   if (activeSubTab === 'tracking') {
+    // Mock 변화추적 데이터 생성 (고정된 변화 패턴으로 유의미한 변화 표시)
+    // 요인별 변화 패턴: 일부는 크게 상승, 일부는 크게 하락, 일부는 유지
+    const MOCK_FACTOR_CHANGES = [
+      +5, +7, +4,   // 학습원동력: 성장마인드셋+5, 학업효능감+7, 학습동기+4
+      +3, +2, +6,   // 정서조절: 성적부담조절+3, 공부부담조절+2, 실패부담조절+6
+      -4, +1, +2,   // 메타인지: 계획능력-4, 점검능력+1, 조절능력+2
+      +0, -5, -3,   // 인지적 학습기술: 이해기술+0, 기억기술-5, 집중기술-3
+      +4, +3, +1,   // 행동조절: 자기칭찬+4, 도움구하기+3, 학습지속성+1
+      -6, +2, +3, +1, -4,  // 행동적 학습기술: 공부환경-6, 시간관리+2, 수업태도+3, 노트하기+1, 시험준비-4
+    ];
+
+    const trackingStudents: SelfregStudentChangeData[] = (MOCK_STUDENT_RESULTS[selectedClass.id] || []).map((result, studentIdx) => {
+      // 1차 점수는 기존 tScores 사용
+      const round1Scores = result.tScores.slice(0, 20);
+      // 2차 점수는 고정된 변화 패턴 적용 (학생별로 약간의 차이를 주기 위해 studentIdx 활용)
+      const studentVariation = (studentIdx % 3) - 1; // -1, 0, 1
+      const round2Scores = round1Scores.map((s, idx) => {
+        const baseChange = MOCK_FACTOR_CHANGES[idx] || 0;
+        const actualChange = baseChange + studentVariation;
+        return Math.max(20, Math.min(80, s + actualChange));
+      });
+      const round1Avg = Math.round(round1Scores.reduce((a, b) => a + b, 0) / round1Scores.length);
+      const round2Avg = Math.round(round2Scores.reduce((a, b) => a + b, 0) / round2Scores.length);
+      const change = round2Avg - round1Avg;
+
+      return {
+        id: result.id,
+        number: result.number,
+        name: result.name,
+        round1Score: round1Avg,
+        round2Score: round2Avg,
+        change,
+        changeDirection: change > 2 ? 'up' as const : change < -2 ? 'down' as const : 'same' as const,
+        round1TScores: round1Scores,
+        round2TScores: round2Scores,
+        round1LearningStatus: {
+          academicAchievement: 'mid' as const,
+          gradeSatisfaction: 'mid' as const,
+          learningMotivation: 'future' as const,
+          selfStudyTime: '1-2h' as const,
+          learningCounselor: 'family' as const,
+        },
+        round2LearningStatus: {
+          academicAchievement: 'high' as const,
+          gradeSatisfaction: 'mid' as const,
+          learningMotivation: 'future' as const,
+          selfStudyTime: '2-3h' as const,
+          learningCounselor: 'teacher' as const,
+        },
+      };
+    });
+
+    const changeSummary: SelfregClassChangeSummary = {
+      classId: selectedClass.id,
+      className: selectedClass.name,
+      round1Avg: Math.round(trackingStudents.reduce((sum, s) => sum + (s.round1Score || 0), 0) / trackingStudents.length),
+      round2Avg: Math.round(trackingStudents.reduce((sum, s) => sum + (s.round2Score || 0), 0) / trackingStudents.length),
+      avgChange: Math.round(trackingStudents.reduce((sum, s) => sum + (s.change || 0), 0) / trackingStudents.length),
+      upCount: trackingStudents.filter(s => s.changeDirection === 'up').length,
+      sameCount: trackingStudents.filter(s => s.changeDirection === 'same').length,
+      downCount: trackingStudents.filter(s => s.changeDirection === 'down').length,
+      totalCount: trackingStudents.length,
+      round2Count: trackingStudents.length,
+    };
+
+    // 학생 변화추적 클릭 핸들러
+    const handleTrackingStudentClick = (studentId: string) => {
+      const studentData = trackingStudents.find(s => s.id === studentId);
+      const studentResult = (MOCK_STUDENT_RESULTS[selectedClass.id] || []).find(r => r.id === studentId);
+      if (studentData && studentResult) {
+        const lnbStudentId = `s${studentResult.number}`;
+        setSelectedStudent({ id: lnbStudentId, name: studentResult.name });
+        setSelectedStudentResult(studentResult);
+        window.scrollTo(0, 0);
+      }
+    };
+
     if (selectedStudent && selectedStudentResult) {
-      return (
-        <div className="p-6 space-y-6">
-          <StudentHeader
-            studentNumber={selectedStudentResult.number}
-            studentName={selectedStudentResult.name}
-            className={selectedClass.name}
-            onBack={handleBackToClassResult}
-          />
-          <div className="bg-teal-50 border border-teal-100 rounded-xl p-6 text-center">
-            <p className="text-teal-700">
-              변화추적 학생 상세 화면은 추후 구현 예정입니다.
-            </p>
+      // 선택된 학생의 변화추적 데이터 찾기
+      const studentTrackingData = trackingStudents.find(s => s.id === selectedStudentResult.id);
+
+      if (studentTrackingData) {
+        return (
+          <div className="p-6">
+            <SelfregStudentTrackingView
+              student={studentTrackingData}
+              className={selectedClass.name}
+              classId={selectedClass.id}
+              onBack={handleBackToClassResult}
+            />
           </div>
-        </div>
-      );
+        );
+      }
     }
 
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleBackToOverview}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            ← 전체 현황
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">{selectedClass.name} 변화추적</h1>
-        </div>
-        <div className="bg-teal-50 border border-teal-100 rounded-xl p-6 text-center">
-          <p className="text-teal-700">
-            변화추적 반별 상세 화면은 추후 구현 예정입니다.
-          </p>
-        </div>
+      <div className="p-6">
+        <SelfregClassTrackingView
+          className={selectedClass.name}
+          onBack={handleBackToOverview}
+          changeSummary={changeSummary}
+          students={trackingStudents}
+          onStudentClick={handleTrackingStudentClick}
+        />
       </div>
     );
   }
