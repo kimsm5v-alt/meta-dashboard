@@ -118,6 +118,7 @@ public class ApiResponseAspect {
             "com.vs.meta.api.dgnss.controller.DgnssTeacherController",
             "com.vs.meta.api.dgnss.controller.DgnssStudentController",
             "com.vs.meta.api.dgnss.controller.DgnssGraphController",
+            "com.vs.meta.api.dgnss.controller.DgnssPdfController",
             "com.vs.meta.common.controller.FileController"
     );
 
