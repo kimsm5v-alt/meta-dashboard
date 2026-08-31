@@ -98,7 +98,7 @@ const LessonJoinSession = ({ accessKey, participation, lcmsSetId }: LessonJoinSe
 
   const handleExit = async () => {
     await autosave.flush();
-    navigate(-1);
+    navigate('/student/lesson/result');
   };
 
   const handleSubmitted = async () => {

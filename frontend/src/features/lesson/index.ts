@@ -4,6 +4,7 @@ export {
   createActivity,
   putActivityAssignees,
   publishActivity,
+  closeActivity,
   getActivities,
   getActivity,
   getActivityProgress,
@@ -194,6 +195,7 @@ export type {
   ResourceCardVariant,
   LessonEditorPageLocationState,
   DeployPageLocationState,
+  LessonViewerPageLocationState,
 } from './model/types';
 export { EMPTY_FILTERS, LIBRARY_SRC_LABELS } from './model/types';
 export type { FilterOption } from './model/filterTaxonomy';

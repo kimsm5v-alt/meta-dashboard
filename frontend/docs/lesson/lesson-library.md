@@ -17,7 +17,7 @@
 | **추가계획9** | `DeployPage` 실시간 수업 → Viewer + `ResourceCard`→deploy `state.item` + URL 직접 진입 시 item 재조회 | 구현 완료 |
 | **추가계획10** | 나의 자료 실제 API 연동 (`mapRefSetToLibItem` 적용) + `ResourceCard` 삭제 → `DELETE /api/ref-set/{refSetId}` + 빈 상태/에러 분리 | 구현 완료 |
 | **추가계획11** | DeployPage·저작툴 시작하기 — `POST /activities` + assignees(`spUserId`) + `publish` → `accessKey` + QR·참여링크 | Phase A·B 구현 완료 (2026-08-21) · assignees=`spUserId` 연동 완료 |
-| **추가계획12** | 학생용 `/student/lesson/:accessKey` — entry + participations embed · Phase C PATCH/submit | Phase A·B·**C 구현 완료** (2026-08-31) |
+| **추가계획12** | 학생용 `/student/lesson/:accessKey` — entry + participations embed · Phase C PATCH/submit · Phase D 교사 Viewer 종료→close | Phase A·B·C·**D 구현 완료** (2026-08-31) |
 | **추가계획13** | 전체 자료실 CMS 목록 무한 스크롤(`pageSize=10`) + 나의 자료 `GET /api/v1/library-items` 페이지네이션 | Phase A 구현 완료 / Phase B 구현 완료 |
 | **추가계획14** | 옛 LMS API(`/api/ref-set`) → 새 API(`/api/v1/library-items`) · `handleSaved` POST/PATCH · editor navigate `libraryItemId` state | **Phase 1 구현 완료** (2026-08-20) · Phase 2(페이지네이션) 구현 완료 |
 | **추가계획15** | `LessonResultPage` 수업 결과보기 UI (StatusPanel + 필터 + 카드) | 구현 완료 (2026-08-26) |
@@ -3344,18 +3344,19 @@ const handleStartLesson = (p: StartLessonPayload) => {
 **수정**: 2026-08-21 — `assigneeSubs` = `getGroupDetail` `memberList[].spUserId` 확정 · 학생 path `:accessKey`  
 **수정**: 2026-08-21 — assignees 코드 연동 완료 (`collectAssigneeSubsFromGroups`, `ASSIGNED`)  
 **구현 완료일**: 2026-08-21 — Phase A·B (assignees 포함)  
-**상태**: Phase A·B 구현 완료 · 활동 종료 API만 잔여
+**상태**: Phase A·B 구현 완료 · 활동 종료 API FE 연동 **완료** (추가계획12 §6.2 Phase D)
 
 ---
 
 # 추가계획12 — 학생용 `/student/lesson/:accessKey` + activity-join embed
 
-> **상태**: Phase A·B·C 구현 완료 (Phase C: 2026-08-31)  
+> **상태**: Phase A·B·C·D 구현 완료 (Phase D: 2026-08-31)  
 > **선행**: 추가계획11의 **링크 계약** (`/student/lesson/:accessKey`). 교사 `publish` → `accessKey`를 URL에 넣는다  
 > **범위**: 학생이 QR/링크로 들어와 참여 가능하면 `activity-join` SDK를 보여 준다. Viewer(`LessonViewerEmbed`)를 학생 입구로 재사용하지 않는다.  
 > **학생 흐름 기준**: `superplatform-lms/docs/guide/README.md` — 「따라 해보기 (학생) — 들어가서 풀고 내기」  
 > **Phase B (완료)**: `GET /entry` → `POST /participations` → `data.content.lcmsSetId`로 embed. 임시 `:setId` path 제거  
 > **Phase C (완료)**: embed `answerSaved` → `PATCH /participations/{participationId}` 자동저장 · `submitted` → submit  
+> **Phase D (완료)**: 교사 `LessonViewerEmbed` `exitRequested` → `POST /activities/{activityId}/close` → `/lesson/result` (§6.2)  
 > **후속(별도)**: `GET .../participations/{id}` 이어하기 · `result` (추가계획22 학생 상세에서 result 사용)
 > **명칭 (2026-08-21 정정)**: 학생 URL param은 **`accessKey`** (이전 문서의 `:activityId` 표기는 오표기). LMS 내부 UUID `activityId`와 구분.  
 > **정정 (2026-08-21)**: 학생은 **`GET /activities/{activityId}`를 호출하지 않는다** (교사용). `lcmsSetId`는 `POST /participations` 응답 `data.content.lcmsSetId`.
@@ -3888,6 +3889,162 @@ const autosave = useParticipationAutosave({ participationId, contentItems, gradi
 
 ---
 
+### 6.2 교사 Viewer 종료 → `close` + `/lesson/result` (Phase D)
+
+> **상태**: 구현 완료 (2026-08-31)  
+> **선행**: 추가계획9 (교사 `/lesson/viewer/:setId`) · 추가계획11 (배포 시 `activityId` 확보)  
+> **범위**: 실시간 수업 중 교사가 Viewer를 닫을 때(`exitRequested`) LMS 활동을 마감하고 교사 **수업 결과보기** 목록으로 이동한다.  
+> **비범위**: 학생 `activity-join` embed (`LessonActivityJoinEmbed`) — 학생 `exitRequested`는 §6.1·`LessonJoinPage`에서 이미 처리.
+
+#### 6.2.1 목표
+
+| 단계 | 동작 |
+|------|------|
+| 1 | everyCanvas Viewer가 `exitRequested` 발행 (`reason`: `userClose` \| `done`) |
+| 2 | Host가 `POST /api/v1/activities/{activityId}/close` 호출 |
+| 3 | **성공** (`200`, 멱등 — 이미 `CLOSED`여도 200): `/lesson/result`로 이동. **`location.search` 유지** |
+| 4 | **실패** (`404` `NOT_FOUND`, `409` `ACTIVITY_NOT_PUBLISHED` 등): **toast** 후에도 `/lesson/result`로 이동 (**search 유지**) |
+
+search param 유지 패턴은 `DeployPage.goToReports` · `ReportCard` 리포트 버튼과 동일:
+
+```ts
+navigate(`/lesson/result${location.search}`);
+```
+
+#### 6.2.2 현황 (구현 완료)
+
+| 파일 | 현재 |
+|------|------|
+| `LessonViewerEmbed.tsx` | `exitRequested` → `onExitRequested` 위임만 (변경 없음) |
+| `LessonViewerPage.tsx` | `exitRequested` → `closeActivity` + `/lesson/result${location.search}` · 오류 toast |
+| `DeployPage.tsx` | 「수업 시작하기」→ `navigate(..., { state: { activityId } })` |
+
+Phase C와 같이 **Embed는 얇게**, **Page가 LMS·라우팅**을 담당한다.
+
+#### 6.2.3 `activityId` 전달 (선행 수정)
+
+close API path는 **`activityId`(LMS UUID)** 이다. Viewer 라우트는 `/lesson/viewer/:setId`(콘텐츠 ID)만 갖는다.
+
+| 출처 | 내용 |
+|------|------|
+| 배포 완료 | `DeployPage` `deployed.activityId` — `POST /activities` → `publish` 응답 |
+| Viewer 진입 | **1순위** `location.state.activityId` (DeployPage에서 전달) |
+| URL 직접 진입 | `activityId` 없음 → close **스킵**, toast(`활동 정보를 찾을 수 없습니다`) 후 `/lesson/result${location.search}` (§6.2.5) |
+
+DeployPage 「수업 시작하기」 navigate 예시:
+
+```ts
+navigate(`/lesson/viewer/${setId}`, {
+  state: { activityId: deployed.activityId },
+});
+```
+
+`LessonViewerPageLocationState` 타입을 `features/lesson/model/types.ts`에 추가한다.
+
+#### 6.2.4 LMS API — `POST /api/v1/activities/{activityId}/close`
+
+> 출처: `superplatform-lms/docs/public/guide/api-spec.md` — 마감
+
+| 항목 | 내용 |
+|------|------|
+| 메서드·경로 | `POST /api/v1/activities/{activityId}/close` |
+| 인증 | Bearer JWT (교사) |
+| Request body | 없음 |
+| 성공 | `200` — `data.lifecycleStatus: "CLOSED"`. **이미 마감이어도 200**(멱등) |
+| Headers (권장) | `If-Match`: 직전 조회 `ETag` — 1차는 생략 가능 |
+
+**Errors** (`errorCode`):
+
+| HTTP | `errorCode` | 의미 | toast (안) |
+|------|-------------|------|------------|
+| 404 | `NOT_FOUND` | 없거나 내 활동이 아님 | `활동을 찾을 수 없습니다` |
+| 409 | `ACTIVITY_NOT_PUBLISHED` | 아직 발행 전 | `아직 발행되지 않은 활동입니다` |
+| 기타 | — | 네트워크·5xx 등 | `수업을 마감하지 못했습니다` |
+
+**오류 시에도** §6.2.1대로 `/lesson/result${location.search}`로 이동한다 (`navigate(-1)` 사용 안 함).
+
+#### 6.2.5 Page 핸들러 흐름 (구현안)
+
+`LessonViewerPage` — `useLocation` · `useNavigate`:
+
+```ts
+const handleExitRequested = async () => {
+  const activityId = (location.state as LessonViewerPageLocationState | null)?.activityId?.trim();
+
+  const goToResult = () => navigate(`/lesson/result${location.search}`);
+
+  if (!activityId) {
+    toast.message('활동 정보를 찾을 수 없습니다');
+    goToResult();
+    return;
+  }
+
+  try {
+    await closeActivity(activityId);
+    goToResult();
+  } catch (error) {
+    if (error instanceof LmsHttpError) {
+      if (error.errorCode === 'NOT_FOUND') {
+        toast.message('활동을 찾을 수 없습니다');
+      } else if (error.errorCode === 'ACTIVITY_NOT_PUBLISHED') {
+        toast.message('아직 발행되지 않은 활동입니다');
+      } else {
+        toast.message('수업을 마감하지 못했습니다');
+      }
+    } else {
+      toast.message('수업을 마감하지 못했습니다');
+    }
+    goToResult();
+  }
+};
+```
+
+`LessonViewerEmbed`는 `onExitRequested={handleExitRequested}`만 연결. **Embed 파일 자체는 수정 불필요** (이미 `exitRequested` wiring 완료).
+
+#### 6.2.6 service · export
+
+```ts
+// features/lesson/api/lmsActivityService.ts
+/** POST /activities/{activityId}/close — 멱등 */
+export async function closeActivity(activityId: string): Promise<ActivityDetail>;
+```
+
+추가계획11 §7 표의 `close` 행(「수업 종료 시」)이 **이 Phase D에서 FE 연동**된다.
+
+#### 6.2.7 전체 흐름 (교사 실시간 수업)
+
+```
+DeployPage 배포 완료 (activityId, accessKey)
+  → 「수업 시작하기」 navigate(/lesson/viewer/:setId, { state: { activityId } })
+  → LessonViewerEmbed (mode: viewer)
+  → 교사가 Viewer 닫기 → exitRequested
+  → POST /activities/{activityId}/close
+  → /lesson/result?class=…  (search 유지)
+```
+
+학생 쪽은 동일 `activityId` 활동에 `POST /participations`로 참여 중이며, 교사 `close` 후 `availability`/`ACTIVITY_CLOSED`로 학생 autosave·submit이 막힐 수 있다 (§6.1 `handleFatalAutosaveError`와 정합).
+
+#### 6.2.8 Phase D 체크리스트
+
+- [x] `closeActivity` — `lmsActivityService.ts`
+- [x] `LessonViewerPageLocationState` — `model/types.ts`
+- [x] `DeployPage` — Viewer 진입 시 `state: { activityId }` 전달
+- [x] `LessonViewerPage` — `exitRequested` → close + `/lesson/result${location.search}` · 오류 toast
+- [x] `navigate(-1)` 제거 (결과보기 고정 목적지)
+- [ ] (선택) close 성공 후 `queryClient.invalidateQueries` — 결과 목록 `GET /activities` 갱신
+
+#### 6.2.9 Phase D 구현 결과 (2026-08-31)
+
+| 파일 | 변경 |
+|------|------|
+| `api/lmsActivityService.ts` | `closeActivity` — `POST /activities/{activityId}/close` |
+| `model/types.ts` | `LessonViewerPageLocationState` |
+| `ui/DeployPage.tsx` | Viewer 진입 시 `state: { activityId: deployed.activityId }` |
+| `pages/lesson/LessonViewerPage.tsx` | `handleExitRequested` — close · toast · `/lesson/result${location.search}` |
+| `features/lesson/index.ts` | `closeActivity` · `LessonViewerPageLocationState` export |
+
+---
+
 ## 7. LMS API 매핑 (Phase B 확정 · 2026-08-21 정정)
 
 > 출처: `superplatform-lms/docs/guide/README.md` — 따라 해보기 (학생) · `api-spec.md` § 진입·참여  
@@ -3909,6 +4066,7 @@ const autosave = useParticipationAutosave({ participationId, contentItems, gradi
 |-----------|------|-----------|
 | `PATCH /api/v1/participations/{id}` | 자동저장 | **§6.1** — **구현 완료** (Phase C) |
 | `POST /api/v1/participations/{id}/submit` | 제출 | **§6.1.7** — **구현 완료** (Phase C) |
+| `POST /api/v1/activities/{activityId}/close` | 교사 활동 마감 (Viewer `exitRequested`) | **§6.2** — **구현 완료** (Phase D) |
 | `GET /api/v1/participations/{id}` | 이어하기 (응답에 `responses[]`·`content` 포함) | 후속 |
 | `GET /api/v1/participations/{id}/result` | 결과 | 후속 (추가계획22 학생 상세에서 사용) |
 
@@ -4068,6 +4226,7 @@ Phase A 스켈레톤(`getActivityJoinEligibility` / `getActivityJoinSetId`) **�
 | 6 | `lcmsSetId` 조회 | **확정·구현** | `POST /participations` → `data.content.lcmsSetId` |
 | 7 | `getToken` | **확정·구현** | **전달 안 함** |
 | 8 | 풀고 내기 (PATCH/submit/result) | **Phase C 완료** | PATCH autosave · submit 구현. result는 추가계획22 |
+| 13 | 교사 Viewer 종료 → close | **Phase D 완료** | §6.2 — `exitRequested` → `POST /activities/{id}/close` → `/lesson/result` |
 | 9 | API `errorCode` UX | **미확정** | 1차는 §5.1 + participations 실패 공통 문구만 |
 | 10 | 로그인 복귀 | **Phase A에서 가능한 한** | join URL이 로그인에 삼켜지지 않게 |
 | 11 | URL `:setId` path | **제거 완료** | 2026-08-21 Phase B |
