@@ -1417,10 +1417,15 @@ public class DgnssService {
             return new HashMap<>();
         }
 
-        // 학생 분석 조회: claId 조건 없이 해당 학생의 모든 그룹 이력 조회
+        // 학생 분석 조회: claId 가 전달되면 해당 학급 이력만, 없으면 학생 전체 그룹 이력 조회.
+        // (claId 미전달 시 다른 학급 검사 결과가 같은 ord 로 섞여 LPA 유형이 비결정적으로 선택되는 문제 방지)
         Map<String, Object> analysisParam = new HashMap<>();
         analysisParam.put("paperIdx", resolvedPaperIdx);
         analysisParam.put("stdtId", stdtId);
+        String claId = MapUtils.getString(param, "claId", "");
+        if (StringUtils.isNotBlank(claId)) {
+            analysisParam.put("claId", claId);
+        }
 
         List<Map<String, Object>> stAnalysisList = dgnssMapper.selectStLernAnalysis(analysisParam);
         if (CollectionUtils.isEmpty(stAnalysisList)) {
