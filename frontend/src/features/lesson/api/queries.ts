@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import {
   keepPreviousData,
@@ -26,7 +27,10 @@ import {
   getActivityProgress,
   getActivityStatistics,
   getTeacherParticipationResult,
+  getMyActivities,
+  getParticipationResult,
   LmsHttpError,
+  patchParticipationGrading,
   startParticipation,
 } from './lmsActivityService';
 import type {
@@ -37,15 +41,19 @@ import type {
   ActivityParticipationRow,
   ActivityProgress,
   ActivityStatistics,
+  LmsErrata,
   ParticipationResult,
+  MyActivity,
 } from './lmsActivityService';
 // import { CMS_BRAND_ID } from '../model/constants';
 import type { LibFilters, SortKey } from '../model/types';
 import { lessonKeys } from './queryKeys';
 import { useAuth } from '@features/auth';
+import { useGroupMembersQuery } from '@features/groups';
 import { resolveAssigneeNamesFromGroups } from '../model/resolveAssigneeNamesFromGroups';
 import type { AssigneeNameInfo } from '../model/resolveAssigneeNamesFromGroups';
 import { classIdLikeOptFilter } from '../model/classIdOptions';
+import { classMemberSubs } from '../model/classMemberSubs';
 
 const CMS_SETS_DEFAULT = {
   pageNo: 0,
@@ -374,6 +382,64 @@ export function useTeacherParticipationQuery(
   });
 }
 
+export type PatchParticipationGradingInput = {
+  activityId: string;
+  participationId: string;
+  activityItemId: string;
+  errata: LmsErrata;
+  /** 사용자 행위(채점 버튼 클릭) 1회당 1개. 재시도 시 동일 키 유지 */
+  idempotencyKey: string;
+};
+
+export function usePatchParticipationGradingMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PatchParticipationGradingInput) =>
+      patchParticipationGrading(
+        input.activityId,
+        input.participationId,
+        [{ activityItemId: input.activityItemId, errata: input.errata }],
+        input.idempotencyKey,
+      ),
+    onSuccess: (_data, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: lessonKeys.activityParticipation(input.activityId, input.participationId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: lessonKeys.activityStatistics(input.activityId),
+      });
+    },
+  });
+}
+
+/** SUBMITTED 학생만 단건 결과를 병렬 조회. 미제출·미완료 id는 넘기지 말 것. */
+export function useTeacherParticipationsMapQuery(
+  activityId: string | undefined,
+  participationIds: string[],
+) {
+  const unique = [...new Set(participationIds.filter((id) => id.length > 0))];
+  const results = useQueries({
+    queries: unique.map((id) => ({
+      queryKey: lessonKeys.activityParticipation(activityId ?? '', id),
+      queryFn: ({ signal }: { signal?: AbortSignal }) =>
+        getTeacherParticipationResult(activityId!, id, signal),
+      enabled: Boolean(activityId) && Boolean(id),
+      retry: retryUnlessNotFound,
+    })),
+  });
+
+  const map = new Map<string, ParticipationResult>();
+  unique.forEach((id, index) => {
+    const data = results[index]?.data;
+    if (data) map.set(id, data);
+  });
+
+  return {
+    map,
+    isPending: unique.length > 0 && results.some((result) => result.isPending),
+  };
+}
+
 export function useAssigneeDirectoryQuery(enabled: boolean) {
   const { user } = useAuth();
   const userId = user?.id;
@@ -382,6 +448,18 @@ export function useAssigneeDirectoryQuery(enabled: boolean) {
     queryFn: () => resolveAssigneeNamesFromGroups(userId!),
     enabled: enabled && Boolean(userId),
   });
+}
+
+/** 사이드바에서 고른 반(classId)의 활성 학생 spUserId */
+export function useClassMemberSubsQuery(classId: string | undefined) {
+  const { user } = useAuth();
+  const query = useGroupMembersQuery(classId || null, user?.id);
+  const subs = useMemo(() => classMemberSubs(query.data), [query.data]);
+  return {
+    subs,
+    isPending: Boolean(classId) && Boolean(user?.id) && query.isPending,
+    isError: query.isError,
+  };
 }
 
 export function useCmsArticleMapQuery(articleIds: string[]) {
@@ -404,4 +482,27 @@ export function useCmsArticleMapQuery(articleIds: string[]) {
     map,
     isPending: unique.length > 0 && results.some((result) => result.isPending),
   };
+}
+
+/** GET /api/v1/my-activities — 학생 수업 결과보기 목록 */
+export function useMyActivitiesQuery() {
+  return useQuery<MyActivity[]>({
+    queryKey: lessonKeys.myActivities(),
+    queryFn: ({ signal }) => getMyActivities(signal),
+  });
+}
+
+/** GET /api/v1/participations/{participationId}/result — 학생 본인 결과 */
+export function useParticipationResultQuery(participationId: string | undefined) {
+  return useQuery<ParticipationResult>({
+    queryKey: lessonKeys.participationResult(participationId ?? ''),
+    queryFn: ({ signal }) => getParticipationResult(participationId!, signal),
+    enabled: Boolean(participationId),
+    retry: (failureCount, error) => {
+      if (error instanceof LmsHttpError && (error.status === 403 || error.status === 404)) {
+        return false;
+      }
+      return failureCount < 1;
+    },
+  });
 }

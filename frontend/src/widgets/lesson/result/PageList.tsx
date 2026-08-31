@@ -1,10 +1,10 @@
 import styled from '@emotion/styled';
-import type { ReportDetailView } from '@features/lesson';
-import { articleResponded } from '@features/lesson';
+import type { PageTabListItem } from '@features/lesson';
 import { NatureBadge } from './ReportBadge';
 
 interface PageListProps {
-  view: ReportDetailView;
+  pages: PageTabListItem[];
+  assignedCount: number;
   selectedIndex: number;
   onSelect: (index: number) => void;
 }
@@ -90,29 +90,28 @@ const NatureWrap = styled.span`
   margin-bottom: 2px;
 `;
 
-export const PageList = ({ view, selectedIndex, onSelect }: PageListProps) => {
-  const arts = view.articles;
-  const cur = selectedIndex >= arts.length ? 0 : selectedIndex;
-  const assigned = view.assignedCount;
+export const PageList = ({ pages, assignedCount, selectedIndex, onSelect }: PageListProps) => {
+  const cur = selectedIndex >= pages.length ? 0 : selectedIndex;
 
   return (
     <Shell>
       <Head>
-        페이지 <HeadCount>({arts.length})</HeadCount>
+        페이지 <HeadCount>({pages.length})</HeadCount>
       </Head>
-      {arts.map((a, i) => {
+      {pages.map((page, i) => {
         const on = i === cur;
-        const resp = articleResponded(view, a.id);
         return (
-          <Row key={a.id} type='button' $on={on} onClick={() => onSelect(i)}>
-            <Order $on={on}>{a.order}</Order>
+          <Row key={page.activityItemId} type='button' $on={on} onClick={() => onSelect(i)}>
+            <Order $on={on}>{page.seq}</Order>
             <Body>
-              <NatureWrap>
-                <NatureBadge nature={a.nature} />
-              </NatureWrap>
-              <Title>{a.title}</Title>
+              {page.nature ? (
+                <NatureWrap>
+                  <NatureBadge nature={page.nature} />
+                </NatureWrap>
+              ) : null}
+              <Title>{page.title}</Title>
               <Meta>
-                응답 {resp}/{assigned}
+                응답 {page.gradedCount}/{assignedCount}
               </Meta>
             </Body>
           </Row>

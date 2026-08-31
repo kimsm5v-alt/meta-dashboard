@@ -1,11 +1,17 @@
+import { useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
+import { toast } from 'sonner';
 import {
   LessonActivityJoinEmbed,
+  LmsHttpError,
+  submitParticipation,
   useActivityEntryQuery,
+  useParticipationAutosave,
   useStartParticipationQuery,
   type EmbedError,
   type EntryAvailability,
+  type ParticipationDetail,
 } from '@features/lesson';
 import { PageLoading } from '@shared/ui/Loading';
 
@@ -53,6 +59,83 @@ function getAvailabilityMessage(
   }
 }
 
+interface LessonJoinSessionProps {
+  accessKey: string;
+  participation: ParticipationDetail;
+  lcmsSetId: string;
+}
+
+const LessonJoinSession = ({ accessKey, participation, lcmsSetId }: LessonJoinSessionProps) => {
+  const navigate = useNavigate();
+  const submitKeyRef = useRef(crypto.randomUUID());
+  const { participationId, content } = participation;
+
+  const handleFatalAutosaveError = useCallback(
+    (error: LmsHttpError) => {
+      if (error.errorCode === 'ACTIVITY_CLOSED') {
+        toast.message('활동이 종료되었습니다.');
+        navigate(-1);
+        return;
+      }
+      if (error.errorCode === 'ALREADY_SUBMITTED') {
+        toast.message('이미 제출한 활동입니다.');
+        navigate('/student/lesson/result');
+      }
+    },
+    [navigate],
+  );
+
+  const autosave = useParticipationAutosave({
+    participationId,
+    contentItems: content.items,
+    gradingPolicy: content.gradingPolicy,
+    onFatalError: handleFatalAutosaveError,
+  });
+
+  const handleError = (error: EmbedError) => {
+    console.warn('[LessonJoinPage] embed error', error.code, error.message);
+  };
+
+  const handleExit = async () => {
+    await autosave.flush();
+    navigate(-1);
+  };
+
+  const handleSubmitted = async () => {
+    await autosave.flush();
+    try {
+      await submitParticipation(participationId, submitKeyRef.current);
+      toast.success('제출되었습니다');
+      navigate('/student/lesson/result');
+    } catch (error) {
+      if (error instanceof LmsHttpError) {
+        if (error.errorCode === 'ALREADY_SUBMITTED') {
+          toast.message('이미 제출한 활동입니다.');
+          navigate('/student/lesson/result');
+          return;
+        }
+        if (error.errorCode === 'ACTIVITY_CLOSED') {
+          toast.message('활동이 종료되었습니다.');
+          navigate(-1);
+          return;
+        }
+      }
+      toast.message('제출하지 못했습니다. 다시 시도해 주세요.');
+    }
+  };
+
+  return (
+    <LessonActivityJoinEmbed
+      accessKey={accessKey}
+      setId={lcmsSetId}
+      onAnswerSaved={autosave.enqueue}
+      onExitRequested={handleExit}
+      onSubmitted={handleSubmitted}
+      onError={handleError}
+    />
+  );
+};
+
 /**
  * 학생 수업 참여 풀스크린.
  * 라우트 `/student/lesson/:accessKey`
@@ -60,7 +143,6 @@ function getAvailabilityMessage(
  */
 export const LessonJoinPage = () => {
   const { accessKey: accessKeyParam } = useParams<{ accessKey: string }>();
-  const navigate = useNavigate();
   const accessKey = accessKeyParam?.trim() || undefined;
 
   const entryQuery = useActivityEntryQuery(accessKey);
@@ -68,10 +150,6 @@ export const LessonJoinPage = () => {
   const participationQuery = useStartParticipationQuery(accessKey, {
     enabled: Boolean(accessKey) && isOpen,
   });
-
-  const handleError = (error: EmbedError) => {
-    console.warn('[LessonJoinPage] embed error', error.code, error.message);
-  };
 
   if (!accessKey) {
     return <MessageScreen>활동 정보를 불러오지 못했습니다</MessageScreen>;
@@ -111,11 +189,10 @@ export const LessonJoinPage = () => {
   }
 
   return (
-    <LessonActivityJoinEmbed
+    <LessonJoinSession
       accessKey={accessKey}
-      setId={lcmsSetId}
-      onExitRequested={() => navigate(-1)}
-      onError={handleError}
+      participation={participationQuery.data}
+      lcmsSetId={lcmsSetId}
     />
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { Calendar } from 'lucide-react';
 import { useMyGroupsQuery } from '@features/api';
@@ -7,20 +7,26 @@ import type {
   ActivityProgress,
   ActivityStatistics,
   ActivitySummaryItem,
+  CmsSetDetail,
 } from '@features/lesson';
 import {
   classIdsFromOptions,
+  filterParticipantsByClass,
   fmtDotDate,
   isActivityAvailability,
   pct,
   resolveClassNames,
+  resolveCmsFileUrl,
+  useClassMemberSubsQuery,
 } from '@features/lesson';
 import { ActivityStatusBadge, ClassBadge } from './ReportBadge';
 
 interface ReportSummaryProps {
   activityId: string;
+  classId?: string;
   fallback?: ActivitySummaryItem;
   detail?: ActivityDetail;
+  cmsSet?: CmsSetDetail;
   progress?: ActivityProgress;
   statistics?: ActivityStatistics;
 }
@@ -176,16 +182,6 @@ const Dash = styled.span`
   color: ${({ theme }) => theme.colors.gray[400]};
 `;
 
-const thumbnailOf = (
-  detail?: ActivityDetail,
-  fallback?: ActivitySummaryItem,
-): string | undefined => {
-  const fromDetail = detail?.options?.thumbnailUrl;
-  if (typeof fromDetail === 'string' && fromDetail.length > 0) return fromDetail;
-  const fromFallback = fallback?.options?.thumbnailUrl;
-  return typeof fromFallback === 'string' && fromFallback.length > 0 ? fromFallback : undefined;
-};
-
 const buildDateLine = (openAt?: string, closeAt?: string, pageCount = 0): string => {
   const startStr = openAt ? fmtDotDate(openAt) : '';
   const endStr = closeAt ? fmtDotDate(closeAt) : '';
@@ -196,15 +192,19 @@ const buildDateLine = (openAt?: string, closeAt?: string, pageCount = 0): string
 
 export const ReportSummary = ({
   activityId,
+  classId,
   fallback,
   detail,
+  cmsSet,
   progress,
   statistics,
 }: ReportSummaryProps) => {
-  const [imgFailed, setImgFailed] = useState(false);
+  const [failedThumbUrl, setFailedThumbUrl] = useState<string | null>(null);
   const { data: groups = [] } = useMyGroupsQuery();
+  const classMembers = useClassMemberSubsQuery(classId);
   const title = detail?.title || fallback?.title || activityId;
-  const thumbnailUrl = thumbnailOf(detail, fallback);
+  const thumbnailUrl = resolveCmsFileUrl(cmsSet?.thumbnailUrl);
+  const imgFailed = Boolean(thumbnailUrl) && failedThumbUrl === thumbnailUrl;
   const availability = detail?.availability ?? fallback?.availability;
   const openAt = detail?.openAt ?? fallback?.openAt ?? undefined;
   const closeAt = detail?.closeAt ?? fallback?.closeAt ?? undefined;
@@ -216,9 +216,14 @@ export const ReportSummary = ({
     groups,
   );
 
-  const assignedCount = progress?.assignedCount;
-  const startedCount = progress?.startedCount;
-  const showParticipation = assignedCount != null && assignedCount > 0 && startedCount != null;
+  const classRows = useMemo(
+    () =>
+      classMembers.isPending ? [] : filterParticipantsByClass(progress?.rows, classMembers.subs),
+    [classMembers.isPending, classMembers.subs, progress?.rows],
+  );
+  const assignedCount = classRows.length;
+  const startedCount = classRows.filter((row) => row.status !== 'NOT_STARTED').length;
+  const showParticipation = !classMembers.isPending && assignedCount > 0;
   const rate = showParticipation ? pct(startedCount, assignedCount) : 0;
   const averageScore = statistics?.averageScore;
 
@@ -227,7 +232,11 @@ export const ReportSummary = ({
       <Left>
         <Thumb>
           {thumbnailUrl && !imgFailed ? (
-            <ThumbImg src={thumbnailUrl} alt={title} onError={() => setImgFailed(true)} />
+            <ThumbImg
+              src={thumbnailUrl}
+              alt={title}
+              onError={() => setFailedThumbUrl(thumbnailUrl)}
+            />
           ) : (
             <ThumbFallback>{title}</ThumbFallback>
           )}

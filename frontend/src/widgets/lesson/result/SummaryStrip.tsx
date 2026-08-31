@@ -1,10 +1,9 @@
 import styled from '@emotion/styled';
-import type { ReportDetailArticle, ReportDetailView } from '@features/lesson';
-import { articleResponded } from '@features/lesson';
+import type { PageTabListItem } from '@features/lesson';
 
 interface SummaryStripProps {
-  view: ReportDetailView;
-  article: ReportDetailArticle;
+  page: PageTabListItem;
+  assignedCount: number;
 }
 
 const Strip = styled.div`
@@ -37,57 +36,55 @@ const DotSep = styled.span`
   color: ${({ theme }) => theme.colors.gray[300]};
 `;
 
-export const SummaryStrip = ({ view, article }: SummaryStripProps) => {
-  const responded = articleResponded(view, article.id);
-  const assigned = view.assignedCount;
-  const articleResps = view.responses.filter((x) => x.articleId === article.id);
-  const manualTargets = article.nature === '활동' && article.gradingType === 2 ? articleResps : [];
-  const gradedN = manualTargets.filter((x) => x.errata != null).length;
+export const SummaryStrip = ({ page, assignedCount }: SummaryStripProps) => {
+  const resp = page.gradedCount;
+  const gradedManual = Math.max(0, page.gradedCount - page.ungradable);
 
-  const gradingChip =
-    manualTargets.length === 0 ? null : (
-      <>
-        <DotSep>·</DotSep>
-        <span>
-          채점{' '}
-          <Count $tone={gradedN === manualTargets.length ? 'success' : 'warning'}>{gradedN}</Count>/
-          {manualTargets.length}
-        </span>
-      </>
-    );
-
-  if (article.nature === '문항' && article.correctAnswer != null) {
-    const correct = articleResps.filter((x) => x.errata === 1).length;
-    const wrong = articleResps.filter((x) => x.errata === 2).length;
-    const partial = articleResps.filter((x) => x.errata === 3).length;
+  if (page.nature === '문항') {
     return (
       <Strip>
         <span>
-          정답 <Count $tone='info'>{correct}</Count>
+          정답 <Count $tone='info'>{page.correct}</Count>
         </span>
         <span>
-          오답 <Count $tone='error'>{wrong}</Count>
+          오답 <Count $tone='error'>{page.incorrect}</Count>
         </span>
-        {partial > 0 ? (
-          <span>
-            부분 <Count $tone='warning'>{partial}</Count>
-          </span>
-        ) : null}
+        <span>
+          부분정답 <Count $tone='warning'>{page.partial}</Count>
+        </span>
         <DotSep>·</DotSep>
         <span>
-          제출 <Count $tone='plain'>{responded}</Count>/{assigned}
+          제출 <Count $tone='info'>{resp}</Count>/{assignedCount}명
         </span>
       </Strip>
     );
   }
 
-  const label = article.nature === '개념' ? '조회' : '제출';
+  if (page.nature === '활동') {
+    return (
+      <Strip>
+        <span>
+          제출 <Count $tone={resp === assignedCount ? 'success' : 'warning'}>{resp}</Count>/
+          {assignedCount}명
+        </span>
+        <DotSep>·</DotSep>
+        <span>
+          채점{' '}
+          <Count $tone={gradedManual === page.gradedCount ? 'success' : 'warning'}>
+            {gradedManual}
+          </Count>
+          /{page.gradedCount}
+        </span>
+      </Strip>
+    );
+  }
+
+  const label = page.nature === '개념' ? '조회' : '제출';
   return (
     <Strip>
       <span>
-        {label} <Count $tone='plain'>{responded}</Count>/{assigned}명
+        {label} <Count $tone='plain'>{resp}</Count>/{assignedCount}명
       </span>
-      {gradingChip}
     </Strip>
   );
 };

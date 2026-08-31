@@ -2,26 +2,37 @@ import { useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { Clock } from 'lucide-react';
 import { Loading } from '@shared/ui/Loading';
-import type { ActivityItem, ActivityParticipationRow, AssigneeNameInfo } from '@features/lesson';
+import type {
+  ActivityDetail,
+  ActivityParticipationRow,
+  ActivityProgress,
+  AssigneeNameInfo,
+  CmsSetDetail,
+  ReportGridItem,
+} from '@features/lesson';
 import {
-  articleTypeToNature,
-  cellFromParticipationItem,
-  isNotSubmittedError,
-  participationItemOf,
-  sortActivityItems,
+  filterParticipantsByClass,
+  mapStudentTabGridRows,
+  submittedReportGridItems,
   summarizeParticipation,
   useActivityParticipationsQuery,
   useAssigneeDirectoryQuery,
+  useClassMemberSubsQuery,
   useCmsArticleMapQuery,
   useTeacherParticipationQuery,
 } from '@features/lesson';
 import { ResponseGrid } from './ResponseGrid';
-import type { GridItem } from './ResponseGrid';
 import { ParticipationStatusBadge } from './ReportBadge';
+import { ResponseDetailOverlay } from './ResponseDetailOverlay';
 
 interface StudentTabProps {
   activityId: string;
-  items: ActivityItem[];
+  classId?: string;
+  detail: ActivityDetail;
+  cmsSet?: CmsSetDetail;
+  cmsSetPending: boolean;
+  cmsSetError: Error | null;
+  progress?: ActivityProgress;
 }
 
 const Empty = styled.div`
@@ -237,9 +248,24 @@ const rowName = (
   return row.participant;
 };
 
-export const StudentTab = ({ activityId, items }: StudentTabProps) => {
+export const StudentTab = ({
+  activityId,
+  classId,
+  detail,
+  cmsSet,
+  cmsSetPending,
+  cmsSetError,
+  progress,
+}: StudentTabProps) => {
   const participationsQuery = useActivityParticipationsQuery(activityId);
-  const rows = useMemo(() => participationsQuery.data ?? [], [participationsQuery.data]);
+  const classMembers = useClassMemberSubsQuery(classId);
+  const rows = useMemo(
+    () =>
+      classMembers.isPending
+        ? []
+        : filterParticipantsByClass(participationsQuery.data, classMembers.subs),
+    [classMembers.isPending, classMembers.subs, participationsQuery.data],
+  );
   const directoryQuery = useAssigneeDirectoryQuery(rows.length > 0);
   const directory = directoryQuery.data;
 
@@ -264,42 +290,59 @@ export const StudentTab = ({ activityId, items }: StudentTabProps) => {
   }, [rows, directory]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [overlayIndex, setOverlayIndex] = useState<number | null>(null);
   const curId = students.some((s) => s.participant === selectedId)
     ? (selectedId as string)
     : (students[0]?.participant ?? '');
   const cur = students.find((s) => s.participant === curId);
 
-  const participationId = cur?.status === 'NOT_STARTED' ? undefined : cur?.participationId;
+  const canFetchParticipation = cur?.status === 'SUBMITTED' && Boolean(cur.participationId);
+  const participationId = canFetchParticipation ? cur?.participationId : undefined;
   const participationQuery = useTeacherParticipationQuery(activityId, participationId);
-  const participation =
-    participationQuery.isError && isNotSubmittedError(participationQuery.error)
-      ? undefined
-      : participationQuery.data;
+  const participation = canFetchParticipation ? participationQuery.data : undefined;
   const summary = summarizeParticipation(participation);
 
-  const activityItems = useMemo(() => sortActivityItems(items), [items]);
+  const lcmsSetId = detail.lcmsSetId;
+  const slides = useMemo(() => {
+    const list = [...(cmsSet?.slides ?? [])].sort((a, b) => a.order - b.order);
+    return list.filter((slide) => Boolean(slide.article?.articleId));
+  }, [cmsSet?.slides]);
   const articleIds = useMemo(
-    () => activityItems.map((item) => item.lcmsArticleId),
-    [activityItems],
+    () => slides.map((slide) => slide.article?.articleId ?? '').filter((id) => id.length > 0),
+    [slides],
   );
   const { map: articleMap } = useCmsArticleMapQuery(articleIds);
 
-  const gridItems: GridItem[] = activityItems.map((item) => {
-    const article = articleMap.get(item.lcmsArticleId);
-    const nature = articleTypeToNature(article?.articleType);
-    const name = article?.name?.trim() || item.lcmsArticleId;
-    const pItem = participationItemOf(participation, item.activityItemId);
-    return {
-      key: item.activityItemId,
-      title: `${item.seq}. ${name}`,
-      nature,
-      mode: 'plain',
-      cell: cellFromParticipationItem(pItem),
-      showNature: Boolean(nature),
-    };
-  });
+  const gridItems = useMemo(
+    () =>
+      mapStudentTabGridRows(
+        slides.map((slide) => ({
+          slideId: slide.slideId,
+          order: slide.order,
+          articleId: slide.article?.articleId ?? slide.slideId,
+        })),
+        articleMap,
+        participation,
+        cur
+          ? {
+              participant: cur.participant,
+              name: cur.name,
+              status: cur.status,
+              participationId: cur.participationId,
+            }
+          : undefined,
+      ),
+    [slides, articleMap, participation, cur],
+  );
 
-  if (participationsQuery.isPending) {
+  const submittedItems = useMemo(() => submittedReportGridItems(gridItems), [gridItems]);
+
+  const handleGridItemClick = (item: ReportGridItem) => {
+    const idx = submittedItems.findIndex((s) => s.key === item.key);
+    if (idx >= 0) setOverlayIndex(idx);
+  };
+
+  if (participationsQuery.isPending || classMembers.isPending) {
     return (
       <LoadingBox role='status' aria-busy='true'>
         <Loading size='md' text='불러오는 중...' />
@@ -378,9 +421,35 @@ export const StudentTab = ({ activityId, items }: StudentTabProps) => {
           <SectionTitle>
             페이지별 상세 <Count>({gridItems.length})</Count>
           </SectionTitle>
-          <ResponseGrid items={gridItems} showSummary={false} />
+          {!lcmsSetId ? (
+            <EmptyText>세트 정보가 없습니다.</EmptyText>
+          ) : cmsSetPending ? (
+            <LoadingBox role='status' aria-busy='true'>
+              <Loading size='sm' text='불러오는 중...' />
+            </LoadingBox>
+          ) : cmsSetError ? (
+            <ErrorText role='alert'>
+              {cmsSetError instanceof Error
+                ? cmsSetError.message
+                : '세트 정보를 불러오지 못했습니다.'}
+            </ErrorText>
+          ) : (
+            <ResponseGrid items={gridItems} showSummary={false} onItemClick={handleGridItemClick} />
+          )}
         </Card>
       </DetailCol>
+      {overlayIndex != null && cur ? (
+        <ResponseDetailOverlay
+          axis='student'
+          activityId={activityId}
+          activityTitle={detail.title}
+          siblings={submittedItems}
+          initialIndex={overlayIndex}
+          onClose={() => setOverlayIndex(null)}
+          progress={progress}
+          fixedStudentName={cur.name}
+        />
+      ) : null}
     </Layout>
   );
 };

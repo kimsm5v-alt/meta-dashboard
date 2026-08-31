@@ -1,23 +1,12 @@
 import styled from '@emotion/styled';
-import { Image as ImageIcon, Maximize2, Play } from 'lucide-react';
-import type { ArticleNature, CellInfo, RenderMode } from '@features/lesson';
-import { fmtDuration } from '@features/lesson';
-import { ErrataBadge, NatureBadge } from './ReportBadge';
-
-export interface GridItem {
-  key: string;
-  title: string;
-  nature?: ArticleNature;
-  mode: RenderMode;
-  cell: CellInfo;
-  capture?: string;
-  showNature?: boolean;
-  highlight?: boolean;
-}
+import { Image as ImageIcon, Maximize2 } from 'lucide-react';
+import type { ReportGridItem } from '@features/lesson';
+import { ResponseMark, ResponseNatureBadge } from './ResponseGridSummary';
 
 interface ResponseGridProps {
-  items: GridItem[];
+  items: ReportGridItem[];
   showSummary?: boolean;
+  onItemClick?: (item: ReportGridItem, index: number) => void;
 }
 
 const Grid = styled.div`
@@ -48,7 +37,7 @@ const Tile = styled.button<{ $clickable: boolean; $highlight: boolean }>`
   background: ${({ theme, $clickable }) =>
     $clickable ? theme.colors.background.paper : theme.colors.gray[50]};
   text-align: left;
-  cursor: default;
+  cursor: ${({ $clickable }) => ($clickable ? 'pointer' : 'default')};
   box-shadow: ${({ theme, $highlight }) =>
     $highlight ? `0 0 0 2px ${theme.colors.primary[100]}` : 'none'};
   transition: border-color ${({ theme }) => theme.transitions.fast};
@@ -73,6 +62,7 @@ const Capture = styled.div`
 const CaptureImg = styled.img`
   width: 100%;
   height: 100%;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
 `;
 
@@ -150,78 +140,34 @@ const SummaryLine = styled.div`
   line-height: ${({ theme }) => theme.typography.lineHeight.relaxed};
 `;
 
-const Muted = styled.span`
-  color: ${({ theme }) => theme.colors.gray[400]};
-`;
-
-const AnswerB = styled.b`
-  color: ${({ theme }) => theme.colors.gray[700]};
-`;
-
-const CorrectB = styled.b`
-  color: ${({ theme }) => theme.colors.info.dark};
-`;
-
-const ManualMark = styled.span<{ $done: boolean }>`
-  flex: none;
-  padding: 2px 8px;
-  border-radius: ${({ theme }) => theme.radius.full};
-  background: ${({ theme, $done }) =>
-    $done ? theme.colors.success.light : theme.colors.warning.light};
-  color: ${({ theme, $done }) => ($done ? theme.colors.success.dark : theme.colors.warning.dark)};
-  font-size: 11px;
-  font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
-`;
-
-const PlayIcon = styled(Play)`
-  width: 12px;
-  height: 12px;
-`;
-
-const MediaLine = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: ${({ theme }) => theme.colors.gray[600]};
-  font-weight: ${({ theme }) => theme.typography.fontWeight.semibold};
-`;
-
-const Summary = ({ cell, mode }: { cell: CellInfo; mode: RenderMode }) => {
-  if (!cell.submitted) return <Muted>{cell.value}</Muted>;
-  if (mode === 'media' && cell.mediaSec != null) {
-    return (
-      <MediaLine>
-        <PlayIcon />
-        {fmtDuration(cell.mediaSec)}
-      </MediaLine>
-    );
+const GridSummary = ({
+  cell,
+  nature,
+}: {
+  cell: ReportGridItem['cell'];
+  nature?: ReportGridItem['nature'];
+}) => {
+  if (nature === '개념') return null;
+  if (!cell.submitted) {
+    return <span>{cell.value || '미제출'}</span>;
   }
-  if (cell.correctAnswer) {
-    return (
-      <>
-        내 답 <AnswerB>{cell.value}</AnswerB> · 정답 <CorrectB>{cell.correctAnswer}</CorrectB>
-      </>
-    );
+  switch (nature) {
+    case '활동':
+      return <span>{cell.value}</span>;
+    case '문항':
+      return (
+        <>
+          내 답 <b>{cell.value}</b>
+        </>
+      );
+    default:
+      return <span>{cell.value}</span>;
   }
-  if (mode === 'text') return <span>{cell.value}</span>;
-  return <span>{cell.value}</span>;
 };
 
-const Mark = ({ cell }: { cell: CellInfo }) => {
-  if (cell.manual) {
-    return (
-      <ManualMark $done={cell.errata != null}>
-        {cell.errata != null ? '채점 완료' : '채점 필요'}
-      </ManualMark>
-    );
-  }
-  if (cell.errata != null) return <ErrataBadge errata={cell.errata} />;
-  return null;
-};
-
-export const ResponseGrid = ({ items, showSummary = true }: ResponseGridProps) => (
+export const ResponseGrid = ({ items, showSummary = true, onItemClick }: ResponseGridProps) => (
   <Grid>
-    {items.map((it) => {
+    {items.map((it, index) => {
       const clickable = it.cell.submitted;
       return (
         <Tile
@@ -230,9 +176,12 @@ export const ResponseGrid = ({ items, showSummary = true }: ResponseGridProps) =
           disabled={!clickable}
           $clickable={clickable}
           $highlight={Boolean(it.highlight)}
+          onClick={() => {
+            if (clickable) onItemClick?.(it, index);
+          }}
         >
           <Capture>
-            {it.capture ? (
+            {it.capture && it.cell.submitted ? (
               <>
                 <CaptureImg src={it.capture} alt='' />
                 {clickable ? (
@@ -251,16 +200,16 @@ export const ResponseGrid = ({ items, showSummary = true }: ResponseGridProps) =
           <Body>
             <LabelRow>
               <Title>{it.title}</Title>
-              <Mark cell={it.cell} />
+              <ResponseMark cell={it.cell} nature={it.nature} />
             </LabelRow>
             {it.showNature && it.nature ? (
               <div>
-                <NatureBadge nature={it.nature} />
+                <ResponseNatureBadge nature={it.nature} />
               </div>
             ) : null}
-            {showSummary ? (
+            {showSummary && it.nature !== '개념' ? (
               <SummaryLine>
-                <Summary cell={it.cell} mode={it.mode} />
+                <GridSummary cell={it.cell} nature={it.nature} />
               </SummaryLine>
             ) : null}
           </Body>

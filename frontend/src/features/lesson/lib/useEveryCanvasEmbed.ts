@@ -12,6 +12,7 @@ type EmbedEventHandlers = {
   submitted?: (payload: unknown) => void;
   phaseChanged?: (payload: unknown) => void;
   progress?: (payload: unknown) => void;
+  answerSaved?: (payload: unknown) => void; //activity-join
 };
 
 type UseEveryCanvasEmbedParams = {
@@ -38,6 +39,7 @@ const KNOWN_EVENTS = [
   'submitted',
   'phaseChanged',
   'progress',
+  'answerSaved',
 ] as const;
 
 /**

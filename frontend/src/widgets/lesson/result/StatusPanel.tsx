@@ -9,9 +9,12 @@
  */
 import styled from '@emotion/styled';
 import { TrendingUp } from 'lucide-react';
+import { useMemo } from 'react';
 import {
+  filterParticipantsByClass,
   useActivitiesProgressBundleQuery,
   useAssigneeDirectoryQuery,
+  useClassMemberSubsQuery,
   useRunningCountQuery,
   useThisWeekCountQuery,
 } from '@features/lesson';
@@ -166,10 +169,17 @@ export const StatusPanel = ({ classId, className, selected, onSelect }: StatusPa
   const { data: thisWeekCount, isPending: weekPending } = useThisWeekCountQuery(classId);
   const { data: runningCount, isPending: runningPending } = useRunningCountQuery(classId);
   const bundleQuery = useActivitiesProgressBundleQuery(classId);
-  const students = bundleQuery.data?.notSubmittedStudents ?? [];
+  const classMembers = useClassMemberSubsQuery(classId);
+  const students = useMemo(
+    () =>
+      classMembers.isPending
+        ? []
+        : filterParticipantsByClass(bundleQuery.data?.notSubmittedStudents, classMembers.subs),
+    [bundleQuery.data?.notSubmittedStudents, classMembers.isPending, classMembers.subs],
+  );
   const directoryQuery = useAssigneeDirectoryQuery(students.length > 0);
   const directory = directoryQuery.data;
-  const missingCount = bundleQuery.data?.notSubmittedStudentCount;
+  const missingCount = classMembers.isPending || bundleQuery.isPending ? null : students.length;
   const title = className ? `${className} 학습현황` : '학습현황';
 
   return (
@@ -197,7 +207,7 @@ export const StatusPanel = ({ classId, className, selected, onSelect }: StatusPa
         <StatTile>
           <StatLabel>미제출</StatLabel>
           <StatValue>
-            {bundleQuery.isPending ? '--' : (missingCount ?? '–')}
+            {bundleQuery.isPending || classMembers.isPending ? '--' : missingCount}
             {missingCount != null ? <StatUnit>건</StatUnit> : null}
           </StatValue>
         </StatTile>
@@ -206,9 +216,7 @@ export const StatusPanel = ({ classId, className, selected, onSelect }: StatusPa
       <Divider>
         <StudentHeader>
           <StudentLabel>미제출 학생</StudentLabel>
-          <StudentCount>
-            {missingCount != null ? `${missingCount}명` : `${students.length}명`}
-          </StudentCount>
+          <StudentCount>{missingCount != null ? `${missingCount}명` : '--명'}</StudentCount>
           <StudentHint>· 진행 중인 활동 기준</StudentHint>
           {students.length > 0 && (
             <StudentHint>이름을 누르면 진행중 목록에서 해당 활동이 표시됩니다</StudentHint>
@@ -222,7 +230,7 @@ export const StatusPanel = ({ classId, className, selected, onSelect }: StatusPa
                 ? bundleQuery.error.message
                 : '미제출 학생을 불러오지 못했습니다.'}
             </EmptyText>
-          ) : bundleQuery.isPending || runningPending ? (
+          ) : bundleQuery.isPending || runningPending || classMembers.isPending ? (
             <EmptyText>불러오는 중...</EmptyText>
           ) : (runningCount ?? 0) === 0 ? (
             <EmptyText>진행 중인 활동이 없습니다.</EmptyText>

@@ -3,23 +3,22 @@ import styled from '@emotion/styled';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { Loading } from '@shared/ui/Loading';
-import type { ActivityItem, ActivitySummaryItem, ReportDetailTab } from '@features/lesson';
+import type { ActivitySummaryItem, ReportDetailTab } from '@features/lesson';
 import {
-  emptyReportDetail,
   LmsHttpError,
   useActivityDetailQuery,
   useActivityProgressQuery,
   useActivityStatisticsQuery,
+  useCmsSetDetailQuery,
 } from '@features/lesson';
 import { ReportSummary } from './ReportSummary';
 import { ReportDetailTabBar } from './ReportDetailTabBar';
 import { StudentTab } from './StudentTab';
 import { PageTab } from './PageTab';
 
-const EMPTY_ACTIVITY_ITEMS: ActivityItem[] = [];
-
 interface ReportDetailProps {
   activityId: string;
+  classId?: string;
   activity?: ActivitySummaryItem;
 }
 
@@ -82,7 +81,7 @@ const detailErrorMessage = (error: unknown): string => {
   return '활동을 불러오지 못했습니다.';
 };
 
-export const ReportDetail = ({ activityId, activity }: ReportDetailProps) => {
+export const ReportDetail = ({ activityId, classId, activity }: ReportDetailProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [tab, setTab] = useState<ReportDetailTab>('student');
@@ -90,6 +89,7 @@ export const ReportDetail = ({ activityId, activity }: ReportDetailProps) => {
   const detailQuery = useActivityDetailQuery(activityId);
   const progressQuery = useActivityProgressQuery(activityId);
   const statisticsQuery = useActivityStatisticsQuery(activityId);
+  const cmsSetQuery = useCmsSetDetailQuery(detailQuery.data?.lcmsSetId);
 
   const handleBack = () => {
     navigate(`/lesson/result${location.search}`);
@@ -115,20 +115,32 @@ export const ReportDetail = ({ activityId, activity }: ReportDetailProps) => {
         <>
           <ReportSummary
             activityId={activityId}
+            classId={classId}
             fallback={activity}
             detail={detailQuery.data}
+            cmsSet={cmsSetQuery.data}
             progress={progressQuery.data}
             statistics={statisticsQuery.data}
           />
           <ReportDetailTabBar tab={tab} onChange={setTab} />
           {tab === 'slide' ? (
-            <PageTab view={emptyReportDetail(activityId)} />
-          ) : (
+            <PageTab
+              activityId={activityId}
+              classId={classId}
+              activityTitle={detailQuery.data?.title ?? ''}
+              progress={progressQuery.data}
+            />
+          ) : detailQuery.data ? (
             <StudentTab
               activityId={activityId}
-              items={detailQuery.data?.items ?? EMPTY_ACTIVITY_ITEMS}
+              classId={classId}
+              detail={detailQuery.data}
+              cmsSet={cmsSetQuery.data}
+              cmsSetPending={Boolean(detailQuery.data.lcmsSetId) && cmsSetQuery.isPending}
+              cmsSetError={cmsSetQuery.error}
+              progress={progressQuery.data}
             />
-          )}
+          ) : null}
         </>
       ) : null}
     </Root>
