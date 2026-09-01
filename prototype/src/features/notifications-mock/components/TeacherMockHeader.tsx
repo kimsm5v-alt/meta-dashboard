@@ -1,5 +1,5 @@
 import { Settings, User, LogOut } from 'lucide-react';
-import serviceLogo from '@/assets/logo_2.png';
+import serviceLogo from '@/assets/allvia_sel_logo.svg';
 import { BellWithPanel } from './BellWithPanel';
 
 /**
@@ -12,7 +12,7 @@ export const TeacherMockHeader = () => {
     <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50">
       <div className="flex items-center justify-between h-full px-6">
         <button className="flex items-center">
-          <img src={serviceLogo} alt="학습심리정서검사" className="h-5" />
+          <img src={serviceLogo} alt="AllviA SEL" className="h-10" />
         </button>
 
         <div className="flex items-center gap-4">

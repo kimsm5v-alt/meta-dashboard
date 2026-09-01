@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { FloatingChatbot } from '@/features/ai-room';
-import serviceLogo from '@/assets/logo_2.png';
+import serviceLogo from '@/assets/allvia_sel_logo.svg';
 import aiOwlIcon from '@/assets/raon/ai-owl-icon.png';
 
 // 스코프 관련 임포트
@@ -302,7 +302,7 @@ const Header: React.FC = () => {
       <div className="flex items-center justify-between h-full px-7">
         {/* Logo */}
         <button onClick={handleLogoClick} className="flex items-center">
-          <img src={serviceLogo} alt="학습심리정서검사" className="h-6" />
+          <img src={serviceLogo} alt="AllviA SEL" className="h-9" />
         </button>
 
         {/* GNB Tabs */}

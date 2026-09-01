@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { FEATURES, type FeatureKey } from '@/shared/config/features';
-import serviceLogo from '@/assets/logo_2.png';
+import serviceLogo from '@/assets/allvia_sel_logo.svg';
 
 interface LayoutProps {
   children: ReactNode;
@@ -100,7 +100,7 @@ const Header = () => {
     <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50">
       <div className="flex items-center justify-between h-full px-6">
         <button onClick={() => navigate('/')} className="flex items-center">
-          <img src={serviceLogo} alt="학습심리정서검사" className="h-5" />
+          <img src={serviceLogo} alt="AllviA SEL" className="h-10" />
         </button>
         <div className="flex items-center gap-4">
           {/* [PROTOTYPE MOCK] 계정 전환 버튼 */}

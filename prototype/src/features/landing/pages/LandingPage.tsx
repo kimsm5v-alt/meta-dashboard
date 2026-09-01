@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/context/AuthContext';
 import { Button } from '@/shared/components';
 import { HeroSection, FeaturesSection } from '../components';
-import serviceLogo from '@/assets/logo_2.png';
+import serviceLogo from '@/assets/allvia_sel_logo.svg';
 
 export const LandingPage = () => {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ export const LandingPage = () => {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           {/* 로고 */}
           <div className="flex items-center">
-            <img src={serviceLogo} alt="학습심리정서검사" className="h-5" />
+            <img src={serviceLogo} alt="AllviA SEL" className="h-10" />
           </div>
 
           {/* 네비게이션 */}
@@ -54,7 +54,7 @@ export const LandingPage = () => {
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             {/* 로고 */}
             <div className="flex items-center">
-              <img src={serviceLogo} alt="학습심리정서검사" className="h-5 brightness-0 invert" />
+              <img src={serviceLogo} alt="AllviA SEL" className="h-10 brightness-0 invert" />
             </div>
 
             {/* 링크 */}
