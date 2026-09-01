@@ -142,7 +142,8 @@ def _build_system_prompt(student_context: Optional[dict]) -> str:
     domain_knowledge = (
         f"{load_prompt('domain_knowledge_basic_info')}\n\n"
         f"{load_prompt('domain_knowledge_operations')}\n\n"
-        f"{load_prompt('domain_knowledge_ai_assistant')}"
+        f"{load_prompt('domain_knowledge_ai_assistant')}\n\n"
+        f"{load_prompt('domain_knowledge_coaching')}"
     )
 
     return (
