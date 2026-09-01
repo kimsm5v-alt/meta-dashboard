@@ -61,6 +61,7 @@ const CMS_SETS_DEFAULT = {
   brandId: 18,
   // brandId: CMS_BRAND_ID,
   serviceType: 131132, // 추후 수정 필요
+  orderBy: false, // [임시] 20260901 시연용 코드
 } as const;
 
 const LIBRARY_ITEMS_DEFAULT = {
