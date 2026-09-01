@@ -14,6 +14,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   ArrowRightLeft,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth';
@@ -61,6 +62,31 @@ const PROTOTYPE_MODE_OPTIONS: { value: PrototypeMode; label: string; color: stri
   { value: { role: 'student', examType: 'comp' }, label: '학생 - 학습종합검사', color: '#9D53E1' },
   { value: { role: 'student', examType: 'self' }, label: '학생 - 자기조절학습검사', color: '#009F88' },
 ];
+
+/**
+ * 사용자 드롭다운 메뉴 항목
+ * 마이 페이지 / 그룹 관리는 SSO에서 관리하는 외부 페이지로 랜딩하므로
+ * URL이 확정되면 ssoUrl을 채우면 된다.
+ */
+interface UserMenuItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  /** SSO 외부 페이지 URL. 미지정 시 이동하지 않음 */
+  ssoUrl?: string;
+}
+
+/** 역할별 사용자 드롭다운 메뉴 */
+const USER_MENU_ITEMS: Record<RoleType, UserMenuItem[]> = {
+  teacher: [
+    { id: 'my-page', label: '마이 페이지', icon: User },
+    { id: 'group-manage', label: '그룹 관리', icon: Users },
+  ],
+  student: [
+    { id: 'my-page', label: '마이 페이지', icon: User },
+    { id: 'my-group', label: '내 그룹', icon: Users },
+  ],
+};
 
 interface GNBItem {
   id: string;
@@ -235,6 +261,8 @@ const Header: React.FC = () => {
   const { activeGNB, setActiveGNB, setActiveSubTab, selectAll, prototypeMode, setPrototypeMode } = useLayoutContext();
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
   const modeDropdownRef = useRef<HTMLDivElement>(null);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
 
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
@@ -242,14 +270,34 @@ const Header: React.FC = () => {
       if (modeDropdownRef.current && !modeDropdownRef.current.contains(event.target as Node)) {
         setIsModeDropdownOpen(false);
       }
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setIsUserDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Esc 키로 사용자 드롭다운 닫기
+  useEffect(() => {
+    if (!isUserDropdownOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsUserDropdownOpen(false);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isUserDropdownOpen]);
+
   const handleLogout = () => {
+    setIsUserDropdownOpen(false);
     logout();
     navigate('/');
+  };
+
+  // 사용자 드롭다운 메뉴 클릭 (SSO URL 확정 전까지는 드롭다운만 닫힘)
+  const handleUserMenuClick = (item: UserMenuItem) => {
+    setIsUserDropdownOpen(false);
+    if (item.ssoUrl) window.location.href = item.ssoUrl;
   };
 
   // 현재 스코프 파라미터를 유지하면서 이동
@@ -396,26 +444,90 @@ const Header: React.FC = () => {
             <Settings className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-2 pl-4 border-l border-gray-200">
-            <span className="text-sm font-semibold text-gray-900">{user?.name || '김민지'}</span>
-            {user?.profileImage ? (
-              <img
-                src={user.profileImage}
-                alt={user.name}
-                className="w-[30px] h-[30px] rounded-full object-cover"
+          <div className="relative pl-4 border-l border-gray-200" ref={userDropdownRef}>
+            <button
+              onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+              className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-1.5 transition-colors hover:bg-gray-100"
+              aria-haspopup="menu"
+              aria-expanded={isUserDropdownOpen}
+              title="내 계정"
+            >
+              <span className="text-sm font-semibold text-gray-900">{user?.name || '김민지'}</span>
+              {user?.profileImage ? (
+                <img
+                  src={user.profileImage}
+                  alt=""
+                  className="w-[30px] h-[30px] rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-[30px] h-[30px] bg-primary-100 rounded-full flex items-center justify-center">
+                  <User className="w-4 h-4 text-primary-600" />
+                </div>
+              )}
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-gray-400 transition-transform ${
+                  isUserDropdownOpen ? 'rotate-180' : ''
+                }`}
               />
-            ) : (
-              <div className="w-[30px] h-[30px] bg-primary-100 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-primary-600" />
+            </button>
+
+            {isUserDropdownOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-2 w-60 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
+              >
+                {/* 사용자 정보 */}
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+                  {user?.profileImage ? (
+                    <img
+                      src={user.profileImage}
+                      alt=""
+                      className="w-9 h-9 rounded-full object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center shrink-0">
+                      <User className="w-[18px] h-[18px] text-primary-600" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
+                      {user?.name || '김민지'}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {user?.email || 'teacher@example.com'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 역할별 메뉴 */}
+                <div className="py-1.5 border-b border-gray-100">
+                  {USER_MENU_ITEMS[prototypeMode.role].map(item => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        role="menuitem"
+                        onClick={() => handleUserMenuClick(item)}
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Icon className="w-4 h-4 text-gray-400" />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* 로그아웃 */}
+                <button
+                  role="menuitem"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>로그아웃</span>
+                </button>
               </div>
             )}
-            <button
-              onClick={handleLogout}
-              className="w-[34px] h-[34px] rounded-[9px] flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              title="로그아웃"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
           </div>
         </div>
       </div>
