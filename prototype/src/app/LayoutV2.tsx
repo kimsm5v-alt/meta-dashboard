@@ -2,7 +2,6 @@ import { ReactNode, useState, useMemo, createContext, useContext, useCallback, u
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Bell,
-  Settings,
   User,
   LogOut,
   ChevronRight,
@@ -439,9 +438,6 @@ const Header: React.FC = () => {
 
           <button className="relative w-[34px] h-[34px] rounded-[9px] flex items-center justify-center text-gray-500 hover:bg-gray-100">
             <Bell className="w-5 h-5" />
-          </button>
-          <button className="w-[34px] h-[34px] rounded-[9px] flex items-center justify-center text-gray-500 hover:bg-gray-100">
-            <Settings className="w-5 h-5" />
           </button>
 
           <div className="relative pl-4 border-l border-gray-200" ref={userDropdownRef}>
