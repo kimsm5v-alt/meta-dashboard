@@ -305,6 +305,13 @@ export async function publishActivity(activityId: string): Promise<ActivityDetai
   });
 }
 
+/** POST /activities/{activityId}/close — 멱등 (이미 CLOSED여도 200) */
+export async function closeActivity(activityId: string): Promise<ActivityDetail> {
+  return lmsFetch<ActivityDetail>(`${BASE}/${activityId}/close`, {
+    method: 'POST',
+  });
+}
+
 function appendOptFilters(search: URLSearchParams, optFilter?: string[]): void {
   for (const filter of optFilter ?? []) {
     if (filter) search.append('optFilter', filter);

@@ -77,5 +77,10 @@ export type DeployPageLocationState = {
   item?: LibItem;
 };
 
+/** DeployPage 「수업 시작하기」 → LessonViewerPage navigate state */
+export type LessonViewerPageLocationState = {
+  activityId?: string;
+};
+
 /** ResourceCard / ResourceCardList 표시 모드 */
 export type ResourceCardVariant = 'library' | 'my';

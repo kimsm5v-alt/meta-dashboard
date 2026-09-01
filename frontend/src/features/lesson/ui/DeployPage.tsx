@@ -446,7 +446,9 @@ export const DeployPage = () => {
                             toast.error('콘텐츠 ID가 없습니다');
                             return;
                           }
-                          navigate(`/lesson/viewer/${setId}`);
+                          navigate(`/lesson/viewer/${setId}`, {
+                            state: { activityId: deployed.activityId },
+                          });
                         }
                       : goToReports
                   }
