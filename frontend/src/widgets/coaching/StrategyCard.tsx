@@ -169,10 +169,15 @@ const AdvancedDescription = styled.p`
 `;
 
 const AdvancedBullets = styled.ul`
+  list-style: disc;
   margin: 0;
   padding-left: 18px;
   color: ${({ theme }) => theme.colors.text.secondary};
   font-size: ${({ theme }) => theme.typography.fontSize.xs};
+`;
+
+const AdvancedBullet = styled.li`
+  margin-bottom: 4px;
 `;
 
 const EmptyBox = styled.div`
@@ -260,7 +265,7 @@ export const StrategyCard = ({ step, type, content }: StrategyCardProps) => {
                   <AdvancedDescription>{advanced.description}</AdvancedDescription>
                   <AdvancedBullets>
                     {advanced.actionItems.map((item, itemIndex) => (
-                      <li key={itemIndex}>{item}</li>
+                      <AdvancedBullet key={itemIndex}>{item}</AdvancedBullet>
                     ))}
                   </AdvancedBullets>
                 </AdvancedItem>
