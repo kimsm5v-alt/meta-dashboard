@@ -30,6 +30,7 @@ export interface CmsSetListParams {
   curriSubject?: number;
   curriBook?: number;
   curriUnit1?: number;
+  orderBy?: boolean;
 }
 
 /** GET /api/sets/{setId} 단건 응답 (DeployPage 미리보기용 최소 필드 + 후속 slides/metas) */
@@ -89,6 +90,7 @@ export async function getCmsSetList(
   if (params.curriSubject !== undefined) qs.set('curriSubject', String(params.curriSubject));
   if (params.curriBook !== undefined) qs.set('curriBook', String(params.curriBook));
   if (params.curriUnit1 !== undefined) qs.set('curriUnit1', String(params.curriUnit1));
+  if (params.orderBy !== undefined) qs.set('orderBy', String(params.orderBy));
 
   const auth = getAuth();
   const res = await auth.authorizedFetch(`${ENV.CMS_API_URL}/api/sets?${qs}`, {
