@@ -2,7 +2,7 @@
  * 실시간 수업 진행 오버레이 (목업 fsClass + renderClsSlide/clsMove/도구/종료).
  * ★부록A #8: 대상 반 = liveClassName (scope 반, 전체면 기본 2-3반).
  *
- * 수업 도구: 필기(AnnotationCanvas) · 타이머/스톱워치(LiveWidget, 동시 사용 가능)
+ * 수업 도구: @vs-tools 티칭툴 4종 (색연필·타이머·스톱워치·판서)
  * 모니터링은 학생별 민감 정보라 **별도 창**으로 띄운다 (차단 시 사이드 패널 폴백).
  */
 import { useEffect, useRef, useState } from 'react';
@@ -11,15 +11,17 @@ import { CLASSES, MY, LESSON_DECKS } from '../../mock-data';
 import { findContent } from '../../utils/format';
 import { useResources } from '../../store/ResourcesContext';
 import { LiveClock } from './LiveClock';
-import { LiveWidget } from './LiveWidget';
 import { MonitorPanel } from './MonitorPanel';
 import { MonitorContent } from './MonitorContent';
 import { PopoutWindow } from './PopoutWindow';
 import { useMonitorWindow } from './useMonitorWindow';
-import { AnnotationCanvas } from './AnnotationCanvas';
-import { PenToolbar } from './PenToolbar';
-import { useSlideAnnotations } from './useSlideAnnotations';
-import { PEN_COLORS, colorsFor, type ToolId } from './annotationTypes';
+
+// @vs-tools 티칭툴 4종
+import { Pencil } from '@vs-tools/pencil';
+import { Timer } from '@vs-tools/timer';
+import { Stopwatch } from '@vs-tools/stopwatch';
+import { Drawing } from '@vs-tools/drawing';
+import '@vs-tools/fonts/fonts.css';
 
 /** 실제 콘텐츠 덱이 없는 경우의 더미 슬라이드 수 */
 const FALLBACK_SLIDE_COUNT = 4;
@@ -67,28 +69,11 @@ export const ClassLiveOverlay = () => {
   const [endAsk, setEndAsk] = useState(false);
   const [notes, setNotes] = useState('');
 
-  // 필기
-  const [tool, setTool] = useState<ToolId | null>(null);
-  const [color, setColor] = useState(PEN_COLORS[0]);
-  const { strokesFor, addStroke, undo, clearSlide } = useSlideAnnotations();
-  const strokes = strokesFor(slide);
-
-  const pickTool = (t: ToolId | null) => {
-    setTool(t);
-    if (t) setColor((c) => (colorsFor(t).includes(c) ? c : colorsFor(t)[0]));
-  };
-
-  // 위젯 — 각각 독립 인스턴스라 하나를 켜도 다른 하나가 리셋되지 않는다
+  // 티칭툴 상태 (각각 독립적으로 열고 닫을 수 있음)
+  const [pencilOpen, setPencilOpen] = useState(false);
   const [timerOpen, setTimerOpen] = useState(false);
-  const [stopOpen, setStopOpen] = useState(false);
-  const [zTop, setZTop] = useState(130);
-  const [timerZ, setTimerZ] = useState(130);
-  const [stopZ, setStopZ] = useState(131);
-  const focusWidget = (set: (z: number) => void) => {
-    const next = zTop + 1;
-    setZTop(next);
-    set(next);
-  };
+  const [stopwatchOpen, setStopwatchOpen] = useState(false);
+  const [drawingOpen, setDrawingOpen] = useState(false);
 
   // 모니터링 팝업 (차단되면 사이드 패널)
   const [panelFallback, setPanelFallback] = useState(false);
@@ -115,7 +100,7 @@ export const ClassLiveOverlay = () => {
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
       if (e.key === 'ArrowRight' || e.key === 'PageDown') { moveRef.current(1); e.preventDefault(); }
       else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { moveRef.current(-1); e.preventDefault(); }
-      else if (e.key === 'Escape') { setEndAsk((a) => (a ? false : a)); setTool(null); }
+      else if (e.key === 'Escape') { setEndAsk((a) => (a ? false : a)); setPencilOpen(false); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -158,23 +143,16 @@ export const ClassLiveOverlay = () => {
       {/* 본문 */}
       <div className="flex min-h-0 flex-1">
         <div className="relative flex min-w-0 flex-1 flex-col items-center">
-          {/* 수업 도구 */}
+          {/* 수업 도구 — @vs-tools 티칭툴 4종 */}
           <div className="mt-4 flex items-center gap-1.5 rounded-full bg-gray-900/80 px-3 py-1.5 text-sm text-gray-200">
-            <PenToolbar
-              tool={tool}
-              onTool={pickTool}
-              color={color}
-              onColor={setColor}
-              canUndo={strokes.length > 0}
-              onUndo={() => undo(slide)}
-              onClear={() => clearSlide(slide)}
-            />
+            <button onClick={() => setPencilOpen((o) => !o)} className={`rounded-lg px-2.5 py-1 font-semibold ${pencilOpen ? 'bg-primary-500 text-white' : 'hover:bg-white/10'}`}>✏️ 색연필</button>
+            <button onClick={() => setDrawingOpen((o) => !o)} className={`rounded-lg px-2.5 py-1 font-semibold ${drawingOpen ? 'bg-primary-500 text-white' : 'hover:bg-white/10'}`}>🖊️ 판서</button>
             <span className="mx-1 h-4 w-px bg-gray-700" />
             <button onClick={() => setTimerOpen((o) => !o)} className={`rounded-lg px-2.5 py-1 font-semibold ${timerOpen ? 'bg-primary-500 text-white' : 'hover:bg-white/10'}`}>⏱️ 타이머</button>
-            <button onClick={() => setStopOpen((o) => !o)} className={`rounded-lg px-2.5 py-1 font-semibold ${stopOpen ? 'bg-primary-500 text-white' : 'hover:bg-white/10'}`}>⏲️ 스톱워치</button>
+            <button onClick={() => setStopwatchOpen((o) => !o)} className={`rounded-lg px-2.5 py-1 font-semibold ${stopwatchOpen ? 'bg-primary-500 text-white' : 'hover:bg-white/10'}`}>⏲️ 스톱워치</button>
           </div>
 
-          {/* 슬라이드 무대 — aspect-video 고정은 필기 좌표계(정규화)의 전제다 */}
+          {/* 슬라이드 무대 */}
           <div className="flex w-full flex-1 items-center justify-center p-8">
             <div
               className={`relative flex aspect-video w-full max-w-4xl items-center justify-center overflow-hidden rounded-2xl ${
@@ -182,7 +160,6 @@ export const ClassLiveOverlay = () => {
               }`}
             >
               <SlideStage n={slide} title={title} page={deck[slide - 1]} />
-              <AnnotationCanvas strokes={strokes} slide={slide} tool={tool} color={color} onCommit={addStroke} />
             </div>
           </div>
         </div>
@@ -214,24 +191,22 @@ export const ClassLiveOverlay = () => {
         <button onClick={() => move(1)} className="rounded-lg bg-white/10 px-3 py-2 text-white hover:bg-white/20" aria-label="다음">›</button>
       </div>
 
-      {/* 위젯 — 오버레이 바깥에 fixed 로 뜬다 */}
-      {timerOpen && (
-        <LiveWidget
-          mode="timer"
-          z={timerZ}
-          onFocus={() => focusWidget(setTimerZ)}
-          initialPos={() => ({ x: Math.max(8, window.innerWidth - 220), y: Math.max(8, window.innerHeight - 260) })}
-          onClose={() => setTimerOpen(false)}
-        />
+      {/* @vs-tools 티칭툴 — 오버레이 바깥에 fixed 로 뜬다 */}
+      {/* 색연필 — 오버레이형 (전체 화면에 그리기) */}
+      {pencilOpen && (
+        <Pencil onClose={() => setPencilOpen(false)} />
       )}
-      {stopOpen && (
-        <LiveWidget
-          mode="stop"
-          z={stopZ}
-          onFocus={() => focusWidget(setStopZ)}
-          initialPos={() => ({ x: Math.max(8, window.innerWidth - 220), y: Math.max(8, window.innerHeight - 460) })}
-          onClose={() => setStopOpen(false)}
-        />
+      {/* 판서 — 팝업형 (드래그·리사이즈 가능) */}
+      {drawingOpen && (
+        <Drawing isDraggable isResizable onClose={() => setDrawingOpen(false)} />
+      )}
+      {/* 타이머 — 팝업형 */}
+      {timerOpen && (
+        <Timer isDraggable isResizable onClose={() => setTimerOpen(false)} />
+      )}
+      {/* 스톱워치 — 팝업형 */}
+      {stopwatchOpen && (
+        <Stopwatch isDraggable isResizable onClose={() => setStopwatchOpen(false)} />
       )}
 
       {/* 모니터링 팝업 */}
