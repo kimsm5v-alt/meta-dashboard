@@ -202,28 +202,28 @@ export const ClassLiveOverlay = () => {
           <Pencil onClose={() => setPencilOpen(false)} />
         </div>
       )}
-      {/* 판서 — 398x299, 우측 상단 */}
+      {/* 판서 — 398x299, 좌측 상단 */}
       {drawingOpen && (
         <div
-          style={{ position: 'fixed', top: 80, right: 20, zIndex: getZIndex('drawing') }}
+          style={{ position: 'fixed', top: 80, left: 80, zIndex: getZIndex('drawing') }}
           onClick={() => setTopTool('drawing')}
         >
           <Drawing autoCenter={false} isDraggable isResizable size={{ x: 398, y: 299 }} onClose={() => setDrawingOpen(false)} />
         </div>
       )}
-      {/* 타이머 — 580x452, 우측 하단 */}
+      {/* 타이머 — 580x452, 우측 상단 (calc로 화면 안에 배치) */}
       {timerOpen && (
         <div
-          style={{ position: 'fixed', bottom: 100, right: 20, zIndex: getZIndex('timer') }}
+          style={{ position: 'fixed', top: 80, left: 'calc(100vw - 620px)', zIndex: getZIndex('timer') }}
           onClick={() => setTopTool('timer')}
         >
           <Timer autoCenter={false} isDraggable isResizable size={{ x: 580, y: 452 }} onClose={() => setTimerOpen(false)} />
         </div>
       )}
-      {/* 스톱워치 — 400x300, 우측 중앙 */}
+      {/* 스톱워치 — 400x300, 우측 중앙 (calc로 화면 안에 배치) */}
       {stopwatchOpen && (
         <div
-          style={{ position: 'fixed', top: '50%', right: 20, transform: 'translateY(-50%)', zIndex: getZIndex('stopwatch') }}
+          style={{ position: 'fixed', top: 'calc(50% + 50px)', left: 'calc(100vw - 440px)', zIndex: getZIndex('stopwatch') }}
           onClick={() => setTopTool('stopwatch')}
         >
           <Stopwatch autoCenter={false} isDraggable isResizable size={{ x: 400, y: 300 }} onClose={() => setStopwatchOpen(false)} />
