@@ -75,6 +75,10 @@ export const ClassLiveOverlay = () => {
   const [stopwatchOpen, setStopwatchOpen] = useState(false);
   const [drawingOpen, setDrawingOpen] = useState(false);
 
+  // z-index 관리: 클릭한 도구가 맨 위로 올라옴
+  const [topTool, setTopTool] = useState<'pencil' | 'timer' | 'stopwatch' | 'drawing' | null>(null);
+  const getZIndex = (tool: 'pencil' | 'timer' | 'stopwatch' | 'drawing') => (topTool === tool ? 135 : 130);
+
   // 모니터링 팝업 (차단되면 사이드 패널)
   const [panelFallback, setPanelFallback] = useState(false);
   const { win: monitorWin, open: openMonitor, close: closeMonitor } = useMonitorWindow(() => {
@@ -191,22 +195,39 @@ export const ClassLiveOverlay = () => {
         <button onClick={() => move(1)} className="rounded-lg bg-white/10 px-3 py-2 text-white hover:bg-white/20" aria-label="다음">›</button>
       </div>
 
-      {/* @vs-tools 티칭툴 — 오버레이 바깥에 fixed 로 뜬다 */}
+      {/* @vs-tools 티칭툴 — size prop으로 최소 크기 지정, 각 위치 및 z-index 관리 */}
       {/* 색연필 — 오버레이형 (전체 화면에 그리기) */}
       {pencilOpen && (
-        <Pencil onClose={() => setPencilOpen(false)} />
+        <div style={{ zIndex: getZIndex('pencil') }} onClick={() => setTopTool('pencil')}>
+          <Pencil onClose={() => setPencilOpen(false)} />
+        </div>
       )}
-      {/* 판서 — 팝업형 (드래그·리사이즈 가능) */}
+      {/* 판서 — 398x299, 우측 상단 */}
       {drawingOpen && (
-        <Drawing isDraggable isResizable onClose={() => setDrawingOpen(false)} />
+        <div
+          style={{ position: 'fixed', top: 80, right: 20, zIndex: getZIndex('drawing') }}
+          onClick={() => setTopTool('drawing')}
+        >
+          <Drawing autoCenter={false} isDraggable isResizable size={{ x: 398, y: 299 }} onClose={() => setDrawingOpen(false)} />
+        </div>
       )}
-      {/* 타이머 — 팝업형 */}
+      {/* 타이머 — 580x452, 우측 하단 */}
       {timerOpen && (
-        <Timer isDraggable isResizable onClose={() => setTimerOpen(false)} />
+        <div
+          style={{ position: 'fixed', bottom: 100, right: 20, zIndex: getZIndex('timer') }}
+          onClick={() => setTopTool('timer')}
+        >
+          <Timer autoCenter={false} isDraggable isResizable size={{ x: 580, y: 452 }} onClose={() => setTimerOpen(false)} />
+        </div>
       )}
-      {/* 스톱워치 — 팝업형 */}
+      {/* 스톱워치 — 400x300, 우측 중앙 */}
       {stopwatchOpen && (
-        <Stopwatch isDraggable isResizable onClose={() => setStopwatchOpen(false)} />
+        <div
+          style={{ position: 'fixed', top: '50%', right: 20, transform: 'translateY(-50%)', zIndex: getZIndex('stopwatch') }}
+          onClick={() => setTopTool('stopwatch')}
+        >
+          <Stopwatch autoCenter={false} isDraggable isResizable size={{ x: 400, y: 300 }} onClose={() => setStopwatchOpen(false)} />
+        </div>
       )}
 
       {/* 모니터링 팝업 */}
